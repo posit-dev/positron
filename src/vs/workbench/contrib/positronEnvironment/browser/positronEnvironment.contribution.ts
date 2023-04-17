@@ -9,6 +9,7 @@ import { KeyMod, KeyCode } from 'vs/base/common/keyCodes';
 import { Registry } from 'vs/platform/registry/common/platform';
 import { registerAction2 } from 'vs/platform/actions/common/actions';
 import { registerIcon } from 'vs/platform/theme/common/iconRegistry';
+import { PositronEnvironmentFocused } from 'vs/workbench/common/contextkeys';
 import { SyncDescriptor } from 'vs/platform/instantiation/common/descriptors';
 import { LifecyclePhase } from 'vs/workbench/services/lifecycle/common/lifecycle';
 import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
@@ -90,33 +91,37 @@ class PositronEnvironmentContribution extends Disposable implements IWorkbenchCo
 	}
 }
 
-// // Register keybinding rule for expand.
-// KeybindingsRegistry.registerKeybindingRule({
-// 	weight: KeybindingWeight.WorkbenchContrib,
-// 	primary: KeyCode.RightArrow,
-// 	id: POSITRON_ENVIRONMENT_EXPAND
-// } satisfies IKeybindingRule);
+// Register keybinding rule for expand.
+KeybindingsRegistry.registerKeybindingRule({
+	weight: KeybindingWeight.WorkbenchContrib,
+	primary: KeyCode.RightArrow,
+	id: POSITRON_ENVIRONMENT_EXPAND,
+	when: PositronEnvironmentFocused
+} satisfies IKeybindingRule);
 
-// // Register keybinding rule for collapse.
-// KeybindingsRegistry.registerKeybindingRule({
-// 	weight: KeybindingWeight.WorkbenchContrib,
-// 	primary: KeyCode.LeftArrow,
-// 	id: POSITRON_ENVIRONMENT_COLLAPSE
-// } satisfies IKeybindingRule);
+// Register keybinding rule for collapse.
+KeybindingsRegistry.registerKeybindingRule({
+	weight: KeybindingWeight.WorkbenchContrib,
+	primary: KeyCode.LeftArrow,
+	id: POSITRON_ENVIRONMENT_COLLAPSE,
+	when: PositronEnvironmentFocused
+} satisfies IKeybindingRule);
 
-// // Register keybinding rule for copy as text.
-// KeybindingsRegistry.registerKeybindingRule({
-// 	weight: KeybindingWeight.WorkbenchContrib,
-// 	primary: KeyMod.CtrlCmd | KeyCode.KeyC,
-// 	id: POSITRON_ENVIRONMENT_COPY_AS_TEXT
-// } satisfies IKeybindingRule);
+// Register keybinding rule for copy as text.
+KeybindingsRegistry.registerKeybindingRule({
+	weight: KeybindingWeight.WorkbenchContrib,
+	primary: KeyMod.CtrlCmd | KeyCode.KeyC,
+	id: POSITRON_ENVIRONMENT_COPY_AS_TEXT,
+	when: PositronEnvironmentFocused
+} satisfies IKeybindingRule);
 
-// // Register keybinding rule for copy as HTML.
-// KeybindingsRegistry.registerKeybindingRule({
-// 	weight: KeybindingWeight.WorkbenchContrib,
-// 	primary: KeyMod.Shift | KeyMod.CtrlCmd | KeyCode.KeyC,
-// 	id: POSITRON_ENVIRONMENT_COPY_AS_HTML
-// } satisfies IKeybindingRule);
+// Register keybinding rule for copy as HTML.
+KeybindingsRegistry.registerKeybindingRule({
+	weight: KeybindingWeight.WorkbenchContrib,
+	primary: KeyMod.Shift | KeyMod.CtrlCmd | KeyCode.KeyC,
+	id: POSITRON_ENVIRONMENT_COPY_AS_HTML,
+	when: PositronEnvironmentFocused
+} satisfies IKeybindingRule);
 
 // Register the contribution.
 Registry.

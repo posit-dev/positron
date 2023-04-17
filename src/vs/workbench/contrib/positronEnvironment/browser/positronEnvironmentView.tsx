@@ -11,13 +11,14 @@ import { IViewDescriptorService } from 'vs/workbench/common/views';
 import { IThemeService } from 'vs/platform/theme/common/themeService';
 import { ICommandService } from 'vs/platform/commands/common/commands';
 import { ITelemetryService } from 'vs/platform/telemetry/common/telemetry';
-import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
+import { PositronEnvironmentFocused } from 'vs/workbench/common/contextkeys';
 import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
 import { IContextMenuService } from 'vs/platform/contextview/browser/contextView';
 import { IClipboardService } from 'vs/platform/clipboard/common/clipboardService';
 import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import { ViewPane, IViewPaneOptions } from 'vs/workbench/browser/parts/views/viewPane';
+import { IContextKey, IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
 import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/layoutService';
 import { PositronEnvironment } from 'vs/workbench/contrib/positronEnvironment/browser/positronEnvironment';
 import { ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
@@ -180,6 +181,14 @@ export class PositronEnvironmentViewPane extends ViewPane implements IReactCompo
 		// Create and append the Positron environment container.
 		this._positronEnvironmentContainer = DOM.$('.positron-environment-container');
 		container.appendChild(this._positronEnvironmentContainer);
+
+		// Create the scopted context key service.
+		const scopedContextKeyService = this._register(this.contextKeyService.createScoped(
+			this._positronEnvironmentContainer
+		));
+
+		const xsss: IContextKey<boolean> = PositronEnvironmentFocused.bindTo(scopedContextKeyService);
+		xsss.set(true);
 
 		// Create the PositronReactRenderer for the PositronEnvironment component and render it.
 		this._positronReactRenderer = new PositronReactRenderer(this._positronEnvironmentContainer);
