@@ -17,6 +17,7 @@ use std::sync::Once;
 use libR_sys::*;
 use log::trace;
 
+use crate::environment::Sxpinfo;
 use crate::error::Error;
 use crate::exec::RFunction;
 use crate::exec::RFunctionExt;
@@ -139,6 +140,10 @@ impl RObject {
     // A helper function that makes '.try_into()' more ergonomic to use.
     pub unsafe fn to<U: TryFrom<RObject, Error = crate::error::Error>>(self) -> Result<U, Error> {
         TryInto::<U>::try_into(self)
+    }
+
+    pub fn is_s4(&self) -> bool {
+        Sxpinfo::interpret(&self.sexp).is_s4()
     }
 
 }
