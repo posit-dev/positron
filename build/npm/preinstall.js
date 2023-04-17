@@ -165,7 +165,7 @@ cp.execSync('git submodule init');
 
 // For unattended builds: config with PAT
 if (process.env['POSITRON_GITHUB_PAT']) {
-	cp.execSync(`git config submodule.extensions/positron-python.url https://${process.env['POSITRON_GITHUB_PAT']}@github.com/posit-dev/positron-python.git`);
+	cp.execSync(`git config submodule.extensions/positron-python.url https://${process.env['POSITRON_GITHUB_USER']}:${process.env['POSITRON_GITHUB_PAT']}@github.com/posit-dev/positron-python.git`);
 }
 
 cp.execSync('git submodule update');
