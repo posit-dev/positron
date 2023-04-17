@@ -449,31 +449,37 @@ fn altrep_class(object: SEXP) -> String {
     format!("{}::{}", pkg, klass)
 }
 
-pub fn env_bindings(env: SEXP, include_hidden: bool) -> Vec<Binding> {
+pub fn env_bindings<Retain>(env: SEXP, retain: Retain) -> Vec<Binding>
+where
+    Retain: Fn(&Binding) -> bool
+{
     unsafe {
-        // 1: traverse the envinronment
         let hash  = HASHTAB(env);
         if hash == R_NilValue {
-            frame_bindings(env, FRAME(env), include_hidden)
+            frame_bindings(env, FRAME(env), retain)
         } else {
             let mut bindings : Vec<Binding> = vec![];
 
             let n = XLENGTH(hash);
             for i in 0..n {
-                bindings.append(&mut frame_bindings(env, VECTOR_ELT(hash, i), include_hidden));
+                bindings.append(&mut frame_bindings(env, VECTOR_ELT(hash, i), &retain));
             }
             bindings
         }
     }
 }
 
-unsafe fn frame_bindings(env: SEXP, mut frame: SEXP, include_hidden: bool) -> Vec<Binding> {
+unsafe fn frame_bindings<Retain>(env: SEXP, mut frame: SEXP, retain: Retain) -> Vec<Binding>
+where
+    Retain: Fn(&Binding) -> bool
+{
     let mut bindings: Vec<Binding> = vec![];
     while frame != R_NilValue {
         let binding = Binding::new(env, frame);
-        if include_hidden || !binding.is_hidden() {
+        if retain(&binding) {
             bindings.push(binding);
         }
+
         frame = CDR(frame);
     }
     bindings
