@@ -190,8 +190,7 @@ impl EnvironmentVariable {
             Self::resolve_object_from_path(env, &path)?
         };
 
-        let info = Sxpinfo::interpret(&*object);
-        if info.is_s4() {
+        if object.is_s4() {
             Self::inspect_s4(*object)
         } else {
             match r_typeof(*object) {
