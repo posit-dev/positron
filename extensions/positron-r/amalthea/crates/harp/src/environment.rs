@@ -47,12 +47,13 @@ pub struct Sxpinfo {
 }
 
 pub static mut ACTIVE_BINDING_MASK: libc::c_uint = 1 << 15;
+pub static mut S4_OBJECT_MASK: libc::c_uint = 1 << 4;
 
 impl Sxpinfo {
 
-    pub fn interpret(frame: &SEXP) -> &Self {
+    pub fn interpret(x: &SEXP) -> &Self {
         unsafe {
-            (*frame as *mut Sxpinfo).as_ref().unwrap()
+            (*x as *mut Sxpinfo).as_ref().unwrap()
         }
     }
 
@@ -62,6 +63,10 @@ impl Sxpinfo {
 
     pub fn is_immediate(&self) -> bool {
         self.extra() != 0
+    }
+
+    pub fn is_s4(&self) -> bool {
+        self.gp() & unsafe {S4_OBJECT_MASK} != 0
     }
 }
 
@@ -122,13 +127,19 @@ impl BindingType {
 
     pub fn from(value: SEXP) -> Self {
         if value == unsafe { R_NilValue } {
-            return Self::simple(String::from("NULL"));
+            return Self::simple(String::from("NULL"))
+        }
+
+        if RObject::view(value).is_s4() {
+            return Self::from_class(value, String::from("S4"));
+        }
+
+        if is_simple_vector(value) {
+            return vec_type_info(value);
         }
 
         let rtype = r_typeof(value);
-        if is_simple_vector(value) {
-            vec_type_info(value)
-        } else if rtype == LISTSXP {
+        if rtype == LISTSXP {
             match pairlist_size(value) {
                 Ok(n)  => Self::simple(format!("pairlist [{}]", n)),
                 Err(_) => Self::simple(String::from("pairlist [?]"))
@@ -150,7 +161,7 @@ impl BindingType {
                         format!("{} [{}]", dfclass, shape)
                     )
                 } else {
-                    Self::from_class(value, String::from("list"))
+                    Self::from_class(value, format!("list [{}]", XLENGTH(value)))
                 }
             }
         } else if rtype == SYMSXP {
@@ -242,7 +253,6 @@ impl Binding {
 
     pub fn has_children(&self) -> bool {
         match self.kind {
-            // TODO: for now only lists have children
             BindingKind::Regular => has_children(self.value),
             BindingKind::Promise(true) => has_children(unsafe{PRVALUE(self.value)}),
 
@@ -256,13 +266,19 @@ impl Binding {
 }
 
 pub fn has_children(value: SEXP) -> bool {
-    match r_typeof(value) {
-        // TODO: consider if we'd want to be able to see the components of a POSIXlt
-        VECSXP  => !unsafe{ r_inherits(value, "POSIXlt") },
-        LISTSXP => true,
-        ENVSXP => true,
-
-        _       => false
+    if RObject::view(value).is_s4() {
+        unsafe {
+            let names = RFunction::new("methods", ".slotNames").add(value).call().unwrap();
+            let names = CharacterVector::new_unchecked(names);
+            names.len() > 0
+        }
+    } else {
+        match r_typeof(value) {
+            VECSXP  => unsafe { XLENGTH(value) != 0 } ,
+            LISTSXP => true,
+            ENVSXP  => true,
+            _       => false
+        }
     }
 }
 
