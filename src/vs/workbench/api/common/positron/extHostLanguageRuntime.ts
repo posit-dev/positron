@@ -8,6 +8,7 @@ import * as extHostProtocol from './extHost.positron.protocol';
 import { IDisposable } from 'vs/base/common/lifecycle';
 import { Disposable, LanguageRuntimeMessageType } from 'vs/workbench/api/common/extHostTypes';
 import { RuntimeClientType } from 'vs/workbench/api/common/positron/extHostTypes.positron';
+import { ExtHostRuntimeClientInstance } from 'vs/workbench/api/common/positron/extHostClientInstance';
 
 export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRuntimeShape {
 
@@ -159,7 +160,7 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 					break;
 
 				case LanguageRuntimeMessageType.CommOpen:
-					this._proxy.$emitRuntimeClientOpened(handle, message as ILanguageRuntimeMessage as ILanguageRuntimeMessageCommOpen);
+					this.handleCommOpen(handle, message as ILanguageRuntimeMessage as ILanguageRuntimeMessageCommOpen);
 					break;
 
 				case LanguageRuntimeMessageType.CommData:
@@ -180,5 +181,24 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		return new Disposable(() => {
 			this._proxy.$unregisterLanguageRuntime(handle);
 		});
+	}
+
+	private handleCommOpen(handle: number, message: ILanguageRuntimeMessageCommOpen): void {
+		// Create a client instance for the comm
+		const clientInstance = new ExtHostRuntimeClientInstance(message);
+
+		// See if one of the registered client handlers wants to handle this
+		for (const handler of this._clientHandlers) {
+			// If the client type matches, then call the handler
+			if (message.target_name === handler.clientType) {
+				// If the handler returns true, then it'll take it from here
+				if (handler.callback(clientInstance, message.data)) {
+					return;
+				}
+			}
+		}
+
+		// If we get here, then no handler took it, so we'll just emit the event
+		this._proxy.$emitRuntimeClientOpened(handle, message);
 	}
 }
