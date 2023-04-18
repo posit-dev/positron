@@ -301,7 +301,15 @@ impl EnvironmentVariable {
     fn inspect_environment(value: SEXP) -> Result<Vec<Self>, harp::error::Error> {
         let mut out : Vec<Self> = vec![];
 
-        for binding in &env_bindings(value) {
+        // TODO: it might be too restritive to drop all objects
+        //       whose name start with "."
+        //       in that case, reconsider the case where `value` is an R6 object
+        //       because we'd want to filter .__enclos_env__ out
+        let bindings = env_bindings(value, |binding| {
+            !String::from(binding.name).starts_with(".")
+        });
+
+        for binding in &bindings {
             out.push(Self::new(binding));
         }
 
