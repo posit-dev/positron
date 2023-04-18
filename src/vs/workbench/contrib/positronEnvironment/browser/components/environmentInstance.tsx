@@ -6,13 +6,15 @@ import 'vs/css!./environmentInstance';
 import * as React from 'react';
 import { KeyboardEvent, useEffect, useRef, useState } from 'react'; // eslint-disable-line no-duplicate-imports
 import { DisposableStore } from 'vs/base/common/lifecycle';
-import { FixedSizeList as List, ListChildComponentProps } from 'react-window';
 import { positronClassNames } from 'vs/base/common/positronUtilities';
+import { FixedSizeList as List, ListChildComponentProps } from 'react-window';
+import { EmptyEnvironment } from 'vs/workbench/contrib/positronEnvironment/browser/components/emptyEnvironment';
 import { EnvironmentVariableItem } from 'vs/workbench/contrib/positronEnvironment/browser/components/environmentVariableItem';
 import { IEnvironmentVariableItem } from 'vs/workbench/services/positronEnvironment/common/interfaces/environmentVariableItem';
 import { EnvironmentVariableGroup } from 'vs/workbench/contrib/positronEnvironment/browser/components/environmentVariableGroup';
 import { IEnvironmentVariableGroup } from 'vs/workbench/services/positronEnvironment/common/interfaces/environmentVariableGroup';
 import { EnvironmentEntry, IPositronEnvironmentInstance } from 'vs/workbench/services/positronEnvironment/common/interfaces/positronEnvironmentService';
+import { usePositronEnvironmentContext } from 'vs/workbench/contrib/positronEnvironment/browser/positronEnvironmentContext';
 
 /**
  * Constants.
@@ -56,6 +58,9 @@ interface EnvironmentInstanceProps {
  * @returns The rendered component.
  */
 export const EnvironmentInstance = (props: EnvironmentInstanceProps) => {
+	// Context hooks.
+	const positronEnvironmentContext = usePositronEnvironmentContext();
+
 	// Reference hooks.
 	const instanceRef = useRef<HTMLDivElement>(undefined!);
 	const listRef = useRef<List>(undefined!);
@@ -129,23 +134,10 @@ export const EnvironmentInstance = (props: EnvironmentInstanceProps) => {
 
 	// Entries useEffect hook.
 	useEffect(() => {
-		/**
-		 * Helper to select the first entry, if there is one.
-		 */
-		const selectFirstEntry = () => {
-			if (entries.length) {
-				setSelectedId(entries[0].id);
-			}
-		};
-
-		// If there isn't selected entry, select the first entry. Otherwise, ensure that the
-		// selected entry is still exists in the entries. If it doesn't, select the first entry.
-		if (!selectedId) {
-			selectFirstEntry();
-		} else {
+		if (selectedId) {
 			const selectedEntryIndex = entries.findIndex(entry => entry.id === selectedId);
 			if (selectedEntryIndex === -1) {
-				selectFirstEntry();
+				setSelectedId(undefined);
 			}
 		}
 	}, [entries]);
@@ -267,14 +259,14 @@ export const EnvironmentInstance = (props: EnvironmentInstanceProps) => {
 	};
 
 	/**
-	 * startResizeNameColumn event handler.
+	 * onStartResizeNameColumn event handler.
 	 */
 	const startResizeNameColumnHandler = () => {
 		setResizingColumn(true);
 	};
 
 	/**
-	 * resizeNameColumn event handler.
+	 * onResizeNameColumn event handler.
 	 * @param x The X delta.
 	 */
 	const resizeNameColumnHandler = (x: number) => {
@@ -282,12 +274,66 @@ export const EnvironmentInstance = (props: EnvironmentInstanceProps) => {
 	};
 
 	/**
-	 * stopResizeNameColumn event handler.
+	 * onStopResizeNameColumn event handler.
 	 * @param x The X delta.
 	 */
 	const stopResizeNameColumnHandler = (x: number) => {
 		resizeNameColumn(x);
 		setResizingColumn(false);
+	};
+
+	/**
+	 * onSelected event handler.
+	 * @param index The index of the entry that was selected.
+	 */
+	const selectedHandler = (index: number) => {
+		setSelectedId(entries[index].id);
+		instanceRef.current.focus();
+	};
+
+	/**
+	 * onToggleExpandCollapse event handler.
+	 * @param index The index of the entry that was selected.
+	 */
+	const toggleExpandCollapseHandler = (index: number) => {
+		const selectedEntry = entries[index];
+		if (isEnvironmentVariableGroup(selectedEntry)) {
+			if (selectedEntry.expanded) {
+				props.positronEnvironmentInstance.collapseEnvironmentVariableGroup(
+					selectedEntry.id
+				);
+			} else {
+				props.positronEnvironmentInstance.expandEnvironmentVariableGroup(
+					selectedEntry.id
+				);
+			}
+		} else if (isEnvironmentVariableItem(selectedEntry) && selectedEntry.hasChildren) {
+			if (selectedEntry.expanded) {
+				props.positronEnvironmentInstance.collapseEnvironmentVariableItem(
+					selectedEntry.path
+				);
+			} else {
+				props.positronEnvironmentInstance.expandEnvironmentVariableItem(
+					selectedEntry.path
+				);
+			}
+		}
+	};
+
+	/**
+	 * onFocus event handler.
+	 */
+	const focusHandler = () => {
+		setFocused(true);
+		positronEnvironmentContext.reactComponentContainer.enableKeybindings();
+	};
+
+	/**
+	 * onBlur event handler.
+	 */
+	const blurHandler = () => {
+		setFocused(false);
+		positronEnvironmentContext.reactComponentContainer.disableKeybindings();
 	};
 
 	/**
@@ -310,11 +356,6 @@ export const EnvironmentInstance = (props: EnvironmentInstanceProps) => {
 		setTypeVisible(newDetailsColumnWidth > TYPE_VISIBILITY_THRESHOLD);
 	};
 
-	const onEntrySelected = (index: number) => {
-		setSelectedId(entries[index].id);
-		instanceRef.current.focus();
-	};
-
 	/**
 	 * EnvironmentEntry component.
 	 * @param index The index of the environment entry.
@@ -332,7 +373,8 @@ export const EnvironmentInstance = (props: EnvironmentInstanceProps) => {
 					style={style}
 					focused={focused}
 					selected={selectedId === entry.id}
-					onSelected={() => onEntrySelected(index)}
+					onSelected={() => selectedHandler(index)}
+					onToggleExpandCollapse={() => toggleExpandCollapseHandler(index)}
 					positronEnvironmentInstance={props.positronEnvironmentInstance}
 				/>
 			);
@@ -346,7 +388,8 @@ export const EnvironmentInstance = (props: EnvironmentInstanceProps) => {
 					style={style}
 					focused={focused}
 					selected={selectedId === entry.id}
-					onSelected={() => onEntrySelected(index)}
+					onSelected={() => selectedHandler(index)}
+					onToggleExpandCollapse={() => toggleExpandCollapseHandler(index)}
 					onStartResizeNameColumn={startResizeNameColumnHandler}
 					onResizeNameColumn={resizeNameColumnHandler}
 					onStopResizeNameColumn={stopResizeNameColumnHandler}
@@ -365,6 +408,11 @@ export const EnvironmentInstance = (props: EnvironmentInstanceProps) => {
 		{ 'resizing': resizingColumn }
 	);
 
+	// If there are no environment entries, render the empty environment.
+	if (!entries.length) {
+		return <EmptyEnvironment />;
+	}
+
 	// Render.
 	return (
 		<div
@@ -374,8 +422,8 @@ export const EnvironmentInstance = (props: EnvironmentInstanceProps) => {
 			tabIndex={0}
 			hidden={props.hidden}
 			onKeyDown={handleKeyDown}
-			onFocus={() => setFocused(true)}
-			onBlur={() => setFocused(false)}
+			onFocus={focusHandler}
+			onBlur={blurHandler}
 		>
 			<List
 				ref={listRef}

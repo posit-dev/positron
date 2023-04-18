@@ -59,11 +59,12 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 	// Find text change handler.
 	useEffect(() => {
 		if (filterText === '') {
-			return setFilterText('');
+			positronEnvironmentContext.activePositronEnvironmentInstance?.setFilterText('');
+			return;
 		} else {
 			// Start the filter timeout.
 			const filterTimeout = setTimeout(() => {
-				console.log('Filter text changed - do filtering');
+				positronEnvironmentContext.activePositronEnvironmentInstance?.setFilterText(filterText);
 			}, kFilterTimeout);
 
 			// Clear the find timeout.
@@ -93,6 +94,10 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 		return null;
 	}
 
+	const filterTextChangedHandler = (filterText: string) => {
+		setFilterText(filterText);
+	};
+
 	// Render.
 	return (
 		<PositronActionBarContextProvider {...props}>
@@ -104,7 +109,7 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 						{/* Disabled for Private Alpha <ActionBarButton iconId='positron-import-data' text='Import Dataset' dropDown={true} /> */}
 					</ActionBarRegion>
 					<ActionBarRegion align='right'>
-						<ActionBarButton align='right' iconId='trash' tooltip={localize('positronClearAllEnvironmentObjects', "Clear all environment objects")} onClick={clearAllEnvironmentObjectsHandler} />
+						<ActionBarButton align='right' iconId='positron-clean' tooltip={localize('positronClearAllEnvironmentObjects', "Clear all environment objects")} onClick={clearAllEnvironmentObjectsHandler} />
 						<ActionBarSeparator />
 						<ActionBarButton align='right' iconId='positron-refresh' tooltip={localize('positronRefreshObjects', "Refresh workspace objects")} onClick={refreshWorkspaceObjectsHandler} />
 					</ActionBarRegion>
@@ -118,7 +123,7 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 						<ActionBarFilter
 							width={150}
 							initialFilterText={filterText}
-							onFilterTextChanged={setFilterText} />
+							onFilterTextChanged={filterTextChangedHandler} />
 					</ActionBarRegion>
 				</PositronActionBar>
 			</div>

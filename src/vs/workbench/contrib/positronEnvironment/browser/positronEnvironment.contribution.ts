@@ -9,15 +9,18 @@ import { KeyMod, KeyCode } from 'vs/base/common/keyCodes';
 import { Registry } from 'vs/platform/registry/common/platform';
 import { registerAction2 } from 'vs/platform/actions/common/actions';
 import { registerIcon } from 'vs/platform/theme/common/iconRegistry';
+import { PositronEnvironmentFocused } from 'vs/workbench/common/contextkeys';
 import { SyncDescriptor } from 'vs/platform/instantiation/common/descriptors';
 import { LifecyclePhase } from 'vs/workbench/services/lifecycle/common/lifecycle';
 import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
 import { ViewPaneContainer } from 'vs/workbench/browser/parts/views/viewPaneContainer';
 import { EnvironmentRefreshAction } from 'vs/workbench/contrib/positronEnvironment/browser/positronEnvironmentActions';
 import { PositronEnvironmentViewPane } from 'vs/workbench/contrib/positronEnvironment/browser/positronEnvironmentView';
+import { IKeybindingRule, KeybindingWeight, KeybindingsRegistry } from 'vs/platform/keybinding/common/keybindingsRegistry';
 import { IPositronEnvironmentService } from 'vs/workbench/services/positronEnvironment/common/interfaces/positronEnvironmentService';
 import { IWorkbenchContributionsRegistry, Extensions as WorkbenchExtensions, IWorkbenchContribution } from 'vs/workbench/common/contributions';
 import { ViewContainer, IViewContainersRegistry, ViewContainerLocation, Extensions as ViewContainerExtensions, IViewsRegistry } from 'vs/workbench/common/views';
+import { POSITRON_ENVIRONMENT_COLLAPSE, POSITRON_ENVIRONMENT_COPY_AS_HTML, POSITRON_ENVIRONMENT_COPY_AS_TEXT, POSITRON_ENVIRONMENT_EXPAND } from 'vs/workbench/contrib/positronEnvironment/browser/positronEnvironmentIdentifiers';
 
 // The Positron environment view identifier.
 export const POSITRON_ENVIRONMENT_VIEW_ID = 'workbench.panel.positronEnvironment';
@@ -29,7 +32,7 @@ const positronEnvironmentViewIcon = registerIcon(
 	nls.localize('positronEnvironmentViewIcon', 'View icon of the Positron environment view.')
 );
 
-// Register the Positron environment container.
+// Register the Positron environment view container.
 export const VIEW_CONTAINER: ViewContainer = Registry.as<IViewContainersRegistry>(
 	ViewContainerExtensions.ViewContainersRegistry
 ).registerViewContainer(
@@ -48,6 +51,7 @@ export const VIEW_CONTAINER: ViewContainer = Registry.as<IViewContainersRegistry
 	}
 );
 
+// Register the Positron environment view.
 Registry.as<IViewsRegistry>(ViewContainerExtensions.ViewsRegistry).registerViews(
 	[
 		{
@@ -70,7 +74,15 @@ Registry.as<IViewsRegistry>(ViewContainerExtensions.ViewsRegistry).registerViews
 	VIEW_CONTAINER
 );
 
+/**
+ * PositronEnvironmentContribution class.
+ */
 class PositronEnvironmentContribution extends Disposable implements IWorkbenchContribution {
+	/**
+	 * Constructor.
+	 * @param instantiationService The instantiation service.
+	 * @param positronEnvironmentService The Positron environment service.
+	 */
 	constructor(
 		@IInstantiationService instantiationService: IInstantiationService,
 		@IPositronEnvironmentService positronEnvironmentService: IPositronEnvironmentService,
@@ -79,10 +91,45 @@ class PositronEnvironmentContribution extends Disposable implements IWorkbenchCo
 		this.registerActions();
 	}
 
+	/**
+	 * Registers actions.
+	 */
 	private registerActions(): void {
 		registerAction2(EnvironmentRefreshAction);
 	}
 }
+
+// Register keybinding rule for expand.
+KeybindingsRegistry.registerKeybindingRule({
+	weight: KeybindingWeight.WorkbenchContrib,
+	primary: KeyCode.RightArrow,
+	id: POSITRON_ENVIRONMENT_EXPAND,
+	when: PositronEnvironmentFocused
+} satisfies IKeybindingRule);
+
+// Register keybinding rule for collapse.
+KeybindingsRegistry.registerKeybindingRule({
+	weight: KeybindingWeight.WorkbenchContrib,
+	primary: KeyCode.LeftArrow,
+	id: POSITRON_ENVIRONMENT_COLLAPSE,
+	when: PositronEnvironmentFocused
+} satisfies IKeybindingRule);
+
+// Register keybinding rule for copy as text.
+KeybindingsRegistry.registerKeybindingRule({
+	weight: KeybindingWeight.WorkbenchContrib,
+	primary: KeyMod.CtrlCmd | KeyCode.KeyC,
+	id: POSITRON_ENVIRONMENT_COPY_AS_TEXT,
+	when: PositronEnvironmentFocused
+} satisfies IKeybindingRule);
+
+// Register keybinding rule for copy as HTML.
+KeybindingsRegistry.registerKeybindingRule({
+	weight: KeybindingWeight.WorkbenchContrib,
+	primary: KeyMod.Shift | KeyMod.CtrlCmd | KeyCode.KeyC,
+	id: POSITRON_ENVIRONMENT_COPY_AS_HTML,
+	when: PositronEnvironmentFocused
+} satisfies IKeybindingRule);
 
 // Register the contribution.
 Registry.

@@ -47,12 +47,13 @@ pub struct Sxpinfo {
 }
 
 pub static mut ACTIVE_BINDING_MASK: libc::c_uint = 1 << 15;
+pub static mut S4_OBJECT_MASK: libc::c_uint = 1 << 4;
 
 impl Sxpinfo {
 
-    pub fn interpret(frame: &SEXP) -> &Self {
+    pub fn interpret(x: &SEXP) -> &Self {
         unsafe {
-            (*frame as *mut Sxpinfo).as_ref().unwrap()
+            (*x as *mut Sxpinfo).as_ref().unwrap()
         }
     }
 
@@ -62,6 +63,10 @@ impl Sxpinfo {
 
     pub fn is_immediate(&self) -> bool {
         self.extra() != 0
+    }
+
+    pub fn is_s4(&self) -> bool {
+        self.gp() & unsafe {S4_OBJECT_MASK} != 0
     }
 }
 
@@ -122,19 +127,39 @@ impl BindingType {
 
     pub fn from(value: SEXP) -> Self {
         if value == unsafe { R_NilValue } {
-            return Self::simple(String::from("NULL"));
+            return Self::simple(String::from("NULL"))
+        }
+
+        if RObject::view(value).is_s4() {
+            return Self::from_class(value, String::from("S4"));
+        }
+
+        if is_simple_vector(value) {
+            return vec_type_info(value);
         }
 
         let rtype = r_typeof(value);
-        if is_simple_vector(value) {
-            vec_type_info(value)
-        } else if rtype == LISTSXP {
-            match pairlist_size(value) {
-                Ok(n)  => Self::simple(format!("pairlist [{}]", n)),
-                Err(_) => Self::simple(String::from("pairlist [?]"))
-            }
-        } else if rtype == VECSXP {
-            unsafe {
+        match rtype {
+            EXPRSXP => Self::from_class(value, format!("expression [{}]", unsafe { XLENGTH(value) })),
+            LANGSXP => Self::from_class(value, String::from("language")),
+            CLOSXP  => Self::from_class(value, String::from("function")),
+            ENVSXP  => Self::from_class(value, String::from("environment")),
+            SYMSXP  => {
+                if value == unsafe { R_MissingArg } {
+                    Self::simple(String::from("missing"))
+                } else {
+                    Self::simple(String::from("symbol"))
+                }
+            },
+
+            LISTSXP => {
+                match pairlist_size(value) {
+                    Ok(n)  => Self::simple(format!("pairlist [{}]", n)),
+                    Err(_) => Self::simple(String::from("pairlist [?]"))
+                }
+            },
+
+            VECSXP => unsafe {
                 if r_inherits(value, "data.frame") {
                     let dfclass = first_class(value).unwrap();
 
@@ -150,22 +175,12 @@ impl BindingType {
                         format!("{} [{}]", dfclass, shape)
                     )
                 } else {
-                    Self::from_class(value, String::from("list"))
+                    Self::from_class(value, format!("list [{}]", XLENGTH(value)))
                 }
-            }
-        } else if rtype == SYMSXP {
-            if value == unsafe { R_MissingArg } {
-                Self::simple(String::from("missing"))
-            } else {
-                Self::simple(String::from("symbol"))
-            }
-        } else if rtype == CLOSXP {
-            Self::simple(String::from("function"))
-        } else if rtype == ENVSXP {
-            Self::simple(String::from("environment"))
-        } else {
-            Self::from_class(value, String::from("???"))
+            },
+            _      => Self::from_class(value, String::from("???"))
         }
+
     }
 
     pub fn simple(display_type: String) -> Self {
@@ -242,7 +257,6 @@ impl Binding {
 
     pub fn has_children(&self) -> bool {
         match self.kind {
-            // TODO: for now only lists have children
             BindingKind::Regular => has_children(self.value),
             BindingKind::Promise(true) => has_children(unsafe{PRVALUE(self.value)}),
 
@@ -253,16 +267,27 @@ impl Binding {
         }
     }
 
+    pub fn is_hidden(&self) -> bool {
+        String::from(self.name).starts_with(".")
+    }
+
 }
 
 pub fn has_children(value: SEXP) -> bool {
-    match r_typeof(value) {
-        // TODO: consider if we'd want to be able to see the components of a POSIXlt
-        VECSXP  => !unsafe{ r_inherits(value, "POSIXlt") },
-        LISTSXP => true,
-        ENVSXP => true,
-
-        _       => false
+    if RObject::view(value).is_s4() {
+        unsafe {
+            let names = RFunction::new("methods", ".slotNames").add(value).call().unwrap();
+            let names = CharacterVector::new_unchecked(names);
+            names.len() > 0
+        }
+    } else {
+        match r_typeof(value) {
+            VECSXP   => unsafe { XLENGTH(value) != 0 },
+            EXPRSXP  => unsafe { XLENGTH(value) != 0 },
+            LISTSXP  => true,
+            ENVSXP   => true,
+            _        => false
+        }
     }
 }
 
@@ -424,28 +449,38 @@ fn altrep_class(object: SEXP) -> String {
     format!("{}::{}", pkg, klass)
 }
 
-pub fn env_bindings(env: SEXP) -> Vec<Binding> {
+pub fn env_bindings<Retain>(env: SEXP, retain: Retain) -> Vec<Binding>
+where
+    Retain: Fn(&Binding) -> bool
+{
     unsafe {
-        let mut bindings : Vec<Binding> = vec![];
-
-        // 1: traverse the envinronment
         let hash  = HASHTAB(env);
         if hash == R_NilValue {
-            frame_bindings(env, FRAME(env), &mut bindings);
+            frame_bindings(env, FRAME(env), retain)
         } else {
+            let mut bindings : Vec<Binding> = vec![];
+
             let n = XLENGTH(hash);
             for i in 0..n {
-                frame_bindings(env, VECTOR_ELT(hash, i), &mut bindings);
+                bindings.append(&mut frame_bindings(env, VECTOR_ELT(hash, i), &retain));
             }
+            bindings
         }
-
-        bindings
     }
 }
 
-unsafe fn frame_bindings(env: SEXP, mut frame: SEXP, bindings: &mut Vec<Binding> ) {
+unsafe fn frame_bindings<Retain>(env: SEXP, mut frame: SEXP, retain: Retain) -> Vec<Binding>
+where
+    Retain: Fn(&Binding) -> bool
+{
+    let mut bindings: Vec<Binding> = vec![];
     while frame != R_NilValue {
-        bindings.push(Binding::new(env, frame));
+        let binding = Binding::new(env, frame);
+        if retain(&binding) {
+            bindings.push(binding);
+        }
+
         frame = CDR(frame);
     }
+    bindings
 }

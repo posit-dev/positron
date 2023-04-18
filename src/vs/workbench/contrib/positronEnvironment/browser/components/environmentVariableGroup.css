@@ -5,8 +5,8 @@
 .environment-variable-group {
 	display: flex;
 	border: none;
-	padding: 0 8px;
 	font-size: 11px;
+	padding-right: 8px;
 	align-items: center;
 	box-sizing: border-box; /* Draw the borders inside the box. */
 	text-transform: uppercase;
@@ -29,9 +29,12 @@
 	background: var(--vscode-positronEnvironment-activeSelectionBackgroundColor);
 }
 
-.environment-variable-group .expand-collapse-icon {
-	width: 20px;
-	text-align: left;
+.environment-variable-group .expand-collapse-area {
+	width: 26px;
+	height: 26px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
 }
 
 .environment-variable-group.focused.selected .expand-collapse-icon {

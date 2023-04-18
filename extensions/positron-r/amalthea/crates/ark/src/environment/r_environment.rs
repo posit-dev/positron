@@ -421,7 +421,11 @@ impl REnvironment {
     }
 
     fn bindings(&self) -> Vec<Binding> {
-        let mut bindings = env_bindings(self.env.sexp);
+        // TODO: it might be too restritive to drop all objects
+        //       whose name start with "."
+        let mut bindings = env_bindings(self.env.sexp, |binding| {
+            !String::from(binding.name).starts_with(".")
+        });
         bindings.sort();
         bindings
     }

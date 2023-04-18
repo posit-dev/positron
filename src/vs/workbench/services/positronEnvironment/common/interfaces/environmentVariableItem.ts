@@ -45,4 +45,11 @@ export interface IEnvironmentVariableItem {
 	 * Gets a value which indicates whether the environment variable is expanded.
 	 */
 	expanded: boolean;
+
+	/**
+	 * Formats the value of this variable in a format suitable for placing on the clipboard.
+	 * @param mime The desired MIME type of the format, such as 'text/plain' or 'text/html'.
+	 * @returns A promise that resolves to the formatted value of this variable.
+	 */
+	formatForClipboard(mime: string): Promise<string>;
 }

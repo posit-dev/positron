@@ -4,17 +4,23 @@
 
 import { useEffect, useState } from 'react';  // eslint-disable-line no-duplicate-imports
 import { DisposableStore } from 'vs/base/common/lifecycle';
+import { IClipboardService } from 'vs/platform/clipboard/common/clipboardService';
+import { IContextMenuService } from 'vs/platform/contextview/browser/contextView';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import { ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { IPositronEnvironmentInstance, IPositronEnvironmentService } from 'vs/workbench/services/positronEnvironment/common/interfaces/positronEnvironmentService';
+import { IReactComponentContainer } from 'vs/base/browser/positronReactRenderer';
 
 /**
  * PositronEnvironmentServices interface. Defines the set of services that are required by the Positron environment.
  */
 export interface PositronEnvironmentServices {
+	readonly clipboardService: IClipboardService;
 	readonly configurationService: IConfigurationService;
+	readonly contextMenuService: IContextMenuService;
 	readonly languageRuntimeService: ILanguageRuntimeService;
 	readonly positronEnvironmentService: IPositronEnvironmentService;
+	readonly reactComponentContainer: IReactComponentContainer;
 }
 
 /**
