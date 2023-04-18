@@ -9,6 +9,7 @@ import { IContextMenuService } from 'vs/platform/contextview/browser/contextView
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import { ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { IPositronEnvironmentInstance, IPositronEnvironmentService } from 'vs/workbench/services/positronEnvironment/common/interfaces/positronEnvironmentService';
+import { IReactComponentContainer } from 'vs/base/browser/positronReactRenderer';
 
 /**
  * PositronEnvironmentServices interface. Defines the set of services that are required by the Positron environment.
@@ -19,6 +20,7 @@ export interface PositronEnvironmentServices {
 	readonly contextMenuService: IContextMenuService;
 	readonly languageRuntimeService: ILanguageRuntimeService;
 	readonly positronEnvironmentService: IPositronEnvironmentService;
+	readonly reactComponentContainer: IReactComponentContainer;
 }
 
 /**

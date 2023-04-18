@@ -6,14 +6,15 @@ import 'vs/css!./environmentInstance';
 import * as React from 'react';
 import { KeyboardEvent, useEffect, useRef, useState } from 'react'; // eslint-disable-line no-duplicate-imports
 import { DisposableStore } from 'vs/base/common/lifecycle';
-import { FixedSizeList as List, ListChildComponentProps } from 'react-window';
 import { positronClassNames } from 'vs/base/common/positronUtilities';
+import { FixedSizeList as List, ListChildComponentProps } from 'react-window';
 import { EmptyEnvironment } from 'vs/workbench/contrib/positronEnvironment/browser/components/emptyEnvironment';
 import { EnvironmentVariableItem } from 'vs/workbench/contrib/positronEnvironment/browser/components/environmentVariableItem';
 import { IEnvironmentVariableItem } from 'vs/workbench/services/positronEnvironment/common/interfaces/environmentVariableItem';
 import { EnvironmentVariableGroup } from 'vs/workbench/contrib/positronEnvironment/browser/components/environmentVariableGroup';
 import { IEnvironmentVariableGroup } from 'vs/workbench/services/positronEnvironment/common/interfaces/environmentVariableGroup';
 import { EnvironmentEntry, IPositronEnvironmentInstance } from 'vs/workbench/services/positronEnvironment/common/interfaces/positronEnvironmentService';
+import { usePositronEnvironmentContext } from 'vs/workbench/contrib/positronEnvironment/browser/positronEnvironmentContext';
 
 /**
  * Constants.
@@ -57,6 +58,9 @@ interface EnvironmentInstanceProps {
  * @returns The rendered component.
  */
 export const EnvironmentInstance = (props: EnvironmentInstanceProps) => {
+	// Context hooks.
+	const positronEnvironmentContext = usePositronEnvironmentContext();
+
 	// Reference hooks.
 	const instanceRef = useRef<HTMLDivElement>(undefined!);
 	const listRef = useRef<List>(undefined!);
@@ -317,6 +321,22 @@ export const EnvironmentInstance = (props: EnvironmentInstanceProps) => {
 	};
 
 	/**
+	 * onFocus event handler.
+	 */
+	const focusHandler = () => {
+		setFocused(true);
+		positronEnvironmentContext.reactComponentContainer.enableKeybindings();
+	};
+
+	/**
+	 * onBlur event handler.
+	 */
+	const blurHandler = () => {
+		setFocused(false);
+		positronEnvironmentContext.reactComponentContainer.disableKeybindings();
+	};
+
+	/**
 	 * Resizes the name column.
 	 * @param x The X delta.
 	 */
@@ -402,8 +422,8 @@ export const EnvironmentInstance = (props: EnvironmentInstanceProps) => {
 			tabIndex={0}
 			hidden={props.hidden}
 			onKeyDown={handleKeyDown}
-			onFocus={() => setFocused(true)}
-			onBlur={() => setFocused(false)}
+			onFocus={focusHandler}
+			onBlur={blurHandler}
 		>
 			<List
 				ref={listRef}
