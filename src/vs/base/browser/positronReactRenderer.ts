@@ -43,6 +43,16 @@ export interface IReactComponentContainer extends IFocusReceiver {
 	takeFocus(): void;
 
 	/**
+	 * Enables keybindings.
+	 */
+	enableKeybindings(): void;
+
+	/**
+	 * Disables keybindings.
+	 */
+	disableKeybindings(): void;
+
+	/**
 	 * onSizeChanged event.
 	 */
 	readonly onSizeChanged: Event<ISize>;
