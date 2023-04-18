@@ -81,6 +81,20 @@ export class PositronConsoleViewPane extends ViewPane implements IReactComponent
 	}
 
 	/**
+	 * Enables keybindings.
+	 */
+	enableKeybindings(): void {
+		// NOOP at this time.
+	}
+
+	/**
+	 * Disables keybindings.
+	 */
+	disableKeybindings(): void {
+		// NOOP at this time.
+	}
+
+	/**
 	 * The onSizeChanged event.
 	 */
 	readonly onSizeChanged: Event<ISize> = this._onSizeChangedEmitter.event;
