@@ -16,6 +16,8 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 
 	private readonly _runtimes = new Array<positron.LanguageRuntime>();
 
+	private readonly _clientInstances = new Array<ExtHostRuntimeClientInstance>();
+
 	private readonly _clientHandlers = new Array<positron.RuntimeClientHandler>();
 
 	constructor(
@@ -164,7 +166,7 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 					break;
 
 				case LanguageRuntimeMessageType.CommData:
-					this._proxy.$emitRuntimeClientMessage(handle, message as ILanguageRuntimeMessage as ILanguageRuntimeMessageCommData);
+					this.handleCommData(handle, message as ILanguageRuntimeMessage as ILanguageRuntimeMessageCommData);
 					break;
 
 				case LanguageRuntimeMessageType.CommClosed:
@@ -183,6 +185,13 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		});
 	}
 
+	/**
+	 * Handles a comm open message from the language runtime by either creating
+	 * a client instance for it or passing it to a registered client handler.
+	 *
+	 * @param handle The handle of the language runtime
+	 * @param message The message to handle
+	 */
 	private handleCommOpen(handle: number, message: ILanguageRuntimeMessageCommOpen): void {
 		// Create a client instance for the comm
 		const clientInstance = new ExtHostRuntimeClientInstance(message);
@@ -193,6 +202,8 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 			if (message.target_name === handler.clientType) {
 				// If the handler returns true, then it'll take it from here
 				if (handler.callback(clientInstance, message.data)) {
+					// Add the client instance to the list
+					this._clientInstances.push(clientInstance);
 					return;
 				}
 			}
@@ -200,5 +211,22 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 
 		// If we get here, then no handler took it, so we'll just emit the event
 		this._proxy.$emitRuntimeClientOpened(handle, message);
+	}
+
+	/**
+	 * Handles a comm data message from the language runtime
+	 *
+	 * @param handle The handle of the language runtime
+	 * @param message The message to handle
+	 */
+	private handleCommData(handle: number, message: ILanguageRuntimeMessageCommData): void {
+		// Find the client instance
+		const clientInstance = this._clientInstances.find(instance =>
+			instance.getClientId() === message.comm_id);
+		if (clientInstance) {
+			clientInstance.emitMessage(message);
+		} else {
+			this._proxy.$emitRuntimeClientMessage(handle, message);
+		}
 	}
 }
