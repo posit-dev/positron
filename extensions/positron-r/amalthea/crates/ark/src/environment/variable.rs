@@ -110,11 +110,14 @@ impl EnvironmentVariable {
             type_info,
         } = binding.get_type();
 
-        let kind = match binding.kind {
-            BindingKind::Active => ValueKind::Other,
-            BindingKind::Promise(false) => ValueKind::Other,
-            BindingKind::Promise(true) => Self::variable_kind(unsafe { PRVALUE(binding.value) }),
-            BindingKind::Regular => Self::variable_kind(binding.value),
+        let (kind, size) = match binding.kind {
+            BindingKind::Active => (ValueKind::Other, 0),
+            BindingKind::Promise(false) => (ValueKind::Other, 0),
+            BindingKind::Promise(true) => {
+                let value = unsafe { PRVALUE(binding.value) };
+                (Self::variable_kind(value), Self::variable_size(value))
+            },
+            BindingKind::Regular => (Self::variable_kind(binding.value), Self::variable_size(binding.value)),
         };
         let has_children = binding.has_children();
 
@@ -126,7 +129,7 @@ impl EnvironmentVariable {
             type_info,
             kind,
             length: 0,
-            size: 0,
+            size,
             has_children,
             is_truncated,
         }
@@ -148,7 +151,7 @@ impl EnvironmentVariable {
             type_info,
             kind: Self::variable_kind(x),
             length: 0,
-            size: 0,
+            size: Self::variable_size(x),
             has_children,
             is_truncated
         }
@@ -181,6 +184,22 @@ impl EnvironmentVariable {
             RAWSXP  => ValueKind::Collection,
 
             _       => ValueKind::Other
+        }
+    }
+
+    fn variable_size(x: SEXP) -> usize {
+        let size = unsafe {
+            RFunction::new("utils", "object.size")
+                .add(x)
+                .call()
+        };
+
+        match size {
+            Err(_) => 0,
+            Ok(size) => {
+                let value = unsafe { REAL_ELT(*size, 0) };
+                value as usize
+            }
         }
     }
 
