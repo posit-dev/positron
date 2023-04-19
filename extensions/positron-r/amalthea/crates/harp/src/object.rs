@@ -127,7 +127,7 @@ fn sexp_size(x: SEXP) -> usize {
     if r_is_null(x) {
         return 0;
     }
-    if RObject::view(x).is_altrep() {
+    if Sxpinfo::interpret(&x).is_altrep() {
         return unsafe {
             sexp_size(R_altrep_data1(x)) + sexp_size(R_altrep_data2(x))
         };
