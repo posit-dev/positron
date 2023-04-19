@@ -68,6 +68,10 @@ impl Sxpinfo {
     pub fn is_s4(&self) -> bool {
         self.gp() & unsafe {S4_OBJECT_MASK} != 0
     }
+
+    pub fn is_altrep(&self) -> bool {
+        self.alt() != 0
+    }
 }
 
 #[derive(Debug, Eq, PartialEq)]
