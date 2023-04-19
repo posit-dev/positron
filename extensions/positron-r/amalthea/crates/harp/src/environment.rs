@@ -17,6 +17,7 @@ use crate::symbol::RSymbol;
 use crate::utils::Sxpinfo;
 use crate::utils::r_assert_type;
 use crate::utils::r_inherits;
+use crate::utils::r_is_altrep;
 use crate::utils::r_is_null;
 use crate::utils::r_typeof;
 use crate::vector::CharacterVector;
@@ -25,6 +26,7 @@ use crate::vector::IntegerVector;
 use crate::vector::LogicalVector;
 use crate::vector::NumericVector;
 use crate::vector::RawVector;
+use crate::vector::ComplexVector;
 use crate::vector::Vector;
 use crate::with_vector;
 
@@ -369,10 +371,10 @@ fn vec_type(value: SEXP) -> String {
 }
 
 fn vec_type_info(value: SEXP) -> BindingType {
-    let display_type = format!("{} [{}]", vec_type(value), vec_shape(value));
+    let display_type = format!("{}{}", vec_type(value), vec_shape(value));
 
     let mut type_info = display_type.clone();
-    if unsafe{ ALTREP(value) == 1} {
+    if r_is_altrep(value) {
         type_info.push_str(altrep_class(value).as_str())
     }
 
@@ -384,10 +386,14 @@ fn vec_shape(value: SEXP) -> String {
         let dim = RObject::new(Rf_getAttrib(value, R_DimSymbol));
 
         if r_is_null(*dim) {
-            format!("{}", Rf_xlength(value))
+            if XLENGTH(value) == 1 {
+                String::from("")
+            } else {
+                format!(" [{}]", Rf_xlength(value))
+            }
         } else {
             let dim = IntegerVector::new(dim).unwrap();
-            dim.format(",", 0).1
+            format!(" [{}]", dim.format(",", 0).1)
         }
     }
 }
