@@ -26,6 +26,7 @@ use crate::vector::IntegerVector;
 use crate::vector::LogicalVector;
 use crate::vector::NumericVector;
 use crate::vector::RawVector;
+use crate::vector::ComplexVector;
 use crate::vector::Vector;
 use crate::with_vector;
 
