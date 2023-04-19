@@ -73,6 +73,10 @@ impl Sxpinfo {
     pub fn is_altrep(&self) -> bool {
         self.alt() != 0
     }
+    
+    pub fn is_object(&self) -> bool {
+        self.obj() != 0
+    }
 }
 
 #[derive(Debug, Eq, PartialEq)]
