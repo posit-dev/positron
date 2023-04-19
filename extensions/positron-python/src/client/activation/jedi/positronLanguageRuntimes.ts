@@ -6,7 +6,7 @@ import { Socket } from 'net';
 import * as path from 'path';
 import * as positron from 'positron';
 import * as vscode from 'vscode';
-import { Disposable, LanguageClient, LanguageClientOptions, ServerOptions, StreamInfo } from 'vscode-languageclient/node';
+import { Disposable, DocumentFilter, LanguageClient, LanguageClientOptions, ServerOptions, StreamInfo } from 'vscode-languageclient/node';
 
 import { compare } from 'semver';
 import { EXTENSION_ROOT_DIR, PYTHON_LANGUAGE } from '../../common/constants';
@@ -69,6 +69,9 @@ export class PositronJediLanguageServerProxy implements ILanguageServerProxy {
             return;
         }
 
+        // Extend LSP support to include unsaved editors
+        options.documentSelector = this.initDocumentSelector(options.documentSelector as DocumentFilter[]);
+
         // Offer to install the ipykernel module for the preferred interpreter, if it is missing
         let hasKernel = await this.installer.isInstalled(Product.ipykernel, interpreter);
         if (!hasKernel) {
@@ -110,6 +113,13 @@ export class PositronJediLanguageServerProxy implements ILanguageServerProxy {
 
     public dispose(): void {
         this.stop().ignoreErrors();
+    }
+
+    /**
+     * Generalize LSP support to any scheme that is for the language 'python'.
+     */
+    private initDocumentSelector(selector: DocumentFilter[]): DocumentFilter[] {
+        return selector.concat([{ language: PYTHON_LANGUAGE }]);
     }
 
     /**
