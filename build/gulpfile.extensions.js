@@ -31,6 +31,7 @@ const extensionsPath = path.join(path.dirname(__dirname), 'extensions');
 // });
 const compilations = [
 	// --- Start Positron ---
+	'positron-data-viewer/tsconfig.json',
 	'positron-r/tsconfig.json',
 	'positron-python/tsconfig.json',
 	'positron-zed/tsconfig.json',

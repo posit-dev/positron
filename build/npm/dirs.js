@@ -9,6 +9,7 @@ exports.dirs = [
 	'build',
 	'extensions',
 	// --- Start Positron ---
+	'extensions/positron-data-viewer',
 	'extensions/positron-r',
 	'extensions/positron-python',
 	'extensions/positron-zed',

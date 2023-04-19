@@ -3,7 +3,6 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { Api } from './Api';
 
 export function activate(_context: vscode.ExtensionContext) {
 }
