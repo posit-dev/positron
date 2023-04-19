@@ -18,6 +18,7 @@ use harp::r_symbol;
 use harp::symbol::RSymbol;
 use harp::utils::r_assert_type;
 use harp::utils::r_inherits;
+use harp::utils::r_is_null;
 use harp::utils::r_typeof;
 use harp::vector::CharacterVector;
 use harp::vector::Vector;
@@ -110,11 +111,14 @@ impl EnvironmentVariable {
             type_info,
         } = binding.get_type();
 
-        let kind = match binding.kind {
-            BindingKind::Active => ValueKind::Other,
-            BindingKind::Promise(false) => ValueKind::Other,
-            BindingKind::Promise(true) => Self::variable_kind(unsafe { PRVALUE(binding.value) }),
-            BindingKind::Regular => Self::variable_kind(binding.value),
+        let (kind, size) = match binding.kind {
+            BindingKind::Active => (ValueKind::Other, 0),
+            BindingKind::Promise(false) => (ValueKind::Other, 0),
+            BindingKind::Promise(true) => {
+                let value = unsafe { PRVALUE(binding.value) };
+                (Self::variable_kind(value), RObject::view(value).size())
+            },
+            BindingKind::Regular => (Self::variable_kind(binding.value), RObject::view(binding.value).size()),
         };
         let has_children = binding.has_children();
 
@@ -126,7 +130,7 @@ impl EnvironmentVariable {
             type_info,
             kind,
             length: 0,
-            size: 0,
+            size,
             has_children,
             is_truncated,
         }
@@ -148,7 +152,7 @@ impl EnvironmentVariable {
             type_info,
             kind: Self::variable_kind(x),
             length: 0,
-            size: 0,
+            size: RObject::view(x).size(),
             has_children,
             is_truncated
         }
@@ -374,7 +378,7 @@ impl EnvironmentVariable {
                 r_assert_type(pairlist, &[LISTSXP])?;
 
                 let tag = TAG(pairlist);
-                let display_name = if tag == R_NilValue {
+                let display_name = if r_is_null(tag) {
                     format!("[[{}]]", i + 1)
                 } else {
                     String::from(RSymbol::new(tag))

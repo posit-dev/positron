@@ -7,7 +7,6 @@
 
 use std::cmp::Ordering;
 
-use c2rust_bitfields::BitfieldStruct;
 use itertools::Itertools;
 use libR_sys::*;
 
@@ -15,8 +14,10 @@ use crate::exec::RFunction;
 use crate::exec::RFunctionExt;
 use crate::object::RObject;
 use crate::symbol::RSymbol;
+use crate::utils::Sxpinfo;
 use crate::utils::r_assert_type;
 use crate::utils::r_inherits;
+use crate::utils::r_is_null;
 use crate::utils::r_typeof;
 use crate::vector::CharacterVector;
 use crate::vector::Factor;
@@ -26,53 +27,6 @@ use crate::vector::NumericVector;
 use crate::vector::RawVector;
 use crate::vector::Vector;
 use crate::with_vector;
-
-#[derive(Copy, Clone, BitfieldStruct)]
-#[repr(C)]
-pub struct Sxpinfo {
-    #[bitfield(name = "rtype", ty = "libc::c_uint", bits = "0..=4")]
-    #[bitfield(name = "scalar", ty = "libc::c_uint", bits = "5..=5")]
-    #[bitfield(name = "obj", ty = "libc::c_uint", bits = "6..=6")]
-    #[bitfield(name = "alt", ty = "libc::c_uint", bits = "7..=7")]
-    #[bitfield(name = "gp", ty = "libc::c_uint", bits = "8..=23")]
-    #[bitfield(name = "mark", ty = "libc::c_uint", bits = "24..=24")]
-    #[bitfield(name = "debug", ty = "libc::c_uint", bits = "25..=25")]
-    #[bitfield(name = "trace", ty = "libc::c_uint", bits = "26..=26")]
-    #[bitfield(name = "spare", ty = "libc::c_uint", bits = "27..=27")]
-    #[bitfield(name = "gcgen", ty = "libc::c_uint", bits = "28..=28")]
-    #[bitfield(name = "gccls", ty = "libc::c_uint", bits = "29..=31")]
-    #[bitfield(name = "named", ty = "libc::c_uint", bits = "32..=47")]
-    #[bitfield(name = "extra", ty = "libc::c_uint", bits = "48..=63")]
-    pub rtype_scalar_obj_alt_gp_mark_debug_trace_spare_gcgen_gccls_named_extra: [u8; 8],
-}
-
-pub static mut ACTIVE_BINDING_MASK: libc::c_uint = 1 << 15;
-pub static mut S4_OBJECT_MASK: libc::c_uint = 1 << 4;
-
-impl Sxpinfo {
-
-    pub fn interpret(x: &SEXP) -> &Self {
-        unsafe {
-            (*x as *mut Sxpinfo).as_ref().unwrap()
-        }
-    }
-
-    pub fn is_active(&self) -> bool {
-        self.gp() & unsafe {ACTIVE_BINDING_MASK} != 0
-    }
-
-    pub fn is_immediate(&self) -> bool {
-        self.extra() != 0
-    }
-
-    pub fn is_s4(&self) -> bool {
-        self.gp() & unsafe {S4_OBJECT_MASK} != 0
-    }
-
-    pub fn is_object(&self) -> bool {
-        self.obj() != 0
-    }
-}
 
 #[derive(Debug, Eq, PartialEq)]
 pub enum BindingKind {
@@ -300,12 +254,8 @@ fn is_simple_vector(value: SEXP) -> bool {
         let class = Rf_getAttrib(value, R_ClassSymbol);
 
         match r_typeof(value) {
-            LGLSXP  => class == R_NilValue,
-            INTSXP  => class == R_NilValue || r_inherits(value, "factor"),
-            REALSXP => class == R_NilValue,
-            CPLXSXP => class == R_NilValue,
-            STRSXP  => class == R_NilValue,
-            RAWSXP  => class == R_NilValue,
+            LGLSXP | REALSXP | CPLXSXP | STRSXP | RAWSXP => r_is_null(class),
+            INTSXP  => r_is_null(class) || r_inherits(value, "factor"),
 
             _       => false
         }
@@ -315,7 +265,7 @@ fn is_simple_vector(value: SEXP) -> bool {
 fn first_class(value: SEXP) -> Option<String> {
     unsafe {
         let classes = Rf_getAttrib(value, R_ClassSymbol);
-        if classes == R_NilValue {
+        if r_is_null(classes) {
             None
         } else {
             let classes = CharacterVector::new_unchecked(classes);
@@ -433,7 +383,7 @@ fn vec_shape(value: SEXP) -> String {
     unsafe {
         let dim = RObject::new(Rf_getAttrib(value, R_DimSymbol));
 
-        if *dim == R_NilValue {
+        if r_is_null(*dim) {
             format!("{}", Rf_xlength(value))
         } else {
             let dim = IntegerVector::new(dim).unwrap();
@@ -459,7 +409,7 @@ where
 {
     unsafe {
         let hash  = HASHTAB(env);
-        if hash == R_NilValue {
+        if r_is_null(hash) {
             frame_bindings(env, FRAME(env), retain)
         } else {
             let mut bindings : Vec<Binding> = vec![];
