@@ -18,6 +18,7 @@ use harp::r_symbol;
 use harp::symbol::RSymbol;
 use harp::utils::r_assert_type;
 use harp::utils::r_inherits;
+use harp::utils::r_is_null;
 use harp::utils::r_typeof;
 use harp::vector::CharacterVector;
 use harp::vector::Vector;
@@ -110,11 +111,14 @@ impl EnvironmentVariable {
             type_info,
         } = binding.get_type();
 
-        let kind = match binding.kind {
-            BindingKind::Active => ValueKind::Other,
-            BindingKind::Promise(false) => ValueKind::Other,
-            BindingKind::Promise(true) => Self::variable_kind(unsafe { PRVALUE(binding.value) }),
-            BindingKind::Regular => Self::variable_kind(binding.value),
+        let (kind, size) = match binding.kind {
+            BindingKind::Active => (ValueKind::Other, 0),
+            BindingKind::Promise(false) => (ValueKind::Other, 0),
+            BindingKind::Promise(true) => {
+                let value = unsafe { PRVALUE(binding.value) };
+                (Self::variable_kind(value), RObject::view(value).size())
+            },
+            BindingKind::Regular => (Self::variable_kind(binding.value), RObject::view(binding.value).size()),
         };
         let has_children = binding.has_children();
 
@@ -126,7 +130,7 @@ impl EnvironmentVariable {
             type_info,
             kind,
             length: 0,
-            size: 0,
+            size,
             has_children,
             is_truncated,
         }
@@ -148,38 +152,130 @@ impl EnvironmentVariable {
             type_info,
             kind: Self::variable_kind(x),
             length: 0,
-            size: 0,
+            size: RObject::view(x).size(),
             has_children,
             is_truncated
         }
     }
 
     fn variable_kind(x: SEXP) -> ValueKind {
+        if x == unsafe {R_NilValue} {
+            return ValueKind::Empty;
+        }
+
+        let obj = RObject::view(x);
+
+        if obj.is_s4() {
+            return ValueKind::Map;
+        }
+        let is_object = obj.is_object();
+        if is_object {
+            unsafe {
+                if r_inherits(x, "factor") {
+                    return ValueKind::Other;
+                }
+                if r_inherits(x, "data.frame") {
+                    return ValueKind::Table;
+                }
+
+                // TODO: generic S3 object, not sure what it should be
+            }
+        }
+
         match r_typeof(x) {
             CLOSXP => ValueKind::Function,
-            ENVSXP => ValueKind::Map,
-            VECSXP => {
-                if unsafe{ r_inherits(x, "data.frame") } {
+
+            ENVSXP => {
+                // this includes R6 objects
+                ValueKind::Map
+            },
+
+            VECSXP => unsafe {
+                let dim = Rf_getAttrib(x, R_DimSymbol);
+                if dim != R_NilValue && XLENGTH(dim) == 2 {
                     ValueKind::Table
                 } else {
-                    unsafe {
-                        let names = Rf_getAttrib(x, R_NamesSymbol) ;
-                        if names == R_NilValue {
-                            ValueKind::Collection
-                        } else {
-                            ValueKind::Map
-                        }
-                    }
+                    ValueKind::Map
                 }
             },
 
-            LGLSXP  => ValueKind::Collection,
-            INTSXP  => ValueKind::Collection,
-            REALSXP => ValueKind::Collection,
-            CPLXSXP => ValueKind::Collection,
-            STRSXP  => ValueKind::Collection,
-            RAWSXP  => ValueKind::Collection,
+            LGLSXP => unsafe {
+                let dim = Rf_getAttrib(x, R_DimSymbol);
+                if dim != R_NilValue && XLENGTH(dim) == 2 {
+                    ValueKind::Table
+                } else if XLENGTH(x) == 1 {
+                    if LOGICAL_ELT(x, 0) == R_NaInt {
+                        ValueKind::Empty
+                    } else {
+                        ValueKind::Boolean
+                    }
+                } else {
+                    ValueKind::Collection
+                }
+            },
 
+            INTSXP => unsafe {
+                let dim = Rf_getAttrib(x, R_DimSymbol);
+                if dim != R_NilValue && XLENGTH(dim) == 2 {
+                    ValueKind::Table
+                } else if XLENGTH(x) == 1 {
+                    if INTEGER_ELT(x, 0) == R_NaInt {
+                        ValueKind::Empty
+                    } else {
+                        ValueKind::Number
+                    }
+                } else {
+                    ValueKind::Collection
+                }
+            },
+
+            REALSXP => unsafe {
+                let dim = Rf_getAttrib(x, R_DimSymbol);
+                if dim != R_NilValue && XLENGTH(dim) == 2 {
+                    ValueKind::Table
+                } else if XLENGTH(x) == 1 {
+                    if R_IsNA(REAL_ELT(x, 0)) == 1 {
+                        ValueKind::Empty
+                    } else {
+                        ValueKind::Number
+                    }
+                } else {
+                    ValueKind::Collection
+                }
+            },
+
+            CPLXSXP => unsafe {
+                let dim = Rf_getAttrib(x, R_DimSymbol);
+                if dim != R_NilValue && XLENGTH(dim) == 2 {
+                    ValueKind::Table
+                } else if XLENGTH(x) == 1 {
+                    let value = COMPLEX_ELT(x, 0);
+                    if R_IsNA(value.r) == 1 || R_IsNA(value.i) == 1 {
+                        ValueKind::Empty
+                    } else {
+                        ValueKind::Number
+                    }
+                } else {
+                    ValueKind::Collection
+                }
+            }
+
+            STRSXP => unsafe {
+                let dim = Rf_getAttrib(x, R_DimSymbol);
+                if dim != R_NilValue && XLENGTH(dim) == 2 {
+                    ValueKind::Table
+                } else if XLENGTH(x) == 1 {
+                    if STRING_ELT(x, 0) == R_NaString {
+                        ValueKind::Empty
+                    } else {
+                        ValueKind::String
+                    }
+                } else {
+                    ValueKind::Collection
+                }
+            },
+
+            RAWSXP  => ValueKind::Bytes,
             _       => ValueKind::Other
         }
     }
@@ -282,7 +378,7 @@ impl EnvironmentVariable {
                 r_assert_type(pairlist, &[LISTSXP])?;
 
                 let tag = TAG(pairlist);
-                let display_name = if tag == R_NilValue {
+                let display_name = if r_is_null(tag) {
                     format!("[[{}]]", i + 1)
                 } else {
                     String::from(RSymbol::new(tag))
