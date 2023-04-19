@@ -121,6 +121,30 @@ impl<T: Into<RObject>> RObjectExt<T> for RObject {
     }
 }
 
+fn sexp_size(x: SEXP) -> usize {
+    if r_is_null(x) {
+        return 0;
+    }
+    if RObject::view(x).is_altrep() {
+        return unsafe {
+            sexp_size(R_altrep_data1(x)) + sexp_size(R_altrep_data2(x))
+        };
+    }
+    let size = unsafe {
+        RFunction::new("utils", "object.size")
+            .add(x)
+            .call()
+    };
+
+    match size {
+        Err(_) => 0,
+        Ok(size) => {
+            let value = unsafe { REAL_ELT(*size, 0) };
+            value as usize
+        }
+    }
+}
+
 impl RObject {
 
     pub unsafe fn new(data: SEXP) -> Self {
@@ -150,9 +174,13 @@ impl RObject {
     pub fn is_altrep(&self) -> bool {
         Sxpinfo::interpret(&self.sexp).is_altrep()
     }
-    
+
     pub fn is_object(&self) -> bool {
         Sxpinfo::interpret(&self.sexp).is_object()
+    }
+
+    pub fn size(&self) -> usize {
+        sexp_size(self.sexp)
     }
 
 }

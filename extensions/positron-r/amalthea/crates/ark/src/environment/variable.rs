@@ -95,30 +95,6 @@ pub struct EnvironmentVariable {
     pub is_truncated: bool,
 }
 
-fn variable_size(x: SEXP) -> usize {
-    if r_is_null(x) {
-        return 0;
-    }
-    if RObject::view(x).is_altrep() {
-        return unsafe {
-            variable_size(R_altrep_data1(x)) + variable_size(R_altrep_data2(x))
-        };
-    }
-    let size = unsafe {
-        RFunction::new("utils", "object.size")
-            .add(x)
-            .call()
-    };
-
-    match size {
-        Err(_) => 0,
-        Ok(size) => {
-            let value = unsafe { REAL_ELT(*size, 0) };
-            value as usize
-        }
-    }
-}
-
 impl EnvironmentVariable {
     /**
      * Create a new EnvironmentVariable from a Binding
@@ -140,9 +116,9 @@ impl EnvironmentVariable {
             BindingKind::Promise(false) => (ValueKind::Other, 0),
             BindingKind::Promise(true) => {
                 let value = unsafe { PRVALUE(binding.value) };
-                (Self::variable_kind(value), variable_size(value))
+                (Self::variable_kind(value), RObject::view(value).size())
             },
-            BindingKind::Regular => (Self::variable_kind(binding.value), variable_size(binding.value)),
+            BindingKind::Regular => (Self::variable_kind(binding.value), RObject::view(binding.value).size()),
         };
         let has_children = binding.has_children();
 
@@ -176,7 +152,7 @@ impl EnvironmentVariable {
             type_info,
             kind: Self::variable_kind(x),
             length: 0,
-            size: variable_size(x),
+            size: RObject::view(x).size(),
             has_children,
             is_truncated
         }
