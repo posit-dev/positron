@@ -121,6 +121,8 @@ impl<T: Into<RObject>> RObjectExt<T> for RObject {
     }
 }
 
+// TODO: borrow implementation from lobstr instead
+//       of calling object.size()
 fn sexp_size(x: SEXP) -> usize {
     if r_is_null(x) {
         return 0;
