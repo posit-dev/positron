@@ -68,6 +68,10 @@ impl Sxpinfo {
     pub fn is_s4(&self) -> bool {
         self.gp() & unsafe {S4_OBJECT_MASK} != 0
     }
+
+    pub fn is_object(&self) -> bool {
+        self.obj() != 0
+    }
 }
 
 #[derive(Debug, Eq, PartialEq)]

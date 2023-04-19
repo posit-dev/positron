@@ -146,6 +146,10 @@ impl RObject {
         Sxpinfo::interpret(&self.sexp).is_s4()
     }
 
+    pub fn is_object(&self) -> bool {
+        Sxpinfo::interpret(&self.sexp).is_object()
+    }
+
 }
 
 impl Drop for RObject {
