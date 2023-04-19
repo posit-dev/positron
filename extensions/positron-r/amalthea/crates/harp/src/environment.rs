@@ -370,7 +370,7 @@ fn vec_type(value: SEXP) -> String {
 }
 
 fn vec_type_info(value: SEXP) -> BindingType {
-    let display_type = format!("{} [{}]", vec_type(value), vec_shape(value));
+    let display_type = format!("{}{}", vec_type(value), vec_shape(value));
 
     let mut type_info = display_type.clone();
     if r_is_altrep(value) {
@@ -385,10 +385,14 @@ fn vec_shape(value: SEXP) -> String {
         let dim = RObject::new(Rf_getAttrib(value, R_DimSymbol));
 
         if r_is_null(*dim) {
-            format!("{}", Rf_xlength(value))
+            if XLENGTH(value) == 1 {
+                String::from("")
+            } else {
+                format!(" [{}]", Rf_xlength(value))
+            }
         } else {
             let dim = IntegerVector::new(dim).unwrap();
-            dim.format(",", 0).1
+            format!(" [{}]", dim.format(",", 0).1)
         }
     }
 }
