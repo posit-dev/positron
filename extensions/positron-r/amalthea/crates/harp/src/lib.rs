@@ -209,6 +209,7 @@ mod tests {
     use libR_sys::*;
     use crate::object::RObject;
     use crate::protect::RProtect;
+    use crate::utils::r_is_null;
     use crate::utils::r_typeof;
 
     use super::*;
@@ -267,7 +268,7 @@ mod tests {
 
         let value = RObject::new(r_lang!("hello", A = 1, B = 2));
         assert!(r_typeof(CAR(*value)) == STRSXP);
-        assert!(TAG(*value) == R_NilValue);
+        assert!(r_is_null(TAG(*value)));
 
     }
 

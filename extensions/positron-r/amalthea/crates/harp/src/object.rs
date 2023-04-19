@@ -24,6 +24,7 @@ use crate::exec::RFunctionExt;
 use crate::protect::RProtect;
 use crate::utils::r_assert_length;
 use crate::utils::r_assert_type;
+use crate::utils::r_is_null;
 use crate::utils::r_typeof;
 
 // Objects are protected using a doubly-linked list,
@@ -33,7 +34,7 @@ static mut PRECIOUS_LIST : Option<SEXP> = None;
 
 unsafe fn protect(object: SEXP) -> SEXP {
     // Nothing to do
-    if object == R_NilValue {
+    if r_is_null(object) {
         return R_NilValue;
     }
 
@@ -76,7 +77,7 @@ unsafe fn protect(object: SEXP) -> SEXP {
 
 unsafe fn unprotect(cell: SEXP) {
 
-    if cell == R_NilValue {
+    if r_is_null(cell) {
         return;
     }
 

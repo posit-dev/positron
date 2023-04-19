@@ -18,6 +18,7 @@ use harp::r_symbol;
 use harp::symbol::RSymbol;
 use harp::utils::r_assert_type;
 use harp::utils::r_inherits;
+use harp::utils::r_is_null;
 use harp::utils::r_typeof;
 use harp::vector::CharacterVector;
 use harp::vector::Vector;
@@ -95,6 +96,9 @@ pub struct EnvironmentVariable {
 }
 
 fn variable_size(x: SEXP) -> usize {
+    if r_is_null(x) {
+        return 0;
+    }
     if RObject::view(x).is_altrep() {
         return unsafe {
             variable_size(R_altrep_data1(x)) + variable_size(R_altrep_data2(x))
@@ -188,7 +192,7 @@ impl EnvironmentVariable {
                 } else {
                     unsafe {
                         let names = Rf_getAttrib(x, R_NamesSymbol) ;
-                        if names == R_NilValue {
+                        if r_is_null(names) {
                             ValueKind::Collection
                         } else {
                             ValueKind::Map
@@ -306,7 +310,7 @@ impl EnvironmentVariable {
                 r_assert_type(pairlist, &[LISTSXP])?;
 
                 let tag = TAG(pairlist);
-                let display_name = if tag == R_NilValue {
+                let display_name = if r_is_null(tag) {
                     format!("[[{}]]", i + 1)
                 } else {
                     String::from(RSymbol::new(tag))

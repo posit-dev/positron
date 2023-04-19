@@ -17,6 +17,7 @@ use crate::object::RObject;
 use crate::symbol::RSymbol;
 use crate::utils::r_assert_type;
 use crate::utils::r_inherits;
+use crate::utils::r_is_null;
 use crate::utils::r_typeof;
 use crate::vector::CharacterVector;
 use crate::vector::Factor;
@@ -300,12 +301,8 @@ fn is_simple_vector(value: SEXP) -> bool {
         let class = Rf_getAttrib(value, R_ClassSymbol);
 
         match r_typeof(value) {
-            LGLSXP  => class == R_NilValue,
-            INTSXP  => class == R_NilValue || r_inherits(value, "factor"),
-            REALSXP => class == R_NilValue,
-            CPLXSXP => class == R_NilValue,
-            STRSXP  => class == R_NilValue,
-            RAWSXP  => class == R_NilValue,
+            LGLSXP | REALSXP | CPLXSXP | STRSXP | RAWSXP => r_is_null(class),
+            INTSXP  => r_is_null(class) || r_inherits(value, "factor"),
 
             _       => false
         }
@@ -315,7 +312,7 @@ fn is_simple_vector(value: SEXP) -> bool {
 fn first_class(value: SEXP) -> Option<String> {
     unsafe {
         let classes = Rf_getAttrib(value, R_ClassSymbol);
-        if classes == R_NilValue {
+        if r_is_null(classes) {
             None
         } else {
             let classes = CharacterVector::new_unchecked(classes);
@@ -433,7 +430,7 @@ fn vec_shape(value: SEXP) -> String {
     unsafe {
         let dim = RObject::new(Rf_getAttrib(value, R_DimSymbol));
 
-        if *dim == R_NilValue {
+        if r_is_null(*dim) {
             format!("{}", Rf_xlength(value))
         } else {
             let dim = IntegerVector::new(dim).unwrap();
@@ -459,7 +456,7 @@ where
 {
     unsafe {
         let hash  = HASHTAB(env);
-        if hash == R_NilValue {
+        if r_is_null(hash) {
             frame_bindings(env, FRAME(env), retain)
         } else {
             let mut bindings : Vec<Binding> = vec![];
