@@ -3,6 +3,7 @@ Custom entry point for launching Positron's extensions to the Jedi Language
 Server and IPyKernel in the same environment.
 """
 
+import debugpy
 import argparse
 import logging
 import os
