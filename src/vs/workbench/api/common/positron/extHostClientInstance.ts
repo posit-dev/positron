@@ -2,16 +2,17 @@
  *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
-import * as positron from 'positron';
+import type * as positron from 'positron';
 import { DeferredPromise } from 'vs/base/common/async';
+import { Event, Emitter } from 'vs/base/common/event';
+import { RuntimeClientState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeClientInstance';
 import { ILanguageRuntimeMessageCommData, ILanguageRuntimeMessageCommOpen } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
-import { Event, EventEmitter } from 'vscode';
 
 export type ExtHostClientMessageSender = (id: string, data: object) => void;
 
 export class ExtHostRuntimeClientInstance implements positron.RuntimeClientInstance {
-	private readonly _onDidChangeClientState = new EventEmitter<positron.RuntimeClientState>();
-	private readonly _onDidEmitData = new EventEmitter<object>();
+	private readonly _onDidChangeClientState = new Emitter<positron.RuntimeClientState>();
+	private readonly _onDidEmitData = new Emitter<object>();
 	private _messageCounter = 0;
 	private _state: positron.RuntimeClientState;
 	private _pendingRpcs = new Map<string, DeferredPromise<any>>();
@@ -21,7 +22,7 @@ export class ExtHostRuntimeClientInstance implements positron.RuntimeClientInsta
 
 		this.onDidChangeClientState = this._onDidChangeClientState.event;
 		this.onDidEmitEvent = this._onDidEmitData.event;
-		this._state = positron.RuntimeClientState.Connected;
+		this._state = RuntimeClientState.Connected;
 		this.onDidChangeClientState((e) => {
 			this._state = e;
 		});
