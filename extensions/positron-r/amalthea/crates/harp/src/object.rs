@@ -17,14 +17,16 @@ use std::sync::Once;
 use libR_sys::*;
 use log::trace;
 
-use crate::environment::Sxpinfo;
 use crate::error::Error;
 use crate::exec::RFunction;
 use crate::exec::RFunctionExt;
 use crate::protect::RProtect;
 use crate::utils::r_assert_length;
 use crate::utils::r_assert_type;
+use crate::utils::r_is_altrep;
 use crate::utils::r_is_null;
+use crate::utils::r_is_object;
+use crate::utils::r_is_s4;
 use crate::utils::r_typeof;
 
 // Objects are protected using a doubly-linked list,
@@ -123,13 +125,13 @@ impl<T: Into<RObject>> RObjectExt<T> for RObject {
 
 // TODO: borrow implementation from lobstr instead
 //       of calling object.size()
-fn sexp_size(x: SEXP) -> usize {
+fn r_size(x: SEXP) -> usize {
     if r_is_null(x) {
         return 0;
     }
-    if Sxpinfo::interpret(&x).is_altrep() {
+    if r_is_altrep(x) {
         return unsafe {
-            sexp_size(R_altrep_data1(x)) + sexp_size(R_altrep_data2(x))
+            r_size(R_altrep_data1(x)) + r_size(R_altrep_data2(x))
         };
     }
     let size = unsafe {
@@ -170,19 +172,19 @@ impl RObject {
     }
 
     pub fn is_s4(&self) -> bool {
-        Sxpinfo::interpret(&self.sexp).is_s4()
+        r_is_s4(self.sexp)
     }
 
     pub fn is_altrep(&self) -> bool {
-        Sxpinfo::interpret(&self.sexp).is_altrep()
+        r_is_altrep(self.sexp)
     }
 
     pub fn is_object(&self) -> bool {
-        Sxpinfo::interpret(&self.sexp).is_object()
+        r_is_object(self.sexp)
     }
 
     pub fn size(&self) -> usize {
-        sexp_size(self.sexp)
+        r_size(self.sexp)
     }
 
 }
