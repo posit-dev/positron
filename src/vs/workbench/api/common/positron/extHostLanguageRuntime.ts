@@ -194,7 +194,9 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 	 */
 	private handleCommOpen(handle: number, message: ILanguageRuntimeMessageCommOpen): void {
 		// Create a client instance for the comm
-		const clientInstance = new ExtHostRuntimeClientInstance(message);
+		const clientInstance = new ExtHostRuntimeClientInstance(message, (id, data) => {
+			this._runtimes[handle].sendClientMessage(message.comm_id, id, data);
+		});
 
 		// See if one of the registered client handlers wants to handle this
 		for (const handler of this._clientHandlers) {
