@@ -10,6 +10,7 @@ exports.dirs = [
 	'extensions',
 	// --- Start Positron ---
 	'extensions/positron-data-viewer',
+	'extensions/positron-data-viewer/ui',
 	'extensions/positron-r',
 	'extensions/positron-python',
 	'extensions/positron-zed',
