@@ -9,12 +9,10 @@ import { DisposableStore } from 'vs/base/common/lifecycle';
 import { positronClassNames } from 'vs/base/common/positronUtilities';
 import { FixedSizeList as List, ListChildComponentProps } from 'react-window';
 import { EmptyEnvironment } from 'vs/workbench/contrib/positronEnvironment/browser/components/emptyEnvironment';
-import { EnvironmentVariableItem } from 'vs/workbench/contrib/positronEnvironment/browser/components/environmentVariableItem';
-import { IEnvironmentVariableItem } from 'vs/workbench/services/positronEnvironment/common/interfaces/environmentVariableItem';
-import { EnvironmentVariableGroup } from 'vs/workbench/contrib/positronEnvironment/browser/components/environmentVariableGroup';
-import { IEnvironmentVariableGroup } from 'vs/workbench/services/positronEnvironment/common/interfaces/environmentVariableGroup';
-import { EnvironmentEntry, IPositronEnvironmentInstance } from 'vs/workbench/services/positronEnvironment/common/interfaces/positronEnvironmentService';
 import { usePositronEnvironmentContext } from 'vs/workbench/contrib/positronEnvironment/browser/positronEnvironmentContext';
+import { EnvironmentVariableItem } from 'vs/workbench/contrib/positronEnvironment/browser/components/environmentVariableItem';
+import { EnvironmentVariableGroup } from 'vs/workbench/contrib/positronEnvironment/browser/components/environmentVariableGroup';
+import { EnvironmentEntry, IPositronEnvironmentInstance, isEnvironmentVariableGroup, isEnvironmentVariableItem } from 'vs/workbench/services/positronEnvironment/common/interfaces/positronEnvironmentService';
 
 /**
  * Constants.
@@ -23,24 +21,6 @@ const LINE_HEIGHT = 26;
 const DEFAULT_NAME_COLUMN_WIDTH = 130;
 const MINIMUM_NAME_COLUMN_WIDTH = 100;
 const TYPE_VISIBILITY_THRESHOLD = 250;
-
-/**
- * isEnvironmentVariableGroup user-defined type guard.
- * @param _ The entry.
- * @returns Whether the entry is IEnvironmentVariableGroup.
- */
-const isEnvironmentVariableGroup = (_: EnvironmentEntry): _ is IEnvironmentVariableGroup => {
-	return 'title' in _;
-};
-
-/**
- * isEnvironmentVariableItem user-defined type guard.
- * @param _ The entry.
- * @returns Whether the entry is IEnvironmentVariableItem.
- */
-const isEnvironmentVariableItem = (_: EnvironmentEntry): _ is IEnvironmentVariableItem => {
-	return 'path' in _;
-};
 
 /**
  * EnvironmentInstanceProps interface.
@@ -146,7 +126,7 @@ export const EnvironmentInstance = (props: EnvironmentInstanceProps) => {
 	 * Handles onKeyDown events.
 	 * @param e A KeyboardEvent<HTMLDivElement> that describes a user interaction with the keyboard.
 	 */
-	const handleKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
+	const handleKeyDown = async (e: KeyboardEvent<HTMLDivElement>) => {
 		// Consumes the event.
 		const consumeEvent = () => {
 			e.preventDefault();
@@ -189,11 +169,18 @@ export const EnvironmentInstance = (props: EnvironmentInstanceProps) => {
 			// Up arrow key.
 			case 'ArrowUp': {
 				consumeEvent();
-				const selectedEntryIndex = entries.findIndex(entry => entry.id === selectedId);
-				if (selectedEntryIndex > 0) {
-					const index = selectedEntryIndex - 1;
-					setSelectedId(entries[index].id);
-					listRef.current.scrollToItem(index);
+				if (!selectedId) {
+					if (entries.length) {
+						setSelectedId(entries[entries.length - 1].id);
+						listRef.current.scrollToItem(entries.length - 1);
+					}
+				} else {
+					const selectedEntryIndex = entries.findIndex(entry => entry.id === selectedId);
+					if (selectedEntryIndex > 0) {
+						const index = selectedEntryIndex - 1;
+						setSelectedId(entries[index].id);
+						listRef.current.scrollToItem(index);
+					}
 				}
 				break;
 			}
@@ -201,11 +188,18 @@ export const EnvironmentInstance = (props: EnvironmentInstanceProps) => {
 			// Down arrow key.
 			case 'ArrowDown': {
 				consumeEvent();
-				const selectedEntryIndex = entries.findIndex(entry => entry.id === selectedId);
-				if (selectedEntryIndex < entries.length - 1) {
-					const index = selectedEntryIndex + 1;
-					setSelectedId(entries[index].id);
-					listRef.current.scrollToItem(index);
+				if (!selectedId) {
+					if (entries.length) {
+						setSelectedId(entries[0].id);
+						listRef.current.scrollToItem(0);
+					}
+				} else {
+					const selectedEntryIndex = entries.findIndex(entry => entry.id === selectedId);
+					if (selectedEntryIndex < entries.length - 1) {
+						const index = selectedEntryIndex + 1;
+						setSelectedId(entries[index].id);
+						listRef.current.scrollToItem(index);
+					}
 				}
 				break;
 			}
@@ -213,19 +207,21 @@ export const EnvironmentInstance = (props: EnvironmentInstanceProps) => {
 			// Left arrow key.
 			case 'ArrowLeft': {
 				consumeEvent();
-				const selectedEntryIndex = entries.findIndex(entry => entry.id === selectedId);
-				const selectedEntry = entries[selectedEntryIndex];
-				if (isEnvironmentVariableGroup(selectedEntry)) {
-					if (selectedEntry.expanded) {
-						props.positronEnvironmentInstance.collapseEnvironmentVariableGroup(
-							selectedEntry.id
-						);
-					}
-				} else if (isEnvironmentVariableItem(selectedEntry) && selectedEntry.hasChildren) {
-					if (selectedEntry.expanded) {
-						props.positronEnvironmentInstance.collapseEnvironmentVariableItem(
-							selectedEntry.path
-						);
+				if (selectedId) {
+					const selectedEntryIndex = entries.findIndex(entry => entry.id === selectedId);
+					const selectedEntry = entries[selectedEntryIndex];
+					if (isEnvironmentVariableGroup(selectedEntry)) {
+						if (selectedEntry.expanded) {
+							props.positronEnvironmentInstance.collapseEnvironmentVariableGroup(
+								selectedEntry.id
+							);
+						}
+					} else if (isEnvironmentVariableItem(selectedEntry) && selectedEntry.hasChildren) {
+						if (selectedEntry.expanded) {
+							props.positronEnvironmentInstance.collapseEnvironmentVariableItem(
+								selectedEntry.path
+							);
+						}
 					}
 				}
 				break;
@@ -234,27 +230,39 @@ export const EnvironmentInstance = (props: EnvironmentInstanceProps) => {
 			// Right arrow key.
 			case 'ArrowRight': {
 				consumeEvent();
-				const selectedEntryIndex = entries.findIndex(entry => entry.id === selectedId);
-				const selectedEntry = entries[selectedEntryIndex];
-				if (isEnvironmentVariableGroup(selectedEntry)) {
-					if (!selectedEntry.expanded) {
-						props.positronEnvironmentInstance.expandEnvironmentVariableGroup(
-							selectedEntry.id
-						);
-					}
-				} else if (isEnvironmentVariableItem(selectedEntry) && selectedEntry.hasChildren) {
-					if (!selectedEntry.expanded) {
-						props.positronEnvironmentInstance.expandEnvironmentVariableItem(
-							selectedEntry.path
-						);
+				if (selectedId) {
+					const selectedEntryIndex = entries.findIndex(entry => entry.id === selectedId);
+					const selectedEntry = entries[selectedEntryIndex];
+					if (isEnvironmentVariableGroup(selectedEntry)) {
+						if (!selectedEntry.expanded) {
+							props.positronEnvironmentInstance.expandEnvironmentVariableGroup(
+								selectedEntry.id
+							);
+						}
+					} else if (isEnvironmentVariableItem(selectedEntry) && selectedEntry.hasChildren) {
+						if (!selectedEntry.expanded) {
+							props.positronEnvironmentInstance.expandEnvironmentVariableItem(
+								selectedEntry.path
+							);
+						}
 					}
 				}
 				break;
 			}
 
-			default:
-				console.log(`The user pressed ${e.code}`);
+			// C key.
+			case 'KeyC': {
+				if (e.metaKey && selectedId) {
+					const selectedEntryIndex = entries.findIndex(entry => entry.id === selectedId);
+					const selectedEntry = entries[selectedEntryIndex];
+					if (isEnvironmentVariableItem(selectedEntry)) {
+						consumeEvent();
+						const text = await selectedEntry.formatForClipboard(e.shiftKey ? 'text/html' : 'text/plain');
+						positronEnvironmentContext.clipboardService.writeText(text);
+					}
+				}
 				break;
+			}
 		}
 	};
 
@@ -287,7 +295,16 @@ export const EnvironmentInstance = (props: EnvironmentInstanceProps) => {
 	 * @param index The index of the entry that was selected.
 	 */
 	const selectedHandler = (index: number) => {
-		setSelectedId(entries[index].id);
+		const entry = entries[index];
+		setSelectedId(entry.id);
+		instanceRef.current.focus();
+	};
+
+	/**
+	 * onDeselected event handler.
+	 */
+	const deselectedHandler = () => {
+		setSelectedId(undefined);
 		instanceRef.current.focus();
 	};
 
@@ -325,7 +342,6 @@ export const EnvironmentInstance = (props: EnvironmentInstanceProps) => {
 	 */
 	const focusHandler = () => {
 		setFocused(true);
-		positronEnvironmentContext.reactComponentContainer.enableKeybindings();
 	};
 
 	/**
@@ -333,7 +349,6 @@ export const EnvironmentInstance = (props: EnvironmentInstanceProps) => {
 	 */
 	const blurHandler = () => {
 		setFocused(false);
-		positronEnvironmentContext.reactComponentContainer.disableKeybindings();
 	};
 
 	/**
@@ -374,6 +389,7 @@ export const EnvironmentInstance = (props: EnvironmentInstanceProps) => {
 					focused={focused}
 					selected={selectedId === entry.id}
 					onSelected={() => selectedHandler(index)}
+					onDeselected={deselectedHandler}
 					onToggleExpandCollapse={() => toggleExpandCollapseHandler(index)}
 					positronEnvironmentInstance={props.positronEnvironmentInstance}
 				/>
@@ -389,6 +405,7 @@ export const EnvironmentInstance = (props: EnvironmentInstanceProps) => {
 					focused={focused}
 					selected={selectedId === entry.id}
 					onSelected={() => selectedHandler(index)}
+					onDeselected={deselectedHandler}
 					onToggleExpandCollapse={() => toggleExpandCollapseHandler(index)}
 					onStartResizeNameColumn={startResizeNameColumnHandler}
 					onResizeNameColumn={resizeNameColumnHandler}
@@ -417,7 +434,7 @@ export const EnvironmentInstance = (props: EnvironmentInstanceProps) => {
 	return (
 		<div
 			ref={instanceRef}
-			style={{ width: props.width, height: props.height, maxHeight: props.height }}
+			style={{ width: props.width, height: props.height }}
 			className={classNames}
 			tabIndex={0}
 			hidden={props.hidden}

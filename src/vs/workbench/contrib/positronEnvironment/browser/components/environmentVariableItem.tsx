@@ -6,11 +6,12 @@ import 'vs/css!./environmentVariableItem';
 import * as React from 'react';
 import { CSSProperties, MouseEvent } from 'react'; // eslint-disable-line no-duplicate-imports
 import * as nls from 'vs/nls';
+import * as platform from 'vs/base/common/platform';
 import { IAction, Separator } from 'vs/base/common/actions';
 import { positronClassNames } from 'vs/base/common/positronUtilities';
 import { AnchorAlignment, AnchorAxisAlignment } from 'vs/base/browser/ui/contextview/contextview';
-import { usePositronEnvironmentContext } from 'vs/workbench/contrib/positronEnvironment/browser/positronEnvironmentContext';
 import { ColumnSplitter } from 'vs/workbench/contrib/positronEnvironment/browser/components/columnSplitter';
+import { usePositronEnvironmentContext } from 'vs/workbench/contrib/positronEnvironment/browser/positronEnvironmentContext';
 import { IEnvironmentVariableItem } from 'vs/workbench/services/positronEnvironment/common/interfaces/environmentVariableItem';
 import { IPositronEnvironmentInstance } from 'vs/workbench/services/positronEnvironment/common/interfaces/positronEnvironmentService';
 import { POSITRON_ENVIRONMENT_COLLAPSE, POSITRON_ENVIRONMENT_COPY_AS_HTML, POSITRON_ENVIRONMENT_COPY_AS_TEXT, POSITRON_ENVIRONMENT_EXPAND } from 'vs/workbench/contrib/positronEnvironment/browser/positronEnvironmentIdentifiers';
@@ -27,6 +28,7 @@ export interface EnvironmentVariableItemProps {
 	focused: boolean;
 	style: CSSProperties;
 	onSelected: () => void;
+	onDeselected: () => void;
 	onToggleExpandCollapse: () => void;
 	onStartResizeNameColumn: () => void;
 	onResizeNameColumn: (x: number, y: number) => void;
@@ -44,10 +46,10 @@ export const EnvironmentVariableItem = (props: EnvironmentVariableItemProps) => 
 	const positronEnvironmentContext = usePositronEnvironmentContext();
 
 	/**
-	 * MouseDown handler for the row.
+	 * onMouseDown handler.
 	 * @param e A MouseEvent<HTMLElement> that describes a user interaction with the mouse.
 	 */
-	const rowMouseDownHandler = (e: MouseEvent<HTMLElement>) => {
+	const mouseDownHandler = (e: MouseEvent<HTMLElement>) => {
 		// Consume the event.
 		e.preventDefault();
 		e.stopPropagation();
@@ -56,8 +58,13 @@ export const EnvironmentVariableItem = (props: EnvironmentVariableItemProps) => 
 		switch (e.button) {
 			// Main button.
 			case 0:
-				// Call the selected callback.
-				props.onSelected();
+				if (props.selected) {
+					if (platform.isMacintosh ? e.metaKey : e.ctrlKey) {
+						props.onDeselected();
+					}
+				} else {
+					props.onSelected();
+				}
 				break;
 
 			// Secondary button.
@@ -105,22 +112,31 @@ export const EnvironmentVariableItem = (props: EnvironmentVariableItemProps) => 
 		// Build the actions.
 		const actions: IAction[] = [];
 
-		// Add the toggle expand / collapse action.
-		actions.push({
-			id: props.environmentVariableItem.expanded ?
-				POSITRON_ENVIRONMENT_COLLAPSE :
-				POSITRON_ENVIRONMENT_EXPAND,
-			label: props.environmentVariableItem.expanded ?
-				nls.localize('positron.environment.collapse', "Collapse") :
-				nls.localize('positron.environment.expand', "Expand"),
-			tooltip: '',
-			class: undefined,
-			enabled: true,
-			run: () => props.onToggleExpandCollapse()
-		});
+		// If the environment variable has children, add the toggle expand / collapse action.
+		if (props.environmentVariableItem.hasChildren) {
+			if (props.environmentVariableItem.expanded) {
+				actions.push({
+					id: POSITRON_ENVIRONMENT_COLLAPSE,
+					label: nls.localize('positron.environment.collapse', "Collapse"),
+					tooltip: '',
+					class: undefined,
+					enabled: true,
+					run: () => props.onToggleExpandCollapse()
+				});
+			} else {
+				actions.push({
+					id: POSITRON_ENVIRONMENT_EXPAND,
+					label: nls.localize('positron.environment.expand', "Expand"),
+					tooltip: '',
+					class: undefined,
+					enabled: true,
+					run: () => props.onToggleExpandCollapse()
+				});
+			}
 
-		// Push a separator.
-		actions.push(new Separator());
+			// Push a separator.
+			actions.push(new Separator());
+		}
 
 		// Add the copy name action.
 		actions.push({
@@ -161,7 +177,7 @@ export const EnvironmentVariableItem = (props: EnvironmentVariableItemProps) => 
 				const text = await props.environmentVariableItem.formatForClipboard('text/html');
 				positronEnvironmentContext.clipboardService.writeText(text);
 			}
-		});
+		} satisfies IAction);
 
 		// Show the context menu.
 		positronEnvironmentContext.contextMenuService.showContextMenu({
@@ -185,7 +201,7 @@ export const EnvironmentVariableItem = (props: EnvironmentVariableItemProps) => 
 
 	// Render.
 	return (
-		<div className={classNames} onMouseDown={rowMouseDownHandler} style={props.style}>
+		<div className={classNames} onMouseDown={mouseDownHandler} style={props.style}>
 			<div className='name-column' style={{ width: props.nameColumnWidth, minWidth: props.nameColumnWidth }}>
 				<div style={{ display: 'flex', marginLeft: props.environmentVariableItem.indentLevel * 20 }}>
 					<div className='gutter'>
