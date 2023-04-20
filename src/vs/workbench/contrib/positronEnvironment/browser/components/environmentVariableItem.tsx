@@ -61,7 +61,7 @@ const formatSize = (size: number) => {
 export interface EnvironmentVariableItemProps {
 	nameColumnWidth: number;
 	detailsColumnWidth: number;
-	typeVisible: boolean;
+	typeSizeVisible: boolean;
 	environmentVariableItem: IEnvironmentVariableItem;
 	selected: boolean;
 	focused: boolean;
@@ -264,8 +264,8 @@ export const EnvironmentVariableItem = (props: EnvironmentVariableItemProps) => 
 				<div className='value'>
 					{props.environmentVariableItem.displayValue}
 				</div>
-				{props.typeVisible && (
-					<div className='type'>
+				{props.typeSizeVisible && (
+					<div className='type-size'>
 						{props.positronEnvironmentInstance.sorting === PositronEnvironmentSorting.Name ?
 							props.environmentVariableItem.displayType :
 							formatSize(props.environmentVariableItem.size)}
