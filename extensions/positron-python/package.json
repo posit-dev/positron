@@ -1803,6 +1803,7 @@
         "compiled": "deemon npm run compile",
         "kill-compiled": "deemon --kill npm run compile",
         "checkDependencies": "gulp checkDependencies",
+        "postinstall": "gulp installPythonLibs",
         "test": "node ./out/test/standardTest.js && node ./out/test/multiRootTest.js",
         "test:unittests": "mocha --config ./build/.mocha.unittests.json",
         "test:unittests:cover": "nyc --no-clean --nycrc-path ./build/.nycrc mocha --config ./build/.mocha.unittests.json",
