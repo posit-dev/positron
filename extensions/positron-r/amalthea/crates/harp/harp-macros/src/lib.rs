@@ -105,10 +105,37 @@ pub fn vector(_attr: TokenStream, item: TokenStream) -> TokenStream {
             }
         }
 
+        pub struct UnsafeVectorIter<'a> {
+            data: &'a #ident,
+            index: isize,
+            size: isize,
+        }
+
+        impl<'a> std::iter::Iterator for UnsafeVectorIter<'a> {
+            type Item = <#ident as Vector>::Type;
+
+            fn next(&mut self) -> Option<Self::Item> {
+                if self.index == self.size {
+                    return None;
+                }
+
+                unsafe { self.data.get_unchecked(self.index) }
+            }
+        }
+
         impl #ident {
             pub fn iter(&self) -> VectorIter<'_> {
                 let size = unsafe { self.len() as isize };
                 VectorIter {
+                    data: self,
+                    index: 0,
+                    size: size,
+                }
+            }
+
+            pub fn unsafe_iter(&self) -> UnsafeVectorIter<'_> {
+                let size = unsafe { self.len() as isize };
+                UnsafeVectorIter {
                     data: self,
                     index: 0,
                     size: size,
