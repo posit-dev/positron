@@ -20,7 +20,7 @@ import { EnvironmentEntry, IPositronEnvironmentInstance, isEnvironmentVariableGr
 const LINE_HEIGHT = 26;
 const DEFAULT_NAME_COLUMN_WIDTH = 130;
 const MINIMUM_NAME_COLUMN_WIDTH = 100;
-const TYPE_VISIBILITY_THRESHOLD = 250;
+const TYPE_SIZE_VISIBILITY_THRESHOLD = 250;
 
 /**
  * EnvironmentInstanceProps interface.
@@ -49,8 +49,8 @@ export const EnvironmentInstance = (props: EnvironmentInstanceProps) => {
 	const [nameColumnWidth, setNameColumnWidth] = useState(DEFAULT_NAME_COLUMN_WIDTH);
 	const [detailsColumnWidth, setDetailsColumnWidth] =
 		useState(props.width - DEFAULT_NAME_COLUMN_WIDTH);
-	const [typeVisible, setTypeVisible] =
-		useState(props.width - DEFAULT_NAME_COLUMN_WIDTH > TYPE_VISIBILITY_THRESHOLD);
+	const [typeSizeVisible, setTypeSizeVisible] =
+		useState(props.width - DEFAULT_NAME_COLUMN_WIDTH > TYPE_SIZE_VISIBILITY_THRESHOLD);
 	const [entries, setEntries] = useState<EnvironmentEntry[]>([]);
 	const [resizingColumn, setResizingColumn] = useState(false);
 	const [selectedId, setSelectedId] = useState<string | undefined>(undefined);
@@ -108,8 +108,8 @@ export const EnvironmentInstance = (props: EnvironmentInstanceProps) => {
 		setNameColumnWidth(props.width - newDetailsColumnWidth);
 		setDetailsColumnWidth(newDetailsColumnWidth);
 
-		// Set the type visibility.
-		setTypeVisible(newDetailsColumnWidth > TYPE_VISIBILITY_THRESHOLD);
+		// Set the type / size visibility.
+		setTypeSizeVisible(newDetailsColumnWidth > TYPE_SIZE_VISIBILITY_THRESHOLD);
 	}, [props.width]);
 
 	// Entries useEffect hook.
@@ -369,8 +369,8 @@ export const EnvironmentInstance = (props: EnvironmentInstanceProps) => {
 		setNameColumnWidth(newNameColumnWidth);
 		setDetailsColumnWidth(newDetailsColumnWidth);
 
-		// Set the type visibility.
-		setTypeVisible(newDetailsColumnWidth > TYPE_VISIBILITY_THRESHOLD);
+		// Set the type /size visibility.
+		setTypeSizeVisible(newDetailsColumnWidth > TYPE_SIZE_VISIBILITY_THRESHOLD);
 	};
 
 	/**
@@ -401,7 +401,7 @@ export const EnvironmentInstance = (props: EnvironmentInstanceProps) => {
 				<EnvironmentVariableItem
 					nameColumnWidth={nameColumnWidth}
 					detailsColumnWidth={detailsColumnWidth}
-					typeVisible={typeVisible}
+					typeSizeVisible={typeSizeVisible}
 					environmentVariableItem={entry}
 					style={style}
 					focused={focused}
