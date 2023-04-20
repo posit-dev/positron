@@ -10,6 +10,7 @@ use harp::environment::BindingKind;
 use harp::environment::BindingType;
 use harp::environment::BindingValue;
 use harp::environment::env_bindings;
+use harp::environment::pairlist_size;
 use harp::exec::RFunction;
 use harp::exec::RFunctionExt;
 use harp::exec::r_try_catch_error;
@@ -102,37 +103,33 @@ impl EnvironmentVariable {
     pub fn new(binding: &Binding) -> Self {
         let display_name = binding.name.to_string();
 
-        let BindingValue {
-            display_value,
-            is_truncated,
-        } = binding.get_value();
-        let BindingType {
-            display_type,
-            type_info,
-        } = binding.get_type();
-
-        let (kind, size) = match binding.kind {
-            BindingKind::Active => (ValueKind::Other, 0),
-            BindingKind::Promise(false) => (ValueKind::Other, 0),
-            BindingKind::Promise(true) => {
-                let value = unsafe { PRVALUE(binding.value) };
-                (Self::variable_kind(value), RObject::view(value).size())
+        match binding.kind {
+            BindingKind::Active => Self {
+                access_key: display_name.clone(),
+                display_name,
+                display_value: String::from(""),
+                display_type: String::from("active binding"),
+                type_info: String::from("active binding"),
+                kind: ValueKind::Other,
+                length: 0,
+                size: 0,
+                has_children: false,
+                is_truncated: false
             },
-            BindingKind::Regular => (Self::variable_kind(binding.value), RObject::view(binding.value).size()),
-        };
-        let has_children = binding.has_children();
-
-        Self {
-            access_key: display_name.clone(),
-            display_name,
-            display_value,
-            display_type,
-            type_info,
-            kind,
-            length: 0,
-            size,
-            has_children,
-            is_truncated,
+            BindingKind::Promise(false) => Self {
+                access_key: display_name.clone(),
+                display_name,
+                display_value: String::from(""),
+                display_type: String::from("promise"),
+                type_info: String::from("promise"),
+                kind: ValueKind::Other,
+                length: 0,
+                size: 0,
+                has_children: false,
+                is_truncated: false
+            },
+            BindingKind::Promise(true) => Self::from(display_name.clone(), display_name, unsafe { PRVALUE(binding.value) }),
+            BindingKind::Regular => Self::from(display_name.clone(), display_name, binding.value)
         }
     }
 
@@ -151,10 +148,36 @@ impl EnvironmentVariable {
             display_type,
             type_info,
             kind: Self::variable_kind(x),
-            length: 0,
+            length: Self::variable_length(x),
             size: RObject::view(x).size(),
             has_children,
             is_truncated
+        }
+    }
+
+    fn variable_length(x: SEXP) -> usize {
+        let rtype = r_typeof(x);
+        match rtype {
+            LGLSXP | RAWSXP | INTSXP | REALSXP | CPLXSXP | STRSXP => unsafe { XLENGTH(x) as usize },
+            VECSXP => unsafe {
+                if r_inherits(x, "POSIXlt") {
+                    XLENGTH(VECTOR_ELT(x, 0)) as usize
+                } else if r_inherits(x, "data.frame") {
+                    let dim = RFunction::new("base", "dim.data.frame")
+                        .add(x)
+                        .call()
+                        .unwrap();
+
+                    INTEGER_ELT(*dim, 0) as usize
+                } else {
+                    XLENGTH(x) as usize
+                }
+            },
+            LISTSXP => match pairlist_size(x) {
+                Ok(n)  => n as usize,
+                Err(_) => 0
+            },
+            _ => 0
         }
     }
 
