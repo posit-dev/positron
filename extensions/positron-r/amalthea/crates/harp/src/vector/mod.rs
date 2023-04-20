@@ -26,6 +26,9 @@ pub use logical_vector::LogicalVector;
 pub mod numeric_vector;
 pub use numeric_vector::NumericVector;
 
+pub mod complex_vector;
+pub use complex_vector::ComplexVector;
+
 pub mod raw_vector;
 pub use raw_vector::RawVector;
 

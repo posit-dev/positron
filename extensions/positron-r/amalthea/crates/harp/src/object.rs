@@ -17,13 +17,16 @@ use std::sync::Once;
 use libR_sys::*;
 use log::trace;
 
-use crate::environment::Sxpinfo;
 use crate::error::Error;
 use crate::exec::RFunction;
 use crate::exec::RFunctionExt;
 use crate::protect::RProtect;
 use crate::utils::r_assert_length;
 use crate::utils::r_assert_type;
+use crate::utils::r_is_altrep;
+use crate::utils::r_is_null;
+use crate::utils::r_is_object;
+use crate::utils::r_is_s4;
 use crate::utils::r_typeof;
 
 // Objects are protected using a doubly-linked list,
@@ -33,7 +36,7 @@ static mut PRECIOUS_LIST : Option<SEXP> = None;
 
 unsafe fn protect(object: SEXP) -> SEXP {
     // Nothing to do
-    if object == R_NilValue {
+    if r_is_null(object) {
         return R_NilValue;
     }
 
@@ -76,7 +79,7 @@ unsafe fn protect(object: SEXP) -> SEXP {
 
 unsafe fn unprotect(cell: SEXP) {
 
-    if cell == R_NilValue {
+    if r_is_null(cell) {
         return;
     }
 
@@ -120,6 +123,32 @@ impl<T: Into<RObject>> RObjectExt<T> for RObject {
     }
 }
 
+// TODO: borrow implementation from lobstr instead
+//       of calling object.size()
+fn r_size(x: SEXP) -> usize {
+    if r_is_null(x) {
+        return 0;
+    }
+    if r_is_altrep(x) {
+        return unsafe {
+            r_size(R_altrep_data1(x)) + r_size(R_altrep_data2(x))
+        };
+    }
+    let size = unsafe {
+        RFunction::new("utils", "object.size")
+            .add(x)
+            .call()
+    };
+
+    match size {
+        Err(_) => 0,
+        Ok(size) => {
+            let value = unsafe { REAL_ELT(*size, 0) };
+            value as usize
+        }
+    }
+}
+
 impl RObject {
 
     pub unsafe fn new(data: SEXP) -> Self {
@@ -143,7 +172,19 @@ impl RObject {
     }
 
     pub fn is_s4(&self) -> bool {
-        Sxpinfo::interpret(&self.sexp).is_s4()
+        r_is_s4(self.sexp)
+    }
+
+    pub fn is_altrep(&self) -> bool {
+        r_is_altrep(self.sexp)
+    }
+
+    pub fn is_object(&self) -> bool {
+        r_is_object(self.sexp)
+    }
+
+    pub fn size(&self) -> usize {
+        r_size(self.sexp)
     }
 
 }
