@@ -8,7 +8,7 @@
 use harp::environment::Binding;
 use harp::environment::BindingKind;
 use harp::environment::BindingType;
-use harp::environment::BindingValue;
+use harp::environment::WorkspaceVariableDisplayValue;
 use harp::environment::Environment;
 use harp::environment::pairlist_size;
 use harp::exec::RFunction;
@@ -104,30 +104,8 @@ impl EnvironmentVariable {
         let display_name = binding.name.to_string();
 
         match binding.kind {
-            BindingKind::Active => Self {
-                access_key: display_name.clone(),
-                display_name,
-                display_value: String::from(""),
-                display_type: String::from("active binding"),
-                type_info: String::from("active binding"),
-                kind: ValueKind::Other,
-                length: 0,
-                size: 0,
-                has_children: false,
-                is_truncated: false
-            },
-            BindingKind::Promise(false) => Self {
-                access_key: display_name.clone(),
-                display_name,
-                display_value: String::from(""),
-                display_type: String::from("promise"),
-                type_info: String::from("promise"),
-                kind: ValueKind::Other,
-                length: 0,
-                size: 0,
-                has_children: false,
-                is_truncated: false
-            },
+            BindingKind::Active => Self::from_lazy(display_name, String::from("active binding")),
+            BindingKind::Promise(false) => Self::from_lazy(display_name, String::from("promise")),
             BindingKind::Promise(true) => Self::from(display_name.clone(), display_name, unsafe { PRVALUE(binding.value) }),
             BindingKind::Regular => Self::from(display_name.clone(), display_name, binding.value)
         }
@@ -137,7 +115,7 @@ impl EnvironmentVariable {
      * Create a new EnvironmentVariable from an R object
      */
     fn from(access_key: String, display_name: String, x: SEXP) -> Self {
-        let BindingValue{display_value, is_truncated} = BindingValue::from(x);
+        let WorkspaceVariableDisplayValue{display_value, is_truncated} = WorkspaceVariableDisplayValue::from(x);
         let BindingType{display_type, type_info} = BindingType::from(x);
         let has_children = harp::environment::has_children(x);
 
@@ -152,6 +130,21 @@ impl EnvironmentVariable {
             size: RObject::view(x).size(),
             has_children,
             is_truncated
+        }
+    }
+
+    fn from_lazy(display_name: String, lazy_type: String) -> Self {
+        Self {
+            access_key: display_name.clone(),
+            display_name,
+            display_value: String::from(""),
+            display_type: lazy_type.clone(),
+            type_info: lazy_type,
+            kind: ValueKind::Other,
+            length: 0,
+            size: 0,
+            has_children: false,
+            is_truncated: false
         }
     }
 
