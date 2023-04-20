@@ -381,7 +381,26 @@ impl REnvironment {
 
                     (Some(old), Some(new)) => {
                         if old.name == new.name {
+                            let mut updated = false;
                             if old.value != new.value {
+                                updated = true;
+                            } else {
+                                if old.watch_list.len() != new.watch_list.len() {
+                                    // watch lists have difference sizes, that should not happen
+                                    // but that means the binding has changed for sure
+                                    updated = true;
+                                } else {
+                                    // consider the object updated if any of the watched SEXP has changed
+                                    for (x, y) in std::iter::zip(old.watch_list.iter(), new.watch_list.iter()) {
+                                        if x != y {
+                                            updated = true;
+                                            break;
+                                        }
+                                    }
+                                }
+                            }
+
+                            if updated {
                                 assigned.push(
                                     EnvironmentVariable::new(&new)
                                 );

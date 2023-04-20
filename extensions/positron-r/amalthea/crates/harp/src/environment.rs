@@ -182,11 +182,17 @@ impl Binding {
                 }
             };
 
+            let watch_list = if r_is_altrep(value) {
+                vec![R_altrep_data1(value), R_altrep_data2(value)]
+            } else {
+                vec![]
+            };
+
             Self {
                 name,
                 value,
                 kind,
-                watch_list: vec![]
+                watch_list
             }
         }
 
