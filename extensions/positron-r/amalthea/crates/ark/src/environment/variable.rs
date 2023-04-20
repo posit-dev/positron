@@ -260,6 +260,23 @@ impl WorkspaceVariableDisplayType {
 
 }
 
+fn has_children(value: SEXP) -> bool {
+    if RObject::view(value).is_s4() {
+        unsafe {
+            let names = RFunction::new("methods", ".slotNames").add(value).call().unwrap();
+            let names = CharacterVector::new_unchecked(names);
+            names.len() > 0
+        }
+    } else {
+        match r_typeof(value) {
+            VECSXP   => unsafe { XLENGTH(value) != 0 },
+            EXPRSXP  => unsafe { XLENGTH(value) != 0 },
+            LISTSXP  => true,
+            ENVSXP   => true,
+            _        => false
+        }
+    }
+}
 
 impl EnvironmentVariable {
     /**
@@ -282,7 +299,6 @@ impl EnvironmentVariable {
     fn from(access_key: String, display_name: String, x: SEXP) -> Self {
         let WorkspaceVariableDisplayValue{display_value, is_truncated} = WorkspaceVariableDisplayValue::from(x);
         let WorkspaceVariableDisplayType{display_type, type_info} = WorkspaceVariableDisplayType::from(x);
-        let has_children = harp::environment::has_children(x);
 
         Self {
             access_key,
@@ -293,7 +309,7 @@ impl EnvironmentVariable {
             kind: Self::variable_kind(x),
             length: Self::variable_length(x),
             size: RObject::view(x).size(),
-            has_children,
+            has_children: has_children(x),
             is_truncated
         }
     }

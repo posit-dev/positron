@@ -9,8 +9,6 @@ use std::ops::Deref;
 
 use libR_sys::*;
 
-use crate::exec::RFunction;
-use crate::exec::RFunctionExt;
 use crate::object::RObject;
 use crate::symbol::RSymbol;
 use crate::utils::Sxpinfo;
@@ -95,24 +93,6 @@ impl Binding {
         String::from(self.name).starts_with(".")
     }
 
-}
-
-pub fn has_children(value: SEXP) -> bool {
-    if RObject::view(value).is_s4() {
-        unsafe {
-            let names = RFunction::new("methods", ".slotNames").add(value).call().unwrap();
-            let names = CharacterVector::new_unchecked(names);
-            names.len() > 0
-        }
-    } else {
-        match r_typeof(value) {
-            VECSXP   => unsafe { XLENGTH(value) != 0 },
-            EXPRSXP  => unsafe { XLENGTH(value) != 0 },
-            LISTSXP  => true,
-            ENVSXP   => true,
-            _        => false
-        }
-    }
 }
 
 pub fn is_simple_vector(value: SEXP) -> bool {
