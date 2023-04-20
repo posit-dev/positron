@@ -9,7 +9,7 @@ use itertools::Itertools;
 
 use harp::environment::Binding;
 use harp::environment::BindingKind;
-use harp::environment::BindingType;
+use harp::environment::WorkspaceVariableDisplayType;
 use harp::environment::Environment;
 use harp::environment::is_simple_vector;
 use harp::environment::pairlist_size;
@@ -182,7 +182,7 @@ impl EnvironmentVariable {
      */
     fn from(access_key: String, display_name: String, x: SEXP) -> Self {
         let WorkspaceVariableDisplayValue{display_value, is_truncated} = WorkspaceVariableDisplayValue::from(x);
-        let BindingType{display_type, type_info} = BindingType::from(x);
+        let WorkspaceVariableDisplayType{display_type, type_info} = WorkspaceVariableDisplayType::from(x);
         let has_children = harp::environment::has_children(x);
 
         Self {

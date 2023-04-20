@@ -50,12 +50,12 @@ pub struct Binding {
     pub extra: BindingExtra,
 }
 
-pub struct BindingType {
+pub struct WorkspaceVariableDisplayType {
     pub display_type: String,
     pub type_info: String
 }
 
-impl BindingType {
+impl WorkspaceVariableDisplayType {
 
     pub fn from(value: SEXP) -> Self {
         if value == unsafe { R_NilValue } {
@@ -267,7 +267,7 @@ fn vec_type(value: SEXP) -> String {
     }
 }
 
-fn vec_type_info(value: SEXP) -> BindingType {
+fn vec_type_info(value: SEXP) -> WorkspaceVariableDisplayType {
     let display_type = format!("{}{}", vec_type(value), vec_shape(value));
 
     let mut type_info = display_type.clone();
@@ -275,7 +275,7 @@ fn vec_type_info(value: SEXP) -> BindingType {
         type_info.push_str(altrep_class(value).as_str())
     }
 
-    BindingType::new(display_type, type_info)
+    WorkspaceVariableDisplayType::new(display_type, type_info)
 }
 
 fn vec_shape(value: SEXP) -> String {
