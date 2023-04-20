@@ -42,6 +42,11 @@ export interface IEnvironmentVariableItem {
 	displayType: string;
 
 	/**
+	 * Gets the size.
+	 */
+	size: number;
+
+	/**
 	 * Gets a value which indicates whether the environment variable is expanded.
 	 */
 	expanded: boolean;
