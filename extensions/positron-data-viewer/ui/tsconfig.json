@@ -1,21 +1,14 @@
 {
+	"extends": "../../tsconfig.base.json",
 	"compilerOptions": {
-		"module": "esnext",
-		"moduleResolution": "node",
-		"target": "es6",
-		"outDir": "viewer",
+		"outDir": "./dist/",
 		"lib": [
-			"es6",
-			"dom"
+			"es2018",
+			"DOM",
+			"DOM.Iterable"
 		],
 		"jsx": "react",
-		"sourceMap": true,
-		"noUnusedLocals": true,
-		"noImplicitReturns": true,
-		"noFallthroughCasesInSwitch": true,
-		"experimentalDecorators": true
-	},
-	"exclude": [
-		"node_modules"
-	]
+		"module": "es2020"
+	}
 }
+

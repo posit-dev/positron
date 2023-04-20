@@ -12,15 +12,29 @@ export function activate(context: vscode.ExtensionContext) {
 				'positronDataViewer',
 				'Data Viewer',
 				vscode.ViewColumn.One,
-				{}
+				{
+					enableScripts: true,
+				}
 			);
 
-			const reactPath = vscode.Uri.file(
-				path.join(context.extensionPath, 'viewer', 'viewer.js')
+			let reactPath = vscode.Uri.file(
+				path.join(context.extensionPath, 'ui', 'node_modules', 'react', 'umd', 'react.development.js')
 			);
-			const reactUri = reactPath.with({ scheme: 'vscode-resource' });
+			let reactUri = panel.webview.asWebviewUri(reactPath);
+			let reactHtml = `<script src="${reactUri}"></script>\n`;
 
-			const reactHtml = `<script src="${reactUri}">`;
+			reactPath = vscode.Uri.file(
+				path.join(context.extensionPath, 'ui', 'node_modules', 'react-dom', 'umd', 'react-dom.development.js')
+			);
+			reactUri = panel.webview.asWebviewUri(reactPath);
+			reactHtml += `<script src="${reactUri}"></script>\n`;
+
+			reactPath = vscode.Uri.file(
+				path.join(context.extensionPath, 'ui', 'out', 'index.js')
+			);
+			reactUri = panel.webview.asWebviewUri(reactPath);
+			reactHtml += `<script src="${reactUri}"></script>\n`;
+
 			panel.webview.html = `<body><div id="root"></div></body>${reactHtml}`;
 		})
 	);

@@ -6,19 +6,20 @@
 
 'use strict';
 
-const withDefaults = require('../../shared.webpack.config');
+const withBrowserDefaults = require('../../shared.webpack.config').browser;
 const path = require('path');
 
-module.exports = withDefaults({
+module.exports = withBrowserDefaults({
 	context: path.join(__dirname),
 	entry: {
-		extension: './src/main.ts',
+		extension: './src/index.tsx',
 	},
 	node: {
 		__dirname: false
 	},
-	output: {
-		filename: 'main.js',
-		path: path.join(__dirname, 'dist', 'ui'),
+	resolve: {
+		mainFields: ['module', 'main'],
+		extensions: ['.ts', '.tsx']
 	}
 });
+
