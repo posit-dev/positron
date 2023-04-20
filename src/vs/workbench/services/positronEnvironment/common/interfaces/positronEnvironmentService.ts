@@ -47,6 +47,24 @@ export const enum PositronEnvironmentSorting {
 export type EnvironmentEntry = IEnvironmentVariableGroup | IEnvironmentVariableItem;
 
 /**
+ * isEnvironmentVariableGroup user-defined type guard.
+ * @param _ The entry.
+ * @returns Whether the entry is IEnvironmentVariableGroup.
+ */
+export const isEnvironmentVariableGroup = (_: EnvironmentEntry): _ is IEnvironmentVariableGroup => {
+	return 'title' in _;
+};
+
+/**
+ * isEnvironmentVariableItem user-defined type guard.
+ * @param _ The entry.
+ * @returns Whether the entry is IEnvironmentVariableItem.
+ */
+export const isEnvironmentVariableItem = (_: EnvironmentEntry): _ is IEnvironmentVariableItem => {
+	return 'path' in _;
+};
+
+/**
  * IPositronEnvironmentService interface.
  */
 export interface IPositronEnvironmentService {

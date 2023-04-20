@@ -43,14 +43,9 @@ export interface IReactComponentContainer extends IFocusReceiver {
 	takeFocus(): void;
 
 	/**
-	 * Enables keybindings.
+	 * Notifies the React component container when focus changes.
 	 */
-	enableKeybindings(): void;
-
-	/**
-	 * Disables keybindings.
-	 */
-	disableKeybindings(): void;
+	focusChanged?(focused: boolean): void;
 
 	/**
 	 * onSizeChanged event.

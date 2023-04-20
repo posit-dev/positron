@@ -5,11 +5,14 @@
 //
 //
 
+use itertools::Itertools;
+use itertools::FoldWhile::{Continue, Done};
 use libR_sys::*;
 
 use crate::error::Result;
 use crate::utils::r_assert_capacity;
 use crate::utils::r_assert_type;
+use crate::with_vector;
 
 pub mod character_vector;
 pub use character_vector::CharacterVector;
@@ -25,6 +28,9 @@ pub use logical_vector::LogicalVector;
 
 pub mod numeric_vector;
 pub use numeric_vector::NumericVector;
+
+pub mod complex_vector;
+pub use complex_vector::ComplexVector;
 
 pub mod raw_vector;
 pub use raw_vector::RawVector;
@@ -80,4 +86,41 @@ pub trait Vector {
 
     fn format_one(&self, x: Self::Type) -> String;
 
+}
+
+pub struct Collapse {
+    pub result: String,
+    pub truncated: bool,
+}
+
+pub fn collapse(vector: SEXP, sep: &str, max: usize, quote: &str) -> Result<Collapse> {
+    with_vector!(vector, |v| {
+        let mut first = true;
+        let formatted = v.iter().fold_while(String::from(""), |mut acc, x| {
+            let added = format!("{}{}{}{}",
+                if first {
+                    first = false;
+                    ""
+                } else {
+                    sep
+                },
+                quote,
+                match x {
+                    Some(x) => v.format_one(x),
+                    None    => String::from("NA")
+                },
+                quote
+            );
+            acc.push_str(&added);
+            if max > 0 && acc.len() > max {
+                Done(acc)
+            } else {
+                Continue(acc)
+            }
+        });
+        match formatted {
+            Done(result) => Collapse{result, truncated: false},
+            Continue(result) => Collapse{result, truncated: true}
+        }
+    })
 }

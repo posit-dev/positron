@@ -18,16 +18,12 @@ use crate::symbol::RSymbol;
 use crate::utils::Sxpinfo;
 use crate::utils::r_assert_type;
 use crate::utils::r_inherits;
+use crate::utils::r_is_altrep;
 use crate::utils::r_is_null;
 use crate::utils::r_typeof;
 use crate::vector::CharacterVector;
-use crate::vector::Factor;
-use crate::vector::IntegerVector;
-use crate::vector::LogicalVector;
-use crate::vector::NumericVector;
-use crate::vector::RawVector;
 use crate::vector::Vector;
-use crate::with_vector;
+use crate::vector::collapse;
 
 #[derive(Debug, Eq, PartialEq)]
 pub enum BindingKind {
@@ -126,9 +122,7 @@ impl BindingType {
                         .add(value)
                         .call()
                         .unwrap();
-
-                    let dim = IntegerVector::new(dim).unwrap();
-                    let shape = dim.format(",", 0).1;
+                    let shape = collapse(*dim, ",", 0, "").unwrap().result;
 
                     Self::simple(
                         format!("{} [{}]", dfclass, shape)
@@ -192,16 +186,6 @@ impl Binding {
             }
         }
 
-    }
-
-    pub fn get_value(&self) -> BindingValue {
-        match self.kind {
-            BindingKind::Regular => regular_binding_display_value(self.value),
-            BindingKind::Promise(true) => regular_binding_display_value(unsafe{PRVALUE(self.value)}),
-
-            BindingKind::Active => BindingValue::empty(),
-            BindingKind::Promise(false) => BindingValue::empty()
-        }
     }
 
     pub fn get_type(&self) -> BindingType {
@@ -278,18 +262,15 @@ fn first_class(value: SEXP) -> Option<String> {
 fn all_classes(value: SEXP) -> String {
     unsafe {
         let classes = Rf_getAttrib(value, R_ClassSymbol);
-        let classes = CharacterVector::new_unchecked(classes);
-        classes.format("/", 0).1
+        collapse(classes, "/", 0, "").unwrap().result
     }
 }
 
 fn regular_binding_display_value(value: SEXP) -> BindingValue {
     let rtype = r_typeof(value);
     if is_simple_vector(value) {
-        with_vector!(value, |v| {
-            let formatted = v.format(" ", 100);
-            BindingValue::new(formatted.1, formatted.0)
-        }).unwrap()
+        let formatted = collapse(value, " ", 100, if rtype == STRSXP { "\"" } else { "" }).unwrap();
+        BindingValue::new(formatted.result, formatted.truncated)
     } else if rtype == VECSXP && ! unsafe{r_inherits(value, "POSIXlt")}{
         // This includes data frames
         BindingValue::empty()
@@ -320,10 +301,8 @@ fn format_display_value(value: SEXP) -> BindingValue {
         match formatted {
             Ok(fmt) => {
                 if r_typeof(*fmt) == STRSXP {
-                    let fmt = CharacterVector::unquoted(*fmt);
-                    let fmt = fmt.format(" ", 100);
-
-                    BindingValue::new(fmt.1, fmt.0)
+                    let fmt = collapse(*fmt, " ", 100, "").unwrap();
+                    BindingValue::new(fmt.result, fmt.truncated)
                 } else {
                     BindingValue::new(String::from("???"), false)
                 }
@@ -335,7 +314,7 @@ fn format_display_value(value: SEXP) -> BindingValue {
     }
 }
 
-fn pairlist_size(mut pairlist: SEXP) -> Result<isize, crate::error::Error> {
+pub fn pairlist_size(mut pairlist: SEXP) -> Result<isize, crate::error::Error> {
     let mut n = 0;
     unsafe {
         while pairlist != R_NilValue {
@@ -370,10 +349,10 @@ fn vec_type(value: SEXP) -> String {
 }
 
 fn vec_type_info(value: SEXP) -> BindingType {
-    let display_type = format!("{} [{}]", vec_type(value), vec_shape(value));
+    let display_type = format!("{}{}", vec_type(value), vec_shape(value));
 
     let mut type_info = display_type.clone();
-    if unsafe{ ALTREP(value) == 1} {
+    if r_is_altrep(value) {
         type_info.push_str(altrep_class(value).as_str())
     }
 
@@ -385,10 +364,13 @@ fn vec_shape(value: SEXP) -> String {
         let dim = RObject::new(Rf_getAttrib(value, R_DimSymbol));
 
         if r_is_null(*dim) {
-            format!("{}", Rf_xlength(value))
+            if XLENGTH(value) == 1 {
+                String::from("")
+            } else {
+                format!(" [{}]", Rf_xlength(value))
+            }
         } else {
-            let dim = IntegerVector::new(dim).unwrap();
-            dim.format(",", 0).1
+            format!(" [{}]", collapse(*dim, ",", 0, "").unwrap().result)
         }
     }
 }
