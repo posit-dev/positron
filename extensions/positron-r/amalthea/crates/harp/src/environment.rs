@@ -5,7 +5,6 @@
 //
 //
 
-use std::cmp::Ordering;
 use std::ops::Deref;
 
 use itertools::Itertools;
@@ -32,24 +31,26 @@ pub enum BindingKind {
     Promise(bool),
 }
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Eq, PartialEq)]
+pub struct BindingExtraAltrep {
+    data1: SEXP,
+    data2: SEXP,
+}
+
+#[derive(Eq, PartialEq)]
+pub enum BindingExtra {
+    None,
+    Altrep(BindingExtraAltrep)
+}
+
+
+
+#[derive(Eq, PartialEq)]
 pub struct Binding {
     pub name: RSymbol,
     pub value: SEXP,
     pub kind: BindingKind,
-    pub watch_list: Vec<SEXP>
-}
-
-impl Ord for Binding {
-    fn cmp(&self, other: &Self) -> Ordering {
-        self.name.cmp(&other.name)
-    }
-}
-
-impl PartialOrd for Binding {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(self.cmp(other))
-    }
+    pub extra: BindingExtra,
 }
 
 pub struct BindingValue {
@@ -182,17 +183,20 @@ impl Binding {
                 }
             };
 
-            let watch_list = if r_is_altrep(value) {
-                vec![R_altrep_data1(value), R_altrep_data2(value)]
+            let extra = if r_is_altrep(value) {
+                BindingExtra::Altrep(BindingExtraAltrep{
+                    data1: R_altrep_data1(value),
+                    data2: R_altrep_data2(value)
+                })
             } else {
-                vec![]
+                BindingExtra::None
             };
 
             Self {
                 name,
                 value,
                 kind,
-                watch_list
+                extra
             }
         }
 
