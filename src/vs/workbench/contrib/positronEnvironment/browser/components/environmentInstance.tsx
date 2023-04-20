@@ -342,6 +342,7 @@ export const EnvironmentInstance = (props: EnvironmentInstanceProps) => {
 	 */
 	const focusHandler = () => {
 		setFocused(true);
+		positronEnvironmentContext.reactComponentContainer.focusChanged?.(true);
 	};
 
 	/**
@@ -349,6 +350,7 @@ export const EnvironmentInstance = (props: EnvironmentInstanceProps) => {
 	 */
 	const blurHandler = () => {
 		setFocused(false);
+		positronEnvironmentContext.reactComponentContainer.focusChanged?.(false);
 	};
 
 	/**

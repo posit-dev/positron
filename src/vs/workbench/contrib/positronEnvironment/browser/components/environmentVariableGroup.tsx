@@ -51,10 +51,8 @@ export const EnvironmentVariableGroup = (props: EnvironmentVariableGroupProps) =
 		switch (e.button) {
 			// Main button.
 			case 0:
-				if (props.selected) {
-					if (platform.isMacintosh ? e.metaKey : e.ctrlKey) {
-						props.onDeselected();
-					}
+				if (props.selected && (platform.isMacintosh ? e.metaKey : e.ctrlKey)) {
+					props.onDeselected();
 				} else {
 					props.onSelected();
 				}
