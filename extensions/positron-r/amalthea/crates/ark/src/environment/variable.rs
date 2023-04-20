@@ -5,11 +5,16 @@
 //
 //
 
+use harp::environment::all_classes;
+use harp::environment::altrep_class;
+use harp::environment::first_class;
+use harp::environment::vec_shape;
+use harp::environment::vec_type;
+use harp::utils::r_is_altrep;
 use itertools::Itertools;
 
 use harp::environment::Binding;
 use harp::environment::BindingKind;
-use harp::environment::WorkspaceVariableDisplayType;
 use harp::environment::Environment;
 use harp::environment::is_simple_vector;
 use harp::environment::pairlist_size;
@@ -159,6 +164,100 @@ impl WorkspaceVariableDisplayValue {
             }
         }
     }
+}
+
+
+pub struct WorkspaceVariableDisplayType {
+    pub display_type: String,
+    pub type_info: String
+}
+
+impl WorkspaceVariableDisplayType {
+
+    pub fn from(value: SEXP) -> Self {
+        if value == unsafe { R_NilValue } {
+            return Self::simple(String::from("NULL"))
+        }
+
+        if RObject::view(value).is_s4() {
+            return Self::from_class(value, String::from("S4"));
+        }
+
+        if is_simple_vector(value) {
+            let display_type = format!("{}{}", vec_type(value), vec_shape(value));
+
+            let mut type_info = display_type.clone();
+            if r_is_altrep(value) {
+                type_info.push_str(altrep_class(value).as_str())
+            }
+
+            return Self::new(display_type, type_info);
+        }
+
+        let rtype = r_typeof(value);
+        match rtype {
+            EXPRSXP => Self::from_class(value, format!("expression [{}]", unsafe { XLENGTH(value) })),
+            LANGSXP => Self::from_class(value, String::from("language")),
+            CLOSXP  => Self::from_class(value, String::from("function")),
+            ENVSXP  => Self::from_class(value, String::from("environment")),
+            SYMSXP  => {
+                if value == unsafe { R_MissingArg } {
+                    Self::simple(String::from("missing"))
+                } else {
+                    Self::simple(String::from("symbol"))
+                }
+            },
+
+            LISTSXP => {
+                match pairlist_size(value) {
+                    Ok(n)  => Self::simple(format!("pairlist [{}]", n)),
+                    Err(_) => Self::simple(String::from("pairlist [?]"))
+                }
+            },
+
+            VECSXP => unsafe {
+                if r_inherits(value, "data.frame") {
+                    let dfclass = first_class(value).unwrap();
+
+                    let dim = RFunction::new("base", "dim.data.frame")
+                        .add(value)
+                        .call()
+                        .unwrap();
+                    let shape = collapse(*dim, ",", 0, "").unwrap().result;
+
+                    Self::simple(
+                        format!("{} [{}]", dfclass, shape)
+                    )
+                } else {
+                    Self::from_class(value, format!("list [{}]", XLENGTH(value)))
+                }
+            },
+            _      => Self::from_class(value, String::from("???"))
+        }
+
+    }
+
+    fn simple(display_type: String) -> Self {
+        Self {
+            display_type,
+            type_info: String::from("")
+        }
+    }
+
+    fn from_class(value: SEXP, default: String) -> Self {
+        match first_class(value) {
+            None        => Self::simple(default),
+            Some(class) => Self::new(class, all_classes(value))
+        }
+    }
+
+    fn new(display_type: String, type_info: String) -> Self {
+        Self {
+            display_type,
+            type_info
+        }
+    }
+
 }
 
 

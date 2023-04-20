@@ -50,92 +50,6 @@ pub struct Binding {
     pub extra: BindingExtra,
 }
 
-pub struct WorkspaceVariableDisplayType {
-    pub display_type: String,
-    pub type_info: String
-}
-
-impl WorkspaceVariableDisplayType {
-
-    pub fn from(value: SEXP) -> Self {
-        if value == unsafe { R_NilValue } {
-            return Self::simple(String::from("NULL"))
-        }
-
-        if RObject::view(value).is_s4() {
-            return Self::from_class(value, String::from("S4"));
-        }
-
-        if is_simple_vector(value) {
-            return vec_type_info(value);
-        }
-
-        let rtype = r_typeof(value);
-        match rtype {
-            EXPRSXP => Self::from_class(value, format!("expression [{}]", unsafe { XLENGTH(value) })),
-            LANGSXP => Self::from_class(value, String::from("language")),
-            CLOSXP  => Self::from_class(value, String::from("function")),
-            ENVSXP  => Self::from_class(value, String::from("environment")),
-            SYMSXP  => {
-                if value == unsafe { R_MissingArg } {
-                    Self::simple(String::from("missing"))
-                } else {
-                    Self::simple(String::from("symbol"))
-                }
-            },
-
-            LISTSXP => {
-                match pairlist_size(value) {
-                    Ok(n)  => Self::simple(format!("pairlist [{}]", n)),
-                    Err(_) => Self::simple(String::from("pairlist [?]"))
-                }
-            },
-
-            VECSXP => unsafe {
-                if r_inherits(value, "data.frame") {
-                    let dfclass = first_class(value).unwrap();
-
-                    let dim = RFunction::new("base", "dim.data.frame")
-                        .add(value)
-                        .call()
-                        .unwrap();
-                    let shape = collapse(*dim, ",", 0, "").unwrap().result;
-
-                    Self::simple(
-                        format!("{} [{}]", dfclass, shape)
-                    )
-                } else {
-                    Self::from_class(value, format!("list [{}]", XLENGTH(value)))
-                }
-            },
-            _      => Self::from_class(value, String::from("???"))
-        }
-
-    }
-
-    pub fn simple(display_type: String) -> Self {
-        Self {
-            display_type,
-            type_info: String::from("")
-        }
-    }
-
-    fn from_class(value: SEXP, default: String) -> Self {
-        match first_class(value) {
-            None        => Self::simple(default),
-            Some(class) => Self::new(class, all_classes(value))
-        }
-    }
-
-    fn new(display_type: String, type_info: String) -> Self {
-        Self {
-            display_type,
-            type_info
-        }
-    }
-
-}
-
 impl Binding {
     pub fn new(env: SEXP, frame: SEXP) -> Self {
         unsafe {
@@ -214,7 +128,7 @@ pub fn is_simple_vector(value: SEXP) -> bool {
     }
 }
 
-fn first_class(value: SEXP) -> Option<String> {
+pub fn first_class(value: SEXP) -> Option<String> {
     unsafe {
         let classes = Rf_getAttrib(value, R_ClassSymbol);
         if r_is_null(classes) {
@@ -226,7 +140,7 @@ fn first_class(value: SEXP) -> Option<String> {
     }
 }
 
-fn all_classes(value: SEXP) -> String {
+pub fn all_classes(value: SEXP) -> String {
     unsafe {
         let classes = Rf_getAttrib(value, R_ClassSymbol);
         collapse(classes, "/", 0, "").unwrap().result
@@ -246,7 +160,7 @@ pub fn pairlist_size(mut pairlist: SEXP) -> Result<isize, crate::error::Error> {
     Ok(n)
 }
 
-fn vec_type(value: SEXP) -> String {
+pub fn vec_type(value: SEXP) -> String {
     match r_typeof(value) {
         INTSXP  => unsafe {
             if r_inherits(value, "factor") {
@@ -267,18 +181,7 @@ fn vec_type(value: SEXP) -> String {
     }
 }
 
-fn vec_type_info(value: SEXP) -> WorkspaceVariableDisplayType {
-    let display_type = format!("{}{}", vec_type(value), vec_shape(value));
-
-    let mut type_info = display_type.clone();
-    if r_is_altrep(value) {
-        type_info.push_str(altrep_class(value).as_str())
-    }
-
-    WorkspaceVariableDisplayType::new(display_type, type_info)
-}
-
-fn vec_shape(value: SEXP) -> String {
+pub fn vec_shape(value: SEXP) -> String {
     unsafe {
         let dim = RObject::new(Rf_getAttrib(value, R_DimSymbol));
 
@@ -294,7 +197,7 @@ fn vec_shape(value: SEXP) -> String {
     }
 }
 
-fn altrep_class(object: SEXP) -> String {
+pub fn altrep_class(object: SEXP) -> String {
     let serialized_klass = unsafe{
         ATTRIB(ALTREP_CLASS(object))
     };
