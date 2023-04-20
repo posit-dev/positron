@@ -5,11 +5,11 @@
 //
 //
 
-use harp::environment::all_classes;
 use harp::environment::altrep_class;
-use harp::environment::first_class;
 use harp::environment::vec_shape;
 use harp::environment::vec_type;
+use harp::utils::pairlist_size;
+use harp::utils::r_classes;
 use harp::utils::r_is_altrep;
 use harp::utils::r_is_simple_vector;
 use itertools::Itertools;
@@ -17,7 +17,6 @@ use itertools::Itertools;
 use harp::environment::Binding;
 use harp::environment::BindingKind;
 use harp::environment::Environment;
-use harp::environment::pairlist_size;
 use harp::exec::RFunction;
 use harp::exec::RFunctionExt;
 use harp::exec::r_try_catch_error;
@@ -217,7 +216,8 @@ impl WorkspaceVariableDisplayType {
 
             VECSXP => unsafe {
                 if r_inherits(value, "data.frame") {
-                    let dfclass = first_class(value).unwrap();
+                    let classes = r_classes(value).unwrap();
+                    let dfclass = classes.get_unchecked(0).unwrap();
 
                     let dim = RFunction::new("base", "dim.data.frame")
                         .add(value)
@@ -245,9 +245,14 @@ impl WorkspaceVariableDisplayType {
     }
 
     fn from_class(value: SEXP, default: String) -> Self {
-        match first_class(value) {
-            None        => Self::simple(default),
-            Some(class) => Self::new(class, all_classes(value))
+        match r_classes(value) {
+            None => Self::simple(default),
+            Some(classes) => {
+                Self::new(
+                    classes.get_unchecked(0).unwrap(),
+                    classes.unsafe_iter().join("/")
+                )
+            }
         }
     }
 

@@ -12,13 +12,10 @@ use libR_sys::*;
 use crate::object::RObject;
 use crate::symbol::RSymbol;
 use crate::utils::Sxpinfo;
-use crate::utils::r_assert_type;
 use crate::utils::r_inherits;
 use crate::utils::r_is_altrep;
 use crate::utils::r_is_null;
 use crate::utils::r_typeof;
-use crate::vector::CharacterVector;
-use crate::vector::Vector;
 use crate::vector::collapse;
 
 #[derive(Debug, Eq, PartialEq)]
@@ -93,38 +90,6 @@ impl Binding {
         String::from(self.name).starts_with(".")
     }
 
-}
-
-pub fn first_class(value: SEXP) -> Option<String> {
-    unsafe {
-        let classes = Rf_getAttrib(value, R_ClassSymbol);
-        if r_is_null(classes) {
-            None
-        } else {
-            let classes = CharacterVector::new_unchecked(classes);
-            Some(classes.get_unchecked(0).unwrap())
-        }
-    }
-}
-
-pub fn all_classes(value: SEXP) -> String {
-    unsafe {
-        let classes = Rf_getAttrib(value, R_ClassSymbol);
-        collapse(classes, "/", 0, "").unwrap().result
-    }
-}
-
-pub fn pairlist_size(mut pairlist: SEXP) -> Result<isize, crate::error::Error> {
-    let mut n = 0;
-    unsafe {
-        while pairlist != R_NilValue {
-            r_assert_type(pairlist, &[LISTSXP])?;
-
-            pairlist = CDR(pairlist);
-            n = n + 1;
-        }
-    }
-    Ok(n)
 }
 
 pub fn vec_type(value: SEXP) -> String {

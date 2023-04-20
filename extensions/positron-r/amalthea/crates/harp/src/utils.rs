@@ -155,6 +155,31 @@ pub fn r_is_simple_vector(value: SEXP) -> bool {
     }
 }
 
+pub fn r_classes(value: SEXP) -> Option<CharacterVector> {
+    unsafe {
+        let classes = RObject::from(Rf_getAttrib(value, R_ClassSymbol));
+
+        if *classes == R_NilValue {
+            None
+        } else {
+            Some(CharacterVector::new_unchecked(classes))
+        }
+    }
+}
+
+pub fn pairlist_size(mut pairlist: SEXP) -> Result<isize> {
+    let mut n = 0;
+    unsafe {
+        while pairlist != R_NilValue {
+            r_assert_type(pairlist, &[LISTSXP])?;
+
+            pairlist = CDR(pairlist);
+            n = n + 1;
+        }
+    }
+    Ok(n)
+}
+
 pub fn r_typeof(object: SEXP) -> u32 {
     // SAFETY: The type of an R object is typically considered constant,
     // and TYPEOF merely queries the R type directly from the SEXPREC struct.
