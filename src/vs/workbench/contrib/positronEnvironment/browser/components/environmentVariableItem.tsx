@@ -6,6 +6,7 @@ import 'vs/css!./environmentVariableItem';
 import * as React from 'react';
 import { CSSProperties, MouseEvent } from 'react'; // eslint-disable-line no-duplicate-imports
 import * as nls from 'vs/nls';
+import { isNumber } from 'vs/base/common/types';
 import * as platform from 'vs/base/common/platform';
 import { IAction, Separator } from 'vs/base/common/actions';
 import { positronClassNames } from 'vs/base/common/positronUtilities';
@@ -13,8 +14,46 @@ import { AnchorAlignment, AnchorAxisAlignment } from 'vs/base/browser/ui/context
 import { ColumnSplitter } from 'vs/workbench/contrib/positronEnvironment/browser/components/columnSplitter';
 import { usePositronEnvironmentContext } from 'vs/workbench/contrib/positronEnvironment/browser/positronEnvironmentContext';
 import { IEnvironmentVariableItem } from 'vs/workbench/services/positronEnvironment/common/interfaces/environmentVariableItem';
-import { IPositronEnvironmentInstance } from 'vs/workbench/services/positronEnvironment/common/interfaces/positronEnvironmentService';
+import { IPositronEnvironmentInstance, PositronEnvironmentSorting } from 'vs/workbench/services/positronEnvironment/common/interfaces/positronEnvironmentService';
 import { POSITRON_ENVIRONMENT_COLLAPSE, POSITRON_ENVIRONMENT_COPY_AS_HTML, POSITRON_ENVIRONMENT_COPY_AS_TEXT, POSITRON_ENVIRONMENT_EXPAND } from 'vs/workbench/contrib/positronEnvironment/browser/positronEnvironmentIdentifiers';
+
+/**
+ * Formats a size for display.
+ * @param size The size to format.
+ * @returns The formatted size.
+ */
+const formatSize = (size: number) => {
+	const KB = 1024;
+	const MB = KB * KB;
+	const GB = MB * KB;
+	const TB = GB * KB;
+
+	if (!isNumber(size)) {
+		size = 0;
+	}
+
+	if (size < KB) {
+		if (size === 1) {
+			return nls.localize('positron.sizeByte', "{0} Byte", size.toFixed(0));
+		} else {
+			return nls.localize('positron.sizeBytes', "{0} Bytes", size.toFixed(0));
+		}
+	}
+
+	if (size < MB) {
+		return nls.localize('positron.sizeKB', "{0} KB", (size / KB).toFixed(2));
+	}
+
+	if (size < GB) {
+		return nls.localize('positron.sizeMB', "{0} MB", (size / MB).toFixed(2));
+	}
+
+	if (size < TB) {
+		return nls.localize('positron.sizeGB', "{0} GB", (size / GB).toFixed(2));
+	}
+
+	return nls.localize('positron.sizeTB', "{0} TB", (size / TB).toFixed(2));
+};
 
 /**
  * EnvironmentVariableItemProps interface.
@@ -227,7 +266,9 @@ export const EnvironmentVariableItem = (props: EnvironmentVariableItemProps) => 
 				</div>
 				{props.typeVisible && (
 					<div className='type'>
-						{props.environmentVariableItem.displayType}
+						{props.positronEnvironmentInstance.sorting === PositronEnvironmentSorting.Name ?
+							props.environmentVariableItem.displayType :
+							formatSize(props.environmentVariableItem.size)}
 					</div>
 				)}
 			</div>
