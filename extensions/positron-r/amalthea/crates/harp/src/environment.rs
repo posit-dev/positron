@@ -198,28 +198,6 @@ impl Binding {
 
     }
 
-    pub fn get_type(&self) -> BindingType {
-        match self.kind {
-            BindingKind::Active => BindingType::simple(String::from("active binding")),
-            BindingKind::Promise(false) => BindingType::simple(String::from("promise")),
-
-            BindingKind::Regular => BindingType::from(self.value),
-            BindingKind::Promise(true) => BindingType::from(unsafe{PRVALUE(self.value)})
-        }
-    }
-
-    pub fn has_children(&self) -> bool {
-        match self.kind {
-            BindingKind::Regular => has_children(self.value),
-            BindingKind::Promise(true) => has_children(unsafe{PRVALUE(self.value)}),
-
-            // TODO:
-            //   - BindingKind::Promise(false) could have code and env as their children
-            //   - BindingKind::Active could have their function
-            _ => false
-        }
-    }
-
     pub fn is_hidden(&self) -> bool {
         String::from(self.name).starts_with(".")
     }
