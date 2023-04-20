@@ -9,6 +9,7 @@ import { KeyMod, KeyCode } from 'vs/base/common/keyCodes';
 import { Registry } from 'vs/platform/registry/common/platform';
 import { registerAction2 } from 'vs/platform/actions/common/actions';
 import { registerIcon } from 'vs/platform/theme/common/iconRegistry';
+import { PositronEnvironmentFocused } from 'vs/workbench/common/contextkeys';
 import { SyncDescriptor } from 'vs/platform/instantiation/common/descriptors';
 import { LifecyclePhase } from 'vs/workbench/services/lifecycle/common/lifecycle';
 import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
@@ -20,7 +21,6 @@ import { IPositronEnvironmentService } from 'vs/workbench/services/positronEnvir
 import { IWorkbenchContributionsRegistry, Extensions as WorkbenchExtensions, IWorkbenchContribution } from 'vs/workbench/common/contributions';
 import { ViewContainer, IViewContainersRegistry, ViewContainerLocation, Extensions as ViewContainerExtensions, IViewsRegistry } from 'vs/workbench/common/views';
 import { POSITRON_ENVIRONMENT_COLLAPSE, POSITRON_ENVIRONMENT_COPY_AS_HTML, POSITRON_ENVIRONMENT_COPY_AS_TEXT, POSITRON_ENVIRONMENT_EXPAND } from 'vs/workbench/contrib/positronEnvironment/browser/positronEnvironmentIdentifiers';
-import { ContextKeyExpr } from 'vs/platform/contextkey/common/contextkey';
 
 // The Positron environment view identifier.
 export const POSITRON_ENVIRONMENT_VIEW_ID = 'workbench.panel.positronEnvironment';
@@ -104,7 +104,7 @@ KeybindingsRegistry.registerCommandAndKeybindingRule({
 	id: POSITRON_ENVIRONMENT_EXPAND,
 	weight: KeybindingWeight.WorkbenchContrib,
 	primary: KeyCode.RightArrow,
-	when: ContextKeyExpr.true(),
+	when: PositronEnvironmentFocused,
 	handler: () => { }
 } satisfies ICommandAndKeybindingRule);
 
@@ -113,7 +113,7 @@ KeybindingsRegistry.registerCommandAndKeybindingRule({
 	id: POSITRON_ENVIRONMENT_COLLAPSE,
 	weight: KeybindingWeight.WorkbenchContrib,
 	primary: KeyCode.LeftArrow,
-	when: ContextKeyExpr.true(),
+	when: PositronEnvironmentFocused,
 	handler: () => { }
 } satisfies ICommandAndKeybindingRule);
 
@@ -122,7 +122,7 @@ KeybindingsRegistry.registerCommandAndKeybindingRule({
 	id: POSITRON_ENVIRONMENT_COPY_AS_TEXT,
 	weight: KeybindingWeight.WorkbenchContrib,
 	primary: KeyMod.CtrlCmd | KeyCode.KeyC,
-	when: ContextKeyExpr.true(),
+	when: PositronEnvironmentFocused,
 	handler: accessor => { }
 } satisfies ICommandAndKeybindingRule);
 
@@ -131,7 +131,7 @@ KeybindingsRegistry.registerCommandAndKeybindingRule({
 	id: POSITRON_ENVIRONMENT_COPY_AS_HTML,
 	weight: KeybindingWeight.WorkbenchContrib,
 	primary: KeyMod.Shift | KeyMod.CtrlCmd | KeyCode.KeyC,
-	when: ContextKeyExpr.true(),
+	when: PositronEnvironmentFocused,
 	handler: () => { }
 } satisfies ICommandAndKeybindingRule);
 

@@ -43,6 +43,11 @@ export interface IReactComponentContainer extends IFocusReceiver {
 	takeFocus(): void;
 
 	/**
+	 * Notifies the React component container when focus changes.
+	 */
+	focusChanged?(focused: boolean): void;
+
+	/**
 	 * onSizeChanged event.
 	 */
 	readonly onSizeChanged: Event<ISize>;
