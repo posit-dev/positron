@@ -9,7 +9,7 @@ use harp::environment::Binding;
 use harp::environment::BindingKind;
 use harp::environment::BindingType;
 use harp::environment::BindingValue;
-use harp::environment::env_bindings;
+use harp::environment::Environment;
 use harp::environment::pairlist_size;
 use harp::exec::RFunction;
 use harp::exec::RFunctionExt;
@@ -420,16 +420,11 @@ impl EnvironmentVariable {
     fn inspect_environment(value: SEXP) -> Result<Vec<Self>, harp::error::Error> {
         let mut out : Vec<Self> = vec![];
 
-        // TODO: it might be too restritive to drop all objects
-        //       whose name start with "."
-        //       in that case, reconsider the case where `value` is an R6 object
-        //       because we'd want to filter .__enclos_env__ out
-        let bindings = env_bindings(value, |binding| {
-            !String::from(binding.name).starts_with(".")
-        });
-
-        for binding in &bindings {
-            out.push(Self::new(binding));
+        let env = Environment::new(value);
+        for binding in env.iter() {
+            if !String::from(binding.name).starts_with(".") {
+                out.push(Self::new(&binding));
+            }
         }
 
         out.sort_by(|a, b| {
