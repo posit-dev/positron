@@ -14,18 +14,7 @@ use crate::vector::Vector;
 
 #[harp_macros::vector]
 pub struct CharacterVector {
-    object: RObject,
-    quotes: bool
-}
-
-impl CharacterVector {
-    pub unsafe fn unquoted(object: impl Into<SEXP>) -> Self {
-        let object = object.into();
-        Self {
-            object: RObject::new(object),
-            quotes: false
-        }
-    }
+    object: RObject
 }
 
 impl Vector for CharacterVector {
@@ -40,10 +29,8 @@ impl Vector for CharacterVector {
     }
 
     unsafe fn new_unchecked(object: impl Into<SEXP>) -> Self {
-        let object = object.into();
         Self {
-            object: RObject::new(object),
-            quotes: true
+            object: RObject::new(object.into())
         }
     }
 
@@ -90,11 +77,7 @@ impl Vector for CharacterVector {
     }
 
     fn format_one(&self, x: Self::Type) -> String {
-        if self.quotes {
-            format!("\"{}\"", x)
-        } else {
-            x
-        }
+        x
     }
 
 }

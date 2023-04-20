@@ -114,36 +114,6 @@ pub fn vector(_attr: TokenStream, item: TokenStream) -> TokenStream {
                     size: size,
                 }
             }
-
-            pub fn format(&self, sep: &str, max: usize) -> (bool, String)
-            {
-                let mut out = String::from("");
-                let mut truncated = false;
-                let mut first = true;
-                let mut iter = self.iter();
-
-                while let Some(x) = iter.next() {
-                    if max > 0 && out.len() > max {
-                        truncated = true;
-                        break;
-                    }
-
-                    if first {
-                        first = false;
-                    } else {
-                        out.push_str(sep);
-                    }
-
-                    match x {
-                        Some(value) => {
-                            out.push_str(self.format_one(value).as_str());
-                        },
-                        None => out.push_str("NA")
-                    }
-                }
-
-                (truncated, out)
-            }
         }
 
         impl<T> std::cmp::PartialEq<T> for #ident
