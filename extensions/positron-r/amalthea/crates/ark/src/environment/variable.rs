@@ -422,7 +422,7 @@ impl EnvironmentVariable {
 
         let env = Environment::new(value);
         for binding in env.iter() {
-            if !String::from(binding.name).starts_with(".") {
+            if !binding.is_hidden() {
                 out.push(Self::new(&binding));
             }
         }

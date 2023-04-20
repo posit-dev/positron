@@ -444,7 +444,7 @@ impl REnvironment {
         //       whose name start with "."
         let env = Environment::new(self.env.sexp);
         let mut bindings: Vec<Binding> = env.iter().filter(|binding| {
-            !String::from(binding.name).starts_with(".")
+            !binding.is_hidden()
         }).collect();
 
         bindings.sort();
