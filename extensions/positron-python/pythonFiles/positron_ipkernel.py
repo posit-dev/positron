@@ -653,6 +653,13 @@ class PositronIPyKernel(IPythonKernel):
                     logging.warning(f'Unable to delete variable \'{key}\'. Error: %s', err)
                 pass
 
+        # Publish an input to inform clients of the "delete all" operation
+        try:
+            self.execution_count += 1
+            self._publish_execute_input("# Environment cleared", None, self.execution_count)
+        except Exception:
+            pass
+
         # Refresh the client state
         self.send_list()
 
