@@ -7,7 +7,6 @@
 
 use std::ops::Deref;
 
-use itertools::Itertools;
 use libR_sys::*;
 
 use crate::exec::RFunction;
@@ -43,76 +42,12 @@ pub enum BindingExtra {
     Altrep(BindingExtraAltrep)
 }
 
-
-
 #[derive(Eq, PartialEq)]
 pub struct Binding {
     pub name: RSymbol,
     pub value: SEXP,
     pub kind: BindingKind,
     pub extra: BindingExtra,
-}
-
-pub struct WorkspaceVariableDisplayValue {
-    pub display_value: String,
-    pub is_truncated: bool
-}
-
-impl WorkspaceVariableDisplayValue {
-    fn new(display_value: String, is_truncated: bool) -> Self {
-        WorkspaceVariableDisplayValue {
-            display_value,
-            is_truncated
-        }
-    }
-
-    fn empty() -> Self {
-        Self::new(String::from(""), false)
-    }
-
-    pub fn from(value: SEXP) -> Self {
-        let rtype = r_typeof(value);
-        if is_simple_vector(value) {
-            let formatted = collapse(value, " ", 100, if rtype == STRSXP { "\"" } else { "" }).unwrap();
-            Self::new(formatted.result, formatted.truncated)
-        } else if rtype == VECSXP && ! unsafe{r_inherits(value, "POSIXlt")}{
-            // This includes data frames
-            Self::empty()
-        } else if rtype == LISTSXP {
-            Self::empty()
-        } else if rtype == SYMSXP && value == unsafe{ R_MissingArg } {
-            Self::new(String::from("<missing>"), false)
-        } else if rtype == CLOSXP {
-            unsafe {
-                let args      = RFunction::from("args").add(value).call().unwrap();
-                let formatted = RFunction::from("format").add(*args).call().unwrap();
-                let formatted = CharacterVector::new_unchecked(formatted);
-                let out = formatted.iter().take(formatted.len() -1).map(|o|{ o.unwrap() }).join("");
-                Self::new(out, false)
-            }
-        } else {
-            unsafe {
-                // try to call format() on the object
-                let formatted = RFunction::new("base", "format")
-                    .add(value)
-                    .call();
-
-                match formatted {
-                    Ok(fmt) => {
-                        if r_typeof(*fmt) == STRSXP {
-                            let fmt = collapse(*fmt, " ", 100, "").unwrap();
-                            Self::new(fmt.result, fmt.truncated)
-                        } else {
-                            Self::new(String::from("???"), false)
-                        }
-                    },
-                    Err(_) => {
-                        Self::new(String::from("???"), false)
-                    }
-                }
-            }
-        }
-    }
 }
 
 pub struct BindingType {
@@ -266,7 +201,7 @@ pub fn has_children(value: SEXP) -> bool {
     }
 }
 
-fn is_simple_vector(value: SEXP) -> bool {
+pub fn is_simple_vector(value: SEXP) -> bool {
     unsafe {
         let class = Rf_getAttrib(value, R_ClassSymbol);
 

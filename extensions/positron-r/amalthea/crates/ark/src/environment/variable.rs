@@ -5,11 +5,13 @@
 //
 //
 
+use itertools::Itertools;
+
 use harp::environment::Binding;
 use harp::environment::BindingKind;
 use harp::environment::BindingType;
-use harp::environment::WorkspaceVariableDisplayValue;
 use harp::environment::Environment;
+use harp::environment::is_simple_vector;
 use harp::environment::pairlist_size;
 use harp::exec::RFunction;
 use harp::exec::RFunctionExt;
@@ -23,6 +25,7 @@ use harp::utils::r_is_null;
 use harp::utils::r_typeof;
 use harp::vector::CharacterVector;
 use harp::vector::Vector;
+use harp::vector::collapse;
 use libR_sys::*;
 use serde::Deserialize;
 use serde::Serialize;
@@ -95,6 +98,69 @@ pub struct EnvironmentVariable {
     /** True if the 'value' field was truncated to fit in the message */
     pub is_truncated: bool,
 }
+
+pub struct WorkspaceVariableDisplayValue {
+    pub display_value: String,
+    pub is_truncated: bool
+}
+
+impl WorkspaceVariableDisplayValue {
+    fn new(display_value: String, is_truncated: bool) -> Self {
+        WorkspaceVariableDisplayValue {
+            display_value,
+            is_truncated
+        }
+    }
+
+    fn empty() -> Self {
+        Self::new(String::from(""), false)
+    }
+
+    pub fn from(value: SEXP) -> Self {
+        let rtype = r_typeof(value);
+        if is_simple_vector(value) {
+            let formatted = collapse(value, " ", 100, if rtype == STRSXP { "\"" } else { "" }).unwrap();
+            Self::new(formatted.result, formatted.truncated)
+        } else if rtype == VECSXP && ! unsafe{r_inherits(value, "POSIXlt")}{
+            // This includes data frames
+            Self::empty()
+        } else if rtype == LISTSXP {
+            Self::empty()
+        } else if rtype == SYMSXP && value == unsafe{ R_MissingArg } {
+            Self::new(String::from("<missing>"), false)
+        } else if rtype == CLOSXP {
+            unsafe {
+                let args      = RFunction::from("args").add(value).call().unwrap();
+                let formatted = RFunction::from("format").add(*args).call().unwrap();
+                let formatted = CharacterVector::new_unchecked(formatted);
+                let out = formatted.iter().take(formatted.len() -1).map(|o|{ o.unwrap() }).join("");
+                Self::new(out, false)
+            }
+        } else {
+            unsafe {
+                // try to call format() on the object
+                let formatted = RFunction::new("base", "format")
+                    .add(value)
+                    .call();
+
+                match formatted {
+                    Ok(fmt) => {
+                        if r_typeof(*fmt) == STRSXP {
+                            let fmt = collapse(*fmt, " ", 100, "").unwrap();
+                            Self::new(fmt.result, fmt.truncated)
+                        } else {
+                            Self::new(String::from("???"), false)
+                        }
+                    },
+                    Err(_) => {
+                        Self::new(String::from("???"), false)
+                    }
+                }
+            }
+        }
+    }
+}
+
 
 impl EnvironmentVariable {
     /**
