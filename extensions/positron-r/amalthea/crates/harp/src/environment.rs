@@ -195,16 +195,6 @@ impl Binding {
 
     }
 
-    pub fn get_value(&self) -> BindingValue {
-        match self.kind {
-            BindingKind::Regular => regular_binding_display_value(self.value),
-            BindingKind::Promise(true) => regular_binding_display_value(unsafe{PRVALUE(self.value)}),
-
-            BindingKind::Active => BindingValue::empty(),
-            BindingKind::Promise(false) => BindingValue::empty()
-        }
-    }
-
     pub fn get_type(&self) -> BindingType {
         match self.kind {
             BindingKind::Active => BindingType::simple(String::from("active binding")),
@@ -336,7 +326,7 @@ fn format_display_value(value: SEXP) -> BindingValue {
     }
 }
 
-fn pairlist_size(mut pairlist: SEXP) -> Result<isize, crate::error::Error> {
+pub fn pairlist_size(mut pairlist: SEXP) -> Result<isize, crate::error::Error> {
     let mut n = 0;
     unsafe {
         while pairlist != R_NilValue {
