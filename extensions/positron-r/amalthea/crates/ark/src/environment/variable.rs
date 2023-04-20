@@ -5,9 +5,9 @@
 //
 //
 
-use harp::environment::altrep_class;
-use harp::environment::vec_shape;
-use harp::environment::vec_type;
+use harp::utils::r_altrep_class;
+use harp::utils::r_vec_shape;
+use harp::utils::r_vec_type;
 use harp::utils::pairlist_size;
 use harp::utils::r_classes;
 use harp::utils::r_is_altrep;
@@ -183,11 +183,11 @@ impl WorkspaceVariableDisplayType {
         }
 
         if r_is_simple_vector(value) {
-            let display_type = format!("{}{}", vec_type(value), vec_shape(value));
+            let display_type = format!("{}{}", r_vec_type(value), r_vec_shape(value));
 
             let mut type_info = display_type.clone();
             if r_is_altrep(value) {
-                type_info.push_str(altrep_class(value).as_str())
+                type_info.push_str(r_altrep_class(value).as_str())
             }
 
             return Self::new(display_type, type_info);
@@ -200,7 +200,7 @@ impl WorkspaceVariableDisplayType {
             CLOSXP  => Self::from_class(value, String::from("function")),
             ENVSXP  => Self::from_class(value, String::from("environment")),
             SYMSXP  => {
-                if value == unsafe { R_MissingArg } {
+                if r_is_null(value) {
                     Self::simple(String::from("missing"))
                 } else {
                     Self::simple(String::from("symbol"))
@@ -250,7 +250,7 @@ impl WorkspaceVariableDisplayType {
             Some(classes) => {
                 Self::new(
                     classes.get_unchecked(0).unwrap(),
-                    classes.unsafe_iter().join("/")
+                    unsafe { classes.unsafe_iter() }.join("/")
                 )
             }
         }

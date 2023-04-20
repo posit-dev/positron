@@ -12,11 +12,8 @@ use libR_sys::*;
 use crate::object::RObject;
 use crate::symbol::RSymbol;
 use crate::utils::Sxpinfo;
-use crate::utils::r_inherits;
 use crate::utils::r_is_altrep;
-use crate::utils::r_is_null;
 use crate::utils::r_typeof;
-use crate::vector::collapse;
 
 #[derive(Debug, Eq, PartialEq)]
 pub enum BindingKind {
@@ -90,54 +87,6 @@ impl Binding {
         String::from(self.name).starts_with(".")
     }
 
-}
-
-pub fn vec_type(value: SEXP) -> String {
-    match r_typeof(value) {
-        INTSXP  => unsafe {
-            if r_inherits(value, "factor") {
-                let levels = Rf_getAttrib(value, R_LevelsSymbol);
-                format!("fct({})", XLENGTH(levels))
-            } else {
-                String::from("int")
-            }
-        },
-        REALSXP => String::from("dbl"),
-        LGLSXP  => String::from("lgl"),
-        STRSXP  => String::from("str"),
-        RAWSXP  => String::from("raw"),
-        CPLXSXP => String::from("cplx"),
-
-        // TODO: this should not happen
-        _       => String::from("???")
-    }
-}
-
-pub fn vec_shape(value: SEXP) -> String {
-    unsafe {
-        let dim = RObject::new(Rf_getAttrib(value, R_DimSymbol));
-
-        if r_is_null(*dim) {
-            if XLENGTH(value) == 1 {
-                String::from("")
-            } else {
-                format!(" [{}]", Rf_xlength(value))
-            }
-        } else {
-            format!(" [{}]", collapse(*dim, ",", 0, "").unwrap().result)
-        }
-    }
-}
-
-pub fn altrep_class(object: SEXP) -> String {
-    let serialized_klass = unsafe{
-        ATTRIB(ALTREP_CLASS(object))
-    };
-
-    let klass = RSymbol::new(unsafe{CAR(serialized_klass)});
-    let pkg = RSymbol::new(unsafe{CADR(serialized_klass)});
-
-    format!("{}::{}", pkg, klass)
 }
 
 pub struct Environment {
@@ -316,6 +265,8 @@ mod tests {
 
     use crate::r_symbol;
     use crate::r_test;
+    use crate::exec::RFunction;
+    use crate::exec::RFunctionExt;
 
     use super::*;
 

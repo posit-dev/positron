@@ -135,7 +135,7 @@ pub fn vector(_attr: TokenStream, item: TokenStream) -> TokenStream {
 
             // !!! safety: this should only be used when it is known that
             //             there are no missing values
-            pub fn unsafe unsafe_iter(&self) -> UnsafeVectorIter<'_> {
+            pub unsafe fn unsafe_iter(&self) -> UnsafeVectorIter<'_> {
                 let size = unsafe { self.len() as isize };
                 UnsafeVectorIter {
                     data: self,
