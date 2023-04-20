@@ -142,6 +142,19 @@ pub fn r_is_s4(object: SEXP) -> bool {
     Sxpinfo::interpret(&object).is_s4()
 }
 
+pub fn r_is_simple_vector(value: SEXP) -> bool {
+    unsafe {
+        let class = Rf_getAttrib(value, R_ClassSymbol);
+
+        match r_typeof(value) {
+            LGLSXP | REALSXP | CPLXSXP | STRSXP | RAWSXP => r_is_null(class),
+            INTSXP  => r_is_null(class) || r_inherits(value, "factor"),
+
+            _       => false
+        }
+    }
+}
+
 pub fn r_typeof(object: SEXP) -> u32 {
     // SAFETY: The type of an R object is typically considered constant,
     // and TYPEOF merely queries the R type directly from the SEXPREC struct.

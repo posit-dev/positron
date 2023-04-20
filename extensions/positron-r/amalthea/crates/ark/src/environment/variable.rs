@@ -11,12 +11,12 @@ use harp::environment::first_class;
 use harp::environment::vec_shape;
 use harp::environment::vec_type;
 use harp::utils::r_is_altrep;
+use harp::utils::r_is_simple_vector;
 use itertools::Itertools;
 
 use harp::environment::Binding;
 use harp::environment::BindingKind;
 use harp::environment::Environment;
-use harp::environment::is_simple_vector;
 use harp::environment::pairlist_size;
 use harp::exec::RFunction;
 use harp::exec::RFunctionExt;
@@ -123,7 +123,7 @@ impl WorkspaceVariableDisplayValue {
 
     pub fn from(value: SEXP) -> Self {
         let rtype = r_typeof(value);
-        if is_simple_vector(value) {
+        if r_is_simple_vector(value) {
             let formatted = collapse(value, " ", 100, if rtype == STRSXP { "\"" } else { "" }).unwrap();
             Self::new(formatted.result, formatted.truncated)
         } else if rtype == VECSXP && ! unsafe{r_inherits(value, "POSIXlt")}{
@@ -183,7 +183,7 @@ impl WorkspaceVariableDisplayType {
             return Self::from_class(value, String::from("S4"));
         }
 
-        if is_simple_vector(value) {
+        if r_is_simple_vector(value) {
             let display_type = format!("{}{}", vec_type(value), vec_shape(value));
 
             let mut type_info = display_type.clone();

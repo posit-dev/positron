@@ -95,19 +95,6 @@ impl Binding {
 
 }
 
-pub fn is_simple_vector(value: SEXP) -> bool {
-    unsafe {
-        let class = Rf_getAttrib(value, R_ClassSymbol);
-
-        match r_typeof(value) {
-            LGLSXP | REALSXP | CPLXSXP | STRSXP | RAWSXP => r_is_null(class),
-            INTSXP  => r_is_null(class) || r_inherits(value, "factor"),
-
-            _       => false
-        }
-    }
-}
-
 pub fn first_class(value: SEXP) -> Option<String> {
     unsafe {
         let classes = Rf_getAttrib(value, R_ClassSymbol);
