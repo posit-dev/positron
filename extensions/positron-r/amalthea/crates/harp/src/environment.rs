@@ -36,7 +36,8 @@ pub enum BindingKind {
 pub struct Binding {
     pub name: RSymbol,
     pub value: SEXP,
-    pub kind: BindingKind
+    pub kind: BindingKind,
+    pub watch_list: Vec<SEXP>
 }
 
 impl Ord for Binding {
@@ -182,7 +183,10 @@ impl Binding {
             };
 
             Self {
-                name, value, kind
+                name,
+                value,
+                kind,
+                watch_list: vec![]
             }
         }
 
