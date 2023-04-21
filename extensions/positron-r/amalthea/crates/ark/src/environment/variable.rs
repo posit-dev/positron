@@ -293,7 +293,7 @@ impl EnvironmentVariable {
         match binding.value {
             BindingValue::Active{fun: _} => Self::from_lazy(display_name, String::from("active binding")),
             BindingValue::Promise{promise: _} => Self::from_lazy(display_name, String::from("promise")),
-            BindingValue::Altrep{object, data1: _, data2: _} | BindingValue::Standard { object } => Self::from(display_name.clone(), display_name, object)
+            BindingValue::Altrep{object, ..} | BindingValue::Standard { object, .. } => Self::from(display_name.clone(), display_name, object)
         }
     }
 

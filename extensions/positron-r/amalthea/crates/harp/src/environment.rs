@@ -16,12 +16,23 @@ use crate::utils::r_is_altrep;
 use crate::utils::r_is_null;
 use crate::utils::r_typeof;
 
+#[derive(Eq)]
+pub struct BindingReference {
+    pub reference: bool
+}
+
+impl PartialEq for BindingReference {
+    fn eq(&self, other: &Self) -> bool {
+        !(self.reference || other.reference)
+    }
+}
+
 #[derive(Eq, PartialEq)]
 pub enum BindingValue {
     Active{fun: SEXP},
     Promise{promise: SEXP},
     Altrep{object: SEXP, data1: SEXP, data2: SEXP},
-    Standard{object: SEXP}
+    Standard{object: SEXP, reference: BindingReference}
 }
 
 #[derive(Eq, PartialEq)]
@@ -69,9 +80,9 @@ impl Binding {
                 return Self {name, value};
             }
 
-            let value = BindingValue::Standard { object: value };
+            let reference = BindingReference{ reference: r_typeof(value) == ENVSXP};
+            let value = BindingValue::Standard { object: value, reference };
             Self { name, value}
-
         }
 
     }
