@@ -14,6 +14,7 @@ use crate::symbol::RSymbol;
 use crate::utils::Sxpinfo;
 use crate::utils::r_is_altrep;
 use crate::utils::r_is_null;
+use crate::utils::r_is_s4;
 use crate::utils::r_typeof;
 
 #[derive(Eq)]
@@ -32,11 +33,10 @@ fn has_reference(value: SEXP) -> bool {
         }
     }
 
-    /*
-    if has_reference(unsafe { ATTRIB(value) }) {
+    // for now
+    if r_is_s4(value) {
         return true;
     }
-    */
 
     let rtype = r_typeof(value);
     match rtype {

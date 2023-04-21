@@ -7,6 +7,7 @@
 
 use harp::environment::BindingValue;
 use harp::utils::r_altrep_class;
+use harp::utils::r_is_s4;
 use harp::utils::r_vec_shape;
 use harp::utils::r_vec_type;
 use harp::utils::pairlist_size;
@@ -174,11 +175,11 @@ pub struct WorkspaceVariableDisplayType {
 impl WorkspaceVariableDisplayType {
 
     pub fn from(value: SEXP) -> Self {
-        if value == unsafe { R_NilValue } {
+        if r_is_null(value) {
             return Self::simple(String::from("NULL"))
         }
 
-        if RObject::view(value).is_s4() {
+        if r_is_s4(value) {
             return Self::from_class(value, String::from("S4"));
         }
 
@@ -248,9 +249,11 @@ impl WorkspaceVariableDisplayType {
         match r_classes(value) {
             None => Self::simple(default),
             Some(classes) => {
+                unsafe {Rf_PrintValue(*classes)};
+
                 Self::new(
                     classes.get_unchecked(0).unwrap(),
-                    unsafe { classes.unsafe_iter() }.join("/")
+                    classes.iter().map(|s| s.unwrap()).join("/")
                 )
             }
         }
