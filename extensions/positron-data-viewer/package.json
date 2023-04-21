@@ -14,14 +14,6 @@
 		"onStartupFinished"
 	],
 	"main": "./out/extension.js",
-	"contributes": {
-		"commands": [
-			{
-				"command": "positron.openDataViewer",
-				"title": "Open Data Viewer"
-			}
-		]
-	},
 	"scripts": {
 		"compile": "npx gulp compile-extension:positron-data-viewer compile-extension:positron-data-viewer-ui",
 		"watch": "npx gulp watch-extension:positron-data-viewer watch-extension:positron-data-viewer-ui"

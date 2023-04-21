@@ -376,6 +376,8 @@ declare module 'positron' {
 	 */
 	export interface RuntimeClientInstance extends vscode.Disposable {
 		onDidChangeClientState: vscode.Event<RuntimeClientState>;
+		onDidSendEvent: vscode.Event<object>;
+		performRpc<T>(data: object): Thenable<T>;
 		getClientState(): RuntimeClientState;
 		getClientId(): string;
 		getClientType(): RuntimeClientType;

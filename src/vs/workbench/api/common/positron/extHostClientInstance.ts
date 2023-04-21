@@ -8,11 +8,20 @@ import { Event, Emitter } from 'vs/base/common/event';
 import { RuntimeClientState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeClientInstance';
 import { ILanguageRuntimeMessageCommData, ILanguageRuntimeMessageCommOpen } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 
+/**
+ * A function that sends a message to the back end of a client instance.
+ *
+ * @param id The message ID. Can be used to correlate requests and responses.
+ * @param data The message data.
+ */
 export type ExtHostClientMessageSender = (id: string, data: object) => void;
 
+/**
+ * A client instance that communicates with the back end via a message channel.
+ */
 export class ExtHostRuntimeClientInstance implements positron.RuntimeClientInstance {
 	private readonly _onDidChangeClientState = new Emitter<positron.RuntimeClientState>();
-	private readonly _onDidEmitData = new Emitter<object>();
+	private readonly _onDidSendData = new Emitter<object>();
 	private _messageCounter = 0;
 	private _state: positron.RuntimeClientState;
 	private _pendingRpcs = new Map<string, DeferredPromise<any>>();
@@ -21,7 +30,7 @@ export class ExtHostRuntimeClientInstance implements positron.RuntimeClientInsta
 		readonly sender: ExtHostClientMessageSender) {
 
 		this.onDidChangeClientState = this._onDidChangeClientState.event;
-		this.onDidEmitEvent = this._onDidEmitData.event;
+		this.onDidSendEvent = this._onDidSendData.event;
 		this._state = RuntimeClientState.Connected;
 		this.onDidChangeClientState((e) => {
 			this._state = e;
@@ -29,7 +38,7 @@ export class ExtHostRuntimeClientInstance implements positron.RuntimeClientInsta
 	}
 
 	/**
-	 * Emits a message from the back end to the client instance.
+	 * Sends a message from the back end to the client instance.
 	 *
 	 * @param message The message to emit to the client.
 	 */
@@ -42,7 +51,7 @@ export class ExtHostRuntimeClientInstance implements positron.RuntimeClientInsta
 			rpc.complete(message.data);
 		} else {
 			// It isn't; treat it like a regular event.
-			this._onDidEmitData.fire(message.data);
+			this._onDidSendData.fire(message.data);
 		}
 	}
 
@@ -82,7 +91,7 @@ export class ExtHostRuntimeClientInstance implements positron.RuntimeClientInsta
 
 	onDidChangeClientState: Event<positron.RuntimeClientState>;
 
-	onDidEmitEvent: Event<object>;
+	onDidSendEvent: Event<object>;
 
 	getClientState(): positron.RuntimeClientState {
 		return this._state;

@@ -4,8 +4,11 @@
 
 import path = require('path');
 import * as vscode from 'vscode';
+import * as positron from 'positron';
 
-export async function createDataPanel(context: vscode.ExtensionContext, _params: any) {
+export async function createDataPanel(context: vscode.ExtensionContext,
+	client: positron.RuntimeClientInstance,
+	initialData: any) {
 	const panel = vscode.window.createWebviewPanel(
 		'positronDataViewer',
 		'Data Viewer',
@@ -39,6 +42,22 @@ export async function createDataPanel(context: vscode.ExtensionContext, _params:
 		const scriptUri = panel.webview.asWebviewUri(vscode.Uri.file(scriptPath));
 		return `<script src="${scriptUri}"></script>`;
 	}).join('\n');
+
+	// Send events from the client to the webview
+	client.onDidSendEvent((event) => {
+		panel.webview.postMessage(event);
+	});
+
+	// Handle messages from the webview
+	panel.webview.onDidReceiveMessage((message) => {
+		if (message === 'ready') {
+			// The webview is ready to receive messages
+			panel.webview.postMessage({
+				msg_type: 'init',
+				data: initialData
+			});
+		}
+	});
 
 	panel.webview.html = `<body><div id="root"></div></body>${reactHtml}`;
 }
