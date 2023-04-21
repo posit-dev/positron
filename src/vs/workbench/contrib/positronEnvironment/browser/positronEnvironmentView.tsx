@@ -54,7 +54,7 @@ export class PositronEnvironmentViewPane extends ViewPane implements IReactCompo
 	// The PositronReactRenderer for the PositronEnvironment component.
 	private _positronReactRenderer?: PositronReactRenderer;
 
-	// The focused context key.
+	// The PositronEnvironmentFocused context key.
 	private _positronEnvironmentFocusedContextKey: IContextKey<boolean> | undefined;
 
 	//#endregion Private Properties
@@ -78,22 +78,15 @@ export class PositronEnvironmentViewPane extends ViewPane implements IReactCompo
 	/**
 	 * Directs the React component container to take focus.
 	 */
-	takeFocus(): void {
+	takeFocus() {
 		this.focus();
 	}
 
 	/**
-	 * Enables keybindings.
+	 * Notifies the React component container when focus changes.
 	 */
-	enableKeybindings(): void {
-		this._positronEnvironmentFocusedContextKey?.set(true);
-	}
-
-	/**
-	 * Disables keybindings.
-	 */
-	disableKeybindings(): void {
-		this._positronEnvironmentFocusedContextKey?.set(false);
+	focusChanged(focused: boolean) {
+		this._positronEnvironmentFocusedContextKey?.set(focused);
 	}
 
 	/**
@@ -201,14 +194,13 @@ export class PositronEnvironmentViewPane extends ViewPane implements IReactCompo
 
 		// Create the scoped context key service for the Positron environment container.
 		const scopedContextKeyService = this._register(this.contextKeyService.createScoped(
-			container
+			this._positronEnvironmentContainer
 		));
 
+		// Create the PositronEnvironmentFocused context key.
 		this._positronEnvironmentFocusedContextKey = PositronEnvironmentFocused.bindTo(
 			scopedContextKeyService
 		);
-
-		this._positronEnvironmentFocusedContextKey.set(true);
 
 		// Create the PositronReactRenderer for the PositronEnvironment component and render it.
 		this._positronReactRenderer = new PositronReactRenderer(this._positronEnvironmentContainer);

@@ -8,7 +8,7 @@ use amalthea::comm::comm_channel::CommChannelMsg;
 use amalthea::socket::comm::CommSocket;
 use crossbeam::channel::select;
 use crossbeam::channel::unbounded;
-use harp::environment::env_bindings;
+use harp::environment::Environment;
 use harp::environment::Binding;
 use harp::exec::RFunction;
 use harp::exec::RFunctionExt;
@@ -423,9 +423,11 @@ impl REnvironment {
     fn bindings(&self) -> Vec<Binding> {
         // TODO: it might be too restritive to drop all objects
         //       whose name start with "."
-        let mut bindings = env_bindings(self.env.sexp, |binding| {
+        let env = Environment::new(self.env.sexp);
+        let mut bindings: Vec<Binding> = env.iter().filter(|binding| {
             !String::from(binding.name).starts_with(".")
-        });
+        }).collect();
+
         bindings.sort();
         bindings
     }

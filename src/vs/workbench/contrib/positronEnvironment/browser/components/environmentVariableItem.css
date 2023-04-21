@@ -68,7 +68,7 @@
 	text-overflow: ellipsis;
 }
 
-.environment-variable .details-column .type {
+.environment-variable .details-column .type-size {
 	opacity: 0.75;
 	flex: 0 0 auto;
 	margin: 0 10px 0 0;

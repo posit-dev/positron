@@ -6,14 +6,54 @@ import 'vs/css!./environmentVariableItem';
 import * as React from 'react';
 import { CSSProperties, MouseEvent } from 'react'; // eslint-disable-line no-duplicate-imports
 import * as nls from 'vs/nls';
+import { isNumber } from 'vs/base/common/types';
+import * as platform from 'vs/base/common/platform';
 import { IAction, Separator } from 'vs/base/common/actions';
 import { positronClassNames } from 'vs/base/common/positronUtilities';
 import { AnchorAlignment, AnchorAxisAlignment } from 'vs/base/browser/ui/contextview/contextview';
-import { usePositronEnvironmentContext } from 'vs/workbench/contrib/positronEnvironment/browser/positronEnvironmentContext';
 import { ColumnSplitter } from 'vs/workbench/contrib/positronEnvironment/browser/components/columnSplitter';
+import { usePositronEnvironmentContext } from 'vs/workbench/contrib/positronEnvironment/browser/positronEnvironmentContext';
 import { IEnvironmentVariableItem } from 'vs/workbench/services/positronEnvironment/common/interfaces/environmentVariableItem';
-import { IPositronEnvironmentInstance } from 'vs/workbench/services/positronEnvironment/common/interfaces/positronEnvironmentService';
+import { IPositronEnvironmentInstance, PositronEnvironmentSorting } from 'vs/workbench/services/positronEnvironment/common/interfaces/positronEnvironmentService';
 import { POSITRON_ENVIRONMENT_COLLAPSE, POSITRON_ENVIRONMENT_COPY_AS_HTML, POSITRON_ENVIRONMENT_COPY_AS_TEXT, POSITRON_ENVIRONMENT_EXPAND } from 'vs/workbench/contrib/positronEnvironment/browser/positronEnvironmentIdentifiers';
+
+/**
+ * Formats a size for display.
+ * @param size The size to format.
+ * @returns The formatted size.
+ */
+const formatSize = (size: number) => {
+	const KB = 1024;
+	const MB = KB * KB;
+	const GB = MB * KB;
+	const TB = GB * KB;
+
+	if (!isNumber(size)) {
+		size = 0;
+	}
+
+	if (size < KB) {
+		if (size === 1) {
+			return nls.localize('positron.sizeByte', "{0} Byte", size.toFixed(0));
+		} else {
+			return nls.localize('positron.sizeBytes', "{0} Bytes", size.toFixed(0));
+		}
+	}
+
+	if (size < MB) {
+		return nls.localize('positron.sizeKB', "{0} KB", (size / KB).toFixed(2));
+	}
+
+	if (size < GB) {
+		return nls.localize('positron.sizeMB', "{0} MB", (size / MB).toFixed(2));
+	}
+
+	if (size < TB) {
+		return nls.localize('positron.sizeGB', "{0} GB", (size / GB).toFixed(2));
+	}
+
+	return nls.localize('positron.sizeTB', "{0} TB", (size / TB).toFixed(2));
+};
 
 /**
  * EnvironmentVariableItemProps interface.
@@ -21,12 +61,13 @@ import { POSITRON_ENVIRONMENT_COLLAPSE, POSITRON_ENVIRONMENT_COPY_AS_HTML, POSIT
 export interface EnvironmentVariableItemProps {
 	nameColumnWidth: number;
 	detailsColumnWidth: number;
-	typeVisible: boolean;
+	typeSizeVisible: boolean;
 	environmentVariableItem: IEnvironmentVariableItem;
 	selected: boolean;
 	focused: boolean;
 	style: CSSProperties;
 	onSelected: () => void;
+	onDeselected: () => void;
 	onToggleExpandCollapse: () => void;
 	onStartResizeNameColumn: () => void;
 	onResizeNameColumn: (x: number, y: number) => void;
@@ -44,10 +85,10 @@ export const EnvironmentVariableItem = (props: EnvironmentVariableItemProps) => 
 	const positronEnvironmentContext = usePositronEnvironmentContext();
 
 	/**
-	 * MouseDown handler for the row.
+	 * onMouseDown handler.
 	 * @param e A MouseEvent<HTMLElement> that describes a user interaction with the mouse.
 	 */
-	const rowMouseDownHandler = (e: MouseEvent<HTMLElement>) => {
+	const mouseDownHandler = (e: MouseEvent<HTMLElement>) => {
 		// Consume the event.
 		e.preventDefault();
 		e.stopPropagation();
@@ -56,13 +97,18 @@ export const EnvironmentVariableItem = (props: EnvironmentVariableItemProps) => 
 		switch (e.button) {
 			// Main button.
 			case 0:
-				// Call the selected callback.
-				props.onSelected();
+				if (props.selected && (platform.isMacintosh ? e.metaKey : e.ctrlKey)) {
+					props.onDeselected();
+				} else {
+					props.onSelected();
+					if (platform.isMacintosh && e.ctrlKey) {
+						showContextMenu(e.clientX, e.clientY);
+					}
+				}
 				break;
 
 			// Secondary button.
 			case 2:
-				// Show the context menu.
 				props.onSelected();
 				showContextMenu(e.clientX, e.clientY);
 				break;
@@ -105,22 +151,31 @@ export const EnvironmentVariableItem = (props: EnvironmentVariableItemProps) => 
 		// Build the actions.
 		const actions: IAction[] = [];
 
-		// Add the toggle expand / collapse action.
-		actions.push({
-			id: props.environmentVariableItem.expanded ?
-				POSITRON_ENVIRONMENT_COLLAPSE :
-				POSITRON_ENVIRONMENT_EXPAND,
-			label: props.environmentVariableItem.expanded ?
-				nls.localize('positron.environment.collapse', "Collapse") :
-				nls.localize('positron.environment.expand', "Expand"),
-			tooltip: '',
-			class: undefined,
-			enabled: true,
-			run: () => props.onToggleExpandCollapse()
-		});
+		// If the environment variable has children, add the toggle expand / collapse action.
+		if (props.environmentVariableItem.hasChildren) {
+			if (props.environmentVariableItem.expanded) {
+				actions.push({
+					id: POSITRON_ENVIRONMENT_COLLAPSE,
+					label: nls.localize('positron.environment.collapse', "Collapse"),
+					tooltip: '',
+					class: undefined,
+					enabled: true,
+					run: () => props.onToggleExpandCollapse()
+				});
+			} else {
+				actions.push({
+					id: POSITRON_ENVIRONMENT_EXPAND,
+					label: nls.localize('positron.environment.expand', "Expand"),
+					tooltip: '',
+					class: undefined,
+					enabled: true,
+					run: () => props.onToggleExpandCollapse()
+				});
+			}
 
-		// Push a separator.
-		actions.push(new Separator());
+			// Push a separator.
+			actions.push(new Separator());
+		}
 
 		// Add the copy name action.
 		actions.push({
@@ -161,7 +216,7 @@ export const EnvironmentVariableItem = (props: EnvironmentVariableItemProps) => 
 				const text = await props.environmentVariableItem.formatForClipboard('text/html');
 				positronEnvironmentContext.clipboardService.writeText(text);
 			}
-		});
+		} satisfies IAction);
 
 		// Show the context menu.
 		positronEnvironmentContext.contextMenuService.showContextMenu({
@@ -185,7 +240,7 @@ export const EnvironmentVariableItem = (props: EnvironmentVariableItemProps) => 
 
 	// Render.
 	return (
-		<div className={classNames} onMouseDown={rowMouseDownHandler} style={props.style}>
+		<div className={classNames} onMouseDown={mouseDownHandler} style={props.style}>
 			<div className='name-column' style={{ width: props.nameColumnWidth, minWidth: props.nameColumnWidth }}>
 				<div style={{ display: 'flex', marginLeft: props.environmentVariableItem.indentLevel * 20 }}>
 					<div className='gutter'>
@@ -211,9 +266,11 @@ export const EnvironmentVariableItem = (props: EnvironmentVariableItemProps) => 
 				<div className='value'>
 					{props.environmentVariableItem.displayValue}
 				</div>
-				{props.typeVisible && (
-					<div className='type'>
-						{props.environmentVariableItem.displayType}
+				{props.typeSizeVisible && (
+					<div className='type-size'>
+						{props.positronEnvironmentInstance.sorting === PositronEnvironmentSorting.Name ?
+							props.environmentVariableItem.displayType :
+							formatSize(props.environmentVariableItem.size)}
 					</div>
 				)}
 			</div>

@@ -76,20 +76,6 @@ export class PositronPlotsViewPane extends ViewPane implements IReactComponentCo
 	}
 
 	/**
-	 * Enables keybindings.
-	 */
-	enableKeybindings(): void {
-		// NOOP at this time.
-	}
-
-	/**
-	 * Disables keybindings.
-	 */
-	disableKeybindings(): void {
-		// NOOP at this time.
-	}
-
-	/**
 	 * The onSizeChanged event.
 	 */
 	readonly onSizeChanged: Event<ISize> = this._onSizeChangedEmitter.event;

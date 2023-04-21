@@ -22,8 +22,8 @@ import { SortingMenuButton } from 'vs/workbench/contrib/positronEnvironment/brow
 import { GroupingMenuButton } from 'vs/workbench/contrib/positronEnvironment/browser/components/groupingMenuButton';
 import { PositronEnvironmentServices } from 'vs/workbench/contrib/positronEnvironment/browser/positronEnvironmentState';
 import { usePositronEnvironmentContext } from 'vs/workbench/contrib/positronEnvironment/browser/positronEnvironmentContext';
-import { showClearEnvironmentObjectsModalDialog } from 'vs/workbench/browser/positronModalDialogs/clearEnvironmentObjectsModalDialog';
 import { EnvironmentInstanceMenuButton } from 'vs/workbench/contrib/positronEnvironment/browser/components/environmentInstanceMenuButton';
+import { showDeleteEnvironmentObjectsModalDialog } from 'vs/workbench/contrib/positronEnvironment/browser/modalDialogs/deleteEnvironmentObjectsModalDialog';
 
 // Constants.
 const kSecondaryActionBarGap = 4;
@@ -64,7 +64,9 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 		} else {
 			// Start the filter timeout.
 			const filterTimeout = setTimeout(() => {
-				positronEnvironmentContext.activePositronEnvironmentInstance?.setFilterText(filterText);
+				positronEnvironmentContext.activePositronEnvironmentInstance?.setFilterText(
+					filterText
+				);
 			}, kFilterTimeout);
 
 			// Clear the find timeout.
@@ -74,8 +76,9 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 
 	// Clear all environment objects handler.
 	const clearAllEnvironmentObjectsHandler = async () => {
-		// Show the clear environment objects modal dialog. If the user confirmed the operation, do it.
-		const result = await showClearEnvironmentObjectsModalDialog(props.layoutService);
+		// Show the delete environment objects modal dialog. If the user confirmed the operation,
+		// do it.
+		const result = await showDeleteEnvironmentObjectsModalDialog(props.layoutService);
 		if (result) {
 			positronEnvironmentContext.activePositronEnvironmentInstance?.requestClear(
 				result.includeHiddenObjects

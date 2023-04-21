@@ -7,6 +7,7 @@ import * as React from 'react';
 import { CSSProperties, MouseEvent } from 'react'; // eslint-disable-line no-duplicate-imports
 import * as nls from 'vs/nls';
 import { IAction } from 'vs/base/common/actions';
+import * as platform from 'vs/base/common/platform';
 import { positronClassNames } from 'vs/base/common/positronUtilities';
 import { AnchorAlignment, AnchorAxisAlignment } from 'vs/base/browser/ui/contextview/contextview';
 import { usePositronEnvironmentContext } from 'vs/workbench/contrib/positronEnvironment/browser/positronEnvironmentContext';
@@ -23,6 +24,7 @@ interface EnvironmentVariableGroupProps {
 	focused: boolean;
 	style: CSSProperties;
 	onSelected: () => void;
+	onDeselected: () => void;
 	onToggleExpandCollapse: () => void;
 	positronEnvironmentInstance: IPositronEnvironmentInstance;
 }
@@ -49,13 +51,19 @@ export const EnvironmentVariableGroup = (props: EnvironmentVariableGroupProps) =
 		switch (e.button) {
 			// Main button.
 			case 0:
-				// Call the selected callback.
-				props.onSelected();
+				if (props.selected && (platform.isMacintosh ? e.metaKey : e.ctrlKey)) {
+					props.onDeselected();
+				} else {
+					props.onSelected();
+					if (platform.isMacintosh && e.ctrlKey) {
+						showContextMenu(e.clientX, e.clientY);
+					}
+				}
 				break;
 
 			// Secondary button.
 			case 2:
-				// Show the context menu.
+				props.onSelected();
 				showContextMenu(e.clientX, e.clientY);
 				break;
 		}
