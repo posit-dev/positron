@@ -7,7 +7,7 @@
 }
 
 .positron-environment .environment-core .environment-instances-container {
-	overflow-y: scroll;
+	background: transparent;
 }
 
 .positron-environment .environment-core .environment-instances-container:focus {

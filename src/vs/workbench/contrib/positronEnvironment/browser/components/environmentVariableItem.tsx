@@ -101,12 +101,14 @@ export const EnvironmentVariableItem = (props: EnvironmentVariableItemProps) => 
 					props.onDeselected();
 				} else {
 					props.onSelected();
+					if (platform.isMacintosh && e.ctrlKey) {
+						showContextMenu(e.clientX, e.clientY);
+					}
 				}
 				break;
 
 			// Secondary button.
 			case 2:
-				// Show the context menu.
 				props.onSelected();
 				showContextMenu(e.clientX, e.clientY);
 				break;
