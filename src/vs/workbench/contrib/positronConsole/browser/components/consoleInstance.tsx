@@ -159,13 +159,6 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 			executeCode(codeFragment);
 		}));
 
-		// Add the onFocused event handler.
-		disposableStore.add(props.focusReceiver.onFocused(() => {
-			if (!props.hidden) {
-				inputRef.current?.scrollIntoView({ behavior: 'auto' });
-			}
-		}));
-
 		// Return the cleanup function that will dispose of the event handlers.
 		return () => disposableStore.dispose();
 	}, []);
