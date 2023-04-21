@@ -98,6 +98,7 @@ export const EnvironmentInstance = (props: EnvironmentInstanceProps) => {
 			)
 		);
 
+		// Request refresh so we display the environment as soon as possible.
 		props.positronEnvironmentInstance.requestRefresh();
 
 		// Return the cleanup function that will dispose of the event handlers.
