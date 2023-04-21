@@ -23,15 +23,18 @@ import { POSITRON_ENVIRONMENT_COLLAPSE, POSITRON_ENVIRONMENT_COPY_AS_HTML, POSIT
  * @returns The formatted size.
  */
 const formatSize = (size: number) => {
+	// Sizes.
 	const KB = 1024;
 	const MB = KB * KB;
 	const GB = MB * KB;
 	const TB = GB * KB;
 
+	// If the value isn't a number, set the size to 0.
 	if (!isNumber(size)) {
 		size = 0;
 	}
 
+	// < KB.
 	if (size < KB) {
 		if (size === 1) {
 			return nls.localize('positron.sizeByte', "{0} Byte", size.toFixed(0));
@@ -40,18 +43,22 @@ const formatSize = (size: number) => {
 		}
 	}
 
+	// < MB.
 	if (size < MB) {
 		return nls.localize('positron.sizeKB', "{0} KB", (size / KB).toFixed(2));
 	}
 
+	// < GB.
 	if (size < GB) {
 		return nls.localize('positron.sizeMB', "{0} MB", (size / MB).toFixed(2));
 	}
 
+	// < TB.
 	if (size < TB) {
 		return nls.localize('positron.sizeGB', "{0} GB", (size / GB).toFixed(2));
 	}
 
+	// >= TB.
 	return nls.localize('positron.sizeTB', "{0} TB", (size / TB).toFixed(2));
 };
 
