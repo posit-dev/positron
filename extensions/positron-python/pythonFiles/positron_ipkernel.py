@@ -4,6 +4,7 @@
 
 """ Positron extensions to the iPython Kernel."""
 
+import asyncio
 import codecs
 import enum
 import html
@@ -512,11 +513,11 @@ class PositronIPyKernel(IPythonKernel):
                 self.send_formatted_var(path, clipboard_format)
 
             elif msgType == EnvironmentMessageType.CLEAR:
-                self.delete_all_vars()
+                self.delete_all_vars(msg)
 
             elif msgType == EnvironmentMessageType.DELETE:
                 names = data.get('names', [])
-                self.delete_vars(names)
+                self.delete_vars(names, msg)
 
             else:
                 self.send_error(f'Unknown message type \'{msgType}\'')
@@ -629,41 +630,34 @@ class PositronIPyKernel(IPythonKernel):
         hidden['__positron_cache'] = {}
         return assigned, removed
 
-    def delete_all_vars(self) -> None:
+    def delete_all_vars(self, parent) -> None:
         """
         Deletes all of the variables in the current user session.
         """
+        loop = asyncio.get_event_loop()
+        asyncio.run_coroutine_threadsafe(self._soft_reset(parent), loop)
 
-        ns = self.get_user_ns()
-        snapshot = ns.copy()
-        hidden = self.get_user_ns_hidden().copy()
+    async def _soft_reset(self, parent) -> dict:
+        """
+        Use %reset with the soft switch to delete all user defined
+        variables from the environment.
+        """
+        # Run the %reset magic to clear user variables
+        command = '%reset -f -s'
+        coro = await self.do_execute(command, False, False)
 
-        # Delete all non-hidden variables
-        for key, value in snapshot.items():
-            if key in hidden:
-                continue
-
-            try:
-                # We check if value is None to avoid an issue in shell.del_var()
-                # cleaning up references
-                self.del_var(key, value is None)
-            except Exception as err:
-                # Warn if delete failed and key is still in scope
-                if key in ns:
-                    logging.warning(f'Unable to delete variable \'{key}\'. Error: %s', err)
-                pass
-
-        # Publish an input to inform clients of the "delete all" operation
+         # Publish an input to inform clients of the "delete all" operation
         try:
-            self.execution_count += 1
-            self._publish_execute_input("# Environment cleared", None, self.execution_count)
+            self._publish_execute_input(command, parent, self.execution_count - 1)
         except Exception:
             pass
 
         # Refresh the client state
         self.send_list()
 
-    def delete_vars(self, names: Iterable) -> None:
+        return coro
+
+    def delete_vars(self, names: Iterable, parent) -> None:
         """
         Deletes the requested variables by name from the current user session.
         """
@@ -681,6 +675,15 @@ class PositronIPyKernel(IPythonKernel):
                 pass
 
         assigned, removed = self.compare_user_ns()
+
+        # Publish an input to inform clients of the variables that were deleted
+        if len(removed) > 0:
+            command = 'del ' + ', '.join(removed)
+            try:
+                self._publish_execute_input(command, parent, self.execution_count - 1)
+            except Exception:
+                pass
+
         self.send_update(assigned, removed)
 
     def del_var(self, name: str, by_name: bool = False) -> None:
