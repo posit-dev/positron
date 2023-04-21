@@ -142,6 +142,7 @@ const tasks = compilations.map(function (tsconfigFile) {
 				.pipe(compilation())
 				.pipe(build ? nlsDev.rewriteLocalizeCalls() : es.through())
 				.pipe(build ? util.stripSourceMappingURL() : es.through())
+				.pipe(build ? es.through() : util.stripImportStatements())
 				.pipe(sourcemaps.write('.', {
 					sourceMappingURL: !build ? null : f => `${baseUrl}/${f.relative}.map`,
 					addComment: !!build,

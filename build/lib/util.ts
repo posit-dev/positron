@@ -253,6 +253,19 @@ export function stripSourceMappingURL(): NodeJS.ReadWriteStream {
 	return es.duplex(input, output);
 }
 
+export function stripImportStatements(): NodeJS.ReadWriteStream {
+	const input = es.through();
+
+	const output = input
+		.pipe(es.mapSync<VinylFile, VinylFile>(f => {
+			const contents = (<Buffer>f.contents).toString('utf8');
+			f.contents = Buffer.from(contents.replace(/\nimport (.*) from (.*);$/gm, '\n'), 'utf8');
+			return f;
+		}));
+
+	return es.duplex(input, output);
+}
+
 /** Splits items in the stream based on the predicate, sending them to onTrue if true, or onFalse otherwise */
 export function $if(test: boolean | ((f: VinylFile) => boolean), onTrue: NodeJS.ReadWriteStream, onFalse: NodeJS.ReadWriteStream = es.through()) {
 	if (typeof test === 'boolean') {
