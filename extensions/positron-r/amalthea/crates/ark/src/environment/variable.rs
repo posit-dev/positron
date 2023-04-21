@@ -5,6 +5,7 @@
 //
 //
 
+use harp::environment::BindingValue;
 use harp::utils::r_altrep_class;
 use harp::utils::r_vec_shape;
 use harp::utils::r_vec_type;
@@ -15,7 +16,6 @@ use harp::utils::r_is_simple_vector;
 use itertools::Itertools;
 
 use harp::environment::Binding;
-use harp::environment::BindingKind;
 use harp::environment::Environment;
 use harp::exec::RFunction;
 use harp::exec::RFunctionExt;
@@ -290,11 +290,10 @@ impl EnvironmentVariable {
     pub fn new(binding: &Binding) -> Self {
         let display_name = binding.name.to_string();
 
-        match binding.kind {
-            BindingKind::Active => Self::from_lazy(display_name, String::from("active binding")),
-            BindingKind::Promise(false) => Self::from_lazy(display_name, String::from("promise")),
-            BindingKind::Promise(true) => Self::from(display_name.clone(), display_name, unsafe { PRVALUE(binding.value) }),
-            BindingKind::Regular => Self::from(display_name.clone(), display_name, binding.value)
+        match binding.value {
+            BindingValue::Active{fun: _} => Self::from_lazy(display_name, String::from("active binding")),
+            BindingValue::Promise{promise: _} => Self::from_lazy(display_name, String::from("promise")),
+            BindingValue::Altrep{object, data1: _, data2: _} | BindingValue::Standard { object } => Self::from(display_name.clone(), display_name, object)
         }
     }
 

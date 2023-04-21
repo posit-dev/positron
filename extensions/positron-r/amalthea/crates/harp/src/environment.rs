@@ -13,33 +13,21 @@ use crate::object::RObject;
 use crate::symbol::RSymbol;
 use crate::utils::Sxpinfo;
 use crate::utils::r_is_altrep;
+use crate::utils::r_is_null;
 use crate::utils::r_typeof;
 
-#[derive(Debug, Eq, PartialEq)]
-pub enum BindingKind {
-    Regular,
-    Active,
-    Promise(bool),
-}
-
 #[derive(Eq, PartialEq)]
-pub struct BindingExtraAltrep {
-    data1: SEXP,
-    data2: SEXP,
-}
-
-#[derive(Eq, PartialEq)]
-pub enum BindingExtra {
-    None,
-    Altrep(BindingExtraAltrep)
+pub enum BindingValue {
+    Active{fun: SEXP},
+    Promise{promise: SEXP},
+    Altrep{object: SEXP, data1: SEXP, data2: SEXP},
+    Standard{object: SEXP}
 }
 
 #[derive(Eq, PartialEq)]
 pub struct Binding {
     pub name: RSymbol,
-    pub value: SEXP,
-    pub kind: BindingKind,
-    pub extra: BindingExtra,
+    pub value: BindingValue
 }
 
 impl Binding {
@@ -53,32 +41,37 @@ impl Binding {
                 // force the immediate bindings before we can safely call CAR()
                 Rf_findVarInFrame(env, *name);
             }
-            let value = CAR(frame);
+            let mut value = CAR(frame);
 
-            let kind = if info.is_active() {
-                BindingKind::Active
-            } else {
-                match r_typeof(value) {
-                    PROMSXP => BindingKind::Promise(PRVALUE(value) != R_UnboundValue),
-                    _       => BindingKind::Regular
+            if info.is_active() {
+                let value = BindingValue::Active{
+                    fun: value
+                };
+                return Self {name, value};
+            }
+
+            if r_typeof(value) == PROMSXP {
+                let pr_value = PRVALUE(value);
+                if r_is_null(pr_value) {
+                    let value = BindingValue::Promise { promise: value };
+                    return Self { name, value };
+                } else {
+                    value = PRVALUE(value);
                 }
-            };
+            }
 
-            let extra = if r_is_altrep(value) {
-                BindingExtra::Altrep(BindingExtraAltrep{
+            if r_is_altrep(value) {
+                let value = BindingValue::Altrep {
+                    object: value,
                     data1: R_altrep_data1(value),
                     data2: R_altrep_data2(value)
-                })
-            } else {
-                BindingExtra::None
-            };
-
-            Self {
-                name,
-                value,
-                kind,
-                extra
+                };
+                return Self {name, value};
             }
+
+            let value = BindingValue::Standard { object: value };
+            Self { name, value}
+
         }
 
     }
