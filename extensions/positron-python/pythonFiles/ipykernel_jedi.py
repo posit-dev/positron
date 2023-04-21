@@ -3,7 +3,6 @@ Custom entry point for launching Positron's extensions to the Jedi Language
 Server and IPyKernel in the same environment.
 """
 
-import debugpy
 import argparse
 import logging
 import os
@@ -13,7 +12,9 @@ import traceback
 # Add the lib path to our sys path so jedi_language_server can find its references
 EXTENSION_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(EXTENSION_ROOT, "pythonFiles", "lib", "jedilsp"))
+sys.path.insert(1, os.path.join(EXTENSION_ROOT, "pythonFiles", "lib", "python"))
 
+import debugpy
 from positron_jedilsp import POSITRON
 
 def initialize() -> (str, int):
@@ -36,6 +37,12 @@ def initialize() -> (str, int):
         help="host for web server (default 127.0.0.1)",
         type=str,
         default="127.0.0.1",
+    )
+    parser.add_argument(
+        "--debugport",
+        help="port for debugpy debugger (default 5678)",
+        type=int,
+        default=5678,
     )
     parser.add_argument(
         "--port",
@@ -75,6 +82,9 @@ def initialize() -> (str, int):
         )
     else:
         logging.basicConfig(stream=sys.stderr, level=log_level)
+
+    # Start the debugpy debugger
+    debugpy.listen(args.debugport)
 
     return args.host, args.port
 
