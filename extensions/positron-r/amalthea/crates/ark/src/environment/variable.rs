@@ -291,9 +291,9 @@ impl EnvironmentVariable {
         let display_name = binding.name.to_string();
 
         match binding.value {
-            BindingValue::Active{fun: _} => Self::from_lazy(display_name, String::from("active binding")),
-            BindingValue::Promise{promise: _} => Self::from_lazy(display_name, String::from("promise")),
-            BindingValue::Altrep{object, ..} | BindingValue::Standard { object, .. } => Self::from(display_name.clone(), display_name, object)
+            BindingValue::Active{..} => Self::from_lazy(display_name, String::from("active binding")),
+            BindingValue::Promise{..} => Self::from_lazy(display_name, String::from("promise")),
+            BindingValue::Altrep{object, ..} | BindingValue::Standard {object, ..} => Self::from(display_name.clone(), display_name, object)
         }
     }
 

@@ -21,6 +21,32 @@ pub struct BindingReference {
     pub reference: bool
 }
 
+fn has_reference(value: SEXP) -> bool {
+    match r_typeof(value) {
+        ENVSXP => true,
+        VECSXP => unsafe {
+            let n = XLENGTH(value);
+            let mut has_ref = false;
+            for i in 0..n {
+                if has_reference(VECTOR_ELT(value, i)) {
+                    has_ref = true;
+                    break;
+                }
+            }
+            has_ref
+        },
+        _      => false
+    }
+}
+
+impl BindingReference {
+    fn new(value: SEXP) -> Self {
+        Self {
+            reference: has_reference(value)
+        }
+    }
+}
+
 impl PartialEq for BindingReference {
     fn eq(&self, other: &Self) -> bool {
         !(self.reference || other.reference)
@@ -80,8 +106,10 @@ impl Binding {
                 return Self {name, value};
             }
 
-            let reference = BindingReference{ reference: r_typeof(value) == ENVSXP};
-            let value = BindingValue::Standard { object: value, reference };
+            let value = BindingValue::Standard {
+                object: value,
+                reference: BindingReference::new(value)
+            };
             Self { name, value}
         }
 
