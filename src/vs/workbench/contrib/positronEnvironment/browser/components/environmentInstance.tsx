@@ -94,8 +94,7 @@ export const EnvironmentInstance = (props: EnvironmentInstanceProps) => {
 
 				// Set the entries.
 				setEntries(entries);
-			}
-			)
+			})
 		);
 
 		// Request refresh so we display the environment as soon as possible.
