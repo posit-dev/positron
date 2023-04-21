@@ -64,7 +64,9 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 		} else {
 			// Start the filter timeout.
 			const filterTimeout = setTimeout(() => {
-				positronEnvironmentContext.activePositronEnvironmentInstance?.setFilterText(filterText);
+				positronEnvironmentContext.activePositronEnvironmentInstance?.setFilterText(
+					filterText
+				);
 			}, kFilterTimeout);
 
 			// Clear the find timeout.
@@ -74,7 +76,8 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 
 	// Clear all environment objects handler.
 	const clearAllEnvironmentObjectsHandler = async () => {
-		// Show the clear environment objects modal dialog. If the user confirmed the operation, do it.
+		// Show the delete environment objects modal dialog. If the user confirmed the operation,
+		// do it.
 		const result = await showDeleteEnvironmentObjectsModalDialog(props.layoutService);
 		if (result) {
 			positronEnvironmentContext.activePositronEnvironmentInstance?.requestClear(
