@@ -138,14 +138,20 @@ export class PositronJediLanguageServerProxy implements ILanguageServerProxy {
         // Register each interpreter as a language runtime
         const portfinder = require('portfinder');
         let lspPort = 2087;
+        let debugPort = 5678;
         for (let interpreter of interpreters) {
             // Find an available port for our TCP server, starting the search from
             // the next port each iteration.
-            lspPort++;
             lspPort = await portfinder.getPortPromise({ port: lspPort });
 
-            const runtime: vscode.Disposable = await this.registerLanguageRuntime(ext, interpreter, lspPort, options);
+            // Also locate an available port for the debugger
+            debugPort = await portfinder.getPortPromise({ port: debugPort });
+
+            const runtime: vscode.Disposable = await this.registerLanguageRuntime(ext, interpreter, lspPort, debugPort, options);
             this.disposables.push(runtime);
+
+            lspPort++;
+            debugPort++;
         }
     }
 
@@ -157,6 +163,7 @@ export class PositronJediLanguageServerProxy implements ILanguageServerProxy {
     private async registerLanguageRuntime(ext: vscode.Extension<any>,
         interpreter: PythonEnvironment,
         lspPort: number,
+        debugPort: number,
         options: LanguageClientOptions): Promise<Disposable> {
 
         // Determine if the ipykernel module is installed
@@ -168,7 +175,7 @@ export class PositronJediLanguageServerProxy implements ILanguageServerProxy {
         const command = interpreter.path;
         const pythonVersion = interpreter.version?.raw;
         const lsScriptPath = path.join(EXTENSION_ROOT_DIR, 'pythonFiles', 'ipykernel_jedi.py');
-        const args = [command, lsScriptPath, `--port=${lspPort}`, '-f', '{connection_file}', '--logfile', '{log_file}']
+        const args = [command, lsScriptPath, `--debugport=${debugPort}`, `--port=${lspPort}`, '-f', '{connection_file}', '--logfile', '{log_file}']
         const kernelSpec = {
             argv: args,
             display_name: `${displayName}`,
