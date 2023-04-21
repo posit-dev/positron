@@ -381,7 +381,7 @@ impl REnvironment {
 
                     (Some(old), Some(new)) => {
                         if old.name == new.name {
-                            if old != new {
+                            if old.value != new.value {
                                 assigned.push(
                                     EnvironmentVariable::new(&new)
                                 );

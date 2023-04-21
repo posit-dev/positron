@@ -22,9 +22,30 @@ pub struct BindingReference {
 }
 
 fn has_reference(value: SEXP) -> bool {
-    match r_typeof(value) {
-        ENVSXP => true,
-        VECSXP => unsafe {
+    if r_is_null(value) {
+        return false;
+    }
+
+    if r_is_altrep(value) {
+        unsafe {
+            return has_reference(R_altrep_data1(value)) || has_reference(R_altrep_data2(value));
+        }
+    }
+
+    /*
+    if has_reference(unsafe { ATTRIB(value) }) {
+        return true;
+    }
+    */
+
+    let rtype = r_typeof(value);
+    match rtype {
+
+        ENVSXP  => true,
+        LISTSXP | LANGSXP => unsafe {
+            has_reference(CAR(value)) || has_reference(CDR(value))
+        },
+        VECSXP | EXPRSXP  => unsafe {
             let n = XLENGTH(value);
             let mut has_ref = false;
             for i in 0..n {
@@ -35,8 +56,10 @@ fn has_reference(value: SEXP) -> bool {
             }
             has_ref
         },
+
         _      => false
     }
+
 }
 
 impl BindingReference {
@@ -57,7 +80,7 @@ impl PartialEq for BindingReference {
 pub enum BindingValue {
     Active{fun: SEXP},
     Promise{promise: SEXP},
-    Altrep{object: SEXP, data1: SEXP, data2: SEXP},
+    Altrep{object: SEXP, data1: SEXP, data2: SEXP, reference: BindingReference},
     Standard{object: SEXP, reference: BindingReference}
 }
 
@@ -89,19 +112,20 @@ impl Binding {
 
             if r_typeof(value) == PROMSXP {
                 let pr_value = PRVALUE(value);
-                if r_is_null(pr_value) {
+                if pr_value == R_UnboundValue {
                     let value = BindingValue::Promise { promise: value };
                     return Self { name, value };
-                } else {
-                    value = PRVALUE(value);
                 }
+
+                value = pr_value;
             }
 
             if r_is_altrep(value) {
                 let value = BindingValue::Altrep {
                     object: value,
                     data1: R_altrep_data1(value),
-                    data2: R_altrep_data2(value)
+                    data2: R_altrep_data2(value),
+                    reference: BindingReference::new(value)
                 };
                 return Self {name, value};
             }
