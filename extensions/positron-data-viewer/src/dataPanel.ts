@@ -33,15 +33,16 @@ export async function createDataPanel(context: vscode.ExtensionContext,
 			'react-dom', 'umd', 'react-dom.development.js'));
 	}
 
-	// Add the main index.js file
-	scriptPaths.push(path.join(context.extensionPath,
-		'ui', 'out', 'index.js'));
-
 	// Convert each script path to a webview URI
 	const reactHtml = scriptPaths.map((scriptPath) => {
 		const scriptUri = panel.webview.asWebviewUri(vscode.Uri.file(scriptPath));
 		return `<script src="${scriptUri}"></script>`;
 	}).join('\n');
+
+	// Add the main index.js file
+	const appPath = path.join(context.extensionPath, 'ui', 'out', 'app.js');
+	const appUri = panel.webview.asWebviewUri(vscode.Uri.file(appPath));
+	const appHtml = `<script type="module" src="${appUri}"></script>`;
 
 	// Send events from the client to the webview
 	client.onDidSendEvent((event) => {
@@ -50,7 +51,7 @@ export async function createDataPanel(context: vscode.ExtensionContext,
 
 	// Handle messages from the webview
 	panel.webview.onDidReceiveMessage((message) => {
-		if (message === 'ready') {
+		if (message.msg_type === 'ready') {
 			// The webview is ready to receive messages
 			panel.webview.postMessage({
 				msg_type: 'init',
@@ -59,5 +60,5 @@ export async function createDataPanel(context: vscode.ExtensionContext,
 		}
 	});
 
-	panel.webview.html = `<body><div id="root"></div></body>${reactHtml}`;
+	panel.webview.html = `<body><div id="root"></div></body>${reactHtml}${appHtml}`;
 }
