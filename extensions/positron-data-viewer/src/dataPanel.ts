@@ -5,7 +5,7 @@
 import path = require('path');
 import * as vscode from 'vscode';
 
-export async function createDataPanel(context: vscode.ExtensionContext) {
+export async function createDataPanel(context: vscode.ExtensionContext, _params: any) {
 	const panel = vscode.window.createWebviewPanel(
 		'positronDataViewer',
 		'Data Viewer',
