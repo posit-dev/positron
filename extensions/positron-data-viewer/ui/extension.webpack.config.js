@@ -6,20 +6,31 @@
 
 'use strict';
 
-const withBrowserDefaults = require('../../shared.webpack.config').browser;
 const path = require('path');
 
-module.exports = withBrowserDefaults({
-	context: path.join(__dirname),
+module.exports = {
+	context: __dirname,
+	target: 'web',
 	entry: {
-		extension: './src/index.tsx',
+		index: './src/app.tsx'
 	},
-	node: {
-		__dirname: false
+	module: {
+		rules: [
+			{
+				test: /\.tsx?$/,
+				use: 'ts-loader',
+				exclude: /node_modules/,
+			},
+		],
 	},
+	externals: {},
 	resolve: {
-		mainFields: ['module', 'main'],
-		extensions: ['.ts', '.tsx']
-	}
-});
+		extensions: ['.js', '.jsx', '.ts', '.tsx']
+	},
+	output: {
+		filename: '[name].js',
+		path: path.join(__dirname, 'dist'),
+		libraryTarget: 'umd',
+	},
+};
 
