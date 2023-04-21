@@ -51,6 +51,7 @@ export const EnvironmentInstance = (props: EnvironmentInstanceProps) => {
 		useState(props.width - DEFAULT_NAME_COLUMN_WIDTH);
 	const [typeSizeVisible, setTypeSizeVisible] =
 		useState(props.width - DEFAULT_NAME_COLUMN_WIDTH > TYPE_SIZE_VISIBILITY_THRESHOLD);
+	const [initializing, setInitializing] = useState(true);
 	const [entries, setEntries] = useState<EnvironmentEntry[]>([]);
 	const [resizingColumn, setResizingColumn] = useState(false);
 	const [selectedId, setSelectedId] = useState<string | undefined>(undefined);
@@ -87,10 +88,17 @@ export const EnvironmentInstance = (props: EnvironmentInstanceProps) => {
 
 		// Add the onDidChangeEntries event handler.
 		disposableStore.add(
-			props.positronEnvironmentInstance.onDidChangeEntries(entries =>
-				setEntries(entries)
+			props.positronEnvironmentInstance.onDidChangeEntries(entries => {
+				// When we've received the first set of entries, we are initialized.
+				setInitializing(false);
+
+				// Set the entries.
+				setEntries(entries);
+			}
 			)
 		);
+
+		props.positronEnvironmentInstance.requestRefresh();
 
 		// Return the cleanup function that will dispose of the event handlers.
 		return () => disposableStore.dispose();
@@ -429,7 +437,7 @@ export const EnvironmentInstance = (props: EnvironmentInstanceProps) => {
 
 	// If there are no environment entries, render the empty environment.
 	if (!entries.length) {
-		return <EmptyEnvironment />;
+		return <EmptyEnvironment initializing={initializing} />;
 	}
 
 	// Render.
