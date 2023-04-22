@@ -20,8 +20,6 @@ export interface RuntimeStartedProps {
 export const RuntimeStarted = ({ runtimeItemStarted }: RuntimeStartedProps) => {
 	// Render.
 	return (
-		<div className='runtime-started'>
-			<OutputLines outputLines={runtimeItemStarted.outputLines} />
-		</div>
+		<OutputLines outputLines={runtimeItemStarted.outputLines} />
 	);
 };

@@ -14,11 +14,11 @@ import { HistoryNavigator2 } from 'vs/base/common/history';
 import { IKeyboardEvent } from 'vs/base/browser/keyboardEvent';
 import { useStateRef } from 'vs/base/browser/ui/react/useStateRef';
 import { IEditorOptions } from 'vs/editor/common/config/editorOptions';
+import { IFocusReceiver } from 'vs/base/browser/positronReactRenderer';
 import { CodeEditorWidget } from 'vs/editor/browser/widget/codeEditorWidget';
 import { ModesHoverController } from 'vs/editor/contrib/hover/browser/hover';
 import { EditorExtensionsRegistry } from 'vs/editor/browser/editorExtensions';
 import { MarkerController } from 'vs/editor/contrib/gotoError/browser/gotoError';
-import { IFocusReceiver } from 'vs/base/browser/positronReactRenderer';
 import { SuggestController } from 'vs/editor/contrib/suggest/browser/suggestController';
 import { SnippetController2 } from 'vs/editor/contrib/snippet/browser/snippetController2';
 import { ContextMenuController } from 'vs/editor/contrib/contextmenu/browser/contextmenu';
@@ -331,11 +331,12 @@ export const ConsoleInput = forwardRef<HTMLDivElement, ConsoleInputProps>((props
 				}
 				return '';
 			},
+			// lineNumbers: 'off',
 			minimap: {
 				enabled: false
 			},
 			glyphMargin: false,
-			lineDecorationsWidth: 0,
+			// lineDecorationsWidth: 0,
 			// overviewRuleBorder: false,		// Not part of IEditorOptions.
 			// enableDropIntoEditor: false,		// Not part of IEditorOptions.
 			renderLineHighlight: 'none',
@@ -350,7 +351,7 @@ export const ConsoleInput = forwardRef<HTMLDivElement, ConsoleInputProps>((props
 			scrollBeyondLastLine: false,
 			// handleMouseWheel: false,			// Not part of IEditorOptions.
 			// alwaysConsumeMouseWheel: false,	// Not part of IEditorOptions.
-			lineNumbersMinChars: 3,
+			lineNumbersMinChars: 0
 		} satisfies IEditorOptions;
 
 		// Create the code editor widget.
@@ -413,6 +414,15 @@ export const ConsoleInput = forwardRef<HTMLDivElement, ConsoleInputProps>((props
 				}
 			})
 		);
+
+		// Add the onDidClearConsole event handler.
+		disposableStore.add(props.positronConsoleInstance.onDidClearConsole(() => {
+			// When the console is cleared, erase anything that was partially entered.
+			textModel.setValue('');
+
+			// Re-focus the console.
+			codeEditorWidget.focus();
+		}));
 
 		// Add the onDidClearConsole event handler.
 		disposableStore.add(props.positronConsoleInstance.onDidClearConsole(() => {

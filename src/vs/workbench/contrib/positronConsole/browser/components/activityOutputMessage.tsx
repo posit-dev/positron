@@ -20,8 +20,6 @@ export interface ActivityOutputMessageProps {
 export const ActivityOutputMessage = (props: ActivityOutputMessageProps) => {
 	// Render.
 	return (
-		<div className='activity-output-message'>
-			<OutputLines outputLines={props.activityItemOutputMessage.outputLines} />
-		</div>
+		<OutputLines outputLines={props.activityItemOutputMessage.outputLines} />
 	);
 };
