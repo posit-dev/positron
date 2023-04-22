@@ -273,14 +273,24 @@ class PositronConsoleService extends Disposable implements IPositronConsoleServi
 	 * @returns A value which indicates whether the code could be executed.
 	 */
 	executeCode(languageId: string, code: string): boolean {
+		// Get the Positron console instance for the language.
 		const positronConsoleInstance = this._positronConsoleInstancesByLanguageId.get(languageId);
 		if (!positronConsoleInstance) {
-			// TODO@softwarenerd - See if we can start a new runtime for the language.
+			// TODO@softwarenerd - In an ideal world, we should start a new runtime for the language
+			// and queue this code up to be executed, once it starts.
 			return false;
-		} else {
-			positronConsoleInstance.executeCode(code);
-			return true;
 		}
+
+		// Activate the Positron console instance, if it isn't active.
+		if (positronConsoleInstance !== this._activePositronConsoleInstance) {
+			this.setActivePositronConsoleInstance(positronConsoleInstance);
+		}
+
+		// Execute the code.
+		positronConsoleInstance.executeCode(code);
+
+		// Success.
+		return true;
 	}
 
 	//#endregion IPositronConsoleService Implementation
