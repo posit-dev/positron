@@ -2,7 +2,7 @@
  *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
-import 'vs/css!./liveInput';
+import 'vs/css!./consoleInput';
 import * as React from 'react';
 import { forwardRef, useCallback, useEffect, useRef } from 'react'; // eslint-disable-line no-duplicate-imports
 import { URI } from 'vs/base/common/uri';
@@ -27,26 +27,30 @@ import { IInputHistoryEntry } from 'vs/workbench/contrib/executionHistory/common
 import { SelectionClipboardContributionID } from 'vs/workbench/contrib/codeEditor/browser/selectionClipboard';
 import { usePositronConsoleContext } from 'vs/workbench/contrib/positronConsole/browser/positronConsoleContext';
 import { RuntimeCodeFragmentStatus } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
-import { IPositronConsoleInstance } from 'vs/workbench/services/positronConsole/common/interfaces/positronConsoleService';
+import { IPositronConsoleInstance, PositronConsoleState } from 'vs/workbench/services/positronConsole/common/interfaces/positronConsoleService';
 
-// LiveInputProps interface.
-export interface LiveInputProps {
+// ConsoleInputProps interface.
+export interface ConsoleInputProps {
 	readonly width: number;
 	readonly hidden: boolean;
+	readonly focusReceiver: IFocusReceiver;
 	readonly executeCode: (codeFragment: string) => void;
 	readonly positronConsoleInstance: IPositronConsoleInstance;
-	readonly focusReceiver: IFocusReceiver;
 }
 
 /**
- * LiveInput component.
- * @param props A LiveInputProps that contains the component properties.
+ * ConsoleInput component.
+ * @param props A ConsoleInputProps that contains the component properties.
  * @returns The rendered component.
  */
-export const LiveInput = forwardRef<HTMLDivElement, LiveInputProps>((props: LiveInputProps, ref) => {
-	// Hooks.
+export const ConsoleInput = forwardRef<HTMLDivElement, ConsoleInputProps>((props: ConsoleInputProps, ref) => {
+	// Context hooks.
 	const positronConsoleContext = usePositronConsoleContext();
+
+	// Reference hooks.
 	const refContainer = useRef<HTMLDivElement>(undefined!);
+
+	// State hooks.
 	const [, setCodeEditorWidget, refCodeEditorWidget] = useStateRef<CodeEditorWidget>(undefined!);
 	const [, setCodeEditorWidth, refCodeEditorWidth] = useStateRef(props.width);
 	const [, setHistoryNavigator, refHistoryNavigator] =
@@ -92,9 +96,9 @@ export const LiveInput = forwardRef<HTMLDivElement, LiveInputProps>((props: Live
 		}
 
 		/**
-		 * Eats the event.
+		 * Consumes an event.
 		 */
-		const eatEvent = () => {
+		const consumeEvent = () => {
 			e.preventDefault();
 			e.stopPropagation();
 		};
@@ -106,8 +110,8 @@ export const LiveInput = forwardRef<HTMLDivElement, LiveInputProps>((props: Live
 				// Interrupt the runtime.
 				props.positronConsoleInstance.runtime.interrupt();
 
-				// Eat the event.
-				eatEvent();
+				// Consume the event.
+				consumeEvent();
 				break;
 			}
 
@@ -118,14 +122,20 @@ export const LiveInput = forwardRef<HTMLDivElement, LiveInputProps>((props: Live
 					// Interrupt the runtime.
 					props.positronConsoleInstance.runtime.interrupt();
 
-					// Eat the event.
-					eatEvent();
+					// Consume the event.
+					consumeEvent();
 				}
 				break;
 			}
 
 			// Up arrow processing.
 			case KeyCode.UpArrow: {
+				// If the console instance isn't ready, ignore the event.
+				if (props.positronConsoleInstance.state !== PositronConsoleState.Ready) {
+					consumeEvent();
+					return;
+				}
+
 				// If there are history entries, process the event.
 				if (refHistoryNavigator.current) {
 					// When the user moves up from the end, and we don't have a current code editor
@@ -146,13 +156,19 @@ export const LiveInput = forwardRef<HTMLDivElement, LiveInputProps>((props: Live
 					updateCodeEditorWidgetPositionToEnd();
 				}
 
-				// Eat the event.
-				eatEvent();
+				// Consume the event.
+				consumeEvent();
 				break;
 			}
 
 			// Down arrow processing.
 			case KeyCode.DownArrow: {
+				// If the console instance isn't ready, ignore the event.
+				if (props.positronConsoleInstance.state !== PositronConsoleState.Ready) {
+					consumeEvent();
+					return;
+				}
+
 				// If there are history entries, process the event.
 				if (refHistoryNavigator.current) {
 					// When the user reaches the end of the history entries, restore the current
@@ -173,13 +189,19 @@ export const LiveInput = forwardRef<HTMLDivElement, LiveInputProps>((props: Live
 					updateCodeEditorWidgetPositionToEnd();
 				}
 
-				// Eat the event.
-				eatEvent();
+				// Consume the event.
+				consumeEvent();
 				break;
 			}
 
 			// Enter processing.
 			case KeyCode.Enter: {
+				// If the console instance isn't ready, ignore the event.
+				if (props.positronConsoleInstance.state !== PositronConsoleState.Ready) {
+					consumeEvent();
+					return;
+				}
+
 				// If the shift key is pressed, do not process the event because the user is
 				// entering multiple lines.
 				if (e.shiftKey) {
@@ -254,8 +276,8 @@ export const LiveInput = forwardRef<HTMLDivElement, LiveInputProps>((props: Live
 					refCodeEditorWidget.current.setValue('');
 				}
 
-				// Eat the event.
-				eatEvent();
+				// Consume the event.
+				consumeEvent();
 				break;
 			}
 		}
@@ -437,7 +459,7 @@ export const LiveInput = forwardRef<HTMLDivElement, LiveInputProps>((props: Live
 
 	// Render.
 	return (
-		<div ref={ref} className='live-input'>
+		<div ref={ref} className='console-input'>
 			<div ref={refContainer}></div>
 		</div>
 	);
