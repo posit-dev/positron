@@ -14,8 +14,7 @@ import { IEditorOptions } from 'vs/editor/common/config/editorOptions';
 import { DisposableStore, IDisposable } from 'vs/base/common/lifecycle';
 import { FontMeasurements } from 'vs/editor/browser/config/fontMeasurements';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
-import { BusyInput } from 'vs/workbench/contrib/positronConsole/browser/components/busyInput';
-import { LiveInput } from 'vs/workbench/contrib/positronConsole/browser/components/liveInput';
+import { ConsoleInput } from 'vs/workbench/contrib/positronConsole/browser/components/consoleInput';
 import { RuntimeItem } from 'vs/workbench/services/positronConsole/common/classes/runtimeItem';
 import { RuntimeTrace } from 'vs/workbench/contrib/positronConsole/browser/components/runtimeTrace';
 import { RuntimeExited } from 'vs/workbench/contrib/positronConsole/browser/components/runtimeExited';
@@ -37,7 +36,7 @@ import { RuntimeItemReconnected } from 'vs/workbench/services/positronConsole/co
 import { RuntimeStartupFailure } from 'vs/workbench/contrib/positronConsole/browser/components/runtimeStartupFailure';
 import { RuntimeItemStartupFailure } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemStartupFailure';
 import { RuntimeCodeExecutionMode, RuntimeErrorBehavior } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
-import { IPositronConsoleInstance, PositronConsoleState } from 'vs/workbench/services/positronConsole/common/interfaces/positronConsoleService';
+import { IPositronConsoleInstance } from 'vs/workbench/services/positronConsole/common/interfaces/positronConsoleService';
 
 // ConsoleInstanceProps interface.
 interface ConsoleInstanceProps {
@@ -197,45 +196,20 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 		}
 	};
 
-	/**
-	 * Renders the input.
-	 * @returns The input that was rendered.
-	 */
-	const renderInput = () => {
-		// Based on state, render the input.
-		switch (props.positronConsoleInstance.state) {
-			// Ready.
-			case PositronConsoleState.Ready:
-				return <LiveInput
-					ref={inputRef}
-					width={props.width}
-					hidden={props.hidden}
-					executeCode={executeCode}
-					positronConsoleInstance={props.positronConsoleInstance}
-					focusReceiver={props.focusReceiver} />;
-
-			// Busy.
-			case PositronConsoleState.Busy:
-				return <BusyInput
-					ref={inputRef}
-					width={props.width}
-					hidden={props.hidden}
-					positronConsoleInstance={props.positronConsoleInstance}
-					focusReceiver={props.focusReceiver} />;
-
-			// Render nothing.
-			default:
-				return null;
-		}
-	};
-
 	// Render.
 	return (
 		<div ref={instanceRef} className='console-instance' hidden={props.hidden}>
 			{props.positronConsoleInstance.runtimeItems.map(runtimeItem =>
 				renderRuntimeItem(runtimeItem)
 			)}
-			{renderInput()}
+			<ConsoleInput
+				ref={inputRef}
+				width={props.width}
+				hidden={props.hidden}
+				focusReceiver={props.focusReceiver}
+				executeCode={executeCode}
+				positronConsoleInstance={props.positronConsoleInstance}
+			/>
 		</div>
 	);
 };
