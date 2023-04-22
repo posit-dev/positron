@@ -5,14 +5,21 @@
 import 'vs/css!./consoleInstanceMenuButton';
 import * as React from 'react';
 import { IAction } from 'vs/base/common/actions';
+import { IReactComponentContainer } from 'vs/base/browser/positronReactRenderer';
 import { ActionBarMenuButton } from 'vs/platform/positronActionBar/browser/components/actionBarMenuButton';
 import { usePositronConsoleContext } from 'vs/workbench/contrib/positronConsole/browser/positronConsoleContext';
 
+// ConsoleInstanceMenuButtonProps interface.
+interface ConsoleInstanceMenuButtonProps {
+	readonly reactComponentContainer: IReactComponentContainer;
+}
+
 /**
  * ConsoleInstanceMenuButton component.
+ * @param props A ConsoleInstanceMenuButtonProps that contains the component properties.
  * @returns The rendered component.
  */
-export const ConsoleInstanceMenuButton = () => {
+export const ConsoleInstanceMenuButton = (props: ConsoleInstanceMenuButtonProps) => {
 	// Hooks.
 	const positronConsoleContext = usePositronConsoleContext();
 
@@ -30,6 +37,9 @@ export const ConsoleInstanceMenuButton = () => {
 				run: () => {
 					positronConsoleContext.languageRuntimeService.activeRuntime =
 						positronConsoleInstance.runtime;
+					setTimeout(() => {
+						props.reactComponentContainer.takeFocus();
+					}, 0);
 				}
 			});
 		});
