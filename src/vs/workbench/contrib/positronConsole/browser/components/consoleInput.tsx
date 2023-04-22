@@ -340,7 +340,8 @@ export const ConsoleInput = forwardRef<HTMLDivElement, ConsoleInputProps>((props
 				enabled: false
 			},
 			glyphMargin: false,
-			lineDecorationsWidth: 0,
+			folding: false,
+			lineDecorationsWidth: '1.0ch',
 			renderLineHighlight: 'none',
 			wordWrap: 'bounded',
 			wordWrapColumn: 2048,
@@ -350,7 +351,7 @@ export const ConsoleInput = forwardRef<HTMLDivElement, ConsoleInputProps>((props
 			},
 			overviewRulerLanes: 0,
 			scrollBeyondLastLine: false,
-			lineNumbersMinChars: props.positronConsoleInstance.runtime.metadata.inputPrompt.length - 1
+			lineNumbersMinChars: props.positronConsoleInstance.runtime.metadata.inputPrompt.length
 		} satisfies IEditorOptions;
 
 		// Create the code editor widget.

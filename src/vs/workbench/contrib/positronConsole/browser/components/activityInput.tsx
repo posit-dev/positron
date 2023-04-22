@@ -22,9 +22,7 @@ export const ActivityInput = (props: ActivityInputProps) => {
 	return (
 		<div className='activity-input'>
 			<div className='prompt'>{props.activityItemInput.prompt + ' '}</div>
-			<div className='code'>
-				<OutputLines outputLines={props.activityItemInput.codeOutputLines} />
-			</div>
+			<OutputLines outputLines={props.activityItemInput.codeOutputLines} />
 		</div>
 	);
 };
