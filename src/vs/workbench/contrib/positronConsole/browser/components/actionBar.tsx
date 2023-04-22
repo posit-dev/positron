@@ -5,6 +5,7 @@
 import 'vs/css!./actionBar';
 import * as React from 'react';
 import { localize } from 'vs/nls';
+import { IReactComponentContainer } from 'vs/base/browser/positronReactRenderer';
 import { PositronActionBar } from 'vs/platform/positronActionBar/browser/positronActionBar';
 import { ActionBarRegion } from 'vs/platform/positronActionBar/browser/components/actionBarRegion';
 import { ActionBarButton } from 'vs/platform/positronActionBar/browser/components/actionBarButton';
@@ -18,12 +19,17 @@ import { ConsoleInstanceMenuButton } from 'vs/workbench/contrib/positronConsole/
 const kPaddingLeft = 8;
 const kPaddingRight = 8;
 
+// ActionBarProps interface.
+interface ActionBarProps {
+	readonly reactComponentContainer: IReactComponentContainer;
+}
+
 /**
  * ActionBar component.
  * @param props An ActionBarProps that contains the component properties.
  * @returns The rendered component.
  */
-export const ActionBar = () => {
+export const ActionBar = (props: ActionBarProps) => {
 	// Hooks.
 	const positronConsoleContext = usePositronConsoleContext();
 
@@ -43,7 +49,7 @@ export const ActionBar = () => {
 			<div className='action-bar'>
 				<PositronActionBar size='small' borderTop={true} borderBottom={true} paddingLeft={kPaddingLeft} paddingRight={kPaddingRight}>
 					<ActionBarRegion align='left'>
-						<ConsoleInstanceMenuButton />
+						<ConsoleInstanceMenuButton {...props} />
 					</ActionBarRegion>
 					<ActionBarRegion align='right'>
 						<ActionBarButton iconId='positron-list' align='right' tooltip={localize('positronToggleTrace', "Toggle Trace")} onClick={toggleTraceHandler} />
