@@ -204,7 +204,7 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 			)}
 			<ConsoleInput
 				ref={inputRef}
-				width={props.width}
+				width={props.width - 28}
 				hidden={props.hidden}
 				focusReceiver={props.focusReceiver}
 				executeCode={executeCode}
