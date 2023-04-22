@@ -4,7 +4,7 @@
 
 .runtime-trace {
 	font-size: 10px;
-	padding: 4px 14px;
+	padding: 4px 0;
 	margin: 2px 0 2px 0;
 	line-height: normal;
 	background: var(--vscode-positronConsole-traceBackground);

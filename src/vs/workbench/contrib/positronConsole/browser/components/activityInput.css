@@ -8,10 +8,10 @@
 
 .activity-input .prompt {
 	display: flex;
-	width: 22px;
-	justify-content: right;
+	/* width: 22px; */
+	justify-content: left;
 }
 
 .activity-input .code {
-	margin-left: 16px;
+	margin-left: 12px;
 }
