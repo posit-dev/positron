@@ -321,37 +321,36 @@ export const ConsoleInput = forwardRef<HTMLDivElement, ConsoleInputProps>((props
 			false               // this widget is not simple
 		);
 
+		// Line numbers functions.
+		const notReadyLineNumbers = (n: number) => '';
+		const readyLineNumbers = (n: number) => {
+			// Render the input prompt for the first line; do not render
+			// anything in the margin for following lines
+			if (n < 2) {
+				return props.positronConsoleInstance.runtime.metadata.inputPrompt;
+			}
+			return '';
+		};
+
 		// The editor options we override.
 		const editorOptions = {
-			lineNumbers: (n: number) => {
-				// Render the input prompt for the first line; do not render
-				// anything in the margin for following lines
-				if (n < 2) {
-					return props.positronConsoleInstance.runtime.metadata.inputPrompt;
-				}
-				return '';
-			},
-			// lineNumbers: 'off',
+			lineNumbers: readyLineNumbers,
+			readOnly: true,
 			minimap: {
 				enabled: false
 			},
 			glyphMargin: false,
-			// lineDecorationsWidth: 0,
-			// overviewRuleBorder: false,		// Not part of IEditorOptions.
-			// enableDropIntoEditor: false,		// Not part of IEditorOptions.
+			lineDecorationsWidth: 0,
 			renderLineHighlight: 'none',
 			wordWrap: 'bounded',
 			wordWrapColumn: 2048,
-			// renderOverviewRuler: false,		// Not part of IEditorOptions.
 			scrollbar: {
 				vertical: 'hidden',
 				useShadows: false
 			},
 			overviewRulerLanes: 0,
 			scrollBeyondLastLine: false,
-			// handleMouseWheel: false,			// Not part of IEditorOptions.
-			// alwaysConsumeMouseWheel: false,	// Not part of IEditorOptions.
-			lineNumbersMinChars: 0
+			lineNumbersMinChars: props.positronConsoleInstance.runtime.metadata.inputPrompt.length - 1
 		} satisfies IEditorOptions;
 
 		// Create the code editor widget.
@@ -422,6 +421,40 @@ export const ConsoleInput = forwardRef<HTMLDivElement, ConsoleInputProps>((props
 
 			// Re-focus the console.
 			codeEditorWidget.focus();
+		}));
+
+		// Add the onDidClearConsole event handler.
+		disposableStore.add(props.positronConsoleInstance.onDidChangeState(state => {
+			// Set up editor options based on state.
+			let lineNumbers;
+			let readOnly;
+			switch (state) {
+				// When uninitialized or starting, switch to a read only normal prompt so it looks
+				// right, but no typeahead is allowed.
+				case PositronConsoleState.Uninitialized:
+				case PositronConsoleState.Starting:
+					readOnly = true;
+					lineNumbers = readyLineNumbers;
+					break;
+
+				// When ready, switch to an active normal prompt.
+				case PositronConsoleState.Ready:
+					readOnly = false;
+					lineNumbers = readyLineNumbers;
+					break;
+
+				// In any other state, don't display the normal prompt, but allow typeahead.
+				default:
+					readOnly = false;
+					lineNumbers = notReadyLineNumbers;
+			}
+
+			// Update the code editor widget options.
+			codeEditorWidget.updateOptions({
+				...editorOptions,
+				readOnly,
+				lineNumbers
+			});
 		}));
 
 		// Add the onDidClearConsole event handler.
