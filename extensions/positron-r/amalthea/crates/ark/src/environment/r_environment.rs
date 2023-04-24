@@ -386,7 +386,6 @@ impl REnvironment {
                                     EnvironmentVariable::new(&new)
                                 );
                             }
-
                             old_next = old_iter.next();
                             new_next = new_iter.next();
                         } else if old.name < new.name {
@@ -421,14 +420,14 @@ impl REnvironment {
     }
 
     fn bindings(&self) -> Vec<Binding> {
-        // TODO: it might be too restritive to drop all objects
-        //       whose name start with "."
-        let env = Environment::new(self.env.sexp);
+        let env = Environment::new(self.env.clone());
         let mut bindings: Vec<Binding> = env.iter().filter(|binding| {
-            !String::from(binding.name).starts_with(".")
+            !binding.is_hidden()
         }).collect();
 
-        bindings.sort();
+        bindings.sort_by(|a, b| {
+            a.name.cmp(&b.name)
+        });
         bindings
     }
 }
