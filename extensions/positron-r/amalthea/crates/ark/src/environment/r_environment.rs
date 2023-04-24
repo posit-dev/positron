@@ -420,8 +420,6 @@ impl REnvironment {
     }
 
     fn bindings(&self) -> Vec<Binding> {
-        // TODO: it might be too restritive to drop all objects
-        //       whose name start with "."
         let env = Environment::new(self.env.clone());
         let mut bindings: Vec<Binding> = env.iter().filter(|binding| {
             !binding.is_hidden()
