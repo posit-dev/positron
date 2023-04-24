@@ -33,23 +33,30 @@ export async function createDataPanel(context: vscode.ExtensionContext,
 			'react-dom', 'umd', 'react-dom.development.js'));
 	}
 
+	// Get a list of all the script files in the extension's ui/out folder and
+	// add them to the list of scripts to load in the webview
+	const outFolder = path.join(context.extensionPath, 'ui', 'out');
+	const files = await vscode.workspace.fs.readDirectory(vscode.Uri.file(outFolder));
+	files.forEach((file) => {
+		// If this file is a JavaScript file, add it to the list of scripts
+		if (file[1] === vscode.FileType.File && file[0].endsWith('.js')) {
+			scriptPaths.push(path.join(outFolder, file[0]));
+		}
+	});
+
 	// Convert each script path to a webview URI
 	const reactHtml = scriptPaths.map((scriptPath) => {
 		const scriptUri = panel.webview.asWebviewUri(vscode.Uri.file(scriptPath));
-		return `<script src="${scriptUri}"></script>`;
+		const moduleAttribute = scriptPath.includes('node_modules') ? '' : 'type="module"';
+		return `<script ${moduleAttribute} src="${scriptUri}"></script>`;
 	}).join('\n');
-
-	// Add the main index.js file
-	const appPath = path.join(context.extensionPath, 'ui', 'out', 'app.js');
-	const appUri = panel.webview.asWebviewUri(vscode.Uri.file(appPath));
-	const appHtml = `<script type="module" src="${appUri}"></script>`;
 
 	// Send events from the client to the webview
 	client.onDidSendEvent((event) => {
 		panel.webview.postMessage(event);
 	});
 
-	panel.webview.html = `<body><div id="root"></div></body>${reactHtml}${appHtml}`;
+	panel.webview.html = `<body><div id="root"></div></body>${reactHtml}$`;
 
 	// Handle messages from the webview
 	panel.webview.onDidReceiveMessage((message) => {

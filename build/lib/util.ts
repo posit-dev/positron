@@ -253,13 +253,35 @@ export function stripSourceMappingURL(): NodeJS.ReadWriteStream {
 	return es.duplex(input, output);
 }
 
+/**
+ * Strips and/or modifies import statements. This function only runs on
+ * development builds, and helps make it possible to use the same set of source
+ * files for both development and production (release).
+ */
 export function stripImportStatements(): NodeJS.ReadWriteStream {
 	const input = es.through();
 
 	const output = input
 		.pipe(es.mapSync<VinylFile, VinylFile>(f => {
-			const contents = (<Buffer>f.contents).toString('utf8');
-			f.contents = Buffer.from(contents.replace(/\nimport (.*) from (.*);$/gm, '\n'), 'utf8');
+			// Read the file contents
+			let contents = (<Buffer>f.contents).toString('utf8');
+
+			// Remove any global import statements; these are needed for Webpack
+			// but not for the browser, where we inject dependencies via
+			// <script> tags
+			contents = contents.replace(/\nimport . as .* from .*;$/gm, '\n');
+
+			// Rewrite local import statements to use .js extension; this is
+			// necessary because Typescript is, inexplicably, unable to output
+			// import statements that are compatible with the browser's native
+			// ES6 module loader (vs using SystemJS, etc.)
+			//
+			// See https://github.com/microsoft/TypeScript/issues/16577
+			// and https://github.com/microsoft/TypeScript/issues/13422
+			contents = contents.replace(/\nimport (.*) from '(.*)';$/gm, `\nimport $1 from '$2.js'\n`);
+
+			// Return the modified file
+			f.contents = Buffer.from(contents, 'utf8');
 			return f;
 		}));
 

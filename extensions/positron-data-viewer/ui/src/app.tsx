@@ -7,6 +7,9 @@ import * as React from 'react';
 
 import { DataPanel } from './DataPanel';
 
+// This global is injected by VS Code when the extension is loaded.
+//
+// @ts-ignore
 const vscode = acquireVsCodeApi();
 
 // Let the extension know that we're ready to receive data.
