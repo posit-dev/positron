@@ -23,8 +23,10 @@ use crate::exec::RFunctionExt;
 use crate::object::RObject;
 use crate::protect::RProtect;
 use crate::r_symbol;
+use crate::symbol::RSymbol;
 use crate::vector::CharacterVector;
 use crate::vector::Vector;
+use crate::vector::collapse;
 
 // NOTE: Regex::new() is quite slow to compile, so it's much better to keep
 // a single singleton pattern and use that repeatedly for matches.
@@ -140,6 +142,92 @@ pub fn r_is_object(object: SEXP) -> bool {
 
 pub fn r_is_s4(object: SEXP) -> bool {
     Sxpinfo::interpret(&object).is_s4()
+}
+
+pub fn r_is_simple_vector(value: SEXP) -> bool {
+    unsafe {
+        let class = Rf_getAttrib(value, R_ClassSymbol);
+
+        match r_typeof(value) {
+            LGLSXP | REALSXP | CPLXSXP | STRSXP | RAWSXP => r_is_null(class),
+            INTSXP  => r_is_null(class) || r_inherits(value, "factor"),
+
+            _       => false
+        }
+    }
+}
+
+pub fn r_classes(value: SEXP) -> Option<CharacterVector> {
+    unsafe {
+        let classes = RObject::from(Rf_getAttrib(value, R_ClassSymbol));
+
+        if *classes == R_NilValue {
+            None
+        } else {
+            Some(CharacterVector::new_unchecked(classes))
+        }
+    }
+}
+
+pub fn pairlist_size(mut pairlist: SEXP) -> Result<isize> {
+    let mut n = 0;
+    unsafe {
+        while pairlist != R_NilValue {
+            r_assert_type(pairlist, &[LISTSXP])?;
+
+            pairlist = CDR(pairlist);
+            n = n + 1;
+        }
+    }
+    Ok(n)
+}
+
+pub fn r_vec_type(value: SEXP) -> String {
+    match r_typeof(value) {
+        INTSXP  => unsafe {
+            if r_inherits(value, "factor") {
+                let levels = Rf_getAttrib(value, R_LevelsSymbol);
+                format!("fct({})", XLENGTH(levels))
+            } else {
+                String::from("int")
+            }
+        },
+        REALSXP => String::from("dbl"),
+        LGLSXP  => String::from("lgl"),
+        STRSXP  => String::from("str"),
+        RAWSXP  => String::from("raw"),
+        CPLXSXP => String::from("cplx"),
+
+        // TODO: this should not happen
+        _       => String::from("???")
+    }
+}
+
+pub fn r_vec_shape(value: SEXP) -> String {
+    unsafe {
+        let dim = RObject::new(Rf_getAttrib(value, R_DimSymbol));
+
+        if r_is_null(*dim) {
+            if XLENGTH(value) == 1 {
+                String::from("")
+            } else {
+                format!(" [{}]", Rf_xlength(value))
+            }
+        } else {
+            format!(" [{}]", collapse(*dim, ",", 0, "").unwrap().result)
+        }
+    }
+}
+
+pub fn r_altrep_class(object: SEXP) -> String {
+    let serialized_klass = unsafe{
+        ATTRIB(ALTREP_CLASS(object))
+    };
+
+    let klass = RSymbol::new(unsafe{CAR(serialized_klass)});
+    let pkg = RSymbol::new(unsafe{CADR(serialized_klass)});
+
+    format!("{}::{}", pkg, klass)
 }
 
 pub fn r_typeof(object: SEXP) -> u32 {
