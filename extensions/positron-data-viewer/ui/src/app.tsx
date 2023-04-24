@@ -7,11 +7,15 @@ import * as React from 'react';
 
 import { DataPanel } from './DataPanel';
 
+const vscode = acquireVsCodeApi();
+
 // Let the extension know that we're ready to receive data.
-window.postMessage({ 'msg_type': 'ready' });
+console.log('Sending ready message to extension...');
+vscode.postMessage({ 'msg_type': 'ready' });
 
 // Listen for messages from the extension.
 window.addEventListener('message', (event: any) => {
+	console.log('Received message from extension: ' + JSON.stringify(event));
 	if (event.data.msg_type === 'data') {
 		ReactDOM.render(
 			<DataPanel data={event.data.data} />,

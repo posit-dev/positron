@@ -49,16 +49,19 @@ export async function createDataPanel(context: vscode.ExtensionContext,
 		panel.webview.postMessage(event);
 	});
 
+	panel.webview.html = `<body><div id="root"></div></body>${reactHtml}${appHtml}`;
+
 	// Handle messages from the webview
 	panel.webview.onDidReceiveMessage((message) => {
+		console.log('Received message from webview: ', message);
 		if (message.msg_type === 'ready') {
 			// The webview is ready to receive messages
 			panel.webview.postMessage({
-				msg_type: 'init',
+				msg_type: 'data',
 				data: initialData
 			});
 		}
-	});
-
-	panel.webview.html = `<body><div id="root"></div></body>${reactHtml}${appHtml}`;
+	},
+		undefined,
+		context.subscriptions);
 }
