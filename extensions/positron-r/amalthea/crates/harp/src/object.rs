@@ -189,6 +189,21 @@ impl RObject {
 
 }
 
+impl Clone for RObject {
+    fn clone(&self) -> Self {
+        let sexp = self.sexp;
+        let cell = if r_is_null(self.cell) {
+            self.cell
+        } else {
+            unsafe { protect(sexp) }
+        };
+        Self {
+            sexp,
+            cell
+        }
+    }
+}
+
 impl Drop for RObject {
     fn drop(&mut self) {
         unsafe {
