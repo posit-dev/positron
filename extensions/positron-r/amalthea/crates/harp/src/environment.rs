@@ -33,18 +33,22 @@ fn has_reference(value: SEXP) -> bool {
         }
     }
 
-    // for now
-    if r_is_s4(value) {
-        return true;
+    unsafe {
+        // S4 slots are attributes and might be expandable
+        // so we need to check if they have reference objects
+        if r_is_s4(value) && has_reference(ATTRIB(value)) {
+            return true;
+        }
     }
 
     let rtype = r_typeof(value);
     match rtype {
-
         ENVSXP  => true,
+
         LISTSXP | LANGSXP => unsafe {
             has_reference(CAR(value)) || has_reference(CDR(value))
         },
+
         VECSXP | EXPRSXP  => unsafe {
             let n = XLENGTH(value);
             let mut has_ref = false;
