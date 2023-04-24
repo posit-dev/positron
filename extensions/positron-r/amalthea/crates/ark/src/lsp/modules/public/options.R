@@ -5,6 +5,9 @@
 #
 #
 
+# Avoid overwhelming the console
+options(max.print = 1000)
+
 # Enable HTML help
 options(help_type = "html")
 
