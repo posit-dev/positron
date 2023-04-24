@@ -321,7 +321,7 @@ impl Environment {
             .iter()
             .filter(|b| !b.is_hidden())
             .next()
-            .is_some()
+            .is_none()
     }
 }
 
