@@ -34,30 +34,27 @@ lazy_static! {
 
 }
 
-fn compute_point(point: Point, text: &str) -> Point {
-
+fn compute_point(
+    point: Point,
+    text: &str,
+) -> Point {
     // figure out where the newlines in this edit are
-    let newline_indices : Vec<_> = text.match_indices('\n').collect();
+    let newline_indices: Vec<_> = text.match_indices('\n').collect();
     let num_newlines = newline_indices.len();
     let num_bytes = text.as_bytes().len();
 
     if newline_indices.len() == 0 {
-        return Point::new(
-            point.row,
-            point.column + num_bytes,
-        );
+        return Point::new(point.row, point.column + num_bytes);
     } else {
         let last_newline_index = newline_indices.last().unwrap();
         return Point::new(
             point.row + num_newlines,
-            num_bytes - last_newline_index.0 - 1
+            num_bytes - last_newline_index.0 - 1,
         );
     }
 }
 
-
 pub struct Document {
-
     // The document's textual contents.
     pub contents: Rope,
 
@@ -73,36 +70,49 @@ pub struct Document {
 
     // The document's AST.
     pub ast: Tree,
-
 }
 
 impl std::fmt::Debug for Document {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("Document").field("contents", &self.contents).field("ast", &self.ast).finish()
+    fn fmt(
+        &self,
+        f: &mut std::fmt::Formatter<'_>,
+    ) -> std::fmt::Result {
+        f.debug_struct("Document")
+            .field("contents", &self.contents)
+            .field("ast", &self.ast)
+            .finish()
     }
 }
 
 impl Document {
-
     pub fn new(contents: &str) -> Self {
-
         // create initial document from rope
         let document = Rope::from(contents);
 
         // create a parser for this document
         let mut parser = Parser::new();
-        parser.set_language(tree_sitter_r::language()).expect("failed to create parser");
+        parser
+            .set_language(tree_sitter_r::language())
+            .expect("failed to create parser");
         let ast = parser.parse(contents, None).unwrap();
 
         let pending = Vec::new();
         let version = None;
 
         // return generated document
-        Self { contents: document, pending, version, parser, ast }
+        Self {
+            contents: document,
+            pending,
+            version,
+            parser,
+            ast,
+        }
     }
 
-    pub fn on_did_change(&mut self, params: &DidChangeTextDocumentParams) -> Result<i32> {
-
+    pub fn on_did_change(
+        &mut self,
+        params: &DidChangeTextDocumentParams,
+    ) -> Result<i32> {
         // Add pending changes.
         self.pending.push(params.clone());
 
@@ -146,11 +156,12 @@ impl Document {
         self.version = Some(version);
 
         Ok(version)
-
     }
 
-    fn update(&mut self, change: &TextDocumentContentChangeEvent) -> Result<()> {
-
+    fn update(
+        &mut self,
+        change: &TextDocumentContentChangeEvent,
+    ) -> Result<()> {
         // Extract edit range. Nothing to do if there wasn't an edit.
         let range = match change.range {
             Some(r) => r,
@@ -173,28 +184,35 @@ impl Document {
         let new_end_position = compute_point(start_position, &change.text);
 
         let edit = InputEdit {
-            start_byte, old_end_byte, new_end_byte,
-            start_position, old_end_position, new_end_position
+            start_byte,
+            old_end_byte,
+            new_end_byte,
+            start_position,
+            old_end_position,
+            new_end_position,
         };
 
         ast.edit(&edit);
 
         // Now, apply edits to the underlying document.
-        let lhs = self.contents.line_to_char(range.start.line as usize) + range.start.character as usize;
-        let rhs = self.contents.line_to_char(range.end.line as usize) + range.end.character as usize;
+        let lhs = self.contents.position_to_byte(range.start);
+        let rhs = self.contents.position_to_byte(range.end);
+
+        // Now, convert from byte offsets to character offsets.
+        let lhs = self.contents.byte_to_char(lhs);
+        let rhs = self.contents.byte_to_char(rhs);
 
         // Remove the old slice of text, and insert the new slice of text.
         self.contents.remove(lhs..rhs);
         self.contents.insert(lhs, change.text.as_str());
 
         // We've edited the AST, and updated the document. We can now re-parse.
-        let ast = self.parser.parse(self.contents.to_string(), Some(&self.ast));
+        let contents = self.contents.to_string();
+        let ast = self.parser.parse(&contents, Some(&self.ast));
         self.ast = ast.unwrap();
 
         Ok(())
-
     }
-
 }
 
 #[cfg(test)]
@@ -203,7 +221,6 @@ mod tests {
 
     #[test]
     fn test_point_computation() {
-
         // empty strings shouldn't do anything
         let point = compute_point(Point::new(0, 0), "");
         assert_eq!(point, Point::new(0, 0));
@@ -221,6 +238,5 @@ mod tests {
 
         let point = compute_point(Point::new(0, 0), "abcdefghi\n");
         assert_eq!(point, Point::new(1, 0));
-
     }
 }
