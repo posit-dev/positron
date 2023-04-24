@@ -275,10 +275,9 @@ fn has_children(value: SEXP) -> bool {
         }
     } else {
         match r_typeof(value) {
-            VECSXP   => unsafe { XLENGTH(value) != 0 },
-            EXPRSXP  => unsafe { XLENGTH(value) != 0 },
+            VECSXP | EXPRSXP   => unsafe { XLENGTH(value) != 0 },
             LISTSXP  => true,
-            ENVSXP   => true,
+            ENVSXP   => !Environment::new(RObject::view(value)).is_empty(),
             _        => false
         }
     }
@@ -493,7 +492,7 @@ impl EnvironmentVariable {
             match r_typeof(*object) {
                 VECSXP | EXPRSXP  => Self::inspect_list(*object),
                 LISTSXP           => Self::inspect_pairlist(*object),
-                ENVSXP            => Self::inspect_environment(*object),
+                ENVSXP            => Self::inspect_environment(object),
                 _                 => Ok(vec![])
             }
         }
@@ -595,7 +594,7 @@ impl EnvironmentVariable {
         Ok(out)
     }
 
-    fn inspect_environment(value: SEXP) -> Result<Vec<Self>, harp::error::Error> {
+    fn inspect_environment(value: RObject) -> Result<Vec<Self>, harp::error::Error> {
         let mut out : Vec<Self> = vec![];
 
         let env = Environment::new(value);

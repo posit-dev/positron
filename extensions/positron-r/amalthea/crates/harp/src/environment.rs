@@ -308,14 +308,20 @@ impl<'a> Iterator for EnvironmentIter<'a> {
 }
 
 impl Environment {
-    pub fn new(value: SEXP) -> Self {
-        Self {
-            env: unsafe{ RObject::new(value) }
-        }
+    pub fn new(env: RObject) -> Self {
+        Self {env}
     }
 
     pub fn iter(&self) -> EnvironmentIter {
         EnvironmentIter::new(&self)
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self
+            .iter()
+            .filter(|b| !b.is_hidden())
+            .next()
+            .is_none()
     }
 }
 
@@ -346,7 +352,7 @@ mod tests {
         let sym = r_symbol!("c");
         Rf_defineVar(sym, Rf_ScalarInteger(44), test_env.sexp);
 
-        let env = Environment::new(*test_env);
+        let env = Environment::new(test_env);
         assert_eq!(env.iter().count(), 3);
     }
 
