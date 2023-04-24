@@ -491,11 +491,10 @@ impl EnvironmentVariable {
             Self::inspect_s4(*object)
         } else {
             match r_typeof(*object) {
-                VECSXP  => Self::inspect_list(*object),
-                EXPRSXP => Self::inspect_list(*object),
-                LISTSXP => Self::inspect_pairlist(*object),
-                ENVSXP  => Self::inspect_environment(*object),
-                _       => Ok(vec![])
+                VECSXP | EXPRSXP  => Self::inspect_list(*object),
+                LISTSXP           => Self::inspect_pairlist(*object),
+                ENVSXP            => Self::inspect_environment(*object),
+                _                 => Ok(vec![])
             }
         }
     }
