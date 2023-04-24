@@ -8,4 +8,5 @@
 	-moz-user-select: text;
 	-ms-user-select: text;
 	user-select: text;
+	padding: 4px 12px 0 12px;
 }

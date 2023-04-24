@@ -20,8 +20,6 @@ export interface RuntimeReconnectedProps {
 export const RuntimeReconnected = ({ runtimeItemReconnected }: RuntimeReconnectedProps) => {
 	// Render.
 	return (
-		<div className='runtime-reconnected'>
-			<OutputLines outputLines={runtimeItemReconnected.outputLines} />
-		</div>
+		<OutputLines outputLines={runtimeItemReconnected.outputLines} />
 	);
 };

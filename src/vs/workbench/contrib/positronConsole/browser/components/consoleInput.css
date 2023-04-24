@@ -2,6 +2,6 @@
  *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
-.busy-input {
-	background: transparent;
+.console-input {
+	display: flex;
 }

@@ -2,7 +2,7 @@
  *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
-import 'vs/css!./liveInput';
+import 'vs/css!./consoleInput';
 import * as React from 'react';
 import { forwardRef, useCallback, useEffect, useRef } from 'react'; // eslint-disable-line no-duplicate-imports
 import { URI } from 'vs/base/common/uri';
@@ -14,11 +14,11 @@ import { HistoryNavigator2 } from 'vs/base/common/history';
 import { IKeyboardEvent } from 'vs/base/browser/keyboardEvent';
 import { useStateRef } from 'vs/base/browser/ui/react/useStateRef';
 import { IEditorOptions } from 'vs/editor/common/config/editorOptions';
+import { IFocusReceiver } from 'vs/base/browser/positronReactRenderer';
 import { CodeEditorWidget } from 'vs/editor/browser/widget/codeEditorWidget';
 import { ModesHoverController } from 'vs/editor/contrib/hover/browser/hover';
 import { EditorExtensionsRegistry } from 'vs/editor/browser/editorExtensions';
 import { MarkerController } from 'vs/editor/contrib/gotoError/browser/gotoError';
-import { IFocusReceiver } from 'vs/base/browser/positronReactRenderer';
 import { SuggestController } from 'vs/editor/contrib/suggest/browser/suggestController';
 import { SnippetController2 } from 'vs/editor/contrib/snippet/browser/snippetController2';
 import { ContextMenuController } from 'vs/editor/contrib/contextmenu/browser/contextmenu';
@@ -27,26 +27,30 @@ import { IInputHistoryEntry } from 'vs/workbench/contrib/executionHistory/common
 import { SelectionClipboardContributionID } from 'vs/workbench/contrib/codeEditor/browser/selectionClipboard';
 import { usePositronConsoleContext } from 'vs/workbench/contrib/positronConsole/browser/positronConsoleContext';
 import { RuntimeCodeFragmentStatus } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
-import { IPositronConsoleInstance } from 'vs/workbench/services/positronConsole/common/interfaces/positronConsoleService';
+import { IPositronConsoleInstance, PositronConsoleState } from 'vs/workbench/services/positronConsole/common/interfaces/positronConsoleService';
 
-// LiveInputProps interface.
-export interface LiveInputProps {
+// ConsoleInputProps interface.
+export interface ConsoleInputProps {
 	readonly width: number;
 	readonly hidden: boolean;
+	readonly focusReceiver: IFocusReceiver;
 	readonly executeCode: (codeFragment: string) => void;
 	readonly positronConsoleInstance: IPositronConsoleInstance;
-	readonly focusReceiver: IFocusReceiver;
 }
 
 /**
- * LiveInput component.
- * @param props A LiveInputProps that contains the component properties.
+ * ConsoleInput component.
+ * @param props A ConsoleInputProps that contains the component properties.
  * @returns The rendered component.
  */
-export const LiveInput = forwardRef<HTMLDivElement, LiveInputProps>((props: LiveInputProps, ref) => {
-	// Hooks.
+export const ConsoleInput = forwardRef<HTMLDivElement, ConsoleInputProps>((props: ConsoleInputProps, ref) => {
+	// Context hooks.
 	const positronConsoleContext = usePositronConsoleContext();
+
+	// Reference hooks.
 	const refContainer = useRef<HTMLDivElement>(undefined!);
+
+	// State hooks.
 	const [, setCodeEditorWidget, refCodeEditorWidget] = useStateRef<CodeEditorWidget>(undefined!);
 	const [, setCodeEditorWidth, refCodeEditorWidth] = useStateRef(props.width);
 	const [, setHistoryNavigator, refHistoryNavigator] =
@@ -92,9 +96,9 @@ export const LiveInput = forwardRef<HTMLDivElement, LiveInputProps>((props: Live
 		}
 
 		/**
-		 * Eats the event.
+		 * Consumes an event.
 		 */
-		const eatEvent = () => {
+		const consumeEvent = () => {
 			e.preventDefault();
 			e.stopPropagation();
 		};
@@ -106,8 +110,8 @@ export const LiveInput = forwardRef<HTMLDivElement, LiveInputProps>((props: Live
 				// Interrupt the runtime.
 				props.positronConsoleInstance.runtime.interrupt();
 
-				// Eat the event.
-				eatEvent();
+				// Consume the event.
+				consumeEvent();
 				break;
 			}
 
@@ -118,14 +122,20 @@ export const LiveInput = forwardRef<HTMLDivElement, LiveInputProps>((props: Live
 					// Interrupt the runtime.
 					props.positronConsoleInstance.runtime.interrupt();
 
-					// Eat the event.
-					eatEvent();
+					// Consume the event.
+					consumeEvent();
 				}
 				break;
 			}
 
 			// Up arrow processing.
 			case KeyCode.UpArrow: {
+				// If the console instance isn't ready, ignore the event.
+				if (props.positronConsoleInstance.state !== PositronConsoleState.Ready) {
+					consumeEvent();
+					return;
+				}
+
 				// If there are history entries, process the event.
 				if (refHistoryNavigator.current) {
 					// When the user moves up from the end, and we don't have a current code editor
@@ -146,13 +156,19 @@ export const LiveInput = forwardRef<HTMLDivElement, LiveInputProps>((props: Live
 					updateCodeEditorWidgetPositionToEnd();
 				}
 
-				// Eat the event.
-				eatEvent();
+				// Consume the event.
+				consumeEvent();
 				break;
 			}
 
 			// Down arrow processing.
 			case KeyCode.DownArrow: {
+				// If the console instance isn't ready, ignore the event.
+				if (props.positronConsoleInstance.state !== PositronConsoleState.Ready) {
+					consumeEvent();
+					return;
+				}
+
 				// If there are history entries, process the event.
 				if (refHistoryNavigator.current) {
 					// When the user reaches the end of the history entries, restore the current
@@ -173,13 +189,19 @@ export const LiveInput = forwardRef<HTMLDivElement, LiveInputProps>((props: Live
 					updateCodeEditorWidgetPositionToEnd();
 				}
 
-				// Eat the event.
-				eatEvent();
+				// Consume the event.
+				consumeEvent();
 				break;
 			}
 
 			// Enter processing.
 			case KeyCode.Enter: {
+				// If the console instance isn't ready, ignore the event.
+				if (props.positronConsoleInstance.state !== PositronConsoleState.Ready) {
+					consumeEvent();
+					return;
+				}
+
 				// If the shift key is pressed, do not process the event because the user is
 				// entering multiple lines.
 				if (e.shiftKey) {
@@ -254,8 +276,8 @@ export const LiveInput = forwardRef<HTMLDivElement, LiveInputProps>((props: Live
 					refCodeEditorWidget.current.setValue('');
 				}
 
-				// Eat the event.
-				eatEvent();
+				// Consume the event.
+				consumeEvent();
 				break;
 			}
 		}
@@ -299,36 +321,37 @@ export const LiveInput = forwardRef<HTMLDivElement, LiveInputProps>((props: Live
 			false               // this widget is not simple
 		);
 
+		// Line numbers functions.
+		const notReadyLineNumbers = (n: number) => '';
+		const readyLineNumbers = (n: number) => {
+			// Render the input prompt for the first line; do not render
+			// anything in the margin for following lines
+			if (n < 2) {
+				return props.positronConsoleInstance.runtime.metadata.inputPrompt;
+			}
+			return '';
+		};
+
 		// The editor options we override.
 		const editorOptions = {
-			lineNumbers: (n: number) => {
-				// Render the input prompt for the first line; do not render
-				// anything in the margin for following lines
-				if (n < 2) {
-					return props.positronConsoleInstance.runtime.metadata.inputPrompt;
-				}
-				return '';
-			},
+			lineNumbers: readyLineNumbers,
+			readOnly: true,
 			minimap: {
 				enabled: false
 			},
 			glyphMargin: false,
-			lineDecorationsWidth: 0,
-			// overviewRuleBorder: false,		// Not part of IEditorOptions.
-			// enableDropIntoEditor: false,		// Not part of IEditorOptions.
+			folding: false,
+			lineDecorationsWidth: '1.0ch',
 			renderLineHighlight: 'none',
 			wordWrap: 'bounded',
 			wordWrapColumn: 2048,
-			// renderOverviewRuler: false,		// Not part of IEditorOptions.
 			scrollbar: {
 				vertical: 'hidden',
 				useShadows: false
 			},
 			overviewRulerLanes: 0,
 			scrollBeyondLastLine: false,
-			// handleMouseWheel: false,			// Not part of IEditorOptions.
-			// alwaysConsumeMouseWheel: false,	// Not part of IEditorOptions.
-			lineNumbersMinChars: 3,
+			lineNumbersMinChars: props.positronConsoleInstance.runtime.metadata.inputPrompt.length
 		} satisfies IEditorOptions;
 
 		// Create the code editor widget.
@@ -401,6 +424,49 @@ export const LiveInput = forwardRef<HTMLDivElement, LiveInputProps>((props: Live
 			codeEditorWidget.focus();
 		}));
 
+		// Add the onDidClearConsole event handler.
+		disposableStore.add(props.positronConsoleInstance.onDidChangeState(state => {
+			// Set up editor options based on state.
+			let lineNumbers;
+			let readOnly;
+			switch (state) {
+				// When uninitialized or starting, switch to a read only normal prompt so it looks
+				// right, but no typeahead is allowed.
+				case PositronConsoleState.Uninitialized:
+				case PositronConsoleState.Starting:
+					readOnly = true;
+					lineNumbers = readyLineNumbers;
+					break;
+
+				// When ready, switch to an active normal prompt.
+				case PositronConsoleState.Ready:
+					readOnly = false;
+					lineNumbers = readyLineNumbers;
+					break;
+
+				// In any other state, don't display the normal prompt, but allow typeahead.
+				default:
+					readOnly = false;
+					lineNumbers = notReadyLineNumbers;
+			}
+
+			// Update the code editor widget options.
+			codeEditorWidget.updateOptions({
+				...editorOptions,
+				readOnly,
+				lineNumbers
+			});
+		}));
+
+		// Add the onDidClearConsole event handler.
+		disposableStore.add(props.positronConsoleInstance.onDidClearConsole(() => {
+			// When the console is cleared, erase anything that was partially entered.
+			textModel.setValue('');
+
+			// Re-focus the console.
+			codeEditorWidget.focus();
+		}));
+
 		// Add the onDidClearInputHistory event handler.
 		disposableStore.add(props.positronConsoleInstance.onDidClearInputHistory(() => {
 			// Discard the history navigator.
@@ -437,7 +503,7 @@ export const LiveInput = forwardRef<HTMLDivElement, LiveInputProps>((props: Live
 
 	// Render.
 	return (
-		<div ref={ref} className='live-input'>
+		<div ref={ref} className='console-input'>
 			<div ref={refContainer}></div>
 		</div>
 	);

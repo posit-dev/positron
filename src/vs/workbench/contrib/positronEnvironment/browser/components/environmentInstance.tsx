@@ -94,10 +94,10 @@ export const EnvironmentInstance = (props: EnvironmentInstanceProps) => {
 
 				// Set the entries.
 				setEntries(entries);
-			}
-			)
+			})
 		);
 
+		// Request refresh so we display the environment as soon as possible.
 		props.positronEnvironmentInstance.requestRefresh();
 
 		// Return the cleanup function that will dispose of the event handlers.
@@ -131,10 +131,10 @@ export const EnvironmentInstance = (props: EnvironmentInstanceProps) => {
 	}, [entries]);
 
 	/**
-	 * Handles onKeyDown events.
+	 * onKeyDown event handler.
 	 * @param e A KeyboardEvent<HTMLDivElement> that describes a user interaction with the keyboard.
 	 */
-	const handleKeyDown = async (e: KeyboardEvent<HTMLDivElement>) => {
+	const keyDownHandler = async (e: KeyboardEvent<HTMLDivElement>) => {
 		// Consumes the event.
 		const consumeEvent = () => {
 			e.preventDefault();
@@ -448,7 +448,7 @@ export const EnvironmentInstance = (props: EnvironmentInstanceProps) => {
 			className={classNames}
 			tabIndex={0}
 			hidden={props.hidden}
-			onKeyDown={handleKeyDown}
+			onKeyDown={keyDownHandler}
 			onFocus={focusHandler}
 			onBlur={blurHandler}
 		>

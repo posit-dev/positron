@@ -20,8 +20,6 @@ export interface ActivityOutputStreamGroupProps {
 export const ActivityOutputStreamGroup = (props: ActivityOutputStreamGroupProps) => {
 	// Render.
 	return (
-		<div className='activity-output-stream-group'>
-			<OutputLines outputLines={props.activityItemOutputStreamGroup.outputLines} />
-		</div>
+		<OutputLines outputLines={props.activityItemOutputStreamGroup.outputLines} />
 	);
 };
