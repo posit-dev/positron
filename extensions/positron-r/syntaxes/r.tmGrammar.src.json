@@ -71,6 +71,12 @@
                     "end": "\\]",
                     "patterns": [
                         {
+                            "match": "([\\w.]+)\\s*(?==[^=])",
+                            "captures": {
+                                "1": { "name": "{{ parameter }}"}
+                            }
+                        },
+                        {
                             "include": "#basic"
                         }
                     ]
