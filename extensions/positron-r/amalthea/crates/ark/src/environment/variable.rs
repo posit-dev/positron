@@ -249,8 +249,6 @@ impl WorkspaceVariableDisplayType {
         match r_classes(value) {
             None => Self::simple(default),
             Some(classes) => {
-                unsafe {Rf_PrintValue(*classes)};
-
                 Self::new(
                     classes.get_unchecked(0).unwrap(),
                     classes.iter().map(|s| s.unwrap()).join("/")
