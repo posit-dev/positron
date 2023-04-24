@@ -23,11 +23,25 @@ export const DataPanel = (props: DataPanelProps) => {
 		return <th>{column.name}</th>;
 	});
 
+	// Create the data rows.
+	const dataRows = data[0].data.map((_row, rowIndex) => {
+		return (
+			<tr>
+				{data.map((column) => {
+					return <td>{column.data[rowIndex]}</td>;
+				})}
+			</tr>
+		);
+	});
+
 	return (
 		<table>
 			<thead>
 				{headerRows}
 			</thead>
+			<tbody>
+				{dataRows}
+			</tbody>
 		</table>
 	);
 };
