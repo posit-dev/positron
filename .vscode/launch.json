@@ -549,6 +549,22 @@
 				"group": "monaco",
 				"order": 4
 			}
+		},
+		{
+			"name": "Python: Remote Attach",
+			"type": "python",
+			"request": "attach",
+			"connect": {
+				"host": "localhost",
+				"port": 5678
+			},
+			"pathMappings": [
+				{
+					"localRoot": "${workspaceFolder}",
+					"remoteRoot": "."
+				}
+			],
+			"justMyCode": false
 		}
 	],
 	"compounds": [
