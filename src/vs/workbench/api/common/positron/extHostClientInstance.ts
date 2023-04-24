@@ -27,7 +27,8 @@ export class ExtHostRuntimeClientInstance implements positron.RuntimeClientInsta
 	private _pendingRpcs = new Map<string, DeferredPromise<any>>();
 
 	constructor(readonly message: ILanguageRuntimeMessageCommOpen,
-		readonly sender: ExtHostClientMessageSender) {
+		readonly sender: ExtHostClientMessageSender,
+		readonly closer: () => void) {
 
 		this.onDidChangeClientState = this._onDidChangeClientState.event;
 		this.onDidSendEvent = this._onDidSendData.event;
@@ -106,6 +107,9 @@ export class ExtHostRuntimeClientInstance implements positron.RuntimeClientInsta
 	}
 
 	dispose() {
-		throw new Error('Method not implemented.');
+		// If the client is still connected, close it.
+		if (this._state === RuntimeClientState.Connected) {
+			this.closer();
+		}
 	}
 }

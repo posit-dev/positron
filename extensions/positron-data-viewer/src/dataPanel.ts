@@ -71,4 +71,9 @@ export async function createDataPanel(context: vscode.ExtensionContext,
 	},
 		undefined,
 		context.subscriptions);
+
+	// When the panel is closed, dispose of the client
+	panel.onDidDispose(() => {
+		client.dispose();
+	});
 }
