@@ -81,7 +81,7 @@
                     "end": "\\)",
                     "patterns": [
                         {
-                            "match": "([\\w.]+)\\s*(?==)",
+                            "match": "([\\w.]+)\\s*(?==[^=])",
                             "captures": {
                                 "1": { "name": "entity.name.tag"}
                             }
