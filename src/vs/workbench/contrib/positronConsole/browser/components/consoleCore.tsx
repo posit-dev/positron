@@ -98,7 +98,12 @@ export const ConsoleCore = (props: ConsoleCoreProps) => {
 	return (
 		<div className='console-core'>
 			<ActionBar {...props} />
-			<div className='console-instances-container' style={{ width: props.width, height: props.height - 32 }} onMouseDown={mouseDownHandler} onClick={onClickHandler}>
+			<div
+				className='console-instances-container'
+				style={{ width: props.width, height: props.height - 32 }}
+				onMouseDown={mouseDownHandler}
+				onClick={onClickHandler}
+			>
 				{positronConsoleContext.positronConsoleInstances.map(positronConsoleInstance =>
 					<ConsoleInstance
 						key={positronConsoleInstance.runtime.metadata.languageId}
