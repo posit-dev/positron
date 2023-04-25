@@ -198,7 +198,7 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 
 	// Render.
 	return (
-		<div ref={instanceRef} className='console-instance' hidden={props.hidden}>
+		<div ref={instanceRef} className='console-instance' hidden={props.hidden} style={{ height: props.height }}>
 			{props.positronConsoleInstance.runtimeItems.map(runtimeItem =>
 				renderRuntimeItem(runtimeItem)
 			)}
