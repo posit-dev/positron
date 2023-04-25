@@ -47,7 +47,7 @@ export const PositronConsole = (props: PropsWithChildren<PositronConsoleProps>) 
 	return (
 		<PositronConsoleContextProvider {...props}>
 			<div className='positron-console'>
-				<ConsoleCore width={width} height={height} {...props} />
+				<ConsoleCore {...props} width={width} height={height} />
 			</div>
 		</PositronConsoleContextProvider>
 	);
