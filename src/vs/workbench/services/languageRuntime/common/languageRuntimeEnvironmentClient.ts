@@ -185,6 +185,15 @@ export class EnvironmentVariable {
 		return this._envClient.requestClipboardFormat(mime,
 			this.parentKeys.concat(this.data.access_key));
 	}
+
+	/**
+	 * Requests that the language runtime open a viewer for this variable.
+	 *
+	 * @returns A promise that resolves when the request has been sent.
+	 */
+	async view(): Promise<void> {
+		await this._envClient.requestView(this.parentKeys.concat(this.data.access_key));
+	}
 }
 
 /**
@@ -198,6 +207,13 @@ export interface IEnvironmentClientMessageInput {
  * A request to inspect a specific variable, given a path of names.
  */
 export interface IEnvironmentClientMessageInspect extends IEnvironmentClientMessageInput {
+	path: string[];
+}
+
+/**
+ * A request to view a specific variable, given a path of names.
+ */
+export interface IEnvironmentClientMessageView extends IEnvironmentClientMessageInput {
 	path: string[];
 }
 
@@ -419,6 +435,21 @@ export class EnvironmentClientInstance extends Disposable {
 				path
 			} as IEnvironmentClientMessageClipboardFormat);
 		return formatted.content;
+	}
+
+	/**
+	 * Requests that the environment client open a viewer for the specified
+	 * variable.
+	 *
+	 * @param path The path to the variable to view
+	 */
+	public async requestView(path: string[]) {
+		return this.performRpc<IEnvironmentClientMessageView>(
+			'view',
+			{
+				msg_type: EnvironmentClientMessageTypeInput.View,
+				path
+			} as IEnvironmentClientMessageView);
 	}
 
 	// Private methods -------------------------------------------------

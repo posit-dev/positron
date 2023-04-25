@@ -263,5 +263,12 @@ export class EnvironmentVariableItem implements IEnvironmentVariableItem {
 		return await this._environmentVariable.formatForClipboard(mime);
 	}
 
+	/**
+	 * Requests that a viewer be opened for this variable.
+	 */
+	async view(): Promise<void> {
+		await this._environmentVariable.view();
+	}
+
 	//#endregion Public Methods
 }

@@ -142,8 +142,11 @@ export class ZedEnvironment {
 			case 'view':
 				// The object "name" to be viewed is just the path to the variable
 				this.runtime.simulateDataView(message_id,
-					`view ${message.path.join('.')}}`,
-					`${message.path.join('.')}}`);
+					`view ${message.path.join('.')}`,
+					`Zed: ${message.path.join('.')}`);
+
+				// Let the front end know we're done
+				this._onDidEmitData.fire({ msg_type: 'success' });
 				break;
 		}
 	}

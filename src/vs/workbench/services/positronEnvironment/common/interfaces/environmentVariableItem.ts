@@ -42,6 +42,11 @@ export interface IEnvironmentVariableItem {
 	displayType: string;
 
 	/**
+	 * Gets the variable's kind.
+	 */
+	kind: string;
+
+	/**
 	 * Gets the size.
 	 */
 	size: number;
@@ -57,4 +62,9 @@ export interface IEnvironmentVariableItem {
 	 * @returns A promise that resolves to the formatted value of this variable.
 	 */
 	formatForClipboard(mime: string): Promise<string>;
+
+	/**
+	 * Requests that a data viewer be opened for this variable.
+	 */
+	view(): Promise<void>;
 }
