@@ -5,6 +5,7 @@
 import * as vscode from 'vscode';
 import * as positron from 'positron';
 import { randomUUID } from 'crypto';
+import { PositronZedLanguageRuntime } from './positronZedLanguageRuntime';
 
 /**
  * ZedVar is a simple Zed variable.
@@ -80,7 +81,8 @@ export class ZedEnvironment {
 	 * @param id The ID of the environment client instance
 	 */
 	constructor(readonly id: string,
-		private readonly zedVersion: string) {
+		private readonly zedVersion: string,
+		private readonly runtime: PositronZedLanguageRuntime) {
 		// Create a few variables to start with
 		this._vars.set('z', new ZedVariable('z', 'zed1', 'string', 4, 4));
 		this._vars.set('e', new ZedVariable('e', 'zed2', 'string', 4, 4));
@@ -107,7 +109,7 @@ export class ZedEnvironment {
 	 *
 	 * @param message The message to handle
 	 */
-	public handleMessage(message: any) {
+	public handleMessage(message_id: string, message: any) {
 		switch (message.msg_type) {
 
 			// A request to refresh the environment by sending a full list to the front end
@@ -135,6 +137,13 @@ export class ZedEnvironment {
 				this.formatVariable(message.format, message.path);
 				break;
 
+			// A request to open a variable in a data viewer
+			case 'view':
+				// The object "name" to be viewed is just the path to the variable
+				this.runtime.simulateDataView(message_id,
+					`view ${message.path.join('.')}}`,
+					`${message.path.join('.')}}`);
+				break;
 		}
 	}
 

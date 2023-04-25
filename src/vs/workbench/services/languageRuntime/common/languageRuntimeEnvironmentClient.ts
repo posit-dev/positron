@@ -27,6 +27,9 @@ export enum EnvironmentClientMessageTypeInput {
 
 	/** A request to format the variable's content in a format suitable for the clipboard */
 	ClipboardFormat = 'clipboard_format',
+
+	/** A request to open a viewer for a specific variable */
+	View = 'view',
 }
 
 /**

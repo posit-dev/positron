@@ -765,7 +765,7 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 	async createClient(id: string, type: positron.RuntimeClientType, _params: any) {
 		if (type === positron.RuntimeClientType.Environment) {
 			// Allocate a new ID and ZedEnvironment object for this environment backend
-			const env = new ZedEnvironment(id, this.metadata.languageVersion);
+			const env = new ZedEnvironment(id, this.metadata.languageVersion, this);
 
 			// Connect it and save the instance to coordinate future communication
 			this.connectClientEmitter(env);
@@ -834,7 +834,7 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 		const env = this._environments.get(client_id);
 		if (env) {
 			this._pendingRpcs.push(message_id);
-			env.handleMessage(message);
+			env.handleMessage(message_id, message);
 			return;
 		}
 
@@ -1034,7 +1034,7 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 		this.simulateIdleState(parentId);
 	}
 
-	private simulateDataView(parentId: string, code: string, title: string) {
+	public simulateDataView(parentId: string, code: string, title: string) {
 		// Enter busy state and output the code.
 		this.simulateBusyState(parentId);
 		this.simulateInputMessage(parentId, code);
