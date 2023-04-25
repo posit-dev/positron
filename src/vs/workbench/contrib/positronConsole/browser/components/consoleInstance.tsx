@@ -14,8 +14,8 @@ import { IEditorOptions } from 'vs/editor/common/config/editorOptions';
 import { DisposableStore, IDisposable } from 'vs/base/common/lifecycle';
 import { FontMeasurements } from 'vs/editor/browser/config/fontMeasurements';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
-import { ConsoleInput } from 'vs/workbench/contrib/positronConsole/browser/components/consoleInput';
 import { RuntimeItem } from 'vs/workbench/services/positronConsole/common/classes/runtimeItem';
+import { ConsoleInput } from 'vs/workbench/contrib/positronConsole/browser/components/consoleInput';
 import { RuntimeTrace } from 'vs/workbench/contrib/positronConsole/browser/components/runtimeTrace';
 import { RuntimeExited } from 'vs/workbench/contrib/positronConsole/browser/components/runtimeExited';
 import { RuntimeStartup } from 'vs/workbench/contrib/positronConsole/browser/components/runtimeStartup';
@@ -34,9 +34,9 @@ import { usePositronConsoleContext } from 'vs/workbench/contrib/positronConsole/
 import { RuntimeReconnected } from 'vs/workbench/contrib/positronConsole/browser/components/runtimeReconnected';
 import { RuntimeItemReconnected } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemReconnected';
 import { RuntimeStartupFailure } from 'vs/workbench/contrib/positronConsole/browser/components/runtimeStartupFailure';
+import { IPositronConsoleInstance } from 'vs/workbench/services/positronConsole/common/interfaces/positronConsoleService';
 import { RuntimeItemStartupFailure } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemStartupFailure';
 import { RuntimeCodeExecutionMode, RuntimeErrorBehavior } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
-import { IPositronConsoleInstance } from 'vs/workbench/services/positronConsole/common/interfaces/positronConsoleService';
 
 // ConsoleInstanceProps interface.
 interface ConsoleInstanceProps {
