@@ -26,9 +26,9 @@ class ZedColumn {
  */
 export class ZedData {
 	public readonly id: string;
-	public readonly title: string = 'Zed Data';
 	public readonly columns: Array<ZedColumn> = [];
 	constructor(private readonly context: vscode.ExtensionContext,
+		private readonly title: string,
 		private readonly nrow = 100,
 		private readonly ncol = 10) {
 		// Create a unique ID for this instance

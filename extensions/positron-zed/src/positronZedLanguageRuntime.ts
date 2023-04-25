@@ -12,7 +12,6 @@ import { ZedEnvironment } from './positronZedEnvironment';
 import path = require('path');
 import fs = require('fs');
 import { ZedPlot } from './positronZedPlot';
-import { LanguageRuntimeState } from 'positron';
 import { ZedData } from './positronZedData';
 
 /**
@@ -64,7 +63,7 @@ const HelpLines = [
 	'progress     - Renders a progress bar',
 	'shutdown     - Simulates orderly shutdown',
 	'static plot  - Renders a static plot (image)',
-	'view         - Open a data viewer',
+	'view X       - Open a data viewer named X',
 	'version      - Shows the Zed version'
 ].join('\n');
 
@@ -311,6 +310,11 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 			const duration = (match.length > 1 && match[1]) ? match[1].trim() : '5';
 			const durationSeconds = parseInt(duration, 10);
 			this.simulateBusyOperation(id, durationSeconds, code);
+			return;
+		} else if (match = code.match(/^view( .+)?/)) {
+			// Simulate a data viewer
+			const title = (match.length > 1 && match[1]) ? match[1].trim() : 'Data';
+			this.simulateDataView(id, code, `Zed: ${title}`);
 			return;
 		}
 
@@ -728,11 +732,6 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 				break;
 			}
 
-			case 'view': {
-				this.simulateDataView(id, code);
-				break;
-			}
-
 			case 'version': {
 				this.simulateSuccessfulCodeExecution(id, code, `Zed v${this.metadata.languageVersion} (${this.metadata.runtimeId})`);
 				break;
@@ -1035,13 +1034,13 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 		this.simulateIdleState(parentId);
 	}
 
-	private simulateDataView(parentId: string, code: string) {
+	private simulateDataView(parentId: string, code: string, title: string) {
 		// Enter busy state and output the code.
 		this.simulateBusyState(parentId);
 		this.simulateInputMessage(parentId, code);
 
 		// Create the data client comm.
-		const data = new ZedData(this.context);
+		const data = new ZedData(this.context, title);
 
 		// Send the comm open message to the client.
 		this._onDidReceiveRuntimeMessage.fire({
