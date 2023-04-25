@@ -493,7 +493,14 @@ impl EnvironmentVariable {
             match r_typeof(*object) {
                 VECSXP | EXPRSXP  => Self::inspect_list(*object),
                 LISTSXP           => Self::inspect_pairlist(*object),
-                ENVSXP            => Self::inspect_environment(*object),
+                ENVSXP            => unsafe {
+                    if r_inherits(*object, "R6") {
+                        Self::inspect_r6(*object)
+                    } else {
+                        Self::inspect_environment(*object)
+                    }
+
+                },
                 _                 => Ok(vec![])
             }
         }
@@ -595,15 +602,112 @@ impl EnvironmentVariable {
         Ok(out)
     }
 
-    fn inspect_environment(value: SEXP) -> Result<Vec<Self>, harp::error::Error> {
-        let mut out : Vec<Self> = vec![];
+    fn inspect_r6(value: SEXP) -> Result<Vec<Self>, harp::error::Error> {
+        let mut has_private = false;
+        let mut has_methods = false;
+        let mut has_active = false;
 
         let env = Environment::new(value);
-        for binding in env.iter() {
-            if !binding.is_hidden() {
-                out.push(Self::new(&binding));
-            }
+        let mut childs: Vec<Self> = env
+            .iter()
+            .filter(|b: &Binding| {
+                if b.name == ".__enclos_env__" {
+                    if let BindingValue::Standard { object, .. } = b.value {
+                        has_private = Environment::new(object).exists("private");
+                    }
+
+                    false
+                } else if b.is_hidden() {
+                    false
+                } else {
+                    match b.value {
+                        BindingValue::Standard { object, .. } | BindingValue::Altrep { object, .. } => {
+                            if r_typeof(object) == CLOSXP {
+                                has_methods = true;
+                                false
+                            } else {
+                                true
+                            }
+                        },
+
+                        BindingValue::Active { .. } => {
+                            has_active = true;
+                            false
+                        },
+
+                        // It's unlikely that there are promises here
+                        BindingValue::Promise { .. } => true
+                    }
+                }
+
+            })
+            .map(|b| {
+                Self::new(&b)
+            })
+            .collect();
+
+        childs.sort_by(|a, b| {
+            a.display_name.cmp(&b.display_name)
+        });
+
+        if has_private {
+            childs.push(Self {
+                access_key: String::from("<private>"),
+                display_name: String::from("private"),
+                display_value: String::from("Private fields and methods"),
+                display_type: String::from(""),
+                type_info: String::from(""),
+                kind: ValueKind::Other,
+                length: 0,
+                size: 0,
+                has_children: false,
+                is_truncated: false
+            });
         }
+
+        if has_methods {
+            childs.push(Self {
+                access_key: String::from("<methods>"),
+                display_name: String::from("methods"),
+                display_value: String::from("Methods"),
+                display_type: String::from(""),
+                type_info: String::from(""),
+                kind: ValueKind::Other,
+                length: 0,
+                size: 0,
+                has_children: false,
+                is_truncated: false
+            });
+        }
+
+        if has_active {
+            childs.push(Self {
+                access_key: String::from("<active>"),
+                display_name: String::from("active"),
+                display_value: String::from("active fields"),
+                display_type: String::from(""),
+                type_info: String::from(""),
+                kind: ValueKind::Other,
+                length: 0,
+                size: 0,
+                has_children: false,
+                is_truncated: false
+            });
+        }
+
+        Ok(childs)
+    }
+
+    fn inspect_environment(value: SEXP) -> Result<Vec<Self>, harp::error::Error> {
+        let mut out: Vec<Self> = Environment::new(value)
+            .iter()
+            .filter(|b: &Binding| {
+                !b.is_hidden()
+            })
+            .map(|b| {
+                Self::new(&b)
+            })
+            .collect();
 
         out.sort_by(|a, b| {
             a.display_name.cmp(&b.display_name)

@@ -317,6 +317,18 @@ impl Environment {
     pub fn iter(&self) -> EnvironmentIter {
         EnvironmentIter::new(&self)
     }
+
+    pub fn exists(&self, name: impl Into<RSymbol>) -> bool {
+        unsafe {
+            R_existsVarInFrame(self.env.sexp, *name.into()) == Rboolean_TRUE
+        }
+    }
+
+    pub fn find(&self, name: impl Into<RSymbol>) -> SEXP {
+        let name = name.into();
+        unsafe { Rf_findVarInFrame(self.env.sexp, *name) }
+    }
+
 }
 
 #[cfg(test)]
