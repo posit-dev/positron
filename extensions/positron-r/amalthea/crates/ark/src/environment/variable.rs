@@ -500,14 +500,14 @@ impl EnvironmentVariable {
             EnvironmentVariableNode::Artificial { object, name } => {
                 match name.as_str() {
                     "<private>" => {
-                        let env = Environment::new(*object);
-                        let enclos = Environment::new(env.find(".__enclos_env__"));
-                        let private = enclos.find("private");
+                        let env = Environment::new(object);
+                        let enclos = Environment::new(RObject::view(env.find(".__enclos_env__")));
+                        let private = RObject::view(enclos.find("private"));
 
                         Self::inspect_environment(private)
                     }
 
-                    "<methods>" => Self::inspect_r6_methods(*object),
+                    "<methods>" => Self::inspect_r6_methods(object),
 
                     _ => Err(harp::error::Error::InspectError {
                         path: path.clone()
@@ -525,9 +525,9 @@ impl EnvironmentVariable {
                         LISTSXP           => Self::inspect_pairlist(*object),
                         ENVSXP            => unsafe {
                             if r_inherits(*object, "R6") {
-                                Self::inspect_r6(*object)
+                                Self::inspect_r6(object)
                             } else {
-                                Self::inspect_environment(*object)
+                                Self::inspect_environment(object)
                             }
 
                         },
@@ -610,9 +610,9 @@ impl EnvironmentVariable {
                 EnvironmentVariableNode::Artificial { object, name } => {
                     match name.as_str() {
                         "<private>" => {
-                            let env = Environment::new(*object);
-                            let enclos = Environment::new(env.find(".__enclos_env__"));
-                            let private = Environment::new(enclos.find("private"));
+                            let env = Environment::new(object);
+                            let enclos = Environment::new(RObject::view(env.find(".__enclos_env__")));
+                            let private = Environment::new(RObject::view(enclos.find("private")));
 
                             // TODO: it seems unlikely that private would host active bindings
                             //       so find() is fine, we can assume this is concrete
@@ -680,7 +680,7 @@ impl EnvironmentVariable {
         Ok(out)
     }
 
-    fn inspect_r6(value: SEXP) -> Result<Vec<Self>, harp::error::Error> {
+    fn inspect_r6(value: RObject) -> Result<Vec<Self>, harp::error::Error> {
         let mut has_private = false;
         let mut has_methods = false;
 
@@ -690,7 +690,7 @@ impl EnvironmentVariable {
             .filter(|b: &Binding| {
                 if b.name == ".__enclos_env__" {
                     if let BindingValue::Standard { object, .. } = b.value {
-                        has_private = Environment::new(object).exists("private");
+                        has_private = Environment::new(RObject::view(object)).exists("private");
                     }
 
                     false
@@ -755,7 +755,7 @@ impl EnvironmentVariable {
         Ok(childs)
     }
 
-    fn inspect_environment(value: SEXP) -> Result<Vec<Self>, harp::error::Error> {
+    fn inspect_environment(value: RObject) -> Result<Vec<Self>, harp::error::Error> {
         let mut out: Vec<Self> = Environment::new(value)
             .iter()
             .filter(|b: &Binding| {
@@ -802,7 +802,7 @@ impl EnvironmentVariable {
         Ok(out)
     }
 
-    fn inspect_r6_methods(value: SEXP) -> Result<Vec<Self>, harp::error::Error> {
+    fn inspect_r6_methods(value: RObject) -> Result<Vec<Self>, harp::error::Error> {
         let mut out: Vec<Self> = Environment::new(value)
             .iter()
             .filter(|b: &Binding| {
