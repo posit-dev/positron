@@ -147,6 +147,14 @@ impl Binding {
         String::from(self.name).starts_with(".")
     }
 
+    pub fn is_active(&self) -> bool {
+        if let BindingValue::Active { .. } = self.value {
+            true
+        } else {
+            false
+        }
+    }
+
 }
 
 pub struct Environment {

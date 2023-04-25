@@ -47,6 +47,12 @@ impl From<&str> for RSymbol {
     }
 }
 
+impl From<&String> for RSymbol {
+    fn from(value: &String) -> Self {
+        RSymbol::from(value.as_str())
+    }
+}
+
 impl std::fmt::Display for RSymbol {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", String::from(*self))
