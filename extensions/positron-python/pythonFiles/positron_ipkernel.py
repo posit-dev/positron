@@ -452,7 +452,9 @@ SUMMARY_PRINT_WIDTH = 100
 # conditional property lookup
 _OurDefault = object()
 
-POSITON_NS_HIDDEN = {'__warningregistry__': {}}
+POSITON_NS_HIDDEN = {'__warningregistry__': {},
+                     '_exit_code': {}
+                    }
 """Additional variables to hide from the user's namespace."""
 
 

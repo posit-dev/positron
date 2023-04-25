@@ -1,5 +1,6 @@
 """Positron extenstions to the Jedi Language Server."""
 import asyncio
+import logging
 import os
 import sys
 
@@ -189,51 +190,57 @@ def positron_completion(server: PositronJediLanguageServer, params: CompletionPa
     jedi_script = Interpreter(document.source, namespaces, path=document.path, project=server.project)
     # --- End Positron ---
 
-    jedi_lines = jedi_utils.line_column(params.position)
-    completions_jedi_raw = jedi_script.complete(*jedi_lines)
-    if not ignore_patterns:
-        # A performance optimization. ignore_patterns should usually be empty;
-        # this special case avoid repeated filter checks for the usual case.
-        completions_jedi = (comp for comp in completions_jedi_raw)
-    else:
-        completions_jedi = (
-            comp
-            for comp in completions_jedi_raw
-            if not any(i.match(comp.name) for i in ignore_patterns)
+    try:
+        jedi_lines = jedi_utils.line_column(params.position)
+        completions_jedi_raw = jedi_script.complete(*jedi_lines)
+        if not ignore_patterns:
+            # A performance optimization. ignore_patterns should usually be empty;
+            # this special case avoid repeated filter checks for the usual case.
+            completions_jedi = (comp for comp in completions_jedi_raw)
+        else:
+            completions_jedi = (
+                comp
+                for comp in completions_jedi_raw
+                if not any(i.match(comp.name) for i in ignore_patterns)
+            )
+        snippet_support = get_capability(
+            server.client_capabilities,
+            "text_document.completion.completion_item.snippet_support",
+            False,
         )
-    snippet_support = get_capability(
-        server.client_capabilities,
-        "text_document.completion.completion_item.snippet_support",
-        False,
-    )
-    markup_kind = _choose_markup(server)
-    is_import_context = jedi_utils.is_import(
-        script_=jedi_script,
-        line=jedi_lines[0],
-        column=jedi_lines[1],
-    )
-    enable_snippets = (
-        snippet_support and not snippet_disable and not is_import_context
-    )
-    char_before_cursor = pygls_utils.char_before_cursor(
-        document=server.workspace.get_document(params.text_document.uri),
-        position=params.position,
-    )
-    jedi_utils.clear_completions_cache()
-    # number of characters in the string representation of the total number of
-    # completions returned by jedi.
-    total_completion_chars = len(str(len(completions_jedi_raw)))
-    completion_items = [
-        jedi_utils.lsp_completion_item(
-            completion=completion,
-            char_before_cursor=char_before_cursor,
-            enable_snippets=enable_snippets,
-            resolve_eagerly=resolve_eagerly,
-            markup_kind=markup_kind,
-            sort_append_text=str(count).zfill(total_completion_chars),
+        markup_kind = _choose_markup(server)
+        is_import_context = jedi_utils.is_import(
+            script_=jedi_script,
+            line=jedi_lines[0],
+            column=jedi_lines[1],
         )
-        for count, completion in enumerate(completions_jedi)
-    ]
+        enable_snippets = (
+            snippet_support and not snippet_disable and not is_import_context
+        )
+        char_before_cursor = pygls_utils.char_before_cursor(
+            document=server.workspace.get_document(params.text_document.uri),
+            position=params.position,
+        )
+        jedi_utils.clear_completions_cache()
+        # number of characters in the string representation of the total number of
+        # completions returned by jedi.
+        total_completion_chars = len(str(len(completions_jedi_raw)))
+        completion_items = [
+            jedi_utils.lsp_completion_item(
+                completion=completion,
+                char_before_cursor=char_before_cursor,
+                enable_snippets=enable_snippets,
+                resolve_eagerly=resolve_eagerly,
+                markup_kind=markup_kind,
+                sort_append_text=str(count).zfill(total_completion_chars),
+            )
+            for count, completion in enumerate(completions_jedi)
+        ]
+    except ValueError:
+        # Ignore LSP errors for completions from invalid line/column ranges.
+        logging.info("LSP completion error", exc_info=True)
+        completion_items = []
+
     return (
         CompletionList(is_incomplete=False, items=completion_items)
         if completion_items
@@ -283,7 +290,13 @@ def positron_highlight(
 def positron_hover(
     server: PositronJediLanguageServer, params: TextDocumentPositionParams
 ) -> Optional[Hover]:
-    return hover(server, params)
+    try:
+        return hover(server, params)
+    except ValueError:
+        # Ignore LSP errors for hover over invalid line/column ranges.
+        logging.info("LSP hover error", exc_info=True)
+
+    return None
 
 
 @POSITRON.feature(TEXT_DOCUMENT_REFERENCES)
@@ -326,7 +339,13 @@ def positron_rename(
 def positron_code_action(
     server: PositronJediLanguageServer, params: CodeActionParams
 ) -> Optional[List[CodeAction]]:
-    return code_action(server, params)
+    try:
+        return code_action(server, params)
+    except ValueError:
+        # Ignore LSP errors for actions with invalid line/column ranges.
+        logging.info("LSP codeAction error", exc_info=True)
+
+    return None
 
 
 @POSITRON.feature(WORKSPACE_DID_CHANGE_CONFIGURATION)
