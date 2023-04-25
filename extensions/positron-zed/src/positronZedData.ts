@@ -26,7 +26,8 @@ class ZedColumn {
  */
 export class ZedData {
 	public readonly id: string;
-	public readonly data: Array<ZedColumn> = [];
+	public readonly title: string = 'Zed Data';
+	public readonly columns: Array<ZedColumn> = [];
 	constructor(private readonly context: vscode.ExtensionContext,
 		private readonly nrow = 100,
 		private readonly ncol = 10) {
@@ -35,7 +36,7 @@ export class ZedData {
 
 		// Create the requested number of columns
 		for (let i = 0; i < ncol; i++) {
-			this.data.push(new ZedColumn(`Column ${i}`, 'int32', nrow));
+			this.columns.push(new ZedColumn(`Column ${i}`, 'int32', nrow));
 		}
 	}
 

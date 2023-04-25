@@ -56,7 +56,17 @@ export async function createDataPanel(context: vscode.ExtensionContext,
 		panel.webview.postMessage(event);
 	});
 
-	panel.webview.html = `<body><div id="root"></div></body>${reactHtml}$`;
+	panel.title = initialData.title;
+
+	// Set the HTML content of the webview
+	panel.webview.html = `
+		<head>
+			<meta charset="UTF-8">
+			<title>${initialData.title}</title>
+		</head>
+		<body>
+			<div id="root"></div>
+		</body>${reactHtml}$`;
 
 	// Handle messages from the webview
 	panel.webview.onDidReceiveMessage((message) => {
@@ -65,7 +75,7 @@ export async function createDataPanel(context: vscode.ExtensionContext,
 			// The webview is ready to receive messages
 			panel.webview.postMessage({
 				msg_type: 'data',
-				data: initialData
+				data: initialData.columns
 			});
 		}
 	},
