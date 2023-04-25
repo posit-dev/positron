@@ -275,10 +275,9 @@ fn has_children(value: SEXP) -> bool {
         }
     } else {
         match r_typeof(value) {
-            VECSXP   => unsafe { XLENGTH(value) != 0 },
-            EXPRSXP  => unsafe { XLENGTH(value) != 0 },
+            VECSXP | EXPRSXP   => unsafe { XLENGTH(value) != 0 },
             LISTSXP  => true,
-            ENVSXP   => true,
+            ENVSXP   => !Environment::new(RObject::view(value)).is_empty(),
             _        => false
         }
     }
