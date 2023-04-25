@@ -87,6 +87,7 @@ export class ZedEnvironment {
 		this._vars.set('z', new ZedVariable('z', 'zed1', 'string', 4, 4));
 		this._vars.set('e', new ZedVariable('e', 'zed2', 'string', 4, 4));
 		this._vars.set('d', new ZedVariable('d', 'zed3', 'string', 4, 4));
+		this._vars.set('dat', new ZedVariable('dat', 'table(10 columns, 100 rows)', 'table', 100, 1000));
 
 		// Create a Zed Version variable
 		this._vars.set('ZED_VERSION', new ZedVariable('ZED_VERSION',
@@ -228,6 +229,12 @@ export class ZedEnvironment {
 				children = oldVar.children;
 				value = `list(${children.length} elements)`;
 				size = children.length;
+			} else if (oldVar.kind === 'table') {
+				// Tables: Just generate a new random table
+				const numColumns = Math.floor(Math.random() * 10) + 1;
+				const numRows = Math.floor(Math.random() * 90) + 10;
+				value = `table(${numColumns} columns, ${numRows} rows)`;
+				size = numColumns * numRows * 4;
 			} else {
 				// Everything else: reverse the value
 				value = oldVar.display_value.split('').reverse().join('');
@@ -482,7 +489,9 @@ export class ZedEnvironment {
 			let kindToUse = kind;
 			if (!kind || kind === 'random') {
 				// Random: pick a random kind
-				kindToUse = ['string', 'number', 'vector', 'blob', 'list'][Math.floor(Math.random() * 5)];
+				kindToUse =
+					['string', 'number', 'vector', 'blob', 'list', 'table']
+					[Math.floor(Math.random() * 6)];
 			}
 
 			const name = `${kindToUse}${start + i}`;
@@ -517,6 +526,12 @@ export class ZedEnvironment {
 				children = this.generateVars(numElements, 'random');
 				value = `list(${numElements} elements)`;
 				size = numElements;
+			} else if (kindToUse === 'table') {
+				// Tables: Have 1 - 10 columns of 10 - 100 rows
+				const numColumns = Math.floor(Math.random() * 10) + 1;
+				const numRows = Math.floor(Math.random() * 90) + 10;
+				value = `table(${numColumns} columns, ${numRows} rows)`;
+				size = numColumns * numRows * 4;
 			} else {
 				// Everything else: use the counter
 				value = `value${start + i}`;
