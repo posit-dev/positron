@@ -3,10 +3,10 @@
  *--------------------------------------------------------------------------------------------*/
 
 .console-core .console-instance {
-	overflow-x: visible;
-	-webkit-user-select: text;
-	-moz-user-select: text;
-	-ms-user-select: text;
+	padding: 0 5px;
 	user-select: text;
-	padding: 4px 12px 0 12px;
+	overflow-y: scroll;
+	-ms-user-select: text;
+	-moz-user-select: text;
+	-webkit-user-select: text;
 }

@@ -6,9 +6,11 @@
 	cursor: text;
 }
 
+/*
 .positron-console .console-core .console-instances-container {
 	overflow-y: scroll;
 }
+*/
 
 .positron-console .console-core .console-instances-container:focus {
 	outline: none !important;
