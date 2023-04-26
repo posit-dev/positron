@@ -179,7 +179,6 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 			RuntimeErrorBehavior.Continue);
 	};
 
-
 	/**
 	 * Click handler.
 	 * @param e A MouseEvent<HTMLElement> that describes a user interaction with the mouse.
@@ -303,7 +302,6 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 				ref={consoleInputRef}
 				active={props.active}
 				width={adjustedWidth}
-				focusReceiver={props.reactComponentContainer}
 				executeCode={executeCode}
 				positronConsoleInstance={props.positronConsoleInstance}
 			/>
