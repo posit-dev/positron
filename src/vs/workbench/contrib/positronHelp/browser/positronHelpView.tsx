@@ -43,8 +43,11 @@ export class PositronHelpViewPane extends ViewPane implements IReactComponentCon
 	// The onSizeChanged emitter.
 	private _onSizeChangedEmitter = this._register(new Emitter<ISize>());
 
-	// The onVisibilityChanged emitter.
-	private _onVisibilityChangedEmitter = this._register(new Emitter<boolean>());
+	// The onSaveScrollPosition emitter.
+	private _onSaveScrollPositionEmitter = this._register(new Emitter<void>());
+
+	// The onRestoreScrollPosition emitter.
+	private _onRestoreScrollPositionEmitter = this._register(new Emitter<void>());
 
 	// The onFocused emitter.
 	private _onFocusedEmitter = this._register(new Emitter<void>());
@@ -104,9 +107,14 @@ export class PositronHelpViewPane extends ViewPane implements IReactComponentCon
 	readonly onSizeChanged: Event<ISize> = this._onSizeChangedEmitter.event;
 
 	/**
-	 * The onVisibilityChanged event.
+	 * The onSaveScrollPosition event.
 	 */
-	readonly onVisibilityChanged: Event<boolean> = this._onVisibilityChangedEmitter.event;
+	readonly onSaveScrollPosition: Event<void> = this._onSaveScrollPositionEmitter.event;
+
+	/**
+	 * The onRestoreScrollPosition event.
+	 */
+	readonly onRestoreScrollPosition: Event<void> = this._onRestoreScrollPositionEmitter.event;
 
 	/**
 	 * The onFocused event.
@@ -174,11 +182,6 @@ export class PositronHelpViewPane extends ViewPane implements IReactComponentCon
 		this._positronHelpContainer.appendChild(this._helpActionBarsContainer);
 		this._positronHelpContainer.appendChild(this._helpViewContainer);
 		this._helpView.mountTo(this._helpViewContainer);
-
-		// Register event handlers.
-		this._register(this.onDidChangeBodyVisibility(() => {
-			this._onVisibilityChangedEmitter.fire(this.isBodyVisible());
-		}));
 
 		this._register(this.positronHelpService.onRenderHelp(html => {
 			this._helpView.setHtml(html);

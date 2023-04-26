@@ -1,0 +1,14 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
+ *--------------------------------------------------------------------------------------------*/
+
+.empty-console {
+	opacity: 0.75;
+	box-sizing: border-box; /* Draw the borders inside the box. */
+	border-top: 1px solid var(--vscode-positronSideActionBar-border);
+}
+
+.empty-console .title {
+	text-align: left;
+	margin-left: 20px;
+}

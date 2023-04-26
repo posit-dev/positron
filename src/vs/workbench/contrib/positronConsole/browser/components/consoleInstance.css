@@ -3,9 +3,11 @@
  *--------------------------------------------------------------------------------------------*/
 
 .console-core .console-instance {
-	padding: 0 5px;
-	user-select: text;
+	top: 0;
+	padding-left: 10px;
+	position: absolute;
 	overflow-y: scroll;
+	user-select: text;
 	-ms-user-select: text;
 	-moz-user-select: text;
 	-webkit-user-select: text;
