@@ -5,7 +5,7 @@
 import path = require('path');
 import * as vscode from 'vscode';
 import * as positron from 'positron';
-import { DataSet } from './positron-data-viewer';
+import { DataSet, DataViewerMessage, DataViewerMessageData } from './positron-data-viewer';
 
 /**
  * Creates the WebView panel containing the data viewer.
@@ -82,15 +82,15 @@ export async function createDataPanel(context: vscode.ExtensionContext,
 		</body>${reactHtml}$`;
 
 	// Handle messages from the webview
-	panel.webview.onDidReceiveMessage((message) => {
-		console.log('Received message from webview: ', message);
+	panel.webview.onDidReceiveMessage((message: DataViewerMessage) => {
 		if (message.msg_type === 'ready') {
 			// The webview is ready to receive messages; send it
 			// the initial data
-			panel.webview.postMessage({
+			const dataMsg: DataViewerMessageData = {
 				msg_type: 'data',
 				data: initialData.columns
-			});
+			};
+			panel.webview.postMessage(dataMsg);
 		}
 	},
 		undefined,
