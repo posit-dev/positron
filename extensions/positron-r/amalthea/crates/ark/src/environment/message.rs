@@ -48,7 +48,10 @@ pub enum EnvironmentMessage {
     Inspect(EnvironmentMessageInspect),
 
     /// Details about a variable, response to an Inspect message
-    Details(EnvironmentMessageDetails)
+    Details(EnvironmentMessageDetails),
+
+    /// A message requesting to view a variable
+    View(EnvironmentMessageView)
 }
 
 /**
@@ -112,4 +115,12 @@ pub struct EnvironmentMessageDetails {
     pub path: Vec<String>,
     pub children: Vec<EnvironmentVariable>,
     pub length: usize,
+}
+
+/**
+ * The data for the View message
+ */
+#[derive(Debug, Serialize, Deserialize)]
+pub struct EnvironmentMessageView {
+    pub path: Vec<String>,
 }
