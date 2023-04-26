@@ -127,6 +127,14 @@ export class EnvironmentVariableItem implements IEnvironmentVariableItem {
 	}
 
 	/**
+	 * Gets a value which indicates whether the variable has a viewer supplied
+	 * by the runtime.
+	 */
+	get hasViewer() {
+		return this._environmentVariable.data.has_viewer;
+	}
+
+	/**
 	 * Gets a value which indicates whether the value is truncated.
 	 */
 	get isTruncated() {

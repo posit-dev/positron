@@ -22,6 +22,12 @@ export interface IEnvironmentVariableItem {
 	hasChildren: boolean;
 
 	/**
+	 * Gets a value which indicates whether the environment variable has a
+	 * viewer supplied by the runtime.
+	 */
+	hasViewer: boolean;
+
+	/**
 	 * Gets the indent level.
 	 */
 	indentLevel: number;

@@ -6,21 +6,21 @@
 //
 
 use harp::environment::BindingValue;
-use harp::utils::r_altrep_class;
-use harp::utils::r_is_s4;
-use harp::utils::r_vec_shape;
-use harp::utils::r_vec_type;
 use harp::utils::pairlist_size;
+use harp::utils::r_altrep_class;
 use harp::utils::r_classes;
 use harp::utils::r_is_altrep;
+use harp::utils::r_is_s4;
 use harp::utils::r_is_simple_vector;
+use harp::utils::r_vec_shape;
+use harp::utils::r_vec_type;
 use itertools::Itertools;
 
 use harp::environment::Binding;
 use harp::environment::Environment;
+use harp::exec::r_try_catch_error;
 use harp::exec::RFunction;
 use harp::exec::RFunctionExt;
-use harp::exec::r_try_catch_error;
 use harp::object::RObject;
 use harp::r_symbol;
 use harp::symbol::RSymbol;
@@ -28,9 +28,9 @@ use harp::utils::r_assert_type;
 use harp::utils::r_inherits;
 use harp::utils::r_is_null;
 use harp::utils::r_typeof;
+use harp::vector::collapse;
 use harp::vector::CharacterVector;
 use harp::vector::Vector;
-use harp::vector::collapse;
 use libR_sys::*;
 use serde::Deserialize;
 use serde::Serialize;
@@ -100,20 +100,26 @@ pub struct EnvironmentVariable {
     /** True if the variable contains other variables */
     pub has_children: bool,
 
+    /** True if the variable has an associated viewer */
+    pub has_viewer: bool,
+
     /** True if the 'value' field was truncated to fit in the message */
     pub is_truncated: bool,
 }
 
 pub struct WorkspaceVariableDisplayValue {
     pub display_value: String,
-    pub is_truncated: bool
+    pub is_truncated: bool,
 }
 
 impl WorkspaceVariableDisplayValue {
-    fn new(display_value: String, is_truncated: bool) -> Self {
+    fn new(
+        display_value: String,
+        is_truncated: bool,
+    ) -> Self {
         WorkspaceVariableDisplayValue {
             display_value,
-            is_truncated
+            is_truncated,
         }
     }
 
@@ -124,29 +130,32 @@ impl WorkspaceVariableDisplayValue {
     pub fn from(value: SEXP) -> Self {
         let rtype = r_typeof(value);
         if r_is_simple_vector(value) {
-            let formatted = collapse(value, " ", 100, if rtype == STRSXP { "\"" } else { "" }).unwrap();
+            let formatted =
+                collapse(value, " ", 100, if rtype == STRSXP { "\"" } else { "" }).unwrap();
             Self::new(formatted.result, formatted.truncated)
-        } else if rtype == VECSXP && ! unsafe{r_inherits(value, "POSIXlt")}{
+        } else if rtype == VECSXP && !unsafe { r_inherits(value, "POSIXlt") } {
             // This includes data frames
             Self::empty()
         } else if rtype == LISTSXP {
             Self::empty()
-        } else if rtype == SYMSXP && value == unsafe{ R_MissingArg } {
+        } else if rtype == SYMSXP && value == unsafe { R_MissingArg } {
             Self::new(String::from("<missing>"), false)
         } else if rtype == CLOSXP {
             unsafe {
-                let args      = RFunction::from("args").add(value).call().unwrap();
+                let args = RFunction::from("args").add(value).call().unwrap();
                 let formatted = RFunction::from("format").add(*args).call().unwrap();
                 let formatted = CharacterVector::new_unchecked(formatted);
-                let out = formatted.iter().take(formatted.len() -1).map(|o|{ o.unwrap() }).join("");
+                let out = formatted
+                    .iter()
+                    .take(formatted.len() - 1)
+                    .map(|o| o.unwrap())
+                    .join("");
                 Self::new(out, false)
             }
         } else {
             unsafe {
                 // try to call format() on the object
-                let formatted = RFunction::new("base", "format")
-                    .add(value)
-                    .call();
+                let formatted = RFunction::new("base", "format").add(value).call();
 
                 match formatted {
                     Ok(fmt) => {
@@ -157,26 +166,22 @@ impl WorkspaceVariableDisplayValue {
                             Self::new(String::from("???"), false)
                         }
                     },
-                    Err(_) => {
-                        Self::new(String::from("???"), false)
-                    }
+                    Err(_) => Self::new(String::from("???"), false),
                 }
             }
         }
     }
 }
 
-
 pub struct WorkspaceVariableDisplayType {
     pub display_type: String,
-    pub type_info: String
+    pub type_info: String,
 }
 
 impl WorkspaceVariableDisplayType {
-
     pub fn from(value: SEXP) -> Self {
         if r_is_null(value) {
-            return Self::simple(String::from("NULL"))
+            return Self::simple(String::from("NULL"));
         }
 
         if r_is_s4(value) {
@@ -196,11 +201,13 @@ impl WorkspaceVariableDisplayType {
 
         let rtype = r_typeof(value);
         match rtype {
-            EXPRSXP => Self::from_class(value, format!("expression [{}]", unsafe { XLENGTH(value) })),
+            EXPRSXP => {
+                Self::from_class(value, format!("expression [{}]", unsafe { XLENGTH(value) }))
+            },
             LANGSXP => Self::from_class(value, String::from("language")),
-            CLOSXP  => Self::from_class(value, String::from("function")),
-            ENVSXP  => Self::from_class(value, String::from("environment")),
-            SYMSXP  => {
+            CLOSXP => Self::from_class(value, String::from("function")),
+            ENVSXP => Self::from_class(value, String::from("environment")),
+            SYMSXP => {
                 if r_is_null(value) {
                     Self::simple(String::from("missing"))
                 } else {
@@ -208,11 +215,9 @@ impl WorkspaceVariableDisplayType {
                 }
             },
 
-            LISTSXP => {
-                match pairlist_size(value) {
-                    Ok(n)  => Self::simple(format!("pairlist [{}]", n)),
-                    Err(_) => Self::simple(String::from("pairlist [?]"))
-                }
+            LISTSXP => match pairlist_size(value) {
+                Ok(n) => Self::simple(format!("pairlist [{}]", n)),
+                Err(_) => Self::simple(String::from("pairlist [?]")),
             },
 
             VECSXP => unsafe {
@@ -226,59 +231,62 @@ impl WorkspaceVariableDisplayType {
                         .unwrap();
                     let shape = collapse(*dim, ",", 0, "").unwrap().result;
 
-                    Self::simple(
-                        format!("{} [{}]", dfclass, shape)
-                    )
+                    Self::simple(format!("{} [{}]", dfclass, shape))
                 } else {
                     Self::from_class(value, format!("list [{}]", XLENGTH(value)))
                 }
             },
-            _      => Self::from_class(value, String::from("???"))
+            _ => Self::from_class(value, String::from("???")),
         }
-
     }
 
     fn simple(display_type: String) -> Self {
         Self {
             display_type,
-            type_info: String::from("")
+            type_info: String::from(""),
         }
     }
 
-    fn from_class(value: SEXP, default: String) -> Self {
+    fn from_class(
+        value: SEXP,
+        default: String,
+    ) -> Self {
         match r_classes(value) {
             None => Self::simple(default),
-            Some(classes) => {
-                Self::new(
-                    classes.get_unchecked(0).unwrap(),
-                    classes.iter().map(|s| s.unwrap()).join("/")
-                )
-            }
+            Some(classes) => Self::new(
+                classes.get_unchecked(0).unwrap(),
+                classes.iter().map(|s| s.unwrap()).join("/"),
+            ),
         }
     }
 
-    fn new(display_type: String, type_info: String) -> Self {
+    fn new(
+        display_type: String,
+        type_info: String,
+    ) -> Self {
         Self {
             display_type,
-            type_info
+            type_info,
         }
     }
-
 }
 
 fn has_children(value: SEXP) -> bool {
     if RObject::view(value).is_s4() {
         unsafe {
-            let names = RFunction::new("methods", ".slotNames").add(value).call().unwrap();
+            let names = RFunction::new("methods", ".slotNames")
+                .add(value)
+                .call()
+                .unwrap();
             let names = CharacterVector::new_unchecked(names);
             names.len() > 0
         }
     } else {
         match r_typeof(value) {
-            VECSXP | EXPRSXP   => unsafe { XLENGTH(value) != 0 },
-            LISTSXP  => true,
-            ENVSXP   => !Environment::new(RObject::view(value)).is_empty(),
-            _        => false
+            VECSXP | EXPRSXP => unsafe { XLENGTH(value) != 0 },
+            LISTSXP => true,
+            ENVSXP => !Environment::new(RObject::view(value)).is_empty(),
+            _ => false,
         }
     }
 }
@@ -291,18 +299,32 @@ impl EnvironmentVariable {
         let display_name = binding.name.to_string();
 
         match binding.value {
-            BindingValue::Active{..} => Self::from_lazy(display_name, String::from("active binding")),
-            BindingValue::Promise{..} => Self::from_lazy(display_name, String::from("promise")),
-            BindingValue::Altrep{object, ..} | BindingValue::Standard {object, ..} => Self::from(display_name.clone(), display_name, object)
+            BindingValue::Active { .. } => {
+                Self::from_lazy(display_name, String::from("active binding"))
+            },
+            BindingValue::Promise { .. } => Self::from_lazy(display_name, String::from("promise")),
+            BindingValue::Altrep { object, .. } | BindingValue::Standard { object, .. } => {
+                Self::from(display_name.clone(), display_name, object)
+            },
         }
     }
 
     /**
      * Create a new EnvironmentVariable from an R object
      */
-    fn from(access_key: String, display_name: String, x: SEXP) -> Self {
-        let WorkspaceVariableDisplayValue{display_value, is_truncated} = WorkspaceVariableDisplayValue::from(x);
-        let WorkspaceVariableDisplayType{display_type, type_info} = WorkspaceVariableDisplayType::from(x);
+    fn from(
+        access_key: String,
+        display_name: String,
+        x: SEXP,
+    ) -> Self {
+        let WorkspaceVariableDisplayValue {
+            display_value,
+            is_truncated,
+        } = WorkspaceVariableDisplayValue::from(x);
+        let WorkspaceVariableDisplayType {
+            display_type,
+            type_info,
+        } = WorkspaceVariableDisplayType::from(x);
 
         Self {
             access_key,
@@ -314,11 +336,15 @@ impl EnvironmentVariable {
             length: Self::variable_length(x),
             size: RObject::view(x).size(),
             has_children: has_children(x),
-            is_truncated
+            has_viewer: false,
+            is_truncated,
         }
     }
 
-    fn from_lazy(display_name: String, lazy_type: String) -> Self {
+    fn from_lazy(
+        display_name: String,
+        lazy_type: String,
+    ) -> Self {
         Self {
             access_key: display_name.clone(),
             display_name,
@@ -329,7 +355,8 @@ impl EnvironmentVariable {
             length: 0,
             size: 0,
             has_children: false,
-            is_truncated: false
+            has_viewer: false,
+            is_truncated: false,
         }
     }
 
@@ -352,15 +379,15 @@ impl EnvironmentVariable {
                 }
             },
             LISTSXP => match pairlist_size(x) {
-                Ok(n)  => n as usize,
-                Err(_) => 0
+                Ok(n) => n as usize,
+                Err(_) => 0,
             },
-            _ => 0
+            _ => 0,
         }
     }
 
     fn variable_kind(x: SEXP) -> ValueKind {
-        if x == unsafe {R_NilValue} {
+        if x == unsafe { R_NilValue } {
             return ValueKind::Empty;
         }
 
@@ -459,7 +486,7 @@ impl EnvironmentVariable {
                 } else {
                     ValueKind::Collection
                 }
-            }
+            },
 
             STRSXP => unsafe {
                 let dim = Rf_getAttrib(x, R_DimSymbol);
@@ -476,37 +503,38 @@ impl EnvironmentVariable {
                 }
             },
 
-            RAWSXP  => ValueKind::Bytes,
-            _       => ValueKind::Other
+            RAWSXP => ValueKind::Bytes,
+            _ => ValueKind::Other,
         }
     }
 
-    pub fn inspect(env: RObject, path: &Vec<String>) -> Result<Vec<Self>, harp::error::Error> {
-        let object = unsafe {
-            Self::resolve_object_from_path(env, &path)?
-        };
+    pub fn inspect(
+        env: RObject,
+        path: &Vec<String>,
+    ) -> Result<Vec<Self>, harp::error::Error> {
+        let object = unsafe { Self::resolve_object_from_path(env, &path)? };
 
         if object.is_s4() {
             Self::inspect_s4(*object)
         } else {
             match r_typeof(*object) {
-                VECSXP | EXPRSXP  => Self::inspect_list(*object),
-                LISTSXP           => Self::inspect_pairlist(*object),
-                ENVSXP            => Self::inspect_environment(object),
-                _                 => Ok(vec![])
+                VECSXP | EXPRSXP => Self::inspect_list(*object),
+                LISTSXP => Self::inspect_pairlist(*object),
+                ENVSXP => Self::inspect_environment(object),
+                _ => Ok(vec![]),
             }
         }
     }
 
-    unsafe fn resolve_object_from_path(mut object: RObject, path: &Vec<String>) -> Result<RObject, harp::error::Error> {
+    unsafe fn resolve_object_from_path(
+        mut object: RObject,
+        path: &Vec<String>,
+    ) -> Result<RObject, harp::error::Error> {
         for path_element in path {
-
             if object.is_s4() {
                 let name = r_symbol!(path_element);
 
-                object = r_try_catch_error(|| {
-                    R_do_slot(*object, name)
-                })?;
+                object = r_try_catch_error(|| R_do_slot(*object, name))?;
             } else {
                 let rtype = r_typeof(*object);
                 object = match rtype {
@@ -540,27 +568,36 @@ impl EnvironmentVariable {
                         RObject::view(CAR(pairlist))
                     },
 
-                    _ => return Err( harp::error::Error::UnexpectedType(rtype, vec![ENVSXP, VECSXP, LISTSXP]))
+                    _ => {
+                        return Err(harp::error::Error::UnexpectedType(
+                            rtype,
+                            vec![ENVSXP, VECSXP, LISTSXP],
+                        ))
+                    },
                 }
             }
-       }
+        }
 
-       Ok(object)
+        Ok(object)
     }
 
     fn inspect_list(value: SEXP) -> Result<Vec<Self>, harp::error::Error> {
-        let mut out : Vec<Self> = vec![];
+        let mut out: Vec<Self> = vec![];
         let n = unsafe { XLENGTH(value) };
 
         let names = unsafe {
-            CharacterVector::new_unchecked(RFunction::from(".ps.environment.listDisplayNames").add(value).call()?)
+            CharacterVector::new_unchecked(
+                RFunction::from(".ps.environment.listDisplayNames")
+                    .add(value)
+                    .call()?,
+            )
         };
 
         for i in 0..n {
             out.push(Self::from(
                 i.to_string(),
                 names.get_unchecked(i).unwrap(),
-                unsafe{ VECTOR_ELT(value, i)}
+                unsafe { VECTOR_ELT(value, i) },
             ));
         }
 
@@ -568,13 +605,12 @@ impl EnvironmentVariable {
     }
 
     fn inspect_pairlist(value: SEXP) -> Result<Vec<Self>, harp::error::Error> {
-        let mut out : Vec<Self> = vec![];
+        let mut out: Vec<Self> = vec![];
 
         let mut pairlist = value;
         unsafe {
             let mut i = 0;
             while pairlist != R_NilValue {
-
                 r_assert_type(pairlist, &[LISTSXP])?;
 
                 let tag = TAG(pairlist);
@@ -595,7 +631,7 @@ impl EnvironmentVariable {
     }
 
     fn inspect_environment(value: RObject) -> Result<Vec<Self>, harp::error::Error> {
-        let mut out : Vec<Self> = vec![];
+        let mut out: Vec<Self> = vec![];
 
         let env = Environment::new(value);
         for binding in env.iter() {
@@ -604,9 +640,7 @@ impl EnvironmentVariable {
             }
         }
 
-        out.sort_by(|a, b| {
-            a.display_name.cmp(&b.display_name)
-        });
+        out.sort_by(|a, b| a.display_name.cmp(&b.display_name));
 
         Ok(out)
     }
@@ -615,29 +649,18 @@ impl EnvironmentVariable {
         let mut out: Vec<Self> = vec![];
 
         unsafe {
-            let slot_names = RFunction::new("methods", ".slotNames")
-                .add(value)
-                .call()?;
+            let slot_names = RFunction::new("methods", ".slotNames").add(value).call()?;
 
             let slot_names = CharacterVector::new_unchecked(*slot_names);
             let mut iter = slot_names.iter();
             while let Some(Some(display_name)) = iter.next() {
                 let slot_symbol = r_symbol!(display_name);
-                let slot = r_try_catch_error(|| {
-                    R_do_slot(value, slot_symbol)
-                })?;
+                let slot = r_try_catch_error(|| R_do_slot(value, slot_symbol))?;
                 let access_key = display_name.clone();
-                out.push(
-                    EnvironmentVariable::from(
-                        access_key,
-                        display_name,
-                        *slot
-                    )
-                );
+                out.push(EnvironmentVariable::from(access_key, display_name, *slot));
             }
         }
 
         Ok(out)
     }
-
 }

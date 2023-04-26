@@ -130,6 +130,10 @@ export interface IEnvironmentVariable {
 	/// True if the variable contains other variables
 	has_children: boolean;
 
+	/// True if there is a viewer available for the variable (i.e. the runtime
+	/// can handle a 'view' message for the variable)
+	has_viewer: boolean;
+
 	/// True if the 'value' field was truncated to fit in the message
 	is_truncated: boolean;
 }

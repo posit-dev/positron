@@ -16,7 +16,6 @@ import { usePositronEnvironmentContext } from 'vs/workbench/contrib/positronEnvi
 import { IEnvironmentVariableItem } from 'vs/workbench/services/positronEnvironment/common/interfaces/environmentVariableItem';
 import { IPositronEnvironmentInstance, PositronEnvironmentSorting } from 'vs/workbench/services/positronEnvironment/common/interfaces/positronEnvironmentService';
 import { POSITRON_ENVIRONMENT_COLLAPSE, POSITRON_ENVIRONMENT_COPY_AS_HTML, POSITRON_ENVIRONMENT_COPY_AS_TEXT, POSITRON_ENVIRONMENT_EXPAND, POSITRON_ENVIRONMENT_VIEW } from 'vs/workbench/contrib/positronEnvironment/browser/positronEnvironmentIdentifiers';
-import { EnvironmentVariableValueKind } from 'vs/workbench/services/languageRuntime/common/languageRuntimeEnvironmentClient';
 
 /**
  * Formats a size for display.
@@ -160,7 +159,7 @@ export const EnvironmentVariableItem = (props: EnvironmentVariableItemProps) => 
 		const actions: IAction[] = [];
 
 		// If this is a table, add an action to view it.
-		if (props.environmentVariableItem.kind === EnvironmentVariableValueKind.Table) {
+		if (props.environmentVariableItem.hasViewer) {
 			actions.push({
 				id: POSITRON_ENVIRONMENT_VIEW,
 				label: nls.localize('positron.environment.view', "View"),

@@ -16,6 +16,7 @@ class ZedVariable {
 	public readonly display_type;
 	public readonly type_info;
 	public readonly has_children;
+	public readonly has_viewer;
 	public readonly access_key;
 
 	constructor(
@@ -45,6 +46,10 @@ class ZedVariable {
 
 		// The has_children property is true if the variable has children.
 		this.has_children = children.length > 0;
+
+		// The has_viewer property is true if the variable has a viewer.
+		// Currently, only tables have viewers.
+		this.has_viewer = kind === 'table';
 	}
 }
 
