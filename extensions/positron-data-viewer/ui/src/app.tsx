@@ -6,7 +6,7 @@ import * as ReactDOM from 'react-dom';
 import * as React from 'react';
 
 import { DataPanel } from './DataPanel';
-import { DataColumn } from '../../src/positron-data-viewer';
+import { DataViewerMessage, DataViewerMessageData, DataViewerMessageReady, DataViewerMessageType } from '../../src/positron-data-viewer';
 
 // This global is injected by VS Code when the extension is loaded.
 //
@@ -14,17 +14,23 @@ import { DataColumn } from '../../src/positron-data-viewer';
 const vscode = acquireVsCodeApi();
 
 // Let the extension know that we're ready to receive data.
-console.log('Sending ready message to extension...');
-vscode.postMessage({ 'msg_type': 'ready' });
+const msg: DataViewerMessageReady = {
+	msg_type: DataViewerMessageType.Ready
+};
+vscode.postMessage(msg);
 
 // Listen for messages from the extension.
 window.addEventListener('message', (event: any) => {
-	console.log('Received message from extension: ' + JSON.stringify(event));
-	if (event.data.msg_type === 'data') {
-		const cols = event.data.data as Array<DataColumn>;
+	// Presume that the message compiles with the DataViewerMessage interface.
+	const message = event.data as DataViewerMessage;
+
+	if (message.msg_type === DataViewerMessageType.Data) {
+		const dataMessage = message as DataViewerMessageData;
 		ReactDOM.render(
-			<DataPanel data={cols} />,
+			<DataPanel data={dataMessage.data} />,
 			document.getElementById('root')
 		);
+	} else {
+		console.error(`Unknown message type: ${message.msg_type}`);
 	}
 });

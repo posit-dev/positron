@@ -45,3 +45,40 @@ export interface DataSet {
 	 */
 	columns: Array<DataColumn>;
 }
+
+export interface DataViewerMessage {
+	/**
+	 * The type of the message.
+	 */
+	msg_type: DataViewerMessageType;
+}
+
+/**
+ * A message sent from the data viewer to the host indicating that
+ * the data viewer is ready to receive data.
+ */
+export interface DataViewerMessageReady extends DataViewerMessage { }
+
+/**
+ * A message sent from the host to the data viewer containing a data set to be
+ * displayed in the viewer.
+ */
+export interface DataViewerMessageData extends DataViewerMessage {
+	/**
+	 * The data set.
+	 */
+	data: Array<DataColumn>;
+}
+
+export enum DataViewerMessageType {
+	/**
+	 * The data viewer is ready to receive data.
+	 */
+	Ready = 'ready',
+
+	/**
+	 * The data viewer has received a data set.
+	 */
+	Data = 'data',
+}
+
