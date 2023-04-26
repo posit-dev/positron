@@ -34,8 +34,11 @@ export class PositronEnvironmentViewPane extends ViewPane implements IReactCompo
 	// The onSizeChanged emitter.
 	private _onSizeChangedEmitter = this._register(new Emitter<ISize>());
 
-	// The onVisibilityChanged emitter.
-	private _onVisibilityChangedEmitter = this._register(new Emitter<boolean>());
+	// The onSaveScrollPosition emitter.
+	private _onSaveScrollPositionEmitter = this._register(new Emitter<void>());
+
+	// The onRestoreScrollPosition emitter.
+	private _onRestoreScrollPositionEmitter = this._register(new Emitter<void>());
 
 	// The onFocused emitter.
 	private _onFocusedEmitter = this._register(new Emitter<void>());
@@ -95,9 +98,14 @@ export class PositronEnvironmentViewPane extends ViewPane implements IReactCompo
 	readonly onSizeChanged: Event<ISize> = this._onSizeChangedEmitter.event;
 
 	/**
-	 * The onVisibilityChanged event.
+	 * The onSaveScrollPosition event.
 	 */
-	readonly onVisibilityChanged: Event<boolean> = this._onVisibilityChangedEmitter.event;
+	readonly onSaveScrollPosition: Event<void> = this._onSaveScrollPositionEmitter.event;
+
+	/**
+	 * The onRestoreScrollPosition event.
+	 */
+	readonly onRestoreScrollPosition: Event<void> = this._onRestoreScrollPositionEmitter.event;
 
 	/**
 	 * The onFocused event.
@@ -154,12 +162,20 @@ export class PositronEnvironmentViewPane extends ViewPane implements IReactCompo
 			themeService,
 			telemetryService);
 
-		// Register event handlers.
-		this._register(
-			this.onDidChangeBodyVisibility(() =>
-				this._onVisibilityChangedEmitter.fire(this.isBodyVisible())
-			)
-		);
+		// Register the onDidChangeBodyVisibility event handler.
+		this._register(this.onDidChangeBodyVisibility(visible => {
+			// The browser will automatically set scrollTop to 0 on child components that have been
+			// hidden and made visible. (This is called "desperate" elsewhere in Visual Studio Code.
+			// Search for that word and you'll see other examples of hacks that have been added to
+			// to fix this problem.) IReactComponentContainers can counteract this behavior by
+			// firing onSaveScrollPosition and onRestoreScrollPosition events to have their child
+			// components save and restore their scroll positions.
+			if (!visible) {
+				this._onSaveScrollPositionEmitter.fire();
+			} else {
+				this._onRestoreScrollPositionEmitter.fire();
+			}
+		}));
 	}
 
 	/**
