@@ -452,6 +452,8 @@ SUMMARY_PRINT_WIDTH = 100
 # conditional property lookup
 _OurDefault = object()
 
+POSITRON_CACHE_KEY = '__positron_cache__'
+
 POSITON_NS_HIDDEN = {'__warningregistry__': {},
                      '_exit_code': {}
                     }
@@ -542,6 +544,11 @@ class PositronIPyKernel(IPythonKernel):
         the changes observed to variables in the user environment.
         """
 
+        # First check pre_execute snapshot exists
+        hidden = self.get_user_ns_hidden()
+        if POSITRON_CACHE_KEY not in hidden:
+            return
+
         try:
             # Try to detect the changes made since the last execution
             assigned, removed = self.compare_user_ns()
@@ -584,16 +591,22 @@ class PositronIPyKernel(IPythonKernel):
 
         # Save the snapshot in the hidden namespace to compare against
         # after an operation or execution is performed
-        hidden['__positron_cache'] = snapshot
+        hidden[POSITRON_CACHE_KEY] = snapshot
 
     def compare_user_ns(self) -> (dict, set):
 
-        after = self.get_user_ns()
-        hidden = self.get_user_ns_hidden()
-        snapshot = hidden.get('__positron_cache', {})
-
         assigned = {}
         removed = set()
+        after = self.get_user_ns()
+        hidden = self.get_user_ns_hidden()
+
+        # Check if a snapshot exists
+        snapshot = hidden.get(POSITRON_CACHE_KEY, None)
+        if snapshot is None:
+            return assigned, removed
+
+        # Remove the snapshot for the next comparison
+        del hidden[POSITRON_CACHE_KEY]
 
         # Find assigned and removed variables
         for key in chain(snapshot.keys(), after.keys()):
@@ -628,8 +641,6 @@ class PositronIPyKernel(IPythonKernel):
             except Exception as err:
                 logging.warning("v1: %s, v2: %s, err: %s", type(v1), type(v2), err, exc_info=True)
 
-        # Clear the snapshot
-        hidden['__positron_cache'] = {}
         return assigned, removed
 
     def delete_all_vars(self, parent) -> None:
@@ -645,7 +656,7 @@ class PositronIPyKernel(IPythonKernel):
         variables from the environment.
         """
         # Run the %reset magic to clear user variables
-        command = '%reset -f -s'
+        command = '%reset -sf'
         coro = await self.do_execute(command, False, False)
 
          # Publish an input to inform clients of the "delete all" operation
@@ -1218,18 +1229,28 @@ class PositronDisplayPublisherHook:
 
         if msg['msg_type'] == 'display_data':
 
-            # Try to pickle the current figure
+            # If there is no image for our display, don't create a
+            # positron.plot comm and let the parent deal with the msg.
+            data = msg['content']['data']
+            if 'image/png' not in data:
+                return msg
+
+            # Otherwise, try to pickle the current figure so that we
+            # can restore the context for future renderings. We construct
+            # a new plot comm to advise the client of the new figure.
             pickled = self.pickle_current_figure()
             if pickled is not None:
                 id = str(uuid.uuid4())
                 self.figures[id] = pickled
 
-                # Create a new comm for each plot figure to allow the client
-                # to request modifications, e.g. render at a new size
+                # Creating a comm per plot figure allows the client
+                # to request new renderings of each plot at a later time,
+                # e.g. on resizing the plots view
                 self.create_comm(id)
 
-                # Returning None stops the display_data message being sent via
-                # the iopub channel
+                # Returning None implies our hook has processed the message
+                # and it stops the parent from sending the display_data via
+                # the standard iopub channel
                 return None
 
         return msg
