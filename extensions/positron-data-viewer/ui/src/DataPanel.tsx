@@ -3,7 +3,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as React from 'react';
-import { DataColumn } from '../../src/positron-data-viewer';
+import { DataColumn } from './positron-data-viewer';
 
 interface DataPanelProps {
 	data: Array<DataColumn>;

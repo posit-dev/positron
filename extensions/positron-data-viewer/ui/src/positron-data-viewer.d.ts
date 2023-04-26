@@ -86,3 +86,4 @@ export interface DataViewerMessageData extends DataViewerMessage {
 }
 
 export type DataViewerMessageType = 'ready' | 'data';
+

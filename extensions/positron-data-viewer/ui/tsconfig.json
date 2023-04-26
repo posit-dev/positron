@@ -12,7 +12,6 @@
 	},
 	"include": [
 		"src/**/*",
-		"../src/positron-data-viewer.d.ts"
 	],
 }
 
