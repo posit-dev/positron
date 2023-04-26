@@ -4,11 +4,12 @@
 
 import { randomUUID } from 'crypto';
 import * as vscode from 'vscode';
+import { DataColumn, DataSet } from './positron-data-viewer';
 
 /**
  * A Zed column
  */
-class ZedColumn {
+class ZedColumn implements DataColumn {
 	public readonly name: string;
 	public readonly type: string;
 	public readonly data: Array<number>;
@@ -21,9 +22,10 @@ class ZedColumn {
 }
 
 /**
- * A ZedData instance; this is a mock of a Zed data set.
+ * A ZedData instance; this is a mock of a Zed data set that fulfills the
+ * DataSet interface suitable for use with the Positron data viewer.
  */
-export class ZedData {
+export class ZedData implements DataSet {
 	public readonly id: string;
 	public readonly columns: Array<ZedColumn> = [];
 
@@ -36,7 +38,7 @@ export class ZedData {
 	 * @param ncol The number of columns
 	 */
 	constructor(private readonly context: vscode.ExtensionContext,
-		private readonly title: string,
+		public readonly title: string,
 		private readonly nrow = 100,
 		private readonly ncol = 10) {
 		// Create a unique ID for this instance
