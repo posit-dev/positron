@@ -14,7 +14,6 @@ import { HistoryNavigator2 } from 'vs/base/common/history';
 import { IKeyboardEvent } from 'vs/base/browser/keyboardEvent';
 import { useStateRef } from 'vs/base/browser/ui/react/useStateRef';
 import { IEditorOptions } from 'vs/editor/common/config/editorOptions';
-import { IFocusReceiver } from 'vs/base/browser/positronReactRenderer';
 import { CodeEditorWidget } from 'vs/editor/browser/widget/codeEditorWidget';
 import { ModesHoverController } from 'vs/editor/contrib/hover/browser/hover';
 import { EditorExtensionsRegistry } from 'vs/editor/browser/editorExtensions';
@@ -33,7 +32,6 @@ import { IPositronConsoleInstance, PositronConsoleState } from 'vs/workbench/ser
 export interface ConsoleInputProps {
 	readonly active: boolean;
 	readonly width: number;
-	readonly focusReceiver: IFocusReceiver;
 	readonly executeCode: (codeFragment: string) => void;
 	readonly positronConsoleInstance: IPositronConsoleInstance;
 }
@@ -80,7 +78,6 @@ export const ConsoleInput = forwardRef<HTMLDivElement, ConsoleInputProps>((props
 
 	// Memoize the key down event handler.
 	const keyDownHandler = useCallback(async (e: IKeyboardEvent) => {
-
 		// Check for a suggest widget in the DOM. If one exists, then don't
 		// handle the key.
 		//
@@ -289,9 +286,9 @@ export const ConsoleInput = forwardRef<HTMLDivElement, ConsoleInputProps>((props
 		const disposableStore = new DisposableStore();
 
 		// Build the history entries, if there is input history.
-		const inputHistoryEntries = positronConsoleContext.
-			executionHistoryService.
-			getInputEntries(props.positronConsoleInstance.runtime.metadata.languageId);
+		const inputHistoryEntries = positronConsoleContext.executionHistoryService.getInputEntries(
+			props.positronConsoleInstance.runtime.metadata.languageId
+		);
 		if (inputHistoryEntries.length) {
 			console.log(`There are input history entries for ${props.positronConsoleInstance.runtime.metadata.languageId}`);
 			inputHistoryEntries.forEach((inputHistoryEntry, index) => {
@@ -404,6 +401,12 @@ export const ConsoleInput = forwardRef<HTMLDivElement, ConsoleInputProps>((props
 		// Perform the initial layout.
 		codeEditorWidget.layout();
 
+		disposableStore.add(positronConsoleContext.positronConsoleService.onDidChangeActivePositronConsoleInstance(positronConsoleInstance => {
+			if (positronConsoleInstance === props.positronConsoleInstance) {
+				codeEditorWidget.focus();
+			}
+		}));
+
 		// Add the onDidChangeConfiguration event handler.
 		disposableStore.add(
 			positronConsoleContext.configurationService.onDidChangeConfiguration(configurationChangeEvent => {
@@ -475,13 +478,6 @@ export const ConsoleInput = forwardRef<HTMLDivElement, ConsoleInputProps>((props
 
 			// Re-focus the console.
 			codeEditorWidget.focus();
-		}));
-
-		// Add the onFocused event handler.
-		disposableStore.add(props.focusReceiver.onFocused(() => {
-			if (props.active) {
-				codeEditorWidgetRef.current.focus();
-			}
 		}));
 
 		// Focus the console.
