@@ -3,14 +3,15 @@
  *--------------------------------------------------------------------------------------------*/
 
 .positron-console .console-core {
+	width: 100%;
 	cursor: text;
 }
 
-/*
 .positron-console .console-core .console-instances-container {
-	overflow-y: scroll;
+	left: 0;
+	top: 32px;
+	position: absolute;
 }
-*/
 
 .positron-console .console-core .console-instances-container:focus {
 	outline: none !important;

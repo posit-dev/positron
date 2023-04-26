@@ -4,15 +4,16 @@
 
 import 'vs/css!./consoleInstance';
 import * as React from 'react';
-import { useEffect, useRef, useState } from 'react'; // eslint-disable-line no-duplicate-imports
+import { MouseEvent, UIEvent, useEffect, useRef, useState } from 'react'; // eslint-disable-line no-duplicate-imports
 import { generateUuid } from 'vs/base/common/uuid';
 import { PixelRatio } from 'vs/base/browser/browser';
 import { BareFontInfo } from 'vs/editor/common/config/fontInfo';
+import { useStateRef } from 'vs/base/browser/ui/react/useStateRef';
 import { applyFontInfo } from 'vs/editor/browser/config/domFontInfo';
-import { IFocusReceiver } from 'vs/base/browser/positronReactRenderer';
 import { IEditorOptions } from 'vs/editor/common/config/editorOptions';
 import { DisposableStore, IDisposable } from 'vs/base/common/lifecycle';
 import { FontMeasurements } from 'vs/editor/browser/config/fontMeasurements';
+import { IReactComponentContainer } from 'vs/base/browser/positronReactRenderer';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import { RuntimeItem } from 'vs/workbench/services/positronConsole/common/classes/runtimeItem';
 import { ConsoleInput } from 'vs/workbench/contrib/positronConsole/browser/components/consoleInput';
@@ -40,11 +41,11 @@ import { RuntimeCodeExecutionMode, RuntimeErrorBehavior } from 'vs/workbench/ser
 
 // ConsoleInstanceProps interface.
 interface ConsoleInstanceProps {
-	readonly hidden: boolean;
+	readonly active: boolean;
 	readonly width: number;
 	readonly height: number;
 	readonly positronConsoleInstance: IPositronConsoleInstance;
-	readonly focusReceiver: IFocusReceiver;
+	readonly reactComponentContainer: IReactComponentContainer;
 }
 
 /**
@@ -107,25 +108,13 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 	const positronConsoleContext = usePositronConsoleContext();
 
 	// Reference hooks.
-	const instanceRef = useRef<HTMLDivElement>(undefined!);
-	const inputRef = useRef<HTMLDivElement>(undefined!);
+	const consoleInstanceRef = useRef<HTMLDivElement>(undefined!);
+	const consoleInputRef = useRef<HTMLDivElement>(undefined!);
 
 	// State hooks.
 	const [trace, setTrace] = useState(props.positronConsoleInstance.trace);
 	const [marker, setMarker] = useState(generateUuid());
-
-	// Executes code.
-	const executeCode = (codeFragment: string) => {
-		// Create the ID.
-		const id = `fragment-${generateUuid()}`;
-
-		// Execute the code fragment.
-		props.positronConsoleInstance.runtime.execute(
-			codeFragment,
-			id,
-			RuntimeCodeExecutionMode.Interactive,
-			RuntimeErrorBehavior.Continue);
-	};
+	const [, setLastScrollTop, lastScrollTopRef] = useStateRef(0);
 
 	// useEffect for appending items.
 	useEffect(() => {
@@ -135,8 +124,18 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 		// Add the editor font tracker.
 		disposableStore.add(editorFontTracker(
 			positronConsoleContext.configurationService,
-			instanceRef.current
+			consoleInstanceRef.current
 		));
+
+		// Add the onSaveScrollPosition event handler.
+		disposableStore.add(props.reactComponentContainer.onSaveScrollPosition(() => {
+			setLastScrollTop(consoleInstanceRef.current.scrollTop);
+		}));
+
+		// Add the onRestoreScrollPosition event handler.
+		disposableStore.add(props.reactComponentContainer.onRestoreScrollPosition(() => {
+			consoleInstanceRef.current.scrollTop = lastScrollTopRef.current;
+		}));
 
 		// Add the onDidChangeState event handler.
 		disposableStore.add(props.positronConsoleInstance.onDidChangeState(state => {
@@ -164,8 +163,97 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 
 	// Experimental.
 	useEffect(() => {
-		inputRef.current?.scrollIntoView({ behavior: 'auto' });
+		consoleInputRef.current?.scrollIntoView({ behavior: 'auto' });
 	}, [marker]);
+
+	// Executes code.
+	const executeCode = (codeFragment: string) => {
+		// Create the ID.
+		const id = `fragment-${generateUuid()}`;
+
+		// Execute the code fragment.
+		props.positronConsoleInstance.runtime.execute(
+			codeFragment,
+			id,
+			RuntimeCodeExecutionMode.Interactive,
+			RuntimeErrorBehavior.Continue);
+	};
+
+
+	/**
+	 * Click handler.
+	 * @param e A MouseEvent<HTMLElement> that describes a user interaction with the mouse.
+	 */
+	const clickHandler = (e: MouseEvent<HTMLDivElement>) => {
+		// Get the document selection.
+		const selection = document.getSelection();
+
+		// If there is a document selection, and its type is Caret (as opposed to Range), drive
+		// focus into the console input.
+		if (!selection || selection.type === 'Caret') {
+			consoleInputRef.current.focus();
+		}
+	};
+
+	/**
+	 * MouseDown handler.
+	 * @param e A MouseEvent<HTMLElement> that describes a user interaction with the mouse.
+	 */
+	const mouseDownHandler = (e: MouseEvent<HTMLDivElement>) => {
+		// Get the selection.
+		const selection = document.getSelection();
+
+		// If there is a range of text selected, see of the user clicked inside of it.
+		if (selection && selection.type === 'Range') {
+			// Enumerate the ranges and see if the click was inside the selection.
+			let insideSelection = false;
+			for (let i = 0; i < selection.rangeCount && !insideSelection; i++) {
+				// Get the range.
+				const range = selection.getRangeAt(i);
+
+				// Get the rects for the range and sort them from top to bottom.
+				const rects = Array.from(range.getClientRects()).sort((a, b) => {
+					if (a.top < b.top) {
+						return -1;
+					} else if (a.top > b.top) {
+						return 1;
+					} else {
+						return 0;
+					}
+				});
+
+				// Determine whether the click is inside one of the client rects. Because of layout
+				// heights, we run the rects into one another, top to bottom.
+				for (let j = 0; j < rects.length; j++) {
+					const rect = rects[j];
+					const bottom = j < rects.length - 1 ? rects[j + 1].top : rect.bottom;
+					if (e.clientX >= rect.x && e.clientX <= rect.right &&
+						e.clientY >= rect.y && e.clientY <= bottom) {
+						insideSelection = true;
+						break;
+					}
+				}
+			}
+
+			// If the click was inside the selection, copy the selection to the clipboard.
+			if (insideSelection) {
+				positronConsoleContext.clipboardService.writeText(selection.toString());
+			}
+
+			// Drive focus into the console input.
+			consoleInputRef.current.focus();
+		}
+	};
+
+	/**
+	 * onScroll event handler.
+	 * @param e A UIEvent<HTMLDivElement> that describes a user interaction with the mouse.
+	 */
+	const scrollHandler = (e: UIEvent<HTMLDivElement>) => {
+		if (props.active) {
+			setLastScrollTop(consoleInstanceRef.current.scrollTop);
+		}
+	};
 
 	/**
 	 * Renders a runtime item.
@@ -196,17 +284,26 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 		}
 	};
 
+	// Calculate the adjusted width (to account for indentation of the entire console instance).
+	const adjustedWidth = props.width - 10;
+
 	// Render.
 	return (
-		<div ref={instanceRef} className='console-instance' hidden={props.hidden} style={{ height: props.height }}>
+		<div
+			ref={consoleInstanceRef}
+			className='console-instance'
+			style={{ width: adjustedWidth, height: props.height, zIndex: props.active ? 1 : -1 }}
+			onClick={clickHandler}
+			onMouseDown={mouseDownHandler}
+			onScroll={scrollHandler}>
 			{props.positronConsoleInstance.runtimeItems.map(runtimeItem =>
 				renderRuntimeItem(runtimeItem)
 			)}
 			<ConsoleInput
-				ref={inputRef}
-				width={props.width - 28}
-				hidden={props.hidden}
-				focusReceiver={props.focusReceiver}
+				ref={consoleInputRef}
+				active={props.active}
+				width={adjustedWidth}
+				focusReceiver={props.reactComponentContainer}
 				executeCode={executeCode}
 				positronConsoleInstance={props.positronConsoleInstance}
 			/>

@@ -32,8 +32,11 @@ export class PositronPlotsViewPane extends ViewPane implements IReactComponentCo
 	// The onSizeChanged emitter.
 	private _onSizeChangedEmitter = this._register(new Emitter<ISize>());
 
-	// The onVisibilityChanged emitter.
-	private _onVisibilityChangedEmitter = this._register(new Emitter<boolean>());
+	// The onSaveScrollPosition emitter.
+	private _onSaveScrollPositionEmitter = this._register(new Emitter<void>());
+
+	// The onRestoreScrollPosition emitter.
+	private _onRestoreScrollPositionEmitter = this._register(new Emitter<void>());
 
 	// The onFocused emitter.
 	private _onFocusedEmitter = this._register(new Emitter<void>());
@@ -81,9 +84,14 @@ export class PositronPlotsViewPane extends ViewPane implements IReactComponentCo
 	readonly onSizeChanged: Event<ISize> = this._onSizeChangedEmitter.event;
 
 	/**
-	 * The onVisibilityChanged event.
+	 * The onSaveScrollPosition event.
 	 */
-	readonly onVisibilityChanged: Event<boolean> = this._onVisibilityChangedEmitter.event;
+	readonly onSaveScrollPosition: Event<void> = this._onSaveScrollPositionEmitter.event;
+
+	/**
+	 * The onRestoreScrollPosition event.
+	 */
+	readonly onRestoreScrollPosition: Event<void> = this._onRestoreScrollPositionEmitter.event;
 
 	/**
 	 * The onFocused event.
@@ -127,9 +135,6 @@ export class PositronPlotsViewPane extends ViewPane implements IReactComponentCo
 	) {
 		// Call the base class's constructor.
 		super(options, keybindingService, contextMenuService, configurationService, contextKeyService, viewDescriptorService, instantiationService, openerService, themeService, telemetryService);
-
-		// Register event handlers.
-		this._register(this.onDidChangeBodyVisibility(() => this._onVisibilityChangedEmitter.fire(this.isBodyVisible())));
 	}
 
 	/**

@@ -51,6 +51,16 @@ export interface IReactComponentContainer extends IFocusReceiver {
 	 * onSizeChanged event.
 	 */
 	readonly onSizeChanged: Event<ISize>;
+
+	/**
+	 * onSaveScrollPosition event.
+	 */
+	readonly onSaveScrollPosition: Event<void>;
+
+	/**
+	 * onRestoreScrollPosition event.
+	 */
+	readonly onRestoreScrollPosition: Event<void>;
 }
 
 /**
