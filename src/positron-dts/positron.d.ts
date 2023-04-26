@@ -475,12 +475,30 @@ declare module 'positron' {
 	}
 
 
+	/**
+	 * A data structure that describes a handler for a runtime client instance,
+	 * and is called when an instance is created.
+	 *
+	 * @param client The client instance that was created
+	 * @param params A set of parameters passed to the client
+	 * @returns true if the handler took ownership of the client, false otherwise
+	 */
 	export type RuntimeClientHandlerCallback = (
 		client: RuntimeClientInstance,
 		params: Object,) => boolean;
 
+	/**
+	 * A data structure that describes a handler for a runtime client instance.
+	 */
 	export interface RuntimeClientHandler {
+		/**
+		 * The type of client that this handler handles.
+		 */
 		clientType: string;
+
+		/**
+		 * A callback that is called when a client of the given type is created.
+		 */
 		callback: RuntimeClientHandlerCallback;
 	}
 

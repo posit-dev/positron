@@ -18,20 +18,44 @@ export type ExtHostClientMessageSender = (id: string, data: object) => void;
 
 /**
  * A client instance that communicates with the back end via a message channel.
+ *
+ * This instance lives in the extension host, and is typically only used
+ * as a proxy when the client instance owned by an extension.
  */
 export class ExtHostRuntimeClientInstance implements positron.RuntimeClientInstance {
+	// Emitter for client state changes.
 	private readonly _onDidChangeClientState = new Emitter<positron.RuntimeClientState>();
+
+	// Emitter for data sent from the back-end to the front end.
 	private readonly _onDidSendData = new Emitter<object>();
-	private _messageCounter = 0;
+
+	// The current client state.
 	private _state: positron.RuntimeClientState;
+
+	// The set of pending RPCs (messages that are awaiting a response from the
+	// back end)
 	private _pendingRpcs = new Map<string, DeferredPromise<any>>();
 
+	// A counter used to generate unique message IDs.
+	private _messageCounter = 0;
+
+	/**
+	 * Creates a new client instance that lives in the extension host.
+	 *
+	 * @param message The `comm_open` message that opened the client instance.
+	 * @param sender A function that sends a message to the back end.
+	 * @param closer A function that closes the back end of the client instance.
+	 */
 	constructor(readonly message: ILanguageRuntimeMessageCommOpen,
 		readonly sender: ExtHostClientMessageSender,
 		readonly closer: () => void) {
 
 		this.onDidChangeClientState = this._onDidChangeClientState.event;
 		this.onDidSendEvent = this._onDidSendData.event;
+
+		// These instances are created when the runtime emits a `comm_open`
+		// message, so they begin in the "connected" state -- the back end is
+		// already open.
 		this._state = RuntimeClientState.Connected;
 		this.onDidChangeClientState((e) => {
 			this._state = e;
@@ -90,8 +114,18 @@ export class ExtHostRuntimeClientInstance implements positron.RuntimeClientInsta
 		return rpc.p;
 	}
 
+	/**
+	 * The current state of the client instance.
+	 */
 	onDidChangeClientState: Event<positron.RuntimeClientState>;
 
+	/**
+	 * Fires when the back end sends an event to the front end. Events can have
+	 * any data type.
+	 *
+	 * Note that RPC replies don't fire this event; they are returned as
+	 * promises from `performRpc`.
+	 */
 	onDidSendEvent: Event<object>;
 
 	getClientState(): positron.RuntimeClientState {

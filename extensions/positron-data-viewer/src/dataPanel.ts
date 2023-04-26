@@ -6,6 +6,14 @@ import path = require('path');
 import * as vscode from 'vscode';
 import * as positron from 'positron';
 
+/**
+ * Creates the WebView panel containing the data viewer.
+ *
+ * @param context The extension context
+ * @param client The runtime client instance; a two-way channel that allows the
+ *   extension to communicate with the runtime
+ * @param initialData The initial data to display in the data viewer
+ */
 export async function createDataPanel(context: vscode.ExtensionContext,
 	client: positron.RuntimeClientInstance,
 	initialData: any) {
@@ -18,7 +26,9 @@ export async function createDataPanel(context: vscode.ExtensionContext,
 		}
 	);
 
-	// Check for the node_modules folder in the extension directory
+	// Check for the node_modules folder in the extension directory; this only exists in
+	// development mode. If it exists, we load the React and ReactDOM libraries from the
+	// extension directory.
 	const nodeFolder = path.join(context.extensionPath, 'ui', 'node_modules');
 	const developmentMode = await vscode.workspace.fs.stat(vscode.Uri.file(nodeFolder));
 	const scriptPaths = [];
@@ -47,6 +57,8 @@ export async function createDataPanel(context: vscode.ExtensionContext,
 	// Convert each script path to a webview URI
 	const reactHtml = scriptPaths.map((scriptPath) => {
 		const scriptUri = panel.webview.asWebviewUri(vscode.Uri.file(scriptPath));
+		// Add the type="module" attribute to the script tag if the script is
+		// not in the node_modules folder (i.e. it's one of our own scripts)
 		const moduleAttribute = scriptPath.includes('node_modules') ? '' : 'type="module"';
 		return `<script ${moduleAttribute} src="${scriptUri}"></script>`;
 	}).join('\n');
@@ -72,7 +84,8 @@ export async function createDataPanel(context: vscode.ExtensionContext,
 	panel.webview.onDidReceiveMessage((message) => {
 		console.log('Received message from webview: ', message);
 		if (message.msg_type === 'ready') {
-			// The webview is ready to receive messages
+			// The webview is ready to receive messages; send it
+			// the initial data
 			panel.webview.postMessage({
 				msg_type: 'data',
 				data: initialData.columns

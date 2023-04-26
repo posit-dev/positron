@@ -256,7 +256,16 @@ export function stripSourceMappingURL(): NodeJS.ReadWriteStream {
 /**
  * Strips and/or modifies import statements. This function only runs on
  * development builds, and helps make it possible to use the same set of source
- * files for both development and production (release).
+ * files for both development and production (release) versions of extensions.
+ * that contain web content.
+ *
+ * In release builds, we use Webpack to bundle all of the source files together
+ * into a single bundle.
+ *
+ * In development builds, we want to serve the source files as-is, but we need
+ * to make some modifications to the source files to make them work in the
+ * browser, because TypeScript produces `import` statements that don't work in
+ * the browser. This function performs those modifications.
  */
 export function stripImportStatements(): NodeJS.ReadWriteStream {
 	const input = es.through();

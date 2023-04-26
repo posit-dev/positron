@@ -21,12 +21,20 @@ class ZedColumn {
 }
 
 /**
- * A ZedPLOT instance; simulates a real plot instance by responding to render
- * requests and delivering an SVG image at the requested size.
+ * A ZedData instance; this is a mock of a Zed data set.
  */
 export class ZedData {
 	public readonly id: string;
 	public readonly columns: Array<ZedColumn> = [];
+
+	/**
+	 * Create a new ZedData instance
+	 *
+	 * @param context The extension context
+	 * @param title The title of the data set (for display in data viewer tab)
+	 * @param nrow The number of rows
+	 * @param ncol The number of columns
+	 */
 	constructor(private readonly context: vscode.ExtensionContext,
 		private readonly title: string,
 		private readonly nrow = 100,
