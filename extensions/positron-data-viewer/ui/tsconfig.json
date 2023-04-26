@@ -9,6 +9,10 @@
 		],
 		"jsx": "react",
 		"module": "es2020"
-	}
+	},
+	"include": [
+		"src/**/*",
+		"../src/positron-data-viewer.d.ts"
+	],
 }
 

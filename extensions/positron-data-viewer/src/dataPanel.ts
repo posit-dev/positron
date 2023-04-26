@@ -5,6 +5,7 @@
 import path = require('path');
 import * as vscode from 'vscode';
 import * as positron from 'positron';
+import { DataSet } from './positron-data-viewer';
 
 /**
  * Creates the WebView panel containing the data viewer.
@@ -16,7 +17,7 @@ import * as positron from 'positron';
  */
 export async function createDataPanel(context: vscode.ExtensionContext,
 	client: positron.RuntimeClientInstance,
-	initialData: any) {
+	initialData: DataSet) {
 	const panel = vscode.window.createWebviewPanel(
 		'positronDataViewer',
 		'Data Viewer',

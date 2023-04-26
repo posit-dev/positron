@@ -6,6 +6,7 @@ import * as ReactDOM from 'react-dom';
 import * as React from 'react';
 
 import { DataPanel } from './DataPanel';
+import { DataColumn } from '../../src/positron-data-viewer';
 
 // This global is injected by VS Code when the extension is loaded.
 //
@@ -20,8 +21,9 @@ vscode.postMessage({ 'msg_type': 'ready' });
 window.addEventListener('message', (event: any) => {
 	console.log('Received message from extension: ' + JSON.stringify(event));
 	if (event.data.msg_type === 'data') {
+		const cols = event.data.data as Array<DataColumn>;
 		ReactDOM.render(
-			<DataPanel data={event.data.data} />,
+			<DataPanel data={cols} />,
 			document.getElementById('root')
 		);
 	}

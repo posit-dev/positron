@@ -3,17 +3,17 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as React from 'react';
-
-interface DataColumn {
-	name: string;
-	type: string;
-	data: Array<any>;
-}
+import { DataColumn } from '../../src/positron-data-viewer';
 
 interface DataPanelProps {
 	data: Array<DataColumn>;
 }
 
+/**
+ * React component that displays a tabular data panel.
+ *
+ * @param props The properties for the component.
+ */
 export const DataPanel = (props: DataPanelProps) => {
 	// Extract the data from the props.
 	const data = props.data;
