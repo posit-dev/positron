@@ -280,6 +280,10 @@ export function stripImportStatements(): NodeJS.ReadWriteStream {
 			// <script> tags
 			contents = contents.replace(/\nimport . as .* from .*;$/gm, '\n');
 
+			// Remove any CSS import statements; these are needed for Webpack but
+			// not for the browser, where we inject dependencies via <link> tags
+			contents = contents.replace(/\nimport .*\.css';$/gm, '\n');
+
 			// Rewrite local import statements to use .js extension; this is
 			// necessary because Typescript is, inexplicably, unable to output
 			// import statements that are compatible with the browser's native

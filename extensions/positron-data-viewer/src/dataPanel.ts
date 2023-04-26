@@ -71,11 +71,20 @@ export async function createDataPanel(context: vscode.ExtensionContext,
 
 	panel.title = initialData.title;
 
+	// In development mode, load the CSS file directly from the extension folder
+	let cssTag = '';
+	if (developmentMode) {
+		const cssUri = vscode.Uri.file(path.join(context.extensionPath, 'ui', 'src', 'DataPanel.css'));
+		const cssWebviewUri = panel.webview.asWebviewUri(cssUri);
+		cssTag = `<link rel="stylesheet" href="${cssWebviewUri}">`;
+	}
+
 	// Set the HTML content of the webview
 	panel.webview.html = `
 		<head>
 			<meta charset="UTF-8">
 			<title>${initialData.title}</title>
+			${cssTag}
 		</head>
 		<body>
 			<div id="root"></div>

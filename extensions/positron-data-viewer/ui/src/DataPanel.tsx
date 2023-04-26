@@ -4,6 +4,7 @@
 
 import * as React from 'react';
 import { DataColumn } from './positron-data-viewer';
+import './DataPanel.css';
 
 interface DataPanelProps {
 	data: Array<DataColumn>;
