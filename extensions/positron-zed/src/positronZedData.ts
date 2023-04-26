@@ -7,7 +7,8 @@ import * as vscode from 'vscode';
 import { DataColumn, DataSet } from './positron-data-viewer';
 
 /**
- * A Zed column
+ * A Zed column; this is a mock of a Zed column that fulfills the DataColumn
+ * interface.
  */
 class ZedColumn implements DataColumn {
 	public readonly name: string;

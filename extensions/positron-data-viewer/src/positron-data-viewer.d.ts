@@ -10,7 +10,7 @@
  * Because there isn't a reasonable mechanism for sharing type definitions
  * between extensions, this file is duplicated in several places in the
  * repository. See e.g. `git-base.d.ts` in the Git extension for another example
- * o this pattern.
+ * of this pattern.
  *
  * When updating it:
  * - ensure that all copies are updated; and
@@ -85,4 +85,8 @@ export interface DataViewerMessageData extends DataViewerMessage {
 	data: Array<DataColumn>;
 }
 
+/**
+ * The possible message types for messages sent between the data viewer
+ * window/frame and the host extension.
+ */
 export type DataViewerMessageType = 'ready' | 'data';
