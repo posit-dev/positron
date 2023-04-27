@@ -406,15 +406,6 @@ export class LanguageRuntimeAdapter
 		});
 	}
 
-	/**
-	 * Gets a list of all client instances
-	 *
-	 * @returns All client instances
-	 */
-	public getClients(): positron.RuntimeClientInstance[] {
-		return Array.from(this._comms.values());
-	}
-
 	onMessage(msg: JupyterMessagePacket) {
 		const message = msg.message;
 

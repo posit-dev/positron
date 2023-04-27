@@ -1,0 +1,29 @@
+{
+	"name": "positron-data-viewer",
+	"displayName": "%displayName%",
+	"description": "%description%",
+	"version": "0.0.1",
+	"publisher": "vscode",
+	"engines": {
+		"vscode": "^1.65.0"
+	},
+	"categories": [
+		"Data Science"
+	],
+	"activationEvents": [
+		"onStartupFinished"
+	],
+	"main": "./out/extension.js",
+	"scripts": {
+		"compile": "npx gulp compile-extension:positron-data-viewer compile-extension:positron-data-viewer-ui",
+		"watch": "npx gulp watch-extension:positron-data-viewer watch-extension:positron-data-viewer-ui"
+	},
+	"devDependencies": {
+		"@types/node": "16.x",
+		"typescript": "^4.5.5"
+	},
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/rstudio/positron.git"
+	}
+}
