@@ -475,7 +475,8 @@ export const ConsoleInput = forwardRef<HTMLDivElement, ConsoleInputProps>((props
 				} else {
 					// TODO@softwarenerd - Get 1000 from settings.
 					setHistoryNavigator(new HistoryNavigator2<IInputHistoryEntry>(
-						[inputHistoryEntry], 1000
+						[inputHistoryEntry],
+						1000
 					));
 				}
 			}
