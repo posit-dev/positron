@@ -229,14 +229,18 @@ export const ConsoleInput = forwardRef<HTMLDivElement, ConsoleInputProps>((props
 					// If the code is invalid (contains syntax errors), warn but execute it anyway
 					// (so the user can see a syntax error from the interpreter).
 					case RuntimeCodeFragmentStatus.Invalid:
-						positronConsoleContext.logService.warn(`Executing invalid code fragment: '${codeFragment}'`);
+						positronConsoleContext.logService.warn(
+							`Executing invalid code fragment: '${codeFragment}'`
+						);
 						shouldExecuteCodeFragment = true;
 						break;
 
 					// If the code is invalid (contains syntax errors), warn but execute it anyway
 					// (so the user can see a syntax error from the interpreter).
 					case RuntimeCodeFragmentStatus.Unknown:
-						positronConsoleContext.logService.warn(`Could not determine whether code fragment: '${codeFragment}' is complete.`);
+						positronConsoleContext.logService.warn(
+							`Could not determine whether code fragment: '${codeFragment}' is complete.`
+						);
 						shouldExecuteCodeFragment = true;
 						break;
 				}
@@ -379,22 +383,27 @@ export const ConsoleInput = forwardRef<HTMLDivElement, ConsoleInputProps>((props
 		// Perform the initial layout.
 		codeEditorWidget.layout();
 
-		disposableStore.add(positronConsoleContext.positronConsoleService.onDidChangeActivePositronConsoleInstance(positronConsoleInstance => {
-			if (positronConsoleInstance === props.positronConsoleInstance) {
-				codeEditorWidget.focus();
-			}
-		}));
+		// Add the onDidChangeActivePositronConsoleInstance event handler.
+		disposableStore.add(
+			positronConsoleContext.positronConsoleService.onDidChangeActivePositronConsoleInstance(
+				positronConsoleInstance => {
+					if (positronConsoleInstance === props.positronConsoleInstance) {
+						codeEditorWidget.focus();
+					}
+				}));
 
 		// Add the onDidChangeConfiguration event handler.
 		disposableStore.add(
-			positronConsoleContext.configurationService.onDidChangeConfiguration(configurationChangeEvent => {
-				if (configurationChangeEvent.affectsConfiguration('editor')) {
-					codeEditorWidget.updateOptions({
-						...positronConsoleContext.configurationService.getValue<IEditorOptions>('editor'),
-						...editorOptions
-					});
-				}
-			})
+			positronConsoleContext.configurationService.onDidChangeConfiguration(
+				configurationChangeEvent => {
+					if (configurationChangeEvent.affectsConfiguration('editor')) {
+						codeEditorWidget.updateOptions({
+							...positronConsoleContext.configurationService.
+								getValue<IEditorOptions>('editor'),
+							...editorOptions
+						});
+					}
+				})
 		);
 
 		// Add the onDidClearConsole event handler.
