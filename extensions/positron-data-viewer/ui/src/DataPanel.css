@@ -1,0 +1,12 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
+ *--------------------------------------------------------------------------------------------*/
+
+th {
+	border-bottom: 1px solid var(--vscode-panel-border);
+	padding: 5px;
+}
+
+td.col-number {
+	text-align: right;
+}

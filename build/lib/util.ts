@@ -253,6 +253,54 @@ export function stripSourceMappingURL(): NodeJS.ReadWriteStream {
 	return es.duplex(input, output);
 }
 
+/**
+ * Strips and/or modifies import statements. This function only runs on
+ * development builds, and helps make it possible to use the same set of source
+ * files for both development and production (release) versions of extensions.
+ * that contain web content.
+ *
+ * In release builds, we use Webpack to bundle all of the source files together
+ * into a single bundle.
+ *
+ * In development builds, we want to serve the source files as-is, but we need
+ * to make some modifications to the source files to make them work in the
+ * browser, because TypeScript produces `import` statements that don't work in
+ * the browser. This function performs those modifications.
+ */
+export function stripImportStatements(): NodeJS.ReadWriteStream {
+	const input = es.through();
+
+	const output = input
+		.pipe(es.mapSync<VinylFile, VinylFile>(f => {
+			// Read the file contents
+			let contents = (<Buffer>f.contents).toString('utf8');
+
+			// Remove any global import statements; these are needed for Webpack
+			// but not for the browser, where we inject dependencies via
+			// <script> tags
+			contents = contents.replace(/\nimport . as .* from .*;$/gm, '\n');
+
+			// Remove any CSS import statements; these are needed for Webpack but
+			// not for the browser, where we inject dependencies via <link> tags
+			contents = contents.replace(/\nimport .*\.css';$/gm, '\n');
+
+			// Rewrite local import statements to use .js extension; this is
+			// necessary because Typescript is, inexplicably, unable to output
+			// import statements that are compatible with the browser's native
+			// ES6 module loader (vs using SystemJS, etc.)
+			//
+			// See https://github.com/microsoft/TypeScript/issues/16577
+			// and https://github.com/microsoft/TypeScript/issues/13422
+			contents = contents.replace(/\nimport (.*) from '(.*)';$/gm, `\nimport $1 from '$2.js'\n`);
+
+			// Return the modified file
+			f.contents = Buffer.from(contents, 'utf8');
+			return f;
+		}));
+
+	return es.duplex(input, output);
+}
+
 /** Splits items in the stream based on the predicate, sending them to onTrue if true, or onFalse otherwise */
 export function $if(test: boolean | ((f: VinylFile) => boolean), onTrue: NodeJS.ReadWriteStream, onFalse: NodeJS.ReadWriteStream = es.through()) {
 	if (typeof test === 'boolean') {
