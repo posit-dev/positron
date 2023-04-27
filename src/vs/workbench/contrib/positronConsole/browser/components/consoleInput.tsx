@@ -406,7 +406,7 @@ export const ConsoleInput = forwardRef<HTMLDivElement, ConsoleInputProps>((props
 				})
 		);
 
-		// Add the onDidClearConsole event handler.
+		// Add the onDidChangeState event handler.
 		disposableStore.add(props.positronConsoleInstance.onDidChangeState(state => {
 			// Set up editor options based on state.
 			let lineNumbers;
