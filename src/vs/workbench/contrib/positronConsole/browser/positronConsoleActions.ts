@@ -41,8 +41,8 @@ export function registerPositronConsoleActions() {
 	const category: ILocalizedString = { value: POSITRON_CONSOLE_ACTION_CATEGORY, original: 'CONSOLE' };
 
 	/**
-	 * Register the clear console action. This action removes everything from the active console, just like
-	 * running the clear command in a shell.
+	 * Register the clear console action. This action removes everything from the active console,
+	 * just like running the clear command in a shell.
 	 */
 	registerAction2(class extends Action2 {
 		/**
@@ -89,7 +89,8 @@ export function registerPositronConsoleActions() {
 	});
 
 	/**
-	 * Register the clear input history action. This action removes everything from the active console language's input history.
+	 * Register the clear input history action. This action removes everything from the active
+	 * console language's input history.
 	 */
 	registerAction2(class extends Action2 {
 		/**
@@ -123,8 +124,9 @@ export function registerPositronConsoleActions() {
 			const notificationService = accessor.get(INotificationService);
 			const layoutService = accessor.get(IWorkbenchLayoutService);
 
-			// Get the active Positron console instance. The Clear Input History action is bound to the active console, so if there isn't
-			// an active Positron console instance, we can't proceed.
+			// Get the active Positron console instance. The Clear Input History action is bound to
+			// the active console, so if there isn't an active Positron console instance, we can't
+			// proceed.
 			const activePositronConsoleInstance = positronConsoleService.activePositronConsoleInstance;
 			if (!activePositronConsoleInstance) {
 				notificationService.notify({
@@ -146,7 +148,8 @@ export function registerPositronConsoleActions() {
 				return;
 			}
 
-			// Clear the active Positron console instance and the history for its language from the execution history service.
+			// Clear the active Positron console instance and the history for its language from the
+			// execution history service.
 			activePositronConsoleInstance.clearInputHistory();
 			executionHistoryService.clearInputEntries(activePositronConsoleInstance.runtime.metadata.languageId);
 
@@ -160,8 +163,8 @@ export function registerPositronConsoleActions() {
 	});
 
 	/**
-	 * Register the execute code action. This action gets the selection or line from the active editor, determines
-	 * the language of the code that is selected, and tries to execute it.
+	 * Register the execute code action. This action gets the selection or line from the active
+	 * editor, determines the language of the code that is selected, and tries to execute it.
 	 */
 	registerAction2(class extends Action2 {
 		/**
@@ -211,7 +214,8 @@ export function registerPositronConsoleActions() {
 				const position = editor.getPosition();
 				const model = editor.getModel() as ITextModel;
 				if (selection) {
-					// If there is an active selection, use the contents of the selection to drive execution.
+					// If there is an active selection, use the contents of the selection to drive
+					// execution.
 					code = model.getValueInRange(selection);
 					if (!code.length) {
 						// When there's no selection, the selection represents the
@@ -250,7 +254,8 @@ export function registerPositronConsoleActions() {
 				return;
 			}
 
-			// Now that we've gotten this far, and there's "code" to ececute, ensure we have a target language.
+			// Now that we've gotten this far, and there's "code" to ececute, ensure we have a
+			// target language.
 			const languageId = editorService.activeTextEditorLanguageId;
 			if (!languageId) {
 				notificationService.notify({
