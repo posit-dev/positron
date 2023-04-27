@@ -20,16 +20,16 @@ export const DataPanel = (props: DataPanelProps) => {
 	const data = props.data;
 
 	// Create the header row.
-	const headerRows = data.map((column) => {
-		return <th>{column.name}</th>;
+	const headerColumns = data.map((column) => {
+		return <th key={column.name}>{column.name}</th>;
 	});
 
 	// Create the data rows.
 	const dataRows = data[0].data.map((_row, rowIndex) => {
 		return (
-			<tr>
+			<tr key={'row_' + rowIndex}>
 				{data.map((column) => {
-					return <td>{column.data[rowIndex]}</td>;
+					return <td key={column.name + '_' + rowIndex}>{column.data[rowIndex]}</td>;
 				})}
 			</tr>
 		);
@@ -38,7 +38,9 @@ export const DataPanel = (props: DataPanelProps) => {
 	return (
 		<table>
 			<thead>
-				{headerRows}
+				<tr>
+					{headerColumns}
+				</tr>
 			</thead>
 			<tbody>
 				{dataRows}
