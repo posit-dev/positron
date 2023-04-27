@@ -202,6 +202,9 @@ export interface IPythonSettings {
     readonly experiments: IExperiments;
     readonly languageServer: LanguageServerType;
     readonly languageServerIsDefault: boolean;
+    // --- Start Positron ---
+    readonly languageServerDebug: boolean;
+    // --- End Positron ---
     readonly defaultInterpreterPath: string;
     readonly tensorBoard: ITensorBoardSettings | undefined;
     register(): void;
