@@ -18,17 +18,13 @@ import { INotificationService, Severity } from 'vs/platform/notification/common/
 import { confirmationModalDialog } from 'vs/workbench/browser/positronModalDialogs/confirmationModalDialog';
 import { IExecutionHistoryService } from 'vs/workbench/contrib/executionHistory/common/executionHistoryService';
 import { IPositronConsoleService } from 'vs/workbench/services/positronConsole/common/interfaces/positronConsoleService';
-
-/**
- * The Positron console view ID.
- */
-export const POSITRON_CONSOLE_VIEW_ID = 'workbench.panel.positronConsole';
+import { IViewsService } from 'vs/workbench/common/views';
+import { PositronConsoleViewPane } from 'vs/workbench/contrib/positronConsole/browser/positronConsoleView';
 
 /**
  * Positron console command ID's.
  */
-export const enum PositronConsoleCommandId {
-	Open = 'workbench.action.positronConsole.open',
+const enum PositronConsoleCommandId {
 	ClearConsole = 'workbench.action.positronConsole.clearConsole',
 	ClearInputHistory = 'workbench.action.positronConsole.clearInputHistory',
 	ExecuteCode = 'workbench.action.positronConsole.executeCode'
@@ -37,7 +33,12 @@ export const enum PositronConsoleCommandId {
 /**
  * Positron console action category.
  */
-export const POSITRON_CONSOLE_ACTION_CATEGORY = localize('positronConsoleCategory', "Console");
+const POSITRON_CONSOLE_ACTION_CATEGORY = localize('positronConsoleCategory', "Console");
+
+/**
+ * The Positron console view ID.
+ */
+export const POSITRON_CONSOLE_VIEW_ID = 'workbench.panel.positronConsole';
 
 /**
  * Registers Positron console actions.
@@ -209,7 +210,10 @@ export function registerPositronConsoleActions() {
 		async run(accessor: ServicesAccessor) {
 			// Access services.
 			const editorService = accessor.get(IEditorService);
+			const languageService = accessor.get(ILanguageService);
 			const notificationService = accessor.get(INotificationService);
+			const positronConsoleService = accessor.get(IPositronConsoleService);
+			const viewsService = accessor.get(IViewsService);
 
 			// The code to execute.
 			let code = '';
@@ -274,10 +278,11 @@ export function registerPositronConsoleActions() {
 				return;
 			}
 
+			// Ask the views service to open the view.
+			await viewsService.openView<PositronConsoleViewPane>(POSITRON_CONSOLE_VIEW_ID, false);
+
 			// Ask the Positron console service to execute the code.
-			const positronConsoleService = accessor.get(IPositronConsoleService);
 			if (!positronConsoleService.executeCode(languageId, code)) {
-				const languageService = accessor.get(ILanguageService);
 				const languageName = languageService.getLanguageName(languageId);
 				notificationService.notify({
 					severity: Severity.Info,
