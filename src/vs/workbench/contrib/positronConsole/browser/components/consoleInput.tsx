@@ -209,64 +209,42 @@ export const ConsoleInput = forwardRef<HTMLDivElement, ConsoleInputProps>((props
 				const codeFragment = codeEditorWidgetRef.current.getValue();
 
 				// Check on whether the code fragment is complete and can be executed.
-				let executeCode;
-				const runtimeCodeFragmentStatus = await props.
-					positronConsoleInstance.
-					runtime.
+				const runtimeCodeFragmentStatus = await props.positronConsoleInstance.runtime.
 					isCodeFragmentComplete(codeFragment);
 
 				// Handle the runtime code fragment status.
+				let shouldExecuteCodeFragment;
 				switch (runtimeCodeFragmentStatus) {
 					// If the code fragment is complete, execute it.
 					case RuntimeCodeFragmentStatus.Complete:
-						executeCode = true;
+						shouldExecuteCodeFragment = true;
 						break;
 
 					// If the code fragment is incomplete, don't do anything. The user will just see
 					// a new line in the input area.
 					case RuntimeCodeFragmentStatus.Incomplete:
-						executeCode = false;
+						shouldExecuteCodeFragment = false;
 						break;
 
 					// If the code is invalid (contains syntax errors), warn but execute it anyway
 					// (so the user can see a syntax error from the interpreter).
 					case RuntimeCodeFragmentStatus.Invalid:
 						positronConsoleContext.logService.warn(`Executing invalid code fragment: '${codeFragment}'`);
-						executeCode = true;
+						shouldExecuteCodeFragment = true;
 						break;
 
 					// If the code is invalid (contains syntax errors), warn but execute it anyway
 					// (so the user can see a syntax error from the interpreter).
 					case RuntimeCodeFragmentStatus.Unknown:
 						positronConsoleContext.logService.warn(`Could not determine whether code fragment: '${codeFragment}' is complete.`);
-						executeCode = true;
+						shouldExecuteCodeFragment = true;
 						break;
 				}
 
-				// If we're supposed to execute the code fragment, do it.
-				if (executeCode) {
+				// If we should execute the code fragment, do it.
+				if (shouldExecuteCodeFragment) {
 					// Execute the code fragment.
-					props.executeCode(codeFragment);
-
-					// If the code fragment contains more than whitespace characters, add it to the
-					// history navigator.
-					if (codeFragment.trim().length) {
-						// Create the input history entry.
-						const inputHistoryEntry = {
-							when: new Date().getTime(),
-							input: codeFragment,
-						} satisfies IInputHistoryEntry;
-
-						// Add the input history entry.
-						if (historyNavigatorRef.current) {
-							historyNavigatorRef.current.add(inputHistoryEntry);
-						} else {
-							// TODO@softwarenerd - Get 1000 from settings.
-							setHistoryNavigator(new HistoryNavigator2<IInputHistoryEntry>(
-								[inputHistoryEntry], 1000
-							));
-						}
-					}
+					props.positronConsoleInstance.executeCode(codeFragment);
 
 					// Reset the model for the next input.
 					setCurrentCodeFragment(undefined);
@@ -420,15 +398,6 @@ export const ConsoleInput = forwardRef<HTMLDivElement, ConsoleInputProps>((props
 		);
 
 		// Add the onDidClearConsole event handler.
-		disposableStore.add(props.positronConsoleInstance.onDidClearConsole(() => {
-			// When the console is cleared, erase anything that was partially entered.
-			textModel.setValue('');
-
-			// Re-focus the console.
-			codeEditorWidget.focus();
-		}));
-
-		// Add the onDidClearConsole event handler.
 		disposableStore.add(props.positronConsoleInstance.onDidChangeState(state => {
 			// Set up editor options based on state.
 			let lineNumbers;
@@ -478,6 +447,29 @@ export const ConsoleInput = forwardRef<HTMLDivElement, ConsoleInputProps>((props
 
 			// Re-focus the console.
 			codeEditorWidget.focus();
+		}));
+
+		// Add the onDidExecuteCode event handler.
+		disposableStore.add(props.positronConsoleInstance.onDidExecuteCode(codeFragment => {
+			// If the code fragment contains more than whitespace characters, add it to the
+			// history navigator.
+			if (codeFragment.trim().length) {
+				// Create the input history entry.
+				const inputHistoryEntry = {
+					when: new Date().getTime(),
+					input: codeFragment,
+				} satisfies IInputHistoryEntry;
+
+				// Add the input history entry.
+				if (historyNavigatorRef.current) {
+					historyNavigatorRef.current.add(inputHistoryEntry);
+				} else {
+					// TODO@softwarenerd - Get 1000 from settings.
+					setHistoryNavigator(new HistoryNavigator2<IInputHistoryEntry>(
+						[inputHistoryEntry], 1000
+					));
+				}
+			}
 		}));
 
 		// Focus the console.
