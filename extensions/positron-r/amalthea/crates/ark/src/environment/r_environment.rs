@@ -287,11 +287,23 @@ impl REnvironment {
         self.update(request_id);
     }
 
-    fn clipboard_format(&mut self, _path: &Vec<String>, format: String, request_id: Option<String>) {
-        let msg = EnvironmentMessage::FormattedVariable(EnvironmentMessageFormattedVariable{
-            format,
-            content: String::from("hello world")
-        });
+    fn clipboard_format(&mut self, path: &Vec<String>, format: String, request_id: Option<String>){
+        let clipped = r_lock! {
+            EnvironmentVariable::clip(RObject::view(*self.env), &path, &format)
+        };
+
+        let msg = match clipped {
+            Ok(content) => {
+                EnvironmentMessage::FormattedVariable(EnvironmentMessageFormattedVariable{
+                    format,
+                    content
+                })
+            }
+
+            Err(_) => EnvironmentMessage::Error(EnvironmentMessageError {
+                message: String::from("Clipboard Format error"),
+            })
+        };
         self.send_message(msg, request_id);
     }
 

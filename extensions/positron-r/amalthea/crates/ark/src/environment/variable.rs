@@ -539,6 +539,25 @@ impl EnvironmentVariable {
 
     }
 
+    pub fn clip(env: RObject, path: &Vec<String>, _format: &String) -> Result<String, harp::error::Error> {
+        let node = unsafe {
+            Self::resolve_object_from_path(env, &path)?
+        };
+
+        match node {
+            EnvironmentVariableNode::Concrete { object } => {
+                if r_is_simple_vector(*object) {
+                    let formatted = collapse(*object, " ", 0, if r_typeof(*object) == STRSXP { "\"" } else { "" }).unwrap();
+                    Ok(formatted.result)
+                } else {
+                    Ok(String::from(""))
+                }
+
+            }
+            EnvironmentVariableNode::Artificial {.. } => { Ok(String::from("")) }
+        }
+    }
+
     unsafe fn resolve_object_from_path(object: RObject, path: &Vec<String>) -> Result<EnvironmentVariableNode, harp::error::Error> {
         let mut node = EnvironmentVariableNode::Concrete { object };
 
