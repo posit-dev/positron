@@ -12,7 +12,3 @@
 	top: 32px;
 	position: absolute;
 }
-
-.positron-console .console-core .console-instances-container:focus {
-	outline: none !important;
-}
