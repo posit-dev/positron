@@ -249,6 +249,7 @@ export class PositronConsoleViewPane extends ViewPane implements IReactComponent
 		// Call the base class's method.
 		super.layoutBody(height, width);
 
+		// Adjust the size of the Positron console container.
 		this._positronConsoleContainer.style.width = `${width}px`;
 		this._positronConsoleContainer.style.height = `${height}px`;
 
