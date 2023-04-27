@@ -379,12 +379,6 @@
         ],
         "configuration": {
             "properties": {
-                "positron.pythonPath": {
-                    "default": "",
-                    "description": "Path on disk to python installation with IPyKernel installed; use this to override the default selection mechanism.",
-                    "scope": "window",
-                    "type": "string"
-                },
                 "python.activeStateToolPath": {
                     "default": "state",
                     "description": "%python.activeStateToolPath.description%",
@@ -550,6 +544,12 @@
                     ],
                     "scope": "window",
                     "type": "string"
+                },
+                "python.languageServerDebug": {
+                    "default": false,
+                    "description": "%python.languageServerDebug.description%",
+                    "scope": "application",
+                    "type": "boolean"
                 },
                 "python.linting.banditArgs": {
                     "default": [],

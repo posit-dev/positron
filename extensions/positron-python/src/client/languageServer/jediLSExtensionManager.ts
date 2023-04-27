@@ -55,7 +55,9 @@ export class JediLSExtensionManager implements IDisposable, ILanguageServerExten
         // --- Start Positron ---
         const ext = vscode.extensions.getExtension('vscode.jupyter-adapter');
         if (ext) {
-            this.serverProxy = new PositronJediLanguageServerProxy(serviceContainer, interpreterService);
+            this.serverProxy = new PositronJediLanguageServerProxy(serviceContainer,
+                interpreterService,
+                configurationService);
         } else {
             this.serverProxy = new JediLanguageServerProxy(this.clientFactory);
         }

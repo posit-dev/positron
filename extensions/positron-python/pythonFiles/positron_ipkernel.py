@@ -454,8 +454,9 @@ _OurDefault = object()
 
 POSITRON_CACHE_KEY = '__positron_cache__'
 
-POSITON_NS_HIDDEN = {'__warningregistry__': {},
-                     '_exit_code': {}
+POSITON_NS_HIDDEN = {'_exit_code': {},
+                     '__pydevd_ret_val_dict': {},
+                     '__warningregistry__': {}
                     }
 """Additional variables to hide from the user's namespace."""
 
