@@ -283,6 +283,16 @@ fn has_children(value: SEXP) -> bool {
     }
 }
 
+enum EnvironmentVariableNode {
+    Concrete {
+        object: RObject
+    },
+    Artificial {
+        object: RObject,
+        name: String
+    }
+}
+
 impl EnvironmentVariable {
     /**
      * Create a new EnvironmentVariable from a Binding
@@ -482,70 +492,146 @@ impl EnvironmentVariable {
     }
 
     pub fn inspect(env: RObject, path: &Vec<String>) -> Result<Vec<Self>, harp::error::Error> {
-        let object = unsafe {
+        let node = unsafe {
             Self::resolve_object_from_path(env, &path)?
         };
 
-        if object.is_s4() {
-            Self::inspect_s4(*object)
-        } else {
-            match r_typeof(*object) {
-                VECSXP | EXPRSXP  => Self::inspect_list(*object),
-                LISTSXP           => Self::inspect_pairlist(*object),
-                ENVSXP            => Self::inspect_environment(object),
-                _                 => Ok(vec![])
+        match node {
+            EnvironmentVariableNode::Artificial { object, name } => {
+                match name.as_str() {
+                    "<private>" => {
+                        let env = Environment::new(object);
+                        let enclos = Environment::new(RObject::view(env.find(".__enclos_env__")));
+                        let private = RObject::view(enclos.find("private"));
+
+                        Self::inspect_environment(private)
+                    }
+
+                    "<methods>" => Self::inspect_r6_methods(object),
+
+                    _ => Err(harp::error::Error::InspectError {
+                        path: path.clone()
+                    })
+
+                }
             }
-        }
-    }
 
-    unsafe fn resolve_object_from_path(mut object: RObject, path: &Vec<String>) -> Result<RObject, harp::error::Error> {
-        for path_element in path {
-
-            if object.is_s4() {
-                let name = r_symbol!(path_element);
-
-                object = r_try_catch_error(|| {
-                    R_do_slot(*object, name)
-                })?;
-            } else {
-                let rtype = r_typeof(*object);
-                object = match rtype {
-                    ENVSXP => {
-                        unsafe {
-                            // TODO: consider the cases of :
-                            // - an unresolved promise
-                            // - active binding
-                            let symbol = r_symbol!(path_element);
-                            let mut x = Rf_findVarInFrame(*object, symbol);
-
-                            if r_typeof(x) == PROMSXP {
-                                x = PRVALUE(x);
+            EnvironmentVariableNode::Concrete { object } => {
+                if object.is_s4() {
+                    Self::inspect_s4(*object)
+                } else {
+                    match r_typeof(*object) {
+                        VECSXP | EXPRSXP  => Self::inspect_list(*object),
+                        LISTSXP           => Self::inspect_pairlist(*object),
+                        ENVSXP            => unsafe {
+                            if r_inherits(*object, "R6") {
+                                Self::inspect_r6(object)
+                            } else {
+                                Self::inspect_environment(object)
                             }
 
-                            RObject::view(x)
+                        },
+                        _                 => Ok(vec![])
+                    }
+                }
+            }
+        }
+
+    }
+
+    unsafe fn resolve_object_from_path(object: RObject, path: &Vec<String>) -> Result<EnvironmentVariableNode, harp::error::Error> {
+        let mut node = EnvironmentVariableNode::Concrete { object };
+
+        for path_element in path {
+            node = match node {
+                EnvironmentVariableNode::Concrete{object} => {
+                    if object.is_s4() {
+                        let name = r_symbol!(path_element);
+
+                        let child = r_try_catch_error(|| {
+                            R_do_slot(*object, name)
+                        })?;
+
+                        EnvironmentVariableNode::Concrete {
+                            object: child
                         }
-                    },
+                    } else {
+                        let rtype = r_typeof(*object);
+                        match rtype {
+                            ENVSXP => {
+                                if r_inherits(*object, "R6") && path_element.starts_with("<") {
+                                    EnvironmentVariableNode::Artificial {
+                                        object,
+                                        name: path_element.clone()
+                                    }
+                                } else {
+                                    // TODO: consider the cases of :
+                                    // - an unresolved promise
+                                    // - active binding
+                                    let symbol = r_symbol!(path_element);
+                                    let mut x = Rf_findVarInFrame(*object, symbol);
 
-                    VECSXP | EXPRSXP => {
-                        let index = path_element.parse::<isize>().unwrap();
-                        RObject::view(VECTOR_ELT(*object, index))
-                    },
+                                    if r_typeof(x) == PROMSXP {
+                                        x = PRVALUE(x);
+                                    }
 
-                    LISTSXP => {
-                        let mut pairlist = *object;
-                        let index = path_element.parse::<isize>().unwrap();
-                        for _i in 0..index {
-                            pairlist = CDR(pairlist);
+                                    EnvironmentVariableNode::Concrete {
+                                        object: RObject::view(x)
+                                    }
+
+                                }
+                            },
+
+                            VECSXP | EXPRSXP => {
+                                let index = path_element.parse::<isize>().unwrap();
+                                EnvironmentVariableNode::Concrete {
+                                    object: RObject::view(VECTOR_ELT(*object, index))
+                                }
+                            },
+
+                            LISTSXP => {
+                                let mut pairlist = *object;
+                                let index = path_element.parse::<isize>().unwrap();
+                                for _i in 0..index {
+                                    pairlist = CDR(pairlist);
+                                }
+                                EnvironmentVariableNode::Concrete {
+                                    object: RObject::view(CAR(pairlist))
+                                }
+                            },
+
+                            _ => return Err(harp::error::Error::InspectError {
+                                path: path.clone()
+                            })
                         }
-                        RObject::view(CAR(pairlist))
-                    },
+                    }
+                },
 
-                    _ => return Err( harp::error::Error::UnexpectedType(rtype, vec![ENVSXP, VECSXP, LISTSXP]))
+                EnvironmentVariableNode::Artificial { object, name } => {
+                    match name.as_str() {
+                        "<private>" => {
+                            let env = Environment::new(object);
+                            let enclos = Environment::new(RObject::view(env.find(".__enclos_env__")));
+                            let private = Environment::new(RObject::view(enclos.find("private")));
+
+                            // TODO: it seems unlikely that private would host active bindings
+                            //       so find() is fine, we can assume this is concrete
+                            EnvironmentVariableNode::Concrete {
+                                object: RObject::view(private.find(path_element))
+                            }
+                        }
+
+                        _ => {
+                            return Err(harp::error::Error::InspectError {
+                                path: path.clone()
+                            })
+                        }
+                    }
                 }
             }
        }
 
-       Ok(object)
+       Ok(node)
     }
 
     fn inspect_list(value: SEXP) -> Result<Vec<Self>, harp::error::Error> {
@@ -594,15 +680,91 @@ impl EnvironmentVariable {
         Ok(out)
     }
 
-    fn inspect_environment(value: RObject) -> Result<Vec<Self>, harp::error::Error> {
-        let mut out : Vec<Self> = vec![];
+    fn inspect_r6(value: RObject) -> Result<Vec<Self>, harp::error::Error> {
+        let mut has_private = false;
+        let mut has_methods = false;
 
         let env = Environment::new(value);
-        for binding in env.iter() {
-            if !binding.is_hidden() {
-                out.push(Self::new(&binding));
-            }
+        let mut childs: Vec<Self> = env
+            .iter()
+            .filter(|b: &Binding| {
+                if b.name == ".__enclos_env__" {
+                    if let BindingValue::Standard { object, .. } = b.value {
+                        has_private = Environment::new(RObject::view(object)).exists("private");
+                    }
+
+                    false
+                } else if b.is_hidden() {
+                    false
+                } else {
+                    match b.value {
+                        BindingValue::Standard { object, .. } | BindingValue::Altrep { object, .. } => {
+                            if r_typeof(object) == CLOSXP {
+                                has_methods = true;
+                                false
+                            } else {
+                                true
+                            }
+                        },
+
+                        // active bindings and promises
+                        _ => true
+                    }
+                }
+
+            })
+            .map(|b| {
+                Self::new(&b)
+            })
+            .collect();
+
+        childs.sort_by(|a, b| {
+            a.display_name.cmp(&b.display_name)
+        });
+
+        if has_private {
+            childs.push(Self {
+                access_key: String::from("<private>"),
+                display_name: String::from("private"),
+                display_value: String::from("Private fields and methods"),
+                display_type: String::from(""),
+                type_info: String::from(""),
+                kind: ValueKind::Other,
+                length: 0,
+                size: 0,
+                has_children: true,
+                is_truncated: false
+            });
         }
+
+        if has_methods {
+            childs.push(Self {
+                access_key: String::from("<methods>"),
+                display_name: String::from("methods"),
+                display_value: String::from("Methods"),
+                display_type: String::from(""),
+                type_info: String::from(""),
+                kind: ValueKind::Other,
+                length: 0,
+                size: 0,
+                has_children: true,
+                is_truncated: false
+            });
+        }
+
+        Ok(childs)
+    }
+
+    fn inspect_environment(value: RObject) -> Result<Vec<Self>, harp::error::Error> {
+        let mut out: Vec<Self> = Environment::new(value)
+            .iter()
+            .filter(|b: &Binding| {
+                !b.is_hidden()
+            })
+            .map(|b| {
+                Self::new(&b)
+            })
+            .collect();
 
         out.sort_by(|a, b| {
             a.display_name.cmp(&b.display_name)
@@ -636,6 +798,31 @@ impl EnvironmentVariable {
                 );
             }
         }
+
+        Ok(out)
+    }
+
+    fn inspect_r6_methods(value: RObject) -> Result<Vec<Self>, harp::error::Error> {
+        let mut out: Vec<Self> = Environment::new(value)
+            .iter()
+            .filter(|b: &Binding| {
+                match b.value {
+
+                    BindingValue::Standard { object, .. } => {
+                        r_typeof(object) == CLOSXP
+                    }
+
+                    _ => false
+                }
+            })
+            .map(|b| {
+                Self::new(&b)
+            })
+            .collect();
+
+        out.sort_by(|a, b| {
+            a.display_name.cmp(&b.display_name)
+        });
 
         Ok(out)
     }
