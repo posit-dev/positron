@@ -9,8 +9,8 @@ import { registerIcon } from 'vs/platform/theme/common/iconRegistry';
 import { SyncDescriptor } from 'vs/platform/instantiation/common/descriptors';
 import { ViewPaneContainer } from 'vs/workbench/browser/parts/views/viewPaneContainer';
 import { PositronConsoleViewPane } from 'vs/workbench/contrib/positronConsole/browser/positronConsoleView';
+import { POSITRON_CONSOLE_VIEW_ID, registerPositronConsoleActions } from 'vs/workbench/contrib/positronConsole/browser/positronConsoleActions';
 import { ViewContainer, IViewContainersRegistry, ViewContainerLocation, Extensions as ViewContainerExtensions, IViewsRegistry } from 'vs/workbench/common/views';
-import { PositronConsoleCommandId, POSITRON_CONSOLE_VIEW_ID, registerPositronConsoleActions } from 'vs/workbench/contrib/positronConsole/browser/positronConsoleActions';
 
 // The Positron console view icon.
 const positronConsoleViewIcon = registerIcon('positron-console-view-icon', Codicon.positronConsoleView, nls.localize('positronConsoleViewIcon', 'View icon of the Positron console view.'));
@@ -39,7 +39,7 @@ Registry.as<IViewsRegistry>(ViewContainerExtensions.ViewsRegistry).registerViews
 	canToggleVisibility: false,
 	ctorDescriptor: new SyncDescriptor(PositronConsoleViewPane),
 	openCommandActionDescriptor: {
-		id: PositronConsoleCommandId.Open,
+		id: 'workbench.action.positronConsole.open',
 		mnemonicTitle: nls.localize({ key: 'miOpenConsole', comment: ['&& denotes a mnemonic'] }, "&&Console"),
 		keybindings: {},
 		order: 3,
