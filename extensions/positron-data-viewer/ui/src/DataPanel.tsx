@@ -29,7 +29,9 @@ export const DataPanel = (props: DataPanelProps) => {
 		return (
 			<tr key={'row_' + rowIndex}>
 				{data.map((column) => {
-					return <td key={column.name + '_' + rowIndex}>{column.data[rowIndex]}</td>;
+					return <td className={'col-' + column.type} key={column.name + '_' + rowIndex}>
+						{column.data[rowIndex]}
+					</td>;
 				})}
 			</tr>
 		);

@@ -90,7 +90,7 @@ export async function createDataPanel(context: vscode.ExtensionContext,
 		</head>
 		<body>
 			<div id="root"></div>
-		</body>${reactHtml}$`;
+		</body>${reactHtml}`;
 
 	// Handle messages from the webview
 	panel.webview.onDidReceiveMessage((message: DataViewerMessage) => {
