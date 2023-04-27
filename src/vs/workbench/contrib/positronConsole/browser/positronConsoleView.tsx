@@ -198,6 +198,10 @@ export class PositronConsoleViewPane extends ViewPane implements IReactComponent
 
 	//#region Overrides
 
+	/**
+	 * Renders the body.
+	 * @param container The container HTMLElement.
+	 */
 	protected override renderBody(container: HTMLElement): void {
 		// Call the base class's method.
 		super.renderBody(container);
