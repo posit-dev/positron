@@ -27,14 +27,16 @@ export async function createDataPanel(context: vscode.ExtensionContext,
 		}
 	);
 
-	// Check for the node_modules folder in the extension directory; this only exists in
-	// development mode. If it exists, we load the React and ReactDOM libraries from the
-	// extension directory.
-	const nodeFolder = path.join(context.extensionPath, 'ui', 'node_modules');
-	const developmentMode = await vscode.workspace.fs.stat(vscode.Uri.file(nodeFolder));
+	// Check for the 'dist' folder in the extension directory; this only exists in
+	// production mode.
+	const distFolder = path.join(context.extensionPath, 'ui', 'dist');
+	const fs = require('fs');
+	const productionMode = fs.existsSync(distFolder);
+
 	const scriptPaths = [];
 
-	if (developmentMode) {
+	if (!productionMode) {
+		const nodeFolder = path.join(context.extensionPath, 'ui', 'node_modules');
 		// In development mode, we use the React and ReactDOM libraries
 		// from the extension folder directly. In production mode,
 		// webpack bundles these libraries into the index.js file.
@@ -46,7 +48,7 @@ export async function createDataPanel(context: vscode.ExtensionContext,
 
 	// Get a list of all the script files in the extension's ui/out folder and
 	// add them to the list of scripts to load in the webview
-	const outFolder = path.join(context.extensionPath, 'ui', 'out');
+	const outFolder = path.join(context.extensionPath, 'ui', productionMode ? 'dist' : 'out');
 	const files = await vscode.workspace.fs.readDirectory(vscode.Uri.file(outFolder));
 	files.forEach((file) => {
 		// If this file is a JavaScript file, add it to the list of scripts
@@ -73,7 +75,7 @@ export async function createDataPanel(context: vscode.ExtensionContext,
 
 	// In development mode, load the CSS file directly from the extension folder
 	let cssTag = '';
-	if (developmentMode) {
+	if (!productionMode) {
 		const cssUri = vscode.Uri.file(path.join(context.extensionPath, 'ui', 'src', 'DataPanel.css'));
 		const cssWebviewUri = panel.webview.asWebviewUri(cssUri);
 		cssTag = `<link rel="stylesheet" href="${cssWebviewUri}">`;
