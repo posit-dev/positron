@@ -8,12 +8,17 @@ import * as extHostProtocol from './extHost.positron.protocol';
 import { IDisposable } from 'vs/base/common/lifecycle';
 import { Disposable, LanguageRuntimeMessageType } from 'vs/workbench/api/common/extHostTypes';
 import { RuntimeClientType } from 'vs/workbench/api/common/positron/extHostTypes.positron';
+import { ExtHostRuntimeClientInstance } from 'vs/workbench/api/common/positron/extHostClientInstance';
 
 export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRuntimeShape {
 
 	private readonly _proxy: extHostProtocol.MainThreadLanguageRuntimeShape;
 
 	private readonly _runtimes = new Array<positron.LanguageRuntime>();
+
+	private readonly _clientInstances = new Array<ExtHostRuntimeClientInstance>();
+
+	private readonly _clientHandlers = new Array<positron.RuntimeClientHandler>();
 
 	constructor(
 		mainContext: extHostProtocol.IMainPositronContext
@@ -105,6 +110,16 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		this._runtimes[handle].replyToPrompt(id, response);
 	}
 
+	public registerClientHandler(handler: positron.RuntimeClientHandler): IDisposable {
+		this._clientHandlers.push(handler);
+		return new Disposable(() => {
+			const index = this._clientHandlers.indexOf(handler);
+			if (index >= 0) {
+				this._clientHandlers.splice(index, 1);
+			}
+		});
+	}
+
 	public registerLanguageRuntime(
 		runtime: positron.LanguageRuntime): IDisposable {
 
@@ -147,11 +162,11 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 					break;
 
 				case LanguageRuntimeMessageType.CommOpen:
-					this._proxy.$emitRuntimeClientOpened(handle, message as ILanguageRuntimeMessage as ILanguageRuntimeMessageCommOpen);
+					this.handleCommOpen(handle, message as ILanguageRuntimeMessage as ILanguageRuntimeMessageCommOpen);
 					break;
 
 				case LanguageRuntimeMessageType.CommData:
-					this._proxy.$emitRuntimeClientMessage(handle, message as ILanguageRuntimeMessage as ILanguageRuntimeMessageCommData);
+					this.handleCommData(handle, message as ILanguageRuntimeMessage as ILanguageRuntimeMessageCommData);
 					break;
 
 				case LanguageRuntimeMessageType.CommClosed:
@@ -168,5 +183,58 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		return new Disposable(() => {
 			this._proxy.$unregisterLanguageRuntime(handle);
 		});
+	}
+
+	/**
+	 * Handles a comm open message from the language runtime by either creating
+	 * a client instance for it or passing it to a registered client handler.
+	 *
+	 * @param handle The handle of the language runtime
+	 * @param message The message to handle
+	 */
+	private handleCommOpen(handle: number, message: ILanguageRuntimeMessageCommOpen): void {
+		// Create a client instance for the comm
+		const clientInstance = new ExtHostRuntimeClientInstance(message,
+			(id, data) => {
+				// Callback to send a message to the runtime
+				this._runtimes[handle].sendClientMessage(message.comm_id, id, data);
+			},
+			() => {
+				// Callback to remove the client instance
+				this._runtimes[handle].removeClient(message.comm_id);
+			});
+
+		// See if one of the registered client handlers wants to handle this
+		for (const handler of this._clientHandlers) {
+			// If the client type matches, then call the handler
+			if (message.target_name === handler.clientType) {
+				// If the handler returns true, then it'll take it from here
+				if (handler.callback(clientInstance, message.data)) {
+					// Add the client instance to the list
+					this._clientInstances.push(clientInstance);
+					return;
+				}
+			}
+		}
+
+		// If we get here, then no handler took it, so we'll just emit the event
+		this._proxy.$emitRuntimeClientOpened(handle, message);
+	}
+
+	/**
+	 * Handles a comm data message from the language runtime
+	 *
+	 * @param handle The handle of the language runtime
+	 * @param message The message to handle
+	 */
+	private handleCommData(handle: number, message: ILanguageRuntimeMessageCommData): void {
+		// Find the client instance
+		const clientInstance = this._clientInstances.find(instance =>
+			instance.getClientId() === message.comm_id);
+		if (clientInstance) {
+			clientInstance.emitMessage(message);
+		} else {
+			this._proxy.$emitRuntimeClientMessage(handle, message);
+		}
 	}
 }

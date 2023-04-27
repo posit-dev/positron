@@ -335,10 +335,10 @@ declare module 'positron' {
 	export enum RuntimeClientType {
 		Environment = 'positron.environment',
 		Lsp = 'positron.lsp',
-		Plot = 'positron.plot'
+		Plot = 'positron.plot',
+		DataViewer = 'positron.dataViewer',
 
 		// Future client types may include:
-		// - Data viewer window
 		// - Watch window/variable explorer
 		// - Code inspector
 		// - etc.
@@ -376,6 +376,8 @@ declare module 'positron' {
 	 */
 	export interface RuntimeClientInstance extends vscode.Disposable {
 		onDidChangeClientState: vscode.Event<RuntimeClientState>;
+		onDidSendEvent: vscode.Event<object>;
+		performRpc<T>(data: object): Thenable<T>;
 		getClientState(): RuntimeClientState;
 		getClientId(): string;
 		getClientType(): RuntimeClientType;
@@ -472,7 +474,49 @@ declare module 'positron' {
 		shutdown(): void;
 	}
 
+
+	/**
+	 * A data structure that describes a handler for a runtime client instance,
+	 * and is called when an instance is created.
+	 *
+	 * @param client The client instance that was created
+	 * @param params A set of parameters passed to the client
+	 * @returns true if the handler took ownership of the client, false otherwise
+	 */
+	export type RuntimeClientHandlerCallback = (
+		client: RuntimeClientInstance,
+		params: Object,) => boolean;
+
+	/**
+	 * A data structure that describes a handler for a runtime client instance.
+	 */
+	export interface RuntimeClientHandler {
+		/**
+		 * The type of client that this handler handles.
+		 */
+		clientType: string;
+
+		/**
+		 * A callback that is called when a client of the given type is created.
+		 */
+		callback: RuntimeClientHandlerCallback;
+	}
+
 	namespace runtime {
+		/**
+		 * Register a language runtime with Positron.
+		 *
+		 * @param runtime The language runtime to register
+		 */
 		export function registerLanguageRuntime(runtime: LanguageRuntime): vscode.Disposable;
+
+		/**
+		 * Register a handler for runtime client instances. This handler will be called
+		 * whenever a new client instance is created by a language runtime of the given
+		 * type.
+		 *
+		 * @param handler A handler for runtime client instances
+		 */
+		export function registerClientHandler(handler: RuntimeClientHandler): vscode.Disposable;
 	}
 }

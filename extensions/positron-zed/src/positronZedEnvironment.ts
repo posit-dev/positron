@@ -5,6 +5,7 @@
 import * as vscode from 'vscode';
 import * as positron from 'positron';
 import { randomUUID } from 'crypto';
+import { PositronZedLanguageRuntime } from './positronZedLanguageRuntime';
 
 /**
  * ZedVar is a simple Zed variable.
@@ -15,6 +16,7 @@ class ZedVariable {
 	public readonly display_type;
 	public readonly type_info;
 	public readonly has_children;
+	public readonly has_viewer;
 	public readonly access_key;
 
 	constructor(
@@ -44,6 +46,10 @@ class ZedVariable {
 
 		// The has_children property is true if the variable has children.
 		this.has_children = children.length > 0;
+
+		// The has_viewer property is true if the variable has a viewer.
+		// Currently, only tables have viewers.
+		this.has_viewer = kind === 'table';
 	}
 }
 
@@ -80,11 +86,13 @@ export class ZedEnvironment {
 	 * @param id The ID of the environment client instance
 	 */
 	constructor(readonly id: string,
-		private readonly zedVersion: string) {
+		private readonly zedVersion: string,
+		private readonly runtime: PositronZedLanguageRuntime) {
 		// Create a few variables to start with
 		this._vars.set('z', new ZedVariable('z', 'zed1', 'string', 4, 4));
 		this._vars.set('e', new ZedVariable('e', 'zed2', 'string', 4, 4));
 		this._vars.set('d', new ZedVariable('d', 'zed3', 'string', 4, 4));
+		this._vars.set('dat', new ZedVariable('dat', 'table(10 columns, 100 rows)', 'table', 100, 1000));
 
 		// Create a Zed Version variable
 		this._vars.set('ZED_VERSION', new ZedVariable('ZED_VERSION',
@@ -107,7 +115,7 @@ export class ZedEnvironment {
 	 *
 	 * @param message The message to handle
 	 */
-	public handleMessage(message: any) {
+	public handleMessage(message_id: string, message: any) {
 		switch (message.msg_type) {
 
 			// A request to refresh the environment by sending a full list to the front end
@@ -135,6 +143,16 @@ export class ZedEnvironment {
 				this.formatVariable(message.format, message.path);
 				break;
 
+			// A request to open a variable in a data viewer
+			case 'view':
+				// The object "name" to be viewed is just the path to the variable
+				this.runtime.simulateDataView(message_id,
+					`view ${message.path.join('.')}`,
+					`Zed: ${message.path.join('.')}`);
+
+				// Let the front end know we're done
+				this._onDidEmitData.fire({ msg_type: 'success' });
+				break;
 		}
 	}
 
@@ -219,6 +237,12 @@ export class ZedEnvironment {
 				children = oldVar.children;
 				value = `list(${children.length} elements)`;
 				size = children.length;
+			} else if (oldVar.kind === 'table') {
+				// Tables: Just generate a new random table
+				const numColumns = Math.floor(Math.random() * 10) + 1;
+				const numRows = Math.floor(Math.random() * 90) + 10;
+				value = `table(${numColumns} columns, ${numRows} rows)`;
+				size = numColumns * numRows * 4;
 			} else {
 				// Everything else: reverse the value
 				value = oldVar.display_value.split('').reverse().join('');
@@ -473,7 +497,9 @@ export class ZedEnvironment {
 			let kindToUse = kind;
 			if (!kind || kind === 'random') {
 				// Random: pick a random kind
-				kindToUse = ['string', 'number', 'vector', 'blob', 'list'][Math.floor(Math.random() * 5)];
+				kindToUse =
+					['string', 'number', 'vector', 'blob', 'list', 'table']
+					[Math.floor(Math.random() * 6)];
 			}
 
 			const name = `${kindToUse}${start + i}`;
@@ -508,6 +534,12 @@ export class ZedEnvironment {
 				children = this.generateVars(numElements, 'random');
 				value = `list(${numElements} elements)`;
 				size = numElements;
+			} else if (kindToUse === 'table') {
+				// Tables: Have 1 - 10 columns of 10 - 100 rows
+				const numColumns = Math.floor(Math.random() * 10) + 1;
+				const numRows = Math.floor(Math.random() * 90) + 10;
+				value = `table(${numColumns} columns, ${numRows} rows)`;
+				size = numColumns * numRows * 4;
 			} else {
 				// Everything else: use the counter
 				value = `value${start + i}`;
