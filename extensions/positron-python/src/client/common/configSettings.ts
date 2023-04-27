@@ -130,6 +130,10 @@ export class PythonSettings implements IPythonSettings {
 
     public languageServerIsDefault = true;
 
+    // --- Start Positron ---
+    public languageServerDebug = false;
+    // --- End Positron ---
+
     protected readonly changed = new EventEmitter<ConfigurationChangeEvent | undefined>();
 
     private static readonly configChanged = new EventEmitter<ConfigurationChangeEvent | undefined>();
@@ -292,6 +296,11 @@ export class PythonSettings implements IPythonSettings {
             this.languageServer = userLS as LanguageServerType;
             this.languageServerIsDefault = false;
         }
+
+        // --- Start Positron ---
+        // Whether to enable the language server with pydebug enabled
+        this.languageServerDebug = pythonSettings.get<boolean>('languageServerDebug') === true;
+        // --- Start Positron ---
 
         const autoCompleteSettings = systemVariables.resolveAny(
             pythonSettings.get<IAutoCompleteSettings>('autoComplete'),
