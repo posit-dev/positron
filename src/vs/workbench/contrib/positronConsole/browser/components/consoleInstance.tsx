@@ -4,7 +4,7 @@
 
 import 'vs/css!./consoleInstance';
 import * as React from 'react';
-import { MouseEvent, UIEvent, useEffect, useRef, useState } from 'react'; // eslint-disable-line no-duplicate-imports
+import { KeyboardEvent, MouseEvent, UIEvent, useEffect, useRef, useState } from 'react'; // eslint-disable-line no-duplicate-imports
 import { generateUuid } from 'vs/base/common/uuid';
 import { PixelRatio } from 'vs/base/browser/browser';
 import { BareFontInfo } from 'vs/editor/common/config/fontInfo';
@@ -180,7 +180,7 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 	};
 
 	/**
-	 * Click handler.
+	 * onClick event handler.
 	 * @param e A MouseEvent<HTMLElement> that describes a user interaction with the mouse.
 	 */
 	const clickHandler = (e: MouseEvent<HTMLDivElement>) => {
@@ -195,7 +195,18 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 	};
 
 	/**
-	 * MouseDown handler.
+	 * onKeyDown event handler.
+	 * @param e A KeyboardEvent<HTMLDivElement> that describes a user interaction with the keyboard.
+	 */
+	const keyDownHandler = async (e: KeyboardEvent<HTMLDivElement>) => {
+		// TODO: We will need to handle copy here...
+
+		// Drive focus to the console input.
+		consoleInputRef.current.focus();
+	};
+
+	/**
+	 * onMouseDown event handler.
 	 * @param e A MouseEvent<HTMLElement> that describes a user interaction with the mouse.
 	 */
 	const mouseDownHandler = (e: MouseEvent<HTMLDivElement>) => {
@@ -292,7 +303,9 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 			ref={consoleInstanceRef}
 			className='console-instance'
 			style={{ width: adjustedWidth, height: props.height, zIndex: props.active ? 1 : -1 }}
+			tabIndex={0}
 			onClick={clickHandler}
+			onKeyDown={keyDownHandler}
 			onMouseDown={mouseDownHandler}
 			onScroll={scrollHandler}>
 			{props.positronConsoleInstance.runtimeItems.map(runtimeItem =>
