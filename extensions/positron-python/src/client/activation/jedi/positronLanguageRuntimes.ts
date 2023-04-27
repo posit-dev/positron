@@ -10,7 +10,7 @@ import { Disposable, DocumentFilter, LanguageClient, LanguageClientOptions, Serv
 
 import { compare } from 'semver';
 import { EXTENSION_ROOT_DIR, PYTHON_LANGUAGE } from '../../common/constants';
-import { IInstaller, InstallerResponse, Product, Resource } from '../../common/types';
+import { IConfigurationService, IInstaller, InstallerResponse, Product, Resource } from '../../common/types';
 import { InstallOptions } from '../../common/installer/types';
 import { IInterpreterService } from '../../interpreter/contracts';
 import { IServiceContainer } from '../../ioc/types';
@@ -40,6 +40,7 @@ export class PositronJediLanguageServerProxy implements ILanguageServerProxy {
     constructor(
         private readonly serviceContainer: IServiceContainer,
         private readonly interpreterService: IInterpreterService,
+        private configService: IConfigurationService
     ) {
         // Get the version of this extension from package.json so that we can
         // describe the implementation version to the kernel adapter
@@ -56,7 +57,7 @@ export class PositronJediLanguageServerProxy implements ILanguageServerProxy {
     // ILanguageServerProxy API
 
     public async start(
-        _resource: Resource,
+        resource: Resource,
         interpreter: PythonEnvironment | undefined,
         options: LanguageClientOptions,
     ): Promise<void> {
@@ -84,7 +85,7 @@ export class PositronJediLanguageServerProxy implements ILanguageServerProxy {
 
         // Register available python interpreters as language runtimes with our Jupyter Adapter
         this.withActiveExtention(ext, async () => {
-            await this.registerLanguageRuntimes(ext, interpreter, options);
+            await this.registerLanguageRuntimes(ext, resource, interpreter, options);
         });
     }
 
@@ -127,6 +128,7 @@ export class PositronJediLanguageServerProxy implements ILanguageServerProxy {
      */
     private async registerLanguageRuntimes(
         ext: vscode.Extension<any>,
+        resource: Resource,
         preferredInterpreter: PythonEnvironment | undefined,
         options: LanguageClientOptions
     ): Promise<void> {
@@ -135,23 +137,34 @@ export class PositronJediLanguageServerProxy implements ILanguageServerProxy {
         let interpreters: PythonEnvironment[] = this.interpreterService.getInterpreters();
         interpreters = this.sortInterpreters(interpreters, preferredInterpreter);
 
+        // Check if debug should be enabled for the language server
+        const settings = this.configService.getSettings(resource);
+        const debug = settings.languageServerDebug;
+
         // Register each interpreter as a language runtime
         const portfinder = require('portfinder');
         let lspPort = 2087;
-        let debugPort = 5678;
+        let debugPort = undefined;
         for (let interpreter of interpreters) {
             // Find an available port for our TCP server, starting the search from
             // the next port each iteration.
             lspPort = await portfinder.getPortPromise({ port: lspPort });
 
-            // Also locate an available port for the debugger
-            debugPort = await portfinder.getPortPromise({ port: debugPort });
+            // If required, also locate an available port for the debugger
+            if (debug) {
+                if (debugPort === undefined) {
+                    debugPort = 5678; // Default port for debugpy
+                }
+                debugPort = await portfinder.getPortPromise({ port: debugPort });
+            }
 
             const runtime: vscode.Disposable = await this.registerLanguageRuntime(ext, interpreter, lspPort, debugPort, options);
             this.disposables.push(runtime);
 
             lspPort++;
-            debugPort++;
+            if (debugPort !== undefined) {
+                debugPort++;
+            }
         }
     }
 
@@ -163,7 +176,7 @@ export class PositronJediLanguageServerProxy implements ILanguageServerProxy {
     private async registerLanguageRuntime(ext: vscode.Extension<any>,
         interpreter: PythonEnvironment,
         lspPort: number,
-        debugPort: number,
+        debugPort: number | undefined,
         options: LanguageClientOptions): Promise<Disposable> {
 
         // Determine if the ipykernel module is installed
@@ -175,7 +188,10 @@ export class PositronJediLanguageServerProxy implements ILanguageServerProxy {
         const command = interpreter.path;
         const pythonVersion = interpreter.version?.raw;
         const lsScriptPath = path.join(EXTENSION_ROOT_DIR, 'pythonFiles', 'ipykernel_jedi.py');
-        const args = [command, lsScriptPath, `--debugport=${debugPort}`, `--port=${lspPort}`, '-f', '{connection_file}', '--logfile', '{log_file}']
+        const args = [command, lsScriptPath, `--port=${lspPort}`, '-f', '{connection_file}', '--logfile', '{log_file}']
+        if (debugPort) {
+            args.push(`--debugport=${debugPort}`);
+        }
         const kernelSpec = {
             argv: args,
             display_name: `${displayName}`,

@@ -14,7 +14,6 @@ EXTENSION_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(EXTENSION_ROOT, "pythonFiles", "lib", "jedilsp"))
 sys.path.insert(1, os.path.join(EXTENSION_ROOT, "pythonFiles", "lib", "python"))
 
-import debugpy
 from positron_jedilsp import POSITRON
 
 def initialize() -> (str, int):
@@ -40,9 +39,9 @@ def initialize() -> (str, int):
     )
     parser.add_argument(
         "--debugport",
-        help="port for debugpy debugger (default 5678)",
+        help="port for debugpy debugger",
         type=int,
-        default=5678,
+        default=None,
     )
     parser.add_argument(
         "--port",
@@ -83,8 +82,10 @@ def initialize() -> (str, int):
     else:
         logging.basicConfig(stream=sys.stderr, level=log_level)
 
-    # Start the debugpy debugger
-    debugpy.listen(args.debugport)
+    # Start the debugpy debugger if a port was specified
+    if args.debugport is not None:
+        import debugpy
+        debugpy.listen(args.debugport)
 
     return args.host, args.port
 
