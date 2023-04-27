@@ -10,6 +10,8 @@ use std::ffi::CStr;
 
 use std::ops::Deref;
 
+use crate::r_symbol;
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct RSymbol {
     pub sexp: SEXP
@@ -37,8 +39,31 @@ impl From<RSymbol> for String {
     }
 }
 
+impl From<&str> for RSymbol {
+    fn from(value: &str) -> Self {
+        RSymbol {
+            sexp: unsafe { r_symbol!(value) }
+        }
+    }
+}
+
+impl From<&String> for RSymbol {
+    fn from(value: &String) -> Self {
+        RSymbol::from(value.as_str())
+    }
+}
+
 impl std::fmt::Display for RSymbol {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", String::from(*self))
+    }
+}
+
+impl PartialEq<&str> for RSymbol {
+    fn eq(&self, other: &&str) -> bool {
+        unsafe {
+            let utf8text = Rf_translateCharUTF8(PRINTNAME(self.sexp));
+            CStr::from_ptr(utf8text).to_str().unwrap() == *other
+        }
     }
 }
