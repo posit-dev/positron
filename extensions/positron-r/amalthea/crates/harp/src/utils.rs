@@ -144,6 +144,10 @@ pub fn r_is_s4(object: SEXP) -> bool {
     Sxpinfo::interpret(&object).is_s4()
 }
 
+pub fn r_is_unbound(object: SEXP) -> bool {
+    object == unsafe { R_UnboundValue }
+}
+
 pub fn r_is_simple_vector(value: SEXP) -> bool {
     unsafe {
         let class = Rf_getAttrib(value, R_ClassSymbol);

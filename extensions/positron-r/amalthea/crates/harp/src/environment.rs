@@ -147,6 +147,14 @@ impl Binding {
         String::from(self.name).starts_with(".")
     }
 
+    pub fn is_active(&self) -> bool {
+        if let BindingValue::Active { .. } = self.value {
+            true
+        } else {
+            false
+        }
+    }
+
 }
 
 pub struct Environment {
@@ -314,6 +322,17 @@ impl Environment {
 
     pub fn iter(&self) -> EnvironmentIter {
         EnvironmentIter::new(&self)
+    }
+
+    pub fn exists(&self, name: impl Into<RSymbol>) -> bool {
+        unsafe {
+            R_existsVarInFrame(self.env.sexp, *name.into()) == Rboolean_TRUE
+        }
+    }
+
+    pub fn find(&self, name: impl Into<RSymbol>) -> SEXP {
+        let name = name.into();
+        unsafe { Rf_findVarInFrame(self.env.sexp, *name) }
     }
 
     pub fn is_empty(&self) -> bool {

@@ -23,7 +23,8 @@ pub enum Error {
     InvalidUtf8(Utf8Error),
     TryCatchError { message: Vec<String>, classes : Vec<String> },
     ParseSyntaxError { message: String, line: i32 },
-    MissingValueError
+    MissingValueError,
+    InspectError { path : Vec<String> }
 }
 
 // empty implementation required for 'anyhow'
@@ -87,6 +88,10 @@ impl fmt::Display for Error {
 
             Error::MissingValueError => {
                 write!(f, "Missing value")
+            }
+
+            Error::InspectError { path } => {
+                write!(f, "Error inspecting path {}", path.join(" / "))
             }
         }
     }
