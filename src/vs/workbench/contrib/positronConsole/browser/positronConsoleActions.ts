@@ -237,6 +237,9 @@ export function registerPositronConsoleActions() {
 				}
 			}
 
+			// Trim the code.
+			code = code.trim();
+
 			// If there is no code to execute, inform the user.
 			if (code.length === 0) {
 				notificationService.notify({
