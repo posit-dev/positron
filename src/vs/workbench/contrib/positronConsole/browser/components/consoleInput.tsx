@@ -4,7 +4,7 @@
 
 import 'vs/css!./consoleInput';
 import * as React from 'react';
-import { forwardRef, useCallback, useEffect, useRef } from 'react'; // eslint-disable-line no-duplicate-imports
+import { FocusEvent, forwardRef, useCallback, useEffect, useRef } from 'react'; // eslint-disable-line no-duplicate-imports
 import { URI } from 'vs/base/common/uri';
 import { Schemas } from 'vs/base/common/network';
 import { KeyCode } from 'vs/base/common/keyCodes';
@@ -14,7 +14,6 @@ import { HistoryNavigator2 } from 'vs/base/common/history';
 import { IKeyboardEvent } from 'vs/base/browser/keyboardEvent';
 import { useStateRef } from 'vs/base/browser/ui/react/useStateRef';
 import { IEditorOptions } from 'vs/editor/common/config/editorOptions';
-import { IFocusReceiver } from 'vs/base/browser/positronReactRenderer';
 import { CodeEditorWidget } from 'vs/editor/browser/widget/codeEditorWidget';
 import { ModesHoverController } from 'vs/editor/contrib/hover/browser/hover';
 import { EditorExtensionsRegistry } from 'vs/editor/browser/editorExtensions';
@@ -31,9 +30,8 @@ import { IPositronConsoleInstance, PositronConsoleState } from 'vs/workbench/ser
 
 // ConsoleInputProps interface.
 export interface ConsoleInputProps {
+	readonly active: boolean;
 	readonly width: number;
-	readonly hidden: boolean;
-	readonly focusReceiver: IFocusReceiver;
 	readonly executeCode: (codeFragment: string) => void;
 	readonly positronConsoleInstance: IPositronConsoleInstance;
 }
@@ -43,19 +41,19 @@ export interface ConsoleInputProps {
  * @param props A ConsoleInputProps that contains the component properties.
  * @returns The rendered component.
  */
-export const ConsoleInput = forwardRef<HTMLDivElement, ConsoleInputProps>((props: ConsoleInputProps, ref) => {
+export const ConsoleInput = forwardRef<HTMLDivElement, ConsoleInputProps>((props: ConsoleInputProps, consoleInputRef) => {
 	// Context hooks.
 	const positronConsoleContext = usePositronConsoleContext();
 
 	// Reference hooks.
-	const refContainer = useRef<HTMLDivElement>(undefined!);
+	const codeEditorWidgetContainerRef = useRef<HTMLDivElement>(undefined!);
 
 	// State hooks.
-	const [, setCodeEditorWidget, refCodeEditorWidget] = useStateRef<CodeEditorWidget>(undefined!);
-	const [, setCodeEditorWidth, refCodeEditorWidth] = useStateRef(props.width);
-	const [, setHistoryNavigator, refHistoryNavigator] =
+	const [, setCodeEditorWidget, codeEditorWidgetRef] = useStateRef<CodeEditorWidget>(undefined!);
+	const [, setCodeEditorWidth, codeEditorWidthRef] = useStateRef(props.width);
+	const [, setHistoryNavigator, historyNavigatorRef] =
 		useStateRef<HistoryNavigator2<IInputHistoryEntry> | undefined>(undefined);
-	const [, setCurrentCodeFragment, refCurrentCodeFragment] =
+	const [, setCurrentCodeFragment, currentCodeFragmentRef] =
 		useStateRef<string | undefined>(undefined);
 
 	/**
@@ -65,22 +63,21 @@ export const ConsoleInput = forwardRef<HTMLDivElement, ConsoleInputProps>((props
 	const updateCodeEditorWidgetPositionToEnd = () => {
 		// Get the model. If it isn't null (which it won't be), set the code editor widget
 		// position.
-		const textModel = refCodeEditorWidget.current.getModel();
+		const textModel = codeEditorWidgetRef.current.getModel();
 		if (textModel) {
 			const lineNumber = textModel.getLineCount();
-			refCodeEditorWidget.current.setPosition({
+			codeEditorWidgetRef.current.setPosition({
 				lineNumber,
 				column: textModel.getLineContent(lineNumber).length + 1
 			});
 
 			// Ensure that the code editor widget is scrolled into view.
-			refContainer.current?.scrollIntoView({ behavior: 'auto' });
+			codeEditorWidgetContainerRef.current?.scrollIntoView({ behavior: 'auto' });
 		}
 	};
 
 	// Memoize the key down event handler.
 	const keyDownHandler = useCallback(async (e: IKeyboardEvent) => {
-
 		// Check for a suggest widget in the DOM. If one exists, then don't
 		// handle the key.
 		//
@@ -137,20 +134,20 @@ export const ConsoleInput = forwardRef<HTMLDivElement, ConsoleInputProps>((props
 				}
 
 				// If there are history entries, process the event.
-				if (refHistoryNavigator.current) {
+				if (historyNavigatorRef.current) {
 					// When the user moves up from the end, and we don't have a current code editor
 					// fragment, set the current code fragment. Otherwise, move to the previous
 					// entry.
-					if (refHistoryNavigator.current.isAtEnd() &&
-						refCurrentCodeFragment.current === undefined) {
-						setCurrentCodeFragment(refCodeEditorWidget.current.getValue());
+					if (historyNavigatorRef.current.isAtEnd() &&
+						currentCodeFragmentRef.current === undefined) {
+						setCurrentCodeFragment(codeEditorWidgetRef.current.getValue());
 					} else {
-						refHistoryNavigator.current.previous();
+						historyNavigatorRef.current.previous();
 					}
 
 					// Get the current history entry, set it as the value of the code editor widget.
-					const inputHistoryEntry = refHistoryNavigator.current.current();
-					refCodeEditorWidget.current.setValue(inputHistoryEntry.input);
+					const inputHistoryEntry = historyNavigatorRef.current.current();
+					codeEditorWidgetRef.current.setValue(inputHistoryEntry.input);
 
 					// Position the cursor to the end.
 					updateCodeEditorWidgetPositionToEnd();
@@ -170,19 +167,19 @@ export const ConsoleInput = forwardRef<HTMLDivElement, ConsoleInputProps>((props
 				}
 
 				// If there are history entries, process the event.
-				if (refHistoryNavigator.current) {
+				if (historyNavigatorRef.current) {
 					// When the user reaches the end of the history entries, restore the current
 					// code fragment.
-					if (refHistoryNavigator.current.isAtEnd()) {
-						if (refCurrentCodeFragment.current !== undefined) {
-							refCodeEditorWidget.current.setValue(refCurrentCodeFragment.current);
+					if (historyNavigatorRef.current.isAtEnd()) {
+						if (currentCodeFragmentRef.current !== undefined) {
+							codeEditorWidgetRef.current.setValue(currentCodeFragmentRef.current);
 							setCurrentCodeFragment(undefined);
 						}
 					} else {
 						// Move to the next history entry and set it as the value of the code editor
 						// widget.
-						const inputHistoryEntry = refHistoryNavigator.current.next();
-						refCodeEditorWidget.current.setValue(inputHistoryEntry.input);
+						const inputHistoryEntry = historyNavigatorRef.current.next();
+						codeEditorWidgetRef.current.setValue(inputHistoryEntry.input);
 					}
 
 					// Position the cursor to the end.
@@ -209,7 +206,7 @@ export const ConsoleInput = forwardRef<HTMLDivElement, ConsoleInputProps>((props
 				}
 
 				// Get the code fragment from the editor.
-				const codeFragment = refCodeEditorWidget.current.getValue();
+				const codeFragment = codeEditorWidgetRef.current.getValue();
 
 				// Check on whether the code fragment is complete and can be executed.
 				let executeCode;
@@ -261,8 +258,8 @@ export const ConsoleInput = forwardRef<HTMLDivElement, ConsoleInputProps>((props
 						} satisfies IInputHistoryEntry;
 
 						// Add the input history entry.
-						if (refHistoryNavigator.current) {
-							refHistoryNavigator.current.add(inputHistoryEntry);
+						if (historyNavigatorRef.current) {
+							historyNavigatorRef.current.add(inputHistoryEntry);
 						} else {
 							// TODO@softwarenerd - Get 1000 from settings.
 							setHistoryNavigator(new HistoryNavigator2<IInputHistoryEntry>(
@@ -273,7 +270,7 @@ export const ConsoleInput = forwardRef<HTMLDivElement, ConsoleInputProps>((props
 
 					// Reset the model for the next input.
 					setCurrentCodeFragment(undefined);
-					refCodeEditorWidget.current.setValue('');
+					codeEditorWidgetRef.current.setValue('');
 				}
 
 				// Consume the event.
@@ -289,9 +286,9 @@ export const ConsoleInput = forwardRef<HTMLDivElement, ConsoleInputProps>((props
 		const disposableStore = new DisposableStore();
 
 		// Build the history entries, if there is input history.
-		const inputHistoryEntries = positronConsoleContext.
-			executionHistoryService.
-			getInputEntries(props.positronConsoleInstance.runtime.metadata.languageId);
+		const inputHistoryEntries = positronConsoleContext.executionHistoryService.getInputEntries(
+			props.positronConsoleInstance.runtime.metadata.languageId
+		);
 		if (inputHistoryEntries.length) {
 			console.log(`There are input history entries for ${props.positronConsoleInstance.runtime.metadata.languageId}`);
 			inputHistoryEntries.forEach((inputHistoryEntry, index) => {
@@ -357,7 +354,7 @@ export const ConsoleInput = forwardRef<HTMLDivElement, ConsoleInputProps>((props
 		// Create the code editor widget.
 		const codeEditorWidget = positronConsoleContext.instantiationService.createInstance(
 			CodeEditorWidget,
-			refContainer.current,
+			codeEditorWidgetContainerRef.current,
 			{
 				...positronConsoleContext.configurationService.getValue<IEditorOptions>('editor'),
 				...editorOptions
@@ -389,11 +386,12 @@ export const ConsoleInput = forwardRef<HTMLDivElement, ConsoleInputProps>((props
 		// it grow vertically as the user enters additional lines of input)
 		codeEditorWidget.onDidContentSizeChange(contentSizeChangedEvent => {
 			codeEditorWidget.layout({
-				width: refCodeEditorWidth.current,
+				width: codeEditorWidthRef.current,
 				height: codeEditorWidget.getContentHeight()
 			});
 		});
 
+		// [Preserving this comment for later use...]
 		// Forward mouse wheel events. We do this because it is not currently
 		// possible to prevent the editor from trapping scroll events, so
 		// instead we use this handle to forward the scroll events to the outer
@@ -402,6 +400,12 @@ export const ConsoleInput = forwardRef<HTMLDivElement, ConsoleInputProps>((props
 
 		// Perform the initial layout.
 		codeEditorWidget.layout();
+
+		disposableStore.add(positronConsoleContext.positronConsoleService.onDidChangeActivePositronConsoleInstance(positronConsoleInstance => {
+			if (positronConsoleInstance === props.positronConsoleInstance) {
+				codeEditorWidget.focus();
+			}
+		}));
 
 		// Add the onDidChangeConfiguration event handler.
 		disposableStore.add(
@@ -476,13 +480,6 @@ export const ConsoleInput = forwardRef<HTMLDivElement, ConsoleInputProps>((props
 			codeEditorWidget.focus();
 		}));
 
-		// Add the onFocused event handler.
-		disposableStore.add(props.focusReceiver.onFocused(() => {
-			if (!props.hidden) {
-				codeEditorWidget.focus();
-			}
-		}));
-
 		// Focus the console.
 		codeEditorWidget.focus();
 
@@ -492,19 +489,30 @@ export const ConsoleInput = forwardRef<HTMLDivElement, ConsoleInputProps>((props
 
 	// Experimental.
 	useEffect(() => {
-		if (refCodeEditorWidget.current) {
+		if (codeEditorWidgetRef.current) {
 			setCodeEditorWidth(props.width);
-			refCodeEditorWidget.current.layout({
+			codeEditorWidgetRef.current.layout({
 				width: props.width,
-				height: refCodeEditorWidget.current.getContentHeight()
+				height: codeEditorWidgetRef.current.getContentHeight()
 			});
 		}
 	}, [props.width]);
 
+	/**
+	 * onFocus event handler.
+	 * @param e A FocusEvent<HTMLDivElement, Element> that contains the event data.
+	 */
+	const focusHandler = (e: FocusEvent<HTMLDivElement, Element>) => {
+		// Drive focus into the code editor widget.
+		if (codeEditorWidgetRef.current) {
+			codeEditorWidgetRef.current.focus();
+		}
+	};
+
 	// Render.
 	return (
-		<div ref={ref} className='console-input'>
-			<div ref={refContainer}></div>
+		<div ref={consoleInputRef} className='console-input' tabIndex={0} onFocus={focusHandler}>
+			<div ref={codeEditorWidgetContainerRef} />
 		</div>
 	);
 });
