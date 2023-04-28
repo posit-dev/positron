@@ -109,10 +109,8 @@ export const ActionBar = (props: ActionBarProps) => {
 				<PositronActionBar size='small' borderTop={true} borderBottom={true} paddingLeft={kPaddingLeft} paddingRight={kPaddingRight}>
 					<ActionBarRegion align='left'>
 						<ConsoleInstanceMenuButton {...props} />
-						{interruptible && <>
-							<ActionBarSeparator />
-							<ActionBarButton disabled={interrupting} iconId='positron-interrupt' align='left' tooltip={localize('positronInterrupt', "Interrupt")} onClick={interruptHandler} />
-						</>}
+						{interruptible && <ActionBarButton disabled={interrupting} iconId='positron-interrupt' align='left' tooltip={localize('positronInterrupt', "Interrupt")} onClick={interruptHandler} />
+						}
 					</ActionBarRegion>
 					<ActionBarRegion align='right'>
 						<ActionBarButton iconId='positron-list' align='right' tooltip={localize('positronToggleTrace', "Toggle Trace")} onClick={toggleTraceHandler} />
