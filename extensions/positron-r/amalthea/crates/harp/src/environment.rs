@@ -333,9 +333,23 @@ impl Environment {
 
     pub fn exists(&self, name: impl Into<RSymbol>) -> bool {
         let name = name.into();
-        self.iter().find(|b| {
-            b.name == name
-        }).is_some()
+        match self.iter() {
+            EnvironmentIter::Hashed(mut iter) => {
+                /* TODO: we could eventually only iterate in the frame with the right hash
+
+                // does the symbol know its hash:
+                let has_hash = name.has_hash();
+
+                hashcode = HASHVALUE(PRINTNAME(TAG(frame))) % HASHSIZE(table)
+                chain = VECTOR_ELT(table, hashcode);
+
+                */
+                iter.find(|b| b.name == name).is_some()
+            },
+            EnvironmentIter::NonHashed(mut iter) => {
+                iter.find(|b| b.name == name).is_some()
+            }
+        }
     }
 
     pub fn find(
