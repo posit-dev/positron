@@ -10,7 +10,12 @@ import string
 import sys
 import types
 import unittest
-from positron_ipkernel import PositronIPyKernel, EnvironmentVariable, TRUNCATE_SUMMARY_AT, SUMMARY_PRINT_WIDTH
+from positron_ipkernel import (
+    PositronIPyKernel,
+    EnvironmentVariable,
+    TRUNCATE_SUMMARY_AT,
+    SUMMARY_PRINT_WIDTH
+)
 
 
 class TestPositronIPKernel(unittest.TestCase):
@@ -47,6 +52,7 @@ class TestPositronIPKernel(unittest.TestCase):
         self.assertEqual(result['access_key'], expected['access_key'])
         self.assertEqual(result['length'], expected['length'])
         self.assertEqual(result['has_children'], expected['has_children'])
+        self.assertEqual(result['has_viewer'], expected['has_viewer'])
         self.assertEqual(result['is_truncated'], expected['is_truncated'])
         if expected['size'] is not None:
             self.assertEqual(result['size'], expected['size'])
@@ -81,8 +87,8 @@ class TestPositronIPKernel(unittest.TestCase):
                                   'Hello, world!',                             # Basic String
                                   '    ',                                      # Whitespace String
                                   'First\nSecond\nThird',                      # Multiline String
-                                  'This has a Windows linebreak\r\n',          # Windows Linebreak String
-                                  ' Space Before\tTab Between\tSpace After ',  # Trailing Whitespace String
+                                  'This has a Windows linebreak\r\n',          # Windows Linebreak
+                                  ' Space Before\tTab Between\tSpace After ',  # Trailing Whitespace
                                   'É una bella città',                         # Accented String
                                   'こんにちは',                                  # Japanese String
                                   'עֶמֶק',                                       # RTL String
@@ -111,7 +117,7 @@ class TestPositronIPKernel(unittest.TestCase):
         length = len(long_string)
         expected_value = f'\'{long_string[:TRUNCATE_SUMMARY_AT]}\''
         expected = EnvironmentVariable(display_name, expected_value, 'string', 'str', 'str',
-                                       display_name, length, None, False, True)
+                                       display_name, length, None, False, False, True)
 
         key, value = display_name, long_string
         result = self.kernel.summarize_variable(key, value)
@@ -197,7 +203,10 @@ class TestPositronIPKernel(unittest.TestCase):
 
             self.compare_summary(result, expected)
 
-    BYTEARRAY_CASES: list[bytes] = list([bytearray(), bytearray(0), bytearray(1), bytearray(b'\x41\x42\x43')])
+    BYTEARRAY_CASES: list[bytes] = list([bytearray(),
+                                         bytearray(0),
+                                         bytearray(1),
+                                         bytearray(b'\x41\x42\x43')])
 
     def test_bytearrays(self):
 
@@ -222,7 +231,7 @@ class TestPositronIPKernel(unittest.TestCase):
         length = len(case)
         expected = EnvironmentVariable(display_name, str(case)[:TRUNCATE_SUMMARY_AT], 'bytes',
                                        f'bytearray [{length}]', 'bytearray', display_name,
-                                       length, None, False, True)
+                                       length, None, False, False, True)
 
         key, value = display_name, case
         result = self.kernel.summarize_variable(key, value)
@@ -296,7 +305,7 @@ class TestPositronIPKernel(unittest.TestCase):
         expected_value = pprint.pformat(case, width=SUMMARY_PRINT_WIDTH, compact=True)
         expected = EnvironmentVariable(display_name, expected_value[:TRUNCATE_SUMMARY_AT],
                                        'collection', f'set {{{length}}}', 'set', display_name,
-                                       length, None, True, True)
+                                       length, None, True, False, True)
 
         key, value = display_name, case
         result = self.kernel.summarize_variable(key, value)
@@ -336,7 +345,7 @@ class TestPositronIPKernel(unittest.TestCase):
         expected_value = pprint.pformat(case, width=SUMMARY_PRINT_WIDTH, compact=True)
         expected = EnvironmentVariable(display_name, expected_value[:TRUNCATE_SUMMARY_AT],
                                        'collection', f'list [{length}]', 'list', display_name,
-                                       length, None, True, True)
+                                       length, None, True, False, True)
 
         key, value = display_name, case
         result = self.kernel.summarize_variable(key, value)
