@@ -21,5 +21,5 @@
 
     write.table(x, sep = "\t", file = con, col.names = NA)
 
-    paste(textConnectionValue(con), collapse = "\n")
+    textConnectionValue(con)
 }

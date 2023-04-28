@@ -550,10 +550,12 @@ impl EnvironmentVariable {
                     unsafe {
                         let formatted = RFunction::from(".ps.environment.clipboardFormatDataFrame")
                             .add(object)
-                            .call()?
-                            .try_into()?;
+                            .call()?;
 
-                        Ok(formatted)
+                        let formatted = CharacterVector::new_unchecked(formatted);
+
+                        let out = formatted.iter().map(|s| s.unwrap()).join("\n");
+                        Ok(out)
                     }
                 } else if r_typeof(*object) == CLOSXP {
                     unsafe {
