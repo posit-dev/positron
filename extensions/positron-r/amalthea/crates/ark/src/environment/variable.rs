@@ -555,7 +555,15 @@ impl EnvironmentVariable {
 
                         Ok(formatted)
                     }
+                } else if r_typeof(*object) == CLOSXP {
+                    unsafe {
+                        let deparsed : Vec<String> = RFunction::from("deparse")
+                            .add(*object)
+                            .call()?
+                            .try_into()?;
 
+                        Ok(deparsed.join("\n"))
+                    }
                 } else {
                     Ok(String::from(""))
                 }
