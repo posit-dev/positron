@@ -14,3 +14,12 @@
     }
     names
 }
+
+.ps.environment.clipboardFormatDataFrame <- function(x) {
+    con <- textConnection(NULL, open = "w")
+    on.exit(close(con))
+
+    write.table(x, sep = "\t", file = con, col.names = NA)
+
+    paste(textConnectionValue(con), collapse = "\n")
+}
