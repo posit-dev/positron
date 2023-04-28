@@ -19,11 +19,6 @@ jobs:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       POSITRON_BUILD_NUMBER: 0 # CI skips building releases
     steps:
-      - name: Checkout Sources
-        uses: actions/checkout@v3
-        with:
-          submodules: recursive
-          remote: true
       - name: Setup Build Environment
         run: |
           apt-get update
@@ -35,6 +30,12 @@ jobs:
       - uses: actions/setup-node@v3
         with:
           node-version: 16
+
+      - name: Checkout Sources
+        uses: actions/checkout@v3
+        with:
+          submodules: recursive
+          remote: true
 
       - name: Execute yarn
         env:
