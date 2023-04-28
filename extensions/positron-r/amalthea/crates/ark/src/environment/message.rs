@@ -51,13 +51,13 @@ pub enum EnvironmentMessage {
     Details(EnvironmentMessageDetails),
 
     /// A message requesting to view a variable
-    View(EnvironmentMessageView)
+    View(EnvironmentMessageView),
 
     /// Clipboard format
     ClipboardFormat(EnvironmentMessageClipboardFormat),
 
     /// Formatted variable
-    FormattedVariable(EnvironmentMessageFormattedVariable)
+    FormattedVariable(EnvironmentMessageFormattedVariable),
 }
 
 /**
