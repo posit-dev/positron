@@ -16,10 +16,10 @@
 }
 
 .ps.environment.clipboardFormatDataFrame <- function(x) {
-    con <- textConnection(NULL, open = "w")
-    on.exit(close(con))
+    tf <- tempfile()
+    on.exit(unlink(tf))
 
-    write.table(x, sep = "\t", file = con, col.names = NA)
+    write.table(x, sep = "\t", file = tf, col.names = NA)
 
-    textConnectionValue(con)
+    readLines(tf)
 }
