@@ -331,11 +331,11 @@ impl Environment {
         EnvironmentIter::new(&self)
     }
 
-    pub fn exists(
-        &self,
-        name: impl Into<RSymbol>,
-    ) -> bool {
-        unsafe { Rf_findVarInFrame3(self.env.sexp, *name.into(), Rboolean_FALSE) != R_UnboundValue }
+    pub fn exists(&self, name: impl Into<RSymbol>) -> bool {
+        let name = name.into();
+        self.iter().find(|b| {
+            b.name == name
+        }).is_some()
     }
 
     pub fn find(
