@@ -45,8 +45,11 @@ export const ActionBar = (props: ActionBarProps) => {
 	useEffect(() => {
 		// Register for active Positron console instance changes.
 		positronConsoleContext.positronConsoleService.onDidChangeActivePositronConsoleInstance(
-			activePositronConsoleInstance =>
-				setActivePositronConsoleInstance(activePositronConsoleInstance)
+			activePositronConsoleInstance => {
+				setActivePositronConsoleInstance(activePositronConsoleInstance);
+				setInterruptible(activePositronConsoleInstance?.state === PositronConsoleState.Busy);
+				setInterrupting(false);
+			}
 		);
 	}, []);
 
