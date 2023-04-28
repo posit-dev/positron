@@ -10,6 +10,7 @@ import enum
 import html
 import inspect
 import logging
+import math
 import numbers
 import pickle
 import pprint
@@ -17,6 +18,7 @@ import sys
 import types
 import uuid
 
+from binascii import b2a_base64
 from collections.abc import (
     Iterable,
     Mapping,
@@ -26,6 +28,7 @@ from collections.abc import (
     Sequence,
     Set
 )
+from datetime import datetime
 from ipykernel.ipkernel import IPythonKernel, comm
 from IPython.core.interactiveshell import InteractiveShell
 from itertools import chain
@@ -47,6 +50,7 @@ class EnvironmentMessageType(str, enum.Enum):
     LIST = 'list'
     REFRESH = 'refresh'
     UPDATE = 'update'
+    VIEW = 'view'
 
 
 @enum.unique
@@ -92,6 +96,7 @@ class EnvironmentVariable(dict):
                  length: int = 0,
                  size: int = None,
                  has_children: bool = False,
+                 has_viewer: bool = False,
                  is_truncated: bool = False):
         self['display_name'] = display_name
         self['display_value'] = display_value
@@ -103,6 +108,7 @@ class EnvironmentVariable(dict):
         self['length'] = length
         self['size'] = size
         self['has_children'] = has_children
+        self['has_viewer'] = has_viewer
         self['is_truncated'] = is_truncated
         # TODO: To be removed
         self['name'] = display_name
@@ -179,6 +185,19 @@ class EnvironmentMessageError(EnvironmentMessage):
         super().__init__(EnvironmentMessageType.ERROR)
         self['message'] = message
 
+class DataColumn(dict):
+
+    def __init__(self, name: str, type: str, data: list):
+        self['name'] = name
+        self['type'] = type
+        self['data'] = data
+
+class DataSet(dict):
+
+    def __init__(self, id: str, title: str, columns: list):
+        self['id'] = id
+        self['title'] = title
+        self['columns'] = columns
 
 class CustomInspector:
 
@@ -204,6 +223,9 @@ class CustomInspector:
         pass
 
     def copy(self, value) -> Any:
+        pass
+
+    def to_dataset(self, value, title: str) -> DataSet:
         pass
 
     def to_html(self, value) -> str:
@@ -268,6 +290,16 @@ class PandasDataFrameInspector(CustomInspector):
 
     def copy(self, value) -> Any:
         return value.copy()
+
+    def to_dataset(self, value, title: str) -> DataSet:
+        columns = []
+        for column_name in self.get_child_names(value):
+            column = value[column_name]
+            column_type = type(column).__name__
+            column_data = column.values.tolist()
+            columns.append(DataColumn(column_name, column_type, column_data))
+
+        return DataSet(str(uuid.uuid4()), title, columns)
 
     def to_html(self, value) -> str:
         return value.to_html()
@@ -375,6 +407,16 @@ class PolarsInspector(CustomInspector):
     def copy(self, value) -> Any:
         return value.clone()
 
+    def to_dataset(self, value, title: str) -> DataSet:
+        columns = []
+        for column_name in self.get_child_names(value):
+            column = value.get_column(column_name)
+            column_type = type(column).__name__
+            column_data = column.to_list()
+            columns.append(DataColumn(column_name, column_type, column_data))
+
+        return DataSet(str(uuid.uuid4()), title, columns)
+
     def to_html(self, value) -> str:
         return value._repr_html_()
 
@@ -444,6 +486,9 @@ POSITRON_ENVIRONMENT_COMM = 'positron.environment'
 POSITRON_PLOT_COMM = 'positron.plot'
 """The comm channel target_name for Positron's Plots View"""
 
+POSITRON_DATA_VIEWER_COMM = 'positron.dataViewer'
+"""The comm channel target_name for Positron's Data Viewer View"""
+
 MAX_ITEMS = 2000
 TRUNCATE_SUMMARY_AT = 1024
 SUMMARY_PRINT_WIDTH = 100
@@ -459,6 +504,72 @@ POSITON_NS_HIDDEN = {'_exit_code': {},
                      '__warningregistry__': {}
                     }
 """Additional variables to hide from the user's namespace."""
+
+ISO8601 = "%Y-%m-%dT%H:%M:%S.%f"
+
+# We can't use ipykernel's json_clean function as it has since been
+# deactivated, but also message cleaning in jupyter_client will be removed
+# in the near future too. We keep a copy and adjust it for display-only use.
+def json_clean(obj):
+    # types that are 'atomic' and ok in json as-is.
+    atomic_ok = (str, type(None))
+
+    # containers that we need to convert into lists
+    container_to_list = (tuple, set, types.GeneratorType)
+
+    # Since bools are a subtype of Integrals, which are a subtype of Reals,
+    # we have to check them in that order.
+
+    if isinstance(obj, bool):
+        return obj
+
+    if isinstance(obj, numbers.Integral):
+        # cast int to int, in case subclasses override __str__ (e.g. boost enum, #4598)
+        return int(obj)
+
+    if isinstance(obj, numbers.Real):
+        # use string repr to avoid precision issues with JSON
+        return repr(obj)
+
+    if isinstance(obj, atomic_ok):
+        return obj
+
+    if isinstance(obj, bytes):
+        # unanmbiguous binary data is base64-encoded
+        # (this probably should have happened upstream)
+        return b2a_base64(obj, newline=False).decode('ascii')
+
+    if isinstance(obj, container_to_list) or (
+        hasattr(obj, '__iter__') and hasattr(obj, '__next__')
+    ):
+        obj = list(obj)
+
+    if isinstance(obj, list):
+        return [json_clean(x) for x in obj]
+
+    if isinstance(obj, dict):
+        # First, validate that the dict won't lose data in conversion due to
+        # key collisions after stringification.  This can happen with keys like
+        # True and 'true' or 1 and '1', which collide in JSON.
+        nkeys = len(obj)
+        nkeys_collapsed = len(set(map(str, obj)))
+        if nkeys != nkeys_collapsed:
+            msg = (
+                'dict cannot be safely converted to JSON: '
+                'key collision would lead to dropped values'
+            )
+            raise ValueError(msg)
+        # If all OK, proceed by making the new dict that will be json-safe
+        out = {}
+        for k, v in obj.items():
+            out[str(k)] = json_clean(v)
+        return out
+
+    if isinstance(obj, datetime):
+        return obj.strftime(ISO8601)
+
+    # we don't understand it, it's probably an unserializable object
+    raise ValueError("Can't clean for JSON: %r" % obj)
 
 
 class PositronIPyKernel(IPythonKernel):
@@ -480,6 +591,7 @@ class PositronIPyKernel(IPythonKernel):
         # and establish a comm channel with the frontend.
         self.display_pub_hook = PositronDisplayPublisherHook()
         self.shell.display_pub.register_hook(self.display_pub_hook)
+        self.dataviewer_service = PositronDataViewerService()
 
     def do_shutdown(self, restart) -> dict:
         """
@@ -487,6 +599,7 @@ class PositronIPyKernel(IPythonKernel):
         """
         result = super().do_shutdown(restart)
         self.display_pub_hook.shutdown()
+        self.dataviewer_service.shutdown()
         return result
 
     def environment_comm(self, comm, open_msg) -> None:
@@ -516,6 +629,10 @@ class PositronIPyKernel(IPythonKernel):
                 path = data.get('path', None)
                 clipboard_format = data.get('format', ClipboardFormat.PLAIN)
                 self.send_formatted_var(path, clipboard_format)
+
+            elif msgType == EnvironmentMessageType.VIEW:
+                path = data.get('path', None)
+                self.view_var(path)
 
             elif msgType == EnvironmentMessageType.CLEAR:
                 self.delete_all_vars(msg)
@@ -784,6 +901,32 @@ class PositronIPyKernel(IPythonKernel):
             message = f'Cannot find variable at \'{path}\' to inspect'
             self.send_error(message)
 
+    def view_var(self, path: Iterable) -> None:
+        """
+        Opens a viewer comm for the variable at the requested path in the
+        current user session.
+        """
+        if path is None:
+            return
+
+        error_message = None
+        context = self.get_user_ns()
+        is_known, value = self.find_var(path, context)
+
+        if is_known:
+            inspector = self.get_inspector(value)
+            if inspector is not None:
+                title = path[-1:][0]
+                dataset = inspector.to_dataset(value, title)
+                self.dataviewer_service.register_dataset(dataset)
+            else:
+                error_message = f'Cannot create viewer for variable at \'{path}\''
+        else:
+            error_message = f'Cannot find variable at \'{path}\' to inspect'
+
+        if error_message is not None:
+            self.send_error(error_message)
+
     def send_formatted_var(self, path: Iterable,
                            clipboard_format: ClipboardFormat = ClipboardFormat.PLAIN) -> None:
         """
@@ -903,6 +1046,16 @@ class PositronIPyKernel(IPythonKernel):
         msg = EnvironmentMessageUpdate(filtered_assigned, filtered_removed)
         self.send_message(msg)
 
+    def register_tables(self, assigned: dict) -> None:
+        """
+        Registers any new tables assigned in the user environment.
+        """
+        for key, value in assigned.items():
+            if self.is_inspectable(value):
+                inspector = self.get_inspector(value)
+                if inspector.get_kind(value) == EnvironmentVariableKind.TABLE:
+                    self.dataviewer_service.register_table(key, value)
+
     def send_list(self) -> None:
         """
         Sends a list message summarizing the variables of the current user session through the
@@ -994,6 +1147,7 @@ class PositronIPyKernel(IPythonKernel):
             length = self.get_length(value)
             size = sys.getsizeof(value)
             has_children = length > 0
+            has_viewer = False
             is_truncated = False
 
             # Determine the short display type for the variable, including
@@ -1012,6 +1166,7 @@ class PositronIPyKernel(IPythonKernel):
                 # Tables are summarized by their dimensions
                 inspector = self.get_inspector(value)
                 display_value = inspector.get_display_value(value)
+                has_viewer = True
                 is_truncated = True
 
             elif kind == EnvironmentVariableKind.FUNCTION:
@@ -1043,6 +1198,7 @@ class PositronIPyKernel(IPythonKernel):
                                        length=length,
                                        size=size,
                                        has_children=has_children,
+                                       has_viewer=has_viewer,
                                        is_truncated=is_truncated)
         except Exception as err:
             logging.warning(err, exc_info=True)
@@ -1388,3 +1544,38 @@ class PositronDisplayPublisherHook:
                 pass
         self.comms.clear()
         self.figures.clear()
+
+
+class PositronDataViewerService:
+
+    def __init__(self):
+        self.comms = {}
+        self.datasets = {}
+
+    def register_dataset(self, dataset: DataSet) -> None:
+        id = dataset.get('id', None)
+        self.datasets[id] = dataset
+        self.create_comm(id, dataset)
+
+    def has_dataset(self, id: str) -> bool:
+        return id in self.datasets
+
+    def create_comm(self, comm_id: str, dataset: DataSet) -> None:
+        data = json_clean(dataset)
+        dataview_comm = comm.create_comm(target_name=POSITRON_DATA_VIEWER_COMM,
+                                         comm_id=comm_id,
+                                         data=data)
+        self.comms[comm_id] = dataview_comm
+        dataview_comm.on_msg(self.receive_message)
+
+    def receive_message(self, msg) -> None:
+       pass
+
+    def shutdown(self) -> None:
+        for dataview_comm in self.comms.values():
+            try:
+                dataview_comm.close()
+            except Exception:
+                pass
+        self.comms.clear()
+        self.datasets.clear()
