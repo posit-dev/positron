@@ -38,7 +38,7 @@ export const ActionBar = (props: ActionBarProps) => {
 	// State hooks.
 	const [activePositronConsoleInstance, setActivePositronConsoleInstance] =
 		useState(positronConsoleContext.positronConsoleService.activePositronConsoleInstance);
-	const [interruptable, setInterruptable] = useState(false);
+	const [interruptible, setInterruptible] = useState(false);
 	const [interrupting, setInterrupting] = useState(false);
 
 	// Main useEffect hook.
@@ -58,17 +58,17 @@ export const ActionBar = (props: ActionBarProps) => {
 		// If there is an active Positron console instance, register for its onDidChangeState event.
 		if (activePositronConsoleInstance) {
 			disposableStore.add(activePositronConsoleInstance.onDidChangeState(state => {
-				// Track whether the active Positron console instance is interruptable.
+				// Track whether the active Positron console instance is interruptible.
 				switch (state) {
-					// The Positron console instance is interruptable.
+					// The Positron console instance is interruptible.
 					case PositronConsoleState.Busy:
-						setInterruptable(true);
+						setInterruptible(true);
 						setInterrupting(false);
 						break;
 
-					// The Positron console instance is not interruptable.
+					// The Positron console instance is not interruptible.
 					default:
-						setInterruptable(false);
+						setInterruptible(false);
 						setInterrupting(false);
 						break;
 				}
@@ -105,7 +105,7 @@ export const ActionBar = (props: ActionBarProps) => {
 				<PositronActionBar size='small' borderTop={true} borderBottom={true} paddingLeft={kPaddingLeft} paddingRight={kPaddingRight}>
 					<ActionBarRegion align='left'>
 						<ConsoleInstanceMenuButton {...props} />
-						{interruptable && <ActionBarButton disabled={interrupting} iconId='positron-interrupt' align='left' tooltip={localize('positronInterrupt', "Interrupt")} onClick={interruptHandler} />}
+						{interruptible && <ActionBarButton disabled={interrupting} iconId='positron-interrupt' align='left' tooltip={localize('positronInterrupt', "Interrupt")} onClick={interruptHandler} />}
 					</ActionBarRegion>
 					<ActionBarRegion align='right'>
 						<ActionBarButton iconId='positron-list' align='right' tooltip={localize('positronToggleTrace', "Toggle Trace")} onClick={toggleTraceHandler} />
