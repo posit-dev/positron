@@ -11,15 +11,15 @@ use libR_sys::*;
 
 use crate::object::RObject;
 use crate::symbol::RSymbol;
-use crate::utils::Sxpinfo;
 use crate::utils::r_is_altrep;
 use crate::utils::r_is_null;
 use crate::utils::r_is_s4;
 use crate::utils::r_typeof;
+use crate::utils::Sxpinfo;
 
 #[derive(Eq)]
 pub struct BindingReference {
-    pub reference: bool
+    pub reference: bool,
 }
 
 fn has_reference(value: SEXP) -> bool {
@@ -43,13 +43,11 @@ fn has_reference(value: SEXP) -> bool {
 
     let rtype = r_typeof(value);
     match rtype {
-        ENVSXP  => true,
+        ENVSXP => true,
 
-        LISTSXP | LANGSXP => unsafe {
-            has_reference(CAR(value)) || has_reference(CDR(value))
-        },
+        LISTSXP | LANGSXP => unsafe { has_reference(CAR(value)) || has_reference(CDR(value)) },
 
-        VECSXP | EXPRSXP  => unsafe {
+        VECSXP | EXPRSXP => unsafe {
             let n = XLENGTH(value);
             let mut has_ref = false;
             for i in 0..n {
@@ -61,41 +59,58 @@ fn has_reference(value: SEXP) -> bool {
             has_ref
         },
 
-        _      => false
+        _ => false,
     }
-
 }
 
 impl BindingReference {
     fn new(value: SEXP) -> Self {
         Self {
-            reference: has_reference(value)
+            reference: has_reference(value),
         }
     }
 }
 
 impl PartialEq for BindingReference {
-    fn eq(&self, other: &Self) -> bool {
+    fn eq(
+        &self,
+        other: &Self,
+    ) -> bool {
         !(self.reference || other.reference)
     }
 }
 
 #[derive(Eq, PartialEq)]
 pub enum BindingValue {
-    Active{fun: SEXP},
-    Promise{promise: SEXP},
-    Altrep{object: SEXP, data1: SEXP, data2: SEXP, reference: BindingReference},
-    Standard{object: SEXP, reference: BindingReference}
+    Active {
+        fun: SEXP,
+    },
+    Promise {
+        promise: SEXP,
+    },
+    Altrep {
+        object: SEXP,
+        data1: SEXP,
+        data2: SEXP,
+        reference: BindingReference,
+    },
+    Standard {
+        object: SEXP,
+        reference: BindingReference,
+    },
 }
 
 #[derive(Eq, PartialEq)]
 pub struct Binding {
     pub name: RSymbol,
-    pub value: BindingValue
+    pub value: BindingValue,
 }
 
 impl Binding {
-    pub fn new(env: SEXP, frame: SEXP) -> Self {
+    pub fn new(
+        env: SEXP,
+        frame: SEXP,
+    ) -> Self {
         unsafe {
             let name = RSymbol::new(TAG(frame));
 
@@ -108,10 +123,8 @@ impl Binding {
             let mut value = CAR(frame);
 
             if info.is_active() {
-                let value = BindingValue::Active{
-                    fun: value
-                };
-                return Self {name, value};
+                let value = BindingValue::Active { fun: value };
+                return Self { name, value };
             }
 
             if r_typeof(value) == PROMSXP {
@@ -129,18 +142,17 @@ impl Binding {
                     object: value,
                     data1: R_altrep_data1(value),
                     data2: R_altrep_data2(value),
-                    reference: BindingReference::new(value)
+                    reference: BindingReference::new(value),
                 };
-                return Self {name, value};
+                return Self { name, value };
             }
 
             let value = BindingValue::Standard {
                 object: value,
-                reference: BindingReference::new(value)
+                reference: BindingReference::new(value),
             };
-            Self { name, value}
+            Self { name, value }
         }
-
     }
 
     pub fn is_hidden(&self) -> bool {
@@ -154,7 +166,6 @@ impl Binding {
             false
         }
     }
-
 }
 
 pub struct Environment {
@@ -173,7 +184,7 @@ pub struct HashedEnvironmentIter<'a> {
 
     hashtab: SEXP,
     hashtab_index: R_xlen_t,
-    frame: SEXP
+    frame: SEXP,
 }
 
 impl<'a> HashedEnvironmentIter<'a> {
@@ -202,9 +213,8 @@ impl<'a> HashedEnvironmentIter<'a> {
                 env,
                 hashtab,
                 hashtab_index,
-                frame
+                frame,
             }
-
         }
     }
 }
@@ -213,7 +223,6 @@ impl<'a> Iterator for HashedEnvironmentIter<'a> {
     type Item = Binding;
 
     fn next(&mut self) -> Option<Self::Item> {
-
         unsafe {
             if self.frame == R_NilValue {
                 return None;
@@ -247,7 +256,6 @@ impl<'a> Iterator for HashedEnvironmentIter<'a> {
             }
 
             Some(binding)
-
         }
     }
 }
@@ -255,7 +263,7 @@ impl<'a> Iterator for HashedEnvironmentIter<'a> {
 pub struct NonHashedEnvironmentIter<'a> {
     env: &'a Environment,
 
-    frame: SEXP
+    frame: SEXP,
 }
 
 impl<'a> NonHashedEnvironmentIter<'a> {
@@ -287,12 +295,11 @@ impl<'a> Iterator for NonHashedEnvironmentIter<'a> {
 
 pub enum EnvironmentIter<'a> {
     Hashed(HashedEnvironmentIter<'a>),
-    NonHashed(NonHashedEnvironmentIter<'a>)
+    NonHashed(NonHashedEnvironmentIter<'a>),
 }
 
 impl<'a> EnvironmentIter<'a> {
     pub fn new(env: &'a Environment) -> Self {
-
         unsafe {
             let hashtab = HASHTAB(**env);
             if hashtab == R_NilValue {
@@ -310,37 +317,37 @@ impl<'a> Iterator for EnvironmentIter<'a> {
     fn next(&mut self) -> Option<Self::Item> {
         match self {
             EnvironmentIter::Hashed(iter) => iter.next(),
-            EnvironmentIter::NonHashed(iter) => iter.next()
+            EnvironmentIter::NonHashed(iter) => iter.next(),
         }
     }
 }
 
 impl Environment {
     pub fn new(env: RObject) -> Self {
-        Self {env}
+        Self { env }
     }
 
     pub fn iter(&self) -> EnvironmentIter {
         EnvironmentIter::new(&self)
     }
 
-    pub fn exists(&self, name: impl Into<RSymbol>) -> bool {
-        unsafe {
-            R_existsVarInFrame(self.env.sexp, *name.into()) == Rboolean_TRUE
-        }
+    pub fn exists(
+        &self,
+        name: impl Into<RSymbol>,
+    ) -> bool {
+        unsafe { Rf_findVarInFrame3(self.env.sexp, *name.into(), Rboolean_FALSE) != R_UnboundValue }
     }
 
-    pub fn find(&self, name: impl Into<RSymbol>) -> SEXP {
+    pub fn find(
+        &self,
+        name: impl Into<RSymbol>,
+    ) -> SEXP {
         let name = name.into();
         unsafe { Rf_findVarInFrame(self.env.sexp, *name) }
     }
 
     pub fn is_empty(&self) -> bool {
-        self
-            .iter()
-            .filter(|b| !b.is_hidden())
-            .next()
-            .is_none()
+        self.iter().filter(|b| !b.is_hidden()).next().is_none()
     }
 }
 
@@ -348,10 +355,10 @@ impl Environment {
 mod tests {
     use libR_sys::*;
 
-    use crate::r_symbol;
-    use crate::r_test;
     use crate::exec::RFunction;
     use crate::exec::RFunctionExt;
+    use crate::r_symbol;
+    use crate::r_test;
 
     use super::*;
 
@@ -377,9 +384,10 @@ mod tests {
 
     #[test]
     #[allow(non_snake_case)]
-    fn test_environment_iter() { r_test! {
-        test_environment_iter_impl(true);
-        test_environment_iter_impl(false);
-    }}
-
+    fn test_environment_iter() {
+        r_test! {
+            test_environment_iter_impl(true);
+            test_environment_iter_impl(false);
+        }
+    }
 }
