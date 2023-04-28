@@ -253,8 +253,8 @@ export function registerPositronConsoleActions() {
 				}
 			}
 
-			// Trim the code.
-			code = code.trim();
+			// Trim the code by removing all leading and trailing newlines.
+			code = code.replace(/^\n+/, '').replace(/\n+$/, '');
 
 			// If there is no code to execute, inform the user.
 			if (code.length === 0) {
