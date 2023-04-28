@@ -4,7 +4,7 @@
 
 import 'vs/css!./consoleInput';
 import * as React from 'react';
-import { FocusEvent, forwardRef, useCallback, useEffect, useRef } from 'react'; // eslint-disable-line no-duplicate-imports
+import { FocusEvent, forwardRef, useEffect, useRef } from 'react'; // eslint-disable-line no-duplicate-imports
 import { URI } from 'vs/base/common/uri';
 import { Schemas } from 'vs/base/common/network';
 import { KeyCode } from 'vs/base/common/keyCodes';
@@ -25,14 +25,13 @@ import { TabCompletionController } from 'vs/workbench/contrib/snippets/browser/t
 import { IInputHistoryEntry } from 'vs/workbench/contrib/executionHistory/common/executionHistoryService';
 import { SelectionClipboardContributionID } from 'vs/workbench/contrib/codeEditor/browser/selectionClipboard';
 import { usePositronConsoleContext } from 'vs/workbench/contrib/positronConsole/browser/positronConsoleContext';
-import { RuntimeCodeFragmentStatus } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { IPositronConsoleInstance, PositronConsoleState } from 'vs/workbench/services/positronConsole/common/interfaces/positronConsoleService';
+import { RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 
 // ConsoleInputProps interface.
 export interface ConsoleInputProps {
 	readonly active: boolean;
 	readonly width: number;
-	readonly executeCode: (codeFragment: string) => void;
 	readonly positronConsoleInstance: IPositronConsoleInstance;
 }
 
@@ -57,12 +56,11 @@ export const ConsoleInput = forwardRef<HTMLDivElement, ConsoleInputProps>((props
 		useStateRef<string | undefined>(undefined);
 
 	/**
-	 * Updates the code editor widget position such that the cursor appers on
-	 * the last line and the last column.
+	 * Updates the code editor widget position such that the cursor appers on the last line and the
+	 * last column.
 	 */
 	const updateCodeEditorWidgetPositionToEnd = () => {
-		// Get the model. If it isn't null (which it won't be), set the code editor widget
-		// position.
+		// Get the model. If it isn't null (which it won't be), set the code editor widget position.
 		const textModel = codeEditorWidgetRef.current.getModel();
 		if (textModel) {
 			const lineNumber = textModel.getLineCount();
@@ -76,8 +74,93 @@ export const ConsoleInput = forwardRef<HTMLDivElement, ConsoleInputProps>((props
 		}
 	};
 
+	/**
+	 * Executes the code editor widget's code, if possible.
+	 */
+	const executeCodeEditorWidgetCodeIfPossible = async () => {
+		// Get the code fragment from the code editor widget.
+		const codeFragment = codeEditorWidgetRef.current.getValue();
+
+		// Check on whether the code fragment is complete and can be executed.
+		const runtimeCodeFragmentStatus = await props.positronConsoleInstance.runtime.
+			isCodeFragmentComplete(codeFragment);
+
+		// Handle the runtime code fragment status.
+		switch (runtimeCodeFragmentStatus) {
+			// If the code fragment is complete, execute it.
+			case RuntimeCodeFragmentStatus.Complete:
+				break;
+
+			// If the code fragment is incomplete, don't do anything. The user will just see a new
+			// line in the input area.
+			case RuntimeCodeFragmentStatus.Incomplete: {
+				// For the moment, this works. Ideally, we'd like to have the current code fragment
+				// prettied up by the runtime and updated.
+				const updatedCodeFragment = codeFragment + '\n';
+				setCurrentCodeFragment(updatedCodeFragment);
+				codeEditorWidgetRef.current.setValue(updatedCodeFragment);
+				return;
+			}
+
+			// If the code fragment is invalid (contains syntax errors), log a warning but execute
+			// it anyway (so the user can see a syntax error from the interpreter).
+			case RuntimeCodeFragmentStatus.Invalid:
+				positronConsoleContext.logService.warn(
+					`Executing invalid code fragment: '${codeFragment}'`
+				);
+				break;
+
+			// If the code gragment status is unknown, log a warning but execute it anyway (so the
+			// user can see an error from the interpreter).
+			case RuntimeCodeFragmentStatus.Unknown:
+				positronConsoleContext.logService.warn(
+					`Could not determine whether code fragment: '${codeFragment}' is complete.`
+				);
+				break;
+		}
+
+		// If the code fragment isn't just whitespace characters, add it to the history navigator.
+		if (codeFragment.trim().length) {
+			// Create the input history entry.
+			const inputHistoryEntry = {
+				when: new Date().getTime(),
+				input: codeFragment,
+			} satisfies IInputHistoryEntry;
+
+			// Add the input history entry.
+			if (historyNavigatorRef.current) {
+				historyNavigatorRef.current.add(inputHistoryEntry);
+			} else {
+				// TODO@softwarenerd - Get 1000 from settings.
+				setHistoryNavigator(new HistoryNavigator2<IInputHistoryEntry>(
+					[inputHistoryEntry],
+					1000
+				));
+			}
+		}
+
+		// Ask the runtime to execute the code fragment. This is an asynchronous and unwaitable.
+		props.positronConsoleInstance.runtime.execute(
+			codeFragment,
+			`fragment-${generateUuid()}`,
+			RuntimeCodeExecutionMode.Interactive,
+			RuntimeErrorBehavior.Continue);
+
+		// Reset the code input state.
+		setCurrentCodeFragment(undefined);
+		codeEditorWidgetRef.current.setValue('');
+	};
+
 	// Memoize the key down event handler.
-	const keyDownHandler = useCallback(async (e: IKeyboardEvent) => {
+	const keyDownHandler = async (e: IKeyboardEvent) => {
+		/**
+		 * Consumes an event.
+		 */
+		const consumeEvent = () => {
+			e.preventDefault();
+			e.stopPropagation();
+		};
+
 		// Check for a suggest widget in the DOM. If one exists, then don't
 		// handle the key.
 		//
@@ -92,23 +175,15 @@ export const ConsoleInput = forwardRef<HTMLDivElement, ConsoleInputProps>((props
 			}
 		}
 
-		/**
-		 * Consumes an event.
-		 */
-		const consumeEvent = () => {
-			e.preventDefault();
-			e.stopPropagation();
-		};
-
 		// Process the key code.
 		switch (e.keyCode) {
 			// Escape handling.
 			case KeyCode.Escape: {
-				// Interrupt the runtime.
-				props.positronConsoleInstance.runtime.interrupt();
-
 				// Consume the event.
 				consumeEvent();
+
+				// Interrupt the runtime.
+				props.positronConsoleInstance.runtime.interrupt();
 				break;
 			}
 
@@ -116,20 +191,22 @@ export const ConsoleInput = forwardRef<HTMLDivElement, ConsoleInputProps>((props
 			case KeyCode.KeyC: {
 				// Check for the right modifiers and if this is a Ctrl-C, interrupt the runtime.
 				if (e.ctrlKey && !e.shiftKey && !e.altKey && !e.metaKey && !e.altGraphKey) {
-					// Interrupt the runtime.
-					props.positronConsoleInstance.runtime.interrupt();
-
 					// Consume the event.
 					consumeEvent();
+
+					// Interrupt the runtime.
+					props.positronConsoleInstance.runtime.interrupt();
 				}
 				break;
 			}
 
 			// Up arrow processing.
 			case KeyCode.UpArrow: {
+				// Consume the event.
+				consumeEvent();
+
 				// If the console instance isn't ready, ignore the event.
 				if (props.positronConsoleInstance.state !== PositronConsoleState.Ready) {
-					consumeEvent();
 					return;
 				}
 
@@ -152,17 +229,16 @@ export const ConsoleInput = forwardRef<HTMLDivElement, ConsoleInputProps>((props
 					// Position the cursor to the end.
 					updateCodeEditorWidgetPositionToEnd();
 				}
-
-				// Consume the event.
-				consumeEvent();
 				break;
 			}
 
 			// Down arrow processing.
 			case KeyCode.DownArrow: {
+				// Consume the event.
+				consumeEvent();
+
 				// If the console instance isn't ready, ignore the event.
 				if (props.positronConsoleInstance.state !== PositronConsoleState.Ready) {
-					consumeEvent();
 					return;
 				}
 
@@ -172,8 +248,8 @@ export const ConsoleInput = forwardRef<HTMLDivElement, ConsoleInputProps>((props
 					// code fragment.
 					if (historyNavigatorRef.current.isAtEnd()) {
 						if (currentCodeFragmentRef.current !== undefined) {
-							codeEditorWidgetRef.current.setValue(currentCodeFragmentRef.current);
 							setCurrentCodeFragment(undefined);
+							codeEditorWidgetRef.current.setValue(currentCodeFragmentRef.current);
 						}
 					} else {
 						// Move to the next history entry and set it as the value of the code editor
@@ -185,82 +261,35 @@ export const ConsoleInput = forwardRef<HTMLDivElement, ConsoleInputProps>((props
 					// Position the cursor to the end.
 					updateCodeEditorWidgetPositionToEnd();
 				}
-
-				// Consume the event.
-				consumeEvent();
 				break;
 			}
 
 			// Enter processing.
 			case KeyCode.Enter: {
-				// If the console instance isn't ready, ignore the event.
-				if (props.positronConsoleInstance.state !== PositronConsoleState.Ready) {
-					consumeEvent();
-					return;
-				}
+				// Consume the event.
+				consumeEvent();
 
 				// If the shift key is pressed, do not process the event because the user is
 				// entering multiple lines.
 				if (e.shiftKey) {
+					const value = codeEditorWidgetRef.current.getValue() + '\n';
+					setCurrentCodeFragment(value);
+					codeEditorWidgetRef.current.setValue(value);
+					updateCodeEditorWidgetPositionToEnd();
 					return;
 				}
 
-				// Get the code fragment from the editor.
-				const codeFragment = codeEditorWidgetRef.current.getValue();
-
-				// Check on whether the code fragment is complete and can be executed.
-				const runtimeCodeFragmentStatus = await props.positronConsoleInstance.runtime.
-					isCodeFragmentComplete(codeFragment);
-
-				// Handle the runtime code fragment status.
-				let shouldExecuteCodeFragment;
-				switch (runtimeCodeFragmentStatus) {
-					// If the code fragment is complete, execute it.
-					case RuntimeCodeFragmentStatus.Complete:
-						shouldExecuteCodeFragment = true;
-						break;
-
-					// If the code fragment is incomplete, don't do anything. The user will just see
-					// a new line in the input area.
-					case RuntimeCodeFragmentStatus.Incomplete:
-						shouldExecuteCodeFragment = false;
-						break;
-
-					// If the code is invalid (contains syntax errors), warn but execute it anyway
-					// (so the user can see a syntax error from the interpreter).
-					case RuntimeCodeFragmentStatus.Invalid:
-						positronConsoleContext.logService.warn(
-							`Executing invalid code fragment: '${codeFragment}'`
-						);
-						shouldExecuteCodeFragment = true;
-						break;
-
-					// If the code is invalid (contains syntax errors), warn but execute it anyway
-					// (so the user can see a syntax error from the interpreter).
-					case RuntimeCodeFragmentStatus.Unknown:
-						positronConsoleContext.logService.warn(
-							`Could not determine whether code fragment: '${codeFragment}' is complete.`
-						);
-						shouldExecuteCodeFragment = true;
-						break;
+				// If the console instance isn't ready, ignore the event.
+				if (props.positronConsoleInstance.state !== PositronConsoleState.Ready) {
+					return;
 				}
 
-				// If we should execute the code fragment, do it.
-				if (shouldExecuteCodeFragment) {
-					// Execute the code fragment.
-					props.positronConsoleInstance.executeCode(codeFragment);
-
-					// Reset the model for the next input.
-					setCurrentCodeFragment(undefined);
-					codeEditorWidgetRef.current.setValue('');
-				}
-
-				// Consume the event.
-				consumeEvent();
+				// Try to execute the code editor widget's code.
+				await executeCodeEditorWidgetCodeIfPossible();
 				break;
 			}
 		}
-	}, []);
+	};
 
 	// Main useEffect.
 	useEffect(() => {
@@ -362,7 +391,7 @@ export const ConsoleInput = forwardRef<HTMLDivElement, ConsoleInputProps>((props
 		codeEditorWidget.setModel(textModel);
 
 		// Set the key down handler.
-		codeEditorWidget.onKeyDown(keyDownHandler);
+		disposableStore.add(codeEditorWidget.onKeyDown(keyDownHandler));
 
 		// Auto-grow the editor as the internal content size changes (i.e. make
 		// it grow vertically as the user enters additional lines of input)
@@ -459,27 +488,21 @@ export const ConsoleInput = forwardRef<HTMLDivElement, ConsoleInputProps>((props
 		}));
 
 		// Add the onDidExecuteCode event handler.
-		disposableStore.add(props.positronConsoleInstance.onDidExecuteCode(codeFragment => {
-			// If the code fragment contains more than whitespace characters, add it to the
-			// history navigator.
-			if (codeFragment.trim().length) {
-				// Create the input history entry.
-				const inputHistoryEntry = {
-					when: new Date().getTime(),
-					input: codeFragment,
-				} satisfies IInputHistoryEntry;
+		disposableStore.add(props.positronConsoleInstance.onDidExecuteCode(async codeFragment => {
+			// Get the current code fragment.
+			const currentCodeFragment = codeEditorWidgetRef.current.getValue();
 
-				// Add the input history entry.
-				if (historyNavigatorRef.current) {
-					historyNavigatorRef.current.add(inputHistoryEntry);
-				} else {
-					// TODO@softwarenerd - Get 1000 from settings.
-					setHistoryNavigator(new HistoryNavigator2<IInputHistoryEntry>(
-						[inputHistoryEntry],
-						1000
-					));
-				}
+			// If there is a current code fragment, append the new code fragment on a new line.
+			if (currentCodeFragment.length) {
+				codeFragment = `${currentCodeFragment}${codeFragment}`;
 			}
+
+			// Update the current code fragment.
+			setCurrentCodeFragment(codeFragment);
+			codeEditorWidgetRef.current.setValue(codeFragment);
+
+			// Try to execute the code.
+			await executeCodeEditorWidgetCodeIfPossible();
 		}));
 
 		// Focus the console.
