@@ -26,8 +26,8 @@ jobs:
           sudo sed -i.bak "/^#.*deb-src.*universe$/s/^# //g" /etc/apt/sources.list
           sudo apt update
           sudo apt build-dep r-base
-          export R_VERSION=4.2.3
-          curl -O https://cran.rstudio.com/src/base/R-4/R-${R_VERSION}.tar.gz
+          export R_VERSION=3.6.3
+          curl -O https://cran.rstudio.com/src/base/R-3/R-${R_VERSION}.tar.gz
           tar -xzvf R-${R_VERSION}.tar.gz
           pushd R-${R_VERSION}
           ./configure --prefix=/opt/R/${R_VERSION} --enable-R-shlib --enable-memory-profiling
@@ -35,7 +35,7 @@ jobs:
           sudo make install
           popd
           sudo apt-get update
-          sudo apt-get install -y vim curl build-essential clang make cmake git r-base-dev python3-pip python-is-python3 libsodium-dev libxkbfile-dev pkg-config libsecret-1-dev libxss1 dbus xvfb libgtk-3-0 libgbm1 libnss3 libnspr4 libasound2
+          sudo apt-get install -y vim curl build-essential clang make cmake git python3-pip python-is-python3 libsodium-dev libxkbfile-dev pkg-config libsecret-1-dev libxss1 dbus xvfb libgtk-3-0 libgbm1 libnss3 libnspr4 libasound2
           sudo cp build/azure-pipelines/linux/xvfb.init /etc/init.d/xvfb
           sudo chmod +x /etc/init.d/xvfb
           sudo update-rc.d xvfb defaults
