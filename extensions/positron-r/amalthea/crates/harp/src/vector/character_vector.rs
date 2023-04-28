@@ -6,6 +6,7 @@
 //
 
 use std::ffi::CStr;
+use std::os::raw::c_char;
 
 use libR_sys::*;
 
@@ -14,7 +15,7 @@ use crate::vector::Vector;
 
 #[harp_macros::vector]
 pub struct CharacterVector {
-    object: RObject
+    object: RObject,
 }
 
 impl Vector for CharacterVector {
@@ -30,7 +31,7 @@ impl Vector for CharacterVector {
 
     unsafe fn new_unchecked(object: impl Into<SEXP>) -> Self {
         Self {
-            object: RObject::new(object.into())
+            object: RObject::new(object.into()),
         }
     }
 
@@ -50,7 +51,7 @@ impl Vector for CharacterVector {
             let value = data.next().unwrap_unchecked();
             let value = value.as_ref();
             let charsexp = Rf_mkCharLenCE(
-                value.as_ptr() as *const i8,
+                value.as_ptr() as *const c_char,
                 value.len() as i32,
                 cetype_t_CE_UTF8,
             );
@@ -64,7 +65,10 @@ impl Vector for CharacterVector {
         unsafe { *x == R_NaString }
     }
 
-    fn get_unchecked_elt(&self, index: isize) -> Self::UnderlyingType {
+    fn get_unchecked_elt(
+        &self,
+        index: isize,
+    ) -> Self::UnderlyingType {
         unsafe { STRING_ELT(self.data(), index as R_xlen_t) }
     }
 
@@ -76,10 +80,12 @@ impl Vector for CharacterVector {
         }
     }
 
-    fn format_one(&self, x: Self::Type) -> String {
+    fn format_one(
+        &self,
+        x: Self::Type,
+    ) -> String {
         x
     }
-
 }
 
 #[cfg(test)]
@@ -87,7 +93,6 @@ mod test {
     use crate::r_test;
     use crate::utils::r_typeof;
     use crate::vector::*;
-
 
     #[test]
     fn test_character_vector() {
@@ -145,6 +150,4 @@ mod test {
 
         }
     }
-
-
 }

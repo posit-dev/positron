@@ -7,6 +7,7 @@
 
 use harp::object::RObject;
 use libR_sys::*;
+use std::os::raw::c_char;
 
 /// Shows a message in the Positron frontend
 #[harp::register]
@@ -22,5 +23,5 @@ pub unsafe extern "C" fn ps_log_error(message: SEXP) -> SEXP {
 #[harp::register]
 pub unsafe extern "C" fn ps_object_id(object: SEXP) -> SEXP {
     let value = format!("{:p}", object);
-    return Rf_mkString(value.as_ptr() as *const i8);
+    return Rf_mkString(value.as_ptr() as *const c_char);
 }
