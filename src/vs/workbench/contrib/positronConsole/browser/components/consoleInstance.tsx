@@ -37,7 +37,6 @@ import { RuntimeItemReconnected } from 'vs/workbench/services/positronConsole/co
 import { RuntimeStartupFailure } from 'vs/workbench/contrib/positronConsole/browser/components/runtimeStartupFailure';
 import { IPositronConsoleInstance } from 'vs/workbench/services/positronConsole/common/interfaces/positronConsoleService';
 import { RuntimeItemStartupFailure } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemStartupFailure';
-import { RuntimeCodeExecutionMode, RuntimeErrorBehavior } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 
 // ConsoleInstanceProps interface.
 interface ConsoleInstanceProps {
@@ -151,12 +150,6 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 			setMarker(generateUuid());
 		}));
 
-		// Add the onDidExecuteCode event handler.
-		disposableStore.add(props.positronConsoleInstance.onDidExecuteCode(codeFragment => {
-			// Execute the code fragment.
-			executeCode(codeFragment);
-		}));
-
 		// Return the cleanup function that will dispose of the event handlers.
 		return () => disposableStore.dispose();
 	}, []);
@@ -165,19 +158,6 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 	useEffect(() => {
 		consoleInputRef.current?.scrollIntoView({ behavior: 'auto' });
 	}, [marker]);
-
-	// Executes code.
-	const executeCode = (codeFragment: string) => {
-		// Create the ID.
-		const id = `fragment-${generateUuid()}`;
-
-		// Execute the code fragment.
-		props.positronConsoleInstance.runtime.execute(
-			codeFragment,
-			id,
-			RuntimeCodeExecutionMode.Interactive,
-			RuntimeErrorBehavior.Continue);
-	};
 
 	/**
 	 * onClick event handler.
@@ -315,7 +295,6 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 				ref={consoleInputRef}
 				active={props.active}
 				width={adjustedWidth}
-				executeCode={executeCode}
 				positronConsoleInstance={props.positronConsoleInstance}
 			/>
 		</div>
