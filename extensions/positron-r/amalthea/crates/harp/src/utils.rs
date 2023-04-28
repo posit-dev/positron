@@ -61,6 +61,7 @@ pub struct Sxpinfo {
 
 pub static mut ACTIVE_BINDING_MASK: libc::c_uint = 1 << 15;
 pub static mut S4_OBJECT_MASK: libc::c_uint = 1 << 4;
+pub static mut HASHASH_MASK: libc::c_uint = 1;
 
 impl Sxpinfo {
 
