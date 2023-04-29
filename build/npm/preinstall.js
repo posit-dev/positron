@@ -161,13 +161,10 @@ if (fs.existsSync('extensions/positron-python/.git') &&
 	cp.execSync('git submodule absorbgitdirs extensions/positron-python');
 }
 
-cp.execSync('git submodule init');
-
-// For unattended builds: config with PAT
-if (process.env['POSITRON_GITHUB_PAT']) {
-	cp.execSync(`git config submodule.extensions/positron-python.url https://${process.env['POSITRON_GITHUB_PAT']}@github.com/posit-dev/positron-python.git`);
+// Update submodule if not running in a lab build
+if (!process.env['POSITRON_GITHUB_PAT']) {
+	cp.execSync('git submodule init');
+	cp.execSync('git submodule update');
 }
-
-cp.execSync('git submodule update');
 
 // --- End Positron ---
