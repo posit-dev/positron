@@ -187,7 +187,7 @@ export class PositronJediLanguageServerProxy implements ILanguageServerProxy {
         const displayName = interpreter.displayName + (hasKernel ? ' (ipykernel)' : '');
         const command = interpreter.path;
         const pythonVersion = interpreter.version?.raw;
-        const lsScriptPath = path.join(EXTENSION_ROOT_DIR, 'pythonFiles', 'ipykernel_jedi.py');
+        const lsScriptPath = path.join(EXTENSION_ROOT_DIR, 'pythonFiles', 'positron_language_server.py');
         const args = [command, lsScriptPath, `--port=${lspPort}`, '-f', '{connection_file}', '--logfile', '{log_file}']
         if (debugPort) {
             args.push(`--debugport=${debugPort}`);
