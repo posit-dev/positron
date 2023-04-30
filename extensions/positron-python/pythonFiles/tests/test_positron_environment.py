@@ -2,62 +2,61 @@
 # Copyright (C) 2023 Posit Software, PBC. All rights reserved.
 #
 
+import os
+import sys
+
+# append project parent to the path
+current = os.path.dirname(os.path.realpath(__file__))
+parent = os.path.dirname(current)
+sys.path.append(parent)
+
 import inspect
 import math
 import pprint
+import pytest
 import random
 import string
-import sys
 import types
-import unittest
-from positron_ipkernel import (
-    PositronIPyKernel,
+
+from positron import (
+    EnvironmentService,
     EnvironmentVariable,
     TRUNCATE_SUMMARY_AT,
     SUMMARY_PRINT_WIDTH
 )
 
 
-class TestPositronIPKernel(unittest.TestCase):
+class TestEnvironmentService:
     """
-    Unit tests for the Positron IPython Kernel.
+    Unit tests for the Positron Environment Service Comm.
 
     These tests focus on the serialization of the different kinds of Python
     variables that would be displayed in the Environment Pane.
     """
 
-    IPK = None
-
-    @classmethod
-    def setUpClass(cls):
-        TestPositronIPKernel.IPK = PositronIPyKernel()
-
-    @classmethod
-    def tearDownClass(cls):
-        TestPositronIPKernel.IPK = None
-
-    def setUp(self):
-        self.kernel = TestPositronIPKernel.IPK
+    @pytest.fixture(scope='class', autouse=True)
+    def env_service(self) -> EnvironmentService:
+        return EnvironmentService(None)
 
     #
     # Helper Methods
     #
 
     def compare_summary(self, result, expected):
-        self.assertEqual(result['display_name'], expected['display_name'])
-        self.assertEqual(result['display_value'], expected['display_value'])
-        self.assertEqual(result['kind'], expected['kind'])
-        self.assertEqual(result['type_info'], expected['type_info'])
-        self.assertEqual(result['display_type'], expected['display_type'])
-        self.assertEqual(result['access_key'], expected['access_key'])
-        self.assertEqual(result['length'], expected['length'])
-        self.assertEqual(result['has_children'], expected['has_children'])
-        self.assertEqual(result['has_viewer'], expected['has_viewer'])
-        self.assertEqual(result['is_truncated'], expected['is_truncated'])
+        assert result['display_name'] == expected['display_name']
+        assert result['display_value'] == expected['display_value']
+        assert result['kind'] == expected['kind']
+        assert result['type_info'] == expected['type_info']
+        assert result['display_type'] == expected['display_type']
+        assert result['access_key'] == expected['access_key']
+        assert result['length'] == expected['length']
+        assert result['has_children'] == expected['has_children']
+        assert result['has_viewer'] == expected['has_viewer']
+        assert result['is_truncated'] == expected['is_truncated']
         if expected['size'] is not None:
-            self.assertEqual(result['size'], expected['size'])
+            assert result['size'] == expected['size']
         else:
-            self.assertIsNotNone(result['size'])
+            assert result['size'] is not None
 
     #
     # Test Booleans
@@ -65,7 +64,7 @@ class TestPositronIPKernel(unittest.TestCase):
 
     BOOL_CASES: set[bytes] = set([True, False])
 
-    def test_booleans(self):
+    def test_booleans(self, env_service):
 
         cases = self.BOOL_CASES
 
@@ -75,7 +74,7 @@ class TestPositronIPKernel(unittest.TestCase):
                                            display_name, 0)
 
             key, value = display_name, case
-            result = self.kernel.summarize_variable(key, value)
+            result = env_service._summarize_variable(key, value)
 
             self.compare_summary(result, expected)
 
@@ -95,7 +94,7 @@ class TestPositronIPKernel(unittest.TestCase):
                                   'ʇxǝʇ',                                      # Upsidedown String
                                   '😅😁'])                                      # Emoji String
 
-    def test_strings(self):
+    def test_strings(self, env_service):
 
         cases = self.STRING_CASES
 
@@ -106,11 +105,11 @@ class TestPositronIPKernel(unittest.TestCase):
                                            display_name, length)
 
             key, value = display_name, case
-            result = self.kernel.summarize_variable(key, value)
+            result = env_service._summarize_variable(key, value)
 
             self.compare_summary(result, expected)
 
-    def test_string_long_truncated(self):
+    def test_string_long_truncated(self, env_service):
 
         display_name = 'xStrT'
         long_string = ''.join(random.choices(string.ascii_letters, k=(TRUNCATE_SUMMARY_AT + 10)))
@@ -120,7 +119,7 @@ class TestPositronIPKernel(unittest.TestCase):
                                        display_name, length, None, False, False, True)
 
         key, value = display_name, long_string
-        result = self.kernel.summarize_variable(key, value)
+        result = env_service._summarize_variable(key, value)
 
         self.compare_summary(result, expected)
 
@@ -133,7 +132,7 @@ class TestPositronIPKernel(unittest.TestCase):
     INT_CASES: set[int] = set([-sys.maxsize * 100, -sys.maxsize, -1, 0, 1,
                                sys.maxsize, sys.maxsize * 100])
 
-    def test_number_ints(self):
+    def test_number_ints(self, env_service):
 
         cases = self.INT_CASES
 
@@ -143,7 +142,7 @@ class TestPositronIPKernel(unittest.TestCase):
                                            display_name, 0)
 
             key, value = display_name, case
-            result = self.kernel.summarize_variable(key, value)
+            result = env_service._summarize_variable(key, value)
 
             self.compare_summary(result, expected)
 
@@ -151,7 +150,7 @@ class TestPositronIPKernel(unittest.TestCase):
                                   float('nan'), 0.0, sys.float_info.min, 1.0, math.pi,
                                   sys.float_info.max, float('inf')])
 
-    def test_number_floats(self):
+    def test_number_floats(self, env_service):
 
         cases = self.FLOAT_CASES
 
@@ -161,14 +160,14 @@ class TestPositronIPKernel(unittest.TestCase):
                                            display_name, 0)
 
             key, value = display_name, case
-            result = self.kernel.summarize_variable(key, value)
+            result = env_service._summarize_variable(key, value)
 
             self.compare_summary(result, expected)
 
     COMPLEX_CASES: set[complex] = set([complex(-1.0, 100.1), complex(-1.0, 0.0), complex(0, 0),
                                        complex(1.0, 0.0), complex(1.0, 100.1)])
 
-    def test_number_complex(self):
+    def test_number_complex(self, env_service):
 
         cases = self.COMPLEX_CASES
 
@@ -178,7 +177,7 @@ class TestPositronIPKernel(unittest.TestCase):
                                            display_name, 0)
 
             key, value = display_name, case
-            result = self.kernel.summarize_variable(key, value)
+            result = env_service._summarize_variable(key, value)
 
             self.compare_summary(result, expected)
 
@@ -188,7 +187,7 @@ class TestPositronIPKernel(unittest.TestCase):
 
     BYTES_CASES: set[bytes] = set([b'', b'\x00', b'caff\\xe8'])
 
-    def test_bytes_literals(self):
+    def test_bytes_literals(self, env_service):
 
         cases = self.BYTES_CASES
 
@@ -199,7 +198,7 @@ class TestPositronIPKernel(unittest.TestCase):
                                            'bytes', display_name, length)
 
             key, value = display_name, case
-            result = self.kernel.summarize_variable(key, value)
+            result = env_service._summarize_variable(key, value)
 
             self.compare_summary(result, expected)
 
@@ -208,7 +207,7 @@ class TestPositronIPKernel(unittest.TestCase):
                                          bytearray(1),
                                          bytearray(b'\x41\x42\x43')])
 
-    def test_bytearrays(self):
+    def test_bytearrays(self, env_service):
 
         cases = self.BYTEARRAY_CASES
 
@@ -220,11 +219,11 @@ class TestPositronIPKernel(unittest.TestCase):
                                            display_name, length)
 
             key, value = display_name, case
-            result = self.kernel.summarize_variable(key, value)
+            result = env_service._summarize_variable(key, value)
 
             self.compare_summary(result, expected)
 
-    def test_bytearray_truncated(self):
+    def test_bytearray_truncated(self, env_service):
 
         display_name = 'xBytearrayT'
         case = bytearray(TRUNCATE_SUMMARY_AT * 2)
@@ -234,11 +233,11 @@ class TestPositronIPKernel(unittest.TestCase):
                                        length, None, False, False, True)
 
         key, value = display_name, case
-        result = self.kernel.summarize_variable(key, value)
+        result = env_service._summarize_variable(key, value)
 
         self.compare_summary(result, expected)
 
-    def test_memoryview(self):
+    def test_memoryview(self, env_service):
 
         display_name = 'xMemoryview'
         byte_array = bytearray('東京', 'utf-8')
@@ -249,7 +248,7 @@ class TestPositronIPKernel(unittest.TestCase):
                                        display_name, length)
 
         key, value = display_name, case
-        result = self.kernel.summarize_variable(key, value)
+        result = env_service._summarize_variable(key, value)
 
         self.compare_summary(result, expected)
 
@@ -257,7 +256,7 @@ class TestPositronIPKernel(unittest.TestCase):
     # Test Empty
     #
 
-    def test_none(self):
+    def test_none(self, env_service):
 
         display_name = 'xNone'
         case = None
@@ -265,7 +264,7 @@ class TestPositronIPKernel(unittest.TestCase):
                                        display_name, 0)
 
         key, value = display_name, case
-        result = self.kernel.summarize_variable(key, value)
+        result = env_service._summarize_variable(key, value)
 
         self.compare_summary(result, expected)
 
@@ -273,7 +272,7 @@ class TestPositronIPKernel(unittest.TestCase):
     # Test Collections
     #
 
-    def test_set(self):
+    def test_set(self, env_service):
 
         cases = [set(),
                  set([None]),
@@ -293,11 +292,11 @@ class TestPositronIPKernel(unittest.TestCase):
                                            length, None, length > 0)
 
             key, value = display_name, case
-            result = self.kernel.summarize_variable(key, value)
+            result = env_service._summarize_variable(key, value)
 
             self.compare_summary(result, expected)
 
-    def test_set_truncated(self):
+    def test_set_truncated(self, env_service):
 
         display_name = 'xSetT'
         case = set(list(range(TRUNCATE_SUMMARY_AT * 2)))
@@ -308,11 +307,11 @@ class TestPositronIPKernel(unittest.TestCase):
                                        length, None, True, False, True)
 
         key, value = display_name, case
-        result = self.kernel.summarize_variable(key, value)
+        result = env_service._summarize_variable(key, value)
 
         self.compare_summary(result, expected)
 
-    def test_list(self):
+    def test_list(self, env_service):
 
         cases = [list(),
                  list([None]),
@@ -333,11 +332,11 @@ class TestPositronIPKernel(unittest.TestCase):
                                            length, None, length > 0)
 
             key, value = f'xList{i}', case
-            result = self.kernel.summarize_variable(key, value)
+            result = env_service._summarize_variable(key, value)
 
             self.compare_summary(result, expected)
 
-    def test_list_truncated(self):
+    def test_list_truncated(self, env_service):
 
         display_name = 'xListT'
         case = list(range(TRUNCATE_SUMMARY_AT * 2))
@@ -348,11 +347,11 @@ class TestPositronIPKernel(unittest.TestCase):
                                        length, None, True, False, True)
 
         key, value = display_name, case
-        result = self.kernel.summarize_variable(key, value)
+        result = env_service._summarize_variable(key, value)
 
         self.compare_summary(result, expected)
 
-    def test_list_cycle(self):
+    def test_list_cycle(self, env_service):
 
         display_name = 'xListCycle'
         case = list([1, 2])
@@ -364,11 +363,11 @@ class TestPositronIPKernel(unittest.TestCase):
                                        length, None, True)
 
         key, value = display_name, case
-        result = self.kernel.summarize_variable(key, value)
+        result = env_service._summarize_variable(key, value)
 
         self.compare_summary(result, expected)
 
-    def test_ranges(self):
+    def test_ranges(self, env_service):
 
         cases = [range(0),            # Empty Range
                  range(1),            # Range with positive start, 1 element
@@ -388,7 +387,7 @@ class TestPositronIPKernel(unittest.TestCase):
                                            f'range [{length}]', 'range', display_name, length)
 
             key, value = display_name, case
-            result = self.kernel.summarize_variable(key, value)
+            result = env_service._summarize_variable(key, value)
 
             self.compare_summary(result, expected)
 
@@ -396,7 +395,7 @@ class TestPositronIPKernel(unittest.TestCase):
     # Test Maps
     #
 
-    def test_maps(self):
+    def test_maps(self, env_service):
 
         cases = [{},                                  # empty dict
                  {'': None},                          # empty key
@@ -423,7 +422,7 @@ class TestPositronIPKernel(unittest.TestCase):
                                            length, None, length > 0)
 
             key, value = display_name, case
-            result = self.kernel.summarize_variable(key, value)
+            result = env_service._summarize_variable(key, value)
 
             self.compare_summary(result, expected)
 
@@ -431,7 +430,7 @@ class TestPositronIPKernel(unittest.TestCase):
     # Test Functions
     #
 
-    def test_functions(self):
+    def test_functions(self, env_service):
         helper = HelperClass()
         cases = [lambda: None,        # No argument lambda function
                  lambda x: x,         # Single argument lambda function
@@ -450,7 +449,7 @@ class TestPositronIPKernel(unittest.TestCase):
                                            expected_type, display_name)
 
             key, value = display_name, case
-            result = self.kernel.summarize_variable(key, value)
+            result = env_service._summarize_variable(key, value)
 
             self.compare_summary(result, expected)
 
@@ -459,7 +458,7 @@ class HelperClass:
     """
     A helper class for testing method functions.
     """
-    def fn_no_args(self):
+    def fn_no_args(self, env_service):
         return 'No args'
 
     def fn_one_arg(self, x: str) -> str:
@@ -467,7 +466,3 @@ class HelperClass:
 
     def fn_two_args(self, x: int, y: int) -> (int, int):
         return (x, y)
-
-
-if __name__ == '__main__':
-    unittest.main()  # pragma: no cover
