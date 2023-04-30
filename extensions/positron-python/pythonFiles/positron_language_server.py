@@ -14,7 +14,7 @@ EXTENSION_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(EXTENSION_ROOT, "pythonFiles", "lib", "jedilsp"))
 sys.path.insert(1, os.path.join(EXTENSION_ROOT, "pythonFiles", "lib", "python"))
 
-from positron_jedilsp import POSITRON
+from positron.positron_jedilsp import POSITRON
 
 def initialize() -> (str, int):
     """
@@ -27,7 +27,7 @@ def initialize() -> (str, int):
 
     # Given we're using TCP, support a subset of the Jedi LSP configuration
     parser = argparse.ArgumentParser(
-        prog="jedi-language-server",
+        prog="positron-language-server",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         description="Positron Jedi language server: an LSP wrapper for jedi.")
 

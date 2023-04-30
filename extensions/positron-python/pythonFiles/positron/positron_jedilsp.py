@@ -1,4 +1,5 @@
 """Positron extenstions to the Jedi Language Server."""
+
 import asyncio
 import logging
 import os
@@ -8,8 +9,8 @@ import sys
 EXTENSION_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(EXTENSION_ROOT, "pythonFiles", "lib", "jedilsp"))
 
+from .positron_ipkernel import PositronIPyKernel
 from ipykernel import kernelapp
-from positron_ipkernel import PositronIPyKernel
 from jedi_language_server.server import (
     JediLanguageServer,
     JediLanguageServerProtocol,
