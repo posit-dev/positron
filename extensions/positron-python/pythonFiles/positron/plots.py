@@ -6,10 +6,10 @@ import codecs
 import logging
 import pickle
 import uuid
+from typing import Optional
 
 from ipykernel.ipkernel import comm
 from IPython.core.interactiveshell import InteractiveShell
-from typing import Optional
 
 
 class PlotClientMessageImage(dict):

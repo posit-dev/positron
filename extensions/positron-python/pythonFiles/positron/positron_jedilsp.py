@@ -9,20 +9,25 @@ import sys
 EXTENSION_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(EXTENSION_ROOT, "pythonFiles", "lib", "jedilsp"))
 
-from .positron_ipkernel import PositronIPyKernel
+from threading import Event
+from typing import Any, Callable, List, Optional, TypeVar, Union
+
 from ipykernel import kernelapp
+from jedi.api import Interpreter
+from jedi_language_server import jedi_utils, pygls_utils
 from jedi_language_server.server import (
     JediLanguageServer,
     JediLanguageServerProtocol,
+    _choose_markup,
     code_action,
     completion_item_resolve,
+    definition,
     did_change_configuration,
-    did_close_diagnostics,
     did_change_diagnostics,
+    did_close_diagnostics,
     did_open_diagnostics,
     did_save_diagnostics,
     document_symbol,
-    definition,
     highlight,
     hover,
     references,
@@ -30,19 +35,30 @@ from jedi_language_server.server import (
     signature_help,
     type_definition,
     workspace_symbol,
-    _choose_markup
 )
-from jedi_language_server import (
-    jedi_utils,
-    pygls_utils
-)
-from jedi.api import Interpreter
 from lsprotocol.types import (
-    CodeActionOptions,
-    CompletionItem,
+    COMPLETION_ITEM_RESOLVE,
+    TEXT_DOCUMENT_CODE_ACTION,
+    TEXT_DOCUMENT_COMPLETION,
+    TEXT_DOCUMENT_DEFINITION,
+    TEXT_DOCUMENT_DID_CHANGE,
+    TEXT_DOCUMENT_DID_CLOSE,
+    TEXT_DOCUMENT_DID_OPEN,
+    TEXT_DOCUMENT_DID_SAVE,
+    TEXT_DOCUMENT_DOCUMENT_HIGHLIGHT,
+    TEXT_DOCUMENT_DOCUMENT_SYMBOL,
+    TEXT_DOCUMENT_HOVER,
+    TEXT_DOCUMENT_REFERENCES,
+    TEXT_DOCUMENT_RENAME,
+    TEXT_DOCUMENT_SIGNATURE_HELP,
+    TEXT_DOCUMENT_TYPE_DEFINITION,
+    WORKSPACE_DID_CHANGE_CONFIGURATION,
+    WORKSPACE_SYMBOL,
     CodeAction,
     CodeActionKind,
+    CodeActionOptions,
     CodeActionParams,
+    CompletionItem,
     CompletionList,
     CompletionOptions,
     CompletionParams,
@@ -63,28 +79,11 @@ from lsprotocol.types import (
     TextDocumentPositionParams,
     WorkspaceEdit,
     WorkspaceSymbolParams,
-    COMPLETION_ITEM_RESOLVE,
-    TEXT_DOCUMENT_CODE_ACTION,
-    TEXT_DOCUMENT_COMPLETION,
-    TEXT_DOCUMENT_DEFINITION,
-    TEXT_DOCUMENT_DID_CHANGE,
-    TEXT_DOCUMENT_DID_CLOSE,
-    TEXT_DOCUMENT_DID_OPEN,
-    TEXT_DOCUMENT_DID_SAVE,
-    TEXT_DOCUMENT_DOCUMENT_HIGHLIGHT,
-    TEXT_DOCUMENT_DOCUMENT_SYMBOL,
-    TEXT_DOCUMENT_HOVER,
-    TEXT_DOCUMENT_REFERENCES,
-    TEXT_DOCUMENT_RENAME,
-    TEXT_DOCUMENT_SIGNATURE_HELP,
-    TEXT_DOCUMENT_TYPE_DEFINITION,
-    WORKSPACE_DID_CHANGE_CONFIGURATION,
-    WORKSPACE_SYMBOL
 )
 from pygls.capabilities import get_capability
 from pygls.feature_manager import has_ls_param_or_annotation
-from threading import Event
-from typing import Any, Callable, List, Optional, TypeVar, Union
+
+from .positron_ipkernel import PositronIPyKernel
 
 F = TypeVar('F', bound=Callable)
 
