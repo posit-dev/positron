@@ -4,6 +4,7 @@
 
 import { RuntimeItem } from 'vs/workbench/services/positronConsole/common/classes/runtimeItem';
 import { ActivityItemInput } from 'vs/workbench/services/positronConsole/common/classes/activityItemInput';
+import { ActivityItemPrompt } from 'vs/workbench/services/positronConsole/common/classes/activityItemPrompt';
 import { ActivityItemOutputPlot } from 'vs/workbench/services/positronConsole/common/classes/activityItemOutputPlot';
 import { ActivityItemErrorStream } from 'vs/workbench/services/positronConsole/common/classes/activityItemErrorStream';
 import { ActivityItemOutputStream } from 'vs/workbench/services/positronConsole/common/classes/activityItemOutputStream';
@@ -15,6 +16,7 @@ import { ActivityItemOutputMessage } from 'vs/workbench/services/positronConsole
  */
 export type ActivityItem =
 	ActivityItemInput |
+	ActivityItemPrompt |
 	ActivityItemOutputStream |
 	ActivityItemErrorStream |
 	ActivityItemOutputMessage |
