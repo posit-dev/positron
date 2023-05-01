@@ -14,14 +14,14 @@ export interface ActivityErrorStreamProps {
 
 /**
  * ActivityErrorStream component.
- * @param activityItemErrorStream The ActivityItemErrorStream to render.
+ * @param props An ActivityErrorStreamProps that contains the component properties.
  * @returns The rendered component.
  */
-export const ActivityErrorStream = ({ activityItemErrorStream }: ActivityErrorStreamProps) => {
+export const ActivityErrorStream = (props: ActivityErrorStreamProps) => {
 	// Render.
 	return (
 		<div className='activity-error-stream'>
-			<OutputLines outputLines={activityItemErrorStream.outputLines} />
+			<OutputLines outputLines={props.activityItemErrorStream.outputLines} />
 		</div>
 	);
 };

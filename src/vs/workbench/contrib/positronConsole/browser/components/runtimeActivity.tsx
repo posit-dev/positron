@@ -5,7 +5,9 @@
 import 'vs/css!./runtimeActivity';
 import * as React from 'react';
 import { ActivityInput } from 'vs/workbench/contrib/positronConsole/browser/components/activityInput';
+import { ActivityPrompt } from 'vs/workbench/contrib/positronConsole/browser/components/activityPrompt';
 import { ActivityItemInput } from 'vs/workbench/services/positronConsole/common/classes/activityItemInput';
+import { ActivityItemPrompt } from 'vs/workbench/services/positronConsole/common/classes/activityItemPrompt';
 import { RuntimeItemActivity } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemActivity';
 import { ActivityOutputPlot } from 'vs/workbench/contrib/positronConsole/browser/components/activityOutputPlot';
 import { ActivityErrorStream } from 'vs/workbench/contrib/positronConsole/browser/components/activityErrorStream';
@@ -35,6 +37,8 @@ export const RuntimeActivity = ({ runtimeItemActivity }: RuntimeActivityProps) =
 			{runtimeItemActivity.activityItems.map(activityItem => {
 				if (activityItem instanceof ActivityItemInput) {
 					return <ActivityInput key={activityItem.id} activityItemInput={activityItem} />;
+				} else if (activityItem instanceof ActivityItemPrompt) {
+					return <ActivityPrompt key={activityItem.id} activityItemPrompt={activityItem} />;
 				} else if (activityItem instanceof ActivityItemOutputStream) {
 					return <ActivityOutputStream key={activityItem.id} activityItemOutputStream={activityItem} />;
 				} else if (activityItem instanceof ActivityItemErrorStream) {
