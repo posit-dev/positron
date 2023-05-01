@@ -14,12 +14,12 @@ export interface ActivityOutputStreamProps {
 
 /**
  * ActivityOutputStream component.
- * @param activityItemOutputStream The ActivityItemOutputStream to render.
+ * @param props An ActivityOutputStreamProps that contains the component properties.
  * @returns The rendered component.
  */
-export const ActivityOutputStream = ({ activityItemOutputStream }: ActivityOutputStreamProps) => {
+export const ActivityOutputStream = (props: ActivityOutputStreamProps) => {
 	// Render.
 	return (
-		<OutputLines outputLines={activityItemOutputStream.outputLines} />
+		<OutputLines outputLines={props.activityItemOutputStream.outputLines} />
 	);
 };
