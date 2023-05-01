@@ -1,3 +1,6 @@
+[tool.autopep8]
+max_line_length = 100
+
 [tool.black]
 exclude = '''
 
@@ -9,6 +12,10 @@ exclude = '''
   )/
 )
 '''
+line-length = 100
+
+[tool.isort]
+profile = "black"
 
 [tool.pyright]
 exclude = ['lib']

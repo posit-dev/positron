@@ -2,27 +2,27 @@
 # Copyright (C) 2023 Posit Software, PBC. All rights reserved.
 #
 
+import inspect
+import math
 import os
+import pprint
+import random
+import string
 import sys
+import types
 
-# append project parent to the path
+import pytest
+
+# append project parent to the path so that we can import the positron module
 current = os.path.dirname(os.path.realpath(__file__))
 parent = os.path.dirname(current)
 sys.path.append(parent)
 
-import inspect
-import math
-import pprint
-import pytest
-import random
-import string
-import types
-
 from positron import (
+    SUMMARY_PRINT_WIDTH,
+    TRUNCATE_SUMMARY_AT,
     EnvironmentService,
     EnvironmentVariable,
-    TRUNCATE_SUMMARY_AT,
-    SUMMARY_PRINT_WIDTH
 )
 
 
