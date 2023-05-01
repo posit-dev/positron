@@ -2,9 +2,8 @@
 # Copyright (C) 2023 Posit Software, PBC. All rights reserved.
 #
 
+import comm
 import uuid
-
-from ipykernel.ipkernel import comm
 
 from .utils import json_clean
 
@@ -14,19 +13,23 @@ class DataColumn(dict):
     A single column of data. The viewer deals with data in columnar format since
     that best matches the way data is stored in most data sources.
     """
+
     def __init__(self, name: str, type: str, data: list):
-        self['name'] = name
-        self['type'] = type
-        self['data'] = data
+        self["name"] = name
+        self["type"] = type
+        self["data"] = data
+
 
 class DataSet(dict):
     """
     A data set that can be displayed in the data viewer.
     """
+
     def __init__(self, id: str, title: str, columns: list):
-        self['id'] = id
-        self['title'] = title
-        self['columns'] = columns
+        self["id"] = id
+        self["title"] = title
+        self["columns"] = columns
+
 
 class DataViewerService:
     """
@@ -43,7 +46,7 @@ class DataViewerService:
         Register a dataset with the service. This will create a comm for the
         dataset and cache the dataset for future use.
         """
-        id = dataset.get('id', str(uuid.uuid4()))
+        id = dataset.get("id", str(uuid.uuid4()))
         self.datasets[id] = dataset
         self.init_comm(id, dataset)
 
@@ -57,7 +60,7 @@ class DataViewerService:
         dataview_comm.on_msg(self.receive_message)
 
     def receive_message(self, msg) -> None:
-       pass
+        pass
 
     def shutdown(self) -> None:
         for dataview_comm in self.comms.values():
@@ -71,6 +74,4 @@ class DataViewerService:
     # -- Private Methods --
 
     def _create_comm(self, comm_id: str, data):
-        return comm.create_comm(target_name=self.target_name,
-                                comm_id=comm_id,
-                                data=data)
+        return comm.create_comm(target_name=self.target_name, comm_id=comm_id, data=data)

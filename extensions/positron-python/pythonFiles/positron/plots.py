@@ -3,12 +3,12 @@
 #
 
 import codecs
+import comm
 import logging
 import pickle
 import uuid
-from typing import Optional
+from typing import Optional, Tuple
 
-from ipykernel.ipkernel import comm
 from IPython.core.interactiveshell import InteractiveShell
 
 
@@ -25,10 +25,11 @@ class PlotClientMessageImage(dict):
         mime_type: The MIME type of the image data, e.g. `image/png`. This is
         used determine how to display the image in the UI.
     """
+
     def __init__(self, data: str, mime_type: str):
-        self['msg_type'] = 'image'
-        self['data'] = data
-        self['mime_type'] = mime_type
+        self["msg_type"] = "image"
+        self["data"] = data
+        self["mime_type"] = mime_type
 
 
 class PlotClientMessageError(dict):
@@ -39,9 +40,10 @@ class PlotClientMessageError(dict):
 
         message: The error message.
     """
+
     def __init__(self, message: str):
-        self['msg_type'] = 'error'
-        self['message'] = message
+        self["msg_type"] = "error"
+        self["message"] = message
 
 
 # Matplotlib Default Figure Size
@@ -51,20 +53,17 @@ BASE_DPI = 96
 
 
 class PositronDisplayPublisherHook:
-
     def __init__(self, target_name: str):
         self.comms = {}
         self.figures = {}
         self.target_name = target_name
 
     def __call__(self, msg, *args, **kwargs) -> Optional[dict]:
-
-        if msg['msg_type'] == 'display_data':
-
+        if msg["msg_type"] == "display_data":
             # If there is no image for our display, don't create a
             # positron.plot comm and let the parent deal with the msg.
-            data = msg['content']['data']
-            if 'image/png' not in data:
+            data = msg["content"]["data"]
+            if "image/png" not in data:
                 return msg
 
             # Otherwise, try to pickle the current figure so that we
@@ -99,31 +98,33 @@ class PositronDisplayPublisherHook:
         """
         Handle client messages to render a plot figure.
         """
-        comm_id = msg['content']['comm_id']
-        data = msg['content']['data']
-        msg_type = data.get('msg_type', None)
+        comm_id = msg["content"]["comm_id"]
+        data = msg["content"]["data"]
+        msg_type = data.get("msg_type", None)
 
-        if msg_type != 'render':
+        if msg_type != "render":
             return
 
         figure_comm = self.comms.get(comm_id, None)
         if figure_comm is None:
-            logging.warning(f'Plot figure comm {comm_id} not found')
+            logging.warning(f"Plot figure comm {comm_id} not found")
             return
 
         pickled = self.figures.get(comm_id, None)
         if pickled is None:
-            figure_comm.send(PlotClientMessageError(f'Figure {comm_id} not found'))
+            figure_comm.send(PlotClientMessageError(f"Figure {comm_id} not found"))
             return
 
-        width_px = data.get('width', 0)
-        height_px = data.get('height', 0)
-        pixel_ratio = data.get('pixel_ratio', 1)
+        width_px = data.get("width", 0)
+        height_px = data.get("height", 0)
+        pixel_ratio = data.get("pixel_ratio", 1)
 
         if width_px != 0 and height_px != 0:
-            format_dict, md_dict = self._resize_pickled_figure(pickled, width_px, height_px, pixel_ratio)
-            data = format_dict['image/png']
-            msg_data = PlotClientMessageImage(data, 'image/png')
+            format_dict, md_dict = self._resize_pickled_figure(
+                pickled, width_px, height_px, pixel_ratio
+            )
+            data = format_dict["image/png"]
+            msg_data = PlotClientMessageImage(data, "image/png")
             figure_comm.send(data=msg_data, metadata=md_dict)
 
     def shutdown(self) -> None:
@@ -140,8 +141,7 @@ class PositronDisplayPublisherHook:
 
     # -- Private Methods --
 
-    def _pickle_current_figure(self) -> str:
-
+    def _pickle_current_figure(self) -> Optional[str]:
         pickled = None
 
         # Delay importing matplotlib until the kernel and shell has been initialized
@@ -162,13 +162,14 @@ class PositronDisplayPublisherHook:
 
         return pickled
 
-    def _resize_pickled_figure(self,
-                               pickled: str,
-                               new_width_px: int = 614,
-                               new_height_px: int = 460,
-                               pixel_ratio: float = 1.0,
-                               formats: list = ['image/png']) -> (dict, dict):
-
+    def _resize_pickled_figure(
+        self,
+        pickled: str,
+        new_width_px: int = 614,
+        new_height_px: int = 460,
+        pixel_ratio: float = 1.0,
+        formats: list = ["image/png"],
+    ) -> Tuple[dict, dict]:
         # Delay importing matplotlib until the kernel and shell has been
         # initialized otherwise the graphics backend will be reset to the gui
         import matplotlib.pyplot as plt
@@ -209,7 +210,7 @@ class PositronDisplayPublisherHook:
         figure.set_size_inches(width_in, height_in)
 
         format = InteractiveShell.instance().display_formatter.format
-        format_dict, md_dict = format(figure, include=formats, exclude=[])
+        format_dict, md_dict = format(figure, include=formats, exclude=[])  # type: ignore
 
         plt.close(figure)
 
@@ -219,7 +220,6 @@ class PositronDisplayPublisherHook:
         return (format_dict, md_dict)
 
     def _is_figure_empty(self, figure):
-
         children = figure.get_children()
         if len(children) < 1:
             return True
