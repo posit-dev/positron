@@ -5,40 +5,39 @@
 """ Positron extensions to the iPython Kernel."""
 
 import asyncio
+import copy
 import logging
-from collections.abc import (Iterable, Mapping, MutableMapping,
-                             MutableSequence, MutableSet)
+from collections.abc import Iterable, Mapping, MutableMapping, MutableSequence, MutableSet, Sequence
 from itertools import chain
-from typing import Any
+from typing import Any, Optional, Tuple
 
 from ipykernel.ipkernel import IPythonKernel
+from ipykernel.zmqshell import ZMQInteractiveShell
 
 from .dataviewer import DataViewerService
 from .environment import EnvironmentService
 from .inspectors import get_inspector, is_inspectable
 from .plots import PositronDisplayPublisherHook
 
-POSITRON_DATA_VIEWER_COMM = 'positron.dataViewer'
+POSITRON_DATA_VIEWER_COMM = "positron.dataViewer"
 """The comm channel target_name for Positron's Data Viewer"""
 
-POSITRON_ENVIRONMENT_COMM = 'positron.environment'
+POSITRON_ENVIRONMENT_COMM = "positron.environment"
 """The comm channel target_name for Positron's Environment View"""
 
-POSITRON_PLOT_COMM = 'positron.plot'
+POSITRON_PLOT_COMM = "positron.plot"
 """The comm channel target_name for Positron's Plots View"""
 
-POSITON_NS_HIDDEN = {'_exit_code': {},
-                     '__pydevd_ret_val_dict': {},
-                     '__warningregistry__': {}
-                    }
+POSITON_NS_HIDDEN = {"_exit_code": {}, "__pydevd_ret_val_dict": {}, "__warningregistry__": {}}
 """Additional variables to hide from the user's namespace."""
 
 # Key used to store the user's environment snapshot in the hidden namespace
-__POSITRON_CACHE_KEY__ = '__positron_cache__'
+__POSITRON_CACHE_KEY__ = "__positron_cache__"
 
 # Marker used to track if our default object was returned from a
 # conditional property lookup
 __POSITRON_DEFAULT__ = object()
+
 
 class PositronIPyKernel(IPythonKernel):
     """
@@ -52,8 +51,9 @@ class PositronIPyKernel(IPythonKernel):
         super().__init__(**kwargs)
 
         # Register for REPL execution events
-        self.shell.events.register('pre_execute', self.handle_pre_execute)
-        self.shell.events.register('post_execute', self.handle_post_execute)
+        shell: ZMQInteractiveShell = self.shell  # type: ignore
+        shell.events.register("pre_execute", self.handle_pre_execute)
+        shell.events.register("post_execute", self.handle_post_execute)
         self.get_user_ns_hidden().update(POSITON_NS_HIDDEN)
 
         # Setup Positron's environment service
@@ -63,7 +63,7 @@ class PositronIPyKernel(IPythonKernel):
         # Register Positron's display publisher hook to intercept display_data messages
         # and establish a comm channel with the frontend for rendering plots
         self.display_pub_hook = PositronDisplayPublisherHook(POSITRON_PLOT_COMM)
-        self.shell.display_pub.register_hook(self.display_pub_hook)
+        shell.display_pub.register_hook(self.display_pub_hook)
 
         # Setup Positron's dataviewer service
         self.dataviewer_service = DataViewerService(POSITRON_DATA_VIEWER_COMM)
@@ -85,7 +85,7 @@ class PositronIPyKernel(IPythonKernel):
         try:
             self.snapshot_user_ns()
         except Exception:
-            logging.warning('Failed to snapshot user namespace', exc_info=True)
+            logging.warning("Failed to snapshot user namespace", exc_info=True)
 
     def handle_post_execute(self) -> None:
         """
@@ -106,10 +106,10 @@ class PositronIPyKernel(IPythonKernel):
             logging.warning(err, exc_info=True)
 
     def get_user_ns(self) -> dict:
-        return self.shell.user_ns
+        return self.shell.user_ns  # type: ignore
 
     def get_user_ns_hidden(self) -> dict:
-        return self.shell.user_ns_hidden
+        return self.shell.user_ns_hidden  # type: ignore
 
     def snapshot_user_ns(self) -> None:
         """
@@ -122,12 +122,11 @@ class PositronIPyKernel(IPythonKernel):
 
         # TODO: Determine snapshot strategy for nested objects
         for key, value in ns.items():
-
             if key in hidden:
                 continue
 
             if isinstance(value, (MutableMapping, MutableSequence, MutableSet)):
-                snapshot[key] = value.copy()
+                snapshot[key] = copy.copy(value)
 
             elif is_inspectable(value):
                 inspector = get_inspector(value)
@@ -137,8 +136,7 @@ class PositronIPyKernel(IPythonKernel):
         # after an operation or execution is performed
         hidden[__POSITRON_CACHE_KEY__] = snapshot
 
-    def compare_user_ns(self) -> (dict, set):
-
+    def compare_user_ns(self) -> Tuple[dict, set]:
         assigned = {}
         removed = set()
         after = self.get_user_ns()
@@ -184,11 +182,11 @@ class PositronIPyKernel(IPythonKernel):
                         assigned[key] = v2
 
             except Exception as err:
-                logging.warning("v1: %s, v2: %s, err: %s", type(v1), type(v2), err, exc_info=True)
+                logging.warning("err: %s", err, exc_info=True)
 
         return assigned, removed
 
-    def get_filtered_vars(self, variables:dict = None) -> dict:
+    def get_filtered_vars(self, variables: Optional[dict] = None) -> dict:
         """
         Returns a filtered dict of the variables, excluding hidden variables.
 
@@ -205,7 +203,7 @@ class PositronIPyKernel(IPythonKernel):
                 filtered_variables[key] = value
         return filtered_variables
 
-    def get_filtered_var_names(self, names:set) -> set:
+    def get_filtered_var_names(self, names: set) -> set:
         hidden = self.get_user_ns_hidden()
 
         # Filter out hidden variables
@@ -216,7 +214,7 @@ class PositronIPyKernel(IPythonKernel):
             filtered_names.add(name)
         return filtered_names
 
-    def find_var(self, path: Iterable) -> (bool, Any):
+    def find_var(self, path: Iterable) -> Tuple[bool, Any]:
         """
         Finds the variable at the requested path in the current user session.
 
@@ -239,7 +237,6 @@ class PositronIPyKernel(IPythonKernel):
 
         # Walk the given path segment by segment
         for segment in path:
-
             # Check for membership as a property
             name = str(segment)
             is_known = hasattr(context, name)
@@ -261,12 +258,12 @@ class PositronIPyKernel(IPythonKernel):
                     is_known = True
 
             # Check for membership by collection index
-            elif isinstance(context, (list, set, frozenset, tuple, range)):
+            elif isinstance(context, (list, tuple, range)):
                 try:
                     value = context[int(name)]
                     is_known = True
                 except Exception:
-                    logging.warning(f'Unable to find variable at \'{path}\'', exc_info=True)
+                    logging.warning(f"Unable to find variable at '{path}'", exc_info=True)
                     is_known = False
 
             # Subsequent segment starts from the value
@@ -278,7 +275,7 @@ class PositronIPyKernel(IPythonKernel):
 
         return is_known, value
 
-    def view_var(self, path: Iterable) -> None:
+    def view_var(self, path: Sequence) -> None:
         """
         Opens a viewer comm for the variable at the requested path in the
         current user session.
@@ -294,16 +291,17 @@ class PositronIPyKernel(IPythonKernel):
             if inspector is not None:
                 title = path[-1:][0]
                 dataset = inspector.to_dataset(value, title)
-                self.dataviewer_service.register_dataset(dataset)
+                if dataset is not None:
+                    self.dataviewer_service.register_dataset(dataset)
             else:
-                error_message = f'Cannot create viewer for variable at \'{path}\''
+                error_message = f"Cannot create viewer for variable at '{path}'"
         else:
-            error_message = f'Cannot find variable at \'{path}\' to inspect'
+            error_message = f"Cannot find variable at '{path}' to inspect"
 
         if error_message is not None:
             raise ValueError(error_message)
 
-    def delete_vars(self, names: Iterable, parent) -> (dict, set):
+    def delete_vars(self, names: Iterable, parent) -> Tuple[dict, set]:
         """
         Deletes the requested variables by name from the current user session.
         """
@@ -314,16 +312,16 @@ class PositronIPyKernel(IPythonKernel):
 
         for name in names:
             try:
-                self.shell.del_var(name, False)
+                self.shell.del_var(name, False)  # type: ignore
             except Exception:
-                logging.warning(f'Unable to delete variable \'{name}\'')
+                logging.warning(f"Unable to delete variable '{name}'")
                 pass
 
         assigned, removed = self.compare_user_ns()
 
         # Publish an input to inform clients of the variables that were deleted
         if len(removed) > 0:
-            command = 'del ' + ', '.join(removed)
+            command = "del " + ", ".join(removed)
             try:
                 self._publish_execute_input(command, parent, self.execution_count - 1)
             except Exception:
@@ -344,10 +342,10 @@ class PositronIPyKernel(IPythonKernel):
         variables from the environment.
         """
         # Run the %reset magic to clear user variables
-        command = '%reset -sf'
+        command = "%reset -sf"
         coro = await self.do_execute(command, False, False)
 
-         # Publish an input to inform clients of the "delete all" operation
+        # Publish an input to inform clients of the "delete all" operation
         try:
             self._publish_execute_input(command, parent, self.execution_count - 1)
         except Exception:

@@ -6,16 +6,18 @@ import numbers
 import types
 from binascii import b2a_base64
 from datetime import datetime
+from typing import Tuple
 
 
 def get_length(value) -> int:
     length = 0
-    if hasattr(value, '__len__'):
+    if hasattr(value, "__len__"):
         try:
             length = len(value)
         except Exception:
             pass
     return length
+
 
 def get_qualname(value) -> str:
     """
@@ -26,14 +28,15 @@ def get_qualname(value) -> str:
         t = type(value)
         module = t.__module__
         name = t.__name__
-        if module is not None and module != 'builtins':
-            return f'{module}.{name}'
+        if module is not None and module != "builtins":
+            return f"{module}.{name}"
         else:
             return name
 
-    return 'None'
+    return "None"
 
-def truncate_string(value: str, max: int) -> (str, bool):
+
+def truncate_string(value: str, max: int) -> Tuple[str, bool]:
     if get_length(value) > max:
         return (value[:max], True)
     else:
@@ -41,6 +44,7 @@ def truncate_string(value: str, max: int) -> (str, bool):
 
 
 ISO8601 = "%Y-%m-%dT%H:%M:%S.%f"
+
 
 # We can't use ipykernel's json_clean function directly as it has since been
 # deactivated. JSON message cleaning in jupyter_client will also be removed in
@@ -79,10 +83,10 @@ def json_clean(obj):
     if isinstance(obj, bytes):
         # unanmbiguous binary data is base64-encoded
         # (this probably should have happened upstream)
-        return b2a_base64(obj, newline=False).decode('ascii')
+        return b2a_base64(obj, newline=False).decode("ascii")
 
     if isinstance(obj, container_to_list) or (
-        hasattr(obj, '__iter__') and hasattr(obj, '__next__')
+        hasattr(obj, "__iter__") and hasattr(obj, "__next__")
     ):
         obj = list(obj)
 
@@ -97,8 +101,8 @@ def json_clean(obj):
         nkeys_collapsed = len(set(map(str, obj)))
         if nkeys != nkeys_collapsed:
             msg = (
-                'dict cannot be safely converted to JSON: '
-                'key collision would lead to dropped values'
+                "dict cannot be safely converted to JSON: "
+                "key collision would lead to dropped values"
             )
             raise ValueError(msg)
         # If all OK, proceed by making the new dict that will be json-safe
@@ -112,4 +116,3 @@ def json_clean(obj):
 
     # we don't understand it, it's probably an unserializable object
     raise ValueError("Can't clean for JSON: %r" % obj)
-

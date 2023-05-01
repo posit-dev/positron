@@ -10,7 +10,7 @@ EXTENSION_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(EXTENSION_ROOT, "pythonFiles", "lib", "jedilsp"))
 
 from threading import Event
-from typing import Any, Callable, List, Optional, TypeVar, Union
+from typing import Any, Callable, List, Optional, Union
 
 from ipykernel import kernelapp
 from jedi.api import Interpreter
@@ -85,7 +85,6 @@ from pygls.feature_manager import has_ls_param_or_annotation
 
 from .positron_ipkernel import PositronIPyKernel
 
-F = TypeVar('F', bound=Callable)
 
 class PositronJediLanguageServer(JediLanguageServer):
     """Positron extenstion to the Jedi language server."""
@@ -93,22 +92,22 @@ class PositronJediLanguageServer(JediLanguageServer):
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
 
-    def feature(self, feature_name: str, options: Optional[Any] = None) -> Callable[[F], F]:
-
+    def feature(self, feature_name: str, options: Optional[Any] = None) -> Callable:
         def decorator(f):
-
             # Unfortunately Jedi doesn't handle subclassing of the LSP, so we
             # need to detect and reject features we did not register.
             if not has_ls_param_or_annotation(f, type(self)):
                 return None
 
             """(Re-)register a feature with the LSP."""
-            if feature_name in self.lsp.fm.features:
-                del self.lsp.fm.features[feature_name]
-            if feature_name in self.lsp.fm.feature_options:
-                del self.lsp.fm.feature_options[feature_name]
+            lsp: JediLanguageServerProtocol = self.lsp  # type: ignore
 
-            return self.lsp.fm.feature(feature_name, options)(f)
+            if feature_name in lsp.fm.features:
+                del lsp.fm.features[feature_name]
+            if feature_name in lsp.fm.feature_options:
+                del lsp.fm.feature_options[feature_name]
+
+            return lsp.fm.feature(feature_name, options)(f)
 
         return decorator
 
@@ -132,7 +131,7 @@ class PositronJediLanguageServer(JediLanguageServer):
         """Starts Jedi LSP as a TCP server using existing asyncio loop."""
         self._stop_event = Event()
         loop = asyncio.get_event_loop()
-        self._server = await loop.create_server(self.lsp, lsp_host, lsp_port)
+        self._server = await loop.create_server(self.lsp, lsp_host, lsp_port)  # type: ignore
         await self._server.serve_forever()
 
     async def start_ipykernel(self) -> None:
@@ -152,20 +151,21 @@ POSITRON = PositronJediLanguageServer(
 )
 
 
-KERNEL: PositronIPyKernel = None
+KERNEL: Optional[PositronIPyKernel] = None
 
 # Server Features
 # Unfortunately we need to re-register these as Pygls Feature Management does
 # not support subclassing of the LSP, and Jedi did not use the expected "ls"
 # name for the LSP server parameter in the feature registration methods.
 
+
 @POSITRON.feature(
     TEXT_DOCUMENT_COMPLETION,
-    CompletionOptions(
-        trigger_characters=[".", "'", '"'], resolve_provider=True
-    ),
+    CompletionOptions(trigger_characters=[".", "'", '"'], resolve_provider=True),
 )
-def positron_completion(server: PositronJediLanguageServer, params: CompletionParams) -> Optional[CompletionList]:
+def positron_completion(
+    server: PositronJediLanguageServer, params: CompletionParams
+) -> Optional[CompletionList]:
     """
     Completion feature.
     """
@@ -187,7 +187,9 @@ def positron_completion(server: PositronJediLanguageServer, params: CompletionPa
         namespaces.append(ns)
 
     # Use Interpreter() to include the kernel namespaces in completions
-    jedi_script = Interpreter(document.source, namespaces, path=document.path, project=server.project)
+    jedi_script = Interpreter(
+        document.source, namespaces, path=document.path, project=server.project
+    )
     # --- End Positron ---
 
     try:
@@ -214,9 +216,7 @@ def positron_completion(server: PositronJediLanguageServer, params: CompletionPa
             line=jedi_lines[0],
             column=jedi_lines[1],
         )
-        enable_snippets = (
-            snippet_support and not snippet_disable and not is_import_context
-        )
+        enable_snippets = snippet_support and not snippet_disable and not is_import_context
         char_before_cursor = pygls_utils.char_before_cursor(
             document=server.workspace.get_document(params.text_document.uri),
             position=params.position,
@@ -241,11 +241,7 @@ def positron_completion(server: PositronJediLanguageServer, params: CompletionPa
         logging.info("LSP completion error", exc_info=True)
         completion_items = []
 
-    return (
-        CompletionList(is_incomplete=False, items=completion_items)
-        if completion_items
-        else None
-    )
+    return CompletionList(is_incomplete=False, items=completion_items) if completion_items else None
 
 
 @POSITRON.feature(COMPLETION_ITEM_RESOLVE)
