@@ -3,9 +3,10 @@
 #
 
 import os
-import pytest
 import sys
 import uuid
+
+import pytest
 
 # append project parent to the path so that we can import the positron module
 current = os.path.dirname(os.path.realpath(__file__))
@@ -13,7 +14,6 @@ parent = os.path.dirname(current)
 sys.path.append(parent)
 
 from positron import DataColumn, DataSet, DataViewerService
-
 
 # -- Mocks --
 

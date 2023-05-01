@@ -4,10 +4,10 @@
 
 import logging
 import uuid
+from typing import Any
 
 from .dataviewer import DataColumn, DataSet
 from .utils import get_qualname
-from typing import Any
 
 
 class PositronInspector:
