@@ -10,16 +10,11 @@ import numbers
 import pprint
 import sys
 import types
+from collections.abc import Iterable, Mapping, Sequence, Set
+from typing import Any
 
 from .inspectors import get_inspector, is_inspectable
 from .utils import get_length, get_qualname, truncate_string
-from collections.abc import (
-    Iterable,
-    Mapping,
-    Sequence,
-    Set
-)
-from typing import Any
 
 
 @enum.unique

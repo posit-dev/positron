@@ -6,21 +6,17 @@
 
 import asyncio
 import logging
+from collections.abc import (Iterable, Mapping, MutableMapping,
+                             MutableSequence, MutableSet)
+from itertools import chain
+from typing import Any
+
+from ipykernel.ipkernel import IPythonKernel
 
 from .dataviewer import DataViewerService
 from .environment import EnvironmentService
-from .inspectors import is_inspectable, get_inspector
+from .inspectors import get_inspector, is_inspectable
 from .plots import PositronDisplayPublisherHook
-from collections.abc import (
-    Iterable,
-    Mapping,
-    MutableMapping,
-    MutableSequence,
-    MutableSet,
-)
-from ipykernel.ipkernel import IPythonKernel
-from itertools import chain
-from typing import Any
 
 POSITRON_DATA_VIEWER_COMM = 'positron.dataViewer'
 """The comm channel target_name for Positron's Data Viewer"""

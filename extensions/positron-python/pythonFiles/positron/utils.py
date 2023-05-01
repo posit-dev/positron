@@ -4,7 +4,6 @@
 
 import numbers
 import types
-
 from binascii import b2a_base64
 from datetime import datetime
 

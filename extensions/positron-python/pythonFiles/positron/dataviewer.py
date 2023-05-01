@@ -4,8 +4,10 @@
 
 import uuid
 
-from .utils import json_clean
 from ipykernel.ipkernel import comm
+
+from .utils import json_clean
+
 
 class DataColumn(dict):
     """
