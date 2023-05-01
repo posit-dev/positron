@@ -26,10 +26,19 @@ export class ActivityItemErrorStreamGroup {
 
 	//#region Public Properties
 
+	/**
+	 * Gets the identifier.
+	 */
 	readonly id = generateUuid();
 
+	/**
+	 * Gets the parent identifier.
+	 */
 	readonly parentId: string;
 
+	/**
+	 * Gets the output lines.
+	 */
 	get outputLines(): ANSIOutputLine[] {
 		return this._ansiOutput.outputLines;
 	}
