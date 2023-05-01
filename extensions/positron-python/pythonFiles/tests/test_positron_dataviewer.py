@@ -3,37 +3,77 @@
 #
 
 import os
+import pytest
 import sys
+import uuid
 
-# append project parent to the path
+# append project parent to the path so that we can import the positron module
 current = os.path.dirname(os.path.realpath(__file__))
 parent = os.path.dirname(current)
 sys.path.append(parent)
 
-import pytest
-import uuid
 from positron import DataColumn, DataSet, DataViewerService
 
 
+# -- Mocks --
+
+class MockComm:
+    """
+    A mock comm object to run unit tests without a kernel.
+    """
+
+    def __init__(self, target_name: str, data: dict, comm_id: str, **kwargs):
+        self.target_name = target_name
+        self.data = data
+        self.comm_id = comm_id
+
+    def on_msg(self, msg) -> None:
+        pass
+
+    def close(self, data=None, metadata=None, buffers=None, deleting=False) -> None:
+        pass
+
+
+# -- Tests for DataViewerService --
+
 class TestDataViewerService:
 
+    # -- Fixtures --
+
     @pytest.fixture(scope='class', autouse=True)
-    def dataviewer_service(self) -> DataViewerService:
-        return DataViewerService('positron.dataviewer')
+    def target_name(self) -> str:
+        return 'positron.dataviewer'
 
-    def test_register_dataset(self, mocker, dataviewer_service):
+    @pytest.fixture(scope='class', autouse=True)
+    def random_id(self) -> str:
+        return str(uuid.uuid4())
 
-        # Arrange
-        id = str(uuid.uuid4())
-        data = {}
-        mock_comm = MockComm(id, data)
-        mocker.patch.object(dataviewer_service, '_create_comm', return_value=mock_comm)
-        onmsg_spy = mocker.spy(mock_comm, 'on_msg')
+    @pytest.fixture(scope='function', autouse=True)
+    def dataviewer_service(self, target_name) -> DataViewerService:
+        return DataViewerService(target_name)
 
-        dataset = DataSet(id, 'CountryCallingCodes', [
+    @pytest.fixture(scope='function', autouse=True)
+    def dataset(self, random_id: str) -> DataSet:
+        return DataSet(random_id, 'CountryCallingCodes', [
             DataColumn('codes', 'int', [1, 33, 39]),
             DataColumn('countries', 'string', ['Canada', 'France', 'Italy'])
         ])
+
+    @pytest.fixture(scope='function', autouse=True)
+    def mock_comm(self, target_name: str, random_id: str) -> MockComm:
+        test_data = {}
+        return MockComm(target_name=target_name,
+                        data=test_data,
+                        comm_id=random_id)
+
+    # -- Tests --
+
+    def test_register_dataset(self, mocker, dataviewer_service, dataset, mock_comm, target_name):
+
+        # Arrange
+        id = dataset.get('id')
+        mocker.patch.object(dataviewer_service, '_create_comm', return_value=mock_comm)
+        comm_onmsg_spy = mocker.spy(mock_comm, 'on_msg')
 
         # Act
         dataviewer_service.register_dataset(dataset)
@@ -41,28 +81,22 @@ class TestDataViewerService:
         # Assert
         assert dataviewer_service.has_dataset(id)
         assert dataviewer_service.datasets[id] == dataset
-        assert dataviewer_service.comms[id] is not None
-        assert dataviewer_service.comms[id]['comm_id'] == id
-        assert onmsg_spy.call_count == 1
+        assert dataviewer_service.comms[id] == mock_comm
+        assert comm_onmsg_spy.call_count == 1
 
-    def test_shutdown(self, dataviewer_service):
+    def test_shutdown(self, mocker, dataviewer_service, dataset, mock_comm):
 
         # Arrange
-        dataset = DataSet(str(uuid.uuid4()), 'TestDS', [])
+        id = dataset.get('id')
+        mocker.patch.object(dataviewer_service, '_create_comm', return_value=mock_comm)
+        comm_close_spy = mocker.spy(mock_comm, 'close')
         dataviewer_service.register_dataset(dataset)
 
         # Act
+        assert dataviewer_service.has_dataset(id)
         dataviewer_service.shutdown()
 
         # Assert
         assert not dataviewer_service.has_dataset(id)
         assert len(dataviewer_service.datasets) == 0
-
-class MockComm(dict):
-
-    def __init__(self, comm_id: str, data: dict):
-        self['comm_id'] = comm_id
-        self['data'] = data
-
-    def on_msg(self, msg):
-        pass
+        assert comm_close_spy.call_count == 1
