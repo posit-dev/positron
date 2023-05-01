@@ -1,6 +1,9 @@
 #
 # Copyright (C) 2023 Posit Software, PBC. All rights reserved.
 #
+
+import uuid
+
 from .utils import json_clean
 from ipykernel.ipkernel import comm
 
@@ -26,18 +29,16 @@ class DataViewerService:
         self.target_name = target_name
 
     def register_dataset(self, dataset: DataSet) -> None:
-        id = dataset.get('id', None)
+        id = dataset.get('id', str(uuid.uuid4()))
         self.datasets[id] = dataset
-        self.create_comm(id, dataset)
+        self.init_comm(id, dataset)
 
     def has_dataset(self, id: str) -> bool:
         return id in self.datasets
 
-    def create_comm(self, comm_id: str, dataset: DataSet) -> None:
+    def init_comm(self, comm_id: str, dataset: DataSet) -> None:
         data = json_clean(dataset)
-        dataview_comm = comm.create_comm(target_name=self.target_name,
-                                         comm_id=comm_id,
-                                         data=data)
+        dataview_comm = self._create_comm(comm_id, data)
         self.comms[comm_id] = dataview_comm
         dataview_comm.on_msg(self.receive_message)
 
@@ -55,3 +56,10 @@ class DataViewerService:
             self.datasets.clear()
         except Exception:
             pass
+
+    # -- Private Methods --
+
+    def _create_comm(self, comm_id: str, data):
+        return comm.create_comm(target_name=self.target_name,
+                                comm_id=comm_id,
+                                data=data)

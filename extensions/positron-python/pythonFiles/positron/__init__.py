@@ -11,3 +11,9 @@ from .environment import (
     SUMMARY_PRINT_WIDTH,
     TRUNCATE_SUMMARY_AT
 )
+
+from .dataviewer import (
+    DataColumn,
+    DataSet,
+    DataViewerService
+)
