@@ -23,6 +23,7 @@ jobs:
       - name: Setup Build Environment
         run: |
           sudo apt remove r-recommended r-base r-base-dev
+          sudo rm -rf /usr/lib/R
           sudo cat /etc/apt/sources.list
           sudo ls /etc/apt/sources.list.d
           sudo add-apt-repository -r https://cloud.r-project.org/bin/linux/ubuntu
