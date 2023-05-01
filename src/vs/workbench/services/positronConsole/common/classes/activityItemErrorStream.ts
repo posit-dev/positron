@@ -28,12 +28,12 @@ export class ActivityItemErrorStream {
 	 * Gets the output lines.
 	 */
 	get outputLines(): ANSIOutputLine[] {
-		// Lazily process the the ActivityItemErrorStream array.
+		// Lazily process output from the the ActivityItemErrorStream array.
 		if (!this._ansiOutput) {
 			this._ansiOutput = new ANSIOutput();
-			for (const activityItemOutputStream of this._activityItemErrorStreams) {
-				if (activityItemOutputStream.text) {
-					this._ansiOutput.processOutput(activityItemOutputStream.text);
+			for (const activityItemErrorStream of this._activityItemErrorStreams) {
+				if (activityItemErrorStream.text) {
+					this._ansiOutput.processOutput(activityItemErrorStream.text);
 				}
 			}
 		}

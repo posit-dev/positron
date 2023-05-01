@@ -28,11 +28,13 @@ export class ActivityItemOutputStream {
 	 * Gets the output lines.
 	 */
 	get outputLines(): ANSIOutputLine[] {
-		// Lazily process the the ActivityItemOutputStream array.
+		// Lazily process output from the ActivityItemOutputStream array.
 		if (!this._ansiOutput) {
 			this._ansiOutput = new ANSIOutput();
 			for (const activityItemOutputStream of this._activityItemOutputStreams) {
-				this._ansiOutput.processOutput(activityItemOutputStream.text);
+				if (activityItemOutputStream.text) {
+					this._ansiOutput.processOutput(activityItemOutputStream.text);
+				}
 			}
 		}
 
