@@ -11,8 +11,8 @@ import { RuntimeItem } from 'vs/workbench/services/positronConsole/common/classe
 import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/common/extensions';
 import { RuntimeItemTrace } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemTrace';
 import { ActivityItemInput } from 'vs/workbench/services/positronConsole/common/classes/activityItemInput';
+import { RuntimeItemPrompt } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemPrompt';
 import { RuntimeItemExited } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemExited';
-import { ActivityItemPrompt } from 'vs/workbench/services/positronConsole/common/classes/activityItemPrompt';
 import { RuntimeItemStarted } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemStarted';
 import { RuntimeItemStartup } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemStartup';
 import { RuntimeItemOffline } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemOffline';
@@ -738,17 +738,13 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 				`\nPassword: ${languageRuntimeMessagePrompt.password}`
 			);
 
-			// Add or update the runtime item activity.
-			this.addOrUpdateUpdateRuntimeItemActivity(
+			// Add the prompt runtime item.
+			this.addRuntimeItem(new RuntimeItemPrompt(
+				languageRuntimeMessagePrompt.id,
 				languageRuntimeMessagePrompt.parent_id,
-				new ActivityItemPrompt(
-					languageRuntimeMessagePrompt.id,
-					languageRuntimeMessagePrompt.parent_id,
-					new Date(languageRuntimeMessagePrompt.when),
-					languageRuntimeMessagePrompt.prompt,
-					languageRuntimeMessagePrompt.password
-				)
-			);
+				languageRuntimeMessagePrompt.prompt,
+				languageRuntimeMessagePrompt.password
+			));
 		}));
 
 		// Add the onDidReceiveRuntimeMessageOutput event handler.
