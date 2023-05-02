@@ -1,12 +1,14 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
+// --- Start Positron ---
+import * as vscode from 'vscode';
+// --- End Positron ---
 import { JediLanguageServerAnalysisOptions } from '../activation/jedi/analysisOptions';
 import { JediLanguageClientFactory } from '../activation/jedi/languageClientFactory';
 import { JediLanguageServerProxy } from '../activation/jedi/languageServerProxy';
 import { JediLanguageServerManager } from '../activation/jedi/manager';
 // --- Start Positron ---
-import * as vscode from 'vscode';
 import { ILanguageServerOutputChannel, ILanguageServerProxy } from '../activation/types';
 import { PositronJediLanguageServerProxy } from '../activation/jedi/positronLanguageRuntimes';
 // --- End Positron ---

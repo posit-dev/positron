@@ -25,3 +25,10 @@ torch-tb-profiler
 
 # extension build tests
 freezegun
+
+# --- Start Positron ---
+# iPython Kernel tests
+ipykernel
+matplotlib
+pytest-mock
+# --- End Positron ---

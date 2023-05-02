@@ -1,9 +1,13 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+/* eslint-disable class-methods-use-this */
+/* eslint-disable global-require */
 /*---------------------------------------------------------------------------------------------
  *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
 import { Socket } from 'net';
 import * as path from 'path';
+// eslint-disable-next-line import/no-unresolved
 import * as positron from 'positron';
 import * as vscode from 'vscode';
 import { Disposable, DocumentFilter, LanguageClient, LanguageClientOptions, ServerOptions, StreamInfo } from 'vscode-languageclient/node';
@@ -30,9 +34,13 @@ import { ILanguageServerProxy } from '../types';
 export class PositronJediLanguageServerProxy implements ILanguageServerProxy {
 
     private readonly disposables: Disposable[] = [];
+
     private readonly languageClients: LanguageClient[] = [];
+
     private extensionVersion: string | undefined;
+
     private readonly installer: IInstaller;
+
     // Using a process to install modules avoids using the terminal service,
     // which has issues waiting for the outcome of the install.
     private readonly installOptions: InstallOptions = { installAsProcess: true };
@@ -74,9 +82,9 @@ export class PositronJediLanguageServerProxy implements ILanguageServerProxy {
         options.documentSelector = this.initDocumentSelector(options.documentSelector as DocumentFilter[]);
 
         // Offer to install the ipykernel module for the preferred interpreter, if it is missing
-        let hasKernel = await this.installer.isInstalled(Product.ipykernel, interpreter);
+        const hasKernel = await this.installer.isInstalled(Product.ipykernel, interpreter);
         if (!hasKernel) {
-            let response = await this.installer.promptToInstall(Product.ipykernel,
+            const response = await this.installer.promptToInstall(Product.ipykernel,
                 interpreter, undefined, undefined, this.installOptions);
             if (response === InstallerResponse.Installed) {
                 traceVerbose(`Successfully installed ipykernel for ${interpreter?.displayName}`);
@@ -102,7 +110,7 @@ export class PositronJediLanguageServerProxy implements ILanguageServerProxy {
         }
 
         // Dispose of any language clients
-        for (let client of this.languageClients) {
+        for (const client of this.languageClients) {
             try {
                 await client.stop();
                 await client.dispose();
@@ -144,8 +152,8 @@ export class PositronJediLanguageServerProxy implements ILanguageServerProxy {
         // Register each interpreter as a language runtime
         const portfinder = require('portfinder');
         let lspPort = 2087;
-        let debugPort = undefined;
-        for (let interpreter of interpreters) {
+        let debugPort;
+        for (const interpreter of interpreters) {
             // Find an available port for our TCP server, starting the search from
             // the next port each iteration.
             lspPort = await portfinder.getPortPromise({ port: lspPort });
@@ -161,9 +169,9 @@ export class PositronJediLanguageServerProxy implements ILanguageServerProxy {
             const runtime: vscode.Disposable = await this.registerLanguageRuntime(ext, interpreter, lspPort, debugPort, options);
             this.disposables.push(runtime);
 
-            lspPort++;
+            lspPort += 1;
             if (debugPort !== undefined) {
-                debugPort++;
+                debugPort += 1;
             }
         }
     }
@@ -173,7 +181,8 @@ export class PositronJediLanguageServerProxy implements ILanguageServerProxy {
      * The LSP will find an available port to start via TCP, and the Jupyter Adapter will configure
      * IPyKernel with a connection file.
      */
-    private async registerLanguageRuntime(ext: vscode.Extension<any>,
+    private async registerLanguageRuntime(
+        ext: vscode.Extension<any>,
         interpreter: PythonEnvironment,
         lspPort: number,
         debugPort: number | undefined,
@@ -209,9 +218,7 @@ export class PositronJediLanguageServerProxy implements ILanguageServerProxy {
             pythonVersion,
             this.extensionVersion,
             '>>>',
-            startupBehavior, () => {
-                return this.startClient(client);
-            });
+            startupBehavior, () => this.startClient(client));
 
         // Also stop the language client when the runtime is exiting
         runtime.onDidChangeRuntimeState(state => {
@@ -282,7 +289,7 @@ export class PositronJediLanguageServerProxy implements ILanguageServerProxy {
     ): Promise<LanguageClient> {
 
         // Configure language client to connect to LSP via TCP on start
-        const serverOptions: ServerOptions = async () => { return this.getServerOptions(port); };
+        const serverOptions: ServerOptions = async () => this.getServerOptions(port);
         return new LanguageClient(PYTHON_LANGUAGE, 'Positron Python Jedi', serverOptions, clientOptions);
     }
 
@@ -295,13 +302,13 @@ export class PositronJediLanguageServerProxy implements ILanguageServerProxy {
     private async getServerOptions(port: number): Promise<StreamInfo> {
 
         const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
-        const max_attempts = 20;
-        const base_delay = 50;
+        const maxAttempts = 20;
+        const baseDelay = 50;
         const multiplier = 1.5;
 
-        for (let attempt = 0; attempt < max_attempts; attempt++) {
+        for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
             // Retry up to five times then start to back-off
-            const interval = attempt < 6 ? base_delay : base_delay * multiplier * attempt;
+            const interval = attempt < 6 ? baseDelay : baseDelay * multiplier * attempt;
             if (attempt > 0) {
                 await delay(interval);
             }
@@ -311,7 +318,7 @@ export class PositronJediLanguageServerProxy implements ILanguageServerProxy {
                 const socket: Socket = await this.tryToConnect(port);
                 return { reader: socket, writer: socket };
             } catch (error: any) {
-                if (error?.code == 'ECONNREFUSED') {
+                if (error?.code === 'ECONNREFUSED') {
                     traceVerbose(`Error '${error.message}' on connection attempt '${attempt}' to Jedi LSP on port '${port}', will retry`);
                 } else {
                     throw error;
