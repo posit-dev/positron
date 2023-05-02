@@ -30,7 +30,6 @@ import { RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavi
 
 // ConsoleInputProps interface.
 export interface ConsoleInputProps {
-	readonly active: boolean;
 	readonly width: number;
 	readonly positronConsoleInstance: IPositronConsoleInstance;
 }
@@ -343,7 +342,7 @@ export const ConsoleInput = forwardRef<HTMLDivElement, ConsoleInputProps>((props
 		// The editor options we override.
 		const editorOptions = {
 			lineNumbers: readyLineNumbers,
-			readOnly: true,
+			readOnly: false,
 			minimap: {
 				enabled: false
 			},
@@ -522,6 +521,14 @@ export const ConsoleInput = forwardRef<HTMLDivElement, ConsoleInputProps>((props
 			});
 		}
 	}, [props.width]);
+
+	// useEffect(() => {
+	// 	if (props.active) {
+	// 		if (codeEditorWidgetRef.current) {
+	// 			codeEditorWidgetRef.current.focus();
+	// 		}
+	// 	}
+	// }, [props.active]);
 
 	/**
 	 * onFocus event handler.

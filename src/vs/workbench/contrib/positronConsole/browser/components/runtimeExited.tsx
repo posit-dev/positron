@@ -17,11 +17,11 @@ export interface RuntimeExitedProps {
  * @param props A RuntimeExitedProps that contains the component properties.
  * @returns The rendered component.
  */
-export const RuntimeExited = ({ runtimeItemExited }: RuntimeExitedProps) => {
+export const RuntimeExited = (props: RuntimeExitedProps) => {
 	// Render.
 	return (
 		<div className='runtime-exited'>
-			<OutputLines outputLines={runtimeItemExited.outputLines} />
+			<OutputLines outputLines={props.runtimeItemExited.outputLines} />
 		</div>
 	);
 };

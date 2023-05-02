@@ -15,7 +15,6 @@ import { DisposableStore, IDisposable } from 'vs/base/common/lifecycle';
 import { FontMeasurements } from 'vs/editor/browser/config/fontMeasurements';
 import { IReactComponentContainer } from 'vs/base/browser/positronReactRenderer';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
-import { RuntimeItem } from 'vs/workbench/services/positronConsole/common/classes/runtimeItem';
 import { ConsoleInput } from 'vs/workbench/contrib/positronConsole/browser/components/consoleInput';
 import { RuntimeTrace } from 'vs/workbench/contrib/positronConsole/browser/components/runtimeTrace';
 import { RuntimeExited } from 'vs/workbench/contrib/positronConsole/browser/components/runtimeExited';
@@ -37,6 +36,8 @@ import { RuntimeItemReconnected } from 'vs/workbench/services/positronConsole/co
 import { RuntimeStartupFailure } from 'vs/workbench/contrib/positronConsole/browser/components/runtimeStartupFailure';
 import { IPositronConsoleInstance } from 'vs/workbench/services/positronConsole/common/interfaces/positronConsoleService';
 import { RuntimeItemStartupFailure } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemStartupFailure';
+import { RuntimeItemPrompt } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemPrompt';
+import { RuntimePrompt } from 'vs/workbench/contrib/positronConsole/browser/components/runtimePrompt';
 
 // ConsoleInstanceProps interface.
 interface ConsoleInstanceProps {
@@ -170,7 +171,7 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 		// If there is a document selection, and its type is Caret (as opposed to Range), drive
 		// focus into the console input.
 		if (!selection || selection.type === 'Caret') {
-			consoleInputRef.current.focus();
+			consoleInputRef.current?.focus();
 		}
 	};
 
@@ -182,7 +183,7 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 		// TODO: We will need to handle copy here...
 
 		// Drive focus to the console input.
-		consoleInputRef.current.focus();
+		consoleInputRef.current?.focus();
 	};
 
 	/**
@@ -231,7 +232,7 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 			}
 
 			// Drive focus into the console input.
-			consoleInputRef.current.focus();
+			consoleInputRef.current?.focus();
 		}
 	};
 
@@ -245,37 +246,19 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 		}
 	};
 
-	/**
-	 * Renders a runtime item.
-	 * @param runtimeItem The runtime item.
-	 * @returns The rendered runtime item.
-	 */
-	const renderRuntimeItem = (runtimeItem: RuntimeItem) => {
-		if (runtimeItem instanceof RuntimeItemActivity) {
-			return <RuntimeActivity key={runtimeItem.id} runtimeItemActivity={runtimeItem} />;
-		} else if (runtimeItem instanceof RuntimeItemStartup) {
-			return <RuntimeStartup key={runtimeItem.id} runtimeItemStartup={runtimeItem} />;
-		} else if (runtimeItem instanceof RuntimeItemReconnected) {
-			return <RuntimeReconnected key={runtimeItem.id} runtimeItemReconnected={runtimeItem} />;
-		} else if (runtimeItem instanceof RuntimeItemStarting) {
-			return <RuntimeStarting key={runtimeItem.id} runtimeItemStarting={runtimeItem} />;
-		} else if (runtimeItem instanceof RuntimeItemStarted) {
-			return <RuntimeStarted key={runtimeItem.id} runtimeItemStarted={runtimeItem} />;
-		} else if (runtimeItem instanceof RuntimeItemOffline) {
-			return <RuntimeOffline key={runtimeItem.id} runtimeItemOffline={runtimeItem} />;
-		} else if (runtimeItem instanceof RuntimeItemExited) {
-			return <RuntimeExited key={runtimeItem.id} runtimeItemExited={runtimeItem} />;
-		} else if (runtimeItem instanceof RuntimeItemStartupFailure) {
-			return <RuntimeStartupFailure key={runtimeItem.id} runtimeItemStartupFailure={runtimeItem} />;
-		} else if (runtimeItem instanceof RuntimeItemTrace) {
-			return trace && <RuntimeTrace key={runtimeItem.id} runtimeItemTrace={runtimeItem} />;
-		} else {
-			return null;
-		}
-	};
-
 	// Calculate the adjusted width (to account for indentation of the entire console instance).
 	const adjustedWidth = props.width - 10;
+
+	const prompting = () => {
+		if (props.positronConsoleInstance.runtimeItems.length) {
+			const lastRuntimeItem = props.positronConsoleInstance.runtimeItems[props.positronConsoleInstance.runtimeItems.length - 1];
+			if (lastRuntimeItem instanceof RuntimeItemPrompt && !lastRuntimeItem.answered) {
+				return true;
+			}
+		}
+
+		return false;
+	};
 
 	// Render.
 	return (
@@ -288,15 +271,39 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 			onKeyDown={keyDownHandler}
 			onMouseDown={mouseDownHandler}
 			onScroll={scrollHandler}>
-			{props.positronConsoleInstance.runtimeItems.map(runtimeItem =>
-				renderRuntimeItem(runtimeItem)
-			)}
-			<ConsoleInput
-				ref={consoleInputRef}
-				active={props.active}
-				width={adjustedWidth}
-				positronConsoleInstance={props.positronConsoleInstance}
-			/>
+			{props.positronConsoleInstance.runtimeItems.map(runtimeItem => {
+				if (runtimeItem instanceof RuntimeItemActivity) {
+					return <RuntimeActivity key={runtimeItem.id} runtimeItemActivity={runtimeItem} />;
+				} else if (runtimeItem instanceof RuntimeItemPrompt) {
+					return <RuntimePrompt key={runtimeItem.id} runtimeItemPrompt={runtimeItem} positronConsoleInstance={props.positronConsoleInstance} />;
+				} else if (runtimeItem instanceof RuntimeItemStartup) {
+					return <RuntimeStartup key={runtimeItem.id} runtimeItemStartup={runtimeItem} />;
+				} else if (runtimeItem instanceof RuntimeItemReconnected) {
+					return <RuntimeReconnected key={runtimeItem.id} runtimeItemReconnected={runtimeItem} />;
+				} else if (runtimeItem instanceof RuntimeItemStarting) {
+					return <RuntimeStarting key={runtimeItem.id} runtimeItemStarting={runtimeItem} />;
+				} else if (runtimeItem instanceof RuntimeItemStarted) {
+					return <RuntimeStarted key={runtimeItem.id} runtimeItemStarted={runtimeItem} />;
+				} else if (runtimeItem instanceof RuntimeItemOffline) {
+					return <RuntimeOffline key={runtimeItem.id} runtimeItemOffline={runtimeItem} />;
+				} else if (runtimeItem instanceof RuntimeItemExited) {
+					return <RuntimeExited key={runtimeItem.id} runtimeItemExited={runtimeItem} />;
+				} else if (runtimeItem instanceof RuntimeItemStartupFailure) {
+					return <RuntimeStartupFailure key={runtimeItem.id} runtimeItemStartupFailure={runtimeItem} />;
+				} else if (runtimeItem instanceof RuntimeItemTrace) {
+					return trace && <RuntimeTrace key={runtimeItem.id} runtimeItemTrace={runtimeItem} />;
+				} else {
+					// This indicates a bug.
+					return null;
+				}
+			})}
+			{!prompting() &&
+				<ConsoleInput
+					ref={consoleInputRef}
+					width={adjustedWidth}
+					positronConsoleInstance={props.positronConsoleInstance}
+				/>
+			}
 		</div>
 	);
 };
