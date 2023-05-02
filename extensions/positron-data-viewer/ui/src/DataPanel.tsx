@@ -7,8 +7,8 @@ import './DataPanel.css';
 // Node modules.
 import * as React from 'react';
 import * as ReactVirtual from 'react-virtual';
-import { useInfiniteQuery } from '@tanstack/react-query';
-import { ColumnDef, flexRender, getCoreRowModel, getSortedRowModel, Row, useReactTable, } from '@tanstack/react-table';
+import * as ReactQuery from '@tanstack/react-query';
+import * as ReactTable from '@tanstack/react-table';
 
 // Local modules.
 import { DataFragment, DataModel } from './DataModel';
@@ -36,7 +36,7 @@ export const DataPanel = (props: DataPanelProps) => {
 	const dataSet = props.data;
 	const dataModel = new DataModel(props.data);
 
-	const columns = React.useMemo<ColumnDef<any>[]>(
+	const columns = React.useMemo<ReactTable.ColumnDef<any>[]>(
 		() => {
 			return dataSet.columns.map(column => {
 				return {
@@ -49,7 +49,7 @@ export const DataPanel = (props: DataPanelProps) => {
 		[]);
 
 	const { data, fetchNextPage, isFetching, isLoading } =
-		useInfiniteQuery<DataFragment>(
+		ReactQuery.useInfiniteQuery<DataFragment>(
 			['table-data'],
 			async ({ pageParam = 0 }) => {
 				const start = pageParam * fetchSize;
@@ -89,11 +89,11 @@ export const DataPanel = (props: DataPanelProps) => {
 		fetchMoreOnBottomReached(tableContainerRef.current);
 	}, [fetchMoreOnBottomReached]);
 
-	const table = useReactTable({
+	const table = ReactTable.useReactTable({
 		data: flatData,
 		columns,
-		getCoreRowModel: getCoreRowModel(),
-		getSortedRowModel: getSortedRowModel(),
+		getCoreRowModel: ReactTable.getCoreRowModel(),
+		getSortedRowModel: ReactTable.getSortedRowModel(),
 		debugTable: true,
 	});
 
@@ -144,7 +144,7 @@ export const DataPanel = (props: DataPanelProps) => {
 														onClick: header.column.getToggleSortingHandler(),
 													}}
 												>
-													{flexRender(
+													{ReactTable.flexRender(
 														header.column.columnDef.header,
 														header.getContext()
 													)}
@@ -167,13 +167,13 @@ export const DataPanel = (props: DataPanelProps) => {
 							</tr>
 						)}
 						{virtualRows.map(virtualRow => {
-							const row = rows[virtualRow.index] as Row<any>;
+							const row = rows[virtualRow.index] as ReactTable.Row<any>;
 							return (
 								<tr key={row.id}>
 									{row.getVisibleCells().map(cell => {
 										return (
 											<td key={cell.id}>
-												{flexRender(
+												{ReactTable.flexRender(
 													cell.column.columnDef.cell,
 													cell.getContext()
 												)}

@@ -75,8 +75,15 @@ export async function createDataPanel(context: vscode.ExtensionContext,
 	const reactHtml = scriptPaths.map((scriptPath) => {
 		const scriptUri = panel.webview.asWebviewUri(vscode.Uri.file(scriptPath));
 		// Add the type="module" attribute to the script tag if the script is
-		// not in the node_modules folder (i.e. it's one of our own scripts)
-		const moduleAttribute = scriptPath.includes('node_modules') ? '' : 'type="module"';
+		// not in the node_modules folder (i.e. it's one of our own scripts).
+		//
+		// The "module" attribute should also be added to scripts with
+		// ".mjs" (module JavaScript) extensions.
+		const moduleAttribute = (
+			!scriptPath.includes('.mjs') &&
+			scriptPath.includes('node_modules')) ?
+			'' :
+			'type="module"';
 		return `<script ${moduleAttribute} src="${scriptUri}"></script>`;
 	}).join('\n');
 
@@ -113,7 +120,12 @@ export async function createDataPanel(context: vscode.ExtensionContext,
 			// the initial data
 			const dataMsg: DataViewerMessageData = {
 				msg_type: 'data',
-				data: initialData.columns
+				data: {
+					id: initialData.id,
+					title: initialData.title,
+					columns: initialData.columns,
+					rowCount: initialData.rowCount,
+				},
 			};
 			panel.webview.postMessage(dataMsg);
 		}

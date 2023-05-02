@@ -7,7 +7,7 @@ import * as ReactDOM from 'react-dom';
 import * as React from 'react';
 
 // External modules.
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import * as ReactQuery from '@tanstack/react-query';
 
 // Local modules.
 import { DataPanel } from './DataPanel';
@@ -33,12 +33,12 @@ window.addEventListener('message', (event: any) => {
 
 	if (message.msg_type === 'data') {
 		const dataMessage = message as DataViewerMessageData;
-		const queryClient = new QueryClient();
+		const queryClient = new ReactQuery.QueryClient();
 		ReactDOM.render(
 			<React.StrictMode>
-				<QueryClientProvider client={queryClient}>
+				<ReactQuery.QueryClientProvider client={queryClient}>
 					<DataPanel data={dataMessage.data} />
-				</QueryClientProvider>
+				</ReactQuery.QueryClientProvider>
 			</React.StrictMode>,
 			document.getElementById('root')
 		);
