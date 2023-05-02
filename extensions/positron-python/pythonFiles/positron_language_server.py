@@ -8,6 +8,7 @@ import logging
 import os
 import sys
 import traceback
+from typing import Tuple
 
 # Add the lib path to our sys path so jedi_language_server can find its references
 EXTENSION_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -16,7 +17,8 @@ sys.path.insert(1, os.path.join(EXTENSION_ROOT, "pythonFiles", "lib", "python"))
 
 from positron.positron_jedilsp import POSITRON
 
-def initialize() -> (str, int):
+
+def initialize() -> Tuple[str, int]:
     """
     Initialize the configuration for the Positron Python Language Server
     and REPL Kernel.
@@ -29,7 +31,8 @@ def initialize() -> (str, int):
     parser = argparse.ArgumentParser(
         prog="positron-language-server",
         formatter_class=argparse.RawDescriptionHelpFormatter,
-        description="Positron Jedi language server: an LSP wrapper for jedi.")
+        description="Positron Jedi language server: an LSP wrapper for jedi.",
+    )
 
     parser.add_argument(
         "--host",
@@ -85,12 +88,13 @@ def initialize() -> (str, int):
     # Start the debugpy debugger if a port was specified
     if args.debugport is not None:
         import debugpy
+
         debugpy.listen(args.debugport)
 
     return args.host, args.port
 
 
-def start(lsp_host, lsp_port):
+def start(lsp_host: str, lsp_port: int):
     """
     Starts Positron Python (based on the Jedi Language Server) to
     suport both LSP and REPL functionality.
@@ -100,7 +104,6 @@ def start(lsp_host, lsp_port):
 
 
 if __name__ == "__main__":
-
     exitStatus = 0
 
     try:
@@ -109,11 +112,11 @@ if __name__ == "__main__":
     except SystemExit as error:
         # TODO: Remove this workaround once we can improve Jedi
         # disconnection logic
-        tb = ''.join(traceback.format_tb(error.__traceback__))
-        if tb.find('connection_lost') > 0:
-            logging.warning('Positron LSP client disconnected, exiting.')
+        tb = "".join(traceback.format_tb(error.__traceback__))
+        if tb.find("connection_lost") > 0:
+            logging.warning("Positron LSP client disconnected, exiting.")
             exitStatus = 0
         else:
-            logging.error('Error in Positron Jedi LSP: %s', error)
+            logging.error("Error in Positron Jedi LSP: %s", error)
 
     sys.exit(exitStatus)
