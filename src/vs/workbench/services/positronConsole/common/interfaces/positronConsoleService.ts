@@ -89,6 +89,11 @@ export interface IPositronConsoleInstance {
 	readonly runtimeItems: RuntimeItem[];
 
 	/**
+	 * Gets a value which indicates whether a prompt is active.
+	 */
+	readonly promptActive: boolean;
+
+	/**
 	 * The onDidChangeState event.
 	 */
 	readonly onDidChangeState: Event<PositronConsoleState>;
@@ -138,4 +143,17 @@ export interface IPositronConsoleInstance {
 	 * @param code The code to execute.
 	 */
 	executeCode(code: string): void;
+
+	/**
+	 * Replies to a prompt.
+	 * @param id The prompt identifier.
+	 * @param value The value.
+	 */
+	replyToPrompt(id: string, value: string): void;
+
+	/**
+	 * Interrupts prompt.
+	 * @param id The prompt identifier.
+	 */
+	interruptPrompt(id: string): void;
 }

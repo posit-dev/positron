@@ -290,7 +290,7 @@ export const ConsoleInput = forwardRef<HTMLDivElement, ConsoleInputProps>((props
 		}
 	};
 
-	// Main useEffect.
+	// Main useEffect hook.
 	useEffect(() => {
 		// Create the disposable store for cleanup.
 		const disposableStore = new DisposableStore();
@@ -521,14 +521,6 @@ export const ConsoleInput = forwardRef<HTMLDivElement, ConsoleInputProps>((props
 			});
 		}
 	}, [props.width]);
-
-	// useEffect(() => {
-	// 	if (props.active) {
-	// 		if (codeEditorWidgetRef.current) {
-	// 			codeEditorWidgetRef.current.focus();
-	// 		}
-	// 	}
-	// }, [props.active]);
 
 	/**
 	 * onFocus event handler.
