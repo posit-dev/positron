@@ -22,8 +22,26 @@ jobs:
 
       - name: Setup Build Environment
         run: |
+          # Remove R 4.3 from the build image, along with all downstream
+          # dependent packages (r-cran-*, etc.) via autoremove. Github Actions
+          # runner images supplied by Github have the very latest R, but
+          # libR-sys is not compatible with it yet.
+          #
+          # See https://github.com/extendr/libR-sys/pull/150 for more details.
+          sudo apt remove r-recommended r-base-core r-base r-base-dev
+          sudo apt-get --purge autoremove
+
+          # Remove the repositories from which R 4.3 is installed. Removing
+          # these will cause R installation in subsequent steps to use the
+          # regular Ubuntu Jammy repository, which has an older version of R
+          # (4.1 as of right now)
+          sudo add-apt-repository -r https://cloud.r-project.org/bin/linux/ubuntu
+          sudo add-apt-repository -r https://ppa.launchpadcontent.net/ubuntu-toolchain-r/test/ubuntu
+          sudo rm -rf /etc/sources.list.d/ubuntu-toolchain-r-ubuntu-test-jammy.list
+
+          # Install all the packages we need for CI
           sudo apt-get update
-          sudo apt-get install -y vim curl build-essential clang make cmake git r-base-dev python3-pip python-is-python3 libsodium-dev libxkbfile-dev pkg-config libsecret-1-dev libxss1 dbus xvfb libgtk-3-0 libgbm1 libnss3 libnspr4 libasound2
+          sudo apt-get install -y vim curl build-essential clang make cmake git r-recommended r-base-core r-base r-base-dev python3-pip python-is-python3 libsodium-dev libxkbfile-dev pkg-config libsecret-1-dev libxss1 dbus xvfb libgtk-3-0 libgbm1 libnss3 libnspr4 libasound2
           sudo cp build/azure-pipelines/linux/xvfb.init /etc/init.d/xvfb
           sudo chmod +x /etc/init.d/xvfb
           sudo update-rc.d xvfb defaults
