@@ -253,6 +253,7 @@ export function stripSourceMappingURL(): NodeJS.ReadWriteStream {
 	return es.duplex(input, output);
 }
 
+// --- Start Positron ---
 /**
  * Strips and/or modifies import statements. This function only runs on
  * development builds, and helps make it possible to use the same set of source
@@ -279,6 +280,7 @@ export function stripImportStatements(): NodeJS.ReadWriteStream {
 			// but not for the browser, where we inject dependencies via
 			// <script> tags
 			contents = contents.replace(/\nimport . as .* from .*;$/gm, '\n');
+			contents = contents.replace(/\nimport (.*) from '([^.].*)';$/gm, `\n`);
 
 			// Remove any CSS import statements; these are needed for Webpack but
 			// not for the browser, where we inject dependencies via <link> tags
@@ -300,6 +302,7 @@ export function stripImportStatements(): NodeJS.ReadWriteStream {
 
 	return es.duplex(input, output);
 }
+// --- End Positron ---
 
 /** Splits items in the stream based on the predicate, sending them to onTrue if true, or onFalse otherwise */
 export function $if(test: boolean | ((f: VinylFile) => boolean), onTrue: NodeJS.ReadWriteStream, onFalse: NodeJS.ReadWriteStream = es.through()) {

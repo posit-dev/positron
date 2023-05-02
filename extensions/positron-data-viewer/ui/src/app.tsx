@@ -7,7 +7,7 @@ import * as ReactDOM from 'react-dom';
 import * as React from 'react';
 
 // External modules.
-import { QueryClient, QueryClientProvider, } from '@tanstack/react-query';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 // Local modules.
 import { DataPanel } from './DataPanel';

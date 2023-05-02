@@ -6,7 +6,7 @@ import './DataPanel.css';
 
 // Node modules.
 import * as React from 'react';
-import { useVirtual } from 'react-virtual';
+import * as ReactVirtual from 'react-virtual';
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { ColumnDef, flexRender, getCoreRowModel, getSortedRowModel, Row, useReactTable, } from '@tanstack/react-table';
 
@@ -99,7 +99,7 @@ export const DataPanel = (props: DataPanelProps) => {
 
 	const { rows } = table.getRowModel();
 
-	const rowVirtualizer = useVirtual({
+	const rowVirtualizer = ReactVirtual.useVirtual({
 		parentRef: tableContainerRef,
 		size: rows.length,
 		overscan: 10,

@@ -27,23 +27,37 @@ export async function createDataPanel(context: vscode.ExtensionContext,
 		}
 	);
 
-	// Check for the 'dist' folder in the extension directory; this only exists in
+	// Check for the 'index.js' file in the extension directory; this only exists in
 	// production mode.
-	const distFolder = path.join(context.extensionPath, 'ui', 'dist');
+	const indexJs = path.join(context.extensionPath, 'ui', 'dist', 'index.js');
 	const fs = require('fs');
-	const productionMode = fs.existsSync(distFolder);
+	const productionMode = fs.existsSync(indexJs);
 
 	const scriptPaths = [];
 
 	if (!productionMode) {
 		const nodeFolder = path.join(context.extensionPath, 'ui', 'node_modules');
-		// In development mode, we use the React and ReactDOM libraries
-		// from the extension folder directly. In production mode,
-		// webpack bundles these libraries into the index.js file.
+		// In development mode, we use the React libraries from the extension
+		// folder directly. In production mode, webpack bundles these libraries
+		// into the index.js file.
 		scriptPaths.push(path.join(nodeFolder,
 			'react', 'umd', 'react.development.js'));
 		scriptPaths.push(path.join(nodeFolder,
 			'react-dom', 'umd', 'react-dom.development.js'));
+		scriptPaths.push(path.join(nodeFolder,
+			'react-virtual', 'dist', 'react-virtual.development.js'));
+
+		// In development mode, we use the TanStack libraries from the extension
+		// folder directly as well.
+		const tanstackLibraries = [
+			'query-core',
+			'react-query',
+			'react-table',
+			'table-core'];
+		tanstackLibraries.forEach((library) => {
+			scriptPaths.push(path.join(nodeFolder,
+				'@tanstack', library, 'build', 'umd', `index.development.js`));
+		});
 	}
 
 	// Get a list of all the script files in the extension's ui/out folder and
