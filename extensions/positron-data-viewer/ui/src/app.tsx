@@ -2,7 +2,7 @@
  *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
-// Node modules.
+// External libraries.
 import * as ReactDOM from 'react-dom';
 import * as React from 'react';
 

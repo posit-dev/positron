@@ -4,7 +4,7 @@
 
 import './DataPanel.css';
 
-// Node modules.
+// External libraries.
 import * as React from 'react';
 import * as ReactVirtual from '@tanstack/react-virtual';
 import * as ReactQuery from '@tanstack/react-query';
@@ -38,9 +38,10 @@ export const DataPanel = (props: DataPanelProps) => {
 
 	const columns = React.useMemo<ReactTable.ColumnDef<any>[]>(
 		() => {
-			return dataSet.columns.map((column, _idx) => {
+			return dataSet.columns.map((column, idx) => {
 				return {
-					accessorFn: row => column.data[row],
+					id: '' + idx,
+					accessorFn: row => row[idx],
 					header: column.name,
 				};
 			});
@@ -148,8 +149,8 @@ export const DataPanel = (props: DataPanelProps) => {
 														header.getContext()
 													)}
 													{{
-														asc: ' 🔼',
-														desc: ' 🔽',
+														asc: '^',
+														desc: 'V',
 													}[header.column.getIsSorted() as string] ?? null}
 												</div>
 											)}
