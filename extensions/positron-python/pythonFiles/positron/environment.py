@@ -3,18 +3,13 @@
 #
 
 import enum
-import html
-import inspect
 import logging
-import numbers
-import pprint
-import sys
 import types
-from collections.abc import Iterable, Mapping, Sequence, Set
-from typing import Any, Optional, Tuple
+from collections.abc import Iterable, Mapping, Sequence
+from typing import Any, Optional
 
 from .inspectors import get_inspector, is_inspectable
-from .utils import get_length, get_qualname, truncate_string
+from .utils import get_qualname
 
 
 @enum.unique
@@ -97,9 +92,6 @@ class EnvironmentVariable(dict):
         self["has_children"] = has_children
         self["has_viewer"] = has_viewer
         self["is_truncated"] = is_truncated
-        # TODO: To be removed
-        self["name"] = display_name
-        self["value"] = display_value
 
 
 class EnvironmentMessage(dict):
@@ -174,8 +166,6 @@ class EnvironmentMessageError(EnvironmentMessage):
 
 
 MAX_ITEMS = 2000
-TRUNCATE_SUMMARY_AT = 1024
-SUMMARY_PRINT_WIDTH = 100
 
 
 class EnvironmentService:
@@ -244,8 +234,8 @@ class EnvironmentService:
             "data": {
                 "msg_type": "list",
                 "variables": [{
-                    "name": "mygreeting",
-                    "value": "Hello",
+                    "display_name": "mygreeting",
+                    "display_value": "Hello",
                     "kind": "string"
                 }]
             }
@@ -303,8 +293,8 @@ class EnvironmentService:
             "data": {
                 "msg_type": "update",
                 "assigned": [{
-                    "name": "newvar1",
-                    "value": "Hello",
+                    "display_name": "newvar1",
+                    "display_value": "Hello",
                     "kind": "string"
                 }],
                 "removed": ["oldvar1", "oldvar2"]
@@ -462,62 +452,25 @@ class EnvironmentService:
         return summaries
 
     def _summarize_variable(self, key, value) -> Optional[EnvironmentVariable]:
-        kind = self._get_kind(value)
+        # Hide module types for now
+        if isinstance(value, types.ModuleType):
+            return None
 
-        if kind is not None:
-            return self._summarize_any(key, value, kind)
-
-        return None
-
-    def _summarize_any(self, key, value, kind) -> EnvironmentVariable:
         display_name = str(key)
+
         try:
-            length = get_length(value)
-            size = sys.getsizeof(value)
-            has_children = length > 0
-            has_viewer = False
-            is_truncated = False
+            # Use an inspector to summarize the value
+            ins = get_inspector(value)
 
-            # Determine the short display type for the variable, including
-            # the length, if applicable
-            display_type = self._get_display_type(value, length)
-            type_info = get_qualname(value)
-
-            # Apply type-specific formatting
-            if kind == EnvironmentVariableKind.STRING:
-                # For string summaries, avoid pprint as it wraps strings into line chunks
-                display_value, is_truncated = self._summarize_value(value, None)
-                display_value = repr(display_value)
-                has_children = False
-
-            elif kind == EnvironmentVariableKind.TABLE:
-                # Tables are summarized by their dimensions
-                inspector = get_inspector(value)
-                display_value = inspector.get_display_value(value)
-                has_viewer = True
-                is_truncated = True
-
-            elif kind == EnvironmentVariableKind.FUNCTION:
-                # Functions are summarized by their signature
-                display_value = self._format_function_summary(value)
-                has_children = False
-
-            elif kind == EnvironmentVariableKind.BYTES:
-                # For bytes, even though they have a length, we don't set them
-                # as having children
-                display_value, is_truncated = self._summarize_value(value, None)
-                has_children = False
-
-            elif kind == EnvironmentVariableKind.COLLECTION:
-                display_value, is_truncated = self._summarize_value(value)
-                # For ranges, we don't visualize the children as they're
-                # implied as a contiguous set of integers in a range
-                # For sets, we don't visualize the children as they're
-                # not subscriptable objects
-                if isinstance(value, (frozenset, range, set)):
-                    has_children = False
-            else:
-                display_value, is_truncated = self._summarize_value(value)
+            kind_str = ins.get_kind(value)
+            kind = getattr(EnvironmentVariableKind, kind_str.upper())
+            display_value, is_truncated = ins.get_display_value(value)
+            display_type = ins.get_display_type(value)
+            type_info = ins.get_type_info(value)
+            length = ins.get_length(value)
+            size = ins.get_size(value)
+            has_children = ins.has_children(value)
+            has_viewer = ins.has_viewer(value)
 
             return EnvironmentVariable(
                 display_name=display_name,
@@ -532,40 +485,20 @@ class EnvironmentService:
                 has_viewer=has_viewer,
                 is_truncated=is_truncated,
             )
+
         except Exception as err:
             logging.warning(err, exc_info=True)
             return EnvironmentVariable(
-                display_name=display_name, display_value=get_qualname(value), kind=kind
+                display_name=display_name,
+                display_value=get_qualname(value),
+                kind=EnvironmentVariableKind.OTHER,
             )
-
-    def _summarize_value(
-        self,
-        value,
-        print_width: Optional[int] = SUMMARY_PRINT_WIDTH,
-        truncate_at: int = TRUNCATE_SUMMARY_AT,
-    ) -> Tuple[str, bool]:
-        if print_width is not None:
-            s = pprint.pformat(value, width=print_width, compact=True)
-        else:
-            s = str(value)
-
-        # TODO: Add type aware truncation
-        return truncate_string(s, truncate_at)
-
-    def _format_function_summary(self, value) -> str:
-        if callable(value):
-            sig = inspect.signature(value)
-        else:
-            sig = "()"
-        return f"{value.__qualname__}{sig}"
 
     def _format_value(self, value, clipboard_format: ClipboardFormat) -> str:
         if clipboard_format == ClipboardFormat.HTML:
             if is_inspectable(value):
                 inspector = get_inspector(value)
                 return inspector.to_html(value)
-            else:
-                return html.escape(str(value))
 
         elif clipboard_format == ClipboardFormat.PLAIN:
             if is_inspectable(value):
@@ -573,52 +506,3 @@ class EnvironmentService:
                 return inspector.to_tsv(value)
 
         return str(value)
-
-    def _get_display_type(self, value: Any, length: int = 0) -> str:
-        if value is not None:
-            type_name = type(value).__name__
-
-            if isinstance(value, str):
-                # For strings, which are sequences, we suppress showing
-                # the length in the type display
-                return type_name
-            elif is_inspectable(value):
-                inspector = get_inspector(value)
-                return inspector.get_display_type(value)
-            elif isinstance(value, Set):
-                return f"{type_name} {{{length}}}"
-            elif isinstance(value, tuple):
-                return f"{type_name} ({length})"
-            elif isinstance(value, (Sequence, Mapping)):
-                return f"{type_name} [{length}]"
-            elif length > 0:
-                return f"{type_name} [{length}]"
-
-            return type_name
-        else:
-            return "NoneType"
-
-    def _get_kind(self, value) -> Optional[str]:
-        if isinstance(value, str):
-            return EnvironmentVariableKind.STRING
-        elif isinstance(value, bool):
-            return EnvironmentVariableKind.BOOLEAN
-        elif isinstance(value, numbers.Number):
-            return EnvironmentVariableKind.NUMBER
-        elif is_inspectable(value):
-            inspector = get_inspector(value)
-            return inspector.get_kind(value)
-        elif isinstance(value, Mapping):
-            return EnvironmentVariableKind.MAP
-        elif isinstance(value, (bytes, bytearray, memoryview)):
-            return EnvironmentVariableKind.BYTES
-        elif isinstance(value, (Sequence, Set)):
-            return EnvironmentVariableKind.COLLECTION
-        elif isinstance(value, (types.FunctionType, types.MethodType)):
-            return EnvironmentVariableKind.FUNCTION
-        elif isinstance(value, types.ModuleType):
-            return None  # Hide module types for now
-        elif value is not None:
-            return EnvironmentVariableKind.OTHER
-        else:
-            return EnvironmentVariableKind.EMPTY
