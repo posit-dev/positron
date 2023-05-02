@@ -2,12 +2,23 @@
  *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
-import * as React from 'react';
-import { DataColumn } from './positron-data-viewer';
 import './DataPanel.css';
 
+// Node modules.
+import * as React from 'react';
+import { useVirtual } from 'react-virtual';
+import { useInfiniteQuery } from '@tanstack/react-query';
+import { ColumnDef, flexRender, getCoreRowModel, getSortedRowModel, Row, useReactTable, } from '@tanstack/react-table';
+
+// Local modules.
+import { DataFragment, DataModel } from './DataModel';
+
+// External types.
+import { DataSet } from './positron-data-viewer';
+
+
 interface DataPanelProps {
-	data: Array<DataColumn>;
+	data: DataSet;
 }
 
 /**
@@ -16,37 +27,176 @@ interface DataPanelProps {
  * @param props The properties for the component.
  */
 export const DataPanel = (props: DataPanelProps) => {
-	// Extract the data from the props.
-	const data = props.data;
 
-	// Create the header row.
-	const headerColumns = data.map((column) => {
-		return <th key={column.name}>{column.name}</th>;
-	});
+	const fetchSize = 100;
+	const scrollThresholdPx = 300;
 
-	// Create the data rows.
-	const dataRows = data[0].data.map((_row, rowIndex) => {
-		return (
-			<tr key={'row_' + rowIndex}>
-				{data.map((column) => {
-					return <td className={'col-' + column.type} key={column.name + '_' + rowIndex}>
-						{column.data[rowIndex]}
-					</td>;
-				})}
-			</tr>
+	const rerender = React.useReducer(() => ({}), {})[1];
+	const tableContainerRef = React.useRef<HTMLDivElement>(null);
+	const dataSet = props.data;
+	const dataModel = new DataModel(props.data);
+
+	const columns = React.useMemo<ColumnDef<any>[]>(
+		() => {
+			return dataSet.columns.map(column => {
+				return {
+					accessorKey: column.name,
+					header: column.name,
+					cell: info => info.getValue(),
+				};
+			});
+		},
+		[]);
+
+	const { data, fetchNextPage, isFetching, isLoading } =
+		useInfiniteQuery<DataFragment>(
+			['table-data'],
+			async ({ pageParam = 0 }) => {
+				const start = pageParam * fetchSize;
+				const fetchedData = dataModel.loadDataFragment(start, fetchSize);
+				return fetchedData;
+			},
+			{
+				getNextPageParam: (_lastGroup, groups) => groups.length,
+				keepPreviousData: true,
+				refetchOnWindowFocus: false,
+			}
 		);
+
+	const flatData = React.useMemo(
+		() => data?.pages?.flatMap(page => page.columns) ?? [],
+		[data]);
+
+	const totalDBRowCount = dataSet.rowCount;
+	const totalFetched = flatData.length;
+
+	const fetchMoreOnBottomReached = React.useCallback(
+		(containerRefElement?: HTMLDivElement | null) => {
+			if (containerRefElement) {
+				const { scrollHeight, scrollTop, clientHeight } = containerRefElement;
+				if (
+					scrollHeight - scrollTop - clientHeight < scrollThresholdPx &&
+					!isFetching &&
+					totalFetched < totalDBRowCount
+				) {
+					fetchNextPage();
+				}
+			}
+		},
+		[fetchNextPage, isFetching, totalFetched, totalDBRowCount]);
+
+	React.useEffect(() => {
+		fetchMoreOnBottomReached(tableContainerRef.current);
+	}, [fetchMoreOnBottomReached]);
+
+	const table = useReactTable({
+		data: flatData,
+		columns,
+		getCoreRowModel: getCoreRowModel(),
+		getSortedRowModel: getSortedRowModel(),
+		debugTable: true,
 	});
+
+	const { rows } = table.getRowModel();
+
+	const rowVirtualizer = useVirtual({
+		parentRef: tableContainerRef,
+		size: rows.length,
+		overscan: 10,
+	});
+
+	const { virtualItems: virtualRows, totalSize } = rowVirtualizer;
+	const paddingTop = virtualRows.length > 0 ? virtualRows?.[0]?.start || 0 : 0;
+	const paddingBottom =
+		virtualRows.length > 0
+			? totalSize - (virtualRows?.[virtualRows.length - 1]?.end || 0)
+			: 0;
+
+	if (isLoading) {
+		return <>Loading...</>;
+	}
 
 	return (
-		<table>
-			<thead>
-				<tr>
-					{headerColumns}
-				</tr>
-			</thead>
-			<tbody>
-				{dataRows}
-			</tbody>
-		</table>
+		<div className='p-2'>
+			<div className='h-2' />
+			<div
+				className='container'
+				onScroll={e => fetchMoreOnBottomReached(e.target as HTMLDivElement)}
+				ref={tableContainerRef}
+			>
+				<table>
+					<thead>
+						{table.getHeaderGroups().map(headerGroup => (
+							<tr key={headerGroup.id}>
+								{headerGroup.headers.map(header => {
+									return (
+										<th
+											key={header.id}
+											colSpan={header.colSpan}
+											style={{ width: header.getSize() }}
+										>
+											{header.isPlaceholder ? null : (
+												<div
+													{...{
+														className: header.column.getCanSort()
+															? 'cursor-pointer select-none'
+															: '',
+														onClick: header.column.getToggleSortingHandler(),
+													}}
+												>
+													{flexRender(
+														header.column.columnDef.header,
+														header.getContext()
+													)}
+													{{
+														asc: ' 🔼',
+														desc: ' 🔽',
+													}[header.column.getIsSorted() as string] ?? null}
+												</div>
+											)}
+										</th>
+									);
+								})}
+							</tr>
+						))}
+					</thead>
+					<tbody>
+						{paddingTop > 0 && (
+							<tr>
+								<td style={{ height: `${paddingTop}px` }} />
+							</tr>
+						)}
+						{virtualRows.map(virtualRow => {
+							const row = rows[virtualRow.index] as Row<any>;
+							return (
+								<tr key={row.id}>
+									{row.getVisibleCells().map(cell => {
+										return (
+											<td key={cell.id}>
+												{flexRender(
+													cell.column.columnDef.cell,
+													cell.getContext()
+												)}
+											</td>
+										);
+									})}
+								</tr>
+							);
+						})}
+						{paddingBottom > 0 && (
+							<tr>
+								<td style={{ height: `${paddingBottom}px` }} />
+							</tr>
+						)}
+					</tbody>
+				</table>
+			</div>
+			<div>
+				Fetched {flatData.length} of {totalDBRowCount} Rows.
+			</div>
+			<div>
+				<button onClick={() => rerender()}>Force Rerender</button>
+			</div>
+		</div>
 	);
 };

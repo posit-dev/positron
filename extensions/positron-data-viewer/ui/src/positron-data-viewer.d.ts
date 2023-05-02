@@ -87,7 +87,7 @@ export interface DataViewerMessageData extends DataViewerMessage {
 	/**
 	 * The data set.
 	 */
-	data: Array<DataColumn>;
+	data: DataSet;
 }
 
 /**
