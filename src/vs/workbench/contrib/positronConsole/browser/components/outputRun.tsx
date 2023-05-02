@@ -17,7 +17,7 @@ export interface OutputRunProps {
  * @param props A OutputRunProps that contains the component properties.
  * @returns The rendered component.
  */
-export const OutputRun = ({ outputRun }: OutputRunProps) => {
+export const OutputRun = (props: OutputRunProps) => {
 	/**
 	 * ColorType enumeration.
 	 */
@@ -157,6 +157,6 @@ export const OutputRun = ({ outputRun }: OutputRunProps) => {
 
 	// Render.
 	return (
-		<span style={computeCSSProperties(outputRun)}>{outputRun.text}</span>
+		<span style={computeCSSProperties(props.outputRun)}>{props.outputRun.text}</span>
 	);
 };

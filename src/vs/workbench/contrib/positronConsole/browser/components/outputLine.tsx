@@ -17,13 +17,13 @@ export interface OutputLineProps {
  * @param props A OutputLineProps that contains the component properties.
  * @returns The rendered component.
  */
-export const OutputLine = ({ outputLine }: OutputLineProps) => {
+export const OutputLine = (props: OutputLineProps) => {
 	// Render.
 	return (
-		<div className='output-line'>
-			{!outputLine.outputRuns.length ?
+		<div>
+			{!props.outputLine.outputRuns.length ?
 				<br /> :
-				outputLine.outputRuns.map(outputRun =>
+				props.outputLine.outputRuns.map(outputRun =>
 					<OutputRun key={outputRun.id} outputRun={outputRun} />
 				)
 			}

@@ -28,14 +28,14 @@ const formatTimestamp = (timestamp: Date) => {
  * @param props A RuntimeTraceProps that contains the component properties.
  * @returns The rendered component.
  */
-export const RuntimeTrace = ({ runtimeItemTrace }: RuntimeTraceProps) => {
+export const RuntimeTrace = (props: RuntimeTraceProps) => {
 	// Render.
 	return (
 		<div className='runtime-trace'>
 			<div>
-				{formatTimestamp(runtimeItemTrace.timestamp)}
+				{formatTimestamp(props.runtimeItemTrace.timestamp)}
 			</div>
-			<OutputLines outputLines={runtimeItemTrace.outputLines} />
+			<OutputLines outputLines={props.runtimeItemTrace.outputLines} />
 		</div>
 	);
 };

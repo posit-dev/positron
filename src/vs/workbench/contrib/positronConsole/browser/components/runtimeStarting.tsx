@@ -17,9 +17,9 @@ export interface RuntimeStartingProps {
  * @param props A RuntimeStartingProps that contains the component properties.
  * @returns The rendered component.
  */
-export const RuntimeStarting = ({ runtimeItemStarting }: RuntimeStartingProps) => {
+export const RuntimeStarting = (props: RuntimeStartingProps) => {
 	// Render.
 	return (
-		<OutputLines outputLines={runtimeItemStarting.outputLines} />
+		<OutputLines outputLines={props.runtimeItemStarting.outputLines} />
 	);
 };

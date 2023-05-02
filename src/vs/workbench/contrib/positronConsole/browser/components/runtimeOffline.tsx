@@ -17,11 +17,11 @@ export interface RuntimeOfflineProps {
  * @param props A RuntimeOfflineProps that contains the component properties.
  * @returns The rendered component.
  */
-export const RuntimeOffline = ({ runtimeItemOffline }: RuntimeOfflineProps) => {
+export const RuntimeOffline = (props: RuntimeOfflineProps) => {
 	// Render.
 	return (
 		<div className='runtime-offline'>
-			<OutputLines outputLines={runtimeItemOffline.outputLines} />
+			<OutputLines outputLines={props.runtimeItemOffline.outputLines} />
 		</div>
 	);
 };

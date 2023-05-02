@@ -17,12 +17,12 @@ export interface RuntimeStartupFailureProps {
  * @param props A RuntimeStartupFailureProps that contains the component properties.
  * @returns The rendered component.
  */
-export const RuntimeStartupFailure = ({ runtimeItemStartupFailure }: RuntimeStartupFailureProps) => {
+export const RuntimeStartupFailure = (props: RuntimeStartupFailureProps) => {
 	// Render.
 	return (
 		<div className='runtime-startup-failure'>
-			<div className='message'>{runtimeItemStartupFailure.message}</div>
-			<OutputLines outputLines={runtimeItemStartupFailure.outputLines} />
+			<div className='message'>{props.runtimeItemStartupFailure.message}</div>
+			<OutputLines outputLines={props.runtimeItemStartupFailure.outputLines} />
 		</div>
 	);
 };
