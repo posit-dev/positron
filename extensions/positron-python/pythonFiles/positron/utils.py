@@ -3,13 +3,14 @@
 #
 
 import numbers
+import pprint
 import types
 from binascii import b2a_base64
 from datetime import datetime
-from typing import Tuple
+from typing import Optional, Tuple
 
 
-def get_length(value) -> int:
+def get_value_length(value) -> int:
     length = 0
     if hasattr(value, "__len__"):
         try:
@@ -36,8 +37,25 @@ def get_qualname(value) -> str:
     return "None"
 
 
+def pretty_format(
+    value,
+    print_width: Optional[int] = None,
+    truncate_at: Optional[int] = None,
+) -> Tuple[str, bool]:
+    if print_width is not None:
+        s = pprint.pformat(value, width=print_width, compact=True)
+    else:
+        s = str(value)
+
+    # TODO: Add type aware truncation
+    if truncate_at is not None:
+        return truncate_string(s, truncate_at)
+
+    return s, False
+
+
 def truncate_string(value: str, max: int) -> Tuple[str, bool]:
-    if get_length(value) > max:
+    if get_value_length(value) > max:
         return (value[:max], True)
     else:
         return (value, False)

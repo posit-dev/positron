@@ -20,8 +20,8 @@ parent = os.path.dirname(current)
 sys.path.append(parent)
 
 from positron import (
-    SUMMARY_PRINT_WIDTH,
-    TRUNCATE_SUMMARY_AT,
+    PRINT_WIDTH,
+    TRUNCATE_AT,
     EnvironmentService,
     EnvironmentVariable,
     EnvironmentVariableKind,
@@ -128,9 +128,9 @@ class TestEnvironmentService:
 
     def test_string_long_truncated(self, env_service):
         display_name = "xStrT"
-        long_string = "".join(random.choices(string.ascii_letters, k=(TRUNCATE_SUMMARY_AT + 10)))
+        long_string = "".join(random.choices(string.ascii_letters, k=(TRUNCATE_AT + 10)))
         length = len(long_string)
-        expected_value = f"'{long_string[:TRUNCATE_SUMMARY_AT]}'"
+        expected_value = f"'{long_string[:TRUNCATE_AT]}'"
         expected = EnvironmentVariable(
             display_name=display_name,
             display_value=expected_value,
@@ -294,11 +294,11 @@ class TestEnvironmentService:
 
     def test_bytearray_truncated(self, env_service):
         display_name = "xBytearrayT"
-        case = bytearray(TRUNCATE_SUMMARY_AT * 2)
+        case = bytearray(TRUNCATE_AT * 2)
         length = len(case)
         expected = EnvironmentVariable(
             display_name=display_name,
-            display_value=str(case)[:TRUNCATE_SUMMARY_AT],
+            display_value=str(case)[:TRUNCATE_AT],
             kind=EnvironmentVariableKind.BYTES,
             display_type=f"bytearray [{length}]",
             type_info="bytearray",
@@ -371,7 +371,7 @@ class TestEnvironmentService:
         for i, case in enumerate(cases):
             display_name = f"xSet{i}"
             length = len(case)
-            expected_value = pprint.pformat(case, width=SUMMARY_PRINT_WIDTH, compact=True)
+            expected_value = pprint.pformat(case, width=PRINT_WIDTH, compact=True)
             expected = EnvironmentVariable(
                 display_name=display_name,
                 display_value=expected_value,
@@ -389,12 +389,12 @@ class TestEnvironmentService:
 
     def test_set_truncated(self, env_service):
         display_name = "xSetT"
-        case = set(list(range(TRUNCATE_SUMMARY_AT * 2)))
+        case = set(list(range(TRUNCATE_AT * 2)))
         length = len(case)
-        expected_value = pprint.pformat(case, width=SUMMARY_PRINT_WIDTH, compact=True)
+        expected_value = pprint.pformat(case, width=PRINT_WIDTH, compact=True)
         expected = EnvironmentVariable(
             display_name=display_name,
-            display_value=expected_value[:TRUNCATE_SUMMARY_AT],
+            display_value=expected_value[:TRUNCATE_AT],
             kind=EnvironmentVariableKind.COLLECTION,
             display_type=f"set {{{length}}}",
             type_info="set",
@@ -423,7 +423,7 @@ class TestEnvironmentService:
         for i, case in enumerate(cases):
             display_name = f"xList{i}"
             length = len(case)
-            expected_value = pprint.pformat(case, width=SUMMARY_PRINT_WIDTH, compact=True)
+            expected_value = pprint.pformat(case, width=PRINT_WIDTH, compact=True)
             expected = EnvironmentVariable(
                 display_name=display_name,
                 display_value=expected_value,
@@ -442,12 +442,12 @@ class TestEnvironmentService:
 
     def test_list_truncated(self, env_service):
         display_name = "xListT"
-        case = list(range(TRUNCATE_SUMMARY_AT * 2))
+        case = list(range(TRUNCATE_AT * 2))
         length = len(case)
-        expected_value = pprint.pformat(case, width=SUMMARY_PRINT_WIDTH, compact=True)
+        expected_value = pprint.pformat(case, width=PRINT_WIDTH, compact=True)
         expected = EnvironmentVariable(
             display_name=display_name,
-            display_value=expected_value[:TRUNCATE_SUMMARY_AT],
+            display_value=expected_value[:TRUNCATE_AT],
             kind=EnvironmentVariableKind.COLLECTION,
             display_type=f"list [{length}]",
             type_info="list",
@@ -467,10 +467,10 @@ class TestEnvironmentService:
         case = list([1, 2])
         case.append(case)  # type: ignore
         length = len(case)
-        expected_value = pprint.pformat(case, width=SUMMARY_PRINT_WIDTH, compact=True)
+        expected_value = pprint.pformat(case, width=PRINT_WIDTH, compact=True)
         expected = EnvironmentVariable(
             display_name=display_name,
-            display_value=expected_value[:TRUNCATE_SUMMARY_AT],
+            display_value=expected_value[:TRUNCATE_AT],
             kind=EnvironmentVariableKind.COLLECTION,
             display_type=f"list [{length}]",
             type_info="list",
@@ -500,7 +500,7 @@ class TestEnvironmentService:
         for i, case in enumerate(cases):
             display_name = f"xRange{i}"
             length = len(case)
-            expected_value = pprint.pformat(case, width=SUMMARY_PRINT_WIDTH, compact=True)
+            expected_value = pprint.pformat(case, width=PRINT_WIDTH, compact=True)
             expected = EnvironmentVariable(
                 display_name=display_name,
                 display_value=expected_value,
@@ -541,7 +541,7 @@ class TestEnvironmentService:
         for i, case in enumerate(cases):
             display_name = f"xDict{i}"
             length = len(case)
-            expected_value = pprint.pformat(case, width=SUMMARY_PRINT_WIDTH, compact=True)
+            expected_value = pprint.pformat(case, width=PRINT_WIDTH, compact=True)
             expected = EnvironmentVariable(
                 display_name=display_name,
                 display_value=expected_value,
