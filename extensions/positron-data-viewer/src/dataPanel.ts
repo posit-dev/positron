@@ -44,8 +44,6 @@ export async function createDataPanel(context: vscode.ExtensionContext,
 			'react', 'umd', 'react.development.js'));
 		scriptPaths.push(path.join(nodeFolder,
 			'react-dom', 'umd', 'react-dom.development.js'));
-		scriptPaths.push(path.join(nodeFolder,
-			'react-virtual', 'dist', 'react-virtual.development.js'));
 
 		// In development mode, we use the TanStack libraries from the extension
 		// folder directly as well.
@@ -53,6 +51,7 @@ export async function createDataPanel(context: vscode.ExtensionContext,
 			'query-core',
 			'react-query',
 			'react-table',
+			'react-virtual',
 			'table-core'];
 		tanstackLibraries.forEach((library) => {
 			scriptPaths.push(path.join(nodeFolder,
@@ -77,8 +76,8 @@ export async function createDataPanel(context: vscode.ExtensionContext,
 		// Add the type="module" attribute to the script tag if the script is
 		// not in the node_modules folder (i.e. it's one of our own scripts).
 		//
-		// The "module" attribute should also be added to scripts with
-		// ".mjs" (module JavaScript) extensions.
+		// The "module" attribute should also be added to scripts with ".mjs"
+		// (module JavaScript) extensions.
 		const moduleAttribute = (
 			!scriptPath.includes('.mjs') &&
 			scriptPath.includes('node_modules')) ?

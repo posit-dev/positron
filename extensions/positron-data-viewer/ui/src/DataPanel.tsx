@@ -6,7 +6,7 @@ import './DataPanel.css';
 
 // Node modules.
 import * as React from 'react';
-import * as ReactVirtual from 'react-virtual';
+import * as ReactVirtual from '@tanstack/react-virtual';
 import * as ReactQuery from '@tanstack/react-query';
 import * as ReactTable from '@tanstack/react-table';
 
@@ -28,7 +28,7 @@ interface DataPanelProps {
  */
 export const DataPanel = (props: DataPanelProps) => {
 
-	const fetchSize = 100;
+	const fetchSize = 20;
 	const scrollThresholdPx = 300;
 
 	const rerender = React.useReducer(() => ({}), {})[1];
@@ -38,11 +38,10 @@ export const DataPanel = (props: DataPanelProps) => {
 
 	const columns = React.useMemo<ReactTable.ColumnDef<any>[]>(
 		() => {
-			return dataSet.columns.map(column => {
+			return dataSet.columns.map((column, _idx) => {
 				return {
-					accessorKey: column.name,
+					accessorFn: row => column.data[row],
 					header: column.name,
-					cell: info => info.getValue(),
 				};
 			});
 		},
