@@ -1,3 +1,15 @@
 /*---------------------------------------------------------------------------------------------
  *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
+
+.activity-prompt .prompt-line {
+	display: flex;
+	white-space: pre;
+	margin-right: 10px;
+}
+
+.activity-prompt .prompt-line .input-field {
+	flex-grow: 1;
+	border: none;
+	outline: 0 !important;
+}
