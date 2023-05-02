@@ -29,6 +29,6 @@
         "src/*",
         "typings/*.d.ts",
         "types/*.d.ts",
-        "../../src/positron-dts/positron.d.ts"
+        "positron-dts/positron.d.ts"
     ]
 }
