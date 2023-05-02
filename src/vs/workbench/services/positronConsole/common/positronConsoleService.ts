@@ -11,11 +11,11 @@ import { RuntimeItem } from 'vs/workbench/services/positronConsole/common/classe
 import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/common/extensions';
 import { RuntimeItemTrace } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemTrace';
 import { ActivityItemInput } from 'vs/workbench/services/positronConsole/common/classes/activityItemInput';
-import { RuntimeItemPrompt } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemPrompt';
 import { RuntimeItemExited } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemExited';
 import { RuntimeItemStarted } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemStarted';
 import { RuntimeItemStartup } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemStartup';
 import { RuntimeItemOffline } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemOffline';
+import { ActivityItemPrompt } from 'vs/workbench/services/positronConsole/common/classes/activityItemPrompt';
 import { RuntimeItemStarting } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemStarting';
 import { ActivityItemOutputPlot } from 'vs/workbench/services/positronConsole/common/classes/activityItemOutputPlot';
 import { RuntimeItemReconnected } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemReconnected';
@@ -381,9 +381,14 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	private _runtimeItems: RuntimeItem[] = [];
 
 	/**
-	 * The runtime item activities.
+	 * Gets or sets the runtime item activities.
 	 */
 	private _runtimeItemActivities = new Map<string, RuntimeItemActivity>();
+
+	/**
+	 * Gets or sets a value which indicates whether a prompt is active.
+	 */
+	private _promptActive = false;
 
 	/**
 	 * The onDidChangeState event emitter.
@@ -479,6 +484,13 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	}
 
 	/**
+	 * Gets a value which indicates whether a prompt is active.
+	 */
+	get promptActive(): boolean {
+		return this._promptActive;
+	}
+
+	/**
 	 * onDidChangeState event.
 	 */
 	readonly onDidChangeState: Event<PositronConsoleState> = this._onDidChangeStateEmitter.event;
@@ -539,6 +551,29 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	 */
 	executeCode(codeFragment: string): void {
 		this._onDidExecuteCodeEmitter.fire(codeFragment);
+	}
+
+	/**
+	 * Replies to a prompt.
+	 * @param id The prompt identifier.
+	 * @param value The value.
+	 */
+	replyToPrompt(id: string, value: string) {
+		if (this._promptActive) {
+			this._promptActive = false;
+			this._runtime.replyToPrompt(id, value);
+		}
+	}
+
+	/**
+	 * Interrupts a prompt.
+	 * @param id The prompt identifier.
+	 */
+	interruptPrompt(id: string) {
+		if (this._promptActive) {
+			this._promptActive = false;
+			this._runtime.interrupt();
+		}
 	}
 
 	//#endregion IPositronConsoleInstance Implementation
@@ -738,13 +773,20 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 				`\nPassword: ${languageRuntimeMessagePrompt.password}`
 			);
 
-			// Add the prompt runtime item.
-			this.addRuntimeItem(new RuntimeItemPrompt(
-				languageRuntimeMessagePrompt.id,
+			// Set the prompt active flag.
+			this._promptActive = true;
+
+			// Add or update the runtime item activity.
+			this.addOrUpdateUpdateRuntimeItemActivity(
 				languageRuntimeMessagePrompt.parent_id,
-				languageRuntimeMessagePrompt.prompt,
-				languageRuntimeMessagePrompt.password
-			));
+				new ActivityItemPrompt(
+					languageRuntimeMessagePrompt.id,
+					languageRuntimeMessagePrompt.parent_id,
+					new Date(languageRuntimeMessagePrompt.when),
+					languageRuntimeMessagePrompt.prompt,
+					languageRuntimeMessagePrompt.password
+				)
+			);
 		}));
 
 		// Add the onDidReceiveRuntimeMessageOutput event handler.

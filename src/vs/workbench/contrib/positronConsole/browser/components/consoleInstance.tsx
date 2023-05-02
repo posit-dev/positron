@@ -36,8 +36,6 @@ import { RuntimeItemReconnected } from 'vs/workbench/services/positronConsole/co
 import { RuntimeStartupFailure } from 'vs/workbench/contrib/positronConsole/browser/components/runtimeStartupFailure';
 import { IPositronConsoleInstance } from 'vs/workbench/services/positronConsole/common/interfaces/positronConsoleService';
 import { RuntimeItemStartupFailure } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemStartupFailure';
-import { RuntimeItemPrompt } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemPrompt';
-import { RuntimePrompt } from 'vs/workbench/contrib/positronConsole/browser/components/runtimePrompt';
 
 // ConsoleInstanceProps interface.
 interface ConsoleInstanceProps {
@@ -249,17 +247,6 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 	// Calculate the adjusted width (to account for indentation of the entire console instance).
 	const adjustedWidth = props.width - 10;
 
-	const prompting = () => {
-		if (props.positronConsoleInstance.runtimeItems.length) {
-			const lastRuntimeItem = props.positronConsoleInstance.runtimeItems[props.positronConsoleInstance.runtimeItems.length - 1];
-			if (lastRuntimeItem instanceof RuntimeItemPrompt && !lastRuntimeItem.answered) {
-				return true;
-			}
-		}
-
-		return false;
-	};
-
 	// Render.
 	return (
 		<div
@@ -273,9 +260,7 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 			onScroll={scrollHandler}>
 			{props.positronConsoleInstance.runtimeItems.map(runtimeItem => {
 				if (runtimeItem instanceof RuntimeItemActivity) {
-					return <RuntimeActivity key={runtimeItem.id} runtimeItemActivity={runtimeItem} />;
-				} else if (runtimeItem instanceof RuntimeItemPrompt) {
-					return <RuntimePrompt key={runtimeItem.id} runtimeItemPrompt={runtimeItem} positronConsoleInstance={props.positronConsoleInstance} />;
+					return <RuntimeActivity key={runtimeItem.id} runtimeItemActivity={runtimeItem} positronConsoleInstance={props.positronConsoleInstance} />;
 				} else if (runtimeItem instanceof RuntimeItemStartup) {
 					return <RuntimeStartup key={runtimeItem.id} runtimeItemStartup={runtimeItem} />;
 				} else if (runtimeItem instanceof RuntimeItemReconnected) {
@@ -297,7 +282,7 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 					return null;
 				}
 			})}
-			{!prompting() &&
+			{!props.positronConsoleInstance.promptActive &&
 				<ConsoleInput
 					ref={consoleInputRef}
 					width={adjustedWidth}
