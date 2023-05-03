@@ -18,7 +18,6 @@ table {
 thead {
 	position: sticky;
 	background-color: var(--vscode-panel-background);
-	border-bottom: 1px solid var(--vscode-panel-border);
 	margin: 0;
 	top: 0;
 }
@@ -32,6 +31,10 @@ thead th,
 tbody td {
 	border: 1px solid var(--vscode-panel-border);
 	padding: 5px;
+}
+
+thead tr th {
+	border-top: none;
 }
 
 body {
