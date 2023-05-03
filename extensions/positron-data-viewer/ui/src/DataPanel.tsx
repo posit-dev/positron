@@ -74,8 +74,8 @@ export const DataPanel = (props: DataPanelProps) => {
 		(containerRefElement?: HTMLDivElement | null) => {
 			if (containerRefElement) {
 				const { scrollHeight, scrollTop, clientHeight } = containerRefElement;
-				if (
-					scrollHeight - scrollTop - clientHeight < scrollThresholdPx &&
+				const distance = scrollHeight - scrollTop - clientHeight;
+				if (distance < scrollThresholdPx &&
 					!isFetching &&
 					totalFetched < totalDBRowCount
 				) {
@@ -102,7 +102,7 @@ export const DataPanel = (props: DataPanelProps) => {
 	const rowVirtualizer = ReactVirtual.useVirtual({
 		parentRef: tableContainerRef,
 		size: rows.length,
-		overscan: 10,
+		overscan: 50,
 	});
 
 	const { virtualItems: virtualRows, totalSize } = rowVirtualizer;
@@ -117,86 +117,77 @@ export const DataPanel = (props: DataPanelProps) => {
 	}
 
 	return (
-		<div className='p-2'>
-			<div className='h-2' />
-			<div
-				className='container'
-				onScroll={e => fetchMoreOnBottomReached(e.target as HTMLDivElement)}
-				ref={tableContainerRef}
-			>
-				<table>
-					<thead>
-						{table.getHeaderGroups().map(headerGroup => (
-							<tr key={headerGroup.id}>
-								{headerGroup.headers.map(header => {
+		<div
+			className='container'
+			onScroll={e => fetchMoreOnBottomReached(e.target as HTMLDivElement)}
+			ref={tableContainerRef}
+		>
+			<table>
+				<thead>
+					{table.getHeaderGroups().map(headerGroup => (
+						<tr key={headerGroup.id}>
+							{headerGroup.headers.map(header => {
+								return (
+									<th
+										key={header.id}
+										colSpan={header.colSpan}
+										style={{ width: header.getSize() }}
+									>
+										{header.isPlaceholder ? null : (
+											<div
+												{...{
+													className: header.column.getCanSort()
+														? 'cursor-pointer select-none'
+														: '',
+													onClick: header.column.getToggleSortingHandler(),
+												}}
+											>
+												{ReactTable.flexRender(
+													header.column.columnDef.header,
+													header.getContext()
+												)}
+												{{
+													asc: '^',
+													desc: 'V',
+												}[header.column.getIsSorted() as string] ?? null}
+											</div>
+										)}
+									</th>
+								);
+							})}
+						</tr>
+					))}
+				</thead>
+				<tbody>
+					{paddingTop > 0 && (
+						<tr>
+							<td style={{ height: `${paddingTop}px` }} />
+						</tr>
+					)}
+					{virtualRows.map(virtualRow => {
+						const row = rows[virtualRow.index] as ReactTable.Row<any>;
+						return (
+							<tr key={row.id}>
+								{row.getVisibleCells().map(cell => {
 									return (
-										<th
-											key={header.id}
-											colSpan={header.colSpan}
-											style={{ width: header.getSize() }}
-										>
-											{header.isPlaceholder ? null : (
-												<div
-													{...{
-														className: header.column.getCanSort()
-															? 'cursor-pointer select-none'
-															: '',
-														onClick: header.column.getToggleSortingHandler(),
-													}}
-												>
-													{ReactTable.flexRender(
-														header.column.columnDef.header,
-														header.getContext()
-													)}
-													{{
-														asc: '^',
-														desc: 'V',
-													}[header.column.getIsSorted() as string] ?? null}
-												</div>
+										<td key={cell.id}>
+											{ReactTable.flexRender(
+												cell.column.columnDef.cell,
+												cell.getContext()
 											)}
-										</th>
+										</td>
 									);
 								})}
 							</tr>
-						))}
-					</thead>
-					<tbody>
-						{paddingTop > 0 && (
-							<tr>
-								<td style={{ height: `${paddingTop}px` }} />
-							</tr>
-						)}
-						{virtualRows.map(virtualRow => {
-							const row = rows[virtualRow.index] as ReactTable.Row<any>;
-							return (
-								<tr key={row.id}>
-									{row.getVisibleCells().map(cell => {
-										return (
-											<td key={cell.id}>
-												{ReactTable.flexRender(
-													cell.column.columnDef.cell,
-													cell.getContext()
-												)}
-											</td>
-										);
-									})}
-								</tr>
-							);
-						})}
-						{paddingBottom > 0 && (
-							<tr>
-								<td style={{ height: `${paddingBottom}px` }} />
-							</tr>
-						)}
-					</tbody>
-				</table>
-			</div>
-			<div>
-				Fetched {flatData.length} of {totalDBRowCount} Rows.
-			</div>
-			<div>
-				<button onClick={() => rerender()}>Force Rerender</button>
-			</div>
+						);
+					})}
+					{paddingBottom > 0 && (
+						<tr>
+							<td style={{ height: `${paddingBottom}px` }} />
+						</tr>
+					)}
+				</tbody>
+			</table>
 		</div>
 	);
 };
