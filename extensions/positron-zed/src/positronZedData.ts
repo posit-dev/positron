@@ -47,7 +47,7 @@ export class ZedData implements DataSet {
 
 		// Create the requested number of columns
 		for (let i = 0; i < colCount; i++) {
-			this.columns.push(new ZedColumn(`Column ${i}`, 'number', colCount));
+			this.columns.push(new ZedColumn(`Column ${i}`, 'number', rowCount));
 		}
 	}
 

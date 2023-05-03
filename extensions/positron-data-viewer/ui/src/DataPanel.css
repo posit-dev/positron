@@ -3,10 +3,28 @@
  *--------------------------------------------------------------------------------------------*/
 
 th {
-	border-bottom: 1px solid var(--vscode-panel-border);
 	padding: 5px;
 }
 
 td.col-number {
 	text-align: right;
+}
+
+table {
+	border-collapse: collapse;
+	table-layout: fixed;
+}
+
+thead {
+	position: sticky;
+	background-color: var(--vscode-panel-background);
+	border-bottom: 1px solid var(--vscode-panel-border);
+	margin: 0;
+	top: 0;
+}
+
+thead th,
+tbody td {
+	border: 1px solid var(--vscode-panel-border);
+	padding: 5px;
 }

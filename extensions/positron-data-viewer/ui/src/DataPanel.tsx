@@ -28,7 +28,7 @@ interface DataPanelProps {
  */
 export const DataPanel = (props: DataPanelProps) => {
 
-	const fetchSize = 20;
+	const fetchSize = 10;
 	const scrollThresholdPx = 300;
 
 	const rerender = React.useReducer(() => ({}), {})[1];
