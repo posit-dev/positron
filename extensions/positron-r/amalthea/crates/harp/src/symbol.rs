@@ -11,6 +11,8 @@ use std::ffi::CStr;
 use std::ops::Deref;
 
 use crate::r_symbol;
+use crate::utils::HASHASH_MASK;
+use crate::utils::Sxpinfo;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct RSymbol {
@@ -20,6 +22,12 @@ pub struct RSymbol {
 impl RSymbol {
     pub fn new(sexp: SEXP) -> Self {
         RSymbol { sexp }
+    }
+
+    pub fn has_hash(&self) -> bool {
+        unsafe {
+            ( Sxpinfo::interpret(&PRINTNAME(self.sexp)).gp() & HASHASH_MASK ) == 1
+        }
     }
 }
 
