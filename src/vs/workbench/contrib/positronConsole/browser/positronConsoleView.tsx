@@ -46,10 +46,12 @@ export class PositronConsoleViewPane extends ViewPane implements IReactComponent
 	// The onFocused emitter.
 	private _onFocusedEmitter = this._register(new Emitter<void>());
 
-	// The width. This valus is set in layoutBody and is used to implement the IReactComponentContainer interface.
+	// The width. This value is set in layoutBody and is used to implement the
+	// IReactComponentContainer interface.
 	private _width = 0;
 
-	// The height. This valus is set in layoutBody and is used to implement the IReactComponentContainer interface.
+	// The height. This value is set in layoutBody and is used to implement the
+	// IReactComponentContainer interface.
 	private _height = 0;
 
 	// The Positron console container - contains the entire Positron console UI.
@@ -196,6 +198,10 @@ export class PositronConsoleViewPane extends ViewPane implements IReactComponent
 
 	//#region Overrides
 
+	/**
+	 * Renders the body.
+	 * @param container The container HTMLElement.
+	 */
 	protected override renderBody(container: HTMLElement): void {
 		// Call the base class's method.
 		super.renderBody(container);
@@ -247,6 +253,7 @@ export class PositronConsoleViewPane extends ViewPane implements IReactComponent
 		// Call the base class's method.
 		super.layoutBody(height, width);
 
+		// Adjust the size of the Positron console container.
 		this._positronConsoleContainer.style.width = `${width}px`;
 		this._positronConsoleContainer.style.height = `${height}px`;
 

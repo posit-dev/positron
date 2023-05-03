@@ -17,9 +17,9 @@ export interface RuntimeReconnectedProps {
  * @param props A RuntimeReconnectedProps that contains the component properties.
  * @returns The rendered component.
  */
-export const RuntimeReconnected = ({ runtimeItemReconnected }: RuntimeReconnectedProps) => {
+export const RuntimeReconnected = (props: RuntimeReconnectedProps) => {
 	// Render.
 	return (
-		<OutputLines outputLines={runtimeItemReconnected.outputLines} />
+		<OutputLines outputLines={props.runtimeItemReconnected.outputLines} />
 	);
 };

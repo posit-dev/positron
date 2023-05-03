@@ -4,7 +4,7 @@
 
 import 'vs/css!./consoleInstance';
 import * as React from 'react';
-import { MouseEvent, UIEvent, useEffect, useRef, useState } from 'react'; // eslint-disable-line no-duplicate-imports
+import { KeyboardEvent, MouseEvent, UIEvent, useEffect, useRef, useState } from 'react'; // eslint-disable-line no-duplicate-imports
 import { generateUuid } from 'vs/base/common/uuid';
 import { PixelRatio } from 'vs/base/browser/browser';
 import { BareFontInfo } from 'vs/editor/common/config/fontInfo';
@@ -15,7 +15,6 @@ import { DisposableStore, IDisposable } from 'vs/base/common/lifecycle';
 import { FontMeasurements } from 'vs/editor/browser/config/fontMeasurements';
 import { IReactComponentContainer } from 'vs/base/browser/positronReactRenderer';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
-import { RuntimeItem } from 'vs/workbench/services/positronConsole/common/classes/runtimeItem';
 import { ConsoleInput } from 'vs/workbench/contrib/positronConsole/browser/components/consoleInput';
 import { RuntimeTrace } from 'vs/workbench/contrib/positronConsole/browser/components/runtimeTrace';
 import { RuntimeExited } from 'vs/workbench/contrib/positronConsole/browser/components/runtimeExited';
@@ -37,7 +36,6 @@ import { RuntimeItemReconnected } from 'vs/workbench/services/positronConsole/co
 import { RuntimeStartupFailure } from 'vs/workbench/contrib/positronConsole/browser/components/runtimeStartupFailure';
 import { IPositronConsoleInstance } from 'vs/workbench/services/positronConsole/common/interfaces/positronConsoleService';
 import { RuntimeItemStartupFailure } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemStartupFailure';
-import { RuntimeCodeExecutionMode, RuntimeErrorBehavior } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 
 // ConsoleInstanceProps interface.
 interface ConsoleInstanceProps {
@@ -151,12 +149,6 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 			setMarker(generateUuid());
 		}));
 
-		// Add the onDidExecuteCode event handler.
-		disposableStore.add(props.positronConsoleInstance.onDidExecuteCode(codeFragment => {
-			// Execute the code fragment.
-			executeCode(codeFragment);
-		}));
-
 		// Return the cleanup function that will dispose of the event handlers.
 		return () => disposableStore.dispose();
 	}, []);
@@ -166,21 +158,8 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 		consoleInputRef.current?.scrollIntoView({ behavior: 'auto' });
 	}, [marker]);
 
-	// Executes code.
-	const executeCode = (codeFragment: string) => {
-		// Create the ID.
-		const id = `fragment-${generateUuid()}`;
-
-		// Execute the code fragment.
-		props.positronConsoleInstance.runtime.execute(
-			codeFragment,
-			id,
-			RuntimeCodeExecutionMode.Interactive,
-			RuntimeErrorBehavior.Continue);
-	};
-
 	/**
-	 * Click handler.
+	 * onClick event handler.
 	 * @param e A MouseEvent<HTMLElement> that describes a user interaction with the mouse.
 	 */
 	const clickHandler = (e: MouseEvent<HTMLDivElement>) => {
@@ -190,12 +169,23 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 		// If there is a document selection, and its type is Caret (as opposed to Range), drive
 		// focus into the console input.
 		if (!selection || selection.type === 'Caret') {
-			consoleInputRef.current.focus();
+			consoleInputRef.current?.focus();
 		}
 	};
 
 	/**
-	 * MouseDown handler.
+	 * onKeyDown event handler.
+	 * @param e A KeyboardEvent<HTMLDivElement> that describes a user interaction with the keyboard.
+	 */
+	const keyDownHandler = async (e: KeyboardEvent<HTMLDivElement>) => {
+		// TODO: We will need to handle copy here...
+
+		// Drive focus to the console input.
+		consoleInputRef.current?.focus();
+	};
+
+	/**
+	 * onMouseDown event handler.
 	 * @param e A MouseEvent<HTMLElement> that describes a user interaction with the mouse.
 	 */
 	const mouseDownHandler = (e: MouseEvent<HTMLDivElement>) => {
@@ -240,7 +230,7 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 			}
 
 			// Drive focus into the console input.
-			consoleInputRef.current.focus();
+			consoleInputRef.current?.focus();
 		}
 	};
 
@@ -254,35 +244,6 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 		}
 	};
 
-	/**
-	 * Renders a runtime item.
-	 * @param runtimeItem The runtime item.
-	 * @returns The rendered runtime item.
-	 */
-	const renderRuntimeItem = (runtimeItem: RuntimeItem) => {
-		if (runtimeItem instanceof RuntimeItemActivity) {
-			return <RuntimeActivity key={runtimeItem.id} runtimeItemActivity={runtimeItem} />;
-		} else if (runtimeItem instanceof RuntimeItemStartup) {
-			return <RuntimeStartup key={runtimeItem.id} runtimeItemStartup={runtimeItem} />;
-		} else if (runtimeItem instanceof RuntimeItemReconnected) {
-			return <RuntimeReconnected key={runtimeItem.id} runtimeItemReconnected={runtimeItem} />;
-		} else if (runtimeItem instanceof RuntimeItemStarting) {
-			return <RuntimeStarting key={runtimeItem.id} runtimeItemStarting={runtimeItem} />;
-		} else if (runtimeItem instanceof RuntimeItemStarted) {
-			return <RuntimeStarted key={runtimeItem.id} runtimeItemStarted={runtimeItem} />;
-		} else if (runtimeItem instanceof RuntimeItemOffline) {
-			return <RuntimeOffline key={runtimeItem.id} runtimeItemOffline={runtimeItem} />;
-		} else if (runtimeItem instanceof RuntimeItemExited) {
-			return <RuntimeExited key={runtimeItem.id} runtimeItemExited={runtimeItem} />;
-		} else if (runtimeItem instanceof RuntimeItemStartupFailure) {
-			return <RuntimeStartupFailure key={runtimeItem.id} runtimeItemStartupFailure={runtimeItem} />;
-		} else if (runtimeItem instanceof RuntimeItemTrace) {
-			return trace && <RuntimeTrace key={runtimeItem.id} runtimeItemTrace={runtimeItem} />;
-		} else {
-			return null;
-		}
-	};
-
 	// Calculate the adjusted width (to account for indentation of the entire console instance).
 	const adjustedWidth = props.width - 10;
 
@@ -292,19 +253,42 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 			ref={consoleInstanceRef}
 			className='console-instance'
 			style={{ width: adjustedWidth, height: props.height, zIndex: props.active ? 1 : -1 }}
+			tabIndex={0}
 			onClick={clickHandler}
+			onKeyDown={keyDownHandler}
 			onMouseDown={mouseDownHandler}
 			onScroll={scrollHandler}>
-			{props.positronConsoleInstance.runtimeItems.map(runtimeItem =>
-				renderRuntimeItem(runtimeItem)
-			)}
-			<ConsoleInput
-				ref={consoleInputRef}
-				active={props.active}
-				width={adjustedWidth}
-				executeCode={executeCode}
-				positronConsoleInstance={props.positronConsoleInstance}
-			/>
+			{props.positronConsoleInstance.runtimeItems.map(runtimeItem => {
+				if (runtimeItem instanceof RuntimeItemActivity) {
+					return <RuntimeActivity key={runtimeItem.id} runtimeItemActivity={runtimeItem} positronConsoleInstance={props.positronConsoleInstance} />;
+				} else if (runtimeItem instanceof RuntimeItemStartup) {
+					return <RuntimeStartup key={runtimeItem.id} runtimeItemStartup={runtimeItem} />;
+				} else if (runtimeItem instanceof RuntimeItemReconnected) {
+					return <RuntimeReconnected key={runtimeItem.id} runtimeItemReconnected={runtimeItem} />;
+				} else if (runtimeItem instanceof RuntimeItemStarting) {
+					return <RuntimeStarting key={runtimeItem.id} runtimeItemStarting={runtimeItem} />;
+				} else if (runtimeItem instanceof RuntimeItemStarted) {
+					return <RuntimeStarted key={runtimeItem.id} runtimeItemStarted={runtimeItem} />;
+				} else if (runtimeItem instanceof RuntimeItemOffline) {
+					return <RuntimeOffline key={runtimeItem.id} runtimeItemOffline={runtimeItem} />;
+				} else if (runtimeItem instanceof RuntimeItemExited) {
+					return <RuntimeExited key={runtimeItem.id} runtimeItemExited={runtimeItem} />;
+				} else if (runtimeItem instanceof RuntimeItemStartupFailure) {
+					return <RuntimeStartupFailure key={runtimeItem.id} runtimeItemStartupFailure={runtimeItem} />;
+				} else if (runtimeItem instanceof RuntimeItemTrace) {
+					return trace && <RuntimeTrace key={runtimeItem.id} runtimeItemTrace={runtimeItem} />;
+				} else {
+					// This indicates a bug.
+					return null;
+				}
+			})}
+			{!props.positronConsoleInstance.promptActive &&
+				<ConsoleInput
+					ref={consoleInputRef}
+					width={adjustedWidth}
+					positronConsoleInstance={props.positronConsoleInstance}
+				/>
+			}
 		</div>
 	);
 };

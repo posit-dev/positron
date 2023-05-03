@@ -2,13 +2,14 @@
  *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
-.positron-console .console-core {
-	width: 100%;
-	cursor: text;
+.activity-prompt .prompt-line {
+	display: flex;
+	white-space: pre;
+	margin-right: 10px;
 }
 
-.positron-console .console-core .console-instances-container {
-	left: 0;
-	top: 32px;
-	position: absolute;
+.activity-prompt .prompt-line .input-field {
+	flex-grow: 1;
+	border: none;
+	outline: 0 !important;
 }

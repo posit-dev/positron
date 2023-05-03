@@ -15,17 +15,18 @@ import { RuntimeItemExited } from 'vs/workbench/services/positronConsole/common/
 import { RuntimeItemStarted } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemStarted';
 import { RuntimeItemStartup } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemStartup';
 import { RuntimeItemOffline } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemOffline';
-import { RuntimeItemActivity } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemActivity';
+import { ActivityItemPrompt } from 'vs/workbench/services/positronConsole/common/classes/activityItemPrompt';
 import { RuntimeItemStarting } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemStarting';
+import { ActivityItemOutputPlot } from 'vs/workbench/services/positronConsole/common/classes/activityItemOutputPlot';
 import { RuntimeItemReconnected } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemReconnected';
 import { ActivityItemErrorStream } from 'vs/workbench/services/positronConsole/common/classes/activityItemErrorStream';
 import { ActivityItemOutputStream } from 'vs/workbench/services/positronConsole/common/classes/activityItemOutputStream';
 import { ActivityItemErrorMessage } from 'vs/workbench/services/positronConsole/common/classes/activityItemErrorMessage';
 import { ActivityItemOutputMessage } from 'vs/workbench/services/positronConsole/common/classes/activityItemOutputMessage';
+import { RuntimeItemStartupFailure } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemStartupFailure';
+import { ActivityItem, RuntimeItemActivity } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemActivity';
 import { IPositronConsoleInstance, IPositronConsoleService, PositronConsoleState } from 'vs/workbench/services/positronConsole/common/interfaces/positronConsoleService';
 import { formatLanguageRuntime, ILanguageRuntime, ILanguageRuntimeMessage, ILanguageRuntimeService, RuntimeOnlineState, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
-import { RuntimeItemStartupFailure } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemStartupFailure';
-import { ActivityItemOutputPlot } from 'vs/workbench/services/positronConsole/common/classes/activityItemOutputPlot';
 
 //#region Helper Functions
 
@@ -380,9 +381,14 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	private _runtimeItems: RuntimeItem[] = [];
 
 	/**
-	 * The runtime item activities.
+	 * Gets or sets the runtime item activities.
 	 */
 	private _runtimeItemActivities = new Map<string, RuntimeItemActivity>();
+
+	/**
+	 * Gets or sets a value which indicates whether a prompt is active.
+	 */
+	private _promptActive = false;
 
 	/**
 	 * The onDidChangeState event emitter.
@@ -478,6 +484,13 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	}
 
 	/**
+	 * Gets a value which indicates whether a prompt is active.
+	 */
+	get promptActive(): boolean {
+		return this._promptActive;
+	}
+
+	/**
 	 * onDidChangeState event.
 	 */
 	readonly onDidChangeState: Event<PositronConsoleState> = this._onDidChangeStateEmitter.event;
@@ -538,6 +551,29 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	 */
 	executeCode(codeFragment: string): void {
 		this._onDidExecuteCodeEmitter.fire(codeFragment);
+	}
+
+	/**
+	 * Replies to a prompt.
+	 * @param id The prompt identifier.
+	 * @param value The value.
+	 */
+	replyToPrompt(id: string, value: string) {
+		if (this._promptActive) {
+			this._promptActive = false;
+			this._runtime.replyToPrompt(id, value);
+		}
+	}
+
+	/**
+	 * Interrupts a prompt.
+	 * @param id The prompt identifier.
+	 */
+	interruptPrompt(id: string) {
+		if (this._promptActive) {
+			this._promptActive = false;
+			this._runtime.interrupt();
+		}
 	}
 
 	//#endregion IPositronConsoleInstance Implementation
@@ -706,6 +742,53 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 			}
 		}));
 
+		// Add the onDidReceiveRuntimeMessageInput event handler.
+		this._runtimeDisposableStore.add(this._runtime.onDidReceiveRuntimeMessageInput(languageRuntimeMessageInput => {
+			// Add trace item.
+			this.addRuntimeItemTrace(
+				formatCallbackTrace('onDidReceiveRuntimeMessageInput', languageRuntimeMessageInput) +
+				'\nCode:\n' +
+				languageRuntimeMessageInput.code
+			);
+
+			// Add or update the runtime item activity.
+			this.addOrUpdateUpdateRuntimeItemActivity(
+				languageRuntimeMessageInput.parent_id,
+				new ActivityItemInput(
+					languageRuntimeMessageInput.id,
+					languageRuntimeMessageInput.parent_id,
+					new Date(languageRuntimeMessageInput.when),
+					this._runtime.metadata.inputPrompt,
+					languageRuntimeMessageInput.code
+				)
+			);
+		}));
+
+		// Add the onDidReceiveRuntimeMessagePrompt event handler.
+		this._runtimeDisposableStore.add(this._runtime.onDidReceiveRuntimeMessagePrompt(languageRuntimeMessagePrompt => {
+			// Add trace item.
+			this.addRuntimeItemTrace(
+				formatCallbackTrace('onDidReceiveRuntimeMessagePrompt', languageRuntimeMessagePrompt) +
+				`\nPrompt: ${languageRuntimeMessagePrompt.prompt}` +
+				`\nPassword: ${languageRuntimeMessagePrompt.password}`
+			);
+
+			// Set the prompt active flag.
+			this._promptActive = true;
+
+			// Add or update the runtime item activity.
+			this.addOrUpdateUpdateRuntimeItemActivity(
+				languageRuntimeMessagePrompt.parent_id,
+				new ActivityItemPrompt(
+					languageRuntimeMessagePrompt.id,
+					languageRuntimeMessagePrompt.parent_id,
+					new Date(languageRuntimeMessagePrompt.when),
+					languageRuntimeMessagePrompt.prompt,
+					languageRuntimeMessagePrompt.password
+				)
+			);
+		}));
+
 		// Add the onDidReceiveRuntimeMessageOutput event handler.
 		this._runtimeDisposableStore.add(this._runtime.onDidReceiveRuntimeMessageOutput(languageRuntimeMessageOutput => {
 			// Add trace item.
@@ -719,20 +802,26 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 			const images = Object.keys(languageRuntimeMessageOutput.data).find(key => key.startsWith('image/'));
 			if (images) {
 				// It's an image, so create a plot activity item.
-				this.addOrUpdateUpdateRuntimeItemActivity(languageRuntimeMessageOutput.parent_id, new ActivityItemOutputPlot(
-					languageRuntimeMessageOutput.id,
+				this.addOrUpdateUpdateRuntimeItemActivity(
 					languageRuntimeMessageOutput.parent_id,
-					new Date(languageRuntimeMessageOutput.when),
-					languageRuntimeMessageOutput.data
-				));
+					new ActivityItemOutputPlot(
+						languageRuntimeMessageOutput.id,
+						languageRuntimeMessageOutput.parent_id,
+						new Date(languageRuntimeMessageOutput.when),
+						languageRuntimeMessageOutput.data
+					)
+				);
 			} else {
 				// It's a plain old text output, so create a text activity item.
-				this.addOrUpdateUpdateRuntimeItemActivity(languageRuntimeMessageOutput.parent_id, new ActivityItemOutputMessage(
-					languageRuntimeMessageOutput.id,
+				this.addOrUpdateUpdateRuntimeItemActivity(
 					languageRuntimeMessageOutput.parent_id,
-					new Date(languageRuntimeMessageOutput.when),
-					languageRuntimeMessageOutput.data
-				));
+					new ActivityItemOutputMessage(
+						languageRuntimeMessageOutput.id,
+						languageRuntimeMessageOutput.parent_id,
+						new Date(languageRuntimeMessageOutput.when),
+						languageRuntimeMessageOutput.data
+					)
+				);
 			}
 		}));
 
@@ -740,6 +829,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 		this._runtimeDisposableStore.add(this._runtime.onDidReceiveRuntimeMessageStream(languageRuntimeMessageStream => {
 			// Sanitize the trace output.
 			let traceOutput = languageRuntimeMessageStream.text;
+			traceOutput = traceOutput.replaceAll('\t', '[HT]');
 			traceOutput = traceOutput.replaceAll('\n', '[LF]');
 			traceOutput = traceOutput.replaceAll('\r', '[CR]');
 			traceOutput = traceOutput.replaceAll('\x9B', 'CSI');
@@ -752,40 +842,28 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 				formatOutputStream(languageRuntimeMessageStream.name, traceOutput)
 			);
 
+			// Handle stdout and stderr.
 			if (languageRuntimeMessageStream.name === 'stdout') {
-				this.addOrUpdateUpdateRuntimeItemActivity(languageRuntimeMessageStream.parent_id, new ActivityItemOutputStream(
-					languageRuntimeMessageStream.id,
+				this.addOrUpdateUpdateRuntimeItemActivity(
 					languageRuntimeMessageStream.parent_id,
-					new Date(languageRuntimeMessageStream.when),
-					languageRuntimeMessageStream.text
-				));
+					new ActivityItemOutputStream(
+						languageRuntimeMessageStream.id,
+						languageRuntimeMessageStream.parent_id,
+						new Date(languageRuntimeMessageStream.when),
+						languageRuntimeMessageStream.text
+					)
+				);
 			} else if (languageRuntimeMessageStream.name === 'stderr') {
-				this.addOrUpdateUpdateRuntimeItemActivity(languageRuntimeMessageStream.parent_id, new ActivityItemErrorStream(
-					languageRuntimeMessageStream.id,
+				this.addOrUpdateUpdateRuntimeItemActivity(
 					languageRuntimeMessageStream.parent_id,
-					new Date(languageRuntimeMessageStream.when),
-					languageRuntimeMessageStream.text
-				));
+					new ActivityItemErrorStream(
+						languageRuntimeMessageStream.id,
+						languageRuntimeMessageStream.parent_id,
+						new Date(languageRuntimeMessageStream.when),
+						languageRuntimeMessageStream.text
+					)
+				);
 			}
-		}));
-
-		// Add the onDidReceiveRuntimeMessageInput event handler.
-		this._runtimeDisposableStore.add(this._runtime.onDidReceiveRuntimeMessageInput(languageRuntimeMessageInput => {
-			// Add trace item.
-			this.addRuntimeItemTrace(
-				formatCallbackTrace('onDidReceiveRuntimeMessageInput', languageRuntimeMessageInput) +
-				'\nCode:\n' +
-				languageRuntimeMessageInput.code
-			);
-
-			// Add or update the activity event.
-			this.addOrUpdateUpdateRuntimeItemActivity(languageRuntimeMessageInput.parent_id, new ActivityItemInput(
-				languageRuntimeMessageInput.id,
-				languageRuntimeMessageInput.parent_id,
-				new Date(languageRuntimeMessageInput.when),
-				this._runtime.metadata.inputPrompt,
-				languageRuntimeMessageInput.code
-			));
 		}));
 
 		// Add the onDidReceiveRuntimeMessageError event handler.
@@ -799,21 +877,18 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 				formatTraceback(languageRuntimeMessageError.traceback)
 			);
 
-			// Add or update the activity event.
-			this.addOrUpdateUpdateRuntimeItemActivity(languageRuntimeMessageError.parent_id, new ActivityItemErrorMessage(
-				languageRuntimeMessageError.id,
+			// Add or update the runtime item activity.
+			this.addOrUpdateUpdateRuntimeItemActivity(
 				languageRuntimeMessageError.parent_id,
-				new Date(languageRuntimeMessageError.when),
-				languageRuntimeMessageError.name,
-				languageRuntimeMessageError.message,
-				languageRuntimeMessageError.traceback
-			));
-		}));
-
-		// Add the onDidReceiveRuntimeMessagePrompt event handler.
-		this._runtimeDisposableStore.add(this._runtime.onDidReceiveRuntimeMessagePrompt(languageRuntimeMessagePrompt => {
-			// Add trace event.
-			this.addRuntimeItemTrace(`onDidReceiveRuntimeMessagePrompt: ID: ${languageRuntimeMessagePrompt.id} Parent ID: ${languageRuntimeMessagePrompt.parent_id}\nPassword: ${languageRuntimeMessagePrompt.password}\Prompt: ${languageRuntimeMessagePrompt.prompt}`);
+				new ActivityItemErrorMessage(
+					languageRuntimeMessageError.id,
+					languageRuntimeMessageError.parent_id,
+					new Date(languageRuntimeMessageError.when),
+					languageRuntimeMessageError.name,
+					languageRuntimeMessageError.message,
+					languageRuntimeMessageError.traceback
+				)
+			);
 		}));
 
 		// Add the onDidReceiveRuntimeMessageState event handler.
@@ -884,7 +959,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	 * @param parentId The parent identifier.
 	 * @param activityItem The activity item.
 	 */
-	private addOrUpdateUpdateRuntimeItemActivity(parentId: string, activityItem: ActivityItemInput | ActivityItemOutputStream | ActivityItemErrorStream | ActivityItemOutputMessage | ActivityItemErrorMessage) {
+	private addOrUpdateUpdateRuntimeItemActivity(parentId: string, activityItem: ActivityItem) {
 		const runtimeItemActivity = this._runtimeItemActivities.get(parentId);
 		if (runtimeItemActivity) {
 			runtimeItemActivity.addActivityItem(activityItem);

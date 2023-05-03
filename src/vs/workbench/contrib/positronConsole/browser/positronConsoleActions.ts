@@ -18,18 +18,27 @@ import { INotificationService, Severity } from 'vs/platform/notification/common/
 import { confirmationModalDialog } from 'vs/workbench/browser/positronModalDialogs/confirmationModalDialog';
 import { IExecutionHistoryService } from 'vs/workbench/contrib/executionHistory/common/executionHistoryService';
 import { IPositronConsoleService } from 'vs/workbench/services/positronConsole/common/interfaces/positronConsoleService';
+import { IViewsService } from 'vs/workbench/common/views';
+import { PositronConsoleViewPane } from 'vs/workbench/contrib/positronConsole/browser/positronConsoleView';
 
-export const POSITRON_CONSOLE_VIEW_ID = 'workbench.panel.positronConsole';
-
-export const enum PositronConsoleCommandId {
-	New = 'workbench.action.positronConsole.new',
-	Open = 'workbench.action.positronConsole.open',
+/**
+ * Positron console command ID's.
+ */
+const enum PositronConsoleCommandId {
 	ClearConsole = 'workbench.action.positronConsole.clearConsole',
 	ClearInputHistory = 'workbench.action.positronConsole.clearInputHistory',
 	ExecuteCode = 'workbench.action.positronConsole.executeCode'
 }
 
-export const POSITRON_CONSOLE_ACTION_CATEGORY = localize('positronConsoleCategory', "Console");
+/**
+ * Positron console action category.
+ */
+const POSITRON_CONSOLE_ACTION_CATEGORY = localize('positronConsoleCategory', "Console");
+
+/**
+ * The Positron console view ID.
+ */
+export const POSITRON_CONSOLE_VIEW_ID = 'workbench.panel.positronConsole';
 
 /**
  * Registers Positron console actions.
@@ -41,8 +50,8 @@ export function registerPositronConsoleActions() {
 	const category: ILocalizedString = { value: POSITRON_CONSOLE_ACTION_CATEGORY, original: 'CONSOLE' };
 
 	/**
-	 * Register the clear console action. This action removes everything from the active console, just like
-	 * running the clear command in a shell.
+	 * Register the clear console action. This action removes everything from the active console,
+	 * just like running the clear command in a shell.
 	 */
 	registerAction2(class extends Action2 {
 		/**
@@ -89,7 +98,8 @@ export function registerPositronConsoleActions() {
 	});
 
 	/**
-	 * Register the clear input history action. This action removes everything from the active console language's input history.
+	 * Register the clear input history action. This action removes everything from the active
+	 * console language's input history.
 	 */
 	registerAction2(class extends Action2 {
 		/**
@@ -123,8 +133,9 @@ export function registerPositronConsoleActions() {
 			const notificationService = accessor.get(INotificationService);
 			const layoutService = accessor.get(IWorkbenchLayoutService);
 
-			// Get the active Positron console instance. The Clear Input History action is bound to the active console, so if there isn't
-			// an active Positron console instance, we can't proceed.
+			// Get the active Positron console instance. The Clear Input History action is bound to
+			// the active console, so if there isn't an active Positron console instance, we can't
+			// proceed.
 			const activePositronConsoleInstance = positronConsoleService.activePositronConsoleInstance;
 			if (!activePositronConsoleInstance) {
 				notificationService.notify({
@@ -146,7 +157,8 @@ export function registerPositronConsoleActions() {
 				return;
 			}
 
-			// Clear the active Positron console instance and the history for its language from the execution history service.
+			// Clear the active Positron console instance and the history for its language from the
+			// execution history service.
 			activePositronConsoleInstance.clearInputHistory();
 			executionHistoryService.clearInputEntries(activePositronConsoleInstance.runtime.metadata.languageId);
 
@@ -160,8 +172,8 @@ export function registerPositronConsoleActions() {
 	});
 
 	/**
-	 * Register the execute code action. This action gets the selection or line from the active editor, determines
-	 * the language of the code that is selected, and tries to execute it.
+	 * Register the execute code action. This action gets the selection or line from the active
+	 * editor, determines the language of the code that is selected, and tries to execute it.
 	 */
 	registerAction2(class extends Action2 {
 		/**
@@ -198,7 +210,10 @@ export function registerPositronConsoleActions() {
 		async run(accessor: ServicesAccessor) {
 			// Access services.
 			const editorService = accessor.get(IEditorService);
+			const languageService = accessor.get(ILanguageService);
 			const notificationService = accessor.get(INotificationService);
+			const positronConsoleService = accessor.get(IPositronConsoleService);
+			const viewsService = accessor.get(IViewsService);
 
 			// The code to execute.
 			let code = '';
@@ -211,7 +226,8 @@ export function registerPositronConsoleActions() {
 				const position = editor.getPosition();
 				const model = editor.getModel() as ITextModel;
 				if (selection) {
-					// If there is an active selection, use the contents of the selection to drive execution.
+					// If there is an active selection, use the contents of the selection to drive
+					// execution.
 					code = model.getValueInRange(selection);
 					if (!code.length) {
 						// When there's no selection, the selection represents the
@@ -237,6 +253,9 @@ export function registerPositronConsoleActions() {
 				}
 			}
 
+			// Trim the code by removing all leading and trailing newlines.
+			code = code.replace(/^\n+/, '').replace(/\n+$/, '');
+
 			// If there is no code to execute, inform the user.
 			if (code.length === 0) {
 				notificationService.notify({
@@ -247,7 +266,8 @@ export function registerPositronConsoleActions() {
 				return;
 			}
 
-			// Now that we've gotten this far, and there's "code" to ececute, ensure we have a target language.
+			// Now that we've gotten this far, and there's "code" to ececute, ensure we have a
+			// target language.
 			const languageId = editorService.activeTextEditorLanguageId;
 			if (!languageId) {
 				notificationService.notify({
@@ -258,10 +278,11 @@ export function registerPositronConsoleActions() {
 				return;
 			}
 
+			// Ask the views service to open the view.
+			await viewsService.openView<PositronConsoleViewPane>(POSITRON_CONSOLE_VIEW_ID, false);
+
 			// Ask the Positron console service to execute the code.
-			const positronConsoleService = accessor.get(IPositronConsoleService);
 			if (!positronConsoleService.executeCode(languageId, code)) {
-				const languageService = accessor.get(ILanguageService);
 				const languageName = languageService.getLanguageName(languageId);
 				notificationService.notify({
 					severity: Severity.Info,
