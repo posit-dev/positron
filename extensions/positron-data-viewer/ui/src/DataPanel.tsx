@@ -31,9 +31,15 @@ export const DataPanel = (props: DataPanelProps) => {
 	// trigger a fetch of more data.
 	const scrollThresholdPx = 300;
 
+	// The number of rows to render above and below the visible area of the
+	// table.
+	const scrollOverscan = 50;
+
 	// A reference to the table container element.
 	const tableContainerRef = React.useRef<HTMLDivElement>(null);
 
+	// Create the columns for the table. These use the 'any' type since the data
+	// model is generic.
 	const columns = React.useMemo<ReactTable.ColumnDef<any>[]>(
 		() => {
 			return props.data.columns.map((column, idx) => {
@@ -46,13 +52,15 @@ export const DataPanel = (props: DataPanelProps) => {
 		},
 		[]);
 
+	// Use a React Query infinite query to fetch data from the data model.
 	const { data, fetchNextPage, isFetching, isLoading } =
 		ReactQuery.useInfiniteQuery<DataFragment>(
 			['table-data'],
 			async ({ pageParam = 0 }) => {
+				// Fetches a single page of data from the data model.
 				const start = pageParam * fetchSize;
-				const fetchedData = props.data.loadDataFragment(start, fetchSize);
-				return fetchedData;
+				const fragment = props.data.loadDataFragment(start, fetchSize);
+				return fragment;
 			},
 			{
 				getNextPageParam: (_lastGroup, groups) => groups.length,
@@ -61,13 +69,18 @@ export const DataPanel = (props: DataPanelProps) => {
 			}
 		);
 
+
+	// Flatten the data
 	const flatData = React.useMemo(
 		() => data?.pages?.flatMap(page => page.columns) ?? [],
 		[data]);
 
-	const totalDBRowCount = props.data.rowCount;
+	// Count total rows against those we have fetched.
+	const totalRows = props.data.rowCount;
 	const totalFetched = flatData.length;
 
+	// Callback, invoked on scroll, that will fetch more data if we have reached
+	// the bottom of the table container.
 	const fetchMoreOnBottomReached = React.useCallback(
 		(containerRefElement?: HTMLDivElement | null) => {
 			if (containerRefElement) {
@@ -75,18 +88,20 @@ export const DataPanel = (props: DataPanelProps) => {
 				const distance = scrollHeight - scrollTop - clientHeight;
 				if (distance < scrollThresholdPx &&
 					!isFetching &&
-					totalFetched < totalDBRowCount
+					totalFetched < totalRows
 				) {
 					fetchNextPage();
 				}
 			}
 		},
-		[fetchNextPage, isFetching, totalFetched, totalDBRowCount]);
+		[fetchNextPage, isFetching, totalFetched, totalRows]);
 
+	// Use an effect to fetch more data when the table container is scrolled.
 	React.useEffect(() => {
 		fetchMoreOnBottomReached(tableContainerRef.current);
 	}, [fetchMoreOnBottomReached]);
 
+	// Define the main ReactTable instance.
 	const table = ReactTable.useReactTable({
 		data: flatData,
 		columns,
@@ -97,12 +112,14 @@ export const DataPanel = (props: DataPanelProps) => {
 
 	const { rows } = table.getRowModel();
 
+	// Use a virtualizer to render only the rows that are visible.
 	const rowVirtualizer = ReactVirtual.useVirtual({
 		parentRef: tableContainerRef,
 		size: rows.length,
-		overscan: 50,
+		overscan: scrollOverscan,
 	});
 
+	// Compute the padding for the table container.
 	const { virtualItems: virtualRows, totalSize } = rowVirtualizer;
 	const paddingTop = virtualRows.length > 0 ? virtualRows?.[0]?.start || 0 : 0;
 	const paddingBottom =
