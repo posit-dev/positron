@@ -13,12 +13,8 @@ import * as ReactTable from '@tanstack/react-table';
 // Local modules.
 import { DataFragment, DataModel } from './DataModel';
 
-// External types.
-import { DataSet } from './positron-data-viewer';
-
-
 interface DataPanelProps {
-	data: DataSet;
+	data: DataModel;
 }
 
 /**
@@ -28,17 +24,19 @@ interface DataPanelProps {
  */
 export const DataPanel = (props: DataPanelProps) => {
 
+	// The number of rows that will be fetched from the data model at a time.
 	const fetchSize = 10;
+
+	// The distance from the bottom of the table container at which we will
+	// trigger a fetch of more data.
 	const scrollThresholdPx = 300;
 
-	const rerender = React.useReducer(() => ({}), {})[1];
+	// A reference to the table container element.
 	const tableContainerRef = React.useRef<HTMLDivElement>(null);
-	const dataSet = props.data;
-	const dataModel = new DataModel(props.data);
 
 	const columns = React.useMemo<ReactTable.ColumnDef<any>[]>(
 		() => {
-			return dataSet.columns.map((column, idx) => {
+			return props.data.columns.map((column, idx) => {
 				return {
 					id: '' + idx,
 					accessorFn: row => row[idx],
@@ -53,7 +51,7 @@ export const DataPanel = (props: DataPanelProps) => {
 			['table-data'],
 			async ({ pageParam = 0 }) => {
 				const start = pageParam * fetchSize;
-				const fetchedData = dataModel.loadDataFragment(start, fetchSize);
+				const fetchedData = props.data.loadDataFragment(start, fetchSize);
 				return fetchedData;
 			},
 			{
@@ -67,7 +65,7 @@ export const DataPanel = (props: DataPanelProps) => {
 		() => data?.pages?.flatMap(page => page.columns) ?? [],
 		[data]);
 
-	const totalDBRowCount = dataSet.rowCount;
+	const totalDBRowCount = props.data.rowCount;
 	const totalFetched = flatData.length;
 
 	const fetchMoreOnBottomReached = React.useCallback(

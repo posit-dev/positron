@@ -4,6 +4,9 @@
 
 import { DataColumn, DataSet } from './positron-data-viewer';
 
+/**
+ * A fragment of data, arranged by column.
+ */
 export interface DataFragment {
 	/**
 	 * The row index of the first row in the fragment.
@@ -21,6 +24,11 @@ export interface DataFragment {
 	columns: Array<Array<any>>;
 }
 
+/**
+ * The DataModel class represents the data model behind a DataPanel. It is
+ * responsible for loading fragments from the data set as necessary to populate
+ * the DataPanel.
+ */
 export class DataModel {
 	constructor(public readonly dataSet: DataSet) {
 	}
@@ -41,5 +49,18 @@ export class DataModel {
 			columns: columns
 		};
 	}
-}
 
+	/**
+	 * The set of columns in the data set.
+	 */
+	get columns(): Array<DataColumn> {
+		return this.dataSet.columns;
+	}
+
+	/**
+	 * The number of rows in the data set.
+	 */
+	get rowCount(): number {
+		return this.dataSet.rowCount;
+	}
+}
