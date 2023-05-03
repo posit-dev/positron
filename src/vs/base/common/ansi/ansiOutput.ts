@@ -318,13 +318,14 @@ export class ANSIOutput {
 	private processCharacter(char: string) {
 		// Handle special characters. Otherwise, buffer the character.
 		switch (char) {
-			// Set the pending newline flag.
+			// LF sets the pending newline flag.
 			case '\n':
 				this._pendingNewline = true;
 				break;
 
-			// CR sets the output column to 0.
+			// CR flushes the buffer and sets the output column to 0.
 			case '\r':
+				this.flushBuffer();
 				this._outputColumn = 0;
 				break;
 
