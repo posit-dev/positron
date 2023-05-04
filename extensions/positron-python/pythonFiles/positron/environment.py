@@ -8,7 +8,7 @@ import types
 from collections.abc import Iterable, Mapping, Sequence
 from typing import Any, Optional
 
-from .inspectors import get_inspector, is_inspectable
+from .inspectors import get_inspector, is_inspectable, MAX_ITEMS
 from .utils import get_qualname
 
 
@@ -163,9 +163,6 @@ class EnvironmentMessageError(EnvironmentMessage):
     def __init__(self, message):
         super().__init__(EnvironmentMessageType.ERROR)
         self["message"] = message
-
-
-MAX_ITEMS = 2000
 
 
 class EnvironmentService:
@@ -403,29 +400,9 @@ class EnvironmentService:
         """
 
         children = []
-        if isinstance(context, Mapping):
-            # Treat dictionary items as children
-            children.extend(self._summarize_variables(context))
-
-        elif is_inspectable(context):
-            inspector = get_inspector(context)
-            for child_name in inspector.get_child_names(context):
-                child_display_type, child_value = inspector.get_child_info(context, child_name)
-                summary = self._summarize_variable(child_name, child_value)
-                if summary is not None:
-                    summary["display_type"] = child_display_type
-                    children.append(summary)
-
-        elif isinstance(context, (list, set, frozenset, tuple)):
-            # Treat collection items as children, with the index as the name
-            for i, item in enumerate(context):
-                if len(children) >= MAX_ITEMS:
-                    break
-
-                summary = self._summarize_variable(i, item)
-                if summary is not None:
-                    children.append(summary)
-
+        inspector = get_inspector(context)
+        if inspector is not None and inspector.has_children(context):
+            children = inspector.summarize_children(context, self._summarize_variable)
         else:
             # Otherwise, treat as a simple value at given path
             summary = self._summarize_variable("", context)
