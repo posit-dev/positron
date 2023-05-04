@@ -188,6 +188,9 @@ export namespace LanguageService {
     );
 }
 export namespace Interpreters {
+    export const requireJupyter = l10n.t(
+        'Running in Interactive window requires Jupyter Extension. Would you like to install it? [Learn more](https://aka.ms/pythonJupyterSupport).',
+    );
     export const installingPython = l10n.t('Installing Python into Environment...');
     export const discovering = l10n.t('Discovering Python Interpreters');
     export const refreshing = l10n.t('Refreshing Python Interpreters');
@@ -195,6 +198,7 @@ export namespace Interpreters {
         'We noticed you\'re using a conda environment. If you are experiencing issues with this environment in the integrated terminal, we recommend that you let the Python extension change "terminal.integrated.inheritEnv" to false in your user settings. [Learn more](https://aka.ms/AA66i8f).',
     );
     export const activatingTerminals = l10n.t('Reactivating terminals...');
+    export const activateTerminalDescription = l10n.t('Activated environment for');
     export const activatedCondaEnvLaunch = l10n.t(
         'We noticed VS Code was launched from an activated conda environment, would you like to select it?',
     );
@@ -218,6 +222,9 @@ export namespace Interpreters {
 }
 
 export namespace InterpreterQuickPickList {
+    export const condaEnvWithoutPythonTooltip = l10n.t(
+        'Python is not available in this environment, it will automatically be installed upon selecting it',
+    );
     export const noPythonInstalled = l10n.t('Python is not installed, please download and install it');
     export const clickForInstructions = l10n.t('Click for instructions...');
     export const globalGroupName = l10n.t('Global');
@@ -344,7 +351,7 @@ export namespace DebugConfigStrings {
         export const enterManagePyPath = {
             title: l10n.t('Debug Django'),
             prompt: l10n.t(
-                "Enter the path to manage.py ('${workspaceFolderToken}' points to the root of the current workspace folder)",
+                "Enter the path to manage.py ('${workspaceFolder}' points to the root of the current workspace folder)",
             ),
             invalid: l10n.t('Enter a valid Python file path'),
         };
@@ -400,9 +407,13 @@ export namespace Testing {
     export const testNotConfigured = l10n.t('No test framework configured.');
     export const cancelUnittestDiscovery = l10n.t('Canceled unittest test discovery');
     export const errorUnittestDiscovery = l10n.t('Unittest test discovery error');
+    export const cancelPytestDiscovery = l10n.t('Canceled pytest test discovery');
+    export const errorPytestDiscovery = l10n.t('pytest test discovery error');
     export const seePythonOutput = l10n.t('(see Output > Python)');
     export const cancelUnittestExecution = l10n.t('Canceled unittest test execution');
     export const errorUnittestExecution = l10n.t('Unittest test execution error');
+    export const cancelPytestExecution = l10n.t('Canceled pytest test execution');
+    export const errorPytestExecution = l10n.t('Pytest test execution error');
 }
 
 export namespace OutdatedDebugger {
@@ -438,7 +449,11 @@ export namespace CreateEnv {
 
     export namespace Venv {
         export const creating = l10n.t('Creating venv...');
+        export const creatingMicrovenv = l10n.t('Creating microvenv...');
         export const created = l10n.t('Environment created...');
+        export const existing = l10n.t('Using existing environment...');
+        export const downloadingPip = l10n.t('Downloading pip...');
+        export const installingPip = l10n.t('Installing pip...');
         export const upgradingPip = l10n.t('Upgrading pip...');
         export const installingPackages = l10n.t('Installing packages...');
         export const errorCreatingEnvironment = l10n.t('Error while creating virtual environment.');

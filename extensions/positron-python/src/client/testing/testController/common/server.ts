@@ -1,7 +1,6 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
-import * as http from 'http';
 import * as net from 'net';
 import * as crypto from 'crypto';
 import { Disposable, Event, EventEmitter } from 'vscode';
@@ -14,52 +13,60 @@ import { traceLog } from '../../../logging';
 import { DataReceivedEvent, ITestServer, TestCommandOptions } from './types';
 import { ITestDebugLauncher, LaunchOptions } from '../../common/types';
 import { UNITTEST_PROVIDER } from '../../common/constants';
+import { jsonRPCHeaders, jsonRPCContent, JSONRPC_UUID_HEADER } from './utils';
 
 export class PythonTestServer implements ITestServer, Disposable {
     private _onDataReceived: EventEmitter<DataReceivedEvent> = new EventEmitter<DataReceivedEvent>();
 
-    private uuids: Map<string, string>;
+    private uuids: Array<string> = [];
 
-    private server: http.Server;
+    private server: net.Server;
 
     private ready: Promise<void>;
 
     constructor(private executionFactory: IPythonExecutionFactory, private debugLauncher: ITestDebugLauncher) {
-        this.uuids = new Map();
+        this.server = net.createServer((socket: net.Socket) => {
+            socket.on('data', (data: Buffer) => {
+                try {
+                    let rawData: string = data.toString();
 
-        const requestListener: http.RequestListener = async (request, response) => {
-            const buffers = [];
-
-            try {
-                for await (const chunk of request) {
-                    buffers.push(chunk);
+                    while (rawData.length > 0) {
+                        const rpcHeaders = jsonRPCHeaders(rawData);
+                        const uuid = rpcHeaders.headers.get(JSONRPC_UUID_HEADER);
+                        rawData = rpcHeaders.remainingRawData;
+                        if (uuid && this.uuids.includes(uuid)) {
+                            const rpcContent = jsonRPCContent(rpcHeaders.headers, rawData);
+                            rawData = rpcContent.remainingRawData;
+                            this._onDataReceived.fire({ uuid, data: rpcContent.extractedJSON });
+                            this.uuids = this.uuids.filter((u) => u !== uuid);
+                        } else {
+                            traceLog(`Error processing test server request: uuid not found`);
+                            this._onDataReceived.fire({ uuid: '', data: '' });
+                            return;
+                        }
+                    }
+                } catch (ex) {
+                    traceLog(`Error processing test server request: ${ex} observe`);
+                    this._onDataReceived.fire({ uuid: '', data: '' });
                 }
-
-                const data = Buffer.concat(buffers).toString();
-                // grab the uuid from the header
-                const indexRequestuuid = request.rawHeaders.indexOf('Request-uuid');
-                const uuid = request.rawHeaders[indexRequestuuid + 1];
-                response.end();
-
-                JSON.parse(data);
-                // Check if the uuid we received exists in the list of active ones.
-                // If yes, process the response, if not, ignore it.
-                const cwd = this.uuids.get(uuid);
-                if (cwd) {
-                    this._onDataReceived.fire({ cwd, data });
-                    this.uuids.delete(uuid);
-                }
-            } catch (ex) {
-                traceLog(`Error processing test server request: ${ex} observe`);
-                this._onDataReceived.fire({ cwd: '', data: '' });
-            }
-        };
-
-        this.server = http.createServer(requestListener);
+            });
+        });
         this.ready = new Promise((resolve, _reject) => {
             this.server.listen(undefined, 'localhost', () => {
                 resolve();
             });
+        });
+        this.server.on('error', (ex) => {
+            traceLog(`Error starting test server: ${ex}`);
+        });
+        this.server.on('close', () => {
+            traceLog('Test server closed.');
+        });
+        this.server.on('listening', () => {
+            traceLog('Test server listening.');
+        });
+        this.server.on('connection', () => {
+            traceLog('Test server connected to a client.');
         });
     }
 
@@ -71,9 +78,9 @@ export class PythonTestServer implements ITestServer, Disposable {
         return (this.server.address() as net.AddressInfo).port;
     }
 
-    public createUUID(cwd: string): string {
+    public createUUID(): string {
         const uuid = crypto.randomUUID();
-        this.uuids.set(uuid, cwd);
+        this.uuids.push(uuid);
         return uuid;
     }
 
@@ -87,11 +94,12 @@ export class PythonTestServer implements ITestServer, Disposable {
     }
 
     async sendCommand(options: TestCommandOptions): Promise<void> {
-        const uuid = this.createUUID(options.cwd);
+        const { uuid } = options;
         const spawnOptions: SpawnOptions = {
             token: options.token,
             cwd: options.cwd,
             throwOnStdErr: true,
+            outputChannel: options.outChannel,
         };
 
         // Create the Python environment in which to execute the command.
@@ -140,9 +148,9 @@ export class PythonTestServer implements ITestServer, Disposable {
                 await execService.exec(args, spawnOptions);
             }
         } catch (ex) {
-            this.uuids.delete(uuid);
+            this.uuids = this.uuids.filter((u) => u !== uuid);
             this._onDataReceived.fire({
-                cwd: options.cwd,
+                uuid,
                 data: JSON.stringify({
                     status: 'error',
                     errors: [(ex as Error).message],

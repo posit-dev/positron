@@ -7,13 +7,23 @@ import * as sinon from 'sinon';
 import { assert, expect } from 'chai';
 import { cloneDeep } from 'lodash';
 import { mock, instance, when, anything, verify, reset } from 'ts-mockito';
-import { EnvironmentVariableCollection, ProgressLocation, Uri } from 'vscode';
-import { IApplicationShell, IApplicationEnvironment } from '../../../client/common/application/types';
+import { EnvironmentVariableCollection, ProgressLocation, Uri, WorkspaceFolder } from 'vscode';
+import {
+    IApplicationShell,
+    IApplicationEnvironment,
+    IWorkspaceService,
+} from '../../../client/common/application/types';
 import { TerminalEnvVarActivation } from '../../../client/common/experiments/groups';
 import { IPlatformService } from '../../../client/common/platform/types';
-import { IExtensionContext, IExperimentService, Resource } from '../../../client/common/types';
+import {
+    IExtensionContext,
+    IExperimentService,
+    Resource,
+    IConfigurationService,
+    IPythonSettings,
+} from '../../../client/common/types';
 import { Interpreters } from '../../../client/common/utils/localize';
-import { getOSType } from '../../../client/common/utils/platform';
+import { OSType, getOSType } from '../../../client/common/utils/platform';
 import { defaultShells } from '../../../client/interpreter/activation/service';
 import {
     TerminalEnvVarCollectionService,
@@ -21,6 +31,7 @@ import {
 } from '../../../client/interpreter/activation/terminalEnvVarCollectionService';
 import { IEnvironmentActivationService } from '../../../client/interpreter/activation/types';
 import { IInterpreterService } from '../../../client/interpreter/contracts';
+import { PathUtils } from '../../../client/common/platform/pathUtils';
 
 suite('Terminal Environment Variable Collection Service', () => {
     let platform: IPlatformService;
@@ -31,15 +42,21 @@ suite('Terminal Environment Variable Collection Service', () => {
     let collection: EnvironmentVariableCollection;
     let applicationEnvironment: IApplicationEnvironment;
     let environmentActivationService: IEnvironmentActivationService;
+    let workspaceService: IWorkspaceService;
     let terminalEnvVarCollectionService: TerminalEnvVarCollectionService;
     const progressOptions = {
         location: ProgressLocation.Window,
         title: Interpreters.activatingTerminals,
     };
+    let configService: IConfigurationService;
+    const displayPath = 'display/path';
     const customShell = 'powershell';
     const defaultShell = defaultShells[getOSType()];
 
     setup(() => {
+        workspaceService = mock<IWorkspaceService>();
+        when(workspaceService.getWorkspaceFolder(anything())).thenReturn(undefined);
+        when(workspaceService.workspaceFolders).thenReturn(undefined);
         platform = mock<IPlatformService>();
         when(platform.osType).thenReturn(getOSType());
         interpreterService = mock<IInterpreterService>();
@@ -57,6 +74,11 @@ suite('Terminal Environment Variable Collection Service', () => {
             })
             .thenResolve();
         environmentActivationService = mock<IEnvironmentActivationService>();
+        configService = mock<IConfigurationService>();
+        when(configService.getSettings(anything())).thenReturn(({
+            terminal: { activateEnvironment: true },
+            pythonPath: displayPath,
+        } as unknown) as IPythonSettings);
         terminalEnvVarCollectionService = new TerminalEnvVarCollectionService(
             instance(platform),
             instance(interpreterService),
@@ -66,6 +88,9 @@ suite('Terminal Environment Variable Collection Service', () => {
             instance(applicationEnvironment),
             [],
             instance(environmentActivationService),
+            instance(workspaceService),
+            instance(configService),
+            new PathUtils(getOSType() === OSType.Windows),
         );
     });
 
@@ -78,7 +103,7 @@ suite('Terminal Environment Variable Collection Service', () => {
         applyCollectionStub.resolves();
         when(interpreterService.onDidChangeInterpreter(anything(), anything(), anything())).thenReturn();
         when(applicationEnvironment.onDidChangeShell(anything(), anything(), anything())).thenReturn();
-        await terminalEnvVarCollectionService.activate();
+        await terminalEnvVarCollectionService.activate(undefined);
         assert(applyCollectionStub.calledOnce, 'Collection not applied on activation');
     });
 
@@ -90,13 +115,13 @@ suite('Terminal Environment Variable Collection Service', () => {
         when(interpreterService.onDidChangeInterpreter(anything(), anything(), anything())).thenReturn();
         when(applicationEnvironment.onDidChangeShell(anything(), anything(), anything())).thenReturn();
 
-        await terminalEnvVarCollectionService.activate();
+        await terminalEnvVarCollectionService.activate(undefined);
 
-        verify(interpreterService.onDidChangeInterpreter(anything(), anything(), anything())).never();
+        verify(interpreterService.onDidChangeInterpreter(anything(), anything(), anything())).once();
         verify(applicationEnvironment.onDidChangeShell(anything(), anything(), anything())).never();
         assert(applyCollectionStub.notCalled, 'Collection should not be applied on activation');
 
-        verify(collection.clear()).once();
+        verify(collection.clear()).atLeast(1);
     });
 
     test('When interpreter changes, apply new activated variables to the collection', async () => {
@@ -108,7 +133,7 @@ suite('Terminal Environment Variable Collection Service', () => {
             callback = cb;
         });
         when(applicationEnvironment.onDidChangeShell(anything(), anything(), anything())).thenReturn();
-        await terminalEnvVarCollectionService.activate();
+        await terminalEnvVarCollectionService.activate(undefined);
 
         await callback!(resource);
         assert(applyCollectionStub.calledWithExactly(resource));
@@ -122,7 +147,7 @@ suite('Terminal Environment Variable Collection Service', () => {
             callback = cb;
         });
         when(interpreterService.onDidChangeInterpreter(anything(), anything(), anything())).thenReturn();
-        await terminalEnvVarCollectionService.activate();
+        await terminalEnvVarCollectionService.activate(undefined);
 
         await callback!(customShell);
         assert(applyCollectionStub.calledWithExactly(undefined, customShell));
@@ -140,13 +165,74 @@ suite('Terminal Environment Variable Collection Service', () => {
             ),
         ).thenResolve(envVars);
 
-        when(collection.replace(anything(), anything())).thenResolve();
-        when(collection.delete(anything())).thenResolve();
+        when(collection.replace(anything(), anything(), anything())).thenResolve();
+        when(collection.delete(anything(), anything())).thenResolve();
 
         await terminalEnvVarCollectionService._applyCollection(undefined, customShell);
 
-        verify(collection.replace('CONDA_PREFIX', 'prefix/to/conda')).once();
-        verify(collection.delete('PATH')).once();
+        verify(collection.replace('CONDA_PREFIX', 'prefix/to/conda', anything())).once();
+        verify(collection.delete('PATH', anything())).once();
+    });
+
+    test('Verify envs are not applied if env activation is disabled', async () => {
+        const envVars: NodeJS.ProcessEnv = { CONDA_PREFIX: 'prefix/to/conda', ..._normCaseKeys(process.env) };
+        delete envVars.PATH;
+        when(
+            environmentActivationService.getActivatedEnvironmentVariables(
+                anything(),
+                undefined,
+                undefined,
+                customShell,
+            ),
+        ).thenResolve(envVars);
+
+        when(collection.replace(anything(), anything(), anything())).thenResolve();
+        when(collection.delete(anything(), anything())).thenResolve();
+        reset(configService);
+        when(configService.getSettings(anything())).thenReturn(({
+            terminal: { activateEnvironment: false },
+            pythonPath: displayPath,
+        } as unknown) as IPythonSettings);
+
+        await terminalEnvVarCollectionService._applyCollection(undefined, customShell);
+
+        verify(collection.replace('CONDA_PREFIX', 'prefix/to/conda', anything())).never();
+        verify(collection.delete('PATH', anything())).never();
+    });
+
+    test('Verify correct scope is used when applying envs and setting description', async () => {
+        const envVars: NodeJS.ProcessEnv = { CONDA_PREFIX: 'prefix/to/conda', ..._normCaseKeys(process.env) };
+        delete envVars.PATH;
+        const resource = Uri.file('a');
+        const workspaceFolder: WorkspaceFolder = {
+            uri: Uri.file('workspacePath'),
+            name: 'workspace1',
+            index: 0,
+        };
+        when(workspaceService.getWorkspaceFolder(resource)).thenReturn(workspaceFolder);
+        when(
+            environmentActivationService.getActivatedEnvironmentVariables(resource, undefined, undefined, customShell),
+        ).thenResolve(envVars);
+
+        when(collection.replace(anything(), anything(), anything())).thenCall((_e, _v, scope) => {
+            assert.deepEqual(scope, { workspaceFolder });
+            return Promise.resolve();
+        });
+        when(collection.delete(anything(), anything())).thenCall((_e, scope) => {
+            assert.deepEqual(scope, { workspaceFolder });
+            return Promise.resolve();
+        });
+        let description = '';
+        when(collection.setDescription(anything(), anything())).thenCall((d, scope) => {
+            assert.deepEqual(scope, { workspaceFolder });
+            description = d.value;
+        });
+
+        await terminalEnvVarCollectionService._applyCollection(resource, customShell);
+
+        verify(collection.replace('CONDA_PREFIX', 'prefix/to/conda', anything())).once();
+        verify(collection.delete('PATH', anything())).once();
+        expect(description).to.equal(`${Interpreters.activateTerminalDescription} \`${displayPath}\``);
     });
 
     test('Only relative changes to previously applied variables are applied to the collection', async () => {
@@ -164,8 +250,8 @@ suite('Terminal Environment Variable Collection Service', () => {
             ),
         ).thenResolve(envVars);
 
-        when(collection.replace(anything(), anything())).thenResolve();
-        when(collection.delete(anything())).thenResolve();
+        when(collection.replace(anything(), anything(), anything())).thenResolve();
+        when(collection.delete(anything(), anything())).thenResolve();
 
         await terminalEnvVarCollectionService._applyCollection(undefined, customShell);
 
@@ -184,8 +270,8 @@ suite('Terminal Environment Variable Collection Service', () => {
 
         await terminalEnvVarCollectionService._applyCollection(undefined, customShell);
 
-        verify(collection.delete('CONDA_PREFIX')).once();
-        verify(collection.delete('RANDOM_VAR')).once();
+        verify(collection.delete('CONDA_PREFIX', anything())).once();
+        verify(collection.delete('RANDOM_VAR', anything())).once();
     });
 
     test('If no activated variables are returned for custom shell, fallback to using default shell', async () => {
@@ -207,13 +293,13 @@ suite('Terminal Environment Variable Collection Service', () => {
             ),
         ).thenResolve(envVars);
 
-        when(collection.replace(anything(), anything())).thenResolve();
-        when(collection.delete(anything())).thenResolve();
+        when(collection.replace(anything(), anything(), anything())).thenResolve();
+        when(collection.delete(anything(), anything())).thenResolve();
 
         await terminalEnvVarCollectionService._applyCollection(undefined, customShell);
 
-        verify(collection.replace('CONDA_PREFIX', 'prefix/to/conda')).once();
-        verify(collection.delete(anything())).never();
+        verify(collection.replace('CONDA_PREFIX', 'prefix/to/conda', anything())).once();
+        verify(collection.delete(anything(), anything())).never();
     });
 
     test('If no activated variables are returned for default shell, clear collection', async () => {
@@ -226,11 +312,13 @@ suite('Terminal Environment Variable Collection Service', () => {
             ),
         ).thenResolve(undefined);
 
-        when(collection.replace(anything(), anything())).thenResolve();
-        when(collection.delete(anything())).thenResolve();
+        when(collection.replace(anything(), anything(), anything())).thenResolve();
+        when(collection.delete(anything(), anything())).thenResolve();
+        when(collection.setDescription(anything(), anything())).thenReturn();
 
         await terminalEnvVarCollectionService._applyCollection(undefined, defaultShell?.shell);
 
-        verify(collection.clear()).once();
+        verify(collection.clear(anything())).once();
+        verify(collection.setDescription(anything(), anything())).never();
     });
 });

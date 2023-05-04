@@ -7,10 +7,12 @@ import os
 import pathlib
 import subprocess
 import sys
+import urllib.request as url_lib
 from typing import List, Optional, Sequence, Union
 
 VENV_NAME = ".venv"
-CWD = pathlib.PurePath(os.getcwd())
+CWD = pathlib.Path.cwd()
+MICROVENV_SCRIPT_PATH = pathlib.Path(__file__).parent / "create_microvenv.py"
 
 
 class VenvError(Exception):
@@ -125,34 +127,97 @@ def add_gitignore(name: str) -> None:
             f.write("*")
 
 
+def download_pip_pyz(name: str):
+    url = "https://bootstrap.pypa.io/pip/pip.pyz"
+    print("CREATE_VENV.DOWNLOADING_PIP")
+
+    try:
+        with url_lib.urlopen(url) as response:
+            pip_pyz_path = os.fspath(CWD / name / "pip.pyz")
+            with open(pip_pyz_path, "wb") as out_file:
+                data = response.read()
+                out_file.write(data)
+                out_file.flush()
+    except Exception:
+        raise VenvError("CREATE_VENV.DOWNLOAD_PIP_FAILED")
+
+
+def install_pip(name: str):
+    pip_pyz_path = os.fspath(CWD / name / "pip.pyz")
+    executable = get_venv_path(name)
+    print("CREATE_VENV.INSTALLING_PIP")
+    run_process(
+        [executable, pip_pyz_path, "install", "pip"],
+        "CREATE_VENV.INSTALL_PIP_FAILED",
+    )
+
+
 def main(argv: Optional[Sequence[str]] = None) -> None:
     if argv is None:
         argv = []
     args = parse_args(argv)
 
-    if not is_installed("venv"):
-        raise VenvError("CREATE_VENV.VENV_NOT_FOUND")
-
+    use_micro_venv = False
+    venv_installed = is_installed("venv")
     pip_installed = is_installed("pip")
-    deps_needed = args.requirements or args.extras or args.toml
-    if deps_needed and not pip_installed:
-        raise VenvError("CREATE_VENV.PIP_NOT_FOUND")
+    ensure_pip_installed = is_installed("ensurepip")
+    distutils_installed = is_installed("distutils")
+
+    if not venv_installed:
+        if sys.platform == "win32":
+            raise VenvError("CREATE_VENV.VENV_NOT_FOUND")
+        else:
+            use_micro_venv = True
+            if not distutils_installed:
+                print("Install `python3-distutils` package or equivalent for your OS.")
+                print("On Debian/Ubuntu: `sudo apt install python3-distutils`")
+                raise VenvError("CREATE_VENV.DISTUTILS_NOT_INSTALLED")
 
     if venv_exists(args.name):
+        # A virtual environment with same name exists.
+        # We will use the existing virtual environment.
         venv_path = get_venv_path(args.name)
         print(f"EXISTING_VENV:{venv_path}")
     else:
-        run_process(
-            [sys.executable, "-m", "venv", args.name],
-            "CREATE_VENV.VENV_FAILED_CREATION",
-        )
+        if use_micro_venv:
+            # `venv` was not found but on this platform we can use `microvenv`
+            run_process(
+                [
+                    sys.executable,
+                    os.fspath(MICROVENV_SCRIPT_PATH),
+                    "--name",
+                    args.name,
+                ],
+                "CREATE_VENV.MICROVENV_FAILED_CREATION",
+            )
+        elif not pip_installed or not ensure_pip_installed:
+            # `venv` was found but `pip` or `ensurepip` was not found.
+            # We create a venv without `pip` in it. We will later install `pip`.
+            run_process(
+                [sys.executable, "-m", "venv", "--without-pip", args.name],
+                "CREATE_VENV.VENV_FAILED_CREATION",
+            )
+        else:
+            # Both `venv` and `pip` were found. So create a .venv normally
+            run_process(
+                [sys.executable, "-m", "venv", args.name],
+                "CREATE_VENV.VENV_FAILED_CREATION",
+            )
+
         venv_path = get_venv_path(args.name)
         print(f"CREATED_VENV:{venv_path}")
+
         if args.git_ignore:
             add_gitignore(args.name)
 
-    if pip_installed:
+    # At this point we have a .venv. Now we handle installing `pip`.
+    if pip_installed and ensure_pip_installed:
+        # We upgrade pip if it is already installed.
         upgrade_pip(venv_path)
+    else:
+        # `pip` was not found, so we download it and install it.
+        download_pip_pyz(args.name)
+        install_pip(args.name)
 
     if args.toml:
         print(f"VENV_INSTALLING_PYPROJECT: {args.toml}")
