@@ -56,6 +56,9 @@ class PositronIPyKernel(IPythonKernel):
         shell.events.register("post_execute", self.handle_post_execute)
         self.get_user_ns_hidden().update(POSITON_NS_HIDDEN)
 
+        # Set the traceback mode to minimal by default
+        shell.InteractiveTB.set_mode(mode="Minimal")
+
         # Setup Positron's environment service
         self.env_service = EnvironmentService(self)
         self.comm_manager.register_target(POSITRON_ENVIRONMENT_COMM, self.env_service.on_comm_open)
@@ -242,29 +245,13 @@ class PositronIPyKernel(IPythonKernel):
             is_known = hasattr(context, name)
             if is_known:
                 value = getattr(context, name, None)
-
-            elif is_inspectable(context):
+            else:
+                # Check for membership via inspector
                 inspector = get_inspector(context)
-                is_known = inspector.has_child(context, name)
-                if is_known:
-                    display_type, value = inspector.get_child_info(context, name)
-
-            # Check for membership by dict key
-            elif isinstance(context, Mapping):
-                value = context.get(name, __POSITRON_DEFAULT__)
-                if value is __POSITRON_DEFAULT__:
-                    is_known = False
-                else:
-                    is_known = True
-
-            # Check for membership by collection index
-            elif isinstance(context, (list, tuple, range)):
-                try:
-                    value = context[int(name)]
-                    is_known = True
-                except Exception:
-                    logging.warning(f"Unable to find variable at '{path}'", exc_info=True)
-                    is_known = False
+                if inspector is not None:
+                    is_known = inspector.has_child(context, name)
+                    if is_known:
+                        value = inspector.get_child(context, name)
 
             # Subsequent segment starts from the value
             context = value
@@ -289,6 +276,7 @@ class PositronIPyKernel(IPythonKernel):
         if is_known:
             inspector = get_inspector(value)
             if inspector is not None:
+                # Use the leaf segment as the title
                 title = path[-1:][0]
                 dataset = inspector.to_dataset(value, title)
                 if dataset is not None:
