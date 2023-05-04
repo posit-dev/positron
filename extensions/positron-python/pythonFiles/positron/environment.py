@@ -8,7 +8,7 @@ import types
 from collections.abc import Iterable, Mapping, Sequence
 from typing import Any, Optional
 
-from .inspectors import get_inspector, is_inspectable, MAX_ITEMS
+from .inspectors import get_inspector, MAX_ITEMS
 from .utils import get_qualname
 
 
@@ -472,14 +472,11 @@ class EnvironmentService:
             )
 
     def _format_value(self, value, clipboard_format: ClipboardFormat) -> str:
+        inspector = get_inspector(value)
+
         if clipboard_format == ClipboardFormat.HTML:
-            if is_inspectable(value):
-                inspector = get_inspector(value)
-                return inspector.to_html(value)
-
+            return inspector.to_html(value)
         elif clipboard_format == ClipboardFormat.PLAIN:
-            if is_inspectable(value):
-                inspector = get_inspector(value)
-                return inspector.to_tsv(value)
-
-        return str(value)
+            return inspector.to_tsv(value)
+        else:
+            return str(value)

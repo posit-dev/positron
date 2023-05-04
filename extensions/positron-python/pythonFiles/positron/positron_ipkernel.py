@@ -5,9 +5,8 @@
 """ Positron extensions to the iPython Kernel."""
 
 import asyncio
-import copy
 import logging
-from collections.abc import Iterable, Mapping, MutableMapping, MutableSequence, MutableSet, Sequence
+from collections.abc import Iterable, Sequence
 from itertools import chain
 from typing import Any, Optional, Tuple
 
@@ -16,7 +15,7 @@ from ipykernel.zmqshell import ZMQInteractiveShell
 
 from .dataviewer import DataViewerService
 from .environment import EnvironmentService
-from .inspectors import get_inspector, is_inspectable
+from .inspectors import get_inspector
 from .plots import PositronDisplayPublisherHook
 
 POSITRON_DATA_VIEWER_COMM = "positron.dataViewer"
@@ -33,10 +32,6 @@ POSITON_NS_HIDDEN = {"_exit_code": {}, "__pydevd_ret_val_dict": {}, "__warningre
 
 # Key used to store the user's environment snapshot in the hidden namespace
 __POSITRON_CACHE_KEY__ = "__positron_cache__"
-
-# Marker used to track if our default object was returned from a
-# conditional property lookup
-__POSITRON_DEFAULT__ = object()
 
 
 class PositronIPyKernel(IPythonKernel):
@@ -128,11 +123,8 @@ class PositronIPyKernel(IPythonKernel):
             if key in hidden:
                 continue
 
-            if isinstance(value, (MutableMapping, MutableSequence, MutableSet)):
-                snapshot[key] = copy.copy(value)
-
-            elif is_inspectable(value):
-                inspector = get_inspector(value)
+            inspector = get_inspector(value)
+            if inspector.is_snapshottable(value):
                 snapshot[key] = inspector.copy(value)
 
         # Save the snapshot in the hidden namespace to compare against
@@ -170,12 +162,12 @@ class PositronIPyKernel(IPythonKernel):
                 elif key in snapshot and key in after:
                     v1 = snapshot[key]
                     v2 = after[key]
+                    inspector1 = get_inspector(v1)
+                    inspector2 = get_inspector(v2)
 
-                    # If the value has a custom inspector, compare using
-                    # the inspector's special equals() method
-                    if is_inspectable(v1) or is_inspectable(v2):
-                        inspector1 = get_inspector(v1)
-                        inspector2 = get_inspector(v2)
+                    # If either value is snapshottable, compare using the
+                    # inspector's special equals() method
+                    if inspector1.is_snapshottable(v1) or inspector2.is_snapshottable(v2):
                         if inspector1 != inspector2 or not inspector2.equals(v1, v2):
                             assigned[key] = v2
 
