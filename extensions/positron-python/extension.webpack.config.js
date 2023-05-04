@@ -22,7 +22,8 @@ module.exports = {
         'applicationinsights-native-metrics',
         '@opentelemetry/tracing',
         '@opentelemetry/instrumentation',
-        '@azure/opentelemetry-instrumentation-azure-sdk'
+        '@azure/opentelemetry-instrumentation-azure-sdk',
+        '@azure/functions-core'
     ],
     output: {
         filename: '[name].js',
