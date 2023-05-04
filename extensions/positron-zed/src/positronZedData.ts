@@ -40,14 +40,14 @@ export class ZedData implements DataSet {
 	 */
 	constructor(private readonly context: vscode.ExtensionContext,
 		public readonly title: string,
-		private readonly nrow = 100,
-		private readonly ncol = 10) {
+		public readonly rowCount = 100,
+		private readonly colCount = 10) {
 		// Create a unique ID for this instance
 		this.id = randomUUID();
 
 		// Create the requested number of columns
-		for (let i = 0; i < ncol; i++) {
-			this.columns.push(new ZedColumn(`Column ${i}`, 'number', nrow));
+		for (let i = 0; i < colCount; i++) {
+			this.columns.push(new ZedColumn(`Column ${i}`, 'number', rowCount));
 		}
 	}
 
