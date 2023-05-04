@@ -293,6 +293,12 @@ export class WebClientServer {
 			scopes: [['user:email'], ['repo']]
 		} : undefined;
 
+		// --- Start Positron ---
+		// Adds support for serving at non-root paths.
+		const base = relativeRoot(req.url!);
+		const vscodeBase = relativePath(req.url!);
+		// --- End Positron ---
+
 		const productConfiguration = <Partial<IProductConfiguration>>{
 			embedderIdentifier: 'server-distro',
 			// --- Start Positron ---
@@ -315,12 +321,6 @@ export class WebClientServer {
 				Object.assign(productConfiguration, productOverrides);
 			} catch (err) {/* Ignore Error */ }
 		}
-
-		// --- Start Positron ---
-		// Adds support for serving at non-root paths.
-		const base = relativeRoot(req.url!);
-		const vscodeBase = relativePath(req.url!);
-		// --- End Positron ---
 
 		const workbenchWebConfiguration = {
 			remoteAuthority,
