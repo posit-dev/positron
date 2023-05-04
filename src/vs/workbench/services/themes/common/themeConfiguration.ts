@@ -37,7 +37,7 @@ const colorThemeSettingSchema: IConfigurationPropertySchema = {
 	errorMessage: nls.localize('colorThemeError', "Theme is unknown or not installed."),
 };
 // --- Start Positron Settings ---
-colorThemeSettingSchema.default = DEFAULT_THEME_LIGHT_SETTING_VALUE;
+colorThemeSettingSchema.default = ThemeSettingDefaults.COLOR_THEME_LIGHT;
 // --- End Positron Settings ---
 
 const preferredDarkThemeSettingSchema: IConfigurationPropertySchema = {
