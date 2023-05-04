@@ -182,7 +182,15 @@ class EnvironmentService:
 
     def receive_message(self, msg) -> None:
         """
-        Handle messages sent by the client to the positron.environment comm.
+        Handle messages received from the client via the positron.environment comm.
+
+        Message Types:
+            "inspect"          - Inspect the user variable at the requested path
+            "refresh"          - Refresh the list of user variables in the environment
+            "view"             - Format the variable at the requested path for the data viewer
+            "clipboard_format" - Format the variable at the requested path for the client clipboard
+            "clear"            - Clear all user variables in the environment
+            "delete"           - Delete user variables in the environment by name
         """
         data = msg["content"]["data"]
 
@@ -214,6 +222,10 @@ class EnvironmentService:
             self._send_error(f"Unknown message type '{msgType}'")
 
     def send_update(self, assigned: dict, removed: set) -> None:
+        """
+        Sends the list of variables that have changed in the current user session through the
+        environment comm to the client.
+        """
         # Ensure the number of changes does not exceed our maximum items
         if len(assigned) < MAX_ITEMS and len(removed) < MAX_ITEMS:
             self._send_update(assigned, removed)
@@ -264,7 +276,7 @@ class EnvironmentService:
 
         self.env_comm.send(msg)
 
-    def _send_error(self, message: str) -> None:
+    def _send_error(self, error_message: str) -> None:
         """
         Send an error message through the envirvonment comm to the client.
 
@@ -277,7 +289,7 @@ class EnvironmentService:
             ...
         }
         """
-        msg = EnvironmentMessageError(message)
+        msg = EnvironmentMessageError(error_message)
         self._send_message(msg)
 
     def _send_update(self, assigned: Mapping, removed: Iterable) -> None:
@@ -312,12 +324,24 @@ class EnvironmentService:
     def _delete_all_vars(self, parent) -> None:
         """
         Deletes all of the variables in the current user session.
+
+        Args:
+            parent:
+                A dict providing the parent context for the response,
+                e.g. the client message requesting the clear operation
         """
         self.kernel.delete_all_vars(parent)
 
     def _delete_vars(self, names: Iterable, parent) -> None:
         """
         Deletes the requested variables by name from the current user session.
+
+        Args:
+            names:
+                A list of variable names to delete
+            parent:
+                A dict providing the parent context for the response,
+                e.g. the client message requesting the delete operation
         """
         if names is None:
             return
@@ -328,12 +352,15 @@ class EnvironmentService:
     def _inspect_var(self, path: Sequence) -> None:
         """
         Describes the variable at the requested path in the current user session.
+
+        Args:
+            path:
+                A list of names describing the path to the variable.
         """
         if path is None:
             return
 
         is_known, value = self.kernel.find_var(path)
-
         if is_known:
             self._send_details(path, value)
         else:
@@ -357,8 +384,14 @@ class EnvironmentService:
         Formats the variable at the requested path in the current user session
         using the requested clipboard format and sends the result through the
         environment comm to the client.
-        """
 
+        Args:
+            path:
+                A list of names describing the path to the variable.
+            clipboard_format:
+                The format to use for the clipboard copy, described as a mime type.
+                Defaults to "text/plain".
+        """
         if path is None:
             return
 
@@ -372,7 +405,7 @@ class EnvironmentService:
             message = f"Cannot find variable at '{path}' to format"
             self._send_error(message)
 
-    def _send_details(self, path: Sequence, context: Any = None):
+    def _send_details(self, path: Sequence, value: Any = None):
         """
         Sends a detailed list of children of the value (or just the value
         itself, if is a leaf node on the path) as a message through the
@@ -397,15 +430,21 @@ class EnvironmentService:
             }
             ...
         }
+
+        Args:
+            path:
+                A list of names describing the path to the variable.
+            value:
+                The variable's value to summarize.
         """
 
         children = []
-        inspector = get_inspector(context)
-        if inspector is not None and inspector.has_children(context):
-            children = inspector.summarize_children(context, self._summarize_variable)
+        inspector = get_inspector(value)
+        if inspector.has_children(value):
+            children = inspector.summarize_children(value, self._summarize_variable)
         else:
             # Otherwise, treat as a simple value at given path
-            summary = self._summarize_variable("", context)
+            summary = self._summarize_variable("", value)
             if summary is not None:
                 children.append(summary)
             # TODO: Handle scalar objects with a specific message type
@@ -414,11 +453,19 @@ class EnvironmentService:
         self._send_message(msg)
 
     def _summarize_variables(self, variables: Mapping, max_items: int = MAX_ITEMS) -> list:
+        """
+        Summarizes the given variables into a list of EnvironmentVariable objects.
+
+        Args:
+            variables:
+                A mapping of variable names to values.
+            max_items:
+                The maximum number of items to summarize.
+        """
         summaries = []
 
         for key, value in variables.items():
-            # Ensure the number of items summarized is within our
-            # max limit
+            # Ensure the number of items summarized is within our max limit
             if len(summaries) >= max_items:
                 break
 
@@ -428,22 +475,28 @@ class EnvironmentService:
 
         return summaries
 
-    def _summarize_variable(self, key, value) -> Optional[EnvironmentVariable]:
+    def _summarize_variable(self, key: Any, value: Any) -> Optional[EnvironmentVariable]:
+        """
+        Summarizes the given variable into an EnvironmentVariable object.
+
+        Returns:
+            An EnvironmentVariable summary, or None if the variable should be skipped.
+        """
         # Hide module types for now
         if isinstance(value, types.ModuleType):
             return None
-
-        display_name = str(key)
 
         try:
             # Use an inspector to summarize the value
             ins = get_inspector(value)
 
+            display_name = ins.get_display_name(key)
             kind_str = ins.get_kind(value)
             kind = getattr(EnvironmentVariableKind, kind_str.upper())
             display_value, is_truncated = ins.get_display_value(value)
             display_type = ins.get_display_type(value)
             type_info = ins.get_type_info(value)
+            access_key = ins.get_access_key(key)
             length = ins.get_length(value)
             size = ins.get_size(value)
             has_children = ins.has_children(value)
@@ -455,7 +508,7 @@ class EnvironmentService:
                 display_type=display_type,
                 kind=kind,
                 type_info=type_info,
-                access_key=display_name,
+                access_key=access_key,
                 length=length,
                 size=size,
                 has_children=has_children,
@@ -466,17 +519,18 @@ class EnvironmentService:
         except Exception as err:
             logging.warning(err, exc_info=True)
             return EnvironmentVariable(
-                display_name=display_name,
+                display_name=str(key),
                 display_value=get_qualname(value),
                 kind=EnvironmentVariableKind.OTHER,
             )
 
-    def _format_value(self, value, clipboard_format: ClipboardFormat) -> str:
+    def _format_value(self, value: Any, clipboard_format: ClipboardFormat) -> str:
+        """
+        Formats the given value using the requested clipboard format.
+        """
         inspector = get_inspector(value)
 
         if clipboard_format == ClipboardFormat.HTML:
             return inspector.to_html(value)
-        elif clipboard_format == ClipboardFormat.PLAIN:
-            return inspector.to_tsv(value)
         else:
-            return str(value)
+            return inspector.to_plaintext(value)
