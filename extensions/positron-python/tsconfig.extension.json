@@ -28,6 +28,7 @@
         "src/client/**/*",
         "src/*",
         "typings/*.d.ts",
+        "typings/vscode-proposed/*.d.ts",
         "types/*.d.ts",
         "positron-dts/positron.d.ts"
     ]

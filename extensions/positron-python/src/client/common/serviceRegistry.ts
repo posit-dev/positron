@@ -65,6 +65,7 @@ import { IProcessLogger } from './process/types';
 import { TerminalActivator } from './terminal/activator';
 import { PowershellTerminalActivationFailedHandler } from './terminal/activator/powershellFailedHandler';
 import { Bash } from './terminal/environmentActivationProviders/bash';
+import { Nushell } from './terminal/environmentActivationProviders/nushell';
 import { CommandPromptAndPowerShell } from './terminal/environmentActivationProviders/commandPrompt';
 import { CondaActivationCommandProvider } from './terminal/environmentActivationProviders/condaActivationProvider';
 import { PipEnvActivationCommandProvider } from './terminal/environmentActivationProviders/pipEnvActivationProvider';
@@ -89,6 +90,7 @@ import { IMultiStepInputFactory, MultiStepInputFactory } from './utils/multiStep
 import { Random } from './utils/random';
 import { ContextKeyManager } from './application/contextKeyManager';
 import { CreatePythonFileCommandHandler } from './application/commands/createPythonFile';
+import { RequireJupyterPrompt } from '../jupyter/requireJupyterPrompt';
 
 export function registerTypes(serviceManager: IServiceManager): void {
     serviceManager.addSingletonInstance<boolean>(IsWindows, IS_WINDOWS);
@@ -108,6 +110,10 @@ export function registerTypes(serviceManager: IServiceManager): void {
     serviceManager.addSingleton<IJupyterExtensionDependencyManager>(
         IJupyterExtensionDependencyManager,
         JupyterExtensionDependencyManager,
+    );
+    serviceManager.addSingleton<IExtensionSingleActivationService>(
+        IExtensionSingleActivationService,
+        RequireJupyterPrompt,
     );
     serviceManager.addSingleton<IExtensionSingleActivationService>(
         IExtensionSingleActivationService,
@@ -142,6 +148,11 @@ export function registerTypes(serviceManager: IServiceManager): void {
         ITerminalActivationCommandProvider,
         CommandPromptAndPowerShell,
         TerminalActivationProviders.commandPromptAndPowerShell,
+    );
+    serviceManager.addSingleton<ITerminalActivationCommandProvider>(
+        ITerminalActivationCommandProvider,
+        Nushell,
+        TerminalActivationProviders.nushell,
     );
     serviceManager.addSingleton<ITerminalActivationCommandProvider>(
         ITerminalActivationCommandProvider,
