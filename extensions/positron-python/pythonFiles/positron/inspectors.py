@@ -9,7 +9,7 @@ import numbers
 import sys
 import types
 import uuid
-from collections.abc import Mapping, Sequence, Set
+from collections.abc import Mapping, MutableMapping, MutableSequence, MutableSet, Sequence, Set
 from typing import Any, Callable, Optional, Tuple
 
 from .dataviewer import DataColumn, DataSet
@@ -27,6 +27,10 @@ __POSITRON_DEFAULT__ = object()
 
 
 class PositronInspector:
+    """
+    Base inspector for any type
+    """
+
     def get_display_value(
         self,
         value: Any,
@@ -36,34 +40,32 @@ class PositronInspector:
         return pretty_format(value, print_width, truncate_at)
 
     def get_display_type(self, value: Any) -> str:
-        if value is not None:
-            type_name = type(value).__name__
+        if value is None:
+            return "NoneType"
+
+        type_name = type(value).__name__
+        display_type = type_name
+
+        if isinstance(value, str):
+            # For strings, which are also Sequences, we suppress
+            # showing the length in the display type
             display_type = type_name
-
-            if isinstance(value, str):
-                # For strings, which are also Sequences, we suppress
-                # showing the length in the display type
-                display_type = type_name
-            else:
-                length = self.get_length(value)
-
-                # Also display length for various collections and maps
-                # using the Python notation for the type
-                if isinstance(value, Set):
-                    display_type = f"{type_name} {{{length}}}"
-
-                elif isinstance(value, tuple):
-                    display_type = f"{type_name} ({length})"
-
-                elif isinstance(value, (Sequence, Mapping)):
-                    display_type = f"{type_name} [{length}]"
-
-                else:
-                    if length > 0:
-                        display_type = f"{type_name} [{length}]"
-
         else:
-            display_type = "NoneType"
+            # Also display length for various collections and maps
+            # using the Python notation for the type
+            length = self.get_length(value)
+
+            if isinstance(value, Set):
+                display_type = f"{type_name} {{{length}}}"
+
+            elif isinstance(value, tuple):
+                display_type = f"{type_name} ({length})"
+
+            elif isinstance(value, (Sequence, Mapping)):
+                display_type = f"{type_name} [{length}]"
+
+            elif length > 0:
+                display_type = f"{type_name} [{length}]"
 
         return display_type
 
@@ -94,6 +96,9 @@ class PositronInspector:
         return []
 
     def has_viewer(self, value: Any) -> bool:
+        return False
+
+    def is_snapshottable(self, value: Any) -> bool:
         return False
 
     def equals(self, value1: Any, value2: Any) -> bool:
@@ -183,6 +188,9 @@ class CollectionInspector(PositronInspector):
 
         return children
 
+    def is_snapshottable(self, value: Any) -> bool:
+        return isinstance(value, (MutableSequence, MutableSet))
+
 
 class FunctionInspector(PositronInspector):
     def get_display_value(
@@ -237,6 +245,9 @@ class MapInspector(PositronInspector):
                     children.append(summary)
 
         return children
+
+    def is_snapshottable(self, value: Any) -> bool:
+        return isinstance(value, MutableMapping)
 
 
 class NumberInspector(PositronInspector):
@@ -301,6 +312,9 @@ class TableInspector(PositronInspector):
         return children
 
     def has_viewer(self, value: Any) -> bool:
+        return True
+
+    def is_snapshottable(self, value: Any) -> bool:
         return True
 
 
@@ -682,13 +696,6 @@ INSPECTORS = {
 }
 
 
-def is_inspectable(value) -> bool:
-    qualname = get_qualname(value)
-    if qualname in INSPECTORS.keys():
-        return True
-    return False
-
-
 def get_inspector(value) -> PositronInspector:
     # Look for a specific inspector by qualified classname
     qualname = get_qualname(value)
@@ -697,8 +704,7 @@ def get_inspector(value) -> PositronInspector:
     if inspector is None:
         # Otherwise, look for an inspector by kind
         kind = _get_kind(value)
-        if kind is not None:
-            inspector = INSPECTORS.get(kind, None)
+        inspector = INSPECTORS.get(kind, None)
 
     # Otherwise, default to generic inspector
     if inspector is None:
