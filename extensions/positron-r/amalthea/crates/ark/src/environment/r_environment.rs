@@ -25,9 +25,11 @@ use stdext::spawn;
 
 use crate::environment::message::EnvironmentMessage;
 use crate::environment::message::EnvironmentMessageClear;
+use crate::environment::message::EnvironmentMessageClipboardFormat;
 use crate::environment::message::EnvironmentMessageDelete;
 use crate::environment::message::EnvironmentMessageDetails;
 use crate::environment::message::EnvironmentMessageError;
+use crate::environment::message::EnvironmentMessageFormattedVariable;
 use crate::environment::message::EnvironmentMessageInspect;
 use crate::environment::message::EnvironmentMessageList;
 use crate::environment::message::EnvironmentMessageUpdate;
@@ -165,6 +167,10 @@ impl REnvironment {
                                 self.inspect(&path, Some(id));
                             },
 
+                            EnvironmentMessage::ClipboardFormat(EnvironmentMessageClipboardFormat{path, format}) => {
+                                self.clipboard_format(&path, format, Some(id));
+                            },
+
                             _ => {
                                 error!(
                                     "Environment: Don't know how to handle message type '{:?}'",
@@ -279,6 +285,26 @@ impl REnvironment {
 
         // and then update
         self.update(request_id);
+    }
+
+    fn clipboard_format(&mut self, path: &Vec<String>, format: String, request_id: Option<String>){
+        let clipped = r_lock! {
+            EnvironmentVariable::clip(RObject::view(*self.env), &path, &format)
+        };
+
+        let msg = match clipped {
+            Ok(content) => {
+                EnvironmentMessage::FormattedVariable(EnvironmentMessageFormattedVariable{
+                    format,
+                    content
+                })
+            }
+
+            Err(_) => EnvironmentMessage::Error(EnvironmentMessageError {
+                message: String::from("Clipboard Format error"),
+            })
+        };
+        self.send_message(msg, request_id);
     }
 
     fn inspect(&mut self, path: &Vec<String>, request_id: Option<String>) {

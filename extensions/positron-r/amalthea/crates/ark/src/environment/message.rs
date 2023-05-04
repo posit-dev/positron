@@ -51,7 +51,13 @@ pub enum EnvironmentMessage {
     Details(EnvironmentMessageDetails),
 
     /// A message requesting to view a variable
-    View(EnvironmentMessageView)
+    View(EnvironmentMessageView),
+
+    /// Clipboard format
+    ClipboardFormat(EnvironmentMessageClipboardFormat),
+
+    /// Formatted variable
+    FormattedVariable(EnvironmentMessageFormattedVariable),
 }
 
 /**
@@ -123,4 +129,22 @@ pub struct EnvironmentMessageDetails {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct EnvironmentMessageView {
     pub path: Vec<String>,
+}
+
+/*
+ * The data for the ClipboardFormat message
+ */
+#[derive(Debug, Serialize, Deserialize)]
+pub struct EnvironmentMessageClipboardFormat {
+    pub path: Vec<String>,
+    pub format: String,
+}
+
+/**
+ * The data for the ClipboardFormat message
+ */
+#[derive(Debug, Serialize, Deserialize)]
+pub struct EnvironmentMessageFormattedVariable {
+    pub format: String,
+    pub content: String,
 }
