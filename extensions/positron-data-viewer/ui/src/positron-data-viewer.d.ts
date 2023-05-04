@@ -59,6 +59,11 @@ export interface DataSet {
 	 * The columns of data.
 	 */
 	columns: Array<DataColumn>;
+
+	/**
+	 * The number of rows in the data set.
+	 */
+	rowCount: number;
 }
 
 export interface DataViewerMessage {
@@ -82,12 +87,20 @@ export interface DataViewerMessageData extends DataViewerMessage {
 	/**
 	 * The data set.
 	 */
-	data: Array<DataColumn>;
+	data: DataSet;
 }
 
 /**
  * The possible message types for messages sent between the data viewer
  * window/frame and the host extension.
+ *
+ * These messages are sent using `postMessage` and are serialized to JSON;
+ * the verbs are from the perspective of the iframe.
+ *
+ * - `ready`: The data viewer is ready to receive data.
+ * - `data`: Data to be displayed in the data viewer.
+ * - `send`: The data viewer is sending data to the host.
+ * - `receive`: The data viewer is receiving data from the host.
  */
-export type DataViewerMessageType = 'ready' | 'data';
+export type DataViewerMessageType = 'ready' | 'data' | 'send' | 'receive';
 

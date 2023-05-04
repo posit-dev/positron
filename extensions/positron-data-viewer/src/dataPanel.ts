@@ -27,23 +27,36 @@ export async function createDataPanel(context: vscode.ExtensionContext,
 		}
 	);
 
-	// Check for the 'dist' folder in the extension directory; this only exists in
+	// Check for the 'index.js' file in the extension directory; this only exists in
 	// production mode.
-	const distFolder = path.join(context.extensionPath, 'ui', 'dist');
+	const indexJs = path.join(context.extensionPath, 'ui', 'dist', 'index.js');
 	const fs = require('fs');
-	const productionMode = fs.existsSync(distFolder);
+	const productionMode = fs.existsSync(indexJs);
 
 	const scriptPaths = [];
 
 	if (!productionMode) {
 		const nodeFolder = path.join(context.extensionPath, 'ui', 'node_modules');
-		// In development mode, we use the React and ReactDOM libraries
-		// from the extension folder directly. In production mode,
-		// webpack bundles these libraries into the index.js file.
+		// In development mode, we use the React libraries from the extension
+		// folder directly. In production mode, webpack bundles these libraries
+		// into the index.js file.
 		scriptPaths.push(path.join(nodeFolder,
 			'react', 'umd', 'react.development.js'));
 		scriptPaths.push(path.join(nodeFolder,
 			'react-dom', 'umd', 'react-dom.development.js'));
+
+		// In development mode, we use the TanStack libraries from the extension
+		// folder directly as well.
+		const tanstackLibraries = [
+			'query-core',
+			'react-query',
+			'react-table',
+			'react-virtual',
+			'table-core'];
+		tanstackLibraries.forEach((library) => {
+			scriptPaths.push(path.join(nodeFolder,
+				'@tanstack', library, 'build', 'umd', `index.development.js`));
+		});
 	}
 
 	// Get a list of all the script files in the extension's ui/out folder and
@@ -61,8 +74,15 @@ export async function createDataPanel(context: vscode.ExtensionContext,
 	const reactHtml = scriptPaths.map((scriptPath) => {
 		const scriptUri = panel.webview.asWebviewUri(vscode.Uri.file(scriptPath));
 		// Add the type="module" attribute to the script tag if the script is
-		// not in the node_modules folder (i.e. it's one of our own scripts)
-		const moduleAttribute = scriptPath.includes('node_modules') ? '' : 'type="module"';
+		// not in the node_modules folder (i.e. it's one of our own scripts).
+		//
+		// The "module" attribute should also be added to scripts with ".mjs"
+		// (module JavaScript) extensions.
+		const moduleAttribute = (
+			!scriptPath.includes('.mjs') &&
+			scriptPath.includes('node_modules')) ?
+			'' :
+			'type="module"';
 		return `<script ${moduleAttribute} src="${scriptUri}"></script>`;
 	}).join('\n');
 
@@ -99,7 +119,12 @@ export async function createDataPanel(context: vscode.ExtensionContext,
 			// the initial data
 			const dataMsg: DataViewerMessageData = {
 				msg_type: 'data',
-				data: initialData.columns
+				data: {
+					id: initialData.id,
+					title: initialData.title,
+					columns: initialData.columns,
+					rowCount: initialData.rowCount,
+				},
 			};
 			panel.webview.postMessage(dataMsg);
 		}
