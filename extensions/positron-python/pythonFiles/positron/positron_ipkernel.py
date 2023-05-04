@@ -51,9 +51,6 @@ class PositronIPyKernel(IPythonKernel):
         shell.events.register("post_execute", self.handle_post_execute)
         self.get_user_ns_hidden().update(POSITON_NS_HIDDEN)
 
-        # Set the traceback mode to minimal by default
-        shell.InteractiveTB.set_mode(mode="Minimal")
-
         # Setup Positron's environment service
         self.env_service = EnvironmentService(self)
         self.comm_manager.register_target(POSITRON_ENVIRONMENT_COMM, self.env_service.on_comm_open)
@@ -88,7 +85,7 @@ class PositronIPyKernel(IPythonKernel):
     def handle_post_execute(self) -> None:
         """
         After execution, sends an update message to the client to summarize
-        the changes observed to variables in the user environment.
+        the changes observed to variables in the user's environment.
         """
 
         # First check pre_execute snapshot exists
@@ -104,15 +101,15 @@ class PositronIPyKernel(IPythonKernel):
             logging.warning(err, exc_info=True)
 
     def get_user_ns(self) -> dict:
-        return self.shell.user_ns  # type: ignore
+        return self.shell.user_ns or {}  # type: ignore
 
     def get_user_ns_hidden(self) -> dict:
-        return self.shell.user_ns_hidden  # type: ignore
+        return self.shell.user_ns_hidden or {}  # type: ignore
 
     def snapshot_user_ns(self) -> None:
         """
         Caches a shallow copy snapshot of the user's environment
-        before execution.
+        before execution and stores it in the hidden namespace.
         """
         ns = self.get_user_ns()
         hidden = self.get_user_ns_hidden()
@@ -132,6 +129,13 @@ class PositronIPyKernel(IPythonKernel):
         hidden[__POSITRON_CACHE_KEY__] = snapshot
 
     def compare_user_ns(self) -> Tuple[dict, set]:
+        """
+        Attempts to detect changes to variables in the user's environment.
+
+        Returns:
+            A tuple (dict, set) containing a dict of variables that were modified
+            (added or updated) and a set of variables that were removed.
+        """
         assigned = {}
         removed = set()
         after = self.get_user_ns()
@@ -183,9 +187,9 @@ class PositronIPyKernel(IPythonKernel):
 
     def get_filtered_vars(self, variables: Optional[dict] = None) -> dict:
         """
-        Returns a filtered dict of the variables, excluding hidden variables.
-
-        If variables is None, the current user namespace is used.
+        Returns:
+            A filtered dict of the variables, excluding hidden variables. If variables
+            is None, the current user namespace in the environment is used.
         """
         hidden = self.get_user_ns_hidden()
 
@@ -199,12 +203,16 @@ class PositronIPyKernel(IPythonKernel):
         return filtered_variables
 
     def get_filtered_var_names(self, names: set) -> set:
+        """
+        Returns:
+            A filtered set of variable names, excluding hidden variables.
+        """
         hidden = self.get_user_ns_hidden()
 
         # Filter out hidden variables
         filtered_names = set()
         for name in names:
-            if hidden is not None and name in hidden:
+            if name in hidden:
                 continue
             filtered_names.add(name)
         return filtered_names
@@ -240,10 +248,9 @@ class PositronIPyKernel(IPythonKernel):
             else:
                 # Check for membership via inspector
                 inspector = get_inspector(context)
-                if inspector is not None:
-                    is_known = inspector.has_child(context, name)
-                    if is_known:
-                        value = inspector.get_child(context, name)
+                is_known = inspector.has_child(context, name)
+                if is_known:
+                    value = inspector.get_child(context, name)
 
             # Subsequent segment starts from the value
             context = value
@@ -267,14 +274,11 @@ class PositronIPyKernel(IPythonKernel):
 
         if is_known:
             inspector = get_inspector(value)
-            if inspector is not None:
-                # Use the leaf segment as the title
-                title = path[-1:][0]
-                dataset = inspector.to_dataset(value, title)
-                if dataset is not None:
-                    self.dataviewer_service.register_dataset(dataset)
-            else:
-                error_message = f"Cannot create viewer for variable at '{path}'"
+            # Use the leaf segment as the title
+            title = path[-1:][0]
+            dataset = inspector.to_dataset(value, title)
+            if dataset is not None:
+                self.dataviewer_service.register_dataset(dataset)
         else:
             error_message = f"Cannot find variable at '{path}' to inspect"
 

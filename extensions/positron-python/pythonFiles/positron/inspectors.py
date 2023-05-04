@@ -23,13 +23,18 @@ PRINT_WIDTH: int = 100
 # conditional property lookup
 __POSITRON_DEFAULT__ = object()
 
-# Base inspector for any type
+#
+# Base inspector
+#
 
 
 class PositronInspector:
     """
     Base inspector for any type
     """
+
+    def get_display_name(self, key: Any) -> str:
+        return str(key)
 
     def get_display_value(
         self,
@@ -75,6 +80,9 @@ class PositronInspector:
     def get_type_info(self, value: Any) -> str:
         return get_qualname(value)
 
+    def get_access_key(self, name: Any) -> str:
+        return self.get_display_name(name)
+
     def get_length(self, value: Any) -> int:
         return get_value_length(value)
 
@@ -113,11 +121,13 @@ class PositronInspector:
     def to_html(self, value: Any) -> str:
         return repr(value)
 
-    def to_tsv(self, value: Any) -> str:
+    def to_plaintext(self, value: Any) -> str:
         return repr(value)
 
 
+#
 # Inspectors by kind
+#
 
 
 class BooleanInspector(PositronInspector):
@@ -318,7 +328,9 @@ class TableInspector(PositronInspector):
         return True
 
 
+#
 # Custom inspectors for specific types
+#
 
 
 class PandasDataFrameInspector(TableInspector):
@@ -406,7 +418,7 @@ class PandasDataFrameInspector(TableInspector):
     def to_html(self, value: Any) -> str:
         return value.to_html()
 
-    def to_tsv(self, value: Any) -> str:
+    def to_plaintext(self, value: Any) -> str:
         return value.to_csv(path_or_buf=None, sep="\t")
 
 
@@ -481,9 +493,9 @@ class PandasSeriesInspector(CollectionInspector):
 
     def to_html(self, value: Any) -> str:
         # TODO: Support HTML
-        return self.to_tsv(value)
+        return self.to_plaintext(value)
 
-    def to_tsv(self, value: Any) -> str:
+    def to_plaintext(self, value: Any) -> str:
         return value.to_csv(path_or_buf=None, sep="\t")
 
 
@@ -570,7 +582,7 @@ class PolarsInspector(TableInspector):
     def to_html(self, value: Any) -> str:
         return value._repr_html_()
 
-    def to_tsv(self, value: Any) -> str:
+    def to_plaintext(self, value: Any) -> str:
         return value.write_csv(file=None, separator="\t")
 
 
@@ -695,8 +707,12 @@ INSPECTORS = {
     "table": TableInspector(),
 }
 
+#
+# Helper functions
+#
 
-def get_inspector(value) -> PositronInspector:
+
+def get_inspector(value: Any) -> PositronInspector:
     # Look for a specific inspector by qualified classname
     qualname = get_qualname(value)
     inspector = INSPECTORS.get(qualname, None)
@@ -713,7 +729,7 @@ def get_inspector(value) -> PositronInspector:
     return inspector
 
 
-def _get_kind(value) -> str:
+def _get_kind(value: Any) -> str:
     if isinstance(value, str):
         return "string"
     elif isinstance(value, bool):
