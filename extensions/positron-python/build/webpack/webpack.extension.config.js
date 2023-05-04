@@ -64,10 +64,9 @@ const config = {
         // See: https://github.com/microsoft/vscode-extension-telemetry/issues/41#issuecomment-598852991
         'applicationinsights-native-metrics',
         '@opentelemetry/tracing',
-        // --- Start Positron ---
+        '@azure/opentelemetry-instrumentation-azure-sdk',
         '@opentelemetry/instrumentation',
-        '@azure/opentelemetry-instrumentation-azure-sdk'
-        // --- End Positron ---
+        '@azure/functions-core',
     ],
     plugins: [...common.getDefaultPlugins('extension')],
     resolve: {

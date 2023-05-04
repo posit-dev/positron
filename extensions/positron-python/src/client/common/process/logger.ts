@@ -28,7 +28,10 @@ export class ProcessLogger implements IProcessLogger {
             : fileOrCommand;
         const info = [`> ${this.getDisplayCommands(command)}`];
         if (options?.cwd) {
-            info.push(`cwd: ${this.getDisplayCommands(options.cwd)}`);
+            // --- Start Positron ---
+            const cwd: string = options?.cwd?.toString();
+            // --- End Positron ---
+            info.push(`cwd: ${this.getDisplayCommands(cwd)}`);
         }
         if (typeof options?.shell === 'string') {
             info.push(`shell: ${identifyShellFromShellPath(options?.shell)}`);

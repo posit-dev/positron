@@ -3,7 +3,7 @@
 
 import * as path from 'path';
 import { Uri } from 'vscode';
-import { IConfigurationService } from '../../../common/types';
+import { IConfigurationService, ITestOutputChannel } from '../../../common/types';
 import { createDeferred, Deferred } from '../../../common/utils/async';
 import { EXTENSION_ROOT_DIR } from '../../../constants';
 import {
@@ -20,46 +20,52 @@ import {
  */
 
 export class UnittestTestExecutionAdapter implements ITestExecutionAdapter {
-    private deferred: Deferred<ExecutionTestPayload> | undefined;
+    private promiseMap: Map<string, Deferred<ExecutionTestPayload | undefined>> = new Map();
 
     private cwd: string | undefined;
 
-    constructor(public testServer: ITestServer, public configSettings: IConfigurationService) {
+    constructor(
+        public testServer: ITestServer,
+        public configSettings: IConfigurationService,
+        private readonly outputChannel: ITestOutputChannel,
+    ) {
         testServer.onDataReceived(this.onDataReceivedHandler, this);
     }
 
-    public onDataReceivedHandler({ cwd, data }: DataReceivedEvent): void {
-        if (this.deferred && cwd === this.cwd) {
-            const testData: ExecutionTestPayload = JSON.parse(data);
-
-            this.deferred.resolve(testData);
-            this.deferred = undefined;
+    public onDataReceivedHandler({ uuid, data }: DataReceivedEvent): void {
+        const deferred = this.promiseMap.get(uuid);
+        if (deferred) {
+            deferred.resolve(JSON.parse(data));
+            this.promiseMap.delete(uuid);
         }
     }
 
     public async runTests(uri: Uri, testIds: string[], debugBool?: boolean): Promise<ExecutionTestPayload> {
-        if (!this.deferred) {
-            const settings = this.configSettings.getSettings(uri);
-            const { unittestArgs } = settings.testing;
+        const settings = this.configSettings.getSettings(uri);
+        const { unittestArgs } = settings.testing;
 
-            const command = buildExecutionCommand(unittestArgs);
-            this.cwd = uri.fsPath;
+        const command = buildExecutionCommand(unittestArgs);
+        this.cwd = uri.fsPath;
+        const uuid = this.testServer.createUUID(uri.fsPath);
 
-            const options: TestCommandOptions = {
-                workspaceFolder: uri,
-                command,
-                cwd: this.cwd,
-                debugBool,
-                testIds,
-            };
+        const options: TestCommandOptions = {
+            workspaceFolder: uri,
+            command,
+            cwd: this.cwd,
+            uuid,
+            debugBool,
+            testIds,
+            outChannel: this.outputChannel,
+        };
 
-            this.deferred = createDeferred<ExecutionTestPayload>();
+        const deferred = createDeferred<ExecutionTestPayload>();
+        this.promiseMap.set(uuid, deferred);
 
-            // send test command to server
-            // server fire onDataReceived event once it gets response
-            this.testServer.sendCommand(options);
-        }
-        return this.deferred.promise;
+        // Send test command to server.
+        // Server fire onDataReceived event once it gets response.
+        this.testServer.sendCommand(options);
+
+        return deferred.promise;
     }
 }
 
