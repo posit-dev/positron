@@ -59,6 +59,11 @@ export interface DataSet {
 	 * The columns of data.
 	 */
 	columns: Array<DataColumn>;
+
+	/**
+	 * The number of rows in the data set.
+	 */
+	rowCount: number;
 }
 
 export interface DataViewerMessage {
@@ -82,7 +87,7 @@ export interface DataViewerMessageData extends DataViewerMessage {
 	/**
 	 * The data set.
 	 */
-	data: Array<DataColumn>;
+	data: DataSet;
 }
 
 /**
