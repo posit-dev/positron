@@ -53,7 +53,8 @@ const nodeConfig = (_, { mode }) => ({
         '@opentelemetry/tracing': 'commonjs @opentelemetry/tracing',
         // --- Start Positron ---
         '@opentelemetry/instrumentation': 'commonjs @opentelemetry/instrumentation',
-        '@azure/opentelemetry-instrumentation-azure-sdk': 'commonjs @azure/opentelemetry-instrumentation-azure-sdk'
+        '@azure/opentelemetry-instrumentation-azure-sdk': 'commonjs @azure/opentelemetry-instrumentation-azure-sdk',
+        '@azure/functions-core': 'commonjs @azure/functions-core'
         // --- End Positron ---
     },
     module: {
