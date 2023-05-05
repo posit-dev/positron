@@ -14,3 +14,12 @@
     }
     names
 }
+
+.ps.environment.clipboardFormatDataFrame <- function(x) {
+    tf <- tempfile()
+    on.exit(unlink(tf))
+
+    write.table(x, sep = "\t", file = tf, col.names = NA)
+
+    readLines(tf)
+}

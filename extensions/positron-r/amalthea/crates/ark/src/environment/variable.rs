@@ -126,7 +126,7 @@ impl WorkspaceVariableDisplayValue {
         if r_is_simple_vector(value) {
             let formatted = collapse(value, " ", 100, if rtype == STRSXP { "\"" } else { "" }).unwrap();
             Self::new(formatted.result, formatted.truncated)
-        } else if rtype == VECSXP && ! unsafe{r_inherits(value, "POSIXlt")}{
+        } else if rtype == VECSXP && ! r_inherits(value, "POSIXlt") {
             // This includes data frames
             Self::empty()
         } else if rtype == LISTSXP {
@@ -379,19 +379,16 @@ impl EnvironmentVariable {
         if obj.is_s4() {
             return ValueKind::Map;
         }
-        let is_object = obj.is_object();
-        if is_object {
-            unsafe {
-                if r_inherits(x, "factor") {
-                    return ValueKind::Other;
-                }
-                if r_inherits(x, "data.frame") {
-                    return ValueKind::Table;
-                }
 
-                // TODO: generic S3 object, not sure what it should be
-            }
+        if r_inherits(x, "factor") {
+            return ValueKind::Other;
         }
+
+        if r_inherits(x, "data.frame") {
+            return ValueKind::Table;
+        }
+
+        // TODO: generic S3 object, not sure what it should be
 
         match r_typeof(x) {
             CLOSXP => ValueKind::Function,
@@ -523,7 +520,7 @@ impl EnvironmentVariable {
                     match r_typeof(*object) {
                         VECSXP | EXPRSXP  => Self::inspect_list(*object),
                         LISTSXP           => Self::inspect_pairlist(*object),
-                        ENVSXP            => unsafe {
+                        ENVSXP            => {
                             if r_inherits(*object, "R6") {
                                 Self::inspect_r6(object)
                             } else {
@@ -537,6 +534,45 @@ impl EnvironmentVariable {
             }
         }
 
+    }
+
+    pub fn clip(env: RObject, path: &Vec<String>, _format: &String) -> Result<String, harp::error::Error> {
+        let node = unsafe {
+            Self::resolve_object_from_path(env, &path)?
+        };
+
+        match node {
+            EnvironmentVariableNode::Concrete { object } => {
+                if r_is_simple_vector(*object) {
+                    let formatted = collapse(*object, " ", 0, if r_typeof(*object) == STRSXP { "\"" } else { "" }).unwrap();
+                    Ok(formatted.result)
+                } else if r_inherits(*object, "data.frame") {
+                    unsafe {
+                        let formatted = RFunction::from(".ps.environment.clipboardFormatDataFrame")
+                            .add(object)
+                            .call()?;
+
+                        let formatted = CharacterVector::new_unchecked(formatted);
+
+                        let out = formatted.iter().map(|s| s.unwrap()).join("\n");
+                        Ok(out)
+                    }
+                } else if r_typeof(*object) == CLOSXP {
+                    unsafe {
+                        let deparsed : Vec<String> = RFunction::from("deparse")
+                            .add(*object)
+                            .call()?
+                            .try_into()?;
+
+                        Ok(deparsed.join("\n"))
+                    }
+                } else {
+                    Ok(String::from(""))
+                }
+
+            }
+            EnvironmentVariableNode::Artificial {.. } => { Ok(String::from("")) }
+        }
     }
 
     unsafe fn resolve_object_from_path(object: RObject, path: &Vec<String>) -> Result<EnvironmentVariableNode, harp::error::Error> {
