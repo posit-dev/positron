@@ -5,9 +5,12 @@
 import 'vs/css!./environmentInstance';
 import * as React from 'react';
 import { KeyboardEvent, useEffect, useRef, useState } from 'react'; // eslint-disable-line no-duplicate-imports
+import * as DOM from 'vs/base/browser/dom';
 import { DisposableStore } from 'vs/base/common/lifecycle';
+import { useStateRef } from 'vs/base/browser/ui/react/useStateRef';
 import { positronClassNames } from 'vs/base/common/positronUtilities';
 import { FixedSizeList as List, ListChildComponentProps } from 'react-window';
+import { IReactComponentContainer } from 'vs/base/browser/positronReactRenderer';
 import { EmptyEnvironment } from 'vs/workbench/contrib/positronEnvironment/browser/components/emptyEnvironment';
 import { usePositronEnvironmentContext } from 'vs/workbench/contrib/positronEnvironment/browser/positronEnvironmentContext';
 import { EnvironmentVariableItem } from 'vs/workbench/contrib/positronEnvironment/browser/components/environmentVariableItem';
@@ -26,10 +29,11 @@ const TYPE_SIZE_VISIBILITY_THRESHOLD = 250;
  * EnvironmentInstanceProps interface.
  */
 interface EnvironmentInstanceProps {
-	hidden: boolean;
-	width: number;
-	height: number;
-	positronEnvironmentInstance: IPositronEnvironmentInstance;
+	readonly active: boolean;
+	readonly width: number;
+	readonly height: number;
+	readonly positronEnvironmentInstance: IPositronEnvironmentInstance;
+	readonly reactComponentContainer: IReactComponentContainer;
 }
 
 /**
@@ -42,8 +46,9 @@ export const EnvironmentInstance = (props: EnvironmentInstanceProps) => {
 	const positronEnvironmentContext = usePositronEnvironmentContext();
 
 	// Reference hooks.
-	const instanceRef = useRef<HTMLDivElement>(undefined!);
+	const outerRef = useRef<HTMLDivElement>(undefined!);
 	const listRef = useRef<List>(undefined!);
+	const innerRef = useRef<HTMLElement>(undefined!);
 
 	// State hooks.
 	const [nameColumnWidth, setNameColumnWidth] = useState(DEFAULT_NAME_COLUMN_WIDTH);
@@ -56,12 +61,34 @@ export const EnvironmentInstance = (props: EnvironmentInstanceProps) => {
 	const [resizingColumn, setResizingColumn] = useState(false);
 	const [selectedId, setSelectedId] = useState<string | undefined>(undefined);
 	const [focused, setFocused] = useState(false);
-	const [scrollOffset, setScrollOffset] = useState(0);
+	const [, setScrollOffset, scrollOffsetRef] = useStateRef(0);
+	const [, setScrollState, scrollStateRef] = useStateRef<number[] | undefined>(undefined);
 
 	// Main useEffect hook.
 	useEffect(() => {
 		// Create the disposable store for cleanup.
 		const disposableStore = new DisposableStore();
+
+		// Add the onSaveScrollPosition event handler.
+		disposableStore.add(props.reactComponentContainer.onSaveScrollPosition(() => {
+			// Save the scroll state.
+			if (innerRef.current) {
+				setScrollState(DOM.saveParentsScrollTop(innerRef.current));
+			}
+		}));
+
+		// Add the onRestoreScrollPosition event handler.
+		disposableStore.add(props.reactComponentContainer.onRestoreScrollPosition(() => {
+			// Restore the scroll state.
+			if (scrollStateRef.current) {
+				if (innerRef.current) {
+					DOM.restoreParentsScrollTop(innerRef.current, scrollStateRef.current);
+				}
+
+				// Erase the saved scroll state.
+				setScrollState(undefined);
+			}
+		}));
 
 		// Add the onDidChangeState event handler.
 		disposableStore.add(
@@ -163,14 +190,14 @@ export const EnvironmentInstance = (props: EnvironmentInstanceProps) => {
 			// Page up key.
 			case 'PageUp': {
 				consumeEvent();
-				listRef.current.scrollTo(Math.max(scrollOffset - props.height, 0));
+				listRef.current.scrollTo(Math.max(scrollOffsetRef.current - props.height, 0));
 				break;
 			}
 
 			// Page down key.
 			case 'PageDown': {
 				consumeEvent();
-				listRef.current.scrollTo(Math.min(scrollOffset + props.height, maxScrollOffset()));
+				listRef.current.scrollTo(Math.min(scrollOffsetRef.current + props.height, maxScrollOffset()));
 				break;
 			}
 
@@ -305,7 +332,7 @@ export const EnvironmentInstance = (props: EnvironmentInstanceProps) => {
 	const selectedHandler = (index: number) => {
 		const entry = entries[index];
 		setSelectedId(entry.id);
-		instanceRef.current.focus();
+		outerRef.current.focus();
 	};
 
 	/**
@@ -313,7 +340,7 @@ export const EnvironmentInstance = (props: EnvironmentInstanceProps) => {
 	 */
 	const deselectedHandler = () => {
 		setSelectedId(undefined);
-		instanceRef.current.focus();
+		outerRef.current.focus();
 	};
 
 	/**
@@ -394,6 +421,7 @@ export const EnvironmentInstance = (props: EnvironmentInstanceProps) => {
 			return (
 				// <div style={style}>Group</div>
 				<EnvironmentVariableGroup
+					key={entry.id}
 					environmentVariableGroup={entry}
 					style={style}
 					focused={focused}
@@ -407,6 +435,7 @@ export const EnvironmentInstance = (props: EnvironmentInstanceProps) => {
 		} else if (isEnvironmentVariableItem(entry)) {
 			return (
 				<EnvironmentVariableItem
+					key={entry.id}
 					nameColumnWidth={nameColumnWidth}
 					detailsColumnWidth={detailsColumnWidth}
 					typeSizeVisible={typeSizeVisible}
@@ -443,24 +472,29 @@ export const EnvironmentInstance = (props: EnvironmentInstanceProps) => {
 	// Render.
 	return (
 		<div
-			ref={instanceRef}
-			style={{ width: props.width, height: props.height }}
+			ref={outerRef}
 			className={classNames}
+			style={{ width: props.width, height: props.height, zIndex: props.active ? 1 : -1 }}
 			tabIndex={0}
-			hidden={props.hidden}
 			onKeyDown={keyDownHandler}
 			onFocus={focusHandler}
 			onBlur={blurHandler}
 		>
 			<List
 				ref={listRef}
+				innerRef={innerRef}
 				itemCount={entries.length}
 				itemKey={index => entries[index].id} // Use a custom item key instead of index.
 				width={props.width}
 				height={props.height}
 				itemSize={LINE_HEIGHT}
 				overscanCount={10}
-				onScroll={({ scrollOffset }) => setScrollOffset(scrollOffset)}
+				onScroll={({ scrollOffset }) => {
+					// Save the scroll offset when we're active and scrolled.
+					if (props.active) {
+						setScrollOffset(scrollOffset);
+					}
+				}}
 			>
 				{EnvironmentEntry}
 			</List>

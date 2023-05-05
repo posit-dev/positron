@@ -4,6 +4,7 @@
 
 import 'vs/css!./environmentCore';
 import * as React from 'react';
+import { IReactComponentContainer } from 'vs/base/browser/positronReactRenderer';
 import { ActionBars } from 'vs/workbench/contrib/positronEnvironment/browser/components/actionBars';
 import { PositronEnvironmentProps } from 'vs/workbench/contrib/positronEnvironment/browser/positronEnvironment';
 import { EnvironmentInstance } from 'vs/workbench/contrib/positronEnvironment/browser/components/environmentInstance';
@@ -11,8 +12,9 @@ import { usePositronEnvironmentContext } from 'vs/workbench/contrib/positronEnvi
 
 // EnvironmentCoreProps interface.
 interface EnvironmentCoreProps extends PositronEnvironmentProps {
-	width: number;
-	height: number;
+	readonly width: number;
+	readonly height: number;
+	readonly reactComponentContainer: IReactComponentContainer;
 }
 
 /**
@@ -30,18 +32,22 @@ export const EnvironmentCore = (props: EnvironmentCoreProps) => {
 		return null;
 	}
 
+	// Calculate the adjusted height (the height minus the action bars height).
+	const adjustedHeight = props.height - 64;
+
 	// Render.
 	return (
 		<div className='environment-core'>
 			<ActionBars {...props} />
-			<div className='environment-instances-container' style={{ width: props.width, height: props.height - 64 }}>
+			<div className='environment-instances-container' style={{ width: props.width, height: adjustedHeight }}>
 				{positronEnvironmentContext.positronEnvironmentInstances.map(positronEnvironmentInstance =>
 					<EnvironmentInstance
-						width={props.width}
-						height={props.height - 64}
 						key={positronEnvironmentInstance.runtime.metadata.languageId}
-						hidden={positronEnvironmentInstance !== positronEnvironmentContext.activePositronEnvironmentInstance}
-						positronEnvironmentInstance={positronEnvironmentInstance} />
+						active={positronEnvironmentInstance === positronEnvironmentContext.activePositronEnvironmentInstance}
+						width={props.width}
+						height={adjustedHeight}
+						positronEnvironmentInstance={positronEnvironmentInstance}
+						reactComponentContainer={props.reactComponentContainer} />
 				)}
 			</div>
 		</div>

@@ -3,11 +3,14 @@
  *--------------------------------------------------------------------------------------------*/
 
 .positron-environment .environment-core {
-	background: transparent;
+	width: 100%;
+	position: relative;
 }
 
 .positron-environment .environment-core .environment-instances-container {
-	background: transparent;
+	top: 0;
+	left: 0;
+	position: relative;
 }
 
 .positron-environment .environment-core .environment-instances-container:focus {
