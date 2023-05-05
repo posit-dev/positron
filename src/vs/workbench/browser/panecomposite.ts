@@ -152,7 +152,7 @@ export abstract class PaneComposite extends Composite implements IPaneComposite 
 		super.saveState();
 	}
 	// --- End Positron ---
-
+	//
 	override focus(): void {
 		this.viewPaneContainer?.focus();
 	}
