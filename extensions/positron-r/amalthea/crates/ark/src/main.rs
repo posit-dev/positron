@@ -17,7 +17,6 @@ use crossbeam::channel::bounded;
 use log::*;
 use nix::sys::signal::*;
 use std::env;
-use std::io::stdin;
 use std::sync::{Arc, Mutex};
 use stdext::unwrap;
 
@@ -83,11 +82,7 @@ fn start_kernel(connection_file: ConnectionFile, capture_streams: bool) {
     let shell = Arc::new(Mutex::new(shell));
     match kernel.connect(shell, control, Some(lsp), stream_behavior) {
         Ok(()) => {
-            let mut s = String::new();
             println!("R Kernel exiting.");
-            if let Err(err) = stdin().read_line(&mut s) {
-                error!("Could not read from stdin: {:?}", err);
-            }
         },
         Err(err) => {
             error!("Couldn't connect to front end: {:?}", err);

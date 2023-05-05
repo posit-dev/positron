@@ -253,12 +253,11 @@ pub unsafe fn r_get_option<T: TryFrom<RObject, Error = Error>>(name: &str) -> Re
     return RObject::new(result).try_into();
 }
 
-pub unsafe fn r_inherits(
-    object: SEXP,
-    class: &str,
-) -> bool {
+pub fn r_inherits(object: SEXP, class: &str) -> bool {
     let class = CString::new(class).unwrap();
-    return Rf_inherits(object, class.as_ptr()) != 0;
+    unsafe {
+        Rf_inherits(object, class.as_ptr()) != 0
+    }
 }
 
 pub unsafe fn r_formals(object: SEXP) -> Result<Vec<RArgument>> {
