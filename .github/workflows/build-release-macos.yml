@@ -192,8 +192,7 @@ jobs:
            VSCODE_ARCH: universal
            DEBUG: "*"
         run: |
-          export AGENT_BUILDDIRECTORY=$(pwd)
-          node build/darwin/create-universal-app.js
+          node build/darwin/create-universal-app.js $(pwd)
 
       # Compress universal client to a zip file
       - name: Create universal client archive
