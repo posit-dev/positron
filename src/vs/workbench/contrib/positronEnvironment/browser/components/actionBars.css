@@ -3,5 +3,5 @@
  *--------------------------------------------------------------------------------------------*/
 
 .positron-environment .action-bars {
-	height: min-content;
+	height: 64px;
 }

@@ -31,7 +31,7 @@ export const ConsoleCore = (props: ConsoleCoreProps) => {
 		return <EmptyConsole />;
 	}
 
-	// Calculate the adjusted height (the height without the action bar).
+	// Calculate the adjusted height (the height minus the action bar height).
 	const adjustedHeight = props.height - 32;
 
 	// Render.
