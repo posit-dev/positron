@@ -1594,30 +1594,36 @@ var AMDLoader;
             let strModuleId = this._moduleIdProvider.getStrModuleId(moduleId);
             let paths = this._config.moduleIdToPaths(strModuleId);
 
-			// --- Start Positron ---
-			// Fixup for loading client.js in node.
-			if (paths[0].includes('react-dom.production.min.js/client.js')) {
-				console.log('------------------------------------------------------------------------');
-				console.log('Fixing load of react-dom client.js file.')
-				console.log(`Original path: ${paths[0]}`);
-				{
-					const reactDomClient = '/out/../node_modules/react-dom/umd/react-dom.production.min.js/client.js';
-					if (paths[0].endsWith(reactDomClient)) {
-						paths[0] = `${paths[0].substr(0, paths[0].length - reactDomClient.length)}/out/react-dom/client.js`;
-						console.log(`Adjusted path: ${paths[0]}`);
-						console.log('------------------------------------------------------------------------');
-					}
-				}
-				{
-					const reactDomClient = 'remote/web/node_modules/react-dom/umd/react-dom.production.min.js/client.js';
-					if (paths[0].endsWith(reactDomClient)) {
-						paths[0] = `${paths[0].substr(0, paths[0].length - reactDomClient.length)}out/react-dom/client.js`;
-						console.log(`Adjusted path: ${paths[0]}`);
-						console.log('------------------------------------------------------------------------');
-					}
-				}
-			}
-			// --- End Positron ---
+            // --- Start Positron ---
+            // Fixup for loading client.js in node.
+            if (paths[0].includes('react-dom.production.min.js/client.js')) {
+                // Save the original path to the react-dom client.js file.
+                const reactDomClientOriginalPath = paths[0];
+
+                // The set of original paths adjust.
+                const reactDomClientElectron = '/out/../node_modules/react-dom/umd/react-dom.production.min.js/client.js';
+                const reactDomClientWeb = 'remote/web/node_modules/react-dom/umd/react-dom.production.min.js/client.js';
+
+                // Attempt to adjust the original path.
+                if (paths[0].endsWith(reactDomClientElectron)) {
+                    paths[0] = `${paths[0].substr(0, paths[0].length - reactDomClientElectron.length)}/out/react-dom/client.js`;
+                } else if (paths[0].endsWith(reactDomClientWeb)) {
+                    paths[0] = `${paths[0].substr(0, paths[0].length - reactDomClientWeb.length)}out/react-dom/client.js`;
+                }
+
+                // If we were successful, log the information.
+                console.log('------------------------------------------------------------------------');
+                if (paths[0] !== reactDomClientOriginalPath) {
+                    console.log(`Changing where the react-dom client.js file is loaded from.`);
+                    console.log(`Original path: ${reactDomClientOriginalPath}`);
+                    console.log(`Adjusted path: ${paths[0]}`);
+                } else {
+                    console.log('ERROR: Unable to change where the react-dom client.js file is loaded from.')
+                    console.log(`Original path: ${reactDomClientOriginalPath}`);
+                }
+                console.log('------------------------------------------------------------------------');
+            }
+            // --- End Positron ---
 
             let scopedPackageRegex = /^@[^\/]+\/[^\/]+$/; // matches @scope/package-name
             if (this._env.isNode && (strModuleId.indexOf('/') === -1 || scopedPackageRegex.test(strModuleId))) {
