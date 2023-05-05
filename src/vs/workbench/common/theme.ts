@@ -1537,18 +1537,18 @@ export const POSITRON_CONSOLE_TRACE_BACKGROUND_COLOR = registerColor('positronCo
 
 // Positron Environment background color.
 export const POSITRON_ENVIRONMENT_BACKGROUND_COLOR = registerColor('positronEnvironment.background', {
-	dark: 'terminal.background',
-	light: 'terminal.background',
-	hcDark: 'terminal.background',
-	hcLight: 'terminal.background'
+	dark: editorBackground,
+	light: editorBackground,
+	hcDark: editorBackground,
+	hcLight: editorBackground
 }, localize('positronEnvironment.background', "Positron Environment background color."));
 
 // Positron Environment foreground color.
 export const POSITRON_ENVIRONMENT_FOREGROUND_COLOR = registerColor('positronEnvironment.foreground', {
-	dark: 'terminal.foreground',
-	light: 'terminal.foreground',
-	hcDark: 'terminal.foreground',
-	hcLight: 'terminal.foreground'
+	dark: editorForeground,
+	light: editorForeground,
+	hcDark: editorForeground,
+	hcLight: editorForeground
 }, localize('positronEnvironment.foreground', "Positron Environment foreground color."));
 
 // The Positron Environment header background color.

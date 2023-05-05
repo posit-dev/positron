@@ -676,7 +676,8 @@
 		"--vscode-positronEnvironment-inactiveSelectionForegroundColor",
 		"--vscode-positronEnvironment-inactiveSelectionBackgroundColor",
 		"--vscode-positronSideActionBar-border",
-		"--vscode-positronConsole-traceBackground"
+		"--vscode-positronConsole-traceBackground",
+		"--vscode-positronEnvironment-background"
 	],
 	"others": [
 		"--background-dark",

@@ -3,11 +3,14 @@
  *--------------------------------------------------------------------------------------------*/
 
 .environment-core .environment-instance {
+	top: 0;
 	cursor: pointer;
+	position: absolute;
 	-webkit-user-select: none;
 	-moz-user-select: none;
 	-ms-user-select: none;
 	user-select: none;
+	background: var(--vscode-positronEnvironment-background);
 }
 
 /* Don't do it. */
