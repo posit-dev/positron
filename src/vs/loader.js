@@ -1593,20 +1593,32 @@ var AMDLoader;
             this._knownModules2[moduleId] = true;
             let strModuleId = this._moduleIdProvider.getStrModuleId(moduleId);
             let paths = this._config.moduleIdToPaths(strModuleId);
-            // --- Start Positron ---
-            {
-                const reactDomClient = 'static/sources/node_modules/react-dom/umd/react-dom.production.min.js/client.js';
-                if (paths[0].endsWith(reactDomClient)) {
-                    paths[0] = `${paths[0].substr(0, paths[0].length - reactDomClient.length)}static/sources/out/react-dom/client.js`;
-                }
-            }
-            {
-                const reactDomClient = 'remote/web/node_modules/react-dom/umd/react-dom.production.min.js/client.js';
-                if (paths[0].endsWith(reactDomClient)) {
-                    paths[0] = `${paths[0].substr(0, paths[0].length - reactDomClient.length)}out/react-dom/client.js`;
-                }
-            }
-            // --- End Positron ---
+
+			// --- Start Positron ---
+			// Fixup for loading client.js in node.
+			if (paths[0].includes('react-dom.production.min.js/client.js')) {
+				console.log('------------------------------------------------------------------------');
+				console.log('Fixing load of react-dom client.js file.')
+				console.log(`Original path: ${paths[0]}`);
+				{
+					const reactDomClient = '/out/../node_modules/react-dom/umd/react-dom.production.min.js/client.js';
+					if (paths[0].endsWith(reactDomClient)) {
+						paths[0] = `${paths[0].substr(0, paths[0].length - reactDomClient.length)}/out/react-dom/client.js`;
+						console.log(`Adjusted path: ${paths[0]}`);
+						console.log('------------------------------------------------------------------------');
+					}
+				}
+				{
+					const reactDomClient = 'remote/web/node_modules/react-dom/umd/react-dom.production.min.js/client.js';
+					if (paths[0].endsWith(reactDomClient)) {
+						paths[0] = `${paths[0].substr(0, paths[0].length - reactDomClient.length)}out/react-dom/client.js`;
+						console.log(`Adjusted path: ${paths[0]}`);
+						console.log('------------------------------------------------------------------------');
+					}
+				}
+			}
+			// --- End Positron ---
+
             let scopedPackageRegex = /^@[^\/]+\/[^\/]+$/; // matches @scope/package-name
             if (this._env.isNode && (strModuleId.indexOf('/') === -1 || scopedPackageRegex.test(strModuleId))) {
                 paths.push('node|' + strModuleId);
