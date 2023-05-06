@@ -6,6 +6,7 @@ import 'vs/css!./environmentInstance';
 import * as React from 'react';
 import { KeyboardEvent, useEffect, useRef, useState } from 'react'; // eslint-disable-line no-duplicate-imports
 import * as DOM from 'vs/base/browser/dom';
+import { isMacintosh } from 'vs/base/common/platform';
 import { DisposableStore } from 'vs/base/common/lifecycle';
 import { useStateRef } from 'vs/base/browser/ui/react/useStateRef';
 import { positronClassNames } from 'vs/base/common/positronUtilities';
@@ -287,7 +288,8 @@ export const EnvironmentInstance = (props: EnvironmentInstanceProps) => {
 
 			// C key.
 			case 'KeyC': {
-				if (e.metaKey && selectedId) {
+				// Process the key.
+				if (isMacintosh ? e.metaKey : e.ctrlKey && selectedId) {
 					const selectedEntryIndex = entries.findIndex(entry => entry.id === selectedId);
 					const selectedEntry = entries[selectedEntryIndex];
 					if (isEnvironmentVariableItem(selectedEntry)) {
