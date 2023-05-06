@@ -7,6 +7,7 @@ import * as React from 'react';
 import { KeyboardEvent, MouseEvent, UIEvent, useEffect, useRef, useState } from 'react'; // eslint-disable-line no-duplicate-imports
 import { generateUuid } from 'vs/base/common/uuid';
 import { PixelRatio } from 'vs/base/browser/browser';
+import { isMacintosh } from 'vs/base/common/platform';
 import { BareFontInfo } from 'vs/editor/common/config/fontInfo';
 import { useStateRef } from 'vs/base/browser/ui/react/useStateRef';
 import { applyFontInfo } from 'vs/editor/browser/config/domFontInfo';
@@ -178,10 +179,48 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 	 * @param e A KeyboardEvent<HTMLDivElement> that describes a user interaction with the keyboard.
 	 */
 	const keyDownHandler = async (e: KeyboardEvent<HTMLDivElement>) => {
-		// TODO: We will need to handle copy here...
+		/**
+		 * Consumes an event.
+		 */
+		const consumeEvent = () => {
+			e.preventDefault();
+			e.stopPropagation();
+		};
 
-		// Drive focus to the console input.
-		consoleInputRef.current?.focus();
+		// Determine whether the cmd or ctrl key is pressed.
+		const cmdOrCtrlKey = isMacintosh ? e.metaKey : e.ctrlKey;
+
+		// Process the key.
+		switch (e.code) {
+			// C key.
+			case 'KeyC': {
+				// Handle copy.
+				if (cmdOrCtrlKey) {
+					// Consume the event.
+					consumeEvent();
+
+					// Get the selection. If there is one, copy it to the clipboard.
+					const selection = document.getSelection();
+					if (selection) {
+						positronConsoleContext.clipboardService.writeText(selection.toString());
+					}
+
+					// The event has been fully processed.
+					return;
+				}
+				break;
+			}
+
+			// Other keys.
+			default: {
+				// When the user presses another key, drive focus to the console input. This has the
+				// effect of driving the onKeyDown event to the CodeEditorWidget.
+				if (!cmdOrCtrlKey) {
+					consoleInputRef.current?.focus();
+				}
+				break;
+			}
+		}
 	};
 
 	/**
