@@ -74,7 +74,8 @@ export class LanguageRuntimeAdapter
 	 * @param languageVersion The specific version of the interpreter bound to this adapter
 	 * @param runtimeVersion The version of the language runtime wrapper around
 	 *    the interpreter, often the extension version
-	 * @param inputPrompt The input prompt to use for the kernel, such as ">"
+	 * @param inputPrompt The input prompt to use for the kernel, e.g. ">" or ">>>"
+	 * @param continuationPrompt The continuation prompt to use for the kernel, e.g. "+" or "..."
 	 * @param _channel The channel on which to emit logging messages
 	 * @param startupBehavior Whether the runtime should be started automatically
 	 * @param _lsp A callback to invoke to start the client side of the LSP
@@ -85,9 +86,11 @@ export class LanguageRuntimeAdapter
 		languageVersion: string,
 		runtimeVersion: string,
 		inputPrompt: string,
+		continuationPrompt: string,
 		private readonly _channel: vscode.OutputChannel,
 		startupBehavior: positron.LanguageRuntimeStartupBehavior = positron.LanguageRuntimeStartupBehavior.Implicit,
-		private readonly _lsp?: (port: number) => Promise<void>) {
+		private readonly _lsp?: (port: number) => Promise<void>
+	) {
 
 		// Hash all the metadata together
 		const digest = crypto.createHash('sha256');
@@ -110,6 +113,7 @@ export class LanguageRuntimeAdapter
 			languageName: this._spec.language,
 			languageVersion,
 			inputPrompt,
+			continuationPrompt,
 			startupBehavior: startupBehavior
 		};
 		this._channel.appendLine('Registered kernel: ' + JSON.stringify(this.metadata));

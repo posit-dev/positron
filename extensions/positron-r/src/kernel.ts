@@ -170,6 +170,7 @@ export function registerArkKernel(ext: vscode.Extension<any>, context: vscode.Ex
 			rHome.rVersion ?? '0.0.1',   // Version of R, if we know it
 			version,  // Version of this extension
 			'>', 	// Input prompt
+			'+',	// Continuation prompt
 			positron.LanguageRuntimeStartupBehavior.Implicit, // OK to start the kernel automatically
 			(port: number) => {
 				// Activate the LSP language server when the adapter is ready.

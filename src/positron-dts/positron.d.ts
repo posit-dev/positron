@@ -311,8 +311,11 @@ declare module 'positron' {
 		/** The version of the language; e.g. "4.2" */
 		languageVersion: string;
 
-		/** The text the language's interpreter uses to prompt the user for input, e.g. ">" */
+		/** The text the language's interpreter uses to prompt the user for input, e.g. ">" or ">>>" */
 		inputPrompt: string;
+
+		/** The text the language's interpreter uses to prompt the user for continued input, e.g. "+" or "..." */
+		continuationPrompt: string;
 
 		/** Whether the runtime should start up automatically or wait until explicitly requested */
 		startupBehavior: LanguageRuntimeStartupBehavior;
