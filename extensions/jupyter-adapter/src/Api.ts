@@ -21,7 +21,8 @@ export class Api implements vscode.Disposable {
 	 *    VS Code's built-in language IDs or a language ID registered by another extension.
 	 * @param languageVersion The version of the language interpreter.
 	 * @param kernelVersion The version of the kernel itself.
-	 * @param inputPrompt The input prompt to use for the kernel, such as ">"
+	 * @param inputPrompt The input prompt to use for the kernel, e.g. ">" or ">>>"
+	 * @param continuationPrompt The continuation prompt to use for the kernel, e.g. "+" or "..."
 	 * @param startupBehavior Whether the runtime should be started automatically
 	 * @param lsp An optional function that starts an LSP server, given the port
 	 *   on which the kernel is listening, and returns a promise that resolves
@@ -33,12 +34,23 @@ export class Api implements vscode.Disposable {
 		languageVersion: string,
 		kernelVersion: string,
 		inputPrompt: string,
+		continuationPrompt: string,
 		startupBehavior: positron.LanguageRuntimeStartupBehavior = positron.LanguageRuntimeStartupBehavior.Implicit,
-		lsp?: (port: number) => Promise<void>): positron.LanguageRuntime {
+		lsp?: (port: number) => Promise<void>
+	): positron.LanguageRuntime {
 
 		return new LanguageRuntimeAdapter(
-			this._context, kernel, languageId, languageVersion, kernelVersion, inputPrompt,
-			this._channel, startupBehavior, lsp);
+			this._context,
+			kernel,
+			languageId,
+			languageVersion,
+			kernelVersion,
+			inputPrompt,
+			continuationPrompt,
+			this._channel,
+			startupBehavior,
+			lsp
+		);
 	}
 
 	dispose() {

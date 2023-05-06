@@ -168,6 +168,7 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 			runtimeName: 'Zed',
 			languageVersion: version,
 			inputPrompt: `Z>`,
+			continuationPrompt: 'Z+',
 			runtimeVersion: '0.0.1',
 			startupBehavior: positron.LanguageRuntimeStartupBehavior.Implicit
 		};
