@@ -335,8 +335,9 @@ export const ConsoleInput = forwardRef<HTMLDivElement, ConsoleInputProps>((props
 			// anything in the margin for following lines
 			if (n < 2) {
 				return props.positronConsoleInstance.runtime.metadata.inputPrompt;
+			} else {
+				return props.positronConsoleInstance.runtime.metadata.continuationPrompt;
 			}
-			return '';
 		};
 
 		// The editor options we override.
