@@ -7,6 +7,7 @@ import * as React from 'react';
 import { KeyboardEvent, MouseEvent, UIEvent, useEffect, useRef, useState } from 'react'; // eslint-disable-line no-duplicate-imports
 import { generateUuid } from 'vs/base/common/uuid';
 import { PixelRatio } from 'vs/base/browser/browser';
+import { isMacintosh } from 'vs/base/common/platform';
 import { BareFontInfo } from 'vs/editor/common/config/fontInfo';
 import { useStateRef } from 'vs/base/browser/ui/react/useStateRef';
 import { applyFontInfo } from 'vs/editor/browser/config/domFontInfo';
@@ -114,7 +115,28 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 	const [marker, setMarker] = useState(generateUuid());
 	const [, setLastScrollTop, lastScrollTopRef] = useStateRef(0);
 
-	// useEffect for appending items.
+	/**
+	 * Gets the selection.
+	 * @returns The selection or null.
+	 */
+	const getSelection = () => {
+		// Get the selection.
+		const selection = document.getSelection();
+		if (selection) {
+			// If the selection is outside the element, return null.
+			for (let i = 0; i < selection.rangeCount; i++) {
+				const range = selection.getRangeAt(i);
+				if (!consoleInstanceRef.current.contains(range.commonAncestorContainer)) {
+					return null;
+				}
+			}
+		}
+
+		// Return the selection.
+		return selection;
+	};
+
+	// Main useEffect hook.
 	useEffect(() => {
 		// Create the disposable store for cleanup.
 		const disposableStore = new DisposableStore();
@@ -164,10 +186,10 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 	 */
 	const clickHandler = (e: MouseEvent<HTMLDivElement>) => {
 		// Get the document selection.
-		const selection = document.getSelection();
+		const selection = getSelection();
 
-		// If there is a document selection, and its type is Caret (as opposed to Range), drive
-		// focus into the console input.
+		// If there is a selection, and its type is Caret (as opposed to Range), drive focus into
+		// the console input.
 		if (!selection || selection.type === 'Caret') {
 			consoleInputRef.current?.focus();
 		}
@@ -178,10 +200,45 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 	 * @param e A KeyboardEvent<HTMLDivElement> that describes a user interaction with the keyboard.
 	 */
 	const keyDownHandler = async (e: KeyboardEvent<HTMLDivElement>) => {
-		// TODO: We will need to handle copy here...
+		/**
+		 * Consumes an event.
+		 */
+		const consumeEvent = () => {
+			e.preventDefault();
+			e.stopPropagation();
+		};
 
-		// Drive focus to the console input.
-		consoleInputRef.current?.focus();
+		// Determine whether the cmd or ctrl key is pressed.
+		const cmdOrCtrlKey = isMacintosh ? e.metaKey : e.ctrlKey;
+
+		// Process the key.
+		switch (e.code) {
+			// C key.
+			case 'KeyC': {
+				// Handle copy shortcut.
+				if (cmdOrCtrlKey) {
+					// Consume the event.
+					consumeEvent();
+
+					// Get the selection. If there is one, copy it to the clipboard.
+					const selection = getSelection();
+					if (selection) {
+						positronConsoleContext.clipboardService.writeText(selection.toString());
+					}
+				}
+				break;
+			}
+
+			// Other keys.
+			default: {
+				// When the user presses another key, drive focus to the console input. This has the
+				// effect of driving the onKeyDown event to the CodeEditorWidget.
+				if (!cmdOrCtrlKey) {
+					consoleInputRef.current?.focus();
+				}
+				break;
+			}
+		}
 	};
 
 	/**
@@ -190,7 +247,7 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 	 */
 	const mouseDownHandler = (e: MouseEvent<HTMLDivElement>) => {
 		// Get the selection.
-		const selection = document.getSelection();
+		const selection = getSelection();
 
 		// If there is a range of text selected, see of the user clicked inside of it.
 		if (selection && selection.type === 'Range') {

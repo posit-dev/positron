@@ -324,8 +324,11 @@ export interface ILanguageRuntimeMetadata {
 	/** The version of the language in question; e.g. "4.3.3" */
 	readonly languageVersion: string;
 
-	/** The text the langauge's interpreter uses to prompt the user for input, e.g. ">" */
+	/** The text the language's interpreter uses to prompt the user for input, e.g. ">" or ">>>" */
 	readonly inputPrompt: string;
+
+	/** The text the language's interpreter uses to prompt the user for continued input, e.g. "+" or "..." */
+	readonly continuationPrompt: string;
 
 	/** The user-facing descriptive name of the runtime; e.g. "R 4.3.3" */
 	readonly runtimeName: string;
