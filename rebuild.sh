@@ -12,8 +12,12 @@ This script will:
 This will probably take a while, so only run this script if you're stuck and
 you need to restart from a fresh slate.
 
-Once this script is done, launch the build tasks using ⇧⌘B (macOS) or
-Ctrl+Shift+B (Linux).
+Once this script is done, launch the build tasks using:
+
+- Cmd  + Shift + B (macOS)
+- Ctrl + Shift + B (Linux)
+
+from within VSCode.
 
 EOF
 read -p 'Do you want to proceed? [y/N]: ' proceed
