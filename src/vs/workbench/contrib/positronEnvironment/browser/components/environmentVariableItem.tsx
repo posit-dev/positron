@@ -14,7 +14,7 @@ import { AnchorAlignment, AnchorAxisAlignment } from 'vs/base/browser/ui/context
 import { ColumnSplitter } from 'vs/workbench/contrib/positronEnvironment/browser/components/columnSplitter';
 import { usePositronEnvironmentContext } from 'vs/workbench/contrib/positronEnvironment/browser/positronEnvironmentContext';
 import { IEnvironmentVariableItem } from 'vs/workbench/services/positronEnvironment/common/interfaces/environmentVariableItem';
-import { IPositronEnvironmentInstance, PositronEnvironmentSorting } from 'vs/workbench/services/positronEnvironment/common/interfaces/positronEnvironmentService';
+import { IPositronEnvironmentInstance, PositronEnvironmentSorting } from 'vs/workbench/services/positronEnvironment/common/interfaces/positronEnvironmentInstance';
 import { POSITRON_ENVIRONMENT_COLLAPSE, POSITRON_ENVIRONMENT_COPY_AS_HTML, POSITRON_ENVIRONMENT_COPY_AS_TEXT, POSITRON_ENVIRONMENT_EXPAND, POSITRON_ENVIRONMENT_VIEW } from 'vs/workbench/contrib/positronEnvironment/browser/positronEnvironmentIdentifiers';
 
 /**

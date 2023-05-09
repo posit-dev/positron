@@ -3,8 +3,11 @@
  *--------------------------------------------------------------------------------------------*/
 
 .empty-environment {
-	opacity: 0.75;
-	box-sizing: border-box; /* Draw the borders inside the box. */
+	top: 0;
+	width: 100%;
+	position: absolute;
+	box-sizing: border-box;
+	background: var(--vscode-positronEnvironment-background);
 	border-top: 1px solid var(--vscode-positronSideActionBar-border);
 }
 

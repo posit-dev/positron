@@ -7,7 +7,7 @@ import * as React from 'react';
 import { IAction } from 'vs/base/common/actions';
 import { ActionBarMenuButton } from 'vs/platform/positronActionBar/browser/components/actionBarMenuButton';
 import { usePositronEnvironmentContext } from 'vs/workbench/contrib/positronEnvironment/browser/positronEnvironmentContext';
-import { PositronEnvironmentSorting } from 'vs/workbench/services/positronEnvironment/common/interfaces/positronEnvironmentService';
+import { PositronEnvironmentSorting } from 'vs/workbench/services/positronEnvironment/common/interfaces/positronEnvironmentInstance';
 
 /**
  * SortingMenuButton component.
@@ -80,7 +80,7 @@ export const SortingMenuButton = () => {
 	return (
 		<ActionBarMenuButton
 			iconId='positron-environment-sorting'
-			tooltip={'Change how Environment entries are sorted.'}
+			tooltip={'Change how environment objects are sorted'}
 			actions={actions}
 		/>
 	);
