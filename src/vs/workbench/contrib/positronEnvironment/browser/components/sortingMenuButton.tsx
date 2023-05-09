@@ -4,6 +4,7 @@
 
 import 'vs/css!./groupingMenuButton';
 import * as React from 'react';
+import { localize } from 'vs/nls';
 import { IAction } from 'vs/base/common/actions';
 import { ActionBarMenuButton } from 'vs/platform/positronActionBar/browser/components/actionBarMenuButton';
 import { usePositronEnvironmentContext } from 'vs/workbench/contrib/positronEnvironment/browser/positronEnvironmentContext';
@@ -80,7 +81,7 @@ export const SortingMenuButton = () => {
 	return (
 		<ActionBarMenuButton
 			iconId='positron-environment-sorting'
-			tooltip={'Change how environment variables are sorted'}
+			tooltip={localize('positronChangeHowObjectsAreSorted', "Change how objects are sorted")}
 			actions={actions}
 		/>
 	);

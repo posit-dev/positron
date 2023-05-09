@@ -2,7 +2,7 @@
  *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
-import 'vs/css!./deleteEnvironmentVariablesModalDialog';
+import 'vs/css!./deleteAllObjectsModalDialog';
 import * as React from 'react';
 import { useState } from 'react'; // eslint-disable-line no-duplicate-imports
 import { localize } from 'vs/nls';
@@ -12,22 +12,22 @@ import { OKCancelModalDialog } from 'vs/base/browser/ui/positronModalDialog/posi
 import { PositronModalDialogReactRenderer } from 'vs/base/browser/ui/positronModalDialog/positronModalDialogReactRenderer';
 
 /**
- * DeleteEnvironmentVariablesResult interface.
+ * DeleteAllObjectsResult interface.
  */
-export interface DeleteEnvironmentVariablesResult {
-	includeHiddenVariables: boolean;
+export interface DeleteAllObjectsResult {
+	includeHiddenObjects: boolean;
 }
 
 /**
- * Shows the delete environment variables modal dialog.
+ * Shows the delete all objects modal dialog.
  * @param layoutService The layout service.
  * @returns A promise that resolves when the dialog is dismissed.
  */
-export const showDeleteEnvironmentVariablesModalDialog = async (
+export const showDeleteAllObjectsModalDialog = async (
 	layoutService: IWorkbenchLayoutService
-): Promise<DeleteEnvironmentVariablesResult | undefined> => {
+): Promise<DeleteAllObjectsResult | undefined> => {
 	// Return a promise that resolves when the dialog is done.
-	return new Promise<DeleteEnvironmentVariablesResult | undefined>((resolve) => {
+	return new Promise<DeleteAllObjectsResult | undefined>((resolve) => {
 		// Create the modal dialog React renderer.
 		const positronModalDialogReactRenderer = new PositronModalDialogReactRenderer(
 			layoutService.container
@@ -36,8 +36,8 @@ export const showDeleteEnvironmentVariablesModalDialog = async (
 		// The modal dialog component.
 		const ModalDialog = () => {
 			// Hooks.
-			const [result, _setResult] = useState<DeleteEnvironmentVariablesResult>({
-				includeHiddenVariables: false
+			const [result, _setResult] = useState<DeleteAllObjectsResult>({
+				includeHiddenObjects: false
 			});
 
 			// The accept handler.
@@ -55,16 +55,16 @@ export const showDeleteEnvironmentVariablesModalDialog = async (
 			// Render.
 			return (
 				<OKCancelModalDialog
-					width={400}
+					width={375}
 					height={175}
-					title={localize('positronDeleteEnvironmentVariablesModalDialogTitle', "Delete All Environment Variables")}
+					title={localize('positronDeleteAllObjectsModalDialogTitle', "Delete All Objects")}
 					okButtonTitle={localize('positronYes', "Yes")}
 					cancelButtonTitle={localize('positronNo', "No")}
 					accept={acceptHandler} cancel={cancelHandler}>
 					<VerticalStack>
-						<div>Are you sure you want to delete all the variables from the environment? This operation cannot be undone.</div>
+						<div>{localize('positronDeleteAllObjectsModalDialogText', "Are you sure you want to delete all objects from the environment? This operation cannot be undone.")}</div>
 						{/* Disabled for Private Alpha. */}
-						{/* <Checkbox label='Include hidden variables' onChanged={checked => setResult({ ...result, includeHiddenVariables: checked })} /> */}
+						{/* <Checkbox label='Include hidden objects' onChanged={checked => setResult({ ...result, includeHiddenObjects: checked })} /> */}
 					</VerticalStack>
 				</OKCancelModalDialog>
 			);
