@@ -384,9 +384,10 @@ impl DevTunnels {
 	) -> Result<ActiveTunnel, AnyError> {
 		let (mut tunnel, persisted) = match self.launcher_tunnel.load() {
 			Some(mut persisted) => {
-				if let Some(name) = preferred_name {
-					if !persisted.name.eq_ignore_ascii_case(name) {
-						(_, persisted) = self.update_tunnel_name(persisted, name).await?;
+				if let Some(preferred_name) = preferred_name.map(|n| n.to_ascii_lowercase()) {
+					if persisted.name.to_ascii_lowercase() != preferred_name {
+						(_, persisted) =
+							self.update_tunnel_name(persisted, &preferred_name).await?;
 					}
 				}
 

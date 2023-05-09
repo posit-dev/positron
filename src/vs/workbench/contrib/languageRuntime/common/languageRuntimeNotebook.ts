@@ -146,7 +146,7 @@ export class NotebookLanguageRuntime extends Disposable implements ILanguageRunt
 		this._notebookKernelService.selectKernelForNotebook(this._kernel, this._nbTextModel);
 
 		// Listen for execution state changes
-		this._notebookExecutionStateService.onDidChangeCellExecution((e) => {
+		this._notebookExecutionStateService.onDidChangeExecution((e) => {
 			// There's no way to subscribe to notifications for a particular notebook, so
 			// just ignore execution state changes for other notebooks.
 			if (!e.affectsNotebook(this._uri)) {
@@ -162,7 +162,7 @@ export class NotebookLanguageRuntime extends Disposable implements ILanguageRunt
 			// set the language runtime state to 'idle' in that case.
 			if (typeof e.changed === 'undefined') {
 				this._state.fire(RuntimeState.Idle);
-				this._logService.trace(`Cell execution of ${e.cellHandle} (${this._executingCellId}) complete`);
+				this._logService.trace(`Cell execution of ${e.changed} (${this._executingCellId}) complete`);
 
 				this._onDidReceiveRuntimeMessageStateEmitter.fire({
 					id: 'status-' + NotebookLanguageRuntime._msgCounter++,

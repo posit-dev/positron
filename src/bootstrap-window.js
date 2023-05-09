@@ -118,6 +118,10 @@
 		if (!safeProcess.sandboxed) {
 			// VSCODE_GLOBALS: package/product.json
 			globalThis._VSCODE_PRODUCT_JSON = (require.__$__nodeRequire ?? require)(configuration.appRoot + '/product.json');
+			if (process.env['VSCODE_DEV']) {
+				// Patch product overrides when running out of sources
+				try { globalThis._VSCODE_PRODUCT_JSON = Object.assign(globalThis._VSCODE_PRODUCT_JSON, (require.__$__nodeRequire ?? require)(configuration.appRoot + '/product.overrides.json')); } catch (error) { /* ignore */ }
+			}
 			globalThis._VSCODE_PACKAGE_JSON = (require.__$__nodeRequire ?? require)(configuration.appRoot + '/package.json');
 		}
 
@@ -155,7 +159,8 @@
 			'vscode-regexp-languagedetection': `${baseNodeModulesPath}/vscode-regexp-languagedetection/dist/index.js`,
 			'tas-client-umd': `${baseNodeModulesPath}/tas-client-umd/lib/tas-client-umd.js`,
 			'react': `${baseNodeModulesPath}/react/umd/react.production.min.js`,
-			'react-dom': `${baseNodeModulesPath}/react/umd/react-dom.production.min.js`
+			'react-dom': `${baseNodeModulesPath}/react-dom/umd/react-dom.production.min.js`,
+			'react-window': `${baseNodeModulesPath}/react-window/dist/index-prod.umd.js`
 		};
 
 		// Allow to load built-in and other node.js modules via AMD

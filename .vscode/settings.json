@@ -120,8 +120,12 @@
 	},
 	"githubPullRequests.assignCreated": "${user}",
 	"githubPullRequests.defaultMergeMethod": "squash",
+	"githubPullRequests.ignoredPullRequestBranches": [
+		"main"
+	],
 	"application.experimental.rendererProfiling": true,
 	"editor.experimental.asyncTokenization": true,
+	"editor.experimental.asyncTokenizationVerification": true,
 	"cmake.configureOnOpen": false,
 	"editor.rulers": [
 		100
