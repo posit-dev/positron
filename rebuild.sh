@@ -6,6 +6,7 @@ This script will:
 - Kill any running build daemons
 - Recursively remove any existing 'node_modules' folders
 - Remove the '.build' directory
+- Remove the 'amalthea' builds
 - Rebuild the aforementioned 'node_modules' folders
 
 This will probably take a while, so only run this script if you're stuck and
