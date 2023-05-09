@@ -678,7 +678,17 @@
 		"--vscode-positronEnvironment-inactiveSelectionBackgroundColor",
 		"--vscode-positronSideActionBar-border",
 		"--vscode-positronConsole-traceBackground",
-		"--vscode-positronEnvironment-background"
+		"--vscode-positronEnvironment-background",
+		"--positronActionBar-foreground",
+		"--positronActionBar-hoverBackground",
+		"--positronActionBar-iconSize",
+		"--positronActionBar-iconSize",
+		"--positronActionBar-iconFontSize",
+		"--positronActionBar-foreground",
+		"--positronActionBar-disabledForeground",
+		"--positronActionBar-iconSize",
+		"--positronActionBar-foreground",
+		"--positronActionBar-disabledForeground"
 	],
 	"others": [
 		"--background-dark",

@@ -12,6 +12,7 @@ import { optionalBoolean, optionalValue, positronClassNames } from 'vs/base/comm
  * ActionBarButtonProps interface.
  */
 export interface ActionBarButtonProps {
+	fadeIn?: boolean;
 	iconId?: string;
 	text?: string;
 	maxTextWidth?: number;
@@ -32,6 +33,7 @@ export const ActionBarButton = forwardRef<HTMLButtonElement, ActionBarButtonProp
 	// Create the class names.
 	const classNames = positronClassNames(
 		'action-bar-button',
+		{ 'fade-in': optionalBoolean(props.fadeIn) },
 		{ 'disabled': optionalBoolean(props.disabled) }
 	);
 
