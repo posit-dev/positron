@@ -23,7 +23,7 @@ import { GroupingMenuButton } from 'vs/workbench/contrib/positronEnvironment/bro
 import { PositronEnvironmentServices } from 'vs/workbench/contrib/positronEnvironment/browser/positronEnvironmentState';
 import { usePositronEnvironmentContext } from 'vs/workbench/contrib/positronEnvironment/browser/positronEnvironmentContext';
 import { EnvironmentInstanceMenuButton } from 'vs/workbench/contrib/positronEnvironment/browser/components/environmentInstanceMenuButton';
-import { showDeleteEnvironmentVariablesModalDialog } from 'vs/workbench/contrib/positronEnvironment/browser/modalDialogs/deleteEnvironmentVariablesModalDialog';
+import { showDeleteAllObjectsModalDialog } from 'vs/workbench/contrib/positronEnvironment/browser/modalDialogs/deleteAllObjectsModalDialog';
 
 // Constants.
 const kSecondaryActionBarGap = 4;
@@ -75,23 +75,22 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 	}, [filterText]);
 
 	/**
-	 * deleteAllEnvironmentVariables event handler.
+	 * Delete all objects event handler.
 	 */
-	const deleteAllEnvironmentVariablesHandler = async () => {
-		// Show the delete environment variables modal dialog. If the user confirmed the operation,
-		// do it.
-		const result = await showDeleteEnvironmentVariablesModalDialog(props.layoutService);
+	const deleteAllObjectsHandler = async () => {
+		// Show the delete all objects modal dialog. If the user confirmed the operation, do it.
+		const result = await showDeleteAllObjectsModalDialog(props.layoutService);
 		if (result) {
 			positronEnvironmentContext.activePositronEnvironmentInstance?.requestClear(
-				result.includeHiddenVariables
+				result.includeHiddenObjects
 			);
 		}
 	};
 
 	/**
-	 * refreshEnvironmentVariablesHandler event handler
+	 * Refresh objects event handler
 	 */
-	const refreshEnvironmentVariablesHandler = () => {
+	const refreshObjectsHandler = () => {
 		positronEnvironmentContext.activePositronEnvironmentInstance?.requestRefresh();
 	};
 
@@ -112,9 +111,9 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 						{/* Disabled for Private Alpha <ActionBarButton iconId='positron-import-data' text='Import Dataset' dropDown={true} /> */}
 					</ActionBarRegion>
 					<ActionBarRegion align='right'>
-						<ActionBarButton align='right' iconId='positron-trash-can' tooltip={localize('positronDeleteAllEnvironmentVariables', "Delete all environment variables")} onClick={deleteAllEnvironmentVariablesHandler} />
+						<ActionBarButton align='right' iconId='positron-trash-can' tooltip={localize('positronDeleteAllObjects', "Delete all objects")} onClick={deleteAllObjectsHandler} />
 						<ActionBarSeparator />
-						<ActionBarButton align='right' iconId='positron-refresh' tooltip={localize('positronRefreshVariables', "Refresh environment variables")} onClick={refreshEnvironmentVariablesHandler} />
+						<ActionBarButton align='right' iconId='positron-refresh' tooltip={localize('positronRefreshObjects', "Refresh objects")} onClick={refreshObjectsHandler} />
 					</ActionBarRegion>
 				</PositronActionBar>
 				<PositronActionBar size='small' gap={kSecondaryActionBarGap} paddingLeft={kPaddingLeft} paddingRight={kPaddingRight}>
