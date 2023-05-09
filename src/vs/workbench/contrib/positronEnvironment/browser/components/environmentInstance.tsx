@@ -16,7 +16,7 @@ import { EmptyEnvironment } from 'vs/workbench/contrib/positronEnvironment/brows
 import { usePositronEnvironmentContext } from 'vs/workbench/contrib/positronEnvironment/browser/positronEnvironmentContext';
 import { EnvironmentVariableItem } from 'vs/workbench/contrib/positronEnvironment/browser/components/environmentVariableItem';
 import { EnvironmentVariableGroup } from 'vs/workbench/contrib/positronEnvironment/browser/components/environmentVariableGroup';
-import { EnvironmentEntry, IPositronEnvironmentInstance, isEnvironmentVariableGroup, isEnvironmentVariableItem } from 'vs/workbench/services/positronEnvironment/common/interfaces/positronEnvironmentService';
+import { EnvironmentEntry, IPositronEnvironmentInstance, isEnvironmentVariableGroup, isEnvironmentVariableItem } from 'vs/workbench/services/positronEnvironment/common/interfaces/positronEnvironmentInstance';
 
 /**
  * Constants.
@@ -91,42 +91,14 @@ export const EnvironmentInstance = (props: EnvironmentInstanceProps) => {
 			}
 		}));
 
-		// Add the onDidChangeState event handler.
-		disposableStore.add(
-			props.positronEnvironmentInstance.onDidChangeState(state => {
-				// TODO
-			})
-		);
-
-		// Add the onDidChangeEnvironmentGrouping event handler.
-		disposableStore.add(
-			props.positronEnvironmentInstance.onDidChangeEnvironmentGrouping(() => {
-				// For the moment, simply re-render everything.
-				// setMarker(generateUuid());
-			})
-		);
-
-		// Add the onDidChangeEnvironmentItems event handler.
-		disposableStore.add(
-			props.positronEnvironmentInstance.onDidChangeEnvironmentSorting(() => {
-				// For the moment, simply re-render everything.
-				// setMarker(generateUuid());
-			})
-		);
-
 		// Add the onDidChangeEntries event handler.
-		disposableStore.add(
-			props.positronEnvironmentInstance.onDidChangeEntries(entries => {
-				// When we've received the first set of entries, we are initialized.
-				setInitializing(false);
+		disposableStore.add(props.positronEnvironmentInstance.onDidChangeEntries(entries => {
+			// When we've received the first set of entries, we are initialized.
+			setInitializing(false);
 
-				// Set the entries.
-				setEntries(entries);
-			})
-		);
-
-		// Request refresh so we display the environment as soon as possible.
-		props.positronEnvironmentInstance.requestRefresh();
+			// Set the entries.
+			setEntries(entries);
+		}));
 
 		// Return the cleanup function that will dispose of the event handlers.
 		return () => disposableStore.dispose();
@@ -466,11 +438,6 @@ export const EnvironmentInstance = (props: EnvironmentInstanceProps) => {
 		{ 'resizing': resizingColumn }
 	);
 
-	// If there are no environment entries, render the empty environment.
-	if (!entries.length) {
-		return <EmptyEnvironment initializing={initializing} />;
-	}
-
 	// Render.
 	return (
 		<div
@@ -482,24 +449,27 @@ export const EnvironmentInstance = (props: EnvironmentInstanceProps) => {
 			onFocus={focusHandler}
 			onBlur={blurHandler}
 		>
-			<List
-				ref={listRef}
-				innerRef={innerRef}
-				itemCount={entries.length}
-				itemKey={index => entries[index].id} // Use a custom item key instead of index.
-				width={props.width}
-				height={props.height}
-				itemSize={LINE_HEIGHT}
-				overscanCount={10}
-				onScroll={({ scrollOffset }) => {
-					// Save the scroll offset when we're active and scrolled.
-					if (props.active) {
-						setScrollOffset(scrollOffset);
-					}
-				}}
-			>
-				{EnvironmentEntry}
-			</List>
+			{!entries.length ?
+				<EmptyEnvironment initializing={initializing} /> :
+				<List
+					ref={listRef}
+					innerRef={innerRef}
+					itemCount={entries.length}
+					itemKey={index => entries[index].id} // Use a custom item key instead of index.
+					width={props.width}
+					height={props.height}
+					itemSize={LINE_HEIGHT}
+					overscanCount={10}
+					onScroll={({ scrollOffset }) => {
+						// Save the scroll offset when we're active and scrolled.
+						if (props.active) {
+							setScrollOffset(scrollOffset);
+						}
+					}}
+				>
+					{EnvironmentEntry}
+				</List>
+			}
 		</div>
 	);
 };

@@ -74,8 +74,10 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 		}
 	}, [filterText]);
 
-	// Clear all environment objects handler.
-	const clearAllEnvironmentObjectsHandler = async () => {
+	/**
+	 * deleteAllEnvironmentObjects event handler.
+	 */
+	const deleteAllEnvironmentObjectsHandler = async () => {
 		// Show the delete environment objects modal dialog. If the user confirmed the operation,
 		// do it.
 		const result = await showDeleteEnvironmentObjectsModalDialog(props.layoutService);
@@ -86,8 +88,10 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 		}
 	};
 
-	// Refresh workspace objects handler.
-	const refreshWorkspaceObjectsHandler = () => {
+	/**
+	 * refreshEnvironmentObjects event handler
+	 */
+	const refreshEnvironmentObjectsHandler = () => {
 		positronEnvironmentContext.activePositronEnvironmentInstance?.requestRefresh();
 	};
 
@@ -96,10 +100,6 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 	if (positronEnvironmentContext.positronEnvironmentInstances.length === 0) {
 		return null;
 	}
-
-	const filterTextChangedHandler = (filterText: string) => {
-		setFilterText(filterText);
-	};
 
 	// Render.
 	return (
@@ -112,9 +112,9 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 						{/* Disabled for Private Alpha <ActionBarButton iconId='positron-import-data' text='Import Dataset' dropDown={true} /> */}
 					</ActionBarRegion>
 					<ActionBarRegion align='right'>
-						<ActionBarButton align='right' iconId='positron-clean' tooltip={localize('positronClearAllEnvironmentObjects', "Clear all environment objects")} onClick={clearAllEnvironmentObjectsHandler} />
+						<ActionBarButton align='right' iconId='positron-trash-can' tooltip={localize('positronDeleteAllEnvironmentObjects', "Delete all environment objects")} onClick={deleteAllEnvironmentObjectsHandler} />
 						<ActionBarSeparator />
-						<ActionBarButton align='right' iconId='positron-refresh' tooltip={localize('positronRefreshObjects', "Refresh workspace objects")} onClick={refreshWorkspaceObjectsHandler} />
+						<ActionBarButton align='right' iconId='positron-refresh' tooltip={localize('positronRefreshObjects', "Refresh environment objects")} onClick={refreshEnvironmentObjectsHandler} />
 					</ActionBarRegion>
 				</PositronActionBar>
 				<PositronActionBar size='small' gap={kSecondaryActionBarGap} paddingLeft={kPaddingLeft} paddingRight={kPaddingRight}>
@@ -126,7 +126,7 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 						<ActionBarFilter
 							width={150}
 							initialFilterText={filterText}
-							onFilterTextChanged={filterTextChangedHandler} />
+							onFilterTextChanged={filterText => setFilterText(filterText)} />
 					</ActionBarRegion>
 				</PositronActionBar>
 			</div>
