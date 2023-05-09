@@ -21,7 +21,6 @@ import { ConsoleInstanceMenuButton } from 'vs/workbench/contrib/positronConsole/
 // Constants.
 const kPaddingLeft = 8;
 const kPaddingRight = 8;
-const kInterruptButtonDelay = 250;
 
 // ActionBarProps interface.
 interface ActionBarProps {
@@ -40,7 +39,6 @@ export const ActionBar = (props: ActionBarProps) => {
 	// State hooks.
 	const [activePositronConsoleInstance, setActivePositronConsoleInstance] =
 		useState(positronConsoleContext.positronConsoleService.activePositronConsoleInstance);
-	const [showInterruptActionBarButton, setShowInterruptActionBarButton] = useState(false);
 	const [interruptible, setInterruptible] = useState(false);
 	const [interrupting, setInterrupting] = useState(false);
 
@@ -50,30 +48,11 @@ export const ActionBar = (props: ActionBarProps) => {
 		positronConsoleContext.positronConsoleService.onDidChangeActivePositronConsoleInstance(
 			activePositronConsoleInstance => {
 				setActivePositronConsoleInstance(activePositronConsoleInstance);
-				setShowInterruptActionBarButton(false);
 				setInterruptible(activePositronConsoleInstance?.state === PositronConsoleState.Busy);
 				setInterrupting(false);
 			}
 		);
 	}, []);
-
-	// Interruptible useEffect.
-	useEffect(() => {
-		// When the console becomes interruptible, show the interrupt button after a delay so that
-		// most of the time it doesn't flash on and off too quickly.
-		if (interruptible) {
-			// Create the timeout.
-			const timeout = setTimeout(() => {
-				setShowInterruptActionBarButton(true);
-			}, kInterruptButtonDelay);
-
-			// Return the cleanup function that clears the timeout.
-			return () => clearTimeout(timeout);
-		}
-
-		// Nothing needs to be cleaned up.
-		return;
-	}, [interruptible]);
 
 	// Active Positron console instance useEffect hook.
 	useEffect(() => {
@@ -87,14 +66,12 @@ export const ActionBar = (props: ActionBarProps) => {
 				switch (state) {
 					// The Positron console instance is interruptible.
 					case PositronConsoleState.Busy:
-						setShowInterruptActionBarButton(false);
 						setInterruptible(true);
 						setInterrupting(false);
 						break;
 
 					// The Positron console instance is not interruptible.
 					default:
-						setShowInterruptActionBarButton(false);
 						setInterruptible(false);
 						setInterrupting(false);
 						break;
@@ -132,8 +109,9 @@ export const ActionBar = (props: ActionBarProps) => {
 				<PositronActionBar size='small' borderTop={true} borderBottom={true} paddingLeft={kPaddingLeft} paddingRight={kPaddingRight}>
 					<ActionBarRegion align='left'>
 						<ConsoleInstanceMenuButton {...props} />
-						{showInterruptActionBarButton &&
+						{interruptible &&
 							<ActionBarButton
+								fadeIn={true}
 								disabled={interrupting}
 								iconId='positron-interrupt'
 								align='left'

@@ -11,6 +11,16 @@
 	color: var(--positronActionBar-foreground);
 }
 
+.action-bar-button.fade-in {
+	opacity: 0;
+	animation: fade-in 0.25s ease-in 0.25s 1 forwards;
+}
+
+@keyframes fade-in {
+	0% { opacity: 0; }
+	100% { opacity: 1; }
+}
+
 .action-bar-button:focus {
 	outline: none !important;
 }
