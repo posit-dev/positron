@@ -3,28 +3,27 @@ Custom entry point for launching Positron's extensions to the Jedi Language
 Server and IPyKernel in the same environment.
 """
 
+import asyncio
 import argparse
 import logging
 import os
 import sys
 import traceback
-from typing import Tuple
+
+from ipykernel import kernelapp
 
 # Add the lib path to our sys path so jedi_language_server can find its references
 EXTENSION_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(EXTENSION_ROOT, "pythonFiles", "lib", "jedilsp"))
 sys.path.insert(1, os.path.join(EXTENSION_ROOT, "pythonFiles", "lib", "python"))
 
-from positron.positron_jedilsp import POSITRON
+from positron.positron_ipkernel import PositronIPyKernel
 
 
-def initialize() -> Tuple[str, int]:
+def initialize_config() -> None:
     """
     Initialize the configuration for the Positron Python Language Server
     and REPL Kernel.
-
-    Returns:
-        (str, int): TCP host and port of the LSP server
     """
 
     # Given we're using TCP, support a subset of the Jedi LSP configuration
@@ -35,22 +34,10 @@ def initialize() -> Tuple[str, int]:
     )
 
     parser.add_argument(
-        "--host",
-        help="host for web server (default 127.0.0.1)",
-        type=str,
-        default="127.0.0.1",
-    )
-    parser.add_argument(
         "--debugport",
         help="port for debugpy debugger",
         type=int,
         default=None,
-    )
-    parser.add_argument(
-        "--port",
-        help="port for web server (default 2087)",
-        type=int,
-        default=2087,
     )
     parser.add_argument(
         "--logfile",
@@ -73,7 +60,7 @@ def initialize() -> Tuple[str, int]:
 
     log_level = {0: logging.WARN, 1: logging.INFO, 2: logging.DEBUG}.get(
         args.verbose,
-        logging.INFO,
+        logging.DEBUG,
     )
 
     if args.logfile:
@@ -82,41 +69,53 @@ def initialize() -> Tuple[str, int]:
             filemode="w",
             level=log_level,
         )
+        pass
     else:
         logging.basicConfig(stream=sys.stderr, level=log_level)
 
     # Start the debugpy debugger if a port was specified
     if args.debugport is not None:
-        import debugpy
+        try:
+            import debugpy
 
-        debugpy.listen(args.debugport)
+            debugpy.listen(args.debugport)
+        except Exception as error:
+            logging.warning(f"Unable to start debugpy: {error}", exc_info=True)
 
-    return args.host, args.port
 
-
-def start(lsp_host: str, lsp_port: int):
-    """
-    Starts Positron Python (based on the Jedi Language Server) to
-    suport both LSP and REPL functionality.
-    """
-    exitStatus = POSITRON.start(lsp_host, lsp_port)
-    return exitStatus
+async def start_ipykernel() -> None:
+    """Starts Positron's IPyKernel as the interpreter for our console."""
+    app = kernelapp.IPKernelApp.instance(kernel_class=PositronIPyKernel)
+    app.initialize()
+    app.kernel.start()
 
 
 if __name__ == "__main__":
     exitStatus = 0
 
     try:
-        lsp_host, lsp_port = initialize()
-        exitStatus = start(lsp_host, lsp_port)
+        # Init the configuration args
+        initialize_config()
+
+        # Start Positron's IPyKernel as the interpreter for our console.
+        loop = asyncio.get_event_loop()
+        try:
+            asyncio.ensure_future(start_ipykernel())
+            loop.run_forever()
+        except KeyboardInterrupt:
+            pass
+        finally:
+            loop.close()
+
     except SystemExit as error:
         # TODO: Remove this workaround once we can improve Jedi
         # disconnection logic
         tb = "".join(traceback.format_tb(error.__traceback__))
         if tb.find("connection_lost") > 0:
-            logging.warning("Positron LSP client disconnected, exiting.")
+            logging.warning("Positron Language Server client disconnected, exiting.")
             exitStatus = 0
         else:
-            logging.error("Error in Positron Jedi LSP: %s", error)
+            logging.error("Error in Positron Language Server: %s", error)
+            exitStatus = 1
 
     sys.exit(exitStatus)
