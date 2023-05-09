@@ -7,7 +7,7 @@ import * as React from 'react';
 import { IAction, Separator } from 'vs/base/common/actions';
 import { ActionBarMenuButton } from 'vs/platform/positronActionBar/browser/components/actionBarMenuButton';
 import { usePositronEnvironmentContext } from 'vs/workbench/contrib/positronEnvironment/browser/positronEnvironmentContext';
-import { PositronEnvironmentGrouping } from 'vs/workbench/services/positronEnvironment/common/interfaces/positronEnvironmentService';
+import { PositronEnvironmentGrouping } from 'vs/workbench/services/positronEnvironment/common/interfaces/positronEnvironmentInstance';
 
 /**
  * GroupingMenuButton component.
@@ -101,7 +101,7 @@ export const GroupingMenuButton = () => {
 	return (
 		<ActionBarMenuButton
 			iconId='positron-environment-grouping'
-			tooltip={'Change how Environment entries are grouped.'}
+			tooltip={'Change how environment objects are grouped'}
 			actions={actions}
 		/>
 	);

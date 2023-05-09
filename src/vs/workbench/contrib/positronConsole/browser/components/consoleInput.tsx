@@ -300,10 +300,11 @@ export const ConsoleInput = forwardRef<HTMLDivElement, ConsoleInputProps>((props
 			props.positronConsoleInstance.runtime.metadata.languageId
 		);
 		if (inputHistoryEntries.length) {
-			console.log(`There are input history entries for ${props.positronConsoleInstance.runtime.metadata.languageId}`);
-			inputHistoryEntries.forEach((inputHistoryEntry, index) => {
-				console.log(`    Entry: ${index} Code: ${inputHistoryEntry.input}`);
-			});
+			// console.log(`There are input history entries for ${props.positronConsoleInstance.runtime.metadata.languageId}`);
+			// inputHistoryEntries.forEach((inputHistoryEntry, index) => {
+			// 	console.log(`    Entry: ${index} Code: ${inputHistoryEntry.input}`);
+			// });
+
 			// TODO@softwarenerd - Get 1000 from settings.
 			setHistoryNavigator(new HistoryNavigator2<IInputHistoryEntry>(inputHistoryEntries.slice(-1000), 1000));
 		}
