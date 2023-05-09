@@ -4,6 +4,7 @@
 
 import 'vs/css!./groupingMenuButton';
 import * as React from 'react';
+import { localize } from 'vs/nls';
 import { IAction, Separator } from 'vs/base/common/actions';
 import { ActionBarMenuButton } from 'vs/platform/positronActionBar/browser/components/actionBarMenuButton';
 import { usePositronEnvironmentContext } from 'vs/workbench/contrib/positronEnvironment/browser/positronEnvironmentContext';
@@ -101,7 +102,7 @@ export const GroupingMenuButton = () => {
 	return (
 		<ActionBarMenuButton
 			iconId='positron-environment-grouping'
-			tooltip={'Change how environment variables are grouped'}
+			tooltip={localize('positronChangeHowObjectsAreGrouped', "Change how objects are grouped")}
 			actions={actions}
 		/>
 	);
