@@ -45,7 +45,10 @@ export const DataPanel = (props: DataPanelProps) => {
 			return props.data.columns.map((column, idx) => {
 				return {
 					id: '' + idx,
-					accessorFn: row => row[idx],
+					accessorKey: idx,
+					accessorFn: (_row, index) => {
+						return column.data[index];
+					},
 					header: column.name,
 				};
 			});
@@ -70,14 +73,41 @@ export const DataPanel = (props: DataPanelProps) => {
 		);
 
 
-	// Flatten the data
+	// Flatten and transpose the data. The data model stores data in a column-major
+	// format, but React Table expects data in a row-major format, so we need to
+	// transpose the data.
 	const flatData = React.useMemo(
-		() => data?.pages?.flatMap(page => page.columns) ?? [],
+		() => {
+			const rows: any[] = [];
+			// Loop over each page of data
+			data?.pages?.forEach(page => {
+				// Loop over each column in the page and add the values to the
+				// corresponding row.
+				page.columns.forEach((column, idx) => {
+					column.forEach((value, rowIdx) => {
+						// Create the index into the row; this is the row index
+						// plus the rowStart value of the page.
+						rowIdx += page.rowStart;
+						// Create the row if it doesn't exist.
+						const row = rows[rowIdx] || (rows[rowIdx] = {});
+						row[idx] = value;
+					});
+				});
+			});
+			return rows;
+		},
 		[data]);
 
 	// Count total rows against those we have fetched.
 	const totalRows = props.data.rowCount;
-	const totalFetched = flatData.length;
+
+	// Find the maximum rowEnd value in the data; this is the
+	// total number of rows we have fetched.
+	const totalFetched = React.useMemo(
+		() => {
+			return data?.pages?.reduce((max, row) => Math.max(max, row.rowEnd + 1), 0) ?? 0;
+		},
+		[flatData]);
 
 	// Callback, invoked on scroll, that will fetch more data if we have reached
 	// the bottom of the table container.

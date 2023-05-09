@@ -30,7 +30,11 @@ if (platform() === 'darwin') {
 // installed from GitHub, so one ends up paying the installation cost
 // on every invocation in that case, which is no fun.
 const zeromqVersion = platform() === 'darwin'
-	? 'zeromq@6.0.0-beta.6'
+	?
+	[
+		'kevinushey/zeromq.js',
+		'fa6b52f85293d9fe14958d18f031d65520afd272'
+	].join('#')
 	: 'zeromq@6.0.0-beta.16';
 
 const args = [

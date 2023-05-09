@@ -81,6 +81,8 @@ import './mainThreadTimeline';
 import './mainThreadTesting';
 import './mainThreadSecretState';
 import './mainThreadProfilContentHandlers';
+import './mainThreadSemanticSimilarity';
+import './mainThreadIssueReporter';
 
 // --- Begin Positron ---
 import './positron/mainThreadLanguageRuntime';

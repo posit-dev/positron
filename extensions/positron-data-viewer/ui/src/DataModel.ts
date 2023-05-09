@@ -45,7 +45,7 @@ export class DataModel {
 		});
 		return {
 			rowStart: start,
-			rowEnd: start + size - 1,
+			rowEnd: Math.min(start + size - 1, this.rowCount - 1),
 			columns: columns
 		};
 	}
@@ -61,6 +61,15 @@ export class DataModel {
 	 * The number of rows in the data set.
 	 */
 	get rowCount(): number {
-		return this.dataSet.rowCount;
+		if (this.dataSet.rowCount) {
+			// Use the complete row count if known
+			return this.dataSet.rowCount;
+		}
+		else if (this.columns.length > 0) {
+			// If the row count isn't specified, use the length of the first
+			// column
+			return this.columns[0].data.length;
+		}
+		return 0;
 	}
 }
