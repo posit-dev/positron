@@ -1021,10 +1021,10 @@ export const POSITRON_TOP_ACTION_BAR_BORDER = registerColor('positronTopActionBa
 
 // The Positron top action bar background color.
 export const POSITRON_TOP_ACTION_BAR_BACKGROUND = registerColor('positronTopActionBar.background', {
-	dark: inputBackground,
-	light: inputBackground,
-	hcDark: inputBackground,
-	hcLight: inputBackground
+	dark: 'terminal.background',
+	light: 'terminal.background',
+	hcDark: 'terminal.background',
+	hcLight: 'terminal.background'
 }, localize('positronTopActionBar.background', "Positron top action bar background color."));
 
 // The Positron top action bar foreground color.
@@ -1119,10 +1119,10 @@ export const POSITRON_SIDE_ACTION_BAR_BORDER = registerColor('positronSideAction
 
 // The Positron side action bar background color.
 export const POSITRON_SIDE_ACTION_BAR_BACKGROUND = registerColor('positronSideActionBar.background', {
-	dark: editorBackground,
-	light: editorBackground,
-	hcDark: SIDE_BAR_BACKGROUND,
-	hcLight: SIDE_BAR_BACKGROUND
+	dark: 'terminal.background',
+	light: 'terminal.background',
+	hcDark: 'terminal.background',
+	hcLight: 'terminal.background'
 }, localize('positronSideActionBar.background', "Positron side action bar background color."));
 
 // The Positron side action bar foreground color.
@@ -1537,10 +1537,10 @@ export const POSITRON_CONSOLE_TRACE_BACKGROUND_COLOR = registerColor('positronCo
 
 // Positron Environment background color.
 export const POSITRON_ENVIRONMENT_BACKGROUND_COLOR = registerColor('positronEnvironment.background', {
-	dark: editorBackground,
-	light: editorBackground,
-	hcDark: editorBackground,
-	hcLight: editorBackground
+	dark: 'terminal.background',
+	light: 'terminal.background',
+	hcDark: 'terminal.background',
+	hcLight: 'terminal.background'
 }, localize('positronEnvironment.background', "Positron Environment background color."));
 
 // Positron Environment foreground color.
