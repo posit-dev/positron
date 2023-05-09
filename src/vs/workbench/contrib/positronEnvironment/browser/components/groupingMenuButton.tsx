@@ -101,7 +101,7 @@ export const GroupingMenuButton = () => {
 	return (
 		<ActionBarMenuButton
 			iconId='positron-environment-grouping'
-			tooltip={'Change how environment objects are grouped'}
+			tooltip={'Change how environment variables are grouped'}
 			actions={actions}
 		/>
 	);
