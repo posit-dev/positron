@@ -151,12 +151,8 @@ export class PositronJediLanguageServerProxy implements ILanguageServerProxy {
 
         // Register each interpreter as a language runtime
         const portfinder = require('portfinder');
-        let lspPort = 2087;
         let debugPort;
         for (const interpreter of interpreters) {
-            // Find an available port for our TCP server, starting the search from
-            // the next port each iteration.
-            lspPort = await portfinder.getPortPromise({ port: lspPort });
 
             // If required, also locate an available port for the debugger
             if (debug) {
@@ -166,10 +162,9 @@ export class PositronJediLanguageServerProxy implements ILanguageServerProxy {
                 debugPort = await portfinder.getPortPromise({ port: debugPort });
             }
 
-            const runtime: vscode.Disposable = await this.registerLanguageRuntime(ext, interpreter, lspPort, debugPort, options);
+            const runtime: vscode.Disposable = await this.registerLanguageRuntime(ext, interpreter, debugPort, options);
             this.disposables.push(runtime);
 
-            lspPort += 1;
             if (debugPort !== undefined) {
                 debugPort += 1;
             }
@@ -184,7 +179,6 @@ export class PositronJediLanguageServerProxy implements ILanguageServerProxy {
     private async registerLanguageRuntime(
         ext: vscode.Extension<any>,
         interpreter: PythonEnvironment,
-        lspPort: number,
         debugPort: number | undefined,
         options: LanguageClientOptions): Promise<Disposable> {
 
@@ -197,7 +191,7 @@ export class PositronJediLanguageServerProxy implements ILanguageServerProxy {
         const command = interpreter.path;
         const pythonVersion = interpreter.version?.raw;
         const lsScriptPath = path.join(EXTENSION_ROOT_DIR, 'pythonFiles', 'positron_language_server.py');
-        const args = [command, lsScriptPath, `--port=${lspPort}`, '-f', '{connection_file}', '--logfile', '{log_file}']
+        const args = [command, lsScriptPath, '-f', '{connection_file}', '--logfile', '{log_file}']
         if (debugPort) {
             args.push(`--debugport=${debugPort}`);
         }
@@ -209,9 +203,6 @@ export class PositronJediLanguageServerProxy implements ILanguageServerProxy {
         };
         traceVerbose(`Configuring Jedi LSP with IPyKernel using args '${args}'`);
 
-        // Create a language client to connect to the LSP via TCP
-        const client = await this.createLanguageClientTCP(lspPort, options);
-
         // Create an adapter for the kernel as our language runtime
         const runtime: positron.LanguageRuntime = ext.exports.adaptKernel(kernelSpec,
             PYTHON_LANGUAGE,
@@ -219,16 +210,8 @@ export class PositronJediLanguageServerProxy implements ILanguageServerProxy {
             this.extensionVersion,
             '>>>',
             '...',
-            startupBehavior, () => this.startClient(client));
-
-        // Also stop the language client when the runtime is exiting
-        runtime.onDidChangeRuntimeState(state => {
-            if (client.isRunning() && (
-                state === positron.RuntimeState.Exiting ||
-                state === positron.RuntimeState.Exited)) {
-                client.stop();
-            }
-        });
+            startupBehavior,
+            (port: number) => this.startClient(options, port));
 
         // Register our language runtime provider
         return positron.runtime.registerLanguageRuntime(runtime);
@@ -274,24 +257,14 @@ export class PositronJediLanguageServerProxy implements ILanguageServerProxy {
     /**
      * Start the language client
      */
-    private async startClient(client: LanguageClient): Promise<void> {
-        this.registerHandlers(client);
-        await client.start();
-        this.languageClients.push(client);
-    }
-
-    /**
-    * Finds an available port to spawn a new Jedi LSP in TCP mode and returns a LanguageClient
-    * configured to connect to this server.
-    */
-    private async createLanguageClientTCP(
-        port: number,
-        clientOptions: LanguageClientOptions,
-    ): Promise<LanguageClient> {
+    private async startClient(clientOptions: LanguageClientOptions, port: number): Promise<void> {
 
         // Configure language client to connect to LSP via TCP on start
         const serverOptions: ServerOptions = async () => this.getServerOptions(port);
-        return new LanguageClient(PYTHON_LANGUAGE, 'Positron Python Jedi', serverOptions, clientOptions);
+        const client = new LanguageClient(PYTHON_LANGUAGE, 'Positron Python Jedi', serverOptions, clientOptions);
+        this.registerHandlers(client);
+        await client.start();
+        this.languageClients.push(client);
     }
 
     /**
