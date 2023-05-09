@@ -12,7 +12,7 @@ sys.path.insert(0, os.path.join(EXTENSION_ROOT, "pythonFiles", "lib", "jedilsp")
 from threading import Event
 from typing import Any, Callable, List, Optional, Union
 
-from ipykernel import kernelapp
+
 from jedi.api import Interpreter
 from jedi_language_server import jedi_utils, pygls_utils
 from jedi_language_server.server import (
@@ -83,8 +83,6 @@ from lsprotocol.types import (
 from pygls.capabilities import get_capability
 from pygls.feature_manager import has_ls_param_or_annotation
 
-from .positron_ipkernel import PositronIPyKernel
-
 
 class PositronJediLanguageServer(JediLanguageServer):
     """Positron extenstion to the Jedi language server."""
@@ -111,37 +109,29 @@ class PositronJediLanguageServer(JediLanguageServer):
 
         return decorator
 
-    def start(self, lsp_host, lsp_port) -> None:
+    def start(self, lsp_host: str, lsp_port: int, kernel) -> None:
         """
-        Starts IPyKernel and the Jedi LSP in parallel. This arrangement allows
-        us to share the active namespaces of the IPyKernel's interpreter with
-        the Jedi LSP for enhanced completions.
+        Start the LSP with a reference to Positron's IPyKernel to enhance
+        completions with awareness of live variables from user's namespace.
         """
+        global KERNEL
+        KERNEL = kernel
+
         loop = asyncio.get_event_loop()
         try:
-            asyncio.ensure_future(self.start_ipykernel())
-            asyncio.ensure_future(self.start_jedi(lsp_host, lsp_port))
+            asyncio.ensure_future(self._start_jedi(lsp_host, lsp_port))
             loop.run_forever()
         except KeyboardInterrupt:
             pass
         finally:
             loop.close()
 
-    async def start_jedi(self, lsp_host, lsp_port):
+    async def _start_jedi(self, lsp_host, lsp_port):
         """Starts Jedi LSP as a TCP server using existing asyncio loop."""
         self._stop_event = Event()
         loop = asyncio.get_event_loop()
         self._server = await loop.create_server(self.lsp, lsp_host, lsp_port)  # type: ignore
         await self._server.serve_forever()
-
-    async def start_ipykernel(self) -> None:
-        """Starts Positron's IPyKernel as the interpreter for our console."""
-        app = kernelapp.IPKernelApp.instance(kernel_class=PositronIPyKernel)
-        app.initialize()
-        # Register the kernel for enhanced LSP completions
-        global KERNEL
-        KERNEL = app.kernel
-        app.kernel.start()
 
 
 POSITRON = PositronJediLanguageServer(
@@ -151,7 +141,7 @@ POSITRON = PositronJediLanguageServer(
 )
 
 
-KERNEL: Optional[PositronIPyKernel] = None
+KERNEL = None
 
 # Server Features
 # Unfortunately we need to re-register these as Pygls Feature Management does

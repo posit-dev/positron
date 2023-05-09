@@ -16,6 +16,7 @@ from ipykernel.zmqshell import ZMQInteractiveShell
 from .dataviewer import DataViewerService
 from .environment import EnvironmentService
 from .inspectors import get_inspector
+from .lsp import LSPService
 from .plots import PositronDisplayPublisherHook
 
 POSITRON_DATA_VIEWER_COMM = "positron.dataViewer"
@@ -23,6 +24,9 @@ POSITRON_DATA_VIEWER_COMM = "positron.dataViewer"
 
 POSITRON_ENVIRONMENT_COMM = "positron.environment"
 """The comm channel target_name for Positron's Environment View"""
+
+POSITRON_LSP_COMM = "positron.lsp"
+"""The comm channel target_name for Positron's LSP"""
 
 POSITRON_PLOT_COMM = "positron.plot"
 """The comm channel target_name for Positron's Plots View"""
@@ -51,6 +55,10 @@ class PositronIPyKernel(IPythonKernel):
         shell.events.register("post_execute", self.handle_post_execute)
         self.get_user_ns_hidden().update(POSITON_NS_HIDDEN)
 
+        # Setup Positron's LSP service
+        self.lsp_service = LSPService(self)
+        self.comm_manager.register_target(POSITRON_LSP_COMM, self.lsp_service.on_comm_open)
+
         # Setup Positron's environment service
         self.env_service = EnvironmentService(self)
         self.comm_manager.register_target(POSITRON_ENVIRONMENT_COMM, self.env_service.on_comm_open)
@@ -70,6 +78,7 @@ class PositronIPyKernel(IPythonKernel):
         result = super().do_shutdown(restart)
         self.display_pub_hook.shutdown()
         self.env_service.shutdown()
+        self.lsp_service.shutdown()
         self.dataviewer_service.shutdown()
         return result
 
