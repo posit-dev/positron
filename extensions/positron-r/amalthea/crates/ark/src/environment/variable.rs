@@ -102,6 +102,9 @@ pub struct EnvironmentVariable {
 
     /** True if the 'value' field was truncated to fit in the message */
     pub is_truncated: bool,
+
+    /** True for things that can ve View()ed */
+    pub has_viewer: bool
 }
 
 pub struct WorkspaceVariableDisplayValue {
@@ -314,17 +317,20 @@ impl EnvironmentVariable {
         let WorkspaceVariableDisplayValue{display_value, is_truncated} = WorkspaceVariableDisplayValue::from(x);
         let WorkspaceVariableDisplayType{display_type, type_info} = WorkspaceVariableDisplayType::from(x);
 
+        let kind = Self::variable_kind(x);
+
         Self {
             access_key,
             display_name,
             display_value,
             display_type,
             type_info,
-            kind: Self::variable_kind(x),
+            kind,
             length: Self::variable_length(x),
             size: RObject::view(x).size(),
             has_children: has_children(x),
-            is_truncated
+            is_truncated,
+            has_viewer: r_inherits(x, "data.frame")
         }
     }
 
@@ -339,7 +345,8 @@ impl EnvironmentVariable {
             length: 0,
             size: 0,
             has_children: false,
-            is_truncated: false
+            is_truncated: false,
+            has_viewer: false
         }
     }
 
@@ -769,7 +776,8 @@ impl EnvironmentVariable {
                 length: 0,
                 size: 0,
                 has_children: true,
-                is_truncated: false
+                is_truncated: false,
+                has_viewer: false
             });
         }
 
@@ -784,7 +792,8 @@ impl EnvironmentVariable {
                 length: 0,
                 size: 0,
                 has_children: true,
-                is_truncated: false
+                is_truncated: false,
+                has_viewer: false
             });
         }
 
