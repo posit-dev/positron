@@ -578,7 +578,21 @@ impl EnvironmentVariable {
                 }
 
             }
-            EnvironmentVariableNode::Artificial {.. } => { Ok(String::from("")) }
+            EnvironmentVariableNode::Artificial {..} => { Ok(String::from("")) }
+        }
+    }
+
+    pub fn resolve_data_object(env: RObject, path: &Vec<String>) -> Result<RObject, harp::error::Error> {
+        let resolved = unsafe { Self::resolve_object_from_path(env, path)? };
+
+        match resolved {
+            EnvironmentVariableNode::Concrete{object} => Ok(object),
+
+            _ => {
+                Err(harp::error::Error::InspectError {
+                    path: path.clone()
+                })
+            }
         }
     }
 

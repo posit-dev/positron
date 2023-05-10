@@ -23,6 +23,7 @@ use log::error;
 use log::warn;
 use stdext::spawn;
 
+use crate::data_viewer::r_data_viewer::RDataViewer;
 use crate::environment::message::EnvironmentMessage;
 use crate::environment::message::EnvironmentMessageClear;
 use crate::environment::message::EnvironmentMessageClipboardFormat;
@@ -333,13 +334,25 @@ impl REnvironment {
         self.send_message(msg, request_id);
     }
 
-    fn view(&mut self, _path: &Vec<String>, _request_id: Option<String>) {
-        /*
-        r_lock! {
-            let path = CharacterVector::create(path);
-            Rf_PrintValue(*path);
-        }
-         */
+    fn view(&mut self, path: &Vec<String>, request_id: Option<String>) {
+        let data = r_lock! {
+            EnvironmentVariable::resolve_data_object(RObject::view(*self.env), &path)
+        };
+
+        let msg = match data {
+            Ok(data) => {
+                RDataViewer::start(data);
+                EnvironmentMessage::Success
+            },
+
+            Err(_) => {
+                EnvironmentMessage::Error(EnvironmentMessageError {
+                    message: String::from("Inspection error"),
+                })
+            }
+        };
+
+        self.send_message(msg, request_id);
     }
 
     fn send_message(&mut self, message: EnvironmentMessage, request_id: Option<String>) {
