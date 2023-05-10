@@ -341,7 +341,8 @@ impl REnvironment {
 
         let msg = match data {
             Ok(data) => {
-                RDataViewer::start(data);
+                let name = unsafe { path.get_unchecked(path.len() - 1) };
+                RDataViewer::start(name.clone(), data);
                 EnvironmentMessage::Success
             },
 
