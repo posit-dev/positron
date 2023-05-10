@@ -33,6 +33,7 @@ use crate::environment::message::EnvironmentMessageFormattedVariable;
 use crate::environment::message::EnvironmentMessageInspect;
 use crate::environment::message::EnvironmentMessageList;
 use crate::environment::message::EnvironmentMessageUpdate;
+use crate::environment::message::EnvironmentMessageView;
 use crate::environment::variable::EnvironmentVariable;
 use crate::lsp::events::EVENTS;
 
@@ -169,6 +170,10 @@ impl REnvironment {
 
                             EnvironmentMessage::ClipboardFormat(EnvironmentMessageClipboardFormat{path, format}) => {
                                 self.clipboard_format(&path, format, Some(id));
+                            },
+
+                            EnvironmentMessage::View(EnvironmentMessageView { path }) => {
+                                self.view(&path, Some(id));
                             },
 
                             _ => {
@@ -326,6 +331,15 @@ impl REnvironment {
         };
 
         self.send_message(msg, request_id);
+    }
+
+    fn view(&mut self, _path: &Vec<String>, _request_id: Option<String>) {
+        /*
+        r_lock! {
+            let path = CharacterVector::create(path);
+            Rf_PrintValue(*path);
+        }
+         */
     }
 
     fn send_message(&mut self, message: EnvironmentMessage, request_id: Option<String>) {
