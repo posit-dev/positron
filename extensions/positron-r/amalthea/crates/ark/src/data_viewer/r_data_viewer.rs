@@ -10,15 +10,19 @@ use amalthea::socket::comm::CommInitiator;
 use amalthea::socket::comm::CommSocket;
 use harp::object::RObject;
 use harp::r_lock;
+use harp::utils::r_inherits;
 use harp::utils::r_is_null;
 use harp::vector::CharacterVector;
 use harp::vector::Vector;
 use libR_sys::NILSXP;
 use libR_sys::R_NamesSymbol;
+use libR_sys::R_NilValue;
 use libR_sys::Rf_getAttrib;
+use libR_sys::SEXP;
 use libR_sys::STRSXP;
 use libR_sys::VECTOR_ELT;
 use libR_sys::XLENGTH;
+use libR_sys::R_CallMethodDef;
 use serde::Deserialize;
 use serde::Serialize;
 use stdext::spawn;
@@ -122,4 +126,17 @@ impl RDataViewer {
         Ok(())
     }
 
+}
+
+#[harp::register]
+pub unsafe extern "C" fn ps_view_data_frame(x: SEXP, title: SEXP) -> SEXP {
+    let title = match String::try_from(RObject::view(title)) {
+        Ok(s) => s,
+        Err(_) => String::from("")
+    };
+    if r_inherits(x, "data.frame") {
+        RDataViewer::start(title, RObject::view(x));
+    }
+
+    R_NilValue
 }
