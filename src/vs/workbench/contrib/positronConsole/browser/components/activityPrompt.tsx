@@ -32,14 +32,6 @@ export const ActivityPrompt = (props: ActivityPromptProps) => {
 		inputRef.current.focus();
 	}, [inputRef]);
 
-	// // onClick handler (placeholder).
-	// const clickHandler = () => {
-	// 	const answer = 'Some Value';
-	// 	props.activityItemPrompt.state = ActivityItemPromptState.Answered;
-	// 	props.activityItemPrompt.answer = !props.activityItemPrompt.password ? answer : '';
-	// 	props.positronConsoleInstance.replyToPrompt(props.activityItemPrompt.id, answer);
-	// };
-
 	/**
 	 * onKeyDown event handler.
 	 * @param e A KeyboardEvent<HTMLDivElement> that describes a user interaction with the keyboard.

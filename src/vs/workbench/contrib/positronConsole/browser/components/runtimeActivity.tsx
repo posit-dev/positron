@@ -4,6 +4,7 @@
 
 import 'vs/css!./runtimeActivity';
 import * as React from 'react';
+import { FontInfo } from 'vs/editor/common/config/fontInfo';
 import { ActivityInput } from 'vs/workbench/contrib/positronConsole/browser/components/activityInput';
 import { ActivityPrompt } from 'vs/workbench/contrib/positronConsole/browser/components/activityPrompt';
 import { ActivityItemInput } from 'vs/workbench/services/positronConsole/common/classes/activityItemInput';
@@ -23,6 +24,7 @@ import { ActivityItemOutputMessage } from 'vs/workbench/services/positronConsole
 
 // RuntimeActivityProps interface.
 export interface RuntimeActivityProps {
+	fontInfo: FontInfo;
 	runtimeItemActivity: RuntimeItemActivity;
 	positronConsoleInstance: IPositronConsoleInstance;
 }
@@ -38,7 +40,7 @@ export const RuntimeActivity = (props: RuntimeActivityProps) => {
 		<div className='runtime-activity'>
 			{props.runtimeItemActivity.activityItems.map(activityItem => {
 				if (activityItem instanceof ActivityItemInput) {
-					return <ActivityInput key={activityItem.id} activityItemInput={activityItem} />;
+					return <ActivityInput key={activityItem.id} fontInfo={props.fontInfo} activityItemInput={activityItem} />;
 				} else if (activityItem instanceof ActivityItemOutputStream) {
 					return <ActivityOutputStream key={activityItem.id} activityItemOutputStream={activityItem} />;
 				} else if (activityItem instanceof ActivityItemErrorStream) {
