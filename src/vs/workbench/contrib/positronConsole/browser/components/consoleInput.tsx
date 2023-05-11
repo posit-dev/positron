@@ -67,7 +67,7 @@ export const ConsoleInput = forwardRef<HTMLDivElement, ConsoleInputProps>((props
 			const lineNumber = textModel.getLineCount();
 			codeEditorWidgetRef.current.setPosition({
 				lineNumber,
-				column: textModel.getLineContent(lineNumber).length + 1
+				column: textModel.getLineMaxColumn(lineNumber)
 			});
 
 			// Ensure that the code editor widget is scrolled into view.
@@ -240,64 +240,75 @@ export const ConsoleInput = forwardRef<HTMLDivElement, ConsoleInputProps>((props
 
 			// Up arrow processing.
 			case KeyCode.UpArrow: {
-				// Consume the event.
-				consumeEvent();
+				// Get the position. If it's at line number 1, allow backward history navigation.
+				const position = codeEditorWidgetRef.current.getPosition();
+				if (position?.lineNumber === 1) {
+					// Consume the event.
+					consumeEvent();
 
-				// If the console instance isn't ready, ignore the event.
-				if (props.positronConsoleInstance.state !== PositronConsoleState.Ready) {
-					return;
-				}
-
-				// If there are history entries, process the event.
-				if (historyNavigatorRef.current) {
-					// When the user moves up from the end, and we don't have a current code editor
-					// fragment, set the current code fragment. Otherwise, move to the previous
-					// entry.
-					if (historyNavigatorRef.current.isAtEnd() &&
-						currentCodeFragmentRef.current === undefined) {
-						setCurrentCodeFragment(codeEditorWidgetRef.current.getValue());
-					} else {
-						historyNavigatorRef.current.previous();
+					// If the console instance isn't ready, do not navigate.
+					if (props.positronConsoleInstance.state !== PositronConsoleState.Ready) {
+						return;
 					}
 
-					// Get the current history entry, set it as the value of the code editor widget.
-					const inputHistoryEntry = historyNavigatorRef.current.current();
-					codeEditorWidgetRef.current.setValue(inputHistoryEntry.input);
+					// If there are history entries, process the event.
+					if (historyNavigatorRef.current) {
+						// When the user moves up from the end, and we don't have a current code editor
+						// fragment, set the current code fragment. Otherwise, move to the previous
+						// entry.
+						if (historyNavigatorRef.current.isAtEnd() &&
+							currentCodeFragmentRef.current === undefined) {
+							setCurrentCodeFragment(codeEditorWidgetRef.current.getValue());
+						} else {
+							historyNavigatorRef.current.previous();
+						}
 
-					// Position the cursor to the end.
-					updateCodeEditorWidgetPositionToEnd();
+						// Get the current history entry, set it as the value of the code editor widget.
+						const inputHistoryEntry = historyNavigatorRef.current.current();
+						codeEditorWidgetRef.current.setValue(inputHistoryEntry.input);
+
+						// Position the cursor to the end.
+						updateCodeEditorWidgetPositionToEnd();
+					}
 				}
 				break;
 			}
 
 			// Down arrow processing.
 			case KeyCode.DownArrow: {
-				// Consume the event.
-				consumeEvent();
+				// Get the position and text model. If it's on the last line, allow forward history
+				// navigation.
+				const position = codeEditorWidgetRef.current.getPosition();
+				const textModel = codeEditorWidgetRef.current.getModel();
+				if (position?.lineNumber === textModel?.getLineCount()) {
+					// Consume the event.
+					consumeEvent();
 
-				// If the console instance isn't ready, ignore the event.
-				if (props.positronConsoleInstance.state !== PositronConsoleState.Ready) {
-					return;
-				}
-
-				// If there are history entries, process the event.
-				if (historyNavigatorRef.current) {
-					// When the user reaches the end of the history entries, restore the current
-					// code fragment.
-					if (historyNavigatorRef.current.isAtEnd()) {
-						if (currentCodeFragmentRef.current !== undefined) {
-							setCurrentCodeFragment(undefined);
-							codeEditorWidgetRef.current.setValue(currentCodeFragmentRef.current);
-						}
-					} else {
-						// Move to the next history entry and set it as the value of the code editor
-						// widget.
-						const inputHistoryEntry = historyNavigatorRef.current.next();
-						codeEditorWidgetRef.current.setValue(inputHistoryEntry.input);
+					// If the console instance isn't ready, do not navigate.
+					if (props.positronConsoleInstance.state !== PositronConsoleState.Ready) {
+						return;
 					}
 
-					// Position the cursor to the end.
-					updateCodeEditorWidgetPositionToEnd();
+					// If there are history entries, process the event.
+					if (historyNavigatorRef.current) {
+						// When the user reaches the end of the history entries, restore the current
+						// code fragment.
+						if (historyNavigatorRef.current.isAtEnd()) {
+							if (currentCodeFragmentRef.current !== undefined) {
+								console.log(`Restoring fragment "${currentCodeFragmentRef.current}"`);
+								codeEditorWidgetRef.current.setValue(currentCodeFragmentRef.current);
+								setCurrentCodeFragment(undefined);
+							}
+						} else {
+							// Move to the next history entry and set it as the value of the code editor
+							// widget.
+							const inputHistoryEntry = historyNavigatorRef.current.next();
+							codeEditorWidgetRef.current.setValue(inputHistoryEntry.input);
+						}
+
+						// Position the cursor to the end.
+						updateCodeEditorWidgetPositionToEnd();
+					}
 				}
 				break;
 			}
@@ -310,9 +321,9 @@ export const ConsoleInput = forwardRef<HTMLDivElement, ConsoleInputProps>((props
 				// If the shift key is pressed, do not process the event because the user is
 				// entering multiple lines.
 				if (e.shiftKey) {
-					const value = codeEditorWidgetRef.current.getValue() + '\n';
-					setCurrentCodeFragment(value);
-					codeEditorWidgetRef.current.setValue(value);
+					codeEditorWidgetRef.current.setValue(
+						codeEditorWidgetRef.current.getValue() + '\n'
+					);
 					updateCodeEditorWidgetPositionToEnd();
 					return;
 				}
