@@ -108,6 +108,7 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 
 	// Reference hooks.
 	const consoleInstanceRef = useRef<HTMLDivElement>(undefined!);
+	const runtimeItemsRef = useRef<HTMLDivElement>(undefined!);
 	const consoleInputRef = useRef<HTMLDivElement>(undefined!);
 
 	// State hooks.
@@ -135,6 +136,17 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 		// Return the selection.
 		return selection;
 	};
+
+	/**
+	 * selectAllRuntimeItems selects all runtime items.
+	 */
+	const selectAllRuntimeItems = () => {
+		const selection = document.getSelection();
+		if (selection) {
+			selection.selectAllChildren(runtimeItemsRef.current);
+		}
+	};
+
 
 	// Main useEffect hook.
 	useEffect(() => {
@@ -213,6 +225,14 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 
 		// Process the key.
 		switch (e.code) {
+			case 'KeyA': {
+				// Handle select all shortcut.
+				if (cmdOrCtrlKey && getSelection()) {
+					selectAllRuntimeItems();
+				}
+				break;
+			}
+
 			// C key.
 			case 'KeyC': {
 				// Handle copy shortcut.
@@ -223,7 +243,11 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 					// Get the selection. If there is one, copy it to the clipboard.
 					const selection = getSelection();
 					if (selection) {
+						// Copy the selection to the clipboard.
 						positronConsoleContext.clipboardService.writeText(selection.toString());
+
+						// Drive focus to the CodeEditorWidget.
+						consoleInputRef.current?.focus();
 					}
 				}
 				break;
@@ -315,35 +339,38 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 			onKeyDown={keyDownHandler}
 			onMouseDown={mouseDownHandler}
 			onScroll={scrollHandler}>
-			{props.positronConsoleInstance.runtimeItems.map(runtimeItem => {
-				if (runtimeItem instanceof RuntimeItemActivity) {
-					return <RuntimeActivity key={runtimeItem.id} runtimeItemActivity={runtimeItem} positronConsoleInstance={props.positronConsoleInstance} />;
-				} else if (runtimeItem instanceof RuntimeItemStartup) {
-					return <RuntimeStartup key={runtimeItem.id} runtimeItemStartup={runtimeItem} />;
-				} else if (runtimeItem instanceof RuntimeItemReconnected) {
-					return <RuntimeReconnected key={runtimeItem.id} runtimeItemReconnected={runtimeItem} />;
-				} else if (runtimeItem instanceof RuntimeItemStarting) {
-					return <RuntimeStarting key={runtimeItem.id} runtimeItemStarting={runtimeItem} />;
-				} else if (runtimeItem instanceof RuntimeItemStarted) {
-					return <RuntimeStarted key={runtimeItem.id} runtimeItemStarted={runtimeItem} />;
-				} else if (runtimeItem instanceof RuntimeItemOffline) {
-					return <RuntimeOffline key={runtimeItem.id} runtimeItemOffline={runtimeItem} />;
-				} else if (runtimeItem instanceof RuntimeItemExited) {
-					return <RuntimeExited key={runtimeItem.id} runtimeItemExited={runtimeItem} />;
-				} else if (runtimeItem instanceof RuntimeItemStartupFailure) {
-					return <RuntimeStartupFailure key={runtimeItem.id} runtimeItemStartupFailure={runtimeItem} />;
-				} else if (runtimeItem instanceof RuntimeItemTrace) {
-					return trace && <RuntimeTrace key={runtimeItem.id} runtimeItemTrace={runtimeItem} />;
-				} else {
-					// This indicates a bug.
-					return null;
-				}
-			})}
+			<div ref={runtimeItemsRef}>
+				{props.positronConsoleInstance.runtimeItems.map(runtimeItem => {
+					if (runtimeItem instanceof RuntimeItemActivity) {
+						return <RuntimeActivity key={runtimeItem.id} runtimeItemActivity={runtimeItem} positronConsoleInstance={props.positronConsoleInstance} />;
+					} else if (runtimeItem instanceof RuntimeItemStartup) {
+						return <RuntimeStartup key={runtimeItem.id} runtimeItemStartup={runtimeItem} />;
+					} else if (runtimeItem instanceof RuntimeItemReconnected) {
+						return <RuntimeReconnected key={runtimeItem.id} runtimeItemReconnected={runtimeItem} />;
+					} else if (runtimeItem instanceof RuntimeItemStarting) {
+						return <RuntimeStarting key={runtimeItem.id} runtimeItemStarting={runtimeItem} />;
+					} else if (runtimeItem instanceof RuntimeItemStarted) {
+						return <RuntimeStarted key={runtimeItem.id} runtimeItemStarted={runtimeItem} />;
+					} else if (runtimeItem instanceof RuntimeItemOffline) {
+						return <RuntimeOffline key={runtimeItem.id} runtimeItemOffline={runtimeItem} />;
+					} else if (runtimeItem instanceof RuntimeItemExited) {
+						return <RuntimeExited key={runtimeItem.id} runtimeItemExited={runtimeItem} />;
+					} else if (runtimeItem instanceof RuntimeItemStartupFailure) {
+						return <RuntimeStartupFailure key={runtimeItem.id} runtimeItemStartupFailure={runtimeItem} />;
+					} else if (runtimeItem instanceof RuntimeItemTrace) {
+						return trace && <RuntimeTrace key={runtimeItem.id} runtimeItemTrace={runtimeItem} />;
+					} else {
+						// This indicates a bug.
+						return null;
+					}
+				})}
+			</div>
 			{!props.positronConsoleInstance.promptActive &&
 				<ConsoleInput
 					ref={consoleInputRef}
 					width={adjustedWidth}
 					positronConsoleInstance={props.positronConsoleInstance}
+					selectAll={() => selectAllRuntimeItems()}
 				/>
 			}
 		</div>

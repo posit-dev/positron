@@ -9,6 +9,7 @@ import { URI } from 'vs/base/common/uri';
 import { Schemas } from 'vs/base/common/network';
 import { KeyCode } from 'vs/base/common/keyCodes';
 import { generateUuid } from 'vs/base/common/uuid';
+import { isMacintosh } from 'vs/base/common/platform';
 import { DisposableStore } from 'vs/base/common/lifecycle';
 import { HistoryNavigator2 } from 'vs/base/common/history';
 import { IKeyboardEvent } from 'vs/base/browser/keyboardEvent';
@@ -32,6 +33,7 @@ import { RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavi
 export interface ConsoleInputProps {
 	readonly width: number;
 	readonly positronConsoleInstance: IPositronConsoleInstance;
+	selectAll: () => void;
 }
 
 /**
@@ -183,6 +185,41 @@ export const ConsoleInput = forwardRef<HTMLDivElement, ConsoleInputProps>((props
 
 				// Interrupt the runtime.
 				props.positronConsoleInstance.runtime.interrupt();
+				break;
+			}
+
+			// Ctrl-C handling.
+			case KeyCode.KeyA: {
+				// Determine whether the cmd or ctrl key is pressed.
+				const cmdOrCtrlKey = isMacintosh ? e.metaKey : e.ctrlKey;
+
+				// If the cmd or ctrl key is pressed, see if the user wants to select all.
+				if (cmdOrCtrlKey) {
+					// Get the code fragment from the code editor widget.
+					const codeFragment = codeEditorWidgetRef.current.getValue();
+
+					// If there is no code in the code editor widget, call the select all callback
+					// to select all output.
+					if (!codeFragment.length) {
+						// Consume the event.
+						consumeEvent();
+
+						// Call the select all callback.
+						props.selectAll();
+					}
+
+					// Get the selection and the text model. If the selection equals the entire text
+					// model's range, then leave everything selected.
+					const selection = codeEditorWidgetRef.current.getSelection();
+					const textModel = codeEditorWidgetRef.current.getModel();
+					if (selection && textModel) {
+						if (selection.equalsRange(textModel.getFullModelRange())) {
+							// Consume the event and return.
+							consumeEvent();
+							return;
+						}
+					}
+				}
 				break;
 			}
 
