@@ -10,7 +10,6 @@ use amalthea::socket::comm::CommInitiator;
 use amalthea::socket::comm::CommSocket;
 use harp::object::RObject;
 use harp::r_lock;
-use harp::utils::r_inherits;
 use harp::utils::r_is_null;
 use harp::vector::CharacterVector;
 use harp::vector::Vector;
@@ -134,9 +133,7 @@ pub unsafe extern "C" fn ps_view_data_frame(x: SEXP, title: SEXP) -> SEXP {
         Ok(s) => s,
         Err(_) => String::from("")
     };
-    if r_inherits(x, "data.frame") {
-        RDataViewer::start(title, RObject::view(x));
-    }
+    RDataViewer::start(title, RObject::from(x));
 
     R_NilValue
 }
