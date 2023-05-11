@@ -225,6 +225,7 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 
 		// Process the key.
 		switch (e.code) {
+			// A key.
 			case 'KeyA': {
 				// Handle select all shortcut.
 				if (cmdOrCtrlKey && getSelection()) {
