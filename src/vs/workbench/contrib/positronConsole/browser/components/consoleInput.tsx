@@ -188,7 +188,7 @@ export const ConsoleInput = forwardRef<HTMLDivElement, ConsoleInputProps>((props
 				break;
 			}
 
-			// Ctrl-C handling.
+			// Ctrl-A handling.
 			case KeyCode.KeyA: {
 				// Determine whether the cmd or ctrl key is pressed.
 				const cmdOrCtrlKey = isMacintosh ? e.metaKey : e.ctrlKey;
@@ -208,16 +208,18 @@ export const ConsoleInput = forwardRef<HTMLDivElement, ConsoleInputProps>((props
 						props.selectAll();
 					}
 
-					// Get the selection and the text model. If the selection equals the entire text
-					// model's range, then leave everything selected.
+					// Get the selection and the text model.
 					const selection = codeEditorWidgetRef.current.getSelection();
 					const textModel = codeEditorWidgetRef.current.getModel();
 					if (selection && textModel) {
-						if (selection.equalsRange(textModel.getFullModelRange())) {
-							// Consume the event and return.
-							consumeEvent();
-							return;
+						// If the full model range is not already selected, select it.
+						const fullModelRange = textModel.getFullModelRange();
+						if (!selection.equalsRange(fullModelRange)) {
+							codeEditorWidgetRef.current.setSelection(fullModelRange);
 						}
+
+						// Consume the event.
+						consumeEvent();
 					}
 				}
 				break;
