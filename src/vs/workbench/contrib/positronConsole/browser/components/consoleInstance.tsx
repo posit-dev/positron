@@ -228,6 +228,10 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 			case 'KeyA': {
 				// Handle select all shortcut.
 				if (cmdOrCtrlKey && getSelection()) {
+					// Consume the event.
+					consumeEvent();
+
+					// Select all runtime items.
 					selectAllRuntimeItems();
 				}
 				break;
