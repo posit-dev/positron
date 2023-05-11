@@ -58,20 +58,14 @@ def initialize_config() -> None:
     )
     args = parser.parse_args()
 
-    log_level = {0: logging.WARN, 1: logging.INFO, 2: logging.DEBUG}.get(
-        args.verbose,
-        logging.DEBUG,
-    )
-
     if args.logfile:
         logging.basicConfig(
             filename=args.logfile,
             filemode="w",
-            level=log_level,
+            level=logging.INFO,
         )
-        pass
     else:
-        logging.basicConfig(stream=sys.stderr, level=log_level)
+        logging.basicConfig(stream=sys.stderr, level=logging.WARNING)
 
     # Start the debugpy debugger if a port was specified
     if args.debugport is not None:

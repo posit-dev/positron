@@ -630,7 +630,7 @@
                     "type": "string"
                 },
                 "python.interpreter.infoVisibility": {
-                    "default": "onPythonRelated",
+                    "default": "never",
                     "description": "%python.interpreter.infoVisibility.description%",
                     "enum": [
                         "never",
