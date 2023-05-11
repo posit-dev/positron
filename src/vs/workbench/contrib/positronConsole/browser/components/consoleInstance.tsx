@@ -8,11 +8,11 @@ import { KeyboardEvent, MouseEvent, UIEvent, useEffect, useRef, useState } from 
 import { generateUuid } from 'vs/base/common/uuid';
 import { PixelRatio } from 'vs/base/browser/browser';
 import { isMacintosh } from 'vs/base/common/platform';
-import { BareFontInfo } from 'vs/editor/common/config/fontInfo';
+import { DisposableStore } from 'vs/base/common/lifecycle';
 import { useStateRef } from 'vs/base/browser/ui/react/useStateRef';
 import { applyFontInfo } from 'vs/editor/browser/config/domFontInfo';
 import { IEditorOptions } from 'vs/editor/common/config/editorOptions';
-import { DisposableStore, IDisposable } from 'vs/base/common/lifecycle';
+import { BareFontInfo, FontInfo } from 'vs/editor/common/config/fontInfo';
 import { FontMeasurements } from 'vs/editor/browser/config/fontMeasurements';
 import { IReactComponentContainer } from 'vs/base/browser/positronReactRenderer';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
@@ -48,52 +48,15 @@ interface ConsoleInstanceProps {
 }
 
 /**
- * Editor font tracker.
- * @param configurationService The configuratio service.
- * @param element The element to apply the editor font info to.
- * @returns An IDisposable that should be disposed when the editor font tracker is no longer needed.
+ * Gets the font info for the editor font.
+ * @param configurationService The configuration service.
+ * @returns The font info.
  */
-const editorFontTracker = (
-	configurationService: IConfigurationService,
-	element: HTMLDivElement
-): IDisposable => {
+const getEditorFontInfo = (configurationService: IConfigurationService) => {
 	// Get the editor options and read the font info.
 	const editorOptions = configurationService.getValue<IEditorOptions>('editor');
-	const fontInfo = FontMeasurements.readFontInfo(
+	return FontMeasurements.readFontInfo(
 		BareFontInfo.createFromRawSettings(editorOptions, PixelRatio.value)
-	);
-
-	// Apply the font info to the element.
-	applyFontInfo(element, fontInfo);
-
-	// Watch for configuratio changes.
-	return configurationService.onDidChangeConfiguration(
-		configurationChangeEvent => {
-			// When something in the editor changes, determine whether it's font-related
-			// and, if it is, apply the new font info to the container.
-			if (configurationChangeEvent.affectsConfiguration('editor')) {
-				if (configurationChangeEvent.affectedKeys.has('editor.fontFamily') ||
-					configurationChangeEvent.affectedKeys.has('editor.fontWeight') ||
-					configurationChangeEvent.affectedKeys.has('editor.fontSize') ||
-					configurationChangeEvent.affectedKeys.has('editor.fontLigatures') ||
-					configurationChangeEvent.affectedKeys.has('editor.fontVariations') ||
-					configurationChangeEvent.affectedKeys.has('editor.lineHeight') ||
-					configurationChangeEvent.affectedKeys.has('editor.letterSpacing')
-				) {
-					// Get the editor options and read the font info.
-					const fontInfo = FontMeasurements.readFontInfo(
-						BareFontInfo.createFromRawSettings(
-							configurationService.
-								getValue<IEditorOptions>('editor'),
-							PixelRatio.value
-						)
-					);
-
-					// Apply the font info to the Positron environment container.
-					applyFontInfo(element, fontInfo);
-				}
-			}
-		}
 	);
 };
 
@@ -112,6 +75,8 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 	const consoleInputRef = useRef<HTMLDivElement>(undefined!);
 
 	// State hooks.
+	const [editorFontInfo, setEditorFontInfo] =
+		useState<FontInfo>(getEditorFontInfo(positronConsoleContext.configurationService));
 	const [trace, setTrace] = useState(props.positronConsoleInstance.trace);
 	const [marker, setMarker] = useState(generateUuid());
 	const [, setLastScrollTop, lastScrollTopRef] = useStateRef(0);
@@ -147,16 +112,41 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 		}
 	};
 
-
 	// Main useEffect hook.
 	useEffect(() => {
 		// Create the disposable store for cleanup.
 		const disposableStore = new DisposableStore();
 
-		// Add the editor font tracker.
-		disposableStore.add(editorFontTracker(
-			positronConsoleContext.configurationService,
-			consoleInstanceRef.current
+		// Apply the font info to the console instance.
+		applyFontInfo(consoleInstanceRef.current, editorFontInfo);
+
+		// Add the onDidChangeConfiguration event handler.
+		disposableStore.add(positronConsoleContext.configurationService.onDidChangeConfiguration(
+			configurationChangeEvent => {
+				// When something in the editor changes, determine whether it's font-related
+				// and, if it is, apply the new font info to the container.
+				if (configurationChangeEvent.affectsConfiguration('editor')) {
+					if (configurationChangeEvent.affectedKeys.has('editor.fontFamily') ||
+						configurationChangeEvent.affectedKeys.has('editor.fontWeight') ||
+						configurationChangeEvent.affectedKeys.has('editor.fontSize') ||
+						configurationChangeEvent.affectedKeys.has('editor.fontLigatures') ||
+						configurationChangeEvent.affectedKeys.has('editor.fontVariations') ||
+						configurationChangeEvent.affectedKeys.has('editor.lineHeight') ||
+						configurationChangeEvent.affectedKeys.has('editor.letterSpacing')
+					) {
+						// Get the font info.
+						const editorFontInfo = getEditorFontInfo(
+							positronConsoleContext.configurationService
+						);
+
+						// Set the editor font info.
+						setEditorFontInfo(editorFontInfo);
+
+						// Apply the font info to the console instance.
+						applyFontInfo(consoleInstanceRef.current, editorFontInfo);
+					}
+				}
+			}
 		));
 
 		// Add the onSaveScrollPosition event handler.
@@ -171,6 +161,7 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 
 		// Add the onDidChangeState event handler.
 		disposableStore.add(props.positronConsoleInstance.onDidChangeState(state => {
+			// TODO
 		}));
 
 		// Add the onDidChangeTrace event handler.
@@ -347,7 +338,7 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 			<div ref={runtimeItemsRef}>
 				{props.positronConsoleInstance.runtimeItems.map(runtimeItem => {
 					if (runtimeItem instanceof RuntimeItemActivity) {
-						return <RuntimeActivity key={runtimeItem.id} runtimeItemActivity={runtimeItem} positronConsoleInstance={props.positronConsoleInstance} />;
+						return <RuntimeActivity key={runtimeItem.id} fontInfo={editorFontInfo} runtimeItemActivity={runtimeItem} positronConsoleInstance={props.positronConsoleInstance} />;
 					} else if (runtimeItem instanceof RuntimeItemStartup) {
 						return <RuntimeStartup key={runtimeItem.id} runtimeItemStartup={runtimeItem} />;
 					} else if (runtimeItem instanceof RuntimeItemReconnected) {
