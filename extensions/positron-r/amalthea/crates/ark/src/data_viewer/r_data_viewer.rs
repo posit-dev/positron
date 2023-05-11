@@ -10,10 +10,13 @@ use amalthea::socket::comm::CommInitiator;
 use amalthea::socket::comm::CommSocket;
 use harp::object::RObject;
 use harp::r_lock;
+use harp::utils::r_is_null;
 use harp::vector::CharacterVector;
 use harp::vector::Vector;
+use libR_sys::NILSXP;
 use libR_sys::R_NamesSymbol;
 use libR_sys::Rf_getAttrib;
+use libR_sys::STRSXP;
 use libR_sys::VECTOR_ELT;
 use libR_sys::XLENGTH;
 use serde::Deserialize;
@@ -24,8 +27,10 @@ use uuid::Uuid;
 use crate::lsp::globals::comm_manager_tx;
 
 pub struct RDataViewer {
+    pub id: String,
     pub title: String,
-    pub data: RObject
+    pub data: RObject,
+    pub comm: CommSocket,
 }
 
 #[derive(Deserialize, Serialize)]
@@ -43,16 +48,22 @@ pub struct DataSet {
     pub id: String,
     pub title: String,
     pub columns: Vec<DataColumn>,
+
+    #[serde(rename = "rowCount")]
     pub row_count: usize
 }
 
 impl DataSet {
-    pub fn from_object(id: String, title: String, object: RObject) -> Self {
+    pub fn from_object(id: String, title: String, object: RObject) -> Result<Self, harp::error::Error> {
 
-        let mut columns = vec![];
+        let columns = r_lock! {
+            let mut columns = vec![];
 
-        r_lock! {
-            let names = CharacterVector::new_unchecked(Rf_getAttrib(*object, R_NamesSymbol));
+            let names = Rf_getAttrib(*object, R_NamesSymbol);
+            if r_is_null(names) {
+                return Err(harp::error::Error::UnexpectedType(NILSXP, vec![STRSXP]))
+            }
+            let names = CharacterVector::new_unchecked(names);
 
             let n_columns = XLENGTH(*object);
             for i in 0..n_columns {
@@ -64,14 +75,17 @@ impl DataSet {
                     data
                 });
             }
-        }
 
-        Self {
+            Ok(columns)
+        }?;
+
+        Ok(Self {
             id,
             title,
             columns,
             row_count: 0
-        }
+        })
+
     }
 }
 
@@ -79,33 +93,33 @@ impl RDataViewer {
 
     pub fn start(title: String, data: RObject) {
         spawn!("ark-data-viewer", move || {
+            let id = Uuid::new_v4().to_string();
+            let comm = CommSocket::new(
+                CommInitiator::BackEnd,
+                id.clone(),
+                String::from("positron.dataViewer"),
+            );
             let viewer = Self {
+                id,
                 title,
-                data
+                data,
+                comm
             };
-            viewer.execution_thread();
+            viewer.execution_thread()
         });
     }
 
-    pub fn execution_thread(self) {
-        let id = Uuid::new_v4().to_string();
-
-        let socket = CommSocket::new(
-            CommInitiator::BackEnd,
-            id.clone(),
-            String::from("positron.dataViewer"),
-        );
+    pub fn execution_thread(self) -> Result<(), anyhow::Error> {
+        let data_set = DataSet::from_object(self.id.clone(), self.title, self.data)?;
+        let json = serde_json::to_value(data_set)?;
 
         let comm_manager_tx = comm_manager_tx();
+        let event = CommEvent::Opened(self.comm.clone(), json);
+        comm_manager_tx.send(event)?;
 
-        let data_set = DataSet::from_object(id, self.title, self.data);
+        // TODO: some sort of select!() loop to listen for events from the comm
 
-        let json = serde_json::to_value(data_set).unwrap();
-
-        let event = CommEvent::Opened(socket.clone(), json);
-        if let Err(error) = comm_manager_tx.send(event) {
-            log::error!("{}", error);
-        }
+        Ok(())
     }
 
 }
