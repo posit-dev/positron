@@ -22,7 +22,8 @@ export interface ActivityInputProps {
 export const ActivityInput = (props: ActivityInputProps) => {
 	// Calculate the prompt width.
 	const promptWidth = Math.ceil(
-		(props.activityItemInput.inputPrompt.length + 1) * props.fontInfo.typicalHalfwidthCharacterWidth
+		(props.activityItemInput.inputPrompt.length + 1) *
+		props.fontInfo.typicalHalfwidthCharacterWidth
 	);
 
 	// Render.
