@@ -26,21 +26,26 @@ export const ActivityInput = (props: ActivityInputProps) => {
 		(props.activityItemInput.prompt.length + 1) * props.fontInfo.typicalHalfwidthCharacterWidth
 	);
 
+	// Slice the output lines.
+	const outputLines = props.activityItemInput.codeOutputLines.slice(1);
+
 	// Render.
 	return (
 		<>
 			<div>
 				<span style={{ width: promptWidth }}>{props.activityItemInput.prompt}</span>
 				<span>&nbsp;</span>
-				{props.activityItemInput.codeOutputLines.length && (
+				{props.activityItemInput.codeOutputLines.length !== 0 &&
 					props.activityItemInput.codeOutputLines[0].outputRuns.map(outputRun =>
 						<OutputRun key={outputRun.id} outputRun={outputRun} />
 					)
-				)}
+				}
 			</div>
-			<div style={{ marginLeft: promptWidth }}>
-				<OutputLines outputLines={props.activityItemInput.codeOutputLines.slice(1)} />
-			</div>
+			{outputLines.length !== 0 &&
+				<div style={{ marginLeft: promptWidth }}>
+					<OutputLines outputLines={outputLines} />
+				</div>
+			}
 		</>
 	);
 };
