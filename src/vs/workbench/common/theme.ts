@@ -1397,6 +1397,14 @@ export const POSITRON_CONSOLE_FOREGROUND_COLOR = registerColor('positronConsole.
 	hcLight: 'terminal.foreground'
 }, localize('positronConsole.foreground', "Positron Console foreground color."));
 
+// Positron Console error foreground color.
+export const POSITRON_CONSOLE_ERROR_FOREGROUND_COLOR = registerColor('positronConsole.errorForeground', {
+	dark: errorForeground,
+	light: errorForeground,
+	hcDark: errorForeground,
+	hcLight: errorForeground
+}, localize('positronConsole.errorForeground', "Positron Console error foreground color."));
+
 // Positron Console ANSI black color.
 export const POSITRON_CONSOLE_ANSI_BLACK = registerColor('positronConsole.ansiBlack', {
 	dark: 'terminal.ansiBlack',
