@@ -13,6 +13,14 @@
 	-webkit-user-select: text;
 }
 
+.console-core .console-instance .top-spacer {
+	min-height: 10px;
+	user-select: none;
+	-ms-user-select: none;
+	-moz-user-select: none;
+	-webkit-user-select: none;
+}
+
 .console-core .console-instance:focus {
 	outline: none !important;
 }
