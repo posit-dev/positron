@@ -376,6 +376,11 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	private _trace = false;
 
 	/**
+	 * Gets or sets a value which indicates whether word wrap is enabled.
+	 */
+	private _wordWrap = true;
+
+	/**
 	 * Gets or sets the runtime items.
 	 */
 	private _runtimeItems: RuntimeItem[] = [];
@@ -399,6 +404,11 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	 * The onDidChangeTrace event emitter.
 	 */
 	private readonly _onDidChangeTraceEmitter = this._register(new Emitter<boolean>);
+
+	/**
+	 * The onDidChangeWordWrap event emitter.
+	 */
+	private readonly _onDidChangeWordWrapEmitter = this._register(new Emitter<boolean>);
 
 	/**
 	 * The onDidChangeRuntimeItems event emitter.
@@ -477,6 +487,13 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	}
 
 	/**
+	 * Gets a value which indicates whether word wrap is enabled.
+	 */
+	get wordWrap(): boolean {
+		return this._wordWrap;
+	}
+
+	/**
 	 * Gets the runtime items.
 	 */
 	get runtimeItems(): RuntimeItem[] {
@@ -499,6 +516,11 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	 * onDidChangeTrace event.
 	 */
 	readonly onDidChangeTrace: Event<boolean> = this._onDidChangeTraceEmitter.event;
+
+	/**
+	 * onDidChangeWordWrap event.
+	 */
+	readonly onDidChangeWordWrap: Event<boolean> = this._onDidChangeWordWrapEmitter.event;
 
 	/**
 	 * onDidChangeRuntimeItems event.
@@ -526,6 +548,14 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	toggleTrace(): void {
 		this._trace = !this._trace;
 		this._onDidChangeTraceEmitter.fire(this._trace);
+	}
+
+	/**
+	 * Toggles word wrap.
+	 */
+	toggleWordWrap(): void {
+		this._wordWrap = !this._wordWrap;
+		this._onDidChangeWordWrapEmitter.fire(this._wordWrap);
 	}
 
 	/**
