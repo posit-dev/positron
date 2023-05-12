@@ -3,5 +3,5 @@
  *--------------------------------------------------------------------------------------------*/
 
 .activity-error-stream {
-	color: red;
+	color: var(--vscode-positronConsole-errorForeground);
 }

@@ -35,13 +35,13 @@ export const ActivityInput = (props: ActivityInputProps) => {
 			<div>
 				<span style={{ width: promptWidth }}>{props.activityItemInput.prompt}</span>
 				<span>&nbsp;</span>
-				{props.activityItemInput.codeOutputLines.length !== 0 &&
+				{props.activityItemInput.codeOutputLines.length > 0 &&
 					props.activityItemInput.codeOutputLines[0].outputRuns.map(outputRun =>
 						<OutputRun key={outputRun.id} outputRun={outputRun} />
 					)
 				}
 			</div>
-			{outputLines.length !== 0 &&
+			{outputLines.length > 0 &&
 				<div style={{ marginLeft: promptWidth }}>
 					<OutputLines outputLines={outputLines} />
 				</div>

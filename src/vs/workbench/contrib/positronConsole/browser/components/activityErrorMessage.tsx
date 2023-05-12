@@ -21,9 +21,13 @@ export const ActivityErrorMessage = (props: ActivityErrorMessageProps) => {
 	// Render.
 	return (
 		<div className='activity-error-message'>
-			<OutputLines outputLines={props.activityItemErrorMessage.messageOutputLines} />
+			{props.activityItemErrorMessage.messageOutputLines.length > 0 &&
+				<div className='message-output'>
+					<OutputLines outputLines={props.activityItemErrorMessage.messageOutputLines} />
+				</div>
+			}
 			{props.activityItemErrorMessage.tracebackOutputLines.length > 0 &&
-				<div className='traceback-lines'>
+				<div className='traceback-output'>
 					<OutputLines outputLines={props.activityItemErrorMessage.tracebackOutputLines} />
 				</div>
 			}
