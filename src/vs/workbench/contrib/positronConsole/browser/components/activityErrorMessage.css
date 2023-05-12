@@ -2,7 +2,11 @@
  *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
-.activity-error-message .traceback-lines {
+.activity-error-message .message-output {
+	color: var(--vscode-positronConsole-errorForeground);
+}
+
+.activity-error-message .traceback-output {
 	box-sizing: border-box;
-	border-top: 1px solid red;
+	border-top: 1px solid var(--vscode-positronConsole-errorForeground);
 }
