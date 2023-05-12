@@ -336,6 +336,7 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 			onMouseDown={mouseDownHandler}
 			onScroll={scrollHandler}>
 			<div ref={runtimeItemsRef}>
+				<div className='top-spacer' />
 				{props.positronConsoleInstance.runtimeItems.map(runtimeItem => {
 					if (runtimeItem instanceof RuntimeItemActivity) {
 						return <RuntimeActivity key={runtimeItem.id} fontInfo={editorFontInfo} runtimeItemActivity={runtimeItem} positronConsoleInstance={props.positronConsoleInstance} />;

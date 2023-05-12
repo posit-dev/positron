@@ -6,7 +6,6 @@ import 'vs/css!./activityInput';
 import * as React from 'react';
 import { FontInfo } from 'vs/editor/common/config/fontInfo';
 import { OutputRun } from 'vs/workbench/contrib/positronConsole/browser/components/outputRun';
-import { OutputLines } from 'vs/workbench/contrib/positronConsole/browser/components/outputLines';
 import { ActivityItemInput } from 'vs/workbench/services/positronConsole/common/classes/activityItemInput';
 
 // ActivityInputProps interface.
@@ -23,29 +22,26 @@ export interface ActivityInputProps {
 export const ActivityInput = (props: ActivityInputProps) => {
 	// Calculate the prompt width.
 	const promptWidth = Math.ceil(
-		(props.activityItemInput.prompt.length + 1) * props.fontInfo.typicalHalfwidthCharacterWidth
+		(props.activityItemInput.inputPrompt.length + 1) * props.fontInfo.typicalHalfwidthCharacterWidth
 	);
-
-	// Slice the output lines.
-	const outputLines = props.activityItemInput.codeOutputLines.slice(1);
 
 	// Render.
 	return (
 		<>
-			<div>
-				<span style={{ width: promptWidth }}>{props.activityItemInput.prompt}</span>
-				<span>&nbsp;</span>
-				{props.activityItemInput.codeOutputLines.length > 0 &&
-					props.activityItemInput.codeOutputLines[0].outputRuns.map(outputRun =>
+			{props.activityItemInput.codeOutputLines.map((outputLine, index) =>
+				<div key={outputLine.id}>
+					<span style={{ width: promptWidth }}>
+						{index === 0 ?
+							props.activityItemInput.inputPrompt :
+							props.activityItemInput.continuationPrompt
+						}
+					</span>
+					<span>&nbsp;</span>
+					{outputLine.outputRuns.map(outputRun =>
 						<OutputRun key={outputRun.id} outputRun={outputRun} />
-					)
-				}
-			</div>
-			{outputLines.length > 0 &&
-				<div style={{ marginLeft: promptWidth }}>
-					<OutputLines outputLines={outputLines} />
+					)}
 				</div>
-			}
+			)}
 		</>
 	);
 };
