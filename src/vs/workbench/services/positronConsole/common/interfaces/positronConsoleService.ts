@@ -84,6 +84,11 @@ export interface IPositronConsoleInstance {
 	readonly trace: boolean;
 
 	/**
+	 * Gets a value which indicates whether word wrap is enabled.
+	 */
+	readonly wordWrap: boolean;
+
+	/**
 	 * Gets the runtime items.
 	 */
 	readonly runtimeItems: RuntimeItem[];
@@ -97,6 +102,11 @@ export interface IPositronConsoleInstance {
 	 * The onDidChangeState event.
 	 */
 	readonly onDidChangeState: Event<PositronConsoleState>;
+
+	/**
+	 * The onDidChangeWordWrap event.
+	 */
+	readonly onDidChangeWordWrap: Event<boolean>;
 
 	/**
 	 * The onDidChangeTrace event.
@@ -122,6 +132,11 @@ export interface IPositronConsoleInstance {
 	 * The onDidExecuteCode event.
 	 */
 	readonly onDidExecuteCode: Event<string>;
+
+	/**
+	 * Toggles word wrap.
+	 */
+	toggleWordWrap(): void;
 
 	/**
 	 * Toggles trace.

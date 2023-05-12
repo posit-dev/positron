@@ -20,10 +20,10 @@ export interface OutputLinesProps {
 export const OutputLines = (props: OutputLinesProps) => {
 	// Render.
 	return (
-		<div className='output-lines'>
+		<>
 			{props.outputLines.map(outputLine =>
 				<OutputLine key={outputLine.id} outputLine={outputLine} />
 			)}
-		</div>
+		</>
 	);
 };
