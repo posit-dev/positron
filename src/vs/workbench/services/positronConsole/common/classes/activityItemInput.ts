@@ -24,14 +24,16 @@ export class ActivityItemInput {
 	 * @param id The identifier.
 	 * @param parentId The parent identifier.
 	 * @param when The date.
-	 * @param prompt The input prompt.
+	 * @param inputPrompt The input prompt.
+	 * @param continuationPrompt The continuation prompt.
 	 * @param code The code.
 	 */
 	constructor(
 		readonly id: string,
 		readonly parentId: string,
 		readonly when: Date,
-		readonly prompt: string,
+		readonly inputPrompt: string,
+		readonly continuationPrompt: string,
 		readonly code: string
 	) {
 		// Process the code directly into ANSI output lines suitable for rendering.
