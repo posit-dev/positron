@@ -92,12 +92,17 @@ export const ActionBar = (props: ActionBarProps) => {
 		activePositronConsoleInstance?.runtime.interrupt();
 	};
 
-	// Toggle trace handler.
+	// Toggle trace event handler.
 	const toggleTraceHandler = async () => {
 		positronConsoleContext.activePositronConsoleInstance?.toggleTrace();
 	};
 
-	// Clear console handler.
+	// Toggle word wrap event handler.
+	const toggleWordWrapHandler = async () => {
+		positronConsoleContext.activePositronConsoleInstance?.toggleWordWrap();
+	};
+
+	// Clear console event handler.
 	const clearConsoleHandler = async () => {
 		positronConsoleContext.activePositronConsoleInstance?.clearConsole();
 	};
@@ -121,7 +126,8 @@ export const ActionBar = (props: ActionBarProps) => {
 						}
 					</ActionBarRegion>
 					<ActionBarRegion align='right'>
-						<ActionBarButton iconId='positron-list' align='right' tooltip={localize('positronToggleTrace', "Toggle Trace")} onClick={toggleTraceHandler} />
+						<ActionBarButton iconId='positron-list' align='right' tooltip={localize('positronToggleTrace', "Toggle trace")} onClick={toggleTraceHandler} />
+						<ActionBarButton iconId='positron-word-wrap' align='right' tooltip={localize('positronWordWrap', "Toggle word wrap")} onClick={toggleWordWrapHandler} />
 						<ActionBarSeparator />
 						<ActionBarButton iconId='positron-trash-can' align='right' tooltip={localize('positronClearConsole', "Clear console")} onClick={clearConsoleHandler} />
 					</ActionBarRegion>

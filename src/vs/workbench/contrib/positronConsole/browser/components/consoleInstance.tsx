@@ -78,6 +78,7 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 	const [editorFontInfo, setEditorFontInfo] =
 		useState<FontInfo>(getEditorFontInfo(positronConsoleContext.configurationService));
 	const [trace, setTrace] = useState(props.positronConsoleInstance.trace);
+	const [wordWrap, setWordWrap] = useState(props.positronConsoleInstance.wordWrap);
 	const [marker, setMarker] = useState(generateUuid());
 	const [, setLastScrollTop, lastScrollTopRef] = useStateRef(0);
 
@@ -167,6 +168,11 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 		// Add the onDidChangeTrace event handler.
 		disposableStore.add(props.positronConsoleInstance.onDidChangeTrace(trace => {
 			setTrace(trace);
+		}));
+
+		// Add the onDidChangeWordWrap event handler.
+		disposableStore.add(props.positronConsoleInstance.onDidChangeWordWrap(wordWrap => {
+			setWordWrap(wordWrap);
 		}));
 
 		// Add the onDidChangeRuntimeItems event handler.
@@ -329,7 +335,7 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 		<div
 			ref={consoleInstanceRef}
 			className='console-instance'
-			style={{ width: adjustedWidth, height: props.height, zIndex: props.active ? 1 : -1 }}
+			style={{ width: adjustedWidth, height: props.height, whiteSpace: wordWrap ? 'pre-wrap' : 'pre', zIndex: props.active ? 1 : -1 }}
 			tabIndex={0}
 			onClick={clickHandler}
 			onKeyDown={keyDownHandler}
