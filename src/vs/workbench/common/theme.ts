@@ -991,6 +991,16 @@ export const WINDOW_INACTIVE_BORDER = registerColor('window.inactiveBorder', {
 
 // --- Start Positron ---
 
+// < --- Positron Scroll Bar --- >
+
+// The Positron scroll bar border color.
+export const POSITRON_SCROLL_BAR_BORDER = registerColor('positronScrollBar.border', {
+	dark: lighten(PANEL_BORDER, 0.5),
+	light: lighten(PANEL_BORDER, 0.5),
+	hcDark: PANEL_BORDER,
+	hcLight: PANEL_BORDER
+}, localize('positronScrollBar.border', "Positron scroll bar border color."));
+
 // < --- Positron Tool Tip --- >
 
 // The Positron tool tip background color.
