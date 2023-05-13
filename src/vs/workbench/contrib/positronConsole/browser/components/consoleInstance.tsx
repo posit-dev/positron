@@ -341,7 +341,7 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 			onKeyDown={keyDownHandler}
 			onMouseDown={mouseDownHandler}
 			onScroll={scrollHandler}>
-			<div ref={runtimeItemsRef}>
+			<div ref={runtimeItemsRef} className='runtime-items'>
 				<div className='top-spacer' />
 				{props.positronConsoleInstance.runtimeItems.map(runtimeItem => {
 					if (runtimeItem instanceof RuntimeItemActivity) {
