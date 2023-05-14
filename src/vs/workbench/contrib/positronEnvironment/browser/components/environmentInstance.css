@@ -4,7 +4,7 @@
 
 .environment-core .environment-instance {
 	top: 0;
-	cursor: pointer;
+	cursor: default;
 	position: absolute;
 	-webkit-user-select: none;
 	-moz-user-select: none;
@@ -13,9 +13,12 @@
 	background: var(--vscode-positronEnvironment-background);
 }
 
-/* Don't do it. */
 .environment-core .environment-instance:focus {
 	outline: none !important;
+}
+
+.environment-core .environment-instance .list {
+	overflow: overlay !important;
 }
 
 .expand-collapse-button:focus {
@@ -27,7 +30,31 @@
 	outline: 1px solid var(--vscode-focusBorder) !important;
 }
 
-
 .environment-core .environment-instance.resizing {
 	cursor: col-resize;	/* The cursor will drift out of the column splitter every now and then. */
+}
+
+::-webkit-scrollbar {
+	background: transparent;
+	width: 8px;
+	height: 0;
+	cursor: default !important;
+}
+
+::-webkit-scrollbar-track {
+	opacity: 0;
+}
+
+::-webkit-scrollbar-thumb {
+	min-height: 20px;
+	background-color: var(--vscode-scrollbarSlider-background) !important;
+}
+
+::-webkit-scrollbar-thumb:hover {
+	cursor: pointer !important;
+	background-color: var(--vscode-scrollbarSlider-hoverBackground) !important;
+}
+
+::-webkit-scrollbar-corner {
+	display: none;
 }
