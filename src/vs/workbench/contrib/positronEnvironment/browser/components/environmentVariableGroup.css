@@ -6,6 +6,7 @@
 	display: flex;
 	border: none;
 	font-size: 11px;
+	cursor: pointer;
 	padding-right: 8px;
 	align-items: center;
 	box-sizing: border-box; /* Draw the borders inside the box. */

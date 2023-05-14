@@ -38,10 +38,10 @@ interface EnvironmentInstanceProps {
 }
 
 /**
- * EnvironmentInstance component.
- * @param props A EnvironmentInstanceProps that contains the component properties.
- * @returns The rendered component.
- */
+* EnvironmentInstance component.
+* @param props A EnvironmentInstanceProps that contains the component properties.
+* @returns The rendered component.
+*/
 export const EnvironmentInstance = (props: EnvironmentInstanceProps) => {
 	// Context hooks.
 	const positronEnvironmentContext = usePositronEnvironmentContext();
@@ -452,6 +452,7 @@ export const EnvironmentInstance = (props: EnvironmentInstanceProps) => {
 			{!entries.length ?
 				<EmptyEnvironment initializing={initializing} /> :
 				<List
+					className='list'
 					ref={listRef}
 					innerRef={innerRef}
 					itemCount={entries.length}
