@@ -1,3 +1,6 @@
 [submodule "extensions/positron-python"]
 	path = extensions/positron-python
 	url = git@github.com:posit-dev/positron-python.git
+[submodule "extensions/positron-r/amalthea"]
+	path = extensions/positron-r/amalthea
+	url = git@github.com:posit-dev/amalthea.git
