@@ -19,8 +19,12 @@ use harp::utils::r_is_simple_vector;
 use harp::utils::r_typeof;
 use harp::vector::CharacterVector;
 use harp::vector::Vector;
+use libR_sys::INTEGER_ELT;
+use libR_sys::R_DimSymbol;
+use libR_sys::R_MissingArg;
 use libR_sys::R_NamesSymbol;
 use libR_sys::R_NilValue;
+use libR_sys::R_RowNamesSymbol;
 use libR_sys::Rf_getAttrib;
 use libR_sys::SEXP;
 use libR_sys::STRSXP;
@@ -84,16 +88,39 @@ impl DataSet {
             }
 
         } else if r_is_matrix(*object) {
-            bail!("matrix columns nyi");
+            unsafe {
+                let dim = Rf_getAttrib(*object, R_DimSymbol);
+                let n_columns = INTEGER_ELT(dim, 1);
+
+                for i in 0..n_columns {
+                    let name = match name {
+                        Some(ref prefix) => format!("{}[, {}]", prefix, i + 1),
+                        None => format!("[, {}]", i + 1)
+                    };
+
+                    let matrix_column = RFunction::from("[")
+                        .add(*object)
+                        .param("i", R_MissingArg)
+                        .param("j", i + 1)
+                        .call()?;
+
+                    Self::extract_columns(matrix_column, Some(name), columns)?;
+                }
+            }
         } else {
             let mut formatted = object;
             if !r_is_simple_vector(*formatted) {
                 formatted = unsafe { RFunction::from("format").add(*formatted).call()? };
+                if !r_is_simple_vector(*formatted) {
+                    bail!("problem formatting data frame column {}", name.unwrap())
+                }
             }
             let data = harp::vector::format(*formatted);
 
             columns.push(DataColumn{
                 name: name.unwrap(),
+
+                // TODO: String here is a placeholder
                 column_type: String::from("String"),
                 data
             });
@@ -104,6 +131,11 @@ impl DataSet {
     }
 
     pub fn from_data_frame(id: String, title: String, object: RObject) -> Result<Self, anyhow::Error> {
+        let row_count = unsafe {
+            let row_names = Rf_getAttrib(*object, R_RowNamesSymbol);
+            XLENGTH(row_names) as usize
+        };
+
         let mut columns = vec![];
         Self::extract_columns(object, None, &mut columns)?;
 
@@ -111,7 +143,7 @@ impl DataSet {
             id,
             title,
             columns,
-            row_count: 0 // TODO: do the .row_names_info thing
+            row_count
         })
 
     }
