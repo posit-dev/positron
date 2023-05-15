@@ -1,0 +1,6 @@
+# EditorConfig is awesome: https://EditorConfig.org
+
+[{*.R}]
+indent_style = space
+indent_size = 2
+
