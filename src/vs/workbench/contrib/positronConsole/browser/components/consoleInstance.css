@@ -5,7 +5,7 @@
 .console-core .console-instance {
 	top: 0;
 	cursor: default;
-	overflow: overlay;
+	overflow-y: overlay;
 	padding-left: 10px;
 	position: absolute;
 	user-select: text;
@@ -17,6 +17,7 @@
 .console-core .console-instance::-webkit-scrollbar {
 	width: 14px;
 	height: 14px;
+	border-top: 1px solid var(--vscode-positronScrollBar-border);
 	border-left: 1px solid var(--vscode-positronScrollBar-border);
 }
 
@@ -35,7 +36,8 @@
 }
 
 .console-core .console-instance::-webkit-scrollbar-corner {
-	display: none;
+	border-top: 1px solid var(--vscode-positronScrollBar-border);
+	border-left: 1px solid var(--vscode-positronScrollBar-border);
 }
 
 .console-core .console-instance .runtime-items {
