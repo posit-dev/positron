@@ -1597,31 +1597,40 @@ var AMDLoader;
             // --- Start Positron ---
             // Fixup for loading client.js in node.
             if (paths[0].includes('react-dom.production.min.js/client.js')) {
-                // Save the original path to the react-dom client.js file.
-                const reactDomClientOriginalPath = paths[0];
 
-                // The set of original paths adjust.
-                const reactDomClientElectron = '/out/../node_modules/react-dom/umd/react-dom.production.min.js/client.js';
-                const reactDomClientWeb = 'remote/web/node_modules/react-dom/umd/react-dom.production.min.js/client.js';
-
-                // Attempt to adjust the original path.
-                if (paths[0].endsWith(reactDomClientElectron)) {
-                    paths[0] = `${paths[0].substr(0, paths[0].length - reactDomClientElectron.length)}/out/react-dom/client.js`;
-                } else if (paths[0].endsWith(reactDomClientWeb)) {
-                    paths[0] = `${paths[0].substr(0, paths[0].length - reactDomClientWeb.length)}out/react-dom/client.js`;
-                }
-
-                // If we were successful, log the information.
-                console.log('------------------------------------------------------------------------');
-                if (paths[0] !== reactDomClientOriginalPath) {
-                    console.log(`Changing where the react-dom client.js file is loaded from.`);
-                    console.log(`Original path: ${reactDomClientOriginalPath}`);
-                    console.log(`Adjusted path: ${paths[0]}`);
+                if (paths[0].includes('/node_modules.asar/')) {
+                    // Release Builds
+                    paths[0] = paths[0].replace("/../node_modules.asar/react-dom/umd/react-dom.production.min.js/client.js", "/client.js");
+                    console.log(`Adjusted client.js path (for release): ${paths[0]}`);
                 } else {
-                    console.log('ERROR: Unable to change where the react-dom client.js file is loaded from.')
-                    console.log(`Original path: ${reactDomClientOriginalPath}`);
+                    // Local Builds
+
+                    // Save the original path to the react-dom client.js file.
+                    const reactDomClientOriginalPath = paths[0];
+
+                    // The set of original paths adjust.
+                    const reactDomClientElectron = '/out/../node_modules/react-dom/umd/react-dom.production.min.js/client.js';
+                    const reactDomClientWeb = 'remote/web/node_modules/react-dom/umd/react-dom.production.min.js/client.js';
+
+                    // Attempt to adjust the original path.
+                    if (paths[0].endsWith(reactDomClientElectron)) {
+                        paths[0] = `${paths[0].substr(0, paths[0].length - reactDomClientElectron.length)}/out/react-dom/client.js`;
+                    } else if (paths[0].endsWith(reactDomClientWeb)) {
+                        paths[0] = `${paths[0].substr(0, paths[0].length - reactDomClientWeb.length)}out/react-dom/client.js`;
+                    }
+
+                    // If we were successful, log the information.
+                    console.log('------------------------------------------------------------------------');
+                    if (paths[0] !== reactDomClientOriginalPath) {
+                        console.log(`Changing where the react-dom client.js file is loaded from.`);
+                        console.log(`Original path: ${reactDomClientOriginalPath}`);
+                        console.log(`Adjusted path: ${paths[0]}`);
+                    } else {
+                        console.log('ERROR: Unable to change where the react-dom client.js file is loaded from.')
+                        console.log(`Original path: ${reactDomClientOriginalPath}`);
+                    }
+                    console.log('------------------------------------------------------------------------');
                 }
-                console.log('------------------------------------------------------------------------');
             }
             // --- End Positron ---
 
