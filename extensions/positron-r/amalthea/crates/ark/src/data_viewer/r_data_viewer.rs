@@ -8,12 +8,17 @@
 use amalthea::comm::event::CommEvent;
 use amalthea::socket::comm::CommInitiator;
 use amalthea::socket::comm::CommSocket;
+use anyhow::bail;
+use harp::exec::RFunction;
+use harp::exec::RFunctionExt;
 use harp::object::RObject;
-use harp::r_lock;
+use harp::utils::r_inherits;
+use harp::utils::r_is_matrix;
 use harp::utils::r_is_null;
+use harp::utils::r_is_simple_vector;
+use harp::utils::r_typeof;
 use harp::vector::CharacterVector;
 use harp::vector::Vector;
-use libR_sys::NILSXP;
 use libR_sys::R_NamesSymbol;
 use libR_sys::R_NilValue;
 use libR_sys::Rf_getAttrib;
@@ -57,36 +62,56 @@ pub struct DataSet {
 }
 
 impl DataSet {
-    pub fn from_object(id: String, title: String, object: RObject) -> Result<Self, harp::error::Error> {
 
-        let columns = r_lock! {
-            let mut columns = vec![];
+    fn extract_columns(object: RObject, name: Option<String>, columns: &mut Vec<DataColumn>) -> Result<(), anyhow::Error> {
+        if r_inherits(*object, "data.frame") {
+            unsafe {
+                let names = Rf_getAttrib(*object, R_NamesSymbol);
+                if r_is_null(names) || r_typeof(names) != STRSXP {
+                    bail!("data frame without names");
+                }
+                let names = CharacterVector::new_unchecked(names);
 
-            let names = Rf_getAttrib(*object, R_NamesSymbol);
-            if r_is_null(names) {
-                return Err(harp::error::Error::UnexpectedType(NILSXP, vec![STRSXP]))
+                let n_columns = XLENGTH(*object);
+                for i in 0..n_columns {
+                    let name = match name {
+                        Some(ref prefix) => format!("{}${}", prefix, names.get_unchecked(i).unwrap()),
+                        None         => names.get_unchecked(i).unwrap()
+                    };
+
+                    Self::extract_columns(RObject::view(VECTOR_ELT(*object, i)), Some(name), columns)?;
+                }
             }
-            let names = CharacterVector::new_unchecked(names);
 
-            let n_columns = XLENGTH(*object);
-            for i in 0..n_columns {
-                let data = harp::vector::format(VECTOR_ELT(*object, i));
-
-                columns.push(DataColumn{
-                    name: names.get_unchecked(i).unwrap(),
-                    column_type: String::from("String"),
-                    data
-                });
+        } else if r_is_matrix(*object) {
+            bail!("matrix columns nyi");
+        } else {
+            let mut formatted = object;
+            if !r_is_simple_vector(*formatted) {
+                formatted = unsafe { RFunction::from("format").add(*formatted).call()? };
             }
+            let data = harp::vector::format(*formatted);
 
-            Ok(columns)
-        }?;
+            columns.push(DataColumn{
+                name: name.unwrap(),
+                column_type: String::from("String"),
+                data
+            });
+
+        }
+
+        Ok(())
+    }
+
+    pub fn from_data_frame(id: String, title: String, object: RObject) -> Result<Self, anyhow::Error> {
+        let mut columns = vec![];
+        Self::extract_columns(object, None, &mut columns)?;
 
         Ok(Self {
             id,
             title,
             columns,
-            row_count: 0
+            row_count: 0 // TODO: do the .row_names_info thing
         })
 
     }
@@ -113,7 +138,7 @@ impl RDataViewer {
     }
 
     pub fn execution_thread(self) -> Result<(), anyhow::Error> {
-        let data_set = DataSet::from_object(self.id.clone(), self.title, self.data)?;
+        let data_set = DataSet::from_data_frame(self.id.clone(), self.title, self.data)?;
         let json = serde_json::to_value(data_set)?;
 
         let comm_manager_tx = comm_manager_tx();
