@@ -121,7 +121,7 @@ pub fn r_assert_length(
     object: SEXP,
     expected: usize,
 ) -> Result<usize> {
-    let actual = unsafe { Rf_length(object) as usize };
+    let actual = unsafe { Rf_xlength(object) as usize };
     if actual != expected {
         return Err(Error::UnexpectedLength(actual, expected));
     }

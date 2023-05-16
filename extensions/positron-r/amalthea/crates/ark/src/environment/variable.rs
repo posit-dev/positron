@@ -104,7 +104,7 @@ pub struct EnvironmentVariable {
     /** True if the 'value' field was truncated to fit in the message */
     pub is_truncated: bool,
 
-    /** True for things that can ve View()ed */
+    /** True for things that can be View()ed */
     pub has_viewer: bool
 }
 
