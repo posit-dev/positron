@@ -111,7 +111,7 @@ impl DataSet {
             let mut formatted = object;
             if !r_is_simple_vector(*formatted) {
                 formatted = unsafe { RFunction::from("format").add(*formatted).call()? };
-                if !r_is_simple_vector(*formatted) {
+                if r_typeof(*formatted) != STRSXP {
                     bail!("problem formatting data frame column {}", name.unwrap())
                 }
             }
