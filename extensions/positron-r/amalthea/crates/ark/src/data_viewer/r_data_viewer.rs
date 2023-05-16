@@ -162,8 +162,15 @@ impl DataSet {
 
     pub fn from_data_frame(id: String, title: String, object: RObject) -> Result<Self, anyhow::Error> {
         let row_count = unsafe {
-            let row_names = Rf_getAttrib(*object, R_RowNamesSymbol);
-            XLENGTH(row_names) as usize
+            if r_inherits(*object, "data.frame") {
+                let row_names = Rf_getAttrib(*object, R_RowNamesSymbol);
+                XLENGTH(row_names) as usize
+            } else if r_is_matrix(*object) {
+                let dim = Rf_getAttrib(*object, R_DimSymbol);
+                INTEGER_ELT(dim, 0) as usize
+            } else {
+                bail!("data viewer only handles data frames and matrices");
+            }
         };
 
         let mut columns = vec![];
