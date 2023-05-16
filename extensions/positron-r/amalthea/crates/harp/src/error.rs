@@ -18,7 +18,7 @@ pub enum Error {
     ParseError { code: String, message: String },
     EvaluationError { code: String, message: String },
     UnsafeEvaluationError(String),
-    UnexpectedLength(u32, u32),
+    UnexpectedLength(usize, usize),
     UnexpectedType(u32, Vec<u32>),
     InvalidUtf8(Utf8Error),
     TryCatchError { message: Vec<String>, classes : Vec<String> },

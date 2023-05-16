@@ -58,7 +58,7 @@ pub trait Vector {
 
     fn get(&self, index: isize) -> Result<Option<Self::Type>> {
         unsafe {
-            r_assert_capacity(self.data(), index as u32)?;
+            r_assert_capacity(self.data(), index as usize)?;
         }
         Ok(self.get_unchecked(index))
     }
@@ -123,4 +123,18 @@ pub fn collapse(vector: SEXP, sep: &str, max: usize, quote: &str) -> Result<Coll
             Continue(result) => Collapse{result, truncated: true}
         }
     })
+}
+
+pub fn format(vec: SEXP) -> Vec<String> {
+    with_vector!(vec, |v| {
+        let iter = v.iter();
+        iter.map(|value| {
+            match value {
+                Some(x) => v.format_one(x),
+                None    => String::from("NA")
+            }
+        })
+        .collect::<Vec<String>>()
+
+    }).unwrap()
 }

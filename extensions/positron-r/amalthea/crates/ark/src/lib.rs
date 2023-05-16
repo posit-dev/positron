@@ -15,6 +15,7 @@ pub mod plots;
 pub mod request;
 pub mod shell;
 pub mod version;
+pub mod data_viewer;
 
 use serde::Deserialize;
 use serde::Serialize;

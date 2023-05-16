@@ -23,6 +23,7 @@ use log::error;
 use log::warn;
 use stdext::spawn;
 
+use crate::data_viewer::r_data_viewer::RDataViewer;
 use crate::environment::message::EnvironmentMessage;
 use crate::environment::message::EnvironmentMessageClear;
 use crate::environment::message::EnvironmentMessageClipboardFormat;
@@ -33,6 +34,7 @@ use crate::environment::message::EnvironmentMessageFormattedVariable;
 use crate::environment::message::EnvironmentMessageInspect;
 use crate::environment::message::EnvironmentMessageList;
 use crate::environment::message::EnvironmentMessageUpdate;
+use crate::environment::message::EnvironmentMessageView;
 use crate::environment::variable::EnvironmentVariable;
 use crate::lsp::events::EVENTS;
 
@@ -169,6 +171,10 @@ impl REnvironment {
 
                             EnvironmentMessage::ClipboardFormat(EnvironmentMessageClipboardFormat{path, format}) => {
                                 self.clipboard_format(&path, format, Some(id));
+                            },
+
+                            EnvironmentMessage::View(EnvironmentMessageView { path }) => {
+                                self.view(&path, Some(id));
                             },
 
                             _ => {
@@ -323,6 +329,28 @@ impl REnvironment {
             Err(_) => EnvironmentMessage::Error(EnvironmentMessageError {
                 message: String::from("Inspection error"),
             }),
+        };
+
+        self.send_message(msg, request_id);
+    }
+
+    fn view(&mut self, path: &Vec<String>, request_id: Option<String>) {
+        let data = r_lock! {
+            EnvironmentVariable::resolve_data_object(RObject::view(*self.env), &path)
+        };
+
+        let msg = match data {
+            Ok(data) => {
+                let name = unsafe { path.get_unchecked(path.len() - 1) };
+                RDataViewer::start(name.clone(), data.clone());
+                EnvironmentMessage::Success
+            },
+
+            Err(_) => {
+                EnvironmentMessage::Error(EnvironmentMessageError {
+                    message: String::from("Inspection error"),
+                })
+            }
         };
 
         self.send_message(msg, request_id);
