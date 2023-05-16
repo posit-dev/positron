@@ -31,7 +31,7 @@ use harp::exec::RFunction;
 use harp::exec::RFunctionExt;
 use harp::object::RObject;
 use harp::r_symbol;
-use harp::utils::r_inherits;
+use harp::utils::r_is_data_frame;
 use libR_sys::*;
 use log::*;
 use serde_json::json;
@@ -227,8 +227,7 @@ impl Kernel {
         // Include HTML representation of data.frame
         // TODO: Do we need to hold the R lock here?
         let value = unsafe { Rf_findVarInFrame(R_GlobalEnv, r_symbol!(".Last.value")) };
-        let is_data_frame = r_inherits(value, "data.frame");
-        if is_data_frame {
+        if r_is_data_frame(value) {
             match Kernel::to_html(value) {
                 Ok(html) => data.insert("text/html".to_string(), json!(html)),
                 Err(error) => {
