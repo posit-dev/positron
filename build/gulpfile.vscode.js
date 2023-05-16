@@ -56,6 +56,9 @@ const vscodeEntryPoints = [
 ].flat();
 
 const vscodeResources = [
+	// --- Start Positron ---
+	'out-build/react-dom/client.js',
+	// --- End Positron ---
 	'out-build/bootstrap.js',
 	'out-build/bootstrap-fork.js',
 	'out-build/bootstrap-amd.js',
