@@ -71,7 +71,7 @@ impl DataSet {
         if r_inherits(*object, "data.frame") {
             unsafe {
                 let names = Rf_getAttrib(*object, R_NamesSymbol);
-                if r_is_null(names) || r_typeof(names) != STRSXP {
+                if r_typeof(names) != STRSXP {
                     bail!("data frame without names");
                 }
                 let names = CharacterVector::new_unchecked(names);
