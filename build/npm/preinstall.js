@@ -154,15 +154,19 @@ function getHeaderInfo(rcFile) {
 
 // --- Start Positron ---
 console.log(`Updating positron built-in extensions...`);
+console.log('*** preinit ***');
+cp.execSync('ls -la extensions/positron-r/amalthea');
 // For dev environments: if a local sync of a submodule already
 // exists, "absorb" it as if it were originally added via submodule
 if (fs.existsSync('extensions/positron-python/.git') &&
 	!fs.existsSync('.git/modules/extensions/positron-python')) {
 	cp.execSync('git submodule absorbgitdirs extensions/positron-python');
+	console.log(`Absorbed local sync of positron-python`);
 }
 if (fs.existsSync('extensions/positron-r/amalthea/.git') &&
 	!fs.existsSync('.git/modules/extensions/positron-r/amalthea')) {
 	cp.execSync('git submodule absorbgitdirs extensions/positron-r/amalthea');
+	console.log(`Absorbed local sync of amalthea`);
 }
 
 cp.execSync('git submodule init');
@@ -172,7 +176,12 @@ if (process.env['POSITRON_GITHUB_PAT']) {
 	cp.execSync(`git config submodule.extensions/positron-python.url https://${process.env['POSITRON_GITHUB_PAT']}@github.com/posit-dev/positron-python.git`);
 	cp.execSync(`git config submodule.extensions/positron-r/amalthea.url https://${process.env['POSITRON_GITHUB_PAT']}@github.com/posit-dev/amalthea.git`);
 }
+console.log('*** preupdate ***');
+cp.execSync('ls -la extensions/positron-r/amalthea');
 
 cp.execSync('git submodule update');
+
+console.log('*** postupdate ***');
+cp.execSync('ls -la extensions/positron-r/amalthea');
 
 // --- End Positron ---
