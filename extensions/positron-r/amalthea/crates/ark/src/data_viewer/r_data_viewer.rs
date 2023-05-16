@@ -152,8 +152,8 @@ impl DataSet {
 impl RDataViewer {
 
     pub fn start(title: String, data: RObject) {
-        spawn!("ark-data-viewer", move || {
-            let id = Uuid::new_v4().to_string();
+        let id = Uuid::new_v4().to_string();
+        spawn!(format!("ark-data-viewer-{}-{}", title, id), move || {
             let comm = CommSocket::new(
                 CommInitiator::BackEnd,
                 id.clone(),
