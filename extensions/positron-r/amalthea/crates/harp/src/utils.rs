@@ -129,6 +129,10 @@ pub fn r_assert_length(
     Ok(actual)
 }
 
+pub fn r_is_data_frame(object: SEXP) -> bool {
+    r_typeof(object) == VECSXP && r_inherits(object, "data.frame")
+}
+
 pub fn r_is_null(object: SEXP) -> bool {
     unsafe { object == R_NilValue }
 }

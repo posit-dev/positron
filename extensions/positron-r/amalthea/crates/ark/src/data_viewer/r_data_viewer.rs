@@ -14,7 +14,7 @@ use harp::exec::RFunctionExt;
 use harp::object::RObject;
 use harp::utils::r_assert_length;
 use harp::utils::r_assert_type;
-use harp::utils::r_inherits;
+use harp::utils::r_is_data_frame;
 use harp::utils::r_is_matrix;
 use harp::utils::r_is_null;
 use harp::utils::r_is_simple_vector;
@@ -70,7 +70,7 @@ pub struct DataSet {
 impl DataSet {
 
     fn extract_columns(object: RObject, name: Option<String>, row_count: usize, columns: &mut Vec<DataColumn>) -> Result<(), anyhow::Error> {
-        if r_inherits(*object, "data.frame") {
+        if r_is_data_frame(*object) {
             unsafe {
                 let names = Rf_getAttrib(*object, R_NamesSymbol);
                 if r_typeof(names) != STRSXP {
@@ -162,7 +162,7 @@ impl DataSet {
 
     pub fn from_data_frame(id: String, title: String, object: RObject) -> Result<Self, anyhow::Error> {
         let row_count = unsafe {
-            if r_inherits(*object, "data.frame") {
+            if r_is_data_frame(*object) {
                 let row_names = Rf_getAttrib(*object, R_RowNamesSymbol);
                 XLENGTH(row_names) as usize
             } else if r_is_matrix(*object) {

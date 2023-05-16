@@ -7,6 +7,7 @@
 
 use harp::environment::BindingValue;
 use harp::utils::r_altrep_class;
+use harp::utils::r_is_data_frame;
 use harp::utils::r_is_matrix;
 use harp::utils::r_is_s4;
 use harp::utils::r_vec_shape;
@@ -220,7 +221,7 @@ impl WorkspaceVariableDisplayType {
             },
 
             VECSXP => unsafe {
-                if r_inherits(value, "data.frame") {
+                if r_is_data_frame(value) {
                     let classes = r_classes(value).unwrap();
                     let dfclass = classes.get_unchecked(0).unwrap();
 
@@ -331,7 +332,7 @@ impl EnvironmentVariable {
             size: RObject::view(x).size(),
             has_children: has_children(x),
             is_truncated,
-            has_viewer: r_inherits(x, "data.frame") || r_is_matrix(x)
+            has_viewer: r_is_data_frame(x) || r_is_matrix(x)
         }
     }
 
@@ -358,7 +359,7 @@ impl EnvironmentVariable {
             VECSXP => unsafe {
                 if r_inherits(x, "POSIXlt") {
                     XLENGTH(VECTOR_ELT(x, 0)) as usize
-                } else if r_inherits(x, "data.frame") {
+                } else if r_is_data_frame(x) {
                     let dim = RFunction::new("base", "dim.data.frame")
                         .add(x)
                         .call()
@@ -392,7 +393,7 @@ impl EnvironmentVariable {
             return ValueKind::Other;
         }
 
-        if r_inherits(x, "data.frame") {
+        if r_is_data_frame(x) {
             return ValueKind::Table;
         }
 
@@ -554,7 +555,7 @@ impl EnvironmentVariable {
                 if r_is_simple_vector(*object) {
                     let formatted = collapse(*object, " ", 0, if r_typeof(*object) == STRSXP { "\"" } else { "" }).unwrap();
                     Ok(formatted.result)
-                } else if r_inherits(*object, "data.frame") {
+                } else if r_is_data_frame(*object) {
                     unsafe {
                         let formatted = RFunction::from(".ps.environment.clipboardFormatDataFrame")
                             .add(object)
