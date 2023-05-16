@@ -16,6 +16,7 @@ use harp::utils::r_assert_length;
 use harp::utils::r_assert_type;
 use harp::utils::r_inherits;
 use harp::utils::r_is_matrix;
+use harp::utils::r_is_null;
 use harp::utils::r_is_simple_vector;
 use harp::utils::r_typeof;
 use harp::vector::CharacterVector;
@@ -97,19 +98,41 @@ impl DataSet {
                     bail!("matrix column with incompatible number of rows");
                 }
 
-                for i in 0..n_columns {
-                    let name = match name {
-                        Some(ref prefix) => format!("{}[, {}]", prefix, i + 1),
-                        None => format!("[, {}]", i + 1)
-                    };
+                let colnames = RFunction::from("colnames").add(*object).call()?;
 
-                    let matrix_column = RFunction::from("[")
-                        .add(*object)
-                        .param("i", R_MissingArg)
-                        .param("j", i + 1)
-                        .call()?;
+                if r_is_null(*colnames) {
+                    for i in 0..n_columns {
+                        let name = match name {
+                            Some(ref prefix) => format!("{}[, {}]", prefix, i + 1),
+                            None => format!("[, {}]", i + 1)
+                        };
 
-                    Self::extract_columns(matrix_column, Some(name), row_count, columns)?;
+                        let matrix_column = RFunction::from("[")
+                            .add(*object)
+                            .param("i", R_MissingArg)
+                            .param("j", i + 1)
+                            .call()?;
+
+                        Self::extract_columns(matrix_column, Some(name), row_count, columns)?;
+                    }
+                } else {
+                    let colnames = CharacterVector::new_unchecked(colnames);
+
+                    for i in 0..n_columns {
+                        let column_name = colnames.get_unchecked(i as isize).unwrap();
+                        let name = match name {
+                            Some(ref prefix) => format!("{}[, \"{}\"]", prefix, column_name),
+                            None => format!("[, \"{}\"]", column_name)
+                        };
+
+                        let matrix_column = RFunction::from("[")
+                            .add(*object)
+                            .param("i", R_MissingArg)
+                            .param("j", i + 1)
+                            .call()?;
+
+                        Self::extract_columns(matrix_column, Some(name), row_count, columns)?;
+                    }
                 }
             }
         } else {
@@ -152,8 +175,8 @@ impl DataSet {
             columns,
             row_count
         })
-
     }
+
 }
 
 impl RDataViewer {
