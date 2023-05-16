@@ -164,8 +164,7 @@ pub fn r_is_simple_vector(value: SEXP) -> bool {
 
 pub fn r_is_matrix(value: SEXP) -> bool {
     unsafe {
-        let dim = RObject::from(Rf_getAttrib(value, R_DimSymbol));
-        !r_is_null(*dim) && XLENGTH(*dim) == 2
+        Rf_isMatrix(value) == Rboolean_TRUE
     }
 }
 
