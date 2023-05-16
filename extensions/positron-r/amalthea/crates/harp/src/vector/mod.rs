@@ -58,7 +58,7 @@ pub trait Vector {
 
     fn get(&self, index: isize) -> Result<Option<Self::Type>> {
         unsafe {
-            r_assert_capacity(self.data(), index as u32)?;
+            r_assert_capacity(self.data(), index as usize)?;
         }
         Ok(self.get_unchecked(index))
     }

@@ -12,9 +12,10 @@ use anyhow::bail;
 use harp::exec::RFunction;
 use harp::exec::RFunctionExt;
 use harp::object::RObject;
+use harp::utils::r_assert_length;
+use harp::utils::r_assert_type;
 use harp::utils::r_inherits;
 use harp::utils::r_is_matrix;
-use harp::utils::r_is_null;
 use harp::utils::r_is_simple_vector;
 use harp::utils::r_typeof;
 use harp::vector::CharacterVector;
@@ -67,7 +68,7 @@ pub struct DataSet {
 
 impl DataSet {
 
-    fn extract_columns(object: RObject, name: Option<String>, columns: &mut Vec<DataColumn>) -> Result<(), anyhow::Error> {
+    fn extract_columns(object: RObject, name: Option<String>, row_count: usize, columns: &mut Vec<DataColumn>) -> Result<(), anyhow::Error> {
         if r_inherits(*object, "data.frame") {
             unsafe {
                 let names = Rf_getAttrib(*object, R_NamesSymbol);
@@ -83,7 +84,7 @@ impl DataSet {
                         None         => names.get_unchecked(i).unwrap()
                     };
 
-                    Self::extract_columns(RObject::view(VECTOR_ELT(*object, i)), Some(name), columns)?;
+                    Self::extract_columns(RObject::view(VECTOR_ELT(*object, i)), Some(name), row_count, columns)?;
                 }
             }
 
@@ -91,6 +92,10 @@ impl DataSet {
             unsafe {
                 let dim = Rf_getAttrib(*object, R_DimSymbol);
                 let n_columns = INTEGER_ELT(dim, 1);
+                let n_rows = INTEGER_ELT(dim, 0) as usize;
+                if n_rows != row_count {
+                    bail!("matrix column with incompatible number of rows");
+                }
 
                 for i in 0..n_columns {
                     let name = match name {
@@ -104,16 +109,18 @@ impl DataSet {
                         .param("j", i + 1)
                         .call()?;
 
-                    Self::extract_columns(matrix_column, Some(name), columns)?;
+                    Self::extract_columns(matrix_column, Some(name), row_count, columns)?;
                 }
             }
         } else {
             let mut formatted = object;
+            r_assert_length(*formatted, row_count)?;
+
             if !r_is_simple_vector(*formatted) {
                 formatted = unsafe { RFunction::from("format").add(*formatted).call()? };
-                if r_typeof(*formatted) != STRSXP {
-                    bail!("problem formatting data frame column {}", name.unwrap())
-                }
+                r_assert_type(*formatted, &[STRSXP])?;
+                r_assert_length(*formatted, row_count)?;
+
             }
             let data = harp::vector::format(*formatted);
 
@@ -137,7 +144,7 @@ impl DataSet {
         };
 
         let mut columns = vec![];
-        Self::extract_columns(object, None, &mut columns)?;
+        Self::extract_columns(object, None, row_count, &mut columns)?;
 
         Ok(Self {
             id,
