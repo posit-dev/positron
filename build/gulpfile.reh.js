@@ -53,6 +53,9 @@ const BUILD_TARGETS = [
 ];
 
 const serverResources = [
+	// --- Start Positron ---
+	'out-build/react-dom/client.js',
+	// --- End Positron ---
 
 	// Bootstrap
 	'out-build/bootstrap.js',
