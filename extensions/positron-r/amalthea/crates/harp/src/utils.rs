@@ -107,9 +107,9 @@ pub fn r_assert_type(
 
 pub unsafe fn r_assert_capacity(
     object: SEXP,
-    required: u32,
-) -> Result<u32> {
-    let actual = Rf_length(object) as u32;
+    required: usize,
+) -> Result<usize> {
+    let actual = Rf_length(object) as usize;
     if actual < required {
         return Err(Error::UnexpectedLength(actual, required));
     }
@@ -117,16 +117,20 @@ pub unsafe fn r_assert_capacity(
     Ok(actual)
 }
 
-pub unsafe fn r_assert_length(
+pub fn r_assert_length(
     object: SEXP,
-    expected: u32,
-) -> Result<u32> {
-    let actual = Rf_length(object) as u32;
+    expected: usize,
+) -> Result<usize> {
+    let actual = unsafe { Rf_xlength(object) as usize };
     if actual != expected {
         return Err(Error::UnexpectedLength(actual, expected));
     }
 
     Ok(actual)
+}
+
+pub fn r_is_data_frame(object: SEXP) -> bool {
+    r_typeof(object) == VECSXP && r_inherits(object, "data.frame")
 }
 
 pub fn r_is_null(object: SEXP) -> bool {
@@ -159,6 +163,12 @@ pub fn r_is_simple_vector(value: SEXP) -> bool {
 
             _       => false
         }
+    }
+}
+
+pub fn r_is_matrix(value: SEXP) -> bool {
+    unsafe {
+        Rf_isMatrix(value) == Rboolean_TRUE
     }
 }
 
