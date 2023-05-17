@@ -3,6 +3,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import 'vs/css!./positronModalDialog';
+import { ReactElement } from 'react';
 import * as DOM from 'vs/base/browser/dom';
 import { createRoot, Root } from 'react-dom/client';
 
@@ -34,7 +35,7 @@ export class PositronModalDialogReactRenderer {
 	 * Renders the ReactElement that was supplied.
 	 * @param reactElement The ReactElement to render.
 	 */
-	public render(reactElement: React.ReactElement) {
+	public render(reactElement: ReactElement) {
 		if (this._root) {
 			this._root.render(reactElement);
 		}
