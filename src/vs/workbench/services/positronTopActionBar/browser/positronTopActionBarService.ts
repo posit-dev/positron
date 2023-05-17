@@ -29,8 +29,13 @@ export const IPositronTopActionBarService = createDecorator<IPositronTopActionBa
  * IPositronTopActionBarService interface.
  */
 export interface IPositronTopActionBarService {
-
+	/**
+	 * Needed for service branding in dependency injector.
+	 */
 	readonly _serviceBrand: undefined;
 
+	/**
+	 * Drives focus to the Positron top action bar.
+	 */
 	focus(): void;
 }

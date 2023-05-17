@@ -14,19 +14,9 @@ export interface ISize {
 }
 
 /**
- * IFocusReceiver interface.
- */
-export interface IFocusReceiver {
-	/**
-	 * onFocused event.
-	 */
-	readonly onFocused: Event<void>;
-}
-
-/**
  * IReactComponentContainer interface.
  */
-export interface IReactComponentContainer extends IFocusReceiver {
+export interface IReactComponentContainer {
 	/**
 	 * Gets the width.
 	 */
@@ -46,6 +36,11 @@ export interface IReactComponentContainer extends IFocusReceiver {
 	 * Notifies the React component container when focus changes.
 	 */
 	focusChanged?(focused: boolean): void;
+
+	/**
+	 * onFocused event.
+	 */
+	readonly onFocused: Event<void>;
 
 	/**
 	 * onSizeChanged event.
