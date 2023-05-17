@@ -8,10 +8,10 @@ import { localize } from 'vs/nls';
 import { IAction, Separator } from 'vs/base/common/actions';
 import { OpenFolderAction } from 'vs/workbench/browser/actions/workspaceActions';
 import { ClearRecentFilesAction } from 'vs/workbench/browser/parts/editor/editorActions';
+import { ActionBarMenuButton } from 'vs/platform/positronActionBar/browser/components/actionBarMenuButton';
+import { usePositronActionBarContext } from 'vs/platform/positronActionBar/browser/positronActionBarContext';
 import { recentMenuActions } from 'vs/workbench/browser/parts/positronTopActionBar/components/topActionBarOpenMenu';
 import { usePositronTopActionBarContext } from 'vs/workbench/browser/parts/positronTopActionBar/positronTopActionBarContext';
-import { usePositronActionBarContext } from 'vs/platform/positronActionBar/browser/positronActionBarContext';
-import { ActionBarMenuButton } from 'vs/platform/positronActionBar/browser/components/actionBarMenuButton';
 import { PositronNewWorkspaceAction, PositronNewWorkspaceFromGitAction, PositronOpenWorkspaceInNewWindowAction } from 'vs/workbench/browser/actions/positronActions';
 
 const kCloseFolder = 'workbench.action.closeFolder';

@@ -5,6 +5,9 @@
 .top-action-bar-command-center {
 	width: 30vw;
 	max-width: 400px;
+	display: grid;
+	grid-template-columns: 1fr min-content 1fr;
+	background: red;
 }
 
 .top-action-bar-command-center>.top-action-bar-select-box-main {
