@@ -574,7 +574,7 @@ export class DataScienceInstaller extends BaseInstaller {
         const productName = ProductNames.get(product)!;
         // --- Start Positron ---
         const item = await this.appShell.showWarningMessage(
-            l10n.t('Data Science library {0} is not installed. Install?', productName),
+            l10n.t('Python support requires module {0}. Install?', productName),
             Common.bannerLabelYes,
             Common.bannerLabelNo,
         );
