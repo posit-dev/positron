@@ -5,16 +5,15 @@
 import 'vs/css!./actionBarRegion';
 import * as React from 'react';
 import { PropsWithChildren } from 'react'; // eslint-disable-line no-duplicate-imports
-import { optionalValue } from 'vs/base/common/positronUtilities';
+import { optionalValue, positronClassNames } from 'vs/base/common/positronUtilities';
 
 /**
  * ActionBarRegionProps interface.
  */
 interface ActionBarRegionProps {
+	width?: number;
 	location: 'left' | 'center' | 'right';
 	justify?: 'left' | 'center' | 'right';
-	width?: number;
-	gap?: number;
 }
 
 /**
@@ -23,11 +22,15 @@ interface ActionBarRegionProps {
  * @returns The rendered component.
  */
 export const ActionBarRegion = (props: PropsWithChildren<ActionBarRegionProps>) => {
+	// Create the class names.
+	const classNames = positronClassNames(
+		`action-bar-region action-bar-region-${props.location}`,
+		`action-bar-region-justify-${props.justify || props.location}`
+	);
+
 	// Render.
 	return (
-		<div
-			className={`action-bar-region action-bar-region-${props.location} action-bar-region-justify-${props.justify || props.location}`}
-			style={{ gap: optionalValue(props.gap, 0), width: optionalValue(props.width, 'min-content') }}>
+		<div className={classNames} style={{ width: optionalValue(props.width, 'auto'), minWidth: optionalValue(props.width, 'auto') }}>
 			{props.children}
 		</div>
 	);

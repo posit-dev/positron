@@ -2,34 +2,29 @@
  *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
-.top-action-bar-command-center {
-	width: 20vw;
+.top-action-bar-language-selector {
+	flex: 0;
+	margin: 0 6px;
 	height: 24px;
 	display: grid;
+	align-items: center;
 	cursor: pointer;
 	border-radius: 6px;
-	grid-template-columns: 1fr min-content 1fr;
+	grid-template-columns: 1fr 1fr;
 	color: var(--positronActionBar-foreground);
 	border: 1px solid var(--vscode-positronTopActionBar-selectBoxBorder);
 	background-color: var(--vscode-positronTopActionBar-selectBoxBackground);
 }
 
-.top-action-bar-command-center:hover {
+.top-action-bar-language-selector:hover {
 	background-color: var(--positronActionBar-hoverBackground);
 }
 
-.top-action-bar-command-center .left {
-	display: flex;
-	align-items: center;
-	justify-content: right;
+.top-action-bar-language-selector .left {
+	margin-left: 1px;
 }
 
-.top-action-bar-command-center .center {
-	display: flex;
-	align-items: center;
-}
-
-.top-action-bar-command-center .center .search {
+.top-action-bar-language-selector .left .search {
 	padding: 0 3px;
 	height: 22px;
 	border: none;
@@ -42,23 +37,23 @@
 	color: var(--positronActionBar-foreground);
 }
 
-.top-action-bar-command-center .center .search:focus {
+.top-action-bar-language-selector .left .search:focus {
 	outline: none !important;
 }
 
-.top-action-bar-command-center .center .search:focus-visible {
+.top-action-bar-language-selector .left .search:focus-visible {
 	border-radius: 6px;
 	outline: 1px solid var(--vscode-focusBorder) !important;
 }
 
-.top-action-bar-command-center .right {
+.top-action-bar-language-selector .right {
 	display: flex;
 	align-items: center;
 	justify-content: right;
 	margin-right: 1px;
 }
 
-.top-action-bar-command-center .right .drop-down {
+.top-action-bar-language-selector .right .drop-down {
 	height: 22px;
 	width: 22px;
 	border: none;
@@ -70,11 +65,11 @@
 	justify-content: center;
 }
 
-.top-action-bar-command-center .right .drop-down:focus {
+.top-action-bar-language-selector .right .drop-down:focus {
 	outline: none !important;
 }
 
-.top-action-bar-command-center .right .drop-down:focus-visible {
+.top-action-bar-language-selector .right .drop-down:focus-visible {
 	border-radius: 6px;
 	outline: 1px solid var(--vscode-focusBorder) !important;
 }
