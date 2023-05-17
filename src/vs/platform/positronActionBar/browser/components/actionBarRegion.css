@@ -4,22 +4,37 @@
 
 .action-bar-region {
 	flex: 1;
-	display: flex;
+	display: grid;
 	overflow: visible;
+	grid-template-columns: 1fr min-content 1fr;
 }
 
 .action-bar-region-left {
-	justify-content: flex-start;
+	display: flex;
 	margin-right: 4px;
+	align-items: center;
 }
 
 .action-bar-region-center {
-	justify-content: center;
-	align-items: center;
+	display: flex;
 	margin: 0 4px;
+	align-items: center;
 }
 
 .action-bar-region-right {
-	justify-content: flex-end;
+	display: flex;
 	margin-left: 4px;
+	align-items: center;
+}
+
+.action-bar-region-justify-left {
+	justify-content: left;
+}
+
+.action-bar-region-justify-center {
+	justify-content: center;
+}
+
+.action-bar-region-justify-right {
+	justify-content: right;
 }
