@@ -690,7 +690,9 @@
 		"--vscode-positronConsole-traceBackground",
 		"--vscode-positronEnvironment-background",
 		"--vscode-positronConsole-errorForeground",
-		"--vscode-positronScrollBar-border"
+		"--vscode-positronScrollBar-border",
+		"--vscode-positronTopActionBar-selectBoxBackground",
+		"--vscode-positronTopActionBar-selectBoxBorder"
 	],
 	"others": [
 		"--background-dark",
