@@ -106,6 +106,6 @@
 	},
 	"repository": {
 		"type": "git",
-		"url": "https://github.com/rstudio/amalthea"
+		"url": "https://github.com/posit-dev/amalthea"
 	}
 }
