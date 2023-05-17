@@ -57,7 +57,7 @@ export const PositronTopActionBar = (props: PositronTopActionBarProps) => {
 			<PositronActionBarContextProvider {...props}>
 				<PositronActionBar size='large' borderBottom={true} paddingLeft={kHorizontalPadding} paddingRight={kHorizontalPadding}>
 
-					<ActionBarRegion region='left'>
+					<ActionBarRegion location='left'>
 						<TopActionBarNewMenu />
 						<ActionBarSeparator />
 						<TopActionBarOpenMenu />
@@ -66,23 +66,21 @@ export const PositronTopActionBar = (props: PositronTopActionBarProps) => {
 						<ActionBarCommandButton iconId='positron-save-all' commandId={'workbench.action.files.saveFiles'} />
 					</ActionBarRegion>
 
-					<ActionBarRegion region='center'>
-						<PositronActionBar size='large' borderBottom={false} paddingLeft={0} paddingRight={0}>
-							<ActionBarRegion region='left' width={100} justify='right'>
+					<ActionBarRegion location='center'>
+						<PositronActionBar size='large' paddingLeft={0} paddingRight={0}>
+							<ActionBarRegion location='left' width={100} justify='right'>
 								<ActionBarCommandButton iconId='positron-chevron-left' commandId={NavigateBackwardsAction.ID} />
 								<ActionBarCommandButton iconId='positron-chevron-right' commandId={NavigateForwardAction.ID} />
 							</ActionBarRegion>
-
-							<ActionBarRegion region='center'>
+							<ActionBarRegion location='center'>
 								<TopActionBarCommandCenter />
 							</ActionBarRegion>
-
-							<ActionBarRegion region='right' width={100}>
+							<ActionBarRegion location='right' width={100}>
 							</ActionBarRegion>
 						</PositronActionBar>
 					</ActionBarRegion>
 
-					<ActionBarRegion region='right'>
+					<ActionBarRegion location='right'>
 						<TopActionBarWorkspaceMenu />
 					</ActionBarRegion>
 
