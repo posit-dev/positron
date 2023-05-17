@@ -15,8 +15,8 @@ interface PositronActionBarProps {
 	gap?: number;
 	borderTop?: boolean;
 	borderBottom?: boolean;
-	paddingLeft: number;
-	paddingRight: number;
+	paddingLeft?: number;
+	paddingRight?: number;
 }
 
 /**
@@ -35,7 +35,7 @@ export const PositronActionBar = (props: PropsWithChildren<PositronActionBarProp
 
 	// Render.
 	return (
-		<div className={classNames} style={{ gap: optionalValue(props.gap, 0), paddingLeft: props.paddingLeft, paddingRight: props.paddingRight }}>
+		<div className={classNames} style={{ gap: optionalValue(props.gap, 0), paddingLeft: optionalValue(props.paddingLeft, 0), paddingRight: optionalValue(props.paddingRight, 0) }}>
 			{props.children}
 		</div>
 	);

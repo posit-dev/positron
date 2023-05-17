@@ -4,9 +4,7 @@
 
 .action-bar-region {
 	flex: 1;
-	display: grid;
 	overflow: visible;
-	grid-template-columns: 1fr min-content 1fr;
 }
 
 .action-bar-region-left {

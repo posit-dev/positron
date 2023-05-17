@@ -31,33 +31,51 @@ import { IPositronEnvironmentService } from 'vs/workbench/services/positronEnvir
 export class PositronEnvironmentViewPane extends ViewPane implements IReactComponentContainer {
 	//#region Private Properties
 
-	// The onSizeChanged emitter.
+	/**
+	 * The onSizeChanged event emitter.
+	 */
 	private _onSizeChangedEmitter = this._register(new Emitter<ISize>());
 
-	// The onSaveScrollPosition emitter.
+	/**
+	 * The onSaveScrollPosition event emitter.
+	 */
 	private _onSaveScrollPositionEmitter = this._register(new Emitter<void>());
 
-	// The onRestoreScrollPosition emitter.
+	/**
+	 * The onRestoreScrollPosition event emitter.
+	 */
 	private _onRestoreScrollPositionEmitter = this._register(new Emitter<void>());
 
-	// The onFocused emitter.
+	/**
+	 * The onFocused event emitter.
+	 */
 	private _onFocusedEmitter = this._register(new Emitter<void>());
 
-	// The width. This value is set in layoutBody and is used to implement the
-	// IReactComponentContainer interface.
+	/**
+	 * Gets or sets the width. This value is set in layoutBody and is used to implement the
+	 * IReactComponentContainer interface.
+	 */
 	private _width = 0;
 
-	// The height. This value is set in layoutBody and is used to implement the
-	// IReactComponentContainer interface.
+	/**
+	 * Gets or sets the height. This value is set in layoutBody and is used to implement the
+	 * IReactComponentContainer interface.
+	 */
 	private _height = 0;
 
-	// The Positron environment container - contains the entire Positron environment UI.
+	/**
+	 * Gets or sets the Positron environment container. Contains the entire Positron environment UI.
+	 */
 	private _positronEnvironmentContainer!: HTMLElement;
 
-	// The PositronReactRenderer for the PositronEnvironment component.
+	/**
+	 * Gets or sets the PositronReactRenderer for the PositronEnvironment component.
+	 */
 	private _positronReactRenderer?: PositronReactRenderer;
 
-	// The PositronEnvironmentFocused context key.
+	/**
+	 * Gets or sets the PositronEnvironmentFocused context key.
+	 */
 	private _positronEnvironmentFocusedContextKey: IContextKey<boolean> | undefined;
 
 	//#endregion Private Properties

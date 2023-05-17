@@ -34,30 +34,46 @@ import { IPositronConsoleService } from 'vs/workbench/services/positronConsole/c
 export class PositronConsoleViewPane extends ViewPane implements IReactComponentContainer {
 	//#region Private Properties
 
-	// The onSizeChanged emitter.
+	/**
+	 * The onSizeChanged event emitter.
+	 */
 	private _onSizeChangedEmitter = this._register(new Emitter<ISize>());
 
-	// The onSaveScrollPosition emitter.
+	/**
+	 * The onSaveScrollPosition event emitter.
+	 */
 	private _onSaveScrollPositionEmitter = this._register(new Emitter<void>());
 
-	// The onRestoreScrollPosition emitter.
+	/**
+	 * The onRestoreScrollPosition event emitter.
+	 */
 	private _onRestoreScrollPositionEmitter = this._register(new Emitter<void>());
 
-	// The onFocused emitter.
+	/**
+	 * The onFocused event emitter.
+	 */
 	private _onFocusedEmitter = this._register(new Emitter<void>());
 
-	// The width. This value is set in layoutBody and is used to implement the
-	// IReactComponentContainer interface.
+	/**
+	 * Gets or sets the width. This value is set in layoutBody and is used to implement the
+	 * IReactComponentContainer interface.
+	 */
 	private _width = 0;
 
-	// The height. This value is set in layoutBody and is used to implement the
-	// IReactComponentContainer interface.
+	/**
+	 * Gets or sets the height. This value is set in layoutBody and is used to implement the
+	 * IReactComponentContainer interface.
+	 */
 	private _height = 0;
 
-	// The Positron console container - contains the entire Positron console UI.
+	/**
+	 * Gets or sets the Positron console container - contains the entire Positron console UI.
+	 */
 	private _positronConsoleContainer!: HTMLElement;
 
-	// The PositronReactRenderer for the PositronConsole component.
+	/**
+	 * Gets or sets the PositronReactRenderer for the PositronConsole component.
+	 */
 	private _positronReactRenderer: PositronReactRenderer | undefined;
 
 	//#endregion Private Properties
