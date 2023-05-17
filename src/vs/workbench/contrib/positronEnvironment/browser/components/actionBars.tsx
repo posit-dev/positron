@@ -27,7 +27,7 @@ import { showDeleteAllObjectsModalDialog } from 'vs/workbench/contrib/positronEn
 
 // Constants.
 const kSecondaryActionBarGap = 4;
-const kPaddingLeft = 14;
+const kPaddingLeft = 8;
 const kPaddingRight = 8;
 const kFilterTimeout = 800;
 
@@ -105,23 +105,23 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 		<PositronActionBarContextProvider {...props}>
 			<div className='action-bars'>
 				<PositronActionBar size='small' paddingLeft={kPaddingLeft} paddingRight={kPaddingRight}>
-					<ActionBarRegion align='left'>
+					<ActionBarRegion region='left'>
 						<GroupingMenuButton />
 						<SortingMenuButton />
 						{/* Disabled for Private Alpha <ActionBarButton iconId='positron-import-data' text='Import Dataset' dropDown={true} /> */}
 					</ActionBarRegion>
-					<ActionBarRegion align='right'>
+					<ActionBarRegion region='right'>
 						<ActionBarButton align='right' iconId='positron-trash-can' tooltip={localize('positronDeleteAllObjects', "Delete all objects")} onClick={deleteAllObjectsHandler} />
 						<ActionBarSeparator />
 						<ActionBarButton align='right' iconId='positron-refresh' tooltip={localize('positronRefreshObjects', "Refresh objects")} onClick={refreshObjectsHandler} />
 					</ActionBarRegion>
 				</PositronActionBar>
 				<PositronActionBar size='small' gap={kSecondaryActionBarGap} paddingLeft={kPaddingLeft} paddingRight={kPaddingRight}>
-					<ActionBarRegion align='left'>
+					<ActionBarRegion region='left'>
 						<EnvironmentInstanceMenuButton />
 						{/* Disabled for Private Alpha <ActionBarButton iconId='positron-environment' text='Global Environment' dropDown={true} tooltip={localize('positronSelectEnvironment', "Select environment")} /> */}
 					</ActionBarRegion>
-					<ActionBarRegion align='right'>
+					<ActionBarRegion region='right'>
 						<ActionBarFilter
 							width={150}
 							initialFilterText={filterText}
