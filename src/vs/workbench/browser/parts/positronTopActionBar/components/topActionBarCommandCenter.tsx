@@ -4,26 +4,25 @@
 
 import 'vs/css!./topActionBarCommandCenter';
 import * as React from 'react';
+import { MouseEvent } from 'react'; // eslint-disable-line no-duplicate-imports
 import { AnythingQuickAccessProviderRunOptions } from 'vs/platform/quickinput/common/quickAccess';
-import { TopActionBarSelectBox } from 'vs/workbench/browser/parts/positronTopActionBar/components/topActionBarSelectBox';
 import { usePositronTopActionBarContext } from 'vs/workbench/browser/parts/positronTopActionBar/positronTopActionBarContext';
 
 /**
- * TopActionBarCommandCenterProps interface.
- */
-interface TopActionBarCommandCenterProps { }
-
-/**
  * TopActionBarCommandCenter component.
- * @param props A TopActionBarCommandCenterProps that contains the component properties.
  * @returns The rendered component.
  */
-export const TopActionBarCommandCenter = (props: TopActionBarCommandCenterProps) => {
+export const TopActionBarCommandCenter = () => {
 	// Hooks.
 	const positronTopActionBarContext = usePositronTopActionBarContext();
 
 	// Ckick handler.
-	const clickHandler = () => {
+	const clickHandler = (e: MouseEvent<HTMLElement>) => {
+		// Consume the event.
+		e.preventDefault();
+		e.stopPropagation();
+
+		// Show the quick access menu.
 		positronTopActionBarContext.quickInputService.quickAccess.show(undefined, {
 			providerOptions: {
 				includeHelp: true,
@@ -32,20 +31,31 @@ export const TopActionBarCommandCenter = (props: TopActionBarCommandCenterProps)
 	};
 
 	// DropDownCkick handler.
-	const dropDownClickHandler = () => {
+	const dropDownClickHandler = (e: MouseEvent<HTMLButtonElement>) => {
+		// Consume the event.
+		e.preventDefault();
+		e.stopPropagation();
+
+		// Show the quick access menu.
 		positronTopActionBarContext.quickInputService.quickAccess.show('?');
 	};
 
 	// Render.
 	return (
-		<TopActionBarSelectBox className='top-action-bar-command-center' onClick={clickHandler} onDropDownClick={dropDownClickHandler}>
+		<div className='top-action-bar-command-center' onClick={(e) => clickHandler(e)}>
 			<div className='left'>
-				{/* <div className='codicon codicon-search'></div> */}
+				<div className='codicon codicon-positron-search' />
 			</div>
 			<div className='center'>
-				Search
+				<button className='search' onClick={(e) => clickHandler(e)}>
+					<div className='action-bar-button-text'>Search</div>
+				</button>
 			</div>
-			<div className='right'></div>
-		</TopActionBarSelectBox>
+			<div className='right'>
+				<button className='drop-down' onClick={(e) => dropDownClickHandler(e)}>
+					<div className='chevron codicon codicon-chevron-down' />
+				</button>
+			</div>
+		</div>
 	);
 };

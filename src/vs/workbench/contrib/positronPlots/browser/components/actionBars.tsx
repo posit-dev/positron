@@ -89,13 +89,13 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 		<PositronActionBarContextProvider {...props}>
 			<div className='action-bars'>
 				<PositronActionBar size='small' paddingLeft={kPaddingLeft} paddingRight={kPaddingRight}>
-					<ActionBarRegion align='left'>
+					<ActionBarRegion region='left'>
 						<ActionBarButton iconId='positron-left-arrow' disabled={disableLeft} tooltip={localize('positronShowPreviousPlot', "Show previous plot")} onClick={showPreviousPlotHandler} />
 						<ActionBarButton iconId='positron-right-arrow' disabled={disableRight} tooltip={localize('positronShowNextPlot', "Show next plot")} onClick={showNextPlotHandler} />
 						<ActionBarSeparator />
 						<ActionBarButton iconId='positron-trash-can' disabled={noPlots} tooltip={localize('positronClearAllPlots', "Clear all plots")} onClick={clearAllPlotsHandler} />
 					</ActionBarRegion>
-					<ActionBarRegion align='right'>
+					<ActionBarRegion region='right'>
 						<ActionBarButton iconId='positron-x' disabled={noPlots} tooltip={localize('positronRemoveSelectedPlot', "Remove selected plot")} onClick={removeSelectedPlotHandler} />
 					</ActionBarRegion>
 				</PositronActionBar>

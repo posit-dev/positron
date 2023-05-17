@@ -21,7 +21,7 @@ import { PositronActionBarContextProvider } from 'vs/platform/positronActionBar/
 
 // Constants.
 const kSecondaryActionBarGap = 4;
-const kPaddingLeft = 14;
+const kPaddingLeft = 8;
 const kPaddingRight = 8;
 const kFindTimeout = 800;
 const kPollTimeout = 200;

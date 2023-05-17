@@ -3,13 +3,82 @@
  *--------------------------------------------------------------------------------------------*/
 
 .top-action-bar-command-center {
-	width: 30vw;
-	max-width: 400px;
+	width: 25vw;
+	height: 24px;
 	display: grid;
+	cursor: pointer;
+	max-width: 400px;
+	border-top-left-radius: 6px;
+	border-bottom-left-radius: 6px;
+	border-top-right-radius: 6px;
+	border-bottom-right-radius: 6px;
 	grid-template-columns: 1fr min-content 1fr;
-	background: red;
+	color: var(--positronActionBar-foreground);
+	border: 1px solid var(--vscode-positronTopActionBar-selectBoxBorder);
+	background-color: var(--vscode-positronTopActionBar-selectBoxBackground);
 }
 
-.top-action-bar-command-center>.top-action-bar-select-box-main {
+.top-action-bar-command-center:hover {
+	background-color: var(--positronActionBar-hoverBackground);
+}
+
+.top-action-bar-command-center .left {
+	display: flex;
+	align-items: center;
+	justify-content: right;
+}
+
+.top-action-bar-command-center .center {
+	display: flex;
+	align-items: center;
+}
+
+.top-action-bar-command-center .center .search {
+	padding: 0 3px;
+	height: 22px;
+	border: none;
+	display: flex;
+	cursor: pointer;
+	overflow: visible;
+	align-items: center;
+	background: transparent;
 	justify-content: center;
+	color: var(--positronActionBar-foreground);
+}
+
+.top-action-bar-command-center .center .search:focus {
+	outline: none !important;
+}
+
+.top-action-bar-command-center .center .search:focus-visible {
+	border-radius: 6px;
+	outline: 1px solid var(--vscode-focusBorder) !important;
+}
+
+.top-action-bar-command-center .right {
+	display: flex;
+	align-items: center;
+	justify-content: right;
+	margin-right: 1px;
+}
+
+.top-action-bar-command-center .right .drop-down {
+	height: 22px;
+	width: 22px;
+	border: none;
+	display: flex;
+	cursor: pointer;
+	overflow: visible;
+	align-items: center;
+	background: transparent;
+	justify-content: center;
+}
+
+.top-action-bar-command-center .right .drop-down:focus {
+	outline: none !important;
+}
+
+.top-action-bar-command-center .right .drop-down:focus-visible {
+	border-radius: 6px;
+	outline: 1px solid var(--vscode-focusBorder) !important;
 }
