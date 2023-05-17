@@ -44,7 +44,9 @@ export class PositronTopActionBarPart extends Part implements IPositronTopAction
 	 */
 	private _width = 0;
 
-	// The onWidthChanged emitter.
+	/**
+	 * The onWidthChanged event emitter.
+	 */
 	private _onWidthChangedEmitter = this._register(new Emitter<number>());
 
 	//#region IView
