@@ -112,7 +112,7 @@ export const ActionBar = (props: ActionBarProps) => {
 		<PositronActionBarContextProvider {...positronConsoleContext as PositronActionBarServices}>
 			<div className='action-bar'>
 				<PositronActionBar size='small' borderTop={true} borderBottom={true} paddingLeft={kPaddingLeft} paddingRight={kPaddingRight}>
-					<ActionBarRegion region='left'>
+					<ActionBarRegion location='left'>
 						<ConsoleInstanceMenuButton {...props} />
 						{interruptible &&
 							<ActionBarButton
@@ -125,7 +125,7 @@ export const ActionBar = (props: ActionBarProps) => {
 							/>
 						}
 					</ActionBarRegion>
-					<ActionBarRegion region='right'>
+					<ActionBarRegion location='right'>
 						<ActionBarButton iconId='positron-list' align='right' tooltip={localize('positronToggleTrace', "Toggle trace")} onClick={toggleTraceHandler} />
 						<ActionBarButton iconId='positron-word-wrap' align='right' tooltip={localize('positronWordWrap', "Toggle word wrap")} onClick={toggleWordWrapHandler} />
 						<ActionBarSeparator />
