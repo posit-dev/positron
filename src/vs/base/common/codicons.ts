@@ -604,6 +604,7 @@ export const Codicon = {
 	positronEnvironmentSorting: register('positron-environment-sorting', 0xf253),
 	positronInterrupt: register('positron-interrupt', 0xf254),
 	positronWordWrap: register('positron-word-wrap', 0xf255),
+	positronSearch: register('positron-search', 0xf256),
 
 	// --- End Positron ---
 

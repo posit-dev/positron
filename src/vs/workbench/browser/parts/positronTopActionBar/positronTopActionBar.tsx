@@ -23,6 +23,7 @@ import { TopActionBarOpenMenu } from 'vs/workbench/browser/parts/positronTopActi
 import { TopActionBarCommandCenter } from 'vs/workbench/browser/parts/positronTopActionBar/components/topActionBarCommandCenter';
 import { TopActionBarWorkspaceMenu } from 'vs/workbench/browser/parts/positronTopActionBar/components/topActionBarWorkspaceMenu';
 import { PositronTopActionBarContextProvider } from 'vs/workbench/browser/parts/positronTopActionBar/positronTopActionBarContext';
+import { TopActionBarSelectBox } from 'vs/workbench/browser/parts/positronTopActionBar/components/topActionBarSelectBox';
 
 // Constants.
 const kHorizontalPadding = 4;
@@ -56,6 +57,7 @@ export const PositronTopActionBar = (props: PositronTopActionBarProps) => {
 		<PositronTopActionBarContextProvider {...props}>
 			<PositronActionBarContextProvider {...props}>
 				<PositronActionBar size='large' borderBottom={true} paddingLeft={kHorizontalPadding} paddingRight={kHorizontalPadding}>
+
 					<ActionBarRegion align='left'>
 						<TopActionBarNewMenu />
 						<ActionBarSeparator />
@@ -66,14 +68,18 @@ export const PositronTopActionBar = (props: PositronTopActionBarProps) => {
 					</ActionBarRegion>
 
 					<ActionBarRegion align='center'>
+						{/*
 						<ActionBarCommandButton iconId='positron-chevron-left' commandId={NavigateBackwardsAction.ID} />
 						<ActionBarCommandButton iconId='positron-chevron-right' commandId={NavigateForwardAction.ID} />
-						<TopActionBarCommandCenter {...props} />
+						*/}
+						<TopActionBarSelectBox></TopActionBarSelectBox>
+						{/* <TopActionBarCommandCenter {...props} /> */}
 					</ActionBarRegion>
 
 					<ActionBarRegion align='right'>
 						<TopActionBarWorkspaceMenu />
 					</ActionBarRegion>
+
 				</PositronActionBar>
 			</PositronActionBarContextProvider>
 		</PositronTopActionBarContextProvider>

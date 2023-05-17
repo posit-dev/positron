@@ -8,6 +8,7 @@ import { localize } from 'vs/nls';
 import { URI } from 'vs/base/common/uri';
 import { isMacintosh } from 'vs/base/common/platform';
 import { unmnemonicLabel } from 'vs/base/common/labels';
+import { Verbosity } from 'vs/platform/label/common/label';
 import { IWindowOpenable } from 'vs/platform/window/common/window';
 import { Action, IAction, Separator } from 'vs/base/common/actions';
 import { OpenRecentAction } from 'vs/workbench/browser/actions/windowActions';
@@ -20,7 +21,6 @@ import { usePositronActionBarContext } from 'vs/platform/positronActionBar/brows
 import { PositronTopActionBarState } from 'vs/workbench/browser/parts/positronTopActionBar/positronTopActionBarState';
 import { OpenFileAction, OpenFileFolderAction, OpenFolderAction } from 'vs/workbench/browser/actions/workspaceActions';
 import { usePositronTopActionBarContext } from 'vs/workbench/browser/parts/positronTopActionBar/positronTopActionBarContext';
-import { Verbosity } from 'vs/platform/label/common/label';
 
 const MAX_MENU_RECENT_ENTRIES = 10;
 

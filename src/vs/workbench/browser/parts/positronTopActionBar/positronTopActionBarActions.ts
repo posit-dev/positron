@@ -4,9 +4,9 @@
 
 import { ServicesAccessor } from 'vs/editor/browser/editorExtensions';
 import { localize } from 'vs/nls';
-import { Action2, MenuId, registerAction2 } from 'vs/platform/actions/common/actions';
 import { Categories } from 'vs/platform/action/common/actionCommonCategories';
 import { PositronTopActionBarVisibleContext } from 'vs/workbench/common/contextkeys';
+import { Action2, MenuId, registerAction2 } from 'vs/platform/actions/common/actions';
 import { IWorkbenchLayoutService, Parts } from 'vs/workbench/services/layout/browser/layoutService';
 
 export class ToggleTopActionBarVisibilityAction extends Action2 {
