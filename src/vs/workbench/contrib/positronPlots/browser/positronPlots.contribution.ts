@@ -24,7 +24,7 @@ import { VIEW_CONTAINER } from 'vs/workbench/contrib/positronEnvironment/browser
 registerSingleton(IPositronPlotsService, PositronPlotsService, InstantiationType.Delayed);
 
 // The Positron plots view icon.
-const positronPlotsViewIcon = registerIcon('positron-plots-view-icon', Codicon.positronPlotsView, nls.localize('positronPlotsViewIcon', 'View icon of the Positron plots view.'));
+const positronPlotViewIcon = registerIcon('positron-plot-view-icon', Codicon.positronPlotView, nls.localize('positronPlotViewIcon', 'View icon of the Positron plot view.'));
 
 // Register the Positron plots view.
 Registry.as<IViewsRegistry>(ViewContainerExtensions.ViewsRegistry).registerViews(
@@ -36,7 +36,7 @@ Registry.as<IViewsRegistry>(ViewContainerExtensions.ViewsRegistry).registerViews
 			collapsed: true,
 			canToggleVisibility: false,
 			canMoveView: true,
-			containerIcon: positronPlotsViewIcon,
+			containerIcon: positronPlotViewIcon,
 			openCommandActionDescriptor: {
 				id: 'workbench.action.positron.togglePlots',
 				mnemonicTitle: nls.localize({ key: 'miTogglePlots', comment: ['&& denotes a mnemonic'] }, "&&Plots"),
