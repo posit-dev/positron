@@ -2,7 +2,6 @@
  *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
-import { ChildProcess } from 'child_process';
 import * as vscode from 'vscode';
 import * as positron from 'positron';
 import * as zmq from 'zeromq/v5-compat';
@@ -41,7 +40,6 @@ const RECONNECT_MESSAGE = 'reconnect';
 
 export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	private readonly _spec: JupyterKernelSpec;
-	private _process: ChildProcess | null;
 
 	/** An object that watches (tails) the kernel's log file */
 	private _logTail?: Tail;
@@ -102,7 +100,6 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 		private readonly _channel: vscode.OutputChannel) {
 		super();
 		this._spec = spec;
-		this._process = null;
 
 		this._control = null;
 		this._shell = null;
@@ -655,12 +652,6 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 
 		// Request that the kernel shut down
 		this.shutdown(true);
-
-		// Start the kernel again once the process finishes shutting down
-		this._process?.once('exit', () => {
-			this.log(`Waiting for '${this._spec.display_name}' to restart...`);
-			this.start();
-		});
 	}
 
 	/**
