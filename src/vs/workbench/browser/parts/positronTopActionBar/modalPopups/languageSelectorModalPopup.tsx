@@ -60,7 +60,7 @@ export const showLanguageSelectorModalPopup = async (
 					height={175}
 					accept={acceptHandler}
 					cancel={cancelHandler}>
-					<div style={{ margin: 8 }}>{localize('positronHellowWorld', "Hello, World!")}</div>
+					<div style={{ margin: 8 }}>{localize('positronTestText', "The language selector UI will go here.")}</div>
 				</PositronModalPopup>
 			);
 		};
