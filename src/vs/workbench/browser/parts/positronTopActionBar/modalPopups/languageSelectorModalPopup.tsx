@@ -4,18 +4,9 @@
 
 import 'vs/css!./languageSelectorModalPopup';
 import * as React from 'react';
-import { useState } from 'react'; // eslint-disable-line no-duplicate-imports
 import { localize } from 'vs/nls';
-import { ILayoutService } from 'vs/platform/layout/browser/layoutService';
 import { PositronModalPopup } from 'vs/base/browser/ui/positronModalPopup/positronModalPopup';
 import { PositronModalPopupReactRenderer } from 'vs/base/browser/ui/positronModalPopup/positronModalPopupReactRenderer';
-
-/**
- * DeleteAllObjectsResult interface.
- */
-export interface DeleteAllObjectsResult {
-	includeHiddenObjects: boolean;
-}
 
 /**
  * Shows the language selector modal popup.
@@ -23,33 +14,26 @@ export interface DeleteAllObjectsResult {
  * @returns A promise that resolves when the popup is dismissed.
  */
 export const showLanguageSelectorModalPopup = async (
-	layoutService: ILayoutService,
+	container: HTMLElement,
 	anchorElement: HTMLElement,
-): Promise<DeleteAllObjectsResult | undefined> => {
+): Promise<void> => {
 	// Return a promise that resolves when the popup is done.
-	return new Promise<DeleteAllObjectsResult | undefined>(resolve => {
+	return new Promise<void>(resolve => {
 		// Create the modal popup React renderer.
-		const positronModalPopupReactRenderer = new PositronModalPopupReactRenderer(
-			layoutService.container
-		);
+		const positronModalPopupReactRenderer = new PositronModalPopupReactRenderer(container);
 
 		// The modal popup component.
 		const ModalPopup = () => {
-			// Hooks.
-			const [result, _setResult] = useState<DeleteAllObjectsResult>({
-				includeHiddenObjects: false
-			});
-
 			// The accept handler.
 			const acceptHandler = () => {
 				positronModalPopupReactRenderer.destroy();
-				resolve(result);
+				resolve();
 			};
 
 			// The cancel handler.
 			const cancelHandler = () => {
 				positronModalPopupReactRenderer.destroy();
-				resolve(undefined);
+				resolve();
 			};
 
 			// Render.
