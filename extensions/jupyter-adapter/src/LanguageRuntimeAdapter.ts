@@ -263,7 +263,6 @@ export class LanguageRuntimeAdapter
 	 */
 	public restart(): void {
 		this._kernel.shutdown(true);
-		this._kernel.start();
 	}
 
 	/**
@@ -711,7 +710,8 @@ export class LanguageRuntimeAdapter
 	 * @param status The new status of the kernel
 	 */
 	onStatus(status: positron.RuntimeState) {
-		this._kernel.log(`${this._spec.language} kernel status changed to ${status}`);
+		const previous = this._kernelState;
+		this._kernel.log(`${this._spec.language} kernel status changed: ${previous} => ${status}`);
 		this._kernelState = status;
 		this._state.fire(status);
 
@@ -724,6 +724,13 @@ export class LanguageRuntimeAdapter
 					this._kernel.log(`${this._spec.display_name} LSP server connected`);
 				});
 			});
+		}
+
+		// If the kernel was restarting and successfully exited, this is our
+		// cue to start it again.
+		if (previous === positron.RuntimeState.Restarting &&
+			status === positron.RuntimeState.Exited) {
+			this._kernel.start();
 		}
 	}
 
