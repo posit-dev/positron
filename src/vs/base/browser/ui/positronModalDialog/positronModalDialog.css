@@ -7,7 +7,7 @@
 	100% { opacity: 1; }
 }
 
-.positron-modal-dialog-modal-block {
+.positron-modal-dialog-overlay {
 	top: 0;
 	left: 0;
 	width: 100%;
@@ -18,9 +18,6 @@
 	align-items: center;
 	justify-content: center;
 	animation: fade-in 0.25s;
-}
-
-.positron-modal-dialog-modal-block.dimmed {
 	background: rgba(0, 0, 0, 0.2);
 }
 
@@ -45,13 +42,11 @@
 	display: flex;
 	overflow: hidden;
 	position: absolute;
-	/* top: 100px; */
-	/* left: 100px; */
 	border-radius: 15px 15px 5px 5px;
-	color: var(--vscode-modalDialog-foreground);
-	background: var(--vscode-modalDialog-background);
-	border: 1px solid var(--vscode-modalDialog-border);
-	box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2), 0 6px 20px 0 rgba(0, 0, 0, 0.19);
+	color: var(--vscode-positronModalDialog-foreground);
+	background: var(--vscode-positronModalDialog-background);
+	border: 1px solid var(--vscode-positronModalDialog-border);
+	box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.1), 0 6px 20px 0 rgba(0, 0, 0, 0.1);
 }
 
 .positron-modal-dialog-box .button {
@@ -60,23 +55,23 @@
 	border-radius: 5px;
 	align-items: center;
 	justify-content: center;
-	border: 1px solid var(--vscode-modalDialog-buttonBorder);
-	color: var(--vscode-modalDialog-buttonForeground);
-	background: var(--vscode-modalDialog-buttonBackground);
+	border: 1px solid var(--vscode-positronModalDialog-buttonBorder);
+	color: var(--vscode-positronModalDialog-buttonForeground);
+	background: var(--vscode-positronModalDialog-buttonBackground);
 }
 
 .positron-modal-dialog-box .button:hover {
-	background: var(--vscode-modalDialog-buttonHoverBackground);
+	background: var(--vscode-positronModalDialog-buttonHoverBackground);
 }
 
 
 .positron-modal-dialog-box .button.default {
-	color: var(--vscode-modalDialog-defaultButtonForeground);
-	background: var(--vscode-modalDialog-defaultButtonBackground);
+	color: var(--vscode-positronModalDialog-defaultButtonForeground);
+	background: var(--vscode-positronModalDialog-defaultButtonBackground);
 }
 
 .positron-modal-dialog-box .button.default:hover {
-	background: var(--vscode-modalDialog-defaultButtonHoverBackground);
+	background: var(--vscode-positronModalDialog-defaultButtonHoverBackground);
 }
 
 .positron-modal-dialog-box .button:focus {
@@ -93,11 +88,11 @@
 	padding: 4px;
 	border-radius: 4px;
 	box-sizing: border-box;
-	background: var(--vscode-modalDialog-textInputBackground);
-	border: 1px solid var(--vscode-modalDialog-textInputBorder);
+	background: var(--vscode-positronModalDialog-textInputBackground);
+	border: 1px solid var(--vscode-positronModalDialog-textInputBorder);
 }
 
 .positron-modal-dialog-box .text-input::selection {
-	color: var(--vscode-modalDialog-textInputSelectionForeground);
-	background: var(--vscode-modalDialog-textInputSelectionBackground);
+	color: var(--vscode-positronModalDialog-textInputSelectionForeground);
+	background: var(--vscode-positronModalDialog-textInputSelectionBackground);
 }

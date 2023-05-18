@@ -4,12 +4,14 @@
 
 .top-action-bar-language-selector {
 	flex: 0;
+	width: 76px;
 	margin: 0 6px;
-	height: 24px;
+	height: 26px;
 	display: grid;
-	align-items: center;
 	cursor: pointer;
+	align-items: center;
 	border-radius: 6px;
+	box-sizing: border-box;
 	grid-template-columns: 1fr 1fr;
 	color: var(--positronActionBar-foreground);
 	border: 1px solid var(--vscode-positronTopActionBar-selectBoxBorder);

@@ -4,5 +4,5 @@
 
 .positron-outline-test-content {
 	margin: 10px 20px;
-	color: var(--vscode-modalDialog-foreground); /* Temporary */
+	color: var(--vscode-positronModalDialog-foreground); /* Temporary */
 }
