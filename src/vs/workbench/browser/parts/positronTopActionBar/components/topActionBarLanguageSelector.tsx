@@ -23,7 +23,10 @@ export const TopActionBarLanguageSelector = () => {
 	 * onClick event handler.
 	 */
 	const clickHandler = () => {
-		showLanguageSelectorModalPopup(positronTopActionBarContext.layoutService, ref.current);
+		showLanguageSelectorModalPopup(
+			positronTopActionBarContext.layoutService.container,
+			ref.current
+		);
 	};
 
 	// Render.
