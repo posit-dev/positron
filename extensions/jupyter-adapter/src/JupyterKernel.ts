@@ -31,6 +31,13 @@ import { JupyterCommMsg } from './JupyterCommMsg';
 import { createJupyterSession, JupyterSession, JupyterSessionState } from './JupyterSession';
 import path = require('path');
 import { StartupFailure } from './StartupFailure';
+import { JupyterKernelStatus } from './JupyterKernelStatus';
+
+/** The message sent to the Heartbeat socket on a regular interval to test connectivity */
+const HEARTBEAT_MESSAGE = 'heartbeat';
+
+/** The message sent to the Heartbeat socket when the kernel is offline */
+const RECONNECT_MESSAGE = 'reconnect';
 
 export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	private readonly _spec: JupyterKernelSpec;
@@ -70,6 +77,9 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	/** The timestamp at which we last received a heartbeat message from the kernel */
 	private _lastHeartbeat: number;
 
+	/** The state of the kernel when it went offline. */
+	private _offlineState: positron.RuntimeState;
+
 	/** An object that tracks the Jupyter session information, such as session ID and ZeroMQ ports */
 	private _session?: JupyterSession;
 
@@ -107,6 +117,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 		// Set the initial status to uninitialized (we'll change it later if we
 		// discover it's actually running)
 		this._status = positron.RuntimeState.Uninitialized;
+		this._offlineState = positron.RuntimeState.Uninitialized;
 
 		// Listen to our own status change events
 		this.on('status', (status: positron.RuntimeState) => {
@@ -320,6 +331,21 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 				this._iopub?.socket().subscribe('');
 				this._iopub?.socket().on('message', (...args: any[]) => {
 					const msg = deserializeJupyterMessage(args, this._session!.key, this._channel);
+
+					// If this is a status message, save the status. Note that
+					// we do not emit an event here (via `setStatus`) since
+					// idle/busy status events are emitted one layer up in the
+					// `LanguageRuntimeAdapter`.
+					if (msg?.header.msg_type === 'status') {
+						const statusMsg = msg.content as JupyterKernelStatus;
+						const state = statusMsg.execution_state as positron.RuntimeState;
+						if (state === 'idle') {
+							this._status = positron.RuntimeState.Idle;
+						} else if (state === 'busy') {
+							this._status = positron.RuntimeState.Busy;
+						}
+					}
+
 					if (msg !== null) {
 						this.emitMessage(JupyterSockets.iopub, msg);
 					}
@@ -372,7 +398,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 						this.onHeartbeat(msg);
 					});
 				});
-				this._heartbeat?.socket().send(['hello']);
+				this._heartbeat?.socket().send([HEARTBEAT_MESSAGE]);
 
 			}).catch((err) => {
 				reject(err);
@@ -664,6 +690,16 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	 * @param msg The message itself
 	 */
 	private emitMessage(socket: JupyterSockets, msg: JupyterMessage) {
+		// If the kernel is marked offline, and it emits a message, then it has come back online.
+		// Emit a status change event to reflect this.
+		if (this._status === positron.RuntimeState.Offline) {
+			this.log(`Kernel emitted '${msg.header.msg_type}' and is now back online.`);
+			// Restore the kernel's status to what it was before it went offline
+			if (msg.header.msg_type !== 'status') {
+				this.setStatus(this._offlineState);
+			}
+		}
+
 		const packet: JupyterMessagePacket = {
 			type: 'jupyter-message',
 			message: msg.content,
@@ -818,6 +854,10 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 		this._iopub = null;
 	}
 
+	/**
+	 * Disposes the heartbeat timers -- both the timer that tracks the interval between beats and
+	 * the timer that engages when the kernel goes offline.
+	 */
 	private disposeHeartbeatTimers() {
 		if (this._heartbeatTimer) {
 			clearTimeout(this._heartbeatTimer);
@@ -890,13 +930,49 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	private heartbeat() {
 		const seconds = vscode.workspace.getConfiguration('positron.jupyterAdapter').get('heartbeat', 30) as number;
 		this._lastHeartbeat = new Date().getUTCMilliseconds();
-		this.log(`SEND heartbeat`);
-		this._heartbeat?.socket().send(['hello']);
+		this.log(`SEND heartbeat with timeout of ${seconds} seconds`);
+		this._heartbeat?.socket().send([HEARTBEAT_MESSAGE]);
 		this._heartbeatTimer = setTimeout(() => {
-			// If the kernel hasn't responded in the given amount of time,
-			// mark it as offline
-			this.setStatus(positron.RuntimeState.Offline);
+			this.enterOfflineState();
 		}, seconds * 1000);
+	}
+
+	/**
+	 * Enters the offline state for the kernel; called when the kernel fails to respond to a
+	 * heartbeat message after a configurable amount of time.
+	 */
+	private enterOfflineState() {
+		// Reentrancy guards
+		if (this._status === positron.RuntimeState.Offline) {
+			// Already offline; nothing to do
+			return;
+		}
+
+		// Save the current state of the kernel as the offline state. We will presume the kernel
+		// to still be in this state when the kernel comes back online.
+		this._offlineState = this._status;
+
+		// If the kernel hasn't responded in the given amount of time,
+		// mark it as offline
+		this.log(`Heartbeat timeout; marking kernel offline`);
+		this.setStatus(positron.RuntimeState.Offline);
+
+		// Ensure that the heartbeat timer is cleared before we start a new one
+		this.disposeHeartbeatTimers();
+
+		// We give the kernel a lot of grace (a 30 second configurable timeout)
+		// for responding to heartbeats when online. Once it goes offline, though,
+		// we become more aggressive about checking for it to come back online.
+		//
+		// Begin sending heartbeats every second until the kernel comes back.
+		const onlinePoller = () => {
+			// It'd be slightly more elegant to use `setInterval` here, but this
+			// keeps the logic for handling the timer in `onHeartbeat` much
+			// simpler.
+			this._heartbeat?.socket().send([RECONNECT_MESSAGE]);
+			this._heartbeatTimer = setTimeout(onlinePoller, 1000);
+		};
+		this._heartbeatTimer = setTimeout(onlinePoller, 1000);
 	}
 
 	/**
@@ -905,23 +981,32 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	 * @param msg The heartbeat received from the kernel
 	 */
 	private onHeartbeat(msg: string) {
-		// Clear the timer that's tracking the heartbeat
-		if (this._heartbeatTimer) {
-			clearTimeout(this._heartbeatTimer);
-		}
+		// Clear the timers that are waiting for a heartbeat
+		this.disposeHeartbeatTimers();
 
-		// If we know how long the kernel took, log it
-		if (this._lastHeartbeat) {
+		// If we know how long the kernel took, log it. We only record this time for regular
+		// heartbeats, not reconnects.
+		if (this._lastHeartbeat && msg === HEARTBEAT_MESSAGE) {
 			const now = new Date().getUTCMilliseconds();
 			const diff = now - this._lastHeartbeat;
+			this._lastHeartbeat = 0;
 			this.log(`Heartbeat received in ${diff}ms: ${msg}`);
 		}
 
-		// Schedule the next heartbeat at the configured interval
+		// If the kernel was offline, it's now back online. Restore the kernel's previous state.
+		if (this._status === positron.RuntimeState.Offline) {
+			this.log(`Kernel is back online.`);
+			this.setStatus(this._offlineState);
+		}
+
+		// Schedule the next heartbeat at the configured interval. Re-read the configuration
+		// in case it changed.
 		const seconds = vscode.workspace.getConfiguration('positron').get('heartbeat', 30) as number;
-		this._nextHeartbeat = setTimeout(() => {
-			this.heartbeat();
-		}, seconds * 1000);
+		if (seconds > 0) {
+			this._nextHeartbeat = setTimeout(() => {
+				this.heartbeat();
+			}, seconds * 1000);
+		}
 	}
 
 	/**
