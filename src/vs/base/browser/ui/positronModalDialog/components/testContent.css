@@ -3,5 +3,5 @@
  *--------------------------------------------------------------------------------------------*/
 
 .positron-modal-dialog-box .test-content {
-	color: var(--vscode-modalDialog-foreground);
+	color: var(--vscode-positronModalDialog-foreground);
 }

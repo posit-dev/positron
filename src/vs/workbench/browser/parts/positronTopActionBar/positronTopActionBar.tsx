@@ -82,7 +82,6 @@ export const PositronTopActionBar = (props: PositronTopActionBarProps) => {
 		props.positronTopActionBarContainer.onWidthChanged(width => {
 			setShowCenterUI(width > kCenterUIBreak);
 			setShowFullCenterUI(width > kFulllCenterUIBreak);
-			console.log(width);
 		});
 	}, []);
 

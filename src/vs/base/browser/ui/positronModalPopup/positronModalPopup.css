@@ -1,0 +1,50 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
+ *--------------------------------------------------------------------------------------------*/
+
+@keyframes fade-in {
+	0% { opacity: 0; }
+	100% { opacity: 1; }
+}
+
+.positron-modal-popup-overlay {
+	top: 0;
+	left: 0;
+	width: 100%;
+	height: 100%;
+	z-index: 20000;
+	display: flex;
+	position: fixed;
+	align-items: center;
+	justify-content: center;
+	animation: fade-in 0.25s;
+}
+
+.positron-modal-dialog-shadow-container {
+	background: transparent;
+}
+
+.positron-modal-popup-container {
+	animation: fade-in 0.25s;
+	top: 0;
+	left: 0;
+	width: 100%;
+	height: 100%;
+	position: absolute;
+	outline: none !important;
+	animation: fade-in 0.25s;
+	/* Makes some devices run their hardware acceleration. */
+	transform: translate3d(0px, 0px, 0px);
+}
+
+.positron-modal-popup {
+	display: flex;
+	overflow: hidden;
+	position: absolute;
+	border-radius: 5px;
+	box-sizing: border-box;
+	color: var(--vscode-positronModalDialog-foreground);
+	background: var(--vscode-positronModalDialog-background);
+	border: 1px solid var(--vscode-positronModalDialog-border);
+	box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.1), 0 6px 20px 0 rgba(0, 0, 0, 0.1);
+}
