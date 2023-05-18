@@ -734,6 +734,13 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 				}
 			}
 
+			// If the kernel was offline but is now online, then add a runtime item to indicate
+			// that it is reconnected.
+			if (this._state === PositronConsoleState.Offline &&
+				(runtimeState === RuntimeState.Busy || runtimeState === RuntimeState.Idle)) {
+				this.setState(PositronConsoleState.Ready);
+			}
+
 			// Remember this runtime state so we know which state we are
 			// transitioning from when the next state change occurs.
 			this._runtimeState = runtimeState;
@@ -935,14 +942,21 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 				}
 
 				case RuntimeOnlineState.Busy: {
-					if (languageRuntimeMessageState.parent_id.startsWith('fragment-')) {
+					// Generally speaking, we only want to set Busy/Idle state
+					// when that state is a result of processing one of our own
+					// messages, which begin with `fragment-`. However, if we
+					// are currently in the Offline state, the message that
+					// brings us back online may not be one of our own messages.
+					if (languageRuntimeMessageState.parent_id.startsWith('fragment-') ||
+						this.state === PositronConsoleState.Offline) {
 						this.setState(PositronConsoleState.Busy);
 					}
 					break;
 				}
 
 				case RuntimeOnlineState.Idle: {
-					if (languageRuntimeMessageState.parent_id.startsWith('fragment-')) {
+					if (languageRuntimeMessageState.parent_id.startsWith('fragment-') ||
+						this.state === PositronConsoleState.Offline) {
 						this.setState(PositronConsoleState.Ready);
 					}
 					break;
