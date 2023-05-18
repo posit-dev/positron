@@ -26,7 +26,8 @@
         "editor.formatOnSave": true,
         "editor.codeActionsOnSave": {
             "source.organizeImports": true
-        }
+        },
+        "editor.defaultFormatter": "ms-python.black-formatter"
     },
     "[typescript]": {
         "editor.defaultFormatter": "esbenp.prettier-vscode",
@@ -56,13 +57,19 @@
     "editor.codeActionsOnSave": {
         "source.fixAll.eslint": true
     },
-    "python.languageServer": "Default",
+    "editor.rulers": [
+		100
+	],
+    "python.languageServer": "Jedi",
     "python.linting.pylintEnabled": false,
     "python.linting.flake8Enabled": true,
     "cucumberautocomplete.skipDocStringsFormat": true,
     "python.linting.flake8Args": [
         // Match what black does.
-        "--max-line-length=88"
+        "--max-line-length=100"
+    ],
+    "python.testing.pytestArgs": [
+        "pythonFiles/tests"
     ],
     "typescript.preferences.importModuleSpecifier": "relative",
     "debug.javascript.usePreview": false
