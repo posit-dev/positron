@@ -1199,195 +1199,191 @@ export const POSITRON_SIDE_ACTION_BAR_TEXT_INPUT_SELECTION_BACKGROUND = register
 	hcLight: '#007acc'
 }, localize('positronSideActionBar.textInputSelectionBackground', "Positron side action bar text input selection background color."));
 
-// < --- Modal Dialog --- >
+// < --- Positron Modal Dialog --- >
 
-// Modal dialog background color.
-export const MODAL_DIALOG_BACKGROUND = registerColor('modalDialog.background', {
-	// dark: '#3b4245',
-	// light: '#f1f3f5',
-	// hcDark: '#000000',
-	// hcLight: '#ffffff',
+// Positron modal dialog background color.
+export const POSITRON_MODAL_DIALOG_BACKGROUND = registerColor('positronModalDialog.background', {
 	dark: editorBackground,
 	light: editorBackground,
 	hcDark: editorBackground,
 	hcLight: editorBackground
-}, localize('modalDialog.background', "Modal dialog background color."));
+}, localize('positronModalDialog.background', "Positron modal dialog background color."));
 
-// Modal dialog foreground color.
-export const MODAL_DIALOG_FOREGROUND = registerColor('modalDialog.foreground', {
+// Positron modal dialog foreground color.
+export const POSITRON_MODAL_DIALOG_FOREGROUND = registerColor('positronModalDialog.foreground', {
 	dark: foreground,
 	light: '#000000',
 	hcDark: foreground,
 	hcLight: foreground
-}, localize('modalDialog.foreground', "Modal dialog foreground color."));
+}, localize('positronModalDialog.foreground', "Positron modal dialog foreground color."));
 
-// Modal dialog border color.
-export const MODAL_DIALOG_BORDER = registerColor('modalDialog.border', {
-	dark: '#3a3d41',
-	light: darken(MODAL_DIALOG_BACKGROUND, 0.2),
+// Positron modal dialog border color.
+export const POSITRON_MODAL_DIALOG_BORDER = registerColor('positronModalDialog.border', {
+	dark: '#252527',
+	light: '#cbd0d5',
 	hcDark: contrastBorder,
 	hcLight: contrastBorder
-}, localize('modalDialog.border', "Modal dialog border color."));
+}, localize('positronModalDialog.border', "Positron modal dialog border color."));
 
-// Modal dialog separator color.
-export const MODAL_DIALOG_SEPARATOR = registerColor('modalDialog.separator', {
+// Positron modal dialog separator color.
+export const POSITRON_MODAL_DIALOG_SEPARATOR = registerColor('positronModalDialog.separator', {
 	dark: '#3a3d41',
-	light: darken(MODAL_DIALOG_BACKGROUND, 0.2),
+	light: darken(POSITRON_MODAL_DIALOG_BACKGROUND, 0.2),
 	hcDark: '#3a3d41',
-	hcLight: darken(MODAL_DIALOG_BACKGROUND, 0.2)
-}, localize('modalDialog.separator', "Modal dialog separator color."));
+	hcLight: darken(POSITRON_MODAL_DIALOG_BACKGROUND, 0.2)
+}, localize('positronModalDialog.separator', "Positron modal dialog separator color."));
 
-// < --- Modal Dialog Title Bar --- >
+// < --- Positron Modal Dialog Title Bar --- >
 
-// Modal dialog title bar background color.
-export const MODAL_DIALOG_TITLE_BAR_BACKGROUND = registerColor('modalDialog.titleBarBackground', {
+// Positron modal dialog title bar background color.
+export const POSITRON_MODAL_DIALOG_TITLE_BAR_BACKGROUND = registerColor('positronModalDialog.titleBarBackground', {
 	dark: secondaryBackground,
 	light: secondaryBackground,
 	hcDark: '#000000',
 	hcLight: '#ffffff'
-}, localize('modalDialog.titleBarBackground', "Modal dialog title bar background color."));
+}, localize('positronModalDialog.titleBarBackground', "Positron modal dialog title bar background color."));
 
-// Modal dialog title bar foreground color.
-export const MODAL_DIALOG_TITLE_BAR_FOREGROUND = registerColor('modalDialog.titleBarForeground', {
+// Positron modal dialog title bar foreground color.
+export const POSITRON_MODAL_DIALOG_TITLE_BAR_FOREGROUND = registerColor('positronModalDialog.titleBarForeground', {
 	dark: foreground,
 	light: '#000000',
 	hcDark: foreground,
 	hcLight: foreground
-}, localize('modalDialog.titleBarForeground', "Modal dialog title bar foreground color."));
+}, localize('positronModalDialog.titleBarForeground', "Positron modal dialog title bar foreground color."));
 
-// Modal dialog title bar border bottom color.
-export const MODAL_DIALOG_TITLE_BAR_BORDER_BOTTOM = registerColor('modalDialog.titleBarBorderBottom', {
+// Positron modal dialog title bar border bottom color.
+export const POSITRON_MODAL_DIALOG_TITLE_BAR_BORDER_BOTTOM = registerColor('positronModalDialog.titleBarBorderBottom', {
 	dark: null,
 	light: null,
-	hcDark: MODAL_DIALOG_BORDER,
-	hcLight: MODAL_DIALOG_BORDER
-}, localize('modalDialog.titleBarBorderBottom', "Modal dialog title bar border bottom color."));
+	hcDark: POSITRON_MODAL_DIALOG_BORDER,
+	hcLight: POSITRON_MODAL_DIALOG_BORDER
+}, localize('positronModalDialog.titleBarBorderBottom', "Positron modal dialog title bar border bottom color."));
 
-// < --- Modal Dialog Button --- >
+// < --- Positron Modal Dialog Button --- >
 
-// Modal dialog button background color.
-export const MODAL_DIALOG_BUTTON_BACKGROUND = registerColor('modalDialog.buttonBackground', {
+// Positron modal dialog button background color.
+export const POSITRON_MODAL_DIALOG_BUTTON_BACKGROUND = registerColor('positronModalDialog.buttonBackground', {
 	dark: buttonSecondaryBackground,
 	light: buttonSecondaryBackground,
 	hcDark: null,
 	hcLight: null
-}, localize('modalDialog.buttonBackground', "Modal dialog button background color."));
+}, localize('positronModalDialog.buttonBackground', "Positron modal dialog button background color."));
 
-// Modal dialog button hover background color.
-export const MODAL_DIALOG_BUTTON_HOVER_BACKGROUND = registerColor('modalDialog.buttonHoverBackground', {
-	dark: lighten(MODAL_DIALOG_BUTTON_BACKGROUND, 0.15),
-	light: darken(MODAL_DIALOG_BUTTON_BACKGROUND, 0.15),
-	hcDark: lighten(MODAL_DIALOG_BUTTON_BACKGROUND, 0.15),
-	hcLight: darken(MODAL_DIALOG_BUTTON_BACKGROUND, 0.15)
-}, localize('modalDialog.buttonHoverBackground', "Modal dialog button hover background color."));
+// Positron modal dialog button hover background color.
+export const POSITRON_MODAL_DIALOG_BUTTON_HOVER_BACKGROUND = registerColor('positronModalDialog.buttonHoverBackground', {
+	dark: lighten(POSITRON_MODAL_DIALOG_BUTTON_BACKGROUND, 0.15),
+	light: darken(POSITRON_MODAL_DIALOG_BUTTON_BACKGROUND, 0.15),
+	hcDark: lighten(POSITRON_MODAL_DIALOG_BUTTON_BACKGROUND, 0.15),
+	hcLight: darken(POSITRON_MODAL_DIALOG_BUTTON_BACKGROUND, 0.15)
+}, localize('positronModalDialog.buttonHoverBackground', "Positron modal dialog button hover background color."));
 
-// Modal dialog button background color.
-export const MODAL_DIALOG_DEFAULT_BUTTON_BACKGROUND = registerColor('modalDialog.defaultButtonBackground', {
+// Positron modal dialog button background color.
+export const POSITRON_MODAL_DIALOG_DEFAULT_BUTTON_BACKGROUND = registerColor('positronModalDialog.defaultButtonBackground', {
 	dark: buttonBackground,
 	light: buttonBackground,
 	hcDark: buttonBackground,
 	hcLight: buttonBackground
-}, localize('modalDialog.defaultButtonBackground', "Modal dialog default button background color."));
+}, localize('positronModalDialog.defaultButtonBackground', "Positron modal dialog default button background color."));
 
-// Modal dialog button hover background color.
-export const MODAL_DIALOG_DEFAULT_BUTTON_HOVER_BACKGROUND = registerColor('modalDialog.defaultButtonHoverBackground', {
-	dark: lighten(MODAL_DIALOG_DEFAULT_BUTTON_BACKGROUND, 0.15),
-	light: darken(MODAL_DIALOG_DEFAULT_BUTTON_BACKGROUND, 0.15),
-	hcDark: lighten(MODAL_DIALOG_DEFAULT_BUTTON_BACKGROUND, 0.15),
-	hcLight: darken(MODAL_DIALOG_DEFAULT_BUTTON_BACKGROUND, 0.15)
-}, localize('modalDialog.defaultButtonHoverBackground', "Modal dialog default button hover background color."));
+// Positron modal dialog button hover background color.
+export const POSITRON_MODAL_DIALOG_DEFAULT_BUTTON_HOVER_BACKGROUND = registerColor('positronModalDialog.defaultButtonHoverBackground', {
+	dark: lighten(POSITRON_MODAL_DIALOG_DEFAULT_BUTTON_BACKGROUND, 0.15),
+	light: darken(POSITRON_MODAL_DIALOG_DEFAULT_BUTTON_BACKGROUND, 0.15),
+	hcDark: lighten(POSITRON_MODAL_DIALOG_DEFAULT_BUTTON_BACKGROUND, 0.15),
+	hcLight: darken(POSITRON_MODAL_DIALOG_DEFAULT_BUTTON_BACKGROUND, 0.15)
+}, localize('positronModalDialog.defaultButtonHoverBackground', "Positron modal dialog default button hover background color."));
 
-// Modal dialog button active background color.
-export const MODAL_DIALOG_BUTTON_ACTIVE_BACKGROUND = registerColor('modalDialog.buttonActiveBackground', {
-	dark: lighten(MODAL_DIALOG_BUTTON_BACKGROUND, 0.15),
-	light: darken(MODAL_DIALOG_BUTTON_BACKGROUND, 0.15),
-	hcDark: lighten(MODAL_DIALOG_BUTTON_BACKGROUND, 0.15),
-	hcLight: darken(MODAL_DIALOG_BUTTON_BACKGROUND, 0.15)
-}, localize('modalDialog.buttonActiveBackground', "Modal dialog button active background color."));
+// Positron modal dialog button active background color.
+export const POSITRON_MODAL_DIALOG_BUTTON_ACTIVE_BACKGROUND = registerColor('positronModalDialog.buttonActiveBackground', {
+	dark: lighten(POSITRON_MODAL_DIALOG_BUTTON_BACKGROUND, 0.15),
+	light: darken(POSITRON_MODAL_DIALOG_BUTTON_BACKGROUND, 0.15),
+	hcDark: lighten(POSITRON_MODAL_DIALOG_BUTTON_BACKGROUND, 0.15),
+	hcLight: darken(POSITRON_MODAL_DIALOG_BUTTON_BACKGROUND, 0.15)
+}, localize('positronModalDialog.buttonActiveBackground', "Positron modal dialog button active background color."));
 
-// Modal dialog button foreground color.
-export const MODAL_DIALOG_BUTTON_FOREGROUND = registerColor('modalDialog.buttonForeground', {
+// Positron modal dialog button foreground color.
+export const POSITRON_MODAL_DIALOG_BUTTON_FOREGROUND = registerColor('positronModalDialog.buttonForeground', {
 	dark: buttonSecondaryForeground,
 	light: buttonSecondaryForeground,
 	hcDark: foreground,
 	hcLight: foreground
-}, localize('modalDialog.buttonForeground', "Modal dialog button foreground color."));
+}, localize('positronModalDialog.buttonForeground', "Positron modal dialog button foreground color."));
 
-// Modal dialog button foreground color.
-export const MODAL_DIALOG_DEFAULT_BUTTON_FOREGROUND = registerColor('modalDialog.defaultButtonForeground', {
+// Positron modal dialog button foreground color.
+export const POSITRON_MODAL_DIALOG_DEFAULT_BUTTON_FOREGROUND = registerColor('positronModalDialog.defaultButtonForeground', {
 	dark: buttonForeground,
 	light: buttonForeground,
 	hcDark: buttonForeground,
 	hcLight: buttonForeground
-}, localize('modalDialog.defaultButtonForeground', "Modal dialog default button foreground color."));
+}, localize('positronModalDialog.defaultButtonForeground', "Positron modal dialog default button foreground color."));
 
-// Modal dialog button border color.
-export const MODAL_DIALOG_BUTTON_BORDER = registerColor('modalDialog.buttonBorder', {
+// Positron modal dialog button border color.
+export const POSITRON_MODAL_DIALOG_BUTTON_BORDER = registerColor('positronModalDialog.buttonBorder', {
 	dark: null,
 	light: null,
 	hcDark: contrastBorder,
 	hcLight: contrastBorder
-}, localize('modalDialog.buttonBorder', "Modal dialog button border color."));
+}, localize('positronModalDialog.buttonBorder', "Positron modal dialog button border color."));
 
-// < --- Modal Dialog Text Input --- >
+// < --- Positron Modal Dialog Text Input --- >
 
-// Modal dialog text input background color.
-export const MODAL_DIALOG_TEXT_INPUT_BACKGROUND = registerColor('modalDialog.textInputBackground', {
+// Positron modal dialog text input background color.
+export const POSITRON_MODAL_DIALOG_TEXT_INPUT_BACKGROUND = registerColor('positronModalDialog.textInputBackground', {
 	dark: '#292f32',
 	light: '#ffffff',
 	hcDark: inputBackground,
 	hcLight: inputBackground
-}, localize('modalDialog.textInputBackground', "Modal dialog text input background color."));
+}, localize('positronModalDialog.textInputBackground', "Positron modal dialog text input background color."));
 
-// Modal dialog text input border color.
-export const MODAL_DIALOG_TEXT_INPUT_BORDER = registerColor('modalDialog.textInputBorder', {
+// Positron modal dialog text input border color.
+export const POSITRON_MODAL_DIALOG_TEXT_INPUT_BORDER = registerColor('positronModalDialog.textInputBorder', {
 	dark: '#292f32',
 	light: '#a6a6a6',
 	hcDark: inputBorder,
 	hcLight: inputBorder
-}, localize('modalDialog.textInputBorder', "Modal dialog text input border."));
+}, localize('positronModalDialog.textInputBorder', "Positron modal dialog text input border."));
 
-// Modal dialog text input selection foreground color.
-export const MODAL_DIALOG_TEXT_INPUT_SELECTION_FOREGROUND = registerColor('modalDialog.textInputSelectionForeground', {
+// Positron modal dialog text input selection foreground color.
+export const POSITRON_MODAL_DIALOG_TEXT_INPUT_SELECTION_FOREGROUND = registerColor('positronModalDialog.textInputSelectionForeground', {
 	dark: '#ffffff',
 	light: '#ffffff',
 	hcDark: '#ffffff',
 	hcLight: '#ffffff'
-}, localize('modalDialog.textInputSelectionForeground', "Modal dialog text input selection foreground color."));
+}, localize('positronModalDialog.textInputSelectionForeground', "Positron modal dialog text input selection foreground color."));
 
-// Modal dialog text input selection background color.
-export const MODAL_DIALOG_TEXT_INPUT_SELECTION_BACKGROUND = registerColor('modalDialog.textInputSelectionBackground', {
+// Positron modal dialog text input selection background color.
+export const POSITRON_MODAL_DIALOG_TEXT_INPUT_SELECTION_BACKGROUND = registerColor('positronModalDialog.textInputSelectionBackground', {
 	dark: '#0e639c',
 	light: '#007acc',
 	hcDark: '#0e639c',
 	hcLight: '#007acc'
-}, localize('modalDialog.textInputSelectionBackground', "Modal dialog text input selection background color."));
+}, localize('positronModalDialog.textInputSelectionBackground', "Positron modal dialog text input selection background color."));
 
-// < --- Modal Dialog Checkbox --- >
+// < --- Positron Modal Dialog Checkbox --- >
 
-// Modal dialog checkbox background color.
-export const MODAL_DIALOG_CHECKBOX_BACKGROUND = registerColor('modalDialog.checkboxBackground', {
+// Positron modal dialog checkbox background color.
+export const POSITRON_MODAL_DIALOG_CHECKBOX_BACKGROUND = registerColor('positronModalDialog.checkboxBackground', {
 	dark: '#292f32',
 	light: '#ffffff',
 	hcDark: checkboxBackground,
 	hcLight: checkboxBackground
-}, localize('modalDialog.checkboxBackground', "Modal dialog checkbox background color."));
+}, localize('positronModalDialog.checkboxBackground', "Positron modal dialog checkbox background color."));
 
-// Modal dialog checkbox foreground color.
-export const MODAL_DIALOG_CHECKBOX_FOREGROUND = registerColor('modalDialog.checkboxForeground', {
+// Positron modal dialog checkbox foreground color.
+export const POSITRON_MODAL_DIALOG_CHECKBOX_FOREGROUND = registerColor('positronModalDialog.checkboxForeground', {
 	dark: foreground,
 	light: '#000000',
 	hcDark: checkboxForeground,
 	hcLight: checkboxForeground
-}, localize('modalDialog.checkboxForeground', "Modal dialog checkbox foreground."));
+}, localize('positronModalDialog.checkboxForeground', "Positron modal dialog checkbox foreground."));
 
-// Modal dialog checkbox border color.
-export const MODAL_DIALOG_CHECKBOX_BORDER = registerColor('modalDialog.checkboxBorder', {
+// Positron modal dialog checkbox border color.
+export const POSITRON_MODAL_DIALOG_CHECKBOX_BORDER = registerColor('positronModalDialog.checkboxBorder', {
 	dark: '#292f32',
 	light: '#a6a6a6',
 	hcDark: checkboxBorder,
 	hcLight: checkboxBorder
-}, localize('modalDialog.checkboxBorder', "Modal dialog checkbox border."));
+}, localize('positronModalDialog.checkboxBorder', "Positron modal dialog checkbox border."));
 
 // < --- Positron Console --- >
 

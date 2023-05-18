@@ -4,10 +4,11 @@
 
 .top-action-bar-command-center {
 	width: 20vw;
-	height: 24px;
+	height: 26px;
 	display: grid;
 	cursor: pointer;
 	border-radius: 6px;
+	box-sizing: border-box;
 	grid-template-columns: 1fr min-content 1fr;
 	color: var(--positronActionBar-foreground);
 	border: 1px solid var(--vscode-positronTopActionBar-selectBoxBorder);
