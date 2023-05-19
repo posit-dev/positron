@@ -17,8 +17,14 @@
 .console-core .console-instance::-webkit-scrollbar {
 	width: 14px;
 	height: 14px;
-	border-top: 1px solid var(--vscode-positronScrollBar-border);
-	border-left: 1px solid var(--vscode-positronScrollBar-border);
+}
+
+.console-core .console-instance::-webkit-scrollbar:vertical {
+	border-left: 0.5px solid var(--vscode-positronScrollBar-border);
+}
+
+.console-core .console-instance::-webkit-scrollbar:horizontal {
+	border-top: 0.5px solid var(--vscode-positronScrollBar-border);
 }
 
 .console-core .console-instance::-webkit-scrollbar-track {
