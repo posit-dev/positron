@@ -40,6 +40,8 @@ export const showLanguageSelectorModalPopup = async (
 			return (
 				<PositronModalPopup
 					anchorElement={anchorElement}
+					popupPosition='bottom'
+					popupAlignment='right'
 					width={400}
 					height={175}
 					accept={acceptHandler}

@@ -6,6 +6,7 @@ import 'vs/css!./positronModalPopup';
 import * as React from 'react';
 import { PropsWithChildren, useCallback, useEffect, useRef, useState } from 'react'; // eslint-disable-line no-duplicate-imports
 import * as DOM from 'vs/base/browser/dom';
+import { positronClassNames } from 'vs/base/common/positronUtilities';
 
 /**
  * Event aliases.
@@ -13,12 +14,25 @@ import * as DOM from 'vs/base/browser/dom';
 type UIEvent = globalThis.UIEvent;
 type MouseEvent = globalThis.MouseEvent;
 type KeyboardEvent = globalThis.KeyboardEvent;
+type Position = DOM.IDomPosition;
+
+/**
+ * PopupPosition type.
+ */
+export type PopupPosition = 'top' | 'bottom';
+
+/**
+ * PopupAlignment type.
+ */
+export type PopupAlignment = 'left' | 'right';
 
 /**
  * PositronModalPopupProps interface.
  */
 export interface PositronModalPopupProps {
 	anchorElement: HTMLElement;
+	popupPosition: PopupPosition;
+	popupAlignment: PopupAlignment;
 	width: number;
 	height: number;
 	accept?: () => void;
@@ -31,15 +45,28 @@ export interface PositronModalPopupProps {
  * @returns The rendered component.
  */
 export const PositronModalPopup = (props: PropsWithChildren<PositronModalPopupProps>) => {
+	/**
+	 * Computes the popup position.
+	 * @returns The popup position.
+	 */
+	const computePosition = (): Position => {
+		const topLeftOffset = DOM.getTopLeftOffset(props.anchorElement);
+		return {
+			top: props.popupPosition === 'top' ?
+				topLeftOffset.top - props.height - 1 :
+				topLeftOffset.top + props.anchorElement.offsetHeight + 1,
+			left: props.popupAlignment === 'left' ?
+				topLeftOffset.left :
+				topLeftOffset.left + props.anchorElement.offsetWidth - props.width
+		};
+	};
+
 	// Reference hooks.
 	const popupContainerRef = useRef<HTMLDivElement>(undefined!);
 	const popupRef = useRef<HTMLDivElement>(undefined!);
 
-	const topLeftOffset = DOM.getTopLeftOffset(props.anchorElement);
-
 	// State hooks.
-	const [left, setLeft] = useState(topLeftOffset.left + props.anchorElement.offsetWidth - props.width);
-	const [top, setTop] = useState(topLeftOffset.top + props.anchorElement.offsetHeight);
+	const [position, setPosition] = useState<Position>(computePosition());
 
 	// Memoize the keydown event handler.
 	const keydownHandler = useCallback((e: KeyboardEvent) => {
@@ -91,9 +118,10 @@ export const PositronModalPopup = (props: PropsWithChildren<PositronModalPopupPr
 
 	// Memoize the resizeHandler.
 	const resizeHandler = useCallback((e: UIEvent) => {
-		const topLeftOffset = DOM.getTopLeftOffset(props.anchorElement);
-		setLeft(topLeftOffset.left + props.anchorElement.offsetWidth - props.width);
-		setTop(topLeftOffset.top + props.anchorElement.offsetHeight);
+		setPosition(computePosition());
+		// const topLeftOffset = DOM.getTopLeftOffset(props.anchorElement);
+		// setLeft(topLeftOffset.left + props.anchorElement.offsetWidth - props.width);
+		// setTop(topLeftOffset.top + props.anchorElement.offsetHeight);
 	}, []);
 
 	/**
@@ -128,11 +156,17 @@ export const PositronModalPopup = (props: PropsWithChildren<PositronModalPopupPr
 		};
 	}, []);
 
+	// Create the class names.
+	const classNames = positronClassNames(
+		'positron-modal-popup',
+		props.popupPosition === 'top' ? 'shadow-top' : 'shadow-bottom'
+	);
+
 	// Render.
 	return (
 		<div className='positron-modal-popup-shadow-container'>
 			<div ref={popupContainerRef} className='positron-modal-popup-container' role='dialog' tabIndex={-1}>
-				<div ref={popupRef} className='positron-modal-popup' style={{ left, top, width: props.width, height: props.height }}>
+				<div ref={popupRef} className={classNames} style={{ top: position.top, left: position.left, width: props.width, height: props.height }}>
 					{props.children}
 				</div>
 			</div>
