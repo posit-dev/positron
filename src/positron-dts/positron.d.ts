@@ -317,6 +317,9 @@ declare module 'positron' {
 		/** The text the language's interpreter uses to prompt the user for continued input, e.g. "+" or "..." */
 		continuationPrompt: string;
 
+		/** The Base64-encoded icon SVG for the language. */
+		base64EncodedIconSvg: string | undefined;
+
 		/** Whether the runtime should start up automatically or wait until explicitly requested */
 		startupBehavior: LanguageRuntimeStartupBehavior;
 	}

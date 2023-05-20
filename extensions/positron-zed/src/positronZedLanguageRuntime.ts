@@ -159,14 +159,21 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 	constructor(
 		private readonly context: vscode.ExtensionContext,
 		runtimeId: string,
-		version: string) {
+		version: string
+	) {
 		this._state = positron.RuntimeState.Uninitialized;
+
+		// Create the icon SVG path.
+		const iconSvgPath = path.join(this.context.extensionPath, 'resources', 'zed-icon.svg');
+
+		// Set the metadata for Zed.
 		this.metadata = {
 			runtimeId,
 			languageId: 'zed',
 			languageName: 'Zed',
 			runtimeName: 'Zed',
 			languageVersion: version,
+			base64EncodedIconSvg: fs.readFileSync(iconSvgPath).toString('base64'),
 			inputPrompt: `Z>`,
 			continuationPrompt: 'Z+',
 			runtimeVersion: '0.0.1',
