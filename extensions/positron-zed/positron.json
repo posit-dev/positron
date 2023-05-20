@@ -1,6 +1,10 @@
 {
 	"binaries": [
 		{
+			"from": "resources/zed-icon.svg",
+			"to": "resources"
+		},
+		{
 			"from": "resources/zed-logo.png",
 			"to": "resources"
 		},

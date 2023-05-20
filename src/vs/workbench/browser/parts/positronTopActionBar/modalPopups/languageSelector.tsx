@@ -23,7 +23,10 @@ export const LanguageSelector = (props: LanguageSelectorProps) => {
 	// Render.
 	return (
 		<div>
-			<img></img>
+			<div>
+				<img src={`data:image/svg+xml;base64,${props.runtime.metadata.base64EncodedIconSvg}`} style={{ width: 60, height: 60 }} />
+			</div>
+
 			<div>{props.runtime.metadata.languageName} {props.runtime.metadata.languageVersion}</div>
 			<div>{props.runtime.metadata.runtimeName}</div>
 		</div>

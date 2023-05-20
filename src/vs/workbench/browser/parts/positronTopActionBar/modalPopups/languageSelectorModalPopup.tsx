@@ -46,7 +46,7 @@ export const showLanguageSelectorModalPopup = async (
 					popupPosition='bottom'
 					popupAlignment='right'
 					width={400}
-					height={300}
+					height={800}
 					accept={acceptHandler}
 					cancel={cancelHandler}
 				>
