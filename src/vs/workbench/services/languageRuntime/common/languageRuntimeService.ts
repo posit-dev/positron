@@ -324,6 +324,9 @@ export interface ILanguageRuntimeMetadata {
 	/** The version of the language in question; e.g. "4.3.3" */
 	readonly languageVersion: string;
 
+	/** The Base64-encoded icon SVG for the language. */
+	readonly base64EncodedIconSvg: string | undefined;
+
 	/** The text the language's interpreter uses to prompt the user for input, e.g. ">" or ">>>" */
 	readonly inputPrompt: string;
 
@@ -337,7 +340,7 @@ export interface ILanguageRuntimeMetadata {
 	readonly runtimeVersion: string;
 
 	/** Whether the runtime should start up automatically or wait until explicitly requested */
-	startupBehavior: LanguageRuntimeStartupBehavior;
+	readonly startupBehavior: LanguageRuntimeStartupBehavior;
 }
 
 export interface ILanguageRuntime {
