@@ -11,10 +11,10 @@ import { positronClassNames } from 'vs/base/common/positronUtilities';
 /**
  * Event aliases.
  */
+type Position = DOM.IDomPosition;
 type UIEvent = globalThis.UIEvent;
 type MouseEvent = globalThis.MouseEvent;
 type KeyboardEvent = globalThis.KeyboardEvent;
-type Position = DOM.IDomPosition;
 
 /**
  * PopupPosition type.

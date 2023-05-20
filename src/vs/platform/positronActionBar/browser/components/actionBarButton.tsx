@@ -16,6 +16,7 @@ export interface ActionBarButtonProps {
 	iconId?: string;
 	text?: string;
 	maxTextWidth?: number;
+	border?: boolean;
 	dropDown?: boolean;
 	align?: 'left' | 'right';
 	layout?: 'loose' | 'tight';
@@ -33,6 +34,7 @@ export const ActionBarButton = forwardRef<HTMLButtonElement, ActionBarButtonProp
 	// Create the class names.
 	const classNames = positronClassNames(
 		'action-bar-button',
+		{ 'border': optionalBoolean(props.border) },
 		{ 'fade-in': optionalBoolean(props.fadeIn) },
 		{ 'disabled': optionalBoolean(props.disabled) }
 	);

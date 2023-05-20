@@ -6,7 +6,6 @@
 	width: 100%;
 	display: flex;
 	align-items: center;
-	box-sizing: border-box;
 	height: var(--positronActionBar-height);
 	background: var(--positronActionBar-background);
 }

@@ -4,7 +4,7 @@
 
 .top-action-bar-language-selector {
 	flex: 0;
-	width: 76px;
+	width: min-content;
 	margin: 0 6px;
 	height: 26px;
 	display: grid;
