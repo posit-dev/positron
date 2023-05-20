@@ -212,6 +212,7 @@ export class PositronJediLanguageServerProxy implements ILanguageServerProxy {
             args.push(`--debugport=${debugPort}`);
         }
         const kernelSpec = {
+            path: interpreter.path,
             argv: args,
             display_name: `${displayName}`,
             language: 'Python', // Used as metadata.languageName
