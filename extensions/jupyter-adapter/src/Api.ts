@@ -21,6 +21,7 @@ export class Api implements vscode.Disposable {
 	 *    VS Code's built-in language IDs or a language ID registered by another extension.
 	 * @param languageVersion The version of the language interpreter.
 	 * @param kernelVersion The version of the kernel itself.
+	 * @param base64EncodedIconSvg The Base64-encoded icon SVG of the language interpreter
 	 * @param inputPrompt The input prompt to use for the kernel, e.g. ">" or ">>>"
 	 * @param continuationPrompt The continuation prompt to use for the kernel, e.g. "+" or "..."
 	 * @param startupBehavior Whether the runtime should be started automatically
@@ -33,6 +34,7 @@ export class Api implements vscode.Disposable {
 		languageId: string,
 		languageVersion: string,
 		kernelVersion: string,
+		base64EncodedIconSvg: string | undefined,
 		inputPrompt: string,
 		continuationPrompt: string,
 		startupBehavior: positron.LanguageRuntimeStartupBehavior = positron.LanguageRuntimeStartupBehavior.Implicit,
@@ -45,6 +47,7 @@ export class Api implements vscode.Disposable {
 			languageId,
 			languageVersion,
 			kernelVersion,
+			base64EncodedIconSvg,
 			inputPrompt,
 			continuationPrompt,
 			this._channel,

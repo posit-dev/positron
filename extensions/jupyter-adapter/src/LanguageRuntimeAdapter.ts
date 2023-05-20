@@ -85,6 +85,7 @@ export class LanguageRuntimeAdapter
 		languageId: string,
 		languageVersion: string,
 		runtimeVersion: string,
+		base64EncodedIconSvg: string | undefined,
 		inputPrompt: string,
 		continuationPrompt: string,
 		private readonly _channel: vscode.OutputChannel,
@@ -112,6 +113,7 @@ export class LanguageRuntimeAdapter
 			languageId,
 			languageName: this._spec.language,
 			languageVersion,
+			base64EncodedIconSvg: base64EncodedIconSvg,
 			inputPrompt,
 			continuationPrompt,
 			startupBehavior: startupBehavior
