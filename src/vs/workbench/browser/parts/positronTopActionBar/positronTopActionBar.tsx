@@ -5,7 +5,9 @@
 import 'vs/css!./positronTopActionBar';
 import * as React from 'react';
 import { useEffect, useState } from 'react'; // eslint-disable-line no-duplicate-imports
+import { localize } from 'vs/nls';
 import { Event } from 'vs/base/common/event';
+import { DisposableStore } from 'vs/base/common/lifecycle';
 import { ILabelService } from 'vs/platform/label/common/label';
 import { IHostService } from 'vs/workbench/services/host/browser/host';
 import { ILayoutService } from 'vs/platform/layout/browser/layoutService';
@@ -13,6 +15,7 @@ import { IQuickInputService } from 'vs/platform/quickinput/common/quickInput';
 import { IWorkspacesService } from 'vs/platform/workspaces/common/workspaces';
 import { IWorkspaceContextService } from 'vs/platform/workspace/common/workspace';
 import { PositronActionBar } from 'vs/platform/positronActionBar/browser/positronActionBar';
+import { ActionBarButton } from 'vs/platform/positronActionBar/browser/components/actionBarButton';
 import { ActionBarRegion } from 'vs/platform/positronActionBar/browser/components/actionBarRegion';
 import { ActionBarSeparator } from 'vs/platform/positronActionBar/browser/components/actionBarSeparator';
 import { PositronActionBarServices } from 'vs/platform/positronActionBar/browser/positronActionBarState';
@@ -76,14 +79,43 @@ export const PositronTopActionBar = (props: PositronTopActionBarProps) => {
 	// State hooks.
 	const [showCenterUI, setShowCenterUI] = useState(props.positronTopActionBarContainer.width > kCenterUIBreak);
 	const [showFullCenterUI, setShowFullCenterUI] = useState(props.positronTopActionBarContainer.width > kFulllCenterUIBreak);
+	const [runtimeRunning, setRuntimeRunning] = useState(props.languageRuntimeService.runningRuntimes.length > 0);
 
 	// Main useEffect.
 	useEffect(() => {
-		props.positronTopActionBarContainer.onWidthChanged(width => {
+		// Create the disposable store for cleanup.
+		const disposableStore = new DisposableStore();
+
+		// Add the width changed event handler.
+		disposableStore.add(props.positronTopActionBarContainer.onWidthChanged(width => {
 			setShowCenterUI(width > kCenterUIBreak);
 			setShowFullCenterUI(width > kFulllCenterUIBreak);
-		});
+		}));
+
+		// Add the width changed event handler.
+		disposableStore.add(props.languageRuntimeService.onDidChangeRunningRuntimes(() => {
+			setRuntimeRunning(props.languageRuntimeService.runningRuntimes.length > 0);
+		}));
+
+		// Return the cleanup function that will dispose of the disposables.
+		return () => disposableStore.dispose();
 	}, []);
+
+	// This is a temporary placeholder until we sort out exactly what the language selector should
+	// be doing when there are no runtimes running.
+	let languageSelector;
+	if (runtimeRunning) {
+		languageSelector = <TopActionBarLanguageSelector />;
+	} else {
+		languageSelector = (
+			<ActionBarButton
+				align='right'
+				border={true}
+				text={localize('positronStartInterpreter', "Start Interpreter")}
+				onClick={() => props.commandService.executeCommand('workbench.action.languageRuntime.start')}
+			/>
+		);
+	}
 
 	// Render.
 	return (
@@ -92,7 +124,7 @@ export const PositronTopActionBar = (props: PositronTopActionBarProps) => {
 
 				<PositronActionBar size='large' borderBottom={true} paddingLeft={kHorizontalPadding} paddingRight={kHorizontalPadding}>
 
-					<ActionBarRegion width={170} location='left'>
+					<ActionBarRegion location='left'>
 						<TopActionBarNewMenu />
 						<ActionBarSeparator />
 						<TopActionBarOpenMenu />
@@ -116,7 +148,6 @@ export const PositronTopActionBar = (props: PositronTopActionBarProps) => {
 								</ActionBarRegion>
 								{showFullCenterUI && (
 									<ActionBarRegion width={80} location='right' justify='left'>
-										<TopActionBarLanguageSelector />
 									</ActionBarRegion>
 								)}
 							</PositronActionBar>
@@ -125,8 +156,8 @@ export const PositronTopActionBar = (props: PositronTopActionBarProps) => {
 
 					)}
 
-					<ActionBarRegion width={170} location='right'>
-						{!showFullCenterUI && <TopActionBarLanguageSelector />}
+					<ActionBarRegion location='right'>
+						{languageSelector}
 						<TopActionBarWorkspaceMenu />
 					</ActionBarRegion>
 

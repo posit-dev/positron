@@ -4,8 +4,10 @@
 
 import 'vs/css!./languageSelectorModalPopup';
 import * as React from 'react';
-import { localize } from 'vs/nls';
+//import { localize } from 'vs/nls';
 import { PositronModalPopup } from 'vs/base/browser/ui/positronModalPopup/positronModalPopup';
+import { ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { LanguageSelector } from 'vs/workbench/browser/parts/positronTopActionBar/modalPopups/languageSelector';
 import { PositronModalPopupReactRenderer } from 'vs/base/browser/ui/positronModalPopup/positronModalPopupReactRenderer';
 
 /**
@@ -14,6 +16,7 @@ import { PositronModalPopupReactRenderer } from 'vs/base/browser/ui/positronModa
  * @returns A promise that resolves when the popup is dismissed.
  */
 export const showLanguageSelectorModalPopup = async (
+	languageRuntimeService: ILanguageRuntimeService,
 	container: HTMLElement,
 	anchorElement: HTMLElement,
 ): Promise<void> => {
@@ -43,10 +46,15 @@ export const showLanguageSelectorModalPopup = async (
 					popupPosition='bottom'
 					popupAlignment='right'
 					width={400}
-					height={175}
+					height={300}
 					accept={acceptHandler}
-					cancel={cancelHandler}>
-					<div style={{ margin: 8 }}>{localize('positronTestText', "The language selector UI will go here.")}</div>
+					cancel={cancelHandler}
+				>
+					<div className='yayaya'>
+						{languageRuntimeService.registeredRuntimes.map(runtime =>
+							<LanguageSelector key={runtime.metadata.runtimeId} runtime={runtime} />
+						)}
+					</div>
 				</PositronModalPopup>
 			);
 		};

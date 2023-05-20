@@ -73,6 +73,9 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 	// The event emitter for the onDidChangeActiveRuntime event.
 	private readonly _onDidChangeActiveRuntimeEmitter = this._register(new Emitter<ILanguageRuntime | undefined>);
 
+	// The event emitter for the onDidChangeRunningRuntimes event.
+	private readonly _onDidChangeRunningRuntimesEmitter = this._register(new Emitter<void>);
+
 	//#endregion Private Properties
 
 	//#region Constructor
@@ -146,6 +149,9 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 
 	// An event that fires when the active runtime changes.
 	readonly onDidChangeActiveRuntime = this._onDidChangeActiveRuntimeEmitter.event;
+
+	// An event that fires when the active runtime changes.
+	readonly onDidChangeRunningRuntimes = this._onDidChangeRunningRuntimesEmitter.event;
 
 	/**
 	 * Gets the registered runtimes.
@@ -230,11 +236,14 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 			// Signal that the runtime has been reconnected.
 			this._onDidReconnectRuntimeEmitter.fire(runtime);
 
-			// If we have no active runtime, set the active runtime to the new
-			// runtime, since it's already active.
+			// If we have no active runtime, set the active runtime to the new runtime, since it's
+			// already active.
 			if (!this._activeRuntime) {
 				this.activeRuntime = runtime;
 			}
+
+			// Signal that the running runtimes changed.
+			this._onDidChangeRunningRuntimesEmitter.fire();
 		}
 
 		// Logging.
@@ -265,6 +274,9 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 
 						// Signal that the runtime has been reconnected.
 						this._onDidReconnectRuntimeEmitter.fire(runtime);
+
+						// Signal that the running runtimes changed.
+						this._onDidChangeRunningRuntimesEmitter.fire();
 					}
 					break;
 
@@ -280,6 +292,9 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 					// Remove the runtime from the set of starting or running runtimes.
 					this._startingRuntimesByLanguageId.delete(runtime.metadata.languageId);
 					this._runningRuntimesByLanguageId.delete(runtime.metadata.languageId);
+
+					// Signal that the running runtimes changed.
+					this._onDidChangeRunningRuntimesEmitter.fire();
 					break;
 			}
 
@@ -308,8 +323,12 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 		}));
 
 		return toDisposable(() => {
+			// Remove the runtime from the set of starting or running runtimes.
 			this._startingRuntimesByLanguageId.delete(runtime.metadata.languageId);
 			this._runningRuntimesByLanguageId.delete(runtime.metadata.languageId);
+
+			// Signal that the running runtimes changed.
+			this._onDidChangeRunningRuntimesEmitter.fire();
 		});
 	}
 
@@ -387,8 +406,11 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 			// Fire the onDidStartRuntime event.
 			this._onDidStartRuntimeEmitter.fire(runtime);
 
-			// Set the active runtime.
-			//this.activeRuntime = runtime;
+			// Make the newly-started runtime the active runtime.
+			this.activeRuntime = runtime;
+
+			// Signal that the running runtimes changed.
+			this._onDidChangeRunningRuntimesEmitter.fire();
 		}, (reason) => {
 			// Remove the runtime from the starting runtimes.
 			this._startingRuntimesByLanguageId.delete(runtime.metadata.languageId);
