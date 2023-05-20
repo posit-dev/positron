@@ -2,23 +2,39 @@
  *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
+@keyframes fade-in {
+	0% {
+		opacity: 0;
+	}
+
+	100% {
+		opacity: 1;
+	}
+}
+
 .action-bar-button {
+	height: 28px;
 	padding: 0;
 	border: none;
 	cursor: pointer;
 	overflow: visible;
+	border-radius: 6px;
+	box-sizing: border-box;
 	background: transparent;
 	color: var(--positronActionBar-foreground);
+}
+
+.action-bar-button:hover {
+	background: var(--positronActionBar-hoverBackground);
+}
+
+.action-bar-button.border {
+	border: 1px solid var(--vscode-positronTopActionBar-selectBoxBorder);
 }
 
 .action-bar-button.fade-in {
 	opacity: 0;
 	animation: fade-in 0.25s ease-in 0.25s 1 forwards;
-}
-
-@keyframes fade-in {
-	0% { opacity: 0; }
-	100% { opacity: 1; }
 }
 
 .action-bar-button:focus {
@@ -32,27 +48,16 @@
 
 .action-bar-button-face {
 	display: flex;
-	position: relative;
 	align-items: center;
 }
 
 .action-bar-button-text {
 	margin: 0 4px;
+	display: flex;
 	font-size: 12px;
 	overflow: hidden;
 	white-space: nowrap;
 	text-overflow: ellipsis;
-}
-
-.action-bar-button-face:hover {
-	border-radius: 6px;
-	background: var(--positronActionBar-hoverBackground);
-	outline: 1px dashed var(--vscode-toolbar-hoverOutline);
-}
-
-.disabled .action-bar-button-face:hover {
-	background: transparent;
-	outline: none;
 }
 
 .action-bar-button-icon {

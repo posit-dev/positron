@@ -436,6 +436,9 @@ export interface ILanguageRuntimeService {
 	// An event that fires when the active runtime changes.
 	readonly onDidChangeActiveRuntime: Event<ILanguageRuntime | undefined>;
 
+	// An event that fires when the running runtimes changes.
+	readonly onDidChangeRunningRuntimes: Event<void>;
+
 	/**
 	 * Gets the registered language runtimes.
 	 */

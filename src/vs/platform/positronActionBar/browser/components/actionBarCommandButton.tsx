@@ -7,15 +7,13 @@ import * as React from 'react';
 import { useEffect, useState } from 'react'; // eslint-disable-line no-duplicate-imports
 import { DisposableStore } from 'vs/base/common/lifecycle';
 import { CommandCenter } from 'vs/platform/commandCenter/common/commandCenter';
-import { ActionBarButton } from 'vs/platform/positronActionBar/browser/components/actionBarButton';
 import { usePositronActionBarContext } from 'vs/platform/positronActionBar/browser/positronActionBarContext';
+import { ActionBarButton, ActionBarButtonProps } from 'vs/platform/positronActionBar/browser/components/actionBarButton';
 
 /**
  * ActionBarCommandButtonProps interface.
  */
-interface ActionBarCommandButtonProps {
-	iconId: string;
-	align?: 'left' | 'right';
+interface ActionBarCommandButtonProps extends ActionBarButtonProps {
 	commandId: string;
 }
 
