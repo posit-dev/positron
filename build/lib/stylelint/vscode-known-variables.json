@@ -717,7 +717,10 @@
 		"--vscode-positronModalDialog-textInputSelectionBackground",
 		"--positronActionBar-height",
 		"--positronActionBar-background",
-		"--positronActionBar-border"
+		"--positronActionBar-border",
+		"--vscode-positronTopActionBar-border",
+		"--vscode-positronTopActionBar-hoverBackground",
+		"--vscode-positronTopActionBar-separator"
 	],
 	"others": [
 		"--background-dark",

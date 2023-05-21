@@ -28,7 +28,7 @@ import { TopActionBarOpenMenu } from 'vs/workbench/browser/parts/positronTopActi
 import { TopActionBarWorkspaceMenu } from 'vs/workbench/browser/parts/positronTopActionBar/components/topActionBarWorkspaceMenu';
 import { TopActionBarCommandCenter } from 'vs/workbench/browser/parts/positronTopActionBar/components/topActionBarCommandCenter';
 import { PositronTopActionBarContextProvider } from 'vs/workbench/browser/parts/positronTopActionBar/positronTopActionBarContext';
-import { TopActionBarLanguageSelector } from 'vs/workbench/browser/parts/positronTopActionBar/components/topActionBarLanguageSelector';
+import { TopActionBarRuntimesManager } from 'vs/workbench/browser/parts/positronTopActionBar/components/topActionBarRuntimesManager';
 
 // Constants.
 const kHorizontalPadding = 4;
@@ -101,13 +101,12 @@ export const PositronTopActionBar = (props: PositronTopActionBarProps) => {
 		return () => disposableStore.dispose();
 	}, []);
 
-	// This is a temporary placeholder until we sort out exactly what the language selector should
-	// be doing when there are no runtimes running.
-	let languageSelector;
+	// TODO@softwarenerd - This needs product management.
+	let rumtimesManager;
 	if (runtimeRunning) {
-		languageSelector = <TopActionBarLanguageSelector />;
+		rumtimesManager = <TopActionBarRuntimesManager />;
 	} else {
-		languageSelector = (
+		rumtimesManager = (
 			<ActionBarButton
 				align='right'
 				border={true}
@@ -157,7 +156,7 @@ export const PositronTopActionBar = (props: PositronTopActionBarProps) => {
 					)}
 
 					<ActionBarRegion location='right'>
-						{languageSelector}
+						{rumtimesManager}
 						<TopActionBarWorkspaceMenu />
 					</ActionBarRegion>
 

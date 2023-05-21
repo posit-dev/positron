@@ -107,6 +107,7 @@ export class LanguageRuntimeAdapter
 
 		// Generate kernel metadata and ID
 		this.metadata = {
+			kernelPath: this._spec.path,
 			runtimeId,
 			runtimeName: this._spec.display_name,
 			runtimeVersion,

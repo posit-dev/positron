@@ -2,7 +2,7 @@
  *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
-.top-action-bar-language-selector {
+.top-action-bar-runtimes-manager {
 	flex: 0;
 	width: min-content;
 	margin: 0 6px;
@@ -18,15 +18,15 @@
 	background-color: var(--vscode-positronTopActionBar-selectBoxBackground);
 }
 
-.top-action-bar-language-selector:hover {
+.top-action-bar-runtimes-manager:hover {
 	background-color: var(--positronActionBar-hoverBackground);
 }
 
-.top-action-bar-language-selector .left {
+.top-action-bar-runtimes-manager .left {
 	margin-left: 1px;
 }
 
-.top-action-bar-language-selector .left .search {
+.top-action-bar-runtimes-manager .left .search {
 	padding: 0 3px;
 	height: 22px;
 	border: none;
@@ -39,23 +39,23 @@
 	color: var(--positronActionBar-foreground);
 }
 
-.top-action-bar-language-selector .left .search:focus {
+.top-action-bar-runtimes-manager .left .search:focus {
 	outline: none !important;
 }
 
-.top-action-bar-language-selector .left .search:focus-visible {
+.top-action-bar-runtimes-manager .left .search:focus-visible {
 	border-radius: 6px;
 	outline: 1px solid var(--vscode-focusBorder) !important;
 }
 
-.top-action-bar-language-selector .right {
+.top-action-bar-runtimes-manager .right {
 	display: flex;
 	align-items: center;
 	justify-content: right;
 	margin-right: 1px;
 }
 
-.top-action-bar-language-selector .right .drop-down {
+.top-action-bar-runtimes-manager .right .drop-down {
 	height: 22px;
 	width: 22px;
 	border: none;
@@ -67,11 +67,11 @@
 	justify-content: center;
 }
 
-.top-action-bar-language-selector .right .drop-down:focus {
+.top-action-bar-runtimes-manager .right .drop-down:focus {
 	outline: none !important;
 }
 
-.top-action-bar-language-selector .right .drop-down:focus-visible {
+.top-action-bar-runtimes-manager .right .drop-down:focus-visible {
 	border-radius: 6px;
 	outline: 1px solid var(--vscode-focusBorder) !important;
 }
