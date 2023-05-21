@@ -161,6 +161,7 @@ export function registerArkKernel(ext: vscode.Extension<any>, context: vscode.Ex
 
 		// Create a kernel spec for this R installation
 		const kernelSpec = {
+			path: rHome.rHome,
 			'argv': [
 				kernelPath,
 				'--connection_file', '{connection_file}',
