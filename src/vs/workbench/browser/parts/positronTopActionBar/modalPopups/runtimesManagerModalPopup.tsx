@@ -2,20 +2,21 @@
  *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
-import 'vs/css!./languageSelectorModalPopup';
+import 'vs/css!./runtimesManagerModalPopup';
 import * as React from 'react';
-//import { localize } from 'vs/nls';
 import { PositronModalPopup } from 'vs/base/browser/ui/positronModalPopup/positronModalPopup';
 import { ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
-import { LanguageSelector } from 'vs/workbench/browser/parts/positronTopActionBar/modalPopups/languageSelector';
+import { RunningRuntime } from 'vs/workbench/browser/parts/positronTopActionBar/modalPopups/runningRuntime';
 import { PositronModalPopupReactRenderer } from 'vs/base/browser/ui/positronModalPopup/positronModalPopupReactRenderer';
 
 /**
- * Shows the language selector modal popup.
- * @param layoutService The layout service.
+ * Shows the runtimes manager modal popup.
+ * @param languageRuntimeService The language runtime service.
+ * @param container The container of the application.
+ * @param anchorElement The anchor element for the runtimes manager modal popup.
  * @returns A promise that resolves when the popup is dismissed.
  */
-export const showLanguageSelectorModalPopup = async (
+export const showRuntimesManagerModalPopup = async (
 	languageRuntimeService: ILanguageRuntimeService,
 	container: HTMLElement,
 	anchorElement: HTMLElement,
@@ -27,16 +28,20 @@ export const showLanguageSelectorModalPopup = async (
 
 		// The modal popup component.
 		const ModalPopup = () => {
-			// The accept handler.
-			const acceptHandler = () => {
+			// The dismiss handler.
+			const dismissHandler = () => {
 				positronModalPopupReactRenderer.destroy();
 				resolve();
 			};
 
-			// The cancel handler.
-			const cancelHandler = () => {
-				positronModalPopupReactRenderer.destroy();
-				resolve();
+			/**
+			 * Calculates the height of the popup.
+			 * @returns The height of the popup.
+			 */
+			const calculateHeight = () => {
+				return 8 +														// Margin.
+					(languageRuntimeService.runningRuntimes.length * 75) +		// Runtimes.
+					((languageRuntimeService.runningRuntimes.length - 1) * 4);	// Separators.
 			};
 
 			// Render.
@@ -46,14 +51,20 @@ export const showLanguageSelectorModalPopup = async (
 					popupPosition='bottom'
 					popupAlignment='right'
 					width={400}
-					height={800}
-					accept={acceptHandler}
-					cancel={cancelHandler}
+					height={calculateHeight()}
+					dismiss={dismissHandler}
 				>
-					<div className='yayaya'>
-						{languageRuntimeService.registeredRuntimes.map(runtime =>
-							<LanguageSelector key={runtime.metadata.runtimeId} runtime={runtime} />
-						)}
+					<div className='running-runtimes'>
+						{languageRuntimeService.runningRuntimes.map((runtime, index, runningRuntimes) => (
+							<>
+								<RunningRuntime
+									key={runtime.metadata.runtimeId}
+									languageRuntimeService={languageRuntimeService}
+									runtime={runtime}
+									dismiss={dismissHandler} />
+								{index < runningRuntimes.length - 1 && <div className='separator' />}
+							</>
+						))}
 					</div>
 				</PositronModalPopup>
 			);

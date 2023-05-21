@@ -6,6 +6,9 @@
  * Represents a registered Jupyter Kernel.
  */
 export interface JupyterKernelSpec {
+	/** The kernel's path */
+	path: string;
+
 	/** Command used to start the kernel and an array of command line arguments */
 	argv: Array<string>;
 

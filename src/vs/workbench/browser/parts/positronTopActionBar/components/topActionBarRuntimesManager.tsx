@@ -2,19 +2,18 @@
  *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
-import 'vs/css!./topActionBarLanguageSelector';
+import 'vs/css!./topActionBarRuntimesManager';
 import * as React from 'react';
 import { useEffect, useRef, useState } from 'react'; // eslint-disable-line no-duplicate-imports
-// import { localize } from 'vs/nls';
-import { usePositronTopActionBarContext } from 'vs/workbench/browser/parts/positronTopActionBar/positronTopActionBarContext';
-import { showLanguageSelectorModalPopup } from 'vs/workbench/browser/parts/positronTopActionBar/modalPopups/languageSelectorModalPopup';
 import { DisposableStore } from 'vs/base/common/lifecycle';
+import { usePositronTopActionBarContext } from 'vs/workbench/browser/parts/positronTopActionBar/positronTopActionBarContext';
+import { showRuntimesManagerModalPopup } from 'vs/workbench/browser/parts/positronTopActionBar/modalPopups/runtimesManagerModalPopup';
 
 /**
- * TopActionBarLanguageSelector component.
+ * TopActionBarRuntimesManager component.
  * @returns The rendered component.
  */
-export const TopActionBarLanguageSelector = () => {
+export const TopActionBarRuntimesManager = () => {
 	// Context hooks.
 	const positronTopActionBarContext = usePositronTopActionBarContext();
 
@@ -29,6 +28,7 @@ export const TopActionBarLanguageSelector = () => {
 		// Create the disposable store for cleanup.
 		const disposableStore = new DisposableStore();
 
+		// Add the onDidChangeActiveRuntime event handler.
 		disposableStore.add(
 			positronTopActionBarContext.languageRuntimeService.onDidChangeActiveRuntime(runtime => {
 				setActiveRuntime(positronTopActionBarContext.languageRuntimeService.activeRuntime);
@@ -44,7 +44,7 @@ export const TopActionBarLanguageSelector = () => {
 	 */
 	const clickHandler = () => {
 		// Show the language selector modal popup.
-		showLanguageSelectorModalPopup(
+		showRuntimesManagerModalPopup(
 			positronTopActionBarContext.languageRuntimeService,
 			positronTopActionBarContext.layoutService.container,
 			ref.current
@@ -52,15 +52,16 @@ export const TopActionBarLanguageSelector = () => {
 	};
 
 	if (!activeRuntime) {
+		console.log('+++++++++++++++++++++++++++++++++++++++++ activeRuntime is undefined. Rendering nothing.');
 		return null;
 	}
 
 	// Render.
 	return (
-		<div ref={ref} className='top-action-bar-language-selector' onClick={clickHandler}>
+		<div ref={ref} className='top-action-bar-runtimes-manager' onClick={clickHandler}>
 			<div className='left'>
 				<button className='search'>
-					<div className='action-bar-button-text'>{activeRuntime.metadata.runtimeName}</div>
+					<div className='action-bar-button-text'>{activeRuntime.metadata.languageName} {activeRuntime.metadata.languageVersion}</div>
 				</button>
 			</div>
 			<div className='right'>

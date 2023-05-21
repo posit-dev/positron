@@ -1,0 +1,93 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
+ *--------------------------------------------------------------------------------------------*/
+
+.running-runtime {
+	width: 100%;
+	height: 75px;
+	border: none;
+	display: grid;
+	cursor: pointer;
+	text-align: left;
+	align-items: center;
+	background: transparent;
+	grid-template-columns: min-content 1fr min-content;
+}
+
+.running-runtime:hover {
+	border-radius: 6px;
+	outline: 1px solid var(--vscode-positronTopActionBar-border) !important;
+}
+
+.running-runtime:focus {
+	outline: none !important;
+}
+
+.running-runtime:focus-visible {
+	border-radius: 6px;
+	outline: 1px solid var(--vscode-focusBorder) !important;
+}
+
+.running-runtime .icon {
+	width: 60px;
+	height: 60px;
+	padding-left: 5px;
+	padding-right: 10px;
+}
+
+.running-runtime .info {
+	display: grid;
+	line-height: 120%;
+	grid-template-rows: repeat(3, min-content);
+}
+
+.running-runtime .info .container {
+	max-width: 100%;
+	overflow: hidden;
+}
+
+.running-runtime .info .container .line {
+	max-width: 100%;
+	overflow: hidden;
+	white-space: nowrap;
+	text-overflow: ellipsis;
+}
+
+.running-runtime .info .container .line.light {
+	opacity: 0.5;
+}
+
+.running-runtime .actions {
+	gap: 4px;
+	display: grid;
+	padding-left: 10px;
+	padding-right: 12px;
+	grid-template-columns: repeat(2, 22px);
+}
+
+.running-runtime .actions .action-button {
+	cursor: default !important;
+	height: 22px;
+	width: 22px;
+	border: none;
+	display: flex;
+	cursor: pointer;
+	overflow: visible;
+	align-items: center;
+	background: transparent;
+	justify-content: center;
+}
+
+.running-runtime .actions .action-button:hover {
+	border-radius: 4px;
+	background-color: var(--vscode-positronTopActionBar-hoverBackground);
+}
+
+.running-runtime .actions .action-button:focus {
+	outline: none !important;
+}
+
+.running-runtime .actions .action-button:focus-visible {
+	border-radius: 6px;
+	outline: 1px solid var(--vscode-focusBorder) !important;
+}

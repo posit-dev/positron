@@ -35,8 +35,7 @@ export interface PositronModalPopupProps {
 	popupAlignment: PopupAlignment;
 	width: number;
 	height: number;
-	accept?: () => void;
-	cancel?: () => void;
+	dismiss: () => void;
 }
 
 /**
@@ -80,29 +79,22 @@ export const PositronModalPopup = (props: PropsWithChildren<PositronModalPopupPr
 
 		// Handle the event.
 		switch (e.key) {
-			// Enter accepts dialog.
-			case 'Enter':
-				consumeEvent();
-				props.accept?.();
-				break;
-
-			// Escape cancels dialog.
+			// Escape dismisses the modal popup.
 			case 'Escape':
 				consumeEvent();
-				props.cancel?.();
+				props.dismiss();
 				break;
 
-			// Allow tab so the user can set focus to the UI elements in the
-			// modal dialog.
+			// Allow tab so the user can set focus to the UI elements in the modal popup.
 			case 'Tab':
 				break;
 
+			// Allow space and enter so buttons in the modal popup can be pressed.
+			case 'Space':
+			case 'Enter':
+				break;
+
 			// Eat other keys.
-			// TODO@softwarenerd - For the moment, this appears to be the right
-			// way to handle keyboard events in Positron modal dialog boxes
-			// insofar as we need the rest of the UI (e.g. F1 for the command
-			// palette) to be disabled when a modal dialog is being shown. I am
-			// certain there is more work to be done here.
 			default:
 				consumeEvent();
 				break;
@@ -112,16 +104,13 @@ export const PositronModalPopup = (props: PropsWithChildren<PositronModalPopupPr
 	// Memoize the mousedownHandler.
 	const mousedownHandler = useCallback((e: MouseEvent) => {
 		if (!popupContainsMouseEvent(e)) {
-			props.cancel?.();
+			props.dismiss();
 		}
 	}, []);
 
 	// Memoize the resizeHandler.
 	const resizeHandler = useCallback((e: UIEvent) => {
 		setPosition(computePosition());
-		// const topLeftOffset = DOM.getTopLeftOffset(props.anchorElement);
-		// setLeft(topLeftOffset.left + props.anchorElement.offsetWidth - props.width);
-		// setTop(topLeftOffset.top + props.anchorElement.offsetHeight);
 	}, []);
 
 	/**
