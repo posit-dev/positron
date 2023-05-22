@@ -65,7 +65,7 @@ export const RunningRuntime = (props: RunningRuntimeProps) => {
 			<div className='info'>
 				<div className='container'>
 					<div className='line'>{props.runtime.metadata.languageName} {props.runtime.metadata.languageVersion}</div>
-					<div className='line light' title={props.runtime.metadata.kernelPath}>{props.runtime.metadata.kernelPath}</div>
+					<div className='line light' title={props.runtime.metadata.runtimePath}>{props.runtime.metadata.runtimePath}</div>
 					<div className='line'>change...</div>
 				</div>
 			</div>

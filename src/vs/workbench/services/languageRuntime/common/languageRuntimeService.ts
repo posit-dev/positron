@@ -313,7 +313,7 @@ export interface ILanguageRuntimeStateEvent {
  */
 export interface ILanguageRuntimeMetadata {
 	/** The path to the kernel. */
-	readonly kernelPath: string;
+	readonly runtimePath: string;
 
 	/** A unique identifier for this runtime; usually a GUID */
 	readonly runtimeId: string;
