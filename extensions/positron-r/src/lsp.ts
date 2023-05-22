@@ -8,11 +8,22 @@ import * as positron from 'positron';
 import {
 	LanguageClient,
 	LanguageClientOptions,
+	State,
 	StreamInfo,
 } from 'vscode-languageclient/node';
 
 import { trace, traceOutputChannel } from './logging';
 import { Socket } from 'net';
+
+/**
+ * The state of the language server.
+ */
+export enum LspState {
+	uninitialized = 'uninitialized',
+	starting = 'starting',
+	stopped = 'stopped',
+	running = 'running',
+}
 
 /**
  * Wraps an instance of the client side of the ARK LSP.
@@ -21,6 +32,8 @@ export class ArkLsp implements vscode.Disposable {
 
 	/** The languge client instance, if it has been created */
 	private _client?: LanguageClient;
+
+	private _state: LspState = LspState.uninitialized;
 
 	public constructor(private readonly _version: string) {
 	}
@@ -101,11 +114,23 @@ export class ArkLsp implements vscode.Disposable {
 		this._client = new LanguageClient('positron-r', `Positron R Language Server (${this._version})`, serverOptions, clientOptions);
 
 		this._client.onDidChangeState(event => {
-			trace(`ARK (R ${this._version}) language client state changed ${event.oldState} => ${event.newState}`);
+			const oldState = this._state;
+			// Convert the state to our own enum
+			switch (event.newState) {
+				case State.Starting:
+					this._state = LspState.starting;
+					break;
+				case State.Running:
+					this._state = LspState.running;
+					break;
+				case State.Stopped:
+					this._state = LspState.stopped;
+					break;
+			}
+			trace(`ARK (R ${this._version}) language client state changed ${oldState} => ${this._state}`);
 		});
 
 		context.subscriptions.push(this._client.start());
-
 	}
 
 	/**
@@ -133,6 +158,13 @@ export class ArkLsp implements vscode.Disposable {
 	 */
 	public deactivate(): Thenable<void> | undefined {
 		return this._client?.stop();
+	}
+
+	/**
+	 * Gets the current state of the client.
+	 */
+	get state(): LspState {
+		return this._state;
 	}
 
 	/**

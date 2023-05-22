@@ -20,7 +20,6 @@ import { JupyterCommClose } from './JupyterCommClose';
 import { v4 as uuidv4 } from 'uuid';
 import { JupyterShutdownRequest } from './JupyterShutdownRequest';
 import { JupyterInterruptRequest } from './JupyterInterruptRequest';
-import { JupyterKernelSpec } from './JupyterKernelSpec';
 import { JupyterConnectionSpec } from './JupyterConnectionSpec';
 import { JupyterSockets } from './JupyterSockets';
 import { JupyterExecuteRequest } from './JupyterExecuteRequest';
@@ -31,6 +30,7 @@ import { createJupyterSession, JupyterSession, JupyterSessionState } from './Jup
 import path = require('path');
 import { StartupFailure } from './StartupFailure';
 import { JupyterKernelStatus } from './JupyterKernelStatus';
+import { JupyterKernelSpec } from './jupyter-adapter';
 
 /** The message sent to the Heartbeat socket on a regular interval to test connectivity */
 const HEARTBEAT_MESSAGE = 'heartbeat';

@@ -8,10 +8,8 @@ import * as fs from 'fs';
 
 import { withActiveExtension } from './util';
 import { ArkLsp } from './lsp';
-
-// A global instance of the language runtime (and LSP language server) provided
-// by this language pack
-let runtime: positron.LanguageRuntime;
+import { JupyterAdapterApi } from './jupyter-adapter';
+import { RRuntime } from './runtime';
 
 export function adaptJupyterKernel(context: vscode.ExtensionContext, kernelPath: string) {
 	// Check to see whether the Jupyter Adapter extension is installed
@@ -158,33 +156,27 @@ export function registerArkKernel(ext: vscode.Extension<any>, context: vscode.Ex
 		// Get the version of this extension from package.json so we can pass it
 		// to the adapter as the implementation version.
 		const packageJson = require('../package.json');
-		const version = packageJson.version;
+		const rVersion = rHome.rVersion ?? '0.0.1';
 
-		// Create an LSP language server for this R installation
-		const lsp = new ArkLsp(rHome.rVersion);
+		const metadata: positron.LanguageRuntimeMetadata = {
+			languageId: 'r',
+			languageVersion: rVersion,
+			runtimeId: `r-${rVersion}`,
+			runtimeName: `R ${rHome.rVersion}`,
+			runtimeVersion: packageJson.version,
+			languageName: 'R',
+			inputPrompt: '>',
+			continuationPrompt: '+',
+			startupBehavior: positron.LanguageRuntimeStartupBehavior.Implicit
+		};
 
 		// Create an adapter for the kernel to fulfill the LanguageRuntime interface.
-		runtime = ext.exports.adaptKernel(
-			kernelSpec,
-			'r',      // Language ID
-			rHome.rVersion ?? '0.0.1',   // Version of R, if we know it
-			version,  // Version of this extension
-			'>', 	// Input prompt
-			'+',	// Continuation prompt
-			positron.LanguageRuntimeStartupBehavior.Implicit, // OK to start the kernel automatically
-			(port: number) => {
-				// Activate the LSP language server when the adapter is ready.
-				return lsp.activate(port, context);
-			});
+		const jupyterAdapterApi = ext.exports as JupyterAdapterApi;
+		const runtime = new RRuntime(context, kernelSpec, metadata, jupyterAdapterApi);
+		context.subscriptions.push(runtime);
 
-		// Associate the LSP client instance with the kernel adapter.
-		lsp.attachRuntime(runtime);
-		context.subscriptions.push(lsp);
-
-		// Register a language runtime provider for the ARK kernel.
+		// Register the language runtime with Positron.
 		const disposable = positron.runtime.registerLanguageRuntime(runtime);
-
-		// Ensure that the kernel is disposed when the extension is deactivated.
 		context.subscriptions.push(disposable);
 	}
 }
