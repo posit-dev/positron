@@ -9,10 +9,7 @@ import * as fs from 'fs';
 
 import { withActiveExtension } from './util';
 import { ArkLsp } from './lsp';
-import { EXTENSION_ROOT_DIR } from './constants';
-
-// Load the R icon.
-const base64EncodedIconSvg = fs.readFileSync(path.join(EXTENSION_ROOT_DIR, 'resources', 'branding', 'r-icon.svg')).toString('base64');
+import { RRuntime } from './runtime';
 
 // A global instance of the language runtime (and LSP language server) provided
 // by this language pack
@@ -167,21 +164,24 @@ export function registerArkKernel(ext: vscode.Extension<any>, context: vscode.Ex
 		const rVersion = rHome.rVersion ?? '0.0.1';
 
 		const metadata: positron.LanguageRuntimeMetadata = {
-			languageId: 'r',
-			languageVersion: rVersion,
 			runtimeId: `r-${rVersion}`,
-			runtimeName: `R ${rHome.rVersion}`,
+			runtimeName: 'R',
+			runtimePath: rHome.rHome,
 			runtimeVersion: packageJson.version,
+			languageId: 'r',
 			languageName: 'R',
+			languageVersion: rVersion,
 			inputPrompt: '>',
 			continuationPrompt: '+',
+			base64EncodedIconSvg:
+				fs.readFileSync(
+					path.join(context.extensionPath, 'resources', 'branding', 'r-icon.svg')
+				).toString('base64'),
 			startupBehavior: positron.LanguageRuntimeStartupBehavior.Implicit
 		};
 
 		// Create an adapter for the kernel to fulfill the LanguageRuntime interface.
-		const jupyterAdapterApi = ext.exports as JupyterAdapterApi;
-		const runtime = new RRuntime(context, kernelSpec, metadata, jupyterAdapterApi);
-		context.subscriptions.push(runtime);
+		runtime = new RRuntime(context, kernelSpec, metadata, ext.exports);
 
 		// Register the language runtime with Positron.
 		const disposable = positron.runtime.registerLanguageRuntime(runtime);
