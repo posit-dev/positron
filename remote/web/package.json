@@ -10,6 +10,7 @@
 		"jschardet": "3.0.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
+    "react-window": "^1.8.8",
 		"tas-client-umd": "0.1.8",
 		"vscode-oniguruma": "1.7.0",
 		"vscode-textmate": "9.0.0",

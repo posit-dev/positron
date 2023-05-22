@@ -1,6 +1,10 @@
 {
 	"binaries": [
 		{
+			"from": "resources/branding/r-icon.svg",
+			"to": "resources/branding"
+		},
+		{
 			"from": "./amalthea/target/release/ark",
 			"to": "./dist/bin"
 		},
