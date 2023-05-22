@@ -690,7 +690,12 @@ export class LanguageRuntimeAdapter
 		// cue to start it again.
 		if (previous === positron.RuntimeState.Restarting &&
 			status === positron.RuntimeState.Exited) {
-			this._kernel.start();
+
+			// Defer the start to the next tick to ensure the kernel has
+			// processed its own exit before we ask it to restart
+			setTimeout(() => {
+				this._kernel.start();
+			}, 0);
 		}
 	}
 
