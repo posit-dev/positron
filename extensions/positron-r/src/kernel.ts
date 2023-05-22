@@ -4,12 +4,19 @@
 
 import * as vscode from 'vscode';
 import * as positron from 'positron';
+import * as path from 'path';
 import * as fs from 'fs';
 
 import { withActiveExtension } from './util';
 import { ArkLsp } from './lsp';
-import { JupyterAdapterApi } from './jupyter-adapter';
-import { RRuntime } from './runtime';
+import { EXTENSION_ROOT_DIR } from './constants';
+
+// Load the R icon.
+const base64EncodedIconSvg = fs.readFileSync(path.join(EXTENSION_ROOT_DIR, 'resources', 'branding', 'r-icon.svg')).toString('base64');
+
+// A global instance of the language runtime (and LSP language server) provided
+// by this language pack
+let runtime: positron.LanguageRuntime;
 
 export function adaptJupyterKernel(context: vscode.ExtensionContext, kernelPath: string) {
 	// Check to see whether the Jupyter Adapter extension is installed
@@ -143,6 +150,7 @@ export function registerArkKernel(ext: vscode.Extension<any>, context: vscode.Ex
 
 		// Create a kernel spec for this R installation
 		const kernelSpec = {
+			path: rHome.rHome,
 			'argv': [
 				kernelPath,
 				'--connection_file', '{connection_file}',

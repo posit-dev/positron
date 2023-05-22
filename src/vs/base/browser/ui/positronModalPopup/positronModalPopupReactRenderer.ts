@@ -1,17 +1,17 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
-import 'vs/css!./positronModalDialog';
+import 'vs/css!./positronModalPopup';
 import { ReactElement } from 'react';
 import * as DOM from 'vs/base/browser/dom';
 import { createRoot, Root } from 'react-dom/client';
 
 /**
- * PositronModalDialogReactRenderer class.
- * Manages rendering a React component as a modal dialog.
+ * PositronModalPopupReactRenderer class.
+ * Manages rendering a React component as a modal popup.
  */
-export class PositronModalDialogReactRenderer {
+export class PositronModalPopupReactRenderer {
 	/**
 	 * The container element where the React element will be rendered.
 	 */
@@ -23,11 +23,11 @@ export class PositronModalDialogReactRenderer {
 	private _root?: Root;
 
 	/**
-	 * Initializes a new instance of the PositronModalDialogReactRenderer class.
-	 * @param container The container HTMLElement where the modal dialog will be presented.
+	 * Initializes a new instance of the PositronModalPopupReactRenderer class.
+	 * @param container The container HTMLElement where the modal popup will be presented.
 	 */
 	constructor(container: HTMLElement) {
-		this._container = container.appendChild(DOM.$('.positron-modal-dialog-overlay'));
+		this._container = container.appendChild(DOM.$('.positron-modal-popup-overlay'));
 		this._root = createRoot(this._container);
 	}
 

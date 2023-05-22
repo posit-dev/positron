@@ -2,7 +2,7 @@
  *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
-.positron-history-test-content {
-	margin: 10px 20px;
-	color: var(--vscode-positronModalDialog-foreground); /* Temporary */
-}
+import * as path from 'path';
+
+// The extension root directory.
+export const EXTENSION_ROOT_DIR = path.join(__dirname, '..');

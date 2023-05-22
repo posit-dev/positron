@@ -16,9 +16,9 @@
 	cursor: pointer;
 	border-radius: 3px;
 	justify-content: center;
-	color: var(--vscode-modalDialog-buttonForeground);
-	background: var(--vscode-modalDialog-checkboxBackground);
-	border: 1px solid var(--vscode-modalDialog-checkboxBorder);
+	color: var(--vscode-positronModalDialog-buttonForeground);
+	background: var(--vscode-positronModalDialog-checkboxBackground);
+	border: 1px solid var(--vscode-positronModalDialog-checkboxBorder);
 }
 
 .positron-modal-dialog-box .checkbox-button:focus {
@@ -33,5 +33,5 @@
 .positron-modal-dialog-box .checkbox-button .check-indicator {
 	font-size: 12px;
 	font-weight: bold;
-	color: var(--vscode-modalDialog-checkboxForeground);
+	color: var(--vscode-positronModalDialog-checkboxForeground);
 }

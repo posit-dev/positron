@@ -75,12 +75,14 @@ export class NotebookLanguageRuntime extends Disposable implements ILanguageRunt
 		// The NotebookKernel interface doesen't have any notion of the language
 		// version, so use 1.0 as the default.
 		this.metadata = {
+			runtimePath: '/?',
 			runtimeId: _kernel.id,
 			languageId: _kernel.supportedLanguages[0],
 			languageName: languageName,
 			languageVersion: '1.0',
 			inputPrompt: 'NB>',
 			continuationPrompt: 'NB+',
+			base64EncodedIconSvg: undefined,
 			runtimeName: `${this._kernel.label} - ${this._kernel.description} [Notebook Bridge]`,
 			runtimeVersion: '0.0.1',
 			startupBehavior: LanguageRuntimeStartupBehavior.Implicit

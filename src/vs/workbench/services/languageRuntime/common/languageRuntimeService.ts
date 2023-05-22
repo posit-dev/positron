@@ -315,6 +315,9 @@ export interface ILanguageRuntimeStateEvent {
  * before the runtime is started.
  */
 export interface ILanguageRuntimeMetadata {
+	/** The path to the kernel. */
+	readonly runtimePath: string;
+
 	/** A unique identifier for this runtime; usually a GUID */
 	readonly runtimeId: string;
 
@@ -326,6 +329,9 @@ export interface ILanguageRuntimeMetadata {
 
 	/** The version of the language in question; e.g. "4.3.3" */
 	readonly languageVersion: string;
+
+	/** The Base64-encoded icon SVG for the language. */
+	readonly base64EncodedIconSvg: string | undefined;
 
 	/** The text the language's interpreter uses to prompt the user for input, e.g. ">" or ">>>" */
 	readonly inputPrompt: string;
@@ -340,7 +346,7 @@ export interface ILanguageRuntimeMetadata {
 	readonly runtimeVersion: string;
 
 	/** Whether the runtime should start up automatically or wait until explicitly requested */
-	startupBehavior: LanguageRuntimeStartupBehavior;
+	readonly startupBehavior: LanguageRuntimeStartupBehavior;
 }
 
 export interface ILanguageRuntime {
@@ -438,6 +444,9 @@ export interface ILanguageRuntimeService {
 
 	// An event that fires when the active runtime changes.
 	readonly onDidChangeActiveRuntime: Event<ILanguageRuntime | undefined>;
+
+	// An event that fires when the running runtimes changes.
+	readonly onDidChangeRunningRuntimes: Event<void>;
 
 	/**
 	 * Gets the registered language runtimes.
