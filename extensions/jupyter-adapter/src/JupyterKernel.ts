@@ -298,8 +298,11 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 		// Return a promise that resolves when we receive the initial heartbeat
 		return new Promise<void>((resolve, reject) => {
 
-			// Establish a log channel for the kernel we're connecting to
-			this._logChannel = vscode.window.createOutputChannel(`Runtime: ${this._spec.display_name}`);
+			// Establish a log channel for the kernel we're connecting to, if we
+			// don't already have one (we will if we're restarting)
+			if (!this._logChannel) {
+				this._logChannel = vscode.window.createOutputChannel(`Runtime: ${this._spec.display_name}`);
+			}
 
 			// Bind to the Jupyter session
 			this._session = session;
@@ -1022,6 +1025,9 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 			if (this._terminal && this._terminal.exitStatus === undefined) {
 				this._terminal.dispose();
 			}
+
+			// Clear the terminal reference
+			this._terminal = undefined;
 
 			// Dispose the remainder of the connection state
 			this.dispose();
