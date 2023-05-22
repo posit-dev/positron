@@ -74,6 +74,7 @@ export class LanguageRuntimeAdapter
 	 * @param languageVersion The specific version of the interpreter bound to this adapter
 	 * @param runtimeVersion The version of the language runtime wrapper around
 	 *    the interpreter, often the extension version
+	 * @param base64EncodedIconSvg The Base64-encoded icon SVG of the language interpreter
 	 * @param inputPrompt The input prompt to use for the kernel, e.g. ">" or ">>>"
 	 * @param continuationPrompt The continuation prompt to use for the kernel, e.g. "+" or "..."
 	 * @param _channel The channel on which to emit logging messages
