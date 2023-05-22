@@ -5,10 +5,18 @@
 import * as positron from 'positron';
 import * as vscode from 'vscode';
 import { JupyterAdapterApi, JupyterKernelSpec, JupyterLanguageRuntime } from './jupyter-adapter';
-import { ArkLsp } from './lsp';
+import { ArkLsp, LspState } from './lsp';
 
+/**
+ * A Positron language runtime that wraps a Jupyter kernel and a Language Server
+ * Protocol client.
+ */
 export class RRuntime implements positron.LanguageRuntime, vscode.Disposable {
+
+	/** The Language Server Protocol client wrapper */
 	private _lsp: ArkLsp;
+
+	/** The Jupyter kernel-based implementation of the Language Runtime API */
 	private _kernel: JupyterLanguageRuntime;
 
 	constructor(
@@ -20,7 +28,6 @@ export class RRuntime implements positron.LanguageRuntime, vscode.Disposable {
 		this._kernel = adapterApi.adaptKernel(kernelSpec, metadata);
 		this._lsp = new ArkLsp(metadata.languageVersion);
 
-		this._lsp.attachRuntime(this._kernel);
 		this.onDidChangeRuntimeState = this._kernel.onDidChangeRuntimeState;
 		this.onDidReceiveRuntimeMessage = this._kernel.onDidReceiveRuntimeMessage;
 
@@ -70,13 +77,15 @@ export class RRuntime implements positron.LanguageRuntime, vscode.Disposable {
 	}
 
 	restart(): void {
-		this._lsp.deactivate()?.then(() => {
+		// Stop the LSP client before restarting the kernel
+		this._lsp.deactivate().then(() => {
 			this._kernel.restart();
 		});
 	}
 
 	shutdown(): void {
-		this._lsp.deactivate()?.then(() => {
+		// Stop the LSP client before shutting down the kernel
+		this._lsp.deactivate().then(() => {
 			this._kernel.shutdown();
 		});
 	}
@@ -92,6 +101,14 @@ export class RRuntime implements positron.LanguageRuntime, vscode.Disposable {
 				this._kernel.startPositronLsp(`127.0.0.1:${port}`);
 				this._lsp.activate(port, this.context);
 			});
+		} else if (state === positron.RuntimeState.Exiting ||
+			state === positron.RuntimeState.Exited) {
+			{
+				if (this._lsp.state === LspState.running) {
+					this._kernel.emitJupyterLog(`Stopping Positron LSP server`);
+					this._lsp.deactivate();
+				}
+			}
 		}
 	}
 }

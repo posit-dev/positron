@@ -134,30 +134,18 @@ export class ArkLsp implements vscode.Disposable {
 	}
 
 	/**
-	 * Attaches the R language runtime to the client.
-	 *
-	 * @param runtime The R language runtime to attach
-	 */
-	public attachRuntime(runtime: positron.LanguageRuntime) {
-		// The client is already started when the runtime indicates it's ready
-		// (via a callback); attach to additional events in the runtime to
-		// deactivate the client when the runtime is stopped.
-		runtime.onDidChangeRuntimeState((state: positron.RuntimeState) => {
-			if (state === positron.RuntimeState.Exiting ||
-				state === positron.RuntimeState.Exited) {
-				trace(`Stopping Positron R ${this._version} language client since runtime is now state '${state}'...`);
-				this.deactivate();
-			}
-		});
-	}
-
-	/**
 	 * Stops the client instance.
 	 *
 	 * @returns A promise that resolves when the client has been stopped.
 	 */
-	public deactivate(): Thenable<void> | undefined {
-		return this._client?.stop();
+	public deactivate(): Thenable<void> {
+		if (this._client) {
+			// Stop the client if it's running
+			return this._client.stop();
+		} else {
+			// Otherwise, no client to stop, so just resolve
+			return Promise.resolve();
+		}
 	}
 
 	/**

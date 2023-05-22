@@ -4,7 +4,6 @@
 
 import * as vscode from 'vscode';
 import * as positron from 'positron';
-import * as crypto from 'crypto';
 import { JupyterKernel } from './JupyterKernel';
 import { JupyterKernelSpec } from './jupyter-adapter';
 import { JupyterMessagePacket } from './JupyterMessagePacket';
@@ -66,36 +65,19 @@ export class LanguageRuntimeAdapter
 	 * a LanguageRuntime interface.
 	 *
 	 * @param _context The extension context for the extension that owns this adapter
+	 * @param _channel The output channel to use for logging
 	 * @param _spec The Jupyter kernel spec for the kernel to wrap
-	 * @param languageId  The language ID for the language this adapter supports; must be one of
-	 *    VS Code's built-in language IDs or a language ID registered by another extension.
-	 * @param languageVersion The specific version of the interpreter bound to this adapter
-	 * @param runtimeVersion The version of the language runtime wrapper around
-	 *    the interpreter, often the extension version
-	 * @param inputPrompt The input prompt to use for the kernel, e.g. ">" or ">>>"
-	 * @param continuationPrompt The continuation prompt to use for the kernel, e.g. "+" or "..."
-	 * @param _channel The channel on which to emit logging messages
-	 * @param startupBehavior Whether the runtime should be started automatically
-	 * @param _lsp A callback to invoke to start the client side of the LSP
+	 * @param metadata The metadata for the language runtime to wrap
 	 */
 	constructor(private readonly _context: vscode.ExtensionContext,
 		private readonly _channel: vscode.OutputChannel,
 		private readonly _spec: JupyterKernelSpec,
 		readonly metadata: positron.LanguageRuntimeMetadata,
 	) {
-		// Hash all the metadata together
-		const digest = crypto.createHash('sha256');
-		digest.update(JSON.stringify(this._spec));
-		digest.update(this.metadata.languageId);
-		digest.update(this.metadata.runtimeVersion);
-		digest.update(this.metadata.languageVersion);
-
-		// Extract the first 32 characters of the hash as the runtime ID
-		const runtimeId = digest.digest('hex').substring(0, 32);
-
-		this._kernel = new JupyterKernel(this._context, this._spec, runtimeId, this._channel);
-
-		// Generate kernel metadata and ID
+		this._kernel = new JupyterKernel(this._context,
+			this._spec,
+			metadata.runtimeId,
+			this._channel);
 		this._channel.appendLine('Registered kernel: ' + JSON.stringify(this.metadata));
 
 		// Create emitter for LanguageRuntime messages and state changes
