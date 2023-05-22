@@ -288,8 +288,8 @@ declare module 'positron' {
 	 * before the runtime is started.
 	 */
 	export interface LanguageRuntimeMetadata {
-		/** The path to the kernel. */
-		kernelPath: string;
+		/** The path to the runtime. */
+		runtimePath: string;
 
 		/** A unique identifier for this runtime; takes the form of a GUID */
 		runtimeId: string;
