@@ -3,7 +3,7 @@
 #
 
 import urllib.parse
-from typing import Tuple
+from typing import Optional, Tuple
 
 from .positron_jedilsp import POSITRON
 
@@ -53,7 +53,7 @@ class LSPService:
             except Exception:
                 pass
 
-    def split_address(self, client_address: str) -> Tuple[str | None, int | None]:
+    def split_address(self, client_address: str) -> Tuple[Optional[str], Optional[int]]:
         """
         Split an address of the form "host:port" into a tuple of (host, port).
         """

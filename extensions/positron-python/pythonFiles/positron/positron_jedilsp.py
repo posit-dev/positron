@@ -117,14 +117,10 @@ class PositronJediLanguageServer(JediLanguageServer):
         global KERNEL
         KERNEL = kernel
 
-        loop = asyncio.get_event_loop()
         try:
             asyncio.ensure_future(self._start_jedi(lsp_host, lsp_port))
-            loop.run_forever()
         except KeyboardInterrupt:
             pass
-        finally:
-            loop.close()
 
     async def _start_jedi(self, lsp_host, lsp_port):
         """Starts Jedi LSP as a TCP server using existing asyncio loop."""
