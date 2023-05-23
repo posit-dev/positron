@@ -61,6 +61,7 @@ const HelpLines = [
 	'offline      - Simulates going offline for two seconds',
 	'plot X       - Renders a dynamic (auto-sizing) plot of the letter X',
 	'progress     - Renders a progress bar',
+	'restart      - Simulates orderly restart',
 	'shutdown     - Simulates orderly shutdown',
 	'static plot  - Renders a static plot (image)',
 	'view X       - Open a data viewer named X',
@@ -741,6 +742,11 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 				break;
 			}
 
+			case 'restart': {
+				this.restart();
+				break;
+			}
+
 			case 'version': {
 				this.simulateSuccessfulCodeExecution(id, code, `Zed v${this.metadata.languageVersion} (${this.metadata.runtimeId})`);
 				break;
@@ -962,7 +968,19 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 	 * Restarts the runtime.
 	 */
 	async restart(): Promise<void> {
-		throw new Error('Method not implemented.');
+		// Let the user know what we're doing and go through the shutdown sequence.
+		const parentId = randomUUID();
+		this.simulateOutputMessage(parentId, 'Restarting.');
+		this._onDidChangeRuntimeState.fire(positron.RuntimeState.Restarting);
+		this._onDidChangeRuntimeState.fire(positron.RuntimeState.Exited);
+
+		// Wait for a second before starting again.
+		await new Promise(resolve => setTimeout(resolve, 500));
+
+		// Go through the startup sequence again.
+		this._onDidChangeRuntimeState.fire(positron.RuntimeState.Initializing);
+		this._onDidChangeRuntimeState.fire(positron.RuntimeState.Starting);
+		this._onDidChangeRuntimeState.fire(positron.RuntimeState.Ready);
 	}
 
 	/**
