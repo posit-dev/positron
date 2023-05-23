@@ -185,7 +185,10 @@ class PositronConsoleService extends Disposable implements IPositronConsoleServi
 
 		// Register the onDidReconnectRuntime event handler so we start a new Positron console instance when a runtime is reconnected.
 		this._register(this._languageRuntimeService.onDidReconnectRuntime(runtime => {
-			this.startPositronConsoleInstance(runtime, false);
+			const positronConsoleInstance = this._positronConsoleInstancesByRuntimeId.get(runtime.metadata.runtimeId);
+			if (!positronConsoleInstance) {
+				this.startPositronConsoleInstance(runtime, false);
+			}
 		}));
 
 		// Register the onDidChangeRuntimeState event handler so we can activate the REPL for the active runtime.
