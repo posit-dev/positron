@@ -691,11 +691,15 @@ export class LanguageRuntimeAdapter
 		if (previous === positron.RuntimeState.Restarting &&
 			status === positron.RuntimeState.Exited) {
 
-			// Defer the start to the next tick to ensure the kernel has
-			// processed its own exit before we ask it to restart
+			// Defer the start by 500ms to ensure the kernel has processed its
+			// own exit before we ask it to restart. This also ensures that the
+			// kernel's status events as it starts up don't overlap with the
+			// status events emitted during shutdown (which can happen on the
+			// Positron side due to internal buffering in the extension host
+			// interface)
 			setTimeout(() => {
 				this._kernel.start();
-			}, 0);
+			}, 500);
 		}
 	}
 
