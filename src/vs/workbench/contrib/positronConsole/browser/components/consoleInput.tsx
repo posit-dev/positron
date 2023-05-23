@@ -116,6 +116,7 @@ export const ConsoleInput = forwardRef<HTMLDivElement, ConsoleInputProps>((props
 				const updatedCodeFragment = codeFragment + '\n';
 				setCurrentCodeFragment(updatedCodeFragment);
 				codeEditorWidgetRef.current.setValue(updatedCodeFragment);
+				updateCodeEditorWidgetPositionToEnd();
 				return;
 			}
 
