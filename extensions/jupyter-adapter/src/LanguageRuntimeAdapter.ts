@@ -162,7 +162,7 @@ export class LanguageRuntimeAdapter
 	/**
 	 * Interrupts the kernel.
 	 */
-	public interrupt(): void {
+	public async interrupt(): Promise<void> {
 
 		// Ensure kernel is in an interruptible state
 		if (this._kernelState === positron.RuntimeState.Uninitialized) {
@@ -232,15 +232,15 @@ export class LanguageRuntimeAdapter
 	/**
 	 * Restarts the kernel.
 	 */
-	public restart(): void {
-		this._kernel.shutdown(true);
+	public async restart(): Promise<void> {
+		return this._kernel.shutdown(true);
 	}
 
 	/**
 	 * Shuts down the kernel permanently.
 	 */
-	public shutdown(): void {
-		this._kernel.shutdown(false);
+	public async shutdown(): Promise<void> {
+		return this._kernel.shutdown(false);
 	}
 
 	/**

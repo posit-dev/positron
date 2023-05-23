@@ -651,23 +651,23 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	/**
 	 * Tells the kernel to shut down
 	 */
-	public shutdown(restart: boolean) {
+	public async shutdown(restart: boolean): Promise<void> {
 		this.setStatus(restart ?
 			positron.RuntimeState.Restarting :
 			positron.RuntimeState.Exiting);
 		const msg: JupyterShutdownRequest = {
 			restart: restart
 		};
-		this.send(uuidv4(), 'shutdown_request', this._control!, msg);
+		return this.send(uuidv4(), 'shutdown_request', this._control!, msg);
 	}
 
 	/**
 	 * Interrupts the kernel
 	 */
-	public interrupt() {
+	public async interrupt(): Promise<void> {
 		this.setStatus(positron.RuntimeState.Interrupting);
 		const msg: JupyterInterruptRequest = {};
-		this.send(uuidv4(), 'interrupt_request', this._control!, msg);
+		return this.send(uuidv4(), 'interrupt_request', this._control!, msg);
 	}
 
 	/**

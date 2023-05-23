@@ -928,7 +928,7 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 	/**
 	 * Interrupts the runtime.
 	 */
-	interrupt(): void {
+	async interrupt(): Promise<void> {
 		if (this._busyTimer && this._state === positron.RuntimeState.Busy) {
 			this._onDidChangeRuntimeState.fire(positron.RuntimeState.Interrupting);
 			if (this._busyOperationId) {
@@ -961,14 +961,14 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 	/**
 	 * Restarts the runtime.
 	 */
-	restart(): void {
+	async restart(): Promise<void> {
 		throw new Error('Method not implemented.');
 	}
 
 	/**
 	 * Shuts down the runtime.
 	 */
-	shutdown(): void {
+	async shutdown(): Promise<void> {
 		const parentId = randomUUID();
 
 		// Enter busy state to do shutdown processing.
