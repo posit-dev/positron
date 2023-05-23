@@ -2,6 +2,25 @@
 {
     "version": "0.1.0",
     "configurations": [
+        // --- Start Positron ---
+        {
+            "name": "Positron: Remote Attach",
+            "type": "python",
+            "request": "attach",
+            "connect": {
+                "host": "localhost",
+                "port": 5678
+            },
+            "subProcess": false,
+            "pathMappings": [
+                {
+                    "localRoot": "${workspaceFolder}",
+                    "remoteRoot": "."
+                }
+            ],
+            "justMyCode": false
+        },
+        // --- End Positron ---
         {
             "name": "Extension",
             "type": "extensionHost",
