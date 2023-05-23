@@ -6,10 +6,11 @@ import * as vscode from 'vscode';
 import * as positron from 'positron';
 import * as path from 'path';
 import * as fs from 'fs';
+import * as crypto from 'crypto';
 
 import { withActiveExtension } from './util';
-import { ArkLsp } from './lsp';
 import { RRuntime } from './runtime';
+import { JupyterKernelSpec } from './jupyter-adapter';
 
 // A global instance of the language runtime (and LSP language server) provided
 // by this language pack
@@ -146,8 +147,7 @@ export function registerArkKernel(ext: vscode.Extension<any>, context: vscode.Ex
 		}
 
 		// Create a kernel spec for this R installation
-		const kernelSpec = {
-			path: rHome.rHome,
+		const kernelSpec: JupyterKernelSpec = {
 			'argv': [
 				kernelPath,
 				'--connection_file', '{connection_file}',
@@ -163,13 +163,19 @@ export function registerArkKernel(ext: vscode.Extension<any>, context: vscode.Ex
 		const packageJson = require('../package.json');
 		const rVersion = rHome.rVersion ?? '0.0.1';
 
+		// Create a stable ID for the runtime based on the interpreter path and version.
+		const digest = crypto.createHash('sha256');
+		digest.update(JSON.stringify(kernelSpec));
+		digest.update(rVersion);
+		const runtimeId = digest.digest('hex').substring(0, 32);
+
 		const metadata: positron.LanguageRuntimeMetadata = {
-			runtimeId: `r-${rVersion}`,
-			runtimeName: 'R',
+			runtimeId,
+			runtimeName: kernelSpec.display_name,
 			runtimePath: rHome.rHome,
 			runtimeVersion: packageJson.version,
 			languageId: 'r',
-			languageName: 'R',
+			languageName: kernelSpec.language,
 			languageVersion: rVersion,
 			inputPrompt: '>',
 			continuationPrompt: '+',
