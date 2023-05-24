@@ -4008,6 +4008,9 @@ export enum RuntimeState {
 	/** The runtime is busy executing code. */
 	Busy = 'busy',
 
+	/** The runtime is in the process of restarting. */
+	Restarting = 'restarting',
+
 	/** The runtime is in the process of shutting down. */
 	Exiting = 'exiting',
 
