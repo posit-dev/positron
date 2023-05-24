@@ -132,6 +132,8 @@ export class PythonSettings implements IPythonSettings {
 
     // --- Start Positron ---
     public languageServerDebug = false;
+
+    public languageServerLogLevel = 'error';
     // --- End Positron ---
 
     protected readonly changed = new EventEmitter<ConfigurationChangeEvent | undefined>();

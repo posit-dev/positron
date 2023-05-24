@@ -45,6 +45,13 @@ def initialize_config() -> None:
         type=str,
     )
     parser.add_argument(
+        "--loglevel",
+        help="logging level",
+        type=str,
+        default="error",
+        choices=["critical", "error", "warning", "info", "debug", "notset"],
+    )
+    parser.add_argument(
         "-f",
         help="location of the IPyKernel configuration file",
         type=str,
@@ -58,14 +65,15 @@ def initialize_config() -> None:
     )
     args = parser.parse_args()
 
+    args.loglevel = args.loglevel.upper()
     if args.logfile:
         logging.basicConfig(
             filename=args.logfile,
             filemode="w",
-            level=logging.INFO,
+            level=args.loglevel,
         )
     else:
-        logging.basicConfig(stream=sys.stderr, level=logging.WARNING)
+        logging.basicConfig(stream=sys.stderr, level=args.loglevel)
 
     # Start the debugpy debugger if a port was specified
     if args.debugport is not None:

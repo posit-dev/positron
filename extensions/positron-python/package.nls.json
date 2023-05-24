@@ -52,6 +52,7 @@
     "python.formatting.yapfPath.description": "Path to yapf, you can use a custom version of yapf by modifying this setting to include the full path.",
     "python.globalModuleInstallation.description": "Whether to install Python modules globally when not using an environment.",
     "python.languageServerDebug.description": "Whether debug should be enabled for Positron's Python language server.",
+    "python.languageServerLogLevel.description": "Controls the [logging level](https://docs.python.org/3/library/logging.html#levels) of Positron's Python language server. Requires a restart to take effect.",
     "python.languageServer.description": "Defines type of the language server.",
     "python.languageServer.defaultDescription": "Automatically select a language server: Pylance if installed and available, otherwise fallback to Jedi.",
     "python.languageServer.jediDescription": "Use Jedi behind the Language Server Protocol (LSP) as a language server.",
