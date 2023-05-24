@@ -563,6 +563,20 @@
                     "scope": "application",
                     "type": "boolean"
                 },
+                "python.languageServerLogLevel": {
+                    "default": "error",
+                    "markdownDescription": "%python.languageServerLogLevel.description%",
+                    "enum": [
+                        "critical",
+                        "error",
+                        "warning",
+                        "info",
+                        "debug",
+                        "notset"
+                    ],
+                    "scope": "application",
+                    "type": "string"
+                },
                 "python.linting.banditArgs": {
                     "default": [],
                     "description": "%python.linting.banditArgs.description%",
