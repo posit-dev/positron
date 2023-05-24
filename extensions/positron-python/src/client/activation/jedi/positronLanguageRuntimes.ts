@@ -11,6 +11,7 @@ import * as fs from 'fs';
 // eslint-disable-next-line import/no-unresolved
 import * as positron from 'positron';
 import * as vscode from 'vscode';
+import * as crypto from 'crypto';
 import { Disposable, DocumentFilter, LanguageClient, LanguageClientOptions, ServerOptions, StreamInfo } from 'vscode-languageclient/node';
 
 import { compare } from 'semver';
@@ -24,6 +25,8 @@ import { PythonEnvironment } from '../../pythonEnvironments/info';
 import { PythonVersion } from '../../pythonEnvironments/info/pythonVersion';
 import { ProgressReporting } from '../progress';
 import { ILanguageServerProxy } from '../types';
+import { PythonLanguageRuntime } from './pythonLanguageRuntime';
+import { JupyterAdapterApi } from '../../jupyter-adapter.d'
 
 // Load the Python icon.
 const base64EncodedIconSvg = fs.readFileSync(path.join(EXTENSION_ROOT_DIR, 'resources', 'branding', 'python-icon.svg')).toString('base64');
@@ -97,7 +100,11 @@ export class PositronJediLanguageServerProxy implements ILanguageServerProxy {
 
         // Register available python interpreters as language runtimes with our Jupyter Adapter
         this.withActiveExtention(ext, async () => {
-            await this.registerLanguageRuntimes(ext, resource, interpreter, options);
+            // Create typesafe reference to the Jupyter Adapter's API
+            const jupyterAdapterApi = ext.exports as JupyterAdapterApi;
+
+            // Register the language runtimes for each available interpreter
+            await this.registerLanguageRuntimes(jupyterAdapterApi, resource, interpreter, options);
         });
     }
 
@@ -139,7 +146,7 @@ export class PositronJediLanguageServerProxy implements ILanguageServerProxy {
      * Register available python environments as a language runtime with the Jupyter Adapter.
      */
     private async registerLanguageRuntimes(
-        ext: vscode.Extension<any>,
+        jupyterAdapterApi: JupyterAdapterApi,
         resource: Resource,
         preferredInterpreter: PythonEnvironment | undefined,
         options: LanguageClientOptions
@@ -167,7 +174,8 @@ export class PositronJediLanguageServerProxy implements ILanguageServerProxy {
                 debugPort = await portfinder.getPortPromise({ port: debugPort });
             }
 
-            const runtime: vscode.Disposable = await this.registerLanguageRuntime(ext, interpreter, debugPort, logLevel, options);
+            const runtime: vscode.Disposable = await this.registerLanguageRuntime(
+                jupyterAdapterApi, interpreter, debugPort, logLevel, options);
             this.disposables.push(runtime);
 
             if (debugPort !== undefined) {
@@ -182,7 +190,7 @@ export class PositronJediLanguageServerProxy implements ILanguageServerProxy {
      * IPyKernel with a connection file.
      */
     private async registerLanguageRuntime(
-        ext: vscode.Extension<any>,
+        jupyterAdapterApi: JupyterAdapterApi,
         interpreter: PythonEnvironment,
         debugPort: number | undefined,
         logLevel: string,
@@ -210,16 +218,40 @@ export class PositronJediLanguageServerProxy implements ILanguageServerProxy {
         };
         traceVerbose(`Configuring Jedi LSP with IPyKernel using args '${args}'`);
 
-        // Create an adapter for the kernel as our language runtime
-        const runtime: positron.LanguageRuntime = ext.exports.adaptKernel(kernelSpec,
-            PYTHON_LANGUAGE,
-            pythonVersion,
-            this.extensionVersion,
+        // Create a stable ID for the runtime based on the interpreter path and version.
+        const digest = crypto.createHash('sha256');
+        digest.update(JSON.stringify(kernelSpec));
+        digest.update(pythonVersion ?? '');
+        const runtimeId = digest.digest('hex').substring(0, 32);
+
+        // Create the metadata for the language runtime
+        const metadata: positron.LanguageRuntimeMetadata = {
+            runtimePath: interpreter.path,
+            runtimeId,
+            runtimeName: displayName,
+            runtimeVersion: this.extensionVersion ?? '0.0.0',
+            languageName: kernelSpec.language,
+            languageId: PYTHON_LANGUAGE,
+            languageVersion: pythonVersion ?? '0.0.0',
             base64EncodedIconSvg,
-            '>>>',
-            '...',
-            startupBehavior,
-            (port: number) => this.startClient(options, port));
+            inputPrompt: '>>>',
+            continuationPrompt: '...',
+            startupBehavior
+        }
+
+        // Create an adapter for the kernel as our language runtime
+        const runtime = new PythonLanguageRuntime(
+            kernelSpec, metadata, jupyterAdapterApi);
+
+        runtime.onDidChangeRuntimeState((state) => {
+            if (state === positron.RuntimeState.Ready) {
+                jupyterAdapterApi.findAvailablePort([], 25).then((port: number) => {
+                    runtime.emitJupyterLog(`Starting Positron LSP server on port ${port}`);
+                    runtime.startPositronLsp(`127.0.0.1:${port}`);
+                    this.startClient(options, port).ignoreErrors();
+                });
+            }
+        });
 
         // Register our language runtime provider
         return positron.runtime.registerLanguageRuntime(runtime);
