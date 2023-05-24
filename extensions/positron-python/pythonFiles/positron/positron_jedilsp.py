@@ -10,7 +10,7 @@ EXTENSION_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(EXTENSION_ROOT, "pythonFiles", "lib", "jedilsp"))
 
 from threading import Event
-from typing import Any, Callable, List, Optional, Union
+from typing import Any, Callable, List, Optional, Union, TYPE_CHECKING
 
 
 from jedi.api import Interpreter
@@ -83,12 +83,18 @@ from lsprotocol.types import (
 from pygls.capabilities import get_capability
 from pygls.feature_manager import has_ls_param_or_annotation
 
+if TYPE_CHECKING:
+    from .positron_ipkernel import PositronIPyKernel
+
 
 class PositronJediLanguageServer(JediLanguageServer):
-    """Positron extenstion to the Jedi language server."""
+    """Positron extension to the Jedi language server."""
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
+
+        # Reference to an IPyKernel set on server start
+        self.kernel: Optional["PositronIPyKernel"] = None
 
     def feature(self, feature_name: str, options: Optional[Any] = None) -> Callable:
         def decorator(f):
@@ -109,13 +115,12 @@ class PositronJediLanguageServer(JediLanguageServer):
 
         return decorator
 
-    def start(self, lsp_host: str, lsp_port: int, kernel) -> None:
+    def start(self, lsp_host: str, lsp_port: int, kernel: "PositronIPyKernel") -> None:
         """
         Start the LSP with a reference to Positron's IPyKernel to enhance
         completions with awareness of live variables from user's namespace.
         """
-        global KERNEL
-        KERNEL = kernel
+        self.kernel = kernel
 
         try:
             asyncio.ensure_future(self._start_jedi(lsp_host, lsp_port))
@@ -123,7 +128,11 @@ class PositronJediLanguageServer(JediLanguageServer):
             pass
 
     async def _start_jedi(self, lsp_host, lsp_port):
-        """Starts Jedi LSP as a TCP server using existing asyncio loop."""
+        """
+        Starts Jedi LSP as a TCP server using existing asyncio loop.
+
+        Adapted from `pygls.server.Server.start_tcp` to use existing asyncio loop.
+        """
         self._stop_event = Event()
         loop = asyncio.get_event_loop()
         self._server = await loop.create_server(self.lsp, lsp_host, lsp_port)  # type: ignore
@@ -135,9 +144,6 @@ POSITRON = PositronJediLanguageServer(
     version="0.18.2",
     protocol_cls=JediLanguageServerProtocol,
 )
-
-
-KERNEL = None
 
 # Server Features
 # Unfortunately we need to re-register these as Pygls Feature Management does
@@ -167,9 +173,8 @@ def positron_completion(
 
     # Get a reference to the kernel's namespace for enhanced completions
     namespaces = []
-    global KERNEL
-    if KERNEL is not None:
-        ns = KERNEL.get_user_ns()
+    if server.kernel is not None:
+        ns = server.kernel.get_user_ns()
         namespaces.append(ns)
 
     # Use Interpreter() to include the kernel namespaces in completions
