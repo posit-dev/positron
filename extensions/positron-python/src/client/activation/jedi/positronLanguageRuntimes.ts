@@ -152,6 +152,7 @@ export class PositronJediLanguageServerProxy implements ILanguageServerProxy {
         // Check if debug should be enabled for the language server
         const settings = this.configService.getSettings(resource);
         const debug = settings.languageServerDebug;
+        const logLevel = settings.languageServerLogLevel;
 
         // Register each interpreter as a language runtime
         const portfinder = require('portfinder');
@@ -166,7 +167,7 @@ export class PositronJediLanguageServerProxy implements ILanguageServerProxy {
                 debugPort = await portfinder.getPortPromise({ port: debugPort });
             }
 
-            const runtime: vscode.Disposable = await this.registerLanguageRuntime(ext, interpreter, debugPort, options);
+            const runtime: vscode.Disposable = await this.registerLanguageRuntime(ext, interpreter, debugPort, logLevel, options);
             this.disposables.push(runtime);
 
             if (debugPort !== undefined) {
@@ -184,6 +185,7 @@ export class PositronJediLanguageServerProxy implements ILanguageServerProxy {
         ext: vscode.Extension<any>,
         interpreter: PythonEnvironment,
         debugPort: number | undefined,
+        logLevel: string,
         options: LanguageClientOptions): Promise<Disposable> {
 
         // Determine if the ipykernel module is installed
@@ -195,7 +197,7 @@ export class PositronJediLanguageServerProxy implements ILanguageServerProxy {
         const command = interpreter.path;
         const pythonVersion = interpreter.version?.raw;
         const lsScriptPath = path.join(EXTENSION_ROOT_DIR, 'pythonFiles', 'positron_language_server.py');
-        const args = [command, lsScriptPath, '-f', '{connection_file}', '--logfile', '{log_file}']
+        const args = [command, lsScriptPath, '-f', '{connection_file}', '--logfile', '{log_file}', `--loglevel=${logLevel}`];
         if (debugPort) {
             args.push(`--debugport=${debugPort}`);
         }
