@@ -606,6 +606,7 @@ export const Codicon = {
 	positronSearch: register('positron-search', 0xf256),
 	positronStopRuntime: register('positron-stop-runtime', 0xf257),
 	positronRestartRuntime: register('positron-restart-runtime', 0xf258),
+	positronPowerButton: register('positron-power-button', 0xf259),
 
 	// --- End Positron ---
 

@@ -4,6 +4,8 @@
 
 import 'vs/css!./emptyConsole';
 import * as React from 'react';
+import { localize } from 'vs/nls';
+
 
 /**
  * EmptyConsole component.
@@ -13,7 +15,7 @@ export const EmptyConsole = () => {
 	// Render.
 	return (
 		<div className='empty-console'>
-			<div className='title'>There is no runtime currently available.</div>
+			<div className='title'>{localize('positronNoInterpreterAvailable', "There is no interpreter currently available.")}</div>
 		</div>
 	);
 };

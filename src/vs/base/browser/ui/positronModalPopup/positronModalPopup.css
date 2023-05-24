@@ -37,6 +37,8 @@
 }
 
 .positron-modal-popup {
+	height: min-content;
+	width: min-content;
 	display: flex;
 	overflow: hidden;
 	position: absolute;

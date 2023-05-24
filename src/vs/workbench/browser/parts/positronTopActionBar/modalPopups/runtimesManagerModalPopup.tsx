@@ -6,7 +6,7 @@ import 'vs/css!./runtimesManagerModalPopup';
 import * as React from 'react';
 import { PositronModalPopup } from 'vs/base/browser/ui/positronModalPopup/positronModalPopup';
 import { ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
-import { RunningRuntime } from 'vs/workbench/browser/parts/positronTopActionBar/modalPopups/runningRuntime';
+import { RuntimesManager } from 'vs/workbench/browser/parts/positronTopActionBar/modalPopups/runtimesManager';
 import { PositronModalPopupReactRenderer } from 'vs/base/browser/ui/positronModalPopup/positronModalPopupReactRenderer';
 
 /**
@@ -34,38 +34,20 @@ export const showRuntimesManagerModalPopup = async (
 				resolve();
 			};
 
-			/**
-			 * Calculates the height of the popup.
-			 * @returns The height of the popup.
-			 */
-			const calculateHeight = () => {
-				return 8 +														// Margin.
-					(languageRuntimeService.runningRuntimes.length * 75) +		// Runtimes.
-					((languageRuntimeService.runningRuntimes.length - 1) * 4);	// Separators.
-			};
-
 			// Render.
 			return (
 				<PositronModalPopup
 					anchorElement={anchorElement}
 					popupPosition='bottom'
 					popupAlignment='right'
-					width={400}
-					height={calculateHeight()}
+					width={350}
+					height={'min-content'}
 					dismiss={dismissHandler}
 				>
-					<div className='running-runtimes'>
-						{languageRuntimeService.runningRuntimes.map((runtime, index, runningRuntimes) => (
-							<>
-								<RunningRuntime
-									key={runtime.metadata.runtimeId}
-									languageRuntimeService={languageRuntimeService}
-									runtime={runtime}
-									dismiss={dismissHandler} />
-								{index < runningRuntimes.length - 1 && <div className='separator' />}
-							</>
-						))}
-					</div>
+					<RuntimesManager
+						languageRuntimeService={languageRuntimeService}
+						dismiss={dismissHandler}
+					/>
 				</PositronModalPopup>
 			);
 		};
