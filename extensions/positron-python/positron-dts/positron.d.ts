@@ -85,6 +85,9 @@ declare module 'positron' {
 		/** The runtime is busy executing code. */
 		Busy = 'busy',
 
+		/** The runtime is in the process of restarting. */
+		Restarting = 'restarting',
+
 		/** The runtime is in the process of shutting down. */
 		Exiting = 'exiting',
 
@@ -314,14 +317,14 @@ declare module 'positron' {
 		/** The version of the language; e.g. "4.2" */
 		languageVersion: string;
 
-		/** The Base64-encoded icon SVG for the language. */
-		base64EncodedIconSvg: string | undefined;
-
 		/** The text the language's interpreter uses to prompt the user for input, e.g. ">" or ">>>" */
 		inputPrompt: string;
 
 		/** The text the language's interpreter uses to prompt the user for continued input, e.g. "+" or "..." */
 		continuationPrompt: string;
+
+		/** The Base64-encoded icon SVG for the language. */
+		base64EncodedIconSvg: string | undefined;
 
 		/** Whether the runtime should start up automatically or wait until explicitly requested */
 		startupBehavior: LanguageRuntimeStartupBehavior;
@@ -473,14 +476,25 @@ declare module 'positron' {
 		 */
 		start(): Thenable<LanguageRuntimeInfo>;
 
-		/** Interrupt the runtime */
-		interrupt(): void;
+		/**
+		 * Interrupt the runtime; returns a Thenable that resolves when the interrupt has been
+		 * successfully sent to the runtime (not necessarily when it has been processed)
+		 */
+		interrupt(): Thenable<void>;
 
-		/** Restart the runtime */
-		restart(): void;
+		/**
+		 * Restart the runtime; returns a Thenable that resolves when the runtime restart sequence
+		 * has been successfully started (not necessarily when it has completed). A restart will
+		 * cause the runtime to be shut down and then started again; its status will change from
+		 * `Restarting` => `Exited` => `Initializing` => `Starting` => `Ready`.
+		 */
+		restart(): Thenable<void>;
 
-		/** Shut down the runtime */
-		shutdown(): void;
+		/**
+		 * Shut down the runtime; returns a Thenable that resolves when the runtime shutdown
+		 * sequence has been successfully started (not necessarily when it has completed).
+		 */
+		shutdown(): Thenable<void>;
 	}
 
 
