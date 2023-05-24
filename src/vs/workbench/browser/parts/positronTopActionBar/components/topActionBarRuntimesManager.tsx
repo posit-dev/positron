@@ -51,17 +51,15 @@ export const TopActionBarRuntimesManager = () => {
 		);
 	};
 
-	if (!activeRuntime) {
-		console.log('+++++++++++++++++++++++++++++++++++++++++ activeRuntime is undefined. Rendering nothing.');
-		return null;
-	}
-
 	// Render.
 	return (
 		<div ref={ref} className='top-action-bar-runtimes-manager' onClick={clickHandler}>
 			<div className='left'>
 				<button className='search'>
-					<div className='action-bar-button-text'>{activeRuntime.metadata.languageName} {activeRuntime.metadata.languageVersion}</div>
+					{!activeRuntime ?
+						<div className='action-bar-button-text'>Start Interpreter</div> :
+						<div className='action-bar-button-text'>{activeRuntime.metadata.languageName} {activeRuntime.metadata.languageVersion}</div>
+					}
 				</button>
 			</div>
 			<div className='right'>

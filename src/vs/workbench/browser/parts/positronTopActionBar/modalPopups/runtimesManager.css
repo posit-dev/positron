@@ -1,0 +1,19 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
+ *--------------------------------------------------------------------------------------------*/
+
+.runtimes-manager {
+	width: 100%;
+	margin: 4px;
+	display: flex;
+	flex-direction: column;
+}
+
+.runtimes-manager .separator {
+	margin-left: 80px;
+	margin-right: 10px;
+	margin-top: 4px;
+	margin-bottom: 4px;
+	box-sizing: border-box;
+	border-top: 1px solid var(--vscode-positronTopActionBar-separator);
+}

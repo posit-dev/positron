@@ -1,0 +1,184 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
+ *--------------------------------------------------------------------------------------------*/
+
+import 'vs/css!./runtimeManager';
+import * as React from 'react';
+import { MouseEvent, useEffect, useState } from 'react'; // eslint-disable-line no-duplicate-imports
+import { localize } from 'vs/nls';
+import { ILanguageRuntime, ILanguageRuntimeService, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { DisposableStore } from 'vs/base/common/lifecycle';
+
+/**
+ * RuntimeManagerProps interface.
+ */
+interface RuntimeManagerProps {
+	languageRuntimeService: ILanguageRuntimeService;
+	runtime: ILanguageRuntime;
+	dismiss: () => void;
+}
+
+/**
+ * RuntimeManager component.
+ * @param props A RuntimeManagerProps that contains the component properties.
+ * @returns The rendered component.
+ */
+export const RuntimeManager = (props: RuntimeManagerProps) => {
+	// State hooks.
+	const [runtimeState, setRuntimeState] = useState(props.runtime.getRuntimeState());
+
+	// Main useEffect hook.
+	useEffect(() => {
+		// Create the disposable store for cleanup.
+		const disposableStore = new DisposableStore();
+
+		// Add the onDidChangeRuntimeState event handler.
+		disposableStore.add(props.runtime.onDidChangeRuntimeState(runtimeState => {
+			setRuntimeState(runtimeState);
+		}));
+
+		// Return the cleanup function that will dispose of the event handlers.
+		return () => disposableStore.dispose();
+	}, []);
+
+	/**
+	 * runtimeClick event handler.
+	 * @param e A MouseEvent<HTMLButtonElement> that describes a user interaction with the mouse.
+	 */
+	const runtimeClickHandler = (e: MouseEvent<HTMLButtonElement>) => {
+		e.preventDefault();
+		e.stopPropagation();
+		props.languageRuntimeService.activeRuntime = props.runtime;
+		props.dismiss();
+	};
+
+	/**
+	 * startRuntimeClickHandler event handler.
+	 * @param e A MouseEvent<HTMLButtonElement> that describes a user interaction with the mouse.
+	 */
+	const startRuntimeClickHandler = (e: MouseEvent<HTMLButtonElement>) => {
+		e.preventDefault();
+		e.stopPropagation();
+		props.runtime.start();
+		//props.dismiss();
+	};
+
+	/**
+	 * stopRuntimeClick event handler.
+	 * @param e A MouseEvent<HTMLButtonElement> that describes a user interaction with the mouse.
+	 */
+	const stopRuntimeClickHandler = (e: MouseEvent<HTMLButtonElement>) => {
+		e.preventDefault();
+		e.stopPropagation();
+		props.runtime.shutdown();
+	};
+
+	/**
+	 * restartRuntimeClick event handler.
+	 * @param e A MouseEvent<HTMLButtonElement> that describes a user interaction with the mouse.
+	 */
+	const restartRuntimeClickHandler = (e: MouseEvent<HTMLButtonElement>) => {
+		e.preventDefault();
+		e.stopPropagation();
+		props.runtime.restart();
+	};
+
+	/**
+	 * interruptRuntimeClick event handler.
+	 * @param e A MouseEvent<HTMLButtonElement> that describes a user interaction with the mouse.
+	 */
+	const interruptRuntimeClickHandler = (e: MouseEvent<HTMLButtonElement>) => {
+		e.preventDefault();
+		e.stopPropagation();
+		props.runtime.interrupt();
+	};
+
+	let runtimeInfo, actions;
+	switch (runtimeState) {
+		case RuntimeState.Uninitialized:
+			runtimeInfo = <div className='line'>Click to start</div>;
+			actions = (
+				<div className='actions'>
+					<button className='action-button codicon codicon-positron-power-button' title={localize('positronStartTheInterpreter', "Start the interpreter")} onClick={startRuntimeClickHandler} />
+				</div>
+			);
+			break;
+
+		case RuntimeState.Initializing:
+			runtimeInfo = <div className='line'>Interpreter is initializing</div>;
+			actions = null;
+			break;
+
+		case RuntimeState.Starting:
+			runtimeInfo = <div className='line'>Interpreter is starting</div>;
+			actions = null;
+			break;
+
+		case RuntimeState.Ready:
+		case RuntimeState.Idle:
+			runtimeInfo = <div className='line'>Interpreter is running</div>;
+			actions = (
+				<div className='actions'>
+					<button className='action-button codicon codicon-positron-restart-runtime' style={{ color: 'green' }} title={localize('positronRestartTheInterpreter', "Restart the interpreter")} onClick={restartRuntimeClickHandler} />
+					<button className='action-button codicon codicon-positron-power-button' title={localize('positronStopsTheInterpreter', "Stops the interpreter")} onClick={stopRuntimeClickHandler} />
+				</div>
+			);
+			break;
+
+		case RuntimeState.Busy:
+			runtimeInfo = <div className='line'>Interpreter is running</div>;
+			actions = (
+				<div className='actions'>
+					<button className='action-button codicon codicon-positron-interrupt' style={{ color: 'red' }} title={localize('positronInterruptTheInterpreter', "Interrupts the interpreter")} onClick={interruptRuntimeClickHandler} />
+					<button className='action-button codicon codicon-positron-restart-runtime' style={{ color: 'green' }} title={localize('positronRestartsTheInterpreter', "Restarts the interpreter")} onClick={restartRuntimeClickHandler} />
+					<button className='action-button codicon codicon-positron-power-button' title={localize('positronStopsTheInterpreter', "Stops the interpreter")} onClick={stopRuntimeClickHandler} />
+				</div>
+			);
+			break;
+
+		case RuntimeState.Exiting:
+			runtimeInfo = <div className='line'>Interpreter is shutting down</div>;
+			actions = (
+				<div className='actions'>
+					<button className='action-button codicon codicon-positron-power-button' title={localize('positronStopsTheInterpreter', "Stops the interpreter")} onClick={stopRuntimeClickHandler} />
+				</div>
+			);
+			break;
+
+		case RuntimeState.Exited:
+			runtimeInfo = <div className='line'>Interpreter is shut down</div>;
+			actions = (
+				<div className='actions'>
+					<button className='action-button codicon codicon-positron-power-button' title={localize('positronStartTheInterpreter', "Start the interpreter")} onClick={startRuntimeClickHandler} />
+				</div>
+			);
+			break;
+
+		case RuntimeState.Offline:
+			runtimeInfo = <div className='line'>Interpreter is offline</div>;
+			actions = null;
+			break;
+
+		case RuntimeState.Interrupting:
+			runtimeInfo = <div className='line'>Interpreter is interrupting</div>;
+			actions = null;
+			break;
+	}
+
+	// Render.
+	return (
+		<button className='runtime-manager' onClick={runtimeClickHandler}>
+			<img className='icon' src={`data:image/svg+xml;base64,${props.runtime.metadata.base64EncodedIconSvg}`} />
+
+			<div className='info'>
+				<div className='container'>
+					<div className='line'>{props.runtime.metadata.languageName} {props.runtime.metadata.languageVersion}</div>
+					<div className='line light' title={props.runtime.metadata.runtimePath}>{props.runtime.metadata.runtimePath}</div>
+					{runtimeInfo}
+				</div>
+			</div>
+
+			{actions}
+		</button>
+	);
+};

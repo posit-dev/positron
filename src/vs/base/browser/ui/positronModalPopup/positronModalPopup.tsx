@@ -34,7 +34,7 @@ export interface PositronModalPopupProps {
 	popupPosition: PopupPosition;
 	popupAlignment: PopupAlignment;
 	width: number;
-	height: number;
+	height: number | 'min-content';
 	dismiss: () => void;
 }
 
@@ -52,7 +52,7 @@ export const PositronModalPopup = (props: PropsWithChildren<PositronModalPopupPr
 		const topLeftOffset = DOM.getTopLeftOffset(props.anchorElement);
 		return {
 			top: props.popupPosition === 'top' ?
-				topLeftOffset.top - props.height - 1 :
+				topLeftOffset.top - popupRef.current.offsetHeight - 1 :
 				topLeftOffset.top + props.anchorElement.offsetHeight + 1,
 			left: props.popupAlignment === 'left' ?
 				topLeftOffset.left :
