@@ -3,17 +3,20 @@
 #
 
 import urllib.parse
-from typing import Optional, Tuple
+from typing import Optional, Tuple, TYPE_CHECKING
 
 from .positron_jedilsp import POSITRON
+
+if TYPE_CHECKING:
+    from .positron_ipkernel import PositronIPyKernel
 
 
 class LSPService:
     """
-    LSPService manages the positron.lsp comm and cooridinates starting the LSP.
+    LSPService manages the positron.lsp comm and coordinates starting the LSP.
     """
 
-    def __init__(self, kernel):  # noqa: F821
+    def __init__(self, kernel: "PositronIPyKernel"):
         self.kernel = kernel
         self.lsp_comm = None
 
