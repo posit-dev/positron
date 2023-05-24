@@ -1,6 +1,7 @@
 #
 # Copyright (C) 2023 Posit Software, PBC. All rights reserved.
 #
+from __future__ import annotations
 
 import inspect
 import math
