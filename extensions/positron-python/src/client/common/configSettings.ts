@@ -302,7 +302,10 @@ export class PythonSettings implements IPythonSettings {
         // --- Start Positron ---
         // Whether to enable the language server with pydebug enabled
         this.languageServerDebug = pythonSettings.get<boolean>('languageServerDebug') === true;
-        // --- Start Positron ---
+
+        // Control the language server log level
+        this.languageServerLogLevel = pythonSettings.get<string>('languageServerLogLevel')!;
+        // --- End Positron ---
 
         const autoCompleteSettings = systemVariables.resolveAny(
             pythonSettings.get<IAutoCompleteSettings>('autoComplete'),
