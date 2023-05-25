@@ -78,7 +78,7 @@ export const PositronModalPopup = (props: PropsWithChildren<PositronModalPopupPr
 		};
 
 		// Handle the event.
-		switch (e.key) {
+		switch (e.code) {
 			// Escape dismisses the modal popup.
 			case 'Escape':
 				consumeEvent();

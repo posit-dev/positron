@@ -26,26 +26,26 @@
 	margin-left: 1px;
 }
 
-.top-action-bar-runtimes-manager .left .search {
+.top-action-bar-runtimes-manager .left .label {
+	margin: 0 4px;
 	padding: 0 3px;
 	height: 22px;
 	border: none;
 	display: flex;
+	font-size: 12px;
 	cursor: pointer;
 	overflow: visible;
+	white-space: nowrap;
 	align-items: center;
 	background: transparent;
 	justify-content: center;
 	color: var(--positronActionBar-foreground);
 }
 
-.top-action-bar-runtimes-manager .left .search:focus {
-	outline: none !important;
-}
-
-.top-action-bar-runtimes-manager .left .search:focus-visible {
-	border-radius: 6px;
-	outline: 1px solid var(--vscode-focusBorder) !important;
+.top-action-bar-runtimes-manager .left .label .icon {
+	width: 16px;
+	height: 16px;
+	margin-right: 6px;
 }
 
 .top-action-bar-runtimes-manager .right {
@@ -55,7 +55,7 @@
 	margin-right: 1px;
 }
 
-.top-action-bar-runtimes-manager .right .drop-down {
+.top-action-bar-runtimes-manager .right .chevron {
 	height: 22px;
 	width: 22px;
 	border: none;
@@ -65,13 +65,4 @@
 	align-items: center;
 	background: transparent;
 	justify-content: center;
-}
-
-.top-action-bar-runtimes-manager .right .drop-down:focus {
-	outline: none !important;
-}
-
-.top-action-bar-runtimes-manager .right .drop-down:focus-visible {
-	border-radius: 6px;
-	outline: 1px solid var(--vscode-focusBorder) !important;
 }

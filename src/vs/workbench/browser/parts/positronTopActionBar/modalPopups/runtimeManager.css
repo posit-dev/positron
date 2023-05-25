@@ -4,7 +4,7 @@
 
 .runtime-manager {
 	width: 100%;
-	height: 75px;
+	height: 55px;
 	border: none;
 	display: grid;
 	cursor: pointer;
@@ -15,8 +15,10 @@
 }
 
 .runtime-manager:hover {
-	border-radius: 6px;
-	outline: 1px solid var(--vscode-positronTopActionBar-border) !important;
+	/* border-radius: 6px; */
+	color: var(--vscode-positronRuntimesManager-hoverForeground);
+	background: var(--vscode-positronRuntimesManager-hoverBackground);
+	/* outline: 1px solid var(--vscode-positronTopActionBar-border) !important; */
 }
 
 .runtime-manager:focus {
@@ -29,16 +31,16 @@
 }
 
 .runtime-manager .icon {
-	width: 60px;
-	height: 60px;
-	padding-left: 5px;
+	width: 40px;
+	height: 40px;
+	padding-left: 10px;
 	padding-right: 10px;
 }
 
 .runtime-manager .info {
 	display: grid;
-	line-height: 120%;
-	grid-template-rows: repeat(3, min-content);
+	/* line-height: 120%; */
+	grid-template-rows: repeat(2, min-content);
 }
 
 .runtime-manager .info .container {
@@ -54,6 +56,7 @@
 }
 
 .runtime-manager .info .container .line.light {
+	font-size: 11px;
 	opacity: 0.5;
 }
 
@@ -62,15 +65,6 @@
 	display: grid;
 	padding: 0 10px;
 	grid-auto-flow: column;
-	/* grid-template-columns: repeat(auto-fill, 22px); */
-}
-
-.runtime-manager .actions.one {
-	/* grid-template-columns: 22px; */
-}
-
-.runtime-manager .actions.two {
-	/* grid-template-columns: repeat(2, 22px); */
 }
 
 .runtime-manager .actions .action-button {
@@ -88,7 +82,11 @@
 
 .runtime-manager .actions .action-button:hover {
 	border-radius: 4px;
-	background-color: var(--vscode-positronTopActionBar-hoverBackground);
+	/* background: var(--vscode-list-activeSelectionBackground); */
+
+	/* background-color: var(--vscode-positronTopActionBar-hoverBackground); */
+	background: var(--vscode-positronRuntimesManager-actionHoverBackground);
+
 }
 
 .runtime-manager .actions .action-button:focus {
