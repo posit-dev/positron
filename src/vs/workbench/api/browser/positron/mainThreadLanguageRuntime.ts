@@ -54,6 +54,23 @@ class ExtHostLanguageRuntimeAdapter implements ILanguageRuntime {
 		// Listen to state changes and track the current state
 		this.onDidChangeRuntimeState((state) => {
 			this._currentState = state;
+
+			if (state === RuntimeState.Exited) {
+
+				// When the runtime exits, check for any clients that still
+				// think they're connected, and notify them that they are now
+				// closed.
+				for (const client of this._clients.values()) {
+					if (client.getClientState() === RuntimeClientState.Connected) {
+						client.setClientState(RuntimeClientState.Closing);
+						client.setClientState(RuntimeClientState.Closed);
+						client.dispose();
+					}
+				}
+
+				// Remove all clients; none can send or receive data any more
+				this._clients.clear();
+			}
 		});
 	}
 
@@ -464,8 +481,17 @@ class ExtHostRuntimeClientInstance<Input, Output>
 
 	public override dispose(): void {
 		super.dispose();
-		this._proxy.$removeClient(this._handle, this._id);
-		this._stateEmitter.fire(RuntimeClientState.Closed);
+
+		// Cancel any pending RPCs
+		for (const promise of this._pendingRpcs.values()) {
+			promise.error('The language runtime exited before the RPC completed.');
+		}
+
+		// If we aren't already closed, close the client and notify any listeners.
+		if (this._state === RuntimeClientState.Closed) {
+			this._proxy.$removeClient(this._handle, this._id);
+			this._stateEmitter.fire(RuntimeClientState.Closed);
+		}
 	}
 }
 
