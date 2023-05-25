@@ -720,7 +720,10 @@
 		"--positronActionBar-border",
 		"--vscode-positronTopActionBar-border",
 		"--vscode-positronTopActionBar-hoverBackground",
-		"--vscode-positronTopActionBar-separator"
+		"--vscode-positronTopActionBar-separator",
+		"--vscode-positronRuntimesManager-hoverForeground",
+		"--vscode-positronRuntimesManager-hoverBackground",
+		"--vscode-positronRuntimesManager-actionHoverBackground"
 	],
 	"others": [
 		"--background-dark",

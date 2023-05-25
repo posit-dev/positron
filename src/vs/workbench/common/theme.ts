@@ -1117,6 +1117,32 @@ export const POSITRON_TOP_ACTION_BAR_TEXT_INPUT_SELECTION_BACKGROUND = registerC
 	hcLight: '#007acc'
 }, localize('positronTopActionBar.textInputSelectionBackground', "Positron top action bar text input selection background color."));
 
+// < --- Positron Runtimes Manager --- >
+
+// The Positron runtimes manager hover background.
+export const POSITRON_RUNTIMES_MANAGER_HOVER_BACKGROUND = registerColor('positronRuntimesManager.hoverBackground', {
+	dark: listHoverBackground,
+	light: listHoverBackground,
+	hcDark: listHoverBackground,
+	hcLight: listHoverBackground
+}, localize('positronRuntimesManager.hoverBackground', "Positron runtimes manager hover background color."));
+
+// The Positron runtimes manager hover foreground.
+export const POSITRON_RUNTIMES_MANAGER_HOVER_FOREGROUND = registerColor('positronRuntimesManager.hoverForeground', {
+	dark: listHoverForeground,
+	light: listHoverForeground,
+	hcDark: listHoverForeground,
+	hcLight: listHoverForeground
+}, localize('positronRuntimesManager.hoverForeground', "Positron runtimes manager hover foreground color."));
+
+// The Positron runtimes manager action hover background.
+export const POSITRON_RUNTIMES_MANAGER_ACTION_HOVER_BACKGROUND = registerColor('positronRuntimesManager.actionHoverBackground', {
+	dark: darken(listHoverBackground, 0.2),
+	light: darken(listHoverBackground, 0.1),
+	hcDark: listActiveSelectionBackground,
+	hcLight: listActiveSelectionBackground
+}, localize('positronRuntimesManager.actionHoverBackground', "Positron runtimes manager action hover background color."));
+
 // < --- Positron Side Action Bar --- >
 
 // The Positron side action bar border color.
