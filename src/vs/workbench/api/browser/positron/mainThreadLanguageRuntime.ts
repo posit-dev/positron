@@ -487,9 +487,16 @@ class ExtHostRuntimeClientInstance<Input, Output>
 			promise.error('The language runtime exited before the RPC completed.');
 		}
 
-		// If we aren't already closed, close the client and notify any listeners.
-		if (this._state === RuntimeClientState.Closed) {
-			this._proxy.$removeClient(this._handle, this._id);
+		// If we aren't currently closed, clean up before completing disposal.
+		if (this._state !== RuntimeClientState.Closed) {
+			// If we are actually connected to the backend, notify the backend that we are
+			// closing the connection from our side.
+			if (this._state === RuntimeClientState.Connected) {
+				this._stateEmitter.fire(RuntimeClientState.Closing);
+				this._proxy.$removeClient(this._handle, this._id);
+			}
+
+			// Emit the closed event.
 			this._stateEmitter.fire(RuntimeClientState.Closed);
 		}
 	}
