@@ -2,38 +2,35 @@
  *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
-import 'vs/css!./runtimesManager';
+import 'vs/css!./interpreterGroups';
 import * as React from 'react';
 import { useEffect, useState } from 'react'; // eslint-disable-line no-duplicate-imports
 import { DisposableStore } from 'vs/base/common/lifecycle';
-import { RuntimeManager } from 'vs/workbench/browser/parts/positronTopActionBar/modalPopups/runtimeManager';
+import { InterpreterGroup } from 'vs/workbench/browser/parts/positronTopActionBar/modalPopups/interpreterGroup';
 import { ILanguageRuntime, ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 
 /**
- * RuntimesManagerProps interface.
+ * IInterpreterGroup interface.
  */
-interface RuntimesManagerProps {
-	languageRuntimeService: ILanguageRuntimeService;
-	dismiss: () => void;
-}
-
-/**
- * ILanguageRuntimeGroup interface.
- */
-interface ILanguageRuntimeGroup {
-	runtime: ILanguageRuntime;
+export interface IInterpreterGroup {
+	primaryRuntime: ILanguageRuntime;
 	alternateRuntimes: ILanguageRuntime[];
 }
 
-const createLanguageRuntimeGroups = (languageRuntimeService: ILanguageRuntimeService) => {
-	const languageRuntimeGroups = new Map<string, ILanguageRuntimeGroup>();
+/**
+ * Creates an IInterpreterGroup array representing the available language runtimes.
+ * @param languageRuntimeService The ILanguageRuntimeService.
+ * @returns An IInterpreterGroup array representing the available language runtimes.
+ */
+const createInterpreterGroups = (languageRuntimeService: ILanguageRuntimeService) => {
+	const languageRuntimeGroups = new Map<string, IInterpreterGroup>();
 	for (const runtime of languageRuntimeService.registeredRuntimes) {
 		const languageRuntimeGroup = languageRuntimeGroups.get(runtime.metadata.languageId);
 		if (languageRuntimeGroup) {
 			languageRuntimeGroup.alternateRuntimes.push(runtime);
 		} else {
 			languageRuntimeGroups.set(runtime.metadata.languageId, {
-				runtime: runtime,
+				primaryRuntime: runtime,
 				alternateRuntimes: []
 			});
 		}
@@ -41,9 +38,9 @@ const createLanguageRuntimeGroups = (languageRuntimeService: ILanguageRuntimeSer
 
 	// Sort the runtimes by language name.
 	return Array.from(languageRuntimeGroups.values()).sort((a, b) => {
-		if (a.runtime.metadata.languageName < b.runtime.metadata.languageName) {
+		if (a.primaryRuntime.metadata.languageName < b.primaryRuntime.metadata.languageName) {
 			return -1;
-		} else if (a.runtime.metadata.languageName > b.runtime.metadata.languageName) {
+		} else if (a.primaryRuntime.metadata.languageName > b.primaryRuntime.metadata.languageName) {
 			return 1;
 		} else {
 			return 0;
@@ -52,14 +49,22 @@ const createLanguageRuntimeGroups = (languageRuntimeService: ILanguageRuntimeSer
 };
 
 /**
- * RuntimesManager component.
- * @param props A RuntimesManagerProps that contains the component properties.
+ * InterpreterGroupsManagerProps interface.
+ */
+interface InterpreterGroupsManagerProps {
+	languageRuntimeService: ILanguageRuntimeService;
+	dismiss: () => void;
+}
+
+/**
+ * InterpreterGroupsManager component.
+ * @param props A InterpreterGroupsManagerProps that contains the component properties.
  * @returns The rendered component.
  */
-export const RuntimesManager = (props: RuntimesManagerProps) => {
+export const InterpreterGroupsManager = (props: InterpreterGroupsManagerProps) => {
 	// State hooks.
-	const [runtimeGroups, setRuntimeGroups] =
-		useState(createLanguageRuntimeGroups(props.languageRuntimeService));
+	const [interpreterGroups, setInterpreterGroups] =
+		useState(createInterpreterGroups(props.languageRuntimeService));
 
 	// Main useEffect hook.
 	useEffect(() => {
@@ -69,7 +74,7 @@ export const RuntimesManager = (props: RuntimesManagerProps) => {
 		// Add our onDidChangeRegisteredRuntimes event handler. This allows the set of runtimes to
 		// be dynamic at app startup.
 		disposableStore.add(props.languageRuntimeService.onDidChangeRegisteredRuntimes(() => {
-			setRuntimeGroups(createLanguageRuntimeGroups(props.languageRuntimeService));
+			setInterpreterGroups(createInterpreterGroups(props.languageRuntimeService));
 		}));
 
 		// Return the cleanup function that will dispose of the event handlers.
@@ -78,13 +83,13 @@ export const RuntimesManager = (props: RuntimesManagerProps) => {
 
 	// Render.
 	return (
-		<div className='runtimes-manager'>
-			{runtimeGroups.map((runtimeGroup, index, runningRuntimes) => (
+		<div className='interpreter-groups'>
+			{interpreterGroups.map((interpreterGroup, index, runningRuntimes) => (
 				<>
-					<RuntimeManager
-						key={runtimeGroup.runtime.metadata.runtimeId}
+					<InterpreterGroup
+						key={interpreterGroup.primaryRuntime.metadata.runtimeId}
 						languageRuntimeService={props.languageRuntimeService}
-						runtime={runtimeGroup.runtime}
+						interpreterGroup={interpreterGroup}
 						dismiss={props.dismiss} />
 				</>
 			))}
