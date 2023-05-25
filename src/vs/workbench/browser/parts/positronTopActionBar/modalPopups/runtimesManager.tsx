@@ -69,11 +69,6 @@ export const RuntimesManager = (props: RuntimesManagerProps) => {
 	// Get the curated runtimes.
 	const curatedRuntimes = foo();
 
-	// // Calculate the height.
-	// const height = 8 +							// Top and bottom margin.
-	// 	(curatedRuntimes.length * 75) +		// Runtime components.
-	// 	((curatedRuntimes.length - 1) * 4);	// Separators between runtime components.
-
 	// Render.
 	return (
 		<div className='runtimes-manager'>
@@ -84,7 +79,7 @@ export const RuntimesManager = (props: RuntimesManagerProps) => {
 						languageRuntimeService={props.languageRuntimeService}
 						runtime={runtime}
 						dismiss={props.dismiss} />
-					{index < runningRuntimes.length - 1 && <div className='separator' />}
+					{/* {index < runningRuntimes.length - 1 && <div className='separator' />} */}
 				</>
 			))}
 		</div>

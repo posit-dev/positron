@@ -4,7 +4,7 @@
 
 import 'vs/css!./topActionBarRuntimesManager';
 import * as React from 'react';
-import { useEffect, useRef, useState } from 'react'; // eslint-disable-line no-duplicate-imports
+import { KeyboardEvent, useEffect, useRef, useState } from 'react'; // eslint-disable-line no-duplicate-imports
 import { DisposableStore } from 'vs/base/common/lifecycle';
 import { usePositronTopActionBarContext } from 'vs/workbench/browser/parts/positronTopActionBar/positronTopActionBarContext';
 import { showRuntimesManagerModalPopup } from 'vs/workbench/browser/parts/positronTopActionBar/modalPopups/runtimesManagerModalPopup';
@@ -40,10 +40,10 @@ export const TopActionBarRuntimesManager = () => {
 	}, []);
 
 	/**
-	 * onClick event handler.
+	 * Shows the runtimes manager modal popup.
 	 */
-	const clickHandler = () => {
-		// Show the language selector modal popup.
+	const showPopup = () => {
+		// Show the runtimes manager modal popup.
 		showRuntimesManagerModalPopup(
 			positronTopActionBarContext.languageRuntimeService,
 			positronTopActionBarContext.layoutService.container,
@@ -51,21 +51,39 @@ export const TopActionBarRuntimesManager = () => {
 		);
 	};
 
+	/**
+	 * onKeyDown event handler.
+	 */
+	const keyDownHandler = (e: KeyboardEvent<HTMLDivElement>) => {
+		switch (e.code) {
+			case 'Space':
+			case 'Enter':
+				showPopup();
+				break;
+		}
+	};
+
+	/**
+	 * onClick event handler.
+	 */
+	const clickHandler = () => {
+		showPopup();
+	};
+
 	// Render.
 	return (
-		<div ref={ref} className='top-action-bar-runtimes-manager' onClick={clickHandler}>
+		<div ref={ref} className='top-action-bar-runtimes-manager' role='button' tabIndex={0} onKeyDown={keyDownHandler} onClick={clickHandler}>
 			<div className='left'>
-				<button className='search'>
-					{!activeRuntime ?
-						<div className='action-bar-button-text'>Start Interpreter</div> :
-						<div className='action-bar-button-text'>{activeRuntime.metadata.languageName} {activeRuntime.metadata.languageVersion}</div>
-					}
-				</button>
+				{!activeRuntime ?
+					<div className='label'>Start Interpreter</div> :
+					<div className='label'>
+						<img className='icon' src={`data:image/svg+xml;base64,${activeRuntime.metadata.base64EncodedIconSvg}`} />
+						<span>{activeRuntime.metadata.languageName} {activeRuntime.metadata.languageVersion}</span>
+					</div>
+				}
 			</div>
 			<div className='right'>
-				<button className='drop-down'>
-					<div className='chevron codicon codicon-positron-chevron-down' />
-				</button>
+				<div className='chevron codicon codicon-positron-chevron-down' />
 			</div>
 		</div>
 	);

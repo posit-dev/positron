@@ -4,7 +4,7 @@
 
 import 'vs/css!./runtimeManager';
 import * as React from 'react';
-import { MouseEvent, useEffect, useState } from 'react'; // eslint-disable-line no-duplicate-imports
+import { KeyboardEvent, MouseEvent, useEffect, useState } from 'react'; // eslint-disable-line no-duplicate-imports
 import { localize } from 'vs/nls';
 import { ILanguageRuntime, ILanguageRuntimeService, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { DisposableStore } from 'vs/base/common/lifecycle';
@@ -42,10 +42,26 @@ export const RuntimeManager = (props: RuntimeManagerProps) => {
 	}, []);
 
 	/**
+	 * runtimeKey event handler.
+	 */
+	const runtimeKeyDownHandler = (e: KeyboardEvent<HTMLDivElement>) => {
+		switch (e.code) {
+			case 'Space':
+			case 'Enter':
+				e.preventDefault();
+				e.stopPropagation();
+				props.languageRuntimeService.activeRuntime = props.runtime;
+				props.dismiss();
+				break;
+		}
+	};
+
+
+	/**
 	 * runtimeClick event handler.
 	 * @param e A MouseEvent<HTMLButtonElement> that describes a user interaction with the mouse.
 	 */
-	const runtimeClickHandler = (e: MouseEvent<HTMLButtonElement>) => {
+	const runtimeClickHandler = (e: MouseEvent<HTMLDivElement>) => {
 		e.preventDefault();
 		e.stopPropagation();
 		props.languageRuntimeService.activeRuntime = props.runtime;
@@ -93,92 +109,81 @@ export const RuntimeManager = (props: RuntimeManagerProps) => {
 		props.runtime.interrupt();
 	};
 
-	let runtimeInfo, actions;
+	let actions;
 	switch (runtimeState) {
 		case RuntimeState.Uninitialized:
-			runtimeInfo = <div className='line'>Click to start</div>;
 			actions = (
 				<div className='actions'>
-					<button className='action-button codicon codicon-positron-power-button' title={localize('positronStartTheInterpreter', "Start the interpreter")} onClick={startRuntimeClickHandler} />
+					<button className='action-button codicon codicon-positron-more-options' title={localize('positronStartTheInterpreter', "Start the interpreter")} onClick={startRuntimeClickHandler} />
+					<button className='action-button codicon codicon-positron-power-button' style={{ color: 'green' }} title={localize('positronStartTheInterpreter', "Start the interpreter")} onClick={startRuntimeClickHandler} />
 				</div>
 			);
 			break;
 
 		case RuntimeState.Initializing:
-			runtimeInfo = <div className='line'>Interpreter is initializing</div>;
 			actions = null;
 			break;
 
 		case RuntimeState.Starting:
-			runtimeInfo = <div className='line'>Interpreter is starting</div>;
 			actions = null;
 			break;
 
 		case RuntimeState.Ready:
 		case RuntimeState.Idle:
-			runtimeInfo = <div className='line'>Interpreter is running</div>;
 			actions = (
 				<div className='actions'>
 					<button className='action-button codicon codicon-positron-restart-runtime' style={{ color: 'green' }} title={localize('positronRestartTheInterpreter', "Restart the interpreter")} onClick={restartRuntimeClickHandler} />
-					<button className='action-button codicon codicon-positron-power-button' title={localize('positronStopsTheInterpreter', "Stops the interpreter")} onClick={stopRuntimeClickHandler} />
+					<button className='action-button codicon codicon-positron-power-button' style={{ color: 'red' }} title={localize('positronStopsTheInterpreter', "Stops the interpreter")} onClick={stopRuntimeClickHandler} />
 				</div>
 			);
 			break;
 
 		case RuntimeState.Busy:
-			runtimeInfo = <div className='line'>Interpreter is running</div>;
 			actions = (
 				<div className='actions'>
 					<button className='action-button codicon codicon-positron-interrupt' style={{ color: 'red' }} title={localize('positronInterruptTheInterpreter', "Interrupts the interpreter")} onClick={interruptRuntimeClickHandler} />
 					<button className='action-button codicon codicon-positron-restart-runtime' style={{ color: 'green' }} title={localize('positronRestartsTheInterpreter', "Restarts the interpreter")} onClick={restartRuntimeClickHandler} />
-					<button className='action-button codicon codicon-positron-power-button' title={localize('positronStopsTheInterpreter', "Stops the interpreter")} onClick={stopRuntimeClickHandler} />
+					<button className='action-button codicon codicon-positron-power-button' style={{ color: 'red' }} title={localize('positronStopsTheInterpreter', "Stops the interpreter")} onClick={stopRuntimeClickHandler} />
 				</div>
 			);
 			break;
 
 		case RuntimeState.Exiting:
-			runtimeInfo = <div className='line'>Interpreter is shutting down</div>;
 			actions = (
 				<div className='actions'>
-					<button className='action-button codicon codicon-positron-power-button' title={localize('positronStopsTheInterpreter', "Stops the interpreter")} onClick={stopRuntimeClickHandler} />
+					<button className='action-button codicon codicon-positron-power-button' style={{ color: 'red' }} title={localize('positronStopsTheInterpreter', "Stops the interpreter")} onClick={stopRuntimeClickHandler} />
 				</div>
 			);
 			break;
 
 		case RuntimeState.Exited:
-			runtimeInfo = <div className='line'>Interpreter is shut down</div>;
 			actions = (
 				<div className='actions'>
-					<button className='action-button codicon codicon-positron-power-button' title={localize('positronStartTheInterpreter', "Start the interpreter")} onClick={startRuntimeClickHandler} />
+					<button className='action-button codicon codicon-positron-power-button' style={{ color: 'green' }} title={localize('positronStartTheInterpreter', "Start the interpreter")} onClick={startRuntimeClickHandler} />
 				</div>
 			);
 			break;
 
 		case RuntimeState.Offline:
-			runtimeInfo = <div className='line'>Interpreter is offline</div>;
 			actions = null;
 			break;
 
 		case RuntimeState.Interrupting:
-			runtimeInfo = <div className='line'>Interpreter is interrupting</div>;
 			actions = null;
 			break;
 	}
 
 	// Render.
 	return (
-		<button className='runtime-manager' onClick={runtimeClickHandler}>
+		<div className='runtime-manager' role='button' tabIndex={0} onKeyDown={runtimeKeyDownHandler} onClick={runtimeClickHandler}>
 			<img className='icon' src={`data:image/svg+xml;base64,${props.runtime.metadata.base64EncodedIconSvg}`} />
-
 			<div className='info'>
 				<div className='container'>
 					<div className='line'>{props.runtime.metadata.languageName} {props.runtime.metadata.languageVersion}</div>
 					<div className='line light' title={props.runtime.metadata.runtimePath}>{props.runtime.metadata.runtimePath}</div>
-					{runtimeInfo}
 				</div>
 			</div>
-
 			{actions}
-		</button>
+		</div>
 	);
 };

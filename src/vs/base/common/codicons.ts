@@ -607,6 +607,7 @@ export const Codicon = {
 	positronStopRuntime: register('positron-stop-runtime', 0xf257),
 	positronRestartRuntime: register('positron-restart-runtime', 0xf258),
 	positronPowerButton: register('positron-power-button', 0xf259),
+	positronMoreOptions: register('positron-more-options', 0xf25a),
 
 	// --- End Positron ---
 
