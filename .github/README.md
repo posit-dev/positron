@@ -4,9 +4,9 @@ This repository hosts the source code for the Positron IDE, a fork of [Visual St
 
 You can read more about Positron IDE development on the [Positron Wiki](https://connect.rstudioservices.com/positron-wiki).
 
-## About
+## Extensions
 
-VSCode is a highly extensible IDE. Its foundation is implemented in [`src`](../src), however, much of the core functionality is provided through [`extensions`](../extensions).
+Positron is a highly extensible IDE. Its foundation is implemented in [`src`](../src), however, much of the core functionality is provided through [`extensions`](../extensions).
 
 Positron provides the following built-in extensions:
 
