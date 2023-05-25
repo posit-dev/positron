@@ -2,7 +2,7 @@
  *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
-.runtime-manager {
+.interpreter {
 	width: 100%;
 	height: 55px;
 	border: none;
@@ -14,60 +14,60 @@
 	grid-template-columns: min-content 1fr min-content;
 }
 
-.runtime-manager:hover {
+.interpreter:hover {
 	/* border-radius: 6px; */
 	color: var(--vscode-positronRuntimesManager-hoverForeground);
 	background: var(--vscode-positronRuntimesManager-hoverBackground);
 	/* outline: 1px solid var(--vscode-positronTopActionBar-border) !important; */
 }
 
-.runtime-manager:focus {
+.interpreter:focus {
 	outline: none !important;
 }
 
-.runtime-manager:focus-visible {
+.interpreter:focus-visible {
 	border-radius: 6px;
 	outline: 1px solid var(--vscode-focusBorder) !important;
 }
 
-.runtime-manager .icon {
+.interpreter .icon {
 	width: 40px;
 	height: 40px;
 	padding-left: 10px;
 	padding-right: 10px;
 }
 
-.runtime-manager .info {
+.interpreter .info {
 	display: grid;
-	/* line-height: 120%; */
+	line-height: 120%;
 	grid-template-rows: repeat(2, min-content);
 }
 
-.runtime-manager .info .container {
+.interpreter .info .container {
 	max-width: 100%;
 	overflow: hidden;
 }
 
-.runtime-manager .info .container .line {
+.interpreter .info .container .line {
 	max-width: 100%;
 	overflow: hidden;
 	white-space: nowrap;
 	text-overflow: ellipsis;
 }
 
-.runtime-manager .info .container .line.light {
-	font-size: 11px;
+.interpreter .info .container .line.light {
+	font-size: 10px;
 	opacity: 0.5;
 }
 
-.runtime-manager .actions {
+.interpreter .actions {
 	gap: 4px;
 	display: grid;
 	padding: 0 10px;
 	grid-auto-flow: column;
 }
 
-.runtime-manager .actions .action-button {
+.interpreter .actions .action-button {
 	cursor: default !important;
 	height: 22px;
 	width: 22px;
@@ -80,7 +80,7 @@
 	justify-content: center;
 }
 
-.runtime-manager .actions .action-button:hover {
+.interpreter .actions .action-button:hover {
 	border-radius: 4px;
 	/* background: var(--vscode-list-activeSelectionBackground); */
 
@@ -89,11 +89,11 @@
 
 }
 
-.runtime-manager .actions .action-button:focus {
+.interpreter .actions .action-button:focus {
 	outline: none !important;
 }
 
-.runtime-manager .actions .action-button:focus-visible {
+.interpreter .actions .action-button:focus-visible {
 	border-radius: 6px;
 	outline: 1px solid var(--vscode-focusBorder) !important;
 }

@@ -26,7 +26,7 @@ import { TopActionBarOpenMenu } from 'vs/workbench/browser/parts/positronTopActi
 import { TopActionBarWorkspaceMenu } from 'vs/workbench/browser/parts/positronTopActionBar/components/topActionBarWorkspaceMenu';
 import { TopActionBarCommandCenter } from 'vs/workbench/browser/parts/positronTopActionBar/components/topActionBarCommandCenter';
 import { PositronTopActionBarContextProvider } from 'vs/workbench/browser/parts/positronTopActionBar/positronTopActionBarContext';
-import { TopActionBarRuntimesManager } from 'vs/workbench/browser/parts/positronTopActionBar/components/topActionBarRuntimesManager';
+import { TopActionBarInterpretersManager } from 'vs/workbench/browser/parts/positronTopActionBar/components/topActionBarInterpretersManager';
 
 // Constants.
 const kHorizontalPadding = 4;
@@ -133,7 +133,7 @@ export const PositronTopActionBar = (props: PositronTopActionBarProps) => {
 					)}
 
 					<ActionBarRegion location='right'>
-						<TopActionBarRuntimesManager />
+						<TopActionBarInterpretersManager />
 						<TopActionBarWorkspaceMenu />
 					</ActionBarRegion>
 

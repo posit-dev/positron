@@ -2,21 +2,21 @@
  *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
-import 'vs/css!./runtimesManagerModalPopup';
+import 'vs/css!./interpretersManagerModalPopup';
 import * as React from 'react';
 import { PositronModalPopup } from 'vs/base/browser/ui/positronModalPopup/positronModalPopup';
 import { ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
-import { RuntimesManager } from 'vs/workbench/browser/parts/positronTopActionBar/modalPopups/runtimesManager';
+import { InterpreterGroupsManager } from 'vs/workbench/browser/parts/positronTopActionBar/modalPopups/interpreterGroups';
 import { PositronModalPopupReactRenderer } from 'vs/base/browser/ui/positronModalPopup/positronModalPopupReactRenderer';
 
 /**
- * Shows the runtimes manager modal popup.
+ * Shows the interpreters manager modal popup.
  * @param languageRuntimeService The language runtime service.
  * @param container The container of the application.
  * @param anchorElement The anchor element for the runtimes manager modal popup.
  * @returns A promise that resolves when the popup is dismissed.
  */
-export const showRuntimesManagerModalPopup = async (
+export const showInterpretersManagerModalPopup = async (
 	languageRuntimeService: ILanguageRuntimeService,
 	container: HTMLElement,
 	anchorElement: HTMLElement,
@@ -40,11 +40,11 @@ export const showRuntimesManagerModalPopup = async (
 					anchorElement={anchorElement}
 					popupPosition='bottom'
 					popupAlignment='right'
-					width={375}
+					width={350}
 					height={'min-content'}
 					dismiss={dismissHandler}
 				>
-					<RuntimesManager
+					<InterpreterGroupsManager
 						languageRuntimeService={languageRuntimeService}
 						dismiss={dismissHandler}
 					/>
