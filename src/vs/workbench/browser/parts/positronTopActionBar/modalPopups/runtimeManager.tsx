@@ -6,8 +6,8 @@ import 'vs/css!./runtimeManager';
 import * as React from 'react';
 import { KeyboardEvent, MouseEvent, useEffect, useState } from 'react'; // eslint-disable-line no-duplicate-imports
 import { localize } from 'vs/nls';
-import { ILanguageRuntime, ILanguageRuntimeService, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { DisposableStore } from 'vs/base/common/lifecycle';
+import { ILanguageRuntime, ILanguageRuntimeService, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 
 /**
  * RuntimeManagerProps interface.
