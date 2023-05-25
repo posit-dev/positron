@@ -4,7 +4,7 @@
 
 import 'vs/css!./runtimesManager';
 import * as React from 'react';
-import { useEffect } from 'react'; // eslint-disable-line no-duplicate-imports
+import { useEffect, useState } from 'react'; // eslint-disable-line no-duplicate-imports
 import { DisposableStore } from 'vs/base/common/lifecycle';
 import { RuntimeManager } from 'vs/workbench/browser/parts/positronTopActionBar/modalPopups/runtimeManager';
 import { ILanguageRuntime, ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
@@ -18,68 +18,74 @@ interface RuntimesManagerProps {
 }
 
 /**
+ * ILanguageRuntimeGroup interface.
+ */
+interface ILanguageRuntimeGroup {
+	runtime: ILanguageRuntime;
+	alternateRuntimes: ILanguageRuntime[];
+}
+
+const createLanguageRuntimeGroups = (languageRuntimeService: ILanguageRuntimeService) => {
+	const languageRuntimeGroups = new Map<string, ILanguageRuntimeGroup>();
+	for (const runtime of languageRuntimeService.registeredRuntimes) {
+		const languageRuntimeGroup = languageRuntimeGroups.get(runtime.metadata.languageId);
+		if (languageRuntimeGroup) {
+			languageRuntimeGroup.alternateRuntimes.push(runtime);
+		} else {
+			languageRuntimeGroups.set(runtime.metadata.languageId, {
+				runtime: runtime,
+				alternateRuntimes: []
+			});
+		}
+	}
+
+	// Sort the runtimes by language name.
+	return Array.from(languageRuntimeGroups.values()).sort((a, b) => {
+		if (a.runtime.metadata.languageName < b.runtime.metadata.languageName) {
+			return -1;
+		} else if (a.runtime.metadata.languageName > b.runtime.metadata.languageName) {
+			return 1;
+		} else {
+			return 0;
+		}
+	});
+};
+
+/**
  * RuntimesManager component.
  * @param props A RuntimesManagerProps that contains the component properties.
  * @returns The rendered component.
  */
 export const RuntimesManager = (props: RuntimesManagerProps) => {
 	// State hooks.
-	//const [runtimes, setRuntimes] = useState(props.languageRuntimeService.curatedRuntimes);
+	const [runtimeGroups, setRuntimeGroups] =
+		useState(createLanguageRuntimeGroups(props.languageRuntimeService));
 
 	// Main useEffect hook.
 	useEffect(() => {
 		// Create the disposable store for cleanup.
 		const disposableStore = new DisposableStore();
 
+		// Add our onDidChangeRegisteredRuntimes event handler. This allows the set of runtimes to
+		// be dynamic at app startup.
 		disposableStore.add(props.languageRuntimeService.onDidChangeRegisteredRuntimes(() => {
-
+			setRuntimeGroups(createLanguageRuntimeGroups(props.languageRuntimeService));
 		}));
 
 		// Return the cleanup function that will dispose of the event handlers.
 		return () => disposableStore.dispose();
 	}, []);
 
-	const foo = () => {
-		// Get the set of registered runtimes.
-		const registeredRuntimes = props.languageRuntimeService.registeredRuntimes;
-
-		// Get the top runtime for each language ID. The order of the runtimes for a given language
-		// isn't random. Runtimes are sorted by priority when registered by the extension so the
-		// first one is the best one to start.
-		const runtimesByLanguageId = new Map<string, ILanguageRuntime>();
-		for (const registeredRuntime of registeredRuntimes) {
-			if (!runtimesByLanguageId.has(registeredRuntime.metadata.languageId)) {
-				runtimesByLanguageId.set(registeredRuntime.metadata.languageId, registeredRuntime);
-			}
-		}
-
-		// Sort the runtimes by language name.
-		return Array.from(runtimesByLanguageId.values()).sort((a, b) => {
-			if (a.metadata.languageName < b.metadata.languageName) {
-				return -1;
-			} else if (a.metadata.languageName > b.metadata.languageName) {
-				return 1;
-			} else {
-				return 0;
-			}
-		});
-
-	};
-
-	// Get the curated runtimes.
-	const curatedRuntimes = foo();
-
 	// Render.
 	return (
 		<div className='runtimes-manager'>
-			{curatedRuntimes.map((runtime, index, runningRuntimes) => (
+			{runtimeGroups.map((runtimeGroup, index, runningRuntimes) => (
 				<>
 					<RuntimeManager
-						key={runtime.metadata.runtimeId}
+						key={runtimeGroup.runtime.metadata.runtimeId}
 						languageRuntimeService={props.languageRuntimeService}
-						runtime={runtime}
+						runtime={runtimeGroup.runtime}
 						dismiss={props.dismiss} />
-					{/* {index < runningRuntimes.length - 1 && <div className='separator' />} */}
 				</>
 			))}
 		</div>
