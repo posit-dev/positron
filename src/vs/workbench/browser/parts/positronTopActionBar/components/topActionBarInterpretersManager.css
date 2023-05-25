@@ -2,7 +2,7 @@
  *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
-.top-action-bar-runtimes-manager {
+.top-action-bar-interpreters-manager {
 	flex: 0;
 	width: min-content;
 	margin: 0 6px;
@@ -18,15 +18,15 @@
 	background-color: var(--vscode-positronTopActionBar-selectBoxBackground);
 }
 
-.top-action-bar-runtimes-manager:hover {
+.top-action-bar-interpreters-manager:hover {
 	background-color: var(--positronActionBar-hoverBackground);
 }
 
-.top-action-bar-runtimes-manager .left {
+.top-action-bar-interpreters-manager .left {
 	margin-left: 1px;
 }
 
-.top-action-bar-runtimes-manager .left .label {
+.top-action-bar-interpreters-manager .left .label {
 	margin: 0 4px;
 	padding: 0 3px;
 	height: 22px;
@@ -42,20 +42,20 @@
 	color: var(--positronActionBar-foreground);
 }
 
-.top-action-bar-runtimes-manager .left .label .icon {
+.top-action-bar-interpreters-manager .left .label .icon {
 	width: 16px;
 	height: 16px;
 	margin-right: 6px;
 }
 
-.top-action-bar-runtimes-manager .right {
+.top-action-bar-interpreters-manager .right {
 	display: flex;
 	align-items: center;
 	justify-content: right;
 	margin-right: 1px;
 }
 
-.top-action-bar-runtimes-manager .right .chevron {
+.top-action-bar-interpreters-manager .right .chevron {
 	height: 22px;
 	width: 22px;
 	border: none;

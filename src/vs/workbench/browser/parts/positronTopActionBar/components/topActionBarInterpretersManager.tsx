@@ -2,18 +2,18 @@
  *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
-import 'vs/css!./topActionBarRuntimesManager';
+import 'vs/css!./topActionBarInterpretersManager';
 import * as React from 'react';
 import { KeyboardEvent, useEffect, useRef, useState } from 'react'; // eslint-disable-line no-duplicate-imports
 import { DisposableStore } from 'vs/base/common/lifecycle';
 import { usePositronTopActionBarContext } from 'vs/workbench/browser/parts/positronTopActionBar/positronTopActionBarContext';
-import { showRuntimesManagerModalPopup } from 'vs/workbench/browser/parts/positronTopActionBar/modalPopups/runtimesManagerModalPopup';
+import { showInterpretersManagerModalPopup } from 'vs/workbench/browser/parts/positronTopActionBar/modalPopups/interpretersManagerModalPopup';
 
 /**
- * TopActionBarRuntimesManager component.
+ * TopActionBarInterpretersManager component.
  * @returns The rendered component.
  */
-export const TopActionBarRuntimesManager = () => {
+export const TopActionBarInterpretersManager = () => {
 	// Context hooks.
 	const positronTopActionBarContext = usePositronTopActionBarContext();
 
@@ -44,7 +44,7 @@ export const TopActionBarRuntimesManager = () => {
 	 */
 	const showPopup = () => {
 		// Show the runtimes manager modal popup.
-		showRuntimesManagerModalPopup(
+		showInterpretersManagerModalPopup(
 			positronTopActionBarContext.languageRuntimeService,
 			positronTopActionBarContext.layoutService.container,
 			ref.current
@@ -72,7 +72,7 @@ export const TopActionBarRuntimesManager = () => {
 
 	// Render.
 	return (
-		<div ref={ref} className='top-action-bar-runtimes-manager' role='button' tabIndex={0} onKeyDown={keyDownHandler} onClick={clickHandler}>
+		<div ref={ref} className='top-action-bar-interpreters-manager' role='button' tabIndex={0} onKeyDown={keyDownHandler} onClick={clickHandler}>
 			<div className='left'>
 				{!activeRuntime ?
 					<div className='label'>Start Interpreter</div> :
