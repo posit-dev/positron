@@ -7,6 +7,7 @@ import * as positron from 'positron';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as crypto from 'crypto';
+import * as os from 'os';
 
 import { withActiveExtension } from './util';
 import { RRuntime } from './runtime';
@@ -146,6 +147,17 @@ export function registerArkKernel(ext: vscode.Extension<any>, context: vscode.Ex
 
 		}
 
+		// Is the runtime path within the user's home directory?
+		const isUserInstallation = rHome.rHome.startsWith(os.homedir());
+
+		// Does the runtime path have 'homebrew' as a component? (we assume that
+		// it's a Homebrew installation if it does)
+		const isHomebrewInstallation = rHome.rHome.includes('/homebrew/');
+
+		const runtimeSource = isHomebrewInstallation ? 'Homebrew' :
+			isUserInstallation ?
+				'User' : 'System';
+
 		// Create a kernel spec for this R installation
 		const kernelSpec: JupyterKernelSpec = {
 			'argv': [
@@ -153,7 +165,7 @@ export function registerArkKernel(ext: vscode.Extension<any>, context: vscode.Ex
 				'--connection_file', '{connection_file}',
 				'--log', '{log_file}'
 			],
-			'display_name': `R: ${rHome.rHome}`, // eslint-disable-line
+			'display_name': `R (${runtimeSource})`, // eslint-disable-line
 			'language': 'R',
 			'env': env,
 		};
@@ -174,6 +186,7 @@ export function registerArkKernel(ext: vscode.Extension<any>, context: vscode.Ex
 			runtimeName: kernelSpec.display_name,
 			runtimePath: rHome.rHome,
 			runtimeVersion: packageJson.version,
+			runtimeSource,
 			languageId: 'r',
 			languageName: kernelSpec.language,
 			languageVersion: rVersion,
