@@ -1,0 +1,41 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
+ *--------------------------------------------------------------------------------------------*/
+
+.interpreter-actions {
+	gap: 4px;
+	display: grid;
+	padding: 0 10px;
+	grid-auto-flow: column;
+}
+
+.action-button {
+	cursor: default !important;
+	height: 22px;
+	width: 22px;
+	border: none;
+	display: flex;
+	cursor: pointer;
+	overflow: visible;
+	align-items: center;
+	background: transparent;
+	justify-content: center;
+}
+
+.action-button:hover {
+	border-radius: 4px;
+	/* background: var(--vscode-list-activeSelectionBackground); */
+
+	/* background-color: var(--vscode-positronTopActionBar-hoverBackground); */
+	background: var(--vscode-positronRuntimesManager-actionHoverBackground);
+
+}
+
+.action-button:focus {
+	outline: none !important;
+}
+
+.action-button:focus-visible {
+	border-radius: 6px;
+	outline: 1px solid var(--vscode-focusBorder) !important;
+}

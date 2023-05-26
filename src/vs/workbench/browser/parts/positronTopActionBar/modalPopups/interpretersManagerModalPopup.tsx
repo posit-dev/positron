@@ -6,7 +6,7 @@ import 'vs/css!./interpretersManagerModalPopup';
 import * as React from 'react';
 import { PositronModalPopup } from 'vs/base/browser/ui/positronModalPopup/positronModalPopup';
 import { ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
-import { InterpreterGroupsManager } from 'vs/workbench/browser/parts/positronTopActionBar/modalPopups/interpreterGroups';
+import { InterpreterGroups } from 'vs/workbench/browser/parts/positronTopActionBar/modalPopups/interpreterGroups';
 import { PositronModalPopupReactRenderer } from 'vs/base/browser/ui/positronModalPopup/positronModalPopupReactRenderer';
 
 /**
@@ -44,7 +44,7 @@ export const showInterpretersManagerModalPopup = async (
 					height={'min-content'}
 					dismiss={dismissHandler}
 				>
-					<InterpreterGroupsManager
+					<InterpreterGroups
 						languageRuntimeService={languageRuntimeService}
 						dismiss={dismissHandler}
 					/>

@@ -1119,6 +1119,14 @@ export const POSITRON_TOP_ACTION_BAR_TEXT_INPUT_SELECTION_BACKGROUND = registerC
 
 // < --- Positron Runtimes Manager --- >
 
+// The Positron runtimes manager background.
+export const POSITRON_RUNTIMES_BACKGROUND = registerColor('positronRuntimesManager.background', {
+	dark: editorWidgetBackground,
+	light: editorWidgetBackground,
+	hcDark: editorWidgetBackground,
+	hcLight: editorWidgetBackground
+}, localize('positronRuntimesManager.background', "Positron runtimes manager background color."));
+
 // The Positron runtimes manager hover background.
 export const POSITRON_RUNTIMES_MANAGER_HOVER_BACKGROUND = registerColor('positronRuntimesManager.hoverBackground', {
 	dark: listHoverBackground,
