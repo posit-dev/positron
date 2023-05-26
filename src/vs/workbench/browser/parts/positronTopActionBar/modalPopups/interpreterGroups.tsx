@@ -49,19 +49,19 @@ const createInterpreterGroups = (languageRuntimeService: ILanguageRuntimeService
 };
 
 /**
- * InterpreterGroupsManagerProps interface.
+ * InterpreterGroupsProps interface.
  */
-interface InterpreterGroupsManagerProps {
+interface InterpreterGroupsProps {
 	languageRuntimeService: ILanguageRuntimeService;
 	dismiss: () => void;
 }
 
 /**
  * InterpreterGroupsManager component.
- * @param props A InterpreterGroupsManagerProps that contains the component properties.
+ * @param props A InterpreterGroupsProps that contains the component properties.
  * @returns The rendered component.
  */
-export const InterpreterGroupsManager = (props: InterpreterGroupsManagerProps) => {
+export const InterpreterGroups = (props: InterpreterGroupsProps) => {
 	// State hooks.
 	const [interpreterGroups, setInterpreterGroups] =
 		useState(createInterpreterGroups(props.languageRuntimeService));
