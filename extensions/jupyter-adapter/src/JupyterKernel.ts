@@ -2,7 +2,6 @@
  *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
-import { ChildProcess } from 'child_process';
 import * as vscode from 'vscode';
 import * as positron from 'positron';
 import * as zmq from 'zeromq/v5-compat';
@@ -21,7 +20,6 @@ import { JupyterCommClose } from './JupyterCommClose';
 import { v4 as uuidv4 } from 'uuid';
 import { JupyterShutdownRequest } from './JupyterShutdownRequest';
 import { JupyterInterruptRequest } from './JupyterInterruptRequest';
-import { JupyterKernelSpec } from './JupyterKernelSpec';
 import { JupyterConnectionSpec } from './JupyterConnectionSpec';
 import { JupyterSockets } from './JupyterSockets';
 import { JupyterExecuteRequest } from './JupyterExecuteRequest';
@@ -32,6 +30,7 @@ import { createJupyterSession, JupyterSession, JupyterSessionState } from './Jup
 import path = require('path');
 import { StartupFailure } from './StartupFailure';
 import { JupyterKernelStatus } from './JupyterKernelStatus';
+import { JupyterKernelSpec } from './jupyter-adapter';
 
 /** The message sent to the Heartbeat socket on a regular interval to test connectivity */
 const HEARTBEAT_MESSAGE = 'heartbeat';
@@ -41,7 +40,6 @@ const RECONNECT_MESSAGE = 'reconnect';
 
 export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	private readonly _spec: JupyterKernelSpec;
-	private _process: ChildProcess | null;
 
 	/** An object that watches (tails) the kernel's log file */
 	private _logTail?: Tail;
@@ -102,7 +100,6 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 		private readonly _channel: vscode.OutputChannel) {
 		super();
 		this._spec = spec;
-		this._process = null;
 
 		this._control = null;
 		this._shell = null;
@@ -260,10 +257,13 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 		// Use the control channel to detect if the kernel unexpectedly disconnects
 		this._control.socket().on('disconnect', () => {
 			if (this._status !== positron.RuntimeState.Exiting &&
+				this._status !== positron.RuntimeState.Restarting &&
 				this._status !== positron.RuntimeState.Exited) {
 				this.log(`Kernel '${this._spec.display_name}' unexpectedly disconnected while in status '${this._status}', will exit`);
-				this.setStatus(positron.RuntimeState.Exited);
 			}
+
+			// Always treat a disconnected kernel as exited
+			this.setStatus(positron.RuntimeState.Exited);
 		});
 
 		// Bind the sockets to the ports specified in the connection file;
@@ -298,8 +298,11 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 		// Return a promise that resolves when we receive the initial heartbeat
 		return new Promise<void>((resolve, reject) => {
 
-			// Establish a log channel for the kernel we're connecting to
-			this._logChannel = vscode.window.createOutputChannel(`Runtime: ${this._spec.display_name}`);
+			// Establish a log channel for the kernel we're connecting to, if we
+			// don't already have one (we will if we're restarting)
+			if (!this._logChannel) {
+				this._logChannel = vscode.window.createOutputChannel(`Runtime: ${this._spec.display_name}`);
+			}
 
 			// Bind to the Jupyter session
 			this._session = session;
@@ -646,41 +649,25 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	}
 
 	/**
-	 * Restarts the kernel
-	 */
-	public async restart() {
-
-		// Update status
-		this.setStatus(positron.RuntimeState.Exiting);
-
-		// Request that the kernel shut down
-		this.shutdown(true);
-
-		// Start the kernel again once the process finishes shutting down
-		this._process?.once('exit', () => {
-			this.log(`Waiting for '${this._spec.display_name}' to restart...`);
-			this.start();
-		});
-	}
-
-	/**
 	 * Tells the kernel to shut down
 	 */
-	public shutdown(restart: boolean) {
-		this.setStatus(positron.RuntimeState.Exiting);
+	public async shutdown(restart: boolean): Promise<void> {
+		this.setStatus(restart ?
+			positron.RuntimeState.Restarting :
+			positron.RuntimeState.Exiting);
 		const msg: JupyterShutdownRequest = {
 			restart: restart
 		};
-		this.send(uuidv4(), 'shutdown_request', this._control!, msg);
+		return this.send(uuidv4(), 'shutdown_request', this._control!, msg);
 	}
 
 	/**
 	 * Interrupts the kernel
 	 */
-	public interrupt() {
+	public async interrupt(): Promise<void> {
 		this.setStatus(positron.RuntimeState.Interrupting);
 		const msg: JupyterInterruptRequest = {};
-		this.send(uuidv4(), 'interrupt_request', this._control!, msg);
+		return this.send(uuidv4(), 'interrupt_request', this._control!, msg);
 	}
 
 	/**
@@ -1038,6 +1025,9 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 			if (this._terminal && this._terminal.exitStatus === undefined) {
 				this._terminal.dispose();
 			}
+
+			// Clear the terminal reference
+			this._terminal = undefined;
 
 			// Dispose the remainder of the connection state
 			this.dispose();

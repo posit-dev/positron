@@ -34,9 +34,9 @@ export interface ExtHostLanguageRuntimeShape {
 	$removeClient(handle: number, id: string): void;
 	$sendClientMessage(handle: number, client_id: string, message_id: string, message: any): void;
 	$replyToPrompt(handle: number, id: string, response: string): void;
-	$interruptLanguageRuntime(handle: number): void;
-	$restartLanguageRuntime(handle: number): void;
-	$shutdownLanguageRuntime(handle: number): void;
+	$interruptLanguageRuntime(handle: number): Promise<void>;
+	$restartLanguageRuntime(handle: number): Promise<void>;
+	$shutdownLanguageRuntime(handle: number): Promise<void>;
 }
 
 export interface IMainPositronContext extends IRPCProtocol {

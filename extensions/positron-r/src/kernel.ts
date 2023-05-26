@@ -6,13 +6,11 @@ import * as vscode from 'vscode';
 import * as positron from 'positron';
 import * as path from 'path';
 import * as fs from 'fs';
+import * as crypto from 'crypto';
 
 import { withActiveExtension } from './util';
-import { ArkLsp } from './lsp';
-import { EXTENSION_ROOT_DIR } from './constants';
-
-// Load the R icon.
-const base64EncodedIconSvg = fs.readFileSync(path.join(EXTENSION_ROOT_DIR, 'resources', 'branding', 'r-icon.svg')).toString('base64');
+import { RRuntime } from './runtime';
+import { JupyterKernelSpec } from './jupyter-adapter';
 
 // A global instance of the language runtime (and LSP language server) provided
 // by this language pack
@@ -149,8 +147,7 @@ export function registerArkKernel(ext: vscode.Extension<any>, context: vscode.Ex
 		}
 
 		// Create a kernel spec for this R installation
-		const kernelSpec = {
-			path: rHome.rHome,
+		const kernelSpec: JupyterKernelSpec = {
 			'argv': [
 				kernelPath,
 				'--connection_file', '{connection_file}',
@@ -164,34 +161,36 @@ export function registerArkKernel(ext: vscode.Extension<any>, context: vscode.Ex
 		// Get the version of this extension from package.json so we can pass it
 		// to the adapter as the implementation version.
 		const packageJson = require('../package.json');
-		const version = packageJson.version;
+		const rVersion = rHome.rVersion ?? '0.0.1';
 
-		// Create an LSP language server for this R installation
-		const lsp = new ArkLsp(rHome.rVersion);
+		// Create a stable ID for the runtime based on the interpreter path and version.
+		const digest = crypto.createHash('sha256');
+		digest.update(JSON.stringify(kernelSpec));
+		digest.update(rVersion);
+		const runtimeId = digest.digest('hex').substring(0, 32);
+
+		const metadata: positron.LanguageRuntimeMetadata = {
+			runtimeId,
+			runtimeName: kernelSpec.display_name,
+			runtimePath: rHome.rHome,
+			runtimeVersion: packageJson.version,
+			languageId: 'r',
+			languageName: kernelSpec.language,
+			languageVersion: rVersion,
+			inputPrompt: '>',
+			continuationPrompt: '+',
+			base64EncodedIconSvg:
+				fs.readFileSync(
+					path.join(context.extensionPath, 'resources', 'branding', 'r-icon.svg')
+				).toString('base64'),
+			startupBehavior: positron.LanguageRuntimeStartupBehavior.Implicit
+		};
 
 		// Create an adapter for the kernel to fulfill the LanguageRuntime interface.
-		runtime = ext.exports.adaptKernel(
-			kernelSpec,
-			'r',      // Language ID
-			rHome.rVersion ?? '0.0.1',   // Version of R, if we know it
-			version,  // Version of this extension
-			base64EncodedIconSvg, // The Base64-encoded icon SVG for the language
-			'>', 	// Input prompt
-			'+',	// Continuation prompt
-			positron.LanguageRuntimeStartupBehavior.Implicit, // OK to start the kernel automatically
-			(port: number) => {
-				// Activate the LSP language server when the adapter is ready.
-				return lsp.activate(port, context);
-			});
+		runtime = new RRuntime(context, kernelSpec, metadata, ext.exports);
 
-		// Associate the LSP client instance with the kernel adapter.
-		lsp.attachRuntime(runtime);
-		context.subscriptions.push(lsp);
-
-		// Register a language runtime provider for the ARK kernel.
+		// Register the language runtime with Positron.
 		const disposable = positron.runtime.registerLanguageRuntime(runtime);
-
-		// Ensure that the kernel is disposed when the extension is deactivated.
 		context.subscriptions.push(disposable);
 	}
 }
