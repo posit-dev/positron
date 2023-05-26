@@ -2,72 +2,75 @@
  *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
-.interpreter {
+.secondary-interpreter {
 	width: 100%;
-	height: 55px;
+	height: 40px;
 	border: none;
 	display: grid;
 	cursor: pointer;
 	text-align: left;
 	align-items: center;
 	background: transparent;
-	grid-template-columns: min-content 1fr min-content;
+	grid-template-columns: 60px min-content 1fr min-content;
+
+	font-size: 11px;
 }
 
-.interpreter:hover {
+.secondary-interpreter:hover {
 	/* border-radius: 6px; */
+	/* outline: 1px solid var(--vscode-positronTopActionBar-border) !important; */
+
 	color: var(--vscode-positronRuntimesManager-hoverForeground);
 	background: var(--vscode-positronRuntimesManager-hoverBackground);
-	/* outline: 1px solid var(--vscode-positronTopActionBar-border) !important; */
 }
 
-.interpreter:focus {
+.secondary-interpreter:focus {
 	outline: none !important;
 }
 
-.interpreter:focus-visible {
+.secondary-interpreter:focus-visible {
 	border-radius: 6px;
 	outline: 1px solid var(--vscode-focusBorder) !important;
 }
 
-.interpreter .icon {
-	width: 40px;
-	height: 40px;
-	padding-left: 10px;
-	padding-right: 10px;
+.secondary-interpreter .icon {
+	width: 30px;
+	height: 30px;
+	/* padding-left: 10px; */
+	padding-right: 5px;
 }
 
-.interpreter .info {
+.secondary-interpreter .info {
 	display: grid;
 	line-height: 120%;
 	grid-template-rows: repeat(2, min-content);
 }
 
-.interpreter .info .container {
+.secondary-interpreter .info .container {
 	max-width: 100%;
 	overflow: hidden;
 }
 
-.interpreter .info .container .line {
+.secondary-interpreter .info .container .line {
 	max-width: 100%;
 	overflow: hidden;
 	white-space: nowrap;
 	text-overflow: ellipsis;
 }
 
-.interpreter .info .container .line.light {
+.secondary-interpreter .info .container .line.light {
 	font-size: 10px;
 	opacity: 0.5;
 }
 
-.interpreter .actions {
+.secondary-interpreter .actions {
 	gap: 4px;
 	display: grid;
 	padding: 0 10px;
 	grid-auto-flow: column;
 }
 
-.interpreter .actions .action-button {
+.secondary-interpreter .actions .action-button {
 	cursor: default !important;
 	height: 22px;
 	width: 22px;
@@ -80,7 +83,7 @@
 	justify-content: center;
 }
 
-.interpreter .actions .action-button:hover {
+.secondary-interpreter .actions .action-button:hover {
 	border-radius: 4px;
 	/* background: var(--vscode-list-activeSelectionBackground); */
 
@@ -89,11 +92,11 @@
 
 }
 
-.interpreter .actions .action-button:focus {
+.secondary-interpreter .actions .action-button:focus {
 	outline: none !important;
 }
 
-.interpreter .actions .action-button:focus-visible {
+.secondary-interpreter .actions .action-button:focus-visible {
 	border-radius: 6px;
 	outline: 1px solid var(--vscode-focusBorder) !important;
 }
