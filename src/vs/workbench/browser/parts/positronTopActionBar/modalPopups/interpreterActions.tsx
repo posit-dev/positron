@@ -147,7 +147,7 @@ export const InterpreterActions = (props: InterpreterActionsProps) => {
 			}
 		}
 
-		return props.runtime.start();
+		props.languageRuntimeService.startRuntime(props.runtime.metadata.runtimeId);
 	};
 
 	// Render.

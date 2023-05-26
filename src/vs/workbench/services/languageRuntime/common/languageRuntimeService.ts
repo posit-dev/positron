@@ -345,6 +345,9 @@ export interface ILanguageRuntimeMetadata {
 	/** The internal version of the runtime that wraps the language; e.g. "1.0.3" */
 	readonly runtimeVersion: string;
 
+	/** The runtime's source or origin; e.g. PyEnv, System, Homebrew, Conda, etc. */
+	readonly runtimeSource: string;
+
 	/** Whether the runtime should start up automatically or wait until explicitly requested */
 	readonly startupBehavior: LanguageRuntimeStartupBehavior;
 }
