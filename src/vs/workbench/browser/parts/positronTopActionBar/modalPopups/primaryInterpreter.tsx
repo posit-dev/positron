@@ -4,8 +4,6 @@
 
 import 'vs/css!./primaryInterpreter';
 import * as React from 'react';
-import { MouseEvent } from 'react'; // eslint-disable-line no-duplicate-imports
-import { localize } from 'vs/nls';
 import { InterpreterActions } from 'vs/workbench/browser/parts/positronTopActionBar/modalPopups/interpreterActions';
 import { ILanguageRuntime, ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 
@@ -27,16 +25,6 @@ interface PrimaryInterpreterProps {
  * @returns The rendered component.
  */
 export const PrimaryInterpreter = (props: PrimaryInterpreterProps) => {
-	/**
-	 * showAllVersionsClick event handler.
-	 * @param e A MouseEvent<HTMLButtonElement> that describes a user interaction with the mouse.
-	 */
-	const showAllVersionsClickHandler = (e: MouseEvent<HTMLButtonElement>) => {
-		e.preventDefault();
-		e.stopPropagation();
-		props.showAllVersions();
-	};
-
 	// Render.
 	return (
 		<div className='primary-interpreter'>
@@ -47,16 +35,12 @@ export const PrimaryInterpreter = (props: PrimaryInterpreterProps) => {
 					<div className='line light' title={props.runtime.metadata.runtimePath}>{props.runtime.metadata.runtimePath}</div>
 				</div>
 			</div>
-			<div className='actions'>
-				{props.enableShowAllVersions &&
-					<button
-						className='action-button codicon codicon-positron-more-options'
-						title={localize('positronShowAllVersions', "Show all versions")}
-						onClick={showAllVersionsClickHandler}
-					/>
-				}
-				<InterpreterActions languageRuntimeService={props.languageRuntimeService} runtime={props.runtime} />
-			</div>
+			<InterpreterActions
+				languageRuntimeService={props.languageRuntimeService}
+				runtime={props.runtime}
+				primaryRuntime={true}
+				showAllVersions={props.showAllVersions}
+			/>
 		</div>
 	);
 };

@@ -52,9 +52,11 @@ export const SecondaryInterpreter = (props: SecondaryInterpreterProps) => {
 					<div className='line light' title={props.runtime.metadata.runtimePath}>{props.runtime.metadata.runtimePath}</div>
 				</div>
 			</div>
-			<div className='actions'>
-				<InterpreterActions languageRuntimeService={props.languageRuntimeService} runtime={props.runtime} />
-			</div>
+			<InterpreterActions
+				languageRuntimeService={props.languageRuntimeService}
+				runtime={props.runtime}
+				primaryRuntime={false}
+			/>
 		</div>
 	);
 };
