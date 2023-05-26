@@ -5,7 +5,7 @@
 import * as os from 'os';
 import * as fs from 'fs';
 import * as path from 'path';
-import { JupyterKernelSpec } from './JupyterKernelSpec';
+import { JupyterKernelSpec } from './jupyter-adapter';
 
 /**
  * Gets metadata about the Jupyter kernel installed in the given directory.

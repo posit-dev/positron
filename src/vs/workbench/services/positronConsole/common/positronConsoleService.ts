@@ -185,7 +185,10 @@ class PositronConsoleService extends Disposable implements IPositronConsoleServi
 
 		// Register the onDidReconnectRuntime event handler so we start a new Positron console instance when a runtime is reconnected.
 		this._register(this._languageRuntimeService.onDidReconnectRuntime(runtime => {
-			this.startPositronConsoleInstance(runtime, false);
+			const positronConsoleInstance = this._positronConsoleInstancesByRuntimeId.get(runtime.metadata.runtimeId);
+			if (!positronConsoleInstance) {
+				this.startPositronConsoleInstance(runtime, false);
+			}
 		}));
 
 		// Register the onDidChangeRuntimeState event handler so we can activate the REPL for the active runtime.
@@ -639,9 +642,12 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 					case PositronConsoleState.Starting:
 						for (let i = this._runtimeItems.length - 1; i >= 0; i--) {
 							if (this._runtimeItems[i] instanceof RuntimeItemStarting) {
+								const runtimeItem = this._runtimeItems[i] as RuntimeItemStarting;
 								this._runtimeItems[i] = new RuntimeItemStarted(
 									generateUuid(),
-									`${this._runtime.metadata.runtimeName} ${this._runtime.metadata.languageVersion} started.`
+									`${this._runtime.metadata.runtimeName} ` +
+									`${this._runtime.metadata.languageVersion} ` +
+									`${runtimeItem.isRestart ? 'restarted' : 'started'}.`
 								);
 								this._onDidChangeRuntimeItemsEmitter.fire(this._runtimeItems);
 							}
@@ -689,10 +695,13 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 		// Set the state and add the appropriate runtime item to indicate whether the Positron
 		// console instance is is starting or is reconnected.
 		if (starting) {
+			const restart = this._state === PositronConsoleState.Exited;
 			this.setState(PositronConsoleState.Starting);
 			this.addRuntimeItem(new RuntimeItemStarting(
 				generateUuid(),
-				`${this._runtime.metadata.runtimeName} ${this._runtime.metadata.languageVersion} starting.`
+				`${this._runtime.metadata.runtimeName} ${this._runtime.metadata.languageVersion} ` +
+				`${restart ? 'restarting' : 'starting'}.`,
+				restart
 			));
 		} else {
 			this.setState(PositronConsoleState.Ready);
