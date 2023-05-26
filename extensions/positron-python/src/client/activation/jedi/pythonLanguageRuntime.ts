@@ -1,20 +1,30 @@
+/* eslint-disable class-methods-use-this */
 /*---------------------------------------------------------------------------------------------
  *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
+import { Socket } from 'net';
+
 // eslint-disable-next-line import/no-unresolved
 import * as positron from 'positron';
 import * as vscode from 'vscode';
+import { Disposable, LanguageClient, LanguageClientOptions, ServerOptions, StreamInfo } from 'vscode-languageclient/node';
+import { PYTHON_LANGUAGE } from '../../common/constants';
 import { JupyterAdapterApi, JupyterKernelSpec, JupyterLanguageRuntime } from '../../jupyter-adapter.d';
+import { ProgressReporting } from '../progress';
 
 /**
  * A Positron Python language runtime that wraps a Jupyter kernel runtime.
  * Fulfills most Language Runtime API calls by delegating to the wrapped kernel.
  */
-export class PythonLanguageRuntime implements JupyterLanguageRuntime {
+export class PythonLanguageRuntime implements JupyterLanguageRuntime, Disposable {
 
     /** The Jupyter kernel-based implementation of the Language Runtime API */
     private _kernel: JupyterLanguageRuntime;
+
+    private _lsp: LanguageClient | undefined;
+
+    private readonly disposables: Disposable[] = [];
 
     /**
      * Create a new PythonLanguageRuntime object to wrap a Jupyter kernel.
@@ -26,12 +36,17 @@ export class PythonLanguageRuntime implements JupyterLanguageRuntime {
     constructor(
         readonly kernelSpec: JupyterKernelSpec,
         readonly metadata: positron.LanguageRuntimeMetadata,
-        readonly adapterApi: JupyterAdapterApi) {
+        readonly adapterApi: JupyterAdapterApi,
+        readonly languageClientOptions: LanguageClientOptions) {
 
         this._kernel = adapterApi.adaptKernel(kernelSpec, metadata);
 
         this.onDidChangeRuntimeState = this._kernel.onDidChangeRuntimeState;
         this.onDidReceiveRuntimeMessage = this._kernel.onDidReceiveRuntimeMessage;
+
+        this.onDidChangeRuntimeState((state) => {
+            this.onStateChange(state);
+        });
     }
 
     startPositronLsp(clientAddress: string): void {
@@ -85,10 +100,115 @@ export class PythonLanguageRuntime implements JupyterLanguageRuntime {
     }
 
     async restart(): Promise<void> {
+
+        // Stop the LSP (it will restart after the kernel restarts)
+        if (this._lsp) {
+            await this._lsp.stop();
+        }
+
+        // Restart the kernel
         return this._kernel.restart();
     }
 
     async shutdown(): Promise<void> {
+
+        // Stop the LSP
+        if (this._lsp) {
+            await this._lsp.stop();
+        }
+
+        // Shutdown the kernel
         return this._kernel.shutdown();
+    }
+
+    dispose(): void {
+        while (this.disposables.length > 0) {
+            const d = this.disposables.shift()!;
+            d.dispose();
+        }
+    }
+
+    private onStateChange(state: positron.RuntimeState): void {
+        if (state === positron.RuntimeState.Ready) {
+            this.adapterApi.findAvailablePort([], 25).then((port: number) => {
+                this.emitJupyterLog(`Starting Positron LSP server on port ${port}`);
+                this.startPositronLsp(`127.0.0.1:${port}`);
+                this.startLSPClient(port).ignoreErrors();
+            });
+        } else if (state === positron.RuntimeState.Exiting ||
+            state === positron.RuntimeState.Exited) {
+            if (this._lsp) {
+                this._lsp.stop().ignoreErrors();
+            }
+        }
+    }
+
+    // LSP Client Helpers
+
+    private async startLSPClient(port: number): Promise<void> {
+
+        const serverOptions: ServerOptions = async () => this.getLSPServerOptions(port);
+        const client = new LanguageClient(PYTHON_LANGUAGE, 'Positron Python Jedi', serverOptions, this.languageClientOptions);
+        this.disposables.push(client);
+
+        const progressReporting = new ProgressReporting(client);
+        this.disposables.push(progressReporting);
+
+        await client.start();
+        this._lsp = client;
+    }
+
+    /**
+     * An async function used by the LanguageClient to establish a connection to the LSP on start.
+     * Several attempts to connect are made given recently spawned servers may not be ready immediately
+     * for client connections.
+     * @param port the LSP port
+     */
+    private async getLSPServerOptions(port: number): Promise<StreamInfo> {
+
+        const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+        const maxAttempts = 20;
+        const baseDelay = 50;
+        const multiplier = 1.5;
+
+        for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+            // Retry up to five times then start to back-off
+            const interval = attempt < 6 ? baseDelay : baseDelay * multiplier * attempt;
+            if (attempt > 0) {
+                await delay(interval);
+            }
+
+            try {
+                // Try to connect to LSP port
+                const socket: Socket = await this.tryToConnect(port);
+                return { reader: socket, writer: socket };
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            } catch (error: any) {
+                if (error?.code === 'ECONNREFUSED') {
+                    this.emitJupyterLog(`Error '${error.message}' on connection attempt '${attempt}' to Jedi LSP on port '${port}', will retry`);
+                } else {
+                    throw error;
+                }
+            }
+        }
+
+        throw new Error(`Failed to create TCP connection to Jedi LSP on port ${port} after multiple attempts`);
+    }
+
+    /**
+     * Attempts to establish a TCP socket connection to the given port
+     * @param port the server port to connect to
+     */
+    private async tryToConnect(port: number): Promise<Socket> {
+        return new Promise((resolve, reject) => {
+            const socket = new Socket();
+            socket.on('ready', () => {
+                resolve(socket);
+            });
+            socket.on('error', (error) => {
+                reject(error);
+            });
+            socket.connect(port);
+        });
     }
 }

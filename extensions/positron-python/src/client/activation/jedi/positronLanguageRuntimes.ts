@@ -1,18 +1,16 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable class-methods-use-this */
 /* eslint-disable global-require */
 /*---------------------------------------------------------------------------------------------
  *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
-import { Socket } from 'net';
 import * as path from 'path';
 import * as fs from 'fs';
 // eslint-disable-next-line import/no-unresolved
 import * as positron from 'positron';
 import * as vscode from 'vscode';
 import * as crypto from 'crypto';
-import { Disposable, DocumentFilter, LanguageClient, LanguageClientOptions, ServerOptions, StreamInfo } from 'vscode-languageclient/node';
+import { Disposable, DocumentFilter, LanguageClientOptions } from 'vscode-languageclient/node';
 
 import { compare } from 'semver';
 import { EXTENSION_ROOT_DIR, PYTHON_LANGUAGE } from '../../common/constants';
@@ -20,10 +18,9 @@ import { IConfigurationService, IInstaller, InstallerResponse, Product, Resource
 import { InstallOptions } from '../../common/installer/types';
 import { IInterpreterService } from '../../interpreter/contracts';
 import { IServiceContainer } from '../../ioc/types';
-import { traceError, traceVerbose } from '../../logging';
+import { traceVerbose } from '../../logging';
 import { PythonEnvironment } from '../../pythonEnvironments/info';
 import { PythonVersion } from '../../pythonEnvironments/info/pythonVersion';
-import { ProgressReporting } from '../progress';
 import { ILanguageServerProxy } from '../types';
 import { PythonLanguageRuntime } from './pythonLanguageRuntime';
 import { JupyterAdapterApi } from '../../jupyter-adapter.d'
@@ -41,8 +38,6 @@ const base64EncodedIconSvg = fs.readFileSync(path.join(EXTENSION_ROOT_DIR, 'reso
 export class PositronJediLanguageServerProxy implements ILanguageServerProxy {
 
     private readonly disposables: Disposable[] = [];
-
-    private readonly languageClients: LanguageClient[] = [];
 
     private extensionVersion: string | undefined;
 
@@ -118,16 +113,6 @@ export class PositronJediLanguageServerProxy implements ILanguageServerProxy {
         while (this.disposables.length > 0) {
             const r = this.disposables.shift()!;
             r.dispose();
-        }
-
-        // Dispose of any language clients
-        for (const client of this.languageClients) {
-            try {
-                await client.stop();
-                await client.dispose();
-            } catch (ex) {
-                traceError('Stopping language client failed', ex);
-            }
         }
     }
 
@@ -242,17 +227,7 @@ export class PositronJediLanguageServerProxy implements ILanguageServerProxy {
 
         // Create an adapter for the kernel as our language runtime
         const runtime = new PythonLanguageRuntime(
-            kernelSpec, metadata, jupyterAdapterApi);
-
-        runtime.onDidChangeRuntimeState((state) => {
-            if (state === positron.RuntimeState.Ready) {
-                jupyterAdapterApi.findAvailablePort([], 25).then((port: number) => {
-                    runtime.emitJupyterLog(`Starting Positron LSP server on port ${port}`);
-                    runtime.startPositronLsp(`127.0.0.1:${port}`);
-                    this.startClient(options, port).ignoreErrors();
-                });
-            }
-        });
+            kernelSpec, metadata, jupyterAdapterApi, options);
 
         // Register our language runtime provider
         return positron.runtime.registerLanguageRuntime(runtime);
@@ -295,77 +270,7 @@ export class PositronJediLanguageServerProxy implements ILanguageServerProxy {
         return `${info.major}.${info.minor}.${info.patch}`;
     }
 
-    /**
-     * Start the language client
-     */
-    private async startClient(clientOptions: LanguageClientOptions, port: number): Promise<void> {
-
-        // Configure language client to connect to LSP via TCP on start
-        const serverOptions: ServerOptions = async () => this.getServerOptions(port);
-        const client = new LanguageClient(PYTHON_LANGUAGE, 'Positron Python Jedi', serverOptions, clientOptions);
-        this.registerHandlers(client);
-        await client.start();
-        this.languageClients.push(client);
-    }
-
-    /**
-     * An async function used by the LanguageClient to establish a connection to the LSP on start.
-     * Several attempts to connect are made given recently spawned servers may not be ready immediately
-     * for client connections.
-     * @param port the LSP port
-     */
-    private async getServerOptions(port: number): Promise<StreamInfo> {
-
-        const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
-        const maxAttempts = 20;
-        const baseDelay = 50;
-        const multiplier = 1.5;
-
-        for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
-            // Retry up to five times then start to back-off
-            const interval = attempt < 6 ? baseDelay : baseDelay * multiplier * attempt;
-            if (attempt > 0) {
-                await delay(interval);
-            }
-
-            try {
-                // Try to connect to LSP port
-                const socket: Socket = await this.tryToConnect(port);
-                return { reader: socket, writer: socket };
-            } catch (error: any) {
-                if (error?.code === 'ECONNREFUSED') {
-                    traceVerbose(`Error '${error.message}' on connection attempt '${attempt}' to Jedi LSP on port '${port}', will retry`);
-                } else {
-                    throw error;
-                }
-            }
-        }
-
-        throw new Error(`Failed to create TCP connection to Jedi LSP on port ${port} after multiple attempts`);
-    }
-
-    /**
-     * Attempts to establish a TCP socket connection to the given port
-     * @param port the server port to connect to
-     */
-    private async tryToConnect(port: number): Promise<Socket> {
-        return new Promise((resolve, reject) => {
-            const socket = new Socket();
-            socket.on('ready', () => {
-                resolve(socket);
-            });
-            socket.on('error', (error) => {
-                reject(error);
-            });
-            socket.connect(port);
-        });
-    }
-
-    private registerHandlers(client: LanguageClient) {
-        const progressReporting = new ProgressReporting(client);
-        this.disposables.push(progressReporting);
-    }
-
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     private withActiveExtention(ext: vscode.Extension<any>, callback: () => void) {
         if (ext.isActive) {
             callback();
