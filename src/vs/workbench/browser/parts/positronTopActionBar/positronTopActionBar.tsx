@@ -5,7 +5,6 @@
 import 'vs/css!./positronTopActionBar';
 import * as React from 'react';
 import { useEffect, useState } from 'react'; // eslint-disable-line no-duplicate-imports
-import { localize } from 'vs/nls';
 import { Event } from 'vs/base/common/event';
 import { DisposableStore } from 'vs/base/common/lifecycle';
 import { ILabelService } from 'vs/platform/label/common/label';
@@ -15,7 +14,6 @@ import { IQuickInputService } from 'vs/platform/quickinput/common/quickInput';
 import { IWorkspacesService } from 'vs/platform/workspaces/common/workspaces';
 import { IWorkspaceContextService } from 'vs/platform/workspace/common/workspace';
 import { PositronActionBar } from 'vs/platform/positronActionBar/browser/positronActionBar';
-import { ActionBarButton } from 'vs/platform/positronActionBar/browser/components/actionBarButton';
 import { ActionBarRegion } from 'vs/platform/positronActionBar/browser/components/actionBarRegion';
 import { ActionBarSeparator } from 'vs/platform/positronActionBar/browser/components/actionBarSeparator';
 import { PositronActionBarServices } from 'vs/platform/positronActionBar/browser/positronActionBarState';
@@ -28,7 +26,7 @@ import { TopActionBarOpenMenu } from 'vs/workbench/browser/parts/positronTopActi
 import { TopActionBarWorkspaceMenu } from 'vs/workbench/browser/parts/positronTopActionBar/components/topActionBarWorkspaceMenu';
 import { TopActionBarCommandCenter } from 'vs/workbench/browser/parts/positronTopActionBar/components/topActionBarCommandCenter';
 import { PositronTopActionBarContextProvider } from 'vs/workbench/browser/parts/positronTopActionBar/positronTopActionBarContext';
-import { TopActionBarRuntimesManager } from 'vs/workbench/browser/parts/positronTopActionBar/components/topActionBarRuntimesManager';
+import { TopActionBarInterpretersManager } from 'vs/workbench/browser/parts/positronTopActionBar/components/topActionBarInterpretersManager';
 
 // Constants.
 const kHorizontalPadding = 4;
@@ -79,7 +77,6 @@ export const PositronTopActionBar = (props: PositronTopActionBarProps) => {
 	// State hooks.
 	const [showCenterUI, setShowCenterUI] = useState(props.positronTopActionBarContainer.width > kCenterUIBreak);
 	const [showFullCenterUI, setShowFullCenterUI] = useState(props.positronTopActionBarContainer.width > kFulllCenterUIBreak);
-	const [runtimeRunning, setRuntimeRunning] = useState(props.languageRuntimeService.runningRuntimes.length > 0);
 
 	// Main useEffect.
 	useEffect(() => {
@@ -92,29 +89,9 @@ export const PositronTopActionBar = (props: PositronTopActionBarProps) => {
 			setShowFullCenterUI(width > kFulllCenterUIBreak);
 		}));
 
-		// Add the width changed event handler.
-		disposableStore.add(props.languageRuntimeService.onDidChangeRunningRuntimes(() => {
-			setRuntimeRunning(props.languageRuntimeService.runningRuntimes.length > 0);
-		}));
-
 		// Return the cleanup function that will dispose of the disposables.
 		return () => disposableStore.dispose();
 	}, []);
-
-	// TODO@softwarenerd - This needs product management.
-	let rumtimesManager;
-	if (runtimeRunning) {
-		rumtimesManager = <TopActionBarRuntimesManager />;
-	} else {
-		rumtimesManager = (
-			<ActionBarButton
-				align='right'
-				border={true}
-				text={localize('positronStartInterpreter', "Start Interpreter")}
-				onClick={() => props.commandService.executeCommand('workbench.action.languageRuntime.start')}
-			/>
-		);
-	}
 
 	// Render.
 	return (
@@ -156,7 +133,7 @@ export const PositronTopActionBar = (props: PositronTopActionBarProps) => {
 					)}
 
 					<ActionBarRegion location='right'>
-						{rumtimesManager}
+						<TopActionBarInterpretersManager />
 						<TopActionBarWorkspaceMenu />
 					</ActionBarRegion>
 
