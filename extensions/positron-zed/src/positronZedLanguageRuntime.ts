@@ -174,6 +174,7 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 			languageId: 'zed',
 			languageName: 'Zed',
 			runtimeName: 'Zed',
+			runtimeSource: 'Test',
 			languageVersion: version,
 			base64EncodedIconSvg: fs.readFileSync(iconSvgPath).toString('base64'),
 			inputPrompt: `Z>`,

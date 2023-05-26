@@ -2,9 +2,9 @@
  *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
-.running-runtime {
+.primary-interpreter {
 	width: 100%;
-	height: 75px;
+	height: 50px;
 	border: none;
 	display: grid;
 	cursor: pointer;
@@ -14,58 +14,61 @@
 	grid-template-columns: min-content 1fr min-content;
 }
 
-.running-runtime:hover {
-	border-radius: 6px;
-	outline: 1px solid var(--vscode-positronTopActionBar-border) !important;
+.primary-interpreter:hover {
+	/* border-radius: 6px; */
+	color: var(--vscode-positronRuntimesManager-hoverForeground);
+	background: var(--vscode-positronRuntimesManager-hoverBackground);
+	/* outline: 1px solid var(--vscode-positronTopActionBar-border) !important; */
 }
 
-.running-runtime:focus {
+.primary-interpreter:focus {
 	outline: none !important;
 }
 
-.running-runtime:focus-visible {
+.primary-interpreter:focus-visible {
 	border-radius: 6px;
 	outline: 1px solid var(--vscode-focusBorder) !important;
 }
 
-.running-runtime .icon {
-	width: 60px;
-	height: 60px;
-	padding-left: 5px;
+.primary-interpreter .icon {
+	width: 40px;
+	height: 40px;
+	padding-left: 10px;
 	padding-right: 10px;
 }
 
-.running-runtime .info {
+.primary-interpreter .info {
 	display: grid;
 	line-height: 120%;
-	grid-template-rows: repeat(3, min-content);
+	grid-template-rows: repeat(2, min-content);
 }
 
-.running-runtime .info .container {
+.primary-interpreter .info .container {
 	max-width: 100%;
 	overflow: hidden;
 }
 
-.running-runtime .info .container .line {
+.primary-interpreter .info .container .line {
 	max-width: 100%;
 	overflow: hidden;
 	white-space: nowrap;
 	text-overflow: ellipsis;
 }
 
-.running-runtime .info .container .line.light {
+.primary-interpreter .info .container .line.light {
+	font-size: 10px;
 	opacity: 0.5;
 }
 
-.running-runtime .actions {
+/*
+.primary-interpreter .actions {
 	gap: 4px;
 	display: grid;
-	padding-left: 10px;
-	padding-right: 12px;
-	grid-template-columns: repeat(2, 22px);
+	padding: 0 10px;
+	grid-auto-flow: column;
 }
 
-.running-runtime .actions .action-button {
+.primary-interpreter .actions .action-button {
 	cursor: default !important;
 	height: 22px;
 	width: 22px;
@@ -77,17 +80,5 @@
 	background: transparent;
 	justify-content: center;
 }
+*/
 
-.running-runtime .actions .action-button:hover {
-	border-radius: 4px;
-	background-color: var(--vscode-positronTopActionBar-hoverBackground);
-}
-
-.running-runtime .actions .action-button:focus {
-	outline: none !important;
-}
-
-.running-runtime .actions .action-button:focus-visible {
-	border-radius: 6px;
-	outline: 1px solid var(--vscode-focusBorder) !important;
-}

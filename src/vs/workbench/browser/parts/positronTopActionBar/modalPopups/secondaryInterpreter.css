@@ -1,0 +1,63 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
+ *--------------------------------------------------------------------------------------------*/
+
+.secondary-interpreter {
+	width: 100%;
+	height: 40px;
+	border: none;
+	display: grid;
+	cursor: pointer;
+	font-size: 11px;
+	text-align: left;
+	align-items: center;
+	background: transparent;
+	grid-template-columns: 60px min-content 1fr min-content;
+}
+
+.secondary-interpreter:hover {
+	/* border-radius: 6px; */
+	/* outline: 1px solid var(--vscode-positronTopActionBar-border) !important; */
+
+	color: var(--vscode-positronRuntimesManager-hoverForeground);
+	background: var(--vscode-positronRuntimesManager-hoverBackground);
+}
+
+.secondary-interpreter:focus {
+	outline: none !important;
+}
+
+.secondary-interpreter:focus-visible {
+	border-radius: 6px;
+	outline: 1px solid var(--vscode-focusBorder) !important;
+}
+
+.secondary-interpreter .icon {
+	width: 30px;
+	height: 30px;
+	/* padding-left: 10px; */
+	padding-right: 5px;
+}
+
+.secondary-interpreter .info {
+	display: grid;
+	line-height: 120%;
+	grid-template-rows: repeat(2, min-content);
+}
+
+.secondary-interpreter .info .container {
+	max-width: 100%;
+	overflow: hidden;
+}
+
+.secondary-interpreter .info .container .line {
+	max-width: 100%;
+	overflow: hidden;
+	white-space: nowrap;
+	text-overflow: ellipsis;
+}
+
+.secondary-interpreter .info .container .line.light {
+	font-size: 10px;
+	opacity: 0.5;
+}
