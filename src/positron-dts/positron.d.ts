@@ -303,6 +303,9 @@ declare module 'positron' {
 		/** The version of the runtime itself (e.g. kernel or extension version) as a string; e.g. "0.1" */
 		runtimeVersion: string;
 
+		/** The runtime's source or origin; e.g. PyEnv, System, Homebrew, Conda, etc. */
+		runtimeSource: string;
+
 		/** The free-form, user-friendly name of the language this runtime can execute; e.g. "R" */
 		languageName: string;
 
