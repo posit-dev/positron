@@ -100,7 +100,7 @@ export function registerLanguageRuntimeActions() {
 		id: string,
 		title: string,
 		action: (accessor: ServicesAccessor) => Promise<void>,
-		keybinding: Omit<IKeybindingRule, 'id'> | undefined = undefined): void => {
+		keybinding: Omit<IKeybindingRule, 'id'>[] | undefined = undefined): void => {
 		registerAction2(class extends Action2 {
 			// Constructor.
 			constructor() {
@@ -186,10 +186,16 @@ export function registerLanguageRuntimeActions() {
 			'Select the language runtime to restart')
 		)?.restart();
 	},
-		{
-			weight: KeybindingWeight.WorkbenchContrib,
-			primary: KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.Digit0
-		}
+		[
+			{
+				weight: KeybindingWeight.WorkbenchContrib,
+				primary: KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.Numpad0
+			},
+			{
+				weight: KeybindingWeight.WorkbenchContrib,
+				primary: KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.Digit0
+			},
+		]
 	);
 
 	// Registers the interrupt language runtime action.
