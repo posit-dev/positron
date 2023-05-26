@@ -230,6 +230,7 @@ export class PositronJediLanguageServerProxy implements ILanguageServerProxy {
             runtimeId,
             runtimeName: displayName,
             runtimeVersion: this.extensionVersion ?? '0.0.0',
+            runtimeSource: interpreter.envType,
             languageName: kernelSpec.language,
             languageId: PYTHON_LANGUAGE,
             languageVersion: pythonVersion ?? '0.0.0',
