@@ -40,6 +40,7 @@ export const InterpreterGroup = (props: InterpreterGroupProps) => {
 				case RuntimeState.Ready:
 				case RuntimeState.Idle:
 				case RuntimeState.Busy:
+				case RuntimeState.Restarting:
 				case RuntimeState.Exiting:
 				case RuntimeState.Offline:
 				case RuntimeState.Interrupting:
