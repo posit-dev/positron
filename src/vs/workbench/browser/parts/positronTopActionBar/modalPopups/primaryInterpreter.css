@@ -60,6 +60,7 @@
 	opacity: 0.5;
 }
 
+/*
 .primary-interpreter .actions {
 	gap: 4px;
 	display: grid;
@@ -79,21 +80,5 @@
 	background: transparent;
 	justify-content: center;
 }
+*/
 
-.primary-interpreter .actions .action-button:hover {
-	border-radius: 4px;
-	/* background: var(--vscode-list-activeSelectionBackground); */
-
-	/* background-color: var(--vscode-positronTopActionBar-hoverBackground); */
-	background: var(--vscode-positronRuntimesManager-actionHoverBackground);
-
-}
-
-.primary-interpreter .actions .action-button:focus {
-	outline: none !important;
-}
-
-.primary-interpreter .actions .action-button:focus-visible {
-	border-radius: 6px;
-	outline: 1px solid var(--vscode-focusBorder) !important;
-}

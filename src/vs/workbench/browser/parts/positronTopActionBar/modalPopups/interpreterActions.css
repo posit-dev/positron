@@ -9,7 +9,7 @@
 	grid-auto-flow: column;
 }
 
-.action-button {
+.interpreter-actions .action-button {
 	cursor: default !important;
 	height: 22px;
 	width: 22px;
@@ -22,7 +22,11 @@
 	justify-content: center;
 }
 
-.action-button:hover {
+.interpreter-actions .action-button:disabled {
+	opacity: 0.5;
+}
+
+.interpreter-actions .action-button:not(:disabled):hover {
 	border-radius: 4px;
 	/* background: var(--vscode-list-activeSelectionBackground); */
 
@@ -31,11 +35,11 @@
 
 }
 
-.action-button:focus {
+.interpreter-actions .action-button:focus {
 	outline: none !important;
 }
 
-.action-button:focus-visible {
+.interpreter-actions .action-button:focus-visible {
 	border-radius: 6px;
 	outline: 1px solid var(--vscode-focusBorder) !important;
 }
