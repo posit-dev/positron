@@ -4,9 +4,8 @@
 
 import * as vscode from 'vscode';
 import * as positron from 'positron';
-import * as crypto from 'crypto';
 import { JupyterKernel } from './JupyterKernel';
-import { JupyterKernelSpec } from './JupyterKernelSpec';
+import { JupyterKernelSpec } from './jupyter-adapter';
 import { JupyterMessagePacket } from './JupyterMessagePacket';
 import { JupyterDisplayData } from './JupyterDisplayData';
 import { JupyterExecuteResult } from './JupyterExecuteResult';
@@ -24,7 +23,6 @@ import { JupyterIsCompleteRequest } from './JupyterIsCompleteRequest';
 import { JupyterKernelInfoRequest } from './JupyterKernelInfoRequest';
 import { JupyterHistoryReply } from './JupyterHistoryReply';
 import { JupyterHistoryRequest } from './JupyterHistoryRequest';
-import { findAvailablePort } from './PortFinder';
 import { JupyterCommMsg } from './JupyterCommMsg';
 import { JupyterCommClose } from './JupyterCommClose';
 import { JupyterCommOpen } from './JupyterCommOpen';
@@ -41,7 +39,6 @@ export class LanguageRuntimeAdapter
 	private readonly _messages: vscode.EventEmitter<positron.LanguageRuntimeMessage>;
 	private readonly _state: vscode.EventEmitter<positron.RuntimeState>;
 	private _kernelState: positron.RuntimeState = positron.RuntimeState.Uninitialized;
-	readonly metadata: positron.LanguageRuntimeMetadata;
 	private static _clientCounter = 0;
 
 	/** A map of message IDs that are awaiting responses to RPC handlers to invoke when a response is received */
@@ -68,58 +65,19 @@ export class LanguageRuntimeAdapter
 	 * a LanguageRuntime interface.
 	 *
 	 * @param _context The extension context for the extension that owns this adapter
+	 * @param _channel The output channel to use for logging
 	 * @param _spec The Jupyter kernel spec for the kernel to wrap
-	 * @param languageId  The language ID for the language this adapter supports; must be one of
-	 *    VS Code's built-in language IDs or a language ID registered by another extension.
-	 * @param languageVersion The specific version of the interpreter bound to this adapter
-	 * @param runtimeVersion The version of the language runtime wrapper around
-	 *    the interpreter, often the extension version
-	 * @param base64EncodedIconSvg The Base64-encoded icon SVG of the language interpreter
-	 * @param inputPrompt The input prompt to use for the kernel, e.g. ">" or ">>>"
-	 * @param continuationPrompt The continuation prompt to use for the kernel, e.g. "+" or "..."
-	 * @param _channel The channel on which to emit logging messages
-	 * @param startupBehavior Whether the runtime should be started automatically
-	 * @param _lsp A callback to invoke to start the client side of the LSP
+	 * @param metadata The metadata for the language runtime to wrap
 	 */
 	constructor(private readonly _context: vscode.ExtensionContext,
-		private readonly _spec: JupyterKernelSpec,
-		languageId: string,
-		languageVersion: string,
-		runtimeVersion: string,
-		base64EncodedIconSvg: string | undefined,
-		inputPrompt: string,
-		continuationPrompt: string,
 		private readonly _channel: vscode.OutputChannel,
-		startupBehavior: positron.LanguageRuntimeStartupBehavior = positron.LanguageRuntimeStartupBehavior.Implicit,
-		private readonly _lsp?: (port: number) => Promise<void>
+		private readonly _spec: JupyterKernelSpec,
+		readonly metadata: positron.LanguageRuntimeMetadata,
 	) {
-
-		// Hash all the metadata together
-		const digest = crypto.createHash('sha256');
-		digest.update(JSON.stringify(this._spec));
-		digest.update(languageId);
-		digest.update(runtimeVersion);
-		digest.update(languageVersion);
-
-		// Extract the first 32 characters of the hash as the runtime ID
-		const runtimeId = digest.digest('hex').substring(0, 32);
-
-		this._kernel = new JupyterKernel(this._context, this._spec, runtimeId, this._channel);
-
-		// Generate kernel metadata and ID
-		this.metadata = {
-			runtimePath: this._spec.path,
-			runtimeId,
-			runtimeName: this._spec.display_name,
-			runtimeVersion,
-			languageId,
-			languageName: this._spec.language,
-			languageVersion,
-			base64EncodedIconSvg: base64EncodedIconSvg,
-			inputPrompt,
-			continuationPrompt,
-			startupBehavior: startupBehavior
-		};
+		this._kernel = new JupyterKernel(this._context,
+			this._spec,
+			metadata.runtimeId,
+			this._channel);
 		this._channel.appendLine('Registered kernel: ' + JSON.stringify(this.metadata));
 
 		// Create emitter for LanguageRuntime messages and state changes
@@ -161,6 +119,15 @@ export class LanguageRuntimeAdapter
 	}
 
 	/**
+	 * Emits a message into the Jupyter kernel's log channel.
+	 *
+	 * @param message The message to emit to the log
+	 */
+	public emitJupyterLog(message: string): void {
+		this._kernel.log(message);
+	}
+
+	/**
 	 * Tests whether a code fragment is complete.
 	 *
 	 * @param code The code fragment to check.
@@ -195,7 +162,7 @@ export class LanguageRuntimeAdapter
 	/**
 	 * Interrupts the kernel.
 	 */
-	public interrupt(): void {
+	public async interrupt(): Promise<void> {
 
 		// Ensure kernel is in an interruptible state
 		if (this._kernelState === positron.RuntimeState.Uninitialized) {
@@ -265,16 +232,15 @@ export class LanguageRuntimeAdapter
 	/**
 	 * Restarts the kernel.
 	 */
-	public restart(): void {
-		this._kernel.shutdown(true);
-		this._kernel.start();
+	public async restart(): Promise<void> {
+		return this._kernel.shutdown(true);
 	}
 
 	/**
 	 * Shuts down the kernel permanently.
 	 */
-	public shutdown(): void {
-		this._kernel.shutdown(false);
+	public async shutdown(): Promise<void> {
+		return this._kernel.shutdown(false);
 	}
 
 	/**
@@ -715,19 +681,25 @@ export class LanguageRuntimeAdapter
 	 * @param status The new status of the kernel
 	 */
 	onStatus(status: positron.RuntimeState) {
-		this._kernel.log(`${this._spec.language} kernel status changed to ${status}`);
+		const previous = this._kernelState;
+		this._kernel.log(`${this._spec.language} kernel status changed: ${previous} => ${status}`);
 		this._kernelState = status;
 		this._state.fire(status);
 
-		// When the kernel becomes ready, start the LSP server if it's configured
-		if (status === positron.RuntimeState.Ready && this._lsp) {
-			findAvailablePort([], 25).then(port => {
-				this._kernel.log(`Kernel ready, connecting to ${this._spec.display_name} LSP server on port ${port}...`);
-				this.startLsp(`127.0.0.1:${port}`);
-				this._lsp!(port).then(() => {
-					this._kernel.log(`${this._spec.display_name} LSP server connected`);
-				});
-			});
+		// If the kernel was restarting and successfully exited, this is our
+		// cue to start it again.
+		if (previous === positron.RuntimeState.Restarting &&
+			status === positron.RuntimeState.Exited) {
+
+			// Defer the start by 500ms to ensure the kernel has processed its
+			// own exit before we ask it to restart. This also ensures that the
+			// kernel's status events as it starts up don't overlap with the
+			// status events emitted during shutdown (which can happen on the
+			// Positron side due to internal buffering in the extension host
+			// interface)
+			setTimeout(() => {
+				this._kernel.start();
+			}, 500);
 		}
 	}
 
@@ -740,7 +712,7 @@ export class LanguageRuntimeAdapter
 	 *
 	 * @param clientAddress The client's TCP address, e.g. '127.0.0.1:1234'
 	 */
-	private startLsp(clientAddress: string) {
+	startPositronLsp(clientAddress: string) {
 		// TODO: Should we query the kernel to see if it can create an LSP
 		// (QueryInterface style) instead of just demanding it?
 		//

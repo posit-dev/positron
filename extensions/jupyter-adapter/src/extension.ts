@@ -3,12 +3,13 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { Api } from './Api';
+import { JupyterAdapterApiImpl } from './Api';
+import { JupyterAdapterApi } from './jupyter-adapter';
 
-export function activate(_context: vscode.ExtensionContext): vscode.Disposable {
+export function activate(_context: vscode.ExtensionContext): JupyterAdapterApi {
 	const channel = vscode.window.createOutputChannel('Jupyter Adapter');
 	channel.appendLine('Jupyter Adapter extension activated');
-	return new Api(_context, channel);
+	return new JupyterAdapterApiImpl(_context, channel);
 }
 
 export function deactivate() {

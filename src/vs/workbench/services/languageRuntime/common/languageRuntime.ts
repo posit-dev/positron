@@ -305,6 +305,16 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 					old_state: oldState,
 					new_state: state
 				});
+				// If the runtime is restarting and has just exited, let Positron know that it's
+				// about to start again. Note that we need to do this on the next tick since we
+				// need to ensure all the event handlers for the state change we
+				// are currently processing have been called (i.e. everyone knows it has exited)
+				setTimeout(() => {
+					if (oldState === RuntimeState.Restarting &&
+						state === RuntimeState.Exited) {
+						this._onWillStartRuntimeEmitter.fire(runtime);
+					}
+				}, 0);
 			}
 		}));
 

@@ -85,6 +85,9 @@ declare module 'positron' {
 		/** The runtime is busy executing code. */
 		Busy = 'busy',
 
+		/** The runtime is in the process of restarting. */
+		Restarting = 'restarting',
+
 		/** The runtime is in the process of shutting down. */
 		Exiting = 'exiting',
 
@@ -473,14 +476,25 @@ declare module 'positron' {
 		 */
 		start(): Thenable<LanguageRuntimeInfo>;
 
-		/** Interrupt the runtime */
-		interrupt(): void;
+		/**
+		 * Interrupt the runtime; returns a Thenable that resolves when the interrupt has been
+		 * successfully sent to the runtime (not necessarily when it has been processed)
+		 */
+		interrupt(): Thenable<void>;
 
-		/** Restart the runtime */
-		restart(): void;
+		/**
+		 * Restart the runtime; returns a Thenable that resolves when the runtime restart sequence
+		 * has been successfully started (not necessarily when it has completed). A restart will
+		 * cause the runtime to be shut down and then started again; its status will change from
+		 * `Restarting` => `Exited` => `Initializing` => `Starting` => `Ready`.
+		 */
+		restart(): Thenable<void>;
 
-		/** Shut down the runtime */
-		shutdown(): void;
+		/**
+		 * Shut down the runtime; returns a Thenable that resolves when the runtime shutdown
+		 * sequence has been successfully started (not necessarily when it has completed).
+		 */
+		shutdown(): Thenable<void>;
 	}
 
 

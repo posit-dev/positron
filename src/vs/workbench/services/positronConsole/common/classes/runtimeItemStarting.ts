@@ -25,7 +25,7 @@ export class RuntimeItemStarting extends RuntimeItem {
 	 * @param id The identifier.
 	 * @param message The message.
 	 */
-	constructor(id: string, message: string) {
+	constructor(id: string, message: string, public isRestart: boolean) {
 		// Call the base class's constructor.
 		super(id);
 
