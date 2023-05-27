@@ -128,9 +128,11 @@ export const InterpreterGroup = (props: InterpreterGroupProps) => {
 				showAllVersions={showAllVersionsHandler}
 				dismiss={props.dismiss}
 			/>
-			{(alternateRuntimeAlive || showAllVersions) && props.interpreterGroup.alternateRuntimes.map(runtime =>
-				<SecondaryInterpreter languageRuntimeService={props.languageRuntimeService} runtime={runtime} dismiss={props.dismiss} />
-			)}
+			<div className='secondary-interpreters'>
+				{(alternateRuntimeAlive || showAllVersions) && props.interpreterGroup.alternateRuntimes.map(runtime =>
+					<SecondaryInterpreter languageRuntimeService={props.languageRuntimeService} runtime={runtime} dismiss={props.dismiss} />
+				)}
+			</div>
 		</div>
 	);
 };
