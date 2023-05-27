@@ -4,31 +4,13 @@
 
 .interpreter-group {
 	width: 100%;
-	/* height: 55px; */
 	border: none;
-	/* display: grid; */
 	cursor: pointer;
 	text-align: left;
 	align-items: center;
-	background: transparent;
-	/* grid-template-columns: min-content 1fr min-content; */
 }
 
-.interpreter-group:hover {
-	/* border-radius: 6px; */
-	/* outline: 1px solid var(--vscode-positronTopActionBar-border) !important; */
-
-	/* color: var(--vscode-positronRuntimesManager-hoverForeground); */
-	/* background: var(--vscode-positronRuntimesManager-hoverBackground); */
-
+.secondary-interpreters {
+	max-height: 160px;
+	overflow-y: overlay;
 }
-
-.interpreter-group:focus {
-	outline: none !important;
-}
-
-.interpreter-group:focus-visible {
-	border-radius: 6px;
-	outline: 1px solid var(--vscode-focusBorder) !important;
-}
-
