@@ -12,6 +12,8 @@ import { IExtensionService } from 'vs/workbench/services/extensions/common/exten
 import { IQuickInputService, IQuickPickItem } from 'vs/platform/quickinput/common/quickInput';
 import { LANGUAGE_RUNTIME_ACTION_CATEGORY } from 'vs/workbench/contrib/languageRuntime/common/languageRuntime';
 import { ILanguageRuntime, ILanguageRuntimeService, IRuntimeClientInstance, RuntimeClientType } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { IKeybindingRule, KeybindingWeight } from 'vs/platform/keybinding/common/keybindingsRegistry';
+import { KeyCode, KeyMod } from 'vs/base/common/keyCodes';
 
 // The category for language runtime actions.
 const category: ILocalizedString = { value: LANGUAGE_RUNTIME_ACTION_CATEGORY, original: 'Language Runtime' };
@@ -52,7 +54,9 @@ export const selectLanguageRuntime = async (
 };
 
 /**
- * Helper function that asks the user to select a running language runtime.
+ * Helper function that asks the user to select a running language runtime, if no runtime is
+ * currently marked as the active runtime.
+ *
  * @param languageRuntimeService The language runtime service.
  * @param quickInputService The quick input service.
  * @param placeHolder The placeholder for the quick input.
@@ -63,10 +67,17 @@ const selectRunningLanguageRuntime = async (
 	quickInputService: IQuickInputService,
 	placeHolder: string): Promise<ILanguageRuntime | undefined> => {
 
-	// Get the running language runtimes.
+	// If there's an active language runtime, use that.
+	const activeRuntime = languageRuntimeService.activeRuntime;
+	if (activeRuntime) {
+		return activeRuntime;
+	}
+
+	// If there isn't an active language runtime, but there are running
+	// runtimes, ask the user to select one.
 	const runningLanguageRuntimes = languageRuntimeService.runningRuntimes;
 	if (!runningLanguageRuntimes.length) {
-		alert('No language runtimes are currently running.');
+		alert('No interpreters are currently running.');
 		return undefined;
 	}
 
@@ -83,8 +94,13 @@ export function registerLanguageRuntimeActions() {
 	 * @param id The ID of the language runtime action.
 	 * @param title The title of the language runtime action.
 	 * @param action The action function to run.
+	 * @param keybinding The keybinding for the action (optional)
 	 */
-	const registerLanguageRuntimeAction = (id: string, title: string, action: (accessor: ServicesAccessor) => Promise<void>): void => {
+	const registerLanguageRuntimeAction = (
+		id: string,
+		title: string,
+		action: (accessor: ServicesAccessor) => Promise<void>,
+		keybinding: Omit<IKeybindingRule, 'id'>[] | undefined = undefined): void => {
 		registerAction2(class extends Action2 {
 			// Constructor.
 			constructor() {
@@ -93,6 +109,7 @@ export function registerLanguageRuntimeActions() {
 					title: { value: title, original: title },
 					f1: true,
 					category,
+					keybinding,
 					description: {
 						description: id,
 						args: [{
@@ -166,8 +183,20 @@ export function registerLanguageRuntimeActions() {
 		(await selectRunningLanguageRuntime(
 			accessor.get(ILanguageRuntimeService),
 			accessor.get(IQuickInputService),
-			'Select the language runtime to restart'))?.restart();
-	});
+			'Select the language runtime to restart')
+		)?.restart();
+	},
+		[
+			{
+				weight: KeybindingWeight.WorkbenchContrib,
+				primary: KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.Numpad0
+			},
+			{
+				weight: KeybindingWeight.WorkbenchContrib,
+				primary: KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.Digit0
+			},
+		]
+	);
 
 	// Registers the interrupt language runtime action.
 	registerLanguageRuntimeAction('workbench.action.languageRuntime.interrupt', 'Interrupt Language Runtime', async accessor => {

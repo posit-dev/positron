@@ -54,6 +54,23 @@ class ExtHostLanguageRuntimeAdapter implements ILanguageRuntime {
 		// Listen to state changes and track the current state
 		this.onDidChangeRuntimeState((state) => {
 			this._currentState = state;
+
+			if (state === RuntimeState.Exited) {
+
+				// When the runtime exits, check for any clients that still
+				// think they're connected, and notify them that they are now
+				// closed.
+				for (const client of this._clients.values()) {
+					if (client.getClientState() === RuntimeClientState.Connected) {
+						client.setClientState(RuntimeClientState.Closing);
+						client.setClientState(RuntimeClientState.Closed);
+						client.dispose();
+					}
+				}
+
+				// Remove all clients; none can send or receive data any more
+				this._clients.clear();
+			}
 		});
 	}
 
@@ -464,8 +481,24 @@ class ExtHostRuntimeClientInstance<Input, Output>
 
 	public override dispose(): void {
 		super.dispose();
-		this._proxy.$removeClient(this._handle, this._id);
-		this._stateEmitter.fire(RuntimeClientState.Closed);
+
+		// Cancel any pending RPCs
+		for (const promise of this._pendingRpcs.values()) {
+			promise.error('The language runtime exited before the RPC completed.');
+		}
+
+		// If we aren't currently closed, clean up before completing disposal.
+		if (this._state !== RuntimeClientState.Closed) {
+			// If we are actually connected to the backend, notify the backend that we are
+			// closing the connection from our side.
+			if (this._state === RuntimeClientState.Connected) {
+				this._stateEmitter.fire(RuntimeClientState.Closing);
+				this._proxy.$removeClient(this._handle, this._id);
+			}
+
+			// Emit the closed event.
+			this._stateEmitter.fire(RuntimeClientState.Closed);
+		}
 	}
 }
 
