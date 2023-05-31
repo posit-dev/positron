@@ -35,7 +35,7 @@ export interface PositronModalPopupProps {
 	popupAlignment: PopupAlignment;
 	width: number;
 	height: number | 'min-content';
-	dismiss: () => void;
+	onDismiss: () => void;
 }
 
 /**
@@ -82,7 +82,7 @@ export const PositronModalPopup = (props: PropsWithChildren<PositronModalPopupPr
 			// Escape dismisses the modal popup.
 			case 'Escape':
 				consumeEvent();
-				props.dismiss();
+				props.onDismiss();
 				break;
 
 			// Allow tab so the user can set focus to the UI elements in the modal popup.
@@ -104,7 +104,7 @@ export const PositronModalPopup = (props: PropsWithChildren<PositronModalPopupPr
 	// Memoize the mousedownHandler.
 	const mousedownHandler = useCallback((e: MouseEvent) => {
 		if (!popupContainsMouseEvent(e)) {
-			props.dismiss();
+			props.onDismiss();
 		}
 	}, []);
 

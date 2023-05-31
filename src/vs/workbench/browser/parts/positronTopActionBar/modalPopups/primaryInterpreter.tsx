@@ -4,6 +4,7 @@
 
 import 'vs/css!./primaryInterpreter';
 import * as React from 'react';
+import { MouseEvent } from 'react'; // eslint-disable-line no-duplicate-imports
 import { InterpreterActions } from 'vs/workbench/browser/parts/positronTopActionBar/modalPopups/interpreterActions';
 import { ILanguageRuntime, ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 
@@ -13,10 +14,9 @@ import { ILanguageRuntime, ILanguageRuntimeService } from 'vs/workbench/services
 interface PrimaryInterpreterProps {
 	languageRuntimeService: ILanguageRuntimeService;
 	runtime: ILanguageRuntime;
-	primaryRuntime: boolean;
-	enableShowAllVersions: boolean;
-	showAllVersions: () => void;
-	dismiss: () => void;
+	onShowAllVersions: () => void;
+	onStart: () => void;
+	onActivate: () => void;
 }
 
 /**
@@ -25,9 +25,22 @@ interface PrimaryInterpreterProps {
  * @returns The rendered component.
  */
 export const PrimaryInterpreter = (props: PrimaryInterpreterProps) => {
+	/**
+	 * onClick event handler.
+	 * @param e A MouseEvent<HTMLButtonElement> that describes a user interaction with the mouse.
+	 */
+	const clickHandler = (e: MouseEvent<HTMLDivElement>) => {
+		// Consume the event.
+		e.preventDefault();
+		e.stopPropagation();
+
+		// Activate the runtime.
+		props.onActivate();
+	};
+
 	// Render.
 	return (
-		<div className='primary-interpreter'>
+		<div className='primary-interpreter' role='button' tabIndex={0} onClick={clickHandler}>
 			<img className='icon' src={`data:image/svg+xml;base64,${props.runtime.metadata.base64EncodedIconSvg}`} />
 			<div className='info'>
 				<div className='container'>
@@ -36,10 +49,10 @@ export const PrimaryInterpreter = (props: PrimaryInterpreterProps) => {
 				</div>
 			</div>
 			<InterpreterActions
-				languageRuntimeService={props.languageRuntimeService}
 				runtime={props.runtime}
-				primaryRuntime={true}
-				showAllVersions={props.showAllVersions}
+				isPrimaryRuntime={true}
+				onShowAllVersions={props.onShowAllVersions}
+				onStart={props.onStart}
 			/>
 		</div>
 	);

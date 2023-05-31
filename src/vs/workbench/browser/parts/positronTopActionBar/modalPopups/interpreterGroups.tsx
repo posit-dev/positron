@@ -7,7 +7,7 @@ import * as React from 'react';
 import { useEffect, useState } from 'react'; // eslint-disable-line no-duplicate-imports
 import { DisposableStore } from 'vs/base/common/lifecycle';
 import { InterpreterGroup } from 'vs/workbench/browser/parts/positronTopActionBar/modalPopups/interpreterGroup';
-import { ILanguageRuntime, ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntime, ILanguageRuntimeService, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 
 /**
  * IInterpreterGroup interface.
@@ -27,7 +27,17 @@ const createInterpreterGroups = (languageRuntimeService: ILanguageRuntimeService
 	for (const runtime of languageRuntimeService.registeredRuntimes) {
 		const languageRuntimeGroup = languageRuntimeGroups.get(runtime.metadata.languageId);
 		if (languageRuntimeGroup) {
-			languageRuntimeGroup.alternateRuntimes.push(runtime);
+			switch (runtime.getRuntimeState()) {
+				case RuntimeState.Uninitialized:
+				case RuntimeState.Exited:
+					languageRuntimeGroup.alternateRuntimes.push(runtime);
+					break;
+
+				default:
+					languageRuntimeGroup.alternateRuntimes.push(languageRuntimeGroup.primaryRuntime);
+					languageRuntimeGroup.primaryRuntime = runtime;
+					break;
+			}
 		} else {
 			languageRuntimeGroups.set(runtime.metadata.languageId, {
 				primaryRuntime: runtime,
@@ -35,6 +45,7 @@ const createInterpreterGroups = (languageRuntimeService: ILanguageRuntimeService
 			});
 		}
 	}
+
 
 	// Sort the runtimes by language name.
 	return Array.from(languageRuntimeGroups.values()).sort((a, b) => {
@@ -53,7 +64,8 @@ const createInterpreterGroups = (languageRuntimeService: ILanguageRuntimeService
  */
 interface InterpreterGroupsProps {
 	languageRuntimeService: ILanguageRuntimeService;
-	dismiss: () => void;
+	onStartRuntime: (runtime: ILanguageRuntime) => Promise<void>;
+	onActivateRuntime: (runtime: ILanguageRuntime) => Promise<void>;
 }
 
 /**
@@ -90,7 +102,9 @@ export const InterpreterGroups = (props: InterpreterGroupsProps) => {
 						key={interpreterGroup.primaryRuntime.metadata.runtimeId}
 						languageRuntimeService={props.languageRuntimeService}
 						interpreterGroup={interpreterGroup}
-						dismiss={props.dismiss} />
+						onStartRuntime={props.onStartRuntime}
+						onActivateRuntime={props.onActivateRuntime}
+					/>
 				</>
 			))}
 		</div>
