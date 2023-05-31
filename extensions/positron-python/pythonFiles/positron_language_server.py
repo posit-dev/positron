@@ -8,7 +8,6 @@ import argparse
 import logging
 import os
 import sys
-import traceback
 
 from ipykernel import kernelapp
 
@@ -18,6 +17,8 @@ sys.path.insert(0, os.path.join(EXTENSION_ROOT, "pythonFiles", "lib", "jedilsp")
 sys.path.insert(1, os.path.join(EXTENSION_ROOT, "pythonFiles", "lib", "python"))
 
 from positron.positron_ipkernel import PositronIPyKernel
+
+logger = logging.getLogger(__name__)
 
 
 def initialize_config() -> None:
@@ -85,39 +86,34 @@ def initialize_config() -> None:
             logging.warning(f"Unable to start debugpy: {error}", exc_info=True)
 
 
-async def start_ipykernel() -> None:
-    """Starts Positron's IPyKernel as the interpreter for our console."""
+if __name__ == "__main__":
+    exit_status = 0
+
+    # Init the configuration args
+    initialize_config()
+
+    # Start Positron's IPyKernel as the interpreter for our console.
     app = kernelapp.IPKernelApp.instance(kernel_class=PositronIPyKernel)
     app.initialize()
     app.kernel.start()
 
+    logger.info(f"Process ID {os.getpid()}")
 
-if __name__ == "__main__":
-    exitStatus = 0
+    # IPyKernel uses Tornado which (as of version 5.0) shares the same event
+    # loop as asyncio.
+    loop = asyncio.get_event_loop()
+
+    # Enable asyncio debug mode.
+    if logging.getLogger().level == logging.DEBUG:
+        loop.set_debug(True)
 
     try:
-        # Init the configuration args
-        initialize_config()
+        loop.run_forever()
+    except (KeyboardInterrupt, SystemExit):
+        logger.exception("Unexpected exception in event loop")
+        exit_status = 1
+    finally:
+        loop.close()
 
-        # Start Positron's IPyKernel as the interpreter for our console.
-        loop = asyncio.get_event_loop()
-        try:
-            asyncio.ensure_future(start_ipykernel())
-            loop.run_forever()
-        except KeyboardInterrupt:
-            pass
-        finally:
-            loop.close()
-
-    except SystemExit as error:
-        # TODO: Remove this workaround once we can improve Jedi
-        # disconnection logic
-        tb = "".join(traceback.format_tb(error.__traceback__))
-        if tb.find("connection_lost") > 0:
-            logging.warning("Positron Language Server client disconnected, exiting.")
-            exitStatus = 0
-        else:
-            logging.error("Error in Positron Language Server: %s", error)
-            exitStatus = 1
-
-    sys.exit(exitStatus)
+    logger.info(f"Exiting process with status {exit_status}")
+    sys.exit(exit_status)

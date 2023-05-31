@@ -5,6 +5,8 @@ import logging
 import os
 import sys
 
+from pygls.protocol import lsp_method
+
 # Add the lib path to our sys path so jedi_language_server can find its references
 EXTENSION_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(EXTENSION_ROOT, "pythonFiles", "lib", "jedilsp"))
@@ -38,6 +40,7 @@ from jedi_language_server.server import (
 )
 from lsprotocol.types import (
     COMPLETION_ITEM_RESOLVE,
+    EXIT,
     TEXT_DOCUMENT_CODE_ACTION,
     TEXT_DOCUMENT_COMPLETION,
     TEXT_DOCUMENT_DEFINITION,
@@ -87,6 +90,34 @@ if TYPE_CHECKING:
     from .positron_ipkernel import PositronIPyKernel
 
 
+logger = logging.getLogger(__name__)
+
+
+class PositronJediLanguageServerProtocol(JediLanguageServerProtocol):
+    """Positron extension to the Jedi language server protocol."""
+
+    @lsp_method(EXIT)
+    def lsp_exit(self, *args) -> None:
+        """Override superclass to avoid system exit."""
+        if self.transport is not None:
+            self.transport.close()
+
+        # --- Start Positron
+        # Instead of calling sys.exit (which pygls catches to call self.shutdown) call shutdown directly.
+        asyncio.create_task(POSITRON.shutdown())
+        # --- End Positron
+
+    def connection_lost(self, exc):
+        """Override superclass to avoid system exit."""
+        logger.info("Connection lost")
+        if exc is not None:
+            logger.error("Connection lost with error:", exc_info=exc)
+
+    def eof_received(self):
+        """Override superclass to avoid closing on eof (e.g. when the Positron browser is refreshed)."""
+        return True
+
+
 class PositronJediLanguageServer(JediLanguageServer):
     """Positron extension to the Jedi language server."""
 
@@ -121,11 +152,7 @@ class PositronJediLanguageServer(JediLanguageServer):
         completions with awareness of live variables from user's namespace.
         """
         self.kernel = kernel
-
-        try:
-            asyncio.ensure_future(self._start_jedi(lsp_host, lsp_port))
-        except KeyboardInterrupt:
-            pass
+        asyncio.create_task(self._start_jedi(lsp_host, lsp_port))
 
     async def _start_jedi(self, lsp_host, lsp_port):
         """
@@ -134,15 +161,36 @@ class PositronJediLanguageServer(JediLanguageServer):
         Adapted from `pygls.server.Server.start_tcp` to use existing asyncio loop.
         """
         self._stop_event = Event()
+        self.lsp: PositronJediLanguageServerProtocol
         loop = asyncio.get_event_loop()
-        self._server = await loop.create_server(self.lsp, lsp_host, lsp_port)  # type: ignore
-        await self._server.serve_forever()
+        self._server = await loop.create_server(self.lsp, lsp_host, lsp_port)
+
+    async def shutdown(self):
+        """Override superclass to allow running async and avoid stopping the event loop."""
+        logger.info("Shutting down the language server")
+
+        self._stop_event.set()
+
+        if self._thread_pool:
+            self._thread_pool.terminate()
+            self._thread_pool.join()
+
+        if self._thread_pool_executor:
+            self._thread_pool_executor.shutdown()
+
+        if self._server:
+            self._server.close()
+            # --- Start Positron
+            await self._server.wait_closed()
+            # --- End Positron
+
+        logger.info("Language server is shut down")
 
 
 POSITRON = PositronJediLanguageServer(
     name="jedi-language-server",
     version="0.18.2",
-    protocol_cls=JediLanguageServerProtocol,
+    protocol_cls=PositronJediLanguageServerProtocol,
 )
 
 # Server Features
@@ -177,7 +225,7 @@ def positron_completion(
         ns = server.kernel.get_user_ns()
         namespaces.append(ns)
 
-    # Use Interpreter() to include the kernel namespaces in completions
+    # Use Interpreter instead of Script to include the kernel namespaces in completions
     jedi_script = Interpreter(
         document.source, namespaces, path=document.path, project=server.project
     )
