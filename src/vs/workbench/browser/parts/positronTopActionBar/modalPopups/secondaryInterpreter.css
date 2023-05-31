@@ -16,9 +16,6 @@
 }
 
 .secondary-interpreter:hover {
-	/* border-radius: 6px; */
-	/* outline: 1px solid var(--vscode-positronTopActionBar-border) !important; */
-
 	color: var(--vscode-positronRuntimesManager-hoverForeground);
 	background: var(--vscode-positronRuntimesManager-hoverBackground);
 }
@@ -35,7 +32,6 @@
 .secondary-interpreter .icon {
 	width: 30px;
 	height: 30px;
-	/* padding-left: 10px; */
 	padding-right: 5px;
 }
 
@@ -58,6 +54,6 @@
 }
 
 .secondary-interpreter .info .container .line.light {
-	font-size: 10px;
 	opacity: 0.5;
+	font-size: 10px;
 }

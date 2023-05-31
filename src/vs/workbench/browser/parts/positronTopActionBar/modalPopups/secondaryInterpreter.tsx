@@ -4,8 +4,7 @@
 
 import 'vs/css!./secondaryInterpreter';
 import * as React from 'react';
-import { useEffect } from 'react'; // eslint-disable-line no-duplicate-imports
-import { DisposableStore } from 'vs/base/common/lifecycle';
+import { MouseEvent } from 'react'; // eslint-disable-line no-duplicate-imports
 import { InterpreterActions } from 'vs/workbench/browser/parts/positronTopActionBar/modalPopups/interpreterActions';
 import { ILanguageRuntime, ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 
@@ -15,7 +14,8 @@ import { ILanguageRuntime, ILanguageRuntimeService } from 'vs/workbench/services
 interface SecondaryInterpreterProps {
 	languageRuntimeService: ILanguageRuntimeService;
 	runtime: ILanguageRuntime;
-	dismiss: () => void;
+	onStart: () => void;
+	onActivate: () => void;
 }
 
 /**
@@ -24,26 +24,22 @@ interface SecondaryInterpreterProps {
  * @returns The rendered component.
  */
 export const SecondaryInterpreter = (props: SecondaryInterpreterProps) => {
-	// State hooks.
-	// const [runtimeState, setRuntimeState] = useState(props.runtime.getRuntimeState());
+	/**
+	 * onClick event handler.
+	 * @param e A MouseEvent<HTMLButtonElement> that describes a user interaction with the mouse.
+	 */
+	const clickHandler = (e: MouseEvent<HTMLDivElement>) => {
+		// Consume the event.
+		e.preventDefault();
+		e.stopPropagation();
 
-	// Main useEffect hook.
-	useEffect(() => {
-		// Create the disposable store for cleanup.
-		const disposableStore = new DisposableStore();
-
-		// // Add the onDidChangeRuntimeState event handler.
-		// disposableStore.add(props.runtime.onDidChangeRuntimeState(runtimeState => {
-		// 	setRuntimeState(runtimeState);
-		// }));
-
-		// Return the cleanup function that will dispose of the event handlers.
-		return () => disposableStore.dispose();
-	}, []);
+		// Activate the runtime.
+		props.onActivate();
+	};
 
 	// Render.
 	return (
-		<div className='secondary-interpreter'>
+		<div className='secondary-interpreter' role='button' tabIndex={0} onClick={clickHandler}>
 			<div></div>
 			<img className='icon' src={`data:image/svg+xml;base64,${props.runtime.metadata.base64EncodedIconSvg}`} />
 			<div className='info'>
@@ -53,9 +49,9 @@ export const SecondaryInterpreter = (props: SecondaryInterpreterProps) => {
 				</div>
 			</div>
 			<InterpreterActions
-				languageRuntimeService={props.languageRuntimeService}
 				runtime={props.runtime}
-				primaryRuntime={false}
+				isPrimaryRuntime={false}
+				onStart={props.onStart}
 			/>
 		</div>
 	);
