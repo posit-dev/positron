@@ -247,9 +247,6 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 					if (selection) {
 						// Copy the selection to the clipboard.
 						positronConsoleContext.clipboardService.writeText(selection.toString());
-
-						// Drive focus to the CodeEditorWidget.
-						consoleInputRef.current?.focus();
 					}
 				}
 				break;
