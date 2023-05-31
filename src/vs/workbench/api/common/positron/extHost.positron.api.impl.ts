@@ -3,6 +3,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { ExtHostLanguageRuntime } from 'vs/workbench/api/common/positron/extHostLanguageRuntime';
+import { ExtHostPreviewPane } from 'vs/workbench/api/common/positron/extHostPreviewPane';
 import type * as positron from 'positron';
 import type * as vscode from 'vscode';
 import { IExtHostRpcService } from 'vs/workbench/api/common/extHostRpcService';
@@ -29,6 +30,7 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 	const rpcProtocol = accessor.get(IExtHostRpcService);
 	const initData = accessor.get(IExtHostInitDataService);
 	const extHostLanguageRuntime = rpcProtocol.set(ExtHostPositronContext.ExtHostLanguageRuntime, new ExtHostLanguageRuntime(rpcProtocol));
+	const extHostPreviewPane = rpcProtocol.set(ExtHostPositronContext.ExtHostPreviewPane, new ExtHostPreviewPane(rpcProtocol));
 
 	return function (extension: IExtensionDescription, extensionInfo: IExtensionRegistries, configProvider: ExtHostConfigProvider): typeof positron {
 
@@ -41,11 +43,18 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 				return extHostLanguageRuntime.registerClientHandler(handler);
 			}
 		};
+
+		const window: typeof positron.window = {
+			createPreviewPaneItem(options: positron.PreviewPaneItemOptions): positron.PreviewPaneItem {
+				return extHostPreviewPane.createPreviewPaneItem(options);
+			}
+		};
 		// --- End Positron ---
 
 		return <typeof positron>{
 			version: initData.positronVersion,
 			runtime,
+			window,
 			RuntimeClientType: extHostTypes.RuntimeClientType,
 			RuntimeClientState: extHostTypes.RuntimeClientState,
 			LanguageRuntimeMessageType: extHostTypes.LanguageRuntimeMessageType,

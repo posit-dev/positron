@@ -4,6 +4,7 @@
 
 import { IDisposable } from 'vs/base/common/lifecycle';
 import { ILanguageRuntimeMessageError, ILanguageRuntimeMessageEvent, ILanguageRuntimeInfo, ILanguageRuntimeMetadata, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessagePrompt, ILanguageRuntimeMessageState, RuntimeClientType, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeState, ILanguageRuntimeMessageInput, ILanguageRuntimeMessageCommData, ILanguageRuntimeMessageCommClosed, ILanguageRuntimeMessageStream, ILanguageRuntimeMessageCommOpen } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { IPreviewPaneItemOptions } from 'vs/workbench/services/positronPreview/common/positronPreview';
 import { createProxyIdentifier, IRPCProtocol } from 'vs/workbench/services/extensions/common/proxyIdentifier';
 
 // This is the interface that the main process exposes to the extension host
@@ -24,6 +25,11 @@ export interface MainThreadLanguageRuntimeShape extends IDisposable {
 	$emitLanguageRuntimeMessageEvent(handle: number, message: ILanguageRuntimeMessageEvent): void;
 }
 
+export interface MainThreadPreviewPaneShape extends IDisposable {
+	$createPreviewPaneItem(handle: number, options: IPreviewPaneItemOptions): void;
+	$sendMessageToPreviewPane(handle: number, message: Object): void;
+}
+
 // The interface to the main thread exposed by the extension host
 export interface ExtHostLanguageRuntimeShape {
 	$startLanguageRuntime(handle: number): Promise<ILanguageRuntimeInfo>;
@@ -39,13 +45,19 @@ export interface ExtHostLanguageRuntimeShape {
 	$shutdownLanguageRuntime(handle: number): Promise<void>;
 }
 
+export interface ExtHostPreviewPaneShape {
+	$emitMessageFromPreviewPane(handle: number, message: Object): void;
+}
+
 export interface IMainPositronContext extends IRPCProtocol {
 }
 
 export const ExtHostPositronContext = {
 	ExtHostLanguageRuntime: createProxyIdentifier<ExtHostLanguageRuntimeShape>('ExtHostLanguageRuntime'),
+	ExtHostPreviewPane: createProxyIdentifier<ExtHostPreviewPaneShape>('ExtHostPreviewPane'),
 };
 
 export const MainPositronContext = {
 	MainThreadLanguageRuntime: createProxyIdentifier<MainThreadLanguageRuntimeShape>('MainThreadLanguageRuntime'),
+	MainThreadPreviewPane: createProxyIdentifier<MainThreadPreviewPaneShape>('MainThreadPreviewPane'),
 };
