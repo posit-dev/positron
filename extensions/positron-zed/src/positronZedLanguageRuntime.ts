@@ -60,6 +60,7 @@ const HelpLines = [
 	'help         - Shows this help',
 	'offline      - Simulates going offline for two seconds',
 	'plot X       - Renders a dynamic (auto-sizing) plot of the letter X',
+	'preview	  - Simulates a preview pane',
 	'progress     - Renders a progress bar',
 	'restart      - Simulates orderly restart',
 	'shutdown     - Simulates orderly shutdown',
@@ -728,6 +729,11 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 				break;
 			}
 
+			case 'preview': {
+				this.simulatePreview(id, code);
+				break;
+			}
+
 			case 'progress': {
 				this.simulateProgressBar(id, code);
 				break;
@@ -1033,6 +1039,32 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 		setTimeout(() => {
 			this._onDidChangeRuntimeState.fire(positron.RuntimeState.Ready);
 		}, 2000);
+	}
+
+	/**
+	 * Opens the Preview pane.
+	 *
+	 * @param parentId The ID of the message that requested the preview pane open.
+	 * @param code The code that was executed.
+	 */
+	private simulatePreview(parentId: string, code: string) {
+		// Enter busy state and output the code.
+		this.simulateBusyState(parentId);
+		this.simulateInputMessage(parentId, code);
+
+		// Open the preview pane.
+		try {
+			const options: positron.PreviewPaneItemOptions = {
+				uri: vscode.Uri.file(path.join(this.context.extensionPath, 'resources', 'preview.html')),
+			};
+			positron.window.createPreviewPaneItem(options);
+			this.simulateOutputMessage(parentId, 'Preview pane opened.');
+		} catch (error) {
+			this.simulateOutputMessage(parentId, `Error opening preview pane: ${error}`);
+		}
+
+		// Return to idle state.
+		this.simulateIdleState(parentId);
 	}
 
 	private simulateStaticPlot(parentId: string, code: string) {
