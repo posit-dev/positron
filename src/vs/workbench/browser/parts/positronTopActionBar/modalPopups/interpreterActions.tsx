@@ -7,37 +7,29 @@ import * as React from 'react';
 import { MouseEvent, useEffect, useState } from 'react'; // eslint-disable-line no-duplicate-imports
 import { localize } from 'vs/nls';
 import { DisposableStore } from 'vs/base/common/lifecycle';
-import { ILanguageRuntime, ILanguageRuntimeService, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntime, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 
 /**
  * InterpreterActionsCommonProps interface.
  */
-interface InterpreterActionsCommonProps {
-	languageRuntimeService: ILanguageRuntimeService;
+interface InterpreterActionsProps {
 	runtime: ILanguageRuntime;
-	primaryRuntime: boolean;
+	onStart: () => void;
 }
 
 /**
- * InterpreterActionsShowAllVersionsProps type.
+ * PrimaryRuntimeProps type.
  */
-type InterpreterActionsShowAllVersionsProps =
-	| { primaryRuntime: false; showAllVersions?: never }
-	| { primaryRuntime: true; showAllVersions: () => void };
-
-/**
- * IterpreterActionsProps type.
- */
-type InterpreterActionsProps =
-	InterpreterActionsCommonProps &
-	InterpreterActionsShowAllVersionsProps;
+type PrimaryRuntimeProps =
+	| { isPrimaryRuntime: false; onShowAllVersions?: never }
+	| { isPrimaryRuntime: true; onShowAllVersions: () => void };
 
 /**
  * InterpreterActions component.
  * @param props A InterpreterActionsProps that contains the component properties.
  * @returns The rendered component.
  */
-export const InterpreterActions = (props: InterpreterActionsProps) => {
+export const InterpreterActions = (props: InterpreterActionsProps & PrimaryRuntimeProps) => {
 	// State hooks.
 	const [runtimeState, setRuntimeState] = useState(props.runtime.getRuntimeState());
 
@@ -65,7 +57,7 @@ export const InterpreterActions = (props: InterpreterActionsProps) => {
 		e.stopPropagation();
 
 		// Show all versions.
-		props.showAllVersions?.();
+		props.onShowAllVersions?.();
 	};
 
 	/**
@@ -116,44 +108,14 @@ export const InterpreterActions = (props: InterpreterActionsProps) => {
 		e.preventDefault();
 		e.stopPropagation();
 
-		// If there is a running runtime for this language, shut it down, and wait for it to be
-		// shutdown before starting the new runtime. This is a lot of complexity. It would be better
-		// if shutdown was async.
-		for (const runtime of props.languageRuntimeService.runningRuntimes) {
-			if (runtime.metadata.languageId === props.runtime.metadata.languageId) {
-				// Shutdown the running runtime.
-				runtime.shutdown();
-
-				// Wait for the runtime to be shut down and then start this runtime.
-				return new Promise<void>((resolve) => {
-
-					// Check for the runtime to be shutdown every second.
-					const interval = setInterval(async () => {
-						for (const runtime of props.languageRuntimeService.runningRuntimes) {
-							if (runtime.metadata.languageId === props.runtime.metadata.languageId) {
-								// The runtime is still running. Don't resolve.
-								return;
-							}
-						}
-
-						// The runtime is shutdown. Clear the interval, start the new runtime, and
-						// resolve.
-						clearInterval(interval);
-						await props.runtime.start();
-						resolve();
-					}, 1000);
-
-				});
-			}
-		}
-
-		props.languageRuntimeService.startRuntime(props.runtime.metadata.runtimeId);
+		// Start the interpreter.
+		props.onStart();
 	};
 
 	// Render.
 	return (
 		<div className='interpreter-actions'>
-			{props.primaryRuntime &&
+			{props.isPrimaryRuntime &&
 				<button
 					className='action-button codicon codicon-positron-more-options'
 					title={localize('positronShowAllVersions', "Show all versions")}
@@ -213,7 +175,6 @@ export const InterpreterActions = (props: InterpreterActionsProps) => {
 					onClick={startClickHandler}
 				/>
 			}
-
 		</div>
 	);
 };

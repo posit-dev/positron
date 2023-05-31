@@ -4,12 +4,12 @@
 
 import 'vs/css!./interpreterGroup';
 import * as React from 'react';
-import { KeyboardEvent, MouseEvent, useEffect, useState } from 'react'; // eslint-disable-line no-duplicate-imports
+import { useEffect, useState } from 'react'; // eslint-disable-line no-duplicate-imports
 import { DisposableStore } from 'vs/base/common/lifecycle';
-import { PrimaryInterpreter } from 'vs/workbench/browser/parts/positronTopActionBar/modalPopups/primaryInterpreter';
-import { ILanguageRuntimeService, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { IInterpreterGroup } from 'vs/workbench/browser/parts/positronTopActionBar/modalPopups/interpreterGroups';
+import { PrimaryInterpreter } from 'vs/workbench/browser/parts/positronTopActionBar/modalPopups/primaryInterpreter';
 import { SecondaryInterpreter } from 'vs/workbench/browser/parts/positronTopActionBar/modalPopups/secondaryInterpreter';
+import { ILanguageRuntime, ILanguageRuntimeService, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 
 /**
  * InterpreterGroupProps interface.
@@ -17,7 +17,8 @@ import { SecondaryInterpreter } from 'vs/workbench/browser/parts/positronTopActi
 interface InterpreterGroupProps {
 	languageRuntimeService: ILanguageRuntimeService;
 	interpreterGroup: IInterpreterGroup;
-	dismiss: () => void;
+	onStartRuntime: (runtime: ILanguageRuntime) => Promise<void>;
+	onActivateRuntime: (runtime: ILanguageRuntime) => Promise<void>;
 }
 
 /**
@@ -87,50 +88,25 @@ export const InterpreterGroup = (props: InterpreterGroupProps) => {
 		return () => disposableStore.dispose();
 	}, []);
 
-	/**
-	 * runtimeKey event handler.
-	 */
-	const runtimeKeyDownHandler = (e: KeyboardEvent<HTMLDivElement>) => {
-		switch (e.code) {
-			case 'Space':
-			case 'Enter':
-				e.preventDefault();
-				e.stopPropagation();
-				props.languageRuntimeService.activeRuntime = props.interpreterGroup.primaryRuntime;
-				props.dismiss();
-				break;
-		}
-	};
-
-	/**
-	 * runtimeClick event handler.
-	 * @param e A MouseEvent<HTMLButtonElement> that describes a user interaction with the mouse.
-	 */
-	const runtimeClickHandler = (e: MouseEvent<HTMLDivElement>) => {
-		e.preventDefault();
-		e.stopPropagation();
-		props.languageRuntimeService.activeRuntime = props.interpreterGroup.primaryRuntime;
-		props.dismiss();
-	};
-
-	const showAllVersionsHandler = () => {
-		setShowAllVersions(!showAllVersions);
-	};
-
 	// Render.
 	return (
-		<div className='interpreter-group' role='button' tabIndex={0} onKeyDown={runtimeKeyDownHandler} onClick={runtimeClickHandler}>
+		<div className='interpreter-group'>
 			<PrimaryInterpreter
 				languageRuntimeService={props.languageRuntimeService}
 				runtime={props.interpreterGroup.primaryRuntime}
-				primaryRuntime={true}
-				enableShowAllVersions={!alternateRuntimeAlive}
-				showAllVersions={showAllVersionsHandler}
-				dismiss={props.dismiss}
+				onShowAllVersions={() => setShowAllVersions(!showAllVersions)}
+				onStart={async () => await props.onStartRuntime(props.interpreterGroup.primaryRuntime)}
+				onActivate={async () => await props.onActivateRuntime(props.interpreterGroup.primaryRuntime)}
 			/>
 			<div className='secondary-interpreters'>
 				{(alternateRuntimeAlive || showAllVersions) && props.interpreterGroup.alternateRuntimes.map(runtime =>
-					<SecondaryInterpreter languageRuntimeService={props.languageRuntimeService} runtime={runtime} dismiss={props.dismiss} />
+					<SecondaryInterpreter
+						key={runtime.metadata.runtimeId}
+						languageRuntimeService={props.languageRuntimeService}
+						runtime={runtime}
+						onStart={async () => await props.onStartRuntime(runtime)}
+						onActivate={async () => await props.onActivateRuntime(runtime)}
+					/>
 				)}
 			</div>
 		</div>

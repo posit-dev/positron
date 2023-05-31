@@ -6,14 +6,23 @@ import 'vs/css!./topActionBarInterpretersManager';
 import * as React from 'react';
 import { KeyboardEvent, useEffect, useRef, useState } from 'react'; // eslint-disable-line no-duplicate-imports
 import { DisposableStore } from 'vs/base/common/lifecycle';
+import { ILanguageRuntime } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { usePositronTopActionBarContext } from 'vs/workbench/browser/parts/positronTopActionBar/positronTopActionBarContext';
 import { showInterpretersManagerModalPopup } from 'vs/workbench/browser/parts/positronTopActionBar/modalPopups/interpretersManagerModalPopup';
+
+/**
+ * TopActionBarInterpretersManagerProps interface.
+ */
+interface TopActionBarInterpretersManagerProps {
+	onStartRuntime: (runtime: ILanguageRuntime) => Promise<void>;
+	onActivateRuntime: (runtime: ILanguageRuntime) => Promise<void>;
+}
 
 /**
  * TopActionBarInterpretersManager component.
  * @returns The rendered component.
  */
-export const TopActionBarInterpretersManager = () => {
+export const TopActionBarInterpretersManager = (props: TopActionBarInterpretersManagerProps) => {
 	// Context hooks.
 	const positronTopActionBarContext = usePositronTopActionBarContext();
 
@@ -47,7 +56,9 @@ export const TopActionBarInterpretersManager = () => {
 		showInterpretersManagerModalPopup(
 			positronTopActionBarContext.languageRuntimeService,
 			positronTopActionBarContext.layoutService.container,
-			ref.current
+			ref.current,
+			props.onStartRuntime,
+			props.onActivateRuntime
 		);
 	};
 
