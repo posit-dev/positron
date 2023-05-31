@@ -26,8 +26,9 @@ export interface MainThreadLanguageRuntimeShape extends IDisposable {
 }
 
 export interface MainThreadPreviewPaneShape extends IDisposable {
-	$createPreviewPaneItem(handle: number, options: IPreviewPaneItemOptions): void;
-	$sendMessageToPreviewPane(handle: number, message: Object): void;
+	$createPreviewPaneItem(handle: number, options: IPreviewPaneItemOptions): Thenable<void>;
+	$sendMessageToPreviewPane(handle: number, message: Object): Thenable<void>;
+	$isPreviewItemShowing(handle: number): Promise<boolean>;
 }
 
 // The interface to the main thread exposed by the extension host
