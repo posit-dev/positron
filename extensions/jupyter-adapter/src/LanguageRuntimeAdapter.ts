@@ -39,6 +39,7 @@ export class LanguageRuntimeAdapter
 	private readonly _messages: vscode.EventEmitter<positron.LanguageRuntimeMessage>;
 	private readonly _state: vscode.EventEmitter<positron.RuntimeState>;
 	private _kernelState: positron.RuntimeState = positron.RuntimeState.Uninitialized;
+	private _restarting = false;
 	private static _clientCounter = 0;
 
 	/** A map of message IDs that are awaiting responses to RPC handlers to invoke when a response is received */
@@ -686,11 +687,14 @@ export class LanguageRuntimeAdapter
 		this._kernelState = status;
 		this._state.fire(status);
 
+		if (status === positron.RuntimeState.Restarting) {
+			this._restarting = true;
+		}
+
 		// If the kernel was restarting and successfully exited, this is our
 		// cue to start it again.
-		if (previous === positron.RuntimeState.Restarting &&
-			status === positron.RuntimeState.Exited) {
-
+		if (this._restarting && status === positron.RuntimeState.Exited) {
+			this._restarting = false;
 			// Defer the start by 500ms to ensure the kernel has processed its
 			// own exit before we ask it to restart. This also ensures that the
 			// kernel's status events as it starts up don't overlap with the
