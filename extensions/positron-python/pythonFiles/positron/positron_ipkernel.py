@@ -31,11 +31,17 @@ POSITRON_LSP_COMM = "positron.lsp"
 POSITRON_PLOT_COMM = "positron.plot"
 """The comm channel target_name for Positron's Plots View"""
 
-POSITON_NS_HIDDEN = {"_exit_code": {}, "__pydevd_ret_val_dict": {}, "__warningregistry__": {}}
+POSITON_NS_HIDDEN = {
+    "_exit_code": {},
+    "__pydevd_ret_val_dict": {},
+    "__warningregistry__": {},
+}
 """Additional variables to hide from the user's namespace."""
 
 # Key used to store the user's environment snapshot in the hidden namespace
 __POSITRON_CACHE_KEY__ = "__positron_cache__"
+
+logger = logging.getLogger(__name__)
 
 
 class PositronIPyKernel(IPythonKernel):
@@ -75,12 +81,16 @@ class PositronIPyKernel(IPythonKernel):
         """
         Handle kernel shutdown.
         """
-        result = super().do_shutdown(restart)
+        logger.info("Shutting down the kernel")
         self.display_pub_hook.shutdown()
         self.env_service.shutdown()
         self.lsp_service.shutdown()
         self.dataviewer_service.shutdown()
-        return result
+
+        # We don't call super().do_shutdown since it sets shell.exit_now = True which tries to
+        # stop the event loop at the same time as self.shutdown_request (since self.shell_stream.io_loop
+        # points to the same underlying asyncio loop).
+        return dict(status="ok", restart=restart)
 
     def handle_pre_execute(self) -> None:
         """
