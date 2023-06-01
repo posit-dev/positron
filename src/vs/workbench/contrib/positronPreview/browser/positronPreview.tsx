@@ -13,7 +13,6 @@ import { IContextMenuService } from 'vs/platform/contextview/browser/contextView
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/layoutService';
 import { DisposableStore } from 'vs/base/common/lifecycle';
-import { ActionBars } from 'vs/workbench/contrib/positronPlots/browser/components/actionBars';
 import { PreviewContainer } from 'vs/workbench/contrib/positronPreview/browser/components/previewContainer';
 import { IPositronPreviewService } from 'vs/workbench/services/positronPreview/common/positronPreview';
 import { PositronPreviewServices } from 'vs/workbench/contrib/positronPreview/browser/positronPreviewState';
@@ -63,10 +62,9 @@ export const PositronPreview = (props: PropsWithChildren<PositronPreviewProps>) 
 	// Render.
 	return (
 		<PositronPreviewContextProvider {...props}>
-			<ActionBars {...props} />
 			<PreviewContainer
 				width={width}
-				height={height - 34} />
+				height={height} />
 		</PositronPreviewContextProvider>
 	);
 };
