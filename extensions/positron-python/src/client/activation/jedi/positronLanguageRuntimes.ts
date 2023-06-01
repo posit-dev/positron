@@ -14,7 +14,7 @@ import { Disposable, DocumentFilter, LanguageClientOptions } from 'vscode-langua
 
 import { compare } from 'semver';
 import { EXTENSION_ROOT_DIR, PYTHON_LANGUAGE } from '../../common/constants';
-import { IConfigurationService, IInstaller, InstallerResponse, Product, Resource } from '../../common/types';
+import { IConfigurationService, IDisposableRegistry, IInstaller, InstallerResponse, Product, Resource } from '../../common/types';
 import { InstallOptions } from '../../common/installer/types';
 import { IInterpreterService } from '../../interpreter/contracts';
 import { IServiceContainer } from '../../ioc/types';
@@ -37,7 +37,7 @@ const base64EncodedIconSvg = fs.readFileSync(path.join(EXTENSION_ROOT_DIR, 'reso
  */
 export class PositronJediLanguageServerProxy implements ILanguageServerProxy {
 
-    private readonly disposables: Disposable[] = [];
+    private readonly disposables: IDisposableRegistry;
 
     private extensionVersion: string | undefined;
 
@@ -46,6 +46,8 @@ export class PositronJediLanguageServerProxy implements ILanguageServerProxy {
     // Using a process to install modules avoids using the terminal service,
     // which has issues waiting for the outcome of the install.
     private readonly installOptions: InstallOptions = { installAsProcess: true };
+
+    private registered = false;
 
     constructor(
         private readonly serviceContainer: IServiceContainer,
@@ -61,6 +63,7 @@ export class PositronJediLanguageServerProxy implements ILanguageServerProxy {
             traceVerbose("Unable to read package.json to determine our extension version", e);
         }
 
+        this.disposables = serviceContainer.get<IDisposableRegistry>(IDisposableRegistry);
         this.installer = this.serviceContainer.get<IInstaller>(IInstaller);
     }
 
@@ -71,6 +74,17 @@ export class PositronJediLanguageServerProxy implements ILanguageServerProxy {
         interpreter: PythonEnvironment | undefined,
         options: LanguageClientOptions,
     ): Promise<void> {
+
+        // Positron manages the language server lifecycle instead of the extension. We instead use
+        // this method to register the language runtime with Positron. Keeping the registration logic
+        // in `ILanguageServerProxy` lets us benefit from the existing setup of `resource` (the
+        // workspace folder URI), `interpreter`, and language server `options`, as well as disposing.
+
+        // Only register language runtimes with Positron once.
+        if (this.registered) {
+            return;
+        }
+        this.registered = true;
 
         // Determine if our Jupyter Adapter extension is installed
         const ext = vscode.extensions.getExtension('vscode.jupyter-adapter');
@@ -108,16 +122,12 @@ export class PositronJediLanguageServerProxy implements ILanguageServerProxy {
     }
 
     public async stop(): Promise<void> {
-
-        // Dispose of any runtimes and related resources
-        while (this.disposables.length > 0) {
-            const r = this.disposables.shift()!;
-            r.dispose();
-        }
+        // Do nothing. Let Positron manage the language server lifecycle.
     }
 
     public dispose(): void {
-        this.stop().ignoreErrors();
+        // Do nothing. Let Positron manage the language server lifecycle, and this is called on
+        // stopLanguageServer.
     }
 
     /**
