@@ -15,7 +15,7 @@ from typing import Any, Callable, Optional, Tuple
 from .dataviewer import DataColumn, DataSet
 from .utils import get_value_length, get_qualname, pretty_format
 
-MAX_ITEMS: int = 2000
+MAX_ITEMS: int = 100
 TRUNCATE_AT: int = 1024
 PRINT_WIDTH: int = 100
 
