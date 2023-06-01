@@ -14,6 +14,15 @@ export interface PositronTopActionBarState extends PositronTopActionBarServices 
 	workspaceFolder?: IWorkspaceFolder;
 }
 
+const singleWorkspaceFolder = (workspaceContextService: IWorkspaceContextService) => {
+	const folders = workspaceContextService.getWorkspace().folders;
+	if (folders.length) {
+		return folders[0];
+	} else {
+		return undefined;
+	}
+};
+
 /**
  * The usePositronTopActionBarState custom hook.
  * @param services A PositronTopActionBarServices that contains the Positron top action bar services.
@@ -25,12 +34,15 @@ export const usePositronTopActionBarState = (services: PositronTopActionBarServi
 
 	// Add event handlers.
 	useEffect(() => {
+		// Create a disposable store for the event handlers we'll add.
 		const disposableStore = new DisposableStore();
 
+		// Add the onDidChangeWorkspaceFolders event handler.
 		disposableStore.add(services.workspaceContextService.onDidChangeWorkspaceFolders(e => {
 			setWorkspaceFolder(singleWorkspaceFolder(services.workspaceContextService));
 		}));
 
+		// Return the clean up for our event handlers.
 		return () => disposableStore.dispose();
 	}, []);
 
@@ -40,12 +52,3 @@ export const usePositronTopActionBarState = (services: PositronTopActionBarServi
 		workspaceFolder
 	};
 };
-
-function singleWorkspaceFolder(workspaceContextService: IWorkspaceContextService) {
-	const folders = workspaceContextService.getWorkspace().folders;
-	if (folders.length) {
-		return folders[0];
-	} else {
-		return undefined;
-	}
-}
