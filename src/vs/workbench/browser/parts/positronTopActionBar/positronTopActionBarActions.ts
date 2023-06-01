@@ -2,8 +2,8 @@
  *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
-import { ServicesAccessor } from 'vs/editor/browser/editorExtensions';
 import { localize } from 'vs/nls';
+import { ServicesAccessor } from 'vs/editor/browser/editorExtensions';
 import { Categories } from 'vs/platform/action/common/actionCommonCategories';
 import { PositronTopActionBarVisibleContext } from 'vs/workbench/common/contextkeys';
 import { Action2, MenuId, registerAction2 } from 'vs/platform/actions/common/actions';
