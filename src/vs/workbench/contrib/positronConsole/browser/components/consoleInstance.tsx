@@ -252,6 +252,17 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 				break;
 			}
 
+			// V key.
+			case 'KeyV': {
+				// Handle paste shortcut.
+				if (cmdOrCtrlKey) {
+					// Drive focus into the console input, which will allow the paste to happen in
+					// the CodeEditorWidget.
+					consoleInputRef.current?.focus();
+				}
+				break;
+			}
+
 			// Other keys.
 			default: {
 				// When the user presses another key, drive focus to the console input. This has the
