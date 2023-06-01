@@ -8,16 +8,25 @@ import { Categories } from 'vs/platform/action/common/actionCommonCategories';
 import { PositronTopActionBarVisibleContext } from 'vs/workbench/common/contextkeys';
 import { Action2, MenuId, registerAction2 } from 'vs/platform/actions/common/actions';
 import { IWorkbenchLayoutService, Parts } from 'vs/workbench/services/layout/browser/layoutService';
+import { IPositronTopActionBarService } from 'vs/workbench/services/positronTopActionBar/browser/positronTopActionBarService';
 
-export class ToggleTopActionBarVisibilityAction extends Action2 {
+/**
+ * The PositronToggleTopActionBarVisibilityAction.
+ */
+export class PositronToggleTopActionBarVisibilityAction extends Action2 {
+	/**
+	 * The action ID.
+	 */
+	static readonly ID = 'workbench.action.positron.toggleTopActionBarVisibility';
 
-	static readonly ID = 'workbench.action.togglePositronTopActionBarVisibility';
-
+	/**
+	 * Constructor.
+	 */
 	constructor() {
 		super({
-			id: ToggleTopActionBarVisibilityAction.ID,
+			id: PositronToggleTopActionBarVisibilityAction.ID,
 			title: {
-				value: localize('togglePositronTopActionBarVisibility', "Toggle Top Bar Visibility"),
+				value: localize('positron.toggleTopActionBarVisibility', "Toggle Top Bar Visibility"),
 				mnemonicTitle: localize({ key: 'miTopActionBar', comment: ['&& denotes a mnemonic'] }, "&&Top Bar"),
 				original: 'Toggle Top Bar Visibility'
 			},
@@ -32,29 +41,101 @@ export class ToggleTopActionBarVisibilityAction extends Action2 {
 		});
 	}
 
+	/**
+	 * Runs the action.
+	 * @param accessor The ServicesAccessor.
+	 */
 	run(accessor: ServicesAccessor): void {
 		const layoutService = accessor.get(IWorkbenchLayoutService);
 		layoutService.setPartHidden(layoutService.isVisible(Parts.POSITRON_TOP_ACTION_BAR_PART), Parts.POSITRON_TOP_ACTION_BAR_PART);
 	}
 }
 
-registerAction2(ToggleTopActionBarVisibilityAction);
+/**
+ * Register the PositronToggleTopActionBarVisibilityAction.
+ */
+registerAction2(PositronToggleTopActionBarVisibilityAction);
 
-registerAction2(class FocusTopActionBarAction extends Action2 {
-	static readonly ID = 'workbench.action.focusPositronTopActionBar';
-	static readonly LABEL = localize('focusTopActionBar', "Focus Top Bar");
+/**
+ * The PositronFocusTopActionBarAction.
+ */
+export class PositronFocusTopActionBarAction extends Action2 {
+	/**
+	 * The action ID.
+	 */
+	static readonly ID = 'workbench.action.positron.focusTopActionBar';
 
+	/**
+	 * Constructor.
+	 */
 	constructor() {
 		super({
-			id: FocusTopActionBarAction.ID,
-			title: { value: FocusTopActionBarAction.LABEL, original: 'Focus Top Bar' },
+			id: PositronFocusTopActionBarAction.ID,
+			title: { value: localize('positron.focusTopActionBar', "Focus Top Bar"), original: 'Focus Top Bar' },
 			category: Categories.View,
 			f1: true
 		});
 	}
 
+	/**
+	 * Runs the action.
+	 * @param accessor The ServicesAccessor.
+	 */
 	async run(accessor: ServicesAccessor): Promise<void> {
+		// Access the services we need.
 		const layoutService = accessor.get(IWorkbenchLayoutService);
+
+		// Focus the top action bar.
 		layoutService.focusPart(Parts.POSITRON_TOP_ACTION_BAR_PART);
 	}
-});
+}
+
+/**
+ * Register the PositronFocusTopActionBarAction.
+ */
+registerAction2(PositronFocusTopActionBarAction);
+
+/**
+ * The PositronShowStartInterpreterAction.
+ */
+export class PositronShowStartInterpreterAction extends Action2 {
+	/**
+	 * The ID.
+	 */
+	static readonly ID = 'workbench.action.positron.showStartInterpreter';
+
+	/**
+	 * Constructor.
+	 */
+	constructor() {
+		super({
+			id: PositronShowStartInterpreterAction.ID,
+			title: { value: localize('positron.showStartInterpreter', "Show Start Interpreter"), original: 'Show Start Interpreter' },
+			category: Categories.View,
+			f1: true
+		});
+	}
+
+	/**
+	 * Runs the action.
+	 * @param accessor The ServicesAccessor.
+	 */
+	async run(accessor: ServicesAccessor): Promise<void> {
+		// Access the services we need.
+		const layoutService = accessor.get(IWorkbenchLayoutService);
+		const positronTopActionBarService = accessor.get(IPositronTopActionBarService);
+
+		// Make sure the top action bar is visible.
+		if (!layoutService.isVisible(Parts.POSITRON_TOP_ACTION_BAR_PART)) {
+			layoutService.setPartHidden(false, Parts.POSITRON_TOP_ACTION_BAR_PART);
+		}
+
+		// Show the start interpreter popup
+		positronTopActionBarService.showStartInterpreterPopup();
+	}
+}
+
+/**
+ * Register the PositronShowStartInterpreterAction.
+ */
+registerAction2(PositronShowStartInterpreterAction);

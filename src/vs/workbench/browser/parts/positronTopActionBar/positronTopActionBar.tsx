@@ -22,6 +22,7 @@ import { NavigateBackwardsAction, NavigateForwardAction } from 'vs/workbench/bro
 import { PositronActionBarContextProvider } from 'vs/platform/positronActionBar/browser/positronActionBarContext';
 import { TopActionBarNewMenu } from 'vs/workbench/browser/parts/positronTopActionBar/components/topActionBarNewMenu';
 import { TopActionBarOpenMenu } from 'vs/workbench/browser/parts/positronTopActionBar/components/topActionBarOpenMenu';
+import { IPositronTopActionBarService } from 'vs/workbench/services/positronTopActionBar/browser/positronTopActionBarService';
 import { TopActionBarWorkspaceMenu } from 'vs/workbench/browser/parts/positronTopActionBar/components/topActionBarWorkspaceMenu';
 import { TopActionBarCommandCenter } from 'vs/workbench/browser/parts/positronTopActionBar/components/topActionBarCommandCenter';
 import { PositronTopActionBarContextProvider } from 'vs/workbench/browser/parts/positronTopActionBar/positronTopActionBarContext';
@@ -59,6 +60,7 @@ export interface PositronTopActionBarServices extends PositronActionBarServices 
 	workspaceContextService: IWorkspaceContextService;
 	workspacesService: IWorkspacesService;
 	languageRuntimeService: ILanguageRuntimeService;
+	positronTopActionBarService: IPositronTopActionBarService;
 }
 
 /**

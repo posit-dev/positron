@@ -44,6 +44,13 @@ export const TopActionBarInterpretersManager = (props: TopActionBarInterpretersM
 			})
 		);
 
+		// Add the onShowStartInterpreterPopup event handler.
+		disposableStore.add(
+			positronTopActionBarContext.positronTopActionBarService.onShowStartInterpreterPopup(() => {
+				showPopup();
+			})
+		);
+
 		// Return the cleanup function that will dispose of the disposables.
 		return () => disposableStore.dispose();
 	}, []);
