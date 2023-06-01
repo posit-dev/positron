@@ -94,6 +94,7 @@ export const InterpreterGroup = (props: InterpreterGroupProps) => {
 			<PrimaryInterpreter
 				languageRuntimeService={props.languageRuntimeService}
 				runtime={props.interpreterGroup.primaryRuntime}
+				enableShowAllVersions={props.interpreterGroup.alternateRuntimes.length > 0}
 				onShowAllVersions={() => setShowAllVersions(!showAllVersions)}
 				onStart={async () => await props.onStartRuntime(props.interpreterGroup.primaryRuntime)}
 				onActivate={async () => await props.onActivateRuntime(props.interpreterGroup.primaryRuntime)}

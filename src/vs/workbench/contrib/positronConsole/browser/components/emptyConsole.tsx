@@ -15,7 +15,7 @@ export const EmptyConsole = () => {
 	// Render.
 	return (
 		<div className='empty-console'>
-			<div className='title'>{localize('positronNoInterpreterAvailable', "There is no interpreter currently available.")}</div>
+			<div className='title'>{localize('positronNoInterpreterRunning', "There is no interpreter currently running.")}</div>
 		</div>
 	);
 };

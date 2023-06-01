@@ -28,11 +28,7 @@
 
 .interpreter-actions .action-button:not(:disabled):hover {
 	border-radius: 4px;
-	/* background: var(--vscode-list-activeSelectionBackground); */
-
-	/* background-color: var(--vscode-positronTopActionBar-hoverBackground); */
 	background: var(--vscode-positronRuntimesManager-actionHoverBackground);
-
 }
 
 .interpreter-actions .action-button:focus {
