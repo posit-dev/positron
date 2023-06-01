@@ -6,7 +6,6 @@ import 'vs/css!./emptyConsole';
 import * as React from 'react';
 import { localize } from 'vs/nls';
 
-
 /**
  * EmptyConsole component.
  * @returns The rendered component.
