@@ -13,7 +13,7 @@ class PreviewPaneItemProxy extends Disposable implements positron.PreviewPaneIte
 	private readonly _onDidReceiveMessage = new Emitter<Object>();
 
 	constructor(
-		private readonly _handle: number,
+		readonly handle: number,
 		private readonly _proxy: extHostProtocol.MainThreadPreviewPaneShape
 	) {
 		super();
@@ -21,16 +21,21 @@ class PreviewPaneItemProxy extends Disposable implements positron.PreviewPaneIte
 	}
 
 	isShowing(): Thenable<boolean> {
-		return this._proxy.$isPreviewItemShowing(this._handle);
+		return this._proxy.$isPreviewItemShowing(this.handle);
 	}
 
 	sendMessage(message: Object): Thenable<void> {
-		return this._proxy.$sendMessageToPreviewPane(this._handle, message);
+		return this._proxy.$sendMessageToPreviewPane(this.handle, message);
+	}
+
+	emitMessage(message: Object): void {
+		this._onDidReceiveMessage.fire(message);
 	}
 
 	onDidReceiveMessage: Event<Object>;
 
 	override dispose(): void {
+		this._proxy.$disposePreviewPaneItem(this.handle);
 		super.dispose();
 	}
 }
@@ -49,13 +54,22 @@ export class ExtHostPreviewPane implements extHostProtocol.ExtHostPreviewPaneSha
 	}
 
 	$emitMessageFromPreviewPane(handle: number, message: Object): void {
-		throw new Error('Method not implemented.');
+		if (handle >= 0 && handle < this._items.length) {
+			this._items[handle].emitMessage(message);
+		} else {
+			throw new Error(`Invalid preview pane item handle (${handle}); ` +
+				`dropping message ${JSON.stringify(message)}`);
+		}
 	}
 
 	createPreviewPaneItem(options: positron.PreviewPaneItemOptions): IPreviewPaneItem {
+		// Create the proxy and add it to the list of items
 		const item = new PreviewPaneItemProxy(this._items.length, this._proxy);
 		this._items.push(item);
-		this._proxy.$createPreviewPaneItem(0, options);
+
+		// Trigger creation of the item in the main process
+		this._proxy.$createPreviewPaneItem(item.handle, options);
+
 		return item;
 	}
 }

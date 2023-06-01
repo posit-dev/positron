@@ -27,6 +27,7 @@ export interface MainThreadLanguageRuntimeShape extends IDisposable {
 
 export interface MainThreadPreviewPaneShape extends IDisposable {
 	$createPreviewPaneItem(handle: number, options: IPreviewPaneItemOptions): Thenable<void>;
+	$disposePreviewPaneItem(handle: number): Thenable<void>;
 	$sendMessageToPreviewPane(handle: number, message: Object): Thenable<void>;
 	$isPreviewItemShowing(handle: number): Promise<boolean>;
 }

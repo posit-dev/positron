@@ -26,6 +26,11 @@ export interface IPreviewPaneItemOptions {
  */
 export interface IPreviewPaneItem extends Disposable {
 	/**
+	 * The ID of the preview item; unique among all preview items.
+	 */
+	id: string;
+
+	/**
 	 * Whether the preview item is currently being shown in the preview pane.
 	 */
 	isShowing(): Thenable<boolean>;
@@ -47,4 +52,24 @@ export interface IPreviewPaneItem extends Disposable {
  */
 export interface IPositronPreviewService {
 	readonly _serviceBrand: undefined;
+
+	/**
+	 * Creates a new preview pane item.
+	 *
+	 * @param options The options used to construct the preview pane item.
+	 */
+	createPreviewPaneItem(options: IPreviewPaneItemOptions): Thenable<IPreviewPaneItem>;
+
+	/**
+	 * An event that is fired when a new preview pane item is created.
+	 */
+	onDidCreatePreviewPaneItem: Event<IPreviewPaneItem>;
+
+	/**
+	 * Returns the list of preview pane items currently being displayed in the
+	 * preview pane.
+	 */
+	get previewPaneItems(): IPreviewPaneItem[];
+
+	get activePreviewPaneItemId(): string;
 }

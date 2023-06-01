@@ -1,0 +1,72 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
+ *--------------------------------------------------------------------------------------------*/
+
+import 'vs/css!./positronPlots';
+import * as React from 'react';
+import { PropsWithChildren, useEffect, useState } from 'react'; // eslint-disable-line no-duplicate-imports
+import { ICommandService } from 'vs/platform/commands/common/commands';
+import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
+import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
+import { IReactComponentContainer } from 'vs/base/browser/positronReactRenderer';
+import { IContextMenuService } from 'vs/platform/contextview/browser/contextView';
+import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
+import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/layoutService';
+import { DisposableStore } from 'vs/base/common/lifecycle';
+import { ActionBars } from 'vs/workbench/contrib/positronPlots/browser/components/actionBars';
+import { PreviewContainer } from 'vs/workbench/contrib/positronPreview/browser/components/previewContainer';
+import { IPositronPreviewService } from 'vs/workbench/services/positronPreview/common/positronPreview';
+import { PositronPreviewServices } from 'vs/workbench/contrib/positronPreview/browser/positronPreviewState';
+import { PositronPreviewContextProvider } from 'vs/workbench/contrib/positronPreview/browser/positronPreviewContext';
+
+/**
+ * PositronPreviewProps interface.
+ */
+export interface PositronPreviewProps extends PositronPreviewServices {
+	// Services.
+	readonly commandService: ICommandService;
+	readonly configurationService: IConfigurationService;
+	readonly contextKeyService: IContextKeyService;
+	readonly contextMenuService: IContextMenuService;
+	readonly keybindingService: IKeybindingService;
+	readonly layoutService: IWorkbenchLayoutService;
+	readonly reactComponentContainer: IReactComponentContainer;
+	readonly positronPlotsService: IPositronPreviewService;
+}
+
+/**
+ * PositronPreview component.
+ * @param props A PositronPreviewProps that contains the component properties.
+ * @returns The rendered component.
+ */
+export const PositronPreview = (props: PropsWithChildren<PositronPreviewProps>) => {
+
+	// Hooks.
+	const [width, setWidth] = useState(props.reactComponentContainer.width);
+	const [height, setHeight] = useState(props.reactComponentContainer.height);
+
+	// Add IReactComponentContainer event handlers.
+	useEffect(() => {
+		// Create the disposable store for cleanup.
+		const disposableStore = new DisposableStore();
+
+		// Add the onSizeChanged event handler.
+		disposableStore.add(props.reactComponentContainer.onSizeChanged(size => {
+			setWidth(size.width);
+			setHeight(size.height);
+		}));
+
+		// Return the cleanup function that will dispose of the event handlers.
+		return () => disposableStore.dispose();
+	}, []);
+
+	// Render.
+	return (
+		<PositronPreviewContextProvider {...props}>
+			<ActionBars {...props} />
+			<PreviewContainer
+				width={width}
+				height={height - 34} />
+		</PositronPreviewContextProvider>
+	);
+};
