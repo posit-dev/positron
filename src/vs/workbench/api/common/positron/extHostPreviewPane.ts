@@ -10,6 +10,8 @@ import { Emitter, Event } from 'vs/base/common/event';
 
 class PreviewPaneItemProxy extends Disposable implements positron.PreviewPaneItem {
 
+	id: string;
+
 	private readonly _onDidReceiveMessage = new Emitter<Object>();
 
 	constructor(
@@ -17,6 +19,7 @@ class PreviewPaneItemProxy extends Disposable implements positron.PreviewPaneIte
 		private readonly _proxy: extHostProtocol.MainThreadPreviewPaneShape
 	) {
 		super();
+		this.id = Math.random().toString(16).slice(2);
 		this.onDidReceiveMessage = this._onDidReceiveMessage.event;
 	}
 

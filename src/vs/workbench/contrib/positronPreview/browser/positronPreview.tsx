@@ -2,7 +2,7 @@
  *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
-import 'vs/css!./positronPlots';
+import 'vs/css!./positronPreview';
 import * as React from 'react';
 import { PropsWithChildren, useEffect, useState } from 'react'; // eslint-disable-line no-duplicate-imports
 import { ICommandService } from 'vs/platform/commands/common/commands';

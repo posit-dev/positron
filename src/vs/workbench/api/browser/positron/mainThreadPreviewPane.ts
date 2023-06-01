@@ -25,6 +25,9 @@ export class MainThreadPreviewPane implements MainThreadPreviewPaneShape {
 
 	async $createPreviewPaneItem(handle: number, options: IPreviewPaneItemOptions): Promise<void> {
 		const item = await this._positronPreviewService.createPreviewPaneItem(options);
+		item.onDidReceiveMessage(message => {
+			this._proxy.$emitMessageFromPreviewPane(handle, message);
+		});
 		this._items.set(handle, item);
 		this._disposables.add(item);
 	}
