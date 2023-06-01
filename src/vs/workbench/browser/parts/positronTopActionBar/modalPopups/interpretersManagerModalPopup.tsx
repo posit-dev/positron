@@ -32,17 +32,24 @@ export const showInterpretersManagerModalPopup = async (
 
 		// The modal popup component.
 		const ModalPopup = () => {
-			// The dismiss handler.
-			const dismissHandler = () => {
+			/**
+			 * Dismisses the popup.
+			 */
+			const dismiss = () => {
 				positronModalPopupReactRenderer.destroy();
 				resolve();
 			};
 
+			/**
+			 * onActivateRuntime event handler.
+			 * @param runtime An ILanguageRuntime representing the runtime to activate.
+			 */
 			const activateRuntimeHandler = async (runtime: ILanguageRuntime): Promise<void> => {
+				// Activate the runtime.
 				await onActivateRuntime(runtime);
 
-				positronModalPopupReactRenderer.destroy();
-				resolve();
+				// Dismiss the popup.
+				dismiss();
 			};
 
 			// Render.
@@ -53,7 +60,7 @@ export const showInterpretersManagerModalPopup = async (
 					popupAlignment='right'
 					width={350}
 					height={'min-content'}
-					onDismiss={dismissHandler}
+					onDismiss={() => dismiss()}
 				>
 					<InterpreterGroups
 						languageRuntimeService={languageRuntimeService}
