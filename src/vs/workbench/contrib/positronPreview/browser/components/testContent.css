@@ -1,8 +1,0 @@
-/*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
- *--------------------------------------------------------------------------------------------*/
-
-.positron-preview-test-content {
-	margin: 10px 20px;
-	color: var(--vscode-positronModalDialog-foreground); /* Temporary */
-}

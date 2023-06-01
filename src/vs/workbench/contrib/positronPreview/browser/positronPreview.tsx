@@ -31,7 +31,7 @@ export interface PositronPreviewProps extends PositronPreviewServices {
 	readonly keybindingService: IKeybindingService;
 	readonly layoutService: IWorkbenchLayoutService;
 	readonly reactComponentContainer: IReactComponentContainer;
-	readonly positronPlotsService: IPositronPreviewService;
+	readonly positronPreviewService: IPositronPreviewService;
 }
 
 /**
