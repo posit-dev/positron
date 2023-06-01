@@ -4,13 +4,13 @@
 
 import 'vs/css!./interpreterActions';
 import * as React from 'react';
-import { MouseEvent, useEffect, useState } from 'react'; // eslint-disable-line no-duplicate-imports
+import { MouseEvent, PropsWithChildren, useEffect, useState } from 'react'; // eslint-disable-line no-duplicate-imports
 import { localize } from 'vs/nls';
 import { DisposableStore } from 'vs/base/common/lifecycle';
 import { ILanguageRuntime, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 
 /**
- * InterpreterActionsCommonProps interface.
+ * InterpreterActionsProps interface.
  */
 interface InterpreterActionsProps {
 	runtime: ILanguageRuntime;
@@ -18,18 +18,11 @@ interface InterpreterActionsProps {
 }
 
 /**
- * PrimaryRuntimeProps type.
- */
-type PrimaryRuntimeProps =
-	| { isPrimaryRuntime: false; onShowAllVersions?: never }
-	| { isPrimaryRuntime: true; onShowAllVersions: () => void };
-
-/**
  * InterpreterActions component.
  * @param props A InterpreterActionsProps that contains the component properties.
  * @returns The rendered component.
  */
-export const InterpreterActions = (props: InterpreterActionsProps & PrimaryRuntimeProps) => {
+export const InterpreterActions = (props: PropsWithChildren<InterpreterActionsProps>) => {
 	// State hooks.
 	const [runtimeState, setRuntimeState] = useState(props.runtime.getRuntimeState());
 
@@ -46,19 +39,6 @@ export const InterpreterActions = (props: InterpreterActionsProps & PrimaryRunti
 		// Return the cleanup function that will dispose of the event handlers.
 		return () => disposableStore.dispose();
 	}, []);
-
-	/**
-	 * showAllVersionsClick event handler.
-	 * @param e A MouseEvent<HTMLButtonElement> that describes a user interaction with the mouse.
-	 */
-	const showAllVersionsClickHandler = (e: MouseEvent<HTMLButtonElement>) => {
-		// Consume the event.
-		e.preventDefault();
-		e.stopPropagation();
-
-		// Show all versions.
-		props.onShowAllVersions?.();
-	};
 
 	/**
 	 * interruptClick event handler.
@@ -115,13 +95,7 @@ export const InterpreterActions = (props: InterpreterActionsProps & PrimaryRunti
 	// Render.
 	return (
 		<div className='interpreter-actions'>
-			{props.isPrimaryRuntime &&
-				<button
-					className='action-button codicon codicon-positron-more-options'
-					title={localize('positronShowAllVersions', "Show all versions")}
-					onClick={showAllVersionsClickHandler}
-				/>
-			}
+			{props.children}
 
 			{(
 				runtimeState === RuntimeState.Busy ||
