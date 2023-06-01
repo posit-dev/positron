@@ -458,17 +458,24 @@ export const ConsoleInput = forwardRef<HTMLDivElement, ConsoleInputProps>((props
 		// Attach the text model.
 		codeEditorWidget.setModel(textModel);
 
-		// Set the key down handler.
+		// Set the key down event handler.
 		disposableStore.add(codeEditorWidget.onKeyDown(keyDownHandler));
 
-		// Auto-grow the editor as the internal content size changes (i.e. make
-		// it grow vertically as the user enters additional lines of input)
-		codeEditorWidget.onDidContentSizeChange(contentSizeChangedEvent => {
+		// Auto-grow the editor as the internal content size changes (i.e. make it grow vertically
+		// as the user enters additional lines of input.)
+		disposableStore.add(codeEditorWidget.onDidContentSizeChange(contentSizeChangedEvent => {
 			codeEditorWidget.layout({
 				width: codeEditorWidthRef.current,
 				height: codeEditorWidget.getContentHeight()
 			});
-		});
+		}));
+
+		// Set the paste event handler.
+		disposableStore.add(codeEditorWidget.onDidPaste(e => {
+			// On paste, make sure the code editor widget is positioned to the end so everything
+			// that was pasted is visible.
+			updateCodeEditorWidgetPositionToEnd();
+		}));
 
 		// [Preserving this comment for later use...]
 		// Forward mouse wheel events. We do this because it is not currently
