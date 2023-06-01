@@ -49,6 +49,11 @@ export class PositronTopActionBarPart extends Part implements IPositronTopAction
 	 */
 	private _onWidthChangedEmitter = this._register(new Emitter<number>());
 
+	/**
+	 * The onShowStartInterpreterPopup event emitter.
+	 */
+	private _onShowStartInterpreterPopupEmitter = this._register(new Emitter<void>());
+
 	//#region IView
 
 	get width() {
@@ -71,10 +76,6 @@ export class PositronTopActionBarPart extends Part implements IPositronTopAction
 
 	private _onDidChangeSize = this._register(new Emitter<{ width: number; height: number } | undefined>());
 	override get onDidChange() { return this._onDidChangeSize.event; }
-
-	//#endregion IView
-
-	//#region IView
 
 	/**
 	 * The onWidthChanged event.
@@ -134,6 +135,7 @@ export class PositronTopActionBarPart extends Part implements IPositronTopAction
 				labelService={this.labelService}
 				languageRuntimeService={this.languageRuntimeService}
 				layoutService={this.layoutService}
+				positronTopActionBarService={this}
 				quickInputService={this.quickInputService}
 				positronTopActionBarContainer={this}
 				workspaceContextService={this.workspaceContextService}
@@ -173,8 +175,23 @@ export class PositronTopActionBarPart extends Part implements IPositronTopAction
 
 	//#region IPositronTopActionBarService
 
+	/**
+	 * The onShowStartInterpreterPopup event.
+	 */
+	readonly onShowStartInterpreterPopup: Event<void> = this._onShowStartInterpreterPopupEmitter.event;
+
+	/**
+	 * Drives focus to the Positron top action bar.
+	 */
 	focus(): void {
 		this.element.focus();
+	}
+
+	/**
+	 * Shows the start interpreter popup.
+	 */
+	showStartInterpreterPopup(): void {
+		this._onShowStartInterpreterPopupEmitter.fire();
 	}
 
 	//#endregion IPositronTopActionBarService
@@ -183,7 +200,6 @@ export class PositronTopActionBarPart extends Part implements IPositronTopAction
 registerSingleton(IPositronTopActionBarService, PositronTopActionBarPart, InstantiationType.Eager);
 
 // Keybindings
-
 KeybindingsRegistry.registerCommandAndKeybindingRule({
 	id: 'workbench.top-action-bar.focusTopActionBar',
 	weight: KeybindingWeight.WorkbenchContrib,
