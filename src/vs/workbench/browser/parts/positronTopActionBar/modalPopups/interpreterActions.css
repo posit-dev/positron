@@ -22,11 +22,11 @@
 	justify-content: center;
 }
 
-.interpreter-actions .action-button:disabled {
+.interpreter-actions .action-button.disabled {
 	opacity: 0.5;
 }
 
-.interpreter-actions .action-button:not(:disabled):hover {
+.interpreter-actions .action-button:not(.disabled):hover {
 	border-radius: 4px;
 	background: var(--vscode-positronRuntimesManager-actionHoverBackground);
 }
