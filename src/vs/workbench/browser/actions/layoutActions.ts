@@ -31,7 +31,7 @@ import { DisposableStore } from 'vs/base/common/lifecycle';
 import { registerIcon } from 'vs/platform/theme/common/iconRegistry';
 import { ICommandActionTitle } from 'vs/platform/action/common/action';
 // --- Start Positron ---
-import { ToggleTopActionBarVisibilityAction as ToggleTopActionBarVisibilityAction } from 'vs/workbench/browser/parts/positronTopActionBar/positronTopActionBarActions';
+import { PositronToggleTopActionBarVisibilityAction } from 'vs/workbench/browser/parts/positronTopActionBar/positronTopActionBarActions';
 // --- End Positron ---
 
 // Register Icons
@@ -1160,7 +1160,7 @@ if (!isMacintosh || !isNative) {
 
 ToggleVisibilityActions.push(...[
 	// --- Start Positron ---
-	CreateToggleLayoutItem(ToggleTopActionBarVisibilityAction.ID, PositronTopActionBarVisibleContext, localize('positronTopActionBar', "Top Bar"), panelIcon), // TODO@softwarenerd change panelIcon
+	CreateToggleLayoutItem(PositronToggleTopActionBarVisibilityAction.ID, PositronTopActionBarVisibleContext, localize('positronTopActionBar', "Top Bar"), panelIcon), // TODO@softwarenerd change panelIcon
 	// --- End Positron ---
 	CreateToggleLayoutItem(ToggleActivityBarVisibilityAction.ID, ContextKeyExpr.equals('config.workbench.activityBar.visible', true), localize('activityBar', "Activity Bar"), { whenA: ContextKeyExpr.equals('config.workbench.sideBar.location', 'left'), iconA: activityBarLeftIcon, iconB: activityBarRightIcon }),
 	CreateToggleLayoutItem(ToggleSidebarVisibilityAction.ID, SideBarVisibleContext, localize('sideBar', "Primary Side Bar"), { whenA: ContextKeyExpr.equals('config.workbench.sideBar.location', 'left'), iconA: panelLeftIcon, iconB: panelRightIcon }),

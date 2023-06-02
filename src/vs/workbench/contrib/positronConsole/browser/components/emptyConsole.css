@@ -9,6 +9,12 @@
 }
 
 .empty-console .title {
-	text-align: left;
-	margin-left: 20px;
+	display: flex;
+	margin: 10px;
+}
+
+.empty-console .title .link {
+	cursor: pointer;
+	text-decoration: underline;
+	color: var(--vscode-textLink-foreground);
 }
