@@ -4,10 +4,12 @@
 
 import 'vs/css!./primaryInterpreter';
 import * as React from 'react';
-import { MouseEvent } from 'react'; // eslint-disable-line no-duplicate-imports
+import { useEffect, useState } from 'react'; // eslint-disable-line no-duplicate-imports
 import { localize } from 'vs/nls';
+import { DisposableStore } from 'vs/base/common/lifecycle';
+import { PositronButton } from 'vs/base/browser/ui/positronComponents/positronButton';
 import { InterpreterActions } from 'vs/workbench/browser/parts/positronTopActionBar/modalPopups/interpreterActions';
-import { ILanguageRuntime, ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntime, ILanguageRuntimeService, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 
 /**
  * PrimaryInterpreterProps interface.
@@ -27,36 +29,31 @@ interface PrimaryInterpreterProps {
  * @returns The rendered component.
  */
 export const PrimaryInterpreter = (props: PrimaryInterpreterProps) => {
-	/**
-	 * onClick event handler.
-	 * @param e A MouseEvent<HTMLButtonElement> that describes a user interaction with the mouse.
-	 */
-	const clickHandler = (e: MouseEvent<HTMLDivElement>) => {
-		// Consume the event.
-		e.preventDefault();
-		e.stopPropagation();
+	// State hooks.
+	const [runtimeState, setRuntimeState] = useState(props.runtime.getRuntimeState());
 
-		// Activate the runtime.
-		props.onActivate();
-	};
+	// Main useEffect hook.
+	useEffect(() => {
+		// Create the disposable store for cleanup.
+		const disposableStore = new DisposableStore();
 
-	/**
-	 * showAllVersionsClick event handler.
-	 * @param e A MouseEvent<HTMLButtonElement> that describes a user interaction with the mouse.
-	 */
-	const showAllVersionsClickHandler = (e: MouseEvent<HTMLButtonElement>) => {
-		// Consume the event.
-		e.preventDefault();
-		e.stopPropagation();
+		// Add the onDidChangeRuntimeState event handler.
+		disposableStore.add(props.runtime.onDidChangeRuntimeState(runtimeState => {
+			setRuntimeState(runtimeState);
+		}));
 
-		// Show all versions.
-		props.onShowAllVersions?.();
-	};
-
+		// Return the cleanup function that will dispose of the event handlers.
+		return () => disposableStore.dispose();
+	}, []);
 
 	// Render.
 	return (
-		<div className='primary-interpreter' role='button' tabIndex={0} onClick={clickHandler}>
+		<PositronButton className='primary-interpreter' onClick={props.onActivate}>
+			<div className='running-indicator'>
+				{runtimeState !== RuntimeState.Uninitialized && runtimeState !== RuntimeState.Exited &&
+					<div className='running-icon codicon codicon-circle-large-filled'></div>
+				}
+			</div>
 			<img className='icon' src={`data:image/svg+xml;base64,${props.runtime.metadata.base64EncodedIconSvg}`} />
 			<div className='info'>
 				<div className='container'>
@@ -66,13 +63,14 @@ export const PrimaryInterpreter = (props: PrimaryInterpreterProps) => {
 			</div>
 			<InterpreterActions runtime={props.runtime} onStart={props.onStart}>
 				{props.enableShowAllVersions &&
-					<button
-						className='action-button codicon codicon-positron-more-options'
-						title={localize('positronShowAllVersions', "Show all versions")}
-						onClick={showAllVersionsClickHandler}
-					/>
+					<PositronButton className='action-button' onClick={props.onShowAllVersions}>
+						<span
+							className='codicon codicon-positron-more-options'
+							title={localize('positronShowAllVersions', "Show all versions")}
+						/>
+					</PositronButton>
 				}
 			</InterpreterActions>
-		</div>
+		</PositronButton>
 	);
 };

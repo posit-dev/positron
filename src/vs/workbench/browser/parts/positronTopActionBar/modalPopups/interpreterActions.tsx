@@ -4,9 +4,10 @@
 
 import 'vs/css!./interpreterActions';
 import * as React from 'react';
-import { MouseEvent, PropsWithChildren, useEffect, useState } from 'react'; // eslint-disable-line no-duplicate-imports
+import { PropsWithChildren, useEffect, useState } from 'react'; // eslint-disable-line no-duplicate-imports
 import { localize } from 'vs/nls';
 import { DisposableStore } from 'vs/base/common/lifecycle';
+import { PositronButton } from 'vs/base/browser/ui/positronComponents/positronButton';
 import { ILanguageRuntime, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 
 /**
@@ -40,87 +41,52 @@ export const InterpreterActions = (props: PropsWithChildren<InterpreterActionsPr
 		return () => disposableStore.dispose();
 	}, []);
 
-	/**
-	 * interruptClick event handler.
-	 * @param e A MouseEvent<HTMLButtonElement> that describes a user interaction with the mouse.
-	 */
-	const interruptClickHandler = (e: MouseEvent<HTMLButtonElement>) => {
-		// Consume the event.
-		e.preventDefault();
-		e.stopPropagation();
-
-		// Interrupt the runtime.
-		props.runtime.interrupt();
-	};
-
-	/**
-	 * restartClick event handler.
-	 * @param e A MouseEvent<HTMLButtonElement> that describes a user interaction with the mouse.
-	 */
-	const restartClickHandler = (e: MouseEvent<HTMLButtonElement>) => {
-		// Consume the event.
-		e.preventDefault();
-		e.stopPropagation();
-
-		// Restart the runtime.
-		props.runtime.restart();
-	};
-
-	/**
-	 * shutdownClick event handler.
-	 * @param e A MouseEvent<HTMLButtonElement> that describes a user interaction with the mouse.
-	 */
-	const shutdownClickHandler = (e: MouseEvent<HTMLButtonElement>) => {
-		// Consume the event.
-		e.preventDefault();
-		e.stopPropagation();
-
-		// Shutdown the runtime.
-		props.runtime.shutdown();
-	};
-
-	/**
-	 * startClick event handler.
-	 * @param e A MouseEvent<HTMLButtonElement> that describes a user interaction with the mouse.
-	 */
-	const startClickHandler = async (e: MouseEvent<HTMLButtonElement>) => {
-		// Consume the event.
-		e.preventDefault();
-		e.stopPropagation();
-
-		// Start the interpreter.
-		props.onStart();
-	};
-
 	// Render.
 	return (
 		<div className='interpreter-actions'>
 			{props.children}
 
+			{/*
+				Interrupt button.
+			*/}
 			{(
 				runtimeState === RuntimeState.Busy ||
 				runtimeState === RuntimeState.Interrupting
 			) &&
-				<button
-					className='action-button codicon codicon-positron-interrupt-runtime'
-					title={localize('positronInterruptInterpreter', "Interrupt the interpreter")}
-					style={{ color: 'red' }}
+				<PositronButton
+					className='action-button'
 					disabled={runtimeState === RuntimeState.Interrupting}
-					onClick={interruptClickHandler}
-				/>
+					onClick={() => props.runtime.interrupt()}
+				>
+					<span
+						className='codicon codicon-positron-interrupt-runtime'
+						title={localize('positronInterruptInterpreter', "Interrupt the interpreter")}
+						style={{ color: 'red' }}
+					/>
+				</PositronButton>
 			}
 
+			{/*
+				Restart button.
+			*/}
 			{(
 				runtimeState !== RuntimeState.Uninitialized
 			) &&
-				<button
-					className='action-button codicon codicon-positron-restart-runtime'
-					title={localize('positronRestartInterpreter', "Restart the interpreter")}
+				<PositronButton
+					className='action-button'
 					disabled={runtimeState !== RuntimeState.Ready && runtimeState !== RuntimeState.Idle}
-					onClick={restartClickHandler}
-				/>
+					onClick={() => props.runtime.restart()}
+				>
+					<span
+						className='codicon codicon-positron-restart-runtime'
+						title={localize('positronRestartInterpreter', "Restart the interpreter")}
+					/>
+				</PositronButton>
 			}
 
+			{/*
+				Shutdown button.
+			*/}
 			{(
 				runtimeState === RuntimeState.Ready ||
 				runtimeState === RuntimeState.Idle ||
@@ -129,25 +95,29 @@ export const InterpreterActions = (props: PropsWithChildren<InterpreterActionsPr
 				runtimeState === RuntimeState.Offline ||
 				runtimeState === RuntimeState.Interrupting
 			) &&
-				<button
-					className='action-button codicon codicon-positron-power-button'
-					title={localize('positronStopTheInterpreter', "Stop the interpreter")}
-					style={{ color: 'green' }}
-					onClick={shutdownClickHandler}
-				/>
+				<PositronButton className='action-button' onClick={() => props.runtime.shutdown()}>
+					<span
+						className='codicon codicon-positron-power-button'
+						title={localize('positronStopTheInterpreter', "Stop the interpreter")}
+					/>
+				</PositronButton>
 			}
 
+			{/*
+				Start button.
+			*/}
 			{(
 				runtimeState === RuntimeState.Uninitialized ||
 				runtimeState === RuntimeState.Initializing ||
 				runtimeState === RuntimeState.Starting ||
 				runtimeState === RuntimeState.Exited
 			) &&
-				<button
-					className='action-button codicon codicon-positron-power-button'
-					title={localize('positronStartTheInterpreter', "Start the interpreter")}
-					onClick={startClickHandler}
-				/>
+				<PositronButton className='action-button' onClick={() => props.onStart()}>
+					<span
+						className='codicon codicon-positron-power-button'
+						title={localize('positronStartTheInterpreter', "Start the interpreter")}
+					/>
+				</PositronButton>
 			}
 		</div>
 	);
