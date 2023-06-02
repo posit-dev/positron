@@ -3,6 +3,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { DisposableStore } from 'vs/base/common/lifecycle';
+import { URI } from 'vs/base/common/uri';
 import { ExtHostPositronContext, ExtHostPreviewPaneShape, MainPositronContext, MainThreadPreviewPaneShape } from 'vs/workbench/api/common/positron/extHost.positron.protocol';
 import { IExtHostContext, extHostNamedCustomer } from 'vs/workbench/services/extensions/common/extHostCustomers';
 import { IPositronPreviewService, IPreviewPaneItem, IPreviewPaneItemOptions } from 'vs/workbench/services/positronPreview/common/positronPreview';
@@ -24,6 +25,10 @@ export class MainThreadPreviewPane implements MainThreadPreviewPaneShape {
 	}
 
 	async $createPreviewPaneItem(handle: number, options: IPreviewPaneItemOptions): Promise<void> {
+		// The URI object that arrives from the extension host is just a plain
+		// JavaScript object; revive it into a real URI object.
+		options.uri = URI.revive(options.uri);
+
 		const item = await this._positronPreviewService.createPreviewPaneItem(options);
 		item.onDidReceiveMessage(message => {
 			this._proxy.$emitMessageFromPreviewPane(handle, message);

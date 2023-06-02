@@ -37,7 +37,7 @@ export const PreviewContainer = (props: PreviewContainerProps) => {
 			<h1>Hello, world!</h1>
 			<p>Number of items: {positronPreviewContext.previewPaneItems.length}</p>
 			<p>Selected item: {positronPreviewContext.selectedItemIndex}</p>
-			{selectedItem && 'uri ' + JSON.stringify(selectedItem.options.uri)}
+			{selectedItem && 'uri ' + selectedItem.options.uri.toString() + ' (' + JSON.stringify(selectedItem.options.uri)}
 		</div>
 	);
 };
