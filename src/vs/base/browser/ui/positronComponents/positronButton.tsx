@@ -10,6 +10,7 @@ import { positronClassNames } from 'vs/base/common/positronUtilities';
  * PositronButtonProps interface.
  */
 interface PositronButtonProps {
+	inline?: boolean;
 	className?: string;
 	disabled?: boolean;
 	onClick: () => void;
@@ -56,10 +57,27 @@ export const PositronButton = (props: PropsWithChildren<PositronButtonProps>) =>
 		}
 	};
 
+	// Generate the class names.
+	const classNames = positronClassNames(props.className, { 'disabled': props.disabled });
+
+	// Render inline.
+	if (props.inline) {
+		return (
+			<span
+				className={classNames}
+				tabIndex={0}
+				role='button'
+				onKeyDown={keyDownHandler}
+				onClick={clickHandler}>
+				{props.children}
+			</span>
+		);
+	}
+
 	// Render.
 	return (
 		<div
-			className={positronClassNames(props.className, { 'disabled': props.disabled })}
+			className={classNames}
 			tabIndex={0}
 			role='button'
 			onKeyDown={keyDownHandler}
