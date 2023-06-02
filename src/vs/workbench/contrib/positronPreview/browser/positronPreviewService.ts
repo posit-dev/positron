@@ -11,7 +11,7 @@ class PositronPreviewItem extends Disposable implements IPreviewPaneItem {
 
 	_onDidReceiveMessageEmitter = new Emitter<Object>();
 
-	constructor() {
+	constructor(readonly options: IPreviewPaneItemOptions) {
 		super();
 
 		// Generate random hex string for ID.
@@ -38,11 +38,15 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 	private _items: Map<string, IPreviewPaneItem> = new Map();
 
 	private _onDidCreatePreviewPaneItemEmitter = new Emitter<IPreviewPaneItem>();
+	private _onDidChangeActivePreviewPaneItemEmitter = new Emitter<string>();
 
 	constructor() {
 		super();
 		this.onDidCreatePreviewPaneItem = this._onDidCreatePreviewPaneItemEmitter.event;
+		this.onDidChangeActivePreviewPaneItem = this._onDidChangeActivePreviewPaneItemEmitter.event;
 	}
+
+	onDidChangeActivePreviewPaneItem: Event<string>;
 
 	onDidCreatePreviewPaneItem: Event<IPreviewPaneItem>;
 
@@ -55,8 +59,12 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 	}
 
 	createPreviewPaneItem(options: IPreviewPaneItemOptions): Thenable<IPreviewPaneItem> {
-		const item = new PositronPreviewItem();
+		const item = new PositronPreviewItem(options);
 		this._onDidCreatePreviewPaneItemEmitter.fire(item);
+
+		// Creating a new preview item always makes it the active one.
+		this._onDidChangeActivePreviewPaneItemEmitter.fire(item.id);
+
 		return Promise.resolve(item);
 	}
 

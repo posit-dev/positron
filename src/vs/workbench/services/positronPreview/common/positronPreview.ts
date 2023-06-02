@@ -31,6 +31,11 @@ export interface IPreviewPaneItem extends Disposable {
 	id: string;
 
 	/**
+	 * The options that were used to construct the preview item.
+	 */
+	readonly options: IPreviewPaneItemOptions;
+
+	/**
 	 * Whether the preview item is currently being shown in the preview pane.
 	 */
 	isShowing(): Thenable<boolean>;
@@ -66,10 +71,17 @@ export interface IPositronPreviewService {
 	onDidCreatePreviewPaneItem: Event<IPreviewPaneItem>;
 
 	/**
+	 * An event that is fired when the active preview pane item changes.
+	 */
+	onDidChangeActivePreviewPaneItem: Event<string>;
+
+	/**
 	 * Returns the list of preview pane items currently being displayed in the
 	 * preview pane.
 	 */
 	get previewPaneItems(): IPreviewPaneItem[];
 
 	get activePreviewPaneItemId(): string;
+
+	set activePreviewPaneItemId(id: string);
 }

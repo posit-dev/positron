@@ -28,12 +28,16 @@ export const PreviewContainer = (props: PreviewContainerProps) => {
 		// Empty for now.
 	});
 
+	const selectedItem = positronPreviewContext.previewPaneItems.find(
+		item => item.id === positronPreviewContext.selectedItemId);
 	// If there are no plot instances, show a placeholder; otherwise, show the
 	// most recently generated plot.
 	return (
 		<div>
 			<h1>Hello, world!</h1>
-			<p>The selected item is: {positronPreviewContext.selectedItemId}</p>
+			<p>Number of items: {positronPreviewContext.previewPaneItems.length}</p>
+			<p>Selected item: {positronPreviewContext.selectedItemIndex}</p>
+			{selectedItem && 'uri ' + JSON.stringify(selectedItem.options.uri)}
 		</div>
 	);
 };

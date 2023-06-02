@@ -16,6 +16,7 @@ class PreviewPaneItemProxy extends Disposable implements positron.PreviewPaneIte
 
 	constructor(
 		readonly handle: number,
+		readonly options: positron.PreviewPaneItemOptions,
 		private readonly _proxy: extHostProtocol.MainThreadPreviewPaneShape
 	) {
 		super();
@@ -67,7 +68,7 @@ export class ExtHostPreviewPane implements extHostProtocol.ExtHostPreviewPaneSha
 
 	createPreviewPaneItem(options: positron.PreviewPaneItemOptions): IPreviewPaneItem {
 		// Create the proxy and add it to the list of items
-		const item = new PreviewPaneItemProxy(this._items.length, this._proxy);
+		const item = new PreviewPaneItemProxy(this._items.length, options, this._proxy);
 		this._items.push(item);
 
 		// Trigger creation of the item in the main process
