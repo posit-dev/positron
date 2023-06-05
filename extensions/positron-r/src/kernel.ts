@@ -59,8 +59,24 @@ export function registerArkKernel(ext: vscode.Extension<any>, context: vscode.Ex
 		public readonly rHome: string;
 		public readonly rVersion: string;
 
-		constructor(rHome: string) {
-			this.rHome = rHome;
+		/**
+		 * Represents an installation of R on the user's system.
+		 *
+		 * @param rHome The path to the R installation's home folder
+		 * @param resolved Whether the path has been resolved to a canonical path
+		 */
+		constructor(rHome: string, resolved: boolean) {
+			// Form the canonical path to the R installation by asking R itself
+			// for its home directory. This may differ from the path that was
+			// passed since the discovered home path may contain symlinks.
+			if (resolved) {
+				this.rHome = rHome;
+			} else {
+				this.rHome = execSync(
+					`${rHome}/R RHOME`,
+					{ shell: '/bin/bash', encoding: 'utf8' })
+					.trim();
+			}
 			this.rVersion = getRVersion(rHome);
 		}
 	}
@@ -73,10 +89,18 @@ export function registerArkKernel(ext: vscode.Extension<any>, context: vscode.Ex
 	// TODO: Needs to handle Linux and Windows
 	// TODO: Needs to handle other installation locations (like RSwitch)
 
-	// Look for the default R installation on macOS
-	if (fs.existsSync('/Library/Frameworks/R.framework/Resources')) {
-		rInstallations.push(
-			new RInstallation('/Library/Frameworks/R.framework/Resources'));
+	// Check the R Versions folder on macOS. Typically, this only contains one
+	// version of R, but it's possible to have multiple versions installed in
+	// cases where a third-party utility such as `rig` is used to manage R
+	// installations.
+	const rVersionsFolder = '/Library/Frameworks/R.framework/Versions';
+	if (fs.existsSync(rVersionsFolder)) {
+		fs.readdirSync(rVersionsFolder).forEach((version: string) => {
+			const rHome = path.join(rVersionsFolder, version, 'Resources');
+			if (fs.existsSync(rHome)) {
+				rInstallations.push(new RInstallation(rHome, false));
+			}
+		});
 	}
 
 	// Look for an R installation on the $PATH (e.g. installed via Homebrew)
@@ -87,7 +111,7 @@ export function registerArkKernel(ext: vscode.Extension<any>, context: vscode.Ex
 		if (fs.existsSync(rHome)) {
 			// Add the R installation to the list (if it's not already there)
 			if (rInstallations.filter(r => r.rHome === rHome).length === 0) {
-				rInstallations.push(new RInstallation(rHome));
+				rInstallations.push(new RInstallation(rHome, true));
 			}
 		}
 	} catch (err) {
