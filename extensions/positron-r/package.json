@@ -1,111 +1,127 @@
 {
-	"name": "positron-r",
-	"displayName": "R",
-	"description": "R Language Pack for Positron",
-	"version": "0.0.2",
-	"publisher": "vscode",
-	"engines": {
-		"vscode": "^1.65.0"
-	},
-	"categories": [
-		"Programming Languages"
-	],
-	"activationEvents": [
-		"onStartupFinished"
-	],
-	"main": "./out/extension.js",
-	"contributes": {
-		"commands": [
-			{
-				"command": "positronR.setKernelPath",
-				"title": "R: Set Kernel Path"
-			}
-		],
-		"configuration": {
-			"type": "object",
-			"title": "Positron R Language Pack",
-			"properties": {
-				"positron.r.kernel.path": {
-					"scope": "window",
-					"type": "string",
-					"default": "",
-					"description": "Path on disk to the ARK kernel executable; use this to override the default (embedded) kernel."
-				},
-				"positron.r.trace.server": {
-					"scope": "window",
-					"type": "string",
-					"enum": [
-						"off",
-						"messages",
-						"verbose"
-					],
-					"enumDescriptions": [
-						"No tracing.",
-						"Log messages from the server to the output panel.",
-						"Log messages from the server as well as verbose output."
-					],
-					"default": "off",
-					"description": "Traces the communication between VS Code and the language server."
-				}
-			}
-		},
-		"languages": [
-			{
-				"id": "r",
-				"extensions": [
-					".R",
-					".r",
-					".rprofile"
-				],
-				"aliases": [
-					"R",
-					"r"
-				],
-				"configuration": "./language-configuration.json"
-			}
-		],
-		"grammars": [
-			{
-				"language": "r",
-				"scopeName": "source.r",
-				"path": "./syntaxes/r.tmGrammar.gen.json"
-			}
-		]
-	},
-	"scripts": {
-		"vscode:prepublish": "yarn run compile",
-		"compile-kernel": "ts-node scripts/compile-kernel.ts",
-		"compile-syntax": "ts-node scripts/compile-syntax.ts",
-		"compile": "tsc -p ./",
-		"watch": "tsc -watch -p ./",
-		"pretest": "yarn run compile && yarn run lint",
-		"postinstall": "ts-node scripts/post-install.ts",
-		"lint": "eslint src --ext ts",
-		"test": "node ./out/test/runTest.js",
-		"test-amalthea": "cd amalthea && cargo test"
-	},
-	"extensionDependencies": [
-		"vscode.jupyter-adapter"
-	],
-	"devDependencies": {
-		"@types/glob": "^7.2.0",
-		"@types/mocha": "^9.1.0",
-		"@types/node": "14.x",
-		"@typescript-eslint/eslint-plugin": "^5.12.1",
-		"@typescript-eslint/parser": "^5.12.1",
-		"@vscode/test-electron": "^2.1.2",
-		"eslint": "^8.9.0",
-		"glob": "^7.2.0",
-		"mocha": "^9.2.1",
-		"ts-node": "^10.9.1",
-		"typescript": "^4.5.5",
-		"vsce": "^2.11.0"
-	},
-	"dependencies": {
-		"vscode-languageclient": "^7.0.0"
-	},
-	"repository": {
-		"type": "git",
-		"url": "https://github.com/posit-dev/amalthea"
-	}
+  "name": "positron-r",
+  "displayName": "%displayName%",
+  "description": "%description%",
+  "version": "0.0.2",
+  "publisher": "vscode",
+  "engines": {
+    "vscode": "^1.65.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "r.setKernelPath",
+        "category": "R",
+        "title": "%r.command.setKernelPath.title%"
+      },
+      {
+        "command": "r.createNewFile",
+        "category": "R",
+        "title": "%r.command.createNewFile.title%",
+        "shortTitle": "%r.menu.createNewFile.title%"
+      }
+    ],
+    "configuration": {
+      "type": "object",
+      "title": "%r.configuration.title%",
+      "properties": {
+        "positron.r.kernel.path": {
+          "scope": "window",
+          "type": "string",
+          "default": "",
+          "description": "%r.configuration.kernelPath.description%"
+        },
+        "positron.r.trace.server": {
+          "scope": "window",
+          "type": "string",
+          "enum": [
+            "off",
+            "messages",
+            "verbose"
+          ],
+          "enumDescriptions": [
+            "%r.configuration.tracing.off.description%",
+            "%r.configuration.tracing.messages.description%",
+            "%r.configuration.tracing.verbose.description%"
+          ],
+          "default": "off",
+          "description": "%r.configuration.tracing.description%"
+        }
+      }
+    },
+    "languages": [
+      {
+        "id": "r",
+        "extensions": [
+          ".R",
+          ".r",
+          ".rprofile"
+        ],
+        "aliases": [
+          "R",
+          "r"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "r",
+        "scopeName": "source.r",
+        "path": "./syntaxes/r.tmGrammar.gen.json"
+      }
+    ],
+    "menus": {
+      "file/newFile": [
+        {
+          "command": "r.createNewFile",
+          "group": "file",
+          "when": "!virtualWorkspace"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "yarn run compile",
+    "compile-kernel": "ts-node scripts/compile-kernel.ts",
+    "compile-syntax": "ts-node scripts/compile-syntax.ts",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "pretest": "yarn run compile && yarn run lint",
+    "postinstall": "ts-node scripts/post-install.ts",
+    "lint": "eslint src --ext ts",
+    "test": "node ./out/test/runTest.js",
+    "test-amalthea": "cd amalthea && cargo test"
+  },
+  "extensionDependencies": [
+    "vscode.jupyter-adapter"
+  ],
+  "devDependencies": {
+    "@types/glob": "^7.2.0",
+    "@types/mocha": "^9.1.0",
+    "@types/node": "14.x",
+    "@typescript-eslint/eslint-plugin": "^5.12.1",
+    "@typescript-eslint/parser": "^5.12.1",
+    "@vscode/test-electron": "^2.1.2",
+    "eslint": "^8.9.0",
+    "glob": "^7.2.0",
+    "mocha": "^9.2.1",
+    "ts-node": "^10.9.1",
+    "typescript": "^4.5.5",
+    "vsce": "^2.11.0"
+  },
+  "dependencies": {
+    "vscode-languageclient": "^7.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/posit-dev/amalthea"
+  }
 }
