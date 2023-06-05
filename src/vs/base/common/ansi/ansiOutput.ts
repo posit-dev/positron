@@ -292,13 +292,13 @@ export class ANSIOutput {
 	 * Flushes the buffer to the output line.
 	 */
 	private flushBuffer() {
-		// Ensure that we have sufficient output lines in the output lines array.
-		for (let i = this._outputLines.length; i < this._outputLine + 1; i++) {
-			this._outputLines.push(new OutputLine());
-		}
-
 		// If the buffer isn't empty, flush it.
 		if (this._buffer) {
+			// Ensure that we have sufficient output lines in the output lines array.
+			for (let i = this._outputLines.length; i < this._outputLine + 1; i++) {
+				this._outputLines.push(new OutputLine());
+			}
+
 			// Get the output line.
 			const outputLine = this._outputLines[this._outputLine];
 
