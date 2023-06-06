@@ -79,3 +79,7 @@
 	border-radius: 6px;
 	outline: 1px solid var(--vscode-focusBorder) !important;
 }
+
+.top-action-bar-command-center .right .drop-down .icon {
+	font-size: 10px;
+}

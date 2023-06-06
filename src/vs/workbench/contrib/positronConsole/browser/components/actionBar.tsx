@@ -118,7 +118,7 @@ export const ActionBar = (props: ActionBarProps) => {
 							<ActionBarButton
 								fadeIn={true}
 								disabled={interrupting}
-								iconId='positron-interrupt'
+								iconId='positron-interrupt-runtime'
 								align='left'
 								tooltip={localize('positronInterruptExeuction', "Interrupt execution")}
 								onClick={interruptHandler}
