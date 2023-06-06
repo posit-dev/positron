@@ -41,7 +41,7 @@ export interface ConsoleInputProps {
  * @param props A ConsoleInputProps that contains the component properties.
  * @returns The rendered component.
  */
-export const ConsoleInput = forwardRef<HTMLDivElement, ConsoleInputProps>((props: ConsoleInputProps, consoleInputRef) => {
+export const ConsoleInput = forwardRef<HTMLDivElement, ConsoleInputProps>((props, consoleInputRef) => {
 	// Context hooks.
 	const positronConsoleContext = usePositronConsoleContext();
 

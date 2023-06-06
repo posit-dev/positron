@@ -4,6 +4,7 @@
 
 import 'vs/css!./actionBarMenuButton';
 import * as React from 'react';
+import { useRef } from 'react'; // eslint-disable-line no-duplicate-imports
 import { IAction } from 'vs/base/common/actions';
 import { AnchorAlignment, AnchorAxisAlignment } from 'vs/base/browser/ui/contextview/contextview';
 import { IContextMenuEvent } from 'vs/base/browser/contextmenu';
@@ -15,6 +16,7 @@ import { usePositronActionBarContext } from 'vs/platform/positronActionBar/brows
  */
 interface ActionBarMenuButtonProps {
 	iconId?: string;
+	iconFontSize?: number;
 	text?: string;
 	maxTextWidth?: number;
 	align?: 'left' | 'right';
@@ -30,7 +32,7 @@ interface ActionBarMenuButtonProps {
 export const ActionBarMenuButton = (props: ActionBarMenuButtonProps) => {
 	// Hooks.
 	const positronActionBarContext = usePositronActionBarContext();
-	const buttonRef = React.useRef<HTMLButtonElement>(undefined!);
+	const buttonRef = useRef<HTMLDivElement>(undefined!);
 
 	// Handlers.
 	const clickHandler = async () => {
