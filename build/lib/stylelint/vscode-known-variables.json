@@ -673,7 +673,6 @@
 		"--positronActionBar-hoverBackground",
 		"--positronActionBar-iconSize",
 		"--positronActionBar-iconSize",
-		"--positronActionBar-iconFontSize",
 		"--positronActionBar-foreground",
 		"--positronActionBar-disabledForeground",
 		"--positronActionBar-iconSize",
@@ -724,7 +723,8 @@
 		"--vscode-positronRuntimesManager-hoverForeground",
 		"--vscode-positronRuntimesManager-hoverBackground",
 		"--vscode-positronRuntimesManager-actionHoverBackground",
-		"--vscode-positronRuntimesManager-background"
+		"--vscode-positronRuntimesManager-background",
+		"--positronActionBar-separator"
 	],
 	"others": [
 		"--background-dark",

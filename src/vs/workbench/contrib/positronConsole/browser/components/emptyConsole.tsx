@@ -29,7 +29,7 @@ export const EmptyConsole = () => {
 		<div className='empty-console'>
 			<div className='title'>
 				<span>{localize('positron.noInterpreterRunning', "There is no interpreter running.")} {localize('positron.use', "Use")} </span>
-				<PositronButton className='link' inline={true} onClick={startInterpreterClickHandler}>
+				<PositronButton className='link' onClick={startInterpreterClickHandler}>
 					{localize('positron.startInterpreter', "Start Interpreter")}
 				</PositronButton>
 				<span> {localize('positron.toStartOne', "to start one.")}</span>
