@@ -277,7 +277,7 @@ def positron_completion(
         ]
     except ValueError:
         # Ignore LSP errors for completions from invalid line/column ranges.
-        logging.info("LSP completion error", exc_info=True)
+        logger.info("LSP completion error", exc_info=True)
         completion_items = []
 
     return CompletionList(is_incomplete=False, items=completion_items) if completion_items else None
@@ -329,7 +329,7 @@ def positron_hover(
         return hover(server, params)
     except ValueError:
         # Ignore LSP errors for hover over invalid line/column ranges.
-        logging.info("LSP hover error", exc_info=True)
+        logger.info("LSP hover error", exc_info=True)
 
     return None
 
@@ -378,7 +378,7 @@ def positron_code_action(
         return code_action(server, params)
     except ValueError:
         # Ignore LSP errors for actions with invalid line/column ranges.
-        logging.info("LSP codeAction error", exc_info=True)
+        logger.info("LSP codeAction error", exc_info=True)
 
     return None
 

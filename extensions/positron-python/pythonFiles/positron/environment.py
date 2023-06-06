@@ -11,6 +11,8 @@ from typing import Any, Optional
 from .inspectors import get_inspector, MAX_ITEMS
 from .utils import get_qualname
 
+logger = logging.getLogger(__name__)
+
 
 @enum.unique
 class EnvironmentMessageType(str, enum.Enum):
@@ -271,7 +273,7 @@ class EnvironmentService:
         Send a message through the environment comm to the client.
         """
         if self.env_comm is None:
-            logging.warning("Cannot send message, environment comm is not open")
+            logger.warning("Cannot send message, environment comm is not open")
             return
 
         self.env_comm.send(msg)
@@ -517,7 +519,7 @@ class EnvironmentService:
             )
 
         except Exception as err:
-            logging.warning(err, exc_info=True)
+            logger.warning(err, exc_info=True)
             return EnvironmentVariable(
                 display_name=str(key),
                 display_value=get_qualname(value),

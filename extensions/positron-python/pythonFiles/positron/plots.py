@@ -11,6 +11,8 @@ from typing import Optional, Tuple
 
 from IPython.core.interactiveshell import InteractiveShell
 
+logger = logging.getLogger(__name__)
+
 
 class PlotClientMessageImage(dict):
     """
@@ -107,7 +109,7 @@ class PositronDisplayPublisherHook:
 
         figure_comm = self.comms.get(comm_id, None)
         if figure_comm is None:
-            logging.warning(f"Plot figure comm {comm_id} not found")
+            logger.warning(f"Plot figure comm {comm_id} not found")
             return
 
         pickled = self.figures.get(comm_id, None)
