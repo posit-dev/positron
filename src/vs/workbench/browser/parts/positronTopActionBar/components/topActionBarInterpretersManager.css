@@ -58,6 +58,7 @@
 .top-action-bar-interpreters-manager .right .chevron {
 	height: 22px;
 	width: 22px;
+	font-size: 10px;
 	border: none;
 	display: flex;
 	cursor: pointer;
