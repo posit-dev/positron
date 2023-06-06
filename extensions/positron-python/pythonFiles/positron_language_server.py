@@ -21,12 +21,7 @@ from positron.positron_ipkernel import PositronIPyKernel
 logger = logging.getLogger(__name__)
 
 
-def initialize_config() -> None:
-    """
-    Initialize the configuration for the Positron Python Language Server
-    and REPL Kernel.
-    """
-
+def parse_args() -> argparse.Namespace:
     # Given we're using TCP, support a subset of the Jedi LSP configuration
     parser = argparse.ArgumentParser(
         prog="positron-language-server",
@@ -54,27 +49,21 @@ def initialize_config() -> None:
     )
     parser.add_argument(
         "-f",
-        help="location of the IPyKernel configuration file",
+        "--connection-file",
+        help="location of the IPyKernel connection file",
         type=str,
     )
-    parser.add_argument(
-        "-v",
-        "--verbose",
-        help="increase verbosity of log output",
-        action="count",
-        default=0,
-    )
     args = parser.parse_args()
-
     args.loglevel = args.loglevel.upper()
-    if args.logfile:
-        logging.basicConfig(
-            filename=args.logfile,
-            filemode="w",
-            level=args.loglevel,
-        )
-    else:
-        logging.basicConfig(stream=sys.stderr, level=args.loglevel)
+
+    return args
+
+
+if __name__ == "__main__":
+    exit_status = 0
+
+    # Parse command-line arguments
+    args = parse_args()
 
     # Start the debugpy debugger if a port was specified
     if args.debugport is not None:
@@ -83,18 +72,43 @@ def initialize_config() -> None:
 
             debugpy.listen(args.debugport)
         except Exception as error:
-            logging.warning(f"Unable to start debugpy: {error}", exc_info=True)
+            logger.warning(f"Unable to start debugpy: {error}", exc_info=True)
 
-
-if __name__ == "__main__":
-    exit_status = 0
-
-    # Init the configuration args
-    initialize_config()
+    # Configure logging by passing the IPKernelApp traitlets application by passing a logging config
+    # dict. See: https://docs.python.org/3/library/logging.config.html#logging-config-dictschema for
+    # more info about this schema.
+    handlers = ["console"] if args.logfile is None else ["file"]
+    logging_config = {
+        "loggers": {
+            "root": {
+                "level": args.loglevel,
+                "handlers": handlers,
+            },
+            "IPKernelApp": {
+                "handlers": handlers,
+            },
+        }
+    }
+    if args.logfile is not None:
+        logging_config["handlers"] = {
+            "file": {
+                "class": "logging.FileHandler",
+                "formatter": "console",
+                "level": args.loglevel,
+                "filename": args.logfile,
+            }
+        }
 
     # Start Positron's IPyKernel as the interpreter for our console.
-    app = kernelapp.IPKernelApp.instance(kernel_class=PositronIPyKernel)
-    app.initialize()
+    app = kernelapp.IPKernelApp.instance(
+        kernel_class=PositronIPyKernel,
+        connection_file=args.connection_file,
+        log_level=args.loglevel,
+        logging_config=logging_config,
+    )
+    # Initialize with empty argv, otherwise BaseIPythonApplication.initialize reuses our
+    # command-line arguments in unexpected ways (e.g. logfile instructs it to log executed code).
+    app.initialize(argv=[])
     app.kernel.start()
 
     logger.info(f"Process ID {os.getpid()}")
@@ -104,7 +118,7 @@ if __name__ == "__main__":
     loop = asyncio.get_event_loop()
 
     # Enable asyncio debug mode.
-    if logging.getLogger().level == logging.DEBUG:
+    if args.loglevel == "DEBUG":
         loop.set_debug(True)
 
     try:

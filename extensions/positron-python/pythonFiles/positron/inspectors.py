@@ -23,6 +23,8 @@ PRINT_WIDTH: int = 100
 # conditional property lookup
 __POSITRON_DEFAULT__ = object()
 
+logger = logging.getLogger(__name__)
+
 #
 # Base inspector
 #
@@ -156,7 +158,7 @@ class CollectionInspector(PositronInspector):
                 index = int(child_name)
                 return index < self.get_length(value)
             except Exception:
-                logging.warning(f"Unable to find child value at '{child_name}'", exc_info=True)
+                logger.warning(f"Unable to find child value at '{child_name}'", exc_info=True)
 
         return False
 
@@ -168,7 +170,7 @@ class CollectionInspector(PositronInspector):
                 index = int(child_name)
                 child_value = value[index]
             except Exception:
-                logging.warning(f"Unable to find child value at '{child_name}'", exc_info=True)
+                logger.warning(f"Unable to find child value at '{child_name}'", exc_info=True)
 
         return child_value
 
@@ -371,7 +373,7 @@ class PandasDataFrameInspector(TableInspector):
             values = column.values.tolist()
         except Exception:
             values = []
-            logging.warning("Unable to get Pandas column: %s", column_name, exc_info=True)
+            logger.warning("Unable to get Pandas column: %s", column_name, exc_info=True)
 
         return values
 
@@ -395,7 +397,7 @@ class PandasDataFrameInspector(TableInspector):
             display_type = f"{column_type} [{size}]"
         except Exception:
             display_type = ""
-            logging.warning("Unable to get Pandas column type: %s", column_name, exc_info=True)
+            logger.warning("Unable to get Pandas column type: %s", column_name, exc_info=True)
 
         return display_type
 
@@ -432,7 +434,7 @@ class PandasSeriesInspector(CollectionInspector):
             display_value = value.to_string(index=False, max_rows=MAX_ITEMS)
             return (display_value, True)
         except Exception:
-            logging.warning("Unable to display Pandas Series", exc_info=True)
+            logger.warning("Unable to display Pandas Series", exc_info=True)
             display_value = self.get_display_type(value)
             return (display_value, True)
 
@@ -451,7 +453,7 @@ class PandasSeriesInspector(CollectionInspector):
             index = int(child_name)
             return index < self.get_length(value)
         except Exception:
-            logging.warning(f"Unable to find Pandas Series child at '{child_name}'", exc_info=True)
+            logger.warning(f"Unable to find Pandas Series child at '{child_name}'", exc_info=True)
 
         return False
 
@@ -462,7 +464,7 @@ class PandasSeriesInspector(CollectionInspector):
             index = int(child_name)
             child_value = value.iat[index]
         except Exception:
-            logging.warning(f"Unable to find Pandas Series child at '{child_name}'", exc_info=True)
+            logger.warning(f"Unable to find Pandas Series child at '{child_name}'", exc_info=True)
 
         return child_value
 
@@ -481,7 +483,7 @@ class PandasSeriesInspector(CollectionInspector):
                 if summary is not None:
                     children.append(summary)
         except Exception:
-            logging.warning("Error summarizing Pandas Series children", exc_info=True)
+            logger.warning("Error summarizing Pandas Series children", exc_info=True)
 
         return children
 
@@ -536,7 +538,7 @@ class PolarsInspector(TableInspector):
             column = value.get_column(child_name)
             return column.to_list()
         except Exception:
-            logging.warning("Unable to get Polars child: %s", child_name, exc_info=True)
+            logger.warning("Unable to get Polars child: %s", child_name, exc_info=True)
             return []
 
     def get_column_display_type(self, value: Any, column_name: str) -> str:
@@ -558,7 +560,7 @@ class PolarsInspector(TableInspector):
 
             display_type = f"{column_type} [{size}]"
         except Exception:
-            logging.warning("Unable to get Polars column type: %s", column_name, exc_info=True)
+            logger.warning("Unable to get Polars column type: %s", column_name, exc_info=True)
             display_type = ""
 
         return display_type
@@ -602,7 +604,7 @@ class NumpyNdarrayInspector(CollectionInspector):
                 True,
             )
         except Exception:
-            logging.warning("Unable to display Ndarray", exc_info=True)
+            logger.warning("Unable to display Ndarray", exc_info=True)
             return (self.get_display_type(value), True)
 
     def get_display_type(self, value: Any) -> str:
@@ -637,7 +639,7 @@ class NumpyNdarrayInspector(CollectionInspector):
             index = int(child_name)
             return index < self.get_length(value)
         except Exception:
-            logging.warning(f"Unable to find Pandas Series child at '{child_name}'", exc_info=True)
+            logger.warning(f"Unable to find Pandas Series child at '{child_name}'", exc_info=True)
         return False
 
     def get_child(self, value: Any, child_name: str) -> Any:
@@ -652,7 +654,7 @@ class NumpyNdarrayInspector(CollectionInspector):
 
             return child_value
         except Exception:
-            logging.warning("Unable to get ndarray child: %s", child_name, exc_info=True)
+            logger.warning("Unable to get ndarray child: %s", child_name, exc_info=True)
             return []
 
     def summarize_children(
@@ -670,7 +672,7 @@ class NumpyNdarrayInspector(CollectionInspector):
                 if summary is not None:
                     children.append(summary)
         except Exception:
-            logging.warning("Error summarizing Numpy ndarray children", exc_info=True)
+            logger.warning("Error summarizing Numpy ndarray children", exc_info=True)
 
         return children
 
@@ -681,7 +683,7 @@ class NumpyNdarrayInspector(CollectionInspector):
 
             return np.array_equal(value1, value2)
         except Exception as err:
-            logging.warning("numpy equals %s", err, exc_info=True)
+            logger.warning("numpy equals %s", err, exc_info=True)
 
         # Fallback to comparing the raw bytes
         if value1.shape != value2.shape:
