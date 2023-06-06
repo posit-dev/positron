@@ -97,15 +97,13 @@ export const InterpreterGroups = (props: InterpreterGroupsProps) => {
 	return (
 		<div className='interpreter-groups'>
 			{interpreterGroups.map((interpreterGroup, index, runningRuntimes) => (
-				<>
-					<InterpreterGroup
-						key={interpreterGroup.primaryRuntime.metadata.runtimeId}
-						languageRuntimeService={props.languageRuntimeService}
-						interpreterGroup={interpreterGroup}
-						onStartRuntime={props.onStartRuntime}
-						onActivateRuntime={props.onActivateRuntime}
-					/>
-				</>
+				<InterpreterGroup
+					key={interpreterGroup.primaryRuntime.metadata.runtimeId}
+					languageRuntimeService={props.languageRuntimeService}
+					interpreterGroup={interpreterGroup}
+					onStartRuntime={props.onStartRuntime}
+					onActivateRuntime={props.onActivateRuntime}
+				/>
 			))}
 		</div>
 	);

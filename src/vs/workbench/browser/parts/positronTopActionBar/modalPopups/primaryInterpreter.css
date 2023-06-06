@@ -11,7 +11,7 @@
 	text-align: left;
 	align-items: center;
 	background: transparent;
-	grid-template-columns: min-content 1fr min-content;
+	grid-template-columns: 36px min-content 1fr min-content;
 }
 
 .primary-interpreter:hover {
@@ -28,16 +28,26 @@
 	outline: 1px solid var(--vscode-focusBorder) !important;
 }
 
+.primary-interpreter .running-indicator {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.primary-interpreter .running-indicator .running-icon {
+	color: #17c13d;
+	font-size: 12px !important;
+}
+
 .primary-interpreter .icon {
 	width: 40px;
 	height: 40px;
-	padding-left: 10px;
-	padding-right: 10px;
 }
 
 .primary-interpreter .info {
 	display: grid;
 	line-height: 120%;
+	padding-left: 12px;
 	grid-template-rows: repeat(2, min-content);
 }
 

@@ -4,11 +4,15 @@
 
 import * as React from 'react';
 import { KeyboardEvent, MouseEvent, PropsWithChildren } from 'react'; // eslint-disable-line no-duplicate-imports
+import { positronClassNames } from 'vs/base/common/positronUtilities';
 
 /**
  * PositronButtonProps interface.
  */
 interface PositronButtonProps {
+	inline?: boolean;
+	className?: string;
+	disabled?: boolean;
 	onClick: () => void;
 }
 
@@ -17,7 +21,7 @@ interface PositronButtonProps {
  * @param props A PropsWithChildren<PositronButtonProps> that contains the component properties.
  * @returns The rendered component.
  */
-export const PositronButton = ({ onClick, children }: PropsWithChildren<PositronButtonProps>) => {
+export const PositronButton = (props: PropsWithChildren<PositronButtonProps>) => {
 	/**
 	 * onKeyDown event handler.
 	 * @param e A MouseEvent<HTMLDivElement> that describes a user interaction with the mouse.
@@ -30,8 +34,10 @@ export const PositronButton = ({ onClick, children }: PropsWithChildren<Positron
 				e.preventDefault();
 				e.stopPropagation();
 
-				// Raise the click event.
-				onClick();
+				// Raise the click event if the button isn't disabled.
+				if (!props.disabled) {
+					props.onClick();
+				}
 				break;
 		}
 	};
@@ -45,14 +51,38 @@ export const PositronButton = ({ onClick, children }: PropsWithChildren<Positron
 		e.preventDefault();
 		e.stopPropagation();
 
-		// Raise the click event.
-		onClick();
+		// Raise the click event if the button isn't disabled.
+		if (!props.disabled) {
+			props.onClick();
+		}
 	};
+
+	// Generate the class names.
+	const classNames = positronClassNames(props.className, { 'disabled': props.disabled });
+
+	// Render inline.
+	if (props.inline) {
+		return (
+			<span
+				className={classNames}
+				tabIndex={0}
+				role='button'
+				onKeyDown={keyDownHandler}
+				onClick={clickHandler}>
+				{props.children}
+			</span>
+		);
+	}
 
 	// Render.
 	return (
-		<div className='positron-button' tabIndex={0} role='button' onKeyDown={keyDownHandler} onClick={clickHandler}>
-			{children}
+		<div
+			className={classNames}
+			tabIndex={0}
+			role='button'
+			onKeyDown={keyDownHandler}
+			onClick={clickHandler}>
+			{props.children}
 		</div>
 	);
 };

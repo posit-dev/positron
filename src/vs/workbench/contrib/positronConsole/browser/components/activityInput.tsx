@@ -32,12 +32,11 @@ export const ActivityInput = (props: ActivityInputProps) => {
 			{props.activityItemInput.codeOutputLines.map((outputLine, index) =>
 				<div key={outputLine.id}>
 					<span style={{ width: promptWidth }}>
-						{index === 0 ?
+						{(index === 0 ?
 							props.activityItemInput.inputPrompt :
-							props.activityItemInput.continuationPrompt
+							props.activityItemInput.continuationPrompt) + ' '
 						}
 					</span>
-					<span>&nbsp;</span>
 					{outputLine.outputRuns.map(outputRun =>
 						<OutputRun key={outputRun.id} outputRun={outputRun} />
 					)}

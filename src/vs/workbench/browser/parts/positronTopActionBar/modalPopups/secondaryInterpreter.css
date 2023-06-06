@@ -12,7 +12,7 @@
 	text-align: left;
 	align-items: center;
 	background: transparent;
-	grid-template-columns: 60px min-content 1fr min-content;
+	grid-template-columns: 61px 27px min-content 1fr min-content;
 }
 
 .secondary-interpreter:hover {
@@ -29,15 +29,26 @@
 	outline: 1px solid var(--vscode-focusBorder) !important;
 }
 
+.secondary-interpreter .running-indicator {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.secondary-interpreter .running-indicator .running-icon {
+	color: #17c13d;
+	font-size: 9px !important;
+}
+
 .secondary-interpreter .icon {
 	width: 30px;
 	height: 30px;
-	padding-right: 5px;
 }
 
 .secondary-interpreter .info {
 	display: grid;
 	line-height: 120%;
+	padding-left: 9px;
 	grid-template-rows: repeat(2, min-content);
 }
 
