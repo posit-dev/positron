@@ -3,8 +3,9 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { spawnSync } from 'child_process';
+import { existsSync, readFileSync, writeFileSync } from 'fs';
 import { arch, platform } from 'os';
-import { env } from 'process';
+import { env, exit } from 'process';
 
 // Make sure that zmq produces x86 / arm64 builds where appropriate.
 // Note that the build pipeline sets 'npm_config_arch' to configure
@@ -21,22 +22,32 @@ if (platform() === 'darwin') {
 
 }
 
-// Use an older version of zeromq on macOS, to avoid issues with
-// linking to libsodium. There are patches available on GitHub:
+// Use our own fork of zeromq on macOS, to avoid issues with linking to
+// libsodium. There are patches available on GitHub:
 //
 // https://github.com/kevinushey/zeromq.js
 //
 // but it seems like npm isn't smart enough to cache node dependencies
 // installed from GitHub, so one ends up paying the installation cost
 // on every invocation in that case, which is no fun.
-const zeromqVersion = platform() === 'darwin'
-	?
-	[
-		'kevinushey/zeromq.js',
-		'fa6b52f85293d9fe14958d18f031d65520afd272'
-	].join('#')
-	: 'zeromq@6.0.0-beta.16';
+let zeromqVersion: string;
+if (platform() === 'darwin') {
+	zeromqVersion = 'kevinushey/zeromq.js#fa6b52f85293d9fe14958d18f031d65520afd272';
+} else {
+	zeromqVersion = 'zeromq@6.0.0-beta.16';
+}
 
+// Check and see if we need to install.
+const versionPath = `${__dirname}/../node_modules/zeromq-VERSION`;
+if (existsSync(versionPath)) {
+	const lastInstalledVersion = readFileSync(versionPath, { encoding: 'utf-8' });
+	if (lastInstalledVersion === zeromqVersion) {
+		console.info('zeromq is already up-to-date; nothing to do.');
+		exit(0);
+	}
+}
+
+// Perform the installation.
 const args = [
 	'install',
 	'--no-audit',
@@ -51,3 +62,7 @@ spawnSync('npm', args, {
 	'shell': true,
 });
 
+// Write out a file noting what version was installed.
+writeFileSync(versionPath, zeromqVersion, {
+	encoding: 'utf-8'
+});
