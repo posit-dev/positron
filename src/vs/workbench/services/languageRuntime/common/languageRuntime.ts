@@ -14,6 +14,7 @@ import { formatLanguageRuntime, ILanguageRuntime, ILanguageRuntimeGlobalEvent, I
  */
 class LanguageRuntimeInfo {
 	public state: RuntimeState;
+	public restarting = false;
 	constructor(
 		public readonly runtime: ILanguageRuntime,
 		public readonly startupBehavior: LanguageRuntimeStartupBehavior) {
@@ -21,6 +22,14 @@ class LanguageRuntimeInfo {
 	}
 	setState(state: RuntimeState): void {
 		this.state = state;
+
+		// Dependents check the value of `restarting` to determine whether an `Exited` state
+		// was preceeded by `Restarting`.
+		if (state === RuntimeState.Restarting) {
+			this.restarting = true;
+		} else if (state === RuntimeState.Initializing) {
+			this.restarting = false;
+		}
 	}
 }
 
@@ -312,8 +321,7 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 				// need to ensure all the event handlers for the state change we
 				// are currently processing have been called (i.e. everyone knows it has exited)
 				setTimeout(() => {
-					if (oldState === RuntimeState.Restarting &&
-						state === RuntimeState.Exited) {
+					if (languageRuntimeInfo.restarting && state === RuntimeState.Exited) {
 						this._onWillStartRuntimeEmitter.fire(runtime);
 					}
 				}, 0);
