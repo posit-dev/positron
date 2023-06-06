@@ -99,7 +99,7 @@ class PositronIPyKernel(IPythonKernel):
         try:
             self.snapshot_user_ns()
         except Exception:
-            logging.warning("Failed to snapshot user namespace", exc_info=True)
+            logger.warning("Failed to snapshot user namespace", exc_info=True)
 
     def handle_post_execute(self) -> None:
         """
@@ -117,7 +117,7 @@ class PositronIPyKernel(IPythonKernel):
             assigned, removed = self.compare_user_ns()
             self.env_service.send_update(assigned, removed)
         except Exception as err:
-            logging.warning(err, exc_info=True)
+            logger.warning(err, exc_info=True)
 
     def get_user_ns(self) -> dict:
         return self.shell.user_ns or {}  # type: ignore
@@ -200,7 +200,7 @@ class PositronIPyKernel(IPythonKernel):
                         assigned[key] = v2
 
             except Exception as err:
-                logging.warning("err: %s", err, exc_info=True)
+                logger.warning("err: %s", err, exc_info=True)
 
         return assigned, removed
 
@@ -317,7 +317,7 @@ class PositronIPyKernel(IPythonKernel):
             try:
                 self.shell.del_var(name, False)  # type: ignore
             except Exception:
-                logging.warning(f"Unable to delete variable '{name}'")
+                logger.warning(f"Unable to delete variable '{name}'")
                 pass
 
         assigned, removed = self.compare_user_ns()
