@@ -50,6 +50,7 @@ export const TopActionBarWorkspaceMenu = () => {
 	return (
 		<ActionBarMenuButton
 			iconId='positron-workspace'
+			iconFontSize={20}
 			align='right'
 			actions={actions}
 			text={positronTopActionBarContext.workspaceFolder ? positronTopActionBarContext.workspaceFolder.name : undefined}

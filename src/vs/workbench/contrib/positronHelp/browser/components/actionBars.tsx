@@ -56,7 +56,7 @@ export interface ActionBarsProps {
  */
 export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 	// Hooks.
-	const historyButtonRef = useRef<HTMLButtonElement>(undefined!);
+	const historyButtonRef = useRef<HTMLDivElement>(undefined!);
 	const [alternateFindUI, setAlternateFindUI] = useState(false);
 	const [findText, setFindText] = useState('');
 	const [pollFindResults, setPollFindResults] = useState(false);

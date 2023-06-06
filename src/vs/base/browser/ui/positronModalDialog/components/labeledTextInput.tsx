@@ -19,7 +19,7 @@ export interface LabeledTextInputProps {
 /**
  * LabeledTextInput component.
  */
-export const LabeledTextInput = forwardRef<HTMLInputElement, LabeledTextInputProps>((props: LabeledTextInputProps, ref) => {
+export const LabeledTextInput = forwardRef<HTMLInputElement, LabeledTextInputProps>((props, ref) => {
 	// Render.
 	return (
 		<div className='labeled-text-input'>
