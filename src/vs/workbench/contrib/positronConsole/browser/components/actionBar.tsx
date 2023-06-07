@@ -127,7 +127,7 @@ export const ActionBar = (props: ActionBarProps) => {
 					</ActionBarRegion>
 					<ActionBarRegion location='right'>
 						<ActionBarButton iconId='positron-list' align='right' tooltip={localize('positronToggleTrace', "Toggle trace")} onClick={toggleTraceHandler} />
-						<ActionBarButton iconId='positron-word-wrap' align='right' tooltip={localize('positronWordWrap', "Toggle word wrap")} onClick={toggleWordWrapHandler} />
+						<ActionBarButton iconId='word-wrap' align='right' tooltip={localize('positronWordWrap', "Toggle word wrap")} onClick={toggleWordWrapHandler} />
 						<ActionBarSeparator />
 						<ActionBarButton iconId='positron-trash-can' align='right' tooltip={localize('positronClearConsole', "Clear console")} onClick={clearConsoleHandler} />
 					</ActionBarRegion>

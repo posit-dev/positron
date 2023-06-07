@@ -53,7 +53,7 @@ export const TopActionBarCommandCenter = () => {
 			</div>
 			<div className='right'>
 				<button className='drop-down' onClick={(e) => dropDownClickHandler(e)}>
-					<div className='icon codicon codicon-positron-chevron-down' />
+					<div className='icon codicon codicon-chevron-down' />
 				</button>
 			</div>
 		</div>
