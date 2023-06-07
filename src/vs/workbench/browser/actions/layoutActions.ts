@@ -43,6 +43,9 @@ const panelLeftOffIcon = registerIcon('panel-left-off', Codicon.layoutSidebarLef
 const panelRightIcon = registerIcon('panel-right', Codicon.layoutSidebarRight, localize('panelRight', "Represents side bar in the right position"));
 const panelRightOffIcon = registerIcon('panel-right-off', Codicon.layoutSidebarRightOff, localize('panelRightOff', "Represents side bar in the right position toggled off"));
 const panelIcon = registerIcon('panel-bottom', Codicon.layoutPanel, localize('panelBottom', "Represents the bottom panel"));
+// --- Start Positron ---
+const positronTopActionBarIcon = registerIcon('positron-top-action-bar', Codicon.positronTopActionBar, localize('positronTopActionBarIcon', "Represents the top bar"));
+// --- End Positron ---
 const statusBarIcon = registerIcon('statusBar', Codicon.layoutStatusbar, localize('statusBarIcon', "Represents the status bar"));
 
 const panelAlignmentLeftIcon = registerIcon('panel-align-left', Codicon.layoutPanelLeft, localize('panelBottomLeft', "Represents the bottom panel alignment set to the left"));
@@ -1160,7 +1163,7 @@ if (!isMacintosh || !isNative) {
 
 ToggleVisibilityActions.push(...[
 	// --- Start Positron ---
-	CreateToggleLayoutItem(PositronToggleTopActionBarVisibilityAction.ID, PositronTopActionBarVisibleContext, localize('positronTopActionBar', "Top Bar"), panelIcon), // TODO@softwarenerd change panelIcon
+	CreateToggleLayoutItem(PositronToggleTopActionBarVisibilityAction.ID, PositronTopActionBarVisibleContext, localize('positronTopActionBar', "Top Bar"), positronTopActionBarIcon), // TODO@softwarenerd change panelIcon
 	// --- End Positron ---
 	CreateToggleLayoutItem(ToggleActivityBarVisibilityAction.ID, ContextKeyExpr.equals('config.workbench.activityBar.visible', true), localize('activityBar', "Activity Bar"), { whenA: ContextKeyExpr.equals('config.workbench.sideBar.location', 'left'), iconA: activityBarLeftIcon, iconB: activityBarRightIcon }),
 	CreateToggleLayoutItem(ToggleSidebarVisibilityAction.ID, SideBarVisibleContext, localize('sideBar', "Primary Side Bar"), { whenA: ContextKeyExpr.equals('config.workbench.sideBar.location', 'left'), iconA: panelLeftIcon, iconB: panelRightIcon }),

@@ -58,7 +58,7 @@ export const showInterpretersManagerModalPopup = async (
 					anchorElement={anchorElement}
 					popupPosition='bottom'
 					popupAlignment='right'
-					width={350}
+					width={375}
 					height={'min-content'}
 					onDismiss={() => dismiss()}
 				>
