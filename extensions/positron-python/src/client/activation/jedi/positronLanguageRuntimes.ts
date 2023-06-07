@@ -12,7 +12,7 @@ import * as vscode from 'vscode';
 import * as crypto from 'crypto';
 import { Disposable, DocumentFilter, LanguageClientOptions } from 'vscode-languageclient/node';
 
-import { compare } from 'semver';
+import * as semver from 'semver';
 import { EXTENSION_ROOT_DIR, PYTHON_LANGUAGE } from '../../common/constants';
 import { IConfigurationService, IDisposableRegistry, IInstaller, InstallerResponse, Product, Resource } from '../../common/types';
 import { InstallOptions } from '../../common/installer/types';
@@ -48,6 +48,8 @@ export class PositronJediLanguageServerProxy implements ILanguageServerProxy {
     private readonly installOptions: InstallOptions = { installAsProcess: true };
 
     private registered = false;
+
+    private readonly minimumSupportedVersion = '3.8.0';
 
     constructor(
         private readonly serviceContainer: IServiceContainer,
@@ -161,20 +163,26 @@ export class PositronJediLanguageServerProxy implements ILanguageServerProxy {
         let debugPort;
         for (const interpreter of interpreters) {
 
-            // If required, also locate an available port for the debugger
-            if (debug) {
-                if (debugPort === undefined) {
-                    debugPort = 5678; // Default port for debugpy
+            // Only register runtimes for supported versions
+            if (this.isVersionSupported(interpreter?.version)) {
+
+                // If required, also locate an available port for the debugger
+                if (debug) {
+                    if (debugPort === undefined) {
+                        debugPort = 5678; // Default port for debugpy
+                    }
+                    debugPort = await portfinder.getPortPromise({ port: debugPort });
                 }
-                debugPort = await portfinder.getPortPromise({ port: debugPort });
-            }
 
-            const runtime: vscode.Disposable = await this.registerLanguageRuntime(
-                jupyterAdapterApi, interpreter, debugPort, logLevel, options);
-            this.disposables.push(runtime);
+                const runtime: vscode.Disposable = await this.registerLanguageRuntime(
+                    jupyterAdapterApi, interpreter, debugPort, logLevel, options);
+                this.disposables.push(runtime);
 
-            if (debugPort !== undefined) {
-                debugPort += 1;
+                if (debugPort !== undefined) {
+                    debugPort += 1;
+                }
+            } else {
+                traceVerbose(`Not registering runtime due to unsupported interpreter version ${interpreter.displayName}`);
             }
         }
     }
@@ -257,9 +265,18 @@ export class PositronJediLanguageServerProxy implements ILanguageServerProxy {
             // Compare versions in descending order
             const av: string = this.getVersionString(a.version);
             const bv: string = this.getVersionString(b.version);
-            return -compare(av, bv);
+            return -semver.compare(av, bv);
         });
         return copy;
+    }
+
+    /**
+     * Check if a version is supported (i.e. >= the minimum supported version).
+     * Also returns true if the version could not be determined.
+     */
+    private isVersionSupported(version: PythonVersion | undefined): boolean {
+        const versionString = version && this.getVersionString(version);
+        return !versionString || semver.gte(versionString, this.minimumSupportedVersion);
     }
 
     /**
