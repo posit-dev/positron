@@ -99,17 +99,19 @@ export const InterpreterGroup = (props: InterpreterGroupProps) => {
 				onStart={async () => await props.onStartRuntime(props.interpreterGroup.primaryRuntime)}
 				onActivate={async () => await props.onActivateRuntime(props.interpreterGroup.primaryRuntime)}
 			/>
-			<div className='secondary-interpreters'>
-				{(alternateRuntimeAlive || showAllVersions) && props.interpreterGroup.alternateRuntimes.map(runtime =>
-					<SecondaryInterpreter
-						key={runtime.metadata.runtimeId}
-						languageRuntimeService={props.languageRuntimeService}
-						runtime={runtime}
-						onStart={async () => await props.onStartRuntime(runtime)}
-						onActivate={async () => await props.onActivateRuntime(runtime)}
-					/>
-				)}
-			</div>
+			{(alternateRuntimeAlive || showAllVersions) &&
+				<div className='secondary-interpreters'>
+					{props.interpreterGroup.alternateRuntimes.map(runtime =>
+						<SecondaryInterpreter
+							key={runtime.metadata.runtimeId}
+							languageRuntimeService={props.languageRuntimeService}
+							runtime={runtime}
+							onStart={async () => await props.onStartRuntime(runtime)}
+							onActivate={async () => await props.onActivateRuntime(runtime)}
+						/>
+					)}
+				</div>
+			}
 		</div>
 	);
 };
