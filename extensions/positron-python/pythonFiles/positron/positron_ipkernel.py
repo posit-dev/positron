@@ -8,10 +8,12 @@ import asyncio
 import logging
 from collections.abc import Iterable, Sequence
 from itertools import chain
-from typing import Any, Optional, Tuple
+from typing import Any, Optional, Tuple, Dict
 
 from ipykernel.ipkernel import IPythonKernel
 from ipykernel.zmqshell import ZMQInteractiveShell
+
+from IPython.core.magic import Magics, magics_class, line_magic, needs_local_scope
 
 from .dataviewer import DataViewerService
 from .environment import EnvironmentService
@@ -76,6 +78,7 @@ class PositronIPyKernel(IPythonKernel):
 
         # Setup Positron's dataviewer service
         self.dataviewer_service = DataViewerService(POSITRON_DATA_VIEWER_COMM)
+        load_ipython_extension(self.shell)
 
     def do_shutdown(self, restart) -> dict:
         """
@@ -358,3 +361,34 @@ class PositronIPyKernel(IPythonKernel):
         self.env_service.send_list()
 
         return coro
+
+
+@magics_class
+class ViewerMagic(Magics):
+    @needs_local_scope
+    @line_magic
+    def view(self, value: str, local_ns: Dict[str, Any]):
+        """Open DataViewerService through %view magic command"""
+
+        try:
+            local_value = local_ns[value]
+            inspector = get_inspector(local_value)
+            dataset = inspector.to_dataset(local_value, value)
+        except KeyError:  # not in namespace
+            eval_value = eval(value, local_ns, local_ns)
+            inspector = get_inspector(eval_value)
+            dataset = inspector.to_dataset(eval_value, value)
+
+        if dataset is not None:
+            DataViewerService(POSITRON_DATA_VIEWER_COMM).register_dataset(dataset)
+
+
+def load_ipython_extension(ipython):
+    """
+    Any module file that define a function named `load_ipython_extension`
+    can be loaded via `%load_ext module.path` or be configured to be
+    autoloaded by IPython at startup time.
+    """
+    # You can register the class itself without instantiating it.  IPython will
+    # call the default constructor on it.
+    ipython.register_magics(ViewerMagic)
