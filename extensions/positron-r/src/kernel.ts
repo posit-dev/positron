@@ -72,10 +72,14 @@ export function registerArkKernel(ext: vscode.Extension<any>, context: vscode.Ex
 			if (resolved) {
 				this.rHome = rHome;
 			} else {
-				this.rHome = execSync(
-					`${rHome}/R RHOME`,
-					{ shell: '/bin/bash', encoding: 'utf8' })
-					.trim();
+				try {
+					this.rHome = execSync(
+						`${rHome}/R RHOME`, { encoding: 'utf8' })
+						.trim();
+				} catch (e) {
+					console.error(`Error running RHOME command for ${rHome}: ${e}`);
+					this.rHome = rHome;
+				}
 			}
 			this.rVersion = getRVersion(rHome);
 		}
@@ -98,7 +102,12 @@ export function registerArkKernel(ext: vscode.Extension<any>, context: vscode.Ex
 		fs.readdirSync(rVersionsFolder).forEach((version: string) => {
 			const rHome = path.join(rVersionsFolder, version, 'Resources');
 			if (fs.existsSync(rHome)) {
-				rInstallations.push(new RInstallation(rHome, false));
+				// Ensure the R binary actually exists at this path; it's possible that
+				// the user has deleted the R installation but left the folder behind.
+				const rBin = path.join(rHome, 'bin', 'R');
+				if (fs.existsSync(rBin)) {
+					rInstallations.push(new RInstallation(rHome, false));
+				}
 			}
 		});
 	}

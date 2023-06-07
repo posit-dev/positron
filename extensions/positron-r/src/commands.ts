@@ -10,7 +10,7 @@ export function registerCommands(context: vscode.ExtensionContext) {
 	context.subscriptions.push(
 		// Command used to register the ARK kernel with the Jupyter Adapter
 		// extension. Typically run only once to set up the kernel.
-		vscode.commands.registerCommand('positronR.setKernelPath', () => {
+		vscode.commands.registerCommand('r.setKernelPath', () => {
 			// Get the existing kernel path setting
 			const settingPath = vscode.workspace.getConfiguration('positron.r').get<string>('kernel.path');
 
@@ -33,5 +33,13 @@ export function registerCommands(context: vscode.ExtensionContext) {
 					adaptJupyterKernel(context, fsPath);
 				}
 			});
-		}));
+		}),
+
+		// Command used to create new R files
+		vscode.commands.registerCommand('r.createNewFile', () => {
+			vscode.workspace.openTextDocument({ language: 'r' }).then((newFile) => {
+				vscode.window.showTextDocument(newFile);
+			});
+		})
+	);
 }
