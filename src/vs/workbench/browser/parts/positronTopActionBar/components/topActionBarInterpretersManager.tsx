@@ -101,7 +101,7 @@ export const TopActionBarInterpretersManager = (props: TopActionBarInterpretersM
 				}
 			</div>
 			<div className='right'>
-				<div className='chevron codicon codicon-positron-chevron-down' />
+				<div className='chevron codicon codicon-chevron-down' />
 			</div>
 		</div>
 	);
