@@ -11,16 +11,9 @@
 }
 
 .secondary-interpreters {
-	max-height: 160px;
-	overflow-y: hidden;
-}
-
-.secondary-interpreters::-webkit-scrollbar:vertical {
-	border-top: 0.5px solid var(--vscode-positronScrollBar-border);
-	border-left: 0.5px solid var(--vscode-positronScrollBar-border);
-	border-bottom: 0.5px solid var(--vscode-positronScrollBar-border);
-}
-
-.secondary-interpreters:hover {
+	max-height: 180px;
 	overflow-y: overlay;
+	border-top: 0.5px solid var(--vscode-positronScrollBar-border);
+	border-bottom: 0.5px solid var(--vscode-positronScrollBar-border);
+
 }
