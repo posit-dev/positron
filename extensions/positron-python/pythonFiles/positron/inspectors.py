@@ -118,7 +118,7 @@ class PositronInspector:
         return copy.copy(value)
 
     def to_dataset(self, value: Any, title: str) -> Optional[DataSet]:
-        return None
+        raise TypeError(f"Type {type(value)} is not supported by `View()`.")
 
     def to_html(self, value: Any) -> str:
         return repr(value)
