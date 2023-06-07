@@ -10,8 +10,12 @@ import * as positron from 'positron';
 import * as vscode from 'vscode';
 import { Disposable, LanguageClient, LanguageClientOptions, ServerOptions, StreamInfo } from 'vscode-languageclient/node';
 import { PYTHON_LANGUAGE } from '../../common/constants';
+import { InstallOptions } from '../../common/installer/types';
+import { IInstaller, Product, InstallerResponse } from '../../common/types';
 import { JupyterAdapterApi, JupyterKernelSpec, JupyterLanguageRuntime } from '../../jupyter-adapter.d';
+import { traceVerbose } from '../../logging';
 import { ProgressReporting } from '../progress';
+import { PythonEnvironment } from '../../pythonEnvironments/info';
 
 /**
  * A Positron Python language runtime that wraps a Jupyter kernel runtime.
@@ -26,6 +30,10 @@ export class PythonLanguageRuntime implements JupyterLanguageRuntime, Disposable
 
     private readonly disposables: Disposable[] = [];
 
+    // Using a process to install modules avoids using the terminal service,
+    // which has issues waiting for the outcome of the install.
+    private readonly installOptions: InstallOptions = { installAsProcess: true };
+
     /**
      * Create a new PythonLanguageRuntime object to wrap a Jupyter kernel.
      *
@@ -37,7 +45,10 @@ export class PythonLanguageRuntime implements JupyterLanguageRuntime, Disposable
         readonly kernelSpec: JupyterKernelSpec,
         readonly metadata: positron.LanguageRuntimeMetadata,
         readonly adapterApi: JupyterAdapterApi,
-        readonly languageClientOptions: LanguageClientOptions) {
+        readonly languageClientOptions: LanguageClientOptions,
+        private readonly interpreter: PythonEnvironment | undefined,
+        private readonly installer: IInstaller,
+    ) {
 
         this._kernel = adapterApi.adaptKernel(kernelSpec, metadata);
 
@@ -91,8 +102,29 @@ export class PythonLanguageRuntime implements JupyterLanguageRuntime, Disposable
         this._kernel.replyToPrompt(id, reply);
     }
 
-    start(): Thenable<positron.LanguageRuntimeInfo> {
+    async start(): Promise<positron.LanguageRuntimeInfo> {
+        await this._installIpykernel();
         return this._kernel.start();
+    }
+
+    private async _installIpykernel(): Promise<void> {
+        // Offer to install the ipykernel module for the preferred interpreter, if it is missing.
+        // Thow an error if it could not be installed.
+        const hasKernel = await this.installer.isInstalled(Product.ipykernel, this.interpreter);
+        if (!hasKernel) {
+            const response = await this.installer.promptToInstall(Product.ipykernel,
+                this.interpreter, undefined, undefined, this.installOptions);
+            switch (response) {
+                case InstallerResponse.Installed:
+                    traceVerbose(`Successfully installed ipykernel for ${this.interpreter?.displayName}`);
+                    break;
+                case InstallerResponse.Ignore:
+                case InstallerResponse.Disabled:
+                    throw new Error(`Could not start runtime: failed to install ipykernel for ${this.interpreter?.displayName}.`);
+                default:
+                    throw new Error(`Unknown installer response type: ${response}`);
+            }
+        }
     }
 
     async interrupt(): Promise<void> {

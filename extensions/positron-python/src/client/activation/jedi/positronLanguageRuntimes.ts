@@ -14,8 +14,7 @@ import { Disposable, DocumentFilter, LanguageClientOptions } from 'vscode-langua
 
 import * as semver from 'semver';
 import { EXTENSION_ROOT_DIR, PYTHON_LANGUAGE } from '../../common/constants';
-import { IConfigurationService, IDisposableRegistry, IInstaller, InstallerResponse, Product, Resource } from '../../common/types';
-import { InstallOptions } from '../../common/installer/types';
+import { IConfigurationService, IDisposableRegistry, IInstaller, Product, Resource } from '../../common/types';
 import { IInterpreterService } from '../../interpreter/contracts';
 import { IServiceContainer } from '../../ioc/types';
 import { traceVerbose } from '../../logging';
@@ -43,10 +42,6 @@ export class PositronJediLanguageServerProxy implements ILanguageServerProxy {
 
     private readonly installer: IInstaller;
 
-    // Using a process to install modules avoids using the terminal service,
-    // which has issues waiting for the outcome of the install.
-    private readonly installOptions: InstallOptions = { installAsProcess: true };
-
     private registered = false;
 
     private readonly minimumSupportedVersion = '3.8.0';
@@ -65,7 +60,7 @@ export class PositronJediLanguageServerProxy implements ILanguageServerProxy {
             traceVerbose("Unable to read package.json to determine our extension version", e);
         }
 
-        this.disposables = serviceContainer.get<IDisposableRegistry>(IDisposableRegistry);
+        this.disposables = this.serviceContainer.get<IDisposableRegistry>(IDisposableRegistry);
         this.installer = this.serviceContainer.get<IInstaller>(IInstaller);
     }
 
@@ -98,16 +93,6 @@ export class PositronJediLanguageServerProxy implements ILanguageServerProxy {
 
         // Extend LSP support to include unsaved editors
         options.documentSelector = this.initDocumentSelector(options.documentSelector as DocumentFilter[]);
-
-        // Offer to install the ipykernel module for the preferred interpreter, if it is missing
-        const hasKernel = await this.installer.isInstalled(Product.ipykernel, interpreter);
-        if (!hasKernel) {
-            const response = await this.installer.promptToInstall(Product.ipykernel,
-                interpreter, undefined, undefined, this.installOptions);
-            if (response === InstallerResponse.Installed) {
-                traceVerbose(`Successfully installed ipykernel for ${interpreter?.displayName}`);
-            }
-        }
 
         // Register available python interpreters as language runtimes with our Jupyter Adapter
         this.withActiveExtention(ext, async () => {
@@ -245,7 +230,7 @@ export class PositronJediLanguageServerProxy implements ILanguageServerProxy {
 
         // Create an adapter for the kernel as our language runtime
         const runtime = new PythonLanguageRuntime(
-            kernelSpec, metadata, jupyterAdapterApi, options);
+            kernelSpec, metadata, jupyterAdapterApi, options, interpreter, this.installer);
 
         // Register our language runtime provider
         return positron.runtime.registerLanguageRuntime(runtime);
