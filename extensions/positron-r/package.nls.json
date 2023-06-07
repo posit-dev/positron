@@ -1,0 +1,13 @@
+{
+	"displayName": "R",
+	"description": "R Language Pack for Positron",
+	"r.command.setKernelPath.title": "Set Kernel Path",
+	"r.command.createNewFile.title": "New R File",
+	"r.menu.createNewFile.title": "R File",
+	"r.configuration.title": "Positron R Language Pack",
+	"r.configuration.kernelPath.description": "Path on disk to the ARK kernel executable; use this to override the default (embedded) kernel.",
+	"r.configuration.tracing.description": "Traces the communication between VS Code and the language server",
+	"r.configuration.tracing.off.description": "No tracing.",
+	"r.configuration.tracing.messages.description": "Log messages from the server to the output panel.",
+	"r.configuration.tracing.verbose.description": "Log messages from the server as well as verbose output."
+}
