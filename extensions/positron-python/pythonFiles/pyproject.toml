@@ -29,6 +29,7 @@ ignore = [
     'testlauncher.py',
     'visualstudio_py_testlauncher.py',
     'testing_tools/unittest_discovery.py',
+    'testing_tools/adapter/report.py',
     'testing_tools/adapter/util.py',
     'testing_tools/adapter/pytest/_discovery.py',
     'testing_tools/adapter/pytest/_pytest_item.py',
