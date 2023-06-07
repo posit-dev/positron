@@ -11,6 +11,7 @@ yapf
 pylint
 pycodestyle
 pydocstyle
+pygls
 prospector
 pytest
 flask
@@ -29,6 +30,11 @@ freezegun
 # --- Start Positron ---
 # iPython Kernel tests
 ipykernel
+jedi
+jedi_language_server
+lsprotocol
 matplotlib
+pandas
 pytest-mock
+polars
 # --- End Positron ---
