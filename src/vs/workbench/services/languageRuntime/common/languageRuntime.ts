@@ -7,7 +7,8 @@ import { ILogService } from 'vs/platform/log/common/log';
 import { ILanguageService } from 'vs/editor/common/languages/language';
 import { Disposable, IDisposable, toDisposable } from 'vs/base/common/lifecycle';
 import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/common/extensions';
-import { formatLanguageRuntime, ILanguageRuntime, ILanguageRuntimeGlobalEvent, ILanguageRuntimeService, ILanguageRuntimeStateEvent, LanguageRuntimeStartupBehavior, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { formatLanguageRuntime, ILanguageRuntime, ILanguageRuntimeGlobalEvent, ILanguageRuntimeService, ILanguageRuntimeStateEvent, LanguageRuntimeStartupBehavior, RuntimeClientType, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { FrontEndClientInstance, IFrontEndClientMessageInput, IFrontEndClientMessageOutput } from 'vs/workbench/services/languageRuntime/common/languageRuntimeFrontEndClient';
 
 /**
  * LanguageRuntimeInfo class.
@@ -295,6 +296,7 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 					// if (!this._activeRuntime || this._activeRuntime.metadata.languageId === runtime.metadata.languageId) {
 					// 	this.activeRuntime = runtime;
 					// }
+					this.startFrontEndClient(runtime);
 					break;
 
 				case RuntimeState.Exited:
@@ -384,6 +386,23 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 	//#endregion ILanguageRuntimeService Implementation
 
 	//#region Private Methods
+
+	private startFrontEndClient(runtime: ILanguageRuntime): void {
+		// Create the frontend client. The second argument is empty for now; we
+		// could use this to pass in any initial state we want to pass to the
+		// frontend client (such as information on window geometry, etc.)
+		runtime.createClient<IFrontEndClientMessageInput, IFrontEndClientMessageOutput>
+			(RuntimeClientType.FrontEnd, {}).then(client => {
+				const frontendClient = new FrontEndClientInstance(client);
+				this._register(frontendClient.onDidEmitEvent(event => {
+					this._onDidReceiveRuntimeEventEmitter.fire({
+						runtime_id: runtime.metadata.runtimeId,
+						event
+					});
+				}));
+				this._register(frontendClient);
+			});
+	}
 
 	/**
 	 * Checks to see whether a runtime for the specified language is starting

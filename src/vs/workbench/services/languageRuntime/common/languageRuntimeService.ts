@@ -7,6 +7,7 @@ import { IDisposable } from 'vs/base/common/lifecycle';
 import { createDecorator } from 'vs/platform/instantiation/common/instantiation';
 import { IRuntimeClientInstance, RuntimeClientType } from 'vs/workbench/services/languageRuntime/common/languageRuntimeClientInstance';
 import { LanguageRuntimeEventData, LanguageRuntimeEventType } from 'vs/workbench/services/languageRuntime/common/languageRuntimeEvents';
+import { IRuntimeClientEvent } from 'vs/workbench/services/languageRuntime/common/languageRuntimeFrontEndClient';
 
 export const ILanguageRuntimeService = createDecorator<ILanguageRuntimeService>('languageRuntimeService');
 
@@ -297,7 +298,7 @@ export interface ILanguageRuntimeGlobalEvent {
 	runtime_id: string;
 
 	/** The event itself */
-	event: ILanguageRuntimeMessageEvent;
+	event: IRuntimeClientEvent;
 }
 
 export interface ILanguageRuntimeStateEvent {
