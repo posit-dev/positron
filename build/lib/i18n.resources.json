@@ -203,7 +203,7 @@
 			"project": "vscode-workbench"
 		},
 		{
-			"name": "vs/workbench/contrib/interactiveSession",
+			"name": "vs/workbench/contrib/chat",
 			"project": "vscode-workbench"
 		},
 		{
@@ -331,6 +331,10 @@
 			"project": "vscode-workbench"
 		},
 		{
+			"name": "vs/workbench/contrib/welcomeDialog",
+			"project": "vscode-workbench"
+		},
+		{
 			"name": "vs/workbench/contrib/outline",
 			"project": "vscode-workbench"
 		},
@@ -360,10 +364,6 @@
 		},
 		{
 			"name": "vs/workbench/contrib/bracketPairColorizer2Telemetry",
-			"project": "vscode-workbench"
-		},
-		{
-			"name": "vs/workbench/contrib/offline",
 			"project": "vscode-workbench"
 		},
 		{
@@ -560,6 +560,10 @@
 		},
 		{
 			"name": "vs/workbench/services/localization",
+			"project": "vscode-workbench"
+		},
+		{
+			"name": "vs/workbench/contrib/share",
 			"project": "vscode-workbench"
 		},
 		{
