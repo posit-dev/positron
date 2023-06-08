@@ -1537,10 +1537,12 @@ export class ReopenClosedEditorAction extends Action2 {
 			id: ReopenClosedEditorAction.ID,
 			title: { value: localize('reopenClosedEditor', "Reopen Closed Editor"), original: 'Reopen Closed Editor' },
 			f1: true,
-			keybinding: {
-				weight: KeybindingWeight.WorkbenchContrib,
-				primary: KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.KeyT
-			},
+			// --- Start Positron ---
+			// keybinding: {
+			// 	weight: KeybindingWeight.WorkbenchContrib,
+			// 	primary: KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.KeyT
+			// },
+			// --- End Positron ---
 			category: Categories.View
 		});
 	}

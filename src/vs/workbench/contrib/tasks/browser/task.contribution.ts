@@ -361,6 +361,15 @@ KeybindingsRegistry.registerKeybindingRule({
 	primary: KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.KeyB
 });
 
+// --- Start Positron ---
+KeybindingsRegistry.registerKeybindingRule({
+	id: 'workbench.action.tasks.test',
+	weight: KeybindingWeight.WorkbenchContrib,
+	when: TaskCommandsRegistered,
+	primary: KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.KeyT
+});
+// --- End Positron ---
+
 // Tasks Output channel. Register it before using it in Task Service.
 const outputChannelRegistry = Registry.as<IOutputChannelRegistry>(OutputExt.OutputChannels);
 outputChannelRegistry.registerChannel({ id: AbstractTaskService.OutputChannelId, label: AbstractTaskService.OutputChannelLabel, log: false });
