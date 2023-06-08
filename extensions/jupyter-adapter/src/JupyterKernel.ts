@@ -7,6 +7,7 @@ import * as positron from 'positron';
 import * as zmq from 'zeromq/v5-compat';
 import * as os from 'os';
 import * as fs from 'fs';
+import * as rl from 'readline';
 import { JupyterSocket } from './JupyterSocket';
 import { serializeJupyterMessage } from './JupyterMessageSerializer';
 import { deserializeJupyterMessage } from './JupyterMessageDeserializer';
@@ -43,6 +44,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 
 	/** An object that watches (tails) the kernel's log file */
 	private _logTail?: Tail;
+	private _logNLines: number;
 
 	/** The kernel's current state */
 	private _status: positron.RuntimeState;
@@ -110,6 +112,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 		this._nextHeartbeat = null;
 		this._lastHeartbeat = 0;
 		this._exitCode = 0;
+		this._logNLines = 0;
 
 		// Set the initial status to uninitialized (we'll change it later if we
 		// discover it's actually running)
@@ -528,7 +531,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 		const logArg = [logFile];
 
 		// Use the VS Code terminal API to create a terminal for the kernel
-		vscode.window.createTerminal(<vscode.TerminalOptions>{
+		this._terminal = vscode.window.createTerminal(<vscode.TerminalOptions>{
 			name: this._spec.display_name,
 			shellPath: kernelWrapperPath,
 			shellArgs: logArg.concat(args),
@@ -541,7 +544,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 		// Wait for the terminal to open
 		return new Promise<void>((resolve, reject) => {
 			const disposable = vscode.window.onDidOpenTerminal((openedTerminal) => {
-				if (openedTerminal.name === this._spec.display_name) {
+				if (openedTerminal === this._terminal) {
 					// Read the process ID and connect to the kernel when it's ready
 					openedTerminal.processId.then((pid) => {
 						if (pid) {
@@ -556,9 +559,6 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 							// Clean up event listener now that we've located the
 							// correct terminal
 							disposable.dispose();
-
-							// Save a reference to the terminal so we can close it later if needed
-							this._terminal = openedTerminal;
 
 							// Connect to the kernel running in the terminal
 							this.connectToSession(session).then(() => {
@@ -810,18 +810,45 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	 * Dispose the kernel connection. Note that this does not dispose the
 	 * session or the kernel itself; it remains running in a terminal.
 	 */
-	public dispose() {
-
+	public async dispose() {
 		// Clean up file watcher for log file
-		if (this._logTail) {
-			this._logTail.unwatch();
-		}
+		await this.disposeLogTail();
 
 		// Dispose heartbeat timers
 		this.disposeHeartbeatTimers();
 
 		// Close sockets
 		this.disposeAllSockets();
+	}
+
+	async disposeLogTail() {
+		if (!this._logTail) {
+			return;
+		}
+
+		this._logTail.unwatch();
+
+		// Push remaining lines in case new line events
+		// haven't had time to fire up before unwatching.
+		const file = this._session!.state.logFile;
+		if (!file || !fs.existsSync(file) || !this._logChannel) {
+			return;
+		}
+
+		const lines = rl.createInterface({
+			input: fs.createReadStream(file)
+		});
+
+		let i = 0;
+
+		for await (const line of lines) {
+			// Skip lines that we've already seen
+			if (++i <= this._logNLines) {
+				continue;
+			}
+			const prefix = this._spec.language;
+			this._logChannel.appendLine(`[${prefix}] ${line}`);
+		}
 	}
 
 	/**
@@ -1046,8 +1073,14 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 			return;
 		}
 
+		let ses = this;
+
 		// Establish a listener for new lines in the log file
 		this._logTail.on('line', function (data: string) {
+			// Keep track of how many lines we sent to the
+			// channel to properly emit the rest of the
+			// lines on disposal
+			ses._logNLines += 1;
 			output.appendLine(`[${prefix}] ${data}`);
 		});
 		this._logTail.on('error', function (error: string) {
