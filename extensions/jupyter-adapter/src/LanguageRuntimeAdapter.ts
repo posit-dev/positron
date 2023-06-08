@@ -14,7 +14,6 @@ import { JupyterKernelInfoReply } from './JupyterKernelInfoReply';
 import { JupyterKernelStatus } from './JupyterKernelStatus';
 import { JupyterErrorReply } from './JupyterErrorReply';
 import { JupyterStreamOutput } from './JupyterStreamOutput';
-import { PositronEvent } from './PositronEvent';
 import { JupyterInputRequest } from './JupyterInputRequest';
 import { RuntimeClientAdapter } from './RuntimeClientAdapter';
 import { JupyterIsCompleteReply } from './JupyterIsCompleteReply';
@@ -423,9 +422,6 @@ export class LanguageRuntimeAdapter
 			case 'status':
 				this.onKernelStatus(msg, message as JupyterKernelStatus);
 				break;
-			case 'client_event':
-				this.onPositronEvent(msg, message as PositronEvent);
-				break;
 			case 'input_request':
 				this.onInputRequest(msg, message as JupyterInputRequest);
 				break;
@@ -511,22 +507,6 @@ export class LanguageRuntimeAdapter
 			comm_id: msg.comm_id,
 			data: msg.data,
 		} as positron.LanguageRuntimeCommClosed);
-	}
-	/**
-	 * Converts a Positron event into a language runtime event and emits it.
-	 *
-	 * @param message The message packet
-	 * @param event The event
-	 */
-	onPositronEvent(message: JupyterMessagePacket, event: PositronEvent) {
-		this._messages.fire({
-			id: message.msgId,
-			parent_id: message.originId,
-			when: message.when,
-			type: positron.LanguageRuntimeMessageType.Event,
-			name: event.name,
-			data: event.data
-		} as positron.LanguageRuntimeEvent);
 	}
 
 	/**
