@@ -531,7 +531,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 		const logArg = [logFile];
 
 		// Use the VS Code terminal API to create a terminal for the kernel
-		vscode.window.createTerminal(<vscode.TerminalOptions>{
+		this._terminal = vscode.window.createTerminal(<vscode.TerminalOptions>{
 			name: this._spec.display_name,
 			shellPath: kernelWrapperPath,
 			shellArgs: logArg.concat(args),
@@ -544,7 +544,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 		// Wait for the terminal to open
 		return new Promise<void>((resolve, reject) => {
 			const disposable = vscode.window.onDidOpenTerminal((openedTerminal) => {
-				if (openedTerminal.name === this._spec.display_name) {
+				if (openedTerminal === this._terminal) {
 					// Read the process ID and connect to the kernel when it's ready
 					openedTerminal.processId.then((pid) => {
 						if (pid) {
@@ -559,9 +559,6 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 							// Clean up event listener now that we've located the
 							// correct terminal
 							disposable.dispose();
-
-							// Save a reference to the terminal so we can close it later if needed
-							this._terminal = openedTerminal;
 
 							// Connect to the kernel running in the terminal
 							this.connectToSession(session).then(() => {
