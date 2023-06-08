@@ -436,7 +436,44 @@ export class WorkbenchThemeService implements IWorkbenchThemeService {
 	}
 
 	public async getColorThemes(): Promise<IWorkbenchColorTheme[]> {
-		return this.colorThemeRegistry.getThemes();
+		// --- Start Positron ---
+
+		// Get the themes and the current theme.
+		const themes = this.colorThemeRegistry.getThemes();
+		const currentTheme = this.getColorTheme();
+
+		// Positron ships with a subset of the themes that are available by default.
+		return themes.filter(theme => {
+			// Always include the current theme.
+			if (theme.id === currentTheme.id) {
+				return true;
+			}
+
+			// Filter themes.
+			switch (theme.id) {
+				// Exclude older Visual Studio Code themes.
+				case 'vs vscode-theme-defaults-themes-light_plus-json':
+				case 'vs vscode-theme-defaults-themes-light_vs-json':
+				case 'vs vscode-theme-quietlight-themes-quietlight-color-theme-json':
+				case 'vs vscode-theme-solarized-light-themes-solarized-light-color-theme-json':
+				case 'vs-dark vscode-theme-abyss-themes-abyss-color-theme-json':
+				case 'vs-dark vscode-theme-defaults-themes-dark_plus-json':
+				case 'vs-dark vscode-theme-defaults-themes-dark_vs-json':
+				case 'vs-dark vscode-theme-kimbie-dark-themes-kimbie-dark-color-theme-json':
+				case 'vs-dark vscode-theme-monokai-dimmed-themes-dimmed-monokai-color-theme-json':
+				case 'vs-dark vscode-theme-monokai-themes-monokai-color-theme-json':
+				case 'vs-dark vscode-theme-red-themes-Red-color-theme-json':
+				case 'vs-dark vscode-theme-solarized-dark-themes-solarized-dark-color-theme-json':
+					return false;
+
+				// Include user-defined themes as well as any new themes that have been added to
+				// Visual Studio Code.
+				default:
+					return true;
+			}
+		});
+
+		// --- End Positron ---
 	}
 
 	public async getMarketplaceColorThemes(publisher: string, name: string, version: string): Promise<IWorkbenchColorTheme[]> {
