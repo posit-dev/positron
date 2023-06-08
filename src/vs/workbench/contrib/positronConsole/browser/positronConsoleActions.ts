@@ -218,43 +218,55 @@ export function registerPositronConsoleActions() {
 			// The code to execute.
 			let code = '';
 
-			// If there is an active editor, get the code to execute.
+			// If there is no active editor, there is nothing to execute.
 			const editor = editorService.activeTextEditorControl as IEditor;
-			if (editor) {
-				// Get the code to execute.
-				const selection = editor.getSelection();
-				const position = editor.getPosition();
-				const model = editor.getModel() as ITextModel;
-				if (selection) {
-					// If there is an active selection, use the contents of the selection to drive
-					// execution.
-					code = model.getValueInRange(selection);
-					if (!code.length) {
-						// When there's no selection, the selection represents the
-						// cursor position; just get the line at the cursor point.
-						//
-						// TODO: This would benefit from a "Run Current Statement"
-						// behavior, but that requires deep knowledge of the
-						// language's grammar. Is this something we can fit into the
-						// LSP model or build into the language pack extensibility
-						// point?
-						code = model.getLineContent(selection.startLineNumber);
-						if (code.length && position) {
-							// Advance the cursor to the next line after executing
-							// the current one.
-							editor.setPosition(position.with(position.lineNumber + 1));
-						}
-					}
-				} else if (position) {
-					code = model.getLineContent(position.lineNumber);
-					if (code.length) {
-						editor.setPosition(position.with(position.lineNumber + 1));
-					}
-				}
+			if (!editor) {
+				return;
 			}
 
-			// Trim the code by removing all leading and trailing newlines.
-			code = code.replace(/^\n+/, '').replace(/\n+$/, '');
+			// Get the code to execute.
+			const selection = editor.getSelection();
+			const position = editor.getPosition();
+			const model = editor.getModel() as ITextModel;
+			let lineNumber = position?.lineNumber ?? 0;
+			if (selection) {
+				// If there is an active selection, use the contents of the selection to drive
+				// execution.
+				code = this.trimNewlines(model.getValueInRange(selection));
+				lineNumber = selection.endLineNumber;
+			}
+
+			// If no selection (or empty selection) was found, use the contents
+			// of the line containing the cursor position.
+			//
+			// TODO: This would benefit from a "Run Current Statement"
+			// behavior, but that requires deep knowledge of the
+			// language's grammar. Is this something we can fit into the
+			// LSP model or build into the language pack extensibility
+			// point?
+			if (!code.length && lineNumber > 0) {
+				// Find the first non-empty line after the cursor position and read the
+				// contents of that line.
+				do {
+					code = this.trimNewlines(model.getLineContent(lineNumber));
+				} while (!code.length && ++lineNumber < model.getLineCount());
+			}
+
+			// If we have code and a position and we're not at the end of the
+			// document, move the cursor to the next line with code on it.
+			if (code.length && position && ++lineNumber <= model.getLineCount()) {
+				// Continue to move past empty lines so that the cursor lands on
+				// the first non-empty line
+				while (this.trimNewlines(model.getLineContent(lineNumber)).length === 0 &&
+					lineNumber < model.getLineCount()) {
+					lineNumber++;
+				}
+				// This is the cursor's new position; move the cursor and scroll
+				// the editor to it if necessary.
+				const newPosition = position.with(lineNumber, 0);
+				editor.setPosition(newPosition);
+				editor.revealPositionInCenterIfOutsideViewport(newPosition);
+			}
 
 			// If there is no code to execute, inform the user.
 			if (code.length === 0) {
@@ -266,7 +278,7 @@ export function registerPositronConsoleActions() {
 				return;
 			}
 
-			// Now that we've gotten this far, and there's "code" to ececute, ensure we have a
+			// Now that we've gotten this far, and there's "code" to execute, ensure we have a
 			// target language.
 			const languageId = editorService.activeTextEditorLanguageId;
 			if (!languageId) {
@@ -290,6 +302,10 @@ export function registerPositronConsoleActions() {
 					sticky: false
 				});
 			}
+		}
+
+		trimNewlines(str: string): string {
+			return str.replace(/^\n+/, '').replace(/\n+$/, '');
 		}
 	});
 }
