@@ -423,7 +423,6 @@ export class NativeLocalProcessExtensionHost implements IExtensionHost {
 			positronVersion: this._productService.positronVersion,
 			positronBuildNumber: this._productService.positronBuildNumber,
 			// --- End Positron ---
-			parentPid: process.sandboxed ? 0 : process.pid,
 			quality: this._productService.quality,
 			parentPid: 0,
 			environment: {
