@@ -131,6 +131,7 @@ export enum RuntimeClientType {
 	Lsp = 'positron.lsp',
 	Plot = 'positron.plot',
 	DataViewer = 'positron.dataViewer',
+	FrontEnd = 'positron.frontEnd',
 
 	// Future client types may include:
 	// - Watch window/variable explorer
