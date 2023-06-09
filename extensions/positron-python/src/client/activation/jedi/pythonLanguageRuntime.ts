@@ -112,8 +112,14 @@ export class PythonLanguageRuntime implements JupyterLanguageRuntime, Disposable
         // Thow an error if it could not be installed.
         const hasKernel = await this.installer.isInstalled(Product.ipykernel, this.interpreter);
         if (!hasKernel) {
+            // Pass a cancellation token to enable VSCode's progress indicator and let the user
+            // cancel the install.
+            const tokenSource = new vscode.CancellationTokenSource();
+            const installerToken = tokenSource.token;
+
             const response = await this.installer.promptToInstall(Product.ipykernel,
-                this.interpreter, undefined, undefined, this.installOptions);
+                this.interpreter, installerToken, undefined, this.installOptions);
+
             switch (response) {
                 case InstallerResponse.Installed:
                     traceVerbose(`Successfully installed ipykernel for ${this.interpreter?.displayName}`);
