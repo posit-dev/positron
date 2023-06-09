@@ -15,7 +15,7 @@ export enum FrontEndMessageTypeInput {
 }
 
 /**
- * A message used to send data to the backend
+ * A message used to send data to the backend.
  */
 export interface IFrontEndClientMessageInput {
 	msg_type: FrontEndMessageTypeInput;
@@ -35,6 +35,9 @@ export interface IFrontEndClientMessageOutput {
 	msg_type: FrontEndMessageTypeOutput;
 }
 
+/**
+ * An event from the backend.
+ */
 export interface IRuntimeClientEvent {
 	name: LanguageRuntimeEventType;
 	data: LanguageRuntimeEventData;
@@ -48,7 +51,11 @@ export interface IFrontEndClientMessageOutputEvent
 }
 
 /**
+ * A frontend client instance. This client instance represents the global Positron window, and
+ * its lifetime is tied to the lifetime of the Positron window.
  *
+ * It is currently used to deliver global events from the backend to the frontend, and to help
+ * the backend know when Positron is connected.
  */
 export class FrontEndClientInstance extends Disposable {
 
@@ -73,6 +80,11 @@ export class FrontEndClientInstance extends Disposable {
 
 	onDidEmitEvent: Event<IRuntimeClientEvent>;
 
+	/**
+	 * Handles data received from the backend.
+	 *
+	 * @param data Data received from the backend.
+	 */
 	private handleData(data: IFrontEndClientMessageOutput): void {
 		switch (data.msg_type) {
 			case FrontEndMessageTypeOutput.Event:

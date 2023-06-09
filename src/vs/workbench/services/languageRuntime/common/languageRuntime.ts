@@ -296,6 +296,8 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 					// if (!this._activeRuntime || this._activeRuntime.metadata.languageId === runtime.metadata.languageId) {
 					// 	this.activeRuntime = runtime;
 					// }
+
+					// Start the frontend client instance once the runtime is fully online.
 					this.startFrontEndClient(runtime);
 					break;
 
@@ -378,13 +380,24 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 
 	//#region Private Methods
 
+	/**
+	 * Starts a frontend client instance for the specified runtime. The frontend
+	 * client instance is used to carry global Positron events from the runtime
+	 * to the frontend.
+	 *
+	 * @param runtime The runtime for which to start the frontend client.
+	 */
 	private startFrontEndClient(runtime: ILanguageRuntime): void {
 		// Create the frontend client. The second argument is empty for now; we
 		// could use this to pass in any initial state we want to pass to the
 		// frontend client (such as information on window geometry, etc.)
 		runtime.createClient<IFrontEndClientMessageInput, IFrontEndClientMessageOutput>
 			(RuntimeClientType.FrontEnd, {}).then(client => {
+				// Create the frontend client instance wrapping the client instance.
 				const frontendClient = new FrontEndClientInstance(client);
+
+				// When the frontend client instance emits an event, broadcast
+				// it to Positron.
 				this._register(frontendClient.onDidEmitEvent(event => {
 					this._onDidReceiveRuntimeEventEmitter.fire({
 						runtime_id: runtime.metadata.runtimeId,
