@@ -330,15 +330,6 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 			}
 		}));
 
-		// Add the onDidReceiveRuntimeMessageEvent event handler.
-		this._register(runtime.onDidReceiveRuntimeMessageEvent(languageRuntimeMessageEvent => {
-			// Rebroadcast runtime events globally
-			this._onDidReceiveRuntimeEventEmitter.fire({
-				runtime_id: runtime.metadata.runtimeId,
-				event: languageRuntimeMessageEvent
-			});
-		}));
-
 		return toDisposable(() => {
 			// Remove the runtime from the set of starting or running runtimes.
 			this._startingRuntimesByLanguageId.delete(runtime.metadata.languageId);
