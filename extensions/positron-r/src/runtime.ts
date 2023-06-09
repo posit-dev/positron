@@ -19,6 +19,7 @@ export class RRuntime implements positron.LanguageRuntime, vscode.Disposable {
 	/** The Jupyter kernel-based implementation of the Language Runtime API */
 	private _kernel: JupyterLanguageRuntime;
 
+	/** Whether we've received an "exiting" or "exited" message from the backend */
 	private _stale: boolean;
 
 	constructor(
