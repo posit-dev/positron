@@ -19,6 +19,8 @@ export class RRuntime implements positron.LanguageRuntime, vscode.Disposable {
 	/** The Jupyter kernel-based implementation of the Language Runtime API */
 	private _kernel: JupyterLanguageRuntime;
 
+	private _stale: boolean;
+
 	constructor(
 		readonly context: vscode.ExtensionContext,
 		readonly kernelSpec: JupyterKernelSpec,
@@ -34,6 +36,8 @@ export class RRuntime implements positron.LanguageRuntime, vscode.Disposable {
 		this.onDidChangeRuntimeState((state) => {
 			this.onStateChange(state);
 		});
+
+		this._stale = false;
 	}
 
 	onDidReceiveRuntimeMessage: vscode.Event<positron.LanguageRuntimeMessage>;
@@ -93,7 +97,7 @@ export class RRuntime implements positron.LanguageRuntime, vscode.Disposable {
 	}
 
 	private onStateChange(state: positron.RuntimeState): void {
-		if (state === positron.RuntimeState.Ready) {
+		if (!this._stale && state === positron.RuntimeState.Ready) {
 			this.adapterApi.findAvailablePort([], 25).then((port) => {
 				this._kernel.emitJupyterLog(`Starting Positron LSP server on port ${port}`);
 				this._kernel.startPositronLsp(`127.0.0.1:${port}`);
@@ -101,6 +105,7 @@ export class RRuntime implements positron.LanguageRuntime, vscode.Disposable {
 			});
 		} else if (state === positron.RuntimeState.Exiting ||
 			state === positron.RuntimeState.Exited) {
+			this._stale = true;
 			{
 				if (this._lsp.state === LspState.running) {
 					this._kernel.emitJupyterLog(`Stopping Positron LSP server`);
