@@ -760,7 +760,7 @@ class DefaultThemeUpdatedNotificationContribution implements IWorkbenchContribut
 					}
 				}
 			}
-		}, 6000);
+		}, 3000);
 	}
 
 	private async _showYouGotMigratedNotification(): Promise<void> {
@@ -850,4 +850,4 @@ class DefaultThemeUpdatedNotificationContribution implements IWorkbenchContribut
 	}
 }
 const workbenchRegistry = Registry.as<IWorkbenchContributionsRegistry>(Extensions.Workbench);
-workbenchRegistry.registerWorkbenchContribution(DefaultThemeUpdatedNotificationContribution, LifecyclePhase.Ready);
+workbenchRegistry.registerWorkbenchContribution(DefaultThemeUpdatedNotificationContribution, LifecyclePhase.Eventually);
