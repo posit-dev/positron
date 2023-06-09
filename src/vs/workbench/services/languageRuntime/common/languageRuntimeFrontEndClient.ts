@@ -45,7 +45,7 @@ export interface IRuntimeClientEvent {
  */
 export interface IFrontEndClientMessageOutputEvent
 	extends IFrontEndClientMessageOutput {
-	event: IRuntimeClientEvent;
+	data: IRuntimeClientEvent;
 }
 
 /**
@@ -77,7 +77,7 @@ export class FrontEndClientInstance extends Disposable {
 	private handleData(data: IFrontEndClientMessageOutput): void {
 		switch (data.msg_type) {
 			case FrontEndMessageTypeOutput.Event:
-				this._onDidEmitEvent.fire((data as IFrontEndClientMessageOutputEvent).event);
+				this._onDidEmitEvent.fire((data as IFrontEndClientMessageOutputEvent).data);
 		}
 	}
 }
