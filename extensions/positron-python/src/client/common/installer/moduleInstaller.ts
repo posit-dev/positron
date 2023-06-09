@@ -14,7 +14,7 @@ import { IApplicationShell } from '../application/types';
 import { wrapCancellationTokens } from '../cancellation';
 import { IFileSystem } from '../platform/types';
 import * as internalPython from '../process/internal/python';
-import { IProcessServiceFactory } from '../process/types';
+import { IProcessServiceFactory, SpawnOptions } from '../process/types';
 import { ITerminalServiceFactory, TerminalCreationOptions } from '../terminal/types';
 import { ExecutionInfo, IConfigurationService, ILogOutputChannel, Product } from '../types';
 import { isResource } from '../utils/misc';
@@ -31,7 +31,7 @@ export abstract class ModuleInstaller implements IModuleInstaller {
 
     public abstract get type(): ModuleInstallerType;
 
-    constructor(protected serviceContainer: IServiceContainer) {}
+    constructor(protected serviceContainer: IServiceContainer) { }
 
     public async installModule(
         productOrModuleName: Product | string,
@@ -230,7 +230,12 @@ export abstract class ModuleInstaller implements IModuleInstaller {
                 );
                 await processService.shellExec(quoted);
             } else {
-                await processService.exec(command, args);
+                // --- Start Positron ---
+                // Pass the cancellation token through so that users can cancel installs via the UI
+                // when executeInTerminal is false
+                const spawnOptions: SpawnOptions = { token };
+                await processService.exec(command, args, spawnOptions);
+                // --- End Positron ---
             }
         }
     }
