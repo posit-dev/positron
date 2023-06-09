@@ -23,6 +23,7 @@ export interface IExtensionHostInitData {
 	positronVersion: string;
 	positronBuildNumber: number;
 	// --- End Positron ---
+	quality: string | undefined;
 	commit?: string;
 	/**
 	 * When set to `0`, no polling for the parent process still running will happen.

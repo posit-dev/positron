@@ -408,11 +408,39 @@ registerAction2(class extends Action2 {
 		const themes = await themeService.getColorThemes();
 		const currentTheme = themeService.getColorTheme();
 
+		// --- Start Positron ---
+		const toHighContrastEntries = (
+			themes: Array<IWorkbenchColorTheme>,
+			label?: string
+		): QuickPickInput<ThemeItem>[] => {
+			// High-contrast workbench color theme sorter. This sorter puts light themes above dark
+			// themes.
+			const sorter = (a: IWorkbenchColorTheme, b: IWorkbenchColorTheme) => {
+				if (a.type === ColorScheme.HIGH_CONTRAST_LIGHT && b.type === ColorScheme.HIGH_CONTRAST_DARK) {
+					return -1;
+				} else if (a.type === ColorScheme.HIGH_CONTRAST_DARK && b.type === ColorScheme.HIGH_CONTRAST_LIGHT) {
+					return 1;
+				} else {
+					// Sort on label to break ties.
+					return a.label.localeCompare(b.label);
+				}
+			};
+
+			// Return the entries.
+			const entries: QuickPickInput<ThemeItem>[] = themes.sort(sorter).map(toEntry);
+			if (entries.length > 0 && label) {
+				entries.unshift({ type: 'separator', label });
+			}
+			return entries;
+		};
+
 		const picks: QuickPickInput<ThemeItem>[] = [
 			...toEntries(themes.filter(t => t.type === ColorScheme.LIGHT), localize('themes.category.light', "light themes")),
 			...toEntries(themes.filter(t => t.type === ColorScheme.DARK), localize('themes.category.dark', "dark themes")),
-			...toEntries(themes.filter(t => isHighContrast(t.type)), localize('themes.category.hc', "high contrast themes")),
+			...toHighContrastEntries(themes.filter(t => isHighContrast(t.type)), localize('themes.category.hc', "high contrast themes")),
 		];
+		// --- End Positron ---
+
 		await picker.openQuickPick(picks, currentTheme);
 	}
 });
@@ -732,7 +760,7 @@ class DefaultThemeUpdatedNotificationContribution implements IWorkbenchContribut
 					}
 				}
 			}
-		}, 6000);
+		}, 3000);
 	}
 
 	private async _showYouGotMigratedNotification(): Promise<void> {
@@ -822,4 +850,4 @@ class DefaultThemeUpdatedNotificationContribution implements IWorkbenchContribut
 	}
 }
 const workbenchRegistry = Registry.as<IWorkbenchContributionsRegistry>(Extensions.Workbench);
-workbenchRegistry.registerWorkbenchContribution(DefaultThemeUpdatedNotificationContribution, LifecyclePhase.Ready);
+workbenchRegistry.registerWorkbenchContribution(DefaultThemeUpdatedNotificationContribution, LifecyclePhase.Eventually);
