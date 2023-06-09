@@ -179,6 +179,12 @@ def pytest_sessionfinish(session, exitstatus):
     4: Pytest encountered an internal error or exception during test execution.
     5: Pytest was unable to find any tests to run.
     """
+    print(
+        "pytest session has finished, exit status: ",
+        exitstatus,
+        "in discovery? ",
+        IS_DISCOVERY,
+    )
     cwd = pathlib.Path.cwd()
     if IS_DISCOVERY:
         try:
@@ -209,7 +215,6 @@ def pytest_sessionfinish(session, exitstatus):
                 f"Pytest exited with error status: {exitstatus}, {ERROR_MESSAGE_CONST[exitstatus]}"
             )
             exitstatus_bool = "error"
-
         execution_post(
             os.fsdecode(cwd),
             exitstatus_bool,
@@ -437,19 +442,13 @@ Content-Type: application/json
 Request-uuid: {testuuid}
 
 {data}"""
-    test_output_file: Optional[str] = os.getenv("TEST_OUTPUT_FILE", None)
-    if test_output_file == "stdout":
-        print(request)
-    elif test_output_file:
-        pathlib.Path(test_output_file).write_text(request, encoding="utf-8")
-    else:
-        try:
-            with socket_manager.SocketManager(addr) as s:
-                if s.socket is not None:
-                    s.socket.sendall(request.encode("utf-8"))
-        except Exception as e:
-            print(f"Plugin error connection error[vscode-pytest]: {e}")
-            print(f"[vscode-pytest] data: {request}")
+    try:
+        with socket_manager.SocketManager(addr) as s:
+            if s.socket is not None:
+                s.socket.sendall(request.encode("utf-8"))
+    except Exception as e:
+        print(f"Plugin error connection error[vscode-pytest]: {e}")
+        print(f"[vscode-pytest] data: {request}")
 
 
 def post_response(cwd: str, session_node: TestNode) -> None:
@@ -477,16 +476,10 @@ Content-Type: application/json
 Request-uuid: {testuuid}
 
 {data}"""
-    test_output_file: Optional[str] = os.getenv("TEST_OUTPUT_FILE", None)
-    if test_output_file == "stdout":
-        print(request)
-    elif test_output_file:
-        pathlib.Path(test_output_file).write_text(request, encoding="utf-8")
-    else:
-        try:
-            with socket_manager.SocketManager(addr) as s:
-                if s.socket is not None:
-                    s.socket.sendall(request.encode("utf-8"))
-        except Exception as e:
-            print(f"Plugin error connection error[vscode-pytest]: {e}")
-            print(f"[vscode-pytest] data: {request}")
+    try:
+        with socket_manager.SocketManager(addr) as s:
+            if s.socket is not None:
+                s.socket.sendall(request.encode("utf-8"))
+    except Exception as e:
+        print(f"Plugin error connection error[vscode-pytest]: {e}")
+        print(f"[vscode-pytest] data: {request}")
