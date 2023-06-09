@@ -5,6 +5,7 @@
 
 import { localize } from 'vs/nls';
 import { fromNow } from 'vs/base/common/date';
+import { isLinuxSnap } from 'vs/base/common/platform';
 import { IClipboardService } from 'vs/platform/clipboard/common/clipboardService';
 import { AbstractDialogHandler, IConfirmation, IConfirmationResult, IPrompt, IPromptResult } from 'vs/platform/dialogs/common/dialogs';
 import { ILogService } from 'vs/platform/log/common/log';
@@ -75,6 +76,8 @@ export class NativeDialogHandler extends AbstractDialogHandler {
 			version = `${version} (Universal)`;
 		}
 
+		const osProps = await this.nativeHostService.getOSProperties();
+
 		const detailString = (useAgo: boolean): string => {
 			// --- Start Positron ---
 			// Note: This is heavily modified from the original Code - OSS
@@ -95,7 +98,8 @@ export class NativeDialogHandler extends AbstractDialogHandler {
 				process.versions['electron'],
 				process.versions['chrome'],
 				process.versions['node'],
-				process.versions['v8']
+				process.versions['v8'],
+				`${osProps.type} ${osProps.arch} ${osProps.release}${isLinuxSnap ? ' snap' : ''}`
 			);
 			// --- End Positron ---
 		};
