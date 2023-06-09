@@ -282,6 +282,7 @@ export class WebWorkerExtensionHost extends Disposable implements IExtensionHost
 			positronVersion: this._productService.positronVersion,
 			positronBuildNumber: this._productService.positronBuildNumber,
 			// --- End Positron ---
+			quality: this._productService.quality,
 			parentPid: 0,
 			environment: {
 				isExtensionDevelopmentDebug: this._environmentService.debugRenderer,
