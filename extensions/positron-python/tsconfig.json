@@ -48,6 +48,7 @@
         "typings/*.d.ts",
         "typings/vscode-proposed/*.d.ts",
         "types/*.d.ts",
+        "types/src/vscode-dts/*.d.ts",
         "positron-dts/positron.d.ts"
     ]
 }
