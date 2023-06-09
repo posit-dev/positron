@@ -76,7 +76,7 @@ function darwinBundleDocumentTypes(types, icon) {
     });
 }
 exports.config = {
-    version: product.electronRepository ? '22.4.8' : util.getElectronVersion(),
+    version: product.electronRepository ? '22.5.5' : util.getElectronVersion(),
     productAppName: product.nameLong,
     // --- Start Positron ---
     companyName: 'Posit Software',
@@ -195,7 +195,7 @@ function getElectron(arch) {
     };
 }
 async function main(arch = process.arch) {
-    const version = product.electronRepository ? '22.4.8' : util.getElectronVersion();
+    const version = product.electronRepository ? '22.5.5' : util.getElectronVersion();
     const electronPath = path.join(root, '.build', 'electron');
     const versionFile = path.join(electronPath, 'version');
     const isUpToDate = fs.existsSync(versionFile) && fs.readFileSync(versionFile, 'utf8') === `${version}`;

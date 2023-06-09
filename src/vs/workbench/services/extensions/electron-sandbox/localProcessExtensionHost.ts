@@ -18,7 +18,6 @@ import { generateUuid } from 'vs/base/common/uuid';
 import { IMessagePassingProtocol } from 'vs/base/parts/ipc/common/ipc';
 import { BufferedEmitter } from 'vs/base/parts/ipc/common/ipc.net';
 import { acquirePort } from 'vs/base/parts/ipc/electron-sandbox/ipc.mp';
-import { process } from 'vs/base/parts/sandbox/electron-sandbox/globals';
 import * as nls from 'vs/nls';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import { IExtensionHostDebugService } from 'vs/platform/debug/common/extensionHostDebug';
@@ -424,7 +423,8 @@ export class NativeLocalProcessExtensionHost implements IExtensionHost {
 			positronVersion: this._productService.positronVersion,
 			positronBuildNumber: this._productService.positronBuildNumber,
 			// --- End Positron ---
-			parentPid: process.sandboxed ? 0 : process.pid,
+			quality: this._productService.quality,
+			parentPid: 0,
 			environment: {
 				isExtensionDevelopmentDebug: this._isExtensionDevDebug,
 				appRoot: this._environmentService.appRoot ? URI.file(this._environmentService.appRoot) : undefined,

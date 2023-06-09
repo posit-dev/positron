@@ -93,14 +93,13 @@ export class NativeDialogHandler extends AbstractDialogHandler {
 				this.productService.date ? `${this.productService.date}${useAgo ? ' (' + fromNow(new Date(this.productService.date), true) + ')' : ''}` : 'Unknown',
 			);
 			return localize({ key: 'aboutDetail', comment: ['Electron, Chromium, Node.js and V8 are product names that need no translation'] },
-				"{0}\nElectron: {1}\nChromium: {2}\nNode.js: {3}\nV8: {4}\nOS: {5}\nSandboxed: {6}",
+				"{0}\nElectron: {1}\nChromium: {2}\nNode.js: {3}\nV8: {4}\nOS: {5}",
 				productDetail,
 				process.versions['electron'],
 				process.versions['chrome'],
 				process.versions['node'],
 				process.versions['v8'],
-				`${osProps.type} ${osProps.arch} ${osProps.release}${isLinuxSnap ? ' snap' : ''}`,
-				process.sandboxed ? 'Yes' : 'No' // TODO@bpasero remove me once sandbox is final
+				`${osProps.type} ${osProps.arch} ${osProps.release}${isLinuxSnap ? ' snap' : ''}`
 			);
 			// --- End Positron ---
 		};
