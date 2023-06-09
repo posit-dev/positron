@@ -12,7 +12,7 @@ import {
     Uri,
     WorkspaceFolder,
 } from 'vscode';
-import { TestDiscoveryOptions } from '../../common/types';
+import { ITestDebugLauncher, TestDiscoveryOptions } from '../../common/types';
 import { IPythonExecutionFactory } from '../../../common/process/types';
 
 export type TestRunInstanceOptions = TestRunOptions & {
@@ -172,7 +172,7 @@ export type TestCommandOptionsPytest = {
  */
 export interface ITestServer {
     readonly onDataReceived: Event<DataReceivedEvent>;
-    sendCommand(options: TestCommandOptions): Promise<void>;
+    sendCommand(options: TestCommandOptions, runTestIdsPort?: string, callback?: () => void): Promise<void>;
     serverReady(): Promise<void>;
     getPort(): number;
     createUUID(cwd: string): string;
@@ -193,6 +193,7 @@ export interface ITestExecutionAdapter {
         testIds: string[],
         debugBool?: boolean,
         executionFactory?: IPythonExecutionFactory,
+        debugLauncher?: ITestDebugLauncher,
     ): Promise<ExecutionTestPayload>;
 }
 

@@ -29,15 +29,10 @@ import {
     getTestCaseNodes,
     RunTestTag,
 } from './common/testItemUtilities';
-import {
-    DiscoveredTestItem,
-    DiscoveredTestNode,
-    DiscoveredTestType,
-    ITestDiscoveryAdapter,
-    ITestExecutionAdapter,
-} from './common/types';
+import { DiscoveredTestItem, DiscoveredTestNode, ITestDiscoveryAdapter, ITestExecutionAdapter } from './common/types';
 import { fixLogLines } from './common/utils';
 import { IPythonExecutionFactory } from '../../common/process/types';
+import { ITestDebugLauncher } from '../common/types';
 
 /**
  * This class exposes a test-provider-agnostic way of discovering tests.
@@ -77,6 +72,7 @@ export class WorkspaceTestAdapter {
         token?: CancellationToken,
         debugBool?: boolean,
         executionFactory?: IPythonExecutionFactory,
+        debugLauncher?: ITestDebugLauncher,
     ): Promise<void> {
         if (this.executing) {
             return this.executing.promise;
@@ -87,7 +83,7 @@ export class WorkspaceTestAdapter {
 
         let rawTestExecData;
         const testCaseNodes: TestItem[] = [];
-        const testCaseIds: string[] = [];
+        const testCaseIdsSet = new Set<string>();
         try {
             // first fetch all the individual test Items that we necessarily want
             includes.forEach((t) => {
@@ -99,19 +95,20 @@ export class WorkspaceTestAdapter {
                 runInstance.started(node); // do the vscode ui test item start here before runtest
                 const runId = this.vsIdToRunId.get(node.id);
                 if (runId) {
-                    testCaseIds.push(runId);
+                    testCaseIdsSet.add(runId);
                 }
             });
-
+            const testCaseIds = Array.from(testCaseIdsSet);
             // ** execution factory only defined for new rewrite way
             if (executionFactory !== undefined) {
+                traceVerbose('executionFactory defined');
                 rawTestExecData = await this.executionAdapter.runTests(
                     this.workspaceUri,
                     testCaseIds,
                     debugBool,
                     executionFactory,
+                    debugLauncher,
                 );
-                traceVerbose('executionFactory defined');
             } else {
                 rawTestExecData = await this.executionAdapter.runTests(this.workspaceUri, testCaseIds, debugBool);
             }
@@ -285,8 +282,6 @@ export class WorkspaceTestAdapter {
     public async discoverTests(
         testController: TestController,
         token?: CancellationToken,
-        isMultiroot?: boolean,
-        workspaceFilePath?: string,
         executionFactory?: IPythonExecutionFactory,
     ): Promise<void> {
         sendTelemetryEvent(EventName.UNITTEST_DISCOVERING, undefined, { tool: this.testProvider });
@@ -305,6 +300,7 @@ export class WorkspaceTestAdapter {
         try {
             // ** execution factory only defined for new rewrite way
             if (executionFactory !== undefined) {
+                traceVerbose('executionFactory defined');
                 rawTestData = await this.discoveryAdapter.discoverTests(this.workspaceUri, executionFactory);
             } else {
                 rawTestData = await this.discoveryAdapter.discoverTests(this.workspaceUri);
@@ -345,12 +341,11 @@ export class WorkspaceTestAdapter {
             const testingErrorConst =
                 this.testProvider === 'pytest' ? Testing.errorPytestDiscovery : Testing.errorUnittestDiscovery;
             const { errors } = rawTestData;
-            traceError(testingErrorConst, '\r\n', errors!.join('\r\n\r\n'));
-
+            traceError(testingErrorConst, '\r\n', errors?.join('\r\n\r\n'));
             let errorNode = testController.items.get(`DiscoveryError:${workspacePath}`);
             const message = util.format(
                 `${testingErrorConst} ${Testing.seePythonOutput}\r\n`,
-                errors!.join('\r\n\r\n'),
+                errors?.join('\r\n\r\n'),
             );
 
             if (errorNode === undefined) {
@@ -363,39 +358,6 @@ export class WorkspaceTestAdapter {
             // Remove the error node if necessary,
             // then parse and insert test data.
             testController.items.delete(`DiscoveryError:${workspacePath}`);
-
-            // Wrap the data under a root node named after the test provider.
-            const wrappedTests = rawTestData.tests;
-
-            // If we are in a multiroot workspace scenario, wrap the current folder's test result in a tree under the overall root + the current folder name.
-            let rootPath = workspacePath;
-            let childrenRootPath = rootPath;
-            let childrenRootName = path.basename(rootPath);
-
-            if (isMultiroot) {
-                rootPath = workspaceFilePath!;
-                childrenRootPath = workspacePath;
-                childrenRootName = path.basename(workspacePath);
-            }
-
-            const children = [
-                {
-                    path: childrenRootPath,
-                    name: childrenRootName,
-                    type_: 'folder' as DiscoveredTestType,
-                    id_: childrenRootPath,
-                    children: wrappedTests ? [wrappedTests] : [],
-                },
-            ];
-
-            // Update the raw test data with the wrapped data.
-            rawTestData.tests = {
-                path: rootPath,
-                name: this.testProvider,
-                type_: 'folder',
-                id_: rootPath,
-                children,
-            };
 
             if (rawTestData.tests) {
                 // If the test root for this folder exists: Workspace refresh, update its children.
