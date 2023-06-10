@@ -1021,6 +1021,14 @@ export const POSITRON_TOOL_TIP_BORDER = registerColor('positronToolTip.border', 
 
 // < --- Positron Top Action Bar --- >
 
+// The Positron top action bar logo background color.
+export const POSITRON_TOP_ACTION_BAR_LOGO_BACKGROUND = registerColor('positronTopActionBar.logoBackground', {
+	dark: darken(ACTIVITY_BAR_BACKGROUND, 0.15),
+	light: darken(ACTIVITY_BAR_BACKGROUND, 0.15),
+	hcDark: null,
+	hcLight: null
+}, localize('positronTopActionBar.logoBackground', "Positron top action bar logo background color."));
+
 // The Positron top action bar border color.
 export const POSITRON_TOP_ACTION_BAR_BORDER = registerColor('positronTopActionBar.border', {
 	dark: '#252527',

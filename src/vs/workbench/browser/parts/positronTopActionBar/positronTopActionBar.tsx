@@ -202,6 +202,7 @@ export const PositronTopActionBar = (props: PositronTopActionBarProps) => {
 	 * The logo click handler.
 	 */
 	const logoClickHandler = () => {
+		// For now, open the Welcome user experience.
 		props.commandService.executeCommand('workbench.action.openWalkthrough');
 	};
 
@@ -213,7 +214,7 @@ export const PositronTopActionBar = (props: PositronTopActionBarProps) => {
 				<div className='top-action-bar-container'>
 
 					<PositronButton className='logo-button' onClick={logoClickHandler}>
-						<span className='icon codicon codicon-positron-posit-logo' />
+						<span className='icon codicon codicon-positron-logo' />
 					</PositronButton>
 
 					<PositronActionBar size='large' borderBottom={true} paddingLeft={kHorizontalPadding} paddingRight={kHorizontalPadding}>

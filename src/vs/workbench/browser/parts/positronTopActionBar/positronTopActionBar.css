@@ -11,9 +11,10 @@
 .logo-button {
 	display: flex;
 	cursor: pointer;
-	align-items: center;
+	align-items: end;
 	justify-content: center;
-	background: var(--vscode-activityBar-background);
+	border-top-right-radius: 10px;
+	background: var(--vscode-positronTopActionBar-logoBackground);
 }
 
 .logo-button:focus {
@@ -21,11 +22,10 @@
 }
 
 .logo-button:focus-visible {
-	border-radius: 14x;
 	outline: 1px solid white !important;
 }
 
 .logo-button .icon {
 	color: white;
-	font-size: 24px !important;
+	font-size: 32px !important;
 }
