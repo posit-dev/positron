@@ -1,3 +1,31 @@
 /*---------------------------------------------------------------------------------------------
  *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
+
+.top-action-bar-container {
+	width: 100%;
+	display: grid;
+	grid-template-columns: 48px 1fr;
+}
+
+.logo-button {
+	display: flex;
+	cursor: pointer;
+	align-items: center;
+	justify-content: center;
+	background: var(--vscode-activityBar-background);
+}
+
+.logo-button:focus {
+	outline: none !important;
+}
+
+.logo-button:focus-visible {
+	border-radius: 14x;
+	outline: 1px solid white !important;
+}
+
+.logo-button .icon {
+	color: white;
+	font-size: 24px !important;
+}
