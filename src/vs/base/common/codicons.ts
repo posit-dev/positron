@@ -573,7 +573,7 @@ export const Codicon = {
 	positronPrint: register('positron-print', 0xf234),
 	positronDropDownArrow: register('positron-drop-down-arrow', 0xf235),
 	positronLogo: register('positron-logo', 0xf236),
-	positronAvailable2: register('positron-available-2', 0xf237),
+	positronPositLogo: register('positron-posit-logo', 0xf237),
 	positronSeparator: register('positron-separator', 0xf238),
 	positronEnvironmentView: register('positron-environment-view', 0xf239),
 	positronHelpView: register('positron-help-view', 0xf23a),
