@@ -3,7 +3,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import type * as positron from 'positron';
-import { ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMessageCommClosed, ILanguageRuntimeMessageCommData, ILanguageRuntimeMessageCommOpen, ILanguageRuntimeMessageError, ILanguageRuntimeMessageInput, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessagePrompt, ILanguageRuntimeMessageState, ILanguageRuntimeMessageStream, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMessageCommData, ILanguageRuntimeMessageCommOpen, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import * as extHostProtocol from './extHost.positron.protocol';
 import { IDisposable } from 'vs/base/common/lifecycle';
 import { Disposable, LanguageRuntimeMessageType } from 'vs/workbench/api/common/extHostTypes';
@@ -131,32 +131,7 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 			this._proxy.$emitLanguageRuntimeState(handle, state));
 
 		runtime.onDidReceiveRuntimeMessage(message => {
-			// Broker the message type to one of the discrete message events.
 			switch (message.type) {
-				case LanguageRuntimeMessageType.Stream:
-					this._proxy.$emitLanguageRuntimeMessageStream(handle, message as ILanguageRuntimeMessage as ILanguageRuntimeMessageStream);
-					break;
-
-				case LanguageRuntimeMessageType.Output:
-					this._proxy.$emitLanguageRuntimeMessageOutput(handle, message as ILanguageRuntimeMessage as ILanguageRuntimeMessageOutput);
-					break;
-
-				case LanguageRuntimeMessageType.Input:
-					this._proxy.$emitLanguageRuntimeMessageInput(handle, message as ILanguageRuntimeMessage as ILanguageRuntimeMessageInput);
-					break;
-
-				case LanguageRuntimeMessageType.Error:
-					this._proxy.$emitLanguageRuntimeMessageError(handle, message as ILanguageRuntimeMessage as ILanguageRuntimeMessageError);
-					break;
-
-				case LanguageRuntimeMessageType.Prompt:
-					this._proxy.$emitLanguageRuntimeMessagePrompt(handle, message as ILanguageRuntimeMessage as ILanguageRuntimeMessagePrompt);
-					break;
-
-				case LanguageRuntimeMessageType.State:
-					this._proxy.$emitLanguageRuntimeMessageState(handle, message as ILanguageRuntimeMessage as ILanguageRuntimeMessageState);
-					break;
-
 				case LanguageRuntimeMessageType.CommOpen:
 					this.handleCommOpen(handle, message as ILanguageRuntimeMessage as ILanguageRuntimeMessageCommOpen);
 					break;
@@ -165,8 +140,8 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 					this.handleCommData(handle, message as ILanguageRuntimeMessage as ILanguageRuntimeMessageCommData);
 					break;
 
-				case LanguageRuntimeMessageType.CommClosed:
-					this._proxy.$emitRuntimeClientClosed(handle, message as ILanguageRuntimeMessage as ILanguageRuntimeMessageCommClosed);
+				default:
+					this._proxy.$emitLanguageRuntimeMessage(handle, message as ILanguageRuntimeMessage);
 					break;
 			}
 		});

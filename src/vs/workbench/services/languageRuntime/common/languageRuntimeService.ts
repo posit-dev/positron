@@ -26,6 +26,9 @@ export interface ILanguageRuntimeMessage {
 	/** The event ID */
 	id: string;
 
+	/** The type of event */
+	type: LanguageRuntimeMessageType;
+
 	/** The ID of this event's parent (the event that caused it), if applicable */
 	parent_id: string;
 

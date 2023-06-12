@@ -9,7 +9,7 @@ import {
 	ExtHostPositronContext
 } from '../../common/positron/extHost.positron.protocol';
 import { extHostNamedCustomer, IExtHostContext } from 'vs/workbench/services/extensions/common/extHostCustomers';
-import { ILanguageRuntime, ILanguageRuntimeClientCreatedEvent, ILanguageRuntimeInfo, ILanguageRuntimeMessageCommClosed, ILanguageRuntimeMessageCommData, ILanguageRuntimeMessageCommOpen, ILanguageRuntimeMessageError, ILanguageRuntimeMessageInput, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessagePrompt, ILanguageRuntimeMessageState, ILanguageRuntimeMessageStream, ILanguageRuntimeMetadata, ILanguageRuntimeService, ILanguageRuntimeStartupFailure, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntime, ILanguageRuntimeClientCreatedEvent, ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMessageCommClosed, ILanguageRuntimeMessageCommData, ILanguageRuntimeMessageCommOpen, ILanguageRuntimeMessageError, ILanguageRuntimeMessageInput, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessagePrompt, ILanguageRuntimeMessageState, ILanguageRuntimeMessageStream, ILanguageRuntimeMetadata, ILanguageRuntimeService, ILanguageRuntimeStartupFailure, LanguageRuntimeMessageType, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { Disposable, DisposableStore } from 'vs/base/common/lifecycle';
 import { Event, Emitter } from 'vs/base/common/event';
 import { IPositronConsoleService } from 'vs/workbench/services/positronConsole/common/interfaces/positronConsoleService';
@@ -86,6 +86,39 @@ class ExtHostLanguageRuntimeAdapter implements ILanguageRuntime {
 	onDidReceiveRuntimeMessagePrompt = this._onDidReceiveRuntimeMessagePromptEmitter.event;
 	onDidReceiveRuntimeMessageState = this._onDidReceiveRuntimeMessageStateEmitter.event;
 	onDidCreateClientInstance = this._onDidCreateClientInstanceEmitter.event;
+
+	emitDidReceiveRuntimeMessage(message: ILanguageRuntimeMessage): void {
+		// Broker the message type to one of the discrete message events.
+		switch (message.type) {
+			case LanguageRuntimeMessageType.Stream:
+				this.emitDidReceiveRuntimeMessageStream(message as ILanguageRuntimeMessageStream);
+				break;
+
+			case LanguageRuntimeMessageType.Output:
+				this.emitDidReceiveRuntimeMessageOutput(message as ILanguageRuntimeMessageOutput);
+				break;
+
+			case LanguageRuntimeMessageType.Input:
+				this.emitDidReceiveRuntimeMessageInput(message as ILanguageRuntimeMessageInput);
+				break;
+
+			case LanguageRuntimeMessageType.Error:
+				this.emitDidReceiveRuntimeMessageError(message as ILanguageRuntimeMessageError);
+				break;
+
+			case LanguageRuntimeMessageType.Prompt:
+				this.emitDidReceiveRuntimeMessagePrompt(message as ILanguageRuntimeMessagePrompt);
+				break;
+
+			case LanguageRuntimeMessageType.State:
+				this.emitDidReceiveRuntimeMessageState(message as ILanguageRuntimeMessageState);
+				break;
+
+			case LanguageRuntimeMessageType.CommClosed:
+				this.emitClientState((message as ILanguageRuntimeMessageCommClosed).comm_id, RuntimeClientState.Closed);
+				break;
+		}
+	}
 
 	emitDidReceiveRuntimeMessageOutput(languageRuntimeMessageOutput: ILanguageRuntimeMessageOutput) {
 		this._onDidReceiveRuntimeMessageOutputEmitter.fire(languageRuntimeMessageOutput);
@@ -534,28 +567,8 @@ export class MainThreadLanguageRuntime implements MainThreadLanguageRuntimeShape
 		this.findRuntime(handle).emitClientState(message.comm_id, RuntimeClientState.Closed);
 	}
 
-	$emitLanguageRuntimeMessageOutput(handle: number, message: ILanguageRuntimeMessageOutput): void {
-		this.findRuntime(handle).emitDidReceiveRuntimeMessageOutput(message);
-	}
-
-	$emitLanguageRuntimeMessageStream(handle: number, message: ILanguageRuntimeMessageStream): void {
-		this.findRuntime(handle).emitDidReceiveRuntimeMessageStream(message);
-	}
-
-	$emitLanguageRuntimeMessageInput(handle: number, message: ILanguageRuntimeMessageInput): void {
-		this.findRuntime(handle).emitDidReceiveRuntimeMessageInput(message);
-	}
-
-	$emitLanguageRuntimeMessageError(handle: number, message: ILanguageRuntimeMessageError): void {
-		this.findRuntime(handle).emitDidReceiveRuntimeMessageError(message);
-	}
-
-	$emitLanguageRuntimeMessagePrompt(handle: number, message: ILanguageRuntimeMessagePrompt): void {
-		this.findRuntime(handle).emitDidReceiveRuntimeMessagePrompt(message);
-	}
-
-	$emitLanguageRuntimeMessageState(handle: number, message: ILanguageRuntimeMessageState): void {
-		this.findRuntime(handle).emitDidReceiveRuntimeMessageState(message);
+	$emitLanguageRuntimeMessage(handle: number, message: ILanguageRuntimeMessage): void {
+		this.findRuntime(handle).emitDidReceiveRuntimeMessage(message);
 	}
 
 	$emitLanguageRuntimeState(handle: number, state: RuntimeState): void {
