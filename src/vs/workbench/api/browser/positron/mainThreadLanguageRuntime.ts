@@ -40,6 +40,12 @@ class ExtHostLanguageRuntimeAdapter implements ILanguageRuntime {
 	private _clients: Map<string, ExtHostRuntimeClientInstance<any, any>> =
 		new Map<string, ExtHostRuntimeClientInstance<any, any>>();
 
+	/** Lamport clock, used for event ordering */
+	private _eventClock = 0;
+
+	/** Queue of language runtime messages that need to be delivered */
+	private _eventQueue: ILanguageRuntimeMessage[] = [];
+
 	constructor(readonly handle: number,
 		readonly metadata: ILanguageRuntimeMetadata,
 		private readonly _logService: ILogService,
@@ -88,35 +94,13 @@ class ExtHostLanguageRuntimeAdapter implements ILanguageRuntime {
 	onDidCreateClientInstance = this._onDidCreateClientInstanceEmitter.event;
 
 	emitDidReceiveRuntimeMessage(message: ILanguageRuntimeMessage): void {
-		// Broker the message type to one of the discrete message events.
-		switch (message.type) {
-			case LanguageRuntimeMessageType.Stream:
-				this.emitDidReceiveRuntimeMessageStream(message as ILanguageRuntimeMessageStream);
-				break;
+		// Add the message to the queue
+		this._eventQueue.push(message);
 
-			case LanguageRuntimeMessageType.Output:
-				this.emitDidReceiveRuntimeMessageOutput(message as ILanguageRuntimeMessageOutput);
-				break;
-
-			case LanguageRuntimeMessageType.Input:
-				this.emitDidReceiveRuntimeMessageInput(message as ILanguageRuntimeMessageInput);
-				break;
-
-			case LanguageRuntimeMessageType.Error:
-				this.emitDidReceiveRuntimeMessageError(message as ILanguageRuntimeMessageError);
-				break;
-
-			case LanguageRuntimeMessageType.Prompt:
-				this.emitDidReceiveRuntimeMessagePrompt(message as ILanguageRuntimeMessagePrompt);
-				break;
-
-			case LanguageRuntimeMessageType.State:
-				this.emitDidReceiveRuntimeMessageState(message as ILanguageRuntimeMessageState);
-				break;
-
-			case LanguageRuntimeMessageType.CommClosed:
-				this.emitClientState((message as ILanguageRuntimeMessageCommClosed).comm_id, RuntimeClientState.Closed);
-				break;
+		// If the message contains the next tick in the event clock, process the
+		// queue now
+		if (message.event_clock === this._eventClock + 1) {
+			this.processMessageQueue();
 		}
 	}
 
@@ -373,6 +357,59 @@ class ExtHostLanguageRuntimeAdapter implements ILanguageRuntime {
 		// Return the generated client ID
 		return `${client}-${languageId}-${nextId}-${randomId}`;
 	}
+
+	private processMessageQueue(): void {
+		// Sort the queue by event clock, so that we can process messages in
+		// order.
+		this._eventQueue.sort((a, b) => {
+			return a.event_clock - b.event_clock;
+		});
+
+		// Process each message in the sorted queue.
+		this._eventQueue.forEach((message) => {
+			this.processMessage(message);
+		});
+
+		// Clear the queue.
+		this._eventQueue = [];
+	}
+
+	private processMessage(message: ILanguageRuntimeMessage): void {
+		// Update our view of the event clock.
+		this._eventClock = message.event_clock;
+
+		// Broker the message type to one of the discrete message events.
+		switch (message.type) {
+			case LanguageRuntimeMessageType.Stream:
+				this.emitDidReceiveRuntimeMessageStream(message as ILanguageRuntimeMessageStream);
+				break;
+
+			case LanguageRuntimeMessageType.Output:
+				this.emitDidReceiveRuntimeMessageOutput(message as ILanguageRuntimeMessageOutput);
+				break;
+
+			case LanguageRuntimeMessageType.Input:
+				this.emitDidReceiveRuntimeMessageInput(message as ILanguageRuntimeMessageInput);
+				break;
+
+			case LanguageRuntimeMessageType.Error:
+				this.emitDidReceiveRuntimeMessageError(message as ILanguageRuntimeMessageError);
+				break;
+
+			case LanguageRuntimeMessageType.Prompt:
+				this.emitDidReceiveRuntimeMessagePrompt(message as ILanguageRuntimeMessagePrompt);
+				break;
+
+			case LanguageRuntimeMessageType.State:
+				this.emitDidReceiveRuntimeMessageState(message as ILanguageRuntimeMessageState);
+				break;
+
+			case LanguageRuntimeMessageType.CommClosed:
+				this.emitClientState((message as ILanguageRuntimeMessageCommClosed).comm_id, RuntimeClientState.Closed);
+				break;
+		}
+	}
+
 	static clientCounter = 0;
 }
 
