@@ -15,7 +15,7 @@ export interface MainThreadLanguageRuntimeShape extends IDisposable {
 	$emitRuntimeClientClosed(handle: number, message: ILanguageRuntimeMessageCommClosed): void;
 
 	$emitLanguageRuntimeMessage(handle: number, message: ILanguageRuntimeMessage): void;
-	$emitLanguageRuntimeState(handle: number, state: RuntimeState): void;
+	$emitLanguageRuntimeState(handle: number, clock: number, state: RuntimeState): void;
 }
 
 // The interface to the main thread exposed by the extension host

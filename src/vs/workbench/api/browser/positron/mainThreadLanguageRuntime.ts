@@ -571,7 +571,7 @@ export class MainThreadLanguageRuntime implements MainThreadLanguageRuntimeShape
 		this.findRuntime(handle).emitDidReceiveRuntimeMessage(message);
 	}
 
-	$emitLanguageRuntimeState(handle: number, state: RuntimeState): void {
+	$emitLanguageRuntimeState(handle: number, clock: number, state: RuntimeState): void {
 		this.findRuntime(handle).emitState(state);
 	}
 

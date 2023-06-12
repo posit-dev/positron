@@ -20,6 +20,9 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 
 	private readonly _clientHandlers = new Array<positron.RuntimeClientHandler>();
 
+	/** Lamport clock, used for event ordering */
+	private _eventClock = 0;
+
 	constructor(
 		mainContext: extHostProtocol.IMainPositronContext
 	) {
@@ -128,20 +131,29 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 
 		// Wire event handlers for state changes and messages
 		runtime.onDidChangeRuntimeState(state =>
-			this._proxy.$emitLanguageRuntimeState(handle, state));
+			this._proxy.$emitLanguageRuntimeState(handle, this.nextEventClockTick(), state));
 
 		runtime.onDidReceiveRuntimeMessage(message => {
+			// Amend the message with the event clock for ordering
+			const runtimeMessage: ILanguageRuntimeMessage = {
+				event_clock: this.nextEventClockTick(),
+				...message
+			};
+
+			// Dispatch the message to the appropriate handler
 			switch (message.type) {
+				// Handle comm messages separately
 				case LanguageRuntimeMessageType.CommOpen:
-					this.handleCommOpen(handle, message as ILanguageRuntimeMessage as ILanguageRuntimeMessageCommOpen);
+					this.handleCommOpen(handle, runtimeMessage as ILanguageRuntimeMessageCommOpen);
 					break;
 
 				case LanguageRuntimeMessageType.CommData:
-					this.handleCommData(handle, message as ILanguageRuntimeMessage as ILanguageRuntimeMessageCommData);
+					this.handleCommData(handle, runtimeMessage as ILanguageRuntimeMessageCommData);
 					break;
 
+				// Pass everything else to the main thread
 				default:
-					this._proxy.$emitLanguageRuntimeMessage(handle, message as ILanguageRuntimeMessage);
+					this._proxy.$emitLanguageRuntimeMessage(handle, runtimeMessage);
 					break;
 			}
 		});
@@ -207,5 +219,9 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		} else {
 			this._proxy.$emitRuntimeClientMessage(handle, message);
 		}
+	}
+
+	private nextEventClockTick(): number {
+		return ++this._eventClock;
 	}
 }
