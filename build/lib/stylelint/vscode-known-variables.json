@@ -733,7 +733,8 @@
 		"--vscode-positronRuntimesManager-hoverBackground",
 		"--vscode-positronRuntimesManager-actionHoverBackground",
 		"--vscode-positronRuntimesManager-background",
-		"--positronActionBar-separator"
+		"--positronActionBar-separator",
+		"--vscode-positronTopActionBar-logoBackground"
 	],
 	"others": [
 		"--background-dark",
