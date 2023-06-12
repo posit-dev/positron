@@ -13,6 +13,7 @@
 	cursor: pointer;
 	align-items: center;
 	justify-content: center;
+	outline-offset: -4px !important;
 	background: var(--vscode-activityBar-background);
 }
 
@@ -21,10 +22,12 @@
 }
 
 .logo-button:focus-visible {
+	padding: 2px;
+	outline-offset: -4px !important;
 	outline: 1px solid var(--vscode-activityBar-activeBorder) !important;
 }
 
 .logo-button .icon {
-	font-size: 30px !important;
+	font-size: 28px !important;
 	color: var(--vscode-activityBar-activeBorder);
 }
