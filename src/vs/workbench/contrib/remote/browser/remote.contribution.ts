@@ -9,14 +9,20 @@ import { ShowCandidateContribution } from 'vs/workbench/contrib/remote/browser/s
 import { LifecyclePhase } from 'vs/workbench/services/lifecycle/common/lifecycle';
 import { TunnelFactoryContribution } from 'vs/workbench/contrib/remote/browser/tunnelFactory';
 import { RemoteAgentConnectionStatusListener, RemoteMarkers } from 'vs/workbench/contrib/remote/browser/remote';
-import { RemoteStatusIndicator } from 'vs/workbench/contrib/remote/browser/remoteIndicator';
+// --- Start Positron ---
+// Remove the RemoteStatusIndicator.
+// import { RemoteStatusIndicator } from 'vs/workbench/contrib/remote/browser/remoteIndicator';
+// --- End Positron ---
 import { AutomaticPortForwarding, ForwardedPortsView, PortRestore } from 'vs/workbench/contrib/remote/browser/remoteExplorer';
 
 const workbenchContributionsRegistry = Registry.as<IWorkbenchContributionsRegistry>(WorkbenchExtensions.Workbench);
 workbenchContributionsRegistry.registerWorkbenchContribution(ShowCandidateContribution, LifecyclePhase.Ready);
 workbenchContributionsRegistry.registerWorkbenchContribution(TunnelFactoryContribution, LifecyclePhase.Ready);
 workbenchContributionsRegistry.registerWorkbenchContribution(RemoteAgentConnectionStatusListener, LifecyclePhase.Eventually);
-workbenchContributionsRegistry.registerWorkbenchContribution(RemoteStatusIndicator, LifecyclePhase.Starting);
+// --- Start Positron ---
+// Remove the RemoteStatusIndicator.
+// workbenchContributionsRegistry.registerWorkbenchContribution(RemoteStatusIndicator, LifecyclePhase.Starting);
+// --- End Positron ---
 workbenchContributionsRegistry.registerWorkbenchContribution(ForwardedPortsView, LifecyclePhase.Restored);
 workbenchContributionsRegistry.registerWorkbenchContribution(PortRestore, LifecyclePhase.Eventually);
 workbenchContributionsRegistry.registerWorkbenchContribution(AutomaticPortForwarding, LifecyclePhase.Eventually);
