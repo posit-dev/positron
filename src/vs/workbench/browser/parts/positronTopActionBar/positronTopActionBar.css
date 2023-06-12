@@ -25,6 +25,6 @@
 }
 
 .logo-button .icon {
+	font-size: 30px !important;
 	color: var(--vscode-activityBar-activeBorder);
-	font-size: 32px !important;
 }
