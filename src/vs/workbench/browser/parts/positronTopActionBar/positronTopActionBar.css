@@ -13,7 +13,6 @@
 	cursor: pointer;
 	align-items: center;
 	justify-content: center;
-	outline-offset: -4px !important;
 	background: var(--vscode-activityBar-background);
 }
 
@@ -21,13 +20,15 @@
 	outline: none !important;
 }
 
-.logo-button:focus-visible {
-	padding: 2px;
-	outline-offset: -4px !important;
-	outline: 1px solid var(--vscode-activityBar-activeBorder) !important;
+.logo-button .logo-icon {
+	font-size: 28px !important;
+	color: var(--vscode-activityBar-inactiveForeground);
 }
 
-.logo-button .icon {
-	font-size: 28px !important;
-	color: var(--vscode-activityBar-activeBorder);
+.logo-button .logo-icon:hover {
+	color: var(--vscode-activityBar-foreground);
+}
+
+.logo-button:focus-visible .logo-icon {
+	color: var(--vscode-activityBar-foreground);
 }

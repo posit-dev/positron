@@ -212,10 +212,10 @@ export const PositronTopActionBar = (props: PositronTopActionBarProps) => {
 			<PositronActionBarContextProvider {...props}>
 
 				<div className='top-action-bar-container'>
-
 					<PositronButton className='logo-button' onClick={logoClickHandler}>
-						<span className='icon codicon codicon-positron-posit-logo' />
+						<span className='logo-icon codicon codicon-positron-posit-logo' />
 					</PositronButton>
+
 
 					<PositronActionBar size='large' borderBottom={true} paddingLeft={kHorizontalPadding} paddingRight={kHorizontalPadding}>
 
