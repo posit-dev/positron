@@ -221,6 +221,11 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		}
 	}
 
+	/**
+	 * Increments the event clock and returns the new value.
+	 *
+	 * @returns The next event clock tick
+	 */
 	private nextEventClockTick(): number {
 		return ++this._eventClock;
 	}

@@ -390,6 +390,12 @@ class ExtHostLanguageRuntimeAdapter implements ILanguageRuntime {
 			// queue immediately.
 			this.processEventQueue();
 		} else {
+			// Log an INFO level message; this can happen if we receive messages
+			// out of order, but it's normal for this to happen due to message
+			// batching from the extension host.
+			this._logService.info(`Received event at tick ${clock}` +
+				`while waiting for tick ${this._eventClock + 1}; deferring`);
+
 			// The message that arrived isn't the next one in the sequence, so
 			// wait for the next message to arrive before processing the queue.
 			//
@@ -401,6 +407,11 @@ class ExtHostLanguageRuntimeAdapter implements ILanguageRuntime {
 				this._eventQueueTimer = undefined;
 			}
 			this._eventQueueTimer = setTimeout(() => {
+				// Warn that we're processing the queue after a timeout; this usually
+				// means we're going to process messages out of order because the
+				// next message in the sequence didn't arrive in time.
+				this._logService.warn(`Processing runtime event queue after timeout;` +
+					`event ordering issues possible.`);
 				this.processEventQueue();
 			}, 250);
 		}
@@ -416,6 +427,13 @@ class ExtHostLanguageRuntimeAdapter implements ILanguageRuntime {
 		this._eventQueue.sort((a, b) => {
 			return a.clock - b.clock;
 		});
+
+		// Typically, there's only ever 1 message in the queue; if there are 2
+		// or more, it means that we've received messages out of order
+		if (this._eventQueue.length > 1) {
+			this._logService.info(`Processing ${this._eventQueue.length} runtime events. ` +
+				`Clocks: ` + this._eventQueue.map((e) => e.clock).join(', '));
+		}
 
 		// Process each message in the sorted queue.
 		this._eventQueue.forEach((message) => {
