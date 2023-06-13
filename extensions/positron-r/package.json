@@ -11,7 +11,8 @@
     "Programming Languages"
   ],
   "activationEvents": [
-    "onStartupFinished"
+    "onStartupFinished",
+    "onCommand:workbench.action.tasks.runTask"
   ],
   "main": "./out/extension.js",
   "contributes": {
@@ -86,7 +87,12 @@
           "when": "!virtualWorkspace"
         }
       ]
-    }
+    },
+    "taskDefinitions": [
+      {
+        "type": "rPackageBuild"
+      }
+    ]
   },
   "scripts": {
     "vscode:prepublish": "yarn run compile",
