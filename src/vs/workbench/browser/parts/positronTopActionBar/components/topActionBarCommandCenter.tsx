@@ -16,7 +16,7 @@ export const TopActionBarCommandCenter = () => {
 	// Hooks.
 	const positronTopActionBarContext = usePositronTopActionBarContext();
 
-	// Ckick handler.
+	// Click handler.
 	const clickHandler = (e: MouseEvent<HTMLElement>) => {
 		// Consume the event.
 		e.preventDefault();
