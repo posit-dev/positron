@@ -4,6 +4,8 @@
 
 import * as positron from 'positron';
 import * as vscode from 'vscode';
+import PQueue from 'p-queue';
+
 import { JupyterAdapterApi, JupyterKernelSpec, JupyterLanguageRuntime } from './jupyter-adapter';
 import { ArkLsp, LspState } from './lsp';
 
@@ -15,6 +17,9 @@ export class RRuntime implements positron.LanguageRuntime, vscode.Disposable {
 
 	/** The Language Server Protocol client wrapper */
 	private _lsp: ArkLsp;
+
+	/** Queue for message handlers */
+	private _queue: PQueue;
 
 	/** The Jupyter kernel-based implementation of the Language Runtime API */
 	private _kernel: JupyterLanguageRuntime;
@@ -34,6 +39,8 @@ export class RRuntime implements positron.LanguageRuntime, vscode.Disposable {
 		this.onDidChangeRuntimeState((state) => {
 			this.onStateChange(state);
 		});
+
+		this._queue = new PQueue({ concurrency: 1 });
 	}
 
 	onDidReceiveRuntimeMessage: vscode.Event<positron.LanguageRuntimeMessage>;
@@ -94,19 +101,20 @@ export class RRuntime implements positron.LanguageRuntime, vscode.Disposable {
 
 	private onStateChange(state: positron.RuntimeState): void {
 		if (state === positron.RuntimeState.Ready) {
-			this.adapterApi.findAvailablePort([], 25).then((port) => {
+			this._queue.add(async () => {
+				let port = await this.adapterApi.findAvailablePort([], 25);
 				this._kernel.emitJupyterLog(`Starting Positron LSP server on port ${port}`);
 				this._kernel.startPositronLsp(`127.0.0.1:${port}`);
-				this._lsp.activate(port, this.context);
+				await this._lsp.activate(port, this.context);
 			});
 		} else if (state === positron.RuntimeState.Exiting ||
 			state === positron.RuntimeState.Exited) {
-			{
 				if (this._lsp.state === LspState.running) {
-					this._kernel.emitJupyterLog(`Stopping Positron LSP server`);
-					this._lsp.deactivate();
+					this._queue.add(async () => {
+						this._kernel.emitJupyterLog(`Stopping Positron LSP server`);
+						await this._lsp.deactivate();
+					})
 				}
 			}
-		}
 	}
 }
