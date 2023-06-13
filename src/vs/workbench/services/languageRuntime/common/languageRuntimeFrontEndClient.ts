@@ -89,6 +89,7 @@ export class FrontEndClientInstance extends Disposable {
 		switch (data.msg_type) {
 			case FrontEndMessageTypeOutput.Event:
 				this._onDidEmitEvent.fire(data as IFrontEndClientMessageOutputEvent);
+				break;
 		}
 	}
 }
