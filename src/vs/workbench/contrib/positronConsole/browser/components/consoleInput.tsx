@@ -429,6 +429,7 @@ export const ConsoleInput = forwardRef<HTMLDivElement, ConsoleInputProps>((props
 			},
 			glyphMargin: false,
 			folding: false,
+			fixedOverflowWidgets: true,
 			lineDecorationsWidth: '1.0ch',
 			renderLineHighlight: 'none',
 			wordWrap: 'bounded',

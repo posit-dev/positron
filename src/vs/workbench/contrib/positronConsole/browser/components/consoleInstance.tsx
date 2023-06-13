@@ -343,7 +343,7 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 		<div
 			ref={consoleInstanceRef}
 			className='console-instance'
-			style={{ width: adjustedWidth, height: props.height, whiteSpace: wordWrap ? 'pre-wrap' : 'pre', zIndex: props.active ? 1 : -1 }}
+			style={{ width: adjustedWidth, height: props.height, whiteSpace: wordWrap ? 'pre-wrap' : 'pre', zIndex: props.active ? 'auto' : -1 }}
 			tabIndex={0}
 			onClick={clickHandler}
 			onKeyDown={keyDownHandler}
