@@ -1073,7 +1073,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 			return;
 		}
 
-		let ses = this;
+		const ses = this;
 
 		// Establish a listener for new lines in the log file
 		this._logTail.on('line', function (data: string) {
