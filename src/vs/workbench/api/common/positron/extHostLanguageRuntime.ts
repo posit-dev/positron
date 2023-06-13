@@ -20,8 +20,11 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 
 	private readonly _clientHandlers = new Array<positron.RuntimeClientHandler>();
 
-	/** Lamport clock, used for event ordering */
-	private _eventClock = 0;
+	/**
+	 * Lamport clocks, used for event ordering. Each runtime has its own clock since
+	 * events are only ordered within a runtime.
+	 */
+	private _eventClocks = new Array<number>();
 
 	constructor(
 		mainContext: extHostProtocol.IMainPositronContext
@@ -130,13 +133,16 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		const handle = this._runtimes.length;
 
 		// Wire event handlers for state changes and messages
-		runtime.onDidChangeRuntimeState(state =>
-			this._proxy.$emitLanguageRuntimeState(handle, this.nextEventClockTick(), state));
+		runtime.onDidChangeRuntimeState(state => {
+			const tick = this._eventClocks[handle] = this._eventClocks[handle] + 1;
+			this._proxy.$emitLanguageRuntimeState(handle, tick, state);
+		});
 
 		runtime.onDidReceiveRuntimeMessage(message => {
+			const tick = this._eventClocks[handle] = this._eventClocks[handle] + 1;
 			// Amend the message with the event clock for ordering
 			const runtimeMessage: ILanguageRuntimeMessage = {
-				event_clock: this.nextEventClockTick(),
+				event_clock: tick,
 				...message
 			};
 
@@ -160,6 +166,7 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 
 		// Register the runtime
 		this._runtimes.push(runtime);
+		this._eventClocks.push(0);
 
 		// Register the runtime with the main thread
 		this._proxy.$registerLanguageRuntime(handle, runtime.metadata);
@@ -221,14 +228,5 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		}
 
 		this._proxy.$emitLanguageRuntimeMessage(handle, message);
-	}
-
-	/**
-	 * Increments the event clock and returns the new value.
-	 *
-	 * @returns The next event clock tick
-	 */
-	private nextEventClockTick(): number {
-		return ++this._eventClock;
 	}
 }
