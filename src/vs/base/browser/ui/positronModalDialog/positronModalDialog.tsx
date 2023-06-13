@@ -64,36 +64,26 @@ export const PositronModalDialog = (props: PropsWithChildren<PositronModalDialog
 
 	// Memoize the keydown event handler.
 	const keydownHandler = useCallback((e: KeyboardEvent) => {
+		/**
+		 * Consumes an event.
+		 */
+		const consumeEvent = () => {
+			e.preventDefault();
+			e.stopPropagation();
+		};
+
 		// Handle the event.
 		switch (e.key) {
 			// Enter accepts dialog.
 			case 'Enter':
-				e.preventDefault();
-				e.stopPropagation();
+				consumeEvent();
 				props.accept?.();
 				break;
 
 			// Escape cancels dialog.
 			case 'Escape':
-				e.preventDefault();
-				e.stopPropagation();
+				consumeEvent();
 				props.cancel?.();
-				break;
-
-			// Allow tab so the user can set focus to the UI elements in the
-			// modal dialog.
-			case 'Tab':
-				break;
-
-			// Eat other keys.
-			// TODO@softwarenerd - For the moment, this appears to be the right
-			// way to handle keyboard events in Positron modal dialog boxes
-			// insofar as we need the rest of the UI (e.g. F1 for the command
-			// palette) to be disabled when a modal dialog is being shown. I am
-			// certain there is more work to be done here.
-			default:
-				e.preventDefault();
-				e.stopPropagation();
 				break;
 		}
 	}, []);
