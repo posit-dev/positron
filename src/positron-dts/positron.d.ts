@@ -44,14 +44,6 @@ declare module 'positron' {
 		CommClosed = 'comm_closed',
 	}
 
-	/** begin positron-language-runtime-event-type */
-	export enum LanguageRuntimeEventType {
-		Busy = 'busy',
-		ShowMessage = 'show_message',
-		ShowHelp = 'show_help',
-	}
-	/** end positron-language-runtime-event-type */
-
 	/**
 	 * The set of possible statuses for a language runtime while online
 	 */
@@ -163,24 +155,11 @@ declare module 'positron' {
 
 	export interface LanguageRuntimeEventData { }
 
-	/**
-	 * LanguageRuntimeEvent is an interface that defines an event occurring
-	 * in a language runtime, usually to trigger some action on the front end.
-	 */
-	export interface LanguageRuntimeEvent extends LanguageRuntimeMessage {
-		/** The name of the event */
-		name: LanguageRuntimeEventType;
-
-		/** The event's data */
-		data: LanguageRuntimeEventData;
-	}
-
 	/** LanguageRuntimeOutput is a LanguageRuntimeMessage representing output (text, plots, etc.) */
 	export interface LanguageRuntimeOutput extends LanguageRuntimeMessage {
 		/** A record of data MIME types to the associated data, e.g. `text/plain` => `'hello world'` */
 		data: Record<string, string>;
 	}
-
 
 	/**
 	 * The set of standard stream names supported for streaming textual output.
@@ -352,6 +331,7 @@ declare module 'positron' {
 		Lsp = 'positron.lsp',
 		Plot = 'positron.plot',
 		DataViewer = 'positron.dataViewer',
+		FrontEnd = 'positron.frontEnd',
 
 		// Future client types may include:
 		// - Watch window/variable explorer

@@ -6,7 +6,7 @@ import { Event } from 'vs/base/common/event';
 import { IDisposable } from 'vs/base/common/lifecycle';
 import { createDecorator } from 'vs/platform/instantiation/common/instantiation';
 import { IRuntimeClientInstance, RuntimeClientType } from 'vs/workbench/services/languageRuntime/common/languageRuntimeClientInstance';
-import { LanguageRuntimeEventData, LanguageRuntimeEventType } from 'vs/workbench/services/languageRuntime/common/languageRuntimeEvents';
+import { IRuntimeClientEvent } from 'vs/workbench/services/languageRuntime/common/languageRuntimeFrontEndClient';
 
 export const ILanguageRuntimeService = createDecorator<ILanguageRuntimeService>('languageRuntimeService');
 
@@ -284,20 +284,12 @@ export interface ILanguageRuntimeMessageError extends ILanguageRuntimeMessage {
 	traceback: Array<string>;
 }
 
-export interface ILanguageRuntimeMessageEvent extends ILanguageRuntimeMessage {
-	/** The event name */
-	name: LanguageRuntimeEventType;
-
-	/** The event data */
-	data: LanguageRuntimeEventData;
-}
-
 export interface ILanguageRuntimeGlobalEvent {
 	/** The ID of the runtime from which the event originated */
 	runtime_id: string;
 
 	/** The event itself */
-	event: ILanguageRuntimeMessageEvent;
+	event: IRuntimeClientEvent;
 }
 
 export interface ILanguageRuntimeStateEvent {
@@ -379,7 +371,6 @@ export interface ILanguageRuntime {
 	onDidReceiveRuntimeMessageError: Event<ILanguageRuntimeMessageError>;
 	onDidReceiveRuntimeMessagePrompt: Event<ILanguageRuntimeMessagePrompt>;
 	onDidReceiveRuntimeMessageState: Event<ILanguageRuntimeMessageState>;
-	onDidReceiveRuntimeMessageEvent: Event<ILanguageRuntimeMessageEvent>;
 
 	/** The current state of the runtime (tracks events above) */
 	getRuntimeState(): RuntimeState;
