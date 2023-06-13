@@ -20,17 +20,24 @@ import { DeferredPromise } from 'vs/base/common/async';
 import { generateUuid } from 'vs/base/common/uuid';
 import { IPositronPlotsService } from 'vs/workbench/services/positronPlots/common/positronPlots';
 
-class QueuedRuntimeEvent {
+abstract class QueuedRuntimeEvent {
 	constructor(readonly clock: number) { }
+	abstract summary(): string;
 }
 
 class QueuedRuntimeMessageEvent extends QueuedRuntimeEvent {
+	override summary(): string {
+		return `${this.message.type}`;
+	}
 	constructor(clock: number, readonly message: ILanguageRuntimeMessage) {
 		super(clock);
 	}
 }
 
 class QueuedRuntimeStateEvent extends QueuedRuntimeEvent {
+	override summary(): string {
+		return `=> ${this.state}`;
+	}
 	constructor(clock: number, readonly state: RuntimeState) {
 		super(clock);
 	}
@@ -112,12 +119,10 @@ class ExtHostLanguageRuntimeAdapter implements ILanguageRuntime {
 	onDidReceiveRuntimeMessageState = this._onDidReceiveRuntimeMessageStateEmitter.event;
 	onDidCreateClientInstance = this._onDidCreateClientInstanceEmitter.event;
 
-	emitDidReceiveRuntimeMessage(message: ILanguageRuntimeMessage): void {
-		// Add the message to the queue
-		this._eventQueue.push(new QueuedRuntimeMessageEvent(message.event_clock, message));
-
-		// Process the event queue, if necessary
-		this.nudgeEventQueue(message.event_clock);
+	handleRuntimeMessage(message: ILanguageRuntimeMessage): void {
+		// Add the message to the event queue
+		const event = new QueuedRuntimeMessageEvent(message.event_clock, message);
+		this.addToEventQueue(event);
 	}
 
 	emitDidReceiveRuntimeMessageOutput(languageRuntimeMessageOutput: ILanguageRuntimeMessageOutput) {
@@ -145,11 +150,9 @@ class ExtHostLanguageRuntimeAdapter implements ILanguageRuntime {
 	}
 
 	emitState(clock: number, state: RuntimeState): void {
-		// Add the state change to the queue
-		this._eventQueue.push(new QueuedRuntimeStateEvent(clock, state));
-
-		// Process the event queue, if necessary
-		this.nudgeEventQueue(clock);
+		// Add the state change to the event queue
+		const event = new QueuedRuntimeStateEvent(clock, state);
+		this.addToEventQueue(event);
 	}
 
 	/**
@@ -379,21 +382,23 @@ class ExtHostLanguageRuntimeAdapter implements ILanguageRuntime {
 	}
 
 	/**
-	 * Processes the event queue, or schedules a deferred processing if the
-	 * event clock is not yet ready.
+	 * Adds an event to the queue, then processes the event queue, or schedules
+	 * a deferred processing if the event clock is not yet ready.
 	 *
-	 * @param clock The event clock value of the message
+	 * @param event The new event to add to the queue.
 	 */
-	private nudgeEventQueue(clock: number): void {
-		if (clock === this._eventClock + 1) {
-			// We have received the next message in the sequence; process the
-			// queue immediately.
+	private addToEventQueue(event: QueuedRuntimeEvent): void {
+		this._eventQueue.push(event);
+		const clock = event.clock;
+		if (clock === this._eventClock + 1 || this._eventClock === 0) {
+			// We have received the next message in the sequence (or we have
+			// never received a message); process the queue immediately.
 			this.processEventQueue();
 		} else {
 			// Log an INFO level message; this can happen if we receive messages
 			// out of order, but it's normal for this to happen due to message
 			// batching from the extension host.
-			this._logService.info(`Received event at tick ${clock}` +
+			this._logService.info(`Received '${event.summary()}' at tick ${clock} ` +
 				`while waiting for tick ${this._eventClock + 1}; deferring`);
 
 			// The message that arrived isn't the next one in the sequence, so
@@ -410,7 +415,7 @@ class ExtHostLanguageRuntimeAdapter implements ILanguageRuntime {
 				// Warn that we're processing the queue after a timeout; this usually
 				// means we're going to process messages out of order because the
 				// next message in the sequence didn't arrive in time.
-				this._logService.warn(`Processing runtime event queue after timeout;` +
+				this._logService.warn(`Processing runtime event queue after timeout; ` +
 					`event ordering issues possible.`);
 				this.processEventQueue();
 			}, 250);
@@ -432,7 +437,9 @@ class ExtHostLanguageRuntimeAdapter implements ILanguageRuntime {
 		// or more, it means that we've received messages out of order
 		if (this._eventQueue.length > 1) {
 			this._logService.info(`Processing ${this._eventQueue.length} runtime events. ` +
-				`Clocks: ` + this._eventQueue.map((e) => e.clock).join(', '));
+				`Clocks: ` + this._eventQueue.map((e) => {
+					return `${e.clock}: ${e.summary()}`;
+				}).join(', '));
 		}
 
 		// Process each message in the sorted queue.
@@ -477,6 +484,14 @@ class ExtHostLanguageRuntimeAdapter implements ILanguageRuntime {
 
 			case LanguageRuntimeMessageType.State:
 				this.emitDidReceiveRuntimeMessageState(message as ILanguageRuntimeMessageState);
+				break;
+
+			case LanguageRuntimeMessageType.CommOpen:
+				this.openClientInstance(message as ILanguageRuntimeMessageCommOpen);
+				break;
+
+			case LanguageRuntimeMessageType.CommData:
+				this.emitDidReceiveClientMessage(message as ILanguageRuntimeMessageCommData);
 				break;
 
 			case LanguageRuntimeMessageType.CommClosed:
@@ -667,20 +682,8 @@ export class MainThreadLanguageRuntime implements MainThreadLanguageRuntimeShape
 		this._proxy = extHostContext.getProxy(ExtHostPositronContext.ExtHostLanguageRuntime);
 	}
 
-	$emitRuntimeClientOpened(handle: number, message: ILanguageRuntimeMessageCommOpen): void {
-		this.findRuntime(handle).openClientInstance(message);
-	}
-
-	$emitRuntimeClientMessage(handle: number, message: ILanguageRuntimeMessageCommData): void {
-		this.findRuntime(handle).emitDidReceiveClientMessage(message);
-	}
-
-	$emitRuntimeClientClosed(handle: number, message: ILanguageRuntimeMessageCommClosed): void {
-		this.findRuntime(handle).emitClientState(message.comm_id, RuntimeClientState.Closed);
-	}
-
 	$emitLanguageRuntimeMessage(handle: number, message: ILanguageRuntimeMessage): void {
-		this.findRuntime(handle).emitDidReceiveRuntimeMessage(message);
+		this.findRuntime(handle).handleRuntimeMessage(message);
 	}
 
 	$emitLanguageRuntimeState(handle: number, clock: number, state: RuntimeState): void {

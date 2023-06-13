@@ -3,16 +3,13 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { IDisposable } from 'vs/base/common/lifecycle';
-import { ILanguageRuntimeInfo, ILanguageRuntimeMetadata, RuntimeClientType, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeState, ILanguageRuntimeMessageCommClosed, ILanguageRuntimeMessageCommOpen, ILanguageRuntimeMessage, ILanguageRuntimeMessageCommData } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntimeInfo, ILanguageRuntimeMetadata, RuntimeClientType, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeState, ILanguageRuntimeMessage } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { createProxyIdentifier, IRPCProtocol } from 'vs/workbench/services/extensions/common/proxyIdentifier';
 
 // This is the interface that the main process exposes to the extension host
 export interface MainThreadLanguageRuntimeShape extends IDisposable {
 	$registerLanguageRuntime(handle: number, metadata: ILanguageRuntimeMetadata): void;
 	$unregisterLanguageRuntime(handle: number): void;
-	$emitRuntimeClientOpened(handle: number, message: ILanguageRuntimeMessageCommOpen): void;
-	$emitRuntimeClientMessage(handle: number, message: ILanguageRuntimeMessageCommData): void;
-	$emitRuntimeClientClosed(handle: number, message: ILanguageRuntimeMessageCommClosed): void;
 
 	$emitLanguageRuntimeMessage(handle: number, message: ILanguageRuntimeMessage): void;
 	$emitLanguageRuntimeState(handle: number, clock: number, state: RuntimeState): void;

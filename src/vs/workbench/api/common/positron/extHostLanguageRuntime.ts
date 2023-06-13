@@ -195,13 +195,15 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 				if (handler.callback(clientInstance, message.data)) {
 					// Add the client instance to the list
 					this._clientInstances.push(clientInstance);
-					return;
 				}
 			}
 		}
 
-		// If we get here, then no handler took it, so we'll just emit the event
-		this._proxy.$emitRuntimeClientOpened(handle, message);
+		// Notify the main thread that a client has been opened.
+		//
+		// Consider: should this event include information on whether a client
+		// handler took ownership of the client?
+		this._proxy.$emitLanguageRuntimeMessage(handle, message);
 	}
 
 	/**
@@ -216,9 +218,9 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 			instance.getClientId() === message.comm_id);
 		if (clientInstance) {
 			clientInstance.emitMessage(message);
-		} else {
-			this._proxy.$emitRuntimeClientMessage(handle, message);
 		}
+
+		this._proxy.$emitLanguageRuntimeMessage(handle, message);
 	}
 
 	/**
