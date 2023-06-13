@@ -20,20 +20,36 @@ import { DeferredPromise } from 'vs/base/common/async';
 import { generateUuid } from 'vs/base/common/uuid';
 import { IPositronPlotsService } from 'vs/workbench/services/positronPlots/common/positronPlots';
 
+/**
+ * Represents a language runtime event (for example a message or state change)
+ * that is queued for delivery.
+ */
 abstract class QueuedRuntimeEvent {
+	/**
+	 * Create a new queued runtime event.
+	 *
+	 * @param clock The Lamport clock value for the event
+	 */
 	constructor(readonly clock: number) { }
 	abstract summary(): string;
 }
 
+/**
+ * Represents a language runtime message event.
+ */
 class QueuedRuntimeMessageEvent extends QueuedRuntimeEvent {
 	override summary(): string {
 		return `${this.message.type}`;
 	}
+
 	constructor(clock: number, readonly message: ILanguageRuntimeMessage) {
 		super(clock);
 	}
 }
 
+/**
+ * Represents a language runtime state change event.
+ */
 class QueuedRuntimeStateEvent extends QueuedRuntimeEvent {
 	override summary(): string {
 		return `=> ${this.state}`;
