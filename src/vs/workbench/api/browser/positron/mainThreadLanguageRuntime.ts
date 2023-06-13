@@ -20,6 +20,22 @@ import { DeferredPromise } from 'vs/base/common/async';
 import { generateUuid } from 'vs/base/common/uuid';
 import { IPositronPlotsService } from 'vs/workbench/services/positronPlots/common/positronPlots';
 
+class QueuedRuntimeEvent {
+	constructor(readonly clock: number) { }
+}
+
+class QueuedRuntimeMessageEvent extends QueuedRuntimeEvent {
+	constructor(clock: number, readonly message: ILanguageRuntimeMessage) {
+		super(clock);
+	}
+}
+
+class QueuedRuntimeStateEvent extends QueuedRuntimeEvent {
+	constructor(clock: number, readonly state: RuntimeState) {
+		super(clock);
+	}
+}
+
 // Adapter class; presents an ILanguageRuntime interface that connects to the
 // extension host proxy to supply language features.
 class ExtHostLanguageRuntimeAdapter implements ILanguageRuntime {
@@ -43,8 +59,8 @@ class ExtHostLanguageRuntimeAdapter implements ILanguageRuntime {
 	/** Lamport clock, used for event ordering */
 	private _eventClock = 0;
 
-	/** Queue of language runtime messages that need to be delivered */
-	private _eventQueue: ILanguageRuntimeMessage[] = [];
+	/** Queue of language runtime events that need to be delivered */
+	private _eventQueue: QueuedRuntimeEvent[] = [];
 
 	constructor(readonly handle: number,
 		readonly metadata: ILanguageRuntimeMetadata,
@@ -95,12 +111,12 @@ class ExtHostLanguageRuntimeAdapter implements ILanguageRuntime {
 
 	emitDidReceiveRuntimeMessage(message: ILanguageRuntimeMessage): void {
 		// Add the message to the queue
-		this._eventQueue.push(message);
+		this._eventQueue.push(new QueuedRuntimeMessageEvent(message.event_clock, message));
 
 		// If the message contains the next tick in the event clock, process the
 		// queue now
 		if (message.event_clock === this._eventClock + 1) {
-			this.processMessageQueue();
+			this.processEventQueue();
 		}
 	}
 
@@ -128,8 +144,13 @@ class ExtHostLanguageRuntimeAdapter implements ILanguageRuntime {
 		this._onDidReceiveRuntimeMessageStateEmitter.fire(languageRuntimeMessageState);
 	}
 
-	emitState(state: RuntimeState): void {
-		this._stateEmitter.fire(state);
+	emitState(clock: number, state: RuntimeState): void {
+		// Add the state change to the queue
+		this._eventQueue.push(new QueuedRuntimeStateEvent(clock, state));
+
+		if (clock === this._eventClock + 1) {
+			this.processEventQueue();
+		}
 	}
 
 	/**
@@ -358,16 +379,24 @@ class ExtHostLanguageRuntimeAdapter implements ILanguageRuntime {
 		return `${client}-${languageId}-${nextId}-${randomId}`;
 	}
 
-	private processMessageQueue(): void {
+	private processEventQueue(): void {
 		// Sort the queue by event clock, so that we can process messages in
 		// order.
 		this._eventQueue.sort((a, b) => {
-			return a.event_clock - b.event_clock;
+			return a.clock - b.clock;
 		});
 
 		// Process each message in the sorted queue.
 		this._eventQueue.forEach((message) => {
-			this.processMessage(message);
+			// Update our view of the event clock.
+			this._eventClock = message.clock;
+
+			// Dispatch the message.
+			if (message instanceof QueuedRuntimeMessageEvent) {
+				this.processMessage(message.message);
+			} else if (message instanceof QueuedRuntimeStateEvent) {
+				this._stateEmitter.fire(message.state);
+			}
 		});
 
 		// Clear the queue.
@@ -375,9 +404,6 @@ class ExtHostLanguageRuntimeAdapter implements ILanguageRuntime {
 	}
 
 	private processMessage(message: ILanguageRuntimeMessage): void {
-		// Update our view of the event clock.
-		this._eventClock = message.event_clock;
-
 		// Broker the message type to one of the discrete message events.
 		switch (message.type) {
 			case LanguageRuntimeMessageType.Stream:
@@ -609,7 +635,7 @@ export class MainThreadLanguageRuntime implements MainThreadLanguageRuntimeShape
 	}
 
 	$emitLanguageRuntimeState(handle: number, clock: number, state: RuntimeState): void {
-		this.findRuntime(handle).emitState(state);
+		this.findRuntime(handle).emitState(clock, state);
 	}
 
 	// Called by the extension host to register a language runtime
