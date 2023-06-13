@@ -14,18 +14,15 @@ export function withActiveExtension(ext: vscode.Extension<any>, callback: () => 
 
 }
 
-export function promiseHandles() {
-	const out = {
-		resolve: (_value?: unknown) => { },
-		reject: (_reason?: any) => { },
-		promise: null as unknown as Promise<unknown>,
-	};
+export class PromiseHandles<T> {
+	resolve!: (value: T | Promise<T>) => void;
+	reject!: (error: unknown) => void;
+	promise: Promise<T>;
 
-	const promise = new Promise((resolve, reject) => {
-		out.resolve = resolve;
-		out.reject = reject;
-	});
-	out.promise = promise;
-
-	return out;
+	constructor() {
+		this.promise = new Promise((resolve, reject) => {
+			this.resolve = resolve;
+			this.reject = reject;
+		})
+	}
 }

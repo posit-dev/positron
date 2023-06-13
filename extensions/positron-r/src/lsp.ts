@@ -4,7 +4,7 @@
 
 import * as vscode from 'vscode';
 import * as positron from 'positron';
-import { promiseHandles } from './util'
+import { PromiseHandles } from './util'
 
 import {
 	LanguageClient,
@@ -117,8 +117,8 @@ export class ArkLsp implements vscode.Disposable {
 		trace(`Creating Positron R ${this._version} language client...`);
 		this._client = new LanguageClient('positron-r', `Positron R Language Server (${this._version})`, serverOptions, clientOptions);
 
-		const out = promiseHandles();
-		this._initializing = out.promise as Promise<void>;
+		const out = new PromiseHandles<void>();
+		this._initializing = out.promise;
 
 		this._client.onDidChangeState(event => {
 			const oldState = this._state;
