@@ -2,26 +2,34 @@
  *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
-import { ITelemetryData } from 'vs/base/common/actions';
-import { URI } from 'vs/base/common/uri';
-import { ServicesAccessor } from 'vs/editor/browser/editorExtensions';
 import { localize } from 'vs/nls';
-import { Action2, MenuId, registerAction2 } from 'vs/platform/actions/common/actions';
-import { ICommandService } from 'vs/platform/commands/common/commands';
-import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
-import { ContextKeyExpr } from 'vs/platform/contextkey/common/contextkey';
-import { IFileDialogService } from 'vs/platform/dialogs/common/dialogs';
+import { URI } from 'vs/base/common/uri';
+import { ITelemetryData } from 'vs/base/common/actions';
 import { IFileService } from 'vs/platform/files/common/files';
+import { ServicesAccessor } from 'vs/editor/browser/editorExtensions';
+import { IFileDialogService } from 'vs/platform/dialogs/common/dialogs';
+import { ICommandService } from 'vs/platform/commands/common/commands';
+import { ContextKeyExpr } from 'vs/platform/contextkey/common/contextkey';
+import { IPathService } from 'vs/workbench/services/path/common/pathService';
 import { workspacesCategory } from 'vs/workbench/browser/actions/workspaceActions';
+import { Action2, MenuId, registerAction2 } from 'vs/platform/actions/common/actions';
+import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
+import { EnterMultiRootWorkspaceSupportContext } from 'vs/workbench/common/contextkeys';
 import { showNewWorkspaceModalDialog } from 'vs/workbench/browser/positronModalDialogs/newWorkspaceModalDialog';
 import { showNewWorkspaceFromGitModalDialog } from 'vs/workbench/browser/positronModalDialogs/newWorkspaceFromGitModalDialog';
-import { EnterMultiRootWorkspaceSupportContext } from 'vs/workbench/common/contextkeys';
-import { IPathService } from 'vs/workbench/services/path/common/pathService';
 
+/**
+ * The PositronNewWorkspaceAction.
+ */
 export class PositronNewWorkspaceAction extends Action2 {
-
+	/**
+	 * The action ID.
+	 */
 	static readonly ID = 'positron.workbench.action.newWorkspace';
 
+	/**
+	 * Constructor.
+	 */
 	constructor() {
 		super({
 			id: PositronNewWorkspaceAction.ID,
@@ -41,6 +49,10 @@ export class PositronNewWorkspaceAction extends Action2 {
 		});
 	}
 
+	/**
+	 * Runs action.
+	 * @param accessor The services accessor.
+	 */
 	override async run(accessor: ServicesAccessor): Promise<void> {
 		// Get the services we need to create the new workspace, if the user accept the dialog.
 		const commandService = accessor.get(ICommandService);
@@ -69,10 +81,18 @@ export class PositronNewWorkspaceAction extends Action2 {
 	}
 }
 
+/**
+ * The PositronNewWorkspaceFromGitAction.
+ */
 export class PositronNewWorkspaceFromGitAction extends Action2 {
-
+	/**
+	 * The action ID.
+	 */
 	static readonly ID = 'positron.workbench.action.newWorkspaceFromGit';
 
+	/**
+	 * Constructor.
+	 */
 	constructor() {
 		super({
 			id: PositronNewWorkspaceFromGitAction.ID,
@@ -95,6 +115,10 @@ export class PositronNewWorkspaceFromGitAction extends Action2 {
 		});
 	}
 
+	/**
+	 * Runs action.
+	 * @param accessor The services accessor.
+	 */
 	override async run(accessor: ServicesAccessor): Promise<void> {
 		const commandService = accessor.get(ICommandService);
 		const configService = accessor.get(IConfigurationService);
@@ -115,10 +139,18 @@ export class PositronNewWorkspaceFromGitAction extends Action2 {
 	}
 }
 
+/**
+ * The PositronOpenWorkspaceInNewWindowAction.
+ */
 export class PositronOpenWorkspaceInNewWindowAction extends Action2 {
-
+	/**
+	 * The action ID.
+	 */
 	static readonly ID = 'positron.workbench.action.openWorkspaceInNewWindow';
 
+	/**
+	 * Constructor.
+	 */
 	constructor() {
 		super({
 			id: PositronOpenWorkspaceInNewWindowAction.ID,
@@ -132,19 +164,18 @@ export class PositronOpenWorkspaceInNewWindowAction extends Action2 {
 		});
 	}
 
+	/**
+	 * Runs action.
+	 * @param accessor The services accessor.
+	 * @param data The ITelemetryData for the invocation.
+	 */
 	override async run(accessor: ServicesAccessor, data?: ITelemetryData): Promise<void> {
 		const fileDialogService = accessor.get(IFileDialogService);
 		return fileDialogService.pickFolderAndOpen({ forceNewWindow: true, telemetryExtraData: data });
 	}
 }
 
-
-// --- Actions Registration
+// Register the actions defined above.
 registerAction2(PositronNewWorkspaceAction);
 registerAction2(PositronNewWorkspaceFromGitAction);
 registerAction2(PositronOpenWorkspaceInNewWindowAction);
-
-
-
-
-
