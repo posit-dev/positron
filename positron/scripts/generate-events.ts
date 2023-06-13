@@ -163,31 +163,6 @@ function generateLanguageRuntimeEventTypeEnum() {
 
 }
 
-function updatePositronDefinitionsFile(path: string, needsIndent: boolean) {
-
-	const contents = readFileSync(path, { encoding: 'utf-8' });
-	const lines = contents.split(/\r?\n/);
-
-	const startIndex = lines.findIndex((line) => {
-		return line.endsWith('/** begin positron-language-runtime-event-type */');
-	});
-
-	const endIndex = lines.findIndex((line) => {
-		return line.endsWith('/** end positron-language-runtime-event-type */');
-	});
-
-	let replacement = generateLanguageRuntimeEventTypeEnum();
-	if (needsIndent) {
-		replacement = indent(replacement, '\t');
-	}
-
-	lines.splice(startIndex + 1, endIndex - startIndex - 1, replacement);
-
-	const replacedContents = lines.join('\n');
-	writeFileSync(path, replacedContents);
-
-}
-
 function generateLanguageRuntimeEventDefinitions() {
 
 	const lines: string[] = [];
@@ -244,12 +219,6 @@ updateRustEventsFile(rustEventsFile);
 
 const rustClientEventsFile = 'extensions/positron-r/amalthea/crates/amalthea/src/wire/client_event.rs';
 updateRustClientEventsFile(rustClientEventsFile);
-
-const positronDefinitionsPath = 'src/positron-dts/positron.d.ts';
-updatePositronDefinitionsFile(positronDefinitionsPath, true);
-
-const extHostTypesPath = 'src/vs/workbench/api/common/positron/extHostTypes.positron.ts';
-updatePositronDefinitionsFile(extHostTypesPath, false);
 
 const languageRuntimeEventsFile = 'src/vs/workbench/services/languageRuntime/common/languageRuntimeEvents.ts';
 generateLanguageRuntimeEventsFile(languageRuntimeEventsFile);

@@ -972,10 +972,6 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 				}
 			}
 		}));
-
-		// Add the onDidReceiveRuntimeMessageEvent event handler.
-		this._runtimeDisposableStore.add(this._runtime.onDidReceiveRuntimeMessageEvent(languageRuntimeMessageEvent => {
-		}));
 	}
 
 	/**
