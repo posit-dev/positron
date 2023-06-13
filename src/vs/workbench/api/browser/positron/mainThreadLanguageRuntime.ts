@@ -62,6 +62,9 @@ class ExtHostLanguageRuntimeAdapter implements ILanguageRuntime {
 	/** Queue of language runtime events that need to be delivered */
 	private _eventQueue: QueuedRuntimeEvent[] = [];
 
+	/** Timer used to ensure event queue processing occurs within a set interval */
+	private _eventQueueTimer: NodeJS.Timeout | undefined;
+
 	constructor(readonly handle: number,
 		readonly metadata: ILanguageRuntimeMetadata,
 		private readonly _logService: ILogService,
@@ -113,11 +116,8 @@ class ExtHostLanguageRuntimeAdapter implements ILanguageRuntime {
 		// Add the message to the queue
 		this._eventQueue.push(new QueuedRuntimeMessageEvent(message.event_clock, message));
 
-		// If the message contains the next tick in the event clock, process the
-		// queue now
-		if (message.event_clock === this._eventClock + 1) {
-			this.processEventQueue();
-		}
+		// Process the event queue, if necessary
+		this.nudgeEventQueue(message.event_clock);
 	}
 
 	emitDidReceiveRuntimeMessageOutput(languageRuntimeMessageOutput: ILanguageRuntimeMessageOutput) {
@@ -148,9 +148,8 @@ class ExtHostLanguageRuntimeAdapter implements ILanguageRuntime {
 		// Add the state change to the queue
 		this._eventQueue.push(new QueuedRuntimeStateEvent(clock, state));
 
-		if (clock === this._eventClock + 1) {
-			this.processEventQueue();
-		}
+		// Process the event queue, if necessary
+		this.nudgeEventQueue(clock);
 	}
 
 	/**
@@ -379,7 +378,39 @@ class ExtHostLanguageRuntimeAdapter implements ILanguageRuntime {
 		return `${client}-${languageId}-${nextId}-${randomId}`;
 	}
 
+	/**
+	 * Processes the event queue, or schedules a deferred processing if the
+	 * event clock is not yet ready.
+	 *
+	 * @param clock The event clock value of the message
+	 */
+	private nudgeEventQueue(clock: number): void {
+		if (clock === this._eventClock + 1) {
+			// We have received the next message in the sequence; process the
+			// queue immediately.
+			this.processEventQueue();
+		} else {
+			// The message that arrived isn't the next one in the sequence, so
+			// wait for the next message to arrive before processing the queue.
+			//
+			// We don't want to wait forever, so debounce the queue processing
+			// to occur after a short delay. If the next message in the sequence
+			// doesn't arrive by then, we'll process the queue anyway.
+			if (this._eventQueueTimer) {
+				clearTimeout(this._eventQueueTimer);
+				this._eventQueueTimer = undefined;
+			}
+			this._eventQueueTimer = setTimeout(() => {
+				this.processEventQueue();
+			}, 250);
+		}
+	}
+
 	private processEventQueue(): void {
+		// Clear the timer, if there is one.
+		clearTimeout(this._eventQueueTimer);
+		this._eventQueueTimer = undefined;
+
 		// Sort the queue by event clock, so that we can process messages in
 		// order.
 		this._eventQueue.sort((a, b) => {
