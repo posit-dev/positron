@@ -169,8 +169,7 @@ export class LanguageRuntimeAdapter
 			throw new Error('Cannot interrupt kernel; it has not started.');
 		}
 
-		if (this._kernelState === positron.RuntimeState.Exiting ||
-			this._kernelState === positron.RuntimeState.Exited) {
+		if (this._kernelState === positron.RuntimeState.Exited) {
 			throw new Error('Cannot interrupt kernel; it has already exited.');
 		}
 
@@ -233,6 +232,7 @@ export class LanguageRuntimeAdapter
 	 * Restarts the kernel.
 	 */
 	public async restart(): Promise<void> {
+		this._restarting = true;
 		return this._kernel.shutdown(true);
 	}
 
@@ -667,10 +667,6 @@ export class LanguageRuntimeAdapter
 		this._kernel.log(`${this._spec.language} kernel status changed: ${previous} => ${status}`);
 		this._kernelState = status;
 		this._state.fire(status);
-
-		if (status === positron.RuntimeState.Restarting) {
-			this._restarting = true;
-		}
 
 		// If the kernel was restarting and successfully exited, this is our
 		// cue to start it again.

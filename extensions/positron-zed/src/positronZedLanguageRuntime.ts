@@ -937,7 +937,6 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 	 */
 	async interrupt(): Promise<void> {
 		if (this._busyTimer && this._state === positron.RuntimeState.Busy) {
-			this._onDidChangeRuntimeState.fire(positron.RuntimeState.Interrupting);
 			if (this._busyOperationId) {
 				// Return to idle state.
 				this.simulateOutputMessage(this._busyOperationId, 'Interrupting...');
@@ -945,16 +944,11 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 				// It takes 1 second to interrupt a busy operation in Zed; this helps us
 				// see the interrupting state in the UI.
 				setTimeout(() => {
-					// It's not likely, but it's possible that the runtime could have gone
-					// idle before the interrupting state was reached. In that case, the
-					// interruption is a no-op.
-					if (this._state === positron.RuntimeState.Interrupting) {
-						// Consider: what is the parent of the idle state message? Is it the operation
-						// we canceled, or is it the interrupt operation?
-						this.simulateOutputMessage(this._busyOperationId!, 'Interrupted.');
-						this.simulateIdleState(this._busyOperationId!);
-						this._busyOperationId = undefined;
-					}
+					// Consider: what is the parent of the idle state message? Is it the operation
+					// we canceled, or is it the interrupt operation?
+					this.simulateOutputMessage(this._busyOperationId!, 'Interrupted.');
+					this.simulateIdleState(this._busyOperationId!);
+					this._busyOperationId = undefined;
 				}, 1000);
 			}
 
@@ -972,7 +966,6 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 		// Let the user know what we're doing and go through the shutdown sequence.
 		const parentId = randomUUID();
 		this.simulateOutputMessage(parentId, 'Restarting.');
-		this._onDidChangeRuntimeState.fire(positron.RuntimeState.Restarting);
 		this._onDidChangeRuntimeState.fire(positron.RuntimeState.Exited);
 
 		// Wait for a second before starting again.
@@ -1013,7 +1006,6 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 		this.simulateIdleState(parentId);
 
 		// Simulate state changes on exit.
-		this._onDidChangeRuntimeState.fire(positron.RuntimeState.Exiting);
 		this.simulateOutputMessage(parentId, 'Zed Kernel exiting.');
 		this._onDidChangeRuntimeState.fire(positron.RuntimeState.Exited);
 	}

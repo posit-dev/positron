@@ -318,14 +318,17 @@ class ExtHostLanguageRuntimeAdapter implements ILanguageRuntime {
 	}
 
 	async interrupt(): Promise<void> {
+		this._stateEmitter.fire(RuntimeState.Interrupting);
 		return this._proxy.$interruptLanguageRuntime(this.handle);
 	}
 
 	async restart(): Promise<void> {
+		this._stateEmitter.fire(RuntimeState.Restarting);
 		return this._proxy.$restartLanguageRuntime(this.handle);
 	}
 
 	async shutdown(): Promise<void> {
+		this._stateEmitter.fire(RuntimeState.Exiting);
 		return this._proxy.$shutdownLanguageRuntime(this.handle);
 	}
 

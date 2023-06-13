@@ -122,7 +122,11 @@ export interface ILanguageRuntimeClientCreatedEvent {
 }
 
 /**
- * The set of possible statuses for a language runtime
+ * The set of possible statuses for a language runtime. Note that this includes
+ * the `Restarting`, `Interrupting`, and `Exiting` states, which are not present
+ * in at the API layer (in `positron.d.ts`). These states are used internally by
+ * the language runtime service to track in-flight requests to change the
+ * runtime's state, and are not emitted by the runtime itself.
  */
 export enum RuntimeState {
 	/** The runtime has not been started or initialized yet. */
