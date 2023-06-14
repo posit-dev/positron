@@ -1111,7 +1111,7 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 		this.simulateInputMessage(parentId, code);
 
 		// Let the user know what we're about to do
-		this.simulateOutputMessage(parentId, `Executing ${languageId} snippet: ${code}`);
+		this.simulateOutputMessage(parentId, `Executing ${languageId} snippet: ${codeToExecute}`);
 
 		// Perform the execution
 		const success = await positron.runtime.executeCode(languageId, codeToExecute, true);
