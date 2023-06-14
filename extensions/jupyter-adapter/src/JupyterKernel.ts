@@ -499,6 +499,10 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 			return arg;
 		}) as Array<string>;
 
+		const delay_dir = fs.mkdtempSync(`${os.tmpdir()}-JupyterDelayStartup`);
+		const delay_file = path.join(delay_dir, 'file')
+		args.push(`--delay-startup ${delay_file}`);
+
 		const command = args.join(' ');
 
 		// Create environment.
@@ -549,6 +553,14 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 			// Ignore terminals that don't have a process ID
 			if (!pid) {
 				return;
+			}
+
+			try {
+				await vscode.commands.executeCommand('workbench.action.debug.start');
+				fs.writeFileSync(delay_file, "go\n");
+				fs.rmSync(delay_dir, { recursive: true, force: true });
+			} catch (err) {
+				this.log(`Can't execute debug action: ${err}`)
 			}
 
 			// Save the process ID in the session state
