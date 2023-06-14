@@ -407,8 +407,27 @@ class ExtHostLanguageRuntimeAdapter implements ILanguageRuntime {
 	 * @param event The new event to add to the queue.
 	 */
 	private addToEventQueue(event: QueuedRuntimeEvent): void {
-		this._eventQueue.push(event);
 		const clock = event.clock;
+
+		// If the event happened before our current clock value, it's out of
+		// order.
+		if (clock < this._eventClock) {
+			if (event instanceof QueuedRuntimeMessageEvent) {
+				// Emit messages out of order, with a warning.
+				this._logService.warn(`Received '${event.summary()}' at tick ${clock} ` +
+					`while waiting for tick ${this._eventClock + 1}; emitting anyway`);
+				this.processMessage(event.message);
+			}
+
+			// We intentionally ignore state changes here; runtime state
+			// changes supercede each other, so emitting one out of order
+			// would leave the UI in an inconsistent state.
+			return;
+		}
+
+		// Add the event to the queue.
+		this._eventQueue.push(event);
+
 		if (clock === this._eventClock + 1 || this._eventClock === 0) {
 			// We have received the next message in the sequence (or we have
 			// never received a message); process the queue immediately.
@@ -446,36 +465,43 @@ class ExtHostLanguageRuntimeAdapter implements ILanguageRuntime {
 		clearTimeout(this._eventQueueTimer);
 		this._eventQueueTimer = undefined;
 
-		// Sort the queue by event clock, so that we can process messages in
-		// order.
-		this._eventQueue.sort((a, b) => {
-			return a.clock - b.clock;
-		});
-
 		// Typically, there's only ever 1 message in the queue; if there are 2
 		// or more, it means that we've received messages out of order
 		if (this._eventQueue.length > 1) {
+
+			// Sort the queue by event clock, so that we can process messages in
+			// order.
+			this._eventQueue.sort((a, b) => {
+				return a.clock - b.clock;
+			});
+
+			// Emit an INFO level message with the number of events in the queue
+			// and the clock value of each event, for diagnostic purposes.
 			this._logService.info(`Processing ${this._eventQueue.length} runtime events. ` +
 				`Clocks: ` + this._eventQueue.map((e) => {
 					return `${e.clock}: ${e.summary()}`;
 				}).join(', '));
 		}
 
-		// Process each message in the sorted queue.
-		this._eventQueue.forEach((message) => {
+		// Process each event in the sorted queue.
+		this._eventQueue.forEach((event) => {
 			// Update our view of the event clock.
-			this._eventClock = message.clock;
+			this._eventClock = event.clock;
 
-			// Dispatch the message.
-			if (message instanceof QueuedRuntimeMessageEvent) {
-				this.processMessage(message.message);
-			} else if (message instanceof QueuedRuntimeStateEvent) {
-				this._stateEmitter.fire(message.state);
-			}
+			// Handle the event.
+			this.handleQueuedEvent(event);
 		});
 
 		// Clear the queue.
 		this._eventQueue = [];
+	}
+
+	private handleQueuedEvent(event: QueuedRuntimeEvent): void {
+		if (event instanceof QueuedRuntimeMessageEvent) {
+			this.processMessage(event.message);
+		} else if (event instanceof QueuedRuntimeStateEvent) {
+			this._stateEmitter.fire(event.state);
+		}
 	}
 
 	private processMessage(message: ILanguageRuntimeMessage): void {
