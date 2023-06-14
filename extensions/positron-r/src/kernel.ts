@@ -255,7 +255,10 @@ class ArkAttachOnStartup {
 		this._delay_dir = fs.mkdtempSync(`${os.tmpdir()}-JupyterDelayStartup`);
 		this._delay_file = path.join(this._delay_dir, 'file')
 
-		args.push(`--delay-startup ${this._delay_file}`);
+		fs.writeFileSync(this._delay_file!, "create\n");
+
+		args.push("--delay-startup");
+		args.push(this._delay_file);
 	}
 
 	// This is paired with `init()` and disposes of created resources
