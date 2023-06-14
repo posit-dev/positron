@@ -269,6 +269,13 @@ class ArkAttachOnStartup {
 		// Notify the kernel it can now start up
 		fs.writeFileSync(this._delay_file!, "go\n");
 
+		function delay(ms: number) {
+			return new Promise( resolve => setTimeout(resolve, ms) );
+		}
+
+		// Give some time before removing the file
+		await delay(50);
+
 		// Remove notification file
 		fs.rmSync(this._delay_dir!, { recursive: true, force: true });
 	}
