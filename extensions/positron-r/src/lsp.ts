@@ -146,8 +146,7 @@ export class ArkLsp implements vscode.Disposable {
 			trace(`ARK (R ${this._version}) language client state changed ${oldState} => ${this._state}`);
 		});
 
-		context.subscriptions.push(this._client.start());
-
+		this._client.start();
 		await out.promise;
 	}
 
