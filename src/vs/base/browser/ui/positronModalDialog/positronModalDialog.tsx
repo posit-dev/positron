@@ -8,6 +8,18 @@ import { PropsWithChildren, useCallback, useEffect, useRef, useState } from 'rea
 import { DraggableTitleBar } from 'vs/base/browser/ui/positronModalDialog/components/draggableTitleBar';
 
 /**
+ * Focusable element selectors.
+ */
+const focusableElementSelectors =
+	'a[href]:not([disabled]), ' +
+	'button:not([disabled]), ' +
+	'textarea:not([disabled]), ' +
+	'input[type="text"]:not([disabled]), ' +
+	'input[type="radio"]:not([disabled]), ' +
+	'input[type="checkbox"]:not([disabled]), ' +
+	'select:not([disabled])';
+
+/**
  * The gutter where the dialog box cannot be moved.
  */
 const kGutter = 40;
@@ -75,16 +87,58 @@ export const PositronModalDialog = (props: PropsWithChildren<PositronModalDialog
 		// Handle the event.
 		switch (e.key) {
 			// Enter accepts dialog.
-			case 'Enter':
+			case 'Enter': {
 				consumeEvent();
 				props.accept?.();
 				break;
+			}
 
 			// Escape cancels dialog.
-			case 'Escape':
+			case 'Escape': {
 				consumeEvent();
 				props.cancel?.();
 				break;
+			}
+
+			// Tab moves between dialog elements. This code works to keep the focus in the dialog.
+			case 'Tab': {
+				// Get the focusable elements.
+				const focusableElements = dialogBoxRef.current.querySelectorAll<HTMLElement>(
+					focusableElementSelectors
+				);
+
+				// If there are focusable elements in the modal dialog, keep focus in the dialog;
+				// otherwise, prevent focus from going outside of the dialog.
+				if (focusableElements.length) {
+					// For convenience, get the first and last focusable elements.
+					const firstFocusableElement = focusableElements[0];
+					const lastFocusableElement = focusableElements[focusableElements.length - 1];
+
+					// If the user is tabbing forward, wrap around at the last element; otherwise,
+					// the user is tabbing backward, so wrap around at the first element.
+					if (!e.shiftKey) {
+						if (document.activeElement === lastFocusableElement) {
+							consumeEvent();
+							firstFocusableElement.focus();
+						}
+					} else {
+						if (document.activeElement === firstFocusableElement) {
+							consumeEvent();
+							lastFocusableElement.focus();
+						}
+					}
+				} else {
+					// Prevent focus from going outside of the dialog.
+					consumeEvent();
+				}
+				break;
+			}
+
+			// Other keyboard events are kept within the dialog.
+			default: {
+				e.stopPropagation();
+				break;
+			}
 		}
 	}, []);
 
@@ -128,9 +182,6 @@ export const PositronModalDialog = (props: PropsWithChildren<PositronModalDialog
 		const RESIZE = 'resize';
 		document.addEventListener(KEYDOWN, keydownHandler, true);
 		window.addEventListener(RESIZE, resizeHandler, false);
-
-		// Drive focus to the dialog.
-		dialogContainerRef.current.focus();
 
 		// Return the cleanup function that removes our event handlers.
 		return () => {
