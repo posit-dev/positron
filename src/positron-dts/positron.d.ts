@@ -469,6 +469,11 @@ declare module 'positron' {
 		 * sequence has been successfully started (not necessarily when it has completed).
 		 */
 		shutdown(): Thenable<void>;
+
+		/**
+		 * Dispose of the resources held onto by the runtime.
+		 */
+		dispose(): void;
 	}
 
 
