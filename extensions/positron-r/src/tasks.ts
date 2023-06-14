@@ -5,24 +5,31 @@
 import * as vscode from 'vscode';
 
 export function providePackageTasks(_context: vscode.ExtensionContext): void {
-	vscode.tasks.registerTaskProvider('rPackageBuild', new RPackageTaskProvider());
+	registerRPackageTaskProvider('rPackageLoad', 'Load package', 'R -e "devtools::load_all()"');
+	registerRPackageTaskProvider('rPackageBuild', 'Build package', 'R -e "devtools::build()"');
+	registerRPackageTaskProvider('rPackageTest', 'Test package', 'R -e "devtools::test()"');
+	registerRPackageTaskProvider('rPackageCheck', 'Check package', 'R -e "devtools::check()"');
 }
 
-export class RPackageTaskProvider implements vscode.TaskProvider {
+function registerRPackageTaskProvider(type: string, name: string, shellExecution: string): vscode.Disposable {
+	const task = rPackageTask(type, name, shellExecution);
+	const taskProvider = vscode.tasks.registerTaskProvider(type, {
+		provideTasks: () => {
+			return [task];
+		},
+		resolveTask(_task: vscode.Task): vscode.Task | undefined {
+			return undefined;
+		}
+	});
+	return (taskProvider);
+}
 
-	public provideTasks() {
-		return [
-			new vscode.Task(
-				{ type: 'rPackageBuild' },
-				vscode.TaskScope.Workspace,
-				'Build package',
-				'R',
-				new vscode.ShellExecution('R CMD INSTALL --preclean .')
-			)
-		];
-	}
-
-	public resolveTask(_task: vscode.Task): vscode.Task | undefined {
-		return undefined;
-	}
+function rPackageTask(type: string, name: string, shellExecution: string): vscode.Task {
+	return new vscode.Task(
+		{ type: type },
+		vscode.TaskScope.Workspace,
+		name,
+		'R',
+		new vscode.ShellExecution(shellExecution)
+	);
 }

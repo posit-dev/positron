@@ -91,6 +91,15 @@
     "taskDefinitions": [
       {
         "type": "rPackageBuild"
+      },
+      {
+        "type": "rPackageLoad"
+      },
+      {
+        "type": "rPackageTest"
+      },
+      {
+        "type": "rPackageCheck"
       }
     ]
   },
