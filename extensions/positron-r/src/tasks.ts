@@ -5,15 +5,23 @@
 import * as vscode from 'vscode';
 
 export function providePackageTasks(_context: vscode.ExtensionContext): void {
-	registerRPackageTaskProvider('rPackageLoad', 'Load package', 'R -e "devtools::load_all()"');
-	registerRPackageTaskProvider('rPackageBuild', 'Build package', 'R -e "devtools::build()"');
-	registerRPackageTaskProvider('rPackageTest', 'Test package', 'R -e "devtools::test()"');
-	registerRPackageTaskProvider('rPackageCheck', 'Check package', 'R -e "devtools::check()"');
+
+	const allPackageTasks: PackageTask[] = [
+		{ 'type': 'rPackageLoad', 'name': 'Load package', 'shellExecution': 'R -e "devtools::load_all()"' },
+		{ 'type': 'rPackageBuild', 'name': 'Build package', 'shellExecution': 'R -e "devtools::build()"' },
+		{ 'type': 'rPackageTest', 'name': 'Test package', 'shellExecution': 'R -e "devtools::test()"' },
+		{ 'type': 'rPackageCheck', 'name': 'Check package', 'shellExecution': 'R -e "devtools::check()"' },
+	];
+
+	for (const packageTask of allPackageTasks) {
+		registerRPackageTaskProvider(packageTask);
+	}
+
 }
 
-function registerRPackageTaskProvider(type: string, name: string, shellExecution: string): vscode.Disposable {
-	const task = rPackageTask(type, name, shellExecution);
-	const taskProvider = vscode.tasks.registerTaskProvider(type, {
+function registerRPackageTaskProvider(packageTask: PackageTask): vscode.Disposable {
+	const task = rPackageTask(packageTask);
+	const taskProvider = vscode.tasks.registerTaskProvider(packageTask.type, {
 		provideTasks: () => {
 			return [task];
 		},
@@ -24,12 +32,18 @@ function registerRPackageTaskProvider(type: string, name: string, shellExecution
 	return (taskProvider);
 }
 
-function rPackageTask(type: string, name: string, shellExecution: string): vscode.Task {
+function rPackageTask(packageTask: PackageTask): vscode.Task {
 	return new vscode.Task(
-		{ type: type },
+		{ type: packageTask.type },
 		vscode.TaskScope.Workspace,
-		name,
+		packageTask.name,
 		'R',
-		new vscode.ShellExecution(shellExecution)
+		new vscode.ShellExecution(packageTask.shellExecution)
 	);
 }
+
+type PackageTask = {
+	type: string;
+	name: string;
+	shellExecution: string;
+};
