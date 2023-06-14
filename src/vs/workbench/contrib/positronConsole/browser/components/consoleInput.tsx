@@ -559,9 +559,6 @@ export const ConsoleInput = forwardRef<HTMLDivElement, ConsoleInputProps>((props
 
 		// Add the onDidClearConsole event handler.
 		disposableStore.add(props.positronConsoleInstance.onDidClearConsole(() => {
-			// When the console is cleared, erase anything that was partially entered.
-			textModel.setValue('');
-
 			// Re-focus the console.
 			codeEditorWidget.focus();
 		}));
