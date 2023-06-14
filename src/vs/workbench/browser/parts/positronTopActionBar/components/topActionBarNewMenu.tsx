@@ -21,7 +21,7 @@ export const TopActionBarNewMenu = () => {
 	// fetch actions when menu is shown
 	const actions = () => {
 		const actions: IAction[] = [];
-		positronActionBarContext.appendCommandAction(actions, 'workbench.action.files.newUntitledFile', localize('positronNewFile', "New File"));
+		positronActionBarContext.appendCommandAction(actions, 'welcome.showNewFileEntries', localize('positronNewFile', "New File..."));
 		actions.push(new Separator());
 		positronActionBarContext.appendCommandAction(actions, PositronNewWorkspaceAction.ID);
 		positronActionBarContext.appendCommandAction(actions, PositronNewWorkspaceFromGitAction.ID);
