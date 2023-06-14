@@ -257,15 +257,10 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 		const connectionSpec: JupyterConnectionSpec =
 			JSON.parse(fs.readFileSync(connectionJsonPath, 'utf8'));
 
-		// Use the control channel to detect if the kernel unexpectedly disconnects
+		// Use the control channel to detect if the kernel disconnects; since we
+		// do not watch the process directly, these socket disconnections are
+		// our only way to detect when the kernel has exited.
 		this._control.socket().on('disconnect', () => {
-			if (this._status !== positron.RuntimeState.Exiting &&
-				this._status !== positron.RuntimeState.Restarting &&
-				this._status !== positron.RuntimeState.Exited) {
-				this.log(`Kernel '${this._spec.display_name}' unexpectedly disconnected while in status '${this._status}', will exit`);
-			}
-
-			// Always treat a disconnected kernel as exited
 			this.setStatus(positron.RuntimeState.Exited);
 		});
 
@@ -652,9 +647,6 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	 * Tells the kernel to shut down
 	 */
 	public async shutdown(restart: boolean): Promise<void> {
-		this.setStatus(restart ?
-			positron.RuntimeState.Restarting :
-			positron.RuntimeState.Exiting);
 		const msg: JupyterShutdownRequest = {
 			restart: restart
 		};
@@ -665,7 +657,6 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	 * Interrupts the kernel
 	 */
 	public async interrupt(): Promise<void> {
-		this.setStatus(positron.RuntimeState.Interrupting);
 		const msg: JupyterInterruptRequest = {};
 		return this.send(uuidv4(), 'interrupt_request', this._control!, msg);
 	}

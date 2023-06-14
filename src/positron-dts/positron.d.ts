@@ -77,20 +77,11 @@ declare module 'positron' {
 		/** The runtime is busy executing code. */
 		Busy = 'busy',
 
-		/** The runtime is in the process of restarting. */
-		Restarting = 'restarting',
-
-		/** The runtime is in the process of shutting down. */
-		Exiting = 'exiting',
-
 		/** The runtime's host process has ended. */
 		Exited = 'exited',
 
 		/** The runtime is not responding to heartbeats and is presumed offline. */
 		Offline = 'offline',
-
-		/** The user has interrupted a busy runtime, but the runtime is not idle yet. */
-		Interrupting = 'interrupting',
 	}
 
 	/**

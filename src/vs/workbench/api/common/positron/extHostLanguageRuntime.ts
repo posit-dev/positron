@@ -3,7 +3,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import type * as positron from 'positron';
-import { ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMessageCommClosed, ILanguageRuntimeMessageCommData, ILanguageRuntimeMessageCommOpen, ILanguageRuntimeMessageError, ILanguageRuntimeMessageInput, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessagePrompt, ILanguageRuntimeMessageState, ILanguageRuntimeMessageStream, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMessageCommData, ILanguageRuntimeMessageCommOpen, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import * as extHostProtocol from './extHost.positron.protocol';
 import { IDisposable } from 'vs/base/common/lifecycle';
 import { Disposable, LanguageRuntimeMessageType } from 'vs/workbench/api/common/extHostTypes';
@@ -19,6 +19,12 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 	private readonly _clientInstances = new Array<ExtHostRuntimeClientInstance>();
 
 	private readonly _clientHandlers = new Array<positron.RuntimeClientHandler>();
+
+	/**
+	 * Lamport clocks, used for event ordering. Each runtime has its own clock since
+	 * events are only ordered within a runtime.
+	 */
+	private _eventClocks = new Array<number>();
 
 	constructor(
 		mainContext: extHostProtocol.IMainPositronContext
@@ -127,52 +133,40 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		const handle = this._runtimes.length;
 
 		// Wire event handlers for state changes and messages
-		runtime.onDidChangeRuntimeState(state =>
-			this._proxy.$emitLanguageRuntimeState(handle, state));
+		runtime.onDidChangeRuntimeState(state => {
+			const tick = this._eventClocks[handle] = this._eventClocks[handle] + 1;
+			this._proxy.$emitLanguageRuntimeState(handle, tick, state);
+		});
 
 		runtime.onDidReceiveRuntimeMessage(message => {
-			// Broker the message type to one of the discrete message events.
+			const tick = this._eventClocks[handle] = this._eventClocks[handle] + 1;
+			// Amend the message with the event clock for ordering
+			const runtimeMessage: ILanguageRuntimeMessage = {
+				event_clock: tick,
+				...message
+			};
+
+			// Dispatch the message to the appropriate handler
 			switch (message.type) {
-				case LanguageRuntimeMessageType.Stream:
-					this._proxy.$emitLanguageRuntimeMessageStream(handle, message as ILanguageRuntimeMessage as ILanguageRuntimeMessageStream);
-					break;
-
-				case LanguageRuntimeMessageType.Output:
-					this._proxy.$emitLanguageRuntimeMessageOutput(handle, message as ILanguageRuntimeMessage as ILanguageRuntimeMessageOutput);
-					break;
-
-				case LanguageRuntimeMessageType.Input:
-					this._proxy.$emitLanguageRuntimeMessageInput(handle, message as ILanguageRuntimeMessage as ILanguageRuntimeMessageInput);
-					break;
-
-				case LanguageRuntimeMessageType.Error:
-					this._proxy.$emitLanguageRuntimeMessageError(handle, message as ILanguageRuntimeMessage as ILanguageRuntimeMessageError);
-					break;
-
-				case LanguageRuntimeMessageType.Prompt:
-					this._proxy.$emitLanguageRuntimeMessagePrompt(handle, message as ILanguageRuntimeMessage as ILanguageRuntimeMessagePrompt);
-					break;
-
-				case LanguageRuntimeMessageType.State:
-					this._proxy.$emitLanguageRuntimeMessageState(handle, message as ILanguageRuntimeMessage as ILanguageRuntimeMessageState);
-					break;
-
+				// Handle comm messages separately
 				case LanguageRuntimeMessageType.CommOpen:
-					this.handleCommOpen(handle, message as ILanguageRuntimeMessage as ILanguageRuntimeMessageCommOpen);
+					this.handleCommOpen(handle, runtimeMessage as ILanguageRuntimeMessageCommOpen);
 					break;
 
 				case LanguageRuntimeMessageType.CommData:
-					this.handleCommData(handle, message as ILanguageRuntimeMessage as ILanguageRuntimeMessageCommData);
+					this.handleCommData(handle, runtimeMessage as ILanguageRuntimeMessageCommData);
 					break;
 
-				case LanguageRuntimeMessageType.CommClosed:
-					this._proxy.$emitRuntimeClientClosed(handle, message as ILanguageRuntimeMessage as ILanguageRuntimeMessageCommClosed);
+				// Pass everything else to the main thread
+				default:
+					this._proxy.$emitLanguageRuntimeMessage(handle, runtimeMessage);
 					break;
 			}
 		});
 
 		// Register the runtime
 		this._runtimes.push(runtime);
+		this._eventClocks.push(0);
 
 		// Register the runtime with the main thread
 		this._proxy.$registerLanguageRuntime(handle, runtime.metadata);
@@ -208,13 +202,15 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 				if (handler.callback(clientInstance, message.data)) {
 					// Add the client instance to the list
 					this._clientInstances.push(clientInstance);
-					return;
 				}
 			}
 		}
 
-		// If we get here, then no handler took it, so we'll just emit the event
-		this._proxy.$emitRuntimeClientOpened(handle, message);
+		// Notify the main thread that a client has been opened.
+		//
+		// Consider: should this event include information on whether a client
+		// handler took ownership of the client?
+		this._proxy.$emitLanguageRuntimeMessage(handle, message);
 	}
 
 	/**
@@ -229,8 +225,8 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 			instance.getClientId() === message.comm_id);
 		if (clientInstance) {
 			clientInstance.emitMessage(message);
-		} else {
-			this._proxy.$emitRuntimeClientMessage(handle, message);
 		}
+
+		this._proxy.$emitLanguageRuntimeMessage(handle, message);
 	}
 }
