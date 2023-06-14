@@ -31,7 +31,7 @@ import { createJupyterSession, JupyterSession, JupyterSessionState } from './Jup
 import path = require('path');
 import { StartupFailure } from './StartupFailure';
 import { JupyterKernelStatus } from './JupyterKernelStatus';
-import { JupyterKernelSpec } from './jupyter-adapter';
+import { JupyterKernelSpec, JupyterKernelExtra } from './jupyter-adapter';
 import { PromiseHandles } from './utils';
 
 /** The message sent to the Heartbeat socket on a regular interval to test connectivity */
@@ -42,6 +42,7 @@ const RECONNECT_MESSAGE = 'reconnect';
 
 export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	private readonly _spec: JupyterKernelSpec;
+	private readonly _extra?: JupyterKernelExtra;
 
 	/** An object that watches (tails) the kernel's log file */
 	private _logTail?: Tail;
@@ -97,12 +98,16 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	/** The exit code, if any */
 	private _exitCode: number;
 
-	constructor(private readonly _context: vscode.ExtensionContext,
+	constructor(
+		private readonly _context: vscode.ExtensionContext,
 		spec: JupyterKernelSpec,
 		private readonly _runtimeId: string,
-		private readonly _channel: vscode.OutputChannel) {
+		private readonly _channel: vscode.OutputChannel,
+		readonly extra?: JupyterKernelExtra,
+	) {
 		super();
 		this._spec = spec;
+		this._extra = extra,
 
 		this._control = null;
 		this._shell = null;
@@ -499,9 +504,12 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 			return arg;
 		}) as Array<string>;
 
-		const delay_dir = fs.mkdtempSync(`${os.tmpdir()}-JupyterDelayStartup`);
-		const delay_file = path.join(delay_dir, 'file')
-		args.push(`--delay-startup ${delay_file}`);
+		const config = vscode.workspace.getConfiguration('positron.jupyterAdapter');
+		const attachOnStartup = config.get('attachOnStartup', false) && this._extra?.attachOnStartup;
+
+		if (attachOnStartup) {
+			this._extra!.attachOnStartup!.init(args);
+		}
 
 		const command = args.join(' ');
 
@@ -520,8 +528,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 		// Look up the configuration to see if we should show terminal we're
 		// about to start. It can be useful to see the terminal as a debugging
 		// aid, but end users shouldn't see it in most cases.
-		const showTerminal = vscode.workspace.getConfiguration('positron.jupyterAdapter')
-			.get('showTerminal', false);
+		const showTerminal = config.get('showTerminal', false);
 
 		const kernelWrapperPath = path.join(this._context.extensionPath,
 			'resources',
@@ -555,12 +562,12 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 				return;
 			}
 
-			try {
-				await vscode.commands.executeCommand('workbench.action.debug.start');
-				fs.writeFileSync(delay_file, "go\n");
-				fs.rmSync(delay_dir, { recursive: true, force: true });
-			} catch (err) {
-				this.log(`Can't execute debug action: ${err}`)
+			if (attachOnStartup) {
+				try {
+					await this._extra!.attachOnStartup!.attach();
+				} catch (err) {
+					this.log(`Can't execute attach action: ${err}`)
+				}
 			}
 
 			// Save the process ID in the session state
