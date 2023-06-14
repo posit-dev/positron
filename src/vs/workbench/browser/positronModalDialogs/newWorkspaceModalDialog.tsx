@@ -90,8 +90,8 @@ export const showNewWorkspaceModalDialog = async (accessor: ServicesAccessor): P
 						<LabeledTextInput
 							ref={directoryNameRef}
 							label='Directory name'
-							value={newWorkspaceResult.directory}
 							autoFocus
+							value={newWorkspaceResult.directory}
 							onChange={e => setNewWorkspaceResult({ ...newWorkspaceResult, directory: e.target.value })}
 						/>
 						<DirectoryInput
