@@ -750,6 +750,10 @@ export class MainThreadLanguageRuntime implements MainThreadLanguageRuntimeShape
 		this._runtimes.delete(handle);
 	}
 
+	$executeCode(languageId: string, code: string, focus: boolean): Promise<void> {
+		return Promise.resolve();
+	}
+
 	public dispose(): void {
 		this._disposables.dispose();
 	}
