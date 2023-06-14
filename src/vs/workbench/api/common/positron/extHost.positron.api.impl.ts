@@ -34,7 +34,7 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 
 		// --- Start Positron ---
 		const runtime: typeof positron.runtime = {
-			executeCode(langaugeId, code, focus): Thenable<void> {
+			executeCode(langaugeId, code, focus): Thenable<boolean> {
 				return extHostLanguageRuntime.executeCode(langaugeId, code, focus);
 			},
 			registerLanguageRuntime(runtime: positron.LanguageRuntime): vscode.Disposable {

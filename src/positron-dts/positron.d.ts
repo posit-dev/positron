@@ -508,10 +508,12 @@ declare module 'positron' {
 		 * @param languageId The language ID of the code snippet
 		 * @param code The code snippet to execute
 		 * @param focus Whether to raise and focus the runtime's console
+		 * @returns A Thenable that resolves with true if the code was sent to a
+		 *   runtime successfully, false otherwise.
 		 */
 		export function executeCode(languageId: string,
 			code: string,
-			focus: boolean): Thenable<void>;
+			focus: boolean): Thenable<boolean>;
 
 		/**
 		 * Register a language runtime with Positron.
