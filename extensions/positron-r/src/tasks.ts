@@ -6,6 +6,8 @@ import * as vscode from 'vscode';
 
 export function providePackageTasks(_context: vscode.ExtensionContext): void {
 
+	vscode.commands.executeCommand('setContext', 'isRPackage', true);
+
 	const allPackageTasks: PackageTask[] = [
 		{ 'type': 'rPackageLoad', 'name': 'Load package', 'shellExecution': 'R -e "devtools::load_all()"' },
 		{ 'type': 'rPackageBuild', 'name': 'Build package', 'shellExecution': 'R -e "devtools::build()"' },

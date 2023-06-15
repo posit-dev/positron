@@ -90,16 +90,20 @@
     },
     "taskDefinitions": [
       {
-        "type": "rPackageBuild"
+        "type": "rPackageBuild",
+        "when": "isRPackage"
       },
       {
-        "type": "rPackageLoad"
+        "type": "rPackageLoad",
+        "when": "isRPackage"
       },
       {
-        "type": "rPackageTest"
+        "type": "rPackageTest",
+        "when": "isRPackage"
       },
       {
-        "type": "rPackageCheck"
+        "type": "rPackageCheck",
+        "when": "isRPackage"
       }
     ]
   },
