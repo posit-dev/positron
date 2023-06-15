@@ -750,6 +750,10 @@ export class MainThreadLanguageRuntime implements MainThreadLanguageRuntimeShape
 		this._runtimes.delete(handle);
 	}
 
+	$executeCode(languageId: string, code: string, focus: boolean): Promise<boolean> {
+		return this._positronConsoleService.executeCode(languageId, code, focus);
+	}
+
 	public dispose(): void {
 		this._disposables.dispose();
 	}
