@@ -274,19 +274,22 @@ class PositronConsoleService extends Disposable implements IPositronConsoleServi
 	 * Executes code in a PositronConsoleInstance.
 	 * @param languageId The language ID.
 	 * @param code The code.
+	 * @param activate A value which indicates whether the REPL should be activated.
 	 * @returns A value which indicates whether the code could be executed.
 	 */
-	executeCode(languageId: string, code: string): boolean {
+	executeCode(languageId: string, code: string, activate: boolean): Promise<boolean> {
 		// Get the Positron console instance for the language.
 		const positronConsoleInstance = this._positronConsoleInstancesByLanguageId.get(languageId);
 		if (!positronConsoleInstance) {
 			// TODO@softwarenerd - In an ideal world, we should start a new runtime for the language
-			// and queue this code up to be executed, once it starts.
-			return false;
+			// and queue this code up to be executed, once it starts. In this case we'd
+			// keep the promise around around and resolve it when the runtime starts
+			// and begins executing the code.
+			return Promise.resolve(false);
 		}
 
 		// Activate the Positron console instance, if it isn't active.
-		if (positronConsoleInstance !== this._activePositronConsoleInstance) {
+		if (activate && positronConsoleInstance !== this._activePositronConsoleInstance) {
 			this.setActivePositronConsoleInstance(positronConsoleInstance);
 		}
 
@@ -294,7 +297,7 @@ class PositronConsoleService extends Disposable implements IPositronConsoleServi
 		positronConsoleInstance.executeCode(code);
 
 		// Success.
-		return true;
+		return Promise.resolve(true);
 	}
 
 	//#endregion IPositronConsoleService Implementation
