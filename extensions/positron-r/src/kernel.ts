@@ -9,7 +9,7 @@ import * as fs from 'fs';
 import * as crypto from 'crypto';
 import * as os from 'os';
 
-import { withActiveExtension } from './util';
+import { withActiveExtension, delay } from './util';
 import { RRuntime } from './runtime';
 import { JupyterKernelSpec, JupyterKernelExtra } from './jupyter-adapter';
 
@@ -269,14 +269,9 @@ class ArkAttachOnStartup {
 		// Notify the kernel it can now start up
 		fs.writeFileSync(this._delay_file!, "go\n");
 
-		function delay(ms: number) {
-			return new Promise( resolve => setTimeout(resolve, ms) );
-		}
-
-		// Give some time before removing the file
-		await delay(50);
-
-		// Remove notification file
-		fs.rmSync(this._delay_dir!, { recursive: true, force: true });
+		// Give some time before removing the file, no need to await
+		delay(100).then(() => {
+			fs.rmSync(this._delay_dir!, { recursive: true, force: true });
+		});
 	}
 }
