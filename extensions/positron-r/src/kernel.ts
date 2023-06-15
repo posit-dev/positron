@@ -234,7 +234,7 @@ export function registerArkKernel(ext: vscode.Extension<any>, context: vscode.Ex
 
 		const extra: JupyterKernelExtra = {
 			attachOnStartup: new ArkAttachOnStartup(),
-			delayStartup: new ArkDelayStartup(),
+			sleepOnStartup: new ArkDelayStartup(),
 		};
 
 		// Create an adapter for the kernel to fulfill the LanguageRuntime interface.

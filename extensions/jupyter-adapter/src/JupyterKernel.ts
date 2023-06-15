@@ -506,14 +506,14 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 
 		const config = vscode.workspace.getConfiguration('positron.jupyterAdapter');
 		const attachOnStartup = config.get('attachOnStartup', false) && this._extra?.attachOnStartup;
-		const delayStartup = config.get('delayStartup', undefined) && this._extra?.delayStartup;
+		const sleepOnStartup = config.get('sleepOnStartup', undefined) && this._extra?.sleepOnStartup;
 
 		if (attachOnStartup) {
 			this._extra!.attachOnStartup!.init(args);
 		}
-		if (delayStartup) {
-			const delay = config.get('delayStartup', 0);
-			this._extra!.delayStartup!.init(args, delay);
+		if (sleepOnStartup) {
+			const delay = config.get('sleepOnStartup', 0);
+			this._extra!.sleepOnStartup!.init(args, delay);
 		}
 
 		const command = args.join(' ');
