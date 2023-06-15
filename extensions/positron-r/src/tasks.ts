@@ -38,7 +38,8 @@ function rPackageTask(packageTask: PackageTask): vscode.Task {
 		vscode.TaskScope.Workspace,
 		packageTask.name,
 		'R',
-		new vscode.ShellExecution(packageTask.shellExecution)
+		new vscode.ShellExecution(packageTask.shellExecution),
+		[]
 	);
 }
 
