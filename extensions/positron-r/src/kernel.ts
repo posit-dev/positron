@@ -279,7 +279,7 @@ class ArkAttachOnStartup {
 
 class ArkDelayStartup {
 	// Add `--startup-delay` argument to pass a delay in
-	// milliseconds before starting up the kernel
+	// seconds before starting up the kernel
 	init(args: Array<String>, delay: number) {
 		args.push("--startup-delay");
 		args.push(delay.toString());

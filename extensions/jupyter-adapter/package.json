@@ -40,7 +40,7 @@
         "positron.jupyterAdapter.delayStartup": {
           "scope": "window",
           "type": "number",
-          "description": "Sleep for n milliseconds before starting up Jupyter kernel (when supported)"
+          "description": "Sleep for n seconds before starting up Jupyter kernel (when supported)"
         }
       }
     }
