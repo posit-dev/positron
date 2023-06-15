@@ -32,6 +32,7 @@ import path = require('path');
 import { StartupFailure } from './StartupFailure';
 import { JupyterKernelStatus } from './JupyterKernelStatus';
 import { JupyterKernelSpec } from './jupyter-adapter';
+import { PromiseHandles } from './utils';
 
 /** The message sent to the Heartbeat socket on a regular interval to test connectivity */
 const HEARTBEAT_MESSAGE = 'heartbeat';
@@ -536,37 +537,42 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 			isTransient: false
 		});
 
+		let handles = new PromiseHandles<void>();
+
+		const disposable = vscode.window.onDidOpenTerminal(async (openedTerminal) => {
+			if (openedTerminal !== this._terminal) {
+				return;
+			}
+			// Read the process ID and connect to the kernel when it's ready
+			const pid = await openedTerminal.processId
+
+			// Ignore terminals that don't have a process ID
+			if (!pid) {
+				return;
+			}
+
+			// Save the process ID in the session state
+			session.state.processId = pid;
+
+			// Write the session state to workspace storage
+			this.log(`Writing session state to workspace storage: '${this._runtimeId}' => ${JSON.stringify(session.state)}`);
+			this._context.workspaceState.update(this._runtimeId, session.state);
+
+			// Clean up event listener now that we've located the
+			// correct terminal
+			disposable.dispose();
+
+			// Connect to the kernel running in the terminal
+			try {
+				await this.connectToSession(session)
+				handles.resolve();
+			} catch(err) {
+				handles.reject(err);
+			}
+		})
+
 		// Wait for the terminal to open
-		return new Promise<void>((resolve, reject) => {
-			const disposable = vscode.window.onDidOpenTerminal((openedTerminal) => {
-				if (openedTerminal === this._terminal) {
-					// Read the process ID and connect to the kernel when it's ready
-					openedTerminal.processId.then((pid) => {
-						if (pid) {
-							// Save the process ID in the session state
-							session.state.processId = pid;
-
-							// Write the session state to workspace storage
-							this.log(
-								`Writing session state to workspace storage: '${this._runtimeId}' => ${JSON.stringify(session.state)}`);
-							this._context.workspaceState.update(this._runtimeId, session.state);
-
-							// Clean up event listener now that we've located the
-							// correct terminal
-							disposable.dispose();
-
-							// Connect to the kernel running in the terminal
-							this.connectToSession(session).then(() => {
-								resolve();
-							}).catch((err) => {
-								reject(err);
-							});
-						}
-						// Ignore terminals that don't have a process ID
-					});
-				}
-			});
-		});
+		await handles.promise;
 	}
 
 	/**
