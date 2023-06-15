@@ -249,7 +249,7 @@ class ArkAttachOnStartup {
 	_delay_dir?: string;
 	_delay_file?: string;
 
-	// Add `--delay-startup` argument to pass a notification file
+	// Add `--startup-notifier-file` argument to pass a notification file
 	// that triggers the actual startup of the kernel
 	init(args: Array<String>) {
 		this._delay_dir = fs.mkdtempSync(`${os.tmpdir()}-JupyterDelayStartup`);
@@ -257,7 +257,7 @@ class ArkAttachOnStartup {
 
 		fs.writeFileSync(this._delay_file!, "create\n");
 
-		args.push("--delay-startup");
+		args.push("--startup-notifier-file");
 		args.push(this._delay_file);
 	}
 
