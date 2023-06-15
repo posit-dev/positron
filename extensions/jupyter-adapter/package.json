@@ -36,6 +36,11 @@
           "type": "boolean",
           "default": false,
           "description": "Run <f5> before starting up Jupyter kernel (when supported)"
+        },
+        "positron.jupyterAdapter.delayStartup": {
+          "scope": "window",
+          "type": "number",
+          "description": "Sleep for n milliseconds before starting up Jupyter kernel (when supported)"
         }
       }
     }

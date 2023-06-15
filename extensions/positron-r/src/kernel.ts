@@ -233,7 +233,8 @@ export function registerArkKernel(ext: vscode.Extension<any>, context: vscode.Ex
 		};
 
 		const extra: JupyterKernelExtra = {
-			attachOnStartup: new ArkAttachOnStartup()
+			attachOnStartup: new ArkAttachOnStartup(),
+			delayStartup: new ArkDelayStartup(),
 		};
 
 		// Create an adapter for the kernel to fulfill the LanguageRuntime interface.
@@ -273,5 +274,14 @@ class ArkAttachOnStartup {
 		delay(100).then(() => {
 			fs.rmSync(this._delay_dir!, { recursive: true, force: true });
 		});
+	}
+}
+
+class ArkDelayStartup {
+	// Add `--startup-delay` argument to pass a delay in
+	// milliseconds before starting up the kernel
+	init(args: Array<String>, delay: number) {
+		args.push("--startup-delay");
+		args.push(delay.toString());
 	}
 }

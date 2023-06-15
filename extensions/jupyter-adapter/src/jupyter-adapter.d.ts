@@ -94,4 +94,7 @@ export interface JupyterKernelExtra {
 		init: (args: Array<String>) => void;
 		attach: () => Promise<void>;
 	};
+	delayStartup?: {
+		init: (args: Array<String>, delay: number) => void;
+	};
 }
