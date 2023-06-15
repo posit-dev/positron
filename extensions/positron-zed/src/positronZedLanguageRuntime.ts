@@ -57,6 +57,7 @@ const HelpLines = [
 	'env rm X     - Removes X variables',
 	'env update X - Updates X variables',
 	'error X Y Z  - Simulates an unsuccessful X line input with Y lines of error message and Z lines of traceback (where X >= 1 and Y >= 1 and Z >= 0)',
+	'exec X Y     - Executes a code snippet Y in the language X',
 	'help         - Shows this help',
 	'offline      - Simulates going offline for two seconds',
 	'plot X       - Renders a dynamic (auto-sizing) plot of the letter X',
@@ -326,6 +327,12 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 			// Simulate a data viewer
 			const title = (match.length > 1 && match[1]) ? match[1].trim() : 'Data';
 			this.simulateDataView(id, code, `Zed: ${title}`);
+			return;
+		} else if (match = code.match(/^exec ([a-zA-Z]+) (.+)/)) {
+			// Execute code in another language.
+			const languageId = match[1];
+			const codeToExecute = match[2];
+			this.simulateCodeExecution(id, code, languageId, codeToExecute);
 			return;
 		}
 
@@ -1083,6 +1090,35 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 				'text/plain': `<ZedData view>`
 			} as Record<string, string>
 		} as positron.LanguageRuntimeOutput);
+		// Return to idle state.
+		this.simulateIdleState(parentId);
+	}
+
+	/**
+	 * Simulates execution of code in another language.
+	 *
+	 * @param parentId The parent identifier.
+	 * @param code The Zed code the user entered.
+	 * @param languageId The language identifier
+	 * @param codeToExecute The code to execute.
+	 */
+	private async simulateCodeExecution(parentId: string,
+		code: string,
+		languageId: string,
+		codeToExecute: string) {
+		// Enter busy state and output the code.
+		this.simulateBusyState(parentId);
+		this.simulateInputMessage(parentId, code);
+
+		// Let the user know what we're about to do
+		this.simulateOutputMessage(parentId, `Executing ${languageId} snippet: ${codeToExecute}`);
+
+		// Perform the execution
+		const success = await positron.runtime.executeCode(languageId, codeToExecute, true);
+		if (!success) {
+			this.simulateOutputMessage(parentId, `Failed; is there an active console for ${languageId}?`);
+		}
+
 		// Return to idle state.
 		this.simulateIdleState(parentId);
 	}

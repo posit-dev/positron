@@ -59,9 +59,11 @@ export interface IPositronConsoleService {
 	 * Executes code in a PositronConsoleInstance.
 	 * @param languageId The language ID.
 	 * @param code The code.
+	 * @param activate A value which indicates whether to activate the Positron console instance
+	 *   if it is not already active.
 	 * @returns A value which indicates whether the code could be executed.
 	 */
-	executeCode(languageId: string, code: string): boolean;
+	executeCode(languageId: string, code: string, activate: boolean): Promise<boolean>;
 }
 
 /**

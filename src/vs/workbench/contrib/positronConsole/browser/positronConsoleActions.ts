@@ -294,7 +294,7 @@ export function registerPositronConsoleActions() {
 			await viewsService.openView<PositronConsoleViewPane>(POSITRON_CONSOLE_VIEW_ID, false);
 
 			// Ask the Positron console service to execute the code.
-			if (!positronConsoleService.executeCode(languageId, code)) {
+			if (!positronConsoleService.executeCode(languageId, code, true)) {
 				const languageName = languageService.getLanguageName(languageId);
 				notificationService.notify({
 					severity: Severity.Info,
