@@ -3,6 +3,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 .traceback {
+	padding: 3px 0;
 	background: var(--vscode-positronConsole-errorBackground);
 }
 
