@@ -180,7 +180,7 @@ export class ArkLsp implements vscode.Disposable {
 	/**
 	 * Dispose of the client instance.
 	 */
-	dispose() {
-		this.deactivate();
+	async dispose() {
+		await this.deactivate();
 	}
 }
