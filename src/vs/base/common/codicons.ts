@@ -587,7 +587,7 @@ export const Codicon = {
 	positronOpenInNewWindow: register('positron-open-in-new-window', 0xf242),
 	positronSearchIcon: register('positron-search-icon', 0xf243),
 	positronSearchCancel: register('positron-search-cancel', 0xf244),
-	positronAvailable3: register('positron-available-3', 0xf245),
+	positronShowTraceback: register('positron-show-traceback', 0xf245),
 	positronAvailable4: register('positron-available-4', 0xf246),
 	positronX: register('positron-x', 0xf247),
 	positronTrashCan: register('positron-trash-can', 0xf248),

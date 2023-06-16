@@ -252,8 +252,14 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 
 			// Build the traceback.
 			const traceback: string[] = [];
-			for (let i = 1; i <= +match[3]; i++) {
-				traceback.push(`Traceback line ${i}`);
+			const tracebackLines = Math.max(Math.min(+match[3], 9), 0);
+			if (tracebackLines) {
+				// allow-any-unicode-next-line
+				traceback.push('   ▆');
+				for (let i = 0; i < tracebackLines; i++) {
+					// allow-any-unicode-next-line
+					traceback.push(`${i + 1}. ${' '.repeat(i * 2)}└─global function${i + 1}()`);
+				}
 			}
 
 			// Simulate unsuccessful code execution.
