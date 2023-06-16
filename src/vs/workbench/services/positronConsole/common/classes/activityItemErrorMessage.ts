@@ -43,7 +43,9 @@ export class ActivityItemErrorMessage {
 	) {
 		// Process the message and traceback directly into ANSI output lines suitable for rendering.
 		this.messageOutputLines = ANSIOutput.processOutput(message);
-		this.tracebackOutputLines = ANSIOutput.processOutput(traceback.join('\n'));
+		this.tracebackOutputLines = !traceback.length ?
+			[] :
+			ANSIOutput.processOutput(traceback.join('\n'));
 	}
 
 	//#endregion Constructor
