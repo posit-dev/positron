@@ -4,7 +4,7 @@
 
 import * as vscode from 'vscode';
 import * as positron from 'positron';
-import { JupyterAdapterApi, JupyterKernelSpec, JupyterLanguageRuntime } from './jupyter-adapter';
+import { JupyterAdapterApi, JupyterKernelSpec, JupyterLanguageRuntime, JupyterKernelExtra } from './jupyter-adapter';
 
 import { LanguageRuntimeAdapter } from './LanguageRuntimeAdapter';
 import { findAvailablePort } from './PortFinder';
@@ -17,17 +17,25 @@ export class JupyterAdapterApiImpl implements JupyterAdapterApi {
 	/**
 	 * Create an adapter for a Jupyter-compatible kernel.
 	 *
-	 * @param kernel A Jupyter kernel spec containing the information needed to start the kernel.
+	 * @param kernel A Jupyter kernel spec containing the information needed to
+	 *   start the kernel.
+	 * @param metadata The metadata for the language runtime to be wrapped by the
+	 *   adapter.
+	 * @param extra Optional implementations for extra functionality.
 	 * @returns A LanguageRuntimeAdapter that wraps the kernel.
 	 */
-	adaptKernel(kernel: JupyterKernelSpec,
+	adaptKernel(
+		kernel: JupyterKernelSpec,
 		metadata: positron.LanguageRuntimeMetadata,
+		extra: JupyterKernelExtra,
 	): JupyterLanguageRuntime {
 		return new LanguageRuntimeAdapter(
 			this._context,
 			this._channel,
 			kernel,
-			metadata);
+			metadata,
+			extra
+		);
 	}
 
 	/**
