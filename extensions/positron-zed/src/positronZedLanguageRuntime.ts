@@ -247,7 +247,7 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 			// Build the message.
 			let message = '';
 			for (let i = 1; i <= +match[2]; i++) {
-				message += `Error message line ${i}\n`;
+				message += `${makeSGR(SGR.ForegroundRed)}Error message line ${i}${makeSGR()}\n`;
 			}
 
 			// Build the traceback.
