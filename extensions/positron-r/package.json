@@ -38,6 +38,26 @@
           "default": "",
           "description": "%r.configuration.kernelPath.description%"
         },
+        "positron.r.kernel.logLevel": {
+          "scope": "window",
+          "type": "string",
+          "enum": [
+            "error",
+            "warn",
+            "info",
+            "debug",
+            "trace"
+          ],
+          "enumDescriptions": [
+            "%r.configuration.logLevel.error.description%",
+            "%r.configuration.logLevel.warn.description%",
+            "%r.configuration.logLevel.info.description%",
+            "%r.configuration.logLevel.debug.description%",
+            "%r.configuration.logLevel.trace.description%"
+          ],
+          "default": "warn",
+          "description": "%r.configuration.logLevel.description%"
+        },
         "positron.r.trace.server": {
           "scope": "window",
           "type": "string",

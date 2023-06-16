@@ -89,6 +89,10 @@ export function registerArkKernel(ext: vscode.Extension<any>, context: vscode.Ex
 
 	const { execSync } = require('child_process');
 
+	// Check the R kernel log level setting
+	const config = vscode.workspace.getConfiguration('positron.r');
+	const logLevel = config.get<string>('kernel.logLevel') ?? 'warn';
+
 	// Discover R installations.
 	// TODO: Needs to handle Linux and Windows
 	// TODO: Needs to handle other installation locations (like RSwitch)
@@ -154,7 +158,7 @@ export function registerArkKernel(ext: vscode.Extension<any>, context: vscode.Ex
 		/* eslint-disable */
 		const env = <Record<string, string>>{
 			'RUST_BACKTRACE': '1',
-			'RUST_LOG': 'trace',
+			'RUST_LOG': logLevel,
 			'R_HOME': rHome.rHome,
 			'R_CLI_NUM_COLORS': '256',
 		};
