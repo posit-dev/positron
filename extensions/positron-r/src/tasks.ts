@@ -4,9 +4,10 @@
 
 import * as vscode from 'vscode';
 
-export function providePackageTasks(_context: vscode.ExtensionContext): void {
+export async function providePackageTasks(_context: vscode.ExtensionContext): Promise<void> {
 
-	vscode.commands.executeCommand('setContext', 'isRPackage', true);
+	const isRPackage = await detectRPackage();
+	vscode.commands.executeCommand('setContext', 'isRPackage', isRPackage);
 
 	const allPackageTasks: PackageTask[] = [
 		{ 'type': 'rPackageLoad', 'name': 'Load package', 'shellExecution': 'R -e "devtools::load_all()"' },
@@ -19,6 +20,19 @@ export function providePackageTasks(_context: vscode.ExtensionContext): void {
 		registerRPackageTaskProvider(packageTask);
 	}
 
+}
+
+async function detectRPackage(): Promise<boolean> {
+	if (vscode.workspace.workspaceFolders !== undefined) {
+		const folderUri = vscode.workspace.workspaceFolders[0].uri;
+		const fileUri = vscode.Uri.joinPath(folderUri, 'DESCRIPTION');
+		try {
+			const bytes = await vscode.workspace.fs.readFile(fileUri);
+			const descriptionText = Buffer.from(bytes).toString('utf8');
+			return descriptionText.startsWith('Package:');
+		} catch { }
+	}
+	return false;
 }
 
 function registerRPackageTaskProvider(packageTask: PackageTask): vscode.Disposable {
