@@ -69,10 +69,14 @@ export interface JupyterAdapterApi extends vscode.Disposable {
 	 *   start the kernel.
 	 * @param metadata The metadata for the language runtime to be wrapped by the
 	 *   adapter.
+	 * @param extra Optional implementations for extra functionality.
 	 * @returns A LanguageRuntimeAdapter that wraps the kernel.
 	 */
-	adaptKernel(kernel: JupyterKernelSpec,
-		metadata: positron.LanguageRuntimeMetadata): JupyterLanguageRuntime;
+	adaptKernel(
+		kernel: JupyterKernelSpec,
+		metadata: positron.LanguageRuntimeMetadata,
+		extra?: JupyterKernelExtra,
+	): JupyterLanguageRuntime;
 
 	/**
 	 * Finds an available TCP port for a server
@@ -82,4 +86,15 @@ export interface JupyterAdapterApi extends vscode.Disposable {
 	 * @returns An available TCP port
 	 */
 	findAvailablePort(excluding: Array<number>, maxTries: number): Promise<number>;
+}
+
+/** Specific functionality implemented by runtimes */
+export interface JupyterKernelExtra {
+	attachOnStartup?: {
+		init: (args: Array<String>) => void;
+		attach: () => Promise<void>;
+	};
+	sleepOnStartup?: {
+		init: (args: Array<String>, delay: number) => void;
+	};
 }
