@@ -15,5 +15,5 @@
 	"r.configuration.logLevel.info.description": "Informational messages",
 	"r.configuration.logLevel.debug.description": "Debug messages",
 	"r.configuration.logLevel.trace.description": "Verbose tracing messages",
-	"r.configuration.logLevel.description": "Log level for the R Kernel"
+	"r.configuration.logLevel.description": "Log level for the R Kernel (requires restart to take effect)"
 }
