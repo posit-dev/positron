@@ -11,8 +11,7 @@
     "Programming Languages"
   ],
   "activationEvents": [
-    "onStartupFinished",
-    "onCommand:workbench.action.tasks.runTask"
+    "onStartupFinished"
   ],
   "main": "./out/extension.js",
   "contributes": {
