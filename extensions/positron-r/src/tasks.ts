@@ -29,7 +29,11 @@ async function detectRPackage(): Promise<boolean> {
 		try {
 			const bytes = await vscode.workspace.fs.readFile(fileUri);
 			const descriptionText = Buffer.from(bytes).toString('utf8');
-			return descriptionText.startsWith('Package:');
+			const descriptionLines = descriptionText.split(/(\r?\n)/);
+			const startsWithDescription = descriptionLines[0].startsWith('Package:');
+			const typeLines = descriptionLines.filter(line => line.startsWith('Type:'));
+			const typeIsDescription = typeLines.length === 0 || typeLines[0].includes('Package');
+			return startsWithDescription && typeIsDescription;
 		} catch { }
 	}
 	return false;
