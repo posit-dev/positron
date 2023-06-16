@@ -9,6 +9,7 @@
 
 .traceback .toggle-traceback {
 	display: grid;
+	cursor: default;
 	grid-template-columns: 2ch 1fr;
 }
 
