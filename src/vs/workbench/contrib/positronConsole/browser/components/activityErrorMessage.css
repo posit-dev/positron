@@ -2,6 +2,17 @@
  *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
+@keyframes fadein {
+	0% {
+		opacity: 0;
+		visibility: visible;
+	}
+
+	100% {
+		opacity: 1;
+	}
+}
+
 .traceback {
 	padding: 3px 0;
 	background: var(--vscode-positronConsole-errorBackground);
@@ -15,5 +26,6 @@
 
 .traceback .traceback-lines {
 	display: grid;
+	animation: fadein 0.1s linear;
 	grid-template-columns: 2ch 1fr;
 }
