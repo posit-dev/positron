@@ -4,6 +4,8 @@
 
 import 'vs/css!./activityErrorMessage';
 import * as React from 'react';
+import { useState } from 'react'; // eslint-disable-line no-duplicate-imports
+import { PositronButton } from 'vs/base/browser/ui/positronComponents/positronButton';
 import { OutputLines } from 'vs/workbench/contrib/positronConsole/browser/components/outputLines';
 import { ActivityItemErrorMessage } from 'vs/workbench/services/positronConsole/common/classes/activityItemErrorMessage';
 
@@ -18,18 +20,48 @@ export interface ActivityErrorMessageProps {
  * @returns The rendered component.
  */
 export const ActivityErrorMessage = (props: ActivityErrorMessageProps) => {
+	// State hooks.
+	const [showTraceback, setShowTraceback] = useState(false);
+
+	/**
+	 * Traceback component.
+	 * @returns The rendered component.
+	 */
+	const Traceback = () => {
+		/**
+		 * onClick handler.
+		 */
+		const clickHandler = () => {
+			setShowTraceback(!showTraceback);
+		};
+
+		// Render.
+		return (
+			<div className='traceback'>
+				<PositronButton className='toggle-traceback' onClick={clickHandler}>
+					<div className='codicon codicon-positron-show-traceback' />
+					{showTraceback ? <div>Hide Traceback</div> : <div>Show Traceback</div>}
+				</PositronButton>
+				{showTraceback &&
+					<div className='traceback-lines'>
+						<div />
+						<div>
+							<OutputLines outputLines={props.activityItemErrorMessage.tracebackOutputLines} />
+						</div>
+					</div>
+				}
+			</div>
+		);
+	};
+
 	// Render.
 	return (
 		<div className='activity-error-message'>
 			{props.activityItemErrorMessage.messageOutputLines.length > 0 &&
-				<div className='message-output'>
-					<OutputLines outputLines={props.activityItemErrorMessage.messageOutputLines} />
-				</div>
+				<OutputLines outputLines={props.activityItemErrorMessage.messageOutputLines} />
 			}
 			{props.activityItemErrorMessage.tracebackOutputLines.length > 0 &&
-				<div className='traceback-output'>
-					<OutputLines outputLines={props.activityItemErrorMessage.tracebackOutputLines} />
-				</div>
+				<Traceback />
 			}
 		</div>
 	);
