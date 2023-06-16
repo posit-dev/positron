@@ -79,10 +79,18 @@ export abstract class BasePanelPart extends CompositePart<PaneComposite> impleme
 
 	readonly minimumWidth: number = 300;
 	readonly maximumWidth: number = Number.POSITIVE_INFINITY;
-	readonly minimumHeight: number = 77;
+	// --- Start Positron ---
+	// readonly minimumHeight: number = 77;
+	// In Positron, the minimum height to 35, which is enough to show just the tabs in the panel.
+	readonly minimumHeight: number = 35;
+	// --- End Positron ---
 	readonly maximumHeight: number = Number.POSITIVE_INFINITY;
 
-	readonly snap = true;
+	// --- Start Positron ---
+	// readonly snap = true;
+	// In Positron, the panel doesn't snap (meaning it doesn't snap into being hidden).
+	readonly snap = false;
+	// --- End Positron ---
 
 	get preferredHeight(): number | undefined {
 		// Don't worry about titlebar or statusbar visibility
