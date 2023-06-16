@@ -5,7 +5,7 @@
 import * as vscode from 'vscode';
 import * as positron from 'positron';
 import { JupyterKernel } from './JupyterKernel';
-import { JupyterKernelSpec } from './jupyter-adapter';
+import { JupyterKernelSpec, JupyterKernelExtra } from './jupyter-adapter';
 import { JupyterMessagePacket } from './JupyterMessagePacket';
 import { JupyterDisplayData } from './JupyterDisplayData';
 import { JupyterExecuteResult } from './JupyterExecuteResult';
@@ -69,15 +69,20 @@ export class LanguageRuntimeAdapter
 	 * @param _spec The Jupyter kernel spec for the kernel to wrap
 	 * @param metadata The metadata for the language runtime to wrap
 	 */
-	constructor(private readonly _context: vscode.ExtensionContext,
+	constructor(
+		private readonly _context: vscode.ExtensionContext,
 		private readonly _channel: vscode.OutputChannel,
 		private readonly _spec: JupyterKernelSpec,
 		readonly metadata: positron.LanguageRuntimeMetadata,
+		extra?: JupyterKernelExtra,
 	) {
-		this._kernel = new JupyterKernel(this._context,
+		this._kernel = new JupyterKernel(
+			this._context,
 			this._spec,
 			metadata.runtimeId,
-			this._channel);
+			this._channel,
+			extra
+		);
 		this._channel.appendLine('Registered kernel: ' + JSON.stringify(this.metadata));
 
 		// Create emitter for LanguageRuntime messages and state changes

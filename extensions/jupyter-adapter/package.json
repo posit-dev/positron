@@ -30,6 +30,17 @@
           "type": "boolean",
           "default": false,
           "description": "Show the terminal window when running a Jupyter kernel"
+        },
+        "positron.jupyterAdapter.attachOnStartup": {
+          "scope": "window",
+          "type": "boolean",
+          "default": false,
+          "description": "Run <f5> before starting up Jupyter kernel (when supported)"
+        },
+        "positron.jupyterAdapter.sleepOnStartup": {
+          "scope": "window",
+          "type": "number",
+          "description": "Sleep for n seconds before starting up Jupyter kernel (when supported)"
         }
       }
     }

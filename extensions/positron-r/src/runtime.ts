@@ -6,7 +6,7 @@ import * as positron from 'positron';
 import * as vscode from 'vscode';
 import PQueue from 'p-queue';
 
-import { JupyterAdapterApi, JupyterKernelSpec, JupyterLanguageRuntime } from './jupyter-adapter';
+import { JupyterAdapterApi, JupyterKernelSpec, JupyterLanguageRuntime, JupyterKernelExtra } from './jupyter-adapter';
 import { ArkLsp, LspState } from './lsp';
 
 /**
@@ -29,8 +29,9 @@ export class RRuntime implements positron.LanguageRuntime, vscode.Disposable {
 		readonly kernelSpec: JupyterKernelSpec,
 		readonly metadata: positron.LanguageRuntimeMetadata,
 		readonly adapterApi: JupyterAdapterApi,
+		readonly extra?: JupyterKernelExtra,
 	) {
-		this._kernel = adapterApi.adaptKernel(kernelSpec, metadata);
+		this._kernel = adapterApi.adaptKernel(kernelSpec, metadata, extra);
 		this._lsp = new ArkLsp(metadata.languageVersion);
 
 		this.onDidChangeRuntimeState = this._kernel.onDidChangeRuntimeState;
