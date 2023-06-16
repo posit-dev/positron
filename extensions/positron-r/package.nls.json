@@ -9,5 +9,11 @@
 	"r.configuration.tracing.description": "Traces the communication between VS Code and the language server",
 	"r.configuration.tracing.off.description": "No tracing.",
 	"r.configuration.tracing.messages.description": "Log messages from the server to the output panel.",
-	"r.configuration.tracing.verbose.description": "Log messages from the server as well as verbose output."
+	"r.configuration.tracing.verbose.description": "Log messages from the server as well as verbose output.",
+	"r.configuration.logLevel.error.description": "Errors only",
+	"r.configuration.logLevel.warn.description": "Errors and warnings",
+	"r.configuration.logLevel.info.description": "Informational messages",
+	"r.configuration.logLevel.debug.description": "Debug messages",
+	"r.configuration.logLevel.trace.description": "Verbose tracing messages",
+	"r.configuration.logLevel.description": "Log level for the R Kernel (requires restart to take effect)"
 }
