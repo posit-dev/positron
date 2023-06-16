@@ -67,17 +67,29 @@ export class JupyterSocket implements vscode.Disposable {
 
 		// Resolve the promise when the socket connects
 		return new Promise<void>((resolve, reject) => {
+			let settled = false;
 			this._socket.on('connect', (_evt, addr) => {
 				this._logger(`${this._title} socket connected to ${addr}`);
+				settled = true;
 				resolve();
 			});
 
 			// If the socket fails to connect, reject the promise
 			this._socket.on('connect_delay', (_evt, addr) => {
 				// We give up if we've exceeded our max wait time
-				const elapsed = (Date.now() - startTime) / 1000;
-				if (elapsed > maxWaitSeconds) {
+				const elapsed = Math.round((Date.now() - startTime) / 1000);
+				if (settled) {
+					// If the promise is settled, we already connected
+					// successfully, so we can stop monitoring the socket and
+					// ignore this event.
+					this._socket.unmonitor();
+				} else if (elapsed > maxWaitSeconds) {
+					// Stop monitoring the socket so we don't get any more
+					// events, which would be redundant at this point
+					this._socket.unmonitor();
 					this._logger(`${this._title} socket failed to connect to ${addr} after ${elapsed} seconds`);
+
+					settled = true;
 					reject();
 				}
 			});
