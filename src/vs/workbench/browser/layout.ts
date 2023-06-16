@@ -1827,7 +1827,21 @@ export abstract class Layout extends Disposable implements IWorkbenchLayoutServi
 		if (!isMaximized) {
 			if (this.isVisible(Parts.PANEL_PART)) {
 				if (panelPosition === Position.BOTTOM) {
-					this.stateModel.setRuntimeValue(LayoutStateKeys.PANEL_LAST_NON_MAXIMIZED_HEIGHT, size.height);
+					// --- Start Positron ---
+					// When the panel is at its minimum height, instead of maximizing the panel from
+					// this height, set the panel height to its preferred height.
+					if (size.height === this.panelPartView.minimumHeight) {
+						this.workbenchGrid.resizeView(
+							this.panelPartView,
+							{
+								width: size.width,
+								height: this.panelPartView.preferredHeight || this.stateModel.getRuntimeValue(LayoutStateKeys.PANEL_LAST_NON_MAXIMIZED_HEIGHT)
+							});
+						return;
+					} else {
+						this.stateModel.setRuntimeValue(LayoutStateKeys.PANEL_LAST_NON_MAXIMIZED_HEIGHT, size.height);
+					}
+					// --- End Positron ---
 				} else {
 					this.stateModel.setRuntimeValue(LayoutStateKeys.PANEL_LAST_NON_MAXIMIZED_WIDTH, size.width);
 				}
