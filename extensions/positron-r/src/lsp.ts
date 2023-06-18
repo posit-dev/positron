@@ -4,7 +4,7 @@
 
 import * as vscode from 'vscode';
 import * as positron from 'positron';
-import { PromiseHandles } from './util'
+import { PromiseHandles } from './util';
 
 import {
 	LanguageClient,

@@ -106,7 +106,25 @@
           "when": "!virtualWorkspace"
         }
       ]
-    }
+    },
+    "taskDefinitions": [
+      {
+        "type": "rPackageBuild",
+        "when": "isRPackage"
+      },
+      {
+        "type": "rPackageLoad",
+        "when": "isRPackage"
+      },
+      {
+        "type": "rPackageTest",
+        "when": "isRPackage"
+      },
+      {
+        "type": "rPackageCheck",
+        "when": "isRPackage"
+      }
+    ]
   },
   "scripts": {
     "vscode:prepublish": "yarn run compile",

@@ -107,7 +107,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	) {
 		super();
 		this._spec = spec;
-		this._extra = extra,
+		this._extra = extra;
 
 		this._control = null;
 		this._shell = null;
@@ -553,14 +553,14 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 			isTransient: false
 		});
 
-		let handles = new PromiseHandles<void>();
+		const handles = new PromiseHandles<void>();
 
 		const disposable = vscode.window.onDidOpenTerminal(async (openedTerminal) => {
 			if (openedTerminal !== this._terminal) {
 				return;
 			}
 			// Read the process ID and connect to the kernel when it's ready
-			const pid = await openedTerminal.processId
+			const pid = await openedTerminal.processId;
 
 			// Ignore terminals that don't have a process ID
 			if (!pid) {
@@ -571,7 +571,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 				try {
 					await this._extra!.attachOnStartup!.attach();
 				} catch (err) {
-					this.log(`Can't execute attach action: ${err}`)
+					this.log(`Can't execute attach action: ${err}`);
 				}
 			}
 
@@ -588,12 +588,12 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 
 			// Connect to the kernel running in the terminal
 			try {
-				await this.connectToSession(session)
+				await this.connectToSession(session);
 				handles.resolve();
-			} catch(err) {
+			} catch (err) {
 				handles.reject(err);
 			}
-		})
+		});
 
 		// Wait for the terminal to open
 		await handles.promise;
