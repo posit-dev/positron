@@ -2,7 +2,7 @@
  *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
-import 'vs/css!./newWorkspaceModalDialog';
+import 'vs/css!./newFolderFromGitModalDialog';
 import * as React from 'react';
 import { useRef, useState } from 'react'; // eslint-disable-line no-duplicate-imports
 import { localize } from 'vs/nls';
@@ -14,51 +14,51 @@ import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/la
 import { VerticalStack } from 'vs/base/browser/ui/positronModalDialog/components/verticalStack';
 import { VerticalSpacer } from 'vs/base/browser/ui/positronModalDialog/components/verticalSpacer';
 import { LabeledTextInput } from 'vs/base/browser/ui/positronModalDialog/components/labeledTextInput';
-import { DirectoryInput } from 'vs/base/browser/ui/positronModalDialog/components/labeledDirectoryInput';
+import { LabeledFolderInput } from 'vs/base/browser/ui/positronModalDialog/components/labeledFolderInput';
 import { OKCancelModalDialog } from 'vs/base/browser/ui/positronModalDialog/positronOKCancelModalDialog';
 import { PositronModalDialogReactRenderer } from 'vs/base/browser/ui/positronModalDialog/positronModalDialogReactRenderer';
 
 /**
- * NewWorkspaceResult interface.
+ * NewFolderFromGitResult interface.
  */
-export interface NewWorkspaceResult {
-	readonly directory: string;
-	readonly parentDirectory: string;
+export interface NewFolderFromGitResult {
+	readonly repo: string;
+	readonly parentFolder: string;
 	readonly newWindow: boolean;
 }
 
 /**
- * Shows the NewWorkspaceModalDialog.
+ * Shows the NewFolderFromGitModalDialog.
  * @param accessor The services accessor.
  * @returns A promise that resolves when the dialog is dismissed.
  */
-export const showNewWorkspaceModalDialog = async (accessor: ServicesAccessor): Promise<NewWorkspaceResult | undefined> => {
+export const showNewFolderFromGitModalDialog = async (accessor: ServicesAccessor): Promise<NewFolderFromGitResult | undefined> => {
 	// Get the services we need for the dialog.
 	const fileDialogs = accessor.get(IFileDialogService);
 	const layoutService = accessor.get(IWorkbenchLayoutService);
 
 	// Load data we need to present the dialog.
-	const parentDirectory = (await fileDialogs.defaultFolderPath()).fsPath;
+	const parentFolder = (await fileDialogs.defaultFolderPath()).fsPath;
 
 	// Return a promise that resolves when the dialog is done.
-	return new Promise<NewWorkspaceResult | undefined>((resolve) => {
+	return new Promise<NewFolderFromGitResult | undefined>((resolve) => {
 		// Create the modal dialog React renderer.
 		const positronModalDialogReactRenderer = new PositronModalDialogReactRenderer(layoutService.container);
 
-		// The new workspace modal dialog component.
-		const NewWorkspaceModalDialog = () => {
+		// The new folder from git modal dialog component.
+		const NewFolderFromGitModalDialog = () => {
 			// Hooks.
-			const [newWorkspaceResult, setNewWorkspaceResult] = useState<NewWorkspaceResult>({
-				directory: '',
-				parentDirectory,
+			const [newFolderFromGitResult, setNewFolderFromGitResult] = useState<NewFolderFromGitResult>({
+				repo: '',
+				parentFolder,
 				newWindow: false
 			});
-			const directoryNameRef = useRef<HTMLInputElement>(undefined!);
+			const folderNameRef = useRef<HTMLInputElement>(undefined!);
 
 			// The accept handler.
 			const acceptHandler = () => {
 				positronModalDialogReactRenderer.destroy();
-				resolve(newWorkspaceResult);
+				resolve(newFolderFromGitResult);
 			};
 
 			// The cancel handler.
@@ -71,44 +71,44 @@ export const showNewWorkspaceModalDialog = async (accessor: ServicesAccessor): P
 			const browseHandler = async () => {
 				// Show the open dialog.
 				const uri = await fileDialogs.showOpenDialog({
-					defaultUri: newWorkspaceResult.parentDirectory ? URI.file(newWorkspaceResult.parentDirectory) : undefined,
+					defaultUri: newFolderFromGitResult.parentFolder ? URI.file(newFolderFromGitResult.parentFolder) : undefined,
 					canSelectFiles: false,
 					canSelectFolders: true
 				});
 
 				// If the user made a selection, set the parent directory.
 				if (uri?.length) {
-					setNewWorkspaceResult({ ...newWorkspaceResult, parentDirectory: uri[0].fsPath });
-					directoryNameRef.current.focus();
+					setNewFolderFromGitResult({ ...newFolderFromGitResult, parentFolder: uri[0].fsPath });
+					folderNameRef.current.focus();
 				}
 			};
 
 			// Render.
 			return (
-				<OKCancelModalDialog width={400} height={300} title={localize('positronNewWorkspaceModalDialogTitle', "New Workspace")} accept={acceptHandler} cancel={cancelHandler}>
+				<OKCancelModalDialog width={400} height={300} title={localize('positronNewFolderFromGitModalDialogTitle', "New Folder from Git")} accept={acceptHandler} cancel={cancelHandler}>
 					<VerticalStack>
 						<LabeledTextInput
-							ref={directoryNameRef}
-							label='Directory name'
+							ref={folderNameRef}
+							value={newFolderFromGitResult.repo}
+							label='Git repository URL'
 							autoFocus
-							value={newWorkspaceResult.directory}
-							onChange={e => setNewWorkspaceResult({ ...newWorkspaceResult, directory: e.target.value })}
+							onChange={e => setNewFolderFromGitResult({ ...newFolderFromGitResult, repo: e.target.value })}
 						/>
-						<DirectoryInput
-							label='Create workspace as subdirectory of'
-							value={newWorkspaceResult.parentDirectory}
+						<LabeledFolderInput
+							label='Create folder as subfolder of'
+							value={newFolderFromGitResult.parentFolder}
 							onBrowse={browseHandler}
-							onChange={e => setNewWorkspaceResult({ ...newWorkspaceResult, parentDirectory: e.target.value })}
+							onChange={e => setNewFolderFromGitResult({ ...newFolderFromGitResult, parentFolder: e.target.value })}
 						/>
 					</VerticalStack>
 					<VerticalSpacer>
-						<Checkbox label='Open in a new window' onChanged={checked => setNewWorkspaceResult({ ...newWorkspaceResult, newWindow: checked })} />
+						<Checkbox label='Open in a new window' onChanged={checked => setNewFolderFromGitResult({ ...newFolderFromGitResult, newWindow: checked })} />
 					</VerticalSpacer>
 				</OKCancelModalDialog>
 			);
 		};
 
 		// Render the modal dialog component.
-		positronModalDialogReactRenderer.render(<NewWorkspaceModalDialog />);
+		positronModalDialogReactRenderer.render(<NewFolderFromGitModalDialog />);
 	});
 };

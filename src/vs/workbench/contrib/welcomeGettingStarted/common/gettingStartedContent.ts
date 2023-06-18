@@ -110,29 +110,29 @@ export const startEntries: GettingStartedStartEntryContent = [
 		}
 	},
 	//
-	// New Workspace...
+	// New Folder...
 	//
 	{
-		id: 'topLevelNewWorkspace',
-		title: localize('gettingStarted.newWorkspace.title', "New Workspace..."),
-		description: localize('gettingStarted.newWorkspace.description', "Open a new workspace."),
+		id: 'topLevelNewFolder',
+		title: localize('gettingStarted.newFolder.title', "New Folder..."),
+		description: localize('gettingStarted.newFolder.description', "Open a new folder."),
 		icon: Codicon.newFolder,
 		content: {
 			type: 'startEntry',
-			command: 'command:positron.workbench.action.newWorkspace',
+			command: 'command:positron.workbench.action.newFolder',
 		}
 	},
 	//
-	// New Workspace from Git...
+	// New Folder from Git...
 	//
 	{
-		id: 'topLevelNewWorkspaceFromGit',
-		title: localize('gettingStarted.newWorkspaceFromGit.title', "New Workspace from Git..."),
-		description: localize('gettingStarted.newWorkspaceFromGit.description', "Open a new workspace from Git."),
+		id: 'topLevelNewFolderFromGit',
+		title: localize('gettingStarted.newFolderFromGit.title', "New Folder from Git..."),
+		description: localize('gettingStarted.newFolderFromGit.description', "Open a new folder from Git."),
 		icon: Codicon.newFile,
 		content: {
 			type: 'startEntry',
-			command: 'command:positron.workbench.action.newWorkspaceFromGit',
+			command: 'command:positron.workbench.action.newFolderFromGit',
 		}
 	},
 	//
