@@ -2,14 +2,14 @@
  *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
-import 'vs/css!./labeledDirectoryInput';
+import 'vs/css!./labeledFolderInput';
 import * as React from 'react';
 import { ChangeEventHandler } from 'react'; // eslint-disable-line no-duplicate-imports
 
 /**
- * DirectoryInputProps interface.
+ * FolderInputProps interface.
  */
-export interface DirectoryInputProps {
+export interface LabeledFolderInputProps {
 	label: string;
 	value: string;
 	onBrowse: VoidFunction;
@@ -17,16 +17,16 @@ export interface DirectoryInputProps {
 }
 
 /**
- * DirectoryInput component.
- * @param props A DirectoryInputProps that contains the component properties.
+ * LabeledFolderInput component.
+ * @param props A LabeledFolderInputProps that contains the component properties.
  * @returns The rendered component.
  */
-export const DirectoryInput = (props: DirectoryInputProps) => {
+export const LabeledFolderInput = (props: LabeledFolderInputProps) => {
 	return (
-		<div className='labeled-directory-input'>
+		<div className='labeled-folder-input'>
 			<label>
 				{props.label}:
-				<div className='directory-input'>
+				<div className='folder-input'>
 					<input className='text-input' readOnly type='text' value={props.value} onChange={props.onChange} />
 					<button className='button browse-button' tabIndex={0} onClick={props.onBrowse}>
 						Browse...

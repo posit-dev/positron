@@ -8,7 +8,7 @@ import { localize } from 'vs/nls';
 import { IAction, Separator } from 'vs/base/common/actions';
 import { ActionBarMenuButton } from 'vs/platform/positronActionBar/browser/components/actionBarMenuButton';
 import { usePositronActionBarContext } from 'vs/platform/positronActionBar/browser/positronActionBarContext';
-import { PositronNewWorkspaceAction, PositronNewWorkspaceFromGitAction } from 'vs/workbench/browser/actions/positronActions';
+import { PositronNewFolderAction, PositronNewFolderFromGitAction } from 'vs/workbench/browser/actions/positronActions';
 
 /**
  * TopActionBarNewMenu component.
@@ -23,8 +23,8 @@ export const TopActionBarNewMenu = () => {
 		const actions: IAction[] = [];
 		positronActionBarContext.appendCommandAction(actions, 'welcome.showNewFileEntries', localize('positronNewFile', "New File..."));
 		actions.push(new Separator());
-		positronActionBarContext.appendCommandAction(actions, PositronNewWorkspaceAction.ID);
-		positronActionBarContext.appendCommandAction(actions, PositronNewWorkspaceFromGitAction.ID);
+		positronActionBarContext.appendCommandAction(actions, PositronNewFolderAction.ID);
+		positronActionBarContext.appendCommandAction(actions, PositronNewFolderFromGitAction.ID);
 		actions.push(new Separator());
 		positronActionBarContext.appendCommandAction(actions, 'workbench.action.newWindow');
 		return actions;

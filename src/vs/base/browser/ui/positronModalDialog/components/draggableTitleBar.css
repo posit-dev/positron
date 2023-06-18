@@ -11,7 +11,6 @@
 	display: flex;
 	padding: 0 16px;
 	align-items: center;
-	border-bottom: 1px solid var(--vscode-positronModalDialog-titleBarBorderBottom);
 	color: var(--vscode-positronModalDialog-foreground);
 	background: var(--vscode-positronModalDialog-titleBarBackground);
 }

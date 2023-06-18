@@ -1200,27 +1200,19 @@ export const POSITRON_MODAL_DIALOG_SEPARATOR = registerColor('positronModalDialo
 
 // Positron modal dialog title bar background color.
 export const POSITRON_MODAL_DIALOG_TITLE_BAR_BACKGROUND = registerColor('positronModalDialog.titleBarBackground', {
-	dark: lighten(TITLE_BAR_ACTIVE_BACKGROUND, 0.75),
-	light: darken(TITLE_BAR_ACTIVE_BACKGROUND, 0.05),
-	hcDark: '#000000',
-	hcLight: '#ffffff'
+	dark: ACTIVITY_BAR_BACKGROUND,
+	light: ACTIVITY_BAR_BACKGROUND,
+	hcDark: ACTIVITY_BAR_BACKGROUND,
+	hcLight: ACTIVITY_BAR_BACKGROUND
 }, localize('positronModalDialog.titleBarBackground', "Positron modal dialog title bar background color."));
 
 // Positron modal dialog title bar foreground color.
 export const POSITRON_MODAL_DIALOG_TITLE_BAR_FOREGROUND = registerColor('positronModalDialog.titleBarForeground', {
-	dark: foreground,
-	light: '#000000',
-	hcDark: foreground,
-	hcLight: foreground
+	dark: ACTIVITY_BAR_FOREGROUND,
+	light: ACTIVITY_BAR_FOREGROUND,
+	hcDark: ACTIVITY_BAR_FOREGROUND,
+	hcLight: ACTIVITY_BAR_FOREGROUND
 }, localize('positronModalDialog.titleBarForeground', "Positron modal dialog title bar foreground color."));
-
-// Positron modal dialog title bar border bottom color.
-export const POSITRON_MODAL_DIALOG_TITLE_BAR_BORDER_BOTTOM = registerColor('positronModalDialog.titleBarBorderBottom', {
-	dark: null,
-	light: null,
-	hcDark: POSITRON_MODAL_DIALOG_BORDER,
-	hcLight: POSITRON_MODAL_DIALOG_BORDER
-}, localize('positronModalDialog.titleBarBorderBottom', "Positron modal dialog title bar border bottom color."));
 
 // < --- Positron Modal Dialog Button --- >
 

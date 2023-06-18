@@ -709,7 +709,6 @@
 		"--vscode-positronModalDialog-checkboxBackground",
 		"--vscode-positronModalDialog-checkboxBorder",
 		"--vscode-positronModalDialog-checkboxForeground",
-		"--vscode-positronModalDialog-titleBarBorderBottom",
 		"--vscode-positronModalDialog-titleBarBackground",
 		"--vscode-positronModalDialog-titleBarForeground",
 		"--vscode-positronModalDialog-separator",
