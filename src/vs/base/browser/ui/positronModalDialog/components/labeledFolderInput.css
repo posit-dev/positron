@@ -2,17 +2,17 @@
  *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
-.positron-modal-dialog-box .labeled-directory-input {
+.positron-modal-dialog-box .labeled-folder-input {
 	width: 100%;
 }
 
-.positron-modal-dialog-box .labeled-directory-input .directory-input {
+.positron-modal-dialog-box .labeled-folder-input .folder-input {
 	gap: 8px;
 	display: flex;
 	margin-top: 4px;
 }
 
-.positron-modal-dialog-box .labeled-directory-input .directory-input .browse-button {
+.positron-modal-dialog-box .labeled-folder-input .folder-input .browse-button {
 	padding: 0 8px;
 	width: min-content;
 }
