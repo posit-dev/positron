@@ -43,7 +43,7 @@ export const TopActionBarOpenMenu = () => {
 			positronActionBarContext.appendCommandAction(actions, OpenFileAction.ID);
 		}
 
-		positronActionBarContext.appendCommandAction(actions, OpenFolderAction.ID, localize('positronOpenWorkspace', "Open Workspace..."));
+		positronActionBarContext.appendCommandAction(actions, OpenFolderAction.ID, localize('positronOpenFolder', "Open Folder..."));
 		actions.push(new Separator());
 
 		// recent files/workspaces actions

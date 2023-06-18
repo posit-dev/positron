@@ -2,7 +2,7 @@
  *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
-import 'vs/css!./topActionBarWorkspaceMenu';
+import 'vs/css!./topActionBarFolderMenu';
 import * as React from 'react';
 import { localize } from 'vs/nls';
 import { IAction, Separator } from 'vs/base/common/actions';
@@ -12,10 +12,15 @@ import { usePositronActionBarContext } from 'vs/platform/positronActionBar/brows
 import { recentMenuActions } from 'vs/workbench/browser/parts/positronTopActionBar/components/topActionBarOpenMenu';
 import { usePositronTopActionBarContext } from 'vs/workbench/browser/parts/positronTopActionBar/positronTopActionBarContext';
 
+// Constants.
 const kWorkbenchSettings = 'workbench.action.openWorkspaceSettings';
 const kDuplicateWorkspace = 'workbench.action.duplicateWorkspaceInNewWindow';
 
-export const TopActionBarWorkspaceMenu = () => {
+/**
+ * TopActionBarFolderMenu component.
+ * @returns The rendered component.
+ */
+export const TopActionBarFolderMenu = () => {
 	// Hooks.
 	const positronActionBarContext = usePositronActionBarContext();
 	const positronTopActionBarContext = usePositronTopActionBarContext();
