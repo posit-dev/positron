@@ -46,7 +46,7 @@ export const ActivityPrompt = (props: ActivityPromptProps) => {
 		};
 
 		// Process the key.
-		switch (e.code) {
+		switch (e.key) {
 			// Enter key.
 			case 'Enter': {
 				// Consume the event.
@@ -61,7 +61,7 @@ export const ActivityPrompt = (props: ActivityPromptProps) => {
 			}
 
 			// C key.
-			case 'KeyC': {
+			case 'c': {
 				// Handle Ctrl+C.
 				if (e.ctrlKey) {
 					// Consume the event.
