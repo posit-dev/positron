@@ -70,7 +70,7 @@ export const TopActionBarOpenMenu = () => {
 			iconId='folder-opened'
 			iconFontSize={18}
 			actions={actions}
-			tooltip={localize('positronOpenFileWorkspace', "Open File/Workspace")}
+			tooltip={localize('positronOpenFileFolder', "Open File/Folder")}
 		/>
 	);
 };
