@@ -40,7 +40,8 @@ const VIEW_CONTAINER: ViewContainer = Registry.as<IViewContainersRegistry>(
 	},
 	ViewContainerLocation.AuxiliaryBar,
 	{
-		doNotRegisterOpenCommand: true
+		doNotRegisterOpenCommand: true,
+		isDefault: false
 	}
 );
 
