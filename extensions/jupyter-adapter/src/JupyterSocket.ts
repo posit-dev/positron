@@ -13,6 +13,7 @@ export class JupyterSocket implements vscode.Disposable {
 	private _connectStartTime = 0;
 	private _addr: string;
 	private _port: number;
+	private _disconnectEmitter = new vscode.EventEmitter<void>();
 
 	/**
 	 * Create a new JupyterSocket
@@ -25,6 +26,7 @@ export class JupyterSocket implements vscode.Disposable {
 		private readonly _logger: (msg: string) => void) {
 		this._socket = socket;
 		this._title = title;
+		this.onDisconnected = this._disconnectEmitter.event;
 
 		this._addr = '';
 		this._port = 0;
@@ -42,10 +44,26 @@ export class JupyterSocket implements vscode.Disposable {
 		this._socket.monitor();
 
 		// Bind event handlers for the socket
-		this.onConnected = this.onConnected.bind(this);
-		this._socket.on('connect', this.onConnected);
-		this.onConnected = this.onConnected.bind(this);
+		this.onConnectedEvent = this.onConnectedEvent.bind(this);
+		this._socket.on('connect', this.onConnectedEvent);
+
+		this.onDisconnectedEvent = this.onDisconnectedEvent.bind(this);
+		this._socket.on('disconnect', this.onDisconnectedEvent);
+
+		this.onConnectDelay = this.onConnectDelay.bind(this);
 		this._socket.on('connect_delay', this.onConnectDelay);
+	}
+
+	onDisconnected: vscode.Event<void>;
+
+	/**
+	 * Handles the `disconnect` event from the ZeroMQ socket
+	 *
+	 * @param _evt ZeroMQ event (ignored)
+	 * @param addr The address the socket connected to
+	 */
+	onDisconnectedEvent(_evt: any, addr: string) {
+		this._logger(`${this._title} socket disconnected from ${addr}`);
 	}
 
 	/**
@@ -54,7 +72,7 @@ export class JupyterSocket implements vscode.Disposable {
 	 * @param _evt ZeroMQ event (ignored)
 	 * @param addr The address the socket connected to
 	 */
-	onConnected(_evt: any, addr: string) {
+	onConnectedEvent(_evt: any, addr: string) {
 		// Ignore if there's no connect promise
 		if (!this._connectPromise) {
 			return;
@@ -183,7 +201,8 @@ export class JupyterSocket implements vscode.Disposable {
 		this._socket.unmonitor();
 
 		// Clean up event handlers
-		this._socket.off('connect', this.onConnected);
+		this._socket.off('connect', this.onConnectedEvent);
+		this._socket.off('disconnect', this.onDisconnectedEvent);
 		this._socket.off('connect_delay', this.onConnectDelay);
 
 		// Close the socket if it's not already closed
