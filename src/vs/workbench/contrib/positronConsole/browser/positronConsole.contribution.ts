@@ -25,7 +25,9 @@ const VIEW_CONTAINER: ViewContainer = Registry.as<IViewContainersRegistry>(ViewC
 	}]),
 	storageId: POSITRON_CONSOLE_VIEW_ID,
 	hideIfEmpty: true,
-	order: 3,
+	// --- Start Positron ---
+	order: 1,
+	// --- End Positron ---
 }, ViewContainerLocation.Panel, {
 	doNotRegisterOpenCommand: true,
 	isDefault: true

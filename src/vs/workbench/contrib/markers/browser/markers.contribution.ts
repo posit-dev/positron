@@ -131,7 +131,9 @@ const VIEW_CONTAINER: ViewContainer = Registry.as<IViewContainersRegistry>(ViewC
 	title: Messages.MARKERS_PANEL_TITLE_PROBLEMS,
 	icon: markersViewIcon,
 	hideIfEmpty: true,
-	order: 0,
+	// --- Start Positron ---
+	order: 3,
+	// --- End Positron ---
 	ctorDescriptor: new SyncDescriptor(ViewPaneContainer, [Markers.MARKERS_CONTAINER_ID, { mergeViewWithContainerWhenSingleView: true }]),
 	storageId: Markers.MARKERS_VIEW_STORAGE_ID,
 }, ViewContainerLocation.Panel, { doNotRegisterOpenCommand: true });

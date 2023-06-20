@@ -56,7 +56,9 @@ const VIEW_CONTAINER: ViewContainer = Registry.as<IViewContainersRegistry>(ViewC
 	id: OUTPUT_VIEW_ID,
 	title: nls.localize('output', "Output"),
 	icon: outputViewIcon,
-	order: 1,
+	// --- Start Positron ---
+	order: 4,
+	// --- End Positron ---
 	ctorDescriptor: new SyncDescriptor(ViewPaneContainer, [OUTPUT_VIEW_ID, { mergeViewWithContainerWhenSingleView: true }]),
 	storageId: OUTPUT_VIEW_ID,
 	hideIfEmpty: true,
