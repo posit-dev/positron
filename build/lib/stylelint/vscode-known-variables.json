@@ -709,7 +709,6 @@
 		"--vscode-positronModalDialog-checkboxBackground",
 		"--vscode-positronModalDialog-checkboxBorder",
 		"--vscode-positronModalDialog-checkboxForeground",
-		"--vscode-positronModalDialog-titleBarBorderBottom",
 		"--vscode-positronModalDialog-titleBarBackground",
 		"--vscode-positronModalDialog-titleBarForeground",
 		"--vscode-positronModalDialog-separator",
@@ -735,7 +734,14 @@
 		"--vscode-positronRuntimesManager-background",
 		"--positronActionBar-separator",
 		"--vscode-positronTopActionBar-logoBackground",
-		"--vscode-positronConsole-errorBackground"
+		"--vscode-positronConsole-errorBackground",
+		"--vscode-positronTopActionBar-background",
+		"--vscode-positronTopActionBar-foreground",
+		"--vscode-positronTopActionBar-disabledForeground",
+		"--vscode-positronTopActionBar-textInputBackground",
+		"--vscode-positronTopActionBar-textInputBorder",
+		"--vscode-positronTopActionBar-textInputSelectionForeground",
+		"--vscode-positronTopActionBar-textInputSelectionBackground"
 	],
 	"others": [
 		"--background-dark",

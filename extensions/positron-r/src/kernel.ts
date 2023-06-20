@@ -251,19 +251,19 @@ export function registerArkKernel(ext: vscode.Extension<any>, context: vscode.Ex
 }
 
 class ArkAttachOnStartup {
-	_delay_dir?: string;
-	_delay_file?: string;
+	_delayDir?: string;
+	_delayFile?: string;
 
 	// Add `--startup-notifier-file` argument to pass a notification file
 	// that triggers the actual startup of the kernel
 	init(args: Array<String>) {
-		this._delay_dir = fs.mkdtempSync(`${os.tmpdir()}-JupyterDelayStartup`);
-		this._delay_file = path.join(this._delay_dir, 'file')
+		this._delayDir = fs.mkdtempSync(`${os.tmpdir()}-JupyterDelayStartup`);
+		this._delayFile = path.join(this._delayDir, 'file');
 
-		fs.writeFileSync(this._delay_file!, "create\n");
+		fs.writeFileSync(this._delayFile!, "create\n");
 
 		args.push("--startup-notifier-file");
-		args.push(this._delay_file);
+		args.push(this._delayFile);
 	}
 
 	// This is paired with `init()` and disposes of created resources
@@ -272,11 +272,11 @@ class ArkAttachOnStartup {
 		await vscode.commands.executeCommand('workbench.action.debug.start');
 
 		// Notify the kernel it can now start up
-		fs.writeFileSync(this._delay_file!, "go\n");
+		fs.writeFileSync(this._delayFile!, "go\n");
 
 		// Give some time before removing the file, no need to await
 		delay(100).then(() => {
-			fs.rmSync(this._delay_dir!, { recursive: true, force: true });
+			fs.rmSync(this._delayDir!, { recursive: true, force: true });
 		});
 	}
 }
