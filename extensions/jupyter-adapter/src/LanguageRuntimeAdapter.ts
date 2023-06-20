@@ -237,15 +237,26 @@ export class LanguageRuntimeAdapter
 	 * Restarts the kernel.
 	 */
 	public async restart(): Promise<void> {
-		this._restarting = true;
-		return this._kernel.shutdown(true);
+		return this.shutdownKernel(true);
 	}
 
 	/**
 	 * Shuts down the kernel permanently.
 	 */
 	public async shutdown(): Promise<void> {
-		return this._kernel.shutdown(false);
+		return this.shutdownKernel(false);
+	}
+
+	private shutdownKernel(restart: boolean): Promise<void> {
+		// Ensure the kernel is in a running state before allowing the shutdown
+		if (this._kernelState !== positron.RuntimeState.Idle &&
+			this._kernelState !== positron.RuntimeState.Busy &&
+			this._kernelState !== positron.RuntimeState.Ready) {
+			return Promise.reject(new Error('Cannot shut down kernel; it is not (yet) running.' +
+				` (state = ${this._kernelState})`));
+		}
+		this._restarting = restart;
+		return this._kernel.shutdown(restart);
 	}
 
 	/**

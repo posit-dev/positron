@@ -192,7 +192,7 @@ export class JupyterSocket implements vscode.Disposable {
 			} else {
 				// Otherwise, log the wait time and keep waiting
 				this._logger(`${this._title} socket still connecting ` +
-					`(${Math.floor(waitTime / 1000)}s);`);
+					`(${Math.floor(waitTime / 1000)}s)`);
 			}
 		}, 2000);
 
