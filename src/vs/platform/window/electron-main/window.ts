@@ -129,8 +129,13 @@ export interface IWindowState {
 
 export const defaultWindowState = function (mode = WindowMode.Normal): IWindowState {
 	return {
-		width: 1024,
-		height: 768,
+		// --- Start Positron ---
+		// width: 1024,
+		// height: 768,
+		// Use a larger 4:3 aspect ratio.
+		width: 1280,
+		height: 960,
+		// --- End Positron ---
 		mode
 	};
 };
