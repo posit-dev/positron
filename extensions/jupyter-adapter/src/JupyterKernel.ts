@@ -108,7 +108,6 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 		super();
 		this._spec = spec;
 		this._extra = extra;
-
 		this._control = null;
 		this._shell = null;
 		this._stdin = null;
@@ -621,7 +620,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	/**
 	 * Closes a communications channel (comm) with the kernel.
 	 */
-	public closeComm(id: string) {
+	public async closeComm(id: string) {
 		// Create the message to send to the kernel
 		const msg: JupyterCommClose = {
 			comm_id: id,  // eslint-disable-line
@@ -629,7 +628,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 		};
 
 		// Dispatch it
-		this.send(uuidv4(), 'comm_close', this._shell!, msg);
+		return this.send(uuidv4(), 'comm_close', this._shell!, msg);
 	}
 
 	/**
@@ -1078,7 +1077,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 			this._terminal = undefined;
 
 			// Dispose the remainder of the connection state
-			this.dispose();
+			await this.dispose();
 		}
 	}
 

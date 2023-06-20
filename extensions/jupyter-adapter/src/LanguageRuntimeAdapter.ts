@@ -718,17 +718,17 @@ export class LanguageRuntimeAdapter
 	/**
 	 * Dispose of the runtime.
 	 */
-	public dispose() {
+	public async dispose() {
 		// Turn off all listeners
 		this._kernel.removeListener('message', this.onMessage);
 		this._kernel.removeListener('status', this.onStatus);
 
 		// Tear down all open comms
 		for (const comm of this._comms.values()) {
-			comm.dispose();
+			await comm.dispose();
 		}
 
 		// Tell the kernel to shut down
-		this._kernel.dispose();
+		await this._kernel.dispose();
 	}
 }
