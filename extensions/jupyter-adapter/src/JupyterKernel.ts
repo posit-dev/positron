@@ -334,8 +334,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 			this.connect(session.state.connectionFile).then(() => {
 
 				// Subscribe to all topics and connect the IOPub socket
-				this._iopub?.socket().subscribe('');
-				this._iopub?.socket().on('message', (...args: any[]) => {
+				this._iopub?.onMessage((args: any[]) => {
 					const msg = deserializeJupyterMessage(args, this._session!.key, this._channel);
 
 					// If this is a status message, save the status. Note that
@@ -358,7 +357,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 				});
 
 				// Connect the Shell socket
-				this._shell?.socket().on('message', (...args: any[]) => {
+				this._shell?.onMessage((args: any[]) => {
 					const msg = deserializeJupyterMessage(args, this._session!.key, this._channel);
 					if (msg !== null) {
 						this.emitMessage(JupyterSockets.shell, msg);
@@ -366,7 +365,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 				});
 
 				// Connect the Stdin socket
-				this._stdin?.socket().on('message', (...args: any[]) => {
+				this._stdin?.onMessage((...args: any[]) => {
 					const msg = deserializeJupyterMessage(args, this._session!.key, this._channel);
 					if (msg !== null) {
 						// If this is an input request, save the header so we can
@@ -386,7 +385,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 				}, 10000);
 
 				// Wait for the initial heartbeat
-				this._heartbeat?.socket().once('message', (msg: string) => {
+				const reg = this._heartbeat?.onMessage((msg: string) => {
 
 					// We got the heartbeat, so cancel the timeout
 					clearTimeout(timeout);
@@ -400,11 +399,15 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 					const seconds = vscode.workspace.getConfiguration('positron').get('heartbeat', 30) as number;
 					this.log(`Starting heartbeat check at ${seconds} second intervals...`);
 					this.heartbeat();
-					this._heartbeat?.socket().on('message', (msg: string) => {
+
+					// Dispose this listener now that we've received the initial heartbeat
+					reg?.dispose();
+
+					this._heartbeat?.onMessage((msg: string) => {
 						this.onHeartbeat(msg);
 					});
 				});
-				this._heartbeat?.socket().send([HEARTBEAT_MESSAGE]);
+				this._heartbeat?.send([HEARTBEAT_MESSAGE]);
 
 			}).catch((err) => {
 				reject(err);
@@ -936,7 +939,8 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	 * @param parent The parent message header (if any, {} if no parent)
 	 * @param message The body of the message
 	 */
-	private sendToSocket(id: string, type: string, dest: JupyterSocket, parent: JupyterMessageHeader, message: JupyterMessageSpec): Promise<void> {
+	private async sendToSocket(id: string, type: string, dest: JupyterSocket,
+		parent: JupyterMessageHeader, message: JupyterMessageSpec) {
 		const msg: JupyterMessage = {
 			buffers: [],
 			content: message,
@@ -945,17 +949,13 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 			parent_header: parent
 		};
 		this.log(`SEND ${msg.header.msg_type} to ${dest.title()}: ${JSON.stringify(msg)}`);
-		return new Promise<void>((resolve, reject) => {
-			dest.socket().send(serializeJupyterMessage(msg, this._session!.key), 0, (err) => {
-				if (err) {
-					this.log(`SEND ${msg.header.msg_type}: ERR: ${err}`);
-					reject(err);
-				} else {
-					this.log(`SEND ${msg.header.msg_type}: OK`);
-					resolve();
-				}
-			});
-		});
+
+		try {
+			await dest.send(serializeJupyterMessage(msg, this._session!.key));
+			this.log(`SEND ${msg.header.msg_type}: OK`);
+		} catch (err) {
+			this.log(`SEND ${msg.header.msg_type}: ERR: ${err}`);
+		}
 	}
 
 	/**
@@ -965,7 +965,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 		const seconds = vscode.workspace.getConfiguration('positron.jupyterAdapter').get('heartbeat', 30) as number;
 		this._lastHeartbeat = new Date().getUTCMilliseconds();
 		this.log(`SEND heartbeat with timeout of ${seconds} seconds`);
-		this._heartbeat?.socket().send([HEARTBEAT_MESSAGE]);
+		this._heartbeat?.send([HEARTBEAT_MESSAGE]);
 		this._heartbeatTimer = setTimeout(() => {
 			this.enterOfflineState();
 		}, seconds * 1000);
@@ -1003,7 +1003,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 			// It'd be slightly more elegant to use `setInterval` here, but this
 			// keeps the logic for handling the timer in `onHeartbeat` much
 			// simpler.
-			this._heartbeat?.socket().send([RECONNECT_MESSAGE]);
+			this._heartbeat?.send([RECONNECT_MESSAGE]);
 			this._heartbeatTimer = setTimeout(onlinePoller, 1000);
 		};
 		this._heartbeatTimer = setTimeout(onlinePoller, 1000);

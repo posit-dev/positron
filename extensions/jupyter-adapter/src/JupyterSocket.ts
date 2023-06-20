@@ -23,6 +23,7 @@ export class JupyterSocket implements vscode.Disposable {
 	private _port: number;
 	private _id: number;
 	private _disconnectEmitter = new vscode.EventEmitter<void>();
+	private _messageEmitter = new vscode.EventEmitter<any[]>();
 	private _state: JupyterSocketState = JupyterSocketState.Uninitialized;
 
 	static _jupyterSocketCount = 0;
@@ -39,6 +40,7 @@ export class JupyterSocket implements vscode.Disposable {
 		this._socket = socket;
 		this._title = title;
 		this.onDisconnected = this._disconnectEmitter.event;
+		this.onMessage = this._messageEmitter.event;
 
 		this._addr = '';
 		this._port = 0;
@@ -71,11 +73,27 @@ export class JupyterSocket implements vscode.Disposable {
 		this.onDisconnectedEvent = this.onDisconnectedEvent.bind(this);
 		this._socket.on('disconnect', this.onDisconnectedEvent);
 
+		this.onMessageEvent = this.onMessageEvent.bind(this);
+		this._socket.on('message', this.onMessageEvent);
+
 		this.onConnectDelay = this.onConnectDelay.bind(this);
 		this._socket.on('connect_delay', this.onConnectDelay);
 	}
 
+	public send(message: any): Promise<void> {
+		return new Promise<void>((resolve, reject) => {
+			this._socket.send(message, 0, (err?: Error) => {
+				if (err) {
+					reject(err);
+				} else {
+					resolve();
+				}
+			});
+		});
+	}
+
 	onDisconnected: vscode.Event<void>;
+	onMessage: vscode.Event<any>;
 
 	/**
 	 * Handles the `disconnect` event from the ZeroMQ socket
@@ -94,6 +112,10 @@ export class JupyterSocket implements vscode.Disposable {
 		this._disconnectEmitter.fire();
 	}
 
+	private onMessageEvent(...args: any[]) {
+		this._messageEmitter.fire(args);
+	}
+
 	/**
 	 * Handles the `connect` event from the ZeroMQ socket
 	 *
@@ -105,10 +127,15 @@ export class JupyterSocket implements vscode.Disposable {
 		if (!this._connectPromise) {
 			return;
 		}
+
 		// Log the connection
 		this._logger(`${this._title} socket connected to ${addr}`);
-
 		this._state = JupyterSocketState.Connected;
+
+		// Subscribe to all messages if this is a sub socket
+		if (this._socket.type === 'sub') {
+			this._socket.subscribe('');
+		}
 
 		// Resolve the promise
 		this._connectPromise.resolve();
@@ -180,15 +207,6 @@ export class JupyterSocket implements vscode.Disposable {
 	}
 
 	/**
-	 * Gets the underlying ZeroMQ socket
-	 *
-	 * @returns A ZeroMQ socket
-	 */
-	public socket(): zmq.Socket {
-		return this._socket;
-	}
-
-	/**
 	 * Gets the address used by the socket
 	 *
 	 * @returns The address, or an empty string if the socket is unbound
@@ -248,6 +266,7 @@ export class JupyterSocket implements vscode.Disposable {
 
 		// Clean up event handlers
 		this._socket.off('connect', this.onConnectedEvent);
+		this._socket.off('message', this.onMessageEvent);
 		this._socket.off('disconnect', this.onDisconnectedEvent);
 		this._socket.off('connect_delay', this.onConnectDelay);
 
