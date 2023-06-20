@@ -13,7 +13,7 @@
 	display: flex;
 	overflow: visible;
 
-	/* PositronActionBar variable. */
+	/* PositronActionBar variables. */
 	--positronActionBar-border: var(--vscode-positronTopActionBar-border);
 	--positronActionBar-separator: var(--vscode-positronTopActionBar-separator);
 	--positronActionBar-background: var(--vscode-positronTopActionBar-background);
@@ -29,4 +29,8 @@
 /* Don't draw a focus outline. */
 .monaco-workbench .part.positron-top-action-bar:focus {
 	outline: none !important;
+}
+
+.centering-spacer {
+	min-width: 48px;
 }
