@@ -7,11 +7,11 @@ import * as vscode from 'vscode';
 import { PromiseHandles } from './utils';
 
 enum JupyterSocketState {
-	Uninitialized,
-	Connecting,
-	Connected,
-	Disconnected,
-	Disposed
+	Uninitialized = 'uninitialized',
+	Connecting = 'connecting',
+	Connected = 'connected',
+	Disconnected = 'disconnected',
+	Disposed = 'disposed'
 }
 
 export class JupyterSocket implements vscode.Disposable {
@@ -45,7 +45,7 @@ export class JupyterSocket implements vscode.Disposable {
 		this._addr = '';
 		this._port = 0;
 		this._id = ++JupyterSocket._jupyterSocketCount;
-		this._logger(`${this._title} socket created (id = ${this._id})`);
+		this._logger(`${this._title} socket created (count = ${this._id})`);
 
 		// Warn if we are nearing ZeroMQ's maximum number of sockets. This is 1024 in
 		// typical installations, but can be changed by setting ZMQ_MAX_SOCKETS.
@@ -81,6 +81,12 @@ export class JupyterSocket implements vscode.Disposable {
 	}
 
 	public send(message: any): Promise<void> {
+
+		if (this._state !== JupyterSocketState.Connected) {
+			return Promise.reject(new Error(`Attempt to send message to ${this._title} socket ` +
+				`in non-connected state '${this._state}'`));
+		}
+
 		return new Promise<void>((resolve, reject) => {
 			this._socket.send(message, 0, (err?: Error) => {
 				if (err) {
