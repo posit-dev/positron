@@ -32,8 +32,8 @@ import { ILanguageRuntime, ILanguageRuntimeService, RuntimeState } from 'vs/work
 
 // Constants.
 const kHorizontalPadding = 4;
-const kCenterUIBreak = 470;
-const kFulllCenterUIBreak = 700;
+const kCenterUIBreak = 600;
+const kFulllCenterUIBreak = 765;
 
 /**
  * IPositronTopActionBarContainer interface.
@@ -233,7 +233,7 @@ export const PositronTopActionBar = (props: PositronTopActionBarProps) => {
 
 								<PositronActionBar size='large'>
 									{showFullCenterUI && (
-										<ActionBarRegion width={80} location='left' justify='right'>
+										<ActionBarRegion width={60} location='left' justify='right'>
 											<ActionBarCommandButton iconId='chevron-left' commandId={NavigateBackwardsAction.ID} />
 											<ActionBarCommandButton iconId='chevron-right' commandId={NavigateForwardAction.ID} />
 										</ActionBarRegion>
@@ -242,10 +242,12 @@ export const PositronTopActionBar = (props: PositronTopActionBarProps) => {
 										<TopActionBarCommandCenter />
 									</ActionBarRegion>
 									{showFullCenterUI && (
-										<ActionBarRegion width={80} location='right' justify='left'>
-										</ActionBarRegion>
+										<ActionBarRegion width={60} location='right' justify='left' />
 									)}
 								</PositronActionBar>
+
+								{/* This balances the logo button. */}
+								<div className='centering-spacer' />
 
 							</ActionBarRegion>
 
