@@ -258,7 +258,9 @@ export const PositronTopActionBar = (props: PositronTopActionBarProps) => {
 								onStartRuntime={startRuntimeHandler}
 								onActivateRuntime={activateRuntimeHandler}
 							/>
-							<TopActionBarFolderMenu />
+							{showCenterUI && (
+								<TopActionBarFolderMenu />
+							)}
 						</ActionBarRegion>
 
 					</PositronActionBar>
