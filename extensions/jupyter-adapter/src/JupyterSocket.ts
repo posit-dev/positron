@@ -18,7 +18,7 @@ export class JupyterSocket implements vscode.Disposable {
 	private readonly _socket: zmq.Socket;
 	private readonly _title: string;
 	private _connectPromise?: PromiseHandles<void>;
-	private _connectStartTime = 0;
+	private _connectTimeout?: NodeJS.Timeout;
 	private _addr: string;
 	private _port: number;
 	private _id: number;
@@ -75,9 +75,6 @@ export class JupyterSocket implements vscode.Disposable {
 
 		this.onMessageEvent = this.onMessageEvent.bind(this);
 		this._socket.on('message', this.onMessageEvent);
-
-		this.onConnectDelay = this.onConnectDelay.bind(this);
-		this._socket.on('connect_delay', this.onConnectDelay);
 	}
 
 	public send(message: any): Promise<void> {
@@ -149,37 +146,6 @@ export class JupyterSocket implements vscode.Disposable {
 	}
 
 	/**
-	 * Handles the `connect_delay` event from the ZeroMQ socket
-	 *
-	 * @param _evt ZeroMQ event (ignored)
-	 * @param addr The address the socket is attempting to connect to
-	 */
-	private onConnectDelay(_evt: any, addr: string) {
-		// Ignore if there's no connect promise
-		if (!this._connectPromise) {
-			return;
-		}
-
-		// We give up if we've exceeded our max wait time
-		const elapsed = Math.round((Date.now() - this._connectStartTime) / 1000);
-		if (this._connectPromise.settled) {
-			// If the promise is settled, we already connected
-			// successfully, so we can stop monitoring the socket and
-			// ignore this event.
-			this._socket.unmonitor();
-		} else if (elapsed > 30) {
-			// Stop monitoring the socket so we don't get any more
-			// events, which would be redundant at this point
-			this._socket.unmonitor();
-			this._logger(`${this._title} socket failed to connect to ${addr} after ${elapsed} seconds`);
-
-			// Reject the promise
-			this._connectPromise.reject(new Error(`Failed to connect to ${addr} after ${elapsed} seconds`));
-			this._connectPromise = undefined;
-		}
-	}
-
-	/**
 	 * Sets the ZeroMQ identity of the socket; to be called before the socket is
 	 * bound/connected if a specific identity is required
 	 *
@@ -201,9 +167,34 @@ export class JupyterSocket implements vscode.Disposable {
 		this._addr = 'tcp://127.0.0.1:' + port.toString();
 		this._logger(`${this._title} socket connecting to ${this._addr}...`);
 
+		this._state = JupyterSocketState.Connecting;
+
 		// Create a new promise to wait for the socket to connect
-		this._connectStartTime = Date.now();
 		this._connectPromise = new PromiseHandles<void>();
+
+		// Start a timer to time out the connection attempt
+		const startTime = Date.now();
+		this._connectTimeout = setInterval(() => {
+			// Nothing to do if we're not waiting for a connection
+			if (!this._connectPromise || this._connectPromise.settled) {
+				return;
+			}
+			// Compute how long we've been waiting
+			const waitTime = Date.now() - startTime;
+			if (waitTime >= 10000) {
+				// If we've been waiting for more than 10 seconds, reject the promise
+				this._logger(`${this._title} socket connect timed out after 10 seconds`);
+				this._connectPromise.reject(new Error('Socket connect timed out after 30 seconds'));
+
+				// Stop the timer
+				clearInterval(this._connectTimeout);
+				this._connectTimeout = undefined;
+			} else {
+				// Otherwise, log the wait time and keep waiting
+				this._logger(`${this._title} socket still connecting ` +
+					`(${Math.floor(waitTime / 1000)}s);`);
+			}
+		}, 2000);
 
 		// Initiate the actual connection to the TCP address
 		this._socket.connect(this._addr);
@@ -252,6 +243,11 @@ export class JupyterSocket implements vscode.Disposable {
 		// Reduce the socket count
 		JupyterSocket._jupyterSocketCount--;
 
+		// Clear any connection timeout interval
+		if (this._connectTimeout) {
+			clearInterval(this._connectTimeout);
+		}
+
 		// If we were waiting for a connection, reject the promise
 		if (this._connectPromise) {
 			this._connectPromise.reject(new Error('Socket disposed'));
@@ -274,7 +270,6 @@ export class JupyterSocket implements vscode.Disposable {
 		this._socket.off('connect', this.onConnectedEvent);
 		this._socket.off('message', this.onMessageEvent);
 		this._socket.off('disconnect', this.onDisconnectedEvent);
-		this._socket.off('connect_delay', this.onConnectDelay);
 
 		this._state = JupyterSocketState.Disposed;
 	}
