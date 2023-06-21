@@ -2522,6 +2522,8 @@ class LayoutStateModel extends Disposable {
 	) {
 		super();
 
+		this.contextService.getCompleteWorkspace();
+
 		this._register(this.configurationService.onDidChangeConfiguration(configurationChange => this.updateStateFromLegacySettings(configurationChange)));
 	}
 
@@ -2589,6 +2591,7 @@ class LayoutStateModel extends Disposable {
 		// --- Start Positron ---
 		// LayoutStateKeys.SIDEBAR_HIDDEN.defaultValue = this.contextService.getWorkbenchState() === WorkbenchState.EMPTY;
 		// Positron shows the side bar and secondary side bar by default.
+		this.contextService.getWorkbenchState(); // Dummy call so we don't change the constructor signature.
 		LayoutStateKeys.SIDEBAR_HIDDEN.defaultValue = false;
 		LayoutStateKeys.AUXILIARYBAR_HIDDEN.defaultValue = false;
 		LayoutStateKeys.PANEL_HIDDEN.defaultValue = false;
