@@ -35,6 +35,8 @@ jedi_language_server
 lsprotocol
 matplotlib
 pandas
+pydantic
+pyright
 pytest-mock
 polars
 # --- End Positron ---

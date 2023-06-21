@@ -100,11 +100,14 @@ if __name__ == "__main__":
         }
 
     # Start Positron's IPyKernel as the interpreter for our console.
-    app = kernelapp.IPKernelApp.instance(
+    # IPKernelApp expects an empty string if no connection_file is provided.
+    if args.connection_file is None:
+        args.connection_file = ""
+    app: kernelapp.IPKernelApp = kernelapp.IPKernelApp.instance(
         kernel_class=PositronIPyKernel,
-        connection_file=args.connection_file,
         log_level=args.loglevel,
         logging_config=logging_config,
+        connection_file=args.connection_file,
     )
     # Initialize with empty argv, otherwise BaseIPythonApplication.initialize reuses our
     # command-line arguments in unexpected ways (e.g. logfile instructs it to log executed code).
@@ -128,6 +131,11 @@ if __name__ == "__main__":
         exit_status = 1
     finally:
         loop.close()
+
+    # app.close is usually called at system exit via the atexit stdlib module. Not sure why,
+    # but starting the pydoc server thread (via the HelpService) causes it to no longer be
+    # called at exit, requiring the manual call here.
+    app.close()
 
     logger.info(f"Exiting process with status {exit_status}")
     sys.exit(exit_status)

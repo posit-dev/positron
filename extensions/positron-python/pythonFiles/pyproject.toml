@@ -2,6 +2,7 @@
 max_line_length = 100
 
 [tool.black]
+include = 'positron\/.*.py$|positron_language_server.py$|tests\/test_positron_.*.py$'
 exclude = '''
 
 (

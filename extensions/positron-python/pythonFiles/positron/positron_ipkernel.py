@@ -12,11 +12,14 @@ from typing import Any, Optional, Tuple, Dict
 
 from ipykernel.ipkernel import IPythonKernel
 from ipykernel.zmqshell import ZMQInteractiveShell
+from ipykernel.comm.manager import CommManager
 
 from IPython.core.magic import Magics, magics_class, line_magic, needs_local_scope
 
 from .dataviewer import DataViewerService
 from .environment import EnvironmentService
+from .frontend import FrontendService
+from .help import HelpService
 from .inspectors import get_inspector
 from .lsp import LSPService
 from .plots import PositronDisplayPublisherHook
@@ -26,6 +29,9 @@ POSITRON_DATA_VIEWER_COMM = "positron.dataViewer"
 
 POSITRON_ENVIRONMENT_COMM = "positron.environment"
 """The comm channel target_name for Positron's Environment View"""
+
+POSITRON_FRONTEND_COMM = "positron.frontEnd"
+"""The comm channel target_name for Positron's Frontend i.e. unscoped to any particular view"""
 
 POSITRON_LSP_COMM = "positron.lsp"
 """The comm channel target_name for Positron's LSP"""
@@ -57,10 +63,12 @@ class PositronIPyKernel(IPythonKernel):
         """Initializes Positron's IPython kernel."""
         super().__init__(**kwargs)
 
+        self.shell: ZMQInteractiveShell
+        self.comm_manager: CommManager
+
         # Register for REPL execution events
-        shell: ZMQInteractiveShell = self.shell  # type: ignore
-        shell.events.register("pre_execute", self.handle_pre_execute)
-        shell.events.register("post_execute", self.handle_post_execute)
+        self.shell.events.register("pre_execute", self.handle_pre_execute)
+        self.shell.events.register("post_execute", self.handle_post_execute)
         self.get_user_ns_hidden().update(POSITON_NS_HIDDEN)
 
         # Setup Positron's LSP service
@@ -71,14 +79,27 @@ class PositronIPyKernel(IPythonKernel):
         self.env_service = EnvironmentService(self)
         self.comm_manager.register_target(POSITRON_ENVIRONMENT_COMM, self.env_service.on_comm_open)
 
+        # Setup Positron's frontend service
+        self.frontend_service = FrontendService()
+        self.comm_manager.register_target(
+            POSITRON_FRONTEND_COMM, self.frontend_service.on_comm_open
+        )
+
+        # Setup Positron's help service
+        self.help_service = HelpService(self, self.frontend_service)
+
         # Register Positron's display publisher hook to intercept display_data messages
         # and establish a comm channel with the frontend for rendering plots
         self.display_pub_hook = PositronDisplayPublisherHook(POSITRON_PLOT_COMM)
-        shell.display_pub.register_hook(self.display_pub_hook)
+        self.shell.display_pub.register_hook(self.display_pub_hook)
 
         # Setup Positron's dataviewer service
         self.dataviewer_service = DataViewerService(POSITRON_DATA_VIEWER_COMM)
         load_ipython_extension(self.shell)
+
+    def start(self) -> None:
+        super().start()
+        self.help_service.start()
 
     def do_shutdown(self, restart) -> dict:
         """
@@ -88,6 +109,8 @@ class PositronIPyKernel(IPythonKernel):
         self.display_pub_hook.shutdown()
         self.env_service.shutdown()
         self.lsp_service.shutdown()
+        self.help_service.shutdown()
+        self.frontend_service.shutdown()
         self.dataviewer_service.shutdown()
 
         # We don't call super().do_shutdown since it sets shell.exit_now = True which tries to
@@ -349,7 +372,7 @@ class PositronIPyKernel(IPythonKernel):
         """
         # Run the %reset magic to clear user variables
         command = "%reset -sf"
-        coro = await self.do_execute(command, False, False)
+        coro = await self.do_execute(command, silent=False, store_history=False)
 
         # Publish an input to inform clients of the "delete all" operation
         try:
