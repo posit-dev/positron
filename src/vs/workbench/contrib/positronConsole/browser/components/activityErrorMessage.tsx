@@ -5,6 +5,7 @@
 import 'vs/css!./activityErrorMessage';
 import * as React from 'react';
 import { useState } from 'react'; // eslint-disable-line no-duplicate-imports
+import { localize } from 'vs/nls';
 import { PositronButton } from 'vs/base/browser/ui/positronComponents/positronButton';
 import { OutputLines } from 'vs/workbench/contrib/positronConsole/browser/components/outputLines';
 import { ActivityItemErrorMessage } from 'vs/workbench/services/positronConsole/common/classes/activityItemErrorMessage';
@@ -39,8 +40,17 @@ export const ActivityErrorMessage = (props: ActivityErrorMessageProps) => {
 		return (
 			<div className='traceback'>
 				<PositronButton className='toggle-traceback' onClick={clickHandler}>
-					<div className='codicon codicon-positron-show-traceback' />
-					{showTraceback ? <div>Hide Traceback</div> : <div>Show Traceback</div>}
+					{showTraceback ?
+						<>
+							<div className='expansion-indicator'>-</div>
+							<div className='link-text'>{localize('positronHideTraceback', "Hide Traceback")}</div>
+
+						</> :
+						<>
+							<div className='expansion-indicator'>+</div>
+							<div className='link-text'>{localize('positronShowTraceback', "Show Traceback")}</div>
+						</>
+					}
 				</PositronButton>
 				{showTraceback &&
 					<div className='traceback-lines'>
