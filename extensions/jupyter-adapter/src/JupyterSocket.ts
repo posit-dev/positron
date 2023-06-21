@@ -228,6 +228,11 @@ export class JupyterSocket implements vscode.Disposable {
 				// If we've been waiting for more than 10 seconds, reject the promise
 				this._logger(`${this._title} socket connect timed out after 10 seconds`);
 				this._connectPromise.reject(new Error('Socket connect timed out after 30 seconds'));
+				this._connectPromise = undefined;
+
+				// Return to the uninitialized state so a new connection can be attempted if
+				// desired
+				this._state = JupyterSocketState.Uninitialized;
 
 				// Stop the timer
 				clearInterval(this._connectTimeout);
