@@ -18,8 +18,40 @@ The entrypoint to our kernel is the [`positron_language_server.py`](../pythonFil
 - [`positron_ipkernel`](../pythonFiles/positron/positron_ipkernel.py), the Positron Python Kernel
 - [`positron_jedilsp`](../pythonFiles/positron/positron_jedilsp.py), the Positron Python Language Server
 - [`environment`](../pythonFiles/positron/environment.py), manages Positron's Environment pane
+- [`frontend`](../pythonFiles/positron/frontend.py), manages Positron's Frontend comm channel (a global channel for communication unscoped to any particular view)
+- [`help`](../pythonFiles/positron/help.py), manages Positron's Help pane
 - [`lsp`](../pythonFiles/positron/lsp.py), manages the language server
 - [`plots`](../pythonFiles/positron/plots.py), a custom [IPython display publisher](https://github.com/ipython/ipython/blob/main/IPython/core/displaypub.py) that displays to Positron's Plots pane
 - [`dataviewer`](../pythonFiles/positron/dataviewer.py), manages Positron's Data Viewer
 
-The `environment`, `lsp`, `plots`, and `dataviewer` services communicate with the `positron_ipkernel` via Jupyter's [comms](https://connect.rstudioservices.com/content/59a1f153-dcd8-44ac-849b-3371829b7002/positron-architecture.html#comms-and-ui-bindings) messaging protocol.
+The various Positron services communicate with the front end via Jupyter's [comms](https://connect.rstudioservices.com/content/59a1f153-dcd8-44ac-849b-3371829b7002/positron-architecture.html#comms-and-ui-bindings) messaging protocol.
+
+## Python development
+
+When editing the Python source, it's recommended to open a new workspace at the [`pythonFiles`](../pythonFiles) folder, since that will configure your editor as well as the various tools (linters, testers, etc) to match that of the CI workflows.
+
+From the `pythonFiles` folder, you can run the following commands.
+
+Format source files with [Black](https://github.com/psf/black):
+
+```sh
+black .
+```
+
+Type-check with [pyright](https://github.com/microsoft/pyright):
+
+```sh
+pyright
+```
+
+Install test requirements:
+
+```sh
+pip install -r ../build/test-requirements.txt
+```
+
+Run tests:
+
+```sh
+python tests/run_all.py
+```

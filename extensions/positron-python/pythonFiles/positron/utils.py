@@ -7,7 +7,7 @@ import pprint
 import types
 from binascii import b2a_base64
 from datetime import datetime
-from typing import Optional, Tuple
+from typing import Any, Optional, Tuple
 
 
 def get_value_length(value) -> int:
@@ -20,21 +20,24 @@ def get_value_length(value) -> int:
     return length
 
 
-def get_qualname(value) -> str:
+def get_qualname(value: Any) -> str:
     """
     Utility to manually construct a qualified type name as
     __qualname__ does not work for all types
     """
-    if value is not None:
-        t = type(value)
-        module = t.__module__
-        name = t.__name__
-        if module is not None and module != "builtins":
-            return f"{module}.{name}"
-        else:
-            return name
+    value_type = value if isinstance(value, type) or callable(value) else type(value)
 
-    return "None"
+    qualname = getattr(value_type, "__qualname__", None)
+    if qualname is None:
+        # Fall back to unqualified name if a qualified name doesn't exist
+        qualname = value_type.__name__
+
+    # Prepend the module if it exists
+    module = getattr(value_type, "__module__", None)
+    if module is not None and module not in {"builtins", "__main__"}:
+        return f"{module}.{qualname}"
+
+    return qualname
 
 
 def pretty_format(
