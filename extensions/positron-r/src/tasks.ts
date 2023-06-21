@@ -3,6 +3,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import * as positron from 'positron';
 
 export async function providePackageTasks(_context: vscode.ExtensionContext): Promise<void> {
 
@@ -10,10 +11,10 @@ export async function providePackageTasks(_context: vscode.ExtensionContext): Pr
 	vscode.commands.executeCommand('setContext', 'isRPackage', isRPackage);
 
 	const allPackageTasks: PackageTask[] = [
-		{ 'type': 'rPackageLoad', 'name': 'Load package', 'shellExecution': 'R -e "devtools::load_all()"' },
-		{ 'type': 'rPackageBuild', 'name': 'Build package', 'shellExecution': 'R -e "devtools::build()"' },
-		{ 'type': 'rPackageTest', 'name': 'Test package', 'shellExecution': 'R -e "devtools::test()"' },
-		{ 'type': 'rPackageCheck', 'name': 'Check package', 'shellExecution': 'R -e "devtools::check()"' },
+		{ 'type': 'rPackageLoad', 'name': 'Load package', 'code': 'devtools::load_all()' },
+		{ 'type': 'rPackageBuild', 'name': 'Build package', 'code': 'devtools::build()' },
+		{ 'type': 'rPackageTest', 'name': 'Test package', 'code': 'devtools::test()' },
+		{ 'type': 'rPackageCheck', 'name': 'Check package', 'code': 'devtools::check()' },
 	];
 
 	for (const packageTask of allPackageTasks) {
@@ -52,13 +53,26 @@ function registerRPackageTaskProvider(packageTask: PackageTask): vscode.Disposab
 	return (taskProvider);
 }
 
+class RTaskConsole implements vscode.Pseudoterminal {
+
+	private writeEmitter = new vscode.EventEmitter<string>();
+	onDidWrite: vscode.Event<string> = this.writeEmitter.event;
+	constructor(private code: string) { }
+	open(): void {
+		positron.runtime.executeCode('r', this.code, true);
+	}
+	close(): void { }
+}
+
 function rPackageTask(packageTask: PackageTask): vscode.Task {
 	return new vscode.Task(
 		{ type: packageTask.type },
 		vscode.TaskScope.Workspace,
 		packageTask.name,
 		'R',
-		new vscode.ShellExecution(packageTask.shellExecution),
+		new vscode.CustomExecution(async (): Promise<vscode.Pseudoterminal> => {
+			return new RTaskConsole(packageTask.code);
+		}),
 		[]
 	);
 }
@@ -66,5 +80,5 @@ function rPackageTask(packageTask: PackageTask): vscode.Task {
 type PackageTask = {
 	type: string;
 	name: string;
-	shellExecution: string;
+	code: string;
 };
