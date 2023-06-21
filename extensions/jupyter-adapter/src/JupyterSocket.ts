@@ -46,12 +46,12 @@ export class JupyterSocket implements vscode.Disposable {
 	 * Create a new JupyterSocket
 	 *
 	 * @param title The title of the socket
-	 * @param socket The underlying ZeroMQ socket
-	 * @param _channel The output channel to use for debugging
+	 * @param socketType The type of socket to create; limited to client socket types
+	 * @param _logger A function that logs a message
 	 */
-	constructor(title: string, socket: zmq.Socket,
+	constructor(title: string, socketType: 'sub' | 'dealer' | 'req',
 		private readonly _logger: (msg: string) => void) {
-		this._socket = socket;
+		this._socket = zmq.createSocket(socketType);
 		this._title = title;
 		this.onDisconnected = this._disconnectEmitter.event;
 		this.onMessage = this._messageEmitter.event;
@@ -341,6 +341,11 @@ export class JupyterSocket implements vscode.Disposable {
 		this._socket.off('connect', this.onConnectedEvent);
 		this._socket.off('message', this.onMessageEvent);
 		this._socket.off('disconnect', this.onDisconnectedEvent);
+
+		// Close the socket if it's not already closed
+		if (!this._socket.closed) {
+			this._socket.close();
+		}
 
 		this._state = JupyterSocketState.Disposed;
 	}

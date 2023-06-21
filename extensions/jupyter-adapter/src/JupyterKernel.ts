@@ -4,7 +4,6 @@
 
 import * as vscode from 'vscode';
 import * as positron from 'positron';
-import * as zmq from 'zeromq/v5-compat';
 import * as os from 'os';
 import * as fs from 'fs';
 import * as rl from 'readline';
@@ -247,11 +246,11 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	private async connect(connectionJsonPath: string) {
 		// Create ZeroMQ sockets
 		const logger = (message: string) => this.log(message);
-		this._control = new JupyterSocket('Control', zmq.socket('dealer'), logger);
-		this._shell = new JupyterSocket('Shell', zmq.socket('dealer'), logger);
-		this._stdin = new JupyterSocket('Stdin', zmq.socket('dealer'), logger);
-		this._iopub = new JupyterSocket('I/O', zmq.socket('sub'), logger);
-		this._heartbeat = new JupyterSocket('Heartbeat', zmq.socket('req'), logger);
+		this._control = new JupyterSocket('Control', 'dealer', logger);
+		this._shell = new JupyterSocket('Shell', 'dealer', logger);
+		this._stdin = new JupyterSocket('Stdin', 'dealer', logger);
+		this._iopub = new JupyterSocket('I/O', 'sub', logger);
+		this._heartbeat = new JupyterSocket('Heartbeat', 'req', logger);
 
 		// Create the socket identity for the shell and stdin sockets
 		const shellId = Buffer.from('positron-shell', 'utf8');
