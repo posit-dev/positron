@@ -6,14 +6,29 @@ import * as zmq from 'zeromq/v5-compat';
 import * as vscode from 'vscode';
 import { PromiseHandles } from './utils';
 
+/**
+ * The possible states for a JupyterSocket
+ */
 enum JupyterSocketState {
+	/** The socket has never been connected */
 	Uninitialized = 'uninitialized',
+
+	/** The socket is in the process of trying to connect to an address */
 	Connecting = 'connecting',
+
+	/** The socket is currently connected to an address */
 	Connected = 'connected',
+
+	/** The socket is disconnected */
 	Disconnected = 'disconnected',
+
+	/** The socket has been disposed */
 	Disposed = 'disposed'
 }
 
+/**
+ * A wrapper for a ZeroMQ socket that encapsulates the socket and its state.
+ */
 export class JupyterSocket implements vscode.Disposable {
 	private readonly _socket: zmq.Socket;
 	private readonly _title: string;
@@ -21,7 +36,6 @@ export class JupyterSocket implements vscode.Disposable {
 	private _connectTimeout?: NodeJS.Timeout;
 	private _addr: string;
 	private _port: number;
-	private _id: number;
 	private _disconnectEmitter = new vscode.EventEmitter<void>();
 	private _messageEmitter = new vscode.EventEmitter<any[]>();
 	private _state: JupyterSocketState = JupyterSocketState.Uninitialized;
@@ -44,8 +58,8 @@ export class JupyterSocket implements vscode.Disposable {
 
 		this._addr = '';
 		this._port = 0;
-		this._id = ++JupyterSocket._jupyterSocketCount;
-		this._logger(`${this._title} socket created (count = ${this._id})`);
+		const count = ++JupyterSocket._jupyterSocketCount;
+		this._logger(`${this._title} socket created (count = ${count})`);
 
 		// Warn if we are nearing ZeroMQ's maximum number of sockets. This is 1024 in
 		// typical installations, but can be changed by setting ZMQ_MAX_SOCKETS.
@@ -77,15 +91,26 @@ export class JupyterSocket implements vscode.Disposable {
 		this._socket.on('message', this.onMessageEvent);
 	}
 
+	/**
+	 * Sends a message to the socket.
+	 *
+	 * @param message The message to send
+	 * @returns A promise that resolves when the message has been sent
+	 */
 	public send(message: any): Promise<void> {
 
+		// Ensure the socket is connected before we try to send the message;
+		// ZeroMQ can enter a bad state if we try to send a message to a socket
+		// that is not connected.
 		if (this._state !== JupyterSocketState.Connected) {
 			return Promise.reject(new Error(`Attempt to send message to ${this._title} socket ` +
 				`in non-connected state '${this._state}'`));
 		}
 
+		// Return a promise that resolves when the message has been sent
 		return new Promise<void>((resolve, reject) => {
 			this._socket.send(message, 0, (err?: Error) => {
+				// If there was an error, reject the promise
 				if (err) {
 					reject(err);
 				} else {
@@ -95,7 +120,14 @@ export class JupyterSocket implements vscode.Disposable {
 		});
 	}
 
+	/**
+	 * Event that fires when the socket is disconnected
+	 */
 	onDisconnected: vscode.Event<void>;
+
+	/**
+	 * Event that fires when a message is received on the socket
+	 */
 	onMessage: vscode.Event<any>;
 
 	/**
@@ -115,6 +147,11 @@ export class JupyterSocket implements vscode.Disposable {
 		this._disconnectEmitter.fire();
 	}
 
+	/**
+	 * Handles the `message` event from the ZeroMQ socket
+	 *
+	 * @param args The message arguments
+	 */
 	private onMessageEvent(...args: any[]) {
 		this._messageEmitter.fire(args);
 	}
@@ -163,6 +200,12 @@ export class JupyterSocket implements vscode.Disposable {
 	 * @param port The port to connect to.
 	 */
 	public async connect(port: number) {
+		// Ensure we are not already connected
+		if (this._state !== JupyterSocketState.Uninitialized) {
+			throw new Error(`Attempt to connect ${this._title} socket in ` +
+				` state '${this._state}'`);
+		}
+
 		this._port = port;
 		this._addr = 'tcp://127.0.0.1:' + port.toString();
 		this._logger(`${this._title} socket connecting to ${this._addr}...`);
@@ -248,6 +291,10 @@ export class JupyterSocket implements vscode.Disposable {
 			clearInterval(this._connectTimeout);
 		}
 
+		// Dispose of the event emitters
+		this._disconnectEmitter.dispose();
+		this._messageEmitter.dispose();
+
 		// If we were waiting for a connection, reject the promise
 		if (this._connectPromise) {
 			this._connectPromise.reject(new Error('Socket disposed'));
@@ -256,7 +303,8 @@ export class JupyterSocket implements vscode.Disposable {
 
 		// Disconnect the socket if it's connected
 		if (this._state === JupyterSocketState.Connected) {
-			this._logger(`${this._title} socket disposed while connected; ` +
+			// This generally should not happen, so log a warning
+			this._logger(`WARN: ${this._title} socket disposed while connected; ` +
 				` disconnecting from ${this._addr}...`);
 			this._socket.disconnect(this._addr);
 			this._state = JupyterSocketState.Disconnected;
