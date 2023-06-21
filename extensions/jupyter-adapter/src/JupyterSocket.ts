@@ -155,6 +155,15 @@ export class JupyterSocket implements vscode.Disposable {
 	}
 
 	/**
+	 * Indicate whether the socket is connected to an address
+	 *
+	 * @returns True if the socket is connected, false otherwise
+	 */
+	public isConnected() {
+		return this._state === JupyterSocketState.Connected;
+	}
+
+	/**
 	 * Handles the `disconnect` event from the ZeroMQ socket
 	 *
 	 * @param _evt ZeroMQ event (ignored)

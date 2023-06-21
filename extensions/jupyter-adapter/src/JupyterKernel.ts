@@ -56,6 +56,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	private _stdin: JupyterSocket | null;
 	private _iopub: JupyterSocket | null;
 	private _heartbeat: JupyterSocket | null;
+	private _allSockets: JupyterSocket[] = [];
 
 	/**
 	 * A map of IDs to pending input requests; used to match up input replies
@@ -247,10 +248,15 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 		// Create ZeroMQ sockets
 		const logger = (message: string) => this.log(message);
 		this._control = new JupyterSocket('Control', 'dealer', logger);
+		this._allSockets.push(this._control);
 		this._shell = new JupyterSocket('Shell', 'dealer', logger);
+		this._allSockets.push(this._shell);
 		this._stdin = new JupyterSocket('Stdin', 'dealer', logger);
+		this._allSockets.push(this._stdin);
 		this._iopub = new JupyterSocket('I/O', 'sub', logger);
+		this._allSockets.push(this._iopub);
 		this._heartbeat = new JupyterSocket('Heartbeat', 'req', logger);
+		this._allSockets.push(this._heartbeat);
 
 		// Create the socket identity for the shell and stdin sockets
 		const shellId = Buffer.from('positron-shell', 'utf8');
@@ -261,11 +267,10 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 		const connectionSpec: JupyterConnectionSpec =
 			JSON.parse(fs.readFileSync(connectionJsonPath, 'utf8'));
 
-		// Use the control channel to detect if the kernel disconnects; since we
-		// do not watch the process directly, these socket disconnections are
-		// our only way to detect when the kernel has exited.
-		this._control.onDisconnected(() => {
-			this.setStatus(positron.RuntimeState.Exited);
+		// Socket disconnections are our only way to detect when the kernel has
+		// exited. Wait for them all to disconnect.
+		this._allSockets.forEach((socket) => {
+			socket.onDisconnected(() => { this.onSocketDisconnected(); });
 		});
 
 		// Bind the sockets to the ports specified in the connection file;
@@ -720,6 +725,25 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 		};
 		this.log(`RECV ${msg.header.msg_type} from ${socket}: ${JSON.stringify(msg)}`);
 		this.emit('message', packet);
+	}
+
+	/**
+	 * Runs when one of the ZeroMQ sockets disconnects. When all the sockets
+	 * have disconnected, we consider the kernel to have exited.
+	 */
+	private onSocketDisconnected() {
+
+		// Check to see whether all the sockets are disconnected
+		for (const socket of this._allSockets) {
+			if (socket.isConnected()) {
+				// At least one socket is still connected; we're not done yet
+				return;
+			}
+		}
+
+		// If we get here, no connected sockets remain
+		this.log(`All ${this._allSockets.length} sockets disconnected; kernel exited`);
+		this.setStatus(positron.RuntimeState.Exited);
 	}
 
 	/**
