@@ -2583,7 +2583,7 @@ class LayoutStateModel extends Disposable {
 		// --- Start Positron ---
 		// LayoutStateKeys.SIDEBAR_SIZE.defaultValue = Math.min(300, workbenchDimensions.width / 4);
 		// LayoutStateKeys.AUXILIARYBAR_SIZE.defaultValue = Math.min(300, workbenchDimensions.width / 4);
-		// Positron side bar is 200px and secondary side bar is 380px.
+		// Positron side bar is 250px and secondary side bar is 380px.
 		LayoutStateKeys.SIDEBAR_SIZE.defaultValue = Math.min(250, workbenchDimensions.width / 4);
 		LayoutStateKeys.AUXILIARYBAR_SIZE.defaultValue = Math.max(380, workbenchDimensions.width / 3);
 		// --- End Positron ---
