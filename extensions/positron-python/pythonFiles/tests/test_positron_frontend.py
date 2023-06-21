@@ -1,0 +1,52 @@
+#
+# Copyright (C) 2023 Posit Software, PBC. All rights reserved.
+#
+
+import pytest
+from typing import ClassVar
+from unittest.mock import call, Mock
+
+from positron.frontend import FrontendService, BaseFrontendEvent
+
+
+@pytest.fixture()
+def frontend_service() -> FrontendService:
+    return FrontendService()
+
+
+class DummyFrontendEvent(BaseFrontendEvent):
+    foo = "foo"
+    bar = 1
+
+    name: str = "dummy"
+
+
+def test_send_event_no_comm(frontend_service: FrontendService, caplog):
+    frontend_service.comm = None
+    event = DummyFrontendEvent()
+
+    frontend_service.send_event(event=event)
+
+    # A warning log is emitted
+    assert len(caplog.records) == 1
+    assert caplog.records[0].levelname == "WARNING"
+
+
+def test_send_event(frontend_service: FrontendService):
+    frontend_service.comm = Mock()
+    event = DummyFrontendEvent()
+
+    frontend_service.send_event(event=event)
+
+    # Serialized event message is sent over the comm
+    expected_msg = {"name": "dummy", "data": {"foo": "foo", "bar": 1}, "msg_type": "event"}
+    assert frontend_service.comm.send.call_args_list == [call(expected_msg)]
+
+
+def test_shutdown(frontend_service: FrontendService):
+    frontend_service.comm = Mock()
+
+    frontend_service.shutdown()
+
+    # The comm is closed
+    assert frontend_service.comm.close.call_count == 1

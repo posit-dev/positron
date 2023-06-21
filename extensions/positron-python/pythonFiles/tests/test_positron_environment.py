@@ -345,7 +345,7 @@ class TestEnvironmentService:
             display_value="None",
             kind=EnvironmentVariableKind.EMPTY,
             display_type="NoneType",
-            type_info="None",
+            type_info="NoneType",
             access_key=display_name,
         )
 
@@ -563,7 +563,7 @@ class TestEnvironmentService:
     # Test Functions
     #
 
-    def test_functions(self, env_service):
+    def test_functions(self, env_service: EnvironmentService):
         helper = HelperClass()
         cases = [
             lambda: None,  # No argument lambda function

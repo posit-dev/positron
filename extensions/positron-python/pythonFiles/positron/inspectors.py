@@ -80,7 +80,7 @@ class PositronInspector:
         return _get_kind(value)
 
     def get_type_info(self, value: Any) -> str:
-        return get_qualname(value)
+        return get_qualname(type(value))
 
     def get_access_key(self, name: Any) -> str:
         return self.get_display_name(name)
