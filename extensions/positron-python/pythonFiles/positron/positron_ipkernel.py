@@ -3,18 +3,21 @@
 #
 
 """ Positron extensions to the iPython Kernel."""
-
+from __future__ import annotations
 import asyncio
 import logging
 from collections.abc import Iterable, Sequence
 from itertools import chain
-from typing import Any, Optional, Tuple, Dict
+from typing import Any, Callable, Container, Dict, Optional, Tuple, Type
 
-from ipykernel.ipkernel import IPythonKernel
-from ipykernel.zmqshell import ZMQInteractiveShell
 from ipykernel.comm.manager import CommManager
-
-from IPython.core.magic import Magics, magics_class, line_magic, needs_local_scope
+from ipykernel.ipkernel import IPythonKernel
+from ipykernel.kernelapp import IPKernelApp
+from ipykernel.zmqshell import ZMQInteractiveShell
+from IPython.core import oinspect
+from IPython.core.magic import Magics, line_magic, magics_class, needs_local_scope
+from IPython.utils import PyColorize
+import traitlets
 
 from .dataviewer import DataViewerService
 from .environment import EnvironmentService
@@ -52,6 +55,58 @@ __POSITRON_CACHE_KEY__ = "__positron_cache__"
 logger = logging.getLogger(__name__)
 
 
+class PositronIPythonInspector(oinspect.Inspector):
+    parent: PositronShell
+
+    def pinfo(
+        self,
+        obj: Any,
+        oname: str,
+        formatter: Callable[[str], Dict[str, str]],
+        info: oinspect.OInfo,
+        *,
+        detail_level: int,
+        enable_html_pager: bool,
+        omit_sections: Container[str] = (),
+    ) -> None:
+        # Intercept `%pinfo obj` / `obj?` calls, and instead use Positron's help service
+        if detail_level == 0:
+            self.parent.kernel.help_service.show_help(obj)
+            return
+
+        super().pinfo(
+            obj=obj,
+            oname=oname,
+            formatter=formatter,
+            info=info,
+            detail_level=detail_level,
+            enable_html_pager=enable_html_pager,
+            omit_sections=omit_sections,
+        )
+
+    pinfo.__doc__ = oinspect.Inspector.pinfo.__doc__
+
+
+class PositronShell(ZMQInteractiveShell):
+    kernel: PositronIPyKernel
+    object_info_string_level: int
+
+    inspector_class: Type[PositronIPythonInspector] = traitlets.Type(
+        PositronIPythonInspector, help="Class to use to instantiate the shell inspector"  # type: ignore
+    ).tag(config=True)
+
+    @traitlets.observe("colors")
+    def init_inspector(self, change: Optional[traitlets.Bunch] = None):
+        # Override to pass `parent=self` to the inspector
+        self.inspector = self.inspector_class(
+            oinspect.InspectColors,
+            PyColorize.ANSICodeColors,
+            self.colors,
+            self.object_info_string_level,
+            parent=self,
+        )
+
+
 class PositronIPyKernel(IPythonKernel):
     """
     Positron extension of IPythonKernel.
@@ -59,12 +114,14 @@ class PositronIPyKernel(IPythonKernel):
     Adds additional comms to introspect the user's environment.
     """
 
+    shell: ZMQInteractiveShell
+    comm_manager: CommManager
+
+    shell_class: PositronShell = traitlets.Type(PositronShell)  # type: ignore
+
     def __init__(self, **kwargs):
         """Initializes Positron's IPython kernel."""
         super().__init__(**kwargs)
-
-        self.shell: ZMQInteractiveShell
-        self.comm_manager: CommManager
 
         # Register for REPL execution events
         self.shell.events.register("pre_execute", self.handle_pre_execute)
@@ -384,6 +441,10 @@ class PositronIPyKernel(IPythonKernel):
         self.env_service.send_list()
 
         return coro
+
+
+class PositronIPKernelApp(IPKernelApp):
+    kernel_class: Type[PositronIPyKernel] = traitlets.Type(PositronIPyKernel)  # type: ignore
 
 
 @magics_class
