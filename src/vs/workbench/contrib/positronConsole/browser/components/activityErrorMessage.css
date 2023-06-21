@@ -2,17 +2,6 @@
  *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
-@keyframes fadein {
-	0% {
-		opacity: 0;
-		visibility: visible;
-	}
-
-	100% {
-		opacity: 1;
-	}
-}
-
 .traceback {
 	padding: 3px 0;
 	background: var(--vscode-positronConsole-errorBackground);
@@ -20,12 +9,20 @@
 
 .traceback .toggle-traceback {
 	display: grid;
-	cursor: default;
+	cursor: pointer;
 	grid-template-columns: 2ch 1fr;
+}
+
+.traceback .toggle-traceback .expansion-indicator {
+	margin-left: 2px;
+}
+
+.traceback .toggle-traceback .link-text {
+	text-decoration: underline;
+	color: var(--vscode-textLink-foreground);
 }
 
 .traceback .traceback-lines {
 	display: grid;
-	animation: fadein 0.1s linear;
 	grid-template-columns: 2ch 1fr;
 }
