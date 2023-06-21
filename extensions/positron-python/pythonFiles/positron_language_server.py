@@ -16,7 +16,7 @@ EXTENSION_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(EXTENSION_ROOT, "pythonFiles", "lib", "jedilsp"))
 sys.path.insert(1, os.path.join(EXTENSION_ROOT, "pythonFiles", "lib", "python"))
 
-from positron.positron_ipkernel import PositronIPyKernel
+from positron.positron_ipkernel import PositronIPKernelApp
 
 logger = logging.getLogger(__name__)
 
@@ -103,8 +103,7 @@ if __name__ == "__main__":
     # IPKernelApp expects an empty string if no connection_file is provided.
     if args.connection_file is None:
         args.connection_file = ""
-    app: kernelapp.IPKernelApp = kernelapp.IPKernelApp.instance(
-        kernel_class=PositronIPyKernel,
+    app: PositronIPKernelApp = PositronIPKernelApp.instance(
         log_level=args.loglevel,
         logging_config=logging_config,
         connection_file=args.connection_file,
