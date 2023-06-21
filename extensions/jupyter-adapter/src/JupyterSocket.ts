@@ -322,9 +322,6 @@ export class JupyterSocket implements vscode.Disposable {
 			this._connectPromise = undefined;
 		}
 
-		// Stop monitoring the socket
-		this._socket.unmonitor();
-
 		// Disconnect the socket if it's connected
 		if (this._state === JupyterSocketState.Connected) {
 			// This generally should not happen, so log a warning
