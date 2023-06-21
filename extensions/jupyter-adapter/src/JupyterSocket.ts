@@ -131,6 +131,30 @@ export class JupyterSocket implements vscode.Disposable {
 	onMessage: vscode.Event<any>;
 
 	/**
+	 * Disconnects the socket from the address it is connected to.
+	 */
+	private disconnect() {
+		// Only disconnect if we're connected
+		if (this._state !== JupyterSocketState.Connected) {
+			this._logger(`Attempt to disconnect ${this._title} socket in ` +
+				`state '${this._state}'`);
+			return;
+		}
+
+		// Perform the disconnection at the ZeroMQ level
+		try {
+			this._socket.disconnect(this._addr);
+		} catch (err) {
+			this._logger(`Error disconnecting ${this._title} socket from ${this._addr}: ${err}`);
+		}
+
+
+		// Update the state and fire the disconnect event
+		this._state = JupyterSocketState.Disconnected;
+		this._disconnectEmitter.fire();
+	}
+
+	/**
 	 * Handles the `disconnect` event from the ZeroMQ socket
 	 *
 	 * @param _evt ZeroMQ event (ignored)
@@ -140,11 +164,7 @@ export class JupyterSocket implements vscode.Disposable {
 		this._logger(`${this._title} socket disconnected from ${addr}`);
 
 		// We still need to disconnect from our end of the socket
-		this._socket.disconnect(this._addr);
-		this._state = JupyterSocketState.Disconnected;
-
-		// Fire the disconnect event
-		this._disconnectEmitter.fire();
+		this.disconnect();
 	}
 
 	/**
@@ -296,28 +316,26 @@ export class JupyterSocket implements vscode.Disposable {
 			clearInterval(this._connectTimeout);
 		}
 
-		// Dispose of the event emitters
-		this._disconnectEmitter.dispose();
-		this._messageEmitter.dispose();
-
 		// If we were waiting for a connection, reject the promise
 		if (this._connectPromise) {
 			this._connectPromise.reject(new Error('Socket disposed'));
 			this._connectPromise = undefined;
 		}
 
+		// Stop monitoring the socket
+		this._socket.unmonitor();
+
 		// Disconnect the socket if it's connected
 		if (this._state === JupyterSocketState.Connected) {
 			// This generally should not happen, so log a warning
 			this._logger(`WARN: ${this._title} socket disposed while connected; ` +
 				` disconnecting from ${this._addr}...`);
-			this._socket.disconnect(this._addr);
-			this._state = JupyterSocketState.Disconnected;
-			this._disconnectEmitter.fire();
+			this.disconnect();
 		}
 
-		// Stop monitoring the socket
-		this._socket.unmonitor();
+		// Dispose of the event emitters
+		this._disconnectEmitter.dispose();
+		this._messageEmitter.dispose();
 
 		// Clean up event handlers
 		this._socket.off('connect', this.onConnectedEvent);
