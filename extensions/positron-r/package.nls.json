@@ -1,6 +1,7 @@
 {
 	"displayName": "R",
 	"description": "R Language Pack for Positron",
+	"r.command.sourceCurrentFile.title": "Source R File",
 	"r.command.setKernelPath.title": "Set Kernel Path",
 	"r.command.createNewFile.title": "New R File",
 	"r.menu.createNewFile.title": "R File",
