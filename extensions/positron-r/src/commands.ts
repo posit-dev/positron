@@ -64,6 +64,10 @@ export async function registerCommands(context: vscode.ExtensionContext) {
 			positron.runtime.executeCode('r', 'devtools::check()', true);
 		}),
 
+		vscode.commands.registerCommand('r.packageDocument', () => {
+			positron.runtime.executeCode('r', 'devtools::document()', true);
+		}),
+
 		// Command used to source the current file
 		vscode.commands.registerCommand('r.sourceCurrentFile', async () => {
 			// Get the active text editor

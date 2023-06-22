@@ -52,6 +52,12 @@
         "shortTitle": "%r.menu.packageCheck.title%"
       },
       {
+        "command": "r.packageDocument",
+        "category": "R",
+        "title": "%r.command.packageDocument.title%",
+        "shortTitle": "%r.menu.packageDocument.title%"
+      },
+      {
         "command": "r.sourceCurrentFile",
         "category": "R",
         "title": "%r.command.sourceCurrentFile.title%",
