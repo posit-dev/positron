@@ -16,7 +16,7 @@ export const TopActionBarCommandCenter = () => {
 	// Hooks.
 	const positronTopActionBarContext = usePositronTopActionBarContext();
 
-	// Ckick handler.
+	// Click handler.
 	const clickHandler = (e: MouseEvent<HTMLElement>) => {
 		// Consume the event.
 		e.preventDefault();
@@ -53,7 +53,7 @@ export const TopActionBarCommandCenter = () => {
 			</div>
 			<div className='right'>
 				<button className='drop-down' onClick={(e) => dropDownClickHandler(e)}>
-					<div className='codicon codicon-positron-chevron-down' />
+					<div className='icon codicon codicon-chevron-down' />
 				</button>
 			</div>
 		</div>

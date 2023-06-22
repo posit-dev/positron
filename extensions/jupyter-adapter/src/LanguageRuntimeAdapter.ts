@@ -5,7 +5,7 @@
 import * as vscode from 'vscode';
 import * as positron from 'positron';
 import { JupyterKernel } from './JupyterKernel';
-import { JupyterKernelSpec } from './jupyter-adapter';
+import { JupyterKernelSpec, JupyterKernelExtra } from './jupyter-adapter';
 import { JupyterMessagePacket } from './JupyterMessagePacket';
 import { JupyterDisplayData } from './JupyterDisplayData';
 import { JupyterExecuteResult } from './JupyterExecuteResult';
@@ -14,7 +14,6 @@ import { JupyterKernelInfoReply } from './JupyterKernelInfoReply';
 import { JupyterKernelStatus } from './JupyterKernelStatus';
 import { JupyterErrorReply } from './JupyterErrorReply';
 import { JupyterStreamOutput } from './JupyterStreamOutput';
-import { PositronEvent } from './PositronEvent';
 import { JupyterInputRequest } from './JupyterInputRequest';
 import { RuntimeClientAdapter } from './RuntimeClientAdapter';
 import { JupyterIsCompleteReply } from './JupyterIsCompleteReply';
@@ -70,15 +69,20 @@ export class LanguageRuntimeAdapter
 	 * @param _spec The Jupyter kernel spec for the kernel to wrap
 	 * @param metadata The metadata for the language runtime to wrap
 	 */
-	constructor(private readonly _context: vscode.ExtensionContext,
+	constructor(
+		private readonly _context: vscode.ExtensionContext,
 		private readonly _channel: vscode.OutputChannel,
 		private readonly _spec: JupyterKernelSpec,
 		readonly metadata: positron.LanguageRuntimeMetadata,
+		extra?: JupyterKernelExtra,
 	) {
-		this._kernel = new JupyterKernel(this._context,
+		this._kernel = new JupyterKernel(
+			this._context,
 			this._spec,
 			metadata.runtimeId,
-			this._channel);
+			this._channel,
+			extra
+		);
 		this._channel.appendLine('Registered kernel: ' + JSON.stringify(this.metadata));
 
 		// Create emitter for LanguageRuntime messages and state changes
@@ -170,8 +174,7 @@ export class LanguageRuntimeAdapter
 			throw new Error('Cannot interrupt kernel; it has not started.');
 		}
 
-		if (this._kernelState === positron.RuntimeState.Exiting ||
-			this._kernelState === positron.RuntimeState.Exited) {
+		if (this._kernelState === positron.RuntimeState.Exited) {
 			throw new Error('Cannot interrupt kernel; it has already exited.');
 		}
 
@@ -234,14 +237,26 @@ export class LanguageRuntimeAdapter
 	 * Restarts the kernel.
 	 */
 	public async restart(): Promise<void> {
-		return this._kernel.shutdown(true);
+		return this.shutdownKernel(true);
 	}
 
 	/**
 	 * Shuts down the kernel permanently.
 	 */
 	public async shutdown(): Promise<void> {
-		return this._kernel.shutdown(false);
+		return this.shutdownKernel(false);
+	}
+
+	private shutdownKernel(restart: boolean): Promise<void> {
+		// Ensure the kernel is in a running state before allowing the shutdown
+		if (this._kernelState !== positron.RuntimeState.Idle &&
+			this._kernelState !== positron.RuntimeState.Busy &&
+			this._kernelState !== positron.RuntimeState.Ready) {
+			return Promise.reject(new Error('Cannot shut down kernel; it is not (yet) running.' +
+				` (state = ${this._kernelState})`));
+		}
+		this._restarting = restart;
+		return this._kernel.shutdown(restart);
 	}
 
 	/**
@@ -256,9 +271,10 @@ export class LanguageRuntimeAdapter
 		type: positron.RuntimeClientType,
 		params: object) {
 
+		// Ensure the type of client we're being asked to create is one we know ark supports
 		if (type === positron.RuntimeClientType.Environment ||
-			type === positron.RuntimeClientType.Lsp) {
-			// Currently the only supported client type
+			type === positron.RuntimeClientType.Lsp ||
+			type === positron.RuntimeClientType.FrontEnd) {
 			this._kernel.log(`Creating '${type}' client for ${this.metadata.languageName}`);
 
 			// Create a new client adapter to wrap the comm channel
@@ -423,9 +439,6 @@ export class LanguageRuntimeAdapter
 			case 'status':
 				this.onKernelStatus(msg, message as JupyterKernelStatus);
 				break;
-			case 'client_event':
-				this.onPositronEvent(msg, message as PositronEvent);
-				break;
 			case 'input_request':
 				this.onInputRequest(msg, message as JupyterInputRequest);
 				break;
@@ -511,22 +524,6 @@ export class LanguageRuntimeAdapter
 			comm_id: msg.comm_id,
 			data: msg.data,
 		} as positron.LanguageRuntimeCommClosed);
-	}
-	/**
-	 * Converts a Positron event into a language runtime event and emits it.
-	 *
-	 * @param message The message packet
-	 * @param event The event
-	 */
-	onPositronEvent(message: JupyterMessagePacket, event: PositronEvent) {
-		this._messages.fire({
-			id: message.msgId,
-			parent_id: message.originId,
-			when: message.when,
-			type: positron.LanguageRuntimeMessageType.Event,
-			name: event.name,
-			data: event.data
-		} as positron.LanguageRuntimeEvent);
 	}
 
 	/**
@@ -687,10 +684,6 @@ export class LanguageRuntimeAdapter
 		this._kernelState = status;
 		this._state.fire(status);
 
-		if (status === positron.RuntimeState.Restarting) {
-			this._restarting = true;
-		}
-
 		// If the kernel was restarting and successfully exited, this is our
 		// cue to start it again.
 		if (this._restarting && status === positron.RuntimeState.Exited) {
@@ -736,17 +729,17 @@ export class LanguageRuntimeAdapter
 	/**
 	 * Dispose of the runtime.
 	 */
-	public dispose() {
+	public async dispose() {
 		// Turn off all listeners
 		this._kernel.removeListener('message', this.onMessage);
 		this._kernel.removeListener('status', this.onStatus);
 
 		// Tear down all open comms
 		for (const comm of this._comms.values()) {
-			comm.dispose();
+			await comm.dispose();
 		}
 
 		// Tell the kernel to shut down
-		this._kernel.dispose();
+		await this._kernel.dispose();
 	}
 }

@@ -370,14 +370,22 @@ registerAction2(class extends Action2 {
 			title: { value: localize('closePanel', "Close Panel"), original: 'Close Panel' },
 			category: Categories.View,
 			icon: closeIcon,
-			menu: [{
-				id: MenuId.CommandPalette,
-				when: PanelVisibleContext,
-			}, {
-				id: MenuId.PanelTitle,
-				group: 'navigation',
-				order: 2
-			}]
+			// --- Start Positron ---
+			menu: [
+				{
+					id: MenuId.CommandPalette,
+					when: PanelVisibleContext,
+				},
+				// In Positron, we do not show the X close option on the panel. The user can still
+				// close the panel using the View / Appearance menu or Ctrl/Cmd+J. We just don't
+				// show the icon to do this.
+				// {
+				// 	id: MenuId.PanelTitle,
+				// 	group: 'navigation',
+				// 	order: 2
+				// }
+			]
+			// --- End Positron ---
 		});
 	}
 	run(accessor: ServicesAccessor) {

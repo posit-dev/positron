@@ -2,65 +2,77 @@
  *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
-import { ITelemetryData } from 'vs/base/common/actions';
-import { URI } from 'vs/base/common/uri';
-import { ServicesAccessor } from 'vs/editor/browser/editorExtensions';
 import { localize } from 'vs/nls';
-import { Action2, MenuId, registerAction2 } from 'vs/platform/actions/common/actions';
-import { ICommandService } from 'vs/platform/commands/common/commands';
-import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
-import { ContextKeyExpr } from 'vs/platform/contextkey/common/contextkey';
-import { IFileDialogService } from 'vs/platform/dialogs/common/dialogs';
+import { URI } from 'vs/base/common/uri';
+import { ITelemetryData } from 'vs/base/common/actions';
 import { IFileService } from 'vs/platform/files/common/files';
-import { workspacesCategory } from 'vs/workbench/browser/actions/workspaceActions';
-import { showNewWorkspaceModalDialog } from 'vs/workbench/browser/positronModalDialogs/newWorkspaceModalDialog';
-import { showNewWorkspaceFromGitModalDialog } from 'vs/workbench/browser/positronModalDialogs/newWorkspaceFromGitModalDialog';
-import { EnterMultiRootWorkspaceSupportContext } from 'vs/workbench/common/contextkeys';
+import { ServicesAccessor } from 'vs/editor/browser/editorExtensions';
+import { IFileDialogService } from 'vs/platform/dialogs/common/dialogs';
+import { ICommandService } from 'vs/platform/commands/common/commands';
+import { ContextKeyExpr } from 'vs/platform/contextkey/common/contextkey';
 import { IPathService } from 'vs/workbench/services/path/common/pathService';
+import { workspacesCategory } from 'vs/workbench/browser/actions/workspaceActions';
+import { Action2, MenuId, registerAction2 } from 'vs/platform/actions/common/actions';
+import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
+import { EnterMultiRootWorkspaceSupportContext } from 'vs/workbench/common/contextkeys';
+import { showNewFolderModalDialog } from 'vs/workbench/browser/positronModalDialogs/newFolderModalDialog';
+import { showNewFolderFromGitModalDialog } from 'vs/workbench/browser/positronModalDialogs/newFolderFromGitModalDialog';
 
-export class PositronNewWorkspaceAction extends Action2 {
+/**
+ * The PositronNewFolderAction.
+ */
+export class PositronNewFolderAction extends Action2 {
+	/**
+	 * The action ID.
+	 */
+	static readonly ID = 'positron.workbench.action.newFolder';
 
-	static readonly ID = 'positron.workbench.action.newWorkspace';
-
+	/**
+	 * Constructor.
+	 */
 	constructor() {
 		super({
-			id: PositronNewWorkspaceAction.ID,
+			id: PositronNewFolderAction.ID,
 			title: {
-				value: localize('positronNewWorkspace', "New Workspace..."),
-				mnemonicTitle: localize({ key: 'miPositronNewWorkspace', comment: ['&& denotes a mnemonic'] }, "New W&&orkspace..."),
-				original: 'New Workspace...'
+				value: localize('positronNewFolder', "New Folder..."),
+				// mnemonicTitle: localize({ key: 'miPositronNewFolder', comment: ['&& denotes a mnemonic'] }, "New F&&older..."),
+				original: 'New Folder...'
 			},
 			category: workspacesCategory,
 			f1: true,
 			precondition: EnterMultiRootWorkspaceSupportContext,
 			menu: {
 				id: MenuId.MenubarFileMenu,
-				group: '1_newworkspace',
+				group: '1_newfolder',
 				order: 4,
 			}
 		});
 	}
 
+	/**
+	 * Runs action.
+	 * @param accessor The services accessor.
+	 */
 	override async run(accessor: ServicesAccessor): Promise<void> {
 		// Get the services we need to create the new workspace, if the user accept the dialog.
 		const commandService = accessor.get(ICommandService);
 		const fileService = accessor.get(IFileService);
 		const pathService = accessor.get(IPathService);
 
-		// Show the new workspace modal dialog. If the result is undefined, the user canceled the operation.
-		const result = await showNewWorkspaceModalDialog(accessor);
+		// Show the new folder modal dialog. If the result is undefined, the user canceled the operation.
+		const result = await showNewFolderModalDialog(accessor);
 		if (!result) {
 			return;
 		}
 
-		// Create the new workspace.
-		const workspaceDir = URI.file((await pathService.path).join(result.parentDirectory, result.directory));
-		if (!(await fileService.exists(workspaceDir))) {
-			await fileService.createFolder(workspaceDir);
+		// Create the new folder.
+		const folder = URI.file((await pathService.path).join(result.parentFolder, result.folder));
+		if (!(await fileService.exists(folder))) {
+			await fileService.createFolder(folder);
 		}
 		await commandService.executeCommand(
 			'vscode.openFolder',
-			workspaceDir,
+			folder,
 			{
 				forceNewWindow: result.newWindow,
 				forceReuseWindow: !result.newWindow
@@ -69,17 +81,25 @@ export class PositronNewWorkspaceAction extends Action2 {
 	}
 }
 
-export class PositronNewWorkspaceFromGitAction extends Action2 {
+/**
+ * The PositronNewFolderFromGitAction.
+ */
+export class PositronNewFolderFromGitAction extends Action2 {
+	/**
+	 * The action ID.
+	 */
+	static readonly ID = 'positron.workbench.action.newFolderFromGit';
 
-	static readonly ID = 'positron.workbench.action.newWorkspaceFromGit';
-
+	/**
+	 * Constructor.
+	 */
 	constructor() {
 		super({
-			id: PositronNewWorkspaceFromGitAction.ID,
+			id: PositronNewFolderFromGitAction.ID,
 			title: {
-				value: localize('positronNewWorkspaceFromGit', "New Workspace from Git..."),
-				mnemonicTitle: localize({ key: 'miPositronNewWorkspaceFromGit', comment: ['&& denotes a mnemonic'] }, "New Workspace from G&&it..."),
-				original: 'New Workspace from Git...'
+				value: localize('positronNewFolderFromGit', "New Folder from Git..."),
+				// mnemonicTitle: localize({ key: 'miPositronNewFolderFromGit', comment: ['&& denotes a mnemonic'] }, "New Folder from G&&it..."),
+				original: 'New Folder from Git...'
 			},
 			category: workspacesCategory,
 			f1: true,
@@ -89,17 +109,21 @@ export class PositronNewWorkspaceFromGitAction extends Action2 {
 			),
 			menu: {
 				id: MenuId.MenubarFileMenu,
-				group: '1_newworkspace',
+				group: '1_newfolder',
 				order: 5,
 			}
 		});
 	}
 
+	/**
+	 * Runs action.
+	 * @param accessor The services accessor.
+	 */
 	override async run(accessor: ServicesAccessor): Promise<void> {
 		const commandService = accessor.get(ICommandService);
 		const configService = accessor.get(IConfigurationService);
 
-		const result = await showNewWorkspaceFromGitModalDialog(accessor);
+		const result = await showNewFolderFromGitModalDialog(accessor);
 		if (result?.repo) {
 			// temporarily set openAfterClone to facilitate result.newWindow
 			// then set it back afterwards
@@ -107,7 +131,7 @@ export class PositronNewWorkspaceFromGitAction extends Action2 {
 			const prevOpenAfterClone = configService.getValue(kGitOpenAfterClone);
 			configService.updateValue(kGitOpenAfterClone, result.newWindow ? 'alwaysNewWindow' : 'always');
 			try {
-				await commandService.executeCommand('git.clone', result.repo, result.parentDirectory);
+				await commandService.executeCommand('git.clone', result.repo, result.parentFolder);
 			} finally {
 				configService.updateValue(kGitOpenAfterClone, prevOpenAfterClone);
 			}
@@ -115,10 +139,18 @@ export class PositronNewWorkspaceFromGitAction extends Action2 {
 	}
 }
 
+/**
+ * The PositronOpenWorkspaceInNewWindowAction.
+ */
 export class PositronOpenWorkspaceInNewWindowAction extends Action2 {
-
+	/**
+	 * The action ID.
+	 */
 	static readonly ID = 'positron.workbench.action.openWorkspaceInNewWindow';
 
+	/**
+	 * Constructor.
+	 */
 	constructor() {
 		super({
 			id: PositronOpenWorkspaceInNewWindowAction.ID,
@@ -132,19 +164,18 @@ export class PositronOpenWorkspaceInNewWindowAction extends Action2 {
 		});
 	}
 
+	/**
+	 * Runs action.
+	 * @param accessor The services accessor.
+	 * @param data The ITelemetryData for the invocation.
+	 */
 	override async run(accessor: ServicesAccessor, data?: ITelemetryData): Promise<void> {
 		const fileDialogService = accessor.get(IFileDialogService);
 		return fileDialogService.pickFolderAndOpen({ forceNewWindow: true, telemetryExtraData: data });
 	}
 }
 
-
-// --- Actions Registration
-registerAction2(PositronNewWorkspaceAction);
-registerAction2(PositronNewWorkspaceFromGitAction);
+// Register the actions defined above.
+registerAction2(PositronNewFolderAction);
+registerAction2(PositronNewFolderFromGitAction);
 registerAction2(PositronOpenWorkspaceInNewWindowAction);
-
-
-
-
-

@@ -41,7 +41,7 @@ export interface ConsoleInputProps {
  * @param props A ConsoleInputProps that contains the component properties.
  * @returns The rendered component.
  */
-export const ConsoleInput = forwardRef<HTMLDivElement, ConsoleInputProps>((props: ConsoleInputProps, consoleInputRef) => {
+export const ConsoleInput = forwardRef<HTMLDivElement, ConsoleInputProps>((props, consoleInputRef) => {
 	// Context hooks.
 	const positronConsoleContext = usePositronConsoleContext();
 
@@ -179,6 +179,18 @@ export const ConsoleInput = forwardRef<HTMLDivElement, ConsoleInputProps>((props
 			e.stopPropagation();
 		};
 
+		/**
+		 * Interrupts the runtime and resets the console input state.
+		 */
+		const interruptRuntimeAndResetConsoleInput = () => {
+			// Interrupt the runtime.
+			props.positronConsoleInstance.runtime.interrupt();
+
+			// Reset the code input state.
+			setCurrentCodeFragment(undefined);
+			codeEditorWidgetRef.current.setValue('');
+		};
+
 		// Check for a suggest widget in the DOM. If one exists, then don't
 		// handle the key.
 		//
@@ -200,8 +212,8 @@ export const ConsoleInput = forwardRef<HTMLDivElement, ConsoleInputProps>((props
 				// Consume the event.
 				consumeEvent();
 
-				// Interrupt the runtime.
-				props.positronConsoleInstance.runtime.interrupt();
+				// Interrupt the runtime and reset the console input.
+				interruptRuntimeAndResetConsoleInput();
 				break;
 			}
 
@@ -249,8 +261,8 @@ export const ConsoleInput = forwardRef<HTMLDivElement, ConsoleInputProps>((props
 					// Consume the event.
 					consumeEvent();
 
-					// Interrupt the runtime.
-					props.positronConsoleInstance.runtime.interrupt();
+					// Interrupt the runtime and reset the console input.
+					interruptRuntimeAndResetConsoleInput();
 				}
 				break;
 			}
@@ -417,6 +429,7 @@ export const ConsoleInput = forwardRef<HTMLDivElement, ConsoleInputProps>((props
 			},
 			glyphMargin: false,
 			folding: false,
+			fixedOverflowWidgets: true,
 			lineDecorationsWidth: '1.0ch',
 			renderLineHighlight: 'none',
 			wordWrap: 'bounded',
@@ -546,9 +559,6 @@ export const ConsoleInput = forwardRef<HTMLDivElement, ConsoleInputProps>((props
 
 		// Add the onDidClearConsole event handler.
 		disposableStore.add(props.positronConsoleInstance.onDidClearConsole(() => {
-			// When the console is cleared, erase anything that was partially entered.
-			textModel.setValue('');
-
 			// Re-focus the console.
 			codeEditorWidget.focus();
 		}));

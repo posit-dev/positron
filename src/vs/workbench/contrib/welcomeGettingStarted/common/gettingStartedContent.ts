@@ -54,17 +54,11 @@ export type BuiltinGettingStartedStartEntry = {
 type GettingStartedWalkthroughContent = BuiltinGettingStartedCategory[];
 type GettingStartedStartEntryContent = BuiltinGettingStartedStartEntry[];
 
+// --- Start Positron ---
 export const startEntries: GettingStartedStartEntryContent = [
-	{
-		id: 'welcome.showNewFileEntries',
-		title: localize('gettingStarted.newFile.title', "New File..."),
-		description: localize('gettingStarted.newFile.description', "Open a new untitled text file, notebook, or custom editor."),
-		icon: Codicon.newFile,
-		content: {
-			type: 'startEntry',
-			command: 'command:welcome.showNewFileEntries',
-		}
-	},
+	//
+	// on macOS "Open..." allows a user to open a file or open a folder.
+	//
 	{
 		id: 'topLevelOpenMac',
 		title: localize('gettingStarted.openMac.title', "Open..."),
@@ -76,6 +70,10 @@ export const startEntries: GettingStartedStartEntryContent = [
 			command: 'command:workbench.action.files.openFileFolder',
 		}
 	},
+	//
+	// on Windows and Linux "Open File..." allows a user to open a file and "Open Folder..." allows
+	// a user to open a folder.
+	//
 	{
 		id: 'topLevelOpenFile',
 		title: localize('gettingStarted.openFile.title', "Open File..."),
@@ -98,62 +96,116 @@ export const startEntries: GettingStartedStartEntryContent = [
 			command: 'command:workbench.action.files.openFolder',
 		}
 	},
+	//
+	// On all platforms, "New File..." allows a user to create a new file.
+	//
 	{
-		id: 'topLevelOpenFolderWeb',
-		title: localize('gettingStarted.openFolder.title', "Open Folder..."),
-		description: localize('gettingStarted.openFolder.description', "Open a folder to start working"),
-		icon: Codicon.folderOpened,
-		when: '!openFolderWorkspaceSupport && workbenchState == \'workspace\'',
+		id: 'welcome.showNewFileEntries',
+		title: localize('gettingStarted.newFile.title', "New File..."),
+		description: localize('gettingStarted.newFile.description', "Open a new untitled text file, notebook, or custom editor."),
+		icon: Codicon.newFile,
 		content: {
 			type: 'startEntry',
-			command: 'command:workbench.action.files.openFolderViaWorkspace',
+			command: 'command:welcome.showNewFileEntries',
 		}
 	},
+	//
+	// New Folder...
+	//
 	{
-		id: 'topLevelGitClone',
-		title: localize('gettingStarted.topLevelGitClone.title', "Clone Git Repository..."),
-		description: localize('gettingStarted.topLevelGitClone.description', "Clone a remote repository to a local folder"),
-		when: 'config.git.enabled && !git.missing',
-		icon: Codicon.sourceControl,
+		id: 'topLevelNewFolder',
+		title: localize('gettingStarted.newFolder.title', "New Folder..."),
+		description: localize('gettingStarted.newFolder.description', "Open a new folder."),
+		icon: Codicon.newFolder,
 		content: {
 			type: 'startEntry',
-			command: 'command:git.clone',
+			command: 'command:positron.workbench.action.newFolder',
 		}
 	},
+	//
+	// New Folder from Git...
+	//
 	{
-		id: 'topLevelGitOpen',
-		title: localize('gettingStarted.topLevelGitOpen.title', "Open Repository..."),
-		description: localize('gettingStarted.topLevelGitOpen.description', "Connect to a remote repository or pull request to browse, search, edit, and commit"),
-		when: 'workspacePlatform == \'webworker\'',
-		icon: Codicon.sourceControl,
+		id: 'topLevelNewFolderFromGit',
+		title: localize('gettingStarted.newFolderFromGit.title', "New Folder from Git..."),
+		description: localize('gettingStarted.newFolderFromGit.description', "Open a new folder from Git."),
+		icon: Codicon.positronNewFolderFromGit,
 		content: {
 			type: 'startEntry',
-			command: 'command:remoteHub.openRepository',
+			command: 'command:positron.workbench.action.newFolderFromGit',
 		}
 	},
-	{
-		id: 'topLevelShowWalkthroughs',
-		title: localize('gettingStarted.topLevelShowWalkthroughs.title', "Open a Walkthrough..."),
-		description: localize('gettingStarted.topLevelShowWalkthroughs.description', "View a walkthrough on the editor or an extension"),
-		icon: Codicon.checklist,
-		when: 'allWalkthroughsHidden',
-		content: {
-			type: 'startEntry',
-			command: 'command:welcome.showAllWalkthroughs',
-		}
-	},
-	{
-		id: 'topLevelRemoteOpen',
-		title: localize('gettingStarted.topLevelRemoteOpen.title', "Connect to..."),
-		description: localize('gettingStarted.topLevelRemoteOpen.description', "Connect to remote development workspaces."),
-		when: 'config.workbench.remote.experimental.showStartListEntry',
-		icon: Codicon.remote,
-		content: {
-			type: 'startEntry',
-			command: 'command:workbench.action.remote.showStartEntryActions',
-		}
-	},
+	//
+	// For Positron Private Alpha, these options are disabled.
+	//
+	// {
+	// 	id: 'topLevelOpenFolderWeb',
+	// 	title: localize('gettingStarted.openFolder.title', "Open Folder..."),
+	// 	description: localize('gettingStarted.openFolder.description', "Open a folder to start working"),
+	// 	icon: Codicon.folderOpened,
+	// 	when: '!openFolderWorkspaceSupport && workbenchState == \'workspace\'',
+	// 	content: {
+	// 		type: 'startEntry',
+	// 		command: 'command:workbench.action.files.openFolderViaWorkspace',
+	// 	}
+	// },
+	// {
+	// 	id: 'topLevelGitClone',
+	// 	title: localize('gettingStarted.topLevelGitClone.title', "Clone Git Repository..."),
+	// 	description: localize('gettingStarted.topLevelGitClone.description', "Clone a remote repository to a local folder"),
+	// 	when: 'config.git.enabled && !git.missing',
+	// 	icon: Codicon.sourceControl,
+	// 	content: {
+	// 		type: 'startEntry',
+	// 		command: 'command:git.clone',
+	// 	}
+	// },
+	// {
+	// 	id: 'topLevelGitOpen',
+	// 	title: localize('gettingStarted.topLevelGitOpen.title', "Open Repository..."),
+	// 	description: localize('gettingStarted.topLevelGitOpen.description', "Connect to a remote repository or pull request to browse, search, edit, and commit"),
+	// 	when: 'workspacePlatform == \'webworker\'',
+	// 	icon: Codicon.sourceControl,
+	// 	content: {
+	// 		type: 'startEntry',
+	// 		command: 'command:remoteHub.openRepository',
+	// 	}
+	// },
+	// {
+	// 	id: 'topLevelShowWalkthroughs',
+	// 	title: localize('gettingStarted.topLevelShowWalkthroughs.title', "Open a Walkthrough..."),
+	// 	description: localize('gettingStarted.topLevelShowWalkthroughs.description', "View a walkthrough on the editor or an extension"),
+	// 	icon: Codicon.checklist,
+	// 	when: 'allWalkthroughsHidden',
+	// 	content: {
+	// 		type: 'startEntry',
+	// 		command: 'command:welcome.showAllWalkthroughs',
+	// 	}
+	// },
+	// {
+	// 	id: 'topLevelRemoteOpen',
+	// 	title: localize('gettingStarted.topLevelRemoteOpen.title', "Connect to..."),
+	// 	description: localize('gettingStarted.topLevelRemoteOpen.description', "Connect to remote development workspaces."),
+	// 	when: '!isWeb && config.workbench.remote.experimental.showStartListEntry',
+	// 	icon: Codicon.remote,
+	// 	content: {
+	// 		type: 'startEntry',
+	// 		command: 'command:workbench.action.remote.showStartEntryActions',
+	// 	}
+	// },
+	// {
+	// 	id: 'topLevelOpenTunnel',
+	// 	title: localize('gettingStarted.topLevelOpenTunnel.title', "Open Tunnel..."),
+	// 	description: localize('gettingStarted.topLevelOpenTunnel.description', "Connect to a remote machine through a Tunnel"),
+	// 	when: 'isWeb && config.workbench.remote.experimental.showStartListEntry',
+	// 	icon: Codicon.remote,
+	// 	content: {
+	// 		type: 'startEntry',
+	// 		command: 'command:workbench.action.remote.showTunnelStartEntryActions',
+	// 	}
+	// },
 ];
+// --- End Positron ---
 
 const Button = (title: string, href: string) => `[${title}](${href})`;
 

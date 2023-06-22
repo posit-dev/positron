@@ -9,9 +9,9 @@ import * as fs from 'fs';
 import * as crypto from 'crypto';
 import * as os from 'os';
 
-import { withActiveExtension } from './util';
+import { withActiveExtension, delay } from './util';
 import { RRuntime } from './runtime';
-import { JupyterKernelSpec } from './jupyter-adapter';
+import { JupyterKernelSpec, JupyterKernelExtra } from './jupyter-adapter';
 
 // A global instance of the language runtime (and LSP language server) provided
 // by this language pack
@@ -89,6 +89,10 @@ export function registerArkKernel(ext: vscode.Extension<any>, context: vscode.Ex
 
 	const { execSync } = require('child_process');
 
+	// Check the R kernel log level setting
+	const config = vscode.workspace.getConfiguration('positron.r');
+	const logLevel = config.get<string>('kernel.logLevel') ?? 'warn';
+
 	// Discover R installations.
 	// TODO: Needs to handle Linux and Windows
 	// TODO: Needs to handle other installation locations (like RSwitch)
@@ -154,7 +158,7 @@ export function registerArkKernel(ext: vscode.Extension<any>, context: vscode.Ex
 		/* eslint-disable */
 		const env = <Record<string, string>>{
 			'RUST_BACKTRACE': '1',
-			'RUST_LOG': 'trace',
+			'RUST_LOG': logLevel,
 			'R_HOME': rHome.rHome,
 			'R_CLI_NUM_COLORS': '256',
 		};
@@ -232,8 +236,14 @@ export function registerArkKernel(ext: vscode.Extension<any>, context: vscode.Ex
 			startupBehavior: positron.LanguageRuntimeStartupBehavior.Implicit
 		};
 
+		const extra: JupyterKernelExtra = {
+			attachOnStartup: new ArkAttachOnStartup(),
+			sleepOnStartup: new ArkDelayStartup(),
+		};
+
 		// Create an adapter for the kernel to fulfill the LanguageRuntime interface.
-		runtime = new RRuntime(context, kernelSpec, metadata, ext.exports);
+		runtime = new RRuntime(context, kernelSpec, metadata, ext.exports, extra);
+		context.subscriptions.push(runtime);
 
 		// Register the language runtime with Positron.
 		const disposable = positron.runtime.registerLanguageRuntime(runtime);
@@ -241,3 +251,42 @@ export function registerArkKernel(ext: vscode.Extension<any>, context: vscode.Ex
 	}
 }
 
+class ArkAttachOnStartup {
+	_delayDir?: string;
+	_delayFile?: string;
+
+	// Add `--startup-notifier-file` argument to pass a notification file
+	// that triggers the actual startup of the kernel
+	init(args: Array<String>) {
+		this._delayDir = fs.mkdtempSync(`${os.tmpdir()}-JupyterDelayStartup`);
+		this._delayFile = path.join(this._delayDir, 'file');
+
+		fs.writeFileSync(this._delayFile!, "create\n");
+
+		args.push("--startup-notifier-file");
+		args.push(this._delayFile);
+	}
+
+	// This is paired with `init()` and disposes of created resources
+	async attach() {
+		// Run <f5>
+		await vscode.commands.executeCommand('workbench.action.debug.start');
+
+		// Notify the kernel it can now start up
+		fs.writeFileSync(this._delayFile!, "go\n");
+
+		// Give some time before removing the file, no need to await
+		delay(100).then(() => {
+			fs.rmSync(this._delayDir!, { recursive: true, force: true });
+		});
+	}
+}
+
+class ArkDelayStartup {
+	// Add `--startup-delay` argument to pass a delay in
+	// seconds before starting up the kernel
+	init(args: Array<String>, delay: number) {
+		args.push("--startup-delay");
+		args.push(delay.toString());
+	}
+}

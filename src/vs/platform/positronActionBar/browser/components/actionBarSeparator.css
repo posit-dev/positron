@@ -15,7 +15,6 @@
 	display: flex !important;
 	height: var(--positronActionBar-iconSize);
 	width: calc(var(--positronActionBar-iconSize) / 4);
-	font-size: var(--positronActionBar-iconFontSize) !important;
 }
 
 .action-bar-separator-icon::before {

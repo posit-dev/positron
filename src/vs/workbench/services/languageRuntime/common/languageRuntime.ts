@@ -7,13 +7,15 @@ import { ILogService } from 'vs/platform/log/common/log';
 import { ILanguageService } from 'vs/editor/common/languages/language';
 import { Disposable, IDisposable, toDisposable } from 'vs/base/common/lifecycle';
 import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/common/extensions';
-import { formatLanguageRuntime, ILanguageRuntime, ILanguageRuntimeGlobalEvent, ILanguageRuntimeService, ILanguageRuntimeStateEvent, LanguageRuntimeStartupBehavior, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { formatLanguageRuntime, ILanguageRuntime, ILanguageRuntimeGlobalEvent, ILanguageRuntimeService, ILanguageRuntimeStateEvent, LanguageRuntimeStartupBehavior, RuntimeClientType, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { FrontEndClientInstance, IFrontEndClientMessageInput, IFrontEndClientMessageOutput } from 'vs/workbench/services/languageRuntime/common/languageRuntimeFrontEndClient';
 
 /**
  * LanguageRuntimeInfo class.
  */
 class LanguageRuntimeInfo {
 	public state: RuntimeState;
+	public restarting = false;
 	constructor(
 		public readonly runtime: ILanguageRuntime,
 		public readonly startupBehavior: LanguageRuntimeStartupBehavior) {
@@ -21,6 +23,14 @@ class LanguageRuntimeInfo {
 	}
 	setState(state: RuntimeState): void {
 		this.state = state;
+
+		// Dependents check the value of `restarting` to determine whether an `Exited` state
+		// was preceeded by `Restarting`.
+		if (state === RuntimeState.Restarting) {
+			this.restarting = true;
+		} else if (state === RuntimeState.Initializing) {
+			this.restarting = false;
+		}
 	}
 }
 
@@ -286,6 +296,9 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 					// if (!this._activeRuntime || this._activeRuntime.metadata.languageId === runtime.metadata.languageId) {
 					// 	this.activeRuntime = runtime;
 					// }
+
+					// Start the frontend client instance once the runtime is fully online.
+					this.startFrontEndClient(runtime);
 					break;
 
 				case RuntimeState.Exited:
@@ -312,21 +325,11 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 				// need to ensure all the event handlers for the state change we
 				// are currently processing have been called (i.e. everyone knows it has exited)
 				setTimeout(() => {
-					if (oldState === RuntimeState.Restarting &&
-						state === RuntimeState.Exited) {
+					if (languageRuntimeInfo.restarting && state === RuntimeState.Exited) {
 						this._onWillStartRuntimeEmitter.fire(runtime);
 					}
 				}, 0);
 			}
-		}));
-
-		// Add the onDidReceiveRuntimeMessageEvent event handler.
-		this._register(runtime.onDidReceiveRuntimeMessageEvent(languageRuntimeMessageEvent => {
-			// Rebroadcast runtime events globally
-			this._onDidReceiveRuntimeEventEmitter.fire({
-				runtime_id: runtime.metadata.runtimeId,
-				event: languageRuntimeMessageEvent
-			});
 		}));
 
 		return toDisposable(() => {
@@ -376,6 +379,34 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 	//#endregion ILanguageRuntimeService Implementation
 
 	//#region Private Methods
+
+	/**
+	 * Starts a frontend client instance for the specified runtime. The frontend
+	 * client instance is used to carry global Positron events from the runtime
+	 * to the frontend.
+	 *
+	 * @param runtime The runtime for which to start the frontend client.
+	 */
+	private startFrontEndClient(runtime: ILanguageRuntime): void {
+		// Create the frontend client. The second argument is empty for now; we
+		// could use this to pass in any initial state we want to pass to the
+		// frontend client (such as information on window geometry, etc.)
+		runtime.createClient<IFrontEndClientMessageInput, IFrontEndClientMessageOutput>
+			(RuntimeClientType.FrontEnd, {}).then(client => {
+				// Create the frontend client instance wrapping the client instance.
+				const frontendClient = new FrontEndClientInstance(client);
+
+				// When the frontend client instance emits an event, broadcast
+				// it to Positron.
+				this._register(frontendClient.onDidEmitEvent(event => {
+					this._onDidReceiveRuntimeEventEmitter.fire({
+						runtime_id: runtime.metadata.runtimeId,
+						event
+					});
+				}));
+				this._register(frontendClient);
+			});
+	}
 
 	/**
 	 * Checks to see whether a runtime for the specified language is starting

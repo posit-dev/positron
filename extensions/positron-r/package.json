@@ -26,6 +26,12 @@
         "category": "R",
         "title": "%r.command.createNewFile.title%",
         "shortTitle": "%r.menu.createNewFile.title%"
+      },
+      {
+        "command": "r.sourceCurrentFile",
+        "category": "R",
+        "title": "%r.command.sourceCurrentFile.title%",
+        "icon": "$(play)"
       }
     ],
     "configuration": {
@@ -37,6 +43,26 @@
           "type": "string",
           "default": "",
           "description": "%r.configuration.kernelPath.description%"
+        },
+        "positron.r.kernel.logLevel": {
+          "scope": "window",
+          "type": "string",
+          "enum": [
+            "error",
+            "warn",
+            "info",
+            "debug",
+            "trace"
+          ],
+          "enumDescriptions": [
+            "%r.configuration.logLevel.error.description%",
+            "%r.configuration.logLevel.warn.description%",
+            "%r.configuration.logLevel.info.description%",
+            "%r.configuration.logLevel.debug.description%",
+            "%r.configuration.logLevel.trace.description%"
+          ],
+          "default": "warn",
+          "description": "%r.configuration.logLevel.description%"
         },
         "positron.r.trace.server": {
           "scope": "window",
@@ -79,14 +105,58 @@
       }
     ],
     "menus": {
+      "commandPalette": [
+        {
+          "category": "R",
+          "command": "r.sourceCurrentFile",
+          "icon": "$(play)",
+          "title": "%r.command.sourceCurrentFile.title%",
+          "when": "editorLangId == r"
+        }
+      ],
       "file/newFile": [
         {
           "command": "r.createNewFile",
           "group": "file",
           "when": "!virtualWorkspace"
         }
+      ],
+      "editor/context": [
+        {
+          "command": "r.sourceCurrentFile",
+          "group": "R",
+          "title": "%r.command.sourceCurrentFile.title%",
+          "when": "editorLangId == r"
+        }
+      ],
+      "editor/title/run": [
+        {
+          "command": "r.sourceCurrentFile",
+          "group": "navigation@0",
+          "icon": "$(play)",
+          "title": "%r.command.sourceCurrentFile.title%",
+          "when": "resourceLangId == r && !isInDiffEditor"
+        }
       ]
-    }
+    },
+    "taskDefinitions": [
+      {
+        "type": "rPackageBuild",
+        "when": "isRPackage"
+      },
+      {
+        "type": "rPackageLoad",
+        "when": "isRPackage"
+      },
+      {
+        "type": "rPackageTest",
+        "when": "isRPackage"
+      },
+      {
+        "type": "rPackageCheck",
+        "when": "isRPackage"
+      }
+    ]
   },
   "scripts": {
     "vscode:prepublish": "yarn run compile",
@@ -118,7 +188,8 @@
     "vsce": "^2.11.0"
   },
   "dependencies": {
-    "vscode-languageclient": "^7.0.0"
+    "vscode-languageclient": "^7.0.0",
+    "p-queue": "^6.6.2"
   },
   "repository": {
     "type": "git",
