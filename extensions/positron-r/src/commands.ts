@@ -47,6 +47,7 @@ export async function registerCommands(context: vscode.ExtensionContext) {
 			});
 		}),
 
+		// Commands for package development tooling
 		vscode.commands.registerCommand('r.packageLoad', () => {
 			positron.runtime.executeCode('r', 'devtools::load_all()', true);
 		}),
@@ -61,7 +62,7 @@ export async function registerCommands(context: vscode.ExtensionContext) {
 
 		vscode.commands.registerCommand('r.packageCheck', () => {
 			positron.runtime.executeCode('r', 'devtools::check()', true);
-		})
+		}),
 
 		// Command used to source the current file
 		vscode.commands.registerCommand('r.sourceCurrentFile', async () => {
