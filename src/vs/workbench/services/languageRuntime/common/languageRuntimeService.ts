@@ -412,6 +412,9 @@ export interface ILanguageRuntime {
 	 */
 	replyToPrompt(id: string, value: string): void;
 
+	/** Interrupt an input prompt issued by the runtime */
+	interruptPrompt(id: string): Promise<void>;
+
 	start(): Thenable<ILanguageRuntimeInfo>;
 
 	/** Interrupt the runtime */
@@ -490,4 +493,3 @@ export interface ILanguageRuntimeService {
 	startRuntime(runtimeId: string): void;
 }
 export { RuntimeClientType, IRuntimeClientInstance };
-

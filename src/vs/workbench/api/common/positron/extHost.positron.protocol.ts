@@ -26,6 +26,7 @@ export interface ExtHostLanguageRuntimeShape {
 	$removeClient(handle: number, id: string): void;
 	$sendClientMessage(handle: number, client_id: string, message_id: string, message: any): void;
 	$replyToPrompt(handle: number, id: string, response: string): void;
+	$interruptPrompt(handle: number, id: string): Promise<void>;
 	$interruptLanguageRuntime(handle: number): Promise<void>;
 	$restartLanguageRuntime(handle: number): Promise<void>;
 	$shutdownLanguageRuntime(handle: number): Promise<void>;
