@@ -26,6 +26,30 @@
         "category": "R",
         "title": "%r.command.createNewFile.title%",
         "shortTitle": "%r.menu.createNewFile.title%"
+      },
+      {
+        "command": "r.packageLoad",
+        "category": "R",
+        "title": "%r.command.packageLoad.title%",
+        "shortTitle": "%r.menu.packageLoad.title%"
+      },
+      {
+        "command": "r.packageBuild",
+        "category": "R",
+        "title": "%r.command.packageBuild.title%",
+        "shortTitle": "%r.menu.packageBuild.title%"
+      },
+      {
+        "command": "r.packageTest",
+        "category": "R",
+        "title": "%r.command.packageTest.title%",
+        "shortTitle": "%r.menu.packageTest.title%"
+      },
+      {
+        "command": "r.packageCheck",
+        "category": "R",
+        "title": "%r.command.packageCheck.title%",
+        "shortTitle": "%r.menu.packageCheck.title%"
       }
     ],
     "configuration": {
@@ -105,26 +129,26 @@
           "group": "file",
           "when": "!virtualWorkspace"
         }
+      ],
+      "commandPalette": [
+        {
+          "command": "r.packageLoad",
+          "when": "isRPackage"
+        },
+        {
+          "command": "r.packageBuild",
+          "when": "isRPackage"
+        },
+        {
+          "command": "r.packageTest",
+          "when": "isRPackage"
+        },
+        {
+          "command": "r.packageCheck",
+          "when": "isRPackage"
+        }
       ]
-    },
-    "taskDefinitions": [
-      {
-        "type": "rPackageBuild",
-        "when": "isRPackage"
-      },
-      {
-        "type": "rPackageLoad",
-        "when": "isRPackage"
-      },
-      {
-        "type": "rPackageTest",
-        "when": "isRPackage"
-      },
-      {
-        "type": "rPackageCheck",
-        "when": "isRPackage"
-      }
-    ]
+    }
   },
   "scripts": {
     "vscode:prepublish": "yarn run compile",
