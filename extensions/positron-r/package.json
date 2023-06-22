@@ -50,6 +50,12 @@
         "category": "R",
         "title": "%r.command.packageCheck.title%",
         "shortTitle": "%r.menu.packageCheck.title%"
+      },
+      {
+        "command": "r.sourceCurrentFile",
+        "category": "R",
+        "title": "%r.command.sourceCurrentFile.title%",
+        "icon": "$(play)"
       }
     ],
     "configuration": {
@@ -123,14 +129,14 @@
       }
     ],
     "menus": {
-      "file/newFile": [
-        {
-          "command": "r.createNewFile",
-          "group": "file",
-          "when": "!virtualWorkspace"
-        }
-      ],
       "commandPalette": [
+        {
+          "category": "R",
+          "command": "r.sourceCurrentFile",
+          "icon": "$(play)",
+          "title": "%r.command.sourceCurrentFile.title%",
+          "when": "editorLangId == r"
+        },
         {
           "category": "R",
           "command": "r.packageLoad",
@@ -150,6 +156,30 @@
           "category": "R",
           "command": "r.packageCheck",
           "when": "isRPackage"
+        }
+      ],
+      "file/newFile": [
+        {
+          "command": "r.createNewFile",
+          "group": "file",
+          "when": "!virtualWorkspace"
+        }
+      ],
+      "editor/context": [
+        {
+          "command": "r.sourceCurrentFile",
+          "group": "R",
+          "title": "%r.command.sourceCurrentFile.title%",
+          "when": "editorLangId == r"
+        }
+      ],
+      "editor/title/run": [
+        {
+          "command": "r.sourceCurrentFile",
+          "group": "navigation@0",
+          "icon": "$(play)",
+          "title": "%r.command.sourceCurrentFile.title%",
+          "when": "resourceLangId == r && !isInDiffEditor"
         }
       ]
     }
