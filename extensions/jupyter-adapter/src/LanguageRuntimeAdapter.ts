@@ -237,15 +237,26 @@ export class LanguageRuntimeAdapter
 	 * Restarts the kernel.
 	 */
 	public async restart(): Promise<void> {
-		this._restarting = true;
-		return this._kernel.shutdown(true);
+		return this.shutdownKernel(true);
 	}
 
 	/**
 	 * Shuts down the kernel permanently.
 	 */
 	public async shutdown(): Promise<void> {
-		return this._kernel.shutdown(false);
+		return this.shutdownKernel(false);
+	}
+
+	private shutdownKernel(restart: boolean): Promise<void> {
+		// Ensure the kernel is in a running state before allowing the shutdown
+		if (this._kernelState !== positron.RuntimeState.Idle &&
+			this._kernelState !== positron.RuntimeState.Busy &&
+			this._kernelState !== positron.RuntimeState.Ready) {
+			return Promise.reject(new Error('Cannot shut down kernel; it is not (yet) running.' +
+				` (state = ${this._kernelState})`));
+		}
+		this._restarting = restart;
+		return this._kernel.shutdown(restart);
 	}
 
 	/**
@@ -718,17 +729,17 @@ export class LanguageRuntimeAdapter
 	/**
 	 * Dispose of the runtime.
 	 */
-	public dispose() {
+	public async dispose() {
 		// Turn off all listeners
 		this._kernel.removeListener('message', this.onMessage);
 		this._kernel.removeListener('status', this.onStatus);
 
 		// Tear down all open comms
 		for (const comm of this._comms.values()) {
-			comm.dispose();
+			await comm.dispose();
 		}
 
 		// Tell the kernel to shut down
-		this._kernel.dispose();
+		await this._kernel.dispose();
 	}
 }

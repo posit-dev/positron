@@ -4,7 +4,6 @@
 
 import * as vscode from 'vscode';
 import * as positron from 'positron';
-import * as zmq from 'zeromq/v5-compat';
 import * as os from 'os';
 import * as fs from 'fs';
 import * as rl from 'readline';
@@ -57,6 +56,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	private _stdin: JupyterSocket | null;
 	private _iopub: JupyterSocket | null;
 	private _heartbeat: JupyterSocket | null;
+	private _allSockets: JupyterSocket[] = [];
 
 	/**
 	 * A map of IDs to pending input requests; used to match up input replies
@@ -108,7 +108,6 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 		super();
 		this._spec = spec;
 		this._extra = extra;
-
 		this._control = null;
 		this._shell = null;
 		this._stdin = null;
@@ -246,13 +245,22 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	 * @param connectionJsonPath The path to the connection JSON file
 	 */
 	private async connect(connectionJsonPath: string) {
+
+		// Ensure that any existing sockets are cleaned up before opening new ones
+		this.disposeAllSockets();
+
 		// Create ZeroMQ sockets
 		const logger = (message: string) => this.log(message);
-		this._control = new JupyterSocket('Control', zmq.socket('dealer'), logger);
-		this._shell = new JupyterSocket('Shell', zmq.socket('dealer'), logger);
-		this._stdin = new JupyterSocket('Stdin', zmq.socket('dealer'), logger);
-		this._iopub = new JupyterSocket('I/O', zmq.socket('sub'), logger);
-		this._heartbeat = new JupyterSocket('Heartbeat', zmq.socket('req'), logger);
+		this._control = new JupyterSocket('Control', 'dealer', logger);
+		this._allSockets.push(this._control);
+		this._shell = new JupyterSocket('Shell', 'dealer', logger);
+		this._allSockets.push(this._shell);
+		this._stdin = new JupyterSocket('Stdin', 'dealer', logger);
+		this._allSockets.push(this._stdin);
+		this._iopub = new JupyterSocket('I/O', 'sub', logger);
+		this._allSockets.push(this._iopub);
+		this._heartbeat = new JupyterSocket('Heartbeat', 'req', logger);
+		this._allSockets.push(this._heartbeat);
 
 		// Create the socket identity for the shell and stdin sockets
 		const shellId = Buffer.from('positron-shell', 'utf8');
@@ -263,11 +271,10 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 		const connectionSpec: JupyterConnectionSpec =
 			JSON.parse(fs.readFileSync(connectionJsonPath, 'utf8'));
 
-		// Use the control channel to detect if the kernel disconnects; since we
-		// do not watch the process directly, these socket disconnections are
-		// our only way to detect when the kernel has exited.
-		this._control.socket().on('disconnect', () => {
-			this.setStatus(positron.RuntimeState.Exited);
+		// Socket disconnections are our only way to detect when the kernel has
+		// exited. Wait for them all to disconnect.
+		this._allSockets.forEach((socket) => {
+			socket.onDisconnected(() => { this.onSocketDisconnected(); });
 		});
 
 		// Bind the sockets to the ports specified in the connection file;
@@ -335,8 +342,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 			this.connect(session.state.connectionFile).then(() => {
 
 				// Subscribe to all topics and connect the IOPub socket
-				this._iopub?.socket().subscribe('');
-				this._iopub?.socket().on('message', (...args: any[]) => {
+				this._iopub?.onMessage((args: any[]) => {
 					const msg = deserializeJupyterMessage(args, this._session!.key, this._channel);
 
 					// If this is a status message, save the status. Note that
@@ -359,7 +365,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 				});
 
 				// Connect the Shell socket
-				this._shell?.socket().on('message', (...args: any[]) => {
+				this._shell?.onMessage((args: any[]) => {
 					const msg = deserializeJupyterMessage(args, this._session!.key, this._channel);
 					if (msg !== null) {
 						this.emitMessage(JupyterSockets.shell, msg);
@@ -367,7 +373,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 				});
 
 				// Connect the Stdin socket
-				this._stdin?.socket().on('message', (...args: any[]) => {
+				this._stdin?.onMessage((...args: any[]) => {
 					const msg = deserializeJupyterMessage(args, this._session!.key, this._channel);
 					if (msg !== null) {
 						// If this is an input request, save the header so we can
@@ -387,7 +393,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 				}, 10000);
 
 				// Wait for the initial heartbeat
-				this._heartbeat?.socket().once('message', (msg: string) => {
+				const reg = this._heartbeat?.onMessage((msg: string) => {
 
 					// We got the heartbeat, so cancel the timeout
 					clearTimeout(timeout);
@@ -401,11 +407,15 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 					const seconds = vscode.workspace.getConfiguration('positron.jupyterAdapter').get('heartbeat', 30) as number;
 					this.log(`Starting heartbeat check at ${seconds} second intervals...`);
 					this.heartbeat();
-					this._heartbeat?.socket().on('message', (msg: string) => {
+
+					// Dispose this listener now that we've received the initial heartbeat
+					reg?.dispose();
+
+					this._heartbeat?.onMessage((msg: string) => {
 						this.onHeartbeat(msg);
 					});
 				});
-				this._heartbeat?.socket().send([HEARTBEAT_MESSAGE]);
+				this._heartbeat?.send([HEARTBEAT_MESSAGE]);
 
 			}).catch((err) => {
 				reject(err);
@@ -621,7 +631,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	/**
 	 * Closes a communications channel (comm) with the kernel.
 	 */
-	public closeComm(id: string) {
+	public async closeComm(id: string) {
 		// Create the message to send to the kernel
 		const msg: JupyterCommClose = {
 			comm_id: id,  // eslint-disable-line
@@ -629,7 +639,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 		};
 
 		// Dispatch it
-		this.send(uuidv4(), 'comm_close', this._shell!, msg);
+		return this.send(uuidv4(), 'comm_close', this._shell!, msg);
 	}
 
 	/**
@@ -719,6 +729,25 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 		};
 		this.log(`RECV ${msg.header.msg_type} from ${socket}: ${JSON.stringify(msg)}`);
 		this.emit('message', packet);
+	}
+
+	/**
+	 * Runs when one of the ZeroMQ sockets disconnects. When all the sockets
+	 * have disconnected, we consider the kernel to have exited.
+	 */
+	private onSocketDisconnected() {
+
+		// Check to see whether all the sockets are disconnected
+		for (const socket of this._allSockets) {
+			if (socket.isConnected()) {
+				// At least one socket is still connected; we're not done yet
+				return;
+			}
+		}
+
+		// If we get here, no connected sockets remain
+		this.log(`All ${this._allSockets.length} sockets disconnected; kernel exited`);
+		this.setStatus(positron.RuntimeState.Exited);
 	}
 
 	/**
@@ -881,6 +910,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 		this._stdin?.dispose();
 		this._heartbeat?.dispose();
 		this._iopub?.dispose();
+		this._allSockets = [];
 
 		this._control = null;
 		this._shell = null;
@@ -937,7 +967,8 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	 * @param parent The parent message header (if any, {} if no parent)
 	 * @param message The body of the message
 	 */
-	private sendToSocket(id: string, type: string, dest: JupyterSocket, parent: JupyterMessageHeader, message: JupyterMessageSpec): Promise<void> {
+	private async sendToSocket(id: string, type: string, dest: JupyterSocket,
+		parent: JupyterMessageHeader, message: JupyterMessageSpec) {
 		const msg: JupyterMessage = {
 			buffers: [],
 			content: message,
@@ -946,17 +977,13 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 			parent_header: parent
 		};
 		this.log(`SEND ${msg.header.msg_type} to ${dest.title()}: ${JSON.stringify(msg)}`);
-		return new Promise<void>((resolve, reject) => {
-			dest.socket().send(serializeJupyterMessage(msg, this._session!.key), 0, (err) => {
-				if (err) {
-					this.log(`SEND ${msg.header.msg_type}: ERR: ${err}`);
-					reject(err);
-				} else {
-					this.log(`SEND ${msg.header.msg_type}: OK`);
-					resolve();
-				}
-			});
-		});
+
+		try {
+			await dest.send(serializeJupyterMessage(msg, this._session!.key));
+			this.log(`SEND ${msg.header.msg_type}: OK`);
+		} catch (err) {
+			this.log(`SEND ${msg.header.msg_type}: ERR: ${err}`);
+		}
 	}
 
 	/**
@@ -966,7 +993,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 		const seconds = vscode.workspace.getConfiguration('positron.jupyterAdapter').get('heartbeat', 30) as number;
 		this._lastHeartbeat = new Date().getUTCMilliseconds();
 		this.log(`SEND heartbeat with timeout of ${seconds} seconds`);
-		this._heartbeat?.socket().send([HEARTBEAT_MESSAGE]);
+		this._heartbeat?.send([HEARTBEAT_MESSAGE]);
 		this._heartbeatTimer = setTimeout(() => {
 			this.enterOfflineState();
 		}, seconds * 1000);
@@ -1004,7 +1031,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 			// It'd be slightly more elegant to use `setInterval` here, but this
 			// keeps the logic for handling the timer in `onHeartbeat` much
 			// simpler.
-			this._heartbeat?.socket().send([RECONNECT_MESSAGE]);
+			this._heartbeat?.send([RECONNECT_MESSAGE]);
 			this._heartbeatTimer = setTimeout(onlinePoller, 1000);
 		};
 		this._heartbeatTimer = setTimeout(onlinePoller, 1000);
@@ -1078,7 +1105,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 			this._terminal = undefined;
 
 			// Dispose the remainder of the connection state
-			this.dispose();
+			await this.dispose();
 		}
 	}
 
