@@ -339,13 +339,32 @@ class ExtHostLanguageRuntimeAdapter implements ILanguageRuntime {
 	}
 
 	async restart(): Promise<void> {
+		if (!this.canShutdown()) {
+			throw new Error(`Cannot restart runtime '${this.metadata.runtimeName}': ` +
+				`runtime is in state '${this._currentState}'`);
+		}
 		this._stateEmitter.fire(RuntimeState.Restarting);
 		return this._proxy.$restartLanguageRuntime(this.handle);
 	}
 
 	async shutdown(): Promise<void> {
+		if (!this.canShutdown()) {
+			throw new Error(`Cannot shut down runtime '${this.metadata.runtimeName}': ` +
+				`runtime is in state '${this._currentState}'`);
+		}
 		this._stateEmitter.fire(RuntimeState.Exiting);
 		return this._proxy.$shutdownLanguageRuntime(this.handle);
+	}
+
+	/**
+	 * Checks to see whether the runtime can be shut down or restarted.
+	 *
+	 * @returns true if the runtime can be shut down or restarted, false otherwise
+	 */
+	private canShutdown(): boolean {
+		return this._currentState === RuntimeState.Busy ||
+			this._currentState === RuntimeState.Idle ||
+			this._currentState === RuntimeState.Ready;
 	}
 
 	start(): Promise<ILanguageRuntimeInfo> {

@@ -165,14 +165,14 @@ export class RuntimeClientAdapter {
 	/**
 	 * Disposes of the runtime client by closing the comm channel.
 	 */
-	dispose() {
+	async dispose() {
 		this._kernel.removeListener('message', this.onMessage);
 		this._kernel.removeListener('status', this.onStatus);
 
 		// If the comm channel is still open, close it from our end.
 		if (this.getClientState() === positron.RuntimeClientState.Connected) {
 			this._state.fire(positron.RuntimeClientState.Closing);
-			this._kernel.closeComm(this._id);
+			await this._kernel.closeComm(this._id);
 		}
 	}
 }
