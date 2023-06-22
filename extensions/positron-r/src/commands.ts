@@ -3,6 +3,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import * as positron from 'positron';
 
 import { adaptJupyterKernel } from './kernel';
 
@@ -40,6 +41,31 @@ export function registerCommands(context: vscode.ExtensionContext) {
 			vscode.workspace.openTextDocument({ language: 'r' }).then((newFile) => {
 				vscode.window.showTextDocument(newFile);
 			});
-		})
+		}),
+
+		// Command used to source the current file
+		vscode.commands.registerCommand('r.sourceCurrentFile', () => {
+			// Get the active text editor
+			const editor = vscode.window.activeTextEditor;
+			if (!editor) {
+				// No editor; nothing to do
+				return;
+			}
+
+			const filePath = editor.document.uri.fsPath;
+			if (!filePath) {
+				// File is unsaved; show a warning
+				vscode.window.showWarningMessage('Cannot source unsaved file.');
+				return;
+			}
+
+			// In the future, we will want to shorten the path by making it
+			// relative to the current directory; doing so, however, will
+			// require the kernel to alert us to the current working directory,
+			// or provide a method for asking it to create the `source()`
+			// command. For now, just use the full path.
+			const command = `source('${filePath}')`;
+			positron.runtime.executeCode('r', command, true);
+		}),
 	);
 }

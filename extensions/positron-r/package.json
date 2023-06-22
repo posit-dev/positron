@@ -26,6 +26,11 @@
         "category": "R",
         "title": "%r.command.createNewFile.title%",
         "shortTitle": "%r.menu.createNewFile.title%"
+      },
+      {
+        "command": "r.sourceCurrentFile",
+        "category": "R",
+        "title": "%r.command.sourceCurrentFile.title%"
       }
     ],
     "configuration": {
@@ -104,6 +109,14 @@
           "command": "r.createNewFile",
           "group": "file",
           "when": "!virtualWorkspace"
+        }
+      ],
+      "editor/context": [
+        {
+          "command": "r.sourceCurrentFile",
+          "group": "R",
+          "title": "%r.command.sourceCurrentFile.title%",
+          "when": "editorLangId == r && !virtualWorkspace"
         }
       ]
     },
