@@ -96,8 +96,9 @@ export class RRuntime implements positron.LanguageRuntime, vscode.Disposable {
 		return this._kernel.shutdown();
 	}
 
-	dispose() {
-		this._lsp.dispose();
+	async dispose() {
+		await this._lsp.dispose();
+		this._kernel.dispose();
 	}
 
 	private onStateChange(state: positron.RuntimeState): void {

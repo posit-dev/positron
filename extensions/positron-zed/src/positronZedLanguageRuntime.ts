@@ -1023,6 +1023,8 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 		this._onDidChangeRuntimeState.fire(positron.RuntimeState.Exited);
 	}
 
+	dispose(): void { };
+
 	//#endregion LanguageRuntime Implementation
 
 	//#region Private Methods

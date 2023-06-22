@@ -243,6 +243,7 @@ export function registerArkKernel(ext: vscode.Extension<any>, context: vscode.Ex
 
 		// Create an adapter for the kernel to fulfill the LanguageRuntime interface.
 		runtime = new RRuntime(context, kernelSpec, metadata, ext.exports, extra);
+		context.subscriptions.push(runtime);
 
 		// Register the language runtime with Positron.
 		const disposable = positron.runtime.registerLanguageRuntime(runtime);
