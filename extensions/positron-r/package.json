@@ -132,18 +132,22 @@
       ],
       "commandPalette": [
         {
+          "category": "R",
           "command": "r.packageLoad",
           "when": "isRPackage"
         },
         {
+          "category": "R",
           "command": "r.packageBuild",
           "when": "isRPackage"
         },
         {
+          "category": "R",
           "command": "r.packageTest",
           "when": "isRPackage"
         },
         {
+          "category": "R",
           "command": "r.packageCheck",
           "when": "isRPackage"
         }
