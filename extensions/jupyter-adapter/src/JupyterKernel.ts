@@ -245,6 +245,10 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	 * @param connectionJsonPath The path to the connection JSON file
 	 */
 	private async connect(connectionJsonPath: string) {
+
+		// Ensure that any existing sockets are cleaned up before opening new ones
+		this.disposeAllSockets();
+
 		// Create ZeroMQ sockets
 		const logger = (message: string) => this.log(message);
 		this._control = new JupyterSocket('Control', 'dealer', logger);
@@ -906,6 +910,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 		this._stdin?.dispose();
 		this._heartbeat?.dispose();
 		this._iopub?.dispose();
+		this._allSockets = [];
 
 		this._control = null;
 		this._shell = null;
