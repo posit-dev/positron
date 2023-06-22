@@ -26,6 +26,12 @@
         "category": "R",
         "title": "%r.command.createNewFile.title%",
         "shortTitle": "%r.menu.createNewFile.title%"
+      },
+      {
+        "command": "r.sourceCurrentFile",
+        "category": "R",
+        "title": "%r.command.sourceCurrentFile.title%",
+        "icon": "$(play)"
       }
     ],
     "configuration": {
@@ -99,11 +105,37 @@
       }
     ],
     "menus": {
+      "commandPalette": [
+        {
+          "category": "R",
+          "command": "r.sourceCurrentFile",
+          "icon": "$(play)",
+          "title": "%r.command.sourceCurrentFile.title%",
+          "when": "editorLangId == r"
+        }
+      ],
       "file/newFile": [
         {
           "command": "r.createNewFile",
           "group": "file",
           "when": "!virtualWorkspace"
+        }
+      ],
+      "editor/context": [
+        {
+          "command": "r.sourceCurrentFile",
+          "group": "R",
+          "title": "%r.command.sourceCurrentFile.title%",
+          "when": "editorLangId == r"
+        }
+      ],
+      "editor/title/run": [
+        {
+          "command": "r.sourceCurrentFile",
+          "group": "navigation@0",
+          "icon": "$(play)",
+          "title": "%r.command.sourceCurrentFile.title%",
+          "when": "resourceLangId == r && !isInDiffEditor"
         }
       ]
     },
