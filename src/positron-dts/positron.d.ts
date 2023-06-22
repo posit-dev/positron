@@ -390,7 +390,7 @@ declare module 'positron' {
 	 * set of common tools for interacting with a language runtime, such as code
 	 * execution, LSP implementation, and plotting.
 	 */
-	export interface LanguageRuntime {
+	export interface LanguageRuntime extends vscode.Disposable {
 		/** An object supplying metadata about the runtime */
 		readonly metadata: LanguageRuntimeMetadata;
 
