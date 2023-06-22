@@ -54,18 +54,26 @@ function registerRPackageTaskProvider(packageTask: PackageTask): vscode.Disposab
 }
 
 class RTaskConsole implements vscode.Pseudoterminal {
-
 	private writeEmitter = new vscode.EventEmitter<string>();
+	private closeEmitter = new vscode.EventEmitter<number>();
 	onDidWrite: vscode.Event<string> = this.writeEmitter.event;
+	onDidClose: vscode.Event<number> = this.closeEmitter.event;
 	constructor(private code: string) { }
 	open(): void {
 		positron.runtime.executeCode('r', this.code, true);
+		this.close();
 	}
-	close(): void { }
+	close(): void {
+		this.writeEmitter.dispose();
+		this.closeEmitter.fire(0);
+		this.closeEmitter.dispose();
+	}
 }
 
+
+
 function rPackageTask(packageTask: PackageTask): vscode.Task {
-	return new vscode.Task(
+	const task = new vscode.Task(
 		{ type: packageTask.type },
 		vscode.TaskScope.Workspace,
 		packageTask.name,
@@ -75,6 +83,8 @@ function rPackageTask(packageTask: PackageTask): vscode.Task {
 		}),
 		[]
 	);
+	task.presentationOptions.reveal = vscode.TaskRevealKind.Never;
+	return task;
 }
 
 type PackageTask = {
