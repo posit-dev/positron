@@ -44,7 +44,7 @@ export function registerCommands(context: vscode.ExtensionContext) {
 		}),
 
 		// Command used to source the current file
-		vscode.commands.registerCommand('r.sourceCurrentFile', () => {
+		vscode.commands.registerCommand('r.sourceCurrentFile', async () => {
 			// Get the active text editor
 			const editor = vscode.window.activeTextEditor;
 			if (!editor) {
@@ -59,13 +59,28 @@ export function registerCommands(context: vscode.ExtensionContext) {
 				return;
 			}
 
-			// In the future, we will want to shorten the path by making it
-			// relative to the current directory; doing so, however, will
-			// require the kernel to alert us to the current working directory,
-			// or provide a method for asking it to create the `source()`
-			// command. For now, just use the full path.
-			const command = `source('${filePath}')`;
-			positron.runtime.executeCode('r', command, true);
+			try {
+				// Check to see if the fsPath is an actual path to a file using
+				// the VS Code file system API.
+				const fsStat = await vscode.workspace.fs.stat(vscode.Uri.file(filePath));
+
+				// In the future, we will want to shorten the path by making it
+				// relative to the current directory; doing so, however, will
+				// require the kernel to alert us to the current working directory,
+				// or provide a method for asking it to create the `source()`
+				// command. For now, just use the full path.
+				if (fsStat) {
+					const command = `source('${filePath}')`;
+					positron.runtime.executeCode('r', command, true);
+				}
+			} catch (e) {
+				// This is not a valid file path, which isn't an error; it just
+				// means the active editor has something loaded into it that
+				// isn't a file on disk.  In Positron, there is currently a bug
+				// which causes the REPL to act like an active editor. See:
+				//
+				// https://github.com/rstudio/positron/issues/780
+			}
 		}),
 	);
 }
