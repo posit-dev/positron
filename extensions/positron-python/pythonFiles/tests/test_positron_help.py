@@ -54,6 +54,7 @@ help.__module__ = "__main__"
         (pd.DataFrame, "pandas.DataFrame"),
         (pd.DataFrame(), "pandas.DataFrame"),
         ("pandas.core.frame.DataFrame", "pandas.DataFrame"),
+        (pd.DataFrame.bfill, "pandas.DataFrame.bfill"),
         (pd.Series, "pandas.Series"),
         #
         (0, "int"),
