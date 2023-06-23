@@ -56,6 +56,10 @@ export async function registerCommands(context: vscode.ExtensionContext) {
 			positron.runtime.executeCode('r', 'devtools::build()', true);
 		}),
 
+		vscode.commands.registerCommand('r.packageInstall', () => {
+			positron.runtime.executeCode('r', 'devtools::install()', true);
+		}),
+
 		vscode.commands.registerCommand('r.packageTest', () => {
 			positron.runtime.executeCode('r', 'devtools::test()', true);
 		}),

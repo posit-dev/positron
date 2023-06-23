@@ -6,6 +6,7 @@
 	"r.command.createNewFile.title": "New R File",
 	"r.command.packageLoad.title": "Load R Package",
 	"r.command.packageBuild.title": "Build R Package",
+	"r.command.packageInstall.title": "Install R Package",
 	"r.command.packageTest.title": "Test R Package",
 	"r.command.packageCheck.title": "Check R Package",
 	"r.command.packageDocument.title": "Document R Package",

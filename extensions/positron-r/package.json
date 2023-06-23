@@ -40,6 +40,12 @@
         "shortTitle": "%r.menu.packageBuild.title%"
       },
       {
+        "command": "r.packageInstall",
+        "category": "R",
+        "title": "%r.command.packageInstall.title%",
+        "shortTitle": "%r.menu.packageInstall.title%"
+      },
+      {
         "command": "r.packageTest",
         "category": "R",
         "title": "%r.command.packageTest.title%",
