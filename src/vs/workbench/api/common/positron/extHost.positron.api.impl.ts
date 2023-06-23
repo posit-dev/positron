@@ -48,8 +48,7 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 		};
 
 		const window: typeof positron.window = {
-			createPreviewPaneItem(options: positron.PreviewPaneItemOptions): positron.PreviewPaneItem {
-				return extHostPreviewPane.createPreviewPaneItem(options);
+			createPreviewPanel(viewType: string, title: string, preserveFocus?: boolean, options?: vscode.WebviewPanelOptions & vscode.WebviewOptions) {
 			}
 		};
 		// --- End Positron ---
