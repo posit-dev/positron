@@ -185,7 +185,14 @@ export function registerArkKernel(ext: vscode.Extension<any>, context: vscode.Ex
 		}
 
 		// Is the runtime path within the user's home directory?
-		const isUserInstallation = rHome.rHome.startsWith(os.homedir());
+		const homedir = os.homedir();
+		const isUserInstallation = rHome.rHome.startsWith(homedir);
+
+		// Create the runtime path.
+		// TODO@softwarenerd - We will need to update this for Windows.
+		const runtimePath = os.platform() !== 'win32' && isUserInstallation ?
+			path.join('~', rHome.rHome.substring(homedir.length)) :
+			rHome.rHome;
 
 		// Does the runtime path have 'homebrew' as a component? (we assume that
 		// it's a Homebrew installation if it does)
@@ -221,7 +228,7 @@ export function registerArkKernel(ext: vscode.Extension<any>, context: vscode.Ex
 		const metadata: positron.LanguageRuntimeMetadata = {
 			runtimeId,
 			runtimeName: kernelSpec.display_name,
-			runtimePath: rHome.rHome,
+			runtimePath,
 			runtimeVersion: packageJson.version,
 			runtimeSource,
 			languageId: 'r',
@@ -261,9 +268,9 @@ class ArkAttachOnStartup {
 		this._delayDir = fs.mkdtempSync(`${os.tmpdir()}-JupyterDelayStartup`);
 		this._delayFile = path.join(this._delayDir, 'file');
 
-		fs.writeFileSync(this._delayFile!, "create\n");
+		fs.writeFileSync(this._delayFile!, 'create\n');
 
-		args.push("--startup-notifier-file");
+		args.push('--startup-notifier-file');
 		args.push(this._delayFile);
 	}
 
@@ -273,7 +280,7 @@ class ArkAttachOnStartup {
 		await vscode.commands.executeCommand('workbench.action.debug.start');
 
 		// Notify the kernel it can now start up
-		fs.writeFileSync(this._delayFile!, "go\n");
+		fs.writeFileSync(this._delayFile!, 'go\n');
 
 		// Give some time before removing the file, no need to await
 		delay(100).then(() => {
@@ -286,7 +293,7 @@ class ArkDelayStartup {
 	// Add `--startup-delay` argument to pass a delay in
 	// seconds before starting up the kernel
 	init(args: Array<String>, delay: number) {
-		args.push("--startup-delay");
+		args.push('--startup-delay');
 		args.push(delay.toString());
 	}
 }
