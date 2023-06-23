@@ -5,6 +5,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as path from 'path';
+import * as os from 'os';
 import * as fs from 'fs';
 // eslint-disable-next-line import/no-unresolved
 import * as positron from 'positron';
@@ -212,9 +213,16 @@ export class PositronJediLanguageServerProxy implements ILanguageServerProxy {
         digest.update(pythonVersion ?? '');
         const runtimeId = digest.digest('hex').substring(0, 32);
 
+        // Create the runtime path.
+        // TODO@softwarenerd - We will need to update this for Windows.
+        const homedir = os.homedir();
+        const runtimePath = os.platform() !== 'win32' && interpreter.path.startsWith(homedir) ?
+            path.join('~', interpreter.path.substring(homedir.length)) :
+            interpreter.path;
+
         // Create the metadata for the language runtime
         const metadata: positron.LanguageRuntimeMetadata = {
-            runtimePath: interpreter.path,
+            runtimePath,
             runtimeId,
             runtimeName: displayName,
             runtimeVersion: this.extensionVersion ?? '0.0.0',
