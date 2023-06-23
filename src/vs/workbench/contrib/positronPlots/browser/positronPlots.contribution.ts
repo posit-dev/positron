@@ -33,7 +33,7 @@ Registry.as<IViewsRegistry>(ViewContainerExtensions.ViewsRegistry).registerViews
 			id: POSITRON_PLOTS_VIEW_ID,
 			name: nls.localize('positron.plots', "Plots"),
 			ctorDescriptor: new SyncDescriptor(PositronPlotsViewPane),
-			collapsed: true,
+			collapsed: false,
 			canToggleVisibility: false,
 			canMoveView: true,
 			containerIcon: positronPlotViewIcon,
