@@ -3,11 +3,12 @@
 #
 
 from __future__ import annotations
+
 import asyncio
+import enum
 import logging
 import pydoc
-import enum
-from typing import Any, TYPE_CHECKING, Optional, Union
+from typing import TYPE_CHECKING, Any, Optional, Union
 
 from pydantic import Field
 
@@ -15,8 +16,8 @@ from .frontend import BaseFrontendEvent
 from .utils import get_qualname
 
 if TYPE_CHECKING:
-    from .positron_ipkernel import PositronIPyKernel
     from .frontend import FrontendService
+    from .positron_ipkernel import PositronIPyKernel
 
 logger = logging.getLogger(__name__)
 
@@ -52,8 +53,8 @@ class HelpService:
     # Not sure why, but some qualified names cause errors in pydoc. Manually replace these with
     # names that are known to work.
     _QUALNAME_OVERRIDES = {
-        "pandas.core.frame.DataFrame": "pandas.DataFrame",
-        "pandas.core.series.Series": "pandas.Series",
+        "pandas.core.frame": "pandas",
+        "pandas.core.series": "pandas",
     }
 
     def __init__(self, kernel: PositronIPyKernel, frontend_service: FrontendService):
@@ -154,10 +155,10 @@ del help  # Clean up the user's namespace
             key = get_qualname(obj)
             # Not sure why, but some qualified names cause errors in pydoc. Manually replace these with
             # names that are known to work.
-            try:
-                key = self._QUALNAME_OVERRIDES[key]
-            except KeyError:
-                pass
+            for old, new in self._QUALNAME_OVERRIDES.items():
+                if key.startswith(old):
+                    key = key.replace(old, new)
+                    break
 
         url = f"{self.pydoc_thread.url}get?key={key}"
 

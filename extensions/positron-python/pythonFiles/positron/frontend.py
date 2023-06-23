@@ -26,7 +26,7 @@ class FrontendMessage(BaseModel):
     Message sent over the Positron frontend comm channel.
     """
 
-    msg_type = "event"
+    msg_type: str = "event"
     name: str = Field(description="Name of the event")
     data: BaseFrontendEvent
 
