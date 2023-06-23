@@ -6,6 +6,8 @@ import { IDisposable } from 'vs/base/common/lifecycle';
 import { ILanguageRuntimeInfo, ILanguageRuntimeMetadata, RuntimeClientType, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeState, ILanguageRuntimeMessage } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { createProxyIdentifier, IRPCProtocol } from 'vs/workbench/services/extensions/common/proxyIdentifier';
 import { IPreviewPaneItemOptions } from 'vs/workbench/services/positronPreview/common/positronPreview';
+import { IWebviewPortMapping, WebviewExtensionDescription, WebviewPanelViewStateData } from 'vs/workbench/api/common/extHost.protocol';
+import { UriComponents } from 'vs/base/common/uri';
 
 // This is the interface that the main process exposes to the extension host
 export interface MainThreadLanguageRuntimeShape extends IDisposable {
@@ -43,15 +45,56 @@ export interface ExtHostPreviewPaneShape {
 	$emitMessageFromPreviewPane(handle: number, message: Object): void;
 }
 
+export interface PreviewPanelViewStateData {
+	[handle: string]: {
+		readonly active: boolean;
+		readonly visible: boolean;
+	};
+}
+
+export type PreviewHandle = string;
+
+export interface ExtHostPreviewPanelsShape {
+	$onDidChangePreviewPanelViewStates(newState: PreviewPanelViewStateData): void;
+	$onDidDisposePreviewPanel(handle: PreviewHandle): Promise<void>;
+}
+
+export interface IPreviewContentOptions {
+	readonly enableScripts?: boolean;
+	readonly enableForms?: boolean;
+	readonly localResourceRoots?: readonly UriComponents[];
+	readonly portMapping?: readonly IWebviewPortMapping[];
+}
+
+export interface IPreviewInitData {
+	readonly title: string;
+	readonly webviewOptions: IPreviewContentOptions;
+}
+
+export interface MainThreadPreviewPanelsShape extends IDisposable {
+	$createPreviewPanel(
+		extension: WebviewExtensionDescription,
+		handle: PreviewHandle,
+		viewType: string,
+		initData: IPreviewInitData,
+		preserveFocus: boolean,
+	): void;
+	$disposePreview(handle: PreviewHandle): void;
+	$reveal(handle: PreviewHandle, preserveFocus: boolean): void;
+	$setTitle(handle: PreviewHandle, value: string): void;
+}
+
 export interface IMainPositronContext extends IRPCProtocol {
 }
 
 export const ExtHostPositronContext = {
 	ExtHostLanguageRuntime: createProxyIdentifier<ExtHostLanguageRuntimeShape>('ExtHostLanguageRuntime'),
 	ExtHostPreviewPane: createProxyIdentifier<ExtHostPreviewPaneShape>('ExtHostPreviewPane'),
+	ExtHostPreviewPanels: createProxyIdentifier<ExtHostPreviewPanelsShape>('ExtHostPreviewPanels'),
 };
 
 export const MainPositronContext = {
 	MainThreadLanguageRuntime: createProxyIdentifier<MainThreadLanguageRuntimeShape>('MainThreadLanguageRuntime'),
 	MainThreadPreviewPane: createProxyIdentifier<MainThreadPreviewPaneShape>('MainThreadPreviewPane'),
+	MainThreadPreviewPanels: createProxyIdentifier<MainThreadPreviewPanelsShape>('MainThreadPreviewPanels'),
 };

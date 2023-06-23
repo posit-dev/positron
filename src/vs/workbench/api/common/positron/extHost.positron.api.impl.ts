@@ -1,9 +1,8 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
 import { ExtHostLanguageRuntime } from 'vs/workbench/api/common/positron/extHostLanguageRuntime';
-import { ExtHostPreviewPane } from 'vs/workbench/api/common/positron/extHostPreviewPane';
 import type * as positron from 'positron';
 import type * as vscode from 'vscode';
 import { IExtHostRpcService } from 'vs/workbench/api/common/extHostRpcService';
@@ -14,6 +13,7 @@ import { ExtHostConfigProvider } from 'vs/workbench/api/common/extHostConfigurat
 import { ExtHostPositronContext } from 'vs/workbench/api/common/positron/extHost.positron.protocol';
 import * as extHostTypes from 'vs/workbench/api/common/positron/extHostTypes.positron';
 import { IExtHostInitDataService } from 'vs/workbench/api/common/extHostInitDataService';
+import { ExtHostPreviewPanels } from 'vs/workbench/api/common/positron/extHostPreviewPanels';
 
 /**
  * Factory interface for creating an instance of the Positron API.
@@ -30,7 +30,7 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 	const rpcProtocol = accessor.get(IExtHostRpcService);
 	const initData = accessor.get(IExtHostInitDataService);
 	const extHostLanguageRuntime = rpcProtocol.set(ExtHostPositronContext.ExtHostLanguageRuntime, new ExtHostLanguageRuntime(rpcProtocol));
-	const extHostPreviewPane = rpcProtocol.set(ExtHostPositronContext.ExtHostPreviewPane, new ExtHostPreviewPane(rpcProtocol));
+	const extHostPreviewPanels = rpcProtocol.set(ExtHostPositronContext.ExtHostPreviewPanels, new ExtHostPreviewPanels(rpcProtocol));
 
 	return function (extension: IExtensionDescription, extensionInfo: IExtensionRegistries, configProvider: ExtHostConfigProvider): typeof positron {
 
@@ -49,6 +49,7 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 
 		const window: typeof positron.window = {
 			createPreviewPanel(viewType: string, title: string, preserveFocus?: boolean, options?: vscode.WebviewPanelOptions & vscode.WebviewOptions) {
+				return extHostPreviewPanels.createPreviewPanel(extension, viewType, title, preserveFocus, options);
 			}
 		};
 		// --- End Positron ---

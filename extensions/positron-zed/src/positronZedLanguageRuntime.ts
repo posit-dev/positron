@@ -1029,7 +1029,7 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 		this._onDidChangeRuntimeState.fire(positron.RuntimeState.Exited);
 	}
 
-	dispose(): void { };
+	dispose(): void { }
 
 	//#endregion LanguageRuntime Implementation
 
@@ -1061,10 +1061,8 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 
 		// Open the preview pane.
 		try {
-			const options: positron.PreviewPaneItemOptions = {
-				uri: vscode.Uri.file(path.join(this.context.extensionPath, 'resources', 'preview.html')),
-			};
-			positron.window.createPreviewPaneItem(options);
+			const options: positron.PreviewOptions = {};
+			positron.window.createPreviewPanel('positron.zedPreview', 'Zed Preview', true, options);
 			this.simulateOutputMessage(parentId, 'Preview pane opened.');
 		} catch (error) {
 			this.simulateOutputMessage(parentId, `Error opening preview pane: ${error}`);
