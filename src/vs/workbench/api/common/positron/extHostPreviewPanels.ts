@@ -8,7 +8,6 @@ import { Disposable } from 'vs/base/common/lifecycle';
 import { URI } from 'vs/base/common/uri';
 import { generateUuid } from 'vs/base/common/uuid';
 import { IExtensionDescription } from 'vs/platform/extensions/common/extensions';
-import * as typeConverters from 'vs/workbench/api/common/extHostTypeConverters';
 import { serializeWebviewOptions, toExtensionData, ExtHostWebview, ExtHostWebviews } from 'vs/workbench/api/common/extHostWebview';
 import { IExtHostWorkspace } from 'vs/workbench/api/common/extHostWorkspace';
 import type * as vscode from 'vscode';
@@ -24,7 +23,6 @@ class ExtHostPreviewPanel extends Disposable implements vscode.WebviewPanel {
 	readonly #viewType: string;
 
 	readonly #webview: ExtHostWebview;
-	readonly #options: vscode.WebviewPanelOptions;
 
 	#title: string;
 	#iconPath?: IconPath;
@@ -45,8 +43,6 @@ class ExtHostPreviewPanel extends Disposable implements vscode.WebviewPanel {
 		params: {
 			viewType: string;
 			title: string;
-			viewColumn: vscode.ViewColumn | undefined;
-			panelOptions: vscode.WebviewPanelOptions;
 			active: boolean;
 		}
 	) {
@@ -55,7 +51,6 @@ class ExtHostPreviewPanel extends Disposable implements vscode.WebviewPanel {
 		this.#proxy = proxy;
 		this.#webview = webview;
 		this.#viewType = params.viewType;
-		this.#options = params.panelOptions;
 		this.#title = params.title;
 		this.#active = params.active;
 	}
@@ -103,7 +98,10 @@ class ExtHostPreviewPanel extends Disposable implements vscode.WebviewPanel {
 	}
 
 	get options() {
-		return this.#options;
+		return {
+			enableFindWidget: false,
+			retainContextWhenHidden: true,
+		};
 	}
 
 	get viewColumn(): vscode.ViewColumn | undefined {
@@ -120,12 +118,12 @@ class ExtHostPreviewPanel extends Disposable implements vscode.WebviewPanel {
 		return this.#visible;
 	}
 
-	_updateViewState(newState: { active: boolean; visible: boolean; viewColumn: vscode.ViewColumn }) {
+	_updateViewState(newState: { active: boolean; visible: boolean }) {
 		if (this.#isDisposed) {
 			return;
 		}
 
-		if (this.active !== newState.active || this.visible !== newState.visible || this.viewColumn !== newState.viewColumn) {
+		if (this.active !== newState.active || this.visible !== newState.visible) {
 			this.#active = newState.active;
 			this.#visible = newState.visible;
 			this.#onDidChangeViewState.fire({ webviewPanel: this });
@@ -177,12 +175,12 @@ export class ExtHostPreviewPanels implements extHostProtocol.ExtHostPreviewPanel
 		}, !!preserveFocus);
 
 		const webview = this.webviews.createNewWebview(handle, options, extension);
-		const panel = this.createNewPreviewPanel(handle, viewType, title, options, webview, true, true);
+		const panel = this.createNewPreviewPanel(handle, viewType, title, webview, true);
 
 		return panel;
 	}
 
-	public $onDidChangePreviewPanelViewStates(newStates: extHostProtocol.WebviewPanelViewStateData): void {
+	public $onDidChangePreviewPanelViewStates(newStates: extHostProtocol.PreviewPanelViewStateData): void {
 		const handles = Object.keys(newStates);
 		// Notify webviews of state changes in the following order:
 		// - Non-visible
@@ -210,7 +208,6 @@ export class ExtHostPreviewPanels implements extHostProtocol.ExtHostPreviewPanel
 			panel._updateViewState({
 				active: newState.active,
 				visible: newState.visible,
-				viewColumn: typeConverters.ViewColumn.to(newState.position),
 			});
 		}
 	}
@@ -223,8 +220,8 @@ export class ExtHostPreviewPanels implements extHostProtocol.ExtHostPreviewPanel
 		this.webviews.deleteWebview(handle);
 	}
 
-	public createNewPreviewPanel(previewHandle: string, viewType: string, title: string, options: extHostProtocol.IWebviewPanelOptions, webview: ExtHostPreview, active: boolean) {
-		const panel = new ExtHostPreviewPanel(previewHandle, this._proxy, webview, { viewType, title, panelOptions: options, active });
+	public createNewPreviewPanel(previewHandle: string, viewType: string, title: string, webview: ExtHostWebview, active: boolean) {
+		const panel = new ExtHostPreviewPanel(previewHandle, this._proxy, webview, { viewType, title, active });
 		this._webviewPanels.set(previewHandle, panel);
 		return panel;
 	}
