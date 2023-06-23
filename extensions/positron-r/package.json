@@ -134,6 +134,38 @@
         "path": "./syntaxes/r.tmGrammar.gen.json"
       }
     ],
+    "keybindings" : [
+      {
+        "command": "r.packageLoad",
+        "key": "ctrl+shift+l",
+        "mac": "cmd+shift+l",
+        "when": "isRPackage"
+      },
+      {
+        "command": "r.packageBuild",
+        "key": "ctrl+shift+b",
+        "mac": "cmd+shift+b",
+        "when": "isRPackage"
+      },
+      {
+        "command": "r.packageTest",
+        "key": "ctrl+shift+t",
+        "mac": "cmd+shift+t",
+        "when": "isRPackage"
+      },
+      {
+        "command": "r.packageCheck",
+        "key": "ctrl+shift+e",
+        "mac": "cmd+shift+e",
+        "when": "isRPackage"
+      },
+      {
+        "command": "r.packageDocument",
+        "key": "ctrl+shift+d",
+        "mac": "cmd+shift+d",
+        "when": "isRPackage"
+      }
+    ],
     "menus": {
       "commandPalette": [
         {
