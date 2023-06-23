@@ -73,7 +73,7 @@ import { CandidatePort } from 'vs/workbench/services/remote/common/remoteExplore
 import { ITextQueryBuilderOptions } from 'vs/workbench/services/search/common/queryBuilder';
 import * as search from 'vs/workbench/services/search/common/search';
 import { ISaveProfileResult } from 'vs/workbench/services/userDataProfile/common/userDataProfile';
-import { TerminalCommandMatchResult, TerminalQuickFixCommand, TerminalQuickFixOpener } from 'vscode';
+import { TerminalCommandMatchResult, TerminalQuickFixCommand, TerminalQuickFixOpener, WebviewOptions } from 'vscode';
 
 export type TerminalQuickFix = TerminalQuickFixCommand | TerminalQuickFixOpener;
 
@@ -918,6 +918,13 @@ export interface WebviewPanelViewStateData {
 export interface ExtHostWebviewsShape {
 	$onMessage(handle: WebviewHandle, jsonSerializedMessage: string, buffers: SerializableObjectWithBuffers<VSBuffer[]>): void;
 	$onMissingCsp(handle: WebviewHandle, extensionId: string): void;
+
+	// --- Begin Positron ---
+	// These are exposed so we can invoke them from the Positron API layer to
+	// back preview panels.
+	$createNewWebview(handle: WebviewHandle, options: WebviewOptions, extension: IExtensionDescription): void;
+	$deleteWebview(handle: WebviewHandle): void;
+	// --- End Positron ---
 }
 
 export interface ExtHostWebviewPanelsShape {
