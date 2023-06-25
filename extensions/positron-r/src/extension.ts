@@ -7,7 +7,6 @@ import * as vscode from 'vscode';
 import { registerCommands } from './commands';
 import { adaptJupyterKernel } from './kernel';
 import { initializeLogging, trace, traceOutputChannel } from './logging';
-import { providePackageTasks } from './tasks';
 
 function activateKernel(context: vscode.ExtensionContext) {
 
@@ -59,9 +58,6 @@ export function activate(context: vscode.ExtensionContext) {
 
 	// Register commands.
 	registerCommands(context);
-
-	// Provide tasks.
-	providePackageTasks(context);
 
 }
 
