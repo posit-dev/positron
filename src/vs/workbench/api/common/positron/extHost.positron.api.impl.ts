@@ -15,6 +15,8 @@ import * as extHostTypes from 'vs/workbench/api/common/positron/extHostTypes.pos
 import { IExtHostInitDataService } from 'vs/workbench/api/common/extHostInitDataService';
 import { ExtHostPreviewPanels } from 'vs/workbench/api/common/positron/extHostPreviewPanels';
 import { ExtHostContext } from 'vs/workbench/api/common/extHost.protocol';
+import { IExtHostWorkspace } from 'vs/workbench/api/common/extHostWorkspace';
+import { ExtHostWebviews } from 'vs/workbench/api/common/extHostWebview';
 
 /**
  * Factory interface for creating an instance of the Positron API.
@@ -30,11 +32,12 @@ export interface IExtensionPositronApiFactory {
 export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAccessor): IExtensionPositronApiFactory {
 	const rpcProtocol = accessor.get(IExtHostRpcService);
 	const initData = accessor.get(IExtHostInitDataService);
+	const extHostWorkspace = accessor.get(IExtHostWorkspace);
 
-	const extHostWebviews = rpcProtocol.getProxy(ExtHostContext.ExtHostWebviews);
+	const extHostWebviews: ExtHostWebviews = rpcProtocol.getRaw(ExtHostContext.ExtHostWebviews);
 
 	const extHostLanguageRuntime = rpcProtocol.set(ExtHostPositronContext.ExtHostLanguageRuntime, new ExtHostLanguageRuntime(rpcProtocol));
-	const extHostPreviewPanels = rpcProtocol.set(ExtHostPositronContext.ExtHostPreviewPanels, new ExtHostPreviewPanels(rpcProtocol));
+	const extHostPreviewPanels = rpcProtocol.set(ExtHostPositronContext.ExtHostPreviewPanels, new ExtHostPreviewPanels(rpcProtocol, extHostWebviews, extHostWorkspace));
 
 	return function (extension: IExtensionDescription, extensionInfo: IExtensionRegistries, configProvider: ExtHostConfigProvider): typeof positron {
 

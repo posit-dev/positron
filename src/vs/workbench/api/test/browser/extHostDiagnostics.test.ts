@@ -395,6 +395,11 @@ suite('ExtHostDiagnostics', () => {
 					}
 				};
 			}
+			// --- Begin Positron ---
+			getRaw(): any {
+				return null;
+			}
+			// --- End Positron ---
 			set(): any {
 				return null;
 			}
@@ -480,6 +485,11 @@ suite('ExtHostDiagnostics', () => {
 				getProxy(id: any): any {
 					return {};
 				}
+				// --- Begin Positron ---
+				getRaw(): any {
+					return null;
+				}
+				// --- End Positron ---
 				set(): any {
 					return null;
 				}
@@ -529,6 +539,11 @@ suite('ExtHostDiagnostics', () => {
 			set(): any {
 				return null;
 			}
+			// --- Begin Positron ---
+			getRaw(): any {
+				return null;
+			}
+			// --- End Positron ---
 			dispose() { }
 			assertRegistered(): void {
 

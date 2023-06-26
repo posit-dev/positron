@@ -291,6 +291,9 @@ suite('ExtHostWorkspace', function () {
 
 		const protocol: IMainContext = {
 			getProxy: () => { return undefined!; },
+			// --- Begin Positron ---
+			getRaw: undefined!,
+			// --- End Positron ---
 			set: () => { return undefined!; },
 			dispose: () => { },
 			assertRegistered: () => { },

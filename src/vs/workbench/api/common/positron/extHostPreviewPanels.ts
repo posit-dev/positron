@@ -8,12 +8,11 @@ import { Disposable } from 'vs/base/common/lifecycle';
 import { URI } from 'vs/base/common/uri';
 import { generateUuid } from 'vs/base/common/uuid';
 import { IExtensionDescription } from 'vs/platform/extensions/common/extensions';
-import { serializeWebviewOptions, toExtensionData, ExtHostWebview } from 'vs/workbench/api/common/extHostWebview';
+import { serializeWebviewOptions, toExtensionData, ExtHostWebview, ExtHostWebviews } from 'vs/workbench/api/common/extHostWebview';
 import { IExtHostWorkspace } from 'vs/workbench/api/common/extHostWorkspace';
 import type * as vscode from 'vscode';
 import type * as positron from 'positron';
 import * as extHostProtocol from './extHost.positron.protocol';
-import { ExtHostWebviewsShape } from 'vs/workbench/api/common/extHost.protocol';
 
 type IconPath = URI | { readonly light: URI; readonly dark: URI };
 
@@ -155,7 +154,7 @@ export class ExtHostPreviewPanels implements extHostProtocol.ExtHostPreviewPanel
 
 	constructor(
 		mainContext: extHostProtocol.IMainPositronContext,
-		private readonly webviews: ExtHostWebviewsShape,
+		private readonly webviews: ExtHostWebviews,
 		private readonly workspace: IExtHostWorkspace | undefined,
 	) {
 		this._proxy = mainContext.getProxy(extHostProtocol.MainPositronContext.MainThreadPreviewPanels);
@@ -176,7 +175,7 @@ export class ExtHostPreviewPanels implements extHostProtocol.ExtHostPreviewPanel
 		}, !!preserveFocus);
 
 		const webview = this.webviews.$createNewWebview(handle, options, extension);
-		const panel = this.createNewPreviewPanel(handle, viewType, title, webview, true);
+		const panel = this.createNewPreviewPanel(handle, viewType, title, webview as ExtHostWebview, true);
 
 		return panel;
 	}
