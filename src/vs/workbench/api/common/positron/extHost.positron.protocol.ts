@@ -54,7 +54,7 @@ export interface PreviewPanelViewStateData {
 
 export type PreviewHandle = string;
 
-export interface ExtHostPreviewPanelsShape {
+export interface ExtHostPreviewPanelShape {
 	$onDidChangePreviewPanelViewStates(newState: PreviewPanelViewStateData): void;
 	$onDidDisposePreviewPanel(handle: PreviewHandle): Promise<void>;
 }
@@ -71,7 +71,7 @@ export interface IPreviewInitData {
 	readonly webviewOptions: IPreviewContentOptions;
 }
 
-export interface MainThreadPreviewPanelsShape extends IDisposable {
+export interface MainThreadPreviewPanelShape extends IDisposable {
 	$createPreviewPanel(
 		extension: WebviewExtensionDescription,
 		handle: PreviewHandle,
@@ -89,12 +89,10 @@ export interface IMainPositronContext extends IRPCProtocol {
 
 export const ExtHostPositronContext = {
 	ExtHostLanguageRuntime: createProxyIdentifier<ExtHostLanguageRuntimeShape>('ExtHostLanguageRuntime'),
-	ExtHostPreviewPane: createProxyIdentifier<ExtHostPreviewPaneShape>('ExtHostPreviewPane'),
-	ExtHostPreviewPanels: createProxyIdentifier<ExtHostPreviewPanelsShape>('ExtHostPreviewPanels'),
+	ExtHostPreviewPanel: createProxyIdentifier<ExtHostPreviewPanelShape>('ExtHostPreviewPanel'),
 };
 
 export const MainPositronContext = {
 	MainThreadLanguageRuntime: createProxyIdentifier<MainThreadLanguageRuntimeShape>('MainThreadLanguageRuntime'),
-	MainThreadPreviewPane: createProxyIdentifier<MainThreadPreviewPaneShape>('MainThreadPreviewPane'),
-	MainThreadPreviewPanels: createProxyIdentifier<MainThreadPreviewPanelsShape>('MainThreadPreviewPanels'),
+	MainThreadPreviewPanel: createProxyIdentifier<MainThreadPreviewPanelShape>('MainThreadPreviewPanel'),
 };

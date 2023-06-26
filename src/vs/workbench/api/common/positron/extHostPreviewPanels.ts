@@ -19,7 +19,7 @@ type IconPath = URI | { readonly light: URI; readonly dark: URI };
 class ExtHostPreviewPanel extends Disposable implements vscode.WebviewPanel {
 
 	readonly #handle: extHostProtocol.PreviewHandle;
-	readonly #proxy: extHostProtocol.MainThreadPreviewPanelsShape;
+	readonly #proxy: extHostProtocol.MainThreadPreviewPanelShape;
 	readonly #viewType: string;
 
 	readonly #webview: ExtHostWebview;
@@ -38,7 +38,7 @@ class ExtHostPreviewPanel extends Disposable implements vscode.WebviewPanel {
 
 	constructor(
 		handle: extHostProtocol.PreviewHandle,
-		proxy: extHostProtocol.MainThreadPreviewPanelsShape,
+		proxy: extHostProtocol.MainThreadPreviewPanelShape,
 		webview: ExtHostWebview,
 		params: {
 			viewType: string;
@@ -142,13 +142,13 @@ class ExtHostPreviewPanel extends Disposable implements vscode.WebviewPanel {
 	}
 }
 
-export class ExtHostPreviewPanels implements extHostProtocol.ExtHostPreviewPanelsShape {
+export class ExtHostPreviewPanels implements extHostProtocol.ExtHostPreviewPanelShape {
 
 	private static newHandle(): extHostProtocol.PreviewHandle {
 		return generateUuid();
 	}
 
-	private readonly _proxy: extHostProtocol.MainThreadPreviewPanelsShape;
+	private readonly _proxy: extHostProtocol.MainThreadPreviewPanelShape;
 
 	private readonly _webviewPanels = new Map<extHostProtocol.PreviewHandle, ExtHostPreviewPanel>();
 
@@ -157,7 +157,7 @@ export class ExtHostPreviewPanels implements extHostProtocol.ExtHostPreviewPanel
 		private readonly webviews: ExtHostWebviews,
 		private readonly workspace: IExtHostWorkspace | undefined,
 	) {
-		this._proxy = mainContext.getProxy(extHostProtocol.MainPositronContext.MainThreadPreviewPanels);
+		this._proxy = mainContext.getProxy(extHostProtocol.MainPositronContext.MainThreadPreviewPanel);
 	}
 
 	public createPreviewPanel(
