@@ -5,6 +5,7 @@
 import { Disposable } from 'vs/base/common/lifecycle';
 import { IPositronPreviewService, IPreviewPaneItem, IPreviewPaneItemOptions } from 'vs/workbench/services/positronPreview/common/positronPreview';
 import { Event, Emitter } from 'vs/base/common/event';
+import { WebviewInitInfo } from 'vs/workbench/contrib/webview/browser/webview';
 
 class PositronPreviewItem extends Disposable implements IPreviewPaneItem {
 	id: string;
@@ -44,6 +45,13 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 		super();
 		this.onDidCreatePreviewPaneItem = this._onDidCreatePreviewPaneItemEmitter.event;
 		this.onDidChangeActivePreviewPaneItem = this._onDidChangeActivePreviewPaneItemEmitter.event;
+	}
+
+	openPreview(webviewInitInfo: WebviewInitInfo,
+		viewType: string,
+		title: string,
+		preserveFocus?: boolean | undefined): void {
+		throw new Error('Method not implemented.');
 	}
 
 	onDidChangeActivePreviewPaneItem: Event<string>;
