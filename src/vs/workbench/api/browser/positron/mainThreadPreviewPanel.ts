@@ -6,28 +6,12 @@ import { URI } from 'vs/base/common/uri';
 import { IStorageService } from 'vs/platform/storage/common/storage';
 import { MainThreadWebviews, reviveWebviewExtension } from 'vs/workbench/api/browser/mainThreadWebviews';
 import { WebviewExtensionDescription } from 'vs/workbench/api/common/extHost.protocol';
-import { IPreviewInitData, MainPositronContext, MainThreadPreviewPanelShape } from 'vs/workbench/api/common/positron/extHost.positron.protocol';
-import { ExtensionKeyedWebviewOriginStore, IOverlayWebview } from 'vs/workbench/contrib/webview/browser/webview';
-import { IExtHostContext, extHostNamedCustomer } from 'vs/workbench/services/extensions/common/extHostCustomers';
-import { IPositronPreviewService } from 'vs/workbench/services/positronPreview/common/positronPreview';
+import { ExtensionKeyedWebviewOriginStore } from 'vs/workbench/contrib/webview/browser/webview';
+import { IExtHostContext } from 'vs/workbench/services/extensions/common/extHostCustomers';
+import { IPositronPreviewService } from 'vs/workbench/services/positronPreview/browser/positronPreview';
 import * as extHostProtocol from 'vs/workbench/api/common/positron/extHost.positron.protocol';
+import { PreviewWebview } from 'vs/workbench/contrib/positronPreview/browser/positronPreviewService';
 import { Disposable } from 'vs/base/common/lifecycle';
-
-class PreviewWebview extends Disposable {
-	constructor(
-		readonly viewType: string,
-		private readonly _providedId: string | undefined,
-		readonly name: string,
-		readonly webview: IOverlayWebview
-	) {
-		super();
-		this._register(this.webview);
-	}
-
-	override dispose() {
-		super.dispose();
-	}
-}
 
 /**
  * Bi-directional map between webview handles and previews.
@@ -66,8 +50,7 @@ class PreviewWebviewStore {
 	}
 }
 
-@extHostNamedCustomer(MainPositronContext.MainThreadPreviewPanel)
-export class MainThreadPreviewPanel implements MainThreadPreviewPanelShape {
+export class MainThreadPreviewPanel extends Disposable implements extHostProtocol.MainThreadPreviewPanelShape {
 
 	private readonly webviewOriginStore: ExtensionKeyedWebviewOriginStore;
 
@@ -81,12 +64,14 @@ export class MainThreadPreviewPanel implements MainThreadPreviewPanelShape {
 		@IStorageService private readonly _storageService: IStorageService,
 		@IPositronPreviewService private readonly _positronPreviewService: IPositronPreviewService,
 	) {
+		super();
+
 		this.webviewOriginStore = new ExtensionKeyedWebviewOriginStore('mainThreadPreviewPanel.origins', this._storageService);
 
 		this._proxy = context.getProxy(extHostProtocol.ExtHostPositronContext.ExtHostPreviewPanel);
 	}
 
-	$createPreviewPanel(extensionData: WebviewExtensionDescription, handle: string, viewType: string, initData: IPreviewInitData, preserveFocus: boolean): void {
+	$createPreviewPanel(extensionData: WebviewExtensionDescription, handle: string, viewType: string, initData: extHostProtocol.IPreviewInitData, preserveFocus: boolean): void {
 		const extension = reviveWebviewExtension(extensionData);
 		const origin = this.webviewOriginStore.getOrigin(viewType, extension.id);
 
@@ -128,8 +113,8 @@ export class MainThreadPreviewPanel implements MainThreadPreviewPanelShape {
 		throw new Error('Method not implemented.');
 	}
 
-	dispose(): void {
-		throw new Error('Method not implemented.');
+	override dispose(): void {
+		super.dispose();
 	}
 
 	public addWebview(handle: extHostProtocol.PreviewHandle, preview: PreviewWebview): void {

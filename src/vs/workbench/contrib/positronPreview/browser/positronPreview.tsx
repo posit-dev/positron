@@ -14,7 +14,7 @@ import { IConfigurationService } from 'vs/platform/configuration/common/configur
 import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/layoutService';
 import { DisposableStore } from 'vs/base/common/lifecycle';
 import { PreviewContainer } from 'vs/workbench/contrib/positronPreview/browser/components/previewContainer';
-import { IPositronPreviewService } from 'vs/workbench/services/positronPreview/common/positronPreview';
+import { IPositronPreviewService } from 'vs/workbench/services/positronPreview/browser/positronPreview';
 import { PositronPreviewServices } from 'vs/workbench/contrib/positronPreview/browser/positronPreviewState';
 import { PositronPreviewContextProvider } from 'vs/workbench/contrib/positronPreview/browser/positronPreviewContext';
 

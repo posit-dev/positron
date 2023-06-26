@@ -12,6 +12,11 @@ import { MainThreadWebviewsViews } from 'vs/workbench/api/browser/mainThreadWebv
 import * as extHostProtocol from 'vs/workbench/api/common/extHost.protocol';
 import { extHostCustomer, IExtHostContext } from '../../services/extensions/common/extHostCustomers';
 
+// --- Begin Positron ---
+import { MainThreadPreviewPanel } from 'vs/workbench/api/browser/positron/mainThreadPreviewPanel';
+import * as extHostPositronProtocol from 'vs/workbench/api/common/positron/extHost.positron.protocol';
+// --- End Positron ---
+
 @extHostCustomer
 export class MainThreadWebviewManager extends Disposable {
 	constructor(
@@ -31,5 +36,10 @@ export class MainThreadWebviewManager extends Disposable {
 
 		const webviewViews = this._register(instantiationService.createInstance(MainThreadWebviewsViews, context, webviews));
 		context.set(extHostProtocol.MainContext.MainThreadWebviewViews, webviewViews);
+
+		// --- Begin Positron ---
+		const webviewPreviews = this._register(instantiationService.createInstance(MainThreadPreviewPanel, context, webviews));
+		context.set(extHostPositronProtocol.MainPositronContext.MainThreadPreviewPanel, webviewPreviews);
+		// --- End Positron ---
 	}
 }

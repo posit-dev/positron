@@ -5,7 +5,6 @@
 import { IDisposable } from 'vs/base/common/lifecycle';
 import { ILanguageRuntimeInfo, ILanguageRuntimeMetadata, RuntimeClientType, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeState, ILanguageRuntimeMessage } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { createProxyIdentifier, IRPCProtocol } from 'vs/workbench/services/extensions/common/proxyIdentifier';
-import { IPreviewPaneItemOptions } from 'vs/workbench/services/positronPreview/common/positronPreview';
 import { IWebviewPortMapping, WebviewExtensionDescription } from 'vs/workbench/api/common/extHost.protocol';
 import { UriComponents } from 'vs/base/common/uri';
 
@@ -17,13 +16,6 @@ export interface MainThreadLanguageRuntimeShape extends IDisposable {
 
 	$emitLanguageRuntimeMessage(handle: number, message: ILanguageRuntimeMessage): void;
 	$emitLanguageRuntimeState(handle: number, clock: number, state: RuntimeState): void;
-}
-
-export interface MainThreadPreviewPaneShape extends IDisposable {
-	$createPreviewPaneItem(handle: number, options: IPreviewPaneItemOptions): Thenable<void>;
-	$disposePreviewPaneItem(handle: number): Thenable<void>;
-	$sendMessageToPreviewPane(handle: number, message: Object): Thenable<void>;
-	$isPreviewItemShowing(handle: number): Promise<boolean>;
 }
 
 // The interface to the main thread exposed by the extension host

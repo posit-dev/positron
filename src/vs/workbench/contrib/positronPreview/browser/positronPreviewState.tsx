@@ -4,7 +4,7 @@
 
 import { useEffect, useState } from 'react';
 import { DisposableStore } from 'vs/base/common/lifecycle';
-import { IPositronPreviewService, IPreviewPaneItem } from 'vs/workbench/services/positronPreview/common/positronPreview';
+import { IPositronPreviewService, IPreviewPaneItem } from 'vs/workbench/services/positronPreview/browser/positronPreview';
 
 /**
  * PositronPreviewServices interface. Defines the set of services that are

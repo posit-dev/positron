@@ -19,7 +19,7 @@ import { PositronPreview } from 'vs/workbench/contrib/positronPreview/browser/po
 import { Event, Emitter } from 'vs/base/common/event';
 import { ICommandService } from 'vs/platform/commands/common/commands';
 import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/layoutService';
-import { IPositronPreviewService } from 'vs/workbench/services/positronPreview/common/positronPreview';
+import { IPositronPreviewService } from 'vs/workbench/services/positronPreview/browser/positronPreview';
 
 /**
  * PositronPreviewViewPane class.
