@@ -609,6 +609,8 @@ export const Codicon = {
 	positronPowerButton: register('positron-power-button', 0xf259),
 	positronMoreOptions: register('positron-more-options', 0xf25a),
 	positronTopActionBar: register('positron-top-action-bar', 0xf25b),
+	positronTriangleDown: register('positron-triangle-down', 0xf25c),
+	positronTriangleRight: register('positron-triangle-right', 0xf25d),
 
 	// --- End Positron ---
 

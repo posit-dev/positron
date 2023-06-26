@@ -1360,8 +1360,8 @@ export const POSITRON_CONSOLE_FOREGROUND_COLOR = registerColor('positronConsole.
 
 // Positron Console error background color.
 export const POSITRON_CONSOLE_ERROR_BACKGROUND_COLOR = registerColor('positronConsole.errorBackground', {
-	dark: transparent(Color.white, 0.1),
-	light: transparent(Color.black, 0.05),
+	dark: transparent('terminal.ansiRed', 0.1),
+	light: transparent('terminal.ansiRed', 0.05),
 	hcDark: 'terminal.background',
 	hcLight: 'terminal.background'
 }, localize('positronConsole.errorBackground', "Positron Console error background color."));
