@@ -100,6 +100,9 @@ export const EnvironmentInstance = (props: EnvironmentInstanceProps) => {
 			setEntries(entries);
 		}));
 
+		// Request the initial refresh.
+		props.positronEnvironmentInstance.requestRefresh();
+
 		// Return the cleanup function that will dispose of the event handlers.
 		return () => disposableStore.dispose();
 	}, []);
