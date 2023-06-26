@@ -6,6 +6,7 @@ import { Disposable } from 'vs/base/common/lifecycle';
 import { Event } from 'vs/base/common/event';
 import { createDecorator } from 'vs/platform/instantiation/common/instantiation';
 import { URI } from 'vs/base/common/uri';
+import { WebviewInitInfo } from 'vs/workbench/contrib/webview/browser/webview';
 
 export const POSITRON_PREVIEW_VIEW_ID = 'workbench.panel.positronPreview';
 
@@ -57,6 +58,15 @@ export interface IPreviewPaneItem extends Disposable {
  */
 export interface IPositronPreviewService {
 	readonly _serviceBrand: undefined;
+
+	/**
+	 * Create and open a new preview.
+	 */
+	openPreview(
+		webviewInitInfo: WebviewInitInfo,
+		viewType: string,
+		title: string,
+		preserveFocus?: boolean): void;
 
 	/**
 	 * Creates a new preview pane item.
