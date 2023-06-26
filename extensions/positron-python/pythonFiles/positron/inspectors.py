@@ -502,7 +502,7 @@ class PandasSeriesInspector(CollectionInspector):
 
 
 class PolarsInspector(TableInspector):
-    CLASS_QNAME = "polars.dataframe.frame.DataFrame"
+    CLASS_QNAME = ["polars.dataframe.frame.DataFrame", "polars.internals.dataframe.frame.DataFrame"]
 
     def get_display_value(
         self, value: Any, print_width: int = PRINT_WIDTH, truncate_at: int = TRUNCATE_AT
@@ -697,8 +697,8 @@ class NumpyNdarrayInspector(CollectionInspector):
 INSPECTORS = {
     PandasDataFrameInspector.CLASS_QNAME: PandasDataFrameInspector(),
     PandasSeriesInspector.CLASS_QNAME: PandasSeriesInspector(),
-    PolarsInspector.CLASS_QNAME: PolarsInspector(),
     NumpyNdarrayInspector.CLASS_QNAME: NumpyNdarrayInspector(),
+    **dict.fromkeys(PolarsInspector.CLASS_QNAME, PolarsInspector()),
     "boolean": BooleanInspector(),
     "bytes": BytesInspector(),
     "collection": CollectionInspector(),
