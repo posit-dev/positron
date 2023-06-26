@@ -2,27 +2,42 @@
  *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
-.traceback {
-	padding: 3px 0;
+.activity-error-message {
+	display: grid;
+	margin-left: -10px;
+	grid-template-columns: 10px 1fr;
 	background: var(--vscode-positronConsole-errorBackground);
 }
 
-.traceback .toggle-traceback {
+.activity-error-message .error-bar {
+	width: 4px;
+	display: flex;
+	opacity: 0.75;
+	background-color: var(--vscode-positronConsole-ansiRed);
+}
+
+.activity-error-message .error-information {
+	padding: 4px 0;
+}
+
+.activity-error-message .traceback .toggle-traceback {
 	display: grid;
 	cursor: pointer;
 	grid-template-columns: 2ch 1fr;
 }
 
-.traceback .toggle-traceback .expansion-indicator {
-	margin-left: 2px;
+.activity-error-message .traceback .toggle-traceback .expansion-indicator {
+	display: flex;
+	margin-left: 0px;
+	align-items: center;
 }
 
-.traceback .toggle-traceback .link-text {
+.activity-error-message .traceback .toggle-traceback .link-text {
 	text-decoration: underline;
 	color: var(--vscode-textLink-foreground);
 }
 
-.traceback .traceback-lines {
+.activity-error-message .traceback .traceback-lines {
 	display: grid;
 	grid-template-columns: 2ch 1fr;
 }

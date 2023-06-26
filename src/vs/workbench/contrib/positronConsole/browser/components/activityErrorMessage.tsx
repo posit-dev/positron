@@ -42,12 +42,12 @@ export const ActivityErrorMessage = (props: ActivityErrorMessageProps) => {
 				<PositronButton className='toggle-traceback' onClick={clickHandler}>
 					{showTraceback ?
 						<>
-							<div className='expansion-indicator'>-</div>
+							<div className='expansion-indicator codicon codicon-positron-triangle-down'></div>
 							<div className='link-text'>{localize('positronHideTraceback', "Hide Traceback")}</div>
 
 						</> :
 						<>
-							<div className='expansion-indicator'>+</div>
+							<div className='expansion-indicator codicon codicon-positron-triangle-right'></div>
 							<div className='link-text'>{localize('positronShowTraceback', "Show Traceback")}</div>
 						</>
 					}
@@ -67,12 +67,15 @@ export const ActivityErrorMessage = (props: ActivityErrorMessageProps) => {
 	// Render.
 	return (
 		<div className='activity-error-message'>
-			{props.activityItemErrorMessage.messageOutputLines.length > 0 &&
-				<OutputLines outputLines={props.activityItemErrorMessage.messageOutputLines} />
-			}
-			{props.activityItemErrorMessage.tracebackOutputLines.length > 0 &&
-				<Traceback />
-			}
+			<div className='error-bar'></div>
+			<div className='error-information'>
+				{props.activityItemErrorMessage.messageOutputLines.length > 0 &&
+					<OutputLines outputLines={props.activityItemErrorMessage.messageOutputLines} />
+				}
+				{props.activityItemErrorMessage.tracebackOutputLines.length > 0 &&
+					<Traceback />
+				}
+			</div>
 		</div>
 	);
 };
