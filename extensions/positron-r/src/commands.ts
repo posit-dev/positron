@@ -7,7 +7,11 @@ import * as positron from 'positron';
 
 import { adaptJupyterKernel } from './kernel';
 
-export function registerCommands(context: vscode.ExtensionContext) {
+export async function registerCommands(context: vscode.ExtensionContext) {
+
+	const isRPackage = await detectRPackage();
+	vscode.commands.executeCommand('setContext', 'isRPackage', isRPackage);
+
 	context.subscriptions.push(
 		// Command used to register the ARK kernel with the Jupyter Adapter
 		// extension. Typically run only once to set up the kernel.
@@ -41,6 +45,31 @@ export function registerCommands(context: vscode.ExtensionContext) {
 			vscode.workspace.openTextDocument({ language: 'r' }).then((newFile) => {
 				vscode.window.showTextDocument(newFile);
 			});
+		}),
+
+		// Commands for package development tooling
+		vscode.commands.registerCommand('r.packageLoad', () => {
+			positron.runtime.executeCode('r', 'devtools::load_all()', true);
+		}),
+
+		vscode.commands.registerCommand('r.packageBuild', () => {
+			positron.runtime.executeCode('r', 'devtools::build()', true);
+		}),
+
+		vscode.commands.registerCommand('r.packageInstall', () => {
+			positron.runtime.executeCode('r', 'devtools::install()', true);
+		}),
+
+		vscode.commands.registerCommand('r.packageTest', () => {
+			positron.runtime.executeCode('r', 'devtools::test()', true);
+		}),
+
+		vscode.commands.registerCommand('r.packageCheck', () => {
+			positron.runtime.executeCode('r', 'devtools::check()', true);
+		}),
+
+		vscode.commands.registerCommand('r.packageDocument', () => {
+			positron.runtime.executeCode('r', 'devtools::document()', true);
 		}),
 
 		// Command used to source the current file
@@ -83,4 +112,21 @@ export function registerCommands(context: vscode.ExtensionContext) {
 			}
 		}),
 	);
+}
+
+async function detectRPackage(): Promise<boolean> {
+	if (vscode.workspace.workspaceFolders !== undefined) {
+		const folderUri = vscode.workspace.workspaceFolders[0].uri;
+		const fileUri = vscode.Uri.joinPath(folderUri, 'DESCRIPTION');
+		try {
+			const bytes = await vscode.workspace.fs.readFile(fileUri);
+			const descriptionText = Buffer.from(bytes).toString('utf8');
+			const descriptionLines = descriptionText.split(/(\r?\n)/);
+			const descStartsWithPackage = descriptionLines[0].startsWith('Package:');
+			const typeLines = descriptionLines.filter(line => line.startsWith('Type:'));
+			const typeIsPackage = typeLines.length === 0 || typeLines[0].includes('Package');
+			return descStartsWithPackage && typeIsPackage;
+		} catch { }
+	}
+	return false;
 }
