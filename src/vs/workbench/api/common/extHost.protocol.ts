@@ -74,6 +74,7 @@ import { ITextQueryBuilderOptions } from 'vs/workbench/services/search/common/qu
 import * as search from 'vs/workbench/services/search/common/search';
 import { ISaveProfileResult } from 'vs/workbench/services/userDataProfile/common/userDataProfile';
 import { TerminalCommandMatchResult, TerminalQuickFixCommand, TerminalQuickFixOpener, WebviewOptions } from 'vscode';
+import { ExtHostWebview } from 'vs/workbench/api/common/extHostWebview';
 
 export type TerminalQuickFix = TerminalQuickFixCommand | TerminalQuickFixOpener;
 
@@ -922,7 +923,7 @@ export interface ExtHostWebviewsShape {
 	// --- Begin Positron ---
 	// These are exposed so we can invoke them from the Positron API layer to
 	// back preview panels.
-	$createNewWebview(handle: WebviewHandle, options: WebviewOptions, extension: IExtensionDescription): void;
+	$createNewWebview(handle: WebviewHandle, options: WebviewOptions, extension: IExtensionDescription): ExtHostWebview;
 	$deleteWebview(handle: WebviewHandle): void;
 	// --- End Positron ---
 }

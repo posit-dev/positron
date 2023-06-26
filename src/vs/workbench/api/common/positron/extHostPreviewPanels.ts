@@ -8,7 +8,7 @@ import { Disposable } from 'vs/base/common/lifecycle';
 import { URI } from 'vs/base/common/uri';
 import { generateUuid } from 'vs/base/common/uuid';
 import { IExtensionDescription } from 'vs/platform/extensions/common/extensions';
-import { serializeWebviewOptions, toExtensionData, ExtHostWebview, ExtHostWebviews } from 'vs/workbench/api/common/extHostWebview';
+import { serializeWebviewOptions, toExtensionData, ExtHostWebview } from 'vs/workbench/api/common/extHostWebview';
 import { IExtHostWorkspace } from 'vs/workbench/api/common/extHostWorkspace';
 import type * as vscode from 'vscode';
 import type * as positron from 'positron';
