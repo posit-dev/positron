@@ -1062,7 +1062,8 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 		// Open the preview pane.
 		try {
 			const options: positron.PreviewOptions = {};
-			positron.window.createPreviewPanel('positron.zedPreview', 'Zed Preview', true, options);
+			const preview = positron.window.createPreviewPanel('positron.zedPreview', 'Zed Preview', true, options);
+			preview.webview.html = '<html><body><h1>Hello from Zed</h1></body></html>';
 			this.simulateOutputMessage(parentId, 'Preview pane opened.');
 		} catch (error) {
 			this.simulateOutputMessage(parentId, `Error opening preview pane: ${error}`);

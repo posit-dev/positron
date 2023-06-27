@@ -167,6 +167,16 @@ export class PositronPreviewViewPane extends ViewPane implements IReactComponent
 
 	protected override layoutBody(height: number, width: number): void {
 		super.layoutBody(height, width);
+
+		// Set the width and height.
+		this._width = width;
+		this._height = height;
+
+		// Raise the onSizeChanged event.
+		this._onSizeChangedEmitter.fire({
+			width,
+			height
+		});
 	}
 
 	//#endregion Public Overrides

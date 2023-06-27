@@ -31,23 +31,22 @@ export const PreviewContainer = (props: PreviewContainerProps) => {
 	useEffect(() => {
 		if (selectedItem && webviewRef.current) {
 			const webview = selectedItem.webview;
+			webview.claim(this, undefined);
 			const container = webview.container;
+			container.setAttribute('data-preview-container', selectedItem.providedId);
 			if (container) {
 				webview.layoutWebviewOverElement(webviewRef.current);
 			}
 		}
 	});
 
-	// If there are no plot instances, show a placeholder; otherwise, show the
-	// most recently generated plot.
+	const style = {
+		width: `${props.width}px`,
+		height: `${props.height}px`,
+	};
+
 	return (
-		<div>
-			<h1>Hello, world!</h1>
-			<p>Number of items: {positronPreviewContext.previewWebviews.length}</p>
-			<p>Selected item: {positronPreviewContext.selectedItemIndex}</p>
-			<div ref={webviewRef}>
-				&nbsp;
-			</div>
+		<div ref={webviewRef} style={style}>
 		</div>
 	);
 };
