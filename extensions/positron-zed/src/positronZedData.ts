@@ -27,6 +27,12 @@ class ZedColumn implements DataColumn {
  * DataSet interface suitable for use with the Positron data viewer.
  */
 export class ZedData implements DataSet {
+	/**
+	 * Emitter that handles outgoing messages to the front end
+	 */
+	private readonly _onDidEmitData = new vscode.EventEmitter<object>();
+	onDidEmitData: vscode.Event<object> = this._onDidEmitData.event;
+
 	public readonly id: string;
 	public readonly columns: Array<ZedColumn> = [];
 
@@ -52,5 +58,15 @@ export class ZedData implements DataSet {
 	}
 
 	handleMessage(message: any): void {
+		switch (message.msg_type) {
+			case 'initial_data':
+				console.log(`ZedData ${this.id} got initial_data message`);
+				break;
+			default:
+				console.error(`ZedData ${this.id} got unknown message type: ${message.msg_type}`);
+				break;
+		}
 	}
+
+
 }

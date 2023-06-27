@@ -12,9 +12,11 @@ import * as ReactTable from '@tanstack/react-table';
 
 // Local modules.
 import { DataFragment, DataModel } from './DataModel';
+import { DataViewerMessageRequest, DataViewerMessage, DataViewerMessageData } from './positron-data-viewer';
 
 interface DataPanelProps {
 	data: DataModel;
+	vscode: any;
 }
 
 /**
@@ -41,11 +43,41 @@ export const DataPanel = (props: DataPanelProps) => {
 	// A reference to the table container element.
 	const tableContainerRef = React.useRef<HTMLDivElement>(null);
 
+	// We should maybe use DataFragments here instead, and throughout the Panel
+	const [dataModel, updateDataModel] = React.useState<DataModel>(props.data);
+
+	const handleMessage = ((event: any) => {
+		const message = event.data as DataViewerMessage;
+		console.log(`Received message: ${message.msg_type}`);
+
+		if (message.msg_type === 'receive_rows') {
+			const dataMessage = message as DataViewerMessageData;
+			const numRowsReceived = dataMessage.data.columns[0].data.length;
+			console.log(`DATA: Received incremental data: from ${dataMessage.start_row} to ${dataMessage.start_row + numRowsReceived}`);
+			console.log(`DATA: Row ${dataMessage.start_row} starts with ${dataMessage.data.columns[0].data[0]}`);
+			// TODO: create a method to combine data models and use it here with previous state updater function.
+			const incrementalData = new DataModel(dataMessage.data, dataMessage.start_row);
+			//updateDataModel((prevDataModel) => prevDataModel.appendDataModel(incrementalData));
+			updateDataModel(incrementalData);
+		}
+	});
+
+	React.useEffect(() => {
+		window.addEventListener('message', handleMessage);
+
+		return () => {
+			window.removeEventListener('message', handleMessage);
+		};
+	}, []);
+
+
+	console.log(`DataPanel.render: ${JSON.stringify(dataModel.columns[0])}`);
+
 	// Create the columns for the table. These use the 'any' type since the data
 	// model is generic.
 	const columns = React.useMemo<ReactTable.ColumnDef<any>[]>(
 		() => {
-			return props.data.columns.map((column, idx) => {
+			return dataModel.columns.map((column, idx) => {
 				return {
 					id: '' + idx,
 					accessorKey: idx,
@@ -56,16 +88,16 @@ export const DataPanel = (props: DataPanelProps) => {
 				};
 			});
 		},
-		[]);
+		[dataModel]);
 
 	// Use a React Query infinite query to fetch data from the data model.
 	const { data, fetchNextPage, isFetching, isLoading } =
 		ReactQuery.useInfiniteQuery<DataFragment>(
-			['table-data'],
+			['table-data', dataModel.id],
 			async ({ pageParam = 0 }) => {
 				// Fetches a single page of data from the data model.
 				const start = pageParam * fetchSize;
-				const fragment = props.data.loadDataFragment(start, fetchSize);
+				const fragment = dataModel.loadDataFragment(start, fetchSize);
 				return fragment;
 			},
 			{
@@ -102,7 +134,7 @@ export const DataPanel = (props: DataPanelProps) => {
 		[data]);
 
 	// Count total rows against those we have fetched.
-	const totalRows = props.data.rowCount;
+	const totalRows = dataModel.rowCount;
 
 	// Find the maximum rowEnd value in the data; this is the
 	// total number of rows we have fetched.
@@ -124,6 +156,12 @@ export const DataPanel = (props: DataPanelProps) => {
 					totalFetched < totalRows
 				) {
 					fetchNextPage();
+					const msg: DataViewerMessageRequest = {
+						msg_type: 'request_rows',
+						start_row: totalFetched,
+						fetch_size: fetchSize
+					};
+					props.vscode.postMessage(msg);
 				}
 			}
 		},

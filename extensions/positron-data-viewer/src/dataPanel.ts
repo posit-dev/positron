@@ -14,11 +14,11 @@ import { constructDataViewerMessage } from './utils';
  * @param context The extension context
  * @param client The runtime client instance; a two-way channel that allows the
  *   extension to communicate with the runtime
- * @param initialData The initial data to display in the data viewer
+ * @param data The data to display in the data viewer
  */
 export async function createDataPanel(context: vscode.ExtensionContext,
 	client: positron.RuntimeClientInstance,
-	initialData: DataSet) {
+	data: DataSet) {
 	const panel = vscode.window.createWebviewPanel(
 		'positronDataViewer',
 		'Data Viewer',
@@ -92,7 +92,7 @@ export async function createDataPanel(context: vscode.ExtensionContext,
 		panel.webview.postMessage(event);
 	});
 
-	panel.title = initialData.title;
+	panel.title = data.title;
 
 	// In development mode, load the CSS file directly from the extension folder
 	let cssTag = '';
@@ -106,7 +106,7 @@ export async function createDataPanel(context: vscode.ExtensionContext,
 	panel.webview.html = `
 		<head>
 			<meta charset="UTF-8">
-			<title>${initialData.title}</title>
+			<title>${data.title}</title>
 			${cssTag}
 		</head>
 		<body>
@@ -115,11 +115,13 @@ export async function createDataPanel(context: vscode.ExtensionContext,
 
 	// Handle messages from the webview
 	panel.webview.onDidReceiveMessage((message: DataViewerMessage) => {
-		if (message.msg_type === 'ready') {
-			// The webview is ready to receive messages; send it
-			// the initial data
-			const dataMsg = constructDataViewerMessage(initialData);
+		if (message.msg_type === 'ready' || message.msg_type === 'request_rows') {
+			// The webview is requesting initial or incremental data; send it
+			// the data request
+			console.log('I got a request for more data starting from row ' + message.start_row);
+			const dataMsg = constructDataViewerMessage(data, message.start_row);
 			panel.webview.postMessage(dataMsg);
+			console.log('I sent a message with more data starting from row ' + message.start_row);
 		}
 	},
 		undefined,

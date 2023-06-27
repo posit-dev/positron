@@ -1226,6 +1226,8 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 
 		// Create the data client comm.
 		const data = new ZedData(this.context, title);
+		this.connectClientEmitter(data);
+		this._data.set(data.id, data);
 
 		// Send the comm open message to the client.
 		this._onDidReceiveRuntimeMessage.fire({
@@ -1506,7 +1508,7 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 	 *
 	 * @param client The environment or plot to connect
 	 */
-	private connectClientEmitter(client: ZedEnvironment | ZedPlot) {
+	private connectClientEmitter(client: ZedEnvironment | ZedPlot | ZedData) {
 
 		// Listen for data emitted from the environment instance
 		client.onDidEmitData(data => {
