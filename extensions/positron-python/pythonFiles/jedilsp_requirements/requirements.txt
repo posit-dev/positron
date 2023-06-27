@@ -17,7 +17,9 @@ cattrs==23.1.2 \
 docstring-to-markdown==0.12 \
     --hash=sha256:40004224b412bd6f64c0f3b85bb357a41341afd66c4b4896709efa56827fb2bb \
     --hash=sha256:7df6311a887dccf9e770f51242ec002b19f0591994c4783be49d24cdc1df3737
-    # via jedi-language-server
+    # via
+    #   -r pythonFiles/jedilsp_requirements/requirements.in
+    #   jedi-language-server
 exceptiongroup==1.1.1 \
     --hash=sha256:232c37c63e4f682982c8b6459f33a8981039e5fb8756b2074364e5055c498c9e \
     --hash=sha256:d484c3090ba2889ae2928419117447a14daf3c1231d5e30d0aae34f354f01785
@@ -34,12 +36,20 @@ jedi-language-server==0.40.0 \
     --hash=sha256:53e590400b5cd2f6e363e77a4d824b1883798994b731cb0b4370d103748d30e2 \
     --hash=sha256:bacbae2930b6a8a0f1f284c211672fceec94b4808b0415d1c3352fa4b1ac5ad6
     # via -r pythonFiles/jedilsp_requirements/requirements.in
-lsprotocol==2023.0.0a1 \
-    --hash=sha256:133c339a7cccb299a5b357f9b8ef6aebe27616e0daf4ba54e63476afe0e12e47 \
-    --hash=sha256:32edfd4856abba1349bf5a070567445b3d7286951afba3644b472629796f82d0
+lsprotocol==2023.0.0a2 \
+    --hash=sha256:80aae7e39171b49025876a524937c10be2eb986f4be700ca22ee7d186b8488aa \
+    --hash=sha256:c4f2f77712b50d065b17f9b50d2b88c480dc2ce4bbaa56eea8269dbf54bc9701
     # via
     #   jedi-language-server
     #   pygls
+markdown-it-py==3.0.0 \
+    --hash=sha256:355216845c60bd96232cd8d8c40e8f9765cc86f46880e43a8fd22dc1a1a8cab1 \
+    --hash=sha256:e3f60a94fa066dc52ec76661e37c851cb232d92f9886b15cb560aaada2df8feb
+    # via -r pythonFiles/jedilsp_requirements/requirements.in
+mdurl==0.1.2 \
+    --hash=sha256:84008a41e51615a49fc9966191ff91509e3c40b939176e643fd50a5c2196b8f8 \
+    --hash=sha256:bb413d29f5eea38f31dd4754dd7377d4465116fb207585f97bf925588687c1ba
+    # via markdown-it-py
 parso==0.8.3 \
     --hash=sha256:8c07be290bb59f03588915921e29e8a50002acaf2cdc5fa0e0114f91709fafa0 \
     --hash=sha256:c001d4636cd3aecdaf33cbb40aebb59b094be2a74c556778ef5576c175e19e75

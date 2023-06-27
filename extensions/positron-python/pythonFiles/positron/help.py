@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING, Any, Optional, Union
 from pydantic import Field
 
 from .frontend import BaseFrontendEvent
+from .pydoc import patch_pydoc
 from .utils import get_qualname
 
 if TYPE_CHECKING:
@@ -70,6 +71,9 @@ class HelpService:
 
     def _start_pydoc_server(self):
         """Adapted from pydoc.browser."""
+        # Monkey patch pydoc for our custom functionality
+        patch_pydoc()
+
         # Setting port to 0 will use an arbitrary port
         pydoc_thread = pydoc._start_server(pydoc._url_handler, hostname="localhost", port=0)  # type: ignore
 
@@ -129,7 +133,7 @@ del help  # Clean up the user's namespace
         asyncio.run_coroutine_threadsafe(coro, loop)
 
     def shutdown(self) -> None:
-        if self.pydoc_thread is not None:
+        if self.pydoc_thread is not None and self.pydoc_thread.serving:
             logger.info("Stopping pydoc server thread")
             self.pydoc_thread.stop()
 

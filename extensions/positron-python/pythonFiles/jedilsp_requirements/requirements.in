@@ -7,5 +7,7 @@
 jedi-language-server>=0.34.3
 pygls>=0.10.3
 # --- Start Positron ---
+docstring-to-markdown
+markdown-it-py
 pydantic
 # --- End Positron ---
