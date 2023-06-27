@@ -88,6 +88,10 @@ export async function registerCommands(context: vscode.ExtensionContext) {
 				return;
 			}
 
+			// Save the file before sourcing it to ensure that the contents are
+			// up to date with editor buffer.
+			await vscode.commands.executeCommand('workbench.action.files.save');
+
 			try {
 				// Check to see if the fsPath is an actual path to a file using
 				// the VS Code file system API.
