@@ -23,21 +23,27 @@ interface PreviewContainerProps {
 export const PreviewContainer = (props: PreviewContainerProps) => {
 
 	const positronPreviewContext = usePositronPreviewContext();
+	const webviewRef = React.useRef<HTMLDivElement>(null);
 
 	useEffect(() => {
 		// Empty for now.
 	});
 
-	const selectedItem = positronPreviewContext.previewPaneItems.find(
-		item => item.id === positronPreviewContext.selectedItemId);
+	const selectedItem = positronPreviewContext.previewWebviews.find(
+		item => item.providedId === positronPreviewContext.selectedItemId);
+
+	if (selectedItem && webviewRef.current) {
+		selectedItem.webview.layoutWebviewOverElement(webviewRef.current);
+	}
+
 	// If there are no plot instances, show a placeholder; otherwise, show the
 	// most recently generated plot.
 	return (
 		<div>
 			<h1>Hello, world!</h1>
-			<p>Number of items: {positronPreviewContext.previewPaneItems.length}</p>
+			<p>Number of items: {positronPreviewContext.previewWebviews.length}</p>
 			<p>Selected item: {positronPreviewContext.selectedItemIndex}</p>
-			{selectedItem && 'uri ' + selectedItem.options.uri.toString() + ' (' + JSON.stringify(selectedItem.options.uri)}
+			<div ref={webviewRef}></div>
 		</div>
 	);
 };
