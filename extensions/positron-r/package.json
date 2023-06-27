@@ -140,7 +140,7 @@
         "path": "./syntaxes/r.tmGrammar.gen.json"
       }
     ],
-    "keybindings" : [
+    "keybindings": [
       {
         "command": "r.packageLoad",
         "key": "ctrl+shift+l",
@@ -170,6 +170,12 @@
         "key": "ctrl+shift+d",
         "mac": "cmd+shift+d",
         "when": "isRPackage"
+      },
+      {
+        "command": "r.sourceCurrentFile",
+        "key": "ctrl+shift+enter",
+        "mac": "cmd+shift+enter",
+        "when": "editorLangId == r"
       }
     ],
     "menus": {
