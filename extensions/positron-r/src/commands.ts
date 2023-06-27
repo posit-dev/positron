@@ -101,9 +101,12 @@ export async function registerCommands(context: vscode.ExtensionContext) {
 				// relative to the current directory; doing so, however, will
 				// require the kernel to alert us to the current working directory,
 				// or provide a method for asking it to create the `source()`
-				// command. For now, just use the full path.
+				// command.
+				//
+				// For now, just use the full path, passed through JSON encoding
+				// to ensure that it is properly escaped.
 				if (fsStat) {
-					const command = `source('${filePath}')`;
+					const command = `source(${JSON.stringify(filePath)})`;
 					positron.runtime.executeCode('r', command, true);
 				}
 			} catch (e) {
