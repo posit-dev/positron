@@ -4,7 +4,8 @@
 
 import { useEffect, useState } from 'react';
 import { DisposableStore } from 'vs/base/common/lifecycle';
-import { IPositronPreviewService, IPreviewPaneItem } from 'vs/workbench/services/positronPreview/browser/positronPreview';
+import { PreviewWebview } from 'vs/workbench/contrib/positronPreview/browser/positronPreviewService';
+import { IPositronPreviewService } from 'vs/workbench/services/positronPreview/browser/positronPreview';
 
 /**
  * PositronPreviewServices interface. Defines the set of services that are
@@ -18,7 +19,7 @@ export interface PositronPreviewServices {
  * The Positron preview pane state.
  */
 export interface PositronPreviewState extends PositronPreviewServices {
-	readonly previewPaneItems: IPreviewPaneItem[];
+	readonly previewWebviews: PreviewWebview[];
 	selectedItemId: string;
 	selectedItemIndex: number;
 }
@@ -32,16 +33,16 @@ export const usePositronPreviewState = (services: PositronPreviewServices): Posi
 	// Hooks.
 
 	// Initial set of preview items.
-	const [previewPaneItems, setPreviewPaneItems] = useState<IPreviewPaneItem[]>(
-		services.positronPreviewService.previewPaneItems);
+	const [previewWebviews, setPreviewWebviews] = useState<PreviewWebview[]>(
+		services.positronPreviewService.previewWebviews);
 
 	// Initial selected preview item.
-	const initialSelectedId = services.positronPreviewService.activePreviewPaneItemId;
+	const initialSelectedId = services.positronPreviewService.activePreviewWebviewId;
 	const [selectedItemId, setSelectedItemId] = useState<string>(initialSelectedId ?? '');
 
 	// Index of the selected preview item.
-	const initialSelectedIndex = services.positronPreviewService.previewPaneItems.findIndex
-		(p => p.id === initialSelectedId);
+	const initialSelectedIndex = services.positronPreviewService.previewWebviews.findIndex
+		(p => p.providedId === initialSelectedId);
 	const [selectedItemIndex, setSelectedItemIndex] = useState<number>(initialSelectedIndex);
 
 	// Add event handlers.
@@ -49,22 +50,22 @@ export const usePositronPreviewState = (services: PositronPreviewServices): Posi
 		const disposableStore = new DisposableStore();
 
 		// Listen for new preview pane items
-		disposableStore.add(services.positronPreviewService.onDidCreatePreviewPaneItem(item => {
+		disposableStore.add(services.positronPreviewService.onDidCreatePreviewWebview(item => {
 			// Add the plot instance to the list of plot instances
-			setPreviewPaneItems(previewItems => {
+			setPreviewWebviews(previewItems => {
 				return [item, ...previewItems];
 			});
 		}));
 
 		// Listen for preview pane item updates
-		disposableStore.add(services.positronPreviewService.onDidChangeActivePreviewPaneItem(id => {
+		disposableStore.add(services.positronPreviewService.onDidChangeActivePreviewWebview(id => {
 			setSelectedItemId(id);
-			setSelectedItemIndex(previewPaneItems.findIndex(p => p.id === id));
+			setSelectedItemIndex(previewWebviews.findIndex(p => p.providedId === id));
 		}));
 
 		// Return the clean up for our event handlers.
 		return () => disposableStore.dispose();
 	}, []);
 
-	return { ...services, previewPaneItems, selectedItemId, selectedItemIndex };
+	return { ...services, previewWebviews, selectedItemId, selectedItemIndex };
 };
