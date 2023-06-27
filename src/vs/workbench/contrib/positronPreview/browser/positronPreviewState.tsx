@@ -60,7 +60,7 @@ export const usePositronPreviewState = (services: PositronPreviewServices): Posi
 		// Listen for preview pane item updates
 		disposableStore.add(services.positronPreviewService.onDidChangeActivePreviewWebview(id => {
 			setSelectedItemId(id);
-			setSelectedItemIndex(previewWebviews.findIndex(p => p.providedId === id));
+			setSelectedItemIndex(services.positronPreviewService.previewWebviews.findIndex(p => p.providedId === id));
 		}));
 
 		// Return the clean up for our event handlers.

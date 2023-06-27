@@ -6,11 +6,12 @@ import { Disposable } from 'vs/base/common/lifecycle';
 import { IPositronPreviewService } from 'vs/workbench/services/positronPreview/browser/positronPreview';
 import { Event, Emitter } from 'vs/base/common/event';
 import { IOverlayWebview, IWebviewService, WebviewInitInfo } from 'vs/workbench/contrib/webview/browser/webview';
+import { generateUuid } from 'vs/base/common/uuid';
 
 export class PreviewWebview extends Disposable {
 	constructor(
 		readonly viewType: string,
-		readonly providedId: string | undefined,
+		readonly providedId: string,
 		readonly name: string,
 		readonly webview: IOverlayWebview
 	) {
@@ -29,6 +30,8 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 
 	private _items: Map<string, PreviewWebview> = new Map();
 
+	private _selectedItemId = '';
+
 	private _onDidCreatePreviewWebviewEmitter = new Emitter<PreviewWebview>();
 
 	private _onDidChangeActivePreviewWebview = new Emitter<string>;
@@ -40,14 +43,18 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 		this.onDidCreatePreviewWebview = this._onDidCreatePreviewWebviewEmitter.event;
 		this.onDidChangeActivePreviewWebview = this._onDidChangeActivePreviewWebview.event;
 	}
+
 	get previewWebviews(): PreviewWebview[] {
 		return Array.from(this._items.values());
 	}
+
 	get activePreviewWebviewId(): string {
-		throw new Error('Method not implemented.');
+		return this._selectedItemId;
 	}
+
 	set activePreviewWebviewId(id: string) {
-		throw new Error('Method not implemented.');
+		this._selectedItemId = id;
+		this._onDidChangeActivePreviewWebview.fire(id);
 	}
 
 	onDidChangeActivePreviewWebview: Event<string>;
@@ -58,9 +65,14 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 		preserveFocus?: boolean | undefined): PreviewWebview {
 
 		const webview = this._webviewService.createWebviewOverlay(webviewInitInfo);
-		const preview = new PreviewWebview(viewType, undefined, title, webview);
+		const id = generateUuid();
+		const preview = new PreviewWebview(viewType, id, title, webview);
 
-		this._items.set(preview.providedId!, preview);
+		this._items.set(preview.providedId, preview);
+
+		this._onDidCreatePreviewWebviewEmitter.fire(preview);
+		this.activePreviewWebviewId = preview.providedId;
+
 		return preview;
 	}
 
