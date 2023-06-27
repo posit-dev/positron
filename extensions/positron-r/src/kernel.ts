@@ -94,7 +94,9 @@ export function registerArkKernel(ext: vscode.Extension<any>, context: vscode.Ex
 	const logLevel = config.get<string>('kernel.logLevel') ?? 'warn';
 
 	// Discover R installations.
-	// TODO: Needs to handle Linux and Windows
+	// TODO: Needs to handle Linux and Windows. See e.g. how Quarto handles this:
+	// https://github.com/quarto-dev/quarto-cli/blob/main/src/core/resources.ts#L77
+	//
 	// TODO: Needs to handle other installation locations (like RSwitch)
 
 	// Check the R Versions folder on macOS. Typically, this only contains one
