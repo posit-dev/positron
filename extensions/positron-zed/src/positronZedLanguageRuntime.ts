@@ -57,6 +57,7 @@ const HelpLines = [
 	'env rm X     - Removes X variables',
 	'env update X - Updates X variables',
 	'error X Y Z  - Simulates an unsuccessful X line input with Y lines of error message and Z lines of traceback (where X >= 1 and Y >= 1 and Z >= 0)',
+	'exec X Y     - Executes a code snippet Y in the language X',
 	'help         - Shows this help',
 	'offline      - Simulates going offline for two seconds',
 	'plot X       - Renders a dynamic (auto-sizing) plot of the letter X',
@@ -246,13 +247,19 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 			// Build the message.
 			let message = '';
 			for (let i = 1; i <= +match[2]; i++) {
-				message += `Error message line ${i}\n`;
+				message += `${makeSGR(SGR.ForegroundRed)}Error message line ${i}${makeSGR()}\n`;
 			}
 
 			// Build the traceback.
 			const traceback: string[] = [];
-			for (let i = 1; i <= +match[3]; i++) {
-				traceback.push(`Traceback line ${i}`);
+			const tracebackLines = Math.max(Math.min(+match[3], 9), 0);
+			if (tracebackLines) {
+				// allow-any-unicode-next-line
+				traceback.push('   ▆');
+				for (let i = 0; i < tracebackLines; i++) {
+					// allow-any-unicode-next-line
+					traceback.push(`${i + 1}. ${' '.repeat(i * 2)}└─global function${i + 1}()`);
+				}
 			}
 
 			// Simulate unsuccessful code execution.
@@ -326,6 +333,12 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 			// Simulate a data viewer
 			const title = (match.length > 1 && match[1]) ? match[1].trim() : 'Data';
 			this.simulateDataView(id, code, `Zed: ${title}`);
+			return;
+		} else if (match = code.match(/^exec ([a-zA-Z]+) (.+)/)) {
+			// Execute code in another language.
+			const languageId = match[1];
+			const codeToExecute = match[2];
+			this.simulateCodeExecution(id, code, languageId, codeToExecute);
 			return;
 		}
 
@@ -937,7 +950,6 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 	 */
 	async interrupt(): Promise<void> {
 		if (this._busyTimer && this._state === positron.RuntimeState.Busy) {
-			this._onDidChangeRuntimeState.fire(positron.RuntimeState.Interrupting);
 			if (this._busyOperationId) {
 				// Return to idle state.
 				this.simulateOutputMessage(this._busyOperationId, 'Interrupting...');
@@ -945,16 +957,11 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 				// It takes 1 second to interrupt a busy operation in Zed; this helps us
 				// see the interrupting state in the UI.
 				setTimeout(() => {
-					// It's not likely, but it's possible that the runtime could have gone
-					// idle before the interrupting state was reached. In that case, the
-					// interruption is a no-op.
-					if (this._state === positron.RuntimeState.Interrupting) {
-						// Consider: what is the parent of the idle state message? Is it the operation
-						// we canceled, or is it the interrupt operation?
-						this.simulateOutputMessage(this._busyOperationId!, 'Interrupted.');
-						this.simulateIdleState(this._busyOperationId!);
-						this._busyOperationId = undefined;
-					}
+					// Consider: what is the parent of the idle state message? Is it the operation
+					// we canceled, or is it the interrupt operation?
+					this.simulateOutputMessage(this._busyOperationId!, 'Interrupted.');
+					this.simulateIdleState(this._busyOperationId!);
+					this._busyOperationId = undefined;
 				}, 1000);
 			}
 
@@ -972,7 +979,6 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 		// Let the user know what we're doing and go through the shutdown sequence.
 		const parentId = randomUUID();
 		this.simulateOutputMessage(parentId, 'Restarting.');
-		this._onDidChangeRuntimeState.fire(positron.RuntimeState.Restarting);
 		this._onDidChangeRuntimeState.fire(positron.RuntimeState.Exited);
 
 		// Wait for a second before starting again.
@@ -1013,10 +1019,11 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 		this.simulateIdleState(parentId);
 
 		// Simulate state changes on exit.
-		this._onDidChangeRuntimeState.fire(positron.RuntimeState.Exiting);
 		this.simulateOutputMessage(parentId, 'Zed Kernel exiting.');
 		this._onDidChangeRuntimeState.fire(positron.RuntimeState.Exited);
 	}
+
+	dispose(): void { };
 
 	//#endregion LanguageRuntime Implementation
 
@@ -1091,6 +1098,35 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 				'text/plain': `<ZedData view>`
 			} as Record<string, string>
 		} as positron.LanguageRuntimeOutput);
+		// Return to idle state.
+		this.simulateIdleState(parentId);
+	}
+
+	/**
+	 * Simulates execution of code in another language.
+	 *
+	 * @param parentId The parent identifier.
+	 * @param code The Zed code the user entered.
+	 * @param languageId The language identifier
+	 * @param codeToExecute The code to execute.
+	 */
+	private async simulateCodeExecution(parentId: string,
+		code: string,
+		languageId: string,
+		codeToExecute: string) {
+		// Enter busy state and output the code.
+		this.simulateBusyState(parentId);
+		this.simulateInputMessage(parentId, code);
+
+		// Let the user know what we're about to do
+		this.simulateOutputMessage(parentId, `Executing ${languageId} snippet: ${codeToExecute}`);
+
+		// Perform the execution
+		const success = await positron.runtime.executeCode(languageId, codeToExecute, true);
+		if (!success) {
+			this.simulateOutputMessage(parentId, `Failed; is there an active console for ${languageId}?`);
+		}
+
 		// Return to idle state.
 		this.simulateIdleState(parentId);
 	}

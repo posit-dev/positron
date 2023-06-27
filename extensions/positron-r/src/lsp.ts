@@ -4,6 +4,7 @@
 
 import * as vscode from 'vscode';
 import * as positron from 'positron';
+import { PromiseHandles } from './util';
 
 import {
 	LanguageClient,
@@ -34,6 +35,9 @@ export class ArkLsp implements vscode.Disposable {
 	private _client?: LanguageClient;
 
 	private _state: LspState = LspState.uninitialized;
+
+	/** Promise that resolves after initialization is complete */
+	private _initializing?: Promise<void>;
 
 	public constructor(private readonly _version: string) {
 	}
@@ -113,6 +117,9 @@ export class ArkLsp implements vscode.Disposable {
 		trace(`Creating Positron R ${this._version} language client...`);
 		this._client = new LanguageClient('positron-r', `Positron R Language Server (${this._version})`, serverOptions, clientOptions);
 
+		const out = new PromiseHandles<void>();
+		this._initializing = out.promise;
+
 		this._client.onDidChangeState(event => {
 			const oldState = this._state;
 			// Convert the state to our own enum
@@ -121,16 +128,26 @@ export class ArkLsp implements vscode.Disposable {
 					this._state = LspState.starting;
 					break;
 				case State.Running:
+					if (this._initializing) {
+						trace(`ARK (R ${this._version}) language client init successful`);
+						this._initializing = undefined;
+						out.resolve();
+					}
 					this._state = LspState.running;
 					break;
 				case State.Stopped:
+					if (this._initializing) {
+						trace(`ARK (R ${this._version}) language client init failed`);
+						out.reject("Ark LSP client stopped before initialization");
+					}
 					this._state = LspState.stopped;
 					break;
 			}
 			trace(`ARK (R ${this._version}) language client state changed ${oldState} => ${this._state}`);
 		});
 
-		context.subscriptions.push(this._client.start());
+		this._client.start();
+		await out.promise;
 	}
 
 	/**
@@ -138,14 +155,19 @@ export class ArkLsp implements vscode.Disposable {
 	 *
 	 * @returns A promise that resolves when the client has been stopped.
 	 */
-	public deactivate(): Thenable<void> {
-		if (this._client) {
-			// Stop the client if it's running
-			return this._client.stop();
-		} else {
-			// Otherwise, no client to stop, so just resolve
-			return Promise.resolve();
+	public async deactivate() {
+		if (!this._client) {
+			// No client to stop, so just resolve
+			return;
 		}
+
+		// First wait for initialization to complete.
+		// `stop()` should not be called on a
+		// partially initialized client.
+		await this._initializing;
+
+		// Stop the client if it's running
+		await this._client.stop();
 	}
 
 	/**
@@ -158,7 +180,7 @@ export class ArkLsp implements vscode.Disposable {
 	/**
 	 * Dispose of the client instance.
 	 */
-	dispose() {
-		this.deactivate();
+	async dispose() {
+		await this.deactivate();
 	}
 }

@@ -573,7 +573,7 @@ export const Codicon = {
 	positronPrint: register('positron-print', 0xf234),
 	positronDropDownArrow: register('positron-drop-down-arrow', 0xf235),
 	positronLogo: register('positron-logo', 0xf236),
-	positronAvailable2: register('positron-available-2', 0xf237),
+	positronPositLogo: register('positron-posit-logo', 0xf237),
 	positronSeparator: register('positron-separator', 0xf238),
 	positronEnvironmentView: register('positron-environment-view', 0xf239),
 	positronHelpView: register('positron-help-view', 0xf23a),
@@ -587,8 +587,8 @@ export const Codicon = {
 	positronOpenInNewWindow: register('positron-open-in-new-window', 0xf242),
 	positronSearchIcon: register('positron-search-icon', 0xf243),
 	positronSearchCancel: register('positron-search-cancel', 0xf244),
-	positronAvailable3: register('positron-available-3', 0xf245),
-	positronAvailable4: register('positron-available-4', 0xf246),
+	positronShowTraceback: register('positron-show-traceback', 0xf245),
+	positronNewFolderFromGit: register('positron-new-folder-from-git', 0xf246),
 	positronX: register('positron-x', 0xf247),
 	positronTrashCan: register('positron-trash-can', 0xf248),
 	positronEnvironment: register('positron-environment', 0xf249),
@@ -609,6 +609,8 @@ export const Codicon = {
 	positronPowerButton: register('positron-power-button', 0xf259),
 	positronMoreOptions: register('positron-more-options', 0xf25a),
 	positronTopActionBar: register('positron-top-action-bar', 0xf25b),
+	positronTriangleDown: register('positron-triangle-down', 0xf25c),
+	positronTriangleRight: register('positron-triangle-right', 0xf25d),
 
 	// --- End Positron ---
 

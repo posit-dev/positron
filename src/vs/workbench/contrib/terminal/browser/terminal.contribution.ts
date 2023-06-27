@@ -126,8 +126,11 @@ const VIEW_CONTAINER = Registry.as<IViewContainersRegistry>(ViewContainerExtensi
 	ctorDescriptor: new SyncDescriptor(ViewPaneContainer, [TERMINAL_VIEW_ID, { mergeViewWithContainerWhenSingleView: true }]),
 	storageId: TERMINAL_VIEW_ID,
 	hideIfEmpty: true,
-	order: 3,
-}, ViewContainerLocation.Panel, { doNotRegisterOpenCommand: true, isDefault: true });
+	// --- Start Positron ---
+	order: 2,
+	// --- End Positron ---
+}, ViewContainerLocation.Panel, { doNotRegisterOpenCommand: true, isDefault: false });
+// --- End Positron ---
 Registry.as<IViewsRegistry>(ViewContainerExtensions.ViewsRegistry).registerViews([{
 	id: TERMINAL_VIEW_ID,
 	name: nls.localize('terminal', "Terminal"),

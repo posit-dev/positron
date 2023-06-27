@@ -44,14 +44,6 @@ declare module 'positron' {
 		CommClosed = 'comm_closed',
 	}
 
-	/** begin positron-language-runtime-event-type */
-	export enum LanguageRuntimeEventType {
-		Busy = 'busy',
-		ShowMessage = 'show_message',
-		ShowHelp = 'show_help',
-	}
-	/** end positron-language-runtime-event-type */
-
 	/**
 	 * The set of possible statuses for a language runtime while online
 	 */
@@ -85,20 +77,11 @@ declare module 'positron' {
 		/** The runtime is busy executing code. */
 		Busy = 'busy',
 
-		/** The runtime is in the process of restarting. */
-		Restarting = 'restarting',
-
-		/** The runtime is in the process of shutting down. */
-		Exiting = 'exiting',
-
 		/** The runtime's host process has ended. */
 		Exited = 'exited',
 
 		/** The runtime is not responding to heartbeats and is presumed offline. */
 		Offline = 'offline',
-
-		/** The user has interrupted a busy runtime, but the runtime is not idle yet. */
-		Interrupting = 'interrupting',
 	}
 
 	/**
@@ -163,24 +146,11 @@ declare module 'positron' {
 
 	export interface LanguageRuntimeEventData { }
 
-	/**
-	 * LanguageRuntimeEvent is an interface that defines an event occurring
-	 * in a language runtime, usually to trigger some action on the front end.
-	 */
-	export interface LanguageRuntimeEvent extends LanguageRuntimeMessage {
-		/** The name of the event */
-		name: LanguageRuntimeEventType;
-
-		/** The event's data */
-		data: LanguageRuntimeEventData;
-	}
-
 	/** LanguageRuntimeOutput is a LanguageRuntimeMessage representing output (text, plots, etc.) */
 	export interface LanguageRuntimeOutput extends LanguageRuntimeMessage {
 		/** A record of data MIME types to the associated data, e.g. `text/plain` => `'hello world'` */
 		data: Record<string, string>;
 	}
-
 
 	/**
 	 * The set of standard stream names supported for streaming textual output.
@@ -352,6 +322,7 @@ declare module 'positron' {
 		Lsp = 'positron.lsp',
 		Plot = 'positron.plot',
 		DataViewer = 'positron.dataViewer',
+		FrontEnd = 'positron.frontEnd',
 
 		// Future client types may include:
 		// - Watch window/variable explorer
@@ -419,7 +390,7 @@ declare module 'positron' {
 	 * set of common tools for interacting with a language runtime, such as code
 	 * execution, LSP implementation, and plotting.
 	 */
-	export interface LanguageRuntime {
+	export interface LanguageRuntime extends vscode.Disposable {
 		/** An object supplying metadata about the runtime */
 		readonly metadata: LanguageRuntimeMetadata;
 
@@ -529,6 +500,21 @@ declare module 'positron' {
 	}
 
 	namespace runtime {
+
+		/**
+		 * Executes code in a language runtime's console, as though it were typed
+		 * interactively by the user.
+		 *
+		 * @param languageId The language ID of the code snippet
+		 * @param code The code snippet to execute
+		 * @param focus Whether to raise and focus the runtime's console
+		 * @returns A Thenable that resolves with true if the code was sent to a
+		 *   runtime successfully, false otherwise.
+		 */
+		export function executeCode(languageId: string,
+			code: string,
+			focus: boolean): Thenable<boolean>;
+
 		/**
 		 * Register a language runtime with Positron.
 		 *

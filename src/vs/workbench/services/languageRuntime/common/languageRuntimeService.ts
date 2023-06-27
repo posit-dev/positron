@@ -6,7 +6,7 @@ import { Event } from 'vs/base/common/event';
 import { IDisposable } from 'vs/base/common/lifecycle';
 import { createDecorator } from 'vs/platform/instantiation/common/instantiation';
 import { IRuntimeClientInstance, RuntimeClientType } from 'vs/workbench/services/languageRuntime/common/languageRuntimeClientInstance';
-import { LanguageRuntimeEventData, LanguageRuntimeEventType } from 'vs/workbench/services/languageRuntime/common/languageRuntimeEvents';
+import { IRuntimeClientEvent } from 'vs/workbench/services/languageRuntime/common/languageRuntimeFrontEndClient';
 
 export const ILanguageRuntimeService = createDecorator<ILanguageRuntimeService>('languageRuntimeService');
 
@@ -25,6 +25,12 @@ export const formatLanguageRuntime = (languageRuntime: ILanguageRuntime) =>
 export interface ILanguageRuntimeMessage {
 	/** The event ID */
 	id: string;
+
+	/** The type of event */
+	type: LanguageRuntimeMessageType;
+
+	/** The event clock time at which the event occurred */
+	event_clock: number;
 
 	/** The ID of this event's parent (the event that caused it), if applicable */
 	parent_id: string;
@@ -116,7 +122,11 @@ export interface ILanguageRuntimeClientCreatedEvent {
 }
 
 /**
- * The set of possible statuses for a language runtime
+ * The set of possible statuses for a language runtime. Note that this includes
+ * the `Restarting`, `Interrupting`, and `Exiting` states, which are not present
+ * in at the API layer (in `positron.d.ts`). These states are used internally by
+ * the language runtime service to track in-flight requests to change the
+ * runtime's state, and are not emitted by the runtime itself.
  */
 export enum RuntimeState {
 	/** The runtime has not been started or initialized yet. */
@@ -284,20 +294,12 @@ export interface ILanguageRuntimeMessageError extends ILanguageRuntimeMessage {
 	traceback: Array<string>;
 }
 
-export interface ILanguageRuntimeMessageEvent extends ILanguageRuntimeMessage {
-	/** The event name */
-	name: LanguageRuntimeEventType;
-
-	/** The event data */
-	data: LanguageRuntimeEventData;
-}
-
 export interface ILanguageRuntimeGlobalEvent {
 	/** The ID of the runtime from which the event originated */
 	runtime_id: string;
 
 	/** The event itself */
-	event: ILanguageRuntimeMessageEvent;
+	event: IRuntimeClientEvent;
 }
 
 export interface ILanguageRuntimeStateEvent {
@@ -379,7 +381,6 @@ export interface ILanguageRuntime {
 	onDidReceiveRuntimeMessageError: Event<ILanguageRuntimeMessageError>;
 	onDidReceiveRuntimeMessagePrompt: Event<ILanguageRuntimeMessagePrompt>;
 	onDidReceiveRuntimeMessageState: Event<ILanguageRuntimeMessageState>;
-	onDidReceiveRuntimeMessageEvent: Event<ILanguageRuntimeMessageEvent>;
 
 	/** The current state of the runtime (tracks events above) */
 	getRuntimeState(): RuntimeState;

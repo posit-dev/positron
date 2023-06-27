@@ -1,13 +1,26 @@
 {
 	"displayName": "R",
 	"description": "R Language Pack for Positron",
+	"r.command.sourceCurrentFile.title": "Source R File",
 	"r.command.setKernelPath.title": "Set Kernel Path",
 	"r.command.createNewFile.title": "New R File",
+	"r.command.packageLoad.title": "Load R Package",
+	"r.command.packageBuild.title": "Build R Package",
+	"r.command.packageInstall.title": "Install R Package",
+	"r.command.packageTest.title": "Test R Package",
+	"r.command.packageCheck.title": "Check R Package",
+	"r.command.packageDocument.title": "Document R Package",
 	"r.menu.createNewFile.title": "R File",
 	"r.configuration.title": "Positron R Language Pack",
 	"r.configuration.kernelPath.description": "Path on disk to the ARK kernel executable; use this to override the default (embedded) kernel.",
 	"r.configuration.tracing.description": "Traces the communication between VS Code and the language server",
 	"r.configuration.tracing.off.description": "No tracing.",
 	"r.configuration.tracing.messages.description": "Log messages from the server to the output panel.",
-	"r.configuration.tracing.verbose.description": "Log messages from the server as well as verbose output."
+	"r.configuration.tracing.verbose.description": "Log messages from the server as well as verbose output.",
+	"r.configuration.logLevel.error.description": "Errors only",
+	"r.configuration.logLevel.warn.description": "Errors and warnings",
+	"r.configuration.logLevel.info.description": "Informational messages",
+	"r.configuration.logLevel.debug.description": "Debug messages",
+	"r.configuration.logLevel.trace.description": "Verbose tracing messages",
+	"r.configuration.logLevel.description": "Log level for the R Kernel (requires restart to take effect)"
 }

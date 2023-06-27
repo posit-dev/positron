@@ -82,7 +82,10 @@ export abstract class BasePanelPart extends CompositePart<PaneComposite> impleme
 	readonly minimumHeight: number = 77;
 	readonly maximumHeight: number = Number.POSITIVE_INFINITY;
 
-	readonly snap = true;
+	// --- Start Positron ---
+	// Make this overridable.
+	readonly snap: boolean = true;
+	// --- End Positron ---
 
 	get preferredHeight(): number | undefined {
 		// Don't worry about titlebar or statusbar visibility
@@ -913,6 +916,17 @@ export abstract class BasePanelPart extends CompositePart<PaneComposite> impleme
 
 export class PanelPart extends BasePanelPart {
 	static readonly activePanelSettingsKey = 'workbench.panelpart.activepanelid';
+
+	// --- Start Positron ---
+	// In Positron, set the minimum height to 35, which is enough to show just the tabs in the panel.
+	override readonly minimumHeight: number = 35;
+	// --- End Positron ---
+
+	// --- Start Positron ---
+	// readonly snap = true;
+	// In Positron, the panel doesn't snap (meaning it doesn't snap into being hidden).
+	override readonly snap: boolean = false;
+	// --- End Positron ---
 
 	constructor(
 		@INotificationService notificationService: INotificationService,

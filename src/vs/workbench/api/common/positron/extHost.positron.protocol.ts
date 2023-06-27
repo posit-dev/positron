@@ -3,25 +3,17 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { IDisposable } from 'vs/base/common/lifecycle';
-import { ILanguageRuntimeMessageError, ILanguageRuntimeMessageEvent, ILanguageRuntimeInfo, ILanguageRuntimeMetadata, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessagePrompt, ILanguageRuntimeMessageState, RuntimeClientType, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeState, ILanguageRuntimeMessageInput, ILanguageRuntimeMessageCommData, ILanguageRuntimeMessageCommClosed, ILanguageRuntimeMessageStream, ILanguageRuntimeMessageCommOpen } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntimeInfo, ILanguageRuntimeMetadata, RuntimeClientType, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeState, ILanguageRuntimeMessage } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { createProxyIdentifier, IRPCProtocol } from 'vs/workbench/services/extensions/common/proxyIdentifier';
 
 // This is the interface that the main process exposes to the extension host
 export interface MainThreadLanguageRuntimeShape extends IDisposable {
 	$registerLanguageRuntime(handle: number, metadata: ILanguageRuntimeMetadata): void;
 	$unregisterLanguageRuntime(handle: number): void;
-	$emitLanguageRuntimeState(handle: number, state: RuntimeState): void;
-	$emitRuntimeClientOpened(handle: number, message: ILanguageRuntimeMessageCommOpen): void;
-	$emitRuntimeClientMessage(handle: number, message: ILanguageRuntimeMessageCommData): void;
-	$emitRuntimeClientClosed(handle: number, message: ILanguageRuntimeMessageCommClosed): void;
+	$executeCode(languageId: string, code: string, focus: boolean): Promise<boolean>;
 
-	$emitLanguageRuntimeMessageOutput(handle: number, message: ILanguageRuntimeMessageOutput): void;
-	$emitLanguageRuntimeMessageStream(handle: number, message: ILanguageRuntimeMessageStream): void;
-	$emitLanguageRuntimeMessageInput(handle: number, message: ILanguageRuntimeMessageInput): void;
-	$emitLanguageRuntimeMessageError(handle: number, message: ILanguageRuntimeMessageError): void;
-	$emitLanguageRuntimeMessagePrompt(handle: number, message: ILanguageRuntimeMessagePrompt): void;
-	$emitLanguageRuntimeMessageState(handle: number, message: ILanguageRuntimeMessageState): void;
-	$emitLanguageRuntimeMessageEvent(handle: number, message: ILanguageRuntimeMessageEvent): void;
+	$emitLanguageRuntimeMessage(handle: number, message: ILanguageRuntimeMessage): void;
+	$emitLanguageRuntimeState(handle: number, clock: number, state: RuntimeState): void;
 }
 
 // The interface to the main thread exposed by the extension host
