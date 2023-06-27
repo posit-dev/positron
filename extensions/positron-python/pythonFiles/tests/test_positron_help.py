@@ -2,10 +2,12 @@
 # Copyright (C) 2023 Posit Software, PBC. All rights reserved.
 #
 
+from typing import Any
+from unittest.mock import Mock, AsyncMock
+from urllib.request import urlopen
+
 import pandas as pd
 import pytest
-from unittest.mock import Mock, AsyncMock
-from typing import Any
 
 from positron.help import HelpService, ShowHelpEvent, ShowHelpEventKind
 
@@ -17,10 +19,17 @@ def help_service():
     return HelpService(kernel=kernel, frontend_service=frontend_service)
 
 
-def test_pydoc_server(help_service: HelpService):
+@pytest.fixture
+def running_help_service(help_service: HelpService):
+    # kernel.do_execute requires an AsyncMock else it errors if we await it.
     help_service.kernel.do_execute = AsyncMock()
-
     help_service.start()
+    yield help_service
+    help_service.shutdown()
+
+
+def test_pydoc_server_starts_and_shuts_down(running_help_service: HelpService):
+    help_service = running_help_service
 
     assert help_service.pydoc_thread is not None
     assert help_service.pydoc_thread.serving
@@ -28,6 +37,30 @@ def test_pydoc_server(help_service: HelpService):
     help_service.shutdown()
 
     assert not help_service.pydoc_thread.serving
+
+
+def test_pydoc_server_parses_rst_docstrings(running_help_service: HelpService):
+    """
+    We should patch pydoc to return parsed reStructuredText docstrings as HTML.
+    """
+    help_service = running_help_service
+
+    assert help_service.pydoc_thread is not None
+
+    key = "pandas.read_csv"
+    url = f"{help_service.pydoc_thread.url}get?key={key}"
+    with urlopen(url) as f:
+        html = f.read().decode("utf-8")
+
+    # Html should include headers for each section of the docstring if parsed correctly.
+    assert "<h4>Parameters</h4>" in html
+    assert "<h4>Returns</h4>" in html
+    assert "<h4>See Also</h4>" in html
+    assert "<h4>Examples</h4>" in html
+
+    # There should no longer be any <tt> or </tt> tags.
+    assert "<tt>" not in html
+    assert "</tt>" not in html
 
 
 def help():
@@ -66,6 +99,10 @@ help.__module__ = "__main__"
     ],
 )
 def test_show_help(obj: Any, expected_path: str, help_service: HelpService):
+    """
+    Calling `show_help` should send a `ShowHelpEvent` to the frontend service.
+    """
+    # Mock the pydoc server
     url = "http://localhost:1234/"
     help_service.pydoc_thread = Mock()
     help_service.pydoc_thread.url = url
@@ -76,6 +113,7 @@ def test_show_help(obj: Any, expected_path: str, help_service: HelpService):
 
     [event] = help_service.frontend_service.send_event.call_args.args
 
+    # We should have sent a ShowHelpEvent with the expected content
     assert isinstance(event, ShowHelpEvent)
     assert event.name == "show_help"
     assert event.kind == ShowHelpEventKind.url
