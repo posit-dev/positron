@@ -10,6 +10,7 @@ import os
 import sys
 
 from ipykernel import kernelapp
+from traitlets.config import Config
 
 # Add the lib path to our sys path so jedi_language_server can find its references
 EXTENSION_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -103,11 +104,15 @@ if __name__ == "__main__":
     # IPKernelApp expects an empty string if no connection_file is provided.
     if args.connection_file is None:
         args.connection_file = ""
-    app: PositronIPKernelApp = PositronIPKernelApp.instance(
-        log_level=args.loglevel,
-        logging_config=logging_config,
-        connection_file=args.connection_file,
+
+    config = Config(
+        IPKernelApp={
+            "connection_file": args.connection_file,
+            "log_level": args.loglevel,
+            "logging_config": logging_config,
+        },
     )
+    app: PositronIPKernelApp = PositronIPKernelApp.instance(config=config)
     # Initialize with empty argv, otherwise BaseIPythonApplication.initialize reuses our
     # command-line arguments in unexpected ways (e.g. logfile instructs it to log executed code).
     app.initialize(argv=[])
