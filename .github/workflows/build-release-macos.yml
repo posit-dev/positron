@@ -97,8 +97,10 @@ jobs:
         arch: [arm64, x64]
         include:
           - arch: arm64
+            homebrew_folder: homebrew
             rust_target_prefix: aarch64
           - arch: x64
+            homebrew_folder: homebrew-x86_64
             rust_target_prefix: x86_64
 
     steps:
@@ -106,12 +108,29 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@v3
 
-      # Install node_modules binaries
+      # Determine R_HOME (for building ark)
+      - name: Find Homebrew R installation
+        id: r_installation
+        run: |
+          # Path to the Homebrew build of R, e.g. /Users/user229818/homebrew/Cellar/r
+          R_FOLDER=~/${{matrix.homebrew_folder}}/Cellar/r
+          # Get the first (and generally) only installed version, e.g. 4.2.2
+          R_VERSION=$(ls ${R_FOLDER} | head -1)
+          # Form the path to the R binary, e.g. /Users/user229818/homebrew/Cellar/r/4.2.2/bin/R
+          R_EXECUTABLE="${R_FOLDER}/${R_VERSION}/bin/R"
+          # Invoke the R binary to determine its RHOME directory (usually lib/R)
+          R_HOME=$(${R_EXECUTABLE} RHOME)
+          # Output the result for consumption in later steps
+          echo "Using R at ${R_HOME}"
+          echo "r_home=${R_HOME}" >> $GITHUB_OUTPUT
+
+      # Install node_modules binaries and compile the R kernel
       - name: Install dependencies
         env:
           npm_config_arch: ${{ matrix.arch }}
           ARK_BUILD_TYPE: release
           RUST_TARGET: ${{ matrix.rust_target_prefix }}-apple-darwin
+          R_HOME: ${{ steps.r_installation.outputs.r_home }}
           POSITRON_GITHUB_PAT: ${{ secrets.POSITRON_GITHUB_PAT }}
         run: yarn --network-timeout 120000
 
