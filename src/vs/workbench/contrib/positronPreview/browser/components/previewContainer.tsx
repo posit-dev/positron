@@ -38,6 +38,11 @@ export const PreviewContainer = (props: PreviewContainerProps) => {
 				webview.layoutWebviewOverElement(webviewRef.current);
 			}
 		}
+		return () => {
+			if (selectedItem) {
+				selectedItem.webview.release(this);
+			}
+		};
 	});
 
 	const style = {
