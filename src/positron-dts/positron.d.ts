@@ -484,36 +484,6 @@ declare module 'positron' {
 		client: RuntimeClientInstance,
 		params: Object,) => boolean;
 
-
-	/**
-	 * An interface defining the options used to construct a preview pane item.
-	 */
-	export interface PreviewPaneItemOptions {
-		uri: vscode.Uri;
-	}
-
-	/**
-	 * An interface fulfilled by preview items that can be displayed in the Positron
-	 * preview pane.
-	 */
-	export interface PreviewPaneItem extends vscode.Disposable {
-		/**
-		 * Whether the preview item is currently being shown in the preview pane.
-		 */
-		isShowing(): Thenable<boolean>;
-
-		/**
-		 * Send a message to the preview's window using `postMessage`.
-		 */
-		sendMessage(message: Object): Thenable<void>;
-
-		/**
-		 * An event that is fired when the preview item receives a message from the
-		 * preview's window using `postMessage`.
-		 */
-		onDidReceiveMessage: vscode.Event<Object>;
-	}
-
 	/**
 	 * A data structure that describes a handler for a runtime client instance.
 	 */

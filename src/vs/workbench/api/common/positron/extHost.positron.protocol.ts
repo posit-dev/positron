@@ -33,10 +33,6 @@ export interface ExtHostLanguageRuntimeShape {
 	$shutdownLanguageRuntime(handle: number): Promise<void>;
 }
 
-export interface ExtHostPreviewPaneShape {
-	$emitMessageFromPreviewPane(handle: number, message: Object): void;
-}
-
 export interface PreviewPanelViewStateData {
 	[handle: string]: {
 		readonly active: boolean;
