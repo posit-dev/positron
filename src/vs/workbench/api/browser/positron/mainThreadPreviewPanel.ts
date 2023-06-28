@@ -9,9 +9,9 @@ import { WebviewExtensionDescription } from 'vs/workbench/api/common/extHost.pro
 import { ExtensionKeyedWebviewOriginStore } from 'vs/workbench/contrib/webview/browser/webview';
 import { IExtHostContext } from 'vs/workbench/services/extensions/common/extHostCustomers';
 import * as extHostProtocol from 'vs/workbench/api/common/positron/extHost.positron.protocol';
-import { PreviewWebview } from 'vs/workbench/contrib/positronPreview/browser/positronPreviewServiceImpl';
 import { Disposable } from 'vs/base/common/lifecycle';
 import { IPositronPreviewService } from 'vs/workbench/contrib/positronPreview/browser/positronPreviewSevice';
+import { PreviewWebview } from 'vs/workbench/contrib/positronPreview/browser/previewWebview';
 
 /**
  * Bi-directional map between webview handles and previews.
@@ -69,6 +69,25 @@ export class MainThreadPreviewPanel extends Disposable implements extHostProtoco
 		this.webviewOriginStore = new ExtensionKeyedWebviewOriginStore('mainThreadPreviewPanel.origins', this._storageService);
 
 		this._proxy = context.getProxy(extHostProtocol.ExtHostPositronContext.ExtHostPreviewPanel);
+
+		// TODO: Register for events from the preview service that indicate the active
+		// preview has changed.
+		//
+		// Call updatePreviewViewStates()
+	}
+
+	updatePreviewViewStates(): void {
+		const viewStates: extHostProtocol.PreviewPanelViewStateData = {};
+		const activePreviewId = this._positronPreviewService.activePreviewWebviewId;
+		for (const preview of this._previews) {
+			viewStates[preview.previewId] = {
+				active: preview.previewId === activePreviewId,
+				visible: preview.visible,
+			};
+		}
+		if (Object.keys(viewStates).length) {
+			this._proxy.$onDidChangePreviewPanelViewStates(viewStates);
+		}
 	}
 
 	$createPreviewPanel(extensionData: WebviewExtensionDescription, handle: string, viewType: string, initData: extHostProtocol.IPreviewInitData, preserveFocus: boolean): void {

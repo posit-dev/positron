@@ -4,7 +4,7 @@
 
 import * as React from 'react';
 import { useEffect } from 'react'; // eslint-disable-line no-duplicate-imports
-import { PreviewWebview } from 'vs/workbench/contrib/positronPreview/browser/positronPreviewServiceImpl';
+import { PreviewWebview } from 'vs/workbench/contrib/positronPreview/browser/previewWebview';
 
 /**
  * PreviewContainerProps interface.
@@ -29,6 +29,7 @@ export const PreviewContainer = (props: PreviewContainerProps) => {
 	useEffect(() => {
 		if (props.preview) {
 			const webview = props.preview.webview;
+			props.preview.visible = props.visible;
 			if (props.visible) {
 				webview.claim(this, undefined);
 				return () => {

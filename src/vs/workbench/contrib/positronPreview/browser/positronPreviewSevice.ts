@@ -4,7 +4,7 @@
 
 import { Event } from 'vs/base/common/event';
 import { createDecorator } from 'vs/platform/instantiation/common/instantiation';
-import { PreviewWebview } from 'vs/workbench/contrib/positronPreview/browser/positronPreviewServiceImpl';
+import { PreviewWebview } from 'vs/workbench/contrib/positronPreview/browser/previewWebview';
 import { WebviewInitInfo } from 'vs/workbench/contrib/webview/browser/webview';
 
 export const POSITRON_PREVIEW_VIEW_ID = 'workbench.panel.positronPreview';

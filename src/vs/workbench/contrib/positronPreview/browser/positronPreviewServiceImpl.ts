@@ -5,30 +5,9 @@
 import { Disposable } from 'vs/base/common/lifecycle';
 import { IPositronPreviewService } from 'vs/workbench/contrib/positronPreview/browser/positronPreview';
 import { Event, Emitter } from 'vs/base/common/event';
-import { IOverlayWebview, IWebviewService, WebviewInitInfo } from 'vs/workbench/contrib/webview/browser/webview';
+import { IWebviewService, WebviewInitInfo } from 'vs/workbench/contrib/webview/browser/webview';
 import { generateUuid } from 'vs/base/common/uuid';
-
-export class PreviewWebview extends Disposable {
-	private disposed = false;
-	constructor(
-		readonly viewType: string,
-		readonly previewId: string,
-		readonly name: string,
-		readonly webview: IOverlayWebview
-	) {
-		super();
-		this._register(this.webview);
-	}
-
-	isDisposed(): boolean {
-		return this.disposed;
-	}
-
-	override dispose() {
-		super.dispose();
-		this.disposed = true;
-	}
-}
+import { PreviewWebview } from 'vs/workbench/contrib/positronPreview/browser/previewWebview';
 
 export class PositronPreviewService extends Disposable implements IPositronPreviewService {
 
