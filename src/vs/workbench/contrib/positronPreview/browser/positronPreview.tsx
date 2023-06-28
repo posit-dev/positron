@@ -44,6 +44,7 @@ export const PositronPreview = (props: PropsWithChildren<PositronPreviewProps>) 
 	// Hooks.
 	const [width, setWidth] = useState(props.reactComponentContainer.width);
 	const [height, setHeight] = useState(props.reactComponentContainer.height);
+	const [visible, setVisibility] = useState(props.reactComponentContainer.visible);
 
 	// Initial selected preview item.
 	const initialActivePreview = props.positronPreviewService.activePreviewWebview;
@@ -60,6 +61,11 @@ export const PositronPreview = (props: PropsWithChildren<PositronPreviewProps>) 
 			setHeight(size.height);
 		}));
 
+		// Add the onVisibilityChanged event handler.
+		disposableStore.add(props.reactComponentContainer.onVisibilityChanged(visible => {
+			setVisibility(visible);
+		}));
+
 		disposableStore.add(props.positronPreviewService.onDidChangeActivePreviewWebview(id => {
 			const activePreview = props.positronPreviewService.activePreviewWebview;
 			setActivePreview(activePreview);
@@ -74,6 +80,7 @@ export const PositronPreview = (props: PropsWithChildren<PositronPreviewProps>) 
 		<PositronPreviewContextProvider {...props}>
 			<PreviewContainer
 				preview={activePreview}
+				visible={visible}
 				width={width}
 				height={height} />
 		</PositronPreviewContextProvider>

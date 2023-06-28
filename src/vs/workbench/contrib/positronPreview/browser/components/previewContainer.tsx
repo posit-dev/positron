@@ -11,6 +11,7 @@ import { PreviewWebview } from 'vs/workbench/contrib/positronPreview/browser/pos
  */
 interface PreviewContainerProps {
 	preview?: PreviewWebview;
+	visible: boolean;
 	width: number;
 	height: number;
 }

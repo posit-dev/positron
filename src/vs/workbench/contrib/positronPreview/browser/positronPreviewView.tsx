@@ -36,6 +36,9 @@ export class PositronPreviewViewPane extends ViewPane implements IReactComponent
 	// The onSizeChanged emitter.
 	private _onSizeChangedEmitter = this._register(new Emitter<ISize>());
 
+	// The onVisibilityChanged event emitter.
+	private _onVisibilityChangedEmitter = this._register(new Emitter<boolean>());
+
 	// The onSaveScrollPosition emitter.
 	private _onSaveScrollPositionEmitter = this._register(new Emitter<void>());
 
@@ -104,6 +107,13 @@ export class PositronPreviewViewPane extends ViewPane implements IReactComponent
 	}
 
 	/**
+	 * Gets the visible state.
+	 */
+	get visible() {
+		return this.isBodyVisible();
+	}
+
+	/**
 	 * Directs the React component container to take focus.
 	 */
 	takeFocus(): void {
@@ -114,6 +124,11 @@ export class PositronPreviewViewPane extends ViewPane implements IReactComponent
 	 * The onSizeChanged event.
 	 */
 	readonly onSizeChanged: Event<ISize> = this._onSizeChangedEmitter.event;
+
+	/**
+	 * The onVisibilityChanged event.
+	 */
+	readonly onVisibilityChanged: Event<boolean> = this._onVisibilityChangedEmitter.event;
 
 	/**
 	 * The onSaveScrollPosition event.
@@ -184,6 +199,7 @@ export class PositronPreviewViewPane extends ViewPane implements IReactComponent
 	//#region Private Methods
 
 	private onDidChangeVisibility(visible: boolean): void {
+		this._onVisibilityChangedEmitter.fire(visible);
 	}
 
 	//#endregion Private Methods
