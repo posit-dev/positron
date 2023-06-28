@@ -580,6 +580,83 @@ declare module 'positron' {
 		readonly portMapping?: readonly vscode.WebviewPortMapping[];
 	}
 
+	/**
+	 * A preview panel that contains a webview. This interface mirrors the
+	 * `WebviewPanel` interface, but omits elements that don't apply to
+	 * preview panels, such as `viewColumn`.
+	 */
+	interface PreviewPanel {
+		/**
+		 * Identifies the type of the preview panel, such as `'markdown.preview'`.
+		 */
+		readonly viewType: string;
+
+		/**
+		 * Title of the panel shown in UI.
+		 */
+		title: string;
+
+		/**
+		 * {@linkcode Webview} belonging to the panel.
+		 */
+		readonly webview: vscode.Webview;
+
+		/**
+		 * Whether the panel is active (focused by the user).
+		 */
+		readonly active: boolean;
+
+		/**
+		 * Whether the panel is visible.
+		 */
+		readonly visible: boolean;
+
+		/**
+		 * Fired when the panel's view state changes.
+		 */
+		readonly onDidChangeViewState: vscode.Event<PreviewPanelOnDidChangeViewStateEvent>;
+
+		/**
+		 * Fired when the panel is disposed.
+		 *
+		 * This may be because the user closed the panel or because `.dispose()` was
+		 * called on it.
+		 *
+		 * Trying to use the panel after it has been disposed throws an exception.
+		 */
+		readonly onDidDispose: vscode.Event<void>;
+
+		/**
+		 * Show the preview panel
+		 *
+		 * Only one preview panel can be shown at a time. If a different preview
+		 * is already showing, it will be hidden.
+		 *
+		 * @param preserveFocus When `true`, the webview will not take focus.
+		 */
+		reveal(preserveFocus?: boolean): void;
+
+		/**
+		 * Dispose of the preview panel.
+		 *
+		 * This closes the panel if it showing and disposes of the resources
+		 * owned by the underlying webview.  Preview panels are also disposed
+		 * when the user closes the preview panel. Both cases fire the
+		 * `onDispose` event.
+		 */
+		dispose(): any;
+	}
+
+	/**
+	 * Event fired when a preview panel's view state changes.
+	 */
+	export interface PreviewPanelOnDidChangeViewStateEvent {
+		/**
+		 * Preview panel whose view state changed.
+		 */
+		readonly previewPanel: PreviewPanel;
+	}
+
 	namespace window {
 		/**
 		 * Create and show a new preview panel.
@@ -588,9 +665,9 @@ declare module 'positron' {
 		 * @param title Title of the panel.
 		 * @param options Settings for the new panel.
 		 *
-		 * @return New webview panel.
+		 * @return New preview panel.
 		 */
-		export function createPreviewPanel(viewType: string, title: string, preserveFocus?: boolean, options?: PreviewOptions): vscode.WebviewPanel;
+		export function createPreviewPanel(viewType: string, title: string, preserveFocus?: boolean, options?: PreviewOptions): PreviewPanel;
 	}
 
 	namespace runtime {

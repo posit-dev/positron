@@ -16,7 +16,7 @@ import * as extHostProtocol from './extHost.positron.protocol';
 
 type IconPath = URI | { readonly light: URI; readonly dark: URI };
 
-class ExtHostPreviewPanel extends Disposable implements vscode.WebviewPanel {
+class ExtHostPreviewPanel extends Disposable implements positron.PreviewPanel {
 
 	readonly #handle: extHostProtocol.PreviewHandle;
 	readonly #proxy: extHostProtocol.MainThreadPreviewPanelShape;
@@ -33,7 +33,7 @@ class ExtHostPreviewPanel extends Disposable implements vscode.WebviewPanel {
 	readonly #onDidDispose = this._register(new Emitter<void>());
 	public readonly onDidDispose = this.#onDidDispose.event;
 
-	readonly #onDidChangeViewState = this._register(new Emitter<vscode.WebviewPanelOnDidChangeViewStateEvent>());
+	readonly #onDidChangeViewState = this._register(new Emitter<positron.PreviewPanelOnDidChangeViewStateEvent>());
 	public readonly onDidChangeViewState = this.#onDidChangeViewState.event;
 
 	constructor(
@@ -126,11 +126,11 @@ class ExtHostPreviewPanel extends Disposable implements vscode.WebviewPanel {
 		if (this.active !== newState.active || this.visible !== newState.visible) {
 			this.#active = newState.active;
 			this.#visible = newState.visible;
-			this.#onDidChangeViewState.fire({ webviewPanel: this });
+			this.#onDidChangeViewState.fire({ previewPanel: this });
 		}
 	}
 
-	public reveal(viewColumn?: vscode.ViewColumn, preserveFocus?: boolean): void {
+	public reveal(preserveFocus?: boolean): void {
 		this.assertNotDisposed();
 		this.#proxy.$reveal(this.#handle, !!preserveFocus);
 	}
@@ -150,7 +150,7 @@ export class ExtHostPreviewPanels implements extHostProtocol.ExtHostPreviewPanel
 
 	private readonly _proxy: extHostProtocol.MainThreadPreviewPanelShape;
 
-	private readonly _webviewPanels = new Map<extHostProtocol.PreviewHandle, ExtHostPreviewPanel>();
+	private readonly _previewPanels = new Map<extHostProtocol.PreviewHandle, ExtHostPreviewPanel>();
 
 	constructor(
 		mainContext: extHostProtocol.IMainPositronContext,
@@ -166,7 +166,7 @@ export class ExtHostPreviewPanels implements extHostProtocol.ExtHostPreviewPanel
 		title: string,
 		preserveFocus?: boolean,
 		options: positron.PreviewOptions = {},
-	): vscode.WebviewPanel {
+	): positron.PreviewPanel {
 
 		const handle = ExtHostPreviewPanels.newHandle();
 		this._proxy.$createPreviewPanel(toExtensionData(extension), handle, viewType, {
@@ -216,18 +216,18 @@ export class ExtHostPreviewPanels implements extHostProtocol.ExtHostPreviewPanel
 		const panel = this.getWebviewPanel(handle);
 		panel?.dispose();
 
-		this._webviewPanels.delete(handle);
+		this._previewPanels.delete(handle);
 		this.webviews.$deleteWebview(handle);
 	}
 
 	public createNewPreviewPanel(previewHandle: string, viewType: string, title: string, webview: ExtHostWebview, active: boolean) {
 		const panel = new ExtHostPreviewPanel(previewHandle, this._proxy, webview, { viewType, title, active });
-		this._webviewPanels.set(previewHandle, panel);
+		this._previewPanels.set(previewHandle, panel);
 		return panel;
 	}
 
 	public getWebviewPanel(handle: extHostProtocol.PreviewHandle): ExtHostPreviewPanel | undefined {
-		return this._webviewPanels.get(handle);
+		return this._previewPanels.get(handle);
 	}
 }
 
