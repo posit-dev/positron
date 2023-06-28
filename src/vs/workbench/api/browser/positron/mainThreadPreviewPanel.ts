@@ -8,10 +8,10 @@ import { MainThreadWebviews, reviveWebviewExtension } from 'vs/workbench/api/bro
 import { WebviewExtensionDescription } from 'vs/workbench/api/common/extHost.protocol';
 import { ExtensionKeyedWebviewOriginStore } from 'vs/workbench/contrib/webview/browser/webview';
 import { IExtHostContext } from 'vs/workbench/services/extensions/common/extHostCustomers';
-import { IPositronPreviewService } from 'vs/workbench/services/positronPreview/browser/positronPreview';
 import * as extHostProtocol from 'vs/workbench/api/common/positron/extHost.positron.protocol';
-import { PreviewWebview } from 'vs/workbench/contrib/positronPreview/browser/positronPreviewService';
+import { PreviewWebview } from 'vs/workbench/contrib/positronPreview/browser/positronPreviewServiceImpl';
 import { Disposable } from 'vs/base/common/lifecycle';
+import { IPositronPreviewService } from 'vs/workbench/contrib/positronPreview/browser/positronPreviewSevice';
 
 /**
  * Bi-directional map between webview handles and previews.

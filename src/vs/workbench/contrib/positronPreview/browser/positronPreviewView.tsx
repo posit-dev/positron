@@ -15,11 +15,11 @@ import { IContextMenuService } from 'vs/platform/contextview/browser/contextView
 import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import { ViewPane, IViewPaneOptions } from 'vs/workbench/browser/parts/views/viewPane';
-import { PositronPreview } from 'vs/workbench/contrib/positronPreview/browser/positronPreview';
 import { Event, Emitter } from 'vs/base/common/event';
 import { ICommandService } from 'vs/platform/commands/common/commands';
 import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/layoutService';
-import { IPositronPreviewService } from 'vs/workbench/services/positronPreview/browser/positronPreview';
+import { IPositronPreviewService } from 'vs/workbench/contrib/positronPreview/browser/positronPreviewSevice';
+import { PositronPreview } from 'vs/workbench/contrib/positronPreview/browser/positronPreview';
 
 /**
  * PositronPreviewViewPane class.

@@ -4,7 +4,7 @@
 
 import * as React from 'react';
 import { useEffect } from 'react'; // eslint-disable-line no-duplicate-imports
-import { PreviewWebview } from 'vs/workbench/contrib/positronPreview/browser/positronPreviewService';
+import { PreviewWebview } from 'vs/workbench/contrib/positronPreview/browser/positronPreviewServiceImpl';
 
 /**
  * PreviewContainerProps interface.

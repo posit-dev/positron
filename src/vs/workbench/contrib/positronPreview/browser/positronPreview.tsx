@@ -14,10 +14,10 @@ import { IConfigurationService } from 'vs/platform/configuration/common/configur
 import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/layoutService';
 import { DisposableStore } from 'vs/base/common/lifecycle';
 import { PreviewContainer } from 'vs/workbench/contrib/positronPreview/browser/components/previewContainer';
-import { IPositronPreviewService } from 'vs/workbench/services/positronPreview/browser/positronPreview';
 import { PositronPreviewServices } from 'vs/workbench/contrib/positronPreview/browser/positronPreviewState';
 import { PositronPreviewContextProvider } from 'vs/workbench/contrib/positronPreview/browser/positronPreviewContext';
-import { PreviewWebview } from 'vs/workbench/contrib/positronPreview/browser/positronPreviewService';
+import { PreviewWebview } from 'vs/workbench/contrib/positronPreview/browser/positronPreviewServiceImpl';
+import { IPositronPreviewService } from 'vs/workbench/contrib/positronPreview/browser/positronPreviewSevice';
 
 /**
  * PositronPreviewProps interface.
@@ -86,3 +86,5 @@ export const PositronPreview = (props: PropsWithChildren<PositronPreviewProps>) 
 		</PositronPreviewContextProvider>
 	);
 };
+export { IPositronPreviewService };
+
