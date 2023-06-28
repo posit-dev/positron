@@ -52,6 +52,13 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 		return this._selectedItemId;
 	}
 
+	get activePreviewWebview(): PreviewWebview | undefined {
+		if (!this._selectedItemId) {
+			return undefined;
+		}
+		return this._items.get(this._selectedItemId);
+	}
+
 	set activePreviewWebviewId(id: string) {
 		this._selectedItemId = id;
 		this._onDidChangeActivePreviewWebview.fire(id);

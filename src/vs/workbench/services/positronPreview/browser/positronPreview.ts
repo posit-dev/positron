@@ -44,6 +44,12 @@ export interface IPositronPreviewService {
 	 */
 	get previewWebviews(): PreviewWebview[];
 
+	/**
+	 * Returns the active preview pane item, or undefined if the preview pane
+	 * is empty.
+	 */
+	get activePreviewWebview(): PreviewWebview | undefined;
+
 	get activePreviewWebviewId(): string;
 
 	set activePreviewWebviewId(id: string);

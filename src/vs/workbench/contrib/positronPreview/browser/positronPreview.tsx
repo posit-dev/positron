@@ -17,6 +17,7 @@ import { PreviewContainer } from 'vs/workbench/contrib/positronPreview/browser/c
 import { IPositronPreviewService } from 'vs/workbench/services/positronPreview/browser/positronPreview';
 import { PositronPreviewServices } from 'vs/workbench/contrib/positronPreview/browser/positronPreviewState';
 import { PositronPreviewContextProvider } from 'vs/workbench/contrib/positronPreview/browser/positronPreviewContext';
+import { PreviewWebview } from 'vs/workbench/contrib/positronPreview/browser/positronPreviewService';
 
 /**
  * PositronPreviewProps interface.
@@ -45,8 +46,8 @@ export const PositronPreview = (props: PropsWithChildren<PositronPreviewProps>) 
 	const [height, setHeight] = useState(props.reactComponentContainer.height);
 
 	// Initial selected preview item.
-	const initialSelectedId = props.positronPreviewService.activePreviewWebviewId;
-	const [selectedItemId, setSelectedItemId] = useState<string>(initialSelectedId ?? '');
+	const initialActivePreview = props.positronPreviewService.activePreviewWebview;
+	const [activePreview, setActivePreview] = useState<PreviewWebview | undefined>(initialActivePreview);
 
 	// Add IReactComponentContainer event handlers.
 	useEffect(() => {
@@ -60,7 +61,8 @@ export const PositronPreview = (props: PropsWithChildren<PositronPreviewProps>) 
 		}));
 
 		disposableStore.add(props.positronPreviewService.onDidChangeActivePreviewWebview(id => {
-			setSelectedItemId(id);
+			const activePreview = props.positronPreviewService.activePreviewWebview;
+			setActivePreview(activePreview);
 		}));
 
 		// Return the cleanup function that will dispose of the event handlers.
@@ -71,7 +73,7 @@ export const PositronPreview = (props: PropsWithChildren<PositronPreviewProps>) 
 	return (
 		<PositronPreviewContextProvider {...props}>
 			<PreviewContainer
-				selectedItemId={selectedItemId}
+				preview={activePreview}
 				width={width}
 				height={height} />
 		</PositronPreviewContextProvider>
