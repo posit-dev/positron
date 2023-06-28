@@ -13,6 +13,7 @@ import path = require('path');
 import fs = require('fs');
 import { ZedPlot } from './positronZedPlot';
 import { ZedData } from './positronZedData';
+import { ZedPreview } from './positronZedPreview';
 
 /**
  * Constants.
@@ -61,7 +62,7 @@ const HelpLines = [
 	'help         - Shows this help',
 	'offline      - Simulates going offline for two seconds',
 	'plot X       - Renders a dynamic (auto-sizing) plot of the letter X',
-	'preview	  - Simulates a preview pane',
+	'preview      - Simulates a preview pane',
 	'progress     - Renders a progress bar',
 	'restart      - Simulates orderly restart',
 	'shutdown     - Simulates orderly shutdown',
@@ -128,6 +129,11 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 	 * A map of data frame IDs to data frame instances.
 	 */
 	private readonly _data: Map<string, ZedData> = new Map();
+
+	/**
+	 * The active preview instance, if any.
+	 */
+	private _preview: ZedPreview | undefined;
 
 	/**
 	 * A stack of pending environment RPCs.
@@ -881,7 +887,6 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 			return;
 		}
 
-
 		// See if this ID is a known data viewer
 		const data = this._data.get(client_id);
 		if (data) {
@@ -1061,9 +1066,12 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 
 		// Open the preview pane.
 		try {
-			const options: positron.PreviewOptions = {};
+			const options: positron.PreviewOptions = {
+				enableForms: true,
+				enableScripts: true,
+			};
 			const preview = positron.window.createPreviewPanel('positron.zedPreview', 'Zed Preview', true, options);
-			preview.webview.html = '<html><body><h1>Hello from Zed</h1></body></html>';
+			this._preview = new ZedPreview(preview);
 			this.simulateOutputMessage(parentId, 'Preview pane opened.');
 		} catch (error) {
 			this.simulateOutputMessage(parentId, `Error opening preview pane: ${error}`);
@@ -1322,6 +1330,11 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 			code: code,
 			execution_count: 1
 		} as positron.LanguageRuntimeInput);
+
+		// If the preview is open, add it to the preview's recent commands.
+		if (this._preview) {
+			this._preview.addRecentCommand(code);
+		}
 	}
 
 	/**
