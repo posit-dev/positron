@@ -1064,17 +1064,23 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 		this.simulateBusyState(parentId);
 		this.simulateInputMessage(parentId, code);
 
-		// Open the preview pane.
-		try {
-			const options: positron.PreviewOptions = {
-				enableForms: true,
-				enableScripts: true,
-			};
-			const preview = positron.window.createPreviewPanel('positron.zedPreview', 'Zed Preview', true, options);
-			this._preview = new ZedPreview(this.context, preview);
-			this.simulateOutputMessage(parentId, 'Preview pane opened.');
-		} catch (error) {
-			this.simulateOutputMessage(parentId, `Error opening preview pane: ${error}`);
+		if (this._preview) {
+			this.simulateOutputMessage(parentId,
+				`Preview pane is already open; visible = ${this._preview.visible()}.`);
+			// TODO: How about doing a reveal here if the panel is not visible?
+		} else {
+			// Open the preview pane.
+			try {
+				const options: positron.PreviewOptions = {
+					enableForms: true,
+					enableScripts: true,
+				};
+				const preview = positron.window.createPreviewPanel('positron.zedPreview', 'Zed Preview', true, options);
+				this._preview = new ZedPreview(this.context, preview);
+				this.simulateOutputMessage(parentId, 'Preview pane opened.');
+			} catch (error) {
+				this.simulateOutputMessage(parentId, `Error opening preview pane: ${error}`);
+			}
 		}
 
 		// Return to idle state.

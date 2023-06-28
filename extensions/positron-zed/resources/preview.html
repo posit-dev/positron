@@ -12,6 +12,8 @@
 		<ol id="commandList"></ol>
 	</body>
 	<script>
+		const vscode = acquireVsCodeApi();
+
 		// Zed commands are sent as messages from the extension to the webview.
 		window.addEventListener("message", (event) => {
 			const message = event.data;
@@ -21,16 +23,11 @@
 		});
 
 		document.getElementById("sendMessage").addEventListener("click", () => {
-			// Send a message to the extension.
-			// The extension will add it to the list of recently executed commands.
-			window.vscode.postMessage("message");
+			vscode.postMessage("message");
 		});
 
-		document.getElementById("sendMessage").addEventListener("click", () => {
-			// Send a message to the extension.
-			// The extension will add it to the list of recently executed commands.
-			window.vscode.postMessage("message");
+		document.getElementById("closePreview").addEventListener("click", () => {
+			vscode.postMessage("close");
 		});
 	</script>
 </html>
-`;

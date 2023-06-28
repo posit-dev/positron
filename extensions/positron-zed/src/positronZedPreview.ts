@@ -18,6 +18,18 @@ export class ZedPreview {
 			this.panel.webview.postMessage(
 				`onDidChangeViewState: ${this.panel.active}`);
 		});
+
+		panel.webview.onDidReceiveMessage(message => {
+			if (message === 'message') {
+				this.panel.webview.postMessage(`Received message`);
+			} else if (message === 'close') {
+				this.panel.dispose();
+			}
+		});
+	}
+
+	public visible(): boolean {
+		return this.panel.visible;
 	}
 
 	public addRecentCommand(command: string): void {
