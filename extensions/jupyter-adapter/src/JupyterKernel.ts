@@ -373,7 +373,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 				});
 
 				// Connect the Stdin socket
-				this._stdin?.onMessage((...args: any[]) => {
+				this._stdin?.onMessage((args: any[]) => {
 					const msg = deserializeJupyterMessage(args, this._session!.key, this._channel);
 					if (msg !== null) {
 						// If this is an input request, save the header so we can
