@@ -44,6 +44,10 @@ export const PositronPreview = (props: PropsWithChildren<PositronPreviewProps>) 
 	const [width, setWidth] = useState(props.reactComponentContainer.width);
 	const [height, setHeight] = useState(props.reactComponentContainer.height);
 
+	// Initial selected preview item.
+	const initialSelectedId = props.positronPreviewService.activePreviewWebviewId;
+	const [selectedItemId, setSelectedItemId] = useState<string>(initialSelectedId ?? '');
+
 	// Add IReactComponentContainer event handlers.
 	useEffect(() => {
 		// Create the disposable store for cleanup.
@@ -55,6 +59,10 @@ export const PositronPreview = (props: PropsWithChildren<PositronPreviewProps>) 
 			setHeight(size.height);
 		}));
 
+		disposableStore.add(props.positronPreviewService.onDidChangeActivePreviewWebview(id => {
+			setSelectedItemId(id);
+		}));
+
 		// Return the cleanup function that will dispose of the event handlers.
 		return () => disposableStore.dispose();
 	}, []);
@@ -63,6 +71,7 @@ export const PositronPreview = (props: PropsWithChildren<PositronPreviewProps>) 
 	return (
 		<PositronPreviewContextProvider {...props}>
 			<PreviewContainer
+				selectedItemId={selectedItemId}
 				width={width}
 				height={height} />
 		</PositronPreviewContextProvider>

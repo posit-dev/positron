@@ -20,8 +20,6 @@ export interface PositronPreviewServices {
  */
 export interface PositronPreviewState extends PositronPreviewServices {
 	readonly previewWebviews: PreviewWebview[];
-	selectedItemId: string;
-	selectedItemIndex: number;
 }
 
 /**
@@ -36,15 +34,6 @@ export const usePositronPreviewState = (services: PositronPreviewServices): Posi
 	const [previewWebviews, setPreviewWebviews] = useState<PreviewWebview[]>(
 		services.positronPreviewService.previewWebviews);
 
-	// Initial selected preview item.
-	const initialSelectedId = services.positronPreviewService.activePreviewWebviewId;
-	const [selectedItemId, setSelectedItemId] = useState<string>(initialSelectedId ?? '');
-
-	// Index of the selected preview item.
-	const initialSelectedIndex = services.positronPreviewService.previewWebviews.findIndex
-		(p => p.providedId === initialSelectedId);
-	const [selectedItemIndex, setSelectedItemIndex] = useState<number>(initialSelectedIndex);
-
 	// Add event handlers.
 	useEffect(() => {
 		const disposableStore = new DisposableStore();
@@ -57,15 +46,9 @@ export const usePositronPreviewState = (services: PositronPreviewServices): Posi
 			});
 		}));
 
-		// Listen for preview pane item updates
-		disposableStore.add(services.positronPreviewService.onDidChangeActivePreviewWebview(id => {
-			setSelectedItemId(id);
-			setSelectedItemIndex(services.positronPreviewService.previewWebviews.findIndex(p => p.providedId === id));
-		}));
-
 		// Return the clean up for our event handlers.
 		return () => disposableStore.dispose();
 	}, []);
 
-	return { ...services, previewWebviews, selectedItemId, selectedItemIndex };
+	return { ...services, previewWebviews };
 };

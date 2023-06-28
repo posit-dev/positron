@@ -10,6 +10,7 @@ import { usePositronPreviewContext } from 'vs/workbench/contrib/positronPreview/
  * PreviewContainerProps interface.
  */
 interface PreviewContainerProps {
+	selectedItemId: string;
 	width: number;
 	height: number;
 }
@@ -25,10 +26,10 @@ export const PreviewContainer = (props: PreviewContainerProps) => {
 	const positronPreviewContext = usePositronPreviewContext();
 	const webviewRef = React.useRef<HTMLDivElement>(null);
 
-	const selectedItem = positronPreviewContext.previewWebviews.find(
-		item => item.providedId === positronPreviewContext.selectedItemId);
-
 	useEffect(() => {
+		const selectedItem = positronPreviewContext.previewWebviews.find(
+			item => item.providedId === props.selectedItemId);
+
 		if (selectedItem && webviewRef.current) {
 			const webview = selectedItem.webview;
 			webview.claim(this, undefined);
@@ -38,12 +39,13 @@ export const PreviewContainer = (props: PreviewContainerProps) => {
 				webview.layoutWebviewOverElement(webviewRef.current);
 			}
 		}
+
 		return () => {
 			if (selectedItem) {
 				selectedItem.webview.release(this);
 			}
 		};
-	});
+	}, [props.selectedItemId]);
 
 	const style = {
 		width: `${props.width}px`,

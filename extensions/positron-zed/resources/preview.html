@@ -1,21 +1,36 @@
-<html>
+<!DOCTYPE html>
+<html lang="en">
 	<head>
-		Zed Preview
+		<meta charset="UTF-8" />
+		<title>Zed Preview</title>
 	</head>
 	<body>
-		<h1>Falling Stars</h1>
-		<p>
-			Do you remember still the falling stars<br />
-			that like swift horses through the heavens raced<br />
-			and suddenly leaped across the hurdles<br />
-			of our wishes--do you recall? And we<br />
-			did make so many! For there were countless numbers of stars:<br />
-			each time we looked above we were<br />
-			astounded by the swiftness of their daring play,<br />
-			while in our hearts we felt safe and secure<br />
-			watching these brilliant bodies disintegrate,<br />
-			knowing somehow we had survived their fall.<br />
-		</p>
-		<p style="font-style: italic">-- Rainer Maria Rilke</p>
+		<h1>Zed Preview</h1>
+		<button id="sendMessage">Send Message</button>
+		<button id="closePreview">Close Preview</button>
+		<h2>Things that Happened</h2>
+		<ol id="commandList"></ol>
 	</body>
+	<script>
+		// Zed commands are sent as messages from the extension to the webview.
+		window.addEventListener("message", (event) => {
+			const message = event.data;
+			const ele = document.createElement("li");
+			ele.innerText = message;
+			document.getElementById("commandList").appendChild(ele);
+		});
+
+		document.getElementById("sendMessage").addEventListener("click", () => {
+			// Send a message to the extension.
+			// The extension will add it to the list of recently executed commands.
+			window.vscode.postMessage("message");
+		});
+
+		document.getElementById("sendMessage").addEventListener("click", () => {
+			// Send a message to the extension.
+			// The extension will add it to the list of recently executed commands.
+			window.vscode.postMessage("message");
+		});
+	</script>
 </html>
+`;

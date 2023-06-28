@@ -2,10 +2,16 @@
  *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
+import path = require('path');
+import fs = require('fs');
+
+import * as vscode from 'vscode';
 import * as positron from 'positron';
 
 export class ZedPreview {
-	constructor(readonly panel: positron.PreviewPanel) {
+	constructor(
+		private readonly context: vscode.ExtensionContext,
+		readonly panel: positron.PreviewPanel) {
 		panel.webview.html = this.getPreviewContents();
 
 		panel.onDidChangeViewState(() => {
@@ -21,29 +27,12 @@ export class ZedPreview {
 	}
 
 	private getPreviewContents(): string {
-		return `
-<!DOCTYPE html>
-<html lang="en">
-<head>
-	<meta charset="UTF-8">
-	<title>Zed Preview</title>
-	<script>
-		// Zed commands are sent as messages from the extension to the webview.
-        window.addEventListener('message', event => {
-            const message = event.data;
-			const ele = document.createElement('li');
-			ele.innerText = message;
-			document.getElementById('commandList').appendChild(ele);
-        });
-    </script>
-</head>
-<body>
-	<h1>Zed Preview</h1>
-	<h2>Things that Happened</h2>
-	<ol id="commandList">
-	</ol>
-</body>
-</html>
-		`;
+		// Get the contents of the preview.html file from the extension's resources folder
+		// and return it as a string.
+		const previewHtmlPath = path.join(this.context.extensionPath,
+			'resources',
+			'preview.html');
+		const previewContents = fs.readFileSync(previewHtmlPath, 'utf8');
+		return previewContents;
 	}
 }
