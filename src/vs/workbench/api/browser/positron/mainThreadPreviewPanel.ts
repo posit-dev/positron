@@ -102,15 +102,31 @@ export class MainThreadPreviewPanel extends Disposable implements extHostProtoco
 	}
 
 	$disposePreview(handle: string): void {
-		throw new Error('Method not implemented.');
+		const preview = this._previews.getPreviewForHandle(handle);
+		if (!preview || preview.isDisposed()) {
+			return;
+		}
+
+		// Will trigger `$onDidDisposePreviewPanel`
+		preview.dispose();
 	}
 
 	$reveal(handle: string, preserveFocus: boolean): void {
-		throw new Error('Method not implemented.');
+		const preview = this._previews.getPreviewForHandle(handle);
+		if (!preview || preview.isDisposed()) {
+			return;
+		}
+
+		this._positronPreviewService.activePreviewWebviewId = preview.previewId;
 	}
 
 	$setTitle(handle: string, value: string): void {
-		throw new Error('Method not implemented.');
+		const preview = this._previews.getPreviewForHandle(handle);
+		if (!preview || preview.isDisposed()) {
+			return;
+		}
+
+		preview.webview.setTitle(value);
 	}
 
 	override dispose(): void {

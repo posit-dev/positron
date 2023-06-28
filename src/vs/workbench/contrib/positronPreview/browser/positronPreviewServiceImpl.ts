@@ -9,9 +9,10 @@ import { IOverlayWebview, IWebviewService, WebviewInitInfo } from 'vs/workbench/
 import { generateUuid } from 'vs/base/common/uuid';
 
 export class PreviewWebview extends Disposable {
+	private disposed = false;
 	constructor(
 		readonly viewType: string,
-		readonly providedId: string,
+		readonly previewId: string,
 		readonly name: string,
 		readonly webview: IOverlayWebview
 	) {
@@ -19,8 +20,13 @@ export class PreviewWebview extends Disposable {
 		this._register(this.webview);
 	}
 
+	isDisposed(): boolean {
+		return this.disposed;
+	}
+
 	override dispose() {
 		super.dispose();
+		this.disposed = true;
 	}
 }
 
@@ -75,10 +81,23 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 		const id = generateUuid();
 		const preview = new PreviewWebview(viewType, id, title, webview);
 
-		this._items.set(preview.providedId, preview);
+		this._items.set(preview.previewId, preview);
 
 		this._onDidCreatePreviewWebviewEmitter.fire(preview);
-		this.activePreviewWebviewId = preview.providedId;
+		this.activePreviewWebviewId = preview.previewId;
+
+		// Ensure we clean up the preview webview when it is closed.
+		this._register(preview.webview.onDidDispose(() => {
+
+			const wasActive = this.activePreviewWebviewId === preview.previewId;
+
+			this._items.delete(preview.previewId);
+
+			// Select a new preview webview if the closed one was active
+			if (this._items.size > 0 && wasActive) {
+				this.activePreviewWebviewId = this._items.values().next().value.providedId;
+			}
+		}));
 
 		return preview;
 	}
