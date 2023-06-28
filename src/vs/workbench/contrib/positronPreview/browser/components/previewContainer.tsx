@@ -5,6 +5,7 @@
 import * as React from 'react';
 import { useEffect } from 'react'; // eslint-disable-line no-duplicate-imports
 import { usePositronPreviewContext } from 'vs/workbench/contrib/positronPreview/browser/positronPreviewContext';
+import { IOverlayWebview } from 'vs/workbench/contrib/webview/browser/webview';
 
 /**
  * PreviewContainerProps interface.
@@ -25,27 +26,27 @@ export const PreviewContainer = (props: PreviewContainerProps) => {
 
 	const positronPreviewContext = usePositronPreviewContext();
 	const webviewRef = React.useRef<HTMLDivElement>(null);
+	let webview: IOverlayWebview | undefined = undefined;
 
 	useEffect(() => {
 		const selectedItem = positronPreviewContext.previewWebviews.find(
 			item => item.providedId === props.selectedItemId);
 
-		if (selectedItem && webviewRef.current) {
-			const webview = selectedItem.webview;
+		if (selectedItem) {
+			webview = selectedItem.webview;
 			webview.claim(this, undefined);
-			const container = webview.container;
-			container.setAttribute('data-preview-container', selectedItem.providedId);
-			if (container) {
-				webview.layoutWebviewOverElement(webviewRef.current);
-			}
+			return () => {
+				webview?.release(this);
+			};
 		}
-
-		return () => {
-			if (selectedItem) {
-				selectedItem.webview.release(this);
-			}
-		};
+		return () => { };
 	}, [props.selectedItemId]);
+
+	useEffect(() => {
+		if (webview && webviewRef.current) {
+			webview.layoutWebviewOverElement(webviewRef.current);
+		}
+	});
 
 	const style = {
 		width: `${props.width}px`,
