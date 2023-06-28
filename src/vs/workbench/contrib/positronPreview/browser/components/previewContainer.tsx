@@ -29,16 +29,20 @@ export const PreviewContainer = (props: PreviewContainerProps) => {
 	useEffect(() => {
 		if (props.preview) {
 			const webview = props.preview.webview;
-			webview.claim(this, undefined);
-			return () => {
-				webview?.release(this);
-			};
+			if (props.visible) {
+				webview.claim(this, undefined);
+				return () => {
+					webview?.release(this);
+				};
+			} else {
+				webview.release(this);
+			}
 		}
 		return () => { };
-	}, [props.preview]);
+	}, [props.preview, props.visible]);
 
 	useEffect(() => {
-		if (props.preview && webviewRef.current) {
+		if (props.preview && webviewRef.current && props.visible) {
 			props.preview.webview.layoutWebviewOverElement(webviewRef.current);
 		}
 	});
