@@ -120,7 +120,11 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		if (handle >= this._runtimes.length) {
 			throw new Error(`Cannot interrupt prompt: language runtime handle '${handle}' not found or no longer valid.`);
 		}
-		this._runtimes[handle].interruptPrompt(id);
+		if (this._runtimes[handle].interruptPrompt) {
+			this._runtimes[handle].interruptPrompt!(id);
+		} else {
+			this._runtimes[handle].interrupt();
+		}
 	}
 
 	public registerClientHandler(handler: positron.RuntimeClientHandler): IDisposable {

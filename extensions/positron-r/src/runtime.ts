@@ -77,7 +77,11 @@ export class RRuntime implements positron.LanguageRuntime, vscode.Disposable {
 	}
 
 	async interruptPrompt(id: string): Promise<void> {
-		await this._kernel.interruptPrompt(id);
+		if (this._kernel.interruptPrompt) {
+			await this._kernel.interruptPrompt!(id);
+		} else {
+			await this._kernel.interrupt();
+		}
 	}
 
 	start(): Thenable<positron.LanguageRuntimeInfo> {

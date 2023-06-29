@@ -442,8 +442,10 @@ declare module 'positron' {
 		/** Reply to a prompt issued by the runtime */
 		replyToPrompt(id: string, reply: string): void;
 
-		/** Interrupt a prompt issued by the runtime */
-		interruptPrompt(id: string): Promise<void>;
+		/** Interrupt a prompt issued by the runtime. If not implemented,
+		  * `interrupt()` is called instead.
+		  */
+		interruptPrompt?(id: string): Promise<void>;
 
 		/**
 		 * Start the runtime; returns a Thenable that resolves with information about the runtime.
