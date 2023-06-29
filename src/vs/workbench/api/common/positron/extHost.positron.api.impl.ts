@@ -34,7 +34,20 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 	const initData = accessor.get(IExtHostInitDataService);
 	const extHostWorkspace = accessor.get(IExtHostWorkspace);
 
+	// Retrieve the raw `ExtHostWebViews` object from the rpcProtocol; this
+	// object is needed to create webviews, and was previously created in
+	// `createApiFactoryAndRegisterActors` when VS Code's API factory was
+	// created earlier.
+	//
+	// The `getRaw` method is a Positron extension to the `rpcProtocol` that
+	// allows us to retrieve the raw actor object so that the Positron API and
+	// VS Code API can share a single instance of `ExtHostWebViews`, which is
+	// necessary since the instance effectively needs to be a singleton.
 	const extHostWebviews: ExtHostWebviews = rpcProtocol.getRaw(ExtHostContext.ExtHostWebviews);
+	if (!extHostWebviews) {
+		throw new Error('Could not retrieve ExtHostWebviews from the RPC protocol. ' +
+			' The VS Code API must be created before the Positron API.');
+	}
 
 	const extHostLanguageRuntime = rpcProtocol.set(ExtHostPositronContext.ExtHostLanguageRuntime, new ExtHostLanguageRuntime(rpcProtocol));
 	const extHostPreviewPanels = rpcProtocol.set(ExtHostPositronContext.ExtHostPreviewPanel, new ExtHostPreviewPanels(rpcProtocol, extHostWebviews, extHostWorkspace));
