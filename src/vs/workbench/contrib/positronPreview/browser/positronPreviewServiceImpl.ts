@@ -10,6 +10,10 @@ import { PreviewWebview } from 'vs/workbench/contrib/positronPreview/browser/pre
 import { IViewsService } from 'vs/workbench/common/views';
 import { POSITRON_PREVIEW_VIEW_ID } from 'vs/workbench/contrib/positronPreview/browser/positronPreviewSevice';
 
+/**
+ * Positron preview service; keeps track of the set of active previews and
+ * notifies listeners when the active preview changes.
+ */
 export class PositronPreviewService extends Disposable implements IPositronPreviewService {
 
 	declare readonly _serviceBrand: undefined;
@@ -46,9 +50,20 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 		return this._items.get(this._selectedItemId);
 	}
 
+	/**
+	 * Set the active preview webview.
+	 *
+	 * @param id The id of the preview to set as active, or a falsey value to
+	 *   set no preview as active.
+	 */
 	set activePreviewWebviewId(id: string) {
-		// Ensure that this is a valid preview
-		if (!this._items.has(id)) {
+		// Don't do anything if the requested preview is already active
+		if (this._selectedItemId === id) {
+			return;
+		}
+
+		// If we were given an ID, make sure it's valid
+		if (id && !this._items.has(id)) {
 			throw new Error(`Invalid preview id: ${id}`);
 		}
 
@@ -62,10 +77,14 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 		this._onDidChangeActivePreviewWebview.fire(id);
 
 		// Notify new preview that it is active
-		this._items.get(id)!.active = true;
+		if (id) {
+			this._items.get(id)!.active = true;
+		}
 	}
 
 	onDidChangeActivePreviewWebview: Event<string>;
+
+	onDidCreatePreviewWebview: Event<PreviewWebview>;
 
 	openPreview(previewId: string,
 		webviewInitInfo: WebviewInitInfo,
@@ -89,8 +108,15 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 			this._items.delete(preview.previewId);
 
 			// Select a new preview webview if the closed one was active
-			if (this._items.size > 0 && wasActive) {
-				this.activePreviewWebviewId = this._items.values().next().value.providedId;
+			if (wasActive) {
+				if (this._items.size > 0) {
+					// If we have other items to show, select one
+					this.activePreviewWebviewId =
+						this._items.values().next().value.providedId;
+				} else {
+					// Nothing else to show; set the the active preview to undefined
+					this.activePreviewWebviewId = '';
+				}
 			}
 		}));
 
@@ -100,6 +126,4 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 
 		return preview;
 	}
-
-	onDidCreatePreviewWebview: Event<PreviewWebview>;
 }
