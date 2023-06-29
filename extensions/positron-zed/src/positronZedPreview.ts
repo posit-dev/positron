@@ -28,12 +28,23 @@ export class ZedPreview {
 		});
 	}
 
+	// Expose the onDidDispose event from the panel.
+	onDidDispose = this.panel.onDidDispose;
+
 	public visible(): boolean {
 		return this.panel.visible;
 	}
 
 	public show(): void {
 		this.panel.reveal();
+	}
+
+	public close(): void {
+		this.panel.dispose();
+	}
+
+	public sendMessage(): void {
+		this.panel.webview.postMessage('Recived message from console.');
 	}
 
 	public addRecentCommand(command: string): void {
