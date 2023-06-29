@@ -10,8 +10,9 @@ import { ExtensionKeyedWebviewOriginStore } from 'vs/workbench/contrib/webview/b
 import { IExtHostContext } from 'vs/workbench/services/extensions/common/extHostCustomers';
 import * as extHostProtocol from 'vs/workbench/api/common/positron/extHost.positron.protocol';
 import { Disposable } from 'vs/base/common/lifecycle';
-import { IPositronPreviewService } from 'vs/workbench/contrib/positronPreview/browser/positronPreviewSevice';
+import { IPositronPreviewService, POSITRON_PREVIEW_VIEW_ID } from 'vs/workbench/contrib/positronPreview/browser/positronPreviewSevice';
 import { PreviewWebview } from 'vs/workbench/contrib/positronPreview/browser/previewWebview';
+import { IViewsService } from 'vs/workbench/common/views';
 
 /**
  * Bi-directional map between webview handles and previews.
@@ -63,6 +64,7 @@ export class MainThreadPreviewPanel extends Disposable implements extHostProtoco
 		private readonly _mainThreadWebviews: MainThreadWebviews,
 		@IStorageService private readonly _storageService: IStorageService,
 		@IPositronPreviewService private readonly _positronPreviewService: IPositronPreviewService,
+		@IViewsService private readonly _viewsService: IViewsService,
 	) {
 		super();
 
@@ -130,6 +132,9 @@ export class MainThreadPreviewPanel extends Disposable implements extHostProtoco
 		}
 
 		this._positronPreviewService.activePreviewWebviewId = preview.previewId;
+
+		// Raise the preview panel
+		this._viewsService.openView(POSITRON_PREVIEW_VIEW_ID, preserveFocus);
 	}
 
 	$setTitle(handle: string, value: string): void {

@@ -32,6 +32,10 @@ export class ZedPreview {
 		return this.panel.visible;
 	}
 
+	public show(): void {
+		this.panel.reveal();
+	}
+
 	public addRecentCommand(command: string): void {
 		// Send the command as a message to the webview.
 		// The webview will add it to the list of recently executed commands.

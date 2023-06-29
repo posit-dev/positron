@@ -1065,9 +1065,13 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 		this.simulateInputMessage(parentId, code);
 
 		if (this._preview) {
+			const visible = this._preview.visible();
 			this.simulateOutputMessage(parentId,
-				`Preview pane is already open; visible = ${this._preview.visible()}.`);
-			// TODO: How about doing a reveal here if the panel is not visible?
+				`Preview pane is already open; visible = ${visible}.`);
+			if (!visible) {
+				this.simulateOutputMessage(parentId, 'Showing preview pane.');
+				this._preview.show();
+			}
 		} else {
 			// Open the preview pane.
 			try {
