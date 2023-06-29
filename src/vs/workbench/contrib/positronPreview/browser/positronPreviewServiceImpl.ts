@@ -7,6 +7,8 @@ import { IPositronPreviewService } from 'vs/workbench/contrib/positronPreview/br
 import { Event, Emitter } from 'vs/base/common/event';
 import { IWebviewService, WebviewInitInfo } from 'vs/workbench/contrib/webview/browser/webview';
 import { PreviewWebview } from 'vs/workbench/contrib/positronPreview/browser/previewWebview';
+import { IViewsService } from 'vs/workbench/common/views';
+import { POSITRON_PREVIEW_VIEW_ID } from 'vs/workbench/contrib/positronPreview/browser/positronPreviewSevice';
 
 export class PositronPreviewService extends Disposable implements IPositronPreviewService {
 
@@ -21,7 +23,8 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 	private _onDidChangeActivePreviewWebview = new Emitter<string>;
 
 	constructor(
-		@IWebviewService private readonly _webviewService: IWebviewService
+		@IWebviewService private readonly _webviewService: IWebviewService,
+		@IViewsService private readonly _viewsService: IViewsService
 	) {
 		super();
 		this.onDidCreatePreviewWebview = this._onDidCreatePreviewWebviewEmitter.event;
@@ -90,6 +93,10 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 				this.activePreviewWebviewId = this._items.values().next().value.providedId;
 			}
 		}));
+
+		// Open the preview pane if it is not already open so the
+		// user can see the preview.
+		this._viewsService.openView(POSITRON_PREVIEW_VIEW_ID, true);
 
 		return preview;
 	}
