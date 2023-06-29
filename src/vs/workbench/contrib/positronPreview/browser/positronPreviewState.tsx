@@ -40,7 +40,7 @@ export const usePositronPreviewState = (services: PositronPreviewServices): Posi
 
 		// Listen for new preview pane items
 		disposableStore.add(services.positronPreviewService.onDidCreatePreviewWebview(item => {
-			// Add the plot instance to the list of plot instances
+			// Add the preview instance to the list of preview instances
 			setPreviewWebviews(previewItems => {
 				return [item, ...previewItems];
 			});

@@ -7,7 +7,7 @@ import { PropsWithChildren, createContext, useContext } from 'react'; // eslint-
 import { PositronPreviewServices, PositronPreviewState, usePositronPreviewState } from 'vs/workbench/contrib/positronPreview/browser/positronPreviewState';
 
 /**
- * Create the Positron plots context.
+ * Create the Positron preview context.
  */
 const PositronPreviewContext = createContext<PositronPreviewState>(undefined!);
 

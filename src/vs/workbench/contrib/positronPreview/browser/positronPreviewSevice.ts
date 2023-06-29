@@ -15,6 +15,10 @@ export const IPositronPreviewService = createDecorator<IPositronPreviewService>(
 
 /**
  * IPositronPreviewService interface.
+ *
+ * Note that this service lives in `/contrib/` instead of `/services/` because
+ * it requires a large number of types from the `webview` package, which can
+ * only be referenced from `/contrib/` due to VS Code's code layering rules.
  */
 export interface IPositronPreviewService {
 	readonly _serviceBrand: undefined;

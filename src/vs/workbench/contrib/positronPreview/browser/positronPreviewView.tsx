@@ -152,11 +152,11 @@ export class PositronPreviewViewPane extends ViewPane implements IReactComponent
 		// Call the base class's method.
 		super.renderBody(container);
 
-		// Append the Positron plots container.
+		// Append the Positron preview container.
 		this._positronPreviewContainer = DOM.$('.positron-preview-container');
 		container.appendChild(this._positronPreviewContainer);
 
-		// Create the PositronReactRenderer for the PositronPlots component and render it.
+		// Create the PositronReactRenderer for the PositronPreview component and render it.
 		this._positronReactRenderer = new PositronReactRenderer(this._positronPreviewContainer);
 		this._positronReactRenderer.render(
 			<PositronPreview

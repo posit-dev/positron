@@ -16,6 +16,15 @@ import * as extHostProtocol from './extHost.positron.protocol';
 
 type IconPath = URI | { readonly light: URI; readonly dark: URI };
 
+/**
+ * `ExtHostPreviewPanel` is the implementation of `vscode.PreviewPanel` that
+ * lives in the extension host. It wraps an `ExtHostWebView` with metadata about
+ * how the view is displayed in the Preview panel.
+ *
+ * This class is similar to `ExtHostWebviewPanel` in that it hosts a webview in
+ * a UI panel, but different in that the webview lives in Positron's preview
+ * panel instead of a view column or editor group.
+ */
 class ExtHostPreviewPanel extends Disposable implements positron.PreviewPanel {
 
 	readonly #handle: extHostProtocol.PreviewHandle;
@@ -36,6 +45,14 @@ class ExtHostPreviewPanel extends Disposable implements positron.PreviewPanel {
 	readonly #onDidChangeViewState = this._register(new Emitter<positron.PreviewPanelOnDidChangeViewStateEvent>());
 	public readonly onDidChangeViewState = this.#onDidChangeViewState.event;
 
+	/**
+	 * Construct a new PreviewPanel.
+	 *
+	 * @param handle Unique handle for the preview panel
+	 * @param proxy A proxy to the main thread
+	 * @param webview The webview that will be displayed in the preview panel
+	 * @param params The initial state of the preview panel
+	 */
 	constructor(
 		handle: extHostProtocol.PreviewHandle,
 		proxy: extHostProtocol.MainThreadPreviewPanelShape,
@@ -142,14 +159,25 @@ class ExtHostPreviewPanel extends Disposable implements positron.PreviewPanel {
 	}
 }
 
+/**
+ * Extension host side of the Preview pane's API.
+ */
 export class ExtHostPreviewPanels implements extHostProtocol.ExtHostPreviewPanelShape {
 
+	/**
+	 * Generator for preview panel handles, also referred to as "preview IDs" on
+	 * the main thread side.
+	 *
+	 * @returns A new handle for a preview panel
+	 */
 	private static newHandle(): extHostProtocol.PreviewHandle {
 		return generateUuid();
 	}
 
+	/** A proxy to the main thread to trigger UI actions (create/reveal/etc) */
 	private readonly _proxy: extHostProtocol.MainThreadPreviewPanelShape;
 
+	/** A map of all known previews; handle to instance */
 	private readonly _previewPanels = new Map<extHostProtocol.PreviewHandle, ExtHostPreviewPanel>();
 
 	constructor(
@@ -181,6 +209,13 @@ export class ExtHostPreviewPanels implements extHostProtocol.ExtHostPreviewPanel
 	}
 
 	public $onDidChangePreviewPanelViewStates(newStates: extHostProtocol.PreviewPanelViewStateData): void {
+		// Note: This logic is largely copied from
+		// `$onDidChangeWebviewPanelViewStates`, and is written to handle
+		// batched updates to view state changes. Currently, the main thread
+		// side of the view state manager doesn't batch updates, but it's
+		// somewhat likely that it will in the future, so we duplicate the sort
+		// logic here.
+
 		const handles = Object.keys(newStates);
 		// Notify webviews of state changes in the following order:
 		// - Non-visible

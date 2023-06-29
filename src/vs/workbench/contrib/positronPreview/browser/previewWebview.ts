@@ -6,6 +6,14 @@ import { Disposable } from 'vs/base/common/lifecycle';
 import { IOverlayWebview } from 'vs/workbench/contrib/webview/browser/webview';
 import { Emitter, Event } from 'vs/base/common/event';
 
+/**
+ * This class represents a Positron preview webview as actually loaded into the
+ * preview pane. The `PositronPreviewService` holds instances of this class for
+ * each preview and loads them into the UI as needed.
+ *
+ * See `ExtHostPreviewPanel` for the class that represents the webview in the
+ * extension host and tracks most of the state below.
+ */
 export class PreviewWebview extends Disposable {
 
 	private _disposed = false;
@@ -17,6 +25,14 @@ export class PreviewWebview extends Disposable {
 	private _onDidChangeActiveState = new Emitter<boolean>();
 	private _onDidChangeVisibleState = new Emitter<boolean>();
 
+	/**
+	 * Construct a new PreviewWebview.
+	 *
+	 * @param viewType The view type of the preview
+	 * @param previewId A unique ID for the preview
+	 * @param name The preview's name
+	 * @param webview The underlying webview instance that hosts the preview's content
+	 */
 	constructor(
 		readonly viewType: string,
 		readonly previewId: string,
@@ -32,8 +48,18 @@ export class PreviewWebview extends Disposable {
 		this._register(this.webview);
 	}
 
+	/**
+	 * Fires when the preview's active state changes. Only one preview can be
+	 * active at a time; note that active doesn't necessarily mean visible (a
+	 * preview could be active but hidden).
+	 */
 	onDidChangeActiveState: Event<boolean>;
 
+	/**
+	 * Fires when the preview's visibility changes. Only the active preview
+	 * receives visibility events; these events track the state of the Preview
+	 * pane itself.
+	 */
 	onDidChangeVisibleState: Event<boolean>;
 
 	isDisposed(): boolean {
