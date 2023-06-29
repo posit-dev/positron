@@ -199,7 +199,7 @@ export class ExtHostPreviewPanels implements extHostProtocol.ExtHostPreviewPanel
 		});
 
 		for (const handle of handles) {
-			const panel = this.getWebviewPanel(handle);
+			const panel = this.getPreviewPanel(handle);
 			if (!panel) {
 				continue;
 			}
@@ -213,7 +213,7 @@ export class ExtHostPreviewPanels implements extHostProtocol.ExtHostPreviewPanel
 	}
 
 	async $onDidDisposePreviewPanel(handle: extHostProtocol.PreviewHandle): Promise<void> {
-		const panel = this.getWebviewPanel(handle);
+		const panel = this.getPreviewPanel(handle);
 		panel?.dispose();
 
 		this._previewPanels.delete(handle);
@@ -226,7 +226,7 @@ export class ExtHostPreviewPanels implements extHostProtocol.ExtHostPreviewPanel
 		return panel;
 	}
 
-	public getWebviewPanel(handle: extHostProtocol.PreviewHandle): ExtHostPreviewPanel | undefined {
+	public getPreviewPanel(handle: extHostProtocol.PreviewHandle): ExtHostPreviewPanel | undefined {
 		return this._previewPanels.get(handle);
 	}
 }

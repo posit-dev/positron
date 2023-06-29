@@ -69,32 +69,13 @@ export class MainThreadPreviewPanel extends Disposable implements extHostProtoco
 		this.webviewOriginStore = new ExtensionKeyedWebviewOriginStore('mainThreadPreviewPanel.origins', this._storageService);
 
 		this._proxy = context.getProxy(extHostProtocol.ExtHostPositronContext.ExtHostPreviewPanel);
-
-		// TODO: Register for events from the preview service that indicate the active
-		// preview has changed.
-		//
-		// Call updatePreviewViewStates()
-	}
-
-	updatePreviewViewStates(): void {
-		const viewStates: extHostProtocol.PreviewPanelViewStateData = {};
-		const activePreviewId = this._positronPreviewService.activePreviewWebviewId;
-		for (const preview of this._previews) {
-			viewStates[preview.previewId] = {
-				active: preview.previewId === activePreviewId,
-				visible: preview.visible,
-			};
-		}
-		if (Object.keys(viewStates).length) {
-			this._proxy.$onDidChangePreviewPanelViewStates(viewStates);
-		}
 	}
 
 	$createPreviewPanel(extensionData: WebviewExtensionDescription, handle: string, viewType: string, initData: extHostProtocol.IPreviewInitData, preserveFocus: boolean): void {
 		const extension = reviveWebviewExtension(extensionData);
 		const origin = this.webviewOriginStore.getOrigin(viewType, extension.id);
 
-		const preview = this._positronPreviewService.openPreview({
+		const preview = this._positronPreviewService.openPreview(handle, {
 			origin,
 			providedViewType: viewType,
 			title: initData.title,
@@ -118,6 +99,18 @@ export class MainThreadPreviewPanel extends Disposable implements extHostProtoco
 			preserveFocus);
 
 		this.addWebview(handle, preview);
+
+		const updateState = () => {
+			const viewStates: extHostProtocol.PreviewPanelViewStateData = {};
+			viewStates[preview.previewId] = {
+				active: preview.active,
+				visible: preview.visible,
+			};
+			this._proxy.$onDidChangePreviewPanelViewStates(viewStates);
+		};
+
+		preview.onDidChangeActiveState(updateState);
+		preview.onDidChangeVisibleState(updateState);
 	}
 
 	$disposePreview(handle: string): void {

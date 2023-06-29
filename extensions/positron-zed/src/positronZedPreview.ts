@@ -16,7 +16,7 @@ export class ZedPreview {
 
 		panel.onDidChangeViewState(() => {
 			this.panel.webview.postMessage(
-				`onDidChangeViewState: ${this.panel.active}`);
+				`onDidChangeViewState: active=${this.panel.active}, visible=${this.panel.visible}`);
 		});
 
 		panel.webview.onDidReceiveMessage(message => {

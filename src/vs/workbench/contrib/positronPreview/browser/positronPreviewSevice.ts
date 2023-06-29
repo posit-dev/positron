@@ -23,6 +23,7 @@ export interface IPositronPreviewService {
 	 * Create and open a new preview.
 	 */
 	openPreview(
+		previewId: string,
 		webviewInitInfo: WebviewInitInfo,
 		viewType: string,
 		title: string,

@@ -6,7 +6,6 @@ import { Disposable } from 'vs/base/common/lifecycle';
 import { IPositronPreviewService } from 'vs/workbench/contrib/positronPreview/browser/positronPreview';
 import { Event, Emitter } from 'vs/base/common/event';
 import { IWebviewService, WebviewInitInfo } from 'vs/workbench/contrib/webview/browser/webview';
-import { generateUuid } from 'vs/base/common/uuid';
 import { PreviewWebview } from 'vs/workbench/contrib/positronPreview/browser/previewWebview';
 
 export class PositronPreviewService extends Disposable implements IPositronPreviewService {
@@ -45,22 +44,36 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 	}
 
 	set activePreviewWebviewId(id: string) {
+		// Ensure that this is a valid preview
+		if (!this._items.has(id)) {
+			throw new Error(`Invalid preview id: ${id}`);
+		}
+
+		// Notify previous preview that it is no longer active
+		if (this._items.has(this._selectedItemId)) {
+			this._items.get(this._selectedItemId)!.active = false;
+		}
+
+		// Swap to new preview
 		this._selectedItemId = id;
 		this._onDidChangeActivePreviewWebview.fire(id);
+
+		// Notify new preview that it is active
+		this._items.get(id)!.active = true;
 	}
 
 	onDidChangeActivePreviewWebview: Event<string>;
 
-	openPreview(webviewInitInfo: WebviewInitInfo,
+	openPreview(previewId: string,
+		webviewInitInfo: WebviewInitInfo,
 		viewType: string,
 		title: string,
 		preserveFocus?: boolean | undefined): PreviewWebview {
 
 		const webview = this._webviewService.createWebviewOverlay(webviewInitInfo);
-		const id = generateUuid();
-		const preview = new PreviewWebview(viewType, id, title, webview);
+		const preview = new PreviewWebview(viewType, previewId, title, webview);
 
-		this._items.set(preview.previewId, preview);
+		this._items.set(previewId, preview);
 
 		this._onDidCreatePreviewWebviewEmitter.fire(preview);
 		this.activePreviewWebviewId = preview.previewId;
