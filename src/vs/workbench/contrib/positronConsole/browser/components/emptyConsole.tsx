@@ -28,11 +28,11 @@ export const EmptyConsole = () => {
 	return (
 		<div className='empty-console'>
 			<div className='title'>
-				<span>{localize('positron.noInterpreterRunning', "There is no interpreter running.")} {localize('positron.use', "Use")} </span>
+				<span>{localize('noInterpreterRunning', "There is no interpreter running.")} {localize('useWord', "Use")} </span>
 				<PositronButton className='link' onClick={startInterpreterClickHandler}>
-					{localize('positron.startInterpreter', "Start Interpreter")}
+					{localize('startInterpreter', "Start Interpreter")}
 				</PositronButton>
-				<span> {localize('positron.toStartOne', "to start one.")}</span>
+				<span> {localize('toStartOne', "to start one.")}</span>
 			</div>
 		</div>
 	);
