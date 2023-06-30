@@ -121,8 +121,9 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 		}));
 
 		// Open the preview pane if it is not already open so the
-		// user can see the preview.
-		this._viewsService.openView(POSITRON_PREVIEW_VIEW_ID, true);
+		// user can see the preview. Send focus to the pane if we weren't
+		// asked to preserve focus.
+		this._viewsService.openView(POSITRON_PREVIEW_VIEW_ID, !!preserveFocus);
 
 		return preview;
 	}

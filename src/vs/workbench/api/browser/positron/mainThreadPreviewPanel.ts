@@ -51,6 +51,11 @@ class PreviewWebviewStore {
 	}
 }
 
+/**
+ * This is the main thread implementation of the Preview panel. It handles
+ * proxied requests from the extension host side and forwards them to the
+ * appropriate webview or service.
+ */
 export class MainThreadPreviewPanel extends Disposable implements extHostProtocol.MainThreadPreviewPanelShape {
 
 	private readonly webviewOriginStore: ExtensionKeyedWebviewOriginStore;
@@ -70,6 +75,7 @@ export class MainThreadPreviewPanel extends Disposable implements extHostProtoco
 
 		this.webviewOriginStore = new ExtensionKeyedWebviewOriginStore('mainThreadPreviewPanel.origins', this._storageService);
 
+		// Create a proxy to the extension host side
 		this._proxy = context.getProxy(extHostProtocol.ExtHostPositronContext.ExtHostPreviewPanel);
 	}
 
@@ -77,6 +83,9 @@ export class MainThreadPreviewPanel extends Disposable implements extHostProtoco
 		const extension = reviveWebviewExtension(extensionData);
 		const origin = this.webviewOriginStore.getOrigin(viewType, extension.id);
 
+		// Ask the preview service to create a new preview. Note that the
+		// preview service takes care of raising the preview panel if it isn't
+		// currently visible to show the newly created preview.
 		const preview = this._positronPreviewService.openPreview(handle, {
 			origin,
 			providedViewType: viewType,
@@ -90,6 +99,9 @@ export class MainThreadPreviewPanel extends Disposable implements extHostProtoco
 				allowForms: initData.webviewOptions.enableForms,
 				enableCommandUris: false,
 				localResourceRoots:
+					// Call URI.revive on each element of the resource root
+					// array, since the URI type is not fully serializable
+					// across the extension host interface.
 					Array.isArray(initData.webviewOptions.localResourceRoots) ?
 						initData.webviewOptions.localResourceRoots.map(
 							r => URI.revive(r)) : undefined,
@@ -100,8 +112,13 @@ export class MainThreadPreviewPanel extends Disposable implements extHostProtoco
 			initData.title,
 			preserveFocus);
 
+		// Store this preview in the map
 		this.addWebview(handle, preview);
 
+		// Establish event handlers for the preview view state changes, and
+		// forward those to change events to the extension host side. Note that
+		// (unlike WebviewPanel) the preview panel's view state changes are not
+		// batched but delivered immediately.
 		const updateState = () => {
 			const viewStates: extHostProtocol.PreviewPanelViewStateData = {};
 			viewStates[preview.previewId] = {

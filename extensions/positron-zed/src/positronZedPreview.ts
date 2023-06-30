@@ -8,6 +8,15 @@ import fs = require('fs');
 import * as vscode from 'vscode';
 import * as positron from 'positron';
 
+/**
+ * ZedPreview is a wrapper around a positron.PreviewPanel. It helps exercise
+ * the preview API and demonstrates how to communicate between the extension
+ * and the webview.
+ *
+ * The webview's HTML sources are in the resources/preview.html file, and they
+ * contain a simple page that displays any messages sent to it from the
+ * extension.
+ */
 export class ZedPreview {
 	constructor(
 		private readonly context: vscode.ExtensionContext,
@@ -21,8 +30,11 @@ export class ZedPreview {
 
 		panel.webview.onDidReceiveMessage(message => {
 			if (message === 'message') {
+				// The webview sent us a message; send one back to demonstrate
+				// roundtrip communication.
 				this.panel.webview.postMessage(`Received message`);
 			} else if (message === 'close') {
+				// The webview has asked to be closed.
 				this.panel.dispose();
 			}
 		});

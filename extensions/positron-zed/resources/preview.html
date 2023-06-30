@@ -12,9 +12,10 @@
 		<ol id="commandList"></ol>
 	</body>
 	<script>
+		// Acquire the vscode API. We can only do this once.
 		const vscode = acquireVsCodeApi();
 
-		// Zed commands are sent as messages from the extension to the webview.
+		// Echo any message we receive to the command list
 		window.addEventListener("message", (event) => {
 			const message = event.data;
 			const ele = document.createElement("li");
@@ -23,10 +24,13 @@
 		});
 
 		document.getElementById("sendMessage").addEventListener("click", () => {
+			// This causes a message (with no content) to be sent to the
+			// extension.
 			vscode.postMessage("message");
 		});
 
 		document.getElementById("closePreview").addEventListener("click", () => {
+			// This requests that the extension close the preview.
 			vscode.postMessage("close");
 		});
 	</script>

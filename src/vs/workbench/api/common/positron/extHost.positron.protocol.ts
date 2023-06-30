@@ -33,6 +33,12 @@ export interface ExtHostLanguageRuntimeShape {
 	$shutdownLanguageRuntime(handle: number): Promise<void>;
 }
 
+/**
+ * The view state of a preview in the Preview panel. Only one preview can be
+ * active at a time (the one currently loaded into the panel); the active
+ * preview also has a visibility state (visible or hidden) that tracks the
+ * visibility of the panel itself.
+ */
 export interface PreviewPanelViewStateData {
 	[handle: string]: {
 		readonly active: boolean;
@@ -47,6 +53,10 @@ export interface ExtHostPreviewPanelShape {
 	$onDidDisposePreviewPanel(handle: PreviewHandle): Promise<void>;
 }
 
+/**
+ * Preview content options. This is a strict subset of `WebviewContentOptions`
+ * and contains only the options that are supported by the preview panel.
+ */
 export interface IPreviewContentOptions {
 	readonly enableScripts?: boolean;
 	readonly enableForms?: boolean;
@@ -54,6 +64,9 @@ export interface IPreviewContentOptions {
 	readonly portMapping?: readonly IWebviewPortMapping[];
 }
 
+/**
+ * The initial data needed to create a preview panel.
+ */
 export interface IPreviewInitData {
 	readonly title: string;
 	readonly webviewOptions: IPreviewContentOptions;
