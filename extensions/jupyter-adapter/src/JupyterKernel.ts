@@ -59,10 +59,9 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	private _allSockets: JupyterSocket[] = [];
 
 	/**
-	 * A map of IDs to pending input requests; used to match up input replies
-	 * with the correct request
+	 * The message header for the current input request if any is active.
 	 */
-	private _inputRequests: Map<string, JupyterMessageHeader> = new Map();
+	private _activeInputRequestHeader?: JupyterMessageHeader = undefined;
 
 	/**
 	 * A timer that listens to heartbeats, is reset on every hearbeat, and
@@ -379,7 +378,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 						// If this is an input request, save the header so we can
 						// can line it up with the client's response.
 						if (msg.header.msg_type === 'input_request') {
-							this._inputRequests.set(msg.header.msg_id, msg.header);
+							this._activeInputRequestHeader = msg.header;
 						}
 						this.emitMessage(JupyterSockets.stdin, msg);
 					}
@@ -697,6 +696,9 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	 * Interrupts the kernel
 	 */
 	public async interrupt(): Promise<void> {
+		// Clear current input request if any
+		this._activeInputRequestHeader = undefined;
+
 		const msg: JupyterInterruptRequest = {};
 		return this.send(uuidv4(), 'interrupt_request', this._control!, msg);
 	}
@@ -805,14 +807,14 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 		};
 
 		// Attempt to find the prompt request that we are replying to
-		const parent = this._inputRequests.get(id);
+		const parent = this._activeInputRequestHeader;
 		if (parent) {
 			// Found it! Send the reply
 			this.log(`Sending input reply for ${id}: ${value}`);
 			this.sendToSocket(uuidv4(), 'input_reply', this._stdin!, parent, msg);
 
-			// Remove the request from the map now that we've replied
-			this._inputRequests.delete(id);
+			// Remove the active input request now that we've replied
+			this._activeInputRequestHeader = undefined;
 		} else {
 			// Couldn't find the request? Send the response anyway; most likely
 			// the kernel doesn't care (it is probably waiting for this specific
