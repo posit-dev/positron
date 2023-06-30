@@ -696,6 +696,9 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	 * Interrupts the kernel
 	 */
 	public async interrupt(): Promise<void> {
+		// Clear current input request if any
+		this._activeInputRequestHeader = undefined;
+
 		const msg: JupyterInterruptRequest = {};
 		return this.send(uuidv4(), 'interrupt_request', this._control!, msg);
 	}
@@ -810,7 +813,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 			this.log(`Sending input reply for ${id}: ${value}`);
 			this.sendToSocket(uuidv4(), 'input_reply', this._stdin!, parent, msg);
 
-			// Remove the request from the map now that we've replied
+			// Remove the active input request now that we've replied
 			this._activeInputRequestHeader = undefined;
 		} else {
 			// Couldn't find the request? Send the response anyway; most likely
