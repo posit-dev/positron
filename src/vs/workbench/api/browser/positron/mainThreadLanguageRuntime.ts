@@ -333,10 +333,6 @@ class ExtHostLanguageRuntimeAdapter implements ILanguageRuntime {
 		this._proxy.$replyToPrompt(this.handle, id, value);
 	}
 
-	async interruptPrompt(id: string): Promise<void> {
-		await this._proxy.$interruptPrompt(this.handle, id);
-	}
-
 	async interrupt(): Promise<void> {
 		this._stateEmitter.fire(RuntimeState.Interrupting);
 		return this._proxy.$interruptLanguageRuntime(this.handle);

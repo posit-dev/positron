@@ -165,16 +165,6 @@ export class LanguageRuntimeAdapter
 	}
 
 	/**
-	 * Interrupt an input prompt from the kernel.
-	 *
-	 * @param id The ID of the prompt to which user responded
-	 */
-	public async interruptPrompt(id: string): Promise<void> {
-		this._kernel.log(`Interrupting prompt ${id}`);
-		this._kernel.interruptPrompt(id);
-	}
-
-	/**
 	 * Interrupts the kernel.
 	 */
 	public async interrupt(): Promise<void> {

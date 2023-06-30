@@ -823,14 +823,6 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	}
 
 	/**
-	 * Interrupts the kernel and resets prompt state
-	 */
-	public async interruptPrompt(id: string): Promise<void> {
-		await this.interrupt();
-		this._inputRequests.delete(id);
-	}
-
-	/**
 	 * Send a message to the kernel
 	 *
 	 * @param packet The message package
