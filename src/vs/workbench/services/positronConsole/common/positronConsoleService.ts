@@ -608,13 +608,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	interruptPrompt(id: string) {
 		if (this._promptActive) {
 			this._promptActive = false;
-
-			// The `interruptPrompt()` method is optional
-			if (this._runtime.interruptPrompt) {
-				this._runtime.interruptPrompt(id);
-			} else {
-				this._runtime.interrupt();
-			}
+			this._runtime.interruptPrompt(id);
 		}
 	}
 
