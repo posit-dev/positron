@@ -9,10 +9,11 @@ import { PositronButton } from 'vs/base/browser/ui/positronComponents/positronBu
 import { usePositronConsoleContext } from 'vs/workbench/contrib/positronConsole/browser/positronConsoleContext';
 import { PositronShowStartInterpreterAction } from 'vs/workbench/browser/parts/positronTopActionBar/positronTopActionBarActions';
 
-const a = localize('noInterpreterRunning', "There is no interpreter running.");
-const b = localize('useWord', "Use");
-const c = localize('startInterpreter', "Start Interpreter");
-const d = localize('toStartOne', "to start one.");
+// Load localized copy for control.
+const noInterpreterRunning = localize('positron.noInterpreterRunning', "There is no interpreter running.");
+const useWord = localize('positron.useWord', "Use");
+const startInterpreter = localize('positron.startInterpreter', "Start Interpreter");
+const toStartOne = localize('positron.toStartOne', "to start one.");
 
 /**
  * EmptyConsole component.
@@ -33,11 +34,11 @@ export const EmptyConsole = () => {
 	return (
 		<div className='empty-console'>
 			<div className='title'>
-				<span>{a} {b} </span>
+				<span>{noInterpreterRunning} {useWord} </span>
 				<PositronButton className='link' onClick={startInterpreterClickHandler}>
-					{c}
+					{startInterpreter}
 				</PositronButton>
-				<span> {d}</span>
+				<span> {toStartOne}</span>
 			</div>
 		</div>
 	);
