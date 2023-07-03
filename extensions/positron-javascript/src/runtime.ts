@@ -61,8 +61,17 @@ export class JavascriptLanguageRuntime implements positron.LanguageRuntime {
 			// Typescript understandably isn't happy with eval.
 			const result = eval(code); // eslint-disable-line no-eval
 
-			// If the code evaluated successfully, emit the result.
-			this.emitOutput(id, result.toString());
+			if (result === undefined) {
+				// Handle undefined results
+				this.emitOutput(id, '<undefined>');
+			} else if (result === null) {
+				// Handle null results
+				this.emitOutput(id, '<null>');
+			} else {
+				// Convert all other results to strings and emit them
+				this.emitOutput(id, result.toString());
+			}
+
 		} catch (err) {
 			if (err instanceof Error) {
 				// If this is a Node.js error, emit the error details.
@@ -74,6 +83,14 @@ export class JavascriptLanguageRuntime implements positron.LanguageRuntime {
 				this.emitError(id, 'Error', (err as any).toString(), []);
 			}
 		}
+
+		// Scan to see if there are any environment changes caused by
+		// executing this code.
+		if (this._env) {
+			this._env.scanForChanges();
+		}
+
+		// Return to the idle state
 		this.enterIdleState(id);
 	}
 

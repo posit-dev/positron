@@ -11,25 +11,36 @@ class JavascriptVariable {
 	public readonly access_key;
 	public readonly kind: string;
 	public readonly has_children: boolean = false;
+	public readonly display_value: string = '';
+	public readonly display_type: string;
+	public readonly length: number;
+	public readonly size: number = 0;
 
-	constructor(
-		readonly display_name: string,
-		readonly display_value: string,
-		readonly display_type: string,
-		readonly length: number,
-		readonly size: number) {
+	constructor(readonly display_name: string, value: any) {
 
 		this.access_key = display_name;
+		this.length = 0;
+		this.display_type = typeof (value);
 
-		switch (display_type) {
+		// Attempt to format the value as a string
+		try {
+			this.display_value = JSON.stringify(value);
+		} catch (e) {
+			this.display_value = '<unknown>';
+		}
+
+		switch (this.display_type) {
 			case 'number':
 				this.kind = 'number';
 				break;
 			case 'object':
 				this.kind = 'collection';
+				this.length = Object.keys(value).length;
+				this.has_children = this.length > 0;
 				break;
 			case 'string':
 				this.kind = 'string';
+				this.size = this.display_value.length;
 				break;
 			case 'undefined':
 				this.kind = 'empty';
@@ -45,7 +56,9 @@ class JavascriptVariable {
 
 export class JavascriptEnvironment {
 
+	private _keys: Array<string> = [];
 	private readonly _onDidEmitData = new vscode.EventEmitter<object>();
+
 	onDidEmitData: vscode.Event<object> = this._onDidEmitData.event;
 
 	/**
@@ -96,27 +109,32 @@ export class JavascriptEnvironment {
 		}
 	}
 
+	public scanForChanges() {
+		const newKeys = Object.keys(global);
+		const addedKeys = newKeys.filter((key) => !this._keys.includes(key));
+		const removedKeys = this._keys.filter((key) => !newKeys.includes(key));
+
+		const added = Object.entries(global)
+			.filter((entry) => addedKeys.includes(entry[0]))
+			.map((entry) => new JavascriptVariable(entry[0], entry[1]));
+
+		this._onDidEmitData.fire({
+			msg_type: 'update',
+			assigned: added,
+			removed: removedKeys
+		});
+	}
+
 	/**
 	 * Emits a full list of variables to the front end
 	 */
 	private emitFullList() {
+		// Forget the list of keys we have
+		this._keys = [];
+
 		// Create a list of all the variables in the global environment
 		let vars = Object.entries(global).map((entry) => {
-			const [key, value] = entry;
-			const kind = typeof (value as any);
-			try {
-				JSON.stringify(value);
-				const variable = new JavascriptVariable(
-					key,
-					JSON.stringify(value),
-					kind,
-					kind === 'object' ? Object.keys(value).length : 0,
-					0
-				);
-				return variable;
-			} catch (e) {
-				return null;
-			}
+			return new JavascriptVariable(entry[0], entry[1]);
 		});
 
 		// Remove any variables that couldn't be stringified
