@@ -4,6 +4,7 @@
 
 import * as vscode from 'vscode';
 import * as positron from 'positron';
+import { randomUUID } from 'crypto';
 
 import path = require('path');
 import fs = require('fs');
@@ -45,39 +46,141 @@ export class JavascriptLanguageRuntime implements positron.LanguageRuntime {
 		= this._onDidChangeRuntimeState.event;
 
 	execute(code: string, id: string, mode: positron.RuntimeCodeExecutionMode, errorBehavior: positron.RuntimeErrorBehavior): void {
-		throw new Error('Method not implemented.');
+		this.emitInput(id, code);
+
+		this.enterBusyState(id);
+		try {
+			// Typescript understandably isn't happy with eval.
+			const result = eval(code); // eslint-disable-line no-eval
+
+			// If the code evaluated successfully, emit the result.
+			this.emitOutput(id, result.toString());
+		} catch (err) {
+			if (err instanceof Error) {
+				// If this is a Node.js error, emit the error details.
+				const error = err as Error;
+				this.emitError(id, error.name, error.message, error.stack?.split('\n') ?? []);
+			} else {
+				// If this error isn't a Node.js error, just do our best to
+				// convert it to a string.
+				this.emitError(id, 'Error', (err as any).toString(), []);
+			}
+		}
+		this.enterIdleState(id);
 	}
+
 	isCodeFragmentComplete(code: string): Thenable<positron.RuntimeCodeFragmentStatus> {
-		throw new Error('Method not implemented.');
+		// Treat all code as complete.
+		return Promise.resolve(positron.RuntimeCodeFragmentStatus.Complete);
 	}
+
 	createClient(id: string, type: positron.RuntimeClientType, params: any): Thenable<void> {
 		throw new Error('Method not implemented.');
 	}
+
 	listClients(type?: positron.RuntimeClientType | undefined): Thenable<Record<string, string>> {
 		throw new Error('Method not implemented.');
 	}
+
 	removeClient(id: string): void {
 		throw new Error('Method not implemented.');
 	}
+
 	sendClientMessage(client_id: string, message_id: string, message: any): void {
 		throw new Error('Method not implemented.');
 	}
+
 	replyToPrompt(id: string, reply: string): void {
 		throw new Error('Method not implemented.');
 	}
-	start(): Thenable<positron.LanguageRuntimeInfo> {
-		throw new Error('Method not implemented.');
+
+	async start(): Promise<positron.LanguageRuntimeInfo> {
+		this._onDidChangeRuntimeState.fire(positron.RuntimeState.Initializing);
+		this._onDidChangeRuntimeState.fire(positron.RuntimeState.Starting);
+		this._onDidChangeRuntimeState.fire(positron.RuntimeState.Ready);
+
+		const runtimeInfo: positron.LanguageRuntimeInfo = {
+			banner: `Welcome to Node.js ${process.version}.`,
+			implementation_version: this.metadata.runtimeVersion,
+			language_version: this.metadata.languageVersion,
+		};
+
+		return runtimeInfo;
 	}
+
 	interrupt(): Thenable<void> {
-		throw new Error('Method not implemented.');
+		// It's not currently possible to interrupt Javascript code, because
+		// the code is executed in the same thread as the extension host.
+		//
+		// We could address this by using a worker thread.
+		return Promise.resolve();
 	}
+
 	restart(): Thenable<void> {
-		throw new Error('Method not implemented.');
+		return Promise.resolve();
 	}
+
 	shutdown(): Thenable<void> {
-		throw new Error('Method not implemented.');
+		return Promise.resolve();
 	}
-	dispose() {
-		throw new Error('Method not implemented.');
+
+	dispose() { }
+
+	private emitOutput(parentId: string, output: string) {
+		this._onDidReceiveRuntimeMessage.fire({
+			id: randomUUID(),
+			parent_id: parentId,
+			when: new Date().toISOString(),
+			type: positron.LanguageRuntimeMessageType.Output,
+			data: {
+				'text/plain': output
+			} as Record<string, string>,
+		} as positron.LanguageRuntimeOutput);
+	}
+
+	private enterBusyState(parentId: string) {
+		this._onDidReceiveRuntimeMessage.fire({
+			id: randomUUID(),
+			parent_id: parentId,
+			when: new Date().toISOString(),
+			type: positron.LanguageRuntimeMessageType.State,
+			state: positron.RuntimeOnlineState.Busy
+		} as positron.LanguageRuntimeState);
+		this._onDidChangeRuntimeState.fire(positron.RuntimeState.Busy);
+	}
+
+	private enterIdleState(parentId: string) {
+		this._onDidReceiveRuntimeMessage.fire({
+			id: randomUUID(),
+			parent_id: parentId,
+			when: new Date().toISOString(),
+			type: positron.LanguageRuntimeMessageType.State,
+			state: positron.RuntimeOnlineState.Idle
+		} as positron.LanguageRuntimeState);
+		this._onDidChangeRuntimeState.fire(positron.RuntimeState.Idle);
+	}
+
+	private emitError(parentId: string, name: string, message: string, traceback: string[] = []) {
+		this._onDidReceiveRuntimeMessage.fire({
+			id: randomUUID(),
+			parent_id: parentId,
+			when: new Date().toISOString(),
+			type: positron.LanguageRuntimeMessageType.Error,
+			name,
+			message,
+			traceback
+		} as positron.LanguageRuntimeError);
+	}
+
+	private emitInput(parentId: string, code: string) {
+		this._onDidReceiveRuntimeMessage.fire({
+			id: randomUUID(),
+			parent_id: parentId,
+			when: new Date().toISOString(),
+			type: positron.LanguageRuntimeMessageType.Input,
+			state: positron.RuntimeOnlineState.Busy,
+			code: code,
+			execution_count: 1
+		} as positron.LanguageRuntimeInput);
 	}
 }
