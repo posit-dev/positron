@@ -204,6 +204,17 @@ export class ExtHostWebviews implements extHostProtocol.ExtHostWebviewsShape {
 		this._webviewProxy = mainContext.getProxy(extHostProtocol.MainContext.MainThreadWebviews);
 	}
 
+	// --- Begin Positron ---
+	// These are exposed so we can invoke them from the Positron API layer to
+	// back preview panels.
+	$createNewWebview(handle: string, options: vscode.WebviewOptions, extension: IExtensionDescription): ExtHostWebview {
+		return this.createNewWebview(handle, options, extension);
+	}
+	$deleteWebview(handle: string): void {
+		this.deleteWebview(handle);
+	}
+	// --- End Positron ---
+
 	public $onMessage(
 		handle: extHostProtocol.WebviewHandle,
 		jsonMessage: string,

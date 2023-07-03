@@ -28,6 +28,11 @@ export interface IReactComponentContainer {
 	readonly height: number;
 
 	/**
+	 * Gets the visibility.
+	 */
+	readonly visible: boolean;
+
+	/**
 	 * Directs the React component container to take focus.
 	 */
 	takeFocus(): void;
@@ -38,6 +43,11 @@ export interface IReactComponentContainer {
 	focusChanged?(focused: boolean): void;
 
 	/**
+	 * Notifies the React component container when visibility changes.
+	 */
+	visibilityChanged?(visible: boolean): void;
+
+	/**
 	 * onFocused event.
 	 */
 	readonly onFocused: Event<void>;
@@ -46,6 +56,11 @@ export interface IReactComponentContainer {
 	 * onSizeChanged event.
 	 */
 	readonly onSizeChanged: Event<ISize>;
+
+	/**
+	 * onVisibilityChanged event.
+	 */
+	readonly onVisibilityChanged: Event<boolean>;
 
 	/**
 	 * onSaveScrollPosition event.

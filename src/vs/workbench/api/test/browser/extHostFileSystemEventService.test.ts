@@ -13,6 +13,9 @@ suite('ExtHostFileSystemEventService', () => {
 
 		const protocol: IMainContext = {
 			getProxy: () => { return undefined!; },
+			// --- Begin Positron ---
+			getRaw: undefined!,
+			// --- End Positron ---
 			set: undefined!,
 			dispose: undefined!,
 			assertRegistered: undefined!,
