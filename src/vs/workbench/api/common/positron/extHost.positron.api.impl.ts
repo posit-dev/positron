@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
 import { ExtHostLanguageRuntime } from 'vs/workbench/api/common/positron/extHostLanguageRuntime';
@@ -13,6 +13,10 @@ import { ExtHostConfigProvider } from 'vs/workbench/api/common/extHostConfigurat
 import { ExtHostPositronContext } from 'vs/workbench/api/common/positron/extHost.positron.protocol';
 import * as extHostTypes from 'vs/workbench/api/common/positron/extHostTypes.positron';
 import { IExtHostInitDataService } from 'vs/workbench/api/common/extHostInitDataService';
+import { ExtHostPreviewPanels } from 'vs/workbench/api/common/positron/extHostPreviewPanels';
+import { ExtHostContext } from 'vs/workbench/api/common/extHost.protocol';
+import { IExtHostWorkspace } from 'vs/workbench/api/common/extHostWorkspace';
+import { ExtHostWebviews } from 'vs/workbench/api/common/extHostWebview';
 
 /**
  * Factory interface for creating an instance of the Positron API.
@@ -28,7 +32,25 @@ export interface IExtensionPositronApiFactory {
 export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAccessor): IExtensionPositronApiFactory {
 	const rpcProtocol = accessor.get(IExtHostRpcService);
 	const initData = accessor.get(IExtHostInitDataService);
+	const extHostWorkspace = accessor.get(IExtHostWorkspace);
+
+	// Retrieve the raw `ExtHostWebViews` object from the rpcProtocol; this
+	// object is needed to create webviews, and was previously created in
+	// `createApiFactoryAndRegisterActors` when VS Code's API factory was
+	// created earlier.
+	//
+	// The `getRaw` method is a Positron extension to the `rpcProtocol` that
+	// allows us to retrieve the raw actor object so that the Positron API and
+	// VS Code API can share a single instance of `ExtHostWebViews`, which is
+	// necessary since the instance effectively needs to be a singleton.
+	const extHostWebviews: ExtHostWebviews = rpcProtocol.getRaw(ExtHostContext.ExtHostWebviews);
+	if (!extHostWebviews) {
+		throw new Error('Could not retrieve ExtHostWebviews from the RPC protocol. ' +
+			' The VS Code API must be created before the Positron API.');
+	}
+
 	const extHostLanguageRuntime = rpcProtocol.set(ExtHostPositronContext.ExtHostLanguageRuntime, new ExtHostLanguageRuntime(rpcProtocol));
+	const extHostPreviewPanels = rpcProtocol.set(ExtHostPositronContext.ExtHostPreviewPanel, new ExtHostPreviewPanels(rpcProtocol, extHostWebviews, extHostWorkspace));
 
 	return function (extension: IExtensionDescription, extensionInfo: IExtensionRegistries, configProvider: ExtHostConfigProvider): typeof positron {
 
@@ -44,11 +66,18 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 				return extHostLanguageRuntime.registerClientHandler(handler);
 			}
 		};
+
+		const window: typeof positron.window = {
+			createPreviewPanel(viewType: string, title: string, preserveFocus?: boolean, options?: vscode.WebviewPanelOptions & vscode.WebviewOptions) {
+				return extHostPreviewPanels.createPreviewPanel(extension, viewType, title, preserveFocus, options);
+			}
+		};
 		// --- End Positron ---
 
 		return <typeof positron>{
 			version: initData.positronVersion,
 			runtime,
+			window,
 			RuntimeClientType: extHostTypes.RuntimeClientType,
 			RuntimeClientState: extHostTypes.RuntimeClientState,
 			LanguageRuntimeMessageType: extHostTypes.LanguageRuntimeMessageType,

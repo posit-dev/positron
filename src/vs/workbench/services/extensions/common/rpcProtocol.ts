@@ -245,6 +245,22 @@ export class RPCProtocol extends Disposable implements IRPCProtocol {
 		return this._proxies[rpcId];
 	}
 
+	// --- Begin Positron ---
+	/**
+	 * Retrieves a raw actor instance; used by the Positron API to access
+	 * VS Code's API backends without going through the RPC protocol.
+	 *
+	 * @param identifier The proxy identifier
+	 * @returns The raw actor instance
+	 */
+	public getRaw<T, R extends T>(identifier: ProxyIdentifier<T>): R {
+		if (!this._locals[identifier.nid]) {
+			throw new Error(`Missing actor ${identifier.sid}`);
+		}
+		return this._locals[identifier.nid];
+	}
+	// --- End Positron ---
+
 	private _createProxy<T>(rpcId: number, debugName: string): T {
 		const handler = {
 			get: (target: any, name: PropertyKey) => {

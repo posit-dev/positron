@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<title>Zed Preview</title>
+	</head>
+	<body>
+		<h1>Zed Preview</h1>
+		<button id="sendMessage">Send Message</button>
+		<button id="closePreview">Close Preview</button>
+		<h2>Things that Happened</h2>
+		<ol id="commandList"></ol>
+	</body>
+	<script>
+		// Acquire the vscode API. We can only do this once.
+		const vscode = acquireVsCodeApi();
+
+		// Echo any message we receive to the command list
+		window.addEventListener("message", (event) => {
+			const message = event.data;
+			const ele = document.createElement("li");
+			ele.innerText = message;
+			document.getElementById("commandList").appendChild(ele);
+		});
+
+		document.getElementById("sendMessage").addEventListener("click", () => {
+			// This causes a message (with no content) to be sent to the
+			// extension.
+			vscode.postMessage("message");
+		});
+
+		document.getElementById("closePreview").addEventListener("click", () => {
+			// This requests that the extension close the preview.
+			vscode.postMessage("close");
+		});
+	</script>
+</html>

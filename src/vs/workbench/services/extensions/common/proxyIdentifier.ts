@@ -27,6 +27,17 @@ export interface IRPCProtocol {
 	 */
 	drain(): Promise<void>;
 
+	// --- Begin Positron ---
+	/**
+	 * Retrieves a raw actor instance; used by the Positron API to access
+	 * VS Code's API backends without going through the RPC protocol.
+	 *
+	 * @param identifier The proxy identifier
+	 * @returns The raw actor instance
+	 */
+	getRaw<T, R extends T>(identifier: ProxyIdentifier<T>): R;
+	// --- End Positron ---
+
 	dispose(): void;
 }
 
