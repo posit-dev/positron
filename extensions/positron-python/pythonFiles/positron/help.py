@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING, Any, Optional, Union
 from pydantic import Field
 
 from .frontend import BaseFrontendEvent
-from .pydoc import patch_pydoc
+from .pydoc import patch_pydoc, positron_url_handler
 from .utils import get_qualname
 
 if TYPE_CHECKING:
@@ -75,7 +75,7 @@ class HelpService:
         patch_pydoc()
 
         # Setting port to 0 will use an arbitrary port
-        pydoc_thread = pydoc._start_server(pydoc._url_handler, hostname="localhost", port=0)  # type: ignore
+        pydoc_thread = pydoc._start_server(positron_url_handler, hostname="localhost", port=0)  # type: ignore
 
         if pydoc_thread.error:
             logger.error(f"Could not start the pydoc help server. Error: {pydoc_thread.error}")
