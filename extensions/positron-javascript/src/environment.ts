@@ -98,7 +98,7 @@ export class JavascriptEnvironment {
 
 			// A request to inspect a variable
 			case 'inspect':
-				// this.inspectVar(message.path);
+				this.inspectVar(message.path);
 				break;
 
 			// A request to format a variable as a string suitable for placing on the clipboard
@@ -123,14 +123,52 @@ export class JavascriptEnvironment {
 			assigned: added,
 			removed: removedKeys
 		});
+
+		this._keys = newKeys;
+	}
+
+	/**
+	 * Performs the inspection of a variable
+	 */
+	private inspectVar(path: string[]) {
+		const children = this.inspectVariable(path, global);
+		this._onDidEmitData.fire({
+			msg_type: 'details',
+			children,
+			length: children.length
+		});
+	}
+
+	private inspectVariable(path: string[], obj: any): JavascriptVariable[] {
+		if (path.length === 1) {
+			const val = obj[path[0]];
+			switch (typeof (obj)) {
+				case 'object': {
+					return Object.entries(val).map((entry) => {
+						return new JavascriptVariable(entry[0], entry[1]);
+					});
+					break;
+				}
+				default: {
+					return [new JavascriptVariable(path[0], obj)];
+				}
+			}
+		}
+
+		const key = path.shift();
+		if (key === undefined) {
+			return [];
+		}
+
+		return this.inspectVariable(path, obj[key]);
 	}
 
 	/**
 	 * Emits a full list of variables to the front end
 	 */
 	private emitFullList() {
-		// Forget the list of keys we have
-		this._keys = [];
+		// Replace the list of keys
+		this._keys = Object.keys(global);
 
 		// Create a list of all the variables in the global environment
 		let vars = Object.entries(global).map((entry) => {
