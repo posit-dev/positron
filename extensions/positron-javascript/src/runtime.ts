@@ -59,7 +59,7 @@ export class JavascriptLanguageRuntime implements positron.LanguageRuntime {
 		this.enterBusyState(id);
 		try {
 			// Typescript understandably isn't happy with eval.
-			const result = eval(code); // eslint-disable-line no-eval
+			const result = eval?.(code); // eslint-disable-line no-eval
 
 			if (result === undefined) {
 				// Handle undefined results
