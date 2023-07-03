@@ -27,14 +27,14 @@ export class JavascriptLanguageRuntime implements positron.LanguageRuntime {
 
 		const version = process.version;
 
-		const iconSvgPath = path.join(this.context.extensionPath, 'resources', 'javascript-icon.svg');
+		const iconSvgPath = path.join(this.context.extensionPath, 'resources', 'nodejs-icon.svg');
 
 		this.metadata = {
 			runtimePath: process.execPath,
 			runtimeId: '13C365D6-099A-43EC-934D-353ADEFD798F',
 			languageId: 'javascript',
-			languageName: 'Javascript',
-			runtimeName: 'Javascript',
+			languageName: 'Node.js',
+			runtimeName: 'Node.js',
 			runtimeSource: 'Node.js',
 			languageVersion: version,
 			base64EncodedIconSvg: fs.readFileSync(iconSvgPath).toString('base64'),
