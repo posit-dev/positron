@@ -285,6 +285,10 @@ class ExtensionHostManager extends Disposable implements IExtensionHostManager {
 			assertRegistered: (identifiers: ProxyIdentifier<any>[]): void => this._rpcProtocol!.assertRegistered(identifiers),
 			drain: (): Promise<void> => this._rpcProtocol!.drain(),
 
+			// --- Begin Positron ---
+			getRaw: <T, R extends T>(identifier: ProxyIdentifier<T>): R => this._rpcProtocol!.getRaw(identifier),
+			// --- End Positron ---
+
 			//#region internal
 			internalExtensionService: this._internalExtensionService,
 			_setExtensionHostProxy: (value: IExtensionHostProxy): void => {

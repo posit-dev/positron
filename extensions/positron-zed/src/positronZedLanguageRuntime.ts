@@ -13,6 +13,7 @@ import path = require('path');
 import fs = require('fs');
 import { ZedPlot } from './positronZedPlot';
 import { ZedData } from './positronZedData';
+import { ZedPreview } from './positronZedPreview';
 
 /**
  * Constants.
@@ -33,40 +34,46 @@ const CONTRAST_FOREGROUND = '  Contrast Foreground  ';
 const HelpLines = [
 	'Zed help:',
 	'',
-	'1k           - Inserts 1,000 lines of ANSI output',
-	'ansi 16      - Displays standard ANSI colors as foreground and background colors',
-	'ansi 256     - Displays indexed ANSI colors as foreground and background colors',
-	'ansi blink   - Displays blinking output',
-	'ansi cub     - Outputs text using CUB',
-	'ansi cuf     - Outputs text using CUF',
-	'ansi cup     - Outputs text using CUP',
-	'ansi ed 0    - Clears to the end of the screen using ED',
-	'ansi ed 1    - Clears to the beginning of the screen using ED',
-	'ansi ed 2    - Clears an entire screen using ED',
-	'ansi el 0    - Clears to the end of the line using EL',
-	'ansi el 1    - Clears to the beginning of the line using EL',
-	'ansi el 2    - Clears an entire line using EL',
-	'ansi hidden  - Displays hidden text',
-	'ansi rgb     - Displays RGB ANSI colors as foreground and background colors',
-	'busy X       - Simulates an interuptible busy state for X seconds, or 5 seconds if X is not specified',
-	'code X Y     - Simulates a successful X line input with Y lines of output (where X >= 1 and Y >= 0)',
-	'env clear    - Clears all variables from the environment',
-	'env def X    - Defines X variables (randomly typed)',
-	'env def X Y  - Defines X variables of type Y, where Y is one of: string, number, vector, list, or blob',
-	'env max X    - Set the maximum number of displayed variables to X',
-	'env rm X     - Removes X variables',
-	'env update X - Updates X variables',
-	'error X Y Z  - Simulates an unsuccessful X line input with Y lines of error message and Z lines of traceback (where X >= 1 and Y >= 1 and Z >= 0)',
-	'exec X Y     - Executes a code snippet Y in the language X',
-	'help         - Shows this help',
-	'offline      - Simulates going offline for two seconds',
-	'plot X       - Renders a dynamic (auto-sizing) plot of the letter X',
-	'progress     - Renders a progress bar',
-	'restart      - Simulates orderly restart',
-	'shutdown     - Simulates orderly shutdown',
-	'static plot  - Renders a static plot (image)',
-	'view X       - Open a data viewer named X',
-	'version      - Shows the Zed version'
+	'1k             - Inserts 1,000 lines of ANSI output',
+	'ansi 16        - Displays standard ANSI colors as foreground and background colors',
+	'ansi 256       - Displays indexed ANSI colors as foreground and background colors',
+	'ansi blink     - Displays blinking output',
+	'ansi cub       - Outputs text using CUB',
+	'ansi cuf       - Outputs text using CUF',
+	'ansi cup       - Outputs text using CUP',
+	'ansi ed 0      - Clears to the end of the screen using ED',
+	'ansi ed 1      - Clears to the beginning of the screen using ED',
+	'ansi ed 2      - Clears an entire screen using ED',
+	'ansi el 0      - Clears to the end of the line using EL',
+	'ansi el 1      - Clears to the beginning of the line using EL',
+	'ansi el 2      - Clears an entire line using EL',
+	'ansi hidden    - Displays hidden text',
+	'ansi rgb       - Displays RGB ANSI colors as foreground and background colors',
+	'busy X         - Simulates an interuptible busy state for X seconds, or 5 seconds if X is not specified',
+	'code X Y       - Simulates a successful X line input with Y lines of output (where X >= 1 and Y >= 0)',
+	'env clear      - Clears all variables from the environment',
+	'env def X      - Defines X variables (randomly typed)',
+	'env def X Y    - Defines X variables of type Y, where Y is one of: string, number, vector, list, or blob',
+	'env max X      - Set the maximum number of displayed variables to X',
+	'env rm X       - Removes X variables',
+	'env update X   - Updates X variables',
+	'error X Y Z    - Simulates an unsuccessful X line input with Y lines of error message and Z lines of traceback (where X >= 1 and Y >= 1 and Z >= 0)',
+	'exec X Y       - Executes a code snippet Y in the language X',
+	'help           - Shows this help',
+	'offline        - Simulates going offline for two seconds',
+	'plot X         - Renders a dynamic (auto-sizing) plot of the letter X',
+	'preview        - Opens or gets the status of a preview pane',
+	'preview open   - Opens a new preview pane',
+	'preview close  - Closes the preview pane, if it is open',
+	'preview status - Gets the status of the preview pane',
+	'preview show   - Shows the preview pane, if it is hidden',
+	'preview msg    - Sends a message to the preview pane',
+	'progress       - Renders a progress bar',
+	'restart        - Simulates orderly restart',
+	'shutdown       - Simulates orderly shutdown',
+	'static plot    - Renders a static plot (image)',
+	'view X         - Open a data viewer named X',
+	'version        - Shows the Zed version'
 ].join('\n');
 
 /**
@@ -127,6 +134,11 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 	 * A map of data frame IDs to data frame instances.
 	 */
 	private readonly _data: Map<string, ZedData> = new Map();
+
+	/**
+	 * The active preview instance, if any.
+	 */
+	private _preview: ZedPreview | undefined;
 
 	/**
 	 * A stack of pending environment RPCs.
@@ -339,6 +351,10 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 			const languageId = match[1];
 			const codeToExecute = match[2];
 			this.simulateCodeExecution(id, code, languageId, codeToExecute);
+			return;
+		} else if (match = code.match(/^preview( .+)?/)) {
+			const command = (match.length > 1 && match[1]) ? match[1].trim() : 'default';
+			this.simulatePreview(id, code, command);
 			return;
 		}
 
@@ -875,7 +891,6 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 			return;
 		}
 
-
 		// See if this ID is a known data viewer
 		const data = this._data.get(client_id);
 		if (data) {
@@ -1023,7 +1038,7 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 		this._onDidChangeRuntimeState.fire(positron.RuntimeState.Exited);
 	}
 
-	dispose(): void { };
+	dispose(): void { }
 
 	//#endregion LanguageRuntime Implementation
 
@@ -1040,6 +1055,120 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 		setTimeout(() => {
 			this._onDidChangeRuntimeState.fire(positron.RuntimeState.Ready);
 		}, 2000);
+	}
+
+	/**
+	 * Opens the Preview pane.
+	 *
+	 * @param parentId The ID of the message that requested the preview pane open.
+	 * @param code The code that was executed.
+	 * @param command The preview subcommand.
+	 */
+	private simulatePreview(parentId: string, code: string, command: string) {
+		// Enter busy state and output the code.
+		this.simulateBusyState(parentId);
+		this.simulateInputMessage(parentId, code);
+
+		// Translate the 'default' command to 'open' or 'status' depending on the preview's state
+		if (command === 'default') {
+			if (this._preview) {
+				command = 'status';
+			} else {
+				command = 'open';
+			}
+		}
+		switch (command) {
+			// Status ------------------------------------------------------------
+			case 'status':
+				if (this._preview) {
+					const visible = this._preview.visible();
+					this.simulateOutputMessage(parentId,
+						`Preview pane is open; visible = ${visible}.`);
+				} else {
+					this.simulateOutputMessage(parentId,
+						`The preview pane is not currently open.`);
+				}
+				break;
+
+			// Open --------------------------------------------------------------
+			case 'open':
+				if (this._preview) {
+					this.simulateOutputMessage(parentId, `The preview pane is already open. ` +
+						`Use the 'show' command to make it visible, or 'status' to see its ` +
+						`current state.`);
+					break;
+				}
+				// Open the preview pane.
+				try {
+					const options: positron.PreviewOptions = {
+						enableForms: true,
+						enableScripts: true,
+					};
+
+					// Call Positron to create the preview panel.
+					const preview = positron.window.createPreviewPanel(
+						'positron.zedPreview', // View type
+						'Zed Preview',         // View title (not currently shown)
+						true,                  // OK to take focus
+						options);
+
+					// Create our wrapper around the preview pane.
+					this._preview = new ZedPreview(this.context, preview);
+
+					this._preview.onDidDispose(() => {
+						// Clean out the preview object when the preview pane is closed.
+						this._preview = undefined;
+					});
+					this.simulateOutputMessage(parentId, 'Preview pane opened.');
+				} catch (error) {
+					this.simulateOutputMessage(parentId, `Error opening preview pane: ${error}`);
+				}
+				break;
+
+			// Show --------------------------------------------------------------
+			case 'show':
+				if (this._preview) {
+					this.simulateOutputMessage(parentId,
+						`Showing preview pane.`);
+					this._preview.show();
+				} else {
+					this.simulateOutputMessage(parentId,
+						`Cowardly refusing to show preview pane; it's not open. ` +
+						`Use the 'preview open' command to open it.`);
+				}
+				break;
+
+			// Close -------------------------------------------------------------
+			case 'close':
+				if (this._preview) {
+					this.simulateOutputMessage(parentId,
+						`Closing preview pane.`);
+					this._preview.close();
+				} else {
+					this.simulateOutputMessage(parentId,
+						`Cowardly refusing to close preview pane; it's not open. ` +
+						`Use the 'preview open' command to open it.`);
+				}
+				break;
+
+			// Message -----------------------------------------------------------
+			case 'msg':
+				if (this._preview) {
+					this._preview.sendMessage();
+				} else {
+					this.simulateOutputMessage(parentId,
+						`Cowardly refusing to send a message to the preview pane; it's not open. ` +
+						`Use the 'preview open' command to open it.`);
+				}
+				break;
+
+			default:
+				this.simulateOutputMessage(parentId, `Unknown preview command '${command}'.`);
+				break;
+		}
+
+		// Return to idle state.
+		this.simulateIdleState(parentId);
 	}
 
 	private simulateStaticPlot(parentId: string, code: string) {
@@ -1291,6 +1420,11 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 			code: code,
 			execution_count: 1
 		} as positron.LanguageRuntimeInput);
+
+		// If the preview is open, add it to the preview's recent commands.
+		if (this._preview) {
+			this._preview.addRecentCommand(code);
+		}
 	}
 
 	/**

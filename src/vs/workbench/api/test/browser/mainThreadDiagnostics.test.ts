@@ -33,6 +33,9 @@ suite('MainThreadDiagnostics', function () {
 				dispose() { }
 				assertRegistered() { }
 				set(v: any): any { return null; }
+				// --- Begin Positron ---
+				getRaw(): any { return null; }
+				// --- End Positron ---
 				getProxy(): any {
 					return {
 						$acceptMarkersChange() { }
@@ -82,6 +85,9 @@ suite('MainThreadDiagnostics', function () {
 							}
 						};
 					}
+					// --- Begin Positron ---
+					getRaw(): any { return null; }
+					// --- End Positron ---
 					drain(): any { return null; }
 				},
 				markerService,
@@ -146,6 +152,9 @@ suite('MainThreadDiagnostics', function () {
 							}
 						};
 					}
+					// --- Begin Positron ---
+					getRaw(): any { return null; }
+					// --- End Positron ---
 					drain(): any { return null; }
 				},
 				markerService,

@@ -499,6 +499,147 @@ declare module 'positron' {
 		callback: RuntimeClientHandlerCallback;
 	}
 
+	/**
+	 * Content settings for webviews hosted in the Preview panel.
+	 *
+	 * This interface mirrors the `WebviewOptions` & `WebviewPanelOptions` interfaces, with
+	 * the following exceptions:
+	 *
+	 * - `enableFindWidget` is not supported (we never show it in previews)
+	 * - `retainContextWhenHidden` is not supported (we always retain context)
+	 * - `enableCommandUris` is not supported (we never allow commands in previews)
+	 */
+	export interface PreviewOptions {
+		/**
+		 * Controls whether scripts are enabled in the webview content or not.
+		 *
+		 * Defaults to false (scripts-disabled).
+		 */
+		readonly enableScripts?: boolean;
+
+		/**
+		 * Controls whether forms are enabled in the webview content or not.
+		 *
+		 * Defaults to true if {@link PreviewOptions.enableScripts scripts are enabled}. Otherwise defaults to false.
+		 * Explicitly setting this property to either true or false overrides the default.
+		 */
+		readonly enableForms?: boolean;
+
+		/**
+		 * Root paths from which the webview can load local (filesystem) resources using uris from `asWebviewUri`
+		 *
+		 * Default to the root folders of the current workspace plus the extension's install directory.
+		 *
+		 * Pass in an empty array to disallow access to any local resources.
+		 */
+		readonly localResourceRoots?: readonly vscode.Uri[];
+
+		/**
+		 * Mappings of localhost ports used inside the webview.
+		 *
+		 * Port mapping allow webviews to transparently define how localhost ports are resolved. This can be used
+		 * to allow using a static localhost port inside the webview that is resolved to random port that a service is
+		 * running on.
+		 *
+		 * If a webview accesses localhost content, we recommend that you specify port mappings even if
+		 * the `webviewPort` and `extensionHostPort` ports are the same.
+		 *
+		 * *Note* that port mappings only work for `http` or `https` urls. Websocket urls (e.g. `ws://localhost:3000`)
+		 * cannot be mapped to another port.
+		 */
+		readonly portMapping?: readonly vscode.WebviewPortMapping[];
+	}
+
+	/**
+	 * A preview panel that contains a webview. This interface mirrors the
+	 * `WebviewPanel` interface, but omits elements that don't apply to
+	 * preview panels, such as `viewColumn`.
+	 */
+	interface PreviewPanel {
+		/**
+		 * Identifies the type of the preview panel, such as `'markdown.preview'`.
+		 */
+		readonly viewType: string;
+
+		/**
+		 * Title of the panel shown in UI.
+		 */
+		title: string;
+
+		/**
+		 * {@linkcode Webview} belonging to the panel.
+		 */
+		readonly webview: vscode.Webview;
+
+		/**
+		 * Whether the panel is active (focused by the user).
+		 */
+		readonly active: boolean;
+
+		/**
+		 * Whether the panel is visible.
+		 */
+		readonly visible: boolean;
+
+		/**
+		 * Fired when the panel's view state changes.
+		 */
+		readonly onDidChangeViewState: vscode.Event<PreviewPanelOnDidChangeViewStateEvent>;
+
+		/**
+		 * Fired when the panel is disposed.
+		 *
+		 * This may be because the user closed the panel or because `.dispose()` was
+		 * called on it.
+		 *
+		 * Trying to use the panel after it has been disposed throws an exception.
+		 */
+		readonly onDidDispose: vscode.Event<void>;
+
+		/**
+		 * Show the preview panel
+		 *
+		 * Only one preview panel can be shown at a time. If a different preview
+		 * is already showing, it will be hidden.
+		 *
+		 * @param preserveFocus When `true`, the webview will not take focus.
+		 */
+		reveal(preserveFocus?: boolean): void;
+
+		/**
+		 * Dispose of the preview panel.
+		 *
+		 * This closes the panel if it showing and disposes of the resources
+		 * owned by the underlying webview.  Preview panels are also disposed
+		 * when the user closes the preview panel. Both cases fire the
+		 * `onDispose` event.
+		 */
+		dispose(): any;
+	}
+
+	/**
+	 * Event fired when a preview panel's view state changes.
+	 */
+	export interface PreviewPanelOnDidChangeViewStateEvent {
+		/**
+		 * Preview panel whose view state changed.
+		 */
+		readonly previewPanel: PreviewPanel;
+	}
+
+	namespace window {
+		/**
+		 * Create and show a new preview panel.
+		 *
+		 * @param viewType Identifies the type of the preview panel.
+		 * @param title Title of the panel.
+		 * @param options Settings for the new panel.
+		 *
+		 * @return New preview panel.
+		 */
+		export function createPreviewPanel(viewType: string, title: string, preserveFocus?: boolean, options?: PreviewOptions): PreviewPanel;
+	}
+
 	namespace runtime {
 
 		/**

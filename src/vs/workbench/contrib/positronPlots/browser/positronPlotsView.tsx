@@ -32,6 +32,9 @@ export class PositronPlotsViewPane extends ViewPane implements IReactComponentCo
 	// The onSizeChanged emitter.
 	private _onSizeChangedEmitter = this._register(new Emitter<ISize>());
 
+	// The onVisibilityChanged event emitter.
+	private _onVisibilityChangedEmitter = this._register(new Emitter<boolean>());
+
 	// The onSaveScrollPosition emitter.
 	private _onSaveScrollPositionEmitter = this._register(new Emitter<void>());
 
@@ -74,6 +77,13 @@ export class PositronPlotsViewPane extends ViewPane implements IReactComponentCo
 	}
 
 	/**
+	 * Gets the visible state.
+	 */
+	get visible() {
+		return this.isBodyVisible();
+	}
+
+	/**
 	 * Directs the React component container to take focus.
 	 */
 	takeFocus(): void {
@@ -84,6 +94,11 @@ export class PositronPlotsViewPane extends ViewPane implements IReactComponentCo
 	 * The onSizeChanged event.
 	 */
 	readonly onSizeChanged: Event<ISize> = this._onSizeChangedEmitter.event;
+
+	/**
+	 * The onVisibilityChanged event.
+	 */
+	readonly onVisibilityChanged: Event<boolean> = this._onVisibilityChangedEmitter.event;
 
 	/**
 	 * The onSaveScrollPosition event.
@@ -137,6 +152,11 @@ export class PositronPlotsViewPane extends ViewPane implements IReactComponentCo
 	) {
 		// Call the base class's constructor.
 		super(options, keybindingService, contextMenuService, configurationService, contextKeyService, viewDescriptorService, instantiationService, openerService, themeService, telemetryService);
+
+		// Register the onDidChangeBodyVisibility event handler.
+		this._register(this.onDidChangeBodyVisibility(visible => {
+			this._onVisibilityChangedEmitter.fire(visible);
+		}));
 	}
 
 	/**
