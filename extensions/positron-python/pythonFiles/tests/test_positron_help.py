@@ -63,6 +63,26 @@ def test_pydoc_server_parses_rst_docstrings(running_help_service: HelpService):
     assert "</tt>" not in html
 
 
+def test_pydoc_server_styling(running_help_service: HelpService):
+    """
+    We should pydoc should apply css styling
+    """
+    help_service = running_help_service
+
+    assert help_service.pydoc_thread is not None
+
+    key = "pandas.read_csv"
+    url = f"{help_service.pydoc_thread.url}get?key={key}"
+    with urlopen(url) as f:
+        html = f.read().decode("utf-8")
+
+    # Html should include stylesheet if added correctly
+    assert '<link rel="stylesheet" type="text/css" href="_pydoc.css"' in html
+
+    # There should no longer be any hot pink!
+    assert "#ee77aa" not in html
+
+
 def help():
     """
     Dummy help function used as a test case.

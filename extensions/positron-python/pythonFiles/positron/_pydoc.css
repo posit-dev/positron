@@ -1,0 +1,124 @@
+/*
+    Copyright (C) 2023 Posit Software, PBC. All rights reserved.
+    CSS file for Help Page
+*/
+
+
+table.heading tr td.title {
+    vertical-align: bottom;
+}
+
+table.heading tr td.extra {
+    vertical-align: bottom;
+    text-align: right;
+}
+
+.heading-text {
+    font-family: var(--vscode-editor-font-family);
+}
+
+.bigsection {
+    font-size: larger;
+}
+
+.title {
+    font-size: x-large;
+}
+
+.code {
+    font-family: var(--vscode-editor-font-family);
+}
+
+table {
+    width: 100%;
+    border-spacing : 0;
+    border-collapse : collapse;
+    border: 0;
+    color: var(--vscode-foreground);
+    font-family: var(--vscode-editor-font-family);
+
+}
+
+td {
+    padding: 0;
+    background-color: transparent;
+    color: var(--vscode-theme-foreground);
+    font-family: var(--vscode-editor-font-family);
+}
+
+td.section-title {
+    vertical-align: bottom;
+}
+
+strong big link a {
+    color: var(--vscode-foreground)
+}
+
+td.multicolumn {
+    width: 25%;
+    vertical-align: bottom;
+}
+
+td.singlecolumn {
+    width: 50%;
+}
+
+tr.heading-text {
+    color: var(--vscode-theme-foreground);
+    font-family: var(--vscode-font-family);
+
+}
+
+tr td body{
+    color: var(--vscode-foreground);
+    font-family: var(--vscode-font-family);
+}
+
+table.heading tr {
+    color: var(--vscode-theme-foreground);
+    background-color: transparent;
+   }
+
+
+tbody tr {
+    background-color: transparent;
+    color: inherit;
+    font-family: var(--vscode-font-family);
+
+}
+
+::-webkit-scrollbar {
+	background: transparent;
+	width: 8px;
+	height: 0;
+	cursor: default !important;
+}
+
+::-webkit-scrollbar-track {
+	opacity: 0;
+}
+
+::-webkit-scrollbar-thumb {
+	min-height: 20px;
+	background-color: var(--vscode-scrollbarSlider-background) !important;
+}
+
+::-webkit-scrollbar-thumb:hover {
+	cursor: pointer !important;
+	background-color: var(--vscode-scrollbarSlider-hoverBackground) !important;
+}
+
+::-webkit-scrollbar-corner {
+	display: none;
+}
+
+tbody tr td big strong{
+    color: black;
+
+}
+tbody td{
+    background-color: transparent;
+    color: var(--vscode-terminal-ansiRed);
+    font-family: var(--vscode-font-family);
+
+}
