@@ -8,12 +8,20 @@ import { randomUUID } from 'crypto';
 
 import path = require('path');
 import fs = require('fs');
+import { JavascriptEnvironment } from './environment';
 
 export class JavascriptLanguageRuntime implements positron.LanguageRuntime {
 
 	private readonly _onDidReceiveRuntimeMessage = new vscode.EventEmitter<positron.LanguageRuntimeMessage>();
 
 	private readonly _onDidChangeRuntimeState = new vscode.EventEmitter<positron.RuntimeState>();
+
+	private _env?: JavascriptEnvironment;
+
+	/**
+	 * A stack of pending RPCs.
+	 */
+	private readonly _pendingRpcs: Array<string> = [];
 
 	constructor(readonly context: vscode.ExtensionContext) {
 
@@ -75,7 +83,14 @@ export class JavascriptLanguageRuntime implements positron.LanguageRuntime {
 	}
 
 	createClient(id: string, type: positron.RuntimeClientType, params: any): Thenable<void> {
-		throw new Error('Method not implemented.');
+		if (type === positron.RuntimeClientType.Environment) {
+			// Allocate a new ID and ZedEnvironment object for this environment backend
+			this._env = new JavascriptEnvironment(id);
+			this.connectClientEmitter(this._env);
+		} else {
+			throw new Error(`Unknown client type ${type}`);
+		}
+		return Promise.resolve();
 	}
 
 	listClients(type?: positron.RuntimeClientType | undefined): Thenable<Record<string, string>> {
@@ -87,7 +102,13 @@ export class JavascriptLanguageRuntime implements positron.LanguageRuntime {
 	}
 
 	sendClientMessage(client_id: string, message_id: string, message: any): void {
-		throw new Error('Method not implemented.');
+		if (this._env && this._env.id === client_id) {
+			this._pendingRpcs.push(message_id);
+			this._env.handleMessage(message_id, message);
+
+		} else {
+			throw new Error(`Can't send message; unknown client id ${client_id}`);
+		}
 	}
 
 	replyToPrompt(id: string, reply: string): void {
@@ -182,5 +203,32 @@ export class JavascriptLanguageRuntime implements positron.LanguageRuntime {
 			code: code,
 			execution_count: 1
 		} as positron.LanguageRuntimeInput);
+	}
+
+	/**
+	 * Proxies messages from a client instance to Positron, by amending the
+	 * appropriate metadata.
+	 *
+	 * @param client The environment or plot to connect
+	 */
+	private connectClientEmitter(client: JavascriptEnvironment) {
+
+		// Listen for data emitted from the environment instance
+		client.onDidEmitData(data => {
+			// If there's a pending RPC, then presume that this message is a
+			// reply to it; otherwise, just use an empty parent ID.
+			const parent_id = this._pendingRpcs.length > 0 ?
+				this._pendingRpcs.pop() : '';
+
+			// When received, wrap it up in a runtime message and emit it
+			this._onDidReceiveRuntimeMessage.fire({
+				id: randomUUID(),
+				parent_id,
+				when: new Date().toISOString(),
+				type: positron.LanguageRuntimeMessageType.CommData,
+				comm_id: client.id,
+				data: data
+			} as positron.LanguageRuntimeCommMessage);
+		});
 	}
 }
