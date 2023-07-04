@@ -7,6 +7,7 @@ import pprint
 import types
 from binascii import b2a_base64
 from datetime import datetime
+from types import ModuleType
 from typing import Any, Optional, Tuple
 
 
@@ -25,7 +26,7 @@ def get_qualname(value: Any) -> str:
     Utility to manually construct a qualified type name as
     __qualname__ does not work for all types
     """
-    value_type = value if isinstance(value, type) or callable(value) else type(value)
+    value_type = value if isinstance(value, (type, ModuleType)) or callable(value) else type(value)
 
     qualname = getattr(value_type, "__qualname__", None)
     if qualname is None:
