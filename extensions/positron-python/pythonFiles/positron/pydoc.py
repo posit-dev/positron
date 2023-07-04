@@ -4,9 +4,8 @@
 
 import inspect
 import io
-import platform
+import logging
 import pydoc
-import re
 import os
 import sys
 import warnings
@@ -15,6 +14,9 @@ from typing import Any
 from docstring_to_markdown.rst import rst_to_markdown
 from markdown_it import MarkdownIt
 from traceback import format_exception_only
+
+
+logger = logging.getLogger(__name__)
 
 
 def _remove_tt(text):
@@ -347,10 +349,6 @@ class _PositronHTMLDoc(pydoc.HTMLDoc):
         return self.page(title, content)
 
 
-# Keep a reference to the original/unpatched `pydoc.getdoc`.
-_pydoc_getdoc = pydoc.getdoc
-
-
 def _getdoc(object: Any) -> str:
     """Override `pydoc.getdoc` to parse reStructuredText docstrings."""
     docstring = _pydoc_getdoc(object)
@@ -363,16 +361,8 @@ def _getdoc(object: Any) -> str:
     return html
 
 
-def patch_pydoc() -> None:
-    """
-    Monkey patch pydoc with Positron customizations.
-    """
-    pydoc.HTMLDoc = _PositronHTMLDoc
-    pydoc.getdoc = _getdoc
-
-
 # adapted from pydoc._url_handler
-def positron_url_handler(url, content_type="text/html"):
+def _url_handler(url, content_type="text/html"):
     """The pydoc url handler for use with the pydoc server.
 
     If the content_type is 'text/css', the _pydoc.css style
@@ -399,3 +389,36 @@ def positron_url_handler(url, content_type="text/html"):
         return html.get_html_page(url)
     # Errors outside the url handler are caught by the server.
     raise TypeError("unknown content type %r for url %s" % (content_type, url))
+
+
+# Keep a reference to the original/unpatched `pydoc.getdoc`.
+_pydoc_getdoc = pydoc.getdoc
+
+
+def start_server(port: int = 0):
+    """Adapted from pydoc.browser."""
+    # Monkey patch pydoc for our custom functionality
+    pydoc.HTMLDoc = _PositronHTMLDoc
+    pydoc.getdoc = _getdoc
+
+    # Setting port to 0 will use an arbitrary port
+    thread = pydoc._start_server(_url_handler, hostname="localhost", port=port)  # type: ignore
+
+    if thread.error:
+        logger.error(f"Could not start the pydoc help server. Error: {thread.error}")
+        return
+    elif thread.serving:
+        logger.info(f"Pydoc server ready at: {thread.url}")
+
+    return thread
+
+
+if __name__ == "__main__":
+    # Run Positron's pydoc server on a custom port, useful for development.
+    #
+    # Example:
+    #
+    #   python -m positron.pydoc
+
+    logging.basicConfig(level=logging.INFO)
+    start_server(port=65216)

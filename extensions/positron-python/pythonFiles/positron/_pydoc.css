@@ -3,6 +3,16 @@
     CSS file for Help Page
 */
 
+:root {
+    --editor-font-family: var(--vscode-editor-font-family, monospace);
+    --font-family: var(--vscode-font-family, sans-serif);
+    --forground: var(--vscode-foreground, black);
+    --theme-forground: var(--vscode-theme-foreground, black);
+}
+
+body {
+    font-family: var(--font-family);
+}
 
 table.heading tr td.title {
     vertical-align: bottom;
@@ -14,7 +24,7 @@ table.heading tr td.extra {
 }
 
 .heading-text {
-    font-family: var(--vscode-editor-font-family);
+    font-family: var(--editor-font-family);
 }
 
 .bigsection {
@@ -26,7 +36,7 @@ table.heading tr td.extra {
 }
 
 .code {
-    font-family: var(--vscode-editor-font-family);
+    font-family: var(--editor-font-family);
 }
 
 table {
@@ -34,16 +44,16 @@ table {
     border-spacing : 0;
     border-collapse : collapse;
     border: 0;
-    color: var(--vscode-foreground);
-    font-family: var(--vscode-editor-font-family);
+    color: var(--foreground);
+    font-family: var(--editor-font-family);
 
 }
 
 td {
     padding: 0;
     background-color: transparent;
-    color: var(--vscode-theme-foreground);
-    font-family: var(--vscode-editor-font-family);
+    color: var(--theme-foreground);
+    font-family: var(--editor-font-family);
 }
 
 td.section-title {
@@ -51,7 +61,7 @@ td.section-title {
 }
 
 strong big link a {
-    color: var(--vscode-foreground)
+    color: var(--foreground)
 }
 
 td.multicolumn {
@@ -64,18 +74,18 @@ td.singlecolumn {
 }
 
 tr.heading-text {
-    color: var(--vscode-theme-foreground);
-    font-family: var(--vscode-font-family);
+    color: var(--theme-foreground);
+    font-family: var(--font-family);
 
 }
 
 tr td body{
-    color: var(--vscode-foreground);
-    font-family: var(--vscode-font-family);
+    color: var(--foreground);
+    font-family: var(--font-family);
 }
 
 table.heading tr {
-    color: var(--vscode-theme-foreground);
+    color: var(--theme-foreground);
     background-color: transparent;
    }
 
@@ -83,7 +93,7 @@ table.heading tr {
 tbody tr {
     background-color: transparent;
     color: inherit;
-    font-family: var(--vscode-font-family);
+    font-family: var(--font-family);
 
 }
 
@@ -119,6 +129,6 @@ tbody tr td big strong{
 tbody td{
     background-color: transparent;
     color: var(--vscode-terminal-ansiRed);
-    font-family: var(--vscode-font-family);
+    font-family: var(--font-family);
 
 }
