@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING, Any, Optional, Union
 from pydantic import Field
 
 from .frontend import BaseFrontendEvent
-from .pydoc import patch_pydoc, positron_url_handler
+from .pydoc import start_server
 from .utils import get_qualname
 
 if TYPE_CHECKING:
@@ -64,26 +64,10 @@ class HelpService:
         self.pydoc_thread = None
 
     def start(self):
-        self.pydoc_thread = self._start_pydoc_server()
+        self.pydoc_thread = start_server()
 
         if self.pydoc_thread and self.pydoc_thread.serving:
             self._override_help()
-
-    def _start_pydoc_server(self):
-        """Adapted from pydoc.browser."""
-        # Monkey patch pydoc for our custom functionality
-        patch_pydoc()
-
-        # Setting port to 0 will use an arbitrary port
-        pydoc_thread = pydoc._start_server(positron_url_handler, hostname="localhost", port=0)  # type: ignore
-
-        if pydoc_thread.error:
-            logger.error(f"Could not start the pydoc help server. Error: {pydoc_thread.error}")
-            return
-        elif pydoc_thread.serving:
-            logger.info(f"Pydoc server ready at: {pydoc_thread.url}")
-
-        return pydoc_thread
 
     def _override_help(self) -> None:
         # Run code in the kernel which overrides the builtin help function, to call `self.show_help`
