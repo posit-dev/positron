@@ -8,7 +8,9 @@ import pytest
 from positron.pydoc import (
     _Attr,
     _compact_signature,
+    _getdoc,
     _get_summary,
+    _resolve,
     _tabulate_attrs,
     _untyped_signature,
     _PositronHTMLDoc,
@@ -65,6 +67,29 @@ Module long description.""",
 )
 setattr(_module, "A", _A)
 setattr(_module, "test_func", _test_func)
+
+
+def _test_getdoc_links_arguments_section() -> None:
+    """
+    Summary.
+
+    Parameters
+    ----------
+    copy : bool
+        Uses `copy.copy`.
+    second : int
+        Description 2.
+    """
+
+
+def _test_getdoc_links_see_also_section() -> None:
+    """
+    Summary.
+
+    See Also
+    --------
+    copy : Description 1.
+    """
 
 
 # Tests
@@ -298,3 +323,79 @@ Method summary, may contain [links](target).
 </table></td></tr></table>"""
 
     _assert_html_equal(result, expected)
+
+
+@pytest.mark.parametrize(
+    ("target", "from_obj", "expected"),
+    [
+        # *From* a module
+        ("Series", pd, "pandas.Series"),
+        # A package
+        ("os", pd.read_csv, "os"),
+        ("pandas", pd.read_csv, "pandas"),
+        # A sub-module
+        ("pandas.io", pd.read_csv, "pandas.io"),
+        # A sub-module, implicitly relative to `from_obj`'s package
+        ("api", pd.read_csv, "pandas.api"),
+        # This is a bit ambiguous, but we have to assume that the user is referring to the stdlib...
+        # TODO: Maybe we lost some info here when going from rst to markdown...
+        #       So maybe we want to parse links before converting to markdown?
+        ("io", pd.read_csv, "io"),
+        # A fully qualified name to a class, function, or instance
+        ("os.PathLike", pd.read_csv, "os.PathLike"),
+        ("os.path.split", pd.read_csv, "os.path.split"),
+        ("os.path.sep", pd.read_csv, "os.path.sep"),
+        ("pandas.DataFrame", pd.read_csv, "pandas.DataFrame"),
+        # A fully qualified name to a class attribute or method
+        ("pandas.DataFrame.to_csv", pd.read_csv, "pandas.DataFrame.to_csv"),
+        # A fully qualified name, implicitly relative to `from_obj`'s package
+        ("DataFrame", pd.read_csv, "pandas.DataFrame"),
+        ("DataFrame.to_csv", pd.read_csv, "pandas.DataFrame.to_csv"),
+        ("read_fwf", pd.read_csv, "pandas.read_fwf"),
+        # Unresolvable
+        ("filepath_or_buffer", pd.read_csv, None),
+        ("pd.to_datetime", pd.read_csv, None),
+        # Ensure that we can handle linking from a `property`
+        ("DataFrame.transpose", pd.read_csv, "pandas.DataFrame.transpose"),
+    ],
+)
+def test_resolve(target: str, from_obj: Any, expected: Any) -> None:
+    """
+    Unit test for `_resolve` since it is particularly tricky.
+    """
+    assert _resolve(target, from_obj) == expected
+
+
+@pytest.mark.parametrize(
+    ("object", "expected"),
+    [
+        # Does not link item names/types in Arguments section, but does link descriptions.
+        (
+            _test_getdoc_links_arguments_section,
+            """\
+<p>Summary.</p>
+<h4>Parameters</h4>
+<ul>
+<li><code>copy</code>: bool
+Uses <a href="get?key=copy.copy"><code>copy.copy</code></a>.</li>
+<li><code>second</code>: int
+Description 2.</li>
+</ul>
+""",
+        ),
+        # Links items in the list under the See Also section.
+        (
+            _test_getdoc_links_see_also_section,
+            """\
+<p>Summary.</p>
+<h4>See Also</h4>
+<ul>
+<li><a href="get?key=copy"><code>copy</code></a>: Description 1.</li>
+</ul>
+""",
+        ),
+    ],
+)
+def test_getdoc(object: Any, expected: str) -> None:
+    html = _getdoc(object)
+    assert html == expected
