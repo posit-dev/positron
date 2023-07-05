@@ -76,10 +76,16 @@ export class PositronHelpViewPane extends ViewPane implements IReactComponentCon
 	private _helpViewContainer: HTMLElement;
 
 	// The help iframe.
-	private _helpView: IWebviewElement;
+	private _helpView: IWebviewElement | undefined;
 
 	// The last Positron help command that was sent to the help iframe.
 	private _lastPositronHelpCommand?: PositronHelpCommand;
+
+	// Spot fix: The cached last help HTML.
+	private _lastHelpViewHtml: string | undefined;
+
+	// Spot fix: The first visibility flag.
+	private _firstVisibility = true;
 
 	//#endregion Private Properties
 
@@ -170,7 +176,7 @@ export class PositronHelpViewPane extends ViewPane implements IReactComponentCon
 		@ITelemetryService telemetryService: ITelemetryService,
 		@IThemeService themeService: IThemeService,
 		@IViewDescriptorService viewDescriptorService: IViewDescriptorService,
-		@IWebviewService webviewService: IWebviewService,
+		@IWebviewService private readonly webviewService: IWebviewService,
 	) {
 		// Call the base class's constructor.
 		super(options, keybindingService, contextMenuService, configurationService, contextKeyService, viewDescriptorService, instantiationService, openerService, themeService, telemetryService);
@@ -182,30 +188,21 @@ export class PositronHelpViewPane extends ViewPane implements IReactComponentCon
 		this._helpViewContainer.style.width = '100%';
 		this._helpViewContainer.style.height = '100%';
 
-		// Create the help view.
-		this._helpView = webviewService.createWebviewElement({
-			title: 'Positron Help',
-			extension: {
-				id: new ExtensionIdentifier('positron-help'),
-			},
-			options: {},
-			contentOptions: {
-				allowScripts: true,
-				localResourceRoots: [], // TODO: needed for positron-help.js
-			},
-		});
-
 		// Arrange our elements.
 		this._positronHelpContainer.appendChild(this._helpActionBarsContainer);
 		this._positronHelpContainer.appendChild(this._helpViewContainer);
-		this._helpView.mountTo(this._helpViewContainer);
 
 		this._register(this.positronHelpService.onRenderHelp(html => {
-			this._helpView.setHtml(html);
+			// Spot fix: Cache last help HTML.
+			this._lastHelpViewHtml = html;
+
+			// Set the help view HTML.
+			this._helpView?.setHtml(html);
 		}));
 
 		// Register the onDidChangeBodyVisibility event handler.
 		this._register(this.onDidChangeBodyVisibility(visible => {
+			this.onDidChangeVisibility(visible);
 			this._onVisibilityChangedEmitter.fire(visible);
 		}));
 	}
@@ -338,9 +335,8 @@ export class PositronHelpViewPane extends ViewPane implements IReactComponentCon
 	 * @param positronHelpCommand The PositronHelpCommand to post.
 	 */
 	private postHelpIFrameMessage(positronHelpCommand: PositronHelpCommand): void {
-
 		// Post the message to the help iframe.
-		this._helpView.postMessage(positronHelpCommand);
+		this._helpView?.postMessage(positronHelpCommand);
 
 		// Save the command?
 		if (positronHelpCommand.command === 'find' && positronHelpCommand.findText) {
@@ -348,7 +344,47 @@ export class PositronHelpViewPane extends ViewPane implements IReactComponentCon
 		} else {
 			this._lastPositronHelpCommand = undefined;
 		}
+	}
 
+	private onDidChangeVisibility(visible: boolean): void {
+		// Warning: HACKS OF AN EGREGIOUS NATURE ARE BELOW.
+		if (visible) {
+			const createHelpView = () => {
+				if (this._helpView) {
+					return;
+				}
+
+				this._helpView = this.webviewService.createWebviewElement({
+					title: 'Positron Help',
+					extension: {
+						id: new ExtensionIdentifier('positron-help'),
+					},
+					options: {},
+					contentOptions: {
+						allowScripts: true,
+						localResourceRoots: [], // TODO: needed for positron-help.js
+					},
+				});
+
+				this._helpView.mountTo(this._helpViewContainer);
+
+				if (this._lastHelpViewHtml) {
+					this._helpView?.setHtml(this._lastHelpViewHtml);
+				}
+			};
+
+			if (this._firstVisibility) {
+				this._firstVisibility = false;
+				setTimeout(createHelpView, 500);
+			} else {
+				createHelpView();
+			}
+		} else {
+			if (this._helpView) {
+				this._helpView.dispose();
+				this._helpView = undefined;
+			}
+		}
 	}
 
 	//#endregion Private Methods
