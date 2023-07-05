@@ -2,36 +2,184 @@
 # Copyright (C) 2023 Posit Software, PBC. All rights reserved.
 #
 
-import builtins
+from __future__ import annotations
+
 import inspect
 import io
 import logging
 import os
 import pkgutil
 import pydoc
+import re
 import sys
 import urllib.parse
 import warnings
-from collections import deque
 from pydoc import _is_bound_method  # type: ignore
-from pydoc import _split_list  # type: ignore
-from pydoc import sort_attributes  # type: ignore
-from pydoc import (
-    Helper,
-    ModuleScanner,
-    classify_class_attrs,
-    describe,
-    isdata,
-    locate,
-    visiblename,
-)
+from pydoc import Helper, ModuleScanner, describe, isdata, locate, visiblename
 from traceback import format_exception_only
-from typing import Any, Dict, Optional
+from types import ModuleType
+from typing import Any, Dict, List, Optional, Type
 
 from docstring_to_markdown.rst import rst_to_markdown
 from markdown_it import MarkdownIt
+from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
+
+import urllib.parse
+
+logger = logging.getLogger(__name__)
+
+
+def _compact_signature(obj: Any, name="", max_chars=45) -> Optional[str]:
+    """
+    Produce a compact signature for a callable object.
+
+    This was written to match signatures in class attribute lists in the pandas documentation,
+    for example: https://pandas.pydata.org/docs/reference/api/pandas.DataFrame.html#pandas.DataFrame
+
+    Example
+    -------
+
+    >>> def foo(a, b, c=1, *args, **kwargs):
+    ...     pass
+    >>> compact_signature(foo)
+    '(a, b, c=1, *args, **kwargs)'
+
+    Returns `None` for uncallable objects.
+
+    >>> compact_signature(1)
+    None
+    """
+    try:
+        signature = inspect.signature(obj)
+    except (TypeError, ValueError):
+        # TODO: Try falling back to getting the signature from the docstring e.g. `numpy.array`
+        return None
+
+    seen_optionals = False
+    seen_keyword_only = False
+
+    def _stringify(args):
+        # Convert a list of arg strings to a single signature, adding brackets as needed
+        nonlocal seen_optionals
+        result = ", ".join(args)
+        if seen_optionals:
+            result += "]"
+        return f"({result})"
+
+    args = []
+    for name, param in signature.parameters.items():
+        if name == "self":
+            continue
+
+        # Is it the first keyword-only argument?
+        elif not seen_keyword_only and param.kind is param.KEYWORD_ONLY:
+            seen_keyword_only = True
+            args.append("*")
+
+        # Is it variadic?
+        elif param.kind is param.VAR_POSITIONAL:
+            seen_keyword_only = True
+        elif param.kind is param.VAR_KEYWORD:
+            seen_keyword_only = True
+
+        arg = str(param.replace(annotation=param.empty, default=param.empty))
+
+        # Is it the first optional argument?
+        if not seen_optionals and param.default is not param.empty:
+            seen_optionals = True
+            if args:
+                args[-1] += "["
+            else:
+                arg = f"[{arg}"
+
+        args.append(arg)
+
+        # Check if we should truncate the remaining args
+        result = _stringify(args)
+        if len(name + result) > max_chars:
+            # Replace the last arg with an ellipsis
+            args.pop()
+            args.append("...")
+            break
+
+    result = _stringify(args)
+    return result
+
+
+def _untyped_signature(obj: Any) -> Optional[str]:
+    """
+    Produce a signature for a callable object, with all annotations removed.
+
+    This was written to match signatures in the header of pages for callables in the pandas
+    documentation, for example: https://pandas.pydata.org/docs/reference/api/pandas.DataFrame.html#pandas.DataFrame
+
+    Example
+    -------
+
+    >>> def foo(a: int, b: str, c=1, *args, **kwargs) -> None:
+    ...     pass
+    >>> untyped_signature(foo)
+    '(a, b, c=1, *args, **kwargs) -> None'
+    """
+    try:
+        signature = inspect.signature(obj)
+    except (ValueError, TypeError):
+        # TODO: Try falling back to getting the signature from the docstring e.g. `numpy.array`
+        return None
+
+    untyped_params = [
+        param.replace(annotation=param.empty)
+        for name, param in signature.parameters.items()
+        if name != "self"
+    ]
+    signature = signature.replace(parameters=untyped_params, return_annotation=signature.empty)
+    result = str(signature)
+    return result
+
+
+def _get_summary(object: Any) -> Optional[str]:
+    """
+    Get the one-line summary from the docstring of an object.
+    """
+    doc = _pydoc_getdoc(object)
+    return doc.split("\n\n", 1)[0]
+
+
+def _tabulate_attrs(attrs: List[_Attr], cls_name: Optional[str] = None) -> List[str]:
+    """
+    Create an HTML table of attribute signatures and summaries.
+    """
+    result = []
+    result.append("<table>")
+    result.append("<tbody>")
+    for attr in attrs:
+        _cls_name = cls_name or attr.cls.__name__
+        full_name = f"{_cls_name}.{attr.name}"
+        argspec = _compact_signature(attr.value, attr.name) or ""
+        link = f'<a href="{full_name}"><code>{attr.name}</code></a>{argspec}'
+        summary = _get_summary(attr.value) or ""
+        row_lines = [
+            "<tr>",
+            "<td>",
+            f"<p>{link}</p>",
+            "</td>",
+            "<td>",
+            summary,
+            "</td>",
+            "</tr>",
+        ]
+        result.extend(row_lines)
+    result.append("</tbody>")
+    result.append("</table>")
+    return result
+
+
+class _Attr(BaseModel):
+    name: str
+    cls: Any
+    value: Any
 
 
 class _PositronHTMLDoc(pydoc.HTMLDoc):
@@ -110,282 +258,125 @@ class _PositronHTMLDoc(pydoc.HTMLDoc):
         title = '<strong class="bigsection">%s</strong>' % title
         return self.section(title, *args)
 
-    # as is from pydoc.HTMLDoc to port Python 3.11 breaking CSS changes
-    def docmodule(self, object: Any, name=None, mod=None, *ignored):
-        """Produce HTML documentation for a module object."""
-        name = object.__name__  # ignore the passed-in name
-        try:
-            all = object.__all__
-        except AttributeError:
-            all = None
-        parts = name.split(".")
+    # Heavily customized version of pydoc.HTMLDoc.docmodule
+    def docmodule(self, object: ModuleType, *_):
+        obj_name = object.__name__
+
+        # Create the heading, with links to each parent module
+        parts = obj_name.split(".")
         links = []
         for i in range(len(parts) - 1):
-            links.append(
-                '<a href="%s.html" class="white">%s</a>' % (".".join(parts[: i + 1]), parts[i])
-            )
+            url = ".".join(parts[: i + 1]) + ".html"
+            links.append(f'<a href="{url}">{parts[i]}</a>')
         linkedname = ".".join(links + parts[-1:])
-        head = '<strong class="title">%s</strong>' % linkedname
+        head = f'<strong class="title">{linkedname}</strong>'
+
+        # Add the module's __version__ to the heading
+        if hasattr(object, "__version__"):
+            version = self.escape(str(object.__version__))
+            head = f"{head} (version {version})"
+
+        # TODO: Can we make this open in Positron?
+        # Add a link to the module file
         try:
             path = inspect.getabsfile(object)
-            url = urllib.parse.quote(path)
-            filelink = self.filelink(url, path)
         except TypeError:
             filelink = "(built-in)"
-        info = []
-        if hasattr(object, "__version__"):
-            version = str(object.__version__)
-            if version[:11] == "$" + "Revision: " and version[-1:] == "$":
-                version = version[11:-1].strip()
-            info.append("version %s" % self.escape(version))
-        if hasattr(object, "__date__"):
-            info.append(self.escape(str(object.__date__)))
-        if info:
-            head = head + " (%s)" % ", ".join(info)
-        docloc = self.getdocloc(object)
-        if docloc is not None:
-            docloc = '<br><a href="%(docloc)s">Module Reference</a>' % locals()
         else:
-            docloc = ""
-        result = self.heading(head, '<a href=".">index</a><br>' + filelink + docloc)
+            url = urllib.parse.quote(path)
+            filelink = f'<a href="file:{url}">{path}</a>'
 
-        modules = inspect.getmembers(object, inspect.ismodule)
+        result = self.heading(
+            title=head,
+            extras='<a href=".">index</a><br>' + filelink,
+        )
 
-        classes, cdict = [], {}
-        for key, value in inspect.getmembers(object, inspect.isclass):
-            # if __all__ exists, believe it.  Otherwise use old heuristic.
-            if all is not None or (inspect.getmodule(value) or object) is object:
-                if visiblename(key, all, object):
-                    classes.append((key, value))
-                    cdict[key] = cdict[value] = "#" + key
-        for key, value in classes:
-            for base in value.__bases__:
-                key, modname = base.__name__, base.__module__
-                module = sys.modules.get(modname)
-                if modname != name and module and hasattr(module, key):
-                    if getattr(module, key) is base:
-                        if not key in cdict:
-                            cdict[key] = cdict[base] = modname + ".html#" + key
-        funcs, fdict = [], {}
-        for key, value in inspect.getmembers(object, inspect.isroutine):
-            # if __all__ exists, believe it.  Otherwise use old heuristic.
-            if all is not None or inspect.isbuiltin(value) or inspect.getmodule(value) is object:
-                if visiblename(key, all, object):
-                    funcs.append((key, value))
-                    fdict[key] = "#-" + key
-                    if inspect.isfunction(value):
-                        fdict[value] = fdict[key]
+        # Separate the module's members into modules, classes, functions, and data.
+        # Respect the module's __all__ attribute if it exists.
+        all = getattr(object, "__all__", None)
+        modules = []
+        classes = []
+        funcs = []
         data = []
-        for key, value in inspect.getmembers(object, isdata):
-            if visiblename(key, all, object):
-                data.append((key, value))
+        for name, value in inspect.getmembers(object):
+            if not visiblename(name, all, object):
+                continue
 
-        doc = self.markup(_getdoc(object), self.preformat, fdict, cdict)
-        # --- Start Positron ---
-        # Remove <span class="code">
-        # doc = doc and '<span class="code">%s</span>' % doc
-        # --- End Positron ---
-        result = result + "<p>%s</p>\n" % doc
+            attr = _Attr(name=name, cls=object, value=value)
 
-        if hasattr(object, "__path__"):
-            modpkgs = []
-            for importer, modname, ispkg in pkgutil.iter_modules(object.__path__):
-                modpkgs.append((modname, name, ispkg, 0))
-            modpkgs.sort()
-            contents = self.multicolumn(modpkgs, self.modpkglink)
-            result = result + self.bigsection("Package Contents", "pkg-content", contents)
-        elif modules:
-            contents = self.multicolumn(modules, lambda t: self.modulelink(t[1]))
-            result = result + self.bigsection("Modules", "pkg-content", contents)
+            if inspect.ismodule(value):
+                modules.append(attr)
+            elif inspect.isclass(value):
+                classes.append(attr)
+            elif inspect.isroutine(value):
+                funcs.append(attr)
+            elif isdata(value):
+                data.append(attr)
+
+        # Add the module's parsed docstring to the page
+        doc = _getdoc(object)
+        result += doc
+
+        # Add the module's members to the page
+        if modules:
+            contents = _tabulate_attrs(modules, obj_name)
+            result += self.bigsection("Modules", "pkg-content", "\n".join(contents))
 
         if classes:
-            classlist = [value for (key, value) in classes]
-            contents = [self.formattree(inspect.getclasstree(classlist, True), name)]
-            for key, value in classes:
-                contents.append(self.document(value, key, name, fdict, cdict))
-            result = result + self.bigsection("Classes", "index", " ".join(contents))
+            contents = _tabulate_attrs(classes, obj_name)
+            result += self.bigsection("Classes", "index", "\n".join(contents))
+
         if funcs:
-            contents = []
-            for key, value in funcs:
-                contents.append(self.document(value, key, name, fdict, cdict))
-            result = result + self.bigsection("Functions", "functions", " ".join(contents))
+            contents = _tabulate_attrs(funcs, obj_name)
+            result += self.bigsection("Functions", "functions", "\n".join(contents))
+
         if data:
-            contents = []
-            for key, value in data:
-                contents.append(self.document(value, key))
-            result = result + self.bigsection("Data", "data", "<br>\n".join(contents))
-        if hasattr(object, "__author__"):
-            contents = self.markup(str(object.__author__), self.preformat)
-            result = result + self.bigsection("Author", "author", contents)
-        if hasattr(object, "__credits__"):
-            contents = self.markup(str(object.__credits__), self.preformat)
-            result = result + self.bigsection("Credits", "credits", contents)
+            contents = _tabulate_attrs(data, obj_name)
+            result += self.bigsection("Data", "data", "\n".join(contents))
 
         return result
 
-    # as is from pydoc.HTMLDoc to port Python 3.11 breaking CSS changes
-    def docclass(self, object: Any, name=None, mod=None, funcs={}, classes={}, *ignored):
-        """Produce HTML documentation for a class object."""
-        realname = object.__name__
-        name = name or realname
-        bases = object.__bases__
+    # Heavily customized version of pydoc.HTMLDoc.docclass
+    def docclass(self, obj: Type, name=None, *_):
+        obj_name = name or obj.__name__
 
-        contents = []
-        push = contents.append
-
-        # Cute little class to pump out a horizontal rule between sections.
-        class HorizontalRule:
-            def __init__(self):
-                self.needone = 0
-
-            def maybe(self):
-                if self.needone:
-                    push("<hr>\n")
-                self.needone = 1
-
-        hr = HorizontalRule()
-
-        # List the mro, if non-trivial.
-        mro = deque(inspect.getmro(object))
-        if len(mro) > 2:
-            hr.maybe()
-            push("<dl><dt>Method resolution order:</dt>\n")
-            for base in mro:
-                push("<dd>%s</dd>\n" % self.classlink(base, object.__module__))
-            push("</dl>\n")
-
-        def spill(msg, attrs, predicate):
-            ok, attrs = _split_list(attrs, predicate)
-            if ok:
-                hr.maybe()
-                push(msg)
-                for name, kind, homecls, value in ok:
-                    try:
-                        value = getattr(object, name)
-                    except Exception:
-                        # Some descriptors may meet a failure in their __get__.
-                        # (bug #1785)
-                        push(self.docdata(value, name, mod))
-                    else:
-                        push(self.document(value, name, mod, funcs, classes, mdict, object))
-                    push("\n")
-            return attrs
-
-        def spilldescriptors(msg, attrs, predicate):
-            ok, attrs = _split_list(attrs, predicate)
-            if ok:
-                hr.maybe()
-                push(msg)
-                for name, kind, homecls, value in ok:
-                    push(self.docdata(value, name, mod))
-            return attrs
-
-        def spilldata(msg, attrs, predicate):
-            ok, attrs = _split_list(attrs, predicate)
-            if ok:
-                hr.maybe()
-                push(msg)
-                for name, kind, homecls, value in ok:
-                    base = self.docother(getattr(object, name), name, mod)
-                    doc = _getdoc(value)
-                    if not doc:
-                        push("<dl><dt>%s</dl>\n" % base)
-                    else:
-                        doc = self.markup(_getdoc(value), self.preformat, funcs, classes, mdict)
-                        # --- Start Positron ---
-                        # Remove <span class="code">
-                        # doc = '<dd><span class="code">%s</span>' % doc
-                        # --- End Positron ---
-                        push("<dl><dt>%s%s</dl>\n" % (base, doc))
-                    push("\n")
-            return attrs
-
-        attrs = [
-            (name, kind, cls, value)
-            for name, kind, cls, value in classify_class_attrs(object)
-            if visiblename(name, obj=object)
-        ]
-
-        mdict = {}
-        for key, kind, homecls, value in attrs:
-            mdict[key] = anchor = "#" + name + "-" + key
-            try:
-                value = getattr(object, name)
-            except Exception:
-                # Some descriptors may meet a failure in their __get__.
-                # (bug #1785)
-                pass
-            try:
-                # The value may not be hashable (e.g., a data attr with
-                # a dict or list value).
-                mdict[value] = anchor
-            except TypeError:
-                pass
-
-        while attrs:
-            if mro:
-                thisclass = mro.popleft()
-            else:
-                thisclass = attrs[0][2]
-            attrs, inherited = _split_list(attrs, lambda t: t[2] is thisclass)
-
-            if object is not builtins.object and thisclass is builtins.object:
-                attrs = inherited
+        # Separate the class's members into attributes and methods
+        attributes = []
+        methods = []
+        for name, value in inspect.getmembers(obj):
+            if name.startswith("_"):
                 continue
-            elif thisclass is object:
-                tag = "defined here"
+
+            attr = _Attr(name=name, cls=obj, value=value)
+
+            if callable(value):
+                methods.append(attr)
             else:
-                tag = "inherited from %s" % self.classlink(thisclass, object.__module__)
-            tag += ":<br>\n"
+                attributes.append(attr)
 
-            sort_attributes(attrs, object)
+        title = f"<strong>{obj_name}</strong>"
+        result = self.heading(title=title)
 
-            # Pump out the attrs, segregated by kind.
-            attrs = spill("Methods %s" % tag, attrs, lambda t: t[1] == "method")
-            attrs = spill("Class methods %s" % tag, attrs, lambda t: t[1] == "class method")
-            attrs = spill("Static methods %s" % tag, attrs, lambda t: t[1] == "static method")
-            attrs = spilldescriptors(
-                "Readonly properties %s" % tag, attrs, lambda t: t[1] == "readonly property"
-            )
-            attrs = spilldescriptors(
-                "Data descriptors %s" % tag, attrs, lambda t: t[1] == "data descriptor"
-            )
-            attrs = spilldata("Data and other attributes %s" % tag, attrs, lambda t: t[1] == "data")
-            assert attrs == []
-            attrs = inherited
+        # Add the object's signature to the page
+        signature = _untyped_signature(obj) or ""
+        signature = self.escape(signature)
+        signature = f"<code><strong><em>class</em> {obj_name}<em>{signature}</em></strong></code>"
+        result += signature
 
-        contents = "".join(contents)
+        # Add the object's parsed docstring to the page
+        doc = _getdoc(obj)
+        result += doc
 
-        if name == realname:
-            title = '<a name="%s">class <strong>%s</strong></a>' % (name, realname)
-        else:
-            title = '<strong>%s</strong> = <a name="%s">class %s</a>' % (name, name, realname)
-        if bases:
-            parents = []
-            for base in bases:
-                parents.append(self.classlink(base, object.__module__))
-            title = title + "(%s)" % ", ".join(parents)
+        # Add the object's members to the page
+        if attributes:
+            contents = _tabulate_attrs(attributes, obj_name)
+            result += self.bigsection("Attributes", "index", "\n".join(contents))
 
-        decl = ""
-        try:
-            signature = inspect.signature(object)
-        except (ValueError, TypeError):
-            signature = None
-        if signature:
-            argspec = str(signature)
-            if argspec and argspec != "()":
-                decl = name + self.escape(argspec) + "\n\n"
+        if methods:
+            contents = _tabulate_attrs(methods, obj_name)
+            result += self.bigsection("Methods", "functions", "\n".join(contents))
 
-        doc = _getdoc(object)
-        if decl:
-            doc = decl + (doc or "")
-        doc = self.markup(doc, self.preformat, funcs, classes, mdict)
-        # --- Start Positron ---
-        # Remove <span class="code">
-        # doc = doc and '<span class="code">%s<br>&nbsp;</span>' % doc
-        # --- End Positron ---
-
-        return self.section(title, "title", contents, 3, doc)
+        return result
 
     # as is from pydoc.HTMLDoc to port Python 3.11 breaking CSS changes
     def docroutine(
@@ -698,15 +689,24 @@ class _PositronHTMLDoc(pydoc.HTMLDoc):
         return self.page(title, content)
 
 
+def _rst_to_html(text: str) -> str:
+    markdown = rst_to_markdown(text)
+    md = MarkdownIt("commonmark", {"html": True}).enable("table")
+    html = md.render(markdown)
+    return html
+
+
+# as is from < Python 3.9, since 3.9 introduces a breaking change to pydoc.getdoc
+def _pydoc_getdoc(object: Any) -> str:
+    """Get the doc string or comments for an object."""
+    result = inspect.getdoc(object) or inspect.getcomments(object)
+    return result and re.sub("^ *\n", "", result.rstrip()) or ""
+
+
 def _getdoc(object: Any) -> str:
     """Override `pydoc.getdoc` to parse reStructuredText docstrings."""
     docstring = _pydoc_getdoc(object)
-
-    markdown = rst_to_markdown(docstring)
-
-    md = MarkdownIt("commonmark", {"html": True}).enable("table")
-    html = md.render(markdown)
-
+    html = _rst_to_html(docstring)
     return html
 
 
@@ -738,10 +738,6 @@ def _url_handler(url, content_type="text/html"):
         return html.get_html_page(url)
     # Errors outside the url handler are caught by the server.
     raise TypeError("unknown content type %r for url %s" % (content_type, url))
-
-
-# Keep a reference to the original/unpatched `pydoc.getdoc`.
-_pydoc_getdoc = pydoc.getdoc
 
 
 def start_server(port: int = 0):
