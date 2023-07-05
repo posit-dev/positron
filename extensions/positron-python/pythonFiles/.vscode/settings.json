@@ -8,4 +8,9 @@
         "editor.formatOnSave": true,
         "editor.rulers": [100],
     },
+    "python.testing.pytestArgs": [
+        "tests"
+    ],
+    "python.testing.unittestEnabled": false,
+    "python.testing.pytestEnabled": true,
 }
