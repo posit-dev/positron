@@ -18,4 +18,15 @@ export interface JupyterExecuteReply extends JupyterMessageSpec {
 
 	/** Results for user expressions */
 	user_expressions: Map<string, any>;  // eslint-disable-line
+
+	/** Posit extension */
+	posit_pbc?: JupyterExecuteReplyPositPbc;
+}
+
+export interface JupyterExecuteReplyPositPbc {
+	/** String for next input prompt */
+	input_prompt?: string;
+
+	/** String for continuation lines of next incomplete prompts */
+	continuation_prompt?: string;
 }

@@ -1020,6 +1020,22 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 				}
 			}
 		}));
+
+		this._runtimeDisposableStore.add(this._runtime.onDidReceiveRuntimeMessagePromptState(state => {
+			// Runtimes might supply prompts with trailing whitespace (e.g. R,
+			// Python) that we trim here because we add our own whitespace later on
+			const inputPrompt = state.inputPrompt?.trimEnd();
+			const continuationPrompt = state.continuationPrompt?.trimEnd();
+
+			if (inputPrompt) {
+				this._runtime.state.inputPrompt = inputPrompt;
+			}
+			if (continuationPrompt) {
+				this._runtime.state.continuationPrompt = continuationPrompt;
+			}
+
+			this._onDidChangePromptStateEmitter.fire();
+		}));
 	}
 
 	/**

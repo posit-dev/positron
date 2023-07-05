@@ -27,6 +27,7 @@ import { JupyterCommClose } from './JupyterCommClose';
 import { JupyterCommOpen } from './JupyterCommOpen';
 import { JupyterCommInfoRequest } from './JupyterCommInfoRequest';
 import { JupyterCommInfoReply } from './JupyterCommInfoReply';
+import { JupyterExecuteReply } from './JupyterExecuteReply';
 
 /**
  * LangaugeRuntimeAdapter wraps a JupyterKernel in a LanguageRuntime compatible interface.
@@ -431,6 +432,9 @@ export class LanguageRuntimeAdapter
 			case 'execute_result':
 				this.onExecuteResult(msg, message as JupyterExecuteResult);
 				break;
+			case 'execute_reply':
+				this.onExecuteReply(msg, message as JupyterExecuteReply);
+				break;
 			case 'execute_input':
 				this.onExecuteInput(msg, message as JupyterExecuteInput);
 				break;
@@ -578,6 +582,26 @@ export class LanguageRuntimeAdapter
 			type: positron.LanguageRuntimeMessageType.Output,
 			data: data.data as any
 		} as positron.LanguageRuntimeOutput);
+	}
+
+	/**
+	 * Converts a Jupyter execute_result message to a LanguageRuntimeMessage and
+	 * propagates prompt info if needed.
+	 *
+	 * @param message The message packet
+	 * @param data The execute_result message
+	 */
+	onExecuteReply(message: JupyterMessagePacket, data: JupyterExecuteReply) {
+		if (data.posit_pbc?.input_prompt || data.posit_pbc?.continuation_prompt) {
+			this._messages.fire({
+				id: message.msgId,
+				parent_id: message.originId,
+				when: message.when,
+				type: positron.LanguageRuntimeMessageType.PromptState,
+				inputPrompt: data.posit_pbc?.input_prompt,
+				continuationPrompt: data.posit_pbc?.continuation_prompt,
+			} as positron.LanguageRuntimePromptState);
+		}
 	}
 
 	/**
