@@ -12,6 +12,7 @@
 
 body {
     font-family: var(--font-family);
+    color: var(--foreground);
 }
 
 table.heading tr td.title {
@@ -23,10 +24,6 @@ table.heading tr td.extra {
     text-align: right;
 }
 
-.heading-text {
-    font-family: var(--editor-font-family);
-}
-
 .bigsection {
     font-size: larger;
 }
@@ -35,33 +32,23 @@ table.heading tr td.extra {
     font-size: x-large;
 }
 
-.code {
+code, .code {
     font-family: var(--editor-font-family);
 }
 
 table {
     width: 100%;
-    border-spacing : 0;
-    border-collapse : collapse;
+    border-spacing: 0;
+    border-collapse: collapse;
     border: 0;
-    color: var(--foreground);
-    font-family: var(--editor-font-family);
-
 }
 
 td {
     padding: 0;
-    background-color: transparent;
-    color: var(--theme-foreground);
-    font-family: var(--editor-font-family);
 }
 
 td.section-title {
     vertical-align: bottom;
-}
-
-strong big link a {
-    color: var(--foreground)
 }
 
 td.multicolumn {
@@ -70,31 +57,7 @@ td.multicolumn {
 }
 
 td.singlecolumn {
-    width: 50%;
-}
-
-tr.heading-text {
-    color: var(--theme-foreground);
-    font-family: var(--font-family);
-
-}
-
-tr td body{
-    color: var(--foreground);
-    font-family: var(--font-family);
-}
-
-table.heading tr {
-    color: var(--theme-foreground);
-    background-color: transparent;
-   }
-
-
-tbody tr {
-    background-color: transparent;
-    color: inherit;
-    font-family: var(--font-family);
-
+    width: 100%;
 }
 
 ::-webkit-scrollbar {
@@ -120,15 +83,4 @@ tbody tr {
 
 ::-webkit-scrollbar-corner {
 	display: none;
-}
-
-tbody tr td big strong{
-    color: black;
-
-}
-tbody td{
-    background-color: transparent;
-    color: var(--vscode-terminal-ansiRed);
-    font-family: var(--font-family);
-
 }
