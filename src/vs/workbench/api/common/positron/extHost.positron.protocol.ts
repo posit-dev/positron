@@ -5,6 +5,8 @@
 import { IDisposable } from 'vs/base/common/lifecycle';
 import { ILanguageRuntimeInfo, ILanguageRuntimeMetadata, RuntimeClientType, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeState, ILanguageRuntimeMessage } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { createProxyIdentifier, IRPCProtocol } from 'vs/workbench/services/extensions/common/proxyIdentifier';
+import { IWebviewPortMapping, WebviewExtensionDescription } from 'vs/workbench/api/common/extHost.protocol';
+import { UriComponents } from 'vs/base/common/uri';
 
 // This is the interface that the main process exposes to the extension host
 export interface MainThreadLanguageRuntimeShape extends IDisposable {
@@ -31,13 +33,67 @@ export interface ExtHostLanguageRuntimeShape {
 	$shutdownLanguageRuntime(handle: number): Promise<void>;
 }
 
+/**
+ * The view state of a preview in the Preview panel. Only one preview can be
+ * active at a time (the one currently loaded into the panel); the active
+ * preview also has a visibility state (visible or hidden) that tracks the
+ * visibility of the panel itself.
+ */
+export interface PreviewPanelViewStateData {
+	[handle: string]: {
+		readonly active: boolean;
+		readonly visible: boolean;
+	};
+}
+
+export type PreviewHandle = string;
+
+export interface ExtHostPreviewPanelShape {
+	$onDidChangePreviewPanelViewStates(newState: PreviewPanelViewStateData): void;
+	$onDidDisposePreviewPanel(handle: PreviewHandle): Promise<void>;
+}
+
+/**
+ * Preview content options. This is a strict subset of `WebviewContentOptions`
+ * and contains only the options that are supported by the preview panel.
+ */
+export interface IPreviewContentOptions {
+	readonly enableScripts?: boolean;
+	readonly enableForms?: boolean;
+	readonly localResourceRoots?: readonly UriComponents[];
+	readonly portMapping?: readonly IWebviewPortMapping[];
+}
+
+/**
+ * The initial data needed to create a preview panel.
+ */
+export interface IPreviewInitData {
+	readonly title: string;
+	readonly webviewOptions: IPreviewContentOptions;
+}
+
+export interface MainThreadPreviewPanelShape extends IDisposable {
+	$createPreviewPanel(
+		extension: WebviewExtensionDescription,
+		handle: PreviewHandle,
+		viewType: string,
+		initData: IPreviewInitData,
+		preserveFocus: boolean,
+	): void;
+	$disposePreview(handle: PreviewHandle): void;
+	$reveal(handle: PreviewHandle, preserveFocus: boolean): void;
+	$setTitle(handle: PreviewHandle, value: string): void;
+}
+
 export interface IMainPositronContext extends IRPCProtocol {
 }
 
 export const ExtHostPositronContext = {
 	ExtHostLanguageRuntime: createProxyIdentifier<ExtHostLanguageRuntimeShape>('ExtHostLanguageRuntime'),
+	ExtHostPreviewPanel: createProxyIdentifier<ExtHostPreviewPanelShape>('ExtHostPreviewPanel'),
 };
 
 export const MainPositronContext = {
 	MainThreadLanguageRuntime: createProxyIdentifier<MainThreadLanguageRuntimeShape>('MainThreadLanguageRuntime'),
+	MainThreadPreviewPanel: createProxyIdentifier<MainThreadPreviewPanelShape>('MainThreadPreviewPanel'),
 };

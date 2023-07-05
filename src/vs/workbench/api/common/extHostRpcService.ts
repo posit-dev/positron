@@ -21,11 +21,26 @@ export class ExtHostRpcService implements IExtHostRpcService {
 	readonly assertRegistered: (identifiers: ProxyIdentifier<any>[]) => void;
 	readonly drain: () => Promise<void>;
 
+	// --- Begin Positron ---
+	/**
+	 * Retrieves a raw actor instance; used by the Positron API to access
+	 * VS Code's API backends without going through the RPC protocol.
+	 *
+	 * @param identifier The proxy identifier
+	 * @returns The raw actor instance
+	 */
+	readonly getRaw: <T, R extends T>(identifier: ProxyIdentifier<T>) => R;
+	// --- End Positron ---
+
 	constructor(rpcProtocol: IRPCProtocol) {
 		this.getProxy = rpcProtocol.getProxy.bind(rpcProtocol);
 		this.set = rpcProtocol.set.bind(rpcProtocol);
 		this.dispose = rpcProtocol.dispose.bind(rpcProtocol);
 		this.assertRegistered = rpcProtocol.assertRegistered.bind(rpcProtocol);
 		this.drain = rpcProtocol.drain.bind(rpcProtocol);
+
+		// --- Begin Positron ---
+		this.getRaw = rpcProtocol.getRaw.bind(rpcProtocol);
+		// --- End Positron ---
 	}
 }
