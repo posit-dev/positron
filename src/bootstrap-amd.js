@@ -27,6 +27,10 @@ if (process.env['VSCODE_DEV']) {
 }
 globalThis._VSCODE_PACKAGE_JSON = require('../package.json');
 
+globalThis.acquirePositronApi = function () {
+	return require('positron');
+};
+
 // @ts-ignore
 const loader = require('./vs/loader');
 const bootstrap = require('./bootstrap');
