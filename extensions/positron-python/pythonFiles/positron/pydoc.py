@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import importlib
 import inspect
 import io
 import logging
@@ -14,6 +15,7 @@ import re
 import sys
 import urllib.parse
 import warnings
+from functools import partial
 from pydoc import _is_bound_method  # type: ignore
 from pydoc import Helper, ModuleScanner, describe, isdata, locate, visiblename
 from traceback import format_exception_only
@@ -23,10 +25,6 @@ from typing import Any, Dict, List, Optional, Type
 from docstring_to_markdown.rst import rst_to_markdown
 from markdown_it import MarkdownIt
 from pydantic import BaseModel
-
-logger = logging.getLogger(__name__)
-
-import urllib.parse
 
 logger = logging.getLogger(__name__)
 
@@ -689,13 +687,6 @@ class _PositronHTMLDoc(pydoc.HTMLDoc):
         return self.page(title, content)
 
 
-def _rst_to_html(text: str) -> str:
-    markdown = rst_to_markdown(text)
-    md = MarkdownIt("commonmark", {"html": True}).enable("table")
-    html = md.render(markdown)
-    return html
-
-
 # as is from < Python 3.9, since 3.9 introduces a breaking change to pydoc.getdoc
 def _pydoc_getdoc(object: Any) -> str:
     """Get the doc string or comments for an object."""
@@ -705,8 +696,146 @@ def _pydoc_getdoc(object: Any) -> str:
 
 def _getdoc(object: Any) -> str:
     """Override `pydoc.getdoc` to parse reStructuredText docstrings."""
-    docstring = _pydoc_getdoc(object)
-    html = _rst_to_html(docstring)
+    try:
+        docstring = _pydoc_getdoc(object)
+        html = _rst_to_html(docstring, object)
+    except Exception as exception:
+        # This is caught somewhere above us in pydoc. Log the exception so we see it in Positron
+        # logs.
+        logger.exception(f"Failed to parse docstring for {object}: {exception}")
+        raise exception
+    return html
+
+
+def _resolve(target: str, from_obj: Any) -> Optional[str]:
+    """
+    Resolve a possibly partially specified `target` to a full import path.
+    """
+    # Special cases that are commonly false positives, never link these:
+    if target == "data":
+        return None
+
+    # Is `target` a module?
+    try:
+        importlib.import_module(target)
+    except ImportError:
+        pass
+    else:
+        return target
+
+    # Is `target` a fully qualified name to a class, function, or instance?
+    if "." in target:
+        module_path, object_path = target.rsplit(".", 1)
+        try:
+            module = importlib.import_module(module_path)
+        except ImportError:
+            pass
+        else:
+            if hasattr(module, object_path):
+                return target
+
+        # Is `target` a fully qualified path to a class attribute or method?
+        if "." in module_path:
+            # Example:
+            #   name: pandas.DataFrame.to_csv
+            #   module_path: pandas.DataFrame -> pandas
+            #   object_path: to_csv -> DataFrame
+            #   attr_path: to_csv
+            attr_path = object_path
+            module_path, object_path = module_path.rsplit(".", 1)
+            try:
+                module = importlib.import_module(module_path)
+            except ImportError:
+                pass
+            else:
+                obj = getattr(module, object_path, None)
+                if obj is not None:
+                    if hasattr(obj, attr_path):
+                        return f"{module_path}.{object_path}.{attr_path}"
+
+    # Is `target` a fully qualified name, but implicitly relative to `from_obj`'s package?
+    if isinstance(from_obj, property):
+        # Properties don't have __module__, but the wrapped getter function does
+        from_obj = from_obj.fget
+    from_module_name = (
+        from_obj.__name__ if isinstance(from_obj, ModuleType) else from_obj.__module__
+    )
+    from_package = from_module_name.split(".")[0]
+    if not target.startswith(from_package):  # Avoid infinite recursion
+        target = f"{from_package}.{target}"
+        return _resolve(target, from_obj)
+
+    # Could not resolve.
+    return None
+
+
+_SECTION_RE = re.compile(r"\n#### ([\w\s]+)\n\n")
+
+
+def _is_argument_name(match: re.Match) -> bool:
+    """
+    Does a match correspond to an argument name?
+    """
+    # Get the line that the match is on.
+    start, end = match.span()
+    pre = match.string[:start]
+    post = match.string[end:]
+    start_line = pre.rfind("\n") + 1
+    end_line = end + post.find("\n")
+    line = match.string[start_line:end_line]
+
+    # Does the line start with a list item (an argument)?
+    if line.startswith("- "):
+        # Are we in a `Parameters` section?
+        sections = _SECTION_RE.findall(pre)
+        if sections and sections[-1] == "Parameters":
+            return True
+    return False
+
+
+def _linkify_match(match: re.Match, object: Any) -> str:
+    logger.debug(f"Linkifying: {match.group(0)}")
+
+    # Don't link arguments, a common case of false positives, otherwise, e.g.
+    # a `copy` argument would link to the standard library `copy` module.
+    if _is_argument_name(match):
+        return match.group(0)
+
+    start_enclosure, name, end_enclosure = match.groups()
+
+    # Try to resolve `target` and replace it with a link.
+    key = _resolve(name, object)
+    if key is None:
+        logger.debug("Could not resolve")
+        return match.group(0)
+    result = f"[{start_enclosure}{name}{end_enclosure}](get?key={key})"
+    logger.debug(f"Resolved: {key}")
+    return result
+
+
+def _linkify(markdown: str, object: Any) -> str:
+    """
+    Replace all instances like '`<name>`' with a relative pydoc link to a resolved object.
+    """
+    pattern = r"(?P<start>`+)(?P<name>[^\d\W`][\w\.]*)(?P<end>`+)"
+    replacement = partial(_linkify_match, object=object)
+    result = re.sub(pattern, replacement, markdown)
+    return result
+
+
+def _rst_to_html(docstring: str, object: Any) -> str:
+    """
+    Parse a reStructuredText docstring to HTML.
+    """
+    logger.debug(f"Parsing rST to html for object: {object}")
+
+    markdown = rst_to_markdown(docstring)
+    markdown = _linkify(markdown, object)
+
+    md = MarkdownIt("commonmark", {"html": True}).enable("table")
+
+    html = md.render(markdown)
+
     return html
 
 

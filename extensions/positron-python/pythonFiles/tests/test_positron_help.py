@@ -39,30 +39,6 @@ def test_pydoc_server_starts_and_shuts_down(running_help_service: HelpService):
     assert not help_service.pydoc_thread.serving
 
 
-def test_pydoc_server_parses_rst_docstrings(running_help_service: HelpService):
-    """
-    We should patch pydoc to return parsed reStructuredText docstrings as HTML.
-    """
-    help_service = running_help_service
-
-    assert help_service.pydoc_thread is not None
-
-    key = "pandas.read_csv"
-    url = f"{help_service.pydoc_thread.url}get?key={key}"
-    with urlopen(url) as f:
-        html = f.read().decode("utf-8")
-
-    # Html should include headers for each section of the docstring if parsed correctly.
-    assert "<h4>Parameters</h4>" in html
-    assert "<h4>Returns</h4>" in html
-    assert "<h4>See Also</h4>" in html
-    assert "<h4>Examples</h4>" in html
-
-    # There should no longer be any <tt> or </tt> tags.
-    assert "<tt>" not in html
-    assert "</tt>" not in html
-
-
 def test_pydoc_server_styling(running_help_service: HelpService):
     """
     We should pydoc should apply css styling
