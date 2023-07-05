@@ -32,6 +32,13 @@ if (rustTarget) {
 	cargoBuildArgs.push('--target', rustTarget);
 }
 
+// Clean it!
+const cargoCleanResult = spawnSync('cargo', ['clean'], { encoding: 'utf-8', stdio: 'inherit' });
+if (cargoCleanResult.status !== 0 || cargoCleanResult.error) {
+	console.log(`ERROR: cargo clean failed [exit status ${cargoCleanResult.status}]`);
+	exit(1);
+}
+
 // Build it!
 const cargoBuildResult = spawnSync('cargo', cargoBuildArgs, { encoding: 'utf-8', stdio: 'inherit' });
 if (cargoBuildResult.status !== 0 || cargoBuildResult.error) {
