@@ -26,15 +26,22 @@ def get_qualname(value: Any) -> str:
     Utility to manually construct a qualified type name as
     __qualname__ does not work for all types
     """
-    value_type = value if isinstance(value, (type, ModuleType)) or callable(value) else type(value)
+    # Get a named object corresponding to the value, e.g. an instance's class or a property's getter
+    if isinstance(value, (type, ModuleType)) or callable(value):
+        named_obj = value
+    elif isinstance(value, property):
+        assert value.fget is not None
+        named_obj = value.fget
+    else:
+        named_obj = type(value)
 
-    qualname = getattr(value_type, "__qualname__", None)
+    qualname = getattr(named_obj, "__qualname__", None)
     if qualname is None:
         # Fall back to unqualified name if a qualified name doesn't exist
-        qualname = value_type.__name__
+        qualname = named_obj.__name__
 
     # Prepend the module if it exists
-    module = getattr(value_type, "__module__", None)
+    module = getattr(named_obj, "__module__", None)
     if module is not None and module not in {"builtins", "__main__"}:
         return f"{module}.{qualname}"
 
