@@ -3,33 +3,33 @@
 #
 
 import builtins
-from collections import deque
 import inspect
 import io
 import logging
+import os
 import pkgutil
 import pydoc
-import os
 import sys
+import urllib.parse
 import warnings
+from collections import deque
+from pydoc import _is_bound_method  # type: ignore
+from pydoc import _split_list  # type: ignore
+from pydoc import sort_attributes  # type: ignore
 from pydoc import (
-    isdata,
-    visiblename,
-    ModuleScanner,
     Helper,
-    _is_bound_method,  # type: ignore
-    _split_list,  # type: ignore
+    ModuleScanner,
     classify_class_attrs,
-    sort_attributes,  # type: ignore
+    describe,
+    isdata,
+    locate,
+    visiblename,
 )
+from traceback import format_exception_only
 from typing import Any, Dict, Optional
 
 from docstring_to_markdown.rst import rst_to_markdown
 from markdown_it import MarkdownIt
-from traceback import format_exception_only
-
-import urllib.parse
-
 
 logger = logging.getLogger(__name__)
 
@@ -565,18 +565,20 @@ class _PositronHTMLDoc(pydoc.HTMLDoc):
         contents = heading + self.bigsection("key = %s" % key, "index", "<br>".join(results))
         return "Search Results", contents
 
-    # as is from pydoc.HTMLDoc to port Python 3.11 breaking CSS changes
-    # moved from pydoc._url_handler to method
+    # as is from pydoc._url_handler to port Python 3.11 breaking CSS changes
     def html_getobj(self, url):
-        obj = pydoc.locate(url, forceload=1)  # type: ignore
+        # --- Start Positron ---
+        # Don't reload numpy, it raises a UserWarning if you do
+        forceload = not url.startswith("numpy")
+        # --- End Positron ---
+        obj = locate(url, forceload=forceload)
         if obj is None and url != "None":
             raise ValueError("could not find object")
-        title = pydoc.describe(obj)
-        content = super().document(obj, url)
+        title = describe(obj)
+        content = self.document(obj, url)
         return title, content
 
-    # as is from pydoc.HTMLDoc to port Python 3.11 breaking CSS changes
-    # moved from pydoc._url_handler to method
+    # as is from pydoc._url_handler to port Python 3.11 breaking CSS changes
     def html_topics(self):
         """Index of topic texts available."""
 
