@@ -39,18 +39,15 @@ export class ZedData implements DataSet {
 	/**
 	 * Create a new ZedData instance
 	 *
-	 * @param context The extension context
 	 * @param title The title of the data set (for display in data viewer tab)
-	 * @param nrow The number of rows
-	 * @param ncol The number of columns
+	 * @param rowCount The number of rows
+	 * @param colCount The number of columns
 	 */
-	constructor(private readonly context: vscode.ExtensionContext,
-		public readonly title: string,
+	constructor(readonly title: string,
 		public readonly rowCount = 1000,
-		private readonly colCount = 10) {
+		colCount = 10) {
 		// Create a unique ID for this instance
 		this.id = randomUUID();
-
 		// Create the requested number of columns
 		for (let i = 0; i < colCount; i++) {
 			this.columns.push(new ZedColumn(`Column ${i}`, 'number', rowCount));
@@ -58,15 +55,15 @@ export class ZedData implements DataSet {
 	}
 
 	handleMessage(message: any): void {
+		console.log(`ZedData ${this.id} got message: ${JSON.stringify(message)}`);
 		switch (message.msg_type) {
 			case 'initial_data':
-				console.log(`ZedData ${this.id} got initial_data message`);
+			case 'receive_rows':
+				console.log(`ZedData ${this.id} got ${message.msg_type} message`);
 				break;
 			default:
 				console.error(`ZedData ${this.id} got unknown message type: ${message.msg_type}`);
 				break;
 		}
 	}
-
-
 }

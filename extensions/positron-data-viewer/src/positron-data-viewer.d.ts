@@ -71,13 +71,6 @@ export interface DataViewerMessage {
 	 * The type of the message.
 	 */
 	msg_type: DataViewerMessageType;
-}
-
-export interface DataViewerMessage {
-	/**
-	 * The type of the message.
-	 */
-	msg_type: DataViewerMessageType;
 	start_row: number;
 	fetch_size: number;
 }

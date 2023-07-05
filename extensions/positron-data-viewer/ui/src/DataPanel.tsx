@@ -16,6 +16,7 @@ import { DataViewerMessageRequest, DataViewerMessage, DataViewerMessageData } fr
 
 interface DataPanelProps {
 	data: DataModel;
+	fetchSize: number;
 	vscode: any;
 }
 
@@ -25,9 +26,6 @@ interface DataPanelProps {
  * @param props The properties for the component.
  */
 export const DataPanel = (props: DataPanelProps) => {
-
-	// The number of rows that will be fetched from the data model at a time.
-	const fetchSize = 10;
 
 	// The distance from the bottom of the table container at which we will
 	// trigger a fetch of more data.
@@ -45,33 +43,33 @@ export const DataPanel = (props: DataPanelProps) => {
 
 	// We should maybe use DataFragments here instead, and throughout the Panel
 	const [dataModel, updateDataModel] = React.useState<DataModel>(props.data);
+	const [renderedStartRows, updateRenderedRows] = React.useState<number[]>([0]);
 
 	const handleMessage = ((event: any) => {
 		const message = event.data as DataViewerMessage;
-		console.log(`Received message: ${message.msg_type}`);
-
-		if (message.msg_type === 'receive_rows') {
+		if (message.msg_type === 'receive_rows' && !renderedStartRows.includes(message.start_row)) {
 			const dataMessage = message as DataViewerMessageData;
-			const numRowsReceived = dataMessage.data.columns[0].data.length;
-			console.log(`DATA: Received incremental data: from ${dataMessage.start_row} to ${dataMessage.start_row + numRowsReceived}`);
-			console.log(`DATA: Row ${dataMessage.start_row} starts with ${dataMessage.data.columns[0].data[0]}`);
-			// TODO: create a method to combine data models and use it here with previous state updater function.
-			const incrementalData = new DataModel(dataMessage.data, dataMessage.start_row);
-			//updateDataModel((prevDataModel) => prevDataModel.appendDataModel(incrementalData));
-			updateDataModel(incrementalData);
+			console.log(`DATA: Row ${dataMessage.start_row} Col 0 starts with ${dataMessage.data.columns[0].data[0]}`);
+
+			const incrementalData: DataFragment = {
+				rowStart: dataMessage.start_row,
+				rowEnd: dataMessage.start_row + dataMessage.fetch_size - 1,
+				columns: dataMessage.data.columns
+			};
+
+			updateDataModel((prevDataModel) => prevDataModel.appendFragment(incrementalData));
+			updateRenderedRows((prevRows) => [...prevRows, dataMessage.start_row]);
 		}
 	});
 
 	React.useEffect(() => {
 		window.addEventListener('message', handleMessage);
+		console.log(`Rendering DataModel with loaded rows: ${dataModel.loadedRowCount}`);
 
 		return () => {
 			window.removeEventListener('message', handleMessage);
 		};
-	}, []);
-
-
-	console.log(`DataPanel.render: ${JSON.stringify(dataModel.columns[0])}`);
+	}, [renderedStartRows]);
 
 	// Create the columns for the table. These use the 'any' type since the data
 	// model is generic.
@@ -93,11 +91,11 @@ export const DataPanel = (props: DataPanelProps) => {
 	// Use a React Query infinite query to fetch data from the data model.
 	const { data, fetchNextPage, isFetching, isLoading } =
 		ReactQuery.useInfiniteQuery<DataFragment>(
-			['table-data', dataModel.id],
+			['table-data', dataModel.id, renderedStartRows],
 			async ({ pageParam = 0 }) => {
 				// Fetches a single page of data from the data model.
-				const start = pageParam * fetchSize;
-				const fragment = dataModel.loadDataFragment(start, fetchSize);
+				const start = pageParam * props.fetchSize;
+				const fragment = dataModel.loadDataFragment(start, props.fetchSize);
 				return fragment;
 			},
 			{
@@ -119,7 +117,7 @@ export const DataPanel = (props: DataPanelProps) => {
 				// Loop over each column in the page and add the values to the
 				// corresponding row.
 				page.columns.forEach((column, idx) => {
-					column.forEach((value, rowIdx) => {
+					column.data.forEach((value, rowIdx) => {
 						// Create the index into the row; this is the row index
 						// plus the rowStart value of the page.
 						rowIdx += page.rowStart;
@@ -159,7 +157,7 @@ export const DataPanel = (props: DataPanelProps) => {
 					const msg: DataViewerMessageRequest = {
 						msg_type: 'request_rows',
 						start_row: totalFetched,
-						fetch_size: fetchSize
+						fetch_size: props.fetchSize
 					};
 					props.vscode.postMessage(msg);
 				}

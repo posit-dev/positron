@@ -20,11 +20,13 @@ import { DataModel } from './DataModel';
 //
 // @ts-ignore
 const vscode = acquireVsCodeApi();
+const fetchSize = 10;
+
 // Let the extension know that we're ready to receive the initial data.
 const msg: DataViewerMessageRequest = {
 	msg_type: 'ready',
 	start_row: 0,
-	fetch_size: 10
+	fetch_size: fetchSize
 };
 vscode.postMessage(msg);
 
@@ -36,15 +38,13 @@ window.addEventListener('message', (event: any) => {
 	if (message.msg_type === 'initial_data') {
 		const dataMessage = message as DataViewerMessageData;
 		const dataModel = new DataModel(dataMessage.data);
-		const numRowsReceived = dataMessage.data.columns[0].data.length;
-		console.log(`DATA: Received initial data: from ${dataMessage.start_row} to ${dataMessage.start_row + numRowsReceived}`);
-		console.log(`DATA: Row ${dataMessage.start_row} starts with ${dataMessage.data.columns[0].data[0]}`);
+		console.log(`DATA: Row ${dataMessage.start_row} Col 0 starts with ${dataMessage.data.columns[0].data[0]}`);
 
 		const queryClient = new ReactQuery.QueryClient();
 		ReactDOM.render(
 			<React.StrictMode>
 				<ReactQuery.QueryClientProvider client={queryClient}>
-					<DataPanel data={dataModel} vscode={vscode}/>
+					<DataPanel data={dataModel} fetchSize={fetchSize} vscode={vscode} />
 				</ReactQuery.QueryClientProvider>
 			</React.StrictMode>,
 			document.getElementById('root')

@@ -21,7 +21,7 @@ export interface DataFragment {
 	/**
 	 * The rows of data, arranged by column.
 	 */
-	columns: Array<Array<any>>;
+	columns: Array<DataColumn>;
 }
 
 export interface DataModelId {
@@ -54,7 +54,10 @@ export class DataModel {
 	 */
 	loadDataFragment(start: number, size: number): DataFragment {
 		const columns = this.dataSet.columns.map((column: DataColumn) => {
-			return column.data.slice(start, start + size);
+			return {
+				...column,
+				data: column.data.slice(start, start + size)
+			};
 		});
 		return {
 			rowStart: start,
@@ -63,24 +66,20 @@ export class DataModel {
 		};
 	}
 
-	appendDataModel(newData: DataModel): DataModel {
-		if (this.dataSet.id !== newData.dataSet.id) {
-			throw new Error('Cannot combine DataModels with different ids');
-		}
-		const currentRowCount = this.dataSet.columns[0].data.length;
-		if (this.rowStart + currentRowCount !== newData.rowStart) {
-			throw new Error('Cannot combine DataModels with non-contiguous row ranges');
-		}
-		const combinedData = {
+	appendFragment(newFragment: DataFragment): DataModel {
+		const columns = this.dataSet.columns.map((column: DataColumn, index: number) => {
+			return {
+				...column,
+				data: column.data.concat(newFragment.columns[index].data)
+			};
+		});
+		const updatedDataModel = new DataModel({
 			...this.dataSet,
-			columns: this.dataSet.columns.map((column, index) => {
-				return {
-					...column,
-					data: column.data.concat(newData.dataSet.columns[index].data)
-				};
-			})
-		};
-		return new DataModel(combinedData, this.rowStart);
+			columns: columns
+		}, this.rowStart);
+
+		console.log(`data model has ${updatedDataModel.loadedRowCount} loaded rows out of ${updatedDataModel.rowCount} total rows`);
+		return updatedDataModel;
 	}
 
 	get id(): DataModelId {
@@ -97,6 +96,15 @@ export class DataModel {
 		return this.dataSet.columns;
 	}
 
+	get loadedRowCount(): number {
+		if (this.columns.length > 0) {
+			// If the row count isn't specified, use the length of the first
+			// column
+			return this.columns[0].data.length;
+		}
+		return 0;
+	}
+
 	/**
 	 * The number of rows in the data set.
 	 */
@@ -105,11 +113,6 @@ export class DataModel {
 			// Use the complete row count if known
 			return this.dataSet.rowCount;
 		}
-		else if (this.columns.length > 0) {
-			// If the row count isn't specified, use the length of the first
-			// column
-			return this.columns[0].data.length;
-		}
-		return 0;
+		return this.loadedRowCount;
 	}
 }

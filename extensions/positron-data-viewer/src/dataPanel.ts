@@ -118,10 +118,8 @@ export async function createDataPanel(context: vscode.ExtensionContext,
 		if (message.msg_type === 'ready' || message.msg_type === 'request_rows') {
 			// The webview is requesting initial or incremental data; send it
 			// the data request
-			console.log('I got a request for more data starting from row ' + message.start_row);
-			const dataMsg = constructDataViewerMessage(data, message.start_row);
+			const dataMsg = constructDataViewerMessage(data, message.start_row, message.fetch_size);
 			panel.webview.postMessage(dataMsg);
-			console.log('I sent a message with more data starting from row ' + message.start_row);
 		}
 	},
 		undefined,
