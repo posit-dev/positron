@@ -219,13 +219,7 @@ function getElectron(arch: string): () => NodeJS.ReadWriteStream {
 }
 
 async function main(arch = process.arch): Promise<void> {
-<<<<<<< HEAD
-	const version = product.electronRepository ? '22.5.5' : util.getElectronVersion();
-||||||| 9ea4f2590f4
-	const version = product.electronRepository ? '22.5.4' : util.getElectronVersion();
-=======
 	const version = electronVersion;
->>>>>>> 1.80.0
 	const electronPath = path.join(root, '.build', 'electron');
 	const versionFile = path.join(electronPath, 'version');
 	const isUpToDate = fs.existsSync(versionFile) && fs.readFileSync(versionFile, 'utf8') === `${version}`;
