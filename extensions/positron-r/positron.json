@@ -9,8 +9,12 @@
 			"to": "./dist/bin"
 		},
 		{
-			"from": "./amalthea/crates/ark/src/lsp/modules/*.R",
-			"to": "./dist/bin/modules"
+			"from": "./amalthea/crates/ark/src/modules/public/*.R",
+			"to": "./dist/bin/modules/public"
+		},
+		{
+			"from": "./amalthea/crates/ark/src/modules/private/*.R",
+			"to": "./dist/bin/modules/private"
 		}
 	]
 }
