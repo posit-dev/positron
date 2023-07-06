@@ -5,7 +5,7 @@
 
 import { Disposable } from 'vs/base/common/lifecycle';
 import { localize } from 'vs/nls';
-import { Action2, MenuId, registerAction2 } from 'vs/platform/actions/common/actions';
+import { Action2, MenuId, MenuRegistry, registerAction2 } from 'vs/platform/actions/common/actions';
 import { ContextKeyExpr, IContextKey, IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
 import { IEnvironmentService } from 'vs/platform/environment/common/environment';
 import { IFileService } from 'vs/platform/files/common/files';
@@ -15,7 +15,7 @@ import { IStorageService, IStorageValueChangeEvent, StorageScope, StorageTarget 
 import { createSyncHeaders, IAuthenticationProvider, IResourceRefHandle } from 'vs/platform/userDataSync/common/userDataSync';
 import { AuthenticationSession, AuthenticationSessionsChangeEvent, IAuthenticationService } from 'vs/workbench/services/authentication/common/authentication';
 import { IExtensionService } from 'vs/workbench/services/extensions/common/extensions';
-import { EDIT_SESSIONS_SIGNED_IN, EditSession, EDIT_SESSION_SYNC_CATEGORY, IEditSessionsStorageService, EDIT_SESSIONS_SIGNED_IN_KEY, IEditSessionsLogService, SyncResource } from 'vs/workbench/contrib/editSessions/common/editSessions';
+import { EDIT_SESSIONS_SIGNED_IN, EditSession, EDIT_SESSION_SYNC_CATEGORY, IEditSessionsStorageService, EDIT_SESSIONS_SIGNED_IN_KEY, IEditSessionsLogService, SyncResource, EDIT_SESSIONS_PENDING_KEY } from 'vs/workbench/contrib/editSessions/common/editSessions';
 import { IDialogService } from 'vs/platform/dialogs/common/dialogs';
 import { generateUuid } from 'vs/base/common/uuid';
 import { ICredentialsService } from 'vs/platform/credentials/common/credentials';
@@ -33,7 +33,7 @@ export class EditSessionsWorkbenchService extends Disposable implements IEditSes
 
 	declare _serviceBrand: undefined;
 
-	public readonly SIZE_LIMIT = 1024 * 1024 * 2; // 2 MB
+	public readonly SIZE_LIMIT = Math.floor(1024 * 1024 * 1.9); // 2 MB
 
 	private serverConfiguration = this.productService['editSessions.store'];
 	private machineClient: IUserDataSyncMachinesService | undefined;
@@ -56,6 +56,16 @@ export class EditSessionsWorkbenchService extends Disposable implements IEditSes
 	private _didSignOut = new Emitter<void>();
 	get onDidSignOut() {
 		return this._didSignOut.event;
+	}
+
+	private _lastWrittenResources = new Map<SyncResource, { ref: string; content: string }>();
+	get lastWrittenResources() {
+		return this._lastWrittenResources;
+	}
+
+	private _lastReadResources = new Map<SyncResource, { ref: string; content: string }>();
+	get lastReadResources() {
+		return this._lastReadResources;
 	}
 
 	storeClient: EditSessionsStoreClient | undefined; // TODO@joyceerhl lifecycle hack
@@ -89,9 +99,9 @@ export class EditSessionsWorkbenchService extends Disposable implements IEditSes
 	}
 
 	/**
-	 *
-	 * @param editSession An object representing edit session state to be restored.
-	 * @returns The ref of the stored edit session state.
+	 * @param resource: The resource to retrieve content for.
+	 * @param content An object representing resource state to be restored.
+	 * @returns The ref of the stored state.
 	 */
 	async write(resource: SyncResource, content: string | EditSession): Promise<string> {
 		await this.initialize(false);
@@ -103,14 +113,20 @@ export class EditSessionsWorkbenchService extends Disposable implements IEditSes
 			content.machine = await this.getOrCreateCurrentMachineId();
 		}
 
-		return this.storeClient!.writeResource(resource, typeof content === 'string' ? content : JSON.stringify(content), null, undefined, createSyncHeaders(generateUuid()));
+		content = typeof content === 'string' ? content : JSON.stringify(content);
+		const ref = await this.storeClient!.writeResource(resource, content, null, undefined, createSyncHeaders(generateUuid()));
+
+		this._lastWrittenResources.set(resource, { ref, content });
+
+		return ref;
 	}
 
 	/**
+	 * @param resource: The resource to retrieve content for.
 	 * @param ref: A specific content ref to retrieve content for, if it exists.
 	 * If undefined, this method will return the latest saved edit session, if any.
 	 *
-	 * @returns An object representing the requested or latest edit session state, if any.
+	 * @returns An object representing the requested or latest state, if any.
 	 */
 	async read(resource: SyncResource, ref: string | undefined): Promise<{ ref: string; content: string } | undefined> {
 		await this.initialize(false);
@@ -133,7 +149,11 @@ export class EditSessionsWorkbenchService extends Disposable implements IEditSes
 		}
 
 		// TODO@joyceerhl Validate session data, check schema version
-		return (content !== undefined && content !== null && ref !== undefined) ? { ref, content } : undefined;
+		if (content !== undefined && content !== null && ref !== undefined) {
+			this._lastReadResources.set(resource, { ref, content });
+			return { ref, content };
+		}
+		return undefined;
 	}
 
 	async delete(resource: SyncResource, ref: string | null) {
@@ -439,20 +459,22 @@ export class EditSessionsWorkbenchService extends Disposable implements IEditSes
 
 	private registerSignInAction() {
 		const that = this;
+		const id = 'workbench.editSessions.actions.signIn';
+		const when = ContextKeyExpr.and(ContextKeyExpr.equals(EDIT_SESSIONS_PENDING_KEY, false), ContextKeyExpr.equals(EDIT_SESSIONS_SIGNED_IN_KEY, false));
 		this._register(registerAction2(class ResetEditSessionAuthenticationAction extends Action2 {
 			constructor() {
 				super({
-					id: 'workbench.editSessions.actions.signIn',
+					id,
 					title: localize('sign in', 'Turn on Cloud Changes...'),
 					category: EDIT_SESSION_SYNC_CATEGORY,
-					precondition: ContextKeyExpr.equals(EDIT_SESSIONS_SIGNED_IN_KEY, false),
+					precondition: when,
 					menu: [{
 						id: MenuId.CommandPalette,
 					},
 					{
 						id: MenuId.AccountsContext,
 						group: '2_editSessions',
-						when: ContextKeyExpr.equals(EDIT_SESSIONS_SIGNED_IN_KEY, false),
+						when,
 					}]
 				});
 			}
@@ -460,6 +482,15 @@ export class EditSessionsWorkbenchService extends Disposable implements IEditSes
 			async run() {
 				return await that.initialize(false);
 			}
+		}));
+
+		this._register(MenuRegistry.appendMenuItem(MenuId.AccountsContext, {
+			group: '2_editSessions',
+			command: {
+				id,
+				title: localize('sign in badge', 'Turn on Cloud Changes... (1)'),
+			},
+			when: ContextKeyExpr.and(ContextKeyExpr.equals(EDIT_SESSIONS_PENDING_KEY, true), ContextKeyExpr.equals(EDIT_SESSIONS_SIGNED_IN_KEY, false))
 		}));
 	}
 

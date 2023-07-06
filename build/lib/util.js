@@ -55,7 +55,7 @@ function incremental(streamProvider, initial, supportsCancellation) {
     return es.duplex(input, output);
 }
 exports.incremental = incremental;
-function debounce(task) {
+function debounce(task, duration = 500) {
     const input = es.through();
     const output = es.through();
     let state = 'idle';
@@ -72,7 +72,7 @@ function debounce(task) {
             .pipe(output);
     };
     run();
-    const eventuallyRun = _debounce(() => run(), 500);
+    const eventuallyRun = _debounce(() => run(), duration);
     input.on('data', () => {
         if (state === 'idle') {
             eventuallyRun();
@@ -168,7 +168,7 @@ function loadSourcemaps() {
                 version: '3',
                 names: [],
                 mappings: '',
-                sources: [f.relative],
+                sources: [f.relative.replace(/\\/g, '/')],
                 sourcesContent: [contents]
             };
             cb(undefined, f);
@@ -359,8 +359,9 @@ function streamToPromise(stream) {
 exports.streamToPromise = streamToPromise;
 function getElectronVersion() {
     const yarnrc = fs.readFileSync(path.join(root, '.yarnrc'), 'utf8');
-    const target = /^target "(.*)"$/m.exec(yarnrc)[1];
-    return target;
+    const electronVersion = /^target "(.*)"$/m.exec(yarnrc)[1];
+    const msBuildId = /^ms_build_id "(.*)"$/m.exec(yarnrc)[1];
+    return { electronVersion, msBuildId };
 }
 exports.getElectronVersion = getElectronVersion;
 function acquireWebNodePaths() {
