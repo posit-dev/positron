@@ -19,6 +19,15 @@
     "pretest": "yarn run compile && yarn run lint",
     "lint": "eslint src --ext ts"
   },
+  "contributes": {
+    "commands": [
+      {
+        "command": "javascript.startExtHostRuntime",
+        "category": "Javascript",
+        "title": "%javascript.command.startExtHostRuntime.title%"
+      }
+    ]
+  },
   "devDependencies": {
     "@types/glob": "^7.2.0",
     "@types/mocha": "^9.1.0",
