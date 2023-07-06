@@ -9,7 +9,7 @@ import {
 	ExtHostPositronContext
 } from '../../common/positron/extHost.positron.protocol';
 import { extHostNamedCustomer, IExtHostContext } from 'vs/workbench/services/extensions/common/extHostCustomers';
-import { ILanguageRuntime, ILanguageRuntimeClientCreatedEvent, ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMessageCommClosed, ILanguageRuntimeMessageCommData, ILanguageRuntimeMessageCommOpen, ILanguageRuntimeMessageError, ILanguageRuntimeMessageInput, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessagePrompt, ILanguageRuntimeMessageState, ILanguageRuntimeMessageStream, ILanguageRuntimeMetadata, ILanguageRuntimeService, ILanguageRuntimeStartupFailure, LanguageRuntimeMessageType, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntime, ILanguageRuntimeClientCreatedEvent, ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMessageCommClosed, ILanguageRuntimeMessageCommData, ILanguageRuntimeMessageCommOpen, ILanguageRuntimeMessageError, ILanguageRuntimeMessageInput, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessagePrompt, ILanguageRuntimeMessageState, ILanguageRuntimeMessageStream, ILanguageRuntimeMetadata, ILanguageRuntimeMetadataState, ILanguageRuntimeService, ILanguageRuntimeStartupFailure, LanguageRuntimeMessageType, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { Disposable, DisposableStore } from 'vs/base/common/lifecycle';
 import { Event, Emitter } from 'vs/base/common/event';
 import { IPositronConsoleService } from 'vs/workbench/services/positronConsole/common/interfaces/positronConsoleService';
@@ -88,8 +88,10 @@ class ExtHostLanguageRuntimeAdapter implements ILanguageRuntime {
 	/** Timer used to ensure event queue processing occurs within a set interval */
 	private _eventQueueTimer: NodeJS.Timeout | undefined;
 
-	constructor(readonly handle: number,
+	constructor(
+		readonly handle: number,
 		readonly metadata: ILanguageRuntimeMetadata,
+		readonly state: ILanguageRuntimeMetadataState,
 		private readonly _logService: ILogService,
 		private readonly _proxy: ExtHostLanguageRuntimeShape) {
 
@@ -755,8 +757,8 @@ export class MainThreadLanguageRuntime implements MainThreadLanguageRuntimeShape
 	}
 
 	// Called by the extension host to register a language runtime
-	$registerLanguageRuntime(handle: number, metadata: ILanguageRuntimeMetadata): void {
-		const adapter = new ExtHostLanguageRuntimeAdapter(handle, metadata, this._logService, this._proxy);
+	$registerLanguageRuntime(handle: number, metadata: ILanguageRuntimeMetadata, state: ILanguageRuntimeMetadataState): void {
+		const adapter = new ExtHostLanguageRuntimeAdapter(handle, metadata, state, this._logService, this._proxy);
 		this._runtimes.set(handle, adapter);
 
 		// Consider - do we need a flag (on the API side) to indicate whether

@@ -74,6 +74,7 @@ export class LanguageRuntimeAdapter
 		private readonly _channel: vscode.OutputChannel,
 		private readonly _spec: JupyterKernelSpec,
 		readonly metadata: positron.LanguageRuntimeMetadata,
+		public state: positron.LanguageRuntimeMetadataState,
 		extra?: JupyterKernelExtra,
 	) {
 		this._kernel = new JupyterKernel(

@@ -290,17 +290,23 @@ declare module 'positron' {
 		/** The version of the language; e.g. "4.2" */
 		languageVersion: string;
 
-		/** The text the language's interpreter uses to prompt the user for input, e.g. ">" or ">>>" */
-		inputPrompt: string;
-
-		/** The text the language's interpreter uses to prompt the user for continued input, e.g. "+" or "..." */
-		continuationPrompt: string;
-
 		/** The Base64-encoded icon SVG for the language. */
 		base64EncodedIconSvg: string | undefined;
 
 		/** Whether the runtime should start up automatically or wait until explicitly requested */
 		startupBehavior: LanguageRuntimeStartupBehavior;
+	}
+
+	/**
+	 * LanguageRuntimeMetadataState contains information about a language runtime that may
+	 * change after a runtime has started.
+ 	 */
+	export interface LanguageRuntimeMetadataState {
+		/** The text the language's interpreter uses to prompt the user for input, e.g. ">" or ">>>" */
+		inputPrompt: string;
+
+		/** The text the language's interpreter uses to prompt the user for continued input, e.g. "+" or "..." */
+		continuationPrompt: string;
 	}
 
 	export enum LanguageRuntimeStartupBehavior {
@@ -393,6 +399,8 @@ declare module 'positron' {
 	export interface LanguageRuntime extends vscode.Disposable {
 		/** An object supplying metadata about the runtime */
 		readonly metadata: LanguageRuntimeMetadata;
+
+		state: LanguageRuntimeMetadataState;
 
 		/** An object that emits language runtime events */
 		onDidReceiveRuntimeMessage: vscode.Event<LanguageRuntimeMessage>;

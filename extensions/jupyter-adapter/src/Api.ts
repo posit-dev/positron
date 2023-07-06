@@ -27,6 +27,7 @@ export class JupyterAdapterApiImpl implements JupyterAdapterApi {
 	adaptKernel(
 		kernel: JupyterKernelSpec,
 		metadata: positron.LanguageRuntimeMetadata,
+		state: positron.LanguageRuntimeMetadataState,
 		extra: JupyterKernelExtra,
 	): JupyterLanguageRuntime {
 		return new LanguageRuntimeAdapter(
@@ -34,6 +35,7 @@ export class JupyterAdapterApiImpl implements JupyterAdapterApi {
 			this._channel,
 			kernel,
 			metadata,
+			state,
 			extra
 		);
 	}

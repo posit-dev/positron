@@ -410,9 +410,9 @@ export const ConsoleInput = forwardRef<HTMLDivElement, ConsoleInputProps>((props
 			// Render the input prompt for the first line; do not render
 			// anything in the margin for following lines
 			if (n < 2) {
-				return props.positronConsoleInstance.runtime.metadata.inputPrompt;
+				return props.positronConsoleInstance.runtime.state.inputPrompt;
 			} else {
-				return props.positronConsoleInstance.runtime.metadata.continuationPrompt;
+				return props.positronConsoleInstance.runtime.state.continuationPrompt;
 			}
 		};
 
@@ -436,7 +436,7 @@ export const ConsoleInput = forwardRef<HTMLDivElement, ConsoleInputProps>((props
 			},
 			overviewRulerLanes: 0,
 			scrollBeyondLastLine: false,
-			lineNumbersMinChars: props.positronConsoleInstance.runtime.metadata.inputPrompt.length
+			lineNumbersMinChars: props.positronConsoleInstance.runtime.state.inputPrompt.length
 		} satisfies IEditorOptions;
 
 		// Create the code editor widget.

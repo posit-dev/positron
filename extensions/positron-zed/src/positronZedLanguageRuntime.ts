@@ -191,10 +191,13 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 			runtimeSource: 'Test',
 			languageVersion: version,
 			base64EncodedIconSvg: fs.readFileSync(iconSvgPath).toString('base64'),
-			inputPrompt: `Z>`,
-			continuationPrompt: 'Z+',
 			runtimeVersion: '0.0.1',
 			startupBehavior: positron.LanguageRuntimeStartupBehavior.Implicit
+		};
+
+		this.state = {
+			inputPrompt: `Z>`,
+			continuationPrompt: 'Z+',
 		};
 
 		// Listen to our own state changes and update the state.
@@ -211,6 +214,14 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 	 * Gets the metadata for the language runtime.
 	 */
 	readonly metadata: positron.LanguageRuntimeMetadata;
+
+	/**
+	 * Dynamic state for the language runtime.
+	 */
+	state: positron.LanguageRuntimeMetadataState;
+
+	/**
+	 * An object that emits language runtime events.
 
 	/**
 	 * An object that emits language runtime events.

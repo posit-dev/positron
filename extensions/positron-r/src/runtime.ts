@@ -28,10 +28,11 @@ export class RRuntime implements positron.LanguageRuntime, vscode.Disposable {
 		readonly context: vscode.ExtensionContext,
 		readonly kernelSpec: JupyterKernelSpec,
 		readonly metadata: positron.LanguageRuntimeMetadata,
+		public state: positron.LanguageRuntimeMetadataState,
 		readonly adapterApi: JupyterAdapterApi,
 		readonly extra?: JupyterKernelExtra,
 	) {
-		this._kernel = adapterApi.adaptKernel(kernelSpec, metadata, extra);
+		this._kernel = adapterApi.adaptKernel(kernelSpec, metadata, state, extra);
 		this._lsp = new ArkLsp(metadata.languageVersion);
 
 		this.onDidChangeRuntimeState = this._kernel.onDidChangeRuntimeState;
