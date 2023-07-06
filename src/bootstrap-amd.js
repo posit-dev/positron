@@ -33,7 +33,11 @@ globalThis._VSCODE_PACKAGE_JSON = require('../package.json');
 // for extensions that target both Positron and VS Code to obtain a handle to
 // the Positron API.
 globalThis.acquirePositronApi = function () {
-	return require('positron');
+	try {
+		return require('positron');
+	} catch (err) {
+		return undefined;
+	}
 };
 
 // --- End Positron ---
