@@ -282,7 +282,6 @@ export class WebClientServer {
 				? 'test+test'
 				: (getFirstHeader('x-original-host') || getFirstHeader('x-forwarded-host') || req.headers.host || 'remote')
 		);
-		const remoteAuthority = 'remote';
 		// --- End Positron ---
 
 		if (!remoteAuthority) {
