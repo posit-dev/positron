@@ -119,11 +119,26 @@ export class JavascriptLanguageRuntime implements positron.LanguageRuntime {
 	}
 
 	listClients(type?: positron.RuntimeClientType | undefined): Thenable<Record<string, string>> {
-		throw new Error('Method not implemented.');
+		// The environment is the only client type we support right now, so if a
+		// type other than environment is specified, then we can return an empty
+		// list.
+		if (type !== undefined && type !== positron.RuntimeClientType.Environment) {
+			return Promise.resolve({});
+		}
+
+		// Return the environment ID if it exists.
+		if (this._env) {
+			return Promise.resolve({ [positron.RuntimeClientType.Environment]: this._env.id });
+		} else {
+			return Promise.resolve({});
+		}
 	}
 
 	removeClient(id: string): void {
-		throw new Error('Method not implemented.');
+		// The environment is the only client type we support right now.
+		if (this._env && this._env.id === id) {
+			this._env = undefined;
+		}
 	}
 
 	sendClientMessage(client_id: string, message_id: string, message: any): void {
