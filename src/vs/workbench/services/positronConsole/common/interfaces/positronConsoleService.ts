@@ -111,6 +111,11 @@ export interface IPositronConsoleInstance {
 	readonly onDidChangeState: Event<PositronConsoleState>;
 
 	/**
+	 * The onDidChangePromptState event.
+	 */
+	readonly onDidChangePromptState: Event<void>;
+
+	/**
 	 * The onDidChangeWordWrap event.
 	 */
 	readonly onDidChangeWordWrap: Event<boolean>;

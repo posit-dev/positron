@@ -442,6 +442,11 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	private readonly _onDidChangeStateEmitter = this._register(new Emitter<PositronConsoleState>);
 
 	/**
+	 * The onDidChangePromptState event emitter.
+	 */
+	private readonly _onDidChangePromptStateEmitter = this._register(new Emitter<void>);
+
+	/**
 	 * The onDidChangeTrace event emitter.
 	 */
 	private readonly _onDidChangeTraceEmitter = this._register(new Emitter<boolean>);
@@ -552,6 +557,11 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	 * onDidChangeState event.
 	 */
 	readonly onDidChangeState: Event<PositronConsoleState> = this._onDidChangeStateEmitter.event;
+
+	/**
+	 * onDidChangePromptState event.
+	 */
+	readonly onDidChangePromptState: Event<void> = this._onDidChangePromptStateEmitter.event;
 
 	/**
 	 * onDidChangeTrace event.

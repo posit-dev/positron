@@ -73,6 +73,9 @@ export enum LanguageRuntimeMessageType {
 	/** A message representing a change in the runtime's online state */
 	State = 'state',
 
+	/** A message representing a change in the runtime's prompt state */
+	PromptState = 'prompt_state',
+
 	/** A message representing a runtime event */
 	Event = 'event',
 

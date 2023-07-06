@@ -257,6 +257,9 @@ export enum LanguageRuntimeMessageType {
 	/** A message representing a change in the runtime's online state */
 	State = 'state',
 
+	/** A message representing a change in the runtime's prompt state */
+	PromptState = 'prompt_state',
+
 	/** A message representing a runtime event */
 	Event = 'event',
 
@@ -281,6 +284,14 @@ export enum LanguageRuntimeStartupBehavior {
 export interface ILanguageRuntimeMessageState extends ILanguageRuntimeMessage {
 	/** The new state */
 	state: RuntimeOnlineState;
+}
+
+export interface ILanguageRuntimeMessagePromptState extends ILanguageRuntimeMessage {
+	/** New prompt state for new inputs */
+	inputPrompt?: string;
+
+	/** New prompt state for continuation lines of incomplete inputs */
+	continuationPrompt?: string;
 }
 
 export interface ILanguageRuntimeMessageError extends ILanguageRuntimeMessage {
@@ -386,6 +397,7 @@ export interface ILanguageRuntime {
 	onDidReceiveRuntimeMessageError: Event<ILanguageRuntimeMessageError>;
 	onDidReceiveRuntimeMessagePrompt: Event<ILanguageRuntimeMessagePrompt>;
 	onDidReceiveRuntimeMessageState: Event<ILanguageRuntimeMessageState>;
+	onDidReceiveRuntimeMessagePromptState: Event<ILanguageRuntimeMessagePromptState>;
 
 	/** The current state of the runtime (tracks events above) */
 	getRuntimeState(): RuntimeState;

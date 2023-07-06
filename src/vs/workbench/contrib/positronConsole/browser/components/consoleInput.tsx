@@ -568,6 +568,12 @@ export const ConsoleInput = forwardRef<HTMLDivElement, ConsoleInputProps>((props
 			codeEditorWidget.focus();
 		}));
 
+		// Reserve appropriate width for the prompt when the width might have changed
+		disposableStore.add(props.positronConsoleInstance.onDidChangePromptState(() => {
+			editorOptions.lineNumbersMinChars = props.positronConsoleInstance.runtime.state.inputPrompt.length;
+			codeEditorWidget.updateOptions({ ...editorOptions });
+		}));
+
 		// Add the onDidExecuteCode event handler.
 		disposableStore.add(props.positronConsoleInstance.onDidExecuteCode(async codeFragment => {
 			// Get the current code fragment.
