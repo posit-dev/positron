@@ -10,6 +10,9 @@ import path = require('path');
 import fs = require('fs');
 import { JavascriptEnvironment } from './environment';
 
+/**
+ * A Positron language runtime for Javascript.
+ */
 export class JavascriptLanguageRuntime implements positron.LanguageRuntime {
 
 	private readonly _onDidReceiveRuntimeMessage = new vscode.EventEmitter<positron.LanguageRuntimeMessage>();
@@ -54,9 +57,12 @@ export class JavascriptLanguageRuntime implements positron.LanguageRuntime {
 		= this._onDidChangeRuntimeState.event;
 
 	execute(code: string, id: string, mode: positron.RuntimeCodeExecutionMode, errorBehavior: positron.RuntimeErrorBehavior): void {
+		// Echo the input code
 		this.emitInput(id, code);
 
+		// Become busy
 		this.enterBusyState(id);
+
 		try {
 			// Typescript understandably isn't happy with eval.
 			const result = eval?.(code); // eslint-disable-line no-eval
@@ -95,13 +101,15 @@ export class JavascriptLanguageRuntime implements positron.LanguageRuntime {
 	}
 
 	isCodeFragmentComplete(code: string): Thenable<positron.RuntimeCodeFragmentStatus> {
-		// Treat all code as complete.
+		// Treat all code as complete; without the aid of third-party libraries,
+		// it's difficult to test code for completeness in Javascript without
+		// actually executing it.
 		return Promise.resolve(positron.RuntimeCodeFragmentStatus.Complete);
 	}
 
 	createClient(id: string, type: positron.RuntimeClientType, params: any): Thenable<void> {
 		if (type === positron.RuntimeClientType.Environment) {
-			// Allocate a new ID and ZedEnvironment object for this environment backend
+			// The only client type we support right now is an environment.
 			this._env = new JavascriptEnvironment(id);
 			this.connectClientEmitter(this._env);
 		} else {
@@ -155,10 +163,12 @@ export class JavascriptLanguageRuntime implements positron.LanguageRuntime {
 	}
 
 	restart(): Thenable<void> {
+		// See notes on `interrupt()`
 		return Promise.resolve();
 	}
 
 	shutdown(): Thenable<void> {
+		// See notes on `interrupt()`
 		return Promise.resolve();
 	}
 
