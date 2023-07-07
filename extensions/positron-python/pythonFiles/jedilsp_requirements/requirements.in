@@ -10,4 +10,5 @@ pygls>=0.10.3
 docstring-to-markdown
 markdown-it-py
 pydantic
+pygments
 # --- End Positron ---
