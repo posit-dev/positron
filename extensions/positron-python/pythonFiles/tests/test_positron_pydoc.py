@@ -92,6 +92,16 @@ def _test_getdoc_links_see_also_section() -> None:
     """
 
 
+def _test_getdoc_code_blocks() -> None:
+    """
+    >>> import pandas as pd
+    >>> pd.DataFrame()
+    Empty DataFrame
+    Columns: []
+    Index: []
+    """
+
+
 # Tests
 
 
@@ -392,6 +402,22 @@ Description 2.</li>
 <ul>
 <li><a href="get?key=copy"><code>copy</code></a>: Description 1.</li>
 </ul>
+""",
+        ),
+        # Highlights code blocks.
+        # Inputs and outputs are split into separate html elements.
+        (
+            _test_getdoc_code_blocks,
+            """\
+<pre><code class="language-python"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+<span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">()</span>
+</pre></div>
+</code></pre>
+<pre><code><div class="highlight"><pre><span></span>Empty DataFrame
+Columns: []
+Index: []
+</pre></div>
+</code></pre>
 """,
         ),
     ],
