@@ -29,4 +29,7 @@ export interface JupyterExecuteReplyPositPbc {
 
 	/** String for continuation lines of next incomplete prompts */
 	continuation_prompt?: string;
+
+	/** Is the next prompt an input request (e.g. from `readline()`)? */
+	is_input_request?: boolean;
 }

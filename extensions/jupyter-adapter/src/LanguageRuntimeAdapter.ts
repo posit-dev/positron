@@ -592,7 +592,10 @@ export class LanguageRuntimeAdapter
 	 * @param data The execute_result message
 	 */
 	onExecuteReply(message: JupyterMessagePacket, data: JupyterExecuteReply) {
-		if (data.posit_pbc?.input_prompt || data.posit_pbc?.continuation_prompt) {
+		const is_input_request = data.posit_pbc?.is_input_request === true;
+		const has_prompts = data.posit_pbc?.input_prompt || data.posit_pbc?.continuation_prompt;
+
+		if (has_prompts && !is_input_request) {
 			this._messages.fire({
 				id: message.msgId,
 				parent_id: message.originId,
