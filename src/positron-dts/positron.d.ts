@@ -310,6 +310,12 @@ declare module 'positron' {
 
 		/** Whether the runtime should start up automatically or wait until explicitly requested */
 		startupBehavior: LanguageRuntimeStartupBehavior;
+
+		/** FIXME
+		 * These are for compatibility until runtimes have added
+		 * support for the config struct */
+		inputPrompt?: string;
+		continuationPrompt?: string;
 	}
 
 	/**

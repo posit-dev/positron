@@ -407,14 +407,27 @@ export const ConsoleInput = forwardRef<HTMLDivElement, ConsoleInputProps>((props
 		// Line numbers functions.
 		const notReadyLineNumbers = (n: number) => '';
 		const readyLineNumbers = (n: number) => {
+			// FIXME: Temporary compats during switch to dynamic config
+			const inputPrompt =
+				props.positronConsoleInstance.runtime.state?.inputPrompt ||
+				props.positronConsoleInstance.runtime.metadata.inputPrompt as string;
+			const continuationPrompt =
+				props.positronConsoleInstance.runtime.state?.continuationPrompt ||
+				props.positronConsoleInstance.runtime.metadata.continuationPrompt as string;
+
 			// Render the input prompt for the first line; do not render
 			// anything in the margin for following lines
 			if (n < 2) {
-				return props.positronConsoleInstance.runtime.state.inputPrompt;
+				return inputPrompt;
 			} else {
-				return props.positronConsoleInstance.runtime.state.continuationPrompt;
+				return continuationPrompt;
 			}
 		};
+
+		// FIXME: Temporary compat during switch to dynamic config
+		const inputPrompt =
+			props.positronConsoleInstance.runtime.state?.inputPrompt ||
+			props.positronConsoleInstance.runtime.metadata.inputPrompt as string;
 
 		// The editor options we override.
 		const editorOptions = {
@@ -436,7 +449,7 @@ export const ConsoleInput = forwardRef<HTMLDivElement, ConsoleInputProps>((props
 			},
 			overviewRulerLanes: 0,
 			scrollBeyondLastLine: false,
-			lineNumbersMinChars: props.positronConsoleInstance.runtime.state.inputPrompt.length
+			lineNumbersMinChars: inputPrompt.length,
 		} satisfies IEditorOptions;
 
 		// Create the code editor widget.
