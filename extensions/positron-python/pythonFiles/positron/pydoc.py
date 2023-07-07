@@ -25,6 +25,9 @@ from typing import Any, Dict, List, Optional, Type
 from docstring_to_markdown.rst import rst_to_markdown
 from markdown_it import MarkdownIt
 from pydantic import BaseModel
+from pygments import highlight
+from pygments.formatters import HtmlFormatter
+from pygments.lexers import get_lexer_by_name
 
 logger = logging.getLogger(__name__)
 
@@ -823,6 +826,26 @@ def _linkify(markdown: str, object: Any) -> str:
     return result
 
 
+def _highlight(code: str, name: str, attrs: str) -> str:
+    """
+    Highlight a code block.
+
+    This is called via MarkdownIt. For example, given the following markdown code block:
+
+    ```python {.attr1 .attr2}
+    print("Hello, world!")
+    ```
+
+    ... it would call `_highlight('print("Hello, world!"'), "python", ["attr1", "attr2"])`.
+    """
+    # Default to the `TextLexer` which doesn't highlight anything.
+    name = name or "text"
+    lexer = get_lexer_by_name(name)
+    formatter = HtmlFormatter()
+    result = highlight(code, lexer, formatter)
+    return result
+
+
 def _rst_to_html(docstring: str, object: Any) -> str:
     """
     Parse a reStructuredText docstring to HTML.
@@ -832,7 +855,7 @@ def _rst_to_html(docstring: str, object: Any) -> str:
     markdown = rst_to_markdown(docstring)
     markdown = _linkify(markdown, object)
 
-    md = MarkdownIt("commonmark", {"html": True}).enable("table")
+    md = MarkdownIt("commonmark", {"html": True, "highlight": _highlight}).enable("table")
 
     html = md.render(markdown)
 
