@@ -38,12 +38,16 @@ export const TopActionBarOpenMenu = () => {
 		// core open actions
 		const actions: IAction[] = [];
 		if (IsMacNativeContext.getValue(positronActionBarContext.contextKeyService)) {
-			positronActionBarContext.appendCommandAction(actions, OpenFileFolderAction.ID, localize('positronOpenFile', "Open File..."));
+			// Due to a bug in the localization parser, the `localize()` call
+			// cannot be inlined into the `appendCommandAction()` call.
+			const actionDescription = localize('positronOpenFile', "Open File...");
+			positronActionBarContext.appendCommandAction(actions, OpenFileFolderAction.ID, actionDescription);
 		} else {
 			positronActionBarContext.appendCommandAction(actions, OpenFileAction.ID);
 		}
 
-		positronActionBarContext.appendCommandAction(actions, OpenFolderAction.ID, localize('positronOpenFolder', "Open Folder..."));
+		const actionDescription = localize('positronOpenFolder', "Open Folder...");
+		positronActionBarContext.appendCommandAction(actions, OpenFolderAction.ID, actionDescription);
 		actions.push(new Separator());
 
 		// recent files/workspaces actions
