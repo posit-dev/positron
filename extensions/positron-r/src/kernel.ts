@@ -134,7 +134,6 @@ export function registerArkKernel(ext: vscode.Extension<any>, context: vscode.Ex
 		if (fs.existsSync(rHome)) {
 			const loc = rInstallations.findIndex(r => r.rHome === rHome);
 			if (loc < 0) {
-				// add it to the front
 				rInstallations.unshift(new RInstallation(rHome, true));
 			} else {
 				rInstallations.splice(0, 0, rInstallations.splice(loc, 1)[0]);
