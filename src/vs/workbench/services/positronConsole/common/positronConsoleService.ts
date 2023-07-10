@@ -805,6 +805,17 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 
 		// Add the onDidCompleteStartup event handler.
 		this._runtimeDisposableStore.add(this._runtime.onDidCompleteStartup(languageRuntimeInfo => {
+			// Update prompts in case user has customised them
+			if (languageRuntimeInfo.input_prompt) {
+				this.runtime.state.inputPrompt = languageRuntimeInfo.input_prompt.trimEnd();
+			}
+			if (languageRuntimeInfo.continuation_prompt) {
+				this.runtime.state.continuationPrompt = languageRuntimeInfo.continuation_prompt.trimEnd();
+			}
+
+			// Trigger prompt redisplay
+			this.setState(PositronConsoleState.Ready);
+
 			// Add item trace.
 			this.addRuntimeItemTrace(`onDidCompleteStartup`);
 

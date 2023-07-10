@@ -226,6 +226,8 @@ export class LanguageRuntimeAdapter
 						banner: message.banner,
 						implementation_version: message.implementation_version,
 						language_version: message.language_info.version,
+						input_prompt: message.language_info.posit_pbc?.input_prompt,
+						continuation_prompt: message.language_info.posit_pbc?.continuation_prompt,
 					} satisfies positron.LanguageRuntimeInfo);
 				});
 

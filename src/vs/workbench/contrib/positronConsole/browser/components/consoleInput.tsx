@@ -558,6 +558,10 @@ export const ConsoleInput = forwardRef<HTMLDivElement, ConsoleInputProps>((props
 					lineNumbers = notReadyLineNumbers;
 			}
 
+			// Reserve appropriate width for the prompt in case width has changed
+			editorOptions.lineNumbersMinChars = props.positronConsoleInstance.runtime.state.inputPrompt.length;
+			codeEditorWidget.updateOptions({ ...editorOptions });
+
 			// Update the code editor widget options.
 			codeEditorWidget.updateOptions({
 				...editorOptions,
@@ -581,10 +585,15 @@ export const ConsoleInput = forwardRef<HTMLDivElement, ConsoleInputProps>((props
 			codeEditorWidget.focus();
 		}));
 
-		// Reserve appropriate width for the prompt when the width might have changed
 		disposableStore.add(props.positronConsoleInstance.onDidChangePromptState(() => {
+			// Reserve appropriate width for the prompt in case width has changed
 			editorOptions.lineNumbersMinChars = props.positronConsoleInstance.runtime.state.inputPrompt.length;
 			codeEditorWidget.updateOptions({ ...editorOptions });
+
+			// Trigger a redraw of the current prompt. Only needed for updating
+			// custom prompts on initialization. FIXME: Is there a better way?
+			const currentCodeFragment = codeEditorWidgetRef.current.getValue();
+			codeEditorWidgetRef.current.setValue(currentCodeFragment);
 		}));
 
 		// Add the onDidExecuteCode event handler.

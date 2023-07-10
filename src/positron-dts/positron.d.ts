@@ -215,6 +215,12 @@ declare module 'positron' {
 
 		/** The language version number */
 		language_version: string;
+
+		/** Initial prompt string in case user customized it */
+		input_prompt?: string;
+
+		/** Continuation prompt string in case user customized it */
+		continuation_prompt?: string;
 	}
 
 	/** LanguageRuntimeState is a LanguageRuntimeMessage representing a new runtime state */

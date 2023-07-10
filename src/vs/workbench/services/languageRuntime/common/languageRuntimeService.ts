@@ -187,6 +187,12 @@ export interface ILanguageRuntimeInfo {
 
 	/** The language version number */
 	language_version: string;
+
+	/** Custom input prompt, if any */
+	input_prompt?: string;
+
+	/** Custom continuation prompt, if any */
+	continuation_prompt?: string;
 }
 
 /** LanguageRuntimeInfo contains metadata about the runtime after it has started. */
