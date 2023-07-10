@@ -118,6 +118,8 @@ jobs:
           R_VERSION=$(ls ${R_FOLDER} | head -1)
           # Form the path to the R binary, e.g. /Users/user229818/homebrew/Cellar/r/4.2.2/bin/R
           R_EXECUTABLE="${R_FOLDER}/${R_VERSION}/bin/R"
+          R_SCRIPT="${R_FOLDER}/${R_VERSION}/bin/Rscript"
+          echo $(${R_SCRIPT} -e R.version)
           # Invoke the R binary to determine its RHOME directory (usually lib/R)
           R_HOME=$(${R_EXECUTABLE} RHOME)
           # Output the result for consumption in later steps
