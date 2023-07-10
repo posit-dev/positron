@@ -409,10 +409,10 @@ export const ConsoleInput = forwardRef<HTMLDivElement, ConsoleInputProps>((props
 		const readyLineNumbers = (n: number) => {
 			// FIXME: Temporary compats during switch to dynamic config
 			const inputPrompt =
-				props.positronConsoleInstance.runtime.state?.inputPrompt ||
+				props.positronConsoleInstance.runtime.config?.inputPrompt ||
 				props.positronConsoleInstance.runtime.metadata.inputPrompt as string;
 			const continuationPrompt =
-				props.positronConsoleInstance.runtime.state?.continuationPrompt ||
+				props.positronConsoleInstance.runtime.config?.continuationPrompt ||
 				props.positronConsoleInstance.runtime.metadata.continuationPrompt as string;
 
 			// Render the input prompt for the first line; do not render
@@ -426,7 +426,7 @@ export const ConsoleInput = forwardRef<HTMLDivElement, ConsoleInputProps>((props
 
 		// FIXME: Temporary compat during switch to dynamic config
 		const inputPrompt =
-			props.positronConsoleInstance.runtime.state?.inputPrompt ||
+			props.positronConsoleInstance.runtime.config?.inputPrompt ||
 			props.positronConsoleInstance.runtime.metadata.inputPrompt as string;
 
 		// The editor options we override.
@@ -559,7 +559,7 @@ export const ConsoleInput = forwardRef<HTMLDivElement, ConsoleInputProps>((props
 			}
 
 			// Reserve appropriate width for the prompt in case width has changed
-			editorOptions.lineNumbersMinChars = props.positronConsoleInstance.runtime.state.inputPrompt.length;
+			editorOptions.lineNumbersMinChars = props.positronConsoleInstance.runtime.config.inputPrompt.length;
 			codeEditorWidget.updateOptions({ ...editorOptions });
 
 			// Update the code editor widget options.
@@ -587,7 +587,7 @@ export const ConsoleInput = forwardRef<HTMLDivElement, ConsoleInputProps>((props
 
 		disposableStore.add(props.positronConsoleInstance.onDidChangePromptState(() => {
 			// Reserve appropriate width for the prompt in case width has changed
-			editorOptions.lineNumbersMinChars = props.positronConsoleInstance.runtime.state.inputPrompt.length;
+			editorOptions.lineNumbersMinChars = props.positronConsoleInstance.runtime.config.inputPrompt.length;
 			codeEditorWidget.updateOptions({ ...editorOptions });
 
 			// Trigger a redraw of the current prompt. Only needed for updating

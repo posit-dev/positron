@@ -807,10 +807,10 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 		this._runtimeDisposableStore.add(this._runtime.onDidCompleteStartup(languageRuntimeInfo => {
 			// Update prompts in case user has customised them
 			if (languageRuntimeInfo.input_prompt) {
-				this.runtime.state.inputPrompt = languageRuntimeInfo.input_prompt.trimEnd();
+				this.runtime.config.inputPrompt = languageRuntimeInfo.input_prompt.trimEnd();
 			}
 			if (languageRuntimeInfo.continuation_prompt) {
-				this.runtime.state.continuationPrompt = languageRuntimeInfo.continuation_prompt.trimEnd();
+				this.runtime.config.continuationPrompt = languageRuntimeInfo.continuation_prompt.trimEnd();
 			}
 
 			// Trigger prompt redisplay
@@ -857,8 +857,8 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 			);
 
 			// FIXME: Temporary compats during switch to dynamic config
-			const inputPrompt = this._runtime.state?.inputPrompt || this._runtime.metadata.inputPrompt as string;
-			const continuationPrompt = this._runtime.state?.continuationPrompt || this._runtime.metadata.continuationPrompt as string;
+			const inputPrompt = this._runtime.config?.inputPrompt || this._runtime.metadata.inputPrompt as string;
+			const continuationPrompt = this._runtime.config?.continuationPrompt || this._runtime.metadata.continuationPrompt as string;
 
 			// Add or update the runtime item activity.
 			this.addOrUpdateUpdateRuntimeItemActivity(
@@ -1043,10 +1043,10 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 			const continuationPrompt = state.continuationPrompt?.trimEnd();
 
 			if (inputPrompt) {
-				this._runtime.state.inputPrompt = inputPrompt;
+				this._runtime.config.inputPrompt = inputPrompt;
 			}
 			if (continuationPrompt) {
-				this._runtime.state.continuationPrompt = continuationPrompt;
+				this._runtime.config.continuationPrompt = continuationPrompt;
 			}
 
 			this._onDidChangePromptStateEmitter.fire();

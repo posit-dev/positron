@@ -328,7 +328,7 @@ declare module 'positron' {
 	 * LanguageRuntimeMetadataState contains information about a language runtime that may
 	 * change after a runtime has started.
  	 */
-	export interface LanguageRuntimeMetadataState {
+	export interface LanguageRuntimeConfig {
 		/** The text the language's interpreter uses to prompt the user for input, e.g. ">" or ">>>" */
 		inputPrompt: string;
 
@@ -427,7 +427,7 @@ declare module 'positron' {
 		/** An object supplying metadata about the runtime */
 		readonly metadata: LanguageRuntimeMetadata;
 
-		state: LanguageRuntimeMetadataState;
+		config: LanguageRuntimeConfig;
 
 		/** An object that emits language runtime events */
 		onDidReceiveRuntimeMessage: vscode.Event<LanguageRuntimeMessage>;
