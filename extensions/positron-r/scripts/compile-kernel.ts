@@ -16,6 +16,17 @@ if (whichCargoResult.status !== 0 || whichCargoResult.error) {
 // Enter the kernel directory
 chdir(`${__dirname}/../amalthea`);
 
+// `cargo clean` if on CI, because old builds are likely persistent due to using a hosted runner.
+// Locally we `cargo clean` manually as needed, to save time.
+const ci = env['CI'];
+if (ci) {
+	const cargoCleanResult = spawnSync('cargo', ['clean'], { encoding: 'utf-8', stdio: 'inherit' });
+	if (cargoCleanResult.status !== 0 || cargoCleanResult.error) {
+		console.log(`ERROR: cargo clean failed [exit status ${cargoCleanResult.status}]`);
+		exit(1);
+	}
+}
+
 // Start building the arguments to cargo build.
 const cargoBuildArgs = ['build'];
 
@@ -30,13 +41,6 @@ const rustTarget = env['RUST_TARGET'];
 if (rustTarget) {
 	env['PKG_CONFIG_ALLOW_CROSS'] = '1';
 	cargoBuildArgs.push('--target', rustTarget);
-}
-
-// Clean it!
-const cargoCleanResult = spawnSync('cargo', ['clean'], { encoding: 'utf-8', stdio: 'inherit' });
-if (cargoCleanResult.status !== 0 || cargoCleanResult.error) {
-	console.log(`ERROR: cargo clean failed [exit status ${cargoCleanResult.status}]`);
-	exit(1);
 }
 
 // Build it!
