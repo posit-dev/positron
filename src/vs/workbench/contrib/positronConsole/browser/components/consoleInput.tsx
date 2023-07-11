@@ -28,6 +28,7 @@ import { SelectionClipboardContributionID } from 'vs/workbench/contrib/codeEdito
 import { usePositronConsoleContext } from 'vs/workbench/contrib/positronConsole/browser/positronConsoleContext';
 import { IPositronConsoleInstance, PositronConsoleState } from 'vs/workbench/services/positronConsole/common/interfaces/positronConsoleService';
 import { RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { RuntimeItemActivity } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemActivity';
 
 // ConsoleInputProps interface.
 export interface ConsoleInputProps {
@@ -55,6 +56,7 @@ export const ConsoleInput = forwardRef<HTMLDivElement, ConsoleInputProps>((props
 		useStateRef<HistoryNavigator2<IInputHistoryEntry> | undefined>(undefined);
 	const [, setCurrentCodeFragment, currentCodeFragmentRef] =
 		useStateRef<string | undefined>(undefined);
+	const [, setCurrentExecutingId, currentExecutingIdRef] = useStateRef<string | undefined>(undefined);
 
 	/**
 	 * Updates the code editor widget position such that the cursor appers on the first line and the
@@ -158,15 +160,13 @@ export const ConsoleInput = forwardRef<HTMLDivElement, ConsoleInputProps>((props
 		}
 
 		// Ask the runtime to execute the code fragment. This is an asynchronous and unwaitable.
+		const executeId = `fragment-${generateUuid()}`;
 		props.positronConsoleInstance.runtime.execute(
 			codeFragment,
-			`fragment-${generateUuid()}`,
+			executeId,
 			RuntimeCodeExecutionMode.Interactive,
 			RuntimeErrorBehavior.Continue);
-
-		// Reset the code input state.
-		setCurrentCodeFragment(undefined);
-		codeEditorWidgetRef.current.setValue('');
+		setCurrentExecutingId(executeId);
 	};
 
 	// Memoize the key down event handler.
@@ -537,8 +537,9 @@ export const ConsoleInput = forwardRef<HTMLDivElement, ConsoleInputProps>((props
 					lineNumbers = readyLineNumbers;
 					break;
 
-				// When ready, switch to an active normal prompt.
+				// When ready or busy, switch to an active normal prompt.
 				case PositronConsoleState.Ready:
+				case PositronConsoleState.Busy:
 					readOnly = false;
 					lineNumbers = readyLineNumbers;
 					break;
@@ -588,6 +589,38 @@ export const ConsoleInput = forwardRef<HTMLDivElement, ConsoleInputProps>((props
 
 			// Try to execute the code.
 			await executeCodeEditorWidgetCodeIfPossible();
+		}));
+
+		// Add the onDidChangeRuntime event handler.
+		disposableStore.add(props.positronConsoleInstance.onDidChangeRuntimeItems(items => {
+			// If the last item is a RuntimeItemActivity, get the last added activity item.
+			const item = items.at(-1);
+			const activity = item instanceof RuntimeItemActivity ? item.activityItems.at(-1) : undefined;
+
+			// If the activity is a reply to the current execution, clear the current code fragment
+			// and disable the prompt.
+			if (activity?.parentId !== undefined && activity.parentId === currentExecutingIdRef.current) {
+
+				// Not sure why, but setTimeout fixes the render order to: clearing the current code
+				// fragment, disabling the prompt, and then rendering the activity input.
+				setTimeout(() => {
+					// Clear the current code fragment.
+					setCurrentCodeFragment(undefined);
+					codeEditorWidgetRef.current.setValue('');
+
+					// If we haven't yet received a ready state, disable the prompt but allow
+					// typeahead.
+					if (props.positronConsoleInstance.state !== PositronConsoleState.Ready) {
+						codeEditorWidgetRef.current.updateOptions({
+							readOnly: false,
+							lineNumbers: notReadyLineNumbers,
+						});
+					}
+
+					// Reset the current executing id.
+					setCurrentExecutingId(undefined);
+				}, 0);
+			}
 		}));
 
 		// Focus the console.
