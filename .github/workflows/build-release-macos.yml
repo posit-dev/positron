@@ -110,6 +110,8 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@v3
 
+      # These are already installed for both architectures, but would be required if we switch off
+      # a self-hosted runner, so we may as well leave them in
       - name: Install zeromq dependencies
         id: install_zeromq_dependencies
         run: |
