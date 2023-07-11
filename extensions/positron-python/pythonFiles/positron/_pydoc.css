@@ -4,85 +4,74 @@
 */
 
 :root {
-    --editor-font-family: var(--vscode-editor-font-family, monospace);
-    --font-family: var(--vscode-font-family, sans-serif);
-    --forground: var(--vscode-foreground, black);
-    --theme-forground: var(--vscode-theme-foreground, black);
+    /* Provide fallbacks if we're running outside of Positron */
+    --editor-font-family: var(--vscode-editor-font-family, "SF Mono", Monaco, Menlo, Courier, monospace);
+    --font-family: var(--vscode-font-family, -apple-system, BlinkMacSystemFont, sans-serif);
+    --foreground: var(--vscode-foreground, black);
+    --theme-foreground: var(--vscode-theme-foreground, black);
+    --text-code-block-background: var(--vscode-text-code-block-background, white);
+    --text-code-block-border: #ddd;
 }
 
 body {
     font-family: var(--font-family);
+    font-size: 13px;
     color: var(--foreground);
 }
 
-table.heading tr td.title {
-    vertical-align: bottom;
-}
+/* Autosummary tables (e.g. attribute lists in class docs) */
 
-table.heading tr td.extra {
-    vertical-align: bottom;
-    text-align: right;
-}
-
-.bigsection {
-    font-size: larger;
-}
-
-.title {
-    font-size: x-large;
-}
-
-code, .code {
-    font-family: var(--editor-font-family);
-}
-
-table {
+table.autosummary {
     width: 100%;
     border-spacing: 0;
     border-collapse: collapse;
     border: 0;
 }
 
-td {
-    padding: 0;
+table.autosummary tr td {
+    padding: 0.75rem 0;
 }
 
-td.section-title {
-    vertical-align: bottom;
+table.autosummary tr:not(:first-child) {
+    border-top: 1px solid var(--text-code-block-border);
 }
+
+table.autosummary tr td:first-child {
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+    white-space: nowrap;
+}
+
+/* Multicolumn tables (e.g. modules in the root index page) */
 
 td.multicolumn {
     width: 25%;
     vertical-align: bottom;
 }
 
-td.singlecolumn {
-    width: 100%;
+/* Code blocks */
+
+pre code {
+    /* Fix vertical space between elements, see: https://stackoverflow.com/questions/5078239/how-to-remove-the-space-between-inline-inline-block-elements/5078350 */
+    display: flex;
+    flex-direction: column;
 }
 
-::-webkit-scrollbar {
-	background: transparent;
-	width: 8px;
-	height: 0;
-	cursor: default !important;
+code, .code, div.highlight {
+    font-family: var(--editor-font-family);
 }
 
-::-webkit-scrollbar-track {
-	opacity: 0;
+div.highlight pre {
+    margin: 0;
 }
 
-::-webkit-scrollbar-thumb {
-	min-height: 20px;
-	background-color: var(--vscode-scrollbarSlider-background) !important;
-}
-
-::-webkit-scrollbar-thumb:hover {
-	cursor: pointer !important;
-	background-color: var(--vscode-scrollbarSlider-hoverBackground) !important;
-}
-
-::-webkit-scrollbar-corner {
-	display: none;
+div.highlight {
+    padding: 0.7rem;
+    background-color: var(--text-code-block-background);
+    border: 1px solid var(--text-code-block-border);
+    border-radius: .25rem;
+    line-height: 125%;
+    overflow-x: auto;
 }
 
 /*

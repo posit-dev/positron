@@ -191,16 +191,16 @@ def test_untyped_signature(func: Callable, expected: str) -> None:
     ("attrs", "expected"),
     [
         # Empty
-        ([], ["<table>", "<tbody>", "</tbody>", "</table>"]),
+        ([], ['<table class="autosummary">', "<tbody>", "</tbody>", "</table>"]),
         # One attr
         (
             [_Attr(name="attr", cls=_A, value=_DummyAttribute)],
             [
-                "<table>",
+                '<table class="autosummary">',
                 "<tbody>",
                 "<tr>",
                 "<td>",
-                '<p><a href="_A.attr"><code>attr</code></a>()</p>',
+                '<a href="_A.attr"><code>attr</code></a>()',
                 "</td>",
                 "<td>",
                 "Attribute summary.",
@@ -240,48 +240,37 @@ def _assert_html_equal(result: str, expected: str) -> None:
 def test_document_module() -> None:
     result = _html.document(_module)
     expected = """\
-
-<table class="heading">
-<tr class="heading-text decor">
-<td class="title">&nbsp;<br><strong class="title">test_module</strong></td>
-<td class="extra"><a href=".">index</a><br>(built-in)</td></tr></table>
-    <p>Module summary.</p>
+<h1>test_module</h1><p>Module summary.</p>
 <p>Module long description.</p>
-<p>
-<table class="section">
-<tr class="decor index-decor heading-text">
-<td class="section-title" colspan=3>&nbsp;<br><strong class="bigsection">Classes</strong></td></tr>
-
-<tr><td class="decor index-decor"><span class="code">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></td><td>&nbsp;</td>
-<td class="singlecolumn"><table>
+<section class="classes">
+<h2>Classes</h2>
+<table class="autosummary">
 <tbody>
 <tr>
 <td>
-<p><a href="test_module.A"><code>A</code></a>()</p>
+<a href="test_module.A"><code>A</code></a>()
 </td>
 <td>
 Class summary.
 </td>
 </tr>
 </tbody>
-</table></td></tr></table><p>
-<table class="section">
-<tr class="decor functions-decor heading-text">
-<td class="section-title" colspan=3>&nbsp;<br><strong class="bigsection">Functions</strong></td></tr>
-
-<tr><td class="decor functions-decor"><span class="code">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></td><td>&nbsp;</td>
-<td class="singlecolumn"><table>
+</table>
+</section><section class="functions">
+<h2>Functions</h2>
+<table class="autosummary">
 <tbody>
 <tr>
 <td>
-<p><a href="test_module.test_func"><code>test_func</code></a>(a, b[, c, *args, **kwargs])</p>
+<a href="test_module.test_func"><code>test_func</code></a>(a, b[, c, *args, **kwargs])
 </td>
 <td>
 Function summary.
 </td>
 </tr>
 </tbody>
-</table></td></tr></table>"""
+</table>
+</section>"""
 
     _assert_html_equal(result, expected)
 
@@ -289,48 +278,37 @@ Function summary.
 def test_document_class():
     result = _html.document(_A)
     expected = """\
-
-<table class="heading">
-<tr class="heading-text decor">
-<td class="title">&nbsp;<br><strong>_A</strong></td>
-<td class="extra">&nbsp;</td></tr></table>
-    <code><strong><em>class</em> _A<em>()</em></strong></code><p>Class summary.</p>
+<h1>_A</h1><code><strong><em>class</em> _A<em>()</em></strong></code><p>Class summary.</p>
 <p>Class long description.</p>
-<p>
-<table class="section">
-<tr class="decor index-decor heading-text">
-<td class="section-title" colspan=3>&nbsp;<br><strong class="bigsection">Attributes</strong></td></tr>
-
-<tr><td class="decor index-decor"><span class="code">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></td><td>&nbsp;</td>
-<td class="singlecolumn"><table>
+<section class="attributes">
+<h2>Attributes</h2>
+<table class="autosummary">
 <tbody>
 <tr>
 <td>
-<p><a href="_A.attr"><code>attr</code></a></p>
+<a href="_A.attr"><code>attr</code></a>
 </td>
 <td>
 Attribute summary.
 </td>
 </tr>
 </tbody>
-</table></td></tr></table><p>
-<table class="section">
-<tr class="decor functions-decor heading-text">
-<td class="section-title" colspan=3>&nbsp;<br><strong class="bigsection">Methods</strong></td></tr>
-
-<tr><td class="decor functions-decor"><span class="code">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></td><td>&nbsp;</td>
-<td class="singlecolumn"><table>
+</table>
+</section><section class="functions">
+<h2>Methods</h2>
+<table class="autosummary">
 <tbody>
 <tr>
 <td>
-<p><a href="_A.method"><code>method</code></a>(a, b[, c, *args, **kwargs])</p>
+<a href="_A.method"><code>method</code></a>(a, b[, c, *args, **kwargs])
 </td>
 <td>
 Method summary, may contain [links](target).
 </td>
 </tr>
 </tbody>
-</table></td></tr></table>"""
+</table>
+</section>"""
 
     _assert_html_equal(result, expected)
 
