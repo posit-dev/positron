@@ -91,6 +91,11 @@ const formatTraceback = (traceback: string[]) => {
 	return result;
 };
 
+const isImplicitStartupLanguage = (runtime: ILanguageRuntime, languageId: string) => {
+	return (runtime.metadata.languageId === languageId &&
+		runtime.metadata.startupBehavior === LanguageRuntimeStartupBehavior.Implicit);
+};
+
 //#endregion Helper Functions
 
 /**
@@ -277,19 +282,15 @@ class PositronConsoleService extends Disposable implements IPositronConsoleServi
 	 * @param activate A value which indicates whether the REPL should be activated.
 	 * @returns A value which indicates whether the code could be executed.
 	 */
-	executeCode(languageId: string, code: string, activate: boolean): Promise<boolean> {
+	async executeCode(languageId: string, code: string, activate: boolean): Promise<boolean> {
 		// Get the running runtimes for the language.
 		const runningLanguageRuntimes = this._languageRuntimeService.runningRuntimes.filter(
-			languageRuntime =>
-				languageRuntime.metadata.languageId === languageId &&
-				languageRuntime.metadata.startupBehavior === LanguageRuntimeStartupBehavior.Implicit);
+			runtime => isImplicitStartupLanguage(runtime, languageId));
 
 		if (!runningLanguageRuntimes.length) {
 			// Get the registered runtimes for the language.
 			const languageRuntimes = this._languageRuntimeService.registeredRuntimes.filter(
-				languageRuntime =>
-					languageRuntime.metadata.languageId === languageId &&
-					languageRuntime.metadata.startupBehavior === LanguageRuntimeStartupBehavior.Implicit);
+				runtime => isImplicitStartupLanguage(runtime, languageId));
 			if (!languageRuntimes.length) {
 				return Promise.resolve(false);
 			}
