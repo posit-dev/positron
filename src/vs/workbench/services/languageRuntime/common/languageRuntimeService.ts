@@ -487,7 +487,7 @@ export interface ILanguageRuntimeService {
 	 * Starts a runtime.
 	 * @param runtimeId The runtime identifier of the runtime to start.
 	 */
-	startRuntime(runtimeId: string): void;
+	startRuntime(runtimeId: string): Promise<void>;
 }
 export { RuntimeClientType, IRuntimeClientInstance };
 
