@@ -13,7 +13,6 @@ import pkgutil
 import pydoc
 import re
 import sys
-import urllib.parse
 import warnings
 from functools import partial
 from pydoc import _is_bound_method  # type: ignore
@@ -153,7 +152,8 @@ def _tabulate_attrs(attrs: List[_Attr], cls_name: Optional[str] = None) -> List[
     Create an HTML table of attribute signatures and summaries.
     """
     result = []
-    result.append("<table>")
+    # "autosummary" refers to the Sphinx extension that this is based on
+    result.append('<table class="autosummary">')
     result.append("<tbody>")
     for attr in attrs:
         _cls_name = cls_name or attr.cls.__name__
@@ -164,7 +164,7 @@ def _tabulate_attrs(attrs: List[_Attr], cls_name: Optional[str] = None) -> List[
         row_lines = [
             "<tr>",
             "<td>",
-            f"<p>{link}</p>",
+            link,
             "</td>",
             "<td>",
             summary,
@@ -208,56 +208,50 @@ class _PositronHTMLDoc(pydoc.HTMLDoc):
         )
         # --- End Positron ---
 
-    # as is from pydoc.HTMLDoc to port Python 3.11 breaking CSS changes
-    def heading(self, title, extras=""):
+    def heading(self, title: str, extras="") -> str:
         """Format a page heading."""
-        return """
-<table class="heading">
-<tr class="heading-text decor">
-<td class="title">&nbsp;<br>%s</td>
-<td class="extra">%s</td></tr></table>
-    """ % (
-            title,
-            extras or "&nbsp;",
-        )
+        # Simplified version of pydoc.HTMLDoc.heading that doesn't use tables
+        lines = [f"<h1>{title}</h1>"]
+        if extras:
+            lines.append(extras)
+        result = "\n".join(lines)
+        return result
 
-    # as is from pydoc.HTMLDoc to port Python 3.11 breaking CSS changes
-    def section(self, title, cls, contents, width=6, prelude="", marginalia=None, gap="&nbsp;"):
+    def section(
+        self,
+        title: str,
+        cls: str,
+        contents: str,
+        width=None,
+        prelude="",
+        marginalia=None,
+        gap=None,
+    ) -> str:
         """Format a section with a heading."""
-        if marginalia is None:
-            marginalia = '<span class="code">' + "&nbsp;" * width + "</span>"
-        result = """<p>
-<table class="section">
-<tr class="decor %s-decor heading-text">
-<td class="section-title" colspan=3>&nbsp;<br>%s</td></tr>
-    """ % (
-            cls,
-            title,
-        )
+        # Simplified version of pydoc.HTMLDoc.section that doesn't use tables
+        if width is not None:
+            logger.debug(f"Ignoring width: {width}")
+
+        if marginalia:
+            logger.debug(f"Ignoring marginalia: {marginalia}")
+
+        if gap:
+            logger.debug(f"Ignoring gap: {gap}")
+
+        lines = [
+            f'<section class="{cls}">',
+            f"<h2>{title}</h2>",
+        ]
         if prelude:
-            result = (
-                result
-                + """
-<tr><td class="decor %s-decor" rowspan=2>%s</td>
-<td class="decor %s-decor" colspan=2>%s</td></tr>
-<tr><td>%s</td>"""
-                % (cls, marginalia, cls, prelude, gap)
-            )
-        else:
-            result = (
-                result
-                + """
-<tr><td class="decor %s-decor">%s</td><td>%s</td>"""
-                % (cls, marginalia, gap)
-            )
+            lines.append(prelude)
+        lines.append(contents)
+        lines.append("</section>")
+        result = "\n".join(lines)
+        return result
 
-        return result + '\n<td class="singlecolumn">%s</td></tr></table>' % contents
-
-    # as is from pydoc.HTMLDoc to port Python 3.11 breaking CSS changes
-    def bigsection(self, title, *args):
-        """Format a section with a big heading."""
-        title = '<strong class="bigsection">%s</strong>' % title
-        return self.section(title, *args)
+    def bigsection(self, *args):
+        # This no longer does anything on top of `section`, we keep it for compatibility with pydoc
+        return self.section(*args)
 
     # Heavily customized version of pydoc.HTMLDoc.docmodule
     def docmodule(self, object: ModuleType, *_):
@@ -270,27 +264,24 @@ class _PositronHTMLDoc(pydoc.HTMLDoc):
             url = ".".join(parts[: i + 1]) + ".html"
             links.append(f'<a href="{url}">{parts[i]}</a>')
         linkedname = ".".join(links + parts[-1:])
-        head = f'<strong class="title">{linkedname}</strong>'
+        head = linkedname
 
         # Add the module's __version__ to the heading
         if hasattr(object, "__version__"):
             version = self.escape(str(object.__version__))
             head = f"{head} (version {version})"
 
-        # TODO: Can we make this open in Positron?
+        # TODO: Re-enable once file links actually work in the Positron Help pane
         # Add a link to the module file
-        try:
-            path = inspect.getabsfile(object)
-        except TypeError:
-            filelink = "(built-in)"
-        else:
-            url = urllib.parse.quote(path)
-            filelink = f'<a href="file:{url}">{path}</a>'
+        # try:
+        #     path = inspect.getabsfile(object)
+        # except TypeError:
+        #     filelink = "(built-in)"
+        # else:
+        #     url = urllib.parse.quote(path)
+        #     filelink = f'<a class="source-link" href="file:{url}">[source]</a>'
 
-        result = self.heading(
-            title=head,
-            extras='<a href=".">index</a><br>' + filelink,
-        )
+        result = self.heading(title=head)
 
         # Separate the module's members into modules, classes, functions, and data.
         # Respect the module's __all__ attribute if it exists.
@@ -321,11 +312,11 @@ class _PositronHTMLDoc(pydoc.HTMLDoc):
         # Add the module's members to the page
         if modules:
             contents = _tabulate_attrs(modules, obj_name)
-            result += self.bigsection("Modules", "pkg-content", "\n".join(contents))
+            result += self.bigsection("Modules", "modules", "\n".join(contents))
 
         if classes:
             contents = _tabulate_attrs(classes, obj_name)
-            result += self.bigsection("Classes", "index", "\n".join(contents))
+            result += self.bigsection("Classes", "classes", "\n".join(contents))
 
         if funcs:
             contents = _tabulate_attrs(funcs, obj_name)
@@ -355,8 +346,7 @@ class _PositronHTMLDoc(pydoc.HTMLDoc):
             else:
                 attributes.append(attr)
 
-        title = f"<strong>{obj_name}</strong>"
-        result = self.heading(title=title)
+        result = self.heading(title=obj_name)
 
         # Add the object's signature to the page
         signature = _untyped_signature(obj) or ""
@@ -371,7 +361,7 @@ class _PositronHTMLDoc(pydoc.HTMLDoc):
         # Add the object's members to the page
         if attributes:
             contents = _tabulate_attrs(attributes, obj_name)
-            result += self.bigsection("Attributes", "index", "\n".join(contents))
+            result += self.bigsection("Attributes", "attributes", "\n".join(contents))
 
         if methods:
             contents = _tabulate_attrs(methods, obj_name)
@@ -917,5 +907,5 @@ if __name__ == "__main__":
     #
     #   python -m positron.pydoc
 
-    logging.basicConfig(level=logging.INFO)
+    logging.basicConfig(level=logging.DEBUG)
     start_server(port=65216)
