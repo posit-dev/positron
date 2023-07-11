@@ -97,9 +97,11 @@ jobs:
         arch: [arm64, x64]
         include:
           - arch: arm64
+            arch_terminal: arm64
             homebrew_folder: homebrew
             rust_target_prefix: aarch64
           - arch: x64
+            arch_terminal: x86_64
             homebrew_folder: homebrew-x86_64
             rust_target_prefix: x86_64
 
@@ -107,6 +109,20 @@ jobs:
       # Checkout sources
       - name: Checkout sources
         uses: actions/checkout@v3
+
+      - name: Install zeromq dependencies
+        id: install_zeromq_dependencies
+        run: |
+          arch -${{matrix.arch_terminal}} /bin/bash -c "~/${{matrix.homebrew_folder}}/bin/brew install pkg-config"
+          arch -${{matrix.arch_terminal}} /bin/bash -c "~/${{matrix.homebrew_folder}}/bin/brew install libsodium"
+
+      # Zeromq calls whatever pkg-config is findable on the PATH, so we have to ensure the x86_64
+      # version is first on the PATH when compiling for that architecture
+      - name: Update PATH to pkg-config for zeromq
+        id: update_path_for_zeromq
+        if: matrix.arch == 'x64'
+        run: |
+          export PATH=~/${{matrix.homebrew_folder}}/bin:$PATH
 
       # Determine R_HOME (for building ark)
       - name: Find Homebrew R installation
