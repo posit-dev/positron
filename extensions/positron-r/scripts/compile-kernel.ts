@@ -16,7 +16,7 @@ if (whichCargoResult.status !== 0 || whichCargoResult.error) {
 // Enter the kernel directory
 chdir(`${__dirname}/../amalthea`);
 
-// `cargo clean` if on CI, because old builds are likely persistent due to using a hosted runner.
+// `cargo clean` if on CI, because old builds are likely persistent due to using a self-hosted runner.
 // Locally we `cargo clean` manually as needed, to save time.
 const ci = env['CI'];
 if (ci) {
