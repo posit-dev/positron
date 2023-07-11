@@ -442,11 +442,6 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	private readonly _onDidChangeStateEmitter = this._register(new Emitter<PositronConsoleState>);
 
 	/**
-	 * The onDidChangePromptState event emitter.
-	 */
-	private readonly _onDidChangePromptStateEmitter = this._register(new Emitter<void>);
-
-	/**
 	 * The onDidChangeTrace event emitter.
 	 */
 	private readonly _onDidChangeTraceEmitter = this._register(new Emitter<boolean>);
@@ -557,11 +552,6 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	 * onDidChangeState event.
 	 */
 	readonly onDidChangeState: Event<PositronConsoleState> = this._onDidChangeStateEmitter.event;
-
-	/**
-	 * onDidChangePromptState event.
-	 */
-	readonly onDidChangePromptState: Event<void> = this._onDidChangePromptStateEmitter.event;
 
 	/**
 	 * onDidChangeTrace event.
@@ -805,15 +795,6 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 
 		// Add the onDidCompleteStartup event handler.
 		this._runtimeDisposableStore.add(this._runtime.onDidCompleteStartup(languageRuntimeInfo => {
-			// Update prompts in case user has customised them
-			if (languageRuntimeInfo.input_prompt) {
-				this.runtime.config.inputPrompt = languageRuntimeInfo.input_prompt.trimEnd();
-			}
-			if (languageRuntimeInfo.continuation_prompt) {
-				this.runtime.config.continuationPrompt = languageRuntimeInfo.continuation_prompt.trimEnd();
-			}
-
-			// Trigger prompt redisplay
 			this.setState(PositronConsoleState.Ready);
 
 			// Add item trace.
@@ -1034,22 +1015,6 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 					break;
 				}
 			}
-		}));
-
-		this._runtimeDisposableStore.add(this._runtime.onDidReceiveRuntimeMessagePromptState(state => {
-			// Runtimes might supply prompts with trailing whitespace (e.g. R,
-			// Python) that we trim here because we add our own whitespace later on
-			const inputPrompt = state.inputPrompt?.trimEnd();
-			const continuationPrompt = state.continuationPrompt?.trimEnd();
-
-			if (inputPrompt) {
-				this._runtime.config.inputPrompt = inputPrompt;
-			}
-			if (continuationPrompt) {
-				this._runtime.config.continuationPrompt = continuationPrompt;
-			}
-
-			this._onDidChangePromptStateEmitter.fire();
 		}));
 	}
 
