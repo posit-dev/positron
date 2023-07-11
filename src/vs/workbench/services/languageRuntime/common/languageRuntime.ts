@@ -353,7 +353,7 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 	 * Starts a runtime.
 	 * @param runtimeId The runtime identifier of the runtime to start.
 	 */
-	startRuntime(runtimeId: string): void {
+	async startRuntime(runtimeId: string): Promise<void> {
 		// Get the runtime. Throw an error, if it could not be found.
 		const languageRuntimeInfo = this._registeredRuntimesByRuntimeId.get(runtimeId);
 		if (!languageRuntimeInfo) {
@@ -373,7 +373,7 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 		}
 
 		// Start the runtime.
-		this.doStartRuntime(languageRuntimeInfo.runtime);
+		await this.doStartRuntime(languageRuntimeInfo.runtime);
 	}
 
 	//#endregion ILanguageRuntimeService Implementation
@@ -424,15 +424,17 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 	 * Starts a runtime.
 	 * @param runtime The runtime to start.
 	 */
-	private doStartRuntime(runtime: ILanguageRuntime): void {
+	private async doStartRuntime(runtime: ILanguageRuntime): Promise<void> {
 		// Add the runtime to the starting runtimes.
 		this._startingRuntimesByLanguageId.set(runtime.metadata.languageId, runtime);
 
 		// Fire the onWillStartRuntime event.
 		this._onWillStartRuntimeEmitter.fire(runtime);
 
-		// Attempt to start the runtime.
-		runtime.start().then(_languageRuntimeInfo => {
+		try {
+			// Attempt to start the runtime.
+			await runtime.start();
+
 			// The runtime started. Move it from the starting runtimes to the
 			// running runtimes.
 			this._startingRuntimesByLanguageId.delete(runtime.metadata.languageId);
@@ -443,7 +445,7 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 
 			// Make the newly-started runtime the active runtime.
 			this.activeRuntime = runtime;
-		}, (reason) => {
+		} catch (reason) {
 			// Remove the runtime from the starting runtimes.
 			this._startingRuntimesByLanguageId.delete(runtime.metadata.languageId);
 
@@ -452,7 +454,7 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 
 			// TODO@softwarenerd - We should do something with the reason.
 			this._logService.error(`Starting language runtime failed. Reason: ${reason}`);
-		});
+		}
 	}
 
 	//#region Private Methods
