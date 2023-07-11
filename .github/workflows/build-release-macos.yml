@@ -94,7 +94,7 @@ jobs:
     strategy:
       max-parallel: 1
       matrix:
-        arch: [arm64, x64]
+        arch: [x64, arm64]
         include:
           - arch: arm64
             arch_terminal: arm64
@@ -122,7 +122,7 @@ jobs:
         id: update_path_for_zeromq
         if: matrix.arch == 'x64'
         run: |
-          export PATH=~/${{matrix.homebrew_folder}}/bin:$PATH
+          echo "~/${{matrix.homebrew_folder}}/bin" >> $GITHUB_PATH
 
       # Determine R_HOME (for building ark)
       - name: Find Homebrew R installation
