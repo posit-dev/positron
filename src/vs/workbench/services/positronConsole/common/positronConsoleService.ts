@@ -26,7 +26,7 @@ import { ActivityItemOutputMessage } from 'vs/workbench/services/positronConsole
 import { RuntimeItemStartupFailure } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemStartupFailure';
 import { ActivityItem, RuntimeItemActivity } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemActivity';
 import { IPositronConsoleInstance, IPositronConsoleService, PositronConsoleState } from 'vs/workbench/services/positronConsole/common/interfaces/positronConsoleService';
-import { formatLanguageRuntime, ILanguageRuntime, ILanguageRuntimeMessage, ILanguageRuntimeService, RuntimeOnlineState, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { formatLanguageRuntime, ILanguageRuntime, ILanguageRuntimeMessage, ILanguageRuntimeService, LanguageRuntimeStartupBehavior, RuntimeOnlineState, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 
 //#region Helper Functions
 
@@ -279,13 +279,28 @@ class PositronConsoleService extends Disposable implements IPositronConsoleServi
 	 */
 	executeCode(languageId: string, code: string, activate: boolean): Promise<boolean> {
 		// Get the Positron console instance for the language.
-		const positronConsoleInstance = this._positronConsoleInstancesByLanguageId.get(languageId);
-		if (!positronConsoleInstance) {
+		const runningPositronConsoleInstance = this._positronConsoleInstancesByLanguageId.get(languageId);
+		let positronConsoleInstance;
+		if (!runningPositronConsoleInstance) {
 			// TODO@softwarenerd - In an ideal world, we should start a new runtime for the language
 			// and queue this code up to be executed, once it starts. In this case we'd
 			// keep the promise around around and resolve it when the runtime starts
 			// and begins executing the code.
-			return Promise.resolve(false);
+
+			const languageRuntime = this._languageRuntimeService.registeredRuntimes.filter(
+				languageRuntime =>
+					languageRuntime.metadata.languageId === languageId &&
+					languageRuntime.metadata.startupBehavior === LanguageRuntimeStartupBehavior.Implicit);
+			if (!languageRuntime.length) {
+				return Promise.resolve(false);
+			}
+
+			// Start the first runtime that was found.
+			this._logService.trace(`Language runtime ${formatLanguageRuntime(languageRuntime[0])} automatically starting`);
+			this._languageRuntimeService.startRuntime(languageRuntime[0].metadata.runtimeId);
+			positronConsoleInstance = this.startPositronConsoleInstance(languageRuntime[0], true);
+		} else {
+			positronConsoleInstance = runningPositronConsoleInstance;
 		}
 
 		// Activate the Positron console instance, if it isn't active.
