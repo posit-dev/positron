@@ -310,7 +310,7 @@ class PositronConsoleService extends Disposable implements IPositronConsoleServi
 		const positronConsoleInstance = this._positronConsoleInstancesByLanguageId.get(languageId);
 
 		if (!positronConsoleInstance) {
-			return Promise.resolve(false);
+			return false;
 		}
 
 		// Activate the Positron console instance, if it isn't active.
