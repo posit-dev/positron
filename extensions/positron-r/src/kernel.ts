@@ -118,27 +118,30 @@ export function registerArkKernel(ext: vscode.Extension<any>, context: vscode.Ex
 		});
 	}
 
-	// Look for an R installation on the $PATH (e.g. installed via Homebrew)
+	// Sort the R installations by version number, descending. If we don't find an R
+	// installation on the $PATH (see below), we get reasonable default behaviour, which
+	// is to use the most recent version of R available.
+	rInstallations.sort((a, b) => {
+		return b.rVersion.localeCompare(a.rVersion);
+	});
+
+	// Look for an R installation on the $PATH (e.g. installed via Homebrew). If found,
+	// add or move it to the front of the list.
 	try {
 		// Try R RHOME to get the installation path; run under bash so we get $PATH
 		// set as the user would expect.
 		const rHome = execSync('R RHOME', { shell: '/bin/bash', encoding: 'utf8' }).trim();
 		if (fs.existsSync(rHome)) {
-			// Add the R installation to the list (if it's not already there)
-			if (rInstallations.filter(r => r.rHome === rHome).length === 0) {
-				rInstallations.push(new RInstallation(rHome, true));
+			const loc = rInstallations.findIndex(r => r.rHome === rHome);
+			if (loc < 0) {
+				rInstallations.unshift(new RInstallation(rHome, true));
+			} else {
+				rInstallations.splice(0, 0, rInstallations.splice(loc, 1)[0]);
 			}
 		}
 	} catch (err) {
 		// Just swallow this; it's okay if there's no R on the $PATH
 	}
-
-	// Sort the R installations by version number, descending. This ensures that
-	// we'll use the most recent version of R if R is installed in multiple
-	// places.
-	rInstallations.sort((a, b) => {
-		return b.rVersion.localeCompare(a.rVersion);
-	});
 
 	// Loop over the R installations and create a language runtime for each one.
 	//
