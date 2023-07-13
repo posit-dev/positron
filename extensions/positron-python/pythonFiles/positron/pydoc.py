@@ -266,10 +266,11 @@ class _PositronHTMLDoc(pydoc.HTMLDoc):
         linkedname = ".".join(links + parts[-1:])
         head = linkedname
 
-        # Add the module's __version__ to the heading
+        pkg_version = ""
         if hasattr(object, "__version__"):
-            version = self.escape(str(object.__version__))
-            head = f"{head} (version {version})"
+            pkg_version = self._version_text(str(object.__version__))
+
+        head = pkg_version + head
 
         # TODO: Re-enable once file links actually work in the Positron Help pane
         # Add a link to the module file
@@ -346,7 +347,20 @@ class _PositronHTMLDoc(pydoc.HTMLDoc):
             else:
                 attributes.append(attr)
 
-        result = self.heading(title=obj_name)
+        title = f"<h1>{obj_name}</h1>"
+
+        match = re.search(r"^([^.]*)\.", obj_name)
+        pkg_version = ""
+
+        if match:
+            try:
+                pkg_version = importlib.metadata.version(match.group(1))  # type: ignore
+            except importlib.metadata.PackageNotFoundError:  # type: ignore
+                pass
+
+        version_text = self._version_text(pkg_version)
+
+        result = self.heading(title=version_text + title)
 
         # Add the object's signature to the page
         signature = _untyped_signature(obj) or ""
@@ -678,6 +692,15 @@ class _PositronHTMLDoc(pydoc.HTMLDoc):
         # --- End Positron ---
 
         return self.page(title, content)
+
+    def _version_text(self, version: str) -> str:
+        # Add the module's __version__ to the heading
+        if len(version) > 0:
+            pkg_version = self.escape(version)
+            text = f'<div class="package-version">{"v"+pkg_version}</div>'
+            return text
+        else:
+            return ""
 
 
 # as is from < Python 3.9, since 3.9 introduces a breaking change to pydoc.getdoc

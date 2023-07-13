@@ -74,6 +74,11 @@ div.highlight {
     overflow-x: auto;
 }
 
+div.package-version{
+    font-size: 0.6rem;
+    text-align: right;
+}
+
 /*
     Pygments (syntax highlighting)
     Source: https://github.com/richleland/pygments-css/blob/master/default.css
