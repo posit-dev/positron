@@ -270,8 +270,6 @@ class _PositronHTMLDoc(pydoc.HTMLDoc):
         if hasattr(object, "__version__"):
             pkg_version = self._version_text(str(object.__version__))
 
-        head = pkg_version + head
-
         # TODO: Re-enable once file links actually work in the Positron Help pane
         # Add a link to the module file
         # try:
@@ -282,7 +280,7 @@ class _PositronHTMLDoc(pydoc.HTMLDoc):
         #     url = urllib.parse.quote(path)
         #     filelink = f'<a class="source-link" href="file:{url}">[source]</a>'
 
-        result = self.heading(title=head)
+        result = pkg_version + self.heading(title=head)
 
         # Separate the module's members into modules, classes, functions, and data.
         # Respect the module's __all__ attribute if it exists.
@@ -347,8 +345,6 @@ class _PositronHTMLDoc(pydoc.HTMLDoc):
             else:
                 attributes.append(attr)
 
-        title = f"<h1>{obj_name}</h1>"
-
         match = re.search(r"^([^.]*)\.", obj_name)
         pkg_version = ""
 
@@ -360,7 +356,7 @@ class _PositronHTMLDoc(pydoc.HTMLDoc):
 
         version_text = self._version_text(pkg_version)
 
-        result = self.heading(title=version_text + title)
+        result = version_text + self.heading(title=obj_name)
 
         # Add the object's signature to the page
         signature = _untyped_signature(obj) or ""
