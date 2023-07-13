@@ -278,7 +278,7 @@ Function summary.
 def test_document_class():
     result = _html.document(_A)
     expected = """\
-<h1><h1>_A</h1></h1><code><strong><em>class</em> _A<em>()</em></strong></code><p>Class summary.</p>
+<h1>_A</h1><code><strong><em>class</em> _A<em>()</em></strong></code><p>Class summary.</p>
 <p>Class long description.</p>
 <section class="attributes">
 <h2>Attributes</h2>
@@ -315,7 +315,7 @@ Method summary, may contain [links](target).
 
 def test_document_version() -> None:
     result = _html.document(pd)
-    expected = f"""<h1><div class="package-version">v{pd.__version__}</div>pandas</h1><h1>"""
+    expected = f"""<div class="package-version">v{pd.__version__}</div><h1>pandas</h1>"""
 
     assert result.startswith(expected)
 
