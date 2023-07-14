@@ -59,7 +59,6 @@ export const ConsoleInput = forwardRef<HTMLDivElement, ConsoleInputProps>((props
 	/**
 	 * Updates the code editor widget position such that the cursor appers on the first line and the
 	 * first column.
-	 */
 	const updateCodeEditorWidgetPositionToBeginning = () => {
 		// Set the code editor widget position.
 		codeEditorWidgetRef.current.setPosition({
@@ -70,6 +69,7 @@ export const ConsoleInput = forwardRef<HTMLDivElement, ConsoleInputProps>((props
 		// Ensure that the code editor widget is scrolled into view.
 		codeEditorWidgetContainerRef.current?.scrollIntoView({ behavior: 'auto' });
 	};
+	 */
 
 	/**
 	 * Updates the code editor widget position such that the cursor appers on the last line and the
@@ -297,7 +297,7 @@ export const ConsoleInput = forwardRef<HTMLDivElement, ConsoleInputProps>((props
 						codeEditorWidgetRef.current.setValue(inputHistoryEntry.input);
 
 						// Position the code editor widget.
-						updateCodeEditorWidgetPositionToBeginning();
+						updateCodeEditorWidgetPositionToEnd();
 					}
 				}
 				break;
