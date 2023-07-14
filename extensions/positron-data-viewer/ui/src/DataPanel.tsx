@@ -64,7 +64,6 @@ export const DataPanel = (props: DataPanelProps) => {
 
 	React.useEffect(() => {
 		window.addEventListener('message', handleMessage);
-		console.log(`Rendering DataModel with loaded rows: ${dataModel.loadedRowCount}`);
 
 		return () => {
 			window.removeEventListener('message', handleMessage);

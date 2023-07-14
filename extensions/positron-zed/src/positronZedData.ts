@@ -4,7 +4,7 @@
 
 import { randomUUID } from 'crypto';
 import * as vscode from 'vscode';
-import { DataColumn, DataSet } from './positron-data-viewer';
+import { DataColumn, DataSet, DataViewerMessage } from './positron-data-viewer';
 
 /**
  * A Zed column; this is a mock of a Zed column that fulfills the DataColumn
@@ -20,6 +20,16 @@ class ZedColumn implements DataColumn {
 		// Create an array of random numbers of the requested length
 		this.data = Array.from({ length }, () => Math.floor(Math.random() * 100));
 	}
+}
+
+/**
+ * The request from the front end to render the plot at a specific size.
+ */
+interface DataViewerRowRequest {
+	msg_type: string;
+	start_row: number;
+	fetch_size: number;
+	data: ZedData;
 }
 
 /**
@@ -54,16 +64,47 @@ export class ZedData implements DataSet {
 		}
 	}
 
+	sliceData(start: number, size: number): Array<ZedColumn> {
+		if (start < 0 || start >= this.rowCount) {
+			throw new Error(`Invalid start index: ${start}`);
+		} else if (this.rowCount <= size) {
+			return this.columns;
+		}
+
+		return this.columns.map((column) => {
+			return {
+				...column,
+				data: column.data.slice(start, start + size)
+			};
+		});
+	}
+
 	handleMessage(message: any): void {
 		console.log(`ZedData ${this.id} got message: ${JSON.stringify(message)}`);
 		switch (message.msg_type) {
-			case 'initial_data':
-			case 'receive_rows':
-				console.log(`ZedData ${this.id} got ${message.msg_type} message`);
+			case 'ready':
+			case 'request_rows':
+				this.sendData(message as DataViewerMessage);
 				break;
 			default:
 				console.error(`ZedData ${this.id} got unknown message type: ${message.msg_type}`);
 				break;
 		}
+	}
+
+	public sendData(message: DataViewerMessage): void {
+		const request: DataViewerRowRequest = {
+			msg_type: message.msg_type === 'ready' ? 'initial_data' : 'receive_rows',
+			start_row: message.start_row,
+			fetch_size: message.fetch_size,
+			data: {
+				id: this.id,
+				title: this.title,
+				columns: this.sliceData(message.start_row, message.fetch_size),
+				rowCount: this.rowCount
+			} as ZedData,
+		};
+		// Emit to the front end.
+		this._onDidEmitData.fire(request);
 	}
 }
