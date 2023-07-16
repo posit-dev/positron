@@ -9,7 +9,7 @@ from urllib.request import urlopen
 import pandas as pd
 import pytest
 
-from positron.help import HelpService, ShowHelpEvent, ShowHelpEventKind
+from positron.help import HelpService, ShowHelpEvent, ShowHelpEventKind, help
 
 
 @pytest.fixture
@@ -21,6 +21,8 @@ def help_service():
 
 @pytest.fixture
 def running_help_service(help_service: HelpService):
+    help_service.kernel.shell.user_ns_hidden = {}
+    help_service.kernel.shell.user_ns = {}
     # kernel.do_execute requires an AsyncMock else it errors if we await it.
     help_service.kernel.do_execute = AsyncMock()
     help_service.start()
@@ -59,20 +61,6 @@ def test_pydoc_server_styling(running_help_service: HelpService):
     assert "#ee77aa" not in html
 
 
-def help():
-    """
-    Dummy help function used as a test case.
-
-    NOTE: Once we figure out how to get a real Positron kernel in our tests, we should use the
-          HelpService to override its help function and remove this dummy.
-    """
-    pass
-
-
-# Simulate being defined in __main__, as it is when defined by the HelpService.
-help.__module__ = "__main__"
-
-
 @pytest.mark.parametrize(
     ("obj", "expected_path"),
     [
@@ -90,8 +78,8 @@ help.__module__ = "__main__"
         (int, "int"),
         # Keywords should resolve even though they aren't objects.
         ("async", "async"),
-        # The overrided help function should resolve -- without a __main__ prefix.
-        (help, "help"),
+        # The overrided help function should resolve.
+        (help, "positron.help.help"),
     ],
 )
 def test_show_help(obj: Any, expected_path: str, help_service: HelpService):
