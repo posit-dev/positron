@@ -3,14 +3,15 @@
 #
 
 from __future__ import annotations
+import builtins
 
-import asyncio
 import enum
 import logging
 import pydoc
 from typing import TYPE_CHECKING, Any, Optional, Union
 
 from pydantic import Field
+from ipykernel.ipkernel import IPythonKernel
 
 from .frontend import BaseFrontendEvent
 from .pydoc import start_server
@@ -46,6 +47,38 @@ class ShowHelpEvent(BaseFrontendEvent):
     name: str = "show_help"
 
 
+def help(topic="help"):
+    """
+    Show help for the given topic.
+
+    Examples
+    --------
+
+    Show help for the `help` function itself:
+
+    >>> help()
+
+    Show help for a type:
+
+    >>> import pandas
+    >>> help(pandas.DataFrame)
+
+    A string import path works too:
+
+    >>> help("pandas.DataFrame")
+
+    Show help for a type given an instance:
+
+    >>> df = pandas.DataFrame()
+    >>> help(df)
+    """
+    if IPythonKernel.initialized():
+        kernel = IPythonKernel.instance()
+        kernel.help_service.show_help(topic)
+    else:
+        raise Exception("Unexpected error. No IPythonKernel has been initialized.")
+
+
 class HelpService:
     """
     Manages the help server and submits help-related events to the `FrontendService`.
@@ -70,51 +103,12 @@ class HelpService:
             self._override_help()
 
     def _override_help(self) -> None:
-        # Run code in the kernel which overrides the builtin help function, to call `self.show_help`
-        coro = self.kernel.do_execute(
-            f"""
-import builtins
+        # Patch the shell's help function.
+        self.kernel.shell.user_ns_hidden["help"] = help
+        self.kernel.shell.user_ns["help"] = help
 
-def help(topic="help"):
-    '''
-    Show help for the given topic.
-
-    Examples
-    --------
-
-    Show help for the `help` function itself:
-
-    >>> help()
-
-    Show help for a type:
-
-    >>> import pandas
-    >>> help(pandas.DataFrame)
-
-    A string import path works too:
-
-    >>> help("pandas.DataFrame")
-
-    Show help for a type given an instance:
-
-    >>> df = pandas.DataFrame()
-    >>> help(df)
-    '''
-    from ipykernel.ipkernel import IPythonKernel
-
-    if IPythonKernel.initialized():
-        kernel = IPythonKernel.instance()
-        kernel.help_service.show_help(topic)
-    else:
-        raise Exception("Unexpected error. No IPythonKernel has been initialized.")
-
-builtins.help = help
-del help  # Clean up the user's namespace
-""",
-            silent=True,
-        )
-        loop = asyncio.get_event_loop()
-        asyncio.run_coroutine_threadsafe(coro, loop)
+        # Patch our own help function too so that `pydoc.resolve` resolves to it.
+        builtins.help = help
 
     def shutdown(self) -> None:
         if self.pydoc_thread is not None and self.pydoc_thread.serving:
