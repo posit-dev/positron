@@ -44,14 +44,6 @@ declare module 'positron' {
 		CommClosed = 'comm_closed',
 	}
 
-	/** begin positron-language-runtime-event-type */
-	export enum LanguageRuntimeEventType {
-		Busy = 'busy',
-		ShowMessage = 'show_message',
-		ShowHelp = 'show_help',
-	}
-	/** end positron-language-runtime-event-type */
-
 	/**
 	 * The set of possible statuses for a language runtime while online
 	 */
@@ -85,20 +77,11 @@ declare module 'positron' {
 		/** The runtime is busy executing code. */
 		Busy = 'busy',
 
-		/** The runtime is in the process of restarting. */
-		Restarting = 'restarting',
-
-		/** The runtime is in the process of shutting down. */
-		Exiting = 'exiting',
-
 		/** The runtime's host process has ended. */
 		Exited = 'exited',
 
 		/** The runtime is not responding to heartbeats and is presumed offline. */
 		Offline = 'offline',
-
-		/** The user has interrupted a busy runtime, but the runtime is not idle yet. */
-		Interrupting = 'interrupting',
 	}
 
 	/**
@@ -163,24 +146,11 @@ declare module 'positron' {
 
 	export interface LanguageRuntimeEventData { }
 
-	/**
-	 * LanguageRuntimeEvent is an interface that defines an event occurring
-	 * in a language runtime, usually to trigger some action on the front end.
-	 */
-	export interface LanguageRuntimeEvent extends LanguageRuntimeMessage {
-		/** The name of the event */
-		name: LanguageRuntimeEventType;
-
-		/** The event's data */
-		data: LanguageRuntimeEventData;
-	}
-
 	/** LanguageRuntimeOutput is a LanguageRuntimeMessage representing output (text, plots, etc.) */
 	export interface LanguageRuntimeOutput extends LanguageRuntimeMessage {
 		/** A record of data MIME types to the associated data, e.g. `text/plain` => `'hello world'` */
 		data: Record<string, string>;
 	}
-
 
 	/**
 	 * The set of standard stream names supported for streaming textual output.
@@ -352,6 +322,7 @@ declare module 'positron' {
 		Lsp = 'positron.lsp',
 		Plot = 'positron.plot',
 		DataViewer = 'positron.dataViewer',
+		FrontEnd = 'positron.frontEnd',
 
 		// Future client types may include:
 		// - Watch window/variable explorer
@@ -419,7 +390,7 @@ declare module 'positron' {
 	 * set of common tools for interacting with a language runtime, such as code
 	 * execution, LSP implementation, and plotting.
 	 */
-	export interface LanguageRuntime {
+	export interface LanguageRuntime extends vscode.Disposable {
 		/** An object supplying metadata about the runtime */
 		readonly metadata: LanguageRuntimeMetadata;
 
@@ -528,7 +499,163 @@ declare module 'positron' {
 		callback: RuntimeClientHandlerCallback;
 	}
 
+	/**
+	 * Content settings for webviews hosted in the Preview panel.
+	 *
+	 * This interface mirrors the `WebviewOptions` & `WebviewPanelOptions` interfaces, with
+	 * the following exceptions:
+	 *
+	 * - `enableFindWidget` is not supported (we never show it in previews)
+	 * - `retainContextWhenHidden` is not supported (we always retain context)
+	 * - `enableCommandUris` is not supported (we never allow commands in previews)
+	 */
+	export interface PreviewOptions {
+		/**
+		 * Controls whether scripts are enabled in the webview content or not.
+		 *
+		 * Defaults to false (scripts-disabled).
+		 */
+		readonly enableScripts?: boolean;
+
+		/**
+		 * Controls whether forms are enabled in the webview content or not.
+		 *
+		 * Defaults to true if {@link PreviewOptions.enableScripts scripts are enabled}. Otherwise defaults to false.
+		 * Explicitly setting this property to either true or false overrides the default.
+		 */
+		readonly enableForms?: boolean;
+
+		/**
+		 * Root paths from which the webview can load local (filesystem) resources using uris from `asWebviewUri`
+		 *
+		 * Default to the root folders of the current workspace plus the extension's install directory.
+		 *
+		 * Pass in an empty array to disallow access to any local resources.
+		 */
+		readonly localResourceRoots?: readonly vscode.Uri[];
+
+		/**
+		 * Mappings of localhost ports used inside the webview.
+		 *
+		 * Port mapping allow webviews to transparently define how localhost ports are resolved. This can be used
+		 * to allow using a static localhost port inside the webview that is resolved to random port that a service is
+		 * running on.
+		 *
+		 * If a webview accesses localhost content, we recommend that you specify port mappings even if
+		 * the `webviewPort` and `extensionHostPort` ports are the same.
+		 *
+		 * *Note* that port mappings only work for `http` or `https` urls. Websocket urls (e.g. `ws://localhost:3000`)
+		 * cannot be mapped to another port.
+		 */
+		readonly portMapping?: readonly vscode.WebviewPortMapping[];
+	}
+
+	/**
+	 * A preview panel that contains a webview. This interface mirrors the
+	 * `WebviewPanel` interface, but omits elements that don't apply to
+	 * preview panels, such as `viewColumn`.
+	 */
+	interface PreviewPanel {
+		/**
+		 * Identifies the type of the preview panel, such as `'markdown.preview'`.
+		 */
+		readonly viewType: string;
+
+		/**
+		 * Title of the panel shown in UI.
+		 */
+		title: string;
+
+		/**
+		 * {@linkcode Webview} belonging to the panel.
+		 */
+		readonly webview: vscode.Webview;
+
+		/**
+		 * Whether the panel is active (focused by the user).
+		 */
+		readonly active: boolean;
+
+		/**
+		 * Whether the panel is visible.
+		 */
+		readonly visible: boolean;
+
+		/**
+		 * Fired when the panel's view state changes.
+		 */
+		readonly onDidChangeViewState: vscode.Event<PreviewPanelOnDidChangeViewStateEvent>;
+
+		/**
+		 * Fired when the panel is disposed.
+		 *
+		 * This may be because the user closed the panel or because `.dispose()` was
+		 * called on it.
+		 *
+		 * Trying to use the panel after it has been disposed throws an exception.
+		 */
+		readonly onDidDispose: vscode.Event<void>;
+
+		/**
+		 * Show the preview panel
+		 *
+		 * Only one preview panel can be shown at a time. If a different preview
+		 * is already showing, it will be hidden.
+		 *
+		 * @param preserveFocus When `true`, the webview will not take focus.
+		 */
+		reveal(preserveFocus?: boolean): void;
+
+		/**
+		 * Dispose of the preview panel.
+		 *
+		 * This closes the panel if it showing and disposes of the resources
+		 * owned by the underlying webview.  Preview panels are also disposed
+		 * when the user closes the preview panel. Both cases fire the
+		 * `onDispose` event.
+		 */
+		dispose(): any;
+	}
+
+	/**
+	 * Event fired when a preview panel's view state changes.
+	 */
+	export interface PreviewPanelOnDidChangeViewStateEvent {
+		/**
+		 * Preview panel whose view state changed.
+		 */
+		readonly previewPanel: PreviewPanel;
+	}
+
+	namespace window {
+		/**
+		 * Create and show a new preview panel.
+		 *
+		 * @param viewType Identifies the type of the preview panel.
+		 * @param title Title of the panel.
+		 * @param options Settings for the new panel.
+		 *
+		 * @return New preview panel.
+		 */
+		export function createPreviewPanel(viewType: string, title: string, preserveFocus?: boolean, options?: PreviewOptions): PreviewPanel;
+	}
+
 	namespace runtime {
+
+		/**
+		 * Executes code in a language runtime's console, as though it were typed
+		 * interactively by the user.
+		 *
+		 * @param languageId The language ID of the code snippet
+		 * @param code The code snippet to execute
+		 * @param focus Whether to raise and focus the runtime's console
+		 * @returns A Thenable that resolves with true if the code was sent to a
+		 *   runtime successfully, false otherwise.
+		 */
+		export function executeCode(languageId: string,
+			code: string,
+			focus: boolean): Thenable<boolean>;
+
 		/**
 		 * Register a language runtime with Positron.
 		 *
