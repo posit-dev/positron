@@ -173,8 +173,7 @@ export class PythonLanguageRuntime implements JupyterLanguageRuntime, Disposable
                 this.startPositronLsp(`127.0.0.1:${port}`);
                 this.startLSPClient(port).ignoreErrors();
             });
-        } else if (state === positron.RuntimeState.Exiting ||
-            state === positron.RuntimeState.Exited) {
+        } else if (state === positron.RuntimeState.Exited) {
             if (this._lsp) {
                 this._lsp.stop().ignoreErrors();
             }
