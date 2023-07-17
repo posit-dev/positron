@@ -585,9 +585,8 @@ export const ConsoleInput = forwardRef<HTMLDivElement, ConsoleInputProps>((props
 				if (currentCodeFragmentStatus === RuntimeCodeFragmentStatus.Incomplete) {
 					// and if so, append the new code fragment on a new line.
 					codeFragment = `${currentCodeFragment}${codeFragment}`;
-					// Empty the current value, since we used it.
-
 				}
+				// Empty the current value, since we either used it or need to discard it.
 				currentCodeFragment = '';
 			}
 
