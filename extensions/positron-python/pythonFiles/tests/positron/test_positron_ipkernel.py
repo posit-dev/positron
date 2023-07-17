@@ -1,7 +1,4 @@
 import pytest
-
-import pandas as pd
-import polars as pl
 from IPython.conftest import get_ipython
 
 from positron.positron_ipkernel import ViewerMagic
@@ -27,6 +24,7 @@ def test_pandas_df_var(get_ip):
 
     assert "view" in get_ip.magics_manager.magics["line"]
     assert "view" in get_ip.user_ns["In"][1]
+    pd = get_ip.user_ns["pd"]
     assert isinstance(get_ip.user_ns["a"], pd.DataFrame)
 
 
@@ -35,6 +33,7 @@ def test_polars_df_var(get_ip):
 
     assert "view" in get_ip.magics_manager.magics["line"]
     assert "view" in get_ip.user_ns["In"][1]
+    pl = get_ip.user_ns["pl"]
     assert isinstance(get_ip.user_ns["a"], pl.DataFrame)
 
 
