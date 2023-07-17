@@ -2,6 +2,19 @@
 	"version": "2.0.0",
 	"tasks": [
 		{
+			"command": "/bin/zsh",
+			"args": [
+				"-l",
+				"-c",
+				"node --version"
+			],
+			"label": "Version Check",
+			"presentation": {
+				"group": "buildWatchers",
+				"close": false
+			},
+		},
+		{
 			"type": "npm",
 			"script": "watch-clientd",
 			"label": "Core - Build",
@@ -85,10 +98,10 @@
 				}
 			}
 		},
-
 		{
 			"label": "VS Code - Build",
 			"dependsOn": [
+				"Version Check",
 				"Core - Build",
 				"Ext - Build",
 			],
