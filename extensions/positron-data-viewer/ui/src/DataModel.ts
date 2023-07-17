@@ -24,17 +24,6 @@ export interface DataFragment {
 	columns: Array<DataColumn>;
 }
 
-export interface DataModelId {
-	/**
-	 * The row index of the first row in the DataModel.
-	 */
-	rowStart: number;
-	/**
-	 * An identifier for the full DataSet.
-	 */
-	id: string;
-}
-
 /**
  * The DataModel class represents the data model behind a DataPanel. It is
  * responsible for loading fragments from the data set as necessary to populate
@@ -82,11 +71,8 @@ export class DataModel {
 		return updatedDataModel;
 	}
 
-	get id(): DataModelId {
-		return {
-			rowStart: this.rowStart,
-			id: this.dataSet.id
-		};
+	get id(): String {
+		return `rows ${this.rowStart}-${this.rowEnd}: ${this.dataSet.id}`;
 	}
 
 	/**
@@ -103,6 +89,10 @@ export class DataModel {
 			return this.columns[0].data.length;
 		}
 		return 0;
+	}
+
+	get rowEnd(): number {
+		return Math.min(this.rowStart + this.loadedRowCount - 1, this.rowCount - 1);
 	}
 
 	/**
