@@ -14,7 +14,6 @@ import { DataPanel } from './DataPanel';
 
 // External types.
 import { DataViewerMessage, DataViewerMessageData, DataViewerMessageRequest } from './positron-data-viewer';
-import { DataModel } from './DataModel';
 
 // This global is injected by VS Code when the extension is loaded.
 //
@@ -37,14 +36,13 @@ window.addEventListener('message', (event: any) => {
 
 	if (message.msg_type === 'initial_data') {
 		const dataMessage = message as DataViewerMessageData;
-		const dataModel = new DataModel(dataMessage.data);
 		console.log(`DATA: Row ${dataMessage.start_row} Col 0 starts with ${dataMessage.data.columns[0].data[0]}`);
 
 		const queryClient = new ReactQuery.QueryClient();
 		ReactDOM.render(
 			<React.StrictMode>
 				<ReactQuery.QueryClientProvider client={queryClient}>
-					<DataPanel data={dataModel} fetchSize={fetchSize} vscode={vscode} />
+					<DataPanel data={dataMessage.data} fetchSize={fetchSize} vscode={vscode} />
 				</ReactQuery.QueryClientProvider>
 			</React.StrictMode>,
 			document.getElementById('root')

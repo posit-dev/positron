@@ -12,10 +12,10 @@ import * as ReactTable from '@tanstack/react-table';
 
 // Local modules.
 import { DataFragment, DataModel } from './DataModel';
-import { DataViewerMessageRequest, DataViewerMessage, DataViewerMessageData } from './positron-data-viewer';
+import { DataViewerMessageRequest, DataViewerMessage, DataViewerMessageData, DataSet } from './positron-data-viewer';
 
 interface DataPanelProps {
-	data: DataModel;
+	data: DataSet;
 	fetchSize: number;
 	vscode: any;
 }
@@ -42,7 +42,8 @@ export const DataPanel = (props: DataPanelProps) => {
 	const tableContainerRef = React.useRef<HTMLDivElement>(null);
 
 	// We should maybe use DataFragments here instead, and throughout the Panel
-	const [dataModel, updateDataModel] = React.useState<DataModel>(props.data);
+	const {data: initialData, fetchSize, vscode} = props;
+	const [dataModel, updateDataModel] = React.useState<DataModel>(new DataModel(initialData));
 	const [renderedStartRows, updateRenderedRows] = React.useState<number[]>([0]);
 
 	const handleMessage = ((event: any) => {
@@ -93,8 +94,8 @@ export const DataPanel = (props: DataPanelProps) => {
 			['table-data', dataModel.id, renderedStartRows],
 			async ({ pageParam = 0 }) => {
 				// Fetches a single page of data from the data model.
-				const start = pageParam * props.fetchSize;
-				const fragment = dataModel.loadDataFragment(start, props.fetchSize);
+				const start = pageParam * fetchSize;
+				const fragment = dataModel.loadDataFragment(start, fetchSize);
 				return fragment;
 			},
 			{
@@ -156,9 +157,9 @@ export const DataPanel = (props: DataPanelProps) => {
 					const msg: DataViewerMessageRequest = {
 						msg_type: 'request_rows',
 						start_row: totalFetched,
-						fetch_size: props.fetchSize
+						fetch_size: fetchSize
 					};
-					props.vscode.postMessage(msg);
+					vscode.postMessage(msg);
 				}
 			}
 		},
