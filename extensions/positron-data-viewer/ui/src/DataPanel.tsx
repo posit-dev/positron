@@ -175,7 +175,7 @@ export const DataPanel = (props: DataPanelProps) => {
 		columns,
 		getCoreRowModel: ReactTable.getCoreRowModel(),
 		getSortedRowModel: ReactTable.getSortedRowModel(),
-		debugTable: true,
+		debugTable: false,
 	});
 
 	const { rows } = table.getRowModel();
