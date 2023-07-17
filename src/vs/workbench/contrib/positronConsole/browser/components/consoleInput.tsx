@@ -586,8 +586,9 @@ export const ConsoleInput = forwardRef<HTMLDivElement, ConsoleInputProps>((props
 					// and if so, append the new code fragment on a new line.
 					codeFragment = `${currentCodeFragment}${codeFragment}`;
 					// Empty the current value, since we used it.
-					currentCodeFragment = '';
+
 				}
+				currentCodeFragment = '';
 			}
 
 			// Update the current code fragment.
@@ -596,12 +597,6 @@ export const ConsoleInput = forwardRef<HTMLDivElement, ConsoleInputProps>((props
 
 			// Try to execute the code.
 			await executeCodeEditorWidgetCodeIfPossible();
-
-			// If anything is still pending, set back to current.
-			if (currentCodeFragment.length) {
-				setCurrentCodeFragment(currentCodeFragment);
-				codeEditorWidgetRef.current.setValue(currentCodeFragment);
-			}
 		}));
 
 		// Focus the console.
