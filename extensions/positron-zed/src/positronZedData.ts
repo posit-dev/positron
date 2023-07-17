@@ -67,7 +67,8 @@ export class ZedData implements DataSet {
 	sliceData(start: number, size: number): Array<ZedColumn> {
 		if (start < 0 || start >= this.rowCount) {
 			throw new Error(`Invalid start index: ${start}`);
-		} else if (this.rowCount <= size) {
+		} else if (start === 0 && this.rowCount <= size) {
+			// No need to slice the data
 			return this.columns;
 		}
 
@@ -80,7 +81,6 @@ export class ZedData implements DataSet {
 	}
 
 	handleMessage(message: any): void {
-		console.log(`ZedData ${this.id} got message: ${JSON.stringify(message)}`);
 		switch (message.msg_type) {
 			case 'ready':
 			case 'request_rows':
