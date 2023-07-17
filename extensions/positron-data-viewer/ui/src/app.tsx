@@ -36,8 +36,6 @@ window.addEventListener('message', (event: any) => {
 
 	if (message.msg_type === 'initial_data') {
 		const dataMessage = message as DataViewerMessageData;
-		console.log(`DATA: Row ${dataMessage.start_row} Col 0 starts with ${dataMessage.data.columns[0].data[0]}`);
-
 		const queryClient = new ReactQuery.QueryClient();
 		ReactDOM.render(
 			<React.StrictMode>

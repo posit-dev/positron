@@ -50,7 +50,6 @@ export const DataPanel = (props: DataPanelProps) => {
 		const message = event.data as DataViewerMessage;
 		if (message.msg_type === 'receive_rows' && !renderedStartRows.includes(message.start_row)) {
 			const dataMessage = message as DataViewerMessageData;
-			console.log(`DATA: Row ${dataMessage.start_row} Col 0 starts with ${dataMessage.data.columns[0].data[0]}`);
 
 			const incrementalData: DataFragment = {
 				rowStart: dataMessage.start_row,
