@@ -291,6 +291,7 @@ export class LanguageRuntimeAdapter
 		// Ensure the type of client we're being asked to create is one we know ark supports
 		if (type === positron.RuntimeClientType.Environment ||
 			type === positron.RuntimeClientType.Lsp ||
+			type === positron.RuntimeClientType.Dap ||
 			type === positron.RuntimeClientType.FrontEnd) {
 			this._kernel.log(`Creating '${type}' client for ${this.metadata.languageName}`);
 
@@ -761,6 +762,54 @@ export class LanguageRuntimeAdapter
 			positron.RuntimeClientType.Lsp,
 			{ client_address: clientAddress }
 		);
+	}
+
+	/**
+	 * Requests that the kernel start a Debug Adapter Protocol server, and
+	 * connect it to the client locally on the given TCP port.
+	 *
+	 * @param serverPort The client's TCP port.
+	 */
+	async startPositronDap(
+		serverPort: number,
+		debugType: string,
+		debugName: string,
+	) {
+		// NOTE: Ideally we'd connect to any address but the
+		// `debugServer` property passed in the configuration below
+		// needs to be a port for localhost.
+		const serverAddress = `127.0.0.1:${serverPort}`;
+
+		// TODO: Should we query the kernel to see if it can create a DAP
+		// (QueryInterface style) instead of just demanding it?
+		//
+		// The Jupyter kernel spec does not provide a way to query for
+		// supported comms; the only way to know is to try to create one.
+
+		// Create a unique client ID for this instance
+		const uniqueId = Math.floor(Math.random() * 0x100000000).toString(16);
+		const clientId = `positron-dap-${this.metadata.languageId}-${LanguageRuntimeAdapter._clientCounter++}-${uniqueId}}`;
+		this._kernel.log(`Starting DAP server ${clientId} for ${serverAddress}`);
+
+		await this.createClient(
+			clientId,
+			positron.RuntimeClientType.Dap,
+			{ client_address: serverAddress }
+		);
+
+		const comm = this._comms.get(clientId)!;
+		comm.onDidReceiveCommMsg(msg => {
+			if (msg.msg_type === 'start_debug') {
+				this._kernel.log(`Starting debug session for DAP server ${clientId}`);
+				const config = {
+					type: debugType,
+					name: debugName,
+					request: 'attach',
+					debugServer: serverPort,
+				} as vscode.DebugConfiguration;
+				vscode.debug.startDebugging(undefined, config);
+			}
+		});
 	}
 
 	/**

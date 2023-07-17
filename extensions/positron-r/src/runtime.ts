@@ -8,6 +8,7 @@ import PQueue from 'p-queue';
 
 import { JupyterAdapterApi, JupyterKernelSpec, JupyterLanguageRuntime, JupyterKernelExtra } from './jupyter-adapter';
 import { ArkLsp, LspState } from './lsp';
+import { ArkDap, DapState } from './dap';
 
 /**
  * A Positron language runtime that wraps a Jupyter kernel and a Language Server
@@ -17,6 +18,9 @@ export class RRuntime implements positron.LanguageRuntime, vscode.Disposable {
 
 	/** The Language Server Protocol client wrapper */
 	private _lsp: ArkLsp;
+
+	/** The Debug Adapter Protocol client wrapper */
+	private _dap: ArkDap;
 
 	/** Queue for message handlers */
 	private _queue: PQueue;
@@ -43,6 +47,7 @@ export class RRuntime implements positron.LanguageRuntime, vscode.Disposable {
 		readonly extra?: JupyterKernelExtra,
 	) {
 		this._lsp = new ArkLsp(metadata.languageVersion);
+		this._dap = new ArkDap(metadata.languageVersion);
 		this._queue = new PQueue({ concurrency: 1 });
 		this.onDidReceiveRuntimeMessage = this._messageEmitter.event;
 		this.onDidChangeRuntimeState = this._stateEmitter.event;
@@ -189,6 +194,12 @@ export class RRuntime implements positron.LanguageRuntime, vscode.Disposable {
 				}
 				await this._lsp.activate(port, this.context);
 			});
+			this._queue.add(async () => {
+				if (this._kernel) {
+					const port = await this.adapterApi!.findAvailablePort([], 25);
+					await this._kernel.startPositronDap(port, 'ark', 'Ark Positron R');
+				}
+			});
 		} else if (state === positron.RuntimeState.Exited) {
 			if (this._lsp.state === LspState.running) {
 				this._queue.add(async () => {
@@ -196,6 +207,15 @@ export class RRuntime implements positron.LanguageRuntime, vscode.Disposable {
 						this._kernel.emitJupyterLog(`Stopping Positron LSP server`);
 					}
 					await this._lsp.deactivate(false);
+				});
+			}
+			if (this._dap.state === DapState.running) {
+				this._queue.add(async () => {
+					if (this._kernel) {
+						this._kernel.emitJupyterLog(`Stopping Positron DAP server`);
+					}
+					// TODO
+					// await this._dap.deactivate();
 				});
 			}
 		}

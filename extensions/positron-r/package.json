@@ -317,7 +317,13 @@
           "when": "resourceLangId == r && !isInDiffEditor"
         }
       ]
-    }
+    },
+    "debuggers": [
+      {
+        "type": "ark",
+        "label": "R Debugger"
+      }
+    ]
   },
   "scripts": {
     "vscode:prepublish": "yarn run compile",

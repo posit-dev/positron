@@ -49,6 +49,19 @@ export interface JupyterLanguageRuntime extends positron.LanguageRuntime {
 	startPositronLsp(clientAddress: string): Thenable<void>;
 
 	/**
+	 * Convenience method for starting the Positron DAP server, if the
+	 * language runtime supports it.
+	 *
+	 * @param clientPort The port of the client that will connect to the
+	 *  language server.
+	 */
+	startPositronDap(
+		serverPort: number,
+		debugType: string,
+		debugName: string,
+	): Thenable<void>;
+
+	/**
 	 * Method for emitting a message to the language server's Jupyter output
 	 * channel.
 	 *
