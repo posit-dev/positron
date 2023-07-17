@@ -10,7 +10,6 @@
 			],
 			"label": "Version Check",
 			"presentation": {
-				"group": "buildWatchers",
 				"close": false
 			},
 		},
