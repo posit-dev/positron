@@ -12,7 +12,7 @@ import * as ReactTable from '@tanstack/react-table';
 
 // Local modules.
 import { DataFragment, DataModel } from './DataModel';
-import { DataViewerMessageRequest, DataViewerMessage, DataViewerMessageData, DataSet } from './positron-data-viewer';
+import { DataViewerMessageRequest, DataViewerMessage, DataSet } from './positron-data-viewer';
 
 interface DataPanelProps {
 	data: DataSet;
@@ -47,19 +47,9 @@ export const DataPanel = (props: DataPanelProps) => {
 
 	const handleMessage = ((event: any) => {
 		const message = event.data as DataViewerMessage;
-
-		if (message.msg_type === 'receive_rows' && !dataModel.renderedRows.includes(message.start_row)) {
-			const dataMessage = message as DataViewerMessageData;
-
-			const incrementalData: DataFragment = {
-				rowStart: dataMessage.start_row,
-				rowEnd: dataMessage.start_row + dataMessage.fetch_size - 1,
-				columns: dataMessage.data.columns
-			};
-
-			updateDataModel(
-				(prevDataModel) => prevDataModel.appendFragment(incrementalData)
-			);
+		const updatedDataModel = dataModel.handleDataMessage(message);
+		if (updatedDataModel.id !== dataModel.id) {
+			updateDataModel(updatedDataModel);
 		}
 	});
 

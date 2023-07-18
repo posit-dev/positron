@@ -2,7 +2,7 @@
  *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
-import { DataColumn, DataSet } from './positron-data-viewer';
+import { DataColumn, DataSet, DataViewerMessage, DataViewerMessageData } from './positron-data-viewer';
 
 /**
  * A fragment of data, arranged by column.
@@ -86,6 +86,20 @@ export class DataModel {
 		);
 		//console.log(`Rendered ${updatedDataModel.loadedRowCount} rows out of ${updatedDataModel.rowCount} total rows`);
 		return updatedDataModel;
+	}
+
+	handleDataMessage(message: DataViewerMessage,): DataModel {
+		if (message.msg_type === 'receive_rows' && !this.renderedRows.includes(message.start_row)) {
+			const dataMessage = message as DataViewerMessageData;
+
+			const incrementalData: DataFragment = {
+				rowStart: dataMessage.start_row,
+				rowEnd: dataMessage.start_row + dataMessage.fetch_size - 1,
+				columns: dataMessage.data.columns
+			};
+			return this.appendFragment(incrementalData);
+		}
+		return this;
 	}
 
 	/**
