@@ -4,7 +4,7 @@ VERSION=$(node --version)
 CURRENT_MAJOR=$(echo $VERSION | cut -d. -f1 | grep -o "\d*")
 CURRENT_MINOR=$(echo $VERSION | cut -d. -f2)
 
-RECOMMENDED_VERSION=$(cat ../.nvmrc)
+RECOMMENDED_VERSION=$(cat .nvmrc)
 RECOMMENDED_MAJOR=$(echo $RECOMMENDED_VERSION | cut -d. -f1)
 RECOMMENDED_MINOR=$(echo $RECOMMENDED_VERSION | cut -d. -f2)
 
