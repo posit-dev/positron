@@ -27,6 +27,21 @@ if (process.env['VSCODE_DEV']) {
 }
 globalThis._VSCODE_PACKAGE_JSON = require('../package.json');
 
+// --- Start Positron ---
+
+// Add a global API accessor. This simple wrapper is used to make it possible
+// for extensions that target both Positron and VS Code to obtain a handle to
+// the Positron API.
+globalThis.acquirePositronApi = function () {
+	try {
+		return require('positron');
+	} catch (err) {
+		return undefined;
+	}
+};
+
+// --- End Positron ---
+
 // @ts-ignore
 const loader = require('./vs/loader');
 const bootstrap = require('./bootstrap');
