@@ -44,11 +44,11 @@ export const DataPanel = (props: DataPanelProps) => {
 	// We should maybe use DataFragments here instead, and throughout the Panel
 	const {data: initialData, fetchSize, vscode} = props;
 	const [dataModel, updateDataModel] = React.useState<DataModel>(new DataModel(initialData));
-	const [renderedStartRows, updateRenderedRows] = React.useState<number[]>([0]);
 
 	const handleMessage = ((event: any) => {
 		const message = event.data as DataViewerMessage;
-		if (message.msg_type === 'receive_rows' && !renderedStartRows.includes(message.start_row)) {
+
+		if (message.msg_type === 'receive_rows' && !dataModel.renderedRows.includes(message.start_row)) {
 			const dataMessage = message as DataViewerMessageData;
 
 			const incrementalData: DataFragment = {
@@ -57,21 +57,22 @@ export const DataPanel = (props: DataPanelProps) => {
 				columns: dataMessage.data.columns
 			};
 
-			updateDataModel((prevDataModel) => prevDataModel.appendFragment(incrementalData));
-			updateRenderedRows((prevRows) => [...prevRows, dataMessage.start_row]);
+			updateDataModel(
+				(prevDataModel) => prevDataModel.appendFragment(incrementalData)
+			);
 		}
 	});
 
 	React.useEffect(() => {
-		// Because the event handler depends on the renderedStartRows state, we
-		// re-run the effect whenever the rendered rows state changes.
+		// Because the event handler depends on the dataModel state (via rendered rows property),
+		// we re-run the effect whenever the dataModel changes.
 		// (Only when data that is new to the frontend is received)
 		window.addEventListener('message', handleMessage);
 
 		return () => {
 			window.removeEventListener('message', handleMessage);
 		};
-	}, [renderedStartRows]);
+	}, [dataModel]);
 
 	// Create the columns for the table. These use the 'any' type since the data
 	// model is generic.
@@ -93,7 +94,7 @@ export const DataPanel = (props: DataPanelProps) => {
 	// Use a React Query infinite query to fetch data from the data model.
 	const { data, fetchNextPage, isFetching, isLoading } =
 		ReactQuery.useInfiniteQuery<DataFragment>(
-			['table-data', dataModel.id, renderedStartRows],
+			['table-data', dataModel.id],
 			async ({ pageParam = 0 }) => {
 				// Fetches a single page of data from the data model.
 				const start = pageParam * fetchSize;

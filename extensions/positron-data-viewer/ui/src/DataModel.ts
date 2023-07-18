@@ -32,7 +32,9 @@ export interface DataFragment {
 export class DataModel {
 	constructor(
 		public readonly dataSet: DataSet,
-		public readonly rowStart = 0) {
+		public readonly rowStart = 0,
+		public renderedRows = [0]
+	) {
 	}
 
 	/**
@@ -56,6 +58,11 @@ export class DataModel {
 	}
 
 	appendFragment(newFragment: DataFragment): DataModel {
+		if (!this.renderedRows.includes(newFragment.rowStart)) {
+			this.renderedRows.push(newFragment.rowStart);
+			this.renderedRows.sort();
+		}
+
 		const columns = this.dataSet.columns.map((column: DataColumn, index: number) => {
 			return {
 				...column,
@@ -65,14 +72,19 @@ export class DataModel {
 		const updatedDataModel = new DataModel({
 			...this.dataSet,
 			columns: columns
-		}, this.rowStart);
-
+		},
+			this.rowStart,
+			this.renderedRows
+		);
 		//console.log(`data model has ${updatedDataModel.loadedRowCount} loaded rows out of ${updatedDataModel.rowCount} total rows`);
 		return updatedDataModel;
 	}
 
 	get id(): String {
-		return `rows ${this.rowStart}-${this.rowEnd}: ${this.dataSet.id}`;
+		return `
+		Rendered rows: ${this.renderedRows}
+		Dataset: ${this.dataSet.id}
+		`;
 	}
 
 	/**
