@@ -1523,11 +1523,6 @@
         ],
         "keybindings": [
             {
-                "command": "python.execSelectionInTerminal",
-                "key": "shift+enter",
-                "when": "editorTextFocus && editorLangId == python && !findInputFocussed && !replaceInputFocussed && !jupyter.ownsSelection && !notebookEditorFocused"
-            },
-            {
                 "command": "python.refreshTensorBoard",
                 "key": "ctrl+r",
                 "mac": "cmd+r",
