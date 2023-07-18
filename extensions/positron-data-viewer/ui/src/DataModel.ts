@@ -84,11 +84,12 @@ export class DataModel {
 			this.rowStart,
 			this.renderedRows
 		);
-		//console.log(`Rendered ${updatedDataModel.loadedRowCount} rows out of ${updatedDataModel.rowCount} total rows`);
+		//console.log(`Updated data model: ${updatedDataModel.id}`);
 		return updatedDataModel;
 	}
 
-	handleDataMessage(message: DataViewerMessage,): DataModel {
+	handleDataMessage(event: any): DataModel {
+		const message = event.data as DataViewerMessage;
 		if (message.msg_type === 'receive_rows' && !this.renderedRows.includes(message.start_row)) {
 			const dataMessage = message as DataViewerMessageData;
 
@@ -107,7 +108,6 @@ export class DataModel {
 	 */
 	get id(): String {
 		return `
-		Loaded rows: ${this.loadedRowCount}
 		Rendered rows: ${this.renderedRows}
 		Dataset: ${this.dataSet.id}
 		`;
@@ -125,8 +125,7 @@ export class DataModel {
 	 */
 	get loadedRowCount(): number {
 		if (this.columns.length > 0) {
-			// If the row count isn't specified, use the length of the first
-			// column
+			// Check the row count of the actual data
 			return this.columns[0].data.length;
 		}
 		return 0;

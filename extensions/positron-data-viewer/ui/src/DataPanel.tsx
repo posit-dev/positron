@@ -12,7 +12,7 @@ import * as ReactTable from '@tanstack/react-table';
 
 // Local modules.
 import { DataFragment, DataModel } from './DataModel';
-import { DataViewerMessageRequest, DataViewerMessage, DataSet } from './positron-data-viewer';
+import { DataViewerMessageRequest, DataSet } from './positron-data-viewer';
 
 interface DataPanelProps {
 	data: DataSet;
@@ -46,11 +46,7 @@ export const DataPanel = (props: DataPanelProps) => {
 	const [dataModel, updateDataModel] = React.useState<DataModel>(new DataModel(initialData));
 
 	const handleMessage = ((event: any) => {
-		const message = event.data as DataViewerMessage;
-		const updatedDataModel = dataModel.handleDataMessage(message);
-		if (updatedDataModel.id !== dataModel.id) {
-			updateDataModel(updatedDataModel);
-		}
+		updateDataModel(dataModel.handleDataMessage(event));
 	});
 
 	React.useEffect(() => {
