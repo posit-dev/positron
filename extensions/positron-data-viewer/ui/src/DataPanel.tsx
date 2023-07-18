@@ -41,24 +41,20 @@ export const DataPanel = (props: DataPanelProps) => {
 	// A reference to the table container element.
 	const tableContainerRef = React.useRef<HTMLDivElement>(null);
 
-	// We should maybe use DataFragments here instead, and throughout the Panel
 	const {data: initialData, fetchSize, vscode} = props;
 	const [dataModel, updateDataModel] = React.useState<DataModel>(new DataModel(initialData));
 
 	const handleMessage = ((event: any) => {
-		updateDataModel(dataModel.handleDataMessage(event));
+		updateDataModel((prevDataModel) => prevDataModel.handleDataMessage(event));
 	});
 
 	React.useEffect(() => {
-		// Because the event handler depends on the dataModel state (via rendered rows property),
-		// we re-run the effect whenever the dataModel changes.
-		// (Only when data that is new to the frontend is received)
 		window.addEventListener('message', handleMessage);
 
 		return () => {
 			window.removeEventListener('message', handleMessage);
 		};
-	}, [dataModel]);
+	}, []);
 
 	// Create the columns for the table. These use the 'any' type since the data
 	// model is generic.

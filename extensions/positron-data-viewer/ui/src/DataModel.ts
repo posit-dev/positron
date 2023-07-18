@@ -66,9 +66,10 @@ export class DataModel {
 	 * @returns A new data model, which combines this data model plus the new fragment.
 	 */
 	appendFragment(newFragment: DataFragment): DataModel {
+		const updatedRenderedRows = this.renderedRows.slice();
 		if (!this.renderedRows.includes(newFragment.rowStart)) {
-			this.renderedRows.push(newFragment.rowStart);
-			this.renderedRows.sort();
+			updatedRenderedRows.push(newFragment.rowStart);
+			updatedRenderedRows.sort();
 		}
 
 		const columns = this.dataSet.columns.map((column: DataColumn, index: number) => {
@@ -82,7 +83,7 @@ export class DataModel {
 			columns: columns
 		},
 			this.rowStart,
-			this.renderedRows
+			updatedRenderedRows
 		);
 		//console.log(`Updated data model: ${updatedDataModel.id}`);
 		return updatedDataModel;
