@@ -12,8 +12,7 @@ EXTENSION_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(EXTENSION_ROOT, "pythonFiles", "lib", "jedilsp"))
 
 from threading import Event
-from typing import Any, Callable, List, Optional, Union, TYPE_CHECKING
-
+from typing import TYPE_CHECKING, Any, Callable, List, Optional, Union
 
 from jedi.api import Interpreter
 from jedi_language_server import jedi_utils, pygls_utils
@@ -374,11 +373,15 @@ def positron_rename(
 def positron_code_action(
     server: PositronJediLanguageServer, params: CodeActionParams
 ) -> Optional[List[CodeAction]]:
-    try:
-        return code_action(server, params)
-    except ValueError:
-        # Ignore LSP errors for actions with invalid line/column ranges.
-        logger.info("LSP codeAction error", exc_info=True)
+    # Code Actions are currently causing the kernel process to hang in certain cases, for example,
+    # when the document contains `from fastai.vision.all import *`. Temporarily disable these
+    # until we figure out the underlying issue.
+
+    # try:
+    #     return code_action(server, params)
+    # except ValueError:
+    #     # Ignore LSP errors for actions with invalid line/column ranges.
+    #     logger.info("LSP codeAction error", exc_info=True)
 
     return None
 
