@@ -1,0 +1,8 @@
+{
+	"binaries": [
+		{
+			"from": "resources/*.svg",
+			"to": "resources"
+		}
+	]
+}
