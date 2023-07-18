@@ -575,11 +575,19 @@ export const ConsoleInput = forwardRef<HTMLDivElement, ConsoleInputProps>((props
 		// Add the onDidExecuteCode event handler.
 		disposableStore.add(props.positronConsoleInstance.onDidExecuteCode(async codeFragment => {
 			// Get the current code fragment.
-			const currentCodeFragment = codeEditorWidgetRef.current.getValue();
+			let currentCodeFragment = codeEditorWidgetRef.current.getValue();
 
-			// If there is a current code fragment, append the new code fragment on a new line.
+			// If there is a current code fragment,
 			if (currentCodeFragment.length) {
-				codeFragment = `${currentCodeFragment}${codeFragment}`;
+				// check whether the current code fragment is incomplete,
+				const currentCodeFragmentStatus = await props.positronConsoleInstance.runtime.
+					isCodeFragmentComplete(currentCodeFragment);
+				if (currentCodeFragmentStatus === RuntimeCodeFragmentStatus.Incomplete) {
+					// and if so, append the new code fragment on a new line.
+					codeFragment = `${currentCodeFragment}${codeFragment}`;
+				}
+				// Empty the current value, since we either used it or need to discard it.
+				currentCodeFragment = '';
 			}
 
 			// Update the current code fragment.
