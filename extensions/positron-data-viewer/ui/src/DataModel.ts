@@ -82,6 +82,7 @@ export class DataModel {
 
 	get id(): String {
 		return `
+		Loaded rows: ${this.loadedRowCount}
 		Rendered rows: ${this.renderedRows}
 		Dataset: ${this.dataSet.id}
 		`;
@@ -101,10 +102,6 @@ export class DataModel {
 			return this.columns[0].data.length;
 		}
 		return 0;
-	}
-
-	get rowEnd(): number {
-		return Math.min(this.rowStart + this.loadedRowCount - 1, this.rowCount - 1);
 	}
 
 	/**
