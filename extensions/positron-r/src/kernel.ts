@@ -100,7 +100,10 @@ export function registerArkKernel(ext: vscode.Extension<any>, context: vscode.Ex
 			// e.g. distinguish between 4.3-arm64 vs. 4.3-x86_64
 		}
 
-		is_orthogonal() {
+		// https://github.com/r-lib/rig/blob/793663844638127abbb51e3b696e1068b200a5ab/src/macos.rs#L575-L584
+		// "orthogonal" basically means the R installation knows its own concrete home directory,
+		// as opposed to reporting the abstract home directory for the "current version of R"
+		isOrthogonal() {
 			return fs.realpathSync(this.rHomeRHOME) === this.rHome;
 		}
 	}
