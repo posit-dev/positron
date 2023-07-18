@@ -140,7 +140,7 @@ export function registerArkKernel(ext: vscode.Extension<any>, context: vscode.Ex
 		});
 	// TODO: see Google Doc about multiple R versions for things we could do in the future
 	// re: non-orthogonal R installations
-	rInstallations.filter(inst => inst.is_orthogonal());
+	rInstallations.filter(inst => inst.isOrthogonal());
 
 	// Sort the R installations by version number, descending. If we don't find an R
 	// installation on the PATH, this produces reasonable default behaviour, which is to
