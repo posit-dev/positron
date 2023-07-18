@@ -73,7 +73,7 @@ function getRHOME(rHome: string): string {
 }
 
 // input: '4.3-arm64'
-// output: '/Library/Frameworks/R.framework/Versions/4.4-arm64/Resources/bin/R'
+// output: '/Library/Frameworks/R.framework/Versions/4.3-arm64/Resources/bin/R'
 function getRBinary(version: string): string {
 	return path.join(R_ROOT, R_BINPATH.replace('{}', version));
 }
