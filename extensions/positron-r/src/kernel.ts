@@ -17,6 +17,10 @@ import { JupyterKernelSpec, JupyterKernelExtra } from './jupyter-adapter';
 // by this language pack
 let runtime: positron.LanguageRuntime;
 
+// macOS
+const R_ROOT: string = '/Library/Frameworks/R.framework/Versions';
+const R_BINPATH: string = '{}/Resources/R';
+
 export function adaptJupyterKernel(context: vscode.ExtensionContext, kernelPath: string) {
 	// Check to see whether the Jupyter Adapter extension is installed
 	// and active. If so, we can start the language server.
@@ -38,6 +42,7 @@ export function adaptJupyterKernel(context: vscode.ExtensionContext, kernelPath:
 	});
 }
 
+// ALTERNATIVE: we could grab the R version from the DESCRIPTION file of base
 function getRVersion(rHome: string): string {
 	// Get the version of the R installation
 	const { execSync } = require('child_process');
@@ -48,40 +53,55 @@ function getRVersion(rHome: string): string {
 			{ shell: '/bin/bash', encoding: 'utf8' })
 			.trim();
 	} catch (e) {
-		console.error(`Error getting R version: ${e}`);
+		console.error(`Error getting R version: for ${rHome}: ${e}`);
 	}
 	return rVersion;
+}
+
+// ALTERNATIVE: we can learn this by reading the first beginning byte of the R binary
+function getRHOME(rHome: string): string {
+	const { execSync } = require('child_process');
+	const binPath = rHome === '' ? 'R' : `${rHome}/R`;
+	let RHOME = '';
+	try {
+		RHOME = execSync(
+			`${binPath} RHOME`, { shell: '/bin/bash', encoding: 'utf8' }).trim();
+	} catch (e) {
+		console.error(`Error running R RHOME command for ${rHome}: ${e}`);
+	}
+	return RHOME;
+}
+
+// input: '4.3-arm64'
+// output: '/Library/Frameworks/R.framework/Versions/4.4-arm64/Resources/bin/R'
+function getRBinary(version: string): string {
+	return path.join(R_ROOT, R_BINPATH.replace('{}', version));
 }
 
 export function registerArkKernel(ext: vscode.Extension<any>, context: vscode.ExtensionContext, kernelPath: string): void {
 
 	class RInstallation {
-		public readonly rHome: string;
-		public readonly rVersion: string;
+		public readonly rHome: string;        // `path` in rig
+		public readonly rHomeAsFound: string; // no equivalent in rig
+		public readonly rHomeRHOME: string;   // no equivalent in rig
+		public readonly rVersion: string;     // `version` in rig
 
 		/**
 		 * Represents an installation of R on the user's system.
 		 *
-		 * @param rHome The path to the R installation's home folder
-		 * @param resolved Whether the path has been resolved to a canonical path
+		 * @param pth Candidate path for an R home folder
 		 */
-		constructor(rHome: string, resolved: boolean) {
-			// Form the canonical path to the R installation by asking R itself
-			// for its home directory. This may differ from the path that was
-			// passed since the discovered home path may contain symlinks.
-			if (resolved) {
-				this.rHome = rHome;
-			} else {
-				try {
-					this.rHome = execSync(
-						`${rHome}/R RHOME`, { encoding: 'utf8' })
-						.trim();
-				} catch (e) {
-					console.error(`Error running RHOME command for ${rHome}: ${e}`);
-					this.rHome = rHome;
-				}
-			}
-			this.rVersion = getRVersion(rHome);
+		constructor(pth: string) {
+			this.rHomeAsFound = pth;
+			this.rHome = fs.realpathSync(pth);
+			this.rHomeRHOME = getRHOME(pth);
+			this.rVersion = getRVersion(this.rHome);
+			// TODO: we should also record the architecture
+			// e.g. distinguish between 4.3-arm64 vs. 4.3-x86_64
+		}
+
+		is_orthogonal() {
+			return fs.realpathSync(this.rHomeRHOME) === this.rHome;
 		}
 	}
 
@@ -103,44 +123,46 @@ export function registerArkKernel(ext: vscode.Extension<any>, context: vscode.Ex
 	// version of R, but it's possible to have multiple versions installed in
 	// cases where a third-party utility such as `rig` is used to manage R
 	// installations.
-	const rVersionsFolder = '/Library/Frameworks/R.framework/Versions';
-	if (fs.existsSync(rVersionsFolder)) {
-		fs.readdirSync(rVersionsFolder).forEach((version: string) => {
-			const rHome = path.join(rVersionsFolder, version, 'Resources');
-			if (fs.existsSync(rHome)) {
-				// Ensure the R binary actually exists at this path; it's possible that
-				// the user has deleted the R installation but left the folder behind.
-				const rBin = path.join(rHome, 'bin', 'R');
-				if (fs.existsSync(rBin)) {
-					rInstallations.push(new RInstallation(rHome, false));
-				}
-			}
+	const versionDirs = fs.readdirSync(R_ROOT)
+		// 'Current', if it exists, is a symlink to an actual version. Skip it here to avoid
+		// redundant entries.
+		.filter(v => v !== 'Current')
+		// Check for an R binary in the expected place
+		.filter(v => fs.existsSync(getRBinary(v)));
+
+	versionDirs
+		.forEach((version: string) => {
+			const pth = path.join(R_ROOT, version, 'Resources');
+			rInstallations.push(new RInstallation(pth));
 		});
-	}
+	// TODO: see Google Doc about multiple R versions for things we could do in the future
+	// re: non-orthogonal R installations
+	rInstallations.filter(inst => inst.is_orthogonal());
 
 	// Sort the R installations by version number, descending. If we don't find an R
-	// installation on the $PATH (see below), we get reasonable default behaviour, which
-	// is to use the most recent version of R available.
+	// installation on the PATH, this produces reasonable default behaviour, which is to
+	// prefer the most recent version of R, if there are multiple versions installed.
+	// TODO: Once we record architecture, put, e.g., 4.3-arm64 before 4.3-x86_64.
 	rInstallations.sort((a, b) => {
 		return b.rVersion.localeCompare(a.rVersion);
 	});
 
-	// Look for an R installation on the $PATH (e.g. installed via Homebrew). If found,
-	// add or move it to the front of the list.
-	try {
-		// Try R RHOME to get the installation path; run under bash so we get $PATH
-		// set as the user would expect.
-		const rHome = execSync('R RHOME', { shell: '/bin/bash', encoding: 'utf8' }).trim();
+	// Look for an R installation on the PATH. If found, make sure it's at the front of
+	// the list.
+	const rPATH = getRHOME('');
+	if (rPATH !== '') {
+		const rHome = fs.realpathSync(rPATH);
 		if (fs.existsSync(rHome)) {
 			const loc = rInstallations.findIndex(r => r.rHome === rHome);
 			if (loc < 0) {
-				rInstallations.unshift(new RInstallation(rHome, true));
-			} else {
+				// add it to the front
+				// TODO: do we care about making a second call to getRHOME() here?
+				rInstallations.unshift(new RInstallation(rHome));
+			} else if (loc > 0) {
+				// move it to the front
 				rInstallations.splice(0, 0, rInstallations.splice(loc, 1)[0]);
-			}
+			} // it was already at the front
 		}
-	} catch (err) {
-		// Just swallow this; it's okay if there's no R on the $PATH
 	}
 
 	// Loop over the R installations and create a language runtime for each one.
