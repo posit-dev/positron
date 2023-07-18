@@ -23,13 +23,16 @@ export interface DataFragment {
 	 */
 	columns: Array<DataColumn>;
 }
-
-/**
- * The DataModel class represents the data model behind a DataPanel. It is
- * responsible for loading fragments from the data set as necessary to populate
- * the DataPanel.
- */
 export class DataModel {
+	/**
+	 * Create a new DataModel instance. The DataModel class represents the data model behind a
+	 * DataPanel. It is responsible for loading fragments from the data set as necessary to populate
+	 * the DataPanel.
+	 *
+	 * @param dataSet The data contained by the data model
+	 * @param rowStart The row index of the first row in the currently rendered data.
+	 * @param renderedRows A list of the rowStart indices that have been rendered so far in the panel.
+	 */
 	constructor(
 		public readonly dataSet: DataSet,
 		public readonly rowStart = 0,
@@ -57,6 +60,11 @@ export class DataModel {
 		};
 	}
 
+	/**
+	 *
+	 * @param newFragment A new DataFragment to be appended to the data model
+	 * @returns A new data model, which combines this data model plus the new fragment.
+	 */
 	appendFragment(newFragment: DataFragment): DataModel {
 		if (!this.renderedRows.includes(newFragment.rowStart)) {
 			this.renderedRows.push(newFragment.rowStart);
@@ -76,10 +84,13 @@ export class DataModel {
 			this.rowStart,
 			this.renderedRows
 		);
-		//console.log(`data model has ${updatedDataModel.loadedRowCount} loaded rows out of ${updatedDataModel.rowCount} total rows`);
+		//console.log(`Rendered ${updatedDataModel.loadedRowCount} rows out of ${updatedDataModel.rowCount} total rows`);
 		return updatedDataModel;
 	}
 
+	/**
+	 * A unique identifier for the data model, used to cache the data query.
+	 */
 	get id(): String {
 		return `
 		Loaded rows: ${this.loadedRowCount}
@@ -95,6 +106,9 @@ export class DataModel {
 		return this.dataSet.columns;
 	}
 
+	/**
+	 * The number of rows in the data set that the UI has received and rendered so far.
+	 */
 	get loadedRowCount(): number {
 		if (this.columns.length > 0) {
 			// If the row count isn't specified, use the length of the first
@@ -105,7 +119,7 @@ export class DataModel {
 	}
 
 	/**
-	 * The number of rows in the data set.
+	 * The total number of rows in the data set.
 	 */
 	get rowCount(): number {
 		if (this.dataSet.rowCount) {
