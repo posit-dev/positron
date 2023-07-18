@@ -257,10 +257,21 @@ export function registerPositronConsoleActions() {
 			if (code.length && position && ++lineNumber <= model.getLineCount()) {
 				// Continue to move past empty lines so that the cursor lands on
 				// the first non-empty line
-				while (this.trimNewlines(model.getLineContent(lineNumber)).length === 0 &&
-					lineNumber < model.getLineCount()) {
-					lineNumber++;
+				let nextLineNumber = lineNumber;
+				while (this.trimNewlines(model.getLineContent(nextLineNumber)).length === 0 &&
+					nextLineNumber < model.getLineCount()) {
+					nextLineNumber++;
 				}
+
+				if (nextLineNumber < model.getLineCount()) {
+					// If we found a non-empty line, move the cursor to it.
+					lineNumber = nextLineNumber;
+				} else {
+					// If we didn't, just move the cursor to the line after the
+					// one we executed, even if it's empty.
+					lineNumber = position.lineNumber + 1;
+				}
+
 				// This is the cursor's new position; move the cursor and scroll
 				// the editor to it if necessary.
 				const newPosition = position.with(lineNumber, 0);
