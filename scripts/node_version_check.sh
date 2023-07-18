@@ -13,6 +13,6 @@ if [[ "$CURRENT_MAJOR" == "$RECOMMENDED_MAJOR" && "$CURRENT_MINOR" == "$RECOMMEN
 elif [[ "$CURRENT_MAJOR" == "$RECOMMENDED_MAJOR" ]] ; then
 	echo "Node version: $VERSION ($RECOMMENDED_VERSION is recommended)"
 else # major version mismatch; print a warning in red
-	echo -e "\e[31mNode version: $VERSION may not be supported\e[0m"
-	echo -e "\e[31mConsider using node version $RECOMMENDED_VERSION\e[0m"
+	echo "\033[31mNode version: $VERSION may not be supported\033[0m"
+	echo "\033[31mConsider using node version $RECOMMENDED_VERSION\033[0m"
 fi
