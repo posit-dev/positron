@@ -38,7 +38,16 @@ def get_qualname(value: Any) -> str:
     qualname = getattr(named_obj, "__qualname__", None)
     if qualname is None:
         # Fall back to unqualified name if a qualified name doesn't exist
-        qualname = named_obj.__name__
+        qualname = getattr(named_obj, "__name__", None)
+
+    if qualname is None:
+        # Some objects may only have a name on a __class__ attribute
+        class_obj = getattr(named_obj, "__class__", None)
+        qualname = getattr(class_obj, "__name__", None)
+
+    if qualname is None:
+        # Finally, try to return the generic type's name, otherwise report object
+        qualname = getattr(type(value), "__name__", "object")
 
     # Prepend the module if it exists
     module = getattr(named_obj, "__module__", None)
