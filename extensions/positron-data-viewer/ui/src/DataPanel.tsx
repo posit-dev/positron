@@ -63,6 +63,9 @@ export const DataPanel = (props: DataPanelProps) => {
 	});
 
 	React.useEffect(() => {
+		// Because the event handler depends on the renderedStartRows state, we
+		// re-run the effect whenever the rendered rows state changes.
+		// (Only when data that is new to the frontend is received)
 		window.addEventListener('message', handleMessage);
 
 		return () => {

@@ -67,7 +67,7 @@ export class DataModel {
 			columns: columns
 		}, this.rowStart);
 
-		console.log(`data model has ${updatedDataModel.loadedRowCount} loaded rows out of ${updatedDataModel.rowCount} total rows`);
+		//console.log(`data model has ${updatedDataModel.loadedRowCount} loaded rows out of ${updatedDataModel.rowCount} total rows`);
 		return updatedDataModel;
 	}
 

@@ -119,7 +119,7 @@ export async function createDataPanel(context: vscode.ExtensionContext,
 			// perform rpc to get the data from the language runtime
 			//const dataMsg = constructDataViewerMessage(data, message.start_row, message.fetch_size);
 			client.performRpc(message).then((response) => {
-				console.log('Got response from runtime:', JSON.stringify(response));
+				//console.log('Got response from runtime:', JSON.stringify(response));
 				panel.webview.postMessage(response as DataViewerMessageData);
 			});
 		}
