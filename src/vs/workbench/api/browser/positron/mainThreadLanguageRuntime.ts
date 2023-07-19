@@ -9,7 +9,7 @@ import {
 	ExtHostPositronContext
 } from '../../common/positron/extHost.positron.protocol';
 import { extHostNamedCustomer, IExtHostContext } from 'vs/workbench/services/extensions/common/extHostCustomers';
-import { ILanguageRuntime, ILanguageRuntimeClientCreatedEvent, ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMessageCommClosed, ILanguageRuntimeMessageCommData, ILanguageRuntimeMessageCommOpen, ILanguageRuntimeMessageError, ILanguageRuntimeMessageInput, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessagePrompt, ILanguageRuntimeMessagePromptState, ILanguageRuntimeMessageState, ILanguageRuntimeMessageStream, ILanguageRuntimeMetadata, ILanguageRuntimeConfig, ILanguageRuntimeService, ILanguageRuntimeStartupFailure, LanguageRuntimeMessageType, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntime, ILanguageRuntimeClientCreatedEvent, ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMessageCommClosed, ILanguageRuntimeMessageCommData, ILanguageRuntimeMessageCommOpen, ILanguageRuntimeMessageError, ILanguageRuntimeMessageInput, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessagePrompt, ILanguageRuntimeMessagePromptState, ILanguageRuntimeMessageState, ILanguageRuntimeMessageStream, ILanguageRuntimeMetadata, ILanguageRuntimeDynState as ILanguageRuntimeDynState, ILanguageRuntimeService, ILanguageRuntimeStartupFailure, LanguageRuntimeMessageType, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { Disposable, DisposableStore } from 'vs/base/common/lifecycle';
 import { Event, Emitter } from 'vs/base/common/event';
 import { IPositronConsoleService } from 'vs/workbench/services/positronConsole/common/interfaces/positronConsoleService';
@@ -92,7 +92,7 @@ class ExtHostLanguageRuntimeAdapter implements ILanguageRuntime {
 	constructor(
 		readonly handle: number,
 		readonly metadata: ILanguageRuntimeMetadata,
-		readonly config: ILanguageRuntimeConfig,
+		readonly dynState: ILanguageRuntimeDynState,
 		private readonly _logService: ILogService,
 		private readonly _proxy: ExtHostLanguageRuntimeShape) {
 
@@ -382,10 +382,10 @@ class ExtHostLanguageRuntimeAdapter implements ILanguageRuntime {
 				// trailing whitespace as the rendering code adds its own
 				// whitespace.
 				if (info.input_prompt) {
-					this.config.inputPrompt = info.input_prompt.trimEnd();
+					this.dynState.inputPrompt = info.input_prompt.trimEnd();
 				}
 				if (info.continuation_prompt) {
-					this.config.continuationPrompt = info.continuation_prompt.trimEnd();
+					this.dynState.continuationPrompt = info.continuation_prompt.trimEnd();
 				}
 
 				this._startupEmitter.fire(info);
@@ -578,14 +578,14 @@ class ExtHostLanguageRuntimeAdapter implements ILanguageRuntime {
 				const continuationPrompt = state.continuationPrompt?.trimEnd();
 
 				if (inputPrompt) {
-					this.config.inputPrompt = inputPrompt;
+					this.dynState.inputPrompt = inputPrompt;
 				}
 				if (continuationPrompt) {
-					this.config.continuationPrompt = continuationPrompt;
+					this.dynState.continuationPrompt = continuationPrompt;
 				}
 
 				// Don't include new state in event, clients should
-				// inspect the runtime's config instead
+				// inspect the runtime's dyn state instead
 				this.emitDidReceiveRuntimeMessagePromptConfig();
 				break;
 			}
@@ -795,8 +795,8 @@ export class MainThreadLanguageRuntime implements MainThreadLanguageRuntimeShape
 	}
 
 	// Called by the extension host to register a language runtime
-	$registerLanguageRuntime(handle: number, metadata: ILanguageRuntimeMetadata, config: ILanguageRuntimeConfig): void {
-		const adapter = new ExtHostLanguageRuntimeAdapter(handle, metadata, config, this._logService, this._proxy);
+	$registerLanguageRuntime(handle: number, metadata: ILanguageRuntimeMetadata, dynState: ILanguageRuntimeDynState): void {
+		const adapter = new ExtHostLanguageRuntimeAdapter(handle, metadata, dynState, this._logService, this._proxy);
 		this._runtimes.set(handle, adapter);
 
 		// Consider - do we need a flag (on the API side) to indicate whether

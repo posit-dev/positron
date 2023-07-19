@@ -195,7 +195,7 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 			startupBehavior: positron.LanguageRuntimeStartupBehavior.Implicit
 		};
 
-		this.config = {
+		this.dynState = {
 			inputPrompt: `Z>`,
 			continuationPrompt: 'Z+',
 		};
@@ -218,10 +218,7 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 	/**
 	 * Dynamic state for the language runtime.
 	 */
-	config: positron.LanguageRuntimeConfig;
-
-	/**
-	 * An object that emits language runtime events.
+	dynState: positron.LanguageRuntimeDynState;
 
 	/**
 	 * An object that emits language runtime events.

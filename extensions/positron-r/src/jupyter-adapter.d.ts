@@ -75,7 +75,7 @@ export interface JupyterAdapterApi extends vscode.Disposable {
 	adaptKernel(
 		kernel: JupyterKernelSpec,
 		metadata: positron.LanguageRuntimeMetadata,
-		config: positron.LanguageRuntimeConfig,
+		dynState: positron.LanguageRuntimeDynState,
 		extra?: JupyterKernelExtra,
 	): JupyterLanguageRuntime;
 

@@ -838,8 +838,8 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 			);
 
 			// FIXME: Temporary compats during switch to dynamic config
-			const inputPrompt = this._runtime.config?.inputPrompt || this._runtime.metadata.inputPrompt as string;
-			const continuationPrompt = this._runtime.config?.continuationPrompt || this._runtime.metadata.continuationPrompt as string;
+			const inputPrompt = this._runtime.dynState?.inputPrompt || this._runtime.metadata.inputPrompt as string;
+			const continuationPrompt = this._runtime.dynState?.continuationPrompt || this._runtime.metadata.continuationPrompt as string;
 
 			// Add or update the runtime item activity.
 			this.addOrUpdateUpdateRuntimeItemActivity(

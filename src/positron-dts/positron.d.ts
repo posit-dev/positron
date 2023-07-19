@@ -194,8 +194,8 @@ declare module 'positron' {
 	}
 
 	/**
-	 * LanguageRuntimeStream is a LanguageRuntimeMessage representing output from a standard stream
-	 * (stdout or stderr).
+	 * LanguageRuntimePromptState is a LanguageRuntimeMessage representing a change
+	 * in the prompt state.
 	 */
 	export interface LanguageRuntimePromptState extends LanguageRuntimeMessage {
 		/** Prompt text */
@@ -325,10 +325,10 @@ declare module 'positron' {
 	}
 
 	/**
-	 * LanguageRuntimeMetadataState contains information about a language runtime that may
+	 * LanguageRuntimeDynState contains information about a language runtime that may
 	 * change after a runtime has started.
  	 */
-	export interface LanguageRuntimeConfig {
+	export interface LanguageRuntimeDynState {
 		/** The text the language's interpreter uses to prompt the user for input, e.g. ">" or ">>>" */
 		inputPrompt: string;
 
@@ -427,7 +427,7 @@ declare module 'positron' {
 		/** An object supplying metadata about the runtime */
 		readonly metadata: LanguageRuntimeMetadata;
 
-		config: LanguageRuntimeConfig;
+		dynState: LanguageRuntimeDynState;
 
 		/** An object that emits language runtime events */
 		onDidReceiveRuntimeMessage: vscode.Event<LanguageRuntimeMessage>;

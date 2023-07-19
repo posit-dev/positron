@@ -374,7 +374,7 @@ export interface ILanguageRuntimeMetadata {
 /* ILanguageRuntimeConfig contains information about a language runtime that is known
  * after the runtime is started and that might change in the course of a session.
  */
-export interface ILanguageRuntimeConfig {
+export interface ILanguageRuntimeDynState {
 	/** The text the language's interpreter uses to prompt the user for input, e.g. ">" or ">>>" */
 	inputPrompt: string;
 
@@ -387,7 +387,7 @@ export interface ILanguageRuntime {
 	readonly metadata: ILanguageRuntimeMetadata;
 
 	/** The language runtime's dynamic metadata */
-	config: ILanguageRuntimeConfig;
+	dynState: ILanguageRuntimeDynState;
 
 	/** An object that emits events when the runtime state changes */
 	onDidChangeRuntimeState: Event<RuntimeState>;

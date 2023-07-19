@@ -246,7 +246,7 @@ export function registerArkKernel(ext: vscode.Extension<any>, context: vscode.Ex
 			startupBehavior: positron.LanguageRuntimeStartupBehavior.Implicit
 		};
 
-		const config: positron.LanguageRuntimeConfig = {
+		const dynState: positron.LanguageRuntimeDynState = {
 			inputPrompt: '>',
 			continuationPrompt: '+',
 		};
@@ -257,7 +257,7 @@ export function registerArkKernel(ext: vscode.Extension<any>, context: vscode.Ex
 		};
 
 		// Create an adapter for the kernel to fulfill the LanguageRuntime interface.
-		runtime = new RRuntime(context, kernelSpec, metadata, config, ext.exports, extra);
+		runtime = new RRuntime(context, kernelSpec, metadata, dynState, ext.exports, extra);
 		context.subscriptions.push(runtime);
 
 		// Register the language runtime with Positron.
