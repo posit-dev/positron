@@ -86,7 +86,7 @@ jobs:
     name: Build macOS
     runs-on: [self-hosted, macos, arm64]
     needs: [revive_agent, version_string]
-    timeout-minutes: 40
+    timeout-minutes: 80
 
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
