@@ -153,12 +153,19 @@ jobs:
           POSITRON_GITHUB_PAT: ${{ secrets.POSITRON_GITHUB_PAT }}
         run: yarn --network-timeout 120000
 
-      # Build client
-      - name: Build client
+      # Build Positron core
+      - name: Build core Positron client
         env:
           POSITRON_BUILD_NUMBER: ${{ needs.version_string.outputs.build_number }}
         run: |
           yarn gulp compile-build
+
+      # Compile built-in extensions
+      - name: Build extensions
+        env:
+          POSITRON_BUILD_NUMBER: ${{ needs.version_string.outputs.build_number }}
+        run: |
+          yarn gulp compile-extensions-build
 
       # Minify and produce a macOS application
       - name: Minify and package client
