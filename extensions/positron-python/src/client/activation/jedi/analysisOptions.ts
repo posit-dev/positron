@@ -74,6 +74,15 @@ export class JediLanguageServerAnalysisOptions extends LanguageServerAnalysisOpt
                     },
                 },
             },
+            // --- Start Positron ---
+            // Auto-import fastai. Without this setting, most language server features will cause
+            // the process to hang, maxing out the CPU, and resulting in the kernel becoming non-
+            // responsive. This disables goto definition but keeps completions and signatures.
+            // See: https://github.com/davidhalter/jedi/issues/1721.
+            jediSettings: {
+                autoImportModules: ['fastai', 'fastcore'],
+            },
+            // --- End Positron ---
             workspace: {
                 extraPaths: distinctExtraPaths,
                 symbols: {
