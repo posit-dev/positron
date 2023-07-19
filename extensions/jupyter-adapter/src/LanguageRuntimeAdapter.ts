@@ -226,8 +226,8 @@ export class LanguageRuntimeAdapter
 						banner: message.banner,
 						implementation_version: message.implementation_version,
 						language_version: message.language_info.version,
-						input_prompt: message.language_info.posit_pbc?.input_prompt,
-						continuation_prompt: message.language_info.posit_pbc?.continuation_prompt,
+						input_prompt: message.language_info.positron?.input_prompt,
+						continuation_prompt: message.language_info.positron?.continuation_prompt,
 					} satisfies positron.LanguageRuntimeInfo);
 				});
 
@@ -594,8 +594,8 @@ export class LanguageRuntimeAdapter
 	 * @param data The execute_result message
 	 */
 	onExecuteReply(message: JupyterMessagePacket, data: JupyterExecuteReply) {
-		const is_input_request = data.posit_pbc?.is_input_request === true;
-		const has_prompts = data.posit_pbc?.input_prompt || data.posit_pbc?.continuation_prompt;
+		const is_input_request = data.positron?.is_input_request === true;
+		const has_prompts = data.positron?.input_prompt || data.positron?.continuation_prompt;
 
 		if (has_prompts && !is_input_request) {
 			this._messages.fire({
@@ -603,8 +603,8 @@ export class LanguageRuntimeAdapter
 				parent_id: message.originId,
 				when: message.when,
 				type: positron.LanguageRuntimeMessageType.PromptState,
-				inputPrompt: data.posit_pbc?.input_prompt,
-				continuationPrompt: data.posit_pbc?.continuation_prompt,
+				inputPrompt: data.positron?.input_prompt,
+				continuationPrompt: data.positron?.continuation_prompt,
 			} as positron.LanguageRuntimePromptState);
 		}
 	}

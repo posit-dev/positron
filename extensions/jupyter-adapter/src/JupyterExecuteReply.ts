@@ -20,10 +20,10 @@ export interface JupyterExecuteReply extends JupyterMessageSpec {
 	user_expressions: Map<string, any>;  // eslint-disable-line
 
 	/** Posit extension */
-	posit_pbc?: JupyterExecuteReplyPositPbc;
+	positron?: JupyterExecuteReplyPositron;
 }
 
-export interface JupyterExecuteReplyPositPbc {
+export interface JupyterExecuteReplyPositron {
 	/** String for next input prompt */
 	input_prompt?: string;
 

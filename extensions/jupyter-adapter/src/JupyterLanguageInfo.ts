@@ -30,10 +30,10 @@ export interface JupyterLanguageInfo {
 	nbconvert_exporter: string; // eslint-disable-line
 
 	/** Posit extension */
-	posit_pbc?: JupyterLanguageInfoPositPbc;
+	positron?: JupyterLanguageInfoPositron;
 }
 
-export interface JupyterLanguageInfoPositPbc {
+export interface JupyterLanguageInfoPositron {
 	/** Initial input prompt */
 	input_prompt?: string;
 
