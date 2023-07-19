@@ -18,7 +18,7 @@ interface DataPanelProps {
 	/**
 	 * The initial batch of data to display, before additional data requests have been made
 	 */
-	data: DataSet;
+	initialData: DataSet;
 	/**
 	 * The number of rows to fetch at a time from the backend
 	 */
@@ -49,7 +49,7 @@ export const DataPanel = (props: DataPanelProps) => {
 	// A reference to the table container element.
 	const tableContainerRef = React.useRef<HTMLDivElement>(null);
 
-	const {data: initialData, fetchSize, vscode} = props;
+	const {initialData, fetchSize, vscode} = props;
 
 	const [dataModel, updateDataModel] = React.useState<DataModel>(
 		new DataModel(initialData)
