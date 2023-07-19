@@ -594,10 +594,9 @@
                     "enum": [
                         "critical",
                         "error",
-                        "warning",
+                        "warn",
                         "info",
-                        "debug",
-                        "notset"
+                        "debug"
                     ],
                     "scope": "application",
                     "type": "string"
