@@ -25,8 +25,9 @@ import { ActivityItemErrorMessage } from 'vs/workbench/services/positronConsole/
 import { ActivityItemOutputMessage } from 'vs/workbench/services/positronConsole/common/classes/activityItemOutputMessage';
 import { RuntimeItemStartupFailure } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemStartupFailure';
 import { ActivityItem, RuntimeItemActivity } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemActivity';
-import { IPositronConsoleInstance, IPositronConsoleService, PositronConsoleState } from 'vs/workbench/services/positronConsole/common/interfaces/positronConsoleService';
+import { IPositronConsoleInstance, IPositronConsoleService, POSITRON_CONSOLE_VIEW_ID, PositronConsoleState } from 'vs/workbench/services/positronConsole/common/interfaces/positronConsoleService';
 import { formatLanguageRuntime, ILanguageRuntime, ILanguageRuntimeMessage, ILanguageRuntimeService, LanguageRuntimeStartupBehavior, RuntimeOnlineState, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { IViewsService } from 'vs/workbench/common/views';
 
 //#region Helper Functions
 
@@ -149,6 +150,7 @@ class PositronConsoleService extends Disposable implements IPositronConsoleServi
 		@ILanguageRuntimeService private _languageRuntimeService: ILanguageRuntimeService,
 		@ILanguageService _languageService: ILanguageService,
 		@ILogService private _logService: ILogService,
+		@IViewsService private _viewsService: IViewsService,
 	) {
 		// Call the disposable constrcutor.
 		super();
@@ -289,6 +291,14 @@ class PositronConsoleService extends Disposable implements IPositronConsoleServi
 	 * @returns A value which indicates whether the code could be executed.
 	 */
 	async executeCode(languageId: string, code: string, activate: boolean): Promise<boolean> {
+		// If the console is to be activated, make sure we raise the console pane before we
+		// start attempting to run the code. We do this before we attempt to run anything so the
+		// user can see what's going on in the console (e.g. a language runtime starting up
+		// in order to handle the code that's about to be executed)
+		if (activate) {
+			await this._viewsService.openView(POSITRON_CONSOLE_VIEW_ID, true);
+		}
+
 		// Get the running runtimes for the language.
 		const runningLanguageRuntimes = this._languageRuntimeService.runningRuntimes.filter(
 			runtime => isImplicitStartupLanguage(runtime, languageId));
