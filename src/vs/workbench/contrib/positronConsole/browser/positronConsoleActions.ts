@@ -17,7 +17,7 @@ import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/la
 import { INotificationService, Severity } from 'vs/platform/notification/common/notification';
 import { confirmationModalDialog } from 'vs/workbench/browser/positronModalDialogs/confirmationModalDialog';
 import { IExecutionHistoryService } from 'vs/workbench/contrib/executionHistory/common/executionHistoryService';
-import { IPositronConsoleService } from 'vs/workbench/services/positronConsole/common/interfaces/positronConsoleService';
+import { IPositronConsoleService, POSITRON_CONSOLE_VIEW_ID } from 'vs/workbench/services/positronConsole/common/interfaces/positronConsoleService';
 import { IViewsService } from 'vs/workbench/common/views';
 import { PositronConsoleViewPane } from 'vs/workbench/contrib/positronConsole/browser/positronConsoleView';
 
@@ -34,11 +34,6 @@ const enum PositronConsoleCommandId {
  * Positron console action category.
  */
 const POSITRON_CONSOLE_ACTION_CATEGORY = localize('positronConsoleCategory', "Console");
-
-/**
- * The Positron console view ID.
- */
-export const POSITRON_CONSOLE_VIEW_ID = 'workbench.panel.positronConsole';
 
 /**
  * Registers Positron console actions.
