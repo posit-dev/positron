@@ -3,7 +3,9 @@
 
 import { IServiceManager } from '../ioc/types';
 import { ExtensionActivationManager } from './activationManager';
-import { ExtensionSurveyPrompt } from './extensionSurvey';
+// --- Start Positron ---
+// remove extension survey prompt
+// --- End Positron ---
 import { LanguageServerOutputChannel } from './common/outputChannel';
 import {
     IExtensionActivationManager,
@@ -24,10 +26,9 @@ export function registerTypes(serviceManager: IServiceManager): void {
         ILanguageServerOutputChannel,
         LanguageServerOutputChannel,
     );
-    serviceManager.addSingleton<IExtensionSingleActivationService>(
-        IExtensionSingleActivationService,
-        ExtensionSurveyPrompt,
-    );
+    // --- Start Positron ---
+    // remove extension survey prompt
+    // --- End Positron ---
     serviceManager.addSingleton<IExtensionSingleActivationService>(
         IExtensionSingleActivationService,
         LoadLanguageServerExtension,
