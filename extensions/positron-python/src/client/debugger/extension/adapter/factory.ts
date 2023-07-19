@@ -183,7 +183,10 @@ export class DebugAdapterDescriptorFactory implements IDebugAdapterDescriptorFac
 
     private async getExecutableCommand(interpreter: PythonEnvironment | undefined): Promise<string[]> {
         if (interpreter) {
-            if ((interpreter.version?.major ?? 0) < 3 || (interpreter.version?.minor ?? 0) <= 6) {
+            if (
+                (interpreter.version?.major ?? 0) < 3 ||
+                ((interpreter.version?.major ?? 0) <= 3 && (interpreter.version?.minor ?? 0) <= 6)
+            ) {
                 this.showDeprecatedPythonMessage();
             }
             return interpreter.path.length > 0 ? [interpreter.path] : [];
@@ -200,6 +203,6 @@ export class DebugAdapterDescriptorFactory implements IDebugAdapterDescriptorFac
      * @memberof DebugAdapterDescriptorFactory
      */
     private async notifySelectInterpreter() {
-        await showErrorMessage(l10n.t('Please install Python or select a Python Interpreter to use the debugger.'));
+        await showErrorMessage(l10n.t('Install Python or select a Python Interpreter to use the debugger.'));
     }
 }
