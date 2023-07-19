@@ -57,21 +57,6 @@ export const ConsoleInput = forwardRef<HTMLDivElement, ConsoleInputProps>((props
 		useStateRef<string | undefined>(undefined);
 
 	/**
-	 * Updates the code editor widget position such that the cursor appers on the first line and the
-	 * first column.
-	const updateCodeEditorWidgetPositionToBeginning = () => {
-		// Set the code editor widget position.
-		codeEditorWidgetRef.current.setPosition({
-			lineNumber: 1,
-			column: 1
-		});
-
-		// Ensure that the code editor widget is scrolled into view.
-		codeEditorWidgetContainerRef.current?.scrollIntoView({ behavior: 'auto' });
-	};
-	 */
-
-	/**
 	 * Updates the code editor widget position such that the cursor appers on the last line and the
 	 * last column.
 	 */
