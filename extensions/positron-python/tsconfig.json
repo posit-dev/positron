@@ -40,7 +40,8 @@
         "src/smoke",
         "build",
         "out",
-        "tmp"
+        "tmp",
+        "pythonExtensionApi"
     ],
     "include": [
         "src/*",

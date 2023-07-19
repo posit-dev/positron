@@ -1,13 +1,18 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
-import { Uri } from 'vscode';
+import { TestRun, Uri } from 'vscode';
 import * as path from 'path';
-import * as net from 'net';
 import { IConfigurationService, ITestOutputChannel } from '../../../common/types';
-import { createDeferred, Deferred } from '../../../common/utils/async';
+import { createDeferred } from '../../../common/utils/async';
 import { traceError, traceInfo, traceLog, traceVerbose } from '../../../logging';
-import { DataReceivedEvent, ExecutionTestPayload, ITestExecutionAdapter, ITestServer } from '../common/types';
+import {
+    DataReceivedEvent,
+    ExecutionTestPayload,
+    ITestExecutionAdapter,
+    ITestResultResolver,
+    ITestServer,
+} from '../common/types';
 import {
     ExecutionFactoryCreateWithEnvironmentOptions,
     IPythonExecutionFactory,
@@ -17,6 +22,7 @@ import { removePositionalFoldersAndFiles } from './arguments';
 import { ITestDebugLauncher, LaunchOptions } from '../../common/types';
 import { PYTEST_PROVIDER } from '../../common/constants';
 import { EXTENSION_ROOT_DIR } from '../../../common/constants';
+import { startTestIdServer } from '../common/utils';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 // (global as any).EXTENSION_ROOT_DIR = EXTENSION_ROOT_DIR;
@@ -25,46 +31,49 @@ import { EXTENSION_ROOT_DIR } from '../../../common/constants';
  */
 
 export class PytestTestExecutionAdapter implements ITestExecutionAdapter {
-    private promiseMap: Map<string, Deferred<ExecutionTestPayload | undefined>> = new Map();
-
-    private deferred: Deferred<ExecutionTestPayload> | undefined;
-
     constructor(
         public testServer: ITestServer,
         public configSettings: IConfigurationService,
         private readonly outputChannel: ITestOutputChannel,
-    ) {
-        testServer.onDataReceived(this.onDataReceivedHandler, this);
-    }
-
-    public onDataReceivedHandler({ uuid, data }: DataReceivedEvent): void {
-        const deferred = this.promiseMap.get(uuid);
-        if (deferred) {
-            deferred.resolve(JSON.parse(data));
-            this.promiseMap.delete(uuid);
-        }
-    }
+        private readonly resultResolver?: ITestResultResolver,
+    ) {}
 
     async runTests(
         uri: Uri,
         testIds: string[],
         debugBool?: boolean,
+        runInstance?: TestRun,
         executionFactory?: IPythonExecutionFactory,
         debugLauncher?: ITestDebugLauncher,
     ): Promise<ExecutionTestPayload> {
-        if (executionFactory !== undefined) {
-            // ** new version of run tests.
-            return this.runTestsNew(uri, testIds, debugBool, executionFactory, debugLauncher);
+        const uuid = this.testServer.createUUID(uri.fsPath);
+        traceVerbose(uri, testIds, debugBool);
+        const disposable = this.testServer.onRunDataReceived((e: DataReceivedEvent) => {
+            if (runInstance) {
+                this.resultResolver?.resolveExecution(JSON.parse(e.data), runInstance);
+            }
+        });
+        try {
+            await this.runTestsNew(uri, testIds, uuid, debugBool, executionFactory, debugLauncher);
+        } finally {
+            this.testServer.deleteUUID(uuid);
+            disposable.dispose();
+            // confirm with testing that this gets called (it must clean this up)
         }
-        // if executionFactory is undefined, we are using the old method signature of run tests.
-        this.outputChannel.appendLine('Running tests.');
-        this.deferred = createDeferred<ExecutionTestPayload>();
-        return this.deferred.promise;
+        // placeholder until after the rewrite is adopted
+        // TODO: remove after adoption.
+        const executionPayload: ExecutionTestPayload = {
+            cwd: uri.fsPath,
+            status: 'success',
+            error: '',
+        };
+        return executionPayload;
     }
 
     private async runTestsNew(
         uri: Uri,
         testIds: string[],
+        uuid: string,
         debugBool?: boolean,
         executionFactory?: IPythonExecutionFactory,
         debugLauncher?: ITestDebugLauncher,
@@ -73,16 +82,15 @@ export class PytestTestExecutionAdapter implements ITestExecutionAdapter {
         const relativePathToPytest = 'pythonFiles';
         const fullPluginPath = path.join(EXTENSION_ROOT_DIR, relativePathToPytest);
         this.configSettings.isTestExecution();
-        const uuid = this.testServer.createUUID(uri.fsPath);
-        this.promiseMap.set(uuid, deferred);
         const settings = this.configSettings.getSettings(uri);
         const { pytestArgs } = settings.testing;
+        const cwd = settings.testing.cwd && settings.testing.cwd.length > 0 ? settings.testing.cwd : uri.fsPath;
 
         const pythonPathParts: string[] = process.env.PYTHONPATH?.split(path.delimiter) ?? [];
         const pythonPathCommand = [fullPluginPath, ...pythonPathParts].join(path.delimiter);
 
         const spawnOptions: SpawnOptions = {
-            cwd: uri.fsPath,
+            cwd,
             throwOnStdErr: true,
             extraVariables: {
                 PYTHONPATH: pythonPathCommand,
@@ -114,61 +122,23 @@ export class PytestTestExecutionAdapter implements ITestExecutionAdapter {
             if (debugBool && !testArgs.some((a) => a.startsWith('--capture') || a === '-s')) {
                 testArgs.push('--capture', 'no');
             }
+            traceLog(`Running PYTEST execution for the following test ids: ${testIds}`);
 
-            // create payload with testIds to send to run pytest script
-            const testData = JSON.stringify(testIds);
-            const headers = [`Content-Length: ${Buffer.byteLength(testData)}`, 'Content-Type: application/json'];
-            const payload = `${headers.join('\r\n')}\r\n\r\n${testData}`;
-            traceLog(`Running pytest execution for the following test ids: ${testIds}`);
-
-            let pytestRunTestIdsPort: string | undefined;
-            const startServer = (): Promise<number> =>
-                new Promise((resolve, reject) => {
-                    const server = net.createServer((socket: net.Socket) => {
-                        socket.on('end', () => {
-                            traceVerbose('Client disconnected for pytest test ids server');
-                        });
-                    });
-
-                    server.listen(0, () => {
-                        const { port } = server.address() as net.AddressInfo;
-                        traceVerbose(`Server listening on port ${port} for pytest test ids server`);
-                        resolve(port);
-                    });
-
-                    server.on('error', (error: Error) => {
-                        traceError('Error starting server for pytest test ids server:', error);
-                        reject(error);
-                    });
-                    server.on('connection', (socket: net.Socket) => {
-                        socket.write(payload);
-                        traceVerbose('payload sent for pytest execution', payload);
-                    });
-                });
-
-            // Start the server and wait until it is listening
-            await startServer()
-                .then((assignedPort) => {
-                    traceVerbose(`Server started for pytest test ids server and listening on port ${assignedPort}`);
-                    pytestRunTestIdsPort = assignedPort.toString();
-                    if (spawnOptions.extraVariables)
-                        spawnOptions.extraVariables.RUN_TEST_IDS_PORT = pytestRunTestIdsPort;
-                })
-                .catch((error) => {
-                    traceError('Error starting server for pytest test ids server:', error);
-                });
+            const pytestRunTestIdsPort = await startTestIdServer(testIds);
+            if (spawnOptions.extraVariables)
+                spawnOptions.extraVariables.RUN_TEST_IDS_PORT = pytestRunTestIdsPort.toString();
 
             if (debugBool) {
                 const pytestPort = this.testServer.getPort().toString();
                 const pytestUUID = uuid.toString();
                 const launchOptions: LaunchOptions = {
-                    cwd: uri.fsPath,
+                    cwd,
                     args: testArgs,
                     token: spawnOptions.token,
                     testProvider: PYTEST_PROVIDER,
                     pytestPort,
                     pytestUUID,
-                    runTestIdsPort: pytestRunTestIdsPort,
+                    runTestIdsPort: pytestRunTestIdsPort.toString(),
                 };
                 traceInfo(`Running DEBUG pytest with arguments: ${testArgs.join(' ')}\r\n`);
                 await debugLauncher!.launchDebugger(launchOptions, () => {
@@ -187,6 +157,7 @@ export class PytestTestExecutionAdapter implements ITestExecutionAdapter {
             return Promise.reject(ex);
         }
 
-        return deferred.promise;
+        const executionPayload: ExecutionTestPayload = { cwd, status: 'success', error: '' };
+        return executionPayload;
     }
 }

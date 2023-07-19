@@ -20,8 +20,8 @@ class TestData(TypedDict):
     """A general class that all test objects inherit from."""
 
     name: str
-    path: str
-    type_: Literal["class", "file", "folder", "test", "error"]
+    path: pathlib.Path
+    type_: Literal["class", "function", "file", "folder", "test", "error"]
     id_: str
 
 
@@ -56,7 +56,7 @@ def pytest_internalerror(excrepr, excinfo):
     excinfo -- the exception information of type ExceptionInfo.
     """
     # call.excinfo.exconly() returns the exception as a string.
-    ERRORS.append(excinfo.exconly())
+    ERRORS.append(excinfo.exconly() + "\n Check Python Test Logs for more details.")
 
 
 def pytest_exception_interact(node, call, report):
@@ -69,8 +69,39 @@ def pytest_exception_interact(node, call, report):
     """
     # call.excinfo is the captured exception of the call, if it raised as type ExceptionInfo.
     # call.excinfo.exconly() returns the exception as a string.
-    if call.excinfo and call.excinfo.typename != "AssertionError":
-        ERRORS.append(call.excinfo.exconly())
+    # See if it is during discovery or execution.
+    # if discovery, then add the error to error logs.
+    if type(report) == pytest.CollectReport:
+        if call.excinfo and call.excinfo.typename != "AssertionError":
+            ERRORS.append(
+                call.excinfo.exconly() + "\n Check Python Test Logs for more details."
+            )
+        else:
+            ERRORS.append(
+                report.longreprtext + "\n Check Python Test Logs for more details."
+            )
+    else:
+        # if execution, send this data that the given node failed.
+        report_value = "error"
+        if call.excinfo.typename == "AssertionError":
+            report_value = "failure"
+        node_id = str(node.nodeid)
+        if node_id not in collected_tests_so_far:
+            collected_tests_so_far.append(node_id)
+            item_result = create_test_outcome(
+                node_id,
+                report_value,
+                "Test failed with exception",
+                report.longreprtext,
+            )
+            collected_test = testRunResultDict()
+            collected_test[node_id] = item_result
+            cwd = pathlib.Path.cwd()
+            execution_post(
+                os.fsdecode(cwd),
+                "success",
+                collected_test if collected_test else None,
+            )
 
 
 def pytest_keyboard_interrupt(excinfo):
@@ -80,7 +111,7 @@ def pytest_keyboard_interrupt(excinfo):
     excinfo -- the exception information of type ExceptionInfo.
     """
     # The function execonly() returns the exception as a string.
-    ERRORS.append(excinfo.exconly())
+    ERRORS.append(excinfo.exconly() + "\n Check Python Test Logs for more details.")
 
 
 class TestOutcome(Dict):
@@ -90,7 +121,7 @@ class TestOutcome(Dict):
     """
 
     test: str
-    outcome: Literal["success", "failure", "skipped"]
+    outcome: Literal["success", "failure", "skipped", "error"]
     message: Union[str, None]
     traceback: Union[str, None]
     subtest: Optional[str]
@@ -120,7 +151,6 @@ class testRunResultDict(Dict[str, Dict[str, TestOutcome]]):
     tests: Dict[str, TestOutcome]
 
 
-collected_tests = testRunResultDict()
 IS_DISCOVERY = False
 
 
@@ -128,6 +158,9 @@ def pytest_load_initial_conftests(early_config, parser, args):
     if "--collect-only" in args:
         global IS_DISCOVERY
         IS_DISCOVERY = True
+
+
+collected_tests_so_far = list()
 
 
 def pytest_report_teststatus(report, config):
@@ -138,6 +171,7 @@ def pytest_report_teststatus(report, config):
     report -- the report on the test setup, call, and teardown.
     config -- configuration object.
     """
+    cwd = pathlib.Path.cwd()
 
     if report.when == "call":
         traceback = None
@@ -148,13 +182,22 @@ def pytest_report_teststatus(report, config):
         elif report.failed:
             report_value = "failure"
             message = report.longreprtext
-        item_result = create_test_outcome(
-            report.nodeid,
-            report_value,
-            message,
-            traceback,
-        )
-        collected_tests[report.nodeid] = item_result
+        node_id = str(report.nodeid)
+        if node_id not in collected_tests_so_far:
+            collected_tests_so_far.append(node_id)
+            item_result = create_test_outcome(
+                node_id,
+                report_value,
+                message,
+                traceback,
+            )
+            collected_test = testRunResultDict()
+            collected_test[node_id] = item_result
+            execution_post(
+                os.fsdecode(cwd),
+                "success",
+                collected_test if collected_test else None,
+            )
 
 
 ERROR_MESSAGE_CONST = {
@@ -163,6 +206,67 @@ ERROR_MESSAGE_CONST = {
     4: "Pytest encountered an internal error or exception during test execution.",
     5: "Pytest was unable to find any tests to run.",
 }
+
+
+def pytest_runtest_protocol(item, nextitem):
+    skipped = check_skipped_wrapper(item)
+    if skipped:
+        node_id = str(item.nodeid)
+        report_value = "skipped"
+        cwd = pathlib.Path.cwd()
+        if node_id not in collected_tests_so_far:
+            collected_tests_so_far.append(node_id)
+            item_result = create_test_outcome(
+                node_id,
+                report_value,
+                None,
+                None,
+            )
+            collected_test = testRunResultDict()
+            collected_test[node_id] = item_result
+            execution_post(
+                os.fsdecode(cwd),
+                "success",
+                collected_test if collected_test else None,
+            )
+
+
+def check_skipped_wrapper(item):
+    """A function that checks if a test is skipped or not by check its markers and its parent markers.
+
+    Returns True if the test is marked as skipped at any level, False otherwise.
+
+    Keyword arguments:
+    item -- the pytest item object.
+    """
+    if item.own_markers:
+        if check_skipped_condition(item):
+            return True
+    parent = item.parent
+    while isinstance(parent, pytest.Class):
+        if parent.own_markers:
+            if check_skipped_condition(parent):
+                return True
+        parent = parent.parent
+    return False
+
+
+def check_skipped_condition(item):
+    """A helper function that checks if a item has a skip or a true skip condition.
+
+    Keyword arguments:
+    item -- the pytest item object.
+    """
+
+    for marker in item.own_markers:
+        # If the test is marked with skip then it will not hit the pytest_report_teststatus hook,
+        # therefore we need to handle it as skipped here.
+        skip_condition = False
+        if marker.name == "skipif":
+            skip_condition = any(marker.args)
+        if marker.name == "skip" or skip_condition:
+            return True
+    return False
 
 
 def pytest_sessionfinish(session, exitstatus):
@@ -187,6 +291,15 @@ def pytest_sessionfinish(session, exitstatus):
     )
     cwd = pathlib.Path.cwd()
     if IS_DISCOVERY:
+        if not (exitstatus == 0 or exitstatus == 1 or exitstatus == 5):
+            errorNode: TestNode = {
+                "name": "",
+                "path": cwd,
+                "type_": "error",
+                "children": [],
+                "id_": "",
+            }
+            post_response(os.fsdecode(cwd), errorNode)
         try:
             session_node: Union[TestNode, None] = build_test_tree(session)
             if not session_node:
@@ -201,7 +314,7 @@ def pytest_sessionfinish(session, exitstatus):
             )
             errorNode: TestNode = {
                 "name": "",
-                "path": "",
+                "path": cwd,
                 "type_": "error",
                 "children": [],
                 "id_": "",
@@ -215,11 +328,12 @@ def pytest_sessionfinish(session, exitstatus):
                 f"Pytest exited with error status: {exitstatus}, {ERROR_MESSAGE_CONST[exitstatus]}"
             )
             exitstatus_bool = "error"
-        execution_post(
-            os.fsdecode(cwd),
-            exitstatus_bool,
-            collected_tests if collected_tests else None,
-        )
+
+            execution_post(
+                os.fsdecode(cwd),
+                exitstatus_bool,
+                None,
+            )
 
 
 def build_test_tree(session: pytest.Session) -> TestNode:
@@ -232,15 +346,16 @@ def build_test_tree(session: pytest.Session) -> TestNode:
     session_children_dict: Dict[str, TestNode] = {}
     file_nodes_dict: Dict[Any, TestNode] = {}
     class_nodes_dict: Dict[str, TestNode] = {}
+    function_nodes_dict: Dict[str, TestNode] = {}
 
     for test_case in session.items:
         test_node = create_test_node(test_case)
         if isinstance(test_case.parent, pytest.Class):
             try:
-                test_class_node = class_nodes_dict[test_case.parent.name]
+                test_class_node = class_nodes_dict[test_case.parent.nodeid]
             except KeyError:
                 test_class_node = create_class_node(test_case.parent)
-                class_nodes_dict[test_case.parent.name] = test_class_node
+                class_nodes_dict[test_case.parent.nodeid] = test_class_node
             test_class_node["children"].append(test_node)
             if test_case.parent.parent:
                 parent_module = test_case.parent.parent
@@ -256,6 +371,36 @@ def build_test_tree(session: pytest.Session) -> TestNode:
             # Check if the class is already a child of the file node.
             if test_class_node not in test_file_node["children"]:
                 test_file_node["children"].append(test_class_node)
+        elif hasattr(test_case, "callspec"):  # This means it is a parameterized test.
+            function_name: str = ""
+            # parameterized test cases cut the repetitive part of the name off.
+            name_split = test_node["name"].split("[")
+            test_node["name"] = "[" + name_split[1]
+            parent_path = os.fspath(get_node_path(test_case)) + "::" + name_split[0]
+            try:
+                function_name = test_case.originalname  # type: ignore
+                function_test_case = function_nodes_dict[parent_path]
+            except AttributeError:  # actual error has occurred
+                ERRORS.append(
+                    f"unable to find original name for {test_case.name} with parameterization detected."
+                )
+                raise VSCodePytestError(
+                    "Unable to find original name for parameterized test case"
+                )
+            except KeyError:
+                function_test_case: TestNode = create_parameterized_function_node(
+                    function_name, get_node_path(test_case), test_case.nodeid
+                )
+                function_nodes_dict[parent_path] = function_test_case
+            function_test_case["children"].append(test_node)
+            # Now, add the function node to file node.
+            try:
+                parent_test_case = file_nodes_dict[test_case.parent]
+            except KeyError:
+                parent_test_case = create_file_node(test_case.parent)
+                file_nodes_dict[test_case.parent] = parent_test_case
+            if function_test_case not in parent_test_case["children"]:
+                parent_test_case["children"].append(function_test_case)
         else:  # This includes test cases that are pytest functions or a doctests.
             try:
                 parent_test_case = file_nodes_dict[test_case.parent]
@@ -264,10 +409,10 @@ def build_test_tree(session: pytest.Session) -> TestNode:
                 file_nodes_dict[test_case.parent] = parent_test_case
             parent_test_case["children"].append(test_node)
     created_files_folders_dict: Dict[str, TestNode] = {}
-    for file_module, file_node in file_nodes_dict.items():
+    for _, file_node in file_nodes_dict.items():
         # Iterate through all the files that exist and construct them into nested folders.
         root_folder_node: TestNode = build_nested_folders(
-            file_module, file_node, created_files_folders_dict, session
+            file_node, created_files_folders_dict, session
         )
         # The final folder we get to is the highest folder in the path
         # and therefore we add this as a child to the session.
@@ -279,7 +424,6 @@ def build_test_tree(session: pytest.Session) -> TestNode:
 
 
 def build_nested_folders(
-    file_module: Any,
     file_node: TestNode,
     created_files_folders_dict: Dict[str, TestNode],
     session: pytest.Session,
@@ -289,22 +433,24 @@ def build_nested_folders(
     Keyword arguments:
     file_module -- the created module for the file we  are nesting.
     file_node -- the file node that we are building the nested folders for.
-    created_files_folders_dict -- Dictionary of all the folders and files that have been created.
+    created_files_folders_dict -- Dictionary of all the folders and files that have been created where the key is the path.
     session -- the pytest session object.
     """
     prev_folder_node = file_node
 
     # Begin the iterator_path one level above the current file.
-    iterator_path = file_module.path.parent
-    while iterator_path != session.path:
+    iterator_path = file_node["path"].parent
+    while iterator_path != get_node_path(session):
         curr_folder_name = iterator_path.name
         try:
-            curr_folder_node: TestNode = created_files_folders_dict[curr_folder_name]
+            curr_folder_node: TestNode = created_files_folders_dict[
+                os.fspath(iterator_path)
+            ]
         except KeyError:
             curr_folder_node: TestNode = create_folder_node(
                 curr_folder_name, iterator_path
             )
-            created_files_folders_dict[curr_folder_name] = curr_folder_node
+            created_files_folders_dict[os.fspath(iterator_path)] = curr_folder_node
         if prev_folder_node not in curr_folder_node["children"]:
             curr_folder_node["children"].append(prev_folder_node)
         iterator_path = iterator_path.parent
@@ -325,7 +471,7 @@ def create_test_node(
     )
     return {
         "name": test_case.name,
-        "path": os.fspath(test_case.path),
+        "path": get_node_path(test_case),
         "lineno": test_case_loc,
         "type_": "test",
         "id_": test_case.nodeid,
@@ -339,12 +485,13 @@ def create_session_node(session: pytest.Session) -> TestNode:
     Keyword arguments:
     session -- the pytest session.
     """
+    node_path = get_node_path(session)
     return {
         "name": session.name,
-        "path": os.fspath(session.path),
+        "path": node_path,
         "type_": "folder",
         "children": [],
-        "id_": os.fspath(session.path),
+        "id_": os.fspath(node_path),
     }
 
 
@@ -356,10 +503,31 @@ def create_class_node(class_module: pytest.Class) -> TestNode:
     """
     return {
         "name": class_module.name,
-        "path": os.fspath(class_module.path),
+        "path": get_node_path(class_module),
         "type_": "class",
         "children": [],
         "id_": class_module.nodeid,
+    }
+
+
+def create_parameterized_function_node(
+    function_name: str, test_path: pathlib.Path, test_id: str
+) -> TestNode:
+    """Creates a function node to be the parent for the parameterized test nodes.
+
+    Keyword arguments:
+    function_name -- the name of the function.
+    test_path -- the path to the test file.
+    test_id -- the id of the test, which is a parameterized test so it
+      must be edited to get a unique id for the function node.
+    """
+    function_id: str = test_id.split("::")[0] + "::" + function_name
+    return {
+        "name": function_name,
+        "path": test_path,
+        "type_": "function",
+        "children": [],
+        "id_": function_id,
     }
 
 
@@ -369,16 +537,17 @@ def create_file_node(file_module: Any) -> TestNode:
     Keyword arguments:
     file_module -- the pytest file module.
     """
+    node_path = get_node_path(file_module)
     return {
-        "name": file_module.path.name,
-        "path": os.fspath(file_module.path),
+        "name": node_path.name,
+        "path": node_path,
         "type_": "file",
-        "id_": os.fspath(file_module.path),
+        "id_": os.fspath(node_path),
         "children": [],
     }
 
 
-def create_folder_node(folderName: str, path_iterator: pathlib.Path) -> TestNode:
+def create_folder_node(folder_name: str, path_iterator: pathlib.Path) -> TestNode:
     """Creates a folder node from a pytest folder name and its path.
 
     Keyword arguments:
@@ -386,8 +555,8 @@ def create_folder_node(folderName: str, path_iterator: pathlib.Path) -> TestNode
     path_iterator -- the path of the folder.
     """
     return {
-        "name": folderName,
-        "path": os.fspath(path_iterator),
+        "name": folder_name,
+        "path": path_iterator,
         "type_": "folder",
         "id_": os.fspath(path_iterator),
         "children": [],
@@ -413,6 +582,10 @@ class ExecutionPayloadDict(Dict):
     result: Union[testRunResultDict, None]
     not_found: Union[List[str], None]  # Currently unused need to check
     error: Union[str, None]  # Currently unused need to check
+
+
+def get_node_path(node: Any) -> pathlib.Path:
+    return getattr(node, "path", pathlib.Path(node.fspath))
 
 
 def execution_post(
@@ -451,6 +624,15 @@ Request-uuid: {testuuid}
         print(f"[vscode-pytest] data: {request}")
 
 
+class PathEncoder(json.JSONEncoder):
+    """A custom JSON encoder that encodes pathlib.Path objects as strings."""
+
+    def default(self, obj):
+        if isinstance(obj, pathlib.Path):
+            return os.fspath(obj)
+        return super().default(obj)
+
+
 def post_response(cwd: str, session_node: TestNode) -> None:
     """Sends a post request to the server.
 
@@ -467,13 +649,13 @@ def post_response(cwd: str, session_node: TestNode) -> None:
     }
     if ERRORS is not None:
         payload["error"] = ERRORS
-    testPort: Union[str, int] = os.getenv("TEST_PORT", 45454)
-    testuuid: Union[str, None] = os.getenv("TEST_UUID")
-    addr = "localhost", int(testPort)
-    data = json.dumps(payload)
+    test_port: Union[str, int] = os.getenv("TEST_PORT", 45454)
+    test_uuid: Union[str, None] = os.getenv("TEST_UUID")
+    addr = "localhost", int(test_port)
+    data = json.dumps(payload, cls=PathEncoder)
     request = f"""Content-Length: {len(data)}
 Content-Type: application/json
-Request-uuid: {testuuid}
+Request-uuid: {test_uuid}
 
 {data}"""
     try:

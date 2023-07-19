@@ -31,7 +31,7 @@ const isCI = process.env.TRAVIS === 'true' || process.env.TF_BUILD !== undefined
 const pythonCommand = locatePython();
 // --- End Positron ---
 
-gulp.task('compile', (done) => {
+gulp.task('compileCore', (done) => {
     let failed = false;
     tsProject
         .src()
@@ -42,6 +42,22 @@ gulp.task('compile', (done) => {
         .js.pipe(gulp.dest('out'))
         .on('finish', () => (failed ? done(new Error('TypeScript compilation errors')) : done()));
 });
+
+const apiTsProject = ts.createProject('./pythonExtensionApi/tsconfig.json', { typescript });
+
+gulp.task('compileApi', (done) => {
+    let failed = false;
+    apiTsProject
+        .src()
+        .pipe(apiTsProject())
+        .on('error', () => {
+            failed = true;
+        })
+        .js.pipe(gulp.dest('./pythonExtensionApi/out'))
+        .on('finish', () => (failed ? done(new Error('TypeScript compilation errors')) : done()));
+});
+
+gulp.task('compile', gulp.series('compileCore', 'compileApi'));
 
 gulp.task('precommit', (done) => run({ exitOnError: true, mode: 'staged' }, done));
 
@@ -294,7 +310,7 @@ gulp.task('installDebugpy', async () => {
         '-t',
         './pythonFiles/lib/temp',
         '-r',
-        './build/debugger-install-requirements.txt',
+        './build/build-install-requirements.txt',
     ];
     // --- Start Positron ---
     await spawnAsync(pythonCommand, depsArgs, undefined, true)
@@ -305,7 +321,7 @@ gulp.task('installDebugpy', async () => {
             return false;
         });
 
-    // Install new DEBUGPY with wheels for python 3.7
+    // Install new DEBUGPY with wheels for python
     const wheelsArgs = ['./pythonFiles/install_debugpy.py'];
     const wheelsEnv = { PYTHONPATH: './pythonFiles/lib/temp' };
     // --- Start Positron ---
@@ -314,6 +330,16 @@ gulp.task('installDebugpy', async () => {
         .then(() => true)
         .catch((ex) => {
             console.error("Failed to install DEBUGPY wheels using 'python'", ex);
+            return false;
+        });
+
+    // Download get-pip.py
+    const getPipArgs = ['./pythonFiles/download_get_pip.py'];
+    const getPipEnv = { PYTHONPATH: './pythonFiles/lib/temp' };
+    await spawnAsync(process.env.CI_PYTHON_PATH || 'python', getPipArgs, getPipEnv, true)
+        .then(() => true)
+        .catch((ex) => {
+            console.error("Failed to download get-pip wheels using 'python'", ex);
             return false;
         });
 

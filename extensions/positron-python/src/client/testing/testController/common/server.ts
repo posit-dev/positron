@@ -4,12 +4,13 @@
 import * as net from 'net';
 import * as crypto from 'crypto';
 import { Disposable, Event, EventEmitter } from 'vscode';
+import * as path from 'path';
 import {
     ExecutionFactoryCreateWithEnvironmentOptions,
     IPythonExecutionFactory,
     SpawnOptions,
 } from '../../../common/process/types';
-import { traceError, traceInfo, traceLog, traceVerbose } from '../../../logging';
+import { traceError, traceInfo, traceLog } from '../../../logging';
 import { DataReceivedEvent, ITestServer, TestCommandOptions } from './types';
 import { ITestDebugLauncher, LaunchOptions } from '../../common/types';
 import { UNITTEST_PROVIDER } from '../../common/constants';
@@ -23,6 +24,10 @@ export class PythonTestServer implements ITestServer, Disposable {
     private server: net.Server;
 
     private ready: Promise<void>;
+
+    private _onRunDataReceived: EventEmitter<DataReceivedEvent> = new EventEmitter<DataReceivedEvent>();
+
+    private _onDiscoveryDataReceived: EventEmitter<DataReceivedEvent> = new EventEmitter<DataReceivedEvent>();
 
     constructor(private executionFactory: IPythonExecutionFactory, private debugLauncher: ITestDebugLauncher) {
         this.server = net.createServer((socket: net.Socket) => {
@@ -48,11 +53,28 @@ export class PythonTestServer implements ITestServer, Disposable {
                         rawData = rpcHeaders.remainingRawData;
                         const rpcContent = jsonRPCContent(rpcHeaders.headers, rawData);
                         const extractedData = rpcContent.extractedJSON;
+                        // do not send until we have the full content
                         if (extractedData.length === Number(totalContentLength)) {
-                            // do not send until we have the full content
-                            traceVerbose(`Received data from test server: ${extractedData}`);
-                            this._onDataReceived.fire({ uuid, data: extractedData });
-                            this.uuids = this.uuids.filter((u) => u !== uuid);
+                            // if the rawData includes tests then this is a discovery request
+                            if (rawData.includes(`"tests":`)) {
+                                this._onDiscoveryDataReceived.fire({
+                                    uuid,
+                                    data: rpcContent.extractedJSON,
+                                });
+                                // if the rawData includes result then this is a run request
+                            } else if (rawData.includes(`"result":`)) {
+                                this._onRunDataReceived.fire({
+                                    uuid,
+                                    data: rpcContent.extractedJSON,
+                                });
+                            } else {
+                                traceLog(
+                                    `Error processing test server request: request is not recognized as discovery or run.`,
+                                );
+                                this._onDataReceived.fire({ uuid: '', data: '' });
+                                return;
+                            }
+                            // this.uuids = this.uuids.filter((u) => u !== uuid); WHERE DOES THIS GO??
                             buffer = Buffer.alloc(0);
                         } else {
                             break;
@@ -97,6 +119,18 @@ export class PythonTestServer implements ITestServer, Disposable {
         return uuid;
     }
 
+    public deleteUUID(uuid: string): void {
+        this.uuids = this.uuids.filter((u) => u !== uuid);
+    }
+
+    public get onRunDataReceived(): Event<DataReceivedEvent> {
+        return this._onRunDataReceived.event;
+    }
+
+    public get onDiscoveryDataReceived(): Event<DataReceivedEvent> {
+        return this._onDiscoveryDataReceived.event;
+    }
+
     public dispose(): void {
         this.server.close();
         this._onDataReceived.dispose();
@@ -108,12 +142,15 @@ export class PythonTestServer implements ITestServer, Disposable {
 
     async sendCommand(options: TestCommandOptions, runTestIdPort?: string, callback?: () => void): Promise<void> {
         const { uuid } = options;
+
+        const pythonPathParts: string[] = process.env.PYTHONPATH?.split(path.delimiter) ?? [];
+        const pythonPathCommand = [options.cwd, ...pythonPathParts].join(path.delimiter);
         const spawnOptions: SpawnOptions = {
             token: options.token,
             cwd: options.cwd,
             throwOnStdErr: true,
             outputChannel: options.outChannel,
-            extraVariables: {},
+            extraVariables: { PYTHONPATH: pythonPathCommand },
         };
 
         if (spawnOptions.extraVariables) spawnOptions.extraVariables.RUN_TEST_IDS_PORT = runTestIdPort;

@@ -18,9 +18,17 @@ resources:
       ref: main
       endpoint: Monaco
 
+parameters:
+  - name: publishExtension
+    displayName: 🚀 Publish Extension
+    type: boolean
+    default: false
+
 extends:
   template: azure-pipelines/extension/pre-release.yml@templates
   parameters:
+    publishExtension: ${{ parameters.publishExtension }}
+    ghCreateTag: false
     l10nSourcePaths: ./src/client
     buildSteps:
       - task: NodeTool@0
@@ -45,9 +53,10 @@ extends:
         displayName: Install wheel
 
       - script: |
-          python -m pip --disable-pip-version-check install -r build/debugger-install-requirements.txt
+          python -m pip --disable-pip-version-check install -r build/build-install-requirements.txt
           python ./pythonFiles/install_debugpy.py
-        displayName: Install debugpy
+          python ./pythonFiles/download_get_pip.py
+        displayName: Install debugpy and get-pip.py
 
       - script: |
           python -m pip install --no-deps --require-hashes --only-binary :all: -t ./pythonFiles/lib/python --implementation py -r ./requirements.txt
@@ -60,6 +69,10 @@ extends:
       - script: |
           python ./build/update_ext_version.py --for-publishing
         displayName: Update build number
+
+      - script: |
+          python ./build/update_package_file.py
+        displayName: Update telemetry in package.json
 
       - script: npm run addExtensionPackDependencies
         displayName: Update optional extension dependencies

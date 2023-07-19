@@ -150,6 +150,74 @@ unit_pytest_same_file_execution_expected_output = {
     },
 }
 
+# This is the expected output for the error_raised_exception.py file.
+# └── error_raise_exception.py
+#   ├── TestSomething
+#   │   └── test_a: failure
+error_raised_exception_execution_expected_output = {
+    "error_raise_exception.py::TestSomething::test_a": {
+        "test": "error_raise_exception.py::TestSomething::test_a",
+        "outcome": "error",
+        "message": "ERROR MESSAGE",
+        "traceback": "TRACEBACK",
+        "subtest": None,
+    }
+}
+
+# This is the expected output for the skip_tests.py file.
+# └── test_something: success
+# └── test_another_thing: skipped
+# └── test_decorator_thing: skipped
+# └── test_decorator_thing_2: skipped
+# ├── TestClass
+# │   └── test_class_function_a: skipped
+# │   └── test_class_function_b: skipped
+skip_tests_execution_expected_output = {
+    "skip_tests.py::test_something": {
+        "test": "skip_tests.py::test_something",
+        "outcome": "success",
+        "message": None,
+        "traceback": None,
+        "subtest": None,
+    },
+    "skip_tests.py::test_another_thing": {
+        "test": "skip_tests.py::test_another_thing",
+        "outcome": "skipped",
+        "message": None,
+        "traceback": None,
+        "subtest": None,
+    },
+    "skip_tests.py::test_decorator_thing": {
+        "test": "skip_tests.py::test_decorator_thing",
+        "outcome": "skipped",
+        "message": None,
+        "traceback": None,
+        "subtest": None,
+    },
+    "skip_tests.py::test_decorator_thing_2": {
+        "test": "skip_tests.py::test_decorator_thing_2",
+        "outcome": "skipped",
+        "message": None,
+        "traceback": None,
+        "subtest": None,
+    },
+    "skip_tests.py::TestClass::test_class_function_a": {
+        "test": "skip_tests.py::TestClass::test_class_function_a",
+        "outcome": "skipped",
+        "message": None,
+        "traceback": None,
+        "subtest": None,
+    },
+    "skip_tests.py::TestClass::test_class_function_b": {
+        "test": "skip_tests.py::TestClass::test_class_function_b",
+        "outcome": "skipped",
+        "message": None,
+        "traceback": None,
+        "subtest": None,
+    },
+}
+
+
 # This is the expected output for the dual_level_nested_folder.py tests
 #  └── dual_level_nested_folder
 #    └── test_top_folder.py
@@ -191,13 +259,14 @@ dual_level_nested_folder_execution_expected_output = {
 }
 
 # This is the expected output for the nested_folder tests.
-# └── nested_folder_one
-#    └── nested_folder_two
-#       └── test_nest.py
-#          └── test_function: success
+# └── folder_a
+#    └── folder_b
+#       └── folder_a
+#           └── test_nest.py
+#               └── test_function: success
 double_nested_folder_expected_execution_output = {
-    "double_nested_folder/nested_folder_one/nested_folder_two/test_nest.py::test_function": {
-        "test": "double_nested_folder/nested_folder_one/nested_folder_two/test_nest.py::test_function",
+    "folder_a/folder_b/folder_a/test_nest.py::test_function": {
+        "test": "folder_a/folder_b/folder_a/test_nest.py::test_function",
         "outcome": "success",
         "message": None,
         "traceback": None,
@@ -262,8 +331,8 @@ doctest_pytest_expected_execution_output = {
 
 # Will run all tests in the cwd that fit the test file naming pattern.
 no_test_ids_pytest_execution_expected_output = {
-    "double_nested_folder/nested_folder_one/nested_folder_two/test_nest.py::test_function": {
-        "test": "double_nested_folder/nested_folder_one/nested_folder_two/test_nest.py::test_function",
+    "folder_a/folder_b/folder_a/test_nest.py::test_function": {
+        "test": "folder_a/folder_b/folder_a/test_nest.py::test_function",
         "outcome": "success",
         "message": None,
         "traceback": None,

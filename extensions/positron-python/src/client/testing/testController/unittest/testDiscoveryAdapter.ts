@@ -4,68 +4,67 @@
 import * as path from 'path';
 import { Uri } from 'vscode';
 import { IConfigurationService, ITestOutputChannel } from '../../../common/types';
-import { createDeferred, Deferred } from '../../../common/utils/async';
 import { EXTENSION_ROOT_DIR } from '../../../constants';
 import {
     DataReceivedEvent,
     DiscoveredTestPayload,
     ITestDiscoveryAdapter,
+    ITestResultResolver,
     ITestServer,
     TestCommandOptions,
     TestDiscoveryCommand,
 } from '../common/types';
-import { traceInfo } from '../../../logging';
 
 /**
  * Wrapper class for unittest test discovery. This is where we call `runTestCommand`.
  */
 export class UnittestTestDiscoveryAdapter implements ITestDiscoveryAdapter {
-    private promiseMap: Map<string, Deferred<DiscoveredTestPayload | undefined>> = new Map();
-
-    private cwd: string | undefined;
-
     constructor(
         public testServer: ITestServer,
         public configSettings: IConfigurationService,
         private readonly outputChannel: ITestOutputChannel,
-    ) {
-        testServer.onDataReceived(this.onDataReceivedHandler, this);
-    }
-
-    public onDataReceivedHandler({ uuid, data }: DataReceivedEvent): void {
-        const deferred = this.promiseMap.get(uuid);
-        if (deferred) {
-            deferred.resolve(JSON.parse(data));
-            this.promiseMap.delete(uuid);
-        }
-    }
+        private readonly resultResolver?: ITestResultResolver,
+    ) {}
 
     public async discoverTests(uri: Uri): Promise<DiscoveredTestPayload> {
-        const deferred = createDeferred<DiscoveredTestPayload>();
         const settings = this.configSettings.getSettings(uri);
         const { unittestArgs } = settings.testing;
+        const cwd = settings.testing.cwd && settings.testing.cwd.length > 0 ? settings.testing.cwd : uri.fsPath;
 
         const command = buildDiscoveryCommand(unittestArgs);
 
-        this.cwd = uri.fsPath;
         const uuid = this.testServer.createUUID(uri.fsPath);
 
         const options: TestCommandOptions = {
             workspaceFolder: uri,
             command,
-            cwd: this.cwd,
+            cwd,
             uuid,
             outChannel: this.outputChannel,
         };
 
-        this.promiseMap.set(uuid, deferred);
+        const disposable = this.testServer.onDiscoveryDataReceived((e: DataReceivedEvent) => {
+            this.resultResolver?.resolveDiscovery(JSON.parse(e.data));
+        });
+        try {
+            await this.callSendCommand(options);
+        } finally {
+            this.testServer.deleteUUID(uuid);
+            disposable.dispose();
+        }
+        // placeholder until after the rewrite is adopted
+        // TODO: remove after adoption.
+        const discoveryPayload: DiscoveredTestPayload = {
+            cwd,
+            status: 'success',
+        };
+        return discoveryPayload;
+    }
 
-        // Send the test command to the server.
-        // The server will fire an onDataReceived event once it gets a response.
-        traceInfo(`Sending discover unittest script to server.`);
-        this.testServer.sendCommand(options);
-
-        return deferred.promise;
+    private async callSendCommand(options: TestCommandOptions): Promise<DiscoveredTestPayload> {
+        await this.testServer.sendCommand(options);
+        const discoveryPayload: DiscoveredTestPayload = { cwd: '', status: 'success' };
+        return discoveryPayload;
     }
 }
 

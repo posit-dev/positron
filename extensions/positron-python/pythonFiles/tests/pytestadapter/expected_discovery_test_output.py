@@ -1,5 +1,4 @@
 import os
-import pathlib
 
 from .helpers import TEST_DATA_PATH, find_test_line_number
 
@@ -107,10 +106,14 @@ unit_pytest_same_file_discovery_expected_output = {
 #    │   └── TestAddFunction
 #    │       ├── test_add_negative_numbers
 #    │       └── test_add_positive_numbers
+#    │   └── TestDuplicateFunction
+#    │       └── test_dup_a
 #    └── test_subtract.py
 #        └── TestSubtractFunction
 #            ├── test_subtract_negative_numbers
 #            └── test_subtract_positive_numbers
+#    │   └── TestDuplicateFunction
+#    │       └── test_dup_s
 unittest_folder_path = os.fspath(TEST_DATA_PATH / "unittest_folder")
 test_add_path = os.fspath(TEST_DATA_PATH / "unittest_folder" / "test_add.py")
 test_subtract_path = os.fspath(TEST_DATA_PATH / "unittest_folder" / "test_subtract.py")
@@ -160,7 +163,26 @@ unittest_folder_discovery_expected_output = {
                                 },
                             ],
                             "id_": "unittest_folder/test_add.py::TestAddFunction",
-                        }
+                        },
+                        {
+                            "name": "TestDuplicateFunction",
+                            "path": test_add_path,
+                            "type_": "class",
+                            "children": [
+                                {
+                                    "name": "test_dup_a",
+                                    "path": test_add_path,
+                                    "lineno": find_test_line_number(
+                                        "test_dup_a",
+                                        test_add_path,
+                                    ),
+                                    "type_": "test",
+                                    "id_": "unittest_folder/test_add.py::TestDuplicateFunction::test_dup_a",
+                                    "runID": "unittest_folder/test_add.py::TestDuplicateFunction::test_dup_a",
+                                },
+                            ],
+                            "id_": "unittest_folder/test_add.py::TestDuplicateFunction",
+                        },
                     ],
                 },
                 {
@@ -198,7 +220,26 @@ unittest_folder_discovery_expected_output = {
                                 },
                             ],
                             "id_": "unittest_folder/test_subtract.py::TestSubtractFunction",
-                        }
+                        },
+                        {
+                            "name": "TestDuplicateFunction",
+                            "path": test_subtract_path,
+                            "type_": "class",
+                            "children": [
+                                {
+                                    "name": "test_dup_s",
+                                    "path": test_subtract_path,
+                                    "lineno": find_test_line_number(
+                                        "test_dup_s",
+                                        test_subtract_path,
+                                    ),
+                                    "type_": "test",
+                                    "id_": "unittest_folder/test_subtract.py::TestDuplicateFunction::test_dup_s",
+                                    "runID": "unittest_folder/test_subtract.py::TestDuplicateFunction::test_dup_s",
+                                },
+                            ],
+                            "id_": "unittest_folder/test_subtract.py::TestDuplicateFunction",
+                        },
                     ],
                 },
             ],
@@ -206,6 +247,7 @@ unittest_folder_discovery_expected_output = {
     ],
     "id_": TEST_DATA_PATH_STR,
 }
+
 
 # This is the expected output for the dual_level_nested_folder tests
 #  └── dual_level_nested_folder
@@ -316,24 +358,17 @@ dual_level_nested_folder_expected_output = {
 }
 
 # This is the expected output for the double_nested_folder tests.
-# └── double_nested_folder
-#    └── nested_folder_one
-#        └── nested_folder_two
+# └── folder_a
+#    └── folder_b
+#        └── folder_a
 #            └── test_nest.py
 #                └── test_function
-double_nested_folder_path = os.fspath(TEST_DATA_PATH / "double_nested_folder")
-double_nested_folder_one_path = os.fspath(
-    TEST_DATA_PATH / "double_nested_folder" / "nested_folder_one"
-)
-double_nested_folder_two_path = os.fspath(
-    TEST_DATA_PATH / "double_nested_folder" / "nested_folder_one" / "nested_folder_two"
-)
-double_nested_test_nest_path = os.fspath(
-    TEST_DATA_PATH
-    / "double_nested_folder"
-    / "nested_folder_one"
-    / "nested_folder_two"
-    / "test_nest.py"
+
+folder_a_path = os.fspath(TEST_DATA_PATH / "folder_a")
+folder_b_path = os.fspath(TEST_DATA_PATH / "folder_a" / "folder_b")
+folder_a_nested_path = os.fspath(TEST_DATA_PATH / "folder_a" / "folder_b" / "folder_a")
+test_nest_path = os.fspath(
+    TEST_DATA_PATH / "folder_a" / "folder_b" / "folder_a" / "test_nest.py"
 )
 double_nested_folder_expected_output = {
     "name": ".data",
@@ -341,39 +376,39 @@ double_nested_folder_expected_output = {
     "type_": "folder",
     "children": [
         {
-            "name": "double_nested_folder",
-            "path": double_nested_folder_path,
+            "name": "folder_a",
+            "path": folder_a_path,
             "type_": "folder",
-            "id_": double_nested_folder_path,
+            "id_": folder_a_path,
             "children": [
                 {
-                    "name": "nested_folder_one",
-                    "path": double_nested_folder_one_path,
+                    "name": "folder_b",
+                    "path": folder_b_path,
                     "type_": "folder",
-                    "id_": double_nested_folder_one_path,
+                    "id_": folder_b_path,
                     "children": [
                         {
-                            "name": "nested_folder_two",
-                            "path": double_nested_folder_two_path,
+                            "name": "folder_a",
+                            "path": folder_a_nested_path,
                             "type_": "folder",
-                            "id_": double_nested_folder_two_path,
+                            "id_": folder_a_nested_path,
                             "children": [
                                 {
                                     "name": "test_nest.py",
-                                    "path": double_nested_test_nest_path,
+                                    "path": test_nest_path,
                                     "type_": "file",
-                                    "id_": double_nested_test_nest_path,
+                                    "id_": test_nest_path,
                                     "children": [
                                         {
                                             "name": "test_function",
-                                            "path": double_nested_test_nest_path,
+                                            "path": test_nest_path,
                                             "lineno": find_test_line_number(
                                                 "test_function",
-                                                double_nested_test_nest_path,
+                                                test_nest_path,
                                             ),
                                             "type_": "test",
-                                            "id_": "double_nested_folder/nested_folder_one/nested_folder_two/test_nest.py::test_function",
-                                            "runID": "double_nested_folder/nested_folder_one/nested_folder_two/test_nest.py::test_function",
+                                            "id_": "folder_a/folder_b/folder_a/test_nest.py::test_function",
+                                            "runID": "folder_a/folder_b/folder_a/test_nest.py::test_function",
                                         }
                                     ],
                                 }
@@ -389,9 +424,10 @@ double_nested_folder_expected_output = {
 
 # This is the expected output for the nested_folder tests.
 # └── parametrize_tests.py
-#    └── test_adding[3+5-8]
-#    └── test_adding[2+4-6]
-#    └── test_adding[6+9-16]
+#    └── test_adding
+#       └── [3+5-8]
+#       └── [2+4-6]
+#       └── [6+9-16]
 parameterize_tests_path = os.fspath(TEST_DATA_PATH / "parametrize_tests.py")
 parametrize_tests_expected_output = {
     "name": ".data",
@@ -405,40 +441,78 @@ parametrize_tests_expected_output = {
             "id_": parameterize_tests_path,
             "children": [
                 {
-                    "name": "test_adding[3+5-8]",
+                    "name": "test_adding",
                     "path": parameterize_tests_path,
-                    "lineno": find_test_line_number(
-                        "test_adding[3+5-8]",
-                        parameterize_tests_path,
-                    ),
-                    "type_": "test",
-                    "id_": "parametrize_tests.py::test_adding[3+5-8]",
-                    "runID": "parametrize_tests.py::test_adding[3+5-8]",
+                    "type_": "function",
+                    "id_": "parametrize_tests.py::test_adding",
+                    "children": [
+                        {
+                            "name": "[3+5-8]",
+                            "path": parameterize_tests_path,
+                            "lineno": find_test_line_number(
+                                "test_adding[3+5-8]",
+                                parameterize_tests_path,
+                            ),
+                            "type_": "test",
+                            "id_": "parametrize_tests.py::test_adding[3+5-8]",
+                            "runID": "parametrize_tests.py::test_adding[3+5-8]",
+                        },
+                        {
+                            "name": "[2+4-6]",
+                            "path": parameterize_tests_path,
+                            "lineno": find_test_line_number(
+                                "test_adding[2+4-6]",
+                                parameterize_tests_path,
+                            ),
+                            "type_": "test",
+                            "id_": "parametrize_tests.py::test_adding[2+4-6]",
+                            "runID": "parametrize_tests.py::test_adding[2+4-6]",
+                        },
+                        {
+                            "name": "[6+9-16]",
+                            "path": parameterize_tests_path,
+                            "lineno": find_test_line_number(
+                                "test_adding[6+9-16]",
+                                parameterize_tests_path,
+                            ),
+                            "type_": "test",
+                            "id_": "parametrize_tests.py::test_adding[6+9-16]",
+                            "runID": "parametrize_tests.py::test_adding[6+9-16]",
+                        },
+                    ],
                 },
                 {
-                    "name": "test_adding[2+4-6]",
+                    "name": "test_under_ten",
                     "path": parameterize_tests_path,
-                    "lineno": find_test_line_number(
-                        "test_adding[2+4-6]",
-                        parameterize_tests_path,
-                    ),
-                    "type_": "test",
-                    "id_": "parametrize_tests.py::test_adding[2+4-6]",
-                    "runID": "parametrize_tests.py::test_adding[2+4-6]",
-                },
-                {
-                    "name": "test_adding[6+9-16]",
-                    "path": parameterize_tests_path,
-                    "lineno": find_test_line_number(
-                        "test_adding[6+9-16]",
-                        parameterize_tests_path,
-                    ),
-                    "type_": "test",
-                    "id_": "parametrize_tests.py::test_adding[6+9-16]",
-                    "runID": "parametrize_tests.py::test_adding[6+9-16]",
+                    "type_": "function",
+                    "children": [
+                        {
+                            "name": "[1]",
+                            "path": parameterize_tests_path,
+                            "lineno": find_test_line_number(
+                                "test_under_ten[1]",
+                                parameterize_tests_path,
+                            ),
+                            "type_": "test",
+                            "id_": "parametrize_tests.py::test_under_ten[1]",
+                            "runID": "parametrize_tests.py::test_under_ten[1]",
+                        },
+                        {
+                            "name": "[2]",
+                            "path": parameterize_tests_path,
+                            "lineno": find_test_line_number(
+                                "test_under_ten[2]",
+                                parameterize_tests_path,
+                            ),
+                            "type_": "test",
+                            "id_": "parametrize_tests.py::test_under_ten[2]",
+                            "runID": "parametrize_tests.py::test_under_ten[2]",
+                        },
+                    ],
+                    "id_": "parametrize_tests.py::test_under_ten",
                 },
             ],
-        }
+        },
     ],
     "id_": TEST_DATA_PATH_STR,
 }
@@ -468,6 +542,117 @@ doctest_pytest_expected_output = {
                     "id_": "text_docstring.txt::text_docstring.txt",
                     "runID": "text_docstring.txt::text_docstring.txt",
                 }
+            ],
+        }
+    ],
+    "id_": TEST_DATA_PATH_STR,
+}
+
+# This is the expected output for the param_same_name tests.
+# └── param_same_name
+#    └── test_param1.py
+#       └── test_odd_even
+#          └── [a]
+#          └── [b]
+#          └── [c]
+#    └── test_param2.py
+#       └── test_odd_even
+#          └── [1]
+#          └── [2]
+#          └── [3]
+param1_path = os.fspath(TEST_DATA_PATH / "param_same_name" / "test_param1.py")
+param2_path = os.fspath(TEST_DATA_PATH / "param_same_name" / "test_param2.py")
+param_same_name_expected_output = {
+    "name": ".data",
+    "path": TEST_DATA_PATH_STR,
+    "type_": "folder",
+    "children": [
+        {
+            "name": "param_same_name",
+            "path": os.fspath(TEST_DATA_PATH / "param_same_name"),
+            "type_": "folder",
+            "id_": os.fspath(TEST_DATA_PATH / "param_same_name"),
+            "children": [
+                {
+                    "name": "test_param1.py",
+                    "path": param1_path,
+                    "type_": "file",
+                    "id_": param1_path,
+                    "children": [
+                        {
+                            "name": "test_odd_even",
+                            "path": param1_path,
+                            "type_": "function",
+                            "children": [
+                                {
+                                    "name": "[a]",
+                                    "path": param1_path,
+                                    "lineno": "6",
+                                    "type_": "test",
+                                    "id_": "param_same_name/test_param1.py::test_odd_even[a]",
+                                    "runID": "param_same_name/test_param1.py::test_odd_even[a]",
+                                },
+                                {
+                                    "name": "[b]",
+                                    "path": param1_path,
+                                    "lineno": "6",
+                                    "type_": "test",
+                                    "id_": "param_same_name/test_param1.py::test_odd_even[b]",
+                                    "runID": "param_same_name/test_param1.py::test_odd_even[b]",
+                                },
+                                {
+                                    "name": "[c]",
+                                    "path": param1_path,
+                                    "lineno": "6",
+                                    "type_": "test",
+                                    "id_": "param_same_name/test_param1.py::test_odd_even[c]",
+                                    "runID": "param_same_name/test_param1.py::test_odd_even[c]",
+                                },
+                            ],
+                            "id_": "param_same_name/test_param1.py::test_odd_even",
+                        }
+                    ],
+                },
+                {
+                    "name": "test_param2.py",
+                    "path": param2_path,
+                    "type_": "file",
+                    "id_": param2_path,
+                    "children": [
+                        {
+                            "name": "test_odd_even",
+                            "path": param2_path,
+                            "type_": "function",
+                            "children": [
+                                {
+                                    "name": "[1]",
+                                    "path": param2_path,
+                                    "lineno": "6",
+                                    "type_": "test",
+                                    "id_": "param_same_name/test_param2.py::test_odd_even[1]",
+                                    "runID": "param_same_name/test_param2.py::test_odd_even[1]",
+                                },
+                                {
+                                    "name": "[2]",
+                                    "path": param2_path,
+                                    "lineno": "6",
+                                    "type_": "test",
+                                    "id_": "param_same_name/test_param2.py::test_odd_even[2]",
+                                    "runID": "param_same_name/test_param2.py::test_odd_even[2]",
+                                },
+                                {
+                                    "name": "[3]",
+                                    "path": param2_path,
+                                    "lineno": "6",
+                                    "type_": "test",
+                                    "id_": "param_same_name/test_param2.py::test_odd_even[3]",
+                                    "runID": "param_same_name/test_param2.py::test_odd_even[3]",
+                                },
+                            ],
+                            "id_": "param_same_name/test_param2.py::test_odd_even",
+                        }
+                    ],
+                },
             ],
         }
     ],
