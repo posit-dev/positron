@@ -11,6 +11,11 @@ import { ILanguageRuntime } from 'vs/workbench/services/languageRuntime/common/l
 export const IPositronConsoleService = createDecorator<IPositronConsoleService>('positronConsoleService');
 
 /**
+ * The Positron console view ID.
+ */
+export const POSITRON_CONSOLE_VIEW_ID = 'workbench.panel.positronConsole';
+
+/**
  * PositronConsoleState enumeration.
  */
 export const enum PositronConsoleState {
