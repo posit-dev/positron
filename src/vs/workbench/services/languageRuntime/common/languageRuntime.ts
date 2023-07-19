@@ -62,8 +62,8 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 	// The active runtime.
 	private _activeRuntime?: ILanguageRuntime;
 
-	// The event emitter for the onDidChangeRegisteredRuntimes event.
-	private readonly _onDidChangeRegisteredRuntimesEmitter = this._register(new Emitter<void>);
+	// The event emitter for the onDidRegisterRuntime event.
+	private readonly _onDidRegisterRuntimeEmitter = this._register(new Emitter<ILanguageRuntime>);
 
 	// The event emitter for the onWillStartRuntime event.
 	private readonly _onWillStartRuntimeEmitter = this._register(new Emitter<ILanguageRuntime>);
@@ -140,7 +140,7 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 	declare readonly _serviceBrand: undefined;
 
 	// An event that fires when a runtime is about to start.
-	readonly onDidChangeRegisteredRuntimes = this._onDidChangeRegisteredRuntimesEmitter.event;
+	readonly onDidRegisterRuntime = this._onDidRegisterRuntimeEmitter.event;
 
 	// An event that fires when a runtime is about to start.
 	readonly onWillStartRuntime = this._onWillStartRuntimeEmitter.event;
@@ -237,7 +237,7 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 		this._registeredRuntimesByRuntimeId.set(runtime.metadata.runtimeId, languageRuntimeInfo);
 
 		// Signal that the set of registered runtimes has changed.
-		this._onDidChangeRegisteredRuntimesEmitter.fire();
+		this._onDidRegisterRuntimeEmitter.fire(runtime);
 
 		// Runtimes are usually registered in the Uninitialized state. If the
 		// runtime is already running when it is registered, we are
