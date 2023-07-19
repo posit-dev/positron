@@ -2,58 +2,73 @@
 // Licensed under the MIT License.
 
 import * as path from 'path';
-import { Uri } from 'vscode';
-import * as net from 'net';
+import { TestRun, Uri } from 'vscode';
 import { IConfigurationService, ITestOutputChannel } from '../../../common/types';
-import { createDeferred, Deferred } from '../../../common/utils/async';
+import { createDeferred } from '../../../common/utils/async';
 import { EXTENSION_ROOT_DIR } from '../../../constants';
 import {
     DataReceivedEvent,
     ExecutionTestPayload,
     ITestExecutionAdapter,
+    ITestResultResolver,
     ITestServer,
     TestCommandOptions,
     TestExecutionCommand,
 } from '../common/types';
-import { traceLog, traceError } from '../../../logging';
+import { traceLog } from '../../../logging';
+import { startTestIdServer } from '../common/utils';
 
 /**
  * Wrapper Class for unittest test execution. This is where we call `runTestCommand`?
  */
 
 export class UnittestTestExecutionAdapter implements ITestExecutionAdapter {
-    private promiseMap: Map<string, Deferred<ExecutionTestPayload | undefined>> = new Map();
-
-    private cwd: string | undefined;
-
     constructor(
         public testServer: ITestServer,
         public configSettings: IConfigurationService,
         private readonly outputChannel: ITestOutputChannel,
-    ) {
-        testServer.onDataReceived(this.onDataReceivedHandler, this);
-    }
+        private readonly resultResolver?: ITestResultResolver,
+    ) {}
 
-    public onDataReceivedHandler({ uuid, data }: DataReceivedEvent): void {
-        const deferred = this.promiseMap.get(uuid);
-        if (deferred) {
-            deferred.resolve(JSON.parse(data));
-            this.promiseMap.delete(uuid);
+    public async runTests(
+        uri: Uri,
+        testIds: string[],
+        debugBool?: boolean,
+        runInstance?: TestRun,
+    ): Promise<ExecutionTestPayload> {
+        const uuid = this.testServer.createUUID(uri.fsPath);
+        const disposable = this.testServer.onRunDataReceived((e: DataReceivedEvent) => {
+            if (runInstance) {
+                this.resultResolver?.resolveExecution(JSON.parse(e.data), runInstance);
+            }
+        });
+        try {
+            await this.runTestsNew(uri, testIds, uuid, debugBool);
+        } finally {
+            this.testServer.deleteUUID(uuid);
+            disposable.dispose();
+            // confirm with testing that this gets called (it must clean this up)
         }
+        const executionPayload: ExecutionTestPayload = { cwd: uri.fsPath, status: 'success', error: '' };
+        return executionPayload;
     }
 
-    public async runTests(uri: Uri, testIds: string[], debugBool?: boolean): Promise<ExecutionTestPayload> {
+    private async runTestsNew(
+        uri: Uri,
+        testIds: string[],
+        uuid: string,
+        debugBool?: boolean,
+    ): Promise<ExecutionTestPayload> {
         const settings = this.configSettings.getSettings(uri);
         const { unittestArgs } = settings.testing;
+        const cwd = settings.testing.cwd && settings.testing.cwd.length > 0 ? settings.testing.cwd : uri.fsPath;
 
         const command = buildExecutionCommand(unittestArgs);
-        this.cwd = uri.fsPath;
-        const uuid = this.testServer.createUUID(uri.fsPath);
 
         const options: TestCommandOptions = {
             workspaceFolder: uri,
             command,
-            cwd: this.cwd,
+            cwd,
             uuid,
             debugBool,
             testIds,
@@ -61,53 +76,17 @@ export class UnittestTestExecutionAdapter implements ITestExecutionAdapter {
         };
 
         const deferred = createDeferred<ExecutionTestPayload>();
-        this.promiseMap.set(uuid, deferred);
+        traceLog(`Running UNITTEST execution for the following test ids: ${testIds}`);
 
-        // create payload with testIds to send to run pytest script
-        const testData = JSON.stringify(testIds);
-        const headers = [`Content-Length: ${Buffer.byteLength(testData)}`, 'Content-Type: application/json'];
-        const payload = `${headers.join('\r\n')}\r\n\r\n${testData}`;
+        const runTestIdsPort = await startTestIdServer(testIds);
 
-        let runTestIdsPort: string | undefined;
-        const startServer = (): Promise<number> =>
-            new Promise((resolve, reject) => {
-                const server = net.createServer((socket: net.Socket) => {
-                    socket.on('end', () => {
-                        traceLog('Client disconnected');
-                    });
-                });
-
-                server.listen(0, () => {
-                    const { port } = server.address() as net.AddressInfo;
-                    traceLog(`Server listening on port ${port}`);
-                    resolve(port);
-                });
-
-                server.on('error', (error: Error) => {
-                    reject(error);
-                });
-                server.on('connection', (socket: net.Socket) => {
-                    socket.write(payload);
-                    traceLog('payload sent', payload);
-                });
-            });
-
-        // Start the server and wait until it is listening
-        await startServer()
-            .then((assignedPort) => {
-                traceLog(`Server started and listening on port ${assignedPort}`);
-                runTestIdsPort = assignedPort.toString();
-                // Send test command to server.
-                // Server fire onDataReceived event once it gets response.
-                this.testServer.sendCommand(options, runTestIdsPort, () => {
-                    deferred.resolve();
-                });
-            })
-            .catch((error) => {
-                traceError('Error starting server:', error);
-            });
-
-        return deferred.promise;
+        await this.testServer.sendCommand(options, runTestIdsPort.toString(), () => {
+            deferred.resolve();
+        });
+        // placeholder until after the rewrite is adopted
+        // TODO: remove after adoption.
+        const executionPayload: ExecutionTestPayload = { cwd, status: 'success', error: '' };
+        return executionPayload;
     }
 }
 
