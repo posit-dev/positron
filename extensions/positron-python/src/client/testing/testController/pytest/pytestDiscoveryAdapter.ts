@@ -8,63 +8,60 @@ import {
     SpawnOptions,
 } from '../../../common/process/types';
 import { IConfigurationService, ITestOutputChannel } from '../../../common/types';
-import { createDeferred, Deferred } from '../../../common/utils/async';
+import { createDeferred } from '../../../common/utils/async';
 import { EXTENSION_ROOT_DIR } from '../../../constants';
-import { traceError, traceLog, traceVerbose } from '../../../logging';
-import { DataReceivedEvent, DiscoveredTestPayload, ITestDiscoveryAdapter, ITestServer } from '../common/types';
+import { traceError, traceVerbose } from '../../../logging';
+import {
+    DataReceivedEvent,
+    DiscoveredTestPayload,
+    ITestDiscoveryAdapter,
+    ITestResultResolver,
+    ITestServer,
+} from '../common/types';
 
 /**
  * Wrapper class for unittest test discovery. This is where we call `runTestCommand`. #this seems incorrectly copied
  */
 export class PytestTestDiscoveryAdapter implements ITestDiscoveryAdapter {
-    private promiseMap: Map<string, Deferred<DiscoveredTestPayload | undefined>> = new Map();
-
-    private deferred: Deferred<DiscoveredTestPayload> | undefined;
-
     constructor(
         public testServer: ITestServer,
         public configSettings: IConfigurationService,
         private readonly outputChannel: ITestOutputChannel,
-    ) {
-        testServer.onDataReceived(this.onDataReceivedHandler, this);
-    }
+        private readonly resultResolver?: ITestResultResolver,
+    ) {}
 
-    public onDataReceivedHandler({ uuid, data }: DataReceivedEvent): void {
-        const deferred = this.promiseMap.get(uuid);
-        if (deferred) {
-            deferred.resolve(JSON.parse(data));
-            this.promiseMap.delete(uuid);
+    async discoverTests(uri: Uri, executionFactory?: IPythonExecutionFactory): Promise<DiscoveredTestPayload> {
+        const settings = this.configSettings.getSettings(uri);
+        const { pytestArgs } = settings.testing;
+        traceVerbose(pytestArgs);
+        const disposable = this.testServer.onDiscoveryDataReceived((e: DataReceivedEvent) => {
+            // cancelation token ?
+            this.resultResolver?.resolveDiscovery(JSON.parse(e.data));
+        });
+        try {
+            await this.runPytestDiscovery(uri, executionFactory);
+        } finally {
+            disposable.dispose();
         }
+        // this is only a placeholder to handle function overloading until rewrite is finished
+        const discoveryPayload: DiscoveredTestPayload = { cwd: uri.fsPath, status: 'success' };
+        return discoveryPayload;
     }
 
-    discoverTests(uri: Uri, executionFactory?: IPythonExecutionFactory): Promise<DiscoveredTestPayload> {
-        if (executionFactory !== undefined) {
-            // ** new version of discover tests.
-            const settings = this.configSettings.getSettings(uri);
-            const { pytestArgs } = settings.testing;
-            traceVerbose(pytestArgs);
-            return this.runPytestDiscovery(uri, executionFactory);
-        }
-        // if executionFactory is undefined, we are using the old method signature of discover tests.
-        traceVerbose(uri);
-        this.deferred = createDeferred<DiscoveredTestPayload>();
-        return this.deferred.promise;
-    }
-
-    async runPytestDiscovery(uri: Uri, executionFactory: IPythonExecutionFactory): Promise<DiscoveredTestPayload> {
+    async runPytestDiscovery(uri: Uri, executionFactory?: IPythonExecutionFactory): Promise<DiscoveredTestPayload> {
         const deferred = createDeferred<DiscoveredTestPayload>();
         const relativePathToPytest = 'pythonFiles';
         const fullPluginPath = path.join(EXTENSION_ROOT_DIR, relativePathToPytest);
         const uuid = this.testServer.createUUID(uri.fsPath);
-        this.promiseMap.set(uuid, deferred);
         const settings = this.configSettings.getSettings(uri);
         const { pytestArgs } = settings.testing;
+        const cwd = settings.testing.cwd && settings.testing.cwd.length > 0 ? settings.testing.cwd : uri.fsPath;
 
         const pythonPathParts: string[] = process.env.PYTHONPATH?.split(path.delimiter) ?? [];
         const pythonPathCommand = [fullPluginPath, ...pythonPathParts].join(path.delimiter);
 
         const spawnOptions: SpawnOptions = {
-            cwd: uri.fsPath,
+            cwd,
             throwOnStdErr: true,
             extraVariables: {
                 PYTHONPATH: pythonPathCommand,
@@ -79,13 +76,19 @@ export class PytestTestDiscoveryAdapter implements ITestDiscoveryAdapter {
             allowEnvironmentFetchExceptions: false,
             resource: uri,
         };
-        const execService = await executionFactory.createActivatedEnvironment(creationOptions);
-        const discoveryArgs = ['-m', 'pytest', '-p', 'vscode_pytest', '--collect-only'].concat(pytestArgs);
-        traceLog(`Discovering pytest tests with arguments: ${discoveryArgs.join(' ')}`);
-        execService.exec(discoveryArgs, spawnOptions).catch((ex) => {
-            traceError(`Error occurred while discovering tests: ${ex}`);
-            deferred.reject(ex as Error);
-        });
+        const execService = await executionFactory?.createActivatedEnvironment(creationOptions);
+        // delete UUID following entire discovery finishing.
+        execService
+            ?.exec(['-m', 'pytest', '-p', 'vscode_pytest', '--collect-only'].concat(pytestArgs), spawnOptions)
+            .then(() => {
+                this.testServer.deleteUUID(uuid);
+                return deferred.resolve();
+            })
+            .catch((err) => {
+                traceError(`Error while trying to run pytest discovery, \n${err}\r\n\r\n`);
+                this.testServer.deleteUUID(uuid);
+                return deferred.reject(err);
+            });
         return deferred.promise;
     }
 }
