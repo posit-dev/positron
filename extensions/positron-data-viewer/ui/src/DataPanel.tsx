@@ -43,8 +43,7 @@ export const DataPanel = (props: DataPanelProps) => {
 	// The height of a single row of data
 	const rowHeightPx = 30;
 
-	// The number of rows to render above and below the visible area of the
-	// table.
+	// The number of rows to render above and below the visible area of the table.
 	const scrollOverscan = 50;
 
 	// A reference to the table container element.
@@ -52,7 +51,9 @@ export const DataPanel = (props: DataPanelProps) => {
 
 	const {data: initialData, fetchSize, vscode} = props;
 
-	const [dataModel, updateDataModel] = React.useState<DataModel>(new DataModel(initialData));
+	const [dataModel, updateDataModel] = React.useState<DataModel>(
+		new DataModel(initialData)
+	);
 
 	const handleMessage = ((event: any) => {
 		updateDataModel((prevDataModel) => prevDataModel.handleDataMessage(event));
@@ -83,7 +84,8 @@ export const DataPanel = (props: DataPanelProps) => {
 		},
 		[dataModel]);
 
-	// Use a React Query infinite query to fetch data from the data model.
+	// Use a React Query infinite query to fetch data from the data model,
+	// with the dataModel id as cache key so we re-query when new data comes in.
 	const { data, fetchNextPage, isFetching, isLoading } =
 		ReactQuery.useInfiniteQuery<DataFragment>(
 			['table-data', dataModel.id],
@@ -135,10 +137,11 @@ export const DataPanel = (props: DataPanelProps) => {
 		() => {
 			return data?.pages?.reduce((max, row) => Math.max(max, row.rowEnd + 1), 0) ?? 0;
 		},
-		[flatData]);
+		[flatData]
+	);
 
-	// Callback, invoked on scroll, that will fetch more data if we have reached
-	// the bottom of the table container.
+	// Callback, invoked on scroll, that will fetch more data from the backend if we have reached
+	// the bottom of the table container by sending a new MessageRequest.
 	const fetchMoreOnBottomReached = React.useCallback(
 		(containerRefElement?: HTMLDivElement | null) => {
 			if (containerRefElement) {
