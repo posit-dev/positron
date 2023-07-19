@@ -158,6 +158,13 @@ jobs:
         env:
           POSITRON_BUILD_NUMBER: ${{ needs.version_string.outputs.build_number }}
         run: |
+          yarn gulp compile-build
+
+      # Minify and produce a macOS application
+      - name: Minify and package client
+        env:
+          POSITRON_BUILD_NUMBER: ${{ needs.version_string.outputs.build_number }}
+        run: |
           yarn gulp minify-vscode
           yarn gulp vscode-darwin-${{ matrix.arch }}-min-ci
 
