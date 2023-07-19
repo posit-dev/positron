@@ -15,8 +15,17 @@ import { DataFragment, DataModel } from './DataModel';
 import { DataViewerMessageRequest, DataSet } from './positron-data-viewer';
 
 interface DataPanelProps {
+	/**
+	 * The initial batch of data to display, before additional data requests have been made
+	 */
 	data: DataSet;
+	/**
+	 * The number of rows to fetch at a time from the backend
+	 */
 	fetchSize: number;
+	/**
+	 * Global injected by VS Code when the extension is loaded, used to post messages
+	 */
 	vscode: any;
 }
 
@@ -42,6 +51,7 @@ export const DataPanel = (props: DataPanelProps) => {
 	const tableContainerRef = React.useRef<HTMLDivElement>(null);
 
 	const {data: initialData, fetchSize, vscode} = props;
+
 	const [dataModel, updateDataModel] = React.useState<DataModel>(new DataModel(initialData));
 
 	const handleMessage = ((event: any) => {

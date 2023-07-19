@@ -33,10 +33,12 @@ export class DataModel {
 	 * @param rowStart The row index of the first row in the currently rendered data.
 	 * @param renderedRows A list of the rowStart indices that have been rendered so far in the panel.
 	 */
+	// All properties must be readonly, since we never want to modify the data model state in place
+	// It can only be modified by passing a new data model to the DataPanel's updater function
 	constructor(
 		public readonly dataSet: DataSet,
 		public readonly rowStart = 0,
-		public renderedRows = [0]
+		public readonly renderedRows = [0]
 	) {
 	}
 
@@ -85,10 +87,14 @@ export class DataModel {
 			this.rowStart,
 			updatedRenderedRows
 		);
-		//console.log(`Updated data model: ${updatedDataModel.id}`);
 		return updatedDataModel;
 	}
 
+	/**
+	 *
+	 * @param event The message event received from the runtime
+	 * @returns Either the original data model, or a new data model that includes the message's data
+	 */
 	handleDataMessage(event: any): DataModel {
 		const message = event.data as DataViewerMessage;
 		if (message.msg_type === 'receive_rows' && !this.renderedRows.includes(message.start_row)) {

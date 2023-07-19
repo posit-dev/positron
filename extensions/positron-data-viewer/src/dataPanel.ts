@@ -118,7 +118,6 @@ export async function createDataPanel(context: vscode.ExtensionContext,
 			// The webview is requesting initial or incremental data;
 			// perform rpc to get the data from the language runtime
 			client.performRpc(message).then((response) => {
-				//console.log('Runtime response:', JSON.stringify(response));
 				panel.webview.postMessage(response as DataViewerMessageData);
 			});
 		}
