@@ -9,6 +9,8 @@ import { Disposable, IDisposable, toDisposable } from 'vs/base/common/lifecycle'
 import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/common/extensions';
 import { formatLanguageRuntime, ILanguageRuntime, ILanguageRuntimeGlobalEvent, ILanguageRuntimeService, ILanguageRuntimeStateEvent, LanguageRuntimeStartupBehavior, RuntimeClientType, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { FrontEndClientInstance, IFrontEndClientMessageInput, IFrontEndClientMessageOutput } from 'vs/workbench/services/languageRuntime/common/languageRuntimeFrontEndClient';
+import { LanguageRuntimeWorkspaceAffiliation } from 'vs/workbench/services/languageRuntime/common/languageRuntimeWorkspaceAffiliation';
+import { IStorageService } from 'vs/platform/storage/common/storage';
 
 /**
  * LanguageRuntimeInfo class.
@@ -94,13 +96,18 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 	 * Constructor.
 	 * @param _languageService The language service.
 	 * @param _logService The log service.
+	 * @param _storageService The storage service.
 	 */
 	constructor(
 		@ILanguageService private readonly _languageService: ILanguageService,
-		@ILogService private readonly _logService: ILogService
+		@ILogService private readonly _logService: ILogService,
+		@IStorageService private readonly _storageService: IStorageService
 	) {
 		// Call the base class's constructor.
 		super();
+
+		// Create the object that tracks the affiliation of runtimes to workspaces.
+		new LanguageRuntimeWorkspaceAffiliation(this, this._storageService, this._logService);
 
 		// Add the onDidEncounterLanguage event handler.
 		this._register(this._languageService.onDidRequestRichLanguageFeatures(languageId => {
