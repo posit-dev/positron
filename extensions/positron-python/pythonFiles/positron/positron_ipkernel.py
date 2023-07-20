@@ -8,13 +8,14 @@ import asyncio
 import logging
 from collections.abc import Iterable, Sequence
 from itertools import chain
-from typing import Any, Callable, Container, Dict, Optional, Tuple, Type
+from typing import Any, Callable, Container, Dict, Mapping, Optional, Set, Tuple, Type
 
 from ipykernel.comm.manager import CommManager
 from ipykernel.ipkernel import IPythonKernel
 from ipykernel.kernelapp import IPKernelApp
 from ipykernel.zmqshell import ZMQInteractiveShell
 from IPython.core import oinspect
+from IPython.core.interactiveshell import InteractiveShell
 from IPython.core.magic import Magics, line_magic, magics_class, needs_local_scope
 from IPython.utils import PyColorize
 import traitlets
@@ -117,7 +118,7 @@ class PositronIPyKernel(IPythonKernel):
     shell: ZMQInteractiveShell
     comm_manager: CommManager
 
-    shell_class: PositronShell = traitlets.Type(PositronShell)  # type: ignore
+    shell_class: PositronShell = traitlets.Type(PositronShell, klass=InteractiveShell)  # type: ignore
 
     def __init__(self, **kwargs):
         """Initializes Positron's IPython kernel."""
@@ -148,7 +149,11 @@ class PositronIPyKernel(IPythonKernel):
         # Register Positron's display publisher hook to intercept display_data messages
         # and establish a comm channel with the frontend for rendering plots
         self.display_pub_hook = PositronDisplayPublisherHook(POSITRON_PLOT_COMM)
-        self.shell.display_pub.register_hook(self.display_pub_hook)
+        # Not all display publishers support hooks -- in particular, the one used in our tests
+        if hasattr(self.shell.display_pub, "register_hook"):
+            self.shell.display_pub.register_hook(self.display_pub_hook)
+        else:
+            logger.warning(f"Unable to register display publisher hook on shell: {self.shell}")
 
         # Setup Positron's dataviewer service
         self.dataviewer_service = DataViewerService(POSITRON_DATA_VIEWER_COMM)
@@ -158,7 +163,7 @@ class PositronIPyKernel(IPythonKernel):
         super().start()
         self.help_service.start()
 
-    def do_shutdown(self, restart) -> dict:
+    def do_shutdown(self, restart: bool) -> Dict[str, Any]:
         """
         Handle kernel shutdown.
         """
@@ -202,11 +207,11 @@ class PositronIPyKernel(IPythonKernel):
         except Exception as err:
             logger.warning(err, exc_info=True)
 
-    def get_user_ns(self) -> dict:
-        return self.shell.user_ns or {}  # type: ignore
+    def get_user_ns(self) -> Dict[str, Any]:
+        return self.shell.user_ns or {}
 
-    def get_user_ns_hidden(self) -> dict:
-        return self.shell.user_ns_hidden or {}  # type: ignore
+    def get_user_ns_hidden(self) -> Dict[str, Any]:
+        return self.shell.user_ns_hidden or {}
 
     def snapshot_user_ns(self) -> None:
         """
@@ -230,7 +235,7 @@ class PositronIPyKernel(IPythonKernel):
         # after an operation or execution is performed
         hidden[__POSITRON_CACHE_KEY__] = snapshot
 
-    def compare_user_ns(self) -> Tuple[dict, set]:
+    def compare_user_ns(self) -> Tuple[Dict[str, Any], Set[str]]:
         """
         Attempts to detect changes to variables in the user's environment.
 
@@ -287,7 +292,7 @@ class PositronIPyKernel(IPythonKernel):
 
         return assigned, removed
 
-    def get_filtered_vars(self, variables: Optional[dict] = None) -> dict:
+    def get_filtered_vars(self, variables: Optional[Mapping[str, Any]] = None) -> Dict[str, Any]:
         """
         Returns:
             A filtered dict of the variables, excluding hidden variables. If variables
@@ -304,7 +309,7 @@ class PositronIPyKernel(IPythonKernel):
                 filtered_variables[key] = value
         return filtered_variables
 
-    def get_filtered_var_names(self, names: set) -> set:
+    def get_filtered_var_names(self, names: Iterable[str]) -> Set[str]:
         """
         Returns:
             A filtered set of variable names, excluding hidden variables.
@@ -319,7 +324,7 @@ class PositronIPyKernel(IPythonKernel):
             filtered_names.add(name)
         return filtered_names
 
-    def find_var(self, path: Iterable) -> Tuple[bool, Any]:
+    def find_var(self, path: Iterable[str]) -> Tuple[bool, Any]:
         """
         Finds the variable at the requested path in the current user session.
 
@@ -363,7 +368,7 @@ class PositronIPyKernel(IPythonKernel):
 
         return is_known, value
 
-    def view_var(self, path: Sequence) -> None:
+    def view_var(self, path: Sequence[str]) -> None:
         """
         Opens a viewer comm for the variable at the requested path in the
         current user session.
@@ -387,7 +392,7 @@ class PositronIPyKernel(IPythonKernel):
         if error_message is not None:
             raise ValueError(error_message)
 
-    def delete_vars(self, names: Iterable, parent) -> Tuple[dict, set]:
+    def delete_vars(self, names: Iterable[str], parent: Dict[str, Any]) -> Tuple[dict, set]:
         """
         Deletes the requested variables by name from the current user session.
         """
@@ -415,21 +420,21 @@ class PositronIPyKernel(IPythonKernel):
 
         return (assigned, removed)
 
-    def delete_all_vars(self, parent) -> None:
+    def delete_all_vars(self, parent: Dict[str, Any]) -> None:
         """
         Deletes all of the variables in the current user session.
         """
         loop = asyncio.get_event_loop()
         asyncio.run_coroutine_threadsafe(self._soft_reset(parent), loop)
 
-    async def _soft_reset(self, parent) -> dict:
+    async def _soft_reset(self, parent: Dict[str, Any]) -> Dict[str, Any]:
         """
         Use %reset with the soft switch to delete all user defined
         variables from the environment.
         """
         # Run the %reset magic to clear user variables
         command = "%reset -sf"
-        coro = await self.do_execute(command, silent=False, store_history=False)
+        reply_content = await self.do_execute(command, silent=False, store_history=False)
 
         # Publish an input to inform clients of the "delete all" operation
         try:
@@ -440,7 +445,7 @@ class PositronIPyKernel(IPythonKernel):
         # Refresh the client state
         self.env_service.send_list()
 
-        return coro
+        return reply_content
 
 
 class PositronIPKernelApp(IPKernelApp):
