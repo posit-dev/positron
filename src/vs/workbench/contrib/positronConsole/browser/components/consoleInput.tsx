@@ -29,6 +29,12 @@ import { usePositronConsoleContext } from 'vs/workbench/contrib/positronConsole/
 import { IPositronConsoleInstance, PositronConsoleState } from 'vs/workbench/services/positronConsole/common/interfaces/positronConsoleService';
 import { RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 
+// Position enumeration.
+const enum Position {
+	First,
+	Last
+}
+
 // ConsoleInputProps interface.
 export interface ConsoleInputProps {
 	readonly width: number;
@@ -57,34 +63,24 @@ export const ConsoleInput = forwardRef<HTMLDivElement, ConsoleInputProps>((props
 		useStateRef<string | undefined>(undefined);
 
 	/**
-	 * Updates the code editor widget position such that the cursor appers on the first line and the
-	 * first column.
+	 * Updates the code editor widget position.
+	 * @param linePosition The line position.
+	 * @param columnPosition The column position.
 	 */
-	const updateCodeEditorWidgetPositionToBeginning = () => {
-		// Set the code editor widget position.
-		codeEditorWidgetRef.current.setPosition({
-			lineNumber: 1,
-			column: 1
-		});
-
-		// Ensure that the code editor widget is scrolled into view.
-		codeEditorWidgetContainerRef.current?.scrollIntoView({ behavior: 'auto' });
-	};
-
-	/**
-	 * Updates the code editor widget position such that the cursor appers on the last line and the
-	 * last column.
-	 */
-	const updateCodeEditorWidgetPositionToEnd = () => {
+	const updateCodeEditorWidgetPosition = (linePosition: Position, columnPosition: Position) => {
 		// Get the model. If it isn't null (which it won't be), set the code editor widget position.
 		const textModel = codeEditorWidgetRef.current.getModel();
 		if (textModel) {
-			const lineNumber = textModel.getLineCount();
-			const column = textModel.getLineMaxColumn(lineNumber);
-			codeEditorWidgetRef.current.setPosition({
-				lineNumber,
-				column
-			});
+			// Set the line number and column.
+			const lineNumber = linePosition === Position.First ?
+				1 :
+				textModel.getLineCount();
+			const column = columnPosition === Position.First ?
+				1 :
+				textModel.getLineMaxColumn(lineNumber);
+
+			// Set the code editor widget position.
+			codeEditorWidgetRef.current.setPosition({ lineNumber, column });
 
 			// Ensure that the code editor widget is scrolled into view.
 			codeEditorWidgetContainerRef.current?.scrollIntoView({ behavior: 'auto' });
@@ -116,7 +112,7 @@ export const ConsoleInput = forwardRef<HTMLDivElement, ConsoleInputProps>((props
 				const updatedCodeFragment = codeFragment + '\n';
 				setCurrentCodeFragment(updatedCodeFragment);
 				codeEditorWidgetRef.current.setValue(updatedCodeFragment);
-				updateCodeEditorWidgetPositionToEnd();
+				updateCodeEditorWidgetPosition(Position.Last, Position.Last);
 				return;
 			}
 
@@ -297,7 +293,7 @@ export const ConsoleInput = forwardRef<HTMLDivElement, ConsoleInputProps>((props
 						codeEditorWidgetRef.current.setValue(inputHistoryEntry.input);
 
 						// Position the code editor widget.
-						updateCodeEditorWidgetPositionToBeginning();
+						updateCodeEditorWidgetPosition(Position.First, Position.Last);
 					}
 				}
 				break;
@@ -336,7 +332,7 @@ export const ConsoleInput = forwardRef<HTMLDivElement, ConsoleInputProps>((props
 						}
 
 						// Position the code editor widget.
-						updateCodeEditorWidgetPositionToEnd();
+						updateCodeEditorWidgetPosition(Position.Last, Position.Last);
 					}
 				}
 				break;
@@ -353,7 +349,7 @@ export const ConsoleInput = forwardRef<HTMLDivElement, ConsoleInputProps>((props
 					codeEditorWidgetRef.current.setValue(
 						codeEditorWidgetRef.current.getValue() + '\n'
 					);
-					updateCodeEditorWidgetPositionToEnd();
+					updateCodeEditorWidgetPosition(Position.Last, Position.Last);
 					return;
 				}
 
@@ -487,7 +483,7 @@ export const ConsoleInput = forwardRef<HTMLDivElement, ConsoleInputProps>((props
 		disposableStore.add(codeEditorWidget.onDidPaste(e => {
 			// On paste, make sure the code editor widget is positioned to the end so everything
 			// that was pasted is visible.
-			updateCodeEditorWidgetPositionToEnd();
+			updateCodeEditorWidgetPosition(Position.Last, Position.Last);
 		}));
 
 		// [Preserving this comment for later use...]
