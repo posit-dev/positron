@@ -1546,8 +1546,8 @@ export const POSITRON_ENVIRONMENT_GRID_COLOR = registerColor('positronEnvironmen
 
 // The Positron Environment row hover background color.
 export const POSITRON_ENVIRONMENT_ROW_HOVER_BACKGROUND_COLOR = registerColor('positronEnvironment.rowHoverBackground', {
-	dark: listHoverBackground,
-	light: listHoverBackground,
+	dark: lighten(listHoverBackground, 0.05),
+	light: darken(listHoverBackground, 0.05),
 	hcDark: listHoverBackground,
 	hcLight: listHoverBackground
 }, localize('positronEnvironment.rowHoverBackground', "Positron Environment row hover background color."));
@@ -1591,6 +1591,16 @@ export const POSITRON_ENVIRONMENT_INACTIVE_SELECTION_FOREGROUND_COLOR = register
 	hcDark: listInactiveSelectionForeground,
 	hcLight: listInactiveSelectionForeground
 }, localize('positronEnvironment.inactiveSelectionForegroundColor', "Positron Environmentinactive selection foreground color."));
+
+// < --- Positron Plots --- >
+
+// Positron Plots background color.
+export const POSITRON_PLOTS_BACKGROUND_COLOR = registerColor('positronPlots.background', {
+	dark: 'terminal.background',
+	light: 'terminal.background',
+	hcDark: 'terminal.background',
+	hcLight: 'terminal.background'
+}, localize('positronPlots.background', "Positron Plots background color."));
 
 // *************************************************************************************************
 // *************************************************************************************************

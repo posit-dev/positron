@@ -757,7 +757,8 @@
 		"--vscode-positronConsole-ansiBrightBlue",
 		"--vscode-positronConsole-ansiBrightMagenta",
 		"--vscode-positronConsole-ansiBrightCyan",
-		"--vscode-positronConsole-ansiBrightWhite"
+		"--vscode-positronConsole-ansiBrightWhite",
+		"--vscode-positronPlots-background"
 	],
 	"others": [
 		"--background-dark",

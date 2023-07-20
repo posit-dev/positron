@@ -8,7 +8,14 @@
 	align-items: center;
 	box-sizing: border-box;
 	height: var(--positronActionBar-height);
+}
+
+.positron-action-bar:not(.transparent-background) {
 	background: var(--positronActionBar-background);
+}
+
+.positron-action-bar.transparent-background {
+	background: transparent;
 }
 
 .positron-action-bar.small {
