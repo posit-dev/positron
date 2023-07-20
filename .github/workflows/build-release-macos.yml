@@ -158,14 +158,14 @@ jobs:
         env:
           POSITRON_BUILD_NUMBER: ${{ needs.version_string.outputs.build_number }}
         run: |
-          yarn gulp compile-build
+          yarn gulp core-ci
 
       # Compile built-in extensions
       - name: Build extensions
         env:
           POSITRON_BUILD_NUMBER: ${{ needs.version_string.outputs.build_number }}
         run: |
-          yarn gulp compile-extensions-build
+          yarn gulp extensions-ci
 
       # Minify and produce a macOS application
       - name: Minify and package client
