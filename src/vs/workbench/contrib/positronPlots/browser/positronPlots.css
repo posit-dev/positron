@@ -5,6 +5,7 @@
 .plots-container {
 	height: 100%;
 	display: flex;
+	background: var(--vscode-positronPlots-background);
 }
 
 .plots-container.history-right {
