@@ -2,14 +2,19 @@
 # Copyright (C) 2023 Posit Software, PBC. All rights reserved.
 #
 
+from __future__ import annotations
+
 import enum
 import logging
 import types
 from collections.abc import Iterable, Mapping, Sequence
-from typing import Any, Optional
+from typing import Any, Dict, Optional, TYPE_CHECKING, Set
 
 from .inspectors import get_inspector, MAX_ITEMS
 from .utils import get_qualname
+
+if TYPE_CHECKING:
+    from .positron_ipkernel import PositronIPyKernel
 
 logger = logging.getLogger(__name__)
 
@@ -168,7 +173,7 @@ class EnvironmentMessageError(EnvironmentMessage):
 
 
 class EnvironmentService:
-    def __init__(self, kernel):  # noqa: F821
+    def __init__(self, kernel: PositronIPyKernel):
         self.kernel = kernel
         self.env_comm = None
 
@@ -223,7 +228,7 @@ class EnvironmentService:
         else:
             self._send_error(f"Unknown message type '{msgType}'")
 
-    def send_update(self, assigned: dict, removed: set) -> None:
+    def send_update(self, assigned: Mapping[str, Any], removed: Set[str]) -> None:
         """
         Sends the list of variables that have changed in the current user session through the
         environment comm to the client.
@@ -294,7 +299,7 @@ class EnvironmentService:
         msg = EnvironmentMessageError(error_message)
         self._send_message(msg)
 
-    def _send_update(self, assigned: Mapping, removed: Iterable) -> None:
+    def _send_update(self, assigned: Mapping[str, Any], removed: Set[str]) -> None:
         """
         Sends the list of variables in the current user session through the environment comm
         to the client.
@@ -334,7 +339,7 @@ class EnvironmentService:
         """
         self.kernel.delete_all_vars(parent)
 
-    def _delete_vars(self, names: Iterable, parent) -> None:
+    def _delete_vars(self, names: Iterable, parent: Dict[str, Any]) -> None:
         """
         Deletes the requested variables by name from the current user session.
 
@@ -348,7 +353,7 @@ class EnvironmentService:
         if names is None:
             return
 
-        assigned, removed = self.kernel.del_vars(names, parent)
+        assigned, removed = self.kernel.delete_vars(names, parent)
         self._send_update(assigned, removed)
 
     def _inspect_var(self, path: Sequence) -> None:
