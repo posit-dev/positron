@@ -2,22 +2,34 @@
 # Copyright (C) 2023 Posit Software, PBC. All rights reserved.
 #
 
+from __future__ import annotations
+
 import copy
 import inspect
 import logging
 import numbers
+import pickle
 import sys
 import types
 import uuid
 from collections.abc import Mapping, MutableMapping, MutableSequence, MutableSet, Sequence, Set
-from typing import Any, Callable, Optional, Tuple
+from typing import Any, Callable, Optional, Tuple, TYPE_CHECKING
 
 from .dataviewer import DataColumn, DataSet
 from .utils import get_value_length, get_qualname, pretty_format
 
+if TYPE_CHECKING:
+    import numpy as np
+    import torch
+
+# General display settings
 MAX_ITEMS: int = 100
 TRUNCATE_AT: int = 1024
 PRINT_WIDTH: int = 100
+
+# Array-specific display settings
+ARRAY_THRESHOLD = 20
+ARRAY_EDGEITEMS = 9
 
 # Marker used to track if our default object was returned from a
 # conditional property lookup
@@ -591,15 +603,22 @@ class PolarsInspector(TableInspector):
 class NumpyNdarrayInspector(CollectionInspector):
     CLASS_QNAME = "numpy.ndarray"
 
+    def get_kind(self, value: Any) -> str:
+        return "collection" if value.ndim > 0 else "number"
+
     def get_display_value(
-        self, value: Any, print_width: int = PRINT_WIDTH, truncate_at: int = TRUNCATE_AT
+        self, value: np.ndarray, print_width: int = PRINT_WIDTH, truncate_at: int = TRUNCATE_AT
     ) -> Tuple[str, bool]:
         try:
             import numpy as np
 
             return (
                 np.array2string(
-                    value, max_line_width=PRINT_WIDTH, threshold=20, edgeitems=9, separator=","
+                    value,
+                    max_line_width=print_width,
+                    threshold=ARRAY_THRESHOLD,
+                    edgeitems=ARRAY_EDGEITEMS,
+                    separator=",",
                 ),
                 True,
             )
@@ -618,13 +637,20 @@ class NumpyNdarrayInspector(CollectionInspector):
         if value.ndim == 1:
             shape = value.shape
             display_type = f"{display_type} ({shape[0]})"
-        else:
-            display_type = f"{display_type} {value.shape}"
+        # Only include shape information if it's not a scalar
+        elif value.ndim != 0:
+            display_type = f"{display_type} {tuple(value.shape)}"
+
+        # Prepend the module name if it's not already there, to distinguish different types of
+        # arrays e.g. numpy versus pytorch
+        module = type(value).__module__
+        if not display_type.startswith(module):
+            display_type = f"{module}.{display_type}"
 
         return display_type
 
     def get_length(self, value: Any) -> int:
-        return value.shape[0]
+        return value.shape[0] if value.ndim > 0 else 0
 
     def get_column_names(self, value: Any) -> list:
         try:
@@ -639,7 +665,7 @@ class NumpyNdarrayInspector(CollectionInspector):
             index = int(child_name)
             return index < self.get_length(value)
         except Exception:
-            logger.warning(f"Unable to find Pandas Series child at '{child_name}'", exc_info=True)
+            logger.warning(f"Unable to find Numpy ndarray child at '{child_name}'", exc_info=True)
         return False
 
     def get_child(self, value: Any, child_name: str) -> Any:
@@ -693,11 +719,68 @@ class NumpyNdarrayInspector(CollectionInspector):
     def copy(self, value: Any) -> Any:
         return value.copy()
 
+    def is_snapshottable(self, value: Any) -> bool:
+        return True
+
+
+class TorchTensorInspector(NumpyNdarrayInspector):
+    CLASS_QNAME = "torch.Tensor"
+
+    def get_display_value(
+        self, value: torch.Tensor, print_width: int = PRINT_WIDTH, truncate_at: int = TRUNCATE_AT
+    ) -> Tuple[str, bool]:
+        try:
+            # NOTE: Once https://github.com/pytorch/pytorch/commit/e03800a93af55ef61f2e610d65ac7194c0614edc
+            #       is in a stable version we can use it to temporarily set print options
+            import torch
+
+            new_options = {
+                "threshold": ARRAY_THRESHOLD,
+                "edgeitems": ARRAY_EDGEITEMS,
+                "linewidth": print_width,
+            }
+            options_obj = torch._tensor_str.PRINT_OPTS
+            original_options = {k: getattr(options_obj, k) for k in new_options}
+
+            torch.set_printoptions(**new_options)
+
+            display_value = str(value)
+            # Strip the surrounding `tensor(...)`
+            display_value = display_value[len("tensor(") : -len(")")]
+
+            torch.set_printoptions(**original_options)
+        except Exception:
+            logger.warning("Unable to display torch.Tensor", exc_info=True)
+            return (self.get_display_type(value), True)
+
+        return display_value, True
+
+    def equals(self, value1: Any, value2: Any) -> bool:
+        try:
+            import torch
+
+            return torch.equal(value1, value2)
+        except Exception as err:
+            logger.warning("torch equals %s", err, exc_info=True)
+
+        # Fallback to comparing the raw bytes, using pytorch's custom pickle handler
+        if value1.shape != value2.shape:
+            return False
+        return pickle.dumps(value1) == pickle.dumps(value2)
+
+    def copy(self, value: Any) -> Any:
+        # Detach the tensor from any existing computation graphs to avoid gradients propagating
+        # through them.
+        # TODO: This creates a completely new tensor using new memory. Is there a more
+        #       memory-efficient way to do this?
+        return value.detach().clone()
+
 
 INSPECTORS = {
     PandasDataFrameInspector.CLASS_QNAME: PandasDataFrameInspector(),
     PandasSeriesInspector.CLASS_QNAME: PandasSeriesInspector(),
     NumpyNdarrayInspector.CLASS_QNAME: NumpyNdarrayInspector(),
+    TorchTensorInspector.CLASS_QNAME: TorchTensorInspector(),
     **dict.fromkeys(PolarsInspector.CLASS_QNAME, PolarsInspector()),
     "boolean": BooleanInspector(),
     "bytes": BytesInspector(),

@@ -39,4 +39,5 @@ pydantic
 pyright
 pytest-mock
 polars
+torch
 # --- End Positron ---
