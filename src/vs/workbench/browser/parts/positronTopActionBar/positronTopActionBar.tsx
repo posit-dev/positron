@@ -231,7 +231,7 @@ export const PositronTopActionBar = (props: PositronTopActionBarProps) => {
 						{showCenterUI && (
 							<ActionBarRegion location='center'>
 
-								<PositronActionBar size='large'>
+								<PositronActionBar size='large' nestedActionBar={true}>
 									{showFullCenterUI && (
 										<ActionBarRegion width={60} location='left' justify='right'>
 											<ActionBarCommandButton iconId='chevron-left' commandId={NavigateBackwardsAction.ID} />

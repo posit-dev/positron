@@ -8,16 +8,26 @@ import { PropsWithChildren } from 'react'; // eslint-disable-line no-duplicate-i
 import { optionalValue, positronClassNames } from 'vs/base/common/positronUtilities';
 
 /**
- * PositronActionBarProps interface.
+ * CommonPositronActionBarProps interface.
  */
-interface PositronActionBarProps {
+interface CommonPositronActionBarProps {
 	size: 'small' | 'large';
 	gap?: number;
-	borderTop?: boolean;
-	borderBottom?: boolean;
 	paddingLeft?: number;
 	paddingRight?: number;
 }
+
+/**
+ * NestedPositronActionBarProps interface.
+ */
+type NestedPositronActionBarProps =
+	| { nestedActionBar?: true; borderTop?: never; borderBottom?: never }
+	| { nestedActionBar?: false | undefined; borderTop?: boolean; borderBottom?: boolean };
+
+/**
+ * PositronActionBarProps interface.
+ */
+type PositronActionBarProps = CommonPositronActionBarProps & NestedPositronActionBarProps;
 
 /**
  * PositronActionBar component.
@@ -30,12 +40,19 @@ export const PositronActionBar = (props: PropsWithChildren<PositronActionBarProp
 		'positron-action-bar',
 		{ 'border-top': props?.borderTop },
 		{ 'border-bottom': props?.borderBottom },
+		{ 'transparent-background': props?.nestedActionBar },
 		props.size
 	);
 
 	// Render.
 	return (
-		<div className={classNames} style={{ gap: optionalValue(props.gap, 0), paddingLeft: optionalValue(props.paddingLeft, 0), paddingRight: optionalValue(props.paddingRight, 0) }}>
+		<div
+			className={classNames}
+			style={{
+				gap: optionalValue(props.gap, 0),
+				paddingLeft: optionalValue(props.paddingLeft, 0),
+				paddingRight: optionalValue(props.paddingRight, 0)
+			}}>
 			{props.children}
 		</div>
 	);
