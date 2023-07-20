@@ -39,7 +39,7 @@ class TestEnvironmentService:
 
     @pytest.fixture(scope="class", autouse=True)
     def env_service(self) -> EnvironmentService:
-        return EnvironmentService(None)
+        return EnvironmentService(None)  # type: ignore
 
     #
     # Helper Methods
