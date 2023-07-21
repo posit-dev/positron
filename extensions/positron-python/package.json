@@ -1703,6 +1703,11 @@
                 "key": "ctrl+r",
                 "mac": "cmd+r",
                 "when": "python.hasActiveTensorBoardSession"
+            },
+            {
+                "command": "workbench.action.positronConsole.executeCode",
+                "key": "shift+enter",
+                "when": "editorTextFocus && editorLangId == python && !findInputFocussed && !replaceInputFocussed && !jupyter.ownsSelection && !notebookEditorFocused"
             }
         ],
         "languages": [
