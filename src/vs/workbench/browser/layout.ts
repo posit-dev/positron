@@ -2591,6 +2591,9 @@ class LayoutStateModel extends Disposable {
 		// --- Start Positron ---
 		LayoutStateKeys.AUXILIARYBAR_HIDDEN.defaultValue = false;
 		LayoutStateKeys.PANEL_HIDDEN.defaultValue = false;
+		// For Private Alpha, hide the editor by default. This will cause the panel to become
+		// maximized.
+		LayoutStateKeys.EDITOR_HIDDEN.defaultValue = true;
 		// --- End Positron ---
 
 		// Apply all defaults
