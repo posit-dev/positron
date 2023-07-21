@@ -59,6 +59,7 @@ const HelpLines = [
 	'env update X   - Updates X variables',
 	'error X Y Z    - Simulates an unsuccessful X line input with Y lines of error message and Z lines of traceback (where X >= 1 and Y >= 1 and Z >= 0)',
 	'exec X Y       - Executes a code snippet Y in the language X',
+	'flicker        - Simulates a flickering console prompt',
 	'help           - Shows this help',
 	'offline        - Simulates going offline for two seconds',
 	'plot X         - Renders a dynamic (auto-sizing) plot of the letter X',
@@ -744,6 +745,18 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 					env.clearAllVars();
 				}
 				this.simulateSuccessfulCodeExecution(id, code, 'Environment cleared.');
+				break;
+			}
+
+			case 'flicker': {
+				// Start as with a typical code execution.
+				this.simulateBusyState(id);
+				// But introduce a second of delay between the busy state and the input message.
+				setTimeout(() => {
+					this.simulateInputMessage(id, code);
+					this.simulateOutputMessage(id, 'The prompt and previous code fragment should have briefly disappeared.\n');
+					this.simulateIdleState(id);
+				}, 1000);
 				break;
 			}
 
