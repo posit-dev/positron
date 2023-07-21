@@ -2583,16 +2583,12 @@ class LayoutStateModel extends Disposable {
 		// --- Start Positron ---
 		// LayoutStateKeys.SIDEBAR_SIZE.defaultValue = Math.min(300, workbenchDimensions.width / 4);
 		// LayoutStateKeys.AUXILIARYBAR_SIZE.defaultValue = Math.min(300, workbenchDimensions.width / 4);
-		// Positron side bar is 250px and secondary side bar is 380px.
 		LayoutStateKeys.SIDEBAR_SIZE.defaultValue = Math.min(250, workbenchDimensions.width / 4);
 		LayoutStateKeys.AUXILIARYBAR_SIZE.defaultValue = Math.max(380, workbenchDimensions.width / 3);
 		// --- End Positron ---
 		LayoutStateKeys.PANEL_SIZE.defaultValue = (this.stateCache.get(LayoutStateKeys.PANEL_POSITION.name) ?? LayoutStateKeys.PANEL_POSITION.defaultValue) === 'bottom' ? workbenchDimensions.height / 3 : workbenchDimensions.width / 4;
+		LayoutStateKeys.SIDEBAR_HIDDEN.defaultValue = this.contextService.getWorkbenchState() === WorkbenchState.EMPTY;
 		// --- Start Positron ---
-		// LayoutStateKeys.SIDEBAR_HIDDEN.defaultValue = this.contextService.getWorkbenchState() === WorkbenchState.EMPTY;
-		// Positron shows the side bar and secondary side bar by default.
-		this.contextService.getWorkbenchState(); // Dummy call so we don't change the constructor signature.
-		LayoutStateKeys.SIDEBAR_HIDDEN.defaultValue = false;
 		LayoutStateKeys.AUXILIARYBAR_HIDDEN.defaultValue = false;
 		LayoutStateKeys.PANEL_HIDDEN.defaultValue = false;
 		// --- End Positron ---
