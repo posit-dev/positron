@@ -7,6 +7,7 @@ import * as React from 'react';
 import { FontInfo } from 'vs/editor/common/config/fontInfo';
 import { OutputRun } from 'vs/workbench/contrib/positronConsole/browser/components/outputRun';
 import { ActivityItemInput } from 'vs/workbench/services/positronConsole/common/classes/activityItemInput';
+import { DisposableStore } from 'vs/base/common/lifecycle';
 
 // ActivityInputProps interface.
 export interface ActivityInputProps {
@@ -26,9 +27,29 @@ export const ActivityInput = (props: ActivityInputProps) => {
 		props.fontInfo.typicalHalfwidthCharacterWidth
 	);
 
+	const activityRef = React.useRef<HTMLDivElement>(undefined!);
+
+	React.useEffect(() => {
+		const disposables = new DisposableStore();
+		disposables.add(props.activityItemInput.onBusyStateChanged((busy: boolean) => {
+			console.log(props.activityItemInput.id + ' busy: ' + busy);
+			console.log(activityRef.current);
+			if (busy) {
+				activityRef.current?.classList.add('busy');
+			} else {
+				activityRef.current?.classList.remove('busy');
+			}
+		}));
+		return () => disposables.dispose();
+	}, [props.activityItemInput]);
+
 	// Render.
 	return (
-		<div className='activity-input'>
+		<div ref={activityRef}
+			className={
+				'activity-input' +
+				(props.activityItemInput.busyState ?
+					' busy' : '')}>
 			<div className='progress-bar'></div>
 			{props.activityItemInput.codeOutputLines.map((outputLine, index) =>
 				<div key={outputLine.id}>

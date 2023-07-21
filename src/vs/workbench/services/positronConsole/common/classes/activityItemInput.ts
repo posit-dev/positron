@@ -16,7 +16,7 @@ export class ActivityItemInput {
 	 */
 	readonly codeOutputLines: readonly ANSIOutputLine[];
 
-	public busyState: boolean = false;
+	public busyState: boolean = true;
 
 	public onBusyStateChanged: Event<boolean>;
 
