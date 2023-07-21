@@ -664,6 +664,20 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 		this.attachRuntime(starting);
 	}
 
+	markInputBusyState(parentId: string, busy: boolean) {
+		const activity = this._runtimeItemActivities.get(parentId);
+		if (!activity) {
+			return;
+		}
+		for (const item of activity.activityItems) {
+			if (item instanceof ActivityItemInput) {
+				const input = item as ActivityItemInput;
+				input.setBusyState(busy);
+			}
+			break;
+		}
+	}
+
 	/**
 	 * Sets the state.
 	 * @param state The new state.
@@ -998,6 +1012,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 						this.state === PositronConsoleState.Offline) {
 						this.setState(PositronConsoleState.Busy);
 					}
+					this.markInputBusyState(languageRuntimeMessageState.parent_id, true);
 					break;
 				}
 
@@ -1006,6 +1021,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 						this.state === PositronConsoleState.Offline) {
 						this.setState(PositronConsoleState.Ready);
 					}
+					this.markInputBusyState(languageRuntimeMessageState.parent_id, false);
 					break;
 				}
 			}

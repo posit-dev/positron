@@ -1,3 +1,16 @@
 /*---------------------------------------------------------------------------------------------
  *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
+
+.activity-input {
+	display: grid;
+	margin-left: -10px;
+	grid-template-columns: 10px 1fr;
+}
+
+.activity-input .progress-bar {
+	width: 4px;
+	display: flex;
+	opacity: 0.75;
+	background-color: var(--vscode-positronConsole-ansiBlue);
+}

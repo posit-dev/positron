@@ -28,7 +28,8 @@ export const ActivityInput = (props: ActivityInputProps) => {
 
 	// Render.
 	return (
-		<>
+		<div className='activity-input'>
+			<div className='progress-bar'></div>
 			{props.activityItemInput.codeOutputLines.map((outputLine, index) =>
 				<div key={outputLine.id}>
 					<span style={{ width: promptWidth }}>
@@ -42,6 +43,6 @@ export const ActivityInput = (props: ActivityInputProps) => {
 					)}
 				</div>
 			)}
-		</>
+		</div>
 	);
 };
