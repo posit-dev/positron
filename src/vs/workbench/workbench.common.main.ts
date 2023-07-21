@@ -324,7 +324,11 @@ import 'vs/workbench/contrib/surveys/browser/ces.contribution';
 import 'vs/workbench/contrib/surveys/browser/languageSurveys.contribution';
 
 // Welcome
-import 'vs/workbench/contrib/welcomeGettingStarted/browser/gettingStarted.contribution';
+// --- Start Positron ---
+// For Private Alpha, disable the getting started contribution. This allows us to hide the editor by
+// default in layout.ts.
+// import 'vs/workbench/contrib/welcomeGettingStarted/browser/gettingStarted.contribution';
+// --- End Positron ---
 import 'vs/workbench/contrib/welcomeWalkthrough/browser/walkThrough.contribution';
 import 'vs/workbench/contrib/welcomeViews/common/viewsWelcome.contribution';
 import 'vs/workbench/contrib/welcomeViews/common/newFile.contribution';
