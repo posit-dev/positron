@@ -101,6 +101,17 @@ export class LanguageRuntimeWorkspaceAffiliation extends Disposable {
 	}
 
 	/**
+	 * Get the runtime ID affiliated with the given language ID.
+	 *
+	 * @param languageId The ID of the language for which to get the affiliated runtime.
+	 *
+	 * @returns The runtime ID.
+	 */
+	public getAffiliatedRuntimeId(languageId: string): string | undefined {
+		return this._storageService.get(`${this.storageKey}.${languageId}`, StorageScope.WORKSPACE);
+	}
+
+	/**
 	 * Convenience method for creating a storage key for a given runtime.
 	 *
 	 * @param runtime The runtime for which to get the storage key.

@@ -64,6 +64,9 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 	// The active runtime.
 	private _activeRuntime?: ILanguageRuntime;
 
+	// The object that manages the runtimes affliated with workspaces.
+	private readonly _workspaceAffiliation: LanguageRuntimeWorkspaceAffiliation;
+
 	// The event emitter for the onDidRegisterRuntime event.
 	private readonly _onDidRegisterRuntimeEmitter = this._register(new Emitter<ILanguageRuntime>);
 
@@ -107,8 +110,9 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 		super();
 
 		// Create the object that tracks the affiliation of runtimes to workspaces.
-		this._register(new LanguageRuntimeWorkspaceAffiliation(
-			this, this._storageService, this._logService));
+		this._workspaceAffiliation =
+			new LanguageRuntimeWorkspaceAffiliation(this, this._storageService, this._logService);
+		this._register(this._workspaceAffiliation);
 
 		// Add the onDidEncounterLanguage event handler.
 		this._register(this._languageService.onDidRequestRichLanguageFeatures(languageId => {
@@ -268,12 +272,17 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 		// Logging.
 		this._logService.trace(`Language runtime ${formatLanguageRuntime(runtime)} successfully registered.`);
 
-		// If the language has already been encountered, and a runtime for it
-		// it isn't already starting or running, and it allows for implicit
-		// startup, start it.
+		// Automatically start the language runtime under the following conditions:
+		// - We have encountered the language that the runtime serves.
+		// - The runtime is not already starting or running.
+		// - The runtime has implicit startup behavior.
+		// - There's no runtime affiliated with the current workspace for this
+		//   language (if there is, we want that runtime to start, not this one)
 		if (this._encounteredLanguagesByLanguageId.has(runtime.metadata.languageId) &&
 			!this.runtimeForLanguageIsStartingOrRunning(runtime.metadata.languageId) &&
-			startupBehavior === LanguageRuntimeStartupBehavior.Implicit) {
+			startupBehavior === LanguageRuntimeStartupBehavior.Implicit &&
+			!this._workspaceAffiliation.getAffiliatedRuntimeId(runtime.metadata.languageId)) {
+
 			this._logService.trace(`Language runtime ${formatLanguageRuntime(runtime)} automatically starting.`);
 			this.doStartRuntime(languageRuntimeInfo.runtime);
 		}
