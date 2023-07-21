@@ -88,7 +88,7 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 	return (
 		<PositronActionBarContextProvider {...props}>
 			<div className='action-bars'>
-				<PositronActionBar size='small' paddingLeft={kPaddingLeft} paddingRight={kPaddingRight}>
+				<PositronActionBar size='small' borderTop={true} borderBottom={true} paddingLeft={kPaddingLeft} paddingRight={kPaddingRight}>
 					<ActionBarRegion location='left'>
 						<ActionBarButton iconId='positron-left-arrow' disabled={disableLeft} tooltip={localize('positronShowPreviousPlot', "Show previous plot")} onClick={showPreviousPlotHandler} />
 						<ActionBarButton iconId='positron-right-arrow' disabled={disableRight} tooltip={localize('positronShowNextPlot', "Show next plot")} onClick={showNextPlotHandler} />

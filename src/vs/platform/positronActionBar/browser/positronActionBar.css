@@ -31,9 +31,9 @@
 }
 
 .positron-action-bar.border-top {
-	border-top: 1px solid var(--positronActionBar-border);
+	border-top: 0.5px solid var(--positronActionBar-border);
 }
 
 .positron-action-bar.border-bottom {
-	border-bottom: 1px solid var(--positronActionBar-border);
+	border-bottom: 0.5px solid var(--positronActionBar-border);
 }

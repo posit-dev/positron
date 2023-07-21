@@ -104,7 +104,7 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 	return (
 		<PositronActionBarContextProvider {...props}>
 			<div className='action-bars'>
-				<PositronActionBar size='small' borderBottom={true} paddingLeft={kPaddingLeft} paddingRight={kPaddingRight}>
+				<PositronActionBar size='small' borderTop={true} borderBottom={true} paddingLeft={kPaddingLeft} paddingRight={kPaddingRight}>
 					<ActionBarRegion location='left'>
 						<GroupingMenuButton />
 						<SortingMenuButton />
@@ -116,7 +116,7 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 						<ActionBarButton align='right' iconId='positron-refresh' tooltip={localize('positronRefreshObjects', "Refresh objects")} onClick={refreshObjectsHandler} />
 					</ActionBarRegion>
 				</PositronActionBar>
-				<PositronActionBar size='small' gap={kSecondaryActionBarGap} paddingLeft={kPaddingLeft} paddingRight={kPaddingRight}>
+				<PositronActionBar size='small' borderBottom={true} gap={kSecondaryActionBarGap} paddingLeft={kPaddingLeft} paddingRight={kPaddingRight}>
 					<ActionBarRegion location='left'>
 						<EnvironmentInstanceMenuButton />
 						{/* Disabled for Private Alpha <ActionBarButton iconId='positron-environment' text='Global Environment' dropDown={true} tooltip={localize('positronSelectEnvironment', "Select environment")} /> */}
