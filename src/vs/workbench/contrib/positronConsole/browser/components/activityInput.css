@@ -3,15 +3,15 @@
  *--------------------------------------------------------------------------------------------*/
 
 .activity-input {
-	display: grid;
-	margin-left: -10px;
-	grid-template-columns: 10px 1fr;
+	position: relative;
 }
 
 .activity-input .progress-bar {
 	width: 4px;
-	display: flex;
-	opacity: 0.75;
+	height: 100%;
+	position: absolute;
+	top: 0;
+	left: -10px;
 }
 
 @keyframes pulseAnimation {
