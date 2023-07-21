@@ -4,5 +4,4 @@
 
 .positron-plots-container .action-bars {
 	height: min-content;
-	border-bottom: 1px solid var(--vscode-statusBar-border);
 }
