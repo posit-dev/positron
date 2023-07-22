@@ -50,3 +50,4 @@ dist/**
 *.i18n.json
 l10n/
 tags
+pythonFiles/tests/positron/images
