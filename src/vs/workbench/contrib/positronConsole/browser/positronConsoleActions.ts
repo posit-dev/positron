@@ -227,7 +227,7 @@ export function registerPositronConsoleActions() {
 			if (selection) {
 				// If there is an active selection, use the contents of the selection to drive
 				// execution.
-				code = this.trimNewlines(model.getValueInRange(selection));
+				code = model.getValueInRange(selection);
 				lineNumber = selection.endLineNumber;
 			}
 
