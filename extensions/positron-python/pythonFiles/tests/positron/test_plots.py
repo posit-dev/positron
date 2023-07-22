@@ -104,7 +104,7 @@ def test_hook_handle_msg_noop_on_unknown_msg_type(hook: PositronDisplayPublisher
     comm = _get_first_comm(hook)
 
     # Send a message with an invalid msg_type
-    msg = {"content": {"comm_id": None, "data": {"msg_type": "not_render"}}}
+    msg = {"content": {"comm_id": "unknown_comm_id", "data": {"msg_type": "not_render"}}}
     comm.handle_msg(msg)
 
     # No new messages after comm_open
@@ -115,7 +115,7 @@ def test_hook_render_noop_on_unknown_comm(hook: PositronDisplayPublisherHook) ->
     comm = _get_first_comm(hook)
 
     # Send a message with a valid msg_type but invalid comm_id
-    msg = {"content": {"comm_id": None, "data": {"msg_type": "render"}}}
+    msg = {"content": {"comm_id": "unknown_comm_id", "data": {"msg_type": "render"}}}
     comm.handle_msg(msg)
 
     # No new messages after comm_open
