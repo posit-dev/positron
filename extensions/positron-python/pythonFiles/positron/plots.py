@@ -7,45 +7,84 @@ import comm
 import logging
 import pickle
 import uuid
-from typing import Optional, Tuple
+from typing import Dict, Literal, Optional, Tuple
 
 from IPython.core.interactiveshell import InteractiveShell
+from pydantic import BaseModel, Field, ValidationError
 
 logger = logging.getLogger(__name__)
 
 
-class PlotClientMessageImage(dict):
+# Synchronize the models below with:
+#     src/vs/workbench/services/languageRuntime/common/languageRuntimePlotClient.ts
+
+
+class PlotClientMessageRender(BaseModel):
+    """
+    A message used to request that a plot render at a specific size.
+    """
+
+    width: Optional[int] = Field(description="The width of the plot, in logical pixels")
+    height: Optional[int] = Field(description="The height of the plot, in logical pixels")
+    pixel_ratio: Optional[float] = Field(
+        description="""The pixel ratio of the display device; typically 1 for standard displays,
+2 for retina/high DPI displays, etc."""
+    )
+    msg_type: Literal["render"]
+
+
+class LanguageRuntimeCommMessage(BaseModel):
+    """
+    A message used to send data to the language runtime plot client.
+    """
+
+    comm_id: str = Field(
+        description="The unique ID of the client comm ID for which the message is intended"
+    )
+    # NOTE: When we add more data types, we'll need to use a `Union` and `Field(discriminator='msg_type')`
+    data: PlotClientMessageRender = Field(description="The data from the back-end")
+
+
+class PlotClientMessageOutput(BaseModel):
+    """
+    A message used to receive data from the language runtime plot client.
+    """
+
+    msg_type: str
+
+    class Config:
+        fields = {
+            "msg_type": {
+                # If the unserialized message provides a `msg_type`, it must match the default value.
+                "const": True,
+            }
+        }
+
+
+class PlotClientMessageImage(PlotClientMessageOutput):
     """
     A message used to send rendered plot output.
-
-    Members:
-
-        data: The data for the plot image, as a base64-encoded string. We need
-        to send the plot data as a string because the underlying image file
-        exists only on the machine running the language runtime process.
-
-        mime_type: The MIME type of the image data, e.g. `image/png`. This is
-        used determine how to display the image in the UI.
     """
 
-    def __init__(self, data: str, mime_type: str):
-        self["msg_type"] = "image"
-        self["data"] = data
-        self["mime_type"] = mime_type
+    data: str = Field(
+        description="""The data for the plot image, as a base64-encoded string. We need
+to send the plot data as a string because the underlying image file
+exists only on the machine running the language runtime process."""
+    )
+    mime_type: str = Field(
+        description="""The MIME type of the image data, e.g. `image/png`. This is used to
+determine how to display the image in the UI."""
+    )
+    msg_type: str = "image"
 
 
-class PlotClientMessageError(dict):
+class PlotClientMessageError(PlotClientMessageOutput):
     """
     A message used to send an error message.
-
-    Members:
-
-        message: The error message.
     """
 
-    def __init__(self, message: str):
-        self["msg_type"] = "error"
-        self["message"] = message
+    message: str = Field(description="The error message")
+    msg_type: str = "error"
 
 
 # Matplotlib Default Figure Size
@@ -56,8 +95,8 @@ BASE_DPI = 96
 
 class PositronDisplayPublisherHook:
     def __init__(self, target_name: str):
-        self.comms = {}
-        self.figures = {}
+        self.comms: Dict[str, comm.base_comm.BaseComm] = {}
+        self.figures: Dict[str, str] = {}
         self.target_name = target_name
 
     def __call__(self, msg, *args, **kwargs) -> Optional[dict]:
@@ -96,38 +135,42 @@ class PositronDisplayPublisherHook:
         self.comms[comm_id] = plot_comm
         plot_comm.on_msg(self.receive_message)
 
-    def receive_message(self, msg) -> None:
+    def receive_message(self, raw_msg) -> None:
         """
         Handle client messages to render a plot figure.
         """
-        comm_id = msg["content"]["comm_id"]
-        data = msg["content"]["data"]
-        msg_type = data.get("msg_type", None)
-
-        if msg_type != "render":
+        try:
+            msg = LanguageRuntimeCommMessage(**raw_msg["content"])
+        except ValidationError as exception:
+            logger.warning(f"Ignoring invalid plot client message input: {exception}")
             return
 
-        figure_comm = self.comms.get(comm_id, None)
-        if figure_comm is None:
-            logger.warning(f"Plot figure comm {comm_id} not found")
-            return
+        comm_id = msg.comm_id
+        data = msg.data
 
-        pickled = self.figures.get(comm_id, None)
-        if pickled is None:
-            figure_comm.send(PlotClientMessageError(f"Figure {comm_id} not found"))
-            return
+        if isinstance(data, PlotClientMessageRender):
+            figure_comm = self.comms.get(comm_id, None)
+            if figure_comm is None:
+                logger.warning(f"Plot figure comm {comm_id} not found")
+                return
 
-        width_px = data.get("width", 0)
-        height_px = data.get("height", 0)
-        pixel_ratio = data.get("pixel_ratio", 1)
+            pickled = self.figures.get(comm_id, None)
+            if pickled is None:
+                output = PlotClientMessageError(message=f"Figure {comm_id} not found").dict()
+                figure_comm.send(output)
+                return
 
-        if width_px != 0 and height_px != 0:
-            format_dict, md_dict = self._resize_pickled_figure(
-                pickled, width_px, height_px, pixel_ratio
-            )
-            data = format_dict["image/png"]
-            msg_data = PlotClientMessageImage(data, "image/png")
-            figure_comm.send(data=msg_data, metadata=md_dict)
+            width_px = data.width or 0
+            height_px = data.height or 0
+            pixel_ratio = data.pixel_ratio or 1.0
+
+            if width_px != 0 and height_px != 0:
+                format_dict, md_dict = self._resize_pickled_figure(
+                    pickled, width_px, height_px, pixel_ratio
+                )
+                data = format_dict["image/png"]
+                output = PlotClientMessageImage(data=data, mime_type="image/png").dict()
+                figure_comm.send(data=output, metadata=md_dict)
 
     def shutdown(self) -> None:
         """
