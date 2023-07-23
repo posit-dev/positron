@@ -252,10 +252,21 @@ export function registerPositronConsoleActions() {
 			if (code.length && position && ++lineNumber <= model.getLineCount()) {
 				// Continue to move past empty lines so that the cursor lands on
 				// the first non-empty line
-				while (this.trimNewlines(model.getLineContent(lineNumber)).length === 0 &&
-					lineNumber < model.getLineCount()) {
-					lineNumber++;
+				let nextLineNumber = lineNumber;
+				while (this.trimNewlines(model.getLineContent(nextLineNumber)).length === 0 &&
+					nextLineNumber < model.getLineCount()) {
+					nextLineNumber++;
 				}
+
+				if (nextLineNumber < model.getLineCount()) {
+					// If we found a non-empty line, move the cursor to it.
+					lineNumber = nextLineNumber;
+				} else {
+					// If we didn't, just move the cursor to the line after the
+					// one we executed, even if it's empty.
+					lineNumber = position.lineNumber + 1;
+				}
+
 				// This is the cursor's new position; move the cursor and scroll
 				// the editor to it if necessary.
 				const newPosition = position.with(lineNumber, 0);
@@ -263,18 +274,32 @@ export function registerPositronConsoleActions() {
 				editor.revealPositionInCenterIfOutsideViewport(newPosition);
 			}
 
-			// If there is no code to execute, inform the user.
-			if (code.length === 0) {
-				notificationService.notify({
-					severity: Severity.Info,
-					message: localize('positron.executeCode.noCode', "No code is selected or available to execute."),
-					sticky: false
-				});
-				return;
+			// If we're at the very end of the document, insert a newline so that
+			// the user can continue typing.
+			if (position?.lineNumber === model.getLineCount()) {
+				// Create an edit operation that will append a new line to the end
+				// of the document.
+				const editOperation = {
+					range: {
+						startLineNumber: model.getLineCount(),
+						startColumn: model.getLineMaxColumn(model.getLineCount()),
+						endLineNumber: model.getLineCount(),
+						endColumn: model.getLineMaxColumn(model.getLineCount())
+					},
+					text: '\n'
+				};
+				model.pushEditOperations([], [editOperation], () => []);
+
+				// If we didn't actually execute any code, move the cursor back
+				// up a line so that we don't wind up adding a bunch of empty
+				// lines to the end of the document if the command is run
+				// multiple times.
+				if (!code.length) {
+					editor.setPosition(position.with(position.lineNumber, position.column));
+				}
 			}
 
-			// Now that we've gotten this far, and there's "code" to execute, ensure we have a
-			// target language.
+			// Now that we've gotten this far, ensure we have a target language.
 			const languageId = editorService.activeTextEditorLanguageId;
 			if (!languageId) {
 				notificationService.notify({
