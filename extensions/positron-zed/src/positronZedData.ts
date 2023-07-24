@@ -18,7 +18,8 @@ class ZedColumn implements DataColumn {
 		this.name = name;
 		this.type = type;
 		// Create an array of random numbers of the requested length
-		this.data = Array.from({ length }, () => Math.floor(Math.random() * 100));
+		//this.data = Array.from({ length }, () => Math.floor(Math.random() * 100));
+		this.data = Array.from({ length }, (_, i) => i);
 	}
 }
 

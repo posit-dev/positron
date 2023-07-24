@@ -55,11 +55,11 @@ export const DataPanel = (props: DataPanelProps) => {
 		new DataModel(initialData)
 	);
 
-	// Because the message handler depends on the data model via its rendered rows property,
-	// we need to re-run the effect whenever the data model changes.
 	React.useEffect(() => {
 		const handleMessage = ((event: any) => {
-			updateDataModel( dataModel.handleDataMessage(event) );
+			updateDataModel((prevDataModel) => {
+				return prevDataModel.handleDataMessage(event);
+			});
 		});
 
 		window.addEventListener('message', handleMessage);
@@ -67,7 +67,7 @@ export const DataPanel = (props: DataPanelProps) => {
 		return () => {
 			window.removeEventListener('message', handleMessage);
 		};
-	}, [dataModel]);
+	}, []);
 
 	// Create the columns for the table. These use the 'any' type since the data
 	// model is generic.

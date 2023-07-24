@@ -68,17 +68,25 @@ export class DataModel {
 	 * @returns A new data model, which combines this data model plus the new fragment.
 	 */
 	appendFragment(newFragment: DataFragment): DataModel {
+		if (this.renderedRows.includes(newFragment.rowStart)) {
+			console.error(`Already rendered row ${newFragment.rowStart}, skipping`);
+			return this;
+		}
 		// Make a copy to avoid modifying in place
 		const updatedRenderedRows = this.renderedRows.slice();
-		if (!this.renderedRows.includes(newFragment.rowStart)) {
-			updatedRenderedRows.push(newFragment.rowStart);
-			updatedRenderedRows.sort();
-		}
+		updatedRenderedRows.push(newFragment.rowStart);
+		updatedRenderedRows.sort();
 
 		const columns = this.dataSet.columns.map((column: DataColumn, index: number) => {
+			// Since data messages may come out of order, we need to insert the new data
+			// into the correct position in each column
 			return {
 				...column,
-				data: column.data.concat(newFragment.columns[index].data)
+				data: [
+					...column.data.slice(0, newFragment.rowStart),
+					...newFragment.columns[index].data,
+					...column.data.slice(newFragment.rowStart)
+				]
 			};
 		});
 		const updatedDataModel = new DataModel({
