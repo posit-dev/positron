@@ -34,7 +34,7 @@ async function discoverTestFilesInWorkspace(controller: vscode.TestController) {
 
 	return Promise.all(
 		vscode.workspace.workspaceFolders.map(async workspaceFolder => {
-			const pattern = new vscode.RelativePattern(workspaceFolder, 'tests/testthat/*.R');
+			const pattern = new vscode.RelativePattern(workspaceFolder, 'tests/testthat/**/test*.R');
 			const watcher = vscode.workspace.createFileSystemWatcher(pattern);
 
 			// When files are created, make sure there's a corresponding "file" node in the tree
@@ -60,6 +60,7 @@ function getOrCreateFile(controller: vscode.TestController, uri: vscode.Uri): vs
 	}
 	const file = controller.createTestItem(uri.toString(), uri.path.split('/').pop()!, uri);
 	file.canResolveChildren = true;
+	controller.items.add(file);
 	return file;
 }
 
