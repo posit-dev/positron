@@ -83,8 +83,8 @@ export const InterpreterGroups = (props: InterpreterGroupsProps) => {
 		// Create the disposable store for cleanup.
 		const disposableStore = new DisposableStore();
 
-		// Add our onDidChangeRegisteredRuntimes event handler. This allows the set of runtimes to
-		// be dynamic at app startup.
+		// Add our onDidRegisterRuntime event handler. This allows the set of runtimes to be dynamic
+		// at app startup.
 		disposableStore.add(props.languageRuntimeService.onDidRegisterRuntime(() => {
 			setInterpreterGroups(createInterpreterGroups(props.languageRuntimeService));
 		}));
