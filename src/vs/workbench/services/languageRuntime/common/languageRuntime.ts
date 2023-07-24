@@ -9,6 +9,8 @@ import { Disposable, IDisposable, toDisposable } from 'vs/base/common/lifecycle'
 import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/common/extensions';
 import { formatLanguageRuntime, ILanguageRuntime, ILanguageRuntimeGlobalEvent, ILanguageRuntimeService, ILanguageRuntimeStateEvent, LanguageRuntimeStartupBehavior, RuntimeClientType, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { FrontEndClientInstance, IFrontEndClientMessageInput, IFrontEndClientMessageOutput } from 'vs/workbench/services/languageRuntime/common/languageRuntimeFrontEndClient';
+import { LanguageRuntimeWorkspaceAffiliation } from 'vs/workbench/services/languageRuntime/common/languageRuntimeWorkspaceAffiliation';
+import { IStorageService } from 'vs/platform/storage/common/storage';
 
 /**
  * LanguageRuntimeInfo class.
@@ -62,8 +64,11 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 	// The active runtime.
 	private _activeRuntime?: ILanguageRuntime;
 
-	// The event emitter for the onDidChangeRegisteredRuntimes event.
-	private readonly _onDidChangeRegisteredRuntimesEmitter = this._register(new Emitter<void>);
+	// The object that manages the runtimes affliated with workspaces.
+	private readonly _workspaceAffiliation: LanguageRuntimeWorkspaceAffiliation;
+
+	// The event emitter for the onDidRegisterRuntime event.
+	private readonly _onDidRegisterRuntimeEmitter = this._register(new Emitter<ILanguageRuntime>);
 
 	// The event emitter for the onWillStartRuntime event.
 	private readonly _onWillStartRuntimeEmitter = this._register(new Emitter<ILanguageRuntime>);
@@ -94,13 +99,20 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 	 * Constructor.
 	 * @param _languageService The language service.
 	 * @param _logService The log service.
+	 * @param _storageService The storage service.
 	 */
 	constructor(
 		@ILanguageService private readonly _languageService: ILanguageService,
-		@ILogService private readonly _logService: ILogService
+		@ILogService private readonly _logService: ILogService,
+		@IStorageService private readonly _storageService: IStorageService
 	) {
 		// Call the base class's constructor.
 		super();
+
+		// Create the object that tracks the affiliation of runtimes to workspaces.
+		this._workspaceAffiliation =
+			new LanguageRuntimeWorkspaceAffiliation(this, this._storageService, this._logService);
+		this._register(this._workspaceAffiliation);
 
 		// Add the onDidEncounterLanguage event handler.
 		this._register(this._languageService.onDidRequestRichLanguageFeatures(languageId => {
@@ -140,7 +152,7 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 	declare readonly _serviceBrand: undefined;
 
 	// An event that fires when a runtime is about to start.
-	readonly onDidChangeRegisteredRuntimes = this._onDidChangeRegisteredRuntimesEmitter.event;
+	readonly onDidRegisterRuntime = this._onDidRegisterRuntimeEmitter.event;
 
 	// An event that fires when a runtime is about to start.
 	readonly onWillStartRuntime = this._onWillStartRuntimeEmitter.event;
@@ -237,7 +249,7 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 		this._registeredRuntimesByRuntimeId.set(runtime.metadata.runtimeId, languageRuntimeInfo);
 
 		// Signal that the set of registered runtimes has changed.
-		this._onDidChangeRegisteredRuntimesEmitter.fire();
+		this._onDidRegisterRuntimeEmitter.fire(runtime);
 
 		// Runtimes are usually registered in the Uninitialized state. If the
 		// runtime is already running when it is registered, we are
@@ -260,12 +272,17 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 		// Logging.
 		this._logService.trace(`Language runtime ${formatLanguageRuntime(runtime)} successfully registered.`);
 
-		// If the language has already been encountered, and a runtime for it
-		// it isn't already starting or running, and it allows for implicit
-		// startup, start it.
+		// Automatically start the language runtime under the following conditions:
+		// - We have encountered the language that the runtime serves.
+		// - The runtime is not already starting or running.
+		// - The runtime has implicit startup behavior.
+		// - There's no runtime affiliated with the current workspace for this
+		//   language (if there is, we want that runtime to start, not this one)
 		if (this._encounteredLanguagesByLanguageId.has(runtime.metadata.languageId) &&
 			!this.runtimeForLanguageIsStartingOrRunning(runtime.metadata.languageId) &&
-			startupBehavior === LanguageRuntimeStartupBehavior.Implicit) {
+			startupBehavior === LanguageRuntimeStartupBehavior.Implicit &&
+			!this._workspaceAffiliation.getAffiliatedRuntimeId(runtime.metadata.languageId)) {
+
 			this._logService.trace(`Language runtime ${formatLanguageRuntime(runtime)} automatically starting.`);
 			this.doStartRuntime(languageRuntimeInfo.runtime);
 		}
