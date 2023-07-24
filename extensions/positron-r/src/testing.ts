@@ -9,7 +9,125 @@ export function discoverTests(context: vscode.ExtensionContext) {
 		'rPackageTests',
 		'R Package Tests'
 	);
+	context.subscriptions.push(controller);
+
+	controller.resolveHandler = async (test) => {
+		if (!test) {
+			await discoverTestFilesInWorkspace(controller);
+		} else {
+			await parseTestsInFile(controller, test);
+		}
+	};
+
+	controller.createRunProfile(
+		'Run',
+		vscode.TestRunProfileKind.Run,
+		(request, token) => runHandler(controller, request, token),
+		true
+	);
+}
+
+async function discoverTestFilesInWorkspace(controller: vscode.TestController) {
+	if (!vscode.workspace.workspaceFolders) {
+		return []; // handle the case of no open folders
+	}
+
+	return Promise.all(
+		vscode.workspace.workspaceFolders.map(async workspaceFolder => {
+			const pattern = new vscode.RelativePattern(workspaceFolder, 'tests/testthat/*.R');
+			const watcher = vscode.workspace.createFileSystemWatcher(pattern);
+
+			// When files are created, make sure there's a corresponding "file" node in the tree
+			watcher.onDidCreate(uri => getOrCreateFile(controller, uri));
+			// When files change, re-parse them
+			watcher.onDidChange(uri => parseTestsInFile(controller, getOrCreateFile(controller, uri)));
+			// And, finally, delete TestItems for removed files
+			watcher.onDidDelete(uri => controller.items.delete(uri.toString()));
+
+			for (const file of await vscode.workspace.findFiles(pattern)) {
+				getOrCreateFile(controller, file);
+			}
+
+			return watcher;
+		})
+	);
+}
+
+function getOrCreateFile(controller: vscode.TestController, uri: vscode.Uri): vscode.TestItem {
+	const existing = controller.items.get(uri.toString());
+	if (existing) {
+		return existing;
+	}
+	const file = controller.createTestItem(uri.toString(), uri.path.split('/').pop()!, uri);
+	file.canResolveChildren = true;
+	return file;
+}
+
+async function parseTestsInFile(controller: vscode.TestController, file: vscode.TestItem) {
+	const uri = file.uri!;
+	const matches = await findTests(uri);
+	const tests: Map<string, vscode.TestItem> = new Map();
+
+	for (const match of matches) {
+		if (match === undefined) {
+			continue;
+		}
+		const testItem = controller.createTestItem(
+			`${uri}/${match.testLabel}`,
+			match.testLabel,
+			uri
+		);
+		testItem.range = new vscode.Range(match.testStartPosition, match.testEndPosition);
+		tests.set(match.testLabel, testItem);
+	}
+
+	file.children.replace([...tests.values()]);
+	return;
+}
+
+async function findTests(uri: vscode.Uri) {
+	const fileContents = vscode.workspace.openTextDocument(uri);
+	const matches = [];
+
+	// TODO: get the tests out of the file contents
+	// This is just dummy example data:
+	matches.push({
+		testLabel: 'my label',
+		testStartPosition: new vscode.Position(0, 0),
+		testEndPosition: new vscode.Position(10, 10)
+	});
 
 
+	return matches;
+}
 
+function runHandler(controller: vscode.TestController, request: vscode.TestRunRequest, token: vscode.CancellationToken) {
+	const run = controller.createTestRun(request);
+	const queue: vscode.TestItem[] = [];
+
+	// Loop through all included tests, or all known tests, and add them to our queue
+	if (request.include) {
+		request.include.forEach(test => queue.push(test));
+	} else {
+		controller.items.forEach(test => queue.push(test));
+	}
+
+	while (queue.length > 0 && !token.isCancellationRequested) {
+		const test = queue.pop()!;
+
+		// Skip tests the user asked to exclude
+		if (request.exclude?.includes(test)) {
+			continue;
+		}
+
+		const start = Date.now();
+		try {
+			// TODO: actually run the queued test here
+			run.passed(test, Date.now() - start);
+		} catch (error) {
+			run.failed(test, new vscode.TestMessage(String(error)), Date.now() - start);
+		}
+	}
+
+	run.end();
 }
