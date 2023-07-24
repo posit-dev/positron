@@ -1237,7 +1237,7 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 			type: positron.LanguageRuntimeMessageType.CommOpen,
 			comm_id: data.id,
 			target_name: 'positron.dataViewer',
-			data: data
+			data: { 'title': data.title }
 		} as positron.LanguageRuntimeCommOpen);
 
 		// Emit text output so something shows up in the console.
