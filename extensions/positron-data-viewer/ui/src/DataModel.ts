@@ -68,6 +68,7 @@ export class DataModel {
 	 * @returns A new data model, which combines this data model plus the new fragment.
 	 */
 	appendFragment(newFragment: DataFragment): DataModel {
+		// Make a copy to avoid modifying in place
 		const updatedRenderedRows = this.renderedRows.slice();
 		if (!this.renderedRows.includes(newFragment.rowStart)) {
 			updatedRenderedRows.push(newFragment.rowStart);
