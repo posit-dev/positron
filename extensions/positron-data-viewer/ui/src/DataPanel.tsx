@@ -143,14 +143,16 @@ export const DataPanel = (props: DataPanelProps) => {
 	const { rows } = table.getRowModel();
 
 	// Use a virtualizer to render only the rows that are visible.
-	const rowVirtualizer = ReactVirtual.useVirtual({
-		parentRef: tableContainerRef,
-		size: rows.length,
-		overscan: scrollOverscan,
+	const rowVirtualizer = ReactVirtual.useVirtualizer({
+		count: rows.length,
+		getScrollElement: () => tableContainerRef.current,
+		estimateSize: () => 30,
+		overscan: scrollOverscan
 	});
 
 	// Compute the padding for the table container.
-	const { virtualItems: virtualRows, totalSize } = rowVirtualizer;
+	const virtualRows = rowVirtualizer.getVirtualItems();
+	const totalSize = rowVirtualizer.getTotalSize();
 	const paddingTop = virtualRows.length > 0 ? virtualRows?.[0]?.start || 0 : 0;
 	const paddingBottom =
 		virtualRows.length > 0
