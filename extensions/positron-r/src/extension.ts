@@ -6,6 +6,7 @@ import * as vscode from 'vscode';
 
 import { registerCommands } from './commands';
 import { adaptJupyterKernel } from './kernel';
+import { discoverTests } from './testing';
 import { initializeLogging, trace, traceOutputChannel } from './logging';
 
 function activateKernel(context: vscode.ExtensionContext) {
@@ -58,6 +59,9 @@ export function activate(context: vscode.ExtensionContext) {
 
 	// Register commands.
 	registerCommands(context);
+
+	// Discover R package tests.
+	discoverTests(context);
 
 }
 
