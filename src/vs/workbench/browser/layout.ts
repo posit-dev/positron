@@ -2583,14 +2583,15 @@ class LayoutStateModel extends Disposable {
 		// --- Start Positron ---
 		// LayoutStateKeys.SIDEBAR_SIZE.defaultValue = Math.min(300, workbenchDimensions.width / 4);
 		// LayoutStateKeys.AUXILIARYBAR_SIZE.defaultValue = Math.min(300, workbenchDimensions.width / 4);
-		LayoutStateKeys.SIDEBAR_SIZE.defaultValue = Math.min(250, workbenchDimensions.width / 4);
-		LayoutStateKeys.AUXILIARYBAR_SIZE.defaultValue = Math.max(380, workbenchDimensions.width / 3);
+		LayoutStateKeys.SIDEBAR_SIZE.defaultValue = Math.min(250, Math.round(workbenchDimensions.width / 4));
+		LayoutStateKeys.AUXILIARYBAR_SIZE.defaultValue = Math.round(workbenchDimensions.width * 0.45);
 		// --- End Positron ---
 		LayoutStateKeys.PANEL_SIZE.defaultValue = (this.stateCache.get(LayoutStateKeys.PANEL_POSITION.name) ?? LayoutStateKeys.PANEL_POSITION.defaultValue) === 'bottom' ? workbenchDimensions.height / 3 : workbenchDimensions.width / 4;
 		LayoutStateKeys.SIDEBAR_HIDDEN.defaultValue = this.contextService.getWorkbenchState() === WorkbenchState.EMPTY;
 		// --- Start Positron ---
 		LayoutStateKeys.AUXILIARYBAR_HIDDEN.defaultValue = false;
 		LayoutStateKeys.PANEL_HIDDEN.defaultValue = false;
+
 		// For Private Alpha, hide the editor by default. This will cause the panel to become
 		// maximized.
 		LayoutStateKeys.EDITOR_HIDDEN.defaultValue = true;
