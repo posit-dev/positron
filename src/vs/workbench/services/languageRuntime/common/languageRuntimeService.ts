@@ -428,8 +428,8 @@ export interface ILanguageRuntimeService {
 	// Needed for service branding in dependency injector.
 	readonly _serviceBrand: undefined;
 
-	// An event that fires when the registered runtimes changes.
-	readonly onDidChangeRegisteredRuntimes: Event<void>;
+	// An event that fires when a new runtime is registered.
+	readonly onDidRegisterRuntime: Event<ILanguageRuntime>;
 
 	// An event that fires when a runtime is about to start.
 	readonly onWillStartRuntime: Event<ILanguageRuntime>;
