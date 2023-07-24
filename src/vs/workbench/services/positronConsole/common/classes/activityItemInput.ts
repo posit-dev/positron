@@ -21,6 +21,7 @@ export class ActivityItemInput {
 
 	/**
 	 * Constructor.
+	 * @param provisional A value which indicates whether this is a provisional ActivityItemInput.
 	 * @param id The identifier.
 	 * @param parentId The parent identifier.
 	 * @param when The date.
@@ -29,6 +30,7 @@ export class ActivityItemInput {
 	 * @param code The code.
 	 */
 	constructor(
+		readonly provisional: boolean,
 		readonly id: string,
 		readonly parentId: string,
 		readonly when: Date,
