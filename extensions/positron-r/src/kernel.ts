@@ -85,50 +85,63 @@ function extractValue(str: string, key: string, delim: string = '='): string {
 export function registerArkKernel(ext: vscode.Extension<any>, context: vscode.ExtensionContext, kernelPath: string): void {
 
 	class RInstallation {
-		public readonly binpath: string;
-		public readonly homepath: string;
-		public readonly version: string;
-		public readonly arch: string;
-		public readonly current: boolean;
-		public readonly orthogonal: boolean;
+		public readonly binpath: string = '';
+		public readonly homepath: string = '';
+		public readonly version: string = '';
+		public readonly arch: string = '';
+		public readonly current: boolean = false;
+		public readonly orthogonal: boolean = false;
 
 		/**
 		 * Represents an installation of R on the user's system.
 		 *
 		 * @param pth Filepath for an R "binary" (on macOS and linux, this is actually a
-		 * shell script)
+		 *   shell script)
 		 */
 		constructor(pth: string, current: boolean = false) {
 			this.binpath = pth;
 			this.current = current;
 
 			const binLines = readLines(this.binpath);
-			const targetLine = binLines.filter(line => line.match('R_HOME_DIR'))[0];
+			const re = new RegExp('Shell wrapper for R executable');
+			if (!binLines.some(x => re.test(x))) {
+				return;
+			}
+			const targetLine = binLines.find(line => line.match('R_HOME_DIR'));
+			if (!targetLine) {
+				return;
+			}
 			// macOS: R_HOME_DIR=/Library/Frameworks/R.framework/Versions/4.3-arm64/Resources
 			// macOS non-orthogonal: R_HOME_DIR=/Library/Frameworks/R.framework/Resources
 			// linux: R_HOME_DIR=/opt/R/4.2.3/lib/R
 			const R_HOME_DIR = extractValue(targetLine, 'R_HOME_DIR');
 			this.homepath = R_HOME_DIR;
+			if (this.homepath === '') {
+				return;
+			}
 
 			// orthogonality is a concern specific to macOS
 			// a non-orthogonal R "binary" is hard-wired to launch the current version of R,
 			// so it only works when it actually is the current version of R
 			// learn more in https://github.com/r-lib/rig/blob/main/src/macos.rs
 			// see is_orthogonal(), make_orthogonal_()
-			const re = new RegExp('R[.]framework/Resources');
-			this.orthogonal = !re.test(this.homepath);
+			const re2 = new RegExp('R[.]framework/Resources');
+			this.orthogonal = !re2.test(this.homepath);
 
 			// make sure to target a base package that contains compiled code, so the
 			// 'Built' field contains the platform info
 			const descPath = path.join(this.homepath, 'library', 'utils', 'DESCRIPTION');
 			const descLines = readLines(descPath);
 			const targetLine2 = descLines.filter(line => line.match('Built'))[0];
+			if (!targetLine2) {
+				return;
+			}
 			// macOS arm64: Built: R 4.3.1; aarch64-apple-darwin20; 2023-06-16 21:52:54 UTC; unix
 			// macOS intel: Built: R 4.3.1; x86_64-apple-darwin20; 2023-06-16 21:51:34 UTC; unix
 			// linux: Built: R 4.2.3; x86_64-pc-linux-gnu; 2023-03-15 09:03:13 UTC; unix
 			const builtField = extractValue(targetLine2, 'Built', ':');
-
 			const builtParts = builtField.split(new RegExp(';\\s+'));
+
 			const versionPart = builtParts[0];
 			const version = semver.coerce(versionPart) ?? '0.0.1';
 			this.version = `${semver.major(version)}.${semver.minor(version)}`;
