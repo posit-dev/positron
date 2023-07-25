@@ -187,6 +187,12 @@ export interface ILanguageRuntimeInfo {
 
 	/** The language version number */
 	language_version: string;
+
+	/** Custom input prompt, if any */
+	input_prompt?: string;
+
+	/** Custom continuation prompt, if any */
+	continuation_prompt?: string;
 }
 
 /** LanguageRuntimeInfo contains metadata about the runtime after it has started. */
@@ -335,12 +341,6 @@ export interface ILanguageRuntimeMetadata {
 	/** The Base64-encoded icon SVG for the language. */
 	readonly base64EncodedIconSvg: string | undefined;
 
-	/** The text the language's interpreter uses to prompt the user for input, e.g. ">" or ">>>" */
-	readonly inputPrompt: string;
-
-	/** The text the language's interpreter uses to prompt the user for continued input, e.g. "+" or "..." */
-	readonly continuationPrompt: string;
-
 	/** The user-facing descriptive name of the runtime; e.g. "R 4.3.3" */
 	readonly runtimeName: string;
 
@@ -352,11 +352,31 @@ export interface ILanguageRuntimeMetadata {
 
 	/** Whether the runtime should start up automatically or wait until explicitly requested */
 	readonly startupBehavior: LanguageRuntimeStartupBehavior;
+
+	/** FIXME
+	 * These are for compatibility until runtimes have added
+         * support for the dynamic state struct */
+	readonly inputPrompt?: string;
+	readonly continuationPrompt?: string;
+}
+
+/* ILanguageRuntimeConfig contains information about a language runtime that is known
+ * after the runtime is started and that might change in the course of a session.
+ */
+export interface ILanguageRuntimeDynState {
+	/** The text the language's interpreter uses to prompt the user for input, e.g. ">" or ">>>" */
+	inputPrompt: string;
+
+	/** The text the language's interpreter uses to prompt the user for continued input, e.g. "+" or "..." */
+	continuationPrompt: string;
 }
 
 export interface ILanguageRuntime {
 	/** The language runtime's static metadata */
 	readonly metadata: ILanguageRuntimeMetadata;
+
+	/** The language runtime's dynamic metadata */
+	dynState: ILanguageRuntimeDynState;
 
 	/** An object that emits events when the runtime state changes */
 	onDidChangeRuntimeState: Event<RuntimeState>;
@@ -381,6 +401,7 @@ export interface ILanguageRuntime {
 	onDidReceiveRuntimeMessageError: Event<ILanguageRuntimeMessageError>;
 	onDidReceiveRuntimeMessagePrompt: Event<ILanguageRuntimeMessagePrompt>;
 	onDidReceiveRuntimeMessageState: Event<ILanguageRuntimeMessageState>;
+	onDidReceiveRuntimeMessagePromptConfig: Event<void>;
 
 	/** The current state of the runtime (tracks events above) */
 	getRuntimeState(): RuntimeState;
@@ -490,4 +511,3 @@ export interface ILanguageRuntimeService {
 	startRuntime(runtimeId: string): Promise<void>;
 }
 export { RuntimeClientType, IRuntimeClientInstance };
-

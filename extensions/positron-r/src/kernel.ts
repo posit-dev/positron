@@ -239,13 +239,16 @@ export function registerArkKernel(ext: vscode.Extension<any>, context: vscode.Ex
 			languageId: 'r',
 			languageName: kernelSpec.language,
 			languageVersion: rVersion,
-			inputPrompt: '>',
-			continuationPrompt: '+',
 			base64EncodedIconSvg:
 				fs.readFileSync(
 					path.join(context.extensionPath, 'resources', 'branding', 'r-icon.svg')
 				).toString('base64'),
 			startupBehavior: positron.LanguageRuntimeStartupBehavior.Implicit
+		};
+
+		const dynState: positron.LanguageRuntimeDynState = {
+			inputPrompt: '>',
+			continuationPrompt: '+',
 		};
 
 		const extra: JupyterKernelExtra = {
@@ -254,7 +257,7 @@ export function registerArkKernel(ext: vscode.Extension<any>, context: vscode.Ex
 		};
 
 		// Create an adapter for the kernel to fulfill the LanguageRuntime interface.
-		runtime = new RRuntime(context, kernelSpec, metadata, ext.exports, extra);
+		runtime = new RRuntime(context, kernelSpec, metadata, dynState, ext.exports, extra);
 		context.subscriptions.push(runtime);
 
 		// Register the language runtime with Positron.
