@@ -31,9 +31,6 @@ declare module 'positron' {
 		/** A message representing a change in the runtime's online state */
 		State = 'state',
 
-		/** A message representing a change in the runtime's prompt state */
-		PromptState = 'prompt_state',
-
 		/** A message representing a runtime event */
 		Event = 'event',
 
@@ -191,18 +188,6 @@ declare module 'positron' {
 
 		/** Whether this is a password prompt (and typing should be hidden)  */
 		password: boolean;
-	}
-
-	/**
-	 * LanguageRuntimePromptState is a LanguageRuntimeMessage representing a change
-	 * in the prompt state.
-	 */
-	export interface LanguageRuntimePromptState extends LanguageRuntimeMessage {
-		/** Prompt text */
-		inputPrompt?: string;
-
-		/** Continuation prompt for incomplete lines */
-		continuationPrompt?: string;
 	}
 
 	/** LanguageRuntimeInfo contains metadata about the runtime after it has started. */

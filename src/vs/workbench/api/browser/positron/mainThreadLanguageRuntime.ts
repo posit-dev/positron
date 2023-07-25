@@ -9,7 +9,7 @@ import {
 	ExtHostPositronContext
 } from '../../common/positron/extHost.positron.protocol';
 import { extHostNamedCustomer, IExtHostContext } from 'vs/workbench/services/extensions/common/extHostCustomers';
-import { ILanguageRuntime, ILanguageRuntimeClientCreatedEvent, ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMessageCommClosed, ILanguageRuntimeMessageCommData, ILanguageRuntimeMessageCommOpen, ILanguageRuntimeMessageError, ILanguageRuntimeMessageInput, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessagePrompt, ILanguageRuntimeMessagePromptState, ILanguageRuntimeMessageState, ILanguageRuntimeMessageStream, ILanguageRuntimeMetadata, ILanguageRuntimeDynState as ILanguageRuntimeDynState, ILanguageRuntimeService, ILanguageRuntimeStartupFailure, LanguageRuntimeMessageType, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntime, ILanguageRuntimeClientCreatedEvent, ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMessageCommClosed, ILanguageRuntimeMessageCommData, ILanguageRuntimeMessageCommOpen, ILanguageRuntimeMessageError, ILanguageRuntimeMessageInput, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessagePrompt, ILanguageRuntimeMessageState, ILanguageRuntimeMessageStream, ILanguageRuntimeMetadata, ILanguageRuntimeDynState as ILanguageRuntimeDynState, ILanguageRuntimeService, ILanguageRuntimeStartupFailure, LanguageRuntimeMessageType, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { Disposable, DisposableStore } from 'vs/base/common/lifecycle';
 import { Event, Emitter } from 'vs/base/common/event';
 import { IPositronConsoleService } from 'vs/workbench/services/positronConsole/common/interfaces/positronConsoleService';
@@ -19,6 +19,7 @@ import { IRuntimeClientInstance, RuntimeClientState, RuntimeClientType } from 'v
 import { DeferredPromise } from 'vs/base/common/async';
 import { generateUuid } from 'vs/base/common/uuid';
 import { IPositronPlotsService } from 'vs/workbench/services/positronPlots/common/positronPlots';
+import { LanguageRuntimeEventType, PromptStateEvent } from 'vs/workbench/services/languageRuntime/common/languageRuntimeEvents';
 
 /**
  * Represents a language runtime event (for example a message or state change)
@@ -93,6 +94,7 @@ class ExtHostLanguageRuntimeAdapter implements ILanguageRuntime {
 		readonly handle: number,
 		readonly metadata: ILanguageRuntimeMetadata,
 		readonly dynState: ILanguageRuntimeDynState,
+		private readonly _languageRuntimeService: ILanguageRuntimeService,
 		private readonly _logService: ILogService,
 		private readonly _proxy: ExtHostLanguageRuntimeShape) {
 
@@ -120,6 +122,30 @@ class ExtHostLanguageRuntimeAdapter implements ILanguageRuntime {
 
 				// Remove all clients; none can send or receive data any more
 				this._clients.clear();
+			}
+		});
+
+		this._languageRuntimeService.onDidReceiveRuntimeEvent(globalEvent => {
+			const ev = globalEvent.event;
+			if (ev.name === LanguageRuntimeEventType.PromptState) {
+				// Update config before propagating event
+				const state = ev.data as PromptStateEvent;
+
+				// Runtimes might supply prompts with trailing whitespace (e.g. R,
+				// Python) that we trim here because we add our own whitespace later on
+				const inputPrompt = state.inputPrompt?.trimEnd();
+				const continuationPrompt = state.continuationPrompt?.trimEnd();
+
+				if (inputPrompt) {
+					this.dynState.inputPrompt = inputPrompt;
+				}
+				if (continuationPrompt) {
+					this.dynState.continuationPrompt = continuationPrompt;
+				}
+
+				// Don't include new state in event, clients should
+				// inspect the runtime's dyn state instead
+				this.emitDidReceiveRuntimeMessagePromptConfig();
 			}
 		});
 	}
@@ -568,28 +594,6 @@ class ExtHostLanguageRuntimeAdapter implements ILanguageRuntime {
 				this.emitDidReceiveRuntimeMessageState(message as ILanguageRuntimeMessageState);
 				break;
 
-			case LanguageRuntimeMessageType.PromptState: {
-				// Update config before propagating event
-				const state = message as ILanguageRuntimeMessagePromptState;
-
-				// Runtimes might supply prompts with trailing whitespace (e.g. R,
-				// Python) that we trim here because we add our own whitespace later on
-				const inputPrompt = state.inputPrompt?.trimEnd();
-				const continuationPrompt = state.continuationPrompt?.trimEnd();
-
-				if (inputPrompt) {
-					this.dynState.inputPrompt = inputPrompt;
-				}
-				if (continuationPrompt) {
-					this.dynState.continuationPrompt = continuationPrompt;
-				}
-
-				// Don't include new state in event, clients should
-				// inspect the runtime's dyn state instead
-				this.emitDidReceiveRuntimeMessagePromptConfig();
-				break;
-			}
-
 			case LanguageRuntimeMessageType.CommOpen:
 				this.openClientInstance(message as ILanguageRuntimeMessageCommOpen);
 				break;
@@ -796,7 +800,14 @@ export class MainThreadLanguageRuntime implements MainThreadLanguageRuntimeShape
 
 	// Called by the extension host to register a language runtime
 	$registerLanguageRuntime(handle: number, metadata: ILanguageRuntimeMetadata, dynState: ILanguageRuntimeDynState): void {
-		const adapter = new ExtHostLanguageRuntimeAdapter(handle, metadata, dynState, this._logService, this._proxy);
+		const adapter = new ExtHostLanguageRuntimeAdapter(
+			handle,
+			metadata,
+			dynState,
+			this._languageRuntimeService,
+			this._logService,
+			this._proxy
+		);
 		this._runtimes.set(handle, adapter);
 
 		// Consider - do we need a flag (on the API side) to indicate whether

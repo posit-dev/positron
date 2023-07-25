@@ -18,18 +18,4 @@ export interface JupyterExecuteReply extends JupyterMessageSpec {
 
 	/** Results for user expressions */
 	user_expressions: Map<string, any>;  // eslint-disable-line
-
-	/** Posit extension */
-	positron?: JupyterExecuteReplyPositron;
-}
-
-export interface JupyterExecuteReplyPositron {
-	/** String for next input prompt */
-	input_prompt?: string;
-
-	/** String for continuation lines of next incomplete prompts */
-	continuation_prompt?: string;
-
-	/** Is the next prompt an input request (e.g. from `readline()`)? */
-	is_input_request?: boolean;
 }

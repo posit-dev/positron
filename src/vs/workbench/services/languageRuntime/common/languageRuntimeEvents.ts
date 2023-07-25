@@ -11,6 +11,7 @@ export enum LanguageRuntimeEventType {
 	Busy = 'busy',
 	ShowMessage = 'show_message',
 	ShowHelp = 'show_help',
+	PromptState = 'prompt_state',
 }
 
 // Represents a change in the runtime's busy state.
@@ -42,6 +43,17 @@ export interface ShowHelpEvent extends LanguageRuntimeEventData {
 
 	/** Focus the Help pane after the Help content has been rendered? */
 	focus: boolean;
+
+}
+
+// Update strings of future input and continuation prompts.
+export interface PromptStateEvent extends LanguageRuntimeEventData {
+
+	/** String for future input prompts. */
+	inputPrompt: string;
+
+	/** String for future continuation prompts. */
+	continuationPrompt: string;
 
 }
 
