@@ -87,6 +87,11 @@ export function registerArkKernel(ext: vscode.Extension<any>, context: vscode.Ex
 	class RInstallation {
 		public readonly binpath: string = '';
 		public readonly homepath: string = '';
+		// The semVersion field was added because changing the version field from a string that's
+		// "major.minor" to an instance of SemVer (conveying major.minor.patch) would have
+		// downstream consequence I don't want to take on now. But we can probably rationalize this
+		// in the future.
+		public readonly semVersion: semver.SemVer = new semver.SemVer('0.0.1');
 		public readonly version: string = '';
 		public readonly arch: string = '';
 		public readonly current: boolean = false;
@@ -143,8 +148,8 @@ export function registerArkKernel(ext: vscode.Extension<any>, context: vscode.Ex
 			const builtParts = builtField.split(new RegExp(';\\s+'));
 
 			const versionPart = builtParts[0];
-			const version = semver.coerce(versionPart) ?? '0.0.1';
-			this.version = `${semver.major(version)}.${semver.minor(version)}`;
+			this.semVersion = semver.coerce(versionPart) ?? new semver.SemVer('0.0.1');
+			this.version = `${semver.major(this.semVersion)}.${semver.minor(this.semVersion)}`;
 
 			const platformPart = builtParts[1];
 			const architecture = platformPart.match('^(aarch64|x86_64)');
@@ -221,7 +226,7 @@ export function registerArkKernel(ext: vscode.Extension<any>, context: vscode.Ex
 		// otherwise, sort by version number, descending
 		// break ties by architecture
 		// (currently taking advantage of the fact that 'aarch64' > 'x86_64')
-		return b.version.localeCompare(a.version) || a.arch.localeCompare(b.arch);
+		return semver.compare(b.semVersion, a.semVersion) || a.arch.localeCompare(b.arch);
 	});
 
 	// Loop over the R installations and create a language runtime for each one.
