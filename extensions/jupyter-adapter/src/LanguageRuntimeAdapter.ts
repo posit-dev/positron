@@ -74,6 +74,7 @@ export class LanguageRuntimeAdapter
 		private readonly _channel: vscode.OutputChannel,
 		private readonly _spec: JupyterKernelSpec,
 		readonly metadata: positron.LanguageRuntimeMetadata,
+		public dynState: positron.LanguageRuntimeDynState,
 		extra?: JupyterKernelExtra,
 	) {
 		this._kernel = new JupyterKernel(
@@ -224,6 +225,8 @@ export class LanguageRuntimeAdapter
 						banner: message.banner,
 						implementation_version: message.implementation_version,
 						language_version: message.language_info.version,
+						input_prompt: message.language_info.positron?.input_prompt,
+						continuation_prompt: message.language_info.positron?.continuation_prompt,
 					} satisfies positron.LanguageRuntimeInfo);
 				});
 

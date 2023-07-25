@@ -28,4 +28,15 @@ export interface JupyterLanguageInfo {
 
 	/** Nbconvert exporter, if not default */
 	nbconvert_exporter: string; // eslint-disable-line
+
+	/** Posit extension */
+	positron?: JupyterLanguageInfoPositron;
+}
+
+export interface JupyterLanguageInfoPositron {
+	/** Initial input prompt */
+	input_prompt?: string;
+
+	/** Initial continuation prompt */
+	continuation_prompt?: string;
 }

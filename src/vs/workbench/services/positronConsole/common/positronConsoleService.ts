@@ -795,6 +795,8 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 
 		// Add the onDidCompleteStartup event handler.
 		this._runtimeDisposableStore.add(this._runtime.onDidCompleteStartup(languageRuntimeInfo => {
+			this.setState(PositronConsoleState.Ready);
+
 			// Add item trace.
 			this.addRuntimeItemTrace(`onDidCompleteStartup`);
 
@@ -835,6 +837,10 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 				languageRuntimeMessageInput.code
 			);
 
+			// FIXME: Temporary compats during switch to dynamic config
+			const inputPrompt = this._runtime.dynState?.inputPrompt || this._runtime.metadata.inputPrompt as string;
+			const continuationPrompt = this._runtime.dynState?.continuationPrompt || this._runtime.metadata.continuationPrompt as string;
+
 			// Add or update the runtime item activity.
 			this.addOrUpdateUpdateRuntimeItemActivity(
 				languageRuntimeMessageInput.parent_id,
@@ -842,8 +848,8 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 					languageRuntimeMessageInput.id,
 					languageRuntimeMessageInput.parent_id,
 					new Date(languageRuntimeMessageInput.when),
-					this._runtime.metadata.inputPrompt,
-					this._runtime.metadata.continuationPrompt,
+					inputPrompt,
+					continuationPrompt,
 					languageRuntimeMessageInput.code
 				)
 			);

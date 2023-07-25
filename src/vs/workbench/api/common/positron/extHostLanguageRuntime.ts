@@ -173,7 +173,7 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		this._eventClocks.push(0);
 
 		// Register the runtime with the main thread
-		this._proxy.$registerLanguageRuntime(handle, runtime.metadata);
+		this._proxy.$registerLanguageRuntime(handle, runtime.metadata, runtime.dynState);
 		return new Disposable(() => {
 			this._proxy.$unregisterLanguageRuntime(handle);
 		});

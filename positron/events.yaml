@@ -35,3 +35,13 @@
     type: boolean
     comment: Focus the Help pane after the Help content has been rendered?
 
+- name: PromptState
+  comment: >
+    Update strings of future input and continuation prompts.
+  params:
+  - name: inputPrompt
+    type: string
+    comment: String for future input prompts.
+  - name: continuationPrompt
+    type: string
+    comment: String for future continuation prompts.
