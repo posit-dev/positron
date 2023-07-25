@@ -5,3 +5,7 @@
 .positron-console .action-bar {
 	height: 32px;
 }
+
+.action-bar-button-icon.interrupt::before {
+	color: var(--vscode-errorForeground);
+}
