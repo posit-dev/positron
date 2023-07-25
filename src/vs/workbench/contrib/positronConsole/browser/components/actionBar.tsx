@@ -114,18 +114,19 @@ export const ActionBar = (props: ActionBarProps) => {
 				<PositronActionBar size='small' borderTop={true} borderBottom={true} paddingLeft={kPaddingLeft} paddingRight={kPaddingRight}>
 					<ActionBarRegion location='left'>
 						<ConsoleInstanceMenuButton {...props} />
+					</ActionBarRegion>
+					<ActionBarRegion location='right'>
 						{interruptible &&
 							<ActionBarButton
 								fadeIn={true}
 								disabled={interrupting}
-								iconId='positron-interrupt-runtime'
-								align='left'
+								align='right'
 								tooltip={localize('positronInterruptExeuction', "Interrupt execution")}
 								onClick={interruptHandler}
-							/>
+							>
+								<div className={`action-bar-button-icon interrupt codicon codicon-positron-interrupt-runtime`} />
+							</ActionBarButton>
 						}
-					</ActionBarRegion>
-					<ActionBarRegion location='right'>
 						<ActionBarButton iconId='positron-list' align='right' tooltip={localize('positronToggleTrace', "Toggle trace")} onClick={toggleTraceHandler} />
 						<ActionBarButton iconId='word-wrap' align='right' tooltip={localize('positronWordWrap', "Toggle word wrap")} onClick={toggleWordWrapHandler} />
 						<ActionBarSeparator />
