@@ -4,7 +4,7 @@
 
 import 'vs/css!./actionBarButton';
 import * as React from 'react';
-import { forwardRef } from 'react'; // eslint-disable-line no-duplicate-imports
+import { forwardRef, PropsWithChildren } from 'react'; // eslint-disable-line no-duplicate-imports
 import { PositronButton } from 'vs/base/browser/ui/positronComponents/positronButton';
 import { ActionBarTooltip } from 'vs/platform/positronActionBar/browser/components/actionBarTooltip';
 import { optionalBoolean, optionalValue, positronClassNames } from 'vs/base/common/positronUtilities';
@@ -29,10 +29,10 @@ export interface ActionBarButtonProps {
 
 /**
  * ActionBarButton component.
- * @param props An ActionBarButtonProps that contains the component properties.
+ * @param props A PropsWithChildren<ActionBarButtonProps> that contains the component properties.
  * @returns The rendered component.
  */
-export const ActionBarButton = forwardRef<HTMLDivElement, ActionBarButtonProps>((props, ref) => {
+export const ActionBarButton = forwardRef<HTMLDivElement, PropsWithChildren<ActionBarButtonProps>>((props, ref) => {
 	// Create the class names.
 	const buttonClassNames = positronClassNames(
 		'action-bar-button',
@@ -55,6 +55,7 @@ export const ActionBarButton = forwardRef<HTMLDivElement, ActionBarButtonProps>(
 					{props.iconId && <div className={`action-bar-button-icon codicon codicon-${props.iconId}`} style={iconStyle} />}
 					{props.text && <div className='action-bar-button-text' style={{ maxWidth: optionalValue(props.maxTextWidth, 'none') }}>{props.text}</div>}
 					{props.dropDown && <div className='action-bar-button-drop-down-arrow codicon codicon-positron-drop-down-arrow' />}
+					{props.children}
 				</div>
 			</PositronButton>
 		</ActionBarTooltip>
