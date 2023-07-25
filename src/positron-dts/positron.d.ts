@@ -200,6 +200,12 @@ declare module 'positron' {
 
 		/** The language version number */
 		language_version: string;
+
+		/** Initial prompt string in case user customized it */
+		input_prompt?: string;
+
+		/** Continuation prompt string in case user customized it */
+		continuation_prompt?: string;
 	}
 
 	/** LanguageRuntimeState is a LanguageRuntimeMessage representing a new runtime state */
@@ -290,17 +296,29 @@ declare module 'positron' {
 		/** The version of the language; e.g. "4.2" */
 		languageVersion: string;
 
-		/** The text the language's interpreter uses to prompt the user for input, e.g. ">" or ">>>" */
-		inputPrompt: string;
-
-		/** The text the language's interpreter uses to prompt the user for continued input, e.g. "+" or "..." */
-		continuationPrompt: string;
-
 		/** The Base64-encoded icon SVG for the language. */
 		base64EncodedIconSvg: string | undefined;
 
 		/** Whether the runtime should start up automatically or wait until explicitly requested */
 		startupBehavior: LanguageRuntimeStartupBehavior;
+
+		/** FIXME
+		 * These are for compatibility until runtimes have added
+		 * support for the config struct */
+		inputPrompt?: string;
+		continuationPrompt?: string;
+	}
+
+	/**
+	 * LanguageRuntimeDynState contains information about a language runtime that may
+	 * change after a runtime has started.
+ 	 */
+	export interface LanguageRuntimeDynState {
+		/** The text the language's interpreter uses to prompt the user for input, e.g. ">" or ">>>" */
+		inputPrompt: string;
+
+		/** The text the language's interpreter uses to prompt the user for continued input, e.g. "+" or "..." */
+		continuationPrompt: string;
 	}
 
 	export enum LanguageRuntimeStartupBehavior {
@@ -393,6 +411,8 @@ declare module 'positron' {
 	export interface LanguageRuntime extends vscode.Disposable {
 		/** An object supplying metadata about the runtime */
 		readonly metadata: LanguageRuntimeMetadata;
+
+		dynState: LanguageRuntimeDynState;
 
 		/** An object that emits language runtime events */
 		onDidReceiveRuntimeMessage: vscode.Event<LanguageRuntimeMessage>;

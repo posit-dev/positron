@@ -35,6 +35,10 @@ function camel(value: string): string {
 
 }
 
+function snake(str: string) {
+	return str.replace(/([a-z])([A-Z])/g, '$1_$2').toLowerCase();
+}
+
 function indent(value: string, indent: string): string {
 	return value.replace(/(^|\n)/g, `$1${indent}`);
 }
@@ -51,7 +55,7 @@ function generateRustEvent(event: PositronEventDefinition) {
 
 	for (const param of event.params) {
 		lines.push(`    /// ${param.comment}`);
-		lines.push(`    pub ${param.name}: ${rustTypesMap[param.type]},`);
+		lines.push(`    pub ${snake(param.name)}: ${rustTypesMap[param.type]},`);
 		lines.push('');
 	}
 
