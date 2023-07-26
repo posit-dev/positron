@@ -16,15 +16,15 @@
 
 @keyframes pulseAnimation {
 	0% {
-		opacity: 0.25;
+		opacity: 0;
 	}
 
 	50% {
-		opacity: 1;
+		opacity: 0;
 	}
 
 	100% {
-		opacity: 0.25;
+		opacity: 1;
 	}
 }
 
@@ -32,5 +32,4 @@
 	background-color: var(--vscode-positronConsole-ansiBlue);
 	animation-name: pulseAnimation;
 	animation-duration: 2s;
-	animation-iteration-count: infinite;
 }
