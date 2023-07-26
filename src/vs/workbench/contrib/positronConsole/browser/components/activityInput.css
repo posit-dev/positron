@@ -29,7 +29,7 @@
 }
 
 .activity-input.busy .progress-bar {
-	background-color: var(--vscode-positronConsole-ansiBlue);
+	background-color: var(--vscode-positronConsole-ansiGreen);
 	animation-name: pulseAnimation;
 	animation-duration: 2s;
 }
