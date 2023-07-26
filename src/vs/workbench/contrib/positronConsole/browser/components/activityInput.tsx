@@ -31,6 +31,8 @@ export const ActivityInput = (props: ActivityInputProps) => {
 
 	React.useEffect(() => {
 		const disposables = new DisposableStore();
+		// Listen for the busy state to change on the activity item; when it
+		// does, update the `busy` class on the activity input.
 		disposables.add(props.activityItemInput.onBusyStateChanged((busy: boolean) => {
 			console.log(props.activityItemInput.id + ' busy: ' + busy);
 			console.log(activityRef.current);
