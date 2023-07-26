@@ -41,14 +41,18 @@ export class JavascriptLanguageRuntime implements positron.LanguageRuntime {
 			runtimeSource: 'Node.js',
 			languageVersion: version,
 			base64EncodedIconSvg: fs.readFileSync(iconSvgPath).toString('base64'),
-			inputPrompt: `>`,
-			continuationPrompt: '…',
 			runtimeVersion: '0.0.1',
 			startupBehavior: positron.LanguageRuntimeStartupBehavior.Implicit
+		};
+
+		this.dynState = {
+			inputPrompt: `>`,
+			continuationPrompt: '…',
 		};
 	}
 
 	readonly metadata: positron.LanguageRuntimeMetadata;
+	public dynState: positron.LanguageRuntimeDynState;
 
 	readonly onDidReceiveRuntimeMessage: vscode.Event<positron.LanguageRuntimeMessage>
 		= this._onDidReceiveRuntimeMessage.event;

@@ -253,6 +253,7 @@
     "@types/glob": "^7.2.0",
     "@types/mocha": "^9.1.0",
     "@types/node": "14.x",
+    "@types/which": "^3.0.0",
     "@typescript-eslint/eslint-plugin": "^5.12.1",
     "@typescript-eslint/parser": "^5.12.1",
     "@vscode/test-electron": "^2.1.2",
@@ -264,8 +265,8 @@
     "vsce": "^2.11.0"
   },
   "dependencies": {
-    "vscode-languageclient": "^7.0.0",
-    "p-queue": "^6.6.2"
+    "p-queue": "^6.6.2",
+    "vscode-languageclient": "^7.0.0"
   },
   "repository": {
     "type": "git",
