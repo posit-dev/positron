@@ -3,6 +3,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { ANSIOutput, ANSIOutputLine } from 'vs/base/common/ansi/ansiOutput';
+import { Emitter, Event } from 'vs/base/common/event';
 
 /**
  * ActivityItemInput class.
@@ -15,7 +16,21 @@ export class ActivityItemInput {
 	 */
 	readonly codeOutputLines: readonly ANSIOutputLine[];
 
+	/**
+	 * The current busy state; defaults to true since we receive input items
+	 * when they are already in the process of being executed.
+	 */
+	public busyState: boolean = true;
+
+	/**
+	 * An event that fires when the busy state changes; the event value is the
+	 * new busy state.
+	 */
+	public onBusyStateChanged: Event<boolean>;
+
 	//#endregion Public Properties
+
+	private _onBusyStateChangedEmitter: Emitter<boolean> = new Emitter<boolean>();
 
 	//#region Constructor
 
@@ -38,7 +53,19 @@ export class ActivityItemInput {
 	) {
 		// Process the code directly into ANSI output lines suitable for rendering.
 		this.codeOutputLines = ANSIOutput.processOutput(code);
+
+		this.onBusyStateChanged = this._onBusyStateChangedEmitter.event;
 	}
 
 	//#endregion Constructor
+
+	/**
+	 * Sets the busy state.
+	 *
+	 * @param busyState The new busy state
+	 */
+	public setBusyState(busyState: boolean): void {
+		this.busyState = busyState;
+		this._onBusyStateChangedEmitter.fire(busyState);
+	}
 }
