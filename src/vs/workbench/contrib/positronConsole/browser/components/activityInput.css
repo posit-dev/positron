@@ -1,3 +1,35 @@
 /*---------------------------------------------------------------------------------------------
  *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
+
+.activity-input {
+	position: relative;
+}
+
+.activity-input .progress-bar {
+	width: 4px;
+	height: 100%;
+	position: absolute;
+	top: 0;
+	left: -10px;
+}
+
+@keyframes pulseAnimation {
+	0% {
+		opacity: 0;
+	}
+
+	50% {
+		opacity: 0;
+	}
+
+	100% {
+		opacity: 1;
+	}
+}
+
+.activity-input.busy .progress-bar {
+	background-color: var(--vscode-positronConsole-ansiGreen);
+	animation-name: pulseAnimation;
+	animation-duration: 1s;
+}

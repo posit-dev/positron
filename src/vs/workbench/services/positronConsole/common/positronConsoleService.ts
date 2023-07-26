@@ -665,6 +665,34 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	}
 
 	/**
+	 * Marks the Input activity item that matches the given parent ID as busy or
+	 * not busy.
+	 *
+	 * @param parentId The parent ID of the input activity.
+	 * @param busy Whether the input is busy.
+	 */
+	markInputBusyState(parentId: string, busy: boolean) {
+		// Look up all the activities that match the given parent ID
+		const activity = this._runtimeItemActivities.get(parentId);
+		if (!activity) {
+			return;
+		}
+
+		// Loop over each and look for the Input activity
+		for (const item of activity.activityItems) {
+
+			if (item instanceof ActivityItemInput) {
+				// This is the input activity; update its busy state.
+				const input = item as ActivityItemInput;
+				input.setBusyState(busy);
+
+				// Found the input, so we're done.
+				break;
+			}
+		}
+	}
+
+	/**
 	 * Sets the state.
 	 * @param state The new state.
 	 */
@@ -1004,6 +1032,8 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 						this.state === PositronConsoleState.Offline) {
 						this.setState(PositronConsoleState.Busy);
 					}
+					// Mark the associated input as busy.
+					this.markInputBusyState(languageRuntimeMessageState.parent_id, true);
 					break;
 				}
 
@@ -1012,6 +1042,8 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 						this.state === PositronConsoleState.Offline) {
 						this.setState(PositronConsoleState.Ready);
 					}
+					// Mark the associated input as idle.
+					this.markInputBusyState(languageRuntimeMessageState.parent_id, false);
 					break;
 				}
 			}
