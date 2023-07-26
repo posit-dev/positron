@@ -30,7 +30,3 @@
 .monaco-workbench .part.positron-top-action-bar:focus {
 	outline: none !important;
 }
-
-.centering-spacer {
-	min-width: 48px;
-}
