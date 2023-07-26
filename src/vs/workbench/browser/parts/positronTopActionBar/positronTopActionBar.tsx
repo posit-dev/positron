@@ -13,7 +13,6 @@ import { ILayoutService } from 'vs/platform/layout/browser/layoutService';
 import { IQuickInputService } from 'vs/platform/quickinput/common/quickInput';
 import { IWorkspacesService } from 'vs/platform/workspaces/common/workspaces';
 import { IWorkspaceContextService } from 'vs/platform/workspace/common/workspace';
-import { PositronButton } from 'vs/base/browser/ui/positronComponents/positronButton';
 import { PositronActionBar } from 'vs/platform/positronActionBar/browser/positronActionBar';
 import { ActionBarRegion } from 'vs/platform/positronActionBar/browser/components/actionBarRegion';
 import { ActionBarSeparator } from 'vs/platform/positronActionBar/browser/components/actionBarSeparator';
@@ -56,12 +55,12 @@ export interface IPositronTopActionBarContainer {
 export interface PositronTopActionBarServices extends PositronActionBarServices {
 	hostService: IHostService;
 	labelService: ILabelService;
+	languageRuntimeService: ILanguageRuntimeService;
 	layoutService: ILayoutService;
+	positronTopActionBarService: IPositronTopActionBarService;
 	quickInputService: IQuickInputService;
 	workspaceContextService: IWorkspaceContextService;
 	workspacesService: IWorkspacesService;
-	languageRuntimeService: ILanguageRuntimeService;
-	positronTopActionBarService: IPositronTopActionBarService;
 }
 
 /**
@@ -198,73 +197,54 @@ export const PositronTopActionBar = (props: PositronTopActionBarProps) => {
 		}
 	};
 
-	/**
-	 * The logo click handler.
-	 */
-	const logoClickHandler = () => {
-		// For now, open the Welcome user experience.
-		props.commandService.executeCommand('workbench.action.openWalkthrough');
-	};
-
 	// Render.
 	return (
 		<PositronTopActionBarContextProvider {...props}>
 			<PositronActionBarContextProvider {...props}>
 
-				<div className='top-action-bar-container'>
-					<PositronButton className='logo-button' onClick={logoClickHandler}>
-						<span className='logo-icon codicon codicon-positron-posit-logo' />
-					</PositronButton>
+				<PositronActionBar size='large' borderBottom={true} paddingLeft={kHorizontalPadding} paddingRight={kHorizontalPadding}>
 
+					<ActionBarRegion location='left'>
+						<TopActionBarNewMenu />
+						<ActionBarSeparator />
+						<TopActionBarOpenMenu />
+						<ActionBarSeparator />
+						<ActionBarCommandButton iconId='positron-save' commandId={'workbench.action.files.save'} />
+						<ActionBarCommandButton iconId='positron-save-all' commandId={'workbench.action.files.saveFiles'} />
+					</ActionBarRegion>
 
-					<PositronActionBar size='large' borderBottom={true} paddingLeft={kHorizontalPadding} paddingRight={kHorizontalPadding}>
+					{showCenterUI && (
+						<ActionBarRegion location='center'>
 
-						<ActionBarRegion location='left'>
-							<TopActionBarNewMenu />
-							<ActionBarSeparator />
-							<TopActionBarOpenMenu />
-							<ActionBarSeparator />
-							<ActionBarCommandButton iconId='positron-save' commandId={'workbench.action.files.save'} />
-							<ActionBarCommandButton iconId='positron-save-all' commandId={'workbench.action.files.saveFiles'} />
-						</ActionBarRegion>
-
-						{showCenterUI && (
-							<ActionBarRegion location='center'>
-
-								<PositronActionBar size='large' nestedActionBar={true}>
-									{showFullCenterUI && (
-										<ActionBarRegion width={60} location='left' justify='right'>
-											<ActionBarCommandButton iconId='chevron-left' commandId={NavigateBackwardsAction.ID} />
-											<ActionBarCommandButton iconId='chevron-right' commandId={NavigateForwardAction.ID} />
-										</ActionBarRegion>
-									)}
-									<ActionBarRegion location='center'>
-										<TopActionBarCommandCenter />
+							<PositronActionBar size='large' nestedActionBar={true}>
+								{showFullCenterUI && (
+									<ActionBarRegion width={60} location='left' justify='right'>
+										<ActionBarCommandButton iconId='chevron-left' commandId={NavigateBackwardsAction.ID} />
+										<ActionBarCommandButton iconId='chevron-right' commandId={NavigateForwardAction.ID} />
 									</ActionBarRegion>
-									{showFullCenterUI && (
-										<ActionBarRegion width={60} location='right' justify='left' />
-									)}
-								</PositronActionBar>
+								)}
+								<ActionBarRegion location='center'>
+									<TopActionBarCommandCenter />
+								</ActionBarRegion>
+								{showFullCenterUI && (
+									<ActionBarRegion width={60} location='right' justify='left' />
+								)}
+							</PositronActionBar>
 
-								{/* This balances the logo button. */}
-								<div className='centering-spacer' />
-
-							</ActionBarRegion>
-
-						)}
-
-						<ActionBarRegion location='right'>
-							<TopActionBarInterpretersManager
-								onStartRuntime={startRuntimeHandler}
-								onActivateRuntime={activateRuntimeHandler}
-							/>
-							{showCenterUI && (
-								<TopActionBarFolderMenu />
-							)}
 						</ActionBarRegion>
+					)}
 
-					</PositronActionBar>
-				</div>
+					<ActionBarRegion location='right'>
+						<TopActionBarInterpretersManager
+							onStartRuntime={startRuntimeHandler}
+							onActivateRuntime={activateRuntimeHandler}
+						/>
+						{showCenterUI && (
+							<TopActionBarFolderMenu />
+						)}
+					</ActionBarRegion>
+
+				</PositronActionBar>
 
 			</PositronActionBarContextProvider>
 		</PositronTopActionBarContextProvider>
