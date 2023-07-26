@@ -3,6 +3,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import * as positron from 'positron';
 
 export function discoverTests(context: vscode.ExtensionContext) {
 	const controller = vscode.tests.createTestController(
@@ -93,16 +94,21 @@ async function findTests(uri: vscode.Uri) {
 	// TODO: get the tests out of the file contents
 	// This is just dummy example data:
 	matches.push({
-		testLabel: 'my label',
+		testLabel: 'can dispatch',
 		testStartPosition: new vscode.Position(0, 0),
-		testEndPosition: new vscode.Position(10, 10)
+		testEndPosition: new vscode.Position(4, 2)
+	});
+	matches.push({
+		testLabel: 'can roundtrip ptype through JSON',
+		testStartPosition: new vscode.Position(6, 0),
+		testEndPosition: new vscode.Position(22, 2)
 	});
 
 
 	return matches;
 }
 
-function runHandler(controller: vscode.TestController, request: vscode.TestRunRequest, token: vscode.CancellationToken) {
+async function runHandler(controller: vscode.TestController, request: vscode.TestRunRequest, token: vscode.CancellationToken) {
 	const run = controller.createTestRun(request);
 	const queue: vscode.TestItem[] = [];
 
@@ -123,7 +129,7 @@ function runHandler(controller: vscode.TestController, request: vscode.TestRunRe
 
 		const start = Date.now();
 		try {
-			// TODO: actually run the queued test here
+			await runTest(test);
 			run.passed(test, Date.now() - start);
 		} catch (error) {
 			run.failed(test, new vscode.TestMessage(String(error)), Date.now() - start);
@@ -131,4 +137,15 @@ function runHandler(controller: vscode.TestController, request: vscode.TestRunRe
 	}
 
 	run.end();
+}
+
+async function runTest(test: vscode.TestItem) {
+	const uri = test.uri!;
+	const document = await vscode.workspace.openTextDocument(uri);
+	const source = document.getText();
+	const range = test.range!;
+	const startIndex = document.offsetAt(range.start);
+	const endIndex = document.offsetAt(range.end);
+	const testSource = source.slice(startIndex, endIndex);
+	positron.runtime.executeCode('r', testSource, true);
 }
