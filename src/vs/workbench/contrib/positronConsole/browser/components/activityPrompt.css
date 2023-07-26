@@ -12,4 +12,6 @@
 	flex-grow: 1;
 	border: none;
 	outline: 0 !important;
+	color: var(--vscode-positronConsole-foreground);
+	background: var(--vscode-positronConsole-background);
 }
