@@ -13,7 +13,7 @@ import { DataSet, DataViewerMessage, DataViewerMessageData } from './positron-da
  * @param context The extension context
  * @param client The runtime client instance; a two-way channel that allows the
  *   extension to communicate with the runtime
- * @param data The data to display in the data viewer
+ * @param data Data from the `comm_open` containing the dataset title
  */
 export async function createDataPanel(context: vscode.ExtensionContext,
 	client: positron.RuntimeClientInstance,
