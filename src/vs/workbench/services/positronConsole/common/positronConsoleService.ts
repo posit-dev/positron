@@ -622,6 +622,10 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	 * @param code The code.
 	 */
 	beginExecuteCode(id: string, code: string): void {
+		// FIXME: Temporary compats during switch to dynamic config
+		const inputPrompt = this._runtime.dynState?.inputPrompt || this._runtime.metadata.inputPrompt as string;
+		const continuationPrompt = this._runtime.dynState?.continuationPrompt || this._runtime.metadata.continuationPrompt as string;
+
 		// Add a provisional ActivityItemInput for the code that will be executed. This provisional
 		// ActivityItemInput will be replaced with the real ActivityItemInput when the runtime sends
 		// it (which can take a moment or two to happen).
@@ -632,8 +636,8 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 				id,
 				id,
 				new Date(),
-				this._runtime.metadata.inputPrompt,
-				this._runtime.metadata.continuationPrompt,
+				inputPrompt,
+				continuationPrompt,
 				code
 			)
 		);
