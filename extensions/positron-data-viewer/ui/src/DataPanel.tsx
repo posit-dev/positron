@@ -31,6 +31,9 @@ export const DataPanel = (props: DataPanelProps) => {
 	// trigger a fetch of more data.
 	const scrollThresholdPx = 300;
 
+	// The height of a single row of data
+	const rowHeightPx = 30;
+
 	// The number of rows to render above and below the visible area of the
 	// table.
 	const scrollOverscan = 50;
@@ -143,14 +146,16 @@ export const DataPanel = (props: DataPanelProps) => {
 	const { rows } = table.getRowModel();
 
 	// Use a virtualizer to render only the rows that are visible.
-	const rowVirtualizer = ReactVirtual.useVirtual({
-		parentRef: tableContainerRef,
-		size: rows.length,
-		overscan: scrollOverscan,
+	const rowVirtualizer = ReactVirtual.useVirtualizer({
+		count: rows.length,
+		getScrollElement: () => tableContainerRef.current,
+		estimateSize: () => rowHeightPx,
+		overscan: scrollOverscan
 	});
 
 	// Compute the padding for the table container.
-	const { virtualItems: virtualRows, totalSize } = rowVirtualizer;
+	const virtualRows = rowVirtualizer.getVirtualItems();
+	const totalSize = rowVirtualizer.getTotalSize();
 	const paddingTop = virtualRows.length > 0 ? virtualRows?.[0]?.start || 0 : 0;
 	const paddingBottom =
 		virtualRows.length > 0
