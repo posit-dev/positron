@@ -5,6 +5,7 @@
 import { generateUuid } from 'vs/base/common/uuid';
 import { Emitter, Event } from 'vs/base/common/event';
 import { ILogService } from 'vs/platform/log/common/log';
+import { IViewsService } from 'vs/workbench/common/views';
 import { ILanguageService } from 'vs/editor/common/languages/language';
 import { Disposable, DisposableStore } from 'vs/base/common/lifecycle';
 import { RuntimeItem } from 'vs/workbench/services/positronConsole/common/classes/runtimeItem';
@@ -27,7 +28,6 @@ import { RuntimeItemStartupFailure } from 'vs/workbench/services/positronConsole
 import { ActivityItem, RuntimeItemActivity } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemActivity';
 import { IPositronConsoleInstance, IPositronConsoleService, POSITRON_CONSOLE_VIEW_ID, PositronConsoleState } from 'vs/workbench/services/positronConsole/common/interfaces/positronConsoleService';
 import { formatLanguageRuntime, ILanguageRuntime, ILanguageRuntimeMessage, ILanguageRuntimeService, LanguageRuntimeStartupBehavior, RuntimeOnlineState, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
-import { IViewsService } from 'vs/workbench/common/views';
 
 //#region Helper Functions
 
@@ -617,6 +617,29 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	}
 
 	/**
+	 * Begins executing code.
+	 * @param id The identifier.
+	 * @param code The code.
+	 */
+	beginExecuteCode(id: string, code: string): void {
+		// Add a provisional ActivityItemInput for the code that will be executed. This provisional
+		// ActivityItemInput will be replaced with the real ActivityItemInput when the runtime sends
+		// it (which can take a moment or two to happen).
+		this.addOrUpdateUpdateRuntimeItemActivity(
+			id,
+			new ActivityItemInput(
+				true,
+				id,
+				id,
+				new Date(),
+				this._runtime.metadata.inputPrompt,
+				this._runtime.metadata.continuationPrompt,
+				code
+			)
+		);
+	}
+
+	/**
 	 * Executes code.
 	 * @param codeFragment The code fragment to execute.
 	 */
@@ -873,6 +896,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 			this.addOrUpdateUpdateRuntimeItemActivity(
 				languageRuntimeMessageInput.parent_id,
 				new ActivityItemInput(
+					false,
 					languageRuntimeMessageInput.id,
 					languageRuntimeMessageInput.parent_id,
 					new Date(languageRuntimeMessageInput.when),
