@@ -2,7 +2,7 @@
  *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
-import { ANSIOutput, ANSIOutputLine } from 'ansi-output-test';
+import { ANSIOutput, ANSIOutputLine } from 'ansi-output';
 
 /**
  * ActivityItemErrorStream class.

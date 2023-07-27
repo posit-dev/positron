@@ -3,7 +3,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Emitter, Event } from 'vs/base/common/event';
-import { ANSIOutput, ANSIOutputLine } from 'ansi-output-test';
+import { ANSIOutput, ANSIOutputLine } from 'ansi-output';
 
 /**
  * ActivityItemInput class.
