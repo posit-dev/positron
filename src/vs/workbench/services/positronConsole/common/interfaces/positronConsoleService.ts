@@ -141,14 +141,14 @@ export interface IPositronConsoleInstance {
 	readonly onDidExecuteCode: Event<string>;
 
 	/**
-	 * Toggles word wrap.
-	 */
-	toggleWordWrap(): void;
-
-	/**
 	 * Toggles trace.
 	 */
 	toggleTrace(): void;
+
+	/**
+	 * Toggles word wrap.
+	 */
+	toggleWordWrap(): void;
 
 	/**
 	 * Clears the console.
@@ -159,6 +159,13 @@ export interface IPositronConsoleInstance {
 	 * Clears the input hstory.
 	 */
 	clearInputHistory(): void;
+
+	/**
+	 * Begins executing code.
+	 * @param id The identifier.
+	 * @param code The code.
+	 */
+	beginExecuteCode(id: string, code: string): void;
 
 	/**
 	 * Executes code in the Positron console instance.
