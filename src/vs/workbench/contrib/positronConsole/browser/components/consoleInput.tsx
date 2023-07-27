@@ -124,7 +124,7 @@ export const ConsoleInput = forwardRef<HTMLDivElement, ConsoleInputProps>((props
 				);
 				break;
 
-			// If the code gragment status is unknown, log a warning but execute it anyway (so the
+			// If the code fragment status is unknown, log a warning but execute it anyway (so the
 			// user can see an error from the interpreter).
 			case RuntimeCodeFragmentStatus.Unknown:
 				positronConsoleContext.logService.warn(
@@ -153,10 +153,16 @@ export const ConsoleInput = forwardRef<HTMLDivElement, ConsoleInputProps>((props
 			}
 		}
 
+		// Create the ID for the code fragment that will be executed.
+		const id = `fragment-${generateUuid()}`;
+
+		// Begin executing the code fragment.
+		props.positronConsoleInstance.beginExecuteCode(id, codeFragment);
+
 		// Ask the runtime to execute the code fragment. This is an asynchronous and unwaitable.
 		props.positronConsoleInstance.runtime.execute(
 			codeFragment,
-			`fragment-${generateUuid()}`,
+			id,
 			RuntimeCodeExecutionMode.Interactive,
 			RuntimeErrorBehavior.Continue);
 

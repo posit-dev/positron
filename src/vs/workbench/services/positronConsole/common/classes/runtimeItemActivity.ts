@@ -60,8 +60,22 @@ export class RuntimeItemActivity extends RuntimeItem {
 	 * @param activityItem The activity item to add.
 	 */
 	addActivityItem(activityItem: ActivityItem) {
-		// Group ActivityItemOutputStreams with the same parent identifier.
-		if (activityItem instanceof ActivityItemOutputStream) {
+		if (activityItem instanceof ActivityItemInput && !activityItem.provisional) {
+			// When a non-provisional ActivityItemInput is being added, see if there's a provisional
+			// ActivityItemInput for it in the activity items. If there is, replace the provisional
+			// ActivityItemInput with the actual ActivityItemInput.
+			for (let i = this.activityItems.length - 1; i >= 0; --i) {
+				const activityItemToCheck = this.activityItems[i];
+				if (activityItemToCheck instanceof ActivityItemInput) {
+					if (activityItemToCheck.provisional &&
+						activityItemToCheck.parentId === activityItem.parentId) {
+						this.activityItems[i] = activityItem;
+						return;
+					}
+					break;
+				}
+			}
+		} else if (activityItem instanceof ActivityItemOutputStream) {
 			// If the last activity item is an ActivityItemOutputStream, and it's for the same
 			// parent as this ActivityItemOutputStream, add this ActivityItemOutputStream to it.
 			if (this.activityItems.length) {
