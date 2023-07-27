@@ -40,7 +40,7 @@ export class ZedData implements DataSet {
 	 */
 	constructor(private readonly context: vscode.ExtensionContext,
 		public readonly title: string,
-		public readonly rowCount = 100,
+		public readonly rowCount = 1000,
 		private readonly colCount = 10) {
 		// Create a unique ID for this instance
 		this.id = randomUUID();
