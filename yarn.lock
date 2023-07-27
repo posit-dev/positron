@@ -1769,6 +1769,11 @@ ansi-gray@^0.1.1:
   dependencies:
     ansi-wrap "0.1.0"
 
+ansi-output-test@^1.0.1:
+  version "1.0.1"
+  resolved "https://registry.yarnpkg.com/ansi-output-test/-/ansi-output-test-1.0.1.tgz#7f8943c90ba7c7f816b45c03032eb7062650af30"
+  integrity sha512-lpFY35oDPqskzaDeXIrACRCVcFt8nx/7bHf1RI/3RDaVKBH58uBTwc2/3b7OQw4JrilUe/eIu0XE1pNzmuz4MA==
+
 ansi-red@^0.1.1:
   version "0.1.1"
   resolved "https://registry.yarnpkg.com/ansi-red/-/ansi-red-0.1.1.tgz#8c638f9d1080800a353c9c28c8a81ca4705d946c"
