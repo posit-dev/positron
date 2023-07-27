@@ -114,7 +114,7 @@ async function findTests(uri: vscode.Uri) {
 }
 
 async function runHandler(controller: vscode.TestController, request: vscode.TestRunRequest, token: vscode.CancellationToken) {
-	const run = controller.createTestRun(request);
+	let run = controller.createTestRun(request);
 	const queue: vscode.TestItem[] = [];
 
 	// Loop through all included tests, or all known tests, and add them to our queue
@@ -131,26 +131,30 @@ async function runHandler(controller: vscode.TestController, request: vscode.Tes
 		if (request.exclude?.includes(test)) {
 			continue;
 		}
+		run = await runTest(run, test);
+		test.children.forEach(test => queue.push(test));
+	}
+	run.end();
+}
 
+async function runTest(run: vscode.TestRun, test: vscode.TestItem): Promise<vscode.TestRun> {
+	if (test.children.size > 0) {
+		test.children.forEach(childTest => runTest(run, childTest));
+	} else {
+		const uri = test.uri!;
+		const document = await vscode.workspace.openTextDocument(uri);
+		const source = document.getText();
+		const range = test.range!;
+		const startIndex = document.offsetAt(range.start);
+		const endIndex = document.offsetAt(range.end);
+		const testSource = source.slice(startIndex, endIndex);
 		const start = Date.now();
 		try {
-			await runTest(test);
+			positron.runtime.executeCode('r', testSource, true);
 			run.passed(test, Date.now() - start);
 		} catch (error) {
 			run.failed(test, new vscode.TestMessage(String(error)), Date.now() - start);
 		}
 	}
-
-	run.end();
-}
-
-async function runTest(test: vscode.TestItem) {
-	const uri = test.uri!;
-	const document = await vscode.workspace.openTextDocument(uri);
-	const source = document.getText();
-	const range = test.range!;
-	const startIndex = document.offsetAt(range.start);
-	const endIndex = document.offsetAt(range.end);
-	const testSource = source.slice(startIndex, endIndex);
-	positron.runtime.executeCode('r', testSource, true);
+	return (run);
 }
