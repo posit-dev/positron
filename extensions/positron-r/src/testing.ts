@@ -6,26 +6,31 @@ import * as vscode from 'vscode';
 import * as positron from 'positron';
 
 export function discoverTests(context: vscode.ExtensionContext) {
-	const controller = vscode.tests.createTestController(
-		'rPackageTests',
-		'R Package Tests'
-	);
-	context.subscriptions.push(controller);
+	const extConfig = vscode.workspace.getConfiguration('positron.r');
+	const testingFeatureFlag = extConfig.get<string>('testing.experimental');
 
-	controller.resolveHandler = async (test) => {
-		if (!test) {
-			await discoverTestFilesInWorkspace(controller);
-		} else {
-			await parseTestsInFile(controller, test);
-		}
-	};
+	if (testingFeatureFlag) {
+		const controller = vscode.tests.createTestController(
+			'rPackageTests',
+			'R Package Tests'
+		);
+		context.subscriptions.push(controller);
 
-	controller.createRunProfile(
-		'Run',
-		vscode.TestRunProfileKind.Run,
-		(request, token) => runHandler(controller, request, token),
-		true
-	);
+		controller.resolveHandler = async (test) => {
+			if (!test) {
+				await discoverTestFilesInWorkspace(controller);
+			} else {
+				await parseTestsInFile(controller, test);
+			}
+		};
+
+		controller.createRunProfile(
+			'Run',
+			vscode.TestRunProfileKind.Run,
+			(request, token) => runHandler(controller, request, token),
+			true
+		);
+	}
 }
 
 async function discoverTestFilesInWorkspace(controller: vscode.TestController) {
