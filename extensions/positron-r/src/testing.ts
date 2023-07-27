@@ -92,7 +92,7 @@ async function findTests(uri: vscode.Uri) {
 	const matches = [];
 
 	// TODO: get the tests out of the file contents
-	// This is just dummy example data:
+	// This is just dummy example data from my cereal package:
 	matches.push({
 		testLabel: 'can dispatch',
 		testStartPosition: new vscode.Position(0, 0),
