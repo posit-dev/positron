@@ -9,6 +9,7 @@ import { JupyterKernel } from './JupyterKernel';
 import { JupyterMessagePacket } from './JupyterMessagePacket';
 import { JupyterCommMsg } from './JupyterCommMsg';
 import { JupyterCommClose } from './JupyterCommClose';
+import { PromiseHandles } from './utils';
 
 /**
  * Adapts a Positron Language Runtime client widget to a Jupyter kernel.
@@ -51,8 +52,18 @@ export class RuntimeClientAdapter {
 	public async open() {
 		// Ask the kernel to open a comm channel for us
 		this._state.fire(positron.RuntimeClientState.Opening);
-		await this._kernel.openComm(this._type, this._id, this._params);
-		this._state.fire(positron.RuntimeClientState.Connected);
+		this._kernel.openComm(this._type, this._id, this._params);
+
+		const out = new PromiseHandles<void>();
+
+		const handler = this.onDidChangeClientState(state => {
+			if (state === positron.RuntimeClientState.Connected) {
+				out.resolve();
+				handler.dispose();
+			}
+		});
+
+		return out.promise;
 	}
 
 	/**
@@ -100,6 +111,9 @@ export class RuntimeClientAdapter {
 	private onMessage(msg: JupyterMessagePacket) {
 		const message = msg.message;
 		switch (msg.msgType) {
+			case 'comm_open':
+				this._state.fire(positron.RuntimeClientState.Connected);
+				break;
 			case 'comm_msg':
 				this.onCommMsg(msg, message as JupyterCommMsg);
 				break;
@@ -137,7 +151,7 @@ export class RuntimeClientAdapter {
 			return;
 		}
 
-		// If we are currently opening, we are now open
+		// Shouldn't happen, but if we are currently opening, we are now open.
 		if (this._currentState === positron.RuntimeClientState.Opening) {
 			this._state.fire(positron.RuntimeClientState.Connected);
 		}

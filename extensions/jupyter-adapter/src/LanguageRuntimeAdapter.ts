@@ -282,9 +282,11 @@ export class LanguageRuntimeAdapter
 	 * @param params The parameters for the client; the format of this object is
 	 *   specific to the client type
 	 */
-	public async createClient(id: string,
+	public async createClient(
+		id: string,
 		type: positron.RuntimeClientType,
-		params: object) {
+		params: object
+	) {
 
 		// Ensure the type of client we're being asked to create is one we know ark supports
 		if (type === positron.RuntimeClientType.Environment ||
@@ -732,7 +734,7 @@ export class LanguageRuntimeAdapter
 	 *
 	 * @param clientAddress The client's TCP address, e.g. '127.0.0.1:1234'
 	 */
-	startPositronLsp(clientAddress: string) {
+	async startPositronLsp(clientAddress: string) {
 		// TODO: Should we query the kernel to see if it can create an LSP
 		// (QueryInterface style) instead of just demanding it?
 		//
@@ -744,9 +746,11 @@ export class LanguageRuntimeAdapter
 		const clientId = `positron-lsp-${this.metadata.languageId}-${LanguageRuntimeAdapter._clientCounter++}-${uniqueId}}`;
 		this._kernel.log(`Starting LSP server ${clientId} for ${clientAddress}`);
 
-		this.createClient(clientId,
+		await this.createClient(
+			clientId,
 			positron.RuntimeClientType.Lsp,
-			{ client_address: clientAddress });
+			{ client_address: clientAddress }
+		);
 	}
 
 	/**
