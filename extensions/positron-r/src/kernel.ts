@@ -349,6 +349,10 @@ export function registerArkKernel(ext: vscode.Extension<any>, context: vscode.Ex
 		// Register the language runtime with Positron.
 		const disposable = positron.runtime.registerLanguageRuntime(runtime);
 		context.subscriptions.push(disposable);
+
+		if (rHome === rInstallations[0] && isRStudioUser()) {
+			runtime.start();
+		}
 	}
 }
 
@@ -390,4 +394,24 @@ class ArkDelayStartup {
 		args.push('--startup-delay');
 		args.push(delay.toString());
 	}
+}
+
+function isRStudioUser(): boolean {
+	try {
+		const filenames = fs.readdirSync(localShareRStudioPath(''));
+		const today = new Date();
+		const thirtyDaysAgo = new Date(new Date().setDate(today.getDate() - 30));
+		const recentlyModified = new Array<boolean>();
+		filenames.forEach(file => {
+			const stats = fs.statSync(localShareRStudioPath(file));
+			recentlyModified.push(stats.mtime > thirtyDaysAgo);
+		});
+		return recentlyModified.some(bool => bool === true);
+	} catch { }
+	return false;
+}
+
+function localShareRStudioPath(pathToAppend: string): string {
+	const newPath = path.join(process.env.HOME!, '.local/share/rstudio', pathToAppend);
+	return newPath;
 }
