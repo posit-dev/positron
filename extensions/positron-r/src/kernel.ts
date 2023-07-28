@@ -314,6 +314,12 @@ export function registerArkKernel(ext: vscode.Extension<any>, context: vscode.Ex
 			kernelSpec.argv.push('--no-restore-data');
 		}
 
+		// If the user has supplied extra arguments to R, pass them along.
+		const extraArgs = config.get<Array<string>>('extraArguments');
+		if (extraArgs) {
+			kernelSpec.argv.push(...extraArgs);
+		}
+
 		// Get the version of this extension from package.json so we can pass it
 		// to the adapter as the implementation version.
 		const packageJson = require('../package.json');
