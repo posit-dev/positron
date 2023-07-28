@@ -24,9 +24,9 @@ class ZedColumn implements DataColumn {
 }
 
 /**
- * The request from the front end to render the plot at a specific size.
+ * The response from the runtime containing the batch of rows to be rendered
  */
-interface DataViewerRowRequest {
+interface DataViewerRowResponse {
 	msg_type: string;
 	start_row: number;
 	fetch_size: number;
@@ -94,7 +94,7 @@ export class ZedData implements DataSet {
 	}
 
 	public sendData(message: DataViewerMessage): void {
-		const request: DataViewerRowRequest = {
+		const request: DataViewerRowResponse = {
 			msg_type: message.msg_type === 'ready' ? 'initial_data' : 'receive_rows',
 			start_row: message.start_row,
 			fetch_size: message.fetch_size,
