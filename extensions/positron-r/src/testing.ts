@@ -17,10 +17,10 @@ export function discoverTests(context: vscode.ExtensionContext) {
 		context.subscriptions.push(controller);
 
 		controller.resolveHandler = async (test) => {
-			if (!test) {
-				await discoverTestFilesInWorkspace(controller);
-			} else {
+			if (test) {
 				await parseTestsInFile(controller, test);
+			} else {
+				await discoverTestFilesInWorkspace(controller);
 			}
 		};
 
