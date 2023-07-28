@@ -26,7 +26,8 @@ export class RuntimeClientAdapter {
 		private readonly _id: string,
 		private readonly _type: positron.RuntimeClientType,
 		private readonly _params: object,
-		private readonly _kernel: JupyterKernel) {
+		private readonly _kernel: JupyterKernel,
+		private readonly _server_comm: boolean) {
 
 		// Wire event handlers for state changes
 		this._currentState = positron.RuntimeClientState.Uninitialized;
@@ -112,7 +113,13 @@ export class RuntimeClientAdapter {
 		const message = msg.message;
 		switch (msg.msgType) {
 			case 'comm_open':
-				this._state.fire(positron.RuntimeClientState.Connected);
+				// If not a server comm, resolve immediately. If a
+				// server comm, we'll resolve when we get the
+				// notification message from the server indicating
+				// that it's ready to accept connections.
+				if (!this._server_comm) {
+					this._state.fire(positron.RuntimeClientState.Connected);
+				}
 				break;
 			case 'comm_msg':
 				this.onCommMsg(msg, message as JupyterCommMsg);
@@ -151,9 +158,17 @@ export class RuntimeClientAdapter {
 			return;
 		}
 
-		// Shouldn't happen, but if we are currently opening, we are now open.
 		if (this._currentState === positron.RuntimeClientState.Opening) {
 			this._state.fire(positron.RuntimeClientState.Connected);
+
+			// Swallow server init message
+			if (this._server_comm && message.data.msg_type === 'server_started') {
+				return;
+			}
+
+			// Otherwise fall through, though this shouldn't happen: if
+			// not a server comm, we normally switch to a connected state
+			// earlier, before receiving any messages.
 		}
 
 		// TODO: forward message to client

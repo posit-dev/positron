@@ -294,8 +294,13 @@ export class LanguageRuntimeAdapter
 			type === positron.RuntimeClientType.FrontEnd) {
 			this._kernel.log(`Creating '${type}' client for ${this.metadata.languageName}`);
 
+			// Does the comm wrap a server? In that case the
+			// promise should only resolve when the server is
+			// ready to accept connections
+			const server_comm = type === positron.RuntimeClientType.Lsp;
+
 			// Create a new client adapter to wrap the comm channel
-			const adapter = new RuntimeClientAdapter(id, type, params, this._kernel);
+			const adapter = new RuntimeClientAdapter(id, type, params, this._kernel, server_comm);
 
 			// Add the client to the map. Note that we have to do this before opening
 			// the instance, because we may need to process messages from the client
