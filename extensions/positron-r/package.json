@@ -115,6 +115,21 @@
           ],
           "default": "off",
           "description": "%r.configuration.tracing.description%"
+        },
+        "positron.r.restoreWorkspace": {
+          "scope": "window",
+          "type": "boolean",
+          "default": false,
+          "description": "%r.configuration.restoreWorkspace.description%"
+        },
+        "positron.r.extraArguments": {
+          "scope": "window",
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "description": "%r.configuration.extraArguments.description%"
         }
       }
     },

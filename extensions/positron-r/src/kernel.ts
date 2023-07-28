@@ -298,12 +298,27 @@ export function registerArkKernel(ext: vscode.Extension<any>, context: vscode.Ex
 			'argv': [
 				kernelPath,
 				'--connection_file', '{connection_file}',
-				'--log', '{log_file}'
+				'--log', '{log_file}',
+				// The arguments after `--` are passed verbatim to R
+				'--',
+				'--interactive',
 			],
 			'display_name': `R (${runtimeSource})`, // eslint-disable-line
 			'language': 'R',
 			'env': env,
 		};
+
+		// Unless the user has chosen to restore the workspace, pass the
+		// `--no-restore-data` flag to R.
+		if (!config.get<boolean>('restoreWorkspace')) {
+			kernelSpec.argv.push('--no-restore-data');
+		}
+
+		// If the user has supplied extra arguments to R, pass them along.
+		const extraArgs = config.get<Array<string>>('extraArguments');
+		if (extraArgs) {
+			kernelSpec.argv.push(...extraArgs);
+		}
 
 		// Get the version of this extension from package.json so we can pass it
 		// to the adapter as the implementation version.
@@ -312,7 +327,7 @@ export function registerArkKernel(ext: vscode.Extension<any>, context: vscode.Ex
 
 		// Create a stable ID for the runtime based on the interpreter path and version.
 		const digest = crypto.createHash('sha256');
-		digest.update(JSON.stringify(kernelSpec));
+		digest.update(rHome.homepath);
 		digest.update(rVersion);
 		const runtimeId = digest.digest('hex').substring(0, 32);
 
