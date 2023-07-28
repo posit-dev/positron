@@ -398,7 +398,7 @@ class ArkDelayStartup {
 
 function isRStudioUser(): boolean {
 	try {
-		const filenames = fs.readdirSync(localShareRStudioPath(''));
+		const filenames = fs.readdirSync(localShareRStudioPath());
 		const today = new Date();
 		const thirtyDaysAgo = new Date(new Date().setDate(today.getDate() - 30));
 		const recentlyModified = new Array<boolean>();
@@ -411,7 +411,7 @@ function isRStudioUser(): boolean {
 	return false;
 }
 
-function localShareRStudioPath(pathToAppend: string): string {
+function localShareRStudioPath(pathToAppend = ''): string {
 	const newPath = path.join(process.env.HOME!, '.local/share/rstudio', pathToAppend);
 	return newPath;
 }
