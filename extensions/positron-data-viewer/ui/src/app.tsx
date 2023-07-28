@@ -13,7 +13,7 @@ import * as ReactQuery from '@tanstack/react-query';
 import { DataPanel } from './DataPanel';
 
 // External types.
-import { DataViewerMessage, DataViewerMessageData, DataViewerMessageRequest } from './positron-data-viewer';
+import { DataViewerMessage, DataViewerMessageRowRequest, DataViewerMessageRowResponse } from './positron-data-viewer';
 
 // This global is injected by VS Code when the extension is loaded.
 //
@@ -22,7 +22,7 @@ const vscode = acquireVsCodeApi();
 const fetchSize = 100;
 
 // Let the extension know that we're ready to receive the initial data.
-const msg: DataViewerMessageRequest = {
+const msg: DataViewerMessageRowRequest = {
 	msg_type: 'ready',
 	start_row: 0,
 	fetch_size: fetchSize
@@ -35,7 +35,7 @@ window.addEventListener('message', (event: any) => {
 	const message = event.data as DataViewerMessage;
 
 	if (message.msg_type === 'initial_data') {
-		const dataMessage = message as DataViewerMessageData;
+		const dataMessage = message as DataViewerMessageRowResponse;
 		const queryClient = new ReactQuery.QueryClient();
 		ReactDOM.render(
 			<React.StrictMode>

@@ -77,15 +77,15 @@ export interface DataViewerMessage {
 
 /**
  * A message sent from the data viewer to the host indicating that
- * the data viewer is ready to receive data.
+ * the data viewer is requesting data.
  */
-export interface DataViewerMessageRequest extends DataViewerMessage { }
+export interface DataViewerMessageRowRequest extends DataViewerMessage { }
 
 /**
- * A message sent from the host to the data viewer containing a data set to be
- * displayed in the viewer.
+ * A message sent from the host to the data viewer containing a batch of rows
+ * to be rendered in the data viewer.
  */
-export interface DataViewerMessageData extends DataViewerMessage {
+export interface DataViewerMessageRowResponse extends DataViewerMessage {
 	/**
 	 * The data set.
 	 */

@@ -2,7 +2,7 @@
  *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
-import { DataColumn, DataSet, DataViewerMessage, DataViewerMessageData } from './positron-data-viewer';
+import { DataColumn, DataSet, DataViewerMessage, DataViewerMessageRowResponse } from './positron-data-viewer';
 
 /**
  * A fragment of data, arranged by column.
@@ -107,7 +107,7 @@ export class DataModel {
 	handleDataMessage(event: any): DataModel {
 		const message = event.data as DataViewerMessage;
 		if (message.msg_type === 'receive_rows' && !this.renderedRows.includes(message.start_row)) {
-			const dataMessage = message as DataViewerMessageData;
+			const dataMessage = message as DataViewerMessageRowResponse;
 
 			const incrementalData: DataFragment = {
 				rowStart: dataMessage.start_row,

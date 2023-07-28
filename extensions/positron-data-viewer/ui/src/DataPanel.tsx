@@ -12,7 +12,7 @@ import * as ReactTable from '@tanstack/react-table';
 
 // Local modules.
 import { DataFragment, DataModel } from './DataModel';
-import { DataViewerMessageRequest, DataSet } from './positron-data-viewer';
+import { DataViewerMessageRowRequest, DataSet } from './positron-data-viewer';
 
 interface DataPanelProps {
 	/**
@@ -154,7 +154,7 @@ export const DataPanel = (props: DataPanelProps) => {
 					totalFetched < totalRows
 				) {
 					fetchNextPage();
-					const msg: DataViewerMessageRequest = {
+					const msg: DataViewerMessageRowRequest = {
 						msg_type: 'request_rows',
 						start_row: totalFetched,
 						fetch_size: fetchSize

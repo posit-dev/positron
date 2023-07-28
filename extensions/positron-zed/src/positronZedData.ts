@@ -4,7 +4,7 @@
 
 import { randomUUID } from 'crypto';
 import * as vscode from 'vscode';
-import { DataColumn, DataSet, DataViewerMessage } from './positron-data-viewer';
+import { DataColumn, DataSet, DataViewerMessageRowRequest, DataViewerMessageRowResponse } from './positron-data-viewer';
 
 /**
  * A Zed column; this is a mock of a Zed column that fulfills the DataColumn
@@ -21,16 +21,6 @@ class ZedColumn implements DataColumn {
 		this.data = Array.from({ length }, () => Math.floor(Math.random() * 100));
 		//this.data = Array.from({ length }, (_, i) => i);
 	}
-}
-
-/**
- * The response from the runtime containing the batch of rows to be rendered
- */
-interface DataViewerRowResponse {
-	msg_type: string;
-	start_row: number;
-	fetch_size: number;
-	data: ZedData;
 }
 
 /**
@@ -85,7 +75,7 @@ export class ZedData implements DataSet {
 		switch (message.msg_type) {
 			case 'ready':
 			case 'request_rows':
-				this.sendData(message as DataViewerMessage);
+				this.sendData(message as DataViewerMessageRowRequest);
 				break;
 			default:
 				console.error(`ZedData ${this.id} got unknown message type: ${message.msg_type}`);
@@ -93,8 +83,8 @@ export class ZedData implements DataSet {
 		}
 	}
 
-	public sendData(message: DataViewerMessage): void {
-		const request: DataViewerRowResponse = {
+	public sendData(message: DataViewerMessageRowRequest): void {
+		const response: DataViewerMessageRowResponse = {
 			msg_type: message.msg_type === 'ready' ? 'initial_data' : 'receive_rows',
 			start_row: message.start_row,
 			fetch_size: message.fetch_size,
@@ -106,6 +96,6 @@ export class ZedData implements DataSet {
 			} as ZedData,
 		};
 		// Emit to the front end.
-		this._onDidEmitData.fire(request);
+		this._onDidEmitData.fire(response);
 	}
 }
