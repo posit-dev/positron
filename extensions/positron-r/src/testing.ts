@@ -40,7 +40,7 @@ async function discoverTestFilesInWorkspace(controller: vscode.TestController) {
 
 	return Promise.all(
 		vscode.workspace.workspaceFolders.map(async workspaceFolder => {
-			const pattern = new vscode.RelativePattern(workspaceFolder, 'tests/testthat/**/test*.R');
+			const pattern = new vscode.RelativePattern(workspaceFolder, 'tests/testthat/test*.{R,r}');
 			const watcher = vscode.workspace.createFileSystemWatcher(pattern);
 
 			// When files are created, make sure there's a corresponding "file" node in the tree
