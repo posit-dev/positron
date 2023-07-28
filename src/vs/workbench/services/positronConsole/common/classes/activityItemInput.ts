@@ -2,8 +2,8 @@
  *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
-import { ANSIOutput, ANSIOutputLine } from 'vs/base/common/ansi/ansiOutput';
 import { Emitter, Event } from 'vs/base/common/event';
+import { ANSIOutput, ANSIOutputLine } from 'ansi-output';
 
 /**
  * ActivityItemInput class.

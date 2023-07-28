@@ -460,6 +460,9 @@
 							"vs/editor/contrib/*/~",
 							"vs/workbench/~",
 							"vs/workbench/services/*/~",
+							// --- Start Positron ---
+							"ansi-output",
+							// --- End Positron ---
 							{
 								"when": "test",
 								"pattern": "vs/workbench/contrib/*/~"
@@ -481,6 +484,7 @@
 							"vs/workbench/services/*/~",
 							"vs/workbench/contrib/*/~",
 							// --- Start Positron ---
+							"ansi-output",
 							"react",
 							"react-dom/client",
 							"react-window",

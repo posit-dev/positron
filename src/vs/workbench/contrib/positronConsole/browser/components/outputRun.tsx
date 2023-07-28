@@ -5,7 +5,7 @@
 import 'vs/css!./outputRun';
 import * as React from 'react';
 import { CSSProperties } from 'react'; // eslint-disable-line no-duplicate-imports
-import { ANSIColor, ANSIOutputRun, ANSIStyle } from 'vs/base/common/ansi/ansiOutput';
+import { ANSIColor, ANSIOutputRun, ANSIStyle } from 'ansi-output';
 
 // OutputRunProps interface.
 export interface OutputRunProps {

@@ -127,9 +127,12 @@
 			'@vscode/vscode-languagedetection': `${baseNodeModulesPath}/@vscode/vscode-languagedetection/dist/lib/index.js`,
 			'vscode-regexp-languagedetection': `${baseNodeModulesPath}/vscode-regexp-languagedetection/dist/index.js`,
 			'tas-client-umd': `${baseNodeModulesPath}/tas-client-umd/lib/tas-client-umd.js`,
+			// --- Start Positron ---
+			'ansi-output': `${baseNodeModulesPath}/ansi-output/dist/ansi-output.js`,
 			'react': `${baseNodeModulesPath}/react/umd/react.production.min.js`,
 			'react-dom': `${baseNodeModulesPath}/react-dom/umd/react-dom.production.min.js`,
 			'react-window': `${baseNodeModulesPath}/react-window/dist/index-prod.umd.js`
+			// --- End Positron ---
 		};
 
 		// Signal before require.config()
