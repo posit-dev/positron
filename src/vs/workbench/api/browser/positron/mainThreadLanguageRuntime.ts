@@ -9,7 +9,7 @@ import {
 	ExtHostPositronContext
 } from '../../common/positron/extHost.positron.protocol';
 import { extHostNamedCustomer, IExtHostContext } from 'vs/workbench/services/extensions/common/extHostCustomers';
-import { ILanguageRuntime, ILanguageRuntimeClientCreatedEvent, ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMessageCommClosed, ILanguageRuntimeMessageCommData, ILanguageRuntimeMessageCommOpen, ILanguageRuntimeMessageError, ILanguageRuntimeMessageInput, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessagePrompt, ILanguageRuntimeMessageState, ILanguageRuntimeMessageStream, ILanguageRuntimeMetadata, ILanguageRuntimeService, ILanguageRuntimeStartupFailure, LanguageRuntimeMessageType, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntime, ILanguageRuntimeClientCreatedEvent, ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMessageCommClosed, ILanguageRuntimeMessageCommData, ILanguageRuntimeMessageCommOpen, ILanguageRuntimeMessageError, ILanguageRuntimeMessageInput, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessagePrompt, ILanguageRuntimeMessageState, ILanguageRuntimeMessageStream, ILanguageRuntimeMetadata, ILanguageRuntimeDynState as ILanguageRuntimeDynState, ILanguageRuntimeService, ILanguageRuntimeStartupFailure, LanguageRuntimeMessageType, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { Disposable, DisposableStore } from 'vs/base/common/lifecycle';
 import { Event, Emitter } from 'vs/base/common/event';
 import { IPositronConsoleService } from 'vs/workbench/services/positronConsole/common/interfaces/positronConsoleService';
@@ -19,6 +19,7 @@ import { IRuntimeClientInstance, RuntimeClientState, RuntimeClientType } from 'v
 import { DeferredPromise } from 'vs/base/common/async';
 import { generateUuid } from 'vs/base/common/uuid';
 import { IPositronPlotsService } from 'vs/workbench/services/positronPlots/common/positronPlots';
+import { LanguageRuntimeEventType, PromptStateEvent } from 'vs/workbench/services/languageRuntime/common/languageRuntimeEvents';
 
 /**
  * Represents a language runtime event (for example a message or state change)
@@ -73,6 +74,7 @@ class ExtHostLanguageRuntimeAdapter implements ILanguageRuntime {
 	private readonly _onDidReceiveRuntimeMessageErrorEmitter = new Emitter<ILanguageRuntimeMessageError>();
 	private readonly _onDidReceiveRuntimeMessagePromptEmitter = new Emitter<ILanguageRuntimeMessagePrompt>();
 	private readonly _onDidReceiveRuntimeMessageStateEmitter = new Emitter<ILanguageRuntimeMessageState>();
+	private readonly _onDidReceiveRuntimeMessagePromptConfigEmitter = new Emitter<void>();
 	private readonly _onDidCreateClientInstanceEmitter = new Emitter<ILanguageRuntimeClientCreatedEvent>();
 
 	private _currentState: RuntimeState = RuntimeState.Uninitialized;
@@ -88,8 +90,11 @@ class ExtHostLanguageRuntimeAdapter implements ILanguageRuntime {
 	/** Timer used to ensure event queue processing occurs within a set interval */
 	private _eventQueueTimer: NodeJS.Timeout | undefined;
 
-	constructor(readonly handle: number,
+	constructor(
+		readonly handle: number,
 		readonly metadata: ILanguageRuntimeMetadata,
+		readonly dynState: ILanguageRuntimeDynState,
+		private readonly _languageRuntimeService: ILanguageRuntimeService,
 		private readonly _logService: ILogService,
 		private readonly _proxy: ExtHostLanguageRuntimeShape) {
 
@@ -119,6 +124,30 @@ class ExtHostLanguageRuntimeAdapter implements ILanguageRuntime {
 				this._clients.clear();
 			}
 		});
+
+		this._languageRuntimeService.onDidReceiveRuntimeEvent(globalEvent => {
+			const ev = globalEvent.event;
+			if (ev.name === LanguageRuntimeEventType.PromptState) {
+				// Update config before propagating event
+				const state = ev.data as PromptStateEvent;
+
+				// Runtimes might supply prompts with trailing whitespace (e.g. R,
+				// Python) that we trim here because we add our own whitespace later on
+				const inputPrompt = state.inputPrompt?.trimEnd();
+				const continuationPrompt = state.continuationPrompt?.trimEnd();
+
+				if (inputPrompt) {
+					this.dynState.inputPrompt = inputPrompt;
+				}
+				if (continuationPrompt) {
+					this.dynState.continuationPrompt = continuationPrompt;
+				}
+
+				// Don't include new state in event, clients should
+				// inspect the runtime's dyn state instead
+				this.emitDidReceiveRuntimeMessagePromptConfig();
+			}
+		});
 	}
 
 	onDidChangeRuntimeState: Event<RuntimeState>;
@@ -133,6 +162,7 @@ class ExtHostLanguageRuntimeAdapter implements ILanguageRuntime {
 	onDidReceiveRuntimeMessageError = this._onDidReceiveRuntimeMessageErrorEmitter.event;
 	onDidReceiveRuntimeMessagePrompt = this._onDidReceiveRuntimeMessagePromptEmitter.event;
 	onDidReceiveRuntimeMessageState = this._onDidReceiveRuntimeMessageStateEmitter.event;
+	onDidReceiveRuntimeMessagePromptConfig = this._onDidReceiveRuntimeMessagePromptConfigEmitter.event;
 	onDidCreateClientInstance = this._onDidCreateClientInstanceEmitter.event;
 
 	handleRuntimeMessage(message: ILanguageRuntimeMessage): void {
@@ -163,6 +193,10 @@ class ExtHostLanguageRuntimeAdapter implements ILanguageRuntime {
 
 	emitDidReceiveRuntimeMessageState(languageRuntimeMessageState: ILanguageRuntimeMessageState) {
 		this._onDidReceiveRuntimeMessageStateEmitter.fire(languageRuntimeMessageState);
+	}
+
+	emitDidReceiveRuntimeMessagePromptConfig() {
+		this._onDidReceiveRuntimeMessagePromptConfigEmitter.fire();
 	}
 
 	emitState(clock: number, state: RuntimeState): void {
@@ -370,6 +404,16 @@ class ExtHostLanguageRuntimeAdapter implements ILanguageRuntime {
 	start(): Promise<ILanguageRuntimeInfo> {
 		return new Promise((resolve, reject) => {
 			this._proxy.$startLanguageRuntime(this.handle).then((info) => {
+				// Update prompts in case user has customised them. Trim
+				// trailing whitespace as the rendering code adds its own
+				// whitespace.
+				if (info.input_prompt) {
+					this.dynState.inputPrompt = info.input_prompt.trimEnd();
+				}
+				if (info.continuation_prompt) {
+					this.dynState.continuationPrompt = info.continuation_prompt.trimEnd();
+				}
+
 				this._startupEmitter.fire(info);
 				resolve(info);
 			}).catch((err) => {
@@ -755,8 +799,15 @@ export class MainThreadLanguageRuntime implements MainThreadLanguageRuntimeShape
 	}
 
 	// Called by the extension host to register a language runtime
-	$registerLanguageRuntime(handle: number, metadata: ILanguageRuntimeMetadata): void {
-		const adapter = new ExtHostLanguageRuntimeAdapter(handle, metadata, this._logService, this._proxy);
+	$registerLanguageRuntime(handle: number, metadata: ILanguageRuntimeMetadata, dynState: ILanguageRuntimeDynState): void {
+		const adapter = new ExtHostLanguageRuntimeAdapter(
+			handle,
+			metadata,
+			dynState,
+			this._languageRuntimeService,
+			this._logService,
+			this._proxy
+		);
 		this._runtimes.set(handle, adapter);
 
 		// Consider - do we need a flag (on the API side) to indicate whether

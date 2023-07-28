@@ -5,6 +5,7 @@
 import { generateUuid } from 'vs/base/common/uuid';
 import { Emitter, Event } from 'vs/base/common/event';
 import { ILogService } from 'vs/platform/log/common/log';
+import { IViewsService } from 'vs/workbench/common/views';
 import { ILanguageService } from 'vs/editor/common/languages/language';
 import { Disposable, DisposableStore } from 'vs/base/common/lifecycle';
 import { RuntimeItem } from 'vs/workbench/services/positronConsole/common/classes/runtimeItem';
@@ -27,7 +28,6 @@ import { RuntimeItemStartupFailure } from 'vs/workbench/services/positronConsole
 import { ActivityItem, RuntimeItemActivity } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemActivity';
 import { IPositronConsoleInstance, IPositronConsoleService, POSITRON_CONSOLE_VIEW_ID, PositronConsoleState } from 'vs/workbench/services/positronConsole/common/interfaces/positronConsoleService';
 import { formatLanguageRuntime, ILanguageRuntime, ILanguageRuntimeMessage, ILanguageRuntimeService, LanguageRuntimeStartupBehavior, RuntimeOnlineState, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
-import { IViewsService } from 'vs/workbench/common/views';
 
 //#region Helper Functions
 
@@ -617,6 +617,33 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	}
 
 	/**
+	 * Begins executing code.
+	 * @param id The identifier.
+	 * @param code The code.
+	 */
+	beginExecuteCode(id: string, code: string): void {
+		// FIXME: Temporary compats during switch to dynamic config
+		const inputPrompt = this._runtime.dynState?.inputPrompt || this._runtime.metadata.inputPrompt as string;
+		const continuationPrompt = this._runtime.dynState?.continuationPrompt || this._runtime.metadata.continuationPrompt as string;
+
+		// Add a provisional ActivityItemInput for the code that will be executed. This provisional
+		// ActivityItemInput will be replaced with the real ActivityItemInput when the runtime sends
+		// it (which can take a moment or two to happen).
+		this.addOrUpdateUpdateRuntimeItemActivity(
+			id,
+			new ActivityItemInput(
+				true,
+				id,
+				id,
+				new Date(),
+				inputPrompt,
+				continuationPrompt,
+				code
+			)
+		);
+	}
+
+	/**
 	 * Executes code.
 	 * @param codeFragment The code fragment to execute.
 	 */
@@ -662,6 +689,34 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 
 		// Attach the runtime.
 		this.attachRuntime(starting);
+	}
+
+	/**
+	 * Marks the Input activity item that matches the given parent ID as busy or
+	 * not busy.
+	 *
+	 * @param parentId The parent ID of the input activity.
+	 * @param busy Whether the input is busy.
+	 */
+	markInputBusyState(parentId: string, busy: boolean) {
+		// Look up all the activities that match the given parent ID
+		const activity = this._runtimeItemActivities.get(parentId);
+		if (!activity) {
+			return;
+		}
+
+		// Loop over each and look for the Input activity
+		for (const item of activity.activityItems) {
+
+			if (item instanceof ActivityItemInput) {
+				// This is the input activity; update its busy state.
+				const input = item as ActivityItemInput;
+				input.setBusyState(busy);
+
+				// Found the input, so we're done.
+				break;
+			}
+		}
 	}
 
 	/**
@@ -795,6 +850,8 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 
 		// Add the onDidCompleteStartup event handler.
 		this._runtimeDisposableStore.add(this._runtime.onDidCompleteStartup(languageRuntimeInfo => {
+			this.setState(PositronConsoleState.Ready);
+
 			// Add item trace.
 			this.addRuntimeItemTrace(`onDidCompleteStartup`);
 
@@ -835,15 +892,20 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 				languageRuntimeMessageInput.code
 			);
 
+			// FIXME: Temporary compats during switch to dynamic config
+			const inputPrompt = this._runtime.dynState?.inputPrompt || this._runtime.metadata.inputPrompt as string;
+			const continuationPrompt = this._runtime.dynState?.continuationPrompt || this._runtime.metadata.continuationPrompt as string;
+
 			// Add or update the runtime item activity.
 			this.addOrUpdateUpdateRuntimeItemActivity(
 				languageRuntimeMessageInput.parent_id,
 				new ActivityItemInput(
+					false,
 					languageRuntimeMessageInput.id,
 					languageRuntimeMessageInput.parent_id,
 					new Date(languageRuntimeMessageInput.when),
-					this._runtime.metadata.inputPrompt,
-					this._runtime.metadata.continuationPrompt,
+					inputPrompt,
+					continuationPrompt,
 					languageRuntimeMessageInput.code
 				)
 			);
@@ -998,6 +1060,8 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 						this.state === PositronConsoleState.Offline) {
 						this.setState(PositronConsoleState.Busy);
 					}
+					// Mark the associated input as busy.
+					this.markInputBusyState(languageRuntimeMessageState.parent_id, true);
 					break;
 				}
 
@@ -1006,6 +1070,8 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 						this.state === PositronConsoleState.Offline) {
 						this.setState(PositronConsoleState.Ready);
 					}
+					// Mark the associated input as idle.
+					this.markInputBusyState(languageRuntimeMessageState.parent_id, false);
 					break;
 				}
 			}
