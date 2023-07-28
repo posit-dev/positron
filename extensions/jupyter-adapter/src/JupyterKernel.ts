@@ -173,10 +173,10 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 				// Save the exit code for error reporting if we know it
 				if (closedTerminal.exitStatus && closedTerminal.exitStatus.code) {
 					this._exitCode = closedTerminal.exitStatus.code;
-				}
 
-				// The kernel's status is now exited
-				this.setStatus(positron.RuntimeState.Exited);
+					// The kernel's status is now exited
+					this.setStatus(positron.RuntimeState.Exited);
+				}
 			}
 		});
 	}
