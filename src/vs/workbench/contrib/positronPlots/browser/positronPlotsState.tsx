@@ -59,7 +59,7 @@ export const usePositronPlotsState = (services: PositronPlotsServices): Positron
 				if (positronPlotInstances.some(p => p.id === plotInstance.id)) {
 					return positronPlotInstances;
 				}
-				return [plotInstance, ...positronPlotInstances];
+				return [...positronPlotInstances, plotInstance];
 			});
 
 			// When the plot closes, remove it from the list of plot instances.
