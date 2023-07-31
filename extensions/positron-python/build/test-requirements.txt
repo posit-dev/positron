@@ -37,6 +37,7 @@ matplotlib
 pandas
 pydantic
 pyright
+pytest-asyncio
 pytest-mock
 polars
 torch

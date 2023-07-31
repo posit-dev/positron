@@ -9,6 +9,6 @@ from .dataviewer import DataColumn, DataSet, DataViewerService
 from .environment import (
     EnvironmentService,
     EnvironmentVariable,
-    EnvironmentVariableKind,
+    EnvironmentVariableValueKind,
 )
 from .inspectors import PRINT_WIDTH, TRUNCATE_AT

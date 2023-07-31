@@ -1,7 +1,6 @@
 #
 # Copyright (C) 2023 Posit Software, PBC. All rights reserved.
 #
-
 from __future__ import annotations
 
 import copy
@@ -21,6 +20,7 @@ from .utils import get_value_length, get_qualname, pretty_format
 if TYPE_CHECKING:
     import numpy as np
     import torch
+    from .environment import EnvironmentVariable
 
 # General display settings
 MAX_ITEMS: int = 100
@@ -113,7 +113,7 @@ class PositronInspector:
         return None
 
     def summarize_children(
-        self, value: Any, summarizer: Callable[[str, Any], Optional[dict]]
+        self, value: Any, summarizer: Callable[[str, Any], Optional[EnvironmentVariable]]
     ) -> list:
         return []
 

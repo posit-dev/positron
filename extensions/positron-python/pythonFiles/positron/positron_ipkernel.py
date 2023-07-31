@@ -97,7 +97,7 @@ class PositronShell(ZMQInteractiveShell):
     ).tag(config=True)
 
     @traitlets.observe("colors")
-    def init_inspector(self, change: Optional[traitlets.Bunch] = None):
+    def init_inspector(self, change: Optional[traitlets.Bunch] = None) -> None:
         # Override to pass `parent=self` to the inspector
         self.inspector = self.inspector_class(
             oinspect.InspectColors,
@@ -120,9 +120,12 @@ class PositronIPyKernel(IPythonKernel):
 
     shell_class: PositronShell = traitlets.Type(PositronShell, klass=InteractiveShell)  # type: ignore
 
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs) -> None:
         """Initializes Positron's IPython kernel."""
         super().__init__(**kwargs)
+
+        # Async tasks keyed by parent message id
+        self.tasks: Dict[str, asyncio.Task] = {}
 
         # Register for REPL execution events
         self.shell.events.register("pre_execute", self.handle_pre_execute)
@@ -174,6 +177,10 @@ class PositronIPyKernel(IPythonKernel):
         self.help_service.shutdown()
         self.frontend_service.shutdown()
         self.dataviewer_service.shutdown()
+
+        for task in self.tasks.values():
+            task.cancel()
+        # TODO: Should we await the cancelled tasks here?
 
         # We don't call super().do_shutdown since it sets shell.exit_now = True which tries to
         # stop the event loop at the same time as self.shutdown_request (since self.shell_stream.io_loop
@@ -424,8 +431,10 @@ class PositronIPyKernel(IPythonKernel):
         """
         Deletes all of the variables in the current user session.
         """
-        loop = asyncio.get_event_loop()
-        asyncio.run_coroutine_threadsafe(self._soft_reset(parent), loop)
+        parent_id = parent["id"]
+        task = asyncio.create_task(self._soft_reset(parent))
+        self.tasks[parent_id] = task
+        task.add_done_callback(lambda _: self.tasks.pop(parent_id))
 
     async def _soft_reset(self, parent: Dict[str, Any]) -> Dict[str, Any]:
         """
