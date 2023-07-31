@@ -3,9 +3,10 @@
  *--------------------------------------------------------------------------------------------*/
 
 .plots-container {
-	height: 100%;
 	display: flex;
 	background: var(--vscode-positronPlots-background);
+	flex: 1;
+	overflow: hidden;
 }
 
 .plots-container.history-right {
@@ -43,10 +44,13 @@
 .history-right .plot-history {
 	flex-direction: column;
 	height: fit-content;
+	margin-top: 10px;
+	margin-bottom: 10px;
 }
 
 .history-right .plot-thumbnail {
-	margin-top: 10px;
+	margin-top: 5px;
+	margin-bottom: 5px;
 }
 
 /*
@@ -66,10 +70,13 @@
 .history-bottom .plot-history {
 	flex-direction: row;
 	width: fit-content;
+	margin-right: 10px;
+	margin-left: 10px;
 }
 
 .history-bottom .plot-thumbnail {
-	margin-left: 10px;
+	margin-left: 5px;
+	margin-right: 5px;
 }
 
 .selected-plot {
