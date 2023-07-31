@@ -3,6 +3,7 @@ from typing import Iterable
 import comm
 import pytest
 from IPython.conftest import get_ipython
+from IPython.terminal.interactiveshell import TerminalInteractiveShell
 
 from positron.positron_ipkernel import PositronIPyKernel
 
@@ -38,16 +39,28 @@ def setup_comm() -> Iterable[None]:
     comm.create_comm = original_create_comm
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture
 def kernel() -> PositronIPyKernel:
     """
-    A Positron kernel for testing purposes.
+    The Positron kernel, configured for testing purposes.
     """
     shell = get_ipython()
 
     # Create a Positron kernel. Update shell_class to avoid a traitlets validation error,
     # since we use a TerminalInteractiveShell in tests (not a subclass of PositronShell).
-    kernel = PositronIPyKernel(shell_class=shell.__class__)
+    kernel = PositronIPyKernel.instance(shell_class=shell.__class__)
+
+    return kernel
+
+
+# Enable autouse to ensure a clean namespace and correct user_ns_hidden in every test,
+# even if it doesn't explicitly use the `shell` fixture.
+@pytest.fixture(autouse=True)
+def shell() -> Iterable[TerminalInteractiveShell]:
+    """
+    The Positron kernel's shell, configured for testing purposes.
+    """
+    shell = get_ipython()
 
     # TODO: For some reason these vars are in user_ns but not user_ns_hidden during tests. For now,
     #       manually add them to user_ns_hidden to replicate running in Positron.
@@ -67,4 +80,7 @@ def kernel() -> PositronIPyKernel:
         }
     )
 
-    return kernel
+    yield shell
+
+    # Reset the namespace so we don't interface with other tests (e.g. environment updates).
+    shell.reset()

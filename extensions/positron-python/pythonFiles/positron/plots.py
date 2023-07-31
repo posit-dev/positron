@@ -118,7 +118,7 @@ class PositronDisplayPublisherHook:
                 # Creating a comm per plot figure allows the client
                 # to request new renderings of each plot at a later time,
                 # e.g. on resizing the plots view
-                self.create_comm(id)
+                self._create_comm(id)
 
                 # Returning None implies our hook has processed the message
                 # and it stops the parent from sending the display_data via
@@ -127,15 +127,15 @@ class PositronDisplayPublisherHook:
 
         return msg
 
-    def create_comm(self, comm_id: str) -> None:
+    def _create_comm(self, comm_id: str) -> None:
         """
         Create a new plot comm with the given id.
         """
         plot_comm = comm.create_comm(target_name=self.target_name, comm_id=comm_id)
         self.comms[comm_id] = plot_comm
-        plot_comm.on_msg(self.receive_message)
+        plot_comm.on_msg(self._receive_message)
 
-    def receive_message(self, raw_msg) -> None:
+    def _receive_message(self, raw_msg) -> None:
         """
         Handle client messages to render a plot figure.
         """
