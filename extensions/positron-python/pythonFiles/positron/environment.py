@@ -1,16 +1,17 @@
 #
 # Copyright (C) 2023 Posit Software, PBC. All rights reserved.
 #
-
 from __future__ import annotations
 
 import enum
 import logging
 import types
 from collections.abc import Iterable, Mapping, Sequence
-from typing import Any, Dict, Optional, TYPE_CHECKING, Set
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set
 
-from .inspectors import get_inspector, MAX_ITEMS
+from pydantic import BaseModel, Field, validator
+
+from .inspectors import MAX_ITEMS, get_inspector
 from .utils import get_qualname
 
 if TYPE_CHECKING:
@@ -19,41 +20,97 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+# Synchronize the models below with:
+#     src/vs/workbench/services/languageRuntime/common/languageRuntimeEnvironmentClient.ts
+
+
 @enum.unique
-class EnvironmentMessageType(str, enum.Enum):
+class EnvironmentMessageTypeInput(str, enum.Enum):
+    """
+    The possible types of messages that can be sent to the language runtime as
+    requests to the environment backend.
+    """
+
+    # A request to clear the environment
+    clear = "clear"
+
+    # A request to format the variable's content in a format suitable for the clipboard
+    clipboard_format = "clipboard_format"
+
+    # A request to delete a specific set of named variables
+    delete = "delete"
+
+    # A request to inspect a specific variable
+    inspect = "inspect"
+
+    # A request to send another List event
+    refresh = "refresh"
+
+    # A request to open a viewer for a specific variable
+    view = "view"
+
+
+@enum.unique
+class EnvironmentMessageTypeOutput(str, enum.Enum):
     """
     Message types used in the positron.environment comm.
     """
 
-    CLEAR = "clear"
-    CLIPBOARD_FORMAT = "clipboard_format"
-    DELETE = "delete"
-    DETAILS = "details"
-    ERROR = "error"
-    FORMATTED_VARIABLE = "formatted_variable"
-    INSPECT = "inspect"
-    LIST = "list"
-    REFRESH = "refresh"
-    UPDATE = "update"
-    VIEW = "view"
+    # A full list of all the variables and their values
+    list = "list"
+
+    # A partial update indicating the set of changes that have occurred since
+    # the last update or list event.
+    update = "update"
+
+    # The details (children) of a specific variable
+    details = "details"
+
+    # The formatted content of a variable, suitable for placing on the clipboard
+    formatted_variable = "formatted_variable"
+
+    # A successful result of an RPC that doesn't otherwise return data.
+    success = "success"
+
+    # A processing error
+    error = "error"
 
 
 @enum.unique
-class EnvironmentVariableKind(str, enum.Enum):
+class EnvironmentVariableValueKind(str, enum.Enum):
     """
-    Categories of variables in the user's environment.
+    Represents the possible kinds of values in an environment.
     """
 
-    BOOLEAN = "boolean"
-    BYTES = "bytes"
-    COLLECTION = "collection"
-    EMPTY = "empty"
-    FUNCTION = "function"
-    MAP = "map"
-    NUMBER = "number"
-    OTHER = "other"
-    STRING = "string"
-    TABLE = "table"
+    # A boolean value
+    boolean = "boolean"
+
+    # A sequence of bytes or raw binary data
+    bytes = "bytes"
+
+    # A iterable collection of unnamed values, such as a list or array
+    collection = "collection"
+
+    # An empty, missing, null, or invalid value
+    empty = "empty"
+
+    # A function, method, closure, or other callable object
+    function = "function"
+
+    # A map, dictionary, named list, or associative array
+    map = "map"
+
+    # A number, such as an integer or floating-point value
+    number = "number"
+
+    # A value of an unknown or unspecified type
+    other = "other"
+
+    # A character string
+    string = "string"
+
+    # A table, dataframe, 2D matrix, or other two-dimensional data structure
+    table = "table"
 
 
 @enum.unique
@@ -62,114 +119,143 @@ class ClipboardFormat(str, enum.Enum):
     Format styles for clipboard copy
     """
 
-    HTML = "text/html"
-    PLAIN = "text/plain"
+    html = "text/html"
+    plain = "text/plain"
 
 
-# Note: classes below are derived from dict to satisfy ipykernel util method
-# json_clean() which is used in comm message serialization
-class EnvironmentVariable(dict):
+class EnvironmentVariable(BaseModel):
     """
-    Describes a variable in the user's environment.
-    """
+    Represents a variable in a language runtime environment -- a value with a
+    named identifier, not a system environment variable.
 
-    def __init__(
-        self,
-        display_name: str,
-        display_value: Any,
-        kind: EnvironmentVariableKind = EnvironmentVariableKind.OTHER,
-        display_type: Optional[str] = None,
-        type_info: Optional[str] = None,
-        access_key: Optional[str] = None,
-        length: int = 0,
-        size: Optional[int] = None,
-        has_children: bool = False,
-        has_viewer: bool = False,
-        is_truncated: bool = False,
-    ):
-        self["display_name"] = display_name
-        self["display_value"] = display_value
-        if kind is not None:
-            self["kind"] = getattr(EnvironmentVariableKind, kind.upper())
-        self["display_type"] = display_type
-        self["type_info"] = type_info
-        self["access_key"] = access_key
-        self["length"] = length
-        self["size"] = size
-        self["has_children"] = has_children
-        self["has_viewer"] = has_viewer
-        self["is_truncated"] = is_truncated
-
-
-class EnvironmentMessage(dict):
-    """
-    Base message for the positron.environment comm.
+    This is the raw data format used to communicate with the language runtime.
     """
 
-    def __init__(self, msg_type):
-        self["msg_type"] = getattr(EnvironmentMessageType, msg_type.upper())
+    access_key: Optional[str] = Field(
+        default=None,
+        description="""A key that uniquely identifies the variable within the current environment and
+can be used to access the variable in `inspect` requests""",
+    )
+
+    display_name: str = Field(description="The name of the variable, formatted for display")
+
+    display_value: Any = Field(
+        description="A string representation of the variable's value formatted for display, possibly truncated"
+    )
+
+    display_type: Optional[str] = Field(
+        default=None, description="The variable's type, formatted for display"
+    )
+
+    type_info: Optional[str] = Field(
+        default=None, description="Extended information about the variable's type"
+    )
+
+    kind: EnvironmentVariableValueKind = Field(
+        default=EnvironmentVariableValueKind.other,
+        description="The kind of value the variable represents, such as 'string' or 'number'",
+    )
+
+    length: int = Field(
+        default=0, description="The number of elements in the variable's value, if applicable"
+    )
+
+    size: Optional[int] = Field(
+        default=None, description="The size of the variable's value, in bytes"
+    )
+
+    has_children: bool = Field(
+        default=False, description="True if the variable contains other variables"
+    )
+
+    has_viewer: bool = Field(
+        default=False,
+        description="""True if there is a viewer available for the variable (i.e. the runtime
+can handle a 'view' message for the variable)""",
+    )
+
+    is_truncated: bool = Field(
+        default=False, description="True if the 'value' field was truncated to fit in the message"
+    )
 
 
-class EnvironmentMessageList(EnvironmentMessage):
+class EnvironmentMessageOutput(BaseModel):
     """
-    Message 'list' type summarizes the variables in the user's environment.
+    A message used to receive data from the language runtime environment client.
     """
 
-    def __init__(self, variables: list, length: Optional[int] = None):
-        super().__init__(EnvironmentMessageType.LIST)
-        self["variables"] = variables
-        if length is None:
-            length = len(variables)
-        self["length"] = length
+    msg_type: EnvironmentMessageTypeOutput
+
+    class Config:
+        fields = {"msg_type": {"const": True}}
 
 
-class EnvironmentMessageFormatted(EnvironmentMessage):
+class EnvironmentMessageList(EnvironmentMessageOutput):
     """
-    Message 'formatted_variable' type summarizes the variable
-    in a text format suitable for copy and paste operations in
+    A list of all the variables and their values.
+    """
+
+    variables: List[EnvironmentVariable] = Field(description="The list of variables")
+    length: Optional[int] = Field(
+        default=None,
+        description="""The total number of variables known to the runtime. This may be greater
+than the number of variables in the list if the list was truncated.""",
+    )
+    msg_type: EnvironmentMessageTypeOutput = EnvironmentMessageTypeOutput.list
+
+    @validator("length", always=True)
+    def default_length(cls, length: Optional[int], values: Dict[str, Any]) -> int:
+        return len(values["variables"]) if length is None else length
+
+
+class EnvironmentMessageFormattedVariable(EnvironmentMessageOutput):
+    """
+    Summarize the variable in a text format suitable for copy and paste operations in
     the user's environment.
     """
 
-    def __init__(self, clipboard_format: str, content: str):
-        super().__init__(EnvironmentMessageType.FORMATTED_VARIABLE)
-        self["format"] = clipboard_format
-        self["content"] = content
+    format: ClipboardFormat
+    content: str
+    msg_type: EnvironmentMessageTypeOutput = EnvironmentMessageTypeOutput.formatted_variable
 
 
-class EnvironmentMessageDetails(EnvironmentMessage):
+class EnvironmentMessageDetails(EnvironmentMessageOutput):
     """
-    Message 'details' type summarizes the variables in the user's environment.
-    """
-
-    def __init__(self, path: Sequence, children: list, length: Optional[int] = None):
-        super().__init__(EnvironmentMessageType.DETAILS)
-        self["path"] = path
-        self["children"] = children
-        if length is None:
-            length = len(children)
-        self["length"] = length
-
-
-class EnvironmentMessageUpdate(EnvironmentMessage):
-    """
-    Message 'update' type summarizes the variables that have changed in the
-    user's environment since the last execution.
+    The details (children) of a specific variable.
     """
 
-    def __init__(self, assigned: list, removed: set):
-        super().__init__(EnvironmentMessageType.UPDATE)
-        self["assigned"] = assigned
-        self["removed"] = removed
+    path: List[str] = Field(description="The list of child variables")
+    children: List[EnvironmentVariable]
+    length: Optional[int] = Field(
+        default=None,
+        description="""The total number of child variables. This may be greater than the number
+of variables in the list if the list was truncated.""",
+    )
+    msg_type: EnvironmentMessageTypeOutput = EnvironmentMessageTypeOutput.details
+
+    @validator("length", always=True)
+    def default_length(cls, length: Optional[int], values: Dict[str, Any]) -> int:
+        return len(values["children"]) if length is None else length
 
 
-class EnvironmentMessageError(EnvironmentMessage):
+class EnvironmentMessageUpdate(EnvironmentMessageOutput):
+    """
+    A partial update indicating the set of changes that have occurred since the
+    last update or list event.
+    """
+
+    assigned: List[EnvironmentVariable]
+    removed: Set[str]
+    msg_type: EnvironmentMessageTypeOutput = EnvironmentMessageTypeOutput.update
+
+
+class EnvironmentMessageError(EnvironmentMessageOutput):
     """
     Message 'error' type is used to report a problem to the client.
     """
 
-    def __init__(self, message):
-        super().__init__(EnvironmentMessageType.ERROR)
-        self["message"] = message
+    message: str
+    msg_type: EnvironmentMessageTypeOutput = EnvironmentMessageTypeOutput.error
 
 
 class EnvironmentService:
@@ -182,51 +268,51 @@ class EnvironmentService:
         Setup positron.environment comm to receive messages.
         """
         self.env_comm = comm
-        comm.on_msg(self.receive_message)
+        comm.on_msg(self._receive_message)
 
         # Send summary of user environment on comm initialization
         self.send_list()
 
-    def receive_message(self, msg) -> None:
+    def _receive_message(self, msg: Dict[str, Any]) -> None:
         """
         Handle messages received from the client via the positron.environment comm.
 
         Message Types:
+            "clear"            - Clear all user variables in the environment
+            "clipboard_format" - Format the variable at the requested path for the client clipboard
+            "delete"           - Delete user variables in the environment by name
             "inspect"          - Inspect the user variable at the requested path
             "refresh"          - Refresh the list of user variables in the environment
             "view"             - Format the variable at the requested path for the data viewer
-            "clipboard_format" - Format the variable at the requested path for the client clipboard
-            "clear"            - Clear all user variables in the environment
-            "delete"           - Delete user variables in the environment by name
         """
         data = msg["content"]["data"]
 
-        msgType = data.get("msg_type", None)
-        if msgType == EnvironmentMessageType.INSPECT:
-            path = data.get("path", None)
-            self._inspect_var(path)
-
-        elif msgType == EnvironmentMessageType.REFRESH:
+        msg_type = data.get("msg_type", None)
+        if msg_type == EnvironmentMessageTypeInput.refresh:
             self.send_list()
 
-        elif msgType == EnvironmentMessageType.VIEW:
-            path = data.get("path", None)
-            self._view_var(path)
-
-        elif msgType == EnvironmentMessageType.CLIPBOARD_FORMAT:
-            path = data.get("path", None)
-            clipboard_format = data.get("format", ClipboardFormat.PLAIN)
-            self._send_formatted_var(path, clipboard_format)
-
-        elif msgType == EnvironmentMessageType.CLEAR:
+        elif msg_type == EnvironmentMessageTypeInput.clear:
             self._delete_all_vars(msg)
 
-        elif msgType == EnvironmentMessageType.DELETE:
+        elif msg_type == EnvironmentMessageTypeInput.delete:
             names = data.get("names", [])
             self._delete_vars(names, msg)
 
+        elif msg_type == EnvironmentMessageTypeInput.inspect:
+            path = data.get("path", None)
+            self._inspect_var(path)
+
+        elif msg_type == EnvironmentMessageTypeInput.clipboard_format:
+            path = data.get("path", None)
+            clipboard_format = data.get("format", ClipboardFormat.plain)
+            self._send_formatted_var(path, clipboard_format)
+
+        elif msg_type == EnvironmentMessageTypeInput.view:
+            path = data.get("path", None)
+            self._view_var(path)
+
         else:
-            self._send_error(f"Unknown message type '{msgType}'")
+            self._send_error(f"Unknown message type '{msg_type}'")
 
     def send_update(self, assigned: Mapping[str, Any], removed: Set[str]) -> None:
         """
@@ -261,7 +347,7 @@ class EnvironmentService:
         variables = self.kernel.get_filtered_vars()
         filtered_variables = self._summarize_variables(variables)
 
-        msg = EnvironmentMessageList(filtered_variables)
+        msg = EnvironmentMessageList(variables=filtered_variables)
         self._send_message(msg)
 
     def shutdown(self) -> None:
@@ -273,7 +359,7 @@ class EnvironmentService:
 
     # -- Private Methods --
 
-    def _send_message(self, msg: EnvironmentMessage) -> None:
+    def _send_message(self, msg: EnvironmentMessageOutput) -> None:
         """
         Send a message through the environment comm to the client.
         """
@@ -281,7 +367,8 @@ class EnvironmentService:
             logger.warning("Cannot send message, environment comm is not open")
             return
 
-        self.env_comm.send(msg)
+        msg_dict = msg.dict()
+        self.env_comm.send(msg_dict)
 
     def _send_error(self, error_message: str) -> None:
         """
@@ -296,7 +383,7 @@ class EnvironmentService:
             ...
         }
         """
-        msg = EnvironmentMessageError(error_message)
+        msg = EnvironmentMessageError(message=error_message)
         self._send_message(msg)
 
     def _send_update(self, assigned: Mapping[str, Any], removed: Set[str]) -> None:
@@ -325,10 +412,11 @@ class EnvironmentService:
         # Filter out hidden removed variables
         filtered_removed = self.kernel.get_filtered_var_names(removed)
 
-        msg = EnvironmentMessageUpdate(filtered_assigned, filtered_removed)
-        self._send_message(msg)
+        if filtered_assigned or filtered_removed:
+            msg = EnvironmentMessageUpdate(assigned=filtered_assigned, removed=filtered_removed)
+            self._send_message(msg)
 
-    def _delete_all_vars(self, parent) -> None:
+    def _delete_all_vars(self, parent: Dict[str, Any]) -> None:
         """
         Deletes all of the variables in the current user session.
 
@@ -339,7 +427,7 @@ class EnvironmentService:
         """
         self.kernel.delete_all_vars(parent)
 
-    def _delete_vars(self, names: Iterable, parent: Dict[str, Any]) -> None:
+    def _delete_vars(self, names: Iterable[str], parent: Dict[str, Any]) -> None:
         """
         Deletes the requested variables by name from the current user session.
 
@@ -356,7 +444,7 @@ class EnvironmentService:
         assigned, removed = self.kernel.delete_vars(names, parent)
         self._send_update(assigned, removed)
 
-    def _inspect_var(self, path: Sequence) -> None:
+    def _inspect_var(self, path: List[str]) -> None:
         """
         Describes the variable at the requested path in the current user session.
 
@@ -374,7 +462,7 @@ class EnvironmentService:
             message = f"Cannot find variable at '{path}' to inspect"
             self._send_error(message)
 
-    def _view_var(self, path: Sequence) -> None:
+    def _view_var(self, path: Sequence[str]) -> None:
         """
         Opens a viewer comm for the variable at the requested path in the
         current user session.
@@ -385,7 +473,7 @@ class EnvironmentService:
             self._send_error(str(error))
 
     def _send_formatted_var(
-        self, path: Sequence, clipboard_format: ClipboardFormat = ClipboardFormat.PLAIN
+        self, path: Sequence[str], clipboard_format: ClipboardFormat = ClipboardFormat.plain
     ) -> None:
         """
         Formats the variable at the requested path in the current user session
@@ -406,13 +494,13 @@ class EnvironmentService:
 
         if is_known:
             content = self._format_value(value, clipboard_format)
-            msg = EnvironmentMessageFormatted(clipboard_format, content)
+            msg = EnvironmentMessageFormattedVariable(format=clipboard_format, content=content)
             self._send_message(msg)
         else:
             message = f"Cannot find variable at '{path}' to format"
             self._send_error(message)
 
-    def _send_details(self, path: Sequence, value: Any = None):
+    def _send_details(self, path: List[str], value: Any = None):
         """
         Sends a detailed list of children of the value (or just the value
         itself, if is a leaf node on the path) as a message through the
@@ -459,7 +547,9 @@ class EnvironmentService:
         msg = EnvironmentMessageDetails(path=path, children=children)
         self._send_message(msg)
 
-    def _summarize_variables(self, variables: Mapping, max_items: int = MAX_ITEMS) -> list:
+    def _summarize_variables(
+        self, variables: Mapping, max_items: int = MAX_ITEMS
+    ) -> List[EnvironmentVariable]:
         """
         Summarizes the given variables into a list of EnvironmentVariable objects.
 
@@ -499,7 +589,7 @@ class EnvironmentService:
 
             display_name = ins.get_display_name(key)
             kind_str = ins.get_kind(value)
-            kind = getattr(EnvironmentVariableKind, kind_str.upper())
+            kind = EnvironmentVariableValueKind(kind_str)
             display_value, is_truncated = ins.get_display_value(value)
             display_type = ins.get_display_type(value)
             type_info = ins.get_type_info(value)
@@ -528,7 +618,7 @@ class EnvironmentService:
             return EnvironmentVariable(
                 display_name=str(key),
                 display_value=get_qualname(value),
-                kind=EnvironmentVariableKind.OTHER,
+                kind=EnvironmentVariableValueKind.other,
             )
 
     def _format_value(self, value: Any, clipboard_format: ClipboardFormat) -> str:
@@ -537,7 +627,7 @@ class EnvironmentService:
         """
         inspector = get_inspector(value)
 
-        if clipboard_format == ClipboardFormat.HTML:
+        if clipboard_format == ClipboardFormat.html:
             return inspector.to_html(value)
         else:
             return inspector.to_plaintext(value)
