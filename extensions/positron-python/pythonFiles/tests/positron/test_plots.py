@@ -16,7 +16,10 @@ from positron.plots import BASE_DPI, PositronDisplayPublisherHook
 from .conftest import DummyComm
 
 
-@pytest.fixture(scope="module", autouse=True)
+PLOT_DATA = [1, 2]
+
+
+@pytest.fixture(scope="session", autouse=True)
 def setup_matplotlib() -> Iterable[None]:
     # Use IPython's `matplotlib_inline` backend
     backend = "module://matplotlib_inline.backend_inline"
@@ -43,27 +46,50 @@ def images_path() -> Path:
     return images_path
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture
 def hook() -> PositronDisplayPublisherHook:
-    return PositronDisplayPublisherHook("TARGET_NAME")
+    return PositronDisplayPublisherHook("positron.plot")
+
+
+@pytest.fixture
+def figure_comm(hook: PositronDisplayPublisherHook) -> DummyComm:
+    """
+    A comm corresponding to a test figure belonging to the Positron display publisher hook.
+    """
+    # Initialize the hook by calling it on a figure created with the test plot data
+    plt.plot(PLOT_DATA)
+    msg = {"content": {"data": {"image/png": None}}, "msg_type": "display_data"}
+    hook(msg)
+    plt.close()
+
+    # Return the comm corresponding to the first figure
+    id = next(iter(hook.comms))
+    figure_comm: DummyComm = hook.comms[id]  # type: ignore
+
+    # Clear messages due to the comm_open
+    figure_comm.messages.clear()
+
+    return figure_comm
 
 
 def test_hook_call_noop_on_non_display_data(hook: PositronDisplayPublisherHook) -> None:
     msg = {"msg_type": "not_display_data"}
     assert hook(msg) == msg
+    assert hook.figures == {}
+    assert hook.comms == {}
 
 
 def test_hook_call_noop_on_no_image_png(hook: PositronDisplayPublisherHook) -> None:
     msg = {"content": {"data": {}}, "msg_type": "display_data"}
     assert hook(msg) == msg
+    assert hook.figures == {}
+    assert hook.comms == {}
 
 
 def test_hook_call(hook: PositronDisplayPublisherHook, images_path: Path) -> None:
-    plot_data = [1, 2]
-    msg = {"content": {"data": {"image/png": None}}, "msg_type": "display_data"}
-
     # It returns `None` to indicate that it's consumed the message
-    plt.plot(plot_data)
+    plt.plot(PLOT_DATA)
+    msg = {"content": {"data": {"image/png": None}}, "msg_type": "display_data"}
     assert hook(msg) is None
 
     # It creates a new figure and comm
@@ -77,16 +103,17 @@ def test_hook_call(hook: PositronDisplayPublisherHook, images_path: Path) -> Non
     assert comm.comm_id == id
 
     # Check that the figure is a pickled base64-encoded string by decoding it and comparing it
-    # with a reference figure
+    # with a reference figure.
+    # First, save the hook's figure
     fig_encoded = hook.figures[id]
     fig: Figure = pickle.loads(codecs.decode(fig_encoded.encode(), "base64"))
-    actual = images_path / "test_hook_call_actual.png"
+    actual = images_path / "test-hook-call-actual.png"
     fig.savefig(str(actual))
 
     # Create the reference figure
     fig_ref: plt.figure.Figure = plt.figure()
-    fig_ref.subplots().plot(plot_data)
-    expected = images_path / "test_hook_call_expected.png"
+    fig_ref.subplots().plot(PLOT_DATA)
+    expected = images_path / "test-hook-call-expected.png"
     fig_ref.savefig(str(expected))
 
     # Compare actual versus expected figures
@@ -94,59 +121,46 @@ def test_hook_call(hook: PositronDisplayPublisherHook, images_path: Path) -> Non
     assert not err
 
 
-def _get_first_comm(hook: PositronDisplayPublisherHook) -> DummyComm:
-    id = next(iter(hook.comms))
-    comm: DummyComm = hook.comms[id]  # type: ignore
-    return comm
-
-
-def test_hook_handle_msg_noop_on_unknown_msg_type(hook: PositronDisplayPublisherHook) -> None:
-    comm = _get_first_comm(hook)
-
-    # Send a message with an invalid msg_type
+def test_hook_handle_msg_noop_on_unknown_msg_type(figure_comm: DummyComm) -> None:
+    # Handle a message with an invalid msg_type
     msg = {"content": {"comm_id": "unknown_comm_id", "data": {"msg_type": "not_render"}}}
-    comm.handle_msg(msg)
+    figure_comm.handle_msg(msg)
 
-    # No new messages after comm_open
-    assert len(comm.messages) == 1
+    # No messages sent
+    assert figure_comm.messages == []
 
 
-def test_hook_render_noop_on_unknown_comm(hook: PositronDisplayPublisherHook) -> None:
-    comm = _get_first_comm(hook)
-
-    # Send a message with a valid msg_type but invalid comm_id
+def test_hook_render_noop_on_unknown_comm(figure_comm: DummyComm) -> None:
+    # Handle a message with a valid msg_type but invalid comm_id
     msg = {"content": {"comm_id": "unknown_comm_id", "data": {"msg_type": "render"}}}
-    comm.handle_msg(msg)
+    figure_comm.handle_msg(msg)
 
-    # No new messages after comm_open
-    assert len(comm.messages) == 1
+    # No messages sent
+    assert figure_comm.messages == []
 
 
-def test_hook_render_error_on_unknown_figure(hook: PositronDisplayPublisherHook) -> None:
-    comm = _get_first_comm(hook)
-
+def test_hook_render_error_on_unknown_figure(
+    hook: PositronDisplayPublisherHook, figure_comm: DummyComm
+) -> None:
     # Clear the hook's figures to simulate a missing figure
-    figures = hook.figures.copy()
     hook.figures.clear()
 
-    # Send a message with a valid msg_type and valid comm_id, but the hook now has a missing figure
-    msg = {"content": {"comm_id": comm.comm_id, "data": {"msg_type": "render"}}}
-    comm.handle_msg(msg)
+    # Handle a message with a valid msg_type and valid comm_id, but the hook now has a missing figure
+    msg = {"content": {"comm_id": figure_comm.comm_id, "data": {"msg_type": "render"}}}
+    figure_comm.handle_msg(msg)
 
     # Check that we receive an error reply
-    reply = comm.messages[-1]
-    assert reply == {
-        "data": {
-            "msg_type": "error",
-            "message": f"Figure {comm.comm_id} not found",
-        },
-        "metadata": None,
-        "buffers": None,
-        "msg_type": "comm_msg",
-    }
-
-    # Restore the hook's figures
-    hook.figures = figures
+    assert figure_comm.messages == [
+        {
+            "data": {
+                "msg_type": "error",
+                "message": f"Figure {figure_comm.comm_id} not found",
+            },
+            "metadata": None,
+            "buffers": None,
+            "msg_type": "comm_msg",
+        }
+    ]
 
 
 def _save_base64_image(encoded: str, filename: Path) -> None:
@@ -155,15 +169,13 @@ def _save_base64_image(encoded: str, filename: Path) -> None:
         f.write(image)
 
 
-def test_hook_render(hook: PositronDisplayPublisherHook, images_path: Path) -> None:
-    comm = _get_first_comm(hook)
-
+def test_hook_render(figure_comm: DummyComm, images_path: Path) -> None:
     # Send a valid render message with a custom width and height
     width_px = height_px = 100
     pixel_ratio = 1
     msg = {
         "content": {
-            "comm_id": comm.comm_id,
+            "comm_id": figure_comm.comm_id,
             "data": {
                 "msg_type": "render",
                 "width": width_px,
@@ -172,10 +184,10 @@ def test_hook_render(hook: PositronDisplayPublisherHook, images_path: Path) -> N
             },
         }
     }
-    comm.handle_msg(msg)
+    figure_comm.handle_msg(msg)
 
     # Check that the reply is a comm_msg
-    reply = comm.messages[-1]
+    reply = figure_comm.messages[0]
     assert reply["msg_type"] == "comm_msg"
     assert reply["buffers"] is None
     assert reply["metadata"] == {}
@@ -188,7 +200,7 @@ def test_hook_render(hook: PositronDisplayPublisherHook, images_path: Path) -> N
     # Check that the reply data includes the expected base64-encoded resized image
 
     # Save the reply's image
-    actual = images_path / "test_hook_render_actual.png"
+    actual = images_path / "test-hook-render-actual.png"
     _save_base64_image(image_msg["data"], actual)
 
     # Create the reference figure
@@ -203,7 +215,7 @@ def test_hook_render(hook: PositronDisplayPublisherHook, images_path: Path) -> N
 
     # Serialize the reference figure as a base64-encoded image
     data_ref, _ = ip.display_formatter.format(fig_ref, include=["image/png"], exclude=[])  # type: ignore
-    expected = images_path / "test_hook_render_expected.png"
+    expected = images_path / "test-hook-render-expected.png"
     _save_base64_image(data_ref["image/png"], expected)
 
     # Compare the actual vs expected figures
@@ -211,18 +223,18 @@ def test_hook_render(hook: PositronDisplayPublisherHook, images_path: Path) -> N
     assert not err
 
 
-def test_shutdown(hook: PositronDisplayPublisherHook) -> None:
+# It's important that we depend on the figure_comm fixture too, so that the hook is initialized
+def test_shutdown(hook: PositronDisplayPublisherHook, figure_comm: DummyComm) -> None:
     # Double-check that it still has figures and comms
     assert hook.figures
-    assert hook.comms
+    assert hook.comms == {figure_comm.comm_id: figure_comm}
 
     # Double-check that the comm is not yet closed
-    comm = next(iter(hook.comms.values()))
-    assert not comm._closed
+    assert all(not comm._closed for comm in hook.comms.values())
 
     hook.shutdown()
 
     # Figures and comms are closed and cleared
     assert not hook.figures
     assert not hook.comms
-    assert comm._closed
+    assert all(comm._closed for comm in hook.comms.values())
