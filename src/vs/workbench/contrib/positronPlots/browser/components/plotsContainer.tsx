@@ -57,7 +57,7 @@ export const PlotsContainer = (props: PlotContainerProps) => {
 		const plotHistory = plotHistoryRef.current;
 		if (plotHistory) {
 			// Find the selected plot in the history
-			const selectedPlot = plotHistoryRef.current.querySelector('.selected');
+			const selectedPlot = plotHistory.querySelector('.selected');
 			if (selectedPlot) {
 				// If a plot is selected, scroll it into view.
 				selectedPlot.scrollIntoView();
