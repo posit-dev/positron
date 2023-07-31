@@ -134,7 +134,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 
 			// Re-sort the plots by creation time since we may have added new ones that are
 			// out of order.
-			this._plots.sort((a, b) => b.metadata.created - a.metadata.created);
+			this._plots.sort((a, b) => a.metadata.created - b.metadata.created);
 
 			// Fire the onDidReplacePlots event
 			this._onDidReplacePlots.fire(this._plots);
@@ -225,7 +225,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 	private registerPlotClient(plotClient: PlotClientInstance, fireEvents: boolean) {
 
 		// Add to our list of plots
-		this._plots.unshift(plotClient);
+		this._plots.push(plotClient);
 
 		// Fire events for this plot if requested
 		if (fireEvents) {
