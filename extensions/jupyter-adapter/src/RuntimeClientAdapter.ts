@@ -9,7 +9,7 @@ import { JupyterKernel } from './JupyterKernel';
 import { JupyterMessagePacket } from './JupyterMessagePacket';
 import { JupyterCommMsg } from './JupyterCommMsg';
 import { JupyterCommClose } from './JupyterCommClose';
-import { PromiseHandles } from './utils';
+import { PromiseHandles, delay } from './utils';
 
 /**
  * Adapts a Positron Language Runtime client widget to a Jupyter kernel.
@@ -50,19 +50,32 @@ export class RuntimeClientAdapter {
 	/**
 	 * Opens the communications channel between the client and the runtime.
 	 */
-	public async open() {
+	public async open(): Promise<void> {
 		// Ask the kernel to open a comm channel for us
 		this._state.fire(positron.RuntimeClientState.Opening);
 		this._kernel.openComm(this._type, this._id, this._params);
 
 		const out = new PromiseHandles<void>();
+		let connected = false;
 
 		const handler = this.onDidChangeClientState(state => {
 			if (state === positron.RuntimeClientState.Connected) {
 				out.resolve();
 				handler.dispose();
+				connected = true;
 			}
 		});
+
+		await Promise.race([
+			out.promise,
+			delay(20000),
+		]);
+
+		if (!connected) {
+			const err = `Timeout while connecting to comm ${this._id}`;
+			this._kernel.log(err);
+			out.reject(new Error(err));
+		}
 
 		return out.promise;
 	}
