@@ -20,7 +20,6 @@ from jedi_language_server.server import (
     JediLanguageServer,
     JediLanguageServerProtocol,
     _choose_markup,
-    code_action,
     completion_item_resolve,
     definition,
     did_change_configuration,
@@ -161,7 +160,7 @@ class PositronJediLanguageServer(JediLanguageServer):
         """
         self._stop_event = Event()
         self.lsp: PositronJediLanguageServerProtocol
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_event_loop_policy().get_event_loop()
         self._server = await loop.create_server(self.lsp, lsp_host, lsp_port)
 
     async def shutdown(self):
