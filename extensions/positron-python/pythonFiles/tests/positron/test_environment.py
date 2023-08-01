@@ -919,7 +919,7 @@ async def test_handle_clear(
     shell.user_ns.update({"x": 3, "y": 5})
 
     msg_id = "0"
-    msg = {"id": msg_id, "content": {"data": {"msg_type": "clear"}}}
+    msg = {"msg_id": msg_id, "content": {"data": {"msg_type": "clear"}}}
     env_comm.handle_msg(msg)
 
     # Wait until the kernel task is processed
@@ -1018,7 +1018,10 @@ def test_handle_inspect_error(env_comm: DummyComm) -> None:
     # An error message is sent
     assert env_comm.messages == [
         {
-            "data": {"msg_type": "error", "message": "Cannot find variable at '['x']' to inspect"},
+            "data": {
+                "msg_type": "error",
+                "message": "Cannot find variable at '['x']' to inspect",
+            },
             "metadata": None,
             "buffers": None,
             "msg_type": "comm_msg",
@@ -1043,7 +1046,11 @@ def test_handle_clipboard_format(shell: TerminalInteractiveShell, env_comm: Dumm
 
     assert env_comm.messages == [
         {
-            "data": {"msg_type": "formatted_variable", "format": "text/plain", "content": "3"},
+            "data": {
+                "msg_type": "formatted_variable",
+                "format": "text/plain",
+                "content": "3",
+            },
             "metadata": None,
             "buffers": None,
             "msg_type": "comm_msg",
@@ -1067,7 +1074,10 @@ def test_handle_clipboard_format_error(env_comm: DummyComm) -> None:
     # An error message is sent
     assert env_comm.messages == [
         {
-            "data": {"msg_type": "error", "message": "Cannot find variable at '['x']' to format"},
+            "data": {
+                "msg_type": "error",
+                "message": "Cannot find variable at '['x']' to format",
+            },
             "metadata": None,
             "buffers": None,
             "msg_type": "comm_msg",
@@ -1112,7 +1122,10 @@ def test_handle_view_error(env_comm: DummyComm) -> None:
     # An error message is sent
     assert env_comm.messages == [
         {
-            "data": {"msg_type": "error", "message": "Cannot find variable at '['x']' to inspect"},
+            "data": {
+                "msg_type": "error",
+                "message": "Cannot find variable at '['x']' to inspect",
+            },
             "metadata": None,
             "buffers": None,
             "msg_type": "comm_msg",
@@ -1126,7 +1139,10 @@ def test_handle_unknown_message_type(env_comm: DummyComm) -> None:
 
     assert env_comm.messages == [
         {
-            "data": {"msg_type": "error", "message": "Unknown message type 'unknown_msg_type'"},
+            "data": {
+                "msg_type": "error",
+                "message": "Unknown message type 'unknown_msg_type'",
+            },
             "metadata": None,
             "buffers": None,
             "msg_type": "comm_msg",

@@ -431,7 +431,7 @@ class PositronIPyKernel(IPythonKernel):
         """
         Deletes all of the variables in the current user session.
         """
-        parent_id = parent["id"]
+        parent_id = parent["msg_id"]
         task = asyncio.create_task(self._soft_reset(parent))
         self.tasks[parent_id] = task
         task.add_done_callback(lambda _: self.tasks.pop(parent_id))
