@@ -9,7 +9,6 @@ import logging
 import os
 import sys
 
-from ipykernel import kernelapp
 from traitlets.config import Config
 
 # Add the lib path to our sys path so jedi_language_server can find its references
@@ -17,7 +16,7 @@ EXTENSION_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(EXTENSION_ROOT, "pythonFiles", "lib", "jedilsp"))
 sys.path.insert(1, os.path.join(EXTENSION_ROOT, "pythonFiles", "lib", "python"))
 
-from positron.positron_ipkernel import PositronIPKernelApp
+from positron.positron_ipkernel import PositronIPKernelApp  # noqa
 
 logger = logging.getLogger(__name__)
 
@@ -122,7 +121,7 @@ if __name__ == "__main__":
 
     # IPyKernel uses Tornado which (as of version 5.0) shares the same event
     # loop as asyncio.
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_event_loop_policy().get_event_loop()
 
     # Enable asyncio debug mode.
     if args.loglevel == "DEBUG":

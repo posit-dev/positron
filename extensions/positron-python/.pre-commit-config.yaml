@@ -8,7 +8,7 @@ repos:
         types:
           - python
         args:
-          - "--max-line-length=90"
+          - "--max-line-length=100"
       - id: trailing-whitespace
       - id: end-of-file-fixer
       - id: check-yaml
