@@ -59,10 +59,22 @@ export class RuntimeClientAdapter {
 		let connected = false;
 
 		const handler = this.onDidChangeClientState(state => {
-			if (state === positron.RuntimeClientState.Connected) {
-				out.resolve();
-				handler.dispose();
-				connected = true;
+			switch (state) {
+				case positron.RuntimeClientState.Connected: {
+					out.resolve();
+					connected = true;
+					handler.dispose();
+					break;
+				}
+				case positron.RuntimeClientState.Closing:
+				case positron.RuntimeClientState.Closed: {
+					out.reject(new Error( `Comm ${this._id} closed before connecting`));
+					handler.dispose();
+					break;
+				}
+				default: {
+					return;
+				}
 			}
 		});
 
