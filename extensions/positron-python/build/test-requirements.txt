@@ -35,7 +35,7 @@ jedi_language_server
 lsprotocol
 matplotlib
 pandas
-pydantic
+pydantic<2.0.0
 pyright
 pytest-asyncio
 pytest-mock
