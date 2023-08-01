@@ -197,7 +197,7 @@ class CollectionInspector(PositronInspector):
             return self.get_length(value) > 0
 
     def summarize_children(
-        self, value: Any, summarizer: Callable[[str, Any], Optional[dict]]
+        self, value: Any, summarizer: Callable[[str, Any], Optional[EnvironmentVariable]]
     ) -> list:
         # Treat collection items as children, with the index as the name
         children = []
@@ -255,7 +255,7 @@ class MapInspector(PositronInspector):
         return child_value
 
     def summarize_children(
-        self, value: Any, summarizer: Callable[[str, Any], Optional[dict]]
+        self, value: Any, summarizer: Callable[[str, Any], Optional[EnvironmentVariable]]
     ) -> list:
         children = []
 
@@ -320,7 +320,7 @@ class TableInspector(PositronInspector):
         return ""
 
     def summarize_children(
-        self, value: Any, summarizer: Callable[[str, Any], Optional[dict]]
+        self, value: Any, summarizer: Callable[[str, Any], Optional[EnvironmentVariable]]
     ) -> list:
         children = []
 
@@ -330,7 +330,7 @@ class TableInspector(PositronInspector):
 
             summary = summarizer(column_name, column_value)
             if summary is not None:
-                summary["display_type"] = column_display_type
+                summary.display_type = column_display_type
                 children.append(summary)
 
         return children
@@ -481,7 +481,7 @@ class PandasSeriesInspector(CollectionInspector):
         return child_value
 
     def summarize_children(
-        self, value: Any, summarizer: Callable[[str, Any], Optional[dict]]
+        self, value: Any, summarizer: Callable[[str, Any], Optional[EnvironmentVariable]]
     ) -> list:
         # Treat collection items as children, with the index as the name
         children = []
@@ -684,7 +684,7 @@ class NumpyNdarrayInspector(CollectionInspector):
             return []
 
     def summarize_children(
-        self, value: Any, summarizer: Callable[[str, Any], Optional[dict]]
+        self, value: Any, summarizer: Callable[[str, Any], Optional[EnvironmentVariable]]
     ) -> list:
         # Treat collection items as children, with the index as the name
         children = []
