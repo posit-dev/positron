@@ -246,16 +246,17 @@ jobs:
           export VSCODE_ARCH=universal
           DEBUG=electron-osx-sign* node build/darwin/sign.js $(pwd)
 
-      # Compress universal client to a zip file
-      - name: Create universal client archive
+      # Compress universal client to a DMG file
+      - name: Create universal client disk image
         run: |
-          cd VSCode-darwin-universal
-          zip -Xry $GITHUB_WORKSPACE/Positron-${{ needs.version_string.outputs.short_version }}-darwin-universal.zip *
+          export POSITRON_BUNDLE_NAME=Positron-${{ needs.version_string.outputs.short_version }}
+          ln -nfs /Applications VSCode-darwin-universal/Applications
+          hdiutil create -size 1g -fs "APFS" -volname "${POSITRON_BUNDLE_NAME}" -srcfolder "VSCode-darwin-universal" -ov -format "UDZO" "${GITHUB_WORKSPACE}/${POSITRON_BUNDLE_NAME}.dmg"
 
       # Notarize the build using an Apple service
       - name: Notarize binary
         run: |
-          export NOTARIZTION_TARGET=$GITHUB_WORKSPACE/Positron-${{ needs.version_string.outputs.short_version }}-darwin-universal.zip
+          export NOTARIZTION_TARGET=$GITHUB_WORKSPACE/Positron-${{ needs.version_string.outputs.short_version }}.dmg
           xcrun notarytool submit --wait --apple-id "${{ secrets.MACOS_NOTARIZATION_USER_NAME }}" --password "${{ secrets.MACOS_NOTARIZATION_USER_PASSWORD }}" --team-id FYF2F5GFX4 --progress $NOTARIZATION_TARGET
           xcrun stapler staple $NOTARIZATION_TARGET
 
@@ -282,17 +283,17 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: Positron-${{ needs.version_string.outputs.short_version }}-darwin-universal.zip
-          asset_name: Positron-${{ needs.version_string.outputs.short_version }}-darwin-universal.zip
-          asset_content_type: application/zip
+          asset_path: Positron-${{ needs.version_string.outputs.short_version }}.dmg
+          asset_name: Positron-${{ needs.version_string.outputs.short_version }}.dmg
+          asset_content_type: application/octet-stream
 
       # Create a regular build artifact for the universal archive, to be
       # downloaded from the actions page for testing purposes.
       - name: Upload
         uses: actions/upload-artifact@v3
         with:
-          name: positron-darwin-universal-archive
-          path: Positron-${{ needs.version_string.outputs.short_version }}-darwin-universal.zip
+          name: positron-darwin-universal-installer
+          path: Positron-${{ needs.version_string.outputs.short_version }}.dmg
 
   status:
     if: ${{ failure() }}
