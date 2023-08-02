@@ -651,13 +651,37 @@ export class TerminalService implements ITerminalService {
 		// Don't touch processes if the shutdown was a result of reload as they will be reattached
 		const shouldPersistTerminals = this._configHelper.config.enablePersistentSessions && e.reason === ShutdownReason.RELOAD;
 
-		for (const instance of [...this._terminalGroupService.instances, ...this._backgroundedTerminalInstances]) {
+		// --- Begin Positron ---
+		// In upstream VS Code, both the terminal group service's instances as
+		// well as the background instances are detached here during a reload.
+		// However, because the background instances are never reattached, they
+		// wind up getting killed by the PtyHost. We use these background
+		// instances to run kernel processes, so we need them to stay alive.
+		//
+		// https://github.com/rstudio/positron/issues/939
+		for (const instance of this._terminalGroupService.instances) {
 			if (shouldPersistTerminals && instance.shouldPersist) {
 				instance.detachProcessAndDispose(TerminalExitReason.Shutdown);
 			} else {
 				instance.dispose(TerminalExitReason.Shutdown);
 			}
 		}
+
+		// For backgrounded terminal instances, dispose them if either (a) they
+		// are marked as transient, or (b) we are not persisting terminals.
+		for (const instance of this._backgroundedTerminalInstances) {
+			if (shouldPersistTerminals) {
+				// Dispose transient terminals even if we are persisting terminals.
+				if (!instance.shouldPersist) {
+					instance.dispose(TerminalExitReason.Shutdown);
+				}
+			} else {
+				// We aren't persisting terminals, so all backgrounded instances
+				// should be disposed.
+				instance.dispose(TerminalExitReason.Shutdown);
+			}
+		}
+		// --- End Positron ---
 
 		// Clear terminal layout info only when not persisting
 		if (!shouldPersistTerminals && !this._shouldReviveProcesses(e.reason)) {
