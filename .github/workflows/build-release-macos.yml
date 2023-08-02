@@ -252,6 +252,13 @@ jobs:
           cd VSCode-darwin-universal
           zip -Xry $GITHUB_WORKSPACE/Positron-${{ needs.version_string.outputs.short_version }}-darwin-universal.zip *
 
+      # Notarize the build using an Apple service
+      - name: Notarize binary
+        run: |
+          export NOTARIZTION_TARGET=$GITHUB_WORKSPACE/Positron-${{ needs.version_string.outputs.short_version }}-darwin-universal.zip
+          xcrun notarytool submit --wait --apple-id "${{ secrets.MACOS_NOTARIZATION_USER_NAME }}" --password "${{ secrets.MACOS_NOTARIZATION_USER_PASSWORD }}" --team-id FYF2F5GFX4 --progress $NOTARIZATION_TARGET
+          xcrun stapler staple $NOTARIZATION_TARGET
+
       # Create a GitHub release for the universal binary we just created, if
       # we're running against the main branch
       #
