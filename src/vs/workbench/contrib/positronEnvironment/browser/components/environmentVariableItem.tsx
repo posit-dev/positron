@@ -160,6 +160,7 @@ export const EnvironmentVariableItem = (props: EnvironmentVariableItemProps) => 
 		e.preventDefault();
 		e.stopPropagation();
 
+		// Launch the viewer.
 		props.environmentVariableItem.view();
 	};
 
