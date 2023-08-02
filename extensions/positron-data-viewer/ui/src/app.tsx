@@ -13,17 +13,19 @@ import * as ReactQuery from '@tanstack/react-query';
 import { DataPanel } from './DataPanel';
 
 // External types.
-import { DataViewerMessage, DataViewerMessageData, DataViewerMessageReady } from './positron-data-viewer';
-import { DataModel } from './DataModel';
+import { DataViewerMessage, DataViewerMessageRowRequest, DataViewerMessageRowResponse } from './positron-data-viewer';
 
 // This global is injected by VS Code when the extension is loaded.
 //
 // @ts-ignore
 const vscode = acquireVsCodeApi();
+const fetchSize = 100;
 
-// Let the extension know that we're ready to receive data.
-const msg: DataViewerMessageReady = {
-	msg_type: 'ready'
+// Let the extension know that we're ready to receive the initial data.
+const msg: DataViewerMessageRowRequest = {
+	msg_type: 'ready',
+	start_row: 0,
+	fetch_size: fetchSize
 };
 vscode.postMessage(msg);
 
@@ -32,19 +34,16 @@ window.addEventListener('message', (event: any) => {
 	// Presume that the message compiles with the DataViewerMessage interface.
 	const message = event.data as DataViewerMessage;
 
-	if (message.msg_type === 'data') {
-		const dataMessage = message as DataViewerMessageData;
-		const dataModel = new DataModel(dataMessage.data);
+	if (message.msg_type === 'initial_data') {
+		const dataMessage = message as DataViewerMessageRowResponse;
 		const queryClient = new ReactQuery.QueryClient();
 		ReactDOM.render(
 			<React.StrictMode>
 				<ReactQuery.QueryClientProvider client={queryClient}>
-					<DataPanel data={dataModel} />
+					<DataPanel initialData={dataMessage.data} fetchSize={fetchSize} vscode={vscode} />
 				</ReactQuery.QueryClientProvider>
 			</React.StrictMode>,
 			document.getElementById('root')
 		);
-	} else {
-		console.error(`Unknown message type: ${message.msg_type}`);
-	}
+	} // Other message types are handled in the DataPanel component.
 });
