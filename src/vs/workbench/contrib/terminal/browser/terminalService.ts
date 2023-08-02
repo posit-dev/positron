@@ -671,7 +671,7 @@ export class TerminalService implements ITerminalService {
 		// are marked as transient, or (b) we are not persisting terminals.
 		for (const instance of this._backgroundedTerminalInstances) {
 			if (shouldPersistTerminals) {
-				// Dipsose transient terminals even if we are persisting terminals.
+				// Dispose transient terminals even if we are persisting terminals.
 				if (!instance.shouldPersist) {
 					instance.dispose(TerminalExitReason.Shutdown);
 				}
