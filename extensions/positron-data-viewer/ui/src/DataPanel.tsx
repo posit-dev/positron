@@ -12,9 +12,21 @@ import * as ReactTable from '@tanstack/react-table';
 
 // Local modules.
 import { DataFragment, DataModel } from './DataModel';
+import { DataViewerMessageRowRequest, DataSet } from './positron-data-viewer';
 
 interface DataPanelProps {
-	data: DataModel;
+	/**
+	 * The initial batch of data to display, before additional data requests have been made
+	 */
+	initialData: DataSet;
+	/**
+	 * The number of rows to fetch at a time from the backend
+	 */
+	fetchSize: number;
+	/**
+	 * Global injected by VS Code when the extension is loaded, used to post messages
+	 */
+	vscode: any;
 }
 
 /**
@@ -24,9 +36,6 @@ interface DataPanelProps {
  */
 export const DataPanel = (props: DataPanelProps) => {
 
-	// The number of rows that will be fetched from the data model at a time.
-	const fetchSize = 10;
-
 	// The distance from the bottom of the table container at which we will
 	// trigger a fetch of more data.
 	const scrollThresholdPx = 300;
@@ -34,18 +43,37 @@ export const DataPanel = (props: DataPanelProps) => {
 	// The height of a single row of data
 	const rowHeightPx = 30;
 
-	// The number of rows to render above and below the visible area of the
-	// table.
+	// The number of rows to render above and below the visible area of the table.
 	const scrollOverscan = 50;
 
 	// A reference to the table container element.
 	const tableContainerRef = React.useRef<HTMLDivElement>(null);
 
+	const {initialData, fetchSize, vscode} = props;
+
+	const [dataModel, updateDataModel] = React.useState<DataModel>(
+		new DataModel(initialData)
+	);
+
+	React.useEffect(() => {
+		const handleMessage = ((event: any) => {
+			updateDataModel((prevDataModel) => {
+				return prevDataModel.handleDataMessage(event);
+			});
+		});
+
+		window.addEventListener('message', handleMessage);
+
+		return () => {
+			window.removeEventListener('message', handleMessage);
+		};
+	}, []);
+
 	// Create the columns for the table. These use the 'any' type since the data
 	// model is generic.
 	const columns = React.useMemo<ReactTable.ColumnDef<any>[]>(
 		() => {
-			return props.data.columns.map((column, idx) => {
+			return dataModel.columns.map((column, idx) => {
 				return {
 					id: '' + idx,
 					accessorKey: idx,
@@ -56,16 +84,17 @@ export const DataPanel = (props: DataPanelProps) => {
 				};
 			});
 		},
-		[]);
+		[dataModel]);
 
-	// Use a React Query infinite query to fetch data from the data model.
+	// Use a React Query infinite query to fetch data from the data model,
+	// with the dataModel id as cache key so we re-query when new data comes in.
 	const { data, fetchNextPage, isFetching, isLoading } =
 		ReactQuery.useInfiniteQuery<DataFragment>(
-			['table-data'],
+			['table-data', dataModel.id],
 			async ({ pageParam = 0 }) => {
 				// Fetches a single page of data from the data model.
 				const start = pageParam * fetchSize;
-				const fragment = props.data.loadDataFragment(start, fetchSize);
+				const fragment = dataModel.loadDataFragment(start, fetchSize);
 				return fragment;
 			},
 			{
@@ -87,7 +116,7 @@ export const DataPanel = (props: DataPanelProps) => {
 				// Loop over each column in the page and add the values to the
 				// corresponding row.
 				page.columns.forEach((column, idx) => {
-					column.forEach((value, rowIdx) => {
+					column.data.forEach((value, rowIdx) => {
 						// Create the index into the row; this is the row index
 						// plus the rowStart value of the page.
 						rowIdx += page.rowStart;
@@ -102,7 +131,7 @@ export const DataPanel = (props: DataPanelProps) => {
 		[data]);
 
 	// Count total rows against those we have fetched.
-	const totalRows = props.data.rowCount;
+	const totalRows = dataModel.rowCount;
 
 	// Find the maximum rowEnd value in the data; this is the
 	// total number of rows we have fetched.
@@ -110,10 +139,11 @@ export const DataPanel = (props: DataPanelProps) => {
 		() => {
 			return data?.pages?.reduce((max, row) => Math.max(max, row.rowEnd + 1), 0) ?? 0;
 		},
-		[flatData]);
+		[flatData]
+	);
 
-	// Callback, invoked on scroll, that will fetch more data if we have reached
-	// the bottom of the table container.
+	// Callback, invoked on scroll, that will fetch more data from the backend if we have reached
+	// the bottom of the table container by sending a new MessageRequest.
 	const fetchMoreOnBottomReached = React.useCallback(
 		(containerRefElement?: HTMLDivElement | null) => {
 			if (containerRefElement) {
@@ -124,6 +154,12 @@ export const DataPanel = (props: DataPanelProps) => {
 					totalFetched < totalRows
 				) {
 					fetchNextPage();
+					const msg: DataViewerMessageRowRequest = {
+						msg_type: 'request_rows',
+						start_row: totalFetched,
+						fetch_size: fetchSize
+					};
+					vscode.postMessage(msg);
 				}
 			}
 		},
@@ -140,7 +176,7 @@ export const DataPanel = (props: DataPanelProps) => {
 		columns,
 		getCoreRowModel: ReactTable.getCoreRowModel(),
 		getSortedRowModel: ReactTable.getSortedRowModel(),
-		debugTable: true,
+		debugTable: false,
 	});
 
 	const { rows } = table.getRowModel();

@@ -1225,7 +1225,9 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 		this.simulateInputMessage(parentId, code);
 
 		// Create the data client comm.
-		const data = new ZedData(this.context, title);
+		const data = new ZedData(title);
+		this.connectClientEmitter(data);
+		this._data.set(data.id, data);
 
 		// Send the comm open message to the client.
 		this._onDidReceiveRuntimeMessage.fire({
@@ -1235,7 +1237,7 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 			type: positron.LanguageRuntimeMessageType.CommOpen,
 			comm_id: data.id,
 			target_name: 'positron.dataViewer',
-			data: data
+			data: { 'title': data.title }
 		} as positron.LanguageRuntimeCommOpen);
 
 		// Emit text output so something shows up in the console.
@@ -1506,10 +1508,11 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 	 *
 	 * @param client The environment or plot to connect
 	 */
-	private connectClientEmitter(client: ZedEnvironment | ZedPlot) {
+	private connectClientEmitter(client: ZedEnvironment | ZedPlot | ZedData) {
 
 		// Listen for data emitted from the environment instance
 		client.onDidEmitData(data => {
+
 			// If there's a pending RPC, then presume that this message is a
 			// reply to it; otherwise, just use an empty parent ID.
 			const parent_id = this._pendingRpcs.length > 0 ?

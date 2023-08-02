@@ -5,7 +5,7 @@
 import path = require('path');
 import * as vscode from 'vscode';
 import * as positron from 'positron';
-import { DataSet, DataViewerMessage, DataViewerMessageData } from './positron-data-viewer';
+import { DataSet, DataViewerMessage, DataViewerMessageRowResponse } from './positron-data-viewer';
 
 /**
  * Creates the WebView panel containing the data viewer.
@@ -13,11 +13,11 @@ import { DataSet, DataViewerMessage, DataViewerMessageData } from './positron-da
  * @param context The extension context
  * @param client The runtime client instance; a two-way channel that allows the
  *   extension to communicate with the runtime
- * @param initialData The initial data to display in the data viewer
+ * @param data Data from the `comm_open` containing the dataset title
  */
 export async function createDataPanel(context: vscode.ExtensionContext,
 	client: positron.RuntimeClientInstance,
-	initialData: DataSet) {
+	data: DataSet) {
 	const panel = vscode.window.createWebviewPanel(
 		'positronDataViewer',
 		'Data Viewer',
@@ -91,7 +91,7 @@ export async function createDataPanel(context: vscode.ExtensionContext,
 		panel.webview.postMessage(event);
 	});
 
-	panel.title = initialData.title;
+	panel.title = data.title;
 
 	// In development mode, load the CSS file directly from the extension folder
 	let cssTag = '';
@@ -105,7 +105,7 @@ export async function createDataPanel(context: vscode.ExtensionContext,
 	panel.webview.html = `
 		<head>
 			<meta charset="UTF-8">
-			<title>${initialData.title}</title>
+			<title>${data.title}</title>
 			${cssTag}
 		</head>
 		<body>
@@ -114,19 +114,12 @@ export async function createDataPanel(context: vscode.ExtensionContext,
 
 	// Handle messages from the webview
 	panel.webview.onDidReceiveMessage((message: DataViewerMessage) => {
-		if (message.msg_type === 'ready') {
-			// The webview is ready to receive messages; send it
-			// the initial data
-			const dataMsg: DataViewerMessageData = {
-				msg_type: 'data',
-				data: {
-					id: initialData.id,
-					title: initialData.title,
-					columns: initialData.columns,
-					rowCount: initialData.rowCount,
-				},
-			};
-			panel.webview.postMessage(dataMsg);
+		if (message.msg_type === 'ready' || message.msg_type === 'request_rows') {
+			// The webview is requesting initial or incremental data;
+			// perform rpc to get the data from the language runtime
+			client.performRpc(message).then((response) => {
+				panel.webview.postMessage(response as DataViewerMessageRowResponse);
+			});
 		}
 	},
 		undefined,
