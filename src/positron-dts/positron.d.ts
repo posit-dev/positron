@@ -493,6 +493,13 @@ declare module 'positron' {
 
 
 	/**
+	 * Represents a language runtime registration record.
+	 */
+	export interface LanguagRuntimeRegistration {
+		runtime: LanguageRuntime;
+	}
+
+	/**
 	 * A data structure that describes a handler for a runtime client instance,
 	 * and is called when an instance is created.
 	 *
@@ -677,7 +684,16 @@ declare module 'positron' {
 			focus: boolean): Thenable<boolean>;
 
 		/**
-		 * Register a language runtime with Positron.
+		 * Register a language runtime provider with Positron.
+		 *
+		 * @param languageId The language ID for which runtimes will be supplied
+		 * @param provider A function that returns an AsyncIterable of runtime registrations
+		 */
+		export function registerLanguageRuntimeProvider(languageId: string,
+			provider: () => AsyncIterable<LanguagRuntimeRegistration>): vscode.Disposable;
+
+		/**
+		 * Register a single language runtime with Positron.
 		 *
 		 * @param runtime The language runtime to register
 		 */
