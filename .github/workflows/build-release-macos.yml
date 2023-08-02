@@ -256,7 +256,7 @@ jobs:
       # Notarize the build using an Apple service
       - name: Notarize binary
         run: |
-          export NOTARIZTION_TARGET=$GITHUB_WORKSPACE/Positron-${{ needs.version_string.outputs.short_version }}.dmg
+          export NOTARIZATION_TARGET=$GITHUB_WORKSPACE/Positron-${{ needs.version_string.outputs.short_version }}.dmg
           xcrun notarytool submit --wait --apple-id "${{ secrets.MACOS_NOTARIZATION_USER_NAME }}" --password "${{ secrets.MACOS_NOTARIZATION_USER_PASSWORD }}" --team-id FYF2F5GFX4 --progress $NOTARIZATION_TARGET
           xcrun stapler staple $NOTARIZATION_TARGET
 
