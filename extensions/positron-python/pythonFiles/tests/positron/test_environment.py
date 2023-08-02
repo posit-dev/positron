@@ -1104,6 +1104,7 @@ def test_handle_view(
         "id": id,
         "title": "x",
         "columns": [{"name": "a", "type": "Series", "data": [0]}],
+        "rowCount": 1,
     }
 
     # Check that the comm is open
