@@ -232,6 +232,20 @@ jobs:
         run: |
           node build/darwin/create-universal-app.js $(pwd)
 
+      # Sign the binaries and set the hardened entitlements
+      - name: Sign binaries
+        run: |
+          security create-keychain -p pwd ${{ runner.temp }}/buildagent.keychain
+          security default-keychain -s ${{ runner.temp }}/buildagent.keychain
+          security unlock-keychain -p pwd ${{ runner.temp }}/buildagent.keychain
+          echo "${{ secrets.MACOS_DEVELOPER_CERTIFICATE }}" | base64 -D > ${{ runner.temp }}/cert.p12
+          security import ${{ runner.temp }}/cert.p12 -k ${{ runner.temp }}/buildagent.keychain -P "${{ secrets.MACOS_DEVELOPER_CERTIFICATE_KEY }}" -T /usr/bin/codesign
+          export CODESIGN_IDENTITY=$(security find-identity -v -p codesigning ${{ runner.temp }}/buildagent.keychain | grep -oEi "([0-9A-F]{40})" | head -n 1)
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k pwd ${{ runner.temp }}/buildagent.keychain
+          export AGENT_TEMPDIRECTORY=${{ runner.temp }}
+          export VSCODE_ARCH=universal
+          DEBUG=electron-osx-sign* node build/darwin/sign.js $(pwd)
+
       # Compress universal client to a zip file
       - name: Create universal client archive
         run: |
