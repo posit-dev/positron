@@ -101,13 +101,16 @@
 .plot-thumbnail button:active img,
 .plot-thumbnail button:focus img {
 	cursor: pointer;
-	outline-width: 1px;
-	outline-style: solid;
-	outline-offset: -1px;
-	outline-color: var(--vscode-focusBorder);
+	outline: none;
 	border-radius: 3px;
 	opacity: 1;
 }
+
+.plot-thumbnail button:focus-visible img {
+	outline: 1px solid var(--vscode-focusBorder);
+	outline-offset: -1px;
+}
+
 
 .plot-thumbnail.selected {
 	opacity: 1;
@@ -115,10 +118,12 @@
 }
 
 .plot-thumbnail img {
+	border-radius: 3px;
 	border: 1px dotted var(--vscode-editorWidget-border);
 }
 
 .plot-thumbnail.selected img {
+	border-radius: 3px;
 	border: 1px solid var(--vscode-editorWidget-border);
 }
 
