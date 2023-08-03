@@ -6,75 +6,126 @@ import comm
 import uuid
 import logging
 import enum
-from typing import List
+from typing import Any, Dict, List
+from pydantic import BaseModel, Field, NonNegativeInt
 
 from .utils import json_clean
 
 logger = logging.getLogger(__name__)
 
 
-@enum.unique
-class DataViewerMessageType(str, enum.Enum):
-    """
-    Message types used in the positron.dataviewer comm.
-    """
-
-    READY = "ready"
-    INITIAL_DATA = "initial_data"
-    REQUEST_ROWS = "request_rows"
-    RECEIVE_ROWS = "receive_rows"
-
-
-class DataColumn(dict):
+class DataColumn(BaseModel):
     """
     A single column of data. The viewer deals with data in columnar format since
     that best matches the way data is stored in most data sources.
     """
 
-    def __init__(self, name: str, type: str, data: list):
-        self["name"] = name
-        self["type"] = type
-        self["data"] = data
+    name: str = Field(description="The name of the column")
+    type: str = Field(description="The data type of the column")
+    data: List[Any] = Field(description="The data in the column")
 
 
-class DataSet(dict):
+class DataSet(BaseModel):
     """
     A data set that can be displayed in the data viewer.
     """
 
-    def __init__(self, id: str, title: str, columns: List[DataColumn], rowCount: int):
-        self["id"] = id
-        self["title"] = title
-        self["columns"] = columns
-        self["rowCount"] = rowCount
+    id: str = Field(description="The unique ID of the dataset")
+    title: str = Field(
+        default="Data", description="The title of the dataset, to be displayed in the viewer"
+    )
+    columns: List[DataColumn] = Field(default=[], description="The columns of data in the dataset")
+    rowCount: NonNegativeInt = Field(
+        default=0, description="The total number of rows in the dataset"
+    )
 
     def _slice_data(self, start: int, size: int) -> List[DataColumn]:
         """
         Slice the data in the dataset and return the requested set of rows.
         """
-        if start < 0 or start >= self.get("rowCount", 0):
+        if start < 0 or start >= self.rowCount:
             raise ValueError(f"Invalid start row: {start}")
-        if start == 0 and self.get("rowCount", 0) <= size:
+        if start == 0 and self.rowCount <= size:
             # No need to slice the data
-            return self.get("columns", list())
+            return self.columns
         return [
-            DataColumn(
-                column.get("name"), column.get("type"), column.get("data")[start : start + size]
-            )
-            for column in self.get("columns", list())
+            DataColumn(name=column.name, type=column.type, data=column.data[start : start + size])
+            for column in self.columns
         ]
 
 
-class DataViewerRowResponse(dict):
+@enum.unique
+class DataViewerMessageTypeInput(str, enum.Enum):
     """
-    A message sent from the runtime containing the batch of rows to be rendered
+    The possible types of messages that can be sent to the language runtime as
+    requests to the data viewer backend.
     """
 
-    def __init__(self, msg_type: str, start_row: int, fetch_size: int, data: DataSet):
-        self["msg_type"] = msg_type
-        self["start_row"] = start_row
-        self["fetch_size"] = fetch_size
-        self["data"] = data
+    # A request for the initial batch of data
+    ready = "ready"
+
+    # A request for an additional batch of data
+    request_rows = "request_rows"
+
+
+@enum.unique
+class DataViewerMessageTypeOutput(str, enum.Enum):
+    """
+    The possible types of messages that can be sent from the language runtime to
+    the data viewer client to be rendered.
+    """
+
+    # The initial batch of data
+    initial_data = "initial_data"
+
+    # An additional batch of data
+    receive_rows = "receive_rows"
+
+    # An error message
+    error = "error"
+
+
+class DataViewerMessageOutput(BaseModel):
+    """
+    A message sent from the language runtime to the data viewer client.
+    """
+
+    msg_type: DataViewerMessageTypeOutput
+
+
+class DataViewerMessageError(DataViewerMessageOutput):
+    msg_type: DataViewerMessageTypeOutput = DataViewerMessageTypeOutput.error
+    error: str = Field(description="The error message")
+
+    class Config:
+        fields = {"msg_type": {"const": True}}
+
+
+class DataViewerMessageInitialData(DataViewerMessageOutput):
+    msg_type: DataViewerMessageTypeOutput = DataViewerMessageTypeOutput.initial_data
+
+    # For initial data, the start row should always be 0
+    start_row: NonNegativeInt = Field(
+        default=0, description="The index of the first row in the batch"
+    )
+    fetch_size: NonNegativeInt = Field(default=100, description="The number of rows in the batch")
+    data: DataSet = Field(description="The data to be rendered")
+
+    class Config:
+        fields = {"msg_type": {"const": True}, "start_row": {"const": True}}
+
+
+class DataViewerMessageReceiveRows(DataViewerMessageOutput):
+    msg_type: DataViewerMessageTypeOutput = DataViewerMessageTypeOutput.receive_rows
+
+    start_row: NonNegativeInt = Field(
+        default=0, description="The index of the first row in the batch"
+    )
+    fetch_size: NonNegativeInt = Field(default=100, description="The number of rows in the batch")
+    data: DataSet = Field(description="The data to be rendered")
+
+    class Config:
+        fields = {"msg_type": {"const": True}}
 
 
 class DataViewerService:
@@ -83,8 +134,8 @@ class DataViewerService:
     """
 
     def __init__(self, target_name: str):
-        self.comms = {}
-        self.datasets = {}
+        self.comms: Dict[str, comm.base_comm.BaseComm] = {}
+        self.datasets: Dict[str, DataSet] = {}
         self.target_name = target_name
 
     def register_dataset(self, dataset: DataSet) -> None:
@@ -92,9 +143,9 @@ class DataViewerService:
         Register a dataset with the service. This will create a comm for the
         dataset and cache the dataset for future use.
         """
-        id = dataset.get("id", str(uuid.uuid4()))
+        id = dataset.id or str(uuid.uuid4())
         self.datasets[id] = dataset
-        self.init_comm(id, dataset.get("title", "Data"))
+        self.init_comm(id, dataset.title)
 
     def has_dataset(self, id: str) -> bool:
         return id in self.datasets
@@ -110,43 +161,63 @@ class DataViewerService:
         """
         comm_id = msg["content"]["comm_id"]
         msg_data = msg["content"]["data"]
-        msg_type = msg_data.get("msg_type", None)
-        if msg_type not in [DataViewerMessageType.READY, DataViewerMessageType.REQUEST_ROWS]:
-            raise ValueError(f"Invalid message type: {msg_type}")
+        msg_type = msg_data.get("msg_type")
 
-        dataset = self.datasets.get(comm_id, None)
+        dataset = self.datasets.get(comm_id)
         if dataset is None:
             logger.warning(f"Data viewer dataset {comm_id} not found")
             return
 
-        dataview_comm = self.comms.get(comm_id, None)
+        dataview_comm = self.comms.get(comm_id)
         if dataview_comm is None:
-            logger.warning(f"Data viewer comm {comm_id} not found")
+            logger.warning(f"Cannot send message, data viewer comm {comm_id} is not open")
             return
 
-        response_type = (
-            DataViewerMessageType.INITIAL_DATA
-            if msg_type == DataViewerMessageType.READY
-            else DataViewerMessageType.RECEIVE_ROWS
-        )
-        start_row = msg_data.get("start_row", 0)
-        fetch_size = msg_data.get("fetch_size", 100)
+        if msg_type == DataViewerMessageTypeInput.ready:
+            self.send_data(
+                msg_data.get("start_row", 0),
+                msg_data.get("fetch_size", 100),
+                DataViewerMessageTypeOutput.initial_data,
+                dataset,
+                dataview_comm,
+            )
+        elif msg_type == DataViewerMessageTypeInput.request_rows:
+            self.send_data(
+                msg_data.get("start_row", 0),
+                msg_data.get("fetch_size", 100),
+                DataViewerMessageTypeOutput.receive_rows,
+                dataset,
+                dataview_comm,
+            )
+        else:
+            self._send_error(f"Unknown message type '{msg_type}'", dataview_comm)
+
+    def send_data(
+        self,
+        start_row: NonNegativeInt,
+        fetch_size: NonNegativeInt,
+        response_type: DataViewerMessageTypeOutput,
+        dataset: DataSet,
+        comm: comm.base_comm.BaseComm,
+    ) -> None:
         response_dataset = DataSet(
-            dataset.get("id"),
-            dataset.get("title"),
-            dataset._slice_data(start_row, fetch_size),
-            dataset.get("rowCount"),
+            id=dataset.id,
+            title=dataset.title,
+            columns=dataset._slice_data(start_row, fetch_size),
+            rowCount=dataset.rowCount,
         )
 
-        response_msg = json_clean(
-            DataViewerRowResponse(
-                msg_type=response_type,
-                start_row=start_row,
-                fetch_size=fetch_size,
-                data=response_dataset,
-            )
+        data_message_params = {
+            "start_row": start_row,
+            "fetch_size": fetch_size,
+            "data": response_dataset,
+        }
+        response_msg = (
+            DataViewerMessageInitialData(**data_message_params)
+            if response_type == DataViewerMessageTypeOutput.initial_data
+            else DataViewerMessageReceiveRows(**data_message_params)
         )
-        dataview_comm.send(data=response_msg)
+        self._send_message(response_msg, comm)
 
     def shutdown(self) -> None:
         for dataview_comm in self.comms.values():
@@ -162,3 +233,17 @@ class DataViewerService:
         return comm.create_comm(
             target_name=self.target_name, comm_id=comm_id, data={"title": title}
         )
+
+    def _send_message(self, msg: DataViewerMessageOutput, comm: comm.base_comm.BaseComm) -> None:
+        """
+        Send a message through the data viewer comm to the client.
+        """
+        msg_dict = json_clean(msg.dict())
+        comm.send(msg_dict)
+
+    def _send_error(self, error_message: str, comm: comm.base_comm.BaseComm) -> None:
+        """
+        Send an error message through the data viewer comm to the client.
+        """
+        msg = DataViewerMessageError(error=error_message)
+        self._send_message(msg, comm)
