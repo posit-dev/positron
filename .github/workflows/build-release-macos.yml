@@ -232,11 +232,73 @@ jobs:
         run: |
           node build/darwin/create-universal-app.js $(pwd)
 
-      # Compress universal client to a zip file
-      - name: Create universal client archive
+      # Sign the binaries and set the hardened entitlements
+      - name: Sign binaries
         run: |
-          cd VSCode-darwin-universal
-          zip -Xry $GITHUB_WORKSPACE/Positron-${{ needs.version_string.outputs.short_version }}-darwin-universal.zip *
+          # Create a temporary keychain to hold the Developer ID certificate
+          security create-keychain -p pwd ${{ runner.temp }}/buildagent.keychain
+          security default-keychain -s ${{ runner.temp }}/buildagent.keychain
+          security unlock-keychain -p pwd ${{ runner.temp }}/buildagent.keychain
+
+          # Import the Developer ID certificate from Github Secrets. This
+          # certificate is stored in a base64 encoded blob.
+          echo "${{ secrets.MACOS_DEVELOPER_CERTIFICATE }}" | base64 -D > ${{ runner.temp }}/cert.p12
+          security import ${{ runner.temp }}/cert.p12 -k ${{ runner.temp }}/buildagent.keychain -P "${{ secrets.MACOS_DEVELOPER_CERTIFICATE_KEY }}" -T /usr/bin/codesign
+
+          # Pull the code-signing identity out of the Developer ID certificate
+          # and set the key partition list.
+          export CODESIGN_IDENTITY=$(security find-identity -v -p codesigning ${{ runner.temp }}/buildagent.keychain | grep -oEi "([0-9A-F]{40})" | head -n 1)
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k pwd ${{ runner.temp }}/buildagent.keychain
+
+          # Set environment variables needed by `build/darwin/sign.js`.
+          export AGENT_TEMPDIRECTORY=${{ runner.temp }}
+          export VSCODE_ARCH=universal
+
+          # Perform the signature using `electron-osx-sign`
+          DEBUG=electron-osx-sign* node build/darwin/sign.js $(pwd)
+
+      # Compress universal client to a DMG file
+      - name: Create universal client disk image
+        run: |
+          # Create the name of the DMG file we will bundle to
+          export POSITRON_BUNDLE_NAME=Positron-${{ needs.version_string.outputs.short_version }}
+
+          # Create a symlink to /Applications, so that the disk image will have
+          # a drag-to-install target for Positron.app.
+          ln -nfs /Applications VSCode-darwin-universal/Applications
+
+          # Create the disk image itself.
+          hdiutil create \
+            -size 1g \
+            -fs "APFS" \
+            -volname "${POSITRON_BUNDLE_NAME}" \
+            -srcfolder "VSCode-darwin-universal" \
+            -ov \
+            -format "UDZO" "${GITHUB_WORKSPACE}/${POSITRON_BUNDLE_NAME}.dmg"
+
+      # Notarize the build using an Apple service
+      - name: Notarize binary
+        run: |
+          # Create the name of the DMG to notarize
+          export NOTARIZATION_TARGET=$GITHUB_WORKSPACE/Positron-${{ needs.version_string.outputs.short_version }}.dmg
+
+          # Submit the DMG to Apple's notarization service. This consumes the
+          # user name and password of an Apple account under which to perform
+          # the notarization. The team ID `FYF2F5GFX4` provided below should
+          # match the team ID of the Developer ID certificate.
+          #
+          # The `--wait` argument causes `xcrun` to return only when the
+          # service has completed notarization.
+          xcrun notarytool submit \
+            --wait \
+            --apple-id "${{ secrets.MACOS_NOTARIZATION_USER_NAME }}" \
+            --password "${{ secrets.MACOS_NOTARIZATION_USER_PASSWORD }}" \
+            --team-id FYF2F5GFX4 \
+            --progress $NOTARIZATION_TARGET
+
+          # Staple the notarization ticket to the DMG. This allows for offline
+          # validation with Gatekeeper.
+          xcrun stapler staple $NOTARIZATION_TARGET
 
       # Create a GitHub release for the universal binary we just created, if
       # we're running against the main branch
@@ -261,17 +323,17 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: Positron-${{ needs.version_string.outputs.short_version }}-darwin-universal.zip
-          asset_name: Positron-${{ needs.version_string.outputs.short_version }}-darwin-universal.zip
-          asset_content_type: application/zip
+          asset_path: Positron-${{ needs.version_string.outputs.short_version }}.dmg
+          asset_name: Positron-${{ needs.version_string.outputs.short_version }}.dmg
+          asset_content_type: application/octet-stream
 
       # Create a regular build artifact for the universal archive, to be
       # downloaded from the actions page for testing purposes.
       - name: Upload
         uses: actions/upload-artifact@v3
         with:
-          name: positron-darwin-universal-archive
-          path: Positron-${{ needs.version_string.outputs.short_version }}-darwin-universal.zip
+          name: positron-darwin-universal-installer
+          path: Positron-${{ needs.version_string.outputs.short_version }}.dmg
 
   status:
     if: ${{ failure() }}
