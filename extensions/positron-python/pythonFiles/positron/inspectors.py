@@ -425,10 +425,10 @@ class PandasDataFrameInspector(TableInspector):
             column = value[column_name]
             column_type = type(column).__name__
             column_data = column.values.tolist()
-            columns.append(DataColumn(column_name, column_type, column_data))
-        rowCount = len(columns[0].get("data"))
+            columns.append(DataColumn(name=column_name, type=column_type, data=column_data))
+        rowCount = len(columns[0].data)
 
-        return DataSet(str(uuid.uuid4()), title, columns, rowCount)
+        return DataSet(id=str(uuid.uuid4()), title=title, columns=columns, rowCount=rowCount)
 
     def to_html(self, value: Any) -> str:
         return value.to_html()
@@ -590,10 +590,10 @@ class PolarsInspector(TableInspector):
             column = value.get_column(column_name)
             column_type = type(column).__name__
             column_data = column.to_list()
-            columns.append(DataColumn(column_name, column_type, column_data))
-        rowCount = len(columns[0].get("data"))
+            columns.append(DataColumn(name=column_name, type=column_type, data=column_data))
+        rowCount = len(columns[0].data)
 
-        return DataSet(str(uuid.uuid4()), title, columns, rowCount)
+        return DataSet(id=str(uuid.uuid4()), title=title, columns=columns, rowCount=rowCount)
 
     def to_html(self, value: Any) -> str:
         return value._repr_html_()

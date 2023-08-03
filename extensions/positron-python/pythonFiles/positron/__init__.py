@@ -5,7 +5,13 @@
 """
 Poistron Python Language Server package
 """
-from .dataviewer import DataColumn, DataSet, DataViewerService, DataViewerMessageType
+from .dataviewer import (
+    DataColumn,
+    DataSet,
+    DataViewerService,
+    DataViewerMessageTypeInput,
+    DataViewerMessageTypeOutput,
+)
 from .environment import (
     EnvironmentService,
     EnvironmentVariable,

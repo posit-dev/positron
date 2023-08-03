@@ -13,7 +13,13 @@ current = os.path.dirname(os.path.realpath(__file__))
 parent = os.path.dirname(current)
 sys.path.append(parent)
 
-from positron import DataColumn, DataSet, DataViewerService, DataViewerMessageType
+from positron import (
+    DataColumn,
+    DataSet,
+    DataViewerService,
+    DataViewerMessageTypeInput,
+    DataViewerMessageTypeOutput,
+)
 
 # -- Mocks --
 
@@ -59,13 +65,13 @@ class TestDataViewerService:
     @pytest.fixture(scope="function", autouse=True)
     def dataset(self, random_id: str) -> DataSet:
         return DataSet(
-            random_id,
-            "CountryCallingCodes",
-            [
-                DataColumn("codes", "int", [1, 33, 39]),
-                DataColumn("countries", "string", ["Canada", "France", "Italy"]),
+            id=random_id,
+            title="CountryCallingCodes",
+            columns=[
+                DataColumn(name="codes", type="int", data=[1, 33, 39]),
+                DataColumn(name="countries", type="string", data=["Canada", "France", "Italy"]),
             ],
-            3,
+            rowCount=3,
         )
 
     @pytest.fixture(scope="function", autouse=True)
@@ -74,7 +80,7 @@ class TestDataViewerService:
             "content": {
                 "comm_id": random_id,
                 "data": {
-                    "msg_type": DataViewerMessageType.READY,
+                    "msg_type": DataViewerMessageTypeInput.ready,
                     "start_row": 0,
                     "fetch_size": 100,
                 },
@@ -87,7 +93,7 @@ class TestDataViewerService:
 
     def test_register_dataset(self, mocker, dataviewer_service, dataset, mock_comm):
         # Arrange
-        id = dataset.get("id")
+        id = dataset.id
         mocker.patch.object(dataviewer_service, "_create_comm", return_value=mock_comm)
         comm_onmsg_spy = mocker.spy(mock_comm, "on_msg")
 
@@ -102,9 +108,9 @@ class TestDataViewerService:
 
     def test_receive_message(self, mocker, dataviewer_service, dataset, mock_comm):
         # Arrange
-        id = dataset.get("id")
         mocker.patch.object(dataviewer_service, "_create_comm", return_value=mock_comm)
         comm_send_spy = mocker.spy(mock_comm, "send")
+        dataviewer_service_send_data_spy = mocker.spy(dataviewer_service, "send_data")
 
         # Act
         dataviewer_service.register_dataset(dataset)
@@ -112,13 +118,16 @@ class TestDataViewerService:
 
         # Assert
         comm_send_spy.assert_called_once()
-        call_kwargs = comm_send_spy.call_args_list[0].kwargs
-        assert call_kwargs["data"]["msg_type"] == DataViewerMessageType.INITIAL_DATA
-        assert call_kwargs["data"]["data"]["id"] == dataset.get("id")
+        dataviewer_service_send_data_spy.assert_called_once()
+        call_args = comm_send_spy.call_args_list[0].args[0]
+
+        assert call_args["msg_type"] == DataViewerMessageTypeOutput.initial_data
+        assert call_args["start_row"] == 0
+        assert call_args["data"]["id"] == dataset.id
 
     def test_shutdown(self, mocker, dataviewer_service, dataset, mock_comm):
         # Arrange
-        id = dataset.get("id")
+        id = dataset.id
         mocker.patch.object(dataviewer_service, "_create_comm", return_value=mock_comm)
         comm_close_spy = mocker.spy(mock_comm, "close")
         dataviewer_service.register_dataset(dataset)
