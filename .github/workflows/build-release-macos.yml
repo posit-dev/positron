@@ -240,7 +240,7 @@ jobs:
           security default-keychain -s ${{ runner.temp }}/buildagent.keychain
           security unlock-keychain -p pwd ${{ runner.temp }}/buildagent.keychain
 
-          # Import the Developer ID certificate from Github Ssecrets. This
+          # Import the Developer ID certificate from Github Secrets. This
           # certificate is stored in a base64 encoded blob.
           echo "${{ secrets.MACOS_DEVELOPER_CERTIFICATE }}" | base64 -D > ${{ runner.temp }}/cert.p12
           security import ${{ runner.temp }}/cert.p12 -k ${{ runner.temp }}/buildagent.keychain -P "${{ secrets.MACOS_DEVELOPER_CERTIFICATE_KEY }}" -T /usr/bin/codesign
