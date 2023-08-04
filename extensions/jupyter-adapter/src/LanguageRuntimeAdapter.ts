@@ -317,7 +317,12 @@ export class LanguageRuntimeAdapter
 			});
 
 			// Open the client (this will send the comm_open message; wait for it to complete)
-			await adapter.open();
+			try {
+				await adapter.open();
+			} catch (err) {
+				this._kernel.log(`Info: error while creating ${type} client for ${this.metadata.languageName}: ${err}`);
+				this.removeClient(id);
+			}
 		} else {
 			this._kernel.log(`Info: can't create ${type} client for ${this.metadata.languageName} (not supported)`);
 		}
