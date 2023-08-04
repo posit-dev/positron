@@ -24,7 +24,7 @@ import { EnvironmentEntry, IPositronEnvironmentInstance, isEnvironmentVariableGr
 const LINE_HEIGHT = 26;
 const DEFAULT_NAME_COLUMN_WIDTH = 130;
 const MINIMUM_NAME_COLUMN_WIDTH = 100;
-const TYPE_SIZE_VISIBILITY_THRESHOLD = 250;
+const RIGHT_COLUMN_VISIBILITY_THRESHOLD = 250;
 
 /**
  * EnvironmentInstanceProps interface.
@@ -55,8 +55,8 @@ export const EnvironmentInstance = (props: EnvironmentInstanceProps) => {
 	const [nameColumnWidth, setNameColumnWidth] = useState(DEFAULT_NAME_COLUMN_WIDTH);
 	const [detailsColumnWidth, setDetailsColumnWidth] =
 		useState(props.width - DEFAULT_NAME_COLUMN_WIDTH);
-	const [typeSizeVisible, setTypeSizeVisible] =
-		useState(props.width - DEFAULT_NAME_COLUMN_WIDTH > TYPE_SIZE_VISIBILITY_THRESHOLD);
+	const [rightColumnVisible, setRightColumnVisible] =
+		useState(props.width - DEFAULT_NAME_COLUMN_WIDTH > RIGHT_COLUMN_VISIBILITY_THRESHOLD);
 	const [initializing, setInitializing] = useState(true);
 	const [entries, setEntries] = useState<EnvironmentEntry[]>([]);
 	const [resizingColumn, setResizingColumn] = useState(false);
@@ -119,8 +119,8 @@ export const EnvironmentInstance = (props: EnvironmentInstanceProps) => {
 		setNameColumnWidth(props.width - newDetailsColumnWidth);
 		setDetailsColumnWidth(newDetailsColumnWidth);
 
-		// Set the type / size visibility.
-		setTypeSizeVisible(newDetailsColumnWidth > TYPE_SIZE_VISIBILITY_THRESHOLD);
+		// Set the right column visibility.
+		setRightColumnVisible(newDetailsColumnWidth > RIGHT_COLUMN_VISIBILITY_THRESHOLD);
 	}, [props.width]);
 
 	// Entries useEffect hook.
@@ -381,8 +381,8 @@ export const EnvironmentInstance = (props: EnvironmentInstanceProps) => {
 		setNameColumnWidth(newNameColumnWidth);
 		setDetailsColumnWidth(newDetailsColumnWidth);
 
-		// Set the type /size visibility.
-		setTypeSizeVisible(newDetailsColumnWidth > TYPE_SIZE_VISIBILITY_THRESHOLD);
+		// Set the right column visibility.
+		setRightColumnVisible(newDetailsColumnWidth > RIGHT_COLUMN_VISIBILITY_THRESHOLD);
 	};
 
 	/**
@@ -415,7 +415,7 @@ export const EnvironmentInstance = (props: EnvironmentInstanceProps) => {
 					key={entry.id}
 					nameColumnWidth={nameColumnWidth}
 					detailsColumnWidth={detailsColumnWidth}
-					typeSizeVisible={typeSizeVisible}
+					rightColumnVisible={rightColumnVisible}
 					environmentVariableItem={entry}
 					style={style}
 					focused={focused}
