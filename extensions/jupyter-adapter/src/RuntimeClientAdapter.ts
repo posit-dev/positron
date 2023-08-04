@@ -84,6 +84,9 @@ export class RuntimeClientAdapter {
 		]);
 
 		if (!connected) {
+			// Send 'comm_close' event and update state to Closed
+			this.close();
+
 			const err = `Timeout while connecting to comm ${this._id}`;
 			this._kernel.log(err);
 			out.reject(new Error(err));
@@ -124,6 +127,7 @@ export class RuntimeClientAdapter {
 	 * Closes the communications channel between the client and the runtime.
 	 */
 	public close() {
+		// FIXME: Should we set ourselves to Closed here?
 		this._state.fire(positron.RuntimeClientState.Closing);
 		this._kernel.closeComm(this._id);
 	}
