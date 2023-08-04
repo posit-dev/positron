@@ -300,7 +300,6 @@ declare module 'positron' {
 		base64EncodedIconSvg: string | undefined;
 
 		/** Whether the runtime should start up automatically or wait until explicitly requested */
-		startupBehavior: LanguageRuntimeStartupBehavior;
 
 		/** FIXME
 		 * These are for compatibility until runtimes have added
@@ -412,6 +411,7 @@ declare module 'positron' {
 		/** An object supplying metadata about the runtime */
 		readonly metadata: LanguageRuntimeMetadata;
 
+		/** The state of the runtime that changes during a user session */
 		dynState: LanguageRuntimeDynState;
 
 		/** An object that emits language runtime events */
@@ -497,6 +497,7 @@ declare module 'positron' {
 	 */
 	export interface LanguageRuntimeRegistration {
 		runtime: LanguageRuntime;
+		startupBehavior: LanguageRuntimeStartupBehavior;
 	}
 
 	/**
