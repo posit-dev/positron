@@ -69,8 +69,13 @@
 	text-overflow: ellipsis;
 }
 
-.environment-variable .details-column .type-size {
+.environment-variable .details-column .right-column {
 	opacity: 0.75;
 	flex: 0 0 auto;
 	margin: 0 10px 0 0;
 }
+
+.environment-variable .details-column .right-column .viewer-icon {
+	display: flex;
+}
+
