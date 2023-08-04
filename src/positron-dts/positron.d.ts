@@ -312,7 +312,7 @@ declare module 'positron' {
 	/**
 	 * LanguageRuntimeDynState contains information about a language runtime that may
 	 * change after a runtime has started.
- 	 */
+	   */
 	export interface LanguageRuntimeDynState {
 		/** The text the language's interpreter uses to prompt the user for input, e.g. ">" or ">>>" */
 		inputPrompt: string;
@@ -495,7 +495,7 @@ declare module 'positron' {
 	/**
 	 * Represents a language runtime registration record.
 	 */
-	export interface LanguagRuntimeRegistration {
+	export interface LanguageRuntimeRegistration {
 		runtime: LanguageRuntime;
 	}
 
@@ -690,7 +690,7 @@ declare module 'positron' {
 		 * @param provider A function that returns an AsyncIterable of runtime registrations
 		 */
 		export function registerLanguageRuntimeProvider(languageId: string,
-			provider: () => AsyncIterable<LanguagRuntimeRegistration>): vscode.Disposable;
+			provider: AsyncGenerator<LanguageRuntimeRegistration>): void;
 
 		/**
 		 * Register a single language runtime with Positron.
