@@ -414,6 +414,8 @@ declare module 'positron' {
 		size: number;
 	}
 
+	export type LanguageRuntimeProvider = AsyncGenerator<LanguageRuntime>;
+
 	/**
 	 * LanguageRuntime is an interface implemented by extensions that provide a
 	 * set of common tools for interacting with a language runtime, such as code
@@ -695,7 +697,7 @@ declare module 'positron' {
 		 * @param provider A function that returns an AsyncIterable of runtime registrations
 		 */
 		export function registerLanguageRuntimeProvider(languageId: string,
-			provider: AsyncGenerator<LanguageRuntime>): void;
+			provider: LanguageRuntimeProvider): void;
 
 		/**
 		 * Register a single language runtime with Positron.

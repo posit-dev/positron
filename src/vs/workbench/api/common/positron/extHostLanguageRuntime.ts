@@ -16,6 +16,8 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 
 	private readonly _runtimes = new Array<positron.LanguageRuntime>();
 
+	private readonly _runtimeProviders = new Array<positron.LanguageRuntimeProvider>();
+
 	private readonly _clientInstances = new Array<ExtHostRuntimeClientInstance>();
 
 	private readonly _clientHandlers = new Array<positron.RuntimeClientHandler>();
@@ -128,6 +130,12 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 
 	public executeCode(languageId: string, code: string, focus: boolean): Promise<boolean> {
 		return this._proxy.$executeCode(languageId, code, focus);
+	}
+
+	public registerLanguageRuntimeProvider(
+		languageId: string,
+		provider: positron.LanguageRuntimeProvider): void {
+		this._runtimeProviders.push(provider);
 	}
 
 	public registerLanguageRuntime(
