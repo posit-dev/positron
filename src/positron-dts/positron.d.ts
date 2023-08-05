@@ -300,6 +300,7 @@ declare module 'positron' {
 		base64EncodedIconSvg: string | undefined;
 
 		/** Whether the runtime should start up automatically or wait until explicitly requested */
+		startupBehavior: LanguageRuntimeStartupBehavior;
 
 		/** FIXME
 		 * These are for compatibility until runtimes have added
@@ -311,7 +312,7 @@ declare module 'positron' {
 	/**
 	 * LanguageRuntimeDynState contains information about a language runtime that may
 	 * change after a runtime has started.
-	   */
+	 */
 	export interface LanguageRuntimeDynState {
 		/** The text the language's interpreter uses to prompt the user for input, e.g. ">" or ">>>" */
 		inputPrompt: string;
@@ -321,10 +322,21 @@ declare module 'positron' {
 	}
 
 	export enum LanguageRuntimeStartupBehavior {
-		/** The runtime should start automatically; usually used for runtimes that provide LSPs */
+		/**
+		 * The runtime should be started immediately after registration; usually used for runtimes
+		 * that are affiliated with the current workspace.
+		 */
+		Immediate = 'immediate',
+
+		/**
+		 * The runtime should start automatically; usually used for runtimes that provide LSPs
+		 */
 		Implicit = 'implicit',
 
-		/** The runtime should start when the user explicitly requests it; usually used for runtimes that only provide REPLs */
+		/**
+		 * The runtime should start when the user explicitly requests it;
+		 * usually used for runtimes that only provide REPLs
+		 */
 		Explicit = 'explicit',
 	}
 
@@ -491,14 +503,6 @@ declare module 'positron' {
 		shutdown(): Thenable<void>;
 	}
 
-
-	/**
-	 * Represents a language runtime registration record.
-	 */
-	export interface LanguageRuntimeRegistration {
-		runtime: LanguageRuntime;
-		startupBehavior: LanguageRuntimeStartupBehavior;
-	}
 
 	/**
 	 * A data structure that describes a handler for a runtime client instance,
@@ -691,7 +695,7 @@ declare module 'positron' {
 		 * @param provider A function that returns an AsyncIterable of runtime registrations
 		 */
 		export function registerLanguageRuntimeProvider(languageId: string,
-			provider: AsyncGenerator<LanguageRuntimeRegistration>): void;
+			provider: AsyncGenerator<LanguageRuntime>): void;
 
 		/**
 		 * Register a single language runtime with Positron.

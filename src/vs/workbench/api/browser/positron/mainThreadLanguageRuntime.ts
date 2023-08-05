@@ -810,10 +810,7 @@ export class MainThreadLanguageRuntime implements MainThreadLanguageRuntimeShape
 		);
 		this._runtimes.set(handle, adapter);
 
-		// Consider - do we need a flag (on the API side) to indicate whether
-		// the runtime should be started implicitly?
-		this._languageRuntimeService.registerRuntime(adapter,
-			metadata.startupBehavior);
+		this._languageRuntimeService.registerRuntime(adapter, metadata.startupBehavior);
 	}
 
 	$unregisterLanguageRuntime(handle: number): void {
