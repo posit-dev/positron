@@ -821,6 +821,9 @@ export class MainThreadLanguageRuntime implements MainThreadLanguageRuntimeShape
 		return this._positronConsoleService.executeCode(languageId, code, focus);
 	}
 
+	$completeLanguageRuntimeDiscovery(): void {
+	}
+
 	public dispose(): void {
 		this._disposables.dispose();
 	}

@@ -118,6 +118,42 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		this._runtimes[handle].replyToPrompt(id, response);
 	}
 
+	/**
+	 * Discovers language runtimes and registers them with the main thread.
+	 */
+	public async $discoverLanguageRuntimes(): Promise<void> {
+
+		const providers = this._runtimeProviders;
+
+		let count = this._runtimeProviders.length;
+
+		const never: Promise<never> = new Promise(() => { });
+
+		const getNext = (asyncGen: positron.LanguageRuntimeProvider, index: number) =>
+			asyncGen.next().then((result) => ({ index, result }));
+
+		const nextPromises = providers.map(getNext);
+		try {
+			while (count) {
+				const { index, result } = await Promise.race(nextPromises);
+				if (result.done) {
+					nextPromises[index] = never;
+					count--;
+				} else {
+					nextPromises[index] = getNext(providers[index], index);
+					this.registerLanguageRuntime(result.value);
+				}
+			}
+		} finally {
+			for (const [index, iterator] of providers.entries()) {
+				if (nextPromises[index] !== never && iterator.return !== null) {
+					void iterator.return(null);
+				}
+			}
+			this._proxy.$completeLanguageRuntimeDiscovery();
+		}
+	}
+
 	public registerClientHandler(handler: positron.RuntimeClientHandler): IDisposable {
 		this._clientHandlers.push(handler);
 		return new Disposable(() => {
