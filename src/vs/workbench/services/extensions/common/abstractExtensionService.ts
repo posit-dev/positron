@@ -79,6 +79,10 @@ export abstract class AbstractExtensionService extends Disposable implements IEx
 	private readonly _runningLocations: ExtensionRunningLocationTracker;
 	private readonly _remoteCrashTracker = new ExtensionHostCrashTracker();
 
+	// --- Start Positron ---
+	private readonly _allExtensionHostsStarted = new Barrier();
+	// --- End Positron ---
+
 	private _deltaExtensionsQueue: DeltaExtensionsQueueItem[] = [];
 	private _inHandleDeltaExtensions = false;
 
@@ -412,6 +416,10 @@ export abstract class AbstractExtensionService extends Disposable implements IEx
 		perf.mark('code/willLoadExtensions');
 		this._startExtensionHostsIfNecessary(true, []);
 
+		// --- Start Positron ---
+		const allExtensionHostStartups = new Array<Promise<void>>();
+		// --- End Positron ---
+
 		const lock = await this._registry.acquireLock('_initialize');
 		try {
 			const resolvedExtensions = await this._resolveExtensions();
@@ -423,12 +431,21 @@ export abstract class AbstractExtensionService extends Disposable implements IEx
 			for (const extHostManager of this._extensionHostManagers) {
 				if (extHostManager.startup !== ExtensionHostStartup.EagerAutoStart) {
 					const extensions = this._runningLocations.filterByExtensionHostManager(allExtensions, extHostManager);
-					extHostManager.start(allExtensions, extensions.map(extension => extension.identifier));
+					// --- Start Positron ---
+					const startup = extHostManager.start(allExtensions, extensions.map(extension => extension.identifier));
+					allExtensionHostStartups.push(startup);
+					// --- End Positron ---
 				}
 			}
 		} finally {
 			lock.dispose();
 		}
+
+		// --- Start Positron ---
+		Promise.all(allExtensionHostStartups).then(() => {
+			this._allExtensionHostsStarted.open();
+		});
+		// --- End Positron ---
 
 		this._releaseBarrier();
 		perf.mark('code/didLoadExtensions');
@@ -902,6 +919,12 @@ export abstract class AbstractExtensionService extends Disposable implements IEx
 	public whenInstalledExtensionsRegistered(): Promise<boolean> {
 		return this._installedExtensionsReady.wait();
 	}
+
+	// --- Start Positron ---
+	public whenAllExtensionHostsStarted(): Promise<boolean> {
+		return this._allExtensionHostsStarted.wait();
+	}
+	// --- End Positron ---
 
 	get extensions(): IExtensionDescription[] {
 		return this._registry.getAllExtensionDescriptions();

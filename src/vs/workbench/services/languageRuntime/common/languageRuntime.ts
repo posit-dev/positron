@@ -11,6 +11,7 @@ import { formatLanguageRuntime, ILanguageRuntime, ILanguageRuntimeGlobalEvent, I
 import { FrontEndClientInstance, IFrontEndClientMessageInput, IFrontEndClientMessageOutput } from 'vs/workbench/services/languageRuntime/common/languageRuntimeFrontEndClient';
 import { LanguageRuntimeWorkspaceAffiliation } from 'vs/workbench/services/languageRuntime/common/languageRuntimeWorkspaceAffiliation';
 import { IStorageService } from 'vs/platform/storage/common/storage';
+import { IExtensionService } from 'vs/workbench/services/extensions/common/extensions';
 
 /**
  * LanguageRuntimeInfo class.
@@ -107,7 +108,8 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 	constructor(
 		@ILanguageService private readonly _languageService: ILanguageService,
 		@ILogService private readonly _logService: ILogService,
-		@IStorageService private readonly _storageService: IStorageService
+		@IStorageService private readonly _storageService: IStorageService,
+		@IExtensionService private readonly _extensionService: IExtensionService
 	) {
 		// Call the base class's constructor.
 		super();
@@ -145,6 +147,20 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 			this._logService.trace(`Language runtime ${formatLanguageRuntime(languageRuntimeInfos[0].runtime)} automatically starting`);
 			this.doStartRuntime(languageRuntimeInfos[0].runtime);
 		}));
+
+		// Begin discovering language runtimes once all extensions have been
+		// registered.
+		this._extensionService.whenAllExtensionHostsStarted().then(() => {
+			this._logService.info(`Language runtime discovery phase: ${LanguageRuntimeDiscoveryPhase.Discovering}`);
+			this._onDidChangeDiscoveryPhaseEmitter.fire(LanguageRuntimeDiscoveryPhase.Discovering);
+		});
+	}
+
+	/**
+	 * Completes the language runtime discovery phase.
+	 */
+	completeDiscovery(): void {
+		this._onDidChangeDiscoveryPhaseEmitter.fire(LanguageRuntimeDiscoveryPhase.Complete);
 	}
 
 	//#endregion Constructor

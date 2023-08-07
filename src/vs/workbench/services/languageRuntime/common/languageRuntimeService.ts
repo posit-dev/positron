@@ -530,6 +530,11 @@ export interface ILanguageRuntimeService {
 	registerRuntime(runtime: ILanguageRuntime, startupBehavior: LanguageRuntimeStartupBehavior): IDisposable;
 
 	/**
+	 * Signal that discovery of language runtimes is complete.
+	 */
+	completeDiscovery(): void;
+
+	/**
 	 * Returns a specific runtime by runtime identifier.
 	 * @param runtimeId The runtime identifier of the runtime to retrieve.
 	 * @returns The runtime with the given runtime identifier, or undefined if
