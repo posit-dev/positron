@@ -295,6 +295,25 @@ export enum LanguageRuntimeStartupBehavior {
 	Explicit = 'explicit',
 }
 
+export enum LanguageRuntimeDiscoveryPhase {
+	/**
+	 * No language runtimes have been discovered yet.
+	 */
+	PreDiscovery = 'pre-discovery',
+
+	/**
+	 * Language runtimes are currently being discovered and registered. During
+	 * this phase, the service emits `onDidRegisterRuntime` events as it
+	 * discovers new runtimes.
+	 */
+	Discovering = 'discovering',
+
+	/**
+	 * Language runtime discovery has completed.
+	 */
+	Complete = 'complete',
+}
+
 export interface ILanguageRuntimeMessageState extends ILanguageRuntimeMessage {
 	/** The new state */
 	state: RuntimeOnlineState;
@@ -459,6 +478,9 @@ export interface ILanguageRuntime {
 export interface ILanguageRuntimeService {
 	// Needed for service branding in dependency injector.
 	readonly _serviceBrand: undefined;
+
+	// An event that fires when the language runtime discovery phase changes.
+	readonly onDidChangeDiscoveryPhase: Event<LanguageRuntimeDiscoveryPhase>;
 
 	// An event that fires when a new runtime is registered.
 	readonly onDidRegisterRuntime: Event<ILanguageRuntime>;
