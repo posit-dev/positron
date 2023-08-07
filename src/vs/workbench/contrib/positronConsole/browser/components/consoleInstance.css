@@ -5,9 +5,10 @@
 .console-core .console-instance {
 	top: 0;
 	cursor: default;
-	padding-left: 10px;
 	position: absolute;
 	overflow-y: overlay;
+	padding: 0 0 10px 10px;
+	background: var(--vscode-positronConsole-background);
 
 	/* Selection */
 	user-select: text;
