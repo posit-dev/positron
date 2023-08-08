@@ -41,6 +41,10 @@ export class StaticPlotClient extends Disposable {
 	}
 
 	get uri() {
+		if (this.mimeType === 'image/svg+xml') {
+			const svgData = encodeURIComponent(this.data);
+			return `data:${this.mimeType};utf8,${svgData}`;
+		}
 		return `data:${this.mimeType};base64,${this.data}`;
 	}
 

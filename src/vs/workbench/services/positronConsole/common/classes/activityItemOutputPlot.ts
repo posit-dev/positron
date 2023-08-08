@@ -51,7 +51,12 @@ export class ActivityItemOutputPlot {
 
 		// Get the MIME type and data.
 		this.mimeType = imageKey!;
-		this.plotUri = `data:${this.mimeType};base64,${data[imageKey!]}`;
+		if (this.mimeType === 'image/svg+xml') {
+			const svgData = encodeURIComponent(data[imageKey!]);
+			this.plotUri = `data:${this.mimeType};utf8,${svgData}`;
+		} else {
+			this.plotUri = `data:${this.mimeType};base64,${data[imageKey!]}`;
+		}
 
 		// If the output is empty, don't render any output lines; otherwise, process the output into
 		// output lines.
