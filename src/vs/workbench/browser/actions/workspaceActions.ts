@@ -141,7 +141,10 @@ export class OpenFileFolderAction extends Action2 {
 	}
 }
 
-class OpenWorkspaceAction extends Action2 {
+// --- Start Positron ---
+// Export this.
+export class OpenWorkspaceAction extends Action2 {
+	// --- End Positron ---
 
 	static readonly ID = 'workbench.action.openWorkspace';
 
