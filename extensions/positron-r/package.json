@@ -17,11 +17,6 @@
   "contributes": {
     "commands": [
       {
-        "command": "r.setKernelPath",
-        "category": "R",
-        "title": "%r.command.setKernelPath.title%"
-      },
-      {
         "command": "r.createNewFile",
         "category": "R",
         "title": "%r.command.createNewFile.title%",
