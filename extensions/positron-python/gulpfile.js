@@ -336,7 +336,7 @@ gulp.task('installDebugpy', async () => {
     // Download get-pip.py
     const getPipArgs = ['./pythonFiles/download_get_pip.py'];
     const getPipEnv = { PYTHONPATH: './pythonFiles/lib/temp' };
-    await spawnAsync(process.env.CI_PYTHON_PATH || 'python', getPipArgs, getPipEnv, true)
+    await spawnAsync(pythonCommand, getPipArgs, getPipEnv, true)
         .then(() => true)
         .catch((ex) => {
             console.error("Failed to download get-pip wheels using 'python'", ex);
