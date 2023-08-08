@@ -43,6 +43,9 @@ export enum PlotClientMessageTypeOutput {
 	/** Rendered plot output */
 	Image = 'image',
 
+	/** Notification that a plot has changed on the backend */
+	Update = 'update',
+
 	/** A processing error */
 	Error = 'error',
 }
@@ -269,6 +272,15 @@ export class PlotClientInstance extends Disposable {
 			this._state = state;
 		});
 
+		// Listen for plot updates
+		_client.onDidReceiveData((data) => {
+			if (data.msg_type === PlotClientMessageTypeOutput.Update) {
+				// When the server notifies us that a plot update has occurred,
+				// queue a request for the UI to update the plot.
+				this.queuePlotUpdateRequest();
+			}
+		});
+
 		// Register the client instance with the runtime, so that when this instance is disposed,
 		// the runtime will also dispose the client.
 		this._register(_client);
@@ -429,5 +441,52 @@ export class PlotClientInstance extends Disposable {
 	 */
 	get renderEstimateMs(): number {
 		return this._lastRenderTimeMs;
+	}
+
+	/**
+	 * Queues a plot update request, if necessary.
+	 */
+	private queuePlotUpdateRequest() {
+		if (this._queuedRender) {
+			// There is already a queued render request; it will take care of
+			// updating the plot.
+			return;
+		}
+
+		// If we have never rendered this plot, we can't process any updates
+		// yet.
+		if (!this._currentRender && !this._lastRender) {
+			return;
+		}
+
+		// Use the dimensions of the last or current render request to determine
+		// the size and DPI of the plot to update.
+		const height = this._currentRender?.renderRequest.height ??
+			this._lastRender?.height;
+		const width = this._currentRender?.renderRequest.width ??
+			this._lastRender?.width;
+		const pixel_ratio = this._currentRender?.renderRequest.pixel_ratio ??
+			this._lastRender?.pixel_ratio;
+
+		// If there is already a render request in flight, cancel it. This
+		// should be exceedingly rare since if the kernel is busy processing a
+		// render request, it is unlikely that it will also -- simultaneously --
+		// be processing a request from the user that changes the plot.
+		if (this._currentRender && !this._currentRender.isComplete) {
+			this._currentRender.cancel();
+			this._currentRender = undefined;
+		}
+
+		// Create and schedule a render request to update the plot, and execute
+		// it right away. `scheduleRender` takes care of cancelling the render
+		// timer for any previously deferred render requests.
+		const req = new DeferredRender({
+			msg_type: PlotClientMessageTypeInput.Render,
+			height: height!,
+			width: width!,
+			pixel_ratio: pixel_ratio!
+		});
+
+		this.scheduleRender(req, 0);
 	}
 }
