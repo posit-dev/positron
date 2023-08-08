@@ -280,15 +280,29 @@ export const EnvironmentVariableItem = (props: EnvironmentVariableItemProps) => 
 	 * RightColumn component.
 	 * @returns The rendered component.
 	 */
-	const RightColumnContent = () => {
-		// If the environment variable item has a viewer, render the viewer icon and event handler.
-		// Otherwise, render the display type or size, based on sorting.
+	const RightColumn = () => {
 		if (props.environmentVariableItem.hasViewer) {
-			return <div className='viewer-icon codicon codicon-table' onMouseDown={viewerMouseDownHandler}></div>;
-		} else if (props.positronEnvironmentInstance.sorting === PositronEnvironmentSorting.Name) {
-			return <span>{props.environmentVariableItem.displayType}</span>;
+			return (
+				<div className='right-column'>
+					<div className='viewer-icon codicon codicon-table' onMouseDown={viewerMouseDownHandler}></div>
+				</div>
+			);
+		} else if (props.rightColumnVisible) {
+			if (props.positronEnvironmentInstance.sorting === PositronEnvironmentSorting.Name) {
+				return (
+					<div className='right-column'>
+						<span>{props.environmentVariableItem.displayType}</span>
+					</div>
+				);
+			} else {
+				return (
+					<div className='right-column'>
+						<span>{formatSize(props.environmentVariableItem.size)}</span>
+					</div>
+				);
+			}
 		} else {
-			return <span>{formatSize(props.environmentVariableItem.size)}</span>;
+			return null;
 		}
 	};
 
@@ -319,11 +333,7 @@ export const EnvironmentVariableItem = (props: EnvironmentVariableItemProps) => 
 				<div className='value'>
 					{props.environmentVariableItem.displayValue}
 				</div>
-				{props.rightColumnVisible &&
-					<div className='right-column'>
-						<RightColumnContent />
-					</div>
-				}
+				<RightColumn />
 			</div>
 		</div>
 	);
