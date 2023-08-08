@@ -3,10 +3,12 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import * as positron from 'positron';
 
 import { registerCommands } from './commands';
 import { adaptJupyterKernel } from './kernel';
 import { initializeLogging, trace, traceOutputChannel } from './logging';
+import { rRuntimeProvider } from './provider';
 
 function activateKernel(context: vscode.ExtensionContext) {
 
@@ -50,8 +52,8 @@ function activateKernel(context: vscode.ExtensionContext) {
 
 export function activate(context: vscode.ExtensionContext) {
 
-	// Activate the kernel.
-	activateKernel(context);
+	positron.runtime.registerLanguageRuntimeProvider(
+		'r', rRuntimeProvider(context));
 
 	// Initialize logging tools.
 	initializeLogging(context);
