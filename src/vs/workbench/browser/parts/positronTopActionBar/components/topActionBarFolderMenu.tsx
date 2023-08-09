@@ -46,7 +46,7 @@ export const TopActionBarFolderMenu = () => {
 			id: PositronOpenFolderInNewWindowAction.ID
 		});
 
-		// As of Private Alpha (August, 20223), we are not exposing the user to the concept of a
+		// As of Private Alpha (August, 2023), we are not exposing the user to the concept of a
 		// "Workspace" in this user experience.
 		// positronActionBarContext.appendCommandAction(actions, {
 		// 	id: OpenWorkspaceAction.ID
@@ -54,7 +54,7 @@ export const TopActionBarFolderMenu = () => {
 
 		actions.push(new Separator());
 
-		// As of Private Alpha (August, 20223), we are not exposing the user to the concept of a
+		// As of Private Alpha (August, 2023), we are not exposing the user to the concept of a
 		// "Workspace" in this user experience.
 		// positronActionBarContext.appendCommandAction(actions, {
 		// 	id: kDuplicateWorkspace,
@@ -97,7 +97,7 @@ export const TopActionBarFolderMenu = () => {
 		}
 
 
-		// As of Private Alpha (August, 20223), we are not exposing the user to the concept of a
+		// As of Private Alpha (August, 2023), we are not exposing the user to the concept of a
 		// "Workspace" in this user experience.
 		// actions.push(new Separator());
 		// positronActionBarContext.appendCommandAction(actions, {
