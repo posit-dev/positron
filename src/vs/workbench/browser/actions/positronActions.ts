@@ -140,9 +140,9 @@ export class PositronNewFolderFromGitAction extends Action2 {
 }
 
 /**
- * The PositronOpenWorkspaceInNewWindowAction.
+ * The PositronOpenFolderInNewWindowAction.
  */
-export class PositronOpenWorkspaceInNewWindowAction extends Action2 {
+export class PositronOpenFolderInNewWindowAction extends Action2 {
 	/**
 	 * The action ID.
 	 */
@@ -153,10 +153,10 @@ export class PositronOpenWorkspaceInNewWindowAction extends Action2 {
 	 */
 	constructor() {
 		super({
-			id: PositronOpenWorkspaceInNewWindowAction.ID,
+			id: PositronOpenFolderInNewWindowAction.ID,
 			title: {
-				value: localize('positronOpenWorkspaceInNewWindow', "Open Workspace in New Window..."),
-				original: 'Open Workspace in New Window...'
+				value: localize('positronOpenFolderInNewWindow', "Open Folder in New Window..."),
+				original: 'Open Folder in New Window...'
 			},
 			category: workspacesCategory,
 			f1: true,
@@ -178,4 +178,4 @@ export class PositronOpenWorkspaceInNewWindowAction extends Action2 {
 // Register the actions defined above.
 registerAction2(PositronNewFolderAction);
 registerAction2(PositronNewFolderFromGitAction);
-registerAction2(PositronOpenWorkspaceInNewWindowAction);
+registerAction2(PositronOpenFolderInNewWindowAction);
