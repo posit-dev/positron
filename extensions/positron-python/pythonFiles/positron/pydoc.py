@@ -903,9 +903,6 @@ def _url_handler(url, content_type="text/html"):
 
 def start_server(port: int = 0):
     """Adapted from pydoc.browser."""
-    # Monkey patch pydoc for our custom functionality
-    pydoc.HTMLDoc = _PositronHTMLDoc
-    pydoc.getdoc = _getdoc
 
     # Setting port to 0 will use an arbitrary port
     thread = pydoc._start_server(_url_handler, hostname="localhost", port=port)  # type: ignore
