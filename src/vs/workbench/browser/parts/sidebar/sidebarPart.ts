@@ -33,6 +33,13 @@ import { Gesture, EventType as GestureEventType } from 'vs/base/browser/touch';
 import { IPaneComposite } from 'vs/workbench/common/panecomposite';
 import { IPaneCompositePart } from 'vs/workbench/browser/parts/paneCompositePart';
 
+// --- Start Positron ---
+// The minimum sidebar part width is 170. Export this as a constant so that we can use this same
+// width in layout.ts where we set the default size (see LayoutStateKeys.SIDEBAR_SIZE.defaultValue
+// in layout.ts).
+export const SIDEBAR_PART_MINIMUM_WIDTH = 170;
+// --- End Positron ---
+
 export class SidebarPart extends CompositePart<PaneComposite> implements IPaneCompositePart {
 
 	declare readonly _serviceBrand: undefined;
@@ -41,7 +48,9 @@ export class SidebarPart extends CompositePart<PaneComposite> implements IPaneCo
 
 	//#region IView
 
-	readonly minimumWidth: number = 170;
+	// --- Start Positron ---
+	readonly minimumWidth: number = /*170*/ SIDEBAR_PART_MINIMUM_WIDTH;
+	// --- End Positron ---
 	readonly maximumWidth: number = Number.POSITIVE_INFINITY;
 	readonly minimumHeight: number = 0;
 	readonly maximumHeight: number = Number.POSITIVE_INFINITY;

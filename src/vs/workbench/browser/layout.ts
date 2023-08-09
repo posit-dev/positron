@@ -10,7 +10,7 @@ import { onDidChangeFullscreen, isFullscreen, isWCOEnabled } from 'vs/base/brows
 import { IWorkingCopyBackupService } from 'vs/workbench/services/workingCopy/common/workingCopyBackup';
 import { isWindows, isLinux, isMacintosh, isWeb, isNative, isIOS } from 'vs/base/common/platform';
 import { EditorInputCapabilities, GroupIdentifier, isResourceEditorInput, IUntypedEditorInput, pathsToEditors } from 'vs/workbench/common/editor';
-import { SidebarPart } from 'vs/workbench/browser/parts/sidebar/sidebarPart';
+import { SIDEBAR_PART_MINIMUM_WIDTH, SidebarPart } from 'vs/workbench/browser/parts/sidebar/sidebarPart';
 import { PanelPart } from 'vs/workbench/browser/parts/panel/panelPart';
 import { Position, Parts, PanelOpensMaximizedOptions, IWorkbenchLayoutService, positionFromString, positionToString, panelOpensMaximizedFromString, PanelAlignment } from 'vs/workbench/services/layout/browser/layoutService';
 import { isTemporaryWorkspace, IWorkspaceContextService, WorkbenchState } from 'vs/platform/workspace/common/workspace';
@@ -2583,7 +2583,7 @@ class LayoutStateModel extends Disposable {
 		// --- Start Positron ---
 		// LayoutStateKeys.SIDEBAR_SIZE.defaultValue = Math.min(300, workbenchDimensions.width / 4);
 		// LayoutStateKeys.AUXILIARYBAR_SIZE.defaultValue = Math.min(300, workbenchDimensions.width / 4);
-		LayoutStateKeys.SIDEBAR_SIZE.defaultValue = Math.min(250, Math.round(workbenchDimensions.width / 4));
+		LayoutStateKeys.SIDEBAR_SIZE.defaultValue = Math.min(SIDEBAR_PART_MINIMUM_WIDTH, Math.round(workbenchDimensions.width / 4)); // 170 mirrors minimumWidth in sidebarPart.ts.
 		LayoutStateKeys.AUXILIARYBAR_SIZE.defaultValue = Math.round(workbenchDimensions.width * 0.45);
 		// --- End Positron ---
 		LayoutStateKeys.PANEL_SIZE.defaultValue = (this.stateCache.get(LayoutStateKeys.PANEL_POSITION.name) ?? LayoutStateKeys.PANEL_POSITION.defaultValue) === 'bottom' ? workbenchDimensions.height / 3 : workbenchDimensions.width / 4;
