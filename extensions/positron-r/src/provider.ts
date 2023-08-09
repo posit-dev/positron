@@ -15,9 +15,16 @@ import { RInstallation } from './r-installation';
 import { RRuntime } from './runtime';
 import { JupyterKernelSpec, JupyterKernelExtra } from './jupyter-adapter';
 import { ArkAttachOnStartup, ArkDelayStartup } from './startup';
+import { getArkKernelPath } from './kernel';
 
-export async function* rRuntimeProvider(): AsyncGenerator<positron.LanguageRuntime> {
+export async function* rRuntimeProvider(context: vscode.ExtensionContext): AsyncGenerator<positron.LanguageRuntime> {
 	let rInstallations: Array<RInstallation> = [];
+
+	// Path to the kernel executable
+	const kernelPath = getArkKernelPath(context);
+	if (!kernelPath) {
+		throw new Error('Unable to find R kernel');
+	}
 
 	// Check the R kernel log level setting
 	const config = vscode.workspace.getConfiguration('positron.r');
@@ -219,7 +226,7 @@ export async function* rRuntimeProvider(): AsyncGenerator<positron.LanguageRunti
 		};
 
 		// Create an adapter for the kernel to fulfill the LanguageRuntime interface.
-		yield new RRuntime(context, kernelSpec, metadata, dynState, ext.exports, extra);
+		yield new RRuntime(context, kernelSpec, metadata, dynState, extra);
 	}
 }
 

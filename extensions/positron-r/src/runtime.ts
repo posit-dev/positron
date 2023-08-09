@@ -22,98 +22,179 @@ export class RRuntime implements positron.LanguageRuntime, vscode.Disposable {
 	private _queue: PQueue;
 
 	/** The Jupyter kernel-based implementation of the Language Runtime API */
-	private _kernel: JupyterLanguageRuntime;
+	private _kernel?: JupyterLanguageRuntime;
+
+	/** The emitter for language runtime messages */
+	private _messageEmitter =
+		new vscode.EventEmitter<positron.LanguageRuntimeMessage>();
+
+	/** The emitter for language runtime state changes */
+	private _stateEmitter =
+		new vscode.EventEmitter<positron.RuntimeState>();
+
+	/** The Jupyter Adapter extension API */
+	private adapterApi?: JupyterAdapterApi;
 
 	constructor(
 		readonly context: vscode.ExtensionContext,
 		readonly kernelSpec: JupyterKernelSpec,
 		readonly metadata: positron.LanguageRuntimeMetadata,
 		public dynState: positron.LanguageRuntimeDynState,
-		readonly adapterApi: JupyterAdapterApi,
 		readonly extra?: JupyterKernelExtra,
 	) {
-		this._kernel = adapterApi.adaptKernel(kernelSpec, metadata, dynState, extra);
 		this._lsp = new ArkLsp(metadata.languageVersion);
-
-		this.onDidChangeRuntimeState = this._kernel.onDidChangeRuntimeState;
-		this.onDidReceiveRuntimeMessage = this._kernel.onDidReceiveRuntimeMessage;
+		this._queue = new PQueue({ concurrency: 1 });
+		this.onDidReceiveRuntimeMessage = this._messageEmitter.event;
+		this.onDidChangeRuntimeState = this._stateEmitter.event;
 
 		this.onDidChangeRuntimeState((state) => {
 			this.onStateChange(state);
 		});
-
-		this._queue = new PQueue({ concurrency: 1 });
 	}
 
 	onDidReceiveRuntimeMessage: vscode.Event<positron.LanguageRuntimeMessage>;
-
 	onDidChangeRuntimeState: vscode.Event<positron.RuntimeState>;
 
 	execute(code: string, id: string, mode: positron.RuntimeCodeExecutionMode, errorBehavior: positron.RuntimeErrorBehavior): void {
-		this._kernel.execute(code, id, mode, errorBehavior);
+		if (this._kernel) {
+			this._kernel.execute(code, id, mode, errorBehavior);
+		} else {
+			throw new Error(`Cannot execute '${code}'; kernel not started`);
+		}
 	}
 
 	isCodeFragmentComplete(code: string): Thenable<positron.RuntimeCodeFragmentStatus> {
-		return this._kernel.isCodeFragmentComplete(code);
+		if (this._kernel) {
+			return this._kernel.isCodeFragmentComplete(code);
+		} else {
+			throw new Error(`Cannot check code fragment '${code}'; kernel not started`);
+		}
 	}
 
 	createClient(id: string, type: positron.RuntimeClientType, params: any): Thenable<void> {
-		return this._kernel.createClient(id, type, params);
+		if (this._kernel) {
+			return this._kernel.createClient(id, type, params);
+		} else {
+			throw new Error(`Cannot create client of type '${type}'; kernel not started`);
+		}
 	}
 
 	listClients(type?: positron.RuntimeClientType | undefined): Thenable<Record<string, string>> {
-		return this._kernel.listClients(type);
+		if (this._kernel) {
+			return this._kernel.listClients(type);
+		} else {
+			throw new Error(`Cannot list clients; kernel not started`);
+		}
 	}
 
 	removeClient(id: string): void {
-		this._kernel.removeClient(id);
+		if (this._kernel) {
+			this._kernel.removeClient(id);
+		} else {
+			throw new Error(`Cannot remove client ${id}; kernel not started`);
+		}
 	}
 
 	sendClientMessage(clientId: string, messageId: string, message: any): void {
-		this._kernel.sendClientMessage(clientId, messageId, message);
+		if (this._kernel) {
+			this._kernel.sendClientMessage(clientId, messageId, message);
+		} else {
+			throw new Error(`Cannot send message to client ${clientId}; kernel not started`);
+		}
 	}
 
 	replyToPrompt(id: string, reply: string): void {
-		this._kernel.replyToPrompt(id, reply);
+		if (this._kernel) {
+			this._kernel.replyToPrompt(id, reply);
+		} else {
+			throw new Error(`Cannot reply to prompt ${id}; kernel not started`);
+		}
 	}
 
-	start(): Thenable<positron.LanguageRuntimeInfo> {
+	async start(): Promise<positron.LanguageRuntimeInfo> {
+		if (!this._kernel) {
+			this._kernel = await this.createKernel();
+		}
 		return this._kernel.start();
 	}
 
 	async interrupt(): Promise<void> {
-		return this._kernel.interrupt();
+		if (this._kernel) {
+			return this._kernel.interrupt();
+		} else {
+			throw new Error('Cannot interrupt; kernel not started');
+		}
 	}
 
 	async restart(): Promise<void> {
-		// Stop the LSP client before restarting the kernel
-		await this._lsp.deactivate();
-		return this._kernel.restart();
+		if (this._kernel) {
+			// Stop the LSP client before restarting the kernel
+			await this._lsp.deactivate();
+			return this._kernel.restart();
+		} else {
+			throw new Error('Cannot restart; kernel not started');
+		}
 	}
 
 	async shutdown(): Promise<void> {
-		// Stop the LSP client before shutting down the kernel
-		await this._lsp.deactivate();
-		return this._kernel.shutdown();
+		if (this._kernel) {
+			// Stop the LSP client before shutting down the kernel
+			await this._lsp.deactivate();
+			return this._kernel.shutdown();
+		} else {
+			throw new Error('Cannot shutdown; kernel not started');
+		}
 	}
 
 	async dispose() {
 		await this._lsp.dispose();
-		this._kernel.dispose();
+		if (this._kernel) {
+			await this._kernel.dispose();
+		}
+	}
+
+	private async createKernel(): Promise<JupyterLanguageRuntime> {
+		const ext = vscode.extensions.getExtension('vscode.jupyter-adapter');
+		if (!ext) {
+			throw new Error('Jupyter Adapter extension not found');
+		}
+		if (!ext.isActive) {
+			await ext.activate();
+		}
+		this.adapterApi = ext?.exports as JupyterAdapterApi;
+		const kernel = this.adapterApi.adaptKernel(
+			this.kernelSpec,
+			this.metadata,
+			this.dynState,
+			this.extra);
+
+		kernel.onDidChangeRuntimeState((state) => {
+			this._stateEmitter.fire(state);
+		});
+		kernel.onDidReceiveRuntimeMessage((message) => {
+			this._messageEmitter.fire(message);
+		});
+		return kernel;
 	}
 
 	private onStateChange(state: positron.RuntimeState): void {
 		if (state === positron.RuntimeState.Ready) {
 			this._queue.add(async () => {
-				const port = await this.adapterApi.findAvailablePort([], 25);
-				this._kernel.emitJupyterLog(`Starting Positron LSP server on port ${port}`);
-				this._kernel.startPositronLsp(`127.0.0.1:${port}`);
+				// The adapter API is guranteed to exist at this point since the
+				// runtime cannot become Ready without it
+				const port = await this.adapterApi!.findAvailablePort([], 25);
+				if (this._kernel) {
+					this._kernel.emitJupyterLog(`Starting Positron LSP server on port ${port}`);
+					this._kernel.startPositronLsp(`127.0.0.1:${port}`);
+				}
 				await this._lsp.activate(port, this.context);
 			});
 		} else if (state === positron.RuntimeState.Exited) {
 			if (this._lsp.state === LspState.running) {
 				this._queue.add(async () => {
-					this._kernel.emitJupyterLog(`Stopping Positron LSP server`);
+					if (this._kernel) {
+						this._kernel.emitJupyterLog(`Stopping Positron LSP server`);
+					}
 					await this._lsp.deactivate();
 				});
 			}
