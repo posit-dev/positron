@@ -97,6 +97,11 @@ export async function* rRuntimeProvider(context: vscode.ExtensionContext): Async
 		return semver.compare(b.semVersion, a.semVersion) || a.arch.localeCompare(b.arch);
 	});
 
+	// For now, we recommend R for the workspace if the user is an RStudio user.
+	// In the future, we will use more sophisticated heuristics, such as
+	// checking an renv lockfile for a match against a system version of R.
+	let recommendedForWorkspace = isRStudioUser();
+
 	// Loop over the R installations and create a language runtime for each one.
 	//
 	// NOTE(Kevin): We previously set DYLD_INSERT_LIBRARIES here, but this appeared
@@ -199,6 +204,15 @@ export async function* rRuntimeProvider(context: vscode.ExtensionContext): Async
 		digest.update(rVersion);
 		const runtimeId = digest.digest('hex').substring(0, 32);
 
+		// Define the startup behavior; request immediate startup if this is the
+		// recommended runtime for the workspace.
+		const startupBehavior = recommendedForWorkspace ?
+			positron.LanguageRuntimeStartupBehavior.Immediate :
+			positron.LanguageRuntimeStartupBehavior.Implicit;
+
+		// Ensure we only recommend one runtime for the workspace.
+		recommendedForWorkspace = false;
+
 		const metadata: positron.LanguageRuntimeMetadata = {
 			runtimeId,
 			runtimeName: kernelSpec.display_name,
@@ -212,7 +226,7 @@ export async function* rRuntimeProvider(context: vscode.ExtensionContext): Async
 				fs.readFileSync(
 					path.join(context.extensionPath, 'resources', 'branding', 'r-icon.svg')
 				).toString('base64'),
-			startupBehavior: positron.LanguageRuntimeStartupBehavior.Implicit
+			startupBehavior
 		};
 
 		const dynState: positron.LanguageRuntimeDynState = {
@@ -255,3 +269,28 @@ function binFragment(version: string): string {
 	}
 }
 
+/**
+ * Attempts to heuristically determine if the user is an RStudio user by
+ * checking for recently modified files in RStudio's state directory.
+ *
+ * @returns true if the user is an RStudio user, false otherwise
+ */
+function isRStudioUser(): boolean {
+	try {
+		const filenames = fs.readdirSync(localShareRStudioPath());
+		const today = new Date();
+		const thirtyDaysAgo = new Date(new Date().setDate(today.getDate() - 30));
+		const recentlyModified = new Array<boolean>();
+		filenames.forEach(file => {
+			const stats = fs.statSync(localShareRStudioPath(file));
+			recentlyModified.push(stats.mtime > thirtyDaysAgo);
+		});
+		return recentlyModified.some(bool => bool === true);
+	} catch { }
+	return false;
+}
+
+function localShareRStudioPath(pathToAppend = ''): string {
+	const newPath = path.join(process.env.HOME!, '.local/share/rstudio', pathToAppend);
+	return newPath;
+}
