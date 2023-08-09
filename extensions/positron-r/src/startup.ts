@@ -8,6 +8,10 @@ import * as os from 'os';
 import * as path from 'path';
 import { delay } from './util';
 
+/**
+ * Helps a debugger attach to the Ark kernel at startup by adding a notifier
+ * file.
+ */
 export class ArkAttachOnStartup {
 	_delayDir?: string;
 	_delayFile?: string;
@@ -39,6 +43,10 @@ export class ArkAttachOnStartup {
 	}
 }
 
+/**
+ * Helps a debugger attach to the Ark kernel at startup delaying the startup by
+ * a given number of seconds.
+ */
 export class ArkDelayStartup {
 	// Add `--startup-delay` argument to pass a delay in
 	// seconds before starting up the kernel

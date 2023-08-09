@@ -6,6 +6,9 @@ import * as semver from 'semver';
 import * as path from 'path';
 import { extractValue, readLines } from './util';
 
+/**
+ * Represents a single installation of R on a user's system.
+ */
 export class RInstallation {
 	public readonly binpath: string = '';
 	public readonly homepath: string = '';
@@ -24,6 +27,8 @@ export class RInstallation {
 	 *
 	 * @param pth Filepath for an R "binary" (on macOS and linux, this is actually a
 	 *   shell script)
+	 * @param current Whether this installation is set as the current version of
+	 *   R
 	 */
 	constructor(pth: string, current: boolean = false) {
 		this.binpath = pth;

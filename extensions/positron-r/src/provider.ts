@@ -17,6 +17,12 @@ import { JupyterKernelSpec, JupyterKernelExtra } from './jupyter-adapter';
 import { ArkAttachOnStartup, ArkDelayStartup } from './startup';
 import { getArkKernelPath } from './kernel';
 
+/**
+ * Provides R language runtimes to Positron; implements
+ * positron.LanguageRuntimeProvider.
+ *
+ * @param context The extension context.
+ */
 export async function* rRuntimeProvider(context: vscode.ExtensionContext): AsyncGenerator<positron.LanguageRuntime> {
 	let rInstallations: Array<RInstallation> = [];
 
@@ -65,7 +71,7 @@ export async function* rRuntimeProvider(context: vscode.ExtensionContext): Async
 	// make sure we include R executable found on the PATH
 	// we've probably already discovered it, but we still need to single it out, so that we mark
 	// that particular R installation as the current one
-	const whichR = which.sync('R', { nothrow: true }) as string;
+	const whichR = await which('R', { nothrow: true }) as string;
 	if (whichR) {
 		const whichRCanonical = fs.realpathSync(whichR);
 		rInstallations.push(new RInstallation(whichRCanonical, true));
@@ -277,12 +283,12 @@ function binFragment(version: string): string {
  */
 function isRStudioUser(): boolean {
 	try {
-		const filenames = fs.readdirSync(localShareRStudioPath());
+		const filenames = fs.readdirSync(rstudioStateFolderPath());
 		const today = new Date();
 		const thirtyDaysAgo = new Date(new Date().setDate(today.getDate() - 30));
 		const recentlyModified = new Array<boolean>();
 		filenames.forEach(file => {
-			const stats = fs.statSync(localShareRStudioPath(file));
+			const stats = fs.statSync(rstudioStateFolderPath(file));
 			recentlyModified.push(stats.mtime > thirtyDaysAgo);
 		});
 		return recentlyModified.some(bool => bool === true);
@@ -290,7 +296,14 @@ function isRStudioUser(): boolean {
 	return false;
 }
 
-function localShareRStudioPath(pathToAppend = ''): string {
+/**
+ * Returns the path to RStudio's state folder directory. Doesn't currently work
+ * on Windows; see XDG specification for the correct path there.
+ *
+ * @param pathToAppend The path to append, if any
+ * @returns The path to RStudio's state folder directory.
+ */
+function rstudioStateFolderPath(pathToAppend = ''): string {
 	const newPath = path.join(process.env.HOME!, '.local/share/rstudio', pathToAppend);
 	return newPath;
 }

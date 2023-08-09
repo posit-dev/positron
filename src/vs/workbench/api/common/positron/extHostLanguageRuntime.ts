@@ -125,31 +125,45 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 
 		const providers = this._runtimeProviders;
 
+		// The number of providers we're waiting on (initially all providers)
 		let count = this._runtimeProviders.length;
 
+		// Utility promise
 		const never: Promise<never> = new Promise(() => { });
 
+		// Utility function to get the next runtime from a provider and amend an
+		// index
 		const getNext = (asyncGen: positron.LanguageRuntimeProvider, index: number) =>
 			asyncGen.next().then((result) => ({ index, result }));
 
+		// Array mapping each provider to a promise for its next runtime
 		const nextPromises = providers.map(getNext);
+
 		try {
 			while (count) {
+				// Wait for the next runtime to be discovered from any provider
 				const { index, result } = await Promise.race(nextPromises);
 				if (result.done) {
+					// If the provider is done supplying runtimes, remove it
+					// from the list of providers we're waiting on
 					nextPromises[index] = never;
 					count--;
 				} else {
+					// Otherwise, move on to the next runtime from the provider
+					// and register the runtime it returned
 					nextPromises[index] = getNext(providers[index], index);
 					this.registerLanguageRuntime(result.value);
 				}
 			}
 		} finally {
+			// Clean up any remaining promises
 			for (const [index, iterator] of providers.entries()) {
 				if (nextPromises[index] !== never && iterator.return !== null) {
 					void iterator.return(null);
 				}
 			}
+
+			// Notify the main thread that discovery is complete
 			this._proxy.$completeLanguageRuntimeDiscovery();
 		}
 	}

@@ -80,6 +80,9 @@ export abstract class AbstractExtensionService extends Disposable implements IEx
 	private readonly _remoteCrashTracker = new ExtensionHostCrashTracker();
 
 	// --- Start Positron ---
+	// Barrier tracking whether we have started all extension hosts; used to
+	// notify the main thread when extension host startup is complete and all
+	// eagerly activated extensions have been loaded.
 	private readonly _allExtensionHostsStarted = new Barrier();
 	// --- End Positron ---
 
@@ -432,6 +435,9 @@ export abstract class AbstractExtensionService extends Disposable implements IEx
 				if (extHostManager.startup !== ExtensionHostStartup.EagerAutoStart) {
 					const extensions = this._runningLocations.filterByExtensionHostManager(allExtensions, extHostManager);
 					// --- Start Positron ---
+					// Save the promise for the extension host startup so we can
+					// wait for it to complete. The original version of this
+					// line (in upstream) discards the promise.
 					const startup = extHostManager.start(allExtensions, extensions.map(extension => extension.identifier));
 					allExtensionHostStartups.push(startup);
 					// --- End Positron ---
@@ -442,6 +448,8 @@ export abstract class AbstractExtensionService extends Disposable implements IEx
 		}
 
 		// --- Start Positron ---
+		// When all the extension hosts have started, we can notify the main
+		// thread.
 		Promise.all(allExtensionHostStartups).then(() => {
 			this._allExtensionHostsStarted.open();
 		});
@@ -921,6 +929,12 @@ export abstract class AbstractExtensionService extends Disposable implements IEx
 	}
 
 	// --- Start Positron ---
+	/**
+	 * Wait for all extension hosts to start, and for all eagerly activated
+	 * extensions to activate.
+	 *
+	 * @returns A promise that resolves when all extension hosts have started.
+	 */
 	public whenAllExtensionHostsStarted(): Promise<boolean> {
 		return this._allExtensionHostsStarted.wait();
 	}
