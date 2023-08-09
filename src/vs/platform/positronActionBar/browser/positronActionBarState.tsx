@@ -3,14 +3,14 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { useState } from 'react';
-import { Action, IAction } from 'vs/base/common/actions';
 import { unmnemonicLabel } from 'vs/base/common/labels';
+import { Action, IAction, Separator } from 'vs/base/common/actions';
 import { ICommandService } from 'vs/platform/commands/common/commands';
 import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
-import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
 import { CommandCenter } from 'vs/platform/commandCenter/common/commandCenter';
 import { IContextMenuService } from 'vs/platform/contextview/browser/contextView';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
+import { ContextKeyExpression, IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
 
 /**
  * The tooltip reset timeout in milliseconds.
@@ -29,10 +29,20 @@ export interface PositronActionBarServices {
 }
 
 /**
+ * CommandAction interface.
+ */
+export interface CommandAction {
+	id: string;
+	label?: string;
+	separator?: boolean;
+	when?: ContextKeyExpression;
+}
+
+/**
  * The Positron action bar state.
  */
 export interface PositronActionBarState extends PositronActionBarServices {
-	appendCommandAction(actions: IAction[], id: string, label?: string): void;
+	appendCommandAction(actions: IAction[], commandAction: CommandAction): void;
 	isCommandEnabled(commandId: string): boolean;
 	showTooltipDelay(): number;
 	refreshTooltipKeepAlive(): void;
@@ -53,20 +63,27 @@ export const usePositronActionBarState = (services: PositronActionBarServices): 
 	/**
 	 * Appends a command action.
 	 * @param actions The set of actions to append the command action to.
-	 * @param id The ID of the command action.
-	 * @param label The optional label of the command action.
+	 * @param commandAction The CommandAction to append.
 	 */
-	const appendCommandAction = (actions: IAction[], commandId: string, label?: string) => {
+	const appendCommandAction = (actions: IAction[], commandAction: CommandAction) => {
 		// Get the command info from the command center.
-		const commandInfo = CommandCenter.commandInfo(commandId);
-		if (commandInfo) {
+		const commandInfo = CommandCenter.commandInfo(commandAction.id);
+
+		// If the command info was found, and the when expression matches, create the command action
+		// and push it to the actions.
+		if (commandInfo && services.contextKeyService.contextMatchesRules(commandAction.when)) {
 			// Determine whether the command action will be enabled and set the label to use.
 			const enabled = !commandInfo.precondition || services.contextKeyService.contextMatchesRules(commandInfo.precondition);
-			label = label || (typeof (commandInfo.title) === 'string' ? commandInfo.title : commandInfo.title.value);
+			const label = commandAction.label || (typeof (commandInfo.title) === 'string' ? commandInfo.title : commandInfo.title.value);
+
+			// Append the separator.
+			if (commandAction.separator) {
+				actions.push(new Separator());
+			}
 
 			// Create the command action and push it.
-			actions.push(new Action(commandId, unmnemonicLabel(label), undefined, enabled, () => {
-				services.commandService.executeCommand(commandId);
+			actions.push(new Action(commandAction.id, unmnemonicLabel(label), undefined, enabled, () => {
+				services.commandService.executeCommand(commandAction.id);
 			}));
 		}
 	};
