@@ -20,7 +20,7 @@ import { ActionBars } from 'vs/workbench/contrib/positronHelp/browser/components
 import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import { ViewPane, IViewPaneOptions } from 'vs/workbench/browser/parts/views/viewPane';
-import { IPositronHelpService } from 'vs/workbench/services/positronHelp/common/positronHelp';
+import { IPositronHelpService } from 'vs/workbench/services/positronHelp/common/interfaces/positronHelpService';
 import { IReactComponentContainer, ISize, PositronReactRenderer } from 'vs/base/browser/positronReactRenderer';
 import { IWebviewElement, IWebviewService } from 'vs/workbench/contrib/webview/browser/webview';
 import { ExtensionIdentifier } from 'vs/platform/extensions/common/extensions';

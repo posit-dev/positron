@@ -15,7 +15,7 @@ import { ViewPaneContainer } from 'vs/workbench/browser/parts/views/viewPaneCont
 import { PositronHelpViewPane } from 'vs/workbench/contrib/positronHelp/browser/positronHelpView';
 import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/common/extensions';
 import { PositronHelpService } from 'vs/workbench/contrib/positronHelp/browser/positronHelpService';
-import { IPositronHelpService, POSITRON_HELP_VIEW_ID } from 'vs/workbench/services/positronHelp/common/positronHelp';
+import { IPositronHelpService, POSITRON_HELP_VIEW_ID } from 'vs/workbench/services/positronHelp/common/interfaces/positronHelpService';
 import { IWorkbenchContributionsRegistry, Extensions as WorkbenchExtensions, IWorkbenchContribution } from 'vs/workbench/common/contributions';
 import { ViewContainer, IViewContainersRegistry, ViewContainerLocation, Extensions as ViewContainerExtensions, IViewsRegistry } from 'vs/workbench/common/views';
 

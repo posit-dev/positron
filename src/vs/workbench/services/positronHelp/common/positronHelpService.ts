@@ -9,8 +9,8 @@ import { Disposable } from 'vs/base/common/lifecycle';
 import { MarkdownString } from 'vs/base/common/htmlContent';
 import { IOpenerService } from 'vs/platform/opener/common/opener';
 import { ILanguageService } from 'vs/editor/common/languages/language';
+// import { MarkdownRenderer } from 'vs/editor/contrib/markdownRenderer/browser/markdownRenderer';
 import { IPositronHelpService } from 'vs/workbench/services/positronHelp/common/interfaces/positronHelpService';
-import { MarkdownRenderer } from 'vs/editor/contrib/markdownRenderer/browser/markdownRenderer';
 import { ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { LanguageRuntimeEventType, ShowHelpEvent } from 'vs/workbench/services/languageRuntime/common/languageRuntimeEvents';
 
@@ -24,15 +24,26 @@ const ttPolicyPositronHelp = window.trustedTypes?.createPolicy('positronHelp', {
  * PositronHelpService class.
  */
 export class PositronHelpService extends Disposable implements IPositronHelpService {
+	//#region Private Properties
 
-	declare readonly _serviceBrand: undefined;
+	/**
+	 * The onDidStartPositronConsoleInstance event emitter.
+	 */
+	private readonly _onRenderHelpEmitter = this._register(new Emitter<string | MarkdownString>);
 
-	// The markdown renderer.
-	private _markdownRenderer: MarkdownRenderer;
+	//#endregion Private Properties
 
-	// The RenderHelp event.
-	private _onRenderHelp = this._register(new Emitter<string>());
-	readonly onRenderHelp: Event<string> = this._onRenderHelp.event;
+	// // The RenderHelp event.
+	// private _onRenderHelp = this._register(new Emitter<string>());
+	// readonly onRenderHelp: Event<string> = this._onRenderHelp.event;
+
+
+	/**
+	 * The onRenderHelp event.
+	 */
+	readonly onRenderHelp = this._onRenderHelpEmitter.event;
+
+
 
 	/**
 	 * Constructor.
@@ -65,9 +76,14 @@ export class PositronHelpService extends Disposable implements IPositronHelpServ
 			}
 		});
 
-		this._markdownRenderer = new MarkdownRenderer({}, languageService, openerService);
-		this._store.add(this._markdownRenderer);
+		// this._markdownRenderer = new MarkdownRenderer({}, languageService, openerService);
+		// this._store.add(this._markdownRenderer);
 	}
+
+	/**
+	 * Needed for service branding in dependency injector.
+	 */
+	declare readonly _serviceBrand: undefined;
 
 	/**
 	 * Opens the specified help markdown.
@@ -79,13 +95,13 @@ export class PositronHelpService extends Disposable implements IPositronHelpServ
 			return;
 		}
 
-		const markdownRenderResult = this._markdownRenderer.render(markdown);
-		try {
-			const someOtherString = this.renderHelpDocument(markdownRenderResult.element.innerHTML);
-			this._onRenderHelp.fire(someOtherString);
-		} finally {
-			markdownRenderResult.dispose();
-		}
+		// const markdownRenderResult = this._markdownRenderer.render(markdown);
+		// try {
+		// 	const someOtherString = this.renderHelpDocument(markdownRenderResult.element.innerHTML);
+		// 	this._onRenderHelp.fire(someOtherString);
+		// } finally {
+		// 	markdownRenderResult.dispose();
+		// }
 	}
 
 	openHelpHtml(html: string) {
@@ -94,12 +110,12 @@ export class PositronHelpService extends Disposable implements IPositronHelpServ
 			return;
 		}
 
-		this._onRenderHelp.fire(html);
+		// this._onRenderHelp.fire(html);
 	}
 
 	openHelpUrl(url: string) {
 		const html = this.renderEmbeddedHelpDocument(url);
-		this._onRenderHelp.fire(html);
+		// this._onRenderHelp.fire(html);
 	}
 
 	renderEmbeddedHelpDocument(url: string): string {
