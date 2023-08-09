@@ -112,6 +112,24 @@ export class LanguageRuntimeWorkspaceAffiliation extends Disposable {
 	}
 
 	/**
+	 * Ascertains whether a runtime (of any language) is affiliated with the
+	 * current workspace.
+	 *
+	 * @returns True if there is a runtime affiliated with this workspace.
+	 */
+	public hasAffiliatedRuntime(): boolean {
+		// Get the keys from the storage service and see if any of them match
+		// the storage key pattern for affiliated runtimes.
+		const keys = this._storageService.keys(StorageScope.WORKSPACE, StorageTarget.MACHINE);
+		for (const key of keys) {
+			if (key.startsWith(this.storageKey)) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/**
 	 * Convenience method for creating a storage key for a given runtime.
 	 *
 	 * @param runtime The runtime for which to get the storage key.

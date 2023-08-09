@@ -371,15 +371,18 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 	}
 
 	/**
-	 * Completes the language runtime discovery phase.
+	 * Completes the language runtime discovery phase. If no runtimes were
+	 * started or will be started, automatically start one.
 	 */
 	completeDiscovery(): void {
 		this._onDidChangeDiscoveryPhaseEmitter.fire(LanguageRuntimeDiscoveryPhase.Complete);
 
-		if (this._startingRuntimesByLanguageId.size === 0 &&
+		if (!this._workspaceAffiliation.hasAffiliatedRuntime() &&
+			this._startingRuntimesByLanguageId.size === 0 &&
 			this._runningRuntimesByLanguageId.size === 0) {
-			// If there are no starting or running runtimes, start the
-			// first runtime that has Immediate startup behavior.
+			// If there are no affiliated runtimes, and no starting or running
+			// runtimes, start the first runtime that has Immediate startup
+			// behavior.
 			const languageRuntimeInfos = this._registeredRuntimes.filter(
 				info => info.startupBehavior === LanguageRuntimeStartupBehavior.Immediate);
 			if (languageRuntimeInfos.length) {
