@@ -23,10 +23,7 @@ from jedi_language_server.server import (
     completion_item_resolve,
     definition,
     did_change_configuration,
-    did_change_diagnostics,
     did_close_diagnostics,
-    did_open_diagnostics,
-    did_save_diagnostics,
     document_symbol,
     highlight,
     hover,
@@ -419,3 +416,46 @@ def positron_did_close_diagnostics(
     server: PositronJediLanguageServer, params: DidCloseTextDocumentParams
 ) -> None:
     return did_close_diagnostics(server, params)
+
+
+# Copied from jedi_language_server/server.py to handle exceptions. Exceptions should be handled by
+# pygls, but the debounce decorator causes the function to run in a separate thread thus a separate
+# stack from pygls' exception handler.
+@jedi_utils.debounce(1, keyed_by="uri")
+def _publish_diagnostics(server: JediLanguageServer, uri: str) -> None:
+    """Helper function to publish diagnostics for a file."""
+    # The debounce decorator delays the execution by 1 second
+    # canceling notifications that happen in that interval.
+    # Since this function is executed after a delay, we need to check
+    # whether the document still exists
+    if uri not in server.workspace.documents:
+        return
+
+    doc = server.workspace.get_document(uri)
+
+    # --- Start Positron ---
+    try:
+        diagnostic = jedi_utils.lsp_python_diagnostic(uri, doc.source)
+    except Exception:
+        logger.exception(f"Failed to publish diagnostics for uri {uri}", exc_info=True)
+        diagnostic = None
+    # --- End Positron ---
+
+    diagnostics = [diagnostic] if diagnostic else []
+
+    server.publish_diagnostics(uri, diagnostics)
+
+
+def did_save_diagnostics(server: JediLanguageServer, params: DidSaveTextDocumentParams) -> None:
+    """Actions run on textDocument/didSave: diagnostics."""
+    _publish_diagnostics(server, params.text_document.uri)
+
+
+def did_change_diagnostics(server: JediLanguageServer, params: DidChangeTextDocumentParams) -> None:
+    """Actions run on textDocument/didChange: diagnostics."""
+    _publish_diagnostics(server, params.text_document.uri)
+
+
+def did_open_diagnostics(server: JediLanguageServer, params: DidOpenTextDocumentParams) -> None:
+    """Actions run on textDocument/didOpen: diagnostics."""
+    _publish_diagnostics(server, params.text_document.uri)
