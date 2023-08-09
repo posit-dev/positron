@@ -151,16 +151,8 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 		// Begin discovering language runtimes once all extensions have been
 		// registered.
 		this._extensionService.whenAllExtensionHostsStarted().then(() => {
-			this._logService.info(`Language runtime discovery phase: ${LanguageRuntimeDiscoveryPhase.Discovering}`);
 			this._onDidChangeDiscoveryPhaseEmitter.fire(LanguageRuntimeDiscoveryPhase.Discovering);
 		});
-	}
-
-	/**
-	 * Completes the language runtime discovery phase.
-	 */
-	completeDiscovery(): void {
-		this._onDidChangeDiscoveryPhaseEmitter.fire(LanguageRuntimeDiscoveryPhase.Complete);
 	}
 
 	//#endregion Constructor
@@ -379,6 +371,27 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 	}
 
 	/**
+	 * Completes the language runtime discovery phase.
+	 */
+	completeDiscovery(): void {
+		this._onDidChangeDiscoveryPhaseEmitter.fire(LanguageRuntimeDiscoveryPhase.Complete);
+
+		if (this._startingRuntimesByLanguageId.size === 0 &&
+			this._runningRuntimesByLanguageId.size === 0) {
+			// If there are no starting or running runtimes, start the
+			// first runtime that has Immediate startup behavior.
+			const languageRuntimeInfos = this._registeredRuntimes.filter(
+				info => info.startupBehavior === LanguageRuntimeStartupBehavior.Immediate);
+			if (languageRuntimeInfos.length) {
+				this._logService.trace(`Language runtime ` +
+					`${formatLanguageRuntime(languageRuntimeInfos[0].runtime)} ` +
+					`automatically starting`);
+				this.doStartRuntime(languageRuntimeInfos[0].runtime);
+			}
+		}
+	}
+
+	/**
 	 * Returns a specific runtime by runtime identifier.
 	 * @param runtimeId The runtime identifier of the runtime to retrieve.
 	 * @returns The runtime with the given runtime identifier, or undefined if
@@ -495,6 +508,7 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 			this._logService.error(`Starting language runtime failed. Reason: ${reason}`);
 		}
 	}
+
 
 	//#region Private Methods
 }
