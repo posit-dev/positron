@@ -11,7 +11,14 @@ import pickle
 import sys
 import types
 import uuid
-from collections.abc import Mapping, MutableMapping, MutableSequence, MutableSet, Sequence, Set
+from collections.abc import (
+    Mapping,
+    MutableMapping,
+    MutableSequence,
+    MutableSet,
+    Sequence,
+    Set,
+)
 from typing import Any, Callable, Optional, Tuple, TYPE_CHECKING
 
 from .dataviewer import DataColumn, DataSet
@@ -23,7 +30,8 @@ if TYPE_CHECKING:
     from .environment import EnvironmentVariable
 
 # General display settings
-MAX_ITEMS: int = 100
+MAX_ITEMS: int = 10000
+MAX_CHILDREN: int = 100
 TRUNCATE_AT: int = 1024
 PRINT_WIDTH: int = 100
 
@@ -113,7 +121,9 @@ class PositronInspector:
         return None
 
     def summarize_children(
-        self, value: Any, summarizer: Callable[[str, Any], Optional[EnvironmentVariable]]
+        self,
+        value: Any,
+        summarizer: Callable[[str, Any], Optional[EnvironmentVariable]],
     ) -> list:
         return []
 
@@ -203,7 +213,7 @@ class CollectionInspector(PositronInspector):
         children = []
         if isinstance(value, (list, tuple)):
             for i, item in enumerate(value):
-                if len(children) >= MAX_ITEMS:
+                if len(children) >= MAX_CHILDREN:
                     break
 
                 summary = summarizer(str(i), item)
@@ -261,7 +271,7 @@ class MapInspector(PositronInspector):
 
         if isinstance(value, Mapping):
             for key, value in value.items():
-                if len(children) >= MAX_ITEMS:
+                if len(children) >= MAX_CHILDREN:
                     break
 
                 summary = summarizer(str(key), value)
@@ -354,7 +364,6 @@ class PandasDataFrameInspector(TableInspector):
         self, value: Any, print_width: int = PRINT_WIDTH, truncate_at: int = TRUNCATE_AT
     ) -> Tuple[str, bool]:
         display_value = get_qualname(value)
-
         if hasattr(value, "shape"):
             shape = value.shape
             display_value = f"[{shape[0]} rows x {shape[1]} columns] {display_value}"
@@ -382,7 +391,7 @@ class PandasDataFrameInspector(TableInspector):
     def get_column(self, value: Any, column_name: str) -> Any:
         try:
             column = value[column_name]
-            values = column.values.tolist()
+            values = column.values.tolist()[:MAX_CHILDREN]
         except Exception:
             values = []
             logger.warning("Unable to get Pandas column: %s", column_name, exc_info=True)
@@ -444,7 +453,7 @@ class PandasSeriesInspector(CollectionInspector):
         self, value: Any, print_width: int = PRINT_WIDTH, truncate_at: int = TRUNCATE_AT
     ) -> Tuple[str, bool]:
         try:
-            display_value = value.to_string(index=False, max_rows=MAX_ITEMS)
+            display_value = value.to_string(index=False, max_rows=MAX_CHILDREN)
             return (display_value, True)
         except Exception:
             logger.warning("Unable to display Pandas Series", exc_info=True)
@@ -489,7 +498,7 @@ class PandasSeriesInspector(CollectionInspector):
         try:
             items = value.to_list()
             for i, item in enumerate(items):
-                if len(children) >= MAX_ITEMS:
+                if len(children) >= MAX_CHILDREN:
                     break
 
                 summary = summarizer(str(i), item)
@@ -515,7 +524,10 @@ class PandasSeriesInspector(CollectionInspector):
 
 
 class PolarsInspector(TableInspector):
-    CLASS_QNAME = ["polars.dataframe.frame.DataFrame", "polars.internals.dataframe.frame.DataFrame"]
+    CLASS_QNAME = [
+        "polars.dataframe.frame.DataFrame",
+        "polars.internals.dataframe.frame.DataFrame",
+    ]
 
     def get_display_value(
         self, value: Any, print_width: int = PRINT_WIDTH, truncate_at: int = TRUNCATE_AT
@@ -609,7 +621,10 @@ class NumpyNdarrayInspector(CollectionInspector):
         return "collection" if value.ndim > 0 else "number"
 
     def get_display_value(
-        self, value: np.ndarray, print_width: int = PRINT_WIDTH, truncate_at: int = TRUNCATE_AT
+        self,
+        value: np.ndarray,
+        print_width: int = PRINT_WIDTH,
+        truncate_at: int = TRUNCATE_AT,
     ) -> Tuple[str, bool]:
         try:
             import numpy as np
@@ -693,7 +708,7 @@ class NumpyNdarrayInspector(CollectionInspector):
         try:
             items = value.tolist()
             for i, item in enumerate(items):
-                if len(children) >= MAX_ITEMS:
+                if len(children) >= MAX_CHILDREN:
                     break
 
                 summary = summarizer(str(i), item)
@@ -729,11 +744,15 @@ class TorchTensorInspector(NumpyNdarrayInspector):
     CLASS_QNAME = "torch.Tensor"
 
     def get_display_value(
-        self, value: torch.Tensor, print_width: int = PRINT_WIDTH, truncate_at: int = TRUNCATE_AT
+        self,
+        value: torch.Tensor,
+        print_width: int = PRINT_WIDTH,
+        truncate_at: int = TRUNCATE_AT,
     ) -> Tuple[str, bool]:
         try:
-            # NOTE: Once https://github.com/pytorch/pytorch/commit/e03800a93af55ef61f2e610d65ac7194c0614edc
-            #       is in a stable version we can use it to temporarily set print options
+            # NOTE:
+            # Once https://github.com/pytorch/pytorch/commit/e03800a93af55ef61f2e610d65ac7194c0614edc
+            # is in a stable version we can use it to temporarily set print options
             import torch
 
             new_options = {
