@@ -7,7 +7,7 @@ import * as React from 'react';
 import { localize } from 'vs/nls';
 import { IAction, Separator } from 'vs/base/common/actions';
 import { ContextKeyExpr } from 'vs/platform/contextkey/common/contextkey';
-import { OpenFolderAction, OpenWorkspaceAction } from 'vs/workbench/browser/actions/workspaceActions';
+import { OpenFolderAction } from 'vs/workbench/browser/actions/workspaceActions';
 import { EmptyWorkspaceSupportContext, WorkbenchStateContext } from 'vs/workbench/common/contextkeys';
 import { ActionBarMenuButton } from 'vs/platform/positronActionBar/browser/components/actionBarMenuButton';
 import { usePositronActionBarContext } from 'vs/platform/positronActionBar/browser/positronActionBarContext';
@@ -17,8 +17,6 @@ import { PositronNewFolderAction, PositronNewFolderFromGitAction, PositronOpenFo
 
 // Constants.
 const kCloseFolder = 'workbench.action.closeFolder';
-const kWorkbenchSettings = 'workbench.action.openWorkspaceSettings';
-const kDuplicateWorkspace = 'workbench.action.duplicateWorkspaceInNewWindow';
 
 /**
  * TopActionBarFolderMenu component.
@@ -48,18 +46,20 @@ export const TopActionBarFolderMenu = () => {
 			id: PositronOpenFolderInNewWindowAction.ID
 		});
 
-		// actions.push(new Separator());
-
-		positronActionBarContext.appendCommandAction(actions, {
-			id: OpenWorkspaceAction.ID
-		});
+		// As of Private Alpha (August, 20223), we are not exposing the user to the concept of a
+		// "Workspace" in this user experience.
+		// positronActionBarContext.appendCommandAction(actions, {
+		// 	id: OpenWorkspaceAction.ID
+		// });
 
 		actions.push(new Separator());
 
-		positronActionBarContext.appendCommandAction(actions, {
-			id: kDuplicateWorkspace,
-			label: localize('positronDuplicateWorkspace', "Duplicate Workspace")
-		});
+		// As of Private Alpha (August, 20223), we are not exposing the user to the concept of a
+		// "Workspace" in this user experience.
+		// positronActionBarContext.appendCommandAction(actions, {
+		// 	id: kDuplicateWorkspace,
+		// 	label: localize('positronDuplicateWorkspace', "Duplicate Workspace")
+		// });
 
 		// When a folder is open, the action is called "Close Folder...".
 		positronActionBarContext.appendCommandAction(actions, {
@@ -88,17 +88,22 @@ export const TopActionBarFolderMenu = () => {
 			actions.push(new Separator());
 			actions.push(...recentMenuActions(recent.workspaces, positronTopActionBarContext));
 
-			// For now, do not add this command action because it clars files and folders. It would
+			// For now, do not add this command action because it clears files and folders. It would
 			// be better to have an action that just clears folders / workspaces.
 			// actions.push(new Separator());
 			// positronActionBarContext.appendCommandAction(actions, {
 			// 	commandId: ClearRecentFilesAction.ID
 			// });
 		}
-		actions.push(new Separator());
-		positronActionBarContext.appendCommandAction(actions, {
-			id: kWorkbenchSettings
-		});
+
+
+		// As of Private Alpha (August, 20223), we are not exposing the user to the concept of a
+		// "Workspace" in this user experience.
+		// actions.push(new Separator());
+		// positronActionBarContext.appendCommandAction(actions, {
+		// 	id: kWorkbenchSettings
+		// });
+
 		return actions;
 	};
 
