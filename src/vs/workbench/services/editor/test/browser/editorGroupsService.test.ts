@@ -397,6 +397,10 @@ suite('EditorGroupsService', () => {
 
 	test('editor basics', async function () {
 		const [part] = await createPart();
+		// --- Start Positron ---
+		// We default this to `false`, but this test expects it to be `true`
+		part.enforcePartOptions({ enablePreview: true });
+		// --- End Positron ---
 		const group = part.activeGroup;
 		assert.strictEqual(group.isEmpty, true);
 
