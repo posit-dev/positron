@@ -57,6 +57,10 @@ def get_qualname(value: Any) -> str:
     return qualname
 
 
+def is_numpy_ufunc(object: Any) -> bool:
+    return get_qualname(type(object)) == "numpy.ufunc"
+
+
 def pretty_format(
     value,
     print_width: Optional[int] = None,

@@ -3,19 +3,19 @@
 #
 
 from __future__ import annotations
-import builtins
 
+import builtins
 import enum
 import logging
 import pydoc
 from typing import TYPE_CHECKING, Any, Optional, Union
 
-from pydantic import Field
 from ipykernel.ipkernel import IPythonKernel
+from pydantic import Field
 
 from .frontend import BaseFrontendEvent
 from .pydoc import start_server
-from .utils import get_qualname
+from .utils import get_qualname, is_numpy_ufunc
 
 if TYPE_CHECKING:
     from .frontend import FrontendService
@@ -135,6 +135,11 @@ class HelpService:
             # We resolved to an object.
             obj = result[0]
             key = get_qualname(obj)
+
+            # Handle numpy ufuncs which don't have a __module__ attribute.
+            if is_numpy_ufunc(obj):
+                key = f"numpy.{key}"
+
             # Not sure why, but some qualified names cause errors in pydoc. Manually replace these with
             # names that are known to work.
             for old, new in self._QUALNAME_OVERRIDES.items():

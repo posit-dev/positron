@@ -28,6 +28,8 @@ from pygments import highlight
 from pygments.formatters import HtmlFormatter
 from pygments.lexers import get_lexer_by_name
 
+from .utils import is_numpy_ufunc
+
 logger = logging.getLogger(__name__)
 
 
@@ -184,6 +186,14 @@ class _Attr(BaseModel):
 
 
 class _PositronHTMLDoc(pydoc.HTMLDoc):
+    def document(self, object: Any, *args: Any):
+        # Handle numpy ufuncs, which don't return True for `inspect.isroutine` but which we still
+        # want to document as routines.
+        if is_numpy_ufunc(object):
+            return self.docroutine(object, *args)
+
+        return super().document(object, *args)
+
     def page(self, title, contents):
         """Format an HTML page."""
         # --- Start Positron ---
@@ -770,7 +780,11 @@ def _resolve(target: str, from_obj: Any) -> Optional[str]:
         # Properties don't have __module__, but the wrapped getter function does
         from_obj = from_obj.fget
     from_module_name = (
-        from_obj.__name__ if isinstance(from_obj, ModuleType) else from_obj.__module__
+        from_obj.__name__
+        if isinstance(from_obj, ModuleType)
+        else "numpy"  # Handle numpy ufuncs which don't have a __module__
+        if is_numpy_ufunc(from_obj)
+        else from_obj.__module__
     )
     from_package = from_module_name.split(".")[0]
     if not target.startswith(from_package):  # Avoid infinite recursion
