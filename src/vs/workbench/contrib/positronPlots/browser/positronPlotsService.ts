@@ -5,10 +5,11 @@
 import { Disposable } from 'vs/base/common/lifecycle';
 import { IPositronPlotMetadata, PlotClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimePlotClient';
 import { ILanguageRuntime, ILanguageRuntimeMessageOutput, ILanguageRuntimeService, RuntimeClientType } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
-import { IPositronPlotsService, PositronPlotClient } from 'vs/workbench/services/positronPlots/common/positronPlots';
+import { IPositronPlotsService, POSITRON_PLOTS_VIEW_ID, PositronPlotClient } from 'vs/workbench/services/positronPlots/common/positronPlots';
 import { Emitter, Event } from 'vs/base/common/event';
 import { StaticPlotClient } from 'vs/workbench/services/positronPlots/common/staticPlotClient';
 import { IStorageService, StorageTarget, StorageScope } from 'vs/platform/storage/common/storage';
+import { IViewsService } from 'vs/workbench/common/views';
 
 /** The maximum number of recent executions to store. */
 const MaxRecentExecutions = 10;
@@ -50,7 +51,8 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 	/** Creates the Positron plots service instance */
 	constructor(
 		@ILanguageRuntimeService private _languageRuntimeService: ILanguageRuntimeService,
-		@IStorageService private _storageService: IStorageService,) {
+		@IStorageService private _storageService: IStorageService,
+		@IViewsService private _viewsService: IViewsService) {
 		super();
 
 		// Register for language runtime service startups
@@ -194,6 +196,9 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 				// Register the plot client
 				const plotClient = new PlotClientInstance(event.client, metadata);
 				this.registerPlotClient(plotClient, true);
+
+				// Raise the Plots pane so the plot is visible
+				this._viewsService.openView(POSITRON_PLOTS_VIEW_ID, false);
 			}
 		}));
 
