@@ -409,6 +409,7 @@ import 'vs/workbench/contrib/executionHistory/common/executionHistory';
 
 // Workbench services
 import 'vs/workbench/services/languageRuntime/common/languageRuntime';
+import 'vs/workbench/services/positronHelp/common/positronHelpService';
 import 'vs/workbench/services/positronConsole/common/positronConsoleService';
 import 'vs/workbench/services/positronEnvironment/common/positronEnvironmentService';
 

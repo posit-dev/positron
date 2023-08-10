@@ -204,14 +204,16 @@ export class PositronHelpViewPane extends ViewPane implements IReactComponentCon
 		this._positronHelpContainer.appendChild(this._helpActionBarsContainer);
 		this._positronHelpContainer.appendChild(this._helpViewContainer);
 
-		this._register(this.positronHelpService.onRenderHelp(html => {
-			// Spot fix: Cache last help HTML.
-			this._lastHelpViewHtml = html;
+		this._register(this.positronHelpService.onRenderHelp(helpDescriptor => {
 
-			// Set the help view HTML.
-			if (html instanceof String) {
-				//this._helpView?.setHtml(html);
-			}
+			console.log(`HELP VIEW!!!! ${helpDescriptor.url}`);
+			// Spot fix: Cache last help HTML.
+			// this._lastHelpViewHtml = html;
+
+			// // Set the help view HTML.
+			// if (html instanceof String) {
+			// 	//this._helpView?.setHtml(html);
+			// }
 		}));
 
 		// Register the onDidChangeBodyVisibility event handler.

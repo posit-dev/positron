@@ -3,11 +3,15 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Event } from 'vs/base/common/event';
-import { MarkdownString } from 'vs/base/common/htmlContent';
 import { createDecorator } from 'vs/platform/instantiation/common/instantiation';
 
 // Create the decorator for the Positron help service (used in dependency injection).
 export const IPositronHelpService = createDecorator<IPositronHelpService>('positronHelpService');
+
+export interface HelpDescriptor {
+	url: string;
+	focus: boolean;
+}
 
 /**
  * IPositronHelpService interface.
@@ -21,12 +25,14 @@ export interface IPositronHelpService {
 	/**
 	 * The onRenderHelp event.
 	 */
-	readonly onRenderHelp: Event<string | MarkdownString>;
+	readonly onRenderHelp: Event<HelpDescriptor>;
 
 	/**
 	 * Placeholder that gets called to "initialize" the PositronConsoleService.
 	 */
 	initialize(): void;
+
+	// What, if any of these, need to be public methods on the service?
 
 	// /**
 	//  * Opens help HTML.

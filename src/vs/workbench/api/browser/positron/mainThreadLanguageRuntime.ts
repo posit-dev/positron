@@ -21,6 +21,7 @@ import { generateUuid } from 'vs/base/common/uuid';
 import { IPositronPlotsService } from 'vs/workbench/services/positronPlots/common/positronPlots';
 import { LanguageRuntimeEventType, PromptStateEvent } from 'vs/workbench/services/languageRuntime/common/languageRuntimeEvents';
 import { IPositronHelpService } from 'vs/workbench/services/positronHelp/common/interfaces/positronHelpService';
+// import { IPositronHelpService } from 'vs/workbench/services/positronHelp/common/interfaces/positronHelpService';
 
 /**
  * Represents a language runtime event (for example a message or state change)
@@ -777,16 +778,16 @@ export class MainThreadLanguageRuntime implements MainThreadLanguageRuntimeShape
 	constructor(
 		extHostContext: IExtHostContext,
 		@ILanguageRuntimeService private readonly _languageRuntimeService: ILanguageRuntimeService,
-		@IPositronHelpService private readonly _positronHelpService: IPositronConsoleService,
 		@IPositronConsoleService private readonly _positronConsoleService: IPositronConsoleService,
 		@IPositronEnvironmentService private readonly _positronEnvironmentService: IPositronEnvironmentService,
+		@IPositronHelpService private readonly _positronHelpService: IPositronConsoleService,
 		@IPositronPlotsService private readonly _positronPlotService: IPositronPlotsService,
 		@ILogService private readonly _logService: ILogService
 	) {
 		// TODO@softwarenerd - We needed to find a central place where we could ensure that certain
 		// Positron services were up and running early in the application lifecycle. For now, this
 		// is where we're doing this.
-		//this._positronHelpService.initialize();
+		this._positronHelpService.initialize();
 		this._positronConsoleService.initialize();
 		this._positronEnvironmentService.initialize();
 		this._positronPlotService.initialize();
