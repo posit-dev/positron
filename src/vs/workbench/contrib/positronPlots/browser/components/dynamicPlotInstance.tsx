@@ -5,6 +5,7 @@
 import * as React from 'react';
 import { useEffect, useState } from 'react'; // eslint-disable-line no-duplicate-imports
 import { ProgressBar } from 'vs/base/browser/ui/progressbar/progressbar';
+import { DisposableStore } from 'vs/base/common/lifecycle';
 import { PlotClientInstance, PlotClientState } from 'vs/workbench/services/languageRuntime/common/languageRuntimePlotClient';
 
 /**
@@ -34,6 +35,7 @@ export const DynamicPlotInstance = (props: DynamicPlotInstanceProps) => {
 
 	useEffect(() => {
 		const ratio = window.devicePixelRatio;
+		const disposables = new DisposableStore();
 
 		// If the plot is already rendered, use the old image until the new one is ready.
 		if (props.plotClient.lastRender) {
@@ -45,11 +47,16 @@ export const DynamicPlotInstance = (props: DynamicPlotInstanceProps) => {
 			setUri(result.uri);
 		});
 
+		// When the plot is rendered, update the URI.
+		disposables.add(props.plotClient.onDidCompleteRender((result) => {
+			setUri(result.uri);
+		}));
+
 		let progressBar: ProgressBar | undefined;
 		let progressTimer: number | undefined;
 
 		// Wait for the plot to render, and show a progress bar.
-		props.plotClient.onDidChangeState((state) => {
+		disposables.add(props.plotClient.onDidChangeState((state) => {
 
 			// No work to do if we don't have a progress bar.
 			if (!progressRef.current) {
@@ -91,7 +98,10 @@ export const DynamicPlotInstance = (props: DynamicPlotInstanceProps) => {
 					progressBar = undefined;
 				}
 			}
-		});
+		}));
+		return () => {
+			disposables.dispose();
+		};
 	});
 
 	// Render method for the plot image.
