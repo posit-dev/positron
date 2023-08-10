@@ -14,6 +14,12 @@
     "onStartupFinished"
   ],
   "main": "./out/extension.js",
+  "capabilities": {
+    "untrustedWorkspaces": {
+      "supported": "limited",
+      "description": "Jupyter Kernels should not be run in untrusted workspaces."
+    }
+  },
   "contributes": {
     "configuration": {
       "type": "object",
