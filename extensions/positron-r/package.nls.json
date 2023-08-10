@@ -1,8 +1,8 @@
 {
 	"displayName": "R",
 	"description": "R Language Pack for Positron",
+	"r.capabilities.untrustedWorkspaces.description": "R cannot be started in untrusted folders.",
 	"r.command.sourceCurrentFile.title": "Source R File",
-	"r.command.setKernelPath.title": "Set Kernel Path",
 	"r.command.createNewFile.title": "New R File",
 	"r.command.packageLoad.title": "Load R Package",
 	"r.command.packageBuild.title": "Build R Package",
@@ -30,5 +30,5 @@
 	"r.configuration.logLevel.trace.description": "Verbose tracing messages",
 	"r.configuration.logLevel.description": "Log level for the R Kernel (requires restart to take effect)",
 	"r.configuration.restoreWorkspace.description": "Restore the workspace from .RData on startup (requires restart to take effect)",
-	"r.configuration.extraArguments.description": "Extra command-line arguments for R intialization"
+	"r.configuration.extraArguments.description": "Extra command-line arguments for R intialization",
 }
