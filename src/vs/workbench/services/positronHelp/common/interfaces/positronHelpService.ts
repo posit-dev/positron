@@ -24,14 +24,25 @@ export interface IPositronHelpService {
 	readonly onRenderHelp: Event<string | MarkdownString>;
 
 	/**
-	 * Opens help HTML.
-	 * @param html The help HTML.
+	 * Placeholder that gets called to "initialize" the PositronConsoleService.
 	 */
-	openHelpHtml(html: string): void;
+	initialize(): void;
 
-	/**
-	 * Opens help markdown.
-	 * @param markdown The help markdown.
-	 */
-	openHelpMarkdown(markdown: MarkdownString): void;
+	// /**
+	//  * Opens help HTML.
+	//  * @param html The help HTML.
+	//  */
+	// openHelpHtml(html: string): void;
+
+	// /**
+	//  * Opens help markdown.
+	//  * @param markdown The help markdown.
+	//  */
+	// openHelpMarkdown(markdown: MarkdownString): void;
+
+	// /**
+	//  * Opens a help URL.
+	//  * @param url The help URL.
+	//  */
+	// openHelpUrl(url: string): void;
 }

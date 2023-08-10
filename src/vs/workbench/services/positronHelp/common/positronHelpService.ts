@@ -9,10 +9,10 @@ import { Disposable } from 'vs/base/common/lifecycle';
 import { MarkdownString } from 'vs/base/common/htmlContent';
 import { IOpenerService } from 'vs/platform/opener/common/opener';
 import { ILanguageService } from 'vs/editor/common/languages/language';
-// import { MarkdownRenderer } from 'vs/editor/contrib/markdownRenderer/browser/markdownRenderer';
-import { IPositronHelpService } from 'vs/workbench/services/positronHelp/common/interfaces/positronHelpService';
 import { ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { IPositronHelpService } from 'vs/workbench/services/positronHelp/common/interfaces/positronHelpService';
 import { LanguageRuntimeEventType, ShowHelpEvent } from 'vs/workbench/services/languageRuntime/common/languageRuntimeEvents';
+import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/common/extensions';
 
 // The TrustedTypePolicy for rendering.
 const ttPolicyPositronHelp = window.trustedTypes?.createPolicy('positronHelp', {
@@ -33,17 +33,7 @@ export class PositronHelpService extends Disposable implements IPositronHelpServ
 
 	//#endregion Private Properties
 
-	// // The RenderHelp event.
-	// private _onRenderHelp = this._register(new Emitter<string>());
-	// readonly onRenderHelp: Event<string> = this._onRenderHelp.event;
-
-
-	/**
-	 * The onRenderHelp event.
-	 */
-	readonly onRenderHelp = this._onRenderHelpEmitter.event;
-
-
+	//#region Constructor & Dispose
 
 	/**
 	 * Constructor.
@@ -80,21 +70,54 @@ export class PositronHelpService extends Disposable implements IPositronHelpServ
 		// this._store.add(this._markdownRenderer);
 	}
 
+	//#endregion Constructor & Dispose
+
+	//#region IPositronHelpService Implementation
+
 	/**
 	 * Needed for service branding in dependency injector.
 	 */
 	declare readonly _serviceBrand: undefined;
 
 	/**
-	 * Opens the specified help markdown.
-	 * @param markdown The help markdown.
+	 * The onRenderHelp event.
 	 */
-	openHelpMarkdown(markdown: MarkdownString) {
+	readonly onRenderHelp: Event<string | MarkdownString> = this._onRenderHelpEmitter.event;
+
+	/**
+	 * Placeholder that gets called to "initialize" the PositronHelpService.
+	 */
+	initialize() {
+	}
+
+	//#endregion IPositronHelpService Implementation
+
+	//#region Private Methods
+
+	/**
+	 * Opens help HTML.
+	 * @param html The help HTML.
+	 */
+	private openHelpHtml(html: string) {
 		// Ensure that we can create trusted HTML.
 		if (!ttPolicyPositronHelp) {
 			return;
 		}
 
+		// this._onRenderHelp.fire(html);
+	}
+
+	/**
+	 * Opens help markdown.
+	 * @param markdown The help markdown.
+	 */
+	private openHelpMarkdown(markdown: MarkdownString) {
+		// Ensure that we can create trusted HTML.
+		if (!ttPolicyPositronHelp) {
+			return;
+		}
+
+		this.renderHelpDocument('');
 		// const markdownRenderResult = this._markdownRenderer.render(markdown);
 		// try {
 		// 	const someOtherString = this.renderHelpDocument(markdownRenderResult.element.innerHTML);
@@ -104,21 +127,14 @@ export class PositronHelpService extends Disposable implements IPositronHelpServ
 		// }
 	}
 
-	openHelpHtml(html: string) {
-		// Ensure that we can create trusted HTML.
-		if (!ttPolicyPositronHelp) {
-			return;
-		}
 
-		// this._onRenderHelp.fire(html);
-	}
-
-	openHelpUrl(url: string) {
+	private openHelpUrl(url: string) {
 		const html = this.renderEmbeddedHelpDocument(url);
-		// this._onRenderHelp.fire(html);
+		console.log(html);
+		//this._onRenderHelp.fire(html);
 	}
 
-	renderEmbeddedHelpDocument(url: string): string {
+	private renderEmbeddedHelpDocument(url: string): string {
 
 		const nonce = generateUuid();
 
@@ -185,7 +201,7 @@ export class PositronHelpService extends Disposable implements IPositronHelpServ
 	 * @param helpContent The help content.
 	 * @returns The help document.
 	 */
-	renderHelpDocument(helpContent: string): string {
+	private renderHelpDocument(helpContent: string): string {
 		// Create the nonce.
 		const nonce = generateUuid();
 
@@ -215,4 +231,9 @@ export class PositronHelpService extends Disposable implements IPositronHelpServ
 			</body>
 		</html>`;
 	}
+
+	//#endregion Private Methods
 }
+
+// Register the Positron help service.
+registerSingleton(IPositronHelpService, PositronHelpService, InstantiationType.Delayed);
