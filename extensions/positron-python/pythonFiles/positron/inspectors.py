@@ -19,7 +19,7 @@ from collections.abc import (
     Sequence,
     Set,
 )
-from typing import Any, Callable, Optional, Tuple, TYPE_CHECKING
+from typing import Any, Callable, List, Optional, Tuple, TYPE_CHECKING
 
 from .dataviewer import DataColumn, DataSet
 from .utils import get_value_length, get_qualname, pretty_format
@@ -320,10 +320,10 @@ class TableInspector(PositronInspector):
     def get_child(self, value: Any, child_name: str) -> Any:
         return self.get_column(value, child_name)
 
-    def get_column_names(self, value: Any) -> list:
+    def get_column_names(self, value: Any) -> List[Any]:
         return []
 
-    def get_column(self, value: Any, column_name: str) -> list:
+    def get_column(self, value: Any, column_name: str) -> List[Any]:
         return []
 
     def get_column_display_type(self, value: Any, column_name: str) -> str:
@@ -331,7 +331,7 @@ class TableInspector(PositronInspector):
 
     def summarize_children(
         self, value: Any, summarizer: Callable[[str, Any], Optional[EnvironmentVariable]]
-    ) -> list:
+    ) -> List[Any]:
         children = []
 
         for column_name in self.get_column_names(value):
@@ -382,13 +382,13 @@ class PandasDataFrameInspector(TableInspector):
     def get_length(self, value: Any) -> int:
         return value.shape[0]
 
-    def get_column_names(self, value: Any) -> list:
+    def get_column_names(self, value: Any) -> List[Any]:
         try:
             return value.columns.values.tolist()
         except Exception:
             return []
 
-    def get_column(self, value: Any, column_name: str) -> Any:
+    def get_column(self, value: Any, column_name: str) -> List[Any]:
         try:
             column = value[column_name]
             values = column.values.tolist()[:MAX_CHILDREN]
@@ -434,8 +434,12 @@ class PandasDataFrameInspector(TableInspector):
             column = value[column_name]
             column_type = type(column).__name__
             column_data = column.values.tolist()
-            columns.append(DataColumn(name=column_name, type=column_type, data=column_data))
-        rowCount = len(columns[0].data)
+            # Use BaseModel.construct to avoid validation due to performance issues.
+            # TODO: Revisit __init__ and the new SkipValidation type when we upgrade to pydantic 2.0
+            # since the performance gap has been considerably reduced.
+            data_column = DataColumn.construct(name=column_name, type=column_type, data=column_data)
+            columns.append(data_column)
+        rowCount = value.shape[0]
 
         return DataSet(id=str(uuid.uuid4()), title=title, columns=columns, rowCount=rowCount)
 
@@ -602,8 +606,12 @@ class PolarsInspector(TableInspector):
             column = value.get_column(column_name)
             column_type = type(column).__name__
             column_data = column.to_list()
-            columns.append(DataColumn(name=column_name, type=column_type, data=column_data))
-        rowCount = len(columns[0].data)
+            # Use BaseModel.construct to avoid validation due to performance issues.
+            # TODO: Revisit __init__ and the new SkipValidation type when we upgrade to pydantic 2.0
+            # since the performance gap has been considerably reduced.
+            data_column = DataColumn.construct(name=column_name, type=column_type, data=column_data)
+            columns.append(data_column)
+        rowCount = value.shape[0]
 
         return DataSet(id=str(uuid.uuid4()), title=title, columns=columns, rowCount=rowCount)
 

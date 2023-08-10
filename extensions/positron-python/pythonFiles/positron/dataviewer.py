@@ -22,6 +22,8 @@ class DataColumn(BaseModel):
 
     name: str = Field(description="The name of the column")
     type: str = Field(description="The data type of the column")
+    # TODO: Consider using List[SkipValidation[Any]] when we upgrade to pydantic 2.0. We currently
+    # aren't validating anything due to performance reasons but probably only need to skip `data`.
     data: List[Any] = Field(description="The data in the column")
 
 
