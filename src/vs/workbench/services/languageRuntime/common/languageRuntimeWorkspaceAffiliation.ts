@@ -86,10 +86,9 @@ export class LanguageRuntimeWorkspaceAffiliation extends Disposable {
 
 		// If the runtime is affiliated with this workspace, start it.
 		if (runtime.metadata.runtimeId === affiliatedRuntimeId) {
-			this._logService.debug(`Starting affiliated runtime ${runtime.metadata.runtimeName} ` +
-				` (${runtime.metadata.runtimeId}) for this workspace.`);
 			try {
-				this._runtimeService.startRuntime(runtime.metadata.runtimeId);
+				this._runtimeService.startRuntime(runtime.metadata.runtimeId,
+					`Affiliated runtime for workspace`);
 			} catch (e) {
 				// This isn't necessarily an error; if another runtime took precedence and has
 				// already started for this workspace, we don't want to start this one.
