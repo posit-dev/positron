@@ -32,6 +32,8 @@ export interface IPositronHelpService {
 	 */
 	initialize(): void;
 
+	yack(): string | undefined;
+
 	// What, if any of these, need to be public methods on the service?
 
 	// /**

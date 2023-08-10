@@ -5,9 +5,8 @@
 import 'vs/css!./positronHelpView';
 import * as React from 'react';
 import * as DOM from 'vs/base/browser/dom';
-import * as uuid from 'vs/base/common/uuid';
+import { generateUuid } from 'vs/base/common/uuid';
 import { Event, Emitter } from 'vs/base/common/event';
-import { MarkdownString } from 'vs/base/common/htmlContent';
 import { IOpenerService } from 'vs/platform/opener/common/opener';
 import { IViewDescriptorService } from 'vs/workbench/common/views';
 import { IThemeService } from 'vs/platform/theme/common/themeService';
@@ -69,23 +68,17 @@ export class PositronHelpViewPane extends ViewPane implements IReactComponentCon
 	// The help action bars container - contains the PositronHelpActionBars component.
 	private _helpActionBarsContainer: HTMLElement;
 
-	// The PositronReactRenderer for the ActionBars component.
-	private _positronReactRendererActionBars?: PositronReactRenderer;
+	// The PositronReactRenderer for the PositronHelpActionBars component.
+	private _positronReactRendererHelpActionBars?: PositronReactRenderer;
 
-	// The host for the Help webview.
+	// The container for the help webview.
 	private _helpViewContainer: HTMLElement;
 
 	// The help iframe.
-	private _helpView: IWebviewElement | undefined;
+	private _helpWebviewElement: IWebviewElement | undefined;
 
 	// The last Positron help command that was sent to the help iframe.
 	private _lastPositronHelpCommand?: PositronHelpCommand;
-
-	// Spot fix: The cached last help HTML.
-	private _lastHelpViewHtml: string | MarkdownString | undefined;
-
-	// Spot fix: The first visibility flag.
-	private _firstVisibility = true;
 
 	//#endregion Private Properties
 
@@ -205,15 +198,10 @@ export class PositronHelpViewPane extends ViewPane implements IReactComponentCon
 		this._positronHelpContainer.appendChild(this._helpViewContainer);
 
 		this._register(this.positronHelpService.onRenderHelp(helpDescriptor => {
-
-			console.log(`HELP VIEW!!!! ${helpDescriptor.url}`);
-			// Spot fix: Cache last help HTML.
-			// this._lastHelpViewHtml = html;
-
-			// // Set the help view HTML.
-			// if (html instanceof String) {
-			// 	//this._helpView?.setHtml(html);
-			// }
+			if (this._helpWebviewElement) {
+				const html = this.shit(helpDescriptor.url);
+				this._helpWebviewElement.setHtml(html);
+			}
 		}));
 
 		// Register the onDidChangeBodyVisibility event handler.
@@ -223,14 +211,114 @@ export class PositronHelpViewPane extends ViewPane implements IReactComponentCon
 		}));
 	}
 
+	private shit(url: string) {
+
+		console.log(`HELP URL!!! ${url}`);
+
+		const nonce = generateUuid();
+
+		// Render the help document.
+		return `
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+		<meta http-equiv="Content-Security-Policy" content="
+			default-src 'none';
+			media-src https:;
+			script-src 'self' 'nonce-${nonce}';
+			style-src 'nonce-${nonce}';
+			frame-src *;
+		">
+		<style nonce="${nonce}">
+			body {
+				padding: 0;
+				width: 100%;
+				height: 100%;
+				display: flex;
+				font-size: 13px;
+				background: white;
+				flex-direction: column;
+				font-family: sans-serif;
+			}
+			#help-iframe {
+				width: 100%;
+				height = 100%;
+				border: none;
+			}
+		</style>
+		<script nonce="${nonce}">
+			console.log('THE ROOT SCRIPT GOT LOADED');
+		</script>
+	</head>
+	<body>
+		<div>sparta sparta</div>
+		<iframe id="help-iframe" src="${url}"></iframe>
+
+		<script nonce="${nonce}">
+		(function() {
+			let findText = undefined;
+			let findResult = false;
+
+			// Set up iframe.
+			const frame = document.getElementById("help-iframe");
+			// frame.style.width = "100%";
+			// frame.style.height = "100%";
+			// frame.style.border = "none";
+			// frame.src = "${url}";
+
+			// TODO: Not clear why this is necessary
+			document.documentElement.style.width = "100%";
+			document.documentElement.style.height = "100%";
+
+			window.addEventListener('message', (event) => {
+				if (window.find) {
+					if (event.data.command === 'find') {
+						findText = event.data.findText;
+						findResult = findText && frame.contentWindow.find(findText, false, false, true, false, true);
+
+						console.log('find command was received');
+						console.log('findText: ' + findText);
+						console.log('findResult: ' + findResult);
+
+						if (findResult) {
+							window.sessionStorage.setItem(event.data.identifier, 'true');
+						} else {
+							window.sessionStorage.setItem(event.data.identifier, 'false');
+						}
+						if (findResult) {
+							window.focus();
+						} else {
+							window.getSelection().removeAllRanges();
+						}
+					} else if (event.data.command === 'find-previous') {
+						if (findResult) {
+							window.find(findText, false, true, false, false, true);
+							window.focus();
+						}
+					} else if (event.data.command === 'find-next') {
+						if (findResult) {
+							window.find(findText, false, false, false, false, true);
+							window.focus();
+						}
+					}
+				}
+			}, false);
+
+		})();
+		</script>
+	</body>
+</html>`;
+	}
+
 	/**
 	 * dispose override method.
 	 */
 	public override dispose(): void {
 		// Destroy the PositronReactRenderer for the ActionBars component.
-		if (this._positronReactRendererActionBars) {
-			this._positronReactRendererActionBars.destroy();
-			this._positronReactRendererActionBars = undefined;
+		if (this._positronReactRendererHelpActionBars) {
+			this._positronReactRendererHelpActionBars.destroy();
+			this._positronReactRendererHelpActionBars = undefined;
 		}
 
 		// Call the base class's dispose method.
@@ -263,7 +351,9 @@ export class PositronHelpViewPane extends ViewPane implements IReactComponentCon
 
 		// Find handler.
 		const findHandler = (findText: string) => {
-			this.postHelpIFrameMessage({ identifier: uuid.generateUuid(), command: 'find', findText });
+			//this._helpView.showFind(true);
+
+			//this.postHelpIFrameMessage({ identifier: generateUuid(), command: 'find', findText });
 		};
 
 		// Find handler.
@@ -285,17 +375,17 @@ export class PositronHelpViewPane extends ViewPane implements IReactComponentCon
 
 		// Find previous handler.
 		const findPrevious = () => {
-			this.postHelpIFrameMessage({ identifier: uuid.generateUuid(), command: 'find-previous' });
+			this.postHelpIFrameMessage({ identifier: generateUuid(), command: 'find-previous' });
 		};
 
 		// Find next handler.
 		const findNext = () => {
-			this.postHelpIFrameMessage({ identifier: uuid.generateUuid(), command: 'find-next' });
+			this.postHelpIFrameMessage({ identifier: generateUuid(), command: 'find-next' });
 		};
 
 		// Render the ActionBars component.
-		this._positronReactRendererActionBars = new PositronReactRenderer(this._helpActionBarsContainer);
-		this._positronReactRendererActionBars.render(
+		this._positronReactRendererHelpActionBars = new PositronReactRenderer(this._helpActionBarsContainer);
+		this._positronReactRendererHelpActionBars.render(
 			<ActionBars
 				commandService={this.commandService}
 				configurationService={this.configurationService}
@@ -352,7 +442,7 @@ export class PositronHelpViewPane extends ViewPane implements IReactComponentCon
 	 */
 	private postHelpIFrameMessage(positronHelpCommand: PositronHelpCommand): void {
 		// Post the message to the help iframe.
-		this._helpView?.postMessage(positronHelpCommand);
+		//this._helpView?.postMessage(positronHelpCommand);
 
 		// Save the command?
 		if (positronHelpCommand.command === 'find' && positronHelpCommand.findText) {
@@ -363,42 +453,34 @@ export class PositronHelpViewPane extends ViewPane implements IReactComponentCon
 	}
 
 	private onDidChangeVisibility(visible: boolean): void {
-		// Warning: HACKS OF AN EGREGIOUS NATURE ARE BELOW.
 		if (visible) {
-			const createHelpView = () => {
-				if (this._helpView) {
-					return;
-				}
+			if (this._helpWebviewElement) {
+				return;
+			}
 
-				this._helpView = this.webviewService.createWebviewElement({
-					title: 'Positron Help',
-					extension: {
-						id: new ExtensionIdentifier('positron-help'),
-					},
-					options: {},
-					contentOptions: {
-						allowScripts: true,
-						localResourceRoots: [], // TODO: needed for positron-help.js
-					},
-				});
+			this._helpWebviewElement = this.webviewService.createWebviewElement({
+				title: 'Positron Help',
+				extension: {
+					id: new ExtensionIdentifier('positron-help'),
+				},
+				options: {},
+				contentOptions: {
+					allowScripts: true,
+					localResourceRoots: [], // TODO: needed for positron-help.js
+				},
+			});
 
-				this._helpView.mountTo(this._helpViewContainer);
+			this._helpWebviewElement.mountTo(this._helpViewContainer);
 
-				if (this._lastHelpViewHtml) {
-					//this._helpView?.setHtml(this._lastHelpViewHtml);
-				}
-			};
-
-			if (this._firstVisibility) {
-				this._firstVisibility = false;
-				setTimeout(createHelpView, 500);
-			} else {
-				createHelpView();
+			const dd = this.positronHelpService.yack();
+			if (dd) {
+				const html = this.shit(dd);
+				this._helpWebviewElement.setHtml(html);
 			}
 		} else {
-			if (this._helpView) {
-				this._helpView.dispose();
-				this._helpView = undefined;
+			if (this._helpWebviewElement) {
+				this._helpWebviewElement.dispose();
+				this._helpWebviewElement = undefined;
 			}
 		}
 	}

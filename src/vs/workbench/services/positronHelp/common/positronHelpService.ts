@@ -38,6 +38,9 @@ export class PositronHelpService extends Disposable implements IPositronHelpServ
 	 */
 	private readonly _onRenderHelpEmitter = this._register(new Emitter<HelpDescriptor>);
 
+	/**
+	 * The help history.
+	 */
 	private readonly _history: string[] = [];
 
 	//#endregion Private Properties
@@ -102,6 +105,15 @@ export class PositronHelpService extends Disposable implements IPositronHelpServ
 	 */
 	initialize() {
 	}
+
+	yack() {
+		if (!this._history.length) {
+			return undefined;
+		} else {
+			return this._history[this._history.length - 1];
+		}
+	}
+
 
 	//#endregion IPositronHelpService Implementation
 
