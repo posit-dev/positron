@@ -50,6 +50,10 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 	// The array of registered runtimes.
 	private readonly _registeredRuntimes: LanguageRuntimeInfo[] = [];
 
+	// The current discovery phase for language runtime registration.
+	private _discoveryPhase: LanguageRuntimeDiscoveryPhase =
+		LanguageRuntimeDiscoveryPhase.PreDiscovery;
+
 	// A map of the registered runtimes. This is keyed by the runtimeId
 	// (metadata.runtimeId) of the runtime.
 	private readonly _registeredRuntimesByRuntimeId = new Map<string, LanguageRuntimeInfo>();
@@ -152,6 +156,11 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 		// registered.
 		this._extensionService.whenAllExtensionHostsStarted().then(() => {
 			this._onDidChangeDiscoveryPhaseEmitter.fire(LanguageRuntimeDiscoveryPhase.Discovering);
+		});
+
+		// Update the discovery phase when the language service's state changes.
+		this.onDidChangeDiscoveryPhase(phase => {
+			this._discoveryPhase = phase;
 		});
 	}
 
@@ -363,6 +372,27 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 			}
 		}));
 
+		// --- Begin TEMPORARY ---
+		// We want to start a Python runtime as a last-chance fallback if we have no other
+		// runtimes to start. We consider this to be true under the following circumstances:
+		//
+		// - We have completed the discovery phase, which implies we've also started any
+		//   runtimes that asked to be started right away (startupBehavior === Immediate).
+		// - No runtimes have been started or are running yet.
+		// - No runtimes will be automatically started for this workspace, i.e. this workspace
+		//   has no affiliated runtimes.
+		//
+		// This behavior shouldn't live here, but it does until the Python language pack
+		// can be updated. See https://github.com/rstudio/positron/issues/1009
+		if (this._discoveryPhase === LanguageRuntimeDiscoveryPhase.Complete &&
+			!this.hasAnyStartedOrRunningRuntimes() &&
+			languageRuntimeInfo.runtime.metadata.languageId === 'python' &&
+			!this._workspaceAffiliation.hasAffiliatedRuntime()) {
+			this._logService.trace(`Language runtime ${formatLanguageRuntime(runtime)} automatically starting.`);
+			this.doStartRuntime(languageRuntimeInfo.runtime);
+		}
+		// --- End TEMPORARY ---
+
 		return toDisposable(() => {
 			// Remove the runtime from the set of starting or running runtimes.
 			this._startingRuntimesByLanguageId.delete(runtime.metadata.languageId);
@@ -378,8 +408,7 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 		this._onDidChangeDiscoveryPhaseEmitter.fire(LanguageRuntimeDiscoveryPhase.Complete);
 
 		if (!this._workspaceAffiliation.hasAffiliatedRuntime() &&
-			this._startingRuntimesByLanguageId.size === 0 &&
-			this._runningRuntimesByLanguageId.size === 0) {
+			!this.hasAnyStartedOrRunningRuntimes()) {
 			// If there are no affiliated runtimes, and no starting or running
 			// runtimes, start the first runtime that has Immediate startup
 			// behavior.
@@ -473,6 +502,14 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 	private runtimeForLanguageIsStartingOrRunning(languageId: string) {
 		return this._startingRuntimesByLanguageId.has(languageId) ||
 			this._runningRuntimesByLanguageId.has(languageId);
+	}
+
+	/**
+	 * Checks to see if any of the registered runtimes are starting or running.
+	 */
+	private hasAnyStartedOrRunningRuntimes(): boolean {
+		return this._startingRuntimesByLanguageId.size > 0 ||
+			this._runningRuntimesByLanguageId.size > 0;
 	}
 
 	/**
