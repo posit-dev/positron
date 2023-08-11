@@ -20,6 +20,8 @@ import { DeferredPromise } from 'vs/base/common/async';
 import { generateUuid } from 'vs/base/common/uuid';
 import { IPositronPlotsService } from 'vs/workbench/services/positronPlots/common/positronPlots';
 import { LanguageRuntimeEventType, PromptStateEvent } from 'vs/workbench/services/languageRuntime/common/languageRuntimeEvents';
+import { IPositronHelpService } from 'vs/workbench/services/positronHelp/common/interfaces/positronHelpService';
+// import { IPositronHelpService } from 'vs/workbench/services/positronHelp/common/interfaces/positronHelpService';
 
 /**
  * Represents a language runtime event (for example a message or state change)
@@ -136,10 +138,10 @@ class ExtHostLanguageRuntimeAdapter implements ILanguageRuntime {
 				const inputPrompt = state.inputPrompt?.trimEnd();
 				const continuationPrompt = state.continuationPrompt?.trimEnd();
 
-				if (inputPrompt) {
+				if (this.dynState && inputPrompt) {
 					this.dynState.inputPrompt = inputPrompt;
 				}
-				if (continuationPrompt) {
+				if (this.dynState && continuationPrompt) {
 					this.dynState.continuationPrompt = continuationPrompt;
 				}
 
@@ -778,12 +780,14 @@ export class MainThreadLanguageRuntime implements MainThreadLanguageRuntimeShape
 		@ILanguageRuntimeService private readonly _languageRuntimeService: ILanguageRuntimeService,
 		@IPositronConsoleService private readonly _positronConsoleService: IPositronConsoleService,
 		@IPositronEnvironmentService private readonly _positronEnvironmentService: IPositronEnvironmentService,
+		@IPositronHelpService private readonly _positronHelpService: IPositronConsoleService,
 		@IPositronPlotsService private readonly _positronPlotService: IPositronPlotsService,
 		@ILogService private readonly _logService: ILogService
 	) {
 		// TODO@softwarenerd - We needed to find a central place where we could ensure that certain
 		// Positron services were up and running early in the application lifecycle. For now, this
 		// is where we're doing this.
+		this._positronHelpService.initialize();
 		this._positronConsoleService.initialize();
 		this._positronEnvironmentService.initialize();
 		this._positronPlotService.initialize();
