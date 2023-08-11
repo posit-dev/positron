@@ -242,43 +242,64 @@ export function registerPositronConsoleActions() {
 			if (!code.length && lineNumber > 0) {
 				// Find the first non-empty line after the cursor position and read the
 				// contents of that line.
-				do {
-					code = this.trimNewlines(model.getLineContent(lineNumber));
-				} while (!code.length && ++lineNumber < model.getLineCount());
+				for (let number = lineNumber; number <= model.getLineCount(); ++number) {
+					code = this.trimNewlines(model.getLineContent(number));
+
+					if (code.length > 0) {
+						lineNumber = number;
+						break;
+					}
+				}
 			}
 
-			// If we have code and a position and we're not at the end of the
-			// document, move the cursor to the next line with code on it.
-			if (code.length && position && ++lineNumber <= model.getLineCount()) {
-				// Continue to move past empty lines so that the cursor lands on
-				// the first non-empty line
-				let nextLineNumber = lineNumber;
-				while (this.trimNewlines(model.getLineContent(nextLineNumber)).length === 0 &&
-					nextLineNumber < model.getLineCount()) {
-					nextLineNumber++;
+			// If we have code and a position move the cursor to the next line with code on it,
+			// or just to the next line if all additional lines are blank.
+			if (code.length && position) {
+				let onlyEmptyLines = true;
+
+				for (let number = lineNumber + 1; number <= model.getLineCount(); ++number) {
+					if (this.trimNewlines(model.getLineContent(number)).length !== 0) {
+						// We found a non-empty line, move the cursor to it.
+						onlyEmptyLines = false;
+						lineNumber = number;
+						break;
+					}
 				}
 
-				if (nextLineNumber < model.getLineCount()) {
-					// If we found a non-empty line, move the cursor to it.
-					lineNumber = nextLineNumber;
-				} else {
-					// If we didn't, just move the cursor to the line after the
-					// one we executed, even if it's empty.
-					lineNumber = position.lineNumber + 1;
+				if (onlyEmptyLines) {
+					// At a minimum, we always move the cursor 1 line past the code we executed
+					// so the user can keep typing
+					++lineNumber;
+
+					if (lineNumber === model.getLineCount() + 1) {
+						// If this puts us past the end of the document, insert a newline for us
+						// to move to
+						const editOperation = {
+							range: {
+								startLineNumber: model.getLineCount(),
+								startColumn: model.getLineMaxColumn(model.getLineCount()),
+								endLineNumber: model.getLineCount(),
+								endColumn: model.getLineMaxColumn(model.getLineCount())
+							},
+							text: '\n'
+						};
+						model.pushEditOperations([], [editOperation], () => []);
+					}
 				}
 
-				// This is the cursor's new position; move the cursor and scroll
-				// the editor to it if necessary.
 				const newPosition = position.with(lineNumber, 0);
 				editor.setPosition(newPosition);
 				editor.revealPositionInCenterIfOutsideViewport(newPosition);
 			}
 
-			// If we're at the very end of the document, insert a newline so that
-			// the user can continue typing.
-			if (position?.lineNumber === model.getLineCount()) {
+			if (!code.length && position && lineNumber === model.getLineCount()) {
+				// Typically we don't do anything when we don't have code to execute,
+				// but when we are at the end of a document we add a new line. However,
+				// we don't move to that new line to avoid adding a bunch of empty
+				// lines to the end.
+
 				// Create an edit operation that will append a new line to the end
-				// of the document.
+				// of the document. It also moves us to that line.
 				const editOperation = {
 					range: {
 						startLineNumber: model.getLineCount(),
@@ -290,13 +311,10 @@ export function registerPositronConsoleActions() {
 				};
 				model.pushEditOperations([], [editOperation], () => []);
 
-				// If we didn't actually execute any code, move the cursor back
-				// up a line so that we don't wind up adding a bunch of empty
-				// lines to the end of the document if the command is run
-				// multiple times.
-				if (!code.length) {
-					editor.setPosition(position.with(position.lineNumber, position.column));
-				}
+				// Undo the fact that the edit operation moved the cursor.
+				const newPosition = position.with(lineNumber, position.column);
+				editor.setPosition(newPosition);
+				editor.revealPositionInCenterIfOutsideViewport(newPosition);
 			}
 
 			// Now that we've gotten this far, ensure we have a target language.
