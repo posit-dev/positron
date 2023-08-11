@@ -1,12 +1,12 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
 import * as positron from 'positron';
 
 import { registerCommands } from './commands';
-import { initializeLogging, trace, traceOutputChannel } from './logging';
+import { initializeLogging } from './logging';
 import { rRuntimeProvider } from './provider';
 
 

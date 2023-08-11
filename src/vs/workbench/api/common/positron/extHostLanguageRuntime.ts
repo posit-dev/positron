@@ -185,7 +185,20 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 	public registerLanguageRuntimeProvider(
 		languageId: string,
 		provider: positron.LanguageRuntimeProvider): void {
-		this._runtimeProviders.push(provider);
+		this._proxy.$isLanguageRuntimeDiscoveryComplete().then(complete => {
+			if (complete) {
+				// We missed the discovery phase. Invoke the provider's async
+				// generator and register each runtime it returns right away.
+				void (async () => {
+					for await (const runtime of provider) {
+						this.registerLanguageRuntime(runtime);
+					}
+				})();
+			} else {
+				// We didn't miss it; save the provider for later invocation
+				this._runtimeProviders.push(provider);
+			}
+		});
 	}
 
 	public registerLanguageRuntime(

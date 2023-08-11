@@ -297,9 +297,9 @@ export enum LanguageRuntimeStartupBehavior {
 
 export enum LanguageRuntimeDiscoveryPhase {
 	/**
-	 * No language runtimes have been discovered yet.
+	 * We are waiting for extensions to register language runtime providers.
 	 */
-	PreDiscovery = 'pre-discovery',
+	AwaitingExtensions = 'AwaitingExtensions',
 
 	/**
 	 * Language runtimes are currently being discovered and registered. During

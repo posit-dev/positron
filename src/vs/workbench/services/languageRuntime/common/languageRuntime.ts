@@ -53,8 +53,10 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 
 	// The current discovery phase for language runtime registration.
 	private _discoveryPhase: LanguageRuntimeDiscoveryPhase =
-		LanguageRuntimeDiscoveryPhase.PreDiscovery;
+		LanguageRuntimeDiscoveryPhase.AwaitingExtensions;
 
+	// Whether the workspace was untrusted when it was opened.
+	private _initiallyTrustedWorkspace = false;
 
 	// A map of the registered runtimes. This is keyed by the runtimeId
 	// (metadata.runtimeId) of the runtime.
@@ -157,13 +159,10 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 		}));
 
 		// Begin discovering language runtimes once all extensions have been
-		// registered. We only do this if the workspace is trusted, since
+		// registered.
 		this._extensionService.whenAllExtensionHostsStarted().then(() => {
 			this._onDidChangeDiscoveryPhaseEmitter.fire(LanguageRuntimeDiscoveryPhase.Discovering);
-		});
-
-		this._workspaceTrustManagementService.onDidChangeTrust((trusted) => {
-
+			this._initiallyTrustedWorkspace = this._workspaceTrustManagementService.isWorkspaceTrusted();
 		});
 
 		// Update the discovery phase when the language service's state changes.
@@ -319,6 +318,19 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 				`when the runtime was registered.`);
 		}
 
+		// Automatically start the language runtime under the following conditions:
+		// - The language runtime wants to start immediately.
+		// - No other runtime is currently running.
+		// - We have completed the discovery phase of the language runtime
+		//   registration process.
+		else if (startupBehavior === LanguageRuntimeStartupBehavior.Immediate &&
+			this._discoveryPhase === LanguageRuntimeDiscoveryPhase.Complete &&
+			!this.hasAnyStartedOrRunningRuntimes()) {
+
+			this.autoStartRuntime(languageRuntimeInfo.runtime,
+				`An extension requested that the runtime start immediately after being registered.`);
+		}
+
 		// Add the onDidChangeRuntimeState event handler.
 		this._register(runtime.onDidChangeRuntimeState(state => {
 			// Process the state change.
@@ -388,6 +400,9 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 		// - We have completed the discovery phase, which implies we've also started any
 		//   runtimes that asked to be started right away (startupBehavior === Immediate).
 		// - No runtimes have been started or are running yet.
+		// - This was not an initially untrusted workspace; in these workspaces, we don't
+		//   know what would have been automatically started, so we don't want to come
+		//   stomping in and starting a Python runtime.
 		// - No runtimes will be automatically started for this workspace, i.e. this workspace
 		//   has no affiliated runtimes.
 		//
@@ -396,6 +411,7 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 		if (this._discoveryPhase === LanguageRuntimeDiscoveryPhase.Complete &&
 			!this.hasAnyStartedOrRunningRuntimes() &&
 			languageRuntimeInfo.runtime.metadata.languageId === 'python' &&
+			this._initiallyTrustedWorkspace === true &&
 			!this._workspaceAffiliation.hasAffiliatedRuntime()) {
 			this.autoStartRuntime(languageRuntimeInfo.runtime,
 				`No other language runtimes want to start; Python is the default.`);
