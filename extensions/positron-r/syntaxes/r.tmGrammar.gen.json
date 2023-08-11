@@ -294,24 +294,20 @@
                     }
                 },
                 {
-                    "name": "markup.bold",
-                    "begin": "[*][*]",
-                    "end": "[*][*]"
+                    "name": "markdown.bold",
+                    "match": "(\\s+|^)(__.+?__)\\b"
                 },
                 {
-                    "name": "markup.bold",
-                    "begin": "__",
-                    "end": "__"
+                    "name": "markdown.italic",
+                    "match": "(\\s+|^)(_(?=[^_])(?:(?:\\\\.)|(?:[^_\\\\]))*?_)\\b"
                 },
                 {
-                    "name": "markup.italic",
-                    "begin": "[*]",
-                    "end": "[*]"
+                    "name": "markdown.bold",
+                    "match": "([*][*].+?[*][*])"
                 },
                 {
-                    "name": "markup.italic",
-                    "begin": "_",
-                    "end": "_"
+                    "name": "markdown.italic",
+                    "match": "([*](?=[^*])(?:(?:\\\\.)|(?:[^*\\\\]))*?[*])"
                 },
                 {
                     "name": "markup.quote",
