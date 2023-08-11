@@ -565,7 +565,7 @@ export const ConsoleInput = forwardRef<HTMLDivElement, ConsoleInputProps>((props
 			}
 
 			// Reserve appropriate width for the prompt in case width has changed
-			editorOptions.lineNumbersMinChars = props.positronConsoleInstance.runtime.metadata.inputPrompt?.length || 1;
+			editorOptions.lineNumbersMinChars = props.positronConsoleInstance.runtime.dynState.inputPrompt.length;
 			codeEditorWidget.updateOptions({ ...editorOptions });
 
 			// Update the code editor widget options.
