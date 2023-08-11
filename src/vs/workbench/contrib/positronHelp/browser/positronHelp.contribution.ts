@@ -13,14 +13,14 @@ import { LifecyclePhase } from 'vs/workbench/services/lifecycle/common/lifecycle
 import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
 import { ViewPaneContainer } from 'vs/workbench/browser/parts/views/viewPaneContainer';
 import { PositronHelpViewPane } from 'vs/workbench/contrib/positronHelp/browser/positronHelpView';
-import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/common/extensions';
-import { PositronHelpService } from 'vs/workbench/contrib/positronHelp/browser/positronHelpService';
-import { IPositronHelpService, POSITRON_HELP_VIEW_ID } from 'vs/workbench/services/positronHelp/common/positronHelp';
+import { IPositronHelpService } from 'vs/workbench/services/positronHelp/common/interfaces/positronHelpService';
 import { IWorkbenchContributionsRegistry, Extensions as WorkbenchExtensions, IWorkbenchContribution } from 'vs/workbench/common/contributions';
 import { ViewContainer, IViewContainersRegistry, ViewContainerLocation, Extensions as ViewContainerExtensions, IViewsRegistry } from 'vs/workbench/common/views';
 
-// Register the Positron help service.
-registerSingleton(IPositronHelpService, PositronHelpService, InstantiationType.Delayed);
+/**
+ * The Positron help view ID.
+ */
+const POSITRON_HELP_VIEW_ID = 'workbench.panel.positronHelp';
 
 // The Positron help view icon.
 const positronHelpViewIcon = registerIcon('positron-help-view-icon', Codicon.positronHelpView, nls.localize('positronHelpViewIcon', 'View icon of the Positron help view.'));
