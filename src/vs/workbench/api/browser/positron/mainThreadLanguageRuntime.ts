@@ -138,10 +138,10 @@ class ExtHostLanguageRuntimeAdapter implements ILanguageRuntime {
 				const inputPrompt = state.inputPrompt?.trimEnd();
 				const continuationPrompt = state.continuationPrompt?.trimEnd();
 
-				if (this.dynState && inputPrompt) {
+				if (inputPrompt) {
 					this.dynState.inputPrompt = inputPrompt;
 				}
-				if (this.dynState && continuationPrompt) {
+				if (continuationPrompt) {
 					this.dynState.continuationPrompt = continuationPrompt;
 				}
 
