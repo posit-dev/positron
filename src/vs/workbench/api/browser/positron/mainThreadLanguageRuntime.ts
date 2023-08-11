@@ -128,6 +128,11 @@ class ExtHostLanguageRuntimeAdapter implements ILanguageRuntime {
 		});
 
 		this._languageRuntimeService.onDidReceiveRuntimeEvent(globalEvent => {
+			// Ignore events for other runtimes.
+			if (globalEvent.runtime_id !== this.metadata.runtimeId) {
+				return;
+			}
+
 			const ev = globalEvent.event;
 			if (ev.name === LanguageRuntimeEventType.PromptState) {
 				// Update config before propagating event
