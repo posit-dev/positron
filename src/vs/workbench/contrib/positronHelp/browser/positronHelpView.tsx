@@ -74,7 +74,7 @@ export class PositronHelpViewPane extends ViewPane implements IReactComponentCon
 	// The container for the help webview.
 	private _helpViewContainer: HTMLElement;
 
-	// The help iframe.
+	// The help overlay webview.
 	private _helpOverlayWebview: IOverlayWebview;
 
 	// The last Positron help command that was sent to the help iframe.
@@ -211,9 +211,10 @@ export class PositronHelpViewPane extends ViewPane implements IReactComponentCon
 			},
 		});
 
+		// Register the onRenderHelp event handler.
 		this._register(this.positronHelpService.onRenderHelp(helpDescriptor => {
 			if (this._helpOverlayWebview) {
-				const html = this.shit(helpDescriptor.url);
+				const html = this.generateHelpDocument(helpDescriptor.url);
 				this._helpOverlayWebview.setHtml(html);
 			}
 		}));
@@ -223,111 +224,6 @@ export class PositronHelpViewPane extends ViewPane implements IReactComponentCon
 			this.onDidChangeVisibility(visible);
 			this._onVisibilityChangedEmitter.fire(visible);
 		}));
-	}
-
-	private shit(url: string) {
-
-		console.log(`We want to open help URL: ${url}`);
-		const nonce = generateUuid();
-
-		// Render the help document.
-		return `
-<!DOCTYPE html>
-<html>
-	<head>
-		<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-		<meta http-equiv="Content-Security-Policy" content="
-			default-src 'none';
-			media-src https:;
-			script-src 'self' 'nonce-${nonce}';
-			style-src 'nonce-${nonce}';
-			frame-src *;
-		">
-		<style nonce="${nonce}">
-			body {
-				padding: 0;
-				width: 100%;
-				height: 100%;
-				display: flex;
-				font-size: 13px;
-				flex-direction: column;
-				font-family: sans-serif;
-			}
-			#help-iframe {
-				width: 100%;
-				height = 100%;
-				border: none;
-			}
-		</style>
-		<script nonce="${nonce}">
-			console.log('THE ROOT SCRIPT GOT LOADED');
-		</script>
-	</head>
-	<body>
-		<iframe id="help-iframe" src="${url}"></iframe>
-
-		<script nonce="${nonce}">
-		(function() {
-			let findText = undefined;
-			let findResult = false;
-
-			// Set up iframe.
-			const frame = document.getElementById("help-iframe");
-			frame.style.width = "100%";
-			frame.style.height = "100%";
-			frame.style.background = "orange";
-			// frame.style.border = "none";
-			// frame.src = "${url}";
-
-			frame.onload = function() {
-				console.log("!!");
-				console.log("The iframe is loaded ");
-				console.log(frame.src);
-				console.log("!!");
-			};
-
-			// TODO: Not clear why this is necessary
-			document.documentElement.style.width = "100%";
-			document.documentElement.style.height = "100%";
-
-			window.addEventListener('message', (event) => {
-				if (window.find) {
-					if (event.data.command === 'find') {
-						findText = event.data.findText;
-						findResult = findText && frame.contentWindow.find(findText, false, false, true, false, true);
-
-						console.log('find command was received');
-						console.log('findText: ' + findText);
-						console.log('findResult: ' + findResult);
-
-						if (findResult) {
-							window.sessionStorage.setItem(event.data.identifier, 'true');
-						} else {
-							window.sessionStorage.setItem(event.data.identifier, 'false');
-						}
-						if (findResult) {
-							window.focus();
-						} else {
-							window.getSelection().removeAllRanges();
-						}
-					} else if (event.data.command === 'find-previous') {
-						if (findResult) {
-							window.find(findText, false, true, false, false, true);
-							window.focus();
-						}
-					} else if (event.data.command === 'find-next') {
-						if (findResult) {
-							window.find(findText, false, false, false, false, true);
-							window.focus();
-						}
-					}
-				}
-			}, false);
-
-		})();
-		</script>
-	</body>
-</html>`;
 	}
 
 	/**
@@ -473,6 +369,10 @@ export class PositronHelpViewPane extends ViewPane implements IReactComponentCon
 		}
 	}
 
+	/**
+	 * onDidChangeVisibility event handler.
+	 * @param visible A value which indicates visibility.
+	 */
 	private onDidChangeVisibility(visible: boolean): void {
 		if (visible) {
 			this._helpOverlayWebview.claim(this, undefined);
@@ -480,41 +380,118 @@ export class PositronHelpViewPane extends ViewPane implements IReactComponentCon
 		} else {
 			this._helpOverlayWebview.release(this);
 		}
-
-		// }
-		// if (visible) {
-		// 	if (this._helpOverlayWebview) {
-		// 		return;
-		// 	}
-
-		// 	this._helpOverlayWebview = this.webviewService.createWebviewOverlay({
-		// 		title: 'Positron Help',
-		// 		extension: {
-		// 			id: new ExtensionIdentifier('positron-help'),
-		// 		},
-		// 		options: {},
-		// 		contentOptions: {
-		// 			allowScripts: true,
-		// 			localResourceRoots: [], // TODO: needed for positron-help.js
-		// 		},
-		// 	});
-
-		// 	this._helpOverlayWebview.claim(this, undefined);
-
-		// 	this._helpOverlayWebview.layoutWebviewOverElement(this._helpViewContainer);
-
-		// 	const dd = this.positronHelpService.yack();
-		// 	if (dd) {
-		// 		const html = this.shit(dd);
-		// 		this._helpOverlayWebview.setHtml(html);
-		// 	}
-		// } else {
-		// 	if (this._helpOverlayWebview) {
-		// 		this._helpOverlayWebview.dispose();
-		// 		this._helpOverlayWebview = undefined;
-		// 	}
-		// }
 	}
+
+	/**
+	 * Generates a help document to display help.
+	 * @param url The URL of the help to display in the help document.
+	 * @returns The help document.
+	 */
+	private generateHelpDocument(url: string) {
+
+		const nonce = generateUuid();
+
+		// Render the help document.
+		return `
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+		<meta http-equiv="Content-Security-Policy" content="
+			default-src 'none';
+			media-src https:;
+			script-src 'self' 'nonce-${nonce}';
+			style-src 'nonce-${nonce}';
+			frame-src *;
+		">
+		<style nonce="${nonce}">
+			body {
+				padding: 0;
+				width: 100%;
+				height: 100%;
+				display: flex;
+				font-size: 13px;
+				flex-direction: column;
+				font-family: sans-serif;
+			}
+			#help-iframe {
+				width: 100%;
+				height = 100%;
+				border: none;
+			}
+		</style>
+		<script nonce="${nonce}">
+			console.log('THE ROOT SCRIPT GOT LOADED');
+		</script>
+	</head>
+	<body>
+		<iframe id="help-iframe" src="${url}"></iframe>
+
+		<script nonce="${nonce}">
+		(function() {
+			let findText = undefined;
+			let findResult = false;
+
+			// Set up iframe.
+			const frame = document.getElementById("help-iframe");
+			frame.style.width = "100%";
+			frame.style.height = "100%";
+			frame.style.background = "orange";
+			// frame.style.border = "none";
+			// frame.src = "${url}";
+
+			frame.onload = function() {
+				console.log("!!");
+				console.log("The iframe is loaded ");
+				console.log(frame.src);
+				console.log("!!");
+			};
+
+			// TODO: Not clear why this is necessary
+			document.documentElement.style.width = "100%";
+			document.documentElement.style.height = "100%";
+
+			window.addEventListener('message', (event) => {
+				if (window.find) {
+					if (event.data.command === 'find') {
+						findText = event.data.findText;
+						findResult = findText && frame.contentWindow.find(findText, false, false, true, false, true);
+
+						console.log('find command was received');
+						console.log('findText: ' + findText);
+						console.log('findResult: ' + findResult);
+
+						if (findResult) {
+							window.sessionStorage.setItem(event.data.identifier, 'true');
+						} else {
+							window.sessionStorage.setItem(event.data.identifier, 'false');
+						}
+						if (findResult) {
+							window.focus();
+						} else {
+							window.getSelection().removeAllRanges();
+						}
+					} else if (event.data.command === 'find-previous') {
+						if (findResult) {
+							window.find(findText, false, true, false, false, true);
+							window.focus();
+						}
+					} else if (event.data.command === 'find-next') {
+						if (findResult) {
+							window.find(findText, false, false, false, false, true);
+							window.focus();
+						}
+					}
+				}
+			}, false);
+
+		})();
+		</script>
+	</body>
+</html>`;
+	}
+
+
 
 	//#endregion Private Methods
 }
