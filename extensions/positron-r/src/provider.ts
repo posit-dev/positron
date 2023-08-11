@@ -130,7 +130,9 @@ export async function* rRuntimeProvider(context: vscode.ExtensionContext): Async
 			'RUST_BACKTRACE': '1',
 			'RUST_LOG': logLevel,
 			'R_HOME': rHome.homepath,
+			// Manually set `R_CLI_*` options until cli knows about Positron
 			'R_CLI_NUM_COLORS': '256',
+			'R_CLI_DYNAMIC': 'true'
 		};
 		/* eslint-enable */
 
