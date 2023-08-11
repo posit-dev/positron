@@ -44,6 +44,7 @@ export class PythonLanguageRuntime implements JupyterLanguageRuntime, Disposable
     constructor(
         readonly kernelSpec: JupyterKernelSpec,
         readonly metadata: positron.LanguageRuntimeMetadata,
+        readonly dynState: positron.LanguageRuntimeDynState,
         readonly adapterApi: JupyterAdapterApi,
         readonly languageClientOptions: LanguageClientOptions,
         private readonly interpreter: PythonEnvironment | undefined,
