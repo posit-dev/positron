@@ -236,9 +236,15 @@ export class PositronJediLanguageServerProxy implements ILanguageServerProxy {
             startupBehavior
         }
 
+        // Create the initial config for the dynamic state of the language runtime
+        const dynState: positron.LanguageRuntimeDynState = {
+            inputPrompt: '>>>',
+            continuationPrompt: '...'
+        }
+
         // Create an adapter for the kernel as our language runtime
         const runtime = new PythonLanguageRuntime(
-            kernelSpec, metadata, jupyterAdapterApi, options, interpreter, this.installer);
+            kernelSpec, metadata, dynState, jupyterAdapterApi, options, interpreter, this.installer);
 
         // Register our language runtime provider
         return positron.runtime.registerLanguageRuntime(runtime);
