@@ -6,14 +6,18 @@
 	height: 100%;
 	display: flex;
 	flex-direction: column;
+	background: red;
 }
 
 .positron-help-container .action-bars-container {
-	height: min-content;
+	height: 64px;
 }
 
-.positron-help-container .help-iframe {
-	border: none;
-	flex-grow: 1;
-	overflow-y: scroll;
+.positron-help-view-container {
+	background: blue;
+	position: absolute;
+	top: 74px;
+	right: 10px;
+	bottom: 10px;
+	left: 10px;
 }

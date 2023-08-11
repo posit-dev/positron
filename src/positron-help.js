@@ -5,8 +5,6 @@
 let findText = undefined;
 let findResult = false;
 
-window.localStorage.setItem('foo', 'bar');
-
 window.addEventListener('message', (event) => {
 	if (window.find) {
 		if (event.data.command === 'find') {

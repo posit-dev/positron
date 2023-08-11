@@ -105,7 +105,7 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 				const checkFindResults = props.onCheckFindResults();
 				console.log(`Poll for find results was ${checkFindResults}`);
 				if (checkFindResults === undefined) {
-					if (++counter < 30) {
+					if (++counter < 5) {
 						return;
 					}
 				} else {

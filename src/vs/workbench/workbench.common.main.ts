@@ -265,9 +265,9 @@ import 'vs/workbench/contrib/output/browser/outputView';
 
 // --- Start Positron ---
 import 'vs/workbench/contrib/positronEnvironment/browser/positronEnvironment.contribution';
-import 'vs/workbench/contrib/positronHelp/browser/positronHelp.contribution';
-// import 'vs/workbench/contrib/positronHistory/browser/positronHistory.contribution';    	Disabled for Private Alpha
-// import 'vs/workbench/contrib/positronOutline/browser/positronOutline.contribution';    	Disabled for Private Alpha
+// import 'vs/workbench/contrib/positronHelp/browser/positronHelp.contribution';    	Disabled for Private Alpha
+// import 'vs/workbench/contrib/positronHistory/browser/positronHistory.contribution';  Disabled for Private Alpha
+// import 'vs/workbench/contrib/positronOutline/browser/positronOutline.contribution';  Disabled for Private Alpha
 import 'vs/workbench/contrib/positronPreview/browser/positronPreview.contribution';
 import 'vs/workbench/contrib/positronPlots/browser/positronPlots.contribution';
 // --- End Positron ---
@@ -409,6 +409,7 @@ import 'vs/workbench/contrib/executionHistory/common/executionHistory';
 
 // Workbench services
 import 'vs/workbench/services/languageRuntime/common/languageRuntime';
+import 'vs/workbench/services/positronHelp/common/positronHelpService';
 import 'vs/workbench/services/positronConsole/common/positronConsoleService';
 import 'vs/workbench/services/positronEnvironment/common/positronEnvironmentService';
 
