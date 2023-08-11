@@ -51,7 +51,7 @@ export class PythonLanguageRuntime implements JupyterLanguageRuntime, Disposable
         private readonly installer: IInstaller,
     ) {
 
-        this._kernel = adapterApi.adaptKernel(kernelSpec, metadata);
+        this._kernel = adapterApi.adaptKernel(kernelSpec, metadata, dynState);
 
         this.onDidChangeRuntimeState = this._kernel.onDidChangeRuntimeState;
         this.onDidReceiveRuntimeMessage = this._kernel.onDidReceiveRuntimeMessage;
