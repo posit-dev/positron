@@ -4,24 +4,31 @@
 
 import { Event } from 'vs/base/common/event';
 import { createDecorator } from 'vs/platform/instantiation/common/instantiation';
-import { MarkdownString } from 'vs/base/common/htmlContent';
 
-export const POSITRON_HELP_VIEW_ID = 'workbench.panel.positronHelp';
+// Create the decorator for the Positron help service (used in dependency injection).
+export const IPositronHelpService = createDecorator<IPositronHelpService>('positronHelpService');
 
-export const POSITRON_HELP_SERVICE_ID = 'positronHelpService';
-
-export const IPositronHelpService = createDecorator<IPositronHelpService>(POSITRON_HELP_SERVICE_ID);
+export interface HelpDescriptor {
+	url: string;
+	focus: boolean;
+}
 
 /**
  * IPositronHelpService interface.
  */
 export interface IPositronHelpService {
-
+	/**
+	 * Needed for service branding in dependency injector.
+	 */
 	readonly _serviceBrand: undefined;
 
-	readonly onRenderHelp: Event<string>;
+	/**
+	 * The onRenderHelp event.
+	 */
+	readonly onRenderHelp: Event<HelpDescriptor>;
 
-	openHelpHtml(html: string): void;
-	openHelpMarkdown(markdown: MarkdownString): void;
-
+	/**
+	 * Placeholder that gets called to "initialize" the PositronConsoleService.
+	 */
+	initialize(): void;
 }
