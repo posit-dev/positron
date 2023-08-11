@@ -20,9 +20,9 @@ import { IInstantiationService } from 'vs/platform/instantiation/common/instanti
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import { ViewPane, IViewPaneOptions } from 'vs/workbench/browser/parts/views/viewPane';
 import { ActionBars } from 'vs/workbench/contrib/positronHelp/browser/components/actionBars';
-import { IWebviewElement, IWebviewService } from 'vs/workbench/contrib/webview/browser/webview';
 import { IReactComponentContainer, ISize, PositronReactRenderer } from 'vs/base/browser/positronReactRenderer';
 import { IPositronHelpService } from 'vs/workbench/services/positronHelp/common/interfaces/positronHelpService';
+import { IOverlayWebview, IWebviewService, WebviewContentPurpose } from 'vs/workbench/contrib/webview/browser/webview';
 
 /**
  * PositronHelpCommand interface.
@@ -75,7 +75,7 @@ export class PositronHelpViewPane extends ViewPane implements IReactComponentCon
 	private _helpViewContainer: HTMLElement;
 
 	// The help iframe.
-	private _helpWebviewElement: IWebviewElement | undefined;
+	private _helpOverlayWebview: IOverlayWebview;
 
 	// The last Positron help command that was sent to the help iframe.
 	private _lastPositronHelpCommand?: PositronHelpCommand;
@@ -190,17 +190,31 @@ export class PositronHelpViewPane extends ViewPane implements IReactComponentCon
 		this._positronHelpContainer = DOM.$('.positron-help-container');
 		this._helpActionBarsContainer = DOM.$('.help-action-bars-container');
 		this._helpViewContainer = DOM.$('.positron-help-view-container');
-		this._helpViewContainer.style.width = '100%';
-		this._helpViewContainer.style.height = '100%';
 
-		// Arrange our elements.
+		// Append the help action bars container and help view container to the help container.
 		this._positronHelpContainer.appendChild(this._helpActionBarsContainer);
 		this._positronHelpContainer.appendChild(this._helpViewContainer);
 
+		// Create the help overlay webview.
+		this._helpOverlayWebview = this.webviewService.createWebviewOverlay({
+			title: 'Positron Help',
+			extension: {
+				id: new ExtensionIdentifier('positron-help'),
+			},
+			options: {
+				purpose: WebviewContentPurpose.WebviewView,
+				retainContextWhenHidden: true
+			},
+			contentOptions: {
+				allowScripts: true,
+				localResourceRoots: [], // TODO: needed for positron-help.js
+			},
+		});
+
 		this._register(this.positronHelpService.onRenderHelp(helpDescriptor => {
-			if (this._helpWebviewElement) {
+			if (this._helpOverlayWebview) {
 				const html = this.shit(helpDescriptor.url);
-				this._helpWebviewElement.setHtml(html);
+				this._helpOverlayWebview.setHtml(html);
 			}
 		}));
 
@@ -213,8 +227,7 @@ export class PositronHelpViewPane extends ViewPane implements IReactComponentCon
 
 	private shit(url: string) {
 
-		console.log(`HELP URL!!! ${url}`);
-
+		console.log(`We want to open help URL: ${url}`);
 		const nonce = generateUuid();
 
 		// Render the help document.
@@ -237,7 +250,6 @@ export class PositronHelpViewPane extends ViewPane implements IReactComponentCon
 				height: 100%;
 				display: flex;
 				font-size: 13px;
-				background: white;
 				flex-direction: column;
 				font-family: sans-serif;
 			}
@@ -252,7 +264,6 @@ export class PositronHelpViewPane extends ViewPane implements IReactComponentCon
 		</script>
 	</head>
 	<body>
-		<div>sparta sparta</div>
 		<iframe id="help-iframe" src="${url}"></iframe>
 
 		<script nonce="${nonce}">
@@ -262,10 +273,18 @@ export class PositronHelpViewPane extends ViewPane implements IReactComponentCon
 
 			// Set up iframe.
 			const frame = document.getElementById("help-iframe");
-			// frame.style.width = "100%";
-			// frame.style.height = "100%";
+			frame.style.width = "100%";
+			frame.style.height = "100%";
+			frame.style.background = "orange";
 			// frame.style.border = "none";
 			// frame.src = "${url}";
+
+			frame.onload = function() {
+				console.log("!!");
+				console.log("The iframe is loaded ");
+				console.log(frame.src);
+				console.log("!!");
+			};
 
 			// TODO: Not clear why this is necessary
 			document.documentElement.style.width = "100%";
@@ -425,6 +444,8 @@ export class PositronHelpViewPane extends ViewPane implements IReactComponentCon
 		// Call the base class's method.
 		super.layoutBody(height, width);
 
+		this._helpOverlayWebview.layoutWebviewOverElement(this._helpViewContainer);
+
 		// Raise the onSizeChanged event.
 		this._onSizeChangedEmitter.fire({
 			width,
@@ -454,35 +475,45 @@ export class PositronHelpViewPane extends ViewPane implements IReactComponentCon
 
 	private onDidChangeVisibility(visible: boolean): void {
 		if (visible) {
-			if (this._helpWebviewElement) {
-				return;
-			}
-
-			this._helpWebviewElement = this.webviewService.createWebviewElement({
-				title: 'Positron Help',
-				extension: {
-					id: new ExtensionIdentifier('positron-help'),
-				},
-				options: {},
-				contentOptions: {
-					allowScripts: true,
-					localResourceRoots: [], // TODO: needed for positron-help.js
-				},
-			});
-
-			this._helpWebviewElement.mountTo(this._helpViewContainer);
-
-			const dd = this.positronHelpService.yack();
-			if (dd) {
-				const html = this.shit(dd);
-				this._helpWebviewElement.setHtml(html);
-			}
+			this._helpOverlayWebview.claim(this, undefined);
+			this._helpOverlayWebview.layoutWebviewOverElement(this._helpViewContainer);
 		} else {
-			if (this._helpWebviewElement) {
-				this._helpWebviewElement.dispose();
-				this._helpWebviewElement = undefined;
-			}
+			this._helpOverlayWebview.release(this);
 		}
+
+		// }
+		// if (visible) {
+		// 	if (this._helpOverlayWebview) {
+		// 		return;
+		// 	}
+
+		// 	this._helpOverlayWebview = this.webviewService.createWebviewOverlay({
+		// 		title: 'Positron Help',
+		// 		extension: {
+		// 			id: new ExtensionIdentifier('positron-help'),
+		// 		},
+		// 		options: {},
+		// 		contentOptions: {
+		// 			allowScripts: true,
+		// 			localResourceRoots: [], // TODO: needed for positron-help.js
+		// 		},
+		// 	});
+
+		// 	this._helpOverlayWebview.claim(this, undefined);
+
+		// 	this._helpOverlayWebview.layoutWebviewOverElement(this._helpViewContainer);
+
+		// 	const dd = this.positronHelpService.yack();
+		// 	if (dd) {
+		// 		const html = this.shit(dd);
+		// 		this._helpOverlayWebview.setHtml(html);
+		// 	}
+		// } else {
+		// 	if (this._helpOverlayWebview) {
+		// 		this._helpOverlayWebview.dispose();
+		// 		this._helpOverlayWebview = undefined;
+		// 	}
+		// }
 	}
 
 	//#endregion Private Methods
