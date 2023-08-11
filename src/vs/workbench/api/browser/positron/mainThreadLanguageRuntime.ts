@@ -21,7 +21,6 @@ import { generateUuid } from 'vs/base/common/uuid';
 import { IPositronPlotsService } from 'vs/workbench/services/positronPlots/common/positronPlots';
 import { LanguageRuntimeEventType, PromptStateEvent } from 'vs/workbench/services/languageRuntime/common/languageRuntimeEvents';
 import { IPositronHelpService } from 'vs/workbench/services/positronHelp/common/interfaces/positronHelpService';
-// import { IPositronHelpService } from 'vs/workbench/services/positronHelp/common/interfaces/positronHelpService';
 
 /**
  * Represents a language runtime event (for example a message or state change)
