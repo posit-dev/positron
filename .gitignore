@@ -21,5 +21,6 @@ product.overrides.json
 
 # --- Start Positron ---
 .Rproj.user
+VSCode*
 # --- End Positron ---
 
