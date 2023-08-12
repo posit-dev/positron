@@ -28,6 +28,7 @@ import { RuntimeItemStartupFailure } from 'vs/workbench/services/positronConsole
 import { ActivityItem, RuntimeItemActivity } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemActivity';
 import { IPositronConsoleInstance, IPositronConsoleService, POSITRON_CONSOLE_VIEW_ID, PositronConsoleState } from 'vs/workbench/services/positronConsole/common/interfaces/positronConsoleService';
 import { formatLanguageRuntime, ILanguageRuntime, ILanguageRuntimeMessage, ILanguageRuntimeService, LanguageRuntimeStartupBehavior, RuntimeOnlineState, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ActivityItemOutputHtml } from 'vs/workbench/services/positronConsole/common/classes/activityItemOutputHtml';
 
 //#region Helper Functions
 
@@ -947,6 +948,10 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 			// Check to see if the data contains an image by checking the record for the
 			// "image/" mime type.
 			const images = Object.keys(languageRuntimeMessageOutput.data).find(key => key.startsWith('image/'));
+
+			// Check to see if the data contains any HTML
+			const html = Object.hasOwnProperty.call(languageRuntimeMessageOutput.data, 'text/html');
+
 			if (images) {
 				// It's an image, so create a plot activity item.
 				this.addOrUpdateUpdateRuntimeItemActivity(
@@ -956,6 +961,17 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 						languageRuntimeMessageOutput.parent_id,
 						new Date(languageRuntimeMessageOutput.when),
 						languageRuntimeMessageOutput.data
+					)
+				);
+			} else if (html) {
+				// It's HTML, so show the HTML.
+				this.addOrUpdateUpdateRuntimeItemActivity(
+					languageRuntimeMessageOutput.parent_id,
+					new ActivityItemOutputHtml(
+						languageRuntimeMessageOutput.id,
+						languageRuntimeMessageOutput.parent_id,
+						new Date(languageRuntimeMessageOutput.when),
+						languageRuntimeMessageOutput.data['text/html']
 					)
 				);
 			} else {

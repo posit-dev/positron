@@ -21,6 +21,8 @@ import { ActivityItemOutputStream } from 'vs/workbench/services/positronConsole/
 import { ActivityItemErrorMessage } from 'vs/workbench/services/positronConsole/common/classes/activityItemErrorMessage';
 import { IPositronConsoleInstance } from 'vs/workbench/services/positronConsole/common/interfaces/positronConsoleService';
 import { ActivityItemOutputMessage } from 'vs/workbench/services/positronConsole/common/classes/activityItemOutputMessage';
+import { ActivityItemOutputHtml } from 'vs/workbench/services/positronConsole/common/classes/activityItemOutputHtml';
+import { ActivityOutputHtml } from 'vs/workbench/contrib/positronConsole/browser/components/activityOutputHtml';
 
 // RuntimeActivityProps interface.
 export interface RuntimeActivityProps {
@@ -47,6 +49,8 @@ export const RuntimeActivity = (props: RuntimeActivityProps) => {
 					return <ActivityErrorStream key={activityItem.id} activityItemErrorStream={activityItem} />;
 				} else if (activityItem instanceof ActivityItemPrompt) {
 					return <ActivityPrompt key={activityItem.id} activityItemPrompt={activityItem} positronConsoleInstance={props.positronConsoleInstance} />;
+				} else if (activityItem instanceof ActivityItemOutputHtml) {
+					return <ActivityOutputHtml key={activityItem.id} activityItemOutputHtml={activityItem} />;
 				} else if (activityItem instanceof ActivityItemOutputMessage) {
 					return <ActivityOutputMessage key={activityItem.id} activityItemOutputMessage={activityItem} />;
 				} else if (activityItem instanceof ActivityItemOutputPlot) {
