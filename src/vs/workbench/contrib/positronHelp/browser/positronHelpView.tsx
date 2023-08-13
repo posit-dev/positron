@@ -421,7 +421,7 @@ export class PositronHelpViewPane extends ViewPane implements IReactComponentCon
 			}
 		</style>
 		<script nonce="${nonce}">
-			console.log('THE ROOT SCRIPT GOT LOADED');
+			// console.log('THE ROOT SCRIPT GOT LOADED');
 		</script>
 	</head>
 	<body>
@@ -441,10 +441,10 @@ export class PositronHelpViewPane extends ViewPane implements IReactComponentCon
 			// frame.src = "${url}";
 
 			frame.onload = function() {
-				console.log("!!");
-				console.log("The iframe is loaded ");
-				console.log(frame.src);
-				console.log("!!");
+				// console.log("!!");
+				// console.log("The iframe is loaded ");
+				// console.log(frame.src);
+				// console.log("!!");
 			};
 
 			// TODO: Not clear why this is necessary
