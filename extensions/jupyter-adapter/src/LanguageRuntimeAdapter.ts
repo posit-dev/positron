@@ -187,13 +187,13 @@ export class LanguageRuntimeAdapter
 		this._busyMessageIds.clear();
 		this._idleMessageIds.clear();
 
-		let promise = this._kernel.interrupt();
+		const promise = this._kernel.interrupt();
 
 		// If we were Busy, send back a final Idle status once the kernel is successfully
 		// interrupted. We must do this since we cleared the busy message queue and won't be able to
 		// match a future Idle message against a preexisting Busy message anymore.
 		if (this._kernelState === positron.RuntimeState.Busy) {
-			promise = promise.then(() => {
+			promise.then(() => {
 				this.onStatus(positron.RuntimeState.Idle);
 			});
 		}
