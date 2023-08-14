@@ -88,18 +88,15 @@ jobs:
           requirements-file: './pythonFiles/jedilsp_requirements/requirements.txt'
           options: '-t ./pythonFiles/lib/jedilsp --no-cache-dir --implementation py'
 
-      - name: Install other requirements
+      - name: Install test requirements
         run: |
           python -m pip --disable-pip-version-check install -t ./pythonFiles/lib/python --no-cache-dir --implementation py --no-deps --upgrade --pre debugpy
-          python -m pip install --upgrade -r build/test-requirements.txt
+          python -m pip install --prefer-binary --upgrade -r build/test-requirements.txt
 
       - name: Run Pyright
         uses: jakebailey/pyright-action@v1
         with:
           working-directory: 'pythonFiles'
-
-      - name: Install test requirements
-        run: python -m pip install --upgrade -r build/test-requirements.txt
 
       - name: Run Python unit tests
         run: python pythonFiles/tests/run_all.py
