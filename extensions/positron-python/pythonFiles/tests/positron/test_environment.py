@@ -16,6 +16,7 @@ from typing import Callable, Iterable, Optional, Tuple
 import comm
 import pandas as pd
 import pytest
+from fastcore.foundation import L
 from IPython.terminal.interactiveshell import TerminalInteractiveShell
 
 from positron import (
@@ -106,7 +107,7 @@ BOOL_CASES = set([True, False])
 
 
 @pytest.mark.parametrize("case", BOOL_CASES)
-def test_booleans(case: bool, env_service: EnvironmentService) -> None:
+def test_summarize_boolean(case: bool, env_service: EnvironmentService) -> None:
     display_name = "xBool"
     expected = EnvironmentVariable(
         display_name=display_name,
@@ -145,7 +146,7 @@ STRING_CASES = set(
 
 
 @pytest.mark.parametrize("case", STRING_CASES)
-def test_strings(case: str, env_service: EnvironmentService) -> None:
+def test_summarize_string(case: str, env_service: EnvironmentService) -> None:
     display_name = "xStr"
     length = len(case)
     expected = EnvironmentVariable(
@@ -164,7 +165,7 @@ def test_strings(case: str, env_service: EnvironmentService) -> None:
     compare_summary(result, expected)
 
 
-def test_string_long_truncated(env_service: EnvironmentService) -> None:
+def test_summarize_string_truncated(env_service: EnvironmentService) -> None:
     display_name = "xStrT"
     long_string = "".join(random.choices(string.ascii_letters, k=(TRUNCATE_AT + 10)))
     length = len(long_string)
@@ -196,7 +197,7 @@ INT_CASES = set([-sys.maxsize * 100, -sys.maxsize, -1, 0, 1, sys.maxsize, sys.ma
 
 
 @pytest.mark.parametrize("case", INT_CASES)
-def test_number_ints(case: int, env_service: EnvironmentService) -> None:
+def test_summarize_integer(case: int, env_service: EnvironmentService) -> None:
     display_name = "xInt"
     expected = EnvironmentVariable(
         display_name=display_name,
@@ -231,7 +232,7 @@ FLOAT_CASES = set(
 
 
 @pytest.mark.parametrize("case", FLOAT_CASES)
-def test_number_floats(case: float, env_service: EnvironmentService) -> None:
+def test_summarize_float(case: float, env_service: EnvironmentService) -> None:
     display_name = "xFloat"
     expected = EnvironmentVariable(
         display_name=display_name,
@@ -260,7 +261,7 @@ COMPLEX_CASES = set(
 
 
 @pytest.mark.parametrize("case", COMPLEX_CASES)
-def test_number_complex(case: complex, env_service: EnvironmentService) -> None:
+def test_summarize_complex(case: complex, env_service: EnvironmentService) -> None:
     display_name = "xComplex"
     expected = EnvironmentVariable(
         display_name=display_name,
@@ -285,7 +286,7 @@ BYTES_CASES = set([b"", b"\x00", b"caff\\xe8"])
 
 
 @pytest.mark.parametrize("case", BYTES_CASES)
-def test_bytes_literals(case: bytes, env_service: EnvironmentService) -> None:
+def test_summarize_bytes(case: bytes, env_service: EnvironmentService) -> None:
     display_name = "xBytes"
     length = len(case)
     expected = EnvironmentVariable(
@@ -308,7 +309,7 @@ BYTEARRAY_CASES = list([bytearray(), bytearray(0), bytearray(1), bytearray(b"\x4
 
 
 @pytest.mark.parametrize("case", BYTEARRAY_CASES)
-def test_bytearrays(case: bytearray, env_service: EnvironmentService) -> None:
+def test_summarize_bytearray(case: bytearray, env_service: EnvironmentService) -> None:
     display_name = "xBytearray"
     length = len(case)
     expected = EnvironmentVariable(
@@ -327,7 +328,7 @@ def test_bytearrays(case: bytearray, env_service: EnvironmentService) -> None:
     compare_summary(result, expected)
 
 
-def test_bytearray_truncated(env_service: EnvironmentService) -> None:
+def test_summarize_bytearray_truncated(env_service: EnvironmentService) -> None:
     display_name = "xBytearrayT"
     case = bytearray(TRUNCATE_AT * 2)
     length = len(case)
@@ -348,7 +349,7 @@ def test_bytearray_truncated(env_service: EnvironmentService) -> None:
     compare_summary(result, expected)
 
 
-def test_memoryview(env_service: EnvironmentService) -> None:
+def test_summarize_memoryview(env_service: EnvironmentService) -> None:
     display_name = "xMemoryview"
     byte_array = bytearray("東京", "utf-8")
     case = memoryview(byte_array)
@@ -374,7 +375,7 @@ def test_memoryview(env_service: EnvironmentService) -> None:
 #
 
 
-def test_none(env_service: EnvironmentService) -> None:
+def test_summarize_none(env_service: EnvironmentService) -> None:
     display_name = "xNone"
     case = None
     expected = EnvironmentVariable(
@@ -410,7 +411,7 @@ def test_none(env_service: EnvironmentService) -> None:
         set(STRING_CASES),
     ],
 )
-def test_set(case: set, env_service: EnvironmentService) -> None:
+def test_summarize_set(case: set, env_service: EnvironmentService) -> None:
     display_name = "xSet"
     length = len(case)
     expected_value = pprint.pformat(case, width=PRINT_WIDTH, compact=True)
@@ -430,7 +431,7 @@ def test_set(case: set, env_service: EnvironmentService) -> None:
     compare_summary(result, expected)
 
 
-def test_set_truncated(env_service: EnvironmentService) -> None:
+def test_summarize_set_truncated(env_service: EnvironmentService) -> None:
     display_name = "xSetT"
     case = set(list(range(TRUNCATE_AT * 2)))
     length = len(case)
@@ -466,7 +467,7 @@ def test_set_truncated(env_service: EnvironmentService) -> None:
         list(STRING_CASES),
     ],
 )
-def test_list(case: list, env_service: EnvironmentService) -> None:
+def test_summarize_list(case: list, env_service: EnvironmentService) -> None:
     display_name = "xList"
     length = len(case)
     expected_value = pprint.pformat(case, width=PRINT_WIDTH, compact=True)
@@ -487,7 +488,7 @@ def test_list(case: list, env_service: EnvironmentService) -> None:
     compare_summary(result, expected)
 
 
-def test_list_truncated(env_service: EnvironmentService) -> None:
+def test_summarize_list_truncated(env_service: EnvironmentService) -> None:
     display_name = "xListT"
     case = list(range(TRUNCATE_AT * 2))
     length = len(case)
@@ -510,7 +511,7 @@ def test_list_truncated(env_service: EnvironmentService) -> None:
     compare_summary(result, expected)
 
 
-def test_list_cycle(env_service: EnvironmentService) -> None:
+def test_summarize_list_cycle(env_service: EnvironmentService) -> None:
     display_name = "xListCycle"
     case = list([1, 2])
     case.append(case)  # type: ignore
@@ -548,7 +549,7 @@ def test_list_cycle(env_service: EnvironmentService) -> None:
         range(1, 5000),  # Large Range (compact display, does not show elements)
     ],
 )
-def test_ranges(case: range, env_service: EnvironmentService) -> None:
+def test_summarize_range(case: range, env_service: EnvironmentService) -> None:
     display_name = "xRange"
     length = len(case)
     expected_value = pprint.pformat(case, width=PRINT_WIDTH, compact=True)
@@ -560,6 +561,41 @@ def test_ranges(case: range, env_service: EnvironmentService) -> None:
         type_info="range",
         access_key=display_name,
         length=length,
+    )
+
+    key, value = display_name, case
+    result = env_service._summarize_variable(key, value)
+
+    compare_summary(result, expected)
+
+
+@pytest.mark.parametrize(
+    "case",
+    [
+        L(),
+        L([None]),
+        L(BOOL_CASES),
+        L(INT_CASES),
+        L(FLOAT_CASES),
+        L(COMPLEX_CASES),
+        L(BYTES_CASES),
+        L(BYTEARRAY_CASES),
+        L(STRING_CASES),
+    ],
+)
+def test_summarize_fastcore_list(case: L, env_service: EnvironmentService) -> None:
+    display_name = "xFastcoreList"
+    length = len(case)
+    expected_value = pprint.pformat(case, width=PRINT_WIDTH, compact=True)
+    expected = EnvironmentVariable(
+        display_name=display_name,
+        display_value=expected_value,
+        kind=EnvironmentVariableValueKind.collection,
+        display_type=f"L [{length}]",
+        type_info="fastcore.foundation.L",
+        access_key=display_name,
+        length=length,
+        has_children=length > 0,
     )
 
     key, value = display_name, case
@@ -593,7 +629,7 @@ def test_ranges(case: range, env_service: EnvironmentService) -> None:
         {"L": {"L1": 1, "L2": 2, "L3": 3}},  # nested dict value
     ],
 )
-def test_maps(case: dict, env_service: EnvironmentService) -> None:
+def test_summarize_map(case: dict, env_service: EnvironmentService) -> None:
     display_name = "xDict"
     length = len(case)
     expected_value = pprint.pformat(case, width=PRINT_WIDTH, compact=True)
@@ -631,7 +667,7 @@ helper = HelperClass()
         helper.fn_two_args,  # Multiple argument method with tuple return type
     ],
 )
-def test_functions(case: Callable, env_service: EnvironmentService) -> None:
+def test_summarize_function(case: Callable, env_service: EnvironmentService) -> None:
     display_name = "xFn"
     expected_value = f"{case.__qualname__}{inspect.signature(case)}"
     expected_type = "function"

@@ -29,6 +29,7 @@ freezegun
 
 # --- Start Positron ---
 # iPython Kernel tests
+fastcore
 ipykernel
 jedi
 jedi_language_server
