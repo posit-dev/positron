@@ -119,7 +119,6 @@ export class PositronProxy implements Disposable {
 
 			// Inject the script.
 			let response = responseBuffer.toString('utf8');
-			response = response.replace('<body>', `<body>`);
 			response = response.replace('</body>', `${script}</body>`);
 
 			// Return the response.
