@@ -34,8 +34,6 @@ export const ActivityInput = (props: ActivityInputProps) => {
 		// Listen for the busy state to change on the activity item; when it
 		// does, update the `busy` class on the activity input.
 		disposables.add(props.activityItemInput.onBusyStateChanged((busy: boolean) => {
-			console.log(props.activityItemInput.id + ' busy: ' + busy);
-			console.log(activityRef.current);
 			if (busy) {
 				activityRef.current?.classList.add('busy');
 			} else {

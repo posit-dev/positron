@@ -2,18 +2,16 @@
  *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
+import * as fs from 'fs';
+import * as path from 'path';
 import * as vscode from 'vscode';
 import { randomUUID } from 'crypto';
 import * as positron from 'positron';
-import { makeCUB, makeCUF, makeCUP, makeED, makeEL, makeSGR, SGR } from './ansi';
-import * as ansi from 'ansi-escape-sequences';
-import { resolve } from 'path';
-import { ZedEnvironment } from './positronZedEnvironment';
-import path = require('path');
-import fs = require('fs');
 import { ZedPlot } from './positronZedPlot';
 import { ZedData } from './positronZedData';
 import { ZedPreview } from './positronZedPreview';
+import { ZedEnvironment } from './positronZedEnvironment';
+import { makeCUB, makeCUF, makeCUP, makeED, makeEL, makeSGR, SGR } from './ansi';
 
 /**
  * Constants.
