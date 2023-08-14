@@ -2,13 +2,20 @@
  *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
-// import * as positron from 'positron';
-
+import express from 'express';
 import { AddressInfo, Server } from 'net';
 import { Disposable, ExtensionContext } from 'vscode';
-import express, { Application, Express, Request, Response } from 'express';
-import { createProxyMiddleware, Filter, Options, RequestHandler, responseInterceptor } from 'http-proxy-middleware';
-import { JSDOM } from 'jsdom';
+import { createProxyMiddleware, responseInterceptor } from 'http-proxy-middleware';
+
+/**
+ * Constants.
+ */
+const HOST = 'localhost';
+
+/**
+ * ContentRewriter type.
+ */
+type ContentRewriter = (serverOrigin: string, url: string, contentType: string, responseBuffer: Buffer) => Promise<Buffer | string>;
 
 /**
  * Custom custom type guard for AddressInfo.
@@ -25,10 +32,6 @@ const isAddressInfo = (_: string | AddressInfo | null): _ is AddressInfo =>
  */
 export interface PositronProxy extends Disposable { }
 
-// Configuration
-const PORT = 6464;
-const HOST = 'localhost';
-
 export class ProxyServer implements Disposable {
 	/**
 	 * Constructor.
@@ -39,6 +42,7 @@ export class ProxyServer implements Disposable {
 	constructor(
 		readonly serverOrigin: string,
 		readonly targetOrigin: string,
+		private readonly type: 'help',
 		private readonly server: Server,
 	) {
 	}
@@ -71,61 +75,6 @@ export class PositronProxy implements Disposable {
 	 * @param context The extension context.
 	 */
 	constructor(private readonly context: ExtensionContext) {
-		// // The /start-proxy route.
-		// this.app.post('/start-proxy/:proxyPort', async (req, res) => {
-		// 	// Get the proxy port.
-		// 	const proxyPort = Number(req.params.proxyPort);
-		// 	if (isNaN(proxyPort) || !Number.isInteger(proxyPort)) {
-		// 		res.sendStatus(500);
-		// 		return;
-		// 	}
-
-		// 	const app = express();
-
-		// 	this.app.get('*', (req, res, next) => {
-		// 		res.send('PROXY SERVER IS LISTENING');
-		// 		res.send('/info response here!!!');
-		// 	});
-
-		// 	const server = app.listen(0, HOST, () => {
-		// 		const address = server.address();
-		// 		if (!isAddressInfo(address)) {
-		// 			server.close();
-		// 		} else {
-		// 			this.proxyServers.push(app);
-		// 			console.log(`New server started on port ${address.port}`);
-		// 		}
-		// 	});
-
-		// 	// // Start the Proxy
-		// 	// const tt = this.app.listen(0, HOST, () => {
-		// 	// 	console.log(`It's ${tt.address()}`);
-		// 	// 	console.log(`++++++++++++++++++++++++++++++ PositronProxy listening at ${HOST}:${PORT}`);
-		// 	// });
-		// 	// const appyo = express();
-
-		// 	// const server = appyo.listen(0, () => {
-
-		// 	// 	const foo = server.address();
-
-		// 	// 	console.log('Listening on port:', server.address().port);
-		// 	// });
-
-		// 	res.send(`/startProxy on port ${req.params.proxyPort}`);
-		// });
-
-		// this.app.get('/info', (req, res, next) => {
-		// 	res.send('/info response here!!!');
-		// });
-
-		// this.app.get('*', (req, res, next) => {
-		// 	res.send('/* response');
-		// });
-
-		// // Start the Proxy
-		// this.app.listen(PORT, HOST, () => {
-		// 	console.log(`++++++++++++++++++++++++++++++ PositronProxy listening at ${HOST}:${PORT}`);
-		// });
 	}
 
 	/**
@@ -141,14 +90,48 @@ export class PositronProxy implements Disposable {
 
 	//#region Public Methods
 
-	//getProxy(port: number): P
-
 	/**
-	 * Gets a proxy server
+	 * Gets a help proxy server
 	 * @param targetOrigin The target origin.
 	 * @returns The server origin.
 	 */
-	startProxyServer(targetOrigin: string): Promise<string> {
+	startHelpProxyServer(targetOrigin: string): Promise<string> {
+		return this.startProxyServer(targetOrigin, async (serverOrigin, url, contentType, responseBuffer) => {
+			if (!contentType.includes('text/html')) {
+				return responseBuffer;
+			}
+
+			// The script to inject.
+			const script = `<script>
+			(function() {
+				var links = document.links;
+				for (let i = 0; i < links.length; i++) {
+					links[i].onclick = (e) => {
+						e.preventDefault();
+						window.parent.postMessage({
+							command: "open-url",
+							href: links[i].href
+						}, "*");
+					};
+				}
+			})();
+			</script>`;
+
+			const fullUrl = serverOrigin + url;
+			let response = responseBuffer.toString('utf8');
+			const div = `<div style="color: red;">Inserted by Positron help proxy for URL ${fullUrl}</div>`;
+			response = response.replace('<body>', `<body>${div}`);
+			response = response.replace('</body>', `${div}${script}</body>`);
+
+			return response;
+		});
+	}
+
+	//#endregion Public Methods
+
+	//#region Private Methods
+
+	startProxyServer(targetOrigin: string, contentRewriter: ContentRewriter): Promise<string> {
 		// Return a promise.
 		return new Promise((resolve, reject) => {
 			// See if we have an existing proxy server for target origin. If there is, return the
@@ -179,10 +162,9 @@ export class PositronProxy implements Disposable {
 				this.proxyServers.set(targetOrigin, new ProxyServer(
 					serverOrigin,
 					targetOrigin,
+					'help',
 					server
 				));
-
-				console.log(`PositronProxy creating proxy server for ${targetOrigin}`);
 
 				// Add the proxy midleware.
 				app.use('*', createProxyMiddleware({
@@ -190,40 +172,19 @@ export class PositronProxy implements Disposable {
 					changeOrigin: true,
 					selfHandleResponse: true,
 					onProxyReq: (proxyReq, req, res, options) => {
-						console.log(`Proxying ${serverOrigin} to ${targetOrigin} for ${req.url}`);
+						console.log(`Proxy request ${serverOrigin}${req.url} -> ${targetOrigin}${req.url}`);
 					},
 					onProxyRes: responseInterceptor(async (responseBuffer, proxyRes, req, res) => {
-
-						if (proxyRes.headers['content-type']?.includes('text/html')) {
-							console.log(`PositronProxy is adulterating HTML for ${req.url}`);
-
-							const response = responseBuffer.toString('utf8');
-
-							const jsdom = new JSDOM(response);
-
-							const bodyElements = jsdom.window.document.getElementsByTagName('body');
-							bodyElements[0].insertAdjacentHTML('afterbegin', '<div style="color: red; font-size: 20px;">This div was inserted by the PositronProxy using JSDOM!</div>');
-							const dfd = `<script>
-console.log("This output comes from a script tag that was inserted by the PositronProxy using JSDOM!");
-</script>`;
-							bodyElements[0].insertAdjacentHTML('beforeend', dfd);
-
-
-							const yaya = jsdom.serialize().replace('Microsoft', 'W3Schools');
-
-							// console.log(yaya);
-
-							return yaya;
-
-
-							// const response = responseBuffer.toString('utf8');
-							// return response;
-
-
-						} else {
+						// Get the URL and the content type. For HTTP
+						const url = req.url;
+						const contentType = proxyRes.headers['content-type'];
+						if (!url || !contentType) {
+							// Don't process the response.
 							return responseBuffer;
 						}
 
+						// Rewrite the content.
+						return contentRewriter(serverOrigin, url, contentType, responseBuffer);
 					})
 				}));
 
@@ -233,5 +194,5 @@ console.log("This output comes from a script tag that was inserted by the Positr
 		});
 	}
 
-	//#endregion Public Methods
+	//#endregion Private Methods
 }

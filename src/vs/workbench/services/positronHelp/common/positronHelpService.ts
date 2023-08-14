@@ -20,12 +20,6 @@ const isShowHelpEvent = (_: LanguageRuntimeEventData): _ is ShowHelpEvent => {
 	return (_ as ShowHelpEvent).kind !== undefined;
 };
 
-// // The TrustedTypePolicy for rendering.
-// const ttPolicyPositronHelp = window.trustedTypes?.createPolicy('positronHelp', {
-// 	createHTML: value => value,
-// 	createScript: value => value
-// });
-
 /**
  * PositronHelpService class.
  */
@@ -60,64 +54,63 @@ export class PositronHelpService extends Disposable implements IPositronHelpServ
 		// Call the base class's constructor.
 		super();
 
-		// Register our runtime event handler.
+		// Register a runtime global event handler.
 		this._register(
 			this.languageRuntimeService.onDidReceiveRuntimeEvent(async languageRuntimeGlobalEvent => {
-				// Process show help global events.
-				if (languageRuntimeGlobalEvent.event.name === LanguageRuntimeEventType.ShowHelp) {
-					// Ensure that the right event data was supplied.
-					if (!isShowHelpEvent(languageRuntimeGlobalEvent.event.data)) {
-						this.logService.error(`ShowHelp event supplied unsupported event data.`);
-					} else {
-						// Process the show help event.
-						const showHelpEvent = languageRuntimeGlobalEvent.event.data as ShowHelpEvent;
-						if (showHelpEvent.kind === 'url') {
-							// Get the help URL.
-							const helpURL = new URL(showHelpEvent.content);
-
-							console.log(`PositronHelpService got help URL: ${helpURL.toString()}`);
-
-							// Get the proxy server origin for the help URL. If one isn't found, ask
-							// the PositronProxy to start one.
-							let serverOrigin = this.proxyServers.get(helpURL.origin);
-							if (!serverOrigin) {
-								// Ask the PositronProxy extension for the proxy server origin.
-								serverOrigin = await this.commandService.executeCommand<string>(
-									'positronProxy.startProxyServer',
-									helpURL.origin
-								);
-
-								if (!serverOrigin) {
-									// Display an error.
-									return;
-								} else {
-									this.proxyServers.set(helpURL.origin, serverOrigin);
-								}
-							}
-
-							// Fixup the help URL.
-							const serverOriginURL = new URL(serverOrigin);
-							helpURL.protocol = serverOriginURL.protocol;
-							helpURL.hostname = serverOriginURL.hostname;
-							helpURL.port = serverOriginURL.port;
-
-							// Raise the onRenderHelp event.
-							this._onRenderHelpEmitter.fire({
-								url: helpURL.toString(),
-								focus: showHelpEvent.focus
-							});
-
-							console.log(`PositronHelpService is opening help URL: ${helpURL.toString()}`);
-
-							// // For Private Alpha (August 2023), just open the help URL.
-							// this.openerService.open(helpURL.toString(), {
-							// 	openExternal: true
-							// } satisfies OpenExternalOptions);
-						} else {
-							this.logService.error(`PositronHelpService does not support ${showHelpEvent.kind}.`);
-						}
-					}
+				// Show help event types are supported.
+				if (languageRuntimeGlobalEvent.event.name !== LanguageRuntimeEventType.ShowHelp) {
+					return;
 				}
+
+				// Ensure that the right event data was supplied.
+				if (!isShowHelpEvent(languageRuntimeGlobalEvent.event.data)) {
+					this.logService.error(`ShowHelp event supplied unsupported event data.`);
+					return;
+				}
+
+				// Get the show help event.
+				const showHelpEvent = languageRuntimeGlobalEvent.event.data as ShowHelpEvent;
+
+				// Only url help events are supported.
+				if (showHelpEvent.kind !== 'url') {
+					this.logService.error(`PositronHelpService does not support ${showHelpEvent.kind}.`);
+					return;
+				}
+
+				// Get the help URL.
+				const helpURL = new URL(showHelpEvent.content);
+
+				// Get the proxy server origin for the help URL. If one isn't found, ask
+				// the PositronProxy to start one.
+				let serverOrigin = this.proxyServers.get(helpURL.origin);
+				if (!serverOrigin) {
+					// Start a help proxy server.
+					serverOrigin = await this.commandService.executeCommand<string>(
+						'positronProxy.startHelpProxyServer',
+						helpURL.origin
+					);
+
+					// If the server origin wasn't returned, log an error and return.
+					if (!serverOrigin) {
+						this.logService.error(`PositronHelpService could not start proxy server.`);
+						return;
+					}
+
+					// Add the proxy server.
+					this.proxyServers.set(helpURL.origin, serverOrigin);
+				}
+
+				// Fixup the help URL.
+				const serverOriginURL = new URL(serverOrigin);
+				helpURL.protocol = serverOriginURL.protocol;
+				helpURL.hostname = serverOriginURL.hostname;
+				helpURL.port = serverOriginURL.port;
+
+				// Raise the onRenderHelp event.
+				this._onRenderHelpEmitter.fire({
+					url: helpURL.toString(),
+					focus: showHelpEvent.focus
+				});
 			})
 		);
 	}
