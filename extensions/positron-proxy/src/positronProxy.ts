@@ -28,10 +28,8 @@ const isAddressInfo = (_: string | AddressInfo | null): _ is AddressInfo =>
 	(_ as AddressInfo).port !== undefined;
 
 /**
- * The Jupyter Adapter API as exposed by the Jupyter Adapter extension.
+ * ProxyServer class.
  */
-export interface PositronProxy extends Disposable { }
-
 export class ProxyServer implements Disposable {
 	/**
 	 * Constructor.
