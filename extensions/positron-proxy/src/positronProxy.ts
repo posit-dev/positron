@@ -108,11 +108,11 @@ export class PositronProxy implements Disposable {
 				var links = document.links;
 				for (let i = 0; i < links.length; i++) {
 					links[i].onclick = (e) => {
-						e.preventDefault();
 						window.parent.postMessage({
 							command: "open-url",
 							href: links[i].href
 						}, "*");
+						return false;
 					};
 				}
 			})();
