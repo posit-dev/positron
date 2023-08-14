@@ -35,6 +35,7 @@ export class ProxyServer implements Disposable {
 	 * Constructor.
 	 * @param serverOrigin The server origin.
 	 * @param targetOrigin The target origin.
+	 * @param type The type. (Right now, only help is supported.)
 	 * @param server The server.
 	 */
 	constructor(
