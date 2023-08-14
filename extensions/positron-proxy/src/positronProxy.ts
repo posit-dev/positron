@@ -90,11 +90,12 @@ export class PositronProxy implements Disposable {
 	//#region Public Methods
 
 	/**
-	 * Gets a help proxy server
+	 * Starts a help proxy server
 	 * @param targetOrigin The target origin.
 	 * @returns The server origin.
 	 */
 	startHelpProxyServer(targetOrigin: string): Promise<string> {
+		// Start the proxy server.
 		return this.startProxyServer(targetOrigin, async (serverOrigin, url, contentType, responseBuffer) => {
 			// Only HTML content is processed below.
 			if (!contentType.includes('text/html')) {
@@ -130,6 +131,12 @@ export class PositronProxy implements Disposable {
 
 	//#region Private Methods
 
+	/**
+	 * Starts a proxy server.
+	 * @param targetOrigin The target origin.
+	 * @param contentRewriter The content rewriter/
+	 * @returns The server origin.
+	 */
 	startProxyServer(targetOrigin: string, contentRewriter: ContentRewriter): Promise<string> {
 		// Return a promise.
 		return new Promise((resolve, reject) => {
@@ -174,7 +181,8 @@ export class PositronProxy implements Disposable {
 						console.log(`Proxy request ${serverOrigin}${req.url} -> ${targetOrigin}${req.url}`);
 					},
 					onProxyRes: responseInterceptor(async (responseBuffer, proxyRes, req, res) => {
-						// Get the URL and the content type. For HTTP
+						// Get the URL and the content type. These must be present to call the
+						// content rewriter.
 						const url = req.url;
 						const contentType = proxyRes.headers['content-type'];
 						if (!url || !contentType) {
