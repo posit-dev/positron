@@ -1,32 +1,21 @@
 {
-	"name": "positron-zed",
-	"displayName": "Zed",
-	"description": "Positron Zed",
+	"name": "positron-proxy",
+	"displayName": "Positron Proxy",
+	"description": "Positron Proxy",
 	"version": "1.0.0",
 	"publisher": "vscode",
 	"engines": {
 		"vscode": "^1.65.0"
 	},
 	"categories": [
-		"Programming Languages"
+    "Other"
 	],
 	"activationEvents": [
+    "onCommand:positronProxy.startHelpProxyServer",
 		"onStartupFinished"
 	],
 	"main": "./out/extension.js",
 	"contributes": {
-		"languages": [
-			{
-				"id": "zed",
-				"extensions": [
-					".zed"
-				],
-				"aliases": [
-					"Zed"
-				],
-				"configuration": "./language-configuration.json"
-			}
-		]
 	},
 	"scripts": {
 		"vscode:prepublish": "yarn run compile",
@@ -35,7 +24,8 @@
 		"lint": "eslint src --ext ts"
 	},
   "dependencies": {
-    "express": "^4.18.2"
+    "express": "^4.18.2",
+    "http-proxy-middleware": "^2.0.6"
   },
 	"devDependencies": {
 		"@types/express": "^4.17.17",

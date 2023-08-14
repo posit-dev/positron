@@ -16,6 +16,7 @@ const dirs = [
 	'extensions/positron-javascript',
 	'extensions/positron-r',
 	'extensions/positron-python',
+	'extensions/positron-proxy',
 	'extensions/positron-zed',
 	// --- End Positron ---
 	'extensions/configuration-editing',

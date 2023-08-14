@@ -24,6 +24,29 @@ import { IReactComponentContainer, ISize, PositronReactRenderer } from 'vs/base/
 import { IPositronHelpService } from 'vs/workbench/services/positronHelp/common/interfaces/positronHelpService';
 import { IOverlayWebview, IWebviewService, WebviewContentPurpose } from 'vs/workbench/contrib/webview/browser/webview';
 
+
+/**
+ * MessageOpenUrl interface.
+ */
+type MessageOpenUrl = {
+	command: 'open-url';
+	href: string;
+};
+
+/**
+ * Message type.
+ */
+type Message = | MessageOpenUrl;
+
+/**
+ * Determines whether the specified message is a MessageOpenUrl.
+ * @param message The message.
+ * @returns The MessageOpenUrl if the specified message is a MessageOpenUrl; otherwise, undefined.
+ */
+const AsMessageOpenUrl = (message: Message): MessageOpenUrl | undefined => {
+	return message.command === 'open-url' ? message as MessageOpenUrl : undefined;
+};
+
 /**
  * PositronHelpCommand interface.
  */
@@ -75,10 +98,14 @@ export class PositronHelpViewPane extends ViewPane implements IReactComponentCon
 	private _helpViewContainer: HTMLElement;
 
 	// The help overlay webview.
-	private _helpOverlayWebview: IOverlayWebview;
+	private _helpOverlayWebview?: IOverlayWebview;
 
 	// The last Positron help command that was sent to the help iframe.
 	private _lastPositronHelpCommand?: PositronHelpCommand;
+
+	private _history: string[] = [];
+
+	private _historyIndex = 0;
 
 	//#endregion Private Properties
 
@@ -195,28 +222,13 @@ export class PositronHelpViewPane extends ViewPane implements IReactComponentCon
 		this._positronHelpContainer.appendChild(this._helpActionBarsContainer);
 		this._positronHelpContainer.appendChild(this._helpViewContainer);
 
-		// Create the help overlay webview.
-		this._helpOverlayWebview = this.webviewService.createWebviewOverlay({
-			title: 'Positron Help',
-			extension: {
-				id: new ExtensionIdentifier('positron-help'),
-			},
-			options: {
-				purpose: WebviewContentPurpose.WebviewView,
-				retainContextWhenHidden: true
-			},
-			contentOptions: {
-				allowScripts: true,
-				localResourceRoots: [], // TODO: needed for positron-help.js
-			},
-		});
-
 		// Register the onRenderHelp event handler.
 		this._register(this.positronHelpService.onRenderHelp(helpDescriptor => {
-			if (this._helpOverlayWebview) {
-				const html = this.generateHelpDocument(helpDescriptor.url);
-				this._helpOverlayWebview.setHtml(html);
-			}
+			// Ensure that the overlay webview has been created.
+			this.createOverlayWebview();
+
+			// Open the help URL.
+			this.openHelpUrl(helpDescriptor.url);
 		}));
 
 		// Register the onDidChangeBodyVisibility event handler.
@@ -258,22 +270,14 @@ export class PositronHelpViewPane extends ViewPane implements IReactComponentCon
 
 		// Home handler.
 		const homeHandler = () => {
-			// // Test code for now to render some kind of help markdown.
-			// this.positronHelpService.openHelpMarkdown(new MarkdownString(
-			// 	`This is help text ${new Date().toTimeString()}.\n\nHere is some **bold text**.\n\nHere is a list:\n\n* One.\n* Two.\n* Three.\n\nThis is help text ${new Date().toTimeString()}.\n\nHere is some **bold text**.\n\nHere is a list:\n\n* One.\n* Two.\n* Three.\n\nThis is help text ${new Date().toTimeString()}.\n\nHere is some **bold text**.\n\nHere is a list:\n\n* One.\n* Two.\n* Three.\n\nThis is help text ${new Date().toTimeString()}.\n\nHere is some **bold text**.\n\nHere is a list:\n\n* One.\n* Two.\n* Three.\n\nThis is help text ${new Date().toTimeString()}.\n\nHere is some **bold text**.\n\nHere is a list:\n\n* One.\n* Two.\n* Three.\n\nThis is help text ${new Date().toTimeString()}.\n\nHere is some **bold text**.\n\nHere is a list:\n\n* One.\n* Two.\n* Three.\n\nThis is help text ${new Date().toTimeString()}.\n\nHere is some **bold text**.\n\nHere is a list:\n\n* One.\n* Two.\n* Three.\n\nThis is help text ${new Date().toTimeString()}.\n\nHere is some **bold text**.\n\nHere is a list:\n\n* One.\n* Two.\n* Three.\n\nThis is help text ${new Date().toTimeString()}.\n\nHere is some **bold text**.\n\nHere is a list:\n\n* One.\n* Two.\n* Three.\n\nThis is help text ${new Date().toTimeString()}.\n\nHere is some **bold text**.\n\nHere is a list:\n\n* One.\n* Two.\n* Three.\n\nThis is help text ${new Date().toTimeString()}.\n\nHere is some **bold text**.\n\nHere is a list:\n\n* One.\n* Two.\n* Three.\n\nThis is help text ${new Date().toTimeString()}.\n\nHere is some **bold text**.\n\nHere is a list:\n\n* One.\n* Two.\n* Three.\n\nThis is help text ${new Date().toTimeString()}.\n\nHere is some **bold text**.\n\nHere is a list:\n\n* One.\n* Two.\n* Three.\n\nThis is help text ${new Date().toTimeString()}.\n\nHere is some **bold text**.\n\nHere is a list:\n\n* One.\n* Two.\n* Three.\n\nThis is help text ${new Date().toTimeString()}.\n\nHere is some **bold text**.\n\nHere is a list:\n\n* One.\n* Two.\n* Three.\n\nThis is help text ${new Date().toTimeString()}.\n\nHere is some **bold text**.\n\nHere is a list:\n\n* One.\n* Two.\n* Three.\n\nThis is help text ${new Date().toTimeString()}.\n\nHere is some **bold text**.\n\nHere is a list:\n\n* One.\n* Two.\n* Three.\n\nThis is help text ${new Date().toTimeString()}.\n\nHere is some **bold text**.\n\nHere is a list:\n\n* One.\n* Two.\n* Three.\n\nThis is help text ${new Date().toTimeString()}.\n\nHere is some **bold text**.\n\nHere is a list:\n\n* One.\n* Two.\n* Three.\n\nThis is help text ${new Date().toTimeString()}.\n\nHere is some **bold text**.\n\nHere is a list:\n\n* One.\n* Two.\n* Three.\n\nThis is help text ${new Date().toTimeString()}.\n\nHere is some **bold text**.\n\nHere is a list:\n\n* One.\n* Two.\n* Three.\n\nThis is help text ${new Date().toTimeString()}.\n\nHere is some **bold text**.\n\nHere is a list:\n\n* One.\n* Two.\n* Three.\n\nThis is help text ${new Date().toTimeString()}.\n\nHere is some **bold text**.\n\nHere is a list:\n\n* One.\n* Two.\n* Three.\n\nThis is help text ${new Date().toTimeString()}.\n\nHere is some **bold text**.\n\nHere is a list:\n\n* One.\n* Two.\n* Three.\n\nThis is help text ${new Date().toTimeString()}.\n\nHere is some **bold text**.\n\nHere is a list:\n\n* One.\n* Two.\n* Three.\n\nThis is help text ${new Date().toTimeString()}.\n\nHere is some **bold text**.\n\nHere is a list:\n\n* One.\n* Two.\n* Three.\n\nThis is help text ${new Date().toTimeString()}.\n\nHere is some **bold text**.\n\nHere is a list:\n\n* One.\n* Two.\n* Three.\n\nThis is help text ${new Date().toTimeString()}.\n\nHere is some **bold text**.\n\nHere is a list:\n\n* One.\n* Two.\n* Three.\n\nThis is help text ${new Date().toTimeString()}.\n\nHere is some **bold text**.\n\nHere is a list:\n\n* One.\n* Two.\n* Three.\n\nThis is help text ${new Date().toTimeString()}.\n\nHere is some **bold text**.\n\nHere is a list:\n\n* One.\n* Two.\n* Three.\n\nThis is help text ${new Date().toTimeString()}.\n\nHere is some **bold text**.\n\nHere is a list:\n\n* One.\n* Two.\n* Three.\n\nThis is help text ${new Date().toTimeString()}.\n\nHere is some **bold text**.\n\nHere is a list:\n\n* One.\n* Two.\n* Three.\n\nThis is help text ${new Date().toTimeString()}.\n\nHere is some **bold text**.\n\nHere is a list:\n\n* One.\n* Two.\n* Three.\n\nThis is help text ${new Date().toTimeString()}.\n\nHere is some **bold text**.\n\nHere is a list:\n\n* One.\n* Two.\n* Three.\n\nThis is help text ${new Date().toTimeString()}.\n\nHere is some **bold text**.\n\nHere is a list:\n\n* One.\n* Two.\n* Three.\n\nThis is help text ${new Date().toTimeString()}.\n\nHere is some **bold text**.\n\nHere is a list:\n\n* One.\n* Two.\n* Three.\n\nThis is help text ${new Date().toTimeString()}.\n\nHere is some **bold text**.\n\nHere is a list:\n\n* One.\n* Two.\n* Three.\n\nThis is help text ${new Date().toTimeString()}.\n\nHere is some **bold text**.\n\nHere is a list:\n\n* One.\n* Two.\n* Three.\n\nThis is help text ${new Date().toTimeString()}.\n\nHere is some **bold text**.\n\nHere is a list:\n\n* One.\n* Two.\n* Three.\n\nThis is help text ${new Date().toTimeString()}.\n\nHere is some **bold text**.\n\nHere is a list:\n\n* One.\n* Two.\n* Three.\n\nThis is help text ${new Date().toTimeString()}.\n\nHere is some **bold text**.\n\nHere is a list:\n\n* One.\n* Two.\n* Three.\n\nThis is help text ${new Date().toTimeString()}.\n\nHere is some **bold text**.\n\nHere is a list:\n\n* One.\n* Two.\n* Three.\n\nThis is help text ${new Date().toTimeString()}.\n\nHere is some **bold text**.\n\nHere is a list:\n\n* One.\n* Two.\n* Three.\n\nThis is help text ${new Date().toTimeString()}.\n\nHere is some **bold text**.\n\nHere is a list:\n\n* One.\n* Two.\n* Three.\n\nThis is help text ${new Date().toTimeString()}.\n\nHere is some **bold text**.\n\nHere is a list:\n\n* One.\n* Two.\n* Three.\n\nThis is help text ${new Date().toTimeString()}.\n\nHere is some **bold text**.\n\nHere is a list:\n\n* One.\n* Two.\n* Three.\n\nThis is help text ${new Date().toTimeString()}.\n\nHere is some **bold text**.\n\nHere is a list:\n\n* One.\n* Two.\n* Three.\n\nThis is help text ${new Date().toTimeString()}.\n\nHere is some **bold text**.\n\nHere is a list:\n\n* One.\n* Two.\n* Three.\n\n***The Real End***\n\n`
-			// ));
 		};
 
 		// Find handler.
 		const findHandler = (findText: string) => {
-			//this._helpView.showFind(true);
-
-			//this.postHelpIFrameMessage({ identifier: generateUuid(), command: 'find', findText });
 		};
 
 		// Find handler.
 		const checkFindResultsHandler = () => {
-
 			if (this._lastPositronHelpCommand) {
 				console.log('TODO');
 			}
@@ -308,8 +312,16 @@ export class PositronHelpViewPane extends ViewPane implements IReactComponentCon
 				contextMenuService={this.contextMenuService}
 				keybindingService={this.keybindingService}
 				reactComponentContainer={this}
-				onPreviousTopic={() => console.log('Previous topic made it to the Positron help view.')}
-				onNextTopic={() => console.log('Next topic made it to the Positron help view.')}
+				onPreviousTopic={() => {
+					if (this._historyIndex > 0) {
+						this.openHelpUrl(this._history[--this._historyIndex]);
+					}
+				}}
+				onNextTopic={() => {
+					if (this._historyIndex < this._history.length - 1) {
+						this.openHelpUrl(this._history[++this._historyIndex]);
+					}
+				}}
 				onHome={homeHandler}
 				onFind={findHandler}
 				onCheckFindResults={checkFindResultsHandler}
@@ -340,18 +352,74 @@ export class PositronHelpViewPane extends ViewPane implements IReactComponentCon
 		// Call the base class's method.
 		super.layoutBody(height, width);
 
-		this._helpOverlayWebview.layoutWebviewOverElement(this._helpViewContainer);
-
 		// Raise the onSizeChanged event.
 		this._onSizeChangedEmitter.fire({
 			width,
 			height
 		});
+
+		// Layout the overlay webview.
+		this._helpOverlayWebview?.layoutWebviewOverElement(this._helpViewContainer);
 	}
 
 	//#endregion ViewPane Overrides
 
 	//#region Private Methods
+
+	/**
+	 * Creates the overlay webview.
+	 */
+	private createOverlayWebview() {
+		// If the overlay webview exists, do nothing.
+		if (this._helpOverlayWebview) {
+			return;
+		}
+
+		// Create the help overlay webview.
+		this._helpOverlayWebview = this.webviewService.createWebviewOverlay({
+			title: 'Positron Help',
+			extension: {
+				id: new ExtensionIdentifier('positron-help'),
+			},
+			options: {
+				purpose: WebviewContentPurpose.WebviewView,
+				retainContextWhenHidden: true
+			},
+			contentOptions: {
+				allowScripts: true,
+				localResourceRoots: [], // TODO: needed for positron-help.js
+			},
+		});
+		this._helpOverlayWebview.claim(this, undefined);
+		this._helpOverlayWebview.layoutWebviewOverElement(this._helpViewContainer);
+		this._register(this._helpOverlayWebview.onMessage(e => {
+			const childMessageOpenUrl = AsMessageOpenUrl(e.message);
+			if (childMessageOpenUrl) {
+				// Open the help URL.
+				this.openHelpUrl(childMessageOpenUrl.href);
+			}
+		}));
+	}
+
+	/**
+	 * Opens a help URL.
+	 * @param url The help URL.
+	 */
+	private openHelpUrl(url: string) {
+		// See if the history contains the specified URL. If it does, remove it because it will be
+		// added to the history at the end.
+		const index = this._history.indexOf(url);
+		if (index > -1) {
+			this._history.splice(index, 1);
+		}
+
+		// Push the history entry for the help URL.
+		this._history.push(url);
+		this._historyIndex = this._history.length - 1;
+
+		// Set the help HTML.
+		this._helpOverlayWebview?.setHtml(this.generateHelpHtml(url));
+	}
 
 	/**
 	 * Posts a message to the help iframe.
@@ -374,6 +442,10 @@ export class PositronHelpViewPane extends ViewPane implements IReactComponentCon
 	 * @param visible A value which indicates visibility.
 	 */
 	private onDidChangeVisibility(visible: boolean): void {
+		if (!this._helpOverlayWebview) {
+			return;
+		}
+
 		if (visible) {
 			this._helpOverlayWebview.claim(this, undefined);
 			this._helpOverlayWebview.layoutWebviewOverElement(this._helpViewContainer);
@@ -383,115 +455,52 @@ export class PositronHelpViewPane extends ViewPane implements IReactComponentCon
 	}
 
 	/**
-	 * Generates a help document to display help.
-	 * @param url The URL of the help to display in the help document.
-	 * @returns The help document.
+	 * Generates help HTML.
+	 * @param url The URL of the help to display in the help HTML.
+	 * @returns The help HTML.
 	 */
-	private generateHelpDocument(url: string) {
-
-		const nonce = generateUuid();
-
+	private generateHelpHtml(url: string) {
 		// Render the help document.
+		const nonce = generateUuid();
 		return `
 <!DOCTYPE html>
 <html>
 	<head>
 		<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-		<meta http-equiv="Content-Security-Policy" content="
-			default-src 'none';
-			media-src https:;
-			script-src 'self' 'nonce-${nonce}';
-			style-src 'nonce-${nonce}';
-			frame-src *;
-		">
+		<meta http-equiv="Content-Security-Policy" content="default-src 'none'; media-src https:; script-src 'self' 'nonce-${nonce}'; style-src 'nonce-${nonce}'; frame-src *;">
 		<style nonce="${nonce}">
 			body {
 				padding: 0;
-				width: 100%;
-				height: 100%;
-				display: flex;
-				font-size: 13px;
-				flex-direction: column;
-				font-family: sans-serif;
 			}
 			#help-iframe {
-				width: 100%;
-				height = 100%;
 				border: none;
+				width: 100%;
+				height: 100%;
+				position: absolute;
 			}
 		</style>
 		<script nonce="${nonce}">
-			console.log('THE ROOT SCRIPT GOT LOADED');
+		console.log("HEAD script");
 		</script>
 	</head>
 	<body>
-		<iframe id="help-iframe" src="${url}"></iframe>
-
+		<iframe id="help-iframe" title="Help Content" src="${url}"></iframe>
 		<script nonce="${nonce}">
 		(function() {
-			let findText = undefined;
-			let findResult = false;
-
-			// Set up iframe.
-			const frame = document.getElementById("help-iframe");
-			frame.style.width = "100%";
-			frame.style.height = "100%";
-			frame.style.background = "orange";
-			// frame.style.border = "none";
-			// frame.src = "${url}";
-
-			frame.onload = function() {
-				console.log("!!");
-				console.log("The iframe is loaded ");
-				console.log(frame.src);
-				console.log("!!");
-			};
-
-			// TODO: Not clear why this is necessary
-			document.documentElement.style.width = "100%";
-			document.documentElement.style.height = "100%";
-
-			window.addEventListener('message', (event) => {
-				if (window.find) {
-					if (event.data.command === 'find') {
-						findText = event.data.findText;
-						findResult = findText && frame.contentWindow.find(findText, false, false, true, false, true);
-
-						console.log('find command was received');
-						console.log('findText: ' + findText);
-						console.log('findResult: ' + findResult);
-
-						if (findResult) {
-							window.sessionStorage.setItem(event.data.identifier, 'true');
-						} else {
-							window.sessionStorage.setItem(event.data.identifier, 'false');
-						}
-						if (findResult) {
-							window.focus();
-						} else {
-							window.getSelection().removeAllRanges();
-						}
-					} else if (event.data.command === 'find-previous') {
-						if (findResult) {
-							window.find(findText, false, true, false, false, true);
-							window.focus();
-						}
-					} else if (event.data.command === 'find-next') {
-						if (findResult) {
-							window.find(findText, false, false, false, false, true);
-							window.focus();
-						}
+			const vscode = acquireVsCodeApi();
+			const childWindow = document.getElementById('help-iframe').contentWindow;
+			window.addEventListener('message', (message) => {
+				if (message.source === childWindow) {
+					if (message.data.command === "open-url") {
+						vscode.postMessage(message.data);
 					}
 				}
-			}, false);
-
+			});
 		})();
 		</script>
 	</body>
 </html>`;
 	}
-
-
 
 	//#endregion Private Methods
 }

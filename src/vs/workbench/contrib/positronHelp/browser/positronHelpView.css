@@ -5,8 +5,8 @@
 .positron-help-container {
 	height: 100%;
 	display: flex;
+	background: white;
 	flex-direction: column;
-	background: red;
 }
 
 .positron-help-container .action-bars-container {
@@ -14,10 +14,9 @@
 }
 
 .positron-help-view-container {
-	background: blue;
+	left: 0px;
+	top: 64px;
+	right: 0px;
+	bottom: 0px;
 	position: absolute;
-	top: 74px;
-	right: 10px;
-	bottom: 10px;
-	left: 10px;
 }
