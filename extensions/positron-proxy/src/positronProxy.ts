@@ -107,9 +107,15 @@ export class PositronProxy implements Disposable {
 				return responseBuffer;
 			}
 
-			// The script to inject.
-			const script = `<script>
-			(function() {
+			const headScript = `<script>
+			document.addEventListener("readystatechange", event => {
+				if (document.readyState === "complete") {
+					hijackLinks();
+				}
+			});
+
+			const hijackLinks = () => {
+				// Hijack all the links on the page.
 				var links = document.links;
 				for (let i = 0; i < links.length; i++) {
 					links[i].onclick = (e) => {
@@ -120,12 +126,13 @@ export class PositronProxy implements Disposable {
 						return false;
 					};
 				}
-			})();
+			};
+
 			</script>`;
 
 			// Inject the script.
 			let response = responseBuffer.toString('utf8');
-			response = response.replace('</body>', `${script}</body>`);
+			response = response.replace('</head>', `${headScript}</head>`);
 
 			// Return the response.
 			return response;
