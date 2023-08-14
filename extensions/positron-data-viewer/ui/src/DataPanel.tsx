@@ -72,8 +72,7 @@ export const DataPanel = (props: DataPanelProps) => {
 	// Create the columns for the table. These use the 'any' type since the data
 	// model is generic.
 	const columns = React.useMemo<ReactTable.ColumnDef<any>[]>(
-		() => {
-			return dataModel.columns.map((column, idx) => {
+		() => dataModel.columns.map((column, idx) => {
 				return {
 					id: '' + idx,
 					accessorKey: idx,
@@ -81,9 +80,10 @@ export const DataPanel = (props: DataPanelProps) => {
 						return column.data[index];
 					},
 					header: column.name,
+					enableSorting: false,
 				};
-			});
-		},
+			})
+		,
 		[dataModel]);
 
 	// Use a React Query infinite query to fetch data from the data model,
@@ -175,8 +175,8 @@ export const DataPanel = (props: DataPanelProps) => {
 		data: flatData,
 		columns,
 		getCoreRowModel: ReactTable.getCoreRowModel(),
-		getSortedRowModel: ReactTable.getSortedRowModel(),
 		debugTable: false,
+		enableSorting: false,
 	});
 
 	const { rows } = table.getRowModel();
