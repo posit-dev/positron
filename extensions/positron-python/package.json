@@ -395,6 +395,12 @@
             },
             {
                 "category": "Python",
+                "command": "python.execInConsole",
+                "icon": "$(play)",
+                "title": "%python.command.python.execInConsole.title%"
+            },
+            {
+                "category": "Python",
                 "command": "python.debugInTerminal",
                 "icon": "$(debug-alt)",
                 "title": "%python.command.python.debugInTerminal.title%"
@@ -1705,6 +1711,12 @@
                 "when": "python.hasActiveTensorBoardSession"
             },
             {
+                "command": "python.execInConsole",
+                "key": "ctrl+shift+enter",
+                "mac": "cmd+shift+enter",
+                "when": "editorTextFocus && editorLangId == python && !findInputFocussed && !replaceInputFocussed && !jupyter.ownsSelection && !notebookEditorFocused"
+            },
+            {
                 "command": "workbench.action.positronConsole.executeCode",
                 "key": "shift+enter",
                 "when": "editorTextFocus && editorLangId == python && !findInputFocussed && !replaceInputFocussed && !jupyter.ownsSelection && !notebookEditorFocused"
@@ -1840,6 +1852,12 @@
                 },
                 {
                     "category": "Python",
+                    "command": "python.execInConsole",
+                    "title": "%python.command.python.execInConsole.title%",
+                    "when": "!virtualWorkspace && shellExecutionSupported && editorLangId == python"
+                },
+                {
+                    "category": "Python",
                     "command": "python.debugInTerminal",
                     "icon": "$(debug-alt)",
                     "title": "%python.command.python.debugInTerminal.title%",
@@ -1967,6 +1985,11 @@
             ],
             "python.run": [
                 {
+                    "command": "python.execInConsole",
+                    "group": "Python",
+                    "when": "resourceLangId == python && !virtualWorkspace && shellExecutionSupported"
+                },
+                {
                     "command": "python.execInTerminal",
                     "group": "Python",
                     "when": "resourceLangId == python && !virtualWorkspace && shellExecutionSupported"
@@ -1991,19 +2014,30 @@
             ],
             "editor/title/run": [
                 {
-                    "command": "python.execInTerminal-icon",
+                    "command": "python.execInConsole",
                     "group": "navigation@0",
+                    "title": "%python.command.python.execInConsole.title%",
+                    "when": "resourceLangId == python && !isInDiffEditor && !virtualWorkspace && shellExecutionSupported"
+                },
+                {
+                    "command": "python.execInTerminal-icon",
+                    "group": "navigation@1",
                     "title": "%python.command.python.execInTerminalIcon.title%",
                     "when": "resourceLangId == python && !isInDiffEditor && !virtualWorkspace && shellExecutionSupported"
                 },
                 {
                     "command": "python.debugInTerminal",
-                    "group": "navigation@1",
+                    "group": "navigation@2",
                     "title": "%python.command.python.debugInTerminal.title%",
                     "when": "resourceLangId == python && !isInDiffEditor && !virtualWorkspace && shellExecutionSupported"
                 }
             ],
             "explorer/context": [
+                {
+                    "command": "python.execInConsole",
+                    "group": "Python",
+                    "when": "resourceLangId == python && !virtualWorkspace && shellExecutionSupported"
+                },
                 {
                     "command": "python.execInTerminal",
                     "group": "Python",
