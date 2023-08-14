@@ -5,6 +5,10 @@
 
 import { inject, injectable } from 'inversify';
 import { Disposable, Event, EventEmitter, Uri } from 'vscode';
+// --- Start Positron ---
+import * as vscode from 'vscode';
+import * as positron from 'positron';
+// --- End Positron ---
 
 import { ICommandManager, IDocumentManager } from '../../common/application/types';
 import { Commands } from '../../common/constants';
@@ -55,6 +59,57 @@ export class CodeExecutionManager implements ICodeExecutionManager {
                 }),
             );
         });
+        // --- Start Positron ---
+        this.disposableRegistry.push(
+            this.commandManager.registerCommand(Commands.Exec_In_Console as any, async () => {
+                // Get the active text editor.
+                // We get the editor here, rather than passing it in, because passing it in also
+                // confuses the Positron Console for a file
+                const editor = vscode.window.activeTextEditor;
+                if (!editor) {
+                    // No editor; nothing to do
+                    return;
+                }
+
+                const filePath = editor.document.uri.fsPath;
+                if (!filePath) {
+                    // File is unsaved; show a warning
+                    vscode.window.showWarningMessage('Cannot source unsaved file.');
+                    return;
+                }
+
+                // Save the file before sourcing it to ensure that the contents are
+                // up to date with editor buffer.
+                await vscode.commands.executeCommand('workbench.action.files.save');
+
+                try {
+                    // Check to see if the fsPath is an actual path to a file using
+                    // the VS Code file system API.
+                    const fsStat = await vscode.workspace.fs.stat(vscode.Uri.file(filePath));
+
+                    // In the future, we will want to shorten the path by making it
+                    // relative to the current directory; doing so, however, will
+                    // require the kernel to alert us to the current working directory,
+                    // or provide a method for asking it to create the `source()`
+                    // command.
+                    //
+                    // For now, just use the full path, passed through JSON encoding
+                    // to ensure that it is properly escaped.
+                    if (fsStat) {
+                        const command = `%run ${JSON.stringify(filePath)}`;
+                        positron.runtime.executeCode('python', command, true);
+                    }
+                } catch (e) {
+                    // This is not a valid file path, which isn't an error; it just
+                    // means the active editor has something loaded into it that
+                    // isn't a file on disk.  In Positron, there is currently a bug
+                    // which causes the REPL to act like an active editor. See:
+                    //
+                    // https://github.com/rstudio/positron/issues/780
+                }
+            }),
+        );
+        // --- End Positron ---
         this.disposableRegistry.push(
             this.commandManager.registerCommand(Commands.Exec_Selection_In_Terminal as any, async (file: Resource) => {
                 const interpreterService = this.serviceContainer.get<IInterpreterService>(IInterpreterService);
