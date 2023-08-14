@@ -2,6 +2,7 @@
  *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
+import * as nls from 'vs/nls';
 import { Emitter } from 'vs/base/common/event';
 import { Disposable } from 'vs/base/common/lifecycle';
 import { ILogService } from 'vs/platform/log/common/log';
@@ -10,6 +11,7 @@ import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/
 import { ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { HelpDescriptor, IPositronHelpService } from 'vs/workbench/services/positronHelp/common/interfaces/positronHelpService';
 import { LanguageRuntimeEventData, LanguageRuntimeEventType, ShowHelpEvent } from 'vs/workbench/services/languageRuntime/common/languageRuntimeEvents';
+import { INotificationService } from 'vs/platform/notification/common/notification';
 
 /**
  * Custom custom type guard for ShowHelpEvent.
@@ -42,14 +44,16 @@ export class PositronHelpService extends Disposable implements IPositronHelpServ
 
 	/**
 	 * Constructor.
-	 * @param languageRuntimeService The ILanguageRuntimeService, whose Help events we listen to.
+	 * @param commandService The ICommandService.
+	 * @param languageRuntimeService The ICommandService.
 	 * @param logService The ILogService.
-	 * @param openerService The IOpenerService.
+	 * @param _notificationService The INotificationService.
 	 */
 	constructor(
 		@ICommandService private readonly commandService: ICommandService,
 		@ILanguageRuntimeService private readonly languageRuntimeService: ILanguageRuntimeService,
-		@ILogService private readonly logService: ILogService
+		@ILogService private readonly logService: ILogService,
+		@INotificationService private readonly _notificationService: INotificationService,
 	) {
 		// Call the base class's constructor.
 		super();
@@ -84,15 +88,22 @@ export class PositronHelpService extends Disposable implements IPositronHelpServ
 				// the PositronProxy to start one.
 				let serverOrigin = this.proxyServers.get(helpURL.origin);
 				if (!serverOrigin) {
-					// Start a help proxy server.
-					serverOrigin = await this.commandService.executeCommand<string>(
-						'positronProxy.startHelpProxyServer',
-						helpURL.origin
-					);
+					// Try to start a help proxy server.
+					try {
+						serverOrigin = await this.commandService.executeCommand<string>(
+							'positronProxy.startHelpProxyServer',
+							helpURL.origin
+						);
+					} catch (error) {
+						this.logService.error(`PositronHelpService could not start the proxy server for ${helpURL.origin}.`);
+					}
 
-					// If the server origin wasn't returned, log an error and return.
+					// If the help proxy server could not be started, notify the user, and return.
 					if (!serverOrigin) {
-						this.logService.error(`PositronHelpService could not start proxy server.`);
+						this._notificationService.error(nls.localize(
+							'positronHelpServiceUnavailable',
+							"The Positron help service is unavailable."
+						));
 						return;
 					}
 

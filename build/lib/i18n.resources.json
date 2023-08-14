@@ -455,6 +455,10 @@
 			"project": "vscode-workbench"
 		},
 		{
+			"name": "vs/workbench/services/positronHelp",
+			"project": "vscode-workbench"
+		},
+		{
 			"name": "vs/workbench/services/progress",
 			"project": "vscode-workbench"
 		},
