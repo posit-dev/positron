@@ -24,7 +24,6 @@ import { IReactComponentContainer, ISize, PositronReactRenderer } from 'vs/base/
 import { IPositronHelpService } from 'vs/workbench/services/positronHelp/common/interfaces/positronHelpService';
 import { IOverlayWebview, IWebviewService, WebviewContentPurpose } from 'vs/workbench/contrib/webview/browser/webview';
 
-
 /**
  * MessageOpenUrl interface.
  */
