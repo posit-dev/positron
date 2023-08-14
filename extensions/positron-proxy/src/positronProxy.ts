@@ -96,6 +96,7 @@ export class PositronProxy implements Disposable {
 	 */
 	startHelpProxyServer(targetOrigin: string): Promise<string> {
 		return this.startProxyServer(targetOrigin, async (serverOrigin, url, contentType, responseBuffer) => {
+			// Only HTML content is processed below.
 			if (!contentType.includes('text/html')) {
 				return responseBuffer;
 			}
@@ -116,12 +117,12 @@ export class PositronProxy implements Disposable {
 			})();
 			</script>`;
 
-			const fullUrl = serverOrigin + url;
+			// Inject the script.
 			let response = responseBuffer.toString('utf8');
-			const div = `<div style="color: red;">Inserted by Positron help proxy for URL ${fullUrl}</div>`;
-			response = response.replace('<body>', `<body>${div}`);
-			response = response.replace('</body>', `${div}${script}</body>`);
+			response = response.replace('<body>', `<body>`);
+			response = response.replace('</body>', `${script}</body>`);
 
+			// Return the response.
 			return response;
 		});
 	}
