@@ -211,14 +211,13 @@ class CollectionInspector(PositronInspector):
     ) -> list:
         # Treat collection items as children, with the index as the name
         children = []
-        if isinstance(value, (list, tuple)):
-            for i, item in enumerate(value):
-                if len(children) >= MAX_CHILDREN:
-                    break
+        for i, item in enumerate(value):
+            if len(children) >= MAX_CHILDREN:
+                break
 
-                summary = summarizer(str(i), item)
-                if summary is not None:
-                    children.append(summary)
+            summary = summarizer(str(i), item)
+            if summary is not None:
+                children.append(summary)
 
         return children
 
@@ -269,14 +268,13 @@ class MapInspector(PositronInspector):
     ) -> list:
         children = []
 
-        if isinstance(value, Mapping):
-            for key, value in value.items():
-                if len(children) >= MAX_CHILDREN:
-                    break
+        for key, value in value.items():
+            if len(children) >= MAX_CHILDREN:
+                break
 
-                summary = summarizer(str(key), value)
-                if summary is not None:
-                    children.append(summary)
+            summary = summarizer(str(key), value)
+            if summary is not None:
+                children.append(summary)
 
         return children
 
