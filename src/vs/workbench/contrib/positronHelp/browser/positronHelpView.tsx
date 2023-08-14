@@ -24,18 +24,27 @@ import { IReactComponentContainer, ISize, PositronReactRenderer } from 'vs/base/
 import { IPositronHelpService } from 'vs/workbench/services/positronHelp/common/interfaces/positronHelpService';
 import { IOverlayWebview, IWebviewService, WebviewContentPurpose } from 'vs/workbench/contrib/webview/browser/webview';
 
-interface ChildMessageOpenUrl {
+
+/**
+ * MessageOpenUrl interface.
+ */
+type MessageOpenUrl = {
 	command: 'open-url';
 	href: string;
-}
+};
 
-const AsChildMessageOpenUrl = (_: any): ChildMessageOpenUrl | undefined => {
-	const childMessageOpenUrl = _ as ChildMessageOpenUrl;
-	if (childMessageOpenUrl.command !== undefined && childMessageOpenUrl.href !== undefined) {
-		return childMessageOpenUrl;
-	} else {
-		return undefined;
-	}
+/**
+ * Message type.
+ */
+type Message = | MessageOpenUrl;
+
+/**
+ * Determines whether the specified message is a MessageOpenUrl.
+ * @param message The message.
+ * @returns The MessageOpenUrl if the specified message is a MessageOpenUrl; otherwise, undefined.
+ */
+const AsMessageOpenUrl = (message: Message): MessageOpenUrl | undefined => {
+	return message.command === 'open-url' ? message as MessageOpenUrl : undefined;
 };
 
 /**
@@ -218,12 +227,8 @@ export class PositronHelpViewPane extends ViewPane implements IReactComponentCon
 			// Ensure that the overlay webview has been created.
 			this.createOverlayWebview();
 
-			// Push the history entry.
-			this._history.push(helpDescriptor.url);
-			this._historyIndex = this._history.length - 1;
-
-			// Set the help HTML.
-			this._helpOverlayWebview?.setHtml(this.generateHelpHtml(helpDescriptor.url));
+			// Open the help URL.
+			this.openHelpUrl(helpDescriptor.url);
 		}));
 
 		// Register the onDidChangeBodyVisibility event handler.
@@ -309,12 +314,12 @@ export class PositronHelpViewPane extends ViewPane implements IReactComponentCon
 				reactComponentContainer={this}
 				onPreviousTopic={() => {
 					if (this._historyIndex > 0) {
-						this._helpOverlayWebview?.setHtml(this.generateHelpHtml(this._history[--this._historyIndex]));
+						this.openHelpUrl(this._history[--this._historyIndex]);
 					}
 				}}
 				onNextTopic={() => {
 					if (this._historyIndex < this._history.length - 1) {
-						this._helpOverlayWebview?.setHtml(this.generateHelpHtml(this._history[++this._historyIndex]));
+						this.openHelpUrl(this._history[++this._historyIndex]);
 					}
 				}}
 				onHome={homeHandler}
@@ -388,16 +393,32 @@ export class PositronHelpViewPane extends ViewPane implements IReactComponentCon
 		this._helpOverlayWebview.claim(this, undefined);
 		this._helpOverlayWebview.layoutWebviewOverElement(this._helpViewContainer);
 		this._register(this._helpOverlayWebview.onMessage(e => {
-			const childMessageOpenUrl = AsChildMessageOpenUrl(e.message);
+			const childMessageOpenUrl = AsMessageOpenUrl(e.message);
 			if (childMessageOpenUrl) {
-
-				this._history.push(childMessageOpenUrl.href);
-				this._historyIndex = this._history.length - 1;
-
-
-				this._helpOverlayWebview?.setHtml(this.generateHelpHtml(childMessageOpenUrl.href));
+				// Open the help URL.
+				this.openHelpUrl(childMessageOpenUrl.href);
 			}
 		}));
+	}
+
+	/**
+	 * Opens a help URL.
+	 * @param url The help URL.
+	 */
+	private openHelpUrl(url: string) {
+		// See if the history contains the specified URL. If it does, remove it because it will be
+		// added to the history at the end.
+		const index = this._history.indexOf(url);
+		if (index > -1) {
+			this._history.splice(index, 1);
+		}
+
+		// Push the history entry for the help URL.
+		this._history.push(url);
+		this._historyIndex = this._history.length - 1;
+
+		// Set the help HTML.
+		this._helpOverlayWebview?.setHtml(this.generateHelpHtml(url));
 	}
 
 	/**

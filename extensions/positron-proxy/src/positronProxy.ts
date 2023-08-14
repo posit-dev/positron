@@ -15,17 +15,22 @@ const HOST = 'localhost';
 /**
  * ContentRewriter type.
  */
-type ContentRewriter = (serverOrigin: string, url: string, contentType: string, responseBuffer: Buffer) => Promise<Buffer | string>;
+type ContentRewriter = (
+	serverOrigin: string,
+	url: string,
+	contentType: string,
+	responseBuffer: Buffer
+) => Promise<Buffer | string>;
 
 /**
- * Custom custom type guard for AddressInfo.
- * @param _ The value.
+ * Custom type guard for AddressInfo.
+ * @param addressInfo The value.
  * @returns true if the value is aAddressInfo AddressInfo; otherwise, false.
  */
-const isAddressInfo = (_: string | AddressInfo | null): _ is AddressInfo =>
-	(_ as AddressInfo).address !== undefined &&
-	(_ as AddressInfo).family !== undefined &&
-	(_ as AddressInfo).port !== undefined;
+const isAddressInfo = (addressInfo: string | AddressInfo | null): addressInfo is AddressInfo =>
+	(addressInfo as AddressInfo).address !== undefined &&
+	(addressInfo as AddressInfo).family !== undefined &&
+	(addressInfo as AddressInfo).port !== undefined;
 
 /**
  * ProxyServer class.
