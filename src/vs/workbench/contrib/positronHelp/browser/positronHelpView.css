@@ -5,8 +5,8 @@
 .positron-help-container {
 	height: 100%;
 	display: flex;
-	flex-direction: column;
 	background: white;
+	flex-direction: column;
 }
 
 .positron-help-container .action-bars-container {

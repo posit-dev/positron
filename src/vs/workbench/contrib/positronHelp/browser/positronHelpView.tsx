@@ -464,11 +464,9 @@ export class PositronHelpViewPane extends ViewPane implements IReactComponentCon
 	</head>
 	<body>
 		<iframe id="help-iframe" title="Help Content" src="${url}"></iframe>
-
 		<script nonce="${nonce}">
 		(function() {
 			const vscode = acquireVsCodeApi();
-
 			const childWindow = document.getElementById('help-iframe').contentWindow;
 			window.addEventListener('message', (message) => {
 				if (message.source === childWindow) {
@@ -477,7 +475,6 @@ export class PositronHelpViewPane extends ViewPane implements IReactComponentCon
 					}
 				}
 			});
-
 		})();
 		</script>
 	</body>
