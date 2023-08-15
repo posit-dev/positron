@@ -17,10 +17,12 @@ export interface ActivityOutputHtmlProps {
  * @returns The rendered component.
  */
 export const ActivityOutputHtml = (props: ActivityOutputHtmlProps) => {
+	const html = 'data:text/html,' + props.activityItemOutputHtml.html;
+
 	// Render the raw HTML in the div
 	return (
 		<div className='activity-output-html'>
-			<div dangerouslySetInnerHTML={{ __html: props.activityItemOutputHtml.html }} />
+			<iframe src={html} />
 		</div>
 	);
 };
