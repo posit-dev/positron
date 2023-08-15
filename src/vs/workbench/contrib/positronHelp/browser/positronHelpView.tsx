@@ -7,7 +7,6 @@ import * as React from 'react';
 import * as DOM from 'vs/base/browser/dom';
 import { generateUuid } from 'vs/base/common/uuid';
 import { Event, Emitter } from 'vs/base/common/event';
-import { IOpenerService } from 'vs/platform/opener/common/opener';
 import { IViewDescriptorService } from 'vs/workbench/common/views';
 import { IThemeService } from 'vs/platform/theme/common/themeService';
 import { ICommandService } from 'vs/platform/commands/common/commands';
@@ -19,11 +18,19 @@ import { IContextMenuService } from 'vs/platform/contextview/browser/contextView
 import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import { ViewPane, IViewPaneOptions } from 'vs/workbench/browser/parts/views/viewPane';
+import { IOpenerService, OpenExternalOptions } from 'vs/platform/opener/common/opener';
 import { ActionBars } from 'vs/workbench/contrib/positronHelp/browser/components/actionBars';
 import { IReactComponentContainer, ISize, PositronReactRenderer } from 'vs/base/browser/positronReactRenderer';
 import { IPositronHelpService } from 'vs/workbench/services/positronHelp/common/interfaces/positronHelpService';
 import { IOverlayWebview, IWebviewService, WebviewContentPurpose } from 'vs/workbench/contrib/webview/browser/webview';
 
+/**
+ * Determines whether a hostname represents localhost.
+ * @param hostname The hostname.
+ * @returns A value which indicates whether a hostname represents localhost.
+ */
+const isLocalhost = (hostname?: string) =>
+	!!(hostname && ['localhost', '127.0.0.1', '::1'].indexOf(hostname.toLowerCase()) > -1);
 
 /**
  * MessageOpenUrl interface.
@@ -63,19 +70,19 @@ export class PositronHelpViewPane extends ViewPane implements IReactComponentCon
 	//#region Private Properties
 
 	// The onSizeChanged emitter.
-	private _onSizeChangedEmitter = this._register(new Emitter<ISize>());
+	private onSizeChangedEmitter = this._register(new Emitter<ISize>());
 
 	// The onVisibilityChanged event emitter.
-	private _onVisibilityChangedEmitter = this._register(new Emitter<boolean>());
+	private onVisibilityChangedEmitter = this._register(new Emitter<boolean>());
 
 	// The onSaveScrollPosition emitter.
-	private _onSaveScrollPositionEmitter = this._register(new Emitter<void>());
+	private onSaveScrollPositionEmitter = this._register(new Emitter<void>());
 
 	// The onRestoreScrollPosition emitter.
-	private _onRestoreScrollPositionEmitter = this._register(new Emitter<void>());
+	private onRestoreScrollPositionEmitter = this._register(new Emitter<void>());
 
 	// The onFocused emitter.
-	private _onFocusedEmitter = this._register(new Emitter<void>());
+	private onFocusedEmitter = this._register(new Emitter<void>());
 
 	// The width. This value is set in layoutBody and is used to implement the
 	// IReactComponentContainer interface.
@@ -86,26 +93,26 @@ export class PositronHelpViewPane extends ViewPane implements IReactComponentCon
 	private _height = 0;
 
 	// The Positron help container - contains the entire Positron help UI.
-	private _positronHelpContainer: HTMLElement;
+	private positronHelpContainer: HTMLElement;
 
 	// The help action bars container - contains the PositronHelpActionBars component.
-	private _helpActionBarsContainer: HTMLElement;
+	private helpActionBarsContainer: HTMLElement;
 
 	// The PositronReactRenderer for the PositronHelpActionBars component.
-	private _positronReactRendererHelpActionBars?: PositronReactRenderer;
+	private positronReactRendererHelpActionBars?: PositronReactRenderer;
 
 	// The container for the help webview.
-	private _helpViewContainer: HTMLElement;
+	private helpViewContainer: HTMLElement;
 
 	// The help overlay webview.
-	private _helpOverlayWebview?: IOverlayWebview;
+	private helpOverlayWebview?: IOverlayWebview;
 
 	// The last Positron help command that was sent to the help iframe.
-	private _lastPositronHelpCommand?: PositronHelpCommand;
+	private lastPositronHelpCommand?: PositronHelpCommand;
 
-	private _history: string[] = [];
+	private history: string[] = [];
 
-	private _historyIndex = 0;
+	private historyIndex = 0;
 
 	//#endregion Private Properties
 
@@ -142,27 +149,27 @@ export class PositronHelpViewPane extends ViewPane implements IReactComponentCon
 	/**
 	 * The onSizeChanged event.
 	 */
-	readonly onSizeChanged: Event<ISize> = this._onSizeChangedEmitter.event;
+	readonly onSizeChanged: Event<ISize> = this.onSizeChangedEmitter.event;
 
 	/**
 	 * The onVisibilityChanged event.
 	 */
-	readonly onVisibilityChanged: Event<boolean> = this._onVisibilityChangedEmitter.event;
+	readonly onVisibilityChanged: Event<boolean> = this.onVisibilityChangedEmitter.event;
 
 	/**
 	 * The onSaveScrollPosition event.
 	 */
-	readonly onSaveScrollPosition: Event<void> = this._onSaveScrollPositionEmitter.event;
+	readonly onSaveScrollPosition: Event<void> = this.onSaveScrollPositionEmitter.event;
 
 	/**
 	 * The onRestoreScrollPosition event.
 	 */
-	readonly onRestoreScrollPosition: Event<void> = this._onRestoreScrollPositionEmitter.event;
+	readonly onRestoreScrollPosition: Event<void> = this.onRestoreScrollPositionEmitter.event;
 
 	/**
 	 * The onFocused event.
 	 */
-	readonly onFocused: Event<void> = this._onFocusedEmitter.event;
+	readonly onFocused: Event<void> = this.onFocusedEmitter.event;
 
 	//#endregion IReactComponentContainer
 
@@ -214,13 +221,13 @@ export class PositronHelpViewPane extends ViewPane implements IReactComponentCon
 		);
 
 		// Create containers.
-		this._positronHelpContainer = DOM.$('.positron-help-container');
-		this._helpActionBarsContainer = DOM.$('.help-action-bars-container');
-		this._helpViewContainer = DOM.$('.positron-help-view-container');
+		this.positronHelpContainer = DOM.$('.positron-help-container');
+		this.helpActionBarsContainer = DOM.$('.help-action-bars-container');
+		this.helpViewContainer = DOM.$('.positron-help-view-container');
 
 		// Append the help action bars container and help view container to the help container.
-		this._positronHelpContainer.appendChild(this._helpActionBarsContainer);
-		this._positronHelpContainer.appendChild(this._helpViewContainer);
+		this.positronHelpContainer.appendChild(this.helpActionBarsContainer);
+		this.positronHelpContainer.appendChild(this.helpViewContainer);
 
 		// Register the onRenderHelp event handler.
 		this._register(this.positronHelpService.onRenderHelp(helpDescriptor => {
@@ -234,7 +241,7 @@ export class PositronHelpViewPane extends ViewPane implements IReactComponentCon
 		// Register the onDidChangeBodyVisibility event handler.
 		this._register(this.onDidChangeBodyVisibility(visible => {
 			this.onDidChangeVisibility(visible);
-			this._onVisibilityChangedEmitter.fire(visible);
+			this.onVisibilityChangedEmitter.fire(visible);
 		}));
 	}
 
@@ -243,9 +250,9 @@ export class PositronHelpViewPane extends ViewPane implements IReactComponentCon
 	 */
 	public override dispose(): void {
 		// Destroy the PositronReactRenderer for the ActionBars component.
-		if (this._positronReactRendererHelpActionBars) {
-			this._positronReactRendererHelpActionBars.destroy();
-			this._positronReactRendererHelpActionBars = undefined;
+		if (this.positronReactRendererHelpActionBars) {
+			this.positronReactRendererHelpActionBars.destroy();
+			this.positronReactRendererHelpActionBars = undefined;
 		}
 
 		// Call the base class's dispose method.
@@ -266,7 +273,7 @@ export class PositronHelpViewPane extends ViewPane implements IReactComponentCon
 		super.renderBody(container);
 
 		// Append the Positron help container.
-		container.appendChild(this._positronHelpContainer);
+		container.appendChild(this.positronHelpContainer);
 
 		// Home handler.
 		const homeHandler = () => {
@@ -278,7 +285,7 @@ export class PositronHelpViewPane extends ViewPane implements IReactComponentCon
 
 		// Find handler.
 		const checkFindResultsHandler = () => {
-			if (this._lastPositronHelpCommand) {
+			if (this.lastPositronHelpCommand) {
 				console.log('TODO');
 			}
 			// if (this._helpView?.contentWindow && this._lastPositronHelpCommand) {
@@ -303,8 +310,8 @@ export class PositronHelpViewPane extends ViewPane implements IReactComponentCon
 		};
 
 		// Render the ActionBars component.
-		this._positronReactRendererHelpActionBars = new PositronReactRenderer(this._helpActionBarsContainer);
-		this._positronReactRendererHelpActionBars.render(
+		this.positronReactRendererHelpActionBars = new PositronReactRenderer(this.helpActionBarsContainer);
+		this.positronReactRendererHelpActionBars.render(
 			<ActionBars
 				commandService={this.commandService}
 				configurationService={this.configurationService}
@@ -313,13 +320,13 @@ export class PositronHelpViewPane extends ViewPane implements IReactComponentCon
 				keybindingService={this.keybindingService}
 				reactComponentContainer={this}
 				onPreviousTopic={() => {
-					if (this._historyIndex > 0) {
-						this.openHelpUrl(this._history[--this._historyIndex]);
+					if (this.historyIndex > 0) {
+						this.openHelpUrl(this.history[--this.historyIndex]);
 					}
 				}}
 				onNextTopic={() => {
-					if (this._historyIndex < this._history.length - 1) {
-						this.openHelpUrl(this._history[++this._historyIndex]);
+					if (this.historyIndex < this.history.length - 1) {
+						this.openHelpUrl(this.history[++this.historyIndex]);
 					}
 				}}
 				onHome={homeHandler}
@@ -340,7 +347,7 @@ export class PositronHelpViewPane extends ViewPane implements IReactComponentCon
 		super.focus();
 
 		// Fire the onFocused event.
-		this._onFocusedEmitter.fire();
+		this.onFocusedEmitter.fire();
 	}
 
 	/**
@@ -353,13 +360,13 @@ export class PositronHelpViewPane extends ViewPane implements IReactComponentCon
 		super.layoutBody(height, width);
 
 		// Raise the onSizeChanged event.
-		this._onSizeChangedEmitter.fire({
+		this.onSizeChangedEmitter.fire({
 			width,
 			height
 		});
 
 		// Layout the overlay webview.
-		this._helpOverlayWebview?.layoutWebviewOverElement(this._helpViewContainer);
+		this.helpOverlayWebview?.layoutWebviewOverElement(this.helpViewContainer);
 	}
 
 	//#endregion ViewPane Overrides
@@ -371,12 +378,12 @@ export class PositronHelpViewPane extends ViewPane implements IReactComponentCon
 	 */
 	private createOverlayWebview() {
 		// If the overlay webview exists, do nothing.
-		if (this._helpOverlayWebview) {
+		if (this.helpOverlayWebview) {
 			return;
 		}
 
 		// Create the help overlay webview.
-		this._helpOverlayWebview = this.webviewService.createWebviewOverlay({
+		this.helpOverlayWebview = this.webviewService.createWebviewOverlay({
 			title: 'Positron Help',
 			extension: {
 				id: new ExtensionIdentifier('positron-help'),
@@ -390,13 +397,25 @@ export class PositronHelpViewPane extends ViewPane implements IReactComponentCon
 				localResourceRoots: [], // TODO: needed for positron-help.js
 			},
 		});
-		this._helpOverlayWebview.claim(this, undefined);
-		this._helpOverlayWebview.layoutWebviewOverElement(this._helpViewContainer);
-		this._register(this._helpOverlayWebview.onMessage(e => {
+		this.helpOverlayWebview.claim(this, undefined);
+		this.helpOverlayWebview.layoutWebviewOverElement(this.helpViewContainer);
+		this._register(this.helpOverlayWebview.onMessage(e => {
+			// Get the message.
 			const childMessageOpenUrl = AsMessageOpenUrl(e.message);
 			if (childMessageOpenUrl) {
-				// Open the help URL.
-				this.openHelpUrl(childMessageOpenUrl.href);
+				// Get the help URL.
+				const helpURL = new URL(childMessageOpenUrl.href);
+
+				// If the help URL is not for localhost, open it externally; otherwise, open it
+				// in the help view.
+				if (!isLocalhost(helpURL.hostname)) {
+					this.openerService.open(helpURL.toString(), {
+						openExternal: true
+					} satisfies OpenExternalOptions);
+				} else {
+					// Open the help URL.
+					this.openHelpUrl(childMessageOpenUrl.href);
+				}
 			}
 		}));
 	}
@@ -408,17 +427,17 @@ export class PositronHelpViewPane extends ViewPane implements IReactComponentCon
 	private openHelpUrl(url: string) {
 		// See if the history contains the specified URL. If it does, remove it because it will be
 		// added to the history at the end.
-		const index = this._history.indexOf(url);
+		const index = this.history.indexOf(url);
 		if (index > -1) {
-			this._history.splice(index, 1);
+			this.history.splice(index, 1);
 		}
 
 		// Push the history entry for the help URL.
-		this._history.push(url);
-		this._historyIndex = this._history.length - 1;
+		this.history.push(url);
+		this.historyIndex = this.history.length - 1;
 
 		// Set the help HTML.
-		this._helpOverlayWebview?.setHtml(this.generateHelpHtml(url));
+		this.helpOverlayWebview?.setHtml(this.generateHelpHtml(url));
 	}
 
 	/**
@@ -431,9 +450,9 @@ export class PositronHelpViewPane extends ViewPane implements IReactComponentCon
 
 		// Save the command?
 		if (positronHelpCommand.command === 'find' && positronHelpCommand.findText) {
-			this._lastPositronHelpCommand = positronHelpCommand;
+			this.lastPositronHelpCommand = positronHelpCommand;
 		} else {
-			this._lastPositronHelpCommand = undefined;
+			this.lastPositronHelpCommand = undefined;
 		}
 	}
 
@@ -442,15 +461,15 @@ export class PositronHelpViewPane extends ViewPane implements IReactComponentCon
 	 * @param visible A value which indicates visibility.
 	 */
 	private onDidChangeVisibility(visible: boolean): void {
-		if (!this._helpOverlayWebview) {
+		if (!this.helpOverlayWebview) {
 			return;
 		}
 
 		if (visible) {
-			this._helpOverlayWebview.claim(this, undefined);
-			this._helpOverlayWebview.layoutWebviewOverElement(this._helpViewContainer);
+			this.helpOverlayWebview.claim(this, undefined);
+			this.helpOverlayWebview.layoutWebviewOverElement(this.helpViewContainer);
 		} else {
-			this._helpOverlayWebview.release(this);
+			this.helpOverlayWebview.release(this);
 		}
 	}
 
