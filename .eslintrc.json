@@ -338,6 +338,7 @@
 							// --- Start Positron ---
 							"react",
 							"react-dom/client",
+							"react-html-parser",
 							"react-window",
 							// --- End Positron ---
 
@@ -422,6 +423,7 @@
 							// --- Start Positron ---
 							"react",
 							"react-dom/client",
+							"react-html-parser",
 							"react-window",
 							// --- End Positron ---
 							"assert",
@@ -488,6 +490,7 @@
 							"ansi-output",
 							"react",
 							"react-dom/client",
+							"react-html-parser",
 							"react-window",
 							// --- End Positron ---
 
