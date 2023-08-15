@@ -2,6 +2,9 @@
  *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
+import fs = require('fs');
+import path = require('path');
+import { JSDOM } from 'jsdom';
 import express from 'express';
 import { AddressInfo, Server } from 'net';
 import { Disposable, ExtensionContext } from 'vscode';
@@ -66,6 +69,16 @@ export class PositronProxy implements Disposable {
 	//#region Private Properties
 
 	/**
+	 * A value which indicates whether scripts have been loaded from resources/scripts.html.
+	 */
+	private scriptsLoaded = false;
+
+	/**
+	 * The help header script.
+	 */
+	private helpHeaderScript?: string;
+
+	/**
 	 * The proxy servers, keyed by target origin.
 	 */
 	private proxyServers = new Map<string, ProxyServer>();
@@ -107,25 +120,9 @@ export class PositronProxy implements Disposable {
 				return responseBuffer;
 			}
 
-			// The script to inject.
-			const script = `<script>
-			(function() {
-				var links = document.links;
-				for (let i = 0; i < links.length; i++) {
-					links[i].onclick = (e) => {
-						window.parent.postMessage({
-							command: "open-url",
-							href: links[i].href
-						}, "*");
-						return false;
-					};
-				}
-			})();
-			</script>`;
-
-			// Inject the script.
+			// Inject the help header script.
 			let response = responseBuffer.toString('utf8');
-			response = response.replace('</body>', `${script}</body>`);
+			response = response.replace('</head>', `${this.helpHeaderScript}</head>`);
 
 			// Return the response.
 			return response;
@@ -137,12 +134,40 @@ export class PositronProxy implements Disposable {
 	//#region Private Methods
 
 	/**
+	 * Loads scripts from the resources/scripts.html file.
+	 */
+	private loadScripts() {
+		// If scripts have been loaded, return.
+		if (this.scriptsLoaded) {
+			return;
+		}
+
+		// Try to load the resources/scripts.html file and the scripts within it.
+		try {
+			// Load the resources/scripts.html file.
+			const scriptsPath = path.join(this.context.extensionPath, 'resources', 'scripts.html');
+			const jsdom = new JSDOM(fs.readFileSync(scriptsPath));
+			const document = jsdom.window.document;
+
+			// Load the scripts from within the file.
+			this.helpHeaderScript = document.querySelector('#help-header-script')?.outerHTML;
+
+			// Set the scripts loaded flag.
+			this.scriptsLoaded = true;
+		} catch (error) {
+			console.log(`Failed to load the resources/scripts.html file`);
+		}
+	}
+
+	/**
 	 * Starts a proxy server.
 	 * @param targetOrigin The target origin.
 	 * @param contentRewriter The content rewriter/
 	 * @returns The server origin.
 	 */
 	startProxyServer(targetOrigin: string, contentRewriter: ContentRewriter): Promise<string> {
+		this.loadScripts();
+
 		// Return a promise.
 		return new Promise((resolve, reject) => {
 			// See if we have an existing proxy server for target origin. If there is, return the
