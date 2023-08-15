@@ -25,7 +25,7 @@ import { IPositronHelpService } from 'vs/workbench/services/positronHelp/common/
 import { IOverlayWebview, IWebviewService, WebviewContentPurpose } from 'vs/workbench/contrib/webview/browser/webview';
 
 /**
- * Determines wether a hostname represents localhost.
+ * Determines whether a hostname represents localhost.
  * @param hostname The hostname.
  * @returns A value which indicates whether a hostname represents localhost.
  */

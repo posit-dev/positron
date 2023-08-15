@@ -15,7 +15,7 @@ import { LanguageRuntimeEventData, LanguageRuntimeEventType, ShowHelpEvent } fro
 import { IOpenerService, OpenExternalOptions } from 'vs/platform/opener/common/opener';
 
 /**
- * Determines wether a hostname represents localhost.
+ * Determines whether a hostname represents localhost.
  * @param hostname The hostname.
  * @returns A value which indicates whether a hostname represents localhost.
  */
