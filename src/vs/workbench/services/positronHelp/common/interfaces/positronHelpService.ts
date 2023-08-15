@@ -9,15 +9,15 @@ import { createDecorator } from 'vs/platform/instantiation/common/instantiation'
 export const IPositronHelpService = createDecorator<IPositronHelpService>('positronHelpService');
 
 /**
- * HelpDescriptor interface. Describes a help topic to be opened for the user.
+ * HelpEntry interface.
  */
-export interface HelpDescriptor {
+export interface HelpEntry {
 	languageId: string;
 	runtimeId: string;
 	languageName: string;
 	sourceUrl: string;
 	targetUrl: string;
-	focus: boolean;
+	title?: string;
 }
 
 /**
@@ -32,10 +32,39 @@ export interface IPositronHelpService {
 	/**
 	 * The onRenderHelp event.
 	 */
-	readonly onRenderHelp: Event<HelpDescriptor>;
+	readonly onRenderHelp: Event<HelpEntry>;
+
+	/**
+	 * The onFocusHelp event.
+	 */
+	readonly onFocusHelp: Event<void>;
 
 	/**
 	 * Placeholder that gets called to "initialize" the PositronConsoleService.
 	 */
 	initialize(): void;
+
+	/**
+	 * Sets the title.
+	 * @param fromUrl
+	 * @param title
+	 */
+	setTitle(fromUrl: string, title: string): void;
+
+	/**
+	 * Navigates the help service.
+	 * @param fromUrl The from URL.
+	 * @param toUrl The to URL.
+	 */
+	navigate(fromUrl: string, toUrl: string): void;
+
+	/**
+	 * Navigates back.
+	 */
+	navigateBack(): void;
+
+	/**
+	 * Navigates forward.
+	 */
+	navigateForward(): void;
 }

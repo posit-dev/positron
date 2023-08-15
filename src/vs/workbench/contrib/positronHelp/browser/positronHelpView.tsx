@@ -23,8 +23,8 @@ import { ViewPane, IViewPaneOptions } from 'vs/workbench/browser/parts/views/vie
 import { IOpenerService, OpenExternalOptions } from 'vs/platform/opener/common/opener';
 import { ActionBars } from 'vs/workbench/contrib/positronHelp/browser/components/actionBars';
 import { IReactComponentContainer, ISize, PositronReactRenderer } from 'vs/base/browser/positronReactRenderer';
-import { IPositronHelpService } from 'vs/workbench/services/positronHelp/common/interfaces/positronHelpService';
 import { IOverlayWebview, IWebviewService, WebviewContentPurpose } from 'vs/workbench/contrib/webview/browser/webview';
+import { HelpEntry, IPositronHelpService } from 'vs/workbench/services/positronHelp/common/interfaces/positronHelpService';
 
 /**
  * Determines whether a hostname represents localhost.
@@ -39,17 +39,17 @@ const isLocalhost = (hostname?: string) =>
  */
 type MessageSetTitle = {
 	id: '194c268a-8fb5-4462-8e65-c5ff82ca0a4f-set-title';
-	fromUrl: string;
+	url: string;
 	title: string;
 };
 
 /**
- * MessageOpenUrl type.
+ * MessageNavigate type.
  */
-type MessageOpenUrl = {
-	id: '194c268a-8fb5-4462-8e65-c5ff82ca0a4f-open-url';
+type MessageNavigate = {
+	id: '194c268a-8fb5-4462-8e65-c5ff82ca0a4f-navigate';
 	fromUrl: string;
-	openUrl: string;
+	toUrl: string;
 };
 
 /**
@@ -57,7 +57,7 @@ type MessageOpenUrl = {
  */
 type Message =
 	| MessageSetTitle
-	| MessageOpenUrl;
+	| MessageNavigate;
 
 /**
  * PositronHelpCommand interface.
@@ -66,18 +66,6 @@ interface PositronHelpCommand {
 	identifier: string;
 	command: string;
 	findText?: string;
-}
-
-/**
- * HelpEntry interface.
- */
-interface HelpEntry {
-	languageId: string;
-	runtimeId: string;
-	languageName: string;
-	sourceUrl: string;
-	targetUrl: string;
-	title?: string;
 }
 
 /**
@@ -126,12 +114,6 @@ export class PositronHelpViewPane extends ViewPane implements IReactComponentCon
 
 	// The last Positron help command that was sent to the help iframe.
 	private lastPositronHelpCommand?: PositronHelpCommand;
-
-	// The help entries.
-	private helpEntries: HelpEntry[] = [];
-
-	// The help entry index.
-	private helpEntryIndex = -1;
 
 	//#endregion Private Properties
 
@@ -250,12 +232,12 @@ export class PositronHelpViewPane extends ViewPane implements IReactComponentCon
 		this.positronHelpContainer.appendChild(this.helpViewContainer);
 
 		// Register the onRenderHelp event handler.
-		this._register(this.positronHelpService.onRenderHelp(helpDescriptor => {
+		this._register(this.positronHelpService.onRenderHelp(helpEntry => {
 			// Ensure that the overlay webview has been created.
 			this.createOverlayWebview();
 
-			// Open the help descriptor.
-			this.openHelp(helpDescriptor, true);
+			// Open the help entry.
+			this.openHelpEntry(helpEntry);
 		}));
 
 		// Register the onDidChangeBodyVisibility event handler.
@@ -340,14 +322,10 @@ export class PositronHelpViewPane extends ViewPane implements IReactComponentCon
 				keybindingService={this.keybindingService}
 				reactComponentContainer={this}
 				onPreviousTopic={() => {
-					if (this.helpEntryIndex > 0) {
-						this.openHelp(this.helpEntries[--this.helpEntryIndex], false);
-					}
+					this.positronHelpService.navigateBack();
 				}}
 				onNextTopic={() => {
-					if (this.helpEntryIndex < this.helpEntries.length - 1) {
-						this.openHelp(this.helpEntries[++this.helpEntryIndex], false);
-					}
+					this.positronHelpService.navigateForward();
 				}}
 				onHome={homeHandler}
 				onFind={findHandler}
@@ -424,49 +402,29 @@ export class PositronHelpViewPane extends ViewPane implements IReactComponentCon
 			switch (message.id) {
 				// Set title.
 				case '194c268a-8fb5-4462-8e65-c5ff82ca0a4f-set-title': {
-					// Get the current help entry. If it matches, set its title.
-					const currentHelpEntry = this.helpEntries[this.helpEntries.length - 1];
-					if (currentHelpEntry && currentHelpEntry.sourceUrl === message.fromUrl) {
-						currentHelpEntry.title = message.title;
-					}
+					this.positronHelpService.setTitle(message.url, message.title);
 					break;
 				}
 
-				// Open URL.
-				case '194c268a-8fb5-4462-8e65-c5ff82ca0a4f-open-url': {
-					// If the open URL is not for localhost, open it externally; otherwise, open it
-					// in the help view.
-					const openUrl = new URL(message.openUrl);
-					if (!isLocalhost(openUrl.hostname)) {
+				// Navigate.
+				case '194c268a-8fb5-4462-8e65-c5ff82ca0a4f-navigate': {
+					// If the to URL is external, open it externally; otherwise, open it in the help
+					// service.
+					const toUrl = new URL(message.toUrl);
+					if (!isLocalhost(toUrl.hostname)) {
 						try {
-							await this.openerService.open(message.openUrl, {
+							await this.openerService.open(message.toUrl, {
 								openExternal: true
 							} satisfies OpenExternalOptions);
 						} catch {
 							this.notificationService.error(nls.localize(
 								'positronHelpOpenFailed',
-								"Positron was unable to open '{0}'.", message.openUrl
+								"Positron was unable to open '{0}'.", message.toUrl
 							));
 						}
 					} else {
 						// Get the current help entry.
-						const currentHelpEntry = this.helpEntries[this.helpEntries.length - 1];
-						if (currentHelpEntry && currentHelpEntry.sourceUrl === message.fromUrl) {
-							// Create the target URL.
-							const currentTargetUrl = new URL(currentHelpEntry.targetUrl);
-							const targetUrl = new URL(message.openUrl);
-							targetUrl.protocol = currentTargetUrl.protocol;
-							targetUrl.hostname = currentTargetUrl.hostname;
-							targetUrl.port = currentTargetUrl.port;
-
-							// Open the help entry. Note that we clear the title.
-							this.openHelp({
-								...currentHelpEntry,
-								sourceUrl: message.openUrl,
-								targetUrl: targetUrl.toString(),
-								title: undefined
-							}, true);
-						}
+						this.positronHelpService.navigate(message.fromUrl, message.toUrl);
 					}
 					break;
 				}
@@ -475,35 +433,10 @@ export class PositronHelpViewPane extends ViewPane implements IReactComponentCon
 	}
 
 	/**
-	 * Opens a help URL.
-	 * @param url The help URL.
+	 * Opens a help entry.
+	 * @param helpEntry The help URL.
 	 */
-	private openHelp(helpEntry: HelpEntry, addToHistory: boolean) {
-		// // See if the history contains the specified URL. If it does, remove it because it will be
-		// // added to the history at the end.
-		// const index = this.history.indexOf(url);
-		// if (index > -1) {
-		// 	this.history.splice(index, 1);
-		// }
-
-		// interface HelpEntry {
-		// 	languageId: string;
-		// 	runtimeId: string;
-		// 	languageName: string;
-		// 	sourceUrl: string;
-		// 	targetUrl: string;
-		// 	title: string;
-		// }
-
-		//this.hel
-
-		if (addToHistory) {
-			this.helpEntries.push({
-				...helpEntry
-			});
-			this.helpEntryIndex = this.helpEntries.length - 1;
-		}
-
+	private openHelpEntry(helpEntry: HelpEntry) {
 		this.helpOverlayWebview?.setHtml(this.generateHelpHtml(helpEntry.sourceUrl));
 	}
 

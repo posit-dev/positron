@@ -21,21 +21,21 @@
 			const setTitle = () => {
 				window.parent.postMessage({
 					id: `${SOURCE}-set-title`,
-					fromUrl: window.location.href,
+					url: window.location.href,
 					title: document.title
 				}, "*");
 			};
 
-			// Hijacks all the links in the document. When a link is clicked, post a message to have
-			// the link opened.
+			// Hijacks all the links in the document. When a link is clicked, post a message to
+			// navigate.
 			const hijackLinks = () => {
 				var links = document.links;
 				for (let i = 0; i < links.length; i++) {
 					links[i].onclick = (e) => {
 						window.parent.postMessage({
-							id: `${SOURCE}-open-url`,
+							id: `${SOURCE}-navigate`,
 							fromUrl: window.location.href,
-							openUrl: links[i].href
+							toUrl: links[i].href
 						}, "*");
 						return false;
 					};

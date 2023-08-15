@@ -11,7 +11,7 @@ import { INotificationService } from 'vs/platform/notification/common/notificati
 import { IOpenerService, OpenExternalOptions } from 'vs/platform/opener/common/opener';
 import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/common/extensions';
 import { ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
-import { HelpDescriptor, IPositronHelpService } from 'vs/workbench/services/positronHelp/common/interfaces/positronHelpService';
+import { HelpEntry, IPositronHelpService } from 'vs/workbench/services/positronHelp/common/interfaces/positronHelpService';
 import { LanguageRuntimeEventData, LanguageRuntimeEventType, ShowHelpEvent } from 'vs/workbench/services/languageRuntime/common/languageRuntimeEvents';
 
 /**
@@ -38,14 +38,29 @@ export class PositronHelpService extends Disposable implements IPositronHelpServ
 	//#region Private Properties
 
 	/**
-	 * The proxy servers.
+	 * The help entries.
+	 */
+	private helpEntries: HelpEntry[] = [];
+
+	/**
+	 * The help entry index.
+	 */
+	private helpEntryIndex = -1;
+
+	/**
+	 * The proxy servers. Keyed by the target URL origin.
 	 */
 	private proxyServers = new Map<string, string>();
 
 	/**
-	 * The onDidStartPositronConsoleInstance event emitter.
+	 * The onRenderHelpEmitter event emitter.
 	 */
-	private readonly onRenderHelpEmitter = this._register(new Emitter<HelpDescriptor>);
+	private readonly onRenderHelpEmitter = this._register(new Emitter<HelpEntry>);
+
+	/**
+	 * The onFocusHelpEmitter event emitter.
+	 */
+	private readonly onFocusHelpEmitter = this._register(new Emitter<void>);
 
 	//#endregion Private Properties
 
@@ -161,15 +176,22 @@ export class PositronHelpService extends Disposable implements IPositronHelpServ
 					return;
 				}
 
-				// Raise the onRenderHelp event.
-				this.onRenderHelpEmitter.fire({
+				// Create the help entry.
+				const helpEntry: HelpEntry = {
 					languageId: runtime.metadata.languageId,
 					runtimeId: runtime.metadata.runtimeId,
 					languageName: runtime.metadata.languageName,
 					sourceUrl: sourceUrl.toString(),
-					targetUrl: targetUrl.toString(),
-					focus: showHelpEvent.focus
-				});
+					targetUrl: targetUrl.toString()
+				};
+
+				// Add the help entry.
+				this.addHelpEntry(helpEntry);
+
+				// Raise the onFocusHelp event, if we should.
+				if (showHelpEvent.focus) {
+					this.onFocusHelpEmitter.fire();
+				}
 			})
 		);
 	}
@@ -189,9 +211,77 @@ export class PositronHelpService extends Disposable implements IPositronHelpServ
 	readonly onRenderHelp = this.onRenderHelpEmitter.event;
 
 	/**
+	 * The onFocusHelp event.
+	 */
+	readonly onFocusHelp = this.onFocusHelpEmitter.event;
+
+	/**
 	 * Placeholder that gets called to "initialize" the PositronHelpService.
 	 */
 	initialize() {
+	}
+
+	addHelpEntry(helpEntry: HelpEntry) {
+		this.helpEntries.push(helpEntry);
+		this.helpEntryIndex = this.helpEntries.length - 1;
+
+		// Raise the onRenderHelp event.
+		this.onRenderHelpEmitter.fire(helpEntry);
+	}
+
+	/**
+	 * Sets the title of the specified URL.
+	 * @param url The URL.
+	 * @param title The title to set for the URL.
+	 */
+	setTitle(url: string, title: string) {
+		const currentHelpEntry = this.helpEntries[this.helpEntries.length - 1];
+		if (currentHelpEntry && currentHelpEntry.sourceUrl === url) {
+			currentHelpEntry.title = title;
+		}
+	}
+
+	/**
+	 * Navigates the help service.
+	 * @param fromUrl The from URL.
+	 * @param toUrl The to URL.
+	 */
+	navigate(fromUrl: string, toUrl: string) {
+		const currentHelpEntry = this.helpEntries[this.helpEntries.length - 1];
+		if (currentHelpEntry && currentHelpEntry.sourceUrl === fromUrl) {
+			// Create the target URL.
+			const currentTargetUrl = new URL(currentHelpEntry.targetUrl);
+			const targetUrl = new URL(toUrl);
+			targetUrl.protocol = currentTargetUrl.protocol;
+			targetUrl.hostname = currentTargetUrl.hostname;
+			targetUrl.port = currentTargetUrl.port;
+
+			// Add the help entry.
+			this.addHelpEntry({
+				...currentHelpEntry,
+				sourceUrl: toUrl,
+				targetUrl: targetUrl.toString(),
+				title: undefined
+			});
+		}
+	}
+
+	/**
+	 * Navigates back.
+	 */
+	navigateBack() {
+		if (this.helpEntryIndex > 0) {
+			this.onRenderHelpEmitter.fire(this.helpEntries[--this.helpEntryIndex]);
+		}
+	}
+
+	/**
+	 * Navigates forward.
+	 */
+	navigateForward() {
+		if (this.helpEntryIndex < this.helpEntries.length - 1) {
+			this.onRenderHelpEmitter.fire(this.helpEntries[++this.helpEntryIndex]);
+		}
 	}
 
 	//#endregion IPositronHelpService Implementation
