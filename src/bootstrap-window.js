@@ -131,6 +131,7 @@
 			'ansi-output': `${baseNodeModulesPath}/ansi-output/dist/ansi-output.js`,
 			'react': `${baseNodeModulesPath}/react/umd/react.production.min.js`,
 			'react-dom': `${baseNodeModulesPath}/react-dom/umd/react-dom.production.min.js`,
+			'react-html-parser': `${baseNodeModulesPath}/react-html-parser/dist/react-html-parser.min.js`,
 			'react-window': `${baseNodeModulesPath}/react-window/dist/index-prod.umd.js`
 			// --- End Positron ---
 		};

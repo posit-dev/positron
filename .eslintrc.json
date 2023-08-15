@@ -317,6 +317,7 @@
 							// --- Start Positron ---
 							"react",
 							"react-dom/client",
+							"react-html-parser",
 							"react-window"
 							// --- End Positron ---
 						]
