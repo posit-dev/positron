@@ -8,11 +8,11 @@ import { Disposable } from 'vs/base/common/lifecycle';
 import { ILogService } from 'vs/platform/log/common/log';
 import { ICommandService } from 'vs/platform/commands/common/commands';
 import { INotificationService } from 'vs/platform/notification/common/notification';
+import { IOpenerService, OpenExternalOptions } from 'vs/platform/opener/common/opener';
 import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/common/extensions';
 import { ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { HelpDescriptor, IPositronHelpService } from 'vs/workbench/services/positronHelp/common/interfaces/positronHelpService';
 import { LanguageRuntimeEventData, LanguageRuntimeEventType, ShowHelpEvent } from 'vs/workbench/services/languageRuntime/common/languageRuntimeEvents';
-import { IOpenerService, OpenExternalOptions } from 'vs/platform/opener/common/opener';
 
 /**
  * Determines whether a hostname represents localhost.

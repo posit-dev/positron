@@ -1,33 +1,51 @@
 <!DOCTYPE html>
 <html>
 <!-- This file provides a sane place to develop scripts for use in the PositronProxy extension. -->
+
 <head>
 	<!-- The help header script. -->
 	<script id="help-header-script">
-		// When the document is completely loaded, initialize things.
-		document.addEventListener("readystatechange", event => {
-			if (document.readyState === "complete") {
-				hijackLinks();
-			}
-		});
+		(() => {
+			// The source.
+			const SOURCE = "194c268a-8fb5-4462-8e65-c5ff82ca0a4f";
 
-		// Hijack all the links in the document. When a link is clicked, post a message to have
-		// the link opened.
-		const hijackLinks = () => {
-			// Hijack all the links on the page.
-			var links = document.links;
-			for (let i = 0; i < links.length; i++) {
-				links[i].onclick = (e) => {
-					window.parent.postMessage({
-						command: "open-url",
-						href: links[i].href
-					}, "*");
-					return false;
-				};
-			}
-		};
+			// When the document is completely loaded, initialize things.
+			document.addEventListener("readystatechange", event => {
+				if (document.readyState === "complete") {
+					pushTitle();
+					hijackLinks();
+				}
+			});
+
+			// Push the title of the document out.
+			const pushTitle = () => {
+				window.parent.postMessage({
+					source: SOURCE,
+					id: "set-title",
+					title: document.title
+				}, "*");
+			};
+
+			// Hijack all the links in the document. When a link is clicked, post a message to have
+			// the link opened.
+			const hijackLinks = () => {
+				var links = document.links;
+				for (let i = 0; i < links.length; i++) {
+					links[i].onclick = (e) => {
+						window.parent.postMessage({
+							source: SOURCE,
+							id: "open-url",
+							href: links[i].href
+						}, "*");
+						return false;
+					};
+				}
+			};
+		})();
 	</script>
 </head>
+
 <body>
 </body>
+
 </html>

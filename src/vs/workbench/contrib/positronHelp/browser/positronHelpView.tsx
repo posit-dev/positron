@@ -36,7 +36,7 @@ const isLocalhost = (hostname?: string) =>
  * MessageOpenUrl interface.
  */
 type MessageOpenUrl = {
-	command: 'open-url';
+	id: 'open-url';
 	href: string;
 };
 
@@ -51,7 +51,7 @@ type Message = | MessageOpenUrl;
  * @returns The MessageOpenUrl if the specified message is a MessageOpenUrl; otherwise, undefined.
  */
 const AsMessageOpenUrl = (message: Message): MessageOpenUrl | undefined => {
-	return message.command === 'open-url' ? message as MessageOpenUrl : undefined;
+	return message.id === 'open-url' ? message as MessageOpenUrl : undefined;
 };
 
 /**
@@ -498,19 +498,16 @@ export class PositronHelpViewPane extends ViewPane implements IReactComponentCon
 				position: absolute;
 			}
 		</style>
-		<script nonce="${nonce}">
-		console.log("HEAD script");
-		</script>
 	</head>
 	<body>
 		<iframe id="help-iframe" title="Help Content" src="${url}"></iframe>
 		<script nonce="${nonce}">
-		(function() {
+		(() => {
 			const vscode = acquireVsCodeApi();
 			const childWindow = document.getElementById('help-iframe').contentWindow;
 			window.addEventListener('message', (message) => {
 				if (message.source === childWindow) {
-					if (message.data.command === "open-url") {
+					if (message.data.source === "194c268a-8fb5-4462-8e65-c5ff82ca0a4f") {
 						vscode.postMessage(message.data);
 					}
 				}
