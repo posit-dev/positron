@@ -8,8 +8,15 @@ import { createDecorator } from 'vs/platform/instantiation/common/instantiation'
 // Create the decorator for the Positron help service (used in dependency injection).
 export const IPositronHelpService = createDecorator<IPositronHelpService>('positronHelpService');
 
+/**
+ * HelpDescriptor interface. Describes a help topic to be opened for the user.
+ */
 export interface HelpDescriptor {
-	url: string;
+	languageId: string;
+	runtimeId: string;
+	languageName: string;
+	sourceUrl: string;
+	targetUrl: string;
 	focus: boolean;
 }
 

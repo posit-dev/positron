@@ -88,37 +88,47 @@ export class PositronHelpService extends Disposable implements IPositronHelpServ
 
 				// Only url help events are supported.
 				if (showHelpEvent.kind !== 'url') {
-					this.logService.error(`PositronHelpService does not support ${showHelpEvent.kind}.`);
+					this.logService.error(`PositronHelpService does not support help event kind ${showHelpEvent.kind}.`);
 					return;
 				}
 
-				// Get the help URL.
-				const helpURL = new URL(showHelpEvent.content);
+				// Get the target URL.
+				const targetUrl = new URL(showHelpEvent.content);
 
-				// If the help URL is not for localhost, open it externally.
-				if (!isLocalhost(helpURL.hostname)) {
-					this.openerService.open(helpURL.toString(), {
-						openExternal: true
-					} satisfies OpenExternalOptions);
+				// If the target URL is not for localhost, open it externally.
+				if (!isLocalhost(targetUrl.hostname)) {
+					try {
+						await this.openerService.open(targetUrl.toString(), {
+							openExternal: true
+						} satisfies OpenExternalOptions);
+					} catch {
+						this.notificationService.error(nls.localize(
+							'positronHelpServiceOpenFailed',
+							"The Positron help service was unable to open '{0}'.", targetUrl.toString()
+						));
+					}
+
+					// Return.
 					return;
 				}
 
-				// Get the proxy server origin for the help URL. If one isn't found, ask
-				// the PositronProxy to start one.
-				let serverOrigin = this.proxyServers.get(helpURL.origin);
-				if (!serverOrigin) {
+				// Get the proxy server origin for the help URL. If one isn't found, ask the
+				// PositronProxy to start one.
+				let proxyServerOrigin = this.proxyServers.get(targetUrl.origin);
+				if (!proxyServerOrigin) {
 					// Try to start a help proxy server.
 					try {
-						serverOrigin = await this.commandService.executeCommand<string>(
+						proxyServerOrigin = await this.commandService.executeCommand<string>(
 							'positronProxy.startHelpProxyServer',
-							helpURL.origin
+							targetUrl.origin
 						);
 					} catch (error) {
-						this.logService.error(`PositronHelpService could not start the proxy server for ${helpURL.origin}.`);
+						this.logService.error(`PositronHelpService could not start the proxy server for ${targetUrl.origin}.`);
+						this.logService.error(error);
 					}
 
 					// If the help proxy server could not be started, notify the user, and return.
-					if (!serverOrigin) {
+					if (!proxyServerOrigin) {
 						this.notificationService.error(nls.localize(
 							'positronHelpServiceUnavailable',
 							"The Positron help service is unavailable."
@@ -127,18 +137,37 @@ export class PositronHelpService extends Disposable implements IPositronHelpServ
 					}
 
 					// Add the proxy server.
-					this.proxyServers.set(helpURL.origin, serverOrigin);
+					this.proxyServers.set(targetUrl.origin, proxyServerOrigin);
 				}
 
-				// Fixup the help URL.
-				const serverOriginURL = new URL(serverOrigin);
-				helpURL.protocol = serverOriginURL.protocol;
-				helpURL.hostname = serverOriginURL.hostname;
-				helpURL.port = serverOriginURL.port;
+				// Create the source URL.
+				const sourceUrl = new URL(targetUrl);
+				const proxyServerOriginUrl = new URL(proxyServerOrigin);
+				sourceUrl.protocol = proxyServerOriginUrl.protocol;
+				sourceUrl.hostname = proxyServerOriginUrl.hostname;
+				sourceUrl.port = proxyServerOriginUrl.port;
+
+				// Get the runtime.
+				const runtime = this.languageRuntimeService.getRuntime(
+					languageRuntimeGlobalEvent.runtime_id
+				);
+
+				// Basically this can't happen.
+				if (!runtime) {
+					this.notificationService.error(nls.localize(
+						'positronHelpServiceInternalError',
+						"The Positron help service experienced an unexpected error."
+					));
+					return;
+				}
 
 				// Raise the onRenderHelp event.
 				this.onRenderHelpEmitter.fire({
-					url: helpURL.toString(),
+					languageId: runtime.metadata.languageId,
+					runtimeId: runtime.metadata.runtimeId,
+					languageName: runtime.metadata.languageName,
+					sourceUrl: sourceUrl.toString(),
+					targetUrl: targetUrl.toString(),
 					focus: showHelpEvent.focus
 				});
 			})

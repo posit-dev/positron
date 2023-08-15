@@ -12,30 +12,30 @@
 			// When the document is completely loaded, initialize things.
 			document.addEventListener("readystatechange", event => {
 				if (document.readyState === "complete") {
-					pushTitle();
+					setTitle();
 					hijackLinks();
 				}
 			});
 
-			// Push the title of the document out.
-			const pushTitle = () => {
+			// Sets the title.
+			const setTitle = () => {
 				window.parent.postMessage({
-					source: SOURCE,
-					id: "set-title",
+					id: `${SOURCE}-set-title`,
+					fromUrl: window.location.href,
 					title: document.title
 				}, "*");
 			};
 
-			// Hijack all the links in the document. When a link is clicked, post a message to have
+			// Hijacks all the links in the document. When a link is clicked, post a message to have
 			// the link opened.
 			const hijackLinks = () => {
 				var links = document.links;
 				for (let i = 0; i < links.length; i++) {
 					links[i].onclick = (e) => {
 						window.parent.postMessage({
-							source: SOURCE,
-							id: "open-url",
-							href: links[i].href
+							id: `${SOURCE}-open-url`,
+							fromUrl: window.location.href,
+							openUrl: links[i].href
 						}, "*");
 						return false;
 					};

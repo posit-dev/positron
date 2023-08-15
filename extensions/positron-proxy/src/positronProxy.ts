@@ -166,6 +166,7 @@ export class PositronProxy implements Disposable {
 	 * @returns The server origin.
 	 */
 	startProxyServer(targetOrigin: string, contentRewriter: ContentRewriter): Promise<string> {
+		// Load scripts.
 		this.loadScripts();
 
 		// Return a promise.
@@ -212,10 +213,10 @@ export class PositronProxy implements Disposable {
 					},
 					onProxyRes: responseInterceptor(async (responseBuffer, proxyRes, req, res) => {
 						// Get the URL and the content type. These must be present to call the
-						// content rewriter.
+						// content rewriter. Also, the scripts must be loaded.
 						const url = req.url;
 						const contentType = proxyRes.headers['content-type'];
-						if (!url || !contentType) {
+						if (!url || !contentType || !this.scriptsLoaded) {
 							// Don't process the response.
 							return responseBuffer;
 						}
