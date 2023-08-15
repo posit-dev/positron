@@ -211,6 +211,11 @@ def positron_completion(
     document = server.workspace.get_document(params.text_document.uri)
 
     # --- Start Positron ---
+    # Don't complete shell and magic commands
+    skip_prefixes = ["!", "%"]
+    if any(document.source.startswith(prefix) for prefix in skip_prefixes):
+        return None
+
     # Unfortunately we need to override this entire method to add the kernel
     # interpreter namespace to the list of jedi completions.
 
