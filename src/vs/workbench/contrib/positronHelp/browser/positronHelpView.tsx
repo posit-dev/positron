@@ -424,8 +424,11 @@ export class PositronHelpViewPane extends ViewPane implements IReactComponentCon
 			switch (message.id) {
 				// Set title.
 				case '194c268a-8fb5-4462-8e65-c5ff82ca0a4f-set-title': {
-					const fromUrl = new URL(message.fromUrl);
-					console.log(`The title of ${fromUrl.toString()} is '${message.title}'`);
+					// Get the current help entry. If it matches, set its title.
+					const currentHelpEntry = this.helpEntries[this.helpEntries.length - 1];
+					if (currentHelpEntry && currentHelpEntry.sourceUrl === message.fromUrl) {
+						currentHelpEntry.title = message.title;
+					}
 					break;
 				}
 

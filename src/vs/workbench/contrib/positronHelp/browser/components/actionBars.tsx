@@ -16,8 +16,8 @@ import { IConfigurationService } from 'vs/platform/configuration/common/configur
 import { PositronActionBar } from 'vs/platform/positronActionBar/browser/positronActionBar';
 import { ActionBarFind } from 'vs/platform/positronActionBar/browser/components/actionBarFind';
 import { ActionBarButton } from 'vs/platform/positronActionBar/browser/components/actionBarButton';
-import { PositronActionBarContextProvider } from 'vs/platform/positronActionBar/browser/positronActionBarContext';
 import { ActionBarRegion } from 'vs/platform/positronActionBar/browser/components/actionBarRegion';
+import { PositronActionBarContextProvider } from 'vs/platform/positronActionBar/browser/positronActionBarContext';
 
 // Constants.
 const kSecondaryActionBarGap = 4;
@@ -125,20 +125,52 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 	return (
 		<div className='action-bars'>
 			<PositronActionBarContextProvider {...props}>
-				<PositronActionBar size='small' paddingLeft={kPaddingLeft} paddingRight={kPaddingRight}>
-					<ActionBarButton iconId='positron-left-arrow' tooltip={localize('positronPreviousTopic', "Previous topic")} onClick={() => props.onPreviousTopic()} />
-					<ActionBarButton iconId='positron-right-arrow' tooltip={localize('positronNextTopic', "Next topic")} onClick={() => props.onNextTopic()} />
+				<PositronActionBar
+					size='small'
+					paddingLeft={kPaddingLeft}
+					paddingRight={kPaddingRight}
+				>
+					<ActionBarButton
+						iconId='positron-left-arrow'
+						tooltip={localize('positronClickToGoBack', "Click to go back")}
+						onClick={() => props.onPreviousTopic()}
+					/>
+					<ActionBarButton
+						iconId='positron-right-arrow'
+						tooltip={localize('positronClickToGoForward', "Click to go forward")}
+						onClick={() => props.onNextTopic()}
+					/>
 
 					{/* Disabled for Private Alpha (August 2023) */}
-					{/* <ActionBarButton iconId='positron-home' tooltip={localize('positronShowPositronHelp', "Show Positron help")} onClick={() => props.onHome()} /> */}
+					{/* <ActionBarButton
+						iconId='positron-home'
+						tooltip={localize('positronShowPositronHelp', "Show Positron help")}
+						onClick={() => props.onHome()}
+					/> */}
 
 					{/* Disabled for Private Alpha (August 2023) */}
 					{/* <ActionBarSeparator /> */}
-					{/* <ActionBarButton iconId='positron-open-in-new-window' tooltip={localize('positronShowInNewWindow', "Show in new window")} /> */}
+					{/* <ActionBarButton
+						iconId='positron-open-in-new-window'
+						tooltip={localize('positronShowInNewWindow', "Show in new window")}
+					/> */}
+
 				</PositronActionBar>
-				<PositronActionBar size='small' gap={kSecondaryActionBarGap} borderBottom={!alternateFindUI} paddingLeft={kPaddingLeft} paddingRight={kPaddingRight}>
+				<PositronActionBar
+					size='small'
+					gap={kSecondaryActionBarGap}
+					borderBottom={!alternateFindUI}
+					paddingLeft={kPaddingLeft}
+					paddingRight={kPaddingRight}
+				>
 					<ActionBarRegion location='left'>
-						<ActionBarButton ref={historyButtonRef} text='Home' maxTextWidth={120} dropDown={true} tooltip={localize('positronHelpHistory', "Help history")} />
+						<ActionBarButton
+							ref={historyButtonRef}
+							text='Home'
+							maxTextWidth={120}
+							dropDown={true}
+							tooltip={localize('positronHelpHistory', "Help history")}
+						/>
 					</ActionBarRegion>
 					<ActionBarRegion location='right'>
 						{!alternateFindUI && (
@@ -154,7 +186,13 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 
 				</PositronActionBar>
 				{alternateFindUI && (
-					<PositronActionBar size='small' gap={kSecondaryActionBarGap} borderBottom={true} paddingLeft={kPaddingLeft} paddingRight={kPaddingRight}>
+					<PositronActionBar
+						size='small'
+						gap={kSecondaryActionBarGap}
+						borderBottom={true}
+						paddingLeft={kPaddingLeft}
+						paddingRight={kPaddingRight}
+					>
 						<ActionBarFind
 							width={300}
 							findResults={findResults}
