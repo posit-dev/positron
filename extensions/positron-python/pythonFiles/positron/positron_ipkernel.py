@@ -17,6 +17,7 @@ from ipykernel.zmqshell import ZMQInteractiveShell
 from IPython.core import oinspect
 from IPython.core.interactiveshell import InteractiveShell
 from IPython.core.magic import Magics, line_magic, magics_class, needs_local_scope
+from IPython.core import page
 from IPython.utils import PyColorize
 import traitlets
 
@@ -106,6 +107,14 @@ class PositronShell(ZMQInteractiveShell):
             self.object_info_string_level,
             parent=self,
         )
+
+    def init_hooks(self):
+        super().init_hooks()
+
+        # For paged output, send display_data messages instead of using the legacy "payload"
+        # functionality of execute_reply messages. The priority of 90 is chosen arbitrary as long
+        # as its lower than other hooks registered by IPython and ipykernel.
+        self.set_hook("show_in_pager", page.as_hook(page.display_page), 90)
 
 
 class PositronIPyKernel(IPythonKernel):
