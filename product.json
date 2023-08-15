@@ -245,6 +245,7 @@
 			"contribCommentEditorActionsMenu",
 			"readonlyMessage",
 			"treeViewMarkdownMessage",
+			"treeItemCheckbox",
 			"shareProvider",
 			"quickDiffProvider"
 		],
