@@ -12,24 +12,38 @@ export interface ActivityOutputHtmlProps {
 	activityItemOutputHtml: ActivityItemOutputHtml;
 }
 
-const renderHtml = (html: string) => {
+/**
+ * Renders HTML to React elements.
+ * @param html A string of untrusted HTML.
+ * @returns A React element containing the rendered HTML.
+ */
+const renderHtml = (html: string): React.ReactElement => {
 
+	// Parse the HTML into a tree of nodes.
 	const parsedContent = parseHtml(html);
 
+	// Render the nodes into React elements.
 	const renderNode = (node: HtmlNode): React.ReactElement | undefined => {
 		if (node.type === 'text') {
+			// Create <span> elements to host the text content.
 			if (node.content && node.content.trim().length > 0) {
 				return React.createElement('span', {}, node.content);
 			}
+			// Text nodes with no content (or only whitespae content) are
+			// currently ignored.
 			return undefined;
 		} else if (node.type === 'tag' && node.children) {
+			// Call the renderer recursively to render the children, if any.
 			const children = node.children.map(renderNode);
-			return React.createElement(node.name!, {}, children);
+			// Create a React element for the tag and its children.
+			return React.createElement(node.name!, node.attrs, children);
 		} else {
-			return React.createElement(node.name!, {});
+			// Create a React element for the tag.
+			return React.createElement(node.name!, node.attrs);
 		}
 	};
 
+	// Render all the nodes.
 	const renderedNodes = parsedContent.map(renderNode);
 
 	return <div>{renderedNodes}</div>;
