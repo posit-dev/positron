@@ -1206,7 +1206,8 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 		const html = `
 		<h2>HTML Output</h2>
 		<small style="text-transform: uppercase">
-			This is a sample HTML output from the Zed kernel.
+			This is a sample HTML output from the Zed kernel, &amp; it's good.
+			&copy; 2023 Zed, Inc.
 		</small>
 		<table class="dataframe">
 		<thead>

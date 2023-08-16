@@ -2,6 +2,8 @@
  *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
+import { decode } from 'he';
+
 /*
  * This HTML parser is adapted with heavy modifications from the MIT-licensed
  * 'html-parse-stringify` library.
@@ -15,7 +17,9 @@
  * - Added translation to JavaScript property names
  * - Added parsing for CSS inline styles
  * - Sanitized (removed) event attributes
- * - Remove support for component overrides
+ * - Added support for decoding for HTML entities in text nodes, using the `he`
+ *   library
+ * - Removed support for component overrides
  */
 
 // Regular expression matching HTML tag attributes
@@ -246,7 +250,7 @@ export function parseHtml(html: string): Array<HtmlNode> {
 		const end = html.indexOf('<');
 		result.push({
 			type: 'text',
-			content: end === -1 ? html : html.substring(0, end),
+			content: end === -1 ? decode(html) : decode(html.substring(0, end)),
 		});
 	}
 
@@ -289,7 +293,7 @@ export function parseHtml(html: string): Array<HtmlNode> {
 				}
 				current.children.push({
 					type: 'text',
-					content: html.slice(start, html.indexOf('<', start)),
+					content: decode(html.slice(start, html.indexOf('<', start))),
 				});
 			}
 
@@ -352,7 +356,7 @@ export function parseHtml(html: string): Array<HtmlNode> {
 					parent.push({
 						type: 'text',
 						parent: current,
-						content: content,
+						content: decode(content),
 					});
 				}
 			}
