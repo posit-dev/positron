@@ -13,6 +13,7 @@
  * - Added tracking of node parents to allow for easier traversal up the parse
  *   tree
  * - Added translation to JavaScript property names
+ * - Added parsing for CSS inline styles
  * - Remove support for component overrides
  */
 
@@ -132,23 +133,10 @@ function parseTag(tag: string, parent?: HtmlNode): HtmlNode {
 			// Normal attribute
 			const attr = result[1].trim();
 
-			let arr = [attr, ''];
+			let arr: Array<any> = [attr, ''];
 
 			if (attr.indexOf('=') > -1) {
 				arr = attr.split('=');
-			}
-
-			// Use JavaScript based property names
-			if (arr[0].toLowerCase() === 'class') {
-				arr[0] = 'className';
-			} else if (arr[0].toLowerCase() === 'for') {
-				arr[0] = 'htmlFor';
-			} else if (arr[0].toLowerCase() === 'tabindex') {
-				arr[0] = 'tabIndex';
-			} else if (arr[0].toLowerCase() === 'maxlength') {
-				arr[0] = 'maxLength';
-			} else if (arr[0].toLowerCase() === 'readonly') {
-				arr[0] = 'readOnly';
 			}
 
 			// Create attribute object if needed
@@ -159,14 +147,74 @@ function parseTag(tag: string, parent?: HtmlNode): HtmlNode {
 			res.attrs[arr[0]] = arr[1];
 			reg.lastIndex--;
 		} else if (result[2]) {
+			let attrName = result[2].trim();
+
+			// Use JavaScript based property names
+			if (attrName.toLowerCase() === 'class') {
+				attrName = 'className';
+			} else if (attrName.toLowerCase() === 'for') {
+				attrName = 'htmlFor';
+			} else if (attrName.toLowerCase() === 'tabindex') {
+				attrName = 'tabIndex';
+			} else if (attrName.toLowerCase() === 'maxlength') {
+				attrName = 'maxLength';
+			} else if (attrName.toLowerCase() === 'readonly') {
+				attrName = 'readOnly';
+			}
+
+			let attrValue: any = result[3].trim().substring(1, result[3].length - 1);
+
+			if (attrName.toLowerCase() === 'style') {
+				// Parse the style attribute into a JavaScript object
+				attrValue = parseStyles(attrValue);
+			}
+
 			if (!res.attrs) {
 				res.attrs = {};
 			}
-			res.attrs[result[2]] = result[3].trim().substring(1, result[3].length - 1);
+			res.attrs[result[2]] = attrValue;
 		}
 	}
 
 	return res;
+}
+
+/**
+ * Parses CSS styles into a JavaScript object.
+ *
+ * @param inlineCss An inline CSS style string, such as `color: red;`
+ * @returns A JavaScript object containing the parsed CSS styles, e.g.
+ *  	  `{ color: 'red' }`
+ */
+function parseStyles(inlineCss: string): Record<string, string> {
+	const styleObject: Record<string, string> = {};
+
+	// Split the inline CSS string into individual style declarations
+	const declarations = inlineCss.split(';');
+
+	// Iterate over each style declaration
+	declarations.forEach(declaration => {
+		if (declaration.indexOf(':') === -1) {
+			// Skip anything that doesn't look like a style declaration
+			return;
+		}
+
+		// Split the declaration into property and value
+		const [property, value] = declaration.split(':');
+
+		// Trim any whitespace and skip empty declarations
+		const trimmedProperty = property.trim();
+		const trimmedValue = value.trim();
+		if (trimmedProperty && trimmedValue) {
+			// Convert hyphenated property names to camelCase
+			const camelCaseProperty = trimmedProperty.replace(/-([a-z])/g, (match, letter) => letter.toUpperCase());
+
+			// Assign the property-value pair to the style object
+			styleObject[camelCaseProperty] = trimmedValue;
+		}
+	});
+
+	return styleObject;
 }
 
 // Regular expression matching HTML tags
