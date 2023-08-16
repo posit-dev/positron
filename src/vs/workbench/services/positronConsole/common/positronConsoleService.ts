@@ -950,7 +950,19 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 			const images = Object.keys(languageRuntimeMessageOutput.data).find(key => key.startsWith('image/'));
 
 			// Check to see if the data contains any HTML
-			const html = Object.hasOwnProperty.call(languageRuntimeMessageOutput.data, 'text/html');
+			let html = Object.hasOwnProperty.call(languageRuntimeMessageOutput.data, 'text/html');
+			if (html) {
+				const htmlContent = languageRuntimeMessageOutput.data['text/html'].toLowerCase();
+				if (htmlContent.indexOf('<script') >= 0 ||
+					htmlContent.indexOf('<body') >= 0 ||
+					htmlContent.indexOf('<html') >= 0) {
+					// We only want to render HTML fragments for now; if it has
+					// scripts or looks like it is a self-contained document,
+					// hard pass. In the future, we'll need to render those in a
+					// sandboxed environment.
+					html = false;
+				}
+			}
 
 			if (images) {
 				// It's an image, so create a plot activity item.
