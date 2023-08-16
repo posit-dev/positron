@@ -396,7 +396,7 @@ export class PositronHelpViewPane extends ViewPane implements IReactComponentCon
 			switch (message.id) {
 				// help-loaded message.
 				case '194c268a-8fb5-4462-8e65-c5ff82ca0a4f-help-loaded': {
-					this.positronHelpService.helpLoaded(message.url, message.title);
+					await this.positronHelpService.helpLoaded(message.url, message.title);
 					break;
 				}
 
@@ -494,7 +494,8 @@ export class PositronHelpViewPane extends ViewPane implements IReactComponentCon
 		</style>
 	</head>
 	<body>
-		<iframe id="help-iframe" title="Help Content" src="${url}"></iframe>
+		<iframe id="help-iframe" title="Help Content" src="${url}" loading="eager">
+		</iframe>
 		<script nonce="${nonce}">
 		(() => {
 			const vscode = acquireVsCodeApi();

@@ -250,13 +250,17 @@ export class PositronHelpService extends Disposable implements IPositronHelpServ
 	 * @param url The URL of the help that was loaded.
 	 * @param title The title of the help that was loaded.
 	 */
-	helpLoaded(url: string, title: string) {
+	async helpLoaded(url: string, title: string): Promise<void> {
 		const helpEntry = this.helpEntries[this.helpEntryIndex];
 		if (helpEntry && helpEntry.sourceUrl === url) {
+			// Set the help entry title.
 			helpEntry.title = title;
 
-			this.commandService.executeCommand('workbench.action.positron.openHelp');
+			// Ensure that the auxiliary bar is showing and open the help view.
+			await this.commandService.executeCommand('workbench.action.showAuxiliaryBar');
+			await this.commandService.executeCommand('workbench.action.positron.openHelp');
 
+			// Rasise the onHelpLoaded event.
 			this.onHelpLoadedEmitter.fire(helpEntry);
 		}
 	}

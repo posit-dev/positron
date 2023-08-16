@@ -62,7 +62,7 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 
 	const [helpTitle, setHelpTitle] = useState<string | undefined>(undefined);
 
-	const [alternateFindUI, setAlternateFindUI] = useState(false);
+	const [alternateFindUI] = useState(false);
 	const [findText, setFindText] = useState('');
 	const [pollFindResults, setPollFindResults] = useState(false);
 	const [findResults, setFindResults] = useState(false);
@@ -74,7 +74,7 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 
 		// Add the onSizeChanged event handler.
 		disposableStore.add(props.reactComponentContainer.onSizeChanged(size => {
-			setAlternateFindUI(size.width - kPaddingLeft - historyButtonRef.current.offsetWidth - kSecondaryActionBarGap < 180);
+			// setAlternateFindUI(size.width - kPaddingLeft - historyButtonRef.current.offsetWidth - kSecondaryActionBarGap < 180);
 		}));
 
 		// Add the onHelpLoaded event handler.
@@ -197,14 +197,13 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 							<ActionBarButton
 								ref={historyButtonRef}
 								text={helpTitle}
-								maxTextWidth={200}
 								dropDown={true}
 								tooltip={helpTitle || localize('positronHelpHistory', "Help history")}
 							/>
 						}
 					</ActionBarRegion>
 					<ActionBarRegion location='right'>
-						{!alternateFindUI && (
+						{false && !alternateFindUI && (
 							<ActionBarFind
 								width={300}
 								findResults={findResults}
@@ -216,7 +215,7 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 					</ActionBarRegion>
 
 				</PositronActionBar>
-				{alternateFindUI && (
+				{false && alternateFindUI && (
 					<PositronActionBar
 						size='small'
 						gap={kSecondaryActionBarGap}

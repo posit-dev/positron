@@ -64,7 +64,7 @@ export interface IPositronHelpService {
 	 * @param url The URL of the help that was loaded.
 	 * @param title The title of the help that was loaded.
 	 */
-	helpLoaded(url: string, title: string): void;
+	helpLoaded(url: string, title: string): Promise<void>;
 
 	/**
 	 * Navigates the help service.
