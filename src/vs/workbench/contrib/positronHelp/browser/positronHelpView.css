@@ -10,12 +10,12 @@
 }
 
 .positron-help-container .action-bars-container {
-	height: 64px;
+	height: 32px;
 }
 
 .positron-help-view-container {
 	left: 0px;
-	top: 64px;
+	top: 32px;
 	right: 0px;
 	bottom: 0px;
 	position: absolute;

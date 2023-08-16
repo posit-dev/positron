@@ -14,18 +14,18 @@ import { IReactComponentContainer } from 'vs/base/browser/positronReactRenderer'
 import { IContextMenuService } from 'vs/platform/contextview/browser/contextView';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import { PositronActionBar } from 'vs/platform/positronActionBar/browser/positronActionBar';
-import { ActionBarFind } from 'vs/platform/positronActionBar/browser/components/actionBarFind';
+// import { ActionBarFind } from 'vs/platform/positronActionBar/browser/components/actionBarFind';
 import { ActionBarButton } from 'vs/platform/positronActionBar/browser/components/actionBarButton';
-import { ActionBarRegion } from 'vs/platform/positronActionBar/browser/components/actionBarRegion';
+// import { ActionBarRegion } from 'vs/platform/positronActionBar/browser/components/actionBarRegion';
 import { IPositronHelpService } from 'vs/workbench/services/positronHelp/common/interfaces/positronHelpService';
 import { PositronActionBarContextProvider } from 'vs/platform/positronActionBar/browser/positronActionBarContext';
 
 // Constants.
-const kSecondaryActionBarGap = 4;
+// const kSecondaryActionBarGap = 4;
 const kPaddingLeft = 8;
 const kPaddingRight = 8;
-const kFindTimeout = 800;
-const kPollTimeout = 200;
+// const kFindTimeout = 800;
+// const kPollTimeout = 200;
 
 /**
  * ActionBarsProps interface.
@@ -64,7 +64,7 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 
 	// const [alternateFindUI] = useState(false);
 	// const [findText, setFindText] = useState('');
-	const [pollFindResults, setPollFindResults] = useState(false);
+	// const [pollFindResults, setPollFindResults] = useState(false);
 	// const [findResults, setFindResults] = useState(false);
 
 	// Add event handlers.
@@ -89,50 +89,50 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 		return () => disposableStore.dispose();
 	}, []);
 
-	// Find text effect.
-	useEffect(() => {
-		if (findText === '') {
-			setFindResults(false);
-			return props.onCancelFind();
-		} else {
-			// Start the find timeout.
-			const timeout = setTimeout(() => {
-				setFindResults(false);
-				props.onFind(findText);
-				setPollFindResults(true);
-			}, kFindTimeout);
+	// // Find text effect.
+	// useEffect(() => {
+	// 	if (findText === '') {
+	// 		setFindResults(false);
+	// 		return props.onCancelFind();
+	// 	} else {
+	// 		// Start the find timeout.
+	// 		const timeout = setTimeout(() => {
+	// 			setFindResults(false);
+	// 			props.onFind(findText);
+	// 			setPollFindResults(true);
+	// 		}, kFindTimeout);
 
-			// Return the cleanup.
-			return () => clearTimeout(timeout);
-		}
-	}, [findText]);
+	// 		// Return the cleanup.
+	// 		return () => clearTimeout(timeout);
+	// 	}
+	// }, [findText]);
 
-	// Poll find results effect.
-	useEffect(() => {
-		if (!pollFindResults) {
-			return;
-		} else {
-			// Start the poll find results interval.
-			let counter = 0;
-			const interval = setInterval(() => {
-				const checkFindResults = props.onCheckFindResults();
-				console.log(`Poll for find results was ${checkFindResults}`);
-				if (checkFindResults === undefined) {
-					if (++counter < 5) {
-						return;
-					}
-				} else {
-					setFindResults(checkFindResults);
-				}
+	// // Poll find results effect.
+	// useEffect(() => {
+	// 	if (!pollFindResults) {
+	// 		return;
+	// 	} else {
+	// 		// Start the poll find results interval.
+	// 		let counter = 0;
+	// 		const interval = setInterval(() => {
+	// 			const checkFindResults = props.onCheckFindResults();
+	// 			console.log(`Poll for find results was ${checkFindResults}`);
+	// 			if (checkFindResults === undefined) {
+	// 				if (++counter < 5) {
+	// 					return;
+	// 				}
+	// 			} else {
+	// 				setFindResults(checkFindResults);
+	// 			}
 
-				// Clear poll find results.
-				setPollFindResults(false);
-			}, kPollTimeout);
+	// 			// Clear poll find results.
+	// 			setPollFindResults(false);
+	// 		}, kPollTimeout);
 
-			// Return the cleanup.
-			return () => clearInterval(interval);
-		}
-	}, [pollFindResults]);
+	// 		// Return the cleanup.
+	// 		return () => clearInterval(interval);
+	// 	}
+	// }, [pollFindResults]);
 
 	/**
 	 * navigateBack handler.
@@ -154,6 +154,7 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 			<PositronActionBarContextProvider {...props}>
 				<PositronActionBar
 					size='small'
+					borderBottom={true}
 					paddingLeft={kPaddingLeft}
 					paddingRight={kPaddingRight}
 				>
