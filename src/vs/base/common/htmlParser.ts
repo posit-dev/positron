@@ -10,7 +10,9 @@
  * Modifications:
  * - Converted to TypeScript with type annotations and comments
  * - Tweaked variables to avoid type changes
- * - Added tracking of node parents to allow for easier traversal
+ * - Added tracking of node parents to allow for easier traversal up the parse
+ *   tree
+ * - Added translation to JavaScript property names
  * - Remove support for component overrides
  */
 
@@ -19,13 +21,31 @@ const attrRE = /\s([^'"/\s><]+?)[\s/>]|([^\s=]+)=\s?(".*?"|'.*?')/g;
 
 /** Interface for a parsed HTML node. */
 export interface HtmlNode {
-	type: 'text' | 'component' | 'tag' | 'comment';
+	/** The type of node object */
+	type: 'text' | 'tag' | 'comment';
+
+	/** The node's parent, if it has one (the root node has no parent) */
 	parent?: HtmlNode;
+
+	/** The name of the node, for tag nodes (e.g. 'h1') */
 	name?: string;
+
+	/** The content of 'comment' node types */
 	comment?: string;
+
+	/** The content of 'text' node types */
 	content?: string;
+
+	/** Whether the node is void (self-closing) */
 	voidElement?: boolean;
+
+	/**
+	 * All of the node's HTML attributes, using Javascript property names
+	 * (e.g. `className` rather than `class`)
+	 */
 	attrs?: Record<string, string>;
+
+	/** The node's children */
 	children?: Array<HtmlNode>;
 }
 
@@ -111,10 +131,24 @@ function parseTag(tag: string, parent?: HtmlNode): HtmlNode {
 		if (result[1]) {
 			// Normal attribute
 			const attr = result[1].trim();
+
 			let arr = [attr, ''];
 
 			if (attr.indexOf('=') > -1) {
 				arr = attr.split('=');
+			}
+
+			// Use JavaScript based property names
+			if (arr[0].toLowerCase() === 'class') {
+				arr[0] = 'className';
+			} else if (arr[0].toLowerCase() === 'for') {
+				arr[0] = 'htmlFor';
+			} else if (arr[0].toLowerCase() === 'tabindex') {
+				arr[0] = 'tabIndex';
+			} else if (arr[0].toLowerCase() === 'maxlength') {
+				arr[0] = 'maxLength';
+			} else if (arr[0].toLowerCase() === 'readonly') {
+				arr[0] = 'readOnly';
 			}
 
 			// Create attribute object if needed

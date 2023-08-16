@@ -37,9 +37,12 @@ const renderHtml = (html: string): React.ReactElement => {
 			const children = node.children.map(renderNode);
 			// Create a React element for the tag and its children.
 			return React.createElement(node.name!, node.attrs, children);
-		} else {
+		} else if (node.type === 'tag') {
 			// Create a React element for the tag.
 			return React.createElement(node.name!, node.attrs);
+		} else {
+			// We don't render other types of nodes.
+			return undefined;
 		}
 	};
 
