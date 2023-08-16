@@ -19,3 +19,18 @@
 	--positronActionBar-textInputSelectionForeground: var(--vscode-positronSideActionBar-textInputSelectionForeground);
 	--positronActionBar-textInputSelectionBackground: var(--vscode-positronSideActionBar-textInputSelectionBackground);
 }
+
+.positron-console .dataframe {
+	border: 1px solid var(--vscode-tab-border);
+	margin-top: 5px;
+	margin-bottom: 5px;
+	border-collapse: collapse;
+}
+
+.positron-console .dataframe td,
+.positron-console .dataframe th {
+	padding-top: 3px;
+	padding-bottom: 3px;
+	padding-left: 5px;
+	padding-right: 5px;
+}
