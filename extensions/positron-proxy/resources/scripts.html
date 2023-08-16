@@ -3,6 +3,14 @@
 <!-- This file provides a sane place to develop scripts for use in the PositronProxy extension. -->
 
 <head>
+	<!-- The help header style. -->
+	<style id="help-header-style">
+		.url-information {
+			font-family: Arial, Helvetica, sans-serif;
+			color: gray;
+		}
+	</style>
+
 	<!-- The help header script. -->
 	<script id="help-header-script">
 		(() => {
@@ -13,7 +21,6 @@
 					hijackLinks();
 
 					// Indicate that the help loaded.
-					console.log('AKJAJAJAJA');
 					window.parent.postMessage({
 						id: "194c268a-8fb5-4462-8e65-c5ff82ca0a4f-help-loaded",
 						url: window.location.href,

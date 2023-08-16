@@ -62,10 +62,10 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 
 	const [helpTitle, setHelpTitle] = useState<string | undefined>(undefined);
 
-	const [alternateFindUI] = useState(false);
-	const [findText, setFindText] = useState('');
+	// const [alternateFindUI] = useState(false);
+	// const [findText, setFindText] = useState('');
 	const [pollFindResults, setPollFindResults] = useState(false);
-	const [findResults, setFindResults] = useState(false);
+	// const [findResults, setFindResults] = useState(false);
 
 	// Add event handlers.
 	useEffect(() => {
@@ -170,6 +170,15 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 						onClick={navigateForward}
 					/>
 
+					{helpTitle &&
+						<ActionBarButton
+							ref={historyButtonRef}
+							text={helpTitle}
+							dropDown={false}
+							tooltip={helpTitle || localize('positronHelpHistory', "Help history")}
+						/>
+					}
+
 					{/* Disabled for Private Alpha (August 2023) */}
 					{/* <ActionBarButton
 						iconId='positron-home'
@@ -185,7 +194,7 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 					/> */}
 
 				</PositronActionBar>
-				<PositronActionBar
+				{/* <PositronActionBar
 					size='small'
 					gap={kSecondaryActionBarGap}
 					borderBottom={!alternateFindUI}
@@ -197,7 +206,7 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 							<ActionBarButton
 								ref={historyButtonRef}
 								text={helpTitle}
-								dropDown={true}
+								dropDown={false}
 								tooltip={helpTitle || localize('positronHelpHistory', "Help history")}
 							/>
 						}
@@ -214,8 +223,8 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 						)}
 					</ActionBarRegion>
 
-				</PositronActionBar>
-				{false && alternateFindUI && (
+				</PositronActionBar> */}
+				{/* {false && alternateFindUI && (
 					<PositronActionBar
 						size='small'
 						gap={kSecondaryActionBarGap}
@@ -231,7 +240,7 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 							onFindPrevious={props.onFindPrevious}
 							onFindNext={props.onFindNext} />
 					</PositronActionBar>
-				)}
+				)} */}
 			</PositronActionBarContextProvider>
 		</div>
 	);

@@ -69,9 +69,14 @@ export class PositronProxy implements Disposable {
 	//#region Private Properties
 
 	/**
-	 * A value which indicates whether scripts have been loaded from resources/scripts.html.
+	 * A value which indicates whether the resources/scripts.html file has been loade.d
 	 */
-	private scriptsLoaded = false;
+	private scriptsFileLoaded = false;
+
+	/**
+	 * The help header style.
+	 */
+	private helpHeaderStyle?: string;
 
 	/**
 	 * The help header script.
@@ -120,9 +125,10 @@ export class PositronProxy implements Disposable {
 				return responseBuffer;
 			}
 
-			// Inject the help header script.
+			// Inject styles and scripts.
 			let response = responseBuffer.toString('utf8');
-			response = response.replace('</head>', `${this.helpHeaderScript}</head>`);
+			response = response.replace('<body>', `<body><div class="url-information">Help URL is: ${url}</div>`);
+			response = response.replace('</head>', `${this.helpHeaderStyle}${this.helpHeaderScript}</head>`);
 
 			// Return the response.
 			return response;
@@ -134,26 +140,27 @@ export class PositronProxy implements Disposable {
 	//#region Private Methods
 
 	/**
-	 * Loads scripts from the resources/scripts.html file.
+	 * Loads the resources/scripts.html file.
 	 */
-	private loadScripts() {
-		// If scripts have been loaded, return.
-		if (this.scriptsLoaded) {
+	private loadScriptsFile() {
+		// If resources/scripts.html has been loaded, return.
+		if (this.scriptsFileLoaded) {
 			return;
 		}
 
-		// Try to load the resources/scripts.html file and the scripts within it.
+		// Try to load the resources/scripts.html file and the elements within it.
 		try {
 			// Load the resources/scripts.html file.
 			const scriptsPath = path.join(this.context.extensionPath, 'resources', 'scripts.html');
 			const jsdom = new JSDOM(fs.readFileSync(scriptsPath));
 			const document = jsdom.window.document;
 
-			// Load the scripts from within the file.
+			// Load the elements from the file.
+			this.helpHeaderStyle = document.querySelector('#help-header-style')?.outerHTML;
 			this.helpHeaderScript = document.querySelector('#help-header-script')?.outerHTML;
 
-			// Set the scripts loaded flag.
-			this.scriptsLoaded = true;
+			// Set the scripts file loaded flag.
+			this.scriptsFileLoaded = true;
 		} catch (error) {
 			console.log(`Failed to load the resources/scripts.html file`);
 		}
@@ -166,8 +173,8 @@ export class PositronProxy implements Disposable {
 	 * @returns The server origin.
 	 */
 	startProxyServer(targetOrigin: string, contentRewriter: ContentRewriter): Promise<string> {
-		// Load scripts.
-		this.loadScripts();
+		// Load resources/scripts.html file.
+		this.loadScriptsFile();
 
 		// Return a promise.
 		return new Promise((resolve, reject) => {
@@ -216,7 +223,7 @@ export class PositronProxy implements Disposable {
 						// content rewriter. Also, the scripts must be loaded.
 						const url = req.url;
 						const contentType = proxyRes.headers['content-type'];
-						if (!url || !contentType || !this.scriptsLoaded) {
+						if (!url || !contentType || !this.scriptsFileLoaded) {
 							// Don't process the response.
 							return responseBuffer;
 						}

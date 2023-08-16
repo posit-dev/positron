@@ -47,6 +47,8 @@ export class PositronHelpService extends Disposable implements IPositronHelpServ
 	 */
 	private helpEntryIndex = -1;
 
+	private renderHelpTimeout?: NodeJS.Timeout;
+
 	/**
 	 * The proxy servers. Keyed by the target URL origin.
 	 */
@@ -251,17 +253,21 @@ export class PositronHelpService extends Disposable implements IPositronHelpServ
 	 * @param title The title of the help that was loaded.
 	 */
 	async helpLoaded(url: string, title: string): Promise<void> {
-		const helpEntry = this.helpEntries[this.helpEntryIndex];
-		if (helpEntry && helpEntry.sourceUrl === url) {
-			// Set the help entry title.
-			helpEntry.title = title;
+		console.log(`helpLoaded received for ${url} with title ${title}`);
+		// Find the first occurence of the URL, set its title, and raise the onHelpLoaded event.
+		for (let i = this.helpEntries.length - 1; i >= 0; i--) {
+			const helpEntry = this.helpEntries[i];
+			if (helpEntry && helpEntry.sourceUrl === url) {
+				// Set the title.
+				helpEntry.title = title;
 
-			// Ensure that the auxiliary bar is showing and open the help view.
-			await this.commandService.executeCommand('workbench.action.showAuxiliaryBar');
-			await this.commandService.executeCommand('workbench.action.positron.openHelp');
+				// Ensure that the auxiliary bar is showing and open the help view.
+				await this.commandService.executeCommand('workbench.action.showAuxiliaryBar');
+				await this.commandService.executeCommand('workbench.action.positron.openHelp');
 
-			// Rasise the onHelpLoaded event.
-			this.onHelpLoadedEmitter.fire(helpEntry);
+				// Rasise the onHelpLoaded event.
+				this.onHelpLoadedEmitter.fire(helpEntry);
+			}
 		}
 	}
 
@@ -317,12 +323,24 @@ export class PositronHelpService extends Disposable implements IPositronHelpServ
 	 * @param helpEntry The help entry to add.
 	 */
 	private addHelpEntry(helpEntry: HelpEntry) {
-		// Push the help entry and set the help entry index to the end.
+		// Clear the render help timeout.
+		if (this.renderHelpTimeout) {
+			clearTimeout(this.renderHelpTimeout);
+			this.renderHelpTimeout = undefined;
+		}
+
+		// Push the help entry. We may not render it, but it needs to be in the history.
 		this.helpEntries.push(helpEntry);
 		this.helpEntryIndex = this.helpEntries.length - 1;
 
-		// Raise the onRenderHelp event.
-		this.onRenderHelpEmitter.fire(helpEntry);
+		// Start the render help timeout.
+		this.renderHelpTimeout = setTimeout(() => {
+			// Clear the timeout.
+			this.renderHelpTimeout = undefined;
+
+			// Raise the onRenderHelp event to render the most recent help entry.
+			this.onRenderHelpEmitter.fire(helpEntry);
+		}, 500);
 	}
 
 	//#endregion Private Methods
