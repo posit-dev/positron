@@ -30,6 +30,11 @@ export interface IPositronHelpService {
 	readonly _serviceBrand: undefined;
 
 	/**
+	 * The onHelpChanged event.
+	 */
+	readonly onHelpChanged: Event<void>;
+
+	/**
 	 * The onRenderHelp event.
 	 */
 	readonly onRenderHelp: Event<HelpEntry>;
@@ -38,6 +43,16 @@ export interface IPositronHelpService {
 	 * The onFocusHelp event.
 	 */
 	readonly onFocusHelp: Event<void>;
+
+	/**
+	 * Gets a value which indicates whether help can navigate back.
+	 */
+	readonly canNavigateBack: boolean;
+
+	/**
+	 * Gets a value which indicates whether help can navigate forward.
+	 */
+	readonly canNavigateForward: boolean;
 
 	/**
 	 * Placeholder that gets called to "initialize" the PositronConsoleService.

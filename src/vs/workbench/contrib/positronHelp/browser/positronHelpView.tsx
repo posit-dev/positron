@@ -270,7 +270,6 @@ export class PositronHelpViewPane extends ViewPane implements IReactComponentCon
 	 * @param container The container HTMLElement.
 	 */
 	protected override renderBody(container: HTMLElement): void {
-
 		// Call the base class's method.
 		super.renderBody(container);
 
@@ -320,13 +319,8 @@ export class PositronHelpViewPane extends ViewPane implements IReactComponentCon
 				contextKeyService={this.contextKeyService}
 				contextMenuService={this.contextMenuService}
 				keybindingService={this.keybindingService}
+				positronHelpService={this.positronHelpService}
 				reactComponentContainer={this}
-				onPreviousTopic={() => {
-					this.positronHelpService.navigateBack();
-				}}
-				onNextTopic={() => {
-					this.positronHelpService.navigateForward();
-				}}
 				onHome={homeHandler}
 				onFind={findHandler}
 				onCheckFindResults={checkFindResultsHandler}

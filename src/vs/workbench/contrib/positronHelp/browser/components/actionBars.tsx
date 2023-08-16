@@ -17,6 +17,7 @@ import { PositronActionBar } from 'vs/platform/positronActionBar/browser/positro
 import { ActionBarFind } from 'vs/platform/positronActionBar/browser/components/actionBarFind';
 import { ActionBarButton } from 'vs/platform/positronActionBar/browser/components/actionBarButton';
 import { ActionBarRegion } from 'vs/platform/positronActionBar/browser/components/actionBarRegion';
+import { IPositronHelpService } from 'vs/workbench/services/positronHelp/common/interfaces/positronHelpService';
 import { PositronActionBarContextProvider } from 'vs/platform/positronActionBar/browser/positronActionBarContext';
 
 // Constants.
@@ -36,11 +37,10 @@ export interface ActionBarsProps {
 	contextKeyService: IContextKeyService;
 	contextMenuService: IContextMenuService;
 	keybindingService: IKeybindingService;
+	positronHelpService: IPositronHelpService;
 	reactComponentContainer: IReactComponentContainer;
 
 	// Event callbacks.
-	onPreviousTopic: () => void;
-	onNextTopic: () => void;
 	onHome: () => void;
 	onFind: (findText: string) => void;
 	onCheckFindResults: () => boolean | undefined;
@@ -57,12 +57,14 @@ export interface ActionBarsProps {
 export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 	// Hooks.
 	const historyButtonRef = useRef<HTMLDivElement>(undefined!);
+	const [canNavigateBack, setCanNavigateBack] = useState(props.positronHelpService.canNavigateBack);
+	const [canNavigateForward, setCanNavigateForward] = useState(props.positronHelpService.canNavigateForward);
 	const [alternateFindUI, setAlternateFindUI] = useState(false);
 	const [findText, setFindText] = useState('');
 	const [pollFindResults, setPollFindResults] = useState(false);
 	const [findResults, setFindResults] = useState(false);
 
-	// Add IReactComponentContainer event handlers.
+	// Add event handlers.
 	useEffect(() => {
 		// Create the disposable store for cleanup.
 		const disposableStore = new DisposableStore();
@@ -70,6 +72,12 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 		// Add the onSizeChanged event handler.
 		disposableStore.add(props.reactComponentContainer.onSizeChanged(size => {
 			setAlternateFindUI(size.width - kPaddingLeft - historyButtonRef.current.offsetWidth - kSecondaryActionBarGap < 180);
+		}));
+
+		// Add the onHelpChanged event handler.
+		disposableStore.add(props.positronHelpService.onHelpChanged(() => {
+			setCanNavigateBack(props.positronHelpService.canNavigateBack);
+			setCanNavigateForward(props.positronHelpService.canNavigateForward);
 		}));
 
 		// Return the cleanup function that will dispose of the event handlers.
@@ -121,6 +129,20 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 		}
 	}, [pollFindResults]);
 
+	/**
+	 * navigateBack handler.
+	 */
+	const navigateBackHandler = () => {
+		props.positronHelpService.navigateBack();
+	};
+
+	/**
+	 * navigateForward handler.
+	 */
+	const navigateForward = () => {
+		props.positronHelpService.navigateForward();
+	};
+
 	// Render.
 	return (
 		<div className='action-bars'>
@@ -131,14 +153,16 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 					paddingRight={kPaddingRight}
 				>
 					<ActionBarButton
+						disabled={!canNavigateBack}
 						iconId='positron-left-arrow'
 						tooltip={localize('positronClickToGoBack', "Click to go back")}
-						onClick={() => props.onPreviousTopic()}
+						onClick={navigateBackHandler}
 					/>
 					<ActionBarButton
+						disabled={!canNavigateForward}
 						iconId='positron-right-arrow'
 						tooltip={localize('positronClickToGoForward', "Click to go forward")}
-						onClick={() => props.onNextTopic()}
+						onClick={navigateForward}
 					/>
 
 					{/* Disabled for Private Alpha (August 2023) */}

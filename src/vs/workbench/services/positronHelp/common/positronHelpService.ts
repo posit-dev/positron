@@ -53,12 +53,17 @@ export class PositronHelpService extends Disposable implements IPositronHelpServ
 	private proxyServers = new Map<string, string>();
 
 	/**
-	 * The onRenderHelpEmitter event emitter.
+	 * The onHelpChanged event emitter.
+	 */
+	private readonly onHelpChangedEmitter = this._register(new Emitter<void>);
+
+	/**
+	 * The onRenderHelp event emitter.
 	 */
 	private readonly onRenderHelpEmitter = this._register(new Emitter<HelpEntry>);
 
 	/**
-	 * The onFocusHelpEmitter event emitter.
+	 * The onFocusHelp event emitter.
 	 */
 	private readonly onFocusHelpEmitter = this._register(new Emitter<void>);
 
@@ -206,6 +211,11 @@ export class PositronHelpService extends Disposable implements IPositronHelpServ
 	declare readonly _serviceBrand: undefined;
 
 	/**
+	 * The onHelpChanged event.
+	 */
+	readonly onHelpChanged = this.onHelpChangedEmitter.event;
+
+	/**
 	 * The onRenderHelp event.
 	 */
 	readonly onRenderHelp = this.onRenderHelpEmitter.event;
@@ -216,17 +226,23 @@ export class PositronHelpService extends Disposable implements IPositronHelpServ
 	readonly onFocusHelp = this.onFocusHelpEmitter.event;
 
 	/**
+	 * Gets a value which indicates whether help can navigate back.
+	 */
+	get canNavigateBack() {
+		return this.helpEntryIndex > 0;
+	}
+
+	/**
+	 * Gets a value which indicates whether help can navigate forward.
+	 */
+	get canNavigateForward() {
+		return this.helpEntryIndex < this.helpEntries.length - 1;
+	}
+
+	/**
 	 * Placeholder that gets called to "initialize" the PositronHelpService.
 	 */
 	initialize() {
-	}
-
-	addHelpEntry(helpEntry: HelpEntry) {
-		this.helpEntries.push(helpEntry);
-		this.helpEntryIndex = this.helpEntries.length - 1;
-
-		// Raise the onRenderHelp event.
-		this.onRenderHelpEmitter.fire(helpEntry);
 	}
 
 	/**
@@ -239,6 +255,8 @@ export class PositronHelpService extends Disposable implements IPositronHelpServ
 		if (currentHelpEntry && currentHelpEntry.sourceUrl === url) {
 			currentHelpEntry.title = title;
 		}
+
+		this.onHelpChangedEmitter.fire();
 	}
 
 	/**
@@ -272,6 +290,7 @@ export class PositronHelpService extends Disposable implements IPositronHelpServ
 	navigateBack() {
 		if (this.helpEntryIndex > 0) {
 			this.onRenderHelpEmitter.fire(this.helpEntries[--this.helpEntryIndex]);
+			this.onHelpChangedEmitter.fire();
 		}
 	}
 
@@ -281,12 +300,30 @@ export class PositronHelpService extends Disposable implements IPositronHelpServ
 	navigateForward() {
 		if (this.helpEntryIndex < this.helpEntries.length - 1) {
 			this.onRenderHelpEmitter.fire(this.helpEntries[++this.helpEntryIndex]);
+			this.onHelpChangedEmitter.fire();
 		}
 	}
 
 	//#endregion IPositronHelpService Implementation
 
 	//#region Private Methods
+
+	/**
+	 * Adds a help entry.
+	 * @param helpEntry The help entry to add.
+	 */
+	private addHelpEntry(helpEntry: HelpEntry) {
+		// Push the help entry and set the help entry index to the end.
+		this.helpEntries.push(helpEntry);
+		this.helpEntryIndex = this.helpEntries.length - 1;
+
+		// Raise the onHelpChanged event.
+		this.onHelpChangedEmitter.fire();
+
+		// Raise the onRenderHelp event.
+		this.onRenderHelpEmitter.fire(helpEntry);
+	}
+
 	//#endregion Private Methods
 }
 
