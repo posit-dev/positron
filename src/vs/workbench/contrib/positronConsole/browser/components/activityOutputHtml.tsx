@@ -14,12 +14,17 @@ export interface ActivityOutputHtmlProps {
 
 /**
  * Renders HTML to React elements.
+ *
  * @param html A string of untrusted HTML.
  * @returns A React element containing the rendered HTML.
  */
 const renderHtml = (html: string): React.ReactElement => {
 
-	// Parse the HTML into a tree of nodes.
+	// Parse the HTML into a tree of nodes. This is a very simple-minded parser
+	// that finds HTML tags and attributes using regular expressions.
+	//
+	// Because this code must run in a very strict security context, we cannot
+	// use parsers that rely on `innerHTML` or `DOMParser`.
 	const parsedContent = parseHtml(html);
 
 	// Render the nodes into React elements.

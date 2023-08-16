@@ -9,6 +9,11 @@ import { decode } from 'he';
  * 'html-parse-stringify` library.
  * https://github.com/HenrikJoreteg/html-parse-stringify
  *
+ * In most cases, it is better to use an official browser API to parse HTML
+ * (such as `DOMParser`) or a robust parser like `parse5`. This parser ignores
+ * many edge cases and is intended for use only in constrained environments
+ * where other parsers cannot be used.
+ *
  * Modifications:
  * - Converted to TypeScript with type annotations and comments
  * - Tweaked variables to avoid type changes
@@ -160,7 +165,8 @@ function parseTag(tag: string, parent?: HtmlNode): HtmlNode {
 				continue;
 			}
 
-			// Use JavaScript based property names
+			// Use JavaScript based property names. This isn't an exhaustive
+			// list, but covers the ones we care about.
 			if (lowerCaseAttrName === 'class') {
 				attrName = 'className';
 			} else if (lowerCaseAttrName === 'for') {
