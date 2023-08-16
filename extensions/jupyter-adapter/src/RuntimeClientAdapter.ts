@@ -53,7 +53,21 @@ export class RuntimeClientAdapter {
 	public async open(): Promise<void> {
 		// Ask the kernel to open a comm channel for us
 		this._state.fire(positron.RuntimeClientState.Opening);
-		this._kernel.openComm(this._type, this._id, this._params);
+		await this._kernel.openComm(this._type, this._id, this._params);
+
+		// If not a server comm, resolve immediately. If a server
+		// comm, we'll resolve when we get the notification message
+		// from the server indicating that it's ready to accept
+		// connections.
+		//
+		// NOTE: If the backend doesn't support this comm type, it
+		// will respond with a `comm_close` message. There is a
+		// short lapse of time where the comm will resolve, and
+		// messages sent during this time might not have any effect.
+		if (!this._server_comm) {
+			this._state.fire(positron.RuntimeClientState.Connected);
+			return;
+		}
 
 		const out = new PromiseHandles<void>();
 		let connected = false;
@@ -141,15 +155,6 @@ export class RuntimeClientAdapter {
 	private onMessage(msg: JupyterMessagePacket) {
 		const message = msg.message;
 		switch (msg.msgType) {
-			case 'comm_open':
-				// If not a server comm, resolve immediately. If a
-				// server comm, we'll resolve when we get the
-				// notification message from the server indicating
-				// that it's ready to accept connections.
-				if (!this._server_comm) {
-					this._state.fire(positron.RuntimeClientState.Connected);
-				}
-				break;
 			case 'comm_msg':
 				this.onCommMsg(msg, message as JupyterCommMsg);
 				break;
