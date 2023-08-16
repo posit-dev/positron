@@ -59,6 +59,9 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 	const historyButtonRef = useRef<HTMLDivElement>(undefined!);
 	const [canNavigateBack, setCanNavigateBack] = useState(props.positronHelpService.canNavigateBack);
 	const [canNavigateForward, setCanNavigateForward] = useState(props.positronHelpService.canNavigateForward);
+
+	const [helpTitle, setHelpTitle] = useState<string | undefined>(undefined);
+
 	const [alternateFindUI, setAlternateFindUI] = useState(false);
 	const [findText, setFindText] = useState('');
 	const [pollFindResults, setPollFindResults] = useState(false);
@@ -74,8 +77,10 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 			setAlternateFindUI(size.width - kPaddingLeft - historyButtonRef.current.offsetWidth - kSecondaryActionBarGap < 180);
 		}));
 
-		// Add the onHelpChanged event handler.
-		disposableStore.add(props.positronHelpService.onHelpChanged(() => {
+		// Add the onHelpLoaded event handler.
+		disposableStore.add(props.positronHelpService.onHelpLoaded(helpEntry => {
+			console.log(`onHelpLoaded canNavigateBack ${props.positronHelpService.canNavigateBack} canNavigateForward ${props.positronHelpService.canNavigateForward}`);
+			setHelpTitle(helpEntry.title || helpEntry.sourceUrl);
 			setCanNavigateBack(props.positronHelpService.canNavigateBack);
 			setCanNavigateForward(props.positronHelpService.canNavigateForward);
 		}));
@@ -188,13 +193,15 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 					paddingRight={kPaddingRight}
 				>
 					<ActionBarRegion location='left'>
-						<ActionBarButton
-							ref={historyButtonRef}
-							text='Home'
-							maxTextWidth={120}
-							dropDown={true}
-							tooltip={localize('positronHelpHistory', "Help history")}
-						/>
+						{helpTitle &&
+							<ActionBarButton
+								ref={historyButtonRef}
+								text={helpTitle}
+								maxTextWidth={200}
+								dropDown={true}
+								tooltip={helpTitle || localize('positronHelpHistory', "Help history")}
+							/>
+						}
 					</ActionBarRegion>
 					<ActionBarRegion location='right'>
 						{!alternateFindUI && (

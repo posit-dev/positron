@@ -6,25 +6,21 @@
 	<!-- The help header script. -->
 	<script id="help-header-script">
 		(() => {
-			// The source.
-			const SOURCE = "194c268a-8fb5-4462-8e65-c5ff82ca0a4f";
-
 			// When the document is completely loaded, initialize things.
 			document.addEventListener("readystatechange", event => {
 				if (document.readyState === "complete") {
-					setTitle();
+					// Hijack the links.
 					hijackLinks();
+
+					// Indicate that the help loaded.
+					console.log('AKJAJAJAJA');
+					window.parent.postMessage({
+						id: "194c268a-8fb5-4462-8e65-c5ff82ca0a4f-help-loaded",
+						url: window.location.href,
+						title: document.title
+					}, "*");
 				}
 			});
-
-			// Sets the title.
-			const setTitle = () => {
-				window.parent.postMessage({
-					id: `${SOURCE}-set-title`,
-					url: window.location.href,
-					title: document.title
-				}, "*");
-			};
 
 			// Hijacks all the links in the document. When a link is clicked, post a message to
 			// navigate.
@@ -33,7 +29,7 @@
 				for (let i = 0; i < links.length; i++) {
 					links[i].onclick = (e) => {
 						window.parent.postMessage({
-							id: `${SOURCE}-navigate`,
+							id: "194c268a-8fb5-4462-8e65-c5ff82ca0a4f-navigate",
 							fromUrl: window.location.href,
 							toUrl: links[i].href
 						}, "*");

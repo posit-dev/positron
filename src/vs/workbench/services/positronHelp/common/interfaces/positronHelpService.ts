@@ -30,11 +30,6 @@ export interface IPositronHelpService {
 	readonly _serviceBrand: undefined;
 
 	/**
-	 * The onHelpChanged event.
-	 */
-	readonly onHelpChanged: Event<void>;
-
-	/**
 	 * The onRenderHelp event.
 	 */
 	readonly onRenderHelp: Event<HelpEntry>;
@@ -43,6 +38,11 @@ export interface IPositronHelpService {
 	 * The onFocusHelp event.
 	 */
 	readonly onFocusHelp: Event<void>;
+
+	/**
+	 * The onHelpLoaded event.
+	 */
+	readonly onHelpLoaded: Event<HelpEntry>;
 
 	/**
 	 * Gets a value which indicates whether help can navigate back.
@@ -60,11 +60,11 @@ export interface IPositronHelpService {
 	initialize(): void;
 
 	/**
-	 * Sets the title.
-	 * @param fromUrl
-	 * @param title
+	 * Called to indicate that help has loaded.
+	 * @param url The URL of the help that was loaded.
+	 * @param title The title of the help that was loaded.
 	 */
-	setTitle(fromUrl: string, title: string): void;
+	helpLoaded(url: string, title: string): void;
 
 	/**
 	 * Navigates the help service.

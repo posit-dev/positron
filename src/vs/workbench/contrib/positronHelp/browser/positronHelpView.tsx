@@ -35,10 +35,10 @@ const isLocalhost = (hostname?: string) =>
 	!!(hostname && ['localhost', '127.0.0.1', '::1'].indexOf(hostname.toLowerCase()) > -1);
 
 /**
- * MessageSetTitle type.
+ * MessageHelpLoaded type.
  */
-type MessageSetTitle = {
-	id: '194c268a-8fb5-4462-8e65-c5ff82ca0a4f-set-title';
+type MessageHelpLoaded = {
+	id: '194c268a-8fb5-4462-8e65-c5ff82ca0a4f-help-loaded';
 	url: string;
 	title: string;
 };
@@ -56,7 +56,7 @@ type MessageNavigate = {
  * Message type.
  */
 type Message =
-	| MessageSetTitle
+	| MessageHelpLoaded
 	| MessageNavigate;
 
 /**
@@ -394,13 +394,13 @@ export class PositronHelpViewPane extends ViewPane implements IReactComponentCon
 		this._register(this.helpOverlayWebview.onMessage(async e => {
 			const message = e.message as Message;
 			switch (message.id) {
-				// Set title.
-				case '194c268a-8fb5-4462-8e65-c5ff82ca0a4f-set-title': {
-					this.positronHelpService.setTitle(message.url, message.title);
+				// help-loaded message.
+				case '194c268a-8fb5-4462-8e65-c5ff82ca0a4f-help-loaded': {
+					this.positronHelpService.helpLoaded(message.url, message.title);
 					break;
 				}
 
-				// Navigate.
+				// navigate message.
 				case '194c268a-8fb5-4462-8e65-c5ff82ca0a4f-navigate': {
 					// If the to URL is external, open it externally; otherwise, open it in the help
 					// service.
