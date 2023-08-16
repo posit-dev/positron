@@ -4,7 +4,7 @@
 
 import 'vs/css!./newFolderModalDialog';
 import * as React from 'react';
-import { useRef, useState } from 'react'; // eslint-disable-line no-duplicate-imports
+import { useRef } from 'react'; // eslint-disable-line no-duplicate-imports
 import { localize } from 'vs/nls';
 import { URI } from 'vs/base/common/uri';
 import { useStateRef } from 'vs/base/browser/ui/react/useStateRef';
