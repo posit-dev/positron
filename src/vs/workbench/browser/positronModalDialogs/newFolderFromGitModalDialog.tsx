@@ -4,9 +4,10 @@
 
 import 'vs/css!./newFolderFromGitModalDialog';
 import * as React from 'react';
-import { useRef, useState } from 'react'; // eslint-disable-line no-duplicate-imports
+import { useRef } from 'react'; // eslint-disable-line no-duplicate-imports
 import { localize } from 'vs/nls';
 import { URI } from 'vs/base/common/uri';
+import { useStateRef } from 'vs/base/browser/ui/react/useStateRef';
 import { ServicesAccessor } from 'vs/editor/browser/editorExtensions';
 import { IFileDialogService } from 'vs/platform/dialogs/common/dialogs';
 import { Checkbox } from 'vs/base/browser/ui/positronModalDialog/components/checkbox';
@@ -48,7 +49,7 @@ export const showNewFolderFromGitModalDialog = async (accessor: ServicesAccessor
 		// The new folder from git modal dialog component.
 		const NewFolderFromGitModalDialog = () => {
 			// Hooks.
-			const [newFolderFromGitResult, setNewFolderFromGitResult] = useState<NewFolderFromGitResult>({
+			const [newFolderFromGitResult, setNewFolderFromGitResult, newFolderFromGitResultRef] = useStateRef<NewFolderFromGitResult>({
 				repo: '',
 				parentFolder,
 				newWindow: false
@@ -58,7 +59,7 @@ export const showNewFolderFromGitModalDialog = async (accessor: ServicesAccessor
 			// The accept handler.
 			const acceptHandler = () => {
 				positronModalDialogReactRenderer.destroy();
-				resolve(newFolderFromGitResult);
+				resolve(newFolderFromGitResultRef.current);
 			};
 
 			// The cancel handler.

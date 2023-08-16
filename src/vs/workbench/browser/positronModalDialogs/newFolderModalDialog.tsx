@@ -4,9 +4,10 @@
 
 import 'vs/css!./newFolderModalDialog';
 import * as React from 'react';
-import { useRef, useState } from 'react'; // eslint-disable-line no-duplicate-imports
+import { useRef } from 'react'; // eslint-disable-line no-duplicate-imports
 import { localize } from 'vs/nls';
 import { URI } from 'vs/base/common/uri';
+import { useStateRef } from 'vs/base/browser/ui/react/useStateRef';
 import { ServicesAccessor } from 'vs/editor/browser/editorExtensions';
 import { IFileDialogService } from 'vs/platform/dialogs/common/dialogs';
 import { Checkbox } from 'vs/base/browser/ui/positronModalDialog/components/checkbox';
@@ -48,7 +49,7 @@ export const showNewFolderModalDialog = async (accessor: ServicesAccessor): Prom
 		// The new folder modal dialog component.
 		const NewFolderModalDialog = () => {
 			// Hooks.
-			const [newFolderResult, setNewFolderResult] = useState<NewFolderResult>({
+			const [newFolderResult, setNewFolderResult, newFolderResultRef] = useStateRef<NewFolderResult>({
 				folder: '',
 				parentFolder,
 				newWindow: false
@@ -58,7 +59,7 @@ export const showNewFolderModalDialog = async (accessor: ServicesAccessor): Prom
 			// The accept handler.
 			const acceptHandler = () => {
 				positronModalDialogReactRenderer.destroy();
-				resolve(newFolderResult);
+				resolve(newFolderResultRef.current);
 			};
 
 			// The cancel handler.
