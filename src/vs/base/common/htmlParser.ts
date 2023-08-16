@@ -14,6 +14,7 @@
  *   tree
  * - Added translation to JavaScript property names
  * - Added parsing for CSS inline styles
+ * - Sanitized (removed) event attributes
  * - Remove support for component overrides
  */
 
@@ -148,17 +149,23 @@ function parseTag(tag: string, parent?: HtmlNode): HtmlNode {
 			reg.lastIndex--;
 		} else if (result[2]) {
 			let attrName = result[2].trim();
+			const lowerCaseAttrName = attrName.toLowerCase();
+
+			// Ignore event attributes
+			if (lowerCaseAttrName.startsWith('on')) {
+				continue;
+			}
 
 			// Use JavaScript based property names
-			if (attrName.toLowerCase() === 'class') {
+			if (lowerCaseAttrName === 'class') {
 				attrName = 'className';
-			} else if (attrName.toLowerCase() === 'for') {
+			} else if (lowerCaseAttrName === 'for') {
 				attrName = 'htmlFor';
-			} else if (attrName.toLowerCase() === 'tabindex') {
+			} else if (lowerCaseAttrName === 'tabindex') {
 				attrName = 'tabIndex';
-			} else if (attrName.toLowerCase() === 'maxlength') {
+			} else if (lowerCaseAttrName === 'maxlength') {
 				attrName = 'maxLength';
-			} else if (attrName.toLowerCase() === 'readonly') {
+			} else if (lowerCaseAttrName === 'readonly') {
 				attrName = 'readOnly';
 			}
 
