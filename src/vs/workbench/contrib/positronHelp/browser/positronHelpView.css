@@ -5,7 +5,6 @@
 .positron-help-container {
 	height: 100%;
 	display: flex;
-	background: white;
 	flex-direction: column;
 }
 
@@ -18,5 +17,6 @@
 	top: 32px;
 	right: 0px;
 	bottom: 0px;
+	background: white;
 	position: absolute;
 }
