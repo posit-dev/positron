@@ -3,12 +3,12 @@
 #
 
 from typing import Any
-from unittest.mock import Mock, AsyncMock
+from unittest.mock import AsyncMock, Mock
 from urllib.request import urlopen
 
+import numpy as np
 import pandas as pd
 import pytest
-
 from positron.help import HelpService, ShowHelpEvent, ShowHelpEventKind, help
 
 
@@ -76,6 +76,12 @@ def test_pydoc_server_styling(running_help_service: HelpService):
         #
         (0, "int"),
         (int, "int"),
+        # A module
+        (np, "numpy"),
+        # Numpy ufuncs
+        (np.abs, "numpy.absolute"),
+        # getset_descriptors
+        (np.float_.base, "numpy.generic.base"),
         # Keywords should resolve even though they aren't objects.
         ("async", "async"),
         # The overrided help function should resolve.
