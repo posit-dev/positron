@@ -28,7 +28,7 @@ from pygments import highlight
 from pygments.formatters import HtmlFormatter
 from pygments.lexers import get_lexer_by_name
 
-from .utils import is_numpy_ufunc
+from .utils import get_module_name, is_numpy_ufunc
 
 logger = logging.getLogger(__name__)
 
@@ -776,20 +776,12 @@ def _resolve(target: str, from_obj: Any) -> Optional[str]:
                         return f"{module_path}.{object_path}.{attr_path}"
 
     # Is `target` a fully qualified name, but implicitly relative to `from_obj`'s package?
-    if isinstance(from_obj, property):
-        # Properties don't have __module__, but the wrapped getter function does
-        from_obj = from_obj.fget
-    from_module_name = (
-        from_obj.__name__
-        if isinstance(from_obj, ModuleType)
-        else "numpy"  # Handle numpy ufuncs which don't have a __module__
-        if is_numpy_ufunc(from_obj)
-        else from_obj.__module__
-    )
-    from_package = from_module_name.split(".")[0]
-    if not target.startswith(from_package):  # Avoid infinite recursion
-        target = f"{from_package}.{target}"
-        return _resolve(target, from_obj)
+    from_module_name = get_module_name(from_obj)
+    if from_module_name is not None:
+        from_package_name = from_module_name.split(".")[0]
+        if not target.startswith(from_package_name):  # Avoid infinite recursion
+            target = f"{from_package_name}.{target}"
+            return _resolve(target, from_obj)
 
     # Could not resolve.
     return None

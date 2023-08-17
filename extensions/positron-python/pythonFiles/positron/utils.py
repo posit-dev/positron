@@ -2,12 +2,12 @@
 # Copyright (C) 2023 Posit Software, PBC. All rights reserved.
 #
 
+import inspect
 import numbers
 import pprint
 import types
 from binascii import b2a_base64
 from datetime import datetime
-from types import ModuleType
 from typing import Any, Optional, Tuple
 
 
@@ -27,7 +27,12 @@ def get_qualname(value: Any) -> str:
     __qualname__ does not work for all types
     """
     # Get a named object corresponding to the value, e.g. an instance's class or a property's getter
-    if isinstance(value, (type, ModuleType)) or callable(value):
+    if (
+        isinstance(value, type)
+        or inspect.ismodule(value)
+        or callable(value)
+        or inspect.isgetsetdescriptor(value)
+    ):
         named_obj = value
     elif isinstance(value, property):
         assert value.fget is not None
@@ -49,16 +54,49 @@ def get_qualname(value: Any) -> str:
         # Finally, try to return the generic type's name, otherwise report object
         qualname = getattr(type(value), "__name__", "object")
 
-    # Prepend the module if it exists
-    module = getattr(named_obj, "__module__", None)
-    if module is not None and module not in {"builtins", "__main__"}:
-        return f"{module}.{qualname}"
+    # If the value is not itself a module, prepend its module name if it exists
+    if not inspect.ismodule(value):
+        module = get_module_name(named_obj)
+        if module is not None and module not in {"builtins", "__main__"}:
+            qualname = f"{module}.{qualname}"
 
     return qualname
 
 
+def get_module_name(value: Any) -> Optional[str]:
+    """
+    Get the name of the module defining `value`.
+    """
+    # It's already a module, return its name
+    if inspect.ismodule(value):
+        return value.__name__
+
+    # Try to use its __module__ attribute
+    module = getattr(value, "__module__", None)
+    if module is not None:
+        return module
+
+    # Handle numpy ufuncs which don't have a __module__ attribute but which we can assume is "numpy"
+    if is_numpy_ufunc(value):
+        return "numpy"
+
+    # Handle getset_descriptors (e.g. numpy.float_.base) which don't have a __module__, by
+    # finding its module via the __objclass__ attribute
+    obj_class = getattr(value, "__objclass__", None)
+    if obj_class is not None:
+        return obj_class.__module__
+
+    # We couldn't infer the module name
+    return None
+
+
 def is_numpy_ufunc(object: Any) -> bool:
-    return get_qualname(type(object)) == "numpy.ufunc"
+    # We intentionally don't use get_qualname here to avoid an infinite recursion
+    object_type = type(object)
+    return (
+        getattr(object_type, "__module__") == "numpy"
+        and getattr(object_type, "__name__") == "ufunc"
+    )
 
 
 def pretty_format(
