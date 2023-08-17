@@ -136,10 +136,6 @@ class HelpService:
             obj = result[0]
             key = get_qualname(obj)
 
-            # Handle numpy ufuncs which don't have a __module__ attribute.
-            if is_numpy_ufunc(obj):
-                key = f"numpy.{key}"
-
             # Not sure why, but some qualified names cause errors in pydoc. Manually replace these with
             # names that are known to work.
             for old, new in self._QUALNAME_OVERRIDES.items():
