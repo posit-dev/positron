@@ -56,8 +56,11 @@ export async function registerCommands(context: vscode.ExtensionContext) {
 			positron.runtime.executeCode('r', 'devtools::build()', true);
 		}),
 
-		vscode.commands.registerCommand('r.packageInstall', () => {
+		vscode.commands.registerCommand('r.packageInstall', async () => {
+			const packageName = await getRPackageName();
 			positron.runtime.executeCode('r', 'devtools::install()', true);
+			await vscode.commands.executeCommand('workbench.action.languageRuntime.restart');
+			positron.runtime.executeCode('r', `library(${packageName})`, true);
 		}),
 
 		vscode.commands.registerCommand('r.packageTest', () => {
@@ -136,4 +139,20 @@ async function detectRPackage(): Promise<boolean> {
 		} catch { }
 	}
 	return false;
+}
+
+async function getRPackageName(): Promise<string> {
+	if (vscode.workspace.workspaceFolders !== undefined) {
+		const folderUri = vscode.workspace.workspaceFolders[0].uri;
+		const fileUri = vscode.Uri.joinPath(folderUri, 'DESCRIPTION');
+		try {
+			const bytes = await vscode.workspace.fs.readFile(fileUri);
+			const descriptionText = Buffer.from(bytes).toString('utf8');
+			const descriptionLines = descriptionText.split(/(\r?\n)/);
+			const packageLines = descriptionLines.filter(line => line.startsWith('Package:'))[0];
+			const packageName = packageLines.split(' ').slice(-1)[0];
+			return packageName;
+		} catch { }
+	}
+	return '';
 }
