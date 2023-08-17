@@ -86,10 +86,9 @@ export class LanguageRuntimeWorkspaceAffiliation extends Disposable {
 
 		// If the runtime is affiliated with this workspace, start it.
 		if (runtime.metadata.runtimeId === affiliatedRuntimeId) {
-			this._logService.debug(`Starting affiliated runtime ${runtime.metadata.runtimeName} ` +
-				` (${runtime.metadata.runtimeId}) for this workspace.`);
 			try {
-				this._runtimeService.startRuntime(runtime.metadata.runtimeId);
+				this._runtimeService.startRuntime(runtime.metadata.runtimeId,
+					`Affiliated runtime for workspace`);
 			} catch (e) {
 				// This isn't necessarily an error; if another runtime took precedence and has
 				// already started for this workspace, we don't want to start this one.
@@ -109,6 +108,24 @@ export class LanguageRuntimeWorkspaceAffiliation extends Disposable {
 	 */
 	public getAffiliatedRuntimeId(languageId: string): string | undefined {
 		return this._storageService.get(`${this.storageKey}.${languageId}`, StorageScope.WORKSPACE);
+	}
+
+	/**
+	 * Ascertains whether a runtime (of any language) is affiliated with the
+	 * current workspace.
+	 *
+	 * @returns True if there is a runtime affiliated with this workspace.
+	 */
+	public hasAffiliatedRuntime(): boolean {
+		// Get the keys from the storage service and see if any of them match
+		// the storage key pattern for affiliated runtimes.
+		const keys = this._storageService.keys(StorageScope.WORKSPACE, StorageTarget.MACHINE);
+		for (const key of keys) {
+			if (key.startsWith(this.storageKey)) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	/**

@@ -178,9 +178,20 @@ export enum RuntimeErrorBehavior {
 }
 
 export enum LanguageRuntimeStartupBehavior {
-	/** The runtime should start automatically; usually used for runtimes that provide LSPs */
+	/**
+	 * The runtime should be started immediately after registration; usually used for runtimes
+	 * that are affiliated with the current workspace.
+	 */
+	Immediate = 'immediate',
+
+	/**
+	 * The runtime should start automatically; usually used for runtimes that provide LSPs
+	 */
 	Implicit = 'implicit',
 
-	/** The runtime should start when the user explicitly requests it; usually used for runtimes that only provide REPLs */
+	/**
+	 * The runtime should start when the user explicitly requests it;
+	 * usually used for runtimes that only provide REPLs
+	 */
 	Explicit = 'explicit',
 }

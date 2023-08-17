@@ -416,6 +416,14 @@ export interface IExtensionService {
 	 */
 	whenInstalledExtensionsRegistered(): Promise<boolean>;
 
+	// --- Start Positron ---
+	/**
+	 * An promise that resolves when all the extension hosts have started and
+	 * eager extensions have been activated.
+	 */
+	whenAllExtensionHostsStarted(): Promise<boolean>;
+	// --- End Positron ---
+
 	/**
 	 * Return a specific extension
 	 * @param id An extension id
@@ -523,6 +531,9 @@ export class NullExtensionService implements IExtensionService {
 	activateByEvent(_activationEvent: string): Promise<void> { return Promise.resolve(undefined); }
 	activationEventIsDone(_activationEvent: string): boolean { return false; }
 	whenInstalledExtensionsRegistered(): Promise<boolean> { return Promise.resolve(true); }
+	// --- Start Positron ---
+	whenAllExtensionHostsStarted(): Promise<boolean> { return Promise.resolve(true); }
+	// --- End Positron ---
 	getExtension() { return Promise.resolve(undefined); }
 	readExtensionPointContributions<T>(_extPoint: IExtensionPoint<T>): Promise<ExtensionPointContribution<T>[]> { return Promise.resolve(Object.create(null)); }
 	getExtensionsStatus(): { [id: string]: IExtensionsStatus } { return Object.create(null); }

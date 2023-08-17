@@ -9,7 +9,7 @@ import {
 	ExtHostPositronContext
 } from '../../common/positron/extHost.positron.protocol';
 import { extHostNamedCustomer, IExtHostContext } from 'vs/workbench/services/extensions/common/extHostCustomers';
-import { ILanguageRuntime, ILanguageRuntimeClientCreatedEvent, ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMessageCommClosed, ILanguageRuntimeMessageCommData, ILanguageRuntimeMessageCommOpen, ILanguageRuntimeMessageError, ILanguageRuntimeMessageInput, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessagePrompt, ILanguageRuntimeMessageState, ILanguageRuntimeMessageStream, ILanguageRuntimeMetadata, ILanguageRuntimeDynState as ILanguageRuntimeDynState, ILanguageRuntimeService, ILanguageRuntimeStartupFailure, LanguageRuntimeMessageType, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntime, ILanguageRuntimeClientCreatedEvent, ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMessageCommClosed, ILanguageRuntimeMessageCommData, ILanguageRuntimeMessageCommOpen, ILanguageRuntimeMessageError, ILanguageRuntimeMessageInput, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessagePrompt, ILanguageRuntimeMessageState, ILanguageRuntimeMessageStream, ILanguageRuntimeMetadata, ILanguageRuntimeDynState as ILanguageRuntimeDynState, ILanguageRuntimeService, ILanguageRuntimeStartupFailure, LanguageRuntimeMessageType, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeState, LanguageRuntimeDiscoveryPhase } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { Disposable, DisposableStore } from 'vs/base/common/lifecycle';
 import { Event, Emitter } from 'vs/base/common/event';
 import { IPositronConsoleService } from 'vs/workbench/services/positronConsole/common/interfaces/positronConsoleService';
@@ -779,6 +779,9 @@ export class MainThreadLanguageRuntime implements MainThreadLanguageRuntimeShape
 
 	private readonly _runtimes: Map<number, ExtHostLanguageRuntimeAdapter> = new Map();
 
+	private _discoveryPhase: LanguageRuntimeDiscoveryPhase =
+		LanguageRuntimeDiscoveryPhase.AwaitingExtensions;
+
 	constructor(
 		extHostContext: IExtHostContext,
 		@ILanguageRuntimeService private readonly _languageRuntimeService: ILanguageRuntimeService,
@@ -796,6 +799,18 @@ export class MainThreadLanguageRuntime implements MainThreadLanguageRuntimeShape
 		this._positronEnvironmentService.initialize();
 		this._positronPlotService.initialize();
 		this._proxy = extHostContext.getProxy(ExtHostPositronContext.ExtHostLanguageRuntime);
+
+		this._languageRuntimeService.onDidChangeDiscoveryPhase((phase) => {
+			this._discoveryPhase = phase;
+			if (phase === LanguageRuntimeDiscoveryPhase.Discovering) {
+				this._proxy.$discoverLanguageRuntimes();
+			}
+		});
+	}
+
+	$isLanguageRuntimeDiscoveryComplete(): Promise<boolean> {
+		return Promise.resolve(
+			this._discoveryPhase === LanguageRuntimeDiscoveryPhase.Complete);
 	}
 
 	$emitLanguageRuntimeMessage(handle: number, message: ILanguageRuntimeMessage): void {
@@ -818,10 +833,12 @@ export class MainThreadLanguageRuntime implements MainThreadLanguageRuntimeShape
 		);
 		this._runtimes.set(handle, adapter);
 
-		// Consider - do we need a flag (on the API side) to indicate whether
-		// the runtime should be started implicitly?
-		this._languageRuntimeService.registerRuntime(adapter,
-			metadata.startupBehavior);
+		this._languageRuntimeService.registerRuntime(adapter, metadata.startupBehavior);
+	}
+
+	// Signals that language runtime discovery is complete.
+	$completeLanguageRuntimeDiscovery(): void {
+		this._languageRuntimeService.completeDiscovery();
 	}
 
 	$unregisterLanguageRuntime(handle: number): void {
