@@ -6,6 +6,7 @@ import { localize } from 'vs/nls';
 import { Codicon } from 'vs/base/common/codicons';
 import { ITextModel } from 'vs/editor/common/model';
 import { IEditor } from 'vs/editor/common/editorCommon';
+import { Position } from 'vs/editor/common/core/position';
 import { KeyCode, KeyMod } from 'vs/base/common/keyCodes';
 import { ILocalizedString } from 'vs/platform/action/common/action';
 import { ILanguageService } from 'vs/editor/common/languages/language';
@@ -221,100 +222,104 @@ export function registerPositronConsoleActions() {
 
 			// Get the code to execute.
 			const selection = editor.getSelection();
-			const position = editor.getPosition();
 			const model = editor.getModel() as ITextModel;
-			let lineNumber = position?.lineNumber ?? 0;
-			if (selection) {
-				// If there is an active selection, use the contents of the selection to drive
-				// execution.
+
+			// If we have a selection and it isn't empty, then we use its contents (even if it
+			// only contains whitespace or comments) and also retain the user's selection location
+			const inSelection = selection &&
+				!Position.equals(selection.getPosition(), selection.getSelectionStart());
+
+			if (inSelection) {
 				code = model.getValueInRange(selection);
-				lineNumber = selection.endLineNumber;
-			}
+			} else {
+				// If no selection (or empty selection) was found, use the contents
+				// of the line containing the cursor position.
+				//
+				// TODO: This would benefit from a "Run Current Statement"
+				// behavior, but that requires deep knowledge of the
+				// language's grammar. Is this something we can fit into the
+				// LSP model or build into the language pack extensibility
+				// point?
+				const position = editor.getPosition();
+				let lineNumber = position?.lineNumber ?? 0;
 
-			// If no selection (or empty selection) was found, use the contents
-			// of the line containing the cursor position.
-			//
-			// TODO: This would benefit from a "Run Current Statement"
-			// behavior, but that requires deep knowledge of the
-			// language's grammar. Is this something we can fit into the
-			// LSP model or build into the language pack extensibility
-			// point?
-			if (!code.length && lineNumber > 0) {
-				// Find the first non-empty line after the cursor position and read the
-				// contents of that line.
-				for (let number = lineNumber; number <= model.getLineCount(); ++number) {
-					code = this.trimNewlines(model.getLineContent(number));
+				if (!code.length && lineNumber > 0) {
+					// Find the first non-empty line after the cursor position and read the
+					// contents of that line.
+					for (let number = lineNumber; number <= model.getLineCount(); ++number) {
+						code = this.trimNewlines(model.getLineContent(number));
 
-					if (code.length > 0) {
-						lineNumber = number;
-						break;
-					}
-				}
-			}
-
-			// If we have code and a position move the cursor to the next line with code on it,
-			// or just to the next line if all additional lines are blank.
-			if (code.length && position) {
-				let onlyEmptyLines = true;
-
-				for (let number = lineNumber + 1; number <= model.getLineCount(); ++number) {
-					if (this.trimNewlines(model.getLineContent(number)).length !== 0) {
-						// We found a non-empty line, move the cursor to it.
-						onlyEmptyLines = false;
-						lineNumber = number;
-						break;
+						if (code.length > 0) {
+							lineNumber = number;
+							break;
+						}
 					}
 				}
 
-				if (onlyEmptyLines) {
-					// At a minimum, we always move the cursor 1 line past the code we executed
-					// so the user can keep typing
-					++lineNumber;
+				// If we have code and a position move the cursor to the next line with code on it,
+				// or just to the next line if all additional lines are blank.
+				if (code.length && position) {
+					let onlyEmptyLines = true;
 
-					if (lineNumber === model.getLineCount() + 1) {
-						// If this puts us past the end of the document, insert a newline for us
-						// to move to
-						const editOperation = {
-							range: {
-								startLineNumber: model.getLineCount(),
-								startColumn: model.getLineMaxColumn(model.getLineCount()),
-								endLineNumber: model.getLineCount(),
-								endColumn: model.getLineMaxColumn(model.getLineCount())
-							},
-							text: '\n'
-						};
-						model.pushEditOperations([], [editOperation], () => []);
+					for (let number = lineNumber + 1; number <= model.getLineCount(); ++number) {
+						if (this.trimNewlines(model.getLineContent(number)).length !== 0) {
+							// We found a non-empty line, move the cursor to it.
+							onlyEmptyLines = false;
+							lineNumber = number;
+							break;
+						}
 					}
+
+					if (onlyEmptyLines) {
+						// At a minimum, we always move the cursor 1 line past the code we executed
+						// so the user can keep typing
+						++lineNumber;
+
+						if (lineNumber === model.getLineCount() + 1) {
+							// If this puts us past the end of the document, insert a newline for us
+							// to move to
+							const editOperation = {
+								range: {
+									startLineNumber: model.getLineCount(),
+									startColumn: model.getLineMaxColumn(model.getLineCount()),
+									endLineNumber: model.getLineCount(),
+									endColumn: model.getLineMaxColumn(model.getLineCount())
+								},
+								text: '\n'
+							};
+							model.pushEditOperations([], [editOperation], () => []);
+						}
+					}
+
+					const newPosition = position.with(lineNumber, 0);
+					editor.setPosition(newPosition);
+					editor.revealPositionInCenterIfOutsideViewport(newPosition);
 				}
 
-				const newPosition = position.with(lineNumber, 0);
-				editor.setPosition(newPosition);
-				editor.revealPositionInCenterIfOutsideViewport(newPosition);
-			}
+				if (!code.length && position && lineNumber === model.getLineCount()) {
+					// Typically we don't do anything when we don't have code to execute,
+					// but when we are at the end of a document we add a new line. However,
+					// we don't move to that new line to avoid adding a bunch of empty
+					// lines to the end.
 
-			if (!code.length && position && lineNumber === model.getLineCount()) {
-				// Typically we don't do anything when we don't have code to execute,
-				// but when we are at the end of a document we add a new line. However,
-				// we don't move to that new line to avoid adding a bunch of empty
-				// lines to the end.
+					// Create an edit operation that will append a new line to the end
+					// of the document. It also moves us to that line.
+					const editOperation = {
+						range: {
+							startLineNumber: model.getLineCount(),
+							startColumn: model.getLineMaxColumn(model.getLineCount()),
+							endLineNumber: model.getLineCount(),
+							endColumn: model.getLineMaxColumn(model.getLineCount())
+						},
+						text: '\n'
+					};
+					model.pushEditOperations([], [editOperation], () => []);
 
-				// Create an edit operation that will append a new line to the end
-				// of the document. It also moves us to that line.
-				const editOperation = {
-					range: {
-						startLineNumber: model.getLineCount(),
-						startColumn: model.getLineMaxColumn(model.getLineCount()),
-						endLineNumber: model.getLineCount(),
-						endColumn: model.getLineMaxColumn(model.getLineCount())
-					},
-					text: '\n'
-				};
-				model.pushEditOperations([], [editOperation], () => []);
-
-				// Undo the fact that the edit operation moved the cursor.
-				const newPosition = position.with(lineNumber, position.column);
-				editor.setPosition(newPosition);
-				editor.revealPositionInCenterIfOutsideViewport(newPosition);
+					// Undo the fact that the edit operation moved the cursor.
+					const newPosition = position.with(lineNumber, position.column);
+					editor.setPosition(newPosition);
+					editor.revealPositionInCenterIfOutsideViewport(newPosition);
+				}
 			}
 
 			// Now that we've gotten this far, ensure we have a target language.
