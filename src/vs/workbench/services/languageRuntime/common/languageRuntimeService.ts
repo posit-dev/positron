@@ -472,7 +472,7 @@ export interface ILanguageRuntime {
 	restart(): void;
 
 	/** Shut down the runtime */
-	shutdown(): void;
+	shutdown(): Thenable<void>;
 }
 
 export interface ILanguageRuntimeService {
@@ -528,6 +528,14 @@ export interface ILanguageRuntimeService {
 	 * @returns A disposable that can be used to unregister the runtime
 	 */
 	registerRuntime(runtime: ILanguageRuntime, startupBehavior: LanguageRuntimeStartupBehavior): IDisposable;
+
+	/**
+	 * Selects a previously registered runtime as the active runtime.
+	 *
+	 * @param runtimeId The identifier of the runtime to select.
+	 * @param source The source of the request to select the runtime, for debugging purposes.
+	 */
+	selectRuntime(runtimeId: string, source: string): Promise<void>;
 
 	/**
 	 * Signal that discovery of language runtimes is complete.

@@ -836,6 +836,13 @@ export class MainThreadLanguageRuntime implements MainThreadLanguageRuntimeShape
 		this._languageRuntimeService.registerRuntime(adapter, metadata.startupBehavior);
 	}
 
+	// Called by the extension host to select a previously registered language runtime
+	$selectLanguageRuntime(handle: number): Promise<void> {
+		return this._languageRuntimeService.selectRuntime(
+			this.findRuntime(handle).metadata.runtimeId,
+			'Extension-requested runtime selection via Positron API');
+	}
+
 	// Signals that language runtime discovery is complete.
 	$completeLanguageRuntimeDiscovery(): void {
 		this._languageRuntimeService.completeDiscovery();

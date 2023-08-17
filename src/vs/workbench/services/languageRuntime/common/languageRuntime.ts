@@ -261,6 +261,62 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 	}
 
 	/**
+	 * Selects and starts a runtime, after shutting down any currently active
+	 * runtimes for the language.
+	 *
+	 * @param runtimeId The ID of the runtime to select
+	 * @param source The source of the selection
+	 */
+	async selectRuntime(runtimeId: string, source: string): Promise<void> {
+		const runtimeInfo = this._registeredRuntimesByRuntimeId.get(runtimeId);
+		if (!runtimeInfo) {
+			return Promise.reject(new Error(`Language runtime ID '${runtimeId}' ` +
+				`is not registered.`));
+		}
+		const runtime = runtimeInfo.runtime;
+
+		// Shut down any other runtimes for the language.
+		const runningRuntime = this._runningRuntimesByLanguageId.get(runtime.metadata.languageId);
+		if (runningRuntime) {
+			// Is this, by chance, the runtime that's already running?
+			if (runningRuntime.metadata.runtimeId === runtimeId) {
+				return Promise.reject(
+					new Error(`${formatLanguageRuntime(runningRuntime)} is already running.`));
+			}
+
+			// Ask the runtime to shut down.
+			await runningRuntime.shutdown();
+
+			// If the runtime doesn't exit immediately, wait for it to exit.
+			if (runningRuntime.getRuntimeState() !== RuntimeState.Exited) {
+				// Create a promise that resolves when the runtime exits.
+				const promise = new Promise<void>(resolve => {
+					const disposable = runningRuntime.onDidChangeRuntimeState(state => {
+						if (state === RuntimeState.Exited) {
+							resolve();
+							disposable.dispose();
+						}
+					});
+				});
+
+				// Create a promise that rejects after a timeout.
+				const timeout = new Promise<void>((_, reject) => {
+					setTimeout(() => {
+						reject(new Error(`Timed out waiting for runtime ${formatLanguageRuntime(runningRuntime)} to exit.`));
+					}, 5000);
+				});
+
+				// Wait for the runtime to exit, or for the timeout to expire
+				// (whichever comes first)
+				await Promise.race([promise, timeout]);
+			}
+		}
+
+		// Start the selected runtime.
+		return this.startRuntime(runtime.metadata.runtimeId, source);
+	}
+
+	/**
 	 * Register a new runtime
 	 *
 	 * @param runtime The runtime to register
