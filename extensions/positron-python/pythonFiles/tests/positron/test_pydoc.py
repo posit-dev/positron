@@ -1,7 +1,7 @@
 from types import ModuleType
 from typing import Any, Callable, List, Tuple
 
-from positron.pydoc import _PositronHTMLDoc
+import numpy as np
 import pandas as pd
 import pytest
 
@@ -352,6 +352,8 @@ def test_document_version() -> None:
         ("pd.to_datetime", pd.read_csv, None),
         # Ensure that we can handle linking from a `property`
         ("DataFrame.transpose", pd.read_csv, "pandas.DataFrame.transpose"),
+        # Linking from a getset_descriptor
+        ("ndarray.base", np.generic.base, "numpy.ndarray.base"),
     ],
 )
 def test_resolve(target: str, from_obj: Any, expected: Any) -> None:
