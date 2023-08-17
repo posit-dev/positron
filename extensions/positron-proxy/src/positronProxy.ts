@@ -170,7 +170,8 @@ export class PositronProxy implements Disposable {
 			// Set the scripts file loaded flag.
 			this.scriptsFileLoaded = this.helpHeaderStyle !== undefined && this.helpHeaderScript !== undefined;
 		} catch (error) {
-			console.log(`Failed to load the resources/scripts.html file`);
+			// console.log(`Failed to load the resources/scripts.html file`);
+
 		}
 	}
 
