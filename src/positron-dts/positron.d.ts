@@ -312,7 +312,7 @@ declare module 'positron' {
 	/**
 	 * LanguageRuntimeDynState contains information about a language runtime that may
 	 * change after a runtime has started.
- 	 */
+	 */
 	export interface LanguageRuntimeDynState {
 		/** The text the language's interpreter uses to prompt the user for input, e.g. ">" or ">>>" */
 		inputPrompt: string;
@@ -322,10 +322,21 @@ declare module 'positron' {
 	}
 
 	export enum LanguageRuntimeStartupBehavior {
-		/** The runtime should start automatically; usually used for runtimes that provide LSPs */
+		/**
+		 * The runtime should be started immediately after registration; usually used for runtimes
+		 * that are affiliated with the current workspace.
+		 */
+		Immediate = 'immediate',
+
+		/**
+		 * The runtime should start automatically; usually used for runtimes that provide LSPs
+		 */
 		Implicit = 'implicit',
 
-		/** The runtime should start when the user explicitly requests it; usually used for runtimes that only provide REPLs */
+		/**
+		 * The runtime should start when the user explicitly requests it;
+		 * usually used for runtimes that only provide REPLs
+		 */
 		Explicit = 'explicit',
 	}
 
@@ -403,6 +414,8 @@ declare module 'positron' {
 		size: number;
 	}
 
+	export type LanguageRuntimeProvider = AsyncGenerator<LanguageRuntime>;
+
 	/**
 	 * LanguageRuntime is an interface implemented by extensions that provide a
 	 * set of common tools for interacting with a language runtime, such as code
@@ -412,6 +425,7 @@ declare module 'positron' {
 		/** An object supplying metadata about the runtime */
 		readonly metadata: LanguageRuntimeMetadata;
 
+		/** The state of the runtime that changes during a user session */
 		dynState: LanguageRuntimeDynState;
 
 		/** An object that emits language runtime events */
@@ -677,7 +691,16 @@ declare module 'positron' {
 			focus: boolean): Thenable<boolean>;
 
 		/**
-		 * Register a language runtime with Positron.
+		 * Register a language runtime provider with Positron.
+		 *
+		 * @param languageId The language ID for which runtimes will be supplied
+		 * @param provider A function that returns an AsyncIterable of runtime registrations
+		 */
+		export function registerLanguageRuntimeProvider(languageId: string,
+			provider: LanguageRuntimeProvider): void;
+
+		/**
+		 * Register a single language runtime with Positron.
 		 *
 		 * @param runtime The language runtime to register
 		 */

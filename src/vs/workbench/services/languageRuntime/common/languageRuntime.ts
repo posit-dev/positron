@@ -7,10 +7,12 @@ import { ILogService } from 'vs/platform/log/common/log';
 import { ILanguageService } from 'vs/editor/common/languages/language';
 import { Disposable, IDisposable, toDisposable } from 'vs/base/common/lifecycle';
 import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/common/extensions';
-import { formatLanguageRuntime, ILanguageRuntime, ILanguageRuntimeGlobalEvent, ILanguageRuntimeService, ILanguageRuntimeStateEvent, LanguageRuntimeStartupBehavior, RuntimeClientType, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { formatLanguageRuntime, ILanguageRuntime, ILanguageRuntimeGlobalEvent, ILanguageRuntimeService, ILanguageRuntimeStateEvent, LanguageRuntimeDiscoveryPhase, LanguageRuntimeStartupBehavior, RuntimeClientType, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { FrontEndClientInstance, IFrontEndClientMessageInput, IFrontEndClientMessageOutput } from 'vs/workbench/services/languageRuntime/common/languageRuntimeFrontEndClient';
 import { LanguageRuntimeWorkspaceAffiliation } from 'vs/workbench/services/languageRuntime/common/languageRuntimeWorkspaceAffiliation';
 import { IStorageService } from 'vs/platform/storage/common/storage';
+import { IExtensionService } from 'vs/workbench/services/extensions/common/extensions';
+import { IWorkspaceTrustManagementService } from 'vs/platform/workspace/common/workspaceTrust';
 
 /**
  * LanguageRuntimeInfo class.
@@ -49,6 +51,13 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 	// The array of registered runtimes.
 	private readonly _registeredRuntimes: LanguageRuntimeInfo[] = [];
 
+	// The current discovery phase for language runtime registration.
+	private _discoveryPhase: LanguageRuntimeDiscoveryPhase =
+		LanguageRuntimeDiscoveryPhase.AwaitingExtensions;
+
+	// Whether the workspace was untrusted when it was opened.
+	private _initiallyTrustedWorkspace = false;
+
 	// A map of the registered runtimes. This is keyed by the runtimeId
 	// (metadata.runtimeId) of the runtime.
 	private readonly _registeredRuntimesByRuntimeId = new Map<string, LanguageRuntimeInfo>();
@@ -66,6 +75,9 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 
 	// The object that manages the runtimes affliated with workspaces.
 	private readonly _workspaceAffiliation: LanguageRuntimeWorkspaceAffiliation;
+
+	// The event emitter for the onDidChangeDisoveryPhase event.
+	private readonly _onDidChangeDiscoveryPhaseEmitter = this._register(new Emitter<LanguageRuntimeDiscoveryPhase>);
 
 	// The event emitter for the onDidRegisterRuntime event.
 	private readonly _onDidRegisterRuntimeEmitter = this._register(new Emitter<ILanguageRuntime>);
@@ -104,7 +116,9 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 	constructor(
 		@ILanguageService private readonly _languageService: ILanguageService,
 		@ILogService private readonly _logService: ILogService,
-		@IStorageService private readonly _storageService: IStorageService
+		@IStorageService private readonly _storageService: IStorageService,
+		@IExtensionService private readonly _extensionService: IExtensionService,
+		@IWorkspaceTrustManagementService private readonly _workspaceTrustManagementService: IWorkspaceTrustManagementService
 	) {
 		// Call the base class's constructor.
 		super();
@@ -140,8 +154,21 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 			// so they will be in the right order so the first one is the right
 			// one to start.
 			this._logService.trace(`Language runtime ${formatLanguageRuntime(languageRuntimeInfos[0].runtime)} automatically starting`);
-			this.doStartRuntime(languageRuntimeInfos[0].runtime);
+			this.autoStartRuntime(languageRuntimeInfos[0].runtime,
+				`A file with the language ID ${languageId} was opened.`);
 		}));
+
+		// Begin discovering language runtimes once all extensions have been
+		// registered.
+		this._extensionService.whenAllExtensionHostsStarted().then(() => {
+			this._onDidChangeDiscoveryPhaseEmitter.fire(LanguageRuntimeDiscoveryPhase.Discovering);
+			this._initiallyTrustedWorkspace = this._workspaceTrustManagementService.isWorkspaceTrusted();
+		});
+
+		// Update the discovery phase when the language service's state changes.
+		this.onDidChangeDiscoveryPhase(phase => {
+			this._discoveryPhase = phase;
+		});
 	}
 
 	//#endregion Constructor
@@ -150,6 +177,9 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 
 	// Needed for service branding in dependency injector.
 	declare readonly _serviceBrand: undefined;
+
+	// An event that fires when the language runtime discovery phase changes.
+	readonly onDidChangeDiscoveryPhase = this._onDidChangeDiscoveryPhaseEmitter.event;
 
 	// An event that fires when a runtime is about to start.
 	readonly onDidRegisterRuntime = this._onDidRegisterRuntimeEmitter.event;
@@ -283,8 +313,22 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 			startupBehavior === LanguageRuntimeStartupBehavior.Implicit &&
 			!this._workspaceAffiliation.getAffiliatedRuntimeId(runtime.metadata.languageId)) {
 
-			this._logService.trace(`Language runtime ${formatLanguageRuntime(runtime)} automatically starting.`);
-			this.doStartRuntime(languageRuntimeInfo.runtime);
+			this.autoStartRuntime(languageRuntimeInfo.runtime,
+				`A file with the language ID ${runtime.metadata.languageId} was open ` +
+				`when the runtime was registered.`);
+		}
+
+		// Automatically start the language runtime under the following conditions:
+		// - The language runtime wants to start immediately.
+		// - No other runtime is currently running.
+		// - We have completed the discovery phase of the language runtime
+		//   registration process.
+		else if (startupBehavior === LanguageRuntimeStartupBehavior.Immediate &&
+			this._discoveryPhase === LanguageRuntimeDiscoveryPhase.Complete &&
+			!this.hasAnyStartedOrRunningRuntimes()) {
+
+			this.autoStartRuntime(languageRuntimeInfo.runtime,
+				`An extension requested that the runtime start immediately after being registered.`);
 		}
 
 		// Add the onDidChangeRuntimeState event handler.
@@ -349,11 +393,57 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 			}
 		}));
 
+		// --- Begin TEMPORARY ---
+		// We want to start a Python runtime as a last-chance fallback if we have no other
+		// runtimes to start. We consider this to be true under the following circumstances:
+		//
+		// - We have completed the discovery phase, which implies we've also started any
+		//   runtimes that asked to be started right away (startupBehavior === Immediate).
+		// - No runtimes have been started or are running yet.
+		// - This was not an initially untrusted workspace; in these workspaces, we don't
+		//   know what would have been automatically started, so we don't want to come
+		//   stomping in and starting a Python runtime.
+		// - No runtimes will be automatically started for this workspace, i.e. this workspace
+		//   has no affiliated runtimes.
+		//
+		// This behavior shouldn't live here, but it does until the Python language pack
+		// can be updated. See https://github.com/rstudio/positron/issues/1009
+		if (this._discoveryPhase === LanguageRuntimeDiscoveryPhase.Complete &&
+			!this.hasAnyStartedOrRunningRuntimes() &&
+			languageRuntimeInfo.runtime.metadata.languageId === 'python' &&
+			this._initiallyTrustedWorkspace === true &&
+			!this._workspaceAffiliation.hasAffiliatedRuntime()) {
+			this.autoStartRuntime(languageRuntimeInfo.runtime,
+				`No other language runtimes want to start; Python is the default.`);
+		}
+		// --- End TEMPORARY ---
+
 		return toDisposable(() => {
 			// Remove the runtime from the set of starting or running runtimes.
 			this._startingRuntimesByLanguageId.delete(runtime.metadata.languageId);
 			this._runningRuntimesByLanguageId.delete(runtime.metadata.languageId);
 		});
+	}
+
+	/**
+	 * Completes the language runtime discovery phase. If no runtimes were
+	 * started or will be started, automatically start one.
+	 */
+	completeDiscovery(): void {
+		this._onDidChangeDiscoveryPhaseEmitter.fire(LanguageRuntimeDiscoveryPhase.Complete);
+
+		if (!this._workspaceAffiliation.hasAffiliatedRuntime() &&
+			!this.hasAnyStartedOrRunningRuntimes()) {
+			// If there are no affiliated runtimes, and no starting or running
+			// runtimes, start the first runtime that has Immediate startup
+			// behavior.
+			const languageRuntimeInfos = this._registeredRuntimes.filter(
+				info => info.startupBehavior === LanguageRuntimeStartupBehavior.Immediate);
+			if (languageRuntimeInfos.length) {
+				this.autoStartRuntime(languageRuntimeInfos[0].runtime,
+					`An extension requested the runtime to be started immediately.`);
+			}
+		}
 	}
 
 	/**
@@ -369,8 +459,9 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 	/**
 	 * Starts a runtime.
 	 * @param runtimeId The runtime identifier of the runtime to start.
+	 * @param source The source of the request to start the runtime.
 	 */
-	async startRuntime(runtimeId: string): Promise<void> {
+	async startRuntime(runtimeId: string, source: string): Promise<void> {
 		// Get the runtime. Throw an error, if it could not be found.
 		const languageRuntimeInfo = this._registeredRuntimesByRuntimeId.get(runtimeId);
 		if (!languageRuntimeInfo) {
@@ -389,7 +480,14 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 			throw new Error(`Language runtime ${formatLanguageRuntime(languageRuntimeInfo.runtime)} cannot be started because language runtime ${formatLanguageRuntime(runningLanguageRuntime)} is already running for the language.`);
 		}
 
+		// If the workspace is not trusted, defer starting the runtime until the
+		// workspace is trusted.
+		if (!this._workspaceTrustManagementService.isWorkspaceTrusted()) {
+			return this.autoStartRuntime(languageRuntimeInfo.runtime, source);
+		}
+
 		// Start the runtime.
+		this._logService.info(`Starting language runtime ${formatLanguageRuntime(languageRuntimeInfo.runtime)} (Source: ${source})`);
 		await this.doStartRuntime(languageRuntimeInfo.runtime);
 	}
 
@@ -438,6 +536,47 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 	}
 
 	/**
+	 * Checks to see if any of the registered runtimes are starting or running.
+	 */
+	private hasAnyStartedOrRunningRuntimes(): boolean {
+		return this._startingRuntimesByLanguageId.size > 0 ||
+			this._runningRuntimesByLanguageId.size > 0;
+	}
+
+	/**
+	 * Automatically starts a runtime.
+	 *
+	 * @param runtime The runtime to start.
+	 * @param source The source of the request to start the runtime.
+	 */
+	private async autoStartRuntime(runtime: ILanguageRuntime, source: string): Promise<void> {
+		if (this._workspaceTrustManagementService.isWorkspaceTrusted()) {
+			// If the workspace is trusted, start the runtime.
+			this._logService.info(`Language runtime ` +
+				`${formatLanguageRuntime(runtime)} ` +
+				`automatically starting. Source: ${source}`);
+			await this.doStartRuntime(runtime);
+		} else {
+			this._logService.debug(`Deferring the start of language runtime ` +
+				`${formatLanguageRuntime(runtime)} (Source: ${source}) ` +
+				`because workspace trust has not been granted. ` +
+				`The runtime will be started when workspace trust is granted.`);
+			this._workspaceTrustManagementService.onDidChangeTrust((trusted) => {
+				if (!trusted) {
+					// If the workspace is still not trusted, do nothing.
+					return;
+				}
+				// If the workspace is trusted, start the runtime.
+				this._logService.info(`Language runtime ` +
+					`${formatLanguageRuntime(runtime)} ` +
+					`automatically starting after workspace trust was granted. ` +
+					`Source: ${source}`);
+				this.doStartRuntime(runtime);
+			});
+		}
+	}
+
+	/**
 	 * Starts a runtime.
 	 * @param runtime The runtime to start.
 	 */
@@ -473,6 +612,7 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 			this._logService.error(`Starting language runtime failed. Reason: ${reason}`);
 		}
 	}
+
 
 	//#region Private Methods
 }

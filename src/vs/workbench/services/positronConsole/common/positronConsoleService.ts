@@ -314,7 +314,9 @@ class PositronConsoleService extends Disposable implements IPositronConsoleServi
 			// Start the first runtime that was found.
 			const languageRuntime = languageRuntimes[0];
 			this._logService.trace(`Language runtime ${formatLanguageRuntime(languageRuntime)} automatically starting`);
-			await this._languageRuntimeService.startRuntime(languageRuntime.metadata.runtimeId);
+			await this._languageRuntimeService.startRuntime(languageRuntime.metadata.runtimeId,
+				`User executed code in language ${languageId}, and no running runtime was found ` +
+				`for the language.`);
 		}
 
 		const positronConsoleInstance = this._positronConsoleInstancesByLanguageId.get(languageId);
