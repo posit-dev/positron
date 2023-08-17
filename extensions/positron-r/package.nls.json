@@ -1,8 +1,8 @@
 {
 	"displayName": "R",
 	"description": "R Language Pack for Positron",
+	"r.capabilities.untrustedWorkspaces.description": "R cannot be started in untrusted folders.",
 	"r.command.sourceCurrentFile.title": "Source R File",
-	"r.command.setKernelPath.title": "Set Kernel Path",
 	"r.command.createNewFile.title": "New R File",
 	"r.command.packageLoad.title": "Load R Package",
 	"r.command.packageBuild.title": "Build R Package",

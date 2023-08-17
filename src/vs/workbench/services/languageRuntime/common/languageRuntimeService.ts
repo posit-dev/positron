@@ -277,11 +277,41 @@ export enum LanguageRuntimeMessageType {
 }
 
 export enum LanguageRuntimeStartupBehavior {
-	/** The runtime should start automatically; usually used for runtimes that provide LSPs */
+	/**
+	 * The runtime should be started immediately after registration; usually used for runtimes
+	 * that are affiliated with the current workspace.
+	 */
+	Immediate = 'immediate',
+
+	/**
+	 * The runtime should start automatically; usually used for runtimes that provide LSPs
+	 */
 	Implicit = 'implicit',
 
-	/** The runtime should start when the user explicitly requests it; usually used for runtimes that only provide REPLs */
+	/**
+	 * The runtime should start when the user explicitly requests it;
+	 * usually used for runtimes that only provide REPLs
+	 */
 	Explicit = 'explicit',
+}
+
+export enum LanguageRuntimeDiscoveryPhase {
+	/**
+	 * We are waiting for extensions to register language runtime providers.
+	 */
+	AwaitingExtensions = 'AwaitingExtensions',
+
+	/**
+	 * Language runtimes are currently being discovered and registered. During
+	 * this phase, the service emits `onDidRegisterRuntime` events as it
+	 * discovers new runtimes.
+	 */
+	Discovering = 'discovering',
+
+	/**
+	 * Language runtime discovery has completed.
+	 */
+	Complete = 'complete',
 }
 
 export interface ILanguageRuntimeMessageState extends ILanguageRuntimeMessage {
@@ -355,7 +385,7 @@ export interface ILanguageRuntimeMetadata {
 
 	/** FIXME
 	 * These are for compatibility until runtimes have added
-         * support for the dynamic state struct */
+		 * support for the dynamic state struct */
 	readonly inputPrompt?: string;
 	readonly continuationPrompt?: string;
 }
@@ -449,6 +479,9 @@ export interface ILanguageRuntimeService {
 	// Needed for service branding in dependency injector.
 	readonly _serviceBrand: undefined;
 
+	// An event that fires when the language runtime discovery phase changes.
+	readonly onDidChangeDiscoveryPhase: Event<LanguageRuntimeDiscoveryPhase>;
+
 	// An event that fires when a new runtime is registered.
 	readonly onDidRegisterRuntime: Event<ILanguageRuntime>;
 
@@ -497,6 +530,11 @@ export interface ILanguageRuntimeService {
 	registerRuntime(runtime: ILanguageRuntime, startupBehavior: LanguageRuntimeStartupBehavior): IDisposable;
 
 	/**
+	 * Signal that discovery of language runtimes is complete.
+	 */
+	completeDiscovery(): void;
+
+	/**
 	 * Returns a specific runtime by runtime identifier.
 	 * @param runtimeId The runtime identifier of the runtime to retrieve.
 	 * @returns The runtime with the given runtime identifier, or undefined if
@@ -507,7 +545,9 @@ export interface ILanguageRuntimeService {
 	/**
 	 * Starts a runtime.
 	 * @param runtimeId The runtime identifier of the runtime to start.
+	 * @param source The source of the request to start the runtime, for debugging purposes
+	 *  (not displayed to the user)
 	 */
-	startRuntime(runtimeId: string): Promise<void>;
+	startRuntime(runtimeId: string, source: string): Promise<void>;
 }
 export { RuntimeClientType, IRuntimeClientInstance };

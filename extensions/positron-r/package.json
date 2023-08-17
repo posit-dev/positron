@@ -11,16 +11,17 @@
     "Programming Languages"
   ],
   "activationEvents": [
-    "onStartupFinished"
+    "*"
   ],
   "main": "./out/extension.js",
+  "capabilities": {
+    "untrustedWorkspaces": {
+      "supported": "limited",
+      "description": "%r.capabilities.untrustedWorkspaces.description%"
+    }
+  },
   "contributes": {
     "commands": [
-      {
-        "command": "r.setKernelPath",
-        "category": "R",
-        "title": "%r.command.setKernelPath.title%"
-      },
       {
         "command": "r.createNewFile",
         "category": "R",

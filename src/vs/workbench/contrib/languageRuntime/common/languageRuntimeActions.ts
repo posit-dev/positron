@@ -154,7 +154,8 @@ export function registerLanguageRuntimeActions() {
 		const languageRuntime = await selectLanguageRuntime(quickInputService, registeredRuntimes, 'Select the language runtime to start');
 		if (languageRuntime) {
 			// Start the language runtime.
-			languageRuntimeService.startRuntime(languageRuntime.metadata.runtimeId);
+			languageRuntimeService.startRuntime(languageRuntime.metadata.runtimeId,
+				`'Start Language Runtime' command invoked`);
 
 			// Drive focus into the Positron console.
 			commandService.executeCommand('workbench.panel.positronConsole.focus');

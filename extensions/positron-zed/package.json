@@ -11,7 +11,7 @@
 		"Programming Languages"
 	],
 	"activationEvents": [
-		"onStartupFinished"
+		"*"
 	],
 	"main": "./out/extension.js",
 	"contributes": {

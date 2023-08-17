@@ -11,6 +11,8 @@ import { UriComponents } from 'vs/base/common/uri';
 // This is the interface that the main process exposes to the extension host
 export interface MainThreadLanguageRuntimeShape extends IDisposable {
 	$registerLanguageRuntime(handle: number, metadata: ILanguageRuntimeMetadata, dynState: ILanguageRuntimeDynState): void;
+	$isLanguageRuntimeDiscoveryComplete(): Promise<boolean>;
+	$completeLanguageRuntimeDiscovery(): void;
 	$unregisterLanguageRuntime(handle: number): void;
 	$executeCode(languageId: string, code: string, focus: boolean): Promise<boolean>;
 
@@ -31,6 +33,7 @@ export interface ExtHostLanguageRuntimeShape {
 	$interruptLanguageRuntime(handle: number): Promise<void>;
 	$restartLanguageRuntime(handle: number): Promise<void>;
 	$shutdownLanguageRuntime(handle: number): Promise<void>;
+	$discoverLanguageRuntimes(): void;
 }
 
 /**

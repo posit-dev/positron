@@ -150,7 +150,8 @@ export const PositronTopActionBar = (props: PositronTopActionBarProps) => {
 		await shutdownRuntimes(runtimeToStart.metadata.languageId);
 
 		// Start the runtime.
-		props.languageRuntimeService.startRuntime(runtimeToStart.metadata.runtimeId);
+		props.languageRuntimeService.startRuntime(runtimeToStart.metadata.runtimeId,
+			`User-requested startup from the Positron top action bar`);
 
 		// Return a promise that resolves when the runtime is started.
 		return new Promise<void>((resolve, reject) => {
