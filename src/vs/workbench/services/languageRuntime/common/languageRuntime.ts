@@ -261,12 +261,49 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 	}
 
 	/**
-	 * Selects and starts a runtime.
+	 * Selects and starts a runtime, after shutting down any currently active
+	 * runtimes for the language.
 	 *
 	 * @param runtimeId The ID of the runtime to select
+	 * @param source The source of the selection
 	 */
-	selectRuntime(runtimeId: string): Promise<void> {
-		throw new Error('Method not implemented.');
+	async selectRuntime(runtimeId: string, source: string): Promise<void> {
+		const runtimeInfo = this._registeredRuntimesByRuntimeId.get(runtimeId);
+		if (!runtimeInfo) {
+			return Promise.reject(new Error(`Language runtime IDS '${runtimeId}' ` +
+				`is not registered.`));
+		}
+		const runtime = runtimeInfo.runtime;
+
+		// Shut down any other runtimes for the language.
+		const runningRuntime = this._runningRuntimesByLanguageId.get(runtime.metadata.languageId);
+		if (runningRuntime) {
+			// Create a promise that resolves when the runtime exits.
+			const promise = new Promise<void>(resolve => {
+				const disposable = runningRuntime.onDidChangeRuntimeState(state => {
+					if (state === RuntimeState.Exited) {
+						resolve();
+						disposable.dispose();
+					}
+				});
+			});
+
+			// Create a promise that rejects after a timeout.
+			const timeout = new Promise<void>((_, reject) => {
+				setTimeout(() => {
+					reject(new Error(`Timed out waiting for runtime ${formatLanguageRuntime(runningRuntime)} to exit.`));
+				}, 5000);
+			});
+
+			// Ask the runtime to shut down.
+			runningRuntime.shutdown();
+
+			// Wait for the runtime to exit or for the timeout to elapse.
+			await Promise.race([promise, timeout]);
+		}
+
+		// Start the runtime.
+		return this.startRuntime(runtime.metadata.runtimeId, source);
 	}
 
 	/**
