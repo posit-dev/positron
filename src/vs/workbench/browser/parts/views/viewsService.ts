@@ -445,7 +445,7 @@ export class ViewsService extends Disposable implements IViewsService {
 						viewsService.openView(viewDescriptor.id, true);
 						return;
 					}
-					// --- Start Positron ---
+					// --- End Positron ---
 
 					const focusedViewId = FocusedViewContext.getValue(contextKeyService);
 					if (focusedViewId === viewDescriptor.id) {

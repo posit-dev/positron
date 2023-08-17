@@ -6,16 +6,15 @@
 
 'use strict';
 
-const withNodeDefaults = require('../shared.webpack.config');
-const path = require('path');
+const withDefaults = require('../shared.webpack.config');
 
-module.exports = withNodeDefaults({
+module.exports = withDefaults({
 	context: __dirname,
-	resolve: {
-		mainFields: ['module', 'main']
-	},
-	ignoreWarnings: [/Critical dependency: the request of a dependency is an expression/],
 	entry: {
 		extension: './src/extension.ts',
+	},
+	externals: {
+		'vscode': { commonjs: 'vscode' },
+		'express': { commonjs: 'express' }
 	}
 });
