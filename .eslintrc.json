@@ -315,6 +315,7 @@
 						"restrictions": [
 							"vs/base/~",
 							// --- Start Positron ---
+							"he",
 							"react",
 							"react-dom/client",
 							"react-window"
