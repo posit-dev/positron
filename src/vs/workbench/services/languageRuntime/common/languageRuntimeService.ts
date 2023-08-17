@@ -530,6 +530,11 @@ export interface ILanguageRuntimeService {
 	registerRuntime(runtime: ILanguageRuntime, startupBehavior: LanguageRuntimeStartupBehavior): IDisposable;
 
 	/**
+	 * Selects a previously registered runtime as the active runtime.
+	 */
+	selectRuntime(runtimeId: string): Promise<void>;
+
+	/**
 	 * Signal that discovery of language runtimes is complete.
 	 */
 	completeDiscovery(): void;

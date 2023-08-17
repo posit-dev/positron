@@ -261,6 +261,15 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 	}
 
 	/**
+	 * Selects and starts a runtime.
+	 *
+	 * @param runtimeId The ID of the runtime to select
+	 */
+	selectRuntime(runtimeId: string): Promise<void> {
+		throw new Error('Method not implemented.');
+	}
+
+	/**
 	 * Register a new runtime
 	 *
 	 * @param runtime The runtime to register
