@@ -96,86 +96,12 @@ export const PositronTopActionBar = (props: PositronTopActionBarProps) => {
 	}, []);
 
 	/**
-	 * Shuts down runtimes for the specified language. Note that there should only ever be one
-	 * running runtime per language.
-	 * @param languageId The language identifier.
-	 * @returns A promise that resolves when runtimes for the specified language identifier are shut
-	 * down.
-	 */
-	const shutdownRuntimes = async (languageId: string): Promise<void> => {
-		/**
-		 * Gets the running runtimes for the language identifier.
-		 * @returns The running runtimes for the language identifier.
-		 */
-		const runningRuntimes = () => props.languageRuntimeService.runningRuntimes.filter(runtime =>
-			runtime.metadata.languageId === languageId
-		);
-
-		// Get the running runtimes for the language identifier.
-		const runtimes = runningRuntimes();
-
-		// If there are no running runtimes for the language identifier, return.
-		if (!runtimes.length) {
-			return;
-		}
-
-		// Return a promise that resolves when the running runtimes for the language identifier are
-		// shutdown.
-		return new Promise<void>((resolve, reject) => {
-			// Shutdown the running runtimes.
-			runtimes.forEach(runtime => runtime.shutdown());
-
-			// Wait for the running runtimes to be shutdown.
-			let tries = 0;
-			const interval = setInterval(() => {
-				if (!runningRuntimes().length) {
-					clearInterval(interval);
-					resolve();
-				} else {
-					if (++tries > 10) {
-						clearInterval(interval);
-						reject();
-					}
-				}
-			}, 500);
-		});
-	};
-
-	/**
 	 * startRuntime event handler.
 	 * @param runtimeToStart An ILanguageRuntime representing the runtime to start.
 	 */
 	const startRuntimeHandler = async (runtimeToStart: ILanguageRuntime): Promise<void> => {
-		// Shutdown runtimes for the runtime language identifier
-		await shutdownRuntimes(runtimeToStart.metadata.languageId);
-
-		// Start the runtime.
-		props.languageRuntimeService.startRuntime(runtimeToStart.metadata.runtimeId,
+		return props.languageRuntimeService.selectRuntime(runtimeToStart.metadata.runtimeId,
 			`User-requested startup from the Positron top action bar`);
-
-		// Return a promise that resolves when the runtime is started.
-		return new Promise<void>((resolve, reject) => {
-			// Wait for the running runtimes to be shutdown.
-			let tries = 0;
-			const interval = setInterval(() => {
-				// See if the runtime is running.
-				const runningRuntime = props.languageRuntimeService.runningRuntimes.find(
-					runtime => runtime.metadata.runtimeId === runtimeToStart.metadata.runtimeId
-				);
-
-				// If the runtime is running, resolve the promise; otherwise, if we have waited too
-				// long, reject the promise.
-				if (runningRuntime) {
-					clearInterval(interval);
-					resolve();
-				} else {
-					if (++tries > 10) {
-						clearInterval(interval);
-						reject();
-					}
-				}
-			}, 500);
-		});
 	};
 
 	/**
