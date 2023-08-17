@@ -78,7 +78,7 @@ export class PositronProxy implements Disposable {
 	//#region Private Properties
 
 	/**
-	 * A value which indicates whether the resources/scripts.html file has been loade.d
+	 * A value which indicates whether the resources/scripts.html file has been loaded.
 	 */
 	private scriptsFileLoaded = false;
 
@@ -106,6 +106,24 @@ export class PositronProxy implements Disposable {
 	 * @param context The extension context.
 	 */
 	constructor(private readonly context: ExtensionContext) {
+		// Try to load the resources/scripts.html file and the elements within it. This will either
+		// work or it will not work, but there's not sense in trying it again, if it doesn't.
+		try {
+			// Load the resources/scripts.html file.
+			const scriptsPath = path.join(this.context.extensionPath, 'resources', 'scripts.html');
+			const scripts = fs.readFileSync(scriptsPath).toString('utf8');
+
+			// Get the elements from the file.
+			this.helpHeaderStyle = getElement(scripts, 'style', 'help-header-style');
+			this.helpHeaderScript = getElement(scripts, 'script', 'help-header-script');
+
+			// Set the scripts file loaded flag if everything appears to have worked.
+			this.scriptsFileLoaded =
+				this.helpHeaderStyle !== undefined &&
+				this.helpHeaderScript !== undefined;
+		} catch (error) {
+			console.log(`Failed to load the resources/scripts.html file.`);
+		}
 	}
 
 	/**
@@ -129,8 +147,9 @@ export class PositronProxy implements Disposable {
 	startHelpProxyServer(targetOrigin: string): Promise<string> {
 		// Start the proxy server.
 		return this.startProxyServer(targetOrigin, async (serverOrigin, url, contentType, responseBuffer) => {
-			// Only HTML content is processed below.
-			if (!contentType.includes('text/html')) {
+			// If the scripts file hasn't been loaded, or this isn't 'text/html' content, just
+			// return the response buffer.
+			if (!this.scriptsFileLoaded || !contentType.includes('text/html')) {
 				return responseBuffer;
 			}
 
@@ -149,41 +168,12 @@ export class PositronProxy implements Disposable {
 	//#region Private Methods
 
 	/**
-	 * Loads the resources/scripts.html file.
-	 */
-	private loadScriptsFile() {
-		// If resources/scripts.html has been loaded, return.
-		if (this.scriptsFileLoaded) {
-			return;
-		}
-
-		// Try to load the resources/scripts.html file and the elements within it.
-		try {
-			// Load the resources/scripts.html file.
-			const scriptsPath = path.join(this.context.extensionPath, 'resources', 'scripts.html');
-			const scripts = fs.readFileSync(scriptsPath).toString('utf8');
-
-			// // Load the elements from the file.
-			this.helpHeaderStyle = getElement(scripts, 'style', 'help-header-style');
-			this.helpHeaderScript = getElement(scripts, 'script', 'help-header-script');
-
-			// Set the scripts file loaded flag.
-			this.scriptsFileLoaded = this.helpHeaderStyle !== undefined && this.helpHeaderScript !== undefined;
-		} catch (error) {
-			console.log(`Failed to load the resources/scripts.html file`);
-		}
-	}
-
-	/**
 	 * Starts a proxy server.
 	 * @param targetOrigin The target origin.
 	 * @param contentRewriter The content rewriter/
 	 * @returns The server origin.
 	 */
 	startProxyServer(targetOrigin: string, contentRewriter: ContentRewriter): Promise<string> {
-		// Load resources/scripts.html file.
-		this.loadScriptsFile();
-
 		// Return a promise.
 		return new Promise((resolve, reject) => {
 			// See if we have an existing proxy server for target origin. If there is, return the
