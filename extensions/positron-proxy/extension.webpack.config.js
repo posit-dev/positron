@@ -6,10 +6,10 @@
 
 'use strict';
 
-const withDefaults = require('../shared.webpack.config');
+const withNodeDefaults = require('../shared.webpack.config');
 const path = require('path');
 
-module.exports = withDefaults({
+module.exports = withNodeDefaults({
 	context: __dirname,
 	resolve: {
 		mainFields: ['module', 'main']
