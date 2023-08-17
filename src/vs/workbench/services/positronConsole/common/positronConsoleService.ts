@@ -101,7 +101,8 @@ const formatTraceback = (traceback: string[]) => {
  */
 const isImplicitStartupLanguage = (runtime: ILanguageRuntime, languageId: string) => {
 	return (runtime.metadata.languageId === languageId &&
-		runtime.metadata.startupBehavior === LanguageRuntimeStartupBehavior.Implicit);
+		runtime.metadata.startupBehavior === LanguageRuntimeStartupBehavior.Implicit ||
+		runtime.metadata.startupBehavior === LanguageRuntimeStartupBehavior.Immediate);
 };
 
 //#endregion Helper Functions
