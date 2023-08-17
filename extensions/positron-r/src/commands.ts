@@ -125,23 +125,21 @@ export async function registerCommands(context: vscode.ExtensionContext) {
 }
 
 async function detectRPackage(): Promise<boolean> {
-	if (vscode.workspace.workspaceFolders !== undefined) {
-		const folderUri = vscode.workspace.workspaceFolders[0].uri;
-		const fileUri = vscode.Uri.joinPath(folderUri, 'DESCRIPTION');
-		try {
-			const bytes = await vscode.workspace.fs.readFile(fileUri);
-			const descriptionText = Buffer.from(bytes).toString('utf8');
-			const descriptionLines = descriptionText.split(/(\r?\n)/);
-			const descStartsWithPackage = descriptionLines[0].startsWith('Package:');
-			const typeLines = descriptionLines.filter(line => line.startsWith('Type:'));
-			const typeIsPackage = typeLines.length === 0 || typeLines[0].includes('Package');
-			return descStartsWithPackage && typeIsPackage;
-		} catch { }
-	}
-	return false;
+	const descriptionLines = await parseRPackageDescription();
+	const descStartsWithPackage = descriptionLines[0].startsWith('Package:');
+	const typeLines = descriptionLines.filter(line => line.startsWith('Type:'));
+	const typeIsPackage = typeLines.length === 0 || typeLines[0].includes('Package');
+	return descStartsWithPackage && typeIsPackage;
 }
 
 async function getRPackageName(): Promise<string> {
+	const descriptionLines = await parseRPackageDescription();
+	const packageLines = descriptionLines.filter(line => line.startsWith('Package:'))[0];
+	const packageName = packageLines.split(' ').slice(-1)[0];
+	return packageName;
+}
+
+async function parseRPackageDescription(): Promise<string[]> {
 	if (vscode.workspace.workspaceFolders !== undefined) {
 		const folderUri = vscode.workspace.workspaceFolders[0].uri;
 		const fileUri = vscode.Uri.joinPath(folderUri, 'DESCRIPTION');
@@ -149,10 +147,8 @@ async function getRPackageName(): Promise<string> {
 			const bytes = await vscode.workspace.fs.readFile(fileUri);
 			const descriptionText = Buffer.from(bytes).toString('utf8');
 			const descriptionLines = descriptionText.split(/(\r?\n)/);
-			const packageLines = descriptionLines.filter(line => line.startsWith('Package:'))[0];
-			const packageName = packageLines.split(' ').slice(-1)[0];
-			return packageName;
+			return descriptionLines;
 		} catch { }
 	}
-	return '';
+	return [''];
 }
