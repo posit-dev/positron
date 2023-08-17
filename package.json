@@ -117,6 +117,7 @@
     "@types/graceful-fs": "4.1.2",
     "@types/gulp-postcss": "^8.0.0",
     "@types/gulp-svgmin": "^1.2.1",
+    "@types/he": "^1.2.0",
     "@types/http-proxy-agent": "^2.0.1",
     "@types/js-yaml": "^4.0.5",
     "@types/keytar": "^4.4.0",
