@@ -6,6 +6,7 @@
 from __future__ import annotations
 import asyncio
 import logging
+import warnings
 from collections.abc import Iterable, Sequence
 from itertools import chain
 from typing import Any, Callable, Container, Dict, Mapping, Optional, Set, Tuple, Type
@@ -166,6 +167,11 @@ class PositronIPyKernel(IPythonKernel):
             self.shell.display_pub.register_hook(self.display_pub_hook)
         else:
             logger.warning(f"Unable to register display publisher hook on shell: {self.shell}")
+        warnings.filterwarnings(
+            "ignore",
+            category=UserWarning,
+            message="Matplotlib is currently using module://matplotlib_inline.backend_inline",
+        )
 
         # Setup Positron's dataviewer service
         self.dataviewer_service = DataViewerService(POSITRON_DATA_VIEWER_COMM)
