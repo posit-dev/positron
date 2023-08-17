@@ -147,9 +147,8 @@ export class PositronProxy implements Disposable {
 	startHelpProxyServer(targetOrigin: string): Promise<string> {
 		// Start the proxy server.
 		return this.startProxyServer(targetOrigin, async (serverOrigin, url, contentType, responseBuffer) => {
-			// If the scripts file hasn't been loaded, or this isn't 'text/html' content, just
-			// return the response buffer.
-			if (!this.scriptsFileLoaded || !contentType.includes('text/html')) {
+			// If this isn't 'text/html' content, just return the response buffer.
+			if (!contentType.includes('text/html')) {
 				return responseBuffer;
 			}
 
