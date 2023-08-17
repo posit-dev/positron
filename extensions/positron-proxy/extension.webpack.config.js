@@ -11,10 +11,11 @@ const path = require('path');
 
 module.exports = withDefaults({
 	context: __dirname,
+	resolve: {
+		mainFields: ['module', 'main']
+	},
+	ignoreWarnings: [/Critical dependency: the request of a dependency is an expression/],
 	entry: {
 		extension: './src/extension.ts',
-	},
-	node: {
-		__dirname: false
 	}
 });
