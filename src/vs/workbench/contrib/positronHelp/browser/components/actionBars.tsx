@@ -57,7 +57,7 @@ export interface ActionBarsProps {
 export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 	// Hooks.
 	const historyButtonRef = useRef<HTMLDivElement>(undefined!);
-	const [canNavigateBack, setCanNavigateBack] = useState(props.positronHelpService.canNavigateBack);
+	const [canNavigateBackward, setCanNavigateBackward] = useState(props.positronHelpService.canNavigateBackward);
 	const [canNavigateForward, setCanNavigateForward] = useState(props.positronHelpService.canNavigateForward);
 
 	const [helpTitle, setHelpTitle] = useState<string | undefined>(undefined);
@@ -79,9 +79,8 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 
 		// Add the onHelpLoaded event handler.
 		disposableStore.add(props.positronHelpService.onHelpLoaded(helpEntry => {
-			console.log(`onHelpLoaded canNavigateBack ${props.positronHelpService.canNavigateBack} canNavigateForward ${props.positronHelpService.canNavigateForward}`);
 			setHelpTitle(helpEntry.title || helpEntry.sourceUrl);
-			setCanNavigateBack(props.positronHelpService.canNavigateBack);
+			setCanNavigateBackward(props.positronHelpService.canNavigateBackward);
 			setCanNavigateForward(props.positronHelpService.canNavigateForward);
 		}));
 
@@ -135,10 +134,10 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 	// }, [pollFindResults]);
 
 	/**
-	 * navigateBack handler.
+	 * navigateBackward handler.
 	 */
-	const navigateBackHandler = () => {
-		props.positronHelpService.navigateBack();
+	const navigateBackwardHandler = () => {
+		props.positronHelpService.navigateBackward();
 	};
 
 	/**
@@ -159,10 +158,10 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 					paddingRight={kPaddingRight}
 				>
 					<ActionBarButton
-						disabled={!canNavigateBack}
+						disabled={!canNavigateBackward}
 						iconId='positron-left-arrow'
 						tooltip={localize('positronClickToGoBack', "Click to go back")}
-						onClick={navigateBackHandler}
+						onClick={navigateBackwardHandler}
 					/>
 					<ActionBarButton
 						disabled={!canNavigateForward}

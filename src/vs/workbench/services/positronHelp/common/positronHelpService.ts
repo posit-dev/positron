@@ -47,6 +47,9 @@ export class PositronHelpService extends Disposable implements IPositronHelpServ
 	 */
 	private helpEntryIndex = -1;
 
+	/**
+	 * The render help timeout. Used to "debounce" help rendering.
+	 */
 	private renderHelpTimeout?: NodeJS.Timeout;
 
 	/**
@@ -233,7 +236,7 @@ export class PositronHelpService extends Disposable implements IPositronHelpServ
 	/**
 	 * Gets a value which indicates whether help can navigate back.
 	 */
-	get canNavigateBack() {
+	get canNavigateBackward() {
 		return this.helpEntryIndex > 0;
 	}
 
@@ -282,7 +285,7 @@ export class PositronHelpService extends Disposable implements IPositronHelpServ
 	 * @param toUrl The to URL.
 	 */
 	navigate(fromUrl: string, toUrl: string) {
-		const currentHelpEntry = this.helpEntries[this.helpEntries.length - 1];
+		const currentHelpEntry = this.helpEntries[this.helpEntryIndex];
 		if (currentHelpEntry && currentHelpEntry.sourceUrl === fromUrl) {
 			// Create the target URL.
 			const currentTargetUrl = new URL(currentHelpEntry.targetUrl);
@@ -302,11 +305,13 @@ export class PositronHelpService extends Disposable implements IPositronHelpServ
 	}
 
 	/**
-	 * Navigates back.
+	 * Navigates backward.
 	 */
-	navigateBack() {
+	navigateBackward() {
+		// Navigate backward, if we can.
 		if (this.helpEntryIndex > 0) {
-			this.onRenderHelpEmitter.fire(this.helpEntries[--this.helpEntryIndex]);
+			this.helpEntryIndex--;
+			this.renderHelp();
 		}
 	}
 
@@ -314,8 +319,10 @@ export class PositronHelpService extends Disposable implements IPositronHelpServ
 	 * Navigates forward.
 	 */
 	navigateForward() {
+		// Navigate forward, if we can.
 		if (this.helpEntryIndex < this.helpEntries.length - 1) {
-			this.onRenderHelpEmitter.fire(this.helpEntries[++this.helpEntryIndex]);
+			this.helpEntryIndex++;
+			this.renderHelp();
 		}
 	}
 
@@ -328,23 +335,31 @@ export class PositronHelpService extends Disposable implements IPositronHelpServ
 	 * @param helpEntry The help entry to add.
 	 */
 	private addHelpEntry(helpEntry: HelpEntry) {
+		// Push the help entry. We may not render it, but it needs to be in the history.
+		this.helpEntries.push(helpEntry);
+		this.helpEntryIndex = this.helpEntries.length - 1;
+
+		// Render help.
+		this.renderHelp();
+	}
+
+	/**
+	 * Renders help.
+	 */
+	private renderHelp() {
 		// Clear the render help timeout.
 		if (this.renderHelpTimeout) {
 			clearTimeout(this.renderHelpTimeout);
 			this.renderHelpTimeout = undefined;
 		}
 
-		// Push the help entry. We may not render it, but it needs to be in the history.
-		this.helpEntries.push(helpEntry);
-		this.helpEntryIndex = this.helpEntries.length - 1;
-
 		// Start the render help timeout.
 		this.renderHelpTimeout = setTimeout(() => {
 			// Clear the timeout.
 			this.renderHelpTimeout = undefined;
 
-			// Logging.
-			this.logService.info(`PositronHelpService rendering source URL ${helpEntry.sourceUrl} -> ${helpEntry.targetUrl}`);
+			// Get the help entry to render.
+			const helpEntry = this.helpEntries[this.helpEntryIndex];
 
 			// Raise the onRenderHelp event to render the most recent help entry.
 			this.onRenderHelpEmitter.fire(helpEntry);

@@ -45,9 +45,9 @@ export interface IPositronHelpService {
 	readonly onHelpLoaded: Event<HelpEntry>;
 
 	/**
-	 * Gets a value which indicates whether help can navigate back.
+	 * Gets a value which indicates whether help can navigate backward.
 	 */
-	readonly canNavigateBack: boolean;
+	readonly canNavigateBackward: boolean;
 
 	/**
 	 * Gets a value which indicates whether help can navigate forward.
@@ -74,9 +74,9 @@ export interface IPositronHelpService {
 	navigate(fromUrl: string, toUrl: string): void;
 
 	/**
-	 * Navigates back.
+	 * Navigates backward.
 	 */
-	navigateBack(): void;
+	navigateBackward(): void;
 
 	/**
 	 * Navigates forward.

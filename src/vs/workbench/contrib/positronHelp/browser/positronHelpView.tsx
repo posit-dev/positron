@@ -386,6 +386,7 @@ export class PositronHelpViewPane extends ViewPane implements IReactComponentCon
 			},
 			contentOptions: {
 				allowScripts: true,
+				allowMultipleAPIAcquire: true,
 				localResourceRoots: [], // TODO: needed for positron-help.js
 			},
 		});
