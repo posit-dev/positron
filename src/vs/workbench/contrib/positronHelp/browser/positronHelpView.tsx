@@ -40,7 +40,7 @@ const isLocalhost = (hostname?: string) =>
 type MessageHelpLoaded = {
 	id: '194c268a-8fb5-4462-8e65-c5ff82ca0a4f-help-loaded';
 	url: string;
-	title: string;
+	title?: string;
 };
 
 /**
@@ -396,7 +396,7 @@ export class PositronHelpViewPane extends ViewPane implements IReactComponentCon
 			switch (message.id) {
 				// help-loaded message.
 				case '194c268a-8fb5-4462-8e65-c5ff82ca0a4f-help-loaded': {
-					await this.positronHelpService.helpLoaded(message.url, message.title);
+					await this.positronHelpService.helpLoaded(message.url, message.title || message.url);
 					break;
 				}
 

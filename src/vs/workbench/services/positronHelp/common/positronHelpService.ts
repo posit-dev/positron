@@ -117,6 +117,9 @@ export class PositronHelpService extends Disposable implements IPositronHelpServ
 				// Get the target URL.
 				const targetUrl = new URL(showHelpEvent.content);
 
+				// Logging.
+				this.logService.info(`PositronHelpService language runtime server sent show help event for: ${targetUrl.toString()}`);
+
 				// If the target URL is not for localhost, open it externally.
 				if (!isLocalhost(targetUrl.hostname)) {
 					try {
@@ -253,7 +256,9 @@ export class PositronHelpService extends Disposable implements IPositronHelpServ
 	 * @param title The title of the help that was loaded.
 	 */
 	async helpLoaded(url: string, title: string): Promise<void> {
-		console.log(`helpLoaded received for ${url} with title ${title}`);
+		// Logging.
+		this.logService.info(`PositronHelpService help loaded for: ${url} ${title}`);
+
 		// Find the first occurence of the URL, set its title, and raise the onHelpLoaded event.
 		for (let i = this.helpEntries.length - 1; i >= 0; i--) {
 			const helpEntry = this.helpEntries[i];
@@ -265,7 +270,7 @@ export class PositronHelpService extends Disposable implements IPositronHelpServ
 				await this.commandService.executeCommand('workbench.action.showAuxiliaryBar');
 				await this.commandService.executeCommand('workbench.action.positron.openHelp');
 
-				// Rasise the onHelpLoaded event.
+				// Raise the onHelpLoaded event.
 				this.onHelpLoadedEmitter.fire(helpEntry);
 			}
 		}
@@ -337,6 +342,9 @@ export class PositronHelpService extends Disposable implements IPositronHelpServ
 		this.renderHelpTimeout = setTimeout(() => {
 			// Clear the timeout.
 			this.renderHelpTimeout = undefined;
+
+			// Logging.
+			this.logService.info(`PositronHelpService rendering source URL ${helpEntry.sourceUrl} -> ${helpEntry.targetUrl}`);
 
 			// Raise the onRenderHelp event to render the most recent help entry.
 			this.onRenderHelpEmitter.fire(helpEntry);

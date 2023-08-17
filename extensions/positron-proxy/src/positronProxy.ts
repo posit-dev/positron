@@ -22,7 +22,7 @@ const HOST = 'localhost';
  * @returns The element, if found; otherwise, undefined.
  */
 const getElement = (script: string, tag: string, id: string) =>
-	script.match(new RegExp(`<${tag} +id *= *["']${id}["'] *>.*<\/${tag} *>`, 'gs'))?.[0];
+	script.match(new RegExp(`<${tag}\\s+id\\s*=\\s*("${id}"|'${id}')\\s*>.*<\/${tag}\\s*>`, 'gs'))?.[0];
 
 /**
  * ContentRewriter type.
