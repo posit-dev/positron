@@ -38,7 +38,7 @@ const isLocalhost = (hostname?: string) =>
  * MessageHelpLoaded type.
  */
 type MessageHelpLoaded = {
-	id: '194c268a-8fb5-4462-8e65-c5ff82ca0a4f-help-loaded';
+	id: 'positron-help-loaded';
 	url: string;
 	title?: string;
 };
@@ -47,7 +47,7 @@ type MessageHelpLoaded = {
  * MessageNavigate type.
  */
 type MessageNavigate = {
-	id: '194c268a-8fb5-4462-8e65-c5ff82ca0a4f-navigate';
+	id: 'positron-help-navigate';
 	fromUrl: string;
 	toUrl: string;
 };
@@ -396,13 +396,13 @@ export class PositronHelpViewPane extends ViewPane implements IReactComponentCon
 			const message = e.message as Message;
 			switch (message.id) {
 				// help-loaded message.
-				case '194c268a-8fb5-4462-8e65-c5ff82ca0a4f-help-loaded': {
+				case 'positron-help-loaded': {
 					await this.positronHelpService.helpLoaded(message.url, message.title || message.url);
 					break;
 				}
 
 				// navigate message.
-				case '194c268a-8fb5-4462-8e65-c5ff82ca0a4f-navigate': {
+				case 'positron-help-navigate': {
 					// If the to URL is external, open it externally; otherwise, open it in the help
 					// service.
 					const toUrl = new URL(message.toUrl);
@@ -503,7 +503,7 @@ export class PositronHelpViewPane extends ViewPane implements IReactComponentCon
 			const childWindow = document.getElementById('help-iframe').contentWindow;
 			window.addEventListener('message', (message) => {
 				if (message.source === childWindow) {
-					if (message.data.id.startsWith("194c268a-8fb5-4462-8e65-c5ff82ca0a4f-")) {
+					if (message.data.id.startsWith("positron-help-")) {
 						vscode.postMessage(message.data);
 					}
 				}

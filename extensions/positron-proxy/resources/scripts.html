@@ -22,7 +22,7 @@
 
 					// Indicate that the help loaded.
 					window.parent.postMessage({
-						id: "194c268a-8fb5-4462-8e65-c5ff82ca0a4f-help-loaded",
+						id: "positron-help-loaded",
 						url: window.location.href,
 						title: document.title
 					}, "*");
@@ -36,7 +36,7 @@
 				for (let i = 0; i < links.length; i++) {
 					links[i].onclick = (e) => {
 						window.parent.postMessage({
-							id: "194c268a-8fb5-4462-8e65-c5ff82ca0a4f-navigate",
+							id: "positron-help-navigate",
 							fromUrl: window.location.href,
 							toUrl: links[i].href
 						}, "*");
