@@ -146,20 +146,28 @@ export class PositronProxy implements Disposable {
 	 */
 	startHelpProxyServer(targetOrigin: string): Promise<string> {
 		// Start the proxy server.
-		return this.startProxyServer(targetOrigin, async (serverOrigin, url, contentType, responseBuffer) => {
-			// If this isn't 'text/html' content, just return the response buffer.
-			if (!contentType.includes('text/html')) {
-				return responseBuffer;
-			}
+		return this.startProxyServer(
+			targetOrigin,
+			async (serverOrigin, url, contentType, responseBuffer) => {
+				// If this isn't 'text/html' content, just return the response buffer.
+				if (!contentType.includes('text/html')) {
+					return responseBuffer;
+				}
 
-			// Inject styles and scripts.
-			let response = responseBuffer.toString('utf8');
-			response = response.replace('<body>', `<body><div class="url-information">Help URL is: ${url}</div>`);
-			response = response.replace('</head>', `${this.helpHeaderStyle}${this.helpHeaderScript}</head>`);
+				// Inject styles and scripts.
+				let response = responseBuffer.toString('utf8');
+				response = response.replace(
+					'<body>',
+					`<body><div class="url-information">Help URL is: ${url}</div>`
+				);
+				response = response.replace(
+					'</head>',
+					`${this.helpHeaderStyle}${this.helpHeaderScript}</head>`
+				);
 
-			// Return the response.
-			return response;
-		});
+				// Return the response.
+				return response;
+			});
 	}
 
 	//#endregion Public Methods
