@@ -42,7 +42,12 @@ export class ActivityItemErrorMessage {
 		readonly traceback: string[]
 	) {
 		// Process the message and traceback directly into ANSI output lines suitable for rendering.
-		this.messageOutputLines = ANSIOutput.processOutput(message);
+		let detailedMessage = message;
+		if (name) {
+			// name provides additional context about the error; display in red if defined
+			detailedMessage = `\x1b[31m${name}\x1b[0m: ${message}`;
+		}
+		this.messageOutputLines = ANSIOutput.processOutput(detailedMessage);
 		this.tracebackOutputLines = !traceback.length ?
 			[] :
 			ANSIOutput.processOutput(traceback.join('\n'));
