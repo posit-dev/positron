@@ -4,7 +4,6 @@
 
 import fs = require('fs');
 import path = require('path');
-import { JSDOM } from 'jsdom';
 import express from 'express';
 import { AddressInfo, Server } from 'net';
 import { Disposable, ExtensionContext } from 'vscode';
@@ -14,6 +13,16 @@ import { createProxyMiddleware, responseInterceptor } from 'http-proxy-middlewar
  * Constants.
  */
 const HOST = 'localhost';
+
+/**
+ * Gets an element out of a script.
+ * @param script The script.
+ * @param tag The element tag.
+ * @param id The element id.
+ * @returns The element, if found; otherwise, undefined.
+ */
+const getElement = (script: string, tag: string, id: string) =>
+	script.match(new RegExp(`<${tag} +id *= *["']${id}["'] *>.*<\/${tag} *>`, 'gs'))?.[0];
 
 /**
  * ContentRewriter type.
@@ -152,15 +161,14 @@ export class PositronProxy implements Disposable {
 		try {
 			// Load the resources/scripts.html file.
 			const scriptsPath = path.join(this.context.extensionPath, 'resources', 'scripts.html');
-			const jsdom = new JSDOM(fs.readFileSync(scriptsPath));
-			const document = jsdom.window.document;
+			const scripts = fs.readFileSync(scriptsPath).toString('utf8');
 
-			// Load the elements from the file.
-			this.helpHeaderStyle = document.querySelector('#help-header-style')?.outerHTML;
-			this.helpHeaderScript = document.querySelector('#help-header-script')?.outerHTML;
+			// // Load the elements from the file.
+			this.helpHeaderStyle = getElement(scripts, 'style', 'help-header-style');
+			this.helpHeaderScript = getElement(scripts, 'script', 'help-header-script');
 
 			// Set the scripts file loaded flag.
-			this.scriptsFileLoaded = true;
+			this.scriptsFileLoaded = this.helpHeaderStyle !== undefined && this.helpHeaderScript !== undefined;
 		} catch (error) {
 			console.log(`Failed to load the resources/scripts.html file`);
 		}
