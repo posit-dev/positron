@@ -198,6 +198,10 @@ export class PositronHelpService extends Disposable implements IPositronHelpServ
 					targetUrl: targetUrl.toString()
 				};
 
+				// Ensure that the auxiliary bar is showing and open the help view.
+				await this.commandService.executeCommand('workbench.action.showAuxiliaryBar');
+				await this.commandService.executeCommand('workbench.action.positron.openHelp');
+
 				// Add the help entry.
 				this.addHelpEntry(helpEntry);
 
