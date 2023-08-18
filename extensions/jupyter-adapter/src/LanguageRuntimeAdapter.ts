@@ -27,6 +27,7 @@ import { JupyterCommClose } from './JupyterCommClose';
 import { JupyterCommOpen } from './JupyterCommOpen';
 import { JupyterCommInfoRequest } from './JupyterCommInfoRequest';
 import { JupyterCommInfoReply } from './JupyterCommInfoReply';
+import { JupyterExecuteReply } from './JupyterExecuteReply';
 
 /**
  * LangaugeRuntimeAdapter wraps a JupyterKernel in a LanguageRuntime compatible interface.
@@ -414,16 +415,6 @@ export class LanguageRuntimeAdapter
 	onMessage(msg: JupyterMessagePacket) {
 		const message = msg.message;
 
-		// Check to see whether the payload has a 'status' field that's set to
-		// 'error'. If so, the message is an error result message; we'll send an
-		// error message to the client.
-		//
-		// @ts-ignore-next-line
-		if (message.status && message.status === 'error') {
-			this.onErrorResult(msg, message as JupyterErrorReply);
-			return;
-		}
-
 		// Is the message's parent ID in the set of pending RPCs and is the
 		// message the expected response type? (Note that a single Request type
 		// can generate multiple replies, only one of which is the Reply type)
@@ -441,8 +432,14 @@ export class LanguageRuntimeAdapter
 			case 'display_data':
 				this.onDisplayData(msg, message as JupyterDisplayData);
 				break;
+			case 'error':
+				this.onErrorResult(msg, message as JupyterErrorReply);
+				break;
 			case 'execute_result':
 				this.onExecuteResult(msg, message as JupyterExecuteResult);
+				break;
+			case 'execute_reply':
+				this.onExecuteReply(msg, message as JupyterExecuteReply);
 				break;
 			case 'execute_input':
 				this.onExecuteInput(msg, message as JupyterExecuteInput);
@@ -591,6 +588,18 @@ export class LanguageRuntimeAdapter
 			type: positron.LanguageRuntimeMessageType.Output,
 			data: data.data as any
 		} as positron.LanguageRuntimeOutput);
+	}
+
+	/**
+	 * Handles a Jupyter execute_reply message. Currently there is nothing to do as we don't
+	 * utilize the execution_count and any execution errors are instead handled by the IOPub 'error'
+	 * path.
+	 *
+	 * @param _message The message packet
+	 * @param _data The execute_reply message
+	 */
+	onExecuteReply(_message: JupyterMessagePacket, _data: JupyterExecuteReply) {
+
 	}
 
 	/**
