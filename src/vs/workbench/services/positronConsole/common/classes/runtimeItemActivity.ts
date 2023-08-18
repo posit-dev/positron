@@ -10,6 +10,7 @@ import { ActivityItemErrorStream } from 'vs/workbench/services/positronConsole/c
 import { ActivityItemErrorMessage } from 'vs/workbench/services/positronConsole/common/classes/activityItemErrorMessage';
 import { ActivityItemOutputStream } from 'vs/workbench/services/positronConsole/common/classes/activityItemOutputStream';
 import { ActivityItemOutputMessage } from 'vs/workbench/services/positronConsole/common/classes/activityItemOutputMessage';
+import { ActivityItemOutputHtml } from 'vs/workbench/services/positronConsole/common/classes/activityItemOutputHtml';
 
 /**
  * The ActivityItem type alias.
@@ -18,6 +19,7 @@ export type ActivityItem =
 	ActivityItemErrorMessage |
 	ActivityItemErrorStream |
 	ActivityItemInput |
+	ActivityItemOutputHtml |
 	ActivityItemOutputMessage |
 	ActivityItemOutputPlot |
 	ActivityItemOutputStream |

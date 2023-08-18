@@ -97,6 +97,31 @@ registerAction2(class FocusAuxiliaryBarAction extends Action2 {
 	}
 });
 
+// --- Start Positron ---
+registerAction2(class ShowAuxiliaryBarAction extends Action2 {
+
+	static readonly ID = 'workbench.action.showAuxiliaryBar';
+	static readonly LABEL = localize('showAuxiliaryBar', "Show the Secondary Side Bar");
+
+
+	constructor() {
+		super({
+			id: ShowAuxiliaryBarAction.ID,
+			title: { value: ShowAuxiliaryBarAction.LABEL, original: 'Show the Secondary Side Bar' },
+			category: Categories.View,
+			f1: true,
+		});
+	}
+
+	override async run(accessor: ServicesAccessor): Promise<void> {
+		const layoutService = accessor.get(IWorkbenchLayoutService);
+		if (!layoutService.isVisible(Parts.AUXILIARYBAR_PART)) {
+			layoutService.setPartHidden(false, Parts.AUXILIARYBAR_PART);
+		}
+	}
+});
+// --- End Positron ---
+
 MenuRegistry.appendMenuItems([
 	{
 		id: MenuId.LayoutControlMenu,

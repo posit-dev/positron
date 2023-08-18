@@ -79,6 +79,7 @@ export const TopActionBarOpenMenu = () => {
 	return (
 		<ActionBarMenuButton
 			iconId='folder-opened'
+			text={localize('positronOpen', "Open")}
 			iconFontSize={18}
 			actions={actions}
 			tooltip={localize('positronOpenFileFolder', "Open File/Folder")}

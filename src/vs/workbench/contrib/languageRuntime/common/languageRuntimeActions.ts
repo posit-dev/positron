@@ -11,9 +11,11 @@ import { ServicesAccessor } from 'vs/platform/instantiation/common/instantiation
 import { IExtensionService } from 'vs/workbench/services/extensions/common/extensions';
 import { IQuickInputService, IQuickPickItem } from 'vs/platform/quickinput/common/quickInput';
 import { LANGUAGE_RUNTIME_ACTION_CATEGORY } from 'vs/workbench/contrib/languageRuntime/common/languageRuntime';
-import { ILanguageRuntime, ILanguageRuntimeService, IRuntimeClientInstance, RuntimeClientType } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntime, ILanguageRuntimeService, IRuntimeClientInstance, RuntimeClientType, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { IKeybindingRule, KeybindingWeight } from 'vs/platform/keybinding/common/keybindingsRegistry';
 import { KeyCode, KeyMod } from 'vs/base/common/keyCodes';
+import { IPositronConsoleService } from 'vs/workbench/services/positronConsole/common/interfaces/positronConsoleService';
+import { INotificationService } from 'vs/platform/notification/common/notification';
 
 // The category for language runtime actions.
 const category: ILocalizedString = { value: LANGUAGE_RUNTIME_ACTION_CATEGORY, original: 'Language Runtime' };
@@ -181,11 +183,59 @@ export function registerLanguageRuntimeActions() {
 
 	// Registers the restart language runtime action.
 	registerLanguageRuntimeAction('workbench.action.languageRuntime.restart', 'Restart Language Runtime', async accessor => {
-		(await selectRunningLanguageRuntime(
-			accessor.get(ILanguageRuntimeService),
-			accessor.get(IQuickInputService),
-			'Select the language runtime to restart')
-		)?.restart();
+		const consoleService = accessor.get(IPositronConsoleService);
+
+		// The runtime we'll try to restart.
+		let runtime: ILanguageRuntime | undefined = undefined;
+
+		// Typically, the restart command should act on the language runtime
+		// that's active in the Console, so try that first.
+		const activeConsole = consoleService.activePositronConsoleInstance;
+		if (activeConsole) {
+			runtime = activeConsole.runtime;
+		}
+
+		// If there's no active console, try the active language runtime.
+		if (!runtime) {
+			runtime = accessor.get(ILanguageRuntimeService).activeRuntime;
+		}
+
+		// If we still don't have an active language runtime, ask the user to
+		// pick one.
+		if (!runtime) {
+			runtime = await selectRunningLanguageRuntime(
+				accessor.get(ILanguageRuntimeService),
+				accessor.get(IQuickInputService),
+				'Select the language runtime to restart');
+			if (!runtime) {
+				throw new Error('No language runtime selected');
+			}
+		}
+
+		const state = runtime.getRuntimeState();
+		if (state === RuntimeState.Busy ||
+			state === RuntimeState.Idle ||
+			state === RuntimeState.Ready) {
+			// The runtime looks like it could handle a restart request, so send
+			// one over.
+			runtime.restart();
+		} else if (state === RuntimeState.Uninitialized ||
+			state === RuntimeState.Exited) {
+			// The runtime has never been started, or is no longer running. Just
+			// tell it to start.
+			accessor.get(ILanguageRuntimeService).startRuntime(runtime.metadata.runtimeId,
+				`'Restart Language Runtime' command invoked`);
+		} else if (state === RuntimeState.Starting ||
+			state === RuntimeState.Restarting) {
+			// The runtime is already starting or restarting. We could show an
+			// error, but this is probably just the result of a user mashing the
+			// restart when we already have one in flight.
+			return;
+		} else {
+			// The runtime is not in a state where it can be restarted.
+			accessor.get(INotificationService).error(
+				nls.localize('positronCannotRestart', "The {0} language runtime is '{1}' and cannot be restarted.", runtime.metadata.languageName, state));
+		}
 	},
 		[
 			{
