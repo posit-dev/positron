@@ -178,8 +178,8 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		});
 	}
 
-	public executeCode(languageId: string, code: string, focus: boolean): Promise<boolean> {
-		return this._proxy.$executeCode(languageId, code, focus);
+	public getRunningRuntimes(languageId: string): Promise<positron.LanguageRuntimeMetadata[]> {
+		return this._proxy.$getRunningRuntimes(languageId);
 	}
 
 	public registerLanguageRuntimeProvider(
@@ -248,6 +248,10 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		return new Disposable(() => {
 			this._proxy.$unregisterLanguageRuntime(handle);
 		});
+	}
+
+	public executeCode(languageId: string, code: string, focus: boolean): Promise<boolean> {
+		return this._proxy.$executeCode(languageId, code, focus);
 	}
 
 	/**
