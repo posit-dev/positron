@@ -26,6 +26,11 @@ const positCopyrightHeaderLines = [
 	/ \*  Copyright \([cC]{1}\)\s?(20\d{2})?(-20\d{2})? Posit Software, PBC\.( All rights reserved\.)?\s*/g,
 	/ \*--------------------------------------------------------------------------------------------\*\/\s*/g,
 ];
+const positCopyrightHeaderLinesHash = [
+	/# ---------------------------------------------------------------------------------------------\s*/g,
+	/# Copyright \([cC]{1}\)\s?(20\d{2})?(-20\d{2})? Posit Software, PBC\.( All rights reserved\.)?\s*/g,
+	/# ---------------------------------------------------------------------------------------------\s*/g,
+];
 // --- End Positron ---
 
 function hygiene(some, linting = true) {
@@ -127,7 +132,9 @@ function hygiene(some, linting = true) {
 			return true;
 		};
 
-		if (!(matchHeaderLines(copyrightHeaderLines) || regexMatchHeaderLines(positCopyrightHeaderLines))) {
+		if (!(matchHeaderLines(copyrightHeaderLines) ||
+			regexMatchHeaderLines(positCopyrightHeaderLines) ||
+			regexMatchHeaderLines(positCopyrightHeaderLinesHash))) {
 			console.error(file.relative + ': Missing or bad copyright statement');
 			errorCount++;
 		}
@@ -225,7 +232,7 @@ function hygiene(some, linting = true) {
 			result.pipe(filter(stylelintFilter)).pipe(gulpstylelint(((message, isError) => {
 				if (isError) {
 					console.error(message);
-				errorCount++;
+					errorCount++;
 				} else {
 					console.warn(message);
 				}
