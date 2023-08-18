@@ -14,17 +14,18 @@ import { IReactComponentContainer } from 'vs/base/browser/positronReactRenderer'
 import { IContextMenuService } from 'vs/platform/contextview/browser/contextView';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import { PositronActionBar } from 'vs/platform/positronActionBar/browser/positronActionBar';
-import { ActionBarFind } from 'vs/platform/positronActionBar/browser/components/actionBarFind';
+// import { ActionBarFind } from 'vs/platform/positronActionBar/browser/components/actionBarFind';
 import { ActionBarButton } from 'vs/platform/positronActionBar/browser/components/actionBarButton';
+// import { ActionBarRegion } from 'vs/platform/positronActionBar/browser/components/actionBarRegion';
+import { IPositronHelpService } from 'vs/workbench/services/positronHelp/common/interfaces/positronHelpService';
 import { PositronActionBarContextProvider } from 'vs/platform/positronActionBar/browser/positronActionBarContext';
-import { ActionBarRegion } from 'vs/platform/positronActionBar/browser/components/actionBarRegion';
 
 // Constants.
-const kSecondaryActionBarGap = 4;
+// const kSecondaryActionBarGap = 4;
 const kPaddingLeft = 8;
 const kPaddingRight = 8;
-const kFindTimeout = 800;
-const kPollTimeout = 200;
+// const kFindTimeout = 800;
+// const kPollTimeout = 200;
 
 /**
  * ActionBarsProps interface.
@@ -36,11 +37,10 @@ export interface ActionBarsProps {
 	contextKeyService: IContextKeyService;
 	contextMenuService: IContextMenuService;
 	keybindingService: IKeybindingService;
+	positronHelpService: IPositronHelpService;
 	reactComponentContainer: IReactComponentContainer;
 
 	// Event callbacks.
-	onPreviousTopic: () => void;
-	onNextTopic: () => void;
 	onHome: () => void;
 	onFind: (findText: string) => void;
 	onCheckFindResults: () => boolean | undefined;
@@ -57,91 +57,162 @@ export interface ActionBarsProps {
 export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 	// Hooks.
 	const historyButtonRef = useRef<HTMLDivElement>(undefined!);
-	const [alternateFindUI, setAlternateFindUI] = useState(false);
-	const [findText, setFindText] = useState('');
-	const [pollFindResults, setPollFindResults] = useState(false);
-	const [findResults, setFindResults] = useState(false);
+	const [canNavigateBackward, setCanNavigateBackward] = useState(props.positronHelpService.canNavigateBackward);
+	const [canNavigateForward, setCanNavigateForward] = useState(props.positronHelpService.canNavigateForward);
 
-	// Add IReactComponentContainer event handlers.
+	const [helpTitle, setHelpTitle] = useState<string | undefined>(undefined);
+
+	// const [alternateFindUI] = useState(false);
+	// const [findText, setFindText] = useState('');
+	// const [pollFindResults, setPollFindResults] = useState(false);
+	// const [findResults, setFindResults] = useState(false);
+
+	// Add event handlers.
 	useEffect(() => {
 		// Create the disposable store for cleanup.
 		const disposableStore = new DisposableStore();
 
 		// Add the onSizeChanged event handler.
 		disposableStore.add(props.reactComponentContainer.onSizeChanged(size => {
-			setAlternateFindUI(size.width - kPaddingLeft - historyButtonRef.current.offsetWidth - kSecondaryActionBarGap < 180);
+			// setAlternateFindUI(size.width - kPaddingLeft - historyButtonRef.current.offsetWidth - kSecondaryActionBarGap < 180);
+		}));
+
+		// Add the onHelpLoaded event handler.
+		disposableStore.add(props.positronHelpService.onHelpLoaded(helpEntry => {
+			setHelpTitle(helpEntry.title || helpEntry.sourceUrl);
+			setCanNavigateBackward(props.positronHelpService.canNavigateBackward);
+			setCanNavigateForward(props.positronHelpService.canNavigateForward);
 		}));
 
 		// Return the cleanup function that will dispose of the event handlers.
 		return () => disposableStore.dispose();
 	}, []);
 
-	// Find text effect.
-	useEffect(() => {
-		if (findText === '') {
-			setFindResults(false);
-			return props.onCancelFind();
-		} else {
-			// Start the find timeout.
-			const timeout = setTimeout(() => {
-				setFindResults(false);
-				props.onFind(findText);
-				setPollFindResults(true);
-			}, kFindTimeout);
+	// // Find text effect.
+	// useEffect(() => {
+	// 	if (findText === '') {
+	// 		setFindResults(false);
+	// 		return props.onCancelFind();
+	// 	} else {
+	// 		// Start the find timeout.
+	// 		const timeout = setTimeout(() => {
+	// 			setFindResults(false);
+	// 			props.onFind(findText);
+	// 			setPollFindResults(true);
+	// 		}, kFindTimeout);
 
-			// Return the cleanup.
-			return () => clearTimeout(timeout);
-		}
-	}, [findText]);
+	// 		// Return the cleanup.
+	// 		return () => clearTimeout(timeout);
+	// 	}
+	// }, [findText]);
 
-	// Poll find results effect.
-	useEffect(() => {
-		if (!pollFindResults) {
-			return;
-		} else {
-			// Start the poll find results interval.
-			let counter = 0;
-			const interval = setInterval(() => {
-				const checkFindResults = props.onCheckFindResults();
-				console.log(`Poll for find results was ${checkFindResults}`);
-				if (checkFindResults === undefined) {
-					if (++counter < 5) {
-						return;
-					}
-				} else {
-					setFindResults(checkFindResults);
-				}
+	// // Poll find results effect.
+	// useEffect(() => {
+	// 	if (!pollFindResults) {
+	// 		return;
+	// 	} else {
+	// 		// Start the poll find results interval.
+	// 		let counter = 0;
+	// 		const interval = setInterval(() => {
+	// 			const checkFindResults = props.onCheckFindResults();
+	// 			console.log(`Poll for find results was ${checkFindResults}`);
+	// 			if (checkFindResults === undefined) {
+	// 				if (++counter < 5) {
+	// 					return;
+	// 				}
+	// 			} else {
+	// 				setFindResults(checkFindResults);
+	// 			}
 
-				// Clear poll find results.
-				setPollFindResults(false);
-			}, kPollTimeout);
+	// 			// Clear poll find results.
+	// 			setPollFindResults(false);
+	// 		}, kPollTimeout);
 
-			// Return the cleanup.
-			return () => clearInterval(interval);
-		}
-	}, [pollFindResults]);
+	// 		// Return the cleanup.
+	// 		return () => clearInterval(interval);
+	// 	}
+	// }, [pollFindResults]);
+
+	/**
+	 * navigateBackward handler.
+	 */
+	const navigateBackwardHandler = () => {
+		props.positronHelpService.navigateBackward();
+	};
+
+	/**
+	 * navigateForward handler.
+	 */
+	const navigateForward = () => {
+		props.positronHelpService.navigateForward();
+	};
 
 	// Render.
 	return (
 		<div className='action-bars'>
 			<PositronActionBarContextProvider {...props}>
-				<PositronActionBar size='small' paddingLeft={kPaddingLeft} paddingRight={kPaddingRight}>
-					<ActionBarButton iconId='positron-left-arrow' tooltip={localize('positronPreviousTopic', "Previous topic")} onClick={() => props.onPreviousTopic()} />
-					<ActionBarButton iconId='positron-right-arrow' tooltip={localize('positronNextTopic', "Next topic")} onClick={() => props.onNextTopic()} />
+				<PositronActionBar
+					size='small'
+					borderBottom={true}
+					paddingLeft={kPaddingLeft}
+					paddingRight={kPaddingRight}
+				>
+					<ActionBarButton
+						disabled={!canNavigateBackward}
+						iconId='positron-left-arrow'
+						tooltip={localize('positronClickToGoBack', "Click to go back")}
+						onClick={navigateBackwardHandler}
+					/>
+					<ActionBarButton
+						disabled={!canNavigateForward}
+						iconId='positron-right-arrow'
+						tooltip={localize('positronClickToGoForward', "Click to go forward")}
+						onClick={navigateForward}
+					/>
+
+					{helpTitle &&
+						<ActionBarButton
+							ref={historyButtonRef}
+							text={helpTitle}
+							dropDown={false}
+							tooltip={helpTitle || localize('positronHelpHistory', "Help history")}
+						/>
+					}
 
 					{/* Disabled for Private Alpha (August 2023) */}
-					{/* <ActionBarButton iconId='positron-home' tooltip={localize('positronShowPositronHelp', "Show Positron help")} onClick={() => props.onHome()} /> */}
+					{/* <ActionBarButton
+						iconId='positron-home'
+						tooltip={localize('positronShowPositronHelp', "Show Positron help")}
+						onClick={() => props.onHome()}
+					/> */}
 
 					{/* Disabled for Private Alpha (August 2023) */}
 					{/* <ActionBarSeparator /> */}
-					{/* <ActionBarButton iconId='positron-open-in-new-window' tooltip={localize('positronShowInNewWindow', "Show in new window")} /> */}
+					{/* <ActionBarButton
+						iconId='positron-open-in-new-window'
+						tooltip={localize('positronShowInNewWindow', "Show in new window")}
+					/> */}
+
 				</PositronActionBar>
-				<PositronActionBar size='small' gap={kSecondaryActionBarGap} borderBottom={!alternateFindUI} paddingLeft={kPaddingLeft} paddingRight={kPaddingRight}>
+				{/* <PositronActionBar
+					size='small'
+					gap={kSecondaryActionBarGap}
+					borderBottom={!alternateFindUI}
+					paddingLeft={kPaddingLeft}
+					paddingRight={kPaddingRight}
+				>
 					<ActionBarRegion location='left'>
-						<ActionBarButton ref={historyButtonRef} text='Home' maxTextWidth={120} dropDown={true} tooltip={localize('positronHelpHistory', "Help history")} />
+						{helpTitle &&
+							<ActionBarButton
+								ref={historyButtonRef}
+								text={helpTitle}
+								dropDown={false}
+								tooltip={helpTitle || localize('positronHelpHistory', "Help history")}
+							/>
+						}
 					</ActionBarRegion>
 					<ActionBarRegion location='right'>
-						{!alternateFindUI && (
+						{false && !alternateFindUI && (
 							<ActionBarFind
 								width={300}
 								findResults={findResults}
@@ -152,9 +223,15 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 						)}
 					</ActionBarRegion>
 
-				</PositronActionBar>
-				{alternateFindUI && (
-					<PositronActionBar size='small' gap={kSecondaryActionBarGap} borderBottom={true} paddingLeft={kPaddingLeft} paddingRight={kPaddingRight}>
+				</PositronActionBar> */}
+				{/* {false && alternateFindUI && (
+					<PositronActionBar
+						size='small'
+						gap={kSecondaryActionBarGap}
+						borderBottom={true}
+						paddingLeft={kPaddingLeft}
+						paddingRight={kPaddingRight}
+					>
 						<ActionBarFind
 							width={300}
 							findResults={findResults}
@@ -163,7 +240,7 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 							onFindPrevious={props.onFindPrevious}
 							onFindNext={props.onFindNext} />
 					</PositronActionBar>
-				)}
+				)} */}
 			</PositronActionBarContextProvider>
 		</div>
 	);

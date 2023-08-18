@@ -298,6 +298,12 @@ export interface IViewDescriptor {
 	readonly virtualWorkspace?: string;
 
 	readonly openCommandActionDescriptor?: OpenCommandActionDescriptor;
+
+	// --- Start Positron ---
+	// This flag overrides the behavior of registerOpenViewAction which will try to toggle views
+	// that aren't in the sidebar.
+	readonly positronAlwaysOpenView?: boolean;
+	// --- End Positron ---
 }
 
 export interface ICustomTreeViewDescriptor extends ITreeViewDescriptor {

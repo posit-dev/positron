@@ -3,6 +3,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import 'vs/css!./positronHelpView';
+import * as nls from 'vs/nls';
 import * as React from 'react';
 import * as DOM from 'vs/base/browser/dom';
 import { generateUuid } from 'vs/base/common/uuid';
@@ -15,14 +16,15 @@ import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
 import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
 import { ExtensionIdentifier } from 'vs/platform/extensions/common/extensions';
 import { IContextMenuService } from 'vs/platform/contextview/browser/contextView';
+import { INotificationService } from 'vs/platform/notification/common/notification';
 import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import { ViewPane, IViewPaneOptions } from 'vs/workbench/browser/parts/views/viewPane';
 import { IOpenerService, OpenExternalOptions } from 'vs/platform/opener/common/opener';
 import { ActionBars } from 'vs/workbench/contrib/positronHelp/browser/components/actionBars';
 import { IReactComponentContainer, ISize, PositronReactRenderer } from 'vs/base/browser/positronReactRenderer';
-import { IPositronHelpService } from 'vs/workbench/services/positronHelp/common/interfaces/positronHelpService';
 import { IOverlayWebview, IWebviewService, WebviewContentPurpose } from 'vs/workbench/contrib/webview/browser/webview';
+import { HelpEntry, IPositronHelpService } from 'vs/workbench/services/positronHelp/common/interfaces/positronHelpService';
 
 /**
  * Determines whether a hostname represents localhost.
@@ -33,26 +35,29 @@ const isLocalhost = (hostname?: string) =>
 	!!(hostname && ['localhost', '127.0.0.1', '::1'].indexOf(hostname.toLowerCase()) > -1);
 
 /**
- * MessageOpenUrl interface.
+ * MessageHelpLoaded type.
  */
-type MessageOpenUrl = {
-	command: 'open-url';
-	href: string;
+type MessageHelpLoaded = {
+	id: 'positron-help-loaded';
+	url: string;
+	title?: string;
+};
+
+/**
+ * MessageNavigate type.
+ */
+type MessageNavigate = {
+	id: 'positron-help-navigate';
+	fromUrl: string;
+	toUrl: string;
 };
 
 /**
  * Message type.
  */
-type Message = | MessageOpenUrl;
-
-/**
- * Determines whether the specified message is a MessageOpenUrl.
- * @param message The message.
- * @returns The MessageOpenUrl if the specified message is a MessageOpenUrl; otherwise, undefined.
- */
-const AsMessageOpenUrl = (message: Message): MessageOpenUrl | undefined => {
-	return message.command === 'open-url' ? message as MessageOpenUrl : undefined;
-};
+type Message =
+	| MessageHelpLoaded
+	| MessageNavigate;
 
 /**
  * PositronHelpCommand interface.
@@ -109,10 +114,6 @@ export class PositronHelpViewPane extends ViewPane implements IReactComponentCon
 
 	// The last Positron help command that was sent to the help iframe.
 	private lastPositronHelpCommand?: PositronHelpCommand;
-
-	private history: string[] = [];
-
-	private historyIndex = 0;
 
 	//#endregion Private Properties
 
@@ -199,6 +200,7 @@ export class PositronHelpViewPane extends ViewPane implements IReactComponentCon
 		@IContextMenuService contextMenuService: IContextMenuService,
 		@IInstantiationService instantiationService: IInstantiationService,
 		@IKeybindingService keybindingService: IKeybindingService,
+		@INotificationService private readonly notificationService: INotificationService,
 		@IOpenerService openerService: IOpenerService,
 		@IPositronHelpService private readonly positronHelpService: IPositronHelpService,
 		@ITelemetryService telemetryService: ITelemetryService,
@@ -230,12 +232,12 @@ export class PositronHelpViewPane extends ViewPane implements IReactComponentCon
 		this.positronHelpContainer.appendChild(this.helpViewContainer);
 
 		// Register the onRenderHelp event handler.
-		this._register(this.positronHelpService.onRenderHelp(helpDescriptor => {
+		this._register(this.positronHelpService.onRenderHelp(helpEntry => {
 			// Ensure that the overlay webview has been created.
 			this.createOverlayWebview();
 
-			// Open the help URL.
-			this.openHelpUrl(helpDescriptor.url);
+			// Open the help entry.
+			this.openHelpEntry(helpEntry);
 		}));
 
 		// Register the onDidChangeBodyVisibility event handler.
@@ -268,7 +270,6 @@ export class PositronHelpViewPane extends ViewPane implements IReactComponentCon
 	 * @param container The container HTMLElement.
 	 */
 	protected override renderBody(container: HTMLElement): void {
-
 		// Call the base class's method.
 		super.renderBody(container);
 
@@ -318,17 +319,8 @@ export class PositronHelpViewPane extends ViewPane implements IReactComponentCon
 				contextKeyService={this.contextKeyService}
 				contextMenuService={this.contextMenuService}
 				keybindingService={this.keybindingService}
+				positronHelpService={this.positronHelpService}
 				reactComponentContainer={this}
-				onPreviousTopic={() => {
-					if (this.historyIndex > 0) {
-						this.openHelpUrl(this.history[--this.historyIndex]);
-					}
-				}}
-				onNextTopic={() => {
-					if (this.historyIndex < this.history.length - 1) {
-						this.openHelpUrl(this.history[++this.historyIndex]);
-					}
-				}}
 				onHome={homeHandler}
 				onFind={findHandler}
 				onCheckFindResults={checkFindResultsHandler}
@@ -394,50 +386,53 @@ export class PositronHelpViewPane extends ViewPane implements IReactComponentCon
 			},
 			contentOptions: {
 				allowScripts: true,
+				allowMultipleAPIAcquire: true,
 				localResourceRoots: [], // TODO: needed for positron-help.js
 			},
 		});
 		this.helpOverlayWebview.claim(this, undefined);
 		this.helpOverlayWebview.layoutWebviewOverElement(this.helpViewContainer);
-		this._register(this.helpOverlayWebview.onMessage(e => {
-			// Get the message.
-			const childMessageOpenUrl = AsMessageOpenUrl(e.message);
-			if (childMessageOpenUrl) {
-				// Get the help URL.
-				const helpURL = new URL(childMessageOpenUrl.href);
+		this._register(this.helpOverlayWebview.onMessage(async e => {
+			const message = e.message as Message;
+			switch (message.id) {
+				// help-loaded message.
+				case 'positron-help-loaded': {
+					await this.positronHelpService.helpLoaded(message.url, message.title || message.url);
+					break;
+				}
 
-				// If the help URL is not for localhost, open it externally; otherwise, open it
-				// in the help view.
-				if (!isLocalhost(helpURL.hostname)) {
-					this.openerService.open(helpURL.toString(), {
-						openExternal: true
-					} satisfies OpenExternalOptions);
-				} else {
-					// Open the help URL.
-					this.openHelpUrl(childMessageOpenUrl.href);
+				// navigate message.
+				case 'positron-help-navigate': {
+					// If the to URL is external, open it externally; otherwise, open it in the help
+					// service.
+					const toUrl = new URL(message.toUrl);
+					if (!isLocalhost(toUrl.hostname)) {
+						try {
+							await this.openerService.open(message.toUrl, {
+								openExternal: true
+							} satisfies OpenExternalOptions);
+						} catch {
+							this.notificationService.error(nls.localize(
+								'positronHelpOpenFailed',
+								"Positron was unable to open '{0}'.", message.toUrl
+							));
+						}
+					} else {
+						// Get the current help entry.
+						this.positronHelpService.navigate(message.fromUrl, message.toUrl);
+					}
+					break;
 				}
 			}
 		}));
 	}
 
 	/**
-	 * Opens a help URL.
-	 * @param url The help URL.
+	 * Opens a help entry.
+	 * @param helpEntry The help URL.
 	 */
-	private openHelpUrl(url: string) {
-		// See if the history contains the specified URL. If it does, remove it because it will be
-		// added to the history at the end.
-		const index = this.history.indexOf(url);
-		if (index > -1) {
-			this.history.splice(index, 1);
-		}
-
-		// Push the history entry for the help URL.
-		this.history.push(url);
-		this.historyIndex = this.history.length - 1;
-
-		// Set the help HTML.
-		this.helpOverlayWebview?.setHtml(this.generateHelpHtml(url));
+	private openHelpEntry(helpEntry: HelpEntry) {
+		this.helpOverlayWebview?.setHtml(this.generateHelpHtml(helpEntry.sourceUrl));
 	}
 
 	/**
@@ -498,19 +493,17 @@ export class PositronHelpViewPane extends ViewPane implements IReactComponentCon
 				position: absolute;
 			}
 		</style>
-		<script nonce="${nonce}">
-		console.log("HEAD script");
-		</script>
 	</head>
 	<body>
-		<iframe id="help-iframe" title="Help Content" src="${url}"></iframe>
+		<iframe id="help-iframe" title="Help Content" src="${url}" loading="eager">
+		</iframe>
 		<script nonce="${nonce}">
-		(function() {
+		(() => {
 			const vscode = acquireVsCodeApi();
 			const childWindow = document.getElementById('help-iframe').contentWindow;
 			window.addEventListener('message', (message) => {
 				if (message.source === childWindow) {
-					if (message.data.command === "open-url") {
+					if (message.data.id.startsWith("positron-help-")) {
 						vscode.postMessage(message.data);
 					}
 				}

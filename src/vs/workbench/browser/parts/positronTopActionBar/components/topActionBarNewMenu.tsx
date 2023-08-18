@@ -43,6 +43,7 @@ export const TopActionBarNewMenu = () => {
 	return (
 		<ActionBarMenuButton
 			iconId='positron-new'
+			text={localize('positronNew', "New")}
 			actions={actions}
 			tooltip={localize('positronNewFileFolder', "New File/Folder")}
 		/>

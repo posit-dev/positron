@@ -438,6 +438,15 @@ export class ViewsService extends Disposable implements IViewsService {
 					const viewsService = serviceAccessor.get(IViewsService);
 					const contextKeyService = serviceAccessor.get(IContextKeyService);
 
+					// --- Start Positron ---
+					// When the positronAlwaysOpenView flag is set, open the view and return. Do not
+					// do the behavior below which will setPartHidden on the view.
+					if (viewDescriptor.positronAlwaysOpenView) {
+						viewsService.openView(viewDescriptor.id, true);
+						return;
+					}
+					// --- End Positron ---
+
 					const focusedViewId = FocusedViewContext.getValue(contextKeyService);
 					if (focusedViewId === viewDescriptor.id) {
 

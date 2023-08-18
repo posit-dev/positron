@@ -4,7 +4,6 @@
 
 import fs = require('fs');
 import path = require('path');
-import { JSDOM } from 'jsdom';
 import express from 'express';
 import { AddressInfo, Server } from 'net';
 import { Disposable, ExtensionContext } from 'vscode';
@@ -14,6 +13,16 @@ import { createProxyMiddleware, responseInterceptor } from 'http-proxy-middlewar
  * Constants.
  */
 const HOST = 'localhost';
+
+/**
+ * Gets an element out of a script.
+ * @param script The script.
+ * @param tag The element tag.
+ * @param id The element id.
+ * @returns The element, if found; otherwise, undefined.
+ */
+const getElement = (script: string, tag: string, id: string) =>
+	script.match(new RegExp(`<${tag}\\s+id\\s*=\\s*("${id}"|'${id}')\\s*>.*<\/${tag}\\s*>`, 'gs'))?.[0];
 
 /**
  * ContentRewriter type.
@@ -69,9 +78,14 @@ export class PositronProxy implements Disposable {
 	//#region Private Properties
 
 	/**
-	 * A value which indicates whether scripts have been loaded from resources/scripts.html.
+	 * A value which indicates whether the resources/scripts.html file has been loaded.
 	 */
-	private scriptsLoaded = false;
+	private scriptsFileLoaded = false;
+
+	/**
+	 * The help header style.
+	 */
+	private helpHeaderStyle?: string;
 
 	/**
 	 * The help header script.
@@ -92,6 +106,24 @@ export class PositronProxy implements Disposable {
 	 * @param context The extension context.
 	 */
 	constructor(private readonly context: ExtensionContext) {
+		// Try to load the resources/scripts.html file and the elements within it. This will either
+		// work or it will not work, but there's not sense in trying it again, if it doesn't.
+		try {
+			// Load the resources/scripts.html file.
+			const scriptsPath = path.join(this.context.extensionPath, 'resources', 'scripts.html');
+			const scripts = fs.readFileSync(scriptsPath).toString('utf8');
+
+			// Get the elements from the file.
+			this.helpHeaderStyle = getElement(scripts, 'style', 'help-header-style');
+			this.helpHeaderScript = getElement(scripts, 'script', 'help-header-script');
+
+			// Set the scripts file loaded flag if everything appears to have worked.
+			this.scriptsFileLoaded =
+				this.helpHeaderStyle !== undefined &&
+				this.helpHeaderScript !== undefined;
+		} catch (error) {
+			console.log(`Failed to load the resources/scripts.html file.`);
+		}
 	}
 
 	/**
@@ -114,50 +146,33 @@ export class PositronProxy implements Disposable {
 	 */
 	startHelpProxyServer(targetOrigin: string): Promise<string> {
 		// Start the proxy server.
-		return this.startProxyServer(targetOrigin, async (serverOrigin, url, contentType, responseBuffer) => {
-			// Only HTML content is processed below.
-			if (!contentType.includes('text/html')) {
-				return responseBuffer;
-			}
+		return this.startProxyServer(
+			targetOrigin,
+			async (serverOrigin, url, contentType, responseBuffer) => {
+				// If this isn't 'text/html' content, just return the response buffer.
+				if (!contentType.includes('text/html')) {
+					return responseBuffer;
+				}
 
-			// Inject the help header script.
-			let response = responseBuffer.toString('utf8');
-			response = response.replace('</head>', `${this.helpHeaderScript}</head>`);
+				// Inject styles and scripts.
+				let response = responseBuffer.toString('utf8');
+				response = response.replace(
+					'<body>',
+					`<body><div class="url-information">Help URL is: ${url}</div>`
+				);
+				response = response.replace(
+					'</head>',
+					`${this.helpHeaderStyle}${this.helpHeaderScript}</head>`
+				);
 
-			// Return the response.
-			return response;
-		});
+				// Return the response.
+				return response;
+			});
 	}
 
 	//#endregion Public Methods
 
 	//#region Private Methods
-
-	/**
-	 * Loads scripts from the resources/scripts.html file.
-	 */
-	private loadScripts() {
-		// If scripts have been loaded, return.
-		if (this.scriptsLoaded) {
-			return;
-		}
-
-		// Try to load the resources/scripts.html file and the scripts within it.
-		try {
-			// Load the resources/scripts.html file.
-			const scriptsPath = path.join(this.context.extensionPath, 'resources', 'scripts.html');
-			const jsdom = new JSDOM(fs.readFileSync(scriptsPath));
-			const document = jsdom.window.document;
-
-			// Load the scripts from within the file.
-			this.helpHeaderScript = document.querySelector('#help-header-script')?.outerHTML;
-
-			// Set the scripts loaded flag.
-			this.scriptsLoaded = true;
-		} catch (error) {
-			console.log(`Failed to load the resources/scripts.html file`);
-		}
-	}
 
 	/**
 	 * Starts a proxy server.
@@ -166,8 +181,6 @@ export class PositronProxy implements Disposable {
 	 * @returns The server origin.
 	 */
 	startProxyServer(targetOrigin: string, contentRewriter: ContentRewriter): Promise<string> {
-		this.loadScripts();
-
 		// Return a promise.
 		return new Promise((resolve, reject) => {
 			// See if we have an existing proxy server for target origin. If there is, return the
@@ -212,10 +225,10 @@ export class PositronProxy implements Disposable {
 					},
 					onProxyRes: responseInterceptor(async (responseBuffer, proxyRes, req, res) => {
 						// Get the URL and the content type. These must be present to call the
-						// content rewriter.
+						// content rewriter. Also, the scripts must be loaded.
 						const url = req.url;
 						const contentType = proxyRes.headers['content-type'];
-						if (!url || !contentType) {
+						if (!url || !contentType || !this.scriptsFileLoaded) {
 							// Don't process the response.
 							return responseBuffer;
 						}
