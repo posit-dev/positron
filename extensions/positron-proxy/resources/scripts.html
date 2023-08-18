@@ -1,33 +1,54 @@
 <!DOCTYPE html>
 <html>
 <!-- This file provides a sane place to develop scripts for use in the PositronProxy extension. -->
+
 <head>
+	<!-- The help header style. -->
+	<style id="help-header-style">
+		.url-information {
+			font-family: Arial, Helvetica, sans-serif;
+			color: gray;
+		}
+	</style>
+
 	<!-- The help header script. -->
 	<script id="help-header-script">
-		// When the document is completely loaded, initialize things.
-		document.addEventListener("readystatechange", event => {
-			if (document.readyState === "complete") {
-				hijackLinks();
-			}
-		});
+		(() => {
+			// When the document is completely loaded, initialize things.
+			document.addEventListener("readystatechange", event => {
+				if (document.readyState === "complete") {
+					// Hijack the links.
+					hijackLinks();
 
-		// Hijack all the links in the document. When a link is clicked, post a message to have
-		// the link opened.
-		const hijackLinks = () => {
-			// Hijack all the links on the page.
-			var links = document.links;
-			for (let i = 0; i < links.length; i++) {
-				links[i].onclick = (e) => {
+					// Indicate that the help loaded.
 					window.parent.postMessage({
-						command: "open-url",
-						href: links[i].href
+						id: "positron-help-loaded",
+						url: window.location.href,
+						title: document.title
 					}, "*");
-					return false;
-				};
-			}
-		};
+				}
+			});
+
+			// Hijacks all the links in the document. When a link is clicked, post a message to
+			// navigate.
+			const hijackLinks = () => {
+				var links = document.links;
+				for (let i = 0; i < links.length; i++) {
+					links[i].onclick = (e) => {
+						window.parent.postMessage({
+							id: "positron-help-navigate",
+							fromUrl: window.location.href,
+							toUrl: links[i].href
+						}, "*");
+						return false;
+					};
+				}
+			};
+		})();
 	</script>
 </head>
+
 <body>
 </body>
+
 </html>

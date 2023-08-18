@@ -40,7 +40,7 @@ const VIEW_CONTAINER: ViewContainer = Registry.as<IViewContainersRegistry>(
 	},
 	ViewContainerLocation.AuxiliaryBar,
 	{
-		doNotRegisterOpenCommand: true,
+		doNotRegisterOpenCommand: false,
 		isDefault: false
 	}
 );
@@ -52,9 +52,9 @@ Registry.as<IViewsRegistry>(ViewContainerExtensions.ViewsRegistry).registerViews
 	canMoveView: true,
 	canToggleVisibility: false,
 	ctorDescriptor: new SyncDescriptor(PositronHelpViewPane),
+	positronAlwaysOpenView: true,
 	openCommandActionDescriptor: {
-		id: 'workbench.action.positron.toggleHelp',
-		mnemonicTitle: nls.localize({ key: 'miToggleHelp', comment: ['&& denotes a mnemonic'] }, "&&Help"),
+		id: 'workbench.action.positron.openHelp',
 		keybindings: {
 			primary: KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.KeyH,
 		},
