@@ -129,6 +129,7 @@
 			'tas-client-umd': `${baseNodeModulesPath}/tas-client-umd/lib/tas-client-umd.js`,
 			// --- Start Positron ---
 			'ansi-output': `${baseNodeModulesPath}/ansi-output/dist/ansi-output.js`,
+			'he': `${baseNodeModulesPath}/he/he.js`,
 			'react': `${baseNodeModulesPath}/react/umd/react.production.min.js`,
 			'react-dom': `${baseNodeModulesPath}/react-dom/umd/react-dom.production.min.js`,
 			'react-window': `${baseNodeModulesPath}/react-window/dist/index-prod.umd.js`
