@@ -707,6 +707,13 @@ declare module 'positron' {
 		export function registerLanguageRuntime(runtime: LanguageRuntime): vscode.Disposable;
 
 		/**
+		 * List the running runtimes for a given language.
+		 *
+		 * @param languageId The language ID for running runtimes
+		 */
+		export function getRunningRuntimes(languageId: string): Thenable<LanguageRuntimeMetadata[]>;
+    
+		/**
 		 * Select and start a runtime previously registered with Positron. Any
 		 * previously active runtimes for the language will be shut down.
 		 *

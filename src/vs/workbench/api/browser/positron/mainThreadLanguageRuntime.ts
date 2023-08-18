@@ -836,6 +836,13 @@ export class MainThreadLanguageRuntime implements MainThreadLanguageRuntimeShape
 		this._languageRuntimeService.registerRuntime(adapter, metadata.startupBehavior);
 	}
 
+	$getRunningRuntimes(languageId: string): Promise<ILanguageRuntimeMetadata[]> {
+		const runningRuntimes = () => this._languageRuntimeService.runningRuntimes.filter(runtime =>
+			runtime.metadata.languageId === languageId
+		);
+		return Promise.resolve(runningRuntimes().map(runtime => runtime.metadata));
+  }
+
 	// Called by the extension host to select a previously registered language runtime
 	$selectLanguageRuntime(handle: number): Promise<void> {
 		return this._languageRuntimeService.selectRuntime(
