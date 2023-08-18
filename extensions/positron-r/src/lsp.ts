@@ -38,6 +38,9 @@ export class ArkLsp implements vscode.Disposable {
 	/** Promise that resolves after initialization is complete */
 	private _initializing?: Promise<void>;
 
+	/** Disposable for per-activation items */
+	private activationDisposables: vscode.Disposable[] = [];
+
 	public constructor(private readonly _version: string) {
 	}
 
@@ -50,6 +53,10 @@ export class ArkLsp implements vscode.Disposable {
 	 */
 	public async activate(port: number,
 		context: vscode.ExtensionContext): Promise<void> {
+
+		// Clean up disposables from any previous activation
+		this.activationDisposables.forEach(d => d.dispose());
+		this.activationDisposables = [];
 
 		// Define server options for the language server; this is a callback
 		// that creates and returns the reader/writer stream for TCP
@@ -119,7 +126,7 @@ export class ArkLsp implements vscode.Disposable {
 		const out = new PromiseHandles<void>();
 		this._initializing = out.promise;
 
-		this._client.onDidChangeState(event => {
+		this.activationDisposables.push(this._client.onDidChangeState(event => {
 			const oldState = this._state;
 			// Convert the state to our own enum
 			switch (event.newState) {
@@ -143,7 +150,7 @@ export class ArkLsp implements vscode.Disposable {
 					break;
 			}
 			trace(`ARK (R ${this._version}) language client state changed ${oldState} => ${this._state}`);
-		});
+		}));
 
 		this._client.start();
 		await out.promise;
@@ -205,6 +212,7 @@ export class ArkLsp implements vscode.Disposable {
 	 * Dispose of the client instance.
 	 */
 	async dispose() {
+		this.activationDisposables.forEach(d => d.dispose());
 		await this.deactivate();
 	}
 }
