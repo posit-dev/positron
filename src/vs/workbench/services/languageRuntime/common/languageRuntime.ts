@@ -406,8 +406,16 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 					break;
 
 				case RuntimeState.Ready:
+					if (runtime !== this._activeRuntime) {
+						// If this runtime isn't already active, activate it. We
+						// avoid re-activation if already active since the
+						// resulting events can cause Positron behave as though
+						// a new runtime were started (e.g. focusing the
+						// console)
+						this.activeRuntime = runtime;
+					}
+
 					// @TODO@softwarenerd - Talk with the team about this.
-					this.activeRuntime = runtime;
 					// // If the runtime is ready, and we have no active runtime,
 					// // set the active runtime to the new runtime.
 					// if (!this._activeRuntime || this._activeRuntime.metadata.languageId === runtime.metadata.languageId) {
