@@ -3,7 +3,6 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import * as positron from 'positron';
 import { PromiseHandles } from './util';
 
 import {
@@ -39,6 +38,9 @@ export class ArkLsp implements vscode.Disposable {
 	/** Promise that resolves after initialization is complete */
 	private _initializing?: Promise<void>;
 
+	/** Disposable for per-activation items */
+	private activationDisposables: vscode.Disposable[] = [];
+
 	public constructor(private readonly _version: string) {
 	}
 
@@ -51,6 +53,10 @@ export class ArkLsp implements vscode.Disposable {
 	 */
 	public async activate(port: number,
 		context: vscode.ExtensionContext): Promise<void> {
+
+		// Clean up disposables from any previous activation
+		this.activationDisposables.forEach(d => d.dispose());
+		this.activationDisposables = [];
 
 		// Define server options for the language server; this is a callback
 		// that creates and returns the reader/writer stream for TCP
@@ -114,13 +120,13 @@ export class ArkLsp implements vscode.Disposable {
 			traceOutputChannel: traceOutputChannel(),
 		};
 
-		trace(`Creating Positron R ${this._version} language client...`);
+		trace(`Creating Positron R ${this._version} language client (port ${port})...`);
 		this._client = new LanguageClient('positron-r', `Positron R Language Server (${this._version})`, serverOptions, clientOptions);
 
 		const out = new PromiseHandles<void>();
 		this._initializing = out.promise;
 
-		this._client.onDidChangeState(event => {
+		this.activationDisposables.push(this._client.onDidChangeState(event => {
 			const oldState = this._state;
 			// Convert the state to our own enum
 			switch (event.newState) {
@@ -138,13 +144,13 @@ export class ArkLsp implements vscode.Disposable {
 				case State.Stopped:
 					if (this._initializing) {
 						trace(`ARK (R ${this._version}) language client init failed`);
-						out.reject("Ark LSP client stopped before initialization");
+						out.reject('Ark LSP client stopped before initialization');
 					}
 					this._state = LspState.stopped;
 					break;
 			}
 			trace(`ARK (R ${this._version}) language client state changed ${oldState} => ${this._state}`);
-		});
+		}));
 
 		this._client.start();
 		await out.promise;
@@ -161,13 +167,38 @@ export class ArkLsp implements vscode.Disposable {
 			return;
 		}
 
+		// If we don't need to stop the client, just resolve
+		if (!this._client.needsStop()) {
+			return;
+		}
+
 		// First wait for initialization to complete.
 		// `stop()` should not be called on a
 		// partially initialized client.
 		await this._initializing;
 
-		// Stop the client if it's running
-		await this._client.stop();
+		// The promise returned by `stop()` never resolves if the server side is
+		// disconnected, so rather than awaiting it, we wait for the client to
+		// change state to `stopped`, which does happen reliably.
+		const promise = new Promise<void>((resolve) => {
+			const disposable = this._client!.onDidChangeState((event) => {
+				if (event.newState === State.Stopped) {
+					resolve();
+					disposable.dispose();
+				}
+			});
+			this._client!.stop();
+		});
+
+		// Don't wait more than a couple of seconds for the client to stop.
+		const timeout = new Promise<void>((_, reject) => {
+			setTimeout(() => {
+				reject(`Timed out after 2 seconds waiting for client to stop.`);
+			}, 2000);
+		});
+
+		// Wait for the client to enter the stopped state, or for the timeout
+		await Promise.race([promise, timeout]);
 	}
 
 	/**
@@ -181,6 +212,7 @@ export class ArkLsp implements vscode.Disposable {
 	 * Dispose of the client instance.
 	 */
 	async dispose() {
+		this.activationDisposables.forEach(d => d.dispose());
 		await this.deactivate();
 	}
 }
