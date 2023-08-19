@@ -49,9 +49,14 @@ export const ConsoleInstanceMenuButton = (props: ConsoleInstanceMenuButtonProps)
 	};
 
 	// Render.
+	let runtimeLabel = 'None';
+	const runtime = positronConsoleContext.activePositronConsoleInstance?.runtime;
+	if (runtime) {
+		runtimeLabel = `${runtime.metadata.languageName} ${runtime.metadata.languageVersion}`;
+	}
 	return (
 		<ActionBarMenuButton
-			text={positronConsoleContext.activePositronConsoleInstance?.runtime.metadata.languageName ?? 'None'}
+			text={runtimeLabel}
 			actions={actions}
 		/>
 	);
