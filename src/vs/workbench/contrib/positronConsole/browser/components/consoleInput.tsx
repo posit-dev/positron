@@ -456,6 +456,10 @@ export const ConsoleInput = forwardRef<HTMLDivElement, ConsoleInputProps>((props
 			overviewRulerLanes: 0,
 			scrollBeyondLastLine: false,
 			lineNumbersMinChars: inputPrompt.length,
+			// This appears to disable validations to address:
+			// https://github.com/rstudio/positron/issues/979
+			// https://github.com/rstudio/positron/issues/1051
+			renderValidationDecorations: 'off',
 		} satisfies IEditorOptions;
 
 		// Create the code editor widget.
