@@ -39,7 +39,7 @@ const enum Position {
 export interface ConsoleInputProps {
 	readonly width: number;
 	readonly positronConsoleInstance: IPositronConsoleInstance;
-	selectAll: () => void;
+	readonly selectAll: () => void;
 }
 
 /**
