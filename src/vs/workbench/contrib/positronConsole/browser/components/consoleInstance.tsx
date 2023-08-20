@@ -119,7 +119,9 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 		// The actions that are built below.
 		const actions: IAction[] = [];
 
-		// Add the cut action.
+		// Add the cut action. This action is never enabled here. It exists here so that the user
+		// will see a consistent set of Cut, Copy, Paste actions in this context menu and the code
+		// editor widget's context menu.
 		actions.push({
 			id: POSITRON_CONSOLE_CUT,
 			label: nls.localize('positron.console.cut', "Cut"),
