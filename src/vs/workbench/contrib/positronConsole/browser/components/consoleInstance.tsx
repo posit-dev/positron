@@ -3,9 +3,9 @@
  *--------------------------------------------------------------------------------------------*/
 
 import 'vs/css!./consoleInstance';
-import * as nls from 'vs/nls';
 import * as React from 'react';
 import { KeyboardEvent, MouseEvent, UIEvent, useEffect, useRef, useState } from 'react'; // eslint-disable-line no-duplicate-imports
+import * as nls from 'vs/nls';
 import { generateUuid } from 'vs/base/common/uuid';
 import { PixelRatio } from 'vs/base/browser/browser';
 import { isMacintosh } from 'vs/base/common/platform';
@@ -40,7 +40,7 @@ import { RuntimeItemReconnected } from 'vs/workbench/services/positronConsole/co
 import { RuntimeStartupFailure } from 'vs/workbench/contrib/positronConsole/browser/components/runtimeStartupFailure';
 import { IPositronConsoleInstance } from 'vs/workbench/services/positronConsole/common/interfaces/positronConsoleService';
 import { RuntimeItemStartupFailure } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemStartupFailure';
-import { POSITRON_CONSOLE_COPY, POSITRON_CONSOLE_PASTE, POSITRON_CONSOLE_SELECT_ALL } from 'vs/workbench/contrib/positronConsole/browser/positronConsoleIdentifiers';
+import { POSITRON_CONSOLE_COPY, POSITRON_CONSOLE_CUT, POSITRON_CONSOLE_PASTE, POSITRON_CONSOLE_SELECT_ALL } from 'vs/workbench/contrib/positronConsole/browser/positronConsoleIdentifiers';
 
 // ConsoleInstanceProps interface.
 interface ConsoleInstanceProps {
@@ -116,8 +116,20 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 		// Get the selection.
 		const selection = getSelection();
 
-		// Add the copy action.
+		// The actions that are built below.
 		const actions: IAction[] = [];
+
+		// Add the cut action.
+		actions.push({
+			id: POSITRON_CONSOLE_CUT,
+			label: nls.localize('positron.console.cut', "Cut"),
+			tooltip: '',
+			class: undefined,
+			enabled: false,
+			run: () => { }
+		});
+
+		// Add the copy action.
 		actions.push({
 			id: POSITRON_CONSOLE_COPY,
 			label: nls.localize('positron.console.copy', "Copy"),
@@ -132,8 +144,8 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 			}
 		});
 
-		// Get the clipboard text.
-		const clipboardText = await positronConsoleContext.clipboardService.readText();
+		// // Get the clipboard text.
+		// const clipboardText = await positronConsoleContext.clipboardService.readText();
 
 		// Add the paste action.
 		actions.push({
@@ -141,10 +153,8 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 			label: nls.localize('positron.console.paste', "Paste"),
 			tooltip: '',
 			class: undefined,
-			enabled: clipboardText !== '',
-			run: () => {
-				consoleInputRef.current?.focus();
-			}
+			enabled: false,
+			run: () => { }
 		});
 
 		// Push a separator.
