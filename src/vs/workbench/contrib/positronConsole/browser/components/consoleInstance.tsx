@@ -76,7 +76,6 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 	// Reference hooks.
 	const consoleInstanceRef = useRef<HTMLDivElement>(undefined!);
 	const runtimeItemsRef = useRef<HTMLDivElement>(undefined!);
-	const consoleInputRef = useRef<HTMLDivElement>(undefined!);
 
 	// State hooks.
 	const [editorFontInfo, setEditorFontInfo] =
@@ -113,8 +112,9 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 	 * @param y The y coordinate.
 	 */
 	const showContextMenu = async (x: number, y: number): Promise<void> => {
-		// Get the selection.
+		// Get the selection and the clipboard text.
 		const selection = getSelection();
+		const clipboardText = await positronConsoleContext.clipboardService.readText();
 
 		// The actions that are built below.
 		const actions: IAction[] = [];
@@ -144,17 +144,14 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 			}
 		});
 
-		// // Get the clipboard text.
-		// const clipboardText = await positronConsoleContext.clipboardService.readText();
-
 		// Add the paste action.
 		actions.push({
 			id: POSITRON_CONSOLE_PASTE,
 			label: nls.localize('positron.console.paste', "Paste"),
 			tooltip: '',
 			class: undefined,
-			enabled: false,
-			run: () => { }
+			enabled: clipboardText !== '',
+			run: () => props.positronConsoleInstance.pasteText(clipboardText)
 		});
 
 		// Push a separator.
@@ -262,7 +259,7 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 
 	// Experimental.
 	useEffect(() => {
-		consoleInputRef.current?.scrollIntoView({ behavior: 'auto' });
+		props.positronConsoleInstance.activateInput();
 	}, [marker]);
 
 	/**
@@ -317,9 +314,8 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 			case 'KeyV': {
 				// Handle paste shortcut.
 				if (cmdOrCtrlKey) {
-					// Drive focus into the console input, which will allow the paste to happen in
-					// the CodeEditorWidget.
-					consoleInputRef.current?.focus();
+					const clipboardText = await positronConsoleContext.clipboardService.readText();
+					props.positronConsoleInstance.pasteText(clipboardText);
 				}
 				break;
 			}
@@ -329,7 +325,7 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 				// When the user presses another key, drive focus to the console input. This has the
 				// effect of driving the onKeyDown event to the CodeEditorWidget.
 				if (!cmdOrCtrlKey) {
-					consoleInputRef.current?.focus();
+					props.positronConsoleInstance.activateInput();
 				}
 				break;
 			}
@@ -448,7 +444,6 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 			</div>
 			{!props.positronConsoleInstance.promptActive &&
 				<ConsoleInput
-					ref={consoleInputRef}
 					width={adjustedWidth}
 					positronConsoleInstance={props.positronConsoleInstance}
 					selectAll={() => selectAllRuntimeItems()}
