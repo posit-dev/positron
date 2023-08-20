@@ -582,7 +582,7 @@ export const ConsoleInput = forwardRef<HTMLDivElement, ConsoleInputProps>((props
 
 		// Add the onDidClearConsole event handler.
 		disposableStore.add(props.positronConsoleInstance.onDidClearConsole(() => {
-			// Re-focus the console.
+			// Focus the code editor widget.
 			codeEditorWidget.focus();
 		}));
 
@@ -591,7 +591,7 @@ export const ConsoleInput = forwardRef<HTMLDivElement, ConsoleInputProps>((props
 			// Discard the history navigator.
 			setHistoryNavigator(undefined);
 
-			// Re-focus the console.
+			// Focus the code editor widget.
 			codeEditorWidget.focus();
 		}));
 

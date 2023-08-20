@@ -3,12 +3,14 @@
  *--------------------------------------------------------------------------------------------*/
 
 import 'vs/css!./consoleInstance';
+import * as nls from 'vs/nls';
 import * as React from 'react';
 import { KeyboardEvent, MouseEvent, UIEvent, useEffect, useRef, useState } from 'react'; // eslint-disable-line no-duplicate-imports
 import { generateUuid } from 'vs/base/common/uuid';
 import { PixelRatio } from 'vs/base/browser/browser';
 import { isMacintosh } from 'vs/base/common/platform';
 import { DisposableStore } from 'vs/base/common/lifecycle';
+import { IAction, Separator } from 'vs/base/common/actions';
 import { useStateRef } from 'vs/base/browser/ui/react/useStateRef';
 import { applyFontInfo } from 'vs/editor/browser/config/domFontInfo';
 import { IEditorOptions } from 'vs/editor/common/config/editorOptions';
@@ -16,6 +18,7 @@ import { BareFontInfo, FontInfo } from 'vs/editor/common/config/fontInfo';
 import { FontMeasurements } from 'vs/editor/browser/config/fontMeasurements';
 import { IReactComponentContainer } from 'vs/base/browser/positronReactRenderer';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
+import { AnchorAlignment, AnchorAxisAlignment } from 'vs/base/browser/ui/contextview/contextview';
 import { ConsoleInput } from 'vs/workbench/contrib/positronConsole/browser/components/consoleInput';
 import { RuntimeTrace } from 'vs/workbench/contrib/positronConsole/browser/components/runtimeTrace';
 import { RuntimeExited } from 'vs/workbench/contrib/positronConsole/browser/components/runtimeExited';
@@ -37,6 +40,7 @@ import { RuntimeItemReconnected } from 'vs/workbench/services/positronConsole/co
 import { RuntimeStartupFailure } from 'vs/workbench/contrib/positronConsole/browser/components/runtimeStartupFailure';
 import { IPositronConsoleInstance } from 'vs/workbench/services/positronConsole/common/interfaces/positronConsoleService';
 import { RuntimeItemStartupFailure } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemStartupFailure';
+import { POSITRON_CONSOLE_COPY, POSITRON_CONSOLE_PASTE, POSITRON_CONSOLE_SELECT_ALL } from 'vs/workbench/contrib/positronConsole/browser/positronConsoleIdentifiers';
 
 // ConsoleInstanceProps interface.
 interface ConsoleInstanceProps {
@@ -101,6 +105,68 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 
 		// Return the selection.
 		return selection;
+	};
+
+	/**
+	 * Shows the context menu.
+	 * @param x The x coordinate.
+	 * @param y The y coordinate.
+	 */
+	const showContextMenu = async (x: number, y: number): Promise<void> => {
+		// Get the selection.
+		const selection = getSelection();
+
+		// Add the copy action.
+		const actions: IAction[] = [];
+		actions.push({
+			id: POSITRON_CONSOLE_COPY,
+			label: nls.localize('positron.console.copy', "Copy"),
+			tooltip: '',
+			class: undefined,
+			enabled: selection?.type === 'Range',
+			run: () => {
+				// Copy the selection to the clipboard.
+				if (selection) {
+					positronConsoleContext.clipboardService.writeText(selection.toString());
+				}
+			}
+		});
+
+		// Get the clipboard text.
+		const clipboardText = await positronConsoleContext.clipboardService.readText();
+
+		// Add the paste action.
+		actions.push({
+			id: POSITRON_CONSOLE_PASTE,
+			label: nls.localize('positron.console.paste', "Paste"),
+			tooltip: '',
+			class: undefined,
+			enabled: clipboardText !== '',
+			run: () => {
+				consoleInputRef.current?.focus();
+			}
+		});
+
+		// Push a separator.
+		actions.push(new Separator());
+
+		// Add the select all action.
+		actions.push({
+			id: POSITRON_CONSOLE_SELECT_ALL,
+			label: nls.localize('positron.console.selectAll', "Select All"),
+			tooltip: '',
+			class: undefined,
+			enabled: true,
+			run: () => selectAllRuntimeItems()
+		});
+
+		// Show the context menu.
+		positronConsoleContext.contextMenuService.showContextMenu({
+			getActions: () => actions,
+			getAnchor: () => ({ x, y }),
+			anchorAlignment: AnchorAlignment.LEFT,
+			anchorAxisAlignment: AnchorAxisAlignment.VERTICAL
+		});
 	};
 
 	/**
@@ -190,21 +256,6 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 	}, [marker]);
 
 	/**
-	 * onClick event handler.
-	 * @param e A MouseEvent<HTMLElement> that describes a user interaction with the mouse.
-	 */
-	const clickHandler = (e: MouseEvent<HTMLDivElement>) => {
-		// Get the document selection.
-		const selection = getSelection();
-
-		// If there is a selection, and its type is Caret (as opposed to Range), drive focus into
-		// the console input.
-		if (!selection || selection.type === 'Caret') {
-			consoleInputRef.current?.focus();
-		}
-	};
-
-	/**
 	 * onKeyDown event handler.
 	 * @param e A KeyboardEvent<HTMLDivElement> that describes a user interaction with the keyboard.
 	 */
@@ -280,6 +331,13 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 	 * @param e A MouseEvent<HTMLElement> that describes a user interaction with the mouse.
 	 */
 	const mouseDownHandler = (e: MouseEvent<HTMLDivElement>) => {
+		// Show the context menu.
+		if ((e.button === 0 && isMacintosh && e.ctrlKey) || e.button === 2) {
+			// Do this on the next tick. Otherwise, the document selection won't be up to date.
+			setTimeout(async () => await showContextMenu(e.clientX, e.clientY), 0);
+			return;
+		}
+
 		// Get the selection.
 		const selection = getSelection();
 
@@ -318,10 +376,8 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 			// If the click was inside the selection, copy the selection to the clipboard.
 			if (insideSelection) {
 				positronConsoleContext.clipboardService.writeText(selection.toString());
+				return;
 			}
-
-			// Drive focus into the console input.
-			consoleInputRef.current?.focus();
 		}
 	};
 
@@ -343,9 +399,13 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 		<div
 			ref={consoleInstanceRef}
 			className='console-instance'
-			style={{ width: adjustedWidth, height: props.height, whiteSpace: wordWrap ? 'pre-wrap' : 'pre', zIndex: props.active ? 'auto' : -1 }}
+			style={{
+				width: adjustedWidth,
+				height: props.height,
+				whiteSpace: wordWrap ? 'pre-wrap' : 'pre',
+				zIndex: props.active ? 'auto' : -1
+			}}
 			tabIndex={0}
-			onClick={clickHandler}
 			onKeyDown={keyDownHandler}
 			onMouseDown={mouseDownHandler}
 			onScroll={scrollHandler}>
