@@ -61,7 +61,7 @@ Registry.as<IViewsRegistry>(ViewContainerExtensions.ViewsRegistry).registerViews
 KeybindingsRegistry.registerCommandAndKeybindingRule({
 	id: POSITRON_CONSOLE_CUT,
 	weight: KeybindingWeight.WorkbenchContrib,
-	primary: KeyMod.CtrlCmd | KeyCode.KeyV,
+	primary: KeyMod.CtrlCmd | KeyCode.KeyX,
 	when: PositronConsoleFocused,
 	handler: accessor => { }
 } satisfies ICommandAndKeybindingRule);
