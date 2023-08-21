@@ -94,6 +94,8 @@ export const EnvironmentVariableGroup = (props: EnvironmentVariableGroupProps) =
 
 	/**
 	 * Shows the context menu.
+	 * @param x The x coordinate.
+	 * @param y The y coordinate.
 	 */
 	const showContextMenu = (x: number, y: number) => {
 		// Build the actions.

@@ -14,19 +14,20 @@ import { IThemeService } from 'vs/platform/theme/common/themeService';
 import { ILanguageService } from 'vs/editor/common/languages/language';
 import { ICommandService } from 'vs/platform/commands/common/commands';
 import { ITelemetryService } from 'vs/platform/telemetry/common/telemetry';
-import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
 import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
 import { IContextMenuService } from 'vs/platform/contextview/browser/contextView';
 import { IClipboardService } from 'vs/platform/clipboard/common/clipboardService';
 import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import { ViewPane, IViewPaneOptions } from 'vs/workbench/browser/parts/views/viewPane';
+import { IContextKey, IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
 import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/layoutService';
 import { PositronConsole } from 'vs/workbench/contrib/positronConsole/browser/positronConsole';
 import { ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { IReactComponentContainer, ISize, PositronReactRenderer } from 'vs/base/browser/positronReactRenderer';
 import { IExecutionHistoryService } from 'vs/workbench/contrib/executionHistory/common/executionHistoryService';
 import { IPositronConsoleService } from 'vs/workbench/services/positronConsole/common/interfaces/positronConsoleService';
+import { PositronConsoleFocused } from 'vs/workbench/common/contextkeys';
 
 /**
  * PositronConsoleViewPane class.
@@ -80,6 +81,11 @@ export class PositronConsoleViewPane extends ViewPane implements IReactComponent
 	 * Gets or sets the PositronReactRenderer for the PositronConsole component.
 	 */
 	private _positronReactRenderer: PositronReactRenderer | undefined;
+
+	/**
+	 * Gets or sets the PositronConsoleFocused context key.
+	 */
+	private _positronConsoleFocusedContextKey: IContextKey<boolean> | undefined;
 
 	//#endregion Private Properties
 
@@ -264,6 +270,26 @@ export class PositronConsoleViewPane extends ViewPane implements IReactComponent
 				reactComponentContainer={this}
 			/>
 		);
+
+		// Create the scoped context key service for the Positron console container.
+		const scopedContextKeyService = this._register(this.contextKeyService.createScoped(
+			this._positronConsoleContainer
+		));
+
+		// Create the PositronConsoleFocused context key.
+		this._positronConsoleFocusedContextKey = PositronConsoleFocused.bindTo(
+			scopedContextKeyService
+		);
+
+		// Create a focus tracker that updates the PositronConsoleFocused context key.
+		const focusTracker = DOM.trackFocus(this.element);
+		this._register(focusTracker);
+		this._register(focusTracker.onDidFocus(() =>
+			this._positronConsoleFocusedContextKey?.set(true)
+		));
+		this._register(focusTracker.onDidBlur(() =>
+			this._positronConsoleFocusedContextKey?.set(false)
+		));
 	}
 
 	/**

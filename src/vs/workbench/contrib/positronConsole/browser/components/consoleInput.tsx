@@ -4,7 +4,7 @@
 
 import 'vs/css!./consoleInput';
 import * as React from 'react';
-import { FocusEvent, forwardRef, useEffect, useRef } from 'react'; // eslint-disable-line no-duplicate-imports
+import { FocusEvent, useEffect, useRef } from 'react'; // eslint-disable-line no-duplicate-imports
 import { URI } from 'vs/base/common/uri';
 import { Schemas } from 'vs/base/common/network';
 import { KeyCode } from 'vs/base/common/keyCodes';
@@ -39,7 +39,7 @@ const enum Position {
 export interface ConsoleInputProps {
 	readonly width: number;
 	readonly positronConsoleInstance: IPositronConsoleInstance;
-	selectAll: () => void;
+	readonly selectAll: () => void;
 }
 
 /**
@@ -47,7 +47,7 @@ export interface ConsoleInputProps {
  * @param props A ConsoleInputProps that contains the component properties.
  * @returns The rendered component.
  */
-export const ConsoleInput = forwardRef<HTMLDivElement, ConsoleInputProps>((props, consoleInputRef) => {
+export const ConsoleInput = (props: ConsoleInputProps) => {
 	// Context hooks.
 	const positronConsoleContext = usePositronConsoleContext();
 
@@ -542,6 +542,20 @@ export const ConsoleInput = forwardRef<HTMLDivElement, ConsoleInputProps>((props
 				})
 		);
 
+		// Add the onActivateInput event handler.
+		disposableStore.add(props.positronConsoleInstance.onActivateInput(() => {
+			codeEditorWidgetContainerRef.current?.scrollIntoView({ behavior: 'auto' });
+			codeEditorWidget.focus();
+		}));
+
+		// Add the onDidPasteText event handler.
+		disposableStore.add(props.positronConsoleInstance.onDidPasteText(text => {
+			const codeFragment = codeEditorWidgetRef.current.getValue();
+			codeEditorWidgetRef.current.setValue(codeFragment + text);
+			updateCodeEditorWidgetPosition(Position.Last, Position.Last);
+			codeEditorWidget.focus();
+		}));
+
 		// Add the onDidChangeState event handler.
 		disposableStore.add(props.positronConsoleInstance.onDidChangeState(state => {
 			// Set up editor options based on state.
@@ -582,7 +596,7 @@ export const ConsoleInput = forwardRef<HTMLDivElement, ConsoleInputProps>((props
 
 		// Add the onDidClearConsole event handler.
 		disposableStore.add(props.positronConsoleInstance.onDidClearConsole(() => {
-			// Re-focus the console.
+			// Focus the code editor widget.
 			codeEditorWidget.focus();
 		}));
 
@@ -591,7 +605,7 @@ export const ConsoleInput = forwardRef<HTMLDivElement, ConsoleInputProps>((props
 			// Discard the history navigator.
 			setHistoryNavigator(undefined);
 
-			// Re-focus the console.
+			// Focus the code editor widget.
 			codeEditorWidget.focus();
 		}));
 
@@ -663,8 +677,8 @@ export const ConsoleInput = forwardRef<HTMLDivElement, ConsoleInputProps>((props
 
 	// Render.
 	return (
-		<div ref={consoleInputRef} className='console-input' tabIndex={0} onFocus={focusHandler}>
+		<div className='console-input' tabIndex={0} onFocus={focusHandler}>
 			<div ref={codeEditorWidgetContainerRef} />
 		</div>
 	);
-});
+};
