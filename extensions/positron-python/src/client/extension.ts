@@ -47,6 +47,13 @@ import { disposeAll } from './common/utils/resourceLifecycle';
 import { ProposedExtensionAPI } from './proposedApiTypes';
 import { buildProposedApi } from './proposedApi';
 
+// --- Start Positron ---
+
+import * as positron from 'positron';
+import { pythonRuntimeProvider } from './positron/provider';
+
+// --- End Positron ---
+
 durations.codeLoadingTime = stopWatch.elapsedTime;
 
 //===============================================
@@ -79,6 +86,13 @@ export async function activate(context: IExtensionContext): Promise<PythonExtens
     }
     // Send the "success" telemetry only if activation did not fail.
     // Otherwise Telemetry is send via the error handler.
+
+    // --- Start Positron ---
+
+    // Register the Python language runtime provider with positron.
+    positron.runtime.registerLanguageRuntimeProvider('python', pythonRuntimeProvider(serviceContainer));
+
+    // --- End Positron ---
 
     sendStartupTelemetry(ready, durations, stopWatch, serviceContainer)
         // Run in the background.

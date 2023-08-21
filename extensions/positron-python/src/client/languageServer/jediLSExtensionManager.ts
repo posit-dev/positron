@@ -1,17 +1,11 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
-// --- Start Positron ---
-import * as vscode from 'vscode';
-// --- End Positron ---
 import { JediLanguageServerAnalysisOptions } from '../activation/jedi/analysisOptions';
 import { JediLanguageClientFactory } from '../activation/jedi/languageClientFactory';
 import { JediLanguageServerProxy } from '../activation/jedi/languageServerProxy';
 import { JediLanguageServerManager } from '../activation/jedi/manager';
-// --- Start Positron ---
-import { ILanguageServerOutputChannel, ILanguageServerProxy } from '../activation/types';
-import { PositronJediLanguageServerProxy } from '../activation/jedi/positronLanguageRuntimes';
-// --- End Positron ---
+import { ILanguageServerOutputChannel } from '../activation/types';
 import { IWorkspaceService, ICommandManager } from '../common/application/types';
 import {
     IExperimentService,
@@ -28,7 +22,7 @@ import { PythonEnvironment } from '../pythonEnvironments/info';
 import { ILanguageServerExtensionManager } from './types';
 
 export class JediLSExtensionManager implements IDisposable, ILanguageServerExtensionManager {
-    private serverProxy: ILanguageServerProxy;
+    private serverProxy: JediLanguageServerProxy;
 
     serverManager: JediLanguageServerManager;
 
@@ -54,16 +48,7 @@ export class JediLSExtensionManager implements IDisposable, ILanguageServerExten
             workspaceService,
         );
         this.clientFactory = new JediLanguageClientFactory(interpreterService);
-        // --- Start Positron ---
-        const ext = vscode.extensions.getExtension('vscode.jupyter-adapter');
-        if (ext) {
-            this.serverProxy = new PositronJediLanguageServerProxy(serviceContainer,
-                interpreterService,
-                configurationService);
-        } else {
-            this.serverProxy = new JediLanguageServerProxy(this.clientFactory);
-        }
-        // --- End Positron ---
+        this.serverProxy = new JediLanguageServerProxy(this.clientFactory);
         this.serverManager = new JediLanguageServerManager(
             serviceContainer,
             this.analysisOptions,
