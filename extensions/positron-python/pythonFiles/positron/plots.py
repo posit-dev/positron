@@ -7,7 +7,7 @@ import comm
 import logging
 import pickle
 import uuid
-from typing import Dict, Literal, Optional, Tuple
+from typing import Dict, Literal, Optional, Tuple, List
 
 from IPython.core.interactiveshell import InteractiveShell
 from pydantic import BaseModel, Field, ValidationError
@@ -98,6 +98,7 @@ class PositronDisplayPublisherHook:
         self.comms: Dict[str, comm.base_comm.BaseComm] = {}
         self.figures: Dict[str, str] = {}
         self.target_name = target_name
+        self.fignums: List[int] = []
 
     def __call__(self, msg, *args, **kwargs) -> Optional[dict]:
         if msg["msg_type"] == "display_data":
@@ -188,6 +189,7 @@ class PositronDisplayPublisherHook:
 
     def _pickle_current_figure(self) -> Optional[str]:
         pickled = None
+        figure = None
 
         # Delay importing matplotlib until the kernel and shell has been initialized
         # otherwise the graphics backend will be reset to the gui
@@ -197,8 +199,16 @@ class PositronDisplayPublisherHook:
         was_interactive = plt.isinteractive()
         plt.ioff()
 
+        # Check to see if there are any figures left in stack to display
+        # If not, get the number of figures to display from matplotlib
+        if len(self.fignums) == 0:
+            self.fignums = plt.get_fignums()  # type: ignore
+
+        # Get the current figure, remove from it from being called next hook
+        if len(self.fignums) > 0:
+            figure = plt.figure(self.fignums.pop(0))
+
         # Pickle the current figure
-        figure = plt.gcf()
         if figure is not None and not self._is_figure_empty(figure):
             pickled = codecs.encode(pickle.dumps(figure), "base64").decode()
 
