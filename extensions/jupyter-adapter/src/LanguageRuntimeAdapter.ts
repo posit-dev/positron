@@ -28,6 +28,7 @@ import { JupyterCommOpen } from './JupyterCommOpen';
 import { JupyterCommInfoRequest } from './JupyterCommInfoRequest';
 import { JupyterCommInfoReply } from './JupyterCommInfoReply';
 import { JupyterExecuteReply } from './JupyterExecuteReply';
+import { v4 as uuidv4 } from 'uuid';
 
 /**
  * LangaugeRuntimeAdapter wraps a JupyterKernel in a LanguageRuntime compatible interface.
@@ -797,17 +798,34 @@ export class LanguageRuntimeAdapter
 			{ client_address: serverAddress }
 		);
 
+		// Handle events from the DAP
 		const comm = this._comms.get(clientId)!;
 		comm.onDidReceiveCommMsg(msg => {
-			if (msg.msg_type === 'start_debug') {
-				this._kernel.log(`Starting debug session for DAP server ${clientId}`);
-				const config = {
-					type: debugType,
-					name: debugName,
-					request: 'attach',
-					debugServer: serverPort,
-				} as vscode.DebugConfiguration;
-				vscode.debug.startDebugging(undefined, config);
+			switch (msg.msg_type) {
+				// The runtime is in control of when to start a debug session.
+				// When this happens, we attach automatically to the runtime
+				// with a synthetic configuration.
+				case 'start_debug': {
+					this._kernel.log(`Starting debug session for DAP server ${clientId}`);
+					const config = {
+						type: debugType,
+						name: debugName,
+						request: 'attach',
+						debugServer: serverPort,
+					} as vscode.DebugConfiguration;
+					vscode.debug.startDebugging(undefined, config);
+				}
+
+				// If the DAP has commands to execute, such as "n", "f", or "Q",
+				// it sends events to let us do it from here.
+				case 'execute': {
+					this.execute(
+						msg.content.command,
+						uuidv4(),
+						positron.RuntimeCodeExecutionMode.Interactive,
+						positron.RuntimeErrorBehavior.Stop
+					);
+				}
 			}
 		});
 	}
