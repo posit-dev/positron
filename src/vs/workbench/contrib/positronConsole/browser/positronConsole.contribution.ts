@@ -57,7 +57,7 @@ Registry.as<IViewsRegistry>(ViewContainerExtensions.ViewsRegistry).registerViews
 	}
 }], VIEW_CONTAINER);
 
-// Register keybinding rule for copy.
+// Register keybinding rule for cut.
 KeybindingsRegistry.registerCommandAndKeybindingRule({
 	id: POSITRON_CONSOLE_CUT,
 	weight: KeybindingWeight.WorkbenchContrib,
@@ -84,7 +84,7 @@ KeybindingsRegistry.registerCommandAndKeybindingRule({
 	handler: accessor => { }
 } satisfies ICommandAndKeybindingRule);
 
-// Register keybinding rule for paste.
+// Register keybinding rule for select all.
 KeybindingsRegistry.registerCommandAndKeybindingRule({
 	id: POSITRON_CONSOLE_SELECT_ALL,
 	weight: KeybindingWeight.WorkbenchContrib,
