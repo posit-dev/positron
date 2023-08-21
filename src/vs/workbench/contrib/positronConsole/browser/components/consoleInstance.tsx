@@ -316,6 +316,10 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 			case 'KeyV': {
 				// Handle paste shortcut.
 				if (cmdOrCtrlKey) {
+					// Consume the event.
+					consumeEvent();
+
+					// Paste the text.
 					const clipboardText = await positronConsoleContext.clipboardService.readText();
 					props.positronConsoleInstance.pasteText(clipboardText);
 				}
