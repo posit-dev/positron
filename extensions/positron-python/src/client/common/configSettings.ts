@@ -126,7 +126,10 @@ export class PythonSettings implements IPythonSettings {
 
     public experiments!: IExperiments;
 
-    public languageServer: LanguageServerType = LanguageServerType.Node;
+    // --- Start Positron ---
+    // Default to None to disable language server management; we manage it ourselves.
+    public languageServer: LanguageServerType = LanguageServerType.None;
+    // --- End Positron ---
 
     public languageServerIsDefault = true;
 
