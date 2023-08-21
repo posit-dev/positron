@@ -812,6 +812,7 @@ export class LanguageRuntimeAdapter
 						name: debugName,
 						request: 'attach',
 						debugServer: serverPort,
+						internalConsoleOptions: 'neverOpen',
 					} as vscode.DebugConfiguration;
 					vscode.debug.startDebugging(undefined, config);
 				}
