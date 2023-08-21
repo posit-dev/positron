@@ -550,10 +550,51 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 
 		// Add the onDidPasteText event handler.
 		disposableStore.add(props.positronConsoleInstance.onDidPasteText(text => {
-			const codeFragment = codeEditorWidgetRef.current.getValue();
-			codeEditorWidgetRef.current.setValue(codeFragment + text);
-			updateCodeEditorWidgetPosition(Position.Last, Position.Last);
-			codeEditorWidget.focus();
+			// If there is a selection in the code editor widget, replace it with the text being
+			// pasted, remove the selection, and leave the cursor at the end of the pasted text.
+			const selection = codeEditorWidgetRef.current.getSelection();
+			if (selection && !selection.isEmpty()) {
+				// Execute an edit to replace the selection. The user can undo this.
+				codeEditorWidgetRef.current.executeEdits('console', [{
+					range: selection,
+					text,
+				}]);
+
+				// Remove the selection.
+				codeEditorWidgetRef.current.setSelection({
+					startLineNumber: 1,
+					startColumn: 1,
+					endLineNumber: 1,
+					endColumn: 1
+				});
+
+				// Leave the cursor at the end of the pasted text
+				codeEditorWidgetRef.current.setPosition({
+					lineNumber: selection.startLineNumber,
+					column: selection.startColumn + text.length
+				});
+			} else {
+				// Paste the text at the position of the code editor widget. The user can undo this.
+				const position = codeEditorWidget.getPosition();
+				if (position) {
+					codeEditorWidgetRef.current.executeEdits('console', [{
+						range: {
+							startLineNumber: position.lineNumber,
+							startColumn: position.column,
+							endLineNumber: position.lineNumber,
+							endColumn: position.column
+						},
+						text
+					}]);
+				} else {
+					// For some reason, the code editor widget has no position. Do the reasonable
+					// thing and tack the text onto the end of the current value.
+					const codeFragment = codeEditorWidgetRef.current.getValue();
+					codeEditorWidgetRef.current.setValue(codeFragment + text);
+					updateCodeEditorWidgetPosition(Position.Last, Position.Last);
+					codeEditorWidget.focus();
+				}
+			}
 		}));
 
 		// Add the onDidChangeState event handler.
