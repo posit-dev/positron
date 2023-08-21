@@ -20,6 +20,7 @@ import { ActivityItemPrompt } from 'vs/workbench/services/positronConsole/common
 import { RuntimeItemStarting } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemStarting';
 import { ActivityItemOutputPlot } from 'vs/workbench/services/positronConsole/common/classes/activityItemOutputPlot';
 import { RuntimeItemReconnected } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemReconnected';
+import { ActivityItemOutputHtml } from 'vs/workbench/services/positronConsole/common/classes/activityItemOutputHtml';
 import { ActivityItemErrorStream } from 'vs/workbench/services/positronConsole/common/classes/activityItemErrorStream';
 import { ActivityItemOutputStream } from 'vs/workbench/services/positronConsole/common/classes/activityItemOutputStream';
 import { ActivityItemErrorMessage } from 'vs/workbench/services/positronConsole/common/classes/activityItemErrorMessage';
@@ -28,7 +29,6 @@ import { RuntimeItemStartupFailure } from 'vs/workbench/services/positronConsole
 import { ActivityItem, RuntimeItemActivity } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemActivity';
 import { IPositronConsoleInstance, IPositronConsoleService, POSITRON_CONSOLE_VIEW_ID, PositronConsoleState } from 'vs/workbench/services/positronConsole/common/interfaces/positronConsoleService';
 import { formatLanguageRuntime, ILanguageRuntime, ILanguageRuntimeMessage, ILanguageRuntimeService, LanguageRuntimeStartupBehavior, RuntimeOnlineState, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
-import { ActivityItemOutputHtml } from 'vs/workbench/services/positronConsole/common/classes/activityItemOutputHtml';
 
 //#region Helper Functions
 
@@ -441,6 +441,11 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	private _promptActive = false;
 
 	/**
+	 * The onActivateInput event emitter.
+	 */
+	private readonly _onActivateInputEmitter = this._register(new Emitter<void>);
+
+	/**
 	 * The onDidChangeState event emitter.
 	 */
 	private readonly _onDidChangeStateEmitter = this._register(new Emitter<PositronConsoleState>);
@@ -459,6 +464,11 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	 * The onDidChangeRuntimeItems event emitter.
 	 */
 	private readonly _onDidChangeRuntimeItemsEmitter = this._register(new Emitter<RuntimeItem[]>);
+
+	/**
+	 * The onDidPasteText event emitter.
+	 */
+	private readonly _onDidPasteTextEmitter = this._register(new Emitter<string>);
 
 	/**
 	 * The onDidClearConsole event emitter.
@@ -553,6 +563,11 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	}
 
 	/**
+	 * onActivateInput event.
+	 */
+	readonly onActivateInput: Event<void> = this._onActivateInputEmitter.event;
+
+	/**
 	 * onDidChangeState event.
 	 */
 	readonly onDidChangeState: Event<PositronConsoleState> = this._onDidChangeStateEmitter.event;
@@ -573,6 +588,11 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	readonly onDidChangeRuntimeItems: Event<RuntimeItem[]> = this._onDidChangeRuntimeItemsEmitter.event;
 
 	/**
+	 * onDidPasteText event.
+	 */
+	readonly onDidPasteText: Event<string> = this._onDidPasteTextEmitter.event;
+
+	/**
 	 * onDidClearConsole event.
 	 */
 	readonly onDidClearConsole: Event<void> = this._onDidClearConsoleEmitter.event;
@@ -588,6 +608,13 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	readonly onDidExecuteCode: Event<string> = this._onDidExecuteCodeEmitter.event;
 
 	/**
+	 * Activates the input for the console.
+	 */
+	activateInput(): void {
+		this._onActivateInputEmitter.fire();
+	}
+
+	/**
 	 * Toggles trace.
 	 */
 	toggleTrace(): void {
@@ -601,6 +628,13 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	toggleWordWrap(): void {
 		this._wordWrap = !this._wordWrap;
 		this._onDidChangeWordWrapEmitter.fire(this._wordWrap);
+	}
+
+	/**
+	 * Pastes text into the console.
+	 */
+	pasteText(text: string): void {
+		this._onDidPasteTextEmitter.fire(text);
 	}
 
 	/**
