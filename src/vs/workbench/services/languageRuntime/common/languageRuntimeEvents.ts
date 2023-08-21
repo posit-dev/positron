@@ -55,8 +55,5 @@ export interface PromptStateEvent extends LanguageRuntimeEventData {
 	/** String for future continuation prompts. */
 	continuationPrompt: string;
 
-	/** Whether the next prompt is part of a debugging session. */
-	debug: boolean;
-
 }
 
