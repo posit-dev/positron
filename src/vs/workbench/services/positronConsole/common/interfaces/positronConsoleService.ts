@@ -106,6 +106,11 @@ export interface IPositronConsoleInstance {
 	readonly promptActive: boolean;
 
 	/**
+	 * The onActivateInput event.
+	 */
+	readonly onActivateInput: Event<void>;
+
+	/**
 	 * The onDidChangeState event.
 	 */
 	readonly onDidChangeState: Event<PositronConsoleState>;
@@ -126,6 +131,11 @@ export interface IPositronConsoleInstance {
 	readonly onDidChangeRuntimeItems: Event<RuntimeItem[]>;
 
 	/**
+	 * The onDidPasteText event.
+	 */
+	readonly onDidPasteText: Event<string>;
+
+	/**
 	 * The onDidClearConsole event.
 	 */
 	readonly onDidClearConsole: Event<void>;
@@ -141,6 +151,11 @@ export interface IPositronConsoleInstance {
 	readonly onDidExecuteCode: Event<string>;
 
 	/**
+	 * Activates the input for the console.
+	 */
+	activateInput(): void;
+
+	/**
 	 * Toggles trace.
 	 */
 	toggleTrace(): void;
@@ -149,6 +164,11 @@ export interface IPositronConsoleInstance {
 	 * Toggles word wrap.
 	 */
 	toggleWordWrap(): void;
+
+	/**
+	 * Pastes text into the console.
+	 */
+	pasteText(text: string): void;
 
 	/**
 	 * Clears the console.
