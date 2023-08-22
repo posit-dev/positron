@@ -8,7 +8,7 @@ import { useStateRef } from 'vs/base/browser/ui/react/useStateRef';
  * ConsoleInstanceState interface.
  */
 export interface ConsoleInstanceState {
-	isScrollLocked(): boolean;
+	getScrollLocked(): boolean;
 	setScrollLocked(value: boolean): void;
 }
 
@@ -22,7 +22,7 @@ export const useConsoleInstanceState = (): ConsoleInstanceState => {
 
 	// Return the console instance state.
 	return {
-		isScrollLocked: () => scrollLockedRef.current,
+		getScrollLocked: () => scrollLockedRef.current,
 		setScrollLocked: setScrollLocked
 	};
 };

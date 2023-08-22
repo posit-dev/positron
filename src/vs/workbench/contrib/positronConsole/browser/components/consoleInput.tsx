@@ -86,7 +86,7 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 
 			// Ensure that the code editor widget is scrolled into view when the console instance
 			// isn't scroll locked.
-			if (!consoleInstanceContext.isScrollLocked()) {
+			if (!consoleInstanceContext.getScrollLocked()) {
 				codeEditorWidgetContainerRef.current?.scrollIntoView({ behavior: 'auto' });
 			}
 		}
@@ -554,7 +554,7 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 		disposableStore.add(props.positronConsoleInstance.onActivateInput(() => {
 			// If the console instance isn't scroll locked, scroll the code editor widget into view
 			// and focus it.
-			if (!consoleInstanceContext.isScrollLocked()) {
+			if (!consoleInstanceContext.getScrollLocked()) {
 				codeEditorWidgetContainerRef.current?.scrollIntoView({ behavior: 'auto' });
 				codeEditorWidget.focus();
 			}
