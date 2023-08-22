@@ -9,6 +9,7 @@ import { JupyterKernel } from './JupyterKernel';
 import { JupyterMessagePacket } from './JupyterMessagePacket';
 import { JupyterCommMsg } from './JupyterCommMsg';
 import { JupyterCommClose } from './JupyterCommClose';
+import { PromiseHandles, delay } from './utils';
 
 /**
  * Adapts a Positron Language Runtime client widget to a Jupyter kernel.
@@ -25,7 +26,8 @@ export class RuntimeClientAdapter {
 		private readonly _id: string,
 		private readonly _type: positron.RuntimeClientType,
 		private readonly _params: object,
-		private readonly _kernel: JupyterKernel) {
+		private readonly _kernel: JupyterKernel,
+		private readonly _server_comm: boolean) {
 
 		// Wire event handlers for state changes
 		this._currentState = positron.RuntimeClientState.Uninitialized;
@@ -48,11 +50,63 @@ export class RuntimeClientAdapter {
 	/**
 	 * Opens the communications channel between the client and the runtime.
 	 */
-	public async open() {
+	public async open(): Promise<void> {
 		// Ask the kernel to open a comm channel for us
 		this._state.fire(positron.RuntimeClientState.Opening);
 		await this._kernel.openComm(this._type, this._id, this._params);
-		this._state.fire(positron.RuntimeClientState.Connected);
+
+		// If not a server comm, resolve immediately. If a server
+		// comm, we'll resolve when we get the notification message
+		// from the server indicating that it's ready to accept
+		// connections.
+		//
+		// NOTE: If the backend doesn't support this comm type, it
+		// will respond with a `comm_close` message. There is a
+		// short lapse of time where the comm will resolve, and
+		// messages sent during this time might not have any effect.
+		if (!this._server_comm) {
+			this._state.fire(positron.RuntimeClientState.Connected);
+			return;
+		}
+
+		const out = new PromiseHandles<void>();
+		let connected = false;
+
+		const handler = this.onDidChangeClientState(state => {
+			switch (state) {
+				case positron.RuntimeClientState.Connected: {
+					out.resolve();
+					connected = true;
+					handler.dispose();
+					break;
+				}
+				case positron.RuntimeClientState.Closing:
+				case positron.RuntimeClientState.Closed: {
+					out.reject(new Error( `Comm ${this._id} closed before connecting`));
+					handler.dispose();
+					break;
+				}
+				default: {
+					return;
+				}
+			}
+		});
+
+		await Promise.race([
+			out.promise,
+			delay(20000),
+		]);
+
+		if (!connected) {
+			// Send 'comm_close' event and update state to Closed
+			this.close();
+
+			const err = `Timeout while connecting to comm ${this._id}`;
+			this._kernel.log(err);
+			out.reject(new Error(err));
+		}
+
+		return out.promise;
 	}
 
 	/**
@@ -87,6 +141,7 @@ export class RuntimeClientAdapter {
 	 * Closes the communications channel between the client and the runtime.
 	 */
 	public close() {
+		// FIXME: Should we set ourselves to Closed here?
 		this._state.fire(positron.RuntimeClientState.Closing);
 		this._kernel.closeComm(this._id);
 	}
@@ -137,9 +192,17 @@ export class RuntimeClientAdapter {
 			return;
 		}
 
-		// If we are currently opening, we are now open
 		if (this._currentState === positron.RuntimeClientState.Opening) {
 			this._state.fire(positron.RuntimeClientState.Connected);
+
+			// Swallow server init message
+			if (this._server_comm && message.data.msg_type === 'server_started') {
+				return;
+			}
+
+			// Otherwise fall through, though this shouldn't happen: if
+			// not a server comm, we normally switch to a connected state
+			// earlier, before receiving any messages.
 		}
 
 		// TODO: forward message to client

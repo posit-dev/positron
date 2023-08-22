@@ -46,7 +46,7 @@ export interface JupyterLanguageRuntime extends positron.LanguageRuntime {
 	 * @param clientAddress The address of the client that will connect to the
 	 *  language server.
 	 */
-	startPositronLsp(clientAddress: string): void;
+	startPositronLsp(clientAddress: string): Thenable<void>;
 
 	/**
 	 * Method for emitting a message to the language server's Jupyter output

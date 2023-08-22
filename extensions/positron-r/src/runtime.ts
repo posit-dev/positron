@@ -185,7 +185,7 @@ export class RRuntime implements positron.LanguageRuntime, vscode.Disposable {
 				const port = await this.adapterApi!.findAvailablePort([], 25);
 				if (this._kernel) {
 					this._kernel.emitJupyterLog(`Starting Positron LSP server on port ${port}`);
-					this._kernel.startPositronLsp(`127.0.0.1:${port}`);
+					await this._kernel.startPositronLsp(`127.0.0.1:${port}`);
 				}
 				await this._lsp.activate(port, this.context);
 			});
