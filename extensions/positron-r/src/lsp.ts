@@ -51,63 +51,33 @@ export class ArkLsp implements vscode.Disposable {
 	 * @param port The port on which the language server is listening.
 	 * @param context The VSCode extension context.
 	 */
-	public async activate(port: number,
-		context: vscode.ExtensionContext): Promise<void> {
+	public async activate(
+		port: number,
+		_context: vscode.ExtensionContext
+	): Promise<void> {
 
 		// Clean up disposables from any previous activation
 		this.activationDisposables.forEach(d => d.dispose());
 		this.activationDisposables = [];
 
-		// Define server options for the language server; this is a callback
-		// that creates and returns the reader/writer stream for TCP
-		// communication. It will retry up to 20 times, with a back-off
-		// interval. We do this because the language server may not be
-		// ready to accept connections when we first try to connect.
+		// Define server options for the language server. Connects to `port`.
 		const serverOptions = async (): Promise<StreamInfo> => {
+			const out = new PromiseHandles<StreamInfo>();
+			const socket = new Socket();
 
-			const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+			socket.on('ready', () => {
+				const streams: StreamInfo = {
+					reader: socket,
+					writer: socket
+				};
+				out.resolve(streams);
+			});
+			socket.on('error', (error) => {
+				out.reject(error);
+			});
+			socket.connect(port);
 
-			const maxAttempts = 20;
-			const baseDelay = 50;
-			const multiplier = 1.5;
-
-			const tryToConnect = async (port: number): Promise<Socket> => {
-				return new Promise((resolve, reject) => {
-					const socket = new Socket();
-					socket.on('ready', () => {
-						resolve(socket);
-					});
-					socket.on('error', (error) => {
-						reject(error);
-					});
-					socket.connect(port);
-				});
-			};
-
-			for (let attempt = 0; attempt < maxAttempts; attempt++) {
-				// Retry up to five times then start to back-off
-				const interval = attempt < 6 ? baseDelay : baseDelay * multiplier * attempt;
-				if (attempt > 0) {
-					await delay(interval);
-				}
-
-				try {
-					// Try to connect to LSP port
-					const socket: Socket = await tryToConnect(port);
-					const streams: StreamInfo = {
-						reader: socket,
-						writer: socket
-					};
-					return streams;
-				} catch (error: any) {
-					if (error?.code === 'ECONNREFUSED') {
-						trace(`Error '${error.message}' on connection attempt '${attempt}' to Ark LSP (R ${this._version}) on port '${port}', will retry`);
-					} else {
-						throw error;
-					}
-				}
-			}
-			throw new Error(`Failed to create TCP connection to Ark LSP (R ${this._version}) on port ${port} after ${maxAttempts} attempts`);
+			return out.promise;
 		};
 
 		const clientOptions: LanguageClientOptions = {
