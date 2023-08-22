@@ -30,9 +30,13 @@ import { JediLanguageClientMiddleware } from '../activation/jedi/languageClientM
  * Provides Python language runtimes to Positron; implements
  * positron.LanguageRuntimeProvider.
  *
- * @param context The extension context.
+ * @param serviceContainer The Python extension's service container to use for dependency injection.
+ * @param runtimes A map from interpreter path to language runtime metadata.
  */
-export async function* pythonRuntimeProvider(serviceContainer: IServiceContainer): AsyncGenerator<positron.LanguageRuntime> {
+export async function* pythonRuntimeProvider(
+    serviceContainer: IServiceContainer,
+    runtimes: Map<string, positron.LanguageRuntimeMetadata>
+): AsyncGenerator<positron.LanguageRuntime> {
     const configService = serviceContainer.get<IConfigurationService>(IConfigurationService);
     const interpreterService = serviceContainer.get<IInterpreterService>(IInterpreterService);
     const installer = serviceContainer.get<IInstaller>(IInstaller);
@@ -184,6 +188,8 @@ export async function* pythonRuntimeProvider(serviceContainer: IServiceContainer
 
             // Create an adapter for the kernel to fulfill the LanguageRuntime interface.
             yield new PythonRuntime(kernelSpec, metadata, dynState, languageClientOptions, interpreter, installer);
+
+            runtimes.set(interpreter.path, metadata);
         }
     }
 }
