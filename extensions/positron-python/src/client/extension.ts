@@ -89,6 +89,11 @@ export async function activate(context: IExtensionContext): Promise<PythonExtens
 
     // --- Start Positron ---
 
+    // Wait for all extension components to be activated before starting Positron activation.
+    // This is already awaited in sendStartupTelemetry before this function returns, so it shouldn't
+    // affect any callers.
+    await ready;
+
     // Map of interpreter path to language runtime metadata, used to determine the runtimeId when
     // switching the active interpreter path.
     const runtimes = new Map<string, positron.LanguageRuntimeMetadata>();
