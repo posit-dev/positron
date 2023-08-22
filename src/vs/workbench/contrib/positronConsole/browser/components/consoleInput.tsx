@@ -12,8 +12,10 @@ import { generateUuid } from 'vs/base/common/uuid';
 import { isMacintosh } from 'vs/base/common/platform';
 import { DisposableStore } from 'vs/base/common/lifecycle';
 import { HistoryNavigator2 } from 'vs/base/common/history';
+import { ISelection } from 'vs/editor/common/core/selection';
 import { IKeyboardEvent } from 'vs/base/browser/keyboardEvent';
 import { useStateRef } from 'vs/base/browser/ui/react/useStateRef';
+import { CursorChangeReason } from 'vs/editor/common/cursorEvents';
 import { IEditorOptions } from 'vs/editor/common/config/editorOptions';
 import { CodeEditorWidget } from 'vs/editor/browser/widget/codeEditorWidget';
 import { ModesHoverController } from 'vs/editor/contrib/hover/browser/hover';
@@ -28,6 +30,7 @@ import { SelectionClipboardContributionID } from 'vs/workbench/contrib/codeEdito
 import { usePositronConsoleContext } from 'vs/workbench/contrib/positronConsole/browser/positronConsoleContext';
 import { IPositronConsoleInstance, PositronConsoleState } from 'vs/workbench/services/positronConsole/common/interfaces/positronConsoleService';
 import { RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { EditOperation, ISingleEditOperation } from 'vs/editor/common/core/editOperation';
 
 // Position enumeration.
 const enum Position {
@@ -550,51 +553,32 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 
 		// Add the onDidPasteText event handler.
 		disposableStore.add(props.positronConsoleInstance.onDidPasteText(text => {
-			// If there is a selection in the code editor widget, replace it with the text being
-			// pasted, remove the selection, and leave the cursor at the end of the pasted text.
-			const selection = codeEditorWidgetRef.current.getSelection();
-			if (selection && !selection.isEmpty()) {
-				// Execute an edit to replace the selection. The user can undo this.
-				codeEditorWidgetRef.current.executeEdits('console', [{
-					range: selection,
-					text,
-				}]);
-
-				// Remove the selection.
-				codeEditorWidgetRef.current.setSelection({
-					startLineNumber: 1,
-					startColumn: 1,
-					endLineNumber: 1,
-					endColumn: 1
-				});
-
-				// Leave the cursor at the end of the pasted text
-				codeEditorWidgetRef.current.setPosition({
-					lineNumber: selection.startLineNumber,
-					column: selection.startColumn + text.length
-				});
-			} else {
-				// Paste the text at the position of the code editor widget. The user can undo this.
-				const position = codeEditorWidget.getPosition();
-				if (position) {
-					codeEditorWidgetRef.current.executeEdits('console', [{
-						range: {
-							startLineNumber: position.lineNumber,
-							startColumn: position.column,
-							endLineNumber: position.lineNumber,
-							endColumn: position.column
-						},
-						text
-					}]);
-				} else {
-					// For some reason, the code editor widget has no position. Do the reasonable
-					// thing and tack the text onto the end of the current value.
-					const codeFragment = codeEditorWidgetRef.current.getValue();
-					codeEditorWidgetRef.current.setValue(codeFragment + text);
-					updateCodeEditorWidgetPosition(Position.Last, Position.Last);
-					codeEditorWidget.focus();
-				}
+			// Get the selections.
+			const selections = codeEditorWidgetRef.current.getSelections();
+			if (!selections || !selections.length) {
+				return;
 			}
+
+			// Build the edits and the updated selections.
+			const edits: ISingleEditOperation[] = [];
+			const updatedSelections: ISelection[] = [];
+			for (const selection of selections) {
+				edits.push(EditOperation.replace(selection, text));
+				updatedSelections.push({
+					selectionStartLineNumber: selection.selectionStartLineNumber,
+					selectionStartColumn: selection.selectionStartColumn + text.length,
+					positionLineNumber: selection.positionLineNumber,
+					positionColumn: selection.selectionStartColumn + text.length
+				});
+			}
+
+			// Execute the edits and set the updated selections.
+			codeEditorWidgetRef.current.executeEdits('console', edits);
+			codeEditorWidgetRef.current.setSelections(
+				updatedSelections,
+				'console',
+				CursorChangeReason.Paste
+			);
 		}));
 
 		// Add the onDidChangeState event handler.
