@@ -40,6 +40,7 @@ import { RuntimeItemReconnected } from 'vs/workbench/services/positronConsole/co
 import { RuntimeStartupFailure } from 'vs/workbench/contrib/positronConsole/browser/components/runtimeStartupFailure';
 import { IPositronConsoleInstance } from 'vs/workbench/services/positronConsole/common/interfaces/positronConsoleService';
 import { RuntimeItemStartupFailure } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemStartupFailure';
+import { useConsoleInstanceContext } from 'vs/workbench/contrib/positronConsole/browser/components/consoleInstanceContext';
 import { POSITRON_CONSOLE_COPY, POSITRON_CONSOLE_CUT, POSITRON_CONSOLE_PASTE, POSITRON_CONSOLE_SELECT_ALL } from 'vs/workbench/contrib/positronConsole/browser/positronConsoleIdentifiers';
 
 // ConsoleInstanceProps interface.
@@ -72,6 +73,7 @@ const getEditorFontInfo = (configurationService: IConfigurationService) => {
 export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 	// Context hooks.
 	const positronConsoleContext = usePositronConsoleContext();
+	const consoleInstanceContext = useConsoleInstanceContext();
 
 	// Reference hooks.
 	const consoleInstanceRef = useRef<HTMLDivElement>(undefined!);
@@ -398,6 +400,17 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 	 * @param e A UIEvent<HTMLDivElement> that describes a user interaction with the mouse.
 	 */
 	const scrollHandler = (e: UIEvent<HTMLDivElement>) => {
+		// Determine whether the console instance is scroll locked.
+		if (consoleInstanceRef.current.offsetHeight + consoleInstanceRef.current.scrollTop ===
+			consoleInstanceRef.current.scrollHeight) {
+			console.log('NOT SCROLL LOCKED');
+			consoleInstanceContext.setScrollLocked(false);
+		} else {
+			console.log('SCROLL LOCKED');
+			consoleInstanceContext.setScrollLocked(true);
+		}
+
+		// Set the last scroll top, when active.
 		if (props.active) {
 			setLastScrollTop(consoleInstanceRef.current.scrollTop);
 		}
