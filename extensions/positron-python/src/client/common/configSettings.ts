@@ -303,6 +303,10 @@ export class PythonSettings implements IPythonSettings {
         }
 
         // --- Start Positron ---
+        // Disable the extension's built-in language server management, we manage it ourselves
+        this.languageServer = LanguageServerType.None;
+        this.languageServerIsDefault = false;
+
         // Whether to enable the language server with pydebug enabled
         this.languageServerDebug = pythonSettings.get<boolean>('languageServerDebug') === true;
 
