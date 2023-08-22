@@ -815,6 +815,7 @@ export class LanguageRuntimeAdapter
 						internalConsoleOptions: 'neverOpen',
 					} as vscode.DebugConfiguration;
 					vscode.debug.startDebugging(undefined, config);
+					break;
 				}
 
 				// If the DAP has commands to execute, such as "n", "f", or "Q",
@@ -826,6 +827,13 @@ export class LanguageRuntimeAdapter
 						positron.RuntimeCodeExecutionMode.Interactive,
 						positron.RuntimeErrorBehavior.Stop
 					);
+					break;
+				}
+
+				// We use the restart button as a shortcut for restarting the runtime
+				case 'restart': {
+					this.restart();
+					break;
 				}
 			}
 		});
