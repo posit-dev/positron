@@ -405,15 +405,9 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 		// Determine whether the console instance is scroll locked.
 		if (consoleInstanceRef.current.offsetHeight + consoleInstanceRef.current.scrollTop ===
 			consoleInstanceRef.current.scrollHeight) {
-			if (scrollLocked) {
-				console.log('----------------- CLEARING SCROLL LOCKED');
-				setScrollLocked(false);
-			}
+			setScrollLocked(false);
 		} else {
-			if (!scrollLocked) {
-				console.log('----------------- SETTING SCROLL LOCKED');
-				setScrollLocked(true);
-			}
+			setScrollLocked(true);
 		}
 
 		// Set the last scroll top, when active.
