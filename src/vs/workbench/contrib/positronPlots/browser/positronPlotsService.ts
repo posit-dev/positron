@@ -199,8 +199,6 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 
 				// Raise the Plots pane so the plot is visible
 				this._viewsService.openView(POSITRON_PLOTS_VIEW_ID, false);
-
-				//shit
 			}
 		}));
 
