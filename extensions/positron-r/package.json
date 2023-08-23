@@ -147,6 +147,19 @@
           "r"
         ],
         "configuration": "./language-configuration.json"
+      },
+      {
+        "id": "debian-control.r",
+        "extensions": [
+          ".Rproj"
+        ],
+        "aliases": [
+          "R DCF"
+        ],
+        "filenames": [
+          "DESCRIPTION"
+        ],
+        "configuration": "./dcf-configuration.json"
       }
     ],
     "grammars": [
@@ -154,6 +167,14 @@
         "language": "r",
         "scopeName": "source.r",
         "path": "./syntaxes/r.tmGrammar.gen.json"
+      },
+      {
+        "language": "debian-control.r",
+        "scopeName": "debian-control.r",
+        "path": "./syntaxes/dcf.json",
+        "embeddedLanguages": {
+          "meta.embedded.block.r": "r"
+        }
       }
     ],
     "keybindings": [
