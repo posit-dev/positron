@@ -529,7 +529,9 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 					if (positronConsoleInstance === props.positronConsoleInstance) {
 						codeEditorWidget.focus();
 					}
-				}));
+				}
+			)
+		);
 
 		// Add the onDidChangeConfiguration event handler.
 		disposableStore.add(
@@ -542,13 +544,13 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 							...editorOptions
 						});
 					}
-				})
+				}
+			)
 		);
 
-		// Add the onActivateInput event handler.
-		disposableStore.add(props.positronConsoleInstance.onActivateInput(() => {
-			codeEditorWidgetContainerRef.current?.scrollIntoView({ behavior: 'auto' });
-			codeEditorWidget.focus();
+		// Add the onFocusInput event handler.
+		disposableStore.add(props.positronConsoleInstance.onFocusInput(() => {
+			codeEditorWidgetRef.current.focus();
 		}));
 
 		// Add the onDidPasteText event handler.

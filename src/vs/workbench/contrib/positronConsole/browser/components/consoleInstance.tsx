@@ -84,6 +84,7 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 	const [wordWrap, setWordWrap] = useState(props.positronConsoleInstance.wordWrap);
 	const [marker, setMarker] = useState(generateUuid());
 	const [, setLastScrollTop, lastScrollTopRef] = useStateRef(0);
+	const [scrollLocked, setScrollLocked] = useState(false);
 
 	/**
 	 * Gets the selection.
@@ -104,6 +105,15 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 
 		// Return the selection.
 		return selection;
+	};
+
+	/**
+	 * Pastes text.
+	 * @param text The text to paste.
+	 */
+	const pasteText = (text: string) => {
+		props.positronConsoleInstance.pasteText(text);
+		consoleInstanceRef.current.scrollTo(consoleInstanceRef.current.scrollLeft, consoleInstanceRef.current.scrollHeight);
 	};
 
 	/**
@@ -153,7 +163,7 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 			tooltip: '',
 			class: undefined,
 			enabled: clipboardText !== '',
-			run: () => props.positronConsoleInstance.pasteText(clipboardText)
+			run: () => pasteText(clipboardText)
 		});
 
 		// Push a separator.
@@ -254,14 +264,21 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 			setMarker(generateUuid());
 		}));
 
+		// Add the onDidExecuteCode event handler.
+		disposableStore.add(props.positronConsoleInstance.onDidExecuteCode(code => {
+			consoleInstanceRef.current.scrollTo(consoleInstanceRef.current.scrollLeft, consoleInstanceRef.current.scrollHeight);
+		}));
+
 		// Return the cleanup function that will dispose of the event handlers.
 		return () => disposableStore.dispose();
 	}, []);
 
 	// Experimental.
 	useEffect(() => {
-		props.positronConsoleInstance.activateInput();
-	}, [marker]);
+		if (!scrollLocked) {
+			consoleInstanceRef.current.scrollTo(0, consoleInstanceRef.current.scrollHeight);
+		}
+	}, [marker, scrollLocked]);
 
 	/**
 	 * onKeyDown event handler.
@@ -279,12 +296,19 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 		// Determine whether the cmd or ctrl key is pressed.
 		const cmdOrCtrlKey = isMacintosh ? e.metaKey : e.ctrlKey;
 
+		// When the user presses a key in the console instance, activate the input and clear scroll
+		// lock. This has the effect of driving the keystroke into the code editor widget.
+		if (!cmdOrCtrlKey) {
+			props.positronConsoleInstance.focusInput();
+			return;
+		}
+
 		// Process the key.
 		switch (e.code) {
 			// A key.
 			case 'KeyA': {
 				// Handle select all shortcut.
-				if (cmdOrCtrlKey && getSelection()) {
+				if (getSelection()) {
 					// Consume the event.
 					consumeEvent();
 
@@ -296,42 +320,25 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 
 			// C key.
 			case 'KeyC': {
-				// Handle copy shortcut.
-				if (cmdOrCtrlKey) {
-					// Consume the event.
-					consumeEvent();
+				// Consume the event.
+				consumeEvent();
 
-					// Get the selection. If there is one, copy it to the clipboard.
-					const selection = getSelection();
-					if (selection) {
-						// Copy the selection to the clipboard.
-						positronConsoleContext.clipboardService.writeText(selection.toString());
-					}
+				// Get the selection. If there is one, copy it to the clipboard.
+				const selection = getSelection();
+				if (selection) {
+					// Copy the selection to the clipboard.
+					positronConsoleContext.clipboardService.writeText(selection.toString());
 				}
 				break;
 			}
 
 			// V key.
 			case 'KeyV': {
-				// Handle paste shortcut.
-				if (cmdOrCtrlKey) {
-					// Consume the event.
-					consumeEvent();
+				// Consume the event.
+				consumeEvent();
 
-					// Paste the text.
-					const clipboardText = await positronConsoleContext.clipboardService.readText();
-					props.positronConsoleInstance.pasteText(clipboardText);
-				}
-				break;
-			}
-
-			// Other keys.
-			default: {
-				// When the user presses another key, drive focus to the console input. This has the
-				// effect of driving the onKeyDown event to the CodeEditorWidget.
-				if (!cmdOrCtrlKey) {
-					props.positronConsoleInstance.activateInput();
-				}
+				// Paste text.
+				pasteText(await positronConsoleContext.clipboardService.readText());
 				break;
 			}
 		}
@@ -397,6 +404,15 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 	 * @param e A UIEvent<HTMLDivElement> that describes a user interaction with the mouse.
 	 */
 	const scrollHandler = (e: UIEvent<HTMLDivElement>) => {
+		// Determine whether the console instance is scroll locked.
+		if (consoleInstanceRef.current.offsetHeight + consoleInstanceRef.current.scrollTop ===
+			consoleInstanceRef.current.scrollHeight) {
+			setScrollLocked(false);
+		} else {
+			setScrollLocked(true);
+		}
+
+		// Set the last scroll top, when active.
 		if (props.active) {
 			setLastScrollTop(consoleInstanceRef.current.scrollTop);
 		}
