@@ -217,6 +217,9 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 			if (imageKey) {
 				this.registerStaticPlot(runtime.metadata.runtimeId, message, code);
 			}
+
+			// Raise the Plots pane so the plot is visible
+			this._viewsService.openView(POSITRON_PLOTS_VIEW_ID, false);
 		}));
 	}
 
