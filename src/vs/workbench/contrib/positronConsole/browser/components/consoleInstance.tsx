@@ -338,7 +338,7 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 				// Consume the event.
 				consumeEvent();
 
-				// Paste.
+				// Paste text.
 				pasteText(await positronConsoleContext.clipboardService.readText());
 				break;
 			}
