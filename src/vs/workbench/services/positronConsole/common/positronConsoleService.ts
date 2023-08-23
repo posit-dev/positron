@@ -2,8 +2,8 @@
  *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
+import { Emitter } from 'vs/base/common/event';
 import { generateUuid } from 'vs/base/common/uuid';
-import { Emitter, Event } from 'vs/base/common/event';
 import { ILogService } from 'vs/platform/log/common/log';
 import { IViewsService } from 'vs/workbench/common/views';
 import { ILanguageService } from 'vs/editor/common/languages/language';
@@ -441,9 +441,9 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	private _promptActive = false;
 
 	/**
-	 * The onActivateInput event emitter.
+	 * The _onFocusInput event emitter.
 	 */
-	private readonly _onActivateInputEmitter = this._register(new Emitter<void>);
+	private readonly _onFocusInputEmitter = this._register(new Emitter<void>);
 
 	/**
 	 * The onDidChangeState event emitter.
@@ -563,55 +563,55 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	}
 
 	/**
-	 * onActivateInput event.
+	 * onFocusInput event.
 	 */
-	readonly onActivateInput: Event<void> = this._onActivateInputEmitter.event;
+	readonly onFocusInput = this._onFocusInputEmitter.event;
 
 	/**
 	 * onDidChangeState event.
 	 */
-	readonly onDidChangeState: Event<PositronConsoleState> = this._onDidChangeStateEmitter.event;
+	readonly onDidChangeState = this._onDidChangeStateEmitter.event;
 
 	/**
 	 * onDidChangeTrace event.
 	 */
-	readonly onDidChangeTrace: Event<boolean> = this._onDidChangeTraceEmitter.event;
+	readonly onDidChangeTrace = this._onDidChangeTraceEmitter.event;
 
 	/**
 	 * onDidChangeWordWrap event.
 	 */
-	readonly onDidChangeWordWrap: Event<boolean> = this._onDidChangeWordWrapEmitter.event;
+	readonly onDidChangeWordWrap = this._onDidChangeWordWrapEmitter.event;
 
 	/**
 	 * onDidChangeRuntimeItems event.
 	 */
-	readonly onDidChangeRuntimeItems: Event<RuntimeItem[]> = this._onDidChangeRuntimeItemsEmitter.event;
+	readonly onDidChangeRuntimeItems = this._onDidChangeRuntimeItemsEmitter.event;
 
 	/**
 	 * onDidPasteText event.
 	 */
-	readonly onDidPasteText: Event<string> = this._onDidPasteTextEmitter.event;
+	readonly onDidPasteText = this._onDidPasteTextEmitter.event;
 
 	/**
 	 * onDidClearConsole event.
 	 */
-	readonly onDidClearConsole: Event<void> = this._onDidClearConsoleEmitter.event;
+	readonly onDidClearConsole = this._onDidClearConsoleEmitter.event;
 
 	/**
 	 * onDidClearInputHistory event.
 	 */
-	readonly onDidClearInputHistory: Event<void> = this._onDidClearInputHistoryEmitter.event;
+	readonly onDidClearInputHistory = this._onDidClearInputHistoryEmitter.event;
 
 	/**
 	 * onDidExecuteCode event.
 	 */
-	readonly onDidExecuteCode: Event<string> = this._onDidExecuteCodeEmitter.event;
+	readonly onDidExecuteCode = this._onDidExecuteCodeEmitter.event;
 
 	/**
-	 * Activates the input for the console.
+	 * Focuses the input for the console.
 	 */
-	activateInput(): void {
-		this._onActivateInputEmitter.fire();
+	focusInput(): void {
+		this._onFocusInputEmitter.fire();
 	}
 
 	/**
@@ -634,6 +634,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	 * Pastes text into the console.
 	 */
 	pasteText(text: string): void {
+		this._onFocusInputEmitter.fire();
 		this._onDidPasteTextEmitter.fire(text);
 	}
 

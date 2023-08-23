@@ -26,7 +26,6 @@ import { TabCompletionController } from 'vs/workbench/contrib/snippets/browser/t
 import { IInputHistoryEntry } from 'vs/workbench/contrib/executionHistory/common/executionHistoryService';
 import { SelectionClipboardContributionID } from 'vs/workbench/contrib/codeEditor/browser/selectionClipboard';
 import { usePositronConsoleContext } from 'vs/workbench/contrib/positronConsole/browser/positronConsoleContext';
-import { useConsoleInstanceContext } from 'vs/workbench/contrib/positronConsole/browser/components/consoleInstanceContext';
 import { IPositronConsoleInstance, PositronConsoleState } from 'vs/workbench/services/positronConsole/common/interfaces/positronConsoleService';
 import { RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 
@@ -51,7 +50,6 @@ export interface ConsoleInputProps {
 export const ConsoleInput = (props: ConsoleInputProps) => {
 	// Context hooks.
 	const positronConsoleContext = usePositronConsoleContext();
-	const consoleInstanceContext = useConsoleInstanceContext();
 
 	// Reference hooks.
 	const codeEditorWidgetContainerRef = useRef<HTMLDivElement>(undefined!);
@@ -84,11 +82,8 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 			// Set the code editor widget position.
 			codeEditorWidgetRef.current.setPosition({ lineNumber, column });
 
-			// Ensure that the code editor widget is scrolled into view when the console instance
-			// isn't scroll locked.
-			if (!consoleInstanceContext.getScrollLocked()) {
-				codeEditorWidgetContainerRef.current?.scrollIntoView({ behavior: 'auto' });
-			}
+			// Ensure that the code editor widget is scrolled into view.
+			codeEditorWidgetContainerRef.current?.scrollIntoView({ behavior: 'auto' });
 		}
 	};
 
@@ -550,14 +545,9 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 			)
 		);
 
-		// Add the onActivateInput event handler.
-		disposableStore.add(props.positronConsoleInstance.onActivateInput(() => {
-			// If the console instance isn't scroll locked, scroll the code editor widget into view
-			// and focus it.
-			if (!consoleInstanceContext.getScrollLocked()) {
-				codeEditorWidgetContainerRef.current?.scrollIntoView({ behavior: 'auto' });
-				codeEditorWidget.focus();
-			}
+		// Add the onFocusInput event handler.
+		disposableStore.add(props.positronConsoleInstance.onFocusInput(() => {
+			codeEditorWidgetRef.current.focus();
 		}));
 
 		// Add the onDidPasteText event handler.

@@ -9,7 +9,6 @@ import { ActionBar } from 'vs/workbench/contrib/positronConsole/browser/componen
 import { EmptyConsole } from 'vs/workbench/contrib/positronConsole/browser/components/emptyConsole';
 import { ConsoleInstance } from 'vs/workbench/contrib/positronConsole/browser/components/consoleInstance';
 import { usePositronConsoleContext } from 'vs/workbench/contrib/positronConsole/browser/positronConsoleContext';
-import { ConsoleInstanceContextProvider } from 'vs/workbench/contrib/positronConsole/browser/components/consoleInstanceContext';
 
 // ConsoleCoreProps interface.
 interface ConsoleCoreProps {
@@ -41,16 +40,14 @@ export const ConsoleCore = (props: ConsoleCoreProps) => {
 			<ActionBar {...props} />
 			<div className='console-instances-container' style={{ width: props.width, height: adjustedHeight }}>
 				{positronConsoleContext.positronConsoleInstances.map(positronConsoleInstance =>
-					<ConsoleInstanceContextProvider>
-						<ConsoleInstance
-							key={positronConsoleInstance.runtime.metadata.languageId}
-							active={positronConsoleInstance === positronConsoleContext.activePositronConsoleInstance}
-							width={props.width}
-							height={adjustedHeight}
-							positronConsoleInstance={positronConsoleInstance}
-							reactComponentContainer={props.reactComponentContainer}
-						/>
-					</ConsoleInstanceContextProvider>
+					<ConsoleInstance
+						key={positronConsoleInstance.runtime.metadata.languageId}
+						active={positronConsoleInstance === positronConsoleContext.activePositronConsoleInstance}
+						width={props.width}
+						height={adjustedHeight}
+						positronConsoleInstance={positronConsoleInstance}
+						reactComponentContainer={props.reactComponentContainer}
+					/>
 				)}
 			</div>
 		</div>
