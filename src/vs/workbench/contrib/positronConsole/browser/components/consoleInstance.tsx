@@ -237,7 +237,6 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 
 		// Add the onDidChangeState event handler.
 		disposableStore.add(props.positronConsoleInstance.onDidChangeState(state => {
-			// TODO
 		}));
 
 		// Add the onDidChangeTrace event handler.
