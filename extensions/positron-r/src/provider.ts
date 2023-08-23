@@ -172,7 +172,7 @@ export async function* rRuntimeProvider(context: vscode.ExtensionContext): Async
 				'User' : 'System';
 
 		// R script to run on session startup
-		const startupFile = path.join(context.extensionPath, 'scripts', 'startup.R');
+		const startupFile = path.join(context.extensionPath, 'resources', 'scripts', 'startup.R');
 
 		// Create a kernel spec for this R installation
 		const kernelSpec: JupyterKernelSpec = {
