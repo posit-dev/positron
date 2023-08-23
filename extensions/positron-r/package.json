@@ -151,7 +151,8 @@
       {
         "id": "debian-control.r",
         "extensions": [
-          ".Rproj"
+          ".Rproj",
+          ".dcf"
         ],
         "aliases": [
           "R DCF"
