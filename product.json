@@ -151,8 +151,7 @@
 			"envCollectionOptions"
 		],
 		"ms-dotnettools.dotnet-interactive-vscode": [
-			"notebookMessaging",
-			"languageConfigurationAutoClosingPairs"
+			"notebookMessaging"
 		],
 		"GitHub.codespaces": [
 			"contribEditSessions",
@@ -208,7 +207,6 @@
 		"ms-vscode.remote-server": [
 			"resolvers",
 			"tunnels",
-			"tunnelFactory",
 			"contribViewsWelcome"
 		],
 		"ms-vscode.remote-explorer": [
@@ -243,8 +241,6 @@
 			"codiconDecoration",
 			"diffCommand",
 			"contribCommentEditorActionsMenu",
-			"readonlyMessage",
-			"treeViewMarkdownMessage",
 			"treeItemCheckbox",
 			"shareProvider",
 			"quickDiffProvider"
@@ -261,7 +257,6 @@
 			"interactiveUserActions",
 			"semanticSimilarity",
 			"terminalDataWriteEvent",
-			"terminalSelection",
 			"terminalQuickFixProvider"
 		],
 		"GitHub.remotehub": [
@@ -336,6 +331,13 @@
 		"microsoft-IsvExpTools.powerplatform-vscode-preview": [
 			"fileSearchProvider",
 			"textSearchProvider"
+		],
+		"jeanp413.open-remote-ssh": [
+			"resolvers",
+			"tunnels",
+			"terminalDataWriteEvent",
+			"contribRemoteHelp",
+			"contribViewsRemote"
 		]
 	}
 }
