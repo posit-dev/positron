@@ -1,5 +1,5 @@
 {
-	"scopeName": "debian-control.r",
+	"scopeName": "debian-control-file",
 	"patterns": [
 		{
 			"include": "#keyword"
