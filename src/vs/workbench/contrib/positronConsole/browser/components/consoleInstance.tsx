@@ -111,7 +111,7 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 	 * Pastes text.
 	 * @param text The text to paste.
 	 */
-	const paste = (text: string) => {
+	const pasteText = (text: string) => {
 		props.positronConsoleInstance.pasteText(text);
 		consoleInstanceRef.current.scrollTo(consoleInstanceRef.current.scrollLeft, consoleInstanceRef.current.scrollHeight);
 	};
@@ -163,7 +163,7 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 			tooltip: '',
 			class: undefined,
 			enabled: clipboardText !== '',
-			run: () => paste(clipboardText)
+			run: () => pasteText(clipboardText)
 		});
 
 		// Push a separator.
@@ -339,7 +339,7 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 				consumeEvent();
 
 				// Paste.
-				paste(await positronConsoleContext.clipboardService.readText());
+				pasteText(await positronConsoleContext.clipboardService.readText());
 				break;
 			}
 		}
