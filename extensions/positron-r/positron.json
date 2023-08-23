@@ -5,6 +5,10 @@
 			"to": "resources/branding"
 		},
 		{
+			"from": "resources/scripts/startup.R",
+			"to": "resources/scripts"
+		},
+		{
 			"from": "./amalthea/target/release/ark",
 			"to": "./dist/bin"
 		},
