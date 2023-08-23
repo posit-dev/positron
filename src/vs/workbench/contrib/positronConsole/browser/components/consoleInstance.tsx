@@ -107,8 +107,11 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 		return selection;
 	};
 
+	/**
+	 * Pastes text.
+	 * @param text The text to paste.
+	 */
 	const paste = (text: string) => {
-		props.positronConsoleInstance.focusInput();
 		props.positronConsoleInstance.pasteText(text);
 		consoleInstanceRef.current.scrollTo(consoleInstanceRef.current.scrollLeft, consoleInstanceRef.current.scrollHeight);
 	};
