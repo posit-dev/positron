@@ -9,7 +9,7 @@ import { PositronConsoleServices, PositronConsoleState, usePositronConsoleState 
 /**
  * Create the Positron console context.
  */
-const PositronConsoleContext = createContext<PositronConsoleState>(undefined!);
+const positronConsoleContext = createContext<PositronConsoleState>(undefined!);
 
 /**
  * Export the PositronConsoleContextProvider provider
@@ -20,13 +20,13 @@ export const PositronConsoleContextProvider = (props: PropsWithChildren<Positron
 
 	// Render.
 	return (
-		<PositronConsoleContext.Provider value={positronConsoleState}>
+		<positronConsoleContext.Provider value={positronConsoleState}>
 			{props.children}
-		</PositronConsoleContext.Provider>
+		</positronConsoleContext.Provider>
 	);
 };
 
 /**
  * Export usePositronConsoleContext to simplify using the Positron console context object.
  */
-export const usePositronConsoleContext = () => useContext(PositronConsoleContext);
+export const usePositronConsoleContext = () => useContext(positronConsoleContext);

@@ -106,9 +106,9 @@ export interface IPositronConsoleInstance {
 	readonly promptActive: boolean;
 
 	/**
-	 * The onActivateInput event.
+	 * The onFocusInput event.
 	 */
-	readonly onActivateInput: Event<void>;
+	readonly onFocusInput: Event<void>;
 
 	/**
 	 * The onDidChangeState event.
@@ -151,9 +151,9 @@ export interface IPositronConsoleInstance {
 	readonly onDidExecuteCode: Event<string>;
 
 	/**
-	 * Activates the input for the console.
+	 * Focuses the input for the console.
 	 */
-	activateInput(): void;
+	focusInput(): void;
 
 	/**
 	 * Toggles trace.
