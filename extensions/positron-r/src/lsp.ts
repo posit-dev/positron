@@ -3,6 +3,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import * as positron from 'positron';
 import { PromiseHandles } from './util';
 
 import {
@@ -129,9 +130,12 @@ export class ArkLsp implements vscode.Disposable {
 	/**
 	 * Stops the client instance.
 	 *
+	 * @param awaitStop If true, waits for the client to stop before returning.
+	 *   This should be set to `true` if the server process is still running, and
+	 *   `false` if the server process has already exited.
 	 * @returns A promise that resolves when the client has been stopped.
 	 */
-	public async deactivate() {
+	public async deactivate(awaitStop: boolean) {
 		if (!this._client) {
 			// No client to stop, so just resolve
 			return;
@@ -147,18 +151,22 @@ export class ArkLsp implements vscode.Disposable {
 		// partially initialized client.
 		await this._initializing;
 
-		// The promise returned by `stop()` never resolves if the server side is
-		// disconnected, so rather than awaiting it, we wait for the client to
-		// change state to `stopped`, which does happen reliably.
-		const promise = new Promise<void>((resolve) => {
-			const disposable = this._client!.onDidChangeState((event) => {
-				if (event.newState === State.Stopped) {
-					resolve();
-					disposable.dispose();
-				}
+		const promise = awaitStop ?
+			// If the kernel hasn't exited, we can just await the promise directly
+			this._client!.stop() :
+			// The promise returned by `stop()` never resolves if the server
+			// side is disconnected, so rather than awaiting it when the runtime
+			// has exited, we wait for the client to change state to `stopped`,
+			// which does happen reliably.
+			new Promise<void>((resolve) => {
+				const disposable = this._client!.onDidChangeState((event) => {
+					if (event.newState === State.Stopped) {
+						resolve();
+						disposable.dispose();
+					}
+				});
+				this._client!.stop();
 			});
-			this._client!.stop();
-		});
 
 		// Don't wait more than a couple of seconds for the client to stop.
 		const timeout = new Promise<void>((_, reject) => {
@@ -183,6 +191,6 @@ export class ArkLsp implements vscode.Disposable {
 	 */
 	async dispose() {
 		this.activationDisposables.forEach(d => d.dispose());
-		await this.deactivate();
+		await this.deactivate(false);
 	}
 }
