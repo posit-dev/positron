@@ -770,7 +770,9 @@ export class LanguageRuntimeAdapter
 	 * Requests that the kernel start a Debug Adapter Protocol server, and
 	 * connect it to the client locally on the given TCP port.
 	 *
-	 * @param serverPort The client's TCP port.
+	 * @param serverPort The port on which to bind locally.
+	 * @param debugType Passed as `vscode.DebugConfiguration.type`.
+	 * @param debugName Passed as `vscode.DebugConfiguration.name`.
 	 */
 	async startPositronDap(
 		serverPort: number,

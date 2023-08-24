@@ -52,8 +52,9 @@ export interface JupyterLanguageRuntime extends positron.LanguageRuntime {
 	 * Convenience method for starting the Positron DAP server, if the
 	 * language runtime supports it.
 	 *
-	 * @param clientPort The port of the client that will connect to the
-	 *  language server.
+	 * @param serverPort The port on which to bind locally.
+	 * @param debugType Passed as `vscode.DebugConfiguration.type`.
+	 * @param debugName Passed as `vscode.DebugConfiguration.name`.
 	 */
 	startPositronDap(
 		serverPort: number,
