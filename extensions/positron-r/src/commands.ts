@@ -103,7 +103,9 @@ async function detectRPackage(): Promise<boolean> {
 			const descriptionLines = descriptionText.split(/(\r?\n)/);
 			const packageLines = descriptionLines.filter(line => line.startsWith('Package:'));
 			const typeLines = descriptionLines.filter(line => line.startsWith('Type:'));
-			const typeIsPackage = typeLines[0].toLowerCase().includes('package');
+			const typeIsPackage = (typeLines.length > 0
+				? typeLines[0].toLowerCase().includes('package')
+				: false);
 			const typeIsPackageOrMissing = typeLines.length === 0 || typeIsPackage;
 			return packageLines.length > 0 && typeIsPackageOrMissing;
 		} catch { }
