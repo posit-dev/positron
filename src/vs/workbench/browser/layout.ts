@@ -2482,7 +2482,10 @@ const LayoutStateKeys = {
 	EDITOR_HIDDEN: new RuntimeStateKey<boolean>('editor.hidden', StorageScope.WORKSPACE, StorageTarget.MACHINE, false),
 	PANEL_HIDDEN: new RuntimeStateKey<boolean>('panel.hidden', StorageScope.WORKSPACE, StorageTarget.MACHINE, true),
 	AUXILIARYBAR_HIDDEN: new RuntimeStateKey<boolean>('auxiliaryBar.hidden', StorageScope.WORKSPACE, StorageTarget.MACHINE, true),
+	// --- Start Positron ---
+	// Change default to true.
 	STATUSBAR_HIDDEN: new RuntimeStateKey<boolean>('statusBar.hidden', StorageScope.WORKSPACE, StorageTarget.MACHINE, true, true)
+	// --- End Positron ---
 
 } as const;
 
@@ -2521,8 +2524,6 @@ class LayoutStateModel extends Disposable {
 		private readonly container: HTMLElement
 	) {
 		super();
-
-		this.contextService.getCompleteWorkspace();
 
 		this._register(this.configurationService.onDidChangeConfiguration(configurationChange => this.updateStateFromLegacySettings(configurationChange)));
 	}
@@ -2580,22 +2581,23 @@ class LayoutStateModel extends Disposable {
 		const workbenchDimensions = getClientArea(this.container);
 		LayoutStateKeys.PANEL_POSITION.defaultValue = positionFromString(this.configurationService.getValue(WorkbenchLayoutSettings.PANEL_POSITION) ?? 'bottom');
 		LayoutStateKeys.GRID_SIZE.defaultValue = { height: workbenchDimensions.height, width: workbenchDimensions.width };
+		LayoutStateKeys.SIDEBAR_SIZE.defaultValue = Math.min(300, workbenchDimensions.width / 4);
+		LayoutStateKeys.AUXILIARYBAR_SIZE.defaultValue = Math.min(300, workbenchDimensions.width / 4);
 		// --- Start Positron ---
-		// LayoutStateKeys.SIDEBAR_SIZE.defaultValue = Math.min(300, workbenchDimensions.width / 4);
-		// LayoutStateKeys.AUXILIARYBAR_SIZE.defaultValue = Math.min(300, workbenchDimensions.width / 4);
+		// Override LayoutStateKeys.SIDEBAR_SIZE.defaultValue and LayoutStateKeys.AUXILIARYBAR_SIZE.defaultValue.
 		LayoutStateKeys.SIDEBAR_SIZE.defaultValue = Math.min(SIDEBAR_PART_MINIMUM_WIDTH, Math.round(workbenchDimensions.width / 4)); // 170 mirrors minimumWidth in sidebarPart.ts.
 		LayoutStateKeys.AUXILIARYBAR_SIZE.defaultValue = Math.round(workbenchDimensions.width * 0.45);
 		// --- End Positron ---
 		LayoutStateKeys.PANEL_SIZE.defaultValue = (this.stateCache.get(LayoutStateKeys.PANEL_POSITION.name) ?? LayoutStateKeys.PANEL_POSITION.defaultValue) === 'bottom' ? workbenchDimensions.height / 3 : workbenchDimensions.width / 4;
 		LayoutStateKeys.SIDEBAR_HIDDEN.defaultValue = this.contextService.getWorkbenchState() === WorkbenchState.EMPTY;
+
 		// --- Start Positron ---
+		// In Positron, the auxiliary bar and panel are not hidden by default and the panel defaults
+		// to 50% height.
 		LayoutStateKeys.AUXILIARYBAR_HIDDEN.defaultValue = false;
 		LayoutStateKeys.PANEL_HIDDEN.defaultValue = false;
-
-		// For Private Alpha, hide the editor by default. This will cause the panel to become
-		// maximized.
-		LayoutStateKeys.EDITOR_HIDDEN.defaultValue = true;
-		// --- End Positron ---
+		LayoutStateKeys.PANEL_SIZE.defaultValue = workbenchDimensions.height / 2;
+		// // --- End Positron ---
 
 		// Apply all defaults
 		for (key in LayoutStateKeys) {
