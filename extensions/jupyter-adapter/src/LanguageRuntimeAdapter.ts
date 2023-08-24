@@ -836,6 +836,11 @@ export class LanguageRuntimeAdapter
 					this.restart();
 					break;
 				}
+
+				default: {
+					this._kernel.log(`Unknown DAP command: ${msg.msg_type}`);
+					break;
+				}
 			}
 		}));
 	}
