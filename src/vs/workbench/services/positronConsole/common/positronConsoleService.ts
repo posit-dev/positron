@@ -305,6 +305,7 @@ class PositronConsoleService extends Disposable implements IPositronConsoleServi
 		const runningLanguageRuntimes = this._languageRuntimeService.runningRuntimes.filter(
 			runtime => isImplicitStartupLanguage(runtime, languageId));
 
+		// If there isn't a running runtime for the language, start one.
 		if (!runningLanguageRuntimes.length) {
 			// Get the registered runtimes for the language.
 			const languageRuntimes = this._languageRuntimeService.registeredRuntimes.filter(
@@ -321,13 +322,13 @@ class PositronConsoleService extends Disposable implements IPositronConsoleServi
 				`for the language.`);
 		}
 
+		// Get the Positron console instance for the language ID.
 		const positronConsoleInstance = this._positronConsoleInstancesByLanguageId.get(languageId);
-
 		if (!positronConsoleInstance) {
 			return false;
 		}
 
-		// Activate the Positron console instance, if it isn't active.
+		// If we're supposed to, activate the Positron console instance, if it isn't active.
 		if (activate && positronConsoleInstance !== this._activePositronConsoleInstance) {
 			this.setActivePositronConsoleInstance(positronConsoleInstance);
 		}
