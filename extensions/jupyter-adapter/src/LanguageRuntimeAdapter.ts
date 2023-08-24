@@ -42,6 +42,7 @@ export class LanguageRuntimeAdapter
 	private _kernelState: positron.RuntimeState = positron.RuntimeState.Uninitialized;
 	private _restarting = false;
 	private static _clientCounter = 0;
+	private _disposables: vscode.Disposable[] = [];
 
 	/** A map of message IDs that are awaiting responses to RPC handlers to invoke when a response is received */
 	private readonly _pendingRpcs: Map<string, JupyterRpc<any, any>> = new Map();
@@ -800,7 +801,7 @@ export class LanguageRuntimeAdapter
 
 		// Handle events from the DAP
 		const comm = this._comms.get(clientId)!;
-		comm.onDidReceiveCommMsg(msg => {
+		this._disposables.push(comm.onDidReceiveCommMsg(msg => {
 			switch (msg.msg_type) {
 				// The runtime is in control of when to start a debug session.
 				// When this happens, we attach automatically to the runtime
@@ -836,7 +837,7 @@ export class LanguageRuntimeAdapter
 					break;
 				}
 			}
-		});
+		}));
 	}
 
 	/**
@@ -846,6 +847,10 @@ export class LanguageRuntimeAdapter
 		// Turn off all listeners
 		this._kernel.removeListener('message', this.onMessage);
 		this._kernel.removeListener('status', this.onStatus);
+
+		// Dispose this before the comms since there might be event listeners
+		// to dispose of first
+		this._disposables.forEach(d => d.dispose());
 
 		// Tear down all open comms
 		for (const comm of this._comms.values()) {
