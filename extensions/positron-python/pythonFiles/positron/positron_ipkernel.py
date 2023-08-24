@@ -49,6 +49,7 @@ POSITON_NS_HIDDEN = {
     "_exit_code": {},
     "__pydevd_ret_val_dict": {},
     "__warningregistry__": {},
+    "__nonzero__": {},
 }
 """Additional variables to hide from the user's namespace."""
 
