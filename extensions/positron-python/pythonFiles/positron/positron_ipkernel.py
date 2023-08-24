@@ -168,10 +168,20 @@ class PositronIPyKernel(IPythonKernel):
             self.shell.display_pub.register_hook(self.display_pub_hook)
         else:
             logger.warning(f"Unable to register display publisher hook on shell: {self.shell}")
+
+        # Ignore warnings that the user can't do anything about
         warnings.filterwarnings(
             "ignore",
             category=UserWarning,
             message="Matplotlib is currently using module://matplotlib_inline.backend_inline",
+        )
+        # Trying to import a module that's "auto-imported" by Jedi shows a warning in the Positron
+        # Console.
+        warnings.filterwarnings(
+            "ignore",
+            category=UserWarning,
+            message=r"Module [^\s]+ not importable in path",
+            module="jedi",
         )
 
         # Setup Positron's dataviewer service
