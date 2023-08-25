@@ -1,5 +1,5 @@
 {
-	"scopeName": "debian-control-file",
+	"scopeName": "source.dcf",
 	"patterns": [
 		{
 			"include": "#keyword"
@@ -22,7 +22,7 @@
 			"patterns": [
 				{
 					"comment": "keyword",
-					"match": "^(?!(Authors@R:|linters:|exclusions:)).*?:",
+					"match": "^(?!(Authors@R:|linters:|exclusions:|Roxygen:)).*?:",
 					"name": "keyword.control"
 				}
 			]
@@ -62,7 +62,7 @@
 			],
 			"repository": {
 				"code-block-r": {
-					"begin": "^(Authors@R:|linters:|exclusions:)",
+					"begin": "^(Authors@R:|linters:|exclusions:|Roxygen:)",
 					"beginCaptures": {
 						"1": {
 							"name": "keyword.control"

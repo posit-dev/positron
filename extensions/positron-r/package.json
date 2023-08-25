@@ -172,8 +172,8 @@
       },
       {
         "language": "debian-control-file",
-        "scopeName": "debian-control-file",
-        "path": "./syntaxes/dcf.tmGrammar.json",
+        "scopeName": "source.dcf",
+        "path": "./syntaxes/dcf.tmLanguage.json",
         "embeddedLanguages": {
           "meta.embedded.block.r": "r"
         }
