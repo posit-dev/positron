@@ -17,7 +17,7 @@ jobs:
     # possible to connect to the live session for debugging purposes with
     # the `screen -r` command.
     name: Revive build agent
-    runs-on: [self-hosted, linux]
+    runs-on: linux
     steps:
       # Establish an SSH agent into which we can load the key. The build host
       # has the public side of this trusted keypair.
