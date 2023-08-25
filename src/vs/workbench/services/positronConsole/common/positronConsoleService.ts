@@ -688,6 +688,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	 * @param codeFragment The code fragment to execute.
 	 */
 	executeCode(codeFragment: string): void {
+		// Queue code...
 		this._onDidExecuteCodeEmitter.fire(codeFragment);
 	}
 
