@@ -1177,10 +1177,9 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 			// We are currently attached; detach.
 			this._runtimeAttached = false;
 
-			// Ensure all inputs are marked as idle. When a runtime exits, it
-			// may not send an Idle message corresponding to the command that
-			// caused it to exit (for instance if the command causes the runtime
-			// to crash).
+			// Clear the executing state of all ActivityItemInputs inputs. When a runtime exits, it
+			// may not send an Idle message corresponding to the command that caused it to exit (for
+			// instance if the command causes the runtime to crash).
 			for (const activity of this._runtimeItemActivities.values()) {
 				for (const item of activity.activityItems) {
 					if (item instanceof ActivityItemInput) {
