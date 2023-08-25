@@ -76,7 +76,7 @@ export class RInstallation {
 
 		const versionPart = builtParts[0];
 		this.semVersion = semver.coerce(versionPart) ?? new semver.SemVer('0.0.1');
-		this.version = `${semver.major(this.semVersion)}.${semver.minor(this.semVersion)}`;
+		this.version = `${semver.major(this.semVersion)}.${semver.minor(this.semVersion)}.${semver.patch(this.semVersion)}`;
 
 		const platformPart = builtParts[1];
 		const architecture = platformPart.match('^(aarch64|x86_64)');
