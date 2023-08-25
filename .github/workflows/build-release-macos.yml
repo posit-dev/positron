@@ -17,7 +17,7 @@ jobs:
     # possible to connect to the live session for debugging purposes with
     # the `screen -r` command.
     name: Revive build agent
-    runs-on: [self-hosted, linux]
+    runs-on: ubuntu-latest
     steps:
       # Establish an SSH agent into which we can load the key. The build host
       # has the public side of this trusted keypair.
@@ -348,7 +348,7 @@ jobs:
             {
               "message": "Positron build ${{ needs.version_string.outputs.build_number }} failed",
               "status": "Failure",
-              "run_url": "https://github.com/rstudio/positron/actions/runs/${{ github.run_id }}"
+              "run_url": "https://github.com/posit-dev/positron/actions/runs/${{ github.run_id }}"
             }
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}

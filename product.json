@@ -7,8 +7,8 @@
 	"dataFolderName": ".positron",
 	"win32MutexName": "positron",
 	"licenseName": "MIT",
-	"licenseUrl": "https://github.com/rstudio/positron/blob/main/LICENSE.txt",
-	"serverLicenseUrl": "https://github.com/rstudio/positron/blob/main/LICENSE.txt",
+	"licenseUrl": "https://github.com/posit-dev/positron/blob/main/LICENSE.txt",
+	"serverLicenseUrl": "https://github.com/posit-dev/positron/blob/main/LICENSE.txt",
 	"serverGreeting": [],
 	"serverLicense": [],
 	"serverLicensePrompt": "",
@@ -31,7 +31,7 @@
 	"darwinBundleIdentifier": "com.rstudio.positron",
 	"linuxIconName": "com.visualstudio.code.oss",
 	"licenseFileName": "LICENSE.txt",
-	"reportIssueUrl": "https://github.com/rstudio/positron/issues/new",
+	"reportIssueUrl": "https://github.com/posit-dev/positron/issues/new",
 	"urlProtocol": "positron",
 	"webviewContentExternalBaseUrlTemplate": "https://{{uuid}}.vscode-cdn.net/insider/ef65ac1ba57f57f2a3961bfe94aa20481caca4c6/out/vs/workbench/contrib/webview/browser/pre/",
 	"builtInExtensions": [
@@ -82,7 +82,7 @@
 		},
 		{
 			"name": "quarto.quarto",
-			"version": "1.94.1",
+			"version": "1.95.1",
 			"repo": "https://github.com/quarto-dev/quarto/tree/main/apps/vscode",
 			"metadata": {
 				"id": "0c8ba31b-5771-4fa9-bc20-a9f2e69a77ad",
