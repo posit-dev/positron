@@ -28,7 +28,7 @@ import { ActivityItemOutputMessage } from 'vs/workbench/services/positronConsole
 import { RuntimeItemStartupFailure } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemStartupFailure';
 import { ActivityItem, RuntimeItemActivity } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemActivity';
 import { IPositronConsoleInstance, IPositronConsoleService, POSITRON_CONSOLE_VIEW_ID, PositronConsoleState } from 'vs/workbench/services/positronConsole/common/interfaces/positronConsoleService';
-import { formatLanguageRuntime, ILanguageRuntime, ILanguageRuntimeMessage, ILanguageRuntimeService, LanguageRuntimeStartupBehavior, RuntimeOnlineState, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { formatLanguageRuntime, ILanguageRuntime, ILanguageRuntimeMessage, ILanguageRuntimeService, LanguageRuntimeStartupBehavior, RuntimeCodeExecutionMode, RuntimeErrorBehavior, RuntimeOnlineState, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 
 //#region Helper Functions
 
@@ -333,8 +333,8 @@ class PositronConsoleService extends Disposable implements IPositronConsoleServi
 			this.setActivePositronConsoleInstance(positronConsoleInstance);
 		}
 
-		// Execute the code.
-		positronConsoleInstance.executeCode(code);
+		// Execute the code in the Positron console instance.
+		positronConsoleInstance.executeCodex11mnt(code);
 
 		// Success.
 		return Promise.resolve(true);
@@ -396,8 +396,8 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	private _runtime: ILanguageRuntime;
 
 	/**
-	 * Gets or sets the runtime disposable store. This contains things that are disposed when a
-	 * runtime is detached.
+	 * Gets or sets the disposable store. This contains things that are disposed when a runtime is
+	 * detached.
 	 */
 	private _runtimeDisposableStore = new DisposableStore();
 
@@ -425,6 +425,11 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	 * Gets or sets a value which indicates whether word wrap is enabled.
 	 */
 	private _wordWrap = true;
+
+	/**
+	 * The pending ActivityItemInput.
+	 */
+	private _pendingActivityItemInput?: ActivityItemInput;
 
 	/**
 	 * Gets or sets the runtime items.
@@ -484,7 +489,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	/**
 	 * The onDidExecuteCode event emitter.
 	 */
-	private readonly _onDidExecuteCodeEmitter = this._register(new Emitter<string>);
+	private readonly _onDidExecuteCodeEmitter = this._register(new Emitter<void>);
 
 	//#endregion Private Properties
 
@@ -657,39 +662,48 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	}
 
 	/**
-	 * Begins executing code.
-	 * @param id The identifier.
-	 * @param code The code.
+	 * Executes code.
+	 * @param code The code to execute.
 	 */
-	beginExecuteCode(id: string, code: string): void {
-		// FIXME: Temporary compats during switch to dynamic config
-		const inputPrompt = this._runtime.dynState?.inputPrompt || this._runtime.metadata.inputPrompt as string;
-		const continuationPrompt = this._runtime.dynState?.continuationPrompt || this._runtime.metadata.continuationPrompt as string;
+	executeCodex11mnt(code: string): void {
+		if (this.runtime.getRuntimeState() !== RuntimeState.Idle && this._pendingActivityItemInput) {
+			this._pendingActivityItemInput.code += `\n${code}`;
+			this._onDidChangeRuntimeItemsEmitter.fire(this._runtimeItems);
+			return;
+		}
+
+		// Create the ID for the code that will be executed.
+		const id = `fragment-${generateUuid()}`;
+
+		// Create the ActivityItemInput.
+		const activityItemInput = new ActivityItemInput(
+			true,
+			id,
+			id,
+			new Date(),
+			this._runtime.dynState.inputPrompt,
+			this._runtime.dynState.continuationPrompt,
+			code
+		);
 
 		// Add a provisional ActivityItemInput for the code that will be executed. This provisional
 		// ActivityItemInput will be replaced with the real ActivityItemInput when the runtime sends
 		// it (which can take a moment or two to happen).
-		this.addOrUpdateUpdateRuntimeItemActivity(
-			id,
-			new ActivityItemInput(
-				true,
-				id,
-				id,
-				new Date(),
-				inputPrompt,
-				continuationPrompt,
-				code
-			)
-		);
-	}
+		this.addOrUpdateUpdateRuntimeItemActivity(id, activityItemInput);
 
-	/**
-	 * Executes code.
-	 * @param codeFragment The code fragment to execute.
-	 */
-	executeCode(codeFragment: string): void {
-		// Queue code...
-		this._onDidExecuteCodeEmitter.fire(codeFragment);
+		if (this.runtime.getRuntimeState() !== RuntimeState.Idle) {
+			this._pendingActivityItemInput = activityItemInput;
+		} else {
+			// Execute the code.
+			this.runtime.execute(
+				code,
+				id,
+				RuntimeCodeExecutionMode.Interactive,
+				RuntimeErrorBehavior.Continue);
+
+			// Fire the onDidExecuteCode event.
+			this._onDidExecuteCodeEmitter.fire();
+		}
 	}
 
 	/**
@@ -748,11 +762,10 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 
 		// Loop over each and look for the Input activity
 		for (const item of activity.activityItems) {
-
 			if (item instanceof ActivityItemInput) {
 				// This is the input activity; update its busy state.
 				const input = item as ActivityItemInput;
-				input.setBusyState(busy);
+				input.busyState = busy;
 
 				// Found the input, so we're done.
 				break;
@@ -847,7 +860,21 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 
 		// Add the onDidChangeRuntimeState event handler.
 		this._runtimeDisposableStore.add(this._runtime.onDidChangeRuntimeState(runtimeState => {
+			// Add a trace item.
 			this.addRuntimeItemTrace(`onDidChangeRuntimeState (${runtimeState})`);
+
+			// When the runtime goes idle, execute the pending ActivityItemInput, if there is one.
+			if (runtimeState === RuntimeState.Idle && this._pendingActivityItemInput) {
+				const { code, id } = this._pendingActivityItemInput;
+				this._pendingActivityItemInput = undefined;
+				this.runtime.execute(
+					code,
+					id,
+					RuntimeCodeExecutionMode.Interactive,
+					RuntimeErrorBehavior.Continue);
+				this._onDidExecuteCodeEmitter.fire();
+			}
+
 			if (runtimeState === RuntimeState.Exited) {
 				if (this._runtimeState === RuntimeState.Starting ||
 					this._runtimeState === RuntimeState.Initializing) {
@@ -933,10 +960,6 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 				languageRuntimeMessageInput.code
 			);
 
-			// FIXME: Temporary compats during switch to dynamic config
-			const inputPrompt = this._runtime.dynState?.inputPrompt || this._runtime.metadata.inputPrompt as string;
-			const continuationPrompt = this._runtime.dynState?.continuationPrompt || this._runtime.metadata.continuationPrompt as string;
-
 			// Add or update the runtime item activity.
 			this.addOrUpdateUpdateRuntimeItemActivity(
 				languageRuntimeMessageInput.parent_id,
@@ -945,8 +968,8 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 					languageRuntimeMessageInput.id,
 					languageRuntimeMessageInput.parent_id,
 					new Date(languageRuntimeMessageInput.when),
-					inputPrompt,
-					continuationPrompt,
+					this._runtime.dynState.inputPrompt,
+					this._runtime.dynState.continuationPrompt,
 					languageRuntimeMessageInput.code
 				)
 			);
@@ -1161,7 +1184,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 			for (const activity of this._runtimeItemActivities.values()) {
 				for (const item of activity.activityItems) {
 					if (item instanceof ActivityItemInput) {
-						item.setBusyState(false);
+						item.busyState = false;
 					}
 				}
 			}

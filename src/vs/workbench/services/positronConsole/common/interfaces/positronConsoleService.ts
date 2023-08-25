@@ -64,8 +64,7 @@ export interface IPositronConsoleService {
 	 * Executes code in a PositronConsoleInstance.
 	 * @param languageId The language ID.
 	 * @param code The code.
-	 * @param activate A value which indicates whether to activate the Positron console instance
-	 *   if it is not already active.
+	 * @param activate A value which indicates whether to activate the Positron console instance.
 	 * @returns A value which indicates whether the code could be executed.
 	 */
 	executeCode(languageId: string, code: string, activate: boolean): Promise<boolean>;
@@ -148,7 +147,7 @@ export interface IPositronConsoleInstance {
 	/**
 	 * The onDidExecuteCode event.
 	 */
-	readonly onDidExecuteCode: Event<string>;
+	readonly onDidExecuteCode: Event<void>;
 
 	/**
 	 * Focuses the input for the console.
@@ -181,17 +180,10 @@ export interface IPositronConsoleInstance {
 	clearInputHistory(): void;
 
 	/**
-	 * Begins executing code.
-	 * @param id The identifier.
-	 * @param code The code.
-	 */
-	beginExecuteCode(id: string, code: string): void;
-
-	/**
 	 * Executes code in the Positron console instance.
 	 * @param code The code to execute.
 	 */
-	executeCode(code: string): void;
+	executeCodex11mnt(code: string): void;
 
 	/**
 	 * Replies to a prompt.
