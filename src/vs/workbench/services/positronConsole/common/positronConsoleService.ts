@@ -93,18 +93,6 @@ const formatTraceback = (traceback: string[]) => {
 	return result;
 };
 
-/**
- * Tests whether a runtime is a specific language, and has implicit startup behavior.
- * @param runtime A runtime.
- * @param languageId A string like 'r' or 'python'.
- * @returns A logical.
- */
-const isImplicitStartupLanguage = (runtime: ILanguageRuntime, languageId: string) => {
-	return (runtime.metadata.languageId === languageId &&
-		runtime.metadata.startupBehavior === LanguageRuntimeStartupBehavior.Implicit ||
-		runtime.metadata.startupBehavior === LanguageRuntimeStartupBehavior.Immediate);
-};
-
 //#endregion Helper Functions
 
 /**
@@ -303,12 +291,14 @@ class PositronConsoleService extends Disposable implements IPositronConsoleServi
 
 		// Get the running runtimes for the language.
 		const runningLanguageRuntimes = this._languageRuntimeService.runningRuntimes.filter(
-			runtime => isImplicitStartupLanguage(runtime, languageId));
+			runtime => runtime.metadata.languageId === languageId);
 
 		if (!runningLanguageRuntimes.length) {
 			// Get the registered runtimes for the language.
 			const languageRuntimes = this._languageRuntimeService.registeredRuntimes.filter(
-				runtime => isImplicitStartupLanguage(runtime, languageId));
+				runtime => (runtime.metadata.languageId === languageId &&
+					runtime.metadata.startupBehavior === LanguageRuntimeStartupBehavior.Implicit ||
+					runtime.metadata.startupBehavior === LanguageRuntimeStartupBehavior.Immediate));
 			if (!languageRuntimes.length) {
 				return false;
 			}
