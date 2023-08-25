@@ -66,10 +66,10 @@ else {
 			applicationName: 'positron',
 			dataFolderName: '.positron',
 			urlProtocol: 'positron',
-			reportIssueUrl: 'https://github.com/rstudio/positron/issues/new',
+			reportIssueUrl: 'https://github.com/posit-dev/positron/issues/new',
 			licenseName: 'MIT',
-			licenseUrl: 'https://github.com/rstudio/positron/blob/main/LICENSE.txt',
-			serverLicenseUrl: 'https://github.com/rstudio/positron/blob/main/LICENSE.txt'
+			licenseUrl: 'https://github.com/posit-dev/positron/blob/main/LICENSE.txt',
+			serverLicenseUrl: 'https://github.com/posit-dev/positron/blob/main/LICENSE.txt'
 			// --- End Positron ---
 		});
 	}
