@@ -49,8 +49,7 @@ import { buildProposedApi } from './proposedApi';
 
 // --- Start Positron ---
 
-import * as positron from 'positron';
-import { pythonRuntimeProvider } from './positron/provider';
+import { activatePositron } from './positron/extension';
 
 // --- End Positron ---
 
@@ -89,34 +88,9 @@ export async function activate(context: IExtensionContext): Promise<PythonExtens
 
     // --- Start Positron ---
 
-    // Wait for all extension components to be activated before starting Positron activation.
-    // This is already awaited in sendStartupTelemetry before this function returns, so it shouldn't
-    // affect any callers.
-    await ready;
-
-    // Map of interpreter path to language runtime metadata, used to determine the runtimeId when
-    // switching the active interpreter path.
-    const runtimes = new Map<string, positron.LanguageRuntimeMetadata>();
-
-    // Register the Python language runtime provider with positron.
-    positron.runtime.registerLanguageRuntimeProvider('python', pythonRuntimeProvider(serviceContainer, runtimes));
-
-    // If the interpreter is changed via the Python extension, select the corresponding
-    // language runtime in Positron.
-    const disposables = serviceContainer.get<IDisposableRegistry>(IDisposableRegistry);
-    disposables.push(
-        api.environments.onDidChangeActiveEnvironmentPath(async (event) => {
-            const runtime = runtimes.get(event.path);
-            if (runtime) {
-                positron.runtime.selectLanguageRuntime(runtime.runtimeId);
-            } else {
-                // TODO: This is currently thrown when you create a new venv and switch to it
-                // after the extension has been activated (e.g. #1002). We should hook into
-                // environment changes and register/unregister runtimes appropriately.
-                throw Error(`Tried to switch to a language runtime that has not been registered: ${event.path}`);
-            }
-        }),
-    );
+    activatePositron(ready, api, serviceContainer)
+        // Run in the background.
+        .ignoreErrors();
 
     // --- End Positron ---
 
