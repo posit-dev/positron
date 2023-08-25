@@ -129,7 +129,7 @@ export class RRuntime implements positron.LanguageRuntime, vscode.Disposable {
 	async restart(): Promise<void> {
 		if (this._kernel) {
 			// Stop the LSP client before restarting the kernel
-			await this._lsp.deactivate();
+			await this._lsp.deactivate(true);
 			return this._kernel.restart();
 		} else {
 			throw new Error('Cannot restart; kernel not started');
@@ -139,7 +139,7 @@ export class RRuntime implements positron.LanguageRuntime, vscode.Disposable {
 	async shutdown(): Promise<void> {
 		if (this._kernel) {
 			// Stop the LSP client before shutting down the kernel
-			await this._lsp.deactivate();
+			await this._lsp.deactivate(true);
 			return this._kernel.shutdown();
 		} else {
 			throw new Error('Cannot shutdown; kernel not started');
@@ -195,7 +195,7 @@ export class RRuntime implements positron.LanguageRuntime, vscode.Disposable {
 					if (this._kernel) {
 						this._kernel.emitJupyterLog(`Stopping Positron LSP server`);
 					}
-					await this._lsp.deactivate();
+					await this._lsp.deactivate(false);
 				});
 			}
 		}
