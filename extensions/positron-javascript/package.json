@@ -44,6 +44,6 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/rstudio/positron"
+    "url": "https://github.com/posit-dev/positron"
   }
 }

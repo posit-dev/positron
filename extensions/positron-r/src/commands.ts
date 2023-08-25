@@ -87,7 +87,7 @@ export async function registerCommands(context: vscode.ExtensionContext) {
 				// isn't a file on disk.  In Positron, there is currently a bug
 				// which causes the REPL to act like an active editor. See:
 				//
-				// https://github.com/rstudio/positron/issues/780
+				// https://github.com/posit-dev/positron/issues/780
 			}
 		}),
 	);

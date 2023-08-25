@@ -460,8 +460,8 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 			scrollBeyondLastLine: false,
 			lineNumbersMinChars: inputPrompt.length,
 			// This appears to disable validations to address:
-			// https://github.com/rstudio/positron/issues/979
-			// https://github.com/rstudio/positron/issues/1051
+			// https://github.com/posit-dev/positron/issues/979
+			// https://github.com/posit-dev/positron/issues/1051
 			renderValidationDecorations: 'off',
 		} satisfies IEditorOptions;
 
