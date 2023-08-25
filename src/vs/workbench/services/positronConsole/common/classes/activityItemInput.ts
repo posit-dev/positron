@@ -17,9 +17,9 @@ export class ActivityItemInput {
 	private _code: string;
 
 	/**
-	 * The busy state.
+	 * A value which indicates whether the ActivityItemInput is executing.
 	 */
-	private _busyState = false;
+	private _executing = false;
 
 	/**
 	 * The code output lines.
@@ -53,18 +53,18 @@ export class ActivityItemInput {
 	}
 
 	/**
-	 * Gets the busy state.
+	 * Gets a value which indicates whether the ActivityItemInput is executing.
 	 */
-	get busyState() {
-		return this._busyState;
+	get executing() {
+		return this._executing;
 	}
 
 	/**
-	 * Sets the busy state.
-	 * @param busyState The busy state.
+	 * Sets a value which indicates whether the ActivityItemInput is executing.
+	 * @param executing A value which indicates whether the ActivityItemInput is executing
 	 */
-	set busyState(busyState: boolean) {
-		this._busyState = busyState;
+	set executing(executing: boolean) {
+		this._executing = executing;
 		this._onChangedEmitter.fire();
 	}
 
@@ -107,8 +107,8 @@ export class ActivityItemInput {
 		this._code = code;
 		this._codeOutputLines = ANSIOutput.processOutput(this._code);
 
-		// Non-provisional ActivityItemInputs are busy by default.
-		this._busyState = !this.provisional;
+		// Non-provisional ActivityItemInputs are executing by default.
+		this._executing = !this.provisional;
 	}
 
 	//#endregion Constructor

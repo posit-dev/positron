@@ -24,7 +24,7 @@ export interface ActivityInputProps {
  */
 export const ActivityInput = (props: ActivityInputProps) => {
 	// Hooks.
-	const [busyState, setBusyState] = useState(props.activityItemInput.busyState);
+	const [executing, setExecuting] = useState(props.activityItemInput.executing);
 	const [codeOutputLines, setCodeOutputLines] = useState(props.activityItemInput.codeOutputLines);
 
 	// Main useEffect.
@@ -34,7 +34,7 @@ export const ActivityInput = (props: ActivityInputProps) => {
 
 		// Listen for the changes to the activity item input.
 		disposableStore.add(props.activityItemInput.onChanged(() => {
-			setBusyState(props.activityItemInput.busyState);
+			setExecuting(props.activityItemInput.executing);
 			setCodeOutputLines(props.activityItemInput.codeOutputLines);
 		}));
 
@@ -51,13 +51,13 @@ export const ActivityInput = (props: ActivityInputProps) => {
 	// Generate the class names.
 	const classNames = positronClassNames(
 		'activity-input',
-		{ 'busy': busyState }
+		{ 'executing': executing }
 	);
 
 	// Render.
 	return (
 		<div className={classNames}>
-			{busyState && <div className='progress-bar' />}
+			{executing && <div className='progress-bar' />}
 			{codeOutputLines.map((outputLine, index) =>
 				<div key={outputLine.id}>
 					<span style={{ width: promptWidth }}>

@@ -765,7 +765,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 			if (item instanceof ActivityItemInput) {
 				// This is the input activity; update its busy state.
 				const input = item as ActivityItemInput;
-				input.busyState = busy;
+				input.executing = busy;
 
 				// Found the input, so we're done.
 				break;
@@ -1184,7 +1184,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 			for (const activity of this._runtimeItemActivities.values()) {
 				for (const item of activity.activityItems) {
 					if (item instanceof ActivityItemInput) {
-						item.busyState = false;
+						item.executing = false;
 					}
 				}
 			}
