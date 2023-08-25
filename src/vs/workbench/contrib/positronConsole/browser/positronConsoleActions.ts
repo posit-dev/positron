@@ -8,6 +8,7 @@ import { ITextModel } from 'vs/editor/common/model';
 import { IEditor } from 'vs/editor/common/editorCommon';
 import { Position } from 'vs/editor/common/core/position';
 import { KeyCode, KeyMod } from 'vs/base/common/keyCodes';
+import { IViewsService } from 'vs/workbench/common/views';
 import { ILocalizedString } from 'vs/platform/action/common/action';
 import { ILanguageService } from 'vs/editor/common/languages/language';
 import { Action2, registerAction2 } from 'vs/platform/actions/common/actions';
@@ -16,11 +17,10 @@ import { IEditorService } from 'vs/workbench/services/editor/common/editorServic
 import { KeybindingWeight } from 'vs/platform/keybinding/common/keybindingsRegistry';
 import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/layoutService';
 import { INotificationService, Severity } from 'vs/platform/notification/common/notification';
+import { PositronConsoleViewPane } from 'vs/workbench/contrib/positronConsole/browser/positronConsoleView';
 import { confirmationModalDialog } from 'vs/workbench/browser/positronModalDialogs/confirmationModalDialog';
 import { IExecutionHistoryService } from 'vs/workbench/contrib/executionHistory/common/executionHistoryService';
 import { IPositronConsoleService, POSITRON_CONSOLE_VIEW_ID } from 'vs/workbench/services/positronConsole/common/interfaces/positronConsoleService';
-import { IViewsService } from 'vs/workbench/common/views';
-import { PositronConsoleViewPane } from 'vs/workbench/contrib/positronConsole/browser/positronConsoleView';
 
 /**
  * Positron console command ID's.
