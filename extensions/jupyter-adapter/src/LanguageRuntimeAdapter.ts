@@ -753,7 +753,7 @@ export class LanguageRuntimeAdapter
 
 		// Create a unique client ID for this instance
 		const uniqueId = Math.floor(Math.random() * 0x100000000).toString(16);
-		const clientId = `positron-lsp-${this.metadata.languageId}-${LanguageRuntimeAdapter._clientCounter++}-${uniqueId}}`;
+		const clientId = `positron-lsp-${this.metadata.languageId}-${LanguageRuntimeAdapter._clientCounter++}-${uniqueId}`;
 		this._kernel.log(`Starting LSP server ${clientId} for ${clientAddress}`);
 
 		await this.createClient(
