@@ -28,7 +28,7 @@ const positronPreviewViewIcon = registerIcon('positron-preview-view-icon', Codic
 // Register the Positron preview container.
 const VIEW_CONTAINER: ViewContainer = Registry.as<IViewContainersRegistry>(ViewContainerExtensions.ViewContainersRegistry).registerViewContainer({
 	id: POSITRON_PREVIEW_VIEW_ID,
-	title: nls.localize('positron.preview', "Preview"),
+	title: nls.localize('positron.viewer', "Viewer"),
 	icon: positronPreviewViewIcon,
 	order: 3,
 	ctorDescriptor: new SyncDescriptor(ViewPaneContainer, [POSITRON_PREVIEW_VIEW_ID, { mergeViewWithContainerWhenSingleView: true }]),
