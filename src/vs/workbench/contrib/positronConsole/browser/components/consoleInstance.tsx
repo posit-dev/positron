@@ -265,7 +265,7 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 		}));
 
 		// Add the onDidExecuteCode event handler.
-		disposableStore.add(props.positronConsoleInstance.onDidExecuteCode(code => {
+		disposableStore.add(props.positronConsoleInstance.onDidExecuteCode(() => {
 			consoleInstanceRef.current.scrollTo(consoleInstanceRef.current.scrollLeft, consoleInstanceRef.current.scrollHeight);
 		}));
 
