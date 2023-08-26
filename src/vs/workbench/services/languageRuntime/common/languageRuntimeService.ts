@@ -382,12 +382,6 @@ export interface ILanguageRuntimeMetadata {
 
 	/** Whether the runtime should start up automatically or wait until explicitly requested */
 	readonly startupBehavior: LanguageRuntimeStartupBehavior;
-
-	/** FIXME
-	 * These are for compatibility until runtimes have added
-		 * support for the dynamic state struct */
-	readonly inputPrompt?: string;
-	readonly continuationPrompt?: string;
 }
 
 /* ILanguageRuntimeConfig contains information about a language runtime that is known
