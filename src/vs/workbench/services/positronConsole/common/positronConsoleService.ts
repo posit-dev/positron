@@ -334,7 +334,7 @@ class PositronConsoleService extends Disposable implements IPositronConsoleServi
 		}
 
 		// Execute the code in the Positron console instance.
-		positronConsoleInstance.executeCodex11mnt(code);
+		positronConsoleInstance.executeCode(code);
 
 		// Success.
 		return Promise.resolve(true);
@@ -665,7 +665,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	 * Executes code.
 	 * @param code The code to execute.
 	 */
-	executeCodex11mnt(code: string): void {
+	executeCode(code: string): void {
 		if (this.runtime.getRuntimeState() !== RuntimeState.Idle && this._pendingActivityItemInput) {
 			this._pendingActivityItemInput.code += `\n${code}`;
 			this._onDidChangeRuntimeItemsEmitter.fire(this._runtimeItems);

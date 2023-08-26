@@ -152,7 +152,7 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 			}
 		}
 
-		props.positronConsoleInstance.executeCodex11mnt(code);
+		props.positronConsoleInstance.executeCode(code);
 
 		// Reset the code input state.
 		setCurrentCodeFragment(undefined);

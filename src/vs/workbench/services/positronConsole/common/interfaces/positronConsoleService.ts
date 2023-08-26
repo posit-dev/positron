@@ -183,7 +183,7 @@ export interface IPositronConsoleInstance {
 	 * Executes code in the Positron console instance.
 	 * @param code The code to execute.
 	 */
-	executeCodex11mnt(code: string): void;
+	executeCode(code: string): void;
 
 	/**
 	 * Replies to a prompt.
