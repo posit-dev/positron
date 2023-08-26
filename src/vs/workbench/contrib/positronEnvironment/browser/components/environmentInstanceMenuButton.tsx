@@ -39,9 +39,14 @@ export const EnvironmentInstanceMenuButton = () => {
 	};
 
 	// Render.
+	let runtimeLabel = 'None';
+	const runtime = positronEnvironmentContext.activePositronEnvironmentInstance?.runtime;
+	if (runtime) {
+		runtimeLabel = `${runtime.metadata.languageName} ${runtime.metadata.languageVersion}`;
+	}
 	return (
 		<ActionBarMenuButton
-			text={positronEnvironmentContext.activePositronEnvironmentInstance?.runtime.metadata.languageName ?? 'None'}
+			text={runtimeLabel}
 			actions={actions}
 		/>
 	);
