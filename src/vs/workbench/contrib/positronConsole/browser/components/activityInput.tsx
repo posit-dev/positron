@@ -32,7 +32,7 @@ export const ActivityInput = (props: ActivityInputProps) => {
 		// Create the disposable store for cleanup.
 		const disposableStore = new DisposableStore();
 
-		// Listen for the changes to the activity item input.
+		// Listen for the changes to the item.
 		disposableStore.add(props.activityItemInput.onChanged(() => {
 			setExecuting(props.activityItemInput.executing);
 			setCodeOutputLines(props.activityItemInput.codeOutputLines);
