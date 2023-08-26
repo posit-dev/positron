@@ -24,13 +24,13 @@ import { MarkerController } from 'vs/editor/contrib/gotoError/browser/gotoError'
 import { SuggestController } from 'vs/editor/contrib/suggest/browser/suggestController';
 import { SnippetController2 } from 'vs/editor/contrib/snippet/browser/snippetController2';
 import { ContextMenuController } from 'vs/editor/contrib/contextmenu/browser/contextmenu';
+import { EditOperation, ISingleEditOperation } from 'vs/editor/common/core/editOperation';
 import { TabCompletionController } from 'vs/workbench/contrib/snippets/browser/tabCompletion';
 import { IInputHistoryEntry } from 'vs/workbench/contrib/executionHistory/common/executionHistoryService';
 import { SelectionClipboardContributionID } from 'vs/workbench/contrib/codeEditor/browser/selectionClipboard';
 import { usePositronConsoleContext } from 'vs/workbench/contrib/positronConsole/browser/positronConsoleContext';
+import { RuntimeCodeFragmentStatus } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { IPositronConsoleInstance, PositronConsoleState } from 'vs/workbench/services/positronConsole/common/interfaces/positronConsoleService';
-import { RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
-import { EditOperation, ISingleEditOperation } from 'vs/editor/common/core/editOperation';
 
 // Position enumeration.
 const enum Position {
@@ -94,15 +94,11 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 	 * Executes the code editor widget's code, if possible.
 	 */
 	const executeCodeEditorWidgetCodeIfPossible = async () => {
-		// Get the code fragment from the code editor widget.
-		const codeFragment = codeEditorWidgetRef.current.getValue();
+		// Get the code from the code editor widget.
+		const code = codeEditorWidgetRef.current.getValue();
 
-		// Check on whether the code fragment is complete and can be executed.
-		const runtimeCodeFragmentStatus = await props.positronConsoleInstance.runtime.
-			isCodeFragmentComplete(codeFragment);
-
-		// Handle the runtime code fragment status.
-		switch (runtimeCodeFragmentStatus) {
+		// Check on whether the code is complete and can be executed.
+		switch (await props.positronConsoleInstance.runtime.isCodeFragmentComplete(code)) {
 			// If the code fragment is complete, execute it.
 			case RuntimeCodeFragmentStatus.Complete:
 				break;
@@ -112,7 +108,7 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 			case RuntimeCodeFragmentStatus.Incomplete: {
 				// For the moment, this works. Ideally, we'd like to have the current code fragment
 				// prettied up by the runtime and updated.
-				const updatedCodeFragment = codeFragment + '\n';
+				const updatedCodeFragment = code + '\n';
 				setCurrentCodeFragment(updatedCodeFragment);
 				codeEditorWidgetRef.current.setValue(updatedCodeFragment);
 				updateCodeEditorWidgetPosition(Position.Last, Position.Last);
@@ -123,7 +119,7 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 			// it anyway (so the user can see a syntax error from the interpreter).
 			case RuntimeCodeFragmentStatus.Invalid:
 				positronConsoleContext.logService.warn(
-					`Executing invalid code fragment: '${codeFragment}'`
+					`Executing invalid code fragment: '${code}'`
 				);
 				break;
 
@@ -131,17 +127,17 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 			// user can see an error from the interpreter).
 			case RuntimeCodeFragmentStatus.Unknown:
 				positronConsoleContext.logService.warn(
-					`Could not determine whether code fragment: '${codeFragment}' is complete.`
+					`Could not determine whether code fragment: '${code}' is complete.`
 				);
 				break;
 		}
 
 		// If the code fragment isn't just whitespace characters, add it to the history navigator.
-		if (codeFragment.trim().length) {
+		if (code.trim().length) {
 			// Create the input history entry.
 			const inputHistoryEntry = {
 				when: new Date().getTime(),
-				input: codeFragment,
+				input: code,
 			} satisfies IInputHistoryEntry;
 
 			// Add the input history entry.
@@ -156,18 +152,7 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 			}
 		}
 
-		// Create the ID for the code fragment that will be executed.
-		const id = `fragment-${generateUuid()}`;
-
-		// Begin executing the code fragment.
-		props.positronConsoleInstance.beginExecuteCode(id, codeFragment);
-
-		// Ask the runtime to execute the code fragment. This is an asynchronous and unwaitable.
-		props.positronConsoleInstance.runtime.execute(
-			codeFragment,
-			id,
-			RuntimeCodeExecutionMode.Interactive,
-			RuntimeErrorBehavior.Continue);
+		props.positronConsoleInstance.executeCode(code);
 
 		// Reset the code input state.
 		setCurrentCodeFragment(undefined);
@@ -416,27 +401,14 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 		// Line numbers functions.
 		const notReadyLineNumbers = (n: number) => '';
 		const readyLineNumbers = (n: number) => {
-			// FIXME: Temporary compats during switch to dynamic config
-			const inputPrompt =
-				props.positronConsoleInstance.runtime.dynState?.inputPrompt ||
-				props.positronConsoleInstance.runtime.metadata.inputPrompt as string;
-			const continuationPrompt =
-				props.positronConsoleInstance.runtime.dynState?.continuationPrompt ||
-				props.positronConsoleInstance.runtime.metadata.continuationPrompt as string;
-
 			// Render the input prompt for the first line; do not render
 			// anything in the margin for following lines
 			if (n < 2) {
-				return inputPrompt;
+				return props.positronConsoleInstance.runtime.dynState.inputPrompt;
 			} else {
-				return continuationPrompt;
+				return props.positronConsoleInstance.runtime.dynState.continuationPrompt;
 			}
 		};
-
-		// FIXME: Temporary compat during switch to dynamic config
-		const inputPrompt =
-			props.positronConsoleInstance.runtime.dynState?.inputPrompt ||
-			props.positronConsoleInstance.runtime.metadata.inputPrompt as string;
 
 		// The editor options we override.
 		const editorOptions = {
@@ -458,7 +430,7 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 			},
 			overviewRulerLanes: 0,
 			scrollBeyondLastLine: false,
-			lineNumbersMinChars: inputPrompt.length,
+			lineNumbersMinChars: props.positronConsoleInstance.runtime.dynState.inputPrompt.length,
 			// This appears to disable validations to address:
 			// https://github.com/posit-dev/positron/issues/979
 			// https://github.com/posit-dev/positron/issues/1051
@@ -645,32 +617,6 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 			// custom prompts on initialization. FIXME: Is there a better way?
 			const currentCodeFragment = codeEditorWidgetRef.current.getValue();
 			codeEditorWidgetRef.current.setValue(currentCodeFragment);
-		}));
-
-		// Add the onDidExecuteCode event handler.
-		disposableStore.add(props.positronConsoleInstance.onDidExecuteCode(async codeFragment => {
-			// Get the current code fragment.
-			let currentCodeFragment = codeEditorWidgetRef.current.getValue();
-
-			// If there is a current code fragment,
-			if (currentCodeFragment.length) {
-				// check whether the current code fragment is incomplete,
-				const currentCodeFragmentStatus = await props.positronConsoleInstance.runtime.
-					isCodeFragmentComplete(currentCodeFragment);
-				if (currentCodeFragmentStatus === RuntimeCodeFragmentStatus.Incomplete) {
-					// and if so, append the new code fragment on a new line.
-					codeFragment = `${currentCodeFragment}${codeFragment}`;
-				}
-				// Empty the current value, since we either used it or need to discard it.
-				currentCodeFragment = '';
-			}
-
-			// Update the current code fragment.
-			setCurrentCodeFragment(codeFragment);
-			codeEditorWidgetRef.current.setValue(codeFragment);
-
-			// Try to execute the code.
-			await executeCodeEditorWidgetCodeIfPossible();
 		}));
 
 		// Focus the console.
