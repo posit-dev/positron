@@ -4,7 +4,7 @@
 
 import 'vs/css!./activityErrorMessage';
 import * as React from 'react';
-import { useState } from 'react'; // eslint-disable-line no-duplicate-imports
+import { useEffect, useRef, useState } from 'react'; // eslint-disable-line no-duplicate-imports
 import { localize } from 'vs/nls';
 import { PositronButton } from 'vs/base/browser/ui/positronComponents/positronButton';
 import { OutputLines } from 'vs/workbench/contrib/positronConsole/browser/components/outputLines';
@@ -21,8 +21,19 @@ export interface ActivityErrorMessageProps {
  * @returns The rendered component.
  */
 export const ActivityErrorMessage = (props: ActivityErrorMessageProps) => {
+	// Reference hooks.
+	const activityErrorMessageRef = useRef<HTMLDivElement>(undefined!);
+
 	// State hooks.
 	const [showTraceback, setShowTraceback] = useState(false);
+
+	// Traceback useEffect.
+	useEffect(() => {
+		// Ensure that the component is scrolled into view when traceback is showing.
+		if (showTraceback) {
+			activityErrorMessageRef.current?.scrollIntoView({ behavior: 'auto' });
+		}
+	}, [showTraceback]);
 
 	/**
 	 * Traceback component.
@@ -33,6 +44,7 @@ export const ActivityErrorMessage = (props: ActivityErrorMessageProps) => {
 		 * onClick handler.
 		 */
 		const clickHandler = () => {
+			// Toggle show traceback.
 			setShowTraceback(!showTraceback);
 		};
 
@@ -66,7 +78,7 @@ export const ActivityErrorMessage = (props: ActivityErrorMessageProps) => {
 
 	// Render.
 	return (
-		<div className='activity-error-message'>
+		<div ref={activityErrorMessageRef} className='activity-error-message'>
 			<div className='error-bar'></div>
 			<div className='error-information'>
 				{props.activityItemErrorMessage.messageOutputLines.length > 0 &&
