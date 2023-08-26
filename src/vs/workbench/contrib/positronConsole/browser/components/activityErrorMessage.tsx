@@ -29,8 +29,10 @@ export const ActivityErrorMessage = (props: ActivityErrorMessageProps) => {
 
 	// Traceback useEffect.
 	useEffect(() => {
-		// Ensure that the component is scrolled into view.
-		activityErrorMessageRef.current?.scrollIntoView({ behavior: 'auto' });
+		// Ensure that the component is scrolled into view when traceback is showing.
+		if (showTraceback) {
+			activityErrorMessageRef.current?.scrollIntoView({ behavior: 'auto' });
+		}
 	}, [showTraceback]);
 
 	/**
