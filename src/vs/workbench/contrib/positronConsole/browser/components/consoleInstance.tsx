@@ -394,8 +394,20 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 			// If the click was inside the selection, copy the selection to the clipboard.
 			if (insideSelection) {
 				positronConsoleContext.clipboardService.writeText(selection.toString());
+				props.positronConsoleInstance.focusInput();
 				return;
 			}
+		}
+	};
+
+	/**
+	 * onClick event handler.
+	 * @param e A MouseEvent<HTMLElement> that describes a user interaction with the mouse.
+	 */
+	const clickHandler = (e: MouseEvent<HTMLDivElement>) => {
+		const selection = getSelection();
+		if (!selection || selection.type !== 'Range') {
+			props.positronConsoleInstance.focusInput();
 		}
 	};
 
@@ -432,9 +444,9 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 				whiteSpace: wordWrap ? 'pre-wrap' : 'pre',
 				zIndex: props.active ? 'auto' : -1
 			}}
-			tabIndex={0}
 			onKeyDown={keyDownHandler}
 			onMouseDown={mouseDownHandler}
+			onClick={clickHandler}
 			onScroll={scrollHandler}>
 			<div ref={runtimeItemsRef} className='runtime-items'>
 				<div className='top-spacer' />
