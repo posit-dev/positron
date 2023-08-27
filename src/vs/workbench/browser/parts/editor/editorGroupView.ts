@@ -1914,6 +1914,11 @@ export class EditorGroupView extends Themable implements IEditorGroupView {
 		this.lastLayout = { width, height, top, left };
 		this.element.classList.toggle('max-height-478px', height <= 478);
 
+		// --- Start Positron ---
+		// In Positron, we add an additional class that hides the letterpress below 400px.
+		this.element.classList.toggle('max-height-400px', height <= 400);
+		// --- End Positron ---
+
 		// Layout the title area first to receive the size it occupies
 		const titleAreaSize = this.titleAreaControl.layout({
 			container: new Dimension(width, height),

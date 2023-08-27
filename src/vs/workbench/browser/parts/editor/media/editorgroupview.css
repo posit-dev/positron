@@ -72,8 +72,19 @@
 
 .monaco-workbench .part.editor > .content:not(.empty) .editor-group-container > .editor-group-watermark > .shortcuts,
 .monaco-workbench .part.editor > .content .editor-group-container.max-height-478px > .editor-group-watermark > .shortcuts {
+	/* Start Positron */
+	/* In Positron, we do not hide the shortcuts. */
+	/* display: none; */
+	/* End Positron */
+}
+
+/* Start Positron */
+/* In Positron, we hide the letterpress below 400px. */
+.monaco-workbench .part.editor > .content:not(.empty) .editor-group-container > .editor-group-watermark > .letterpress,
+.monaco-workbench .part.editor > .content .editor-group-container.max-height-400px > .editor-group-watermark > .letterpress {
 	display: none;
 }
+/* End Positron */
 
 .monaco-workbench .part.editor > .content .editor-group-container > .editor-group-watermark > .shortcuts > .watermark-box {
 	display: inline-table;
