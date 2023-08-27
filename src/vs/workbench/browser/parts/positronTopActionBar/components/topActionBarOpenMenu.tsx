@@ -22,7 +22,18 @@ import { PositronTopActionBarState } from 'vs/workbench/browser/parts/positronTo
 import { OpenFileAction, OpenFileFolderAction, OpenFolderAction } from 'vs/workbench/browser/actions/workspaceActions';
 import { usePositronTopActionBarContext } from 'vs/workbench/browser/parts/positronTopActionBar/positronTopActionBarContext';
 
+/**
+ * Constants.
+ */
 const MAX_MENU_RECENT_ENTRIES = 10;
+
+/**
+ * Localized strings.
+ */
+const positronOpen = localize('positronOpen', "Open");
+const positronOpenFile = localize('positronOpenFile', "Open File...");
+const positronOpenFolder = localize('positronOpenFolder', "Open Folder...");
+const positronOpenFileFolder = localize('positronOpenFileFolder', "Open File/Folder");
 
 /**
  * TopActionBarOpenMenu component.
@@ -40,7 +51,7 @@ export const TopActionBarOpenMenu = () => {
 		if (IsMacNativeContext.getValue(positronActionBarContext.contextKeyService)) {
 			positronActionBarContext.appendCommandAction(actions, {
 				id: OpenFileFolderAction.ID,
-				label: localize('positronOpenFile', "Open File...")
+				label: positronOpenFile
 			});
 		} else {
 			positronActionBarContext.appendCommandAction(actions, {
@@ -49,7 +60,7 @@ export const TopActionBarOpenMenu = () => {
 		}
 		positronActionBarContext.appendCommandAction(actions, {
 			id: OpenFolderAction.ID,
-			label: localize('positronOpenFolder', "Open Folder...")
+			label: positronOpenFolder
 		});
 		actions.push(new Separator());
 
@@ -79,10 +90,10 @@ export const TopActionBarOpenMenu = () => {
 	return (
 		<ActionBarMenuButton
 			iconId='folder-opened'
-			text={localize('positronOpen', "Open")}
+			text={positronOpen}
 			iconFontSize={18}
 			actions={actions}
-			tooltip={localize('positronOpenFileFolder', "Open File/Folder")}
+			tooltip={positronOpenFileFolder}
 		/>
 	);
 };
