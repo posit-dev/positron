@@ -11,6 +11,13 @@ import { usePositronActionBarContext } from 'vs/platform/positronActionBar/brows
 import { PositronNewFolderAction, PositronNewFolderFromGitAction } from 'vs/workbench/browser/actions/positronActions';
 
 /**
+ * Localized strings.
+ */
+const positronNew = localize('positronNew', "New");
+const positronNewFile = localize('positronNewFile', "New File...");
+const positronNewFileFolder = localize('positronNewFileFolder', "New File/Folder");
+
+/**
  * TopActionBarNewMenu component.
  * @returns The component.
  */
@@ -23,7 +30,7 @@ export const TopActionBarNewMenu = () => {
 		const actions: IAction[] = [];
 		positronActionBarContext.appendCommandAction(actions, {
 			id: 'welcome.showNewFileEntries',
-			label: localize('positronNewFile', "New File...")
+			label: positronNewFile
 		});
 		actions.push(new Separator());
 		positronActionBarContext.appendCommandAction(actions, {
@@ -43,9 +50,9 @@ export const TopActionBarNewMenu = () => {
 	return (
 		<ActionBarMenuButton
 			iconId='positron-new'
-			text={localize('positronNew', "New")}
+			text={positronNew}
 			actions={actions}
-			tooltip={localize('positronNewFileFolder', "New File/Folder")}
+			tooltip={positronNewFileFolder}
 		/>
 	);
 };
