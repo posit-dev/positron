@@ -13,12 +13,12 @@ export class ActivityItemErrorStream {
 	/**
 	 * Gets the ActivityItemErrorStream array.
 	 */
-	private readonly _activityItemErrorStreams: ActivityItemErrorStream[] = [];
+	private readonly activityItemErrorStreams: ActivityItemErrorStream[] = [];
 
 	/**
 	 * Gets or sets the ANSIOutput that is processing the ActivityItemErrorStream array
 	 */
-	private _ansiOutput: ANSIOutput | undefined;
+	private ansiOutput: ANSIOutput | undefined;
 
 	//#endregion Private Properties
 
@@ -29,17 +29,17 @@ export class ActivityItemErrorStream {
 	 */
 	get outputLines(): ANSIOutputLine[] {
 		// Lazily process output from the the ActivityItemErrorStream array.
-		if (!this._ansiOutput) {
-			this._ansiOutput = new ANSIOutput();
-			for (const activityItemErrorStream of this._activityItemErrorStreams) {
+		if (!this.ansiOutput) {
+			this.ansiOutput = new ANSIOutput();
+			for (const activityItemErrorStream of this.activityItemErrorStreams) {
 				if (activityItemErrorStream.text) {
-					this._ansiOutput.processOutput(activityItemErrorStream.text);
+					this.ansiOutput.processOutput(activityItemErrorStream.text);
 				}
 			}
 		}
 
 		// Return the output lines.
-		return this._ansiOutput.outputLines;
+		return this.ansiOutput.outputLines;
 	}
 
 	//#endregion Public Properties
@@ -59,7 +59,7 @@ export class ActivityItemErrorStream {
 		readonly when: Date,
 		readonly text: string
 	) {
-		this._activityItemErrorStreams.push(this);
+		this.activityItemErrorStreams.push(this);
 	}
 
 	//#endregion Constructor
@@ -71,9 +71,9 @@ export class ActivityItemErrorStream {
 	 * @param activityItemErrorStream The ActivityItemErrorStream to add.
 	 */
 	addActivityItemErrorStream(activityItemErrorStream: ActivityItemErrorStream) {
-		this._activityItemErrorStreams.push(activityItemErrorStream);
-		if (this._ansiOutput && activityItemErrorStream.text) {
-			this._ansiOutput.processOutput(activityItemErrorStream.text);
+		this.activityItemErrorStreams.push(activityItemErrorStream);
+		if (this.ansiOutput && activityItemErrorStream.text) {
+			this.ansiOutput.processOutput(activityItemErrorStream.text);
 		}
 	}
 
