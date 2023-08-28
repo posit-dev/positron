@@ -8,6 +8,8 @@ import { IAction } from 'vs/base/common/actions';
 import { IReactComponentContainer } from 'vs/base/browser/positronReactRenderer';
 import { ActionBarMenuButton } from 'vs/platform/positronActionBar/browser/components/actionBarMenuButton';
 import { usePositronConsoleContext } from 'vs/workbench/contrib/positronConsole/browser/positronConsoleContext';
+import { ILanguageRuntime } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { DisposableStore } from 'vs/base/common/lifecycle';
 
 // ConsoleInstanceMenuButtonProps interface.
 interface ConsoleInstanceMenuButtonProps {
@@ -22,6 +24,29 @@ interface ConsoleInstanceMenuButtonProps {
 export const ConsoleInstanceMenuButton = (props: ConsoleInstanceMenuButtonProps) => {
 	// Hooks.
 	const positronConsoleContext = usePositronConsoleContext();
+
+	// Helper method to calculate the label for a runtime.
+	const labelForRuntime = (runtime?: ILanguageRuntime): string => {
+		if (runtime) {
+			return `${runtime.metadata.languageName} ${runtime.metadata.languageVersion}`;
+		}
+		return 'None';
+	};
+
+	// State.
+	const [activeRuntimeLabel, setActiveRuntimeLabel] =
+		React.useState(labelForRuntime(
+			positronConsoleContext.activePositronConsoleInstance?.runtime));
+
+	// useEffect hook to update the runtime label when the environment changes.
+	React.useEffect(() => {
+		const disposables = new DisposableStore();
+		const consoleService = positronConsoleContext.positronConsoleService;
+		disposables.add(consoleService.onDidChangeActivePositronConsoleInstance(e => {
+			setActiveRuntimeLabel(labelForRuntime(e?.runtime));
+		}));
+		return () => disposables.dispose();
+	}, [positronConsoleContext.activePositronConsoleInstance]);
 
 	// Builds the actions.
 	const actions = () => {
@@ -49,14 +74,9 @@ export const ConsoleInstanceMenuButton = (props: ConsoleInstanceMenuButtonProps)
 	};
 
 	// Render.
-	let runtimeLabel = 'None';
-	const runtime = positronConsoleContext.activePositronConsoleInstance?.runtime;
-	if (runtime) {
-		runtimeLabel = `${runtime.metadata.languageName} ${runtime.metadata.languageVersion}`;
-	}
 	return (
 		<ActionBarMenuButton
-			text={runtimeLabel}
+			text={activeRuntimeLabel}
 			actions={actions}
 		/>
 	);
