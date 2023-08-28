@@ -1225,12 +1225,13 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	 * Processes pending input.
 	 */
 	private async processPendingInput(): Promise<void> {
+		// If there isn't a pending input runtime item, return.
 		if (!this._runtimeItemPendingInput) {
 			return;
 		}
 
-		// Get the index of the pending input runtime item. It will generally be the last
-		// runtime item.
+		// Get the index of the pending input runtime item. It will generally be the last runtime
+		// item.
 		let index = this._runtimeItems.length - 1;
 		if (this._runtimeItems[index] !== this._runtimeItemPendingInput) {
 			index = this.runtimeItems.indexOf(this._runtimeItemPendingInput);
@@ -1260,8 +1261,8 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 		);
 
 		// Add the provisional ActivityItemInput. This provisional ActivityItemInput will be
-		// replaced with the real ActivityItemInput when the runtime sends it (which can
-		// take a moment or two to happen).
+		// replaced with the real ActivityItemInput when the runtime sends it (which can take a
+		// moment or two to happen).
 		this.addOrUpdateUpdateRuntimeItemActivity(id, activityItemInput);
 
 		// Execute the code.
