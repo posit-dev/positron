@@ -3,12 +3,14 @@
 #
 
 import inspect
+import asyncio
 import numbers
 import pprint
 import types
 from binascii import b2a_base64
 from datetime import datetime
-from typing import Any, Optional, Tuple
+from types import ModuleType
+from typing import Any, Coroutine, Optional, Set, Tuple
 
 
 def get_value_length(value) -> int:
@@ -196,3 +198,27 @@ def json_clean(obj):
 
     # we don't understand it, it's probably an unserializable object
     raise ValueError("Can't clean for JSON: %r" % obj)
+
+
+def create_task(coro: Coroutine, pending_tasks: Set[asyncio.Task], **kwargs) -> asyncio.Task:
+    """
+    Create a strongly referenced task to avoid it being garbage collected.
+
+    Note that the call should hold a strong reference to pending_tasks.
+
+    See the asyncio docs for more info: https://docs.python.org/3/library/asyncio-task.html#asyncio.create_task.
+    """
+    task = asyncio.create_task(coro, **kwargs)
+    pending_tasks.add(task)
+    task.add_done_callback(pending_tasks.remove)
+    return task
+
+
+async def cancel_tasks(tasks: Set[asyncio.Task]) -> None:
+    """
+    Cancel and await a set of tasks.
+    """
+    for task in tasks:
+        task.cancel()
+    await asyncio.gather(*tasks)
+    tasks.clear()

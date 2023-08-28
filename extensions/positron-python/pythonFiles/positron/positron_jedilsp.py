@@ -1,17 +1,14 @@
 """Positron extenstions to the Jedi Language Server."""
 
-import asyncio
 import logging
 import os
 import sys
-
-from pygls.protocol import lsp_method
+import threading
 
 # Add the lib path to our sys path so jedi_language_server can find its references
 EXTENSION_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(EXTENSION_ROOT, "pythonFiles", "lib", "jedilsp"))
 
-from threading import Event
 from typing import TYPE_CHECKING, Any, Callable, List, Optional, Union
 
 from jedi.api import Interpreter
@@ -35,7 +32,6 @@ from jedi_language_server.server import (
 )
 from lsprotocol.types import (
     COMPLETION_ITEM_RESOLVE,
-    EXIT,
     TEXT_DOCUMENT_CODE_ACTION,
     TEXT_DOCUMENT_COMPLETION,
     TEXT_DOCUMENT_DEFINITION,
@@ -91,19 +87,8 @@ logger = logging.getLogger(__name__)
 class PositronJediLanguageServerProtocol(JediLanguageServerProtocol):
     """Positron extension to the Jedi language server protocol."""
 
-    @lsp_method(EXIT)
-    def lsp_exit(self, *args) -> None:
-        """Override superclass to avoid system exit."""
-        if self.transport is not None:
-            self.transport.close()
-
-        # --- Start Positron
-        # Instead of calling sys.exit (which pygls catches to call self.shutdown) call shutdown directly.
-        asyncio.create_task(POSITRON.shutdown())
-        # --- End Positron
-
     def connection_lost(self, exc):
-        """Override superclass to avoid system exit."""
+        """Override superclass to avoid system exit (e.g. when the Positron browser is refreshed)."""
         logger.info("Connection lost")
         if exc is not None:
             logger.error("Connection lost with error:", exc_info=exc)
@@ -116,11 +101,16 @@ class PositronJediLanguageServerProtocol(JediLanguageServerProtocol):
 class PositronJediLanguageServer(JediLanguageServer):
     """Positron extension to the Jedi language server."""
 
+    lsp: PositronJediLanguageServerProtocol
+
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
 
         # Reference to an IPyKernel set on server start
         self.kernel: Optional["PositronIPyKernel"] = None
+
+        # The LSP server is started in a separate thread
+        self._server_thread: Optional[threading.Thread] = None
 
     def feature(self, feature_name: str, options: Optional[Any] = None) -> Callable:
         def decorator(f):
@@ -146,40 +136,14 @@ class PositronJediLanguageServer(JediLanguageServer):
         Start the LSP with a reference to Positron's IPyKernel to enhance
         completions with awareness of live variables from user's namespace.
         """
+        # Give the LSP server access to the kernel to enhance completions with live variables
         self.kernel = kernel
-        asyncio.create_task(self._start_jedi(lsp_host, lsp_port))
 
-    async def _start_jedi(self, lsp_host, lsp_port):
-        """
-        Starts Jedi LSP as a TCP server using existing asyncio loop.
-
-        Adapted from `pygls.server.Server.start_tcp` to use existing asyncio loop.
-        """
-        self._stop_event = Event()
-        self.lsp: PositronJediLanguageServerProtocol
-        loop = asyncio.get_event_loop_policy().get_event_loop()
-        self._server = await loop.create_server(self.lsp, lsp_host, lsp_port)
-
-    async def shutdown(self):
-        """Override superclass to allow running async and avoid stopping the event loop."""
-        logger.info("Shutting down the language server")
-
-        self._stop_event.set()
-
-        if self._thread_pool:
-            self._thread_pool.terminate()
-            self._thread_pool.join()
-
-        if self._thread_pool_executor:
-            self._thread_pool_executor.shutdown()
-
-        if self._server:
-            self._server.close()
-            # --- Start Positron
-            await self._server.wait_closed()
-            # --- End Positron
-
-        logger.info("Language server is shut down")
+        # Start Jedi LSP as an asyncio TCP server in a separate thread.
+        self._server_thread = threading.Thread(
+            target=self.start_tcp, args=(lsp_host, lsp_port), name="LSPServerThread"
+        )
+        self._server_thread.start()
 
 
 POSITRON = PositronJediLanguageServer(
