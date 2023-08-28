@@ -17,6 +17,7 @@ sys.path.insert(0, os.path.join(EXTENSION_ROOT, "pythonFiles", "lib", "jedilsp")
 sys.path.insert(1, os.path.join(EXTENSION_ROOT, "pythonFiles", "lib", "python"))
 
 from positron.positron_ipkernel import PositronIPKernelApp  # noqa
+from positron.positron_jedilsp import POSITRON  # noqa
 
 logger = logging.getLogger(__name__)
 
@@ -80,11 +81,12 @@ if __name__ == "__main__":
     handlers = ["console"] if args.logfile is None else ["file"]
     logging_config = {
         "loggers": {
-            "root": {
+            "": {
                 "level": args.loglevel,
                 "handlers": handlers,
             },
-            "IPKernelApp": {
+            "PositronIPKernelApp": {
+                "level": args.loglevel,
                 "handlers": handlers,
             },
         }
@@ -126,6 +128,7 @@ if __name__ == "__main__":
     # Enable asyncio debug mode.
     if args.loglevel == "DEBUG":
         loop.set_debug(True)
+        POSITRON.loop.set_debug(True)
 
     try:
         loop.run_forever()
@@ -134,11 +137,6 @@ if __name__ == "__main__":
         exit_status = 1
     finally:
         loop.close()
-
-    # app.close is usually called at system exit via the atexit stdlib module. Not sure why,
-    # but starting the pydoc server thread (via the HelpService) causes it to no longer be
-    # called at exit, requiring the manual call here.
-    app.close()
 
     logger.info(f"Exiting process with status {exit_status}")
     sys.exit(exit_status)

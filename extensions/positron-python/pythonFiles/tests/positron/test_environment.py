@@ -3,6 +3,7 @@
 #
 
 from __future__ import annotations
+import asyncio
 
 import inspect
 import math
@@ -958,8 +959,8 @@ async def test_handle_clear(
     msg = {"msg_id": msg_id, "content": {"data": {"msg_type": "clear"}}}
     env_comm.handle_msg(msg)
 
-    # Wait until the kernel task is processed
-    await kernel.tasks[msg_id]
+    # Wait until all resulting kernel tasks are processed
+    await asyncio.gather(*kernel._pending_tasks)
 
     # All user variables are removed
     assert "x" not in shell.user_ns
