@@ -129,10 +129,7 @@ export async function* rRuntimeProvider(context: vscode.ExtensionContext): Async
 		const env = <Record<string, string>>{
 			'RUST_BACKTRACE': '1',
 			'RUST_LOG': logLevel,
-			'R_HOME': rHome.homepath,
-			// Manually set `R_CLI_*` options until cli knows about Positron
-			'R_CLI_NUM_COLORS': '256',
-			'R_CLI_DYNAMIC': 'true'
+			'R_HOME': rHome.homepath
 		};
 		/* eslint-enable */
 
@@ -174,12 +171,16 @@ export async function* rRuntimeProvider(context: vscode.ExtensionContext): Async
 			isUserInstallation ?
 				'User' : 'System';
 
+		// R script to run on session startup
+		const startupFile = path.join(context.extensionPath, 'resources', 'scripts', 'startup.R');
+
 		// Create a kernel spec for this R installation
 		const kernelSpec: JupyterKernelSpec = {
 			'argv': [
 				kernelPath,
 				'--connection_file', '{connection_file}',
 				'--log', '{log_file}',
+				'--startup-file', `${startupFile}`,
 				// The arguments after `--` are passed verbatim to R
 				'--',
 				'--interactive',

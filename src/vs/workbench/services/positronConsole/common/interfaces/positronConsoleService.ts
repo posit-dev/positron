@@ -64,8 +64,7 @@ export interface IPositronConsoleService {
 	 * Executes code in a PositronConsoleInstance.
 	 * @param languageId The language ID.
 	 * @param code The code.
-	 * @param activate A value which indicates whether to activate the Positron console instance
-	 *   if it is not already active.
+	 * @param activate A value which indicates whether to activate the Positron console instance.
 	 * @returns A value which indicates whether the code could be executed.
 	 */
 	executeCode(languageId: string, code: string, activate: boolean): Promise<boolean>;
@@ -106,6 +105,11 @@ export interface IPositronConsoleInstance {
 	readonly promptActive: boolean;
 
 	/**
+	 * The onFocusInput event.
+	 */
+	readonly onFocusInput: Event<void>;
+
+	/**
 	 * The onDidChangeState event.
 	 */
 	readonly onDidChangeState: Event<PositronConsoleState>;
@@ -126,6 +130,11 @@ export interface IPositronConsoleInstance {
 	readonly onDidChangeRuntimeItems: Event<RuntimeItem[]>;
 
 	/**
+	 * The onDidPasteText event.
+	 */
+	readonly onDidPasteText: Event<string>;
+
+	/**
 	 * The onDidClearConsole event.
 	 */
 	readonly onDidClearConsole: Event<void>;
@@ -138,7 +147,12 @@ export interface IPositronConsoleInstance {
 	/**
 	 * The onDidExecuteCode event.
 	 */
-	readonly onDidExecuteCode: Event<string>;
+	readonly onDidExecuteCode: Event<void>;
+
+	/**
+	 * Focuses the input for the console.
+	 */
+	focusInput(): void;
 
 	/**
 	 * Toggles trace.
@@ -151,6 +165,11 @@ export interface IPositronConsoleInstance {
 	toggleWordWrap(): void;
 
 	/**
+	 * Pastes text into the console.
+	 */
+	pasteText(text: string): void;
+
+	/**
 	 * Clears the console.
 	 */
 	clearConsole(): void;
@@ -159,13 +178,6 @@ export interface IPositronConsoleInstance {
 	 * Clears the input hstory.
 	 */
 	clearInputHistory(): void;
-
-	/**
-	 * Begins executing code.
-	 * @param id The identifier.
-	 * @param code The code.
-	 */
-	beginExecuteCode(id: string, code: string): void;
 
 	/**
 	 * Executes code in the Positron console instance.

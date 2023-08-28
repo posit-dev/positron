@@ -8,6 +8,7 @@ import { ITextModel } from 'vs/editor/common/model';
 import { IEditor } from 'vs/editor/common/editorCommon';
 import { Position } from 'vs/editor/common/core/position';
 import { KeyCode, KeyMod } from 'vs/base/common/keyCodes';
+import { IViewsService } from 'vs/workbench/common/views';
 import { ILocalizedString } from 'vs/platform/action/common/action';
 import { ILanguageService } from 'vs/editor/common/languages/language';
 import { Action2, registerAction2 } from 'vs/platform/actions/common/actions';
@@ -16,11 +17,10 @@ import { IEditorService } from 'vs/workbench/services/editor/common/editorServic
 import { KeybindingWeight } from 'vs/platform/keybinding/common/keybindingsRegistry';
 import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/layoutService';
 import { INotificationService, Severity } from 'vs/platform/notification/common/notification';
+import { PositronConsoleViewPane } from 'vs/workbench/contrib/positronConsole/browser/positronConsoleView';
 import { confirmationModalDialog } from 'vs/workbench/browser/positronModalDialogs/confirmationModalDialog';
 import { IExecutionHistoryService } from 'vs/workbench/contrib/executionHistory/common/executionHistoryService';
 import { IPositronConsoleService, POSITRON_CONSOLE_VIEW_ID } from 'vs/workbench/services/positronConsole/common/interfaces/positronConsoleService';
-import { IViewsService } from 'vs/workbench/common/views';
-import { PositronConsoleViewPane } from 'vs/workbench/contrib/positronConsole/browser/positronConsoleView';
 
 /**
  * Positron console command ID's.
@@ -35,6 +35,13 @@ const enum PositronConsoleCommandId {
  * Positron console action category.
  */
 const POSITRON_CONSOLE_ACTION_CATEGORY = localize('positronConsoleCategory', "Console");
+
+/**
+ * trimNewLines helper.
+ * @param str The string to trim newlines for.
+ * @returns The string with newlines trimmed.
+ */
+const trimNewlines = (str: string) => str.replace(/^\n+|\n+$/g, '');
 
 /**
  * Registers Positron console actions.
@@ -247,7 +254,7 @@ export function registerPositronConsoleActions() {
 					// Find the first non-empty line after the cursor position and read the
 					// contents of that line.
 					for (let number = lineNumber; number <= model.getLineCount(); ++number) {
-						code = this.trimNewlines(model.getLineContent(number));
+						code = trimNewlines(model.getLineContent(number));
 
 						if (code.length > 0) {
 							lineNumber = number;
@@ -262,7 +269,7 @@ export function registerPositronConsoleActions() {
 					let onlyEmptyLines = true;
 
 					for (let number = lineNumber + 1; number <= model.getLineCount(); ++number) {
-						if (this.trimNewlines(model.getLineContent(number)).length !== 0) {
+						if (trimNewlines(model.getLineContent(number)).length !== 0) {
 							// We found a non-empty line, move the cursor to it.
 							onlyEmptyLines = false;
 							lineNumber = number;
@@ -337,7 +344,7 @@ export function registerPositronConsoleActions() {
 			await viewsService.openView<PositronConsoleViewPane>(POSITRON_CONSOLE_VIEW_ID, false);
 
 			// Ask the Positron console service to execute the code.
-			if (!positronConsoleService.executeCode(languageId, code, true)) {
+			if (!await positronConsoleService.executeCode(languageId, code, true)) {
 				const languageName = languageService.getLanguageName(languageId);
 				notificationService.notify({
 					severity: Severity.Info,
@@ -345,10 +352,6 @@ export function registerPositronConsoleActions() {
 					sticky: false
 				});
 			}
-		}
-
-		trimNewlines(str: string): string {
-			return str.replace(/^\n+/, '').replace(/\n+$/, '');
 		}
 	});
 }

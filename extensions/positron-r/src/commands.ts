@@ -93,7 +93,7 @@ export async function registerCommands(context: vscode.ExtensionContext) {
 				// isn't a file on disk.  In Positron, there is currently a bug
 				// which causes the REPL to act like an active editor. See:
 				//
-				// https://github.com/rstudio/positron/issues/780
+				// https://github.com/posit-dev/positron/issues/780
 			}
 		}),
 	);
@@ -101,10 +101,13 @@ export async function registerCommands(context: vscode.ExtensionContext) {
 
 async function detectRPackage(): Promise<boolean> {
 	const descriptionLines = await parseRPackageDescription();
-	const descStartsWithPackage = descriptionLines[0].startsWith('Package:');
+	const packageLines = descriptionLines.filter(line => line.startsWith('Package:'));
 	const typeLines = descriptionLines.filter(line => line.startsWith('Type:'));
-	const typeIsPackage = typeLines.length === 0 || typeLines[0].includes('Package');
-	return descStartsWithPackage && typeIsPackage;
+	const typeIsPackage = (typeLines.length > 0
+		? typeLines[0].toLowerCase().includes('package')
+		: false);
+	const typeIsPackageOrMissing = typeLines.length === 0 || typeIsPackage;
+	return packageLines.length > 0 && typeIsPackageOrMissing;
 }
 
 async function getRPackageName(): Promise<string> {

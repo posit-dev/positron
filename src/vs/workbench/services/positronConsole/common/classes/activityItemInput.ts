@@ -2,35 +2,85 @@
  *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
-import { Emitter, Event } from 'vs/base/common/event';
+import { Emitter } from 'vs/base/common/event';
 import { ANSIOutput, ANSIOutputLine } from 'ansi-output';
 
 /**
  * ActivityItemInput class.
  */
 export class ActivityItemInput {
+	//#region Private Properties
+
+	/**
+	 * The code.
+	 */
+	private _code: string;
+
+	/**
+	 * A value which indicates whether the ActivityItemInput is executing.
+	 */
+	private _executing = false;
+
+	/**
+	 * The code output lines.
+	 */
+	private _codeOutputLines: ANSIOutputLine[];
+
+	/**
+	 * onChanged event emitter.
+	 */
+	private _onChangedEmitter = new Emitter<void>();
+
+	//#endregion Private Properties
+
 	//#region Public Properties
+
+	/**
+	 * Gets the code.
+	 */
+	get code() {
+		return this._code;
+	}
+
+	/**
+	 * Sets the code.
+	 * @param code The code.
+	 */
+	set code(code: string) {
+		this._code = code;
+		this._codeOutputLines = ANSIOutput.processOutput(this._code);
+		this._onChangedEmitter.fire();
+	}
+
+	/**
+	 * Gets a value which indicates whether the ActivityItemInput is executing.
+	 */
+	get executing() {
+		return this._executing;
+	}
+
+	/**
+	 * Sets a value which indicates whether the ActivityItemInput is executing.
+	 * @param executing A value which indicates whether the ActivityItemInput is executing
+	 */
+	set executing(executing: boolean) {
+		this._executing = executing;
+		this._onChangedEmitter.fire();
+	}
 
 	/**
 	 * Gets the code output lines.
 	 */
-	readonly codeOutputLines: readonly ANSIOutputLine[];
+	get codeOutputLines() {
+		return this._codeOutputLines;
+	}
 
 	/**
-	 * The current busy state; defaults to true since we receive input items
-	 * when they are already in the process of being executed.
+	 * An event that fires when the ActivityItemInput changes.
 	 */
-	public busyState: boolean = true;
-
-	/**
-	 * An event that fires when the busy state changes; the event value is the
-	 * new busy state.
-	 */
-	public onBusyStateChanged: Event<boolean>;
+	public onChanged = this._onChangedEmitter.event;
 
 	//#endregion Public Properties
-
-	private _onBusyStateChangedEmitter: Emitter<boolean> = new Emitter<boolean>();
 
 	//#region Constructor
 
@@ -51,23 +101,15 @@ export class ActivityItemInput {
 		readonly when: Date,
 		readonly inputPrompt: string,
 		readonly continuationPrompt: string,
-		readonly code: string
+		code: string
 	) {
-		// Process the code directly into ANSI output lines suitable for rendering.
-		this.codeOutputLines = ANSIOutput.processOutput(code);
+		// Process the code into ANSI output lines suitable for rendering.
+		this._code = code;
+		this._codeOutputLines = ANSIOutput.processOutput(this._code);
 
-		this.onBusyStateChanged = this._onBusyStateChangedEmitter.event;
+		// Non-provisional ActivityItemInputs are executing by default.
+		this._executing = !this.provisional;
 	}
 
 	//#endregion Constructor
-
-	/**
-	 * Sets the busy state.
-	 *
-	 * @param busyState The new busy state
-	 */
-	public setBusyState(busyState: boolean): void {
-		this.busyState = busyState;
-		this._onBusyStateChangedEmitter.fire(busyState);
-	}
 }
