@@ -29,6 +29,7 @@ from .help import HelpService
 from .inspectors import get_inspector
 from .lsp import LSPService
 from .plots import PositronDisplayPublisherHook
+from .utils import cancel_tasks, create_task
 
 POSITRON_DATA_VIEWER_COMM = "positron.dataViewer"
 """The comm channel target_name for Positron's Data Viewer"""
@@ -135,8 +136,8 @@ class PositronIPyKernel(IPythonKernel):
         """Initializes Positron's IPython kernel."""
         super().__init__(**kwargs)
 
-        # Async tasks keyed by parent message id
-        self.tasks: Dict[str, asyncio.Task] = {}
+        # Hold strong references to pending tasks to prevent them from being garbage collected
+        self._pending_tasks: Set[asyncio.Task] = set()
 
         # Register for REPL execution events
         self.shell.events.register("pre_execute", self.handle_pre_execute)
@@ -192,7 +193,7 @@ class PositronIPyKernel(IPythonKernel):
         super().start()
         self.help_service.start()
 
-    def do_shutdown(self, restart: bool) -> Dict[str, Any]:
+    async def do_shutdown(self, restart: bool) -> Dict[str, Any]:
         """
         Handle kernel shutdown.
         """
@@ -204,9 +205,8 @@ class PositronIPyKernel(IPythonKernel):
         self.frontend_service.shutdown()
         self.dataviewer_service.shutdown()
 
-        for task in self.tasks.values():
-            task.cancel()
-        # TODO: Should we await the cancelled tasks here?
+        # Cancel and await pending tasks
+        await cancel_tasks(self._pending_tasks)
 
         # We don't call super().do_shutdown since it sets shell.exit_now = True which tries to
         # stop the event loop at the same time as self.shutdown_request (since self.shell_stream.io_loop
@@ -457,10 +457,7 @@ class PositronIPyKernel(IPythonKernel):
         """
         Deletes all of the variables in the current user session.
         """
-        parent_id = parent["msg_id"]
-        task = asyncio.create_task(self._soft_reset(parent))
-        self.tasks[parent_id] = task
-        task.add_done_callback(lambda _: self.tasks.pop(parent_id))
+        create_task(self._soft_reset(parent), self._pending_tasks)
 
     async def _soft_reset(self, parent: Dict[str, Any]) -> Dict[str, Any]:
         """

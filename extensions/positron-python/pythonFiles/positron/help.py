@@ -114,6 +114,7 @@ class HelpService:
         if self.pydoc_thread is not None and self.pydoc_thread.serving:
             logger.info("Stopping pydoc server thread")
             self.pydoc_thread.stop()
+            logger.info("Pydoc server thread stopped")
 
     def show_help(self, request: Optional[Union[str, Any]]) -> None:
         if self.pydoc_thread is None:
