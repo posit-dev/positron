@@ -317,6 +317,34 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 	}
 
 	/**
+	 * Restarts a runtime.
+	 *
+	 * @param runtimeId The ID of the runtime to select
+	 * @param source The source of the selection
+	 */
+	async restartRuntime(runtimeId: string, source: string): Promise<void> {
+		const runtimeInfo = this._registeredRuntimesByRuntimeId.get(runtimeId);
+		if (!runtimeInfo) {
+			return Promise.reject(new Error(`Language runtime ID '${runtimeId}' ` +
+				`is not registered.`));
+		}
+		const runtime = runtimeInfo.runtime;
+		const runningRuntime = this._runningRuntimesByLanguageId.get(runtime.metadata.languageId);
+		if (!runningRuntime) {
+			return Promise.reject(
+				new Error(`There is no running runtime for the language that matches language ` +
+					`runtime ID '${runtimeId}'.`));
+		}
+		if (runningRuntime.metadata.runtimeId !== runtimeId) {
+			return Promise.reject(
+				new Error(`${formatLanguageRuntime(runningRuntime)} is not currently running.`));
+		}
+
+		// Restart the selected runtime.
+		return this.restartRuntime(runtime.metadata.runtimeId, source);
+	}
+
+	/**
 	 * Register a new runtime
 	 *
 	 * @param runtime The runtime to register

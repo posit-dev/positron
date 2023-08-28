@@ -532,6 +532,14 @@ export interface ILanguageRuntimeService {
 	selectRuntime(runtimeId: string, source: string): Promise<void>;
 
 	/**
+	 * Restart a running runtime.
+	 *
+	 * @param runtimeId The identifier of the runtime to restart.
+	 * @param source The source of the request to restart the runtime, for debugging purposes.
+	 */
+	restartRuntime(runtimeId: string, source: string): Promise<void>;
+
+	/**
 	 * Signal that discovery of language runtimes is complete.
 	 */
 	completeDiscovery(): void;

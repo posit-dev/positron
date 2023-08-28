@@ -712,7 +712,7 @@ declare module 'positron' {
 		 * @param languageId The language ID for running runtimes
 		 */
 		export function getRunningRuntimes(languageId: string): Thenable<LanguageRuntimeMetadata[]>;
-    
+
 		/**
 		 * Select and start a runtime previously registered with Positron. Any
 		 * previously active runtimes for the language will be shut down.
@@ -720,6 +720,13 @@ declare module 'positron' {
 		 * @param runtimeId The ID of the runtime to select and start.
 		 */
 		export function selectLanguageRuntime(runtimeId: string): Thenable<void>;
+
+		/**
+		 * Restart a running runtime.
+		 *
+		 * @param runtimeId The ID of the running runtime to restart.
+		 */
+		export function restartLanguageRuntime(runtimeId: string): Thenable<void>;
 
 		/**
 		 * Register a handler for runtime client instances. This handler will be called
