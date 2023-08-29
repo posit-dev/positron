@@ -6,7 +6,6 @@ import { localize } from 'vs/nls';
 import { Codicon } from 'vs/base/common/codicons';
 import { ITextModel } from 'vs/editor/common/model';
 import { IEditor } from 'vs/editor/common/editorCommon';
-import { Position } from 'vs/editor/common/core/position';
 import { KeyCode, KeyMod } from 'vs/base/common/keyCodes';
 import { IViewsService } from 'vs/workbench/common/views';
 import { ILocalizedString } from 'vs/platform/action/common/action';
@@ -232,11 +231,8 @@ export function registerPositronConsoleActions() {
 			const model = editor.getModel() as ITextModel;
 
 			// If we have a selection and it isn't empty, then we use its contents (even if it
-			// only contains whitespace or comments) and also retain the user's selection location
-			const inSelection = selection &&
-				!Position.equals(selection.getPosition(), selection.getSelectionStart());
-
-			if (inSelection) {
+			// only contains whitespace or comments) and also retain the user's selection location.
+			if (selection && !selection.isEmpty()) {
 				code = model.getValueInRange(selection);
 			} else {
 				// If no selection (or empty selection) was found, use the contents

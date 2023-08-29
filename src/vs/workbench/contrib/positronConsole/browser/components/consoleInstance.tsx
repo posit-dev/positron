@@ -36,8 +36,10 @@ import { RuntimeItemStarting } from 'vs/workbench/services/positronConsole/commo
 import { RuntimeItemActivity } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemActivity';
 import { usePositronConsoleContext } from 'vs/workbench/contrib/positronConsole/browser/positronConsoleContext';
 import { RuntimeReconnected } from 'vs/workbench/contrib/positronConsole/browser/components/runtimeReconnected';
+import { RuntimePendingInput } from 'vs/workbench/contrib/positronConsole/browser/components/runtimePendingInput';
 import { RuntimeItemReconnected } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemReconnected';
 import { RuntimeStartupFailure } from 'vs/workbench/contrib/positronConsole/browser/components/runtimeStartupFailure';
+import { RuntimeItemPendingInput } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemPendingInput';
 import { IPositronConsoleInstance } from 'vs/workbench/services/positronConsole/common/interfaces/positronConsoleService';
 import { RuntimeItemStartupFailure } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemStartupFailure';
 import { POSITRON_CONSOLE_COPY, POSITRON_CONSOLE_CUT, POSITRON_CONSOLE_PASTE, POSITRON_CONSOLE_SELECT_ALL } from 'vs/workbench/contrib/positronConsole/browser/positronConsoleIdentifiers';
@@ -453,6 +455,8 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 				{props.positronConsoleInstance.runtimeItems.map(runtimeItem => {
 					if (runtimeItem instanceof RuntimeItemActivity) {
 						return <RuntimeActivity key={runtimeItem.id} fontInfo={editorFontInfo} runtimeItemActivity={runtimeItem} positronConsoleInstance={props.positronConsoleInstance} />;
+					} else if (runtimeItem instanceof RuntimeItemPendingInput) {
+						return <RuntimePendingInput key={runtimeItem.id} fontInfo={editorFontInfo} runtimeItemPendingInput={runtimeItem} />;
 					} else if (runtimeItem instanceof RuntimeItemStartup) {
 						return <RuntimeStartup key={runtimeItem.id} runtimeItemStartup={runtimeItem} />;
 					} else if (runtimeItem instanceof RuntimeItemReconnected) {

@@ -13,12 +13,12 @@ export class ActivityItemOutputStream {
 	/**
 	 * Gets the ActivityItemOutputStream array.
 	 */
-	private readonly _activityItemOutputStreams: ActivityItemOutputStream[] = [];
+	private readonly activityItemOutputStreams: ActivityItemOutputStream[] = [];
 
 	/**
 	 * Gets or sets the ANSIOutput that is processing the ActivityItemOutputStream array.
 	 */
-	private _ansiOutput: ANSIOutput | undefined;
+	private ansiOutput: ANSIOutput | undefined;
 
 	//#endregion Private Properties
 
@@ -29,17 +29,17 @@ export class ActivityItemOutputStream {
 	 */
 	get outputLines(): ANSIOutputLine[] {
 		// Lazily process output from the ActivityItemOutputStream array.
-		if (!this._ansiOutput) {
-			this._ansiOutput = new ANSIOutput();
-			for (const activityItemOutputStream of this._activityItemOutputStreams) {
+		if (!this.ansiOutput) {
+			this.ansiOutput = new ANSIOutput();
+			for (const activityItemOutputStream of this.activityItemOutputStreams) {
 				if (activityItemOutputStream.text) {
-					this._ansiOutput.processOutput(activityItemOutputStream.text);
+					this.ansiOutput.processOutput(activityItemOutputStream.text);
 				}
 			}
 		}
 
 		// Return the output lines.
-		return this._ansiOutput.outputLines;
+		return this.ansiOutput.outputLines;
 	}
 
 	//#endregion Public Properties
@@ -59,7 +59,7 @@ export class ActivityItemOutputStream {
 		readonly when: Date,
 		readonly text: string
 	) {
-		this._activityItemOutputStreams.push(this);
+		this.activityItemOutputStreams.push(this);
 	}
 
 	//#endregion Constructor
@@ -71,9 +71,9 @@ export class ActivityItemOutputStream {
 	 * @param activityItemOutputStream The ActivityItemOutputStream to add.
 	 */
 	public addActivityItemOutputStream(activityItemOutputStream: ActivityItemOutputStream) {
-		this._activityItemOutputStreams.push(activityItemOutputStream);
-		if (this._ansiOutput && activityItemOutputStream.text) {
-			this._ansiOutput.processOutput(activityItemOutputStream.text);
+		this.activityItemOutputStreams.push(activityItemOutputStream);
+		if (this.ansiOutput && activityItemOutputStream.text) {
+			this.ansiOutput.processOutput(activityItemOutputStream.text);
 		}
 	}
 
