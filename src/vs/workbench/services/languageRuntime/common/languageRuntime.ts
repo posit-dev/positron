@@ -536,7 +536,7 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 	 * @param runtimeId The runtime identifier of the runtime to shut down.
 	 * @param source The source of the request to shut down the runtime.
 		 */
-	private async shutdownRuntime(runtimeId: string, source: string): Promise<void> {
+	async shutdownRuntime(runtimeId: string, source: string): Promise<void> {
 		const languageRuntimeInfo = this._registeredRuntimesByRuntimeId.get(runtimeId);
 		if (!languageRuntimeInfo) {
 			throw new Error(`No language runtime with id '${runtimeId}' was found.`);
