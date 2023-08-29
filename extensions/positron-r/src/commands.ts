@@ -10,6 +10,17 @@ export async function registerCommands(context: vscode.ExtensionContext) {
 	const isRPackage = await detectRPackage();
 	vscode.commands.executeCommand('setContext', 'isRPackage', isRPackage);
 
+	function insertText(text: string) {
+		const editor = vscode.window.activeTextEditor;
+		if (editor) {
+			return editor.edit(editBuilder => {
+				editor.selections.forEach(sel => {
+					editBuilder.replace(sel, text);
+				});
+			});
+		}
+	}
+
 	context.subscriptions.push(
 
 		// Command used to create new R files
@@ -19,16 +30,8 @@ export async function registerCommands(context: vscode.ExtensionContext) {
 			});
 		}),
 
-		// Command to insert the `|>` pipe
 		vscode.commands.registerCommand('r.insertPipe', () => {
-			const editor = vscode.window.activeTextEditor;
-			if (editor) {
-				return editor.edit(editBuilder => {
-					editor.selections.forEach(sel => {
-						editBuilder.replace(sel, '|>');
-					});
-				});
-			}
+			insertText('|>');
 		}),
 
 		// Commands for package development tooling
@@ -124,3 +127,5 @@ async function detectRPackage(): Promise<boolean> {
 	}
 	return false;
 }
+
+
