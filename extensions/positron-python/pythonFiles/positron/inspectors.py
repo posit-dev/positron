@@ -692,16 +692,9 @@ class NumpyNdarrayInspector(CollectionInspector):
         return False
 
     def get_child(self, value: Any, child_name: str) -> Any:
-        child_value = None
         try:
             index = int(child_name)
-            if value.ndim == 1:
-                dimension = value.tolist()
-                child_value = dimension[index]
-            else:
-                child_value = value[:, index].tolist()
-
-            return child_value
+            return value[index]
         except Exception:
             logger.warning("Unable to get ndarray child: %s", child_name, exc_info=True)
             return []
@@ -712,8 +705,7 @@ class NumpyNdarrayInspector(CollectionInspector):
         # Treat collection items as children, with the index as the name
         children = []
         try:
-            items = value.tolist()
-            for i, item in enumerate(items):
+            for i, item in enumerate(value):
                 if len(children) >= MAX_CHILDREN:
                     break
 
