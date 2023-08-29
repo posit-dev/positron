@@ -13,9 +13,10 @@ export async function registerCommands(context: vscode.ExtensionContext) {
 	function insertText(text: string) {
 		const editor = vscode.window.activeTextEditor;
 		if (editor) {
+			const paddedText = ' ' + text + ' ';
 			return editor.edit(editBuilder => {
 				editor.selections.forEach(sel => {
-					editBuilder.replace(sel, text);
+					editBuilder.replace(sel, paddedText);
 				});
 			});
 		}
