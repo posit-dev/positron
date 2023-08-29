@@ -317,34 +317,6 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 	}
 
 	/**
-	 * Restarts a runtime.
-	 *
-	 * @param runtimeId The ID of the runtime to select
-	 * @param source The source of the selection
-	 */
-	async restartRuntime(runtimeId: string, source: string): Promise<void> {
-		const runtimeInfo = this._registeredRuntimesByRuntimeId.get(runtimeId);
-		if (!runtimeInfo) {
-			return Promise.reject(new Error(`Language runtime ID '${runtimeId}' ` +
-				`is not registered.`));
-		}
-		const runtime = runtimeInfo.runtime;
-		const runningRuntime = this._runningRuntimesByLanguageId.get(runtime.metadata.languageId);
-		if (!runningRuntime) {
-			return Promise.reject(
-				new Error(`There is no running runtime for the language that matches language ` +
-					`runtime ID '${runtimeId}'.`));
-		}
-		if (runningRuntime.metadata.runtimeId !== runtimeId) {
-			return Promise.reject(
-				new Error(`${formatLanguageRuntime(runningRuntime)} is not currently running.`));
-		}
-
-		// Restart the selected runtime.
-		return this.restartRuntime(runtime.metadata.runtimeId, source);
-	}
-
-	/**
 	 * Register a new runtime
 	 *
 	 * @param runtime The runtime to register
@@ -581,6 +553,60 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 		// Start the runtime.
 		this._logService.info(`Starting language runtime ${formatLanguageRuntime(languageRuntimeInfo.runtime)} (Source: ${source})`);
 		await this.doStartRuntime(languageRuntimeInfo.runtime);
+	}
+
+	/**
+	 * Restarts a runtime.
+	 * @param runtimeId The ID of the runtime to select
+	 * @param source The source of the selection
+	 */
+	async restartRuntime(runtimeId: string, source: string): Promise<void> {
+		const runtimeInfo = this._registeredRuntimesByRuntimeId.get(runtimeId);
+		if (!runtimeInfo) {
+			throw new Error(`No language runtime with id '${runtimeId}' was found.`);
+		}
+		const runtime = runtimeInfo.runtime;
+		const runningRuntime = this._runningRuntimesByLanguageId.get(runtime.metadata.languageId);
+		if (!runningRuntime) {
+			return Promise.reject(
+				new Error(`There is no running runtime for the language that matches language ` +
+					`runtime ID '${runtimeId}'.`));
+		}
+		if (runningRuntime.metadata.runtimeId !== runtimeId) {
+			return Promise.reject(
+				new Error(`${formatLanguageRuntime(runningRuntime)} is not currently running.`));
+		}
+
+		// Ask the runtime to shut down.
+		await runningRuntime.shutdown();
+
+		// If the runtime doesn't exit immediately, wait for it to exit.
+		if (runningRuntime.getRuntimeState() !== RuntimeState.Exited) {
+			// Create a promise that resolves when the runtime exits.
+			const promise = new Promise<void>(resolve => {
+				const disposable = runningRuntime.onDidChangeRuntimeState(state => {
+					if (state === RuntimeState.Exited) {
+						resolve();
+						disposable.dispose();
+					}
+				});
+			});
+
+			// Create a promise that rejects after a timeout.
+			const timeout = new Promise<void>((_, reject) => {
+				setTimeout(() => {
+					reject(new Error(`Timed out waiting for runtime ${formatLanguageRuntime(runningRuntime)} to exit.`));
+				}, 5000);
+			});
+
+			// Wait for the runtime to exit, or for the timeout to expire
+			// (whichever comes first)
+			await Promise.race([promise, timeout]);
+		}
+
+		// Start the runtime again.
+		this._logService.info(`Restarting language runtime ${formatLanguageRuntime(runtimeInfo.runtime)} (Source: ${source})`);
+		await this.doStartRuntime(runtimeInfo.runtime);
 	}
 
 	//#endregion ILanguageRuntimeService Implementation
