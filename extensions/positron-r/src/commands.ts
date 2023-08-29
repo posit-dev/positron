@@ -34,6 +34,10 @@ export async function registerCommands(context: vscode.ExtensionContext) {
 			insertText('|>');
 		}),
 
+		vscode.commands.registerCommand('r.insertLeftAssignment', () => {
+			insertText('<-');
+		}),
+
 		// Commands for package development tooling
 		vscode.commands.registerCommand('r.packageLoad', () => {
 			positron.runtime.executeCode('r', 'devtools::load_all()', true);
