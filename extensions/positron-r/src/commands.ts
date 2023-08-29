@@ -19,6 +19,18 @@ export async function registerCommands(context: vscode.ExtensionContext) {
 			});
 		}),
 
+		// Command to insert the `|>` pipe
+		vscode.commands.registerCommand('r.insertPipe', () => {
+			const editor = vscode.window.activeTextEditor;
+			if (editor) {
+				return editor.edit(editBuilder => {
+					editor.selections.forEach(sel => {
+						editBuilder.replace(sel, '|>');
+					});
+				});
+			}
+		}),
+
 		// Commands for package development tooling
 		vscode.commands.registerCommand('r.packageLoad', () => {
 			positron.runtime.executeCode('r', 'devtools::load_all()', true);

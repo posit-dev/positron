@@ -29,6 +29,12 @@
         "shortTitle": "%r.menu.createNewFile.title%"
       },
       {
+        "command": "r.insertPipe",
+        "category": "R",
+        "title": "%r.command.insertPipe.title%",
+        "shortTitle": "%r.menu.insertPipe.title%"
+      },
+      {
         "command": "r.packageLoad",
         "category": "R",
         "title": "%r.command.packageLoad.title%",
@@ -180,6 +186,12 @@
       }
     ],
     "keybindings": [
+      {
+        "command": "r.insertPipe",
+        "key": "ctrl+shift+m",
+        "mac": "cmd+shift+m",
+        "when": "editorLangId == r"
+      },
       {
         "command": "r.packageLoad",
         "key": "ctrl+shift+l",
