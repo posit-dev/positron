@@ -25,7 +25,6 @@ export interface ActivityInputProps {
 export const ActivityInput = (props: ActivityInputProps) => {
 	// Hooks.
 	const [executing, setExecuting] = useState(props.activityItemInput.executing);
-	const [codeOutputLines, setCodeOutputLines] = useState(props.activityItemInput.codeOutputLines);
 
 	// Main useEffect.
 	React.useEffect(() => {
@@ -35,7 +34,6 @@ export const ActivityInput = (props: ActivityInputProps) => {
 		// Listen for the changes to the item.
 		disposableStore.add(props.activityItemInput.onChanged(() => {
 			setExecuting(props.activityItemInput.executing);
-			setCodeOutputLines(props.activityItemInput.codeOutputLines);
 		}));
 
 		// Return the cleanup function that will dispose of the disposables.
@@ -58,7 +56,7 @@ export const ActivityInput = (props: ActivityInputProps) => {
 	return (
 		<div className={classNames}>
 			{executing && <div className='progress-bar' />}
-			{codeOutputLines.map((outputLine, index) =>
+			{props.activityItemInput.codeOutputLines.map((outputLine, index) =>
 				<div key={outputLine.id}>
 					<span style={{ width: promptWidth }}>
 						{(index === 0 ?
