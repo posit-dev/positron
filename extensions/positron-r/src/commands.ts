@@ -132,5 +132,3 @@ async function detectRPackage(): Promise<boolean> {
 	}
 	return false;
 }
-
-
