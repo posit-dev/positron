@@ -285,7 +285,7 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 			}
 
 			// Ask the runtime to shut down.
-			await this.shutdownRuntime(runtime.metadata.runtimeId, source);
+			await this.shutdownRuntime(runningRuntime.metadata.runtimeId, source);
 		}
 
 		// Start the selected runtime.
