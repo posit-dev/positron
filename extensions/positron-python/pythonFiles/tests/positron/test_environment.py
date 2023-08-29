@@ -15,6 +15,7 @@ import types
 from typing import Callable, Iterable, Optional, Tuple
 
 import comm
+import numpy as np
 import pandas as pd
 import pytest
 from fastcore.foundation import L
@@ -28,6 +29,7 @@ from positron import (
     EnvironmentVariableValueKind,
 )
 from positron.positron_ipkernel import PositronIPyKernel
+from positron.inspectors import get_inspector
 
 from .conftest import DummyComm
 
@@ -119,8 +121,7 @@ def test_summarize_boolean(case: bool, env_service: EnvironmentService) -> None:
         access_key=display_name,
     )
 
-    key, value = display_name, case
-    result = env_service._summarize_variable(key, value)
+    result = env_service._summarize_variable(display_name, case)
 
     compare_summary(result, expected)
 
@@ -160,8 +161,7 @@ def test_summarize_string(case: str, env_service: EnvironmentService) -> None:
         length=length,
     )
 
-    key, value = display_name, case
-    result = env_service._summarize_variable(key, value)
+    result = env_service._summarize_variable(display_name, case)
 
     compare_summary(result, expected)
 
@@ -182,8 +182,7 @@ def test_summarize_string_truncated(env_service: EnvironmentService) -> None:
         is_truncated=True,
     )
 
-    key, value = display_name, long_string
-    result = env_service._summarize_variable(key, value)
+    result = env_service._summarize_variable(display_name, long_string)
 
     compare_summary(result, expected)
 
@@ -209,8 +208,7 @@ def test_summarize_integer(case: int, env_service: EnvironmentService) -> None:
         access_key=display_name,
     )
 
-    key, value = display_name, case
-    result = env_service._summarize_variable(key, value)
+    result = env_service._summarize_variable(display_name, case)
 
     compare_summary(result, expected)
 
@@ -244,8 +242,7 @@ def test_summarize_float(case: float, env_service: EnvironmentService) -> None:
         access_key=display_name,
     )
 
-    key, value = display_name, case
-    result = env_service._summarize_variable(key, value)
+    result = env_service._summarize_variable(display_name, case)
 
     compare_summary(result, expected)
 
@@ -273,8 +270,7 @@ def test_summarize_complex(case: complex, env_service: EnvironmentService) -> No
         access_key=display_name,
     )
 
-    key, value = display_name, case
-    result = env_service._summarize_variable(key, value)
+    result = env_service._summarize_variable(display_name, case)
 
     compare_summary(result, expected)
 
@@ -300,8 +296,7 @@ def test_summarize_bytes(case: bytes, env_service: EnvironmentService) -> None:
         length=length,
     )
 
-    key, value = display_name, case
-    result = env_service._summarize_variable(key, value)
+    result = env_service._summarize_variable(display_name, case)
 
     compare_summary(result, expected)
 
@@ -323,8 +318,7 @@ def test_summarize_bytearray(case: bytearray, env_service: EnvironmentService) -
         length=length,
     )
 
-    key, value = display_name, case
-    result = env_service._summarize_variable(key, value)
+    result = env_service._summarize_variable(display_name, case)
 
     compare_summary(result, expected)
 
@@ -344,8 +338,7 @@ def test_summarize_bytearray_truncated(env_service: EnvironmentService) -> None:
         is_truncated=True,
     )
 
-    key, value = display_name, case
-    result = env_service._summarize_variable(key, value)
+    result = env_service._summarize_variable(display_name, case)
 
     compare_summary(result, expected)
 
@@ -365,8 +358,7 @@ def test_summarize_memoryview(env_service: EnvironmentService) -> None:
         length=length,
     )
 
-    key, value = display_name, case
-    result = env_service._summarize_variable(key, value)
+    result = env_service._summarize_variable(display_name, case)
 
     compare_summary(result, expected)
 
@@ -388,8 +380,7 @@ def test_summarize_none(env_service: EnvironmentService) -> None:
         access_key=display_name,
     )
 
-    key, value = display_name, case
-    result = env_service._summarize_variable(key, value)
+    result = env_service._summarize_variable(display_name, case)
 
     compare_summary(result, expected)
 
@@ -426,8 +417,7 @@ def test_summarize_set(case: set, env_service: EnvironmentService) -> None:
         length=length,
     )
 
-    key, value = display_name, case
-    result = env_service._summarize_variable(key, value)
+    result = env_service._summarize_variable(display_name, case)
 
     compare_summary(result, expected)
 
@@ -448,8 +438,7 @@ def test_summarize_set_truncated(env_service: EnvironmentService) -> None:
         is_truncated=True,
     )
 
-    key, value = display_name, case
-    result = env_service._summarize_variable(key, value)
+    result = env_service._summarize_variable(display_name, case)
 
     compare_summary(result, expected)
 
@@ -483,8 +472,7 @@ def test_summarize_list(case: list, env_service: EnvironmentService) -> None:
         has_children=length > 0,
     )
 
-    key, value = display_name, case
-    result = env_service._summarize_variable(key, value)
+    result = env_service._summarize_variable(display_name, case)
 
     compare_summary(result, expected)
 
@@ -506,8 +494,7 @@ def test_summarize_list_truncated(env_service: EnvironmentService) -> None:
         is_truncated=True,
     )
 
-    key, value = display_name, case
-    result = env_service._summarize_variable(key, value)
+    result = env_service._summarize_variable(display_name, case)
 
     compare_summary(result, expected)
 
@@ -529,8 +516,7 @@ def test_summarize_list_cycle(env_service: EnvironmentService) -> None:
         has_children=True,
     )
 
-    key, value = display_name, case
-    result = env_service._summarize_variable(key, value)
+    result = env_service._summarize_variable(display_name, case)
 
     compare_summary(result, expected)
 
@@ -564,8 +550,7 @@ def test_summarize_range(case: range, env_service: EnvironmentService) -> None:
         length=length,
     )
 
-    key, value = display_name, case
-    result = env_service._summarize_variable(key, value)
+    result = env_service._summarize_variable(display_name, case)
 
     compare_summary(result, expected)
 
@@ -599,8 +584,7 @@ def test_summarize_fastcore_list(case: L, env_service: EnvironmentService) -> No
         has_children=length > 0,
     )
 
-    key, value = display_name, case
-    result = env_service._summarize_variable(key, value)
+    result = env_service._summarize_variable(display_name, case)
 
     compare_summary(result, expected)
 
@@ -645,8 +629,7 @@ def test_summarize_map(case: dict, env_service: EnvironmentService) -> None:
         has_children=length > 0,
     )
 
-    key, value = display_name, case
-    result = env_service._summarize_variable(key, value)
+    result = env_service._summarize_variable(display_name, case)
 
     compare_summary(result, expected)
 
@@ -683,8 +666,40 @@ def test_summarize_function(case: Callable, env_service: EnvironmentService) -> 
         access_key=display_name,
     )
 
-    key, value = display_name, case
-    result = env_service._summarize_variable(key, value)
+    result = env_service._summarize_variable(display_name, case)
+
+    compare_summary(result, expected)
+
+
+#
+# Test arrays
+#
+
+
+@pytest.mark.parametrize(
+    "case",
+    [
+        np.array([1, 2, 3], dtype=np.int64),  # 1D
+        np.array([[1, 2, 3], [4, 5, 6]], dtype=np.int64),  # 2D
+    ],
+)
+def test_summarize_numpy_array(case: np.ndarray, env_service: EnvironmentService) -> None:
+    display_name = "xNumpyArray"
+    shape = case.shape
+    display_shape = f"({shape[0]})" if len(shape) == 1 else str(tuple(shape))
+    expected = EnvironmentVariable(
+        display_name=display_name,
+        display_value=np.array2string(case, separator=","),
+        kind=EnvironmentVariableValueKind.collection,
+        display_type=f"numpy.int64 {display_shape}",
+        type_info="numpy.ndarray",
+        access_key=display_name,
+        has_children=True,
+        is_truncated=True,
+        length=shape[0],
+    )
+
+    result = env_service._summarize_variable(display_name, case)
 
     compare_summary(result, expected)
 
@@ -1045,6 +1060,108 @@ def test_handle_inspect(shell: TerminalInteractiveShell, env_comm: DummyComm) ->
             "buffers": None,
             "msg_type": "comm_msg",
         },
+    ]
+
+
+def test_handle_inspect_numpy_array_1d(
+    shell: TerminalInteractiveShell, env_comm: DummyComm
+) -> None:
+    shell.user_ns.update({"x": np.array([1, 2], dtype=np.int64)})
+
+    msg = {"content": {"data": {"msg_type": "inspect", "path": ["x"]}}}
+    env_comm.handle_msg(msg)
+
+    # A details message is sent
+    assert env_comm.messages == [
+        {
+            "data": {
+                "msg_type": "details",
+                "path": ["x"],
+                "children": [
+                    {
+                        "access_key": "0",
+                        "display_name": "0",
+                        "display_value": "1",
+                        "display_type": "int64",
+                        "type_info": "numpy.int64",
+                        "kind": "number",
+                        "length": 0,
+                        "size": 32,
+                        "has_children": False,
+                        "has_viewer": False,
+                        "is_truncated": False,
+                    },
+                    {
+                        "access_key": "1",
+                        "display_name": "1",
+                        "display_value": "2",
+                        "display_type": "int64",
+                        "type_info": "numpy.int64",
+                        "kind": "number",
+                        "length": 0,
+                        "size": 32,
+                        "has_children": False,
+                        "has_viewer": False,
+                        "is_truncated": False,
+                    },
+                ],
+                "length": 2,
+            },
+            "metadata": None,
+            "buffers": None,
+            "msg_type": "comm_msg",
+        }
+    ]
+
+
+def test_handle_inspect_numpy_array_2d(
+    shell: TerminalInteractiveShell, env_comm: DummyComm
+) -> None:
+    shell.user_ns.update({"x": np.array([[1, 2], [3, 4]], dtype=np.int64)})
+
+    msg = {"content": {"data": {"msg_type": "inspect", "path": ["x"]}}}
+    env_comm.handle_msg(msg)
+
+    # A details message is sent
+    assert env_comm.messages == [
+        {
+            "data": {
+                "msg_type": "details",
+                "path": ["x"],
+                "children": [
+                    {
+                        "access_key": "0",
+                        "display_name": "0",
+                        "display_value": "[1,2]",
+                        "display_type": "numpy.int64 (2)",
+                        "type_info": "numpy.ndarray",
+                        "kind": "collection",
+                        "length": 2,
+                        "size": 112,
+                        "has_children": True,
+                        "has_viewer": False,
+                        "is_truncated": True,
+                    },
+                    {
+                        "access_key": "1",
+                        "display_name": "1",
+                        "display_value": "[3,4]",
+                        "display_type": "numpy.int64 (2)",
+                        "type_info": "numpy.ndarray",
+                        "kind": "collection",
+                        "length": 2,
+                        "size": 112,
+                        "has_children": True,
+                        "has_viewer": False,
+                        "is_truncated": True,
+                    },
+                ],
+                "length": 2,
+            },
+            "metadata": None,
+            "buffers": None,
+            "msg_type": "comm_msg",
+        }
     ]
 
 
