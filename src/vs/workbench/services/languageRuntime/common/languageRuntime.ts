@@ -285,31 +285,7 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 			}
 
 			// Ask the runtime to shut down.
-			await runningRuntime.shutdown();
-
-			// If the runtime doesn't exit immediately, wait for it to exit.
-			if (runningRuntime.getRuntimeState() !== RuntimeState.Exited) {
-				// Create a promise that resolves when the runtime exits.
-				const promise = new Promise<void>(resolve => {
-					const disposable = runningRuntime.onDidChangeRuntimeState(state => {
-						if (state === RuntimeState.Exited) {
-							resolve();
-							disposable.dispose();
-						}
-					});
-				});
-
-				// Create a promise that rejects after a timeout.
-				const timeout = new Promise<void>((_, reject) => {
-					setTimeout(() => {
-						reject(new Error(`Timed out waiting for runtime ${formatLanguageRuntime(runningRuntime)} to exit.`));
-					}, 5000);
-				});
-
-				// Wait for the runtime to exit, or for the timeout to expire
-				// (whichever comes first)
-				await Promise.race([promise, timeout]);
-			}
+			await this.shutdownRuntime(runtime.metadata.runtimeId, source);
 		}
 
 		// Start the selected runtime.
@@ -556,6 +532,47 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 	}
 
 	/**
+	 * Shuts down a runtime.
+	 * @param runtimeId The runtime identifier of the runtime to shut down.
+	 * @param source The source of the request to shut down the runtime.
+		 */
+	private async shutdownRuntime(runtimeId: string, source: string): Promise<void> {
+		const languageRuntimeInfo = this._registeredRuntimesByRuntimeId.get(runtimeId);
+		if (!languageRuntimeInfo) {
+			throw new Error(`No language runtime with id '${runtimeId}' was found.`);
+		}
+		const runtime = languageRuntimeInfo.runtime;
+
+		// Ask the runtime to shut down.
+		this._logService.info(`Shutting down language runtime ${formatLanguageRuntime(runtime)} (Source: ${source})`);
+		await runtime.shutdown();
+
+		// If the runtime doesn't exit immediately, wait for it to exit.
+		if (runtime.getRuntimeState() !== RuntimeState.Exited) {
+			// Create a promise that resolves when the runtime exits.
+			const promise = new Promise<void>(resolve => {
+				const disposable = runtime.onDidChangeRuntimeState(state => {
+					if (state === RuntimeState.Exited) {
+						resolve();
+						disposable.dispose();
+					}
+				});
+			});
+
+			// Create a promise that rejects after a timeout.
+			const timeout = new Promise<void>((_, reject) => {
+				setTimeout(() => {
+					reject(new Error(`Timed out waiting for runtime ${formatLanguageRuntime(runtime)} to exit.`));
+				}, 5000);
+			});
+
+			// Wait for the runtime to exit, or for the timeout to expire
+			// (whichever comes first)
+			await Promise.race([promise, timeout]);
+		}
+	}
+
+	/**
 	 * Restarts a runtime.
 	 * @param runtimeId The ID of the runtime to select
 	 * @param source The source of the selection
@@ -574,39 +591,13 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 		}
 		if (runningRuntime.metadata.runtimeId !== runtimeId) {
 			return Promise.reject(
-				new Error(`${formatLanguageRuntime(runningRuntime)} is not currently running.`));
+				new Error(`${formatLanguageRuntime(runtime)} is not currently running.`));
 		}
 
 		// Ask the runtime to shut down.
-		await runningRuntime.shutdown();
-
-		// If the runtime doesn't exit immediately, wait for it to exit.
-		if (runningRuntime.getRuntimeState() !== RuntimeState.Exited) {
-			// Create a promise that resolves when the runtime exits.
-			const promise = new Promise<void>(resolve => {
-				const disposable = runningRuntime.onDidChangeRuntimeState(state => {
-					if (state === RuntimeState.Exited) {
-						resolve();
-						disposable.dispose();
-					}
-				});
-			});
-
-			// Create a promise that rejects after a timeout.
-			const timeout = new Promise<void>((_, reject) => {
-				setTimeout(() => {
-					reject(new Error(`Timed out waiting for runtime ${formatLanguageRuntime(runningRuntime)} to exit.`));
-				}, 5000);
-			});
-
-			// Wait for the runtime to exit, or for the timeout to expire
-			// (whichever comes first)
-			await Promise.race([promise, timeout]);
-		}
-
-		// Start the runtime again.
-		this._logService.info(`Restarting language runtime ${formatLanguageRuntime(runtimeInfo.runtime)} (Source: ${source})`);
-		await this.doStartRuntime(runtimeInfo.runtime);
+		await this.shutdownRuntime(runtime.metadata.runtimeId, source);
+		// Ask the runtime to start up again.
+		await this.startRuntime(runtime.metadata.runtimeId, source);
 	}
 
 	//#endregion ILanguageRuntimeService Implementation
@@ -730,7 +721,6 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 			this._logService.error(`Starting language runtime failed. Reason: ${reason}`);
 		}
 	}
-
 
 	//#region Private Methods
 }
