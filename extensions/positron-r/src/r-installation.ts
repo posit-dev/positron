@@ -80,6 +80,20 @@ export class RInstallation {
 
 		const platformPart = builtParts[1];
 		const architecture = platformPart.match('^(aarch64|x86_64)');
-		this.arch = architecture ? architecture[1] : '';
+
+		if (architecture) {
+			// Remap known architectures to equivalent `process.arch` values
+			if (architecture[1] === 'aarch64') {
+				this.arch = 'arm64';
+			} else if (architecture[1] === 'x86_64') {
+				this.arch = 'x64';
+			} else {
+				// Should never happen
+				this.arch = architecture[1];
+			}
+		} else {
+			// Unknown architecture
+			this.arch = '';
+		}
 	}
 }

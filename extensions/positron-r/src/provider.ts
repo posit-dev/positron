@@ -171,6 +171,14 @@ export async function* rRuntimeProvider(context: vscode.ExtensionContext): Async
 			isUserInstallation ?
 				'User' : 'System';
 
+		// Display name shown to users
+		let runtimeName = `R ${rHome.version}`;
+
+		if (process.arch !== rHome.arch) {
+			// Display nonstandard arch information (like an x64 version of R on an arm64 Mac)
+			runtimeName = `${runtimeName} (${rHome.arch})`;
+		}
+
 		// R script to run on session startup
 		const startupFile = path.join(context.extensionPath, 'resources', 'scripts', 'startup.R');
 
@@ -185,7 +193,7 @@ export async function* rRuntimeProvider(context: vscode.ExtensionContext): Async
 				'--',
 				'--interactive',
 			],
-			'display_name': `R (${runtimeSource})`, // eslint-disable-line
+			'display_name': runtimeName,
 			'language': 'R',
 			'env': env,
 		};
@@ -224,7 +232,7 @@ export async function* rRuntimeProvider(context: vscode.ExtensionContext): Async
 
 		const metadata: positron.LanguageRuntimeMetadata = {
 			runtimeId,
-			runtimeName: kernelSpec.display_name,
+			runtimeName,
 			runtimePath,
 			runtimeVersion: packageJson.version,
 			runtimeSource,
