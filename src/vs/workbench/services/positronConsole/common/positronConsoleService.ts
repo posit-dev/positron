@@ -29,6 +29,7 @@ import { RuntimeItemStartupFailure } from 'vs/workbench/services/positronConsole
 import { ActivityItem, RuntimeItemActivity } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemActivity';
 import { IPositronConsoleInstance, IPositronConsoleService, POSITRON_CONSOLE_VIEW_ID, PositronConsoleState } from 'vs/workbench/services/positronConsole/common/interfaces/positronConsoleService';
 import { formatLanguageRuntime, ILanguageRuntime, ILanguageRuntimeMessage, ILanguageRuntimeService, LanguageRuntimeStartupBehavior, RuntimeCodeExecutionMode, RuntimeErrorBehavior, RuntimeOnlineState, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { RuntimeItemPendingInput } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemPendingInput';
 
 //#region Helper Functions
 
@@ -417,9 +418,9 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	private _wordWrap = true;
 
 	/**
-	 * The pending ActivityItemInput.
+	 * The RuntimeItemPendingInput.
 	 */
-	private _pendingActivityItemInput?: ActivityItemInput;
+	private _runtimeItemPendingInput?: RuntimeItemPendingInput;
 
 	/**
 	 * Gets or sets the runtime items.
@@ -427,7 +428,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	private _runtimeItems: RuntimeItem[] = [];
 
 	/**
-	 * Gets or sets the runtime item activities.
+	 * Gets or sets the runtime item activities. This is keyed by parent ID.
 	 */
 	private _runtimeItemActivities = new Map<string, RuntimeItemActivity>();
 
@@ -656,16 +657,16 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	 * @param code The code to execute.
 	 */
 	executeCode(code: string): void {
-		if (this.runtime.getRuntimeState() !== RuntimeState.Idle && this._pendingActivityItemInput) {
-			this._pendingActivityItemInput.code += `\n${code}`;
-			this._onDidChangeRuntimeItemsEmitter.fire(this._runtimeItems);
+		// If the runtime isn't idle, add pending input.
+		if (this.runtime.getRuntimeState() !== RuntimeState.Idle) {
+			this.addPendingInput(code);
 			return;
 		}
 
 		// Create the ID for the code that will be executed.
 		const id = `fragment-${generateUuid()}`;
 
-		// Create the ActivityItemInput.
+		// Create the provisional ActivityItemInput.
 		const activityItemInput = new ActivityItemInput(
 			true,
 			id,
@@ -676,24 +677,20 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 			code
 		);
 
-		// Add a provisional ActivityItemInput for the code that will be executed. This provisional
-		// ActivityItemInput will be replaced with the real ActivityItemInput when the runtime sends
-		// it (which can take a moment or two to happen).
+		// Add the provisional ActivityItemInput. This provisional ActivityItemInput will be
+		// replaced with the real ActivityItemInput when the runtime sends it (which can take a
+		// moment or two to happen).
 		this.addOrUpdateUpdateRuntimeItemActivity(id, activityItemInput);
 
-		if (this.runtime.getRuntimeState() !== RuntimeState.Idle) {
-			this._pendingActivityItemInput = activityItemInput;
-		} else {
-			// Execute the code.
-			this.runtime.execute(
-				code,
-				id,
-				RuntimeCodeExecutionMode.Interactive,
-				RuntimeErrorBehavior.Continue);
+		// Execute the code.
+		this.runtime.execute(
+			code,
+			id,
+			RuntimeCodeExecutionMode.Interactive,
+			RuntimeErrorBehavior.Continue);
 
-			// Fire the onDidExecuteCode event.
-			this._onDidExecuteCodeEmitter.fire();
-		}
+		// Fire the onDidExecuteCode event.
+		this._onDidExecuteCodeEmitter.fire();
 	}
 
 	/**
@@ -849,20 +846,13 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 		}
 
 		// Add the onDidChangeRuntimeState event handler.
-		this._runtimeDisposableStore.add(this._runtime.onDidChangeRuntimeState(runtimeState => {
+		this._runtimeDisposableStore.add(this._runtime.onDidChangeRuntimeState(async runtimeState => {
 			// Add a trace item.
 			this.addRuntimeItemTrace(`onDidChangeRuntimeState (${runtimeState})`);
 
-			// When the runtime goes idle, execute the pending ActivityItemInput, if there is one.
-			if (runtimeState === RuntimeState.Idle && this._pendingActivityItemInput) {
-				const { code, id } = this._pendingActivityItemInput;
-				this._pendingActivityItemInput = undefined;
-				this.runtime.execute(
-					code,
-					id,
-					RuntimeCodeExecutionMode.Interactive,
-					RuntimeErrorBehavior.Continue);
-				this._onDidExecuteCodeEmitter.fire();
+			// When the runtime goes idle, process pending input.
+			if (runtimeState === RuntimeState.Idle) {
+				this.processPendingInput();
 			}
 
 			if (runtimeState === RuntimeState.Exited) {
@@ -901,8 +891,8 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 				this.setState(PositronConsoleState.Ready);
 			}
 
-			// Remember this runtime state so we know which state we are
-			// transitioning from when the next state change occurs.
+			// Remember this runtime state so we know which state we are transitioning from when the
+			// next state change occurs.
 			this._runtimeState = runtimeState;
 		}));
 
@@ -1190,6 +1180,100 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 			// We are not currently attached; warn.
 			console.warn(`Attempt to detach already detached runtime ${this._runtime.metadata.runtimeName}.`);
 		}
+	}
+
+	/**
+	 * Adds pending input.
+	 * @param code The code for the pending input.
+	 */
+	private addPendingInput(code: string) {
+		// If there is an existing pending input runtime item, remove it.
+		if (this._runtimeItemPendingInput) {
+			// Get the index of the pending input runtime item. It will generally be the last
+			// runtime item.
+			let index = this._runtimeItems.length - 1;
+			if (this._runtimeItems[index] !== this._runtimeItemPendingInput) {
+				index = this.runtimeItems.indexOf(this._runtimeItemPendingInput);
+			}
+
+			// This index should always be > -1, but be defensive. Remove the pending input runtime
+			// item.
+			if (index > -1) {
+				this._runtimeItems.splice(index, 1);
+			}
+
+			// Set the code.
+			code = this._runtimeItemPendingInput.code + '\n' + code;
+		}
+
+		// Create the pending input runtime item.
+		this._runtimeItemPendingInput = new RuntimeItemPendingInput(
+			generateUuid(),
+			this._runtime.dynState.inputPrompt,
+			this._runtime.dynState.continuationPrompt,
+			code
+		);
+
+		// Add the pending input runtime item.
+		this._runtimeItems.push(this._runtimeItemPendingInput);
+
+		// Fire the onDidChangeRuntimeItems event.
+		this._onDidChangeRuntimeItemsEmitter.fire(this._runtimeItems);
+	}
+
+	/**
+	 * Processes pending input.
+	 */
+	private async processPendingInput(): Promise<void> {
+		// If there isn't a pending input runtime item, return.
+		if (!this._runtimeItemPendingInput) {
+			return;
+		}
+
+		// Get the index of the pending input runtime item. It will generally be the last runtime
+		// item.
+		let index = this._runtimeItems.length - 1;
+		if (this._runtimeItems[index] !== this._runtimeItemPendingInput) {
+			index = this.runtimeItems.indexOf(this._runtimeItemPendingInput);
+		}
+
+		// This index should always be > -1, but be defensive.
+		if (index > -1) {
+			this._runtimeItems.splice(index, 1);
+		}
+
+		// Get the code from the pending input runtime item, and then clear it.
+		const { code } = this._runtimeItemPendingInput;
+		this._runtimeItemPendingInput = undefined;
+
+		// Create the ID for the code that will be executed.
+		const id = `fragment-${generateUuid()}`;
+
+		// Create the provisional ActivityItemInput.
+		const activityItemInput = new ActivityItemInput(
+			true,
+			id,
+			id,
+			new Date(),
+			this._runtime.dynState.inputPrompt,
+			this._runtime.dynState.continuationPrompt,
+			code
+		);
+
+		// Add the provisional ActivityItemInput. This provisional ActivityItemInput will be
+		// replaced with the real ActivityItemInput when the runtime sends it (which can take a
+		// moment or two to happen).
+		this.addOrUpdateUpdateRuntimeItemActivity(id, activityItemInput);
+
+		// Execute the code.
+		this.runtime.execute(
+			code,
+			id,
+			RuntimeCodeExecutionMode.Interactive,
+			RuntimeErrorBehavior.Continue);
+
+		// Fire the onDidExecuteCode event.
+		this._onDidExecuteCodeEmitter.fire();
 	}
 
 	/**
