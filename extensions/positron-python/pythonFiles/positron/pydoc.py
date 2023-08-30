@@ -570,8 +570,15 @@ class _PositronHTMLDoc(pydoc.HTMLDoc):
     # as is from pydoc._url_handler to port Python 3.11 breaking CSS changes
     def html_getobj(self, url):
         # --- Start Positron ---
-        # Don't reload numpy, it raises a UserWarning if you do
-        forceload = not url.startswith("numpy")
+        # Skip forced reloads for some modules. It is unlikely to affect the UX provided that these
+        # modules don't change within the lifetime of the help service
+        skip_reload = [
+            # Numpy raises a UserWarning if you re-import it
+            "numpy",
+            # Fixes an edge case where importing `get_ipython` interferes with the help service
+            "IPython",
+        ]
+        forceload = not any(url.startswith(prefix) for prefix in skip_reload)
         # --- End Positron ---
         obj = locate(url, forceload=forceload)
         if obj is None and url != "None":
@@ -753,8 +760,13 @@ def _resolve(target: str, from_obj: Any) -> Optional[str]:
         except ImportError:
             pass
         else:
-            if hasattr(module, object_path):
-                return target
+            # Ignore all warnings that happen upon `hasattr(module, object_path)` e.g.
+            # `hasattr(numpy, 'object')`
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+
+                if hasattr(module, object_path):
+                    return target
 
         # Is `target` a fully qualified path to a class attribute or method?
         if "." in module_path:
