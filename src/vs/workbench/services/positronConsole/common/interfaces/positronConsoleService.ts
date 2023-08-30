@@ -145,6 +145,11 @@ export interface IPositronConsoleInstance {
 	readonly onDidClearInputHistory: Event<void>;
 
 	/**
+	 * The onDidSetPendingCode event.
+	 */
+	readonly onDidSetPendingCode: Event<string | undefined>;
+
+	/**
 	 * The onDidExecuteCode event.
 	 */
 	readonly onDidExecuteCode: Event<void>;
@@ -180,7 +185,13 @@ export interface IPositronConsoleInstance {
 	clearInputHistory(): void;
 
 	/**
-	 * Executes code in the Positron console instance.
+	 * Enqueues code to be executed.
+	 * @param code The code to enqueue.
+	 */
+	enqueueCode(code: string): Promise<void>;
+
+	/**
+	 * Executes code.
 	 * @param code The code to execute.
 	 */
 	executeCode(code: string): void;

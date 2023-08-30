@@ -24,13 +24,11 @@ export class RuntimeItemPendingInput extends RuntimeItem {
 	 * Constructor.
 	 * @param id The identifier.
 	 * @param inputPrompt The input prompt.
-	 * @param continuationPrompt The continuation prompt.
 	 * @param code The banner.
 	 */
 	constructor(
 		id: string,
 		readonly inputPrompt: string,
-		readonly continuationPrompt: string,
 		readonly code: string
 	) {
 		// Call the base class's constructor.
