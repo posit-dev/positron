@@ -32,7 +32,9 @@ export async function registerCommands(context: vscode.ExtensionContext) {
 		}),
 
 		vscode.commands.registerCommand('r.insertPipe', () => {
-			insertText('|>');
+			const extConfig = vscode.workspace.getConfiguration('positron.r');
+			const pipeString = extConfig.get<string>('pipe') || '|>';
+			insertText(pipeString);
 		}),
 
 		vscode.commands.registerCommand('r.insertLeftAssignment', () => {

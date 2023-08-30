@@ -143,6 +143,16 @@
           },
           "default": [],
           "description": "%r.configuration.extraArguments.description%"
+        },
+        "positron.r.pipe": {
+          "type": "string",
+          "default": "|>",
+          "enum": ["|>", "%>%"],
+          "enumDescriptions": [
+            "Native pipe available in R >= 4.1",
+            "Pipe operator from the magrittr package, re-exported by many other packages"
+          ],
+          "markdownDescription": "%r.configuration.pipe%"
         }
       }
     },
