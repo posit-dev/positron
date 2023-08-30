@@ -673,7 +673,7 @@ declare module 'positron' {
 		 */
 		provideStatementRange(document: vscode.TextDocument,
 			position: vscode.Position,
-			token: vscode.CancellationToken): vscode.ProviderResult<Range>;
+			token: vscode.CancellationToken): vscode.ProviderResult<vscode.Range>;
 	}
 
 	namespace languages {

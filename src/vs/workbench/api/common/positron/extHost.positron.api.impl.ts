@@ -17,6 +17,7 @@ import { ExtHostPreviewPanels } from 'vs/workbench/api/common/positron/extHostPr
 import { ExtHostContext } from 'vs/workbench/api/common/extHost.protocol';
 import { IExtHostWorkspace } from 'vs/workbench/api/common/extHostWorkspace';
 import { ExtHostWebviews } from 'vs/workbench/api/common/extHostWebview';
+import { ExtHostLanguageFeatures } from 'vs/workbench/api/common/extHostLanguageFeatures';
 
 /**
  * Factory interface for creating an instance of the Positron API.
@@ -48,6 +49,10 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 		throw new Error('Could not retrieve ExtHostWebviews from the RPC protocol. ' +
 			' The VS Code API must be created before the Positron API.');
 	}
+
+	// Same deal for the `ExtHostLanguageFeatures` object
+	const extHostLanguageFeatures: ExtHostLanguageFeatures =
+		rpcProtocol.getRaw(ExtHostContext.ExtHostLanguageFeatures);
 
 	const extHostLanguageRuntime = rpcProtocol.set(ExtHostPositronContext.ExtHostLanguageRuntime, new ExtHostLanguageRuntime(rpcProtocol));
 	const extHostPreviewPanels = rpcProtocol.set(ExtHostPositronContext.ExtHostPreviewPanel, new ExtHostPreviewPanels(rpcProtocol, extHostWebviews, extHostWorkspace));
@@ -86,11 +91,7 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			registerStatementRangeProvider(
 				selector: vscode.DocumentSelector,
 				provider: positron.StatementRangeProvider): vscode.Disposable {
-				// TODO: Implement
-				// Return empty disposable for now
-				return {
-					dispose() { }
-				};
+				return extHostLanguageFeatures.registerSelectionRangeProvider(extension, selector, provider);
 			},
 		};
 
