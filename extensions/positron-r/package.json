@@ -144,8 +144,8 @@
           "default": "|>",
           "enum": ["|>", "%>%"],
           "enumDescriptions": [
-            "Native pipe available in R >= 4.1",
-            "Pipe operator from the magrittr package, re-exported by many other packages"
+            "%r.configuration.pipe.native.description%",
+            "%r.configuration.pipe.magrittr.description%"
           ],
           "markdownDescription": "%r.configuration.pipe%"
         }
