@@ -174,9 +174,14 @@ export async function* rRuntimeProvider(context: vscode.ExtensionContext): Async
 		// Display name shown to users
 		let runtimeName = `R ${rHome.version}`;
 
-		if (process.arch !== rHome.arch) {
-			// Display nonstandard arch information (like an x64 version of R on an arm64 Mac)
-			runtimeName = `${runtimeName} (${rHome.arch})`;
+		// If there is another R installation with the same version but different architecture,
+		// then disambiguate by appending the architecture to the runtime name.
+		// For example, if x86_64 and arm64 versions of R 4.4.0 exist simultaneously.
+		for (const otherRHome of rInstallations) {
+			if (rHome.version === otherRHome.version && rHome.arch !== otherRHome.arch) {
+				runtimeName = `${runtimeName} (${rHome.arch})`;
+				break;
+			}
 		}
 
 		// R script to run on session startup
