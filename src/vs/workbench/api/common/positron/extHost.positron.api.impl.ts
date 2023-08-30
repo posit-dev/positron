@@ -67,7 +67,7 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			},
 			getRunningRuntimes(languageId: string): Thenable<positron.LanguageRuntimeMetadata[]> {
 				return extHostLanguageRuntime.getRunningRuntimes(languageId);
-      },
+			},
 			selectLanguageRuntime(runtimeId: string): Thenable<void> {
 				return extHostLanguageRuntime.selectLanguageRuntime(runtimeId);
 			},
@@ -81,12 +81,26 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 				return extHostPreviewPanels.createPreviewPanel(extension, viewType, title, preserveFocus, options);
 			}
 		};
+
+		const languages: typeof positron.languages = {
+			registerStatementRangeProvider(
+				selector: vscode.DocumentSelector,
+				provider: positron.StatementRangeProvider): vscode.Disposable {
+				// TODO: Implement
+				// Return empty disposable for now
+				return {
+					dispose() { }
+				};
+			},
+		};
+
 		// --- End Positron ---
 
 		return <typeof positron>{
 			version: initData.positronVersion,
 			runtime,
 			window,
+			languages,
 			RuntimeClientType: extHostTypes.RuntimeClientType,
 			RuntimeClientState: extHostTypes.RuntimeClientState,
 			LanguageRuntimeMessageType: extHostTypes.LanguageRuntimeMessageType,
