@@ -10,18 +10,6 @@ export async function registerCommands(context: vscode.ExtensionContext) {
 	const isRPackage = await detectRPackage();
 	vscode.commands.executeCommand('setContext', 'isRPackage', isRPackage);
 
-	function insertText(text: string) {
-		const editor = vscode.window.activeTextEditor;
-		if (editor) {
-			const paddedText = ' ' + text + ' ';
-			return editor.edit(editBuilder => {
-				editor.selections.forEach(sel => {
-					editBuilder.replace(sel, paddedText);
-				});
-			});
-		}
-	}
-
 	context.subscriptions.push(
 
 		// Command used to create new R files
@@ -32,13 +20,18 @@ export async function registerCommands(context: vscode.ExtensionContext) {
 		}),
 
 		vscode.commands.registerCommand('r.insertPipe', () => {
+			const editor = vscode.window.activeTextEditor;
+			if (!editor) {
+				return;
+			}
+
 			const extConfig = vscode.workspace.getConfiguration('positron.r');
 			const pipeString = extConfig.get<string>('pipe') || '|>';
-			insertText(pipeString);
-		}),
-
-		vscode.commands.registerCommand('r.insertLeftAssignment', () => {
-			insertText('<-');
+			return editor.edit(editBuilder => {
+				editor.selections.forEach(sel => {
+					editBuilder.replace(sel, ` ${pipeString} `);
+				});
+			});
 		}),
 
 		// Commands for package development tooling
