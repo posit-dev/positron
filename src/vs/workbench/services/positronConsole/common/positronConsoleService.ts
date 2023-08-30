@@ -697,7 +697,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 			const codeStatus = await this.runtime.isCodeFragmentComplete(pendingCode);
 			if (codeStatus === RuntimeCodeFragmentStatus.Complete) {
 				this.setPendingCode(undefined);
-				this.executeCode(pendingCode);
+				this.doExecuteCode(pendingCode);
 				return;
 			}
 
@@ -709,7 +709,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 		// Figure out whether this code can be executed. If it can be, execute it immediately.
 		const codeStatus = await this.runtime.isCodeFragmentComplete(code);
 		if (codeStatus === RuntimeCodeFragmentStatus.Complete) {
-			this.executeCode(code);
+			this.doExecuteCode(code);
 			return;
 		}
 
@@ -722,34 +722,8 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	 * @param code The code to execute.
 	 */
 	executeCode(code: string) {
-		// Create the ID for the code that will be executed.
-		const id = `fragment-${generateUuid()}`;
-
-		// Create the provisional ActivityItemInput.
-		const activityItemInput = new ActivityItemInput(
-			true,
-			id,
-			id,
-			new Date(),
-			this._runtime.dynState.inputPrompt,
-			this._runtime.dynState.continuationPrompt,
-			code
-		);
-
-		// Add the provisional ActivityItemInput. This provisional ActivityItemInput will be
-		// replaced with the real ActivityItemInput when the runtime sends it (which can take a
-		// moment or two to happen).
-		this.addOrUpdateUpdateRuntimeItemActivity(id, activityItemInput);
-
-		// Execute the code.
-		this.runtime.execute(
-			code,
-			id,
-			RuntimeCodeExecutionMode.Interactive,
-			RuntimeErrorBehavior.Continue);
-
-		// Fire the onDidExecuteCode event.
-		this._onDidExecuteCodeEmitter.fire();
+		this.setPendingCode(undefined);
+		this.doExecuteCode(code);
 	}
 
 	/**
@@ -1313,7 +1287,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 			const codeFragmentStatus = await this.runtime.isCodeFragmentComplete(codeFragment);
 			if (codeFragmentStatus === RuntimeCodeFragmentStatus.Complete) {
 				// Execute the complete code fragment.
-				this.executeCode(codeFragment);
+				this.doExecuteCode(codeFragment);
 
 				// If there are remaining pending input lines, add them in a pending input so they
 				// are processed the next time the runtime becomes idle.
@@ -1329,6 +1303,41 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 
 		// The remaining pending input line(s) are not a complete code fragment.
 		this.setPendingCode(pendingInputLines.join('\n'));
+	}
+
+	/**
+	 * Executes code.
+	 * @param code The code to execute.
+	 */
+	private doExecuteCode(code: string) {
+		// Create the ID for the code that will be executed.
+		const id = `fragment-${generateUuid()}`;
+
+		// Create the provisional ActivityItemInput.
+		const activityItemInput = new ActivityItemInput(
+			true,
+			id,
+			id,
+			new Date(),
+			this._runtime.dynState.inputPrompt,
+			this._runtime.dynState.continuationPrompt,
+			code
+		);
+
+		// Add the provisional ActivityItemInput. This provisional ActivityItemInput will be
+		// replaced with the real ActivityItemInput when the runtime sends it (which can take a
+		// moment or two to happen).
+		this.addOrUpdateUpdateRuntimeItemActivity(id, activityItemInput);
+
+		// Execute the code.
+		this.runtime.execute(
+			code,
+			id,
+			RuntimeCodeExecutionMode.Interactive,
+			RuntimeErrorBehavior.Continue);
+
+		// Fire the onDidExecuteCode event.
+		this._onDidExecuteCodeEmitter.fire();
 	}
 
 	/**
