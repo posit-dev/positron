@@ -1568,7 +1568,7 @@ class StatementRangeAdapter {
 		private readonly _logService: ILogService
 	) { }
 
-	async provideStatementRange(resource: URI, pos: IPosition, token: CancellationToken): Promise<Range> {
+	async provideStatementRange(resource: URI, pos: IPosition, token: CancellationToken): Promise<IRange> {
 		const document = this._documents.getDocument(resource);
 		const position = typeConvert.Position.to(pos);
 
@@ -2401,6 +2401,10 @@ export class ExtHostLanguageFeatures implements extHostProtocol.ExtHostLanguageF
 		const handle = this._addNewAdapter(new StatementRangeAdapter(this._documents, provider, this._logService), extension);
 		this._proxy.$registerStatementRangeProvider(handle, this._transformDocumentSelector(selector, extension));
 		return this._createDisposable(handle);
+	}
+
+	$provideStatementRange(handle: number, resource: UriComponents, position: IPosition, token: CancellationToken): Promise<IRange | undefined> {
+		return this._withAdapter(handle, StatementRangeAdapter, adapter => adapter.provideStatementRange(URI.revive(resource), position, token), undefined, token);
 	}
 	// --- End Positron ---
 

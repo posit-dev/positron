@@ -1490,7 +1490,7 @@ export interface StatementRangeProvider {
 	 * Provide the statement that contains the given position.
 	 */
 	provideStatementRange(model: model.ITextModel, position: Position, token: CancellationToken):
-		ProviderResult<Range>;
+		ProviderResult<IRange>;
 }
 // --- End Positron ---
 

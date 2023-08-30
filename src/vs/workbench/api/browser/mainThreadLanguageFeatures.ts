@@ -761,6 +761,16 @@ export class MainThreadLanguageFeatures extends Disposable implements MainThread
 		}));
 	}
 
+	// --- Start Positron ---
+	$registerStatementRangeProvider(handle: number, selector: IDocumentFilterDto[]): void {
+		this._registrations.set(handle, this._languageFeaturesService.statementRangeProvider.register(selector, {
+			provideStatementRange: (model, positions, token) => {
+				return this._proxy.$provideStatementRange(handle, model.uri, positions, token);
+			}
+		}));
+	}
+	// --- End Positron ---
+
 	// --- call hierarchy
 
 	$registerCallHierarchyProvider(handle: number, selector: IDocumentFilterDto[]): void {
