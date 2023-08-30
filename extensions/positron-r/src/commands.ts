@@ -20,18 +20,13 @@ export async function registerCommands(context: vscode.ExtensionContext) {
 		}),
 
 		vscode.commands.registerCommand('r.insertPipe', () => {
-			const editor = vscode.window.activeTextEditor;
-			if (!editor) {
-				return;
-			}
-
 			const extConfig = vscode.workspace.getConfiguration('positron.r');
 			const pipeString = extConfig.get<string>('pipe') || '|>';
-			return editor.edit(editBuilder => {
-				editor.selections.forEach(sel => {
-					editBuilder.replace(sel, ` ${pipeString} `);
-				});
-			});
+			vscode.commands.executeCommand('type', { text: ` ${pipeString} ` });
+		}),
+
+		vscode.commands.registerCommand('r.insertLeftAssignment', () => {
+			vscode.commands.executeCommand('type', { text: ' <- ' });
 		}),
 
 		// Commands for package development tooling

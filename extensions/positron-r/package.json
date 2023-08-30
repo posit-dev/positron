@@ -36,6 +36,13 @@
         "enablement": "editorLangId == r"
       },
       {
+        "command": "r.insertLeftAssignment",
+        "category": "R",
+        "title": "%r.command.insertLeftAssignment.title%",
+        "shortTitle": "%r.menu.insertLeftAssignment.title%",
+        "enablement": "editorLangId == r"
+      },
+      {
         "command": "r.packageLoad",
         "category": "R",
         "title": "%r.command.packageLoad.title%",
@@ -147,7 +154,7 @@
             "%r.configuration.pipe.native.description%",
             "%r.configuration.pipe.magrittr.description%"
           ],
-          "markdownDescription": "%r.configuration.pipe%"
+          "description": "%r.configuration.pipe%"
         }
       }
     },
@@ -203,13 +210,12 @@
         "mac": "cmd+shift+m",
         "when": "editorLangId == r"
       },
-      {
-        "command": "type",
-        "args": { "text": " <- " },
-        "key": "alt+-",
-        "mac": "alt+-",
-        "when": "editorLangId == r"
-      },
+	  	{
+			  "command": "r.insertLeftAssignment",
+				"key": "alt+-",
+			  "mac": "alt+-",
+			  "when": "editorLangId == r"
+		  },
       {
         "command": "r.packageLoad",
         "key": "ctrl+shift+l",
@@ -259,6 +265,11 @@
         {
           "category": "R",
           "command": "r.insertPipe",
+          "when": "editorLangId == r"
+        },
+        {
+          "category": "R",
+          "command": "r.insertLeftAssignment",
           "when": "editorLangId == r"
         },
         {
