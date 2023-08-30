@@ -32,10 +32,7 @@ export const RuntimePendingInput = (props: RuntimePendingInputProps) => {
 			{props.runtimeItemPendingInput.outputLines.map((outputLine, index) =>
 				<div key={outputLine.id}>
 					<span style={{ width: promptWidth }}>
-						{(index === 0 ?
-							props.runtimeItemPendingInput.inputPrompt :
-							props.runtimeItemPendingInput.continuationPrompt) + ' '
-						}
+						{props.runtimeItemPendingInput.inputPrompt + ' '}
 					</span>
 					{outputLine.outputRuns.map(outputRun =>
 						<OutputRun key={outputRun.id} outputRun={outputRun} />

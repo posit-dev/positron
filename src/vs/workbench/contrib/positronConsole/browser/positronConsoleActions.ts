@@ -262,6 +262,18 @@ export function registerPositronConsoleActions() {
 				// If we have code and a position move the cursor to the next line with code on it,
 				// or just to the next line if all additional lines are blank.
 				if (code.length && position) {
+					// HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK
+					// This attempts to address https://github.com/posit-dev/positron/issues/1177
+					// by tacking a newline onto indented Python code fragments that end at an empty
+					// line. This allows such code fragments to be complete.
+					if (editorService.activeTextEditorLanguageId === 'python' &&
+						/^[ \t]/.test(code) &&
+						lineNumber + 1 <= model.getLineCount() &&
+						model.getLineContent(lineNumber + 1) === '') {
+						code += '\n';
+					}
+					// HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK
+
 					let onlyEmptyLines = true;
 
 					for (let number = lineNumber + 1; number <= model.getLineCount(); ++number) {
