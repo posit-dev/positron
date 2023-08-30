@@ -128,34 +128,6 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 			this.onStatusChange(status);
 		});
 
-		// Look for metadata about a running kernel in the current workspace by
-		// checking the value stored for this runtime ID (we support running
-		// exactly one kernel per runtime ID). If we find it, it's a
-		// JupyterSessionState object, which contains the connection
-		// information.
-		const state = this._context.workspaceState.get(this._runtimeId);
-		if (state) {
-			// We found session state for this kernel. Connect to it.
-			const sessionState = state as JupyterSessionState;
-
-			// Set the status to initializing so that we don't try to start a
-			// new kernel before we've tried to connect to the existing one.
-			this.setStatus(positron.RuntimeState.Initializing);
-
-			// Attempt to reconnect. If successful we'll set the new state during the reconnect
-			// process. If not, move the status back to Uninitialized.
-			this.reconnect(sessionState).catch((err) => {
-				this.log(`Failed to reconnect to running kernel: ${err}`);
-
-				// Return to the Uninitialized state so that a fresh instance can be started
-				this.setStatus(positron.RuntimeState.Uninitialized);
-
-				// Since we could not connect to the preserved state, remove it.
-				this.log(`Removing stale session state for process ${sessionState.processId}`);
-				this._context.workspaceState.update(this._runtimeId, undefined);
-			});
-		}
-
 		// Listen for terminals to close; if our own terminal closes, then we need
 		// to update our status
 		vscode.window.onDidCloseTerminal((closedTerminal) => {
@@ -486,6 +458,33 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 		// Mark the kernel as initializing so we don't try to start it again
 		// during bootup
 		this.setStatus(positron.RuntimeState.Initializing);
+
+		// Before starting a new process, look for metadata about a running
+		// kernel in the current workspace by checking the value stored for this
+		// runtime ID (we support running exactly one kernel per runtime ID). If
+		// we find it, it's a JupyterSessionState object, which contains the
+		// connection information.
+		const state = this._context.workspaceState.get(this._runtimeId);
+		if (state) {
+			// We found session state for this kernel. Connect to it.
+			const sessionState = state as JupyterSessionState;
+
+			try {
+				// Attempt to reconnect
+				await this.reconnect(sessionState);
+
+				// It was successful; no need to start a new process
+				return;
+
+			} catch (err) {
+				// It was not successful; we'll need to start a new process
+				this.log(`Failed to reconnect to running kernel: ${err}`);
+
+				// Since we could not connect to the preserved state, remove it.
+				this.log(`Removing stale session state for process ${sessionState.processId}`);
+				this._context.workspaceState.update(this._runtimeId, undefined);
+			}
+		}
 
 		// Create a new session; this allocates a connection file and log file
 		// and establishes available ports and sockets for the kernel to connect
