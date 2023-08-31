@@ -452,7 +452,7 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 				// Make the console input's code editor widget a "simple" widget. This prevents the
 				// console input's code editor widget from being the active editor (i.e. being the
 				// vscode.window.activeTextEditor).
-				isSimpleWidget: false,
+				isSimpleWidget: true,
 				contributions: EditorExtensionsRegistry.getSomeEditorContributions([
 					SelectionClipboardContributionID,
 					ContextMenuController.ID,
