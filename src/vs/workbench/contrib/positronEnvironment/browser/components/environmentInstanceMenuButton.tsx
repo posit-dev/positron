@@ -21,7 +21,7 @@ export const EnvironmentInstanceMenuButton = () => {
 	// Helper method to calculate the label for a runtime.
 	const labelForRuntime = (runtime?: ILanguageRuntime): string => {
 		if (runtime) {
-			return `${runtime.metadata.languageName} ${runtime.metadata.languageVersion}`;
+			return runtime.metadata.runtimeName;
 		}
 		return 'None';
 	};
@@ -48,7 +48,7 @@ export const EnvironmentInstanceMenuButton = () => {
 		positronEnvironmentContext.positronEnvironmentInstances.map(positronEnvironmentInstance => {
 			actions.push({
 				id: positronEnvironmentInstance.runtime.metadata.runtimeId,
-				label: `${positronEnvironmentInstance.runtime.metadata.runtimeName} ${positronEnvironmentInstance.runtime.metadata.languageVersion}`,
+				label: positronEnvironmentInstance.runtime.metadata.runtimeName,
 				tooltip: '',
 				class: undefined,
 				enabled: true,

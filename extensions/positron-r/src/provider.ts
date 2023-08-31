@@ -171,6 +171,22 @@ export async function* rRuntimeProvider(context: vscode.ExtensionContext): Async
 			isUserInstallation ?
 				'User' : 'System';
 
+		// Short name shown to users (when disambiguating within a language)
+		let runtimeShortName = rHome.version;
+
+		// If there is another R installation with the same version but different architecture,
+		// then disambiguate by appending the architecture to the runtime name.
+		// For example, if x86_64 and arm64 versions of R 4.4.0 exist simultaneously.
+		for (const otherRHome of rInstallations) {
+			if (rHome.version === otherRHome.version && rHome.arch !== otherRHome.arch) {
+				runtimeShortName = `${runtimeShortName} (${rHome.arch})`;
+				break;
+			}
+		}
+
+		// Full name shown to users
+		const runtimeName = `R ${runtimeShortName}`;
+
 		// R script to run on session startup
 		const startupFile = path.join(context.extensionPath, 'resources', 'scripts', 'startup.R');
 
@@ -185,7 +201,7 @@ export async function* rRuntimeProvider(context: vscode.ExtensionContext): Async
 				'--',
 				'--interactive',
 			],
-			'display_name': `R (${runtimeSource})`, // eslint-disable-line
+			'display_name': runtimeName,
 			'language': 'R',
 			'env': env,
 		};
@@ -224,7 +240,8 @@ export async function* rRuntimeProvider(context: vscode.ExtensionContext): Async
 
 		const metadata: positron.LanguageRuntimeMetadata = {
 			runtimeId,
-			runtimeName: kernelSpec.display_name,
+			runtimeName,
+			runtimeShortName,
 			runtimePath,
 			runtimeVersion: packageJson.version,
 			runtimeSource,
