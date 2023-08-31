@@ -100,16 +100,15 @@ export async function createPythonRuntime(
     const runtimeSource = interpreter.envType;
 
     // Construct the display name for the runtime, like 'Python (Pyenv: venv-name)'.
-    // Note that Positron UI currently appends the version at the end of the display name, so we
-    // don't include the version here.
-    let displayName = 'Python';
+    let runtimeShortName = pythonVersion;
     // Add the environment type (e.g. 'Pyenv', 'Global', 'Conda', etc.)
-    displayName += ` (${runtimeSource}`;
+    runtimeShortName += ` (${runtimeSource}`;
     // Add the environment name if it's not the same as the Python version
-    if (envName !== pythonVersion) {
-        displayName += `: ${envName}`;
+    if (envName.length > 0 && envName !== pythonVersion) {
+        runtimeShortName += `: ${envName}`;
     }
-    displayName += ')';
+    runtimeShortName += ')';
+    const runtimeName = `Python ${runtimeShortName}`;
 
     const command = interpreter.path;
     const lsScriptPath = path.join(EXTENSION_ROOT_DIR, 'pythonFiles', 'positron_language_server.py');
@@ -121,7 +120,7 @@ export async function createPythonRuntime(
     // Create a kernel spec for this Python installation
     const kernelSpec: JupyterKernelSpec = {
         argv: args,
-        display_name: `${displayName}`,
+        display_name: `${runtimeName}`,
         language: 'Python',
     };
 
@@ -147,7 +146,8 @@ export async function createPythonRuntime(
     // Create the metadata for the language runtime
     const metadata: positron.LanguageRuntimeMetadata = {
         runtimeId,
-        runtimeName: displayName,
+        runtimeName,
+        runtimeShortName,
         runtimePath,
         runtimeVersion: packageJson.version,
         runtimeSource,
