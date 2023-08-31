@@ -323,7 +323,6 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 	 * @returns A disposable that unregisters the runtime
 	 */
 	registerRuntime(runtime: ILanguageRuntime, startupBehavior: LanguageRuntimeStartupBehavior): IDisposable {
-		console.log(`registerRuntime for ${runtime.metadata.languageName} ${runtime.metadata.languageVersion}`);
 		// If the runtime has already been registered, throw an error.
 		if (this._registeredRuntimesByRuntimeId.has(runtime.metadata.runtimeId)) {
 			throw new Error(`Language runtime ${formatLanguageRuntime(runtime)} has already been registered.`);
