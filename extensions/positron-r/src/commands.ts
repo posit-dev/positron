@@ -40,11 +40,12 @@ export async function registerCommands(context: vscode.ExtensionContext) {
 
 		vscode.commands.registerCommand('r.packageInstall', async () => {
 			const packageName = await getRPackageName();
+			// TODO: need to wait for this code to finish
 			positron.runtime.executeCode('r', 'devtools::install()', true);
 			const runningRuntimes = await positron.runtime.getRunningRuntimes('r');
 			// For now, there will be only one running R runtime:
 			const runtimeId = runningRuntimes[0].runtimeId;
-			// TODO: somehow restart that runtimeId
+			positron.runtime.restartLanguageRuntime(runtimeId);
 			positron.runtime.executeCode('r', `library(${packageName})`, true);
 		}),
 
