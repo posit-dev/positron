@@ -1574,6 +1574,8 @@ class StatementRangeAdapter {
 
 		const providerRange = await this._provider.provideStatementRange(document, position, token);
 		if (!providerRange) {
+			this._logService.debug(`No statement range from provider ` +
+				`for position ${position} in ${resource}`);
 			throw new Error('INVALID statement range, must return a range');
 		}
 		return typeConvert.Range.from(providerRange);

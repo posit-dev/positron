@@ -77,7 +77,7 @@ export class ActivityItemInput {
 		// Process the code into ANSI output lines suitable for rendering.
 		this.codeOutputLines = ANSIOutput.processOutput(code);
 
-		// Non-provisional ActivityItemInputs are executing by default.
+		// A non-provisional ActivityItemInput is executing by default.
 		this.executing = !this.provisional;
 	}
 
