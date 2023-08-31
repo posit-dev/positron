@@ -594,10 +594,8 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 				new Error(`${formatLanguageRuntime(runtime)} is not currently running.`));
 		}
 
-		// Ask the runtime to shut down.
-		await this.shutdownRuntime(runtime.metadata.runtimeId, source);
-		// Ask the runtime to start up again.
-		await this.startRuntime(runtime.metadata.runtimeId, source);
+		this._logService.info(`Restarting language runtime ${formatLanguageRuntime(runtime)} (Source: ${source})`);
+		await this.doRestartRuntime(runtime);
 	}
 
 	//#endregion ILanguageRuntimeService Implementation
@@ -719,6 +717,35 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 
 			// TODO@softwarenerd - We should do something with the reason.
 			this._logService.error(`Starting language runtime failed. Reason: ${reason}`);
+		}
+	}
+
+	/**
+	 * Starts a runtime.
+	 * @param runtime The runtime to start.
+	 */
+	private async doRestartRuntime(runtime: ILanguageRuntime): Promise<void> {
+		const state = runtime.getRuntimeState();
+		if (state === RuntimeState.Busy ||
+			state === RuntimeState.Idle ||
+			state === RuntimeState.Ready) {
+			// The runtime looks like it could handle a restart request, so send
+			// one over.
+			runtime.restart();
+		} else if (state === RuntimeState.Uninitialized ||
+			state === RuntimeState.Exited) {
+			// The runtime has never been started, or is no longer running. Just
+			// tell it to start.
+			this.startRuntime(runtime.metadata.runtimeId, `'Restart Language Runtime' command invoked`);
+		} else if (state === RuntimeState.Starting ||
+			state === RuntimeState.Restarting) {
+			// The runtime is already starting or restarting. We could show an
+			// error, but this is probably just the result of a user mashing the
+			// restart when we already have one in flight.
+			return;
+		} else {
+			// The runtime is not in a state where it can be restarted.
+			this._logService.error(`The ${runtime.metadata.languageName} language runtime is '${state}' and cannot be restarted.`);
 		}
 	}
 
