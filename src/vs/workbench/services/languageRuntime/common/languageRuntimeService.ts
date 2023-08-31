@@ -463,7 +463,7 @@ export interface ILanguageRuntime {
 	interrupt(): void;
 
 	/** Restart the runtime */
-	restart(): void;
+	restart(): Thenable<void>;
 
 	/** Shut down the runtime */
 	shutdown(): Thenable<void>;

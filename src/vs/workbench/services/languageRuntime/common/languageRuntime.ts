@@ -703,12 +703,12 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 			state === RuntimeState.Ready) {
 			// The runtime looks like it could handle a restart request, so send
 			// one over.
-			runtime.restart();
+			return runtime.restart();
 		} else if (state === RuntimeState.Uninitialized ||
 			state === RuntimeState.Exited) {
 			// The runtime has never been started, or is no longer running. Just
 			// tell it to start.
-			this.startRuntime(runtime.metadata.runtimeId, `'Restart Language Runtime' command invoked`);
+			return this.startRuntime(runtime.metadata.runtimeId, `'Restart Language Runtime' command invoked`);
 		} else if (state === RuntimeState.Starting ||
 			state === RuntimeState.Restarting) {
 			// The runtime is already starting or restarting. We could show an
@@ -717,7 +717,9 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 			return;
 		} else {
 			// The runtime is not in a state where it can be restarted.
-			this._logService.error(`The ${runtime.metadata.languageName} language runtime is '${state}' and cannot be restarted.`);
+			return Promise.reject(
+				new Error(`The ${runtime.metadata.languageName} language runtime is '${state}' and cannot be restarted.`)
+			);
 		}
 	}
 
