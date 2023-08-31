@@ -273,8 +273,17 @@ declare module 'positron' {
 		/** A unique identifier for this runtime; takes the form of a GUID */
 		runtimeId: string;
 
-		/** The name of the runtime displayed to the user; e.g. "R 4.2 (64-bit)" */
+		/**
+		 * The fully qualified name of the runtime displayed to the user; e.g. "R 4.2 (64-bit)".
+		 * Should be unique across languages.
+		 */
 		runtimeName: string;
+
+		/**
+		 * A language specific runtime name displayed to the user; e.g. "4.2 (64-bit)".
+		 * Should be unique within a single language.
+		 */
+		runtimeShortName: string;
 
 		/** The version of the runtime itself (e.g. kernel or extension version) as a string; e.g. "0.1" */
 		runtimeVersion: string;
