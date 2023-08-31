@@ -92,6 +92,7 @@ export class RInstallation {
 				this.arch = 'x86_64';
 			} else {
 				// Should never happen because of how our `match()` works
+				console.warn(`Matched an unknown architecture '${arch}' for R '${this.version}'.`);
 				this.arch = arch;
 			}
 		} else {
