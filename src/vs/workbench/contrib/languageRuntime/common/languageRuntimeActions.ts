@@ -182,6 +182,8 @@ export function registerLanguageRuntimeActions() {
 
 	// Registers the restart language runtime action.
 	registerLanguageRuntimeAction('workbench.action.languageRuntime.restart', 'Restart Language Runtime', async accessor => {
+		// Access services.
+		const commandService = accessor.get(ICommandService);
 		const consoleService = accessor.get(IPositronConsoleService);
 		const languageRuntimeService = accessor.get(ILanguageRuntimeService);
 
@@ -212,8 +214,11 @@ export function registerLanguageRuntimeActions() {
 			}
 		}
 
+		// Restart the language runtime.
 		languageRuntimeService.restartRuntime(runtime.metadata.runtimeId,
 			`'Restart Language Runtime' command invoked`);
+		// Drive focus into the Positron console.
+		commandService.executeCommand('workbench.panel.positronConsole.focus');
 	},
 		[
 			{
