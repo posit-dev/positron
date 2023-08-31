@@ -20,6 +20,8 @@ import { PositronConsoleViewPane } from 'vs/workbench/contrib/positronConsole/br
 import { confirmationModalDialog } from 'vs/workbench/browser/positronModalDialogs/confirmationModalDialog';
 import { IExecutionHistoryService } from 'vs/workbench/contrib/executionHistory/common/executionHistoryService';
 import { IPositronConsoleService, POSITRON_CONSOLE_VIEW_ID } from 'vs/workbench/services/positronConsole/common/interfaces/positronConsoleService';
+import { ILanguageFeaturesService } from 'vs/editor/common/services/languageFeatures';
+import { CancellationToken } from 'vs/base/common/cancellation';
 
 /**
  * Positron console command ID's.
@@ -216,6 +218,7 @@ export function registerPositronConsoleActions() {
 			const notificationService = accessor.get(INotificationService);
 			const positronConsoleService = accessor.get(IPositronConsoleService);
 			const viewsService = accessor.get(IViewsService);
+			const languageFeaturesService = accessor.get(ILanguageFeaturesService);
 
 			// The code to execute.
 			let code = '';
@@ -234,15 +237,29 @@ export function registerPositronConsoleActions() {
 			// only contains whitespace or comments) and also retain the user's selection location.
 			if (selection && !selection.isEmpty()) {
 				code = model.getValueInRange(selection);
-			} else {
-				// If no selection (or empty selection) was found, use the contents
-				// of the line containing the cursor position.
-				//
-				// TODO: This would benefit from a "Run Current Statement"
-				// behavior, but that requires deep knowledge of the
-				// language's grammar. Is this something we can fit into the
-				// LSP model or build into the language pack extensibility
-				// point?
+			}
+
+			// If the user doesn't have an explicit selection, see if the active language
+			// in the editor has a statement range provider, which can be used to get the
+			// code to execute.
+			if (code.length === 0) {
+				const statementRangeProviders =
+					languageFeaturesService.statementRangeProvider.all(model);
+
+				if (statementRangeProviders.length > 0) {
+					const statementRange = await statementRangeProviders[0].provideStatementRange(
+						model,
+						editor.getPosition()!,
+						CancellationToken.None);
+					if (statementRange) {
+						code = model.getValueInRange(statementRange);
+					}
+				}
+			}
+
+			// If no selection (or empty selection) was found, use the contents
+			// of the line containing the cursor position.
+			if (code.length === 0) {
 				const position = editor.getPosition();
 				let lineNumber = position?.lineNumber ?? 0;
 
