@@ -574,8 +574,8 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 
 	/**
 	 * Restarts a runtime.
-	 * @param runtimeId The ID of the runtime to select
-	 * @param source The source of the selection
+	 * @param runtimeId The ID of the runtime to restart
+	 * @param source The source of the request to restart the runtime.
 	 */
 	async restartRuntime(runtimeId: string, source: string): Promise<void> {
 		const runtimeInfo = this._registeredRuntimesByRuntimeId.get(runtimeId);
@@ -583,17 +583,6 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 			throw new Error(`No language runtime with id '${runtimeId}' was found.`);
 		}
 		const runtime = runtimeInfo.runtime;
-		const runningRuntime = this._runningRuntimesByLanguageId.get(runtime.metadata.languageId);
-		if (!runningRuntime) {
-			return Promise.reject(
-				new Error(`There is no running runtime for the language that matches language ` +
-					`runtime ID '${runtimeId}'.`));
-		}
-		if (runningRuntime.metadata.runtimeId !== runtimeId) {
-			return Promise.reject(
-				new Error(`${formatLanguageRuntime(runtime)} is not currently running.`));
-		}
-
 		this._logService.info(`Restarting language runtime ${formatLanguageRuntime(runtime)} (Source: ${source})`);
 		await this.doRestartRuntime(runtime);
 	}
@@ -721,8 +710,8 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 	}
 
 	/**
-	 * Starts a runtime.
-	 * @param runtime The runtime to start.
+	 * Restarts a runtime.
+	 * @param runtime The runtime to restart.
 	 */
 	private async doRestartRuntime(runtime: ILanguageRuntime): Promise<void> {
 		const state = runtime.getRuntimeState();
