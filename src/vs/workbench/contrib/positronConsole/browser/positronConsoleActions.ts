@@ -194,8 +194,9 @@ export function registerPositronConsoleActions() {
 				keybinding: {
 					weight: KeybindingWeight.WorkbenchContrib,
 					primary: KeyMod.CtrlCmd | KeyCode.Enter,
-					win: {
-						primary: KeyMod.WinCtrl | KeyCode.Enter
+					mac: {
+						primary: KeyMod.CtrlCmd | KeyCode.Enter,
+						secondary: [KeyMod.WinCtrl | KeyCode.Enter]
 					}
 				},
 				description: {
