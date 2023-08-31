@@ -182,6 +182,9 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 			codeEditorWidgetRef.current.setValue('');
 		};
 
+		// Determine whether the cmd or ctrl key is pressed.
+		const cmdOrCtrlKey = isMacintosh ? e.metaKey : e.ctrlKey;
+
 		// Check for a suggest widget in the DOM. If one exists, then don't
 		// handle the key.
 		//
@@ -189,10 +192,12 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 		// 'suggestWidgetVisible' context key, but the way VSCode handles
 		// 'scoped' contexts makes that challenging to access here, and I
 		// haven't figured out the 'right' way to get access to those contexts.
-		const suggestWidgets = document.getElementsByClassName('suggest-widget');
-		for (const suggestWidget of suggestWidgets) {
-			if (suggestWidget.classList.contains('visible')) {
-				return;
+		if (!cmdOrCtrlKey) {
+			const suggestWidgets = document.getElementsByClassName('suggest-widget');
+			for (const suggestWidget of suggestWidgets) {
+				if (suggestWidget.classList.contains('visible')) {
+					return;
+				}
 			}
 		}
 
@@ -210,9 +215,6 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 
 			// Ctrl-A handling.
 			case KeyCode.KeyA: {
-				// Determine whether the cmd or ctrl key is pressed.
-				const cmdOrCtrlKey = isMacintosh ? e.metaKey : e.ctrlKey;
-
 				// If the cmd or ctrl key is pressed, see if the user wants to select all.
 				if (cmdOrCtrlKey) {
 					// Get the code fragment from the code editor widget.
