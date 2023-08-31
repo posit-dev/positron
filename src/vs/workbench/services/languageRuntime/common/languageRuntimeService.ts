@@ -553,14 +553,6 @@ export interface ILanguageRuntimeService {
 	startRuntime(runtimeId: string, source: string): Promise<void>;
 
 	/**
-	 * Shuts down a runtime.
-	 * @param runtimeId The runtime identifier of the runtime to shut down.
-	 * @param source The source of the request to shut down the runtime, for debugging purposes
-	 *  (not displayed to the user)
-	 */
-	shutdownRuntime(runtimeId: string, source: string): Promise<void>;
-
-	/**
 	 * Restart a running runtime.
 	 * @param runtimeId The identifier of the runtime to restart.
 	 * @param source The source of the request to restart the runtime, for debugging purposes.
