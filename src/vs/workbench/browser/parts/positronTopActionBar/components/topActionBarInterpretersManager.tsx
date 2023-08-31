@@ -96,7 +96,7 @@ export const TopActionBarInterpretersManager = (props: TopActionBarInterpretersM
 					<div className='label'>Start Interpreter</div> :
 					<div className='label'>
 						<img className='icon' src={`data:image/svg+xml;base64,${activeRuntime.metadata.base64EncodedIconSvg}`} />
-						<span>{activeRuntime.metadata.languageName} {activeRuntime.metadata.languageVersion}</span>
+						<span>{activeRuntime.metadata.runtimeName}</span>
 					</div>
 				}
 			</div>

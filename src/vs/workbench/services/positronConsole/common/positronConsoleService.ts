@@ -813,7 +813,6 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 								this._runtimeItems[i] = new RuntimeItemStarted(
 									generateUuid(),
 									`${this._runtime.metadata.runtimeName} ` +
-									`${this._runtime.metadata.languageVersion} ` +
 									`${runtimeItem.isRestart ? 'restarted' : 'started'}.`
 								);
 								this._onDidChangeRuntimeItemsEmitter.fire(this._runtimeItems);
@@ -825,7 +824,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 						this.addRuntimeItem(
 							new RuntimeItemReconnected(
 								generateUuid(),
-								`${this._runtime.metadata.runtimeName} ${this._runtime.metadata.languageVersion} reconnected.`
+								`${this._runtime.metadata.runtimeName} reconnected.`
 							)
 						);
 						break;
@@ -836,7 +835,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 				this.addRuntimeItem(
 					new RuntimeItemOffline(
 						generateUuid(),
-						`${this._runtime.metadata.runtimeName} ${this._runtime.metadata.languageVersion} offline. Waiting to reconnect.`
+						`${this._runtime.metadata.runtimeName} offline. Waiting to reconnect.`
 					)
 				);
 				break;
@@ -866,7 +865,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 			this.setState(PositronConsoleState.Starting);
 			this.addRuntimeItem(new RuntimeItemStarting(
 				generateUuid(),
-				`${this._runtime.metadata.runtimeName} ${this._runtime.metadata.languageVersion} ` +
+				`${this._runtime.metadata.runtimeName} ` +
 				`${restart ? 'restarting' : 'starting'}.`,
 				restart
 			));
@@ -874,7 +873,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 			this.setState(PositronConsoleState.Ready);
 			this.addRuntimeItem(new RuntimeItemReconnected(
 				generateUuid(),
-				`${this._runtime.metadata.runtimeName} ${this._runtime.metadata.languageVersion} reconnected.`
+				`${this._runtime.metadata.runtimeName} reconnected.`
 			));
 		}
 
@@ -1207,7 +1206,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 
 			this.addRuntimeItem(new RuntimeItemExited(
 				generateUuid(),
-				`${this._runtime.metadata.runtimeName} ${this._runtime.metadata.languageVersion} has exited.`
+				`${this._runtime.metadata.runtimeName} has exited.`
 			));
 		} else {
 			// We are not currently attached; warn.

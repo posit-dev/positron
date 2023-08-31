@@ -371,8 +371,17 @@ export interface ILanguageRuntimeMetadata {
 	/** The Base64-encoded icon SVG for the language. */
 	readonly base64EncodedIconSvg: string | undefined;
 
-	/** The user-facing descriptive name of the runtime; e.g. "R 4.3.3" */
+	/**
+	 * The fully qualified name of the runtime displayed to the user; e.g. "R 4.2 (64-bit)".
+	 * Should be unique across languages.
+	 */
 	readonly runtimeName: string;
+
+	/**
+	 * A language specific runtime name displayed to the user; e.g. "4.2 (64-bit)".
+	 * Should be unique within a single language.
+	 */
+	readonly runtimeShortName: string;
 
 	/** The internal version of the runtime that wraps the language; e.g. "1.0.3" */
 	readonly runtimeVersion: string;

@@ -55,7 +55,7 @@ export const SecondaryInterpreter = (props: SecondaryInterpreterProps) => {
 			<img className='icon' src={`data:image/svg+xml;base64,${props.runtime.metadata.base64EncodedIconSvg}`} />
 			<div className='info'>
 				<div className='container'>
-					<div className='line'>{props.runtime.metadata.languageVersion}</div>
+					<div className='line'>{props.runtime.metadata.runtimeShortName}</div>
 					<div className='line light' title={props.runtime.metadata.runtimePath}>{props.runtime.metadata.runtimePath}</div>
 				</div>
 			</div>

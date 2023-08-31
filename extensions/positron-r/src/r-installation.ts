@@ -76,10 +76,28 @@ export class RInstallation {
 
 		const versionPart = builtParts[0];
 		this.semVersion = semver.coerce(versionPart) ?? new semver.SemVer('0.0.1');
-		this.version = `${semver.major(this.semVersion)}.${semver.minor(this.semVersion)}.${semver.patch(this.semVersion)}`;
+		this.version = this.semVersion.format();
 
 		const platformPart = builtParts[1];
 		const architecture = platformPart.match('^(aarch64|x86_64)');
-		this.arch = architecture ? architecture[1] : '';
+
+		if (architecture) {
+			const arch = architecture[1];
+
+			// Remap known architectures to equivalent values used by Rig,
+			// just for overall consistency and familiarity
+			if (arch === 'aarch64') {
+				this.arch = 'arm64';
+			} else if (arch === 'x86_64') {
+				this.arch = 'x86_64';
+			} else {
+				// Should never happen because of how our `match()` works
+				console.warn(`Matched an unknown architecture '${arch}' for R '${this.version}'.`);
+				this.arch = arch;
+			}
+		} else {
+			// Unknown architecture
+			this.arch = '';
+		}
 	}
 }
