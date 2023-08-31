@@ -210,12 +210,12 @@
         "mac": "cmd+shift+m",
         "when": "editorLangId == r"
       },
-	  	{
-			  "command": "r.insertLeftAssignment",
-				"key": "alt+-",
-			  "mac": "alt+-",
-			  "when": "editorLangId == r"
-		  },
+      {
+        "command": "r.insertLeftAssignment",
+        "key": "alt+-",
+        "mac": "alt+-",
+        "when": "editorLangId == r"
+      },
       {
         "command": "r.packageLoad",
         "key": "ctrl+shift+l",
