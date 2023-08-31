@@ -5,12 +5,16 @@
 	"r.command.sourceCurrentFile.title": "Source R File",
 	"r.command.createNewFile.title": "New R File",
 	"r.command.packageLoad.title": "Load R Package",
+	"r.command.insertPipe.title": "Insert the pipe operator",
+	"r.command.insertLeftAssignment.title": "Insert the \"<-\" assignment operator",
 	"r.command.packageBuild.title": "Build R Package",
 	"r.command.packageInstall.title": "Install R Package",
 	"r.command.packageTest.title": "Test R Package",
 	"r.command.packageCheck.title": "Check R Package",
 	"r.command.packageDocument.title": "Document R Package",
 	"r.menu.createNewFile.title": "R File",
+	"r.menu.insertPipe.title": "Insert the pipe operator",
+	"r.menu.insertLeftAssignment.title": "Insert the \"<-\" assignment operator",
 	"r.menu.packageLoad.title": "Load R Package",
 	"r.menu.packageBuild.title": "Build R Package",
 	"r.menu.packageInstall.title": "Install R Package",
@@ -30,5 +34,8 @@
 	"r.configuration.logLevel.trace.description": "Verbose tracing messages",
 	"r.configuration.logLevel.description": "Log level for the R Kernel (requires restart to take effect)",
 	"r.configuration.restoreWorkspace.description": "Restore the workspace from .RData on startup (requires restart to take effect)",
-	"r.configuration.extraArguments.description": "Extra command-line arguments for R intialization"
+	"r.configuration.extraArguments.description": "Extra command-line arguments for R intialization",
+	"r.configuration.pipe": "String to insert as the pipe operator",
+	"r.configuration.pipe.native.description": "Native pipe available in R >= 4.1",
+	"r.configuration.pipe.magrittr.description": "Pipe operator from the magrittr package, re-exported by many other packages"
 }
