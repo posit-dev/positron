@@ -472,7 +472,7 @@ export interface ILanguageRuntime {
 	interrupt(): void;
 
 	/** Restart the runtime */
-	restart(): void;
+	restart(): Thenable<void>;
 
 	/** Shut down the runtime */
 	shutdown(): Thenable<void>;
@@ -560,5 +560,13 @@ export interface ILanguageRuntimeService {
 	 *  (not displayed to the user)
 	 */
 	startRuntime(runtimeId: string, source: string): Promise<void>;
+
+	/**
+	 * Restart a running runtime.
+	 * @param runtimeId The identifier of the runtime to restart.
+	 * @param source The source of the request to restart the runtime, for debugging purposes.
+	 */
+	restartRuntime(runtimeId: string, source: string): Promise<void>;
+
 }
 export { RuntimeClientType, IRuntimeClientInstance };

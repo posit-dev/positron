@@ -272,6 +272,23 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 	}
 
 	/**
+	 * Restarts a running language runtime.
+	 *
+	 * @param runtimeId The runtime ID to restart.
+	 */
+	public restartLanguageRuntime(runtimeId: string): Promise<void> {
+		// Look for the runtime with the given ID
+		for (let i = 0; i < this._runtimes.length; i++) {
+			if (this._runtimes[i].metadata.runtimeId === runtimeId) {
+				return this._proxy.$restartLanguageRuntime(i);
+			}
+		}
+		return Promise.reject(
+			new Error(`Runtime with ID '${runtimeId}' must be registered before ` +
+				`it can be restarted.`));
+	}
+
+	/**
 	 * Handles a comm open message from the language runtime by either creating
 	 * a client instance for it or passing it to a registered client handler.
 	 *

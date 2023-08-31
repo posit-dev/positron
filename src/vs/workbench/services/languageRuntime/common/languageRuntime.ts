@@ -554,6 +554,21 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 		await this.doStartRuntime(languageRuntimeInfo.runtime);
 	}
 
+	/**
+	 * Restarts a runtime.
+	 * @param runtimeId The ID of the runtime to restart
+	 * @param source The source of the request to restart the runtime.
+	 */
+	async restartRuntime(runtimeId: string, source: string): Promise<void> {
+		const runtimeInfo = this._registeredRuntimesByRuntimeId.get(runtimeId);
+		if (!runtimeInfo) {
+			throw new Error(`No language runtime with id '${runtimeId}' was found.`);
+		}
+		const runtime = runtimeInfo.runtime;
+		this._logService.info(`Restarting language runtime ${formatLanguageRuntime(runtime)} (Source: ${source})`);
+		await this.doRestartRuntime(runtime);
+	}
+
 	//#endregion ILanguageRuntimeService Implementation
 
 	//#region Private Methods
@@ -676,6 +691,36 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 		}
 	}
 
+	/**
+	 * Restarts a runtime.
+	 * @param runtime The runtime to restart.
+	 */
+	private async doRestartRuntime(runtime: ILanguageRuntime): Promise<void> {
+		const state = runtime.getRuntimeState();
+		if (state === RuntimeState.Busy ||
+			state === RuntimeState.Idle ||
+			state === RuntimeState.Ready) {
+			// The runtime looks like it could handle a restart request, so send
+			// one over.
+			return runtime.restart();
+		} else if (state === RuntimeState.Uninitialized ||
+			state === RuntimeState.Exited) {
+			// The runtime has never been started, or is no longer running. Just
+			// tell it to start.
+			return this.startRuntime(runtime.metadata.runtimeId, `'Restart Language Runtime' command invoked`);
+		} else if (state === RuntimeState.Starting ||
+			state === RuntimeState.Restarting) {
+			// The runtime is already starting or restarting. We could show an
+			// error, but this is probably just the result of a user mashing the
+			// restart when we already have one in flight.
+			return;
+		} else {
+			// The runtime is not in a state where it can be restarted.
+			return Promise.reject(
+				new Error(`The ${runtime.metadata.languageName} language runtime is '${state}' and cannot be restarted.`)
+			);
+		}
+	}
 
 	//#region Private Methods
 }
