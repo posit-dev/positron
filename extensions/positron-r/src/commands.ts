@@ -19,6 +19,16 @@ export async function registerCommands(context: vscode.ExtensionContext) {
 			});
 		}),
 
+		vscode.commands.registerCommand('r.insertPipe', () => {
+			const extConfig = vscode.workspace.getConfiguration('positron.r');
+			const pipeString = extConfig.get<string>('pipe') || '|>';
+			vscode.commands.executeCommand('type', { text: ` ${pipeString} ` });
+		}),
+
+		vscode.commands.registerCommand('r.insertLeftAssignment', () => {
+			vscode.commands.executeCommand('type', { text: ' <- ' });
+		}),
+
 		// Commands for package development tooling
 		vscode.commands.registerCommand('r.packageLoad', () => {
 			positron.runtime.executeCode('r', 'devtools::load_all()', true);

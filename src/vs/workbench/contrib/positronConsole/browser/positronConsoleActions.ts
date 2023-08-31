@@ -6,7 +6,6 @@ import { localize } from 'vs/nls';
 import { Codicon } from 'vs/base/common/codicons';
 import { ITextModel } from 'vs/editor/common/model';
 import { IEditor } from 'vs/editor/common/editorCommon';
-import { Position } from 'vs/editor/common/core/position';
 import { KeyCode, KeyMod } from 'vs/base/common/keyCodes';
 import { IViewsService } from 'vs/workbench/common/views';
 import { ILocalizedString } from 'vs/platform/action/common/action';
@@ -195,8 +194,9 @@ export function registerPositronConsoleActions() {
 				keybinding: {
 					weight: KeybindingWeight.WorkbenchContrib,
 					primary: KeyMod.CtrlCmd | KeyCode.Enter,
-					win: {
-						primary: KeyMod.WinCtrl | KeyCode.Enter
+					mac: {
+						primary: KeyMod.CtrlCmd | KeyCode.Enter,
+						secondary: [KeyMod.WinCtrl | KeyCode.Enter]
 					}
 				},
 				description: {
@@ -232,12 +232,20 @@ export function registerPositronConsoleActions() {
 			const model = editor.getModel() as ITextModel;
 
 			// If we have a selection and it isn't empty, then we use its contents (even if it
-			// only contains whitespace or comments) and also retain the user's selection location
-			const inSelection = selection &&
-				!Position.equals(selection.getPosition(), selection.getSelectionStart());
-
-			if (inSelection) {
+			// only contains whitespace or comments) and also retain the user's selection location.
+			if (selection && !selection.isEmpty()) {
 				code = model.getValueInRange(selection);
+				// HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK
+				// This attempts to address https://github.com/posit-dev/positron/issues/1177
+				// by tacking a newline onto multiline, indented Python code fragments. This allows
+				// such code fragments to be complete.
+				if (editorService.activeTextEditorLanguageId === 'python') {
+					const lines = code.split('\n');
+					if (lines.length > 1 && /^[ \t]/.test(lines[lines.length - 1])) {
+						code += '\n';
+					}
+				}
+				// HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK
 			} else {
 				// If no selection (or empty selection) was found, use the contents
 				// of the line containing the cursor position.
@@ -266,6 +274,18 @@ export function registerPositronConsoleActions() {
 				// If we have code and a position move the cursor to the next line with code on it,
 				// or just to the next line if all additional lines are blank.
 				if (code.length && position) {
+					// HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK
+					// This attempts to address https://github.com/posit-dev/positron/issues/1177
+					// by tacking a newline onto indented Python code fragments that end at an empty
+					// line. This allows such code fragments to be complete.
+					if (editorService.activeTextEditorLanguageId === 'python' &&
+						/^[ \t]/.test(code) &&
+						lineNumber + 1 <= model.getLineCount() &&
+						model.getLineContent(lineNumber + 1) === '') {
+						code += '\n';
+					}
+					// HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK
+
 					let onlyEmptyLines = true;
 
 					for (let number = lineNumber + 1; number <= model.getLineCount(); ++number) {

@@ -12,6 +12,7 @@ import { UriComponents } from 'vs/base/common/uri';
 export interface MainThreadLanguageRuntimeShape extends IDisposable {
 	$registerLanguageRuntime(handle: number, metadata: ILanguageRuntimeMetadata, dynState: ILanguageRuntimeDynState): void;
 	$selectLanguageRuntime(handle: number): Promise<void>;
+	$restartLanguageRuntime(handle: number): Promise<void>;
 	$isLanguageRuntimeDiscoveryComplete(): Promise<boolean>;
 	$completeLanguageRuntimeDiscovery(): void;
 	$unregisterLanguageRuntime(handle: number): void;

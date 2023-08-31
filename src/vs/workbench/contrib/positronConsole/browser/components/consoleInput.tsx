@@ -152,6 +152,7 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 			}
 		}
 
+		// Execute the code.
 		props.positronConsoleInstance.executeCode(code);
 
 		// Reset the code input state.
@@ -181,6 +182,9 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 			codeEditorWidgetRef.current.setValue('');
 		};
 
+		// Determine whether the cmd or ctrl key is pressed.
+		const cmdOrCtrlKey = isMacintosh ? e.metaKey : e.ctrlKey;
+
 		// Check for a suggest widget in the DOM. If one exists, then don't
 		// handle the key.
 		//
@@ -188,10 +192,12 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 		// 'suggestWidgetVisible' context key, but the way VSCode handles
 		// 'scoped' contexts makes that challenging to access here, and I
 		// haven't figured out the 'right' way to get access to those contexts.
-		const suggestWidgets = document.getElementsByClassName('suggest-widget');
-		for (const suggestWidget of suggestWidgets) {
-			if (suggestWidget.classList.contains('visible')) {
-				return;
+		if (!cmdOrCtrlKey) {
+			const suggestWidgets = document.getElementsByClassName('suggest-widget');
+			for (const suggestWidget of suggestWidgets) {
+				if (suggestWidget.classList.contains('visible')) {
+					return;
+				}
 			}
 		}
 
@@ -209,9 +215,6 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 
 			// Ctrl-A handling.
 			case KeyCode.KeyA: {
-				// Determine whether the cmd or ctrl key is pressed.
-				const cmdOrCtrlKey = isMacintosh ? e.metaKey : e.ctrlKey;
-
 				// If the cmd or ctrl key is pressed, see if the user wants to select all.
 				if (cmdOrCtrlKey) {
 					// Get the code fragment from the code editor widget.
@@ -446,7 +449,10 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 				...editorOptions
 			},
 			{
-				isSimpleWidget: false,
+				// Make the console input's code editor widget a "simple" widget. This prevents the
+				// console input's code editor widget from being the active text editor (i.e. being
+				// vscode.window.activeTextEditor).
+				isSimpleWidget: true,
 				contributions: EditorExtensionsRegistry.getSomeEditorContributions([
 					SelectionClipboardContributionID,
 					ContextMenuController.ID,
@@ -525,36 +531,6 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 			codeEditorWidgetRef.current.focus();
 		}));
 
-		// Add the onDidPasteText event handler.
-		disposableStore.add(props.positronConsoleInstance.onDidPasteText(text => {
-			// Get the selections.
-			const selections = codeEditorWidgetRef.current.getSelections();
-			if (!selections || !selections.length) {
-				return;
-			}
-
-			// Build the edits and the updated selections.
-			const edits: ISingleEditOperation[] = [];
-			const updatedSelections: ISelection[] = [];
-			for (const selection of selections) {
-				edits.push(EditOperation.replace(selection, text));
-				updatedSelections.push({
-					selectionStartLineNumber: selection.selectionStartLineNumber,
-					selectionStartColumn: selection.selectionStartColumn + text.length,
-					positionLineNumber: selection.positionLineNumber,
-					positionColumn: selection.selectionStartColumn + text.length
-				});
-			}
-
-			// Execute the edits and set the updated selections.
-			codeEditorWidgetRef.current.executeEdits('console', edits);
-			codeEditorWidgetRef.current.setSelections(
-				updatedSelections,
-				'console',
-				CursorChangeReason.Paste
-			);
-		}));
-
 		// Add the onDidChangeState event handler.
 		disposableStore.add(props.positronConsoleInstance.onDidChangeState(state => {
 			// Set up editor options based on state.
@@ -593,6 +569,36 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 			});
 		}));
 
+		// Add the onDidPasteText event handler.
+		disposableStore.add(props.positronConsoleInstance.onDidPasteText(text => {
+			// Get the selections.
+			const selections = codeEditorWidgetRef.current.getSelections();
+			if (!selections || !selections.length) {
+				return;
+			}
+
+			// Build the edits and the updated selections.
+			const edits: ISingleEditOperation[] = [];
+			const updatedSelections: ISelection[] = [];
+			for (const selection of selections) {
+				edits.push(EditOperation.replace(selection, text));
+				updatedSelections.push({
+					selectionStartLineNumber: selection.selectionStartLineNumber,
+					selectionStartColumn: selection.selectionStartColumn + text.length,
+					positionLineNumber: selection.positionLineNumber,
+					positionColumn: selection.selectionStartColumn + text.length
+				});
+			}
+
+			// Execute the edits and set the updated selections.
+			codeEditorWidgetRef.current.executeEdits('console', edits);
+			codeEditorWidgetRef.current.setSelections(
+				updatedSelections,
+				'console',
+				CursorChangeReason.Paste
+			);
+		}));
+
 		// Add the onDidClearConsole event handler.
 		disposableStore.add(props.positronConsoleInstance.onDidClearConsole(() => {
 			// Focus the code editor widget.
@@ -606,6 +612,12 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 
 			// Focus the code editor widget.
 			codeEditorWidget.focus();
+		}));
+
+		// Add the onDidSetCode event handler.
+		disposableStore.add(props.positronConsoleInstance.onDidSetPendingCode(pendingCode => {
+			codeEditorWidgetRef.current.setValue(pendingCode || '');
+			updateCodeEditorWidgetPosition(Position.Last, Position.Last);
 		}));
 
 		disposableStore.add(props.positronConsoleInstance.runtime.onDidReceiveRuntimeMessagePromptConfig(() => {
