@@ -234,6 +234,17 @@ export function registerPositronConsoleActions() {
 			// only contains whitespace or comments) and also retain the user's selection location.
 			if (selection && !selection.isEmpty()) {
 				code = model.getValueInRange(selection);
+				// HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK
+				// This attempts to address https://github.com/posit-dev/positron/issues/1177
+				// by tacking a newline onto multiline, indented Python code fragments. This allows
+				// such code fragments to be complete.
+				if (editorService.activeTextEditorLanguageId === 'python') {
+					const lines = code.split('\n');
+					if (lines.length > 1 && /^[ \t]/.test(lines[lines.length - 1])) {
+						code += '\n';
+					}
+				}
+				// HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK
 			} else {
 				// If no selection (or empty selection) was found, use the contents
 				// of the line containing the cursor position.
