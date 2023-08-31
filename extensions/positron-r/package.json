@@ -29,6 +29,20 @@
         "shortTitle": "%r.menu.createNewFile.title%"
       },
       {
+        "command": "r.insertPipe",
+        "category": "R",
+        "title": "%r.command.insertPipe.title%",
+        "shortTitle": "%r.menu.insertPipe.title%",
+        "enablement": "editorLangId == r"
+      },
+      {
+        "command": "r.insertLeftAssignment",
+        "category": "R",
+        "title": "%r.command.insertLeftAssignment.title%",
+        "shortTitle": "%r.menu.insertLeftAssignment.title%",
+        "enablement": "editorLangId == r"
+      },
+      {
         "command": "r.packageLoad",
         "category": "R",
         "title": "%r.command.packageLoad.title%",
@@ -131,6 +145,16 @@
           },
           "default": [],
           "description": "%r.configuration.extraArguments.description%"
+        },
+        "positron.r.pipe": {
+          "type": "string",
+          "default": "|>",
+          "enum": ["|>", "%>%"],
+          "enumDescriptions": [
+            "%r.configuration.pipe.native.description%",
+            "%r.configuration.pipe.magrittr.description%"
+          ],
+          "description": "%r.configuration.pipe%"
         }
       }
     },
@@ -181,6 +205,18 @@
     ],
     "keybindings": [
       {
+        "command": "r.insertPipe",
+        "key": "ctrl+shift+m",
+        "mac": "cmd+shift+m",
+        "when": "editorLangId == r"
+      },
+      {
+        "command": "r.insertLeftAssignment",
+        "key": "alt+-",
+        "mac": "alt+-",
+        "when": "editorLangId == r"
+      },
+      {
         "command": "r.packageLoad",
         "key": "ctrl+shift+l",
         "mac": "cmd+shift+l",
@@ -224,6 +260,16 @@
           "command": "r.sourceCurrentFile",
           "icon": "$(play)",
           "title": "%r.command.sourceCurrentFile.title%",
+          "when": "editorLangId == r"
+        },
+        {
+          "category": "R",
+          "command": "r.insertPipe",
+          "when": "editorLangId == r"
+        },
+        {
+          "category": "R",
+          "command": "r.insertLeftAssignment",
           "when": "editorLangId == r"
         },
         {
