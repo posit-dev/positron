@@ -71,7 +71,7 @@ def test_pydoc_server_styling(running_help_service: HelpService):
         (pd.DataFrame, "pandas.DataFrame"),
         (pd.DataFrame(), "pandas.DataFrame"),
         ("pandas.core.frame.DataFrame", "pandas.DataFrame"),
-        (pd.DataFrame.bfill, "pandas.DataFrame.bfill"),
+        (pd.DataFrame.merge, "pandas.DataFrame.merge"),
         (pd.Series, "pandas.Series"),
         #
         (0, "int"),
