@@ -664,7 +664,8 @@ declare module 'positron' {
 	export interface StatementRangeProvider {
 		/**
 		 * Given a cursor position, return the range of the statement that the
-		 * cursor is within.
+		 * cursor is within. If the cursor is not within a statement, return the
+		 * range of the next statement, if one exists.
 		 *
 		 * @param document The document in which the command was invoked.
 		 * @param position The position at which the command was invoked.

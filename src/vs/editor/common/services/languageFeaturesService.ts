@@ -10,7 +10,7 @@ import { ILanguageFeaturesService } from 'vs/editor/common/services/languageFeat
 import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/common/extensions';
 
 // --- Start Positron ---
-// Disable warning about multiple import from same source
+// This import is on its own line to avoid unnecessary merge conflicts.
 // eslint-disable-next-line no-duplicate-imports
 import { StatementRangeProvider } from 'vs/editor/common/languages';
 // --- End Positron ---

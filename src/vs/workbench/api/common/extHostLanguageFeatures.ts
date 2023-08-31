@@ -1560,6 +1560,10 @@ class FoldingProviderAdapter {
 
 // --- Start Positron ---
 
+/**
+ * Adapter for the `StatementRangeProvider` API; serves as a bridge to convert
+ * API types to and from internal VS Code types.
+ */
 class StatementRangeAdapter {
 
 	constructor(
@@ -1568,6 +1572,14 @@ class StatementRangeAdapter {
 		private readonly _logService: ILogService
 	) { }
 
+	/**
+	 * Provide the range of the statement at the given position.
+	 *
+	 * @param resource The URI of the document to search
+	 * @param pos The position to search at
+	 * @param token The cancellation token (currently unused)
+	 * @returns A promise that resolves to the statement range
+	 */
 	async provideStatementRange(resource: URI, pos: IPosition, token: CancellationToken): Promise<IRange> {
 		const document = this._documents.getDocument(resource);
 		const position = typeConvert.Position.to(pos);
@@ -1576,7 +1588,8 @@ class StatementRangeAdapter {
 		if (!providerRange) {
 			this._logService.debug(`No statement range from provider ` +
 				`for position ${position} in ${resource}`);
-			throw new Error('INVALID statement range, must return a range');
+			throw new Error(`Invalid statement range returned from provider ` +
+				`for ${position} in ${resource}`);
 		}
 		return typeConvert.Range.from(providerRange);
 	}
