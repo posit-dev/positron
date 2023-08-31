@@ -731,6 +731,13 @@ declare module 'positron' {
 		export function selectLanguageRuntime(runtimeId: string): Thenable<void>;
 
 		/**
+		 * Restart a running runtime.
+		 *
+		 * @param runtimeId The ID of the running runtime to restart.
+		 */
+		export function restartLanguageRuntime(runtimeId: string): Thenable<void>;
+
+		/**
 		 * Register a handler for runtime client instances. This handler will be called
 		 * whenever a new client instance is created by a language runtime of the given
 		 * type.
