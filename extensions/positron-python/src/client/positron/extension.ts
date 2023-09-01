@@ -10,6 +10,7 @@ import { IInterpreterService } from '../interpreter/contracts';
 import { IServiceContainer } from '../ioc/types';
 import { traceError } from '../logging';
 import { createPythonRuntime, pythonRuntimeProvider } from './provider';
+import { PythonStatementRangeProvider } from './statementRange';
 
 
 export async function activatePositron(
@@ -29,6 +30,10 @@ export async function activatePositron(
 
         // Register the Python language runtime provider with positron.
         positron.runtime.registerLanguageRuntimeProvider('python', pythonRuntimeProvider(serviceContainer, runtimes));
+
+        // Register a statement range provider to detect Python statements
+        positron.languages.registerStatementRangeProvider('python',
+            new PythonStatementRangeProvider());
 
         // If the interpreter is changed via the Python extension, select the corresponding
         // language runtime in Positron.
