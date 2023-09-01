@@ -456,6 +456,27 @@ const newCommands: ApiCommand[] = [
 		[ApiCommandArgument.Uri.with('workspaceUri', 'The target workspace to continue the current edit session in')],
 		ApiCommandResult.Void
 	),
+
+	// --- Start Positron ---
+	// -- statement range
+	new ApiCommand(
+		'vscode.executeStatementRangeProvider', '_executeStatementRangeProvider', 'Execute statement range provider.',
+		[ApiCommandArgument.Uri,
+		new ApiCommandArgument<types.Position, IPosition>('position',
+			'A position in a text document',
+			// validator: check for a valid position
+			v => types.Position.isPosition(v),
+			// converter: convert from vscode.Position to IPosition (API type)
+			v => {
+				return typeConverters.Position.from(v);
+			})],
+		new ApiCommandResult<IRange, types.Range>('A promise that resolves to a range.', result => {
+			// converter: convert from IRange (API type) to vscode.Range
+			return typeConverters.Range.to(result);
+		})
+	),
+	// --- End Positron
+
 	// --- context keys
 	new ApiCommand(
 		'setContext', '_setContext', 'Set a custom context key value that can be used in when clauses.',

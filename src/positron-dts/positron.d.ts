@@ -670,6 +670,35 @@ declare module 'positron' {
 		readonly previewPanel: PreviewPanel;
 	}
 
+	export interface StatementRangeProvider {
+		/**
+		 * Given a cursor position, return the range of the statement that the
+		 * cursor is within. If the cursor is not within a statement, return the
+		 * range of the next statement, if one exists.
+		 *
+		 * @param document The document in which the command was invoked.
+		 * @param position The position at which the command was invoked.
+		 * @param token A cancellation token.
+		 * @return The range of the statement at the given position.
+		 */
+		provideStatementRange(document: vscode.TextDocument,
+			position: vscode.Position,
+			token: vscode.CancellationToken): vscode.ProviderResult<vscode.Range>;
+	}
+
+	namespace languages {
+		/**
+		 * Register a statement range provider.
+		 *
+		 * @param selector A selector that defines the documents this provider is applicable to.
+		 * @param provider A statement range provider.
+		 * @return A {@link Disposable} that unregisters this provider when being disposed.
+		 */
+		export function registerStatementRangeProvider(
+			selector: vscode.DocumentSelector,
+			provider: StatementRangeProvider): vscode.Disposable;
+	}
+
 	namespace window {
 		/**
 		 * Create and show a new preview panel.
