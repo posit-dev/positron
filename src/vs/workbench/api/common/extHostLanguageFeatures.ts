@@ -37,6 +37,10 @@ import { checkProposedApiEnabled, isProposedApiEnabled } from 'vs/workbench/serv
 import { IExtHostTelemetry } from 'vs/workbench/api/common/extHostTelemetry';
 import { localize } from 'vs/nls';
 
+// --- Start Positron ---
+import type * as positron from 'positron';
+// --- End Positron ---
+
 // --- adapter
 
 class DocumentSymbolAdapter {
@@ -1554,6 +1558,44 @@ class FoldingProviderAdapter {
 	}
 }
 
+// --- Start Positron ---
+
+/**
+ * Adapter for the `StatementRangeProvider` API; serves as a bridge to convert
+ * API types to and from internal VS Code types.
+ */
+class StatementRangeAdapter {
+
+	constructor(
+		private readonly _documents: ExtHostDocuments,
+		private readonly _provider: positron.StatementRangeProvider,
+		private readonly _logService: ILogService
+	) { }
+
+	/**
+	 * Provide the range of the statement at the given position.
+	 *
+	 * @param resource The URI of the document to search
+	 * @param pos The position to search at
+	 * @param token The cancellation token (currently unused)
+	 * @returns A promise that resolves to the statement range
+	 */
+	async provideStatementRange(resource: URI, pos: IPosition, token: CancellationToken): Promise<IRange> {
+		const document = this._documents.getDocument(resource);
+		const position = typeConvert.Position.to(pos);
+
+		const providerRange = await this._provider.provideStatementRange(document, position, token);
+		if (!providerRange) {
+			this._logService.debug(`No statement range from provider ` +
+				`for position ${position} in ${resource}`);
+			throw new Error(`Invalid statement range returned from provider ` +
+				`for ${position} in ${resource}`);
+		}
+		return typeConvert.Range.from(providerRange);
+	}
+}
+// --- End Positron ---
+
 class SelectionRangeAdapter {
 
 	constructor(
@@ -1783,6 +1825,8 @@ class DocumentOnDropEditAdapter {
 	}
 }
 
+// --- Start Positron ---
+// Add 'StatementRangeAdapter' to the list of adapters
 type Adapter = DocumentSymbolAdapter | CodeLensAdapter | DefinitionAdapter | HoverAdapter
 	| DocumentHighlightAdapter | ReferenceAdapter | CodeActionAdapter | DocumentPasteEditProvider | DocumentFormattingAdapter
 	| RangeFormattingAdapter | OnTypeFormattingAdapter | NavigateTypeAdapter | RenameAdapter
@@ -1792,7 +1836,8 @@ type Adapter = DocumentSymbolAdapter | CodeLensAdapter | DefinitionAdapter | Hov
 	| DocumentSemanticTokensAdapter | DocumentRangeSemanticTokensAdapter
 	| EvaluatableExpressionAdapter | InlineValuesAdapter
 	| LinkedEditingRangeAdapter | InlayHintsAdapter | InlineCompletionAdapter
-	| DocumentOnDropEditAdapter;
+	| DocumentOnDropEditAdapter | StatementRangeAdapter;
+// --- End Positron ---
 
 class AdapterData {
 	constructor(
@@ -2365,6 +2410,18 @@ export class ExtHostLanguageFeatures implements extHostProtocol.ExtHostLanguageF
 	$provideSelectionRanges(handle: number, resource: UriComponents, positions: IPosition[], token: CancellationToken): Promise<languages.SelectionRange[][]> {
 		return this._withAdapter(handle, SelectionRangeAdapter, adapter => adapter.provideSelectionRanges(URI.revive(resource), positions, token), [], token);
 	}
+
+	// --- Start Positron ---
+	registerStatementRangeProvider(extension: IExtensionDescription, selector: vscode.DocumentSelector, provider: positron.StatementRangeProvider): vscode.Disposable {
+		const handle = this._addNewAdapter(new StatementRangeAdapter(this._documents, provider, this._logService), extension);
+		this._proxy.$registerStatementRangeProvider(handle, this._transformDocumentSelector(selector, extension));
+		return this._createDisposable(handle);
+	}
+
+	$provideStatementRange(handle: number, resource: UriComponents, position: IPosition, token: CancellationToken): Promise<IRange | undefined> {
+		return this._withAdapter(handle, StatementRangeAdapter, adapter => adapter.provideStatementRange(URI.revive(resource), position, token), undefined, token);
+	}
+	// --- End Positron ---
 
 	// --- call hierarchy
 

@@ -1484,6 +1484,15 @@ export class FoldingRangeKind {
 	}
 }
 
+// --- Start Positron ---
+export interface StatementRangeProvider {
+	/**
+	 * Provide the statement that contains the given position.
+	 */
+	provideStatementRange(model: model.ITextModel, position: Position, token: CancellationToken):
+		ProviderResult<IRange>;
+}
+// --- End Positron ---
 
 export interface WorkspaceEditMetadata {
 	needsConfirmation: boolean;
