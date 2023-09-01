@@ -447,14 +447,14 @@ export function registerPositronConsoleActions() {
 			}
 		}
 
-		// Typically we don't do anything when we don't have code to execute,
-		// but when we are at the end of a document we add a new line. However,
-		// we don't move to that new line to avoid adding a bunch of empty
-		// lines to the end.
-
-		// Create an edit operation that will append a new line to the end
-		// of the document. It also moves us to that line.
 		amendNewlineToEnd(editor: IEditor) {
+			// Typically we don't do anything when we don't have code to execute,
+			// but when we are at the end of a document we add a new line. However,
+			// we don't move to that new line to avoid adding a bunch of empty
+			// lines to the end.
+
+			// Create an edit operation that will append a new line to the end
+			// of the document. It also moves us to that line.
 			const model = editor.getModel() as ITextModel;
 			const lineNumber = model.getLineCount();
 			const editOperation = {
