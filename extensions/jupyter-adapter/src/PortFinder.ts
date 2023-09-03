@@ -49,7 +49,9 @@ export async function findAvailablePort(excluding: Array<number>, maxTries: numb
 			test.close();
 		});
 
-		// Begin attempting to listen on the candidate port
-		test.listen(candidate);
+		// Begin attempting to listen on the candidate port. Use 'localhost' by
+		// name; otherwise the server attempts to listen on 0.0.0.0, which may
+		// be restricted by the OS.
+		test.listen(candidate, 'localhost');
 	});
 }
