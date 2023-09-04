@@ -1,5 +1,6 @@
 """Positron extenstions to the Jedi Language Server."""
 
+import asyncio
 import logging
 import os
 import sys
@@ -84,24 +85,8 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-class PositronJediLanguageServerProtocol(JediLanguageServerProtocol):
-    """Positron extension to the Jedi language server protocol."""
-
-    def connection_lost(self, exc):
-        """Override superclass to avoid system exit (e.g. when the Positron browser is refreshed)."""
-        logger.info("Connection lost")
-        if exc is not None:
-            logger.error("Connection lost with error:", exc_info=exc)
-
-    def eof_received(self):
-        """Override superclass to avoid closing on eof (e.g. when the Positron browser is refreshed)."""
-        return True
-
-
 class PositronJediLanguageServer(JediLanguageServer):
     """Positron extension to the Jedi language server."""
-
-    lsp: PositronJediLanguageServerProtocol
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
@@ -111,6 +96,9 @@ class PositronJediLanguageServer(JediLanguageServer):
 
         # The LSP server is started in a separate thread
         self._server_thread: Optional[threading.Thread] = None
+
+        # Enable asyncio debug mode in the event loop
+        self._debug = False
 
     def feature(self, feature_name: str, options: Optional[Any] = None) -> Callable:
         def decorator(f):
@@ -139,17 +127,40 @@ class PositronJediLanguageServer(JediLanguageServer):
         # Give the LSP server access to the kernel to enhance completions with live variables
         self.kernel = kernel
 
+        if self._server_thread is not None:
+            # We shouldn't get here, but log in case we do
+            logger.warning("LSP server thread was not properly shutdown")
+            return
+
+        # Create a fresh event loop upon restart in the same kernel process
+        if self.loop is None:
+            self.loop = asyncio.new_event_loop()
+        self.loop.set_debug(self._debug)
+
         # Start Jedi LSP as an asyncio TCP server in a separate thread.
+        logger.info("Starting LSP server thread")
         self._server_thread = threading.Thread(
             target=self.start_tcp, args=(lsp_host, lsp_port), name="LSPServerThread"
         )
         self._server_thread.start()
 
+    def shutdown(self):
+        logger.info("Shutting down LSP server thread")
+        super().shutdown()
+
+        # Reset the thread and loop reference sto allow starting a new server in the same process,
+        # e.g. when a browser-based Positron is refreshed.
+        self.loop = None
+        self._server_thread = None
+
+    def set_debug(self, debug):
+        self._debug = debug
+
 
 POSITRON = PositronJediLanguageServer(
     name="jedi-language-server",
     version="0.18.2",
-    protocol_cls=PositronJediLanguageServerProtocol,
+    protocol_cls=JediLanguageServerProtocol,
 )
 
 # Server Features
