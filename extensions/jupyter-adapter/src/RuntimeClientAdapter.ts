@@ -22,6 +22,9 @@ export class RuntimeClientAdapter {
 	private _disposables: vscode.Disposable[] = [];
 	onDidChangeClientState: vscode.Event<positron.RuntimeClientState>;
 
+	private readonly _messageEmitter = new vscode.EventEmitter<{ [key: string]: any }>();
+	readonly onDidReceiveCommMsg = this._messageEmitter.event;
+
 	constructor(
 		private readonly _id: string,
 		private readonly _type: positron.RuntimeClientType,
@@ -205,7 +208,7 @@ export class RuntimeClientAdapter {
 			// earlier, before receiving any messages.
 		}
 
-		// TODO: forward message to client
+		this._messageEmitter.fire(message.data);
 	}
 
 	/**
