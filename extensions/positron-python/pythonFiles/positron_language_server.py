@@ -128,7 +128,7 @@ if __name__ == "__main__":
     # Enable asyncio debug mode.
     if args.loglevel == "DEBUG":
         loop.set_debug(True)
-        POSITRON.loop.set_debug(True)
+        POSITRON.set_debug(True)
 
     try:
         loop.run_forever()
