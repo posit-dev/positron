@@ -28,6 +28,7 @@ import { JupyterCommOpen } from './JupyterCommOpen';
 import { JupyterCommInfoRequest } from './JupyterCommInfoRequest';
 import { JupyterCommInfoReply } from './JupyterCommInfoReply';
 import { JupyterExecuteReply } from './JupyterExecuteReply';
+import { v4 as uuidv4 } from 'uuid';
 
 /**
  * LangaugeRuntimeAdapter wraps a JupyterKernel in a LanguageRuntime compatible interface.
@@ -41,6 +42,7 @@ export class LanguageRuntimeAdapter
 	private _kernelState: positron.RuntimeState = positron.RuntimeState.Uninitialized;
 	private _restarting = false;
 	private static _clientCounter = 0;
+	private _disposables: vscode.Disposable[] = [];
 
 	/** A map of message IDs that are awaiting responses to RPC handlers to invoke when a response is received */
 	private readonly _pendingRpcs: Map<string, JupyterRpc<any, any>> = new Map();
@@ -291,6 +293,7 @@ export class LanguageRuntimeAdapter
 		// Ensure the type of client we're being asked to create is one we know ark supports
 		if (type === positron.RuntimeClientType.Environment ||
 			type === positron.RuntimeClientType.Lsp ||
+			type === positron.RuntimeClientType.Dap ||
 			type === positron.RuntimeClientType.FrontEnd) {
 			this._kernel.log(`Creating '${type}' client for ${this.metadata.languageName}`);
 
@@ -764,12 +767,97 @@ export class LanguageRuntimeAdapter
 	}
 
 	/**
+	 * Requests that the kernel start a Debug Adapter Protocol server, and
+	 * connect it to the client locally on the given TCP port.
+	 *
+	 * @param serverPort The port on which to bind locally.
+	 * @param debugType Passed as `vscode.DebugConfiguration.type`.
+	 * @param debugName Passed as `vscode.DebugConfiguration.name`.
+	 */
+	async startPositronDap(
+		serverPort: number,
+		debugType: string,
+		debugName: string,
+	) {
+		// NOTE: Ideally we'd connect to any address but the
+		// `debugServer` property passed in the configuration below
+		// needs to be a port for localhost.
+		const serverAddress = `127.0.0.1:${serverPort}`;
+
+		// TODO: Should we query the kernel to see if it can create a DAP
+		// (QueryInterface style) instead of just demanding it?
+		//
+		// The Jupyter kernel spec does not provide a way to query for
+		// supported comms; the only way to know is to try to create one.
+
+		// Create a unique client ID for this instance
+		const uniqueId = Math.floor(Math.random() * 0x100000000).toString(16);
+		const clientId = `positron-dap-${this.metadata.languageId}-${LanguageRuntimeAdapter._clientCounter++}-${uniqueId}}`;
+		this._kernel.log(`Starting DAP server ${clientId} for ${serverAddress}`);
+
+		await this.createClient(
+			clientId,
+			positron.RuntimeClientType.Dap,
+			{ client_address: serverAddress }
+		);
+
+		// Handle events from the DAP
+		const comm = this._comms.get(clientId)!;
+		this._disposables.push(comm.onDidReceiveCommMsg(msg => {
+			switch (msg.msg_type) {
+				// The runtime is in control of when to start a debug session.
+				// When this happens, we attach automatically to the runtime
+				// with a synthetic configuration.
+				case 'start_debug': {
+					this._kernel.log(`Starting debug session for DAP server ${clientId}`);
+					const config = {
+						type: debugType,
+						name: debugName,
+						request: 'attach',
+						debugServer: serverPort,
+						internalConsoleOptions: 'neverOpen',
+					} as vscode.DebugConfiguration;
+					vscode.debug.startDebugging(undefined, config);
+					break;
+				}
+
+				// If the DAP has commands to execute, such as "n", "f", or "Q",
+				// it sends events to let us do it from here.
+				case 'execute': {
+					this.execute(
+						msg.content.command,
+						uuidv4(),
+						positron.RuntimeCodeExecutionMode.Interactive,
+						positron.RuntimeErrorBehavior.Stop
+					);
+					break;
+				}
+
+				// We use the restart button as a shortcut for restarting the runtime
+				case 'restart': {
+					this.restart();
+					break;
+				}
+
+				default: {
+					this._kernel.log(`Unknown DAP command: ${msg.msg_type}`);
+					break;
+				}
+			}
+		}));
+	}
+
+	/**
 	 * Dispose of the runtime.
 	 */
 	public async dispose() {
 		// Turn off all listeners
 		this._kernel.removeListener('message', this.onMessage);
 		this._kernel.removeListener('status', this.onStatus);
+
+		// Dispose this before the comms since there might be event listeners
+		// to dispose of first
+		this._disposables.forEach(d => d.dispose());
 
 		// Tear down all open comms
 		for (const comm of this._comms.values()) {
