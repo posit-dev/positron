@@ -177,17 +177,30 @@ export class RRuntime implements positron.LanguageRuntime, vscode.Disposable {
 		return kernel;
 	}
 
+	private async startLsp(): Promise<void> {
+		// The adapter API is guaranteed to exist at this point since the
+		// runtime cannot become Ready without it
+		const port = await this.adapterApi!.findAvailablePort([], 25);
+		if (this._kernel) {
+			this._kernel.emitJupyterLog(`Starting Positron LSP server on port ${port}`);
+			await this._kernel.startPositronLsp(`127.0.0.1:${port}`);
+		}
+		this._lsp.activate(port, this.context);
+	}
+
+	private async startDap(): Promise<void> {
+		if (this._kernel) {
+			const port = await this.adapterApi!.findAvailablePort([], 25);
+			await this._kernel.startPositronDap(port, 'ark', 'Ark Positron R');
+		}
+	}
+
 	private onStateChange(state: positron.RuntimeState): void {
 		if (state === positron.RuntimeState.Ready) {
 			this._queue.add(async () => {
-				// The adapter API is guranteed to exist at this point since the
-				// runtime cannot become Ready without it
-				const port = await this.adapterApi!.findAvailablePort([], 25);
-				if (this._kernel) {
-					this._kernel.emitJupyterLog(`Starting Positron LSP server on port ${port}`);
-					await this._kernel.startPositronLsp(`127.0.0.1:${port}`);
-				}
-				await this._lsp.activate(port, this.context);
+				const lsp = this.startLsp();
+				const dap = this.startDap();
+				await Promise.all([lsp, dap]);
 			});
 		} else if (state === positron.RuntimeState.Exited) {
 			if (this._lsp.state === LspState.running) {
