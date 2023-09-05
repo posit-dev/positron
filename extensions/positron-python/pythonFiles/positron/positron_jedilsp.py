@@ -1,8 +1,10 @@
 """Positron extenstions to the Jedi Language Server."""
 
 import asyncio
+import enum
 import logging
 import os
+import re
 import sys
 import threading
 
@@ -10,7 +12,7 @@ import threading
 EXTENSION_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(EXTENSION_ROOT, "pythonFiles", "lib", "jedilsp"))
 
-from typing import TYPE_CHECKING, Any, Callable, List, Optional, Union
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Union
 
 from comm import BaseComm
 from jedi.api import Interpreter
@@ -55,6 +57,7 @@ from lsprotocol.types import (
     CodeActionOptions,
     CodeActionParams,
     CompletionItem,
+    CompletionItemKind,
     CompletionList,
     CompletionOptions,
     CompletionParams,
@@ -67,6 +70,7 @@ from lsprotocol.types import (
     DocumentSymbol,
     DocumentSymbolParams,
     Hover,
+    InsertTextFormat,
     Location,
     RenameParams,
     SignatureHelp,
@@ -84,6 +88,15 @@ if TYPE_CHECKING:
 
 
 logger = logging.getLogger(__name__)
+
+_LINE_MAGIC_PREFIX = "%"
+_CELL_MAGIC_PREFIX = "%%"
+
+
+@enum.unique
+class _MagicType(str, enum.Enum):
+    cell = "cell"
+    line = "line"
 
 
 class PositronJediLanguageServer(JediLanguageServer):
@@ -200,7 +213,7 @@ POSITRON = PositronJediLanguageServer(
 
 @POSITRON.feature(
     TEXT_DOCUMENT_COMPLETION,
-    CompletionOptions(trigger_characters=[".", "'", '"'], resolve_provider=True),
+    CompletionOptions(trigger_characters=[".", "'", '"', "%"], resolve_provider=True),
 )
 def positron_completion(
     server: PositronJediLanguageServer, params: CompletionParams
@@ -215,16 +228,10 @@ def positron_completion(
     document = server.workspace.get_document(params.text_document.uri)
 
     # --- Start Positron ---
-    # Unfortunately we need to override this entire method to make our customizations
-
-    # Don't complete shell and magic commands
-    skip_prefixes = ["!", "%"]
-    if any(document.source.startswith(prefix) for prefix in skip_prefixes):
-        return None
-
     # Don't complete comments
-    line = document.source[params.position.line]
-    if line.strip().startswith("#"):
+    line = document.lines[params.position.line] if document.lines else ""
+    trimmed_line = line.lstrip()
+    if trimmed_line.startswith("#"):
         return None
 
     # Get a reference to the kernel's namespace for enhanced completions
@@ -269,20 +276,65 @@ def positron_completion(
             position=params.position,
         )
         jedi_utils.clear_completions_cache()
-        # number of characters in the string representation of the total number of
-        # completions returned by jedi.
-        total_completion_chars = len(str(len(completions_jedi_raw)))
-        completion_items = [
-            jedi_utils.lsp_completion_item(
-                completion=completion,
-                char_before_cursor=char_before_cursor,
-                enable_snippets=enable_snippets,
-                resolve_eagerly=resolve_eagerly,
-                markup_kind=markup_kind,
-                sort_append_text=str(count).zfill(total_completion_chars),
-            )
-            for count, completion in enumerate(completions_jedi)
-        ]
+
+        # --- Start Positron ---
+        completion_items = []
+
+        # Don't add jedi completions if completing an explicit magic or shell command
+        if not trimmed_line.startswith(_LINE_MAGIC_PREFIX) and not trimmed_line.startswith("!"):
+            jedi_completion_items = [
+                jedi_utils.lsp_completion_item(
+                    completion=completion,
+                    char_before_cursor=char_before_cursor,
+                    enable_snippets=enable_snippets,
+                    resolve_eagerly=resolve_eagerly,
+                    markup_kind=markup_kind,
+                    sort_append_text=completion.name,
+                )
+                for completion in completions_jedi
+            ]
+            completion_items.extend(jedi_completion_items)
+
+        # Don't add magic completions if:
+        # - completing an object's attributes e.g `numpy.<cursor>`
+        is_completing_attribute = "." in trimmed_line
+        # - or if the trimmed line has additional whitespace characters e.g `if <cursor>`
+        has_whitespace = " " in trimmed_line
+        if server.kernel is not None and not (is_completing_attribute or has_whitespace):
+            # Cast type from traitlets.Dict to typing.Dict
+            magic_commands: Dict[str, Callable] = server.kernel.shell.magics_manager.lsmagic()  # type: ignore
+
+            chars_before_cursor = trimmed_line[: params.position.character]
+
+            # TODO: In future we may want to support enable_snippets and ignore_pattern options
+            # for magic completions.
+
+            # Add cell magic completion items
+            cell_magic_completion_items = [
+                _magic_completion_item(
+                    name=name,
+                    magic_type=_MagicType.cell,
+                    chars_before_cursor=chars_before_cursor,
+                    func=func,
+                )
+                for name, func in magic_commands[_MagicType.cell].items()
+            ]
+            completion_items.extend(cell_magic_completion_items)
+
+            # Add line magic completion only if not completing an explicit cell magic
+            if not trimmed_line.startswith(_CELL_MAGIC_PREFIX):
+                line_magic_completion_items = [
+                    _magic_completion_item(
+                        name=name,
+                        magic_type=_MagicType.line,
+                        chars_before_cursor=chars_before_cursor,
+                        func=func,
+                    )
+                    for name, func in magic_commands[_MagicType.line].items()
+                ]
+                completion_items.extend(line_magic_completion_items)
+
+        # --- End Positron ---
     except ValueError:
         # Ignore LSP errors for completions from invalid line/column ranges.
         logger.info("LSP completion error", exc_info=True)
@@ -291,10 +343,67 @@ def positron_completion(
     return CompletionList(is_incomplete=False, items=completion_items) if completion_items else None
 
 
+def _magic_completion_item(
+    name: str,
+    magic_type: _MagicType,
+    chars_before_cursor: str,
+    func: Callable,
+) -> CompletionItem:
+    """
+    Create a completion item for a magic command.
+
+    See `jedi_utils.lsp_completion_item` for reference.
+    """
+    # Get the appropriate prefix for the magic type
+    if magic_type == _MagicType.line:
+        prefix = _LINE_MAGIC_PREFIX
+    elif magic_type == _MagicType.cell:
+        prefix = _CELL_MAGIC_PREFIX
+    else:
+        raise AssertionError(f"Invalid magic type: {magic_type}")
+
+    # Determine insert_text. This is slightly tricky since we may have to strip leading '%'s
+
+    # 1. Find the last group of non-whitespace characters before the cursor
+    m1 = re.search(r"\s*([^\s]*)$", chars_before_cursor)
+    assert m1, f"Regex should always match. chars_before_cursor: {chars_before_cursor}"
+    text = m1.group(1)
+
+    # 2. Get the leading '%'s
+    m2 = re.match("^(%*)", text)
+    assert m2, f"Regex should always match. text: {text}"
+
+    # 3. Pad the name with '%'s to match the expected prefix so that e.g. both `bash` and
+    # `%bash` complete to `%%bash`
+    count = len(m2.group(1))
+    pad_count = max(0, len(prefix) - count)
+    insert_text = prefix[0] * pad_count + name
+
+    return CompletionItem(
+        label=prefix + name,
+        filter_text=name,
+        kind=CompletionItemKind.Function,
+        # Prefix sort_text with 'v', which ensures that it is ordered as an ordinary item
+        # See jedi_language_server.jedi_utils.complete_sort_name for reference
+        sort_text=f"v{name}",
+        insert_text=insert_text,
+        insert_text_format=InsertTextFormat.PlainText,
+        detail=f"{magic_type.value} magic {name}",
+        # Use the raw docstring since magic command docstrings do not follow a convention that is
+        # handled by our markdown parser
+        documentation=func.__doc__,
+    )
+
+
 @POSITRON.feature(COMPLETION_ITEM_RESOLVE)
 def positron_completion_item_resolve(
     server: PositronJediLanguageServer, params: CompletionItem
 ) -> CompletionItem:
+    # --- Start Positron ---
+    # Magic completion items are always resolved eagerly in positron_completion, so return early
+    if params.label.startswith(_LINE_MAGIC_PREFIX):
+        return params
+    # --- End Positron ---
     return completion_item_resolve(server, params)
 
 
