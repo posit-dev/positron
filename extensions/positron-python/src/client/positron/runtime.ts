@@ -175,7 +175,7 @@ export class PythonRuntime implements positron.LanguageRuntime, vscode.Disposabl
     async restart(): Promise<void> {
         if (this._kernel) {
             // Stop the LSP client before restarting the kernel
-            await this._lsp.deactivate();
+            await this._lsp.deactivate(true);
             return this._kernel.restart();
         } else {
             throw new Error('Cannot restart; kernel not started');
@@ -185,7 +185,7 @@ export class PythonRuntime implements positron.LanguageRuntime, vscode.Disposabl
     async shutdown(): Promise<void> {
         if (this._kernel) {
             // Stop the LSP client before shutting down the kernel
-            await this._lsp.deactivate();
+            await this._lsp.deactivate(true);
             return this._kernel.shutdown();
         } else {
             throw new Error('Cannot shutdown; kernel not started');
@@ -231,7 +231,7 @@ export class PythonRuntime implements positron.LanguageRuntime, vscode.Disposabl
                 const port = await this.adapterApi!.findAvailablePort([], 25);
                 if (this._kernel) {
                     this._kernel.emitJupyterLog(`Starting Positron LSP server on port ${port}`);
-                    this._kernel.startPositronLsp(`127.0.0.1:${port}`);
+                    await this._kernel.startPositronLsp(`127.0.0.1:${port}`);
                 }
                 await this._lsp.activate(port);
             });
@@ -241,7 +241,7 @@ export class PythonRuntime implements positron.LanguageRuntime, vscode.Disposabl
                     if (this._kernel) {
                         this._kernel.emitJupyterLog(`Stopping Positron LSP server`);
                     }
-                    await this._lsp.deactivate();
+                    await this._lsp.deactivate(false);
                 });
             }
         }
