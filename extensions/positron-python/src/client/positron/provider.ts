@@ -16,7 +16,7 @@ import { IConfigurationService, IInstaller, Product } from '../common/types';
 import { IServiceContainer } from '../ioc/types';
 import { IInterpreterService } from '../interpreter/contracts';
 import { JupyterKernelSpec } from '../jupyter-adapter.d';
-import { traceInfo } from '../logging';
+import { traceError, traceInfo } from '../logging';
 import { PythonEnvironment } from '../pythonEnvironments/info';
 import { PythonVersion } from '../pythonEnvironments/info/pythonVersion';
 import { ILanguageServerOutputChannel } from '../activation/types';
@@ -35,37 +35,50 @@ import { JediLanguageClientMiddleware } from '../activation/jedi/languageClientM
  */
 export async function* pythonRuntimeProvider(
     serviceContainer: IServiceContainer,
-    runtimes: Map<string, positron.LanguageRuntimeMetadata>
+    runtimes: Map<string, positron.LanguageRuntimeMetadata>,
 ): AsyncGenerator<positron.LanguageRuntime> {
+    try {
+        traceInfo('pythonRuntimeProvider: Starting Python runtime provider');
 
-    const interpreterService = serviceContainer.get<IInterpreterService>(IInterpreterService);
+        const interpreterService = serviceContainer.get<IInterpreterService>(IInterpreterService);
 
-    // Get the preferred interpreter
-    // NOTE: We may need to pass a resource to getSettings to support multi-root workspaces
-    const preferredInterpreter = await interpreterService.getActiveInterpreter();
+        // Get the preferred interpreter
+        // NOTE: We may need to pass a resource to getSettings to support multi-root workspaces
+        const preferredInterpreter = await interpreterService.getActiveInterpreter();
 
-    // Discover Python interpreters
-    let interpreters = interpreterService.getInterpreters();
-    // Sort the available interpreters, favoring the active interpreter (if one is available)
-    interpreters = sortInterpreters(interpreters, preferredInterpreter);
+        // Discover Python interpreters
+        let interpreters = interpreterService.getInterpreters();
+        // Sort the available interpreters, favoring the active interpreter (if one is available)
+        interpreters = sortInterpreters(interpreters, preferredInterpreter);
 
-    // Register each interpreter as a language runtime
-    for (const interpreter of interpreters) {
+        traceInfo(`pythonRuntimeProvider: discovered ${interpreters.length} Python interpreters`);
+        traceInfo(`pythonRuntimeProvider: preferred interpreter: ${preferredInterpreter?.path}`);
 
-        // Only register runtimes for supported versions
-        if (isVersionSupported(interpreter?.version, '3.8.0')) {
-            const runtime = await createPythonRuntime(interpreter, serviceContainer);
-            yield runtime;
-            runtimes.set(interpreter.path, runtime.metadata);
+        // Register each interpreter as a language runtime
+        for (const interpreter of interpreters) {
+            // Only register runtimes for supported versions
+            if (isVersionSupported(interpreter?.version, '3.8.0')) {
+                traceInfo(`pythonRuntimeProvider: creating runtime for interpreter ${interpreter.path}`);
+                const runtime = await createPythonRuntime(interpreter, serviceContainer);
+                traceInfo(
+                    `pythonRuntimeProvider: registering runtime for interpreter ${interpreter.path} with id ${runtime.metadata.runtimeId}`,
+                );
+                yield runtime;
+                runtimes.set(interpreter.path, runtime.metadata);
+            } else {
+                traceInfo(`pythonRuntimeProvider: skipping unsupported interpreter ${interpreter.path}`);
+            }
         }
+    } catch (ex) {
+        traceError('pythonRuntimeProvider() failed', ex);
     }
 }
 
 export async function createPythonRuntime(
     interpreter: PythonEnvironment,
-    serviceContainer: IServiceContainer
+    serviceContainer: IServiceContainer,
 ): Promise<PythonRuntime> {
-
+    traceInfo('createPythonRuntime: getting service instances');
     const configService = serviceContainer.get<IConfigurationService>(IConfigurationService);
     const installer = serviceContainer.get<IInstaller>(IInstaller);
     const environmentService = serviceContainer.get<IEnvironmentVariablesProvider>(IEnvironmentVariablesProvider);
@@ -74,11 +87,13 @@ export async function createPythonRuntime(
 
     // Check Python kernel debug and log level settings
     // NOTE: We may need to pass a resource to getSettings to support multi-root workspaces
+    traceInfo('createPythonRuntime: getting extension runtime settings');
     const settings = configService.getSettings();
     const debug = settings.languageServerDebug;
     const logLevel = settings.languageServerLogLevel;
 
     // If required, also locate an available port for the debugger
+    traceInfo('createPythonRuntime: locating available debug port');
     const portfinder = require('portfinder');
     let debugPort;
     if (debug) {
@@ -89,8 +104,11 @@ export async function createPythonRuntime(
     }
 
     // Determine if the ipykernel module is installed
+    traceInfo('createPythonRuntime: checking if ipykernel is installed');
     const hasKernel = await installer.isInstalled(Product.ipykernel, interpreter);
-    const startupBehavior = hasKernel ? positron.LanguageRuntimeStartupBehavior.Implicit : positron.LanguageRuntimeStartupBehavior.Explicit;
+    const startupBehavior = hasKernel
+        ? positron.LanguageRuntimeStartupBehavior.Implicit
+        : positron.LanguageRuntimeStartupBehavior.Explicit;
 
     // Customize Jedi LSP entrypoint that adds a resident IPyKernel
 
@@ -112,7 +130,15 @@ export async function createPythonRuntime(
 
     const command = interpreter.path;
     const lsScriptPath = path.join(EXTENSION_ROOT_DIR, 'pythonFiles', 'positron_language_server.py');
-    const args = [command, lsScriptPath, '-f', '{connection_file}', '--logfile', '{log_file}', `--loglevel=${logLevel}`];
+    const args = [
+        command,
+        lsScriptPath,
+        '-f',
+        '{connection_file}',
+        '--logfile',
+        '{log_file}',
+        `--loglevel=${logLevel}`,
+    ];
     if (debugPort) {
         args.push(`--debugport=${debugPort}`);
     }
@@ -128,7 +154,7 @@ export async function createPythonRuntime(
     // to the adapter as the implementation version.
     const packageJson = require('../../../../package.json');
 
-    traceInfo(`Configuring Jedi LSP with IPyKernel using args '${args}'`);
+    traceInfo(`createPythonRuntime: kernelSpec argv: ${args}`);
 
     // Create a stable ID for the runtime based on the interpreter path and version.
     const digest = crypto.createHash('sha256');
@@ -139,9 +165,10 @@ export async function createPythonRuntime(
     // Create the runtime path.
     // TODO@softwarenerd - We will need to update this for Windows.
     const homedir = os.homedir();
-    const runtimePath = os.platform() !== 'win32' && interpreter.path.startsWith(homedir) ?
-        path.join('~', interpreter.path.substring(homedir.length)) :
-        interpreter.path;
+    const runtimePath =
+        os.platform() !== 'win32' && interpreter.path.startsWith(homedir)
+            ? path.join('~', interpreter.path.substring(homedir.length))
+            : interpreter.path;
 
     // Create the metadata for the language runtime
     const metadata: positron.LanguageRuntimeMetadata = {
@@ -156,27 +183,28 @@ export async function createPythonRuntime(
         languageVersion: pythonVersion,
         inputPrompt: '>>>',
         continuationPrompt: '...',
-        base64EncodedIconSvg:
-            fs.readFileSync(
-                path.join(EXTENSION_ROOT_DIR, 'resources', 'branding', 'python-icon.svg')
-            ).toString('base64'),
-        startupBehavior
-    }
+        base64EncodedIconSvg: fs
+            .readFileSync(path.join(EXTENSION_ROOT_DIR, 'resources', 'branding', 'python-icon.svg'))
+            .toString('base64'),
+        startupBehavior,
+    };
 
     // Create the initial config for the dynamic state of the language runtime
     const dynState: positron.LanguageRuntimeDynState = {
         inputPrompt: '>>>',
-        continuationPrompt: '...'
-    }
+        continuationPrompt: '...',
+    };
 
     // Get the current workspace resource
     const resource = workspaceService.workspaceFolders?.[0].uri;
 
+    traceInfo(`createPythonRuntime: getting language server options`);
     const analysisOptions = new JediLanguageServerAnalysisOptions(
         environmentService,
         outputChannel,
         configService,
-        workspaceService);
+        workspaceService,
+    );
     await analysisOptions.initialize(resource, interpreter);
 
     const languageClientOptions = await analysisOptions.getAnalysisOptions();
@@ -203,9 +231,10 @@ export async function createPythonRuntime(
     }
 
     // Extend LSP support to include unsaved editors
-    languageClientOptions.documentSelector = [{ language: 'python' }]
+    languageClientOptions.documentSelector = [{ language: 'python' }];
 
     // NOTE: We may need to delay this until after the LSP client has started.
+    traceInfo(`createPythonRuntime: connecting language client middleware`);
     const middleware = new JediLanguageClientMiddleware(serviceContainer, lsVersion);
     languageClientOptions.middleware = middleware;
     middleware.connect();
@@ -216,14 +245,17 @@ export async function createPythonRuntime(
     // };
 
     // Create an adapter for the kernel to fulfill the LanguageRuntime interface.
+    traceInfo(`createPythonRuntime: creating PythonRuntime`);
     return new PythonRuntime(kernelSpec, metadata, dynState, languageClientOptions, interpreter, installer);
 }
 
 // Returns a sorted copy of the array of Python environments, in descending order
-function sortInterpreters(interpreters: PythonEnvironment[], preferredInterpreter: PythonEnvironment | undefined): PythonEnvironment[] {
+function sortInterpreters(
+    interpreters: PythonEnvironment[],
+    preferredInterpreter: PythonEnvironment | undefined,
+): PythonEnvironment[] {
     const copy: PythonEnvironment[] = [...interpreters];
     copy.sort((a: PythonEnvironment, b: PythonEnvironment) => {
-
         // Favor preferred interpreter, if specified, in descending order
         if (preferredInterpreter) {
             if (preferredInterpreter.id === a.id) return -1;
@@ -243,7 +275,9 @@ function sortInterpreters(interpreters: PythonEnvironment[], preferredInterprete
  * common/utils/version to work with PythonVersion instances.
  */
 function getVersionString(info: PythonVersion | undefined): string {
-    if (!info) { return '0' };
+    if (!info) {
+        return '0';
+    }
     if (info.major < 0) {
         return '';
     }
