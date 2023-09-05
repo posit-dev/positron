@@ -112,6 +112,11 @@ export class ArkLsp implements vscode.Disposable {
 					if (this._initializing) {
 						trace(`ARK (R ${this._version}) language client init successful`);
 						this._initializing = undefined;
+						if (this._client) {
+							// Register a statement range provider to detect R statements
+							const disposable = positron.languages.registerStatementRangeProvider('r', new RStatementRangeProvider(this._client));
+							this.activationDisposables.push(disposable);
+						}
 						out.resolve();
 					}
 					this._state = LspState.running;
@@ -129,12 +134,6 @@ export class ArkLsp implements vscode.Disposable {
 
 		this._client.start();
 		await out.promise;
-
-		if (this._state === LspState.running) {
-			// Register a statement range provider to detect R statements
-			const disposable = positron.languages.registerStatementRangeProvider('r', new RStatementRangeProvider(this._client));
-			this.activationDisposables.push(disposable);
-		}
 	}
 
 	/**
