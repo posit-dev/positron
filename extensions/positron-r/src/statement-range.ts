@@ -36,14 +36,14 @@ export class RStatementRangeProvider implements positron.StatementRangeProvider 
 	async provideStatementRange(
 		document: vscode.TextDocument,
 		position: vscode.Position,
-		_token: vscode.CancellationToken): Promise<vscode.Range | undefined> {
+		token: vscode.CancellationToken): Promise<vscode.Range | undefined> {
 
 		const params: StatementRangeParams = {
 			textDocument: this._client.code2ProtocolConverter.asVersionedTextDocumentIdentifier(document),
 			position: this._client.code2ProtocolConverter.asPosition(position)
 		};
 
-		const response = this._client.sendRequest(StatementRangeRequest.type, params, CancellationToken.None);
+		const response = this._client.sendRequest(StatementRangeRequest.type, params, token);
 
 		return response.then(data => {
 			return this._client.protocol2CodeConverter.asRange(data?.range);
