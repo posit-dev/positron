@@ -10,16 +10,15 @@
 }
 
 .interpreter-actions .action-button {
-	cursor: default !important;
 	height: 24px;
 	width: 24px;
 	border: none;
 	display: flex;
-	cursor: pointer;
 	overflow: visible;
 	align-items: center;
 	background: transparent;
 	justify-content: center;
+	cursor: pointer !important;
 }
 
 .interpreter-actions .action-button.disabled {
