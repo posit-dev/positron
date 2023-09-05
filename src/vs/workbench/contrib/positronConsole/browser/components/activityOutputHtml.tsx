@@ -38,10 +38,24 @@ const renderHtml = (html: string): React.ReactElement => {
 			// currently ignored.
 			return undefined;
 		} else if (node.type === 'tag' && node.children) {
-			// Call the renderer recursively to render the children, if any.
-			const children = node.children.map(renderNode);
-			// Create a React element for the tag and its children.
-			return React.createElement(node.name!, node.attrs, children);
+			if (node.children.length === 1 && node.children[0].type === 'text') {
+				// If this is a tag with a single text child, create a React element
+				// for the tag and its text content.
+				return React.createElement(node.name!, node.attrs, node.children[0].content);
+			} else {
+				if (node.children.length === 0) {
+					// If the node has no children, create a React element for
+					// the tag. For tags that cannot have children (such as
+					// <br>), React will throw an exception if an array if
+					// childen is supplied, even if the array is empty.
+					return React.createElement(node.name!, node.attrs);
+				} else {
+					// Call the renderer recursively to render the children;
+					// create a React element for the tag and its children.
+					const children = node.children.map(renderNode);
+					return React.createElement(node.name!, node.attrs, children);
+				}
+			}
 		} else if (node.type === 'tag') {
 			// Create a React element for the tag.
 			return React.createElement(node.name!, node.attrs);
