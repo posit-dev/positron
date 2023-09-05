@@ -11,7 +11,7 @@ jobs:
   richnav:
     runs-on: windows-2022
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - uses: actions/cache@v3
         id: caching-stage
