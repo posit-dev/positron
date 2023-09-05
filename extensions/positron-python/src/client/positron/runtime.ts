@@ -139,9 +139,10 @@ export class PythonRuntime implements positron.LanguageRuntime, vscode.Disposabl
             // Using a process to install modules avoids using the terminal service,
             // which has issues waiting for the outcome of the install.
             const installOptions: InstallOptions = { installAsProcess: true };
+            const messageOptions: vscode.MessageOptions = { modal: true }
 
             const response = await this.installer.promptToInstall(Product.ipykernel,
-                this.interpreter, installerToken, undefined, installOptions);
+                this.interpreter, installerToken, undefined, installOptions, messageOptions);
 
             switch (response) {
                 case InstallerResponse.Installed:
