@@ -46,7 +46,7 @@ jobs:
     steps:
       # Fetch full history; required so we can determine the build version with rev-list
       - name: Checkout sources
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
@@ -108,7 +108,7 @@ jobs:
     steps:
       # Checkout sources
       - name: Checkout sources
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       # These are already installed for both architectures, but would be required if we switch off
       # a self-hosted runner, so we may as well leave them in
