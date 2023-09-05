@@ -2,13 +2,19 @@
 # Copyright (C) 2023 Posit Software, PBC. All rights reserved.
 #
 
+import logging
 import urllib.parse
-from typing import Optional, Tuple, TYPE_CHECKING
+from typing import Any, Dict, Optional, Tuple, TYPE_CHECKING
+
+from comm import BaseComm
 
 from .positron_jedilsp import POSITRON
 
 if TYPE_CHECKING:
     from .positron_ipkernel import PositronIPyKernel
+
+
+logger = logging.getLogger(__name__)
 
 
 class LSPService:
@@ -17,46 +23,47 @@ class LSPService:
     """
 
     def __init__(self, kernel: "PositronIPyKernel"):
-        self.kernel = kernel
-        self.lsp_comm = None
+        self._kernel = kernel
+        self._comm: Optional[BaseComm] = None
 
-    def on_comm_open(self, comm, open_msg) -> None:
+    def on_comm_open(self, comm, msg: Dict[str, Any]) -> None:
         """
         Setup positron.lsp comm to receive messages.
         """
-        self.lsp_comm = comm
+        self._comm = comm
+
+        # Register the comm message handler
         comm.on_msg(self.receive_message)
-        self.receive_open(open_msg)
 
-    def receive_open(self, msg) -> None:
-        """
-        Start the LSP on the requested port.
-        """
+        # Parse the host and port from the comm open message
         data = msg["content"]["data"]
-
         client_address = data.get("client_address", None)
-        if client_address is not None:
-            host, port = self.split_address(client_address)
-            if host is not None and port is not None:
-                POSITRON.start(lsp_host=host, lsp_port=port, kernel=self.kernel)
-                return
+        if client_address is None:
+            logger.warning(f"No client_address in LSP comm open message: {msg}")
+            return
 
-        raise ValueError("Invalid client_address in LSP open message")
+        host, port = self._split_address(client_address)
+        if host is None or port is None:
+            logger.warning(f"Could not parse host and port from client address: {client_address}")
+            return
 
-    def receive_message(self, msg) -> None:
+        # Start the language server
+        POSITRON.start(lsp_host=host, lsp_port=port, kernel=self._kernel, comm=comm)
+
+    def receive_message(self, msg: Dict[str, Any]) -> None:
         """
         Handle messages received from the client via the positron.lsp comm.
         """
         pass
 
     def shutdown(self) -> None:
-        if self.lsp_comm is not None:
+        if self._comm is not None:
             try:
-                self.lsp_comm.close()
+                self._comm.close()
             except Exception:
                 pass
 
-    def split_address(self, client_address: str) -> Tuple[Optional[str], Optional[int]]:
+    def _split_address(self, client_address: str) -> Tuple[Optional[str], Optional[int]]:
         """
         Split an address of the form "host:port" into a tuple of (host, port).
         """

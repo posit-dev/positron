@@ -12,6 +12,7 @@ sys.path.insert(0, os.path.join(EXTENSION_ROOT, "pythonFiles", "lib", "jedilsp")
 
 from typing import TYPE_CHECKING, Any, Callable, List, Optional, Union
 
+from comm import BaseComm
 from jedi.api import Interpreter
 from jedi_language_server import jedi_utils, pygls_utils
 from jedi_language_server.server import (
@@ -91,6 +92,12 @@ class PositronJediLanguageServer(JediLanguageServer):
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
 
+        self.loop: asyncio.AbstractEventLoop
+        self.lsp: JediLanguageServerProtocol
+
+        # LSP comm used to notify the frontend when the server is ready
+        self._comm: Optional[BaseComm] = None
+
         # Reference to an IPyKernel set on server start
         self.kernel: Optional["PositronIPyKernel"] = None
 
@@ -119,22 +126,44 @@ class PositronJediLanguageServer(JediLanguageServer):
 
         return decorator
 
-    def start(self, lsp_host: str, lsp_port: int, kernel: "PositronIPyKernel") -> None:
+    def start_tcp(self, host: str, port: int) -> None:
+        """Starts TCP server."""
+        logger.info("Starting TCP server on %s:%s", host, port)
+
+        self._stop_event = threading.Event()
+        self._server = self.loop.run_until_complete(self.loop.create_server(self.lsp, host, port))
+        # --- Start Positron ---
+        # Notify the frontend that the LSP server is ready
+        if self._comm is None:
+            logger.warning("LSP comm was not set, could not send server_started message")
+        else:
+            logger.info("LSP server is ready, sending server_started message")
+            self._comm.send({"msg_type": "server_started", "content": {}})
+        # --- End Positron ---
+        try:
+            self.loop.run_forever()
+        except (KeyboardInterrupt, SystemExit):
+            pass
+        finally:
+            self.shutdown()
+
+    def start(
+        self, lsp_host: str, lsp_port: int, kernel: "PositronIPyKernel", comm: BaseComm
+    ) -> None:
         """
         Start the LSP with a reference to Positron's IPyKernel to enhance
         completions with awareness of live variables from user's namespace.
         """
+        # Give the LSP server access to the LSP comm to notify the frontend when the server is ready
+        self._comm = comm
+
         # Give the LSP server access to the kernel to enhance completions with live variables
         self.kernel = kernel
 
         if self._server_thread is not None:
-            # We shouldn't get here, but log in case we do
             logger.warning("LSP server thread was not properly shutdown")
             return
 
-        # Create a fresh event loop upon restart in the same kernel process
-        if self.loop is None:
-            self.loop = asyncio.new_event_loop()
         self.loop.set_debug(self._debug)
 
         # Start Jedi LSP as an asyncio TCP server in a separate thread.
@@ -148,9 +177,9 @@ class PositronJediLanguageServer(JediLanguageServer):
         logger.info("Shutting down LSP server thread")
         super().shutdown()
 
-        # Reset the thread and loop reference sto allow starting a new server in the same process,
+        # Reset the loop and thread reference to allow starting a new server in the same process,
         # e.g. when a browser-based Positron is refreshed.
-        self.loop = None
+        self.loop = asyncio.new_event_loop()
         self._server_thread = None
 
     def set_debug(self, debug):

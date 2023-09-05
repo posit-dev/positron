@@ -13,7 +13,7 @@ import { Socket } from 'net';
 import { PYTHON_LANGUAGE } from '../common/constants';
 import { traceError, traceInfo } from '../logging';
 import { ProgressReporting } from '../activation/progress';
-import { delay, PromiseHandles } from './util';
+import { PromiseHandles } from './util';
 
 /**
  * The state of the language server.
@@ -57,56 +57,27 @@ export class PythonLsp implements vscode.Disposable {
         this.activationDisposables.forEach(d => d.dispose());
         this.activationDisposables = [];
 
-        // Define server options for the language server; this is a callback
-        // that creates and returns the reader/writer stream for TCP
-        // communication. It will retry up to 20 times, with a back-off
-        // interval. We do this because the language server may not be
-        // ready to accept connections when we first try to connect.
+        // Define server options for the language server. Connects to `port`.
         const serverOptions = async (): Promise<StreamInfo> => {
+            const out = new PromiseHandles<StreamInfo>();
+            const socket = new Socket();
 
-            const maxAttempts = 20;
-            const baseDelay = 50;
-            const multiplier = 1.5;
-
-            const tryToConnect = async (_port: number): Promise<Socket> => new Promise((resolve, reject) => {
-                const socket = new Socket();
-                socket.on('ready', () => {
-                    resolve(socket);
-                });
-                socket.on('error', (error) => {
-                    reject(error);
-                });
-                socket.connect(_port);
+            socket.on('ready', () => {
+                const streams: StreamInfo = {
+                    reader: socket,
+                    writer: socket
+                };
+                out.resolve(streams);
             });
+            socket.on('error', (error) => {
+                out.reject(error);
+            });
+            socket.connect(port);
 
-            for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
-                // Retry up to five times then start to back-off
-                const interval = attempt < 6 ? baseDelay : baseDelay * multiplier * attempt;
-                if (attempt > 0) {
-                    await delay(interval);
-                }
-
-                try {
-                    // Try to connect to LSP port
-                    const socket: Socket = await tryToConnect(port);
-                    const streams: StreamInfo = {
-                        reader: socket,
-                        writer: socket
-                    };
-                    return streams;
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                } catch (error: any) {
-                    if (error?.code === 'ECONNREFUSED') {
-                        traceInfo(`Error '${error.message}' on connection attempt '${attempt}' to Python LSP (${this._version}) on port '${port}', will retry`);
-                    } else {
-                        throw error;
-                    }
-                }
-            }
-            throw new Error(`Failed to create TCP connection to Python LSP (${this._version}) on port ${port} after ${maxAttempts} attempts`);
+            return out.promise;
         };
 
-        traceInfo(`Creating Positron Python ${this._version} language client...`);
+        traceInfo(`Creating Positron Python ${this._version} language client (port ${port})...`);
         this._client = new LanguageClient(PYTHON_LANGUAGE, `Positron Python Language Server (${this._version})`, serverOptions, this._clientOptions);
 
         const out = new PromiseHandles<void>();
@@ -150,11 +121,19 @@ export class PythonLsp implements vscode.Disposable {
     /**
      * Stops the client instance.
      *
+     * @param awaitStop If true, waits for the client to stop before returning.
+     *   This should be set to `true` if the server process is still running, and
+     *   `false` if the server process has already exited.
      * @returns A promise that resolves when the client has been stopped.
      */
-    public async deactivate(): Promise<void> {
+    public async deactivate(awaitStop: boolean): Promise<void> {
         if (!this._client) {
             // No client to stop, so just resolve
+            return;
+        }
+
+        // If we don't need to stop the client, just resolve
+        if (!this._client.needsStop()) {
             return;
         }
 
@@ -163,18 +142,22 @@ export class PythonLsp implements vscode.Disposable {
         // partially initialized client.
         await this._initializing;
 
-        // The promise returned by `stop()` never resolves if the server side is
-        // disconnected, so rather than awaiting it, we wait for the client to
-        // change state to `stopped`, which does happen reliably.
-        const promise = new Promise<void>((resolve) => {
-            const disposable = this._client!.onDidChangeState((event) => {
-                if (event.newState === State.Stopped) {
-                    resolve();
-                    disposable.dispose();
-                }
+        const promise = awaitStop ?
+            // If the kernel hasn't exited, we can just await the promise directly
+            this._client!.stop() :
+            // The promise returned by `stop()` never resolves if the server
+            // side is disconnected, so rather than awaiting it when the runtime
+            // has exited, we wait for the client to change state to `stopped`,
+            // which does happen reliably.
+            new Promise<void>((resolve) => {
+                const disposable = this._client!.onDidChangeState((event) => {
+                    if (event.newState === State.Stopped) {
+                        resolve();
+                        disposable.dispose();
+                    }
+                });
+                this._client!.stop();
             });
-            this._client!.stop();
-        });
 
         // Don't wait more than a couple of seconds for the client to stop.
         const timeout = new Promise<void>((_, reject) => {
@@ -199,6 +182,6 @@ export class PythonLsp implements vscode.Disposable {
      */
     async dispose(): Promise<void> {
         this.activationDisposables.forEach(d => d.dispose());
-        await this.deactivate();
+        await this.deactivate(false);
     }
 }
