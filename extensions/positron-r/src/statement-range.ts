@@ -16,7 +16,7 @@ interface StatementRangeResponse {
 }
 
 export namespace StatementRangeRequest {
-	export const type: RequestType<StatementRangeParams, StatementRangeResponse, any> = new RequestType('positron/textDocument/statementRange');
+	export const type: RequestType<StatementRangeParams, StatementRangeResponse | undefined, any> = new RequestType('positron/textDocument/statementRange');
 }
 
 /**
@@ -46,7 +46,7 @@ export class RStatementRangeProvider implements positron.StatementRangeProvider 
 		const response = this._client.sendRequest(StatementRangeRequest.type, params, CancellationToken.None);
 
 		return response.then(data => {
-			return this._client.protocol2CodeConverter.asRange(data.range);
+			return this._client.protocol2CodeConverter.asRange(data?.range);
 		});
 	}
 }
