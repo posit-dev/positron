@@ -170,18 +170,6 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 			e.stopPropagation();
 		};
 
-		/**
-		 * Interrupts the runtime and resets the console input state.
-		 */
-		const interruptRuntimeAndResetConsoleInput = () => {
-			// Interrupt the runtime.
-			props.positronConsoleInstance.runtime.interrupt();
-
-			// Reset the code input state.
-			setCurrentCodeFragment(undefined);
-			codeEditorWidgetRef.current.setValue('');
-		};
-
 		// Determine whether the cmd or ctrl key is pressed.
 		const cmdOrCtrlKey = isMacintosh ? e.metaKey : e.ctrlKey;
 
@@ -208,8 +196,8 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 				// Consume the event.
 				consumeEvent();
 
-				// Interrupt the runtime and reset the console input.
-				interruptRuntimeAndResetConsoleInput();
+				// Interrupt the console.
+				props.positronConsoleInstance.interrupt();
 				break;
 			}
 
@@ -254,8 +242,8 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 					// Consume the event.
 					consumeEvent();
 
-					// Interrupt the runtime and reset the console input.
-					interruptRuntimeAndResetConsoleInput();
+					// Interrupt the console.
+					props.positronConsoleInstance.interrupt();
 				}
 				break;
 			}

@@ -3,14 +3,14 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { RuntimeItem } from 'vs/workbench/services/positronConsole/common/classes/runtimeItem';
-import { ActivityItemInput } from 'vs/workbench/services/positronConsole/common/classes/activityItemInput';
 import { ActivityItemPrompt } from 'vs/workbench/services/positronConsole/common/classes/activityItemPrompt';
+import { ActivityItemOutputHtml } from 'vs/workbench/services/positronConsole/common/classes/activityItemOutputHtml';
 import { ActivityItemOutputPlot } from 'vs/workbench/services/positronConsole/common/classes/activityItemOutputPlot';
 import { ActivityItemErrorStream } from 'vs/workbench/services/positronConsole/common/classes/activityItemErrorStream';
 import { ActivityItemErrorMessage } from 'vs/workbench/services/positronConsole/common/classes/activityItemErrorMessage';
 import { ActivityItemOutputStream } from 'vs/workbench/services/positronConsole/common/classes/activityItemOutputStream';
 import { ActivityItemOutputMessage } from 'vs/workbench/services/positronConsole/common/classes/activityItemOutputMessage';
-import { ActivityItemOutputHtml } from 'vs/workbench/services/positronConsole/common/classes/activityItemOutputHtml';
+import { ActivityItemInput, ActivityItemInputState } from 'vs/workbench/services/positronConsole/common/classes/activityItemInput';
 
 /**
  * The ActivityItem type alias.
@@ -62,14 +62,15 @@ export class RuntimeItemActivity extends RuntimeItem {
 	 * @param activityItem The activity item to add.
 	 */
 	addActivityItem(activityItem: ActivityItem) {
-		if (activityItem instanceof ActivityItemInput && !activityItem.provisional) {
+		if (activityItem instanceof ActivityItemInput &&
+			activityItem.state !== ActivityItemInputState.Provisional) {
 			// When a non-provisional ActivityItemInput is being added, see if there's a provisional
 			// ActivityItemInput for it in the activity items. If there is, replace the provisional
 			// ActivityItemInput with the actual ActivityItemInput.
 			for (let i = this.activityItems.length - 1; i >= 0; --i) {
 				const activityItemToCheck = this.activityItems[i];
 				if (activityItemToCheck instanceof ActivityItemInput) {
-					if (activityItemToCheck.provisional &&
+					if (activityItemToCheck.state === ActivityItemInputState.Provisional &&
 						activityItemToCheck.parentId === activityItem.parentId) {
 						this.activityItems[i] = activityItem;
 						return;
