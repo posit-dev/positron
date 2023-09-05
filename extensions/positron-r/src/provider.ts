@@ -201,7 +201,7 @@ export async function* rRuntimeProvider(context: vscode.ExtensionContext): Async
 				'--',
 				'--interactive',
 			],
-			'display_name': runtimeName,
+			'display_name': runtimeName, // eslint-disable-line
 			'language': 'R',
 			'env': env,
 		};
