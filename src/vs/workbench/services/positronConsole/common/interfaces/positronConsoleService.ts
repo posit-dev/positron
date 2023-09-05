@@ -180,9 +180,14 @@ export interface IPositronConsoleInstance {
 	clearConsole(): void;
 
 	/**
-	 * Clears the input hstory.
+	 * Clears the input history.
 	 */
 	clearInputHistory(): void;
+
+	/**
+	 * Interrupts the console.
+	 */
+	interrupt(): void;
 
 	/**
 	 * Enqueues code to be executed.

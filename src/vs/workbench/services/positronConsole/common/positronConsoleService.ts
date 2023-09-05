@@ -11,7 +11,6 @@ import { Disposable, DisposableStore } from 'vs/base/common/lifecycle';
 import { RuntimeItem } from 'vs/workbench/services/positronConsole/common/classes/runtimeItem';
 import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/common/extensions';
 import { RuntimeItemTrace } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemTrace';
-import { ActivityItemInput } from 'vs/workbench/services/positronConsole/common/classes/activityItemInput';
 import { RuntimeItemExited } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemExited';
 import { RuntimeItemStarted } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemStarted';
 import { RuntimeItemStartup } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemStartup';
@@ -28,6 +27,7 @@ import { ActivityItemErrorMessage } from 'vs/workbench/services/positronConsole/
 import { ActivityItemOutputMessage } from 'vs/workbench/services/positronConsole/common/classes/activityItemOutputMessage';
 import { RuntimeItemStartupFailure } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemStartupFailure';
 import { ActivityItem, RuntimeItemActivity } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemActivity';
+import { ActivityItemInput, ActivityItemInputState } from 'vs/workbench/services/positronConsole/common/classes/activityItemInput';
 import { IPositronConsoleInstance, IPositronConsoleService, POSITRON_CONSOLE_VIEW_ID, PositronConsoleState } from 'vs/workbench/services/positronConsole/common/interfaces/positronConsoleService';
 import { formatLanguageRuntime, ILanguageRuntime, ILanguageRuntimeMessage, ILanguageRuntimeService, LanguageRuntimeStartupBehavior, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeOnlineState, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 
@@ -668,6 +668,46 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	}
 
 	/**
+	 * Interrupts the console.
+	 */
+	interrupt() {
+		// Get the runtime state.
+		const runtimeState = this._runtime.getRuntimeState();
+
+		// TODO@softwarenerd - As of Private Alpha (September, 2023), you shouldn't call interrupt
+		// on the R language runtime when it is not busy. If you do, it will enter the interrupting
+		// state and stay in that state until code is executed. Ideally, one should be able to call
+		// interrupt on a runtime at any time and the runtime should wind up back in the idle state.
+		// See: https://github.com/posit-dev/positron/issues/1234
+		// Interrupt the runtime, if it's busy.
+		if (runtimeState === RuntimeState.Busy) {
+			this._runtime.interrupt();
+		}
+
+		// Clear pending input and pending code.
+		this.clearPendingInput();
+		this.setPendingCode();
+
+		// If the runtime wasn't busy, add a runtime item activity with and empty ActivityItemInput
+		// so there is feedback that the interrupt was processed.
+		if (runtimeState === RuntimeState.Ready || runtimeState === RuntimeState.Idle) {
+			const id = generateUuid();
+			this.addOrUpdateUpdateRuntimeItemActivity(
+				id,
+				new ActivityItemInput(
+					ActivityItemInputState.Completed,
+					id,
+					id,
+					new Date(),
+					this._runtime.dynState.inputPrompt,
+					this._runtime.dynState.continuationPrompt,
+					''
+				)
+			);
+		}
+	}
+
+	/**
 	 * Enqueues code.
 	 * @param code The code to enqueue.
 	 */
@@ -783,9 +823,13 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 		// Loop over each and look for the Input activity
 		for (const item of activity.activityItems) {
 			if (item instanceof ActivityItemInput) {
-				// This is the input activity; update its busy state.
+				// This is an input activity; update its busy state.
 				const input = item as ActivityItemInput;
-				input.executing = busy;
+				if (input.state !== ActivityItemInputState.Provisional) {
+					input.state = busy ?
+						ActivityItemInputState.Executing :
+						ActivityItemInputState.Completed;
+				}
 
 				// Found the input, so we're done.
 				break;
@@ -976,7 +1020,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 			this.addOrUpdateUpdateRuntimeItemActivity(
 				languageRuntimeMessageInput.parent_id,
 				new ActivityItemInput(
-					false,
+					ActivityItemInputState.Executing,
 					languageRuntimeMessageInput.id,
 					languageRuntimeMessageInput.parent_id,
 					new Date(languageRuntimeMessageInput.when),
@@ -1195,7 +1239,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 			for (const activity of this._runtimeItemActivities.values()) {
 				for (const item of activity.activityItems) {
 					if (item instanceof ActivityItemInput) {
-						item.executing = false;
+						item.state = ActivityItemInputState.Completed;
 					}
 				}
 			}
@@ -1228,7 +1272,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	 * @param code The code for the pending input.
 	 */
 	private addPendingInput(code: string) {
-		// If there is an existing pending input runtime item, remove it.
+		// If there is a pending input runtime item, remove it.
 		if (this._runtimeItemPendingInput) {
 			// Get the index of the pending input runtime item.
 			const index = this.runtimeItems.indexOf(this._runtimeItemPendingInput);
@@ -1252,6 +1296,26 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 
 		// Add the pending input runtime item.
 		this.addRuntimeItem(this._runtimeItemPendingInput);
+	}
+
+	/**
+	 * Clears pending input.
+	 */
+	private clearPendingInput() {
+		// If there is a pending input runtime item, remove it.
+		if (this._runtimeItemPendingInput) {
+			// Get the index of the pending input runtime item.
+			const index = this.runtimeItems.indexOf(this._runtimeItemPendingInput);
+
+			// This index should always be > -1, but be defensive. Remove the pending input runtime
+			// item.
+			if (index > -1) {
+				this._runtimeItems.splice(index, 1);
+			}
+
+			// Clear the pending input runtime item.
+			this._runtimeItemPendingInput = undefined;
+		}
 	}
 
 	/**
@@ -1290,15 +1354,18 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 				const id = `fragment-${generateUuid()}`;
 
 				// Add the provisional ActivityItemInput for the code fragment.
-				const runtimeItemActivity = new RuntimeItemActivity(id, new ActivityItemInput(
-					true,
+				const runtimeItemActivity = new RuntimeItemActivity(
 					id,
-					id,
-					new Date(),
-					this._runtime.dynState.inputPrompt,
-					this._runtime.dynState.continuationPrompt,
-					codeFragment
-				));
+					new ActivityItemInput(
+						ActivityItemInputState.Provisional,
+						id,
+						id,
+						new Date(),
+						this._runtime.dynState.inputPrompt,
+						this._runtime.dynState.continuationPrompt,
+						codeFragment
+					)
+				);
 				this._runtimeItems.push(runtimeItemActivity);
 				this._runtimeItemActivities.set(id, runtimeItemActivity);
 
@@ -1351,7 +1418,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 
 		// Create the provisional ActivityItemInput.
 		const activityItemInput = new ActivityItemInput(
-			true,
+			ActivityItemInputState.Provisional,
 			id,
 			id,
 			new Date(),

@@ -6,39 +6,50 @@ import { Emitter } from 'vs/base/common/event';
 import { ANSIOutput, ANSIOutputLine } from 'ansi-output';
 
 /**
+ * ActivityItemInputState enumeration.
+ */
+export const enum ActivityItemInputState {
+	Provisional = 'provisional',
+	Executing = 'executing',
+	Completed = 'completed'
+}
+
+/**
  * ActivityItemInput class.
  */
 export class ActivityItemInput {
 	//#region Private Properties
 
 	/**
-	 * A value which indicates whether the ActivityItemInput is executing.
+	 * The state.
 	 */
-	private executingValue = false;
+	private _state: ActivityItemInputState;
 
 	/**
-	 * onChanged event emitter.
+	 * onStateChanged event emitter.
 	 */
-	private onChangedEmitter = new Emitter<void>();
+	private onStateChangedEmitter = new Emitter<void>();
 
 	//#endregion Private Properties
 
 	//#region Public Properties
 
 	/**
-	 * Gets a value which indicates whether the ActivityItemInput is executing.
+	 * Gets the state.
 	 */
-	get executing() {
-		return this.executingValue;
+	get state() {
+		return this._state;
 	}
 
 	/**
-	 * Sets a value which indicates whether the ActivityItemInput is executing.
-	 * @param executing A value which indicates whether the ActivityItemInput is executing
+	 * Sets the state.
+	 * @param state The state to set.
 	 */
-	set executing(executing: boolean) {
-		this.executingValue = executing;
-		this.onChangedEmitter.fire();
+	set state(state: ActivityItemInputState) {
+		if (state !== this._state) {
+			this._state = state;
+			this.onStateChangedEmitter.fire();
+		}
 	}
 
 	/**
@@ -49,15 +60,15 @@ export class ActivityItemInput {
 	//#endregion Public Properties
 
 	/**
-	 * An event that fires when the ActivityItemInput changes.
+	 * An event that fires when the state changes.
 	 */
-	public onChanged = this.onChangedEmitter.event;
+	public onStateChanged = this.onStateChangedEmitter.event;
 
 	//#region Constructor
 
 	/**
 	 * Constructor.
-	 * @param provisional A value which indicates whether this is a provisional ActivityItemInput.
+	 * @param state The initial state.
 	 * @param id The identifier.
 	 * @param parentId The parent identifier.
 	 * @param when The date.
@@ -66,7 +77,7 @@ export class ActivityItemInput {
 	 * @param code The code.
 	 */
 	constructor(
-		readonly provisional: boolean,
+		state: ActivityItemInputState,
 		readonly id: string,
 		readonly parentId: string,
 		readonly when: Date,
@@ -74,11 +85,8 @@ export class ActivityItemInput {
 		readonly continuationPrompt: string,
 		readonly code: string
 	) {
-		// Process the code into ANSI output lines suitable for rendering.
+		this._state = state;
 		this.codeOutputLines = ANSIOutput.processOutput(code);
-
-		// A non-provisional ActivityItemInput is executing by default.
-		this.executing = !this.provisional;
 	}
 
 	//#endregion Constructor
