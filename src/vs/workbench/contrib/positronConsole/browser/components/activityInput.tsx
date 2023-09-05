@@ -9,7 +9,7 @@ import { DisposableStore } from 'vs/base/common/lifecycle';
 import { FontInfo } from 'vs/editor/common/config/fontInfo';
 import { positronClassNames } from 'vs/base/common/positronUtilities';
 import { OutputRun } from 'vs/workbench/contrib/positronConsole/browser/components/outputRun';
-import { ActivityItemInput } from 'vs/workbench/services/positronConsole/common/classes/activityItemInput';
+import { ActivityItemInput, ActivityItemInputState } from 'vs/workbench/services/positronConsole/common/classes/activityItemInput';
 
 // ActivityInputProps interface.
 export interface ActivityInputProps {
@@ -24,16 +24,16 @@ export interface ActivityInputProps {
  */
 export const ActivityInput = (props: ActivityInputProps) => {
 	// Hooks.
-	const [executing, setExecuting] = useState(props.activityItemInput.executing);
+	const [state, setState] = useState(props.activityItemInput.state);
 
 	// Main useEffect.
 	React.useEffect(() => {
 		// Create the disposable store for cleanup.
 		const disposableStore = new DisposableStore();
 
-		// Listen for the changes to the item.
-		disposableStore.add(props.activityItemInput.onChanged(() => {
-			setExecuting(props.activityItemInput.executing);
+		// Listen for state changes to the item.
+		disposableStore.add(props.activityItemInput.onStateChanged(() => {
+			setState(props.activityItemInput.state);
 		}));
 
 		// Return the cleanup function that will dispose of the disposables.
@@ -49,13 +49,13 @@ export const ActivityInput = (props: ActivityInputProps) => {
 	// Generate the class names.
 	const classNames = positronClassNames(
 		'activity-input',
-		{ 'executing': executing }
+		{ 'executing': state === ActivityItemInputState.Executing }
 	);
 
 	// Render.
 	return (
 		<div className={classNames}>
-			{executing && <div className='progress-bar' />}
+			{state === ActivityItemInputState.Executing && <div className='progress-bar' />}
 			{props.activityItemInput.codeOutputLines.map((outputLine, index) =>
 				<div key={outputLine.id}>
 					<span style={{ width: promptWidth }}>
