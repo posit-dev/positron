@@ -5,6 +5,7 @@
 import * as vscode from 'vscode';
 import * as positron from 'positron';
 import { PromiseHandles } from './util';
+import { RStatementRangeProvider } from './statement-range';
 
 import {
 	LanguageClient,
@@ -128,6 +129,12 @@ export class ArkLsp implements vscode.Disposable {
 
 		this._client.start();
 		await out.promise;
+
+		if (this._state === LspState.running) {
+			// Register a statement range provider to detect R statements
+			const disposable = positron.languages.registerStatementRangeProvider('r', new RStatementRangeProvider(this._client));
+			this.activationDisposables.push(disposable);
+		}
 	}
 
 	/**
