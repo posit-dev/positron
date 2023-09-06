@@ -164,7 +164,7 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 		codeEditorWidgetRef.current.setValue('');
 	};
 
-	// Memoize the key down event handler.
+	// Key down event handler.
 	const keyDownHandler = async (e: IKeyboardEvent) => {
 		/**
 		 * Consumes an event.
@@ -382,21 +382,32 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 			false               // this widget is not simple
 		);
 
-		// Line numbers functions.
-		const notReadyLineNumbers = (n: number) => '';
-		const readyLineNumbers = (n: number) => {
-			// Render the input prompt for the first line; do not render
-			// anything in the margin for following lines
-			if (n < 2) {
-				return props.positronConsoleInstance.runtime.dynState.inputPrompt;
-			} else {
-				return props.positronConsoleInstance.runtime.dynState.continuationPrompt;
-			}
-		};
+		/**
+		 * Helper that returns the value for lineNumbersMinChars in the editor options.
+		 * @returns The value for lineNumbersMinChars.
+		 */
+		const lineNumbersMinChars = () => Math.max(
+			props.positronConsoleInstance.runtime.dynState.inputPrompt.length,
+			props.positronConsoleInstance.runtime.dynState.continuationPrompt.length
+		);
+
+		/**
+		 * The hide prompt line numbers function.
+		 * @returns The prompt.
+		 */
+		const hidePromptLineNumbers = () => '';
+
+		/**
+		 * The show prompt line numbers function.
+		 * @returns The prompt.
+		 */
+		const showPromptLineNumbers = (lineNumber: number) => lineNumber < 2 ?
+			props.positronConsoleInstance.runtime.dynState.inputPrompt :
+			props.positronConsoleInstance.runtime.dynState.continuationPrompt;
 
 		// The editor options we override.
 		const editorOptions = {
-			lineNumbers: readyLineNumbers,
+			lineNumbers: showPromptLineNumbers,
 			readOnly: false,
 			minimap: {
 				enabled: false
@@ -414,7 +425,7 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 			},
 			overviewRulerLanes: 0,
 			scrollBeyondLastLine: false,
-			lineNumbersMinChars: props.positronConsoleInstance.runtime.dynState.inputPrompt.length,
+			lineNumbersMinChars: lineNumbersMinChars(),
 			// This appears to disable validations to address:
 			// https://github.com/posit-dev/positron/issues/979
 			// https://github.com/posit-dev/positron/issues/1051
@@ -515,38 +526,25 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 		// Add the onDidChangeState event handler.
 		disposableStore.add(props.positronConsoleInstance.onDidChangeState(state => {
 			// Set up editor options based on state.
-			let lineNumbers;
-			let readOnly;
+			let lineNumbersFunction;
 			switch (state) {
-				// When uninitialized or starting, switch to a read only normal prompt so it looks
-				// right, but no typeahead is allowed.
+				// When uninitialized, starting, or ready, use the show prompt line numbers
+				// function.
 				case PositronConsoleState.Uninitialized:
 				case PositronConsoleState.Starting:
-					readOnly = true;
-					lineNumbers = readyLineNumbers;
-					break;
-
-				// When ready, switch to an active normal prompt.
 				case PositronConsoleState.Ready:
-					readOnly = false;
-					lineNumbers = readyLineNumbers;
+					lineNumbersFunction = showPromptLineNumbers;
 					break;
 
-				// In any other state, don't display the normal prompt, but allow typeahead.
+				// In any other state, use the hide prompt line numbers function.
 				default:
-					readOnly = false;
-					lineNumbers = notReadyLineNumbers;
+					lineNumbersFunction = hidePromptLineNumbers;
 			}
-
-			// Reserve appropriate width for the prompt in case width has changed
-			editorOptions.lineNumbersMinChars = props.positronConsoleInstance.runtime.dynState.inputPrompt.length;
-			codeEditorWidget.updateOptions({ ...editorOptions });
 
 			// Update the code editor widget options.
 			codeEditorWidget.updateOptions({
-				...editorOptions,
-				readOnly,
-				lineNumbers
+				lineNumbers: lineNumbersFunction,
+				lineNumbersMinChars: lineNumbersMinChars()
 			});
 		}));
 
@@ -601,15 +599,15 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 			updateCodeEditorWidgetPosition(Position.Last, Position.Last);
 		}));
 
+		// Add the onDidReceiveRuntimeMessagePromptConfig event handler.
 		disposableStore.add(props.positronConsoleInstance.runtime.onDidReceiveRuntimeMessagePromptConfig(() => {
 			// Reserve appropriate width for the prompt in case width has changed
-			editorOptions.lineNumbersMinChars = props.positronConsoleInstance.runtime.dynState.inputPrompt.length;
-			codeEditorWidget.updateOptions({ ...editorOptions });
+			codeEditorWidget.updateOptions({
+				lineNumbersMinChars: lineNumbersMinChars()
+			});
 
-			// Trigger a redraw of the current prompt. Only needed for updating
-			// custom prompts on initialization. FIXME: Is there a better way?
-			const currentCodeFragment = codeEditorWidgetRef.current.getValue();
-			codeEditorWidgetRef.current.setValue(currentCodeFragment);
+			// Render the code editor widget.
+			codeEditorWidgetRef.current.render(true);
 		}));
 
 		// Focus the console.
