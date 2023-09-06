@@ -520,7 +520,7 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 
 		// Add the onFocusInput event handler.
 		disposableStore.add(props.positronConsoleInstance.onFocusInput(() => {
-			codeEditorWidgetRef.current.focus();
+			codeEditorWidget.focus();
 		}));
 
 		// Add the onDidChangeState event handler.
@@ -532,7 +532,7 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 		// Add the onDidPasteText event handler.
 		disposableStore.add(props.positronConsoleInstance.onDidPasteText(text => {
 			// Get the selections.
-			const selections = codeEditorWidgetRef.current.getSelections();
+			const selections = codeEditorWidget.getSelections();
 			if (!selections || !selections.length) {
 				return;
 			}
@@ -551,8 +551,8 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 			}
 
 			// Execute the edits and set the updated selections.
-			codeEditorWidgetRef.current.executeEdits('console', edits);
-			codeEditorWidgetRef.current.setSelections(
+			codeEditorWidget.executeEdits('console', edits);
+			codeEditorWidget.setSelections(
 				updatedSelections,
 				'console',
 				CursorChangeReason.Paste
@@ -576,7 +576,7 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 
 		// Add the onDidSetCode event handler.
 		disposableStore.add(props.positronConsoleInstance.onDidSetPendingCode(pendingCode => {
-			codeEditorWidgetRef.current.setValue(pendingCode || '');
+			codeEditorWidget.setValue(pendingCode || '');
 			updateCodeEditorWidgetPosition(Position.Last, Position.Last);
 		}));
 
@@ -586,7 +586,7 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 			codeEditorWidget.updateOptions(createLineNumbersOptions());
 
 			// Render the code editor widget.
-			codeEditorWidgetRef.current.render(true);
+			codeEditorWidget.render(true);
 		}));
 
 		// Focus the console.
