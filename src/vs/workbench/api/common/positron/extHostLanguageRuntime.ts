@@ -122,11 +122,45 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 	 * Discovers language runtimes and registers them with the main thread.
 	 */
 	public async $discoverLanguageRuntimes(): Promise<void> {
+		// Discover runtimes from each provider in parallel
+		let start = 0;
+		let end = this._runtimeProviders.length;
+		while (start !== end) {
+			// Extract the section of the providers list we're working on and discover
+			// runtimes from it
+			const providers = this._runtimeProviders.slice(start, end);
+			try {
+				await this.discoverLanguageRuntimes(providers);
+			} catch (err) {
+				// Log and continue if errors occur during registration; this is
+				// a safeguard to ensure we always signal the main thread when
+				// discovery is complete (below)
+				console.error(err);
+			}
 
-		const providers = this._runtimeProviders;
+			// Typically the loop ends after the first pass, but if new
+			// providers were added while we were discovering runtimes, then we
+			// need to go back into the body of the loop to discover those
+			// runtimes as well.
+			start = end;
+			end = this._runtimeProviders.length;
+		}
+
+		// Notify the main thread that discovery is complete
+		this._proxy.$completeLanguageRuntimeDiscovery();
+	}
+
+	/**
+	 * Discovers language runtimes from a set of providers in parallel and
+	 * registers each one with the main thread.
+	 *
+	 * @param providers The set of providers to discover runtimes from
+	 */
+	private async discoverLanguageRuntimes(providers: Array<positron.LanguageRuntimeProvider>):
+		Promise<void> {
 
 		// The number of providers we're waiting on (initially all providers)
-		let count = this._runtimeProviders.length;
+		let count = providers.length;
 
 		// Utility promise
 		const never: Promise<never> = new Promise(() => { });
@@ -162,9 +196,6 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 					void iterator.return(null);
 				}
 			}
-
-			// Notify the main thread that discovery is complete
-			this._proxy.$completeLanguageRuntimeDiscovery();
 		}
 	}
 
