@@ -6,6 +6,7 @@ import { createDecorator } from 'vs/platform/instantiation/common/instantiation'
 import { PlotClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimePlotClient';
 import { Event } from 'vs/base/common/event';
 import { StaticPlotClient } from 'vs/workbench/services/positronPlots/common/staticPlotClient';
+import { IPositronPlotSizingPolicy } from 'vs/workbench/services/positronPlots/common/sizingPolicy';
 
 export const POSITRON_PLOTS_VIEW_ID = 'workbench.panel.positronPlots';
 
@@ -30,6 +31,16 @@ export interface IPositronPlotsService {
 	 * Gets the currently selected Positron plot instance.
 	 */
 	readonly selectedPlotId: string | undefined;
+
+	/**
+	 * Gets the currently known sizing policies.
+	 */
+	readonly sizingPolicies: IPositronPlotSizingPolicy[];
+
+	/**
+	 * Gets the currently selected sizing policy.
+	 */
+	readonly selectedSizingPolicy: IPositronPlotSizingPolicy;
 
 	/**
 	 * Notifies subscribers when a new Positron plot instance is created.
@@ -90,6 +101,11 @@ export interface IPositronPlotsService {
 	 * Removes all the plots in the service.
 	 */
 	removeAllPlots(): void;
+
+	/**
+	 * Selects a sizing policy.
+	 */
+	selectSizingPolicy(id: string): void;
 
 	/**
 	 * Placeholder for service initialization.

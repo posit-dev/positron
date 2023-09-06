@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
 import { Disposable } from 'vs/base/common/lifecycle';
@@ -10,6 +10,7 @@ import { Emitter, Event } from 'vs/base/common/event';
 import { StaticPlotClient } from 'vs/workbench/services/positronPlots/common/staticPlotClient';
 import { IStorageService, StorageTarget, StorageScope } from 'vs/platform/storage/common/storage';
 import { IViewsService } from 'vs/workbench/common/views';
+import { IPositronPlotSizingPolicy } from 'vs/workbench/services/positronPlots/common/sizingPolicy';
 
 /** The maximum number of recent executions to store. */
 const MaxRecentExecutions = 10;
@@ -23,6 +24,9 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 
 	/** The list of Positron plots. */
 	private readonly _plots: PositronPlotClient[] = [];
+
+	/** The list of sizing policies. */
+	private readonly _sizingPolicies: IPositronPlotSizingPolicy[] = [];
 
 	/** The emitter for the onDidReplacePlots event */
 	private readonly _onDidReplacePlots = new Emitter<PositronPlotClient[]>();
@@ -64,6 +68,18 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		this._register(this._onDidSelectPlot.event((id) => {
 			this._selectedPlotId = id;
 		}));
+	}
+
+	get sizingPolicies() {
+		return this._sizingPolicies;
+	}
+
+	get selectedSizingPolicy() {
+		return this._sizingPolicies[0];
+	}
+
+	selectSizingPolicy(id: string): void {
+		throw new Error('Method not implemented.');
 	}
 
 	/**
