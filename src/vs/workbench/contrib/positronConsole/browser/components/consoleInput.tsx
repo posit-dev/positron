@@ -260,11 +260,6 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 					// Consume the event.
 					consumeEvent();
 
-					// If the console instance isn't ready, do not navigate.
-					if (props.positronConsoleInstance.state !== PositronConsoleState.Ready) {
-						return;
-					}
-
 					// If there are history entries, process the event.
 					if (historyNavigatorRef.current) {
 						// When the user moves up from the end, and we don't have a current code editor
@@ -297,11 +292,6 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 				if (position?.lineNumber === textModel?.getLineCount()) {
 					// Consume the event.
 					consumeEvent();
-
-					// If the console instance isn't ready, do not navigate.
-					if (props.positronConsoleInstance.state !== PositronConsoleState.Ready) {
-						return;
-					}
 
 					// If there are history entries, process the event.
 					if (historyNavigatorRef.current) {
