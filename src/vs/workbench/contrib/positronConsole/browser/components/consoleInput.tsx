@@ -16,7 +16,7 @@ import { ISelection } from 'vs/editor/common/core/selection';
 import { IKeyboardEvent } from 'vs/base/browser/keyboardEvent';
 import { useStateRef } from 'vs/base/browser/ui/react/useStateRef';
 import { CursorChangeReason } from 'vs/editor/common/cursorEvents';
-import { IEditorOptions } from 'vs/editor/common/config/editorOptions';
+import { IEditorOptions, LineNumbersType } from 'vs/editor/common/config/editorOptions';
 import { CodeEditorWidget } from 'vs/editor/browser/widget/codeEditorWidget';
 import { ModesHoverController } from 'vs/editor/contrib/hover/browser/hover';
 import { EditorExtensionsRegistry } from 'vs/editor/browser/editorExtensions';
@@ -37,6 +37,8 @@ const enum Position {
 	First,
 	Last
 }
+
+type ILineNumbersOptions = Pick<IEditorOptions, 'lineNumbers' | 'lineNumbersMinChars'>;
 
 // ConsoleInputProps interface.
 export interface ConsoleInputProps {
@@ -362,84 +364,73 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 			setHistoryNavigator(new HistoryNavigator2<IInputHistoryEntry>(inputHistoryEntries.slice(-1000), 1000));
 		}
 
-		// Create the resource URI.
-		const uri = URI.from({
-			scheme: Schemas.inMemory,
-			path: `/repl-${props.positronConsoleInstance.runtime.metadata.languageId}-${generateUuid()}`
+		/**
+		 * Creates the ILineNumbersOptions from IEditorOptions for the CodeEditorWidget.
+		 * @returns The ILineNumbersOptions from IEditorOptions for the CodeEditorWidget.
+		 */
+		const createLineNumbersOptions = (): ILineNumbersOptions => ({
+			lineNumbers: ((): LineNumbersType => {
+				switch (props.positronConsoleInstance.state) {
+					// When uninitialized, starting, or ready, use the show prompt line numbers
+					// function.
+					case PositronConsoleState.Uninitialized:
+					case PositronConsoleState.Starting:
+					case PositronConsoleState.Ready:
+						return (lineNumber: number) => lineNumber < 2 ?
+							props.positronConsoleInstance.runtime.dynState.inputPrompt :
+							props.positronConsoleInstance.runtime.dynState.continuationPrompt;
+
+					// In any other state, use the hide prompt line numbers function.
+					default:
+						return (_lineNumber: number) => '';
+				}
+			})(),
+			lineNumbersMinChars: Math.max(
+				props.positronConsoleInstance.runtime.dynState.inputPrompt.length,
+				props.positronConsoleInstance.runtime.dynState.continuationPrompt.length
+			)
 		});
 
-		// Create language selection.
-		const languageSelection = positronConsoleContext.
-			languageService.
-			createById(props.positronConsoleInstance.runtime.metadata.languageId);
-
-		// Create text model; this is the backing store for the Monaco editor that receives
-		// the user's input.
-		const textModel = positronConsoleContext.modelService.createModel(
-			'',					// initial value
-			languageSelection,  // language selection
-			uri,          		// resource URI
-			false               // this widget is not simple
-		);
-
 		/**
-		 * Helper that returns the value for lineNumbersMinChars in the editor options.
-		 * @returns The value for lineNumbersMinChars.
+		 * Creates the full set of IEditorOptions for the CodeEditorWidget.
+		 * @returns The full set of IEditorOptions for the CodeEditorWidget.
 		 */
-		const lineNumbersMinChars = () => Math.max(
-			props.positronConsoleInstance.runtime.dynState.inputPrompt.length,
-			props.positronConsoleInstance.runtime.dynState.continuationPrompt.length
-		);
-
-		/**
-		 * The hide prompt line numbers function.
-		 * @returns The prompt.
-		 */
-		const hidePromptLineNumbers = () => '';
-
-		/**
-		 * The show prompt line numbers function.
-		 * @returns The prompt.
-		 */
-		const showPromptLineNumbers = (lineNumber: number) => lineNumber < 2 ?
-			props.positronConsoleInstance.runtime.dynState.inputPrompt :
-			props.positronConsoleInstance.runtime.dynState.continuationPrompt;
-
-		// The editor options we override.
-		const editorOptions = {
-			lineNumbers: showPromptLineNumbers,
-			readOnly: false,
-			minimap: {
-				enabled: false
+		const createEditorOptions = (): IEditorOptions => ({
+			// Configured IEditorOptions.
+			...positronConsoleContext.configurationService.getValue<IEditorOptions>('editor'),
+			// IEditorOptions we override from their configured values.
+			...{
+				readOnly: false,
+				minimap: {
+					enabled: false
+				},
+				glyphMargin: false,
+				folding: false,
+				fixedOverflowWidgets: true,
+				lineDecorationsWidth: '1.0ch',
+				renderLineHighlight: 'none',
+				wordWrap: 'bounded',
+				wordWrapColumn: 2048,
+				scrollbar: {
+					vertical: 'hidden',
+					useShadows: false
+				},
+				overviewRulerLanes: 0,
+				scrollBeyondLastLine: false,
+				// This appears to disable validations to address:
+				// https://github.com/posit-dev/positron/issues/979
+				// https://github.com/posit-dev/positron/issues/1051
+				renderValidationDecorations: 'off'
 			},
-			glyphMargin: false,
-			folding: false,
-			fixedOverflowWidgets: true,
-			lineDecorationsWidth: '1.0ch',
-			renderLineHighlight: 'none',
-			wordWrap: 'bounded',
-			wordWrapColumn: 2048,
-			scrollbar: {
-				vertical: 'hidden',
-				useShadows: false
-			},
-			overviewRulerLanes: 0,
-			scrollBeyondLastLine: false,
-			lineNumbersMinChars: lineNumbersMinChars(),
-			// This appears to disable validations to address:
-			// https://github.com/posit-dev/positron/issues/979
-			// https://github.com/posit-dev/positron/issues/1051
-			renderValidationDecorations: 'off',
-		} satisfies IEditorOptions;
+			// The ILineNumbersOptions.
+			...createLineNumbersOptions(),
+		});
 
 		// Create the code editor widget.
 		const codeEditorWidget = positronConsoleContext.instantiationService.createInstance(
 			CodeEditorWidget,
 			codeEditorWidgetContainerRef.current,
-			{
-				...positronConsoleContext.configurationService.getValue<IEditorOptions>('editor'),
-				...editorOptions
-			},
+			createEditorOptions(),
 			{
 				// Make the console input's code editor widget a "simple" widget. This prevents the
 				// console input's code editor widget from being the active text editor (i.e. being
@@ -454,14 +445,38 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 					ModesHoverController.ID,
 					MarkerController.ID,
 				])
-			});
+			}
+		);
 
 		// Add the code editor widget to the disposables store.
 		disposableStore.add(codeEditorWidget);
 		setCodeEditorWidget(codeEditorWidget);
 
 		// Attach the text model.
-		codeEditorWidget.setModel(textModel);
+		codeEditorWidget.setModel(positronConsoleContext.modelService.createModel(
+			'',
+			positronConsoleContext.languageService.createById(
+				props.positronConsoleInstance.runtime.metadata.languageId
+			),
+			URI.from({
+				scheme: Schemas.inMemory,
+				path: `/repl-${props.positronConsoleInstance.runtime.metadata.languageId}-${generateUuid()}`
+			}),
+			false
+		));
+
+		// Add the onDidChangeConfiguration event handler.
+		disposableStore.add(
+			positronConsoleContext.configurationService.onDidChangeConfiguration(
+				configurationChangeEvent => {
+					if (configurationChangeEvent.affectsConfiguration('editor')) {
+						// When the editor configuration changes, we must update ALL the options.
+						// So, in this case, use createEditorOptions() to get the full set.
+						codeEditorWidget.updateOptions(createEditorOptions());
+					}
+				}
+			)
+		);
 
 		// Set the key down event handler.
 		disposableStore.add(codeEditorWidget.onKeyDown(keyDownHandler));
@@ -503,21 +518,6 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 			)
 		);
 
-		// Add the onDidChangeConfiguration event handler.
-		disposableStore.add(
-			positronConsoleContext.configurationService.onDidChangeConfiguration(
-				configurationChangeEvent => {
-					if (configurationChangeEvent.affectsConfiguration('editor')) {
-						codeEditorWidget.updateOptions({
-							...positronConsoleContext.configurationService.
-								getValue<IEditorOptions>('editor'),
-							...editorOptions
-						});
-					}
-				}
-			)
-		);
-
 		// Add the onFocusInput event handler.
 		disposableStore.add(props.positronConsoleInstance.onFocusInput(() => {
 			codeEditorWidgetRef.current.focus();
@@ -525,27 +525,8 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 
 		// Add the onDidChangeState event handler.
 		disposableStore.add(props.positronConsoleInstance.onDidChangeState(state => {
-			// Set up editor options based on state.
-			let lineNumbersFunction;
-			switch (state) {
-				// When uninitialized, starting, or ready, use the show prompt line numbers
-				// function.
-				case PositronConsoleState.Uninitialized:
-				case PositronConsoleState.Starting:
-				case PositronConsoleState.Ready:
-					lineNumbersFunction = showPromptLineNumbers;
-					break;
-
-				// In any other state, use the hide prompt line numbers function.
-				default:
-					lineNumbersFunction = hidePromptLineNumbers;
-			}
-
-			// Update the code editor widget options.
-			codeEditorWidget.updateOptions({
-				lineNumbers: lineNumbersFunction,
-				lineNumbersMinChars: lineNumbersMinChars()
-			});
+			// Update just the line number options.
+			codeEditorWidget.updateOptions(createLineNumbersOptions());
 		}));
 
 		// Add the onDidPasteText event handler.
@@ -601,10 +582,8 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 
 		// Add the onDidReceiveRuntimeMessagePromptConfig event handler.
 		disposableStore.add(props.positronConsoleInstance.runtime.onDidReceiveRuntimeMessagePromptConfig(() => {
-			// Reserve appropriate width for the prompt in case width has changed
-			codeEditorWidget.updateOptions({
-				lineNumbersMinChars: lineNumbersMinChars()
-			});
+			// Update just the line number options.
+			codeEditorWidget.updateOptions(createLineNumbersOptions());
 
 			// Render the code editor widget.
 			codeEditorWidgetRef.current.render(true);
