@@ -139,12 +139,10 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 		// to the history navigator.
 		if (code.trim().length) {
 			// Creates an IInputHistoryEntry.
-			const createInputHistoryEntry = () => {
-				return {
-					when: new Date().getTime(),
-					input: code,
-				} satisfies IInputHistoryEntry;
-			};
+			const createInputHistoryEntry = (): IInputHistoryEntry => ({
+				when: new Date().getTime(),
+				input: code,
+			});
 
 			// Add the history entry, if it's not a duplicate.
 			if (!historyNavigatorRef.current) {
