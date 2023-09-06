@@ -132,23 +132,27 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 				break;
 		}
 
-		// If the code fragment isn't just whitespace characters, add it to the history navigator.
+		// If the code fragment isn't just whitespace characters, and it's not a duplicate, add it
+		// to the history navigator.
 		if (code.trim().length) {
-			// Create the input history entry.
-			const inputHistoryEntry = {
-				when: new Date().getTime(),
-				input: code,
-			} satisfies IInputHistoryEntry;
+			// Creates an IInputHistoryEntry.
+			const createInputHistoryEntry = () => {
+				return {
+					when: new Date().getTime(),
+					input: code,
+				} satisfies IInputHistoryEntry;
+			};
 
-			// Add the input history entry.
-			if (historyNavigatorRef.current) {
-				historyNavigatorRef.current.add(inputHistoryEntry);
-			} else {
-				// TODO@softwarenerd - Get 1000 from settings.
+			// Add the history entry, if it's not a duplicate.
+			if (!historyNavigatorRef.current) {
 				setHistoryNavigator(new HistoryNavigator2<IInputHistoryEntry>(
-					[inputHistoryEntry],
+					[createInputHistoryEntry()],
 					1000
 				));
+			} else {
+				if (historyNavigatorRef.current.last().input !== code) {
+					historyNavigatorRef.current.add(createInputHistoryEntry());
+				}
 			}
 		}
 
@@ -305,7 +309,6 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 						// code fragment.
 						if (historyNavigatorRef.current.isAtEnd()) {
 							if (currentCodeFragmentRef.current !== undefined) {
-								console.log(`Restoring fragment "${currentCodeFragmentRef.current}"`);
 								codeEditorWidgetRef.current.setValue(currentCodeFragmentRef.current);
 								setCurrentCodeFragment(undefined);
 							}
