@@ -11,6 +11,7 @@ import { StaticPlotClient } from 'vs/workbench/services/positronPlots/common/sta
 import { IStorageService, StorageTarget, StorageScope } from 'vs/platform/storage/common/storage';
 import { IViewsService } from 'vs/workbench/common/views';
 import { IPositronPlotSizingPolicy } from 'vs/workbench/services/positronPlots/common/sizingPolicy';
+import { PlotSizingPolicyAuto } from 'vs/workbench/services/positronPlots/common/sizingPolicyAuto';
 
 /** The maximum number of recent executions to store. */
 const MaxRecentExecutions = 10;
@@ -68,6 +69,9 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		this._register(this._onDidSelectPlot.event((id) => {
 			this._selectedPlotId = id;
 		}));
+
+		// Register the default sizing policies
+		this._sizingPolicies.push(new PlotSizingPolicyAuto());
 	}
 
 	get sizingPolicies() {
