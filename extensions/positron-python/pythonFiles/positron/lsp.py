@@ -6,7 +6,7 @@ import logging
 import urllib.parse
 from typing import Any, Dict, Optional, Tuple, TYPE_CHECKING
 
-from comm import BaseComm
+from comm.base_comm import BaseComm
 
 from .positron_jedilsp import POSITRON
 

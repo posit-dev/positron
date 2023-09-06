@@ -14,7 +14,7 @@ sys.path.insert(0, os.path.join(EXTENSION_ROOT, "pythonFiles", "lib", "jedilsp")
 
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Union
 
-from comm import BaseComm
+from comm.base_comm import BaseComm
 from jedi.api import Interpreter
 from jedi_language_server import jedi_utils, pygls_utils
 from jedi_language_server.server import (
