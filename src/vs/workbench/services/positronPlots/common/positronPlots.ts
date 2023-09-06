@@ -43,6 +43,11 @@ export interface IPositronPlotsService {
 	readonly selectedSizingPolicy: IPositronPlotSizingPolicy;
 
 	/**
+	 * Notifies subscribers when the sizing policy has changed.
+	 */
+	readonly onDidChangeSizingPolicy: Event<IPositronPlotSizingPolicy>;
+
+	/**
 	 * Notifies subscribers when a new Positron plot instance is created.
 	 */
 	readonly onDidEmitPlot: Event<PositronPlotClient>;

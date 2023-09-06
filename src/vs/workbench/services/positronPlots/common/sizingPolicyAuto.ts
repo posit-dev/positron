@@ -10,7 +10,7 @@ export class PlotSizingPolicyAuto implements IPositronPlotSizingPolicy {
 
 	private static goldenRatio = 1.61803398875;
 
-	private static minimumPlotSize = 300;
+	private static minimumPlotSize = 400;
 
 	public getPlotSize(viewportSize: IPlotSize): IPlotSize {
 		// Start with the assumption that the plot will fill the viewport.

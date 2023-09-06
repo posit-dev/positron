@@ -29,6 +29,9 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 	/** The list of sizing policies. */
 	private readonly _sizingPolicies: IPositronPlotSizingPolicy[] = [];
 
+	/** The emitter for the onDidChangeSizingPolicy event */
+	private readonly _onDidChangeSizingPolicy = new Emitter<IPositronPlotSizingPolicy>();
+
 	/** The emitter for the onDidReplacePlots event */
 	private readonly _onDidReplacePlots = new Emitter<PositronPlotClient[]>();
 
@@ -43,6 +46,9 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 
 	/** The ID Of the currently selected plot, if any */
 	private _selectedPlotId: string | undefined;
+
+	/** The currently selected sizing policy. */
+	private _selectedSizingPolicy: IPositronPlotSizingPolicy;
 
 	/**
 	 * A map of recently executed code; the map is from the parent ID to the
@@ -71,19 +77,43 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		}));
 
 		// Register the default sizing policies
-		this._sizingPolicies.push(new PlotSizingPolicyAuto());
+		this._selectedSizingPolicy = new PlotSizingPolicyAuto();
+		this._sizingPolicies.push(this._selectedSizingPolicy);
 	}
 
+	/**
+	 * Gets the currently known sizing policies.
+	 */
 	get sizingPolicies() {
 		return this._sizingPolicies;
 	}
 
+	/**
+	 * Gets the currently selected sizing policy.
+	 */
 	get selectedSizingPolicy() {
-		return this._sizingPolicies[0];
+		return this._selectedSizingPolicy;
 	}
 
+	/**
+	 * Selects a new sizing policy and fires an event indicating that the policy
+	 * has changed.
+	 *
+	 * @param id The sizing policy ID to select.
+	 */
 	selectSizingPolicy(id: string): void {
-		throw new Error('Method not implemented.');
+		// Is this the currently selected policy?
+		if (this.selectedSizingPolicy.id === id) {
+			return;
+		}
+
+		// Find the policy with the given ID
+		const policy = this._sizingPolicies.find(policy => policy.id === id);
+		if (!policy) {
+			throw new Error(`Invalid sizing policy ID: ${id}`);
+		}
+		this._selectedSizingPolicy = policy;
+		this._onDidChangeSizingPolicy.fire(policy);
 	}
 
 	/**
@@ -300,6 +330,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 	onDidSelectPlot: Event<string> = this._onDidSelectPlot.event;
 	onDidRemovePlot: Event<string> = this._onDidRemovePlot.event;
 	onDidReplacePlots: Event<PositronPlotClient[]> = this._onDidReplacePlots.event;
+	onDidChangeSizingPolicy: Event<IPositronPlotSizingPolicy> = this._onDidChangeSizingPolicy.event;
 
 	// Gets the individual plot instances.
 	get positronPlotInstances(): PositronPlotClient[] {

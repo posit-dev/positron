@@ -17,6 +17,8 @@ import { ActionBarRegion } from 'vs/platform/positronActionBar/browser/component
 import { ActionBarButton } from 'vs/platform/positronActionBar/browser/components/actionBarButton';
 import { PositronActionBarContextProvider } from 'vs/platform/positronActionBar/browser/positronActionBarContext';
 import { usePositronPlotsContext } from 'vs/workbench/contrib/positronPlots/browser/positronPlotsContext';
+import { ActionBarSeparator } from 'vs/platform/positronActionBar/browser/components/actionBarSeparator';
+import { SizingPolicyMenuButton } from 'vs/workbench/contrib/positronPlots/browser/components/sizingPolicyMenuButton';
 
 // Constants.
 const kPaddingLeft = 14;
@@ -84,6 +86,8 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 					<ActionBarRegion location='left'>
 						<ActionBarButton iconId='positron-left-arrow' disabled={disableLeft} tooltip={localize('positronShowPreviousPlot', "Show previous plot")} onClick={showPreviousPlotHandler} />
 						<ActionBarButton iconId='positron-right-arrow' disabled={disableRight} tooltip={localize('positronShowNextPlot', "Show next plot")} onClick={showNextPlotHandler} />
+						<ActionBarSeparator />
+						<SizingPolicyMenuButton plotsService={positronPlotsContext.positronPlotsService} />
 					</ActionBarRegion>
 					<ActionBarRegion location='right'>
 						<ActionBarButton iconId='positron-clear-pane' align='right' disabled={noPlots} tooltip={localize('positronClearAllPlots', "Clear all plots")} onClick={clearAllPlotsHandler} />
