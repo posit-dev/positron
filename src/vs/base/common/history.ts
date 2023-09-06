@@ -222,22 +222,8 @@ export class HistoryNavigator2<T> {
 	}
 
 	// --- Start Positron ---
-	/**
-	 * Clears the history navigator's contents by resetting the head and tail to
-	 * the same node.
-	 */
-	clear(): void {
-		// Create a new node to replace the head, tail, and current cursor; its
-		// value is the current tail value, so only the last value is preserved.
-		// (It's not possible to have a history navigator with no values.)
-		this.head = this.tail = this.cursor = {
-			value: this.tail.value,
-			previous: undefined,
-			next: undefined
-		};
-
-		// Reset the history's size
-		this.size = 1;
+	last(): T {
+		return this.tail.value;
 	}
 	// --- End Positron ---
 
