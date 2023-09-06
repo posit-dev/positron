@@ -38,6 +38,7 @@ const enum Position {
 	Last
 }
 
+// Utility type for just the line numbers options from IEditorOptions.
 type ILineNumbersOptions = Pick<IEditorOptions, 'lineNumbers' | 'lineNumbersMinChars'>;
 
 // ConsoleInputProps interface.
