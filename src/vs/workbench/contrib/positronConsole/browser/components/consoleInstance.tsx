@@ -419,8 +419,9 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 	 */
 	const scrollHandler = (e: UIEvent<HTMLDivElement>) => {
 		// Determine whether the console instance is scroll locked.
-		if (consoleInstanceRef.current.offsetHeight + consoleInstanceRef.current.scrollTop ===
-			consoleInstanceRef.current.scrollHeight) {
+		if (Math.abs(consoleInstanceRef.current.scrollHeight -
+			consoleInstanceRef.current.clientHeight -
+			consoleInstanceRef.current.scrollTop) < 1) {
 			setScrollLocked(false);
 		} else {
 			setScrollLocked(true);
