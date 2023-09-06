@@ -42,8 +42,12 @@ export const DynamicPlotInstance = (props: DynamicPlotInstanceProps) => {
 			setUri(props.plotClient.lastRender.uri);
 		}
 
-		// Request a plot render at the current size.
-		props.plotClient.render(props.height, props.width, ratio).then((result) => {
+		// Request a plot render at the current size, using the current sizing policy.
+		const plotSize = props.plotClient.plotsService.selectedSizingPolicy.getPlotSize({
+			height: props.height,
+			width: props.width
+		});
+		props.plotClient.render(plotSize.height, plotSize.width, ratio).then((result) => {
 			setUri(result.uri);
 		});
 

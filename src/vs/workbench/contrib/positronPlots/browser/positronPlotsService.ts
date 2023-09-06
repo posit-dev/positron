@@ -115,7 +115,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 					if (storedMetadata) {
 						try {
 							const metadata = JSON.parse(storedMetadata) as IPositronPlotMetadata;
-							plotClients.push(new PlotClientInstance(client, metadata));
+							plotClients.push(new PlotClientInstance(client, metadata, this));
 							registered = true;
 						} catch (error) {
 							console.warn(`Error parsing plot metadata: ${error}`);
@@ -130,7 +130,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 							parent_id: '',
 							code: '',
 						};
-						plotClients.push(new PlotClientInstance(client, metadata));
+						plotClients.push(new PlotClientInstance(client, metadata, this));
 					}
 				} else {
 					console.warn(
@@ -214,7 +214,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 					StorageTarget.MACHINE);
 
 				// Register the plot client
-				const plotClient = new PlotClientInstance(event.client, metadata);
+				const plotClient = new PlotClientInstance(event.client, metadata, this);
 				this.registerPlotClient(plotClient, true);
 
 				// Raise the Plots pane so the plot is visible
