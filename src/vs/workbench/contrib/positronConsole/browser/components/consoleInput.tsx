@@ -42,7 +42,7 @@ const enum Position {
 type ILineNumbersOptions = Pick<IEditorOptions, 'lineNumbers' | 'lineNumbersMinChars'>;
 
 // ConsoleInputProps interface.
-export interface ConsoleInputProps {
+interface ConsoleInputProps {
 	readonly width: number;
 	readonly positronConsoleInstance: IPositronConsoleInstance;
 	readonly selectAll: () => void;
