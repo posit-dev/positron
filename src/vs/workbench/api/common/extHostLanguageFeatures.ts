@@ -1568,8 +1568,7 @@ class StatementRangeAdapter {
 
 	constructor(
 		private readonly _documents: ExtHostDocuments,
-		private readonly _provider: positron.StatementRangeProvider,
-		private readonly _logService: ILogService
+		private readonly _provider: positron.StatementRangeProvider
 	) { }
 
 	/**
@@ -1580,17 +1579,16 @@ class StatementRangeAdapter {
 	 * @param token The cancellation token (currently unused)
 	 * @returns A promise that resolves to the statement range
 	 */
-	async provideStatementRange(resource: URI, pos: IPosition, token: CancellationToken): Promise<IRange> {
+	async provideStatementRange(resource: URI, pos: IPosition, token: CancellationToken): Promise<IRange | undefined> {
 		const document = this._documents.getDocument(resource);
 		const position = typeConvert.Position.to(pos);
 
 		const providerRange = await this._provider.provideStatementRange(document, position, token);
-		if (!providerRange) {
-			this._logService.debug(`No statement range from provider ` +
-				`for position ${position} in ${resource}`);
-			throw new Error(`Invalid statement range returned from provider ` +
-				`for ${position} in ${resource}`);
+
+		if (!Range.isRange(providerRange)) {
+			return undefined;
 		}
+
 		return typeConvert.Range.from(providerRange);
 	}
 }
@@ -2413,7 +2411,7 @@ export class ExtHostLanguageFeatures implements extHostProtocol.ExtHostLanguageF
 
 	// --- Start Positron ---
 	registerStatementRangeProvider(extension: IExtensionDescription, selector: vscode.DocumentSelector, provider: positron.StatementRangeProvider): vscode.Disposable {
-		const handle = this._addNewAdapter(new StatementRangeAdapter(this._documents, provider, this._logService), extension);
+		const handle = this._addNewAdapter(new StatementRangeAdapter(this._documents, provider), extension);
 		this._proxy.$registerStatementRangeProvider(handle, this._transformDocumentSelector(selector, extension));
 		return this._createDisposable(handle);
 	}
