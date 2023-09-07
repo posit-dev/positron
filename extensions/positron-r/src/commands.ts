@@ -40,12 +40,13 @@ export async function registerCommands(context: vscode.ExtensionContext) {
 
 		vscode.commands.registerCommand('r.packageInstall', async () => {
 			const packageName = await getRPackageName();
-			// TODO: need to wait for this code to finish
-			positron.runtime.executeCode('r', 'devtools::install()', true);
 			const runningRuntimes = await positron.runtime.getRunningRuntimes('r');
 			// For now, there will be only one running R runtime:
-			const runtimeId = runningRuntimes[0].runtimeId;
-			positron.runtime.restartLanguageRuntime(runtimeId);
+			const runtimePath = runningRuntimes[0].runtimePath;
+			const originalTimeStamp = getPackageDescriptionTimestamp(runtimePath, packageName);
+			positron.runtime.executeCode('r', 'devtools::install()', true);
+			await pollForNewTimestamp(runtimePath, packageName, originalTimeStamp);
+			positron.runtime.restartLanguageRuntime(runningRuntimes[0].runtimeId);
 			positron.runtime.executeCode('r', `library(${packageName})`, true);
 		}),
 
@@ -140,4 +141,36 @@ async function parseRPackageDescription(): Promise<string[]> {
 		} catch { }
 	}
 	return [''];
+}
+
+function getPackageDescriptionTimestamp(runtimePath: string, packageName: string): number | null {
+	const path = require('path');
+	const fs = require('fs');
+	const libraryPath = path.join(runtimePath, 'library', packageName, 'DESCRIPTION');
+	try {
+		const stats = fs.statSync(libraryPath);
+		return stats.mtimeMs;
+	} catch { }
+	return null;
+}
+
+async function pollForNewTimestamp(runtimePath: string, packageName: string, oldTimestamp: number | null) {
+	const path = require('path');
+	const fs = require('fs');
+	const wait = function (ms = 1000) {
+		return new Promise(resolve => { setTimeout(resolve, ms); });
+	};
+
+	if (oldTimestamp === null) {
+		const libraryPath = path.join(runtimePath, 'library', packageName, 'DESCRIPTION');
+		while (!fs.existsSync(libraryPath)) {
+			await wait(1000);
+		}
+	} else {
+		let newTimeStamp = getPackageDescriptionTimestamp(runtimePath, packageName);
+		while (newTimeStamp !== null && !(newTimeStamp > oldTimestamp)) {
+			await wait(1000);
+			newTimeStamp = getPackageDescriptionTimestamp(runtimePath, packageName);
+		}
+	}
 }
