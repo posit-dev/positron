@@ -3,10 +3,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as React from 'react';
-import { useState } from 'react'; // eslint-disable-line no-duplicate-imports
 import { localize } from 'vs/nls';
 import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/layoutService';
-import { VerticalStack } from 'vs/base/browser/ui/positronModalDialog/components/verticalStack';
 import { OKCancelModalDialog } from 'vs/base/browser/ui/positronModalDialog/positronOKCancelModalDialog';
 import { PositronModalDialogReactRenderer } from 'vs/base/browser/ui/positronModalDialog/positronModalDialogReactRenderer';
 import { IPlotSize } from 'vs/workbench/services/positronPlots/common/sizingPolicy';
@@ -37,16 +35,22 @@ export const showSetPlotSizeModalDialog = async (
 
 		// The modal dialog component.
 		const ModalDialog = () => {
-			// Hooks.
-			const [result, _setResult] = useState<SetPlotSizeResult>({
-				size: {
-					width: 0,
-					height: 0
-				}
-			});
+
+			const widthRef = React.useRef<HTMLInputElement>(undefined!);
+			const heightRef = React.useRef<HTMLInputElement>(undefined!);
 
 			// The accept handler.
 			const acceptHandler = () => {
+				let result: SetPlotSizeResult | undefined = undefined;
+				if (widthRef.current && widthRef.current.value.length > 0 &&
+					heightRef.current && heightRef.current.value.length > 0) {
+					result = {
+						size: {
+							width: parseInt(widthRef.current.value),
+							height: parseInt(heightRef.current.value)
+						}
+					};
+				}
 				positronModalDialogReactRenderer.destroy();
 				resolve(result);
 			};
@@ -67,9 +71,32 @@ export const showSetPlotSizeModalDialog = async (
 					cancelButtonTitle={localize('positronCancel', "Cancel")}
 					accept={acceptHandler} cancel={cancelHandler}>
 
-					<VerticalStack>
-						<div>Hellothere.</div>
-					</VerticalStack>
+					<table>
+						<tr>
+							<td>
+								<label htmlFor='width'>
+									{localize('positronPlotWidth', "Width")}
+								</label>
+							</td>
+							<td>
+								<input id='width' type='number' placeholder='100'
+									ref={widthRef} />
+							</td>
+							<td>{localize('positronPlotPixelsAbbrev', "px")}</td>
+						</tr>
+						<tr>
+							<td>
+								<label htmlFor='height'>
+									{localize('positronPlotHeight', "Height")}
+								</label>
+							</td>
+							<td>
+								<input id='height' type='number' placeholder='100'
+									ref={heightRef} />
+							</td>
+							<td>{localize('positronPlotPixelsAbbrev', "px")}</td>
+						</tr>
+					</table>
 
 				</OKCancelModalDialog>
 			);
