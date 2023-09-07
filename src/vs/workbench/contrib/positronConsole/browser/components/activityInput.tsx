@@ -40,11 +40,16 @@ export const ActivityInput = (props: ActivityInputProps) => {
 		return () => disposableStore.dispose();
 	}, []);
 
+	// Calculate the prompt length.
+	const promptLength = Math.max(
+		props.activityItemInput.inputPrompt.length,
+		props.activityItemInput.continuationPrompt.length
+	) + 1;
+
+	//props.fontInfo.spaceWidth
+
 	// Calculate the prompt width.
-	const promptWidth = Math.ceil(
-		(props.activityItemInput.inputPrompt.length + 1) *
-		props.fontInfo.typicalHalfwidthCharacterWidth
-	);
+	const promptWidth = Math.round(promptLength * props.fontInfo.typicalHalfwidthCharacterWidth);
 
 	// Generate the class names.
 	const classNames = positronClassNames(
@@ -58,7 +63,7 @@ export const ActivityInput = (props: ActivityInputProps) => {
 			{state === ActivityItemInputState.Executing && <div className='progress-bar' />}
 			{props.activityItemInput.codeOutputLines.map((outputLine, index) =>
 				<div key={outputLine.id}>
-					<span style={{ width: promptWidth }}>
+					<span className='prompt' style={{ width: promptWidth }}>
 						{(index === 0 ?
 							props.activityItemInput.inputPrompt :
 							props.activityItemInput.continuationPrompt) + ' '
