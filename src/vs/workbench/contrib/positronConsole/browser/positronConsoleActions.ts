@@ -27,6 +27,7 @@ import { PositronConsoleViewPane } from 'vs/workbench/contrib/positronConsole/br
 import { confirmationModalDialog } from 'vs/workbench/browser/positronModalDialogs/confirmationModalDialog';
 import { IExecutionHistoryService } from 'vs/workbench/contrib/executionHistory/common/executionHistoryService';
 import { IPositronConsoleService, POSITRON_CONSOLE_VIEW_ID } from 'vs/workbench/services/positronConsole/common/interfaces/positronConsoleService';
+import { NOTEBOOK_EDITOR_FOCUSED } from 'vs/workbench/contrib/notebook/common/notebookContextKeys';
 
 /**
  * Positron console command ID's.
@@ -197,7 +198,10 @@ export function registerPositronConsoleActions() {
 				},
 				f1: true,
 				category,
-				precondition: EditorContextKeys.editorTextFocus,
+				precondition: ContextKeyExpr.and(
+					EditorContextKeys.editorTextFocus,
+					NOTEBOOK_EDITOR_FOCUSED.toNegated()
+				),
 				keybinding: {
 					weight: KeybindingWeight.WorkbenchContrib,
 					primary: KeyMod.CtrlCmd | KeyCode.Enter,
