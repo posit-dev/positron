@@ -19,6 +19,7 @@ import { StaticPlotClient } from 'vs/workbench/services/positronPlots/common/sta
 interface PlotContainerProps {
 	width: number;
 	height: number;
+	showHistory: boolean;
 }
 
 /**
@@ -38,13 +39,7 @@ export const PlotsContainer = (props: PlotContainerProps) => {
 	const positronPlotsContext = usePositronPlotsContext();
 	const plotHistoryRef = React.createRef<HTMLDivElement>();
 
-	// Show the plot history gallery along the shortest edge of the container.
-	// This gives the plot rendering area the most space and a gentler aspect
-	// ratio.
-	//
-	// Consider: We could make this configurable (let the user decide which edge
-	// to show the gallery on).
-	const historyPx = positronPlotsContext.positronPlotInstances.length > 1 ? HistoryPx : 0;
+	const historyPx = props.showHistory ? HistoryPx : 0;
 	const historyBottom = props.height > props.width;
 	const historyEdge = historyBottom ? 'history-bottom' : 'history-right';
 	const plotHeight = historyBottom ? props.height - historyPx : props.height;
@@ -143,7 +138,7 @@ export const PlotsContainer = (props: PlotContainerProps) => {
 					render(plotInstance)
 				))}
 			</div>
-			{positronPlotsContext.positronPlotInstances.length > 1 && renderHistory()}
+			{props.showHistory && renderHistory()}
 		</div>
 	);
 };

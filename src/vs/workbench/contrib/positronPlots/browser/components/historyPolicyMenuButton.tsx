@@ -27,11 +27,11 @@ export const HistoryPolicyMenuButton = (props: HistoryPolicyMenuButtonProps) => 
 	const labelForHistoryPolicy = (policy: HistoryPolicy): string => {
 		switch (policy) {
 			case HistoryPolicy.AlwaysVisible:
-				return historyPolicyNeverLabel;
+				return historyPolicyAlwaysLabel;
 			case HistoryPolicy.Automatic:
 				return historyPolicyAutoLabel;
 			case HistoryPolicy.NeverVisible:
-				return historyPolicyAlwaysLabel;
+				return historyPolicyNeverLabel;
 		}
 	};
 
