@@ -33,3 +33,8 @@
 	animation-name: pulseAnimation;
 	animation-duration: 1s;
 }
+
+.activity-input .prompt {
+	text-align: right;
+	display: inline-block;
+}
