@@ -3,6 +3,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as React from 'react';
+import * as nls from 'vs/nls';
 import { IAction, Separator } from 'vs/base/common/actions';
 import { ActionBarMenuButton } from 'vs/platform/positronActionBar/browser/components/actionBarMenuButton';
 import { DisposableStore } from 'vs/base/common/lifecycle';
@@ -36,6 +37,8 @@ export const SizingPolicyMenuButton = (props: SizingPolicyMenuButtonProps) => {
 
 	// Builds the actions.
 	const actions = () => {
+		const selectedPolicy = props.plotsService.selectedSizingPolicy;
+
 		// Build the actions for the available console repl instances.
 		const actions: IAction[] = [];
 		props.plotsService.sizingPolicies.map(policy => {
@@ -45,6 +48,7 @@ export const SizingPolicyMenuButton = (props: SizingPolicyMenuButtonProps) => {
 				tooltip: '',
 				class: undefined,
 				enabled: true,
+				checked: policy.id === selectedPolicy.id,
 				run: () => {
 					props.plotsService.selectSizingPolicy(policy.id);
 				}
@@ -55,7 +59,7 @@ export const SizingPolicyMenuButton = (props: SizingPolicyMenuButtonProps) => {
 
 		actions.push({
 			id: 'custom',
-			label: 'Custom...',
+			label: nls.localize('positronCustomSize', "New Custom Size..."),
 			tooltip: '',
 			class: undefined,
 			enabled: true,

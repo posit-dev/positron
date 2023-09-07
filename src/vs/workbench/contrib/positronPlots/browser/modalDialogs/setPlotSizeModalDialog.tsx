@@ -66,7 +66,7 @@ export const showSetPlotSizeModalDialog = async (
 				<OKCancelModalDialog
 					width={375}
 					height={175}
-					title={localize('positronSetPlotSizeModalDialogTitle', "Custom Plot Size")}
+					title={localize('positronSetPlotSizeModalDialogTitle', "Create Custom Plot Size")}
 					okButtonTitle={localize('positronOk', "OK")}
 					cancelButtonTitle={localize('positronCancel', "Cancel")}
 					accept={acceptHandler} cancel={cancelHandler}>
