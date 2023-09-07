@@ -3,13 +3,16 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as React from 'react';
-import { IAction } from 'vs/base/common/actions';
+import { IAction, Separator } from 'vs/base/common/actions';
 import { ActionBarMenuButton } from 'vs/platform/positronActionBar/browser/components/actionBarMenuButton';
 import { DisposableStore } from 'vs/base/common/lifecycle';
 import { IPositronPlotsService } from 'vs/workbench/services/positronPlots/common/positronPlots';
+import { showSetPlotSizeModalDialog } from 'vs/workbench/contrib/positronPlots/browser/modalDialogs/setPlotSizeModalDialog';
+import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/layoutService';
 
 interface SizingPolicyMenuButtonProps {
 	readonly plotsService: IPositronPlotsService;
+	readonly layoutService: IWorkbenchLayoutService;
 }
 
 /**
@@ -46,6 +49,20 @@ export const SizingPolicyMenuButton = (props: SizingPolicyMenuButtonProps) => {
 					props.plotsService.selectSizingPolicy(policy.id);
 				}
 			});
+		});
+
+		actions.push(new Separator());
+
+		actions.push({
+			id: 'custom',
+			label: 'Custom...',
+			tooltip: '',
+			class: undefined,
+			enabled: true,
+			run: () => {
+				showSetPlotSizeModalDialog(props.layoutService).then(result => {
+				});
+			}
 		});
 
 		return actions;

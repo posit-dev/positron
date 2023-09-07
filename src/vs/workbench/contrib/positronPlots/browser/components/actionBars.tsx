@@ -88,7 +88,9 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 						<ActionBarButton iconId='positron-left-arrow' disabled={disableLeft} tooltip={localize('positronShowPreviousPlot', "Show previous plot")} onClick={showPreviousPlotHandler} />
 						<ActionBarButton iconId='positron-right-arrow' disabled={disableRight} tooltip={localize('positronShowNextPlot', "Show next plot")} onClick={showNextPlotHandler} />
 						<ActionBarSeparator />
-						<SizingPolicyMenuButton plotsService={positronPlotsContext.positronPlotsService} />
+						<SizingPolicyMenuButton
+							layoutService={props.layoutService}
+							plotsService={positronPlotsContext.positronPlotsService} />
 					</ActionBarRegion>
 					<ActionBarRegion location='right'>
 						<HistoryPolicyMenuButton plotsService={positronPlotsContext.positronPlotsService} />
