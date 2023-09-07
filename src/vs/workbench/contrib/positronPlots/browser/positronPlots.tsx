@@ -49,7 +49,19 @@ export const PositronPlots = (props: PropsWithChildren<PositronPlotsProps>) => {
 			case HistoryPolicy.NeverVisible:
 				return false;
 			case HistoryPolicy.Automatic:
-				return props.positronPlotsService.positronPlotInstances.length > 1;
+				// Don't show the history if there aren't at least two plots.
+				if (props.positronPlotsService.positronPlotInstances.length < 2) {
+					return false;
+				}
+
+				// Don't show the history if the container is too small.
+				if (props.reactComponentContainer.width < 300 ||
+					props.reactComponentContainer.height < 300) {
+					return false;
+				}
+
+				// Show the history.
+				return true;
 		}
 	};
 
@@ -68,6 +80,19 @@ export const PositronPlots = (props: PropsWithChildren<PositronPlotsProps>) => {
 		disposableStore.add(props.reactComponentContainer.onSizeChanged(size => {
 			setWidth(size.width);
 			setHeight(size.height);
+			setShowHistory(computeHistoryVisibility(props.positronPlotsService.historyPolicy));
+		}));
+
+		// Add event handlers so we can show/hide the history portion of the panel as the set
+		// of plots changes.
+		disposableStore.add(props.positronPlotsService.onDidEmitPlot(() => {
+			setShowHistory(computeHistoryVisibility(props.positronPlotsService.historyPolicy));
+		}));
+		disposableStore.add(props.positronPlotsService.onDidRemovePlot(() => {
+			setShowHistory(computeHistoryVisibility(props.positronPlotsService.historyPolicy));
+		}));
+		disposableStore.add(props.positronPlotsService.onDidReplacePlots(() => {
+			setShowHistory(computeHistoryVisibility(props.positronPlotsService.historyPolicy));
 		}));
 
 		// Add the event handler for history policy changes.
