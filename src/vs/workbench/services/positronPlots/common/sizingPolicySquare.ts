@@ -7,7 +7,7 @@ import * as nls from 'vs/nls';
 
 export class PlotSizingPolicySquare implements IPositronPlotSizingPolicy {
 	public readonly id = 'square';
-	public readonly name = nls.localize('plotSizingPolicy.automatic', "Square");
+	public readonly name = nls.localize('plotSizingPolicy.square', "Square");
 
 	private static minimumPlotSize = 400;
 

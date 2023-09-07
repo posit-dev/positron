@@ -13,6 +13,7 @@ import { IViewsService } from 'vs/workbench/common/views';
 import { IPositronPlotSizingPolicy } from 'vs/workbench/services/positronPlots/common/sizingPolicy';
 import { PlotSizingPolicyAuto } from 'vs/workbench/services/positronPlots/common/sizingPolicyAuto';
 import { PlotSizingPolicySquare } from 'vs/workbench/services/positronPlots/common/sizingPolicySquare';
+import { PlotSizingPolicyFill } from 'vs/workbench/services/positronPlots/common/sizingPolicyFill';
 
 /** The maximum number of recent executions to store. */
 const MaxRecentExecutions = 10;
@@ -83,6 +84,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 
 		// Add some other nifty sizing policies
 		this._sizingPolicies.push(new PlotSizingPolicySquare());
+		this._sizingPolicies.push(new PlotSizingPolicyFill());
 	}
 
 	/**
