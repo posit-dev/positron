@@ -6,7 +6,7 @@ import { createDecorator } from 'vs/platform/instantiation/common/instantiation'
 import { PlotClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimePlotClient';
 import { Event } from 'vs/base/common/event';
 import { StaticPlotClient } from 'vs/workbench/services/positronPlots/common/staticPlotClient';
-import { IPositronPlotSizingPolicy } from 'vs/workbench/services/positronPlots/common/sizingPolicy';
+import { IPlotSize, IPositronPlotSizingPolicy } from 'vs/workbench/services/positronPlots/common/sizingPolicy';
 
 export const POSITRON_PLOTS_VIEW_ID = 'workbench.panel.positronPlots';
 
@@ -131,6 +131,11 @@ export interface IPositronPlotsService {
 	 * Selects a sizing policy.
 	 */
 	selectSizingPolicy(id: string): void;
+
+	/**
+	 * Sets a custom plot size (and selects the custom sizing policy)
+	 */
+	setCustomPlotSize(size: IPlotSize): void;
 
 	/**
 	 * Selects a history policy.

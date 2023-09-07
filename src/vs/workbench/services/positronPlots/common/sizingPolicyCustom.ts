@@ -10,7 +10,9 @@ import * as nls from 'vs/nls';
  * user, in pixels. The viewport size is ignored.
  */
 export class PlotSizingPolicyCustom implements IPositronPlotSizingPolicy {
-	public readonly id = 'custom';
+	public static ID = 'custom';
+
+	public readonly id = PlotSizingPolicyCustom.ID;
 	public readonly name: string;
 
 	constructor(public readonly size: IPlotSize) {
