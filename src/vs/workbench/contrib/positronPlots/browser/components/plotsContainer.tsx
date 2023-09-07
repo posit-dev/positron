@@ -39,8 +39,12 @@ export const PlotsContainer = (props: PlotContainerProps) => {
 	const positronPlotsContext = usePositronPlotsContext();
 	const plotHistoryRef = React.createRef<HTMLDivElement>();
 
+	// We generally prefer showing the history on the bottom (making the plot
+	// wider), but if the plot container is too wide, we show it on the right
+	// instead.
+	const historyBottom = props.height / props.width > 0.75;
+
 	const historyPx = props.showHistory ? HistoryPx : 0;
-	const historyBottom = props.height > props.width;
 	const historyEdge = historyBottom ? 'history-bottom' : 'history-right';
 	const plotHeight = historyBottom ? props.height - historyPx : props.height;
 	const plotWidth = historyBottom ? props.width : props.width - historyPx;
