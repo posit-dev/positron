@@ -20,6 +20,12 @@ import { PlotSizingPolicyPortrait } from 'vs/workbench/services/positronPlots/co
 /** The maximum number of recent executions to store. */
 const MaxRecentExecutions = 10;
 
+/** The key used to store the preferred history policy */
+const HistoryPolicyStorageKey = 'positron.plots.historyPolicy';
+
+/** The key used to store the preferred plot sizing policy */
+const SizingPolicyStorageKey = 'positron.plots.sizingPolicy';
+
 /**
  * PositronPlotsService class.
  */
@@ -86,6 +92,23 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 			this._selectedPlotId = id;
 		}));
 
+		// When the storage service is about to save state, store the current history policy
+		// and storage policy in the workspace storage.
+		this._storageService.onWillSaveState(() => {
+
+			this._storageService.store(
+				HistoryPolicyStorageKey,
+				this._selectedHistoryPolicy,
+				StorageScope.WORKSPACE,
+				StorageTarget.MACHINE);
+
+			this._storageService.store(
+				SizingPolicyStorageKey,
+				this._selectedSizingPolicy.id,
+				StorageScope.WORKSPACE,
+				StorageTarget.MACHINE);
+		});
+
 		// Create the default sizing policy
 		this._selectedSizingPolicy = new PlotSizingPolicyAuto();
 		this._sizingPolicies.push(this._selectedSizingPolicy);
@@ -95,6 +118,26 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		this._sizingPolicies.push(new PlotSizingPolicyLandscape());
 		this._sizingPolicies.push(new PlotSizingPolicyPortrait());
 		this._sizingPolicies.push(new PlotSizingPolicyFill());
+
+		// See if there's a preferred sizing policy in storage, and select it if so
+		const preferredSizingPolicyId = this._storageService.get(
+			SizingPolicyStorageKey,
+			StorageScope.WORKSPACE);
+		if (preferredSizingPolicyId) {
+			const policy = this._sizingPolicies.find(
+				policy => policy.id === preferredSizingPolicyId);
+			if (policy) {
+				this._selectedSizingPolicy = policy;
+			}
+		}
+
+		// See if there's a preferred history policy in storage, and select it if so
+		const preferredHistoryPolicy = this._storageService.get(
+			HistoryPolicyStorageKey,
+			StorageScope.WORKSPACE);
+		if (preferredHistoryPolicy && preferredHistoryPolicy) {
+			this._selectedHistoryPolicy = preferredHistoryPolicy as HistoryPolicy;
+		}
 	}
 
 	/**
