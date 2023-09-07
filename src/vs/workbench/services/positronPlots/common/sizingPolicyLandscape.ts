@@ -6,14 +6,14 @@ import { IPositronPlotSizingPolicy } from 'vs/workbench/services/positronPlots/c
 import * as nls from 'vs/nls';
 import { SizingPolicyFixedAspectRatio } from 'vs/workbench/services/positronPlots/common/sizingPolicyFixedAspectRatio';
 
-export class PlotSizingPolicySquare
+export class PlotSizingPolicyLandscape
 	extends SizingPolicyFixedAspectRatio
 	implements IPositronPlotSizingPolicy {
 
 	constructor() {
-		super(1);
+		super(4 / 3);
 	}
 
-	public readonly id = 'square';
-	public readonly name = nls.localize('plotSizingPolicy.square', "Square");
+	public readonly id = 'landscape';
+	public readonly name = nls.localize('plotSizingPolicy.landscape', "Landscape");
 }

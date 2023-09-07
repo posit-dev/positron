@@ -6,7 +6,6 @@ import { Disposable } from 'vs/base/common/lifecycle';
 import { IRuntimeClientInstance, RuntimeClientState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeClientInstance';
 import { Event, Emitter } from 'vs/base/common/event';
 import { DeferredPromise } from 'vs/base/common/async';
-import { IPositronPlotsService } from 'vs/workbench/services/positronPlots/common/positronPlots';
 
 /**
  * The possible states for the plot client instance
@@ -247,12 +246,10 @@ export class PlotClientInstance extends Disposable {
 	 *
 	 * @param _client The client instance for this plot
 	 * @param metadata The plot's metadata
-	 * @param plotsService The Plots service that owns the plot
 	 */
 	constructor(
 		private readonly _client: IRuntimeClientInstance<IPlotClientMessageInput, IPlotClientMessageOutput>,
-		public readonly metadata: IPositronPlotMetadata,
-		public readonly plotsService: IPositronPlotsService) {
+		public readonly metadata: IPositronPlotMetadata) {
 		super();
 
 		// Connect close emitter event

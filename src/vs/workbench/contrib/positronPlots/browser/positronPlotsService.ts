@@ -14,6 +14,8 @@ import { IPositronPlotSizingPolicy } from 'vs/workbench/services/positronPlots/c
 import { PlotSizingPolicyAuto } from 'vs/workbench/services/positronPlots/common/sizingPolicyAuto';
 import { PlotSizingPolicySquare } from 'vs/workbench/services/positronPlots/common/sizingPolicySquare';
 import { PlotSizingPolicyFill } from 'vs/workbench/services/positronPlots/common/sizingPolicyFill';
+import { PlotSizingPolicyLandscape } from 'vs/workbench/services/positronPlots/common/sizingPolicyLandscape';
+import { PlotSizingPolicyPortrait } from 'vs/workbench/services/positronPlots/common/sizingPolicyPortrait';
 
 /** The maximum number of recent executions to store. */
 const MaxRecentExecutions = 10;
@@ -84,6 +86,8 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 
 		// Add some other nifty sizing policies
 		this._sizingPolicies.push(new PlotSizingPolicySquare());
+		this._sizingPolicies.push(new PlotSizingPolicyLandscape());
+		this._sizingPolicies.push(new PlotSizingPolicyPortrait());
 		this._sizingPolicies.push(new PlotSizingPolicyFill());
 	}
 
@@ -151,7 +155,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 					if (storedMetadata) {
 						try {
 							const metadata = JSON.parse(storedMetadata) as IPositronPlotMetadata;
-							plotClients.push(new PlotClientInstance(client, metadata, this));
+							plotClients.push(new PlotClientInstance(client, metadata));
 							registered = true;
 						} catch (error) {
 							console.warn(`Error parsing plot metadata: ${error}`);
@@ -166,7 +170,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 							parent_id: '',
 							code: '',
 						};
-						plotClients.push(new PlotClientInstance(client, metadata, this));
+						plotClients.push(new PlotClientInstance(client, metadata));
 					}
 				} else {
 					console.warn(
@@ -250,7 +254,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 					StorageTarget.MACHINE);
 
 				// Register the plot client
-				const plotClient = new PlotClientInstance(event.client, metadata, this);
+				const plotClient = new PlotClientInstance(event.client, metadata);
 				this.registerPlotClient(plotClient, true);
 
 				// Raise the Plots pane so the plot is visible

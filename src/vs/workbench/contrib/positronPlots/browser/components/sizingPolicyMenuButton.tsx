@@ -53,6 +53,7 @@ export const SizingPolicyMenuButton = (props: SizingPolicyMenuButtonProps) => {
 
 	return (
 		<ActionBarMenuButton
+			iconId='symbol-ruler'
 			text={activePolicyLabel}
 			actions={actions}
 		/>
