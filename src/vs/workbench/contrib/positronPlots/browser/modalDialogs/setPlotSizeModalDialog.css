@@ -1,0 +1,20 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
+ *--------------------------------------------------------------------------------------------*/
+
+table {
+	border-collapse: collapse;
+	border-spacing: 0;
+	margin-left: auto;
+	margin-right: auto;
+}
+
+td {
+	padding: 3px;
+}
+
+input[type="number"] {
+	font-size: 12px;
+	width: 50px;
+	padding: 5px;
+}

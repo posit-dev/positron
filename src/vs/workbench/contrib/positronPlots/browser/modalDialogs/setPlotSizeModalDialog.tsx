@@ -2,6 +2,7 @@
  *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
+import 'vs/css!./setPlotSizeModalDialog';
 import * as React from 'react';
 import { localize } from 'vs/nls';
 import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/layoutService';
@@ -64,8 +65,8 @@ export const showSetPlotSizeModalDialog = async (
 			// Render.
 			return (
 				<OKCancelModalDialog
-					width={375}
-					height={175}
+					width={250}
+					height={200}
 					title={localize('positronSetPlotSizeModalDialogTitle', "Create Custom Plot Size")}
 					okButtonTitle={localize('positronOk', "OK")}
 					cancelButtonTitle={localize('positronCancel', "Cancel")}
