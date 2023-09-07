@@ -46,8 +46,6 @@ export const ActivityInput = (props: ActivityInputProps) => {
 		props.activityItemInput.continuationPrompt.length
 	) + 1;
 
-	//props.fontInfo.spaceWidth
-
 	// Calculate the prompt width.
 	const promptWidth = Math.round(promptLength * props.fontInfo.typicalHalfwidthCharacterWidth);
 
