@@ -266,12 +266,9 @@ export function registerPositronConsoleActions() {
 			const statementRangeProviders =
 				languageFeaturesService.statementRangeProvider.all(model);
 
-			// If the user doesn't have an explicit selection (and we aren't at
-			// the end of the document), consult a statement range provider,
+			// If the user doesn't have an explicit selection, consult a statement range provider,
 			// which can be used to get the code to execute.
-			if (code.length === 0 &&
-				statementRangeProviders.length > 0 &&
-				position.lineNumber < model.getLineCount()) {
+			if (code.length === 0 && statementRangeProviders.length > 0) {
 
 				let statementRange: IRange | null | undefined = undefined;
 				try {
