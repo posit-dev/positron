@@ -17,6 +17,16 @@ export const IPositronPlotsService = createDecorator<IPositronPlotsService>(POSI
 export type PositronPlotClient = PlotClientInstance | StaticPlotClient;
 
 /**
+ * The set of policies governing when we show the plot history (filmstrip
+ * sidebar) in the Plots pane
+ */
+export enum HistoryPolicy {
+	AlwaysVisible = 'always',
+	Automatic = 'auto',
+	NeverVisible = 'never'
+}
+
+/**
  * IPositronPlotsService interface.
  */
 export interface IPositronPlotsService {
@@ -43,9 +53,19 @@ export interface IPositronPlotsService {
 	readonly selectedSizingPolicy: IPositronPlotSizingPolicy;
 
 	/**
+	 * Gets the current history policy.
+	 */
+	readonly historyPolicy: HistoryPolicy;
+
+	/**
 	 * Notifies subscribers when the sizing policy has changed.
 	 */
 	readonly onDidChangeSizingPolicy: Event<IPositronPlotSizingPolicy>;
+
+	/**
+	 * Notifies subscribers when the history policy has changed.
+	 */
+	readonly onDidChangeHistoryPolicy: Event<HistoryPolicy>;
 
 	/**
 	 * Notifies subscribers when a new Positron plot instance is created.
@@ -111,6 +131,11 @@ export interface IPositronPlotsService {
 	 * Selects a sizing policy.
 	 */
 	selectSizingPolicy(id: string): void;
+
+	/**
+	 * Selects a history policy.
+	 */
+	selectHistoryPolicy(policy: HistoryPolicy): void;
 
 	/**
 	 * Placeholder for service initialization.

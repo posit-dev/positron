@@ -5,7 +5,7 @@
 import { Disposable } from 'vs/base/common/lifecycle';
 import { IPositronPlotMetadata, PlotClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimePlotClient';
 import { ILanguageRuntime, ILanguageRuntimeMessageOutput, ILanguageRuntimeService, RuntimeClientType } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
-import { IPositronPlotsService, POSITRON_PLOTS_VIEW_ID, PositronPlotClient } from 'vs/workbench/services/positronPlots/common/positronPlots';
+import { HistoryPolicy, IPositronPlotsService, POSITRON_PLOTS_VIEW_ID, PositronPlotClient } from 'vs/workbench/services/positronPlots/common/positronPlots';
 import { Emitter, Event } from 'vs/base/common/event';
 import { StaticPlotClient } from 'vs/workbench/services/positronPlots/common/staticPlotClient';
 import { IStorageService, StorageTarget, StorageScope } from 'vs/platform/storage/common/storage';
@@ -36,6 +36,9 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 	/** The emitter for the onDidChangeSizingPolicy event */
 	private readonly _onDidChangeSizingPolicy = new Emitter<IPositronPlotSizingPolicy>();
 
+	/** The emitter for the onDidChangeHistoryPolicy event */
+	private readonly _onDidChangeHistoryPolicy = new Emitter<HistoryPolicy>();
+
 	/** The emitter for the onDidReplacePlots event */
 	private readonly _onDidReplacePlots = new Emitter<PositronPlotClient[]>();
 
@@ -53,6 +56,9 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 
 	/** The currently selected sizing policy. */
 	private _selectedSizingPolicy: IPositronPlotSizingPolicy;
+
+	/** The currently selected history policy. */
+	private _selectedHistoryPolicy: HistoryPolicy = HistoryPolicy.Automatic;
 
 	/**
 	 * A map of recently executed code; the map is from the parent ID to the
@@ -106,6 +112,13 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 	}
 
 	/**
+	 * Gets the current history policy.
+	 */
+	get historyPolicy() {
+		return this._selectedHistoryPolicy;
+	}
+
+	/**
 	 * Selects a new sizing policy and fires an event indicating that the policy
 	 * has changed.
 	 *
@@ -124,6 +137,20 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		}
 		this._selectedSizingPolicy = policy;
 		this._onDidChangeSizingPolicy.fire(policy);
+	}
+
+	/**
+	 * Selects a new history policy and fires an event indicating that the policy
+	 * has changed.
+	 */
+	selectHistoryPolicy(policy: HistoryPolicy): void {
+		// Is this the currently selected policy?
+		if (this.historyPolicy === policy) {
+			return;
+		}
+
+		this._selectedHistoryPolicy = policy;
+		this._onDidChangeHistoryPolicy.fire(policy);
 	}
 
 	/**
@@ -341,6 +368,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 	onDidRemovePlot: Event<string> = this._onDidRemovePlot.event;
 	onDidReplacePlots: Event<PositronPlotClient[]> = this._onDidReplacePlots.event;
 	onDidChangeSizingPolicy: Event<IPositronPlotSizingPolicy> = this._onDidChangeSizingPolicy.event;
+	onDidChangeHistoryPolicy: Event<HistoryPolicy> = this._onDidChangeHistoryPolicy.event;
 
 	// Gets the individual plot instances.
 	get positronPlotInstances(): PositronPlotClient[] {
