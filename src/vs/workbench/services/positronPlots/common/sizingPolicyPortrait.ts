@@ -6,6 +6,10 @@ import { IPositronPlotSizingPolicy } from 'vs/workbench/services/positronPlots/c
 import * as nls from 'vs/nls';
 import { SizingPolicyFixedAspectRatio } from 'vs/workbench/services/positronPlots/common/sizingPolicyFixedAspectRatio';
 
+/**
+ * This class implements a plot sizing policy that sizes the plot to a fixed 3:4
+ * (portrait) aspect ratio.
+ */
 export class PlotSizingPolicyPortrait
 	extends SizingPolicyFixedAspectRatio
 	implements IPositronPlotSizingPolicy {

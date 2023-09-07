@@ -5,6 +5,14 @@
 import { IPlotSize, IPositronPlotSizingPolicy } from 'vs/workbench/services/positronPlots/common/sizingPolicy';
 import * as nls from 'vs/nls';
 
+/**
+ * The default plot sizing policy, which automatically sizes the plot to fill
+ * the viewport, subject to a few constraints that are intended to make sure we
+ * generate a reasonable plot even with very small or tall/narrow viewports.
+ *
+ * - The plot's aspect ratio will not exceed the golden ratio (~1.6)
+ * - The plot's size will not be less than 400px
+ */
 export class PlotSizingPolicyAuto implements IPositronPlotSizingPolicy {
 	public readonly id = 'auto';
 	public readonly name = nls.localize('plotSizingPolicy.automatic', "Auto");
