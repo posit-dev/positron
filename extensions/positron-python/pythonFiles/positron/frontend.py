@@ -4,7 +4,7 @@
 
 import logging
 
-from ipykernel.comm.comm import BaseComm
+from comm.base_comm import BaseComm
 from pydantic import BaseModel, Field
 
 logger = logging.getLogger(__name__)
