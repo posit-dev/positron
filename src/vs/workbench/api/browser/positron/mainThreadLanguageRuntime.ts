@@ -779,9 +779,6 @@ export class MainThreadLanguageRuntime implements MainThreadLanguageRuntimeShape
 
 	private readonly _runtimes: Map<number, ExtHostLanguageRuntimeAdapter> = new Map();
 
-	private _discoveryPhase: LanguageRuntimeDiscoveryPhase =
-		LanguageRuntimeDiscoveryPhase.AwaitingExtensions;
-
 	constructor(
 		extHostContext: IExtHostContext,
 		@ILanguageRuntimeService private readonly _languageRuntimeService: ILanguageRuntimeService,
@@ -801,16 +798,10 @@ export class MainThreadLanguageRuntime implements MainThreadLanguageRuntimeShape
 		this._proxy = extHostContext.getProxy(ExtHostPositronContext.ExtHostLanguageRuntime);
 
 		this._languageRuntimeService.onDidChangeDiscoveryPhase((phase) => {
-			this._discoveryPhase = phase;
 			if (phase === LanguageRuntimeDiscoveryPhase.Discovering) {
 				this._proxy.$discoverLanguageRuntimes();
 			}
 		});
-	}
-
-	$isLanguageRuntimeDiscoveryComplete(): Promise<boolean> {
-		return Promise.resolve(
-			this._discoveryPhase === LanguageRuntimeDiscoveryPhase.Complete);
 	}
 
 	$emitLanguageRuntimeMessage(handle: number, message: ILanguageRuntimeMessage): void {

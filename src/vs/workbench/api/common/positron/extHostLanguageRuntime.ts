@@ -28,6 +28,11 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 	 */
 	private _eventClocks = new Array<number>();
 
+	/**
+	 * Indicates whether language runtime discovery is complete.
+	 */
+	private _runtimeDiscoveryComplete = false;
+
 	constructor(
 		mainContext: extHostProtocol.IMainPositronContext
 	) {
@@ -147,6 +152,7 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		}
 
 		// Notify the main thread that discovery is complete
+		this._runtimeDiscoveryComplete = true;
 		this._proxy.$completeLanguageRuntimeDiscovery();
 	}
 
@@ -216,20 +222,19 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 	public registerLanguageRuntimeProvider(
 		languageId: string,
 		provider: positron.LanguageRuntimeProvider): void {
-		this._proxy.$isLanguageRuntimeDiscoveryComplete().then(complete => {
-			if (complete) {
-				// We missed the discovery phase. Invoke the provider's async
-				// generator and register each runtime it returns right away.
-				void (async () => {
-					for await (const runtime of provider) {
-						this.registerLanguageRuntime(runtime);
-					}
-				})();
-			} else {
-				// We didn't miss it; save the provider for later invocation
-				this._runtimeProviders.push(provider);
-			}
-		});
+		if (this._runtimeDiscoveryComplete) {
+			// We missed the discovery phase. Invoke the provider's async
+			// generator and register each runtime it returns right away.
+			void (async () => {
+				for await (const runtime of provider) {
+					this.registerLanguageRuntime(runtime);
+				}
+			})();
+		} else {
+			// We didn't miss it; either discovery is happening now or it hasn't started. Add
+			// the provider to the list of providers on which we need to perform discovery.
+			this._runtimeProviders.push(provider);
+		}
 	}
 
 	public registerLanguageRuntime(
