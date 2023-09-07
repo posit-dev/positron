@@ -19,6 +19,7 @@ import { PositronActionBarContextProvider } from 'vs/platform/positronActionBar/
 import { usePositronPlotsContext } from 'vs/workbench/contrib/positronPlots/browser/positronPlotsContext';
 import { ActionBarSeparator } from 'vs/platform/positronActionBar/browser/components/actionBarSeparator';
 import { SizingPolicyMenuButton } from 'vs/workbench/contrib/positronPlots/browser/components/sizingPolicyMenuButton';
+import { HistoryPolicyMenuButton } from 'vs/workbench/contrib/positronPlots/browser/components/historyPolicyMenuButton';
 
 // Constants.
 const kPaddingLeft = 14;
@@ -90,6 +91,8 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 						<SizingPolicyMenuButton plotsService={positronPlotsContext.positronPlotsService} />
 					</ActionBarRegion>
 					<ActionBarRegion location='right'>
+						<HistoryPolicyMenuButton plotsService={positronPlotsContext.positronPlotsService} />
+						<ActionBarSeparator />
 						<ActionBarButton iconId='positron-clear-pane' align='right' disabled={noPlots} tooltip={localize('positronClearAllPlots', "Clear all plots")} onClick={clearAllPlotsHandler} />
 					</ActionBarRegion>
 				</PositronActionBar>
