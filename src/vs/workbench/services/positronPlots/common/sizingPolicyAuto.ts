@@ -3,10 +3,11 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { IPlotSize, IPositronPlotSizingPolicy } from 'vs/workbench/services/positronPlots/common/sizingPolicy';
+import * as nls from 'vs/nls';
 
 export class PlotSizingPolicyAuto implements IPositronPlotSizingPolicy {
 	public readonly id = 'auto';
-	public readonly name = 'Auto';
+	public readonly name = nls.localize('plotSizingPolicy.automatic', "Auto");
 
 	private static goldenRatio = 1.61803398875;
 
