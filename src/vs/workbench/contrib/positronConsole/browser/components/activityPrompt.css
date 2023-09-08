@@ -9,6 +9,7 @@
 }
 
 .activity-prompt .prompt-line .input-field {
+	padding-bottom: 10px;
 	flex-grow: 1;
 	border: none;
 	outline: 0 !important;
