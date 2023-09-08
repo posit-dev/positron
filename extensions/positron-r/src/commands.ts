@@ -4,6 +4,7 @@
 
 import * as vscode from 'vscode';
 import * as positron from 'positron';
+import { delay } from './util';
 
 export async function registerCommands(context: vscode.ExtensionContext) {
 
@@ -38,8 +39,21 @@ export async function registerCommands(context: vscode.ExtensionContext) {
 			positron.runtime.executeCode('r', 'devtools::build()', true);
 		}),
 
-		vscode.commands.registerCommand('r.packageInstall', () => {
+		vscode.commands.registerCommand('r.packageInstall', async () => {
+			const packageName = await getRPackageName();
+			const runningRuntimes = await positron.runtime.getRunningRuntimes('r');
+			if (!runningRuntimes || !runningRuntimes.length) {
+				vscode.window.showWarningMessage('Cannot install package as there is no R interpreter running.');
+				return;
+			}
+
+			// For now, there will be only one running R runtime:
+			const runtimePath = runningRuntimes[0].runtimePath;
+			const originalTimeStamp = getPackageDescriptionTimestamp(runtimePath, packageName);
 			positron.runtime.executeCode('r', 'devtools::install()', true);
+			await pollForNewTimestamp(runtimePath, packageName, originalTimeStamp);
+			positron.runtime.restartLanguageRuntime(runningRuntimes[0].runtimeId);
+			positron.runtime.executeCode('r', `library(${packageName})`, true);
 		}),
 
 		vscode.commands.registerCommand('r.packageTest', () => {
@@ -104,6 +118,24 @@ export async function registerCommands(context: vscode.ExtensionContext) {
 }
 
 async function detectRPackage(): Promise<boolean> {
+	const descriptionLines = await parseRPackageDescription();
+	const packageLines = descriptionLines.filter(line => line.startsWith('Package:'));
+	const typeLines = descriptionLines.filter(line => line.startsWith('Type:'));
+	const typeIsPackage = (typeLines.length > 0
+		? typeLines[0].toLowerCase().includes('package')
+		: false);
+	const typeIsPackageOrMissing = typeLines.length === 0 || typeIsPackage;
+	return packageLines.length > 0 && typeIsPackageOrMissing;
+}
+
+async function getRPackageName(): Promise<string> {
+	const descriptionLines = await parseRPackageDescription();
+	const packageLines = descriptionLines.filter(line => line.startsWith('Package:'))[0];
+	const packageName = packageLines.split(' ').slice(-1)[0];
+	return packageName;
+}
+
+async function parseRPackageDescription(): Promise<string[]> {
 	if (vscode.workspace.workspaceFolders !== undefined) {
 		const folderUri = vscode.workspace.workspaceFolders[0].uri;
 		const fileUri = vscode.Uri.joinPath(folderUri, 'DESCRIPTION');
@@ -111,14 +143,38 @@ async function detectRPackage(): Promise<boolean> {
 			const bytes = await vscode.workspace.fs.readFile(fileUri);
 			const descriptionText = Buffer.from(bytes).toString('utf8');
 			const descriptionLines = descriptionText.split(/(\r?\n)/);
-			const packageLines = descriptionLines.filter(line => line.startsWith('Package:'));
-			const typeLines = descriptionLines.filter(line => line.startsWith('Type:'));
-			const typeIsPackage = (typeLines.length > 0
-				? typeLines[0].toLowerCase().includes('package')
-				: false);
-			const typeIsPackageOrMissing = typeLines.length === 0 || typeIsPackage;
-			return packageLines.length > 0 && typeIsPackageOrMissing;
+			return descriptionLines;
 		} catch { }
 	}
-	return false;
+	return [''];
+}
+
+function getPackageDescriptionTimestamp(runtimePath: string, packageName: string): number | null {
+	const path = require('path');
+	const fs = require('fs');
+	const libraryPath = path.join(runtimePath, 'library', packageName, 'DESCRIPTION');
+	try {
+		const stats = fs.statSync(libraryPath);
+		return stats.mtimeMs;
+	} catch { }
+	return null;
+}
+
+async function pollForNewTimestamp(runtimePath: string, packageName: string, oldTimestamp: number | null) {
+	const path = require('path');
+	const fs = require('fs');
+	const timeout = Date.now() + 3e5;
+
+	if (oldTimestamp === null) {
+		const libraryPath = path.join(runtimePath, 'library', packageName, 'DESCRIPTION');
+		while (!fs.existsSync(libraryPath) && Date.now() < timeout) {
+			await delay(1000);
+		}
+	} else {
+		let newTimeStamp = getPackageDescriptionTimestamp(runtimePath, packageName);
+		while (newTimeStamp !== null && !(newTimeStamp > oldTimestamp) && Date.now() < timeout) {
+			await delay(1000);
+			newTimeStamp = getPackageDescriptionTimestamp(runtimePath, packageName);
+		}
+	}
 }

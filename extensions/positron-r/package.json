@@ -223,7 +223,7 @@
         "when": "isRPackage"
       },
       {
-        "command": "r.packageBuild",
+        "command": "r.packageInstall",
         "key": "ctrl+shift+b",
         "mac": "cmd+shift+b",
         "when": "isRPackage"
