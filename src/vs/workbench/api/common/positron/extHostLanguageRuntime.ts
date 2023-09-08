@@ -172,9 +172,19 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		const never: Promise<never> = new Promise(() => { });
 
 		// Utility function to get the next runtime from a provider and amend an
-		// index
-		const getNext = (asyncGen: positron.LanguageRuntimeProvider, index: number) =>
-			asyncGen.next().then((result) => ({ index, result }));
+		// index. If the provider throws an error attempting to get the next
+		// provider, then the error is logged and the function signals that the
+		// provider is done.
+		const getNext = async (asyncGen: positron.LanguageRuntimeProvider, index: number) => {
+			try {
+				const result = await asyncGen.next();
+				return ({ index, result });
+			} catch (err) {
+				console.error(`Language runtime provider threw an error during registration: ` +
+					`${err}`);
+				return { index, result: { value: undefined, done: true } };
+			}
+		};
 
 		// Array mapping each provider to a promise for its next runtime
 		const nextPromises = providers.map(getNext);
@@ -188,13 +198,20 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 					// from the list of providers we're waiting on
 					nextPromises[index] = never;
 					count--;
-				} else {
+				} else if (result.value !== undefined) {
 					// Otherwise, move on to the next runtime from the provider
 					// and register the runtime it returned
 					nextPromises[index] = getNext(providers[index], index);
-					this.registerLanguageRuntime(result.value);
+					try {
+						this.registerLanguageRuntime(result.value);
+					} catch (err) {
+						console.error(`Error registering language runtime ` +
+							`${result.value.metadata.runtimeName}: ${err}`);
+					}
 				}
 			}
+		} catch (err) {
+			console.error(`Halting language runtime registration: ${err}`);
 		} finally {
 			// Clean up any remaining promises
 			for (const [index, iterator] of providers.entries()) {
