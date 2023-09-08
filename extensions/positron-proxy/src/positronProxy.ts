@@ -220,9 +220,10 @@ export class PositronProxy implements Disposable {
 					target: targetOrigin,
 					changeOrigin: true,
 					selfHandleResponse: true,
-					onProxyReq: (proxyReq, req, res, options) => {
-						console.log(`Proxy request ${serverOrigin}${req.url} -> ${targetOrigin}${req.url}`);
-					},
+					// Logging for development work.
+					// onProxyReq: (proxyReq, req, res, options) => {
+					// 	console.log(`Proxy request ${serverOrigin}${req.url} -> ${targetOrigin}${req.url}`);
+					// },
 					onProxyRes: responseInterceptor(async (responseBuffer, proxyRes, req, res) => {
 						// Get the URL and the content type. These must be present to call the
 						// content rewriter. Also, the scripts must be loaded.

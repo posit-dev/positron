@@ -197,7 +197,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 				const plotClient = new PlotClientInstance(event.client, metadata);
 				this.registerPlotClient(plotClient, true);
 
-				// Raise the Plots pane so the plot is visible
+				// Raise the Plots pane so the plot is visible.
 				this._viewsService.openView(POSITRON_PLOTS_VIEW_ID, false);
 			}
 		}));
@@ -215,11 +215,12 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 				this._recentExecutions.get(message.parent_id) : '';
 			const imageKey = Object.keys(message.data).find(key => key.startsWith('image/'));
 			if (imageKey) {
+				// Create a new static plot client instance and register it with the service.
 				this.registerStaticPlot(runtime.metadata.runtimeId, message, code);
-			}
 
-			// Raise the Plots pane so the plot is visible
-			this._viewsService.openView(POSITRON_PLOTS_VIEW_ID, false);
+				// Raise the Plots pane so the plot is visible.
+				this._viewsService.openView(POSITRON_PLOTS_VIEW_ID, false);
+			}
 		}));
 	}
 

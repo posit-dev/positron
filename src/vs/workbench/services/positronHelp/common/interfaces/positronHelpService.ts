@@ -45,6 +45,11 @@ export interface IPositronHelpService {
 	readonly onHelpLoaded: Event<HelpEntry>;
 
 	/**
+	 * Gets the current help entry.
+	 */
+	readonly currentHelpEntry?: HelpEntry;
+
+	/**
 	 * Gets a value which indicates whether help can navigate backward.
 	 */
 	readonly canNavigateBackward: boolean;
