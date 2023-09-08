@@ -5,6 +5,7 @@
 .positron-help-container {
 	height: 100%;
 	display: flex;
+	position: relative;
 	flex-direction: column;
 }
 

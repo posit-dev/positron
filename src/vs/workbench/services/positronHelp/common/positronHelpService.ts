@@ -238,6 +238,13 @@ export class PositronHelpService extends Disposable implements IPositronHelpServ
 	readonly onHelpLoaded = this.onHelpLoadedEmitter.event;
 
 	/**
+	 * Gets the current help entry.
+	 */
+	get currentHelpEntry() {
+		return this.helpEntryIndex > -1 ? this.helpEntries[this.helpEntryIndex] : undefined;
+	}
+
+	/**
 	 * Gets a value which indicates whether help can navigate back.
 	 */
 	get canNavigateBackward() {

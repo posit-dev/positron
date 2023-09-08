@@ -242,7 +242,17 @@ export class PositronHelpViewPane extends ViewPane implements IReactComponentCon
 
 		// Register the onDidChangeBodyVisibility event handler.
 		this._register(this.onDidChangeBodyVisibility(visible => {
-			this.onDidChangeVisibility(visible);
+			// If the help overlay webview has been created, claim it and lay it out when this view
+			// is visible; otherwise, release it when this view is not visible.
+			if (this.helpOverlayWebview) {
+				if (visible) {
+					this.claimAndLayoutHelpOverlayWebview();
+				} else {
+					this.helpOverlayWebview.release(this);
+				}
+			}
+
+			// Fire the onVisibilityChanged event.
 			this.onVisibilityChangedEmitter.fire(visible);
 		}));
 	}
@@ -251,10 +261,9 @@ export class PositronHelpViewPane extends ViewPane implements IReactComponentCon
 	 * dispose override method.
 	 */
 	public override dispose(): void {
-		// Destroy the PositronReactRenderer for the ActionBars component.
-		if (this.positronReactRendererHelpActionBars) {
-			this.positronReactRendererHelpActionBars.destroy();
-			this.positronReactRendererHelpActionBars = undefined;
+		// Release the help overlay webview.
+		if (this.helpOverlayWebview) {
+			this.helpOverlayWebview.release(this);
 		}
 
 		// Call the base class's dispose method.
@@ -310,8 +319,11 @@ export class PositronHelpViewPane extends ViewPane implements IReactComponentCon
 			this.postHelpIFrameMessage({ identifier: generateUuid(), command: 'find-next' });
 		};
 
-		// Render the ActionBars component.
+		// Create and register the PositronReactRenderer for the action bars.
 		this.positronReactRendererHelpActionBars = new PositronReactRenderer(this.helpActionBarsContainer);
+		this._register(this.positronReactRendererHelpActionBars);
+
+		// Render the ActionBars component.
 		this.positronReactRendererHelpActionBars.render(
 			<ActionBars
 				commandService={this.commandService}
@@ -329,6 +341,13 @@ export class PositronHelpViewPane extends ViewPane implements IReactComponentCon
 				onCancelFind={() => findHandler('')}
 			/>
 		);
+
+		// Get the current help entry. If there is one, create the help overlay webview and open it.
+		const currentHelpEntry = this.positronHelpService.currentHelpEntry;
+		if (currentHelpEntry) {
+			this.createOverlayWebview();
+			this.openHelpEntry(currentHelpEntry);
+		}
 	}
 
 	/**
@@ -374,7 +393,7 @@ export class PositronHelpViewPane extends ViewPane implements IReactComponentCon
 			return;
 		}
 
-		// Create the help overlay webview.
+		// Create and register the help overlay webview.
 		this.helpOverlayWebview = this.webviewService.createWebviewOverlay({
 			title: 'Positron Help',
 			extension: {
@@ -390,8 +409,9 @@ export class PositronHelpViewPane extends ViewPane implements IReactComponentCon
 				localResourceRoots: [], // TODO: needed for positron-help.js
 			},
 		});
-		this.helpOverlayWebview.claim(this, undefined);
-		this.helpOverlayWebview.layoutWebviewOverElement(this.helpViewContainer);
+		this._register(this.helpOverlayWebview);
+
+		// Add the onMessage event handler to the help overlay webview.
 		this._register(this.helpOverlayWebview.onMessage(async e => {
 			const message = e.message as Message;
 			switch (message.id) {
@@ -425,6 +445,20 @@ export class PositronHelpViewPane extends ViewPane implements IReactComponentCon
 				}
 			}
 		}));
+
+		// Claim and lay out the help overlay webview.
+		this.claimAndLayoutHelpOverlayWebview();
+	}
+
+	/**
+	 * Claims and lays out the help overlay webview.
+	 */
+	private claimAndLayoutHelpOverlayWebview() {
+		// Claim the help overlay webview and lay it out.
+		if (this.helpOverlayWebview) {
+			this.helpOverlayWebview.claim(this, undefined);
+			this.helpOverlayWebview.layoutWebviewOverElement(this.helpViewContainer);
+		}
 	}
 
 	/**
@@ -448,23 +482,6 @@ export class PositronHelpViewPane extends ViewPane implements IReactComponentCon
 			this.lastPositronHelpCommand = positronHelpCommand;
 		} else {
 			this.lastPositronHelpCommand = undefined;
-		}
-	}
-
-	/**
-	 * onDidChangeVisibility event handler.
-	 * @param visible A value which indicates visibility.
-	 */
-	private onDidChangeVisibility(visible: boolean): void {
-		if (!this.helpOverlayWebview) {
-			return;
-		}
-
-		if (visible) {
-			this.helpOverlayWebview.claim(this, undefined);
-			this.helpOverlayWebview.layoutWebviewOverElement(this.helpViewContainer);
-		} else {
-			this.helpOverlayWebview.release(this);
 		}
 	}
 
