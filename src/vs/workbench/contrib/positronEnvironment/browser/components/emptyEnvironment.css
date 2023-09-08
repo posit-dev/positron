@@ -8,7 +8,6 @@
 	position: absolute;
 	box-sizing: border-box;
 	background: var(--vscode-positronEnvironment-background);
-	border-top: 1px solid var(--vscode-positronSideActionBar-border);
 }
 
 .empty-environment .title {
