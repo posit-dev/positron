@@ -4,6 +4,7 @@
 
 import * as vscode from 'vscode';
 import * as positron from 'positron';
+import { delay } from './util';
 
 export async function registerCommands(context: vscode.ExtensionContext) {
 
@@ -41,6 +42,11 @@ export async function registerCommands(context: vscode.ExtensionContext) {
 		vscode.commands.registerCommand('r.packageInstall', async () => {
 			const packageName = await getRPackageName();
 			const runningRuntimes = await positron.runtime.getRunningRuntimes('r');
+			if (!runningRuntimes || !runningRuntimes.length) {
+				vscode.window.showWarningMessage('Cannot install package as there is no R interpreter running.');
+				return;
+			}
+
 			// For now, there will be only one running R runtime:
 			const runtimePath = runningRuntimes[0].runtimePath;
 			const originalTimeStamp = getPackageDescriptionTimestamp(runtimePath, packageName);
@@ -157,19 +163,17 @@ function getPackageDescriptionTimestamp(runtimePath: string, packageName: string
 async function pollForNewTimestamp(runtimePath: string, packageName: string, oldTimestamp: number | null) {
 	const path = require('path');
 	const fs = require('fs');
-	const wait = function (ms = 1000) {
-		return new Promise(resolve => { setTimeout(resolve, ms); });
-	};
+	const timeout = Date.now() + 3e5;
 
 	if (oldTimestamp === null) {
 		const libraryPath = path.join(runtimePath, 'library', packageName, 'DESCRIPTION');
-		while (!fs.existsSync(libraryPath)) {
-			await wait(1000);
+		while (!fs.existsSync(libraryPath) && Date.now() < timeout) {
+			await delay(1000);
 		}
 	} else {
 		let newTimeStamp = getPackageDescriptionTimestamp(runtimePath, packageName);
-		while (newTimeStamp !== null && !(newTimeStamp > oldTimestamp)) {
-			await wait(1000);
+		while (newTimeStamp !== null && !(newTimeStamp > oldTimestamp) && Date.now() < timeout) {
+			await delay(1000);
 			newTimeStamp = getPackageDescriptionTimestamp(runtimePath, packageName);
 		}
 	}
