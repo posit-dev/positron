@@ -85,7 +85,7 @@ export class RuntimeClientAdapter {
 				}
 				case positron.RuntimeClientState.Closing:
 				case positron.RuntimeClientState.Closed: {
-					out.reject(new Error( `Comm ${this._id} closed before connecting`));
+					out.reject(new Error(`Comm ${this._id} closed before connecting`));
 					handler.dispose();
 					break;
 				}
