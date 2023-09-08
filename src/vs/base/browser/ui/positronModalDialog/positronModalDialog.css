@@ -42,7 +42,7 @@
 	display: flex;
 	overflow: hidden;
 	position: absolute;
-	border-radius: 15px 15px 5px 5px;
+	border-radius: 5px;
 	color: var(--vscode-positronModalDialog-foreground);
 	background: var(--vscode-positronModalDialog-background);
 	box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.1), 0 6px 20px 0 rgba(0, 0, 0, 0.1);
