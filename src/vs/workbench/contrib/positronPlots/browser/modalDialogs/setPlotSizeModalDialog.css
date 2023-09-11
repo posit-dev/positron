@@ -1,0 +1,47 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
+ *--------------------------------------------------------------------------------------------*/
+
+table {
+	border-collapse: collapse;
+	border-spacing: 0;
+}
+
+td {
+	padding: 3px;
+}
+
+input[type="number"] {
+	font-size: 12px;
+	width: 50px;
+	padding: 5px;
+}
+
+.plot-size-action-bar {
+	display: flex;
+	position: absolute;
+	justify-content: space-between;
+	bottom: 0;
+	left: 0;
+	right: 0;
+	overflow: hidden;
+	height: 64px;
+	gap: 10px;
+	margin: 0 16px;
+}
+
+.plot-size-action-bar .left,
+.plot-size-action-bar .right {
+	display: flex;
+	gap: 10px;
+	margin-top: 15px;
+}
+
+.positron-modal-dialog-box .top-separator {
+	border-top: 1px solid var(--vscode-positronModalDialog-separator);
+}
+
+.positron-modal-dialog-box .plot-size-action-bar .action-bar-button {
+	width: 80px;
+	height: 32px;
+}
