@@ -14,10 +14,11 @@ import { IConfigurationService } from 'vs/platform/configuration/common/configur
 import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/layoutService';
 import { PositronPlotsServices } from 'vs/workbench/contrib/positronPlots/browser/positronPlotsState';
 import { PositronPlotsContextProvider } from 'vs/workbench/contrib/positronPlots/browser/positronPlotsContext';
-import { IPositronPlotsService } from 'vs/workbench/services/positronPlots/common/positronPlots';
+import { HistoryPolicy, IPositronPlotsService } from 'vs/workbench/services/positronPlots/common/positronPlots';
 import { DisposableStore } from 'vs/base/common/lifecycle';
 import { PlotsContainer } from 'vs/workbench/contrib/positronPlots/browser/components/plotsContainer';
 import { ActionBars } from 'vs/workbench/contrib/positronPlots/browser/components/actionBars';
+import { INotificationService } from 'vs/platform/notification/common/notification';
 
 /**
  * PositronPlotsProps interface.
@@ -32,6 +33,7 @@ export interface PositronPlotsProps extends PositronPlotsServices {
 	readonly layoutService: IWorkbenchLayoutService;
 	readonly reactComponentContainer: IReactComponentContainer;
 	readonly positronPlotsService: IPositronPlotsService;
+	readonly notificationService: INotificationService;
 }
 
 /**
@@ -41,9 +43,35 @@ export interface PositronPlotsProps extends PositronPlotsServices {
  */
 export const PositronPlots = (props: PropsWithChildren<PositronPlotsProps>) => {
 
+	// Compute the history visibility based on the history policy.
+	const computeHistoryVisibility = (policy: HistoryPolicy) => {
+		switch (policy) {
+			case HistoryPolicy.AlwaysVisible:
+				return true;
+			case HistoryPolicy.NeverVisible:
+				return false;
+			case HistoryPolicy.Automatic:
+				// Don't show the history if there aren't at least two plots.
+				if (props.positronPlotsService.positronPlotInstances.length < 2) {
+					return false;
+				}
+
+				// Don't show the history if the container is too small.
+				if (props.reactComponentContainer.width < 300 ||
+					props.reactComponentContainer.height < 300) {
+					return false;
+				}
+
+				// Show the history.
+				return true;
+		}
+	};
+
 	// Hooks.
 	const [width, setWidth] = useState(props.reactComponentContainer.width);
 	const [height, setHeight] = useState(props.reactComponentContainer.height);
+	const [showHistory, setShowHistory] = useState(computeHistoryVisibility(
+		props.positronPlotsService.historyPolicy));
 
 	// Add IReactComponentContainer event handlers.
 	useEffect(() => {
@@ -54,6 +82,24 @@ export const PositronPlots = (props: PropsWithChildren<PositronPlotsProps>) => {
 		disposableStore.add(props.reactComponentContainer.onSizeChanged(size => {
 			setWidth(size.width);
 			setHeight(size.height);
+			setShowHistory(computeHistoryVisibility(props.positronPlotsService.historyPolicy));
+		}));
+
+		// Add event handlers so we can show/hide the history portion of the panel as the set
+		// of plots changes.
+		disposableStore.add(props.positronPlotsService.onDidEmitPlot(() => {
+			setShowHistory(computeHistoryVisibility(props.positronPlotsService.historyPolicy));
+		}));
+		disposableStore.add(props.positronPlotsService.onDidRemovePlot(() => {
+			setShowHistory(computeHistoryVisibility(props.positronPlotsService.historyPolicy));
+		}));
+		disposableStore.add(props.positronPlotsService.onDidReplacePlots(() => {
+			setShowHistory(computeHistoryVisibility(props.positronPlotsService.historyPolicy));
+		}));
+
+		// Add the event handler for history policy changes.
+		disposableStore.add(props.positronPlotsService.onDidChangeHistoryPolicy(policy => {
+			setShowHistory(computeHistoryVisibility(policy));
 		}));
 
 		// Return the cleanup function that will dispose of the event handlers.
@@ -65,6 +111,7 @@ export const PositronPlots = (props: PropsWithChildren<PositronPlotsProps>) => {
 		<PositronPlotsContextProvider {...props}>
 			<ActionBars {...props} />
 			<PlotsContainer
+				showHistory={showHistory}
 				width={width}
 				height={height - 34} />
 		</PositronPlotsContextProvider>

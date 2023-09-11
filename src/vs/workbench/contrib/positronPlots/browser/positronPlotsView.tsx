@@ -22,6 +22,7 @@ import { PositronPlots } from 'vs/workbench/contrib/positronPlots/browser/positr
 import { ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { IReactComponentContainer, ISize, PositronReactRenderer } from 'vs/base/browser/positronReactRenderer';
 import { IPositronPlotsService } from 'vs/workbench/services/positronPlots/common/positronPlots';
+import { INotificationService } from 'vs/platform/notification/common/notification';
 
 /**
  * PositronPlotsViewPane class.
@@ -148,7 +149,8 @@ export class PositronPlotsViewPane extends ViewPane implements IReactComponentCo
 		@ITelemetryService telemetryService: ITelemetryService,
 		@IThemeService themeService: IThemeService,
 		@IViewDescriptorService viewDescriptorService: IViewDescriptorService,
-		@IWorkbenchLayoutService private readonly layoutService: IWorkbenchLayoutService
+		@IWorkbenchLayoutService private readonly layoutService: IWorkbenchLayoutService,
+		@INotificationService private readonly notificationService: INotificationService
 	) {
 		// Call the base class's constructor.
 		super(options, keybindingService, contextMenuService, configurationService, contextKeyService, viewDescriptorService, instantiationService, openerService, themeService, telemetryService);
@@ -201,6 +203,7 @@ export class PositronPlotsViewPane extends ViewPane implements IReactComponentCo
 				languageRuntimeService={this.languageRuntimeService}
 				layoutService={this.layoutService}
 				positronPlotsService={this.positronPlotsService}
+				notificationService={this.notificationService}
 				reactComponentContainer={this} />
 		);
 	}

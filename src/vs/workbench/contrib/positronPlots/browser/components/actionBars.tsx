@@ -17,6 +17,11 @@ import { ActionBarRegion } from 'vs/platform/positronActionBar/browser/component
 import { ActionBarButton } from 'vs/platform/positronActionBar/browser/components/actionBarButton';
 import { PositronActionBarContextProvider } from 'vs/platform/positronActionBar/browser/positronActionBarContext';
 import { usePositronPlotsContext } from 'vs/workbench/contrib/positronPlots/browser/positronPlotsContext';
+import { ActionBarSeparator } from 'vs/platform/positronActionBar/browser/components/actionBarSeparator';
+import { SizingPolicyMenuButton } from 'vs/workbench/contrib/positronPlots/browser/components/sizingPolicyMenuButton';
+import { HistoryPolicyMenuButton } from 'vs/workbench/contrib/positronPlots/browser/components/historyPolicyMenuButton';
+import { PlotClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimePlotClient';
+import { INotificationService } from 'vs/platform/notification/common/notification';
 
 // Constants.
 const kPaddingLeft = 14;
@@ -33,6 +38,7 @@ export interface ActionBarsProps {
 	readonly contextMenuService: IContextMenuService;
 	readonly keybindingService: IKeybindingService;
 	readonly layoutService: IWorkbenchLayoutService;
+	readonly notificationService: INotificationService;
 }
 
 /**
@@ -50,6 +56,12 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 	const disableLeft = noPlots || positronPlotsContext.selectedInstanceIndex <= 0;
 	const disableRight = noPlots || positronPlotsContext.selectedInstanceIndex >=
 		positronPlotsContext.positronPlotInstances.length - 1;
+
+	// Only show the sizing policy controls when Positron is in control of the
+	// sizing (i.e. don't show it on static plots)
+	const enableSizingPolicy = hasPlots &&
+		positronPlotsContext.positronPlotInstances[positronPlotsContext.selectedInstanceIndex]
+		instanceof PlotClientInstance;
 
 	useEffect(() => {
 		// Empty for now.
@@ -84,8 +96,16 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 					<ActionBarRegion location='left'>
 						<ActionBarButton iconId='positron-left-arrow' disabled={disableLeft} tooltip={localize('positronShowPreviousPlot', "Show previous plot")} onClick={showPreviousPlotHandler} />
 						<ActionBarButton iconId='positron-right-arrow' disabled={disableRight} tooltip={localize('positronShowNextPlot', "Show next plot")} onClick={showNextPlotHandler} />
+						{enableSizingPolicy && <ActionBarSeparator />}
+						{enableSizingPolicy && <SizingPolicyMenuButton
+							layoutService={props.layoutService}
+							plotsService={positronPlotsContext.positronPlotsService}
+							notificationService={positronPlotsContext.notificationService} />
+						}
 					</ActionBarRegion>
 					<ActionBarRegion location='right'>
+						<HistoryPolicyMenuButton plotsService={positronPlotsContext.positronPlotsService} />
+						<ActionBarSeparator />
 						<ActionBarButton iconId='positron-clear-pane' align='right' disabled={noPlots} tooltip={localize('positronClearAllPlots', "Clear all plots")} onClick={clearAllPlotsHandler} />
 					</ActionBarRegion>
 				</PositronActionBar>

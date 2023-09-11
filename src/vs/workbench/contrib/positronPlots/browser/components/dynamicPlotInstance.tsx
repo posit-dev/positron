@@ -6,6 +6,7 @@ import * as React from 'react';
 import { useEffect, useState } from 'react'; // eslint-disable-line no-duplicate-imports
 import { ProgressBar } from 'vs/base/browser/ui/progressbar/progressbar';
 import { DisposableStore } from 'vs/base/common/lifecycle';
+import { usePositronPlotsContext } from 'vs/workbench/contrib/positronPlots/browser/positronPlotsContext';
 import { PlotClientInstance, PlotClientState } from 'vs/workbench/services/languageRuntime/common/languageRuntimePlotClient';
 
 /**
@@ -32,6 +33,7 @@ export const DynamicPlotInstance = (props: DynamicPlotInstanceProps) => {
 
 	const [uri, setUri] = useState('');
 	const progressRef = React.useRef<HTMLDivElement>(null);
+	const plotsContext = usePositronPlotsContext();
 
 	useEffect(() => {
 		const ratio = window.devicePixelRatio;
@@ -42,13 +44,27 @@ export const DynamicPlotInstance = (props: DynamicPlotInstanceProps) => {
 			setUri(props.plotClient.lastRender.uri);
 		}
 
-		// Request a plot render at the current size.
-		props.plotClient.render(props.height, props.width, ratio).then((result) => {
+		// Request a plot render at the current size, using the current sizing policy.
+		const plotSize = plotsContext.positronPlotsService.selectedSizingPolicy.getPlotSize({
+			height: props.height,
+			width: props.width
+		});
+		props.plotClient.render(plotSize.height, plotSize.width, ratio).then((result) => {
 			setUri(result.uri);
 		});
 
 		// When the plot is rendered, update the URI.
 		disposables.add(props.plotClient.onDidCompleteRender((result) => {
+			setUri(result.uri);
+		}));
+
+		// Re-render if the sizing policy changes.
+		disposables.add(plotsContext.positronPlotsService.onDidChangeSizingPolicy(async (policy) => {
+			const plotSize = policy.getPlotSize({
+				height: props.height,
+				width: props.width
+			});
+			const result = await props.plotClient.render(plotSize.height, plotSize.width, ratio);
 			setUri(result.uri);
 		}));
 
