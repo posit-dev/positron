@@ -116,9 +116,17 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 				StorageTarget.MACHINE);
 
 			if (this._customSizingPolicy) {
+				// If we have a custom sizing policy, store it in the workspace storage
 				this._storageService.store(
 					CustomPlotSizeStorageKey,
 					JSON.stringify(this._customSizingPolicy.size),
+					StorageScope.WORKSPACE,
+					StorageTarget.MACHINE);
+			} else {
+				// If we don't, clear the custom plot size from storage
+				this._storageService.store(
+					CustomPlotSizeStorageKey,
+					undefined,
 					StorageScope.WORKSPACE,
 					StorageTarget.MACHINE);
 			}
@@ -212,6 +220,11 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		this._onDidChangeSizingPolicy.fire(policy);
 	}
 
+	/**
+	 * Sets a custom plot size and applies it as a custom sizing policy.
+	 *
+	 * @param size The new custom plot size.
+	 */
 	setCustomPlotSize(size: IPlotSize): void {
 		// See if we already have a custom sizing policy; if we do, remove it so
 		// we can add a new one (currently we only support one custom sizing
@@ -226,6 +239,29 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		this._selectedSizingPolicy = policy;
 		this._customSizingPolicy = policy;
 		this._onDidChangeSizingPolicy.fire(policy);
+	}
+
+	/**
+	 * Clears the custom plot size, if one is set. If the custom plot size policy is in used,
+	 * switch to the automatic sizing policy.
+	 */
+	clearCustomPlotSize(): void {
+		// Check to see whether the custom sizing policy is currently in use
+		const currentPolicy = this._customSizingPolicy === this._selectedSizingPolicy;
+
+		if (this._customSizingPolicy) {
+			// If there's a custom sizing policy, remove it from the list of
+			// sizing policies.
+			this._sizingPolicies.splice(this._sizingPolicies.indexOf(this._customSizingPolicy), 1);
+			this._customSizingPolicy = undefined;
+
+			// If the custom sizing policy was in use, switch to the automatic
+			// sizing policy.
+			if (currentPolicy) {
+				this._selectedSizingPolicy = new PlotSizingPolicyAuto();
+				this._onDidChangeSizingPolicy.fire(this._selectedSizingPolicy);
+			}
+		}
 	}
 
 	/**

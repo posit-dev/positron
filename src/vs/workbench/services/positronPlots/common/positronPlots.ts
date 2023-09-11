@@ -138,6 +138,11 @@ export interface IPositronPlotsService {
 	setCustomPlotSize(size: IPlotSize): void;
 
 	/**
+	 * Clears the custom plot size.
+	 */
+	clearCustomPlotSize(): void;
+
+	/**
 	 * Selects a history policy.
 	 */
 	selectHistoryPolicy(policy: HistoryPolicy): void;
