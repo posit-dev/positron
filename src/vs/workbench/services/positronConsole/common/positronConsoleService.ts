@@ -674,15 +674,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 		// Get the runtime state.
 		const runtimeState = this._runtime.getRuntimeState();
 
-		// TODO@softwarenerd - As of Private Alpha (September, 2023), you shouldn't call interrupt
-		// on the R language runtime when it is not busy. If you do, it will enter the interrupting
-		// state and stay in that state until code is executed. Ideally, one should be able to call
-		// interrupt on a runtime at any time and the runtime should wind up back in the idle state.
-		// See: https://github.com/posit-dev/positron/issues/1234
-		// Interrupt the runtime, if it's busy.
-		if (runtimeState === RuntimeState.Busy) {
-			this._runtime.interrupt();
-		}
+		this._runtime.interrupt();
 
 		// Clear pending input and pending code.
 		this.clearPendingInput();
