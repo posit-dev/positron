@@ -20,6 +20,7 @@ import { usePositronPlotsContext } from 'vs/workbench/contrib/positronPlots/brow
 import { ActionBarSeparator } from 'vs/platform/positronActionBar/browser/components/actionBarSeparator';
 import { SizingPolicyMenuButton } from 'vs/workbench/contrib/positronPlots/browser/components/sizingPolicyMenuButton';
 import { HistoryPolicyMenuButton } from 'vs/workbench/contrib/positronPlots/browser/components/historyPolicyMenuButton';
+import { PlotClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimePlotClient';
 
 // Constants.
 const kPaddingLeft = 14;
@@ -54,6 +55,12 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 	const disableRight = noPlots || positronPlotsContext.selectedInstanceIndex >=
 		positronPlotsContext.positronPlotInstances.length - 1;
 
+	// Only show the sizing policy controls when Positron is in control of the
+	// sizing (i.e. don't show it on static plots)
+	const enableSizingPolicy = hasPlots &&
+		positronPlotsContext.positronPlotInstances[positronPlotsContext.selectedInstanceIndex]
+		instanceof PlotClientInstance;
+
 	useEffect(() => {
 		// Empty for now.
 	});
@@ -87,10 +94,11 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 					<ActionBarRegion location='left'>
 						<ActionBarButton iconId='positron-left-arrow' disabled={disableLeft} tooltip={localize('positronShowPreviousPlot', "Show previous plot")} onClick={showPreviousPlotHandler} />
 						<ActionBarButton iconId='positron-right-arrow' disabled={disableRight} tooltip={localize('positronShowNextPlot', "Show next plot")} onClick={showNextPlotHandler} />
-						<ActionBarSeparator />
-						<SizingPolicyMenuButton
+						{enableSizingPolicy && <ActionBarSeparator />}
+						{enableSizingPolicy && <SizingPolicyMenuButton
 							layoutService={props.layoutService}
 							plotsService={positronPlotsContext.positronPlotsService} />
+						}
 					</ActionBarRegion>
 					<ActionBarRegion location='right'>
 						<HistoryPolicyMenuButton plotsService={positronPlotsContext.positronPlotsService} />
