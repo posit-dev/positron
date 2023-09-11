@@ -10,6 +10,7 @@ import { DisposableStore } from 'vs/base/common/lifecycle';
 import { IPositronPlotsService } from 'vs/workbench/services/positronPlots/common/positronPlots';
 import { showSetPlotSizeModalDialog } from 'vs/workbench/contrib/positronPlots/browser/modalDialogs/setPlotSizeModalDialog';
 import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/layoutService';
+import { PlotSizingPolicyCustom } from 'vs/workbench/services/positronPlots/common/sizingPolicyCustom';
 
 interface SizingPolicyMenuButtonProps {
 	readonly plotsService: IPositronPlotsService;
@@ -17,6 +18,8 @@ interface SizingPolicyMenuButtonProps {
 }
 
 const sizingPolicyTooltip = nls.localize('positronSizingPolicyTooltip', "Set how the plot's shape and size are determined");
+const newCustomPolicyTooltip = nls.localize('positronNewCustomSize', "New Custom Size...");
+const changeCustomPolicyTooltip = nls.localize('positronChangeCustomSize', "Change Custom Size...");
 
 /**
  * SizingPolicyMenuButton component.
@@ -41,27 +44,45 @@ export const SizingPolicyMenuButton = (props: SizingPolicyMenuButtonProps) => {
 	const actions = () => {
 		const selectedPolicy = props.plotsService.selectedSizingPolicy;
 
-		// Build the actions for the available console repl instances.
+		// Build the actions for all sizing policies except the custom policy.
 		const actions: IAction[] = [];
 		props.plotsService.sizingPolicies.map(policy => {
+			if (policy.id !== PlotSizingPolicyCustom.ID) {
+				actions.push({
+					id: policy.id,
+					label: policy.name,
+					tooltip: '',
+					class: undefined,
+					enabled: true,
+					checked: policy.id === selectedPolicy.id,
+					run: () => {
+						props.plotsService.selectSizingPolicy(policy.id);
+					}
+				});
+			}
+		});
+
+		// Add a separator and the custom policy, if it exists.
+		actions.push(new Separator());
+		const customPolicy = props.plotsService.sizingPolicies.find(
+			policy => policy.id === PlotSizingPolicyCustom.ID);
+		if (customPolicy) {
 			actions.push({
-				id: policy.id,
-				label: policy.name,
+				id: customPolicy.id,
+				label: customPolicy.name,
 				tooltip: '',
 				class: undefined,
 				enabled: true,
-				checked: policy.id === selectedPolicy.id,
+				checked: customPolicy.id === selectedPolicy.id,
 				run: () => {
-					props.plotsService.selectSizingPolicy(policy.id);
+					props.plotsService.selectSizingPolicy(customPolicy.id);
 				}
 			});
-		});
-
-		actions.push(new Separator());
+		}
 
 		actions.push({
 			id: 'custom',
-			label: nls.localize('positronCustomSize', "New Custom Size..."),
+			label: customPolicy ? changeCustomPolicyTooltip : newCustomPolicyTooltip,
 			tooltip: '',
 			class: undefined,
 			enabled: true,
