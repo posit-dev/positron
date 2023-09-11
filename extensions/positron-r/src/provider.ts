@@ -107,7 +107,7 @@ export async function* rRuntimeProvider(context: vscode.ExtensionContext): Async
 	// or if it's empty and the user is an RStudio user.
 	// In the future, we will use more sophisticated heuristics, such as
 	// checking an renv lockfile for a match against a system version of R.
-	const hasRFiles = async () => hasFiles('**/*.r');
+	const hasRFiles = async () => hasFiles('**/*.R');
 	const isEmpty = async () => !(await hasFiles('**/*'));
 	let recommendedForWorkspace = await hasRFiles() || (await isEmpty() && isRStudioUser());
 
