@@ -17,6 +17,7 @@ const historyPolicyNeverLabel = nls.localize('positron.historyPolicyNeverLabel',
 const historyPolicyAutoLabel = nls.localize('positron.historyPolicyAutoLabel', "Auto");
 const historyPolicyAlwaysLabel = nls.localize('positron.historyPolicyAlwaysLabel', "Always");
 
+const historyPolicyTooltip = nls.localize('positronHistoryPolicyTooltip', "Set whether the plot history filmstrip is visible");
 /**
  * HistoryPolicyMenuButton component.
  * @param props A HistoryPolicyMenuButtonProps that contains the component properties.
@@ -61,6 +62,7 @@ export const HistoryPolicyMenuButton = (props: HistoryPolicyMenuButtonProps) => 
 	return (
 		<ActionBarMenuButton
 			iconId='layout'
+			tooltip={historyPolicyTooltip}
 			actions={actions}
 		/>
 	);

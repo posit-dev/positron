@@ -16,6 +16,8 @@ interface SizingPolicyMenuButtonProps {
 	readonly layoutService: IWorkbenchLayoutService;
 }
 
+const sizingPolicyTooltip = nls.localize('positronSizingPolicyTooltip', "Set how the plot's shape and size are determined");
+
 /**
  * SizingPolicyMenuButton component.
  * @param props A SizingPolicyMenuButtonProps that contains the component properties.
@@ -79,6 +81,7 @@ export const SizingPolicyMenuButton = (props: SizingPolicyMenuButtonProps) => {
 		<ActionBarMenuButton
 			iconId='symbol-ruler'
 			text={activePolicyLabel}
+			tooltip={sizingPolicyTooltip}
 			actions={actions}
 		/>
 	);
