@@ -59,7 +59,6 @@ export async function registerCommands(context: vscode.ExtensionContext, runtime
 				runtime.onDidChangeRuntimeState(async runtimeState => {
 					if (runtimeState === positron.RuntimeState.Starting) {
 						await delay(500);
-						//positron.runtime.executeCode('r', `library(${packageName})`, true);
 						runtime.execute(`library(${packageName})`,
 							randomUUID(),
 							positron.RuntimeCodeExecutionMode.Interactive,
