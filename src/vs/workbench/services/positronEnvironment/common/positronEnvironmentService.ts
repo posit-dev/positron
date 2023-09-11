@@ -83,23 +83,7 @@ class PositronEnvironmentService extends Disposable implements IPositronEnvironm
 		// Register the onWillStartRuntime event handler so we start a new Positron environment
 		// instance before a runtime starts up.
 		this._register(this._languageRuntimeService.onWillStartRuntime(runtime => {
-			const positronEnvironmentInstance = this._positronEnvironmentInstancesByLanguageId.get(
-				runtime.metadata.languageId
-			);
-			if (positronEnvironmentInstance &&
-				positronEnvironmentInstance.state === PositronEnvironmentInstanceState.Exited
-			) {
-				positronEnvironmentInstance.setRuntime(runtime);
-				this._positronEnvironmentInstancesByRuntimeId.delete(
-					positronEnvironmentInstance.runtime.metadata.runtimeId
-				);
-				this._positronEnvironmentInstancesByRuntimeId.set(
-					positronEnvironmentInstance.runtime.metadata.runtimeId,
-					positronEnvironmentInstance
-				);
-			} else {
-				this.startPositronEnvironmentInstance(runtime);
-			}
+			this.createOrAssignEnvironmentInstance(runtime);
 		}));
 
 		// Register the onDidStartRuntime event handler so we activate the new Positron environment
@@ -127,7 +111,7 @@ class PositronEnvironmentService extends Disposable implements IPositronEnvironm
 		// Register the onDidReconnectRuntime event handler so we start a new Positron environment
 		// instance when a runtime is reconnected.
 		this._register(this._languageRuntimeService.onDidReconnectRuntime(runtime => {
-			this.startPositronEnvironmentInstance(runtime);
+			this.createOrAssignEnvironmentInstance(runtime);
 		}));
 
 		// Register the onDidChangeRuntimeState event handler so we can activate the REPL for the
@@ -234,6 +218,53 @@ class PositronEnvironmentService extends Disposable implements IPositronEnvironm
 	//#endregion IPositronEnvironmentService Implementation
 
 	//#region Private Methods
+
+	/**
+	 * Ensures that the given runtime has a corresponding Positron environment
+	 * instance, either by attaching it to an existing Positron environment
+	 * instance or by creating a new one. Has no effect if there's already a
+	 * live Positron environment instance for the runtime.
+	 *
+	 * @param runtime The runtime to create or assign a Positron environment
+	 * instance for.
+	 */
+	private createOrAssignEnvironmentInstance(runtime: ILanguageRuntime) {
+		// Look for a matching Positron environment instance for this language.
+		const positronEnvironmentInstance = this._positronEnvironmentInstancesByLanguageId.get(
+			runtime.metadata.languageId
+		);
+
+		if (positronEnvironmentInstance) {
+
+			const state = positronEnvironmentInstance.state;
+			if (state !== PositronEnvironmentInstanceState.Uninitialized &&
+				state !== PositronEnvironmentInstanceState.Exited &&
+				positronEnvironmentInstance.runtime.metadata.runtimeId ===
+				runtime.metadata.runtimeId) {
+				// We already have a live Positron environment instance for this runtime, so
+				// just return.
+				return;
+			}
+
+			if (state === PositronEnvironmentInstanceState.Exited) {
+				// The Positron environment instance has exited, so attach it to
+				// this new runtime.
+				positronEnvironmentInstance.setRuntime(runtime);
+				this._positronEnvironmentInstancesByRuntimeId.delete(
+					positronEnvironmentInstance.runtime.metadata.runtimeId
+				);
+				this._positronEnvironmentInstancesByRuntimeId.set(
+					positronEnvironmentInstance.runtime.metadata.runtimeId,
+					positronEnvironmentInstance
+				);
+
+				return;
+			}
+		}
+
+		// If we got here, we need to start a new Positron environment instance.
+		this.startPositronEnvironmentInstance(runtime);
+	}
 
 	/**
 	 * Starts a Positron environment instance for the specified runtime.
