@@ -6,9 +6,10 @@ import 'vs/css!./setPlotSizeModalDialog';
 import * as React from 'react';
 import { localize } from 'vs/nls';
 import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/layoutService';
-import { OKCancelModalDialog } from 'vs/base/browser/ui/positronModalDialog/positronOKCancelModalDialog';
 import { PositronModalDialogReactRenderer } from 'vs/base/browser/ui/positronModalDialog/positronModalDialogReactRenderer';
 import { IPlotSize } from 'vs/workbench/services/positronPlots/common/sizingPolicy';
+import { PositronModalDialog } from 'vs/base/browser/ui/positronModalDialog/positronModalDialog';
+import { ContentArea } from 'vs/base/browser/ui/positronModalDialog/components/contentArea';
 
 /**
  * SetPlotSizeResult interface.
@@ -24,11 +25,12 @@ export interface SetPlotSizeResult {
  * @returns A promise that resolves when the dialog is dismissed.
  */
 export const showSetPlotSizeModalDialog = async (
+	customSize: IPlotSize | undefined,
 	layoutService: IWorkbenchLayoutService
-): Promise<SetPlotSizeResult | undefined> => {
+): Promise<SetPlotSizeResult | null | undefined> => {
 
 	// Return a promise that resolves when the dialog is done.
-	return new Promise<SetPlotSizeResult | undefined>((resolve) => {
+	return new Promise<SetPlotSizeResult | null | undefined>((resolve) => {
 		// Create the modal dialog React renderer.
 		const positronModalDialogReactRenderer = new PositronModalDialogReactRenderer(
 			layoutService.container
@@ -56,6 +58,12 @@ export const showSetPlotSizeModalDialog = async (
 				resolve(result);
 			};
 
+			// The delete handler.
+			const deleteHandler = () => {
+				positronModalDialogReactRenderer.destroy();
+				resolve(null);
+			};
+
 			// The cancel handler.
 			const cancelHandler = () => {
 				positronModalDialogReactRenderer.destroy();
@@ -64,42 +72,59 @@ export const showSetPlotSizeModalDialog = async (
 
 			// Render.
 			return (
-				<OKCancelModalDialog
-					width={250}
+				<PositronModalDialog
+					width={350}
 					height={200}
-					title={localize('positronSetPlotSizeModalDialogTitle', "Create Custom Plot Size")}
-					okButtonTitle={localize('positronOk', "OK")}
-					cancelButtonTitle={localize('positronCancel', "Cancel")}
-					accept={acceptHandler} cancel={cancelHandler}>
+					title={localize('positronSetPlotSizeModalDialogTitle', "Custom Plot Size")}
+					accept={acceptHandler}
+					cancel={cancelHandler}>
+					<ContentArea>
 
-					<table>
-						<tr>
-							<td>
-								<label htmlFor='width'>
-									{localize('positronPlotWidth', "Width")}
-								</label>
-							</td>
-							<td>
-								<input id='width' type='number' placeholder='100'
-									ref={widthRef} />
-							</td>
-							<td>{localize('positronPlotPixelsAbbrev', "px")}</td>
-						</tr>
-						<tr>
-							<td>
-								<label htmlFor='height'>
-									{localize('positronPlotHeight', "Height")}
-								</label>
-							</td>
-							<td>
-								<input id='height' type='number' placeholder='100'
-									ref={heightRef} />
-							</td>
-							<td>{localize('positronPlotPixelsAbbrev', "px")}</td>
-						</tr>
-					</table>
+						<table>
+							<tr>
+								<td>
+									<label htmlFor='width'>
+										{localize('positronPlotWidth', "Width")}
+									</label>
+								</td>
+								<td>
+									<input id='width' type='number' placeholder='100'
+										ref={widthRef} defaultValue={customSize ? customSize.width : ''} />
+								</td>
+								<td>{localize('positronPlotPixelsAbbrev', "px")}</td>
+							</tr>
+							<tr>
+								<td>
+									<label htmlFor='height'>
+										{localize('positronPlotHeight', "Height")}
+									</label>
+								</td>
+								<td>
+									<input id='height' type='number' placeholder='100'
+										ref={heightRef} defaultValue={customSize ? customSize.height : ''} />
+								</td>
+								<td>{localize('positronPlotPixelsAbbrev', "px")}</td>
+							</tr>
+						</table>
+					</ContentArea>
 
-				</OKCancelModalDialog>
+					<div className='plot-size-action-bar top-separator'>
+						<div className='left'>
+							<button className='button action-bar-button' tabIndex={0} onClick={deleteHandler}>
+								{localize('positronDeletePlotSize', "Delete")}
+							</button>
+						</div>
+						<div className='right'>
+							<button className='button action-bar-button default' tabIndex={0} onClick={acceptHandler}>
+								{localize('positronOK', "OK")}
+							</button>
+							<button className='button action-bar-button' tabIndex={0} onClick={cancelHandler}>
+								{localize('positronCancel', "Cancel")}
+							</button>
+						</div>
+					</div>
+
+				</PositronModalDialog>
 			);
 		};
 

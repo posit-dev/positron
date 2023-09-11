@@ -65,7 +65,7 @@ export const SizingPolicyMenuButton = (props: SizingPolicyMenuButtonProps) => {
 		// Add a separator and the custom policy, if it exists.
 		actions.push(new Separator());
 		const customPolicy = props.plotsService.sizingPolicies.find(
-			policy => policy.id === PlotSizingPolicyCustom.ID);
+			policy => policy.id === PlotSizingPolicyCustom.ID) as PlotSizingPolicyCustom;
 		if (customPolicy) {
 			actions.push({
 				id: customPolicy.id,
@@ -87,7 +87,8 @@ export const SizingPolicyMenuButton = (props: SizingPolicyMenuButtonProps) => {
 			class: undefined,
 			enabled: true,
 			run: async () => {
-				const result = await showSetPlotSizeModalDialog(props.layoutService);
+				const result = await showSetPlotSizeModalDialog(customPolicy ?
+					customPolicy.size : undefined, props.layoutService);
 				if (result) {
 					props.plotsService.setCustomPlotSize(result.size);
 				}
