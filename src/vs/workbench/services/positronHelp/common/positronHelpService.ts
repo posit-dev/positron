@@ -48,11 +48,6 @@ export class PositronHelpService extends Disposable implements IPositronHelpServ
 	private helpEntryIndex = -1;
 
 	/**
-	 * The render help timeout. Used to "debounce" help rendering.
-	 */
-	private renderHelpTimeout?: NodeJS.Timeout;
-
-	/**
 	 * The proxy servers. Keyed by the target URL origin.
 	 */
 	private proxyServers = new Map<string, string>();
@@ -286,6 +281,9 @@ export class PositronHelpService extends Disposable implements IPositronHelpServ
 
 				// Raise the onHelpLoaded event.
 				this.onHelpLoadedEmitter.fire(helpEntry);
+
+				// Finish the operation.
+				return;
 			}
 		}
 	}
@@ -321,8 +319,8 @@ export class PositronHelpService extends Disposable implements IPositronHelpServ
 	navigateBackward() {
 		// Navigate backward, if we can.
 		if (this.helpEntryIndex > 0) {
-			this.helpEntryIndex--;
-			this.renderHelp();
+			// Raise the onRenderHelp event to render the previous entry.
+			this.onRenderHelpEmitter.fire(this.helpEntries[--this.helpEntryIndex]);
 		}
 	}
 
@@ -332,8 +330,8 @@ export class PositronHelpService extends Disposable implements IPositronHelpServ
 	navigateForward() {
 		// Navigate forward, if we can.
 		if (this.helpEntryIndex < this.helpEntries.length - 1) {
-			this.helpEntryIndex++;
-			this.renderHelp();
+			// Raise the onRenderHelp event to render the next entry.
+			this.onRenderHelpEmitter.fire(this.helpEntries[++this.helpEntryIndex]);
 		}
 	}
 
@@ -350,31 +348,8 @@ export class PositronHelpService extends Disposable implements IPositronHelpServ
 		this.helpEntries.push(helpEntry);
 		this.helpEntryIndex = this.helpEntries.length - 1;
 
-		// Render help.
-		this.renderHelp();
-	}
-
-	/**
-	 * Renders help.
-	 */
-	private renderHelp() {
-		// Clear the render help timeout.
-		if (this.renderHelpTimeout) {
-			clearTimeout(this.renderHelpTimeout);
-			this.renderHelpTimeout = undefined;
-		}
-
-		// Start the render help timeout.
-		this.renderHelpTimeout = setTimeout(() => {
-			// Clear the timeout.
-			this.renderHelpTimeout = undefined;
-
-			// Get the help entry to render.
-			const helpEntry = this.helpEntries[this.helpEntryIndex];
-
-			// Raise the onRenderHelp event to render the most recent help entry.
-			this.onRenderHelpEmitter.fire(helpEntry);
-		}, 500);
+		// Raise the onRenderHelp event to render the newly added entry.
+		this.onRenderHelpEmitter.fire(this.helpEntries[this.helpEntryIndex]);
 	}
 
 	//#endregion Private Methods
