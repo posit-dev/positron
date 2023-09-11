@@ -55,7 +55,7 @@ export async function registerCommands(context: vscode.ExtensionContext, runtime
 					randomUUID(),
 					positron.RuntimeCodeExecutionMode.Interactive,
 					positron.RuntimeErrorBehavior.Continue);
-				await positron.runtime.restartLanguageRuntime(runtime.metadata.runtimeId);
+				positron.runtime.restartLanguageRuntime(runtime.metadata.runtimeId);
 				runtime.onDidChangeRuntimeState(async runtimeState => {
 					if (runtimeState === positron.RuntimeState.Starting) {
 						await delay(500);
