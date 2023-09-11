@@ -21,6 +21,7 @@ import { ActionBarSeparator } from 'vs/platform/positronActionBar/browser/compon
 import { SizingPolicyMenuButton } from 'vs/workbench/contrib/positronPlots/browser/components/sizingPolicyMenuButton';
 import { HistoryPolicyMenuButton } from 'vs/workbench/contrib/positronPlots/browser/components/historyPolicyMenuButton';
 import { PlotClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimePlotClient';
+import { INotificationService } from 'vs/platform/notification/common/notification';
 
 // Constants.
 const kPaddingLeft = 14;
@@ -37,6 +38,7 @@ export interface ActionBarsProps {
 	readonly contextMenuService: IContextMenuService;
 	readonly keybindingService: IKeybindingService;
 	readonly layoutService: IWorkbenchLayoutService;
+	readonly notificationService: INotificationService;
 }
 
 /**
@@ -97,7 +99,8 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 						{enableSizingPolicy && <ActionBarSeparator />}
 						{enableSizingPolicy && <SizingPolicyMenuButton
 							layoutService={props.layoutService}
-							plotsService={positronPlotsContext.positronPlotsService} />
+							plotsService={positronPlotsContext.positronPlotsService}
+							notificationService={positronPlotsContext.notificationService} />
 						}
 					</ActionBarRegion>
 					<ActionBarRegion location='right'>

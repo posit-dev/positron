@@ -22,7 +22,9 @@ export interface SetPlotSizeResult {
  * Shows a dialog that allows the user to set a custom plot size.
  *
  * @param layoutService The layout service.
- * @returns A promise that resolves when the dialog is dismissed.
+ * @returns A promise that resolves when the dialog is dismissed. The promise resolves to
+ *   a SetPlotSizeResult if the user accepted the dialog, `null` if the user deleted the custom
+ *   size, or `undefined` if the user cancelled the dialog.
  */
 export const showSetPlotSizeModalDialog = async (
 	customSize: IPlotSize | undefined,

@@ -4,6 +4,7 @@
 
 import { useEffect, useState } from 'react';
 import { DisposableStore } from 'vs/base/common/lifecycle';
+import { INotificationService } from 'vs/platform/notification/common/notification';
 import { PlotClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimePlotClient';
 import { ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { IPositronPlotsService, PositronPlotClient } from 'vs/workbench/services/positronPlots/common/positronPlots';
@@ -14,6 +15,7 @@ import { IPositronPlotsService, PositronPlotClient } from 'vs/workbench/services
 export interface PositronPlotsServices {
 	readonly languageRuntimeService: ILanguageRuntimeService;
 	readonly positronPlotsService: IPositronPlotsService;
+	readonly notificationService: INotificationService;
 }
 
 /**

@@ -11,10 +11,12 @@ import { IPositronPlotsService } from 'vs/workbench/services/positronPlots/commo
 import { showSetPlotSizeModalDialog } from 'vs/workbench/contrib/positronPlots/browser/modalDialogs/setPlotSizeModalDialog';
 import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/layoutService';
 import { PlotSizingPolicyCustom } from 'vs/workbench/services/positronPlots/common/sizingPolicyCustom';
+import { INotificationService } from 'vs/platform/notification/common/notification';
 
 interface SizingPolicyMenuButtonProps {
 	readonly plotsService: IPositronPlotsService;
 	readonly layoutService: IWorkbenchLayoutService;
+	readonly notificationService: INotificationService;
 }
 
 const sizingPolicyTooltip = nls.localize('positronSizingPolicyTooltip', "Set how the plot's shape and size are determined");
@@ -90,9 +92,18 @@ export const SizingPolicyMenuButton = (props: SizingPolicyMenuButtonProps) => {
 				const result = await showSetPlotSizeModalDialog(customPolicy ?
 					customPolicy.size : undefined, props.layoutService);
 				if (result === null) {
+					// The user clicked the delete button; this results in a special `null` value
+					// that signals that the custom policy should be deleted.
 					props.plotsService.clearCustomPlotSize();
 				} else if (result) {
-					props.plotsService.setCustomPlotSize(result.size);
+					if (result.size.width < 100 || result.size.height < 100) {
+						// The user entered a size that's too small. Plots drawn at this size
+						// would be too small to be useful, so we show an error message.
+						props.notificationService.error(nls.localize('positronPlotSizeTooSmall', "The custom plot size {0}×{1} is invalid. The size must be at least 100×100.", result.size.width, result.size.height));
+					} else {
+						// The user entered a valid size; set the custom policy.
+						props.plotsService.setCustomPlotSize(result.size);
+					}
 				}
 			}
 		});

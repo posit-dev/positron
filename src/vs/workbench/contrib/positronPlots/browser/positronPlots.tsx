@@ -18,6 +18,7 @@ import { HistoryPolicy, IPositronPlotsService } from 'vs/workbench/services/posi
 import { DisposableStore } from 'vs/base/common/lifecycle';
 import { PlotsContainer } from 'vs/workbench/contrib/positronPlots/browser/components/plotsContainer';
 import { ActionBars } from 'vs/workbench/contrib/positronPlots/browser/components/actionBars';
+import { INotificationService } from 'vs/platform/notification/common/notification';
 
 /**
  * PositronPlotsProps interface.
@@ -32,6 +33,7 @@ export interface PositronPlotsProps extends PositronPlotsServices {
 	readonly layoutService: IWorkbenchLayoutService;
 	readonly reactComponentContainer: IReactComponentContainer;
 	readonly positronPlotsService: IPositronPlotsService;
+	readonly notificationService: INotificationService;
 }
 
 /**
