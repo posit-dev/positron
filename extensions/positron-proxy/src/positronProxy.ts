@@ -156,10 +156,10 @@ export class PositronProxy implements Disposable {
 
 				// Inject styles and scripts.
 				let response = responseBuffer.toString('utf8');
-				response = response.replace(
-					'<body>',
-					`<body><div class="url-information">Help URL is: ${url}</div>`
-				);
+				// response = response.replace(
+				// 	'<body>',
+				// 	`<body><div class="url-information">Help URL is: ${url}</div>`
+				// );
 				response = response.replace(
 					'</head>',
 					`${this.helpHeaderStyle}${this.helpHeaderScript}</head>`
