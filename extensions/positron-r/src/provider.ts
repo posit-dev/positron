@@ -103,10 +103,13 @@ export async function* rRuntimeProvider(context: vscode.ExtensionContext): Async
 		return semver.compare(b.semVersion, a.semVersion) || a.arch.localeCompare(b.arch);
 	});
 
-	// For now, we recommend R for the workspace if the user is an RStudio user.
+	// For now, we recommend R for the workspace if the workspace contains R files,
+	// or if it's empty and the user is an RStudio user.
 	// In the future, we will use more sophisticated heuristics, such as
 	// checking an renv lockfile for a match against a system version of R.
-	let recommendedForWorkspace = isRStudioUser();
+	const hasRFiles = async () => hasFiles('**/*.r');
+	const isEmpty = async () => !(await hasFiles('**/*'));
+	let recommendedForWorkspace = await hasRFiles() || (await isEmpty() && isRStudioUser());
 
 	// Loop over the R installations and create a language runtime for each one.
 	//
@@ -293,6 +296,12 @@ function binFragment(version: string): string {
 			// TODO: handle Windows
 			throw new Error('Unsupported platform');
 	}
+}
+
+// Check if the current workspace contains files matching a glob pattern
+async function hasFiles(glob: string): Promise<boolean> {
+	// Exclude node_modules for performance reasons
+	return (await vscode.workspace.findFiles(glob, '**/node_modules/**', 1)).length > 0;
 }
 
 /**
