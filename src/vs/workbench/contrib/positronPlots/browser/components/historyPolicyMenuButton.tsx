@@ -63,6 +63,7 @@ export const HistoryPolicyMenuButton = (props: HistoryPolicyMenuButtonProps) => 
 		<ActionBarMenuButton
 			iconId='layout'
 			tooltip={historyPolicyTooltip}
+			align='right'
 			actions={actions}
 		/>
 	);
