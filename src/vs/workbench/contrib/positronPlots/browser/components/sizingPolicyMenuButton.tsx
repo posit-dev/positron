@@ -65,12 +65,11 @@ export const SizingPolicyMenuButton = (props: SizingPolicyMenuButtonProps) => {
 			tooltip: '',
 			class: undefined,
 			enabled: true,
-			run: () => {
-				showSetPlotSizeModalDialog(props.layoutService).then(result => {
-					if (result) {
-						props.plotsService.setCustomPlotSize(result.size);
-					}
-				});
+			run: async () => {
+				const result = await showSetPlotSizeModalDialog(props.layoutService);
+				if (result) {
+					props.plotsService.setCustomPlotSize(result.size);
+				}
 			}
 		});
 

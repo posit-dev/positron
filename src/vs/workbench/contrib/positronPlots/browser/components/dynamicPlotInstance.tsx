@@ -59,14 +59,13 @@ export const DynamicPlotInstance = (props: DynamicPlotInstanceProps) => {
 		}));
 
 		// Re-render if the sizing policy changes.
-		disposables.add(plotsContext.positronPlotsService.onDidChangeSizingPolicy((policy) => {
+		disposables.add(plotsContext.positronPlotsService.onDidChangeSizingPolicy(async (policy) => {
 			const plotSize = policy.getPlotSize({
 				height: props.height,
 				width: props.width
 			});
-			props.plotClient.render(plotSize.height, plotSize.width, ratio).then((result) => {
-				setUri(result.uri);
-			});
+			const result = await props.plotClient.render(plotSize.height, plotSize.width, ratio);
+			setUri(result.uri);
 		}));
 
 		let progressBar: ProgressBar | undefined;
