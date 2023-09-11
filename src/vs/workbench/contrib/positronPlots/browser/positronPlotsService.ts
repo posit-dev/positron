@@ -1,18 +1,34 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
 import { Disposable } from 'vs/base/common/lifecycle';
 import { IPositronPlotMetadata, PlotClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimePlotClient';
 import { ILanguageRuntime, ILanguageRuntimeMessageOutput, ILanguageRuntimeService, RuntimeClientType } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
-import { IPositronPlotsService, POSITRON_PLOTS_VIEW_ID, PositronPlotClient } from 'vs/workbench/services/positronPlots/common/positronPlots';
+import { HistoryPolicy, IPositronPlotsService, POSITRON_PLOTS_VIEW_ID, PositronPlotClient } from 'vs/workbench/services/positronPlots/common/positronPlots';
 import { Emitter, Event } from 'vs/base/common/event';
 import { StaticPlotClient } from 'vs/workbench/services/positronPlots/common/staticPlotClient';
 import { IStorageService, StorageTarget, StorageScope } from 'vs/platform/storage/common/storage';
 import { IViewsService } from 'vs/workbench/common/views';
+import { IPlotSize, IPositronPlotSizingPolicy } from 'vs/workbench/services/positronPlots/common/sizingPolicy';
+import { PlotSizingPolicyAuto } from 'vs/workbench/services/positronPlots/common/sizingPolicyAuto';
+import { PlotSizingPolicySquare } from 'vs/workbench/services/positronPlots/common/sizingPolicySquare';
+import { PlotSizingPolicyFill } from 'vs/workbench/services/positronPlots/common/sizingPolicyFill';
+import { PlotSizingPolicyLandscape } from 'vs/workbench/services/positronPlots/common/sizingPolicyLandscape';
+import { PlotSizingPolicyPortrait } from 'vs/workbench/services/positronPlots/common/sizingPolicyPortrait';
+import { PlotSizingPolicyCustom } from 'vs/workbench/services/positronPlots/common/sizingPolicyCustom';
 
 /** The maximum number of recent executions to store. */
 const MaxRecentExecutions = 10;
+
+/** The key used to store the preferred history policy */
+const HistoryPolicyStorageKey = 'positron.plots.historyPolicy';
+
+/** The key used to store the preferred plot sizing policy */
+const SizingPolicyStorageKey = 'positron.plots.sizingPolicy';
+
+/** The key used to store the custom plot size */
+const CustomPlotSizeStorageKey = 'positron.plots.customPlotSize';
 
 /**
  * PositronPlotsService class.
@@ -23,6 +39,15 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 
 	/** The list of Positron plots. */
 	private readonly _plots: PositronPlotClient[] = [];
+
+	/** The list of sizing policies. */
+	private readonly _sizingPolicies: IPositronPlotSizingPolicy[] = [];
+
+	/** The emitter for the onDidChangeSizingPolicy event */
+	private readonly _onDidChangeSizingPolicy = new Emitter<IPositronPlotSizingPolicy>();
+
+	/** The emitter for the onDidChangeHistoryPolicy event */
+	private readonly _onDidChangeHistoryPolicy = new Emitter<HistoryPolicy>();
 
 	/** The emitter for the onDidReplacePlots event */
 	private readonly _onDidReplacePlots = new Emitter<PositronPlotClient[]>();
@@ -38,6 +63,15 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 
 	/** The ID Of the currently selected plot, if any */
 	private _selectedPlotId: string | undefined;
+
+	/** The currently selected sizing policy. */
+	private _selectedSizingPolicy: IPositronPlotSizingPolicy;
+
+	/** A custom sizing policy, if we have one. */
+	private _customSizingPolicy?: PlotSizingPolicyCustom;
+
+	/** The currently selected history policy. */
+	private _selectedHistoryPolicy: HistoryPolicy = HistoryPolicy.Automatic;
 
 	/**
 	 * A map of recently executed code; the map is from the parent ID to the
@@ -64,6 +98,184 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		this._register(this._onDidSelectPlot.event((id) => {
 			this._selectedPlotId = id;
 		}));
+
+		// When the storage service is about to save state, store the current history policy
+		// and storage policy in the workspace storage.
+		this._storageService.onWillSaveState(() => {
+
+			this._storageService.store(
+				HistoryPolicyStorageKey,
+				this._selectedHistoryPolicy,
+				StorageScope.WORKSPACE,
+				StorageTarget.MACHINE);
+
+			this._storageService.store(
+				SizingPolicyStorageKey,
+				this._selectedSizingPolicy.id,
+				StorageScope.WORKSPACE,
+				StorageTarget.MACHINE);
+
+			if (this._customSizingPolicy) {
+				// If we have a custom sizing policy, store it in the workspace storage
+				this._storageService.store(
+					CustomPlotSizeStorageKey,
+					JSON.stringify(this._customSizingPolicy.size),
+					StorageScope.WORKSPACE,
+					StorageTarget.MACHINE);
+			} else {
+				// If we don't, clear the custom plot size from storage
+				this._storageService.store(
+					CustomPlotSizeStorageKey,
+					undefined,
+					StorageScope.WORKSPACE,
+					StorageTarget.MACHINE);
+			}
+		});
+
+		// Create the default sizing policy
+		this._selectedSizingPolicy = new PlotSizingPolicyAuto();
+		this._sizingPolicies.push(this._selectedSizingPolicy);
+
+		// Add some other nifty sizing policies
+		this._sizingPolicies.push(new PlotSizingPolicySquare());
+		this._sizingPolicies.push(new PlotSizingPolicyLandscape());
+		this._sizingPolicies.push(new PlotSizingPolicyPortrait());
+		this._sizingPolicies.push(new PlotSizingPolicyFill());
+
+		// See if there's a custom size policy in storage, and retrieve it if so
+		const customSizingPolicy = this._storageService.get(
+			CustomPlotSizeStorageKey,
+			StorageScope.WORKSPACE);
+		if (customSizingPolicy) {
+			try {
+				// Parse the custom size policy and create a new custom sizing policy
+				const size = JSON.parse(customSizingPolicy) as IPlotSize;
+				this._customSizingPolicy = new PlotSizingPolicyCustom(size);
+				this._sizingPolicies.push(this._customSizingPolicy);
+			} catch (error) {
+				console.warn(`Error parsing custom plot size: ${error}`);
+			}
+		}
+
+		// See if there's a preferred sizing policy in storage, and select it if so
+		const preferredSizingPolicyId = this._storageService.get(
+			SizingPolicyStorageKey,
+			StorageScope.WORKSPACE);
+		if (preferredSizingPolicyId) {
+			const policy = this._sizingPolicies.find(
+				policy => policy.id === preferredSizingPolicyId);
+			if (policy) {
+				this._selectedSizingPolicy = policy;
+			}
+		}
+
+		// See if there's a preferred history policy in storage, and select it if so
+		const preferredHistoryPolicy = this._storageService.get(
+			HistoryPolicyStorageKey,
+			StorageScope.WORKSPACE);
+		if (preferredHistoryPolicy && preferredHistoryPolicy) {
+			this._selectedHistoryPolicy = preferredHistoryPolicy as HistoryPolicy;
+		}
+	}
+
+	/**
+	 * Gets the currently known sizing policies.
+	 */
+	get sizingPolicies() {
+		return this._sizingPolicies;
+	}
+
+	/**
+	 * Gets the currently selected sizing policy.
+	 */
+	get selectedSizingPolicy() {
+		return this._selectedSizingPolicy;
+	}
+
+	/**
+	 * Gets the current history policy.
+	 */
+	get historyPolicy() {
+		return this._selectedHistoryPolicy;
+	}
+
+	/**
+	 * Selects a new sizing policy and fires an event indicating that the policy
+	 * has changed.
+	 *
+	 * @param id The sizing policy ID to select.
+	 */
+	selectSizingPolicy(id: string): void {
+		// Is this the currently selected policy?
+		if (this.selectedSizingPolicy.id === id) {
+			return;
+		}
+
+		// Find the policy with the given ID
+		const policy = this._sizingPolicies.find(policy => policy.id === id);
+		if (!policy) {
+			throw new Error(`Invalid sizing policy ID: ${id}`);
+		}
+		this._selectedSizingPolicy = policy;
+		this._onDidChangeSizingPolicy.fire(policy);
+	}
+
+	/**
+	 * Sets a custom plot size and applies it as a custom sizing policy.
+	 *
+	 * @param size The new custom plot size.
+	 */
+	setCustomPlotSize(size: IPlotSize): void {
+		// See if we already have a custom sizing policy; if we do, remove it so
+		// we can add a new one (currently we only support one custom sizing
+		// policy at a time)
+		if (this._customSizingPolicy) {
+			this._sizingPolicies.splice(this._sizingPolicies.indexOf(this._customSizingPolicy), 1);
+		}
+
+		// Create and apply the new custom sizing policy
+		const policy = new PlotSizingPolicyCustom(size);
+		this._sizingPolicies.push(policy);
+		this._selectedSizingPolicy = policy;
+		this._customSizingPolicy = policy;
+		this._onDidChangeSizingPolicy.fire(policy);
+	}
+
+	/**
+	 * Clears the custom plot size, if one is set. If the custom plot size policy is in used,
+	 * switch to the automatic sizing policy.
+	 */
+	clearCustomPlotSize(): void {
+		// Check to see whether the custom sizing policy is currently in use
+		const currentPolicy = this._customSizingPolicy === this._selectedSizingPolicy;
+
+		if (this._customSizingPolicy) {
+			// If there's a custom sizing policy, remove it from the list of
+			// sizing policies.
+			this._sizingPolicies.splice(this._sizingPolicies.indexOf(this._customSizingPolicy), 1);
+			this._customSizingPolicy = undefined;
+
+			// If the custom sizing policy was in use, switch to the automatic
+			// sizing policy.
+			if (currentPolicy) {
+				this._selectedSizingPolicy = new PlotSizingPolicyAuto();
+				this._onDidChangeSizingPolicy.fire(this._selectedSizingPolicy);
+			}
+		}
+	}
+
+	/**
+	 * Selects a new history policy and fires an event indicating that the policy
+	 * has changed.
+	 */
+	selectHistoryPolicy(policy: HistoryPolicy): void {
+		// Is this the currently selected policy?
+		if (this.historyPolicy === policy) {
+			return;
+		}
+
+		this._selectedHistoryPolicy = policy;
+		this._onDidChangeHistoryPolicy.fire(policy);
 	}
 
 	/**
@@ -281,6 +493,8 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 	onDidSelectPlot: Event<string> = this._onDidSelectPlot.event;
 	onDidRemovePlot: Event<string> = this._onDidRemovePlot.event;
 	onDidReplacePlots: Event<PositronPlotClient[]> = this._onDidReplacePlots.event;
+	onDidChangeSizingPolicy: Event<IPositronPlotSizingPolicy> = this._onDidChangeSizingPolicy.event;
+	onDidChangeHistoryPolicy: Event<HistoryPolicy> = this._onDidChangeHistoryPolicy.event;
 
 	// Gets the individual plot instances.
 	get positronPlotInstances(): PositronPlotClient[] {

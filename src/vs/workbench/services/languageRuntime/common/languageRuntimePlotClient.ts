@@ -245,7 +245,7 @@ export class PlotClientInstance extends Disposable {
 	 * Creates a new plot client instance.
 	 *
 	 * @param _client The client instance for this plot
-	 * @param code The code that generated the plot, if known
+	 * @param metadata The plot's metadata
 	 */
 	constructor(
 		private readonly _client: IRuntimeClientInstance<IPlotClientMessageInput, IPlotClientMessageOutput>,
