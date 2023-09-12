@@ -313,20 +313,6 @@ async function shouldRecommendForWorkspace(): Promise<boolean> {
 		return true;
 	}
 
-	// Check if the workspace contains .qmd files with R code blocks.
-	// Limit to 1000 files (unordered) - the assumption is that it's unlikely that none will contain
-	// an R code block in an R workspace.
-	const qmdFiles = await findFiles('**/*.qmd', 1000);
-	if (qmdFiles) {
-		for (const qmdFile of qmdFiles) {
-			const fileContents = (await vscode.workspace.fs.readFile(qmdFile)).toString();
-			// Check if the file contains an R code block.
-			if (fileContents.match(/^```(\{\.?r.*\}|\.?r)/m)) {
-				return true;
-			}
-		}
-	}
-
 	// Check if the workspace is empty and the user is an RStudio user.
 	if (!(await hasFiles('**/*')) && isRStudioUser()) {
 		return true;
@@ -335,15 +321,10 @@ async function shouldRecommendForWorkspace(): Promise<boolean> {
 	return false;
 }
 
-// Find files in the current workspace matching a glob pattern.
-async function findFiles(glob: string, maxResult: number): Promise<vscode.Uri[]> {
-	// Exclude node_modules for performance reasons
-	return vscode.workspace.findFiles(glob, '**/node_modules/**', maxResult);
-}
-
 // Check if the current workspace contains files matching a glob pattern.
 async function hasFiles(glob: string): Promise<boolean> {
-	return (await findFiles(glob, 1)).length > 0;
+	// Exclude node_modules for performance reasons
+	return (await vscode.workspace.findFiles(glob, '**/node_modules/**', 1)).length > 0;
 }
 
 /**
