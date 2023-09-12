@@ -305,6 +305,7 @@ async function shouldRecommendForWorkspace(): Promise<boolean> {
 		'**/.Rprofile',
 		'**/renv.lock',
 		'**/.Rbuildignore',
+		'**/.Renviron',
 		'**/*.Rproj'
 	];
 	// Convert to the glob format used by vscode.workspace.findFiles.
