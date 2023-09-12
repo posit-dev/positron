@@ -228,10 +228,10 @@ def positron_completion(
     document = server.workspace.get_document(params.text_document.uri)
 
     # --- Start Positron ---
-    # Don't complete comments
+    # Don't complete comments or shell commands
     line = document.lines[params.position.line] if document.lines else ""
     trimmed_line = line.lstrip()
-    if trimmed_line.startswith("#"):
+    if trimmed_line.startswith(("#", "!")):
         return None
 
     # Get a reference to the kernel's namespace for enhanced completions
@@ -280,8 +280,8 @@ def positron_completion(
         # --- Start Positron ---
         completion_items = []
 
-        # Don't add jedi completions if completing an explicit magic or shell command
-        if not trimmed_line.startswith(_LINE_MAGIC_PREFIX) and not trimmed_line.startswith("!"):
+        # Don't add jedi completions if completing an explicit magic command
+        if not trimmed_line.startswith(_LINE_MAGIC_PREFIX):
             jedi_completion_items = [
                 jedi_utils.lsp_completion_item(
                     completion=completion,
