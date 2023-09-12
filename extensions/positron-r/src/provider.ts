@@ -106,10 +106,11 @@ export async function* rRuntimeProvider(
 		return semver.compare(b.semVersion, a.semVersion) || a.arch.localeCompare(b.arch);
 	});
 
-	// For now, we recommend R for the workspace if the user is an RStudio user.
+	// For now, we recommend the first R runtime for the workspace based on a set of
+	// non-runtime-specific heuristics.
 	// In the future, we will use more sophisticated heuristics, such as
 	// checking an renv lockfile for a match against a system version of R.
-	let recommendedForWorkspace = isRStudioUser();
+	let recommendedForWorkspace = await shouldRecommendForWorkspace();
 
 	// Loop over the R installations and create a language runtime for each one.
 	//
@@ -298,6 +299,38 @@ function binFragment(version: string): string {
 			// TODO: handle Windows
 			throw new Error('Unsupported platform');
 	}
+}
+
+// Should we recommend an R runtime for the workspace?
+async function shouldRecommendForWorkspace(): Promise<boolean> {
+	// Check if the workspace contains R-related files.
+	const globs = [
+		'**/*.R',
+		'**/*.Rmd',
+		'**/.Rprofile',
+		'**/renv.lock',
+		'**/.Rbuildignore',
+		'**/.Renviron',
+		'**/*.Rproj'
+	];
+	// Convert to the glob format used by vscode.workspace.findFiles.
+	const glob = `{${globs.join(',')}}`;
+	if (await hasFiles(glob)) {
+		return true;
+	}
+
+	// Check if the workspace is empty and the user is an RStudio user.
+	if (!(await hasFiles('**/*')) && isRStudioUser()) {
+		return true;
+	}
+
+	return false;
+}
+
+// Check if the current workspace contains files matching a glob pattern.
+async function hasFiles(glob: string): Promise<boolean> {
+	// Exclude node_modules for performance reasons
+	return (await vscode.workspace.findFiles(glob, '**/node_modules/**', 1)).length > 0;
 }
 
 /**
