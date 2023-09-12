@@ -56,22 +56,24 @@ export async function registerCommands(context: vscode.ExtensionContext, runtime
 					id,
 					positron.RuntimeCodeExecutionMode.Interactive,
 					positron.RuntimeErrorBehavior.Continue);
-				runtime.onDidReceiveRuntimeMessage(runtimeMessage => {
+				const disp1 = runtime.onDidReceiveRuntimeMessage(runtimeMessage => {
 					if (runtimeMessage.parent_id === id &&
 						runtimeMessage.type === positron.LanguageRuntimeMessageType.State) {
 						const runtimeMessageState = runtimeMessage as positron.LanguageRuntimeState;
 						if (runtimeMessageState.state === positron.RuntimeOnlineState.Idle) {
 							positron.runtime.restartLanguageRuntime(runtime.metadata.runtimeId);
+							disp1.dispose();
 						}
 					}
 				});
-				runtime.onDidChangeRuntimeState(async runtimeState => {
+				const disp2 = runtime.onDidChangeRuntimeState(async runtimeState => {
 					if (runtimeState === positron.RuntimeState.Starting) {
 						await delay(500);
 						runtime.execute(`library(${packageName})`,
 							randomUUID(),
 							positron.RuntimeCodeExecutionMode.Interactive,
 							positron.RuntimeErrorBehavior.Continue);
+						disp2.dispose();
 					}
 				});
 			} else {
