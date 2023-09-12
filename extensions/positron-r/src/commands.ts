@@ -5,8 +5,10 @@
 import * as vscode from 'vscode';
 import * as positron from 'positron';
 import { delay } from './util';
+import { RRuntime } from './runtime';
+import { randomUUID } from 'crypto';
 
-export async function registerCommands(context: vscode.ExtensionContext) {
+export async function registerCommands(context: vscode.ExtensionContext, runtimes: Map<string, RRuntime>) {
 
 	const isRPackage = await detectRPackage();
 	vscode.commands.executeCommand('setContext', 'isRPackage', isRPackage);
@@ -46,14 +48,37 @@ export async function registerCommands(context: vscode.ExtensionContext) {
 				vscode.window.showWarningMessage('Cannot install package as there is no R interpreter running.');
 				return;
 			}
-
 			// For now, there will be only one running R runtime:
-			const runtimePath = runningRuntimes[0].runtimePath;
-			const originalTimeStamp = getPackageDescriptionTimestamp(runtimePath, packageName);
-			positron.runtime.executeCode('r', 'devtools::install()', true);
-			await pollForNewTimestamp(runtimePath, packageName, originalTimeStamp);
-			positron.runtime.restartLanguageRuntime(runningRuntimes[0].runtimeId);
-			positron.runtime.executeCode('r', `library(${packageName})`, true);
+			const runtime = runtimes.get(runningRuntimes[0].runtimeId);
+			if (runtime) {
+				const id = randomUUID();
+				runtime.execute('devtools::install()',
+					id,
+					positron.RuntimeCodeExecutionMode.Interactive,
+					positron.RuntimeErrorBehavior.Continue);
+				const disp1 = runtime.onDidReceiveRuntimeMessage(runtimeMessage => {
+					if (runtimeMessage.parent_id === id &&
+						runtimeMessage.type === positron.LanguageRuntimeMessageType.State) {
+						const runtimeMessageState = runtimeMessage as positron.LanguageRuntimeState;
+						if (runtimeMessageState.state === positron.RuntimeOnlineState.Idle) {
+							positron.runtime.restartLanguageRuntime(runtime.metadata.runtimeId);
+							disp1.dispose();
+						}
+					}
+				});
+				const disp2 = runtime.onDidChangeRuntimeState(async runtimeState => {
+					if (runtimeState === positron.RuntimeState.Starting) {
+						await delay(500);
+						runtime.execute(`library(${packageName})`,
+							randomUUID(),
+							positron.RuntimeCodeExecutionMode.Interactive,
+							positron.RuntimeErrorBehavior.Continue);
+						disp2.dispose();
+					}
+				});
+			} else {
+				throw new Error(`R runtime '${runningRuntimes[0].runtimeId}' is not registered in the extension host`);
+			}
 		}),
 
 		vscode.commands.registerCommand('r.packageTest', () => {
@@ -147,34 +172,4 @@ async function parseRPackageDescription(): Promise<string[]> {
 		} catch { }
 	}
 	return [''];
-}
-
-function getPackageDescriptionTimestamp(runtimePath: string, packageName: string): number | null {
-	const path = require('path');
-	const fs = require('fs');
-	const libraryPath = path.join(runtimePath, 'library', packageName, 'DESCRIPTION');
-	try {
-		const stats = fs.statSync(libraryPath);
-		return stats.mtimeMs;
-	} catch { }
-	return null;
-}
-
-async function pollForNewTimestamp(runtimePath: string, packageName: string, oldTimestamp: number | null) {
-	const path = require('path');
-	const fs = require('fs');
-	const timeout = Date.now() + 3e5;
-
-	if (oldTimestamp === null) {
-		const libraryPath = path.join(runtimePath, 'library', packageName, 'DESCRIPTION');
-		while (!fs.existsSync(libraryPath) && Date.now() < timeout) {
-			await delay(1000);
-		}
-	} else {
-		let newTimeStamp = getPackageDescriptionTimestamp(runtimePath, packageName);
-		while (newTimeStamp !== null && !(newTimeStamp > oldTimestamp) && Date.now() < timeout) {
-			await delay(1000);
-			newTimeStamp = getPackageDescriptionTimestamp(runtimePath, packageName);
-		}
-	}
 }

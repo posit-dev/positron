@@ -23,7 +23,10 @@ import { getArkKernelPath } from './kernel';
  *
  * @param context The extension context.
  */
-export async function* rRuntimeProvider(context: vscode.ExtensionContext): AsyncGenerator<positron.LanguageRuntime> {
+export async function* rRuntimeProvider(
+	context: vscode.ExtensionContext,
+	runtimes: Map<string, RRuntime>
+): AsyncGenerator<positron.LanguageRuntime> {
 	let rInstallations: Array<RInstallation> = [];
 
 	// Path to the kernel executable
@@ -266,7 +269,9 @@ export async function* rRuntimeProvider(context: vscode.ExtensionContext): Async
 		};
 
 		// Create an adapter for the kernel to fulfill the LanguageRuntime interface.
-		yield new RRuntime(context, kernelSpec, metadata, dynState, extra);
+		const runtime = new RRuntime(context, kernelSpec, metadata, dynState, extra);
+		yield runtime;
+		runtimes.set(runtimeId, runtime);
 	}
 }
 
