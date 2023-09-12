@@ -45,6 +45,11 @@ export interface IPositronHelpService {
 	readonly onHelpLoaded: Event<HelpEntry>;
 
 	/**
+	 * Gets the help entries.
+	 */
+	readonly helpEntries: HelpEntry[];
+
+	/**
 	 * Gets the current help entry.
 	 */
 	readonly currentHelpEntry?: HelpEntry;
@@ -65,11 +70,10 @@ export interface IPositronHelpService {
 	initialize(): void;
 
 	/**
-	 * Called to indicate that help has loaded.
-	 * @param url The URL of the help that was loaded.
-	 * @param title The title of the help that was loaded.
+	 * Opens the specified help entry.
+	 * @param helpEntry The help entry to open.
 	 */
-	helpLoaded(url: string, title: string): Promise<void>;
+	openHelpEntry(helpEntry: HelpEntry): void;
 
 	/**
 	 * Navigates the help service.
@@ -87,4 +91,11 @@ export interface IPositronHelpService {
 	 * Navigates forward.
 	 */
 	navigateForward(): void;
+
+	/**
+	 * Called to indicate that help has loaded.
+	 * @param url The URL of the help that was loaded.
+	 * @param title The title of the help that was loaded.
+	 */
+	helpLoaded(url: string, title: string): Promise<void>;
 }

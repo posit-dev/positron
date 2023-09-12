@@ -4,9 +4,12 @@
 
 import 'vs/css!./actionBars';
 import * as React from 'react';
-import { PropsWithChildren, useEffect, useRef, useState } from 'react'; // eslint-disable-line no-duplicate-imports
+import { PropsWithChildren, useEffect, useState } from 'react'; // eslint-disable-line no-duplicate-imports
 import { localize } from 'vs/nls';
+import { IAction, Separator } from 'vs/base/common/actions';
+import { generateUuid } from 'vs/base/common/uuid';
 import { DisposableStore } from 'vs/base/common/lifecycle';
+import { useStateRef } from 'vs/base/browser/ui/react/useStateRef';
 import { ICommandService } from 'vs/platform/commands/common/commands';
 import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
 import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
@@ -18,9 +21,9 @@ import { ActionBarFind } from 'vs/platform/positronActionBar/browser/components/
 import { ActionBarButton } from 'vs/platform/positronActionBar/browser/components/actionBarButton';
 import { ActionBarRegion } from 'vs/platform/positronActionBar/browser/components/actionBarRegion';
 import { ActionBarSeparator } from 'vs/platform/positronActionBar/browser/components/actionBarSeparator';
+import { ActionBarMenuButton } from 'vs/platform/positronActionBar/browser/components/actionBarMenuButton';
 import { IPositronHelpService } from 'vs/workbench/services/positronHelp/common/interfaces/positronHelpService';
 import { PositronActionBarContextProvider } from 'vs/platform/positronActionBar/browser/positronActionBarContext';
-import { useStateRef } from 'vs/base/browser/ui/react/useStateRef';
 
 // Constants.
 const kSecondaryActionBarGap = 4;
@@ -29,9 +32,11 @@ const kPaddingRight = 8;
 const kFindTimeout = 800;
 const kPollTimeout = 200;
 
-//
-const previousTopic = localize('positronPreviousTopic', "Previous topic");
-const nextTopic = localize('positronNextTopic', "Next topic");
+// Localized strings.
+const tooltipPreviousTopic = localize('positronPreviousTopic', "Previous topic");
+const tooltipNextTopic = localize('positronNextTopic', "Next topic");
+const tooltipShowPositronHelp = localize('positronShowPositronHelp', "Show Positron help");
+const tooltipHelpHistory = localize('positronHelpHistory', "Help history");
 
 /**
  * ActionBarsProps interface.
@@ -61,9 +66,6 @@ export interface ActionBarsProps {
  * @returns The rendered component.
  */
 export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
-	// Reference hooks.
-	const historyButtonRef = useRef<HTMLDivElement>(undefined!);
-
 	// State hooks.
 	const [canNavigateBackward, setCanNavigateBackward] = useState(props.positronHelpService.canNavigateBackward);
 	const [canNavigateForward, setCanNavigateForward] = useState(props.positronHelpService.canNavigateForward);
@@ -73,6 +75,42 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 	const [findText, setFindText] = useState('');
 	const [pollFindResults, setPollFindResults] = useState(false);
 	const [findResults, setFindResults] = useState(false);
+
+	/**
+	 * Returns the help actions.
+	 * @returns The help actions.
+	 */
+	const helpActions = () => {
+		const actions: IAction[] = [];
+		const helpEntries = props.positronHelpService.helpEntries;
+		for (let i = helpEntries.length - 1; i >= 0 && actions.length < 10; i--) {
+			actions.push({
+				id: generateUuid(),
+				label: helpEntries[i].title || helpEntries[i].sourceUrl,
+				tooltip: '',
+				class: undefined,
+				enabled: true,
+				run: () => {
+					props.positronHelpService.openHelpEntry(helpEntries[i]);
+				}
+			});
+		}
+
+		actions.push(new Separator());
+
+		actions.push({
+			id: generateUuid(),
+			label: 'Clear History',
+			tooltip: '',
+			class: undefined,
+			enabled: true,
+			run: () => {
+
+			}
+		});
+
+		return actions;
+	};
 
 	// Main useEffect.
 	useEffect(() => {
@@ -190,13 +228,13 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 					<ActionBarButton
 						disabled={!canNavigateBackward}
 						iconId='positron-left-arrow'
-						tooltip={previousTopic}
+						tooltip={tooltipPreviousTopic}
 						onClick={() => props.positronHelpService.navigateBackward()}
 					/>
 					<ActionBarButton
 						disabled={!canNavigateForward}
 						iconId='positron-right-arrow'
-						tooltip={nextTopic}
+						tooltip={tooltipNextTopic}
 						onClick={() => props.positronHelpService.navigateForward()}
 					/>
 
@@ -204,7 +242,7 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 
 					<ActionBarButton
 						iconId='positron-home'
-						tooltip={localize('positronShowPositronHelp', "Show Positron help")}
+						tooltip={tooltipShowPositronHelp}
 						disabled={true}
 						onClick={() => props.onHome()}
 					/>
@@ -225,11 +263,10 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 				>
 					<ActionBarRegion location='left'>
 						{helpTitle &&
-							<ActionBarButton
-								ref={historyButtonRef}
+							<ActionBarMenuButton
 								text={helpTitle}
-								dropDown={false}
-								tooltip={helpTitle || localize('positronHelpHistory', "Help history")}
+								tooltip={tooltipHelpHistory}
+								actions={helpActions}
 							/>
 						}
 					</ActionBarRegion>

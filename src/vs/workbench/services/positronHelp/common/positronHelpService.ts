@@ -40,7 +40,7 @@ export class PositronHelpService extends Disposable implements IPositronHelpServ
 	/**
 	 * The help entries.
 	 */
-	private helpEntries: HelpEntry[] = [];
+	public helpEntries: HelpEntry[] = [];
 
 	/**
 	 * The help entry index.
@@ -286,32 +286,11 @@ export class PositronHelpService extends Disposable implements IPositronHelpServ
 	}
 
 	/**
-	 * Called to indicate that help has loaded.
-	 * @param url The URL of the help that was loaded.
-	 * @param title The title of the help that was loaded.
+	 * Opens the specified help entry.
+	 * @param helpEntry The help entry to open.
 	 */
-	async helpLoaded(url: string, title: string): Promise<void> {
-		// Logging.
-		this.logService.info(`PositronHelpService help loaded for: ${url} ${title}`);
-
-		// Find the first occurence of the URL, set its title, and raise the onHelpLoaded event.
-		for (let i = this.helpEntries.length - 1; i >= 0; i--) {
-			const helpEntry = this.helpEntries[i];
-			if (helpEntry && helpEntry.sourceUrl === url) {
-				// Set the title.
-				helpEntry.title = title;
-
-				// Ensure that the auxiliary bar is showing and open the help view.
-				await this.commandService.executeCommand('workbench.action.showAuxiliaryBar');
-				await this.commandService.executeCommand('workbench.action.positron.openHelp');
-
-				// Raise the onHelpLoaded event.
-				this.onHelpLoadedEmitter.fire(helpEntry);
-
-				// Finish the operation.
-				return;
-			}
-		}
+	openHelpEntry(helpEntry: HelpEntry) {
+		this.addHelpEntry(helpEntry);
 	}
 
 	/**
@@ -359,6 +338,32 @@ export class PositronHelpService extends Disposable implements IPositronHelpServ
 		}
 	}
 
+	/**
+	 * Called to indicate that help has loaded.
+	 * @param url The URL of the help that was loaded.
+	 * @param title The title of the help that was loaded.
+	 */
+	async helpLoaded(url: string, title: string): Promise<void> {
+		// Find the first occurence of the URL, set its title, and raise the onHelpLoaded event.
+		for (let i = this.helpEntries.length - 1; i >= 0; i--) {
+			const helpEntry = this.helpEntries[i];
+			if (helpEntry && helpEntry.sourceUrl === url) {
+				// Set the title.
+				helpEntry.title = title;
+
+				// Ensure that the auxiliary bar is showing and open the help view.
+				await this.commandService.executeCommand('workbench.action.showAuxiliaryBar');
+				await this.commandService.executeCommand('workbench.action.positron.openHelp');
+
+				// Raise the onHelpLoaded event.
+				this.onHelpLoadedEmitter.fire(helpEntry);
+
+				// Finish the operation.
+				return;
+			}
+		}
+	}
+
 	//#endregion IPositronHelpService Implementation
 
 	//#region Private Methods
@@ -368,7 +373,12 @@ export class PositronHelpService extends Disposable implements IPositronHelpServ
 	 * @param helpEntry The help entry to add.
 	 */
 	private addHelpEntry(helpEntry: HelpEntry) {
-		// Push the help entry. It may not load, but it needs to be in the history.
+		// If the help entry appears in the help entries, remove it.
+		this.helpEntries = this.helpEntries.filter(helpEntryToCheck =>
+			helpEntryToCheck.sourceUrl !== helpEntry.sourceUrl
+		);
+
+		// Push the help entry.
 		this.helpEntries.push(helpEntry);
 		this.helpEntryIndex = this.helpEntries.length - 1;
 
