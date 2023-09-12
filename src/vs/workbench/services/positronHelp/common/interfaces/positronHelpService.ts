@@ -30,14 +30,14 @@ export interface IPositronHelpService {
 	readonly _serviceBrand: undefined;
 
 	/**
-	 * The onRenderHelp event.
-	 */
-	readonly onRenderHelp: Event<HelpEntry>;
-
-	/**
 	 * The onFocusHelp event.
 	 */
 	readonly onFocusHelp: Event<void>;
+
+	/**
+	 * The onDidChangeCurrentHelpEntry event.
+	 */
+	readonly onDidChangeCurrentHelpEntry: Event<HelpEntry | undefined>;
 
 	/**
 	 * The onHelpLoaded event.

@@ -231,13 +231,13 @@ export class PositronHelpViewPane extends ViewPane implements IReactComponentCon
 		this.positronHelpContainer.appendChild(this.helpActionBarsContainer);
 		this.positronHelpContainer.appendChild(this.helpViewContainer);
 
-		// Register the onRenderHelp event handler.
-		this._register(this.positronHelpService.onRenderHelp(helpEntry => {
+		// Register the onDidChangeCurrentHelpEntry event handler.
+		this._register(this.positronHelpService.onDidChangeCurrentHelpEntry(currentHelpEntry => {
 			// Ensure that the overlay webview has been created.
 			this.createOverlayWebview();
 
 			// Open the help entry.
-			this.openHelpEntry(helpEntry);
+			this.openHelpEntry(currentHelpEntry);
 		}));
 
 		// Register the onDidChangeBodyVisibility event handler.
@@ -463,10 +463,10 @@ export class PositronHelpViewPane extends ViewPane implements IReactComponentCon
 
 	/**
 	 * Opens a help entry.
-	 * @param helpEntry The help URL.
+	 * @param helpEntry The help entry to open.
 	 */
-	private openHelpEntry(helpEntry: HelpEntry) {
-		this.helpOverlayWebview?.setHtml(this.generateHelpHtml(helpEntry.sourceUrl));
+	private openHelpEntry(helpEntry?: HelpEntry) {
+		this.helpOverlayWebview?.setHtml(this.generateHelpHtml(helpEntry));
 	}
 
 	/**
@@ -487,14 +487,25 @@ export class PositronHelpViewPane extends ViewPane implements IReactComponentCon
 
 	/**
 	 * Generates help HTML.
-	 * @param url The URL of the help to display in the help HTML.
+	 * @param helpEntry The HelpEntry to generate HTML for.
 	 * @returns The help HTML.
 	 */
-	private generateHelpHtml(url: string) {
-		// Render the help document.
+	private generateHelpHtml(helpEntry?: HelpEntry) {
+		// If there isn't a help entry, generate an return an empty document.
+		if (!helpEntry) {
+			return `<!DOCTYPE html>
+<html>
+	<head>
+		<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+	</head>
+	<body>
+	</body>
+</html>`;
+		}
+
+		// Generate and return a help document that loads the help entry's source URL.
 		const nonce = generateUuid();
-		return `
-<!DOCTYPE html>
+		return `<!DOCTYPE html>
 <html>
 	<head>
 		<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
@@ -512,7 +523,7 @@ export class PositronHelpViewPane extends ViewPane implements IReactComponentCon
 		</style>
 	</head>
 	<body>
-		<iframe id="help-iframe" title="Help Content" src="${url}" loading="eager">
+		<iframe id="help-iframe" title="Help Content" src="${helpEntry.sourceUrl}" loading="eager">
 		</iframe>
 		<script nonce="${nonce}">
 		(() => {

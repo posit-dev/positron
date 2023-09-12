@@ -10,7 +10,7 @@ import { ICommandService } from 'vs/platform/commands/common/commands';
 import { INotificationService } from 'vs/platform/notification/common/notification';
 import { IOpenerService, OpenExternalOptions } from 'vs/platform/opener/common/opener';
 import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/common/extensions';
-import { ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntimeService, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { HelpEntry, IPositronHelpService } from 'vs/workbench/services/positronHelp/common/interfaces/positronHelpService';
 import { LanguageRuntimeEventData, LanguageRuntimeEventType, ShowHelpEvent } from 'vs/workbench/services/languageRuntime/common/languageRuntimeEvents';
 
@@ -53,19 +53,20 @@ export class PositronHelpService extends Disposable implements IPositronHelpServ
 	private proxyServers = new Map<string, string>();
 
 	/**
-	 * The onRenderHelp event emitter.
-	 */
-	private readonly onRenderHelpEmitter = this._register(new Emitter<HelpEntry>);
-
-	/**
 	 * The onFocusHelp event emitter.
 	 */
 	private readonly onFocusHelpEmitter = this._register(new Emitter<void>);
 
 	/**
+	 * The onDidChangeCurrentHelpEntry event emitter.
+	 */
+	private readonly onDidChangeCurrentHelpEntryEmitter = this._register(new Emitter<HelpEntry | undefined>);
+
+	/**
 	 * The onHelpLoaded event emitter.
 	 */
 	private readonly onHelpLoadedEmitter = this._register(new Emitter<HelpEntry>);
+
 
 	//#endregion Private Properties
 
@@ -89,7 +90,32 @@ export class PositronHelpService extends Disposable implements IPositronHelpServ
 		// Call the base class's constructor.
 		super();
 
-		// Register a runtime global event handler.
+		// Register onDidReceiveRuntimeEvent handler.
+		this._register(
+			this.languageRuntimeService.onDidChangeRuntimeState(languageRuntimeStateEvent => {
+				switch (languageRuntimeStateEvent.new_state) {
+					case RuntimeState.Uninitialized:
+					case RuntimeState.Initializing:
+					case RuntimeState.Starting:
+					case RuntimeState.Ready:
+					case RuntimeState.Idle:
+					case RuntimeState.Busy:
+						break;
+
+					case RuntimeState.Restarting:
+					case RuntimeState.Exiting:
+					case RuntimeState.Exited:
+					case RuntimeState.Offline:
+						this.removeLanguageHelpEntries(languageRuntimeStateEvent.runtime_id);
+						break;
+
+					case RuntimeState.Interrupting:
+						break;
+				}
+			})
+		);
+
+		// Register onDidReceiveRuntimeEvent handler.
 		this._register(
 			this.languageRuntimeService.onDidReceiveRuntimeEvent(async languageRuntimeGlobalEvent => {
 				// Show help event types are supported.
@@ -218,19 +244,19 @@ export class PositronHelpService extends Disposable implements IPositronHelpServ
 	declare readonly _serviceBrand: undefined;
 
 	/**
-	 * The onRenderHelp event.
+	 * The onDidChangeCurrentHelpEntry event.
 	 */
-	readonly onRenderHelp = this.onRenderHelpEmitter.event;
-
-	/**
-	 * The onFocusHelp event.
-	 */
-	readonly onFocusHelp = this.onFocusHelpEmitter.event;
+	readonly onDidChangeCurrentHelpEntry = this.onDidChangeCurrentHelpEntryEmitter.event;
 
 	/**
 	 * The onHelpLoaded event.
 	 */
 	readonly onHelpLoaded = this.onHelpLoadedEmitter.event;
+
+	/**
+	 * The onFocusHelp event.
+	 */
+	readonly onFocusHelp = this.onFocusHelpEmitter.event;
 
 	/**
 	 * Gets the current help entry.
@@ -319,8 +345,7 @@ export class PositronHelpService extends Disposable implements IPositronHelpServ
 	navigateBackward() {
 		// Navigate backward, if we can.
 		if (this.helpEntryIndex > 0) {
-			// Raise the onRenderHelp event to render the previous entry.
-			this.onRenderHelpEmitter.fire(this.helpEntries[--this.helpEntryIndex]);
+			this.onDidChangeCurrentHelpEntryEmitter.fire(this.helpEntries[--this.helpEntryIndex]);
 		}
 	}
 
@@ -330,8 +355,7 @@ export class PositronHelpService extends Disposable implements IPositronHelpServ
 	navigateForward() {
 		// Navigate forward, if we can.
 		if (this.helpEntryIndex < this.helpEntries.length - 1) {
-			// Raise the onRenderHelp event to render the next entry.
-			this.onRenderHelpEmitter.fire(this.helpEntries[++this.helpEntryIndex]);
+			this.onDidChangeCurrentHelpEntryEmitter.fire(this.helpEntries[++this.helpEntryIndex]);
 		}
 	}
 
@@ -344,12 +368,32 @@ export class PositronHelpService extends Disposable implements IPositronHelpServ
 	 * @param helpEntry The help entry to add.
 	 */
 	private addHelpEntry(helpEntry: HelpEntry) {
-		// Push the help entry. We may not render it, but it needs to be in the history.
+		// Push the help entry. It may not load, but it needs to be in the history.
 		this.helpEntries.push(helpEntry);
 		this.helpEntryIndex = this.helpEntries.length - 1;
 
-		// Raise the onRenderHelp event to render the newly added entry.
-		this.onRenderHelpEmitter.fire(this.helpEntries[this.helpEntryIndex]);
+		// Raise the onDidChangeCurrentHelpEntry event for the newly added help entry.
+		this.onDidChangeCurrentHelpEntryEmitter.fire(this.helpEntries[this.helpEntryIndex]);
+	}
+
+	/**
+	 * Removes help entries for the specified language ID.
+	 * @param runtimeId The runtime ID of the help entries to remove.
+	 */
+	private removeLanguageHelpEntries(runtimeId: string) {
+		// Get the current help entry.
+		const currentHelpEntry = this.helpEntryIndex === -1 ?
+			undefined :
+			this.helpEntries[this.helpEntryIndex];
+
+		// Remove help entries for the specified runtime ID.
+		this.helpEntries = this.helpEntries.filter(element => element.runtimeId !== runtimeId);
+
+		// Set the new help entry index.
+		this.helpEntryIndex = !currentHelpEntry ? -1 : this.helpEntries.indexOf(currentHelpEntry);
+
+		// Fire the onDidChangeCurrentHelpEntry event.
+		this.onDidChangeCurrentHelpEntryEmitter.fire(this.helpEntryIndex === -1 ? undefined : currentHelpEntry);
 	}
 
 	//#endregion Private Methods
