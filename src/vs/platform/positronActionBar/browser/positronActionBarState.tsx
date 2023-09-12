@@ -45,7 +45,8 @@ export interface PositronActionBarState extends PositronActionBarServices {
 	appendCommandAction(actions: IAction[], commandAction: CommandAction): void;
 	isCommandEnabled(commandId: string): boolean;
 	showTooltipDelay(): number;
-	refreshTooltipKeepAlive(): void;
+	updateTooltipLastHiddenAt(): void;
+	resetTooltipLastHiddenAt(): void;
 	menuShowing: boolean;
 	setMenuShowing(menuShowing: boolean): void;
 }
@@ -114,8 +115,11 @@ export const usePositronActionBarState = (services: PositronActionBarServices): 
 		...services,
 		appendCommandAction,
 		isCommandEnabled,
-		showTooltipDelay: () => new Date().getTime() - lastTooltipHiddenAt < kTooltipReset ? 0 : services.configurationService.getValue<number>('workbench.hover.delay'),
-		refreshTooltipKeepAlive: () => setLastTooltipHiddenAt(new Date().getTime()),
+		showTooltipDelay: () => new Date().getTime() - lastTooltipHiddenAt < kTooltipReset ?
+			0 :
+			services.configurationService.getValue<number>('workbench.hover.delay'),
+		updateTooltipLastHiddenAt: () => setLastTooltipHiddenAt(new Date().getTime()),
+		resetTooltipLastHiddenAt: () => setLastTooltipHiddenAt(0),
 		menuShowing,
 		setMenuShowing
 	};

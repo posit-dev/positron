@@ -21,13 +21,15 @@ interface ActionBarTooltipProps {
  * @returns The rendered component.
  */
 export const ActionBarTooltip = (props: PropsWithChildren<ActionBarTooltipProps>) => {
-	// Hooks.
+	// Context hooks.
 	const positronActionBarContext = usePositronActionBarContext();
+
+	// State hooks.
 	const [mouseInside, setMouseInside] = useState(false);
 	const [tooltip, setTooltip] = useState<string | undefined>(undefined);
 	const [showTooltip, setShowTooltip] = useState(false);
 
-	// Tooltip.
+	// Tooltip effect.
 	useEffect(() => {
 		// If we cannot show the tooltip, do nothing.
 		if (!mouseInside || !props.tooltip) {
@@ -63,34 +65,29 @@ export const ActionBarTooltip = (props: PropsWithChildren<ActionBarTooltipProps>
 				setShowTooltip(true);
 			}
 		}, showTooltipDelay);
+
+		// Return the cleanup funciton.
 		return () => clearTimeout(timeout);
-	}, [positronActionBarContext, mouseInside]);
-
-	// Mouse enter handler.
-	const mouseEnterHandler = () => {
-		setMouseInside(true);
-	};
-
-	// Mouse leave handler.
-	const mouseLeaveHandler = () => {
-		setMouseInside(false);
-		if (showTooltip) {
-			// Hide the toolip and refresh the tooltip keep alive so that the next tooltip will be shown immediately.
-			setShowTooltip(false);
-			positronActionBarContext.refreshTooltipKeepAlive();
-		}
-	};
-
-	// Click handler.
-	const clickHandler = () => {
-		// When the mouse is clicked, hide the tooltip but do not refresh the tooltip keep alive. A click resets the tooltip delay.
-		setShowTooltip(false);
-	};
+	}, [mouseInside]);
 
 	// Render.
 	return (
 		<div className='action-bar-tool-tip-container'>
-			<div className='action-bar-tool-tip-wrapper' onMouseEnter={mouseEnterHandler} onMouseLeave={mouseLeaveHandler} onClick={clickHandler}>
+			<div
+				className='action-bar-tool-tip-wrapper'
+				onMouseEnter={() => setMouseInside(true)}
+				onMouseLeave={() => {
+					setMouseInside(false);
+					if (showTooltip) {
+						setShowTooltip(false);
+						positronActionBarContext.updateTooltipLastHiddenAt();
+					}
+				}}
+				onMouseDown={() => {
+					setShowTooltip(false);
+					positronActionBarContext.resetTooltipLastHiddenAt();
+				}}
+			>
 				{props.children}
 			</div>
 			{showTooltip &&
