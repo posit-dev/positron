@@ -62,7 +62,9 @@ export async function activatePositron(
 
                         // Create the runtime and register it with Positron.
                         if (interpreter) {
-                            const runtime = await createPythonRuntime(interpreter, serviceContainer);
+                            // Set recommendedForWorkspace to false, since we change the active runtime
+                            // in the onDidChangeActiveEnvironmentPath listener.
+                            const runtime = await createPythonRuntime(interpreter, serviceContainer, false);
                             const runtimeMetadata = runtime.metadata;
                             disposables.push(positron.runtime.registerLanguageRuntime(runtime));
                             runtimes.set(interpreterPath, runtimeMetadata);

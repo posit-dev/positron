@@ -10,9 +10,10 @@ import * as path from 'path';
 // eslint-disable-next-line import/no-unresolved
 import * as positron from 'positron';
 import * as semver from 'semver';
+import * as vscode from 'vscode';
 
 import { EXTENSION_ROOT_DIR, PYTHON_LANGUAGE } from '../common/constants';
-import { IConfigurationService, IInstaller, Product } from '../common/types';
+import { IConfigurationService, IInstaller } from '../common/types';
 import { IServiceContainer } from '../ioc/types';
 import { IInterpreterService } from '../interpreter/contracts';
 import { JupyterKernelSpec } from '../jupyter-adapter.d';
@@ -54,12 +55,29 @@ export async function* pythonRuntimeProvider(
         traceInfo(`pythonRuntimeProvider: discovered ${interpreters.length} Python interpreters`);
         traceInfo(`pythonRuntimeProvider: preferred interpreter: ${preferredInterpreter?.path}`);
 
+        // Recommend Python for the workspace if it contains Python-relevant files
+        let recommendedForWorkspace = await hasFiles([
+            '**/*.py',
+            '**/pyproject.toml',
+            '**/Pipfile',
+            '**/*requirements.txt',
+            '**/.python-version',
+            '**/.venv',
+            '**/*.ipynb',
+            '**/environment.yml',
+            '**/.conda',
+        ]);
+        traceInfo(`pythonRuntimeProvider: recommended for workspace: ${recommendedForWorkspace}`);
+
         // Register each interpreter as a language runtime
         for (const interpreter of interpreters) {
             // Only register runtimes for supported versions
             if (isVersionSupported(interpreter?.version, '3.8.0')) {
-                traceInfo(`pythonRuntimeProvider: creating runtime for interpreter ${interpreter.path}`);
-                const runtime = await createPythonRuntime(interpreter, serviceContainer);
+                const runtime = await createPythonRuntime(interpreter, serviceContainer, recommendedForWorkspace);
+
+                // Ensure we only recommend one runtime for the workspace.
+                recommendedForWorkspace = false;
+
                 traceInfo(
                     `pythonRuntimeProvider: registering runtime for interpreter ${interpreter.path} with id ${runtime.metadata.runtimeId}`,
                 );
@@ -77,6 +95,7 @@ export async function* pythonRuntimeProvider(
 export async function createPythonRuntime(
     interpreter: PythonEnvironment,
     serviceContainer: IServiceContainer,
+    recommendedForWorkspace: boolean,
 ): Promise<PythonRuntime> {
     traceInfo('createPythonRuntime: getting service instances');
     const configService = serviceContainer.get<IConfigurationService>(IConfigurationService);
@@ -103,14 +122,12 @@ export async function createPythonRuntime(
         debugPort = await portfinder.getPortPromise({ port: debugPort });
     }
 
-    // Determine if the ipykernel module is installed
-    traceInfo('createPythonRuntime: checking if ipykernel is installed');
-    const hasKernel = await installer.isInstalled(Product.ipykernel, interpreter);
-    const startupBehavior = hasKernel
-        ? positron.LanguageRuntimeStartupBehavior.Implicit
-        : positron.LanguageRuntimeStartupBehavior.Explicit;
-
-    // Customize Jedi LSP entrypoint that adds a resident IPyKernel
+    // Define the startup behavior; request immediate startup if this is the
+    // recommended runtime for the workspace.
+    const startupBehavior = recommendedForWorkspace
+        ? positron.LanguageRuntimeStartupBehavior.Immediate
+        : positron.LanguageRuntimeStartupBehavior.Implicit;
+    traceInfo(`createPythonRuntime: startup behavior: ${startupBehavior}`);
 
     // Get the Python version from sysVersion since only that includes alpha/beta info (e.g '3.12.0b1')
     const pythonVersion = interpreter.sysVersion?.split(' ')[0] ?? '0.0.1';
@@ -268,6 +285,14 @@ function sortInterpreters(
         return -semver.compare(av, bv);
     });
     return copy;
+}
+
+// Check if the current workspace contains files matching any of the passed glob ptaterns
+async function hasFiles(includes: string[]): Promise<boolean> {
+    // Create a single glob pattern e.g. ['a', 'b'] => '{a,b}'
+    const include = `{${includes.join(',')}}`;
+    // Exclude node_modules for performance reasons
+    return (await vscode.workspace.findFiles(include, '**/node_modules/**', 1)).length > 0;
 }
 
 /**
