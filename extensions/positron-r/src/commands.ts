@@ -51,11 +51,20 @@ export async function registerCommands(context: vscode.ExtensionContext, runtime
 			// For now, there will be only one running R runtime:
 			const runtime = runtimes.get(runningRuntimes[0].runtimeId);
 			if (runtime) {
+				const id = randomUUID();
 				runtime.execute('devtools::install()',
-					randomUUID(),
+					id,
 					positron.RuntimeCodeExecutionMode.Interactive,
 					positron.RuntimeErrorBehavior.Continue);
-				positron.runtime.restartLanguageRuntime(runtime.metadata.runtimeId);
+				runtime.onDidReceiveRuntimeMessage(runtimeMessage => {
+					if (runtimeMessage.parent_id === id &&
+						runtimeMessage.type === positron.LanguageRuntimeMessageType.State) {
+						const runtimeMessageState = runtimeMessage as positron.LanguageRuntimeState;
+						if (runtimeMessageState.state === positron.RuntimeOnlineState.Idle) {
+							positron.runtime.restartLanguageRuntime(runtime.metadata.runtimeId);
+						}
+					}
+				});
 				runtime.onDidChangeRuntimeState(async runtimeState => {
 					if (runtimeState === positron.RuntimeState.Starting) {
 						await delay(500);
