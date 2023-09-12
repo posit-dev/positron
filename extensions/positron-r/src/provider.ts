@@ -103,13 +103,11 @@ export async function* rRuntimeProvider(context: vscode.ExtensionContext): Async
 		return semver.compare(b.semVersion, a.semVersion) || a.arch.localeCompare(b.arch);
 	});
 
-	// For now, we recommend R for the workspace if the workspace contains R files,
-	// or if it's empty and the user is an RStudio user.
+	// For now, we recommend the first R runtime for the workspace based on a set of
+	// non-runtime-specific heuristics.
 	// In the future, we will use more sophisticated heuristics, such as
 	// checking an renv lockfile for a match against a system version of R.
-	const hasRFiles = async () => hasFiles('**/*.R');
-	const isEmpty = async () => !(await hasFiles('**/*'));
-	let recommendedForWorkspace = await hasRFiles() || (await isEmpty() && isRStudioUser());
+	let recommendedForWorkspace = await shouldRecommendForWorkspace();
 
 	// Loop over the R installations and create a language runtime for each one.
 	//
@@ -298,10 +296,54 @@ function binFragment(version: string): string {
 	}
 }
 
-// Check if the current workspace contains files matching a glob pattern
-async function hasFiles(glob: string): Promise<boolean> {
+// Should we recommend an R runtime for the workspace?
+async function shouldRecommendForWorkspace(): Promise<boolean> {
+	// Check if the workspace contains R-related files.
+	const globs = [
+		'**/*.R',
+		'**/*.Rmd',
+		'**/.Rprofile',
+		'**/renv.lock',
+		'**/.Rbuildignore',
+		'**/*.Rproj'
+	];
+	// Convert to the glob format used by vscode.workspace.findFiles.
+	const glob = `{${globs.join(',')}}`;
+	if (await hasFiles(glob)) {
+		return true;
+	}
+
+	// Check if the workspace contains .qmd files with R code blocks.
+	// Limit to 1000 files (unordered) - the assumption is that it's unlikely that none will contain
+	// an R code block in an R workspace.
+	const qmdFiles = await findFiles('**/*.qmd', 1000);
+	if (qmdFiles) {
+		for (const qmdFile of qmdFiles) {
+			const fileContents = (await vscode.workspace.fs.readFile(qmdFile)).toString();
+			// Check if the file contains an R code block.
+			if (fileContents.match(/^```(\{\.?r.*\}|\.?r)/m)) {
+				return true;
+			}
+		}
+	}
+
+	// Check if the workspace is empty and the user is an RStudio user.
+	if (!(await hasFiles('**/*')) && isRStudioUser()) {
+		return true;
+	}
+
+	return false;
+}
+
+// Find files in the current workspace matching a glob pattern.
+async function findFiles(glob: string, maxResult: number): Promise<vscode.Uri[]> {
 	// Exclude node_modules for performance reasons
-	return (await vscode.workspace.findFiles(glob, '**/node_modules/**', 1)).length > 0;
+	return vscode.workspace.findFiles(glob, '**/node_modules/**', maxResult);
+}
+
+// Check if the current workspace contains files matching a glob pattern.
+async function hasFiles(glob: string): Promise<boolean> {
+	return (await findFiles(glob, 1)).length > 0;
 }
 
 /**
