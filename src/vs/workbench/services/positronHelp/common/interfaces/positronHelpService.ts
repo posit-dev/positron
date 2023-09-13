@@ -9,6 +9,11 @@ import { createDecorator } from 'vs/platform/instantiation/common/instantiation'
 export const IPositronHelpService = createDecorator<IPositronHelpService>('positronHelpService');
 
 /**
+ * The Positron help view ID.
+ */
+export const POSITRON_HELP_VIEW_ID = 'workbench.panel.positronHelp';
+
+/**
  * HelpEntry interface.
  */
 export interface HelpEntry {
@@ -45,9 +50,9 @@ export interface IPositronHelpService {
 	readonly onHelpLoaded: Event<HelpEntry>;
 
 	/**
-	 * Gets the help entries.
+	 * Gets the help history.
 	 */
-	readonly helpEntries: HelpEntry[];
+	readonly helpHistory: HelpEntry[];
 
 	/**
 	 * Gets the current help entry.

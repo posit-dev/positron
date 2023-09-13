@@ -6,12 +6,13 @@ import * as nls from 'vs/nls';
 import { Emitter } from 'vs/base/common/event';
 import { Disposable } from 'vs/base/common/lifecycle';
 import { ILogService } from 'vs/platform/log/common/log';
+import { IViewsService } from 'vs/workbench/common/views';
 import { ICommandService } from 'vs/platform/commands/common/commands';
 import { INotificationService } from 'vs/platform/notification/common/notification';
 import { IOpenerService, OpenExternalOptions } from 'vs/platform/opener/common/opener';
 import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/common/extensions';
 import { ILanguageRuntimeService, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
-import { HelpEntry, IPositronHelpService } from 'vs/workbench/services/positronHelp/common/interfaces/positronHelpService';
+import { HelpEntry, IPositronHelpService, POSITRON_HELP_VIEW_ID } from 'vs/workbench/services/positronHelp/common/interfaces/positronHelpService';
 import { LanguageRuntimeEventData, LanguageRuntimeEventType, ShowHelpEvent } from 'vs/workbench/services/languageRuntime/common/languageRuntimeEvents';
 
 /**
@@ -31,6 +32,8 @@ const isShowHelpEvent = (_: LanguageRuntimeEventData): _ is ShowHelpEvent => {
 	return (_ as ShowHelpEvent).kind !== undefined;
 };
 
+const MAX_HELP_HISTORY_LENGTH = 10;
+
 /**
  * PositronHelpService class.
  */
@@ -40,7 +43,12 @@ export class PositronHelpService extends Disposable implements IPositronHelpServ
 	/**
 	 * The help entries.
 	 */
-	public helpEntries: HelpEntry[] = [];
+	private helpEntries: HelpEntry[] = [];
+
+	/**
+	 * The help entries history.
+	 */
+	public helpHistory: HelpEntry[] = [];
 
 	/**
 	 * The help entry index.
@@ -85,7 +93,8 @@ export class PositronHelpService extends Disposable implements IPositronHelpServ
 		@ILanguageRuntimeService private readonly languageRuntimeService: ILanguageRuntimeService,
 		@ILogService private readonly logService: ILogService,
 		@INotificationService private readonly notificationService: INotificationService,
-		@IOpenerService private readonly openerService: IOpenerService
+		@IOpenerService private readonly openerService: IOpenerService,
+		@IViewsService private readonly viewsService: IViewsService,
 	) {
 		// Call the base class's constructor.
 		super();
@@ -351,9 +360,8 @@ export class PositronHelpService extends Disposable implements IPositronHelpServ
 				// Set the title.
 				helpEntry.title = title;
 
-				// Ensure that the auxiliary bar is showing and open the help view.
-				await this.commandService.executeCommand('workbench.action.showAuxiliaryBar');
-				await this.commandService.executeCommand('workbench.action.positron.openHelp');
+				// Open the help view.
+				await this.viewsService.openView(POSITRON_HELP_VIEW_ID, false);
 
 				// Raise the onHelpLoaded event.
 				this.onHelpLoadedEmitter.fire(helpEntry);
@@ -373,14 +381,20 @@ export class PositronHelpService extends Disposable implements IPositronHelpServ
 	 * @param helpEntry The help entry to add.
 	 */
 	private addHelpEntry(helpEntry: HelpEntry) {
-		// If the help entry appears in the help entries, remove it.
-		this.helpEntries = this.helpEntries.filter(helpEntryToCheck =>
+		// Push the help entry to the help entries.
+		this.helpEntries.push(helpEntry);
+		this.helpEntryIndex = this.helpEntries.length - 1;
+
+		// If the help entry appears in the help history, remove it.
+		this.helpHistory = this.helpHistory.filter(helpEntryToCheck =>
 			helpEntryToCheck.sourceUrl !== helpEntry.sourceUrl
 		);
 
-		// Push the help entry.
-		this.helpEntries.push(helpEntry);
-		this.helpEntryIndex = this.helpEntries.length - 1;
+		// Push the help entry to the help history and slice it.
+		this.helpHistory.push(helpEntry);
+		if (this.helpHistory.length > MAX_HELP_HISTORY_LENGTH) {
+			this.helpHistory = this.helpHistory.slice(-MAX_HELP_HISTORY_LENGTH);
+		}
 
 		// Raise the onDidChangeCurrentHelpEntry event for the newly added help entry.
 		this.onDidChangeCurrentHelpEntryEmitter.fire(this.helpEntries[this.helpEntryIndex]);
@@ -397,7 +411,14 @@ export class PositronHelpService extends Disposable implements IPositronHelpServ
 			this.helpEntries[this.helpEntryIndex];
 
 		// Remove help entries for the specified runtime ID.
-		this.helpEntries = this.helpEntries.filter(element => element.runtimeId !== runtimeId);
+		this.helpEntries = this.helpEntries.filter(helpEntryToCheck =>
+			helpEntryToCheck.runtimeId !== runtimeId
+		);
+
+		// Remove help hisory for the specified runtime ID.
+		this.helpEntries = this.helpEntries.filter(helpEntryToCheck =>
+			helpEntryToCheck.runtimeId !== runtimeId
+		);
 
 		// Set the new help entry index.
 		this.helpEntryIndex = !currentHelpEntry ? -1 : this.helpEntries.indexOf(currentHelpEntry);

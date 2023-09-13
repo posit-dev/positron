@@ -6,7 +6,7 @@ import 'vs/css!./actionBars';
 import * as React from 'react';
 import { PropsWithChildren, useEffect, useState } from 'react'; // eslint-disable-line no-duplicate-imports
 import { localize } from 'vs/nls';
-import { IAction, Separator } from 'vs/base/common/actions';
+import { IAction } from 'vs/base/common/actions';
 import { generateUuid } from 'vs/base/common/uuid';
 import { DisposableStore } from 'vs/base/common/lifecycle';
 import { useStateRef } from 'vs/base/browser/ui/react/useStateRef';
@@ -37,6 +37,13 @@ const tooltipPreviousTopic = localize('positronPreviousTopic', "Previous topic")
 const tooltipNextTopic = localize('positronNextTopic', "Next topic");
 const tooltipShowPositronHelp = localize('positronShowPositronHelp', "Show Positron help");
 const tooltipHelpHistory = localize('positronHelpHistory', "Help history");
+
+/**
+ * Shortens a URL.
+ * @param url The URL.
+ * @returns The shortened URL.
+ */
+const shortenUrl = (url: string) => url.replace(new URL(url).origin, '');
 
 /**
  * ActionBarsProps interface.
@@ -71,44 +78,32 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 	const [canNavigateForward, setCanNavigateForward] = useState(props.positronHelpService.canNavigateForward);
 	const [helpTitle, setHelpTitle] = useState<string | undefined>(undefined);
 	const [, setTitleTimeout, titleTimeoutRef] = useStateRef<NodeJS.Timeout | undefined>(undefined);
-
 	const [findText, setFindText] = useState('');
 	const [pollFindResults, setPollFindResults] = useState(false);
 	const [findResults, setFindResults] = useState(false);
 
 	/**
-	 * Returns the help actions.
-	 * @returns The help actions.
+	 * Returns the help history actions.
+	 * @returns The help history actions.
 	 */
-	const helpActions = () => {
+	const helpHistoryActions = () => {
+		// Build the help history actions.
 		const actions: IAction[] = [];
-		const helpEntries = props.positronHelpService.helpEntries;
-		for (let i = helpEntries.length - 1; i >= 0 && actions.length < 10; i--) {
+		const helpHistory = props.positronHelpService.helpHistory;
+		for (let i = helpHistory.length - 1; i >= 0 && actions.length < 10; i--) {
 			actions.push({
 				id: generateUuid(),
-				label: helpEntries[i].title || helpEntries[i].sourceUrl,
+				label: helpHistory[i].title || shortenUrl(helpHistory[i].sourceUrl),
 				tooltip: '',
 				class: undefined,
 				enabled: true,
 				run: () => {
-					props.positronHelpService.openHelpEntry(helpEntries[i]);
+					props.positronHelpService.openHelpEntry(helpHistory[i]);
 				}
 			});
 		}
 
-		actions.push(new Separator());
-
-		actions.push({
-			id: generateUuid(),
-			label: 'Clear History',
-			tooltip: '',
-			class: undefined,
-			enabled: true,
-			run: () => {
-
-			}
-		});
-
+		// Return the help history actions.
 		return actions;
 	};
 
@@ -130,13 +125,13 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 				// Set the help title.
 				setHelpTitle(currentHelpEntry?.title);
 
-				// If a help entry was loaded, set a timeout for one second from now. If it fires,
-				// set the title to be the help URL. We do this because there's no guarantee that
-				// the help document will actually load.
-				if (currentHelpEntry) {
+				// If there is a current help entry, and it doesn't have a title, set a timeout for
+				// one second from now. If it fires, set the title to be the help URL. We do this
+				// because the help document may not load and we need to display something for the
+				// title.
+				if (currentHelpEntry && !currentHelpEntry.title) {
 					setTitleTimeout(setTimeout(() => {
-						const helpURL = new URL(currentHelpEntry.sourceUrl);
-						setHelpTitle(helpURL.href.replace(helpURL.origin, ''));
+						setHelpTitle(shortenUrl(currentHelpEntry.sourceUrl));
 					}, 1000));
 				}
 
@@ -266,7 +261,7 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 							<ActionBarMenuButton
 								text={helpTitle}
 								tooltip={tooltipHelpHistory}
-								actions={helpActions}
+								actions={helpHistoryActions}
 							/>
 						}
 					</ActionBarRegion>
