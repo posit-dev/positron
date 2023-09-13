@@ -57,15 +57,18 @@ export async function* pythonRuntimeProvider(
 
         // Recommend Python for the workspace if it contains Python-relevant files
         let recommendedForWorkspace = await hasFiles([
+            // Code and notebook files
             '**/*.py',
-            '**/pyproject.toml',
-            '**/Pipfile',
-            '**/*requirements.txt',
-            '**/.python-version',
-            '**/.venv',
             '**/*.ipynb',
-            '**/environment.yml',
-            '**/.conda',
+            // Virtual environment folders
+            '.venv/**/*',
+            '.conda/**/*',
+            // Config files
+            'pyproject.toml',
+            'Pipfile',
+            '*requirements.txt',
+            '.python-version',
+            'environment.yml',
         ]);
         traceInfo(`pythonRuntimeProvider: recommended for workspace: ${recommendedForWorkspace}`);
 
