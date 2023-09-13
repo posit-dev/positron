@@ -55,9 +55,6 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 	private _discoveryPhase: LanguageRuntimeDiscoveryPhase =
 		LanguageRuntimeDiscoveryPhase.AwaitingExtensions;
 
-	// Whether the workspace was untrusted when it was opened.
-	private _initiallyTrustedWorkspace = false;
-
 	// A map of the registered runtimes. This is keyed by the runtimeId
 	// (metadata.runtimeId) of the runtime.
 	private readonly _registeredRuntimesByRuntimeId = new Map<string, LanguageRuntimeInfo>();
@@ -162,7 +159,6 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 		// registered.
 		this._extensionService.whenAllExtensionHostsStarted().then(() => {
 			this._onDidChangeDiscoveryPhaseEmitter.fire(LanguageRuntimeDiscoveryPhase.Discovering);
-			this._initiallyTrustedWorkspace = this._workspaceTrustManagementService.isWorkspaceTrusted();
 		});
 
 		// Update the discovery phase when the language service's state changes.
@@ -455,31 +451,6 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 				}, 0);
 			}
 		}));
-
-		// --- Begin TEMPORARY ---
-		// We want to start a Python runtime as a last-chance fallback if we have no other
-		// runtimes to start. We consider this to be true under the following circumstances:
-		//
-		// - We have completed the discovery phase, which implies we've also started any
-		//   runtimes that asked to be started right away (startupBehavior === Immediate).
-		// - No runtimes have been started or are running yet.
-		// - This was not an initially untrusted workspace; in these workspaces, we don't
-		//   know what would have been automatically started, so we don't want to come
-		//   stomping in and starting a Python runtime.
-		// - No runtimes will be automatically started for this workspace, i.e. this workspace
-		//   has no affiliated runtimes.
-		//
-		// This behavior shouldn't live here, but it does until the Python language pack
-		// can be updated. See https://github.com/rstudio/positron/issues/1009
-		if (this._discoveryPhase === LanguageRuntimeDiscoveryPhase.Complete &&
-			!this.hasAnyStartedOrRunningRuntimes() &&
-			languageRuntimeInfo.runtime.metadata.languageId === 'python' &&
-			this._initiallyTrustedWorkspace === true &&
-			!this._workspaceAffiliation.hasAffiliatedRuntime()) {
-			this.autoStartRuntime(languageRuntimeInfo.runtime,
-				`No other language runtimes want to start; Python is the default.`);
-		}
-		// --- End TEMPORARY ---
 
 		return toDisposable(() => {
 			// Remove the runtime from the set of starting or running runtimes.
