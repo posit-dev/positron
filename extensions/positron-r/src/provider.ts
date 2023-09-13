@@ -307,11 +307,11 @@ async function shouldRecommendForWorkspace(): Promise<boolean> {
 	const globs = [
 		'**/*.R',
 		'**/*.Rmd',
-		'**/.Rprofile',
-		'**/renv.lock',
-		'**/.Rbuildignore',
-		'**/.Renviron',
-		'**/*.Rproj'
+		'.Rprofile',
+		'renv.lock',
+		'.Rbuildignore',
+		'.Renviron',
+		'*.Rproj'
 	];
 	// Convert to the glob format used by vscode.workspace.findFiles.
 	const glob = `{${globs.join(',')}}`;
