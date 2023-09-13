@@ -3,7 +3,6 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import * as positron from 'positron';
 import { randomUUID } from 'crypto';
 import { PositronZedLanguageRuntime } from './positronZedLanguageRuntime';
 
@@ -92,7 +91,7 @@ export class ZedEnvironment {
 		this._vars.set('z', new ZedVariable('z', 'zed1', 'string', 4, 4));
 		this._vars.set('e', new ZedVariable('e', 'zed2', 'string', 4, 4));
 		this._vars.set('d', new ZedVariable('d', 'zed3', 'string', 4, 4));
-		this._vars.set('dat', new ZedVariable('dat', 'table(10 columns, 100 rows)', 'table', 100, 1000));
+		this._vars.set('dat', new ZedVariable('dat', 'table(10 columns, 1000 rows)', 'table', 1000, 10_000));
 
 		// Create a Zed Version variable
 		this._vars.set('ZED_VERSION', new ZedVariable('ZED_VERSION',
