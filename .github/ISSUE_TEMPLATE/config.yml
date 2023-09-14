@@ -1,8 +1,6 @@
 blank_issues_enabled: false
 contact_links:
-  - name: Question
-    url: https://stackoverflow.com/questions/tagged/visual-studio-code
-    about: Please ask and answer questions here.
-  - name: Extension Development
-    url: https://github.com/microsoft/vscode-discussions/discussions
-    about: Please use this for extension development questions and ideas.
+  - name: Questions and Feedback
+    url: https://app.slack.com/client/T02V9CHFH/C05M2EZCPGR
+    about: Please ask questions and share your feedback with the team.
+
