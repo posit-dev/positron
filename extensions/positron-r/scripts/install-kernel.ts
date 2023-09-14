@@ -7,9 +7,14 @@ import { IncomingMessage } from 'http';
 import * as https from 'https';
 import { promisify } from 'util';
 
+
+// Promisify some filesystem functions.
 const readFileAsync = promisify(fs.readFile);
 const writeFileAsync = promisify(fs.writeFile);
 const existsAsync = promisify(fs.exists);
+
+// Create a promisified version of https.get. We can't use the built-in promisify
+// because the callback doesn't follow the promise convention of (error, result).
 const httpsGetAsync = (opts: https.RequestOptions) => {
 	return new Promise<IncomingMessage>((resolve, reject) => {
 		const req = https.get(opts, resolve);
@@ -33,7 +38,8 @@ async function getVersionFromPackageJson(): Promise<string | null> {
 }
 
 /**
- * Gets the version of Ark installed locally.
+ * Gets the version of Ark installed locally by reading a `VERSION` file that's written
+ * by this `install-kernel` script.
  *
  * @returns The version of Ark installed locally, or null if ark is not installed.
  */
@@ -133,8 +139,8 @@ async function downloadAndReplaceArk(version: string, githubPat: string): Promis
 			});
 			response.on('end', async () => {
 				// Create the resources/ark directory if it doesn't exist.
-				if (!await existsAsync('resources/bin')) {
-					await fs.promises.mkdir('resources/bin');
+				if (!await existsAsync('resources/ark')) {
+					await fs.promises.mkdir('resources/ark');
 				}
 
 				console.log(`Successfully downloaded Ark ${version} (${binaryData.length} bytes).`);
@@ -173,13 +179,19 @@ async function main() {
 	console.log(`Local ark version: ${localArkVersion ? localArkVersion : 'Not installed'}`);
 
 	if (packageJsonVersion !== localArkVersion) {
-		console.log('Versions do not match.');
-
 		// Get the GITHUB_PAT from the environment.
-		const githubPat = process.env.GITHUB_PAT;
+		let githubPat = process.env.GITHUB_PAT;
 		if (!githubPat) {
-			console.error('GITHUB_PAT environment variable not set; cannot download ark.');
-			return;
+			try {
+				const { stdout, stderr } =
+					await executeCommand('git config --get credential.https://api.github.com.token');
+				githubPat = stdout.trim();
+			} catch (error) {
+				console.error(`Cannot download Ark ${packageJsonVersion} without a Github Personal Access Token.
+A Personal Access Token can be supplied by setting the GITHUB_PAT environment variable, or
+by running 'git config credential.https://api.github.com.token <token>'`);
+				return;
+			}
 		}
 		await downloadAndReplaceArk(packageJsonVersion, githubPat);
 	} else {
