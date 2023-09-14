@@ -182,6 +182,12 @@ async function main() {
 		// Get the GITHUB_PAT from the environment.
 		let githubPat = process.env.GITHUB_PAT;
 		if (!githubPat) {
+			// Try POSITRON_GITHUB_PAT (it's what the build script sets)
+			githubPat = process.env.POSITRON_GITHUB_PAT;
+		}
+
+		// If no GITHUB_PAT is set, try to get it from git config.
+		if (!githubPat) {
 			try {
 				const { stdout, stderr } =
 					await executeCommand('git config --get credential.https://api.github.com.token');
