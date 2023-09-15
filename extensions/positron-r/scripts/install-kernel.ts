@@ -178,6 +178,9 @@ async function main() {
 		fs.existsSync(path.join(targetFolder, 'release', 'ark'))) {
 		console.log(`Found locally built Ark in ${targetFolder}. Skipping download.`);
 		return;
+	} else {
+		console.log(`No locally built Ark found in ${path.join(positronParent, 'amalthea')}; ` +
+			`checking downloaded version.`);
 	}
 
 	const packageJsonVersion = await getVersionFromPackageJson();
@@ -189,7 +192,7 @@ async function main() {
 	}
 
 	console.log(`package.json version: ${packageJsonVersion}`);
-	console.log(`Local ark version: ${localArkVersion ? localArkVersion : 'Not installed'}`);
+	console.log(`Downloaded ark version: ${localArkVersion ? localArkVersion : 'Not found'}`);
 
 	if (packageJsonVersion !== localArkVersion) {
 		// Get the GITHUB_PAT from the environment.
