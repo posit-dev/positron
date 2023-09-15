@@ -4,6 +4,7 @@
 
 import * as semver from 'semver';
 import * as path from 'path';
+import * as fs from 'fs';
 import { extractValue, readLines } from './util';
 
 /**
@@ -63,6 +64,11 @@ export class RInstallation {
 		// make sure to target a base package that contains compiled code, so the
 		// 'Built' field contains the platform info
 		const descPath = path.join(this.homepath, 'library', 'utils', 'DESCRIPTION');
+		// We have actually seen an R "installation" that doesn't have the base packages!
+		// https://github.com/posit-dev/positron/issues/1314
+		if (!fs.existsSync(descPath)) {
+			return;
+		}
 		const descLines = readLines(descPath);
 		const targetLine2 = descLines.filter(line => line.match('Built'))[0];
 		if (!targetLine2) {
