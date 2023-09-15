@@ -167,12 +167,13 @@ class PositronHelpService extends Disposable implements IPositronHelpService {
 		// Register onDidReceiveRuntimeEvent handler.
 		this._register(
 			this.languageRuntimeService.onDidChangeRuntimeState(languageRuntimeStateEvent => {
+				// When a language runtime shuts down, delete its help entries.
 				switch (languageRuntimeStateEvent.new_state) {
 					case RuntimeState.Restarting:
 					case RuntimeState.Exiting:
 					case RuntimeState.Exited:
 					case RuntimeState.Offline:
-						this.deleteLanguageHelpEntries(languageRuntimeStateEvent.runtime_id);
+						this.deleteLanguageRuntimeHelpEntries(languageRuntimeStateEvent.runtime_id);
 						break;
 				}
 			})
@@ -458,21 +459,26 @@ class PositronHelpService extends Disposable implements IPositronHelpService {
 	}
 
 	/**
-	 * Deletes help entries for the specified language ID.
-	 * @param runtimeId The runtime ID of the help entries to remove.
+	 * Deletes help entries for the specified runtime ID.
+	 * @param runtimeId The runtime ID of the help entries to delete.
 	 */
-	private deleteLanguageHelpEntries(runtimeId: string) {
+	private deleteLanguageRuntimeHelpEntries(runtimeId: string) {
+		// Get help entries to delete.
+		const helpEntriesToDelete = this._helpEntries.filter(helpEntryToCheck =>
+			helpEntryToCheck.runtimeId === runtimeId
+		);
+
+		// If there are no help entries to delete, there's nothing more to do.
+		if (!helpEntriesToDelete) {
+			return;
+		}
+
 		// Get the current help entry.
 		const currentHelpEntry = this._helpEntryIndex === -1 ?
 			undefined :
 			this._helpEntries[this._helpEntryIndex];
 
-		// Get the deleted help entries.
-		const deletedHelpEntries = this._helpEntries.filter(helpEntryToCheck =>
-			helpEntryToCheck.runtimeId === runtimeId
-		);
-
-		// Filter out the deleted help entries.
+		// Filter out the help entries to delete.
 		this._helpEntries = this._helpEntries.filter(helpEntryToCheck =>
 			helpEntryToCheck.runtimeId !== runtimeId
 		);
@@ -486,7 +492,7 @@ class PositronHelpService extends Disposable implements IPositronHelpService {
 		}
 
 		// Dispose of the deleted help entries.
-		deletedHelpEntries.forEach(deletedHelpEntry => deletedHelpEntry.dispose());
+		helpEntriesToDelete.forEach(deletedHelpEntry => deletedHelpEntry.dispose());
 	}
 
 	//#endregion Private Methods
