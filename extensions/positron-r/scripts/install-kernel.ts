@@ -173,10 +173,37 @@ async function main() {
 	// and skip the download; this version will take precedence over any downloaded version.
 	const path = require('path');
 	const positronParent = path.dirname(path.dirname(path.dirname(path.dirname(__dirname))));
-	const targetFolder = path.join(positronParent, 'amalthea', 'target');
-	if (fs.existsSync(path.join(targetFolder, 'debug', 'ark')) ||
-		fs.existsSync(path.join(targetFolder, 'release', 'ark'))) {
-		console.log(`Found locally built Ark in ${targetFolder}. Skipping download.`);
+	const amaltheaFolder = path.join(positronParent, 'amalthea');
+	const targetFolder = path.join(amaltheaFolder, 'target');
+	const debugBinary = path.join(targetFolder, 'debug', 'ark');
+	const releaseBinary = path.join(targetFolder, 'release', 'ark');
+	if (fs.existsSync(debugBinary) || fs.existsSync(releaseBinary)) {
+		const binary = fs.existsSync(debugBinary) ? debugBinary : releaseBinary;
+		console.log(`Using locally built Ark in ${binary}.`);
+
+		// Copy the locally built ark to the resources/ark directory. It won't
+		// be read from this directory at runtime, but we need to put it here so
+		// that `yarn gulp vscode` will package it up (the packaging step
+		// doesn't look for a sideloaded ark from an adjacent `amalthea`
+		// directory).
+		fs.mkdirSync(path.join('resources', 'ark'), { recursive: true });
+		fs.copyFileSync(binary, path.join('resources', 'ark', 'ark'));
+
+		// Copy the 'public' and 'private' R modules from the ark crate to the
+		// resources/ark/modules directory.
+		const modulesFolder = path.join(amaltheaFolder, 'crates', 'ark', 'src', 'modules');
+		const modules = fs.readdirSync(modulesFolder);
+		for (const moduleFolder of modules) {
+			const allModules = fs.readdirSync(path.join(modulesFolder, moduleFolder));
+			console.log(`Copying ${moduleFolder} modules.`);
+			fs.mkdirSync(path.join('resources', 'ark', 'modules', moduleFolder),
+				{ recursive: true });
+			for (const module of allModules) {
+				fs.copyFileSync(path.join(modulesFolder, moduleFolder, module),
+					path.join('resources', 'ark', 'modules', moduleFolder, module));
+			}
+		}
+
 		return;
 	} else {
 		console.log(`No locally built Ark found in ${path.join(positronParent, 'amalthea')}; ` +
