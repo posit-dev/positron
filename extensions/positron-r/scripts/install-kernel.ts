@@ -167,6 +167,19 @@ async function downloadAndReplaceArk(version: string, githubPat: string): Promis
 }
 
 async function main() {
+
+	// Before we do any work, check to see if there is a locally built copy of Amalthea in the
+	// `amalthea/target` directory. If so, we'll assume that the user is a kernel developer
+	// and skip the download; this version will take precedence over any downloaded version.
+	const path = require('path');
+	const positronParent = path.dirname(path.dirname(path.dirname(path.dirname(__dirname))));
+	const targetFolder = path.join(positronParent, 'amalthea', 'target');
+	if (fs.existsSync(path.join(targetFolder, 'debug', 'ark')) ||
+		fs.existsSync(path.join(targetFolder, 'release', 'ark'))) {
+		console.log(`Found locally built Ark in ${targetFolder}. Skipping download.`);
+		return;
+	}
+
 	const packageJsonVersion = await getVersionFromPackageJson();
 	const localArkVersion = await getLocalArkVersion();
 
