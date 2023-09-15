@@ -76,8 +76,8 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 	// State hooks.
 	const [canNavigateBackward, setCanNavigateBackward] = useState(props.positronHelpService.canNavigateBackward);
 	const [canNavigateForward, setCanNavigateForward] = useState(props.positronHelpService.canNavigateForward);
-	const [helpEntry, setHelpEntry] = useState(props.positronHelpService.currentHelpEntry);
-	const [helpTitle, setHelpTitle] = useState(props.positronHelpService.currentHelpEntry?.title);
+	const [currentHelpEntry, setCurrentHelpEntry] = useState(props.positronHelpService.currentHelpEntry);
+	const [currentHelpTitle, setCurrentHelpTitle] = useState(props.positronHelpService.currentHelpEntry?.title);
 
 	// Find stuff. Placeholder.
 	const [findText, setFindText] = useState('');
@@ -91,7 +91,10 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 	const helpHistoryActions = () => {
 		// Build the help history actions.
 		const actions: IAction[] = [];
+
+		const currentHelpEntry = props.positronHelpService.currentHelpEntry;
 		const helpEntries = props.positronHelpService.helpEntries;
+
 		for (let i = helpEntries.length - 1; i >= 0 && actions.length < 10; i--) {
 			actions.push({
 				id: generateUuid(),
@@ -99,6 +102,7 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 				tooltip: '',
 				class: undefined,
 				enabled: true,
+				checked: helpEntries[i] === currentHelpEntry,
 				run: () => {
 					props.positronHelpService.openHelpEntry(helpEntries[i]);
 				}
@@ -119,37 +123,42 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 			// setAlternateFindUI(size.width - kPaddingLeft - historyButtonRef.current.offsetWidth - kSecondaryActionBarGap < 180);
 		}));
 
-		// Add the onDidOpenHelpEntry event handler.
-		disposableStore.add(props.positronHelpService.onDidOpenHelpEntry(helpEntry => {
-			// Set the help entry.
-			setHelpEntry(helpEntry);
+		// Add the onDidChangeCurrentHelpEntry event handler.
+		disposableStore.add(
+			props.positronHelpService.onDidChangeCurrentHelpEntry(currentHelpEntry => {
+				// Set the current help entry and the current help title.
+				setCurrentHelpEntry(currentHelpEntry);
+				setCurrentHelpTitle(currentHelpEntry?.title);
 
-			// Update navigation state.
-			setCanNavigateBackward(props.positronHelpService.canNavigateBackward);
-			setCanNavigateForward(props.positronHelpService.canNavigateForward);
-		}));
+				// Update navigation state.
+				setCanNavigateBackward(props.positronHelpService.canNavigateBackward);
+				setCanNavigateForward(props.positronHelpService.canNavigateForward);
+			})
+		);
 
 		// Return the cleanup function that will dispose of the event handlers.
 		return () => disposableStore.dispose();
 	}, []);
 
-	// Help entry.
+	// useEffect for currentHelpEntry.
 	useEffect(() => {
-		if (!helpEntry) {
+		// If there isn't a current help entry, no further action is required.
+		if (!currentHelpEntry) {
 			return;
 		}
 
 		// Create the disposable store for cleanup.
 		const disposableStore = new DisposableStore();
 
-		// Add the onTitleLoaded event handler.
-		helpEntry.onDidChangeTitle(() => {
-			setHelpTitle(helpEntry.title);
+		// Add the onDidChangeTitle event handler.
+		currentHelpEntry.onDidChangeTitle(() => {
+			// Set the current help title.
+			setCurrentHelpTitle(currentHelpEntry.title);
 		});
 
 		// Return the cleanup function.
 		return () => disposableStore.dispose();
-	}, [helpEntry]);
+	}, [currentHelpEntry]);
 
 	// Find text effect.
 	useEffect(() => {
@@ -243,9 +252,9 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 					paddingRight={kPaddingRight}
 				>
 					<ActionBarRegion location='left'>
-						{helpTitle &&
+						{currentHelpTitle &&
 							<ActionBarMenuButton
-								text={helpTitle}
+								text={currentHelpTitle}
 								tooltip={tooltipHelpHistory}
 								actions={helpHistoryActions}
 							/>

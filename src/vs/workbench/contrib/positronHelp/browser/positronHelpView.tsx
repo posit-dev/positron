@@ -206,10 +206,10 @@ export class PositronHelpView extends ViewPane implements IReactComponentContain
 		this.positronHelpContainer.appendChild(this.helpActionBarsContainer);
 		this.positronHelpContainer.appendChild(this.helpViewContainer);
 
-		// Register the onDidOpenHelpEntry event handler.
-		this._register(this.positronHelpService.onDidOpenHelpEntry(helpEntry => {
+		// Register the onDidChangeCurrentHelpEntry event handler.
+		this._register(this.positronHelpService.onDidChangeCurrentHelpEntry(currentHelpEntry => {
 			// Open the help entry.
-			this.openHelpEntry(helpEntry);
+			this.openHelpEntry(currentHelpEntry);
 		}));
 
 		// Register the onDidChangeBodyVisibility event handler.

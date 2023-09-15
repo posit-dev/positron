@@ -18,14 +18,14 @@ import { ILanguageRuntimeService, RuntimeState } from 'vs/workbench/services/lan
 import { LanguageRuntimeEventData, LanguageRuntimeEventType, ShowHelpEvent } from 'vs/workbench/services/languageRuntime/common/languageRuntimeEvents';
 
 /**
- * Positron help service ID.
- */
-export const POSITRON_HELP_SERVICE_ID = 'positronHelpService';
-
-/**
  * The Positron help view ID.
  */
 export const POSITRON_HELP_VIEW_ID = 'workbench.panel.positronHelp';
+
+/**
+ * Positron help service ID.
+ */
+export const POSITRON_HELP_SERVICE_ID = 'positronHelpService';
 
 /**
  * IPositronHelpService interface.
@@ -62,9 +62,9 @@ export interface IPositronHelpService {
 	readonly onDidFocusHelp: Event<void>;
 
 	/**
-	 * The onDidOpenHelpEntry event.
+	 * The onDidChangeCurrentHelpEntry event.
 	 */
-	readonly onDidOpenHelpEntry: Event<HelpEntry>;
+	readonly onDidChangeCurrentHelpEntry: Event<HelpEntry | undefined>;
 
 	/**
 	 * Placeholder that gets called to "initialize" the PositronConsoleService.
@@ -122,9 +122,10 @@ class PositronHelpService extends Disposable implements IPositronHelpService {
 	private readonly _onDidFocusHelpEmitter = this._register(new Emitter<void>);
 
 	/**
-	 * The onDidOpenHelpEntry event emitter.
+	 * The onDidChangeCurrentHelpEntry event emitter.
 	 */
-	private readonly _onDidOpenHelpEntryEmitter = this._register(new Emitter<HelpEntry>);
+	private readonly _onDidChangeCurrentHelpEntryEmitter =
+		this._register(new Emitter<HelpEntry | undefined>);
 
 	//#endregion Private Properties
 
@@ -167,22 +168,11 @@ class PositronHelpService extends Disposable implements IPositronHelpService {
 		this._register(
 			this.languageRuntimeService.onDidChangeRuntimeState(languageRuntimeStateEvent => {
 				switch (languageRuntimeStateEvent.new_state) {
-					case RuntimeState.Uninitialized:
-					case RuntimeState.Initializing:
-					case RuntimeState.Starting:
-					case RuntimeState.Ready:
-					case RuntimeState.Idle:
-					case RuntimeState.Busy:
-						break;
-
 					case RuntimeState.Restarting:
 					case RuntimeState.Exiting:
 					case RuntimeState.Exited:
 					case RuntimeState.Offline:
 						this.removeLanguageHelpEntries(languageRuntimeStateEvent.runtime_id);
-						break;
-
-					case RuntimeState.Interrupting:
 						break;
 				}
 			})
@@ -356,9 +346,9 @@ class PositronHelpService extends Disposable implements IPositronHelpService {
 	readonly onDidFocusHelp = this._onDidFocusHelpEmitter.event;
 
 	/**
-	 * The onDidOpenHelpEntry event.
+	 * The onDidChangeCurrentHelpEntry event.
 	 */
-	readonly onDidOpenHelpEntry = this._onDidOpenHelpEntryEmitter.event;
+	readonly onDidChangeCurrentHelpEntry = this._onDidChangeCurrentHelpEntryEmitter.event;
 
 	/**
 	 * Placeholder that gets called to "initialize" the PositronHelpService.
@@ -414,7 +404,7 @@ class PositronHelpService extends Disposable implements IPositronHelpService {
 	navigateBackward() {
 		// Navigate backward, if we can.
 		if (this._helpEntryIndex > 0) {
-			this._onDidOpenHelpEntryEmitter.fire(this._helpEntries[--this._helpEntryIndex]);
+			this._onDidChangeCurrentHelpEntryEmitter.fire(this._helpEntries[--this._helpEntryIndex]);
 		}
 	}
 
@@ -424,7 +414,7 @@ class PositronHelpService extends Disposable implements IPositronHelpService {
 	navigateForward() {
 		// Navigate forward, if we can.
 		if (this._helpEntryIndex < this._helpEntries.length - 1) {
-			this._onDidOpenHelpEntryEmitter.fire(this._helpEntries[++this._helpEntryIndex]);
+			this._onDidChangeCurrentHelpEntryEmitter.fire(this._helpEntries[++this._helpEntryIndex]);
 		}
 	}
 
@@ -446,8 +436,8 @@ class PositronHelpService extends Disposable implements IPositronHelpService {
 		this._helpEntries.push(helpEntry);
 		this._helpEntryIndex = this._helpEntries.length - 1;
 
-		// Raise the onDidOpenHelpEntry event for the newly added help entry.
-		this._onDidOpenHelpEntryEmitter.fire(this._helpEntries[this._helpEntryIndex]);
+		// Raise the onDidChangeCurrentHelpEntry event for the newly added help entry.
+		this._onDidChangeCurrentHelpEntryEmitter.fire(this._helpEntries[this._helpEntryIndex]);
 	}
 
 	/**
@@ -455,24 +445,18 @@ class PositronHelpService extends Disposable implements IPositronHelpService {
 	 * @param runtimeId The runtime ID of the help entries to remove.
 	 */
 	private removeLanguageHelpEntries(runtimeId: string) {
-		return;
-		// // Get the current help entry.
-		// const currentHelpEntry = this.helpEntryIndex === -1 ?
-		// 	undefined :
-		// 	this.helpEntries[this.helpEntryIndex];
+		// Get the current help entry.
+		const currentHelpEntry = this._helpEntryIndex === -1 ?
+			undefined :
+			this._helpEntries[this._helpEntryIndex];
 
-		// // Remove help entries for the specified runtime ID.
-		// this.helpEntries = this.helpEntries.filter(helpEntryToCheck =>
-		// 	helpEntryToCheck.runtimeId !== runtimeId
-		// );
+		// Remove help entries for the specified runtime ID.
+		this._helpEntries = this._helpEntries.filter(helpEntryToCheck =>
+			helpEntryToCheck.runtimeId !== runtimeId
+		);
 
-		// // Remove help hisory for the specified runtime ID.
-		// this.helpEntries = this.helpEntries.filter(helpEntryToCheck =>
-		// 	helpEntryToCheck.runtimeId !== runtimeId
-		// );
-
-		// // Set the new help entry index.
-		// this.helpEntryIndex = !currentHelpEntry ? -1 : this.helpEntries.indexOf(currentHelpEntry);
+		// Set the new help entry index.
+		this._helpEntryIndex = !currentHelpEntry ? -1 : this._helpEntries.indexOf(currentHelpEntry);
 	}
 
 	//#endregion Private Methods
