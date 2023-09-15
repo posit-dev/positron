@@ -172,7 +172,7 @@ class PositronHelpService extends Disposable implements IPositronHelpService {
 					case RuntimeState.Exiting:
 					case RuntimeState.Exited:
 					case RuntimeState.Offline:
-						this.removeLanguageHelpEntries(languageRuntimeStateEvent.runtime_id);
+						this.deleteLanguageHelpEntries(languageRuntimeStateEvent.runtime_id);
 						break;
 				}
 			})
@@ -433,13 +433,24 @@ class PositronHelpService extends Disposable implements IPositronHelpService {
 	 * @param helpEntry The help entry to add.
 	 */
 	private addHelpEntry(helpEntry: HelpEntry) {
-		// If the help entry appears in the help history, remove it.
-		this._helpEntries = this._helpEntries.filter(helpEntryToCheck =>
-			helpEntryToCheck.sourceUrl !== helpEntry.sourceUrl
-		);
+		// Splice the help entry into the help entries at the current help entry index and trim the
+		// remaining help entries to 10.
+		const deletedHelpEntries = [
+			...this._helpEntries.splice(
+				this._helpEntryIndex + 1,
+				Infinity,
+				helpEntry
+			),
+			...this._helpEntries.splice(
+				0,
+				this._helpEntries.length - 10
+			)
+		];
 
-		// Push the help entry to the help entries.
-		this._helpEntries.push(helpEntry);
+		// Dispose of the deleted help entries.
+		deletedHelpEntries.forEach(deletedHelpEntry => deletedHelpEntry.dispose());
+
+		// Set the new help entry index.
 		this._helpEntryIndex = this._helpEntries.length - 1;
 
 		// Raise the onDidChangeCurrentHelpEntry event for the newly added help entry.
@@ -447,22 +458,35 @@ class PositronHelpService extends Disposable implements IPositronHelpService {
 	}
 
 	/**
-	 * Removes help entries for the specified language ID.
+	 * Deletes help entries for the specified language ID.
 	 * @param runtimeId The runtime ID of the help entries to remove.
 	 */
-	private removeLanguageHelpEntries(runtimeId: string) {
+	private deleteLanguageHelpEntries(runtimeId: string) {
 		// Get the current help entry.
 		const currentHelpEntry = this._helpEntryIndex === -1 ?
 			undefined :
 			this._helpEntries[this._helpEntryIndex];
 
-		// Remove help entries for the specified runtime ID.
+		// Get the deleted help entries.
+		const deletedHelpEntries = this._helpEntries.filter(helpEntryToCheck =>
+			helpEntryToCheck.runtimeId === runtimeId
+		);
+
+		// Filter out the deleted help entries.
 		this._helpEntries = this._helpEntries.filter(helpEntryToCheck =>
 			helpEntryToCheck.runtimeId !== runtimeId
 		);
 
-		// Set the new help entry index.
-		this._helpEntryIndex = !currentHelpEntry ? -1 : this._helpEntries.indexOf(currentHelpEntry);
+		// Update the current help entry, if there was one.
+		if (currentHelpEntry) {
+			this._helpEntryIndex = currentHelpEntry.runtimeId === runtimeId ?
+				-1 :
+				this._helpEntries.indexOf(currentHelpEntry);
+			this._onDidChangeCurrentHelpEntryEmitter.fire(this._helpEntries[this._helpEntryIndex]);
+		}
+
+		// Dispose of the deleted help entries.
+		deletedHelpEntries.forEach(deletedHelpEntry => deletedHelpEntry.dispose());
 	}
 
 	//#endregion Private Methods
