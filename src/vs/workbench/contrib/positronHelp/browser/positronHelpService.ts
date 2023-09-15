@@ -72,10 +72,10 @@ export interface IPositronHelpService {
 	initialize(): void;
 
 	/**
-	 * Opens the specified help entry.
-	 * @param helpEntry The help entry to open.
+	 * Opens the specified help entry index.
+	 * @param helpEntryIndex The help entry index to open.
 	 */
-	openHelpEntry(helpEntry: HelpEntry): void;
+	openHelpEntryIndex(helpEntryIndex: number): void;
 
 	/**
 	 * Navigates the help service.
@@ -357,11 +357,19 @@ class PositronHelpService extends Disposable implements IPositronHelpService {
 	}
 
 	/**
-	 * Opens the specified help entry.
-	 * @param helpEntry The help entry to open.
+	 * Opens the specified help entry index.
+	 * @param helpEntryIndex The help entry index to open.
 	 */
-	openHelpEntry(helpEntry: HelpEntry) {
-		this.addHelpEntry(helpEntry);
+	openHelpEntryIndex(helpEntryIndex: number) {
+		// Validate the help entry index.
+		if (helpEntryIndex < 0 || helpEntryIndex > this._helpEntries.length - 1) {
+			this.logService.error(`PositronHelpService help entry index ${helpEntryIndex} is out of range.`);
+			return;
+		}
+
+		// Set the help entry index and fire the onDidChangeCurrentHelpEntry event.
+		this._helpEntryIndex = helpEntryIndex;
+		this._onDidChangeCurrentHelpEntryEmitter.fire(this._helpEntries[this._helpEntryIndex]);
 	}
 
 	/**
@@ -402,7 +410,6 @@ class PositronHelpService extends Disposable implements IPositronHelpService {
 	 * Navigates backward.
 	 */
 	navigateBackward() {
-		// Navigate backward, if we can.
 		if (this._helpEntryIndex > 0) {
 			this._onDidChangeCurrentHelpEntryEmitter.fire(this._helpEntries[--this._helpEntryIndex]);
 		}
@@ -412,13 +419,12 @@ class PositronHelpService extends Disposable implements IPositronHelpService {
 	 * Navigates forward.
 	 */
 	navigateForward() {
-		// Navigate forward, if we can.
 		if (this._helpEntryIndex < this._helpEntries.length - 1) {
 			this._onDidChangeCurrentHelpEntryEmitter.fire(this._helpEntries[++this._helpEntryIndex]);
 		}
 	}
 
-	//#endregion IPositronHelpService2
+	//#endregion IPositronHelpService
 
 	//#region Private Methods
 

@@ -15,6 +15,7 @@ import { ITelemetryService } from 'vs/platform/telemetry/common/telemetry';
 import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
 import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
 import { IOverlayWebview } from 'vs/workbench/contrib/webview/browser/webview';
+import { HelpEntry } from 'vs/workbench/contrib/positronHelp/browser/helpEntry';
 import { IContextMenuService } from 'vs/platform/contextview/browser/contextView';
 import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
@@ -22,7 +23,6 @@ import { ViewPane, IViewPaneOptions } from 'vs/workbench/browser/parts/views/vie
 import { ActionBars } from 'vs/workbench/contrib/positronHelp/browser/components/actionBars';
 import { IPositronHelpService } from 'vs/workbench/contrib/positronHelp/browser/positronHelpService';
 import { IReactComponentContainer, ISize, PositronReactRenderer } from 'vs/base/browser/positronReactRenderer';
-import { HelpEntry } from 'vs/workbench/contrib/positronHelp/browser/helpEntry';
 
 /**
  * PositronHelpCommand interface.
@@ -208,8 +208,8 @@ export class PositronHelpView extends ViewPane implements IReactComponentContain
 
 		// Register the onDidChangeCurrentHelpEntry event handler.
 		this._register(this.positronHelpService.onDidChangeCurrentHelpEntry(currentHelpEntry => {
-			// Open the help entry.
-			this.openHelpEntry(currentHelpEntry);
+			// Update the current help entry.
+			this.updateCurrentHelpEntry(currentHelpEntry);
 		}));
 
 		// Register the onDidChangeBodyVisibility event handler.
@@ -314,8 +314,8 @@ export class PositronHelpView extends ViewPane implements IReactComponentContain
 			/>
 		);
 
-		// Open the current help entry.
-		this.openHelpEntry(this.positronHelpService.currentHelpEntry);
+		// Update the current help entry.
+		this.updateCurrentHelpEntry(this.positronHelpService.currentHelpEntry);
 	}
 
 	/**
@@ -353,84 +353,22 @@ export class PositronHelpView extends ViewPane implements IReactComponentContain
 	//#region Private Methods
 
 	/**
-	 * Opens a help entry.
-	 * @param helpEntry The help entry to open.
+	 * Updates the current help entry.
+	 * @param currentHelpEntry The current help entry.
 	 */
-	private openHelpEntry(helpEntry?: HelpEntry) {
+	private updateCurrentHelpEntry(currentHelpEntry?: HelpEntry) {
 		// Release the overlay help view, if there is one.
 		if (this.helpOverlayWebview) {
 			this.helpOverlayWebview.release(this);
 			this.helpOverlayWebview = undefined;
 		}
 
-		// If there isn't a help entry, return.
-		if (!helpEntry) {
-			return;
+		// If there is a current help entry, get its help overlay webview, claim it, and lay it out.
+		if (currentHelpEntry) {
+			this.helpOverlayWebview = currentHelpEntry.helpOverlayWebview;
+			this.helpOverlayWebview.claim(this, undefined);
+			this.helpOverlayWebview.layoutWebviewOverElement(this.helpViewContainer);
 		}
-
-		// // If the help entry doesn't have an overlay webview, create one for it.
-		// if (!helpEntry.helpOverlayWebview) {
-		// 	// Create the help overlay webview.
-		// 	helpEntry.helpOverlayWebview = this.webviewService.createWebviewOverlay({
-		// 		title: 'Positron Help',
-		// 		extension: {
-		// 			id: new ExtensionIdentifier('positron-help'),
-		// 		},
-		// 		options: {
-		// 			purpose: WebviewContentPurpose.WebviewView,
-		// 			retainContextWhenHidden: true
-		// 		},
-		// 		contentOptions: {
-		// 			allowScripts: true,
-		// 			allowMultipleAPIAcquire: true,
-		// 			localResourceRoots: [], // TODO: needed for positron-help.js
-		// 		},
-		// 	});
-
-		// 	// Add the onMessage event handler to the help overlay webview.
-		// 	helpEntry.helpOverlayWebview.onMessage(async e => {
-		// 		const message = e.message as Message;
-		// 		switch (message.id) {
-		// 			// help-loaded message.
-		// 			case 'positron-help-loaded': {
-		// 				helpEntry.title = message.title;
-		// 				await this.positronHelpService.helpLoaded(message.url, message.title || message.url);
-		// 				break;
-		// 			}
-
-		// 			// navigate message.
-		// 			case 'positron-help-navigate': {
-		// 				// If the to URL is external, open it externally; otherwise, open it in the help
-		// 				// service.
-		// 				const toUrl = new URL(message.toUrl);
-		// 				if (!isLocalhost(toUrl.hostname)) {
-		// 					try {
-		// 						await this.openerService.open(message.toUrl, {
-		// 							openExternal: true
-		// 						} satisfies OpenExternalOptions);
-		// 					} catch {
-		// 						this.notificationService.error(nls.localize(
-		// 							'positronHelpOpenFailed',
-		// 							"Positron was unable to open '{0}'.", message.toUrl
-		// 						));
-		// 					}
-		// 				} else {
-		// 					// Get the current help entry.
-		// 					this.positronHelpService.navigate(message.fromUrl, message.toUrl);
-		// 				}
-		// 				break;
-		// 			}
-		// 		}
-		// 	});
-
-		// 	// Set the HTML of the help overlay webview.
-		// 	helpEntry.helpOverlayWebview.setHtml(this.generateHelpHtml(helpEntry));
-		// }
-
-		// Claim and layout the help overlay webview.
-		this.helpOverlayWebview = helpEntry.helpOverlayWebview;
-		this.helpOverlayWebview.claim(this, undefined);
-		this.helpOverlayWebview.layoutWebviewOverElement(this.helpViewContainer);
 	}
 
 	/**

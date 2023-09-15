@@ -130,7 +130,7 @@ export class HelpEntry extends Disposable {
 			return this._helpOverlayWebview;
 		}
 
-		// Create the help overlay webview.
+		// Create the help overlay webview. Register it for disposal.
 		this._helpOverlayWebview = this._webviewService.createWebviewOverlay({
 			title: 'Positron Help',
 			extension: {
@@ -146,8 +146,9 @@ export class HelpEntry extends Disposable {
 				localResourceRoots: [], // TODO: needed for positron-help.js
 			},
 		});
+		this._register(this._helpOverlayWebview);
 
-		// Add the onMessage event handler to the help overlay webview.
+		// Add the onMessage event handler to the help overlay webview. Register it for disposal.
 		this._register(this._helpOverlayWebview.onMessage(async e => {
 			const message = e.message as Message;
 			switch (message.id) {
@@ -261,28 +262,3 @@ export class HelpEntry extends Disposable {
 
 	//#endregion Private Methods
 }
-
-// /**
-//  * Called to indicate that help has loaded.
-//  * @param url The URL of the help that was loaded.
-//  * @param title The title of the help that was loaded.
-//  */
-// async helpLoaded(url: string, title: string): Promise<void> {
-// 	// Find the first occurence of the URL, set its title, and raise the onHelpLoaded event.
-// 	for (let i = this.helpEntries.length - 1; i >= 0; i--) {
-// 		const helpEntry = this.helpEntries[i];
-// 		if (helpEntry && helpEntry.sourceUrl === url) {
-// 			// Set the title.
-// 			helpEntry.title = title;
-
-// 			// Open the help view.
-// 			await this.viewsService.openView(POSITRON_HELP_VIEW_ID, false);
-
-// 			// Raise the onHelpLoaded event.
-// 			this.onHelpLoadedEmitter.fire(helpEntry);
-
-// 			// Finish the operation.
-// 			return;
-// 		}
-// 	}
-// }

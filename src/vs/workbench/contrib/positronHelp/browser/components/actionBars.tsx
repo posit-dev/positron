@@ -95,16 +95,16 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 		const currentHelpEntry = props.positronHelpService.currentHelpEntry;
 		const helpEntries = props.positronHelpService.helpEntries;
 
-		for (let i = helpEntries.length - 1; i >= 0 && actions.length < 10; i--) {
+		for (let helpEntryIndex = helpEntries.length - 1; helpEntryIndex >= 0; helpEntryIndex--) {
 			actions.push({
 				id: generateUuid(),
-				label: helpEntries[i].title || shortenUrl(helpEntries[i].sourceUrl),
+				label: helpEntries[helpEntryIndex].title || shortenUrl(helpEntries[helpEntryIndex].sourceUrl),
 				tooltip: '',
 				class: undefined,
 				enabled: true,
-				checked: helpEntries[i] === currentHelpEntry,
+				checked: helpEntries[helpEntryIndex] === currentHelpEntry,
 				run: () => {
-					props.positronHelpService.openHelpEntry(helpEntries[i]);
+					props.positronHelpService.openHelpEntryIndex(helpEntryIndex);
 				}
 			});
 		}
