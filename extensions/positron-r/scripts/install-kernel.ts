@@ -62,18 +62,24 @@ async function getLocalArkVersion(): Promise<string | null> {
  * Helper to execute a command and return the stdout and stderr.
  *
  * @param command The command to execute.
+ * @param stdin Optional stdin to pass to the command.
  * @returns A promise that resolves with the stdout and stderr of the command.
  */
-async function executeCommand(command: string): Promise<{ stdout: string; stderr: string }> {
+async function executeCommand(command: string, stdin?: string):
+	Promise<{ stdout: string; stderr: string }> {
 	const { exec } = require('child_process');
 	return new Promise((resolve, reject) => {
-		exec(command, (error: any, stdout: string, stderr: string) => {
+		const process = exec(command, (error: any, stdout: string, stderr: string) => {
 			if (error) {
 				reject(error);
 			} else {
 				resolve({ stdout, stderr });
 			}
 		});
+		if (stdin) {
+			process.stdin.write(stdin);
+			process.stdin.end();
+		}
 	});
 }
 
@@ -83,8 +89,13 @@ async function executeCommand(command: string): Promise<{ stdout: string; stderr
  * @param version The version of Ark to download.
  * @param githubPat A Github Personal Access Token with the appropriate rights
  *  to download the release.
+ * @param patIsApproved Whether the PAT has been approved by the 'git
+ *  credential' command. If it hasn't, we will approve the credential if it
+ *  makes a successful API request to Github.
  */
-async function downloadAndReplaceArk(version: string, githubPat: string): Promise<void> {
+async function downloadAndReplaceArk(version: string,
+	githubPat: string,
+	patIsApproved: boolean): Promise<void> {
 
 	try {
 		const requestOptions: https.RequestOptions = {
@@ -100,6 +111,23 @@ async function downloadAndReplaceArk(version: string, githubPat: string): Promis
 		};
 
 		const response = await httpsGetAsync(requestOptions as any) as any;
+
+		if (response.statusCode === 200 && !patIsApproved) {
+			// If the PAT hasn't been approved yet, do so now.
+			const { stdout, stderr } =
+				await executeCommand('git credential approve',
+					`protocol=https\n` +
+					`host=api.github.com\n` +
+					`path=/repos/posit-dev/amalthea/releases\n` +
+					`username=\n` +
+					`password=${githubPat}\n`);
+			console.log(stdout);
+			if (stderr) {
+				console.warn(`Unable to approve PAT. You may be prompted for a username and ` +
+					`password the next time you download Ark.`);
+				console.error(stderr);
+			}
+		}
 
 		let responseBody = '';
 
@@ -132,6 +160,7 @@ async function downloadAndReplaceArk(version: string, githubPat: string): Promis
 
 			let response = await httpsGetAsync(requestOptions) as any;
 			while (response.statusCode === 302) {
+				// Follow redirects.
 				response = await httpsGetAsync(response.headers.location) as any;
 			}
 			let binaryData = Buffer.alloc(0);
@@ -226,31 +255,68 @@ async function main() {
 	console.log(`package.json version: ${packageJsonVersion}`);
 	console.log(`Downloaded ark version: ${localArkVersion ? localArkVersion : 'Not found'}`);
 
-	if (packageJsonVersion !== localArkVersion) {
-		// Get the GITHUB_PAT from the environment.
-		let githubPat = process.env.GITHUB_PAT;
-		if (!githubPat) {
-			// Try POSITRON_GITHUB_PAT (it's what the build script sets)
-			githubPat = process.env.POSITRON_GITHUB_PAT;
-		}
-
-		// If no GITHUB_PAT is set, try to get it from git config.
-		if (!githubPat) {
-			try {
-				const { stdout, stderr } =
-					await executeCommand('git config --get credential.https://api.github.com.token');
-				githubPat = stdout.trim();
-			} catch (error) {
-				console.error(`Cannot download Ark ${packageJsonVersion} without a Github Personal Access Token.
-A Personal Access Token can be supplied by setting the GITHUB_PAT environment variable, or
-by running 'git config credential.https://api.github.com.token <token>'`);
-				return;
-			}
-		}
-		await downloadAndReplaceArk(packageJsonVersion, githubPat);
-	} else {
+	if (packageJsonVersion === localArkVersion) {
 		console.log('Versions match. No action required.');
+		return;
 	}
+	// Get the GITHUB_PAT from the environment.
+	let githubPat = process.env.GITHUB_PAT;
+	let patIsApproved = true;
+	if (!githubPat) {
+		// Try POSITRON_GITHUB_PAT (it's what the build script sets)
+		githubPat = process.env.POSITRON_GITHUB_PAT;
+	}
+
+	// If no GITHUB_PAT is set, try to get it from git config. This provides a
+	// convenient non-interactive way to set the PAT.
+	if (!githubPat) {
+		try {
+			const { stdout, stderr } =
+				await executeCommand('git config --get credential.https://api.github.com.token');
+			githubPat = stdout.trim();
+		} catch (error) {
+			// We don't care if this fails; we'll try `git credential` next.
+		}
+	}
+
+	// If no GITHUB_PAT is set, try to get it from git credential.
+	if (!githubPat) {
+		// Explain to the user what's about to happen.
+		console.log(`Attempting to retrieve a Github Personal Access Token from git in order\n` +
+			`to download Ark ${packageJsonVersion}. If you are prompted for a username and\n` +
+			`password, enter your Github username and a Personal Access Token with the\n` +
+			`'repo' scope. You can read about how to create a Personal Access Token here:\n` +
+			`\n` +
+			`https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens\n` +
+			`\n` +
+			`If you don't want to set up a Personal Access Token now, just press Enter and set\n` +
+			`a blank value for the password. Ark will not be downloaded, but you will still be\n` +
+			`able to run Positron without R support.\n` +
+			`\n` +
+			`You can set a PAT later by running yarn again and supplying the PAT at this prompt,\n` +
+			`or by running 'git config credential.https://api.github.com.token ghp_a1b2c..'\n`);
+		const { stdout, stderr } =
+			await executeCommand('git credential fill',
+				`protocol=https\n` +
+				`host=api.github.com\n` +
+				`path=/repos/posit-dev/amalthea/releases\n`);
+
+		patIsApproved = false;
+		// Extract the `password = ` line from the output.
+		const passwordLine = stdout.split('\n').find(
+			(line: string) => line.startsWith('password='));
+		if (passwordLine) {
+			githubPat = passwordLine.split('=')[1];
+		}
+	}
+
+	if (!githubPat) {
+		console.log(`No Github PAT was found. Unable to download Ark ${packageJsonVersion}.\n` +
+			`You can still run Positron without R support.`);
+		return;
+	}
+
+	await downloadAndReplaceArk(packageJsonVersion, githubPat, patIsApproved);
 }
 
 main().catch((error) => {
