@@ -9,7 +9,6 @@ import { localize } from 'vs/nls';
 import { IAction } from 'vs/base/common/actions';
 import { generateUuid } from 'vs/base/common/uuid';
 import { DisposableStore } from 'vs/base/common/lifecycle';
-import { useStateRef } from 'vs/base/browser/ui/react/useStateRef';
 import { ICommandService } from 'vs/platform/commands/common/commands';
 import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
 import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
@@ -20,9 +19,9 @@ import { PositronActionBar } from 'vs/platform/positronActionBar/browser/positro
 import { ActionBarFind } from 'vs/platform/positronActionBar/browser/components/actionBarFind';
 import { ActionBarButton } from 'vs/platform/positronActionBar/browser/components/actionBarButton';
 import { ActionBarRegion } from 'vs/platform/positronActionBar/browser/components/actionBarRegion';
+import { IPositronHelpService } from 'vs/workbench/contrib/positronHelp/browser/positronHelpService';
 import { ActionBarSeparator } from 'vs/platform/positronActionBar/browser/components/actionBarSeparator';
 import { ActionBarMenuButton } from 'vs/platform/positronActionBar/browser/components/actionBarMenuButton';
-import { IPositronHelpService } from 'vs/workbench/services/positronHelp/common/interfaces/positronHelpService';
 import { PositronActionBarContextProvider } from 'vs/platform/positronActionBar/browser/positronActionBarContext';
 
 // Constants.
@@ -60,6 +59,7 @@ export interface ActionBarsProps {
 
 	// Event callbacks.
 	onHome: () => void;
+
 	onFind: (findText: string) => void;
 	onCheckFindResults: () => boolean | undefined;
 	onFindPrevious: () => void;
@@ -76,8 +76,10 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 	// State hooks.
 	const [canNavigateBackward, setCanNavigateBackward] = useState(props.positronHelpService.canNavigateBackward);
 	const [canNavigateForward, setCanNavigateForward] = useState(props.positronHelpService.canNavigateForward);
-	const [helpTitle, setHelpTitle] = useState<string | undefined>(undefined);
-	const [, setTitleTimeout, titleTimeoutRef] = useStateRef<NodeJS.Timeout | undefined>(undefined);
+	const [helpEntry, setHelpEntry] = useState(props.positronHelpService.currentHelpEntry);
+	const [helpTitle, setHelpTitle] = useState(props.positronHelpService.currentHelpEntry?.title);
+
+	// Find stuff. Placeholder.
 	const [findText, setFindText] = useState('');
 	const [pollFindResults, setPollFindResults] = useState(false);
 	const [findResults, setFindResults] = useState(false);
@@ -89,16 +91,16 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 	const helpHistoryActions = () => {
 		// Build the help history actions.
 		const actions: IAction[] = [];
-		const helpHistory = props.positronHelpService.helpHistory;
-		for (let i = helpHistory.length - 1; i >= 0 && actions.length < 10; i--) {
+		const helpEntries = props.positronHelpService.helpEntries;
+		for (let i = helpEntries.length - 1; i >= 0 && actions.length < 10; i--) {
 			actions.push({
 				id: generateUuid(),
-				label: helpHistory[i].title || shortenUrl(helpHistory[i].sourceUrl),
+				label: helpEntries[i].title || shortenUrl(helpEntries[i].sourceUrl),
 				tooltip: '',
 				class: undefined,
 				enabled: true,
 				run: () => {
-					props.positronHelpService.openHelpEntry(helpHistory[i]);
+					props.positronHelpService.openHelpEntry(helpEntries[i]);
 				}
 			});
 		}
@@ -113,57 +115,41 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 		const disposableStore = new DisposableStore();
 
 		// Add the onSizeChanged event handler.
-		disposableStore.add(
-			props.reactComponentContainer.onSizeChanged(size => {
-				// setAlternateFindUI(size.width - kPaddingLeft - historyButtonRef.current.offsetWidth - kSecondaryActionBarGap < 180);
-			})
-		);
+		disposableStore.add(props.reactComponentContainer.onSizeChanged(size => {
+			// setAlternateFindUI(size.width - kPaddingLeft - historyButtonRef.current.offsetWidth - kSecondaryActionBarGap < 180);
+		}));
 
-		// Add the onDidChangeCurrentHelpEntry event handler.
-		disposableStore.add(
-			props.positronHelpService.onDidChangeCurrentHelpEntry(currentHelpEntry => {
-				// Set the help title.
-				setHelpTitle(currentHelpEntry?.title);
+		// Add the onDidOpenHelpEntry event handler.
+		disposableStore.add(props.positronHelpService.onDidOpenHelpEntry(helpEntry => {
+			// Set the help entry.
+			setHelpEntry(helpEntry);
 
-				// If there is a current help entry, and it doesn't have a title, set a timeout for
-				// one second from now. If it fires, set the title to be the help URL. We do this
-				// because the help document may not load and we need to display something for the
-				// title.
-				if (currentHelpEntry && !currentHelpEntry.title) {
-					setTitleTimeout(setTimeout(() => {
-						setHelpTitle(shortenUrl(currentHelpEntry.sourceUrl));
-					}, 1000));
-				}
-
-				// Update navigation state.
-				setCanNavigateBackward(props.positronHelpService.canNavigateBackward);
-				setCanNavigateForward(props.positronHelpService.canNavigateForward);
-			})
-		);
-
-		// Add the onHelpLoaded event handler. This is fired when our embedded script in the help
-		// document detects that the document has loaded. This is not guaranteed to happen, though
-		// it always does.
-		disposableStore.add(
-			props.positronHelpService.onHelpLoaded(helpEntry => {
-				// Clear the title timeout, if needed.
-				if (titleTimeoutRef.current) {
-					clearTimeout(titleTimeoutRef.current);
-				}
-
-				// Set the title.
-				if (helpEntry.title) {
-					setHelpTitle(helpEntry?.title);
-				} else {
-					const helpURL = new URL(helpEntry.sourceUrl);
-					setHelpTitle(helpURL.href.replace(helpURL.origin, ''));
-				}
-			})
-		);
+			// Update navigation state.
+			setCanNavigateBackward(props.positronHelpService.canNavigateBackward);
+			setCanNavigateForward(props.positronHelpService.canNavigateForward);
+		}));
 
 		// Return the cleanup function that will dispose of the event handlers.
 		return () => disposableStore.dispose();
 	}, []);
+
+	// Help entry.
+	useEffect(() => {
+		if (!helpEntry) {
+			return;
+		}
+
+		// Create the disposable store for cleanup.
+		const disposableStore = new DisposableStore();
+
+		// Add the onTitleLoaded event handler.
+		helpEntry.onDidChangeTitle(() => {
+			setHelpTitle(helpEntry.title);
+		});
+
+		// Return the cleanup function.
+		return () => disposableStore.dispose();
+	}, [helpEntry]);
 
 	// Find text effect.
 	useEffect(() => {

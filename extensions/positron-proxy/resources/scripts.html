@@ -37,8 +37,7 @@
 					links[i].onclick = (e) => {
 						window.parent.postMessage({
 							id: "positron-help-navigate",
-							fromUrl: window.location.href,
-							toUrl: links[i].href
+							url: links[i].href
 						}, "*");
 						return false;
 					};
