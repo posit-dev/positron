@@ -5,6 +5,7 @@
 import * as fs from 'fs';
 import { IncomingMessage } from 'http';
 import * as https from 'https';
+import * as path from 'path';
 import { promisify } from 'util';
 
 
@@ -44,14 +45,15 @@ async function getVersionFromPackageJson(): Promise<string | null> {
  * @returns The version of Ark installed locally, or null if ark is not installed.
  */
 async function getLocalArkVersion(): Promise<string | null> {
+	const versionFile = path.join('resources', 'ark', 'VERSION');
 	try {
-		const arkExists = await existsAsync('resources/ark/VERSION');
+		const arkExists = await existsAsync(versionFile);
 		if (!arkExists) {
 			return null;
 		}
-		return readFileAsync('resources/ark/VERSION', 'utf-8');
+		return readFileAsync(versionFile, 'utf-8');
 	} catch (error) {
-		console.error('Error determining ARK version":', error);
+		console.error('Error determining ARK version: ', error);
 		return null;
 	}
 }
@@ -139,16 +141,20 @@ async function downloadAndReplaceArk(version: string, githubPat: string): Promis
 			});
 			response.on('end', async () => {
 				// Create the resources/ark directory if it doesn't exist.
-				if (!await existsAsync('resources/ark')) {
-					await fs.promises.mkdir('resources/ark');
+				if (!await existsAsync(path.join('resources', 'ark'))) {
+					await fs.promises.mkdir(path.join('resources', 'ark'));
 				}
 
 				console.log(`Successfully downloaded Ark ${version} (${binaryData.length} bytes).`);
-				await writeFileAsync('resources/ark/ark.zip', binaryData);
+				const zipFileDest = path.join('resources', 'ark', 'ark.zip');
+				await writeFileAsync(zipFileDest, binaryData);
 
 				// Unzip the binary.
 				const { stdout, stderr } =
-					await executeCommand('unzip -o resources/ark/ark.zip -d resources/ark');
+					await executeCommand(`unzip -o ` +
+						`${path.join('resources', 'ark', 'ark.zip')}` +
+						` -d ` +
+						`${path.join('resources', 'ark')}`);
 				console.log(stdout);
 				if (stderr) {
 					console.error(stderr);
@@ -157,7 +163,7 @@ async function downloadAndReplaceArk(version: string, githubPat: string): Promis
 				}
 
 				// Write a VERSION file with the version number.
-				await writeFileAsync('resources/ark/VERSION', version);
+				await writeFileAsync(path.join('resources', 'ark', 'VERSION'), version);
 
 			});
 		});
@@ -171,7 +177,6 @@ async function main() {
 	// Before we do any work, check to see if there is a locally built copy of Amalthea in the
 	// `amalthea/target` directory. If so, we'll assume that the user is a kernel developer
 	// and skip the download; this version will take precedence over any downloaded version.
-	const path = require('path');
 	const positronParent = path.dirname(path.dirname(path.dirname(path.dirname(__dirname))));
 	const amaltheaFolder = path.join(positronParent, 'amalthea');
 	const targetFolder = path.join(amaltheaFolder, 'target');
