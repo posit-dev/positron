@@ -3,9 +3,9 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { localize } from 'vs/nls';
-import { Emitter } from 'vs/base/common/event';
 import { generateUuid } from 'vs/base/common/uuid';
 import { Disposable } from 'vs/base/common/lifecycle';
+import { Emitter, Event } from 'vs/base/common/event';
 import { isLocalhost } from 'vs/workbench/contrib/positronHelp/browser/utils';
 import { ExtensionIdentifier } from 'vs/platform/extensions/common/extensions';
 import { INotificationService } from 'vs/platform/notification/common/notification';
@@ -44,9 +44,39 @@ type Message =
 	| MessageNavigate;
 
 /**
+ * IHelpEntry interface.
+ */
+export interface IHelpEntry {
+	/**
+	 * Gets the source URL.
+	 */
+	readonly sourceUrl: string;
+
+	/**
+	 * Gets the title.
+	 */
+	readonly title: string | undefined;
+
+	/**
+	 * Gets the help overlay webview.
+	 */
+	readonly helpOverlayWebview: IOverlayWebview;
+
+	/**
+	 * The onDidChangeTitle event.
+	 */
+	readonly onDidChangeTitle: Event<String>;
+
+	/**
+	 * The onDidNavigate event.
+	 */
+	readonly onDidNavigate: Event<String>;
+}
+
+/**
  * HelpEntry class.
  */
-export class HelpEntry extends Disposable {
+export class HelpEntry extends Disposable implements IHelpEntry {
 	//#region Private Properties
 
 	/**
@@ -118,12 +148,18 @@ export class HelpEntry extends Disposable {
 
 	//#endregion Constructor & Dispose
 
-	//#region Public Properties
+	//#region IHelpEntry Implementation
 
+	/**
+	 * Gets the title.
+	 */
 	get title() {
 		return this._title;
 	}
 
+	/**
+	 * Gets the help overlay webview.
+	 */
 	get helpOverlayWebview() {
 		// If the help overlay webview has been created, return it.
 		if (this._helpOverlayWebview) {
@@ -190,7 +226,9 @@ export class HelpEntry extends Disposable {
 		// Set the HTML of the help overlay webview.
 		this._helpOverlayWebview.setHtml(this.generateHelpHtml());
 
-		// Start the set title timeout.
+		// Start the set title timeout. This timeout sets the title of the help entry to a shortened
+		// version of the source URL. We do this because there's no guarantee that the document will
+		// load and send us its title.
 		this._setTitleTimeout = setTimeout(() => {
 			this._title = shortenUrl(this.sourceUrl);
 			this._onDidChangeTitleEmitter.fire(this._title);
@@ -201,8 +239,6 @@ export class HelpEntry extends Disposable {
 		return this._helpOverlayWebview;
 	}
 
-	//#endregion Public Properties
-
 	/**
 	 * The onDidChangeTitle event.
 	 */
@@ -212,6 +248,8 @@ export class HelpEntry extends Disposable {
 	 * The onDidNavigate event.
 	 */
 	readonly onDidNavigate = this._onDidNavigateEmitter.event;
+
+	//#endregion IHelpEntry Implementation
 
 	//#region Private Methods
 

@@ -9,11 +9,11 @@ import { ILogService } from 'vs/platform/log/common/log';
 import { IViewsService } from 'vs/workbench/common/views';
 import { ICommandService } from 'vs/platform/commands/common/commands';
 import { isLocalhost } from 'vs/workbench/contrib/positronHelp/browser/utils';
-import { HelpEntry } from 'vs/workbench/contrib/positronHelp/browser/helpEntry';
 import { INotificationService } from 'vs/platform/notification/common/notification';
 import { IOpenerService, OpenExternalOptions } from 'vs/platform/opener/common/opener';
-import { IInstantiationService, createDecorator } from 'vs/platform/instantiation/common/instantiation';
+import { HelpEntry, IHelpEntry } from 'vs/workbench/contrib/positronHelp/browser/helpEntry';
 import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/common/extensions';
+import { IInstantiationService, createDecorator } from 'vs/platform/instantiation/common/instantiation';
 import { ILanguageRuntimeService, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { LanguageRuntimeEventData, LanguageRuntimeEventType, ShowHelpEvent } from 'vs/workbench/services/languageRuntime/common/languageRuntimeEvents';
 
@@ -39,12 +39,12 @@ export interface IPositronHelpService {
 	/**
 	 * Gets the help entries.
 	 */
-	readonly helpEntries: HelpEntry[];
+	readonly helpEntries: IHelpEntry[];
 
 	/**
 	 * Gets the current help entry.
 	 */
-	readonly currentHelpEntry?: HelpEntry;
+	readonly currentHelpEntry?: IHelpEntry;
 
 	/**
 	 * Gets a value which indicates whether help can navigate backward.
@@ -64,7 +64,7 @@ export interface IPositronHelpService {
 	/**
 	 * The onDidChangeCurrentHelpEntry event.
 	 */
-	readonly onDidChangeCurrentHelpEntry: Event<HelpEntry | undefined>;
+	readonly onDidChangeCurrentHelpEntry: Event<IHelpEntry | undefined>;
 
 	/**
 	 * Placeholder that gets called to "initialize" the PositronConsoleService.
@@ -125,18 +125,12 @@ class PositronHelpService extends Disposable implements IPositronHelpService {
 	 * The onDidChangeCurrentHelpEntry event emitter.
 	 */
 	private readonly _onDidChangeCurrentHelpEntryEmitter =
-		this._register(new Emitter<HelpEntry | undefined>);
+		this._register(new Emitter<IHelpEntry | undefined>);
 
 	//#endregion Private Properties
 
 	//#region Public Properties
 
-	/**
-	 * The help entries.
-	 */
-	public get helpEntries() {
-		return this._helpEntries;
-	}
 
 	//#endregion Public Properties
 
@@ -332,9 +326,16 @@ class PositronHelpService extends Disposable implements IPositronHelpService {
 	declare readonly _serviceBrand: undefined;
 
 	/**
+	 * The help entries.
+	 */
+	public get helpEntries(): IHelpEntry[] {
+		return this._helpEntries;
+	}
+
+	/**
 	 * Gets the current help entry.
 	 */
-	get currentHelpEntry() {
+	get currentHelpEntry(): IHelpEntry {
 		return this._helpEntries[this._helpEntryIndex];
 	}
 

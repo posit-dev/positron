@@ -15,7 +15,7 @@ import { ITelemetryService } from 'vs/platform/telemetry/common/telemetry';
 import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
 import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
 import { IOverlayWebview } from 'vs/workbench/contrib/webview/browser/webview';
-import { HelpEntry } from 'vs/workbench/contrib/positronHelp/browser/helpEntry';
+import { IHelpEntry } from 'vs/workbench/contrib/positronHelp/browser/helpEntry';
 import { IContextMenuService } from 'vs/platform/contextview/browser/contextView';
 import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
@@ -356,7 +356,7 @@ export class PositronHelpView extends ViewPane implements IReactComponentContain
 	 * Updates the current help entry.
 	 * @param currentHelpEntry The current help entry.
 	 */
-	private updateCurrentHelpEntry(currentHelpEntry?: HelpEntry) {
+	private updateCurrentHelpEntry(currentHelpEntry?: IHelpEntry) {
 		// Release the overlay help view, if there is one.
 		if (this.helpOverlayWebview) {
 			this.helpOverlayWebview.release(this);
