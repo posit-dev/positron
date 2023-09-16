@@ -311,6 +311,17 @@ class PositronHelpService extends Disposable implements IPositronHelpService {
 		);
 	}
 
+	/**
+	 * dispose override method.
+	 */
+	public override dispose(): void {
+		// Dispose of the help entries.
+		this._helpEntries.forEach(helpEntry => helpEntry.dispose());
+
+		// Call the base class's dispose method.
+		super.dispose();
+	}
+
 	//#endregion Constructor & Dispose
 
 	//#region IPositronHelpService Implementation
