@@ -76,11 +76,6 @@ export interface IHelpEntry {
 	readonly title: string | undefined;
 
 	/**
-	 * Gets the help overlay webview.
-	 */
-	readonly helpOverlayWebview: IOverlayWebview;
-
-	/**
 	 * The onDidChangeTitle event.
 	 */
 	readonly onDidChangeTitle: Event<String>;
@@ -89,6 +84,18 @@ export interface IHelpEntry {
 	 * The onDidNavigate event.
 	 */
 	readonly onDidNavigate: Event<String>;
+
+	/**
+	 * Shows the help overlay webiew.
+	 * @param element The element over which to show the help overlay webiew.
+	 */
+	showHelpOverlayWebview(element: HTMLElement): void;
+
+	/**
+	 * Hides the help overlay webiew.
+	 * @param dispose A value which indicates whether to dispose of the help overlay webiew.
+	 */
+	hideHelpOverlayWebview(dispose: boolean): void;
 }
 
 /**
@@ -168,6 +175,13 @@ export class HelpEntry extends Disposable implements IHelpEntry {
 		// Release the help overlay webview.
 		if (this._setTitleTimeout) {
 			clearTimeout(this._setTitleTimeout);
+			this._setTitleTimeout = undefined;
+		}
+
+		// Dispose of the help overlay webiew.
+		if (this._helpOverlayWebview) {
+			this._helpOverlayWebview.dispose();
+			this._helpOverlayWebview = undefined;
 		}
 
 		// Call the base class's dispose method.
@@ -186,99 +200,6 @@ export class HelpEntry extends Disposable implements IHelpEntry {
 	}
 
 	/**
-	 * Gets the help overlay webview.
-	 */
-	get helpOverlayWebview() {
-		// If the help overlay webview has been created, return it.
-		if (this._helpOverlayWebview) {
-			return this._helpOverlayWebview;
-		}
-
-		// Create the help overlay webview. Register it for disposal.
-		this._helpOverlayWebview = this._webviewService.createWebviewOverlay({
-			title: 'Positron Help',
-			extension: {
-				id: new ExtensionIdentifier('positron-help'),
-			},
-			options: {
-				purpose: WebviewContentPurpose.WebviewView,
-				retainContextWhenHidden: true
-			},
-			contentOptions: {
-				allowScripts: true,
-				allowMultipleAPIAcquire: true,
-				localResourceRoots: [], // TODO: needed for positron-help.js
-			},
-		});
-		this._register(this._helpOverlayWebview);
-
-		// Add the onMessage event handler to the help overlay webview. Register it for disposal.
-		this._register(this._helpOverlayWebview.onMessage(async e => {
-			const message = e.message as PositronHelpMessage;
-			switch (message.id) {
-				// positron-help-interactive message.
-				case 'positron-help-interactive':
-					break;
-
-				// positron-help-complete message.
-				case 'positron-help-complete':
-					if (message.title) {
-						if (this._setTitleTimeout) {
-							clearTimeout(this._setTitleTimeout);
-							this._setTitleTimeout = undefined;
-						}
-						this._title = message.title;
-						this._onDidChangeTitleEmitter.fire(this._title);
-					}
-					break;
-
-				// positron-help-navigate message.
-				case 'positron-help-navigate':
-					// If the to URL is external, open it externally; otherwise, open it in the help
-					// service.
-					if (!isLocalhost(new URL(message.url).hostname)) {
-						try {
-							await this._openerService.open(message.url, {
-								openExternal: true
-							} satisfies OpenExternalOptions);
-						} catch {
-							this._notificationService.error(localize(
-								'positronHelpOpenFailed',
-								"Positron was unable to open '{0}'.", message.url
-							));
-						}
-					} else {
-						this._onDidNavigateEmitter.fire(message.url);
-					}
-					break;
-
-				// positron-help-scroll message.
-				case 'positron-help-scroll':
-					// Set the scroll position.
-					this._scrollX = message.scrollX;
-					this._scrollY = message.scrollY;
-					//console.log(`positron-help-scroll ${this._scrollX},${this._scrollY}`);
-					break;
-			}
-		}));
-
-		// Set the HTML of the help overlay webview.
-		this._helpOverlayWebview.setHtml(this.generateHelpHtml());
-
-		// Start the set title timeout. This timeout sets the title of the help entry to a shortened
-		// version of the source URL. We do this because there's no guarantee that the document will
-		// load and send us its title.
-		this._setTitleTimeout = setTimeout(() => {
-			this._title = shortenUrl(this.sourceUrl);
-			this._onDidChangeTitleEmitter.fire(this._title);
-			this._setTitleTimeout = undefined;
-		}, 1000);
-
-		// Return the help overlay webview.
-		return this._helpOverlayWebview;
-	}
-
-	/**
 	 * The onDidChangeTitle event.
 	 */
 	readonly onDidChangeTitle = this._onDidChangeTitleEmitter.event;
@@ -288,9 +209,119 @@ export class HelpEntry extends Disposable implements IHelpEntry {
 	 */
 	readonly onDidNavigate = this._onDidNavigateEmitter.event;
 
+	/**
+	 * Shows the help overlay webiew.
+	 * @param element The element over which to show the help overlay webiew.
+	 */
+	public showHelpOverlayWebview(element: HTMLElement) {
+		if (!this._helpOverlayWebview) {
+			// Create the help overlay webview. Register it for disposal.
+			this._helpOverlayWebview = this._webviewService.createWebviewOverlay({
+				title: 'Positron Help',
+				extension: {
+					id: new ExtensionIdentifier('positron-help'),
+				},
+				options: {
+					purpose: WebviewContentPurpose.WebviewView,
+					retainContextWhenHidden: true
+				},
+				contentOptions: {
+					allowScripts: true,
+					allowMultipleAPIAcquire: true,
+					localResourceRoots: [], // TODO: needed for positron-help.js
+				},
+			});
+
+			// Add the onMessage event handler to the help overlay webview.
+			this._helpOverlayWebview.onMessage(async e => {
+				const message = e.message as PositronHelpMessage;
+				switch (message.id) {
+					// positron-help-interactive message.
+					case 'positron-help-interactive':
+						break;
+
+					// positron-help-complete message.
+					case 'positron-help-complete':
+						if (message.title) {
+							if (this._setTitleTimeout) {
+								clearTimeout(this._setTitleTimeout);
+								this._setTitleTimeout = undefined;
+							}
+							this._title = message.title;
+							this._onDidChangeTitleEmitter.fire(this._title);
+						}
+						break;
+
+					// positron-help-navigate message.
+					case 'positron-help-navigate':
+						// If the to URL is external, open it externally; otherwise, open it in the help
+						// service.
+						if (!isLocalhost(new URL(message.url).hostname)) {
+							try {
+								await this._openerService.open(message.url, {
+									openExternal: true
+								} satisfies OpenExternalOptions);
+							} catch {
+								this._notificationService.error(localize(
+									'positronHelpOpenFailed',
+									"Positron was unable to open '{0}'.", message.url
+								));
+							}
+						} else {
+							this._onDidNavigateEmitter.fire(message.url);
+						}
+						break;
+
+					// positron-help-scroll message.
+					case 'positron-help-scroll':
+						// Set the scroll position.
+						this._scrollX = message.scrollX;
+						this._scrollY = message.scrollY;
+						//console.log(`positron-help-scroll ${this._scrollX},${this._scrollY}`);
+						break;
+				}
+			});
+
+			// Set the HTML of the help overlay webview.
+			this._helpOverlayWebview.setHtml(this.generateHelpHtml());
+
+			// Start the set title timeout. This timeout sets the title of the help entry to a shortened
+			// version of the source URL. We do this because there's no guarantee that the document will
+			// load and send us its title.
+			this._setTitleTimeout = setTimeout(() => {
+				this._title = shortenUrl(this.sourceUrl);
+				this._onDidChangeTitleEmitter.fire(this._title);
+				this._setTitleTimeout = undefined;
+			}, 1000);
+		}
+
+		this._helpOverlayWebview.claim(this, undefined);
+		this._helpOverlayWebview.layoutWebviewOverElement(element);
+	}
+
+	/**
+	 * Hides the help overlay webiew.
+	 * @param dispose A value which indicates whether to dispose of the help overlay webiew.
+	 */
+	public hideHelpOverlayWebview(dispose: boolean) {
+		if (this._helpOverlayWebview) {
+			this._helpOverlayWebview.release(this);
+			if (dispose) {
+				this._helpOverlayWebview.dispose();
+				this._helpOverlayWebview = undefined;
+			}
+		}
+	}
+
 	//#endregion IHelpEntry Implementation
 
 	//#region Private Methods
+
+	/**
+	 * Creates the help overlay webview.
+	 */
+	createHelpOverlayWebview() {
+	}
 
 	/**
 	 * Generates help HTML.

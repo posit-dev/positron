@@ -14,7 +14,6 @@ import { ICommandService } from 'vs/platform/commands/common/commands';
 import { ITelemetryService } from 'vs/platform/telemetry/common/telemetry';
 import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
 import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
-import { IOverlayWebview } from 'vs/workbench/contrib/webview/browser/webview';
 import { IHelpEntry } from 'vs/workbench/contrib/positronHelp/browser/helpEntry';
 import { IContextMenuService } from 'vs/platform/contextview/browser/contextView';
 import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
@@ -88,9 +87,9 @@ export class PositronHelpView extends ViewPane implements IReactComponentContain
 	private onFocusedEmitter = this._register(new Emitter<void>());
 
 	/**
-	 * The help overlay webview that's being displayed.
+	 * The current help entry.
 	 */
-	private helpOverlayWebview?: IOverlayWebview;
+	private currentHelpEntry?: IHelpEntry;
 
 	//#endregion Private Properties
 
@@ -214,12 +213,13 @@ export class PositronHelpView extends ViewPane implements IReactComponentContain
 
 		// Register the onDidChangeBodyVisibility event handler.
 		this._register(this.onDidChangeBodyVisibility(visible => {
-			if (this.helpOverlayWebview) {
+			// If there is a current help entry, handle the visibility event by hiding or showing
+			// its help overlay webview.
+			if (this.currentHelpEntry) {
 				if (!visible) {
-					this.helpOverlayWebview.release(this);
+					this.currentHelpEntry.hideHelpOverlayWebview(false);
 				} else {
-					this.helpOverlayWebview.claim(this, undefined);
-					this.helpOverlayWebview.layoutWebviewOverElement(this.helpViewContainer);
+					this.currentHelpEntry.showHelpOverlayWebview(this.helpViewContainer);
 				}
 			}
 
@@ -232,11 +232,8 @@ export class PositronHelpView extends ViewPane implements IReactComponentContain
 	 * dispose override method.
 	 */
 	public override dispose(): void {
-		// Release the help overlay webview.
-		if (this.helpOverlayWebview) {
-			this.helpOverlayWebview.release(this);
-			this.helpOverlayWebview = undefined;
-		}
+		// If there is a current help entry, hide its help overlay webview.
+		this.currentHelpEntry?.hideHelpOverlayWebview(false);
 
 		// Call the base class's dispose method.
 		super.dispose();
@@ -344,8 +341,8 @@ export class PositronHelpView extends ViewPane implements IReactComponentContain
 			height
 		});
 
-		// Layout the helpOverlayWebview.
-		this.helpOverlayWebview?.layoutWebviewOverElement(this.helpViewContainer);
+		// If there is a current help entry, show its help overlay webview.
+		this.currentHelpEntry?.showHelpOverlayWebview(this.helpViewContainer);
 	}
 
 	//#endregion ViewPane Overrides
@@ -357,17 +354,10 @@ export class PositronHelpView extends ViewPane implements IReactComponentContain
 	 * @param currentHelpEntry The current help entry.
 	 */
 	private updateCurrentHelpEntry(currentHelpEntry?: IHelpEntry) {
-		// Release the overlay help view, if there is one.
-		if (this.helpOverlayWebview) {
-			this.helpOverlayWebview.release(this);
-			this.helpOverlayWebview = undefined;
-		}
-
-		// If there is a current help entry, get its help overlay webview, claim it, and lay it out.
-		if (currentHelpEntry) {
-			this.helpOverlayWebview = currentHelpEntry.helpOverlayWebview;
-			this.helpOverlayWebview.claim(this, undefined);
-			this.helpOverlayWebview.layoutWebviewOverElement(this.helpViewContainer);
+		if (this.currentHelpEntry !== currentHelpEntry) {
+			this.currentHelpEntry?.hideHelpOverlayWebview(true);
+			this.currentHelpEntry = currentHelpEntry;
+			this.currentHelpEntry?.showHelpOverlayWebview(this.helpViewContainer);
 		}
 	}
 
