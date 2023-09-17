@@ -16,7 +16,7 @@ import { IReactComponentContainer } from 'vs/base/browser/positronReactRenderer'
 import { IContextMenuService } from 'vs/platform/contextview/browser/contextView';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import { PositronActionBar } from 'vs/platform/positronActionBar/browser/positronActionBar';
-import { ActionBarFind } from 'vs/platform/positronActionBar/browser/components/actionBarFind';
+// import { ActionBarFind } from 'vs/platform/positronActionBar/browser/components/actionBarFind';
 import { ActionBarButton } from 'vs/platform/positronActionBar/browser/components/actionBarButton';
 import { ActionBarRegion } from 'vs/platform/positronActionBar/browser/components/actionBarRegion';
 import { IPositronHelpService } from 'vs/workbench/contrib/positronHelp/browser/positronHelpService';
@@ -80,9 +80,9 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 	const [currentHelpTitle, setCurrentHelpTitle] = useState(props.positronHelpService.currentHelpEntry?.title);
 
 	// Find stuff. Placeholder.
-	const [findText, setFindText] = useState('');
+	const [findText, _setFindText] = useState('');
 	const [pollFindResults, setPollFindResults] = useState(false);
-	const [findResults, setFindResults] = useState(false);
+	const [_findResults, setFindResults] = useState(false);
 
 	/**
 	 * Returns the help history actions.
@@ -261,13 +261,13 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 						}
 					</ActionBarRegion>
 					<ActionBarRegion location='right'>
-						<ActionBarFind
+						{/* <ActionBarFind
 							width={175}
 							findResults={findResults}
 							initialFindText={findText}
 							onFindTextChanged={setFindText}
 							onFindPrevious={props.onFindPrevious}
-							onFindNext={props.onFindNext} />
+							onFindNext={props.onFindNext} /> */}
 					</ActionBarRegion>
 
 				</PositronActionBar>
