@@ -331,7 +331,7 @@ export class HelpEntry extends Disposable implements IHelpEntry {
 
 				if (message.data.id === "positron-help-interactive") {
 					const scrollX = ${this._scrollX};
-					const scrollY = ${this._scrollY} + 500;
+					const scrollY = ${this._scrollY};
 					if (scrollX || scrollY) {
 						childWindow.postMessage({
 							id: "positron-help-scroll",
