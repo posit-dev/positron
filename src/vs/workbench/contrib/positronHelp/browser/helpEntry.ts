@@ -20,28 +20,46 @@ import { IOverlayWebview, IWebviewService, WebviewContentPurpose } from 'vs/work
 const shortenUrl = (url: string) => url.replace(new URL(url).origin, '');
 
 /**
- * MessageHelpLoaded type.
+ * PositronHelpMessageInteractive type.
  */
-type MessageHelpLoaded = {
-	id: 'positron-help-loaded';
+type PositronHelpMessageInteractive = {
+	id: 'positron-help-interactive';
+};
+
+/**
+ * PositronHelpMessageComplete type.
+ */
+type PositronHelpMessageComplete = {
+	id: 'positron-help-complete';
 	url: string;
 	title?: string;
 };
 
 /**
- * MessageNavigate type.
+ * PositronHelpMessageNavigate type.
  */
-type MessageNavigate = {
+type PositronHelpMessageNavigate = {
 	id: 'positron-help-navigate';
 	url: string;
 };
 
 /**
- * Message type.
+ * PositronHelpScroll type.
  */
-type Message =
-	| MessageHelpLoaded
-	| MessageNavigate;
+type PositronHelpMessageScroll = {
+	id: 'positron-help-scroll';
+	scrollX: number;
+	scrollY: number;
+};
+
+/**
+ * PositronHelpMessage type.
+ */
+type PositronHelpMessage =
+	| PositronHelpMessageInteractive
+	| PositronHelpMessageComplete
+	| PositronHelpMessageNavigate
+	| PositronHelpMessageScroll;
 
 /**
  * IHelpEntry interface.
@@ -83,6 +101,16 @@ export class HelpEntry extends Disposable implements IHelpEntry {
 	 * Gets or sets the title.
 	 */
 	private _title?: string;
+
+	/**
+	 * The X scroll position.
+	 */
+	private _scrollX = 0;
+
+	/**
+	 * The Y scroll position.
+	 */
+	private _scrollY = 0;
 
 	/**
 	 * Gets or sets the help overlay webview.
@@ -186,25 +214,29 @@ export class HelpEntry extends Disposable implements IHelpEntry {
 
 		// Add the onMessage event handler to the help overlay webview. Register it for disposal.
 		this._register(this._helpOverlayWebview.onMessage(async e => {
-			const message = e.message as Message;
+			const message = e.message as PositronHelpMessage;
 			switch (message.id) {
-				// positron-help-loaded message.
-				case 'positron-help-loaded': {
-					if (this._setTitleTimeout) {
-						clearTimeout(this._setTitleTimeout);
-						this._setTitleTimeout = undefined;
-					}
-					this._title = message.title || shortenUrl(this.sourceUrl);
-					this._onDidChangeTitleEmitter.fire(this._title);
+				// positron-help-interactive message.
+				case 'positron-help-interactive':
 					break;
-				}
+
+				// positron-help-complete message.
+				case 'positron-help-complete':
+					if (message.title) {
+						if (this._setTitleTimeout) {
+							clearTimeout(this._setTitleTimeout);
+							this._setTitleTimeout = undefined;
+						}
+						this._title = message.title;
+						this._onDidChangeTitleEmitter.fire(this._title);
+					}
+					break;
 
 				// positron-help-navigate message.
-				case 'positron-help-navigate': {
+				case 'positron-help-navigate':
 					// If the to URL is external, open it externally; otherwise, open it in the help
 					// service.
-					const toUrl = new URL(message.url);
-					if (!isLocalhost(toUrl.hostname)) {
+					if (!isLocalhost(new URL(message.url).hostname)) {
 						try {
 							await this._openerService.open(message.url, {
 								openExternal: true
@@ -219,7 +251,14 @@ export class HelpEntry extends Disposable implements IHelpEntry {
 						this._onDidNavigateEmitter.fire(message.url);
 					}
 					break;
-				}
+
+				// positron-help-scroll message.
+				case 'positron-help-scroll':
+					// Set the scroll position.
+					this._scrollX = message.scrollX;
+					this._scrollY = message.scrollY;
+					//console.log(`positron-help-scroll ${this._scrollX},${this._scrollY}`);
+					break;
 			}
 		}));
 
@@ -284,13 +323,25 @@ export class HelpEntry extends Disposable implements IHelpEntry {
 		<script nonce="${nonce}">
 		(() => {
 			const vscode = acquireVsCodeApi();
-			const childWindow = document.getElementById('help-iframe').contentWindow;
-			window.addEventListener('message', (message) => {
-				if (message.source === childWindow) {
-					if (message.data.id.startsWith("positron-help-")) {
-						vscode.postMessage(message.data);
+			const childWindow = document.getElementById("help-iframe").contentWindow;
+			window.addEventListener("message", message => {
+				if (message.source !== childWindow || !message.data.id.startsWith("positron-help-")) {
+					return;
+				}
+
+				if (message.data.id === "positron-help-interactive") {
+					const scrollX = ${this._scrollX};
+					const scrollY = ${this._scrollY} + 500;
+					if (scrollX || scrollY) {
+						childWindow.postMessage({
+							id: "positron-help-scroll",
+							scrollX,
+							scrollY
+						}, "*");
 					}
 				}
+
+				vscode.postMessage(message.data);
 			});
 		})();
 		</script>
