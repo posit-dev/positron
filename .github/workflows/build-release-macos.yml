@@ -115,13 +115,17 @@ jobs:
         env:
           npm_config_arch: ${{ matrix.arch }}
           POSITRON_GITHUB_PAT: ${{ secrets.POSITRON_GITHUB_PAT }}
-        run: yarn --network-timeout 120000
+        run: |
+          nvm use
+          yarn --network-timeout 120000
 
       # Build client
       - name: Build client
         env:
           POSITRON_BUILD_NUMBER: ${{ needs.version_string.outputs.build_number }}
-        run: yarn gulp vscode-darwin-${{ matrix.arch }}
+        run: |
+          nvm use
+          yarn gulp vscode-darwin-${{ matrix.arch }}
 
       # Compress client to a zip file
       - name: Create client archive
