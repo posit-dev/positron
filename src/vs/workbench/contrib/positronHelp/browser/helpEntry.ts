@@ -13,6 +13,12 @@ import { IOpenerService, OpenExternalOptions } from 'vs/platform/opener/common/o
 import { IOverlayWebview, IWebviewService, WebviewContentPurpose } from 'vs/workbench/contrib/webview/browser/webview';
 
 /**
+ * Constants.
+ */
+const TITLE_TIMEOUT = 1000;
+const DISPOSE_TIMEOUT = 1 * 60 * 1000;
+
+/**
  * Shortens a URL.
  * @param url The URL.
  * @returns The shortened URL.
@@ -131,6 +137,12 @@ export class HelpEntry extends Disposable implements IHelpEntry {
 	private _setTitleTimeout?: NodeJS.Timeout;
 
 	/**
+	 * Gets or sets the dispose timeout. This timeout is used to schedule the disposal of the help
+	 * overlay webview.
+	 */
+	private _disposeTimeout?: NodeJS.Timeout;
+
+	/**
 	 * The onDidChangeTitle event emitter.
 	 */
 	private readonly _onDidChangeTitleEmitter = this._register(new Emitter<string>);
@@ -172,10 +184,16 @@ export class HelpEntry extends Disposable implements IHelpEntry {
 	 * dispose override method.
 	 */
 	public override dispose(): void {
-		// Release the help overlay webview.
+		// Clear the set title timeout.
 		if (this._setTitleTimeout) {
 			clearTimeout(this._setTitleTimeout);
 			this._setTitleTimeout = undefined;
+		}
+
+		// Clear the dispose timeout.
+		if (this._disposeTimeout) {
+			clearTimeout(this._disposeTimeout);
+			this._disposeTimeout = undefined;
 		}
 
 		// Dispose of the help overlay webiew.
@@ -214,6 +232,12 @@ export class HelpEntry extends Disposable implements IHelpEntry {
 	 * @param element The element over which to show the help overlay webiew.
 	 */
 	public showHelpOverlayWebview(element: HTMLElement) {
+		// If the dispose timeout is running, clear it.
+		if (this._disposeTimeout) {
+			clearTimeout(this._disposeTimeout);
+			this._disposeTimeout = undefined;
+		}
+
 		if (!this._helpOverlayWebview) {
 			// Create the help overlay webview. Register it for disposal.
 			this._helpOverlayWebview = this._webviewService.createWebviewOverlay({
@@ -285,16 +309,17 @@ export class HelpEntry extends Disposable implements IHelpEntry {
 			// Set the HTML of the help overlay webview.
 			this._helpOverlayWebview.setHtml(this.generateHelpHtml());
 
-			// Start the set title timeout. This timeout sets the title of the help entry to a shortened
-			// version of the source URL. We do this because there's no guarantee that the document will
-			// load and send us its title.
+			// Start the set title timeout. This timeout sets the title of the help entry to a
+			// shortened version of the source URL. We do this because there's no guarantee that the
+			// document will load and send its title.
 			this._setTitleTimeout = setTimeout(() => {
+				this._setTitleTimeout = undefined;
 				this._title = shortenUrl(this.sourceUrl);
 				this._onDidChangeTitleEmitter.fire(this._title);
-				this._setTitleTimeout = undefined;
-			}, 1000);
+			}, TITLE_TIMEOUT);
 		}
 
+		// Claim and layout the help overlay webview.
 		this._helpOverlayWebview.claim(this, undefined);
 		this._helpOverlayWebview.layoutWebviewOverElement(element);
 	}
@@ -306,9 +331,14 @@ export class HelpEntry extends Disposable implements IHelpEntry {
 	public hideHelpOverlayWebview(dispose: boolean) {
 		if (this._helpOverlayWebview) {
 			this._helpOverlayWebview.release(this);
-			if (dispose) {
-				this._helpOverlayWebview.dispose();
-				this._helpOverlayWebview = undefined;
+			if (dispose && !this._disposeTimeout) {
+				this._disposeTimeout = setTimeout(() => {
+					this._disposeTimeout = undefined;
+					if (this._helpOverlayWebview) {
+						this._helpOverlayWebview.dispose();
+						this._helpOverlayWebview = undefined;
+					}
+				}, DISPOSE_TIMEOUT);
 			}
 		}
 	}
