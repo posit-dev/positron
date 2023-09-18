@@ -259,7 +259,7 @@ jobs:
 
           # Extract the notarization ID. This comes from a line of output that looks like:
           # id: 4baf5d9e-d1e8-48ed-8f33-1f0ae06e7ad1
-          NOTARIZATION_ID=$(echo $NOTARIZATION_OUTPUT | sed -n -e 's/[[:space:]]*id:[[:space:]]*//p' | head -1)
+          NOTARIZATION_ID=$(echo $NOTARIZATION_OUTPUT | sed -n -e 's/.*[[:space:]]*id:[[:space:]]*\([^ ]*\).*/\1/p' | head -1)
 
           # Extract and print the notarization log.
           xcrun notarytool log \
