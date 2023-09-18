@@ -924,9 +924,10 @@ export class PanelPart extends BasePanelPart {
 	// --- End Positron ---
 
 	// --- Start Positron ---
-	// readonly snap = true;
 	// In Positron, the panel doesn't snap (meaning it doesn't snap into being hidden).
-	override readonly snap: boolean = false;
+	override get snap() {
+		return false;
+	}
 	// --- End Positron ---
 
 	constructor(
