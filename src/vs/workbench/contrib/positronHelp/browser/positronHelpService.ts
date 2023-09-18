@@ -3,10 +3,12 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { localize } from 'vs/nls';
+import { FileAccess } from 'vs/base/common/network';
 import { Emitter, Event } from 'vs/base/common/event';
 import { Disposable } from 'vs/base/common/lifecycle';
 import { ILogService } from 'vs/platform/log/common/log';
 import { IViewsService } from 'vs/workbench/common/views';
+import { IFileService } from 'vs/platform/files/common/files';
 import { ICommandService } from 'vs/platform/commands/common/commands';
 import { isLocalhost } from 'vs/workbench/contrib/positronHelp/browser/utils';
 import { INotificationService } from 'vs/platform/notification/common/notification';
@@ -16,6 +18,11 @@ import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/
 import { IInstantiationService, createDecorator } from 'vs/platform/instantiation/common/instantiation';
 import { ILanguageRuntimeService, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { LanguageRuntimeEventData, LanguageRuntimeEventType, ShowHelpEvent } from 'vs/workbench/services/languageRuntime/common/languageRuntimeEvents';
+
+/**
+ * The help HTML file path.
+ */
+const HELP_HTML_FILE_PATH = 'vs/workbench/contrib/positronHelp/browser/resources/help.html';
 
 /**
  * The Positron help view ID.
@@ -102,17 +109,22 @@ class PositronHelpService extends Disposable implements IPositronHelpService {
 	//#region Private Properties
 
 	/**
-	 * The help entries.
+	 * Gets or sets the help HTML.
+	 */
+	private _helpHTML = '<!DOCTYPE html><html><body></body></html>';
+
+	/**
+	 * Gets or sets the help entries.
 	 */
 	private _helpEntries: HelpEntry[] = [];
 
 	/**
-	 * The help entry index.
+	 * Gets or sets the help entry index.
 	 */
 	private _helpEntryIndex = -1;
 
 	/**
-	 * The proxy servers. Keyed by the target URL origin.
+	 * Gets the proxy servers. Keyed by the target URL origin.
 	 */
 	private readonly _proxyServers = new Map<string, string>();
 
@@ -129,38 +141,38 @@ class PositronHelpService extends Disposable implements IPositronHelpService {
 
 	//#endregion Private Properties
 
-	//#region Public Properties
-
-
-	//#endregion Public Properties
-
 	//#region Constructor & Dispose
 
 	/**
 	 * Constructor.
-	 * @param commandService The ICommandService.
-	 * @param languageRuntimeService The ICommandService.
-	 * @param logService The ILogService.
-	 * @param notificationService The INotificationService.
-	 * @param openerService The IOpenerService.
-	 * @param viewsService The IViewsService.
+	 * @param _commandService The ICommandService.
+	 * @param _languageRuntimeService The ICommandService.
+	 * @param _logService The ILogService.
+	 * @param _notificationService The INotificationService.
+	 * @param _openerService The IOpenerService.
+	 * @param _viewsService The IViewsService.
 	 * @param webviewService The IWebviewService.
 	 */
 	constructor(
-		@ICommandService private readonly commandService: ICommandService,
-		@IInstantiationService private readonly instantiationService: IInstantiationService,
-		@ILanguageRuntimeService private readonly languageRuntimeService: ILanguageRuntimeService,
-		@ILogService private readonly logService: ILogService,
-		@INotificationService private readonly notificationService: INotificationService,
-		@IOpenerService private readonly openerService: IOpenerService,
-		@IViewsService private readonly viewsService: IViewsService
+		@ICommandService private readonly _commandService: ICommandService,
+		@IFileService private readonly _fileService: IFileService,
+		@IInstantiationService private readonly _instantiationService: IInstantiationService,
+		@ILanguageRuntimeService private readonly _languageRuntimeService: ILanguageRuntimeService,
+		@ILogService private readonly _logService: ILogService,
+		@INotificationService private readonly _notificationService: INotificationService,
+		@IOpenerService private readonly _openerService: IOpenerService,
+		@IViewsService private readonly _viewsService: IViewsService
 	) {
 		// Call the base class's constructor.
 		super();
 
+		// Load the help HTML file.
+		this._fileService.readFile(FileAccess.asFileUri(HELP_HTML_FILE_PATH))
+			.then(fileContent => this._helpHTML = fileContent.value.toString());
+
 		// Register onDidReceiveRuntimeEvent handler.
 		this._register(
-			this.languageRuntimeService.onDidChangeRuntimeState(languageRuntimeStateEvent => {
+			this._languageRuntimeService.onDidChangeRuntimeState(languageRuntimeStateEvent => {
 				// When a language runtime shuts down, delete its help entries.
 				switch (languageRuntimeStateEvent.new_state) {
 					case RuntimeState.Restarting:
@@ -175,7 +187,7 @@ class PositronHelpService extends Disposable implements IPositronHelpService {
 
 		// Register onDidReceiveRuntimeEvent handler.
 		this._register(
-			this.languageRuntimeService.onDidReceiveRuntimeEvent(async languageRuntimeGlobalEvent => {
+			this._languageRuntimeService.onDidReceiveRuntimeEvent(async languageRuntimeGlobalEvent => {
 				/**
 				 * Custom custom type guard for ShowHelpEvent.
 				 * @param _ The LanguageRuntimeEventData that should be a ShowHelpEvent.
@@ -192,7 +204,7 @@ class PositronHelpService extends Disposable implements IPositronHelpService {
 
 				// Ensure that the right event data was supplied.
 				if (!isShowHelpEvent(languageRuntimeGlobalEvent.event.data)) {
-					this.logService.error(`ShowHelp event supplied unsupported event data.`);
+					this._logService.error(`ShowHelp event supplied unsupported event data.`);
 					return;
 				}
 
@@ -201,7 +213,7 @@ class PositronHelpService extends Disposable implements IPositronHelpService {
 
 				// Only url help events are supported.
 				if (showHelpEvent.kind !== 'url') {
-					this.logService.error(`PositronHelpService does not support help event kind ${showHelpEvent.kind}.`);
+					this._logService.error(`PositronHelpService does not support help event kind ${showHelpEvent.kind}.`);
 					return;
 				}
 
@@ -209,16 +221,16 @@ class PositronHelpService extends Disposable implements IPositronHelpService {
 				const targetUrl = new URL(showHelpEvent.content);
 
 				// Logging.
-				this.logService.info(`PositronHelpService language runtime server sent show help event for: ${targetUrl.toString()}`);
+				this._logService.info(`PositronHelpService language runtime server sent show help event for: ${targetUrl.toString()}`);
 
 				// If the target URL is not for localhost, open it externally.
 				if (!isLocalhost(targetUrl.hostname)) {
 					try {
-						await this.openerService.open(targetUrl.toString(), {
+						await this._openerService.open(targetUrl.toString(), {
 							openExternal: true
 						} satisfies OpenExternalOptions);
 					} catch {
-						this.notificationService.error(localize(
+						this._notificationService.error(localize(
 							'positronHelpServiceOpenFailed',
 							"The Positron help service was unable to open '{0}'.", targetUrl.toString()
 						));
@@ -234,18 +246,18 @@ class PositronHelpService extends Disposable implements IPositronHelpService {
 				if (!proxyServerOrigin) {
 					// Try to start a help proxy server.
 					try {
-						proxyServerOrigin = await this.commandService.executeCommand<string>(
+						proxyServerOrigin = await this._commandService.executeCommand<string>(
 							'positronProxy.startHelpProxyServer',
 							targetUrl.origin
 						);
 					} catch (error) {
-						this.logService.error(`PositronHelpService could not start the proxy server for ${targetUrl.origin}.`);
-						this.logService.error(error);
+						this._logService.error(`PositronHelpService could not start the proxy server for ${targetUrl.origin}.`);
+						this._logService.error(error);
 					}
 
 					// If the help proxy server could not be started, notify the user, and return.
 					if (!proxyServerOrigin) {
-						this.notificationService.error(localize(
+						this._notificationService.error(localize(
 							'positronHelpServiceUnavailable',
 							"The Positron help service is unavailable."
 						));
@@ -264,13 +276,13 @@ class PositronHelpService extends Disposable implements IPositronHelpService {
 				sourceUrl.port = proxyServerOriginUrl.port;
 
 				// Get the runtime.
-				const runtime = this.languageRuntimeService.getRuntime(
+				const runtime = this._languageRuntimeService.getRuntime(
 					languageRuntimeGlobalEvent.runtime_id
 				);
 
 				// Basically this can't happen.
 				if (!runtime) {
-					this.notificationService.error(localize(
+					this._notificationService.error(localize(
 						'positronHelpServiceInternalError',
 						"The Positron help service experienced an unexpected error."
 					));
@@ -278,10 +290,11 @@ class PositronHelpService extends Disposable implements IPositronHelpService {
 				}
 
 				// Open the help view.
-				await this.viewsService.openView(POSITRON_HELP_VIEW_ID, false);
+				await this._viewsService.openView(POSITRON_HELP_VIEW_ID, false);
 
 				// Create the help entry.
-				const helpEntry = this.instantiationService.createInstance(HelpEntry,
+				const helpEntry = this._instantiationService.createInstance(HelpEntry,
+					this._helpHTML,
 					runtime.metadata.languageId,
 					runtime.metadata.runtimeId,
 					runtime.metadata.languageName,
@@ -376,7 +389,7 @@ class PositronHelpService extends Disposable implements IPositronHelpService {
 	openHelpEntryIndex(helpEntryIndex: number) {
 		// Validate the help entry index.
 		if (helpEntryIndex < 0 || helpEntryIndex > this._helpEntries.length - 1) {
-			this.logService.error(`PositronHelpService help entry index ${helpEntryIndex} is out of range.`);
+			this._logService.error(`PositronHelpService help entry index ${helpEntryIndex} is out of range.`);
 			return;
 		}
 
@@ -401,7 +414,8 @@ class PositronHelpService extends Disposable implements IPositronHelpService {
 			targetUrl.port = currentTargetUrl.port;
 
 			// Create the help entry.
-			const helpEntry = this.instantiationService.createInstance(HelpEntry,
+			const helpEntry = this._instantiationService.createInstance(HelpEntry,
+				this._helpHTML,
 				currentHelpEntry.languageId,
 				currentHelpEntry.runtimeId,
 				currentHelpEntry.languageName,
