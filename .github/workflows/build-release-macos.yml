@@ -3,7 +3,7 @@ name: "Positron: Build macOS Release"
 # run builds daily at 2am UTC (10p EST) on weekdays for now, or manually
 on:
   schedule:
-  - cron: "0 2 * * 1-5"
+    - cron: "0 2 * * 1-5"
   workflow_dispatch:
 
 jobs:
@@ -187,8 +187,8 @@ jobs:
       # universal build
       - name: Create universal build
         env:
-           VSCODE_ARCH: universal
-           DEBUG: "*"
+          VSCODE_ARCH: universal
+          DEBUG: "*"
         run: |
           node build/darwin/create-universal-app.js $(pwd)
 
@@ -249,12 +249,26 @@ jobs:
           #
           # The `--wait` argument causes `xcrun` to return only when the
           # service has completed notarization.
-          xcrun notarytool submit \
+          NOTARIZATION_OUTPUT=$(xcrun notarytool submit \
             --wait \
             --apple-id "${{ secrets.MACOS_NOTARIZATION_USER_NAME }}" \
             --password "${{ secrets.MACOS_NOTARIZATION_USER_PASSWORD }}" \
             --team-id FYF2F5GFX4 \
-            --progress $NOTARIZATION_TARGET
+            --progress $NOTARIZATION_TARGET)
+          echo $NOTARIZATION_OUTPUT
+
+          # Extract the notarization ID. This comes from a line of output that looks like:
+          # id: 4baf5d9e-d1e8-48ed-8f33-1f0ae06e7ad1
+          NOTARIZATION_ID=$(echo $NOTARIZATION_OUTPUT | sed -n 's/.*id:[[:space:]]*\([[:alnum:]-]*\).*/\1/p;q'
+
+          # Extract and print the notarization log.
+          xcrun notarytool log \
+            --apple-id "${{ secrets.MACOS_NOTARIZATION_USER_NAME }}" \
+            --password "${{ secrets.MACOS_NOTARIZATION_USER_PASSWORD }}") \
+            --team-id FYF2F5GFX4 \
+            $NOTARIZATION_ID \
+            notarization-$NOTARIZATION_ID.log
+          cat notarization-$NOTARIZATION_ID.log
 
           # Staple the notarization ticket to the DMG. This allows for offline
           # validation with Gatekeeper.
