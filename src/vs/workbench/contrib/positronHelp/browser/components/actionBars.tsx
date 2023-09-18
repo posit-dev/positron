@@ -4,8 +4,10 @@
 
 import 'vs/css!./actionBars';
 import * as React from 'react';
-import { PropsWithChildren, useEffect, useRef, useState } from 'react'; // eslint-disable-line no-duplicate-imports
+import { PropsWithChildren, useEffect, useState } from 'react'; // eslint-disable-line no-duplicate-imports
 import { localize } from 'vs/nls';
+import { IAction } from 'vs/base/common/actions';
+import { generateUuid } from 'vs/base/common/uuid';
 import { DisposableStore } from 'vs/base/common/lifecycle';
 import { ICommandService } from 'vs/platform/commands/common/commands';
 import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
@@ -16,16 +18,31 @@ import { IConfigurationService } from 'vs/platform/configuration/common/configur
 import { PositronActionBar } from 'vs/platform/positronActionBar/browser/positronActionBar';
 // import { ActionBarFind } from 'vs/platform/positronActionBar/browser/components/actionBarFind';
 import { ActionBarButton } from 'vs/platform/positronActionBar/browser/components/actionBarButton';
-// import { ActionBarRegion } from 'vs/platform/positronActionBar/browser/components/actionBarRegion';
-import { IPositronHelpService } from 'vs/workbench/services/positronHelp/common/interfaces/positronHelpService';
+import { ActionBarRegion } from 'vs/platform/positronActionBar/browser/components/actionBarRegion';
+import { IPositronHelpService } from 'vs/workbench/contrib/positronHelp/browser/positronHelpService';
+import { ActionBarSeparator } from 'vs/platform/positronActionBar/browser/components/actionBarSeparator';
+import { ActionBarMenuButton } from 'vs/platform/positronActionBar/browser/components/actionBarMenuButton';
 import { PositronActionBarContextProvider } from 'vs/platform/positronActionBar/browser/positronActionBarContext';
 
 // Constants.
-// const kSecondaryActionBarGap = 4;
+const kSecondaryActionBarGap = 4;
 const kPaddingLeft = 8;
 const kPaddingRight = 8;
-// const kFindTimeout = 800;
-// const kPollTimeout = 200;
+const kFindTimeout = 800;
+const kPollTimeout = 200;
+
+// Localized strings.
+const tooltipPreviousTopic = localize('positronPreviousTopic', "Previous topic");
+const tooltipNextTopic = localize('positronNextTopic', "Next topic");
+const tooltipShowPositronHelp = localize('positronShowPositronHelp', "Show Positron help");
+const tooltipHelpHistory = localize('positronHelpHistory', "Help history");
+
+/**
+ * Shortens a URL.
+ * @param url The URL.
+ * @returns The shortened URL.
+ */
+const shortenUrl = (url: string) => url.replace(new URL(url).origin, '');
 
 /**
  * ActionBarsProps interface.
@@ -42,6 +59,7 @@ export interface ActionBarsProps {
 
 	// Event callbacks.
 	onHome: () => void;
+
 	onFind: (findText: string) => void;
 	onCheckFindResults: () => boolean | undefined;
 	onFindPrevious: () => void;
@@ -55,19 +73,47 @@ export interface ActionBarsProps {
  * @returns The rendered component.
  */
 export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
-	// Hooks.
-	const historyButtonRef = useRef<HTMLDivElement>(undefined!);
+	// State hooks.
 	const [canNavigateBackward, setCanNavigateBackward] = useState(props.positronHelpService.canNavigateBackward);
 	const [canNavigateForward, setCanNavigateForward] = useState(props.positronHelpService.canNavigateForward);
+	const [currentHelpEntry, setCurrentHelpEntry] = useState(props.positronHelpService.currentHelpEntry);
+	const [currentHelpTitle, setCurrentHelpTitle] = useState(props.positronHelpService.currentHelpEntry?.title);
 
-	const [helpTitle, setHelpTitle] = useState<string | undefined>(undefined);
+	// Find stuff. Placeholder.
+	const [findText, _setFindText] = useState('');
+	const [pollFindResults, setPollFindResults] = useState(false);
+	const [_findResults, setFindResults] = useState(false);
 
-	// const [alternateFindUI] = useState(false);
-	// const [findText, setFindText] = useState('');
-	// const [pollFindResults, setPollFindResults] = useState(false);
-	// const [findResults, setFindResults] = useState(false);
+	/**
+	 * Returns the help history actions.
+	 * @returns The help history actions.
+	 */
+	const helpHistoryActions = () => {
+		// Build the help history actions.
+		const actions: IAction[] = [];
 
-	// Add event handlers.
+		const currentHelpEntry = props.positronHelpService.currentHelpEntry;
+		const helpEntries = props.positronHelpService.helpEntries;
+
+		for (let helpEntryIndex = helpEntries.length - 1; helpEntryIndex >= 0; helpEntryIndex--) {
+			actions.push({
+				id: generateUuid(),
+				label: helpEntries[helpEntryIndex].title || shortenUrl(helpEntries[helpEntryIndex].sourceUrl),
+				tooltip: '',
+				class: undefined,
+				enabled: true,
+				checked: helpEntries[helpEntryIndex] === currentHelpEntry,
+				run: () => {
+					props.positronHelpService.openHelpEntryIndex(helpEntryIndex);
+				}
+			});
+		}
+
+		// Return the help history actions.
+		return actions;
+	};
+
+	// Main useEffect.
 	useEffect(() => {
 		// Create the disposable store for cleanup.
 		const disposableStore = new DisposableStore();
@@ -77,75 +123,87 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 			// setAlternateFindUI(size.width - kPaddingLeft - historyButtonRef.current.offsetWidth - kSecondaryActionBarGap < 180);
 		}));
 
-		// Add the onHelpLoaded event handler.
-		disposableStore.add(props.positronHelpService.onHelpLoaded(helpEntry => {
-			setHelpTitle(helpEntry.title || helpEntry.sourceUrl);
-			setCanNavigateBackward(props.positronHelpService.canNavigateBackward);
-			setCanNavigateForward(props.positronHelpService.canNavigateForward);
-		}));
+		// Add the onDidChangeCurrentHelpEntry event handler.
+		disposableStore.add(
+			props.positronHelpService.onDidChangeCurrentHelpEntry(currentHelpEntry => {
+				// Set the current help entry and the current help title.
+				setCurrentHelpEntry(currentHelpEntry);
+				setCurrentHelpTitle(currentHelpEntry?.title);
+
+				// Update navigation state.
+				setCanNavigateBackward(props.positronHelpService.canNavigateBackward);
+				setCanNavigateForward(props.positronHelpService.canNavigateForward);
+			})
+		);
 
 		// Return the cleanup function that will dispose of the event handlers.
 		return () => disposableStore.dispose();
 	}, []);
 
-	// // Find text effect.
-	// useEffect(() => {
-	// 	if (findText === '') {
-	// 		setFindResults(false);
-	// 		return props.onCancelFind();
-	// 	} else {
-	// 		// Start the find timeout.
-	// 		const timeout = setTimeout(() => {
-	// 			setFindResults(false);
-	// 			props.onFind(findText);
-	// 			setPollFindResults(true);
-	// 		}, kFindTimeout);
+	// useEffect for currentHelpEntry.
+	useEffect(() => {
+		// If there isn't a current help entry, no further action is required.
+		if (!currentHelpEntry) {
+			return;
+		}
 
-	// 		// Return the cleanup.
-	// 		return () => clearTimeout(timeout);
-	// 	}
-	// }, [findText]);
+		// Create the disposable store for cleanup.
+		const disposableStore = new DisposableStore();
 
-	// // Poll find results effect.
-	// useEffect(() => {
-	// 	if (!pollFindResults) {
-	// 		return;
-	// 	} else {
-	// 		// Start the poll find results interval.
-	// 		let counter = 0;
-	// 		const interval = setInterval(() => {
-	// 			const checkFindResults = props.onCheckFindResults();
-	// 			console.log(`Poll for find results was ${checkFindResults}`);
-	// 			if (checkFindResults === undefined) {
-	// 				if (++counter < 5) {
-	// 					return;
-	// 				}
-	// 			} else {
-	// 				setFindResults(checkFindResults);
-	// 			}
+		// Add the onDidChangeTitle event handler.
+		currentHelpEntry.onDidChangeTitle(() => {
+			// Set the current help title.
+			setCurrentHelpTitle(currentHelpEntry.title);
+		});
 
-	// 			// Clear poll find results.
-	// 			setPollFindResults(false);
-	// 		}, kPollTimeout);
+		// Return the cleanup function.
+		return () => disposableStore.dispose();
+	}, [currentHelpEntry]);
 
-	// 		// Return the cleanup.
-	// 		return () => clearInterval(interval);
-	// 	}
-	// }, [pollFindResults]);
+	// Find text effect.
+	useEffect(() => {
+		if (findText === '') {
+			setFindResults(false);
+			return props.onCancelFind();
+		} else {
+			// Start the find timeout.
+			const timeout = setTimeout(() => {
+				setFindResults(false);
+				props.onFind(findText);
+				setPollFindResults(true);
+			}, kFindTimeout);
 
-	/**
-	 * navigateBackward handler.
-	 */
-	const navigateBackwardHandler = () => {
-		props.positronHelpService.navigateBackward();
-	};
+			// Return the cleanup.
+			return () => clearTimeout(timeout);
+		}
+	}, [findText]);
 
-	/**
-	 * navigateForward handler.
-	 */
-	const navigateForward = () => {
-		props.positronHelpService.navigateForward();
-	};
+	// Poll find results effect.
+	useEffect(() => {
+		if (!pollFindResults) {
+			return;
+		} else {
+			// Start the poll find results interval.
+			let counter = 0;
+			const interval = setInterval(() => {
+				const checkFindResults = props.onCheckFindResults();
+				console.log(`Poll for find results was ${checkFindResults}`);
+				if (checkFindResults === undefined) {
+					if (++counter < 5) {
+						return;
+					}
+				} else {
+					setFindResults(checkFindResults);
+				}
+
+				// Clear poll find results.
+				setPollFindResults(false);
+			}, kPollTimeout);
+
+			// Return the cleanup.
+			return () => clearInterval(interval);
+		}
+	}, [pollFindResults]);
 
 	// Render.
 	return (
@@ -160,33 +218,25 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 					<ActionBarButton
 						disabled={!canNavigateBackward}
 						iconId='positron-left-arrow'
-						tooltip={localize('positronClickToGoBack', "Click to go back")}
-						onClick={navigateBackwardHandler}
+						tooltip={tooltipPreviousTopic}
+						onClick={() => props.positronHelpService.navigateBackward()}
 					/>
 					<ActionBarButton
 						disabled={!canNavigateForward}
 						iconId='positron-right-arrow'
-						tooltip={localize('positronClickToGoForward', "Click to go forward")}
-						onClick={navigateForward}
+						tooltip={tooltipNextTopic}
+						onClick={() => props.positronHelpService.navigateForward()}
 					/>
 
-					{helpTitle &&
-						<ActionBarButton
-							ref={historyButtonRef}
-							text={helpTitle}
-							dropDown={false}
-							tooltip={helpTitle || localize('positronHelpHistory', "Help history")}
-						/>
-					}
+					<ActionBarSeparator />
 
-					{/* Disabled for Private Alpha (August 2023) */}
-					{/* <ActionBarButton
+					<ActionBarButton
 						iconId='positron-home'
-						tooltip={localize('positronShowPositronHelp', "Show Positron help")}
+						tooltip={tooltipShowPositronHelp}
+						disabled={true}
 						onClick={() => props.onHome()}
-					/> */}
+					/>
 
-					{/* Disabled for Private Alpha (August 2023) */}
 					{/* <ActionBarSeparator /> */}
 					{/* <ActionBarButton
 						iconId='positron-open-in-new-window'
@@ -194,36 +244,34 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 					/> */}
 
 				</PositronActionBar>
-				{/* <PositronActionBar
+				<PositronActionBar
 					size='small'
 					gap={kSecondaryActionBarGap}
-					borderBottom={!alternateFindUI}
+					borderBottom={true}
 					paddingLeft={kPaddingLeft}
 					paddingRight={kPaddingRight}
 				>
 					<ActionBarRegion location='left'>
-						{helpTitle &&
-							<ActionBarButton
-								ref={historyButtonRef}
-								text={helpTitle}
-								dropDown={false}
-								tooltip={helpTitle || localize('positronHelpHistory', "Help history")}
+						{currentHelpTitle &&
+							<ActionBarMenuButton
+								text={currentHelpTitle}
+								tooltip={tooltipHelpHistory}
+								actions={helpHistoryActions}
 							/>
 						}
 					</ActionBarRegion>
 					<ActionBarRegion location='right'>
-						{false && !alternateFindUI && (
-							<ActionBarFind
-								width={300}
-								findResults={findResults}
-								initialFindText={findText}
-								onFindTextChanged={setFindText}
-								onFindPrevious={props.onFindPrevious}
-								onFindNext={props.onFindNext} />
-						)}
+						{/* <ActionBarFind
+							width={175}
+							findResults={findResults}
+							initialFindText={findText}
+							onFindTextChanged={setFindText}
+							onFindPrevious={props.onFindPrevious}
+							onFindNext={props.onFindNext} /> */}
 					</ActionBarRegion>
 
-				</PositronActionBar> */}
+				</PositronActionBar>
+
 				{/* {false && alternateFindUI && (
 					<PositronActionBar
 						size='small'
