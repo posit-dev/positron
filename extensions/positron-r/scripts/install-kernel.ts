@@ -191,6 +191,9 @@ async function downloadAndReplaceArk(version: string,
 					console.log(`Successfully unzipped Ark ${version}.`);
 				}
 
+				// Clean up the zipfile.
+				await fs.promises.unlink(zipFileDest);
+
 				// Write a VERSION file with the version number.
 				await writeFileAsync(path.join('resources', 'ark', 'VERSION'), version);
 
