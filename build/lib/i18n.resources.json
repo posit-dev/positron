@@ -455,10 +455,6 @@
 			"project": "vscode-workbench"
 		},
 		{
-			"name": "vs/workbench/services/positronHelp",
-			"project": "vscode-workbench"
-		},
-		{
 			"name": "vs/workbench/services/positronPlots",
 			"project": "vscode-workbench"
 		},
