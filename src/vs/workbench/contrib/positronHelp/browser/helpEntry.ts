@@ -250,9 +250,7 @@ export class HelpEntry extends Disposable implements IHelpEntry {
 					retainContextWhenHidden: true
 				},
 				contentOptions: {
-					allowScripts: true,
-					allowMultipleAPIAcquire: true,
-					localResourceRoots: [], // TODO: needed for positron-help.js
+					allowScripts: true
 				},
 			});
 
