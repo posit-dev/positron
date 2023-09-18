@@ -5,10 +5,6 @@
 <head>
 	<!-- The help header style. -->
 	<style id="help-header-style">
-		.url-information {
-			font-family: Arial, Helvetica, sans-serif;
-			color: gray;
-		}
 	</style>
 
 	<!-- The help header script. -->
@@ -51,9 +47,14 @@
 
 			// Add message listener.
 			const addMessageListener = () => {
+				// Add the event listener.
 				window.addEventListener("message", message => {
-					if (message.data.id === "positron-help-scroll") {
-						window.scrollTo(message.data.scrollX, message.data.scrollY);
+					// Switch on the message ID.
+					switch (message.data.id) {
+						// positron-help-scroll message.
+						case "positron-help-scroll":
+							window.scrollTo(message.data.scrollX, message.data.scrollY);
+							break;
 					}
 				});
 			};

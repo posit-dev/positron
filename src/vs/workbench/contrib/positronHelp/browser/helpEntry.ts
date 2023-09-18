@@ -16,7 +16,7 @@ import { IOverlayWebview, IWebviewService, WebviewContentPurpose } from 'vs/work
  * Constants.
  */
 const TITLE_TIMEOUT = 1000;
-const DISPOSE_TIMEOUT = 1 * 60 * 1000;
+const DISPOSE_TIMEOUT = 15 * 1000;
 
 /**
  * Shortens a URL.
@@ -158,6 +158,7 @@ export class HelpEntry extends Disposable implements IHelpEntry {
 
 	/**
 	 * Constructor.
+	 * @param helpHTML The help HTML.
 	 * @param languageId The language ID.
 	 * @param runtimeId The runtime ID.
 	 * @param languageName The language name.
@@ -168,6 +169,7 @@ export class HelpEntry extends Disposable implements IHelpEntry {
 	 * @param _webviewService the IWebviewService.
 	 */
 	constructor(
+		public readonly helpHTML: string,
 		public readonly languageId: string,
 		public readonly runtimeId: string,
 		public readonly languageName: string,
@@ -247,12 +249,14 @@ export class HelpEntry extends Disposable implements IHelpEntry {
 				},
 				options: {
 					purpose: WebviewContentPurpose.WebviewView,
-					retainContextWhenHidden: true
+					// It is absolutely critical that disableServiceWorker is set to true. If it is
+					// not, a service worker is left running for every overlay webview that is
+					// created.
+					disableServiceWorker: true,
+					retainContextWhenHidden: true,
 				},
 				contentOptions: {
-					allowScripts: true,
-					allowMultipleAPIAcquire: true,
-					localResourceRoots: [], // TODO: needed for positron-help.js
+					allowScripts: true
 				},
 			});
 
@@ -307,7 +311,13 @@ export class HelpEntry extends Disposable implements IHelpEntry {
 			});
 
 			// Set the HTML of the help overlay webview.
-			this._helpOverlayWebview.setHtml(this.generateHelpHtml());
+			this._helpOverlayWebview.setHtml(
+				this.helpHTML
+					.replaceAll('__nonce__', generateUuid())
+					.replaceAll('__sourceURL__', this.sourceUrl)
+					.replaceAll('__scrollX__', `${this._scrollX}`)
+					.replaceAll('__scrollY__', `${this._scrollY}`)
+			);
 
 			// Start the set title timeout. This timeout sets the title of the help entry to a
 			// shortened version of the source URL. We do this because there's no guarantee that the
@@ -344,71 +354,4 @@ export class HelpEntry extends Disposable implements IHelpEntry {
 	}
 
 	//#endregion IHelpEntry Implementation
-
-	//#region Private Methods
-
-	/**
-	 * Creates the help overlay webview.
-	 */
-	createHelpOverlayWebview() {
-	}
-
-	/**
-	 * Generates help HTML.
-	 * @param helpEntry The HelpEntry to generate HTML for.
-	 * @returns The help HTML.
-	 */
-	private generateHelpHtml() {
-		// Generate and return a help document that loads the help entry's source URL.
-		const nonce = generateUuid();
-		return `<!DOCTYPE html>
-<html>
-	<head>
-		<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-		<meta http-equiv="Content-Security-Policy" content="default-src 'none'; media-src https:; script-src 'self' 'nonce-${nonce}'; style-src 'nonce-${nonce}'; frame-src *;">
-		<style nonce="${nonce}">
-			body {
-				padding: 0;
-			}
-			#help-iframe {
-				border: none;
-				width: 100%;
-				height: 100%;
-				position: absolute;
-			}
-		</style>
-	</head>
-	<body>
-		<iframe id="help-iframe" title="Help Content" src="${this.sourceUrl}" loading="eager">
-		</iframe>
-		<script nonce="${nonce}">
-		(() => {
-			const vscode = acquireVsCodeApi();
-			const childWindow = document.getElementById("help-iframe").contentWindow;
-			window.addEventListener("message", message => {
-				if (message.source !== childWindow || !message.data.id.startsWith("positron-help-")) {
-					return;
-				}
-
-				if (message.data.id === "positron-help-interactive") {
-					const scrollX = ${this._scrollX};
-					const scrollY = ${this._scrollY};
-					if (scrollX || scrollY) {
-						childWindow.postMessage({
-							id: "positron-help-scroll",
-							scrollX,
-							scrollY
-						}, "*");
-					}
-				}
-
-				vscode.postMessage(message.data);
-			});
-		})();
-		</script>
-	</body>
-</html>`;
-	}
-
-	//#endregion Private Methods
 }
