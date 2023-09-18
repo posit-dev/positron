@@ -162,26 +162,18 @@ jobs:
           unzip positron-${{ needs.version_string.outputs.short_version }}-darwin-arm64.zip
           unzip positron-${{ needs.version_string.outputs.short_version }}-darwin-x64.zip
 
-      # Align architectures. These tasks alter the arm64 and x64 files so that
-      # they are suitably symmetric for the electron-universal task that runs
-      # below.
-      #
-      # Specifically:
-      #
-      # - Remove the ZeroMQ build folders -- they contain build intermediates
-      #   that are non-binary but nonetheless differ between arm64 and x64 since
-      #   they contain e.g. different compilation flags. electron-universal
-      #   chokes if any files (other than binaries) that differ between x64 and
-      #   arm64.
-      #
-      # - Copy the 'nls.metadata.json' files from x64 to arm64. These files are
-      #   semantically identical in both builds, but due to unstable dictionary
-      #   key sorting, they don't hash identically.
       - name: Align arm64 and x64 app content
         run: |
-          rm -rf VSCode-darwin-arm64/Positron.app/Contents/Resources/app/extensions/jupyter-adapter/node_modules/zeromq/build
           rm -rf VSCode-darwin-x64/Positron.app/Contents/Resources/app/extensions/jupyter-adapter/node_modules/zeromq/build
-          find VSCode-darwin-x64 -name "nls.metadata.json" | sed 's/^[^/]*//' | xargs -I {} cp "VSCode-darwin-x64{}" "VSCode-darwin-arm64{}"
+          rm -rf VSCode-darwin-arm64/Positron.app/Contents/Resources/app/extensions/jupyter-adapter/node_modules/zeromq/build
+          pushd VSCode-darwin-x64/Positron.app/Contents/Resources/app
+          zip -r $GITHUB_WORKSPACE/extensions-x64.zip extensions -x "*node_modules*"
+          popd
+
+          pushd VSCode-darwin-arm64/Positron.app/Contents/Resources/app
+          unzip -fov $GITHUB_WORKSPACE/extensions-x64.zip
+          popd
+
 
       # Glue together the arm64 and x64 binaries with lipo to create a
       # universal build
