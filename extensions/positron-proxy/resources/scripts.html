@@ -9,7 +9,8 @@
 
 	<!-- The help header script. -->
 	<script id="help-header-script" async type="module">
-		let findResult = undefined;
+		// Set the find result.
+		let findResult = false;
 
 		// Process ready state changes.
 		document.addEventListener("readystatechange", event => {
@@ -53,7 +54,8 @@
 				// Switch on the message ID.
 				switch (message.data.id) {
 					// positron-help-scroll-to message. Sent to scroll the window to a saved scroll
-					// position.
+					// position. This message will arrive when the document's readyState becomes
+					// interactive.
 					case "positron-help-scroll-to":
 						window.scrollTo(message.data.scrollX, message.data.scrollY);
 						break;
@@ -63,7 +65,7 @@
 						// Reset selection so we are finding from the top of the document.
 						window.getSelection().removeAllRanges();
 
-						// If the find data
+						// If the find value was specified, perform the find.
 						if (message.data.findValue) {
 							// Perform the find.
 							findResult = window.find(

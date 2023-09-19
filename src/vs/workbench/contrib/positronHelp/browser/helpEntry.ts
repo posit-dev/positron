@@ -126,7 +126,15 @@ export interface IHelpEntry {
 	 */
 	hideHelpOverlayWebview(dispose: boolean): void;
 
+	/**
+	 * Shows find.
+	 */
 	showFind(): void;
+
+	/**
+	 * Hides find.
+	 */
+	hideFind(): void;
 }
 
 /**
@@ -384,6 +392,7 @@ export class HelpEntry extends Disposable implements IHelpEntry, WebviewFindDele
 	 */
 	public hideHelpOverlayWebview(dispose: boolean) {
 		if (this._helpOverlayWebview) {
+			this.hideFind();
 			this._helpOverlayWebview.release(this);
 			if (dispose && !this._disposeTimeout) {
 				this._disposeTimeout = setTimeout(() => {
@@ -397,8 +406,18 @@ export class HelpEntry extends Disposable implements IHelpEntry, WebviewFindDele
 		}
 	}
 
+	/**
+	 * Shows find.
+	 */
 	public showFind() {
 		this._helpOverlayWebview?.showFind(true);
+	}
+
+	/**
+	 * Hides find.
+	 */
+	public hideFind() {
+		this._helpOverlayWebview?.hideFind(true, false);
 	}
 
 	//#endregion IHelpEntry Implementation
@@ -426,8 +445,6 @@ export class HelpEntry extends Disposable implements IHelpEntry, WebviewFindDele
 	 * @param previous A value which indicates whether to find previous.
 	 */
 	public find(value: string, previous: boolean) {
-		console.log(`find called value: '${value}' previous: '${previous}'`);
-
 		if (this._helpOverlayWebview) {
 			if (previous) {
 				this._helpOverlayWebview.postMessage({
@@ -454,8 +471,6 @@ export class HelpEntry extends Disposable implements IHelpEntry, WebviewFindDele
 	 * @param value The updated find value.
 	 */
 	public updateFind(value: string) {
-		console.log(`updateFind called value: '${value}'`);
-
 		if (this._helpOverlayWebview) {
 			this._helpOverlayWebview.postMessage({
 				id: 'positron-help-update-find',
@@ -469,7 +484,7 @@ export class HelpEntry extends Disposable implements IHelpEntry, WebviewFindDele
 	 * @param keepSelection A value which indicates whether to keep the selection.
 	 */
 	public stopFind(keepSelection?: boolean) {
-		if (this._helpOverlayWebview) {
+		if (this._helpOverlayWebview && !keepSelection) {
 			this._helpOverlayWebview.postMessage({
 				id: 'positron-help-update-find',
 				findValue: undefined
@@ -478,7 +493,7 @@ export class HelpEntry extends Disposable implements IHelpEntry, WebviewFindDele
 	}
 
 	/**
-	 * Focus something.
+	 * Focus.
 	 */
 	public focus() {
 		if (this._helpOverlayWebview) {

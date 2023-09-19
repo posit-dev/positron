@@ -24,10 +24,11 @@
 	</iframe>
 	<script nonce="__nonce__" async type="module">
 		const vscode = acquireVsCodeApi();
-		const childWindow = document.getElementById("help-iframe").contentWindow;
+		const helpContentWindow = document.getElementById("help-iframe").contentWindow;
 		window.addEventListener("message", message => {
-			// If the message is coming from the help iframe content window,
-			if (message.source === childWindow) {
+			// If the message is coming from the help content window, ensure that the ID begins with
+			// positron-help- and, if it does, forward it to the help overlay webview.
+			if (message.source === helpContentWindow) {
 				// Filter out anything weird.
 				if (!message.data.id.startsWith("positron-help-")) {
 					return;
@@ -39,7 +40,7 @@
 					const scrollX = __scrollX__;
 					const scrollY = __scrollY__;
 					if (scrollX || scrollY) {
-						childWindow.postMessage({
+						helpContentWindow.postMessage({
 							id: "positron-help-scroll-to",
 							scrollX,
 							scrollY
@@ -50,21 +51,22 @@
 				// Post the message.
 				vscode.postMessage(message.data);
 			} else {
+				// Forward messages from the help overlay webview to the help content window.
 				switch (message.data.id) {
 					case "positron-help-update-find":
-						childWindow.postMessage(message.data, "*");
+						helpContentWindow.postMessage(message.data, "*");
 						break;
 
 					case "positron-help-find-previous":
-						childWindow.postMessage(message.data, "*");
+						helpContentWindow.postMessage(message.data, "*");
 						break;
 
 					case "positron-help-find-next":
-						childWindow.postMessage(message.data, "*");
+						helpContentWindow.postMessage(message.data, "*");
 						break;
 
 					case "positron-help-focus":
-						childWindow.postMessage(message.data, "*");
+						helpContentWindow.postMessage(message.data, "*");
 						break;
 				}
 			}

@@ -254,7 +254,10 @@ export interface IWebview extends IDisposable {
 	reload(): void;
 
 	showFind(animated?: boolean): void;
-	hideFind(animated?: boolean): void;
+	// --- Start Positron
+	// Added keepSelection?: boolean.
+	hideFind(animated?: boolean, keepSelection?: boolean): void;
+	// --- End Positron
 	runFindAction(previous: boolean): void;
 
 	selectAll(): void;
