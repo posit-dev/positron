@@ -149,7 +149,10 @@
         "positron.r.pipe": {
           "type": "string",
           "default": "|>",
-          "enum": ["|>", "%>%"],
+          "enum": [
+            "|>",
+            "%>%"
+          ],
           "enumDescriptions": [
             "%r.configuration.pipe.native.description%",
             "%r.configuration.pipe.magrittr.description%"
@@ -327,7 +330,7 @@
   },
   "scripts": {
     "vscode:prepublish": "yarn run compile",
-    "compile-kernel": "ts-node scripts/compile-kernel.ts",
+    "install-kernel": "ts-node scripts/install-kernel.ts",
     "compile-syntax": "ts-node scripts/compile-syntax.ts",
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
@@ -362,5 +365,10 @@
   "repository": {
     "type": "git",
     "url": "https://github.com/posit-dev/amalthea"
+  },
+  "positron": {
+    "binaryDependencies": {
+      "ark": "0.1.3"
+    }
   }
 }

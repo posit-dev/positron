@@ -9,15 +9,15 @@
 			"to": "resources/scripts"
 		},
 		{
-			"from": "./amalthea/target/release/ark",
+			"from": "resources/ark/ark",
 			"to": "./dist/bin"
 		},
 		{
-			"from": "./amalthea/crates/ark/src/modules/public/*.R",
+			"from": "resources/ark/modules/public/*.R",
 			"to": "./dist/bin/modules/public"
 		},
 		{
-			"from": "./amalthea/crates/ark/src/modules/private/*.R",
+			"from": "resources/ark/modules/private/*.R",
 			"to": "./dist/bin/modules/private"
 		}
 	]

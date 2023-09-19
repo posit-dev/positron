@@ -3,7 +3,7 @@ name: "Positron: Build macOS Release"
 # run builds daily at 2am UTC (10p EST) on weekdays for now, or manually
 on:
   schedule:
-  - cron: "0 2 * * 1-5"
+    - cron: "0 2 * * 1-5"
   workflow_dispatch:
 
 jobs:
@@ -110,46 +110,10 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@v4
 
-      # These are already installed for both architectures, but would be required if we switch off
-      # a self-hosted runner, so we may as well leave them in
-      - name: Install zeromq dependencies
-        id: install_zeromq_dependencies
-        run: |
-          arch -${{matrix.arch_terminal}} /bin/bash -c "~/${{matrix.homebrew_folder}}/bin/brew install pkg-config"
-          arch -${{matrix.arch_terminal}} /bin/bash -c "~/${{matrix.homebrew_folder}}/bin/brew install libsodium"
-
-      # Zeromq calls whatever pkg-config version is findable on the PATH to be able to locate
-      # libsodium, so we have to ensure the x86_64 version is first on the PATH when compiling for
-      # that architecture, so that it finds the x86_64 version of libsodium for zeromq to link against.
-      - name: Update PATH to pkg-config for zeromq
-        id: update_path_for_zeromq
-        if: matrix.arch == 'x64'
-        run: |
-          echo "~/${{matrix.homebrew_folder}}/bin" >> $GITHUB_PATH
-
-      # Determine R_HOME (for building ark)
-      - name: Find Homebrew R installation
-        id: r_installation
-        run: |
-          # Path to the Homebrew build of R, e.g. /Users/user229818/homebrew/Cellar/r
-          R_FOLDER=~/${{matrix.homebrew_folder}}/Cellar/r
-          # Get the first (and generally) only installed version, e.g. 4.2.2
-          R_VERSION=$(ls ${R_FOLDER} | head -1)
-          # Form the path to the R binary, e.g. /Users/user229818/homebrew/Cellar/r/4.2.2/bin/R
-          R_EXECUTABLE="${R_FOLDER}/${R_VERSION}/bin/R"
-          # Invoke the R binary to determine its RHOME directory (usually lib/R)
-          R_HOME=$(${R_EXECUTABLE} RHOME)
-          # Output the result for consumption in later steps
-          echo "Using R at ${R_HOME}"
-          echo "r_home=${R_HOME}" >> $GITHUB_OUTPUT
-
       # Install node_modules binaries and compile the R kernel
       - name: Install dependencies
         env:
           npm_config_arch: ${{ matrix.arch }}
-          ARK_BUILD_TYPE: release
-          RUST_TARGET: ${{ matrix.rust_target_prefix }}-apple-darwin
-          R_HOME: ${{ steps.r_installation.outputs.r_home }}
           POSITRON_GITHUB_PAT: ${{ secrets.POSITRON_GITHUB_PAT }}
         run: yarn --network-timeout 120000
 
@@ -210,8 +174,6 @@ jobs:
       #   chokes if any files (other than binaries) that differ between x64 and
       #   arm64.
       #
-      # - Do the same for the `amalthea` build folder
-      #
       # - Copy the 'nls.metadata.json' files from x64 to arm64. These files are
       #   semantically identical in both builds, but due to unstable dictionary
       #   key sorting, they don't hash identically.
@@ -219,16 +181,14 @@ jobs:
         run: |
           rm -rf VSCode-darwin-arm64/Positron.app/Contents/Resources/app/extensions/jupyter-adapter/node_modules/zeromq/build
           rm -rf VSCode-darwin-x64/Positron.app/Contents/Resources/app/extensions/jupyter-adapter/node_modules/zeromq/build
-          rm -rf VSCode-darwin-arm64/Positron.app/Contents/Resources/app/extensions/positron-r/amalthea
-          rm -rf VSCode-darwin-x64/Positron.app/Contents/Resources/app/extensions/positron-r/amalthea
           find VSCode-darwin-x64 -name "nls.metadata.json" | sed 's/^[^/]*//' | xargs -I {} cp "VSCode-darwin-x64{}" "VSCode-darwin-arm64{}"
 
       # Glue together the arm64 and x64 binaries with lipo to create a
       # universal build
       - name: Create universal build
         env:
-           VSCODE_ARCH: universal
-           DEBUG: "*"
+          VSCODE_ARCH: universal
+          DEBUG: "*"
         run: |
           node build/darwin/create-universal-app.js $(pwd)
 
@@ -289,12 +249,26 @@ jobs:
           #
           # The `--wait` argument causes `xcrun` to return only when the
           # service has completed notarization.
-          xcrun notarytool submit \
+          NOTARIZATION_OUTPUT=$(xcrun notarytool submit \
             --wait \
             --apple-id "${{ secrets.MACOS_NOTARIZATION_USER_NAME }}" \
             --password "${{ secrets.MACOS_NOTARIZATION_USER_PASSWORD }}" \
             --team-id FYF2F5GFX4 \
-            --progress $NOTARIZATION_TARGET
+            --progress $NOTARIZATION_TARGET)
+          echo $NOTARIZATION_OUTPUT
+
+          # Extract the notarization ID. This comes from a line of output that looks like:
+          # id: 4baf5d9e-d1e8-48ed-8f33-1f0ae06e7ad1
+          NOTARIZATION_ID=$(echo $NOTARIZATION_OUTPUT | sed -n -e 's/.*[[:space:]]*id:[[:space:]]*\([^ ]*\).*/\1/p' | head -1)
+
+          # Extract and print the notarization log.
+          xcrun notarytool log \
+            --apple-id "${{ secrets.MACOS_NOTARIZATION_USER_NAME }}" \
+            --password "${{ secrets.MACOS_NOTARIZATION_USER_PASSWORD }}" \
+            --team-id FYF2F5GFX4 \
+            $NOTARIZATION_ID \
+            notarization-$NOTARIZATION_ID.log
+          cat notarization-$NOTARIZATION_ID.log
 
           # Staple the notarization ticket to the DMG. This allows for offline
           # validation with Gatekeeper.
