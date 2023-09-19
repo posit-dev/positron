@@ -188,7 +188,6 @@ jobs:
           unzip -fov $GITHUB_WORKSPACE/extensions-x64.zip
           popd
 
-
       # Glue together the arm64 and x64 binaries with lipo to create a
       # universal build
       - name: Create universal build
@@ -196,6 +195,9 @@ jobs:
           VSCODE_ARCH: universal
           DEBUG: "*"
         run: |
+          export NVM_DIR="$HOME/.nvm"
+          [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+          nvm use
           node build/darwin/create-universal-app.js $(pwd)
 
       # Sign the binaries and set the hardened entitlements
