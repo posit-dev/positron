@@ -47,13 +47,6 @@ jobs:
         id: nodejs-unit-tests
         run: yarn test-node
 
-      - name: Run ARK Unit Tests (Rust)
-        id: positron-ark-unit-tests
-        run: |
-          cd extensions/positron-r
-          yarn test-amalthea
-          cd ../..
-
       - name: Run Unit Tests (Browser, Chromium)
         id: browser-unit-tests
         run: DISPLAY=:10 yarn test-browser-no-install --browser chromium

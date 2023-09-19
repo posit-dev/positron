@@ -162,18 +162,12 @@ if (fs.existsSync('extensions/positron-python/.git') &&
 	cp.execSync('git submodule absorbgitdirs extensions/positron-python');
 	console.log(`Absorbed local sync of positron-python`);
 }
-if (fs.existsSync('extensions/positron-r/amalthea/.git') &&
-	!fs.existsSync('.git/modules/extensions/positron-r/amalthea')) {
-	cp.execSync('git submodule absorbgitdirs extensions/positron-r/amalthea');
-	console.log(`Absorbed local sync of amalthea`);
-}
 
 cp.execSync('git submodule init', {stdio: 'inherit'});
 
 // For unattended builds: config with PAT
 if (process.env['POSITRON_GITHUB_PAT']) {
 	cp.execSync(`git config submodule.extensions/positron-python.url https://${process.env['POSITRON_GITHUB_PAT']}@github.com/posit-dev/positron-python.git`, {stdio: 'inherit'});
-	cp.execSync(`git config submodule.extensions/positron-r/amalthea.url https://${process.env['POSITRON_GITHUB_PAT']}@github.com/posit-dev/amalthea.git`, {stdio: 'inherit'});
 }
 cp.execSync('git submodule update --init --recursive', {stdio: 'inherit'});
 
