@@ -135,6 +135,9 @@ jobs:
       - name: Create client archive
         run: |
           pushd ..
+          # Clean up ZeroMQ build folder from Jupyter Adapter extension
+          rm -rf VSCode-darwin-${{ matrix.arch }}/Positron.app/Contents/Resources/app/extensions/jupyter-adapter/node_modules/zeromq/build
+          # Zip all remaining app contents
           zip -Xry $GITHUB_WORKSPACE/positron-${{ needs.version_string.outputs.short_version }}-darwin-${{ matrix.arch }}.zip VSCode-darwin-${{ matrix.arch }}
           popd
 
@@ -172,12 +175,15 @@ jobs:
 
       - name: Align arm64 and x64 app content
         run: |
-          rm -rf VSCode-darwin-x64/Positron.app/Contents/Resources/app/extensions/jupyter-adapter/node_modules/zeromq/build
-          rm -rf VSCode-darwin-arm64/Positron.app/Contents/Resources/app/extensions/jupyter-adapter/node_modules/zeromq/build
+          # Align NLS metadata files
+          find VSCode-darwin-x64 -name "nls.metadata.json" | sed 's/^[^/]*//' | xargs -I {} cp "VSCode-darwin-x64{}" "VSCode-darwin-arm64{}"
+
+          # Copy extension scripts, excluding node modules
           pushd VSCode-darwin-x64/Positron.app/Contents/Resources/app
           zip -r $GITHUB_WORKSPACE/extensions-x64.zip extensions -x "*node_modules*"
           popd
 
+          # Unzip over arm64 scripts
           pushd VSCode-darwin-arm64/Positron.app/Contents/Resources/app
           unzip -fov $GITHUB_WORKSPACE/extensions-x64.zip
           popd
