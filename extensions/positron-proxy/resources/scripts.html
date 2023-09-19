@@ -8,105 +8,103 @@
 	</style>
 
 	<!-- The help header script. -->
-	<script id="help-header-script">
-		(() => {
-			// Process ready state changes.
-			document.addEventListener("readystatechange", event => {
-				// Process the ready state change.
-				switch (document.readyState) {
-					// Interactive.
-					case "interactive":
-						// Add message listener.
-						addMessageListener();
+	<script id="help-header-script" async type="module">
+		// Process ready state changes.
+		document.addEventListener("readystatechange", event => {
+			// Process the ready state change.
+			switch (document.readyState) {
+				// Interactive.
+				case "interactive":
+					// Add message listener.
+					addMessageListener();
 
-						// Indicate that help is interactive.
-						window.parent.postMessage({
-							id: "positron-help-interactive",
-							url: window.location.href,
-							title: document.title
-						}, "*");
-						break;
+					// Indicate that help is interactive.
+					window.parent.postMessage({
+						id: "positron-help-interactive",
+						url: window.location.href,
+						title: document.title
+					}, "*");
+					break;
 
-					// Complete.
-					case "complete":
-						// Hijack links.
-						hijackLinks();
+				// Complete.
+				case "complete":
+					// Hijack links.
+					hijackLinks();
 
-						// Add scroll listener.
-						addScrollListener();
+					// Add scroll listener.
+					addScrollListener();
 
-						// Indicate that help is complete.
-						window.parent.postMessage({
-							id: "positron-help-complete",
-							url: window.location.href,
-							title: document.title
-						}, "*");
+					// Indicate that help is complete.
+					window.parent.postMessage({
+						id: "positron-help-complete",
+						url: window.location.href,
+						title: document.title
+					}, "*");
+					break;
+			}
+		});
+
+		// Add message listener.
+		const addMessageListener = () => {
+			// Add the event listener.
+			window.addEventListener("message", message => {
+				// Switch on the message ID.
+				switch (message.data.id) {
+					// positron-help-scroll message.
+					case "positron-help-scroll":
+						window.scrollTo(message.data.scrollX, message.data.scrollY);
 						break;
 				}
 			});
+		};
 
-			// Add message listener.
-			const addMessageListener = () => {
-				// Add the event listener.
-				window.addEventListener("message", message => {
-					// Switch on the message ID.
-					switch (message.data.id) {
-						// positron-help-scroll message.
-						case "positron-help-scroll":
-							window.scrollTo(message.data.scrollX, message.data.scrollY);
-							break;
-					}
-				});
-			};
+		// Hijacks all the links in the document. When a link is clicked, post a message to
+		// navigate.
+		const hijackLinks = () => {
+			var links = document.links;
+			for (let i = 0; i < links.length; i++) {
+				links[i].onclick = (e) => {
+					window.parent.postMessage({
+						id: "positron-help-navigate",
+						url: links[i].href
+					}, "*");
+					return false;
+				};
+			}
+		};
 
-			// Hijacks all the links in the document. When a link is clicked, post a message to
-			// navigate.
-			const hijackLinks = () => {
-				var links = document.links;
-				for (let i = 0; i < links.length; i++) {
-					links[i].onclick = (e) => {
+		// Add scroll listener.
+		const addScrollListener = () => {
+			// The scroll Y position and a value which indicates whether we are throttling
+			// scroll events.
+			let scrollX = 0;
+			let scrollY = 0;
+			let throttling = false;
+
+			// Add the scroll event listener.
+			window.addEventListener("scroll", event => {
+				// Save the scroll position.
+				scrollX = window.scrollX;
+				scrollY = window.scrollY;
+
+				// If we are not throttling, start throttling.
+				if (!throttling) {
+					// Start throttling.
+					throttling = true;
+					window.requestAnimationFrame(() => {
+						// Stop throttling.
+						throttling = false;
+
+						// Post a scroll message.
 						window.parent.postMessage({
-							id: "positron-help-navigate",
-							url: links[i].href
+							id: "positron-help-scroll",
+							scrollX,
+							scrollY
 						}, "*");
-						return false;
-					};
+					});
 				}
-			};
-
-			// Add scroll listener.
-			const addScrollListener = () => {
-				// The scroll Y position and a value which indicates whether we are throttling
-				// scroll events.
-				let scrollX = 0;
-				let scrollY = 0;
-				let throttling = false;
-
-				// Add the scroll event listener.
-				window.addEventListener("scroll", event => {
-					// Save the scroll position.
-					scrollX = window.scrollX;
-					scrollY = window.scrollY;
-
-					// If we are not throttling, start throttling.
-					if (!throttling) {
-						// Start throttling.
-						throttling = true;
-						window.requestAnimationFrame(() => {
-							// Stop throttling.
-							throttling = false;
-
-							// Post a scroll message.
-							window.parent.postMessage({
-								id: "positron-help-scroll",
-								scrollX,
-								scrollY
-							}, "*");
-						});
-					}
-				});
-			};
-		})();
+			});
+		};
 	</script>
 </head>
 

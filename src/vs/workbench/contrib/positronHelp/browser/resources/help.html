@@ -18,8 +18,7 @@
 	<body>
 		<iframe id="help-iframe" title="Help Content" src="__sourceURL__" loading="eager">
 		</iframe>
-		<script nonce="__nonce__">
-		(() => {
+		<script nonce="__nonce__" async type="module">
 			const vscode = acquireVsCodeApi();
 			const childWindow = document.getElementById("help-iframe").contentWindow;
 			window.addEventListener("message", message => {
@@ -41,7 +40,6 @@
 
 				vscode.postMessage(message.data);
 			});
-		})();
 		</script>
 	</body>
 </html>

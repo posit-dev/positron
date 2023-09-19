@@ -3,7 +3,6 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { localize } from 'vs/nls';
-import { generateUuid } from 'vs/base/common/uuid';
 import { Disposable } from 'vs/base/common/lifecycle';
 import { Emitter, Event } from 'vs/base/common/event';
 import { isLocalhost } from 'vs/workbench/contrib/positronHelp/browser/utils';
@@ -17,6 +16,19 @@ import { IOverlayWebview, IWebviewService, WebviewContentPurpose } from 'vs/work
  */
 const TITLE_TIMEOUT = 1000;
 const DISPOSE_TIMEOUT = 15 * 1000;
+
+/**
+ * Generates a nonce.
+ * @returns The nonce.
+ */
+function generateNonce() {
+	let text = '';
+	const possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+	for (let i = 0; i < 64; i++) {
+		text += possible.charAt(Math.floor(Math.random() * possible.length));
+	}
+	return text;
+}
 
 /**
  * Shortens a URL.
@@ -313,7 +325,7 @@ export class HelpEntry extends Disposable implements IHelpEntry {
 			// Set the HTML of the help overlay webview.
 			this._helpOverlayWebview.setHtml(
 				this.helpHTML
-					.replaceAll('__nonce__', generateUuid())
+					.replaceAll('__nonce__', generateNonce())
 					.replaceAll('__sourceURL__', this.sourceUrl)
 					.replaceAll('__scrollX__', `${this._scrollX}`)
 					.replaceAll('__scrollY__', `${this._scrollY}`)
