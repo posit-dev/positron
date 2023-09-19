@@ -189,7 +189,8 @@
 	],
 	"extensionEnabledApiProposals": {
 		"ms-vscode.vscode-selfhost-test-provider": [
-			"testObserver"
+			"testObserver",
+			"testMessageContextValue"
 		],
 		"VisualStudioExptTeam.vscodeintellicode-completions": [
 			"inlineCompletionsAdditions"
@@ -225,12 +226,11 @@
 			"envShellEvent",
 			"quickPickItemTooltip",
 			"terminalDataWriteEvent",
-			"envCollectionWorkspace",
-			"saveEditor",
-			"envCollectionOptions"
+			"saveEditor"
 		],
 		"ms-dotnettools.dotnet-interactive-vscode": [
-			"notebookMessaging"
+			"notebookMessaging",
+			"languageConfigurationAutoClosingPairs"
 		],
 		"GitHub.codespaces": [
 			"contribEditSessions",
@@ -320,7 +320,8 @@
 			"codiconDecoration",
 			"diffCommand",
 			"contribCommentEditorActionsMenu",
-			"treeItemCheckbox",
+			"readonlyMessage",
+			"treeViewMarkdownMessage",
 			"shareProvider",
 			"quickDiffProvider"
 		],
@@ -334,9 +335,14 @@
 			"handleIssueUri",
 			"interactive",
 			"interactiveUserActions",
-			"semanticSimilarity",
+			"terminalContextMenu",
 			"terminalDataWriteEvent",
-			"terminalQuickFixProvider"
+			"terminalSelection",
+			"terminalQuickFixProvider",
+			"chatSlashCommands",
+			"readonlyMessage",
+			"mappedEditsProvider",
+			"aiRelatedInformation"
 		],
 		"GitHub.remotehub": [
 			"contribRemoteHelp",
@@ -415,6 +421,11 @@
 			"resolvers",
 			"tunnels",
 			"terminalDataWriteEvent",
+			"contribRemoteHelp",
+			"contribViewsRemote"
+		],
+		"jeanp413.open-remote-wsl": [
+			"resolvers",
 			"contribRemoteHelp",
 			"contribViewsRemote"
 		]
