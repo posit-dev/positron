@@ -60,13 +60,14 @@
 
 					// positron-help-update-find message. Sent to start a new find operation.
 					case "positron-help-update-find":
-						if (message.data.value) {
-							// Reset selection so we are finding from the top of the document.
-							window.getSelection().removeAllRanges();
+						// Reset selection so we are finding from the top of the document.
+						window.getSelection().removeAllRanges();
 
+						// If the find data
+						if (message.data.findValue) {
 							// Perform the find.
 							findResult = window.find(
-								message.data.value,
+								message.data.findValue,
 								false,	// aCaseSensitive
 								false,	// aBackwards
 								false,	// aWrapAround
@@ -84,9 +85,9 @@
 
 					// positron-help-find-previous message. Sent to find the previous occurance.
 					case "positron-help-find-previous":
-						if (findResult && message.data.value) {
+						if (findResult && message.data.findValue) {
 							window.find(
-								message.data.value,
+								message.data.findValue,
 								false,	// aCaseSensitive
 								true,	// aBackwards
 								false,	// aWrapAround
@@ -98,9 +99,9 @@
 
 					// positron-help-find-previous message. Sent to find the next occurance.
 					case "positron-help-find-next":
-						if (findResult && message.data.value) {
+						if (findResult && message.data.findValue) {
 							window.find(
-								message.data.value,
+								message.data.findValue,
 								false,	// aCaseSensitive
 								false,	// aBackwards
 								false,	// aWrapAround

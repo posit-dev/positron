@@ -430,13 +430,21 @@ export class HelpEntry extends Disposable implements IHelpEntry, WebviewFindDele
 
 		if (this._helpOverlayWebview) {
 			if (previous) {
-				this._helpOverlayWebview.postMessage({ id: 'positron-help-find-previous', value });
+				this._helpOverlayWebview.postMessage({
+					id: 'positron-help-find-previous',
+					findValue: value
+				});
 			} else {
-				this._helpOverlayWebview.postMessage({ id: 'positron-help-find-next', value });
+				this._helpOverlayWebview.postMessage({
+					id: 'positron-help-find-next',
+					findValue: value
+				});
 			}
 
 			setTimeout(() => {
-				this._helpOverlayWebview?.postMessage({ id: 'positron-help-focus' });
+				this._helpOverlayWebview?.postMessage({
+					id: 'positron-help-focus'
+				});
 			}, 100);
 		}
 	}
@@ -449,7 +457,10 @@ export class HelpEntry extends Disposable implements IHelpEntry, WebviewFindDele
 		console.log(`updateFind called value: '${value}'`);
 
 		if (this._helpOverlayWebview) {
-			this._helpOverlayWebview.postMessage({ id: 'positron-help-update-find', value });
+			this._helpOverlayWebview.postMessage({
+				id: 'positron-help-update-find',
+				findValue: value
+			});
 		}
 	}
 
@@ -458,17 +469,22 @@ export class HelpEntry extends Disposable implements IHelpEntry, WebviewFindDele
 	 * @param keepSelection A value which indicates whether to keep the selection.
 	 */
 	public stopFind(keepSelection?: boolean) {
-		console.log(`stopFind called keepSelection: '${keepSelection}'`);
+		if (this._helpOverlayWebview) {
+			this._helpOverlayWebview.postMessage({
+				id: 'positron-help-update-find',
+				findValue: undefined
+			});
+		}
 	}
 
 	/**
 	 * Focus something.
 	 */
 	public focus() {
-		console.log('focus called');
-
 		if (this._helpOverlayWebview) {
-			this._helpOverlayWebview.postMessage({ id: 'positron-help-focus' });
+			this._helpOverlayWebview.postMessage({
+				id: 'positron-help-focus'
+			});
 		}
 	}
 
