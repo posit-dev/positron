@@ -80,11 +80,6 @@ export class PositronPreviewViewPane extends ViewPane implements IReactComponent
 	}
 
 	public override dispose(): void {
-		if (this._positronReactRenderer) {
-			this._positronReactRenderer.destroy();
-			this._positronReactRenderer = undefined;
-		}
-
 		super.dispose();
 	}
 
@@ -158,6 +153,7 @@ export class PositronPreviewViewPane extends ViewPane implements IReactComponent
 
 		// Create the PositronReactRenderer for the PositronPreview component and render it.
 		this._positronReactRenderer = new PositronReactRenderer(this._positronPreviewContainer);
+		this._register(this._positronReactRenderer);
 		this._positronReactRenderer.render(
 			<PositronPreview
 				commandService={this.commandService}
