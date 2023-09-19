@@ -178,16 +178,6 @@ jobs:
           # Align NLS metadata files
           find VSCode-darwin-x64 -name "nls.metadata.json" | sed 's/^[^/]*//' | xargs -I {} cp "VSCode-darwin-x64{}" "VSCode-darwin-arm64{}"
 
-          # Copy extension scripts, excluding node modules
-          pushd VSCode-darwin-x64/Positron.app/Contents/Resources/app
-          zip -r $GITHUB_WORKSPACE/extensions-x64.zip extensions -x "*node_modules*"
-          popd
-
-          # Unzip over arm64 scripts
-          pushd VSCode-darwin-arm64/Positron.app/Contents/Resources/app
-          unzip -fov $GITHUB_WORKSPACE/extensions-x64.zip
-          popd
-
       # Glue together the arm64 and x64 binaries with lipo to create a
       # universal build
       - name: Create universal build
