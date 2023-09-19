@@ -116,6 +116,8 @@ jobs:
           npm_config_arch: ${{ matrix.arch }}
           POSITRON_GITHUB_PAT: ${{ secrets.POSITRON_GITHUB_PAT }}
         run: |
+          export NVM_DIR="$HOME/.nvm"
+          [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
           nvm use
           yarn --network-timeout 120000
 
@@ -124,6 +126,8 @@ jobs:
         env:
           POSITRON_BUILD_NUMBER: ${{ needs.version_string.outputs.build_number }}
         run: |
+          export NVM_DIR="$HOME/.nvm"
+          [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
           nvm use
           yarn gulp vscode-darwin-${{ matrix.arch }}
 
