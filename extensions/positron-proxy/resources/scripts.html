@@ -18,9 +18,6 @@
 			switch (document.readyState) {
 				// Interactive.
 				case "interactive":
-					// Add message listener.
-					addMessageListener();
-
 					// Indicate that help is interactive.
 					window.parent.postMessage({
 						id: "positron-help-interactive",
@@ -31,6 +28,9 @@
 
 				// Complete.
 				case "complete":
+					// Add message listener.
+					addMessageListener();
+
 					// Hijack links.
 					hijackLinks();
 
@@ -47,7 +47,7 @@
 			}
 		});
 
-		// Add message listener.
+		// Adds message listener.
 		const addMessageListener = () => {
 			// Add the event listener.
 			window.addEventListener("message", message => {
