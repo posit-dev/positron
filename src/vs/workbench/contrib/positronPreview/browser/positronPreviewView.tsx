@@ -165,6 +165,11 @@ export class PositronPreviewViewPane extends ViewPane implements IReactComponent
 				positronPreviewService={this.positronPreviewService}
 				reactComponentContainer={this} />
 		);
+
+		// If there's an active preview webview, lay it out over the Positron
+		// preview container.
+		this.positronPreviewService.activePreviewWebview?.webview.layoutWebviewOverElement(
+			this._positronPreviewContainer);
 	}
 
 	//#endregion Protected Overrides
