@@ -10,7 +10,7 @@ import { IThemeService } from 'vs/platform/theme/common/themeService';
 import { ITelemetryService } from 'vs/platform/telemetry/common/telemetry';
 import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
 import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
-import { IReactComponentContainer, ISize, PositronReactRenderer } from 'vs/base/browser/positronReactRenderer';
+import { IElementPosition, IReactComponentContainer, ISize, PositronReactRenderer } from 'vs/base/browser/positronReactRenderer';
 import { IContextMenuService } from 'vs/platform/contextview/browser/contextView';
 import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
@@ -31,10 +31,13 @@ export class PositronPreviewViewPane extends ViewPane implements IReactComponent
 	private _positronReactRenderer?: PositronReactRenderer;
 
 	// The Positron preview container - contains the entire Positron preview UI.
-	private _positronPreviewContainer?: HTMLElement;
+	private _positronPreviewContainer: HTMLElement;
 
 	// The onSizeChanged emitter.
 	private _onSizeChangedEmitter = this._register(new Emitter<ISize>());
+
+	// The onPositionChanged emitter.
+	private _onPositionChangedEmitter = this._register(new Emitter<IElementPosition>());
 
 	// The onVisibilityChanged event emitter.
 	private _onVisibilityChangedEmitter = this._register(new Emitter<boolean>());
@@ -77,6 +80,7 @@ export class PositronPreviewViewPane extends ViewPane implements IReactComponent
 	) {
 		super(options, keybindingService, contextMenuService, configurationService, contextKeyService, viewDescriptorService, instantiationService, openerService, themeService, telemetryService);
 		this._register(this.onDidChangeBodyVisibility(() => this.onDidChangeVisibility(this.isBodyVisible())));
+		this._positronPreviewContainer = DOM.$('.positron-preview-container');
 	}
 
 	public override dispose(): void {
@@ -121,6 +125,11 @@ export class PositronPreviewViewPane extends ViewPane implements IReactComponent
 	readonly onSizeChanged: Event<ISize> = this._onSizeChangedEmitter.event;
 
 	/**
+	 * The onPositionChanged event.
+	 */
+	readonly onPositionChanged: Event<IElementPosition> = this._onPositionChangedEmitter.event;
+
+	/**
 	 * The onVisibilityChanged event.
 	 */
 	readonly onVisibilityChanged: Event<boolean> = this._onVisibilityChangedEmitter.event;
@@ -148,7 +157,6 @@ export class PositronPreviewViewPane extends ViewPane implements IReactComponent
 		super.renderBody(container);
 
 		// Append the Positron preview container.
-		this._positronPreviewContainer = DOM.$('.positron-preview-container');
 		container.appendChild(this._positronPreviewContainer);
 
 		// Create the PositronReactRenderer for the PositronPreview component and render it.
@@ -165,11 +173,6 @@ export class PositronPreviewViewPane extends ViewPane implements IReactComponent
 				positronPreviewService={this.positronPreviewService}
 				reactComponentContainer={this} />
 		);
-
-		// If there's an active preview webview, lay it out over the Positron
-		// preview container.
-		this.positronPreviewService.activePreviewWebview?.webview.layoutWebviewOverElement(
-			this._positronPreviewContainer);
 	}
 
 	//#endregion Protected Overrides
@@ -192,6 +195,13 @@ export class PositronPreviewViewPane extends ViewPane implements IReactComponent
 		this._onSizeChangedEmitter.fire({
 			width,
 			height
+		});
+
+		// Raise the onPositionChanged event.
+		const boundingRect = this._positronPreviewContainer.getBoundingClientRect();
+		this._onPositionChangedEmitter.fire({
+			x: boundingRect.x,
+			y: boundingRect.y,
 		});
 	}
 
