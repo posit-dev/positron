@@ -15,6 +15,14 @@ export interface ISize {
 }
 
 /**
+ * IElementPosition interface.
+ */
+export interface IElementPosition {
+	x: number;
+	y: number;
+}
+
+/**
  * IReactComponentContainer interface.
  */
 export interface IReactComponentContainer {
