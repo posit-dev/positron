@@ -341,7 +341,11 @@ export class WebviewElement extends Disposable implements IWebview, WebviewFindD
 		}));
 
 		if (initInfo.options.enableFindWidget) {
-			this._webviewFindWidget = this._register(instantiationService.createInstance(WebviewFindWidget, this));
+			// --- Start Positron ---
+			// Added this._options.webviewFindDelegate || this so that if a WebviewFindDelegate is
+			// passed in through WebviewOptions, it takes over.
+			this._webviewFindWidget = this._register(instantiationService.createInstance(WebviewFindWidget, this._options.webviewFindDelegate || this));
+			// --- End Positron ---
 		}
 
 		this._encodedWebviewOriginPromise.then(encodedWebviewOrigin => {

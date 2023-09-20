@@ -53,11 +53,14 @@ export class WebviewFindWidget extends SimpleFindWidget {
 		}
 	}
 
-	public override hide(animated = true) {
+	// --- Start Positron
+	// Added keepSelection = true.
+	public override hide(animated = true, keepSelection = false) {
 		super.hide(animated);
-		this._delegate.stopFind(true);
+		this._delegate.stopFind(keepSelection);
 		this._delegate.focus();
 	}
+	// --- End Positron
 
 	protected _onInputChanged(): boolean {
 		const val = this.inputValue;
