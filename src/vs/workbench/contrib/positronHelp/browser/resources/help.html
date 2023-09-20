@@ -1,47 +1,77 @@
 <!DOCTYPE html>
 <html>
-	<head>
-		<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-		<meta http-equiv="Content-Security-Policy" content="default-src 'none'; media-src https:; script-src 'self' 'nonce-__nonce__'; style-src 'nonce-__nonce__'; frame-src *;">
-		<style nonce="__nonce__">
-			body {
-				padding: 0;
-			}
-			#help-iframe {
-				border: none;
-				width: 100%;
-				height: 100%;
-				position: absolute;
-			}
-		</style>
-	</head>
-	<body>
-		<iframe id="help-iframe" title="Help Content" src="__sourceURL__" loading="eager">
-		</iframe>
-		<script nonce="__nonce__">
-		(() => {
-			const vscode = acquireVsCodeApi();
-			const childWindow = document.getElementById("help-iframe").contentWindow;
-			window.addEventListener("message", message => {
-				if (message.source !== childWindow || !message.data.id.startsWith("positron-help-")) {
+
+<head>
+	<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+	<meta http-equiv="Content-Security-Policy"
+		content="default-src 'none'; media-src https:; script-src 'self' 'nonce-__nonce__'; style-src 'nonce-__nonce__'; frame-src *;">
+	<style nonce="__nonce__">
+		body {
+			padding: 0;
+		}
+
+		#help-iframe {
+			border: none;
+			width: 100%;
+			height: 100%;
+			position: absolute;
+		}
+	</style>
+</head>
+
+<body>
+	<iframe id="help-iframe" title="Help Content" src="__sourceURL__" loading="eager">
+	</iframe>
+	<script nonce="__nonce__" async type="module">
+		const vscode = acquireVsCodeApi();
+		const helpContentWindow = document.getElementById("help-iframe").contentWindow;
+		window.addEventListener("message", message => {
+			// If the message is coming from the help content window, ensure that the ID begins with
+			// positron-help- and, if it does, forward it to the help overlay webview.
+			if (message.source === helpContentWindow) {
+				// Filter out anything weird.
+				if (!message.data.id.startsWith("positron-help-")) {
 					return;
 				}
 
+				// When the help iframe content window is interactive, scroll it, if there is a
+				// scroll position to restore.
 				if (message.data.id === "positron-help-interactive") {
 					const scrollX = __scrollX__;
 					const scrollY = __scrollY__;
 					if (scrollX || scrollY) {
-						childWindow.postMessage({
-							id: "positron-help-scroll",
+						helpContentWindow.postMessage({
+							id: "positron-help-scroll-to",
 							scrollX,
 							scrollY
 						}, "*");
 					}
 				}
 
+				// Post the message.
 				vscode.postMessage(message.data);
-			});
-		})();
-		</script>
-	</body>
+			} else {
+				// Forward messages from the help overlay webview to the help content window.
+				switch (message.data.id) {
+					case "positron-help-update-find":
+						helpContentWindow.postMessage(message.data, "*");
+						break;
+
+					case "positron-help-find-previous":
+						helpContentWindow.postMessage(message.data, "*");
+						break;
+
+					case "positron-help-find-next":
+						helpContentWindow.postMessage(message.data, "*");
+						break;
+
+					case "positron-help-focus":
+						helpContentWindow.postMessage(message.data, "*");
+						break;
+				}
+			}
+		});
+	</script>
+</body>
+
 </html>
