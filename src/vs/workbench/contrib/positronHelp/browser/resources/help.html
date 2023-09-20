@@ -52,22 +52,8 @@
 				vscode.postMessage(message.data);
 			} else {
 				// Forward messages from the help overlay webview to the help content window.
-				switch (message.data.id) {
-					case "positron-help-update-find":
-						helpContentWindow.postMessage(message.data, "*");
-						break;
-
-					case "positron-help-find-previous":
-						helpContentWindow.postMessage(message.data, "*");
-						break;
-
-					case "positron-help-find-next":
-						helpContentWindow.postMessage(message.data, "*");
-						break;
-
-					case "positron-help-focus":
-						helpContentWindow.postMessage(message.data, "*");
-						break;
+				if (message.data.id.startsWith("positron-help-")) {
+					helpContentWindow.postMessage(message.data, "*");
 				}
 			}
 		});
