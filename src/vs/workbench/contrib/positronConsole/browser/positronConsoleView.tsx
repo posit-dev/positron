@@ -13,6 +13,7 @@ import { IViewDescriptorService } from 'vs/workbench/common/views';
 import { IThemeService } from 'vs/platform/theme/common/themeService';
 import { ILanguageService } from 'vs/editor/common/languages/language';
 import { ICommandService } from 'vs/platform/commands/common/commands';
+import { PositronConsoleFocused } from 'vs/workbench/common/contextkeys';
 import { ITelemetryService } from 'vs/platform/telemetry/common/telemetry';
 import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
 import { IContextMenuService } from 'vs/platform/contextview/browser/contextView';
@@ -27,7 +28,6 @@ import { ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/c
 import { IReactComponentContainer, ISize, PositronReactRenderer } from 'vs/base/browser/positronReactRenderer';
 import { IExecutionHistoryService } from 'vs/workbench/contrib/executionHistory/common/executionHistoryService';
 import { IPositronConsoleService } from 'vs/workbench/services/positronConsole/common/interfaces/positronConsoleService';
-import { PositronConsoleFocused } from 'vs/workbench/common/contextkeys';
 
 /**
  * PositronConsoleViewPane class.
