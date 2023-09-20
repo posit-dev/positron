@@ -21,6 +21,12 @@ interface PreviewContainerProps {
 
 	/** Height of preview pane in px */
 	height: number;
+
+	/** X Position of preview pane in px */
+	x: number;
+
+	/** Y Position of preview pane in px */
+	y: number;
 }
 
 /**
@@ -47,6 +53,9 @@ export const PreviewContainer = (props: PreviewContainerProps) => {
 			// we're unmounted.
 			if (props.visible) {
 				webview.claim(this, undefined);
+				if (webviewRef.current) {
+					webview.layoutWebviewOverElement(webviewRef.current);
+				}
 				return () => {
 					webview?.release(this);
 				};
@@ -56,7 +65,7 @@ export const PreviewContainer = (props: PreviewContainerProps) => {
 			}
 		}
 		return () => { };
-	}, [props.preview, props.visible]);
+	}, [props.preview, props.visible, props.x, props.y]);
 
 	// This `useEffect` intentionally runs on every render. It is responsible
 	// for laying out the webview over the preview container; since the webview
