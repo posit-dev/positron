@@ -3,13 +3,20 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { localize } from 'vs/nls';
+import { IAction } from 'vs/base/common/actions';
 import { Disposable } from 'vs/base/common/lifecycle';
 import { Emitter, Event } from 'vs/base/common/event';
+import { PositronHelpFocused } from 'vs/workbench/common/contextkeys';
+import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
 import { isLocalhost } from 'vs/workbench/contrib/positronHelp/browser/utils';
 import { ExtensionIdentifier } from 'vs/platform/extensions/common/extensions';
+import { IClipboardService } from 'vs/platform/clipboard/common/clipboardService';
+import { IContextMenuService } from 'vs/platform/contextview/browser/contextView';
 import { INotificationService } from 'vs/platform/notification/common/notification';
 import { IOpenerService, OpenExternalOptions } from 'vs/platform/opener/common/opener';
 import { WebviewFindDelegate } from 'vs/workbench/contrib/webview/browser/webviewFindWidget';
+import { AnchorAlignment, AnchorAxisAlignment } from 'vs/base/browser/ui/contextview/contextview';
+import { POSITRON_HELP_COPY } from 'vs/workbench/contrib/positronHelp/browser/positronHelpIdentifiers';
 import { IOverlayWebview, IWebviewService, WebviewContentPurpose } from 'vs/workbench/contrib/webview/browser/webview';
 
 /**
@@ -23,13 +30,15 @@ const DISPOSE_TIMEOUT = 15 * 1000;
  * @returns The nonce.
  */
 function generateNonce() {
-	let text = '';
+	// Generate the nonce. crypto.randomInt() would be nicer, but it's not available.
+	let nonce = '';
 	const possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
 	for (let i = 0; i < 64; i++) {
-		text += possible.charAt(Math.floor(Math.random() * possible.length));
+		nonce += possible.charAt(Math.floor(Math.random() * possible.length));
 	}
 
-	return text;
+	// Return the nonce.
+	return nonce;
 }
 
 /**
@@ -81,6 +90,16 @@ type PositronHelpMessageFindResult = {
 };
 
 /**
+ * PositronHelpMessageContextMenu type.
+ */
+type PositronHelpMessageContextMenu = {
+	id: 'positron-help-context-menu';
+	screenX: number;
+	screenY: number;
+	selection: string;
+};
+
+/**
  * PositronHelpMessage type.
  */
 type PositronHelpMessage =
@@ -88,7 +107,8 @@ type PositronHelpMessage =
 	| PositronHelpMessageComplete
 	| PositronHelpMessageNavigate
 	| PositronHelpMessageScroll
-	| PositronHelpMessageFindResult;
+	| PositronHelpMessageFindResult
+	| PositronHelpMessageContextMenu;
 
 /**
  * IHelpEntry interface.
@@ -159,6 +179,11 @@ export class HelpEntry extends Disposable implements IHelpEntry, WebviewFindDele
 	private _scrollY = 0;
 
 	/**
+	 * The element over which the help overlay webview is displayed.
+	 */
+	private _element?: HTMLElement;
+
+	/**
 	 * Gets or sets the help overlay webview.
 	 */
 	private _helpOverlayWebview?: IOverlayWebview;
@@ -218,9 +243,12 @@ export class HelpEntry extends Disposable implements IHelpEntry, WebviewFindDele
 		public readonly languageName: string,
 		public readonly sourceUrl: string,
 		public readonly targetUrl: string,
+		@IClipboardService private readonly _clipboardService: IClipboardService,
+		@IContextKeyService private readonly _contextKeyService: IContextKeyService,
+		@IContextMenuService private readonly _contextMenuService: IContextMenuService,
 		@INotificationService private readonly _notificationService: INotificationService,
 		@IOpenerService private readonly _openerService: IOpenerService,
-		@IWebviewService private readonly _webviewService: IWebviewService,
+		@IWebviewService private readonly _webviewService: IWebviewService
 	) {
 		super();
 	}
@@ -359,6 +387,11 @@ export class HelpEntry extends Disposable implements IHelpEntry, WebviewFindDele
 						this._hasFindResultEmitter.fire(message.findResult);
 						break;
 
+					// positron-help-context-menu message.
+					case 'positron-help-context-menu':
+						console.log(`SHOW CONTEXT MENU ${message.screenX},${message.screenY} SELECTION: '${message.selection}'`);
+						this.showContextMenu(message.screenX, message.screenY, message.selection);
+						break;
 				}
 			});
 
@@ -382,8 +415,9 @@ export class HelpEntry extends Disposable implements IHelpEntry, WebviewFindDele
 		}
 
 		// Claim and layout the help overlay webview.
-		this._helpOverlayWebview.claim(this, undefined);
-		this._helpOverlayWebview.layoutWebviewOverElement(element);
+		this._element = element;
+		this._helpOverlayWebview.claim(this._element, undefined);
+		this._helpOverlayWebview.layoutWebviewOverElement(this._element);
 	}
 
 	/**
@@ -393,7 +427,10 @@ export class HelpEntry extends Disposable implements IHelpEntry, WebviewFindDele
 	public hideHelpOverlayWebview(dispose: boolean) {
 		if (this._helpOverlayWebview) {
 			this.hideFind();
-			this._helpOverlayWebview.release(this);
+			if (this._element) {
+				this._helpOverlayWebview.release(this._element);
+				this._element = undefined;
+			}
 			if (dispose && !this._disposeTimeout) {
 				this._disposeTimeout = setTimeout(() => {
 					this._disposeTimeout = undefined;
@@ -504,4 +541,83 @@ export class HelpEntry extends Disposable implements IHelpEntry, WebviewFindDele
 	}
 
 	//#endregion WebviewFindDelegate Implementation
+
+	//#region Private Methods
+
+	/**
+	 * Shows the context menu.
+	 * @param screenX The screen X.
+	 * @param screenY The screen Y.
+	 * @param selection The selection.
+	 */
+	private async showContextMenu(
+		screenX: number,
+		screenY: number,
+		selection: string
+	): Promise<void> {
+		// Ensure that the element is set. (It will be.)
+		if (!this._element) {
+			return;
+		}
+
+		// The context menu actions.
+		const actions: IAction[] = [];
+
+		// Add the copy action.
+		actions.push({
+			id: POSITRON_HELP_COPY,
+			label: localize('positron.console.copy', "Copy"),
+			tooltip: '',
+			class: undefined,
+			enabled: selection.length !== 0,
+			run: () => {
+				// Copy the selection to the clipboard.
+				if (selection) {
+					this._clipboardService.writeText(selection);
+				}
+			}
+		});
+
+		// Because help is displayed in an overlay webview, traditional focus tracking to keep the
+		// PositronHelpFocused context key up to date will not work. Instead, we need to create a
+		// dynamic binding for it and make sure it's set to true while the context menu is being
+		// displayed.
+
+		// Create the scoped context key service for the Positron console container. This will be
+		// disposed when the context menu is hidden.
+		const scopedContextKeyService = this._contextKeyService.createScoped(this._element);
+
+		// Create the PositronHelpFocused context key.
+		const contextKey = PositronHelpFocused.bindTo(scopedContextKeyService);
+
+		// Get the current value. If it's false, set it to true.
+		const contextKeyValue = contextKey.get();
+		if (!contextKeyValue) {
+			contextKey.set(true);
+		}
+
+		// Show the context menu.
+		const x = screenX - window.screenX;
+		const y = screenY - window.screenY;
+		this._contextMenuService.showContextMenu({
+			getActions: () => actions,
+			getAnchor: () => ({
+				x,
+				y
+			}),
+			anchorAlignment: AnchorAlignment.LEFT,
+			anchorAxisAlignment: AnchorAxisAlignment.VERTICAL,
+			onHide: didCancel => {
+				// Restore the context key value, if we set it to true.
+				if (!contextKeyValue) {
+					contextKey.set(false);
+				}
+
+				// Dispose of the scoped context key service.
+				scopedContextKeyService.dispose();
+			},
+		});
+	}
+
+	//#endregion Private Methods
 }
