@@ -59,6 +59,9 @@ export class PositronPreviewViewPane extends ViewPane implements IReactComponent
 	// IReactComponentContainer interface.
 	private _height = 0;
 
+	// Whether a position-based redraw is pending.
+	private _redrawPending = false;
+
 	//#endregion Private Properties
 
 	//#region Constructor & Dispose
@@ -197,12 +200,56 @@ export class PositronPreviewViewPane extends ViewPane implements IReactComponent
 			height
 		});
 
-		// Raise the onPositionChanged event.
-		const boundingRect = this._positronPreviewContainer.getBoundingClientRect();
-		this._onPositionChangedEmitter.fire({
-			x: boundingRect.x,
-			y: boundingRect.y,
-		});
+		// If a position-based redraw is pending, no need to do anything else;
+		// we will compute the new position of the element when it completes.
+		if (this._redrawPending) {
+			return;
+		}
+
+		// Compute the physical position of the preview container. We do this so
+		// that we can trigger a render of the preview container if the position
+		// has changed, which moves the OverlayWebView to the correct position.
+		// This is necessary because the OverlayWebView is not a child of the
+		// preview container (it is, by necessity, absolutely positioned above
+		// it), so it does not move with the preview container.
+		//
+		// This position can change without `layoutBody` being called, since
+		// during the panel reveal animation the panel slides its body element
+		// into view. To accomodate this, we repeatedly query the position of
+		// the preview container until it stops changing.
+		//
+		// Measure the initial position of the preview container.
+		let boundingRect = this._positronPreviewContainer.getBoundingClientRect();
+
+		// Ensure this isn't re-entrant (we don't want multiple pending redraws in flight)
+		this._redrawPending = true;
+
+		// This function is called repeatedly until the position of the preview
+		// container stops changing.
+		const redraw = () => {
+			// Measure the new position of the preview container.
+			const newBoundingRect = this._positronPreviewContainer.getBoundingClientRect();
+
+			// If the position has changed, raise the onPositionChanged event. This triggers the
+			// webview to reposition itself if the position has changed.
+			this._onPositionChangedEmitter.fire({
+				x: newBoundingRect.x,
+				y: newBoundingRect.y,
+			});
+			if (boundingRect.x !== newBoundingRect.x || boundingRect.y !== newBoundingRect.y) {
+				boundingRect = newBoundingRect;
+				// If the position changed since the last time we measured it,
+				// schedule another redraw.
+				setTimeout(() => window.requestAnimationFrame(redraw), 100);
+			} else {
+				// This position hasn't changed since the last time we measured; we can stop
+				// redrawing now.
+				this._redrawPending = false;
+			}
+		};
+
+		// Schedule the first redraw.
+		setTimeout(() => window.requestAnimationFrame(redraw), 100);
 	}
 
 	//#endregion Public Overrides
