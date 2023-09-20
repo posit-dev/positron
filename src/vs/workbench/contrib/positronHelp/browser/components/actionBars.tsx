@@ -261,6 +261,14 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 						}
 					</ActionBarRegion>
 					<ActionBarRegion location='right'>
+						<ActionBarButton
+							iconId='positron-search'
+							tooltip={tooltipShowPositronHelp}
+							align='right'
+							disabled={currentHelpEntry === undefined}
+							onClick={() => currentHelpEntry?.showFind()}
+						/>
+
 						{/* <ActionBarFind
 							width={175}
 							findResults={findResults}

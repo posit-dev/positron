@@ -22,7 +22,7 @@ const HOST = 'localhost';
  * @returns The element, if found; otherwise, undefined.
  */
 const getElement = (script: string, tag: string, id: string) =>
-	script.match(new RegExp(`<${tag}\\s+id\\s*=\\s*("${id}"|'${id}')\\s*>.*<\/${tag}\\s*>`, 'gs'))?.[0];
+	script.match(new RegExp(`<${tag}\\s+id\\s*=\\s*("${id}"|'${id}')\\s*.*>.*<\/${tag}\\s*>`, 'gs'))?.[0];
 
 /**
  * ContentRewriter type.
@@ -162,7 +162,7 @@ export class PositronProxy implements Disposable {
 				// );
 				response = response.replace(
 					'</head>',
-					`${this.helpHeaderStyle}${this.helpHeaderScript}</head>`
+					`${this.helpHeaderStyle}\n${this.helpHeaderScript}</head>`
 				);
 
 				// Return the response.
