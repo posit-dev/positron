@@ -146,12 +146,13 @@ class PositronHelpService extends Disposable implements IPositronHelpService {
 	/**
 	 * Constructor.
 	 * @param _commandService The ICommandService.
+	 * @param _fileService The IFileService.
+	 * @param _instantiationService The IInstantiationService.
 	 * @param _languageRuntimeService The ICommandService.
 	 * @param _logService The ILogService.
 	 * @param _notificationService The INotificationService.
 	 * @param _openerService The IOpenerService.
 	 * @param _viewsService The IViewsService.
-	 * @param webviewService The IWebviewService.
 	 */
 	constructor(
 		@ICommandService private readonly _commandService: ICommandService,
