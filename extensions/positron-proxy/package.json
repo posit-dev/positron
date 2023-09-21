@@ -12,6 +12,7 @@
 	],
 	"activationEvents": [
     "onCommand:positronProxy.startHelpProxyServer",
+    "onCommand:positronProxy.setHelpProxyServerStyles",
 		"onStartupFinished"
 	],
 	"main": "./out/extension.js",
