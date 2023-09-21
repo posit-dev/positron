@@ -173,7 +173,8 @@ export class PositronProxy implements Disposable {
 	/**
 	 * Stops a help proxy server
 	 * @param targetOrigin The target origin.
-	 * @returns The server origin.
+	 * @returns A value which indicates whether the proxy server for the target origin was found and
+	 * stopped.
 	 */
 	stopHelpProxyServer(targetOrigin: string): boolean {
 		// See if we have a proxy server for the target origin. If we do, stop it.
