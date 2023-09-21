@@ -14,6 +14,7 @@ import { usePositronActionBarContext } from 'vs/platform/positronActionBar/brows
 import { recentMenuActions } from 'vs/workbench/browser/parts/positronTopActionBar/components/topActionBarOpenMenu';
 import { usePositronTopActionBarContext } from 'vs/workbench/browser/parts/positronTopActionBar/positronTopActionBarContext';
 import { PositronNewFolderAction, PositronNewFolderFromGitAction, PositronOpenFolderInNewWindowAction } from 'vs/workbench/browser/actions/positronActions';
+import { ClearRecentWorkspacesAction } from 'vs/workbench/browser/parts/editor/workspaceActions';
 
 // Constants.
 const kCloseFolder = 'workbench.action.closeFolder';
@@ -87,13 +88,10 @@ export const TopActionBarFolderMenu = () => {
 		if (positronTopActionBarContext && recent?.workspaces?.length) {
 			actions.push(new Separator());
 			actions.push(...recentMenuActions(recent.workspaces, positronTopActionBarContext));
-
-			// For now, do not add this command action because it clears files and folders. It would
-			// be better to have an action that just clears folders / workspaces.
-			// actions.push(new Separator());
-			// positronActionBarContext.appendCommandAction(actions, {
-			// 	commandId: ClearRecentFilesAction.ID
-			// });
+			actions.push(new Separator());
+			positronActionBarContext.appendCommandAction(actions, {
+				id: ClearRecentWorkspacesAction.ID
+			});
 		}
 
 
