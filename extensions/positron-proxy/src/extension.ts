@@ -14,9 +14,24 @@ export function activate(context: vscode.ExtensionContext) {
 	const positronProxy = new PositronProxy(context);
 
 	// Register the positronProxy.startHelpProxyServer command and add its disposable.
-	context.subscriptions.push(vscode.commands.registerCommand('positronProxy.startHelpProxyServer', async (targetOrigin: string) => {
-		return await positronProxy.startHelpProxyServer(targetOrigin);
-	}));
+	context.subscriptions.push(
+		vscode.commands.registerCommand(
+			'positronProxy.startHelpProxyServer',
+			async (targetOrigin: string) => {
+				return await positronProxy.startHelpProxyServer(targetOrigin);
+			}
+		)
+	);
+
+	// Register the positronProxy.stopHelpProxyServer command and add its disposable.
+	context.subscriptions.push(
+		vscode.commands.registerCommand(
+			'positronProxy.stopHelpProxyServer',
+			(targetOrigin: string) => {
+				return positronProxy.stopHelpProxyServer(targetOrigin);
+			}
+		)
+	);
 
 	// Add the PositronProxy object disposable.
 	context.subscriptions.push(positronProxy);

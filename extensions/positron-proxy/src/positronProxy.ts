@@ -170,6 +170,28 @@ export class PositronProxy implements Disposable {
 			});
 	}
 
+	/**
+	 * Stops a help proxy server
+	 * @param targetOrigin The target origin.
+	 * @returns A value which indicates whether the proxy server for the target origin was found and
+	 * stopped.
+	 */
+	stopHelpProxyServer(targetOrigin: string): boolean {
+		// See if we have a proxy server for the target origin. If we do, stop it.
+		const proxyServer = this.proxyServers.get(targetOrigin);
+		if (proxyServer) {
+			// Remove and stop the proxy server.
+			this.proxyServers.delete(targetOrigin);
+			proxyServer.dispose();
+
+			// A proxy server for the target origin was found and stopped.
+			return true;
+		}
+
+		// A proxy server for the target origin was not found.
+		return false;
+	}
+
 	//#endregion Public Methods
 
 	//#region Private Methods

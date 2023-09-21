@@ -501,7 +501,7 @@ class PositronHelpService extends Disposable implements IPositronHelpService {
 		);
 
 		// If there are no help entries to delete, there's nothing more to do.
-		if (!helpEntriesToDelete) {
+		if (!helpEntriesToDelete.length) {
 			return;
 		}
 
@@ -525,6 +525,26 @@ class PositronHelpService extends Disposable implements IPositronHelpService {
 
 		// Dispose of the deleted help entries.
 		helpEntriesToDelete.forEach(deletedHelpEntry => deletedHelpEntry.dispose());
+
+		// Get the set of target origins that we may want to clean up.
+		const cleanupTargetOrigins = helpEntriesToDelete.map(helpEntry =>
+			new URL(helpEntry.targetUrl).origin
+		);
+
+		// Get the set of active target origins so we don't accidentally clean one of them up.
+		const activeTargetOrigins = this._helpEntries.map(helpEntry =>
+			new URL(helpEntry.targetUrl).origin
+		);
+
+		// Stop proxy servers that can be stopped.
+		cleanupTargetOrigins.forEach(targetOrigin => {
+			if (!activeTargetOrigins.includes(targetOrigin)) {
+				this._commandService.executeCommand<string>(
+					'positronProxy.stopHelpProxyServer',
+					targetOrigin
+				);
+			}
+		});
 	}
 
 	//#endregion Private Methods
