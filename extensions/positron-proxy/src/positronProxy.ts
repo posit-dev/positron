@@ -6,6 +6,7 @@ import fs = require('fs');
 import path = require('path');
 import express from 'express';
 import { AddressInfo, Server } from 'net';
+import { ProxyServerStyles } from './extension';
 import { Disposable, ExtensionContext } from 'vscode';
 import { createProxyMiddleware, responseInterceptor } from 'http-proxy-middleware';
 
@@ -78,24 +79,29 @@ export class PositronProxy implements Disposable {
 	//#region Private Properties
 
 	/**
-	 * A value which indicates whether the resources/scripts.html file has been loaded.
+	 * Gets or sets a value which indicates whether the resources/scripts.html file has been loaded.
 	 */
-	private scriptsFileLoaded = false;
+	private _scriptsFileLoaded = false;
 
 	/**
-	 * The help header style.
+	 * Gets or sets the help styles.
 	 */
-	private helpHeaderStyle?: string;
+	private _helpStyles?: ProxyServerStyles;
 
 	/**
-	 * The help header script.
+	 * Gets or sets the help header style.
 	 */
-	private helpHeaderScript?: string;
+	private _helpHeaderStyle?: string;
 
 	/**
-	 * The proxy servers, keyed by target origin.
+	 * Gets or sets the help header script.
 	 */
-	private proxyServers = new Map<string, ProxyServer>();
+	private _helpHeaderScript?: string;
+
+	/**
+	 * Gets or sets the proxy servers, keyed by target origin.
+	 */
+	private _proxyServers = new Map<string, ProxyServer>();
 
 	//#endregion Private Properties
 
@@ -114,13 +120,13 @@ export class PositronProxy implements Disposable {
 			const scripts = fs.readFileSync(scriptsPath).toString('utf8');
 
 			// Get the elements from the file.
-			this.helpHeaderStyle = getElement(scripts, 'style', 'help-header-style');
-			this.helpHeaderScript = getElement(scripts, 'script', 'help-header-script');
+			this._helpHeaderStyle = getElement(scripts, 'style', 'help-header-style');
+			this._helpHeaderScript = getElement(scripts, 'script', 'help-header-script');
 
 			// Set the scripts file loaded flag if everything appears to have worked.
-			this.scriptsFileLoaded =
-				this.helpHeaderStyle !== undefined &&
-				this.helpHeaderScript !== undefined;
+			this._scriptsFileLoaded =
+				this._helpHeaderStyle !== undefined &&
+				this._helpHeaderScript !== undefined;
 		} catch (error) {
 			console.log(`Failed to load the resources/scripts.html file.`);
 		}
@@ -130,7 +136,7 @@ export class PositronProxy implements Disposable {
 	 * Disposes of the PositronProxy.
 	 */
 	dispose(): void {
-		this.proxyServers.forEach(proxyServer => {
+		this._proxyServers.forEach(proxyServer => {
 			proxyServer.dispose();
 		});
 	}
@@ -140,7 +146,7 @@ export class PositronProxy implements Disposable {
 	//#region Public Methods
 
 	/**
-	 * Starts a help proxy server
+	 * Starts a help proxy server.
 	 * @param targetOrigin The target origin.
 	 * @returns The server origin.
 	 */
@@ -154,6 +160,18 @@ export class PositronProxy implements Disposable {
 					return responseBuffer;
 				}
 
+				// Build the help header vars.
+				let helpHeaderVars = '';
+				if (this._helpStyles) {
+					helpHeaderVars += '<style id="help-header-vars">\n';
+					helpHeaderVars += '    body {\n';
+					for (const style in this._helpStyles) {
+						helpHeaderVars += `        --${style}: ${this._helpStyles[style]};\n`;
+					}
+					helpHeaderVars += '    }\n';
+					helpHeaderVars += '</style>\n';
+				}
+
 				// Inject styles and scripts.
 				let response = responseBuffer.toString('utf8');
 				// response = response.replace(
@@ -162,7 +180,10 @@ export class PositronProxy implements Disposable {
 				// );
 				response = response.replace(
 					'</head>',
-					`${this.helpHeaderStyle}\n${this.helpHeaderScript}</head>`
+					`${helpHeaderVars}
+					${this._helpHeaderStyle}\n
+					${this._helpHeaderScript}\n
+					</head>`
 				);
 
 				// Return the response.
@@ -171,17 +192,17 @@ export class PositronProxy implements Disposable {
 	}
 
 	/**
-	 * Stops a help proxy server
+	 * Stops a help proxy server.
 	 * @param targetOrigin The target origin.
 	 * @returns A value which indicates whether the proxy server for the target origin was found and
 	 * stopped.
 	 */
 	stopHelpProxyServer(targetOrigin: string): boolean {
 		// See if we have a proxy server for the target origin. If we do, stop it.
-		const proxyServer = this.proxyServers.get(targetOrigin);
+		const proxyServer = this._proxyServers.get(targetOrigin);
 		if (proxyServer) {
 			// Remove and stop the proxy server.
-			this.proxyServers.delete(targetOrigin);
+			this._proxyServers.delete(targetOrigin);
 			proxyServer.dispose();
 
 			// A proxy server for the target origin was found and stopped.
@@ -190,6 +211,15 @@ export class PositronProxy implements Disposable {
 
 		// A proxy server for the target origin was not found.
 		return false;
+	}
+
+	/**
+	 * Sets the help proxy server styles.
+	 * @param styles The help proxy server styles.
+	 */
+	setHelpProxyServerStyles(styles: ProxyServerStyles) {
+		// Set the help styles.
+		this._helpStyles = styles;
 	}
 
 	//#endregion Public Methods
@@ -207,7 +237,7 @@ export class PositronProxy implements Disposable {
 		return new Promise((resolve, reject) => {
 			// See if we have an existing proxy server for target origin. If there is, return the
 			// server origin.
-			const proxyServer = this.proxyServers.get(targetOrigin);
+			const proxyServer = this._proxyServers.get(targetOrigin);
 			if (proxyServer) {
 				resolve(proxyServer.serverOrigin);
 				return;
@@ -230,7 +260,7 @@ export class PositronProxy implements Disposable {
 				const serverOrigin = `http://${address.address}:${address.port}`;
 
 				// Add the proxy server.
-				this.proxyServers.set(targetOrigin, new ProxyServer(
+				this._proxyServers.set(targetOrigin, new ProxyServer(
 					serverOrigin,
 					targetOrigin,
 					'help',
@@ -251,7 +281,7 @@ export class PositronProxy implements Disposable {
 						// content rewriter. Also, the scripts must be loaded.
 						const url = req.url;
 						const contentType = proxyRes.headers['content-type'];
-						if (!url || !contentType || !this.scriptsFileLoaded) {
+						if (!url || !contentType || !this._scriptsFileLoaded) {
 							// Don't process the response.
 							return responseBuffer;
 						}

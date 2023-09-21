@@ -9,10 +9,12 @@ import { Disposable } from 'vs/base/common/lifecycle';
 import { ILogService } from 'vs/platform/log/common/log';
 import { IViewsService } from 'vs/workbench/common/views';
 import { IFileService } from 'vs/platform/files/common/files';
+import { IThemeService } from 'vs/platform/theme/common/themeService';
 import { ICommandService } from 'vs/platform/commands/common/commands';
 import { isLocalhost } from 'vs/workbench/contrib/positronHelp/browser/utils';
 import { INotificationService } from 'vs/platform/notification/common/notification';
 import { IOpenerService, OpenExternalOptions } from 'vs/platform/opener/common/opener';
+import { WebviewThemeDataProvider } from 'vs/workbench/contrib/webview/browser/themeing';
 import { HelpEntry, IHelpEntry } from 'vs/workbench/contrib/positronHelp/browser/helpEntry';
 import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/common/extensions';
 import { IInstantiationService, createDecorator } from 'vs/platform/instantiation/common/instantiation';
@@ -162,7 +164,9 @@ class PositronHelpService extends Disposable implements IPositronHelpService {
 		@ILogService private readonly _logService: ILogService,
 		@INotificationService private readonly _notificationService: INotificationService,
 		@IOpenerService private readonly _openerService: IOpenerService,
+		@IThemeService private readonly _themeService: IThemeService,
 		@IViewsService private readonly _viewsService: IViewsService
+
 	) {
 		// Call the base class's constructor.
 		super();
@@ -170,6 +174,26 @@ class PositronHelpService extends Disposable implements IPositronHelpService {
 		// Load the help HTML file.
 		this._fileService.readFile(FileAccess.asFileUri(HELP_HTML_FILE_PATH))
 			.then(fileContent => this._helpHTML = fileContent.value.toString());
+
+		// Register onDidColorThemeChange handler.
+		this._register(this._themeService.onDidColorThemeChange(async colorTheme => {
+			// Create a webview theme data provider. It's a convenient way to get the styles we need
+			// for the help prosy server. Get the webview styles.
+			const webviewThemeDataProvider = _instantiationService.createInstance(WebviewThemeDataProvider);
+			const { styles } = webviewThemeDataProvider.getWebviewThemeData();
+			webviewThemeDataProvider.dispose();
+
+			// Try to set the help proxy server styles.
+			try {
+				await this._commandService.executeCommand(
+					'positronProxy.setHelpProxyServerStyles',
+					styles
+				);
+			} catch (error) {
+				this._logService.error('PositronHelpService could not set the proxy server styles');
+				this._logService.error(error);
+			}
+		}));
 
 		// Register onDidReceiveRuntimeEvent handler.
 		this._register(
@@ -539,7 +563,7 @@ class PositronHelpService extends Disposable implements IPositronHelpService {
 		// Stop proxy servers that can be stopped.
 		cleanupTargetOrigins.forEach(targetOrigin => {
 			if (!activeTargetOrigins.includes(targetOrigin)) {
-				this._commandService.executeCommand<string>(
+				this._commandService.executeCommand<boolean>(
 					'positronProxy.stopHelpProxyServer',
 					targetOrigin
 				);
