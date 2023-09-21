@@ -180,6 +180,7 @@ export class PositronProxy implements Disposable {
 		// See if we have a proxy server for the target origin. If we do, stop it.
 		const proxyServer = this.proxyServers.get(targetOrigin);
 		if (proxyServer) {
+			// Remove and stop the proxy server.
 			this.proxyServers.delete(targetOrigin);
 			proxyServer.dispose();
 
