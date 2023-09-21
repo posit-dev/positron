@@ -6,6 +6,7 @@ import { localize } from 'vs/nls';
 import { IAction } from 'vs/base/common/actions';
 import { Disposable } from 'vs/base/common/lifecycle';
 import { Emitter, Event } from 'vs/base/common/event';
+import { IThemeService } from 'vs/platform/theme/common/themeService';
 import { PositronHelpFocused } from 'vs/workbench/common/contextkeys';
 import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
 import { isLocalhost } from 'vs/workbench/contrib/positronHelp/browser/utils';
@@ -237,6 +238,7 @@ export class HelpEntry extends Disposable implements IHelpEntry, WebviewFindDele
 	 * @param _contextMenuService The IContextMenuService.
 	 * @param _notificationService The INotificationService.
 	 * @param _openerService The IOpenerService.
+	 * @param _themeService The IThemeService.
 	 * @param _webviewService the IWebviewService.
 	 */
 	constructor(
@@ -251,9 +253,17 @@ export class HelpEntry extends Disposable implements IHelpEntry, WebviewFindDele
 		@IContextMenuService private readonly _contextMenuService: IContextMenuService,
 		@INotificationService private readonly _notificationService: INotificationService,
 		@IOpenerService private readonly _openerService: IOpenerService,
+		@IThemeService private readonly _themeService: IThemeService,
 		@IWebviewService private readonly _webviewService: IWebviewService
 	) {
+		// Call the base class's constructor.
 		super();
+
+		// Register onDidColorThemeChange handler.
+		this._register(this._themeService.onDidColorThemeChange(_colorTheme => {
+			// Reload the help overlay webview.
+			this._helpOverlayWebview?.reload();
+		}));
 	}
 
 	/**
