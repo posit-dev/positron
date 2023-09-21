@@ -232,6 +232,9 @@ export class HelpEntry extends Disposable implements IHelpEntry, WebviewFindDele
 	 * @param languageName The language name.
 	 * @param sourceUrl The source URL.
 	 * @param targetUrl The target URL.
+	 * @param _clipboardService The IClipboardService.
+	 * @param _contextKeyService The IContextKeyService.
+	 * @param _contextMenuService The IContextMenuService.
 	 * @param _notificationService The INotificationService.
 	 * @param _openerService The IOpenerService.
 	 * @param _webviewService the IWebviewService.
