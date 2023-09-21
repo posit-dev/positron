@@ -6,6 +6,11 @@ import * as vscode from 'vscode';
 import { PositronProxy } from './positronProxy';
 
 /**
+ * ProxyServerStyles type.
+ */
+export type ProxyServerStyles = { readonly [key: string]: string | number };
+
+/**
  * Activates the extension.
  * @param context An ExtensionContext that contains the extention context.
  */
@@ -17,9 +22,7 @@ export function activate(context: vscode.ExtensionContext) {
 	context.subscriptions.push(
 		vscode.commands.registerCommand(
 			'positronProxy.startHelpProxyServer',
-			async (targetOrigin: string) => {
-				return await positronProxy.startHelpProxyServer(targetOrigin);
-			}
+			async (targetOrigin: string) => await positronProxy.startHelpProxyServer(targetOrigin)
 		)
 	);
 
@@ -27,9 +30,15 @@ export function activate(context: vscode.ExtensionContext) {
 	context.subscriptions.push(
 		vscode.commands.registerCommand(
 			'positronProxy.stopHelpProxyServer',
-			(targetOrigin: string) => {
-				return positronProxy.stopHelpProxyServer(targetOrigin);
-			}
+			(targetOrigin: string) => positronProxy.stopHelpProxyServer(targetOrigin)
+		)
+	);
+
+	// Register the positronProxy.stopHelpProxyServer command and add its disposable.
+	context.subscriptions.push(
+		vscode.commands.registerCommand(
+			'positronProxy.setHelpProxyServerStyles',
+			(styles: ProxyServerStyles) => positronProxy.setHelpProxyServerStyles(styles)
 		)
 	);
 
