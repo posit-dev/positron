@@ -5,6 +5,28 @@
 <head>
 	<!-- The help header style. -->
 	<style id="help-header-style">
+		::-webkit-scrollbar {
+			background: transparent;
+			width: 8px;
+			height: 8px;
+			cursor: default !important;
+		}
+
+		::-webkit-scrollbar-track {
+			opacity: 0;
+		}
+
+		::-webkit-scrollbar-thumb {
+			min-height: 20px;
+			background-color: var(--vscode-scrollbarSlider-background) !important;
+			background-color: #6e768133 !important;
+		}
+
+		::-webkit-scrollbar-thumb:hover {
+			cursor: pointer !important;
+			background-color: var(--vscode-scrollbarSlider-hoverBackground) !important;
+			background-color: #6e768133 !important;
+		}
 	</style>
 
 	<!-- The help header script. -->
