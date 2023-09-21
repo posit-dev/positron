@@ -8,7 +8,6 @@ import { PropsWithChildren, useEffect, useState } from 'react'; // eslint-disabl
 import { ICommandService } from 'vs/platform/commands/common/commands';
 import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
 import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
-import { IReactComponentContainer } from 'vs/base/browser/positronReactRenderer';
 import { IContextMenuService } from 'vs/platform/contextview/browser/contextView';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/layoutService';
@@ -18,6 +17,7 @@ import { PositronPreviewServices } from 'vs/workbench/contrib/positronPreview/br
 import { PositronPreviewContextProvider } from 'vs/workbench/contrib/positronPreview/browser/positronPreviewContext';
 import { IPositronPreviewService } from 'vs/workbench/contrib/positronPreview/browser/positronPreviewSevice';
 import { PreviewWebview } from 'vs/workbench/contrib/positronPreview/browser/previewWebview';
+import { PositronPreviewViewPane } from 'vs/workbench/contrib/positronPreview/browser/positronPreviewView';
 
 /**
  * PositronPreviewProps interface.
@@ -30,7 +30,7 @@ export interface PositronPreviewProps extends PositronPreviewServices {
 	readonly contextMenuService: IContextMenuService;
 	readonly keybindingService: IKeybindingService;
 	readonly layoutService: IWorkbenchLayoutService;
-	readonly reactComponentContainer: IReactComponentContainer;
+	readonly reactComponentContainer: PositronPreviewViewPane;
 	readonly positronPreviewService: IPositronPreviewService;
 }
 
@@ -44,6 +44,8 @@ export const PositronPreview = (props: PropsWithChildren<PositronPreviewProps>) 
 	// Hooks.
 	const [width, setWidth] = useState(props.reactComponentContainer.width);
 	const [height, setHeight] = useState(props.reactComponentContainer.height);
+	const [x, setX] = useState(0);
+	const [y, setY] = useState(0);
 	const [visible, setVisibility] = useState(props.reactComponentContainer.visible);
 
 	// Initial selected preview item.
@@ -59,6 +61,12 @@ export const PositronPreview = (props: PropsWithChildren<PositronPreviewProps>) 
 		disposableStore.add(props.reactComponentContainer.onSizeChanged(size => {
 			setWidth(size.width);
 			setHeight(size.height);
+		}));
+
+		// Add the onPositionChanged event handler.
+		disposableStore.add(props.reactComponentContainer.onPositionChanged(pos => {
+			setX(pos.x);
+			setY(pos.y);
 		}));
 
 		// Add the onVisibilityChanged event handler.
@@ -82,7 +90,9 @@ export const PositronPreview = (props: PropsWithChildren<PositronPreviewProps>) 
 				preview={activePreview}
 				visible={visible}
 				width={width}
-				height={height} />
+				height={height}
+				x={x}
+				y={y} />
 		</PositronPreviewContextProvider>
 	);
 };

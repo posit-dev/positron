@@ -17,6 +17,9 @@ import { createDecorator } from 'vs/platform/instantiation/common/instantiation'
 import { IStorageService, StorageScope, StorageTarget } from 'vs/platform/storage/common/storage';
 import { IWebviewPortMapping } from 'vs/platform/webview/common/webviewPortMapping';
 import { Memento, MementoObject } from 'vs/workbench/common/memento';
+// --- Start Positron ---
+import { WebviewFindDelegate } from 'vs/workbench/contrib/webview/browser/webviewFindWidget';
+// --- End Positron ---
 
 /**
  * Set when the find widget in a webview in a webview is visible.
@@ -94,6 +97,9 @@ export interface WebviewOptions {
 	readonly purpose?: WebviewContentPurpose;
 	readonly customClasses?: string;
 	readonly enableFindWidget?: boolean;
+	// --- Start Positron ---
+	readonly webviewFindDelegate?: WebviewFindDelegate;
+	// --- End Positron ---
 
 	/**
 	 * Disable the service worker used for loading local resources in the webview.
@@ -248,7 +254,10 @@ export interface IWebview extends IDisposable {
 	reload(): void;
 
 	showFind(animated?: boolean): void;
-	hideFind(animated?: boolean): void;
+	// --- Start Positron
+	// Added keepSelection?: boolean.
+	hideFind(animated?: boolean, keepSelection?: boolean): void;
+	// --- End Positron
 	runFindAction(previous: boolean): void;
 
 	selectAll(): void;

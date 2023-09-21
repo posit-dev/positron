@@ -3,20 +3,43 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { localize } from 'vs/nls';
-import { generateUuid } from 'vs/base/common/uuid';
+import { IAction } from 'vs/base/common/actions';
 import { Disposable } from 'vs/base/common/lifecycle';
 import { Emitter, Event } from 'vs/base/common/event';
+import { PositronHelpFocused } from 'vs/workbench/common/contextkeys';
+import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
 import { isLocalhost } from 'vs/workbench/contrib/positronHelp/browser/utils';
 import { ExtensionIdentifier } from 'vs/platform/extensions/common/extensions';
+import { IClipboardService } from 'vs/platform/clipboard/common/clipboardService';
+import { IContextMenuService } from 'vs/platform/contextview/browser/contextView';
 import { INotificationService } from 'vs/platform/notification/common/notification';
 import { IOpenerService, OpenExternalOptions } from 'vs/platform/opener/common/opener';
+import { WebviewFindDelegate } from 'vs/workbench/contrib/webview/browser/webviewFindWidget';
+import { AnchorAlignment, AnchorAxisAlignment } from 'vs/base/browser/ui/contextview/contextview';
+import { POSITRON_HELP_COPY } from 'vs/workbench/contrib/positronHelp/browser/positronHelpIdentifiers';
 import { IOverlayWebview, IWebviewService, WebviewContentPurpose } from 'vs/workbench/contrib/webview/browser/webview';
 
 /**
  * Constants.
  */
 const TITLE_TIMEOUT = 1000;
-const DISPOSE_TIMEOUT = 1 * 60 * 1000;
+const DISPOSE_TIMEOUT = 15 * 1000;
+
+/**
+ * Generates a nonce.
+ * @returns The nonce.
+ */
+function generateNonce() {
+	// Generate the nonce. crypto.randomInt() would be nicer, but it's not available.
+	let nonce = '';
+	const possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+	for (let i = 0; i < 64; i++) {
+		nonce += possible.charAt(Math.floor(Math.random() * possible.length));
+	}
+
+	// Return the nonce.
+	return nonce;
+}
 
 /**
  * Shortens a URL.
@@ -50,12 +73,30 @@ type PositronHelpMessageNavigate = {
 };
 
 /**
- * PositronHelpScroll type.
+ * PositronHelpMessageScroll type.
  */
 type PositronHelpMessageScroll = {
 	id: 'positron-help-scroll';
 	scrollX: number;
 	scrollY: number;
+};
+
+/**
+ * PositronHelpMessageFindResult type.
+ */
+type PositronHelpMessageFindResult = {
+	id: 'positron-help-find-result';
+	findResult: boolean;
+};
+
+/**
+ * PositronHelpMessageContextMenu type.
+ */
+type PositronHelpMessageContextMenu = {
+	id: 'positron-help-context-menu';
+	screenX: number;
+	screenY: number;
+	selection: string;
 };
 
 /**
@@ -65,7 +106,9 @@ type PositronHelpMessage =
 	| PositronHelpMessageInteractive
 	| PositronHelpMessageComplete
 	| PositronHelpMessageNavigate
-	| PositronHelpMessageScroll;
+	| PositronHelpMessageScroll
+	| PositronHelpMessageFindResult
+	| PositronHelpMessageContextMenu;
 
 /**
  * IHelpEntry interface.
@@ -102,12 +145,22 @@ export interface IHelpEntry {
 	 * @param dispose A value which indicates whether to dispose of the help overlay webiew.
 	 */
 	hideHelpOverlayWebview(dispose: boolean): void;
+
+	/**
+	 * Shows find.
+	 */
+	showFind(): void;
+
+	/**
+	 * Hides find.
+	 */
+	hideFind(): void;
 }
 
 /**
  * HelpEntry class.
  */
-export class HelpEntry extends Disposable implements IHelpEntry {
+export class HelpEntry extends Disposable implements IHelpEntry, WebviewFindDelegate {
 	//#region Private Properties
 
 	/**
@@ -124,6 +177,11 @@ export class HelpEntry extends Disposable implements IHelpEntry {
 	 * The Y scroll position.
 	 */
 	private _scrollY = 0;
+
+	/**
+	 * The element over which the help overlay webview is displayed.
+	 */
+	private _element?: HTMLElement;
 
 	/**
 	 * Gets or sets the help overlay webview.
@@ -152,12 +210,23 @@ export class HelpEntry extends Disposable implements IHelpEntry {
 	 */
 	private readonly _onDidNavigateEmitter = this._register(new Emitter<string>);
 
+	/**
+	 * The hasFindResult event emitter.
+	 */
+	private readonly _hasFindResultEmitter = this._register(new Emitter<boolean>);
+
+	/**
+	 * The onDidStopFind event emitter.
+	 */
+	private readonly _onDidStopFindEmitter = this._register(new Emitter<void>);
+
 	//#endregion Private Properties
 
 	//#region Constructor & Dispose
 
 	/**
 	 * Constructor.
+	 * @param helpHTML The help HTML.
 	 * @param languageId The language ID.
 	 * @param runtimeId The runtime ID.
 	 * @param languageName The language name.
@@ -168,14 +237,18 @@ export class HelpEntry extends Disposable implements IHelpEntry {
 	 * @param _webviewService the IWebviewService.
 	 */
 	constructor(
+		public readonly helpHTML: string,
 		public readonly languageId: string,
 		public readonly runtimeId: string,
 		public readonly languageName: string,
 		public readonly sourceUrl: string,
 		public readonly targetUrl: string,
+		@IClipboardService private readonly _clipboardService: IClipboardService,
+		@IContextKeyService private readonly _contextKeyService: IContextKeyService,
+		@IContextMenuService private readonly _contextMenuService: IContextMenuService,
 		@INotificationService private readonly _notificationService: INotificationService,
 		@IOpenerService private readonly _openerService: IOpenerService,
-		@IWebviewService private readonly _webviewService: IWebviewService,
+		@IWebviewService private readonly _webviewService: IWebviewService
 	) {
 		super();
 	}
@@ -238,8 +311,9 @@ export class HelpEntry extends Disposable implements IHelpEntry {
 			this._disposeTimeout = undefined;
 		}
 
+		// If the help overlay webview has not been created, create it.
 		if (!this._helpOverlayWebview) {
-			// Create the help overlay webview. Register it for disposal.
+			// Create the help overlay webview.
 			this._helpOverlayWebview = this._webviewService.createWebviewOverlay({
 				title: 'Positron Help',
 				extension: {
@@ -247,12 +321,16 @@ export class HelpEntry extends Disposable implements IHelpEntry {
 				},
 				options: {
 					purpose: WebviewContentPurpose.WebviewView,
-					retainContextWhenHidden: true
+					enableFindWidget: true,
+					webviewFindDelegate: this,
+					// It is absolutely critical that disableServiceWorker is set to true. If it is
+					// not, a service worker is left running for every overlay webview that is
+					// created.
+					disableServiceWorker: true,
+					retainContextWhenHidden: true,
 				},
 				contentOptions: {
-					allowScripts: true,
-					allowMultipleAPIAcquire: true,
-					localResourceRoots: [], // TODO: needed for positron-help.js
+					allowScripts: true
 				},
 			});
 
@@ -303,11 +381,28 @@ export class HelpEntry extends Disposable implements IHelpEntry {
 						this._scrollY = message.scrollY;
 						//console.log(`positron-help-scroll ${this._scrollX},${this._scrollY}`);
 						break;
+
+					// positron-help-find-result message.
+					case 'positron-help-find-result':
+						this._hasFindResultEmitter.fire(message.findResult);
+						break;
+
+					// positron-help-context-menu message.
+					case 'positron-help-context-menu':
+						console.log(`SHOW CONTEXT MENU ${message.screenX},${message.screenY} SELECTION: '${message.selection}'`);
+						this.showContextMenu(message.screenX, message.screenY, message.selection);
+						break;
 				}
 			});
 
 			// Set the HTML of the help overlay webview.
-			this._helpOverlayWebview.setHtml(this.generateHelpHtml());
+			this._helpOverlayWebview.setHtml(
+				this.helpHTML
+					.replaceAll('__nonce__', generateNonce())
+					.replaceAll('__sourceURL__', this.sourceUrl)
+					.replaceAll('__scrollX__', `${this._scrollX}`)
+					.replaceAll('__scrollY__', `${this._scrollY}`)
+			);
 
 			// Start the set title timeout. This timeout sets the title of the help entry to a
 			// shortened version of the source URL. We do this because there's no guarantee that the
@@ -320,8 +415,9 @@ export class HelpEntry extends Disposable implements IHelpEntry {
 		}
 
 		// Claim and layout the help overlay webview.
-		this._helpOverlayWebview.claim(this, undefined);
-		this._helpOverlayWebview.layoutWebviewOverElement(element);
+		this._element = element;
+		this._helpOverlayWebview.claim(this._element, undefined);
+		this._helpOverlayWebview.layoutWebviewOverElement(this._element);
 	}
 
 	/**
@@ -330,7 +426,11 @@ export class HelpEntry extends Disposable implements IHelpEntry {
 	 */
 	public hideHelpOverlayWebview(dispose: boolean) {
 		if (this._helpOverlayWebview) {
-			this._helpOverlayWebview.release(this);
+			this.hideFind();
+			if (this._element) {
+				this._helpOverlayWebview.release(this._element);
+				this._element = undefined;
+			}
 			if (dispose && !this._disposeTimeout) {
 				this._disposeTimeout = setTimeout(() => {
 					this._disposeTimeout = undefined;
@@ -343,71 +443,180 @@ export class HelpEntry extends Disposable implements IHelpEntry {
 		}
 	}
 
+	/**
+	 * Shows find.
+	 */
+	public showFind() {
+		this._helpOverlayWebview?.showFind(true);
+	}
+
+	/**
+	 * Hides find.
+	 */
+	public hideFind() {
+		this._helpOverlayWebview?.hideFind(true, false);
+	}
+
 	//#endregion IHelpEntry Implementation
+
+	//#region WebviewFindDelegate Implementation
+
+	/**
+	 * A value which indicates whether to check the IME completion state.
+	 */
+	readonly checkImeCompletionState = true;
+
+	/**
+	 * hasFindResult event.
+	 */
+	readonly hasFindResult = this._hasFindResultEmitter.event;
+
+	/**
+	 * onDidStopFind event.
+	 */
+	readonly onDidStopFind = this._onDidStopFindEmitter.event;
+
+	/**
+	 * Finds the valye.
+	 * @param value The value to find.
+	 * @param previous A value which indicates whether to find previous.
+	 */
+	public find(value: string, previous: boolean) {
+		if (this._helpOverlayWebview) {
+			if (previous) {
+				this._helpOverlayWebview.postMessage({
+					id: 'positron-help-find-previous',
+					findValue: value
+				});
+			} else {
+				this._helpOverlayWebview.postMessage({
+					id: 'positron-help-find-next',
+					findValue: value
+				});
+			}
+
+			setTimeout(() => {
+				this._helpOverlayWebview?.postMessage({
+					id: 'positron-help-focus'
+				});
+			}, 100);
+		}
+	}
+
+	/**
+	 * Updates find.
+	 * @param value The updated find value.
+	 */
+	public updateFind(value: string) {
+		if (this._helpOverlayWebview) {
+			this._helpOverlayWebview.postMessage({
+				id: 'positron-help-update-find',
+				findValue: value
+			});
+		}
+	}
+
+	/**
+	 * Stops find.
+	 * @param keepSelection A value which indicates whether to keep the selection.
+	 */
+	public stopFind(keepSelection?: boolean) {
+		if (this._helpOverlayWebview && !keepSelection) {
+			this._helpOverlayWebview.postMessage({
+				id: 'positron-help-update-find',
+				findValue: undefined
+			});
+		}
+	}
+
+	/**
+	 * Focus.
+	 */
+	public focus() {
+		if (this._helpOverlayWebview) {
+			this._helpOverlayWebview.postMessage({
+				id: 'positron-help-focus'
+			});
+		}
+	}
+
+	//#endregion WebviewFindDelegate Implementation
 
 	//#region Private Methods
 
 	/**
-	 * Creates the help overlay webview.
+	 * Shows the context menu.
+	 * @param screenX The screen X.
+	 * @param screenY The screen Y.
+	 * @param selection The selection.
 	 */
-	createHelpOverlayWebview() {
-	}
+	private async showContextMenu(
+		screenX: number,
+		screenY: number,
+		selection: string
+	): Promise<void> {
+		// Ensure that the element is set. (It will be.)
+		if (!this._element) {
+			return;
+		}
 
-	/**
-	 * Generates help HTML.
-	 * @param helpEntry The HelpEntry to generate HTML for.
-	 * @returns The help HTML.
-	 */
-	private generateHelpHtml() {
-		// Generate and return a help document that loads the help entry's source URL.
-		const nonce = generateUuid();
-		return `<!DOCTYPE html>
-<html>
-	<head>
-		<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-		<meta http-equiv="Content-Security-Policy" content="default-src 'none'; media-src https:; script-src 'self' 'nonce-${nonce}'; style-src 'nonce-${nonce}'; frame-src *;">
-		<style nonce="${nonce}">
-			body {
-				padding: 0;
+		// The context menu actions.
+		const actions: IAction[] = [];
+
+		// Add the copy action.
+		actions.push({
+			id: POSITRON_HELP_COPY,
+			label: localize('positron.console.copy', "Copy"),
+			tooltip: '',
+			class: undefined,
+			enabled: selection.length !== 0,
+			run: () => {
+				// Copy the selection to the clipboard.
+				if (selection) {
+					this._clipboardService.writeText(selection);
+				}
 			}
-			#help-iframe {
-				border: none;
-				width: 100%;
-				height: 100%;
-				position: absolute;
-			}
-		</style>
-	</head>
-	<body>
-		<iframe id="help-iframe" title="Help Content" src="${this.sourceUrl}" loading="eager">
-		</iframe>
-		<script nonce="${nonce}">
-		(() => {
-			const vscode = acquireVsCodeApi();
-			const childWindow = document.getElementById("help-iframe").contentWindow;
-			window.addEventListener("message", message => {
-				if (message.source !== childWindow || !message.data.id.startsWith("positron-help-")) {
-					return;
+		});
+
+		// Because help is displayed in an overlay webview, traditional focus tracking to keep the
+		// PositronHelpFocused context key up to date will not work. Instead, we need to create a
+		// dynamic binding for it and make sure it's set to true while the context menu is being
+		// displayed.
+
+		// Create the scoped context key service for the Positron console container. This will be
+		// disposed when the context menu is hidden.
+		const scopedContextKeyService = this._contextKeyService.createScoped(this._element);
+
+		// Create the PositronHelpFocused context key.
+		const contextKey = PositronHelpFocused.bindTo(scopedContextKeyService);
+
+		// Get the current value. If it's false, set it to true.
+		const contextKeyValue = contextKey.get();
+		if (!contextKeyValue) {
+			contextKey.set(true);
+		}
+
+		// Show the context menu.
+		const x = screenX - window.screenX;
+		const y = screenY - window.screenY;
+		this._contextMenuService.showContextMenu({
+			getActions: () => actions,
+			getAnchor: () => ({
+				x,
+				y
+			}),
+			anchorAlignment: AnchorAlignment.LEFT,
+			anchorAxisAlignment: AnchorAxisAlignment.VERTICAL,
+			onHide: didCancel => {
+				// Restore the context key value, if we set it to true.
+				if (!contextKeyValue) {
+					contextKey.set(false);
 				}
 
-				if (message.data.id === "positron-help-interactive") {
-					const scrollX = ${this._scrollX};
-					const scrollY = ${this._scrollY};
-					if (scrollX || scrollY) {
-						childWindow.postMessage({
-							id: "positron-help-scroll",
-							scrollX,
-							scrollY
-						}, "*");
-					}
-				}
-
-				vscode.postMessage(message.data);
-			});
-		})();
-		</script>
-	</body>
-</html>`;
+				// Dispose of the scoped context key service.
+				scopedContextKeyService.dispose();
+			},
+		});
 	}
 
 	//#endregion Private Methods
