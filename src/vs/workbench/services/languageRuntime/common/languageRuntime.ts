@@ -13,6 +13,7 @@ import { LanguageRuntimeWorkspaceAffiliation } from 'vs/workbench/services/langu
 import { IStorageService } from 'vs/platform/storage/common/storage';
 import { IExtensionService } from 'vs/workbench/services/extensions/common/extensions';
 import { IWorkspaceTrustManagementService } from 'vs/platform/workspace/common/workspaceTrust';
+import { DeferredPromise } from 'vs/base/common/async';
 
 /**
  * LanguageRuntimeInfo class.
@@ -62,6 +63,10 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 	// A map of the starting runtimes. This is keyed by the languageId
 	// (metadata.languageId) of the runtime.
 	private readonly _startingRuntimesByLanguageId = new Map<string, ILanguageRuntime>();
+
+	// A map of runtimes currently starting to promises that resolve when the runtime
+	// is ready to use. This is keyed by the runtimeId (metadata.runtimeId) of the runtime.
+	private readonly _startingRuntimesByRuntimeId = new Map<string, DeferredPromise<void>>();
 
 	// A map of the running runtimes. This is keyed by the languageId
 	// (metadata.languageId) of the runtime.
@@ -496,6 +501,15 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 	 * @param source The source of the request to start the runtime.
 	 */
 	async startRuntime(runtimeId: string, source: string): Promise<void> {
+		// See if we are already starting a runtime with the given ID. If we
+		// are, return the promise that resolves when the runtime is ready to
+		// use. This makes it possible for multiple requests to start the same
+		// runtime to be coalesced.
+		const startingRuntimePromise = this._startingRuntimesByRuntimeId.get(runtimeId);
+		if (startingRuntimePromise && !startingRuntimePromise.isSettled) {
+			return startingRuntimePromise.p;
+		}
+
 		// Get the runtime. Throw an error, if it could not be found.
 		const languageRuntimeInfo = this._registeredRuntimesByRuntimeId.get(runtimeId);
 		if (!languageRuntimeInfo) {
@@ -511,7 +525,14 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 		// If there is already a runtime running for the language, throw an error.
 		const runningLanguageRuntime = this._runningRuntimesByLanguageId.get(languageRuntimeInfo.runtime.metadata.languageId);
 		if (runningLanguageRuntime) {
-			throw new Error(`Language runtime ${formatLanguageRuntime(languageRuntimeInfo.runtime)} cannot be started because language runtime ${formatLanguageRuntime(runningLanguageRuntime)} is already running for the language.`);
+			if (runningLanguageRuntime.metadata.runtimeId === runtimeId) {
+				// If the runtime that is running is the one we were just asked
+				// to start, we're technically in good shape since the runtime
+				// is already running!
+				return Promise.resolve();
+			} else {
+				throw new Error(`Language runtime ${formatLanguageRuntime(languageRuntimeInfo.runtime)} cannot be started because language runtime ${formatLanguageRuntime(runningLanguageRuntime)} is already running for the language.`);
+			}
 		}
 
 		// If the workspace is not trusted, defer starting the runtime until the
@@ -633,6 +654,10 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 		// Add the runtime to the starting runtimes.
 		this._startingRuntimesByLanguageId.set(runtime.metadata.languageId, runtime);
 
+		// Create a promise that resolves when the runtime is ready to use.
+		const startPromise = new DeferredPromise<void>();
+		this._startingRuntimesByRuntimeId.set(runtime.metadata.runtimeId, startPromise);
+
 		// Fire the onWillStartRuntime event.
 		this._onWillStartRuntimeEmitter.fire(runtime);
 
@@ -640,9 +665,13 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 			// Attempt to start the runtime.
 			await runtime.start();
 
+			// Resolve the deferred promise.
+			startPromise.complete();
+
 			// The runtime started. Move it from the starting runtimes to the
 			// running runtimes.
 			this._startingRuntimesByLanguageId.delete(runtime.metadata.languageId);
+			this._startingRuntimesByRuntimeId.delete(runtime.metadata.runtimeId);
 			this._runningRuntimesByLanguageId.set(runtime.metadata.languageId, runtime);
 
 			// Fire the onDidStartRuntime event.
@@ -651,8 +680,12 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 			// Make the newly-started runtime the active runtime.
 			this.activeRuntime = runtime;
 		} catch (reason) {
+			// Reject the deferred promise.
+			startPromise.error(reason);
+
 			// Remove the runtime from the starting runtimes.
 			this._startingRuntimesByLanguageId.delete(runtime.metadata.languageId);
+			this._startingRuntimesByRuntimeId.delete(runtime.metadata.runtimeId);
 
 			// Fire the onDidFailStartRuntime event.
 			this._onDidFailStartRuntimeEmitter.fire(runtime);
