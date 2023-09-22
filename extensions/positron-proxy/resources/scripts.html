@@ -51,6 +51,7 @@
 					// Add our listeners.
 					addScrollListener();
 					addMessageListener();
+					addKeyboardListeners();
 					addContextMenuListener();
 
 					// Hijack links.
@@ -170,7 +171,63 @@
 						window.focus();
 						break;
 
+					// positron-help-copy-selection message. Sent to copy the selection.
+					case "positron-help-copy-selection":
+						// Post the positron-help-selection message.
+						window.parent.postMessage({
+							id: "positron-help-copy-selection",
+							selection: window.getSelection().toString()
+						}, "*");
+						break;
 				}
+			});
+		};
+
+		// Add keyboard listeners.
+		const addKeyboardListeners = () => {
+			// Add the keydown event handler.
+			window.addEventListener('keydown', e => {
+				/**
+				 * Determines whether the KeyboardEvent is ctrl or meta.
+				 * @param e The keyboard event.
+				 * @return A value which indicates whether the KeyboardEvent is ctrl or meta.
+				 */
+				const isAltCtrlOrMeta = (e) => e.altKey || e.ctrlKey || e.metaKey;
+
+				// Rope off select all (65: keyCode of "A").
+				if (isAltCtrlOrMeta && e.keyCode === 65) {
+					e.preventDefault();
+					return;
+				}
+
+				// Post the positron-help-keydown message.
+				window.parent.postMessage({
+					id: "positron-help-keydown",
+					key: e.key,
+					keyCode: e.keyCode,
+					code: e.code,
+					shiftKey: e.shiftKey,
+					altKey: e.altKey,
+					ctrlKey: e.ctrlKey,
+					metaKey: e.metaKey,
+					repeat: e.repeat
+				}, "*");
+			});
+
+			// Add the keyup event handler.
+			window.addEventListener('keyup', e => {
+				// Post the positron-help-keyup message.
+				window.parent.postMessage({
+					id: "positron-help-key-up",
+					key: e.key,
+					keyCode: e.keyCode,
+					code: e.code,
+					shiftKey: e.shiftKey,
+					altKey: e.altKey,
+					ctrlKey: e.ctrlKey,
+					metaKey: e.metaKey,
+					repeat: e.repeat
+				}, "*");
 			});
 		};
 
