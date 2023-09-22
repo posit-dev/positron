@@ -32,12 +32,14 @@
 	"linuxIconName": "com.visualstudio.code.oss",
 	"licenseFileName": "LICENSE.txt",
 	"reportIssueUrl": "https://github.com/posit-dev/positron/issues/new",
+	"nodejsRepository": "https://nodejs.org",
 	"urlProtocol": "positron",
 	"webviewContentExternalBaseUrlTemplate": "https://{{uuid}}.vscode-cdn.net/insider/ef65ac1ba57f57f2a3961bfe94aa20481caca4c6/out/vs/workbench/contrib/webview/browser/pre/",
 	"builtInExtensions": [
 		{
 			"name": "ms-vscode.js-debug-companion",
-			"version": "1.0.18",
+			"version": "1.1.2",
+			"sha256": "e034b8b41beb4e97e02c70f7175bd88abe66048374c2bd629f54bb33354bc2aa",
 			"repo": "https://github.com/microsoft/vscode-js-debug-companion",
 			"metadata": {
 				"id": "99cb0b7f-7354-4278-b8da-6cc79972169d",
@@ -52,7 +54,8 @@
 		},
 		{
 			"name": "ms-vscode.js-debug",
-			"version": "1.78.0",
+			"version": "1.82.0",
+			"sha256": "4fba41b4b764c3f5a6591d6d9a5bdc59b417f2d799071c889c2b54163f256282",
 			"repo": "https://github.com/microsoft/vscode-js-debug",
 			"metadata": {
 				"id": "25629058-ddac-4e17-abba-74678e126c5d",
@@ -68,6 +71,7 @@
 		{
 			"name": "ms-vscode.vscode-js-profile-table",
 			"version": "1.0.3",
+			"sha256": "b9dab017506d9e6a469a0f82b392e4cb1d7a25a4843f1db8ba396cbee209cfc5",
 			"repo": "https://github.com/microsoft/vscode-js-profile-visualizer",
 			"metadata": {
 				"id": "7e52b41b-71ad-457b-ab7e-0620f1fc4feb",
@@ -185,7 +189,8 @@
 	],
 	"extensionEnabledApiProposals": {
 		"ms-vscode.vscode-selfhost-test-provider": [
-			"testObserver"
+			"testObserver",
+			"testMessageContextValue"
 		],
 		"VisualStudioExptTeam.vscodeintellicode-completions": [
 			"inlineCompletionsAdditions"
@@ -221,12 +226,11 @@
 			"envShellEvent",
 			"quickPickItemTooltip",
 			"terminalDataWriteEvent",
-			"envCollectionWorkspace",
-			"saveEditor",
-			"envCollectionOptions"
+			"saveEditor"
 		],
 		"ms-dotnettools.dotnet-interactive-vscode": [
-			"notebookMessaging"
+			"notebookMessaging",
+			"languageConfigurationAutoClosingPairs"
 		],
 		"GitHub.codespaces": [
 			"contribEditSessions",
@@ -316,7 +320,8 @@
 			"codiconDecoration",
 			"diffCommand",
 			"contribCommentEditorActionsMenu",
-			"treeItemCheckbox",
+			"readonlyMessage",
+			"treeViewMarkdownMessage",
 			"shareProvider",
 			"quickDiffProvider"
 		],
@@ -330,9 +335,14 @@
 			"handleIssueUri",
 			"interactive",
 			"interactiveUserActions",
-			"semanticSimilarity",
+			"terminalContextMenu",
 			"terminalDataWriteEvent",
-			"terminalQuickFixProvider"
+			"terminalSelection",
+			"terminalQuickFixProvider",
+			"chatSlashCommands",
+			"readonlyMessage",
+			"mappedEditsProvider",
+			"aiRelatedInformation"
 		],
 		"GitHub.remotehub": [
 			"contribRemoteHelp",
@@ -411,6 +421,11 @@
 			"resolvers",
 			"tunnels",
 			"terminalDataWriteEvent",
+			"contribRemoteHelp",
+			"contribViewsRemote"
+		],
+		"jeanp413.open-remote-wsl": [
+			"resolvers",
 			"contribRemoteHelp",
 			"contribViewsRemote"
 		]
