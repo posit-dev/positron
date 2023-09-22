@@ -4,7 +4,7 @@
 
 import { localize } from 'vs/nls';
 import { IAction } from 'vs/base/common/actions';
-import * as platform from 'vs/base/common/platform';
+import { isMacintosh } from 'vs/base/common/platform';
 import { Disposable } from 'vs/base/common/lifecycle';
 import { Emitter, Event } from 'vs/base/common/event';
 import { IThemeService } from 'vs/platform/theme/common/themeService';
@@ -446,16 +446,26 @@ export class HelpEntry extends Disposable implements IHelpEntry, WebviewFindDele
 						break;
 
 					// positron-help-keydown message.
-					case 'positron-help-keydown':
-						if ((platform.isMacintosh ? message.metaKey : message.ctrlKey) &&
-							message.code === 'KeyC') {
+					case 'positron-help-keydown': {
+						// Determine whether the cmd or ctrl key is pressed.
+						const cmdOrCtrlKey = isMacintosh ? message.metaKey : message.ctrlKey;
+
+						// Copy.
+						if (cmdOrCtrlKey && message.code === 'KeyC') {
 							this._helpOverlayWebview?.postMessage({
 								id: 'positron-help-copy-selection'
 							});
 						} else {
+							// Rope off select all.
+							if (cmdOrCtrlKey && message.code === 'KeyA') {
+								return;
+							}
+
+							// Emulate the key event.
 							this.emulateKeyEvent('keydown', { ...message });
 						}
 						break;
+					}
 
 					// positron-help-keyup message.
 					case 'positron-help-keyup':
