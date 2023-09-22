@@ -5,6 +5,7 @@
 import * as fs from 'fs';
 import { IncomingMessage } from 'http';
 import * as https from 'https';
+import { platform } from 'os';
 import * as path from 'path';
 import { promisify } from 'util';
 
@@ -94,6 +95,11 @@ async function executeCommand(command: string, stdin?: string):
 async function downloadAndReplaceArk(version: string,
 	githubPat: string,
 	gitCredential: boolean): Promise<void> {
+
+	if (platform() === 'win32') {
+		console.warn('ARK is not yet supported on Windows. Skipping download.');
+		return;
+	}
 
 	try {
 		const requestOptions: https.RequestOptions = {
@@ -202,9 +208,9 @@ async function downloadAndReplaceArk(version: string,
 
 				// Unzip the binary.
 				const { stdout, stderr } =
-					await executeCommand(`unzip -o ` +
+					await executeCommand(`tar -xf ` +
 						`${path.join('resources', 'ark', 'ark.zip')}` +
-						` -d ` +
+						` -C ` +
 						`${path.join('resources', 'ark')}`);
 				console.log(stdout);
 				if (stderr) {
