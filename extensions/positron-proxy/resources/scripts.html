@@ -187,6 +187,19 @@
 		const addKeyboardListeners = () => {
 			// Add the keydown event handler.
 			window.addEventListener('keydown', e => {
+				/**
+				 * Determines whether the KeyboardEvent is ctrl or meta.
+				 * @param e The keyboard event.
+				 * @return A value which indicates whether the KeyboardEvent is ctrl or meta.
+				 */
+				const isAltCtrlOrMeta = (e) => e.altKey || e.ctrlKey || e.metaKey;
+
+				// Rope off select all (65: keyCode of "A").
+				if (isAltCtrlOrMeta && e.keyCode === 65) {
+					e.preventDefault();
+					return;
+				}
+
 				// Post the positron-help-keydown message.
 				window.parent.postMessage({
 					id: "positron-help-keydown",

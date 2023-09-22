@@ -456,11 +456,6 @@ export class HelpEntry extends Disposable implements IHelpEntry, WebviewFindDele
 								id: 'positron-help-copy-selection'
 							});
 						} else {
-							// Rope off select all.
-							if (cmdOrCtrlKey && message.code === 'KeyA') {
-								return;
-							}
-
 							// Emulate the key event.
 							this.emulateKeyEvent('keydown', { ...message });
 						}
