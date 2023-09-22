@@ -203,9 +203,9 @@ async function downloadAndReplaceArk(version: string,
 
 				// Unzip the binary.
 				const { stdout, stderr } =
-					await executeCommand(`tar -xf ` +
+					await executeCommand(`unzip -o ` +
 						`${path.join('resources', 'ark', 'ark.zip')}` +
-						` -C ` +
+						` -d ` +
 						`${path.join('resources', 'ark')}`);
 				console.log(stdout);
 				if (stderr) {
