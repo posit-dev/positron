@@ -4,6 +4,7 @@
 
 import { localize } from 'vs/nls';
 import { IAction } from 'vs/base/common/actions';
+import { isMacintosh } from 'vs/base/common/platform';
 import { Disposable } from 'vs/base/common/lifecycle';
 import { Emitter, Event } from 'vs/base/common/event';
 import { IThemeService } from 'vs/platform/theme/common/themeService';
@@ -11,6 +12,7 @@ import { PositronHelpFocused } from 'vs/workbench/common/contextkeys';
 import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
 import { isLocalhost } from 'vs/workbench/contrib/positronHelp/browser/utils';
 import { ExtensionIdentifier } from 'vs/platform/extensions/common/extensions';
+import { KeyEvent } from 'vs/workbench/contrib/webview/browser/webviewMessages';
 import { IClipboardService } from 'vs/platform/clipboard/common/clipboardService';
 import { IContextMenuService } from 'vs/platform/contextview/browser/contextView';
 import { INotificationService } from 'vs/platform/notification/common/notification';
@@ -48,6 +50,20 @@ function generateNonce() {
  * @returns The shortened URL.
  */
 const shortenUrl = (url: string) => url.replace(new URL(url).origin, '');
+
+/**
+ * KeyboardMessage type.
+ */
+type KeyboardMessage = {
+	readonly key: string;
+	readonly keyCode: number;
+	readonly code: string;
+	readonly shiftKey: boolean;
+	readonly altKey: boolean;
+	readonly ctrlKey: boolean;
+	readonly metaKey: boolean;
+	readonly repeat: boolean;
+};
 
 /**
  * PositronHelpMessageInteractive type.
@@ -101,6 +117,28 @@ type PositronHelpMessageContextMenu = {
 };
 
 /**
+ * PositronHelpMessageKeyDown type.
+ */
+type PositronHelpMessageKeydown = {
+	id: 'positron-help-keydown';
+} & KeyboardMessage;
+
+/**
+ * PositronHelpMessageKeyup type.
+ */
+type PositronHelpMessageKeyup = {
+	id: 'positron-help-keyup';
+} & KeyboardMessage;
+
+/**
+ * PositronHelpMessageSelection type.
+ */
+type PositronHelpMessageCopySelection = {
+	id: 'positron-help-copy-selection';
+	selection: string;
+};
+
+/**
  * PositronHelpMessage type.
  */
 type PositronHelpMessage =
@@ -109,7 +147,10 @@ type PositronHelpMessage =
 	| PositronHelpMessageNavigate
 	| PositronHelpMessageScroll
 	| PositronHelpMessageFindResult
-	| PositronHelpMessageContextMenu;
+	| PositronHelpMessageContextMenu
+	| PositronHelpMessageKeydown
+	| PositronHelpMessageKeyup
+	| PositronHelpMessageCopySelection;
 
 /**
  * IHelpEntry interface.
@@ -392,7 +433,6 @@ export class HelpEntry extends Disposable implements IHelpEntry, WebviewFindDele
 						// Set the scroll position.
 						this._scrollX = message.scrollX;
 						this._scrollY = message.scrollY;
-						//console.log(`positron-help-scroll ${this._scrollX},${this._scrollY}`);
 						break;
 
 					// positron-help-find-result message.
@@ -402,8 +442,37 @@ export class HelpEntry extends Disposable implements IHelpEntry, WebviewFindDele
 
 					// positron-help-context-menu message.
 					case 'positron-help-context-menu':
-						console.log(`SHOW CONTEXT MENU ${message.screenX},${message.screenY} SELECTION: '${message.selection}'`);
 						this.showContextMenu(message.screenX, message.screenY, message.selection);
+						break;
+
+					// positron-help-keydown message.
+					case 'positron-help-keydown': {
+						// Determine whether the cmd or ctrl key is pressed.
+						const cmdOrCtrlKey = isMacintosh ? message.metaKey : message.ctrlKey;
+
+						// Copy.
+						if (cmdOrCtrlKey && message.code === 'KeyC') {
+							this._helpOverlayWebview?.postMessage({
+								id: 'positron-help-copy-selection'
+							});
+						} else {
+							// Emulate the key event.
+							this.emulateKeyEvent('keydown', { ...message });
+						}
+						break;
+					}
+
+					// positron-help-keyup message.
+					case 'positron-help-keyup':
+						this.emulateKeyEvent('keyup', { ...message });
+						break;
+
+					// positron-help-copy-selection message.
+					case 'positron-help-copy-selection':
+						// Copy the selection to the clipboard.
+						if (message.selection) {
+							this._clipboardService.writeText(message.selection);
+						}
 						break;
 				}
 			});
@@ -556,6 +625,24 @@ export class HelpEntry extends Disposable implements IHelpEntry, WebviewFindDele
 	//#endregion WebviewFindDelegate Implementation
 
 	//#region Private Methods
+
+	/**
+	 * handleKeyEvent
+	 * @param type The type (keydown or keyup).
+	 * @param event The key event.
+	 */
+	private emulateKeyEvent(type: 'keydown' | 'keyup', event: KeyEvent) {
+		// Create an emulated KeyboardEvent from the data provided.
+		const emulatedKeyboardEvent = new KeyboardEvent(type, event);
+
+		// Force override the target of the emulated KeyboardEvent.
+		Object.defineProperty(emulatedKeyboardEvent, 'target', {
+			get: () => this._element,
+		});
+
+		// Dispatch the emulated KeyboardEvent to the target.
+		window.dispatchEvent(emulatedKeyboardEvent);
+	}
 
 	/**
 	 * Shows the context menu.
