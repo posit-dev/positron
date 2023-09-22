@@ -135,6 +135,39 @@ export const startEntries: GettingStartedStartEntryContent = [
 			command: 'command:positron.workbench.action.newFolderFromGit',
 		}
 	},
+	{
+		id: 'topLevelShowWalkthroughs',
+		title: localize('gettingStarted.topLevelShowWalkthroughs.title', "Open a Walkthrough..."),
+		description: localize('gettingStarted.topLevelShowWalkthroughs.description', "View a walkthrough on the editor or an extension"),
+		icon: Codicon.checklist,
+		when: 'allWalkthroughsHidden',
+		content: {
+			type: 'startEntry',
+			command: 'command:welcome.showAllWalkthroughs',
+		}
+	},
+	{
+		id: 'topLevelRemoteOpen',
+		title: localize('gettingStarted.topLevelRemoteOpen.title', "Connect to..."),
+		description: localize('gettingStarted.topLevelRemoteOpen.description', "Connect to remote development workspaces."),
+		when: '!isWeb',
+		icon: Codicon.remote,
+		content: {
+			type: 'startEntry',
+			command: 'command:workbench.action.remote.showMenu',
+		}
+	},
+	{
+		id: 'topLevelOpenTunnel',
+		title: localize('gettingStarted.topLevelOpenTunnel.title', "Open Tunnel..."),
+		description: localize('gettingStarted.topLevelOpenTunnel.description', "Connect to a remote machine through a Tunnel"),
+		when: 'isWeb && showRemoteStartEntryInWeb',
+		icon: Codicon.remote,
+		content: {
+			type: 'startEntry',
+			command: 'command:workbench.action.remote.showWebStartEntryActions',
+		}
+	},
 	//
 	// For Positron Private Alpha, these options are disabled.
 	//
@@ -426,6 +459,14 @@ export const walkthroughs: GettingStartedWalkthroughContent = [
 					description: localize('gettingStarted.settings.description.interpolated', "Tweak every aspect of VS Code and your extensions to your liking. Commonly used settings are listed first to get you started.\n{0}", Button(localize('tweakSettings', "Tweak my Settings"), 'command:toSide:workbench.action.openSettings')),
 					media: {
 						type: 'svg', altText: 'VS Code Settings', path: 'settings.svg'
+					},
+				},
+				{
+					id: 'profiles',
+					title: localize('gettingStarted.profiles.title', "Customize VS Code with Profiles"),
+					description: localize('gettingStarted.profiles.description.interpolated', "Profiles let you create sets of VS Code customizations that include settings, extensions and UI state. Create your own profile from scratch or use the predefined set of profile templates for your specific workflow.\n{0}", Button(localize('tryProfiles', "Try Profiles"), 'command:workbench.profiles.actions.createProfile')),
+					media: {
+						type: 'svg', altText: 'VS Code Profiles', path: 'profiles.svg'
 					},
 				},
 				{

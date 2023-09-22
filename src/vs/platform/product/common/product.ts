@@ -58,14 +58,14 @@ else {
 	// Running out of sources
 	if (Object.keys(product).length === 0) {
 		Object.assign(product, {
-			version: '1.78.0-dev',
+			version: '1.82.0-dev',
 			// --- Start Positron ---
 			positronVersion: '2022.10.0',
 			nameShort: 'Positron',
 			nameLong: 'Positron',
 			applicationName: 'positron',
 			dataFolderName: '.positron',
-			urlProtocol: 'positron',
+			urlProtocol: 'code-oss',
 			reportIssueUrl: 'https://github.com/posit-dev/positron/issues/new',
 			licenseName: 'MIT',
 			licenseUrl: 'https://github.com/posit-dev/positron/blob/main/LICENSE.txt',

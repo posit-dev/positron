@@ -173,6 +173,7 @@ export class TitlebarPart extends Part implements ITitleService {
 		if (event.affectsConfiguration(TitlebarPart.configCommandCenter)) {
 			this.updateTitle();
 			this._onDidChangeCommandCenterVisibility.fire();
+			this._onDidChange.fire(undefined);
 		}
 	}
 
@@ -402,11 +403,10 @@ export class TitlebarPart extends Part implements ITitleService {
 	protected onContextMenu(e: MouseEvent, menuId: MenuId): void {
 		// Find target anchor
 		const event = new StandardMouseEvent(e);
-		const anchor = { x: event.posx, y: event.posy };
 
 		// Show it
 		this.contextMenuService.showContextMenu({
-			getAnchor: () => anchor,
+			getAnchor: () => event,
 			menuId,
 			contextKeyService: this.contextKeyService,
 			domForShadowRoot: isMacintosh && isNative ? event.target : undefined

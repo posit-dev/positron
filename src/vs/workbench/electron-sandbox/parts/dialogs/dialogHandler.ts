@@ -93,9 +93,10 @@ export class NativeDialogHandler extends AbstractDialogHandler {
 				this.productService.date ? `${this.productService.date}${useAgo ? ' (' + fromNow(new Date(this.productService.date), true) + ')' : ''}` : 'Unknown',
 			);
 			return localize({ key: 'aboutDetail', comment: ['Electron, Chromium, Node.js and V8 are product names that need no translation'] },
-				"{0}\nElectron: {1}\nChromium: {2}\nNode.js: {3}\nV8: {4}\nOS: {5}",
+				"{0}\nElectron: {1}\nElectronBuildId: {2}\nChromium: {3}\nNode.js: {4}\nV8: {5}\nOS: {6}",
 				productDetail,
 				process.versions['electron'],
+				process.versions['microsoft-build'],
 				process.versions['chrome'],
 				process.versions['node'],
 				process.versions['v8'],
