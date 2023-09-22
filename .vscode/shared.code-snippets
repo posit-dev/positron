@@ -18,7 +18,7 @@
 		"description": "Insert Copyright Statement for Posit"
 	},
 	"MSFT Copyright Header": {
-		"scope": "javascript,typescript,css",
+		"scope": "javascript,typescript,css,rust",
 		"prefix": [
 			"header",
 			"stub",

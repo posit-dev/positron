@@ -90,8 +90,11 @@ function darwinBundleDocumentTypes(types: { [name: string]: string | string[] },
 	});
 }
 
+const { electronVersion, msBuildId } = util.getElectronVersion();
+
 export const config = {
-	version: product.electronRepository ? '22.5.5' : util.getElectronVersion(),
+	version: electronVersion,
+	tag: product.electronRepository ? `v${electronVersion}-${msBuildId}` : undefined,
 	productAppName: product.nameLong,
 	// --- Start Positron ---
 	companyName: 'Posit Software',
@@ -190,7 +193,9 @@ export const config = {
 	linuxExecutableName: product.applicationName,
 	winIcon: 'resources/win32/code.ico',
 	token: process.env['GITHUB_TOKEN'],
-	repo: product.electronRepository || undefined
+	repo: product.electronRepository || undefined,
+	validateChecksum: true,
+	checksumFile: path.join(root, 'build', 'checksums', 'electron.txt'),
 };
 
 function getElectron(arch: string): () => NodeJS.ReadWriteStream {
@@ -213,8 +218,8 @@ function getElectron(arch: string): () => NodeJS.ReadWriteStream {
 	};
 }
 
-async function main(arch = process.arch): Promise<void> {
-	const version = product.electronRepository ? '22.5.5' : util.getElectronVersion();
+async function main(arch: string = process.arch): Promise<void> {
+	const version = electronVersion;
 	const electronPath = path.join(root, '.build', 'electron');
 	const versionFile = path.join(electronPath, 'version');
 	const isUpToDate = fs.existsSync(versionFile) && fs.readFileSync(versionFile, 'utf8') === `${version}`;
