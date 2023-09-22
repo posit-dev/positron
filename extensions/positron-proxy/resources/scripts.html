@@ -51,6 +51,7 @@
 					// Add our listeners.
 					addScrollListener();
 					addMessageListener();
+					addKeyboardListeners();
 					addContextMenuListener();
 
 					// Hijack links.
@@ -171,6 +172,41 @@
 						break;
 
 				}
+			});
+		};
+
+		// Add keyboard listeners.
+		const addKeyboardListeners = () => {
+			// Add the keydown event handler.
+			window.addEventListener('keydown', e => {
+				// Post the positron-help-keydown message.
+				window.parent.postMessage({
+					id: "positron-help-keydown",
+					key: e.key,
+					keyCode: e.keyCode,
+					code: e.code,
+					shiftKey: e.shiftKey,
+					altKey: e.altKey,
+					ctrlKey: e.ctrlKey,
+					metaKey: e.metaKey,
+					repeat: e.repeat
+				}, "*");
+			});
+
+			// Add the keyup event handler.
+			window.addEventListener('keyup', e => {
+				// Post the positron-help-keyup message.
+				window.parent.postMessage({
+					id: "positron-help-key-up",
+					key: e.key,
+					keyCode: e.keyCode,
+					code: e.code,
+					shiftKey: e.shiftKey,
+					altKey: e.altKey,
+					ctrlKey: e.ctrlKey,
+					metaKey: e.metaKey,
+					repeat: e.repeat
+				}, "*");
 			});
 		};
 
