@@ -171,6 +171,14 @@
 						window.focus();
 						break;
 
+					// positron-help-copy-selection message. Sent to copy the selection.
+					case "positron-help-copy-selection":
+						// Post the positron-help-selection message.
+						window.parent.postMessage({
+							id: "positron-help-copy-selection",
+							selection: window.getSelection().toString()
+						}, "*");
+						break;
 				}
 			});
 		};

@@ -4,6 +4,7 @@
 
 import { localize } from 'vs/nls';
 import { IAction } from 'vs/base/common/actions';
+import * as platform from 'vs/base/common/platform';
 import { Disposable } from 'vs/base/common/lifecycle';
 import { Emitter, Event } from 'vs/base/common/event';
 import { IThemeService } from 'vs/platform/theme/common/themeService';
@@ -130,6 +131,14 @@ type PositronHelpMessageKeyup = {
 } & KeyboardMessage;
 
 /**
+ * PositronHelpMessageSelection type.
+ */
+type PositronHelpMessageCopySelection = {
+	id: 'positron-help-copy-selection';
+	selection: string;
+};
+
+/**
  * PositronHelpMessage type.
  */
 type PositronHelpMessage =
@@ -140,7 +149,8 @@ type PositronHelpMessage =
 	| PositronHelpMessageFindResult
 	| PositronHelpMessageContextMenu
 	| PositronHelpMessageKeydown
-	| PositronHelpMessageKeyup;
+	| PositronHelpMessageKeyup
+	| PositronHelpMessageCopySelection;
 
 /**
  * IHelpEntry interface.
@@ -437,12 +447,27 @@ export class HelpEntry extends Disposable implements IHelpEntry, WebviewFindDele
 
 					// positron-help-keydown message.
 					case 'positron-help-keydown':
-						this.emulateKeyEvent('keydown', { ...message });
+						if ((platform.isMacintosh ? message.metaKey : message.ctrlKey) &&
+							message.code === 'KeyC') {
+							this._helpOverlayWebview?.postMessage({
+								id: 'positron-help-copy-selection'
+							});
+						} else {
+							this.emulateKeyEvent('keydown', { ...message });
+						}
 						break;
 
 					// positron-help-keyup message.
 					case 'positron-help-keyup':
 						this.emulateKeyEvent('keyup', { ...message });
+						break;
+
+					// positron-help-copy-selection message.
+					case 'positron-help-copy-selection':
+						// Copy the selection to the clipboard.
+						if (message.selection) {
+							this._clipboardService.writeText(message.selection);
+						}
 						break;
 				}
 			});
