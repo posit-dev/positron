@@ -86,7 +86,7 @@ jobs:
     name: Build macOS
     runs-on: [self-hosted, macos, arm64]
     needs: [revive_agent, version_string]
-    timeout-minutes: 40
+    timeout-minutes: 60
 
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -171,7 +171,7 @@ jobs:
     name: Create macOS universal binary
     needs: [version_string, build-archs]
     runs-on: [self-hosted, macos, arm64]
-    timeout-minutes: 40
+    timeout-minutes: 60
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
