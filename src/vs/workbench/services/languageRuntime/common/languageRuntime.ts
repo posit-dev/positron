@@ -711,7 +711,7 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 			state === RuntimeState.Exited) {
 			// The runtime has never been started, or is no longer running. Just
 			// tell it to start.
-			return this.startRuntime(runtime.metadata.runtimeId, `'Restart Language Runtime' command invoked`);
+			return this.startRuntime(runtime.metadata.runtimeId, `'Restart Interpreter' command invoked`);
 		} else if (state === RuntimeState.Starting ||
 			state === RuntimeState.Restarting) {
 			// The runtime is already starting or restarting. We could show an
