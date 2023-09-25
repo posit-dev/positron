@@ -1,0 +1,26 @@
+{
+	"name": "Positron - Bullseye",
+	"build": {
+		"dockerfile": "Dockerfile"
+	},
+	"overrideCommand": false,
+	"privileged": true,
+	"mounts": [
+		{
+			"source": "vscode-dev",
+			"target": "/vscode-dev",
+			"type": "volume"
+		}
+	],
+	"customizations": {
+		"vscode": {
+			"extensions": [
+				"mutantdino.resourcemonitor",
+				"ms-toolsai.jupyter",
+				"ms-toolsai.jupyter-renderers",
+				"ms-python.vscode-pylance",
+				"ms-python.python"
+			]
+		}
+	}
+}
