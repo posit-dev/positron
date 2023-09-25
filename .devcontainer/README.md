@@ -1,3 +1,5 @@
+**Important** The `./dev-*/install-vscode.sh` files are hard links to `./install-vscode.sh`. Do not modify them directly!
+
 # Code - OSS Development Container
 
 This dev container includes configuration for a development container for working with Code - OSS in a local container. For using [GitHub Codespaces](https://github.com/features/codespaces) follow the [prebuilt setup](prebuilt/README.md) which installs VNC for displaying the application window.
