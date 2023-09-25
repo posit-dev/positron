@@ -5,7 +5,6 @@
 import 'vs/css!./positronHelpView';
 import * as React from 'react';
 import * as DOM from 'vs/base/browser/dom';
-import { generateUuid } from 'vs/base/common/uuid';
 import { Event, Emitter } from 'vs/base/common/event';
 import { IOpenerService } from 'vs/platform/opener/common/opener';
 import { IViewDescriptorService } from 'vs/workbench/common/views';
@@ -22,15 +21,6 @@ import { ViewPane, IViewPaneOptions } from 'vs/workbench/browser/parts/views/vie
 import { ActionBars } from 'vs/workbench/contrib/positronHelp/browser/components/actionBars';
 import { IPositronHelpService } from 'vs/workbench/contrib/positronHelp/browser/positronHelpService';
 import { IReactComponentContainer, ISize, PositronReactRenderer } from 'vs/base/browser/positronReactRenderer';
-
-/**
- * PositronHelpCommand interface.
- */
-interface PositronHelpCommand {
-	identifier: string;
-	command: string;
-	findText?: string;
-}
 
 /**
  * PositronHelpView class.
@@ -57,9 +47,6 @@ export class PositronHelpView extends ViewPane implements IReactComponentContain
 
 	// The container for the help webview.
 	private helpViewContainer: HTMLElement;
-
-	// The last Positron help command that was sent to the help iframe.
-	private lastPositronHelpCommand?: PositronHelpCommand;
 
 	/**
 	 * The onSizeChanged emitter.
@@ -258,36 +245,6 @@ export class PositronHelpView extends ViewPane implements IReactComponentContain
 		const homeHandler = () => {
 		};
 
-		// Find handler.
-		const findHandler = (findText: string) => {
-		};
-
-		// Find handler.
-		const checkFindResultsHandler = () => {
-			if (this.lastPositronHelpCommand) {
-				console.log('TODO');
-			}
-			// if (this._helpView?.contentWindow && this._lastPositronHelpCommand) {
-			// 	const result = this._helpView.contentWindow.sessionStorage.getItem(this._lastPositronHelpCommand.identifier);
-			// 	if (result) {
-			// 		return result === 'true';
-			// 	}
-			// }
-
-			// Result is not available.
-			return undefined;
-		};
-
-		// Find previous handler.
-		const findPrevious = () => {
-			this.postHelpIFrameMessage({ identifier: generateUuid(), command: 'find-previous' });
-		};
-
-		// Find next handler.
-		const findNext = () => {
-			this.postHelpIFrameMessage({ identifier: generateUuid(), command: 'find-next' });
-		};
-
 		// Create and register the PositronReactRenderer for the action bars.
 		this.positronReactRendererHelpActionBars = new PositronReactRenderer(this.helpActionBarsContainer);
 		this._register(this.positronReactRendererHelpActionBars);
@@ -303,11 +260,6 @@ export class PositronHelpView extends ViewPane implements IReactComponentContain
 				positronHelpService={this.positronHelpService}
 				reactComponentContainer={this}
 				onHome={homeHandler}
-				onFind={findHandler}
-				onCheckFindResults={checkFindResultsHandler}
-				onFindPrevious={findPrevious}
-				onFindNext={findNext}
-				onCancelFind={() => findHandler('')}
 			/>
 		);
 
@@ -358,22 +310,6 @@ export class PositronHelpView extends ViewPane implements IReactComponentContain
 			this.currentHelpEntry?.hideHelpOverlayWebview(true);
 			this.currentHelpEntry = currentHelpEntry;
 			this.currentHelpEntry?.showHelpOverlayWebview(this.helpViewContainer);
-		}
-	}
-
-	/**
-	 * Posts a message to the help iframe.
-	 * @param positronHelpCommand The PositronHelpCommand to post.
-	 */
-	private postHelpIFrameMessage(positronHelpCommand: PositronHelpCommand): void {
-		// Post the message to the help iframe.
-		//this._helpView?.postMessage(positronHelpCommand);
-
-		// Save the command?
-		if (positronHelpCommand.command === 'find' && positronHelpCommand.findText) {
-			this.lastPositronHelpCommand = positronHelpCommand;
-		} else {
-			this.lastPositronHelpCommand = undefined;
 		}
 	}
 
