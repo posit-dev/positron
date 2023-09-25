@@ -69,72 +69,72 @@ type KeyboardMessage = {
  * PositronHelpMessageInteractive type.
  */
 type PositronHelpMessageInteractive = {
-	id: 'positron-help-interactive';
+	readonly id: 'positron-help-interactive';
 };
 
 /**
  * PositronHelpMessageComplete type.
  */
 type PositronHelpMessageComplete = {
-	id: 'positron-help-complete';
-	url: string;
-	title?: string;
+	readonly id: 'positron-help-complete';
+	readonly url: string;
+	readonly title?: string;
 };
 
 /**
  * PositronHelpMessageNavigate type.
  */
 type PositronHelpMessageNavigate = {
-	id: 'positron-help-navigate';
-	url: string;
+	readonly id: 'positron-help-navigate';
+	readonly url: string;
 };
 
 /**
  * PositronHelpMessageScroll type.
  */
 type PositronHelpMessageScroll = {
-	id: 'positron-help-scroll';
-	scrollX: number;
-	scrollY: number;
+	readonly id: 'positron-help-scroll';
+	readonly scrollX: number;
+	readonly scrollY: number;
 };
 
 /**
  * PositronHelpMessageFindResult type.
  */
 type PositronHelpMessageFindResult = {
-	id: 'positron-help-find-result';
-	findResult: boolean;
+	readonly id: 'positron-help-find-result';
+	readonly findResult: boolean;
 };
 
 /**
  * PositronHelpMessageContextMenu type.
  */
 type PositronHelpMessageContextMenu = {
-	id: 'positron-help-context-menu';
-	screenX: number;
-	screenY: number;
-	selection: string;
+	readonly id: 'positron-help-context-menu';
+	readonly screenX: number;
+	readonly screenY: number;
+	readonly selection: string;
 };
 
 /**
  * PositronHelpMessageKeyDown type.
  */
 type PositronHelpMessageKeydown = {
-	id: 'positron-help-keydown';
+	readonly id: 'positron-help-keydown';
 } & KeyboardMessage;
 
 /**
  * PositronHelpMessageKeyup type.
  */
 type PositronHelpMessageKeyup = {
-	id: 'positron-help-keyup';
+	readonly id: 'positron-help-keyup';
 } & KeyboardMessage;
 
 /**
  * PositronHelpMessageSelection type.
  */
 type PositronHelpMessageCopySelection = {
-	id: 'positron-help-copy-selection';
+	readonly id: 'positron-help-copy-selection';
 	selection: string;
 };
 
