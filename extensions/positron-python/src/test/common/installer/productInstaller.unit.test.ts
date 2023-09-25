@@ -57,32 +57,6 @@ suite('DataScienceInstaller install', async () => {
         // noop
     });
 
-    test('Requires interpreter Uri', async () => {
-        let threwUp = false;
-        try {
-            await dataScienceInstaller.install(Product.ipykernel);
-        } catch (ex) {
-            threwUp = true;
-        }
-        expect(threwUp).to.equal(true, 'Should raise exception');
-    });
-
-    test('Will ignore with no installer modules', async () => {
-        const testEnvironment: PythonEnvironment = {
-            envType: EnvironmentType.VirtualEnv,
-            envName: 'test',
-            envPath: interpreterPath,
-            path: interpreterPath,
-            architecture: Architecture.x64,
-            sysPrefix: '',
-        };
-        installationChannelManager
-            .setup((c) => c.getInstallationChannels(TypeMoq.It.isAny()))
-            .returns(() => Promise.resolve([]));
-        const result = await dataScienceInstaller.install(Product.ipykernel, testEnvironment);
-        expect(result).to.equal(InstallerResponse.Ignore, 'Should be InstallerResponse.Ignore');
-    });
-
     test('Will invoke conda for conda environments', async () => {
         const testEnvironment: PythonEnvironment = {
             envType: EnvironmentType.Conda,
@@ -141,6 +115,38 @@ suite('DataScienceInstaller install', async () => {
             .returns(() => Promise.resolve([testInstaller.object]));
 
         const result = await dataScienceInstaller.install(Product.ipykernel, testEnvironment);
+        expect(result).to.equal(InstallerResponse.Installed, 'Should be Installed');
+    });
+
+    test('Will invoke pip for pytorch with conda environment', async () => {
+        // See https://github.com/microsoft/vscode-jupyter/issues/5034
+        const testEnvironment: PythonEnvironment = {
+            envType: EnvironmentType.Conda,
+            envName: 'test',
+            envPath: interpreterPath,
+            path: interpreterPath,
+            architecture: Architecture.x64,
+            sysPrefix: '',
+        };
+        const testInstaller = TypeMoq.Mock.ofType<IModuleInstaller>();
+
+        testInstaller.setup((c) => c.type).returns(() => ModuleInstallerType.Pip);
+        testInstaller
+            .setup((c) =>
+                c.installModule(
+                    TypeMoq.It.isValue(Product.torchProfilerInstallName),
+                    TypeMoq.It.isValue(testEnvironment),
+                    TypeMoq.It.isAny(),
+                    TypeMoq.It.isAny(),
+                ),
+            )
+            .returns(() => Promise.resolve());
+
+        installationChannelManager
+            .setup((c) => c.getInstallationChannels(TypeMoq.It.isAny()))
+            .returns(() => Promise.resolve([testInstaller.object]));
+
+        const result = await dataScienceInstaller.install(Product.torchProfilerInstallName, testEnvironment);
         expect(result).to.equal(InstallerResponse.Installed, 'Should be Installed');
     });
 
@@ -206,37 +212,6 @@ suite('DataScienceInstaller install', async () => {
         expect(result).to.equal(InstallerResponse.Installed, 'Should be Installed');
     });
 
-    test('Will invoke pip for pytorch with conda environment', async () => {
-        // See https://github.com/microsoft/vscode-jupyter/issues/5034
-        const testEnvironment: PythonEnvironment = {
-            envType: EnvironmentType.Conda,
-            envName: 'test',
-            envPath: interpreterPath,
-            path: interpreterPath,
-            architecture: Architecture.x64,
-            sysPrefix: '',
-        };
-        const testInstaller = TypeMoq.Mock.ofType<IModuleInstaller>();
-
-        testInstaller.setup((c) => c.type).returns(() => ModuleInstallerType.Pip);
-        testInstaller
-            .setup((c) =>
-                c.installModule(
-                    TypeMoq.It.isValue(Product.torchProfilerInstallName),
-                    TypeMoq.It.isValue(testEnvironment),
-                    TypeMoq.It.isAny(),
-                    TypeMoq.It.isAny(),
-                ),
-            )
-            .returns(() => Promise.resolve());
-
-        installationChannelManager
-            .setup((c) => c.getInstallationChannels(TypeMoq.It.isAny()))
-            .returns(() => Promise.resolve([testInstaller.object]));
-
-        const result = await dataScienceInstaller.install(Product.torchProfilerInstallName, testEnvironment);
-        expect(result).to.equal(InstallerResponse.Installed, 'Should be Installed');
-    });
 });
 
 suite('Formatter installer', async () => {

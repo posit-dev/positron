@@ -23,9 +23,7 @@
         "envShellEvent",
         "testObserver",
         "quickPickItemTooltip",
-        "envCollectionWorkspace",
-        "saveEditor",
-        "envCollectionOptions"
+        "saveEditor"
     ],
     "author": {
         "name": "Microsoft Corporation"
@@ -46,7 +44,7 @@
         "theme": "dark"
     },
     "engines": {
-        "vscode": "^1.79.0-20230526"
+        "vscode": "^1.82.0-20230830"
     },
     "enableTelemetry": false,
     "keywords": [
@@ -62,8 +60,7 @@
         "Formatters",
         "Other",
         "Data Science",
-        "Machine Learning",
-        "Notebooks"
+        "Machine Learning"
     ],
     "activationEvents": [
         "onStartupFinished",
@@ -1150,6 +1147,21 @@
                     "scope": "machine",
                     "type": "string"
                 },
+                "python.missingPackage.severity":{
+                    "default": "Hint",
+                    "description": "%python.missingPackage.severity.description%",
+                    "enum": [
+                        "Error",
+                        "Hint",
+                        "Information",
+                        "Warning"
+                    ],
+                    "scope": "resource",
+                    "type": "string",
+                    "tags": [
+                        "experimental"
+                    ]
+                },
                 "python.pipenvPath": {
                     "default": "pipenv",
                     "description": "%python.pipenvPath.description%",
@@ -1781,7 +1793,7 @@
                     "category": "Python",
                     "command": "python.clearWorkspaceInterpreter",
                     "title": "%python.command.python.clearWorkspaceInterpreter.title%",
-                    "when": "!virtualWorkspace && shellExecutionSupported && editorLangId == python"
+                    "when": "!virtualWorkspace && shellExecutionSupported"
                 },
                 {
                     "category": "Python",
@@ -2008,6 +2020,12 @@
                     "when": "resourceLangId == python && !isInDiffEditor && !virtualWorkspace && shellExecutionSupported"
                 },
                 {
+                    "command": "python.execInDedicatedTerminal",
+                    "group": "navigation@0",
+                    "title": "%python.command.python.execInDedicatedTerminal.title%",
+                    "when": "resourceLangId == python && !isInDiffEditor && !virtualWorkspace && shellExecutionSupported"
+                },
+                {
                     "command": "python.debugInTerminal",
                     "group": "navigation@2",
                     "title": "%python.command.python.debugInTerminal.title%",
@@ -2172,7 +2190,7 @@
         "@types/stack-trace": "0.0.29",
         "@types/tmp": "^0.0.33",
         "@types/uuid": "^8.3.4",
-        "@types/vscode": "^1.75.0",
+        "@types/vscode": "^1.81.0",
         "@types/which": "^2.0.1",
         "@types/winreg": "^1.2.30",
         "@types/xml2js": "0.4.9",

@@ -7,6 +7,12 @@
    }
 */
 /* __GDPR__
+   "language_server.jinja_usage" : {
+      "lsversion" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" },
+      "openfileextensions" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" }
+   }
+*/
+/* __GDPR__
    "language_server.ready" : {
       "duration" : { "classification": "SystemMetaData", "purpose": "FeatureInsight", "isMeasurement": true },
       "errorname" : { "classification": "CallstackOrException", "purpose": "PerformanceAndHealth" },
@@ -50,7 +56,8 @@
       "numfilesinprogram" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" },
       "peakrssmb" : { "classification": "SystemMetaData", "purpose": "PerformanceAndHealth" },
       "resolverid" : { "classification": "SystemMetaData", "purpose": "PerformanceAndHealth" },
-      "rssmb" : { "classification": "SystemMetaData", "purpose": "PerformanceAndHealth" }
+      "rssmb" : { "classification": "SystemMetaData", "purpose": "PerformanceAndHealth" },
+      "diagnosticsseen" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" }
    }
 */
 /* __GDPR__

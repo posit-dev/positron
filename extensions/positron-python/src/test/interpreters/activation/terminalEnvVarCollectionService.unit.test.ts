@@ -5,13 +5,14 @@
 
 import * as sinon from 'sinon';
 import { assert, expect } from 'chai';
-import { cloneDeep } from 'lodash';
 import { mock, instance, when, anything, verify, reset } from 'ts-mockito';
 import {
     EnvironmentVariableCollection,
-    EnvironmentVariableScope,
+    EnvironmentVariableMutatorOptions,
+    GlobalEnvironmentVariableCollection,
     ProgressLocation,
     Uri,
+    WorkspaceConfiguration,
     WorkspaceFolder,
 } from 'vscode';
 import {
@@ -31,13 +32,12 @@ import {
 import { Interpreters } from '../../../client/common/utils/localize';
 import { OSType, getOSType } from '../../../client/common/utils/platform';
 import { defaultShells } from '../../../client/interpreter/activation/service';
-import {
-    TerminalEnvVarCollectionService,
-    _normCaseKeys,
-} from '../../../client/interpreter/activation/terminalEnvVarCollectionService';
+import { TerminalEnvVarCollectionService } from '../../../client/interpreter/activation/terminalEnvVarCollectionService';
 import { IEnvironmentActivationService } from '../../../client/interpreter/activation/types';
 import { IInterpreterService } from '../../../client/interpreter/contracts';
 import { PathUtils } from '../../../client/common/platform/pathUtils';
+import { PythonEnvType } from '../../../client/pythonEnvironments/base/info';
+import { PythonEnvironment } from '../../../client/pythonEnvironments/info';
 
 suite('Terminal Environment Variable Collection Service', () => {
     let platform: IPlatformService;
@@ -45,13 +45,12 @@ suite('Terminal Environment Variable Collection Service', () => {
     let context: IExtensionContext;
     let shell: IApplicationShell;
     let experimentService: IExperimentService;
-    let collection: EnvironmentVariableCollection & {
-        getScopedEnvironmentVariableCollection(scope: EnvironmentVariableScope): EnvironmentVariableCollection;
-    };
-    let scopedCollection: EnvironmentVariableCollection;
+    let collection: EnvironmentVariableCollection;
+    let globalCollection: GlobalEnvironmentVariableCollection;
     let applicationEnvironment: IApplicationEnvironment;
     let environmentActivationService: IEnvironmentActivationService;
     let workspaceService: IWorkspaceService;
+    let workspaceConfig: WorkspaceConfiguration;
     let terminalEnvVarCollectionService: TerminalEnvVarCollectionService;
     const progressOptions = {
         location: ProgressLocation.Window,
@@ -64,21 +63,20 @@ suite('Terminal Environment Variable Collection Service', () => {
 
     setup(() => {
         workspaceService = mock<IWorkspaceService>();
+        workspaceConfig = mock<WorkspaceConfiguration>();
         when(workspaceService.getWorkspaceFolder(anything())).thenReturn(undefined);
         when(workspaceService.workspaceFolders).thenReturn(undefined);
+        when(workspaceService.getConfiguration('terminal')).thenReturn(instance(workspaceConfig));
+        when(workspaceConfig.get<boolean>('integrated.shellIntegration.enabled')).thenReturn(true);
         platform = mock<IPlatformService>();
         when(platform.osType).thenReturn(getOSType());
         interpreterService = mock<IInterpreterService>();
         context = mock<IExtensionContext>();
         shell = mock<IApplicationShell>();
-        collection = mock<
-            EnvironmentVariableCollection & {
-                getScopedEnvironmentVariableCollection(scope: EnvironmentVariableScope): EnvironmentVariableCollection;
-            }
-        >();
-        scopedCollection = mock<EnvironmentVariableCollection>();
-        when(collection.getScopedEnvironmentVariableCollection(anything())).thenReturn(instance(scopedCollection));
-        when(context.environmentVariableCollection).thenReturn(instance(collection));
+        globalCollection = mock<GlobalEnvironmentVariableCollection>();
+        collection = mock<EnvironmentVariableCollection>();
+        when(context.environmentVariableCollection).thenReturn(instance(globalCollection));
+        when(globalCollection.getScoped(anything())).thenReturn(instance(collection));
         experimentService = mock<IExperimentService>();
         when(experimentService.inExperimentSync(TerminalEnvVarActivation.experiment)).thenReturn(true);
         applicationEnvironment = mock<IApplicationEnvironment>();
@@ -89,11 +87,15 @@ suite('Terminal Environment Variable Collection Service', () => {
             })
             .thenResolve();
         environmentActivationService = mock<IEnvironmentActivationService>();
+        when(environmentActivationService.getProcessEnvironmentVariables(anything(), anything())).thenResolve(
+            process.env,
+        );
         configService = mock<IConfigurationService>();
         when(configService.getSettings(anything())).thenReturn(({
             terminal: { activateEnvironment: true },
             pythonPath: displayPath,
         } as unknown) as IPythonSettings);
+        when(collection.clear()).thenResolve();
         terminalEnvVarCollectionService = new TerminalEnvVarCollectionService(
             instance(platform),
             instance(interpreterService),
@@ -124,6 +126,7 @@ suite('Terminal Environment Variable Collection Service', () => {
 
     test('When not in experiment, do not apply activated variables to the collection and clear it instead', async () => {
         reset(experimentService);
+        when(context.environmentVariableCollection).thenReturn(instance(collection));
         when(experimentService.inExperimentSync(TerminalEnvVarActivation.experiment)).thenReturn(false);
         const applyCollectionStub = sinon.stub(terminalEnvVarCollectionService, '_applyCollection');
         applyCollectionStub.resolves();
@@ -169,8 +172,7 @@ suite('Terminal Environment Variable Collection Service', () => {
     });
 
     test('If activated variables are returned for custom shell, apply it correctly to the collection', async () => {
-        const envVars: NodeJS.ProcessEnv = { CONDA_PREFIX: 'prefix/to/conda', ..._normCaseKeys(process.env) };
-        delete envVars.PATH;
+        const envVars: NodeJS.ProcessEnv = { CONDA_PREFIX: 'prefix/to/conda', ...process.env };
         when(
             environmentActivationService.getActivatedEnvironmentVariables(
                 anything(),
@@ -185,13 +187,101 @@ suite('Terminal Environment Variable Collection Service', () => {
 
         await terminalEnvVarCollectionService._applyCollection(undefined, customShell);
 
+        verify(collection.clear()).once();
         verify(collection.replace('CONDA_PREFIX', 'prefix/to/conda', anything())).once();
-        verify(collection.delete('PATH')).once();
+    });
+
+    test('If activated variables contain PS1, prefix it using shell integration', async () => {
+        const envVars: NodeJS.ProcessEnv = { CONDA_PREFIX: 'prefix/to/conda', ...process.env, PS1: '(prompt)' };
+        when(
+            environmentActivationService.getActivatedEnvironmentVariables(
+                anything(),
+                undefined,
+                undefined,
+                customShell,
+            ),
+        ).thenResolve(envVars);
+
+        when(collection.replace(anything(), anything(), anything())).thenResolve();
+        when(collection.delete(anything())).thenResolve();
+        let opts: EnvironmentVariableMutatorOptions | undefined;
+        when(collection.prepend('PS1', '(prompt)', anything())).thenCall((_, _v, o) => {
+            opts = o;
+        });
+
+        await terminalEnvVarCollectionService._applyCollection(undefined, customShell);
+
+        verify(collection.clear()).once();
+        verify(collection.replace('CONDA_PREFIX', 'prefix/to/conda', anything())).once();
+        assert.deepEqual(opts, { applyAtProcessCreation: false, applyAtShellIntegration: true });
+    });
+
+    test('Prepend only "prepend portion of PATH" where applicable', async () => {
+        const processEnv = { PATH: 'hello/1/2/3' };
+        reset(environmentActivationService);
+        when(environmentActivationService.getProcessEnvironmentVariables(anything(), anything())).thenResolve(
+            processEnv,
+        );
+        const prependedPart = 'path/to/activate/dir:';
+        const envVars: NodeJS.ProcessEnv = { PATH: `${prependedPart}${processEnv.PATH}` };
+        when(
+            environmentActivationService.getActivatedEnvironmentVariables(
+                anything(),
+                undefined,
+                undefined,
+                customShell,
+            ),
+        ).thenResolve(envVars);
+
+        when(collection.replace(anything(), anything(), anything())).thenResolve();
+        when(collection.delete(anything())).thenResolve();
+        let opts: EnvironmentVariableMutatorOptions | undefined;
+        when(collection.prepend('PATH', anything(), anything())).thenCall((_, _v, o) => {
+            opts = o;
+        });
+
+        await terminalEnvVarCollectionService._applyCollection(undefined, customShell);
+
+        verify(collection.clear()).once();
+        verify(collection.prepend('PATH', prependedPart, anything())).once();
+        verify(collection.replace('PATH', anything(), anything())).never();
+        assert.deepEqual(opts, { applyAtProcessCreation: true, applyAtShellIntegration: true });
+    });
+
+    test('Prepend full PATH otherwise', async () => {
+        const processEnv = { PATH: 'hello/1/2/3' };
+        reset(environmentActivationService);
+        when(environmentActivationService.getProcessEnvironmentVariables(anything(), anything())).thenResolve(
+            processEnv,
+        );
+        const finalPath = 'hello/3/2/1';
+        const envVars: NodeJS.ProcessEnv = { PATH: finalPath };
+        when(
+            environmentActivationService.getActivatedEnvironmentVariables(
+                anything(),
+                undefined,
+                undefined,
+                customShell,
+            ),
+        ).thenResolve(envVars);
+
+        when(collection.replace(anything(), anything(), anything())).thenResolve();
+        when(collection.delete(anything())).thenResolve();
+        let opts: EnvironmentVariableMutatorOptions | undefined;
+        when(collection.prepend('PATH', anything(), anything())).thenCall((_, _v, o) => {
+            opts = o;
+        });
+
+        await terminalEnvVarCollectionService._applyCollection(undefined, customShell);
+
+        verify(collection.clear()).once();
+        verify(collection.prepend('PATH', finalPath, anything())).once();
+        verify(collection.replace('PATH', anything(), anything())).never();
+        assert.deepEqual(opts, { applyAtProcessCreation: true, applyAtShellIntegration: true });
     });
 
     test('Verify envs are not applied if env activation is disabled', async () => {
-        const envVars: NodeJS.ProcessEnv = { CONDA_PREFIX: 'prefix/to/conda', ..._normCaseKeys(process.env) };
-        delete envVars.PATH;
+        const envVars: NodeJS.ProcessEnv = { CONDA_PREFIX: 'prefix/to/conda', ...process.env };
         when(
             environmentActivationService.getActivatedEnvironmentVariables(
                 anything(),
@@ -211,13 +301,12 @@ suite('Terminal Environment Variable Collection Service', () => {
 
         await terminalEnvVarCollectionService._applyCollection(undefined, customShell);
 
+        verify(collection.clear()).once();
         verify(collection.replace('CONDA_PREFIX', 'prefix/to/conda', anything())).never();
-        verify(collection.delete('PATH')).never();
     });
 
     test('Verify correct options are used when applying envs and setting description', async () => {
-        const envVars: NodeJS.ProcessEnv = { CONDA_PREFIX: 'prefix/to/conda', ..._normCaseKeys(process.env) };
-        delete envVars.PATH;
+        const envVars: NodeJS.ProcessEnv = { CONDA_PREFIX: 'prefix/to/conda', ...process.env };
         const resource = Uri.file('a');
         const workspaceFolder: WorkspaceFolder = {
             uri: Uri.file('workspacePath'),
@@ -229,55 +318,232 @@ suite('Terminal Environment Variable Collection Service', () => {
             environmentActivationService.getActivatedEnvironmentVariables(resource, undefined, undefined, customShell),
         ).thenResolve(envVars);
 
-        when(scopedCollection.replace(anything(), anything(), anything())).thenCall((_e, _v, options) => {
-            assert.deepEqual(options, { applyAtShellIntegration: true });
-            return Promise.resolve();
-        });
-        when(scopedCollection.delete(anything())).thenResolve();
+        when(collection.replace(anything(), anything(), anything())).thenCall(
+            (_e, _v, options: EnvironmentVariableMutatorOptions) => {
+                assert.deepEqual(options, { applyAtShellIntegration: true, applyAtProcessCreation: true });
+                return Promise.resolve();
+            },
+        );
 
         await terminalEnvVarCollectionService._applyCollection(resource, customShell);
 
-        verify(scopedCollection.replace('CONDA_PREFIX', 'prefix/to/conda', anything())).once();
-        verify(scopedCollection.delete('PATH')).once();
+        verify(collection.clear()).once();
+        verify(collection.replace('CONDA_PREFIX', 'prefix/to/conda', anything())).once();
     });
 
-    test('Only relative changes to previously applied variables are applied to the collection', async () => {
-        const envVars: NodeJS.ProcessEnv = {
-            RANDOM_VAR: 'random',
-            CONDA_PREFIX: 'prefix/to/conda',
-            ..._normCaseKeys(process.env),
+    test('Correct track that prompt was set for non-Windows bash where PS1 is set', async () => {
+        when(platform.osType).thenReturn(OSType.Linux);
+        const envVars: NodeJS.ProcessEnv = { VIRTUAL_ENV: 'prefix/to/venv', PS1: '(.venv)', ...process.env };
+        const ps1Shell = 'bash';
+        const resource = Uri.file('a');
+        const workspaceFolder: WorkspaceFolder = {
+            uri: Uri.file('workspacePath'),
+            name: 'workspace1',
+            index: 0,
         };
+        when(interpreterService.getActiveInterpreter(resource)).thenResolve(({
+            type: PythonEnvType.Virtual,
+        } as unknown) as PythonEnvironment);
+        when(workspaceService.getWorkspaceFolder(resource)).thenReturn(workspaceFolder);
         when(
-            environmentActivationService.getActivatedEnvironmentVariables(
-                anything(),
-                undefined,
-                undefined,
-                customShell,
-            ),
+            environmentActivationService.getActivatedEnvironmentVariables(resource, undefined, undefined, ps1Shell),
         ).thenResolve(envVars);
+        when(collection.replace(anything(), anything(), anything())).thenReturn();
 
-        when(collection.replace(anything(), anything(), anything())).thenResolve();
-        when(collection.delete(anything())).thenResolve();
+        await terminalEnvVarCollectionService._applyCollection(resource, ps1Shell);
 
-        await terminalEnvVarCollectionService._applyCollection(undefined, customShell);
+        const result = terminalEnvVarCollectionService.isTerminalPromptSetCorrectly(resource);
 
-        const newEnvVars = cloneDeep(envVars);
-        delete newEnvVars.CONDA_PREFIX;
-        newEnvVars.RANDOM_VAR = undefined; // Deleting the variable from the collection is the same as setting it to undefined.
-        reset(environmentActivationService);
+        expect(result).to.equal(true);
+    });
+
+    test('Correct track that prompt was set for PS1 if shell integration is disabled', async () => {
+        reset(workspaceConfig);
+        when(workspaceConfig.get<boolean>('integrated.shellIntegration.enabled')).thenReturn(false);
+        when(platform.osType).thenReturn(OSType.Linux);
+        const envVars: NodeJS.ProcessEnv = { VIRTUAL_ENV: 'prefix/to/venv', PS1: '(.venv)', ...process.env };
+        const ps1Shell = 'bash';
+        const resource = Uri.file('a');
+        const workspaceFolder: WorkspaceFolder = {
+            uri: Uri.file('workspacePath'),
+            name: 'workspace1',
+            index: 0,
+        };
+        when(interpreterService.getActiveInterpreter(resource)).thenResolve(({
+            type: PythonEnvType.Virtual,
+        } as unknown) as PythonEnvironment);
+        when(workspaceService.getWorkspaceFolder(resource)).thenReturn(workspaceFolder);
         when(
-            environmentActivationService.getActivatedEnvironmentVariables(
-                anything(),
-                undefined,
-                undefined,
-                customShell,
-            ),
-        ).thenResolve(newEnvVars);
+            environmentActivationService.getActivatedEnvironmentVariables(resource, undefined, undefined, ps1Shell),
+        ).thenResolve(envVars);
+        when(collection.replace(anything(), anything(), anything())).thenReturn();
 
-        await terminalEnvVarCollectionService._applyCollection(undefined, customShell);
+        await terminalEnvVarCollectionService._applyCollection(resource, ps1Shell);
 
-        verify(collection.delete('CONDA_PREFIX')).once();
-        verify(collection.delete('RANDOM_VAR')).once();
+        const result = terminalEnvVarCollectionService.isTerminalPromptSetCorrectly(resource);
+
+        expect(result).to.equal(false);
+    });
+
+    test('Correct track that prompt was set for non-Windows where PS1 is not set but should be set', async () => {
+        when(platform.osType).thenReturn(OSType.Linux);
+        const envVars: NodeJS.ProcessEnv = { CONDA_PREFIX: 'prefix/to/conda', ...process.env };
+        const ps1Shell = 'zsh';
+        const resource = Uri.file('a');
+        const workspaceFolder: WorkspaceFolder = {
+            uri: Uri.file('workspacePath'),
+            name: 'workspace1',
+            index: 0,
+        };
+        when(interpreterService.getActiveInterpreter(resource)).thenResolve(({
+            type: PythonEnvType.Conda,
+            envName: 'envName',
+            envPath: 'prefix/to/conda',
+        } as unknown) as PythonEnvironment);
+        when(workspaceService.getWorkspaceFolder(resource)).thenReturn(workspaceFolder);
+        when(
+            environmentActivationService.getActivatedEnvironmentVariables(resource, undefined, undefined, ps1Shell),
+        ).thenResolve(envVars);
+        when(collection.replace(anything(), anything(), anything())).thenReturn();
+
+        await terminalEnvVarCollectionService._applyCollection(resource, ps1Shell);
+
+        const result = terminalEnvVarCollectionService.isTerminalPromptSetCorrectly(resource);
+
+        expect(result).to.equal(true);
+    });
+
+    test('Correct track that prompt was not set for non-Windows where PS1 is not set but env name is base', async () => {
+        when(platform.osType).thenReturn(OSType.Linux);
+        const envVars: NodeJS.ProcessEnv = { CONDA_PREFIX: 'prefix/to/conda', ...process.env };
+        const ps1Shell = 'zsh';
+        const resource = Uri.file('a');
+        const workspaceFolder: WorkspaceFolder = {
+            uri: Uri.file('workspacePath'),
+            name: 'workspace1',
+            index: 0,
+        };
+        when(interpreterService.getActiveInterpreter(resource)).thenResolve(({
+            type: PythonEnvType.Conda,
+            envName: 'base',
+            envPath: 'prefix/to/conda',
+        } as unknown) as PythonEnvironment);
+        when(workspaceService.getWorkspaceFolder(resource)).thenReturn(workspaceFolder);
+        when(
+            environmentActivationService.getActivatedEnvironmentVariables(resource, undefined, undefined, ps1Shell),
+        ).thenResolve(envVars);
+        when(collection.replace(anything(), anything(), anything())).thenReturn();
+
+        await terminalEnvVarCollectionService._applyCollection(resource, ps1Shell);
+
+        const result = terminalEnvVarCollectionService.isTerminalPromptSetCorrectly(resource);
+
+        expect(result).to.equal(false);
+    });
+
+    test('Correct track that prompt was not set for non-Windows fish where PS1 is not set', async () => {
+        when(platform.osType).thenReturn(OSType.Linux);
+        const envVars: NodeJS.ProcessEnv = { CONDA_PREFIX: 'prefix/to/conda', ...process.env };
+        const ps1Shell = 'fish';
+        const resource = Uri.file('a');
+        const workspaceFolder: WorkspaceFolder = {
+            uri: Uri.file('workspacePath'),
+            name: 'workspace1',
+            index: 0,
+        };
+        when(interpreterService.getActiveInterpreter(resource)).thenResolve(({
+            type: PythonEnvType.Conda,
+            envName: 'envName',
+            envPath: 'prefix/to/conda',
+        } as unknown) as PythonEnvironment);
+        when(workspaceService.getWorkspaceFolder(resource)).thenReturn(workspaceFolder);
+        when(
+            environmentActivationService.getActivatedEnvironmentVariables(resource, undefined, undefined, ps1Shell),
+        ).thenResolve(envVars);
+        when(collection.replace(anything(), anything(), anything())).thenReturn();
+
+        await terminalEnvVarCollectionService._applyCollection(resource, ps1Shell);
+
+        const result = terminalEnvVarCollectionService.isTerminalPromptSetCorrectly(resource);
+
+        expect(result).to.equal(false);
+    });
+
+    test('Correct track that prompt was set correctly for global interpreters', async () => {
+        when(platform.osType).thenReturn(OSType.Linux);
+        const ps1Shell = 'zsh';
+        const resource = Uri.file('a');
+        const workspaceFolder: WorkspaceFolder = {
+            uri: Uri.file('workspacePath'),
+            name: 'workspace1',
+            index: 0,
+        };
+        when(interpreterService.getActiveInterpreter(resource)).thenResolve(({
+            type: undefined,
+        } as unknown) as PythonEnvironment);
+        when(workspaceService.getWorkspaceFolder(resource)).thenReturn(workspaceFolder);
+        when(
+            environmentActivationService.getActivatedEnvironmentVariables(resource, undefined, undefined, ps1Shell),
+        ).thenResolve(undefined);
+        when(collection.replace(anything(), anything(), anything())).thenReturn();
+
+        await terminalEnvVarCollectionService._applyCollection(resource, ps1Shell);
+
+        const result = terminalEnvVarCollectionService.isTerminalPromptSetCorrectly(resource);
+
+        expect(result).to.equal(true);
+    });
+
+    test('Correct track that prompt was set for Windows when not using powershell', async () => {
+        when(platform.osType).thenReturn(OSType.Windows);
+        const envVars: NodeJS.ProcessEnv = { VIRTUAL_ENV: 'prefix/to/venv', ...process.env };
+        const windowsShell = 'cmd';
+        const resource = Uri.file('a');
+        const workspaceFolder: WorkspaceFolder = {
+            uri: Uri.file('workspacePath'),
+            name: 'workspace1',
+            index: 0,
+        };
+        when(interpreterService.getActiveInterpreter(resource)).thenResolve(({
+            type: PythonEnvType.Virtual,
+        } as unknown) as PythonEnvironment);
+        when(workspaceService.getWorkspaceFolder(resource)).thenReturn(workspaceFolder);
+        when(
+            environmentActivationService.getActivatedEnvironmentVariables(resource, undefined, undefined, windowsShell),
+        ).thenResolve(envVars);
+        when(collection.replace(anything(), anything(), anything())).thenReturn();
+
+        await terminalEnvVarCollectionService._applyCollection(resource, windowsShell);
+
+        const result = terminalEnvVarCollectionService.isTerminalPromptSetCorrectly(resource);
+
+        expect(result).to.equal(true);
+    });
+
+    test('Correct track that prompt was not set for Windows when using powershell', async () => {
+        when(platform.osType).thenReturn(OSType.Linux);
+        const envVars: NodeJS.ProcessEnv = { VIRTUAL_ENV: 'prefix/to/venv', ...process.env };
+        const windowsShell = 'powershell';
+        const resource = Uri.file('a');
+        const workspaceFolder: WorkspaceFolder = {
+            uri: Uri.file('workspacePath'),
+            name: 'workspace1',
+            index: 0,
+        };
+        when(interpreterService.getActiveInterpreter(resource)).thenResolve(({
+            type: PythonEnvType.Virtual,
+        } as unknown) as PythonEnvironment);
+        when(workspaceService.getWorkspaceFolder(resource)).thenReturn(workspaceFolder);
+        when(
+            environmentActivationService.getActivatedEnvironmentVariables(resource, undefined, undefined, windowsShell),
+        ).thenResolve(envVars);
+        when(collection.replace(anything(), anything(), anything())).thenReturn();
+
+        await terminalEnvVarCollectionService._applyCollection(resource, windowsShell);
+
+        const result = terminalEnvVarCollectionService.isTerminalPromptSetCorrectly(resource);
+
+        expect(result).to.equal(false);
     });
 
     test('If no activated variables are returned for custom shell, fallback to using default shell', async () => {
@@ -289,7 +555,7 @@ suite('Terminal Environment Variable Collection Service', () => {
                 customShell,
             ),
         ).thenResolve(undefined);
-        const envVars = { CONDA_PREFIX: 'prefix/to/conda', ..._normCaseKeys(process.env) };
+        const envVars = { CONDA_PREFIX: 'prefix/to/conda', ...process.env };
         when(
             environmentActivationService.getActivatedEnvironmentVariables(
                 anything(),
@@ -300,12 +566,11 @@ suite('Terminal Environment Variable Collection Service', () => {
         ).thenResolve(envVars);
 
         when(collection.replace(anything(), anything(), anything())).thenResolve();
-        when(collection.delete(anything())).thenResolve();
 
         await terminalEnvVarCollectionService._applyCollection(undefined, customShell);
 
         verify(collection.replace('CONDA_PREFIX', 'prefix/to/conda', anything())).once();
-        verify(collection.delete(anything())).never();
+        verify(collection.clear()).twice();
     });
 
     test('If no activated variables are returned for default shell, clear collection', async () => {

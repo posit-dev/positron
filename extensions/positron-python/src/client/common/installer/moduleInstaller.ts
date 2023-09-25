@@ -269,18 +269,8 @@ export function translateProductToModule(product: Product): string {
             return 'unittest';
         case Product.bandit:
             return 'bandit';
-        case Product.jupyter:
-            return 'jupyter';
-        case Product.notebook:
-            return 'notebook';
-        case Product.pandas:
-            return 'pandas';
         case Product.ipykernel:
             return 'ipykernel';
-        case Product.nbconvert:
-            return 'nbconvert';
-        case Product.kernelspec:
-            return 'kernelspec';
         case Product.tensorboard:
             return 'tensorboard';
         case Product.torchProfilerInstallName:
