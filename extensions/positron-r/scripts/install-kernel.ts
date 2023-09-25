@@ -120,7 +120,7 @@ async function downloadAndReplaceArk(version: string,
 			const { stdout, stderr } =
 				await executeCommand('git credential approve',
 					`protocol=https\n` +
-					`host=api.github.com\n` +
+					`host=github.com\n` +
 					`path=/repos/posit-dev/amalthea/releases\n` +
 					`username=\n` +
 					`password=${githubPat}\n`);
@@ -137,7 +137,7 @@ async function downloadAndReplaceArk(version: string,
 			const { stdout, stderr } =
 				await executeCommand('git credential reject',
 					`protocol=https\n` +
-					`host=api.github.com\n` +
+					`host=github.com\n` +
 					`path=/repos/posit-dev/amalthea/releases\n` +
 					`username=\n` +
 					`password=${githubPat}\n`);
@@ -146,7 +146,7 @@ async function downloadAndReplaceArk(version: string,
 				console.error(stderr);
 				throw new Error(`The stored PAT returned by 'git credential' is invalid, but\n` +
 					`could not be removed. Please manually remove the PAT from 'git credential'\n` +
-					`for the host 'api.github.com'`);
+					`for the host 'github.com'`);
 			}
 			throw new Error(`The PAT returned by 'git credential' is invalid. Ark cannot be\n` +
 				`downloaded.`);
@@ -348,7 +348,7 @@ async function main() {
 		const { stdout, stderr } =
 			await executeCommand('git credential fill',
 				`protocol=https\n` +
-				`host=api.github.com\n` +
+				`host=github.com\n` +
 				`path=/repos/posit-dev/amalthea/releases\n`);
 
 		gitCredential = true;
