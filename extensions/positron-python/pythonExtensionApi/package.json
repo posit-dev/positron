@@ -1,7 +1,7 @@
 {
     "name": "@vscode/python-extension",
     "description": "An API facade for the Python extension in VS Code",
-    "version": "1.0.0",
+    "version": "1.0.4",
     "author": {
       "name": "Microsoft Corporation"
     },
@@ -17,7 +17,7 @@
 		"vscode": "^1.78.0"
 	},
     "license": "MIT",
-    "homepage": "https://github.com/Microsoft/vscode-python",
+    "homepage": "https://github.com/microsoft/vscode-python/tree/main/pythonExtensionApi",
     "repository": {
         "type": "git",
         "url": "https://github.com/Microsoft/vscode-python"
@@ -25,16 +25,18 @@
     "bugs": {
         "url": "https://github.com/Microsoft/vscode-python/issues"
     },
-    "dependencies": {
+    "devDependencies": {
+        "typescript": "5.0.4",
         "@types/vscode": "^1.78.0"
     },
     "scripts": {
         "prepublishOnly": "echo \"⛔ Can only publish from a secure pipeline ⛔\" && node ../build/fail",
 		"prepack": "npm run all:publish",
-		"compile": "node ../node_modules/typescript/lib/tsc.js -b ./tsconfig.json",
+		"compile": "node ./node_modules/typescript/lib/tsc.js -b ./tsconfig.json",
 		"clean": "node ../node_modules/rimraf/bin.js out",
 		"lint": "node ../node_modules/eslint/bin/eslint.js --ext ts src",
 		"all": "npm run clean && npm run compile",
-		"all:publish": "git clean -xfd . && npm install && npm run compile"
+        "formatTypings": "node ../node_modules/eslint/bin/eslint.js --fix ./out/main.d.ts",
+		"all:publish": "git clean -xfd . && npm install && npm run compile && npm run formatTypings"
     }
 }
