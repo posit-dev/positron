@@ -14,10 +14,16 @@
 }
 
 body {
-    font-family: var(--font-family);
-    font-size: 13px;
-    color: var(--foreground);
+    font-family: var(--vscode-font-family, -apple-system, BlinkMacSystemFont, sans-serif);
+    font-size: var(--vscode-font-size, 13px);
+    background: var(--vscode-editor-background, white);
+    color: var(--vscode-editor-foreground, black);
 }
+
+a {
+    color: var(--vscode-textLink-foreground);
+}
+
 
 /* Autosummary tables (e.g. attribute lists in class docs) */
 
@@ -33,7 +39,7 @@ table.autosummary tr td {
 }
 
 table.autosummary tr:not(:first-child) {
-    border-top: 1px solid var(--text-code-block-border);
+    border-top: 1px solid var(--vscode-textBlockQuote-border);
 }
 
 table.autosummary tr td:first-child {
@@ -58,7 +64,8 @@ pre code {
 }
 
 code, .code, div.highlight {
-    font-family: var(--editor-font-family);
+    font-family: var(--vscode-editor-font-family);
+    font-size: var(--vscode-editor-font-size, 12px);
 }
 
 div.highlight pre {
@@ -67,8 +74,8 @@ div.highlight pre {
 
 div.highlight {
     padding: 0.7rem;
-    background-color: var(--text-code-block-background);
-    border: 1px solid var(--text-code-block-border);
+    background-color: var(--vscode-textBlockQuote-background);
+    border: 1px solid var(--vscode-textBlockQuote-border);
     border-radius: .25rem;
     line-height: 125%;
     overflow-x: auto;
