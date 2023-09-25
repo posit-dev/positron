@@ -13,4 +13,4 @@ export interface INotebookBridgeService {
 
 export const INotebookBridgeService = createDecorator<INotebookBridgeService>('notebookBridgeService');
 
-export const LANGUAGE_RUNTIME_ACTION_CATEGORY = nls.localize('languageRuntimeCategory', "Language Runtime");
+export const LANGUAGE_RUNTIME_ACTION_CATEGORY = nls.localize('languageRuntimeCategory', "Interpreter");
