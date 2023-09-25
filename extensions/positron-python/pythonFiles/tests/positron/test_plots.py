@@ -117,7 +117,7 @@ def test_hook_call(hook: PositronDisplayPublisherHook, images_path: Path) -> Non
     fig_ref.savefig(str(expected))
 
     # Compare actual versus expected figures
-    err = compare_images(actual, expected, tol=0)
+    err = compare_images(str(actual), str(expected), tol=0)
     assert not err
 
 
@@ -214,12 +214,13 @@ def test_hook_render(figure_comm: DummyComm, images_path: Path) -> None:
     fig_ref.set_size_inches(width_in, height_in)
 
     # Serialize the reference figure as a base64-encoded image
+    ip = get_ipython()
     data_ref, _ = ip.display_formatter.format(fig_ref, include=["image/png"], exclude=[])  # type: ignore
     expected = images_path / "test-hook-render-expected.png"
     _save_base64_image(data_ref["image/png"], expected)
 
     # Compare the actual vs expected figures
-    err = compare_images(actual, expected, tol=0)
+    err = compare_images(str(actual), str(expected), tol=0)
     assert not err
 
 

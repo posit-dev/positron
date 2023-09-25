@@ -44,6 +44,7 @@ export namespace Commands {
     export const Enable_SourceMap_Support = 'python.enableSourceMapSupport';
     export const Exec_In_Terminal = 'python.execInTerminal';
     export const Exec_In_Terminal_Icon = 'python.execInTerminal-icon';
+    export const Exec_In_Separate_Terminal = 'python.execInDedicatedTerminal';
     // --- Start Positron ---
     export const Exec_In_Console = 'python.execInConsole';
     // --- End Positron ---
