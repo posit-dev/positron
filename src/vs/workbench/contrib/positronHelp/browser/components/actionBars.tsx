@@ -16,7 +16,6 @@ import { IReactComponentContainer } from 'vs/base/browser/positronReactRenderer'
 import { IContextMenuService } from 'vs/platform/contextview/browser/contextView';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import { PositronActionBar } from 'vs/platform/positronActionBar/browser/positronActionBar';
-// import { ActionBarFind } from 'vs/platform/positronActionBar/browser/components/actionBarFind';
 import { ActionBarButton } from 'vs/platform/positronActionBar/browser/components/actionBarButton';
 import { ActionBarRegion } from 'vs/platform/positronActionBar/browser/components/actionBarRegion';
 import { IPositronHelpService } from 'vs/workbench/contrib/positronHelp/browser/positronHelpService';
@@ -28,8 +27,6 @@ import { PositronActionBarContextProvider } from 'vs/platform/positronActionBar/
 const kSecondaryActionBarGap = 4;
 const kPaddingLeft = 8;
 const kPaddingRight = 8;
-const kFindTimeout = 800;
-const kPollTimeout = 200;
 
 // Localized strings.
 const tooltipPreviousTopic = localize('positronPreviousTopic', "Previous topic");
@@ -59,12 +56,6 @@ export interface ActionBarsProps {
 
 	// Event callbacks.
 	onHome: () => void;
-
-	onFind: (findText: string) => void;
-	onCheckFindResults: () => boolean | undefined;
-	onFindPrevious: () => void;
-	onFindNext: () => void;
-	onCancelFind: () => void;
 }
 
 /**
@@ -79,11 +70,6 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 	const [currentHelpEntry, setCurrentHelpEntry] = useState(props.positronHelpService.currentHelpEntry);
 	const [currentHelpTitle, setCurrentHelpTitle] = useState(props.positronHelpService.currentHelpEntry?.title);
 
-	// Find stuff. Placeholder.
-	const [findText, _setFindText] = useState('');
-	const [pollFindResults, setPollFindResults] = useState(false);
-	const [_findResults, setFindResults] = useState(false);
-
 	/**
 	 * Returns the help history actions.
 	 * @returns The help history actions.
@@ -91,10 +77,8 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 	const helpHistoryActions = () => {
 		// Build the help history actions.
 		const actions: IAction[] = [];
-
 		const currentHelpEntry = props.positronHelpService.currentHelpEntry;
 		const helpEntries = props.positronHelpService.helpEntries;
-
 		for (let helpEntryIndex = helpEntries.length - 1; helpEntryIndex >= 0; helpEntryIndex--) {
 			actions.push({
 				id: generateUuid(),
@@ -160,51 +144,6 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 		return () => disposableStore.dispose();
 	}, [currentHelpEntry]);
 
-	// Find text effect.
-	useEffect(() => {
-		if (findText === '') {
-			setFindResults(false);
-			return props.onCancelFind();
-		} else {
-			// Start the find timeout.
-			const timeout = setTimeout(() => {
-				setFindResults(false);
-				props.onFind(findText);
-				setPollFindResults(true);
-			}, kFindTimeout);
-
-			// Return the cleanup.
-			return () => clearTimeout(timeout);
-		}
-	}, [findText]);
-
-	// Poll find results effect.
-	useEffect(() => {
-		if (!pollFindResults) {
-			return;
-		} else {
-			// Start the poll find results interval.
-			let counter = 0;
-			const interval = setInterval(() => {
-				const checkFindResults = props.onCheckFindResults();
-				console.log(`Poll for find results was ${checkFindResults}`);
-				if (checkFindResults === undefined) {
-					if (++counter < 5) {
-						return;
-					}
-				} else {
-					setFindResults(checkFindResults);
-				}
-
-				// Clear poll find results.
-				setPollFindResults(false);
-			}, kPollTimeout);
-
-			// Return the cleanup.
-			return () => clearInterval(interval);
-		}
-	}, [pollFindResults]);
-
 	// Render.
 	return (
 		<div className='action-bars'>
@@ -268,35 +207,9 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 							disabled={currentHelpEntry === undefined}
 							onClick={() => currentHelpEntry?.showFind()}
 						/>
-
-						{/* <ActionBarFind
-							width={175}
-							findResults={findResults}
-							initialFindText={findText}
-							onFindTextChanged={setFindText}
-							onFindPrevious={props.onFindPrevious}
-							onFindNext={props.onFindNext} /> */}
 					</ActionBarRegion>
 
 				</PositronActionBar>
-
-				{/* {false && alternateFindUI && (
-					<PositronActionBar
-						size='small'
-						gap={kSecondaryActionBarGap}
-						borderBottom={true}
-						paddingLeft={kPaddingLeft}
-						paddingRight={kPaddingRight}
-					>
-						<ActionBarFind
-							width={300}
-							findResults={findResults}
-							initialFindText={findText}
-							onFindTextChanged={setFindText}
-							onFindPrevious={props.onFindPrevious}
-							onFindNext={props.onFindNext} />
-					</PositronActionBar>
-				)} */}
 			</PositronActionBarContextProvider>
 		</div>
 	);
