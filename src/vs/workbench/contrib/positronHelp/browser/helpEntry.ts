@@ -409,10 +409,12 @@ export class HelpEntry extends Disposable implements IHelpEntry, WebviewFindDele
 						break;
 
 					// positron-help-navigate message.
-					case 'positron-help-navigate':
-						// If the to URL is external, open it externally; otherwise, open it in the help
-						// service.
-						if (!isLocalhost(new URL(message.url).hostname)) {
+					case 'positron-help-navigate': {
+						// Determine whether to open the URL externally; otherwise, open it in the
+						// help service. This obviously isn't an exact science. At the moment, we
+						// open PDFs externally.
+						const url = new URL(message.url);
+						if (!isLocalhost(url.hostname) || url.pathname.toLowerCase().endsWith('.pdf')) {
 							try {
 								await this._openerService.open(message.url, {
 									openExternal: true
@@ -427,6 +429,7 @@ export class HelpEntry extends Disposable implements IHelpEntry, WebviewFindDele
 							this._onDidNavigateEmitter.fire(message.url);
 						}
 						break;
+					}
 
 					// positron-help-scroll message.
 					case 'positron-help-scroll':
