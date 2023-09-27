@@ -439,7 +439,7 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 	// Compute the console input width. If the vertical scrollbar is visible, subtract its width,
 	// which is set to 14px in consoleInstance.css, from the adjusted width.
 	let consoleInputWidth = adjustedWidth;
-	if (consoleInstanceRef.current?.scrollHeight > consoleInstanceRef.current?.clientHeight) {
+	if (consoleInstanceRef.current?.scrollHeight >= consoleInstanceRef.current?.clientHeight) {
 		consoleInputWidth -= 14;
 	}
 
