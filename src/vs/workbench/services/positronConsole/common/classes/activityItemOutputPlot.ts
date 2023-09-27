@@ -64,4 +64,10 @@ export class ActivityItemOutputPlot {
 	}
 
 	//#endregion Constructor
+
+	//#region Public Methods
+	onSelected(): void {
+	}
+
+	//#endregion Public Methods
 }

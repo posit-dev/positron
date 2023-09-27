@@ -3,6 +3,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 .activity-output-plot img {
-	max-height: 30px;
-	max-width: 30px;
+	max-height: 50px;
+	max-width: 100%;
+	cursor: pointer;
 }

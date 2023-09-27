@@ -18,11 +18,16 @@ export interface ActivityOutputPlotProps {
  * @returns The rendered component.
  */
 export const ActivityOutputPlot = (props: ActivityOutputPlotProps) => {
+	// Click handler.
+	const handleClick = (event: React.MouseEvent<HTMLImageElement, MouseEvent>) => {
+		props.activityItemOutputPlot.onSelected();
+	};
+
 	// Render.
 	return (
 		<div className='activity-output-plot'>
 			<OutputLines outputLines={props.activityItemOutputPlot.outputLines} />
-			<img src={props.activityItemOutputPlot.plotUri} />
+			<img src={props.activityItemOutputPlot.plotUri} onClick={handleClick} />
 		</div>
 	);
 };
