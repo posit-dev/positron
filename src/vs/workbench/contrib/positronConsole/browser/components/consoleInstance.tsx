@@ -271,6 +271,11 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 			consoleInstanceRef.current.scrollTo(consoleInstanceRef.current.scrollLeft, consoleInstanceRef.current.scrollHeight);
 		}));
 
+		// Add the onDidSelectPlot event handler.
+		disposableStore.add(props.positronConsoleInstance.onDidSelectPlot(plotId => {
+			positronConsoleContext.positronPlotsService.selectPlot(plotId);
+		}));
+
 		// Return the cleanup function that will dispose of the event handlers.
 		return () => disposableStore.dispose();
 	}, []);

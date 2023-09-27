@@ -28,6 +28,7 @@ import { ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/c
 import { IReactComponentContainer, ISize, PositronReactRenderer } from 'vs/base/browser/positronReactRenderer';
 import { IExecutionHistoryService } from 'vs/workbench/contrib/executionHistory/common/executionHistoryService';
 import { IPositronConsoleService } from 'vs/workbench/services/positronConsole/common/interfaces/positronConsoleService';
+import { IPositronPlotsService } from 'vs/workbench/services/positronPlots/common/positronPlots';
 
 /**
  * PositronConsoleViewPane class.
@@ -169,6 +170,7 @@ export class PositronConsoleViewPane extends ViewPane implements IReactComponent
 	 * @param themeService The theme service.
 	 * @param viewDescriptorService The view descriptor service.
 	 * @param workbenchLayoutService The workbench layout service.
+	 * @param positronPlotsService The Positron plots service.
 	 */
 	constructor(
 		options: IViewPaneOptions,
@@ -189,7 +191,8 @@ export class PositronConsoleViewPane extends ViewPane implements IReactComponent
 		@ITelemetryService telemetryService: ITelemetryService,
 		@IThemeService themeService: IThemeService,
 		@IViewDescriptorService viewDescriptorService: IViewDescriptorService,
-		@IWorkbenchLayoutService private readonly workbenchLayoutService: IWorkbenchLayoutService
+		@IWorkbenchLayoutService private readonly workbenchLayoutService: IWorkbenchLayoutService,
+		@IPositronPlotsService private readonly positronPlotsService: IPositronPlotsService
 	) {
 		super(
 			options,
@@ -267,6 +270,7 @@ export class PositronConsoleViewPane extends ViewPane implements IReactComponent
 				modelService={this.modelService}
 				positronConsoleService={this.positronConsoleService}
 				workbenchLayoutService={this.workbenchLayoutService}
+				positronPlotsService={this.positronPlotsService}
 				reactComponentContainer={this}
 			/>
 		);

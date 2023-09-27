@@ -15,6 +15,7 @@ import { IClipboardService } from 'vs/platform/clipboard/common/clipboardService
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
 import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/layoutService';
+import { IPositronPlotsService } from 'vs/workbench/services/positronPlots/common/positronPlots';
 import { ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { IExecutionHistoryService } from 'vs/workbench/contrib/executionHistory/common/executionHistoryService';
 import { IPositronConsoleInstance, IPositronConsoleService } from 'vs/workbench/services/positronConsole/common/interfaces/positronConsoleService';
@@ -37,6 +38,7 @@ export interface PositronConsoleServices {
 	readonly modelService: IModelService;
 	readonly positronConsoleService: IPositronConsoleService;
 	readonly workbenchLayoutService: IWorkbenchLayoutService;
+	readonly positronPlotsService: IPositronPlotsService;
 }
 
 /**
