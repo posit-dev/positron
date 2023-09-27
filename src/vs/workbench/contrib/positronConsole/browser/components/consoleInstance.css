@@ -7,7 +7,8 @@
 	cursor: default;
 	padding-left: 10px;
 	position: absolute;
-	overflow-y: overlay;
+	/* As of Chrome 114, overflow: overlay is no longer an option. So, use auto. */
+	overflow-y: auto;
 
 	/* Selection */
 	user-select: text;

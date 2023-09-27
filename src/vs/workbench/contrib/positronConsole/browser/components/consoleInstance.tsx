@@ -436,6 +436,13 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 	// Calculate the adjusted width (to account for indentation of the entire console instance).
 	const adjustedWidth = props.width - 10;
 
+	// Compute the console input width. If the vertical scrollbar is visible, subtract its width,
+	// which is set to 14px in consoleInstance.css, from the adjusted width.
+	let consoleInputWidth = adjustedWidth;
+	if (consoleInstanceRef.current?.scrollHeight >= consoleInstanceRef.current?.clientHeight) {
+		consoleInputWidth -= 14;
+	}
+
 	// Render.
 	return (
 		<div
@@ -482,7 +489,7 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 			</div>
 			{!props.positronConsoleInstance.promptActive &&
 				<ConsoleInput
-					width={adjustedWidth}
+					width={consoleInputWidth}
 					positronConsoleInstance={props.positronConsoleInstance}
 					selectAll={() => selectAllRuntimeItems()}
 				/>
