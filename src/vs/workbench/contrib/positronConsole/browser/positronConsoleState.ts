@@ -19,6 +19,7 @@ import { IPositronPlotsService } from 'vs/workbench/services/positronPlots/commo
 import { ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { IExecutionHistoryService } from 'vs/workbench/contrib/executionHistory/common/executionHistoryService';
 import { IPositronConsoleInstance, IPositronConsoleService } from 'vs/workbench/services/positronConsole/common/interfaces/positronConsoleService';
+import { IViewsService } from 'vs/workbench/common/views';
 
 /**
  * PositronConsoleServices interface. Defines the set of services that are required by the Positron console.
@@ -37,8 +38,9 @@ export interface PositronConsoleServices {
 	readonly logService: ILogService;
 	readonly modelService: IModelService;
 	readonly positronConsoleService: IPositronConsoleService;
-	readonly workbenchLayoutService: IWorkbenchLayoutService;
 	readonly positronPlotsService: IPositronPlotsService;
+	readonly viewsService: IViewsService;
+	readonly workbenchLayoutService: IWorkbenchLayoutService;
 }
 
 /**

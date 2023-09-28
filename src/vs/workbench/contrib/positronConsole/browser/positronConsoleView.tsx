@@ -9,7 +9,7 @@ import { Event, Emitter } from 'vs/base/common/event';
 import { ILogService } from 'vs/platform/log/common/log';
 import { IModelService } from 'vs/editor/common/services/model';
 import { IOpenerService } from 'vs/platform/opener/common/opener';
-import { IViewDescriptorService } from 'vs/workbench/common/views';
+import { IViewDescriptorService, IViewsService } from 'vs/workbench/common/views';
 import { IThemeService } from 'vs/platform/theme/common/themeService';
 import { ILanguageService } from 'vs/editor/common/languages/language';
 import { ICommandService } from 'vs/platform/commands/common/commands';
@@ -166,11 +166,12 @@ export class PositronConsoleViewPane extends ViewPane implements IReactComponent
 	 * @param modelService The model service.
 	 * @param openerService The opener service.
 	 * @param positronConsoleService The Positron console service.
+	 * @param positronPlotsService The Positron plots service.
 	 * @param telemetryService The telemetry service.
 	 * @param themeService The theme service.
 	 * @param viewDescriptorService The view descriptor service.
+	 * @param viewsService The views service.
 	 * @param workbenchLayoutService The workbench layout service.
-	 * @param positronPlotsService The Positron plots service.
 	 */
 	constructor(
 		options: IViewPaneOptions,
@@ -188,11 +189,12 @@ export class PositronConsoleViewPane extends ViewPane implements IReactComponent
 		@IModelService private readonly modelService: IModelService,
 		@IOpenerService openerService: IOpenerService,
 		@IPositronConsoleService private readonly positronConsoleService: IPositronConsoleService,
+		@IPositronPlotsService private readonly positronPlotsService: IPositronPlotsService,
 		@ITelemetryService telemetryService: ITelemetryService,
 		@IThemeService themeService: IThemeService,
 		@IViewDescriptorService viewDescriptorService: IViewDescriptorService,
-		@IWorkbenchLayoutService private readonly workbenchLayoutService: IWorkbenchLayoutService,
-		@IPositronPlotsService private readonly positronPlotsService: IPositronPlotsService
+		@IViewsService private readonly viewsService: IViewsService,
+		@IWorkbenchLayoutService private readonly workbenchLayoutService: IWorkbenchLayoutService
 	) {
 		super(
 			options,
@@ -269,8 +271,9 @@ export class PositronConsoleViewPane extends ViewPane implements IReactComponent
 				logService={this.logService}
 				modelService={this.modelService}
 				positronConsoleService={this.positronConsoleService}
-				workbenchLayoutService={this.workbenchLayoutService}
 				positronPlotsService={this.positronPlotsService}
+				viewsService={this.viewsService}
+				workbenchLayoutService={this.workbenchLayoutService}
 				reactComponentContainer={this}
 			/>
 		);
