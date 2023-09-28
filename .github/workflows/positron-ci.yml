@@ -38,8 +38,17 @@ jobs:
           ELECTRON_SKIP_BINARY_DOWNLOAD: 1
           POSITRON_GITHUB_PAT: ${{ secrets.POSITRON_GITHUB_PAT }}
         run: |
+          # Install Yarn
           npm install -g yarn
+
+          # Install node-gyp; this is required by some packages, and yarn
+          # sometimes fails to automatically install it.
+          yarn global add node-gyp
+
+          # Perform the main yarn command; this installs all Node packages and
+          # dependencies
           yarn --immutable --network-timeout 120000
+
       - name: Compile and Download
         run: yarn npm-run-all --max_old_space_size=4095 -lp compile "electron x64" playwright-install download-builtin-extensions
 
