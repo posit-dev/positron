@@ -25,9 +25,12 @@ export const ActivityOutputPlot = (props: ActivityOutputPlotProps) => {
 
 	// Render.
 	return (
-		<div className='activity-output-plot'>
+		<>
 			<OutputLines outputLines={props.activityItemOutputPlot.outputLines} />
-			<img src={props.activityItemOutputPlot.plotUri} onClick={handleClick} />
-		</div>
+			<div className='activity-output-plot'>
+				<img src={props.activityItemOutputPlot.plotUri} onClick={handleClick} />
+				<span className='inspect codicon codicon-positron-search' />
+			</div>
+		</>
 	);
 };
