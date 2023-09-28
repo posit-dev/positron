@@ -21,7 +21,8 @@ const linkTitle = nls.localize('activityOutputPlotLinkTitle', "Select this plot 
  * @returns The rendered component.
  */
 export const ActivityOutputPlot = (props: ActivityOutputPlotProps) => {
-	// Click handler.
+	// Handles clicks on the plot. This raises a selection event that eventually
+	// selects the plot (by its ID) in the Plots pane.
 	const handleClick = (event: React.MouseEvent<HTMLAnchorElement, MouseEvent>) => {
 		props.activityItemOutputPlot.onSelected();
 	};

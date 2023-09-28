@@ -1094,6 +1094,9 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 						languageRuntimeMessageOutput.parent_id,
 						new Date(languageRuntimeMessageOutput.when),
 						languageRuntimeMessageOutput.data, () => {
+							// This callback runs when the user clicks on the
+							// plot; when they do this, we'll select it in the
+							// Plots pane.
 							this._onDidSelectPlotEmitter.fire(languageRuntimeMessageOutput.id);
 						}
 					)

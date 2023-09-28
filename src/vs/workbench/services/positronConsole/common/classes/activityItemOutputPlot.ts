@@ -64,4 +64,6 @@ export class ActivityItemOutputPlot {
 		// output lines.
 		this.outputLines = !output ? [] : ANSIOutput.processOutput(output);
 	}
+
+	//#endregion Constructor
 }
