@@ -4,6 +4,7 @@
 
 import 'vs/css!./activityOutputPlot';
 import * as React from 'react';
+import * as nls from 'vs/nls';
 import { OutputLines } from 'vs/workbench/contrib/positronConsole/browser/components/outputLines';
 import { ActivityItemOutputPlot } from 'vs/workbench/services/positronConsole/common/classes/activityItemOutputPlot';
 
@@ -12,6 +13,8 @@ export interface ActivityOutputPlotProps {
 	activityItemOutputPlot: ActivityItemOutputPlot;
 }
 
+const linkTitle = nls.localize('activityOutputPlotLinkTitle', "Select this plot in the Plots pane.");
+
 /**
  * ActivityOutputPlot component.
  * @param props An ActivityErrorMessageProps that contains the component properties.
@@ -19,7 +22,7 @@ export interface ActivityOutputPlotProps {
  */
 export const ActivityOutputPlot = (props: ActivityOutputPlotProps) => {
 	// Click handler.
-	const handleClick = (event: React.MouseEvent<HTMLImageElement, MouseEvent>) => {
+	const handleClick = (event: React.MouseEvent<HTMLAnchorElement, MouseEvent>) => {
 		props.activityItemOutputPlot.onSelected();
 	};
 
@@ -27,10 +30,12 @@ export const ActivityOutputPlot = (props: ActivityOutputPlotProps) => {
 	return (
 		<>
 			<OutputLines outputLines={props.activityItemOutputPlot.outputLines} />
-			<div className='activity-output-plot'>
-				<img src={props.activityItemOutputPlot.plotUri} onClick={handleClick} />
+			<a className='activity-output-plot'
+				onClick={handleClick}
+				title={linkTitle}>
+				<img src={props.activityItemOutputPlot.plotUri} />
 				<span className='inspect codicon codicon-positron-search' />
-			</div>
+			</a>
 		</>
 	);
 };
