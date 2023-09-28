@@ -242,6 +242,15 @@ export class PlotClientInstance extends Disposable {
 	private readonly _completeRenderEmitter = new Emitter<IRenderedPlot>();
 
 	/**
+	 * Event that fires when the plot has been updated by the runtime and
+	 * re-rendered. Note that this complements rather than replaces the
+	 * `onDidCompleteRender` event, which fires for every render (user-initiated
+	 * or runtime-initiated)
+	 */
+	onDidRenderUpdate: Event<IRenderedPlot>;
+	private readonly _renderUpdateEmitter = new Emitter<IRenderedPlot>();
+
+	/**
 	 * Creates a new plot client instance.
 	 *
 	 * @param _client The client instance for this plot
@@ -267,17 +276,21 @@ export class PlotClientInstance extends Disposable {
 		// Connect the complete render emitter event
 		this.onDidCompleteRender = this._completeRenderEmitter.event;
 
+		// Connect the render update emitter event
+		this.onDidRenderUpdate = this._renderUpdateEmitter.event;
+
 		// Listen to our own state changes
 		this.onDidChangeState((state) => {
 			this._state = state;
 		});
 
 		// Listen for plot updates
-		_client.onDidReceiveData((data) => {
+		_client.onDidReceiveData(async (data) => {
 			if (data.msg_type === PlotClientMessageTypeOutput.Update) {
 				// When the server notifies us that a plot update has occurred,
 				// queue a request for the UI to update the plot.
-				this.queuePlotUpdateRequest();
+				const rendered = await this.queuePlotUpdateRequest();
+				this._renderUpdateEmitter.fire(rendered);
 			}
 		});
 
@@ -444,19 +457,20 @@ export class PlotClientInstance extends Disposable {
 	}
 
 	/**
-	 * Queues a plot update request, if necessary.
+	 * Queues a plot update request, if necessary. Returns a promise that
+	 * resolves with the rendered plot.
 	 */
-	private queuePlotUpdateRequest() {
+	private queuePlotUpdateRequest(): Promise<IRenderedPlot> {
 		if (this._queuedRender) {
 			// There is already a queued render request; it will take care of
 			// updating the plot.
-			return;
+			return this._queuedRender.promise;
 		}
 
 		// If we have never rendered this plot, we can't process any updates
 		// yet.
 		if (!this._currentRender && !this._lastRender) {
-			return;
+			return Promise.reject(new Error('Cannot update plot before it has been rendered'));
 		}
 
 		// Use the dimensions of the last or current render request to determine
@@ -488,5 +502,6 @@ export class PlotClientInstance extends Disposable {
 		});
 
 		this.scheduleRender(req, 0);
+		return req.promise;
 	}
 }
