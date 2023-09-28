@@ -509,10 +509,25 @@ declare module 'positron' {
 		restart(): Thenable<void>;
 
 		/**
-		 * Shut down the runtime; returns a Thenable that resolves when the runtime shutdown
-		 * sequence has been successfully started (not necessarily when it has completed).
+		 * Shut down the runtime; returns a Thenable that resolves when the
+		 * runtime shutdown sequence has been successfully started (not
+		 * necessarily when it has completed).
+		 *
+		 * The runtime will emit an `Exiting` state after a shutdown is
+		 * requested, then enter the `Exited` state when shutdown is complete.
 		 */
 		shutdown(): Thenable<void>;
+
+		/**
+		 * Forcibly quits the runtime; returns a Thenable that resolves when the
+		 * runtime has been terminated. This may be called by Positron if the
+		 * runtime fails to respond to an interrupt and/or shutdown call, and
+		 * should forcibly terminate any underlying processes.
+		 *
+		 * The runtime will emit an `Exited` state immediately after this is
+		 * called, without going through the `Exiting` state.
+		 */
+		forceQuit(): Thenable<void>;
 	}
 
 
