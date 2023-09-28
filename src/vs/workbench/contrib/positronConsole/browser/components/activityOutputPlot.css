@@ -4,6 +4,7 @@
 
 .activity-output-plot {
 	position: relative;
+	display: inline-block;
 	overflow: hidden;
 }
 
@@ -11,15 +12,15 @@
 	max-height: 50px;
 	max-width: 100%;
 	border: 2px solid transparent;
-	border-radius: 2px;
+	border-radius: 4px;
 	cursor: pointer;
 }
 
-.inspect {
+.activity-output-plot .inspect {
 	display: none;
 	position: absolute;
-	top: 0;
-	right: 0;
+	top: 3px;
+	right: 3px;
 }
 
 .activity-output-plot:hover .inspect {
@@ -27,5 +28,5 @@
 }
 
 .activity-output-plot:hover img {
-	border: 2px solid --vscode-tab-border;
+	border: 2px solid var(--vscode-tab-border);
 }
