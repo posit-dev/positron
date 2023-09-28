@@ -8,13 +8,7 @@ import * as positron from 'positron';
 export class RPackageTaskProvider implements vscode.TaskProvider {
 
 	async provideTasks() {
-		const runningRuntimes = await positron.runtime.getRunningRuntimes('r');
-		// For now, there will be only one running R runtime:
-		const runtimePath = runningRuntimes[0].runtimePath;
-		const allPackageTasks: PackageTask[] = [
-			{ 'name': 'Check R package', 'shellExecution': `${runtimePath}/R -e "devtools::check()"` }
-		];
-		const tasks = allPackageTasks.map(rPackageTask);
+		const tasks = getRPackageTasks();
 		return tasks;
 	}
 
@@ -30,15 +24,21 @@ export async function providePackageTasks(context: vscode.ExtensionContext): Pro
 	);
 }
 
-function rPackageTask(packageTask: PackageTask): vscode.Task {
-	return new vscode.Task(
+export async function getRPackageTasks(): Promise<vscode.Task[]> {
+	const runningRuntimes = await positron.runtime.getRunningRuntimes('r');
+	// For now, there will be only one running R runtime:
+	const runtimePath = runningRuntimes[0].runtimePath;
+	const allPackageTasks: PackageTask[] = [
+		{ 'name': 'Check R package', 'shellExecution': `${runtimePath}/R -e "devtools::check()"` }
+	];
+	return allPackageTasks.map(task => new vscode.Task(
 		{ type: 'rPackageTask' },
 		vscode.TaskScope.Workspace,
-		packageTask.name,
+		task.name,
 		'R',
-		new vscode.ShellExecution(packageTask.shellExecution),
+		new vscode.ShellExecution(task.shellExecution),
 		[]
-	);
+	));
 }
 
 type PackageTask = {
