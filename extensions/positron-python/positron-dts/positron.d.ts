@@ -358,6 +358,7 @@ declare module 'positron' {
 	export enum RuntimeClientType {
 		Environment = 'positron.environment',
 		Lsp = 'positron.lsp',
+		Dap = 'positron.dap',
 		Plot = 'positron.plot',
 		DataViewer = 'positron.dataViewer',
 		FrontEnd = 'positron.frontEnd',
@@ -508,10 +509,19 @@ declare module 'positron' {
 		restart(): Thenable<void>;
 
 		/**
-		 * Shut down the runtime; returns a Thenable that resolves when the runtime shutdown
-		 * sequence has been successfully started (not necessarily when it has completed).
+		 * Shut down the runtime; returns a Thenable that resolves when the
+		 * runtime shutdown sequence has been successfully started (not
+		 * necessarily when it has completed).
 		 */
 		shutdown(): Thenable<void>;
+
+		/**
+		 * Forcibly quits the runtime; returns a Thenable that resolves when the
+		 * runtime has been terminated. This may be called by Positron if the
+		 * runtime fails to respond to an interrupt and/or shutdown call, and
+		 * should forcibly terminate any underlying processes.
+		 */
+		forceQuit(): Thenable<void>;
 	}
 
 
@@ -673,7 +683,8 @@ declare module 'positron' {
 	export interface StatementRangeProvider {
 		/**
 		 * Given a cursor position, return the range of the statement that the
-		 * cursor is within.
+		 * cursor is within. If the cursor is not within a statement, return the
+		 * range of the next statement, if one exists.
 		 *
 		 * @param document The document in which the command was invoked.
 		 * @param position The position at which the command was invoked.
@@ -757,6 +768,13 @@ declare module 'positron' {
 		 * @param runtimeId The ID of the runtime to select and start.
 		 */
 		export function selectLanguageRuntime(runtimeId: string): Thenable<void>;
+
+		/**
+		 * Restart a running runtime.
+		 *
+		 * @param runtimeId The ID of the running runtime to restart.
+		 */
+		export function restartLanguageRuntime(runtimeId: string): Thenable<void>;
 
 		/**
 		 * Register a handler for runtime client instances. This handler will be called

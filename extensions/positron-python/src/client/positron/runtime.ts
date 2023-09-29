@@ -22,7 +22,6 @@ import { PythonLsp, LspState } from './lsp';
  * Protocol client.
  */
 export class PythonRuntime implements positron.LanguageRuntime, vscode.Disposable {
-
     /** The Language Server Protocol client wrapper */
     private _lsp: PythonLsp;
 
@@ -33,12 +32,10 @@ export class PythonRuntime implements positron.LanguageRuntime, vscode.Disposabl
     private _kernel?: JupyterLanguageRuntime;
 
     /** The emitter for language runtime messages */
-    private _messageEmitter =
-        new vscode.EventEmitter<positron.LanguageRuntimeMessage>();
+    private _messageEmitter = new vscode.EventEmitter<positron.LanguageRuntimeMessage>();
 
     /** The emitter for language runtime state changes */
-    private _stateEmitter =
-        new vscode.EventEmitter<positron.RuntimeState>();
+    private _stateEmitter = new vscode.EventEmitter<positron.RuntimeState>();
 
     /** The Jupyter Adapter extension API */
     private adapterApi?: JupyterAdapterApi;
@@ -52,7 +49,6 @@ export class PythonRuntime implements positron.LanguageRuntime, vscode.Disposabl
         private readonly installer: IInstaller,
         readonly extra?: JupyterKernelExtra,
     ) {
-
         this._lsp = new PythonLsp(metadata.languageVersion, languageClientOptions);
         this._queue = new PQueue({ concurrency: 1 });
         this.onDidReceiveRuntimeMessage = this._messageEmitter.event;
@@ -61,14 +57,18 @@ export class PythonRuntime implements positron.LanguageRuntime, vscode.Disposabl
         this.onDidChangeRuntimeState((state) => {
             this.onStateChange(state);
         });
-
     }
 
     onDidReceiveRuntimeMessage: vscode.Event<positron.LanguageRuntimeMessage>;
 
     onDidChangeRuntimeState: vscode.Event<positron.RuntimeState>;
 
-    execute(code: string, id: string, mode: positron.RuntimeCodeExecutionMode, errorBehavior: positron.RuntimeErrorBehavior): void {
+    execute(
+        code: string,
+        id: string,
+        mode: positron.RuntimeCodeExecutionMode,
+        errorBehavior: positron.RuntimeErrorBehavior,
+    ): void {
         if (this._kernel) {
             this._kernel.execute(code, id, mode, errorBehavior);
         } else {
@@ -139,10 +139,16 @@ export class PythonRuntime implements positron.LanguageRuntime, vscode.Disposabl
             // Using a process to install modules avoids using the terminal service,
             // which has issues waiting for the outcome of the install.
             const installOptions: InstallOptions = { installAsProcess: true };
-            const messageOptions: vscode.MessageOptions = { modal: true }
+            const messageOptions: vscode.MessageOptions = { modal: true };
 
-            const response = await this.installer.promptToInstall(Product.ipykernel,
-                this.interpreter, installerToken, undefined, installOptions, messageOptions);
+            const response = await this.installer.promptToInstall(
+                Product.ipykernel,
+                this.interpreter,
+                installerToken,
+                undefined,
+                installOptions,
+                messageOptions,
+            );
 
             switch (response) {
                 case InstallerResponse.Installed:
@@ -150,7 +156,9 @@ export class PythonRuntime implements positron.LanguageRuntime, vscode.Disposabl
                     break;
                 case InstallerResponse.Ignore:
                 case InstallerResponse.Disabled:
-                    throw new Error(`Could not start runtime: failed to install ipykernel for ${this.interpreter?.displayName}.`);
+                    throw new Error(
+                        `Could not start runtime: failed to install ipykernel for ${this.interpreter?.displayName}.`,
+                    );
                 default:
                     throw new Error(`Unknown installer response type: ${response}`);
             }
@@ -193,6 +201,21 @@ export class PythonRuntime implements positron.LanguageRuntime, vscode.Disposabl
         }
     }
 
+    async forceQuit(): Promise<void> {
+        if (this._kernel) {
+            // Stop the LSP client before shutting down the kernel. We only give
+            // the LSP a quarter of a second to shut down before we force the
+            // kernel to quit; we need to balance the need to respond to the
+            // force-quit quickly with the fact that the LSP will show error
+            // messages if we yank the kernel out from beneath it without
+            // warning.
+            await Promise.race([this._lsp.deactivate(true), new Promise((resolve) => setTimeout(resolve, 250))]);
+            return this._kernel.forceQuit();
+        } else {
+            throw new Error('Cannot force quit; kernel not started');
+        }
+    }
+
     async dispose() {
         await this._lsp.dispose();
         if (this._kernel) {
@@ -209,11 +232,7 @@ export class PythonRuntime implements positron.LanguageRuntime, vscode.Disposabl
             await ext.activate();
         }
         this.adapterApi = ext?.exports as JupyterAdapterApi;
-        const kernel = this.adapterApi.adaptKernel(
-            this.kernelSpec,
-            this.metadata,
-            this.dynState,
-            this.extra);
+        const kernel = this.adapterApi.adaptKernel(this.kernelSpec, this.metadata, this.dynState, this.extra);
 
         kernel.onDidChangeRuntimeState((state) => {
             this._stateEmitter.fire(state);
