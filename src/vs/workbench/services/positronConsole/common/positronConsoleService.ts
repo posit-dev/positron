@@ -492,6 +492,11 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	 */
 	private readonly _onDidExecuteCodeEmitter = this._register(new Emitter<void>);
 
+	/**
+	 * The onDidSelectPlot event emitter.
+	 */
+	private readonly _onDidSelectPlotEmitter = this._register(new Emitter<string>);
+
 	//#endregion Private Properties
 
 	//#region Constructor & Dispose
@@ -618,6 +623,11 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	 * onDidExecuteCode event.
 	 */
 	readonly onDidExecuteCode = this._onDidExecuteCodeEmitter.event;
+
+	/**
+	 * onDidSelectPlot event.
+	 */
+	readonly onDidSelectPlot = this._onDidSelectPlotEmitter.event;
 
 	/**
 	 * Focuses the input for the console.
@@ -1083,7 +1093,12 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 						languageRuntimeMessageOutput.id,
 						languageRuntimeMessageOutput.parent_id,
 						new Date(languageRuntimeMessageOutput.when),
-						languageRuntimeMessageOutput.data
+						languageRuntimeMessageOutput.data, () => {
+							// This callback runs when the user clicks on the
+							// plot; when they do this, we'll select it in the
+							// Plots pane.
+							this._onDidSelectPlotEmitter.fire(languageRuntimeMessageOutput.id);
+						}
 					)
 				);
 			} else if (html) {
