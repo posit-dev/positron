@@ -116,6 +116,11 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 	private readonly _onDidChangeRuntimeState = new vscode.EventEmitter<positron.RuntimeState>();
 
 	/**
+	 * The onDidEndSession event emitter.
+	 */
+	private readonly _onDidEndSession = new vscode.EventEmitter<positron.LanguageRuntimeExit>();
+
+	/**
 	 * A history of executed commands
 	 */
 	private readonly _history: string[][] = [];
@@ -228,9 +233,14 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 	onDidReceiveRuntimeMessage: vscode.Event<positron.LanguageRuntimeMessage> = this._onDidReceiveRuntimeMessage.event;
 
 	/**
-	 * An object that emits he current state of the runtime.
+	 * An object that emits the current state of the runtime.
 	 */
 	onDidChangeRuntimeState: vscode.Event<positron.RuntimeState> = this._onDidChangeRuntimeState.event;
+
+	/**
+	 * An object that emits exit events.
+	 */
+	onDidEndSession: vscode.Event<positron.LanguageRuntimeExit> = this._onDidEndSession.event;
 
 	/**
 	 * Execute code in the runtime.
@@ -1023,6 +1033,11 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 		const parentId = randomUUID();
 		this.simulateOutputMessage(parentId, 'Restarting.');
 		this._onDidChangeRuntimeState.fire(positron.RuntimeState.Exited);
+		this._onDidEndSession.fire({
+			exit_code: 0,
+			reason: positron.RuntimeExitReason.Restart,
+			message: ''
+		});
 
 		// Wait for a second before starting again.
 		await new Promise(resolve => setTimeout(resolve, 500));
@@ -1064,6 +1079,11 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 		// Simulate state changes on exit.
 		this.simulateOutputMessage(parentId, 'Zed Kernel exiting.');
 		this._onDidChangeRuntimeState.fire(positron.RuntimeState.Exited);
+		this._onDidEndSession.fire({
+			exit_code: 0,
+			reason: positron.RuntimeExitReason.Shutdown,
+			message: ''
+		});
 	}
 
 	forceQuit(): Promise<void> {
