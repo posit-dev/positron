@@ -35,12 +35,14 @@ export class ActivityItemOutputPlot {
 	 * @param parentId The parent identifier.
 	 * @param when The date.
 	 * @param data The data.
+	 * @param onSelected A callback that is invoked when the item is selected.
 	 */
 	constructor(
 		readonly id: string,
 		readonly parentId: string,
 		readonly when: Date,
-		readonly data: Record<string, string>
+		readonly data: Record<string, string>,
+		readonly onSelected: () => void
 	) {
 		// Get the output; this will serve as the figure caption.
 		const output = data['text/plain'];

@@ -43,6 +43,7 @@ import { RuntimeItemPendingInput } from 'vs/workbench/services/positronConsole/c
 import { IPositronConsoleInstance } from 'vs/workbench/services/positronConsole/common/interfaces/positronConsoleService';
 import { RuntimeItemStartupFailure } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemStartupFailure';
 import { POSITRON_CONSOLE_COPY, POSITRON_CONSOLE_CUT, POSITRON_CONSOLE_PASTE, POSITRON_CONSOLE_SELECT_ALL } from 'vs/workbench/contrib/positronConsole/browser/positronConsoleIdentifiers';
+import { POSITRON_PLOTS_VIEW_ID } from 'vs/workbench/services/positronPlots/common/positronPlots';
 
 // ConsoleInstanceProps interface.
 interface ConsoleInstanceProps {
@@ -269,6 +270,15 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 		// Add the onDidExecuteCode event handler.
 		disposableStore.add(props.positronConsoleInstance.onDidExecuteCode(() => {
 			consoleInstanceRef.current.scrollTo(consoleInstanceRef.current.scrollLeft, consoleInstanceRef.current.scrollHeight);
+		}));
+
+		// Add the onDidSelectPlot event handler.
+		disposableStore.add(props.positronConsoleInstance.onDidSelectPlot(plotId => {
+			// Ensure that the Plots pane is visible.
+			positronConsoleContext.viewsService.openView(POSITRON_PLOTS_VIEW_ID, false);
+
+			// Select the plot in the Plots pane.
+			positronConsoleContext.positronPlotsService.selectPlot(plotId);
 		}));
 
 		// Return the cleanup function that will dispose of the event handlers.
