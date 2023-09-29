@@ -49,6 +49,7 @@ const HelpLines = [
 	'ansi rgb       - Displays RGB ANSI colors as foreground and background colors',
 	'busy X         - Simulates an interuptible busy state for X seconds, or 5 seconds if X is not specified',
 	'code X Y       - Simulates a successful X line input with Y lines of output (where X >= 1 and Y >= 0)',
+	'crash          - Simulates a crash',
 	'env clear      - Clears all variables from the environment',
 	'env def X      - Defines X variables (randomly typed)',
 	'env def X Y    - Defines X variables of type Y, where Y is one of: string, number, vector, list, or blob',
@@ -756,6 +757,11 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 					`${makeSGR(SGR.SetBackground, 2, 0x00, 0x00, 0x83)}${TEN_SPACES}${makeSGR()} Indigo Background\n` +
 					`${makeSGR(SGR.SetBackground, 2, 0x30, 0x00, 0x9b)}${TEN_SPACES}${makeSGR()} Violet Background\n`
 				);
+				break;
+			}
+
+			case 'crash': {
+				this.simulateCrash(id, code);
 				break;
 			}
 
@@ -1643,5 +1649,22 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 		}, durationSeconds * 1000);
 	}
 
+	/**
+	 * Simulates a crash.
+	 *
+	 * @param parentId The parent ID.
+	 * @param code The code.
+	 * @param output The optional output from the code.
+	 */
+	private simulateCrash(parentId: string, code: string, output: string | undefined = undefined) {
+		this.simulateBusyState(parentId);
+		this.simulateInputMessage(parentId, code);
+		this._onDidChangeRuntimeState.fire(positron.RuntimeState.Exited);
+		this._onDidEndSession.fire({
+			exit_code: 137,
+			reason: positron.RuntimeExitReason.Error,
+			message: `I'm terribly sorry, but a segmentation fault has occurred.`
+		});
+	}
 	//#endregion Private Methods
 }
