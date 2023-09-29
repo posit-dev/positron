@@ -218,6 +218,10 @@ export async function* rRuntimeProvider(
 
 		// If the user has supplied extra arguments to R, pass them along.
 		const extraArgs = config.get<Array<string>>('extraArguments');
+		const quietMode = config.get<boolean>('quietMode');
+		if (quietMode && extraArgs?.indexOf('--quiet') === -1) {
+			extraArgs?.push('--quiet');
+		}
 		if (extraArgs) {
 			kernelSpec.argv.push(...extraArgs);
 		}

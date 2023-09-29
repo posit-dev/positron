@@ -35,6 +35,7 @@
 	"r.configuration.logLevel.description": "Log level for the R Kernel (requires restart to take effect)",
 	"r.configuration.restoreWorkspace.description": "Restore the workspace from .RData on startup (requires restart to take effect)",
 	"r.configuration.extraArguments.description": "Extra command-line arguments for R intialization",
+	"r.configuration.quietMode.description": "Run R in quiet mode, to suppress initial copyright and welcome messages (requires restart to take effect)",
 	"r.configuration.pipe": "String to insert as the pipe operator",
 	"r.configuration.pipe.native.description": "Native pipe available in R >= 4.1",
 	"r.configuration.pipe.magrittr.description": "Pipe operator from the magrittr package, re-exported by many other packages"
