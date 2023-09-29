@@ -11,9 +11,10 @@
 .activity-output-plot img {
 	max-height: 50px;
 	max-width: 100%;
-	border: 2px solid transparent;
+	border: 1px solid transparent;
 	border-radius: 4px;
 	cursor: pointer;
+	padding: 5px;
 }
 
 .activity-output-plot .inspect {
@@ -28,5 +29,5 @@
 }
 
 .activity-output-plot:hover img {
-	border: 2px solid var(--vscode-tab-border);
+	border: 1px solid var(--vscode-tab-border);
 }
