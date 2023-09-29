@@ -8,6 +8,7 @@ import PQueue from 'p-queue';
 
 import { JupyterAdapterApi, JupyterKernelSpec, JupyterLanguageRuntime, JupyterKernelExtra } from './jupyter-adapter';
 import { ArkLsp, LspState } from './lsp';
+import { delay } from './util';
 
 /**
  * A Positron language runtime that wraps a Jupyter kernel and a Language Server
