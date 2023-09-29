@@ -156,7 +156,7 @@ export class RRuntime implements positron.LanguageRuntime, vscode.Disposable {
 			// warning.
 			await Promise.race([
 				this._lsp.deactivate(true),
-				new Promise((resolve) => setTimeout(resolve, 250))
+				delay(250)
 			]);
 			return this._kernel.forceQuit();
 		} else {
