@@ -847,8 +847,8 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 			// the timeout fires. (This should be the normal case.)
 			this.once('status', (status) => {
 				if (status === positron.RuntimeState.Exited) {
-					resolve();
 					clearTimeout(timeout);
+					resolve();
 				} else {
 					this.log(`Kernel status changed to '${status}'; expected Exited`);
 					reject(`Kernel status changed '${status}'; expected Exited`);
