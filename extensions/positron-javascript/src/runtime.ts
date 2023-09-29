@@ -195,6 +195,11 @@ export class JavascriptLanguageRuntime implements positron.LanguageRuntime {
 		return Promise.resolve();
 	}
 
+	forceQuit(): Thenable<void> {
+		// See notes on `interrupt()`
+		return Promise.resolve();
+	}
+
 	dispose() { }
 
 	private emitOutput(parentId: string, output: string) {

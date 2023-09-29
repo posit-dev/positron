@@ -264,6 +264,13 @@ export class LanguageRuntimeAdapter
 		return this.shutdownKernel(false);
 	}
 
+	/**
+	 * Forcibly terminates the kernel.
+	 */
+	forceQuit(): Promise<void> {
+		return this._kernel.forceQuit();
+	}
+
 	private shutdownKernel(restart: boolean): Promise<void> {
 		// Ensure the kernel is in a running state before allowing the shutdown
 		if (this._kernelState !== positron.RuntimeState.Idle &&
