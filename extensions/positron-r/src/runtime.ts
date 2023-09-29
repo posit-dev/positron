@@ -8,6 +8,7 @@ import PQueue from 'p-queue';
 
 import { JupyterAdapterApi, JupyterKernelSpec, JupyterLanguageRuntime, JupyterKernelExtra } from './jupyter-adapter';
 import { ArkLsp, LspState } from './lsp';
+import { delay } from './util';
 
 /**
  * A Positron language runtime that wraps a Jupyter kernel and a Language Server
@@ -143,6 +144,24 @@ export class RRuntime implements positron.LanguageRuntime, vscode.Disposable {
 			return this._kernel.shutdown();
 		} else {
 			throw new Error('Cannot shutdown; kernel not started');
+		}
+	}
+
+	async forceQuit(): Promise<void> {
+		if (this._kernel) {
+			// Stop the LSP client before shutting down the kernel. We only give
+			// the LSP a quarter of a second to shut down before we force the
+			// kernel to quit; we need to balance the need to respond to the
+			// force-quit quickly with the fact that the LSP will show error
+			// messages if we yank the kernel out from beneath it without
+			// warning.
+			await Promise.race([
+				this._lsp.deactivate(true),
+				delay(250)
+			]);
+			return this._kernel.forceQuit();
+		} else {
+			throw new Error('Cannot force quit; kernel not started');
 		}
 	}
 

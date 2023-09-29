@@ -208,7 +208,6 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 			this._state = state;
 		});
 	}
-
 	//#endregion Constructor
 
 	//#region LanguageRuntime Implementation
@@ -1065,6 +1064,12 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 		// Simulate state changes on exit.
 		this.simulateOutputMessage(parentId, 'Zed Kernel exiting.');
 		this._onDidChangeRuntimeState.fire(positron.RuntimeState.Exited);
+	}
+
+	forceQuit(): Promise<void> {
+		// Simulate a force quit by immediately "exiting"
+		this._onDidChangeRuntimeState.fire(positron.RuntimeState.Exited);
+		return Promise.resolve();
 	}
 
 	dispose(): void { }

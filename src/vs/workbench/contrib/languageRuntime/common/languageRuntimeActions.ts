@@ -245,6 +245,14 @@ export function registerLanguageRuntimeActions() {
 			'Select the interpreter to shutdown'))?.shutdown();
 	});
 
+	// Registers the force quit language runtime action.
+	registerLanguageRuntimeAction('workbench.action.languageRuntime.forceQuit', 'Force Quit Interpreter', async accessor => {
+		(await selectRunningLanguageRuntime(
+			accessor.get(ILanguageRuntimeService),
+			accessor.get(IQuickInputService),
+			'Select the interpreter to force-quit'))?.forceQuit();
+	});
+
 	registerLanguageRuntimeAction('workbench.action.language.runtime.openClient', 'Create Runtime Client Widget', async accessor => {
 		// Access services.
 		const languageRuntimeService = accessor.get(ILanguageRuntimeService);
