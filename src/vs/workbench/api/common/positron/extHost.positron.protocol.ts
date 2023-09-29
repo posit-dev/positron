@@ -34,6 +34,7 @@ export interface ExtHostLanguageRuntimeShape {
 	$interruptLanguageRuntime(handle: number): Promise<void>;
 	$restartLanguageRuntime(handle: number): Promise<void>;
 	$shutdownLanguageRuntime(handle: number): Promise<void>;
+	$forceQuitLanguageRuntime(handle: number): Promise<void>;
 	$discoverLanguageRuntimes(): void;
 }
 

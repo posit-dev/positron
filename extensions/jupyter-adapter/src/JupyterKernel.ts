@@ -824,6 +824,43 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	}
 
 	/**
+	 * Forcefully terminates the kernel process.
+	 */
+	public forceQuit(): Promise<void> {
+		// Perform the termination. This should result in all of the sockets
+		// getting disconnected (since the connection to the process is
+		// severed), which will result in the kernel entering the `Exited`
+		// state.
+		return new Promise((resolve, reject) => {
+			if (!this._session) {
+				reject(`No session found to quit.`);
+			}
+
+			// Guarantee that we will enter the Exited state within 1 second.
+			const timeout = setTimeout(() => {
+				this.log(`Timed out waiting for kernel to exit; marking as exited`);
+				this.setStatus(positron.RuntimeState.Exited);
+				resolve();
+			});
+
+			// Cancel the timeout if the kernel changes state all by itself before
+			// the timeout fires. (This should be the normal case.)
+			this.once('status', (status) => {
+				if (status === positron.RuntimeState.Exited) {
+					clearTimeout(timeout);
+					resolve();
+				} else {
+					this.log(`Kernel status changed to '${status}'; expected Exited`);
+					reject(`Kernel status changed '${status}'; expected Exited`);
+				}
+			});
+
+			this.log(`Forcefully terminating kernel process ${this._session!.state.processId}...`);
+			process.kill(this._session!.state.processId, 9);
+		});
+	}
+
+	/**
 	 * Send a message to the kernel
 	 *
 	 * @param packet The message package
