@@ -284,6 +284,13 @@ export class LanguageRuntimeAdapter
 	}
 
 	/**
+	 * Show runtime log in output panel.
+	 */
+	public showOutput() {
+		this._kernel.showOutput();
+	}
+
+	/**
 	 * Creates a new client instance.
 	 *
 	 * @param id The client-supplied ID of the client to create

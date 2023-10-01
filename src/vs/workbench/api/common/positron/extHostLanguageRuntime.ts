@@ -81,6 +81,16 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		return this._runtimes[handle].restart();
 	}
 
+	$showOutputLanguageRuntime(handle: number): void {
+		if (handle >= this._runtimes.length) {
+			throw new Error(`Cannot show output for runtime: language runtime handle '${handle}' not found or no longer valid.`);
+		}
+		if (!this._runtimes[handle].showOutput) {
+			throw new Error(`Cannot show output for runtime: language runtime handle '${handle}' does not implement logging.`);
+		}
+		return this._runtimes[handle].showOutput!();
+	}
+
 	$executeCode(handle: number, code: string, id: string, mode: RuntimeCodeExecutionMode, errorBehavior: RuntimeErrorBehavior): void {
 		if (handle >= this._runtimes.length) {
 			throw new Error(`Cannot execute code: language runtime handle '${handle}' not found or no longer valid.`);
