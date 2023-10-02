@@ -157,32 +157,5 @@
 		"  ",
 		"}"
         ]
-	},
-	"decade": {
-        "prefix": "decade",
-        "body": "decade = 10 * (lubridate::year(REPLACE_DATE) %/% 10)"
-	},
-	"target": {
-        "prefix": "target",
-        "body": "{target=\"_blank\"}"
-	},
-	"db_con": {
-        "prefix": "db_con",
-        "body": "con <- DBI::dbConnect(RSQLite::SQLite(), \"data/pbp_db\")"
-	},
-	"bench": {
-        "prefix": "bench",
-        "body": [
-		"bench_results <- bench::mark(",
-		"\tmin_iterations = ${1:10},",
-		"\tmax_iterations = ${2:10},",
-		"\t${3:expr1},",
-		"\t${4:expr2}",
-		"\t)",
-		"",
-		"bench_results",
-		"\t",
-		"autoplot(bench_results)"
-        ]
 	}
 }
