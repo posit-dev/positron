@@ -543,18 +543,24 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 		// aid, but end users shouldn't see it in most cases.
 		const showTerminal = config.get('showTerminal', false);
 
-		const kernelWrapperPath = path.join(this._context.extensionPath,
-			'resources',
-			process.platform === 'win32' ?
-				'kernel-wrapper.bat' :
-				'kernel-wrapper.sh');
-		const logArg = [logFile];
+		// On Windows, temporarily just invoke the python process without
+		// a wrapper. TODO: Remove this temporary hack for windows once we can
+		// get a powershell wrapper working.
+		let shellPath, shellArgs;
+		if (os.platform() === 'win32') {
+			const argsCopy = [...args];
+			shellPath = argsCopy.shift();
+			shellArgs = argsCopy;
+		} else {
+			shellPath = path.join(this._context.extensionPath, 'resources', 'kernel-wrapper.sh');
+			shellArgs = [logFile].concat(args);
+		}
 
 		// Use the VS Code terminal API to create a terminal for the kernel
 		this._terminal = vscode.window.createTerminal(<vscode.TerminalOptions>{
 			name: this._spec.display_name,
-			shellPath: kernelWrapperPath,
-			shellArgs: logArg.concat(args),
+			shellPath: shellPath,
+			shellArgs: shellArgs,
 			env,
 			message: '',
 			hideFromUser: !showTerminal,
