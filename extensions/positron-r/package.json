@@ -157,7 +157,7 @@
           "default": "|>",
           "enum": [
             "|>",
-            "%>%"
+            "%r.configuration.pipe.magrittr.token%"
           ],
           "enumDescriptions": [
             "%r.configuration.pipe.native.description%",
