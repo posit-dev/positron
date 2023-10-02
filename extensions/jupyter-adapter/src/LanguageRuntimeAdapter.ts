@@ -109,10 +109,7 @@ export class LanguageRuntimeAdapter
 
 		// Bind to the kernel's exit event
 		this.onKernelExited = this.onKernelExited.bind(this);
-		this._kernel.addListener('exited', this.onKernelExited);
-
-		// Bind to the kernel's exit event
-		this._exit = new vscode.EventEmitter<positron.LanguageRuntimeExit>();
+		this._kernel.addListener('exit', this.onKernelExited);
 	}
 
 	onDidReceiveRuntimeMessage: vscode.Event<positron.LanguageRuntimeMessage>;

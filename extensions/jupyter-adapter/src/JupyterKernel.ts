@@ -1192,10 +1192,20 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 				const lastLine = lines[lines.length - 2];
 				if (lastLine) {
 					try {
-						exitCode = parseInt(lastLine);
+						const match = lastLine.match(/exit code (\d+)/);
+						if (match) {
+							exitCode = parseInt(match![1]);
+						} else {
+							this.log(`Last line of log file ${state.logFile} ` +
+								`does't name an exit code: ${lastLine}`);
+						}
+						if (isNaN(exitCode)) {
+							this.log(`Could not parse exit code in last line of log file ` +
+								`${state.logFile}: ${lastLine}`);
+						}
 					} catch (e) {
 						this.log(`Could not find exit code in last line of log file ` +
-							`${state.logFile}: ${lastLine}`);
+							`${state.logFile}: ${lastLine} (${e}))`);
 					}
 				}
 			} else {
