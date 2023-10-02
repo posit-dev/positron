@@ -306,21 +306,17 @@ export function registerPositronConsoleActions() {
 							// If the new position is past the end of the
 							// document, add a newline to the end of the
 							// document, unless it already ends with an empty
-							// line.
+							// line, then move to that empty line at the end.
 							if (model.getLineContent(model.getLineCount()).trim().length > 0) {
-								// The document doesn't end with an empty line;
-								// add one
+								// The document doesn't end with an empty line; add one
 								this.amendNewlineToEnd(editor);
-							} else {
-								// If the document already ends with an empty
-								// line, move the cursor to that line.
-								newPosition = new Position(
-									model.getLineCount(),
-									1
-								);
-								editor.setPosition(newPosition);
-								editor.revealPositionInCenterIfOutsideViewport(newPosition);
 							}
+							newPosition = new Position(
+								model.getLineCount(),
+								1
+							);
+							editor.setPosition(newPosition);
+							editor.revealPositionInCenterIfOutsideViewport(newPosition);
 						} else {
 							// Invoke the statement range provider again to
 							// find the appropriate boundary of the next statement.
@@ -450,6 +446,13 @@ export function registerPositronConsoleActions() {
 					// If we still don't have code and we are at the end of the document, add a
 					// newline to the end of the document.
 					this.amendNewlineToEnd(editor);
+
+					// We don't move to that new line to avoid adding a bunch of empty
+					// lines to the end. The edit operation typically moves us to the new line,
+					// so we have to undo that.
+					const newPosition = new Position(lineNumber, 1);
+					editor.setPosition(newPosition);
+					editor.revealPositionInCenterIfOutsideViewport(newPosition);
 				}
 			}
 
@@ -480,14 +483,11 @@ export function registerPositronConsoleActions() {
 
 		amendNewlineToEnd(editor: IEditor) {
 			// Typically we don't do anything when we don't have code to execute,
-			// but when we are at the end of a document we add a new line. However,
-			// we don't move to that new line to avoid adding a bunch of empty
-			// lines to the end.
-
-			// Create an edit operation that will append a new line to the end
-			// of the document. It also moves us to that line.
+			// but when we are at the end of a document we add a new line.
+			// This edit operation also moves the cursor to the new line if the cursor
+			// was already at the end of the document. This may or may not be desirable
+			// depending on the context.
 			const model = editor.getModel() as ITextModel;
-			const lineNumber = model.getLineCount();
 			const editOperation = {
 				range: {
 					startLineNumber: model.getLineCount(),
@@ -498,11 +498,6 @@ export function registerPositronConsoleActions() {
 				text: '\n'
 			};
 			model.pushEditOperations([], [editOperation], () => []);
-
-			// Undo the fact that the edit operation moved the cursor.
-			const newPosition = new Position(lineNumber, 1);
-			editor.setPosition(newPosition);
-			editor.revealPositionInCenterIfOutsideViewport(newPosition);
 		}
 	});
 }
