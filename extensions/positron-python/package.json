@@ -2059,6 +2059,12 @@
                 }
             ]
         },
+        "snippets": [
+            {
+              "language": "python",
+              "path": "./snippets/python.code-snippets"
+            }
+        ],
         "submenus": [
             {
                 "id": "python.run",
