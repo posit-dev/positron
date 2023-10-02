@@ -40,7 +40,10 @@ export class AccessibilityStatus extends Disposable implements IWorkbenchContrib
 	private showScreenReaderNotification(): void {
 		this.screenReaderNotification = this.notificationService.prompt(
 			Severity.Info,
-			localize('screenReaderDetectedExplanation.question', "Are you using a screen reader to operate VS Code?"),
+			// --- Start Positron ---
+			// localize('screenReaderDetectedExplanation.question', "Are you using a screen reader to operate VS Code?"),
+			localize('screenReaderDetectedExplanation.question', "Are you using a screen reader to operate Positron?"),
+			// --- End Positron ---
 			[{
 				label: localize('screenReaderDetectedExplanation.answerYes', "Yes"),
 				run: () => {
