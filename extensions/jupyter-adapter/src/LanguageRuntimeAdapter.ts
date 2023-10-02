@@ -232,11 +232,16 @@ export class LanguageRuntimeAdapter
 	}
 
 	private async startKernel(): Promise<positron.LanguageRuntimeInfo> {
-		// Before starting, initialize the exit reason to Unknown so that if an
+		// Initialize the exit reason to Startup Failed, in case the kernel
+		// exits during startup
+		this._exitReason = positron.RuntimeExitReason.StartupFailed;
+
+		// Wait for the kernel to start
+		await this._kernel.start();
+
+		// We are now online; initialize the exit reason to Unknown so that if an
 		// unexpected exit occurs at any point, it will be marked appropriately.
 		this._exitReason = positron.RuntimeExitReason.Unknown;
-
-		await this._kernel.start();
 		return this.getKernelInfo();
 	}
 
@@ -284,6 +289,8 @@ export class LanguageRuntimeAdapter
 	 * Forcibly terminates the kernel.
 	 */
 	forceQuit(): Promise<void> {
+		// Ensure we mark this as a forced exit when the kernel exits
+		this._exitReason = positron.RuntimeExitReason.ForcedQuit;
 		return this._kernel.forceQuit();
 	}
 
