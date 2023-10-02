@@ -106,6 +106,13 @@ export class LanguageRuntimeAdapter
 		// Bind to status stream from kernel
 		this.onStatus = this.onStatus.bind(this);
 		this._kernel.addListener('status', this.onStatus);
+
+		// Bind to the kernel's exit event
+		this.onKernelExited = this.onKernelExited.bind(this);
+		this._kernel.addListener('exited', this.onKernelExited);
+
+		// Bind to the kernel's exit event
+		this._exit = new vscode.EventEmitter<positron.LanguageRuntimeExit>();
 	}
 
 	onDidReceiveRuntimeMessage: vscode.Event<positron.LanguageRuntimeMessage>;
@@ -771,14 +778,27 @@ export class LanguageRuntimeAdapter
 				this._kernel.start();
 			}, 500);
 		}
+	}
 
-		if (status === positron.RuntimeState.Exited) {
-			this._exit.fire({
-				exit_code: 0,
-				reason: this._exitReason,
-				message: ''
-			});
+	/**
+	 * Runs when the Jupyter kernel exits
+	 *
+	 * @param exitCode The exit code of the kernel
+	 */
+	onKernelExited(exitCode: number) {
+		// If we don't know the exit reason and there's a nonzero exit code,
+		// consider this exit to be due to an error.
+		if (this._exitReason === positron.RuntimeExitReason.Unknown && exitCode !== 0) {
+			this._exitReason = positron.RuntimeExitReason.Error;
 		}
+
+		// Create and fire the exit event.
+		const event: positron.LanguageRuntimeExit = {
+			exit_code: exitCode,
+			reason: this._exitReason,
+			message: ''
+		};
+		this._exit.fire(event);
 	}
 
 	/**
