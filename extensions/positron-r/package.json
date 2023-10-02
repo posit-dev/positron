@@ -146,6 +146,12 @@
           "default": [],
           "description": "%r.configuration.extraArguments.description%"
         },
+        "positron.r.quietMode": {
+          "scope": "window",
+          "type": "boolean",
+          "default": false,
+          "description": "%r.configuration.quietMode.description%"
+        },
         "positron.r.pipe": {
           "type": "string",
           "default": "|>",
