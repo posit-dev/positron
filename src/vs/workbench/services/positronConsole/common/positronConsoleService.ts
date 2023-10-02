@@ -2,6 +2,7 @@
  *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
+import * as nls from 'vs/nls';
 import { Emitter } from 'vs/base/common/event';
 import { generateUuid } from 'vs/base/common/uuid';
 import { ILogService } from 'vs/platform/log/common/log';
@@ -29,7 +30,7 @@ import { RuntimeItemStartupFailure } from 'vs/workbench/services/positronConsole
 import { ActivityItem, RuntimeItemActivity } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemActivity';
 import { ActivityItemInput, ActivityItemInputState } from 'vs/workbench/services/positronConsole/common/classes/activityItemInput';
 import { IPositronConsoleInstance, IPositronConsoleService, POSITRON_CONSOLE_VIEW_ID, PositronConsoleState } from 'vs/workbench/services/positronConsole/common/interfaces/positronConsoleService';
-import { formatLanguageRuntime, ILanguageRuntime, ILanguageRuntimeMessage, ILanguageRuntimeService, LanguageRuntimeStartupBehavior, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeOnlineState, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { formatLanguageRuntime, ILanguageRuntime, ILanguageRuntimeExit, ILanguageRuntimeMessage, ILanguageRuntimeService, LanguageRuntimeStartupBehavior, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeExitReason, RuntimeOnlineState, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 
 //#region Helper Functions
 
@@ -953,12 +954,13 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 						// disposed, then do it now.
 						if (this._runtimeState === RuntimeState.Exited && this._runtimeAttached) {
 							this.detachRuntime();
+
+							this.addRuntimeItem(new RuntimeItemExited(
+								generateUuid(),
+								`${this._runtime.metadata.runtimeName} failed to start.`
+							));
 						}
 					}, 1000);
-				} else if (this._runtimeAttached) {
-					// We exited from a state other than Starting or Initializing, so this is a
-					// "normal" exit, or at least not a startup failure. Detach the runtime.
-					this.detachRuntime();
 				}
 			}
 
@@ -1230,6 +1232,33 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 				}
 			}
 		}));
+
+		this._runtimeDisposableStore.add(this._runtime.onDidEndSession((exit) => {
+			this.addRuntimeItem(new RuntimeItemExited(generateUuid(), this.formatExit(exit)));
+		}));
+	}
+
+	private formatExit(exit: ILanguageRuntimeExit): string {
+		switch (exit.reason) {
+			case RuntimeExitReason.ForcedQuit:
+				return nls.localize('positronConsole.exit.forcedQuit', "{0} was forced to quit.", this._runtime.metadata.runtimeName);
+
+			case RuntimeExitReason.Restart:
+				return nls.localize('positronConsole.exit.restart', "{0} exited (preparing for restart)", this._runtime.metadata.runtimeName);
+
+			case RuntimeExitReason.Shutdown:
+				return nls.localize('positronConsole.exit.shutdown', "{0} shut down successfully.", this._runtime.metadata.runtimeName);
+
+			case RuntimeExitReason.Error:
+				return nls.localize('positronConsole.exit.error', "{0} crashed or exited unexpectedly (exit code {1})", this._runtime.metadata.runtimeName, exit.exit_code);
+
+			case RuntimeExitReason.StartupFailed:
+				return nls.localize('positronConsole.exit.startupFailed', "{0} failed to start up (exit code {1})", this._runtime.metadata.runtimeName, exit.exit_code);
+
+			default:
+			case RuntimeExitReason.Unknown:
+				return nls.localize('positronConsole.exit.unknown', "{0} exited (exit code {1})", this._runtime.metadata.runtimeName, exit.exit_code);
+		}
 	}
 
 	/**
@@ -1254,11 +1283,6 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 			// Dispose of the runtime event handlers.
 			this._runtimeDisposableStore.dispose();
 			this._runtimeDisposableStore = new DisposableStore();
-
-			this.addRuntimeItem(new RuntimeItemExited(
-				generateUuid(),
-				`${this._runtime.metadata.runtimeName} has exited.`
-			));
 		} else {
 			// We are not currently attached; warn.
 			console.warn(`Attempt to detach already detached runtime ${this._runtime.metadata.runtimeName}.`);
