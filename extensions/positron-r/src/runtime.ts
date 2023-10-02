@@ -9,6 +9,8 @@ import PQueue from 'p-queue';
 import { JupyterAdapterApi, JupyterKernelSpec, JupyterLanguageRuntime, JupyterKernelExtra } from './jupyter-adapter';
 import { ArkLsp, LspState } from './lsp';
 
+export let lastRuntimePath = '';
+
 /**
  * A Positron language runtime that wraps a Jupyter kernel and a Language Server
  * Protocol client.
@@ -115,6 +117,7 @@ export class RRuntime implements positron.LanguageRuntime, vscode.Disposable {
 		if (!this._kernel) {
 			this._kernel = await this.createKernel();
 		}
+		lastRuntimePath = this._kernel.metadata.runtimePath;
 		return this._kernel.start();
 	}
 

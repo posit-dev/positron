@@ -4,6 +4,7 @@
 
 import * as vscode from 'vscode';
 import * as positron from 'positron';
+import { lastRuntimePath } from './runtime';
 
 export class RPackageTaskProvider implements vscode.TaskProvider {
 
@@ -25,11 +26,11 @@ export async function providePackageTasks(context: vscode.ExtensionContext): Pro
 }
 
 export async function getRPackageTasks(): Promise<vscode.Task[]> {
-	const runningRuntimes = await positron.runtime.getRunningRuntimes('r');
-	// For now, there will be only one running R runtime:
-	const runtimePath = runningRuntimes[0].runtimePath;
+	if (!lastRuntimePath) {
+		throw new Error(`No running R runtime to provide R package tasks.`);
+	}
 	const allPackageTasks: PackageTask[] = [
-		{ 'name': 'Check R package', 'shellExecution': `${runtimePath}/R -e "devtools::check()"` }
+		{ 'name': 'Check R package', 'shellExecution': `${lastRuntimePath}/R -e "devtools::check()"` }
 	];
 	return allPackageTasks.map(task => new vscode.Task(
 		{ type: 'rPackageTask' },
