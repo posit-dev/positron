@@ -296,7 +296,7 @@ export function registerPositronConsoleActions() {
 						// If code was returned, move the cursor to the next
 						// statement by creating a position on the line
 						// following the statement and then invoking the
-						// statement range provider again to find the start
+						// statement range provider again to find the appropriate
 						// boundary of the next statement.
 						let newPosition = new Position(
 							statementRange.endLineNumber + 1,
@@ -323,7 +323,7 @@ export function registerPositronConsoleActions() {
 							}
 						} else {
 							// Invoke the statement range provider again to
-							// find the start boundary of the next statement.
+							// find the appropriate boundary of the next statement.
 
 							let nextStatement: IRange | null | undefined = undefined;
 							try {
@@ -336,13 +336,30 @@ export function registerPositronConsoleActions() {
 									`at position ${newPosition}: ${err}`);
 							}
 
-							// If it found a statement, move the cursor to the
-							// start of that statement.
 							if (nextStatement) {
-								newPosition = new Position(
-									nextStatement.startLineNumber,
-									nextStatement.startColumn
-								);
+								// If we found the next statement, determine exactly where to move
+								// the cursor to, maintaining the invariant that we should always
+								// step further down the page, never up, as this is too "jumpy".
+								// If for some reason the next statement doesn't meet this
+								// invariant, we don't use it and instead use the default
+								// `newPosition`.
+								if (nextStatement.startLineNumber > statementRange.endLineNumber) {
+									// If the next statement's start is after this statement's end,
+									// then move to the start of the next statement.
+									newPosition = new Position(
+										nextStatement.startLineNumber,
+										nextStatement.startColumn
+									);
+								} else if (nextStatement.endLineNumber > statementRange.endLineNumber) {
+									// If the above condition failed, but the next statement's end
+									// is after this statement's end, assume we are exiting some
+									// nested scope (like running an individual line of an R
+									// function) and move to the end of the next statement.
+									newPosition = new Position(
+										nextStatement.endLineNumber,
+										nextStatement.endColumn
+									);
+								}
 							}
 							editor.setPosition(newPosition);
 							editor.revealPositionInCenterIfOutsideViewport(newPosition);
