@@ -205,8 +205,16 @@
           "NAMESPACE"
         ],
         "configuration": "./language-configuration/namespace-language-configuration.json"
+      },
+      {
+        "id": "json",
+        "aliases": [
+          "renv lockfile"
+        ],
+        "filenames": [
+          "renv.lock"
+        ]
       }
-
     ],
     "grammars": [
       {
