@@ -69,6 +69,12 @@ export interface JupyterLanguageRuntime extends positron.LanguageRuntime {
 	 * @param message A message to emit to the Jupyter log.
 	 */
 	emitJupyterLog(message: string): void;
+
+	/**
+	 * A Jupyter kernel is guaranteed to have a `showOutput()`
+	 * method, so we declare it non-optional.
+	 */
+	showOutput(): void;
 }
 
 /**

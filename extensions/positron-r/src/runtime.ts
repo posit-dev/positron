@@ -175,6 +175,13 @@ export class RRuntime implements positron.LanguageRuntime, vscode.Disposable {
 		}
 	}
 
+	/**
+	 * Show runtime log in output panel.
+	 */
+	showOutput() {
+		this._kernel?.showOutput();
+	}
+
 	private async createKernel(): Promise<JupyterLanguageRuntime> {
 		const ext = vscode.extensions.getExtension('vscode.jupyter-adapter');
 		if (!ext) {

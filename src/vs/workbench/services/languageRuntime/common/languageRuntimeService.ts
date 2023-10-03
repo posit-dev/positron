@@ -479,6 +479,9 @@ export interface ILanguageRuntime {
 
 	/** Force quit the runtime */
 	forceQuit(): Thenable<void>;
+
+	/** Show output log of the runtime */
+	showOutput(): void;
 }
 
 export interface ILanguageRuntimeService {

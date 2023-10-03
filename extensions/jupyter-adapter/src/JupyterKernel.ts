@@ -1228,6 +1228,13 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	}
 
 	/**
+	 * Show kernel log in output panel.
+	 */
+	public showOutput() {
+		this._logChannel?.show();
+	}
+
+	/**
 	 * Creates a detailed error object to emit to the client when the kernel fails
 	 * to start.
 	 *
