@@ -26,12 +26,14 @@ export class RuntimeItemExited extends RuntimeItem {
 	 * @param id The identifier.
 	 * @param reason The exit reason.
 	 * @param languageName The name of the language that exited.
-	 * @param message The banner.
+	 * @param message A message to display.
+	 * @param onRestartRequested A optional callback to invoke when a restart is requested.
 	 */
 	constructor(id: string,
 		readonly reason: RuntimeExitReason,
 		readonly languageName: string,
-		message: string) {
+		message: string,
+		readonly onRestartRequested?: () => void) {
 		// Call the base class's constructor.
 		super(id);
 

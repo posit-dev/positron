@@ -20,12 +20,34 @@ export interface RuntimeExitedProps {
  * @returns The rendered component.
  */
 export const RuntimeExited = (props: RuntimeExitedProps) => {
-	// The set of exit reasons for which we will provide a way to manually restart.
+
+	const restartRef = React.useRef<HTMLButtonElement>(null);
+
+	// Offer a restart if the runtime was shut down by user, and we have a
+	// restart callback to invoke.
 	const reason = props.runtimeItemExited.reason;
-	const offerRestart = reason === RuntimeExitReason.Shutdown || reason ===
-		RuntimeExitReason.ForcedQuit;
+	const offerRestart = props.runtimeItemExited.onRestartRequested &&
+		(reason === RuntimeExitReason.Shutdown || reason ===
+			RuntimeExitReason.ForcedQuit);
 
 	const restartLabel = nls.localize('positron.restartLabel', "Restart {0}", props.runtimeItemExited.languageName);
+
+	const handleRestart = () => {
+		// Invoke the restart callback.
+		if (props.runtimeItemExited.onRestartRequested) {
+			props.runtimeItemExited.onRestartRequested();
+		}
+
+		// Disable, and then hide, the restart button.
+		if (restartRef.current) {
+			restartRef.current.disabled = true;
+		}
+		setTimeout(() => {
+			if (restartRef.current) {
+				restartRef.current.style.display = 'none';
+			}
+		}, 1000);
+	};
 
 	// Render.
 	return (
@@ -34,7 +56,9 @@ export const RuntimeExited = (props: RuntimeExitedProps) => {
 				<OutputLines outputLines={props.runtimeItemExited.outputLines} />
 			</div>
 			{offerRestart &&
-				<button className='monaco-text-button runtime-restart-button'>
+				<button ref={restartRef}
+					className='monaco-text-button runtime-restart-button'
+					onClick={handleRestart}>
 					<span className='codicon codicon-debug-restart'></span>
 					<span className='label'>{restartLabel}</span>
 				</button>}

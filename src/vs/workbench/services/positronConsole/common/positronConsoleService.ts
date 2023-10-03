@@ -498,6 +498,11 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	 */
 	private readonly _onDidSelectPlotEmitter = this._register(new Emitter<string>);
 
+	/**
+	 * The onDidRequestRestart event emitter.
+	 */
+	private readonly _onDidRequestRestart = this._register(new Emitter<void>);
+
 	//#endregion Private Properties
 
 	//#region Constructor & Dispose
@@ -629,6 +634,11 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	 * onDidSelectPlot event.
 	 */
 	readonly onDidSelectPlot = this._onDidSelectPlotEmitter.event;
+
+	/**
+	 * onDidRequestRestart event.
+	 */
+	readonly onDidRequestRestart = this._onDidRequestRestart.event;
 
 	/**
 	 * Focuses the input for the console.
@@ -1240,7 +1250,9 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 			const exited = new RuntimeItemExited(generateUuid(),
 				exit.reason,
 				this._runtime.metadata.languageName,
-				this.formatExit(exit));
+				this.formatExit(exit), () => {
+					this._onDidRequestRestart.fire();
+				});
 			this.addRuntimeItem(exited);
 			this.detachRuntime();
 		}));
