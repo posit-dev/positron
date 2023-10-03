@@ -6,6 +6,8 @@ import * as vscode from 'vscode';
 import * as positron from 'positron';
 
 import { registerCommands } from './commands';
+import { providePackageTasks } from './tasks';
+import { setContexts } from './contexts';
 import { initializeLogging } from './logging';
 import { rRuntimeProvider } from './provider';
 import { RRuntime } from './runtime';
@@ -20,8 +22,14 @@ export function activate(context: vscode.ExtensionContext) {
 	// Initialize logging tools.
 	initializeLogging(context);
 
+	// Set contexts.
+	setContexts(context);
+
 	// Register commands.
 	registerCommands(context, runtimes);
+
+	// Provide tasks.
+	providePackageTasks(context);
 
 }
 
