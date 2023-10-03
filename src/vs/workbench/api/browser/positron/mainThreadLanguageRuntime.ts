@@ -401,6 +401,10 @@ class ExtHostLanguageRuntimeAdapter implements ILanguageRuntime {
 		return this._proxy.$forceQuitLanguageRuntime(this.handle);
 	}
 
+	async showOutput(): Promise<void> {
+		return this._proxy.$showOutputLanguageRuntime(this.handle);
+	}
+
 	/**
 	 * Checks to see whether the runtime can be shut down or restarted.
 	 *

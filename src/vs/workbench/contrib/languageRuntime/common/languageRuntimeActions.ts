@@ -253,6 +253,14 @@ export function registerLanguageRuntimeActions() {
 			'Select the interpreter to force-quit'))?.forceQuit();
 	});
 
+	// Registers the show output language runtime action.
+	registerLanguageRuntimeAction('workbench.action.languageRuntime.showOutput', 'Show runtime output', async accessor => {
+		(await selectRunningLanguageRuntime(
+			accessor.get(ILanguageRuntimeService),
+			accessor.get(IQuickInputService),
+			'Select the interpreter for which to show output'))?.showOutput();
+	});
+
 	registerLanguageRuntimeAction('workbench.action.language.runtime.openClient', 'Create Runtime Client Widget', async accessor => {
 		// Access services.
 		const languageRuntimeService = accessor.get(ILanguageRuntimeService);
