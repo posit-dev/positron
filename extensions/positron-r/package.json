@@ -327,6 +327,12 @@
         }
       ]
     },
+    "snippets": [
+      {
+        "language": "r",
+        "path": "./snippets/r.code-snippets"
+      }
+    ],
     "taskDefinitions": [
       {
         "type": "rPackageTask",
