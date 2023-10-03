@@ -1250,7 +1250,7 @@ export function registerTerminalActions() {
 		// Switch to Console if last terminal is killed
 		// https://github.com/posit-dev/positron/issues/1458
 		else {
-			await c.groupService.showPositronConsole!();
+			await c.groupService.switchToPositronConsole!();
 		}
 		// --- End Positron ---
 	}

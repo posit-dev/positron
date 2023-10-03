@@ -411,7 +411,7 @@ export interface ITerminalGroupService extends ITerminalInstanceHost {
 
 	showPanel(focus?: boolean): Promise<void>;
 	// --- Start Positron ---
-	showPositronConsole?: () => Promise<void>;
+	switchToPositronConsole?: () => Promise<void>;
 	// --- End Positron ---
 	hidePanel(): void;
 	focusTabs(): void;

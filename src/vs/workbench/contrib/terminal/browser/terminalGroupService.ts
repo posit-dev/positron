@@ -88,8 +88,21 @@ export class TerminalGroupService extends Disposable implements ITerminalGroupSe
 	}
 
 	// --- Start Positron ---
-	async showPositronConsole(): Promise<void> {
-		await this._viewsService.openView(POSITRON_CONSOLE_VIEW_ID, false);
+	// Switch to Console pane but only if in the same viewpane
+	async switchToPositronConsole(): Promise<void> {
+		const consoleViewContainer = this._viewDescriptorService.getViewContainerByViewId(POSITRON_CONSOLE_VIEW_ID);
+		const terminalViewContainer = this._viewDescriptorService.getViewContainerByViewId(TERMINAL_VIEW_ID);
+
+		if (!consoleViewContainer || !terminalViewContainer) {
+			return;
+		}
+
+		const consoleViewLocation = this._viewDescriptorService.getViewContainerLocation(consoleViewContainer);
+		const terminalViewLocation = this._viewDescriptorService.getViewContainerLocation(terminalViewContainer);
+
+		if (consoleViewLocation === terminalViewLocation) {
+			await this._viewsService.openView(POSITRON_CONSOLE_VIEW_ID, false);
+		}
 	}
 	// --- End Positron ---
 
