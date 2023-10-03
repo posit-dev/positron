@@ -296,7 +296,7 @@ export function registerPositronConsoleActions() {
 						// If code was returned, move the cursor to the next
 						// statement by creating a position on the line
 						// following the statement and then invoking the
-						// statement range provider again to find the start
+						// statement range provider again to find the appropriate
 						// boundary of the next statement.
 						let newPosition = new Position(
 							statementRange.endLineNumber + 1,
@@ -306,24 +306,20 @@ export function registerPositronConsoleActions() {
 							// If the new position is past the end of the
 							// document, add a newline to the end of the
 							// document, unless it already ends with an empty
-							// line.
+							// line, then move to that empty line at the end.
 							if (model.getLineContent(model.getLineCount()).trim().length > 0) {
-								// The document doesn't end with an empty line;
-								// add one
-								this.amendNewlineToEnd(editor);
-							} else {
-								// If the document already ends with an empty
-								// line, move the cursor to that line.
-								newPosition = new Position(
-									model.getLineCount(),
-									1
-								);
-								editor.setPosition(newPosition);
-								editor.revealPositionInCenterIfOutsideViewport(newPosition);
+								// The document doesn't end with an empty line; add one
+								this.amendNewlineToEnd(model);
 							}
+							newPosition = new Position(
+								model.getLineCount(),
+								1
+							);
+							editor.setPosition(newPosition);
+							editor.revealPositionInCenterIfOutsideViewport(newPosition);
 						} else {
 							// Invoke the statement range provider again to
-							// find the start boundary of the next statement.
+							// find the appropriate boundary of the next statement.
 
 							let nextStatement: IRange | null | undefined = undefined;
 							try {
@@ -336,13 +332,30 @@ export function registerPositronConsoleActions() {
 									`at position ${newPosition}: ${err}`);
 							}
 
-							// If it found a statement, move the cursor to the
-							// start of that statement.
 							if (nextStatement) {
-								newPosition = new Position(
-									nextStatement.startLineNumber,
-									nextStatement.startColumn
-								);
+								// If we found the next statement, determine exactly where to move
+								// the cursor to, maintaining the invariant that we should always
+								// step further down the page, never up, as this is too "jumpy".
+								// If for some reason the next statement doesn't meet this
+								// invariant, we don't use it and instead use the default
+								// `newPosition`.
+								if (nextStatement.startLineNumber > statementRange.endLineNumber) {
+									// If the next statement's start is after this statement's end,
+									// then move to the start of the next statement.
+									newPosition = new Position(
+										nextStatement.startLineNumber,
+										nextStatement.startColumn
+									);
+								} else if (nextStatement.endLineNumber > statementRange.endLineNumber) {
+									// If the above condition failed, but the next statement's end
+									// is after this statement's end, assume we are exiting some
+									// nested scope (like running an individual line of an R
+									// function) and move to the end of the next statement.
+									newPosition = new Position(
+										nextStatement.endLineNumber,
+										nextStatement.endColumn
+									);
+								}
 							}
 							editor.setPosition(newPosition);
 							editor.revealPositionInCenterIfOutsideViewport(newPosition);
@@ -411,16 +424,7 @@ export function registerPositronConsoleActions() {
 						if (lineNumber === model.getLineCount() + 1) {
 							// If this puts us past the end of the document, insert a newline for us
 							// to move to
-							const editOperation = {
-								range: {
-									startLineNumber: model.getLineCount(),
-									startColumn: model.getLineMaxColumn(model.getLineCount()),
-									endLineNumber: model.getLineCount(),
-									endColumn: model.getLineMaxColumn(model.getLineCount())
-								},
-								text: '\n'
-							};
-							model.pushEditOperations([], [editOperation], () => []);
+							this.amendNewlineToEnd(model);
 						}
 					}
 
@@ -432,7 +436,14 @@ export function registerPositronConsoleActions() {
 				if (!code.length && position && lineNumber === model.getLineCount()) {
 					// If we still don't have code and we are at the end of the document, add a
 					// newline to the end of the document.
-					this.amendNewlineToEnd(editor);
+					this.amendNewlineToEnd(model);
+
+					// We don't move to that new line to avoid adding a bunch of empty
+					// lines to the end. The edit operation typically moves us to the new line,
+					// so we have to undo that.
+					const newPosition = new Position(lineNumber, 1);
+					editor.setPosition(newPosition);
+					editor.revealPositionInCenterIfOutsideViewport(newPosition);
 				}
 			}
 
@@ -461,16 +472,12 @@ export function registerPositronConsoleActions() {
 			}
 		}
 
-		amendNewlineToEnd(editor: IEditor) {
+		amendNewlineToEnd(model: ITextModel) {
 			// Typically we don't do anything when we don't have code to execute,
-			// but when we are at the end of a document we add a new line. However,
-			// we don't move to that new line to avoid adding a bunch of empty
-			// lines to the end.
-
-			// Create an edit operation that will append a new line to the end
-			// of the document. It also moves us to that line.
-			const model = editor.getModel() as ITextModel;
-			const lineNumber = model.getLineCount();
+			// but when we are at the end of a document we add a new line.
+			// This edit operation also moves the cursor to the new line if the cursor
+			// was already at the end of the document. This may or may not be desirable
+			// depending on the context.
 			const editOperation = {
 				range: {
 					startLineNumber: model.getLineCount(),
@@ -481,11 +488,6 @@ export function registerPositronConsoleActions() {
 				text: '\n'
 			};
 			model.pushEditOperations([], [editOperation], () => []);
-
-			// Undo the fact that the edit operation moved the cursor.
-			const newPosition = new Position(lineNumber, 1);
-			editor.setPosition(newPosition);
-			editor.revealPositionInCenterIfOutsideViewport(newPosition);
 		}
 	});
 }
