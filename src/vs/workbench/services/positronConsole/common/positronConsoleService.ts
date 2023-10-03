@@ -957,6 +957,8 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 
 							this.addRuntimeItem(new RuntimeItemExited(
 								generateUuid(),
+								RuntimeExitReason.StartupFailed,
+								this._runtime.metadata.languageName,
 								`${this._runtime.metadata.runtimeName} failed to start.`
 							));
 						}
@@ -1235,7 +1237,11 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 
 		this._runtimeDisposableStore.add(this._runtime.onDidEndSession((exit) => {
 			this.addRuntimeItemTrace(`onDidEndSession (code ${exit.exit_code}, reason '${exit.reason}')`);
-			this.addRuntimeItem(new RuntimeItemExited(generateUuid(), this.formatExit(exit)));
+			const exited = new RuntimeItemExited(generateUuid(),
+				exit.reason,
+				this._runtime.metadata.languageName,
+				this.formatExit(exit));
+			this.addRuntimeItem(exited);
 			this.detachRuntime();
 		}));
 	}
