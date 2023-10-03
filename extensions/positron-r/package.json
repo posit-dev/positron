@@ -154,10 +154,10 @@
         },
         "positron.r.pipe": {
           "type": "string",
-          "default": "|>",
+          "default": "%r.configuration.pipe.native.token%",
           "enum": [
-            "|>",
-            "%>%"
+            "%r.configuration.pipe.native.token%",
+            "%r.configuration.pipe.magrittr.token%"
           ],
           "enumDescriptions": [
             "%r.configuration.pipe.native.description%",
@@ -327,6 +327,12 @@
         }
       ]
     },
+    "taskDefinitions": [
+      {
+        "type": "rPackageTask",
+        "when": "isRPackage"
+      }
+    ],
     "debuggers": [
       {
         "type": "ark",
@@ -374,7 +380,7 @@
   },
   "positron": {
     "binaryDependencies": {
-      "ark": "0.1.10"
+      "ark": "0.1.11"
     }
   }
 }
