@@ -207,6 +207,18 @@
         "configuration": "./language-configuration/namespace-language-configuration.json"
       },
       {
+        "id": "r-pkg-docs",
+        "aliases": [
+          "R documentation",
+          "r documentation"
+        ],
+        "extensions": [
+          ".rd",
+          ".Rd"
+        ],
+        "configuration": "./language-configuration/r-docs-language-configuration.json"
+      },
+      {
         "id": "json",
         "aliases": [
           "renv lockfile"
@@ -234,6 +246,11 @@
         "language": "r-pkg-namespace",
         "scopeName": "source.namespace",
         "path": "./syntaxes/namespace.tmLanguage.json"
+      },
+      {
+        "language": "r-pkg-docs",
+        "scopeName": "source.rdocs",
+        "path": "./syntaxes/rd.tmLanguage.json"
       }
     ],
     "keybindings": [
