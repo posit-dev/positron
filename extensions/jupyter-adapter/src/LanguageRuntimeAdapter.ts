@@ -767,21 +767,6 @@ export class LanguageRuntimeAdapter
 		this._kernel.log(`${this._spec.language} kernel status changed: ${previous} => ${status}`);
 		this._kernelState = status;
 		this._state.fire(status);
-
-		// If the kernel was restarting and successfully exited, this is our
-		// cue to start it again.
-		if (this._restarting && status === positron.RuntimeState.Exited) {
-			this._restarting = false;
-			// Defer the start by 500ms to ensure the kernel has processed its
-			// own exit before we ask it to restart. This also ensures that the
-			// kernel's status events as it starts up don't overlap with the
-			// status events emitted during shutdown (which can happen on the
-			// Positron side due to internal buffering in the extension host
-			// interface)
-			setTimeout(() => {
-				this._kernel.start();
-			}, 500);
-		}
 	}
 
 	/**
@@ -803,6 +788,20 @@ export class LanguageRuntimeAdapter
 			message: ''
 		};
 		this._exit.fire(event);
+
+		// If the kernel was restarting, now's the time to bring it back up
+		if (this._restarting) {
+			this._restarting = false;
+			// Defer the start by 500ms to ensure the kernel has processed its
+			// own exit before we ask it to restart. This also ensures that the
+			// kernel's status events as it starts up don't overlap with the
+			// status events emitted during shutdown (which can happen on the
+			// Positron side due to internal buffering in the extension host
+			// interface)
+			setTimeout(() => {
+				this._kernel.start();
+			}, 500);
+		}
 	}
 
 	/**
