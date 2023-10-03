@@ -2,7 +2,7 @@
 	"lib": {
         "prefix": "lib",
         "body": "library(${1:package})",
-		"description": "Load an R package"
+		"description": "Attach an R package"
 	},
 	"req": {
         "prefix": "req",
@@ -17,7 +17,7 @@
 	"ret": {
         "prefix": "ret",
         "body": "return(${1:code})",
-		"description": "Function return"
+		"description": "Return a value from a function"
 	},
 	"mat": {
         "prefix": "mat",
