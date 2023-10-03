@@ -197,7 +197,7 @@
         "configuration": "./language-configuration/dcf-language-configuration.json"
       },
       {
-        "id": "namespace",
+        "id": "r-pkg-namespace",
         "aliases": [
           "R NAMESPACE"
         ],
@@ -223,7 +223,7 @@
         }
       },
       {
-        "language": "namespace",
+        "language": "r-pkg-namespace",
         "scopeName": "source.namespace",
         "path": "./syntaxes/namespace.tmLanguage.json"
       }
