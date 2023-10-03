@@ -1,23 +1,28 @@
 {
 	"lib": {
         "prefix": "lib",
-        "body": "library(${1:package})"
+        "body": "library(${1:package})",
+		"description": "Load an R package"
 	},
 	"req": {
         "prefix": "req",
-        "body": "require(${1:package})"
+        "body": "require(${1:package})",
+		"description": "Load an R package"
 	},
 	"src": {
         "prefix": "src",
-        "body": "source(\"${1:file.R}\")"
+        "body": "source(\"${1:file.R}\")",
+		"description": "Source an R file"
 	},
 	"ret": {
         "prefix": "ret",
-        "body": "return(${1:code})"
+        "body": "return(${1:code})",
+		"description": "Function return"
 	},
 	"mat": {
         "prefix": "mat",
-        "body": "matrix(${1:data}, nrow = ${2:rows}, ncol = ${3:cols})"
+        "body": "matrix(${1:data}, nrow = ${2:rows}, ncol = ${3:cols})",
+		"description": "Define a matrix"
 	},
 	"sg": {
         "prefix": "sg",
@@ -25,7 +30,8 @@
 		"setGeneric(\"${1:generic}\", function(${2:x, ...}) {",
 		"\tstandardGeneric(\"${1:generic}\")",
 		"})"
-        ]
+        ],
+		"description": "Define a generic"
 	},
 	"sm": {
         "prefix": "sm",
@@ -33,11 +39,13 @@
 		"setMethod(\"${1:generic}\", ${2:class}, function(${2:x, ...}) {",
 		"\t${0}",
 		"})"
-        ]
+        ],
+		"description": "Define a method for a generic function"
 	},
 	"sc": {
         "prefix": "sc",
-        "body": "setClass(\"${1:Class}\", slots = c(${2:name = \"type\"}))"
+        "body": "setClass(\"${1:Class}\", slots = c(${2:name = \"type\"}))",
+		"description": "Define a class definition"
 	},
 	"if": {
         "prefix": "if",
@@ -45,7 +53,8 @@
 		"if (${1:condition}) {",
 		"\t${0}",
 		"}"
-        ]
+        ],
+		"description": "Conditional expression"
 	},
 	"el": {
         "prefix": "el",
@@ -53,7 +62,8 @@
 		"else {",
 		"\t${0}",
 		"}"
-        ]
+        ],
+		"description": "Conditional expression"
 	},
 	"ei": {
         "prefix": "ei",
@@ -61,7 +71,8 @@
 		"else if (${1:condition}) {",
 		"\t${0}",
 		"}"
-        ]
+        ],
+		"description": "Conditional expression"
 	},
 	"fun": {
         "prefix": "fun",
@@ -69,7 +80,8 @@
 		"${1:name} <- function(${2:variables}) {",
 		"\t${0}",
 		"}"
-        ]
+        ],
+		"description": "Function skeleton"
 	},
 	"for": {
         "prefix": "for",
@@ -77,7 +89,8 @@
 		"for (${1:variable} in ${2:vector}) {",
 		"\t${0}",
 		"}"
-        ]
+        ],
+		"description": "Define a loop"
 	},
 	"while": {
         "prefix": "while",
@@ -85,7 +98,8 @@
 		"while (${1:condition}) {",
 		"\t${0}",
 		"}"
-        ]
+        ],
+		"description": "Define a loop"
 	},
 	"switch": {
         "prefix": "switch",
@@ -93,39 +107,48 @@
 		"switch (${1:object},",
 		"\t${2:case} = ${3:action}",
 		")"
-        ]
+        ],
+		"description": "Define a switch statement"
 	},
 	"apply": {
         "prefix": "apply",
-        "body": "apply(${1:array}, ${2:margin}, ${3:...})"
+        "body": "apply(${1:array}, ${2:margin}, ${3:...})",
+		"description": "Use the apply family"
 	},
 	"lapply": {
         "prefix": "lapply",
-        "body": "lapply(${1:list}, ${2:function})"
+        "body": "lapply(${1:list}, ${2:function})",
+		"description": "Use the apply family"
 	},
 	"sapply": {
         "prefix": "sapply",
-        "body": "sapply(${1:list}, ${2:function})"
+        "body": "sapply(${1:list}, ${2:function})",
+		"description": "Use the apply family"
 	},
 	"mapply": {
         "prefix": "mapply",
-        "body": "mapply(${1:function}, ${2:...})"
+        "body": "mapply(${1:function}, ${2:...})",
+		"description": "Use the apply family"
 	},
 	"tapply": {
         "prefix": "tapply",
-        "body": "tapply(${1:vector}, ${2:index}, ${3:function})"
+        "body": "tapply(${1:vector}, ${2:index}, ${3:function})",
+		"description": "Use the apply family"
 	},
 	"vapply": {
         "prefix": "vapply",
-        "body": "vapply(${1:list}, ${2:function}, FUN.VALUE = ${3:type}, ${4:...})"
+        "body": "vapply(${1:list}, ${2:function}, FUN.VALUE = ${3:type}, ${4:...})",
+		"description": "Use the apply family"
 	},
 	"rapply": {
         "prefix": "rapply",
-        "body": "rapply(${1:list}, ${2:function})"
+        "body": "rapply(${1:list}, ${2:function})",
+		"description": "Use the apply family"
 	},
 	"ts": {
         "prefix": "ts",
-        "body": "`r paste(\"#\", date(), \"------------------------------\\n\")`"
+        "body": "`r paste(\"#\", date(), \"------------------------------\\n\")`",
+		"description": "Insert a datetime"
 	},
 	"shinyapp": {
         "prefix": "shinyapp",
@@ -141,7 +164,8 @@
 		"}",
 		"",
 		"shinyApp(ui, server)"
-        ]
+        ],
+		"description": "Define a Shiny app"
 	},
 	"shinymod": {
         "prefix": "shinymod",
@@ -156,6 +180,7 @@
 		"${1:name} <- function(input, output, session) {",
 		"  ",
 		"}"
-        ]
+        ],
+		"description": "Define a Shiny module"
 	}
 }
