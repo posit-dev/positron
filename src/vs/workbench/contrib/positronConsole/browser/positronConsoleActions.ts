@@ -309,7 +309,7 @@ export function registerPositronConsoleActions() {
 							// line, then move to that empty line at the end.
 							if (model.getLineContent(model.getLineCount()).trim().length > 0) {
 								// The document doesn't end with an empty line; add one
-								this.amendNewlineToEnd(editor);
+								this.amendNewlineToEnd(model);
 							}
 							newPosition = new Position(
 								model.getLineCount(),
@@ -424,16 +424,7 @@ export function registerPositronConsoleActions() {
 						if (lineNumber === model.getLineCount() + 1) {
 							// If this puts us past the end of the document, insert a newline for us
 							// to move to
-							const editOperation = {
-								range: {
-									startLineNumber: model.getLineCount(),
-									startColumn: model.getLineMaxColumn(model.getLineCount()),
-									endLineNumber: model.getLineCount(),
-									endColumn: model.getLineMaxColumn(model.getLineCount())
-								},
-								text: '\n'
-							};
-							model.pushEditOperations([], [editOperation], () => []);
+							this.amendNewlineToEnd(model);
 						}
 					}
 
@@ -445,7 +436,7 @@ export function registerPositronConsoleActions() {
 				if (!code.length && position && lineNumber === model.getLineCount()) {
 					// If we still don't have code and we are at the end of the document, add a
 					// newline to the end of the document.
-					this.amendNewlineToEnd(editor);
+					this.amendNewlineToEnd(model);
 
 					// We don't move to that new line to avoid adding a bunch of empty
 					// lines to the end. The edit operation typically moves us to the new line,
@@ -481,13 +472,12 @@ export function registerPositronConsoleActions() {
 			}
 		}
 
-		amendNewlineToEnd(editor: IEditor) {
+		amendNewlineToEnd(model: ITextModel) {
 			// Typically we don't do anything when we don't have code to execute,
 			// but when we are at the end of a document we add a new line.
 			// This edit operation also moves the cursor to the new line if the cursor
 			// was already at the end of the document. This may or may not be desirable
 			// depending on the context.
-			const model = editor.getModel() as ITextModel;
 			const editOperation = {
 				range: {
 					startLineNumber: model.getLineCount(),
