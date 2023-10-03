@@ -1234,7 +1234,9 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 		}));
 
 		this._runtimeDisposableStore.add(this._runtime.onDidEndSession((exit) => {
+			this.addRuntimeItemTrace(`onDidEndSession (code ${exit.exit_code}, reason '${exit.reason}')`);
 			this.addRuntimeItem(new RuntimeItemExited(generateUuid(), this.formatExit(exit)));
+			this.detachRuntime();
 		}));
 	}
 
