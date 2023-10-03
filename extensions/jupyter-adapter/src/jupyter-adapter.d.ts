@@ -112,10 +112,10 @@ export interface JupyterAdapterApi extends vscode.Disposable {
 /** Specific functionality implemented by runtimes */
 export interface JupyterKernelExtra {
 	attachOnStartup?: {
-		init: (args: Array<String>) => void;
+		init: (args: Array<string>) => void;
 		attach: () => Promise<void>;
 	};
 	sleepOnStartup?: {
-		init: (args: Array<String>, delay: number) => void;
+		init: (args: Array<string>, delay: number) => void;
 	};
 }
