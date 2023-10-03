@@ -4,11 +4,6 @@
         "body": "library(${1:package})",
 		"description": "Attach an R package"
 	},
-	"req": {
-        "prefix": "req",
-        "body": "require(${1:package})",
-		"description": "Load an R package"
-	},
 	"src": {
         "prefix": "src",
         "body": "source(\"${1:file.R}\")",
