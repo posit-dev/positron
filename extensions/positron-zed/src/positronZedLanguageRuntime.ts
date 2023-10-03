@@ -1095,6 +1095,11 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 	forceQuit(): Promise<void> {
 		// Simulate a force quit by immediately "exiting"
 		this._onDidChangeRuntimeState.fire(positron.RuntimeState.Exited);
+		this._onDidEndSession.fire({
+			exit_code: 0,
+			reason: positron.RuntimeExitReason.ForcedQuit,
+			message: ''
+		});
 		return Promise.resolve();
 	}
 
