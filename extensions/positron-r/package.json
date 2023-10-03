@@ -154,10 +154,10 @@
         },
         "positron.r.pipe": {
           "type": "string",
-          "default": "|>",
+          "default": "%r.configuration.pipe.native.token%",
           "enum": [
-            "|>",
-            "%>%"
+            "%r.configuration.pipe.native.token%",
+            "%r.configuration.pipe.magrittr.token%"
           ],
           "enumDescriptions": [
             "%r.configuration.pipe.native.description%",
