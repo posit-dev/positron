@@ -195,7 +195,18 @@
           ".lintr"
         ],
         "configuration": "./language-configuration/dcf-language-configuration.json"
+      },
+      {
+        "id": "namespace",
+        "aliases": [
+          "R NAMESPACE"
+        ],
+        "filenames": [
+          "NAMESPACE"
+        ],
+        "configuration": "./language-configuration/namespace-language-configuration.json"
       }
+
     ],
     "grammars": [
       {
@@ -210,6 +221,11 @@
         "embeddedLanguages": {
           "meta.embedded.block.r": "r"
         }
+      },
+      {
+        "language": "namespace",
+        "scopeName": "source.namespace",
+        "path": "./syntaxes/namespace.tmLanguage.json"
       }
     ],
     "keybindings": [
