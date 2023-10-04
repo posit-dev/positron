@@ -33,6 +33,7 @@
 	"r.configuration.logLevel.debug.description": "Debug messages",
 	"r.configuration.logLevel.trace.description": "Verbose tracing messages",
 	"r.configuration.logLevel.description": "Log level for the R Kernel (requires restart to take effect)",
+	"r.configuration.experimentalPackageTesting.description": "Experimental UI support for testing R packages",
 	"r.configuration.restoreWorkspace.description": "Restore the workspace from .RData on startup (requires restart to take effect)",
 	"r.configuration.extraArguments.description": "Extra command-line arguments for R intialization",
 	"r.configuration.quietMode.description": "Run R in quiet mode, to suppress initial copyright and welcome messages (requires restart to take effect)",

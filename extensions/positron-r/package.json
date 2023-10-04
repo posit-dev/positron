@@ -131,6 +131,11 @@
           "default": "off",
           "description": "%r.configuration.tracing.description%"
         },
+        "positron.r.testing.experimental": {
+          "type": "boolean",
+          "default": false,
+          "description": "%r.configuration.experimentalPackageTesting.description%"
+        },
         "positron.r.restoreWorkspace": {
           "scope": "window",
           "type": "boolean",
