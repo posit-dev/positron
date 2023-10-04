@@ -30,11 +30,25 @@ if [ -n "$POSITRON_DYLD_FALLBACK_LIBRARY_PATH" ]; then
 	export DYLD_FALLBACK_LIBRARY_PATH="$POSITRON_DYLD_FALLBACK_LIBRARY_PATH"
 fi
 
+# Start log file with current date
+echo "*** Log started at $(date)" > "$output_file"
+
+# Print the command line to the log file
+echo "*** Command line:" >> "$output_file"
+echo "$@" >> "$output_file"
+
 # Run the program with its arguments, redirecting stdout and stderr to the output file
-"$@" > "$output_file" 2>&1
+"$@" >> "$output_file" 2>&1
 
 # Save the exit code of the program
 exit_code=$?
+
+# Emit the exit code of the program to the log file. Note that there is a log
+# file parser in the Jupyter Adapter that specifically looks for the string
+# "exit code XX" on the last line of the log, so don't change this without
+# updating the parser!
+echo "*** Log ended at $(date)" >> "$output_file"
+echo "Process exit code ${exit_code}?" >> "$output_file"
 
 # Exit with the same code as the program so that the caller can correctly report errors
 exit $exit_code

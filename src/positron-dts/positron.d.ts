@@ -127,6 +127,53 @@ declare module 'positron' {
 	}
 
 	/**
+	 * Possible reasons a language runtime could exit.
+	 */
+	export enum RuntimeExitReason {
+		/** The runtime exited because it could not start correctly. */
+		StartupFailed = 'startupFailed',
+
+		/** The runtime is shutting down at the request of the user. */
+		Shutdown = 'shutdown',
+
+		/** The runtime exited because it was forced to quit. */
+		ForcedQuit = 'forcedQuit',
+
+		/** The runtime is exiting in order to restart. */
+		Restart = 'restart',
+
+		/** The runtime exited because of an error, most often a crash. */
+		Error = 'error',
+
+		/**
+		 * The runtime exited for an unknown reason. This typically means that
+		 * it exited unexpectedly but with a normal exit code (0).
+		 */
+		Unknown = 'unknown',
+	}
+
+	/**
+	 * LanguageRuntimeExit is an interface that defines an event occurring when a
+	 * language runtime exits.
+	 */
+	export interface LanguageRuntimeExit {
+		/**
+		 * The process exit code, if the runtime is backed by a process. If the
+		 * runtime is not backed by a process, this should just be 0 for a
+		 * succcessful exit and 1 for an error.
+		 */
+		exit_code: number;
+
+		/**
+		 * The reason the runtime exited.
+		 */
+		reason: RuntimeExitReason;
+
+		/** The exit message, if any. */
+		message: string;
+	}
+
+	/**
 	 * LanguageRuntimeMessage is an interface that defines an event occurring in a
 	 * language runtime, such as outputting text or plots.
 	 */
@@ -443,6 +490,9 @@ declare module 'positron' {
 
 		/** An object that emits the current state of the runtime */
 		onDidChangeRuntimeState: vscode.Event<RuntimeState>;
+
+		/** An object that emits an event when the user's session ends and the runtime exits */
+		onDidEndSession: vscode.Event<LanguageRuntimeExit>;
 
 		/** Execute code in the runtime */
 		execute(code: string,
