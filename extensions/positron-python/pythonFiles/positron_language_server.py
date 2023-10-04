@@ -117,6 +117,7 @@ if __name__ == "__main__":
     # Initialize with empty argv, otherwise BaseIPythonApplication.initialize reuses our
     # command-line arguments in unexpected ways (e.g. logfile instructs it to log executed code).
     app.initialize(argv=[])
+    assert app.kernel is not None, "Kernel was not initialized"
     app.kernel.start()
 
     logger.info(f"Process ID {os.getpid()}")

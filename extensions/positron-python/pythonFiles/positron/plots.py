@@ -264,8 +264,9 @@ class PositronDisplayPublisherHook:
 
         figure.set_size_inches(width_in, height_in)
 
-        format = InteractiveShell.instance().display_formatter.format
-        format_dict, md_dict = format(figure, include=formats, exclude=[])  # type: ignore
+        display_formatter = InteractiveShell.instance().display_formatter
+        assert display_formatter is not None, "Display formatter was not initialized"
+        format_dict, md_dict = display_formatter.format(figure, include=formats, exclude=[])  # type: ignore
 
         plt.close(figure)
 
