@@ -430,8 +430,6 @@ export class SuggestModel implements IDisposable {
 			const quickSuggestionsMinimumLength = this._editor.getOption(EditorOption.quickSuggestionsMinimumLength);
 			// If this was an automatic suggest trigger (i.e. not from a manual user request), but the
 			// current word hasn't hit the minimum length, skip this quick suggestions request.
-			// TODO: This computes the width in number of columns, I'm not sure if that is right
-			// for all languages? Is it good enough?
 			if (leadingWord.endColumn - leadingWord.startColumn < quickSuggestionsMinimumLength) {
 				return;
 			}
