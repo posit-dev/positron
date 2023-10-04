@@ -425,6 +425,16 @@ export class SuggestModel implements IDisposable {
 				return;
 			}
 
+			// --- Start Positron ---
+			const leadingWord = model.getWordUntilPosition(pos);
+			const quickSuggestionsMinimumLength = this._editor.getOption(EditorOption.quickSuggestionsMinimumLength);
+			// If this was an automatic suggest trigger (i.e. not from a manual user request), but the
+			// current word hasn't hit the minimum length, skip this quick suggestions request.
+			if (leadingWord.endColumn - leadingWord.startColumn < quickSuggestionsMinimumLength) {
+				return;
+			}
+			// --- End Positron ---
+
 			// we made it till here -> trigger now
 			this.trigger({ auto: true });
 

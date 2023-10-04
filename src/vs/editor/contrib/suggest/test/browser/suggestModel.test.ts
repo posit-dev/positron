@@ -68,6 +68,10 @@ function createMockEditor(model: TextModel, languageFeaturesService: ILanguageFe
 	});
 	editor.registerAndInstantiateContribution(SnippetController2.ID, SnippetController2);
 	editor.hasWidgetFocus = () => true;
+	// --- Start Positron ---
+	// VS Code has no minimum length, and tests have been written with this in mind
+	editor.updateOptions({ quickSuggestionsMinimumLength: 0 });
+	// --- End Positron ---
 	return editor;
 }
 
