@@ -8,6 +8,7 @@ import * as positron from 'positron';
 import { registerCommands } from './commands';
 import { providePackageTasks } from './tasks';
 import { setContexts } from './contexts';
+import { discoverTests } from './testing';
 import { initializeLogging } from './logging';
 import { rRuntimeProvider } from './provider';
 import { RRuntime } from './runtime';
@@ -31,5 +32,7 @@ export function activate(context: vscode.ExtensionContext) {
 	// Provide tasks.
 	providePackageTasks(context);
 
-}
+	// Discover R package tests.
+	discoverTests(context);
 
+}
