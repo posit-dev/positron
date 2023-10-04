@@ -10,12 +10,11 @@ import logging
 import pydoc
 from typing import TYPE_CHECKING, Any, Optional, Union
 
-from ipykernel.ipkernel import IPythonKernel
 from pydantic import Field
 
 from .frontend import BaseFrontendEvent
 from .pydoc import start_server
-from .utils import get_qualname, is_numpy_ufunc
+from .utils import get_qualname
 
 if TYPE_CHECKING:
     from .frontend import FrontendService
@@ -72,11 +71,13 @@ def help(topic="help"):
     >>> df = pandas.DataFrame()
     >>> help(df)
     """
-    if IPythonKernel.initialized():
-        kernel = IPythonKernel.instance()
+    from .positron_ipkernel import PositronIPyKernel
+
+    if PositronIPyKernel.initialized():
+        kernel = PositronIPyKernel.instance()
         kernel.help_service.show_help(topic)
     else:
-        raise Exception("Unexpected error. No IPythonKernel has been initialized.")
+        raise Exception("Unexpected error. No PositronIPyKernel has been initialized.")
 
 
 class HelpService:
