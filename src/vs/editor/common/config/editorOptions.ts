@@ -5103,9 +5103,6 @@ export const enum EditorOption {
 	definitionLinkOpensInPeek,
 	quickSuggestions,
 	quickSuggestionsDelay,
-	// --- Start Positron ---
-	quickSuggestionsMinimumLength,
-	// --- End Positron ---
 	readOnly,
 	readOnlyMessage,
 	renameOnType,
@@ -5164,7 +5161,11 @@ export const enum EditorOption {
 	wrappingInfo,
 	defaultColorDecorators,
 	colorDecoratorsActivatedOn,
-	inlineCompletionsAccessibilityVerbose
+	inlineCompletionsAccessibilityVerbose,
+	// --- Start Positron ---
+	// Placed at the end to limit merge conflicts in the generated files
+	quickSuggestionsMinimumLength
+	// --- End Positron ---
 }
 
 export const EditorOptions = {
