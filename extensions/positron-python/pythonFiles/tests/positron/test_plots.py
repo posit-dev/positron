@@ -27,8 +27,10 @@ def setup_matplotlib() -> Iterable[None]:
 
     # Enable all IPython mimetype formatters
     ip = get_ipython()
-    active_types = ip.display_formatter.active_types
-    ip.display_formatter.active_types = ip.display_formatter.format_types
+    display_formatter = ip.display_formatter
+    assert display_formatter is not None, "Display formatter was not initialized"
+    active_types = display_formatter.active_types
+    display_formatter.active_types = display_formatter.format_types  # type: ignore
 
     # Enable matplotlib IPython formatters
     configure_inline_support(ip, backend)
@@ -36,7 +38,7 @@ def setup_matplotlib() -> Iterable[None]:
     yield
 
     # Restore the original active formatters
-    ip.display_formatter.active_types = active_types
+    display_formatter.active_types = active_types  # type: ignore
 
 
 @pytest.fixture(scope="session")
