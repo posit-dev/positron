@@ -3,6 +3,10 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+// --- Start Positron ---
+import { POSITRON_CONSOLE_VIEW_ID } from 'vs/workbench/services/positronConsole/common/interfaces/positronConsoleService';
+// --- End Positron ---
+
 import { Orientation } from 'vs/base/browser/ui/sash/sash';
 import { timeout } from 'vs/base/common/async';
 import { Emitter, Event } from 'vs/base/common/event';
@@ -82,6 +86,25 @@ export class TerminalGroupService extends Disposable implements ITerminalGroupSe
 			TerminalContextKeys.tabsMouse.bindTo(this._contextKeyService).set(false);
 		}
 	}
+
+	// --- Start Positron ---
+	// Switch to Console pane but only if in the same viewpane
+	async switchToPositronConsole(): Promise<void> {
+		const consoleViewContainer = this._viewDescriptorService.getViewContainerByViewId(POSITRON_CONSOLE_VIEW_ID);
+		const terminalViewContainer = this._viewDescriptorService.getViewContainerByViewId(TERMINAL_VIEW_ID);
+
+		if (!consoleViewContainer || !terminalViewContainer) {
+			return;
+		}
+
+		const consoleViewLocation = this._viewDescriptorService.getViewContainerLocation(consoleViewContainer);
+		const terminalViewLocation = this._viewDescriptorService.getViewContainerLocation(terminalViewContainer);
+
+		if (consoleViewLocation === terminalViewLocation) {
+			await this._viewsService.openView(POSITRON_CONSOLE_VIEW_ID, false);
+		}
+	}
+	// --- End Positron ---
 
 	get activeGroup(): ITerminalGroup | undefined {
 		if (this.activeGroupIndex < 0 || this.activeGroupIndex >= this.groups.length) {
