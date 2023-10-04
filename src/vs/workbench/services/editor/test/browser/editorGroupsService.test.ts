@@ -415,7 +415,7 @@ suite('EditorGroupsService', () => {
 		// --- Start Positron ---
 		// We default this to `false`, but this test expects it to be `true`
 		assert.strictEqual(part.partOptions.enablePreview, false);
-		part.enforcePartOptions({ enablePreview: true });
+		const partOptionsListener = part.enforcePartOptions({ enablePreview: true });
 		// --- End Positron ---
 		const group = part.activeGroup;
 		assert.strictEqual(group.isEmpty, true);
@@ -542,6 +542,10 @@ suite('EditorGroupsService', () => {
 		assert.strictEqual(editorStickyCounter, 1);
 		group.unstickEditor(input);
 		assert.strictEqual(editorStickyCounter, 2);
+
+		// --- Start Positron ---
+		partOptionsListener.dispose();
+		// --- End Positron ---
 
 		editorCloseListener.dispose();
 		editorWillCloseListener.dispose();
