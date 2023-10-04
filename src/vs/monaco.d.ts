@@ -3416,6 +3416,11 @@ declare namespace monaco.editor {
 		 */
 		quickSuggestionsDelay?: number;
 		/**
+		 * Quick suggestions minimum word length
+		 * Defaults to 3 characters
+		 */
+		quickSuggestionsMinimumLength?: number;
+		/**
 		 * Controls the spacing around the editor.
 		 */
 		padding?: IEditorPaddingOptions;
@@ -4847,7 +4852,8 @@ declare namespace monaco.editor {
 		wrappingInfo = 144,
 		defaultColorDecorators = 145,
 		colorDecoratorsActivatedOn = 146,
-		inlineCompletionsAccessibilityVerbose = 147
+		inlineCompletionsAccessibilityVerbose = 147,
+		quickSuggestionsMinimumLength = 148
 	}
 
 	export const EditorOptions: {
@@ -4943,6 +4949,7 @@ declare namespace monaco.editor {
 		definitionLinkOpensInPeek: IEditorOption<EditorOption.definitionLinkOpensInPeek, boolean>;
 		quickSuggestions: IEditorOption<EditorOption.quickSuggestions, InternalQuickSuggestionsOptions>;
 		quickSuggestionsDelay: IEditorOption<EditorOption.quickSuggestionsDelay, number>;
+		quickSuggestionsMinimumLength: IEditorOption<EditorOption.quickSuggestionsMinimumLength, number>;
 		readOnly: IEditorOption<EditorOption.readOnly, boolean>;
 		readOnlyMessage: IEditorOption<EditorOption.readOnlyMessage, any>;
 		renameOnType: IEditorOption<EditorOption.renameOnType, boolean>;

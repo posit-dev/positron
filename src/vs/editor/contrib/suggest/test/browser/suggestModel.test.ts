@@ -73,6 +73,12 @@ function createMockEditor(model: TextModel, languageFeaturesService: ILanguageFe
 
 	editor.registerDisposable(ctrl);
 	editor.registerDisposable(storeService);
+
+	// --- Start Positron ---
+	// VS Code has no minimum length, and tests have been written with this in mind
+	editor.updateOptions({ quickSuggestionsMinimumLength: 0 });
+	// --- End Positron ---
+
 	return editor;
 }
 
