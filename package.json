@@ -26,7 +26,7 @@
     "watch-client": "node --max_old_space_size=4095 ./node_modules/gulp/bin/gulp.js watch-client",
     "watch-clientd": "node scripts/node_version_check.js && deemon yarn watch-client",
     "kill-watch-clientd": "deemon --kill yarn watch-client",
-    "watch-extensions": "node --max_old_space_size=4095 ./node_modules/gulp/bin/gulp.js watch-extensions watch-extension-media",
+    "watch-extensions": "node --max_old_space_size=8191 ./node_modules/gulp/bin/gulp.js watch-extensions watch-extension-media",
     "watch-extensionsd": "node scripts/node_version_check.js && deemon yarn watch-extensions",
     "kill-watch-extensionsd": "deemon --kill yarn watch-extensions",
     "watch-build-tools": "cd build && yarn watch",
