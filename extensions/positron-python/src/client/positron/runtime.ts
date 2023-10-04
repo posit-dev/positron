@@ -37,6 +37,9 @@ export class PythonRuntime implements positron.LanguageRuntime, vscode.Disposabl
     /** The emitter for language runtime state changes */
     private _stateEmitter = new vscode.EventEmitter<positron.RuntimeState>();
 
+    /** The emitter for language runtime exits */
+    private _exitEmitter = new vscode.EventEmitter<positron.LanguageRuntimeExit>();
+
     /** The Jupyter Adapter extension API */
     private adapterApi?: JupyterAdapterApi;
 
@@ -53,6 +56,7 @@ export class PythonRuntime implements positron.LanguageRuntime, vscode.Disposabl
         this._queue = new PQueue({ concurrency: 1 });
         this.onDidReceiveRuntimeMessage = this._messageEmitter.event;
         this.onDidChangeRuntimeState = this._stateEmitter.event;
+        this.onDidEndSession = this._exitEmitter.event;
 
         this.onDidChangeRuntimeState((state) => {
             this.onStateChange(state);
@@ -62,6 +66,8 @@ export class PythonRuntime implements positron.LanguageRuntime, vscode.Disposabl
     onDidReceiveRuntimeMessage: vscode.Event<positron.LanguageRuntimeMessage>;
 
     onDidChangeRuntimeState: vscode.Event<positron.RuntimeState>;
+
+    onDidEndSession: vscode.Event<positron.LanguageRuntimeExit>;
 
     execute(
         code: string,
@@ -243,6 +249,9 @@ export class PythonRuntime implements positron.LanguageRuntime, vscode.Disposabl
         });
         kernel.onDidReceiveRuntimeMessage((message) => {
             this._messageEmitter.fire(message);
+        });
+        kernel.onDidEndSession((exit) => {
+            this._exitEmitter.fire(exit);
         });
         return kernel;
     }
