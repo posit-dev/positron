@@ -178,6 +178,32 @@ export enum RuntimeErrorBehavior {
 	Continue = 'continue',
 }
 
+/**
+ * Possible reasons a language runtime could exit.
+ */
+export enum RuntimeExitReason {
+	/** The runtime exited because it could not start correctly. */
+	StartupFailed = 'startupFailed',
+
+	/** The runtime is shutting down at the request of the user. */
+	Shutdown = 'shutdown',
+
+	/** The runtime exited because it was forced to quit. */
+	ForcedQuit = 'forcedQuit',
+
+	/** The runtime is exiting in order to restart. */
+	Restart = 'restart',
+
+	/** The runtime exited because of an error, most often a crash. */
+	Error = 'error',
+
+	/**
+	 * The runtime exited for an unknown reason. This typically means that
+	 * it exited unexpectedly but with a normal exit code (0).
+	 */
+	Unknown = 'unknown',
+}
+
 export enum LanguageRuntimeStartupBehavior {
 	/**
 	 * The runtime should be started immediately after registration; usually used for runtimes

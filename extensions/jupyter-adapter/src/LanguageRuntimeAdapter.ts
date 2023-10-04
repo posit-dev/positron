@@ -39,6 +39,8 @@ export class LanguageRuntimeAdapter
 	private readonly _kernel: JupyterKernel;
 	private readonly _messages: vscode.EventEmitter<positron.LanguageRuntimeMessage>;
 	private readonly _state: vscode.EventEmitter<positron.RuntimeState>;
+	private readonly _exit: vscode.EventEmitter<positron.LanguageRuntimeExit>;
+	private _exitReason: positron.RuntimeExitReason = positron.RuntimeExitReason.Unknown;
 	private _kernelState: positron.RuntimeState = positron.RuntimeState.Uninitialized;
 	private _restarting = false;
 	private static _clientCounter = 0;
@@ -92,8 +94,10 @@ export class LanguageRuntimeAdapter
 		// Create emitter for LanguageRuntime messages and state changes
 		this._messages = new vscode.EventEmitter<positron.LanguageRuntimeMessage>();
 		this._state = new vscode.EventEmitter<positron.RuntimeState>();
+		this._exit = new vscode.EventEmitter<positron.LanguageRuntimeExit>();
 		this.onDidReceiveRuntimeMessage = this._messages.event;
 		this.onDidChangeRuntimeState = this._state.event;
+		this.onDidEndSession = this._exit.event;
 
 		// Bind to message stream from kernel
 		this.onMessage = this.onMessage.bind(this);
@@ -102,10 +106,15 @@ export class LanguageRuntimeAdapter
 		// Bind to status stream from kernel
 		this.onStatus = this.onStatus.bind(this);
 		this._kernel.addListener('status', this.onStatus);
+
+		// Bind to the kernel's exit event
+		this.onKernelExited = this.onKernelExited.bind(this);
+		this._kernel.addListener('exit', this.onKernelExited);
 	}
 
 	onDidReceiveRuntimeMessage: vscode.Event<positron.LanguageRuntimeMessage>;
 	onDidChangeRuntimeState: vscode.Event<positron.RuntimeState>;
+	onDidEndSession: vscode.Event<positron.LanguageRuntimeExit>;
 
 	/**
 	 * Executes a fragment of code in the kernel.
@@ -220,7 +229,16 @@ export class LanguageRuntimeAdapter
 	}
 
 	private async startKernel(): Promise<positron.LanguageRuntimeInfo> {
+		// Initialize the exit reason to Startup Failed, in case the kernel
+		// exits during startup
+		this._exitReason = positron.RuntimeExitReason.StartupFailed;
+
+		// Wait for the kernel to start
 		await this._kernel.start();
+
+		// We are now online; initialize the exit reason to Unknown so that if an
+		// unexpected exit occurs at any point, it will be marked appropriately.
+		this._exitReason = positron.RuntimeExitReason.Unknown;
 		return this.getKernelInfo();
 	}
 
@@ -268,10 +286,18 @@ export class LanguageRuntimeAdapter
 	 * Forcibly terminates the kernel.
 	 */
 	forceQuit(): Promise<void> {
+		// Ensure we mark this as a forced exit when the kernel exits
+		this._exitReason = positron.RuntimeExitReason.ForcedQuit;
 		return this._kernel.forceQuit();
 	}
 
-	private shutdownKernel(restart: boolean): Promise<void> {
+	/**
+	 *
+	 * @param restart Whether to shut down in preparation for a restart.
+	 * @returns A promise that resolves when the kernel has been instructed to
+	 *   shut down (not necessarily when it has exited)
+	 */
+	private async shutdownKernel(restart: boolean): Promise<void> {
 		// Ensure the kernel is in a running state before allowing the shutdown
 		if (this._kernelState !== positron.RuntimeState.Idle &&
 			this._kernelState !== positron.RuntimeState.Busy &&
@@ -280,7 +306,20 @@ export class LanguageRuntimeAdapter
 				` (state = ${this._kernelState})`));
 		}
 		this._restarting = restart;
-		return this._kernel.shutdown(restart);
+
+		// Set up the exit reason for replay when we receive the Exited state
+		// after shutdown is complete
+		this._exitReason = restart ?
+			positron.RuntimeExitReason.Restart :
+			positron.RuntimeExitReason.Shutdown;
+
+		try {
+			await this._kernel.shutdown(restart);
+		} catch (err) {
+			// If we failed to request a shutdown, reset the exit reason
+			this._exitReason = positron.RuntimeExitReason.Unknown;
+			throw err;
+		}
 	}
 
 	/**
@@ -735,10 +774,30 @@ export class LanguageRuntimeAdapter
 		this._kernel.log(`${this._spec.language} kernel status changed: ${previous} => ${status}`);
 		this._kernelState = status;
 		this._state.fire(status);
+	}
 
-		// If the kernel was restarting and successfully exited, this is our
-		// cue to start it again.
-		if (this._restarting && status === positron.RuntimeState.Exited) {
+	/**
+	 * Runs when the Jupyter kernel exits
+	 *
+	 * @param exitCode The exit code of the kernel
+	 */
+	onKernelExited(exitCode: number) {
+		// If we don't know the exit reason and there's a nonzero exit code,
+		// consider this exit to be due to an error.
+		if (this._exitReason === positron.RuntimeExitReason.Unknown && exitCode !== 0) {
+			this._exitReason = positron.RuntimeExitReason.Error;
+		}
+
+		// Create and fire the exit event.
+		const event: positron.LanguageRuntimeExit = {
+			exit_code: exitCode,
+			reason: this._exitReason,
+			message: ''
+		};
+		this._exit.fire(event);
+
+		// If the kernel was restarting, now's the time to bring it back up
+		if (this._restarting) {
 			this._restarting = false;
 			// Defer the start by 500ms to ensure the kernel has processed its
 			// own exit before we ask it to restart. This also ensures that the

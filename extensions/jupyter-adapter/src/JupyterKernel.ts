@@ -31,7 +31,7 @@ import path = require('path');
 import { StartupFailure } from './StartupFailure';
 import { JupyterKernelStatus } from './JupyterKernelStatus';
 import { JupyterKernelSpec, JupyterKernelExtra } from './jupyter-adapter';
-import { PromiseHandles } from './utils';
+import { delay, PromiseHandles } from './utils';
 
 /** The message sent to the Heartbeat socket on a regular interval to test connectivity */
 const HEARTBEAT_MESSAGE = 'heartbeat';
@@ -96,6 +96,9 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 
 	/** The exit code, if any */
 	private _exitCode: number;
+
+	/** If the kernel is currently exiting, this promise resolves when it is complete. */
+	private _exitPromise?: PromiseHandles<void>;
 
 	constructor(
 		private readonly _context: vscode.ExtensionContext,
@@ -453,6 +456,13 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 			this._status !== positron.RuntimeState.Exited) {
 			this.log(`Attempt to start ${this._spec.display_name} kernel but it's already '${this._status}'; ignoring.`);
 			return;
+		}
+
+		// If the previous session is cleaning up for exit, wait until it's
+		// done. This prevents the exit event from being fired when a new
+		// instance is already starting.
+		if (this._exitPromise) {
+			await this._exitPromise.promise;
 		}
 
 		// Mark the kernel as initializing so we don't try to start it again
@@ -1138,6 +1148,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 			// Clean up the session files (logs, connection files, etc.)
 			if (this._session) {
 				this._session.dispose();
+				this.emitExitEvent(this._session.state);
 			}
 
 			// If the terminal's still open, close it.
@@ -1151,6 +1162,65 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 			// Dispose the remainder of the connection state
 			await this.dispose();
 		}
+	}
+
+	/**
+	 * Emits the exit event, which indicates that the user's session has ended.
+	 * The main goal of this routine is to discover the exit code of the
+	 * underlying process.
+	 *
+	 * @param state The session state of the session that ended.
+	 */
+	private async emitExitEvent(state: JupyterSessionState) {
+		// We detect that the kernel has exited when all its sockets have
+		// disconnected. This usually, but not always, means that the process is
+		// gone, too.
+		//
+		// Since we want to include the exit code in the exit event, we need to
+		// wait for the process to actually exit.
+		this._exitPromise = new PromiseHandles<void>();
+		let count = 1;
+		while (this.isRunning(state.processId) && count++ < 10) {
+			await delay(100);
+		}
+
+		// Read the last line of the log file to get the exit code
+		let exitCode = 0;
+		try {
+			if (fs.existsSync(state.logFile)) {
+				const lines = fs.readFileSync(state.logFile, 'utf8').split('\n');
+				const lastLine = lines[lines.length - 2];
+				if (lastLine) {
+					try {
+						const match = lastLine.match(/exit code (\d+)/);
+						if (match) {
+							exitCode = parseInt(match![1]);
+						} else {
+							this.log(`Last line of log file ${state.logFile} ` +
+								`does't name an exit code: ${lastLine}`);
+						}
+						if (isNaN(exitCode)) {
+							this.log(`Could not parse exit code in last line of log file ` +
+								`${state.logFile}: ${lastLine}`);
+						}
+					} catch (e) {
+						this.log(`Could not find exit code in last line of log file ` +
+							`${state.logFile}: ${lastLine} (${e}))`);
+					}
+				}
+			} else {
+				this.log(`Not reading exit code from process ${state.processId}; ` +
+					`log file ${state.logFile} does not exist`);
+			}
+		} catch (e) {
+			this.log(`Error reading exit code from log file ${state.logFile}: ${e}`);
+		}
+
+		// Fire the actual exit event
+		this.emit('exit', exitCode);
+
+		// Resolve the exit promise (this allows us to start a new instance of the kernel)
+		this._exitPromise.resolve();
 	}
 
 	/**
@@ -1252,6 +1322,12 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 				logFileContent = fs.readFileSync(state.logFile, 'utf8');
 			}
 		}
+
+		// Filter out lines beginning with *** (these are metadata lines from
+		// the kernel-wrapper script)
+		logFileContent = logFileContent.split('\n')
+			.filter(line => !line.startsWith('***'))
+			.join('\n');
 
 		// Create a startup failure message
 		return new StartupFailure(message, logFileContent);

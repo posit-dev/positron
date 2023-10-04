@@ -3,6 +3,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { ANSIOutput, ANSIOutputLine } from 'ansi-output';
+import { RuntimeExitReason } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { RuntimeItem } from 'vs/workbench/services/positronConsole/common/classes/runtimeItem';
 
 /**
@@ -23,9 +24,16 @@ export class RuntimeItemExited extends RuntimeItem {
 	/**
 	 * Constructor.
 	 * @param id The identifier.
-	 * @param message The banner.
+	 * @param reason The exit reason.
+	 * @param languageName The name of the language that exited.
+	 * @param message A message to display.
+	 * @param onRestartRequested A optional callback to invoke when a restart is requested.
 	 */
-	constructor(id: string, message: string) {
+	constructor(id: string,
+		readonly reason: RuntimeExitReason,
+		readonly languageName: string,
+		message: string,
+		readonly onRestartRequested?: () => void) {
 		// Call the base class's constructor.
 		super(id);
 

@@ -281,6 +281,16 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 			positronConsoleContext.positronPlotsService.selectPlot(plotId);
 		}));
 
+		// Add the onDidRequestRestart event handler.
+		disposableStore.add(props.positronConsoleInstance.onDidRequestRestart(() => {
+			const runtime = positronConsoleContext.activePositronConsoleInstance?.runtime;
+			if (runtime) {
+				positronConsoleContext.languageRuntimeService.restartRuntime(
+					runtime.metadata.runtimeId,
+					'Restart requested from activity in the Console tab');
+			}
+		}));
+
 		// Return the cleanup function that will dispose of the event handlers.
 		return () => disposableStore.dispose();
 	}, []);
