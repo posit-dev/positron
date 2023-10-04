@@ -88,9 +88,6 @@
 
 		window['MonacoEnvironment'] = {};
 
-		// VSCODE_GLOBALS: node_modules
-		globalThis._VSCODE_NODE_MODULES = new Proxy(Object.create(null), { get: (_target, mod) => (require.__$__nodeRequire ?? require)(String(mod)) });
-
 		const loaderConfig = {
 			baseUrl: `${bootstrapLib.fileUriFromPath(configuration.appRoot, { isWindows: safeProcess.platform === 'win32', scheme: 'vscode-file', fallbackAuthority: 'vscode-app' })}/out`,
 			'vs/nls': nlsConfig,
@@ -127,9 +124,13 @@
 			'@vscode/vscode-languagedetection': `${baseNodeModulesPath}/@vscode/vscode-languagedetection/dist/lib/index.js`,
 			'vscode-regexp-languagedetection': `${baseNodeModulesPath}/vscode-regexp-languagedetection/dist/index.js`,
 			'tas-client-umd': `${baseNodeModulesPath}/tas-client-umd/lib/tas-client-umd.js`,
+			// --- Start Positron ---
+			'ansi-output': `${baseNodeModulesPath}/ansi-output/dist/ansi-output.js`,
+			'he': `${baseNodeModulesPath}/he/he.js`,
 			'react': `${baseNodeModulesPath}/react/umd/react.production.min.js`,
 			'react-dom': `${baseNodeModulesPath}/react-dom/umd/react-dom.production.min.js`,
 			'react-window': `${baseNodeModulesPath}/react-window/dist/index-prod.umd.js`
+			// --- End Positron ---
 		};
 
 		// Signal before require.config()

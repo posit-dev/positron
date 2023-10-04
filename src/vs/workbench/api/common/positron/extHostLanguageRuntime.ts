@@ -16,6 +16,8 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 
 	private readonly _runtimes = new Array<positron.LanguageRuntime>();
 
+	private readonly _runtimeProviders = new Array<positron.LanguageRuntimeProvider>();
+
 	private readonly _clientInstances = new Array<ExtHostRuntimeClientInstance>();
 
 	private readonly _clientHandlers = new Array<positron.RuntimeClientHandler>();
@@ -25,6 +27,11 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 	 * events are only ordered within a runtime.
 	 */
 	private _eventClocks = new Array<number>();
+
+	/**
+	 * Indicates whether language runtime discovery is complete.
+	 */
+	private _runtimeDiscoveryComplete = false;
 
 	constructor(
 		mainContext: extHostProtocol.IMainPositronContext
@@ -60,11 +67,28 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		return this._runtimes[handle].shutdown();
 	}
 
+	async $forceQuitLanguageRuntime(handle: number): Promise<void> {
+		if (handle >= this._runtimes.length) {
+			throw new Error(`Cannot force quit runtime: language runtime handle '${handle}' not found or no longer valid.`);
+		}
+		return this._runtimes[handle].forceQuit();
+	}
+
 	async $restartLanguageRuntime(handle: number): Promise<void> {
 		if (handle >= this._runtimes.length) {
 			throw new Error(`Cannot restart runtime: language runtime handle '${handle}' not found or no longer valid.`);
 		}
 		return this._runtimes[handle].restart();
+	}
+
+	$showOutputLanguageRuntime(handle: number): void {
+		if (handle >= this._runtimes.length) {
+			throw new Error(`Cannot show output for runtime: language runtime handle '${handle}' not found or no longer valid.`);
+		}
+		if (!this._runtimes[handle].showOutput) {
+			throw new Error(`Cannot show output for runtime: language runtime handle '${handle}' does not implement logging.`);
+		}
+		return this._runtimes[handle].showOutput!();
 	}
 
 	$executeCode(handle: number, code: string, id: string, mode: RuntimeCodeExecutionMode, errorBehavior: RuntimeErrorBehavior): void {
@@ -116,6 +140,105 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		this._runtimes[handle].replyToPrompt(id, response);
 	}
 
+	/**
+	 * Discovers language runtimes and registers them with the main thread.
+	 */
+	public async $discoverLanguageRuntimes(): Promise<void> {
+		// Discover runtimes from each provider in parallel
+		let start = 0;
+		let end = this._runtimeProviders.length;
+		while (start !== end) {
+			// Extract the section of the providers list we're working on and discover
+			// runtimes from it
+			const providers = this._runtimeProviders.slice(start, end);
+			try {
+				await this.discoverLanguageRuntimes(providers);
+			} catch (err) {
+				// Log and continue if errors occur during registration; this is
+				// a safeguard to ensure we always signal the main thread when
+				// discovery is complete (below)
+				console.error(err);
+			}
+
+			// Typically the loop ends after the first pass, but if new
+			// providers were added while we were discovering runtimes, then we
+			// need to go back into the body of the loop to discover those
+			// runtimes as well.
+			start = end;
+			end = this._runtimeProviders.length;
+		}
+
+		// Notify the main thread that discovery is complete
+		this._runtimeDiscoveryComplete = true;
+		this._proxy.$completeLanguageRuntimeDiscovery();
+	}
+
+	/**
+	 * Discovers language runtimes from a set of providers in parallel and
+	 * registers each one with the main thread.
+	 *
+	 * @param providers The set of providers to discover runtimes from
+	 */
+	private async discoverLanguageRuntimes(providers: Array<positron.LanguageRuntimeProvider>):
+		Promise<void> {
+
+		// The number of providers we're waiting on (initially all providers)
+		let count = providers.length;
+
+		// Utility promise
+		const never: Promise<never> = new Promise(() => { });
+
+		// Utility function to get the next runtime from a provider and amend an
+		// index. If the provider throws an error attempting to get the next
+		// provider, then the error is logged and the function signals that the
+		// provider is done.
+		const getNext = async (asyncGen: positron.LanguageRuntimeProvider, index: number) => {
+			try {
+				const result = await asyncGen.next();
+				return ({ index, result });
+			} catch (err) {
+				console.error(`Language runtime provider threw an error during registration: ` +
+					`${err}`);
+				return { index, result: { value: undefined, done: true } };
+			}
+		};
+
+		// Array mapping each provider to a promise for its next runtime
+		const nextPromises = providers.map(getNext);
+
+		try {
+			while (count) {
+				// Wait for the next runtime to be discovered from any provider
+				const { index, result } = await Promise.race(nextPromises);
+				if (result.done) {
+					// If the provider is done supplying runtimes, remove it
+					// from the list of providers we're waiting on
+					nextPromises[index] = never;
+					count--;
+				} else if (result.value !== undefined) {
+					// Otherwise, move on to the next runtime from the provider
+					// and register the runtime it returned
+					nextPromises[index] = getNext(providers[index], index);
+					try {
+						this.registerLanguageRuntime(result.value);
+					} catch (err) {
+						console.error(`Error registering language runtime ` +
+							`${result.value.metadata.runtimeName}: ${err}`);
+					}
+				}
+			}
+		} catch (err) {
+			console.error(`Halting language runtime registration: ${err}`);
+		} finally {
+			// Clean up any remaining promises
+			for (const [index, iterator] of providers.entries()) {
+				if (nextPromises[index] !== never && iterator.return !== null) {
+					void iterator.return(null);
+				}
+			}
+		}
+	}
+
 	public registerClientHandler(handler: positron.RuntimeClientHandler): IDisposable {
 		this._clientHandlers.push(handler);
 		return new Disposable(() => {
@@ -126,8 +249,26 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		});
 	}
 
-	public executeCode(languageId: string, code: string, focus: boolean): Promise<boolean> {
-		return this._proxy.$executeCode(languageId, code, focus);
+	public getRunningRuntimes(languageId: string): Promise<positron.LanguageRuntimeMetadata[]> {
+		return this._proxy.$getRunningRuntimes(languageId);
+	}
+
+	public registerLanguageRuntimeProvider(
+		languageId: string,
+		provider: positron.LanguageRuntimeProvider): void {
+		if (this._runtimeDiscoveryComplete) {
+			// We missed the discovery phase. Invoke the provider's async
+			// generator and register each runtime it returns right away.
+			void (async () => {
+				for await (const runtime of provider) {
+					this.registerLanguageRuntime(runtime);
+				}
+			})();
+		} else {
+			// We didn't miss it; either discovery is happening now or it hasn't started. Add
+			// the provider to the list of providers on which we need to perform discovery.
+			this._runtimeProviders.push(provider);
+		}
 	}
 
 	public registerLanguageRuntime(
@@ -177,6 +318,44 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		return new Disposable(() => {
 			this._proxy.$unregisterLanguageRuntime(handle);
 		});
+	}
+
+	public executeCode(languageId: string, code: string, focus: boolean): Promise<boolean> {
+		return this._proxy.$executeCode(languageId, code, focus);
+	}
+
+	/**
+	 * Selects and starts a language runtime.
+	 *
+	 * @param runtimeId The runtime ID to select and start.
+	 */
+	public selectLanguageRuntime(runtimeId: string): Promise<void> {
+		// Look for the runtime with the given ID
+		for (let i = 0; i < this._runtimes.length; i++) {
+			if (this._runtimes[i].metadata.runtimeId === runtimeId) {
+				return this._proxy.$selectLanguageRuntime(i);
+			}
+		}
+		return Promise.reject(
+			new Error(`Runtime with ID '${runtimeId}' must be registered before ` +
+				`it can be selected.`));
+	}
+
+	/**
+	 * Restarts a running language runtime.
+	 *
+	 * @param runtimeId The runtime ID to restart.
+	 */
+	public restartLanguageRuntime(runtimeId: string): Promise<void> {
+		// Look for the runtime with the given ID
+		for (let i = 0; i < this._runtimes.length; i++) {
+			if (this._runtimes[i].metadata.runtimeId === runtimeId) {
+				return this._proxy.$restartLanguageRuntime(i);
+			}
+		}
+		return Promise.reject(
+			new Error(`Runtime with ID '${runtimeId}' must be registered before ` +
+				`it can be restarted.`));
 	}
 
 	/**

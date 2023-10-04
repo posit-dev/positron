@@ -11,21 +11,36 @@
     "Programming Languages"
   ],
   "activationEvents": [
-    "onStartupFinished"
+    "*"
   ],
   "main": "./out/extension.js",
+  "capabilities": {
+    "untrustedWorkspaces": {
+      "supported": "limited",
+      "description": "%r.capabilities.untrustedWorkspaces.description%"
+    }
+  },
   "contributes": {
     "commands": [
-      {
-        "command": "r.setKernelPath",
-        "category": "R",
-        "title": "%r.command.setKernelPath.title%"
-      },
       {
         "command": "r.createNewFile",
         "category": "R",
         "title": "%r.command.createNewFile.title%",
         "shortTitle": "%r.menu.createNewFile.title%"
+      },
+      {
+        "command": "r.insertPipe",
+        "category": "R",
+        "title": "%r.command.insertPipe.title%",
+        "shortTitle": "%r.menu.insertPipe.title%",
+        "enablement": "editorLangId == r"
+      },
+      {
+        "command": "r.insertLeftAssignment",
+        "category": "R",
+        "title": "%r.command.insertLeftAssignment.title%",
+        "shortTitle": "%r.menu.insertLeftAssignment.title%",
+        "enablement": "editorLangId == r"
       },
       {
         "command": "r.packageLoad",
@@ -135,6 +150,25 @@
           },
           "default": [],
           "description": "%r.configuration.extraArguments.description%"
+        },
+        "positron.r.quietMode": {
+          "scope": "window",
+          "type": "boolean",
+          "default": false,
+          "description": "%r.configuration.quietMode.description%"
+        },
+        "positron.r.pipe": {
+          "type": "string",
+          "default": "%r.configuration.pipe.native.token%",
+          "enum": [
+            "%r.configuration.pipe.native.token%",
+            "%r.configuration.pipe.magrittr.token%"
+          ],
+          "enumDescriptions": [
+            "%r.configuration.pipe.native.description%",
+            "%r.configuration.pipe.magrittr.description%"
+          ],
+          "description": "%r.configuration.pipe%"
         }
       }
     },
@@ -150,7 +184,22 @@
           "R",
           "r"
         ],
-        "configuration": "./language-configuration.json"
+        "configuration": "./language-configuration/r-language-configuration.json"
+      },
+      {
+        "id": "debian-control-file",
+        "extensions": [
+          ".Rproj",
+          ".dcf"
+        ],
+        "aliases": [
+          "R DCF"
+        ],
+        "filenames": [
+          "DESCRIPTION",
+          ".lintr"
+        ],
+        "configuration": "./language-configuration/dcf-language-configuration.json"
       }
     ],
     "grammars": [
@@ -158,9 +207,29 @@
         "language": "r",
         "scopeName": "source.r",
         "path": "./syntaxes/r.tmGrammar.gen.json"
+      },
+      {
+        "language": "debian-control-file",
+        "scopeName": "source.dcf",
+        "path": "./syntaxes/dcf.tmLanguage.json",
+        "embeddedLanguages": {
+          "meta.embedded.block.r": "r"
+        }
       }
     ],
     "keybindings": [
+      {
+        "command": "r.insertPipe",
+        "key": "ctrl+shift+m",
+        "mac": "cmd+shift+m",
+        "when": "editorLangId == r"
+      },
+      {
+        "command": "r.insertLeftAssignment",
+        "key": "alt+-",
+        "mac": "alt+-",
+        "when": "editorLangId == r"
+      },
       {
         "command": "r.packageLoad",
         "key": "ctrl+shift+l",
@@ -168,7 +237,7 @@
         "when": "isRPackage"
       },
       {
-        "command": "r.packageBuild",
+        "command": "r.packageInstall",
         "key": "ctrl+shift+b",
         "mac": "cmd+shift+b",
         "when": "isRPackage"
@@ -205,6 +274,16 @@
           "command": "r.sourceCurrentFile",
           "icon": "$(play)",
           "title": "%r.command.sourceCurrentFile.title%",
+          "when": "editorLangId == r"
+        },
+        {
+          "category": "R",
+          "command": "r.insertPipe",
+          "when": "editorLangId == r"
+        },
+        {
+          "category": "R",
+          "command": "r.insertLeftAssignment",
           "when": "editorLangId == r"
         },
         {
@@ -252,11 +331,29 @@
           "when": "resourceLangId == r && !isInDiffEditor"
         }
       ]
-    }
+    },
+    "snippets": [
+      {
+        "language": "r",
+        "path": "./snippets/r.code-snippets"
+      }
+    ],
+    "taskDefinitions": [
+      {
+        "type": "rPackageTask",
+        "when": "isRPackage"
+      }
+    ],
+    "debuggers": [
+      {
+        "type": "ark",
+        "label": "R Debugger"
+      }
+    ]
   },
   "scripts": {
     "vscode:prepublish": "yarn run compile",
-    "compile-kernel": "ts-node scripts/compile-kernel.ts",
+    "install-kernel": "ts-node scripts/install-kernel.ts",
     "compile-syntax": "ts-node scripts/compile-syntax.ts",
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
@@ -291,5 +388,10 @@
   "repository": {
     "type": "git",
     "url": "https://github.com/posit-dev/amalthea"
+  },
+  "positron": {
+    "binaryDependencies": {
+      "ark": "0.1.11"
+    }
   }
 }

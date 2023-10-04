@@ -9,24 +9,26 @@ import { Event, Emitter } from 'vs/base/common/event';
 import { ILogService } from 'vs/platform/log/common/log';
 import { IModelService } from 'vs/editor/common/services/model';
 import { IOpenerService } from 'vs/platform/opener/common/opener';
-import { IViewDescriptorService } from 'vs/workbench/common/views';
+import { IViewDescriptorService, IViewsService } from 'vs/workbench/common/views';
 import { IThemeService } from 'vs/platform/theme/common/themeService';
 import { ILanguageService } from 'vs/editor/common/languages/language';
 import { ICommandService } from 'vs/platform/commands/common/commands';
+import { PositronConsoleFocused } from 'vs/workbench/common/contextkeys';
 import { ITelemetryService } from 'vs/platform/telemetry/common/telemetry';
-import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
 import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
 import { IContextMenuService } from 'vs/platform/contextview/browser/contextView';
 import { IClipboardService } from 'vs/platform/clipboard/common/clipboardService';
 import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import { ViewPane, IViewPaneOptions } from 'vs/workbench/browser/parts/views/viewPane';
+import { IContextKey, IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
 import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/layoutService';
 import { PositronConsole } from 'vs/workbench/contrib/positronConsole/browser/positronConsole';
 import { ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { IReactComponentContainer, ISize, PositronReactRenderer } from 'vs/base/browser/positronReactRenderer';
 import { IExecutionHistoryService } from 'vs/workbench/contrib/executionHistory/common/executionHistoryService';
 import { IPositronConsoleService } from 'vs/workbench/services/positronConsole/common/interfaces/positronConsoleService';
+import { IPositronPlotsService } from 'vs/workbench/services/positronPlots/common/positronPlots';
 
 /**
  * PositronConsoleViewPane class.
@@ -80,6 +82,11 @@ export class PositronConsoleViewPane extends ViewPane implements IReactComponent
 	 * Gets or sets the PositronReactRenderer for the PositronConsole component.
 	 */
 	private _positronReactRenderer: PositronReactRenderer | undefined;
+
+	/**
+	 * Gets or sets the PositronConsoleFocused context key.
+	 */
+	private _positronConsoleFocusedContextKey: IContextKey<boolean> | undefined;
 
 	//#endregion Private Properties
 
@@ -159,9 +166,11 @@ export class PositronConsoleViewPane extends ViewPane implements IReactComponent
 	 * @param modelService The model service.
 	 * @param openerService The opener service.
 	 * @param positronConsoleService The Positron console service.
+	 * @param positronPlotsService The Positron plots service.
 	 * @param telemetryService The telemetry service.
 	 * @param themeService The theme service.
 	 * @param viewDescriptorService The view descriptor service.
+	 * @param viewsService The views service.
 	 * @param workbenchLayoutService The workbench layout service.
 	 */
 	constructor(
@@ -180,9 +189,11 @@ export class PositronConsoleViewPane extends ViewPane implements IReactComponent
 		@IModelService private readonly modelService: IModelService,
 		@IOpenerService openerService: IOpenerService,
 		@IPositronConsoleService private readonly positronConsoleService: IPositronConsoleService,
+		@IPositronPlotsService private readonly positronPlotsService: IPositronPlotsService,
 		@ITelemetryService telemetryService: ITelemetryService,
 		@IThemeService themeService: IThemeService,
 		@IViewDescriptorService viewDescriptorService: IViewDescriptorService,
+		@IViewsService private readonly viewsService: IViewsService,
 		@IWorkbenchLayoutService private readonly workbenchLayoutService: IWorkbenchLayoutService
 	) {
 		super(
@@ -260,10 +271,32 @@ export class PositronConsoleViewPane extends ViewPane implements IReactComponent
 				logService={this.logService}
 				modelService={this.modelService}
 				positronConsoleService={this.positronConsoleService}
+				positronPlotsService={this.positronPlotsService}
+				viewsService={this.viewsService}
 				workbenchLayoutService={this.workbenchLayoutService}
 				reactComponentContainer={this}
 			/>
 		);
+
+		// Create the scoped context key service for the Positron console container.
+		const scopedContextKeyService = this._register(this.contextKeyService.createScoped(
+			this._positronConsoleContainer
+		));
+
+		// Create the PositronConsoleFocused context key.
+		this._positronConsoleFocusedContextKey = PositronConsoleFocused.bindTo(
+			scopedContextKeyService
+		);
+
+		// Create a focus tracker that updates the PositronConsoleFocused context key.
+		const focusTracker = DOM.trackFocus(this.element);
+		this._register(focusTracker);
+		this._register(focusTracker.onDidFocus(() =>
+			this._positronConsoleFocusedContextKey?.set(true)
+		));
+		this._register(focusTracker.onDidBlur(() =>
+			this._positronConsoleFocusedContextKey?.set(false)
+		));
 	}
 
 	/**

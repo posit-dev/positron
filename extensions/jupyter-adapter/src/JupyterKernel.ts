@@ -128,34 +128,6 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 			this.onStatusChange(status);
 		});
 
-		// Look for metadata about a running kernel in the current workspace by
-		// checking the value stored for this runtime ID (we support running
-		// exactly one kernel per runtime ID). If we find it, it's a
-		// JupyterSessionState object, which contains the connection
-		// information.
-		const state = this._context.workspaceState.get(this._runtimeId);
-		if (state) {
-			// We found session state for this kernel. Connect to it.
-			const sessionState = state as JupyterSessionState;
-
-			// Set the status to initializing so that we don't try to start a
-			// new kernel before we've tried to connect to the existing one.
-			this.setStatus(positron.RuntimeState.Initializing);
-
-			// Attempt to reconnect. If successful we'll set the new state during the reconnect
-			// process. If not, move the status back to Uninitialized.
-			this.reconnect(sessionState).catch((err) => {
-				this.log(`Failed to reconnect to running kernel: ${err}`);
-
-				// Return to the Uninitialized state so that a fresh instance can be started
-				this.setStatus(positron.RuntimeState.Uninitialized);
-
-				// Since we could not connect to the preserved state, remove it.
-				this.log(`Removing stale session state for process ${sessionState.processId}`);
-				this._context.workspaceState.update(this._runtimeId, undefined);
-			});
-		}
-
 		// Listen for terminals to close; if our own terminal closes, then we need
 		// to update our status
 		vscode.window.onDidCloseTerminal((closedTerminal) => {
@@ -487,6 +459,33 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 		// during bootup
 		this.setStatus(positron.RuntimeState.Initializing);
 
+		// Before starting a new process, look for metadata about a running
+		// kernel in the current workspace by checking the value stored for this
+		// runtime ID (we support running exactly one kernel per runtime ID). If
+		// we find it, it's a JupyterSessionState object, which contains the
+		// connection information.
+		const state = this._context.workspaceState.get(this._runtimeId);
+		if (state) {
+			// We found session state for this kernel. Connect to it.
+			const sessionState = state as JupyterSessionState;
+
+			try {
+				// Attempt to reconnect
+				await this.reconnect(sessionState);
+
+				// It was successful; no need to start a new process
+				return;
+
+			} catch (err) {
+				// It was not successful; we'll need to start a new process
+				this.log(`Failed to reconnect to running kernel: ${err}`);
+
+				// Since we could not connect to the preserved state, remove it.
+				this.log(`Removing stale session state for process ${sessionState.processId}`);
+				this._context.workspaceState.update(this._runtimeId, undefined);
+			}
+		}
+
 		// Create a new session; this allocates a connection file and log file
 		// and establishes available ports and sockets for the kernel to connect
 		// to.
@@ -544,18 +543,24 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 		// aid, but end users shouldn't see it in most cases.
 		const showTerminal = config.get('showTerminal', false);
 
-		const kernelWrapperPath = path.join(this._context.extensionPath,
-			'resources',
-			process.platform === 'win32' ?
-				'kernel-wrapper.bat' :
-				'kernel-wrapper.sh');
-		const logArg = [logFile];
+		// On Windows, temporarily just invoke the python process without
+		// a wrapper. TODO: Remove this temporary hack for windows once we can
+		// get a powershell wrapper working.
+		let shellPath, shellArgs;
+		if (os.platform() === 'win32') {
+			const argsCopy = [...args];
+			shellPath = argsCopy.shift();
+			shellArgs = argsCopy;
+		} else {
+			shellPath = path.join(this._context.extensionPath, 'resources', 'kernel-wrapper.sh');
+			shellArgs = [logFile].concat(args);
+		}
 
 		// Use the VS Code terminal API to create a terminal for the kernel
 		this._terminal = vscode.window.createTerminal(<vscode.TerminalOptions>{
 			name: this._spec.display_name,
-			shellPath: kernelWrapperPath,
-			shellArgs: logArg.concat(args),
+			shellPath: shellPath,
+			shellArgs: shellArgs,
 			env,
 			message: '',
 			hideFromUser: !showTerminal,
@@ -822,6 +827,43 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 			this.log(`WARN: Failed to find parent for input request ${id}; sending anyway: ${value}`);
 			this.send(uuidv4(), 'input_reply', this._stdin!, msg);
 		}
+	}
+
+	/**
+	 * Forcefully terminates the kernel process.
+	 */
+	public forceQuit(): Promise<void> {
+		// Perform the termination. This should result in all of the sockets
+		// getting disconnected (since the connection to the process is
+		// severed), which will result in the kernel entering the `Exited`
+		// state.
+		return new Promise((resolve, reject) => {
+			if (!this._session) {
+				reject(`No session found to quit.`);
+			}
+
+			// Guarantee that we will enter the Exited state within 1 second.
+			const timeout = setTimeout(() => {
+				this.log(`Timed out waiting for kernel to exit; marking as exited`);
+				this.setStatus(positron.RuntimeState.Exited);
+				resolve();
+			});
+
+			// Cancel the timeout if the kernel changes state all by itself before
+			// the timeout fires. (This should be the normal case.)
+			this.once('status', (status) => {
+				if (status === positron.RuntimeState.Exited) {
+					clearTimeout(timeout);
+					resolve();
+				} else {
+					this.log(`Kernel status changed to '${status}'; expected Exited`);
+					reject(`Kernel status changed '${status}'; expected Exited`);
+				}
+			});
+
+			this.log(`Forcefully terminating kernel process ${this._session!.state.processId}...`);
+			process.kill(this._session!.state.processId, 9);
+		});
 	}
 
 	/**
@@ -1183,6 +1225,13 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 			// starts up.
 			this._channel.appendLine(msg);
 		}
+	}
+
+	/**
+	 * Show kernel log in output panel.
+	 */
+	public showOutput() {
+		this._logChannel?.show();
 	}
 
 	/**

@@ -5,9 +5,7 @@
 import 'vs/css!./positronHelpView';
 import * as React from 'react';
 import * as DOM from 'vs/base/browser/dom';
-import * as uuid from 'vs/base/common/uuid';
 import { Event, Emitter } from 'vs/base/common/event';
-import { MarkdownString } from 'vs/base/common/htmlContent';
 import { IOpenerService } from 'vs/platform/opener/common/opener';
 import { IViewDescriptorService } from 'vs/workbench/common/views';
 import { IThemeService } from 'vs/platform/theme/common/themeService';
@@ -15,45 +13,20 @@ import { ICommandService } from 'vs/platform/commands/common/commands';
 import { ITelemetryService } from 'vs/platform/telemetry/common/telemetry';
 import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
 import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
+import { IHelpEntry } from 'vs/workbench/contrib/positronHelp/browser/helpEntry';
 import { IContextMenuService } from 'vs/platform/contextview/browser/contextView';
-import { ActionBars } from 'vs/workbench/contrib/positronHelp/browser/components/actionBars';
 import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import { ViewPane, IViewPaneOptions } from 'vs/workbench/browser/parts/views/viewPane';
-import { IPositronHelpService } from 'vs/workbench/services/positronHelp/common/positronHelp';
+import { ActionBars } from 'vs/workbench/contrib/positronHelp/browser/components/actionBars';
+import { IPositronHelpService } from 'vs/workbench/contrib/positronHelp/browser/positronHelpService';
 import { IReactComponentContainer, ISize, PositronReactRenderer } from 'vs/base/browser/positronReactRenderer';
-import { IWebviewElement, IWebviewService } from 'vs/workbench/contrib/webview/browser/webview';
-import { ExtensionIdentifier } from 'vs/platform/extensions/common/extensions';
 
 /**
- * PositronHelpCommand interface.
+ * PositronHelpView class.
  */
-interface PositronHelpCommand {
-	identifier: string;
-	command: string;
-	findText?: string;
-}
-
-/**
- * PositronHelpViewPane class.
- */
-export class PositronHelpViewPane extends ViewPane implements IReactComponentContainer {
+export class PositronHelpView extends ViewPane implements IReactComponentContainer {
 	//#region Private Properties
-
-	// The onSizeChanged emitter.
-	private _onSizeChangedEmitter = this._register(new Emitter<ISize>());
-
-	// The onVisibilityChanged event emitter.
-	private _onVisibilityChangedEmitter = this._register(new Emitter<boolean>());
-
-	// The onSaveScrollPosition emitter.
-	private _onSaveScrollPositionEmitter = this._register(new Emitter<void>());
-
-	// The onRestoreScrollPosition emitter.
-	private _onRestoreScrollPositionEmitter = this._register(new Emitter<void>());
-
-	// The onFocused emitter.
-	private _onFocusedEmitter = this._register(new Emitter<void>());
 
 	// The width. This value is set in layoutBody and is used to implement the
 	// IReactComponentContainer interface.
@@ -64,28 +37,46 @@ export class PositronHelpViewPane extends ViewPane implements IReactComponentCon
 	private _height = 0;
 
 	// The Positron help container - contains the entire Positron help UI.
-	private _positronHelpContainer: HTMLElement;
+	private positronHelpContainer: HTMLElement;
 
 	// The help action bars container - contains the PositronHelpActionBars component.
-	private _helpActionBarsContainer: HTMLElement;
+	private helpActionBarsContainer: HTMLElement;
 
-	// The PositronReactRenderer for the ActionBars component.
-	private _positronReactRendererActionBars?: PositronReactRenderer;
+	// The PositronReactRenderer for the PositronHelpActionBars component.
+	private positronReactRendererHelpActionBars?: PositronReactRenderer;
 
-	// The host for the Help webview.
-	private _helpViewContainer: HTMLElement;
+	// The container for the help webview.
+	private helpViewContainer: HTMLElement;
 
-	// The help iframe.
-	private _helpView: IWebviewElement | undefined;
+	/**
+	 * The onSizeChanged emitter.
+	 */
+	private onSizeChangedEmitter = this._register(new Emitter<ISize>());
 
-	// The last Positron help command that was sent to the help iframe.
-	private _lastPositronHelpCommand?: PositronHelpCommand;
+	/**
+	 * The onVisibilityChanged event emitter.
+	 */
+	private onVisibilityChangedEmitter = this._register(new Emitter<boolean>());
 
-	// Spot fix: The cached last help HTML.
-	private _lastHelpViewHtml: string | undefined;
+	/**
+	 * The onSaveScrollPosition emitter.
+	 */
+	private onSaveScrollPositionEmitter = this._register(new Emitter<void>());
 
-	// Spot fix: The first visibility flag.
-	private _firstVisibility = true;
+	/**
+	 * The onRestoreScrollPosition emitter.
+	 */
+	private onRestoreScrollPositionEmitter = this._register(new Emitter<void>());
+
+	/**
+	 * The onFocused emitter.
+	 */
+	private onFocusedEmitter = this._register(new Emitter<void>());
+
+	/**
+	 * The current help entry.
+	 */
+	private currentHelpEntry?: IHelpEntry;
 
 	//#endregion Private Properties
 
@@ -122,27 +113,27 @@ export class PositronHelpViewPane extends ViewPane implements IReactComponentCon
 	/**
 	 * The onSizeChanged event.
 	 */
-	readonly onSizeChanged: Event<ISize> = this._onSizeChangedEmitter.event;
+	readonly onSizeChanged: Event<ISize> = this.onSizeChangedEmitter.event;
 
 	/**
 	 * The onVisibilityChanged event.
 	 */
-	readonly onVisibilityChanged: Event<boolean> = this._onVisibilityChangedEmitter.event;
+	readonly onVisibilityChanged: Event<boolean> = this.onVisibilityChangedEmitter.event;
 
 	/**
 	 * The onSaveScrollPosition event.
 	 */
-	readonly onSaveScrollPosition: Event<void> = this._onSaveScrollPositionEmitter.event;
+	readonly onSaveScrollPosition: Event<void> = this.onSaveScrollPositionEmitter.event;
 
 	/**
 	 * The onRestoreScrollPosition event.
 	 */
-	readonly onRestoreScrollPosition: Event<void> = this._onRestoreScrollPositionEmitter.event;
+	readonly onRestoreScrollPosition: Event<void> = this.onRestoreScrollPositionEmitter.event;
 
 	/**
 	 * The onFocused event.
 	 */
-	readonly onFocused: Event<void> = this._onFocusedEmitter.event;
+	readonly onFocused: Event<void> = this.onFocusedEmitter.event;
 
 	//#endregion IReactComponentContainer
 
@@ -162,6 +153,7 @@ export class PositronHelpViewPane extends ViewPane implements IReactComponentCon
 	 * @param telemetryService The ITelemetryService.
 	 * @param themeService The IThemeService.
 	 * @param viewDescriptorService The IViewDescriptorService.
+	 * @param webviewService The IWebviewService.
 	 */
 	constructor(
 		options: IViewPaneOptions,
@@ -175,35 +167,51 @@ export class PositronHelpViewPane extends ViewPane implements IReactComponentCon
 		@IPositronHelpService private readonly positronHelpService: IPositronHelpService,
 		@ITelemetryService telemetryService: ITelemetryService,
 		@IThemeService themeService: IThemeService,
-		@IViewDescriptorService viewDescriptorService: IViewDescriptorService,
-		@IWebviewService private readonly webviewService: IWebviewService,
+		@IViewDescriptorService viewDescriptorService: IViewDescriptorService
 	) {
 		// Call the base class's constructor.
-		super(options, keybindingService, contextMenuService, configurationService, contextKeyService, viewDescriptorService, instantiationService, openerService, themeService, telemetryService);
+		super(
+			options,
+			keybindingService,
+			contextMenuService,
+			configurationService,
+			contextKeyService,
+			viewDescriptorService,
+			instantiationService,
+			openerService,
+			themeService,
+			telemetryService
+		);
 
 		// Create containers.
-		this._positronHelpContainer = DOM.$('.positron-help-container');
-		this._helpActionBarsContainer = DOM.$('.help-action-bars-container');
-		this._helpViewContainer = DOM.$('.positron-help-view-container');
-		this._helpViewContainer.style.width = '100%';
-		this._helpViewContainer.style.height = '100%';
+		this.positronHelpContainer = DOM.$('.positron-help-container');
+		this.helpActionBarsContainer = DOM.$('.help-action-bars-container');
+		this.helpViewContainer = DOM.$('.positron-help-view-container');
 
-		// Arrange our elements.
-		this._positronHelpContainer.appendChild(this._helpActionBarsContainer);
-		this._positronHelpContainer.appendChild(this._helpViewContainer);
+		// Append the help action bars container and help view container to the help container.
+		this.positronHelpContainer.appendChild(this.helpActionBarsContainer);
+		this.positronHelpContainer.appendChild(this.helpViewContainer);
 
-		this._register(this.positronHelpService.onRenderHelp(html => {
-			// Spot fix: Cache last help HTML.
-			this._lastHelpViewHtml = html;
-
-			// Set the help view HTML.
-			this._helpView?.setHtml(html);
+		// Register the onDidChangeCurrentHelpEntry event handler.
+		this._register(this.positronHelpService.onDidChangeCurrentHelpEntry(currentHelpEntry => {
+			// Update the current help entry.
+			this.updateCurrentHelpEntry(currentHelpEntry);
 		}));
 
 		// Register the onDidChangeBodyVisibility event handler.
 		this._register(this.onDidChangeBodyVisibility(visible => {
-			this.onDidChangeVisibility(visible);
-			this._onVisibilityChangedEmitter.fire(visible);
+			// If there is a current help entry, handle the visibility event by hiding or showing
+			// its help overlay webview.
+			if (this.currentHelpEntry) {
+				if (!visible) {
+					this.currentHelpEntry.hideHelpOverlayWebview(false);
+				} else {
+					this.currentHelpEntry.showHelpOverlayWebview(this.helpViewContainer);
+				}
+			}
+
+			// Fire the onVisibilityChanged event.
+			this.onVisibilityChangedEmitter.fire(visible);
 		}));
 	}
 
@@ -211,11 +219,8 @@ export class PositronHelpViewPane extends ViewPane implements IReactComponentCon
 	 * dispose override method.
 	 */
 	public override dispose(): void {
-		// Destroy the PositronReactRenderer for the ActionBars component.
-		if (this._positronReactRendererActionBars) {
-			this._positronReactRendererActionBars.destroy();
-			this._positronReactRendererActionBars = undefined;
-		}
+		// If there is a current help entry, hide its help overlay webview.
+		this.currentHelpEntry?.hideHelpOverlayWebview(false);
 
 		// Call the base class's dispose method.
 		super.dispose();
@@ -230,73 +235,36 @@ export class PositronHelpViewPane extends ViewPane implements IReactComponentCon
 	 * @param container The container HTMLElement.
 	 */
 	protected override renderBody(container: HTMLElement): void {
-
 		// Call the base class's method.
 		super.renderBody(container);
 
 		// Append the Positron help container.
-		container.appendChild(this._positronHelpContainer);
+		container.appendChild(this.positronHelpContainer);
 
 		// Home handler.
 		const homeHandler = () => {
-			// Test code for now to render some kind of help markdown.
-			this.positronHelpService.openHelpMarkdown(new MarkdownString(
-				`This is help text ${new Date().toTimeString()}.\n\nHere is some **bold text**.\n\nHere is a list:\n\n* One.\n* Two.\n* Three.\n\nThis is help text ${new Date().toTimeString()}.\n\nHere is some **bold text**.\n\nHere is a list:\n\n* One.\n* Two.\n* Three.\n\nThis is help text ${new Date().toTimeString()}.\n\nHere is some **bold text**.\n\nHere is a list:\n\n* One.\n* Two.\n* Three.\n\nThis is help text ${new Date().toTimeString()}.\n\nHere is some **bold text**.\n\nHere is a list:\n\n* One.\n* Two.\n* Three.\n\nThis is help text ${new Date().toTimeString()}.\n\nHere is some **bold text**.\n\nHere is a list:\n\n* One.\n* Two.\n* Three.\n\nThis is help text ${new Date().toTimeString()}.\n\nHere is some **bold text**.\n\nHere is a list:\n\n* One.\n* Two.\n* Three.\n\nThis is help text ${new Date().toTimeString()}.\n\nHere is some **bold text**.\n\nHere is a list:\n\n* One.\n* Two.\n* Three.\n\nThis is help text ${new Date().toTimeString()}.\n\nHere is some **bold text**.\n\nHere is a list:\n\n* One.\n* Two.\n* Three.\n\nThis is help text ${new Date().toTimeString()}.\n\nHere is some **bold text**.\n\nHere is a list:\n\n* One.\n* Two.\n* Three.\n\nThis is help text ${new Date().toTimeString()}.\n\nHere is some **bold text**.\n\nHere is a list:\n\n* One.\n* Two.\n* Three.\n\nThis is help text ${new Date().toTimeString()}.\n\nHere is some **bold text**.\n\nHere is a list:\n\n* One.\n* Two.\n* Three.\n\nThis is help text ${new Date().toTimeString()}.\n\nHere is some **bold text**.\n\nHere is a list:\n\n* One.\n* Two.\n* Three.\n\nThis is help text ${new Date().toTimeString()}.\n\nHere is some **bold text**.\n\nHere is a list:\n\n* One.\n* Two.\n* Three.\n\nThis is help text ${new Date().toTimeString()}.\n\nHere is some **bold text**.\n\nHere is a list:\n\n* One.\n* Two.\n* Three.\n\nThis is help text ${new Date().toTimeString()}.\n\nHere is some **bold text**.\n\nHere is a list:\n\n* One.\n* Two.\n* Three.\n\nThis is help text ${new Date().toTimeString()}.\n\nHere is some **bold text**.\n\nHere is a list:\n\n* One.\n* Two.\n* Three.\n\nThis is help text ${new Date().toTimeString()}.\n\nHere is some **bold text**.\n\nHere is a list:\n\n* One.\n* Two.\n* Three.\n\nThis is help text ${new Date().toTimeString()}.\n\nHere is some **bold text**.\n\nHere is a list:\n\n* One.\n* Two.\n* Three.\n\nThis is help text ${new Date().toTimeString()}.\n\nHere is some **bold text**.\n\nHere is a list:\n\n* One.\n* Two.\n* Three.\n\nThis is help text ${new Date().toTimeString()}.\n\nHere is some **bold text**.\n\nHere is a list:\n\n* One.\n* Two.\n* Three.\n\nThis is help text ${new Date().toTimeString()}.\n\nHere is some **bold text**.\n\nHere is a list:\n\n* One.\n* Two.\n* Three.\n\nThis is help text ${new Date().toTimeString()}.\n\nHere is some **bold text**.\n\nHere is a list:\n\n* One.\n* Two.\n* Three.\n\nThis is help text ${new Date().toTimeString()}.\n\nHere is some **bold text**.\n\nHere is a list:\n\n* One.\n* Two.\n* Three.\n\nThis is help text ${new Date().toTimeString()}.\n\nHere is some **bold text**.\n\nHere is a list:\n\n* One.\n* Two.\n* Three.\n\nThis is help text ${new Date().toTimeString()}.\n\nHere is some **bold text**.\n\nHere is a list:\n\n* One.\n* Two.\n* Three.\n\nThis is help text ${new Date().toTimeString()}.\n\nHere is some **bold text**.\n\nHere is a list:\n\n* One.\n* Two.\n* Three.\n\nThis is help text ${new Date().toTimeString()}.\n\nHere is some **bold text**.\n\nHere is a list:\n\n* One.\n* Two.\n* Three.\n\nThis is help text ${new Date().toTimeString()}.\n\nHere is some **bold text**.\n\nHere is a list:\n\n* One.\n* Two.\n* Three.\n\nThis is help text ${new Date().toTimeString()}.\n\nHere is some **bold text**.\n\nHere is a list:\n\n* One.\n* Two.\n* Three.\n\nThis is help text ${new Date().toTimeString()}.\n\nHere is some **bold text**.\n\nHere is a list:\n\n* One.\n* Two.\n* Three.\n\nThis is help text ${new Date().toTimeString()}.\n\nHere is some **bold text**.\n\nHere is a list:\n\n* One.\n* Two.\n* Three.\n\nThis is help text ${new Date().toTimeString()}.\n\nHere is some **bold text**.\n\nHere is a list:\n\n* One.\n* Two.\n* Three.\n\nThis is help text ${new Date().toTimeString()}.\n\nHere is some **bold text**.\n\nHere is a list:\n\n* One.\n* Two.\n* Three.\n\nThis is help text ${new Date().toTimeString()}.\n\nHere is some **bold text**.\n\nHere is a list:\n\n* One.\n* Two.\n* Three.\n\nThis is help text ${new Date().toTimeString()}.\n\nHere is some **bold text**.\n\nHere is a list:\n\n* One.\n* Two.\n* Three.\n\nThis is help text ${new Date().toTimeString()}.\n\nHere is some **bold text**.\n\nHere is a list:\n\n* One.\n* Two.\n* Three.\n\nThis is help text ${new Date().toTimeString()}.\n\nHere is some **bold text**.\n\nHere is a list:\n\n* One.\n* Two.\n* Three.\n\nThis is help text ${new Date().toTimeString()}.\n\nHere is some **bold text**.\n\nHere is a list:\n\n* One.\n* Two.\n* Three.\n\nThis is help text ${new Date().toTimeString()}.\n\nHere is some **bold text**.\n\nHere is a list:\n\n* One.\n* Two.\n* Three.\n\nThis is help text ${new Date().toTimeString()}.\n\nHere is some **bold text**.\n\nHere is a list:\n\n* One.\n* Two.\n* Three.\n\nThis is help text ${new Date().toTimeString()}.\n\nHere is some **bold text**.\n\nHere is a list:\n\n* One.\n* Two.\n* Three.\n\nThis is help text ${new Date().toTimeString()}.\n\nHere is some **bold text**.\n\nHere is a list:\n\n* One.\n* Two.\n* Three.\n\nThis is help text ${new Date().toTimeString()}.\n\nHere is some **bold text**.\n\nHere is a list:\n\n* One.\n* Two.\n* Three.\n\nThis is help text ${new Date().toTimeString()}.\n\nHere is some **bold text**.\n\nHere is a list:\n\n* One.\n* Two.\n* Three.\n\nThis is help text ${new Date().toTimeString()}.\n\nHere is some **bold text**.\n\nHere is a list:\n\n* One.\n* Two.\n* Three.\n\nThis is help text ${new Date().toTimeString()}.\n\nHere is some **bold text**.\n\nHere is a list:\n\n* One.\n* Two.\n* Three.\n\nThis is help text ${new Date().toTimeString()}.\n\nHere is some **bold text**.\n\nHere is a list:\n\n* One.\n* Two.\n* Three.\n\nThis is help text ${new Date().toTimeString()}.\n\nHere is some **bold text**.\n\nHere is a list:\n\n* One.\n* Two.\n* Three.\n\n***The Real End***\n\n`
-			));
 		};
 
-		// Find handler.
-		const findHandler = (findText: string) => {
-			this.postHelpIFrameMessage({ identifier: uuid.generateUuid(), command: 'find', findText });
-		};
-
-		// Find handler.
-		const checkFindResultsHandler = () => {
-
-			if (this._lastPositronHelpCommand) {
-				console.log('TODO');
-			}
-			// if (this._helpView?.contentWindow && this._lastPositronHelpCommand) {
-			// 	const result = this._helpView.contentWindow.sessionStorage.getItem(this._lastPositronHelpCommand.identifier);
-			// 	if (result) {
-			// 		return result === 'true';
-			// 	}
-			// }
-
-			// Result is not available.
-			return undefined;
-		};
-
-		// Find previous handler.
-		const findPrevious = () => {
-			this.postHelpIFrameMessage({ identifier: uuid.generateUuid(), command: 'find-previous' });
-		};
-
-		// Find next handler.
-		const findNext = () => {
-			this.postHelpIFrameMessage({ identifier: uuid.generateUuid(), command: 'find-next' });
-		};
+		// Create and register the PositronReactRenderer for the action bars.
+		this.positronReactRendererHelpActionBars = new PositronReactRenderer(this.helpActionBarsContainer);
+		this._register(this.positronReactRendererHelpActionBars);
 
 		// Render the ActionBars component.
-		this._positronReactRendererActionBars = new PositronReactRenderer(this._helpActionBarsContainer);
-		this._positronReactRendererActionBars.render(
+		this.positronReactRendererHelpActionBars.render(
 			<ActionBars
 				commandService={this.commandService}
 				configurationService={this.configurationService}
 				contextKeyService={this.contextKeyService}
 				contextMenuService={this.contextMenuService}
 				keybindingService={this.keybindingService}
+				positronHelpService={this.positronHelpService}
 				reactComponentContainer={this}
-				onPreviousTopic={() => console.log('Previous topic made it to the Positron help view.')}
-				onNextTopic={() => console.log('Next topic made it to the Positron help view.')}
 				onHome={homeHandler}
-				onFind={findHandler}
-				onCheckFindResults={checkFindResultsHandler}
-				onFindPrevious={findPrevious}
-				onFindNext={findNext}
-				onCancelFind={() => findHandler('')}
 			/>
 		);
+
+		// Update the current help entry.
+		this.updateCurrentHelpEntry(this.positronHelpService.currentHelpEntry);
 	}
 
 	/**
@@ -307,7 +275,7 @@ export class PositronHelpViewPane extends ViewPane implements IReactComponentCon
 		super.focus();
 
 		// Fire the onFocused event.
-		this._onFocusedEmitter.fire();
+		this.onFocusedEmitter.fire();
 	}
 
 	/**
@@ -320,10 +288,13 @@ export class PositronHelpViewPane extends ViewPane implements IReactComponentCon
 		super.layoutBody(height, width);
 
 		// Raise the onSizeChanged event.
-		this._onSizeChangedEmitter.fire({
+		this.onSizeChangedEmitter.fire({
 			width,
 			height
 		});
+
+		// If there is a current help entry, show its help overlay webview.
+		this.currentHelpEntry?.showHelpOverlayWebview(this.helpViewContainer);
 	}
 
 	//#endregion ViewPane Overrides
@@ -331,59 +302,14 @@ export class PositronHelpViewPane extends ViewPane implements IReactComponentCon
 	//#region Private Methods
 
 	/**
-	 * Posts a message to the help iframe.
-	 * @param positronHelpCommand The PositronHelpCommand to post.
+	 * Updates the current help entry.
+	 * @param currentHelpEntry The current help entry.
 	 */
-	private postHelpIFrameMessage(positronHelpCommand: PositronHelpCommand): void {
-		// Post the message to the help iframe.
-		this._helpView?.postMessage(positronHelpCommand);
-
-		// Save the command?
-		if (positronHelpCommand.command === 'find' && positronHelpCommand.findText) {
-			this._lastPositronHelpCommand = positronHelpCommand;
-		} else {
-			this._lastPositronHelpCommand = undefined;
-		}
-	}
-
-	private onDidChangeVisibility(visible: boolean): void {
-		// Warning: HACKS OF AN EGREGIOUS NATURE ARE BELOW.
-		if (visible) {
-			const createHelpView = () => {
-				if (this._helpView) {
-					return;
-				}
-
-				this._helpView = this.webviewService.createWebviewElement({
-					title: 'Positron Help',
-					extension: {
-						id: new ExtensionIdentifier('positron-help'),
-					},
-					options: {},
-					contentOptions: {
-						allowScripts: true,
-						localResourceRoots: [], // TODO: needed for positron-help.js
-					},
-				});
-
-				this._helpView.mountTo(this._helpViewContainer);
-
-				if (this._lastHelpViewHtml) {
-					this._helpView?.setHtml(this._lastHelpViewHtml);
-				}
-			};
-
-			if (this._firstVisibility) {
-				this._firstVisibility = false;
-				setTimeout(createHelpView, 500);
-			} else {
-				createHelpView();
-			}
-		} else {
-			if (this._helpView) {
-				this._helpView.dispose();
-				this._helpView = undefined;
-			}
+	private updateCurrentHelpEntry(currentHelpEntry?: IHelpEntry) {
+		if (this.currentHelpEntry !== currentHelpEntry) {
+			this.currentHelpEntry?.hideHelpOverlayWebview(true);
+			this.currentHelpEntry = currentHelpEntry;
+			this.currentHelpEntry?.showHelpOverlayWebview(this.helpViewContainer);
 		}
 	}
 

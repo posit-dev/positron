@@ -27,6 +27,8 @@ import { JupyterCommClose } from './JupyterCommClose';
 import { JupyterCommOpen } from './JupyterCommOpen';
 import { JupyterCommInfoRequest } from './JupyterCommInfoRequest';
 import { JupyterCommInfoReply } from './JupyterCommInfoReply';
+import { JupyterExecuteReply } from './JupyterExecuteReply';
+import { v4 as uuidv4 } from 'uuid';
 
 /**
  * LangaugeRuntimeAdapter wraps a JupyterKernel in a LanguageRuntime compatible interface.
@@ -40,6 +42,7 @@ export class LanguageRuntimeAdapter
 	private _kernelState: positron.RuntimeState = positron.RuntimeState.Uninitialized;
 	private _restarting = false;
 	private static _clientCounter = 0;
+	private _disposables: vscode.Disposable[] = [];
 
 	/** A map of message IDs that are awaiting responses to RPC handlers to invoke when a response is received */
 	private readonly _pendingRpcs: Map<string, JupyterRpc<any, any>> = new Map();
@@ -187,7 +190,18 @@ export class LanguageRuntimeAdapter
 		this._busyMessageIds.clear();
 		this._idleMessageIds.clear();
 
-		return this._kernel.interrupt();
+		const promise = this._kernel.interrupt();
+
+		// If we were Busy, send back a final Idle status once the kernel is successfully
+		// interrupted. We must do this since we cleared the busy message queue and won't be able to
+		// match a future Idle message against a preexisting Busy message anymore.
+		if (this._kernelState === positron.RuntimeState.Busy) {
+			promise.then(() => {
+				this.onStatus(positron.RuntimeState.Idle);
+			});
+		}
+
+		return promise;
 	}
 
 	/**
@@ -250,6 +264,13 @@ export class LanguageRuntimeAdapter
 		return this.shutdownKernel(false);
 	}
 
+	/**
+	 * Forcibly terminates the kernel.
+	 */
+	forceQuit(): Promise<void> {
+		return this._kernel.forceQuit();
+	}
+
 	private shutdownKernel(restart: boolean): Promise<void> {
 		// Ensure the kernel is in a running state before allowing the shutdown
 		if (this._kernelState !== positron.RuntimeState.Idle &&
@@ -263,6 +284,13 @@ export class LanguageRuntimeAdapter
 	}
 
 	/**
+	 * Show runtime log in output panel.
+	 */
+	public showOutput() {
+		this._kernel.showOutput();
+	}
+
+	/**
 	 * Creates a new client instance.
 	 *
 	 * @param id The client-supplied ID of the client to create
@@ -270,18 +298,26 @@ export class LanguageRuntimeAdapter
 	 * @param params The parameters for the client; the format of this object is
 	 *   specific to the client type
 	 */
-	public async createClient(id: string,
+	public async createClient(
+		id: string,
 		type: positron.RuntimeClientType,
-		params: object) {
+		params: object
+	) {
 
 		// Ensure the type of client we're being asked to create is one we know ark supports
 		if (type === positron.RuntimeClientType.Environment ||
 			type === positron.RuntimeClientType.Lsp ||
+			type === positron.RuntimeClientType.Dap ||
 			type === positron.RuntimeClientType.FrontEnd) {
 			this._kernel.log(`Creating '${type}' client for ${this.metadata.languageName}`);
 
+			// Does the comm wrap a server? In that case the
+			// promise should only resolve when the server is
+			// ready to accept connections
+			const server_comm = type === positron.RuntimeClientType.Lsp;
+
 			// Create a new client adapter to wrap the comm channel
-			const adapter = new RuntimeClientAdapter(id, type, params, this._kernel);
+			const adapter = new RuntimeClientAdapter(id, type, params, this._kernel, server_comm);
 
 			// Add the client to the map. Note that we have to do this before opening
 			// the instance, because we may need to process messages from the client
@@ -298,7 +334,12 @@ export class LanguageRuntimeAdapter
 			});
 
 			// Open the client (this will send the comm_open message; wait for it to complete)
-			await adapter.open();
+			try {
+				await adapter.open();
+			} catch (err) {
+				this._kernel.log(`Info: error while creating ${type} client for ${this.metadata.languageName}: ${err}`);
+				this.removeClient(id);
+			}
 		} else {
 			this._kernel.log(`Info: can't create ${type} client for ${this.metadata.languageName} (not supported)`);
 		}
@@ -403,16 +444,6 @@ export class LanguageRuntimeAdapter
 	onMessage(msg: JupyterMessagePacket) {
 		const message = msg.message;
 
-		// Check to see whether the payload has a 'status' field that's set to
-		// 'error'. If so, the message is an error result message; we'll send an
-		// error message to the client.
-		//
-		// @ts-ignore-next-line
-		if (message.status && message.status === 'error') {
-			this.onErrorResult(msg, message as JupyterErrorReply);
-			return;
-		}
-
 		// Is the message's parent ID in the set of pending RPCs and is the
 		// message the expected response type? (Note that a single Request type
 		// can generate multiple replies, only one of which is the Reply type)
@@ -430,8 +461,14 @@ export class LanguageRuntimeAdapter
 			case 'display_data':
 				this.onDisplayData(msg, message as JupyterDisplayData);
 				break;
+			case 'error':
+				this.onErrorResult(msg, message as JupyterErrorReply);
+				break;
 			case 'execute_result':
 				this.onExecuteResult(msg, message as JupyterExecuteResult);
+				break;
+			case 'execute_reply':
+				this.onExecuteReply(msg, message as JupyterExecuteReply);
 				break;
 			case 'execute_input':
 				this.onExecuteInput(msg, message as JupyterExecuteInput);
@@ -583,6 +620,18 @@ export class LanguageRuntimeAdapter
 	}
 
 	/**
+	 * Handles a Jupyter execute_reply message. Currently there is nothing to do as we don't
+	 * utilize the execution_count and any execution errors are instead handled by the IOPub 'error'
+	 * path.
+	 *
+	 * @param _message The message packet
+	 * @param _data The execute_reply message
+	 */
+	onExecuteReply(_message: JupyterMessagePacket, _data: JupyterExecuteReply) {
+
+	}
+
+	/**
 	 * Converts a Jupyter stream message to a LanguageRuntimeMessage and
 	 * emits it.
 	 *
@@ -712,7 +761,7 @@ export class LanguageRuntimeAdapter
 	 *
 	 * @param clientAddress The client's TCP address, e.g. '127.0.0.1:1234'
 	 */
-	startPositronLsp(clientAddress: string) {
+	async startPositronLsp(clientAddress: string) {
 		// TODO: Should we query the kernel to see if it can create an LSP
 		// (QueryInterface style) instead of just demanding it?
 		//
@@ -721,12 +770,95 @@ export class LanguageRuntimeAdapter
 
 		// Create a unique client ID for this instance
 		const uniqueId = Math.floor(Math.random() * 0x100000000).toString(16);
-		const clientId = `positron-lsp-${this.metadata.languageId}-${LanguageRuntimeAdapter._clientCounter++}-${uniqueId}}`;
+		const clientId = `positron-lsp-${this.metadata.languageId}-${LanguageRuntimeAdapter._clientCounter++}-${uniqueId}`;
 		this._kernel.log(`Starting LSP server ${clientId} for ${clientAddress}`);
 
-		this.createClient(clientId,
+		await this.createClient(
+			clientId,
 			positron.RuntimeClientType.Lsp,
-			{ client_address: clientAddress });
+			{ client_address: clientAddress }
+		);
+	}
+
+	/**
+	 * Requests that the kernel start a Debug Adapter Protocol server, and
+	 * connect it to the client locally on the given TCP port.
+	 *
+	 * @param serverPort The port on which to bind locally.
+	 * @param debugType Passed as `vscode.DebugConfiguration.type`.
+	 * @param debugName Passed as `vscode.DebugConfiguration.name`.
+	 */
+	async startPositronDap(
+		serverPort: number,
+		debugType: string,
+		debugName: string,
+	) {
+		// NOTE: Ideally we'd connect to any address but the
+		// `debugServer` property passed in the configuration below
+		// needs to be a port for localhost.
+		const serverAddress = `127.0.0.1:${serverPort}`;
+
+		// TODO: Should we query the kernel to see if it can create a DAP
+		// (QueryInterface style) instead of just demanding it?
+		//
+		// The Jupyter kernel spec does not provide a way to query for
+		// supported comms; the only way to know is to try to create one.
+
+		// Create a unique client ID for this instance
+		const uniqueId = Math.floor(Math.random() * 0x100000000).toString(16);
+		const clientId = `positron-dap-${this.metadata.languageId}-${LanguageRuntimeAdapter._clientCounter++}-${uniqueId}}`;
+		this._kernel.log(`Starting DAP server ${clientId} for ${serverAddress}`);
+
+		await this.createClient(
+			clientId,
+			positron.RuntimeClientType.Dap,
+			{ client_address: serverAddress }
+		);
+
+		// Handle events from the DAP
+		const comm = this._comms.get(clientId)!;
+		this._disposables.push(comm.onDidReceiveCommMsg(msg => {
+			switch (msg.msg_type) {
+				// The runtime is in control of when to start a debug session.
+				// When this happens, we attach automatically to the runtime
+				// with a synthetic configuration.
+				case 'start_debug': {
+					this._kernel.log(`Starting debug session for DAP server ${clientId}`);
+					const config = {
+						type: debugType,
+						name: debugName,
+						request: 'attach',
+						debugServer: serverPort,
+						internalConsoleOptions: 'neverOpen',
+					} as vscode.DebugConfiguration;
+					vscode.debug.startDebugging(undefined, config);
+					break;
+				}
+
+				// If the DAP has commands to execute, such as "n", "f", or "Q",
+				// it sends events to let us do it from here.
+				case 'execute': {
+					this.execute(
+						msg.content.command,
+						uuidv4(),
+						positron.RuntimeCodeExecutionMode.Interactive,
+						positron.RuntimeErrorBehavior.Stop
+					);
+					break;
+				}
+
+				// We use the restart button as a shortcut for restarting the runtime
+				case 'restart': {
+					this.restart();
+					break;
+				}
+
+				default: {
+					this._kernel.log(`Unknown DAP command: ${msg.msg_type}`);
+					break;
+				}
+			}
+		}));
 	}
 
 	/**
@@ -736,6 +868,10 @@ export class LanguageRuntimeAdapter
 		// Turn off all listeners
 		this._kernel.removeListener('message', this.onMessage);
 		this._kernel.removeListener('status', this.onStatus);
+
+		// Dispose this before the comms since there might be event listeners
+		// to dispose of first
+		this._disposables.forEach(d => d.dispose());
 
 		// Tear down all open comms
 		for (const comm of this._comms.values()) {

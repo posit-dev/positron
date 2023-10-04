@@ -5,21 +5,29 @@
 import { localize } from 'vs/nls';
 import { Codicon } from 'vs/base/common/codicons';
 import { ITextModel } from 'vs/editor/common/model';
+import { IRange } from 'vs/editor/common/core/range';
 import { IEditor } from 'vs/editor/common/editorCommon';
+import { ILogService } from 'vs/platform/log/common/log';
 import { KeyCode, KeyMod } from 'vs/base/common/keyCodes';
+import { Position } from 'vs/editor/common/core/position';
+import { IViewsService } from 'vs/workbench/common/views';
+import { CancellationToken } from 'vs/base/common/cancellation';
 import { ILocalizedString } from 'vs/platform/action/common/action';
+import { EditorContextKeys } from 'vs/editor/common/editorContextKeys';
 import { ILanguageService } from 'vs/editor/common/languages/language';
+import { ContextKeyExpr } from 'vs/platform/contextkey/common/contextkey';
 import { Action2, registerAction2 } from 'vs/platform/actions/common/actions';
 import { ServicesAccessor } from 'vs/platform/instantiation/common/instantiation';
 import { IEditorService } from 'vs/workbench/services/editor/common/editorService';
 import { KeybindingWeight } from 'vs/platform/keybinding/common/keybindingsRegistry';
+import { ILanguageFeaturesService } from 'vs/editor/common/services/languageFeatures';
 import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/layoutService';
 import { INotificationService, Severity } from 'vs/platform/notification/common/notification';
+import { PositronConsoleViewPane } from 'vs/workbench/contrib/positronConsole/browser/positronConsoleView';
 import { confirmationModalDialog } from 'vs/workbench/browser/positronModalDialogs/confirmationModalDialog';
 import { IExecutionHistoryService } from 'vs/workbench/contrib/executionHistory/common/executionHistoryService';
 import { IPositronConsoleService, POSITRON_CONSOLE_VIEW_ID } from 'vs/workbench/services/positronConsole/common/interfaces/positronConsoleService';
-import { IViewsService } from 'vs/workbench/common/views';
-import { PositronConsoleViewPane } from 'vs/workbench/contrib/positronConsole/browser/positronConsoleView';
+import { NOTEBOOK_EDITOR_FOCUSED } from 'vs/workbench/contrib/notebook/common/notebookContextKeys';
 
 /**
  * Positron console command ID's.
@@ -34,6 +42,13 @@ const enum PositronConsoleCommandId {
  * Positron console action category.
  */
 const POSITRON_CONSOLE_ACTION_CATEGORY = localize('positronConsoleCategory', "Console");
+
+/**
+ * trimNewLines helper.
+ * @param str The string to trim newlines for.
+ * @returns The string with newlines trimmed.
+ */
+const trimNewlines = (str: string) => str.replace(/^\n+|\n+$/g, '');
 
 /**
  * Registers Positron console actions.
@@ -183,12 +198,16 @@ export function registerPositronConsoleActions() {
 				},
 				f1: true,
 				category,
-				//icon: Codicon.?,
+				precondition: ContextKeyExpr.and(
+					EditorContextKeys.editorTextFocus,
+					NOTEBOOK_EDITOR_FOCUSED.toNegated()
+				),
 				keybinding: {
 					weight: KeybindingWeight.WorkbenchContrib,
 					primary: KeyMod.CtrlCmd | KeyCode.Enter,
-					win: {
-						primary: KeyMod.WinCtrl | KeyCode.Enter
+					mac: {
+						primary: KeyMod.CtrlCmd | KeyCode.Enter,
+						secondary: [KeyMod.WinCtrl | KeyCode.Enter]
 					}
 				},
 				description: {
@@ -209,6 +228,8 @@ export function registerPositronConsoleActions() {
 			const notificationService = accessor.get(INotificationService);
 			const positronConsoleService = accessor.get(IPositronConsoleService);
 			const viewsService = accessor.get(IViewsService);
+			const languageFeaturesService = accessor.get(ILanguageFeaturesService);
+			const logService = accessor.get(ILogService);
 
 			// The code to execute.
 			let code = '';
@@ -221,81 +242,208 @@ export function registerPositronConsoleActions() {
 
 			// Get the code to execute.
 			const selection = editor.getSelection();
-			const position = editor.getPosition();
 			const model = editor.getModel() as ITextModel;
-			let lineNumber = position?.lineNumber ?? 0;
-			if (selection) {
-				// If there is an active selection, use the contents of the selection to drive
-				// execution.
+
+			// If we have a selection and it isn't empty, then we use its contents (even if it
+			// only contains whitespace or comments) and also retain the user's selection location.
+			if (selection && !selection.isEmpty()) {
 				code = model.getValueInRange(selection);
-				lineNumber = selection.endLineNumber;
+				// HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK
+				// This attempts to address https://github.com/posit-dev/positron/issues/1177
+				// by tacking a newline onto multiline, indented Python code fragments. This allows
+				// such code fragments to be complete.
+				if (editorService.activeTextEditorLanguageId === 'python') {
+					const lines = code.split('\n');
+					if (lines.length > 1 && /^[ \t]/.test(lines[lines.length - 1])) {
+						code += '\n';
+					}
+				}
+				// HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK
+			}
+
+			// Get the position of the cursor. If we don't have a selection, we'll use this to
+			// determine the code to execute.
+			const position = editor.getPosition();
+			if (!position) {
+				return;
+			}
+
+			// Get all the statement range providers for the active document.
+			const statementRangeProviders =
+				languageFeaturesService.statementRangeProvider.all(model);
+
+			// If the user doesn't have an explicit selection, consult a statement range provider,
+			// which can be used to get the code to execute.
+			if (code.length === 0 && statementRangeProviders.length > 0) {
+
+				let statementRange: IRange | null | undefined = undefined;
+				try {
+					// Just consult the first statement range provider if several are registered
+					statementRange = await statementRangeProviders[0].provideStatementRange(
+						model,
+						position,
+						CancellationToken.None);
+				} catch (err) {
+					// If the statement range provider throws an exception, log it and continue
+					logService.warn(`Failed to get statement range at ${position}: ${err}`);
+				}
+
+				if (statementRange) {
+					// If a statement was found, get the code to execute.
+					code = model.getValueInRange(statementRange);
+
+					if (code.length > 0) {
+						// If code was returned, move the cursor to the next
+						// statement by creating a position on the line
+						// following the statement and then invoking the
+						// statement range provider again to find the appropriate
+						// boundary of the next statement.
+						let newPosition = new Position(
+							statementRange.endLineNumber + 1,
+							1
+						);
+						if (newPosition.lineNumber > model.getLineCount()) {
+							// If the new position is past the end of the
+							// document, add a newline to the end of the
+							// document, unless it already ends with an empty
+							// line, then move to that empty line at the end.
+							if (model.getLineContent(model.getLineCount()).trim().length > 0) {
+								// The document doesn't end with an empty line; add one
+								this.amendNewlineToEnd(model);
+							}
+							newPosition = new Position(
+								model.getLineCount(),
+								1
+							);
+							editor.setPosition(newPosition);
+							editor.revealPositionInCenterIfOutsideViewport(newPosition);
+						} else {
+							// Invoke the statement range provider again to
+							// find the appropriate boundary of the next statement.
+
+							let nextStatement: IRange | null | undefined = undefined;
+							try {
+								nextStatement = await statementRangeProviders[0].provideStatementRange(
+									model,
+									newPosition,
+									CancellationToken.None);
+							} catch (err) {
+								logService.warn(`Failed to get statement range for next statement ` +
+									`at position ${newPosition}: ${err}`);
+							}
+
+							if (nextStatement) {
+								// If we found the next statement, determine exactly where to move
+								// the cursor to, maintaining the invariant that we should always
+								// step further down the page, never up, as this is too "jumpy".
+								// If for some reason the next statement doesn't meet this
+								// invariant, we don't use it and instead use the default
+								// `newPosition`.
+								if (nextStatement.startLineNumber > statementRange.endLineNumber) {
+									// If the next statement's start is after this statement's end,
+									// then move to the start of the next statement.
+									newPosition = new Position(
+										nextStatement.startLineNumber,
+										nextStatement.startColumn
+									);
+								} else if (nextStatement.endLineNumber > statementRange.endLineNumber) {
+									// If the above condition failed, but the next statement's end
+									// is after this statement's end, assume we are exiting some
+									// nested scope (like running an individual line of an R
+									// function) and move to the end of the next statement.
+									newPosition = new Position(
+										nextStatement.endLineNumber,
+										nextStatement.endColumn
+									);
+								}
+							}
+							editor.setPosition(newPosition);
+							editor.revealPositionInCenterIfOutsideViewport(newPosition);
+						}
+					} else {
+						// The statement range provider returned a range that
+						// didn't contain any code. This is okay; we'll fall
+						// back to line-based execution below.
+					}
+				} else {
+					// The statement range provider didn't return a range. This
+					// is okay; we'll fall back to line-based execution below.
+				}
 			}
 
 			// If no selection (or empty selection) was found, use the contents
 			// of the line containing the cursor position.
-			//
-			// TODO: This would benefit from a "Run Current Statement"
-			// behavior, but that requires deep knowledge of the
-			// language's grammar. Is this something we can fit into the
-			// LSP model or build into the language pack extensibility
-			// point?
-			if (!code.length && lineNumber > 0) {
-				// Find the first non-empty line after the cursor position and read the
-				// contents of that line.
-				do {
-					code = this.trimNewlines(model.getLineContent(lineNumber));
-				} while (!code.length && ++lineNumber < model.getLineCount());
-			}
+			if (code.length === 0) {
+				const position = editor.getPosition();
+				let lineNumber = position?.lineNumber ?? 0;
 
-			// If we have code and a position and we're not at the end of the
-			// document, move the cursor to the next line with code on it.
-			if (code.length && position && ++lineNumber <= model.getLineCount()) {
-				// Continue to move past empty lines so that the cursor lands on
-				// the first non-empty line
-				let nextLineNumber = lineNumber;
-				while (this.trimNewlines(model.getLineContent(nextLineNumber)).length === 0 &&
-					nextLineNumber < model.getLineCount()) {
-					nextLineNumber++;
+				if (!code.length && lineNumber > 0) {
+					// Find the first non-empty line after the cursor position and read the
+					// contents of that line.
+					for (let number = lineNumber; number <= model.getLineCount(); ++number) {
+						code = trimNewlines(model.getLineContent(number));
+
+						if (code.length > 0) {
+							lineNumber = number;
+							break;
+						}
+					}
 				}
 
-				if (nextLineNumber < model.getLineCount()) {
-					// If we found a non-empty line, move the cursor to it.
-					lineNumber = nextLineNumber;
-				} else {
-					// If we didn't, just move the cursor to the line after the
-					// one we executed, even if it's empty.
-					lineNumber = position.lineNumber + 1;
+				// If we have code and a position move the cursor to the next line with code on it,
+				// or just to the next line if all additional lines are blank.
+				if (code.length && position) {
+					// HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK
+					// This attempts to address https://github.com/posit-dev/positron/issues/1177
+					// by tacking a newline onto indented Python code fragments that end at an empty
+					// line. This allows such code fragments to be complete.
+					if (editorService.activeTextEditorLanguageId === 'python' &&
+						/^[ \t]/.test(code) &&
+						lineNumber + 1 <= model.getLineCount() &&
+						model.getLineContent(lineNumber + 1) === '') {
+						code += '\n';
+					}
+					// HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK
+
+					let onlyEmptyLines = true;
+
+					for (let number = lineNumber + 1; number <= model.getLineCount(); ++number) {
+						if (trimNewlines(model.getLineContent(number)).length !== 0) {
+							// We found a non-empty line, move the cursor to it.
+							onlyEmptyLines = false;
+							lineNumber = number;
+							break;
+						}
+					}
+
+					if (onlyEmptyLines) {
+						// At a minimum, we always move the cursor 1 line past the code we executed
+						// so the user can keep typing
+						++lineNumber;
+
+						if (lineNumber === model.getLineCount() + 1) {
+							// If this puts us past the end of the document, insert a newline for us
+							// to move to
+							this.amendNewlineToEnd(model);
+						}
+					}
+
+					const newPosition = position.with(lineNumber, 0);
+					editor.setPosition(newPosition);
+					editor.revealPositionInCenterIfOutsideViewport(newPosition);
 				}
 
-				// This is the cursor's new position; move the cursor and scroll
-				// the editor to it if necessary.
-				const newPosition = position.with(lineNumber, 0);
-				editor.setPosition(newPosition);
-				editor.revealPositionInCenterIfOutsideViewport(newPosition);
-			}
+				if (!code.length && position && lineNumber === model.getLineCount()) {
+					// If we still don't have code and we are at the end of the document, add a
+					// newline to the end of the document.
+					this.amendNewlineToEnd(model);
 
-			// If we're at the very end of the document, insert a newline so that
-			// the user can continue typing.
-			if (position?.lineNumber === model.getLineCount()) {
-				// Create an edit operation that will append a new line to the end
-				// of the document.
-				const editOperation = {
-					range: {
-						startLineNumber: model.getLineCount(),
-						startColumn: model.getLineMaxColumn(model.getLineCount()),
-						endLineNumber: model.getLineCount(),
-						endColumn: model.getLineMaxColumn(model.getLineCount())
-					},
-					text: '\n'
-				};
-				model.pushEditOperations([], [editOperation], () => []);
-
-				// If we didn't actually execute any code, move the cursor back
-				// up a line so that we don't wind up adding a bunch of empty
-				// lines to the end of the document if the command is run
-				// multiple times.
-				if (!code.length) {
-					editor.setPosition(position.with(position.lineNumber, position.column));
+					// We don't move to that new line to avoid adding a bunch of empty
+					// lines to the end. The edit operation typically moves us to the new line,
+					// so we have to undo that.
+					const newPosition = new Position(lineNumber, 1);
+					editor.setPosition(newPosition);
+					editor.revealPositionInCenterIfOutsideViewport(newPosition);
 				}
 			}
 
@@ -314,7 +462,7 @@ export function registerPositronConsoleActions() {
 			await viewsService.openView<PositronConsoleViewPane>(POSITRON_CONSOLE_VIEW_ID, false);
 
 			// Ask the Positron console service to execute the code.
-			if (!positronConsoleService.executeCode(languageId, code, true)) {
+			if (!await positronConsoleService.executeCode(languageId, code, true)) {
 				const languageName = languageService.getLanguageName(languageId);
 				notificationService.notify({
 					severity: Severity.Info,
@@ -324,8 +472,22 @@ export function registerPositronConsoleActions() {
 			}
 		}
 
-		trimNewlines(str: string): string {
-			return str.replace(/^\n+/, '').replace(/\n+$/, '');
+		amendNewlineToEnd(model: ITextModel) {
+			// Typically we don't do anything when we don't have code to execute,
+			// but when we are at the end of a document we add a new line.
+			// This edit operation also moves the cursor to the new line if the cursor
+			// was already at the end of the document. This may or may not be desirable
+			// depending on the context.
+			const editOperation = {
+				range: {
+					startLineNumber: model.getLineCount(),
+					startColumn: model.getLineMaxColumn(model.getLineCount()),
+					endLineNumber: model.getLineCount(),
+					endColumn: model.getLineMaxColumn(model.getLineCount())
+				},
+				text: '\n'
+			};
+			model.pushEditOperations([], [editOperation], () => []);
 		}
 	});
 }

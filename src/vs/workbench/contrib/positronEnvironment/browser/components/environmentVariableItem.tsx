@@ -68,7 +68,7 @@ const formatSize = (size: number) => {
 export interface EnvironmentVariableItemProps {
 	nameColumnWidth: number;
 	detailsColumnWidth: number;
-	typeSizeVisible: boolean;
+	rightColumnVisible: boolean;
 	environmentVariableItem: IEnvironmentVariableItem;
 	selected: boolean;
 	focused: boolean;
@@ -152,7 +152,22 @@ export const EnvironmentVariableItem = (props: EnvironmentVariableItemProps) => 
 	};
 
 	/**
+	 * MouseDown handler for the viewer icon.
+	 * @param e A MouseEvent<HTMLElement> that describes a user interaction with the mouse.
+	 */
+	const viewerMouseDownHandler = (e: MouseEvent<HTMLElement>) => {
+		// Consume the event.
+		e.preventDefault();
+		e.stopPropagation();
+
+		// Launch the viewer.
+		props.environmentVariableItem.view();
+	};
+
+	/**
 	 * Shows the context menu.
+	 * @param x The x coordinate.
+	 * @param y The y coordinate.
 	 */
 	const showContextMenu = (x: number, y: number) => {
 		// Build the actions.
@@ -172,6 +187,12 @@ export const EnvironmentVariableItem = (props: EnvironmentVariableItemProps) => 
 
 		// If the environment variable has children, add the toggle expand / collapse action.
 		if (props.environmentVariableItem.hasChildren) {
+			// Push a separator, if there are actions above this action.
+			if (actions.length) {
+				actions.push(new Separator());
+			}
+
+			// Push the expand or collapse action.
 			if (props.environmentVariableItem.expanded) {
 				actions.push({
 					id: POSITRON_ENVIRONMENT_COLLAPSE,
@@ -257,6 +278,36 @@ export const EnvironmentVariableItem = (props: EnvironmentVariableItemProps) => 
 		}
 	);
 
+	/**
+	 * RightColumn component.
+	 * @returns The rendered component.
+	 */
+	const RightColumn = () => {
+		if (props.environmentVariableItem.hasViewer) {
+			return (
+				<div className='right-column'>
+					<div className='viewer-icon codicon codicon-table' onMouseDown={viewerMouseDownHandler}></div>
+				</div>
+			);
+		} else if (props.rightColumnVisible) {
+			if (props.positronEnvironmentInstance.sorting === PositronEnvironmentSorting.Name) {
+				return (
+					<div className='right-column'>
+						<span>{props.environmentVariableItem.displayType}</span>
+					</div>
+				);
+			} else {
+				return (
+					<div className='right-column'>
+						<span>{formatSize(props.environmentVariableItem.size)}</span>
+					</div>
+				);
+			}
+		} else {
+			return null;
+		}
+	};
+
 	// Render.
 	return (
 		<div className={classNames} onMouseDown={mouseDownHandler} style={props.style}>
@@ -269,7 +320,6 @@ export const EnvironmentVariableItem = (props: EnvironmentVariableItemProps) => 
 									<div className={`expand-collapse-icon codicon codicon-chevron-down`} /> :
 									<div className={`expand-collapse-icon codicon codicon-chevron-right`} />
 							)}
-
 						</div>
 					</div>
 					<div className='name-value'>
@@ -285,13 +335,7 @@ export const EnvironmentVariableItem = (props: EnvironmentVariableItemProps) => 
 				<div className='value'>
 					{props.environmentVariableItem.displayValue}
 				</div>
-				{props.typeSizeVisible && (
-					<div className='type-size'>
-						{props.positronEnvironmentInstance.sorting === PositronEnvironmentSorting.Name ?
-							props.environmentVariableItem.displayType :
-							formatSize(props.environmentVariableItem.size)}
-					</div>
-				)}
+				<RightColumn />
 			</div>
 		</div>
 	);

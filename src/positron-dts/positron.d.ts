@@ -273,8 +273,17 @@ declare module 'positron' {
 		/** A unique identifier for this runtime; takes the form of a GUID */
 		runtimeId: string;
 
-		/** The name of the runtime displayed to the user; e.g. "R 4.2 (64-bit)" */
+		/**
+		 * The fully qualified name of the runtime displayed to the user; e.g. "R 4.2 (64-bit)".
+		 * Should be unique across languages.
+		 */
 		runtimeName: string;
+
+		/**
+		 * A language specific runtime name displayed to the user; e.g. "4.2 (64-bit)".
+		 * Should be unique within a single language.
+		 */
+		runtimeShortName: string;
 
 		/** The version of the runtime itself (e.g. kernel or extension version) as a string; e.g. "0.1" */
 		runtimeVersion: string;
@@ -312,7 +321,7 @@ declare module 'positron' {
 	/**
 	 * LanguageRuntimeDynState contains information about a language runtime that may
 	 * change after a runtime has started.
- 	 */
+	 */
 	export interface LanguageRuntimeDynState {
 		/** The text the language's interpreter uses to prompt the user for input, e.g. ">" or ">>>" */
 		inputPrompt: string;
@@ -322,10 +331,21 @@ declare module 'positron' {
 	}
 
 	export enum LanguageRuntimeStartupBehavior {
-		/** The runtime should start automatically; usually used for runtimes that provide LSPs */
+		/**
+		 * The runtime should be started immediately after registration; usually used for runtimes
+		 * that are affiliated with the current workspace.
+		 */
+		Immediate = 'immediate',
+
+		/**
+		 * The runtime should start automatically; usually used for runtimes that provide LSPs
+		 */
 		Implicit = 'implicit',
 
-		/** The runtime should start when the user explicitly requests it; usually used for runtimes that only provide REPLs */
+		/**
+		 * The runtime should start when the user explicitly requests it;
+		 * usually used for runtimes that only provide REPLs
+		 */
 		Explicit = 'explicit',
 	}
 
@@ -338,6 +358,7 @@ declare module 'positron' {
 	export enum RuntimeClientType {
 		Environment = 'positron.environment',
 		Lsp = 'positron.lsp',
+		Dap = 'positron.dap',
 		Plot = 'positron.plot',
 		DataViewer = 'positron.dataViewer',
 		FrontEnd = 'positron.frontEnd',
@@ -403,6 +424,8 @@ declare module 'positron' {
 		size: number;
 	}
 
+	export type LanguageRuntimeProvider = AsyncGenerator<LanguageRuntime>;
+
 	/**
 	 * LanguageRuntime is an interface implemented by extensions that provide a
 	 * set of common tools for interacting with a language runtime, such as code
@@ -412,6 +435,7 @@ declare module 'positron' {
 		/** An object supplying metadata about the runtime */
 		readonly metadata: LanguageRuntimeMetadata;
 
+		/** The state of the runtime that changes during a user session */
 		dynState: LanguageRuntimeDynState;
 
 		/** An object that emits language runtime events */
@@ -485,10 +509,24 @@ declare module 'positron' {
 		restart(): Thenable<void>;
 
 		/**
-		 * Shut down the runtime; returns a Thenable that resolves when the runtime shutdown
-		 * sequence has been successfully started (not necessarily when it has completed).
+		 * Shut down the runtime; returns a Thenable that resolves when the
+		 * runtime shutdown sequence has been successfully started (not
+		 * necessarily when it has completed).
 		 */
 		shutdown(): Thenable<void>;
+
+		/**
+		 * Forcibly quits the runtime; returns a Thenable that resolves when the
+		 * runtime has been terminated. This may be called by Positron if the
+		 * runtime fails to respond to an interrupt and/or shutdown call, and
+		 * should forcibly terminate any underlying processes.
+		 */
+		forceQuit(): Thenable<void>;
+
+		/**
+		 * Show runtime log in output panel.
+		 */
+		showOutput?(): void;
 	}
 
 
@@ -647,6 +685,35 @@ declare module 'positron' {
 		readonly previewPanel: PreviewPanel;
 	}
 
+	export interface StatementRangeProvider {
+		/**
+		 * Given a cursor position, return the range of the statement that the
+		 * cursor is within. If the cursor is not within a statement, return the
+		 * range of the next statement, if one exists.
+		 *
+		 * @param document The document in which the command was invoked.
+		 * @param position The position at which the command was invoked.
+		 * @param token A cancellation token.
+		 * @return The range of the statement at the given position.
+		 */
+		provideStatementRange(document: vscode.TextDocument,
+			position: vscode.Position,
+			token: vscode.CancellationToken): vscode.ProviderResult<vscode.Range>;
+	}
+
+	namespace languages {
+		/**
+		 * Register a statement range provider.
+		 *
+		 * @param selector A selector that defines the documents this provider is applicable to.
+		 * @param provider A statement range provider.
+		 * @return A {@link Disposable} that unregisters this provider when being disposed.
+		 */
+		export function registerStatementRangeProvider(
+			selector: vscode.DocumentSelector,
+			provider: StatementRangeProvider): vscode.Disposable;
+	}
+
 	namespace window {
 		/**
 		 * Create and show a new preview panel.
@@ -677,11 +744,42 @@ declare module 'positron' {
 			focus: boolean): Thenable<boolean>;
 
 		/**
-		 * Register a language runtime with Positron.
+		 * Register a language runtime provider with Positron.
+		 *
+		 * @param languageId The language ID for which runtimes will be supplied
+		 * @param provider A function that returns an AsyncIterable of runtime registrations
+		 */
+		export function registerLanguageRuntimeProvider(languageId: string,
+			provider: LanguageRuntimeProvider): void;
+
+		/**
+		 * Register a single language runtime with Positron.
 		 *
 		 * @param runtime The language runtime to register
 		 */
 		export function registerLanguageRuntime(runtime: LanguageRuntime): vscode.Disposable;
+
+		/**
+		 * List the running runtimes for a given language.
+		 *
+		 * @param languageId The language ID for running runtimes
+		 */
+		export function getRunningRuntimes(languageId: string): Thenable<LanguageRuntimeMetadata[]>;
+
+		/**
+		 * Select and start a runtime previously registered with Positron. Any
+		 * previously active runtimes for the language will be shut down.
+		 *
+		 * @param runtimeId The ID of the runtime to select and start.
+		 */
+		export function selectLanguageRuntime(runtimeId: string): Thenable<void>;
+
+		/**
+		 * Restart a running runtime.
+		 *
+		 * @param runtimeId The ID of the running runtime to restart.
+		 */
+		export function restartLanguageRuntime(runtimeId: string): Thenable<void>;
 
 		/**
 		 * Register a handler for runtime client instances. This handler will be called

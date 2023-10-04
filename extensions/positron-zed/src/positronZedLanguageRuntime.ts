@@ -2,18 +2,16 @@
  *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
+import * as fs from 'fs';
+import * as path from 'path';
 import * as vscode from 'vscode';
 import { randomUUID } from 'crypto';
 import * as positron from 'positron';
-import { makeCUB, makeCUF, makeCUP, makeED, makeEL, makeSGR, SGR } from './ansi';
-import * as ansi from 'ansi-escape-sequences';
-import { resolve } from 'path';
-import { ZedEnvironment } from './positronZedEnvironment';
-import path = require('path');
-import fs = require('fs');
 import { ZedPlot } from './positronZedPlot';
 import { ZedData } from './positronZedData';
 import { ZedPreview } from './positronZedPreview';
+import { ZedEnvironment } from './positronZedEnvironment';
+import { makeCUB, makeCUF, makeCUP, makeED, makeEL, makeSGR, SGR } from './ansi';
 
 /**
  * Constants.
@@ -61,6 +59,7 @@ const HelpLines = [
 	'exec X Y       - Executes a code snippet Y in the language X',
 	'flicker        - Simulates a flickering console prompt',
 	'help           - Shows this help',
+	'html           - Simulates HTML output',
 	'offline        - Simulates going offline for two seconds',
 	'plot X         - Renders a dynamic (auto-sizing) plot of the letter X',
 	'preview        - Opens or gets the status of a preview pane',
@@ -181,13 +180,17 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 		// Create the icon SVG path.
 		const iconSvgPath = path.join(this.context.extensionPath, 'resources', 'zed-icon.svg');
 
+		const runtimeShortName = version;
+		const runtimeName = `Zed ${runtimeShortName}`;
+
 		// Set the metadata for Zed.
 		this.metadata = {
 			runtimePath: '/zed',
 			runtimeId,
 			languageId: 'zed',
 			languageName: 'Zed',
-			runtimeName: 'Zed',
+			runtimeName,
+			runtimeShortName,
 			runtimeSource: 'Test',
 			languageVersion: version,
 			base64EncodedIconSvg: fs.readFileSync(iconSvgPath).toString('base64'),
@@ -205,7 +208,6 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 			this._state = state;
 		});
 	}
-
 	//#endregion Constructor
 
 	//#region LanguageRuntime Implementation
@@ -788,6 +790,11 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 				break;
 			}
 
+			case 'html': {
+				this.simulateHtmlOutput(id, code);
+				break;
+			}
+
 			case 'shutdown': {
 				this.shutdown();
 				break;
@@ -1059,6 +1066,12 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 		this._onDidChangeRuntimeState.fire(positron.RuntimeState.Exited);
 	}
 
+	forceQuit(): Promise<void> {
+		// Simulate a force quit by immediately "exiting"
+		this._onDidChangeRuntimeState.fire(positron.RuntimeState.Exited);
+		return Promise.resolve();
+	}
+
 	dispose(): void { }
 
 	//#endregion LanguageRuntime Implementation
@@ -1192,6 +1205,63 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 		this.simulateIdleState(parentId);
 	}
 
+	private simulateHtmlOutput(parentId: string, code: string) {
+		// Enter busy state and output the code.
+		this.simulateBusyState(parentId);
+		this.simulateInputMessage(parentId, code);
+
+		const html = `
+		<h2>HTML Output</h2>
+		<small style="text-transform: uppercase">
+			This is a sample HTML output from the Zed kernel, &amp; it's good.
+			&copy; 2023 Zed, Inc.
+		</small>
+		<table class="dataframe">
+		<thead>
+			<tr>
+				<th>Fibonacci Number</th>
+				<th>Name</th>
+			</tr>
+		</thead>
+		<tbody>
+			<tr>
+				<td>1</td>
+				<td>One</td>
+			</tr>
+			<tr>
+				<td>1</td>
+				<td>One</td>
+			</tr>
+			<tr>
+				<td>2</td>
+				<td>Two</td>
+			</tr>
+			<tr>
+				<td>3</td>
+				<td>Three</td>
+			</tr>
+			<tr>
+				<td>5</td>
+				<td>Five</td>
+			</tr>
+		</tbody>
+		</table>
+		<button>Click Me (Nothing will Happen)</button>`;
+		this._onDidReceiveRuntimeMessage.fire({
+			id: randomUUID(),
+			parent_id: parentId,
+			when: new Date().toISOString(),
+			type: positron.LanguageRuntimeMessageType.Output,
+			data: {
+				'text/plain': '<ZedHTML Object>',
+				'text/html': html
+			} as Record<string, string>
+		} as positron.LanguageRuntimeOutput);
+
+		// Return to idle state.
+		this.simulateIdleState(parentId);
+	}
+
 	private simulateStaticPlot(parentId: string, code: string) {
 		// Enter busy state and output the code.
 		this.simulateBusyState(parentId);
@@ -1225,7 +1295,9 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 		this.simulateInputMessage(parentId, code);
 
 		// Create the data client comm.
-		const data = new ZedData(this.context, title);
+		const data = new ZedData(title);
+		this.connectClientEmitter(data);
+		this._data.set(data.id, data);
 
 		// Send the comm open message to the client.
 		this._onDidReceiveRuntimeMessage.fire({
@@ -1235,7 +1307,7 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 			type: positron.LanguageRuntimeMessageType.CommOpen,
 			comm_id: data.id,
 			target_name: 'positron.dataViewer',
-			data: data
+			data: { 'title': data.title }
 		} as positron.LanguageRuntimeCommOpen);
 
 		// Emit text output so something shows up in the console.
@@ -1506,10 +1578,11 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 	 *
 	 * @param client The environment or plot to connect
 	 */
-	private connectClientEmitter(client: ZedEnvironment | ZedPlot) {
+	private connectClientEmitter(client: ZedEnvironment | ZedPlot | ZedData) {
 
 		// Listen for data emitted from the environment instance
 		client.onDidEmitData(data => {
+
 			// If there's a pending RPC, then presume that this message is a
 			// reply to it; otherwise, just use an empty parent ID.
 			const parent_id = this._pendingRpcs.length > 0 ?

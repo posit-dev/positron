@@ -11,6 +11,13 @@ import { usePositronActionBarContext } from 'vs/platform/positronActionBar/brows
 import { PositronNewFolderAction, PositronNewFolderFromGitAction } from 'vs/workbench/browser/actions/positronActions';
 
 /**
+ * Localized strings.
+ */
+const positronNew = localize('positronNew', "New");
+const positronNewFile = localize('positronNewFile', "New File...");
+const positronNewFileFolder = localize('positronNewFileFolder', "New File/Folder");
+
+/**
  * TopActionBarNewMenu component.
  * @returns The component.
  */
@@ -21,12 +28,21 @@ export const TopActionBarNewMenu = () => {
 	// fetch actions when menu is shown
 	const actions = () => {
 		const actions: IAction[] = [];
-		positronActionBarContext.appendCommandAction(actions, 'welcome.showNewFileEntries', localize('positronNewFile', "New File..."));
+		positronActionBarContext.appendCommandAction(actions, {
+			id: 'welcome.showNewFileEntries',
+			label: positronNewFile
+		});
 		actions.push(new Separator());
-		positronActionBarContext.appendCommandAction(actions, PositronNewFolderAction.ID);
-		positronActionBarContext.appendCommandAction(actions, PositronNewFolderFromGitAction.ID);
+		positronActionBarContext.appendCommandAction(actions, {
+			id: PositronNewFolderAction.ID
+		});
+		positronActionBarContext.appendCommandAction(actions, {
+			id: PositronNewFolderFromGitAction.ID
+		});
 		actions.push(new Separator());
-		positronActionBarContext.appendCommandAction(actions, 'workbench.action.newWindow');
+		positronActionBarContext.appendCommandAction(actions, {
+			id: 'workbench.action.newWindow'
+		});
 		return actions;
 	};
 
@@ -34,8 +50,9 @@ export const TopActionBarNewMenu = () => {
 	return (
 		<ActionBarMenuButton
 			iconId='positron-new'
+			text={positronNew}
 			actions={actions}
-			tooltip={localize('positronNewFileFolder', "New File/Folder")}
+			tooltip={positronNewFileFolder}
 		/>
 	);
 };

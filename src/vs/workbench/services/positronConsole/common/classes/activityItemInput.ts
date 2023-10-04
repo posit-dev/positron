@@ -2,41 +2,73 @@
  *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
-import { ANSIOutput, ANSIOutputLine } from 'vs/base/common/ansi/ansiOutput';
-import { Emitter, Event } from 'vs/base/common/event';
+import { Emitter } from 'vs/base/common/event';
+import { ANSIOutput, ANSIOutputLine } from 'ansi-output';
+
+/**
+ * ActivityItemInputState enumeration.
+ */
+export const enum ActivityItemInputState {
+	Provisional = 'provisional',
+	Executing = 'executing',
+	Completed = 'completed'
+}
 
 /**
  * ActivityItemInput class.
  */
 export class ActivityItemInput {
+	//#region Private Properties
+
+	/**
+	 * The state.
+	 */
+	private _state: ActivityItemInputState;
+
+	/**
+	 * onStateChanged event emitter.
+	 */
+	private onStateChangedEmitter = new Emitter<void>();
+
+	//#endregion Private Properties
+
 	//#region Public Properties
 
 	/**
-	 * Gets the code output lines.
+	 * Gets the state.
 	 */
-	readonly codeOutputLines: readonly ANSIOutputLine[];
+	get state() {
+		return this._state;
+	}
 
 	/**
-	 * The current busy state; defaults to true since we receive input items
-	 * when they are already in the process of being executed.
+	 * Sets the state.
+	 * @param state The state to set.
 	 */
-	public busyState: boolean = true;
+	set state(state: ActivityItemInputState) {
+		if (state !== this._state) {
+			this._state = state;
+			this.onStateChangedEmitter.fire();
+		}
+	}
 
 	/**
-	 * An event that fires when the busy state changes; the event value is the
-	 * new busy state.
+	 * The code output lines.
 	 */
-	public onBusyStateChanged: Event<boolean>;
+	readonly codeOutputLines: ANSIOutputLine[];
 
 	//#endregion Public Properties
 
-	private _onBusyStateChangedEmitter: Emitter<boolean> = new Emitter<boolean>();
+	/**
+	 * An event that fires when the state changes.
+	 */
+	public onStateChanged = this.onStateChangedEmitter.event;
 
 	//#region Constructor
 
 	/**
 	 * Constructor.
-	 * @param provisional A value which indicates whether this is a provisional ActivityItemInput.
+	 * @param state The initial state.
 	 * @param id The identifier.
 	 * @param parentId The parent identifier.
 	 * @param when The date.
@@ -45,7 +77,7 @@ export class ActivityItemInput {
 	 * @param code The code.
 	 */
 	constructor(
-		readonly provisional: boolean,
+		state: ActivityItemInputState,
 		readonly id: string,
 		readonly parentId: string,
 		readonly when: Date,
@@ -53,21 +85,9 @@ export class ActivityItemInput {
 		readonly continuationPrompt: string,
 		readonly code: string
 	) {
-		// Process the code directly into ANSI output lines suitable for rendering.
+		this._state = state;
 		this.codeOutputLines = ANSIOutput.processOutput(code);
-
-		this.onBusyStateChanged = this._onBusyStateChangedEmitter.event;
 	}
 
 	//#endregion Constructor
-
-	/**
-	 * Sets the busy state.
-	 *
-	 * @param busyState The new busy state
-	 */
-	public setBusyState(busyState: boolean): void {
-		this.busyState = busyState;
-		this._onBusyStateChangedEmitter.fire(busyState);
-	}
 }

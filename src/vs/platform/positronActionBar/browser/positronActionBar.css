@@ -21,7 +21,7 @@
 .positron-action-bar.small {
 	--positronActionBar-height: 32px;
 	--positronActionBar-iconSize: 26px;
-	--positronActionBar-tooltipTop: 28px;
+	--positronActionBar-tooltipTop: 30px;
 }
 
 .positron-action-bar.large {

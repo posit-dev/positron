@@ -33,7 +33,11 @@ export class WebviewFindWidget extends SimpleFindWidget {
 		@IContextKeyService contextKeyService: IContextKeyService,
 		@IKeybindingService keybindingService: IKeybindingService
 	) {
-		super({ showCommonFindToggles: false, checkImeCompletionState: _delegate.checkImeCompletionState }, contextViewService, contextKeyService, keybindingService);
+		super({
+			showCommonFindToggles: false,
+			checkImeCompletionState: _delegate.checkImeCompletionState,
+			enableSash: true,
+		}, contextViewService, contextKeyService, keybindingService);
 		this._findWidgetFocused = KEYBINDING_CONTEXT_WEBVIEW_FIND_WIDGET_FOCUSED.bindTo(contextKeyService);
 
 		this._register(_delegate.hasFindResult(hasResult => {
@@ -53,11 +57,14 @@ export class WebviewFindWidget extends SimpleFindWidget {
 		}
 	}
 
-	public override hide(animated = true) {
+	// --- Start Positron
+	// Added keepSelection = true.
+	public override hide(animated = true, keepSelection = false) {
 		super.hide(animated);
-		this._delegate.stopFind(true);
+		this._delegate.stopFind(keepSelection);
 		this._delegate.focus();
 	}
+	// --- End Positron
 
 	protected _onInputChanged(): boolean {
 		const val = this.inputValue;

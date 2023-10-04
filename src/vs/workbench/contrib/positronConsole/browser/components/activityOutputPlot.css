@@ -2,7 +2,32 @@
  *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
+.activity-output-plot {
+	position: relative;
+	display: inline-block;
+	overflow: hidden;
+}
+
 .activity-output-plot img {
-	max-height: 30px;
-	max-width: 30px;
+	max-height: 50px;
+	max-width: 100%;
+	border: 1px solid transparent;
+	border-radius: 4px;
+	cursor: pointer;
+	padding: 5px;
+}
+
+.activity-output-plot .inspect {
+	display: none;
+	position: absolute;
+	top: 3px;
+	right: 3px;
+}
+
+.activity-output-plot:hover .inspect {
+	display: block;
+}
+
+.activity-output-plot:hover img {
+	border: 1px solid var(--vscode-tab-border);
 }

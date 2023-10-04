@@ -2,7 +2,7 @@
  *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
-import { ANSIOutput, ANSIOutputLine } from 'vs/base/common/ansi/ansiOutput';
+import { ANSIOutput, ANSIOutputLine } from 'ansi-output';
 
 /**
  * ActivityItemErrorMessage class.
@@ -42,7 +42,12 @@ export class ActivityItemErrorMessage {
 		readonly traceback: string[]
 	) {
 		// Process the message and traceback directly into ANSI output lines suitable for rendering.
-		this.messageOutputLines = ANSIOutput.processOutput(message);
+		let detailedMessage = message;
+		if (name) {
+			// name provides additional context about the error; display in red if defined
+			detailedMessage = `\x1b[31m${name}\x1b[0m: ${message}`;
+		}
+		this.messageOutputLines = ANSIOutput.processOutput(detailedMessage);
 		this.tracebackOutputLines = !traceback.length ?
 			[] :
 			ANSIOutput.processOutput(traceback.join('\n'));

@@ -17,6 +17,7 @@ import { ExtHostPreviewPanels } from 'vs/workbench/api/common/positron/extHostPr
 import { ExtHostContext } from 'vs/workbench/api/common/extHost.protocol';
 import { IExtHostWorkspace } from 'vs/workbench/api/common/extHostWorkspace';
 import { ExtHostWebviews } from 'vs/workbench/api/common/extHostWebview';
+import { ExtHostLanguageFeatures } from 'vs/workbench/api/common/extHostLanguageFeatures';
 
 /**
  * Factory interface for creating an instance of the Positron API.
@@ -49,6 +50,10 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			' The VS Code API must be created before the Positron API.');
 	}
 
+	// Same deal for the `ExtHostLanguageFeatures` object
+	const extHostLanguageFeatures: ExtHostLanguageFeatures =
+		rpcProtocol.getRaw(ExtHostContext.ExtHostLanguageFeatures);
+
 	const extHostLanguageRuntime = rpcProtocol.set(ExtHostPositronContext.ExtHostLanguageRuntime, new ExtHostLanguageRuntime(rpcProtocol));
 	const extHostPreviewPanels = rpcProtocol.set(ExtHostPositronContext.ExtHostPreviewPanel, new ExtHostPreviewPanels(rpcProtocol, extHostWebviews, extHostWorkspace));
 
@@ -62,6 +67,18 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			registerLanguageRuntime(runtime: positron.LanguageRuntime): vscode.Disposable {
 				return extHostLanguageRuntime.registerLanguageRuntime(runtime);
 			},
+			registerLanguageRuntimeProvider(languageId: string, provider: positron.LanguageRuntimeProvider): void {
+				return extHostLanguageRuntime.registerLanguageRuntimeProvider(languageId, provider);
+			},
+			getRunningRuntimes(languageId: string): Thenable<positron.LanguageRuntimeMetadata[]> {
+				return extHostLanguageRuntime.getRunningRuntimes(languageId);
+			},
+			selectLanguageRuntime(runtimeId: string): Thenable<void> {
+				return extHostLanguageRuntime.selectLanguageRuntime(runtimeId);
+			},
+			restartLanguageRuntime(runtimeId: string): Thenable<void> {
+				return extHostLanguageRuntime.restartLanguageRuntime(runtimeId);
+			},
 			registerClientHandler(handler: positron.RuntimeClientHandler): vscode.Disposable {
 				return extHostLanguageRuntime.registerClientHandler(handler);
 			}
@@ -72,12 +89,22 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 				return extHostPreviewPanels.createPreviewPanel(extension, viewType, title, preserveFocus, options);
 			}
 		};
+
+		const languages: typeof positron.languages = {
+			registerStatementRangeProvider(
+				selector: vscode.DocumentSelector,
+				provider: positron.StatementRangeProvider): vscode.Disposable {
+				return extHostLanguageFeatures.registerStatementRangeProvider(extension, selector, provider);
+			},
+		};
+
 		// --- End Positron ---
 
 		return <typeof positron>{
 			version: initData.positronVersion,
 			runtime,
 			window,
+			languages,
 			RuntimeClientType: extHostTypes.RuntimeClientType,
 			RuntimeClientState: extHostTypes.RuntimeClientState,
 			LanguageRuntimeMessageType: extHostTypes.LanguageRuntimeMessageType,

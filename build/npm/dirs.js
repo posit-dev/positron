@@ -16,6 +16,7 @@ const dirs = [
 	'extensions/positron-javascript',
 	'extensions/positron-r',
 	'extensions/positron-python',
+	'extensions/positron-proxy',
 	'extensions/positron-zed',
 	// --- End Positron ---
 	'extensions/configuration-editing',
@@ -52,6 +53,7 @@ const dirs = [
 	'extensions/references-view',
 	'extensions/search-result',
 	'extensions/simple-browser',
+	'extensions/tunnel-forwarding',
 	'extensions/typescript-language-features',
 	'extensions/vscode-api-tests',
 	'extensions/vscode-colorize-tests',

@@ -12,7 +12,6 @@ import { IWorkbenchLayoutService, Parts, Position as SideBarPosition } from 'vs/
 import { SidebarFocusContext, ActiveViewletContext } from 'vs/workbench/common/contextkeys';
 import { IStorageService } from 'vs/platform/storage/common/storage';
 import { IContextMenuService } from 'vs/platform/contextview/browser/contextView';
-import { ITelemetryService } from 'vs/platform/telemetry/common/telemetry';
 import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
 import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
 import { Event, Emitter } from 'vs/base/common/event';
@@ -33,6 +32,13 @@ import { Gesture, EventType as GestureEventType } from 'vs/base/browser/touch';
 import { IPaneComposite } from 'vs/workbench/common/panecomposite';
 import { IPaneCompositePart } from 'vs/workbench/browser/parts/paneCompositePart';
 
+// --- Start Positron ---
+// The minimum sidebar part width is 170. Export this as a constant so that we can use this same
+// width in layout.ts where we set the default size (see LayoutStateKeys.SIDEBAR_SIZE.defaultValue
+// in layout.ts).
+export const SIDEBAR_PART_MINIMUM_WIDTH = 170;
+// --- End Positron ---
+
 export class SidebarPart extends CompositePart<PaneComposite> implements IPaneCompositePart {
 
 	declare readonly _serviceBrand: undefined;
@@ -41,7 +47,9 @@ export class SidebarPart extends CompositePart<PaneComposite> implements IPaneCo
 
 	//#region IView
 
-	readonly minimumWidth: number = 170;
+	// --- Start Positron ---
+	readonly minimumWidth: number = /*170*/ SIDEBAR_PART_MINIMUM_WIDTH;
+	// --- End Positron ---
 	readonly maximumWidth: number = Number.POSITIVE_INFINITY;
 	readonly minimumHeight: number = 0;
 	readonly maximumHeight: number = Number.POSITIVE_INFINITY;
@@ -85,7 +93,6 @@ export class SidebarPart extends CompositePart<PaneComposite> implements IPaneCo
 	constructor(
 		@INotificationService notificationService: INotificationService,
 		@IStorageService storageService: IStorageService,
-		@ITelemetryService telemetryService: ITelemetryService,
 		@IContextMenuService contextMenuService: IContextMenuService,
 		@IWorkbenchLayoutService layoutService: IWorkbenchLayoutService,
 		@IKeybindingService keybindingService: IKeybindingService,
@@ -98,7 +105,6 @@ export class SidebarPart extends CompositePart<PaneComposite> implements IPaneCo
 		super(
 			notificationService,
 			storageService,
-			telemetryService,
 			contextMenuService,
 			layoutService,
 			keybindingService,
@@ -285,12 +291,12 @@ export class SidebarPart extends CompositePart<PaneComposite> implements IPaneCo
 		if (activeViewlet) {
 			const contextMenuActions = activeViewlet ? activeViewlet.getContextMenuActions() : [];
 			if (contextMenuActions.length) {
-				const anchor: { x: number; y: number } = { x: event.posx, y: event.posy };
 				this.contextMenuService.showContextMenu({
-					getAnchor: () => anchor,
+					getAnchor: () => event,
 					getActions: () => contextMenuActions.slice(),
 					getActionViewItem: action => this.actionViewItemProvider(action),
-					actionRunner: activeViewlet.getActionRunner()
+					actionRunner: activeViewlet.getActionRunner(),
+					skipTelemetry: true
 				});
 			}
 		}

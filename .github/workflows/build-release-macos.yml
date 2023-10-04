@@ -3,7 +3,7 @@ name: "Positron: Build macOS Release"
 # run builds daily at 2am UTC (10p EST) on weekdays for now, or manually
 on:
   schedule:
-  - cron: "0 2 * * 1-5"
+    - cron: "0 2 * * 1-5"
   workflow_dispatch:
 
 jobs:
@@ -17,7 +17,7 @@ jobs:
     # possible to connect to the live session for debugging purposes with
     # the `screen -r` command.
     name: Revive build agent
-    runs-on: [self-hosted, linux]
+    runs-on: ubuntu-latest
     steps:
       # Establish an SSH agent into which we can load the key. The build host
       # has the public side of this trusted keypair.
@@ -46,7 +46,7 @@ jobs:
     steps:
       # Fetch full history; required so we can determine the build version with rev-list
       - name: Checkout sources
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
@@ -86,7 +86,7 @@ jobs:
     name: Build macOS
     runs-on: [self-hosted, macos, arm64]
     needs: [revive_agent, version_string]
-    timeout-minutes: 40
+    timeout-minutes: 60
 
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -108,61 +108,55 @@ jobs:
     steps:
       # Checkout sources
       - name: Checkout sources
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
-      # These are already installed for both architectures, but would be required if we switch off
-      # a self-hosted runner, so we may as well leave them in
+      # These are already installed for both architectures, but would be
+      # required if we switch off a self-hosted runner, so we may as well leave
+      # them in
       - name: Install zeromq dependencies
         id: install_zeromq_dependencies
         run: |
           arch -${{matrix.arch_terminal}} /bin/bash -c "~/${{matrix.homebrew_folder}}/bin/brew install pkg-config"
           arch -${{matrix.arch_terminal}} /bin/bash -c "~/${{matrix.homebrew_folder}}/bin/brew install libsodium"
 
-      # Zeromq calls whatever pkg-config version is findable on the PATH to be able to locate
-      # libsodium, so we have to ensure the x86_64 version is first on the PATH when compiling for
-      # that architecture, so that it finds the x86_64 version of libsodium for zeromq to link against.
+      # Zeromq calls whatever pkg-config version is findable on the PATH to be
+      # able to locate libsodium, so we have to ensure the x86_64 version is
+      # first on the PATH when compiling for that architecture, so that it finds
+      # the x86_64 version of libsodium for zeromq to link against.
       - name: Update PATH to pkg-config for zeromq
         id: update_path_for_zeromq
         if: matrix.arch == 'x64'
         run: |
           echo "~/${{matrix.homebrew_folder}}/bin" >> $GITHUB_PATH
 
-      # Determine R_HOME (for building ark)
-      - name: Find Homebrew R installation
-        id: r_installation
-        run: |
-          # Path to the Homebrew build of R, e.g. /Users/user229818/homebrew/Cellar/r
-          R_FOLDER=~/${{matrix.homebrew_folder}}/Cellar/r
-          # Get the first (and generally) only installed version, e.g. 4.2.2
-          R_VERSION=$(ls ${R_FOLDER} | head -1)
-          # Form the path to the R binary, e.g. /Users/user229818/homebrew/Cellar/r/4.2.2/bin/R
-          R_EXECUTABLE="${R_FOLDER}/${R_VERSION}/bin/R"
-          # Invoke the R binary to determine its RHOME directory (usually lib/R)
-          R_HOME=$(${R_EXECUTABLE} RHOME)
-          # Output the result for consumption in later steps
-          echo "Using R at ${R_HOME}"
-          echo "r_home=${R_HOME}" >> $GITHUB_OUTPUT
-
       # Install node_modules binaries and compile the R kernel
       - name: Install dependencies
         env:
           npm_config_arch: ${{ matrix.arch }}
-          ARK_BUILD_TYPE: release
-          RUST_TARGET: ${{ matrix.rust_target_prefix }}-apple-darwin
-          R_HOME: ${{ steps.r_installation.outputs.r_home }}
           POSITRON_GITHUB_PAT: ${{ secrets.POSITRON_GITHUB_PAT }}
-        run: yarn --network-timeout 120000
+        run: |
+          export NVM_DIR="$HOME/.nvm"
+          [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+          nvm use
+          yarn --network-timeout 120000
 
       # Build client
       - name: Build client
         env:
           POSITRON_BUILD_NUMBER: ${{ needs.version_string.outputs.build_number }}
-        run: yarn gulp vscode-darwin-${{ matrix.arch }}
+        run: |
+          export NVM_DIR="$HOME/.nvm"
+          [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+          nvm use
+          yarn gulp vscode-darwin-${{ matrix.arch }}
 
       # Compress client to a zip file
       - name: Create client archive
         run: |
           pushd ..
+          # Clean up ZeroMQ build folder from Jupyter Adapter extension
+          rm -rf VSCode-darwin-${{ matrix.arch }}/Positron.app/Contents/Resources/app/extensions/jupyter-adapter/node_modules/zeromq/build
+          # Zip all remaining app contents
           zip -Xry $GITHUB_WORKSPACE/positron-${{ needs.version_string.outputs.short_version }}-darwin-${{ matrix.arch }}.zip VSCode-darwin-${{ matrix.arch }}
           popd
 
@@ -177,7 +171,7 @@ jobs:
     name: Create macOS universal binary
     needs: [version_string, build-archs]
     runs-on: [self-hosted, macos, arm64]
-    timeout-minutes: 40
+    timeout-minutes: 60
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
@@ -198,45 +192,104 @@ jobs:
           unzip positron-${{ needs.version_string.outputs.short_version }}-darwin-arm64.zip
           unzip positron-${{ needs.version_string.outputs.short_version }}-darwin-x64.zip
 
-      # Align architectures. These tasks alter the arm64 and x64 files so that
-      # they are suitably symmetric for the electron-universal task that runs
-      # below.
-      #
-      # Specifically:
-      #
-      # - Remove the ZeroMQ build folders -- they contain build intermediates
-      #   that are non-binary but nonetheless differ between arm64 and x64 since
-      #   they contain e.g. different compilation flags. electron-universal
-      #   chokes if any files (other than binaries) that differ between x64 and
-      #   arm64.
-      #
-      # - Do the same for the `amalthea` build folder
-      #
-      # - Copy the 'nls.metadata.json' files from x64 to arm64. These files are
-      #   semantically identical in both builds, but due to unstable dictionary
-      #   key sorting, they don't hash identically.
       - name: Align arm64 and x64 app content
         run: |
-          rm -rf VSCode-darwin-arm64/Positron.app/Contents/Resources/app/extensions/jupyter-adapter/node_modules/zeromq/build
-          rm -rf VSCode-darwin-x64/Positron.app/Contents/Resources/app/extensions/jupyter-adapter/node_modules/zeromq/build
-          rm -rf VSCode-darwin-arm64/Positron.app/Contents/Resources/app/extensions/positron-r/amalthea
-          rm -rf VSCode-darwin-x64/Positron.app/Contents/Resources/app/extensions/positron-r/amalthea
+          # Align NLS metadata files
           find VSCode-darwin-x64 -name "nls.metadata.json" | sed 's/^[^/]*//' | xargs -I {} cp "VSCode-darwin-x64{}" "VSCode-darwin-arm64{}"
 
       # Glue together the arm64 and x64 binaries with lipo to create a
       # universal build
       - name: Create universal build
         env:
-           VSCODE_ARCH: universal
-           DEBUG: "*"
+          VSCODE_ARCH: universal
+          DEBUG: "*"
         run: |
+          export NVM_DIR="$HOME/.nvm"
+          [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+          nvm use
           node build/darwin/create-universal-app.js $(pwd)
 
-      # Compress universal client to a zip file
-      - name: Create universal client archive
+      # Sign the binaries and set the hardened entitlements
+      - name: Sign binaries
         run: |
-          cd VSCode-darwin-universal
-          zip -Xry $GITHUB_WORKSPACE/Positron-${{ needs.version_string.outputs.short_version }}-darwin-universal.zip *
+          # Create a temporary keychain to hold the Developer ID certificate
+          security create-keychain -p pwd ${{ runner.temp }}/buildagent.keychain
+          security default-keychain -s ${{ runner.temp }}/buildagent.keychain
+          security unlock-keychain -p pwd ${{ runner.temp }}/buildagent.keychain
+
+          # Import the Developer ID certificate from Github Secrets. This
+          # certificate is stored in a base64 encoded blob.
+          echo "${{ secrets.MACOS_DEVELOPER_CERTIFICATE }}" | base64 -D > ${{ runner.temp }}/cert.p12
+          security import ${{ runner.temp }}/cert.p12 -k ${{ runner.temp }}/buildagent.keychain -P "${{ secrets.MACOS_DEVELOPER_CERTIFICATE_KEY }}" -T /usr/bin/codesign
+
+          # Pull the code-signing identity out of the Developer ID certificate
+          # and set the key partition list.
+          export CODESIGN_IDENTITY=$(security find-identity -v -p codesigning ${{ runner.temp }}/buildagent.keychain | grep -oEi "([0-9A-F]{40})" | head -n 1)
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k pwd ${{ runner.temp }}/buildagent.keychain
+
+          # Set environment variables needed by `build/darwin/sign.js`.
+          export AGENT_TEMPDIRECTORY=${{ runner.temp }}
+          export VSCODE_ARCH=universal
+
+          # Perform the signature using `electron-osx-sign`
+          DEBUG=electron-osx-sign* node build/darwin/sign.js $(pwd)
+
+      # Compress universal client to a DMG file
+      - name: Create universal client disk image
+        run: |
+          # Create the name of the DMG file we will bundle to
+          export POSITRON_BUNDLE_NAME=Positron-${{ needs.version_string.outputs.short_version }}
+
+          # Create a symlink to /Applications, so that the disk image will have
+          # a drag-to-install target for Positron.app.
+          ln -nfs /Applications VSCode-darwin-universal/Applications
+
+          # Create the disk image itself.
+          hdiutil create \
+            -size 1g \
+            -fs "APFS" \
+            -volname "${POSITRON_BUNDLE_NAME}" \
+            -srcfolder "VSCode-darwin-universal" \
+            -ov \
+            -format "UDZO" "${GITHUB_WORKSPACE}/${POSITRON_BUNDLE_NAME}.dmg"
+
+      # Notarize the build using an Apple service
+      - name: Notarize binary
+        run: |
+          # Create the name of the DMG to notarize
+          export NOTARIZATION_TARGET=$GITHUB_WORKSPACE/Positron-${{ needs.version_string.outputs.short_version }}.dmg
+
+          # Submit the DMG to Apple's notarization service. This consumes the
+          # user name and password of an Apple account under which to perform
+          # the notarization. The team ID `FYF2F5GFX4` provided below should
+          # match the team ID of the Developer ID certificate.
+          #
+          # The `--wait` argument causes `xcrun` to return only when the
+          # service has completed notarization.
+          NOTARIZATION_OUTPUT=$(xcrun notarytool submit \
+            --wait \
+            --apple-id "${{ secrets.MACOS_NOTARIZATION_USER_NAME }}" \
+            --password "${{ secrets.MACOS_NOTARIZATION_USER_PASSWORD }}" \
+            --team-id FYF2F5GFX4 \
+            --progress $NOTARIZATION_TARGET)
+          echo $NOTARIZATION_OUTPUT
+
+          # Extract the notarization ID. This comes from a line of output that looks like:
+          # id: 4baf5d9e-d1e8-48ed-8f33-1f0ae06e7ad1
+          NOTARIZATION_ID=$(echo $NOTARIZATION_OUTPUT | sed -n -e 's/.*[[:space:]]*id:[[:space:]]*\([^ ]*\).*/\1/p' | head -1)
+
+          # Extract and print the notarization log.
+          xcrun notarytool log \
+            --apple-id "${{ secrets.MACOS_NOTARIZATION_USER_NAME }}" \
+            --password "${{ secrets.MACOS_NOTARIZATION_USER_PASSWORD }}" \
+            --team-id FYF2F5GFX4 \
+            $NOTARIZATION_ID \
+            notarization-$NOTARIZATION_ID.log
+          cat notarization-$NOTARIZATION_ID.log
+
+          # Staple the notarization ticket to the DMG. This allows for offline
+          # validation with Gatekeeper.
+          xcrun stapler staple $NOTARIZATION_TARGET
 
       # Create a GitHub release for the universal binary we just created, if
       # we're running against the main branch
@@ -261,19 +314,17 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: Positron-${{ needs.version_string.outputs.short_version }}-darwin-universal.zip
-          asset_name: Positron-${{ needs.version_string.outputs.short_version }}-darwin-universal.zip
-          asset_content_type: application/zip
+          asset_path: Positron-${{ needs.version_string.outputs.short_version }}.dmg
+          asset_name: Positron-${{ needs.version_string.outputs.short_version }}.dmg
+          asset_content_type: application/octet-stream
 
-      # On the other hand, if  we *aren't* running against the main branch,
-      # just create a regular build artifact for the universal archive, to be
+      # Create a regular build artifact for the universal archive, to be
       # downloaded from the actions page for testing purposes.
       - name: Upload
         uses: actions/upload-artifact@v3
-        if: github.ref != 'refs/heads/main'
         with:
-          name: positron-darwin-universal-archive
-          path: Positron-${{ needs.version_string.outputs.short_version }}-darwin-universal.zip
+          name: positron-darwin-universal-installer
+          path: Positron-${{ needs.version_string.outputs.short_version }}.dmg
 
   status:
     if: ${{ failure() }}
@@ -288,7 +339,7 @@ jobs:
             {
               "message": "Positron build ${{ needs.version_string.outputs.build_number }} failed",
               "status": "Failure",
-              "run_url": "https://github.com/rstudio/positron/actions/runs/${{ github.run_id }}"
+              "run_url": "https://github.com/posit-dev/positron/actions/runs/${{ github.run_id }}"
             }
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}

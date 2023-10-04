@@ -25,6 +25,7 @@ import 'vs/workbench/browser/actions/windowActions';
 import 'vs/workbench/browser/actions/workspaceActions';
 import 'vs/workbench/browser/actions/workspaceCommands';
 import 'vs/workbench/browser/actions/quickAccessActions';
+import 'vs/workbench/browser/actions/widgetNavigationCommands';
 
 // --- Start Positron ---
 import 'vs/workbench/browser/actions/positronActions';
@@ -75,6 +76,8 @@ import 'vs/workbench/services/configuration/common/jsonEditingService';
 import 'vs/workbench/services/textmodelResolver/common/textModelResolverService';
 import 'vs/workbench/services/editor/browser/editorService';
 import 'vs/workbench/services/editor/browser/editorResolverService';
+import 'vs/workbench/services/aiEmbeddingVector/common/aiEmbeddingVectorService';
+import 'vs/workbench/services/aiRelatedInformation/common/aiRelatedInformationService';
 import 'vs/workbench/services/history/browser/historyService';
 import 'vs/workbench/services/activity/browser/activityService';
 import 'vs/workbench/services/keybinding/browser/keybindingService';
@@ -117,6 +120,7 @@ import 'vs/editor/common/services/treeViewsDndService';
 import 'vs/workbench/services/textMate/browser/textMateTokenizationFeature.contribution';
 import 'vs/workbench/services/userActivity/common/userActivityService';
 import 'vs/workbench/services/userActivity/browser/userActivityBrowser';
+import 'vs/workbench/services/issue/browser/issueTroubleshoot';
 
 import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/common/extensions';
 import { ExtensionGalleryService } from 'vs/platform/extensionManagement/common/extensionGalleryService';
@@ -186,7 +190,7 @@ import 'vs/workbench/contrib/positronModalDialogs/browser/positronModalDialogs.c
 import 'vs/workbench/contrib/notebook/browser/notebook.contribution';
 
 import 'vs/workbench/contrib/chat/browser/chat.contribution';
-import 'vs/workbench/contrib/interactiveEditor/browser/interactiveEditor.contribution';
+import 'vs/workbench/contrib/inlineChat/browser/inlineChat.contribution';
 
 // Interactive
 import 'vs/workbench/contrib/interactive/browser/interactive.contribution';
@@ -236,6 +240,9 @@ import 'vs/workbench/contrib/markers/browser/markers.contribution';
 // Merge Editor
 import 'vs/workbench/contrib/mergeEditor/browser/mergeEditor.contribution';
 
+// Mapped Edits
+import 'vs/workbench/contrib/mappedEdits/common/mappedEdits.contribution';
+
 // Commands
 import 'vs/workbench/contrib/commands/common/commands.contribution';
 
@@ -266,8 +273,8 @@ import 'vs/workbench/contrib/output/browser/outputView';
 // --- Start Positron ---
 import 'vs/workbench/contrib/positronEnvironment/browser/positronEnvironment.contribution';
 import 'vs/workbench/contrib/positronHelp/browser/positronHelp.contribution';
-// import 'vs/workbench/contrib/positronHistory/browser/positronHistory.contribution';    	Disabled for Private Alpha
-// import 'vs/workbench/contrib/positronOutline/browser/positronOutline.contribution';    	Disabled for Private Alpha
+// import 'vs/workbench/contrib/positronHistory/browser/positronHistory.contribution';  Disabled for Private Alpha
+// import 'vs/workbench/contrib/positronOutline/browser/positronOutline.contribution';  Disabled for Private Alpha
 import 'vs/workbench/contrib/positronPreview/browser/positronPreview.contribution';
 import 'vs/workbench/contrib/positronPlots/browser/positronPlots.contribution';
 // --- End Positron ---
@@ -349,12 +356,6 @@ import 'vs/workbench/contrib/languageDetection/browser/languageDetection.contrib
 // Language Status
 import 'vs/workbench/contrib/languageStatus/browser/languageStatus.contribution';
 
-// Experiments
-import 'vs/workbench/contrib/experiments/browser/experiments.contribution';
-
-// Send a Smile
-import 'vs/workbench/contrib/feedback/browser/feedback.contribution';
-
 // User Data Sync
 import 'vs/workbench/contrib/userDataSync/browser/userDataSync.contribution';
 
@@ -409,6 +410,7 @@ import 'vs/workbench/contrib/executionHistory/common/executionHistory';
 
 // Workbench services
 import 'vs/workbench/services/languageRuntime/common/languageRuntime';
+import 'vs/workbench/contrib/positronHelp/browser/positronHelpService';
 import 'vs/workbench/services/positronConsole/common/positronConsoleService';
 import 'vs/workbench/services/positronEnvironment/common/positronEnvironmentService';
 

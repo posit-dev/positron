@@ -2,7 +2,7 @@
  *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
-import { ANSIOutput, ANSIOutputLine } from 'vs/base/common/ansi/ansiOutput';
+import { ANSIOutput, ANSIOutputLine } from 'ansi-output';
 
 /**
  * ActivityItemOutputPlot class.
@@ -35,12 +35,14 @@ export class ActivityItemOutputPlot {
 	 * @param parentId The parent identifier.
 	 * @param when The date.
 	 * @param data The data.
+	 * @param onSelected A callback that is invoked when the item is selected.
 	 */
 	constructor(
 		readonly id: string,
 		readonly parentId: string,
 		readonly when: Date,
-		readonly data: Record<string, string>
+		readonly data: Record<string, string>,
+		readonly onSelected: () => void
 	) {
 		// Get the output; this will serve as the figure caption.
 		const output = data['text/plain'];
@@ -51,7 +53,12 @@ export class ActivityItemOutputPlot {
 
 		// Get the MIME type and data.
 		this.mimeType = imageKey!;
-		this.plotUri = `data:${this.mimeType};base64,${data[imageKey!]}`;
+		if (this.mimeType === 'image/svg+xml') {
+			const svgData = encodeURIComponent(data[imageKey!]);
+			this.plotUri = `data:${this.mimeType};utf8,${svgData}`;
+		} else {
+			this.plotUri = `data:${this.mimeType};base64,${data[imageKey!]}`;
+		}
 
 		// If the output is empty, don't render any output lines; otherwise, process the output into
 		// output lines.

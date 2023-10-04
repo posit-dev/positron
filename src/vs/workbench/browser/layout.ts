@@ -10,7 +10,7 @@ import { onDidChangeFullscreen, isFullscreen, isWCOEnabled } from 'vs/base/brows
 import { IWorkingCopyBackupService } from 'vs/workbench/services/workingCopy/common/workingCopyBackup';
 import { isWindows, isLinux, isMacintosh, isWeb, isNative, isIOS } from 'vs/base/common/platform';
 import { EditorInputCapabilities, GroupIdentifier, isResourceEditorInput, IUntypedEditorInput, pathsToEditors } from 'vs/workbench/common/editor';
-import { SidebarPart } from 'vs/workbench/browser/parts/sidebar/sidebarPart';
+import { SIDEBAR_PART_MINIMUM_WIDTH, SidebarPart } from 'vs/workbench/browser/parts/sidebar/sidebarPart';
 import { PanelPart } from 'vs/workbench/browser/parts/panel/panelPart';
 import { Position, Parts, PanelOpensMaximizedOptions, IWorkbenchLayoutService, positionFromString, positionToString, panelOpensMaximizedFromString, PanelAlignment } from 'vs/workbench/services/layout/browser/layoutService';
 import { isTemporaryWorkspace, IWorkspaceContextService, WorkbenchState } from 'vs/platform/workspace/common/workspace';
@@ -305,6 +305,9 @@ export abstract class Layout extends Disposable implements IWorkbenchLayoutServi
 			}
 		}));
 
+		// Title Menu changes
+		this._register(this.titleService.onDidChangeCommandCenterVisibility(() => this.doUpdateLayoutConfiguration()));
+
 		// Fullscreen changes
 		this._register(onDidChangeFullscreen(() => this.onFullscreenChanged()));
 
@@ -319,9 +322,6 @@ export abstract class Layout extends Disposable implements IWorkbenchLayoutServi
 		if ((isWindows || isLinux || isWeb) && getTitleBarStyle(this.configurationService) === 'custom') {
 			this._register(this.titleService.onMenubarVisibilityChange(visible => this.onMenubarToggled(visible)));
 		}
-
-		// Title Menu changes
-		this._register(this.titleService.onDidChangeCommandCenterVisibility(() => this.layout()));
 
 		// Theme changes
 		this._register(this.themeService.onDidColorThemeChange(() => this.updateStyles()));
@@ -2482,7 +2482,10 @@ const LayoutStateKeys = {
 	EDITOR_HIDDEN: new RuntimeStateKey<boolean>('editor.hidden', StorageScope.WORKSPACE, StorageTarget.MACHINE, false),
 	PANEL_HIDDEN: new RuntimeStateKey<boolean>('panel.hidden', StorageScope.WORKSPACE, StorageTarget.MACHINE, true),
 	AUXILIARYBAR_HIDDEN: new RuntimeStateKey<boolean>('auxiliaryBar.hidden', StorageScope.WORKSPACE, StorageTarget.MACHINE, true),
+	// --- Start Positron ---
+	// Change default to true.
 	STATUSBAR_HIDDEN: new RuntimeStateKey<boolean>('statusBar.hidden', StorageScope.WORKSPACE, StorageTarget.MACHINE, true, true)
+	// --- End Positron ---
 
 } as const;
 
@@ -2521,8 +2524,6 @@ class LayoutStateModel extends Disposable {
 		private readonly container: HTMLElement
 	) {
 		super();
-
-		this.contextService.getCompleteWorkspace();
 
 		this._register(this.configurationService.onDidChangeConfiguration(configurationChange => this.updateStateFromLegacySettings(configurationChange)));
 	}
@@ -2580,22 +2581,23 @@ class LayoutStateModel extends Disposable {
 		const workbenchDimensions = getClientArea(this.container);
 		LayoutStateKeys.PANEL_POSITION.defaultValue = positionFromString(this.configurationService.getValue(WorkbenchLayoutSettings.PANEL_POSITION) ?? 'bottom');
 		LayoutStateKeys.GRID_SIZE.defaultValue = { height: workbenchDimensions.height, width: workbenchDimensions.width };
+		LayoutStateKeys.SIDEBAR_SIZE.defaultValue = Math.min(300, workbenchDimensions.width / 4);
+		LayoutStateKeys.AUXILIARYBAR_SIZE.defaultValue = Math.min(300, workbenchDimensions.width / 4);
 		// --- Start Positron ---
-		// LayoutStateKeys.SIDEBAR_SIZE.defaultValue = Math.min(300, workbenchDimensions.width / 4);
-		// LayoutStateKeys.AUXILIARYBAR_SIZE.defaultValue = Math.min(300, workbenchDimensions.width / 4);
-		LayoutStateKeys.SIDEBAR_SIZE.defaultValue = Math.min(250, Math.round(workbenchDimensions.width / 4));
+		// Override LayoutStateKeys.SIDEBAR_SIZE.defaultValue and LayoutStateKeys.AUXILIARYBAR_SIZE.defaultValue.
+		LayoutStateKeys.SIDEBAR_SIZE.defaultValue = Math.min(SIDEBAR_PART_MINIMUM_WIDTH, Math.round(workbenchDimensions.width / 4)); // 170 mirrors minimumWidth in sidebarPart.ts.
 		LayoutStateKeys.AUXILIARYBAR_SIZE.defaultValue = Math.round(workbenchDimensions.width * 0.45);
 		// --- End Positron ---
 		LayoutStateKeys.PANEL_SIZE.defaultValue = (this.stateCache.get(LayoutStateKeys.PANEL_POSITION.name) ?? LayoutStateKeys.PANEL_POSITION.defaultValue) === 'bottom' ? workbenchDimensions.height / 3 : workbenchDimensions.width / 4;
 		LayoutStateKeys.SIDEBAR_HIDDEN.defaultValue = this.contextService.getWorkbenchState() === WorkbenchState.EMPTY;
+
 		// --- Start Positron ---
+		// In Positron, the auxiliary bar and panel are not hidden by default and the panel defaults
+		// to 50% height.
 		LayoutStateKeys.AUXILIARYBAR_HIDDEN.defaultValue = false;
 		LayoutStateKeys.PANEL_HIDDEN.defaultValue = false;
-
-		// For Private Alpha, hide the editor by default. This will cause the panel to become
-		// maximized.
-		LayoutStateKeys.EDITOR_HIDDEN.defaultValue = true;
-		// --- End Positron ---
+		LayoutStateKeys.PANEL_SIZE.defaultValue = workbenchDimensions.height / 2;
+		// // --- End Positron ---
 
 		// Apply all defaults
 		for (key in LayoutStateKeys) {
@@ -2606,7 +2608,7 @@ class LayoutStateModel extends Disposable {
 		}
 
 		// Register for runtime key changes
-		this._register(this.storageService.onDidChangeValue(storageChangeEvent => {
+		this._register(this.storageService.onDidChangeValue(StorageScope.PROFILE, undefined, this._register(new DisposableStore()))(storageChangeEvent => {
 			let key: keyof typeof LayoutStateKeys;
 			for (key in LayoutStateKeys) {
 				const stateKey = LayoutStateKeys[key] as WorkbenchLayoutStateKey<StorageKeyType>;

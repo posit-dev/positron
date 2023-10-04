@@ -4,10 +4,12 @@
 
 import 'vs/css!./activityInput';
 import * as React from 'react';
-import { FontInfo } from 'vs/editor/common/config/fontInfo';
-import { OutputRun } from 'vs/workbench/contrib/positronConsole/browser/components/outputRun';
-import { ActivityItemInput } from 'vs/workbench/services/positronConsole/common/classes/activityItemInput';
+import { useState } from 'react'; // eslint-disable-line no-duplicate-imports
 import { DisposableStore } from 'vs/base/common/lifecycle';
+import { FontInfo } from 'vs/editor/common/config/fontInfo';
+import { positronClassNames } from 'vs/base/common/positronUtilities';
+import { OutputRun } from 'vs/workbench/contrib/positronConsole/browser/components/outputRun';
+import { ActivityItemInput, ActivityItemInputState } from 'vs/workbench/services/positronConsole/common/classes/activityItemInput';
 
 // ActivityInputProps interface.
 export interface ActivityInputProps {
@@ -21,41 +23,45 @@ export interface ActivityInputProps {
  * @returns The rendered component.
  */
 export const ActivityInput = (props: ActivityInputProps) => {
-	// Calculate the prompt width.
-	const promptWidth = Math.ceil(
-		(props.activityItemInput.inputPrompt.length + 1) *
-		props.fontInfo.typicalHalfwidthCharacterWidth
-	);
+	// Hooks.
+	const [state, setState] = useState(props.activityItemInput.state);
 
-	const activityRef = React.useRef<HTMLDivElement>(undefined!);
-
+	// Main useEffect.
 	React.useEffect(() => {
-		const disposables = new DisposableStore();
-		// Listen for the busy state to change on the activity item; when it
-		// does, update the `busy` class on the activity input.
-		disposables.add(props.activityItemInput.onBusyStateChanged((busy: boolean) => {
-			console.log(props.activityItemInput.id + ' busy: ' + busy);
-			console.log(activityRef.current);
-			if (busy) {
-				activityRef.current?.classList.add('busy');
-			} else {
-				activityRef.current?.classList.remove('busy');
-			}
+		// Create the disposable store for cleanup.
+		const disposableStore = new DisposableStore();
+
+		// Listen for state changes to the item.
+		disposableStore.add(props.activityItemInput.onStateChanged(() => {
+			setState(props.activityItemInput.state);
 		}));
-		return () => disposables.dispose();
-	}, [props.activityItemInput]);
+
+		// Return the cleanup function that will dispose of the disposables.
+		return () => disposableStore.dispose();
+	}, []);
+
+	// Calculate the prompt length.
+	const promptLength = Math.max(
+		props.activityItemInput.inputPrompt.length,
+		props.activityItemInput.continuationPrompt.length
+	) + 1;
+
+	// Calculate the prompt width.
+	const promptWidth = Math.round(promptLength * props.fontInfo.typicalHalfwidthCharacterWidth);
+
+	// Generate the class names.
+	const classNames = positronClassNames(
+		'activity-input',
+		{ 'executing': state === ActivityItemInputState.Executing }
+	);
 
 	// Render.
 	return (
-		<div ref={activityRef}
-			className={
-				'activity-input' +
-				(props.activityItemInput.busyState ?
-					' busy' : '')}>
-			<div className='progress-bar'></div>
+		<div className={classNames}>
+			{state === ActivityItemInputState.Executing && <div className='progress-bar' />}
 			{props.activityItemInput.codeOutputLines.map((outputLine, index) =>
 				<div key={outputLine.id}>
-					<span style={{ width: promptWidth }}>
+					<span className='prompt' style={{ width: promptWidth }}>
 						{(index === 0 ?
 							props.activityItemInput.inputPrompt :
 							props.activityItemInput.continuationPrompt) + ' '

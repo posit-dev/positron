@@ -6,6 +6,7 @@ import { createDecorator } from 'vs/platform/instantiation/common/instantiation'
 import { PlotClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimePlotClient';
 import { Event } from 'vs/base/common/event';
 import { StaticPlotClient } from 'vs/workbench/services/positronPlots/common/staticPlotClient';
+import { IPlotSize, IPositronPlotSizingPolicy } from 'vs/workbench/services/positronPlots/common/sizingPolicy';
 
 export const POSITRON_PLOTS_VIEW_ID = 'workbench.panel.positronPlots';
 
@@ -14,6 +15,16 @@ export const POSITRON_PLOTS_SERVICE_ID = 'positronPlotsService';
 export const IPositronPlotsService = createDecorator<IPositronPlotsService>(POSITRON_PLOTS_SERVICE_ID);
 
 export type PositronPlotClient = PlotClientInstance | StaticPlotClient;
+
+/**
+ * The set of policies governing when we show the plot history (filmstrip
+ * sidebar) in the Plots pane
+ */
+export enum HistoryPolicy {
+	AlwaysVisible = 'always',
+	Automatic = 'auto',
+	NeverVisible = 'never'
+}
 
 /**
  * IPositronPlotsService interface.
@@ -30,6 +41,31 @@ export interface IPositronPlotsService {
 	 * Gets the currently selected Positron plot instance.
 	 */
 	readonly selectedPlotId: string | undefined;
+
+	/**
+	 * Gets the currently known sizing policies.
+	 */
+	readonly sizingPolicies: IPositronPlotSizingPolicy[];
+
+	/**
+	 * Gets the currently selected sizing policy.
+	 */
+	readonly selectedSizingPolicy: IPositronPlotSizingPolicy;
+
+	/**
+	 * Gets the current history policy.
+	 */
+	readonly historyPolicy: HistoryPolicy;
+
+	/**
+	 * Notifies subscribers when the sizing policy has changed.
+	 */
+	readonly onDidChangeSizingPolicy: Event<IPositronPlotSizingPolicy>;
+
+	/**
+	 * Notifies subscribers when the history policy has changed.
+	 */
+	readonly onDidChangeHistoryPolicy: Event<HistoryPolicy>;
 
 	/**
 	 * Notifies subscribers when a new Positron plot instance is created.
@@ -90,6 +126,26 @@ export interface IPositronPlotsService {
 	 * Removes all the plots in the service.
 	 */
 	removeAllPlots(): void;
+
+	/**
+	 * Selects a sizing policy.
+	 */
+	selectSizingPolicy(id: string): void;
+
+	/**
+	 * Sets a custom plot size (and selects the custom sizing policy)
+	 */
+	setCustomPlotSize(size: IPlotSize): void;
+
+	/**
+	 * Clears the custom plot size.
+	 */
+	clearCustomPlotSize(): void;
+
+	/**
+	 * Selects a history policy.
+	 */
+	selectHistoryPolicy(policy: HistoryPolicy): void;
 
 	/**
 	 * Placeholder for service initialization.

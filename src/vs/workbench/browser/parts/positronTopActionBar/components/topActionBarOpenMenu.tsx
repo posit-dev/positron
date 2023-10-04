@@ -22,7 +22,18 @@ import { PositronTopActionBarState } from 'vs/workbench/browser/parts/positronTo
 import { OpenFileAction, OpenFileFolderAction, OpenFolderAction } from 'vs/workbench/browser/actions/workspaceActions';
 import { usePositronTopActionBarContext } from 'vs/workbench/browser/parts/positronTopActionBar/positronTopActionBarContext';
 
+/**
+ * Constants.
+ */
 const MAX_MENU_RECENT_ENTRIES = 10;
+
+/**
+ * Localized strings.
+ */
+const positronOpen = localize('positronOpen', "Open");
+const positronOpenFile = localize('positronOpenFile', "Open File...");
+const positronOpenFolder = localize('positronOpenFolder', "Open Folder...");
+const positronOpenFileFolder = localize('positronOpenFileFolder', "Open File/Folder");
 
 /**
  * TopActionBarOpenMenu component.
@@ -38,12 +49,19 @@ export const TopActionBarOpenMenu = () => {
 		// core open actions
 		const actions: IAction[] = [];
 		if (IsMacNativeContext.getValue(positronActionBarContext.contextKeyService)) {
-			positronActionBarContext.appendCommandAction(actions, OpenFileFolderAction.ID, localize('positronOpenFile', "Open File..."));
+			positronActionBarContext.appendCommandAction(actions, {
+				id: OpenFileFolderAction.ID,
+				label: positronOpenFile
+			});
 		} else {
-			positronActionBarContext.appendCommandAction(actions, OpenFileAction.ID);
+			positronActionBarContext.appendCommandAction(actions, {
+				id: OpenFileAction.ID
+			});
 		}
-
-		positronActionBarContext.appendCommandAction(actions, OpenFolderAction.ID, localize('positronOpenFolder', "Open Folder..."));
+		positronActionBarContext.appendCommandAction(actions, {
+			id: OpenFolderAction.ID,
+			label: positronOpenFolder
+		});
 		actions.push(new Separator());
 
 		// recent files/workspaces actions
@@ -56,9 +74,13 @@ export const TopActionBarOpenMenu = () => {
 			if (recentActions.length > 0) {
 				actions.push(...recentActions);
 				actions.push(new Separator());
-				positronActionBarContext.appendCommandAction(actions, OpenRecentAction.ID);
+				positronActionBarContext.appendCommandAction(actions, {
+					id: OpenRecentAction.ID
+				});
 				actions.push(new Separator());
-				positronActionBarContext.appendCommandAction(actions, ClearRecentFilesAction.ID);
+				positronActionBarContext.appendCommandAction(actions, {
+					id: ClearRecentFilesAction.ID
+				});
 			}
 		}
 		return actions;
@@ -68,9 +90,10 @@ export const TopActionBarOpenMenu = () => {
 	return (
 		<ActionBarMenuButton
 			iconId='folder-opened'
+			text={positronOpen}
 			iconFontSize={18}
 			actions={actions}
-			tooltip={localize('positronOpenFileFolder', "Open File/Folder")}
+			tooltip={positronOpenFileFolder}
 		/>
 	);
 };

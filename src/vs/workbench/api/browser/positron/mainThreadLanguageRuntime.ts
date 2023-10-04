@@ -9,7 +9,7 @@ import {
 	ExtHostPositronContext
 } from '../../common/positron/extHost.positron.protocol';
 import { extHostNamedCustomer, IExtHostContext } from 'vs/workbench/services/extensions/common/extHostCustomers';
-import { ILanguageRuntime, ILanguageRuntimeClientCreatedEvent, ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMessageCommClosed, ILanguageRuntimeMessageCommData, ILanguageRuntimeMessageCommOpen, ILanguageRuntimeMessageError, ILanguageRuntimeMessageInput, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessagePrompt, ILanguageRuntimeMessageState, ILanguageRuntimeMessageStream, ILanguageRuntimeMetadata, ILanguageRuntimeDynState as ILanguageRuntimeDynState, ILanguageRuntimeService, ILanguageRuntimeStartupFailure, LanguageRuntimeMessageType, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntime, ILanguageRuntimeClientCreatedEvent, ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMessageCommClosed, ILanguageRuntimeMessageCommData, ILanguageRuntimeMessageCommOpen, ILanguageRuntimeMessageError, ILanguageRuntimeMessageInput, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessagePrompt, ILanguageRuntimeMessageState, ILanguageRuntimeMessageStream, ILanguageRuntimeMetadata, ILanguageRuntimeDynState as ILanguageRuntimeDynState, ILanguageRuntimeService, ILanguageRuntimeStartupFailure, LanguageRuntimeMessageType, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeState, LanguageRuntimeDiscoveryPhase } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { Disposable, DisposableStore } from 'vs/base/common/lifecycle';
 import { Event, Emitter } from 'vs/base/common/event';
 import { IPositronConsoleService } from 'vs/workbench/services/positronConsole/common/interfaces/positronConsoleService';
@@ -20,6 +20,7 @@ import { DeferredPromise } from 'vs/base/common/async';
 import { generateUuid } from 'vs/base/common/uuid';
 import { IPositronPlotsService } from 'vs/workbench/services/positronPlots/common/positronPlots';
 import { LanguageRuntimeEventType, PromptStateEvent } from 'vs/workbench/services/languageRuntime/common/languageRuntimeEvents';
+import { IPositronHelpService } from 'vs/workbench/contrib/positronHelp/browser/positronHelpService';
 
 /**
  * Represents a language runtime event (for example a message or state change)
@@ -126,6 +127,11 @@ class ExtHostLanguageRuntimeAdapter implements ILanguageRuntime {
 		});
 
 		this._languageRuntimeService.onDidReceiveRuntimeEvent(globalEvent => {
+			// Ignore events for other runtimes.
+			if (globalEvent.runtime_id !== this.metadata.runtimeId) {
+				return;
+			}
+
 			const ev = globalEvent.event;
 			if (ev.name === LanguageRuntimeEventType.PromptState) {
 				// Update config before propagating event
@@ -388,6 +394,15 @@ class ExtHostLanguageRuntimeAdapter implements ILanguageRuntime {
 		}
 		this._stateEmitter.fire(RuntimeState.Exiting);
 		return this._proxy.$shutdownLanguageRuntime(this.handle);
+	}
+
+	async forceQuit(): Promise<void> {
+		// No check for state here; we can force quit the runtime at any time.
+		return this._proxy.$forceQuitLanguageRuntime(this.handle);
+	}
+
+	async showOutput(): Promise<void> {
+		return this._proxy.$showOutputLanguageRuntime(this.handle);
 	}
 
 	/**
@@ -778,16 +793,24 @@ export class MainThreadLanguageRuntime implements MainThreadLanguageRuntimeShape
 		@ILanguageRuntimeService private readonly _languageRuntimeService: ILanguageRuntimeService,
 		@IPositronConsoleService private readonly _positronConsoleService: IPositronConsoleService,
 		@IPositronEnvironmentService private readonly _positronEnvironmentService: IPositronEnvironmentService,
+		@IPositronHelpService private readonly _positronHelpService: IPositronHelpService,
 		@IPositronPlotsService private readonly _positronPlotService: IPositronPlotsService,
 		@ILogService private readonly _logService: ILogService
 	) {
 		// TODO@softwarenerd - We needed to find a central place where we could ensure that certain
 		// Positron services were up and running early in the application lifecycle. For now, this
 		// is where we're doing this.
+		this._positronHelpService.initialize();
 		this._positronConsoleService.initialize();
 		this._positronEnvironmentService.initialize();
 		this._positronPlotService.initialize();
 		this._proxy = extHostContext.getProxy(ExtHostPositronContext.ExtHostLanguageRuntime);
+
+		this._languageRuntimeService.onDidChangeDiscoveryPhase((phase) => {
+			if (phase === LanguageRuntimeDiscoveryPhase.Discovering) {
+				this._proxy.$discoverLanguageRuntimes();
+			}
+		});
 	}
 
 	$emitLanguageRuntimeMessage(handle: number, message: ILanguageRuntimeMessage): void {
@@ -810,10 +833,33 @@ export class MainThreadLanguageRuntime implements MainThreadLanguageRuntimeShape
 		);
 		this._runtimes.set(handle, adapter);
 
-		// Consider - do we need a flag (on the API side) to indicate whether
-		// the runtime should be started implicitly?
-		this._languageRuntimeService.registerRuntime(adapter,
-			metadata.startupBehavior);
+		this._languageRuntimeService.registerRuntime(adapter, metadata.startupBehavior);
+	}
+
+	$getRunningRuntimes(languageId: string): Promise<ILanguageRuntimeMetadata[]> {
+		const runningRuntimes = () => this._languageRuntimeService.runningRuntimes.filter(runtime =>
+			runtime.metadata.languageId === languageId
+		);
+		return Promise.resolve(runningRuntimes().map(runtime => runtime.metadata));
+	}
+
+	// Called by the extension host to select a previously registered language runtime
+	$selectLanguageRuntime(handle: number): Promise<void> {
+		return this._languageRuntimeService.selectRuntime(
+			this.findRuntime(handle).metadata.runtimeId,
+			'Extension-requested runtime selection via Positron API');
+	}
+
+	// Called by the extension host to restart a running language runtime
+	$restartLanguageRuntime(handle: number): Promise<void> {
+		return this._languageRuntimeService.restartRuntime(
+			this.findRuntime(handle).metadata.runtimeId,
+			'Extension-requested runtime restart via Positron API');
+	}
+
+	// Signals that language runtime discovery is complete.
+	$completeLanguageRuntimeDiscovery(): void {
+		this._languageRuntimeService.completeDiscovery();
 	}
 
 	$unregisterLanguageRuntime(handle: number): void {

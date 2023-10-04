@@ -5,15 +5,18 @@
 .positron-help-container {
 	height: 100%;
 	display: flex;
+	position: relative;
 	flex-direction: column;
 }
 
 .positron-help-container .action-bars-container {
-	height: min-content;
+	height: 64px;
 }
 
-.positron-help-container .help-iframe {
-	border: none;
-	flex-grow: 1;
-	overflow-y: scroll;
+.positron-help-view-container {
+	left: 0px;
+	top: 64px;
+	right: 0px;
+	bottom: 0px;
+	position: absolute;
 }

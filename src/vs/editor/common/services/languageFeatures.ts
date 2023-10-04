@@ -4,8 +4,14 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { LanguageFeatureRegistry, NotebookInfoResolver } from 'vs/editor/common/languageFeatureRegistry';
-import { CodeActionProvider, CodeLensProvider, CompletionItemProvider, DeclarationProvider, DefinitionProvider, DocumentColorProvider, DocumentFormattingEditProvider, DocumentHighlightProvider, DocumentOnDropEditProvider, DocumentPasteEditProvider, DocumentRangeFormattingEditProvider, DocumentRangeSemanticTokensProvider, DocumentSemanticTokensProvider, DocumentSymbolProvider, EvaluatableExpressionProvider, FoldingRangeProvider, HoverProvider, ImplementationProvider, InlayHintsProvider, InlineCompletionsProvider, InlineValuesProvider, LinkedEditingRangeProvider, LinkProvider, OnTypeFormattingEditProvider, ReferenceProvider, RenameProvider, SelectionRangeProvider, SignatureHelpProvider, TypeDefinitionProvider } from 'vs/editor/common/languages';
+import { CodeActionProvider, CodeLensProvider, CompletionItemProvider, DeclarationProvider, DefinitionProvider, DocumentColorProvider, DocumentFormattingEditProvider, DocumentHighlightProvider, DocumentOnDropEditProvider, DocumentPasteEditProvider, DocumentRangeFormattingEditProvider, DocumentRangeSemanticTokensProvider, DocumentSemanticTokensProvider, DocumentSymbolProvider, EvaluatableExpressionProvider, FoldingRangeProvider, HoverProvider, ImplementationProvider, InlayHintsProvider, InlineCompletionsProvider, InlineValuesProvider, LinkedEditingRangeProvider, LinkProvider, MappedEditsProvider, OnTypeFormattingEditProvider, ReferenceProvider, RenameProvider, SelectionRangeProvider, SignatureHelpProvider, TypeDefinitionProvider } from 'vs/editor/common/languages';
 import { createDecorator } from 'vs/platform/instantiation/common/instantiation';
+
+// --- Start Positron ---
+// This import is on its own line to avoid unnecessary merge conflicts.
+// eslint-disable-next-line no-duplicate-imports
+import { StatementRangeProvider } from 'vs/editor/common/languages';
+// --- End Positron ---
 
 export const ILanguageFeaturesService = createDecorator<ILanguageFeaturesService>('ILanguageFeaturesService');
 
@@ -57,6 +63,12 @@ export interface ILanguageFeaturesService {
 
 	readonly foldingRangeProvider: LanguageFeatureRegistry<FoldingRangeProvider>;
 
+	// --- Start Positron ---
+
+	readonly statementRangeProvider: LanguageFeatureRegistry<StatementRangeProvider>;
+
+	// --- End Positron ---
+
 	readonly linkProvider: LanguageFeatureRegistry<LinkProvider>;
 
 	readonly inlineCompletionsProvider: LanguageFeatureRegistry<InlineCompletionsProvider>;
@@ -70,6 +82,8 @@ export interface ILanguageFeaturesService {
 	readonly evaluatableExpressionProvider: LanguageFeatureRegistry<EvaluatableExpressionProvider>;
 
 	readonly documentOnDropEditProvider: LanguageFeatureRegistry<DocumentOnDropEditProvider>;
+
+	readonly mappedEditsProvider: LanguageFeatureRegistry<MappedEditsProvider>;
 
 	// --
 

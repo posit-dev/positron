@@ -298,19 +298,19 @@ export interface IViewDescriptor {
 	readonly virtualWorkspace?: string;
 
 	readonly openCommandActionDescriptor?: OpenCommandActionDescriptor;
+
+	// --- Start Positron ---
+	// This flag overrides the behavior of registerOpenViewAction which will try to toggle views
+	// that aren't in the sidebar.
+	readonly positronAlwaysOpenView?: boolean;
+	// --- End Positron ---
 }
 
-export interface ICustomTreeViewDescriptor extends ITreeViewDescriptor {
+export interface ICustomViewDescriptor extends IViewDescriptor {
 	readonly extensionId: ExtensionIdentifier;
 	readonly originalContainerId: string;
+	readonly treeView?: ITreeView;
 }
-
-export interface ICustomWebviewViewDescriptor extends IViewDescriptor {
-	readonly extensionId: ExtensionIdentifier;
-	readonly originalContainerId: string;
-}
-
-export type ICustomViewDescriptor = ICustomTreeViewDescriptor | ICustomWebviewViewDescriptor;
 
 export interface IViewDescriptorRef {
 	viewDescriptor: IViewDescriptor;
@@ -584,9 +584,11 @@ export interface IViewsService {
 	closeViewContainer(id: string): void;
 	getVisibleViewContainer(location: ViewContainerLocation): ViewContainer | null;
 	getActiveViewPaneContainerWithId(viewContainerId: string): IViewPaneContainer | null;
+	getFocusedViewName(): string;
 
 	// View APIs
 	readonly onDidChangeViewVisibility: Event<{ id: string; visible: boolean }>;
+	readonly onDidChangeFocusedView: Event<void>;
 	isViewVisible(id: string): boolean;
 	openView<T extends IView>(id: string, focus?: boolean): Promise<T | null>;
 	closeView(id: string): void;
@@ -653,7 +655,7 @@ export interface ITreeView extends IDisposable {
 
 	manuallyManageCheckboxes: boolean;
 
-	message?: string;
+	message?: string | IMarkdownString;
 
 	title: string;
 
@@ -667,9 +669,7 @@ export interface ITreeView extends IDisposable {
 
 	readonly onDidCollapseItem: Event<ITreeItem>;
 
-	readonly onDidChangeSelection: Event<readonly ITreeItem[]>;
-
-	readonly onDidChangeFocus: Event<ITreeItem>;
+	readonly onDidChangeSelectionAndFocus: Event<{ selection: readonly ITreeItem[]; focus: ITreeItem }>;
 
 	readonly onDidChangeVisibility: Event<boolean>;
 

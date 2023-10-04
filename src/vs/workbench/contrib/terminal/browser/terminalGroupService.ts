@@ -3,15 +3,18 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+// --- Start Positron ---
+import { POSITRON_CONSOLE_VIEW_ID } from 'vs/workbench/services/positronConsole/common/interfaces/positronConsoleService';
+// --- End Positron ---
+
 import { Orientation } from 'vs/base/browser/ui/sash/sash';
 import { timeout } from 'vs/base/common/async';
 import { Emitter, Event } from 'vs/base/common/event';
 import { Disposable } from 'vs/base/common/lifecycle';
 import { URI } from 'vs/base/common/uri';
-import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import { IContextKey, IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
 import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
-import { IShellLaunchConfig, TerminalSettingId } from 'vs/platform/terminal/common/terminal';
+import { IShellLaunchConfig } from 'vs/platform/terminal/common/terminal';
 import { IViewDescriptorService, IViewsService } from 'vs/workbench/common/views';
 import { ITerminalGroup, ITerminalGroupService, ITerminalInstance } from 'vs/workbench/contrib/terminal/browser/terminal';
 import { TerminalGroup } from 'vs/workbench/contrib/terminal/browser/terminalGroup';
@@ -29,39 +32,40 @@ export class TerminalGroupService extends Disposable implements ITerminalGroupSe
 		return this.groups.reduce((p, c) => p.concat(c.terminalInstances), [] as ITerminalInstance[]);
 	}
 
+	lastAccessedMenu: 'inline-tab' | 'tab-list' = 'inline-tab';
+
 	private _terminalGroupCountContextKey: IContextKey<number>;
 
 	private _container: HTMLElement | undefined;
 
-	private readonly _onDidChangeActiveGroup = new Emitter<ITerminalGroup | undefined>();
+	private readonly _onDidChangeActiveGroup = this._register(new Emitter<ITerminalGroup | undefined>());
 	readonly onDidChangeActiveGroup = this._onDidChangeActiveGroup.event;
-	private readonly _onDidDisposeGroup = new Emitter<ITerminalGroup>();
+	private readonly _onDidDisposeGroup = this._register(new Emitter<ITerminalGroup>());
 	readonly onDidDisposeGroup = this._onDidDisposeGroup.event;
-	private readonly _onDidChangeGroups = new Emitter<void>();
+	private readonly _onDidChangeGroups = this._register(new Emitter<void>());
 	readonly onDidChangeGroups = this._onDidChangeGroups.event;
-	private readonly _onDidShow = new Emitter<void>();
+	private readonly _onDidShow = this._register(new Emitter<void>());
 	readonly onDidShow = this._onDidShow.event;
 
-	private readonly _onDidDisposeInstance = new Emitter<ITerminalInstance>();
+	private readonly _onDidDisposeInstance = this._register(new Emitter<ITerminalInstance>());
 	readonly onDidDisposeInstance = this._onDidDisposeInstance.event;
-	private readonly _onDidFocusInstance = new Emitter<ITerminalInstance>();
+	private readonly _onDidFocusInstance = this._register(new Emitter<ITerminalInstance>());
 	readonly onDidFocusInstance = this._onDidFocusInstance.event;
-	private readonly _onDidChangeActiveInstance = new Emitter<ITerminalInstance | undefined>();
+	private readonly _onDidChangeActiveInstance = this._register(new Emitter<ITerminalInstance | undefined>());
 	readonly onDidChangeActiveInstance = this._onDidChangeActiveInstance.event;
-	private readonly _onDidChangeInstances = new Emitter<void>();
+	private readonly _onDidChangeInstances = this._register(new Emitter<void>());
 	readonly onDidChangeInstances = this._onDidChangeInstances.event;
-	private readonly _onDidChangeInstanceCapability = new Emitter<ITerminalInstance>();
+	private readonly _onDidChangeInstanceCapability = this._register(new Emitter<ITerminalInstance>());
 	readonly onDidChangeInstanceCapability = this._onDidChangeInstanceCapability.event;
 
-	private readonly _onDidChangePanelOrientation = new Emitter<Orientation>();
+	private readonly _onDidChangePanelOrientation = this._register(new Emitter<Orientation>());
 	readonly onDidChangePanelOrientation = this._onDidChangePanelOrientation.event;
 
 	constructor(
 		@IContextKeyService private _contextKeyService: IContextKeyService,
 		@IInstantiationService private readonly _instantiationService: IInstantiationService,
 		@IViewsService private readonly _viewsService: IViewsService,
-		@IViewDescriptorService private readonly _viewDescriptorService: IViewDescriptorService,
-		@IConfigurationService private readonly _configurationService: IConfigurationService,
+		@IViewDescriptorService private readonly _viewDescriptorService: IViewDescriptorService
 	) {
 		super();
 
@@ -83,9 +87,24 @@ export class TerminalGroupService extends Disposable implements ITerminalGroupSe
 		}
 	}
 
-	showTabs() {
-		this._configurationService.updateValue(TerminalSettingId.TabsEnabled, true);
+	// --- Start Positron ---
+	// Switch to Console pane but only if in the same viewpane
+	async switchToPositronConsole(): Promise<void> {
+		const consoleViewContainer = this._viewDescriptorService.getViewContainerByViewId(POSITRON_CONSOLE_VIEW_ID);
+		const terminalViewContainer = this._viewDescriptorService.getViewContainerByViewId(TERMINAL_VIEW_ID);
+
+		if (!consoleViewContainer || !terminalViewContainer) {
+			return;
+		}
+
+		const consoleViewLocation = this._viewDescriptorService.getViewContainerLocation(consoleViewContainer);
+		const terminalViewLocation = this._viewDescriptorService.getViewContainerLocation(terminalViewContainer);
+
+		if (consoleViewLocation === terminalViewLocation) {
+			await this._viewsService.openView(POSITRON_CONSOLE_VIEW_ID, false);
+		}
 	}
+	// --- End Positron ---
 
 	get activeGroup(): ITerminalGroup | undefined {
 		if (this.activeGroupIndex < 0 || this.activeGroupIndex >= this.groups.length) {

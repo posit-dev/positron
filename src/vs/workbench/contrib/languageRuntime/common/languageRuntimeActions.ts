@@ -14,6 +14,7 @@ import { LANGUAGE_RUNTIME_ACTION_CATEGORY } from 'vs/workbench/contrib/languageR
 import { ILanguageRuntime, ILanguageRuntimeService, IRuntimeClientInstance, RuntimeClientType } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { IKeybindingRule, KeybindingWeight } from 'vs/platform/keybinding/common/keybindingsRegistry';
 import { KeyCode, KeyMod } from 'vs/base/common/keyCodes';
+import { IPositronConsoleService } from 'vs/workbench/services/positronConsole/common/interfaces/positronConsoleService';
 
 // The category for language runtime actions.
 const category: ILocalizedString = { value: LANGUAGE_RUNTIME_ACTION_CATEGORY, original: 'Language Runtime' };
@@ -133,7 +134,7 @@ export function registerLanguageRuntimeActions() {
 	};
 
 	// Registers the start language runtime action.
-	registerLanguageRuntimeAction('workbench.action.languageRuntime.start', 'Start Language Runtime', async accessor => {
+	registerLanguageRuntimeAction('workbench.action.languageRuntime.start', 'Start Interpreter', async accessor => {
 		// Access services.
 		const commandService = accessor.get(ICommandService);
 		const extensionService = accessor.get(IExtensionService);
@@ -146,15 +147,16 @@ export function registerLanguageRuntimeActions() {
 		// Get the registered language runtimes.
 		const registeredRuntimes = languageRuntimeService.registeredRuntimes;
 		if (!registeredRuntimes.length) {
-			alert(nls.localize('positronNoInstalledRuntimes', "No language runtimes are currently installed."));
+			alert(nls.localize('positronNoInstalledRuntimes', "No interpreters are currently installed."));
 			return;
 		}
 
 		// Ask the user to select the language runtime to start. If they selected one, start it.
-		const languageRuntime = await selectLanguageRuntime(quickInputService, registeredRuntimes, 'Select the language runtime to start');
+		const languageRuntime = await selectLanguageRuntime(quickInputService, registeredRuntimes, 'Select the interpreter to start');
 		if (languageRuntime) {
 			// Start the language runtime.
-			languageRuntimeService.startRuntime(languageRuntime.metadata.runtimeId);
+			languageRuntimeService.startRuntime(languageRuntime.metadata.runtimeId,
+				`'Start Interpreter' command invoked`);
 
 			// Drive focus into the Positron console.
 			commandService.executeCommand('workbench.panel.positronConsole.focus');
@@ -162,7 +164,7 @@ export function registerLanguageRuntimeActions() {
 	});
 
 	// Registers the set active  language runtime action.
-	registerLanguageRuntimeAction('workbench.action.languageRuntime.setActive', 'Set Active Language Runtime', async accessor => {
+	registerLanguageRuntimeAction('workbench.action.languageRuntime.setActive', 'Set Active Interpreter', async accessor => {
 		// Get the language runtime service.
 		const languageRuntimeService = accessor.get(ILanguageRuntimeService);
 
@@ -179,12 +181,41 @@ export function registerLanguageRuntimeActions() {
 	});
 
 	// Registers the restart language runtime action.
-	registerLanguageRuntimeAction('workbench.action.languageRuntime.restart', 'Restart Language Runtime', async accessor => {
-		(await selectRunningLanguageRuntime(
-			accessor.get(ILanguageRuntimeService),
-			accessor.get(IQuickInputService),
-			'Select the language runtime to restart')
-		)?.restart();
+	registerLanguageRuntimeAction('workbench.action.languageRuntime.restart', 'Restart Interpreter', async accessor => {
+		// Access services.
+		const consoleService = accessor.get(IPositronConsoleService);
+		const languageRuntimeService = accessor.get(ILanguageRuntimeService);
+
+		// The runtime we'll try to restart.
+		let runtime: ILanguageRuntime | undefined = undefined;
+
+		// Typically, the restart command should act on the language runtime
+		// that's active in the Console, so try that first.
+		const activeConsole = consoleService.activePositronConsoleInstance;
+		if (activeConsole) {
+			runtime = activeConsole.runtime;
+		}
+
+		// If there's no active console, try the active language runtime.
+		if (!runtime) {
+			runtime = accessor.get(ILanguageRuntimeService).activeRuntime;
+		}
+
+		// If we still don't have an active language runtime, ask the user to
+		// pick one.
+		if (!runtime) {
+			runtime = await selectRunningLanguageRuntime(
+				accessor.get(ILanguageRuntimeService),
+				accessor.get(IQuickInputService),
+				'Select the interpreter to restart');
+			if (!runtime) {
+				throw new Error('No interpreter selected');
+			}
+		}
+
+		// Restart the language runtime.
+		languageRuntimeService.restartRuntime(runtime.metadata.runtimeId,
+			`'Restart Interpreter' command invoked`);
 	},
 		[
 			{
@@ -199,22 +230,38 @@ export function registerLanguageRuntimeActions() {
 	);
 
 	// Registers the interrupt language runtime action.
-	registerLanguageRuntimeAction('workbench.action.languageRuntime.interrupt', 'Interrupt Language Runtime', async accessor => {
+	registerLanguageRuntimeAction('workbench.action.languageRuntime.interrupt', 'Interrupt Interpreter', async accessor => {
 		(await selectRunningLanguageRuntime(
 			accessor.get(ILanguageRuntimeService),
 			accessor.get(IQuickInputService),
-			'Select the language runtime to interrupt'))?.interrupt();
+			'Select the interpreter to interrupt'))?.interrupt();
 	});
 
 	// Registers the shutdown language runtime action.
-	registerLanguageRuntimeAction('workbench.action.languageRuntime.shutdown', 'Shutdown Language Runtime', async accessor => {
+	registerLanguageRuntimeAction('workbench.action.languageRuntime.shutdown', 'Shutdown Interpreter', async accessor => {
 		(await selectRunningLanguageRuntime(
 			accessor.get(ILanguageRuntimeService),
 			accessor.get(IQuickInputService),
-			'Select the language runtime to shutdown'))?.shutdown();
+			'Select the interpreter to shutdown'))?.shutdown();
 	});
 
-	registerLanguageRuntimeAction('workbench.action.language.runtime.openClient', 'Create New Runtime Client Widget', async accessor => {
+	// Registers the force quit language runtime action.
+	registerLanguageRuntimeAction('workbench.action.languageRuntime.forceQuit', 'Force Quit Interpreter', async accessor => {
+		(await selectRunningLanguageRuntime(
+			accessor.get(ILanguageRuntimeService),
+			accessor.get(IQuickInputService),
+			'Select the interpreter to force-quit'))?.forceQuit();
+	});
+
+	// Registers the show output language runtime action.
+	registerLanguageRuntimeAction('workbench.action.languageRuntime.showOutput', 'Show runtime output', async accessor => {
+		(await selectRunningLanguageRuntime(
+			accessor.get(ILanguageRuntimeService),
+			accessor.get(IQuickInputService),
+			'Select the interpreter for which to show output'))?.showOutput();
+	});
+
+	registerLanguageRuntimeAction('workbench.action.language.runtime.openClient', 'Create Runtime Client Widget', async accessor => {
 		// Access services.
 		const languageRuntimeService = accessor.get(ILanguageRuntimeService);
 		const quickInputService = accessor.get(IQuickInputService);

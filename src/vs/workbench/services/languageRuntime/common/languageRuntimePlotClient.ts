@@ -43,6 +43,9 @@ export enum PlotClientMessageTypeOutput {
 	/** Rendered plot output */
 	Image = 'image',
 
+	/** Notification that a plot has changed on the backend */
+	Update = 'update',
+
 	/** A processing error */
 	Error = 'error',
 }
@@ -239,10 +242,19 @@ export class PlotClientInstance extends Disposable {
 	private readonly _completeRenderEmitter = new Emitter<IRenderedPlot>();
 
 	/**
+	 * Event that fires when the plot has been updated by the runtime and
+	 * re-rendered. Note that this complements rather than replaces the
+	 * `onDidCompleteRender` event, which fires for every render (user-initiated
+	 * or runtime-initiated)
+	 */
+	onDidRenderUpdate: Event<IRenderedPlot>;
+	private readonly _renderUpdateEmitter = new Emitter<IRenderedPlot>();
+
+	/**
 	 * Creates a new plot client instance.
 	 *
 	 * @param _client The client instance for this plot
-	 * @param code The code that generated the plot, if known
+	 * @param metadata The plot's metadata
 	 */
 	constructor(
 		private readonly _client: IRuntimeClientInstance<IPlotClientMessageInput, IPlotClientMessageOutput>,
@@ -264,9 +276,22 @@ export class PlotClientInstance extends Disposable {
 		// Connect the complete render emitter event
 		this.onDidCompleteRender = this._completeRenderEmitter.event;
 
+		// Connect the render update emitter event
+		this.onDidRenderUpdate = this._renderUpdateEmitter.event;
+
 		// Listen to our own state changes
 		this.onDidChangeState((state) => {
 			this._state = state;
+		});
+
+		// Listen for plot updates
+		_client.onDidReceiveData(async (data) => {
+			if (data.msg_type === PlotClientMessageTypeOutput.Update) {
+				// When the server notifies us that a plot update has occurred,
+				// queue a request for the UI to update the plot.
+				const rendered = await this.queuePlotUpdateRequest();
+				this._renderUpdateEmitter.fire(rendered);
+			}
 		});
 
 		// Register the client instance with the runtime, so that when this instance is disposed,
@@ -429,5 +454,54 @@ export class PlotClientInstance extends Disposable {
 	 */
 	get renderEstimateMs(): number {
 		return this._lastRenderTimeMs;
+	}
+
+	/**
+	 * Queues a plot update request, if necessary. Returns a promise that
+	 * resolves with the rendered plot.
+	 */
+	private queuePlotUpdateRequest(): Promise<IRenderedPlot> {
+		if (this._queuedRender) {
+			// There is already a queued render request; it will take care of
+			// updating the plot.
+			return this._queuedRender.promise;
+		}
+
+		// If we have never rendered this plot, we can't process any updates
+		// yet.
+		if (!this._currentRender && !this._lastRender) {
+			return Promise.reject(new Error('Cannot update plot before it has been rendered'));
+		}
+
+		// Use the dimensions of the last or current render request to determine
+		// the size and DPI of the plot to update.
+		const height = this._currentRender?.renderRequest.height ??
+			this._lastRender?.height;
+		const width = this._currentRender?.renderRequest.width ??
+			this._lastRender?.width;
+		const pixel_ratio = this._currentRender?.renderRequest.pixel_ratio ??
+			this._lastRender?.pixel_ratio;
+
+		// If there is already a render request in flight, cancel it. This
+		// should be exceedingly rare since if the kernel is busy processing a
+		// render request, it is unlikely that it will also -- simultaneously --
+		// be processing a request from the user that changes the plot.
+		if (this._currentRender && !this._currentRender.isComplete) {
+			this._currentRender.cancel();
+			this._currentRender = undefined;
+		}
+
+		// Create and schedule a render request to update the plot, and execute
+		// it right away. `scheduleRender` takes care of cancelling the render
+		// timer for any previously deferred render requests.
+		const req = new DeferredRender({
+			msg_type: PlotClientMessageTypeInput.Render,
+			height: height!,
+			width: width!,
+			pixel_ratio: pixel_ratio!
+		});
+
+		this.scheduleRender(req, 0);
+		return req.promise;
 	}
 }

@@ -5,9 +5,15 @@
 
 import { URI } from 'vs/base/common/uri';
 import { LanguageFeatureRegistry, NotebookInfo, NotebookInfoResolver } from 'vs/editor/common/languageFeatureRegistry';
-import { CodeActionProvider, CodeLensProvider, CompletionItemProvider, DocumentPasteEditProvider, DeclarationProvider, DefinitionProvider, DocumentColorProvider, DocumentFormattingEditProvider, DocumentHighlightProvider, DocumentOnDropEditProvider, DocumentRangeFormattingEditProvider, DocumentRangeSemanticTokensProvider, DocumentSemanticTokensProvider, DocumentSymbolProvider, EvaluatableExpressionProvider, FoldingRangeProvider, HoverProvider, ImplementationProvider, InlayHintsProvider, InlineCompletionsProvider, InlineValuesProvider, LinkedEditingRangeProvider, LinkProvider, OnTypeFormattingEditProvider, ReferenceProvider, RenameProvider, SelectionRangeProvider, SignatureHelpProvider, TypeDefinitionProvider } from 'vs/editor/common/languages';
+import { CodeActionProvider, CodeLensProvider, CompletionItemProvider, DocumentPasteEditProvider, DeclarationProvider, DefinitionProvider, DocumentColorProvider, DocumentFormattingEditProvider, DocumentHighlightProvider, DocumentOnDropEditProvider, DocumentRangeFormattingEditProvider, DocumentRangeSemanticTokensProvider, DocumentSemanticTokensProvider, DocumentSymbolProvider, EvaluatableExpressionProvider, FoldingRangeProvider, HoverProvider, ImplementationProvider, InlayHintsProvider, InlineCompletionsProvider, InlineValuesProvider, LinkedEditingRangeProvider, LinkProvider, OnTypeFormattingEditProvider, ReferenceProvider, RenameProvider, SelectionRangeProvider, SignatureHelpProvider, TypeDefinitionProvider, MappedEditsProvider } from 'vs/editor/common/languages';
 import { ILanguageFeaturesService } from 'vs/editor/common/services/languageFeatures';
 import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/common/extensions';
+
+// --- Start Positron ---
+// This import is on its own line to avoid unnecessary merge conflicts.
+// eslint-disable-next-line no-duplicate-imports
+import { StatementRangeProvider } from 'vs/editor/common/languages';
+// --- End Positron ---
 
 export class LanguageFeaturesService implements ILanguageFeaturesService {
 
@@ -42,6 +48,11 @@ export class LanguageFeaturesService implements ILanguageFeaturesService {
 	readonly documentSemanticTokensProvider = new LanguageFeatureRegistry<DocumentSemanticTokensProvider>(this._score.bind(this));
 	readonly documentOnDropEditProvider = new LanguageFeatureRegistry<DocumentOnDropEditProvider>(this._score.bind(this));
 	readonly documentPasteEditProvider = new LanguageFeatureRegistry<DocumentPasteEditProvider>(this._score.bind(this));
+	readonly mappedEditsProvider: LanguageFeatureRegistry<MappedEditsProvider> = new LanguageFeatureRegistry<MappedEditsProvider>(this._score.bind(this));
+
+	// --- Start Positron ---
+	readonly statementRangeProvider = new LanguageFeatureRegistry<StatementRangeProvider>(this._score.bind(this));
+	// --- End Positron ---
 
 	private _notebookTypeResolver?: NotebookInfoResolver;
 

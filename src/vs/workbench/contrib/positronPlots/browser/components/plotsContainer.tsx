@@ -19,6 +19,7 @@ import { StaticPlotClient } from 'vs/workbench/services/positronPlots/common/sta
 interface PlotContainerProps {
 	width: number;
 	height: number;
+	showHistory: boolean;
 }
 
 /**
@@ -36,21 +37,36 @@ export const HistoryPx = 100;
 export const PlotsContainer = (props: PlotContainerProps) => {
 
 	const positronPlotsContext = usePositronPlotsContext();
+	const plotHistoryRef = React.createRef<HTMLDivElement>();
 
-	// Show the plot history gallery along the shortest edge of the container.
-	// This gives the plot rendering area the most space and a gentler aspect
-	// ratio.
-	//
-	// Consider: We could make this configurable (let the user decide which edge
-	// to show the gallery on).
-	const historyPx = positronPlotsContext.positronPlotInstances.length > 1 ? HistoryPx : 0;
-	const historyBottom = props.height > props.width;
+	// We generally prefer showing the history on the bottom (making the plot
+	// wider), but if the plot container is too wide, we show it on the right
+	// instead.
+	const historyBottom = props.height / props.width > 0.75;
+
+	const historyPx = props.showHistory ? HistoryPx : 0;
 	const historyEdge = historyBottom ? 'history-bottom' : 'history-right';
 	const plotHeight = historyBottom ? props.height - historyPx : props.height;
 	const plotWidth = historyBottom ? props.width : props.width - historyPx;
 
 	useEffect(() => {
-		// Empty for now.
+		// Ensure the selected plot is visible. We do this so that the history
+		// filmstrip automatically scrolls to new plots as they are emitted, or
+		// when the user selects a plot.
+		const plotHistory = plotHistoryRef.current;
+		if (plotHistory) {
+			// Find the selected plot in the history
+			const selectedPlot = plotHistory.querySelector('.selected');
+			if (selectedPlot) {
+				// If a plot is selected, scroll it into view.
+				selectedPlot.scrollIntoView();
+			} else {
+				// If no plot is selected, scroll the history to the end, which
+				// will show the most recently generated plot.
+				plotHistory.scrollLeft = plotHistory.scrollWidth;
+				plotHistory.scrollTop = plotHistory.scrollHeight;
+			}
+		}
 	});
 
 	/**
@@ -104,7 +120,7 @@ export const PlotsContainer = (props: PlotContainerProps) => {
 
 	// Render the plot history gallery.
 	const renderHistory = () => {
-		return <div className='plot-history-scroller'>
+		return <div className='plot-history-scroller' ref={plotHistoryRef}>
 			<div className='plot-history'>
 				{positronPlotsContext.positronPlotInstances.map((plotInstance) => (
 					renderThumbnail(plotInstance,
@@ -126,7 +142,7 @@ export const PlotsContainer = (props: PlotContainerProps) => {
 					render(plotInstance)
 				))}
 			</div>
-			{positronPlotsContext.positronPlotInstances.length > 1 && renderHistory()}
+			{props.showHistory && renderHistory()}
 		</div>
 	);
 };

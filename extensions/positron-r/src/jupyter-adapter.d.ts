@@ -46,7 +46,21 @@ export interface JupyterLanguageRuntime extends positron.LanguageRuntime {
 	 * @param clientAddress The address of the client that will connect to the
 	 *  language server.
 	 */
-	startPositronLsp(clientAddress: string): void;
+	startPositronLsp(clientAddress: string): Thenable<void>;
+
+	/**
+	 * Convenience method for starting the Positron DAP server, if the
+	 * language runtime supports it.
+	 *
+	 * @param serverPort The port on which to bind locally.
+	 * @param debugType Passed as `vscode.DebugConfiguration.type`.
+	 * @param debugName Passed as `vscode.DebugConfiguration.name`.
+	 */
+	startPositronDap(
+		serverPort: number,
+		debugType: string,
+		debugName: string,
+	): Thenable<void>;
 
 	/**
 	 * Method for emitting a message to the language server's Jupyter output
@@ -55,6 +69,12 @@ export interface JupyterLanguageRuntime extends positron.LanguageRuntime {
 	 * @param message A message to emit to the Jupyter log.
 	 */
 	emitJupyterLog(message: string): void;
+
+	/**
+	 * A Jupyter kernel is guaranteed to have a `showOutput()`
+	 * method, so we declare it non-optional.
+	 */
+	showOutput(): void;
 }
 
 /**
@@ -92,10 +112,10 @@ export interface JupyterAdapterApi extends vscode.Disposable {
 /** Specific functionality implemented by runtimes */
 export interface JupyterKernelExtra {
 	attachOnStartup?: {
-		init: (args: Array<String>) => void;
+		init: (args: Array<string>) => void;
 		attach: () => Promise<void>;
 	};
 	sleepOnStartup?: {
-		init: (args: Array<String>, delay: number) => void;
+		init: (args: Array<string>, delay: number) => void;
 	};
 }

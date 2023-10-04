@@ -326,6 +326,8 @@ export class WebviewElement extends Disposable implements IWebview, WebviewFindD
 		this._register(Event.runAndSubscribe(webviewThemeDataProvider.onThemeDataChanged, () => this.style()));
 		this._register(_accessibilityService.onDidChangeReducedMotion(() => this.style()));
 		this._register(_accessibilityService.onDidChangeScreenReaderOptimized(() => this.style()));
+		this._register(contextMenuService.onDidShowContextMenu(() => this._send('set-context-menu-visible', { visible: true })));
+		this._register(contextMenuService.onDidHideContextMenu(() => this._send('set-context-menu-visible', { visible: false })));
 
 		this._confirmBeforeClose = configurationService.getValue<string>('window.confirmBeforeClose');
 
@@ -341,7 +343,11 @@ export class WebviewElement extends Disposable implements IWebview, WebviewFindD
 		}));
 
 		if (initInfo.options.enableFindWidget) {
-			this._webviewFindWidget = this._register(instantiationService.createInstance(WebviewFindWidget, this));
+			// --- Start Positron ---
+			// Added this._options.webviewFindDelegate || this so that if a WebviewFindDelegate is
+			// passed in through WebviewOptions, it takes over.
+			this._webviewFindWidget = this._register(instantiationService.createInstance(WebviewFindWidget, this._options.webviewFindDelegate || this));
+			// --- End Positron ---
 		}
 
 		this._encodedWebviewOriginPromise.then(encodedWebviewOrigin => {
