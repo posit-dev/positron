@@ -1270,7 +1270,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 				return nls.localize('positronConsole.exit.shutdown', "{0} shut down successfully.", this._runtime.metadata.runtimeName);
 
 			case RuntimeExitReason.Error:
-				return nls.localize('positronConsole.exit.error', "{0} crashed or exited unexpectedly (exit code {1})", this._runtime.metadata.runtimeName, exit.exit_code);
+				return nls.localize('positronConsole.exit.error', "{0} exited unexpectedly: {1}", this._runtime.metadata.runtimeName, this.formatExitCode(exit.exit_code));
 
 			case RuntimeExitReason.StartupFailed:
 				return nls.localize('positronConsole.exit.startupFailed', "{0} failed to start up (exit code {1})", this._runtime.metadata.runtimeName, exit.exit_code);
@@ -1279,6 +1279,68 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 			case RuntimeExitReason.Unknown:
 				return nls.localize('positronConsole.exit.unknown', "{0} exited (exit code {1})", this._runtime.metadata.runtimeName, exit.exit_code);
 		}
+	}
+
+	private formatExitCode(exitCode: number): string {
+		if (exitCode === 1) {
+			return nls.localize('positronConsole.exitCode.error', "exit code 1 (error)");
+		} else if (exitCode === 126) {
+			return nls.localize('positronConsole.exitCode.cannotExit', "exit code 126 (not an executable or no permissions)");
+		} else if (exitCode === 127) {
+			return nls.localize('positronConsole.exitCode.notFound', "exit code 127 (command not found)");
+		} else if (exitCode === 130) {
+			return nls.localize('positronConsole.exitCode.interrupted', "exit code 130 (interrupted)");
+		} else if (exitCode > 128 && exitCode < 160) {
+			// Extract the signal from the exit code
+			const signal = exitCode - 128;
+
+			// Provide a human-readable signal name
+			let formattedSignal = this.formatSignal(signal);
+			if (formattedSignal.length > 0) {
+				formattedSignal = ` (${formattedSignal})`;
+			}
+
+			return nls.localize('positronConsole.exitCode.killed', "killed with signal {0}{1}", signal, formattedSignal);
+		}
+		return nls.localize('positronConsole.exitCode.genericError', "exit code {0}", exitCode);
+	}
+
+	/**
+	 * Formats a signal code for display. These signal codes are intentionally
+	 * not localized, and not every signal is listed here (only those commonly
+	 * associated with error conditions).
+	 *
+	 * @param signal The signal code
+	 * @returns A string representing the signal, or an empty string if the signal is unknown.
+	 */
+	private formatSignal(signal: number): string {
+		let name: string = '';
+		if (signal === 1) {
+			name = 'SIGHUP';
+		} else if (signal === 2) {
+			name = 'SIGINT';
+		} else if (signal === 3) {
+			name = 'SIGQUIT';
+		} else if (signal === 4) {
+			name = 'SIGILL';
+		} else if (signal === 5) {
+			name = 'SIGTRAP';
+		} else if (signal === 6) {
+			name = 'SIGABRT';
+		} else if (signal === 7) {
+			name = 'SIGBUS';
+		} else if (signal === 9) {
+			name = 'SIGKILL';
+		} else if (signal === 11) {
+			name = 'SIGSEGV';
+		} else if (signal === 13) {
+			name = 'SIGPIPE';
+		} else if (signal === 15) {
+			name = 'SIGTERM';
+		} else if (signal === 19) {
+			name = 'SIGSTOP';
+		}
+		return name;
 	}
 
 	/**
