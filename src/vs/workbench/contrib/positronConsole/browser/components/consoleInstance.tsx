@@ -287,7 +287,7 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 			if (runtime) {
 				positronConsoleContext.languageRuntimeService.restartRuntime(
 					runtime.metadata.runtimeId,
-					'Restart requested from activity in the the Console tab');
+					'Restart requested from activity in the Console tab');
 			}
 		}));
 
