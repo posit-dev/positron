@@ -447,6 +447,13 @@ export interface IEditorOptions {
 	 * Defaults to 10 (ms)
 	 */
 	quickSuggestionsDelay?: number;
+	// --- Start Positron ---
+	/**
+	 * Quick suggestions minimum word length
+	 * Defaults to 3 characters
+	 */
+	quickSuggestionsMinimumLength?: number;
+	// --- End Positron ---
 	/**
 	 * Controls the spacing around the editor.
 	 */
@@ -5154,7 +5161,11 @@ export const enum EditorOption {
 	wrappingInfo,
 	defaultColorDecorators,
 	colorDecoratorsActivatedOn,
-	inlineCompletionsAccessibilityVerbose
+	inlineCompletionsAccessibilityVerbose,
+	// --- Start Positron ---
+	// Placed at the end to limit merge conflicts in the generated files
+	quickSuggestionsMinimumLength
+	// --- End Positron ---
 }
 
 export const EditorOptions = {
@@ -5605,6 +5616,13 @@ export const EditorOptions = {
 		10, 0, Constants.MAX_SAFE_SMALL_INTEGER,
 		{ description: nls.localize('quickSuggestionsDelay', "Controls the delay in milliseconds after which quick suggestions will show up.") }
 	)),
+	// --- Start Positron ---
+	quickSuggestionsMinimumLength: register(new EditorIntOption(
+		EditorOption.quickSuggestionsMinimumLength, 'quickSuggestionsMinimumLength',
+		3, 1, 10,
+		{ description: nls.localize('quickSuggestionsMinimumLength', "Controls the minimum number of characters required before quick suggestions will show up.") }
+	)),
+	// --- End Positron ---
 	readOnly: register(new EditorBooleanOption(
 		EditorOption.readOnly, 'readOnly', false,
 	)),
