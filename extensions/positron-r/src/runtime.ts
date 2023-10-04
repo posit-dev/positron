@@ -35,6 +35,10 @@ export class RRuntime implements positron.LanguageRuntime, vscode.Disposable {
 	private _stateEmitter =
 		new vscode.EventEmitter<positron.RuntimeState>();
 
+	/** The emitter for runtime exits */
+	private _exitEmitter =
+		new vscode.EventEmitter<positron.LanguageRuntimeExit>();
+
 	/** The Jupyter Adapter extension API */
 	private adapterApi?: JupyterAdapterApi;
 
@@ -49,12 +53,14 @@ export class RRuntime implements positron.LanguageRuntime, vscode.Disposable {
 		this._queue = new PQueue({ concurrency: 1 });
 		this.onDidReceiveRuntimeMessage = this._messageEmitter.event;
 		this.onDidChangeRuntimeState = this._stateEmitter.event;
+		this.onDidEndSession = this._exitEmitter.event;
 
 		this.onDidChangeRuntimeState((state) => {
 			this.onStateChange(state);
 		});
 	}
 
+	onDidEndSession: vscode.Event<positron.LanguageRuntimeExit>;
 	onDidReceiveRuntimeMessage: vscode.Event<positron.LanguageRuntimeMessage>;
 	onDidChangeRuntimeState: vscode.Event<positron.RuntimeState>;
 
@@ -203,6 +209,10 @@ export class RRuntime implements positron.LanguageRuntime, vscode.Disposable {
 		kernel.onDidReceiveRuntimeMessage((message) => {
 			this._messageEmitter.fire(message);
 		});
+		kernel.onDidEndSession((exit) => {
+			this._exitEmitter.fire(exit);
+		});
+
 		return kernel;
 	}
 

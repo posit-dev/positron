@@ -9,7 +9,7 @@ import {
 	ExtHostPositronContext
 } from '../../common/positron/extHost.positron.protocol';
 import { extHostNamedCustomer, IExtHostContext } from 'vs/workbench/services/extensions/common/extHostCustomers';
-import { ILanguageRuntime, ILanguageRuntimeClientCreatedEvent, ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMessageCommClosed, ILanguageRuntimeMessageCommData, ILanguageRuntimeMessageCommOpen, ILanguageRuntimeMessageError, ILanguageRuntimeMessageInput, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessagePrompt, ILanguageRuntimeMessageState, ILanguageRuntimeMessageStream, ILanguageRuntimeMetadata, ILanguageRuntimeDynState as ILanguageRuntimeDynState, ILanguageRuntimeService, ILanguageRuntimeStartupFailure, LanguageRuntimeMessageType, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeState, LanguageRuntimeDiscoveryPhase } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntime, ILanguageRuntimeClientCreatedEvent, ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMessageCommClosed, ILanguageRuntimeMessageCommData, ILanguageRuntimeMessageCommOpen, ILanguageRuntimeMessageError, ILanguageRuntimeMessageInput, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessagePrompt, ILanguageRuntimeMessageState, ILanguageRuntimeMessageStream, ILanguageRuntimeMetadata, ILanguageRuntimeDynState as ILanguageRuntimeDynState, ILanguageRuntimeService, ILanguageRuntimeStartupFailure, LanguageRuntimeMessageType, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeState, LanguageRuntimeDiscoveryPhase, ILanguageRuntimeExit } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { Disposable, DisposableStore } from 'vs/base/common/lifecycle';
 import { Event, Emitter } from 'vs/base/common/event';
 import { IPositronConsoleService } from 'vs/workbench/services/positronConsole/common/interfaces/positronConsoleService';
@@ -68,6 +68,7 @@ class ExtHostLanguageRuntimeAdapter implements ILanguageRuntime {
 	private readonly _stateEmitter = new Emitter<RuntimeState>();
 	private readonly _startupEmitter = new Emitter<ILanguageRuntimeInfo>();
 	private readonly _startupFailureEmitter = new Emitter<ILanguageRuntimeStartupFailure>();
+	private readonly _exitEmitter = new Emitter<ILanguageRuntimeExit>();
 
 	private readonly _onDidReceiveRuntimeMessageOutputEmitter = new Emitter<ILanguageRuntimeMessageOutput>();
 	private readonly _onDidReceiveRuntimeMessageStreamEmitter = new Emitter<ILanguageRuntimeMessageStream>();
@@ -103,6 +104,7 @@ class ExtHostLanguageRuntimeAdapter implements ILanguageRuntime {
 		this.onDidChangeRuntimeState = this._stateEmitter.event;
 		this.onDidCompleteStartup = this._startupEmitter.event;
 		this.onDidEncounterStartupFailure = this._startupFailureEmitter.event;
+		this.onDidEndSession = this._exitEmitter.event;
 
 		// Listen to state changes and track the current state
 		this.onDidChangeRuntimeState((state) => {
@@ -162,6 +164,8 @@ class ExtHostLanguageRuntimeAdapter implements ILanguageRuntime {
 
 	onDidEncounterStartupFailure: Event<ILanguageRuntimeStartupFailure>;
 
+	onDidEndSession: Event<ILanguageRuntimeExit>;
+
 	onDidReceiveRuntimeMessageOutput = this._onDidReceiveRuntimeMessageOutputEmitter.event;
 	onDidReceiveRuntimeMessageStream = this._onDidReceiveRuntimeMessageStreamEmitter.event;
 	onDidReceiveRuntimeMessageInput = this._onDidReceiveRuntimeMessageInputEmitter.event;
@@ -209,6 +213,10 @@ class ExtHostLanguageRuntimeAdapter implements ILanguageRuntime {
 		// Add the state change to the event queue
 		const event = new QueuedRuntimeStateEvent(clock, state);
 		this.addToEventQueue(event);
+	}
+
+	emitExit(exit: ILanguageRuntimeExit): void {
+		this._exitEmitter.fire(exit);
 	}
 
 	/**
@@ -819,6 +827,10 @@ export class MainThreadLanguageRuntime implements MainThreadLanguageRuntimeShape
 
 	$emitLanguageRuntimeState(handle: number, clock: number, state: RuntimeState): void {
 		this.findRuntime(handle).emitState(clock, state);
+	}
+
+	$emitLanguageRuntimeExit(handle: number, exit: ILanguageRuntimeExit): void {
+		this.findRuntime(handle).emitExit(exit);
 	}
 
 	// Called by the extension host to register a language runtime

@@ -205,6 +205,53 @@ export interface ILanguageRuntimeStartupFailure {
 }
 
 /**
+ * Possible reasons a language runtime could exit.
+ */
+export enum RuntimeExitReason {
+	/** The runtime exited because it could not start correctly. */
+	StartupFailed = 'startupFailed',
+
+	/** The runtime is shutting down at the request of the user. */
+	Shutdown = 'shutdown',
+
+	/** The runtime exited because it was forced to quit. */
+	ForcedQuit = 'forcedQuit',
+
+	/** The runtime is exiting in order to restart. */
+	Restart = 'restart',
+
+	/** The runtime exited because of an error, most often a crash. */
+	Error = 'error',
+
+	/**
+	 * The runtime exited for an unknown reason. This typically means that
+	 * it exited unexpectedly but with a normal exit code (0).
+	 */
+	Unknown = 'unknown',
+}
+
+/**
+ * LanguageRuntimeExit is an interface that defines an event occurring when a
+ * language runtime exits.
+ */
+export interface ILanguageRuntimeExit {
+	/**
+	 * The process exit code, if the runtime is backed by a process. If the
+	 * runtime is not backed by a process, this should just be 0 for a
+	 * succcessful exit and 1 for an error.
+	 */
+	exit_code: number;
+
+	/**
+	 * The reason the runtime exited.
+	 */
+	reason: RuntimeExitReason;
+
+	/** The exit message, if any. */
+	message: string;
+}
+
+/**
  * Possible error dispositions for a language runtime
  */
 export enum RuntimeErrorBehavior {
@@ -419,6 +466,9 @@ export interface ILanguageRuntime {
 
 	/** An object that emits an event when runtime startup fails */
 	onDidEncounterStartupFailure: Event<ILanguageRuntimeStartupFailure>;
+
+	/** An object that emits an event when the runtime exits */
+	onDidEndSession: Event<ILanguageRuntimeExit>;
 
 	/**
 	 * An object that emits an event when a client instance (comm) is created

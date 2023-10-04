@@ -309,6 +309,11 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 			}
 		});
 
+		// Hook up the session end (exit) handler
+		runtime.onDidEndSession(exit => {
+			this._proxy.$emitLanguageRuntimeExit(handle, exit);
+		});
+
 		// Register the runtime
 		this._runtimes.push(runtime);
 		this._eventClocks.push(0);

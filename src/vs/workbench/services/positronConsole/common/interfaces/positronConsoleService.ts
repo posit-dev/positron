@@ -160,6 +160,11 @@ export interface IPositronConsoleInstance {
 	readonly onDidSelectPlot: Event<string>;
 
 	/**
+	 * The onDidRequestRestart event.
+	 */
+	readonly onDidRequestRestart: Event<void>;
+
+	/**
 	 * Focuses the input for the console.
 	 */
 	focusInput(): void;

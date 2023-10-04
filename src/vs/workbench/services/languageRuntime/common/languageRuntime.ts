@@ -2,25 +2,26 @@
  *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
+import * as nls from 'vs/nls';
 import { Emitter } from 'vs/base/common/event';
 import { ILogService } from 'vs/platform/log/common/log';
 import { ILanguageService } from 'vs/editor/common/languages/language';
 import { Disposable, IDisposable, toDisposable } from 'vs/base/common/lifecycle';
 import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/common/extensions';
-import { formatLanguageRuntime, ILanguageRuntime, ILanguageRuntimeGlobalEvent, ILanguageRuntimeService, ILanguageRuntimeStateEvent, LanguageRuntimeDiscoveryPhase, LanguageRuntimeStartupBehavior, RuntimeClientType, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { formatLanguageRuntime, ILanguageRuntime, ILanguageRuntimeGlobalEvent, ILanguageRuntimeService, ILanguageRuntimeStateEvent, LanguageRuntimeDiscoveryPhase, LanguageRuntimeStartupBehavior, RuntimeClientType, RuntimeExitReason, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { FrontEndClientInstance, IFrontEndClientMessageInput, IFrontEndClientMessageOutput } from 'vs/workbench/services/languageRuntime/common/languageRuntimeFrontEndClient';
 import { LanguageRuntimeWorkspaceAffiliation } from 'vs/workbench/services/languageRuntime/common/languageRuntimeWorkspaceAffiliation';
 import { IStorageService } from 'vs/platform/storage/common/storage';
 import { IExtensionService } from 'vs/workbench/services/extensions/common/extensions';
 import { IWorkspaceTrustManagementService } from 'vs/platform/workspace/common/workspaceTrust';
 import { DeferredPromise } from 'vs/base/common/async';
+import { INotificationService } from 'vs/platform/notification/common/notification';
 
 /**
  * LanguageRuntimeInfo class.
  */
 class LanguageRuntimeInfo {
 	public state: RuntimeState;
-	public restarting = false;
 	constructor(
 		public readonly runtime: ILanguageRuntime,
 		public readonly startupBehavior: LanguageRuntimeStartupBehavior) {
@@ -28,14 +29,6 @@ class LanguageRuntimeInfo {
 	}
 	setState(state: RuntimeState): void {
 		this.state = state;
-
-		// Dependents check the value of `restarting` to determine whether an `Exited` state
-		// was preceeded by `Restarting`.
-		if (state === RuntimeState.Restarting) {
-			this.restarting = true;
-		} else if (state === RuntimeState.Initializing) {
-			this.restarting = false;
-		}
 	}
 }
 
@@ -120,7 +113,8 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 		@ILogService private readonly _logService: ILogService,
 		@IStorageService private readonly _storageService: IStorageService,
 		@IExtensionService private readonly _extensionService: IExtensionService,
-		@IWorkspaceTrustManagementService private readonly _workspaceTrustManagementService: IWorkspaceTrustManagementService
+		@IWorkspaceTrustManagementService private readonly _workspaceTrustManagementService: IWorkspaceTrustManagementService,
+		@INotificationService private readonly _notificationService: INotificationService
 	) {
 		// Call the base class's constructor.
 		super();
@@ -445,15 +439,32 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 					old_state: oldState,
 					new_state: state
 				});
-				// If the runtime is restarting and has just exited, let Positron know that it's
-				// about to start again. Note that we need to do this on the next tick since we
-				// need to ensure all the event handlers for the state change we
-				// are currently processing have been called (i.e. everyone knows it has exited)
-				setTimeout(() => {
-					if (languageRuntimeInfo.restarting && state === RuntimeState.Exited) {
-						this._onWillStartRuntimeEmitter.fire(runtime);
-					}
-				}, 0);
+			}
+		}));
+
+		this._register(runtime.onDidEndSession(async exit => {
+			// If the runtime is restarting and has just exited, let Positron know that it's
+			// about to start again. Note that we need to do this on the next tick since we
+			// need to ensure all the event handlers for the state change we
+			// are currently processing have been called (i.e. everyone knows it has exited)
+			setTimeout(() => {
+				if (languageRuntimeInfo.state === RuntimeState.Exited &&
+					exit.reason === RuntimeExitReason.Restart) {
+					this._onWillStartRuntimeEmitter.fire(runtime);
+				}
+			}, 0);
+
+			// If the runtime crashed, try to restart it.
+			if (exit.reason === RuntimeExitReason.Error ||
+				exit.reason === RuntimeExitReason.Unknown) {
+
+				// Start the runtime.
+				await this.startRuntime(runtime.metadata.runtimeId,
+					`The runtime exited unexpectedly and is being restarted automatically.`);
+
+				// Let the user know what we did.
+				const msg = nls.localize('positronConsole.runtimeCrashed', "{0} exited unexpectedly and was automatically restarted. You may have lost unsaved work.\nExit code: {1}", runtime.metadata.runtimeName, exit.exit_code);
+				this._notificationService.warn(msg);
 			}
 		}));
 

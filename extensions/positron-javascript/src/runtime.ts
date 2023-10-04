@@ -19,6 +19,8 @@ export class JavascriptLanguageRuntime implements positron.LanguageRuntime {
 
 	private readonly _onDidChangeRuntimeState = new vscode.EventEmitter<positron.RuntimeState>();
 
+	private readonly _onDidEndSession = new vscode.EventEmitter<positron.LanguageRuntimeExit>();
+
 	private _env?: JavascriptEnvironment;
 
 	/**
@@ -63,6 +65,9 @@ export class JavascriptLanguageRuntime implements positron.LanguageRuntime {
 
 	readonly onDidChangeRuntimeState: vscode.Event<positron.RuntimeState>
 		= this._onDidChangeRuntimeState.event;
+
+	readonly onDidEndSession: vscode.Event<positron.LanguageRuntimeExit>
+		= this._onDidEndSession.event;
 
 	execute(code: string, id: string, mode: positron.RuntimeCodeExecutionMode, errorBehavior: positron.RuntimeErrorBehavior): void {
 		// Echo the input code
