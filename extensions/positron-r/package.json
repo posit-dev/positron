@@ -179,6 +179,9 @@
           "R",
           "r"
         ],
+        "filenames": [
+          "NAMESPACE"
+        ],
         "configuration": "./language-configuration/r-language-configuration.json"
       },
       {
@@ -195,16 +198,6 @@
           ".lintr"
         ],
         "configuration": "./language-configuration/dcf-language-configuration.json"
-      },
-      {
-        "id": "r-pkg-namespace",
-        "aliases": [
-          "R NAMESPACE"
-        ],
-        "filenames": [
-          "NAMESPACE"
-        ],
-        "configuration": "./language-configuration/namespace-language-configuration.json"
       },
       {
         "id": "r-pkg-docs",
@@ -241,11 +234,6 @@
         "embeddedLanguages": {
           "meta.embedded.block.r": "r"
         }
-      },
-      {
-        "language": "r-pkg-namespace",
-        "scopeName": "source.namespace",
-        "path": "./syntaxes/namespace.tmLanguage.json"
       },
       {
         "language": "r-pkg-docs",
