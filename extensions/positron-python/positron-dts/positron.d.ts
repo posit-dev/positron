@@ -522,6 +522,11 @@ declare module 'positron' {
 		 * should forcibly terminate any underlying processes.
 		 */
 		forceQuit(): Thenable<void>;
+
+		/**
+		 * Show runtime log in output panel.
+		 */
+		showOutput?(): void;
 	}
 
 
