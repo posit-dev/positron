@@ -184,6 +184,9 @@
           "R",
           "r"
         ],
+        "filenames": [
+          "NAMESPACE"
+        ],
         "configuration": "./language-configuration/r-language-configuration.json"
       },
       {
@@ -200,6 +203,27 @@
           ".lintr"
         ],
         "configuration": "./language-configuration/dcf-language-configuration.json"
+      },
+      {
+        "id": "r-pkg-docs",
+        "aliases": [
+          "R documentation",
+          "r documentation"
+        ],
+        "extensions": [
+          ".rd",
+          ".Rd"
+        ],
+        "configuration": "./language-configuration/r-docs-language-configuration.json"
+      },
+      {
+        "id": "json",
+        "aliases": [
+          "renv lockfile"
+        ],
+        "filenames": [
+          "renv.lock"
+        ]
       }
     ],
     "grammars": [
@@ -215,6 +239,11 @@
         "embeddedLanguages": {
           "meta.embedded.block.r": "r"
         }
+      },
+      {
+        "language": "r-pkg-docs",
+        "scopeName": "source.rdocs",
+        "path": "./syntaxes/rd.tmLanguage.json"
       }
     ],
     "keybindings": [
