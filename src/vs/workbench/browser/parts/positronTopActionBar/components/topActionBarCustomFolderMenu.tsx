@@ -57,19 +57,13 @@ export const TopActionBarCustonFolderMenu = (props: TopActionBarCustonFolderMenu
 	 */
 	const showPopup = () => {
 		showCustomFolderPopup(
+			positronTopActionBarContext.commandService,
+			positronTopActionBarContext.contextKeyService,
 			positronTopActionBarContext.labelService,
 			positronTopActionBarContext.workspacesService,
 			positronTopActionBarContext.layoutService.container,
 			ref.current
 		);
-		// // Show the runtimes manager modal popup.
-		// showCustonFolderMenuModalPopup(
-		// 	positronTopActionBarContext.languageRuntimeService,
-		// 	positronTopActionBarContext.layoutService.container,
-		// 	ref.current,
-		// 	props.onStartRuntime,
-		// 	props.onActivateRuntime
-		// );
 	};
 
 	/**

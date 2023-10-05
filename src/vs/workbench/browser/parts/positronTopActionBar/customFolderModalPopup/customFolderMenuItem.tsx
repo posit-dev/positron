@@ -12,7 +12,8 @@ import { PositronButton } from 'vs/base/browser/ui/positronComponents/positronBu
  * CustomFolderMenuItemProps interface.
  */
 interface CustomFolderMenuItemProps {
-	title: string;
+	enabled: boolean;
+	label: string;
 	onSelected: () => void;
 }
 
@@ -26,7 +27,7 @@ export const CustomFolderMenuItem = (props: CustomFolderMenuItemProps) => {
 	return (
 		<PositronButton className='custom-folder-menu-item' onClick={props.onSelected}>
 			<div className='title'>
-				{props.title}
+				{props.label}
 			</div>
 		</PositronButton>
 	);
