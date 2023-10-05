@@ -59,7 +59,6 @@ export const TopActionBarInterpretersManager = (props: TopActionBarInterpretersM
 	 * Shows the interpreters manager modal popup.
 	 */
 	const showPopup = () => {
-		// Show the interpreters manager modal modal popup.
 		showInterpretersManagerModalPopup(
 			positronTopActionBarContext.languageRuntimeService,
 			positronTopActionBarContext.layoutService.container,
