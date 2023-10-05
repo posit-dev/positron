@@ -3,8 +3,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as React from 'react';
-import { positronClassNames } from 'vs/base/common/positronUtilities';
 import { forwardRef, KeyboardEvent, MouseEvent, PropsWithChildren } from 'react'; // eslint-disable-line no-duplicate-imports
+import { positronClassNames } from 'vs/base/common/positronUtilities';
 
 /**
  * KeyboardModifiers interface.
