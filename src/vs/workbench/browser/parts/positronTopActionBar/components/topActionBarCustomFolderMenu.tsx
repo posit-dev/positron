@@ -20,7 +20,7 @@ export const TopActionBarCustonFolderMenu = () => {
 	const ref = useRef<HTMLDivElement>(undefined!);
 
 	/**
-	 * Shows the custom folder manager modal popup.
+	 * Shows the custom folder modal popup.
 	 */
 	const showPopup = () => {
 		showCustomFolderModalPopup(
