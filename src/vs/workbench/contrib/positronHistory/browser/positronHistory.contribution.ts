@@ -28,7 +28,10 @@ const positronHistoryViewIcon = registerIcon('positron-history-icon', Codicon.po
 // Register the Positron history container.
 const VIEW_CONTAINER: ViewContainer = Registry.as<IViewContainersRegistry>(ViewContainerExtensions.ViewContainersRegistry).registerViewContainer({
 	id: POSITRON_HISTORY_VIEW_ID,
-	title: nls.localize('positron.history', "History"),
+	title: {
+		value: nls.localize('positron.history', "History"),
+		original: 'History'
+	},
 	icon: positronHistoryViewIcon,
 	order: 2,
 	ctorDescriptor: new SyncDescriptor(ViewPaneContainer, [POSITRON_HISTORY_VIEW_ID, { mergeViewWithContainerWhenSingleView: true }]),
