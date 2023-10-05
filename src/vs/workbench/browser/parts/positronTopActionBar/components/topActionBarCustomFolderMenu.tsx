@@ -9,16 +9,10 @@ import { usePositronTopActionBarContext } from 'vs/workbench/browser/parts/posit
 import { showCustomFolderModalPopup } from 'vs/workbench/browser/parts/positronTopActionBar/customFolderModalPopup/customFolderModalPopup';
 
 /**
- * TopActionBarCustonFolderMenuProps interface.
- */
-interface TopActionBarCustonFolderMenuProps {
-}
-
-/**
  * TopActionBarCustonFolderMenu component.
  * @returns The rendered component.
  */
-export const TopActionBarCustonFolderMenu = (props: TopActionBarCustonFolderMenuProps) => {
+export const TopActionBarCustonFolderMenu = () => {
 	// Context hooks.
 	const positronTopActionBarContext = usePositronTopActionBarContext();
 
