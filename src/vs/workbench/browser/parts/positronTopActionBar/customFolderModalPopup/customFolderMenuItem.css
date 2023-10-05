@@ -4,7 +4,7 @@
 
 .custom-folder-menu-item {
 	width: 100%;
-	height: 24px;
+	height: 26px;
 	border: none;
 	display: flex;
 	cursor: pointer;
@@ -14,7 +14,7 @@
 }
 
 .custom-folder-menu-item:hover {
-	border-radius: 6px;
+	border-radius: 5px;
 	color: var(--vscode-positronRuntimesManager-hoverForeground);
 	background: var(--vscode-positronRuntimesManager-hoverBackground);
 }

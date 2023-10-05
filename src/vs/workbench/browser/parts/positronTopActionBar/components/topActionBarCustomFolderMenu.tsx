@@ -4,10 +4,9 @@
 
 import 'vs/css!./topActionBarCustomFolderMenu';
 import * as React from 'react';
-import { KeyboardEvent, useEffect, useRef } from 'react'; // eslint-disable-line no-duplicate-imports
-import { DisposableStore } from 'vs/base/common/lifecycle';
+import { KeyboardEvent, useRef } from 'react'; // eslint-disable-line no-duplicate-imports
 import { usePositronTopActionBarContext } from 'vs/workbench/browser/parts/positronTopActionBar/positronTopActionBarContext';
-import { showCustomFolderPopup } from 'vs/workbench/browser/parts/positronTopActionBar/customFolderModalPopup/customFolderModalPopup';
+import { showCustomFolderModalPopup } from 'vs/workbench/browser/parts/positronTopActionBar/customFolderModalPopup/customFolderModalPopup';
 
 /**
  * TopActionBarCustonFolderMenuProps interface.
@@ -26,39 +25,14 @@ export const TopActionBarCustonFolderMenu = (props: TopActionBarCustonFolderMenu
 	// Reference hooks.
 	const ref = useRef<HTMLDivElement>(undefined!);
 
-	// State hooks.
-	// const [activeRuntime, setActiveRuntime] = useState(positronTopActionBarContext.languageRuntimeService.activeRuntime);
-
-	// Main useEffect.
-	useEffect(() => {
-		// Create the disposable store for cleanup.
-		const disposableStore = new DisposableStore();
-
-		// // Add the onDidChangeActiveRuntime event handler.
-		// disposableStore.add(
-		// 	positronTopActionBarContext.languageRuntimeService.onDidChangeActiveRuntime(runtime => {
-		// 		setActiveRuntime(positronTopActionBarContext.languageRuntimeService.activeRuntime);
-		// 	})
-		// );
-
-		// // Add the onShowStartInterpreterPopup event handler.
-		// disposableStore.add(
-		// 	positronTopActionBarContext.positronTopActionBarService.onShowStartInterpreterPopup(() => {
-		// 		showPopup();
-		// 	})
-		// );
-
-		// Return the cleanup function that will dispose of the disposables.
-		return () => disposableStore.dispose();
-	}, []);
-
 	/**
-	 * Shows the runtimes manager modal popup.
+	 * Shows the custom folder manager modal popup.
 	 */
 	const showPopup = () => {
-		showCustomFolderPopup(
+		showCustomFolderModalPopup(
 			positronTopActionBarContext.commandService,
 			positronTopActionBarContext.contextKeyService,
+			positronTopActionBarContext.hostService,
 			positronTopActionBarContext.labelService,
 			positronTopActionBarContext.workspacesService,
 			positronTopActionBarContext.layoutService.container,

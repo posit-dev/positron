@@ -5,6 +5,10 @@
 import 'vs/css!./customFolderMenuItems';
 import * as React from 'react';
 import { localize } from 'vs/nls';
+import { URI } from 'vs/base/common/uri';
+import { isMacintosh } from 'vs/base/common/platform';
+import { IWindowOpenable } from 'vs/platform/window/common/window';
+import { IHostService } from 'vs/workbench/services/host/browser/host';
 import { ICommandService } from 'vs/platform/commands/common/commands';
 import { ILabelService, Verbosity } from 'vs/platform/label/common/label';
 import { CommandCenter } from 'vs/platform/commandCenter/common/commandCenter';
@@ -13,9 +17,9 @@ import { CommandAction } from 'vs/platform/positronActionBar/browser/positronAct
 import { ContextKeyExpr, IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
 import { ClearRecentWorkspacesAction } from 'vs/workbench/browser/parts/editor/workspaceActions';
 import { EmptyWorkspaceSupportContext, WorkbenchStateContext } from 'vs/workbench/common/contextkeys';
+import { IRecentlyOpened, isRecentWorkspace, isRecentFolder } from 'vs/platform/workspaces/common/workspaces';
 import { CustomFolderMenuItem } from 'vs/workbench/browser/parts/positronTopActionBar/customFolderModalPopup/customFolderMenuItem';
 import { CustomFolderMenuSeparator } from 'vs/workbench/browser/parts/positronTopActionBar/customFolderModalPopup/customFolderMenuSeparator';
-import { IRecentlyOpened, isRecentWorkspace, isRecentFolder, IRecentWorkspace, IRecentFolder } from 'vs/platform/workspaces/common/workspaces';
 import { PositronNewFolderAction, PositronNewFolderFromGitAction, PositronOpenFolderInNewWindowAction } from 'vs/workbench/browser/actions/positronActions';
 
 /**
@@ -30,6 +34,7 @@ const kCloseFolder = 'workbench.action.closeFolder';
 interface CustomFolderMenuItemsProps {
 	commandService: ICommandService;
 	contextKeyService: IContextKeyService;
+	hostService: IHostService;
 	labelService: ILabelService;
 	recentlyOpened: IRecentlyOpened;
 	onMenuItemSelected: () => void;
@@ -42,79 +47,85 @@ interface CustomFolderMenuItemsProps {
  */
 export const CustomFolderMenuItems = (props: CustomFolderMenuItemsProps) => {
 	/**
-	 * Gets the label for an IRecentWorkspace or IRecentFolder.
-	 * @param recent The IRecentWorkspace or IRecentFolder.
-	 * @returns The label for the IRecentWorkspace or IRecentFolder.
+	 * CommandActionCustomFolderMenuItem component.
+	 * @param commandAction The CommandAction.
+	 * @returns The rendered component.
 	 */
-	const getRecentWorkspaceFolderLabel = (recent: IRecentWorkspace | IRecentFolder) => {
-		if (isRecentWorkspace(recent)) {
-			return recent.label || props.labelService.getWorkspaceLabel(recent.workspace, { verbose: Verbosity.LONG });
-		} else if (isRecentFolder(recent)) {
-			return recent.label || props.labelService.getWorkspaceLabel(recent.folderUri, { verbose: Verbosity.LONG });
-		} else {
-			throw new Error('Failed to get recent label.');
-		}
-	};
-
-	/**
-	 * CustomFolderCommandMenuItem component.
-	 * @param commandAction The CommandAction for the custom folder command menu item.
-	 */
-	const CustomFolderCommandMenuItem = (commandAction: CommandAction) => {
+	const CommandActionCustomFolderMenuItem = (commandAction: CommandAction) => {
 		// Get the command info from the command center.
 		const commandInfo = CommandCenter.commandInfo(commandAction.id);
 
-		// If the command info was found, and the when expression matches, return the custom folder
-		// command menu item. If not, return null.
-		if (commandInfo && props.contextKeyService.contextMatchesRules(commandAction.when)) {
-			// Determine whether the command action will be enabled and set the label to use.
-			const enabled = !commandInfo.precondition || props.contextKeyService.contextMatchesRules(commandInfo.precondition);
-			const label = commandAction.label || (typeof (commandInfo.title) === 'string' ? commandInfo.title : commandInfo.title.value);
-
-			// Return the
-			return (
-				<>
-					{commandAction.separator && <CustomFolderMenuSeparator />}
-					<CustomFolderMenuItem
-						enabled={enabled}
-						label={label}
-						onSelected={() => {
-							props.onMenuItemSelected();
-							props.commandService.executeCommand(commandAction.id);
-						}}
-					/>
-				</>
-			);
-		} else {
+		// If the command info wasn't found, or the when expression doesn't match, return null.
+		if (!commandInfo || !props.contextKeyService.contextMatchesRules(commandAction.when)) {
 			return null;
 		}
+
+		// Determine whether the command action will be enabled and set the label to use.
+		const enabled = !commandInfo.precondition ||
+			props.contextKeyService.contextMatchesRules(commandInfo.precondition);
+		const label = commandAction.label ||
+			(typeof (commandInfo.title) === 'string' ?
+				commandInfo.title :
+				commandInfo.title.value);
+
+		// Render.
+		return (
+			<>
+				{commandAction.separator && <CustomFolderMenuSeparator />}
+				<CustomFolderMenuItem
+					enabled={enabled}
+					label={label}
+					onSelected={() => {
+						props.onMenuItemSelected();
+						props.commandService.executeCommand(commandAction.id);
+					}}
+				/>
+			</>
+		);
 	};
 
+	/**
+	 * RecentWorkspacesCustomFolderMenuItems component.
+	 * @returns The rendered component.
+	 */
 	const RecentWorkspacesCustomFolderMenuItems = () => {
 		// If there are no recently opened workspaces, return null.
 		if (!props.recentlyOpened.workspaces.length) {
 			return null;
 		}
 
-		// let count = 0;
-		// Return the
+		// Render.
 		return (
 			<>
 				<CustomFolderMenuSeparator />
-
-				{props.recentlyOpened.workspaces.map(recent => {
-					const label = getRecentWorkspaceFolderLabel(recent);
-					if (!label) {
-						return null;
+				{props.recentlyOpened.workspaces.slice(0, 10).map(recent => {
+					// Setup the handler.
+					let uri: URI;
+					let label: string;
+					let openable: IWindowOpenable;
+					if (isRecentWorkspace(recent)) {
+						uri = recent.workspace.configPath;
+						label = recent.label || props.labelService.getWorkspaceLabel(recent.workspace, { verbose: Verbosity.LONG });
+						openable = { workspaceUri: uri };
+					} else if (isRecentFolder(recent)) {
+						uri = recent.folderUri;
+						label = recent.label || props.labelService.getWorkspaceLabel(uri, { verbose: Verbosity.LONG });
+						openable = { folderUri: uri };
 					} else {
-						return (
-							<CustomFolderMenuItem
-								label={getRecentWorkspaceFolderLabel(recent)}
-								enabled={true}
-								onSelected={props.onMenuItemSelected}
-							/>
-						);
+						// This can't happen.
+						return null;
 					}
+
+					// Render.
+					return (
+						<CustomFolderMenuItem label={label} enabled={true} onSelected={e => {
+							props.onMenuItemSelected();
+							props.hostService.openWindow([openable], {
+								forceNewWindow: (!isMacintosh && (e.ctrlKey || e.shiftKey)) || (isMacintosh && (e.metaKey || e.altKey)),
+								remoteAuthority: recent.remoteAuthority || null
+							});
+						}} />
+					);
 				})}
 			</>
 		);
@@ -123,18 +134,14 @@ export const CustomFolderMenuItems = (props: CustomFolderMenuItemsProps) => {
 	// Render.
 	return (
 		<div className='custom-folder-menu-items'>
-			<CustomFolderCommandMenuItem id={PositronNewFolderAction.ID} />
-			<CustomFolderCommandMenuItem id={PositronNewFolderFromGitAction.ID} />
-
+			<CommandActionCustomFolderMenuItem id={PositronNewFolderAction.ID} />
+			<CommandActionCustomFolderMenuItem id={PositronNewFolderFromGitAction.ID} />
 			<CustomFolderMenuSeparator />
-
-			<CustomFolderCommandMenuItem
+			<CommandActionCustomFolderMenuItem
 				id={OpenFolderAction.ID}
 				label={localize('positronOpenFolder', "Open Folder...")} />
-
-			<CustomFolderCommandMenuItem id={PositronOpenFolderInNewWindowAction.ID} />
-
-			<CustomFolderCommandMenuItem
+			<CommandActionCustomFolderMenuItem id={PositronOpenFolderInNewWindowAction.ID} />
+			<CommandActionCustomFolderMenuItem
 				id={kCloseFolder}
 				label={localize('positronCloseFolder', "Close Folder...")}
 				separator={true}
@@ -143,12 +150,9 @@ export const CustomFolderMenuItems = (props: CustomFolderMenuItemsProps) => {
 					EmptyWorkspaceSupportContext
 				)}
 			/>
-
 			<RecentWorkspacesCustomFolderMenuItems />
-
 			<CustomFolderMenuSeparator />
-
-			<CustomFolderCommandMenuItem id={ClearRecentWorkspacesAction.ID} />
+			<CommandActionCustomFolderMenuItem id={ClearRecentWorkspacesAction.ID} />
 		</div>
 	);
 };

@@ -4,9 +4,7 @@
 
 import 'vs/css!./customFolderMenuItem';
 import * as React from 'react';
-import { PositronButton } from 'vs/base/browser/ui/positronComponents/positronButton';
-// import { MouseEvent } from 'react'; // eslint-disable-line no-duplicate-imports
-// import { usePositronTopActionBarContext } from 'vs/workbench/browser/parts/positronTopActionBar/positronTopActionBarContext';
+import { KeyboardModifiers, PositronButton } from 'vs/base/browser/ui/positronComponents/positronButton';
 
 /**
  * CustomFolderMenuItemProps interface.
@@ -14,7 +12,7 @@ import { PositronButton } from 'vs/base/browser/ui/positronComponents/positronBu
 interface CustomFolderMenuItemProps {
 	enabled: boolean;
 	label: string;
-	onSelected: () => void;
+	onSelected: (e: KeyboardModifiers) => void;
 }
 
 /**

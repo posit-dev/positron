@@ -56,7 +56,7 @@ export const TopActionBarInterpretersManager = (props: TopActionBarInterpretersM
 	}, []);
 
 	/**
-	 * Shows the runtimes manager modal popup.
+	 * Shows the interpreters manager modal popup.
 	 */
 	const showPopup = () => {
 		// Show the runtimes manager modal popup.

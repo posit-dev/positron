@@ -3,8 +3,18 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as React from 'react';
-import { forwardRef, KeyboardEvent, MouseEvent, PropsWithChildren } from 'react'; // eslint-disable-line no-duplicate-imports
 import { positronClassNames } from 'vs/base/common/positronUtilities';
+import { forwardRef, KeyboardEvent, MouseEvent, PropsWithChildren } from 'react'; // eslint-disable-line no-duplicate-imports
+
+/**
+ * KeyboardModifiers interface.
+ */
+export interface KeyboardModifiers {
+	altKey: boolean;
+	ctrlKey: boolean;
+	metaKey: boolean;
+	shiftKey: boolean;
+}
 
 /**
  * PositronButtonProps interface.
@@ -12,7 +22,7 @@ import { positronClassNames } from 'vs/base/common/positronUtilities';
 interface PositronButtonProps {
 	className?: string;
 	disabled?: boolean;
-	onClick?: () => void;
+	onClick?: (e: KeyboardModifiers) => void;
 }
 
 /**
@@ -35,7 +45,7 @@ export const PositronButton = forwardRef<HTMLDivElement, PropsWithChildren<Posit
 
 				// Raise the click event if the button isn't disabled.
 				if (!props.disabled && props.onClick) {
-					props.onClick();
+					props.onClick(e);
 				}
 				break;
 		}
@@ -52,7 +62,7 @@ export const PositronButton = forwardRef<HTMLDivElement, PropsWithChildren<Posit
 
 		// Raise the click event if the button isn't disabled.
 		if (!props.disabled && props.onClick) {
-			props.onClick();
+			props.onClick(e);
 		}
 	};
 
