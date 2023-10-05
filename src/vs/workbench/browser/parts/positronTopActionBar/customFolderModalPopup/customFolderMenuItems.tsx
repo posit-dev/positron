@@ -25,7 +25,6 @@ import { PositronNewFolderAction, PositronNewFolderFromGitAction, PositronOpenFo
 /**
  * Constants.
  */
-//const MAX_MENU_RECENT_ENTRIES = 10;
 const kCloseFolder = 'workbench.action.closeFolder';
 
 /**
