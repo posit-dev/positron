@@ -12,6 +12,37 @@ import { randomUUID } from 'crypto';
 
 export async function registerCommands(context: vscode.ExtensionContext, runtimes: Map<string, RRuntime>) {
 
+	function insertOperatorWithSpace(op: string) {
+		// TODO: make this work in the Console too
+		if (!vscode.window.activeTextEditor) {
+			return;
+		}
+		const editor = vscode.window.activeTextEditor;
+		// make sure cursor ends up on RHS, even if selection was made right-to-left
+		editor.selections = editor.selections.map(s => new vscode.Selection(s.start, s.end));
+
+		return editor.edit(editBuilder => {
+			editor.selections.forEach(sel => {
+				const startPos = sel.start;
+				const endPos = sel.end;
+				const lineText = editor.document.lineAt(startPos).text;
+				let insertValue = op;
+
+				const precedingChar = lineText.charAt(startPos.character - 1);
+				if (!/\s/g.test(precedingChar)) {
+					insertValue = ' ' + insertValue;
+				}
+
+				const followingChar = lineText.charAt(endPos.character);
+				if (!/\s/g.test(followingChar)) {
+					insertValue = insertValue + ' ';
+				}
+
+				editBuilder.replace(sel, insertValue);
+			});
+		});
+	}
+
 	context.subscriptions.push(
 
 		// Command used to create new R files
@@ -24,11 +55,11 @@ export async function registerCommands(context: vscode.ExtensionContext, runtime
 		vscode.commands.registerCommand('r.insertPipe', () => {
 			const extConfig = vscode.workspace.getConfiguration('positron.r');
 			const pipeString = extConfig.get<string>('pipe') || '|>';
-			vscode.commands.executeCommand('type', { text: ` ${pipeString} ` });
+			insertOperatorWithSpace(pipeString);
 		}),
 
 		vscode.commands.registerCommand('r.insertLeftAssignment', () => {
-			vscode.commands.executeCommand('type', { text: ' <- ' });
+			insertOperatorWithSpace('<-');
 		}),
 
 		// Commands for package development tooling
