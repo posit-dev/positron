@@ -30,7 +30,8 @@ export async function getRPackageTasks(): Promise<vscode.Task[]> {
 		throw new Error(`No running R runtime to provide R package tasks.`);
 	}
 	const allPackageTasks: PackageTask[] = [
-		{ 'name': 'Check R package', 'shellExecution': `${lastRuntimePath}/R -e "devtools::check()"` }
+		{ 'name': 'Check R package', 'shellExecution': `${lastRuntimePath}/R -e "devtools::check()"` },
+		{ 'name': 'Install R package', 'shellExecution': `${lastRuntimePath}/R -e "devtools::install()"` }
 	];
 	return allPackageTasks.map(task => new vscode.Task(
 		{ type: 'rPackageTask' },
