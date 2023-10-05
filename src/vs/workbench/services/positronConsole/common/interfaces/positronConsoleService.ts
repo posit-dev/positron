@@ -229,4 +229,9 @@ export interface IPositronConsoleInstance {
 	 * @param id The prompt identifier.
 	 */
 	interruptPrompt(id: string): void;
+
+	/**
+	 * Sets the currently attached runtime, or undefined if none.
+	 */
+	attachedRuntime: ILanguageRuntime | undefined;
 }

@@ -529,6 +529,13 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	}
 
 	/**
+	 * Gets the currently attached runtime, or undefined if there is no runtime attached.
+	 */
+	get attachedRuntime(): ILanguageRuntime | undefined {
+		return this._runtimeAttached ? this._runtime : undefined;
+	}
+
+	/**
 	 * Disposes of the PositronConsoleInstance.
 	 */
 	override dispose() {
