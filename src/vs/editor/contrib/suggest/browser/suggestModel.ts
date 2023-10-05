@@ -13,7 +13,9 @@ import { ICodeEditor } from 'vs/editor/browser/editorBrowser';
 import { EditorOption } from 'vs/editor/common/config/editorOptions';
 import { CursorChangeReason, ICursorSelectionChangedEvent } from 'vs/editor/common/cursorEvents';
 import { IPosition, Position } from 'vs/editor/common/core/position';
-import { Selection } from 'vs/editor/common/core/selection';
+// --- Start Positron ---
+// import { Selection } from 'vs/editor/common/core/selection';
+// --- End Positron ---
 import { ITextModel } from 'vs/editor/common/model';
 import { CompletionContext, CompletionItemKind, CompletionItemProvider, CompletionTriggerKind } from 'vs/editor/common/languages';
 import { IEditorWorkerService } from 'vs/editor/common/services/editorWorker';
@@ -138,7 +140,9 @@ export class SuggestModel implements IDisposable {
 	private _triggerState: SuggestTriggerOptions | undefined = undefined;
 	private _requestToken?: CancellationTokenSource;
 	private _context?: LineContext;
-	private _currentSelection: Selection;
+	// --- Start Positron ---
+	// private _currentSelection: Selection;
+	// --- End Positron ---
 
 	private _completionModel: CompletionModel | undefined;
 	private readonly _completionDisposables = new DisposableStore();
@@ -161,7 +165,9 @@ export class SuggestModel implements IDisposable {
 		@ILanguageFeaturesService private readonly _languageFeaturesService: ILanguageFeaturesService,
 		@IEnvironmentService private readonly _envService: IEnvironmentService,
 	) {
-		this._currentSelection = this._editor.getSelection() || new Selection(1, 1, 1, 1);
+		// --- Start Positron ---
+		// this._currentSelection = this._editor.getSelection() || new Selection(1, 1, 1, 1);
+		// --- End Positron ---
 
 		// wire up various listeners
 		this._toDispose.add(this._editor.onDidChangeModel(() => {
@@ -338,8 +344,10 @@ export class SuggestModel implements IDisposable {
 			return;
 		}
 
-		const prevSelection = this._currentSelection;
-		this._currentSelection = this._editor.getSelection();
+		// --- Start Positron ---
+		// const prevSelection = this._currentSelection;
+		// this._currentSelection = this._editor.getSelection();
+		// --- End Positron ---
 
 		if (!e.selection.isEmpty()
 			|| (e.reason !== CursorChangeReason.NotSet && e.reason !== CursorChangeReason.Explicit)
@@ -353,10 +361,18 @@ export class SuggestModel implements IDisposable {
 
 
 		if (this._triggerState === undefined && e.reason === CursorChangeReason.NotSet) {
-			if (prevSelection.containsRange(this._currentSelection) || prevSelection.getEndPosition().isBeforeOrEqual(this._currentSelection.getPosition())) {
-				// cursor did move RIGHT due to typing -> trigger quick suggest
-				this._doTriggerQuickSuggest();
-			}
+			// --- Start Positron ---
+			// We believe it is appropriate to trigger quick suggest after a left cursor movement
+			// too. This can easily occur when you hit backspace a few times after a typo. The typo
+			// can kill the active IntelliSense session, but you should be able to get a session
+			// back without having to manually trigger quick suggest or type another character.
+			// https://github.com/posit-dev/positron/issues/1413
+			// if (prevSelection.containsRange(this._currentSelection) || prevSelection.getEndPosition().isBeforeOrEqual(this._currentSelection.getPosition())) {
+			// 	// cursor did move RIGHT due to typing -> trigger quick suggest
+			// 	this._doTriggerQuickSuggest();
+			// }
+			this._doTriggerQuickSuggest();
+			// --- End Positron ---
 
 		} else if (this._triggerState !== undefined && e.reason === CursorChangeReason.Explicit) {
 			// suggest is active and something like cursor keys are used to move
