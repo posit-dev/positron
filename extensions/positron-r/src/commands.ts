@@ -54,21 +54,23 @@ export async function registerCommands(context: vscode.ExtensionContext, runtime
 
 			if (runtime) {
 				const execution = await vscode.tasks.executeTask(task);
-				const disp1 = vscode.tasks.onDidEndTask(e => {
+				const disp1 = vscode.tasks.onDidEndTaskProcess(e => {
 					if (e.execution === execution) {
-						vscode.commands.executeCommand('workbench.panel.positronConsole.focus');
-						positron.runtime.restartLanguageRuntime(runtime.metadata.runtimeId);
+						if (e.exitCode === 0) {
+							vscode.commands.executeCommand('workbench.panel.positronConsole.focus');
+							positron.runtime.restartLanguageRuntime(runtime.metadata.runtimeId);
+							const disp2 = runtime.onDidChangeRuntimeState(async runtimeState => {
+								if (runtimeState === positron.RuntimeState.Starting) {
+									await delay(500);
+									runtime.execute(`library(${packageName})`,
+										randomUUID(),
+										positron.RuntimeCodeExecutionMode.Interactive,
+										positron.RuntimeErrorBehavior.Continue);
+									disp2.dispose();
+								}
+							});
+						}
 						disp1.dispose();
-					}
-				});
-				const disp2 = runtime.onDidChangeRuntimeState(async runtimeState => {
-					if (runtimeState === positron.RuntimeState.Starting) {
-						await delay(500);
-						runtime.execute(`library(${packageName})`,
-							randomUUID(),
-							positron.RuntimeCodeExecutionMode.Interactive,
-							positron.RuntimeErrorBehavior.Continue);
-						disp2.dispose();
 					}
 				});
 			} else {
