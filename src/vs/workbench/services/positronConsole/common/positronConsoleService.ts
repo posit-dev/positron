@@ -503,6 +503,11 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	 */
 	private readonly _onDidRequestRestart = this._register(new Emitter<void>);
 
+	/**
+	 * The onDidAttachRuntime event emitter.
+	 */
+	private readonly _onDidAttachRuntime = this._register(new Emitter<ILanguageRuntime | undefined>);
+
 	//#endregion Private Properties
 
 	//#region Constructor & Dispose
@@ -639,6 +644,11 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	 * onDidRequestRestart event.
 	 */
 	readonly onDidRequestRestart = this._onDidRequestRestart.event;
+
+	/**
+	 * onDidAttachRuntime event.
+	 */
+	readonly onDidAttachRuntime = this._onDidAttachRuntime.event;
 
 	/**
 	 * Focuses the input for the console.
@@ -1256,6 +1266,8 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 			this.addRuntimeItem(exited);
 			this.detachRuntime();
 		}));
+
+		this._onDidAttachRuntime.fire(this._runtime);
 	}
 
 	private formatExit(exit: ILanguageRuntimeExit): string {
@@ -1350,6 +1362,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 		if (this._runtimeAttached) {
 			// We are currently attached; detach.
 			this._runtimeAttached = false;
+			this._onDidAttachRuntime.fire(undefined);
 
 			// Clear the executing state of all ActivityItemInputs inputs. When a runtime exits, it
 			// may not send an Idle message corresponding to the command that caused it to exit (for
