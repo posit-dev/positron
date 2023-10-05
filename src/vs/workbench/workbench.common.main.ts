@@ -51,6 +51,7 @@ import 'vs/workbench/browser/parts/paneCompositePart';
 import 'vs/workbench/browser/parts/banner/bannerPart';
 import 'vs/workbench/browser/parts/statusbar/statusbarPart';
 import 'vs/workbench/browser/parts/views/viewsService';
+import 'vs/workbench/browser/iconSelectBox';
 
 // --- Start Positron ---
 import 'vs/workbench/browser/parts/positronTopActionBar/positronTopActionBarPart';

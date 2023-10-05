@@ -38,7 +38,10 @@ export const VIEW_CONTAINER: ViewContainer = Registry.as<IViewContainersRegistry
 ).registerViewContainer(
 	{
 		id: POSITRON_ENVIRONMENT_VIEW_ID,
-		title: nls.localize('positron.session', "Session"),
+		title: {
+			value: nls.localize('positron.session', "Session"),
+			original: 'Session'
+		},
 		icon: positronEnvironmentViewIcon,
 		order: 1,
 		ctorDescriptor: new SyncDescriptor(ViewPaneContainer, [POSITRON_ENVIRONMENT_VIEW_ID, { mergeViewWithContainerWhenSingleView: true }]),

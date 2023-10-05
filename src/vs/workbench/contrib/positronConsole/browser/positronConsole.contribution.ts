@@ -27,7 +27,10 @@ const positronConsoleViewIcon = registerIcon(
 // Register the Positron console view container.
 const VIEW_CONTAINER: ViewContainer = Registry.as<IViewContainersRegistry>(ViewContainerExtensions.ViewContainersRegistry).registerViewContainer({
 	id: POSITRON_CONSOLE_VIEW_ID,
-	title: nls.localize('positron.console', "Console"),
+	title: {
+		value: nls.localize('positron.console', "Console"),
+		original: 'Console'
+	},
 	icon: positronConsoleViewIcon,
 	ctorDescriptor: new SyncDescriptor(ViewPaneContainer, [POSITRON_CONSOLE_VIEW_ID, {
 		mergeViewWithContainerWhenSingleView: true

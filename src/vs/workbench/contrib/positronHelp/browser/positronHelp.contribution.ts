@@ -29,7 +29,10 @@ const VIEW_CONTAINER: ViewContainer = Registry.as<IViewContainersRegistry>(
 ).registerViewContainer(
 	{
 		id: POSITRON_HELP_VIEW_ID,
-		title: nls.localize('positron.help', "Help"),
+		title: {
+			value: nls.localize('positron.help', "Help"),
+			original: 'Help'
+		},
 		icon: positronHelpViewIcon,
 		order: 2,
 		ctorDescriptor: new SyncDescriptor(ViewPaneContainer, [POSITRON_HELP_VIEW_ID, { mergeViewWithContainerWhenSingleView: true }]),

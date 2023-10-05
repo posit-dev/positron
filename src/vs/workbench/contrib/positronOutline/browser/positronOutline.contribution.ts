@@ -28,7 +28,10 @@ const positronOutlineViewIcon = registerIcon('positron-outline-view-icon', Codic
 // Register the Positron outline container.
 const VIEW_CONTAINER: ViewContainer = Registry.as<IViewContainersRegistry>(ViewContainerExtensions.ViewContainersRegistry).registerViewContainer({
 	id: POSITRON_OUTLINE_VIEW_ID,
-	title: nls.localize('positron.outline', "Outline"),
+	title: {
+		value: nls.localize('positron.outline', "Outline"),
+		original: 'Outline'
+	},
 	icon: positronOutlineViewIcon,
 	order: 4,
 	ctorDescriptor: new SyncDescriptor(ViewPaneContainer, [POSITRON_OUTLINE_VIEW_ID, { mergeViewWithContainerWhenSingleView: true }]),
