@@ -16,7 +16,7 @@ import { IExtensionService } from 'vs/workbench/services/extensions/common/exten
 import { IWorkspaceTrustManagementService } from 'vs/platform/workspace/common/workspaceTrust';
 import { DeferredPromise } from 'vs/base/common/async';
 import { INotificationService } from 'vs/platform/notification/common/notification';
-import { IPositronModalDialogsService } from 'vs/workbench/services/positronModalDialogs/common/positronModalDialogs';
+import { IModalDialogPromptInstance, IPositronModalDialogsService } from 'vs/workbench/services/positronModalDialogs/common/positronModalDialogs';
 
 /**
  * LanguageRuntimeInfo class.
@@ -767,28 +767,44 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 		warning: string) {
 
 		let disposable: IDisposable | undefined = undefined;
+		let prompt: IModalDialogPromptInstance | undefined = undefined;
 
 		return new Promise<void>((resolve, reject) => {
 			const timer = setTimeout(() => {
+				// We timed out; reject the promise.
 				reject();
-				if (disposable) {
-					disposable.dispose();
-				}
-				this._positronModalDialogsService.showModalDialogPrompt(
+
+				// Show a prompt to the user asking if they want to force quit the runtime.
+				prompt = this._positronModalDialogsService.showModalDialogPrompt(
 					nls.localize('positron.runtimeNotResponding', "{0} is not responding", runtime.metadata.runtimeName),
 					warning,
 					nls.localize('positron.runtimeForceQuit', "Force Quit"),
-					nls.localize('positron.runtimeKeepWaiting', "Wait")).then(result => {
-						if (result) {
-							runtime.forceQuit();
-						}
-					});
+					nls.localize('positron.runtimeKeepWaiting', "Wait"));
+
+				prompt.onChoice((choice) => {
+					// If the user chose to force quit the runtime, do so.
+					if (choice) {
+						runtime.forceQuit();
+					}
+					// Regardless of their choice, we are done waiting for a state change.
+					if (disposable) {
+						disposable.dispose();
+					}
+				});
 			}, seconds * 1000);
 
+			// Listen for state changes.
 			disposable = runtime.onDidChangeRuntimeState(state => {
 				if (state === targetState) {
 					clearTimeout(timer);
 					resolve();
+
+					// If we were prompting the user to force quit the runtime,
+					// close the prompt ourselves since the runtime is now
+					// responding.
+					if (prompt) {
+						prompt.close();
+					}
 					disposable?.dispose();
 				}
 			});
