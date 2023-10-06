@@ -8,7 +8,7 @@ import { KeyboardEvent, useEffect, useRef, useState } from 'react'; // eslint-di
 import { DisposableStore } from 'vs/base/common/lifecycle';
 import { ILanguageRuntime } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { usePositronTopActionBarContext } from 'vs/workbench/browser/parts/positronTopActionBar/positronTopActionBarContext';
-import { showInterpretersManagerModalPopup } from 'vs/workbench/browser/parts/positronTopActionBar/modalPopups/interpretersManagerModalPopup';
+import { showInterpretersManagerModalPopup } from 'vs/workbench/browser/parts/positronTopActionBar/interpretersManagerModalPopup/interpretersManagerModalPopup';
 
 /**
  * TopActionBarInterpretersManagerProps interface.
@@ -56,10 +56,9 @@ export const TopActionBarInterpretersManager = (props: TopActionBarInterpretersM
 	}, []);
 
 	/**
-	 * Shows the runtimes manager modal popup.
+	 * Shows the interpreters manager modal popup.
 	 */
 	const showPopup = () => {
-		// Show the runtimes manager modal popup.
 		showInterpretersManagerModalPopup(
 			positronTopActionBarContext.languageRuntimeService,
 			positronTopActionBarContext.layoutService.container,

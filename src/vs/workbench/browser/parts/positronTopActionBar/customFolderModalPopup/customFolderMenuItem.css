@@ -1,0 +1,35 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
+ *--------------------------------------------------------------------------------------------*/
+
+.custom-folder-menu-item {
+	width: 100%;
+	height: 26px;
+	border: none;
+	display: flex;
+	cursor: pointer;
+	text-align: left;
+	align-items: center;
+	background: transparent;
+}
+
+.custom-folder-menu-item:hover {
+	border-radius: 5px;
+	color: var(--vscode-positronRuntimesManager-hoverForeground);
+	background: var(--vscode-positronRuntimesManager-hoverBackground);
+}
+
+.custom-folder-menu-item:focus {
+	outline: none !important;
+}
+
+.custom-folder-menu-item:focus-visible {
+	border-radius: 6px;
+	outline: 1px solid var(--vscode-focusBorder) !important;
+	background: var(--vscode-positronRuntimesManager-hoverBackground);
+}
+
+.custom-folder-menu-item .title {
+	display: flex;
+	padding: 10px;
+}
