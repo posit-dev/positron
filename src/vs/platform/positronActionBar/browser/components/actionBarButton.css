@@ -30,7 +30,7 @@
 }
 
 .action-bar-button.border {
-	border: 1px solid var(--vscode-positronTopActionBar-selectBoxBorder);
+	border: 1px solid var(--vscode-positronTopActionBar-selectBorder);
 }
 
 .action-bar-button.fade-in {
