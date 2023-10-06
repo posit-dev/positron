@@ -15,7 +15,7 @@ table {
 	table-layout: fixed;
 }
 
-thead {
+thead, tfoot {
 	position: sticky;
 	background-color: var(--vscode-panel-background);
 	margin: 0;
@@ -61,7 +61,7 @@ body,
 	overflow: auto;
 }
 
-td.processing {
+.processing {
 	text-align: center;
 	font-weight: bold;
 }
