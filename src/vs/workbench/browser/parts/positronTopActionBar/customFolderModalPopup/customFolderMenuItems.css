@@ -1,0 +1,11 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
+ *--------------------------------------------------------------------------------------------*/
+
+.custom-folder-menu-items {
+	width: 100%;
+	margin: 4px;
+	display: flex;
+	flex-direction: column;
+	background: var(--vscode-positronRuntimesManager-background);
+}

@@ -23,9 +23,9 @@ import { PositronActionBarContextProvider } from 'vs/platform/positronActionBar/
 import { TopActionBarNewMenu } from 'vs/workbench/browser/parts/positronTopActionBar/components/topActionBarNewMenu';
 import { TopActionBarOpenMenu } from 'vs/workbench/browser/parts/positronTopActionBar/components/topActionBarOpenMenu';
 import { IPositronTopActionBarService } from 'vs/workbench/services/positronTopActionBar/browser/positronTopActionBarService';
-import { TopActionBarFolderMenu } from 'vs/workbench/browser/parts/positronTopActionBar/components/topActionBarFolderMenu';
 import { TopActionBarCommandCenter } from 'vs/workbench/browser/parts/positronTopActionBar/components/topActionBarCommandCenter';
 import { PositronTopActionBarContextProvider } from 'vs/workbench/browser/parts/positronTopActionBar/positronTopActionBarContext';
+import { TopActionBarCustonFolderMenu } from 'vs/workbench/browser/parts/positronTopActionBar/components/topActionBarCustomFolderMenu';
 import { TopActionBarInterpretersManager } from 'vs/workbench/browser/parts/positronTopActionBar/components/topActionBarInterpretersManager';
 import { ILanguageRuntime, ILanguageRuntimeService, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 
@@ -167,7 +167,7 @@ export const PositronTopActionBar = (props: PositronTopActionBarProps) => {
 							onActivateRuntime={activateRuntimeHandler}
 						/>
 						{showCenterUI && (
-							<TopActionBarFolderMenu />
+							<TopActionBarCustonFolderMenu />
 						)}
 					</ActionBarRegion>
 

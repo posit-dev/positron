@@ -26,7 +26,8 @@ import { // eslint-disable-line no-duplicate-imports
 	listHoverForeground,
 	listInactiveSelectionBackground,
 	listInactiveSelectionForeground,
-	tableColumnsBorder
+	tableColumnsBorder,
+	selectBorder
 } from 'vs/platform/theme/common/colorRegistry';
 // --- End Positron ---
 
@@ -1147,10 +1148,10 @@ export const POSITRON_TOP_ACTION_BAR_SELECT_BOX_BORDER = registerColor('positron
 
 // The Positron top action bar select box background color.
 export const POSITRON_TOP_ACTION_BAR_SELECT_BOX_BACKGROUND = registerColor('positronTopActionBar.selectBoxBackground', {
-	dark: '#383e41',
-	light: '#eceff2',
-	hcDark: '#000000',
-	hcLight: '#ffffff'
+	dark: editorBackground,
+	light: editorBackground,
+	hcDark: editorBackground,
+	hcLight: editorBackground
 }, localize('positronTopActionBar.selectBoxBackground', "Positron top action bar select box background color."));
 
 // The Positron top action bar hover background color.
@@ -1329,10 +1330,10 @@ export const POSITRON_MODAL_DIALOG_FOREGROUND = registerColor('positronModalDial
 
 // Positron modal dialog border color.
 export const POSITRON_MODAL_DIALOG_BORDER = registerColor('positronModalDialog.border', {
-	dark: '#252527',
-	light: '#cbd0d5',
-	hcDark: contrastBorder,
-	hcLight: contrastBorder
+	dark: selectBorder,
+	light: selectBorder,
+	hcDark: selectBorder,
+	hcLight: selectBorder
 }, localize('positronModalDialog.border', "Positron modal dialog border color."));
 
 // Positron modal dialog separator color.
