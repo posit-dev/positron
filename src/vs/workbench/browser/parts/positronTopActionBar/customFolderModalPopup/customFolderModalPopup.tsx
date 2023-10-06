@@ -21,7 +21,7 @@ import { CustomFolderMenuItems } from 'vs/workbench/browser/parts/positronTopAct
  * @param labelService The ILabelService.
  * @param workspacesService The IWorkspacesService.
  * @param container The container of the application.
- * @param anchorElement The anchor element for the runtimes manager modal popup.
+ * @param anchorElement The anchor element for the modal popup.
  * @returns A promise that resolves when the popup is dismissed.
  */
 export const showCustomFolderModalPopup = async (

@@ -15,8 +15,8 @@
 
 .custom-folder-menu-item:hover {
 	border-radius: 5px;
-	color: var(--vscode-positronRuntimesManager-hoverForeground);
-	background: var(--vscode-positronRuntimesManager-hoverBackground);
+	color: var(--vscode-positronContextMenu-hoverForeground);
+	background: var(--vscode-positronContextMenu-hoverBackground);
 }
 
 .custom-folder-menu-item:focus {
@@ -26,7 +26,7 @@
 .custom-folder-menu-item:focus-visible {
 	border-radius: 6px;
 	outline: 1px solid var(--vscode-focusBorder) !important;
-	background: var(--vscode-positronRuntimesManager-hoverBackground);
+	background: var(--vscode-positronContextMenu-hoverBackground);
 }
 
 .custom-folder-menu-item .title {
