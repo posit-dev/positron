@@ -1138,13 +1138,13 @@ export const POSITRON_TOP_ACTION_BAR_SEPARATOR = registerColor('positronTopActio
 	hcLight: '#dfe3e6'
 }, localize('positronTopActionBar.separator', "Positron top action bar separator color."));
 
-// The Positron top action bar select box border color.
-export const POSITRON_TOP_ACTION_BAR_SELECT_BOX_BORDER = registerColor('positronTopActionBar.selectBoxBorder', {
-	dark: '#000000',
-	light: '#cad0d6',
-	hcDark: contrastBorder,
-	hcLight: contrastBorder
-}, localize('positronTopActionBar.selectBoxBorder', "Positron top action bar select box border color."));
+// The Positron top action bar select border color.
+export const POSITRON_TOP_ACTION_BAR_SELECT_BORDER = registerColor('positronTopActionBar.selectBorder', {
+	dark: selectBorder,
+	light: selectBorder,
+	hcDark: selectBorder,
+	hcLight: selectBorder
+}, localize('positronTopActionBar.selectBorder', "Positron top action bar select border color."));
 
 // The Positron top action bar select box background color.
 export const POSITRON_TOP_ACTION_BAR_SELECT_BOX_BACKGROUND = registerColor('positronTopActionBar.selectBoxBackground', {

@@ -11,7 +11,7 @@
 	box-sizing: border-box;
 	grid-template-columns: 1fr min-content 1fr;
 	color: var(--positronActionBar-foreground);
-	border: 1px solid var(--vscode-positronTopActionBar-selectBoxBorder);
+	border: 1px solid var(--vscode-positronTopActionBar-selectBorder);
 	background-color: var(--vscode-positronTopActionBar-selectBoxBackground);
 }
 
