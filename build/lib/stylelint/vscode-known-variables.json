@@ -559,7 +559,7 @@
 		"--vscode-positronTopActionBar-hoverBackground",
 		"--vscode-positronTopActionBar-logoBackground",
 		"--vscode-positronTopActionBar-selectBoxBackground",
-		"--vscode-positronTopActionBar-selectBoxBorder",
+		"--vscode-positronTopActionBar-selectBorder",
 		"--vscode-positronTopActionBar-separator",
 		"--vscode-positronTopActionBar-textInputBackground",
 		"--vscode-positronTopActionBar-textInputBorder",
