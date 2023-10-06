@@ -420,6 +420,10 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 					this.startFrontEndClient(runtime);
 					break;
 
+				case RuntimeState.Interrupting:
+					this.waitForInterrupt(runtime);
+					break;
+
 				case RuntimeState.Exited:
 					// Remove the runtime from the set of starting or running runtimes.
 					this._startingRuntimesByLanguageId.delete(runtime.metadata.languageId);
@@ -735,6 +739,48 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 				new Error(`The ${runtime.metadata.languageName} language runtime is '${state}' and cannot be restarted.`)
 			);
 		}
+	}
+
+	private async waitForInterrupt(runtime: ILanguageRuntime) {
+		this.awaitStateChange(runtime,
+			RuntimeState.Idle,
+			5,
+			`The ${runtime.metadata.languageName} language runtime is taking a long time to interrupt.`);
+	}
+
+	/**
+	 * Waits for the runtime to change to the target state. If the runtime does not change
+	 * to the target state within the specified number of seconds, a warning is displayed.
+	 *
+	 * @param runtime The runtime to watch.
+	 * @param targetState The target state for the runtime to enter.
+	 * @param seconds The number of seconds to wait for the runtime to change to the target state.
+	 * @param warning The warning to display if the runtime does not change to the target state.
+	 */
+	private async awaitStateChange(runtime: ILanguageRuntime,
+		targetState: RuntimeState,
+		seconds: number,
+		warning: string) {
+
+		let disposable: IDisposable | undefined = undefined;
+
+		return new Promise<void>((resolve, reject) => {
+			const timer = setTimeout(() => {
+				this._notificationService.warn(warning);
+				reject();
+				if (disposable) {
+					disposable.dispose();
+				}
+			}, seconds * 1000);
+
+			disposable = runtime.onDidChangeRuntimeState(state => {
+				if (state === targetState) {
+					clearTimeout(timer);
+					resolve();
+					disposable?.dispose();
+				}
+			});
+		});
 	}
 
 	//#region Private Methods
