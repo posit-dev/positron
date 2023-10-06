@@ -539,7 +539,13 @@ configurationRegistry.registerConfiguration({
 		'debug.focusEditorOnBreak': {
 			type: 'boolean',
 			description: nls.localize('debug.focusEditorOnBreak', "Controls whether the editor should be focused when the debugger breaks."),
-			default: true
+			// --- Start Positron ---
+			// Avoid stealing focus from the Console where user is
+			// likely to type debugging statements. More rarely,
+			// the user might be typing debug commands like `next`.
+			// See https://github.com/posit-dev/positron/issues/1440
+			default: false
+			// --- End Positron ---
 		},
 		'debug.onTaskErrors': {
 			enum: ['debugAnyway', 'showErrors', 'prompt', 'abort'],
