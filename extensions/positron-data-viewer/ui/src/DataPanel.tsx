@@ -76,18 +76,23 @@ export const DataPanel = (props: DataPanelProps) => {
 	// Create the columns for the table. These use the 'any' type since the data
 	// model is generic.
 	const columns = React.useMemo<ReactTable.ColumnDef<any>[]>(
-		() => dataModel.columns.map((column, idx) => {
+		() => {
+			const dataColumns = dataModel.columns.map((column, idx) => {
 				return {
 					id: '' + idx,
 					accessorKey: idx,
-					accessorFn: (_row, index) => {
+					accessorFn: (_row: any, index: number) => {
 						return column.data[index];
 					},
-					header: column.name,
-					enableSorting: false,
+					header: column.name
 				};
-			})
-		,
+			});
+			return [{ // Create a column group with all columns
+				id: 'loading',
+				footer: () => <span className='processing'>Loading more...</span>,
+				columns: dataColumns
+			}];
+		},
 		[dataModel]);
 
 	async function fetchNextDataFragment(pageParam: number, fetchSize: number): Promise<DataFragment> {
@@ -166,7 +171,7 @@ export const DataPanel = (props: DataPanelProps) => {
 
 	// Use a virtualizer to render only the rows that are visible.
 	const rowVirtualizer = ReactVirtual.useVirtualizer({
-		count: hasNextPage ? rows.length + 1 : rows.length, // add a row for the loader row
+		count: hasNextPage ? rows.length + 1 : rows.length, // add a row for the Loading... row
 		getScrollElement: () => tableContainerRef.current,
 		estimateSize: () => rowHeightPx,
 		overscan: scrollOverscan
@@ -275,16 +280,23 @@ export const DataPanel = (props: DataPanelProps) => {
 
 						return (
 							<tr
-								key={isLoaderRow ? `loading-row-${virtualRow.index}` : row.id}
+								key={isLoaderRow ? `loading-row` : row.id}
 							>
 							{
-								isLoaderRow ?
-									hasNextPage ?
-									// TODO: replace with a grouped column footer as in
-									// https://tanstack.com/table/v8/docs/examples/react/column-groups
-									// for the loading indicator
-										<td className='processing'>Loading more...</td> :
-										<td className='processing'>Nothing more to load</td> :
+								isLoaderRow && hasNextPage ?
+									// We only have one footer, and it's the loading row
+									// We treat it as a regular row because we want it at the
+									// bottom of the visible area, not the bottom of the table
+									table.getFooterGroups().map(footerGroup => (
+										footerGroup.headers.map(header => (
+											<td key={header.id} colSpan={header.colSpan}>
+												{ReactTable.flexRender(
+													header.column.columnDef.footer,
+													header.getContext()
+												)}
+											</td>
+										))
+									)) :
 									row.getVisibleCells().map(cell => {
 										return (
 											<td key={cell.id}>
