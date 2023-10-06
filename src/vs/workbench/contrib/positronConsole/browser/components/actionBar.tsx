@@ -17,6 +17,7 @@ import { usePositronConsoleContext } from 'vs/workbench/contrib/positronConsole/
 import { PositronActionBarContextProvider } from 'vs/platform/positronActionBar/browser/positronActionBarContext';
 import { PositronConsoleState } from 'vs/workbench/services/positronConsole/common/interfaces/positronConsoleService';
 import { ConsoleInstanceMenuButton } from 'vs/workbench/contrib/positronConsole/browser/components/consoleInstanceMenuButton';
+import { ILanguageRuntime, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 
 // Constants.
 const kPaddingLeft = 8;
@@ -41,6 +42,7 @@ export const ActionBar = (props: ActionBarProps) => {
 		useState(positronConsoleContext.positronConsoleService.activePositronConsoleInstance);
 	const [interruptible, setInterruptible] = useState(false);
 	const [interrupting, setInterrupting] = useState(false);
+	const [stateLabel, setStateLabel] = useState('' as string);
 
 	// Main useEffect hook.
 	useEffect(() => {
@@ -57,30 +59,54 @@ export const ActionBar = (props: ActionBarProps) => {
 	// Active Positron console instance useEffect hook.
 	useEffect(() => {
 		// Create the disposable store for cleanup.
-		const disposableStore = new DisposableStore();
+		const disposableConsoleStore = new DisposableStore();
+		const disposableRuntimeStore = new DisposableStore();
 
-		// If there is an active Positron console instance, register for its onDidChangeState event.
-		if (activePositronConsoleInstance) {
-			disposableStore.add(activePositronConsoleInstance.onDidChangeState(state => {
-				// Track whether the active Positron console instance is interruptible.
+		const attachRuntime = (runtime: ILanguageRuntime | undefined) => {
+			// Detach from the previous runtime, if any.
+			disposableRuntimeStore.clear();
+
+			// If there is no runtime; we're done. This happens when the console
+			// instance is detached from the runtime.
+			if (!runtime) {
+				return;
+			}
+
+			disposableRuntimeStore.add(runtime.onDidChangeRuntimeState((state) => {
+				setInterruptible(false);
+				setInterrupting(false);
+				setStateLabel(state);
+
 				switch (state) {
-					// The Positron console instance is interruptible.
-					case PositronConsoleState.Busy:
+					case RuntimeState.Busy:
 						setInterruptible(true);
-						setInterrupting(false);
 						break;
 
-					// The Positron console instance is not interruptible.
-					default:
-						setInterruptible(false);
-						setInterrupting(false);
+					case RuntimeState.Interrupting:
+						setInterrupting(true);
 						break;
 				}
 			}));
+		};
+
+		// If there is an active Positron console instance, see which runtime it's attached to.
+		if (activePositronConsoleInstance) {
+			// Attach to the console's current runtime, if any
+			const runtime = activePositronConsoleInstance.attachedRuntime;
+			if (runtime) {
+				attachRuntime(runtime);
+			}
+
+			// Register for runtime changes.
+			disposableConsoleStore.add(
+				activePositronConsoleInstance.onDidAttachRuntime(attachRuntime));
 		}
 
 		// Return the cleanup function that will dispose of the disposables.
-		return () => disposableStore.dispose();
+		return () => {
+			disposableConsoleStore.dispose();
+			disposableRuntimeStore.dispose();
+		};
 	}, [activePositronConsoleInstance]);
 
 	// Interrupt handler.
@@ -116,6 +142,7 @@ export const ActionBar = (props: ActionBarProps) => {
 						<ConsoleInstanceMenuButton {...props} />
 					</ActionBarRegion>
 					<ActionBarRegion location='right'>
+						<span>{stateLabel}</span>
 						{interruptible &&
 							<ActionBarButton
 								fadeIn={true}
