@@ -1270,16 +1270,26 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 
 		this._runtimeDisposableStore.add(this._runtime.onDidEndSession((exit) => {
 			this.addRuntimeItemTrace(`onDidEndSession (code ${exit.exit_code}, reason '${exit.reason}')`);
+
+			// Add a message explaining that the exit occurred, and why.
 			const exited = new RuntimeItemExited(generateUuid(),
 				exit.reason,
 				this.formatExit(exit));
 			this.addRuntimeItem(exited);
-			const restartButton = new RuntimeItemRestartButton(generateUuid(),
-				this._runtime.metadata.languageName,
-				() => {
-					this._onDidRequestRestart.fire();
-				});
-			this.addRuntimeItem(restartButton);
+
+			// In the case of a forced quit or normal shutdown, we don't attempt
+			// to automatically start the runtime again. In this case, we add an
+			// activity item that shows a button the user can use to start the
+			// runtime manually.
+			if (exit.reason === RuntimeExitReason.ForcedQuit ||
+				exit.reason === RuntimeExitReason.Shutdown) {
+				const restartButton = new RuntimeItemRestartButton(generateUuid(),
+					this._runtime.metadata.languageName,
+					() => {
+						this._onDidRequestRestart.fire();
+					});
+				this.addRuntimeItem(restartButton);
+			}
 			this.detachRuntime();
 		}));
 
