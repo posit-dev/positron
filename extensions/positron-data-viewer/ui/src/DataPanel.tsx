@@ -41,7 +41,7 @@ export const DataPanel = (props: DataPanelProps) => {
 	const scrollThresholdPx = 300;
 
 	// The height of a single row of data
-	const rowHeightPx = 30;
+	const rowHeightPx = 10;
 
 	// The number of rows to render above and below the visible area of the table.
 	const scrollOverscan = 50;
@@ -263,7 +263,12 @@ export const DataPanel = (props: DataPanelProps) => {
 						</tr>
 					))}
 				</thead>
-				<tbody>
+				<tbody
+					style={{
+						height: `${totalSize+paddingTop+paddingBottom}px`,
+						position: 'relative'
+					}}
+				>
 					{paddingTop > 0 && (
 						<tr>
 							<td style={{ height: `${paddingTop}px` }} />
