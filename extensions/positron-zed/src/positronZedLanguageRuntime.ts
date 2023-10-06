@@ -47,7 +47,7 @@ const HelpLines = [
 	'ansi el 2      - Clears an entire line using EL',
 	'ansi hidden    - Displays hidden text',
 	'ansi rgb       - Displays RGB ANSI colors as foreground and background colors',
-	'busy X         - Simulates an interuptible busy state for X seconds, or 5 seconds if X is not specified',
+	'busy X Y       - Simulates an interuptible busy state for X seconds that takes Y seconds to interrupt (default X = 5, Y = 1)',
 	'code X Y       - Simulates a successful X line input with Y lines of output (where X >= 1 and Y >= 0)',
 	'crash          - Simulates a crash',
 	'env clear      - Clears all variables from the environment',
@@ -162,6 +162,11 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 	private _busyOperationId: string | undefined;
 
 	/**
+	 * The number of seconds it should take to interrupt a busy operation.
+	 */
+	private _busyInterruptSeconds: number;
+
+	/**
 	 * The current state of the runtime.
 	 */
 	private _state: positron.RuntimeState;
@@ -213,6 +218,9 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 		this._onDidChangeRuntimeState.event((state) => {
 			this._state = state;
 		});
+
+		// Default number of seconds it takes to interrupt a busy Zed runtime.
+		this._busyInterruptSeconds = 1;
 	}
 	//#endregion Constructor
 
@@ -357,10 +365,12 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 			const letter = (match.length > 1 && match[1]) ? match[1].trim().toUpperCase() : 'Z';
 			this.simulateDynamicPlot(id, letter, code);
 			return;
-		} else if (match = code.match(/^busy( [0-9]+)?/)) {
+		} else if (match = code.match(/^busy( [0-9]+)?( [0-9]+)?/)) {
 			// Simulate a busy state.
 			const duration = (match.length > 1 && match[1]) ? match[1].trim() : '5';
 			const durationSeconds = parseInt(duration, 10);
+			const interruptDuration = (match.length > 2 && match[2]) ? match[2].trim() : '1';
+			this._busyInterruptSeconds = parseInt(interruptDuration, 10);
 			this.simulateBusyOperation(id, durationSeconds, code);
 			return;
 		} else if (match = code.match(/^view( .+)?/)) {
@@ -1013,15 +1023,13 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 				// Return to idle state.
 				this.simulateOutputMessage(this._busyOperationId, 'Interrupting...');
 
-				// It takes 1 second to interrupt a busy operation in Zed; this helps us
-				// see the interrupting state in the UI.
 				setTimeout(() => {
 					// Consider: what is the parent of the idle state message? Is it the operation
 					// we canceled, or is it the interrupt operation?
 					this.simulateOutputMessage(this._busyOperationId!, 'Interrupted.');
 					this.simulateIdleState(this._busyOperationId!);
 					this._busyOperationId = undefined;
-				}, 1000);
+				}, this._busyInterruptSeconds * 1000);
 			}
 
 			clearTimeout(this._busyTimer);
