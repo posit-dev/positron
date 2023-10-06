@@ -16,6 +16,7 @@ import { IExtensionService } from 'vs/workbench/services/extensions/common/exten
 import { IWorkspaceTrustManagementService } from 'vs/platform/workspace/common/workspaceTrust';
 import { DeferredPromise } from 'vs/base/common/async';
 import { INotificationService } from 'vs/platform/notification/common/notification';
+import { IPositronModalDialogsService } from 'vs/workbench/services/positronModalDialogs/common/positronModalDialogs';
 
 /**
  * LanguageRuntimeInfo class.
@@ -114,7 +115,8 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 		@IStorageService private readonly _storageService: IStorageService,
 		@IExtensionService private readonly _extensionService: IExtensionService,
 		@IWorkspaceTrustManagementService private readonly _workspaceTrustManagementService: IWorkspaceTrustManagementService,
-		@INotificationService private readonly _notificationService: INotificationService
+		@INotificationService private readonly _notificationService: INotificationService,
+		@IPositronModalDialogsService private readonly _positronModalDialogsService: IPositronModalDialogsService
 	) {
 		// Call the base class's constructor.
 		super();
@@ -742,15 +744,17 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 	}
 
 	private async waitForInterrupt(runtime: ILanguageRuntime) {
+		const warning = nls.localize('positron.runtimeInterruptTimeoutWaring', "{0} isn't responding to your request to interrupt the command. Do you want to forcefully quit your {1} session? You'll lose any unsaved objects.", runtime.metadata.runtimeName, runtime.metadata.languageName);
 		this.awaitStateChange(runtime,
 			RuntimeState.Idle,
-			5,
-			`The ${runtime.metadata.languageName} language runtime is taking a long time to interrupt.`);
+			1,
+			warning);
 	}
 
 	/**
 	 * Waits for the runtime to change to the target state. If the runtime does not change
-	 * to the target state within the specified number of seconds, a warning is displayed.
+	 * to the target state within the specified number of seconds, a warning is
+	 * displayed with an option to force quit the runtime.
 	 *
 	 * @param runtime The runtime to watch.
 	 * @param targetState The target state for the runtime to enter.
@@ -766,11 +770,19 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 
 		return new Promise<void>((resolve, reject) => {
 			const timer = setTimeout(() => {
-				this._notificationService.warn(warning);
 				reject();
 				if (disposable) {
 					disposable.dispose();
 				}
+				this._positronModalDialogsService.showModalDialogPrompt(
+					nls.localize('positron.runtimeNotResponding', "{0} is not responding", runtime.metadata.runtimeName),
+					warning,
+					nls.localize('positron.runtimeForceQuit', "Force Quit"),
+					nls.localize('positron.runtimeKeepWaiting', "Wait")).then(result => {
+						if (result) {
+							runtime.forceQuit();
+						}
+					});
 			}, seconds * 1000);
 
 			disposable = runtime.onDidChangeRuntimeState(state => {

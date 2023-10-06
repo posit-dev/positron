@@ -5,7 +5,7 @@
 import 'vs/css!./positronModalDialogs';
 import * as React from 'react';
 import { ILayoutService } from 'vs/platform/layout/browser/layoutService';
-import { IPositronModalDialogsService } from 'vs/workbench/services/positronModalDialogs/browser/positronModalDialogs';
+import { IPositronModalDialogsService } from 'vs/workbench/services/positronModalDialogs/common/positronModalDialogs';
 import { TestContent } from 'vs/base/browser/ui/positronModalDialog/components/testContent';
 import { OKActionBar } from 'vs/base/browser/ui/positronModalDialog/components/okActionBar';
 import { ContentArea } from 'vs/base/browser/ui/positronModalDialog/components/contentArea';
@@ -127,9 +127,12 @@ export class PositronModalDialogs implements IPositronModalDialogsService {
 				resolve(false);
 			};
 
+			// Render the dialog. As the messaage is variably sized, it'd be
+			// nice if we could auto-scale the dialog, but fix it to 200 for
+			// now.
 			const ModalDialog = () => {
 				return (
-					<PositronModalDialog title={title} width={400} height={300} accept={acceptHandler} cancel={cancelHandler}>
+					<PositronModalDialog title={title} width={400} height={200} accept={acceptHandler} cancel={cancelHandler}>
 						<ContentArea>
 							{message}
 						</ContentArea>
