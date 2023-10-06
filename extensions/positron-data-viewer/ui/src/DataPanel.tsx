@@ -77,7 +77,7 @@ export const DataPanel = (props: DataPanelProps) => {
 	// model is generic.
 	const columns = React.useMemo<ReactTable.ColumnDef<any>[]>(
 		() => {
-			const dataColumns = dataModel.columns.map((column, idx) => {
+			return dataModel.columns.map((column, idx) => {
 				return {
 					id: '' + idx,
 					accessorKey: idx,
@@ -87,11 +87,6 @@ export const DataPanel = (props: DataPanelProps) => {
 					header: column.name
 				};
 			});
-			return [{ // Create a column group with all columns
-				id: 'loading',
-				footer: () => <span className='processing'>Loading more rows...</span>,
-				columns: dataColumns
-			}];
 		},
 		[dataModel]);
 
@@ -301,18 +296,11 @@ export const DataPanel = (props: DataPanelProps) => {
 				</tbody>
 			{ isFetchingNextPage ?
 				<tfoot>
-				{table.getFooterGroups().map(footerGroup => (
-					<tr key={footerGroup.id}>
-						{footerGroup.headers.map(header => (
-							<th key={header.id} colSpan={header.colSpan}>
-								{ReactTable.flexRender(
-									header.column.columnDef.footer,
-									header.getContext()
-								)}
-							</th>
-						))}
+					<tr>
+						<th className='processing' colSpan={columns.length}>
+							Loading more rows...
+						</th>
 					</tr>
-				))}
 				</tfoot> :
 				null
 			}
