@@ -89,7 +89,7 @@ export const DataPanel = (props: DataPanelProps) => {
 			});
 			return [{ // Create a column group with all columns
 				id: 'loading',
-				footer: () => <span className='processing'>Loading more...</span>,
+				footer: () => <span className='processing'>Loading more rows...</span>,
 				columns: dataColumns
 			}];
 		},
@@ -170,7 +170,7 @@ export const DataPanel = (props: DataPanelProps) => {
 
 	// Use a virtualizer to render only the rows that are visible.
 	const rowVirtualizer = ReactVirtual.useVirtualizer({
-		count: hasNextPage ? rows.length + 1 : rows.length, // add a row for the Loading... row
+		count: rows.length,
 		getScrollElement: () => tableContainerRef.current,
 		estimateSize: () => rowHeightPx,
 		overscan: scrollOverscan
@@ -274,38 +274,21 @@ export const DataPanel = (props: DataPanelProps) => {
 						</tr>
 					)}
 					{virtualRows.map(virtualRow => {
-						const isLoaderRow = virtualRow.index > rows.length - 1;
 						const row = rows[virtualRow.index] as ReactTable.Row<any>;
 
 						return (
-							<tr
-								key={isLoaderRow ? `loading-row` : row.id}
-							>
+							<tr key={row.id}>
 							{
-								isLoaderRow && hasNextPage ?
-									// We only have one footer, and it's the loading row
-									// We treat it as a regular row because we want it at the
-									// bottom of the visible area, not the bottom of the table
-									table.getFooterGroups().map(footerGroup => (
-										footerGroup.headers.map(header => (
-											<td key={header.id} colSpan={header.colSpan}>
-												{ReactTable.flexRender(
-													header.column.columnDef.footer,
-													header.getContext()
-												)}
-											</td>
-										))
-									)) :
-									row.getVisibleCells().map(cell => {
-										return (
-											<td key={cell.id}>
-												{ReactTable.flexRender(
-													cell.column.columnDef.cell,
-													cell.getContext()
-												)}
-											</td>
-										);
-									})
+								row.getVisibleCells().map(cell => {
+									return (
+										<td key={cell.id}>
+											{ReactTable.flexRender(
+												cell.column.columnDef.cell,
+												cell.getContext()
+											)}
+										</td>
+									);
+								})
 							}
 							</tr>
 						);
@@ -316,6 +299,23 @@ export const DataPanel = (props: DataPanelProps) => {
 						</tr>
 					)}
 				</tbody>
+			{ isFetchingNextPage ?
+				<tfoot>
+				{table.getFooterGroups().map(footerGroup => (
+					<tr key={footerGroup.id}>
+						{footerGroup.headers.map(header => (
+							<th key={header.id} colSpan={header.colSpan}>
+								{ReactTable.flexRender(
+									header.column.columnDef.footer,
+									header.getContext()
+								)}
+							</th>
+						))}
+					</tr>
+				))}
+				</tfoot> :
+				null
+			}
 			</table>
 		</div>
 	);
