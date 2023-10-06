@@ -97,4 +97,52 @@ export class PositronModalDialogs implements IPositronModalDialogsService {
 			positronModalDialogReactRenderer.render(<ModalDialog />);
 		});
 	}
+
+	/**
+	 * Shows a simple modal dialog prompt.
+	 *
+	 * @param title The title of the dialog
+	 * @param message The message to display in the dialog
+	 * @param okButtonTitle The title of the OK button (optional; defaults to 'OK')
+	 * @param cancelButtonTitle The title of the Cancel button (optional; defaults to 'Cancel')
+	 *
+	 * @returns A promise that resolves to true if the user clicked OK, or false
+	 *   if the user clicked Cancel (or closed the dialog)
+	 */
+	async showModalDialogPrompt(title: string,
+		message: string,
+		okButtonTitle?: string,
+		cancelButtonTitle?: string): Promise<boolean> {
+		return new Promise<boolean>((resolve) => {
+
+			const positronModalDialogReactRenderer =
+				new PositronModalDialogReactRenderer(this.layoutService.container);
+
+			const acceptHandler = () => {
+				positronModalDialogReactRenderer.destroy();
+				resolve(true);
+			};
+			const cancelHandler = () => {
+				positronModalDialogReactRenderer.destroy();
+				resolve(false);
+			};
+
+			const ModalDialog = () => {
+				return (
+					<PositronModalDialog title={title} width={400} height={300} accept={acceptHandler} cancel={cancelHandler}>
+						<ContentArea>
+							{message}
+						</ContentArea>
+						<OKCancelActionBar
+							okButtonTitle={okButtonTitle}
+							cancelButtonTitle={cancelButtonTitle}
+							accept={acceptHandler}
+							cancel={cancelHandler} />
+					</PositronModalDialog>
+				);
+			};
+
+			positronModalDialogReactRenderer.render(<ModalDialog />);
+		});
+	}
 }
