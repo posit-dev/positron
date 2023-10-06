@@ -6,7 +6,7 @@ import 'vs/css!./interpreterGroups';
 import * as React from 'react';
 import { useEffect, useState } from 'react'; // eslint-disable-line no-duplicate-imports
 import { DisposableStore } from 'vs/base/common/lifecycle';
-import { InterpreterGroup } from 'vs/workbench/browser/parts/positronTopActionBar/modalPopups/interpreterGroup';
+import { InterpreterGroup } from 'vs/workbench/browser/parts/positronTopActionBar/interpretersManagerModalPopup/interpreterGroup';
 import { ILanguageRuntime, ILanguageRuntimeService, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 
 /**
@@ -69,7 +69,7 @@ interface InterpreterGroupsProps {
 }
 
 /**
- * InterpreterGroupsManager component.
+ * InterpreterGroups component.
  * @param props A InterpreterGroupsProps that contains the component properties.
  * @returns The rendered component.
  */

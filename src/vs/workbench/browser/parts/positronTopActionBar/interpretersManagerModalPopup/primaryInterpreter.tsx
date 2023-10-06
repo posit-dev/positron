@@ -2,30 +2,33 @@
  *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
-import 'vs/css!./secondaryInterpreter';
+import 'vs/css!./primaryInterpreter';
 import * as React from 'react';
 import { useEffect, useState } from 'react'; // eslint-disable-line no-duplicate-imports
+import { localize } from 'vs/nls';
 import { DisposableStore } from 'vs/base/common/lifecycle';
 import { PositronButton } from 'vs/base/browser/ui/positronComponents/positronButton';
-import { InterpreterActions } from 'vs/workbench/browser/parts/positronTopActionBar/modalPopups/interpreterActions';
+import { InterpreterActions } from 'vs/workbench/browser/parts/positronTopActionBar/interpretersManagerModalPopup/interpreterActions';
 import { ILanguageRuntime, ILanguageRuntimeService, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 
 /**
- * SecondaryInterpreterProps interface.
+ * PrimaryInterpreterProps interface.
  */
-interface SecondaryInterpreterProps {
+interface PrimaryInterpreterProps {
 	languageRuntimeService: ILanguageRuntimeService;
 	runtime: ILanguageRuntime;
+	enableShowAllVersions: boolean;
+	onShowAllVersions: () => void;
 	onStart: () => void;
 	onActivate: () => void;
 }
 
 /**
- * SecondaryInterpreter component.
- * @param props A SecondaryInterpreterProps that contains the component properties.
+ * PrimaryInterpreter component.
+ * @param props A PrimaryInterpreterProps that contains the component properties.
  * @returns The rendered component.
  */
-export const SecondaryInterpreter = (props: SecondaryInterpreterProps) => {
+export const PrimaryInterpreter = (props: PrimaryInterpreterProps) => {
 	// State hooks.
 	const [runtimeState, setRuntimeState] = useState(props.runtime.getRuntimeState());
 
@@ -45,8 +48,7 @@ export const SecondaryInterpreter = (props: SecondaryInterpreterProps) => {
 
 	// Render.
 	return (
-		<PositronButton className='secondary-interpreter' onClick={props.onActivate}>
-			<div></div>
+		<PositronButton className='primary-interpreter' onClick={props.onActivate}>
 			<div className='running-indicator'>
 				{runtimeState !== RuntimeState.Uninitialized && runtimeState !== RuntimeState.Exited &&
 					<div className='running-icon codicon codicon-circle-large-filled'></div>
@@ -55,11 +57,20 @@ export const SecondaryInterpreter = (props: SecondaryInterpreterProps) => {
 			<img className='icon' src={`data:image/svg+xml;base64,${props.runtime.metadata.base64EncodedIconSvg}`} />
 			<div className='info'>
 				<div className='container'>
-					<div className='line'>{props.runtime.metadata.runtimeShortName}</div>
+					<div className='line'>{props.runtime.metadata.runtimeName}</div>
 					<div className='line light' title={props.runtime.metadata.runtimePath}>{props.runtime.metadata.runtimePath}</div>
 				</div>
 			</div>
-			<InterpreterActions runtime={props.runtime} onStart={props.onStart} />
+			<InterpreterActions runtime={props.runtime} onStart={props.onStart}>
+				{props.enableShowAllVersions &&
+					<PositronButton className='action-button' onClick={props.onShowAllVersions}>
+						<span
+							className='codicon codicon-positron-more-options'
+							title={localize('positronShowAllVersions', "Show all versions")}
+						/>
+					</PositronButton>
+				}
+			</InterpreterActions>
 		</PositronButton>
 	);
 };

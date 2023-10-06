@@ -1,0 +1,69 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
+ *--------------------------------------------------------------------------------------------*/
+
+.top-action-bar-custom-folder-menu {
+	flex: 0;
+	width: min-content;
+	margin: 0 6px;
+	height: 26px;
+	display: grid;
+	cursor: pointer;
+	align-items: center;
+	border-radius: 6px;
+	box-sizing: border-box;
+	grid-template-columns: 1fr 1fr;
+	color: var(--positronActionBar-foreground);
+	border: 1px solid var(--vscode-positronTopActionBar-selectBoxBorder);
+	background-color: var(--vscode-positronTopActionBar-selectBoxBackground);
+}
+
+.top-action-bar-custom-folder-menu:hover {
+	background-color: var(--positronActionBar-hoverBackground);
+}
+
+.top-action-bar-custom-folder-menu .left {
+	margin-left: 1px;
+}
+
+.top-action-bar-custom-folder-menu .left .label {
+	margin: 0 0px;
+	padding: 0 3px;
+	height: 22px;
+	border: none;
+	display: flex;
+	font-size: 12px;
+	cursor: pointer;
+	overflow: visible;
+	white-space: nowrap;
+	align-items: center;
+	background: transparent;
+	justify-content: center;
+	color: var(--positronActionBar-foreground);
+}
+
+.top-action-bar-custom-folder-menu .left .label .icon {
+	width: 16px;
+	height: 16px;
+	margin-right: 6px;
+}
+
+.top-action-bar-custom-folder-menu .right {
+	display: flex;
+	align-items: center;
+	justify-content: right;
+	margin-right: 1px;
+}
+
+.top-action-bar-custom-folder-menu .right .chevron {
+	height: 22px;
+	width: 20px;
+	font-size: 14px;
+	border: none;
+	display: flex;
+	cursor: pointer;
+	overflow: visible;
+	align-items: center;
+	background: transparent;
+	justify-content: center;
+}
