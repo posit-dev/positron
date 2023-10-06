@@ -58,8 +58,20 @@ export async function registerCommands(context: vscode.ExtensionContext, runtime
 			insertOperatorWithSpace(pipeString);
 		}),
 
+		// TODO: remove this hack when we can address the Console like an editor
+		vscode.commands.registerCommand('r.insertPipeConsole', () => {
+			const extConfig = vscode.workspace.getConfiguration('positron.r');
+			const pipeString = extConfig.get<string>('pipe') || '|>';
+			vscode.commands.executeCommand('type', { text: ` ${pipeString} ` });
+		}),
+
 		vscode.commands.registerCommand('r.insertLeftAssignment', () => {
 			insertOperatorWithSpace('<-');
+		}),
+
+		// TODO: remove this hack when we can address the Console like an editor
+		vscode.commands.registerCommand('r.insertLeftAssignmentConsole', () => {
+			vscode.commands.executeCommand('type', { text: ' <- ' });
 		}),
 
 		// Commands for package development tooling
