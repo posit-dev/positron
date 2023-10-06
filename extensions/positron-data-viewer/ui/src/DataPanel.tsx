@@ -76,8 +76,7 @@ export const DataPanel = (props: DataPanelProps) => {
 	// Create the columns for the table. These use the 'any' type since the data
 	// model is generic.
 	const columns = React.useMemo<ReactTable.ColumnDef<any>[]>(
-		() => {
-			return dataModel.columns.map((column, idx) => {
+		() => dataModel.columns.map((column, idx) => {
 				return {
 					id: '' + idx,
 					accessorKey: idx,
@@ -86,8 +85,7 @@ export const DataPanel = (props: DataPanelProps) => {
 					},
 					header: column.name
 				};
-			});
-		},
+			}),
 		[dataModel]);
 
 	async function fetchNextDataFragment(pageParam: number, fetchSize: number): Promise<DataFragment> {
