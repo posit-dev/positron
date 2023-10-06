@@ -80,14 +80,12 @@ export const DataPanel = (props: DataPanelProps) => {
 				return {
 					id: '' + idx,
 					accessorKey: idx,
-					accessorFn: (_row, index) => {
+					accessorFn: (_row: any, index: number) => {
 						return column.data[index];
 					},
-					header: column.name,
-					enableSorting: false,
+					header: column.name
 				};
-			})
-		,
+			}),
 		[dataModel]);
 
 	async function fetchNextDataFragment(pageParam: number, fetchSize: number): Promise<DataFragment> {
@@ -165,7 +163,7 @@ export const DataPanel = (props: DataPanelProps) => {
 
 	// Use a virtualizer to render only the rows that are visible.
 	const rowVirtualizer = ReactVirtual.useVirtualizer({
-		count: hasNextPage ? rows.length + 1 : rows.length, // add a row for the loader row
+		count: rows.length,
 		getScrollElement: () => tableContainerRef.current,
 		estimateSize: () => rowHeightPx,
 		overscan: scrollOverscan
@@ -269,29 +267,21 @@ export const DataPanel = (props: DataPanelProps) => {
 						</tr>
 					)}
 					{virtualRows.map(virtualRow => {
-						const isLoaderRow = virtualRow.index > rows.length - 1;
 						const row = rows[virtualRow.index] as ReactTable.Row<any>;
 
 						return (
-							<tr
-								key={isLoaderRow ? `loading-row` : row.id}
-							>
+							<tr key={row.id}>
 							{
-								isLoaderRow && hasNextPage ?
-									// TODO: replace with a grouped column footer as in
-									// https://tanstack.com/table/v8/docs/examples/react/column-groups
-									// for the loading indicator
-									<td className='processing'>Loading more...</td> :
-									row.getVisibleCells().map(cell => {
-										return (
-											<td key={cell.id}>
-												{ReactTable.flexRender(
-													cell.column.columnDef.cell,
-													cell.getContext()
-												)}
-											</td>
-										);
-									})
+								row.getVisibleCells().map(cell => {
+									return (
+										<td key={cell.id}>
+											{ReactTable.flexRender(
+												cell.column.columnDef.cell,
+												cell.getContext()
+											)}
+										</td>
+									);
+								})
 							}
 							</tr>
 						);
@@ -302,6 +292,16 @@ export const DataPanel = (props: DataPanelProps) => {
 						</tr>
 					)}
 				</tbody>
+			{ isFetchingNextPage ?
+				<tfoot>
+					<tr>
+						<th className='processing' colSpan={columns.length}>
+							Loading more rows...
+						</th>
+					</tr>
+				</tfoot> :
+				null
+			}
 			</table>
 		</div>
 	);
