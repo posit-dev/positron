@@ -28,6 +28,36 @@ interface ActionBarProps {
 	readonly reactComponentContainer: IReactComponentContainer;
 }
 
+// Localized strings.
+const stateLabelStarting = localize('positronConsoleState.Starting', "Starting");
+const stateLabelInterrupting = localize('positronConsoleState.Interrupting', "Interrupting");
+const stateLabelShuttingDown = localize('positronConsoleState.ShuttingDown', "Shutting down");
+const stateLabelRestarting = localize('positronConsoleState.Restarting', "Restarting");
+const stateLabelReconecting = localize('positronConsoleState.Reconnecting', "Reconnecting");
+
+function labelForState(state: RuntimeState): string {
+	switch (state) {
+		case RuntimeState.Starting:
+			return stateLabelStarting;
+
+		case RuntimeState.Restarting:
+			return stateLabelRestarting;
+
+		case RuntimeState.Interrupting:
+			return stateLabelInterrupting;
+
+		case RuntimeState.Exiting:
+			return stateLabelShuttingDown;
+
+		case RuntimeState.Offline:
+			// We attempt to reconnect to the runtime when it goes offline.
+			return stateLabelReconecting;
+
+		default:
+			return '';
+	}
+}
+
 /**
  * ActionBar component.
  * @param props An ActionBarProps that contains the component properties.
@@ -42,7 +72,7 @@ export const ActionBar = (props: ActionBarProps) => {
 		useState(positronConsoleContext.positronConsoleService.activePositronConsoleInstance);
 	const [interruptible, setInterruptible] = useState(false);
 	const [interrupting, setInterrupting] = useState(false);
-	const [stateLabel, setStateLabel] = useState('' as string);
+	const [stateLabel, setStateLabel] = useState('');
 
 	// Main useEffect hook.
 	useEffect(() => {
@@ -69,21 +99,56 @@ export const ActionBar = (props: ActionBarProps) => {
 			// If there is no runtime; we're done. This happens when the console
 			// instance is detached from the runtime.
 			if (!runtime) {
+				setInterruptible(false);
+				setInterrupting(false);
+				setStateLabel('');
 				return;
 			}
 
 			disposableRuntimeStore.add(runtime.onDidChangeRuntimeState((state) => {
-				setInterruptible(false);
-				setInterrupting(false);
-				setStateLabel(state);
-
 				switch (state) {
+					case RuntimeState.Starting:
+						setStateLabel(labelForState(state));
+						setInterruptible(false);
+						break;
+
+					case RuntimeState.Restarting:
+						setStateLabel(labelForState(state));
+						setInterrupting(false);
+						setInterruptible(false);
+						break;
+
+					case RuntimeState.Idle:
+					case RuntimeState.Ready:
+						setStateLabel('');
+						setInterruptible(false);
+						setInterrupting(false);
+						break;
+
 					case RuntimeState.Busy:
 						setInterruptible(true);
 						break;
 
 					case RuntimeState.Interrupting:
+						setStateLabel(labelForState(state));
 						setInterrupting(true);
+						break;
+
+					case RuntimeState.Offline:
+						setStateLabel(labelForState(state));
+						setInterruptible(false);
+						break;
+
+					case RuntimeState.Exiting:
+						setStateLabel(labelForState(state));
+						setInterrupting(false);
+						setInterruptible(false);
+						break;
+
+					case RuntimeState.Exited:
+						setStateLabel('');
+						setInterrupting(false);
+						setInterruptible(false);
 						break;
 				}
 			}));
@@ -142,7 +207,7 @@ export const ActionBar = (props: ActionBarProps) => {
 						<ConsoleInstanceMenuButton {...props} />
 					</ActionBarRegion>
 					<ActionBarRegion location='right'>
-						<span>{stateLabel}</span>
+						<div className='state-label'>{stateLabel}</div>
 						{interruptible &&
 							<ActionBarButton
 								fadeIn={true}
