@@ -12,7 +12,7 @@ import * as ReactTable from '@tanstack/react-table';
 
 // Local modules.
 import { DataFragment, DataModel } from './DataModel';
-import { DataViewerMessageRowRequest, DataSet } from './positron-data-viewer';
+import { DataSet } from './positron-data-viewer';
 
 interface DataPanelProps {
 	/**
@@ -55,6 +55,10 @@ export const DataPanel = (props: DataPanelProps) => {
 		new DataModel(initialData)
 	);
 
+	// Count total rows against those we have fetched.
+	const totalRows = dataModel.rowCount;
+	const maxPages = Math.ceil(totalRows / fetchSize);
+
 	React.useEffect(() => {
 		const handleMessage = ((event: any) => {
 			updateDataModel((prevDataModel) => {
@@ -86,19 +90,37 @@ export const DataPanel = (props: DataPanelProps) => {
 		,
 		[dataModel]);
 
+	async function fetchNextDataFragment(pageParam: number, fetchSize: number): Promise<DataFragment> {
+		// Fetches a single page of data from the data model.
+		const startRow = pageParam * fetchSize;
+
+		// Let the server know we are requesting more rows
+		if (startRow > 0) {
+			vscode.postMessage({
+				msg_type: 'request_rows',
+				start_row: startRow,
+				fetch_size: fetchSize
+			});
+		}
+
+		const fragment = dataModel.loadDataFragment(startRow, fetchSize);
+		return fragment;
+	}
+
 	// Use a React Query infinite query to fetch data from the data model,
 	// with the dataModel id as cache key so we re-query when new data comes in.
-	const { data, fetchNextPage, isFetching, isLoading } =
-		ReactQuery.useInfiniteQuery<DataFragment>(
+	const {
+		data,
+		isLoading,
+		isFetchingNextPage,
+		fetchNextPage,
+		hasNextPage
+	} = ReactQuery.useInfiniteQuery<DataFragment>(
 			['table-data', dataModel.id],
-			async ({ pageParam = 0 }) => {
-				// Fetches a single page of data from the data model.
-				const start = pageParam * fetchSize;
-				const fragment = dataModel.loadDataFragment(start, fetchSize);
-				return fragment;
-			},
+			({pageParam = 0}) => fetchNextDataFragment(pageParam, fetchSize),
 			{
-				getNextPageParam: (_lastGroup, groups) => groups.length,
+				// undefined if we are on the final page of data
+				getNextPageParam: (_lastGroup, groups) => groups.length !== maxPages ? groups.length : undefined,
 				keepPreviousData: true,
 				refetchOnWindowFocus: false,
 			}
@@ -130,47 +152,7 @@ export const DataPanel = (props: DataPanelProps) => {
 		},
 		[data]);
 
-	// Count total rows against those we have fetched.
-	const totalRows = dataModel.rowCount;
-
-	// Find the maximum rowEnd value in the data; this is the
-	// total number of rows we have fetched.
-	const totalFetched = React.useMemo(
-		() => {
-			return data?.pages?.reduce((max, row) => Math.max(max, row.rowEnd + 1), 0) ?? 0;
-		},
-		[flatData]
-	);
-
-	// Callback, invoked on scroll, that will fetch more data from the backend if we have reached
-	// the bottom of the table container by sending a new MessageRequest.
-	const fetchMoreOnBottomReached = React.useCallback(
-		(containerRefElement?: HTMLDivElement | null) => {
-			if (containerRefElement) {
-				const { scrollHeight, scrollTop, clientHeight } = containerRefElement;
-				const distance = scrollHeight - scrollTop - clientHeight;
-				if (distance < scrollThresholdPx &&
-					!isFetching &&
-					totalFetched < totalRows
-				) {
-					fetchNextPage();
-					const msg: DataViewerMessageRowRequest = {
-						msg_type: 'request_rows',
-						start_row: totalFetched,
-						fetch_size: fetchSize
-					};
-					vscode.postMessage(msg);
-				}
-			}
-		},
-		[fetchNextPage, isFetching, totalFetched, totalRows]);
-
-	// Use an effect to fetch more data when the table container is scrolled.
-	React.useEffect(() => {
-		fetchMoreOnBottomReached(tableContainerRef.current);
-	}, [fetchMoreOnBottomReached]);
-
-	// Define the main ReactTable instance.
+		// Define the main ReactTable instance.
 	const table = ReactTable.useReactTable({
 		data: flatData,
 		columns,
@@ -179,11 +161,11 @@ export const DataPanel = (props: DataPanelProps) => {
 		enableSorting: false,
 	});
 
-	const { rows } = table.getRowModel();
+	const {rows} = table.getRowModel();
 
 	// Use a virtualizer to render only the rows that are visible.
 	const rowVirtualizer = ReactVirtual.useVirtualizer({
-		count: rows.length,
+		count: hasNextPage ? rows.length + 1 : rows.length, // add a row for the loader row
 		getScrollElement: () => tableContainerRef.current,
 		estimateSize: () => rowHeightPx,
 		overscan: scrollOverscan
@@ -197,6 +179,42 @@ export const DataPanel = (props: DataPanelProps) => {
 		virtualRows.length > 0
 			? totalSize - (virtualRows?.[virtualRows.length - 1]?.end || 0)
 			: 0;
+
+	// Callback, invoked on scroll, that will fetch more data from the backend if we have reached
+	// the bottom of the table container by sending a new MessageRequest.
+	const fetchMoreOnBottomReached = React.useCallback(
+		(containerRefElement?: HTMLDivElement | null) => {
+			if (containerRefElement) {
+				const { scrollHeight, scrollTop, clientHeight } = containerRefElement;
+				const distance = scrollHeight - scrollTop - clientHeight;
+				if (distance < scrollThresholdPx &&
+					!isFetchingNextPage &&
+					hasNextPage
+				) {
+					fetchNextPage();
+				}
+			}
+		},
+		[fetchNextPage, isFetchingNextPage, hasNextPage]);
+
+	// Use an effect to fetch more data when the table container is scrolled.
+	React.useEffect(() => {
+		const [lastItem] = [...virtualRows].reverse();
+
+		if (!lastItem) {
+			return;
+		}
+
+		// user has scrolled to the last row of the loaded virtual rows
+		// so fetch more from the backend if there are more pages
+		if (lastItem.index >= rows.length - 1 &&
+			hasNextPage &&
+			!isFetchingNextPage
+		) {
+			fetchMoreOnBottomReached(tableContainerRef.current);
+		}
+
+	}, [fetchNextPage, isFetchingNextPage, hasNextPage, rows.length, virtualRows]);
 
 	if (isLoading) {
 		return <>Loading...</>;
@@ -233,8 +251,8 @@ export const DataPanel = (props: DataPanelProps) => {
 													header.getContext()
 												)}
 												{{
-													asc: '^',
-													desc: 'V',
+													asc: '🔼', // allow-any-unicode-next-line
+													desc: '🔽', // allow-any-unicode-next-line
 												}[header.column.getIsSorted() as string] ?? null}
 											</div>
 										)}
@@ -251,19 +269,30 @@ export const DataPanel = (props: DataPanelProps) => {
 						</tr>
 					)}
 					{virtualRows.map(virtualRow => {
+						const isLoaderRow = virtualRow.index > rows.length - 1;
 						const row = rows[virtualRow.index] as ReactTable.Row<any>;
+
 						return (
-							<tr key={row.id}>
-								{row.getVisibleCells().map(cell => {
-									return (
-										<td key={cell.id}>
-											{ReactTable.flexRender(
-												cell.column.columnDef.cell,
-												cell.getContext()
-											)}
-										</td>
-									);
-								})}
+							<tr
+								key={isLoaderRow ? `loading-row` : row.id}
+							>
+							{
+								isLoaderRow && hasNextPage ?
+									// TODO: replace with a grouped column footer as in
+									// https://tanstack.com/table/v8/docs/examples/react/column-groups
+									// for the loading indicator
+									<td className='processing'>Loading more...</td> :
+									row.getVisibleCells().map(cell => {
+										return (
+											<td key={cell.id}>
+												{ReactTable.flexRender(
+													cell.column.columnDef.cell,
+													cell.getContext()
+												)}
+											</td>
+										);
+									})
+							}
 							</tr>
 						);
 					})}
