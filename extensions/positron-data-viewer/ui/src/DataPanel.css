@@ -60,3 +60,8 @@ body,
 	position: relative;
 	overflow: auto;
 }
+
+td.processing {
+	text-align: center;
+	font-weight: bold;
+}
