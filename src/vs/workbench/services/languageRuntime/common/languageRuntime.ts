@@ -426,6 +426,14 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 					this.waitForInterrupt(runtime);
 					break;
 
+				case RuntimeState.Exiting:
+					this.waitForShutdown(runtime);
+					break;
+
+				case RuntimeState.Offline:
+					this.waitForReconnect(runtime);
+					break;
+
 				case RuntimeState.Exited:
 					// Remove the runtime from the set of starting or running runtimes.
 					this._startingRuntimesByLanguageId.delete(runtime.metadata.languageId);
@@ -744,25 +752,41 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 	}
 
 	private async waitForInterrupt(runtime: ILanguageRuntime) {
-		const warning = nls.localize('positron.runtimeInterruptTimeoutWaring', "{0} isn't responding to your request to interrupt the command. Do you want to forcefully quit your {1} session? You'll lose any unsaved objects.", runtime.metadata.runtimeName, runtime.metadata.languageName);
+		const warning = nls.localize('positron.runtimeInterruptTimeoutWarning', "{0} isn't responding to your request to interrupt the command. Do you want to forcefully quit your {1} session? You'll lose any unsaved objects.", runtime.metadata.runtimeName, runtime.metadata.languageName);
 		this.awaitStateChange(runtime,
-			RuntimeState.Idle,
+			[RuntimeState.Idle],
 			1,
 			warning);
 	}
 
+	private async waitForShutdown(runtime: ILanguageRuntime) {
+		const warning = nls.localize('positron.runtimeShutdownTimeoutWarning', "{0} isn't responding to your request to shut down the session. Do you want use a forced quit to end your {1} session? You'll lose any unsaved objects.", runtime.metadata.runtimeName, runtime.metadata.languageName);
+		this.awaitStateChange(runtime,
+			[RuntimeState.Exited],
+			1,
+			warning);
+	}
+
+	private async waitForReconnect(runtime: ILanguageRuntime) {
+		const warning = nls.localize('positron.runtimeReconnectTimeoutWarning', "{0} has been offline for more than 30 seconds. Do you want to force quit your {1} session? You'll lose any unsaved objects.", runtime.metadata.runtimeName, runtime.metadata.languageName);
+		this.awaitStateChange(runtime,
+			[RuntimeState.Ready, RuntimeState.Idle],
+			1,
+			warning);
+	}
 	/**
-	 * Waits for the runtime to change to the target state. If the runtime does not change
-	 * to the target state within the specified number of seconds, a warning is
-	 * displayed with an option to force quit the runtime.
+	 * Waits for the runtime to change one of the target states. If the runtime
+	 * does not change to one of the target states within the specified number
+	 * of seconds, a warning is displayed with an option to force quit the
+	 * runtime.
 	 *
 	 * @param runtime The runtime to watch.
-	 * @param targetState The target state for the runtime to enter.
+	 * @param targetStates The target state(s) for the runtime to enter.
 	 * @param seconds The number of seconds to wait for the runtime to change to the target state.
 	 * @param warning The warning to display if the runtime does not change to the target state.
 	 */
 	private async awaitStateChange(runtime: ILanguageRuntime,
-		targetState: RuntimeState,
+		targetStates: RuntimeState[],
 		seconds: number,
 		warning: string) {
 
@@ -795,7 +819,7 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 
 			// Listen for state changes.
 			disposable = runtime.onDidChangeRuntimeState(state => {
-				if (state === targetState) {
+				if (targetStates.includes(state)) {
 					clearTimeout(timer);
 					resolve();
 
