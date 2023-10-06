@@ -5946,7 +5946,14 @@ export const EditorOptions = {
 	// Leave these at the end (because they have dependencies!)
 	editorClassName: register(new EditorClassName()),
 	defaultColorDecorators: register(new EditorBooleanOption(
-		EditorOption.defaultColorDecorators, 'defaultColorDecorators', false,
+		// --- Start Positron ---
+		// We enable default color decorators by default in Positron, so that
+		// files containing hex color codes will be rendered with a color
+		// swatch.
+		//
+		// EditorOption.defaultColorDecorators, 'defaultColorDecorators', false,
+		EditorOption.defaultColorDecorators, 'defaultColorDecorators', true,
+		// --- End Positron ---
 		{ markdownDescription: nls.localize('defaultColorDecorators', "Controls whether inline color decorations should be shown using the default document color provider") }
 	)),
 	pixelRatio: register(new EditorPixelRatio()),
