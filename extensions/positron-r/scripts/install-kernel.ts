@@ -344,7 +344,7 @@ async function main() {
 			`able to run Positron without R support.\n` +
 			`\n` +
 			`You can set a PAT later by running yarn again and supplying the PAT at this prompt,\n` +
-			`or by running 'git config credential.https://api.github.com.token ghp_a1b2c..'\n`);
+			`or by running 'git config credential.https://api.github.com.token YOUR_GITHUB_PAT'\n`);
 		const { stdout, stderr } =
 			await executeCommand('git credential fill',
 				`protocol=https\n` +
