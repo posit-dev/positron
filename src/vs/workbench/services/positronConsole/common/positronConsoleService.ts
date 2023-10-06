@@ -31,6 +31,7 @@ import { ActivityItem, RuntimeItemActivity } from 'vs/workbench/services/positro
 import { ActivityItemInput, ActivityItemInputState } from 'vs/workbench/services/positronConsole/common/classes/activityItemInput';
 import { IPositronConsoleInstance, IPositronConsoleService, POSITRON_CONSOLE_VIEW_ID, PositronConsoleState } from 'vs/workbench/services/positronConsole/common/interfaces/positronConsoleService';
 import { formatLanguageRuntime, ILanguageRuntime, ILanguageRuntimeExit, ILanguageRuntimeMessage, ILanguageRuntimeService, LanguageRuntimeStartupBehavior, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeExitReason, RuntimeOnlineState, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { RuntimeItemRestartButton } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemRestartButton';
 
 //#region Helper Functions
 
@@ -961,6 +962,12 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 				this.processPendingInput();
 			}
 
+			// When the runtime is ready, clear out any old restart buttons that
+			// may have been used to bring it online.
+			if (runtimeState === RuntimeState.Ready) {
+				this.clearRestartItems();
+			}
+
 			if (runtimeState === RuntimeState.Exited) {
 				if (this._runtimeState === RuntimeState.Starting ||
 					this._runtimeState === RuntimeState.Initializing) {
@@ -985,7 +992,6 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 							this.addRuntimeItem(new RuntimeItemExited(
 								generateUuid(),
 								RuntimeExitReason.StartupFailed,
-								this._runtime.metadata.languageName,
 								`${this._runtime.metadata.runtimeName} failed to start.`
 							));
 						}
@@ -1266,11 +1272,14 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 			this.addRuntimeItemTrace(`onDidEndSession (code ${exit.exit_code}, reason '${exit.reason}')`);
 			const exited = new RuntimeItemExited(generateUuid(),
 				exit.reason,
+				this.formatExit(exit));
+			this.addRuntimeItem(exited);
+			const restartButton = new RuntimeItemRestartButton(generateUuid(),
 				this._runtime.metadata.languageName,
-				this.formatExit(exit), () => {
+				() => {
 					this._onDidRequestRestart.fire();
 				});
-			this.addRuntimeItem(exited);
+			this.addRuntimeItem(restartButton);
 			this.detachRuntime();
 		}));
 
@@ -1448,6 +1457,23 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 
 			// Clear the pending input runtime item.
 			this._runtimeItemPendingInput = undefined;
+		}
+	}
+
+	/**
+	 * Remove all restart buttons from the console. We do this once a runtime
+	 * has become ready, since at that point the restart is complete.
+	 */
+	private clearRestartItems() {
+		const itemCount = this._runtimeItems.length;
+
+		// Remove all restart buttons from the console.
+		this._runtimeItems = this.runtimeItems.filter(
+			item => !(item instanceof RuntimeItemRestartButton));
+
+		// If we removed buttons, fire the runtime items changed event.
+		if (this._runtimeItems.length !== itemCount) {
+			this._onDidChangeRuntimeItemsEmitter.fire(this._runtimeItems);
 		}
 	}
 
