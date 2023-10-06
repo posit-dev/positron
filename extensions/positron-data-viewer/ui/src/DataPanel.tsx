@@ -227,7 +227,7 @@ export const DataPanel = (props: DataPanelProps) => {
 			onScroll={e => fetchMoreOnBottomReached(e.target as HTMLDivElement)}
 			ref={tableContainerRef}
 		>
-			<table width='100%'>
+			<table>
 				<thead>
 					{table.getHeaderGroups().map(headerGroup => (
 						<tr key={headerGroup.id}>
@@ -263,12 +263,7 @@ export const DataPanel = (props: DataPanelProps) => {
 						</tr>
 					))}
 				</thead>
-				<tbody
-					style={{
-						height: `${totalSize+paddingTop+paddingBottom}px`,
-						position: 'relative'
-					}}
-				>
+				<tbody style={{ height: `${totalSize}px` }} >
 					{paddingTop > 0 && (
 						<tr>
 							<td style={{ height: `${paddingTop}px` }} />
@@ -279,12 +274,17 @@ export const DataPanel = (props: DataPanelProps) => {
 						const row = rows[virtualRow.index] as ReactTable.Row<any>;
 
 						return (
-							<tr key={isLoaderRow ? `loading-row-${virtualRow.index}` : row.id}>
+							<tr
+								key={isLoaderRow ? `loading-row-${virtualRow.index}` : row.id}
+							>
 							{
 								isLoaderRow ?
 									hasNextPage ?
-										<td width='100%'>Loading more...</td> :
-										<td width='100%'>'Nothing more to load'</td> :
+									// TODO: replace with a grouped column footer as in
+									// https://tanstack.com/table/v8/docs/examples/react/column-groups
+									// for the loading indicator
+										<td className='processing'>Loading more...</td> :
+										<td className='processing'>Nothing more to load</td> :
 									row.getVisibleCells().map(cell => {
 										return (
 											<td key={cell.id}>
