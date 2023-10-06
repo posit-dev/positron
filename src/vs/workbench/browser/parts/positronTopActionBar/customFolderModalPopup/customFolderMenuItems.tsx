@@ -142,7 +142,7 @@ export const CustomFolderMenuItems = (props: CustomFolderMenuItemsProps) => {
 			<CommandActionCustomFolderMenuItem id={PositronOpenFolderInNewWindowAction.ID} />
 			<CommandActionCustomFolderMenuItem
 				id={kCloseFolder}
-				label={localize('positronCloseFolder', "Close Folder...")}
+				label={localize('positronCloseFolder', "Close Folder")}
 				separator={true}
 				when={ContextKeyExpr.and(
 					WorkbenchStateContext.isEqualTo('folder'),
