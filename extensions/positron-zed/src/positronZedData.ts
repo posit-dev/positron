@@ -18,8 +18,8 @@ class ZedColumn implements DataColumn {
 		this.name = name;
 		this.type = type;
 		// Create an array of random numbers of the requested length
-		//this.data = Array.from({ length }, () => Math.floor(Math.random() * 100));
-		this.data = Array.from({ length }, (_, i) => i);
+		this.data = Array.from({ length }, () => Math.floor(Math.random() * 100));
+		//this.data = Array.from({ length }, (_, i) => i);
 	}
 }
 
@@ -95,10 +95,6 @@ export class ZedData implements DataSet {
 				rowCount: this.rowCount
 			} as ZedData,
 		};
-		console.log(`Zed: Received a message: ${JSON.stringify(message)}`);
-		const { data, ...response_header } = response;
-		// adding a delay for testing purposes
-		console.log(`Zed: Sending a response: ${JSON.stringify(response_header)}`);
 		// Emit to the front end.
 		this._onDidEmitData.fire(response);
 	}
