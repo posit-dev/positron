@@ -71,7 +71,7 @@ const HelpLines = [
 	'preview msg    - Sends a message to the preview pane',
 	'progress       - Renders a progress bar',
 	'restart        - Simulates orderly restart',
-	'shutdown       - Simulates orderly shutdown',
+	'shutdown X     - Simulates orderly shutdown, or sets the shutdown delay to X',
 	'static plot    - Renders a static plot (image)',
 	'view X         - Open a data viewer named X',
 	'version        - Shows the Zed version'
@@ -162,9 +162,17 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 	private _busyOperationId: string | undefined;
 
 	/**
-	 * The number of seconds it should take to interrupt a busy operation.
+	 * The number of seconds it should take to interrupt a busy operation. This
+	 * is used to help simulate a state in which a runtime locks up during
+	 * execution.
 	 */
 	private _busyInterruptSeconds: number;
+
+	/**
+	 * The number of seconds by which a shutdown should be delayed. This is used
+	 * to help simulate a state in which a runtime locks up during shutdown.
+	 */
+	private _shutdownDelaySeconds: number;
 
 	/**
 	 * The current state of the runtime.
@@ -221,6 +229,9 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 
 		// Default number of seconds it takes to interrupt a busy Zed runtime.
 		this._busyInterruptSeconds = 1;
+
+		// Default number of seconds it takes to shut down a Zed runtime.
+		this._shutdownDelaySeconds = 1;
 	}
 	//#endregion Constructor
 
@@ -372,6 +383,15 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 			const interruptDuration = (match.length > 2 && match[2]) ? match[2].trim() : '1';
 			this._busyInterruptSeconds = parseInt(interruptDuration, 10);
 			this.simulateBusyOperation(id, durationSeconds, code);
+			return;
+		} else if (match = code.match(/^shutdown( [0-9]+)?/)) {
+			if (match.length > 1 && match[1]) {
+				// If the user specified a delay, set it.
+				this.setShutdownDelay(id, parseInt(match[1].trim(), 10), code);
+			} else {
+				// If the user didn't specify a delay, just shut down.
+				this.shutdown();
+			}
 			return;
 		} else if (match = code.match(/^view( .+)?/)) {
 			// Simulate a data viewer
@@ -821,11 +841,6 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 				break;
 			}
 
-			case 'shutdown': {
-				this.shutdown();
-				break;
-			}
-
 			case 'restart': {
 				this.restart();
 				break;
@@ -1071,6 +1086,14 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 		// Enter busy state to do shutdown processing.
 		this.simulateBusyState(parentId);
 
+		// Wait a bit to simulate shutdown processing.
+		await new Promise(resolve => setTimeout(resolve, 1000 * this._shutdownDelaySeconds));
+
+		// Did someone change the state on us during the delay? If so, we're not shutting down.
+		if (this._state !== positron.RuntimeState.Busy) {
+			return;
+		}
+
 		// Simulate closing all the open comms.
 		const enviromentIds = Array.from(this._environments.keys());
 		const plotIds = Array.from(this._plots.keys());
@@ -1101,6 +1124,7 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 	}
 
 	forceQuit(): Promise<void> {
+		clearTimeout(this._busyTimer);
 		// Simulate a force quit by immediately "exiting"
 		this._onDidChangeRuntimeState.fire(positron.RuntimeState.Exited);
 		this._onDidEndSession.fire({
@@ -1389,6 +1413,22 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 		}
 
 		// Return to idle state.
+		this.simulateIdleState(parentId);
+	}
+
+	/**
+	 * Sets the shutdown delay, in seconds, for the next shutdown operation.
+	 *
+	 * @param parentId The parent identifier.
+	 * @param delay The delay in seconds.
+	 * @param code The code.
+	 */
+	private setShutdownDelay(parentId: string, delay: number, code: string) {
+		// Enter busy state and output the code.
+		this.simulateBusyState(parentId);
+		this.simulateInputMessage(parentId, code);
+		this._shutdownDelaySeconds = delay;
+		this.simulateOutputMessage(parentId, `Shutdown delay set to ${delay} seconds.`);
 		this.simulateIdleState(parentId);
 	}
 
