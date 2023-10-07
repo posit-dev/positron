@@ -850,8 +850,11 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 		if (this._runtime && this._runtime.metadata.runtimeId === runtime.metadata.runtimeId) {
 			if (this._runtimeAttached) {
 				// Yes, it's the same one. If we're already attached, we're
-				// done; just let the user know we're starting up.
-				this.emitStartItems(starting);
+				// done; just let the user know we're starting up if we are
+				// currently showing as Exited.
+				if (this._state === PositronConsoleState.Exited) {
+					this.emitStartItems(starting);
+				}
 			} else {
 				// It's the same one, but it isn't attached. Reattach it.
 				this.attachRuntime(starting);
