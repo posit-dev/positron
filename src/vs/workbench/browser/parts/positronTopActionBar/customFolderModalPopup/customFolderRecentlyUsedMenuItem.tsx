@@ -12,7 +12,8 @@ import { KeyboardModifiers, PositronButton } from 'vs/base/browser/ui/positronCo
 interface CustomFolderRecentlyUsedMenuItemProps {
 	enabled: boolean;
 	label: string;
-	onSelected: (e: KeyboardModifiers) => void;
+	onOpen: (e: KeyboardModifiers) => void;
+	onOpenInNewWindow: (e: KeyboardModifiers) => void;
 }
 
 /**
@@ -23,12 +24,12 @@ interface CustomFolderRecentlyUsedMenuItemProps {
 export const CustomFolderRecentlyUsedMenuItem = (props: CustomFolderRecentlyUsedMenuItemProps) => {
 	// Render.
 	return (
-		<PositronButton className='custom-folder-recently-used-menu-item' onClick={props.onSelected}>
+		<PositronButton className='custom-folder-recently-used-menu-item' onClick={props.onOpen}>
 			<div className='title'>
 				{props.label}
 			</div>
-			<PositronButton className='open-in-new-window'>
-				<div>Foo</div>
+			<PositronButton className='open-in-new-window' onClick={props.onOpenInNewWindow}>
+				<div className='codicon codicon-positron-open-in-new-window' />
 			</PositronButton>
 		</PositronButton>
 	);

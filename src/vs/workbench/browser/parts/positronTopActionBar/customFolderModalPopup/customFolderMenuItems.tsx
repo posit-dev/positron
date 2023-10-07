@@ -118,13 +118,24 @@ export const CustomFolderMenuItems = (props: CustomFolderMenuItemsProps) => {
 
 					// Render.
 					return (
-						<CustomFolderRecentlyUsedMenuItem label={label} enabled={true} onSelected={e => {
-							props.onMenuItemSelected();
-							props.hostService.openWindow([openable], {
-								forceNewWindow: (!isMacintosh && (e.ctrlKey || e.shiftKey)) || (isMacintosh && (e.metaKey || e.altKey)),
-								remoteAuthority: recent.remoteAuthority || null
-							});
-						}} />
+						<CustomFolderRecentlyUsedMenuItem
+							label={label}
+							enabled={true}
+							onOpen={e => {
+								props.onMenuItemSelected();
+								props.hostService.openWindow([openable], {
+									forceNewWindow: (!isMacintosh && (e.ctrlKey || e.shiftKey)) || (isMacintosh && (e.metaKey || e.altKey)),
+									remoteAuthority: recent.remoteAuthority || null
+								});
+							}}
+							onOpenInNewWindow={e => {
+								props.onMenuItemSelected();
+								props.hostService.openWindow([openable], {
+									forceNewWindow: true,
+									remoteAuthority: recent.remoteAuthority || null
+								});
+							}}
+						/>
 					);
 				})}
 			</>
