@@ -463,6 +463,7 @@ export function registerPositronConsoleActions() {
 			await viewsService.openView<PositronConsoleViewPane>(POSITRON_CONSOLE_VIEW_ID, false);
 
 			// Ask the Positron console service to execute the code.
+			code = code.replace(/\r\n/mg, '\n');
 			if (!await positronConsoleService.executeCode(languageId, code, true)) {
 				const languageName = languageService.getLanguageName(languageId);
 				notificationService.notify({
