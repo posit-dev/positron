@@ -472,7 +472,9 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 			if (exit.reason === RuntimeExitReason.Error ||
 				exit.reason === RuntimeExitReason.Unknown) {
 
-				// Start the runtime.
+				// Wait a beat, then start the runtime.
+				await new Promise<void>(resolve => setTimeout(resolve, 250));
+				this._onWillStartRuntimeEmitter.fire(runtime);
 				await this.startRuntime(runtime.metadata.runtimeId,
 					`The runtime exited unexpectedly and is being restarted automatically.`);
 

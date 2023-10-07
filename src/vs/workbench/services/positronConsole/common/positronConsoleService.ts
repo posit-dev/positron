@@ -24,6 +24,7 @@ import { ActivityItemOutputHtml } from 'vs/workbench/services/positronConsole/co
 import { RuntimeItemPendingInput } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemPendingInput';
 import { ActivityItemErrorStream } from 'vs/workbench/services/positronConsole/common/classes/activityItemErrorStream';
 import { ActivityItemOutputStream } from 'vs/workbench/services/positronConsole/common/classes/activityItemOutputStream';
+import { RuntimeItemRestartButton } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemRestartButton';
 import { ActivityItemErrorMessage } from 'vs/workbench/services/positronConsole/common/classes/activityItemErrorMessage';
 import { ActivityItemOutputMessage } from 'vs/workbench/services/positronConsole/common/classes/activityItemOutputMessage';
 import { RuntimeItemStartupFailure } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemStartupFailure';
@@ -31,7 +32,6 @@ import { ActivityItem, RuntimeItemActivity } from 'vs/workbench/services/positro
 import { ActivityItemInput, ActivityItemInputState } from 'vs/workbench/services/positronConsole/common/classes/activityItemInput';
 import { IPositronConsoleInstance, IPositronConsoleService, POSITRON_CONSOLE_VIEW_ID, PositronConsoleState } from 'vs/workbench/services/positronConsole/common/interfaces/positronConsoleService';
 import { formatLanguageRuntime, ILanguageRuntime, ILanguageRuntimeExit, ILanguageRuntimeMessage, ILanguageRuntimeService, LanguageRuntimeStartupBehavior, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeExitReason, RuntimeOnlineState, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
-import { RuntimeItemRestartButton } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemRestartButton';
 
 //#region Helper Functions
 
@@ -163,12 +163,26 @@ class PositronConsoleService extends Disposable implements IPositronConsoleServi
 
 		// Register the onWillStartRuntime event handler so we start a new Positron console instance before a runtime starts up.
 		this._register(this._languageRuntimeService.onWillStartRuntime(runtime => {
+			// If there is already a Positron console instance for the runtime,
+			// just reattach
+			const existingInstance = this._positronConsoleInstancesByRuntimeId.get(
+				runtime.metadata.runtimeId);
+			if (existingInstance) {
+				// Reattach the runtime; runtimes always detach on exit and are
+				// reattached on startup.
+				existingInstance.setRuntime(runtime, true);
+				return;
+			}
+
+			// If no instance exists, see if we can reuse an instance from an
+			// exited runtime with a matching language.
 			const positronConsoleInstance = this._positronConsoleInstancesByLanguageId.get(runtime.metadata.languageId);
 			if (positronConsoleInstance && positronConsoleInstance.state === PositronConsoleState.Exited) {
 				positronConsoleInstance.setRuntime(runtime, true);
 				this._positronConsoleInstancesByRuntimeId.delete(positronConsoleInstance.runtime.metadata.runtimeId);
 				this._positronConsoleInstancesByRuntimeId.set(positronConsoleInstance.runtime.metadata.runtimeId, positronConsoleInstance);
 			} else {
+				// New runtime with a new language, so start a new Positron console instance.
 				this.startPositronConsoleInstance(runtime, true);
 			}
 		}));
@@ -540,6 +554,8 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	 * Disposes of the PositronConsoleInstance.
 	 */
 	override dispose() {
+		this.addRuntimeItemTrace('dispose()');
+
 		// Call Disposable's dispose.
 		super.dispose();
 
@@ -830,10 +846,22 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	 * @param starting A value which indicates whether the runtime is starting.
 	 */
 	setRuntime(runtime: ILanguageRuntime, starting: boolean) {
-		// Set the runtime.
+		// Is this the same runtime we're currently attached to?
+		if (this._runtime && this._runtime.metadata.runtimeId === runtime.metadata.runtimeId) {
+			if (this._runtimeAttached) {
+				// Yes, it's the same one. If we're already attached, we're
+				// done; just let the user know we're starting up.
+				this.emitStartItems(starting);
+			} else {
+				// It's the same one, but it isn't attached. Reattach it.
+				this.attachRuntime(starting);
+			}
+			return;
+		}
+		// Set the new runtime.
 		this._runtime = runtime;
 
-		// Attach the runtime.
+		// Attach the new runtime.
 		this.attachRuntime(starting);
 	}
 
@@ -873,6 +901,9 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	 * @param state The new state.
 	 */
 	setState(state: PositronConsoleState) {
+		if (this._state !== state) {
+			this.addRuntimeItemTrace(`Console state change: ${this._state} => ${state}`);
+		}
 		switch (state) {
 			case PositronConsoleState.Uninitialized:
 			case PositronConsoleState.Starting:
@@ -925,14 +956,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 
 	//#region Private Methods
 
-	/**
-	 * Attaches to a runtime.
-	 * @param starting A value which indicates whether the runtime is starting.
-	 */
-	private attachRuntime(starting: boolean) {
-		// Mark the runtime as attached.
-		this._runtimeAttached = true;
-
+	private emitStartItems(starting: boolean) {
 		// Set the state and add the appropriate runtime item to indicate whether the Positron
 		// console instance is is starting or is reconnected.
 		if (starting) {
@@ -951,6 +975,17 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 				`${this._runtime.metadata.runtimeName} reconnected.`
 			));
 		}
+	}
+
+	/**
+	 * Attaches to a runtime.
+	 * @param starting A value which indicates whether the runtime is starting.
+	 */
+	private attachRuntime(starting: boolean) {
+		// Mark the runtime as attached.
+		this._runtimeAttached = true;
+		this.addRuntimeItemTrace(`Attach runtime ${this._runtime.metadata.runtimeName} (starting = ${starting})`);
+		this.emitStartItems(starting);
 
 		// Add the onDidChangeRuntimeState event handler.
 		this._runtimeDisposableStore.add(this._runtime.onDidChangeRuntimeState(async runtimeState => {
@@ -1385,6 +1420,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	 * Detaches from a runtime.
 	 */
 	private detachRuntime() {
+		this.addRuntimeItemTrace(`Detach runtime ${this._runtime.metadata.runtimeName}`);
 		if (this._runtimeAttached) {
 			// We are currently attached; detach.
 			this._runtimeAttached = false;
