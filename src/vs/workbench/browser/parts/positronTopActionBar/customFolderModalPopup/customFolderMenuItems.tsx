@@ -20,6 +20,7 @@ import { EmptyWorkspaceSupportContext, WorkbenchStateContext } from 'vs/workbenc
 import { IRecentlyOpened, isRecentWorkspace, isRecentFolder } from 'vs/platform/workspaces/common/workspaces';
 import { CustomFolderMenuItem } from 'vs/workbench/browser/parts/positronTopActionBar/customFolderModalPopup/customFolderMenuItem';
 import { CustomFolderMenuSeparator } from 'vs/workbench/browser/parts/positronTopActionBar/customFolderModalPopup/customFolderMenuSeparator';
+import { CustomFolderRecentlyUsedMenuItem } from 'vs/workbench/browser/parts/positronTopActionBar/customFolderModalPopup/customFolderRecentlyUsedMenuItem';
 import { PositronNewFolderAction, PositronNewFolderFromGitAction, PositronOpenFolderInNewWindowAction } from 'vs/workbench/browser/actions/positronActions';
 
 /**
@@ -117,13 +118,24 @@ export const CustomFolderMenuItems = (props: CustomFolderMenuItemsProps) => {
 
 					// Render.
 					return (
-						<CustomFolderMenuItem label={label} enabled={true} onSelected={e => {
-							props.onMenuItemSelected();
-							props.hostService.openWindow([openable], {
-								forceNewWindow: (!isMacintosh && (e.ctrlKey || e.shiftKey)) || (isMacintosh && (e.metaKey || e.altKey)),
-								remoteAuthority: recent.remoteAuthority || null
-							});
-						}} />
+						<CustomFolderRecentlyUsedMenuItem
+							label={label}
+							enabled={true}
+							onOpen={e => {
+								props.onMenuItemSelected();
+								props.hostService.openWindow([openable], {
+									forceNewWindow: (!isMacintosh && (e.ctrlKey || e.shiftKey)) || (isMacintosh && (e.metaKey || e.altKey)),
+									remoteAuthority: recent.remoteAuthority || null
+								});
+							}}
+							onOpenInNewWindow={e => {
+								props.onMenuItemSelected();
+								props.hostService.openWindow([openable], {
+									forceNewWindow: true,
+									remoteAuthority: recent.remoteAuthority || null
+								});
+							}}
+						/>
 					);
 				})}
 			</>

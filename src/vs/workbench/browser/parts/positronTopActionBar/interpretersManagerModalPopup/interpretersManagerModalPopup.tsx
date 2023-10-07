@@ -13,7 +13,7 @@ import { ILanguageRuntime, ILanguageRuntimeService } from 'vs/workbench/services
  * Shows the interpreters manager modal popup.
  * @param languageRuntimeService The language runtime service.
  * @param container The container of the application.
- * @param anchorElement The anchor element for the runtimes manager modal popup.
+ * @param anchorElement The anchor element for the modal popup.
  * @param onStartRuntime The start runtime event handler.
  * @param onActivateRuntime The activate runtime event handler.
  * @returns A promise that resolves when the popup is dismissed.
