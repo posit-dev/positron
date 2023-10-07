@@ -7,5 +7,5 @@
 	margin: 4px;
 	display: flex;
 	flex-direction: column;
-	background: var(--vscode-positronRuntimesManager-background);
+	background: var(--vscode-positronContextMenu-background);
 }
