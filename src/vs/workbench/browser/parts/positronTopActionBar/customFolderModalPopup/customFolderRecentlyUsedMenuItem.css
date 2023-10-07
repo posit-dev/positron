@@ -39,7 +39,7 @@
 .custom-folder-recently-used-menu-item .open-in-new-window {
 	display: flex;
 	padding: 2px 5px;
-	margin-right: 3px;
+	margin-right: 3.5px;
 }
 
 .custom-folder-recently-used-menu-item .open-in-new-window:hover {
