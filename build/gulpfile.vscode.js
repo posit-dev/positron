@@ -11,6 +11,7 @@ const fs = require('fs');
 const os = require('os');
 const cp = require('child_process');
 const path = require('path');
+const fancyLog = require('fancy-log');
 const es = require('event-stream');
 const vfs = require('vinyl-fs');
 const rename = require('gulp-rename');
@@ -432,20 +433,23 @@ function patchWin32DependenciesTask(destinationFolderName) {
 
 		await Promise.all(deps.map(async dep => {
 			const basename = path.basename(dep);
-
-			await rcedit(path.join(cwd, dep), {
-				'file-version': baseVersion,
-				'version-string': {
-					'CompanyName': 'Microsoft Corporation',
-					'FileDescription': product.nameLong,
-					'FileVersion': packageJson.version,
-					'InternalName': basename,
-					'LegalCopyright': 'Copyright (C) 2022 Microsoft. All rights reserved',
-					'OriginalFilename': basename,
-					'ProductName': product.nameLong,
-					'ProductVersion': packageJson.version,
-				}
-			});
+			try {
+				await rcedit(path.join(cwd, dep), {
+					'file-version': baseVersion,
+					'version-string': {
+						'CompanyName': 'Microsoft Corporation',
+						'FileDescription': product.nameLong,
+						'FileVersion': packageJson.version,
+						'InternalName': basename,
+						'LegalCopyright': 'Copyright (C) 2022 Microsoft. All rights reserved',
+						'OriginalFilename': basename,
+						'ProductName': product.nameLong,
+						'ProductVersion': packageJson.version,
+					}
+				});
+			} catch (e) {
+				fancyLog('Skipping rcedit for ' + dep + ': ' + e);
+			}
 		}));
 	};
 }

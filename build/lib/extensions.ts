@@ -603,7 +603,12 @@ export async function copyExtensionBinaries(outputRoot: string) {
 
 					// Resolve the paths to the binaries.
 					if (metadata.binaries) {
-						return metadata.binaries.map((bin: any) => {
+						return metadata.binaries.reduce((result: any[], bin: any) => {
+							// Filter out binaries that aren't for this platform.
+							if (bin.platforms && !bin.platforms.includes(process.platform)) {
+								return result;
+							}
+
 							// Check the executable bit. Gulp can lose this on
 							// copy, so we may need to restore it later.
 							const src = path.join(path.dirname(metadataPath), bin.from);
@@ -612,12 +617,14 @@ export async function copyExtensionBinaries(outputRoot: string) {
 								const stat = fs.statSync(src);
 								isExecutable = (stat.mode & 0o100) !== 0;
 							}
-							return {
+							result.push({
 								...bin,
 								exe: isExecutable,
 								base: path.basename(path.dirname(metadataPath)),
-							};
-						});
+							});
+
+							return result;
+						}, []);
 					}
 					return null;
 				})
@@ -630,8 +637,10 @@ export async function copyExtensionBinaries(outputRoot: string) {
 			// Map the metadata to a stream of Vinyl files from the source to the
 			// destination.
 			...binaryMetadata.map((bin: any) => {
-				return gulp.src(path.join('extensions', bin.base, bin.from)).pipe(
-					gulp.dest(path.join(outputRoot, bin.base, bin.to))
+				const srcLoc = path.resolve('extensions', bin.base, bin.from);
+				const destLoc = path.resolve(outputRoot, bin.base, bin.to);
+				return gulp.src(srcLoc).pipe(
+					gulp.dest(destLoc)
 				);
 			}),
 
