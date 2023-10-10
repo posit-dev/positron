@@ -24,10 +24,22 @@ export async function registerCommands(context: vscode.ExtensionContext, runtime
 		vscode.commands.registerCommand('r.insertPipe', () => {
 			const extConfig = vscode.workspace.getConfiguration('positron.r');
 			const pipeString = extConfig.get<string>('pipe') || '|>';
+			insertOperatorWithSpace(pipeString);
+		}),
+
+		// TODO: remove this hack when we can address the Console like an editor
+		vscode.commands.registerCommand('r.insertPipeConsole', () => {
+			const extConfig = vscode.workspace.getConfiguration('positron.r');
+			const pipeString = extConfig.get<string>('pipe') || '|>';
 			vscode.commands.executeCommand('type', { text: ` ${pipeString} ` });
 		}),
 
 		vscode.commands.registerCommand('r.insertLeftAssignment', () => {
+			insertOperatorWithSpace('<-');
+		}),
+
+		// TODO: remove this hack when we can address the Console like an editor
+		vscode.commands.registerCommand('r.insertLeftAssignmentConsole', () => {
 			vscode.commands.executeCommand('type', { text: ' <- ' });
 		}),
 
@@ -142,3 +154,35 @@ export async function registerCommands(context: vscode.ExtensionContext, runtime
 		}),
 	);
 }
+
+function insertOperatorWithSpace(op: string) {
+	// TODO: make this work in the Console too
+	if (!vscode.window.activeTextEditor) {
+		return;
+	}
+	const editor = vscode.window.activeTextEditor;
+	// make sure cursor ends up on RHS, even if selection was made right-to-left
+	editor.selections = editor.selections.map(s => new vscode.Selection(s.start, s.end));
+
+	return editor.edit(editBuilder => {
+		editor.selections.forEach(sel => {
+			const startPos = sel.start;
+			const endPos = sel.end;
+			const lineText = editor.document.lineAt(startPos).text;
+			let insertValue = op;
+
+			const precedingChar = lineText.charAt(startPos.character - 1);
+			if (!/\s/g.test(precedingChar)) {
+				insertValue = ' ' + insertValue;
+			}
+
+			const followingChar = lineText.charAt(endPos.character);
+			if (!/\s/g.test(followingChar)) {
+				insertValue = insertValue + ' ';
+			}
+
+			editBuilder.replace(sel, insertValue);
+		});
+	});
+}
+
