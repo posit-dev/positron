@@ -11,7 +11,7 @@ import { extractValue, readLines } from './util';
  * Represents a single installation of R on a user's system.
  */
 export class RInstallation {
-	// there are many reasons that we might fail to construct and we can't throw an error
+	// there are many reasons that we might deem a putative R installation to be unusable
 	// downstream users of RInstallation should filter for `valid` is `true`
 	public readonly valid: boolean = false;
 
