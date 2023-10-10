@@ -45,6 +45,7 @@
 	border-radius: 5px;
 	color: var(--vscode-positronModalDialog-foreground);
 	background: var(--vscode-positronModalDialog-background);
+	border: 1px solid var(--vscode-positronModalDialog-border);
 	box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.1), 0 6px 20px 0 rgba(0, 0, 0, 0.1);
 }
 

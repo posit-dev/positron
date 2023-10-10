@@ -1,3 +1,9 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
+
+.custom-folder-menu-separator {
+	height: 1px;
+	margin: 4px 10px;
+	background: var(--vscode-menu-border)
+}
