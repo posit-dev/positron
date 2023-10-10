@@ -14,6 +14,7 @@ import {
 } from 'vscode';
 import { ITestDebugLauncher, TestDiscoveryOptions } from '../../common/types';
 import { IPythonExecutionFactory } from '../../../common/process/types';
+import { Deferred } from '../../../common/utils/async';
 
 export type TestRunInstanceOptions = TestRunOptions & {
     exclude?: readonly TestItem[];
@@ -178,19 +179,32 @@ export interface ITestServer {
         options: TestCommandOptions,
         runTestIdsPort?: string,
         runInstance?: TestRun,
+        testIds?: string[],
         callback?: () => void,
     ): Promise<void>;
     serverReady(): Promise<void>;
     getPort(): number;
     createUUID(cwd: string): string;
     deleteUUID(uuid: string): void;
+    triggerRunDataReceivedEvent(data: DataReceivedEvent): void;
+    triggerDiscoveryDataReceivedEvent(data: DataReceivedEvent): void;
 }
 export interface ITestResultResolver {
     runIdToVSid: Map<string, string>;
     runIdToTestItem: Map<string, TestItem>;
     vsIdToRunId: Map<string, string>;
-    resolveDiscovery(payload: DiscoveredTestPayload, token?: CancellationToken): Promise<void>;
-    resolveExecution(payload: ExecutionTestPayload, runInstance: TestRun): Promise<void>;
+    resolveDiscovery(
+        payload: DiscoveredTestPayload | EOTTestPayload,
+        deferredTillEOT: Deferred<void>,
+        token?: CancellationToken,
+    ): Promise<void>;
+    resolveExecution(
+        payload: ExecutionTestPayload | EOTTestPayload,
+        runInstance: TestRun,
+        deferredTillEOT: Deferred<void>,
+    ): Promise<void>;
+    _resolveDiscovery(payload: DiscoveredTestPayload, token?: CancellationToken): Promise<void>;
+    _resolveExecution(payload: ExecutionTestPayload, runInstance: TestRun): Promise<void>;
 }
 export interface ITestDiscoveryAdapter {
     // ** first line old method signature, second line new method signature
@@ -237,6 +251,11 @@ export type DiscoveredTestPayload = {
     tests?: DiscoveredTestNode;
     status: 'success' | 'error';
     error?: string[];
+};
+
+export type EOTTestPayload = {
+    commandType: 'discovery' | 'execution';
+    eot: boolean;
 };
 
 export type ExecutionTestPayload = {

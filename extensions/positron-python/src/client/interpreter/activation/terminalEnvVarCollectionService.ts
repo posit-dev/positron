@@ -36,6 +36,8 @@ import { getSearchPathEnvVarNames } from '../../common/utils/exec';
 import { EnvironmentVariables } from '../../common/variables/types';
 import { TerminalShellType } from '../../common/terminal/types';
 import { OSType } from '../../common/utils/platform';
+import { normCase } from '../../common/platform/fs-paths';
+import { PythonEnvType } from '../../pythonEnvironments/base/info';
 
 @injectable()
 export class TerminalEnvVarCollectionService implements IExtensionActivationService, ITerminalEnvVarCollectionService {
@@ -62,6 +64,8 @@ export class TerminalEnvVarCollectionService implements IExtensionActivationServ
      */
     private processEnvVars: EnvironmentVariables | undefined;
 
+    private separator: string;
+
     constructor(
         @inject(IPlatformService) private readonly platform: IPlatformService,
         @inject(IInterpreterService) private interpreterService: IInterpreterService,
@@ -74,7 +78,9 @@ export class TerminalEnvVarCollectionService implements IExtensionActivationServ
         @inject(IWorkspaceService) private workspaceService: IWorkspaceService,
         @inject(IConfigurationService) private readonly configurationService: IConfigurationService,
         @inject(IPathUtils) private readonly pathUtils: IPathUtils,
-    ) {}
+    ) {
+        this.separator = platform.osType === OSType.Windows ? ';' : ':';
+    }
 
     public async activate(resource: Resource): Promise<void> {
         try {
@@ -96,21 +102,17 @@ export class TerminalEnvVarCollectionService implements IExtensionActivationServ
             if (!this.registeredOnce) {
                 this.interpreterService.onDidChangeInterpreter(
                     async (r) => {
-                        this.showProgress();
                         await this._applyCollection(r).ignoreErrors();
-                        this.hideProgress();
                     },
                     this,
                     this.disposables,
                 );
                 this.applicationEnvironment.onDidChangeShell(
                     async (shell: string) => {
-                        this.showProgress();
                         this.processEnvVars = undefined;
                         // Pass in the shell where known instead of relying on the application environment, because of bug
                         // on VSCode: https://github.com/microsoft/vscode/issues/160694
                         await this._applyCollection(undefined, shell).ignoreErrors();
-                        this.hideProgress();
                     },
                     this,
                     this.disposables,
@@ -123,22 +125,28 @@ export class TerminalEnvVarCollectionService implements IExtensionActivationServ
         }
     }
 
-    public async _applyCollection(resource: Resource, shell = this.applicationEnvironment.shell): Promise<void> {
+    public async _applyCollection(resource: Resource, shell?: string): Promise<void> {
+        this.showProgress();
+        await this._applyCollectionImpl(resource, shell);
+        this.hideProgress();
+    }
+
+    private async _applyCollectionImpl(resource: Resource, shell = this.applicationEnvironment.shell): Promise<void> {
         const workspaceFolder = this.getWorkspaceFolder(resource);
         const settings = this.configurationService.getSettings(resource);
         const envVarCollection = this.getEnvironmentVariableCollection({ workspaceFolder });
-        // Clear any previously set env vars from collection
-        envVarCollection.clear();
         if (!settings.terminal.activateEnvironment) {
+            envVarCollection.clear();
             traceVerbose('Activating environments in terminal is disabled for', resource?.fsPath);
             return;
         }
-        const env = await this.environmentActivationService.getActivatedEnvironmentVariables(
+        const activatedEnv = await this.environmentActivationService.getActivatedEnvironmentVariables(
             resource,
             undefined,
             undefined,
             shell,
         );
+        const env = activatedEnv ? normCaseKeys(activatedEnv) : undefined;
         if (!env) {
             const shellType = identifyShellFromShellPath(shell);
             const defaultShell = defaultShells[this.platform.osType];
@@ -149,6 +157,7 @@ export class TerminalEnvVarCollectionService implements IExtensionActivationServ
                 return;
             }
             await this.trackTerminalPrompt(shell, resource, env);
+            envVarCollection.clear();
             this.processEnvVars = undefined;
             return;
         }
@@ -158,11 +167,13 @@ export class TerminalEnvVarCollectionService implements IExtensionActivationServ
                 shell,
             );
         }
-        const processEnv = this.processEnvVars;
+        const processEnv = normCaseKeys(this.processEnvVars);
 
         // PS1 in some cases is a shell variable (not an env variable) so "env" might not contain it, calculate it in that case.
         env.PS1 = await this.getPS1(shell, resource, env);
 
+        // Clear any previously set env vars from collection
+        envVarCollection.clear();
         Object.keys(env).forEach((key) => {
             if (shouldSkip(key)) {
                 return;
@@ -192,6 +203,9 @@ export class TerminalEnvVarCollectionService implements IExtensionActivationServ
                                 applyAtProcessCreation: true,
                             });
                         } else {
+                            if (!value.endsWith(this.separator)) {
+                                value = value.concat(this.separator);
+                            }
                             traceVerbose(`Prepending environment variable ${key} in collection to ${value}`);
                             envVarCollection.prepend(key, value, {
                                 applyAtShellIntegration: true,
@@ -253,8 +267,8 @@ export class TerminalEnvVarCollectionService implements IExtensionActivationServ
         if (this.platform.osType !== OSType.Windows) {
             // These shells are expected to set PS1 variable for terminal prompt for virtual/conda environments.
             const interpreter = await this.interpreterService.getActiveInterpreter(resource);
-            const shouldPS1BeSet = interpreter?.type !== undefined;
-            if (shouldPS1BeSet && !env.PS1) {
+            const shouldSetPS1 = shouldPS1BeSet(interpreter?.type, env);
+            if (shouldSetPS1 && !env.PS1) {
                 // PS1 should be set but no PS1 was set.
                 return;
             }
@@ -270,21 +284,24 @@ export class TerminalEnvVarCollectionService implements IExtensionActivationServ
     }
 
     private async getPS1(shell: string, resource: Resource, env: EnvironmentVariables) {
-        if (env.PS1) {
-            return env.PS1;
-        }
         const customShellType = identifyShellFromShellPath(shell);
         if (this.noPromptVariableShells.includes(customShellType)) {
-            return undefined;
+            return env.PS1;
         }
         if (this.platform.osType !== OSType.Windows) {
             // These shells are expected to set PS1 variable for terminal prompt for virtual/conda environments.
             const interpreter = await this.interpreterService.getActiveInterpreter(resource);
-            const shouldPS1BeSet = interpreter?.type !== undefined;
-            if (shouldPS1BeSet && !env.PS1) {
-                // PS1 should be set but no PS1 was set.
-                return getPromptForEnv(interpreter);
+            const shouldSetPS1 = shouldPS1BeSet(interpreter?.type, env);
+            if (shouldSetPS1) {
+                const prompt = getPromptForEnv(interpreter);
+                if (prompt) {
+                    return prompt;
+                }
             }
+        }
+        if (env.PS1) {
+            // Prefer PS1 set by env vars, as env.PS1 may or may not contain the full PS1: #22056.
+            return env.PS1;
         }
         return undefined;
     }
@@ -356,6 +373,26 @@ export class TerminalEnvVarCollectionService implements IExtensionActivationServ
     }
 }
 
+function shouldPS1BeSet(type: PythonEnvType | undefined, env: EnvironmentVariables): boolean {
+    if (env.PS1) {
+        // Activated variables contain PS1, meaning it was supposed to be set.
+        return true;
+    }
+    if (type === PythonEnvType.Virtual) {
+        const promptDisabledVar = env.VIRTUAL_ENV_DISABLE_PROMPT;
+        const isPromptDisabled = promptDisabledVar && promptDisabledVar !== undefined;
+        return !isPromptDisabled;
+    }
+    if (type === PythonEnvType.Conda) {
+        // Instead of checking config value using `conda config --get changeps1`, simply check
+        // `CONDA_PROMPT_MODIFER` to avoid the cost of launching the conda binary.
+        const promptEnabledVar = env.CONDA_PROMPT_MODIFIER;
+        const isPromptEnabled = promptEnabledVar && promptEnabledVar !== '';
+        return !!isPromptEnabled;
+    }
+    return false;
+}
+
 function shouldSkip(env: string) {
     return ['_', 'SHLVL'].includes(env);
 }
@@ -375,4 +412,12 @@ function getPromptForEnv(interpreter: PythonEnvironment | undefined) {
         return `(${path.basename(interpreter.envPath)}) `;
     }
     return undefined;
+}
+
+function normCaseKeys(env: EnvironmentVariables): EnvironmentVariables {
+    const result: EnvironmentVariables = {};
+    Object.keys(env).forEach((key) => {
+        result[normCase(key)] = env[key];
+    });
+    return result;
 }
