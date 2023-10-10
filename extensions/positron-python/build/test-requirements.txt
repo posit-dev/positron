@@ -36,6 +36,8 @@ jedi_language_server
 lsprotocol
 matplotlib
 pandas
+# Require pillow >= 10.0.1 to avoid CVE-2023-4863
+pillow>=10.0.1
 pydantic<2.0.0
 pyright
 pytest-asyncio
