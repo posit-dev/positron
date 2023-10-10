@@ -1,8 +1,8 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
-.top-action-bar-interpreters-manager {
+.top-action-bar-custom-folder-menu {
 	flex: 0;
 	width: min-content;
 	margin: 0 6px;
@@ -18,16 +18,16 @@
 	background-color: var(--vscode-positronTopActionBar-selectBoxBackground);
 }
 
-.top-action-bar-interpreters-manager:hover {
+.top-action-bar-custom-folder-menu:hover {
 	background-color: var(--positronActionBar-hoverBackground);
 }
 
-.top-action-bar-interpreters-manager .left {
+.top-action-bar-custom-folder-menu .left {
 	margin-left: 1px;
 }
 
-.top-action-bar-interpreters-manager .left .label {
-	margin: 0 4px;
+.top-action-bar-custom-folder-menu .left .label {
+	margin: 0 0px;
 	padding: 0 3px;
 	height: 22px;
 	border: none;
@@ -42,22 +42,22 @@
 	color: var(--positronActionBar-foreground);
 }
 
-.top-action-bar-interpreters-manager .left .label .icon {
+.top-action-bar-custom-folder-menu .left .label .icon {
 	width: 16px;
 	height: 16px;
 	margin-right: 6px;
 }
 
-.top-action-bar-interpreters-manager .right {
+.top-action-bar-custom-folder-menu .right {
 	display: flex;
 	align-items: center;
 	justify-content: right;
 	margin-right: 1px;
 }
 
-.top-action-bar-interpreters-manager .right .chevron {
+.top-action-bar-custom-folder-menu .right .chevron {
 	height: 22px;
-	width: 22px;
+	width: 20px;
 	font-size: 14px;
 	border: none;
 	display: flex;

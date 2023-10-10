@@ -3,7 +3,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import 'vs/css!./positronModalPopup';
-import { ReactElement } from 'react';
+import type { ReactElement } from 'react';
 import * as DOM from 'vs/base/browser/dom';
 import { createRoot, Root } from 'react-dom/client';
 
