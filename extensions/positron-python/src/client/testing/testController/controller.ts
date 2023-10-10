@@ -371,6 +371,7 @@ export class PythonTestController implements ITestController, IExtensionSingleAc
         );
 
         const dispose = token.onCancellationRequested(() => {
+            runInstance.appendOutput(`Run instance cancelled.\r\n`);
             runInstance.end();
         });
 
@@ -461,7 +462,6 @@ export class PythonTestController implements ITestController, IExtensionSingleAc
                             );
                         }
                     }
-
                     if (!settings.testing.pytestEnabled && !settings.testing.unittestEnabled) {
                         unconfiguredWorkspaces.push(workspace);
                     }

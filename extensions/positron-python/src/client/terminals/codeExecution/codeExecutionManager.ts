@@ -22,6 +22,10 @@ import { traceError } from '../../logging';
 import { captureTelemetry, sendTelemetryEvent } from '../../telemetry';
 import { EventName } from '../../telemetry/constants';
 import { ICodeExecutionHelper, ICodeExecutionManager, ICodeExecutionService } from '../../terminals/types';
+import {
+    CreateEnvironmentCheckKind,
+    triggerCreateEnvironmentCheckNonBlocking,
+} from '../../pythonEnvironments/creation/createEnvironmentTrigger';
 
 @injectable()
 export class CodeExecutionManager implements ICodeExecutionManager {
@@ -52,6 +56,10 @@ export class CodeExecutionManager implements ICodeExecutionManager {
                                 .then(noop, noop);
                             return;
                         }
+                        sendTelemetryEvent(EventName.ENVIRONMENT_CHECK_TRIGGER, undefined, {
+                            trigger: 'run-in-terminal',
+                        });
+                        triggerCreateEnvironmentCheckNonBlocking(CreateEnvironmentCheckKind.File, file);
                         const trigger = cmd === Commands.Exec_In_Terminal ? 'command' : 'icon';
                         await this.executeFileInTerminal(file, trigger, {
                             newTerminalPerFile: cmd === Commands.Exec_In_Separate_Terminal,
@@ -124,6 +132,8 @@ export class CodeExecutionManager implements ICodeExecutionManager {
                     this.commandManager.executeCommand(Commands.TriggerEnvironmentSelection, file).then(noop, noop);
                     return;
                 }
+                sendTelemetryEvent(EventName.ENVIRONMENT_CHECK_TRIGGER, undefined, { trigger: 'run-selection' });
+                triggerCreateEnvironmentCheckNonBlocking(CreateEnvironmentCheckKind.File, file);
                 await this.executeSelectionInTerminal().then(() => {
                     if (this.shouldTerminalFocusOnStart(file))
                         this.commandManager.executeCommand('workbench.action.terminal.focus');
@@ -140,6 +150,8 @@ export class CodeExecutionManager implements ICodeExecutionManager {
                         this.commandManager.executeCommand(Commands.TriggerEnvironmentSelection, file).then(noop, noop);
                         return;
                     }
+                    sendTelemetryEvent(EventName.ENVIRONMENT_CHECK_TRIGGER, undefined, { trigger: 'run-selection' });
+                    triggerCreateEnvironmentCheckNonBlocking(CreateEnvironmentCheckKind.File, file);
                     await this.executeSelectionInDjangoShell().then(() => {
                         if (this.shouldTerminalFocusOnStart(file))
                             this.commandManager.executeCommand('workbench.action.terminal.focus');

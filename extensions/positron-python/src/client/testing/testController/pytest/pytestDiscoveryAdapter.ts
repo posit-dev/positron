@@ -4,14 +4,13 @@ import * as path from 'path';
 import { Uri } from 'vscode';
 import {
     ExecutionFactoryCreateWithEnvironmentOptions,
-    ExecutionResult,
     IPythonExecutionFactory,
     SpawnOptions,
 } from '../../../common/process/types';
 import { IConfigurationService, ITestOutputChannel } from '../../../common/types';
-import { createDeferred } from '../../../common/utils/async';
+import { Deferred, createDeferred } from '../../../common/utils/async';
 import { EXTENSION_ROOT_DIR } from '../../../constants';
-import { traceVerbose } from '../../../logging';
+import { traceError, traceInfo, traceVerbose } from '../../../logging';
 import {
     DataReceivedEvent,
     DiscoveredTestPayload,
@@ -19,6 +18,7 @@ import {
     ITestResultResolver,
     ITestServer,
 } from '../common/types';
+import { createDiscoveryErrorPayload, createEOTPayload, createTestingDeferred } from '../common/utils';
 
 /**
  * Wrapper class for unittest test discovery. This is where we call `runTestCommand`. #this seems incorrectly copied
@@ -32,20 +32,21 @@ export class PytestTestDiscoveryAdapter implements ITestDiscoveryAdapter {
     ) {}
 
     async discoverTests(uri: Uri, executionFactory?: IPythonExecutionFactory): Promise<DiscoveredTestPayload> {
-        const settings = this.configSettings.getSettings(uri);
         const uuid = this.testServer.createUUID(uri.fsPath);
-        const { pytestArgs } = settings.testing;
-        traceVerbose(pytestArgs);
-        const dataReceivedDisposable = this.testServer.onDiscoveryDataReceived((e: DataReceivedEvent) => {
-            this.resultResolver?.resolveDiscovery(JSON.parse(e.data));
+        const deferredTillEOT: Deferred<void> = createDeferred<void>();
+        const dataReceivedDisposable = this.testServer.onDiscoveryDataReceived(async (e: DataReceivedEvent) => {
+            this.resultResolver?.resolveDiscovery(JSON.parse(e.data), deferredTillEOT);
         });
         const disposeDataReceiver = function (testServer: ITestServer) {
+            traceInfo(`Disposing data receiver for ${uri.fsPath} and deleting UUID; pytest discovery.`);
             testServer.deleteUUID(uuid);
             dataReceivedDisposable.dispose();
         };
         try {
             await this.runPytestDiscovery(uri, uuid, executionFactory);
         } finally {
+            await deferredTillEOT.promise;
+            traceVerbose('deferredTill EOT resolved');
             disposeDataReceiver(this.testServer);
         }
         // this is only a placeholder to handle function overloading until rewrite is finished
@@ -54,7 +55,6 @@ export class PytestTestDiscoveryAdapter implements ITestDiscoveryAdapter {
     }
 
     async runPytestDiscovery(uri: Uri, uuid: string, executionFactory?: IPythonExecutionFactory): Promise<void> {
-        const deferred = createDeferred<DiscoveredTestPayload>();
         const relativePathToPytest = 'pythonFiles';
         const fullPluginPath = path.join(EXTENSION_ROOT_DIR, relativePathToPytest);
         const settings = this.configSettings.getSettings(uri);
@@ -82,8 +82,10 @@ export class PytestTestDiscoveryAdapter implements ITestDiscoveryAdapter {
         };
         const execService = await executionFactory?.createActivatedEnvironment(creationOptions);
         // delete UUID following entire discovery finishing.
-        const deferredExec = createDeferred<ExecutionResult<string>>();
         const execArgs = ['-m', 'pytest', '-p', 'vscode_pytest', '--collect-only'].concat(pytestArgs);
+        traceVerbose(`Running pytest discovery with command: ${execArgs.join(' ')}`);
+
+        const deferredTillExecClose: Deferred<void> = createTestingDeferred();
         const result = execService?.execObservable(execArgs, spawnOptions);
 
         // Take all output from the subprocess and add it to the test output channel. This will be the pytest output.
@@ -94,11 +96,31 @@ export class PytestTestDiscoveryAdapter implements ITestDiscoveryAdapter {
         result?.proc?.stderr?.on('data', (data) => {
             spawnOptions.outputChannel?.append(data.toString());
         });
-        result?.proc?.on('exit', () => {
-            deferredExec.resolve({ stdout: '', stderr: '' });
-            deferred.resolve();
+        result?.proc?.on('exit', (code, signal) => {
+            if (code !== 0) {
+                traceError(`Subprocess exited unsuccessfully with exit code ${code} and signal ${signal}.`);
+            }
         });
-
-        await deferredExec.promise;
+        result?.proc?.on('close', (code, signal) => {
+            if (code !== 0) {
+                traceError(
+                    `Subprocess exited unsuccessfully with exit code ${code} and signal ${signal}. Creating and sending error discovery payload`,
+                );
+                // if the child process exited with a non-zero exit code, then we need to send the error payload.
+                this.testServer.triggerDiscoveryDataReceivedEvent({
+                    uuid,
+                    data: JSON.stringify(createDiscoveryErrorPayload(code, signal, cwd)),
+                });
+                // then send a EOT payload
+                this.testServer.triggerDiscoveryDataReceivedEvent({
+                    uuid,
+                    data: JSON.stringify(createEOTPayload(true)),
+                });
+            }
+            // deferredTillEOT is resolved when all data sent on stdout and stderr is received, close event is only called when this occurs
+            // due to the sync reading of the output.
+            deferredTillExecClose?.resolve();
+        });
+        await deferredTillExecClose.promise;
     }
 }

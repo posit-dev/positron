@@ -45,7 +45,7 @@ suite('Interpreter Path Command', () => {
     test('If `workspaceFolder` property exists in `args`, it is used to retrieve setting from config', async () => {
         const args = { workspaceFolder: 'folderPath' };
         when(interpreterService.getActiveInterpreter(anything())).thenCall((arg) => {
-            assert.deepEqual(arg, Uri.parse('folderPath'));
+            assert.deepEqual(arg, Uri.file('folderPath'));
 
             return Promise.resolve({ path: 'settingValue' }) as unknown;
         });
@@ -56,7 +56,7 @@ suite('Interpreter Path Command', () => {
     test('If `args[1]` is defined, it is used to retrieve setting from config', async () => {
         const args = ['command', 'folderPath'];
         when(interpreterService.getActiveInterpreter(anything())).thenCall((arg) => {
-            assert.deepEqual(arg, Uri.parse('folderPath'));
+            assert.deepEqual(arg, Uri.file('folderPath'));
 
             return Promise.resolve({ path: 'settingValue' }) as unknown;
         });
@@ -70,16 +70,6 @@ suite('Interpreter Path Command', () => {
         when(interpreterService.getActiveInterpreter(undefined)).thenReturn(
             Promise.resolve({ path: 'settingValue' }) as Promise<PythonEnvironment | undefined>,
         );
-        const setting = await interpreterPathCommand._getSelectedInterpreterPath(args);
-        expect(setting).to.equal('settingValue');
-    });
-
-    test('If `args[1]` is not a valid uri', async () => {
-        const args = ['command', '${input:some_input}'];
-        when(interpreterService.getActiveInterpreter(anything())).thenCall((arg) => {
-            assert.deepEqual(arg, undefined);
-            return Promise.resolve({ path: 'settingValue' }) as unknown;
-        });
         const setting = await interpreterPathCommand._getSelectedInterpreterPath(args);
         expect(setting).to.equal('settingValue');
     });
