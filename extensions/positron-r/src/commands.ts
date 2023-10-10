@@ -43,7 +43,7 @@ export async function registerCommands(context: vscode.ExtensionContext, runtime
 		vscode.commands.registerCommand('r.packageInstall', async () => {
 			const packageName = await getRPackageName();
 			const tasks = await getRPackageTasks();
-			const task = tasks.filter(task => task.name === 'Install R package')[0];
+			const task = tasks.filter(task => task.definition.task === 'r.task.packageInstall')[0];
 			const runningRuntimes = await positron.runtime.getRunningRuntimes('r');
 			if (!runningRuntimes || !runningRuntimes.length) {
 				vscode.window.showWarningMessage('Cannot install package as there is no R interpreter running.');
@@ -84,7 +84,7 @@ export async function registerCommands(context: vscode.ExtensionContext, runtime
 
 		vscode.commands.registerCommand('r.packageCheck', async () => {
 			const tasks = await getRPackageTasks();
-			const task = tasks.filter(task => task.name === 'Check R package')[0];
+			const task = tasks.filter(task => task.definition.task === 'r.task.packageCheck')[0];
 			vscode.tasks.executeTask(task);
 		}),
 
