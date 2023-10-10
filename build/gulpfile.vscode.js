@@ -11,7 +11,6 @@ const fs = require('fs');
 const os = require('os');
 const cp = require('child_process');
 const path = require('path');
-const fancyLog = require('fancy-log');
 const es = require('event-stream');
 const vfs = require('vinyl-fs');
 const rename = require('gulp-rename');
@@ -40,6 +39,7 @@ const rcedit = promisify(require('rcedit'));
 
 // --- Start Positron ---
 const child_process = require('child_process');
+const fancyLog = require('fancy-log');
 // --- End Positron ---
 
 // Build
@@ -433,6 +433,7 @@ function patchWin32DependenciesTask(destinationFolderName) {
 
 		await Promise.all(deps.map(async dep => {
 			const basename = path.basename(dep);
+			// --- Start Positron ---
 			try {
 				await rcedit(path.join(cwd, dep), {
 					'file-version': baseVersion,
@@ -450,6 +451,7 @@ function patchWin32DependenciesTask(destinationFolderName) {
 			} catch (e) {
 				fancyLog('Skipping rcedit for ' + dep + ': ' + e);
 			}
+			// --- End Positron ---
 		}));
 	};
 }
