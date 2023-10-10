@@ -31,12 +31,12 @@ export async function getRPackageTasks(): Promise<vscode.Task[]> {
 	const allPackageTasks: PackageTask[] = [
 		{
 			'task': 'r.task.packageCheck',
-			'message': 'Check R Package',
+			'message': vscode.l10n.t('{taskName}', { taskName: 'Check R package' }),
 			'shellExecution': `${lastRuntimePath}/R -e "devtools::check()"`
 		},
 		{
 			'task': 'r.task.packageInstall',
-			'message': 'Install R package',
+			'message': vscode.l10n.t('{taskName}', { taskName: 'Install R package' }),
 			'shellExecution': `${lastRuntimePath}/R -e "devtools::install()"`
 		}
 	];
