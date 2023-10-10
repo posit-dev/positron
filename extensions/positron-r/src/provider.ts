@@ -90,7 +90,8 @@ export async function* rRuntimeProvider(
 	// * Offer to make installations orthogonal?
 	// * Offer to switch the current version of R?
 	// for now, we drop non-orthogonal, not-current R installations
-	rInstallations = rInstallations.filter(r => r.current || r.orthogonal);
+	// NOTE: this is also where we drop potential R installations that do not pass validity checks
+	rInstallations = rInstallations.filter(r => r.valid && (r.current || r.orthogonal));
 
 	// FIXME? should I explicitly check that there is <= 1 R installation
 	// marked as 'current'?
