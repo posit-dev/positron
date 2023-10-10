@@ -33,14 +33,28 @@
         "category": "R",
         "title": "%r.command.insertPipe.title%",
         "shortTitle": "%r.menu.insertPipe.title%",
-        "enablement": "editorLangId == r"
+        "enablement": "editorLangId == r && editorTextFocus"
+      },
+      {
+        "command": "r.insertPipeConsole",
+        "category": "R",
+        "title": "%r.command.insertPipe.title%",
+        "shortTitle": "%r.menu.insertPipe.title%",
+        "enablement": "editorLangId == r && !editorTextFocus"
       },
       {
         "command": "r.insertLeftAssignment",
         "category": "R",
         "title": "%r.command.insertLeftAssignment.title%",
         "shortTitle": "%r.menu.insertLeftAssignment.title%",
-        "enablement": "editorLangId == r"
+        "enablement": "editorLangId == r && editorTextFocus"
+      },
+      {
+        "command": "r.insertLeftAssignmentConsole",
+        "category": "R",
+        "title": "%r.command.insertLeftAssignment.title%",
+        "shortTitle": "%r.menu.insertLeftAssignment.title%",
+        "enablement": "editorLangId == r && !editorTextFocus"
       },
       {
         "command": "r.packageLoad",
@@ -251,13 +265,25 @@
         "command": "r.insertPipe",
         "key": "ctrl+shift+m",
         "mac": "cmd+shift+m",
-        "when": "editorLangId == r"
+        "when": "editorLangId == r && editorTextFocus"
+      },
+      {
+        "command": "r.insertPipeConsole",
+        "key": "ctrl+shift+m",
+        "mac": "cmd+shift+m",
+        "when": "editorLangId == r && !editorTextFocus"
       },
       {
         "command": "r.insertLeftAssignment",
         "key": "alt+-",
         "mac": "alt+-",
-        "when": "editorLangId == r"
+        "when": "editorLangId == r && editorTextFocus"
+      },
+      {
+        "command": "r.insertLeftAssignmentConsole",
+        "key": "alt+-",
+        "mac": "alt+-",
+        "when": "editorLangId == r && !editorTextFocus"
       },
       {
         "command": "r.packageLoad",
@@ -308,12 +334,22 @@
         {
           "category": "R",
           "command": "r.insertPipe",
-          "when": "editorLangId == r"
+          "when": "editorLangId == r && editorTextFocus"
+        },
+        {
+          "category": "R",
+          "command": "r.insertPipeConsole",
+          "when": "editorLangId == r && !editorTextFocus"
         },
         {
           "category": "R",
           "command": "r.insertLeftAssignment",
-          "when": "editorLangId == r"
+          "when": "editorLangId == r && editorTextFocus"
+        },
+        {
+          "category": "R",
+          "command": "r.insertLeftAssignmentConsole",
+          "when": "editorLangId == r && !editorTextFocus"
         },
         {
           "category": "R",
