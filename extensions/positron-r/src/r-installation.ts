@@ -11,6 +11,10 @@ import { extractValue, readLines } from './util';
  * Represents a single installation of R on a user's system.
  */
 export class RInstallation {
+	// there are many reasons that we might deem a putative R installation to be unusable
+	// downstream users of RInstallation should filter for `valid` is `true`
+	public readonly valid: boolean = false;
+
 	public readonly binpath: string = '';
 	public readonly homepath: string = '';
 	// The semVersion field was added because changing the version field from a string that's
@@ -32,16 +36,20 @@ export class RInstallation {
 	 *   R
 	 */
 	constructor(pth: string, current: boolean = false) {
+		console.log('Candidate R binary at %s', pth);
+
 		this.binpath = pth;
 		this.current = current;
 
 		const binLines = readLines(this.binpath);
 		const re = new RegExp('Shell wrapper for R executable');
 		if (!binLines.some(x => re.test(x))) {
+			console.log('Binary is not a shell script wrapping the executable');
 			return;
 		}
 		const targetLine = binLines.find(line => line.match('R_HOME_DIR'));
 		if (!targetLine) {
+			console.log('Can\'t determine R_HOME_DIR from the binary');
 			return;
 		}
 		// macOS: R_HOME_DIR=/Library/Frameworks/R.framework/Versions/4.3-arm64/Resources
@@ -50,6 +58,7 @@ export class RInstallation {
 		const R_HOME_DIR = extractValue(targetLine, 'R_HOME_DIR');
 		this.homepath = R_HOME_DIR;
 		if (this.homepath === '') {
+			console.log('Can\'t determine R_HOME_DIR from the binary');
 			return;
 		}
 
@@ -67,11 +76,13 @@ export class RInstallation {
 		// We have actually seen an R "installation" that doesn't have the base packages!
 		// https://github.com/posit-dev/positron/issues/1314
 		if (!fs.existsSync(descPath)) {
+			console.log('Can\'t find DESCRIPTION for the utils package at %s', descPath);
 			return;
 		}
 		const descLines = readLines(descPath);
 		const targetLine2 = descLines.filter(line => line.match('Built'))[0];
 		if (!targetLine2) {
+			console.log('Can\'t find \'Built\' field for the utils package in its DESCRIPTION: %s', descPath);
 			return;
 		}
 		// macOS arm64: Built: R 4.3.1; aarch64-apple-darwin20; 2023-06-16 21:52:54 UTC; unix
@@ -105,5 +116,9 @@ export class RInstallation {
 			// Unknown architecture
 			this.arch = '';
 		}
+
+		this.valid = true;
+
+		console.log('R installation discovered: %o', this);
 	}
 }
