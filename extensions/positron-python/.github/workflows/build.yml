@@ -9,7 +9,7 @@ on:
       - 'release-*'
 
 env:
-  NODE_VERSION: 16.17.1
+  NODE_VERSION: 18.17.1
   PYTHON_VERSION: '3.10' # YML treats 3.10 the number as 3.1, so quotes around 3.10
   # Force a path with spaces and to test extension works in these scenarios
   # Unicode characters are causing 2.7 failures so skip that for now.
@@ -49,7 +49,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Build VSIX
         uses: ./.github/actions/build-vsix
@@ -64,7 +64,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Lint
         uses: ./.github/actions/lint
@@ -82,7 +82,7 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Install core Python requirements
         uses: brettcannon/pip-secure-install@v1
@@ -106,7 +106,45 @@ jobs:
           version: 1.1.308
           working-directory: 'pythonFiles'
 
-  ### Non-smoke tests
+  python-tests:
+    name: Python Tests
+    # The value of runs-on is the OS of the current job (specified in the strategy matrix below) instead of being hardcoded.
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        working-directory: ${{ env.special-working-directory }}
+    strategy:
+      fail-fast: false
+      matrix:
+        # We're not running CI on macOS for now because it's one less matrix entry to lower the number of runners used,
+        # macOS runners are expensive, and we assume that Ubuntu is enough to cover the Unix case.
+        os: [ubuntu-latest, windows-latest]
+        # Run the tests on the oldest and most recent versions of Python.
+        python: ['3.8', '3.x', '3.12-dev']
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          path: ${{ env.special-working-directory-relative }}
+
+      - name: Use Python ${{ matrix.python }}
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python }}
+
+      - name: Install base Python requirements
+        uses: brettcannon/pip-secure-install@v1
+        with:
+          requirements-file: '"${{ env.special-working-directory-relative }}/requirements.txt"'
+          options: '-t "${{ env.special-working-directory-relative }}/pythonFiles/lib/python" --no-cache-dir --implementation py'
+
+      - name: Install test requirements
+        run: python -m pip install --upgrade -r build/test-requirements.txt
+
+      - name: Run Python unit tests
+        run: python pythonFiles/tests/run_all.py
+
   tests:
     name: Tests
     if: github.repository == 'microsoft/vscode-python'
@@ -122,10 +160,10 @@ jobs:
         # and we assume that Ubuntu is enough to cover the UNIX case.
         os: [ubuntu-latest, windows-latest]
         python: ['3.x']
-        test-suite: [ts-unit, python-unit, venv, single-workspace, multi-workspace, debugger, functional]
+        test-suite: [ts-unit, venv, single-workspace, multi-workspace, debugger, functional]
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           path: ${{ env.special-working-directory-relative }}
 
@@ -268,10 +306,6 @@ jobs:
         run: npm run test:unittests
         if: matrix.test-suite == 'ts-unit' && startsWith(matrix.python, '3.')
 
-      - name: Run Python unit tests
-        run: python pythonFiles/tests/run_all.py
-        if: matrix.test-suite == 'python-unit'
-
       # The virtual environment based tests use the `testSingleWorkspace` set of tests
       # with the environment variable `TEST_FILES_SUFFIX` set to `testvirtualenvs`,
       # which is set in the "Prepare environment for venv tests" step.
@@ -333,7 +367,7 @@ jobs:
         os: [ubuntu-latest, windows-latest]
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Smoke tests
         uses: ./.github/actions/smoke-tests
