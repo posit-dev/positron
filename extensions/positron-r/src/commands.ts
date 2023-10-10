@@ -54,14 +54,13 @@ export async function registerCommands(context: vscode.ExtensionContext, runtime
 
 			if (runtime) {
 				const execution = await vscode.tasks.executeTask(task);
-				const disp1 = vscode.tasks.onDidEndTaskProcess(e => {
+				const disp1 = vscode.tasks.onDidEndTaskProcess(async e => {
 					if (e.execution === execution) {
 						if (e.exitCode === 0) {
 							vscode.commands.executeCommand('workbench.panel.positronConsole.focus');
 							positron.runtime.restartLanguageRuntime(runtime.metadata.runtimeId);
-							const disp2 = runtime.onDidChangeRuntimeState(async runtimeState => {
-								if (runtimeState === positron.RuntimeState.Starting) {
-									await delay(500);
+							const disp2 = runtime.onDidChangeRuntimeState(runtimeState => {
+								if (runtimeState === positron.RuntimeState.Ready) {
 									runtime.execute(`library(${packageName})`,
 										randomUUID(),
 										positron.RuntimeCodeExecutionMode.Interactive,
