@@ -28,13 +28,21 @@ interface ActionBarProps {
 	readonly reactComponentContainer: IReactComponentContainer;
 }
 
-// Localized strings.
+// Localized strings for transitional/transient states.
 const stateLabelStarting = localize('positronConsoleState.Starting', "Starting");
 const stateLabelInterrupting = localize('positronConsoleState.Interrupting', "Interrupting");
 const stateLabelShuttingDown = localize('positronConsoleState.ShuttingDown', "Shutting down");
 const stateLabelRestarting = localize('positronConsoleState.Restarting', "Restarting");
 const stateLabelReconecting = localize('positronConsoleState.Reconnecting', "Reconnecting");
 
+/**
+ * Provides a localized label for the given runtime state. Only the transient
+ * states are localized; we don't show a label for states that persist
+ * indefinitely.
+ *
+ * @param state The transitional state.
+ * @returns The localized label.
+ */
 function labelForState(state: RuntimeState): string {
 	switch (state) {
 		case RuntimeState.Starting:

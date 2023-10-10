@@ -753,27 +753,49 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 		}
 	}
 
+	/**
+	 * Waits for the runtime to report that interrupt processing is complete (by
+	 * returning to the idle state). If the runtime does not return to the idle
+	 * state within 10 seconds, the user is given the option to force-quit the
+	 * runtime.
+	 *
+	 * @param runtime The runtime to watch.
+	 */
 	private async waitForInterrupt(runtime: ILanguageRuntime) {
 		const warning = nls.localize('positron.runtimeInterruptTimeoutWarning', "{0} isn't responding to your request to interrupt the command. Do you want to forcefully quit your {1} session? You'll lose any unsaved objects.", runtime.metadata.runtimeName, runtime.metadata.languageName);
 		this.awaitStateChange(runtime,
 			[RuntimeState.Idle],
-			1,
+			10,
 			warning);
 	}
 
+	/**
+	 * Waits for the runtime to report that shutdown processing is complete (by
+	 * exiting). If the runtime does not shut down within 10 seconds, the user
+	 * is given the option to force-quit the runtime.
+	 *
+	 * @param runtime The runtime to watch.
+	 */
 	private async waitForShutdown(runtime: ILanguageRuntime) {
 		const warning = nls.localize('positron.runtimeShutdownTimeoutWarning', "{0} isn't responding to your request to shut down the session. Do you want use a forced quit to end your {1} session? You'll lose any unsaved objects.", runtime.metadata.runtimeName, runtime.metadata.languageName);
 		this.awaitStateChange(runtime,
 			[RuntimeState.Exited],
-			1,
+			10,
 			warning);
 	}
 
+	/**
+	 * Waits for the runtime to report that it has reconnected (by returning to
+	 * the Ready state). If the runtime does reconnect within 30 seconds, the
+	 * user is given the option to force-quit the runtime.
+	 *
+	 * @param runtime The runtime to watch.
+	 */
 	private async waitForReconnect(runtime: ILanguageRuntime) {
 		const warning = nls.localize('positron.runtimeReconnectTimeoutWarning', "{0} has been offline for more than 30 seconds. Do you want to force quit your {1} session? You'll lose any unsaved objects.", runtime.metadata.runtimeName, runtime.metadata.languageName);
 		this.awaitStateChange(runtime,
 			[RuntimeState.Ready, RuntimeState.Idle],
-			1,
+			30,
 			warning);
 	}
 	/**
