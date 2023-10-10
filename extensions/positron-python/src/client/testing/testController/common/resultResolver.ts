@@ -3,7 +3,7 @@
 
 import { CancellationToken, TestController, TestItem, Uri, TestMessage, Location, TestRun } from 'vscode';
 import * as util from 'util';
-import { DiscoveredTestPayload, ExecutionTestPayload, ITestResultResolver } from './types';
+import { DiscoveredTestPayload, EOTTestPayload, ExecutionTestPayload, ITestResultResolver } from './types';
 import { TestProvider } from '../../types';
 import { traceError, traceLog } from '../../../logging';
 import { Testing } from '../../../common/utils/localize';
@@ -11,7 +11,8 @@ import { clearAllChildren, createErrorTestItem, getTestCaseNodes } from './testI
 import { sendTelemetryEvent } from '../../../telemetry';
 import { EventName } from '../../../telemetry/constants';
 import { splitLines } from '../../../common/stringUtils';
-import { buildErrorNodeOptions, fixLogLines, populateTestTree } from './utils';
+import { buildErrorNodeOptions, fixLogLines, populateTestTree, splitTestNameWithRegex } from './utils';
+import { Deferred } from '../../../common/utils/async';
 
 export class PythonResultResolver implements ITestResultResolver {
     testController: TestController;
@@ -35,16 +36,30 @@ export class PythonResultResolver implements ITestResultResolver {
         this.vsIdToRunId = new Map<string, string>();
     }
 
-    public resolveDiscovery(payload: DiscoveredTestPayload, token?: CancellationToken): Promise<void> {
-        const workspacePath = this.workspaceUri.fsPath;
-        traceLog('Using result resolver for discovery');
-
-        const rawTestData = payload;
-        if (!rawTestData) {
+    public resolveDiscovery(
+        payload: DiscoveredTestPayload | EOTTestPayload,
+        deferredTillEOT: Deferred<void>,
+        token?: CancellationToken,
+    ): Promise<void> {
+        if (!payload) {
             // No test data is available
             return Promise.resolve();
         }
+        if ('eot' in payload) {
+            // the payload is an EOT payload, so resolve the deferred promise.
+            traceLog('ResultResolver EOT received for discovery.');
+            const eotPayload = payload as EOTTestPayload;
+            if (eotPayload.eot === true) {
+                deferredTillEOT.resolve();
+                return Promise.resolve();
+            }
+        }
+        return this._resolveDiscovery(payload as DiscoveredTestPayload, token);
+    }
 
+    public _resolveDiscovery(payload: DiscoveredTestPayload, token?: CancellationToken): Promise<void> {
+        const workspacePath = this.workspaceUri.fsPath;
+        const rawTestData = payload as DiscoveredTestPayload;
         // Check if there were any errors in the discovery process.
         if (rawTestData.status === 'error') {
             const testingErrorConst =
@@ -77,7 +92,12 @@ export class PythonResultResolver implements ITestResultResolver {
             populateTestTree(this.testController, rawTestData.tests, undefined, this, token);
         } else {
             // Delete everything from the test controller.
+            const errorNode = this.testController.items.get(`DiscoveryError:${workspacePath}`);
             this.testController.items.replace([]);
+            // Add back the error node if it exists.
+            if (errorNode !== undefined) {
+                this.testController.items.add(errorNode);
+            }
         }
 
         sendTelemetryEvent(EventName.UNITTEST_DISCOVERY_DONE, undefined, {
@@ -87,8 +107,25 @@ export class PythonResultResolver implements ITestResultResolver {
         return Promise.resolve();
     }
 
-    public resolveExecution(payload: ExecutionTestPayload, runInstance: TestRun): Promise<void> {
-        const rawTestExecData = payload;
+    public resolveExecution(
+        payload: ExecutionTestPayload | EOTTestPayload,
+        runInstance: TestRun,
+        deferredTillEOT: Deferred<void>,
+    ): Promise<void> {
+        if (payload !== undefined && 'eot' in payload) {
+            // the payload is an EOT payload, so resolve the deferred promise.
+            traceLog('ResultResolver EOT received for execution.');
+            const eotPayload = payload as EOTTestPayload;
+            if (eotPayload.eot === true) {
+                deferredTillEOT.resolve();
+                return Promise.resolve();
+            }
+        }
+        return this._resolveExecution(payload as ExecutionTestPayload, runInstance);
+    }
+
+    public _resolveExecution(payload: ExecutionTestPayload, runInstance: TestRun): Promise<void> {
+        const rawTestExecData = payload as ExecutionTestPayload;
         if (rawTestExecData !== undefined && rawTestExecData.result !== undefined) {
             // Map which holds the subtest information for each test item.
 
@@ -179,9 +216,8 @@ export class PythonResultResolver implements ITestResultResolver {
                         });
                     }
                 } else if (rawTestExecData.result[keyTemp].outcome === 'subtest-failure') {
-                    // split on " " since the subtest ID has the parent test ID in the first part of the ID.
-                    const parentTestCaseId = keyTemp.split(' ')[0];
-                    const subtestId = keyTemp.split(' ')[1];
+                    // split on [] or () based on how the subtest is setup.
+                    const [parentTestCaseId, subtestId] = splitTestNameWithRegex(keyTemp);
                     const parentTestItem = this.runIdToTestItem.get(parentTestCaseId);
                     const data = rawTestExecData.result[keyTemp];
                     // find the subtest's parent test item
@@ -190,7 +226,10 @@ export class PythonResultResolver implements ITestResultResolver {
                         if (subtestStats) {
                             subtestStats.failed += 1;
                         } else {
-                            this.subTestStats.set(parentTestCaseId, { failed: 1, passed: 0 });
+                            this.subTestStats.set(parentTestCaseId, {
+                                failed: 1,
+                                passed: 0,
+                            });
                             runInstance.appendOutput(fixLogLines(`${parentTestCaseId} [subtests]:\r\n`));
                             // clear since subtest items don't persist between runs
                             clearAllChildren(parentTestItem);
@@ -216,9 +255,8 @@ export class PythonResultResolver implements ITestResultResolver {
                         throw new Error('Parent test item not found');
                     }
                 } else if (rawTestExecData.result[keyTemp].outcome === 'subtest-success') {
-                    // split on " " since the subtest ID has the parent test ID in the first part of the ID.
-                    const parentTestCaseId = keyTemp.split(' ')[0];
-                    const subtestId = keyTemp.split(' ')[1];
+                    // split on [] or () based on how the subtest is setup.
+                    const [parentTestCaseId, subtestId] = splitTestNameWithRegex(keyTemp);
                     const parentTestItem = this.runIdToTestItem.get(parentTestCaseId);
 
                     // find the subtest's parent test item

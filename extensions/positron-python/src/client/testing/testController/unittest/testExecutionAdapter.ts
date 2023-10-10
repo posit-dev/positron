@@ -4,7 +4,7 @@
 import * as path from 'path';
 import { TestRun, Uri } from 'vscode';
 import { IConfigurationService, ITestOutputChannel } from '../../../common/types';
-import { createDeferred } from '../../../common/utils/async';
+import { Deferred, createDeferred } from '../../../common/utils/async';
 import { EXTENSION_ROOT_DIR } from '../../../constants';
 import {
     DataReceivedEvent,
@@ -15,7 +15,7 @@ import {
     TestCommandOptions,
     TestExecutionCommand,
 } from '../common/types';
-import { traceLog } from '../../../logging';
+import { traceError, traceInfo, traceLog } from '../../../logging';
 import { startTestIdServer } from '../common/utils';
 
 /**
@@ -37,19 +37,30 @@ export class UnittestTestExecutionAdapter implements ITestExecutionAdapter {
         runInstance?: TestRun,
     ): Promise<ExecutionTestPayload> {
         const uuid = this.testServer.createUUID(uri.fsPath);
+        const deferredTillEOT: Deferred<void> = createDeferred<void>();
         const disposedDataReceived = this.testServer.onRunDataReceived((e: DataReceivedEvent) => {
             if (runInstance) {
-                this.resultResolver?.resolveExecution(JSON.parse(e.data), runInstance);
+                this.resultResolver?.resolveExecution(JSON.parse(e.data), runInstance, deferredTillEOT);
+            } else {
+                traceError('No run instance found, cannot resolve execution.');
             }
         });
         const disposeDataReceiver = function (testServer: ITestServer) {
+            traceInfo(`Disposing data receiver for ${uri.fsPath} and deleting UUID; unittest execution.`);
             testServer.deleteUUID(uuid);
             disposedDataReceived.dispose();
         };
         runInstance?.token.onCancellationRequested(() => {
-            disposeDataReceiver(this.testServer);
+            traceInfo("Test run cancelled, resolving 'till EOT' deferred.");
+            deferredTillEOT.resolve();
         });
-        await this.runTestsNew(uri, testIds, uuid, runInstance, debugBool, disposeDataReceiver);
+        try {
+            await this.runTestsNew(uri, testIds, uuid, runInstance, debugBool, deferredTillEOT);
+            await deferredTillEOT.promise;
+            disposeDataReceiver(this.testServer);
+        } catch (error) {
+            traceError(`Error in running unittest tests: ${error}`);
+        }
         const executionPayload: ExecutionTestPayload = { cwd: uri.fsPath, status: 'success', error: '' };
         return executionPayload;
     }
@@ -60,7 +71,7 @@ export class UnittestTestExecutionAdapter implements ITestExecutionAdapter {
         uuid: string,
         runInstance?: TestRun,
         debugBool?: boolean,
-        disposeDataReceiver?: (testServer: ITestServer) => void,
+        deferredTillEOT?: Deferred<void>,
     ): Promise<ExecutionTestPayload> {
         const settings = this.configSettings.getSettings(uri);
         const { unittestArgs } = settings.testing;
@@ -77,15 +88,12 @@ export class UnittestTestExecutionAdapter implements ITestExecutionAdapter {
             testIds,
             outChannel: this.outputChannel,
         };
-
-        const deferred = createDeferred<ExecutionTestPayload>();
         traceLog(`Running UNITTEST execution for the following test ids: ${testIds}`);
 
         const runTestIdsPort = await startTestIdServer(testIds);
 
-        await this.testServer.sendCommand(options, runTestIdsPort.toString(), runInstance, () => {
-            deferred.resolve();
-            disposeDataReceiver?.(this.testServer);
+        await this.testServer.sendCommand(options, runTestIdsPort.toString(), runInstance, testIds, () => {
+            deferredTillEOT?.resolve();
         });
         // placeholder until after the rewrite is adopted
         // TODO: remove after adoption.
