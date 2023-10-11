@@ -33,13 +33,19 @@ import { JediLanguageClientMiddleware } from '../activation/jedi/languageClientM
  *
  * @param serviceContainer The Python extension's service container to use for dependency injection.
  * @param runtimes A map from interpreter path to language runtime metadata.
+ * @param activatedPromise Resolves when all Python extension components are activated.
  */
 export async function* pythonRuntimeProvider(
     serviceContainer: IServiceContainer,
     runtimes: Map<string, positron.LanguageRuntimeMetadata>,
+    activatedPromise: Promise<void>,
 ): AsyncGenerator<positron.LanguageRuntime> {
     try {
         traceInfo('pythonRuntimeProvider: Starting Python runtime provider');
+
+        // Wait for all extension components to be activated
+        traceInfo('pythonRuntimeProvider: awaiting extension activation');
+        await activatedPromise;
 
         const interpreterService = serviceContainer.get<IInterpreterService>(IInterpreterService);
 
