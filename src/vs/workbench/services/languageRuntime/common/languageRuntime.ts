@@ -16,6 +16,7 @@ import { IExtensionService } from 'vs/workbench/services/extensions/common/exten
 import { IWorkspaceTrustManagementService } from 'vs/platform/workspace/common/workspaceTrust';
 import { DeferredPromise } from 'vs/base/common/async';
 import { INotificationService } from 'vs/platform/notification/common/notification';
+import { IModalDialogPromptInstance, IPositronModalDialogsService } from 'vs/workbench/services/positronModalDialogs/common/positronModalDialogs';
 
 /**
  * LanguageRuntimeInfo class.
@@ -114,7 +115,8 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 		@IStorageService private readonly _storageService: IStorageService,
 		@IExtensionService private readonly _extensionService: IExtensionService,
 		@IWorkspaceTrustManagementService private readonly _workspaceTrustManagementService: IWorkspaceTrustManagementService,
-		@INotificationService private readonly _notificationService: INotificationService
+		@INotificationService private readonly _notificationService: INotificationService,
+		@IPositronModalDialogsService private readonly _positronModalDialogsService: IPositronModalDialogsService
 	) {
 		// Call the base class's constructor.
 		super();
@@ -420,6 +422,18 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 					this.startFrontEndClient(runtime);
 					break;
 
+				case RuntimeState.Interrupting:
+					this.waitForInterrupt(runtime);
+					break;
+
+				case RuntimeState.Exiting:
+					this.waitForShutdown(runtime);
+					break;
+
+				case RuntimeState.Offline:
+					this.waitForReconnect(runtime);
+					break;
+
 				case RuntimeState.Exited:
 					// Remove the runtime from the set of starting or running runtimes.
 					this._startingRuntimesByLanguageId.delete(runtime.metadata.languageId);
@@ -458,7 +472,9 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 			if (exit.reason === RuntimeExitReason.Error ||
 				exit.reason === RuntimeExitReason.Unknown) {
 
-				// Start the runtime.
+				// Wait a beat, then start the runtime.
+				await new Promise<void>(resolve => setTimeout(resolve, 250));
+				this._onWillStartRuntimeEmitter.fire(runtime);
 				await this.startRuntime(runtime.metadata.runtimeId,
 					`The runtime exited unexpectedly and is being restarted automatically.`);
 
@@ -735,6 +751,112 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 				new Error(`The ${runtime.metadata.languageName} language runtime is '${state}' and cannot be restarted.`)
 			);
 		}
+	}
+
+	/**
+	 * Waits for the runtime to report that interrupt processing is complete (by
+	 * returning to the idle state). If the runtime does not return to the idle
+	 * state within 10 seconds, the user is given the option to force-quit the
+	 * runtime.
+	 *
+	 * @param runtime The runtime to watch.
+	 */
+	private async waitForInterrupt(runtime: ILanguageRuntime) {
+		const warning = nls.localize('positron.runtimeInterruptTimeoutWarning', "{0} isn't responding to your request to interrupt the command. Do you want to forcefully quit your {1} session? You'll lose any unsaved objects.", runtime.metadata.runtimeName, runtime.metadata.languageName);
+		this.awaitStateChange(runtime,
+			[RuntimeState.Idle],
+			10,
+			warning);
+	}
+
+	/**
+	 * Waits for the runtime to report that shutdown processing is complete (by
+	 * exiting). If the runtime does not shut down within 10 seconds, the user
+	 * is given the option to force-quit the runtime.
+	 *
+	 * @param runtime The runtime to watch.
+	 */
+	private async waitForShutdown(runtime: ILanguageRuntime) {
+		const warning = nls.localize('positron.runtimeShutdownTimeoutWarning', "{0} isn't responding to your request to shut down the session. Do you want use a forced quit to end your {1} session? You'll lose any unsaved objects.", runtime.metadata.runtimeName, runtime.metadata.languageName);
+		this.awaitStateChange(runtime,
+			[RuntimeState.Exited],
+			10,
+			warning);
+	}
+
+	/**
+	 * Waits for the runtime to report that it has reconnected (by returning to
+	 * the Ready state). If the runtime does reconnect within 30 seconds, the
+	 * user is given the option to force-quit the runtime.
+	 *
+	 * @param runtime The runtime to watch.
+	 */
+	private async waitForReconnect(runtime: ILanguageRuntime) {
+		const warning = nls.localize('positron.runtimeReconnectTimeoutWarning', "{0} has been offline for more than 30 seconds. Do you want to force quit your {1} session? You'll lose any unsaved objects.", runtime.metadata.runtimeName, runtime.metadata.languageName);
+		this.awaitStateChange(runtime,
+			[RuntimeState.Ready, RuntimeState.Idle],
+			30,
+			warning);
+	}
+	/**
+	 * Waits for the runtime to change one of the target states. If the runtime
+	 * does not change to one of the target states within the specified number
+	 * of seconds, a warning is displayed with an option to force quit the
+	 * runtime.
+	 *
+	 * @param runtime The runtime to watch.
+	 * @param targetStates The target state(s) for the runtime to enter.
+	 * @param seconds The number of seconds to wait for the runtime to change to the target state.
+	 * @param warning The warning to display if the runtime does not change to the target state.
+	 */
+	private async awaitStateChange(runtime: ILanguageRuntime,
+		targetStates: RuntimeState[],
+		seconds: number,
+		warning: string) {
+
+		let disposable: IDisposable | undefined = undefined;
+		let prompt: IModalDialogPromptInstance | undefined = undefined;
+
+		return new Promise<void>((resolve, reject) => {
+			const timer = setTimeout(() => {
+				// We timed out; reject the promise.
+				reject();
+
+				// Show a prompt to the user asking if they want to force quit the runtime.
+				prompt = this._positronModalDialogsService.showModalDialogPrompt(
+					nls.localize('positron.runtimeNotResponding', "{0} is not responding", runtime.metadata.runtimeName),
+					warning,
+					nls.localize('positron.runtimeForceQuit', "Force Quit"),
+					nls.localize('positron.runtimeKeepWaiting', "Wait"));
+
+				prompt.onChoice((choice) => {
+					// If the user chose to force quit the runtime, do so.
+					if (choice) {
+						runtime.forceQuit();
+					}
+					// Regardless of their choice, we are done waiting for a state change.
+					if (disposable) {
+						disposable.dispose();
+					}
+				});
+			}, seconds * 1000);
+
+			// Listen for state changes.
+			disposable = runtime.onDidChangeRuntimeState(state => {
+				if (targetStates.includes(state)) {
+					clearTimeout(timer);
+					resolve();
+
+					// If we were prompting the user to force quit the runtime,
+					// close the prompt ourselves since the runtime is now
+					// responding.
+					if (prompt) {
+						prompt.close();
+					}
+					disposable?.dispose();
+				}
+			});
+		});
 	}
 
 	//#region Private Methods

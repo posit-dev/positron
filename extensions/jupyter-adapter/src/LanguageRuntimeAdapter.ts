@@ -796,6 +796,9 @@ export class LanguageRuntimeAdapter
 		};
 		this._exit.fire(event);
 
+		// We have now consumed the exit reason; restore it to its default
+		this._exitReason = positron.RuntimeExitReason.Unknown;
+
 		// If the kernel was restarting, now's the time to bring it back up
 		if (this._restarting) {
 			this._restarting = false;

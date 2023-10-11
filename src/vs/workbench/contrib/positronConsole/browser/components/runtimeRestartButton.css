@@ -2,7 +2,11 @@
  *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
-.runtime-exited {
-	margin-bottom: 2px;
-	border-bottom: 1px solid #758286;
+.runtime-restart-button {
+	margin-top: 10px;
+	margin-bottom: 10px;
+	cursor: pointer;
+	width: fit-content;
+	padding-left: 10px;
+	padding-right: 10px;
 }

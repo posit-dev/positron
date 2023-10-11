@@ -17,6 +17,7 @@ import { usePositronConsoleContext } from 'vs/workbench/contrib/positronConsole/
 import { PositronActionBarContextProvider } from 'vs/platform/positronActionBar/browser/positronActionBarContext';
 import { PositronConsoleState } from 'vs/workbench/services/positronConsole/common/interfaces/positronConsoleService';
 import { ConsoleInstanceMenuButton } from 'vs/workbench/contrib/positronConsole/browser/components/consoleInstanceMenuButton';
+import { ILanguageRuntime, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 
 // Constants.
 const kPaddingLeft = 8;
@@ -25,6 +26,44 @@ const kPaddingRight = 8;
 // ActionBarProps interface.
 interface ActionBarProps {
 	readonly reactComponentContainer: IReactComponentContainer;
+}
+
+// Localized strings for transitional/transient states.
+const stateLabelStarting = localize('positronConsoleState.Starting', "Starting");
+const stateLabelInterrupting = localize('positronConsoleState.Interrupting', "Interrupting");
+const stateLabelShuttingDown = localize('positronConsoleState.ShuttingDown', "Shutting down");
+const stateLabelRestarting = localize('positronConsoleState.Restarting', "Restarting");
+const stateLabelReconecting = localize('positronConsoleState.Reconnecting', "Reconnecting");
+
+/**
+ * Provides a localized label for the given runtime state. Only the transient
+ * states are localized; we don't show a label for states that persist
+ * indefinitely.
+ *
+ * @param state The transitional state.
+ * @returns The localized label.
+ */
+function labelForState(state: RuntimeState): string {
+	switch (state) {
+		case RuntimeState.Starting:
+			return stateLabelStarting;
+
+		case RuntimeState.Restarting:
+			return stateLabelRestarting;
+
+		case RuntimeState.Interrupting:
+			return stateLabelInterrupting;
+
+		case RuntimeState.Exiting:
+			return stateLabelShuttingDown;
+
+		case RuntimeState.Offline:
+			// We attempt to reconnect to the runtime when it goes offline.
+			return stateLabelReconecting;
+
+		default:
+			return '';
+	}
 }
 
 /**
@@ -41,6 +80,7 @@ export const ActionBar = (props: ActionBarProps) => {
 		useState(positronConsoleContext.positronConsoleService.activePositronConsoleInstance);
 	const [interruptible, setInterruptible] = useState(false);
 	const [interrupting, setInterrupting] = useState(false);
+	const [stateLabel, setStateLabel] = useState('');
 
 	// Main useEffect hook.
 	useEffect(() => {
@@ -57,30 +97,89 @@ export const ActionBar = (props: ActionBarProps) => {
 	// Active Positron console instance useEffect hook.
 	useEffect(() => {
 		// Create the disposable store for cleanup.
-		const disposableStore = new DisposableStore();
+		const disposableConsoleStore = new DisposableStore();
+		const disposableRuntimeStore = new DisposableStore();
 
-		// If there is an active Positron console instance, register for its onDidChangeState event.
-		if (activePositronConsoleInstance) {
-			disposableStore.add(activePositronConsoleInstance.onDidChangeState(state => {
-				// Track whether the active Positron console instance is interruptible.
+		const attachRuntime = (runtime: ILanguageRuntime | undefined) => {
+			// Detach from the previous runtime, if any.
+			disposableRuntimeStore.clear();
+
+			// If there is no runtime; we're done. This happens when the console
+			// instance is detached from the runtime.
+			if (!runtime) {
+				setInterruptible(false);
+				setInterrupting(false);
+				setStateLabel('');
+				return;
+			}
+
+			disposableRuntimeStore.add(runtime.onDidChangeRuntimeState((state) => {
 				switch (state) {
-					// The Positron console instance is interruptible.
-					case PositronConsoleState.Busy:
-						setInterruptible(true);
-						setInterrupting(false);
+					case RuntimeState.Starting:
+						setStateLabel(labelForState(state));
+						setInterruptible(false);
 						break;
 
-					// The Positron console instance is not interruptible.
-					default:
+					case RuntimeState.Restarting:
+						setStateLabel(labelForState(state));
+						setInterrupting(false);
+						setInterruptible(false);
+						break;
+
+					case RuntimeState.Idle:
+					case RuntimeState.Ready:
+						setStateLabel('');
 						setInterruptible(false);
 						setInterrupting(false);
 						break;
+
+					case RuntimeState.Busy:
+						setInterruptible(true);
+						break;
+
+					case RuntimeState.Interrupting:
+						setStateLabel(labelForState(state));
+						setInterrupting(true);
+						break;
+
+					case RuntimeState.Offline:
+						setStateLabel(labelForState(state));
+						setInterruptible(false);
+						break;
+
+					case RuntimeState.Exiting:
+						setStateLabel(labelForState(state));
+						setInterrupting(false);
+						setInterruptible(false);
+						break;
+
+					case RuntimeState.Exited:
+						setStateLabel('');
+						setInterrupting(false);
+						setInterruptible(false);
+						break;
 				}
 			}));
+		};
+
+		// If there is an active Positron console instance, see which runtime it's attached to.
+		if (activePositronConsoleInstance) {
+			// Attach to the console's current runtime, if any
+			const runtime = activePositronConsoleInstance.attachedRuntime;
+			if (runtime) {
+				attachRuntime(runtime);
+			}
+
+			// Register for runtime changes.
+			disposableConsoleStore.add(
+				activePositronConsoleInstance.onDidAttachRuntime(attachRuntime));
 		}
 
 		// Return the cleanup function that will dispose of the disposables.
-		return () => disposableStore.dispose();
+		return () => {
+			disposableConsoleStore.dispose();
+			disposableRuntimeStore.dispose();
+		};
 	}, [activePositronConsoleInstance]);
 
 	// Interrupt handler.
@@ -116,6 +215,7 @@ export const ActionBar = (props: ActionBarProps) => {
 						<ConsoleInstanceMenuButton {...props} />
 					</ActionBarRegion>
 					<ActionBarRegion location='right'>
+						<div className='state-label'>{stateLabel}</div>
 						{interruptible &&
 							<ActionBarButton
 								fadeIn={true}
