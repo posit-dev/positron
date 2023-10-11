@@ -1,0 +1,117 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
+ *--------------------------------------------------------------------------------------------*/
+
+import { Disposable } from 'vs/base/common/lifecycle';
+import { Emitter, Event } from 'vs/base/common/event';
+import { IRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeClientInstance';
+
+
+/**
+ * The types of messages that can be sent to the backend.
+ */
+export enum HelpMessageTypeInput {
+	ShowHelpTopic = 'show_help_topic',
+}
+
+/**
+ * A message used to send data to the backend.
+ */
+export interface IHelpClientMessageInput {
+	msg_type: HelpMessageTypeInput;
+}
+
+/**
+ * A message requesting help to be shown in the Help pane, with the given topic.
+ */
+export interface IHelpClientMessageShowHelpTopic extends IHelpClientMessageInput {
+	topic: string;
+}
+
+/**
+ * The types of messages that can be received from the backend.
+ */
+export enum HelpMessageTypeOutput {
+	ShowHelp = 'show_help',
+}
+
+/**
+ * A message used to deliver data from the backend to the frontend
+ */
+export interface IHelpClientMessageOutput {
+	msg_type: HelpMessageTypeOutput;
+}
+
+// Show help content in the Help pane.
+export interface ShowHelpEvent {
+
+	/** The help content to be shown. */
+	content: string;
+
+	/** The content help type. Must be one of 'html', 'markdown', or 'url'. */
+	kind: string;
+
+	/** Focus the Help pane after the Help content has been rendered? */
+	focus: boolean;
+
+}
+
+/**
+ * A message requesting content to be shown in the Help pane.
+ */
+export interface IHelpClientMessageShowHelp
+	extends IHelpClientMessageOutput, ShowHelpEvent {
+}
+
+/**
+ * A help client instance.
+ */
+export class HelpClientInstance extends Disposable {
+
+	/** The emitter for runtime client events. */
+	private readonly _onDidEmitHelpContent = this._register(new Emitter<ShowHelpEvent>());
+
+	/**
+	 * Creates a new help client instance.
+	 *
+	 * @param _client The client instance. Takes ownership of the client
+	 *   instance and will dispose it when it is disposed.
+	 */
+	constructor(
+		private readonly _client:
+			IRuntimeClientInstance<IHelpClientMessageInput, IHelpClientMessageOutput>,
+	) {
+		super();
+		this._register(this._client);
+		this._register(this._client.onDidReceiveData(data => this.handleData(data)));
+		this.onDidEmitHelpContent = this._onDidEmitHelpContent.event;
+	}
+
+	/**
+	 * Requests that the given help topic be shown in the Help pane.
+	 *
+	 * @param topic The topic to show in the Help pane.
+	 */
+	showHelpTopic(topic: string) {
+		const req: IHelpClientMessageShowHelpTopic = {
+			msg_type: HelpMessageTypeInput.ShowHelpTopic,
+			topic
+		};
+		this._client.performRpc(req);
+	}
+
+	onDidEmitHelpContent: Event<ShowHelpEvent>;
+
+	/**
+	 * Handles data received from the backend.
+	 *
+	 * @param data Data received from the backend.
+	 */
+	private handleData(data: IHelpClientMessageOutput): void {
+		switch (data.msg_type) {
+			case HelpMessageTypeOutput.ShowHelp:
+				this._onDidEmitHelpContent.fire(data as IHelpClientMessageShowHelp);
+				break;
+		}
+	}
+}
