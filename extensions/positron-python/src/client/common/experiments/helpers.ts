@@ -16,5 +16,8 @@ export function inTerminalEnvVarExperiment(experimentService: IExperimentService
     if (!experimentService.inExperimentSync(TerminalEnvVarActivation.experiment)) {
         return false;
     }
-    return true;
+    // --- Begin Positron ---
+    // return true;
+    return false;
+    // --- End Positron ---
 }
