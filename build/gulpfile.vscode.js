@@ -39,6 +39,7 @@ const rcedit = promisify(require('rcedit'));
 
 // --- Start Positron ---
 const child_process = require('child_process');
+const fancyLog = require('fancy-log');
 // --- End Positron ---
 
 // Build
@@ -432,20 +433,25 @@ function patchWin32DependenciesTask(destinationFolderName) {
 
 		await Promise.all(deps.map(async dep => {
 			const basename = path.basename(dep);
-
-			await rcedit(path.join(cwd, dep), {
-				'file-version': baseVersion,
-				'version-string': {
-					'CompanyName': 'Microsoft Corporation',
-					'FileDescription': product.nameLong,
-					'FileVersion': packageJson.version,
-					'InternalName': basename,
-					'LegalCopyright': 'Copyright (C) 2022 Microsoft. All rights reserved',
-					'OriginalFilename': basename,
-					'ProductName': product.nameLong,
-					'ProductVersion': packageJson.version,
-				}
-			});
+			// --- Start Positron ---
+			try {
+				await rcedit(path.join(cwd, dep), {
+					'file-version': baseVersion,
+					'version-string': {
+						'CompanyName': 'Microsoft Corporation',
+						'FileDescription': product.nameLong,
+						'FileVersion': packageJson.version,
+						'InternalName': basename,
+						'LegalCopyright': 'Copyright (C) 2022 Microsoft. All rights reserved',
+						'OriginalFilename': basename,
+						'ProductName': product.nameLong,
+						'ProductVersion': packageJson.version,
+					}
+				});
+			} catch (e) {
+				fancyLog('Skipping rcedit for ' + dep + ': ' + e);
+			}
+			// --- End Positron ---
 		}));
 	};
 }

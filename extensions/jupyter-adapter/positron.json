@@ -2,7 +2,13 @@
 	"binaries": [
 		{
 			"from": "node_modules/zeromq/build/Release/zeromq.node",
-			"to": "build/Release"
+			"to": "build/Release",
+			"platforms": ["darwin"]
+		},
+		{
+			"from": "node_modules/zeromq/prebuilds/win32-x64/node.napi.glibc.node",
+			"to": "prebuilds/win32-x64",
+			"platforms": ["win32"]
 		},
 		{
 			"from": "resources/kernel-wrapper.*",
