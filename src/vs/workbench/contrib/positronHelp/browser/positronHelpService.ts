@@ -87,6 +87,14 @@ export interface IPositronHelpService {
 	openHelpEntryIndex(helpEntryIndex: number): void;
 
 	/**
+	 * Ask an active runtime to show help for the given topic.
+	 *
+	 * @param languageId The language ID. A runtime for this language must be active.
+	 * @param topic The help topic.
+	 */
+	showHelpTopic(languageId: string, topic: string): void;
+
+	/**
 	 * Navigates the help service.
 	 * @param fromUrl The from URL.
 	 * @param toUrl The to URL.
@@ -208,6 +216,24 @@ class PositronHelpService extends Disposable implements IPositronHelpService {
 				}
 			})
 		);
+	}
+
+	/**
+	 * Requests that the given help topic be shown in the Help pane.
+	 *
+	 * @param languageId The language ID. A runtime for this language must be active.
+	 * @param topic The help topic.
+	 */
+	showHelpTopic(languageId: string, topic: string): void {
+		const clients = this._helpClients.values();
+		for (const client of clients) {
+			if (client.languageId === languageId) {
+				client.showHelpTopic(topic);
+				return;
+			}
+		}
+		this._logService.warn(`Can't show help for ${topic}: ` +
+			`no runtime for language ${languageId} is active.`);
 	}
 
 	/**
@@ -457,7 +483,7 @@ class PositronHelpService extends Disposable implements IPositronHelpService {
 				await runtime.createClient(RuntimeClientType.Help, {});
 
 			// Create and attach the help client wrapper.
-			const helpClient = new HelpClientInstance(client);
+			const helpClient = new HelpClientInstance(client, runtime.metadata.languageId);
 			this.attachClientInstance(runtime, helpClient);
 
 		} catch (error) {

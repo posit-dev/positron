@@ -83,6 +83,7 @@ export class HelpClientInstance extends Disposable {
 	constructor(
 		private readonly _client:
 			IRuntimeClientInstance<IHelpClientMessageInput, IHelpClientMessageOutput>,
+		readonly languageId: string
 	) {
 		super();
 		this._register(this._client);
