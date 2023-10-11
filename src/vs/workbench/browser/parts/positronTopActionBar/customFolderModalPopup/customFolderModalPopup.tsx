@@ -20,7 +20,7 @@ import { CustomFolderMenuItems } from 'vs/workbench/browser/parts/positronTopAct
  * @param hostService The IHostService.
  * @param labelService The ILabelService.
  * @param workspacesService The IWorkspacesService.
- * @param container The container of the application.
+ * @param containerElement The container element.
  * @param anchorElement The anchor element for the modal popup.
  * @returns A promise that resolves when the popup is dismissed.
  */
@@ -30,7 +30,7 @@ export const showCustomFolderModalPopup = async (
 	hostService: IHostService,
 	labelService: ILabelService,
 	workspacesService: IWorkspacesService,
-	container: HTMLElement,
+	containerElement: HTMLElement,
 	anchorElement: HTMLElement
 ): Promise<void> => {
 	// Gets the workspaces recently opened.
@@ -39,7 +39,7 @@ export const showCustomFolderModalPopup = async (
 	// Return a promise that resolves when the popup is done.
 	return new Promise<void>(resolve => {
 		// Create the modal popup React renderer.
-		const positronModalPopupReactRenderer = new PositronModalPopupReactRenderer(container);
+		const positronModalPopupReactRenderer = new PositronModalPopupReactRenderer(containerElement);
 
 		// The modal popup component.
 		const ModalPopup = () => {
@@ -54,10 +54,12 @@ export const showCustomFolderModalPopup = async (
 			// Render.
 			return (
 				<PositronModalPopup
+					containerElement={containerElement}
 					anchorElement={anchorElement}
 					popupPosition='bottom'
 					popupAlignment='right'
-					width={275}
+					minWidth={275}
+					width={'max-content'}
 					height={'min-content'}
 					onDismiss={() => dismiss()}
 				>
