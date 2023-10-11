@@ -4,7 +4,7 @@
 
 import { Disposable } from 'vs/base/common/lifecycle';
 import { Emitter, Event } from 'vs/base/common/event';
-import { IRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeClientInstance';
+import { IRuntimeClientInstance, RuntimeClientState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeClientInstance';
 
 
 /**
@@ -71,6 +71,9 @@ export class HelpClientInstance extends Disposable {
 	/** The emitter for runtime client events. */
 	private readonly _onDidEmitHelpContent = this._register(new Emitter<ShowHelpEvent>());
 
+	/** The emitter for the close event. */
+	private readonly _onDidClose = this._register(new Emitter<void>());
+
 	/**
 	 * Creates a new help client instance.
 	 *
@@ -83,8 +86,18 @@ export class HelpClientInstance extends Disposable {
 	) {
 		super();
 		this._register(this._client);
+
 		this._register(this._client.onDidReceiveData(data => this.handleData(data)));
+
+		this._register(this._client.onDidChangeClientState(state => {
+			// If the client is closed, emit the close event.
+			if (state === RuntimeClientState.Closed) {
+				this._onDidClose.fire();
+			}
+		}));
+
 		this.onDidEmitHelpContent = this._onDidEmitHelpContent.event;
+		this.onDidClose = this._onDidClose.event;
 	}
 
 	/**
@@ -101,6 +114,8 @@ export class HelpClientInstance extends Disposable {
 	}
 
 	onDidEmitHelpContent: Event<ShowHelpEvent>;
+
+	onDidClose: Event<void>;
 
 	/**
 	 * Handles data received from the backend.
