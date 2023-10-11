@@ -43,7 +43,10 @@ export class ArkLsp implements vscode.Disposable {
 	/** Disposable for per-activation items */
 	private activationDisposables: vscode.Disposable[] = [];
 
-	public constructor(private readonly _version: string) {
+	public constructor(
+		private readonly _version: string,
+		private readonly _notebook: vscode.NotebookDocument | undefined
+	) {
 	}
 
 	/**
@@ -83,9 +86,10 @@ export class ArkLsp implements vscode.Disposable {
 		};
 
 		const clientOptions: LanguageClientOptions = {
-			documentSelector: [
-				{ language: 'r' },
-			],
+			// TODO: We're currently disabling the language client if it belongs to a notebook, but
+			// should find a better way to support notebook-specific language clients. We may
+			// find the @vscode/jupyter-lsp-middleware package helpful.
+			documentSelector: this._notebook ? [] : [{ language: 'r' }],
 			synchronize: {
 				fileEvents: vscode.workspace.createFileSystemWatcher('**/*.R')
 			},

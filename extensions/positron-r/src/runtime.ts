@@ -50,7 +50,7 @@ export class RRuntime implements positron.LanguageRuntime, vscode.Disposable {
 		readonly extra?: JupyterKernelExtra,
 		readonly notebook?: vscode.NotebookDocument,
 	) {
-		this._lsp = new ArkLsp(metadata.languageVersion);
+		this._lsp = new ArkLsp(metadata.languageVersion, notebook);
 		this._queue = new PQueue({ concurrency: 1 });
 		this.onDidReceiveRuntimeMessage = this._messageEmitter.event;
 		this.onDidChangeRuntimeState = this._stateEmitter.event;
