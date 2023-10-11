@@ -343,11 +343,13 @@ export class LanguageRuntimeAdapter
 		params: object
 	) {
 
-		// Ensure the type of client we're being asked to create is one we know ark supports
+		// Ensure the type of client we're being asked to create is a known type
+		// that supports client-initiated creation
 		if (type === positron.RuntimeClientType.Environment ||
 			type === positron.RuntimeClientType.Lsp ||
 			type === positron.RuntimeClientType.Dap ||
-			type === positron.RuntimeClientType.FrontEnd) {
+			type === positron.RuntimeClientType.FrontEnd ||
+			type === positron.RuntimeClientType.Help) {
 			this._kernel.log(`Creating '${type}' client for ${this.metadata.languageName}`);
 
 			// Does the comm wrap a server? In that case the
