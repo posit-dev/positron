@@ -165,6 +165,12 @@ export interface IPositronConsoleInstance {
 	readonly onDidRequestRestart: Event<void>;
 
 	/**
+	 * The onDidAttachRuntime event. Fires both when a runtime is attached and
+	 * when one is detached (in which case the parameter is undefined)
+	 */
+	readonly onDidAttachRuntime: Event<ILanguageRuntime | undefined>;
+
+	/**
 	 * Focuses the input for the console.
 	 */
 	focusInput(): void;
@@ -223,4 +229,9 @@ export interface IPositronConsoleInstance {
 	 * @param id The prompt identifier.
 	 */
 	interruptPrompt(id: string): void;
+
+	/**
+	 * Sets the currently attached runtime, or undefined if none.
+	 */
+	attachedRuntime: ILanguageRuntime | undefined;
 }

@@ -39,3 +39,9 @@
 	padding-left: 5px;
 	padding-right: 5px;
 }
+
+.positron-console .action-bar .state-label {
+	text-transform: uppercase;
+	color: var(--positronActionBar-foreground);
+	font-size: 10px;
+}
