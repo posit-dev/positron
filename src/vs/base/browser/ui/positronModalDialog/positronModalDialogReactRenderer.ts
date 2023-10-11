@@ -9,13 +9,13 @@ import { createRoot, Root } from 'react-dom/client';
 
 /**
  * PositronModalDialogReactRenderer class.
- * Manages rendering a React component as a modal dialog.
+ * Manages rendering a React element as a modal dialog.
  */
 export class PositronModalDialogReactRenderer {
 	/**
-	 * The container element where the React element will be rendered.
+	 * The overlay element where the modal dialog will be presented.
 	 */
-	private _container?: HTMLElement;
+	private _overlayElement?: HTMLElement;
 
 	/**
 	 * The root where the React element will be rendered.
@@ -24,11 +24,12 @@ export class PositronModalDialogReactRenderer {
 
 	/**
 	 * Initializes a new instance of the PositronModalDialogReactRenderer class.
-	 * @param container The container HTMLElement where the modal dialog will be presented.
+	 * @param containerElement The container element.
 	 */
-	constructor(container: HTMLElement) {
-		this._container = container.appendChild(DOM.$('.positron-modal-dialog-overlay'));
-		this._root = createRoot(this._container);
+	constructor(containerElement: HTMLElement) {
+		this._overlayElement = containerElement.
+			appendChild(DOM.$('.positron-modal-dialog-overlay'));
+		this._root = createRoot(this._overlayElement);
 	}
 
 	/**
@@ -51,10 +52,10 @@ export class PositronModalDialogReactRenderer {
 			this._root = undefined;
 		}
 
-		// Remove the container element.
-		if (this._container) {
-			this._container.remove();
-			this._container = undefined;
+		// Remove the overlay element.
+		if (this._overlayElement) {
+			this._overlayElement.remove();
+			this._overlayElement = undefined;
 		}
 	}
 }
