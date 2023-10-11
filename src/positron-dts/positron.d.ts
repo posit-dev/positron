@@ -577,6 +577,21 @@ declare module 'positron' {
 		 * Show runtime log in output panel.
 		 */
 		showOutput?(): void;
+
+		/**
+		 * Create a new instance of the runtime.
+		 *
+		 * NOTE: This is a temporary workaround to get notebooks working with our
+		 *       runtimes, until we implement runtime sessions. "Cloned" runtimes
+		 *       will not be known by the language runtime service thus cannot
+		 *       integrate with any of our existing functionality. This method
+		 *       should not be used outside of our notebook extension.
+		 *
+		 * @param metadata The metadata for the new runtime instance.
+		 * @param notebook The notebook that this runtime belongs to.
+		 * @returns A new runtime instance.
+		 */
+		clone(metadata: LanguageRuntimeMetadata, notebook: vscode.NotebookDocument): LanguageRuntime;
 	}
 
 

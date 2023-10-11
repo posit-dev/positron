@@ -205,6 +205,10 @@ export class JavascriptLanguageRuntime implements positron.LanguageRuntime {
 		return Promise.resolve();
 	}
 
+	clone(): positron.LanguageRuntime {
+		return new JavascriptLanguageRuntime(this.context);
+	}
+
 	dispose() { }
 
 	private emitOutput(parentId: string, output: string) {

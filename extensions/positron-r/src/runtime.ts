@@ -48,6 +48,7 @@ export class RRuntime implements positron.LanguageRuntime, vscode.Disposable {
 		readonly metadata: positron.LanguageRuntimeMetadata,
 		public dynState: positron.LanguageRuntimeDynState,
 		readonly extra?: JupyterKernelExtra,
+		readonly notebook?: vscode.NotebookDocument,
 	) {
 		this._lsp = new ArkLsp(metadata.languageVersion);
 		this._queue = new PQueue({ concurrency: 1 });
@@ -172,6 +173,18 @@ export class RRuntime implements positron.LanguageRuntime, vscode.Disposable {
 		} else {
 			throw new Error('Cannot force quit; kernel not started');
 		}
+	}
+
+	clone(metadata: positron.LanguageRuntimeMetadata, notebook: vscode.NotebookDocument): positron.LanguageRuntime {
+		// eslint-disable-next-line @typescript-eslint/naming-convention
+		const kernelSpec: JupyterKernelSpec = { ...this.kernelSpec, display_name: metadata.runtimeName };
+		return new RRuntime(
+			this.context,
+			kernelSpec,
+			metadata,
+			this.dynState,
+			this.extra,
+			notebook);
 	}
 
 	async dispose() {

@@ -80,7 +80,7 @@ export class LanguageRuntimeAdapter
 		private readonly _spec: JupyterKernelSpec,
 		readonly metadata: positron.LanguageRuntimeMetadata,
 		public dynState: positron.LanguageRuntimeDynState,
-		extra?: JupyterKernelExtra,
+		private readonly extra?: JupyterKernelExtra,
 	) {
 		this._kernel = new JupyterKernel(
 			this._context,
@@ -327,6 +327,24 @@ export class LanguageRuntimeAdapter
 	 */
 	public showOutput() {
 		this._kernel.showOutput();
+	}
+
+	/**
+	 * Create a new instance of the runtime.
+	 *
+	 * @param metadata The metadata for the new runtime instance.
+	 * @returns A new runtime instance.
+	 */
+	public clone(metadata: positron.LanguageRuntimeMetadata): positron.LanguageRuntime {
+		const spec: JupyterKernelSpec = { ...this._spec, display_name: metadata.languageName };
+		return new LanguageRuntimeAdapter(
+			this._context,
+			this._channel,
+			spec,
+			metadata,
+			this.dynState,
+			this.extra
+		);
 	}
 
 	/**
