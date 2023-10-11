@@ -18,21 +18,24 @@ export async function activatePositron(
     serviceContainer: IServiceContainer,
 ): Promise<void> {
     try {
-        // Wait for all extension components to be activated before starting Positron activation.
-        traceInfo('activatePositron: awaiting extension activation');
-        await activatedPromise;
-
         // Map of interpreter path to language runtime metadata, used to determine the runtimeId when
         // switching the active interpreter path.
         const runtimes = new Map<string, positron.LanguageRuntimeMetadata>();
 
         // Register the Python language runtime provider with positron.
         traceInfo('activatePositron: registering python runtime provider');
-        positron.runtime.registerLanguageRuntimeProvider('python', pythonRuntimeProvider(serviceContainer, runtimes));
+        positron.runtime.registerLanguageRuntimeProvider(
+            'python',
+            pythonRuntimeProvider(serviceContainer, runtimes, activatedPromise),
+        );
 
         // Register a statement range provider to detect Python statements
         traceInfo('activatePositron: registering python statement range provider');
         positron.languages.registerStatementRangeProvider('python', new PythonStatementRangeProvider());
+
+        // Wait for all extension components to be activated before registering event listeners
+        traceInfo('activatePositron: awaiting extension activation');
+        await activatedPromise;
 
         // If the interpreter is changed via the Python extension, select the corresponding
         // language runtime in Positron.
@@ -73,6 +76,8 @@ export async function activatePositron(
                 }
             }),
         );
+
+        traceInfo('activatePositron: done!');
     } catch (ex) {
         traceError('activatePositron() failed.', ex);
     }
