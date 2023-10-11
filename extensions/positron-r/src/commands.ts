@@ -78,8 +78,8 @@ export async function registerCommands(context: vscode.ExtensionContext, runtime
 							// A promise that rejects after a timeout;
 							const timeout = new Promise<void>((_, reject) => {
 								setTimeout(() => {
-									reject(vscode.window.showErrorMessage('Timed out after 5 seconds waiting for R to be ready.'));
-								}, 5000);
+									reject(new Error('Timed out after 10 seconds waiting for R to be ready.'));
+								}, 1e4);
 							});
 
 							// Wait for the the runtime to be ready, or for the timeout:
