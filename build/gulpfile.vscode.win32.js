@@ -21,7 +21,9 @@ const mkdirp = require('mkdirp');
 const repoPath = path.dirname(__dirname);
 const buildPath = (/** @type {string} */ arch) => path.join(path.dirname(repoPath), `VSCode-win32-${arch}`);
 const setupDir = (/** @type {string} */ arch, /** @type {string} */ target) => path.join(repoPath, '.build', `win32-${arch}`, `${target}-setup`);
-const issPath = path.join(__dirname, 'win32', 'code.iss');
+// --- Start Positron ---
+const issPath = path.join(__dirname, 'win32', 'positron.iss');
+// --- End Positron ---
 const innoSetupPath = path.join(path.dirname(path.dirname(require.resolve('innosetup'))), 'bin', 'ISCC.exe');
 const signWin32Path = path.join(repoPath, 'build', 'azure-pipelines', 'common', 'sign-win32');
 
