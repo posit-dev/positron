@@ -1638,7 +1638,7 @@ class HelpTopicAdapter {
 	 *
 	 * @returns A promise that resolves to the help topic, or '' if none is found
 	 */
-	async provideStatementRange(resource: URI, pos: IPosition, token: CancellationToken): Promise<string> {
+	async provideHelpTopic(resource: URI, pos: IPosition, token: CancellationToken): Promise<string> {
 		const document = this._documents.getDocument(resource);
 		const position = typeConvert.Position.to(pos);
 
@@ -2533,9 +2533,12 @@ export class ExtHostLanguageFeatures implements extHostProtocol.ExtHostLanguageF
 
 	registerHelpTopicProvider(extension: IExtensionDescription, selector: vscode.DocumentSelector, provider: positron.HelpTopicProvider): vscode.Disposable {
 		const handle = this._addNewAdapter(new HelpTopicAdapter(this._documents, provider), extension);
-		// TODO
-		// this._proxy.$registerHelpTopicProvider(handle, this._transformDocumentSelector(selector, extension));
+		this._proxy.$registerHelpTopicProvider(handle, this._transformDocumentSelector(selector, extension));
 		return this._createDisposable(handle);
+	}
+
+	$provideHelpTopic(handle: number, resource: UriComponents, position: IPosition, token: CancellationToken): Promise<string | undefined> {
+		return this._withAdapter(handle, HelpTopicAdapter, adapter => adapter.provideHelpTopic(URI.revive(resource), position, token), undefined, token);
 	}
 
 	// --- End Positron ---
