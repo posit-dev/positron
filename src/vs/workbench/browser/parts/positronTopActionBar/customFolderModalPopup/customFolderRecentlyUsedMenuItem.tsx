@@ -25,11 +25,11 @@ export const CustomFolderRecentlyUsedMenuItem = (props: CustomFolderRecentlyUsed
 	// Render.
 	return (
 		<PositronButton className='custom-folder-recently-used-menu-item' onClick={props.onOpen}>
-			<div className='title'>
+			<div className='title' title={props.label}>
 				{props.label}
 			</div>
 			<PositronButton className='open-in-new-window' onClick={props.onOpenInNewWindow}>
-				<div className='codicon codicon-positron-open-in-new-window' />
+				<div className='codicon codicon-positron-open-in-new-window' title={props.label} />
 			</PositronButton>
 		</PositronButton>
 	);

@@ -11,10 +11,17 @@ import { positronClassNames } from 'vs/base/common/positronUtilities';
 /**
  * Event aliases.
  */
-type Position = DOM.IDomPosition;
 type UIEvent = globalThis.UIEvent;
 type MouseEvent = globalThis.MouseEvent;
 type KeyboardEvent = globalThis.KeyboardEvent;
+
+// Position interface.
+interface Position {
+	top: number | 'auto';
+	right: number | 'auto';
+	bottom: number | 'auto';
+	left: number | 'auto';
+}
 
 /**
  * PopupPosition type.
@@ -30,10 +37,12 @@ export type PopupAlignment = 'left' | 'right';
  * PositronModalPopupProps interface.
  */
 export interface PositronModalPopupProps {
+	containerElement: HTMLElement;
 	anchorElement: HTMLElement;
 	popupPosition: PopupPosition;
 	popupAlignment: PopupAlignment;
-	width: number;
+	minWidth?: number;
+	width: number | 'max-content';
 	height: number | 'min-content';
 	onDismiss: () => void;
 }
@@ -52,11 +61,15 @@ export const PositronModalPopup = (props: PropsWithChildren<PositronModalPopupPr
 		const topLeftOffset = DOM.getTopLeftOffset(props.anchorElement);
 		return {
 			top: props.popupPosition === 'top' ?
-				topLeftOffset.top - popupRef.current.offsetHeight - 1 :
+				'auto' :
 				topLeftOffset.top + props.anchorElement.offsetHeight + 1,
+			right: props.popupAlignment === 'right' ?
+				props.containerElement.offsetWidth - (topLeftOffset.left + props.anchorElement.offsetWidth) :
+				'auto',
+			bottom: 'auto',
 			left: props.popupAlignment === 'left' ?
 				topLeftOffset.left :
-				topLeftOffset.left + props.anchorElement.offsetWidth - props.width
+				'auto'
 		};
 	};
 
@@ -155,7 +168,16 @@ export const PositronModalPopup = (props: PropsWithChildren<PositronModalPopupPr
 	return (
 		<div className='positron-modal-popup-shadow-container'>
 			<div ref={popupContainerRef} className='positron-modal-popup-container' role='dialog' tabIndex={-1}>
-				<div ref={popupRef} className={classNames} style={{ top: position.top, left: position.left, width: props.width, height: props.height }}>
+				<div
+					ref={popupRef}
+					className={classNames}
+					style={{
+						...position,
+						minWidth: props.minWidth,
+						width: props.width,
+						height: props.height
+					}}
+				>
 					{props.children}
 				</div>
 			</div>
