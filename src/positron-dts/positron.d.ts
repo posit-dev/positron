@@ -851,5 +851,10 @@ declare module 'positron' {
 		 * @param handler A handler for runtime client instances
 		 */
 		export function registerClientHandler(handler: RuntimeClientHandler): vscode.Disposable;
+
+		/**
+		 * An event that fires when a new runtime is registered.
+		 */
+		export const onDidRegisterRuntime: vscode.Event<LanguageRuntime>;
 	}
 }
