@@ -66,7 +66,7 @@ export class RRuntime implements positron.LanguageRuntime, vscode.Disposable {
 
 	execute(code: string, id: string, mode: positron.RuntimeCodeExecutionMode, errorBehavior: positron.RuntimeErrorBehavior): void {
 		if (this._kernel) {
-			this._kernel.execute(code, id, mode, errorBehavior);
+			this._kernel.execute(code.replace(/\r\n/g, '\n'), id, mode, errorBehavior);
 		} else {
 			throw new Error(`Cannot execute '${code}'; kernel not started`);
 		}
@@ -74,7 +74,7 @@ export class RRuntime implements positron.LanguageRuntime, vscode.Disposable {
 
 	isCodeFragmentComplete(code: string): Thenable<positron.RuntimeCodeFragmentStatus> {
 		if (this._kernel) {
-			return this._kernel.isCodeFragmentComplete(code);
+			return this._kernel.isCodeFragmentComplete(code.replace(/\r\n/g, '\n'));
 		} else {
 			throw new Error(`Cannot check code fragment '${code}'; kernel not started`);
 		}
