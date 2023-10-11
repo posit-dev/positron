@@ -11,14 +11,16 @@ import { registerIcon } from 'vs/platform/theme/common/iconRegistry';
 import { PositronHelpFocused } from 'vs/workbench/common/contextkeys';
 import { SyncDescriptor } from 'vs/platform/instantiation/common/descriptors';
 import { LifecyclePhase } from 'vs/workbench/services/lifecycle/common/lifecycle';
-import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
+import { IInstantiationService, ServicesAccessor } from 'vs/platform/instantiation/common/instantiation';
 import { ViewPaneContainer } from 'vs/workbench/browser/parts/views/viewPaneContainer';
 import { PositronHelpView } from 'vs/workbench/contrib/positronHelp/browser/positronHelpView';
-import { POSITRON_HELP_VIEW_ID } from 'vs/workbench/contrib/positronHelp/browser/positronHelpService';
+import { IPositronHelpService, POSITRON_HELP_VIEW_ID } from 'vs/workbench/contrib/positronHelp/browser/positronHelpService';
 import { POSITRON_HELP_COPY } from 'vs/workbench/contrib/positronHelp/browser/positronHelpIdentifiers';
 import { ICommandAndKeybindingRule, KeybindingWeight, KeybindingsRegistry } from 'vs/platform/keybinding/common/keybindingsRegistry';
 import { IWorkbenchContributionsRegistry, Extensions as WorkbenchExtensions, IWorkbenchContribution } from 'vs/workbench/common/contributions';
 import { ViewContainer, IViewContainersRegistry, ViewContainerLocation, Extensions as ViewContainerExtensions, IViewsRegistry } from 'vs/workbench/common/views';
+import { Action2, registerAction2 } from 'vs/platform/actions/common/actions';
+import { Categories } from 'vs/platform/action/common/actionCommonCategories';
 
 // The Positron help view icon.
 const positronHelpViewIcon = registerIcon('positron-help-view-icon', Codicon.positronHelpView, nls.localize('positronHelpViewIcon', 'View icon of the Positron help view.'));
@@ -72,6 +74,30 @@ KeybindingsRegistry.registerCommandAndKeybindingRule({
 	handler: accessor => { }
 } satisfies ICommandAndKeybindingRule);
 
+
+class ShowHelpAtCursor extends Action2 {
+	constructor() {
+		super({
+			id: 'positron.help.showHelpAtCursor',
+			title: {
+				value: nls.localize('positron.help.showHelpAtCursor', 'Show Help at Cursor'),
+				original: 'Show Help at Cursor'
+			},
+			keybinding: {
+				weight: KeybindingWeight.WorkbenchContrib,
+				primary: KeyCode.F1
+			},
+			category: Categories.Help,
+			f1: true
+		});
+	}
+
+	run(accessor: ServicesAccessor): void {
+		const helpService = accessor.get(IPositronHelpService);
+		helpService.showHelpTopic('zed', 'testing-123');
+	}
+}
+
 class PositronHelpContribution extends Disposable implements IWorkbenchContribution {
 	constructor(
 		@IInstantiationService instantiationService: IInstantiationService
@@ -81,6 +107,7 @@ class PositronHelpContribution extends Disposable implements IWorkbenchContribut
 	}
 
 	private registerActions(): void {
+		registerAction2(ShowHelpAtCursor);
 	}
 }
 
