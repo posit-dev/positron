@@ -64,15 +64,30 @@ export async function registerCommands(context: vscode.ExtensionContext, runtime
 								// If restarting promise rejects, dispose of listener:
 								disp1.dispose();
 							}
-							const disp2 = runtime.onDidChangeRuntimeState(runtimeState => {
-								if (runtimeState === positron.RuntimeState.Ready) {
-									runtime.execute(`library(${packageName})`,
-										randomUUID(),
-										positron.RuntimeCodeExecutionMode.Interactive,
-										positron.RuntimeErrorBehavior.Continue);
-									disp2.dispose();
-								}
+
+							// A promise that resolves when the runtime is ready:
+							const promise = new Promise<void>(resolve => {
+								const disp2 = runtime.onDidChangeRuntimeState(runtimeState => {
+									if (runtimeState === positron.RuntimeState.Ready) {
+										resolve();
+										disp2.dispose();
+									}
+								});
 							});
+
+							// A promise that rejects after a timeout;
+							const timeout = new Promise<void>((_, reject) => {
+								setTimeout(() => {
+									reject(vscode.window.showErrorMessage('Timed out after 5 seconds waiting for R to be ready.'));
+								}, 5000);
+							});
+
+							// Wait for the the runtime to be ready, or for the timeout:
+							await Promise.race([promise, timeout]);
+							runtime.execute(`library(${packageName})`,
+								randomUUID(),
+								positron.RuntimeCodeExecutionMode.Interactive,
+								positron.RuntimeErrorBehavior.Continue);
 						}
 						disp1.dispose();
 					}
