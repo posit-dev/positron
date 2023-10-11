@@ -810,6 +810,11 @@ declare module 'positron' {
 		export function registerLanguageRuntime(runtime: LanguageRuntime): vscode.Disposable;
 
 		/**
+		 * List all registered runtimes.
+		 */
+		export function getRegisteredRuntimes(): Thenable<LanguageRuntime[]>;
+
+		/**
 		 * Get the preferred language runtime for a given language.
 		 *
 		 * @param languageId The language ID of the preferred runtime
