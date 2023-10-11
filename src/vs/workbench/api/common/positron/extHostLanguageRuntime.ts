@@ -249,6 +249,15 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		});
 	}
 
+	public async getPreferredRuntime(languageId: string): Promise<positron.LanguageRuntime> {
+		const metadata = await this._proxy.$getPreferredRuntime(languageId);
+		const runtime = this._runtimes.find(runtime => runtime.metadata.runtimeId === metadata.runtimeId);
+		if (!runtime) {
+			throw new Error(`Runtime exists on main thread but not extension host: ${metadata.runtimeId}`);
+		}
+		return runtime;
+	}
+
 	public getRunningRuntimes(languageId: string): Promise<positron.LanguageRuntimeMetadata[]> {
 		return this._proxy.$getRunningRuntimes(languageId);
 	}
