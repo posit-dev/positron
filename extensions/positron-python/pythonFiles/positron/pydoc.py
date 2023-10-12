@@ -573,8 +573,16 @@ class _PositronHTMLDoc(pydoc.HTMLDoc):
         # Skip forced reloads for some modules. It is unlikely to affect the UX provided that these
         # modules don't change within the lifetime of the help service
         skip_reload = [
-            # Numpy raises a UserWarning if you re-import it
+            # Numpy, Pandera, Polars raise a UserWarning if you re-import it
             "numpy",
+            "polars",
+            "pandera",
+            # Keras, Torch, Aesara have ErrorOnImport when re-importing
+            "keras",
+            "aesara",
+            "torch",
+            # Tensorflow crashes on re-import
+            "tensorflow",
             # Fixes an edge case where importing `get_ipython` interferes with the help service
             "IPython",
         ]
