@@ -89,7 +89,6 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 	const [wordWrap, setWordWrap] = useState(props.positronConsoleInstance.wordWrap);
 	const [marker, setMarker] = useState(generateUuid());
 	const [, setLastScrollTop, lastScrollTopRef] = useStateRef(0);
-	const [scrollLocked, setScrollLocked] = useState(false);
 
 	/**
 	 * Gets the selection.
@@ -299,10 +298,8 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 
 	// Experimental.
 	useEffect(() => {
-		if (!scrollLocked) {
-			consoleInstanceRef.current.scrollTo(0, consoleInstanceRef.current.scrollHeight);
-		}
-	}, [marker, scrollLocked]);
+		consoleInstanceRef.current.scrollTo(0, consoleInstanceRef.current.scrollHeight);
+	}, [marker]);
 
 	/**
 	 * onKeyDown event handler.
@@ -440,15 +437,6 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 	 * @param e A UIEvent<HTMLDivElement> that describes a user interaction with the mouse.
 	 */
 	const scrollHandler = (e: UIEvent<HTMLDivElement>) => {
-		// Determine whether the console instance is scroll locked.
-		if (Math.abs(consoleInstanceRef.current.scrollHeight -
-			consoleInstanceRef.current.clientHeight -
-			consoleInstanceRef.current.scrollTop) < 1) {
-			setScrollLocked(false);
-		} else {
-			setScrollLocked(true);
-		}
-
 		// Set the last scroll top, when active.
 		if (props.active) {
 			setLastScrollTop(consoleInstanceRef.current.scrollTop);
