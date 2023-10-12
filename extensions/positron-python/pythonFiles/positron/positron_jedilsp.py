@@ -143,8 +143,17 @@ class PositronJediLanguageServer(JediLanguageServer):
         """Starts TCP server."""
         logger.info("Starting TCP server on %s:%s", host, port)
 
+        # --- Start Positron ---
+        # Set the event loop's debug mode.
+        self.loop.set_debug(self._debug)
+
+        # Use our event loop as the thread's main event loop.
+        asyncio.set_event_loop(self.loop)
+        # --- End Positron ---
+
         self._stop_event = threading.Event()
         self._server = self.loop.run_until_complete(self.loop.create_server(self.lsp, host, port))
+
         # --- Start Positron ---
         # Notify the frontend that the LSP server is ready
         if self._comm is None:
@@ -153,6 +162,7 @@ class PositronJediLanguageServer(JediLanguageServer):
             logger.info("LSP server is ready, sending server_started message")
             self._comm.send({"msg_type": "server_started", "content": {}})
         # --- End Positron ---
+
         try:
             self.loop.run_forever()
         except (KeyboardInterrupt, SystemExit):
@@ -177,8 +187,6 @@ class PositronJediLanguageServer(JediLanguageServer):
             logger.warning("LSP server thread was not properly shutdown")
             return
 
-        self.loop.set_debug(self._debug)
-
         # Start Jedi LSP as an asyncio TCP server in a separate thread.
         logger.info("Starting LSP server thread")
         self._server_thread = threading.Thread(
@@ -192,6 +200,9 @@ class PositronJediLanguageServer(JediLanguageServer):
 
         # Reset the loop and thread reference to allow starting a new server in the same process,
         # e.g. when a browser-based Positron is refreshed.
+        if not self.loop.is_closed():
+            logger.info("Closing the event loop.")
+            self.loop.close()
         self.loop = asyncio.new_event_loop()
         self._server_thread = None
 
@@ -203,6 +214,9 @@ POSITRON = PositronJediLanguageServer(
     name="jedi-language-server",
     version="0.18.2",
     protocol_cls=JediLanguageServerProtocol,
+    # Provide an event loop, else the pygls Server base class sets its own event loop as the main
+    # event loop, which we use to run the kernel.
+    loop=asyncio.new_event_loop(),
 )
 
 # Server Features
