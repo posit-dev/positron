@@ -332,6 +332,16 @@ class PositronHelpService extends Disposable implements IPositronHelpService {
 					this.navigate(helpEntry.sourceUrl, url);
 				});
 
+				// Add the onDidNavigateBackward event handler.
+				helpEntry.onDidNavigateBackward(() => {
+					this.navigateBackward();
+				});
+
+				// Add the onDidNavigateForward event handler.
+				helpEntry.onDidNavigateForward(() => {
+					this.navigateForward();
+				});
+
 				// Add the help entry.
 				this.addHelpEntry(helpEntry);
 
