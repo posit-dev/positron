@@ -415,6 +415,9 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 					useShadows: false
 				},
 				overviewRulerLanes: 0,
+				// This appears to disable the ruler.
+				// https://github.com/posit-dev/positron/issues/1080
+				rulers: [],
 				scrollBeyondLastLine: false,
 				// This appears to disable validations to address:
 				// https://github.com/posit-dev/positron/issues/979
