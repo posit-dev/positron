@@ -18,6 +18,7 @@ import { BareFontInfo, FontInfo } from 'vs/editor/common/config/fontInfo';
 import { FontMeasurements } from 'vs/editor/browser/config/fontMeasurements';
 import { IReactComponentContainer } from 'vs/base/browser/positronReactRenderer';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
+import { POSITRON_PLOTS_VIEW_ID } from 'vs/workbench/services/positronPlots/common/positronPlots';
 import { AnchorAlignment, AnchorAxisAlignment } from 'vs/base/browser/ui/contextview/contextview';
 import { ConsoleInput } from 'vs/workbench/contrib/positronConsole/browser/components/consoleInput';
 import { RuntimeTrace } from 'vs/workbench/contrib/positronConsole/browser/components/runtimeTrace';
@@ -37,15 +38,14 @@ import { RuntimeItemActivity } from 'vs/workbench/services/positronConsole/commo
 import { usePositronConsoleContext } from 'vs/workbench/contrib/positronConsole/browser/positronConsoleContext';
 import { RuntimeReconnected } from 'vs/workbench/contrib/positronConsole/browser/components/runtimeReconnected';
 import { RuntimePendingInput } from 'vs/workbench/contrib/positronConsole/browser/components/runtimePendingInput';
+import { RuntimeRestartButton } from 'vs/workbench/contrib/positronConsole/browser/components/runtimeRestartButton';
 import { RuntimeItemReconnected } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemReconnected';
 import { RuntimeStartupFailure } from 'vs/workbench/contrib/positronConsole/browser/components/runtimeStartupFailure';
 import { RuntimeItemPendingInput } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemPendingInput';
+import { RuntimeItemRestartButton } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemRestartButton';
 import { IPositronConsoleInstance } from 'vs/workbench/services/positronConsole/common/interfaces/positronConsoleService';
 import { RuntimeItemStartupFailure } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemStartupFailure';
 import { POSITRON_CONSOLE_COPY, POSITRON_CONSOLE_CUT, POSITRON_CONSOLE_PASTE, POSITRON_CONSOLE_SELECT_ALL } from 'vs/workbench/contrib/positronConsole/browser/positronConsoleIdentifiers';
-import { POSITRON_PLOTS_VIEW_ID } from 'vs/workbench/services/positronPlots/common/positronPlots';
-import { RuntimeItemRestartButton } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemRestartButton';
-import { RuntimeRestartButton } from 'vs/workbench/contrib/positronConsole/browser/components/runtimeRestartButton';
 
 // ConsoleInstanceProps interface.
 interface ConsoleInstanceProps {
