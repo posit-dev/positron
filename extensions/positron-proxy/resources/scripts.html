@@ -50,6 +50,7 @@
 				case "complete":
 					// Add our listeners.
 					addScrollListener();
+					addMouseListeners();
 					addMessageListener();
 					addKeyboardListeners();
 					addContextMenuListener();
@@ -96,6 +97,24 @@
 							scrollY
 						}, "*");
 					});
+				}
+			});
+		};
+
+		// Add mouse listeners.
+		const addMouseListeners = () => {
+			// Add the mouseup event listener.
+			window.addEventListener("mouseup", event => {
+				if (event.button === 3) {
+					// Post the positron-help-navigate-backward message.
+					window.parent.postMessage({
+						id: "positron-help-navigate-backward"
+					}, "*");
+				} else if (event.button === 4) {
+					// Post the positron-help-navigate-forward message.
+					window.parent.postMessage({
+						id: "positron-help-navigate-forward"
+					}, "*");
 				}
 			});
 		};
