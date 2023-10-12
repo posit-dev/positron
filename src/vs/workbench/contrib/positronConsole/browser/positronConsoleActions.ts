@@ -15,6 +15,7 @@ import { CancellationToken } from 'vs/base/common/cancellation';
 import { ILocalizedString } from 'vs/platform/action/common/action';
 import { EditorContextKeys } from 'vs/editor/common/editorContextKeys';
 import { ILanguageService } from 'vs/editor/common/languages/language';
+import { PositronConsoleFocused } from 'vs/workbench/common/contextkeys';
 import { ContextKeyExpr } from 'vs/platform/contextkey/common/contextkey';
 import { Action2, registerAction2 } from 'vs/platform/actions/common/actions';
 import { ServicesAccessor } from 'vs/platform/instantiation/common/instantiation';
@@ -23,11 +24,11 @@ import { KeybindingWeight } from 'vs/platform/keybinding/common/keybindingsRegis
 import { ILanguageFeaturesService } from 'vs/editor/common/services/languageFeatures';
 import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/layoutService';
 import { INotificationService, Severity } from 'vs/platform/notification/common/notification';
+import { NOTEBOOK_EDITOR_FOCUSED } from 'vs/workbench/contrib/notebook/common/notebookContextKeys';
 import { PositronConsoleViewPane } from 'vs/workbench/contrib/positronConsole/browser/positronConsoleView';
 import { confirmationModalDialog } from 'vs/workbench/browser/positronModalDialogs/confirmationModalDialog';
 import { IExecutionHistoryService } from 'vs/workbench/contrib/executionHistory/common/executionHistoryService';
 import { IPositronConsoleService, POSITRON_CONSOLE_VIEW_ID } from 'vs/workbench/services/positronConsole/common/interfaces/positronConsoleService';
-import { NOTEBOOK_EDITOR_FOCUSED } from 'vs/workbench/contrib/notebook/common/notebookContextKeys';
 
 /**
  * Positron console command ID's.
@@ -76,7 +77,7 @@ export function registerPositronConsoleActions() {
 				},
 				f1: true,
 				category,
-				//icon: Codicon.?
+				precondition: PositronConsoleFocused,
 				keybinding: {
 					weight: KeybindingWeight.WorkbenchContrib,
 					primary: KeyMod.WinCtrl | KeyCode.KeyL
