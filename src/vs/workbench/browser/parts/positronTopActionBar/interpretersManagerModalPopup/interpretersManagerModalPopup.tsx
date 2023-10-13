@@ -12,7 +12,7 @@ import { ILanguageRuntime, ILanguageRuntimeService } from 'vs/workbench/services
 /**
  * Shows the interpreters manager modal popup.
  * @param languageRuntimeService The language runtime service.
- * @param container The container of the application.
+ * @param containerElement The container element.
  * @param anchorElement The anchor element for the modal popup.
  * @param onStartRuntime The start runtime event handler.
  * @param onActivateRuntime The activate runtime event handler.
@@ -20,7 +20,7 @@ import { ILanguageRuntime, ILanguageRuntimeService } from 'vs/workbench/services
  */
 export const showInterpretersManagerModalPopup = async (
 	languageRuntimeService: ILanguageRuntimeService,
-	container: HTMLElement,
+	containerElement: HTMLElement,
 	anchorElement: HTMLElement,
 	onStartRuntime: (runtime: ILanguageRuntime) => Promise<void>,
 	onActivateRuntime: (runtime: ILanguageRuntime) => Promise<void>
@@ -28,7 +28,7 @@ export const showInterpretersManagerModalPopup = async (
 	// Return a promise that resolves when the popup is done.
 	return new Promise<void>(resolve => {
 		// Create the modal popup React renderer.
-		const positronModalPopupReactRenderer = new PositronModalPopupReactRenderer(container);
+		const positronModalPopupReactRenderer = new PositronModalPopupReactRenderer(containerElement);
 
 		// The modal popup component.
 		const ModalPopup = () => {
@@ -55,6 +55,7 @@ export const showInterpretersManagerModalPopup = async (
 			// Render.
 			return (
 				<PositronModalPopup
+					containerElement={containerElement}
 					anchorElement={anchorElement}
 					popupPosition='bottom'
 					popupAlignment='right'

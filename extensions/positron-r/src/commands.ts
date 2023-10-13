@@ -24,10 +24,22 @@ export async function registerCommands(context: vscode.ExtensionContext, runtime
 		vscode.commands.registerCommand('r.insertPipe', () => {
 			const extConfig = vscode.workspace.getConfiguration('positron.r');
 			const pipeString = extConfig.get<string>('pipe') || '|>';
+			insertOperatorWithSpace(pipeString);
+		}),
+
+		// TODO: remove this hack when we can address the Console like an editor
+		vscode.commands.registerCommand('r.insertPipeConsole', () => {
+			const extConfig = vscode.workspace.getConfiguration('positron.r');
+			const pipeString = extConfig.get<string>('pipe') || '|>';
 			vscode.commands.executeCommand('type', { text: ` ${pipeString} ` });
 		}),
 
 		vscode.commands.registerCommand('r.insertLeftAssignment', () => {
+			insertOperatorWithSpace('<-');
+		}),
+
+		// TODO: remove this hack when we can address the Console like an editor
+		vscode.commands.registerCommand('r.insertLeftAssignmentConsole', () => {
 			vscode.commands.executeCommand('type', { text: ' <- ' });
 		}),
 
@@ -42,6 +54,8 @@ export async function registerCommands(context: vscode.ExtensionContext, runtime
 
 		vscode.commands.registerCommand('r.packageInstall', async () => {
 			const packageName = await getRPackageName();
+			const tasks = await getRPackageTasks();
+			const task = tasks.filter(task => task.definition.task === 'r.task.packageInstall')[0];
 			const runningRuntimes = await positron.runtime.getRunningRuntimes('r');
 			if (!runningRuntimes || !runningRuntimes.length) {
 				vscode.window.showWarningMessage('Cannot install package as there is no R interpreter running.');
@@ -49,30 +63,45 @@ export async function registerCommands(context: vscode.ExtensionContext, runtime
 			}
 			// For now, there will be only one running R runtime:
 			const runtime = runtimes.get(runningRuntimes[0].runtimeId);
+
 			if (runtime) {
-				const id = randomUUID();
-				runtime.execute('devtools::install()',
-					id,
-					positron.RuntimeCodeExecutionMode.Interactive,
-					positron.RuntimeErrorBehavior.Continue);
-				const disp1 = runtime.onDidReceiveRuntimeMessage(runtimeMessage => {
-					if (runtimeMessage.parent_id === id &&
-						runtimeMessage.type === positron.LanguageRuntimeMessageType.State) {
-						const runtimeMessageState = runtimeMessage as positron.LanguageRuntimeState;
-						if (runtimeMessageState.state === positron.RuntimeOnlineState.Idle) {
-							positron.runtime.restartLanguageRuntime(runtime.metadata.runtimeId);
-							disp1.dispose();
+				const execution = await vscode.tasks.executeTask(task);
+				const disp1 = vscode.tasks.onDidEndTaskProcess(async e => {
+					if (e.execution === execution) {
+						if (e.exitCode === 0) {
+							vscode.commands.executeCommand('workbench.panel.positronConsole.focus');
+							try {
+								await positron.runtime.restartLanguageRuntime(runtime.metadata.runtimeId);
+							} catch {
+								// If restarting promise rejects, dispose of listener:
+								disp1.dispose();
+							}
+
+							// A promise that resolves when the runtime is ready:
+							const promise = new Promise<void>(resolve => {
+								const disp2 = runtime.onDidChangeRuntimeState(runtimeState => {
+									if (runtimeState === positron.RuntimeState.Ready) {
+										resolve();
+										disp2.dispose();
+									}
+								});
+							});
+
+							// A promise that rejects after a timeout;
+							const timeout = new Promise<void>((_, reject) => {
+								setTimeout(() => {
+									reject(new Error('Timed out after 10 seconds waiting for R to be ready.'));
+								}, 1e4);
+							});
+
+							// Wait for the the runtime to be ready, or for the timeout:
+							await Promise.race([promise, timeout]);
+							runtime.execute(`library(${packageName})`,
+								randomUUID(),
+								positron.RuntimeCodeExecutionMode.Interactive,
+								positron.RuntimeErrorBehavior.Continue);
 						}
-					}
-				});
-				const disp2 = runtime.onDidChangeRuntimeState(async runtimeState => {
-					if (runtimeState === positron.RuntimeState.Starting) {
-						await delay(500);
-						runtime.execute(`library(${packageName})`,
-							randomUUID(),
-							positron.RuntimeCodeExecutionMode.Interactive,
-							positron.RuntimeErrorBehavior.Continue);
-						disp2.dispose();
+						disp1.dispose();
 					}
 				});
 			} else {
@@ -86,7 +115,7 @@ export async function registerCommands(context: vscode.ExtensionContext, runtime
 
 		vscode.commands.registerCommand('r.packageCheck', async () => {
 			const tasks = await getRPackageTasks();
-			const task = tasks.filter(task => task.name === 'Check R package')[0];
+			const task = tasks.filter(task => task.definition.task === 'r.task.packageCheck')[0];
 			vscode.tasks.executeTask(task);
 		}),
 
@@ -142,3 +171,35 @@ export async function registerCommands(context: vscode.ExtensionContext, runtime
 		}),
 	);
 }
+
+function insertOperatorWithSpace(op: string) {
+	// TODO: make this work in the Console too
+	if (!vscode.window.activeTextEditor) {
+		return;
+	}
+	const editor = vscode.window.activeTextEditor;
+	// make sure cursor ends up on RHS, even if selection was made right-to-left
+	editor.selections = editor.selections.map(s => new vscode.Selection(s.start, s.end));
+
+	return editor.edit(editBuilder => {
+		editor.selections.forEach(sel => {
+			const startPos = sel.start;
+			const endPos = sel.end;
+			const lineText = editor.document.lineAt(startPos).text;
+			let insertValue = op;
+
+			const precedingChar = lineText.charAt(startPos.character - 1);
+			if (!/\s/g.test(precedingChar)) {
+				insertValue = ' ' + insertValue;
+			}
+
+			const followingChar = lineText.charAt(endPos.character);
+			if (!/\s/g.test(followingChar)) {
+				insertValue = insertValue + ' ';
+			}
+
+			editBuilder.replace(sel, insertValue);
+		});
+	});
+}
+

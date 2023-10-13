@@ -9,7 +9,6 @@ import { Event, Emitter } from 'vs/base/common/event';
 import { ILogService } from 'vs/platform/log/common/log';
 import { IModelService } from 'vs/editor/common/services/model';
 import { IOpenerService } from 'vs/platform/opener/common/opener';
-import { IViewDescriptorService, IViewsService } from 'vs/workbench/common/views';
 import { IThemeService } from 'vs/platform/theme/common/themeService';
 import { ILanguageService } from 'vs/editor/common/languages/language';
 import { ICommandService } from 'vs/platform/commands/common/commands';
@@ -18,17 +17,18 @@ import { ITelemetryService } from 'vs/platform/telemetry/common/telemetry';
 import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
 import { IContextMenuService } from 'vs/platform/contextview/browser/contextView';
 import { IClipboardService } from 'vs/platform/clipboard/common/clipboardService';
+import { IViewDescriptorService, IViewsService } from 'vs/workbench/common/views';
 import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import { ViewPane, IViewPaneOptions } from 'vs/workbench/browser/parts/views/viewPane';
 import { IContextKey, IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
 import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/layoutService';
 import { PositronConsole } from 'vs/workbench/contrib/positronConsole/browser/positronConsole';
+import { IPositronPlotsService } from 'vs/workbench/services/positronPlots/common/positronPlots';
 import { ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { IReactComponentContainer, ISize, PositronReactRenderer } from 'vs/base/browser/positronReactRenderer';
 import { IExecutionHistoryService } from 'vs/workbench/contrib/executionHistory/common/executionHistoryService';
 import { IPositronConsoleService } from 'vs/workbench/services/positronConsole/common/interfaces/positronConsoleService';
-import { IPositronPlotsService } from 'vs/workbench/services/positronPlots/common/positronPlots';
 
 /**
  * PositronConsoleViewPane class.
@@ -86,7 +86,7 @@ export class PositronConsoleViewPane extends ViewPane implements IReactComponent
 	/**
 	 * Gets or sets the PositronConsoleFocused context key.
 	 */
-	private _positronConsoleFocusedContextKey: IContextKey<boolean> | undefined;
+	private _positronConsoleFocusedContextKey: IContextKey<boolean>;
 
 	//#endregion Private Properties
 
@@ -208,6 +208,9 @@ export class PositronConsoleViewPane extends ViewPane implements IReactComponent
 			themeService,
 			telemetryService);
 
+		// Bind the PositronConsoleFocused context key.
+		this._positronConsoleFocusedContextKey = PositronConsoleFocused.bindTo(contextKeyService);
+
 		// Register the onDidChangeBodyVisibility event handler.
 		this._register(this.onDidChangeBodyVisibility(visible => {
 			// The browser will automatically set scrollTop to 0 on child components that have been
@@ -228,12 +231,6 @@ export class PositronConsoleViewPane extends ViewPane implements IReactComponent
 	 * Dispose.
 	 */
 	public override dispose(): void {
-		// Destroy the PositronReactRenderer for the PositronConsole component.
-		if (this._positronReactRenderer) {
-			this._positronReactRenderer.destroy();
-			this._positronReactRenderer = undefined;
-		}
-
 		// Call the base class's method.
 		super.dispose();
 	}
@@ -256,6 +253,7 @@ export class PositronConsoleViewPane extends ViewPane implements IReactComponent
 
 		// Render the Positron console.
 		this._positronReactRenderer = new PositronReactRenderer(this._positronConsoleContainer);
+		this._register(this._positronReactRenderer);
 		this._positronReactRenderer.render(
 			<PositronConsole
 				clipboardService={this.clipboardService}
@@ -278,24 +276,14 @@ export class PositronConsoleViewPane extends ViewPane implements IReactComponent
 			/>
 		);
 
-		// Create the scoped context key service for the Positron console container.
-		const scopedContextKeyService = this._register(this.contextKeyService.createScoped(
-			this._positronConsoleContainer
-		));
-
-		// Create the PositronConsoleFocused context key.
-		this._positronConsoleFocusedContextKey = PositronConsoleFocused.bindTo(
-			scopedContextKeyService
-		);
-
 		// Create a focus tracker that updates the PositronConsoleFocused context key.
 		const focusTracker = DOM.trackFocus(this.element);
 		this._register(focusTracker);
 		this._register(focusTracker.onDidFocus(() =>
-			this._positronConsoleFocusedContextKey?.set(true)
+			this._positronConsoleFocusedContextKey.set(true)
 		));
 		this._register(focusTracker.onDidBlur(() =>
-			this._positronConsoleFocusedContextKey?.set(false)
+			this._positronConsoleFocusedContextKey.set(false)
 		));
 	}
 

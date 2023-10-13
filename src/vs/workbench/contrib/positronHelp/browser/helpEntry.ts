@@ -90,6 +90,20 @@ type PositronHelpMessageNavigate = {
 };
 
 /**
+ * PositronHelpMessageNavigateBackward type.
+ */
+type PositronHelpMessageNavigateBackward = {
+	readonly id: 'positron-help-navigate-backward';
+};
+
+/**
+ * PositronHelpMessageNavigateForward type.
+ */
+type PositronHelpMessageNavigateForward = {
+	readonly id: 'positron-help-navigate-forward';
+};
+
+/**
  * PositronHelpMessageScroll type.
  */
 type PositronHelpMessageScroll = {
@@ -145,6 +159,8 @@ type PositronHelpMessage =
 	| PositronHelpMessageInteractive
 	| PositronHelpMessageComplete
 	| PositronHelpMessageNavigate
+	| PositronHelpMessageNavigateBackward
+	| PositronHelpMessageNavigateForward
 	| PositronHelpMessageScroll
 	| PositronHelpMessageFindResult
 	| PositronHelpMessageContextMenu
@@ -175,6 +191,16 @@ export interface IHelpEntry {
 	 * The onDidNavigate event.
 	 */
 	readonly onDidNavigate: Event<String>;
+
+	/**
+	 * The onDidNavigateBackward event.
+	 */
+	readonly onDidNavigateBackward: Event<void>;
+
+	/**
+	 * The onDidNavigateForward event.
+	 */
+	readonly onDidNavigateForward: Event<void>;
 
 	/**
 	 * Shows the help overlay webiew.
@@ -251,6 +277,16 @@ export class HelpEntry extends Disposable implements IHelpEntry, WebviewFindDele
 	 * The onDidNavigate event emitter.
 	 */
 	private readonly _onDidNavigateEmitter = this._register(new Emitter<string>);
+
+	/**
+	 * The onDidNavigateBackward event emitter.
+	 */
+	private readonly _onDidNavigateBackwardEmitter = this._register(new Emitter<void>);
+
+	/**
+	 * The onDidNavigateForward event emitter.
+	 */
+	private readonly _onDidNavigateForwardEmitter = this._register(new Emitter<void>);
 
 	/**
 	 * The hasFindResult event emitter.
@@ -355,6 +391,16 @@ export class HelpEntry extends Disposable implements IHelpEntry, WebviewFindDele
 	readonly onDidNavigate = this._onDidNavigateEmitter.event;
 
 	/**
+	 * The onDidNavigateBackward event.
+	 */
+	readonly onDidNavigateBackward = this._onDidNavigateBackwardEmitter.event;
+
+	/**
+	 * The onDidNavigateForward event.
+	 */
+	readonly onDidNavigateForward = this._onDidNavigateForwardEmitter.event;
+
+	/**
 	 * Shows the help overlay webiew.
 	 * @param element The element over which to show the help overlay webiew.
 	 */
@@ -430,6 +476,16 @@ export class HelpEntry extends Disposable implements IHelpEntry, WebviewFindDele
 						}
 						break;
 					}
+
+					// positron-help-navigate-backward message.
+					case 'positron-help-navigate-backward':
+						this._onDidNavigateBackwardEmitter.fire();
+						break;
+
+					// positron-help-navigate-forward message.
+					case 'positron-help-navigate-forward':
+						this._onDidNavigateForwardEmitter.fire();
+						break;
 
 					// positron-help-scroll message.
 					case 'positron-help-scroll':

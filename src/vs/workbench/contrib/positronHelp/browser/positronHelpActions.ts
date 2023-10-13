@@ -77,7 +77,8 @@ export class ShowHelpAtCursor extends Action2 {
 					// Get help for the topic.
 					helpService.showHelpTopic(languageId, topic);
 				} else {
-					// It's normal to not find a help topic at the cursor.
+					// It's normal to not find a help topic at the cursor, but
+					// log a trace statement so we can tell we tried.
 					logService.trace(`No help topic at ${position} in ${model.uri}`);
 				}
 			} catch (err) {

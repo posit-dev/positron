@@ -47,7 +47,7 @@ const HelpLines = [
 	'ansi el 2      - Clears an entire line using EL',
 	'ansi hidden    - Displays hidden text',
 	'ansi rgb       - Displays RGB ANSI colors as foreground and background colors',
-	'busy X         - Simulates an interuptible busy state for X seconds, or 5 seconds if X is not specified',
+	'busy X Y       - Simulates an interuptible busy state for X seconds that takes Y seconds to interrupt (default X = 5, Y = 1)',
 	'code X Y       - Simulates a successful X line input with Y lines of output (where X >= 1 and Y >= 0)',
 	'crash          - Simulates a crash',
 	'env clear      - Clears all variables from the environment',
@@ -71,7 +71,7 @@ const HelpLines = [
 	'preview msg    - Sends a message to the preview pane',
 	'progress       - Renders a progress bar',
 	'restart        - Simulates orderly restart',
-	'shutdown       - Simulates orderly shutdown',
+	'shutdown X     - Simulates orderly shutdown, or sets the shutdown delay to X',
 	'static plot    - Renders a static plot (image)',
 	'view X         - Open a data viewer named X',
 	'version        - Shows the Zed version'
@@ -162,6 +162,19 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 	private _busyOperationId: string | undefined;
 
 	/**
+	 * The number of seconds it should take to interrupt a busy operation. This
+	 * is used to help simulate a state in which a runtime locks up during
+	 * execution.
+	 */
+	private _busyInterruptSeconds: number;
+
+	/**
+	 * The number of seconds by which a shutdown should be delayed. This is used
+	 * to help simulate a state in which a runtime locks up during shutdown.
+	 */
+	private _shutdownDelaySeconds: number;
+
+	/**
 	 * The current state of the runtime.
 	 */
 	private _state: positron.RuntimeState;
@@ -213,6 +226,12 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 		this._onDidChangeRuntimeState.event((state) => {
 			this._state = state;
 		});
+
+		// Default number of seconds it takes to interrupt a busy Zed runtime.
+		this._busyInterruptSeconds = 1;
+
+		// Default number of seconds it takes to shut down a Zed runtime.
+		this._shutdownDelaySeconds = 1;
 	}
 	//#endregion Constructor
 
@@ -357,11 +376,22 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 			const letter = (match.length > 1 && match[1]) ? match[1].trim().toUpperCase() : 'Z';
 			this.simulateDynamicPlot(id, letter, code);
 			return;
-		} else if (match = code.match(/^busy( [0-9]+)?/)) {
+		} else if (match = code.match(/^busy( [0-9]+)?( [0-9]+)?/)) {
 			// Simulate a busy state.
 			const duration = (match.length > 1 && match[1]) ? match[1].trim() : '5';
 			const durationSeconds = parseInt(duration, 10);
+			const interruptDuration = (match.length > 2 && match[2]) ? match[2].trim() : '1';
+			this._busyInterruptSeconds = parseInt(interruptDuration, 10);
 			this.simulateBusyOperation(id, durationSeconds, code);
+			return;
+		} else if (match = code.match(/^shutdown( [0-9]+)?/)) {
+			if (match.length > 1 && match[1]) {
+				// If the user specified a delay, set it.
+				this.setShutdownDelay(id, parseInt(match[1].trim(), 10), code);
+			} else {
+				// If the user didn't specify a delay, just shut down.
+				this.shutdown();
+			}
 			return;
 		} else if (match = code.match(/^view( .+)?/)) {
 			// Simulate a data viewer
@@ -811,11 +841,6 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 				break;
 			}
 
-			case 'shutdown': {
-				this.shutdown();
-				break;
-			}
-
 			case 'restart': {
 				this.restart();
 				break;
@@ -1013,15 +1038,13 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 				// Return to idle state.
 				this.simulateOutputMessage(this._busyOperationId, 'Interrupting...');
 
-				// It takes 1 second to interrupt a busy operation in Zed; this helps us
-				// see the interrupting state in the UI.
 				setTimeout(() => {
 					// Consider: what is the parent of the idle state message? Is it the operation
 					// we canceled, or is it the interrupt operation?
 					this.simulateOutputMessage(this._busyOperationId!, 'Interrupted.');
 					this.simulateIdleState(this._busyOperationId!);
 					this._busyOperationId = undefined;
-				}, 1000);
+				}, this._busyInterruptSeconds * 1000);
 			}
 
 			clearTimeout(this._busyTimer);
@@ -1063,6 +1086,14 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 		// Enter busy state to do shutdown processing.
 		this.simulateBusyState(parentId);
 
+		// Wait a bit to simulate shutdown processing.
+		await new Promise(resolve => setTimeout(resolve, 1000 * this._shutdownDelaySeconds));
+
+		// Did someone change the state on us during the delay? If so, we're not shutting down.
+		if (this._state !== positron.RuntimeState.Busy) {
+			return;
+		}
+
 		// Simulate closing all the open comms.
 		const enviromentIds = Array.from(this._environments.keys());
 		const plotIds = Array.from(this._plots.keys());
@@ -1093,6 +1124,7 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 	}
 
 	forceQuit(): Promise<void> {
+		clearTimeout(this._busyTimer);
 		// Simulate a force quit by immediately "exiting"
 		this._onDidChangeRuntimeState.fire(positron.RuntimeState.Exited);
 		this._onDidEndSession.fire({
@@ -1381,6 +1413,22 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 		}
 
 		// Return to idle state.
+		this.simulateIdleState(parentId);
+	}
+
+	/**
+	 * Sets the shutdown delay, in seconds, for the next shutdown operation.
+	 *
+	 * @param parentId The parent identifier.
+	 * @param delay The delay in seconds.
+	 * @param code The code.
+	 */
+	private setShutdownDelay(parentId: string, delay: number, code: string) {
+		// Enter busy state and output the code.
+		this.simulateBusyState(parentId);
+		this.simulateInputMessage(parentId, code);
+		this._shutdownDelaySeconds = delay;
+		this.simulateOutputMessage(parentId, `Shutdown delay set to ${delay} seconds.`);
 		this.simulateIdleState(parentId);
 	}
 
