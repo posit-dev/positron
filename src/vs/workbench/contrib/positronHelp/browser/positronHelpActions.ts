@@ -18,6 +18,7 @@ import { IPositronHelpService } from 'vs/workbench/contrib/positronHelp/browser/
 import { ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { IQuickInputService } from 'vs/platform/quickinput/common/quickInput';
 import { INotificationService } from 'vs/platform/notification/common/notification';
+import { ILanguageService } from 'vs/editor/common/languages/language';
 
 export class ShowHelpAtCursor extends Action2 {
 	constructor() {
@@ -111,14 +112,19 @@ export class LookupHelpTopic extends Action2 {
 		const runtimeService = accessor.get(ILanguageRuntimeService);
 		const quickInputService = accessor.get(IQuickInputService);
 		const notificationService = accessor.get(INotificationService);
+		const languageService = accessor.get(ILanguageService);
 
 		// Very likely the user's interested in a help topic for the language
 		// they're currently editing, so use that as the default.
+		let languageId = undefined;
 		const editor = editorService.activeTextEditorControl as IEditor;
-		const model = editor?.getModel() as ITextModel;
-		let languageId = model.getLanguageId();
+		if (editor) {
+			const model = editor.getModel() as ITextModel;
+			languageId = model.getLanguageId();
+		}
 
-		// If no language ID, try to get the language ID from the active runtime.
+		// If no language ID from an open eiditor, try to get the language ID
+		// from the active runtime.
 		if (!languageId) {
 			const runtime = runtimeService.activeRuntime;
 			if (runtime) {
@@ -130,9 +136,27 @@ export class LookupHelpTopic extends Action2 {
 			}
 		}
 
+		// Make sure we have a runtime for the language ID.
+		const runtimes = runtimeService.runningRuntimes;
+		let found = false;
+		for (const runtime of runtimes) {
+			if (runtime.metadata.languageId === languageId) {
+				found = true;
+				break;
+			}
+		}
+		if (!found) {
+			const message = localize('positron.help.noLanguage', "Open a file for the language you want to look up help topics for, or start an interpreter for that language.");
+			notificationService.info(message);
+			return;
+		}
+
+		// Look up the friendly name of the language ID
+		const languageName = languageService.getLanguageName(languageId);
+
 		// Prompt the user for a help topic.
 		const topic = await quickInputService.input({
-			prompt: localize('positron.help.enterHelpTopic', "Enter a help topic"),
+			prompt: localize('positron.help.enterHelpTopic', "Enter {0} help topic", languageName),
 			value: '',
 			ignoreFocusLost: true,
 			validateInput: async (value: string) => {
