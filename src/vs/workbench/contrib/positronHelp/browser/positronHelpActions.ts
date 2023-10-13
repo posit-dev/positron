@@ -15,6 +15,9 @@ import { KeybindingWeight } from 'vs/platform/keybinding/common/keybindingsRegis
 import { KeyCode } from 'vs/base/common/keyCodes';
 import { ServicesAccessor } from 'vs/platform/instantiation/common/instantiation';
 import { IPositronHelpService } from 'vs/workbench/contrib/positronHelp/browser/positronHelpService';
+import { ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { IQuickInputService } from 'vs/platform/quickinput/common/quickInput';
+import { INotificationService } from 'vs/platform/notification/common/notification';
 
 export class ShowHelpAtCursor extends Action2 {
 	constructor() {
@@ -85,6 +88,64 @@ export class ShowHelpAtCursor extends Action2 {
 				// If the provider throws an exception, log it and continue
 				logService.warn(`Failed to get help topic at ${position}: ${err}`);
 			}
+		}
+	}
+}
+
+export class LookupHelpTopic extends Action2 {
+	constructor() {
+		super({
+			id: 'positron.help.lookupHelpTopic',
+			title: {
+				value: localize('positron.help.lookupHelpTopic', 'Look Up Help Topic'),
+				original: 'Look Up Help Topic'
+			},
+			category: Categories.Help,
+			f1: true
+		});
+	}
+
+	async run(accessor: ServicesAccessor): Promise<void> {
+		const editorService = accessor.get(IEditorService);
+		const helpService = accessor.get(IPositronHelpService);
+		const runtimeService = accessor.get(ILanguageRuntimeService);
+		const quickInputService = accessor.get(IQuickInputService);
+		const notificationService = accessor.get(INotificationService);
+
+		// Very likely the user's interested in a help topic for the language
+		// they're currently editing, so use that as the default.
+		const editor = editorService.activeTextEditorControl as IEditor;
+		const model = editor?.getModel() as ITextModel;
+		let languageId = model.getLanguageId();
+
+		// If no language ID, try to get the language ID from the active runtime.
+		if (!languageId) {
+			const runtime = runtimeService.activeRuntime;
+			if (runtime) {
+				languageId = runtime.metadata.languageId;
+			} else {
+				const message = localize('positron.help.noInterpreters', "There are no interpreters running. Start an interpreter to look up help topics.");
+				notificationService.info(message);
+				return;
+			}
+		}
+
+		// Prompt the user for a help topic.
+		const topic = await quickInputService.input({
+			prompt: localize('positron.help.enterHelpTopic', "Enter a help topic"),
+			value: '',
+			ignoreFocusLost: true,
+			validateInput: async (value: string) => {
+				if (value.length === 0) {
+					return localize('positron.help.noTopic', "No help topic provided.");
+				}
+				return undefined;
+			}
+		});
+
+		// If the user entered a topic, show it.
+		if (topic) {
+			helpService.showHelpTopic(languageId, topic);
 		}
 	}
 }
