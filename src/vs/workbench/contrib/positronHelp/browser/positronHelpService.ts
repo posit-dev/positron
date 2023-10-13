@@ -91,8 +91,9 @@ export interface IPositronHelpService {
 	 *
 	 * @param languageId The language ID. A runtime for this language must be active.
 	 * @param topic The help topic.
+	 * @returns A boolean indicating whether help was found for the requested topic.
 	 */
-	showHelpTopic(languageId: string, topic: string): void;
+	showHelpTopic(languageId: string, topic: string): Promise<boolean>;
 
 	/**
 	 * Navigates the help service.
@@ -223,17 +224,18 @@ class PositronHelpService extends Disposable implements IPositronHelpService {
 	 *
 	 * @param languageId The language ID. A runtime for this language must be active.
 	 * @param topic The help topic.
+	 * @returns A boolean indicating whether help was found for the requested topic.
 	 */
-	showHelpTopic(languageId: string, topic: string): void {
+	showHelpTopic(languageId: string, topic: string): Promise<boolean> {
 		const clients = this._helpClients.values();
 		for (const client of clients) {
 			if (client.languageId === languageId) {
-				client.showHelpTopic(topic);
-				return;
+				return client.showHelpTopic(topic);
 			}
 		}
 		this._logService.warn(`Can't show help for ${topic}: ` +
 			`no runtime for language ${languageId} is active.`);
+		return Promise.resolve(false);
 	}
 
 	/**

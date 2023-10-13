@@ -123,7 +123,7 @@ export class LookupHelpTopic extends Action2 {
 			languageId = model.getLanguageId();
 		}
 
-		// If no language ID from an open eiditor, try to get the language ID
+		// If no language ID from an open editor, try to get the language ID
 		// from the active runtime.
 		if (!languageId) {
 			const runtime = runtimeService.activeRuntime;
@@ -169,7 +169,12 @@ export class LookupHelpTopic extends Action2 {
 
 		// If the user entered a topic, show it.
 		if (topic) {
-			helpService.showHelpTopic(languageId, topic);
+			const found = helpService.showHelpTopic(languageId, topic);
+			if (!found) {
+				const message = localize('positron.help.helpTopicNotFound', "No help found for '{0}'.", topic);
+				notificationService.info(message);
+				return;
+			}
 		}
 	}
 }

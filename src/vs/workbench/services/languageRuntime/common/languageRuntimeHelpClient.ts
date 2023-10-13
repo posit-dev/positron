@@ -33,6 +33,7 @@ export interface IHelpClientMessageShowHelpTopic extends IHelpClientMessageInput
  */
 export enum HelpMessageTypeOutput {
 	ShowHelp = 'show_help',
+	HelpTopicReply = 'help_topic_reply',
 }
 
 /**
@@ -61,6 +62,13 @@ export interface ShowHelpEvent {
  */
 export interface IHelpClientMessageShowHelp
 	extends IHelpClientMessageOutput, ShowHelpEvent {
+}
+
+/**
+ * A reply to a help topic request.
+ */
+export interface IHelpClientMessageHelpTopicReply extends IHelpClientMessageOutput {
+	found: boolean;
 }
 
 /**
@@ -102,16 +110,25 @@ export class HelpClientInstance extends Disposable {
 	}
 
 	/**
-	 * Requests that the given help topic be shown in the Help pane.
+	 * Requests that the given help topic be shown in the Help pane. If the
+	 * topic was found, a 'show_help' event will be emitted.
 	 *
 	 * @param topic The topic to show in the Help pane.
+	 * @returns A promise that resolves to 'true' if the topic was found, and
+	 *   'false' otherwise.
 	 */
-	showHelpTopic(topic: string) {
+	async showHelpTopic(topic: string): Promise<boolean> {
 		const req: IHelpClientMessageShowHelpTopic = {
 			msg_type: HelpMessageTypeInput.ShowHelpTopic,
 			topic
 		};
-		this._client.performRpc(req);
+		const result = await this._client.performRpc(req);
+		if (result.msg_type === HelpMessageTypeOutput.HelpTopicReply) {
+			const reply = result as IHelpClientMessageHelpTopicReply;
+			return reply.found;
+		} else {
+			throw new Error(`Unexpected message type: ${result.msg_type}`);
+		}
 	}
 
 	onDidEmitHelpContent: Event<ShowHelpEvent>;
