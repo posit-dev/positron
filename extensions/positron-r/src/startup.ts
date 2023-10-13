@@ -24,8 +24,15 @@ export class ArkAttachOnStartup {
 
 		fs.writeFileSync(this._delayFile!, 'create\n');
 
-		args.push('--startup-notifier-file');
-		args.push(this._delayFile);
+		// Push before the `--`, if there is one, because that is a catch all that forwards
+		// everything after it straight to R
+		let loc = args.findIndex((elt) => elt === '--');
+
+		if (loc === -1) {
+			loc = args.length;
+		}
+
+		args.splice(loc, 0, '--startup-notifier-file', this._delayFile);
 	}
 
 	// This is paired with `init()` and disposes of created resources
@@ -51,7 +58,14 @@ export class ArkDelayStartup {
 	// Add `--startup-delay` argument to pass a delay in
 	// seconds before starting up the kernel
 	init(args: Array<String>, delay: number) {
-		args.push('--startup-delay');
-		args.push(delay.toString());
+		// Push before the `--`, if there is one, because that is a catch all that forwards
+		// everything after it straight to R
+		let loc = args.findIndex((elt) => elt === '--');
+
+		if (loc === -1) {
+			loc = args.length;
+		}
+
+		args.splice(loc, 0, '--startup-delay', delay.toString());
 	}
 }
