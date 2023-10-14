@@ -69,10 +69,9 @@ export class ThrottledEmitter<T> extends Emitter<T> {
 	//#region Public Methods
 
 	/**
-	 * Records a new event.
-	 * @returns
+	 * Fires the event.
 	 */
-	public override fire(event: T): void {
+	public override fire(event: T) {
 		// Update the throttle history.
 		const now = Date.now();
 		const cutoff = now - this._throttleInterval;
