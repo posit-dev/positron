@@ -127,7 +127,7 @@ export interface IPositronConsoleInstance {
 	/**
 	 * The onDidChangeRuntimeItems event.
 	 */
-	readonly onDidChangeRuntimeItems: Event<RuntimeItem[]>;
+	readonly onDidChangeRuntimeItems: Event<void>;
 
 	/**
 	 * The onDidPasteText event.

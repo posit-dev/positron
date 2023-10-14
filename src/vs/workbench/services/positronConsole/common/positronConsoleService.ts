@@ -32,6 +32,11 @@ import { ActivityItem, RuntimeItemActivity } from 'vs/workbench/services/positro
 import { ActivityItemInput, ActivityItemInputState } from 'vs/workbench/services/positronConsole/common/classes/activityItemInput';
 import { IPositronConsoleInstance, IPositronConsoleService, POSITRON_CONSOLE_VIEW_ID, PositronConsoleState } from 'vs/workbench/services/positronConsole/common/interfaces/positronConsoleService';
 import { formatLanguageRuntime, ILanguageRuntime, ILanguageRuntimeExit, ILanguageRuntimeMessage, ILanguageRuntimeService, LanguageRuntimeStartupBehavior, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeExitReason, RuntimeOnlineState, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ThrottledEmitter } from 'vs/workbench/services/positronConsole/common/classes/throttledEmitter';
+
+// Constants.
+const ON_DID_CHANGE_RUNTIME_ITEMS_THROTTLE_THRESHOLD = 20;
+const ON_DID_CHANGE_RUNTIME_ITEMS_THROTTLE_INTERVAL = 50;
 
 //#region Helper Functions
 
@@ -479,9 +484,12 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	private readonly _onDidChangeWordWrapEmitter = this._register(new Emitter<boolean>);
 
 	/**
-	 * The onDidChangeRuntimeItems event emitter.
+	 * The onDidChangeRuntimeItems throttled event emitter.
 	 */
-	private readonly _onDidChangeRuntimeItemsEmitter = this._register(new Emitter<RuntimeItem[]>);
+	private readonly _onDidChangeRuntimeItemsEmitter = this._register(new ThrottledEmitter<void>(
+		ON_DID_CHANGE_RUNTIME_ITEMS_THROTTLE_THRESHOLD,
+		ON_DID_CHANGE_RUNTIME_ITEMS_THROTTLE_INTERVAL
+	));
 
 	/**
 	 * The onDidPasteText event emitter.
@@ -711,7 +719,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	clearConsole() {
 		this._runtimeItems = [];
 		this._runtimeItemActivities.clear();
-		this._onDidChangeRuntimeItemsEmitter.fire(this._runtimeItems);
+		this._onDidChangeRuntimeItemsEmitter.fire();
 		this._onDidClearConsoleEmitter.fire();
 	}
 
@@ -924,7 +932,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 									`${this._runtime.metadata.runtimeName} ` +
 									`${runtimeItem.isRestart ? 'restarted' : 'started'}.`
 								);
-								this._onDidChangeRuntimeItemsEmitter.fire(this._runtimeItems);
+								this._onDidChangeRuntimeItemsEmitter.fire();
 							}
 						}
 						break;
@@ -1522,7 +1530,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 
 		// If we removed buttons, fire the runtime items changed event.
 		if (this._runtimeItems.length !== itemCount) {
-			this._onDidChangeRuntimeItemsEmitter.fire(this._runtimeItems);
+			this._onDidChangeRuntimeItemsEmitter.fire();
 		}
 	}
 
@@ -1592,7 +1600,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 				}
 
 				// Fire the runtime items changed event once, now, after everything is set up.
-				this._onDidChangeRuntimeItemsEmitter.fire(this._runtimeItems);
+				this._onDidChangeRuntimeItemsEmitter.fire();
 
 				// Execute the code fragment.
 				this.runtime.execute(
@@ -1610,7 +1618,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 		}
 
 		// Fire the onDidExecuteCode event because we removed the pending input runtime item.
-		this._onDidChangeRuntimeItemsEmitter.fire(this._runtimeItems);
+		this._onDidChangeRuntimeItemsEmitter.fire();
 
 		// The pending input line(s) now become the pending code.
 		this.setPendingCode(pendingInputLines.join('\n'));
@@ -1686,8 +1694,8 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 			this._runtimeItemActivities.set(runtimeItem.id, runtimeItem);
 		}
 
-		// Fire the runtime items changed event.
-		this._onDidChangeRuntimeItemsEmitter.fire(this._runtimeItems);
+		// Fire the onDidChangeRuntimeItems event.
+		this._onDidChangeRuntimeItemsEmitter.fire();
 	}
 
 	//#endregion Private Methods
