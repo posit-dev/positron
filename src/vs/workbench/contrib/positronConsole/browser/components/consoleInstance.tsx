@@ -118,7 +118,7 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 	 * @param text The text to paste.
 	 */
 	const pasteText = (text: string) => {
-		scrollVertically(consoleInstanceRef.current.scrollHeight);
+		scrollToBottom();
 		props.positronConsoleInstance.pasteText(text);
 	};
 
@@ -334,8 +334,9 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 
 		// Calculates the page height.
 		const pageHeight = () =>
-			Math.floor(
-				consoleInstanceRef.current.clientHeight / editorFontInfo.lineHeight
+			Math.max(
+				Math.floor(consoleInstanceRef.current.clientHeight / editorFontInfo.lineHeight) - 1,
+				1
 			) * editorFontInfo.lineHeight;
 
 		// Handle the key.
@@ -366,16 +367,12 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 				// End key.
 				case 'End':
 					consumeEvent();
-					setScrollLock(false);
-					setIgnoreNextScrollEvent(true);
-					scrollVertically(consoleInstanceRef.current.scrollHeight);
+					scrollToBottom();
 					break;
 
 				// Any other key gets driven to the input.
 				default: {
-					setScrollLock(false);
-					setIgnoreNextScrollEvent(true);
-					scrollVertically(consoleInstanceRef.current.scrollHeight);
+					scrollToBottom();
 					props.positronConsoleInstance.focusInput();
 					break;
 				}
@@ -514,6 +511,13 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 	// Determines whether the console is scrollable.
 	const scrollable = () =>
 		consoleInstanceRef.current.scrollHeight > consoleInstanceRef.current.clientHeight;
+
+	// Scrolls to the bottom.
+	const scrollToBottom = () => {
+		setScrollLock(false);
+		setIgnoreNextScrollEvent(true);
+		scrollVertically(consoleInstanceRef.current.scrollHeight);
+	};
 
 	// Scrolls the console vertically.
 	const scrollVertically = (y: number) => {
