@@ -299,7 +299,8 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 			// Establish a log channel for the kernel we're connecting to, if we
 			// don't already have one (we will if we're restarting)
 			if (!this._logChannel) {
-				this._logChannel = vscode.window.createOutputChannel(`Runtime: ${this._spec.display_name}`);
+				// @ts-ignore - Hidden API entry
+				this._logChannel = vscode.window.createRawLogOutputChannel(`Runtime: ${this._spec.display_name}`);
 			}
 
 			// Bind to the Jupyter session
@@ -322,7 +323,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 			// file.
 			const logFilePath = this._session!.state.logFile;
 			if (fs.existsSync(logFilePath)) {
-				this.streamLogFileToChannel(logFilePath, this._spec.language, this._logChannel);
+				this.streamLogFileToChannel(logFilePath, this._spec.language, this._logChannel!);
 			}
 
 			// Connect to the kernel's sockets; wait for all sockets to connect before continuing

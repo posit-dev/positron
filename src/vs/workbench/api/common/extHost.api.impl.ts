@@ -762,6 +762,13 @@ export function createApiFactoryAndRegisterActors(accessor: ServicesAccessor): I
 			createOutputChannel(name: string, options: string | { log: true } | undefined): any {
 				return extHostOutputService.createOutputChannel(name, options, extension);
 			},
+			// --- Start Positron ---
+			// This is a hidden API entry, don't expect it in the public `vscode.window`
+			// @ts-ignore
+			createRawLogOutputChannel(name: string): any {
+				return extHostOutputService.createRawLogOutputChannel(name, extension);
+			},
+			// --- End Positron ---
 			createWebviewPanel(viewType: string, title: string, showOptions: vscode.ViewColumn | { viewColumn: vscode.ViewColumn; preserveFocus?: boolean }, options?: vscode.WebviewPanelOptions & vscode.WebviewOptions): vscode.WebviewPanel {
 				return extHostWebviewPanels.createWebviewPanel(extension, viewType, title, showOptions, options);
 			},
