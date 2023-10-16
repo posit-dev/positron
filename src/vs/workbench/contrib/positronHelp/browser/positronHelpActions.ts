@@ -9,9 +9,7 @@ import { IEditor } from 'vs/editor/common/editorCommon';
 import { ITextModel } from 'vs/editor/common/model';
 import { ILanguageFeaturesService } from 'vs/editor/common/services/languageFeatures';
 import { CancellationToken } from 'vs/base/common/cancellation';
-import { ILogService } from 'vs/platform/log/common/log';
 import { Action2 } from 'vs/platform/actions/common/actions';
-import { KeybindingWeight } from 'vs/platform/keybinding/common/keybindingsRegistry';
 import { KeyCode } from 'vs/base/common/keyCodes';
 import { ServicesAccessor } from 'vs/platform/instantiation/common/instantiation';
 import { IPositronHelpService } from 'vs/workbench/contrib/positronHelp/browser/positronHelpService';
@@ -19,6 +17,8 @@ import { ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/c
 import { IQuickInputService } from 'vs/platform/quickinput/common/quickInput';
 import { INotificationService } from 'vs/platform/notification/common/notification';
 import { ILanguageService } from 'vs/editor/common/languages/language';
+import { KeybindingWeight } from 'vs/platform/keybinding/common/keybindingsRegistry';
+import { EditorContextKeys } from 'vs/editor/common/editorContextKeys';
 
 export class ShowHelpAtCursor extends Action2 {
 	constructor() {
@@ -29,8 +29,11 @@ export class ShowHelpAtCursor extends Action2 {
 				original: 'Show Help at Cursor'
 			},
 			keybinding: {
-				weight: KeybindingWeight.WorkbenchContrib,
-				primary: KeyCode.F1
+				// Use "EditorCore" keybinding weight (0, the most assertive) so
+				// we can ensure we get the valuable F1 keybinding for Help.
+				weight: KeybindingWeight.EditorCore,
+				primary: KeyCode.F1,
+				when: EditorContextKeys.focus
 			},
 			category: Categories.Help,
 			f1: true
@@ -41,7 +44,8 @@ export class ShowHelpAtCursor extends Action2 {
 		const editorService = accessor.get(IEditorService);
 		const helpService = accessor.get(IPositronHelpService);
 		const languageFeaturesService = accessor.get(ILanguageFeaturesService);
-		const logService = accessor.get(ILogService);
+		const notificationService = accessor.get(INotificationService);
+		const languageService = accessor.get(ILanguageService);
 
 		// Look up the active editor
 		const editor = editorService.activeTextEditorControl as IEditor;
@@ -69,25 +73,25 @@ export class ShowHelpAtCursor extends Action2 {
 					position,
 					CancellationToken.None);
 
-				if (typeof topic === 'string' && topic.length > 0) {
-					// Determine the language ID at the cursor position.
-					//
-					// Consider: Should the language ID be provided by the help
-					// topic provider instead?
-					const languageId = model.getLanguageIdAtPosition(
-						position.lineNumber,
-						position.column);
+				// Determine the language ID at the cursor position.
+				//
+				// Consider: Should the language ID be provided by the help
+				// topic provider instead? (Seems more flexible for multi-modal
+				// docs?)
+				const languageId = model.getLanguageIdAtPosition(
+					position.lineNumber,
+					position.column);
 
+				if (typeof topic === 'string' && topic.length > 0) {
 					// Get help for the topic.
 					helpService.showHelpTopic(languageId, topic);
 				} else {
-					// It's normal to not find a help topic at the cursor, but
-					// log a trace statement so we can tell we tried.
-					logService.trace(`No help topic at ${position} in ${model.uri}`);
+					const languageName = languageService.getLanguageName(languageId);
+					notificationService.info(localize('positron.help.noHelpTopic', "No {0} help is available at this location.", languageName));
 				}
 			} catch (err) {
 				// If the provider throws an exception, log it and continue
-				logService.warn(`Failed to get help topic at ${position}: ${err}`);
+				notificationService.warn(localize('positron.help.helpTopicError', "An error occurred while looking up the help topic: {0}", err.message));
 			}
 		}
 	}
