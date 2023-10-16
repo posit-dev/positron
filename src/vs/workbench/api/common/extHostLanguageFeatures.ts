@@ -1643,7 +1643,7 @@ class HelpTopicAdapter {
 		const position = typeConvert.Position.to(pos);
 
 		// Ask the provider for the help topic
-		const topic = this._provider.provideHelpTopic(document, position, token);
+		const topic = await this._provider.provideHelpTopic(document, position, token);
 
 		// If a help topic was returned, return it
 		if (typeof topic === 'string') {

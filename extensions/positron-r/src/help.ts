@@ -43,10 +43,7 @@ export class RHelpTopicProvider implements positron.HelpTopicProvider {
 			position: this._client.code2ProtocolConverter.asPosition(position)
 		};
 
-		const response = this._client.sendRequest(HelpTopicRequest.type, params, token);
-
-		return response.then(data => {
-			return data?.topic;
-		});
+		const response = await this._client.sendRequest(HelpTopicRequest.type, params, token);
+		return response?.topic;
 	}
 }
