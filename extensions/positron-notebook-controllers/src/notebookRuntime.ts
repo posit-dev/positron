@@ -1,29 +1,43 @@
 /*---------------------------------------------------------------------------------------------
  *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
+import * as vscode from 'vscode';
 import * as positron from 'positron';
 
 /**
  * Wraps a Positron language runtime for a notebook session.
  */
-export class NotebookRuntime {
+export class NotebookRuntime implements vscode.Disposable {
+
+	private disposables: vscode.Disposable[] = [];
 
 	// Current cell execution order.
 	public executionOrder: number = 0;
 
-	// Promise that resolves when the runtime has started.
-	private startPromise: Thenable<positron.LanguageRuntimeInfo> | undefined;
+	// The language runtime's state.
+	private state: positron.RuntimeState = positron.RuntimeState.Uninitialized;
 
 	/**
 	 * @param runtime Positron language runtime for the notebook.
 	 */
-	constructor(public runtime: positron.LanguageRuntime) {
+	constructor(private readonly runtime: positron.LanguageRuntime) {
+		this.disposables.push(runtime);
+
+		// Track the language runtime's state.
+		this.disposables.push(this.runtime.onDidChangeRuntimeState((state) => {
+			this.state = state;
+		}));
 	}
 
 	onDidReceiveRuntimeMessage = this.runtime.onDidReceiveRuntimeMessage;
+	onDidChangeRuntimeState = this.runtime.onDidChangeRuntimeState;
 
 	get metadata(): positron.LanguageRuntimeMetadata {
 		return this.runtime.metadata;
+	}
+
+	getState(): positron.RuntimeState {
+		return this.state;
 	}
 
 	/**
@@ -32,10 +46,7 @@ export class NotebookRuntime {
 	 * @returns Promise that resolves when the runtime has started.
 	 */
 	async start(): Promise<positron.LanguageRuntimeInfo> {
-		if (this.startPromise === undefined) {
-			this.startPromise = this.runtime.start();
-		}
-		return this.startPromise;
+		return this.runtime.start();
 	}
 
 	async shutdown(): Promise<void> {
@@ -51,6 +62,6 @@ export class NotebookRuntime {
 	}
 
 	dispose(): void {
-		this.runtime.dispose();
+		this.disposables.forEach(d => d.dispose());
 	}
 }

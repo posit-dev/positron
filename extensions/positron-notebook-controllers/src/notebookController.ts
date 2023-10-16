@@ -126,9 +126,6 @@ export class NotebookController implements vscode.Disposable {
 			throw new Error(`Tried to execute cell in notebook without a runtime: ${cell.notebook.uri.path}`);
 		}
 
-		// Ensure that the notebook runtime has started.
-		await runtime.start();
-
 		// Create a cell execution.
 		const currentExecution = this.controller.createNotebookCellExecution(cell);
 
@@ -145,6 +142,46 @@ export class NotebookController implements vscode.Disposable {
 
 		// Clear any existing outputs.
 		currentExecution.clearOutput().then(noop, noop);
+
+		// Ensure that the notebook runtime has started before trying to execute code.
+		if (runtime.getState() !== positron.RuntimeState.Idle) {
+			try {
+				// Await a promise that resolves when the runtime enters the 'idle' state.
+				await new Promise<void>((resolve, reject) => {
+					// Set a timer to reject the promise if we don't observe an 'idle' runtime state
+					// within 5 seconds.
+					const timeout = setTimeout(() => {
+						disposable.dispose();
+
+						reject(`Timed out waiting 5 seconds for kernel to start.`);
+					}, 5000);
+
+					// Resolve the promise when the runtime enters the 'idle' state.
+					const disposable = runtime.onDidChangeRuntimeState((state) => {
+						if (state === positron.RuntimeState.Idle) {
+							clearTimeout(timeout);
+							disposable.dispose();
+							resolve();
+						}
+					});
+				});
+			} catch (e) {
+				// Display the error as a cell output.
+				currentExecution.appendOutput(new vscode.NotebookCellOutput([
+					vscode.NotebookCellOutputItem.error({
+						name: 'Runtime Error',
+						message: e.toString(),
+						stack: '',
+					})
+				])).then(noop, noop);
+
+				// End the execution as unsuccessful.
+				currentExecution.end(false, Date.now());
+
+				// Exit early.
+				return;
+			}
+		}
 
 		// Create a promise that resolves when the cell execution is complete i.e. when the runtime
 		// receives an error or status idle reply message.
