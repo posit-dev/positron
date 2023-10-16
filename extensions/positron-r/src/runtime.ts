@@ -9,6 +9,7 @@ import PQueue from 'p-queue';
 import { JupyterAdapterApi, JupyterKernelSpec, JupyterLanguageRuntime, JupyterKernelExtra } from './jupyter-adapter';
 import { ArkLsp, LspState } from './lsp';
 import { delay } from './util';
+import { ArkAttachOnStartup, ArkDelayStartup } from './startup';
 
 export let lastRuntimePath = '';
 
@@ -182,8 +183,8 @@ export class RRuntime implements positron.LanguageRuntime, vscode.Disposable {
 			this.context,
 			kernelSpec,
 			metadata,
-			this.dynState,
-			this.extra,
+			{ ...this.dynState },
+			createJupyterKernelExtra(),
 			notebook);
 	}
 
@@ -265,4 +266,11 @@ export class RRuntime implements positron.LanguageRuntime, vscode.Disposable {
 			}
 		}
 	}
+}
+
+export function createJupyterKernelExtra(): JupyterKernelExtra {
+	return {
+		attachOnStartup: new ArkAttachOnStartup(),
+		sleepOnStartup: new ArkDelayStartup(),
+	};
 }

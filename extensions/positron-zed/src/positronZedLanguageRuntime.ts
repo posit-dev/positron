@@ -1103,7 +1103,7 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 		return Promise.resolve();
 	}
 
-	clone(metadata: positron.LanguageRuntimeMetadata): positron.LanguageRuntime {
+	clone(metadata: positron.LanguageRuntimeMetadata, _notebook: vscode.NotebookDocument): positron.LanguageRuntime {
 		return new PositronZedLanguageRuntime(this.context, metadata.runtimeId, metadata.languageVersion);
 	}
 
