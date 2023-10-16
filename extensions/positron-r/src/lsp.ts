@@ -86,6 +86,9 @@ export class ArkLsp implements vscode.Disposable {
 		};
 
 		const clientOptions: LanguageClientOptions = {
+			// If this client belongs to a notebook, set the document selector to only include that notebook.
+			// Otherwise, this is the main client for this language, so set the document selector to include
+			// untitled R files, in-memory R files (e.g. the console), and R files on disk.
 			documentSelector: this._notebook ?
 				[{ language: 'r', pattern: this._notebook.uri.path }] :
 				[
