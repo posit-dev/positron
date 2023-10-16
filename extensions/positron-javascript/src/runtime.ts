@@ -172,6 +172,8 @@ export class JavascriptLanguageRuntime implements positron.LanguageRuntime {
 		this._onDidChangeRuntimeState.fire(positron.RuntimeState.Initializing);
 		this._onDidChangeRuntimeState.fire(positron.RuntimeState.Starting);
 		this._onDidChangeRuntimeState.fire(positron.RuntimeState.Ready);
+		this._onDidChangeRuntimeState.fire(positron.RuntimeState.Busy);
+		this._onDidChangeRuntimeState.fire(positron.RuntimeState.Idle);
 
 		const runtimeInfo: positron.LanguageRuntimeInfo = {
 			banner: `Welcome to Node.js ${process.version}.`,
