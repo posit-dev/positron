@@ -2,20 +2,9 @@
  *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
+import { generateUuid } from 'vs/base/common/uuid';
+
 //#region Exports
-
-/**
- * The counter used to generate identifiers.
- */
-let counter = 0;
-
-/**
- * Generates an identifier.
- * @returns The identifier.
- */
-const generateId = () => {
-	return `${++counter}`.padStart(16, '0');
-};
 
 /**
  * ANSIStyle enumeration.
@@ -1780,14 +1769,14 @@ class OutputRun implements ANSIOutputRun {
 	private _id = generateId();
 
 	/**
-	 * Gets the SGR state.
-	 */
-	private readonly _sgrState?: SGRState;
-
-	/**
 	 * Gets or sets the text.
 	 */
 	private _text: string;
+
+	/**
+	 * Gets the SGR state.
+	 */
+	private readonly _sgrState?: SGRState;
 
 	//#endregion Private Properties
 
@@ -1877,6 +1866,14 @@ class OutputRun implements ANSIOutputRun {
 //#endregion Private Classes
 
 //#region Helper Functions
+
+/**
+ * Generates an identifier.
+ * @returns The identifier.
+ */
+const generateId = () => {
+	return generateUuid();
+};
 
 /**
  * Gets and ranges a parameter value.
