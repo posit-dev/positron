@@ -80,7 +80,7 @@ export class LanguageRuntimeAdapter
 		private readonly _spec: JupyterKernelSpec,
 		readonly metadata: positron.LanguageRuntimeMetadata,
 		public dynState: positron.LanguageRuntimeDynState,
-		private readonly extra?: JupyterKernelExtra,
+		extra?: JupyterKernelExtra,
 	) {
 		this._kernel = new JupyterKernel(
 			this._context,
@@ -329,22 +329,10 @@ export class LanguageRuntimeAdapter
 		this._kernel.showOutput();
 	}
 
-	/**
-	 * Create a new instance of the runtime.
-	 *
-	 * @param metadata The metadata for the new runtime instance.
-	 * @returns A new runtime instance.
-	 */
-	public clone(metadata: positron.LanguageRuntimeMetadata): positron.LanguageRuntime {
-		const spec: JupyterKernelSpec = { ...this._spec, display_name: metadata.languageName };
-		return new LanguageRuntimeAdapter(
-			this._context,
-			this._channel,
-			spec,
-			metadata,
-			this.dynState,
-			this.extra
-		);
+	public clone(_metadata: positron.LanguageRuntimeMetadata, _notebook: vscode.NotebookDocument): positron.LanguageRuntime {
+		// The clone method is a temporary workaround and should only be called on
+		// language pack LanguageRuntime implementations.
+		throw new Error(`LanguageRuntimeAdapter does not support cloning.`);
 	}
 
 	/**
