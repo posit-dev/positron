@@ -81,12 +81,16 @@ export class ShowHelpAtCursor extends Action2 {
 				const languageId = model.getLanguageIdAtPosition(
 					position.lineNumber,
 					position.column);
+				const languageName = languageService.getLanguageName(languageId);
 
 				if (typeof topic === 'string' && topic.length > 0) {
 					// Get help for the topic.
-					helpService.showHelpTopic(languageId, topic);
+					const found = await helpService.showHelpTopic(languageId, topic);
+					if (!found) {
+						notificationService.info(localize('positron.help.helpTopicNotFound', "No {0} help available for '{1}'", languageName, topic));
+					}
+
 				} else {
-					const languageName = languageService.getLanguageName(languageId);
 					notificationService.info(localize('positron.help.noHelpTopic', "No {0} help is available at this location.", languageName));
 				}
 			} catch (err) {
@@ -175,7 +179,7 @@ export class LookupHelpTopic extends Action2 {
 		if (topic) {
 			const found = helpService.showHelpTopic(languageId, topic);
 			if (!found) {
-				const message = localize('positron.help.helpTopicNotFound', "No help found for '{0}'.", topic);
+				const message = localize('positron.help.helpTopicUnavailable', "No help found for '{0}'.", topic);
 				notificationService.info(message);
 				return;
 			}
