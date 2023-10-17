@@ -120,6 +120,7 @@ export const DataPanel = (props: DataPanelProps) => {
 		// Overwrite fetchSize so that we never request rows past the end of the dataset
 		fetchSize = Math.min(fetchSize, totalRows - startRow);
 
+<<<<<<< HEAD
 		// Request more rows from the server if we don't have them in the cache
 		if (startRow > 0 && !dataModel.renderedRows.includes(startRow)) {
 			// Don't send duplicate requests

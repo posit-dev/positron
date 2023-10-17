@@ -37,6 +37,7 @@ export class ZedData implements DataSet {
 
 	public readonly id: string;
 	public readonly columns: Array<ZedColumn> = [];
+	private request_processing?: number;
 
 	/**
 	 * Create a new ZedData instance
@@ -46,7 +47,7 @@ export class ZedData implements DataSet {
 	 * @param colCount The number of columns
 	 */
 	constructor(readonly title: string,
-		public readonly rowCount = 1000,
+		public readonly rowCount = 10_000, // temporary change
 		colCount = 10) {
 		// Create a unique ID for this instance
 		this.id = randomUUID();
@@ -85,6 +86,7 @@ export class ZedData implements DataSet {
 	}
 
 	public sendData(message: DataViewerMessageRowRequest): void {
+		this.request_processing = message.start_row;
 		const response: DataViewerMessageRowResponse = {
 			msg_type: message.msg_type === 'ready' ? 'initial_data' : 'receive_rows',
 			start_row: message.start_row,
@@ -96,7 +98,9 @@ export class ZedData implements DataSet {
 				rowCount: this.rowCount
 			} as ZedData,
 		};
-		// Emit to the front end.
-		this._onDidEmitData.fire(response);
+		// Emit to the front end only if this is the most recent request received.
+		if (this.request_processing === message.start_row) {
+			this._onDidEmitData.fire(response);
+		}
 	}
 }
