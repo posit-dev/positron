@@ -57,7 +57,7 @@ export class DataModel {
 		});
 		return {
 			rowStart: start,
-			rowEnd: Math.min(start + size - 1, this.rowCount - 1),
+			rowEnd: start + size - 1,
 			columns: columns
 		};
 	}
