@@ -91,6 +91,8 @@ export const DataPanel = (props: DataPanelProps) => {
 	async function fetchNextDataFragment(pageParam: number, fetchSize: number): Promise<DataFragment> {
 		// Fetches a single page of data from the data model.
 		const startRow = pageParam * fetchSize;
+		// Overwrite fetchSize so that we never request rows past the end of the dataset
+		fetchSize = Math.min(fetchSize, totalRows - startRow);
 
 		// Let the server know we are requesting more rows
 		if (startRow > 0) {
