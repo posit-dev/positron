@@ -744,8 +744,60 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 			originId: msg.parent_header ? msg.parent_header.msg_id : '',
 			socket: socket
 		};
-		this.log(`RECV ${msg.header.msg_type} from ${socket}: ${JSON.stringify(msg)}`);
+
+		this.log(`RECV ${this.messageType(msg)} from ${socket}: ${JSON.stringify(msg)}`);
 		this.emit('message', packet);
+	}
+
+	/**
+	 * Return message type as a string for logging purposes.
+	 */
+	  private messageType(msg: JupyterMessage) {
+		let msg_type = msg.header.msg_type;
+
+		switch (msg_type) {
+			case 'comm_msg': {
+				// Return `comm_msg/*comm_id*/*type*`
+				const content = msg.content as any;
+
+				const comm_msg_id = this.commMessageId(content.comm_id);
+				msg_type = `${msg_type}/${comm_msg_id}`;
+
+				const data = content.data as any;
+				const comm_msg_type = data.msg_type;
+				msg_type = `${msg_type}/${comm_msg_type}`;
+
+				// If `*type*` is `event`, append event type
+				if (comm_msg_type === 'event') {
+					msg_type = `${msg_type}/${data.name}`;
+				}
+
+				break;
+			}
+			case 'status': {
+				const content = msg.content as any;
+				const status = content.execution_state;
+				msg_type = `${msg_type}/${status}`;
+				break;
+			}
+			default:
+				break;
+		}
+
+		return msg_type;
+	}
+
+	/**
+	 * Simplify automatic comm names if possible.
+	 */
+	private commMessageId(id: string) {
+		if (id.match('frontEnd-')) { return 'frontEnd'; }
+		if (id.match('environment-')) { return 'environment'; }
+		if (id.match('dataViewer-')) { return 'dataViewer'; }
+		if (id.match('help-')) { return 'help'; }
+		if (id.match('lsp-')) { return 'LSP'; }
+		if (id.match('dap-')) { return 'DAP'; }
+		return id;
 	}
 
 	/**
