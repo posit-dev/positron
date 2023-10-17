@@ -465,6 +465,9 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	 * start.
 	 */
 	public async start() {
+		// Reset status stacks in case of (possibly forced) restart
+		this._busyMessageIds.clear();
+		this._idleMessageIds.clear();
 
 		// If a request to start the kernel arrives while we are initializing,
 		// we can't handle it right away. Defer the request to start the kernel
