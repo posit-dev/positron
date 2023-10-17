@@ -870,7 +870,7 @@ export class LanguageRuntimeAdapter
 
 		// Create a unique client ID for this instance
 		const uniqueId = Math.floor(Math.random() * 0x100000000).toString(16);
-		const clientId = `positron-dap-${this.metadata.languageId}-${LanguageRuntimeAdapter._clientCounter++}-${uniqueId}}`;
+		const clientId = `positron-dap-${this.metadata.languageId}-${LanguageRuntimeAdapter._clientCounter++}-${uniqueId}`;
 		this._kernel.log(`Starting DAP server ${clientId} for ${serverAddress}`);
 
 		await this.createClient(
