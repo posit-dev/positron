@@ -21,11 +21,10 @@ import { traceError, traceInfo } from '../logging';
 import { PythonEnvironment } from '../pythonEnvironments/info';
 import { PythonVersion } from '../pythonEnvironments/info/pythonVersion';
 import { ILanguageServerOutputChannel } from '../activation/types';
-import { PythonRuntime } from './runtime';
+import { PythonRuntime, createJupyterKernelExtra } from './runtime';
 import { JediLanguageServerAnalysisOptions } from '../activation/jedi/analysisOptions';
 import { IEnvironmentVariablesProvider } from '../common/variables/types';
 import { IWorkspaceService } from '../common/application/types';
-import { JediLanguageClientMiddleware } from '../activation/jedi/languageClientMiddleware';
 
 /**
  * Provides Python language runtimes to Positron; implements
@@ -235,44 +234,11 @@ export async function createPythonRuntime(
 
     const languageClientOptions = await analysisOptions.getAnalysisOptions();
 
-    // Find jedi-language-server's version from the requirements.txt file.
-    // This code is taken as-is from `JediLanguageServerManager.start`.
-    let lsVersion: string | undefined;
-    try {
-        // Version is actually hardcoded in our requirements.txt.
-        const requirementsTxt = await fs.readFile(
-            path.join(EXTENSION_ROOT_DIR, 'pythonFiles', 'jedilsp_requirements', 'requirements.txt'),
-            'utf-8',
-        );
-
-        // Search using a regex in the text
-        const match = /jedi-language-server==([0-9\.]*)/.exec(requirementsTxt);
-        if (match && match.length === 2) {
-            [, lsVersion] = match;
-        }
-    } catch (ex) {
-        // Getting version here is best effort and does not affect how LS works and
-        // failing to get version should not stop LS from working.
-        traceInfo('Failed to get jedi-language-server version: ', ex);
-    }
-
-    // Extend LSP support to include unsaved editors
-    languageClientOptions.documentSelector = [{ language: 'python' }];
-
-    // NOTE: We may need to delay this until after the LSP client has started.
-    traceInfo(`createPythonRuntime: connecting language client middleware`);
-    const middleware = new JediLanguageClientMiddleware(serviceContainer, lsVersion);
-    languageClientOptions.middleware = middleware;
-    middleware.connect();
-
-    // const extra: JupyterKernelExtra = {
-    //     attachOnStartup: new ArkAttachOnStartup(),
-    //     sleepOnStartup: new ArkDelayStartup(),
-    // };
+    const extra = createJupyterKernelExtra();
 
     // Create an adapter for the kernel to fulfill the LanguageRuntime interface.
     traceInfo(`createPythonRuntime: creating PythonRuntime`);
-    return new PythonRuntime(kernelSpec, metadata, dynState, languageClientOptions, interpreter, installer);
+    return new PythonRuntime(kernelSpec, metadata, dynState, languageClientOptions, interpreter, installer, extra);
 }
 
 // Returns a sorted copy of the array of Python environments, in descending order
