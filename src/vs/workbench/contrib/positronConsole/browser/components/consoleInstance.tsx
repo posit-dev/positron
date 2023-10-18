@@ -118,7 +118,10 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 	 * @param text The text to paste.
 	 */
 	const pasteText = (text: string) => {
+		// Scroll to the bottom so the pasted text will be visible.
 		scrollToBottom();
+
+		// Paste the text.
 		props.positronConsoleInstance.pasteText(text);
 	};
 
