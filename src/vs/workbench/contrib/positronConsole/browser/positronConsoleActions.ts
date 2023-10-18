@@ -5,12 +5,12 @@
 import { localize } from 'vs/nls';
 import { Codicon } from 'vs/base/common/codicons';
 import { ITextModel } from 'vs/editor/common/model';
-import { IRange } from 'vs/editor/common/core/range';
 import { IEditor } from 'vs/editor/common/editorCommon';
 import { ILogService } from 'vs/platform/log/common/log';
 import { KeyCode, KeyMod } from 'vs/base/common/keyCodes';
 import { Position } from 'vs/editor/common/core/position';
 import { IViewsService } from 'vs/workbench/common/views';
+import { IStatementRange } from 'vs/editor/common/languages';
 import { CancellationToken } from 'vs/base/common/cancellation';
 import { ILocalizedString } from 'vs/platform/action/common/action';
 import { EditorContextKeys } from 'vs/editor/common/editorContextKeys';
@@ -277,7 +277,7 @@ export function registerPositronConsoleActions() {
 			// which can be used to get the code to execute.
 			if (code.length === 0 && statementRangeProviders.length > 0) {
 
-				let statementRange: IRange | null | undefined = undefined;
+				let statementRange: IStatementRange | null | undefined = undefined;
 				try {
 					// Just consult the first statement range provider if several are registered
 					statementRange = await statementRangeProviders[0].provideStatementRange(
@@ -291,7 +291,7 @@ export function registerPositronConsoleActions() {
 
 				if (statementRange) {
 					// If a statement was found, get the code to execute.
-					code = model.getValueInRange(statementRange);
+					code = statementRange.code ? statementRange.code : model.getValueInRange(statementRange.range);
 
 					if (code.length > 0) {
 						// If code was returned, move the cursor to the next
@@ -300,7 +300,7 @@ export function registerPositronConsoleActions() {
 						// statement range provider again to find the appropriate
 						// boundary of the next statement.
 						let newPosition = new Position(
-							statementRange.endLineNumber + 1,
+							statementRange.range.endLineNumber + 1,
 							1
 						);
 						if (newPosition.lineNumber > model.getLineCount()) {
@@ -322,9 +322,9 @@ export function registerPositronConsoleActions() {
 							// Invoke the statement range provider again to
 							// find the appropriate boundary of the next statement.
 
-							let nextStatement: IRange | null | undefined = undefined;
+							let nextStatementRange: IStatementRange | null | undefined = undefined;
 							try {
-								nextStatement = await statementRangeProviders[0].provideStatementRange(
+								nextStatementRange = await statementRangeProviders[0].provideStatementRange(
 									model,
 									newPosition,
 									CancellationToken.None);
@@ -333,21 +333,22 @@ export function registerPositronConsoleActions() {
 									`at position ${newPosition}: ${err}`);
 							}
 
-							if (nextStatement) {
+							if (nextStatementRange) {
 								// If we found the next statement, determine exactly where to move
 								// the cursor to, maintaining the invariant that we should always
 								// step further down the page, never up, as this is too "jumpy".
 								// If for some reason the next statement doesn't meet this
 								// invariant, we don't use it and instead use the default
 								// `newPosition`.
-								if (nextStatement.startLineNumber > statementRange.endLineNumber) {
+								const nextStatement = nextStatementRange.range;
+								if (nextStatement.startLineNumber > statementRange.range.endLineNumber) {
 									// If the next statement's start is after this statement's end,
 									// then move to the start of the next statement.
 									newPosition = new Position(
 										nextStatement.startLineNumber,
 										nextStatement.startColumn
 									);
-								} else if (nextStatement.endLineNumber > statementRange.endLineNumber) {
+								} else if (nextStatement.endLineNumber > statementRange.range.endLineNumber) {
 									// If the above condition failed, but the next statement's end
 									// is after this statement's end, assume we are exiting some
 									// nested scope (like running an individual line of an R
