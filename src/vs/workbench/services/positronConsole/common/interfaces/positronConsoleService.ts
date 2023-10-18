@@ -6,6 +6,7 @@ import { Event } from 'vs/base/common/event';
 import { createDecorator } from 'vs/platform/instantiation/common/instantiation';
 import { RuntimeItem } from 'vs/workbench/services/positronConsole/common/classes/runtimeItem';
 import { ILanguageRuntime } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { IEditor } from 'vs/editor/common/editorCommon';
 
 // Create the decorator for the Positron console service (used in dependency injection).
 export const IPositronConsoleService = createDecorator<IPositronConsoleService>('positronConsoleService');
@@ -44,6 +45,12 @@ export interface IPositronConsoleService {
 	 * Gets the active Positron console instance.
 	 */
 	readonly activePositronConsoleInstance?: IPositronConsoleInstance;
+
+	/**
+	 * Gets the text editor (mini editor used to enter code at the REPL) for the
+	 * active Positron console instance.
+	 */
+	readonly activeInputTextEditor: IEditor | undefined;
 
 	/**
 	 * The onDidStartPositronConsoleInstance event.
@@ -174,6 +181,11 @@ export interface IPositronConsoleInstance {
 	 * Focuses the input for the console.
 	 */
 	focusInput(): void;
+
+	/**
+	 * Returns the active text editor widget for the console, if it exists.
+	 */
+	inputTextEditor: IEditor | undefined;
 
 	/**
 	 * Toggles trace.

@@ -19,6 +19,9 @@ import { INotificationService } from 'vs/platform/notification/common/notificati
 import { ILanguageService } from 'vs/editor/common/languages/language';
 import { KeybindingWeight } from 'vs/platform/keybinding/common/keybindingsRegistry';
 import { EditorContextKeys } from 'vs/editor/common/editorContextKeys';
+import { PositronConsoleFocused } from 'vs/workbench/common/contextkeys';
+import { ContextKeyExpr } from 'vs/platform/contextkey/common/contextkey';
+import { IPositronConsoleService } from 'vs/workbench/services/positronConsole/common/interfaces/positronConsoleService';
 
 export class ShowHelpAtCursor extends Action2 {
 	constructor() {
@@ -34,7 +37,7 @@ export class ShowHelpAtCursor extends Action2 {
 				weight: KeybindingWeight.EditorCore,
 				primary: KeyCode.F1,
 				secondary: [KeyChord(KeyMod.CtrlCmd | KeyCode.KeyK, KeyMod.CtrlCmd | KeyCode.KeyH)],
-				when: EditorContextKeys.focus
+				when: ContextKeyExpr.or(EditorContextKeys.focus, PositronConsoleFocused)
 			},
 			category: Categories.Help,
 			f1: true
@@ -47,10 +50,24 @@ export class ShowHelpAtCursor extends Action2 {
 		const languageFeaturesService = accessor.get(ILanguageFeaturesService);
 		const notificationService = accessor.get(INotificationService);
 		const languageService = accessor.get(ILanguageService);
+		const consoleService = accessor.get(IPositronConsoleService);
 
 		// Look up the active editor
-		const editor = editorService.activeTextEditorControl as IEditor;
+		let editor = editorService.activeTextEditorControl as IEditor;
+
+		// Prefer the active console instance if it's focused
+		const inputEditor = consoleService.activeInputTextEditor;
+		if (inputEditor) {
+			if (inputEditor.hasTextFocus()) {
+				editor = inputEditor;
+			}
+		}
+
+		// If we didn't find an editor, we can't show help here. This should be
+		// rare since the keybinding for this command is only active when an
+		// editor or the console is focused.
 		if (!editor) {
+			notificationService.info(localize('positron.help.noHelpSource', "No help is available here. Place the cursor in the editor on the item you'd like help with."));
 			return;
 		}
 
