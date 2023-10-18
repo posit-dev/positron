@@ -44,6 +44,8 @@ import { IPositronConsoleInstance } from 'vs/workbench/services/positronConsole/
 import { RuntimeItemStartupFailure } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemStartupFailure';
 import { POSITRON_CONSOLE_COPY, POSITRON_CONSOLE_CUT, POSITRON_CONSOLE_PASTE, POSITRON_CONSOLE_SELECT_ALL } from 'vs/workbench/contrib/positronConsole/browser/positronConsoleIdentifiers';
 import { POSITRON_PLOTS_VIEW_ID } from 'vs/workbench/services/positronPlots/common/positronPlots';
+import { RuntimeItemRestartButton } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemRestartButton';
+import { RuntimeRestartButton } from 'vs/workbench/contrib/positronConsole/browser/components/runtimeRestartButton';
 
 // ConsoleInstanceProps interface.
 interface ConsoleInstanceProps {
@@ -87,7 +89,6 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 	const [wordWrap, setWordWrap] = useState(props.positronConsoleInstance.wordWrap);
 	const [marker, setMarker] = useState(generateUuid());
 	const [, setLastScrollTop, lastScrollTopRef] = useStateRef(0);
-	const [scrollLocked, setScrollLocked] = useState(false);
 
 	/**
 	 * Gets the selection.
@@ -297,10 +298,8 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 
 	// Experimental.
 	useEffect(() => {
-		if (!scrollLocked) {
-			consoleInstanceRef.current.scrollTo(0, consoleInstanceRef.current.scrollHeight);
-		}
-	}, [marker, scrollLocked]);
+		consoleInstanceRef.current.scrollTo(0, consoleInstanceRef.current.scrollHeight);
+	}, [marker]);
 
 	/**
 	 * onKeyDown event handler.
@@ -438,15 +437,6 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 	 * @param e A UIEvent<HTMLDivElement> that describes a user interaction with the mouse.
 	 */
 	const scrollHandler = (e: UIEvent<HTMLDivElement>) => {
-		// Determine whether the console instance is scroll locked.
-		if (Math.abs(consoleInstanceRef.current.scrollHeight -
-			consoleInstanceRef.current.clientHeight -
-			consoleInstanceRef.current.scrollTop) < 1) {
-			setScrollLocked(false);
-		} else {
-			setScrollLocked(true);
-		}
-
 		// Set the last scroll top, when active.
 		if (props.active) {
 			setLastScrollTop(consoleInstanceRef.current.scrollTop);
@@ -497,6 +487,8 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 						return <RuntimeOffline key={runtimeItem.id} runtimeItemOffline={runtimeItem} />;
 					} else if (runtimeItem instanceof RuntimeItemExited) {
 						return <RuntimeExited key={runtimeItem.id} runtimeItemExited={runtimeItem} />;
+					} else if (runtimeItem instanceof RuntimeItemRestartButton) {
+						return <RuntimeRestartButton key={runtimeItem.id} runtimeItemRestartButton={runtimeItem} />;
 					} else if (runtimeItem instanceof RuntimeItemStartupFailure) {
 						return <RuntimeStartupFailure key={runtimeItem.id} runtimeItemStartupFailure={runtimeItem} />;
 					} else if (runtimeItem instanceof RuntimeItemTrace) {
