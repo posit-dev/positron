@@ -597,6 +597,13 @@ export interface ILanguageRuntimeService {
 	selectRuntime(runtimeId: string, source: string): Promise<void>;
 
 	/**
+	 * Get the preferred runtime for a language.
+	 *
+	 * @param languageId The language identifier.
+	 */
+	getPreferredRuntime(languageId: string): ILanguageRuntime;
+
+	/**
 	 * Signal that discovery of language runtimes is complete.
 	 */
 	completeDiscovery(): void;
