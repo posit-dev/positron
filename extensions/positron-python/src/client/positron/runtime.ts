@@ -8,6 +8,7 @@
 // eslint-disable-next-line import/no-unresolved
 import * as positron from 'positron';
 import * as vscode from 'vscode';
+import { cloneDeep } from 'lodash';
 import PQueue from 'p-queue';
 import { LanguageClientOptions } from 'vscode-languageclient/node';
 import { InstallOptions } from '../common/installer/types';
@@ -48,11 +49,12 @@ export class PythonRuntime implements positron.LanguageRuntime, vscode.Disposabl
         readonly metadata: positron.LanguageRuntimeMetadata,
         readonly dynState: positron.LanguageRuntimeDynState,
         readonly languageClientOptions: LanguageClientOptions,
-        private readonly interpreter: PythonEnvironment | undefined,
+        private readonly interpreter: PythonEnvironment,
         private readonly installer: IInstaller,
         readonly extra?: JupyterKernelExtra,
+        readonly notebook?: vscode.NotebookDocument,
     ) {
-        this._lsp = new PythonLsp(metadata.languageVersion, languageClientOptions);
+        this._lsp = new PythonLsp(metadata.languageVersion, languageClientOptions, notebook);
         this._queue = new PQueue({ concurrency: 1 });
         this.onDidReceiveRuntimeMessage = this._messageEmitter.event;
         this.onDidChangeRuntimeState = this._stateEmitter.event;
@@ -279,4 +281,27 @@ export class PythonRuntime implements positron.LanguageRuntime, vscode.Disposabl
             }
         }
     }
+
+    clone(metadata: positron.LanguageRuntimeMetadata, notebook: vscode.NotebookDocument): positron.LanguageRuntime {
+        const kernelSpec: JupyterKernelSpec = { ...this.kernelSpec, display_name: metadata.runtimeName };
+        return new PythonRuntime(
+            kernelSpec,
+            metadata,
+            { ...this.dynState },
+            cloneDeep(this.languageClientOptions),
+            cloneDeep(this.interpreter),
+            this.installer,
+            createJupyterKernelExtra(),
+            notebook,
+        );
+    }
+}
+
+export function createJupyterKernelExtra(): undefined {
+    // TODO: Implement and include startup hooks for the Python runtime.
+    // return {
+    //     attachOnStartup: new ArkAttachOnStartup(),
+    //     sleepOnStartup: new ArkDelayStartup(),
+    // };
+    return undefined;
 }

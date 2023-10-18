@@ -2,12 +2,7 @@
  *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 import * as vscode from 'vscode';
-import {
-    LanguageClient,
-    LanguageClientOptions,
-    State,
-    StreamInfo,
-} from 'vscode-languageclient/node';
+import { LanguageClient, LanguageClientOptions, State, StreamInfo } from 'vscode-languageclient/node';
 import { Socket } from 'net';
 
 import { PYTHON_LANGUAGE } from '../common/constants';
@@ -42,8 +37,9 @@ export class PythonLsp implements vscode.Disposable {
 
     public constructor(
         private readonly _version: string,
-        private readonly _clientOptions: LanguageClientOptions) {
-    }
+        private readonly _clientOptions: LanguageClientOptions,
+        private readonly _notebook: vscode.NotebookDocument | undefined,
+    ) {}
 
     /**
      * Activate the language server; returns a promise that resolves when the LSP is
@@ -52,9 +48,8 @@ export class PythonLsp implements vscode.Disposable {
      * @param port The port on which the language server is listening.
      */
     public async activate(port: number): Promise<void> {
-
         // Clean up disposables from any previous activation
-        this.activationDisposables.forEach(d => d.dispose());
+        this.activationDisposables.forEach((d) => d.dispose());
         this.activationDisposables = [];
 
         // Define server options for the language server. Connects to `port`.
@@ -65,7 +60,7 @@ export class PythonLsp implements vscode.Disposable {
             socket.on('ready', () => {
                 const streams: StreamInfo = {
                     reader: socket,
-                    writer: socket
+                    writer: socket,
                 };
                 out.resolve(streams);
             });
@@ -77,40 +72,58 @@ export class PythonLsp implements vscode.Disposable {
             return out.promise;
         };
 
+        // If this client belongs to a notebook, set the document selector to only include that notebook.
+        // Otherwise, this is the main client for this language, so set the document selector to include
+        // untitled Python files, in-memory Python files (e.g. the console), and Python files on disk.
+        this._clientOptions.documentSelector = this._notebook
+            ? [{ language: 'python', pattern: this._notebook.uri.path }]
+            : [
+                  { language: 'python', scheme: 'untitled' },
+                  { language: 'python', scheme: 'inmemory' }, // Console
+                  { language: 'python', pattern: '**/*.py' },
+              ];
+
         traceInfo(`Creating Positron Python ${this._version} language client (port ${port})...`);
-        this._client = new LanguageClient(PYTHON_LANGUAGE, `Positron Python Language Server (${this._version})`, serverOptions, this._clientOptions);
+        this._client = new LanguageClient(
+            PYTHON_LANGUAGE,
+            `Positron Python Language Server (${this._version})`,
+            serverOptions,
+            this._clientOptions,
+        );
 
         const out = new PromiseHandles<void>();
         this._initializing = out.promise;
 
-        this.activationDisposables.push(this._client.onDidChangeState(event => {
-            const oldState = this._state;
-            // Convert the state to our own enum
-            switch (event.newState) {
-                case State.Starting:
-                    this._state = LspState.starting;
-                    break;
-                case State.Running:
-                    if (this._initializing) {
-                        traceInfo(`Python (${this._version}) language client init successful`);
-                        this._initializing = undefined;
-                        out.resolve();
-                    }
-                    this._state = LspState.running;
-                    break;
-                case State.Stopped:
-                    if (this._initializing) {
-                        traceInfo(`Python (${this._version}) language client init failed`);
-                        out.reject("Python LSP client stopped before initialization");
-                    }
-                    this._state = LspState.stopped;
-                    break;
-                default:
-                    traceError(`Unexpected language client state: ${event.newState}`);
-                    out.reject('Unexpected language client state');
-            }
-            traceInfo(`Python (${this._version}) language client state changed ${oldState} => ${this._state}`);
-        }));
+        this.activationDisposables.push(
+            this._client.onDidChangeState((event) => {
+                const oldState = this._state;
+                // Convert the state to our own enum
+                switch (event.newState) {
+                    case State.Starting:
+                        this._state = LspState.starting;
+                        break;
+                    case State.Running:
+                        if (this._initializing) {
+                            traceInfo(`Python (${this._version}) language client init successful`);
+                            this._initializing = undefined;
+                            out.resolve();
+                        }
+                        this._state = LspState.running;
+                        break;
+                    case State.Stopped:
+                        if (this._initializing) {
+                            traceInfo(`Python (${this._version}) language client init failed`);
+                            out.reject('Python LSP client stopped before initialization');
+                        }
+                        this._state = LspState.stopped;
+                        break;
+                    default:
+                        traceError(`Unexpected language client state: ${event.newState}`);
+                        out.reject('Unexpected language client state');
+                }
+                traceInfo(`Python (${this._version}) language client state changed ${oldState} => ${this._state}`);
+            }),
+        );
 
         this.activationDisposables.push(new ProgressReporting(this._client));
 
@@ -142,22 +155,22 @@ export class PythonLsp implements vscode.Disposable {
         // partially initialized client.
         await this._initializing;
 
-        const promise = awaitStop ?
-            // If the kernel hasn't exited, we can just await the promise directly
-            this._client!.stop() :
-            // The promise returned by `stop()` never resolves if the server
-            // side is disconnected, so rather than awaiting it when the runtime
-            // has exited, we wait for the client to change state to `stopped`,
-            // which does happen reliably.
-            new Promise<void>((resolve) => {
-                const disposable = this._client!.onDidChangeState((event) => {
-                    if (event.newState === State.Stopped) {
-                        resolve();
-                        disposable.dispose();
-                    }
-                });
-                this._client!.stop();
-            });
+        const promise = awaitStop
+            ? // If the kernel hasn't exited, we can just await the promise directly
+              this._client!.stop()
+            : // The promise returned by `stop()` never resolves if the server
+              // side is disconnected, so rather than awaiting it when the runtime
+              // has exited, we wait for the client to change state to `stopped`,
+              // which does happen reliably.
+              new Promise<void>((resolve) => {
+                  const disposable = this._client!.onDidChangeState((event) => {
+                      if (event.newState === State.Stopped) {
+                          resolve();
+                          disposable.dispose();
+                      }
+                  });
+                  this._client!.stop();
+              });
 
         // Don't wait more than a couple of seconds for the client to stop.
         const timeout = new Promise<void>((_, reject) => {
@@ -181,7 +194,7 @@ export class PythonLsp implements vscode.Disposable {
      * Dispose of the client instance.
      */
     async dispose(): Promise<void> {
-        this.activationDisposables.forEach(d => d.dispose());
+        this.activationDisposables.forEach((d) => d.dispose());
         await this.deactivate(false);
     }
 }
