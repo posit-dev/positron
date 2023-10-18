@@ -212,6 +212,7 @@ export class TerminalService extends Disposable implements ITerminalService {
 			// This prevents hiding the panel along with the Console, which would
 			// confuse users.
 			if (!instance) {
+				this._terminalShellTypeContextKey.reset();
 				return;
 			}
 			// --- End Positron ---
