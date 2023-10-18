@@ -180,6 +180,13 @@ export class ANSIOutput {
 	//#region Public Properties
 
 	/**
+	 * Gets a value which indicates whether this ANSIOutput is buffering.
+	 */
+	get isBuffering() {
+		return this._parserState === ParserState.BufferingOutput;
+	}
+
+	/**
 	 * Gets the output lines.
 	 */
 	get outputLines() {
@@ -207,20 +214,18 @@ export class ANSIOutput {
 	//#region Public Methods
 
 	/**
+	 * Copies styles from another ANSIOutput to this ANSIOutput.
+	 * @param ansiOutput The ANSIOutput to copy styles from.
+	 */
+	copyStylesFrom(ansiOutput: ANSIOutput) {
+		this._sgrState = ansiOutput._sgrState?.copy();
+	}
+
+	/**
 	 * Processes output.
 	 * @param output The output to process.
 	 */
 	processOutput(output: string) {
-		// For now, dump output to the console for tracing.
-		// TODO@softwarenerd - Use DI to get logging into ANSIOutput.
-		// let loggingOutput = output;
-		// loggingOutput = loggingOutput.replaceAll('\n', '[LF]');
-		// loggingOutput = loggingOutput.replaceAll('\r', '[CR]');
-		// loggingOutput = loggingOutput.replaceAll('\x9B', 'CSI');
-		// loggingOutput = loggingOutput.replaceAll('\x1b', 'ESC');
-		// loggingOutput = loggingOutput.replaceAll('\x9B', 'CSI');
-		// console.log(`ANSIOutput: Processing Output: "${loggingOutput}"`);
-
 		// Enumerate the characters in the output.
 		for (let i = 0; i < output.length; i++) {
 			// If there is a pending newline, process it.
@@ -386,7 +391,6 @@ export class ANSIOutput {
 
 			// Unsupported control sequence.
 			default:
-				// console.log(`Unsupported control sequence: CSI${this._controlSequence}`);
 				break;
 		}
 
@@ -544,12 +548,12 @@ export class ANSIOutput {
 			 * example:
 			 *
 			 * For the 256-color palette:
-			 * console.log('\x1b[31;38;5;196mThis will be red\x1b[m');
-			 * console.log('\x1b[31;38;5;20mThis will be blue\x1b[m')
+			 * \x1b[31;38;5;196mThis will be red\x1b[m
+			 * \x1b[31;38;5;20mThis will be blue\x1b[m
 			 *
 			 * For RGB:
-			 * console.log('\x1b[31;38;2;255;0;0mThis will be red\x1b[m');
-			 * console.log('\x1b[31;38;2;0;0;255mThis will be blue\x1b[m');
+			 * \x1b[31;38;2;255;0;0mThis will be red\x1b[m
+			 * \x1b[31;38;2;0;0;255mThis will be blue\x1b[m
 			 */
 			const processSetColor = (): ANSIColor | string | undefined => {
 				// If there isn't an SGRColorParam in the parameters, return undefined to indicate
@@ -958,7 +962,6 @@ export class ANSIOutput {
 
 				// Unexpected SGR parameter.
 				default:
-					// console.log(`    Unexpected SGR parameter: ${sgrParam}`);
 					break;
 			}
 		}
