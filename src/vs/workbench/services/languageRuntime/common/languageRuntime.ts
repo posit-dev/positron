@@ -66,6 +66,10 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 	// (metadata.languageId) of the runtime.
 	private readonly _runningRuntimesByLanguageId = new Map<string, ILanguageRuntime>();
 
+	// A map of most recently started runtimes. This is keyed by the languageId
+	// (metadata.languageId) of the runtime.
+	private readonly _mostRecentlyStartedRuntimesByLanguageId = new Map<string, ILanguageRuntime>();
+
 	// The active runtime.
 	private _activeRuntime?: ILanguageRuntime;
 
@@ -178,7 +182,7 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 	// An event that fires when the language runtime discovery phase changes.
 	readonly onDidChangeDiscoveryPhase = this._onDidChangeDiscoveryPhaseEmitter.event;
 
-	// An event that fires when a runtime is about to start.
+	// An event that fires when a new runtime is registered.
 	readonly onDidRegisterRuntime = this._onDidRegisterRuntimeEmitter.event;
 
 	// An event that fires when a runtime is about to start.
@@ -491,6 +495,46 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 		});
 	}
 
+	getPreferredRuntime(languageId: string): ILanguageRuntime {
+		// If there's a running runtime for the language, return it.
+		const runningRuntime = this._runningRuntimesByLanguageId.get(languageId);
+		if (runningRuntime) {
+			return runningRuntime;
+		}
+
+		// If there's a starting runtime for the language, return it.
+		const startingRuntime = this._startingRuntimesByLanguageId.get(languageId);
+		if (startingRuntime) {
+			return startingRuntime;
+		}
+
+		// If there's a runtime affiliated with the workspace for the language,
+		// return it.
+		const affiliatedRuntimeId = this._workspaceAffiliation.getAffiliatedRuntimeId(languageId);
+		if (affiliatedRuntimeId) {
+			const affiliatedRuntimeInfo = this._registeredRuntimesByRuntimeId.get(affiliatedRuntimeId);
+			if (affiliatedRuntimeInfo) {
+				return affiliatedRuntimeInfo.runtime;
+			}
+		}
+
+		// If there is a most recently started runtime for the language, return it.
+		const mostRecentlyStartedRuntime = this._mostRecentlyStartedRuntimesByLanguageId.get(languageId);
+		if (mostRecentlyStartedRuntime) {
+			return mostRecentlyStartedRuntime;
+		}
+
+		// If there are registered runtimes for the language, return the first.
+		const languageRuntimeInfos = this._registeredRuntimes.filter(
+			info => info.runtime.metadata.languageId === languageId);
+		if (languageRuntimeInfos.length) {
+			return languageRuntimeInfos[0].runtime;
+		}
+
+		// There are no registered runtimes for the language, throw an error.
+		throw new Error(`No language runtimes registered for language ID '${languageId}'.`);
+	}
+
 	/**
 	 * Completes the language runtime discovery phase. If no runtimes were
 	 * started or will be started, automatically start one.
@@ -543,7 +587,7 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 			throw new Error(`No language runtime with id '${runtimeId}' was found.`);
 		}
 
-		// If there is already a runtime running for the language, throw an error.
+		// If there is already a runtime starting for the language, throw an error.
 		const startingLanguageRuntime = this._startingRuntimesByLanguageId.get(languageRuntimeInfo.runtime.metadata.languageId);
 		if (startingLanguageRuntime) {
 			throw new Error(`Language runtime ${formatLanguageRuntime(languageRuntimeInfo.runtime)} cannot be started because language runtime ${formatLanguageRuntime(startingLanguageRuntime)} is already starting for the language.`);
@@ -700,6 +744,7 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 			this._startingRuntimesByLanguageId.delete(runtime.metadata.languageId);
 			this._startingRuntimesByRuntimeId.delete(runtime.metadata.runtimeId);
 			this._runningRuntimesByLanguageId.set(runtime.metadata.languageId, runtime);
+			this._mostRecentlyStartedRuntimesByLanguageId.set(runtime.metadata.languageId, runtime);
 
 			// Fire the onDidStartRuntime event.
 			this._onDidStartRuntimeEmitter.fire(runtime);

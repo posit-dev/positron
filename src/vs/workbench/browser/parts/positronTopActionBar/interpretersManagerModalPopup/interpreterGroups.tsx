@@ -7,7 +7,7 @@ import * as React from 'react';
 import { useEffect, useState } from 'react'; // eslint-disable-line no-duplicate-imports
 import { DisposableStore } from 'vs/base/common/lifecycle';
 import { InterpreterGroup } from 'vs/workbench/browser/parts/positronTopActionBar/interpretersManagerModalPopup/interpreterGroup';
-import { ILanguageRuntime, ILanguageRuntimeService, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntime, ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 
 /**
  * IInterpreterGroup interface.
@@ -23,29 +23,30 @@ export interface IInterpreterGroup {
  * @returns An IInterpreterGroup array representing the available language runtimes.
  */
 const createInterpreterGroups = (languageRuntimeService: ILanguageRuntimeService) => {
+	const preferredRuntimeByLanguageId = new Map<string, ILanguageRuntime>();
 	const languageRuntimeGroups = new Map<string, IInterpreterGroup>();
 	for (const runtime of languageRuntimeService.registeredRuntimes) {
-		const languageRuntimeGroup = languageRuntimeGroups.get(runtime.metadata.languageId);
-		if (languageRuntimeGroup) {
-			switch (runtime.getRuntimeState()) {
-				case RuntimeState.Uninitialized:
-				case RuntimeState.Exited:
-					languageRuntimeGroup.alternateRuntimes.push(runtime);
-					break;
+		const languageId = runtime.metadata.languageId;
 
-				default:
-					languageRuntimeGroup.alternateRuntimes.push(languageRuntimeGroup.primaryRuntime);
-					languageRuntimeGroup.primaryRuntime = runtime;
-					break;
-			}
-		} else {
-			languageRuntimeGroups.set(runtime.metadata.languageId, {
-				primaryRuntime: runtime,
-				alternateRuntimes: []
-			});
+		// Get the preferred runtime for the language.
+		let preferredRuntime = preferredRuntimeByLanguageId.get(languageId);
+		if (!preferredRuntime) {
+			preferredRuntime = languageRuntimeService.getPreferredRuntime(languageId);
+			preferredRuntimeByLanguageId.set(languageId, preferredRuntime);
+		}
+
+		// Create the language runtime group if it doesn't exist.
+		let languageRuntimeGroup = languageRuntimeGroups.get(languageId);
+		if (!languageRuntimeGroup) {
+			languageRuntimeGroup = { primaryRuntime: preferredRuntime, alternateRuntimes: [] };
+			languageRuntimeGroups.set(languageId, languageRuntimeGroup);
+		}
+
+		// Add the runtime to the alternateRuntimes array if it's not the preferred runtime.
+		if (runtime !== preferredRuntime) {
+			languageRuntimeGroup.alternateRuntimes.push(runtime);
 		}
 	}
-
 
 	// Sort the runtimes by language name.
 	return Array.from(languageRuntimeGroups.values()).sort((a, b) => {

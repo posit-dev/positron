@@ -1,0 +1,3 @@
+{
+	"python.languageServer.description": "This setting is included as a temporary workaround to disable the Jupyter extension's language server. The value should remain 'Default'."
+}

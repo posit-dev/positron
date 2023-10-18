@@ -14,6 +14,7 @@ const dirs = [
 	'extensions/positron-data-viewer',
 	'extensions/positron-data-viewer/ui',
 	'extensions/positron-javascript',
+	'extensions/positron-notebook-controllers',
 	'extensions/positron-r',
 	'extensions/positron-python',
 	'extensions/positron-proxy',

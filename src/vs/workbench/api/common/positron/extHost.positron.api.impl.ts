@@ -70,6 +70,12 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			registerLanguageRuntimeProvider(languageId: string, provider: positron.LanguageRuntimeProvider): void {
 				return extHostLanguageRuntime.registerLanguageRuntimeProvider(languageId, provider);
 			},
+			getRegisteredRuntimes(): Thenable<positron.LanguageRuntime[]> {
+				return extHostLanguageRuntime.getRegisteredRuntimes();
+			},
+			getPreferredRuntime(languageId: string): Thenable<positron.LanguageRuntime> {
+				return extHostLanguageRuntime.getPreferredRuntime(languageId);
+			},
 			getRunningRuntimes(languageId: string): Thenable<positron.LanguageRuntimeMetadata[]> {
 				return extHostLanguageRuntime.getRunningRuntimes(languageId);
 			},
@@ -81,7 +87,10 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			},
 			registerClientHandler(handler: positron.RuntimeClientHandler): vscode.Disposable {
 				return extHostLanguageRuntime.registerClientHandler(handler);
-			}
+			},
+			get onDidRegisterRuntime() {
+				return extHostLanguageRuntime.onDidRegisterRuntime;
+			},
 		};
 
 		const window: typeof positron.window = {

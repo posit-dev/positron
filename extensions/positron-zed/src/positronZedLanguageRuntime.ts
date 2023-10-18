@@ -191,8 +191,8 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 	 */
 	constructor(
 		private readonly context: vscode.ExtensionContext,
-		runtimeId: string,
-		version: string
+		private readonly runtimeId: string,
+		private readonly version: string
 	) {
 		this._state = positron.RuntimeState.Uninitialized;
 
@@ -1133,6 +1133,10 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 			message: ''
 		});
 		return Promise.resolve();
+	}
+
+	clone(metadata: positron.LanguageRuntimeMetadata, _notebook: vscode.NotebookDocument): positron.LanguageRuntime {
+		return new PositronZedLanguageRuntime(this.context, metadata.runtimeId, metadata.languageVersion);
 	}
 
 	dispose(): void { }

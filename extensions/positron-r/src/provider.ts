@@ -12,9 +12,8 @@ import * as positron from 'positron';
 import * as crypto from 'crypto';
 
 import { RInstallation } from './r-installation';
-import { RRuntime } from './runtime';
-import { JupyterKernelSpec, JupyterKernelExtra } from './jupyter-adapter';
-import { ArkAttachOnStartup, ArkDelayStartup } from './startup';
+import { RRuntime, createJupyterKernelExtra } from './runtime';
+import { JupyterKernelSpec } from './jupyter-adapter';
 import { getArkKernelPath } from './kernel';
 
 /**
@@ -269,10 +268,7 @@ export async function* rRuntimeProvider(
 			continuationPrompt: '+',
 		};
 
-		const extra: JupyterKernelExtra = {
-			attachOnStartup: new ArkAttachOnStartup(),
-			sleepOnStartup: new ArkDelayStartup(),
-		};
+		const extra = createJupyterKernelExtra();
 
 		// Create an adapter for the kernel to fulfill the LanguageRuntime interface.
 		const runtime = new RRuntime(context, kernelSpec, metadata, dynState, extra);
