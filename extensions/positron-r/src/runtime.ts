@@ -9,6 +9,7 @@ import PQueue from 'p-queue';
 import { JupyterAdapterApi, JupyterKernelSpec, JupyterLanguageRuntime, JupyterKernelExtra } from './jupyter-adapter';
 import { ArkLsp, LspState } from './lsp';
 import { delay } from './util';
+import { ArkAttachOnStartup, ArkDelayStartup } from './startup';
 
 export let lastRuntimePath = '';
 
@@ -48,8 +49,9 @@ export class RRuntime implements positron.LanguageRuntime, vscode.Disposable {
 		readonly metadata: positron.LanguageRuntimeMetadata,
 		public dynState: positron.LanguageRuntimeDynState,
 		readonly extra?: JupyterKernelExtra,
+		readonly notebook?: vscode.NotebookDocument,
 	) {
-		this._lsp = new ArkLsp(metadata.languageVersion);
+		this._lsp = new ArkLsp(metadata.languageVersion, notebook);
 		this._queue = new PQueue({ concurrency: 1 });
 		this.onDidReceiveRuntimeMessage = this._messageEmitter.event;
 		this.onDidChangeRuntimeState = this._stateEmitter.event;
@@ -174,6 +176,18 @@ export class RRuntime implements positron.LanguageRuntime, vscode.Disposable {
 		}
 	}
 
+	clone(metadata: positron.LanguageRuntimeMetadata, notebook: vscode.NotebookDocument): positron.LanguageRuntime {
+		// eslint-disable-next-line @typescript-eslint/naming-convention
+		const kernelSpec: JupyterKernelSpec = { ...this.kernelSpec, display_name: metadata.runtimeName };
+		return new RRuntime(
+			this.context,
+			kernelSpec,
+			metadata,
+			{ ...this.dynState },
+			createJupyterKernelExtra(),
+			notebook);
+	}
+
 	async dispose() {
 		await this._lsp.dispose();
 		if (this._kernel) {
@@ -252,4 +266,11 @@ export class RRuntime implements positron.LanguageRuntime, vscode.Disposable {
 			}
 		}
 	}
+}
+
+export function createJupyterKernelExtra(): JupyterKernelExtra {
+	return {
+		attachOnStartup: new ArkAttachOnStartup(),
+		sleepOnStartup: new ArkDelayStartup(),
+	};
 }

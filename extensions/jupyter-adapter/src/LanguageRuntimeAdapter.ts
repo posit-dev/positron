@@ -303,6 +303,12 @@ export class LanguageRuntimeAdapter
 		this._kernel.showOutput();
 	}
 
+	public clone(_metadata: positron.LanguageRuntimeMetadata, _notebook: vscode.NotebookDocument): positron.LanguageRuntime {
+		// The clone method is a temporary workaround and should only be called on
+		// language pack LanguageRuntime implementations.
+		throw new Error(`LanguageRuntimeAdapter does not support cloning.`);
+	}
+
 	/**
 	 * Creates a new client instance.
 	 *

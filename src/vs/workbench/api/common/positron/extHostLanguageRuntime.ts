@@ -5,6 +5,7 @@
 import type * as positron from 'positron';
 import { ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMessageCommData, ILanguageRuntimeMessageCommOpen, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import * as extHostProtocol from './extHost.positron.protocol';
+import { Emitter } from 'vs/base/common/event';
 import { IDisposable } from 'vs/base/common/lifecycle';
 import { Disposable, LanguageRuntimeMessageType } from 'vs/workbench/api/common/extHostTypes';
 import { RuntimeClientType } from 'vs/workbench/api/common/positron/extHostTypes.positron';
@@ -32,6 +33,12 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 	 * Indicates whether language runtime discovery is complete.
 	 */
 	private _runtimeDiscoveryComplete = false;
+
+	// The event emitter for the onDidRegisterRuntime event.
+	private readonly _onDidRegisterRuntimeEmitter = new Emitter<positron.LanguageRuntime>;
+
+	// The event that fires when a runtime is registered.
+	public onDidRegisterRuntime = this._onDidRegisterRuntimeEmitter.event;
 
 	constructor(
 		mainContext: extHostProtocol.IMainPositronContext
@@ -249,6 +256,19 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		});
 	}
 
+	public getRegisteredRuntimes(): Promise<positron.LanguageRuntime[]> {
+		return Promise.resolve(this._runtimes);
+	}
+
+	public async getPreferredRuntime(languageId: string): Promise<positron.LanguageRuntime> {
+		const metadata = await this._proxy.$getPreferredRuntime(languageId);
+		const runtime = this._runtimes.find(runtime => runtime.metadata.runtimeId === metadata.runtimeId);
+		if (!runtime) {
+			throw new Error(`Runtime exists on main thread but not extension host: ${metadata.runtimeId}`);
+		}
+		return runtime;
+	}
+
 	public getRunningRuntimes(languageId: string): Promise<positron.LanguageRuntimeMetadata[]> {
 		return this._proxy.$getRunningRuntimes(languageId);
 	}
@@ -320,6 +340,8 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 
 		// Register the runtime with the main thread
 		this._proxy.$registerLanguageRuntime(handle, runtime.metadata, runtime.dynState);
+		this._onDidRegisterRuntimeEmitter.fire(runtime);
+
 		return new Disposable(() => {
 			this._proxy.$unregisterLanguageRuntime(handle);
 		});
