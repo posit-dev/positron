@@ -10,7 +10,7 @@ import { ITextModel } from 'vs/editor/common/model';
 import { ILanguageFeaturesService } from 'vs/editor/common/services/languageFeatures';
 import { CancellationToken } from 'vs/base/common/cancellation';
 import { Action2 } from 'vs/platform/actions/common/actions';
-import { KeyCode } from 'vs/base/common/keyCodes';
+import { KeyChord, KeyCode, KeyMod } from 'vs/base/common/keyCodes';
 import { ServicesAccessor } from 'vs/platform/instantiation/common/instantiation';
 import { IPositronHelpService } from 'vs/workbench/contrib/positronHelp/browser/positronHelpService';
 import { ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
@@ -33,6 +33,7 @@ export class ShowHelpAtCursor extends Action2 {
 				// we can ensure we get the valuable F1 keybinding for Help.
 				weight: KeybindingWeight.EditorCore,
 				primary: KeyCode.F1,
+				secondary: [KeyChord(KeyMod.CtrlCmd | KeyCode.KeyK, KeyMod.CtrlCmd | KeyCode.KeyH)],
 				when: EditorContextKeys.focus
 			},
 			category: Categories.Help,
