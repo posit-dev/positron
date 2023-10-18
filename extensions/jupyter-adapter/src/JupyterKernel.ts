@@ -100,6 +100,19 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	/** If the kernel is currently exiting, this promise resolves when it is complete. */
 	private _exitPromise?: PromiseHandles<void>;
 
+	/**
+	 * A set of message IDs that represent busy messages for which no corresponding
+	 * idle message has yet been received.
+	 */
+	private readonly _busyMessageIds: Set<string> = new Set();
+
+	/**
+	 * A set of message IDs that represent idle messages for which no corresponding
+	 * busy message has yet been received. This indicates an ordering problem and is
+	 * used for recovery.
+	 */
+	private readonly _idleMessageIds: Set<string> = new Set();
+
 	constructor(
 		private readonly _context: vscode.ExtensionContext,
 		spec: JupyterKernelSpec,
@@ -319,18 +332,67 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 				this._iopub?.onMessage((args: any[]) => {
 					const msg = deserializeJupyterMessage(args, this._session!.key, this._channel);
 
-					// If this is a status message, save the status. Note that
-					// we do not emit an event here (via `setStatus`) since
-					// idle/busy status events are emitted one layer up in the
-					// `LanguageRuntimeAdapter`.
+					// If this is a status message, save the status and emit it.
 					if (msg?.header.msg_type === 'status') {
 						const statusMsg = msg.content as JupyterKernelStatus;
 						const state = statusMsg.execution_state as positron.RuntimeState;
-						if (state === 'idle') {
-							this._status = positron.RuntimeState.Idle;
-						} else if (state === 'busy') {
-							this._status = positron.RuntimeState.Busy;
+
+						const parent_id = msg.parent_header.msg_id;
+
+						switch (state) {
+							case 'idle':
+								// Busy/idle messages come in pairs with matching origin IDs. If
+								// we get an idle message, remove it from the stack of busy
+								// messages by matching it with its parent ID. If the stack is
+								// empty, emit an idle event.
+								//
+								// In most cases, the stack will only have one item but it's
+								// possible to have multiple items because there are two different
+								// sockets that may have concurrent status messages: Shell and
+								// Control.
+								//
+								// A typical example of overlapping status messages occurs when an
+								// `interrupt_request` is sent while `Shell` is busy working on an
+								// `execute_request`. In this case we are waiting for an `Idle`
+								// message from `Shell` but a concurrent pair of `Busy` and `Idle`
+								// messages is sent from `Control` to describe the socket state
+								// while the interrupt is processed.
+								//
+								// We also keep track of the stack to defend against out-of-order
+								// messages.
+								if (this._busyMessageIds.has(parent_id)) {
+									this._busyMessageIds.delete(parent_id);
+									if (this._busyMessageIds.size === 0) {
+										this._status = positron.RuntimeState.Idle;
+										this.setStatus(this._status);
+									}
+								} else {
+									// We got an idle message without a matching busy message.
+									// This indicates an ordering problem, but we can recover by
+									// adding it to the stack of idle messages.
+									this._idleMessageIds.add(parent_id);
+								}
+								break;
+							case 'busy':
+								// First, check to see if this is the other half of an
+								// out-of-order message pair. If we already got the idle side of
+								// this message, we can discard it.
+								if (this._idleMessageIds.has(parent_id)) {
+									this._idleMessageIds.delete(parent_id);
+									break;
+								}
+
+								// Add this to the stack of busy messages
+								this._busyMessageIds.add(parent_id);
+
+								// If it's the first busy message, emit a busy event
+								if (this._busyMessageIds.size === 1) {
+									this._status = positron.RuntimeState.Busy;
+									this.setStatus(this._status);
+								}
+								break;
 						}
+
 					}
 
 					if (msg !== null) {
@@ -403,6 +465,9 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	 * start.
 	 */
 	public async start() {
+		// Reset status stacks in case of (possibly forced) restart
+		this._busyMessageIds.clear();
+		this._idleMessageIds.clear();
 
 		// If a request to start the kernel arrives while we are initializing,
 		// we can't handle it right away. Defer the request to start the kernel
