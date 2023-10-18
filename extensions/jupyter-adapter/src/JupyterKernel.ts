@@ -773,13 +773,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	}
 
 	/**
-	 * Interrupts the kernel.
-	 *
-	 * FIXME:
-	 * Currently this resolves after the message has been sent.
-	 * Should this resolve when we get an `interrupt_reply` (see
-	 * https://github.com/posit-dev/positron/issues/1576) or
-	 * when status switches back to `idle`?
+	 * Interrupts the kernel
 	 */
 	public async interrupt(): Promise<void> {
 		// Clear current input request if any
