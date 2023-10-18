@@ -570,25 +570,10 @@ class _PositronHTMLDoc(pydoc.HTMLDoc):
     # as is from pydoc._url_handler to port Python 3.11 breaking CSS changes
     def html_getobj(self, url):
         # --- Start Positron ---
-        # Skip forced reloads for some modules. It is unlikely to affect the UX provided that these
+        # Skip forced reloads for all modules. It is unlikely to affect the UX provided that these
         # modules don't change within the lifetime of the help service
-        skip_reload = [
-            # Numpy, Pandera, Polars raise a UserWarning if you re-import it
-            "numpy",
-            "polars",
-            "pandera",
-            # Keras, Torch, Aesara have ErrorOnImport when re-importing
-            "keras",
-            "aesara",
-            "torch",
-            # Tensorflow crashes on re-import
-            "tensorflow",
-            # Fixes an edge case where importing `get_ipython` interferes with the help service
-            "IPython",
-        ]
-        forceload = not any(url.startswith(prefix) for prefix in skip_reload)
+        obj = locate(url, forceload=False)
         # --- End Positron ---
-        obj = locate(url, forceload=forceload)
         if obj is None and url != "None":
             raise ValueError("could not find object")
         title = describe(obj)
