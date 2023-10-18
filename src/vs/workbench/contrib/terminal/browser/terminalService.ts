@@ -207,6 +207,14 @@ export class TerminalService extends Disposable implements ITerminalService {
 		// down. When shutting down the panel is locked in place so that it is restored upon next
 		// launch.
 		this._terminalGroupService.onDidChangeActiveInstance(instance => {
+			// --- Start Positron ---
+			// Don't hide panel or reset context key when last terminal is hidden.
+			// This prevents hiding the panel along with the Console, which would
+			// confuse users.
+			if (!instance) {
+				return;
+			}
+			// --- End Positron ---
 			if (!instance && !this._isShuttingDown) {
 				this._terminalGroupService.hidePanel();
 			}
