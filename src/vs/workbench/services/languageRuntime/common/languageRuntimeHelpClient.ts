@@ -11,7 +11,7 @@ import { IRuntimeClientInstance, RuntimeClientState } from 'vs/workbench/service
  * The types of messages that can be sent to the backend.
  */
 export enum HelpMessageTypeInput {
-	ShowHelpTopic = 'show_help_topic',
+	ShowHelpTopicRequest = 'show_help_topic_request',
 }
 
 /**
@@ -32,8 +32,8 @@ export interface IHelpClientMessageShowHelpTopic extends IHelpClientMessageInput
  * The types of messages that can be received from the backend.
  */
 export enum HelpMessageTypeOutput {
-	ShowHelp = 'show_help',
-	HelpTopicReply = 'help_topic_reply',
+	ShowHelpEvent = 'show_help_event',
+	ShowHelpTopicReply = 'show_help_topic_reply',
 }
 
 /**
@@ -119,11 +119,11 @@ export class HelpClientInstance extends Disposable {
 	 */
 	async showHelpTopic(topic: string): Promise<boolean> {
 		const req: IHelpClientMessageShowHelpTopic = {
-			msg_type: HelpMessageTypeInput.ShowHelpTopic,
+			msg_type: HelpMessageTypeInput.ShowHelpTopicRequest,
 			topic
 		};
 		const result = await this._client.performRpc(req);
-		if (result.msg_type === HelpMessageTypeOutput.HelpTopicReply) {
+		if (result.msg_type === HelpMessageTypeOutput.ShowHelpTopicReply) {
 			const reply = result as IHelpClientMessageHelpTopicReply;
 			return reply.found;
 		} else {
@@ -142,7 +142,7 @@ export class HelpClientInstance extends Disposable {
 	 */
 	private handleData(data: IHelpClientMessageOutput): void {
 		switch (data.msg_type) {
-			case HelpMessageTypeOutput.ShowHelp:
+			case HelpMessageTypeOutput.ShowHelpEvent:
 				this._onDidEmitHelpContent.fire(data as IHelpClientMessageShowHelp);
 				break;
 		}
