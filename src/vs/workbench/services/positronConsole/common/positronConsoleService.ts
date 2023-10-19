@@ -47,7 +47,7 @@ const ON_DID_CHANGE_RUNTIME_ITEMS_THROTTLE_INTERVAL = 50;
 /**
  * The maximum items to display in the console.
  */
-const MAX_ITEMS = 5000;
+const MAX_ITEMS = 10000;
 
 //#region Helper Functions
 
