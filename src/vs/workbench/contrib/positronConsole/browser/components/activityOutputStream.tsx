@@ -5,7 +5,7 @@
 import 'vs/css!./activityOutputStream';
 import * as React from 'react';
 import { OutputLines } from 'vs/workbench/contrib/positronConsole/browser/components/outputLines';
-import { ActivityItemOutputStream } from 'vs/workbench/services/positronConsole/common/classes/activityItemOutputStream';
+import { ActivityItemOutputStream } from 'vs/workbench/services/positronConsole/common/classes/activityItemStream';
 
 // ActivityOutputStreamProps interface.
 export interface ActivityOutputStreamProps {
