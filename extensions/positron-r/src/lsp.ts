@@ -16,6 +16,7 @@ import {
 
 import { trace, traceOutputChannel } from './logging';
 import { Socket } from 'net';
+import { RHelpTopicProvider } from './help';
 
 /**
  * The state of the language server.
@@ -123,9 +124,8 @@ export class ArkLsp implements vscode.Disposable {
 						trace(`ARK (R ${this._version}) language client init successful`);
 						this._initializing = undefined;
 						if (this._client) {
-							// Register a statement range provider to detect R statements
-							const disposable = positron.languages.registerStatementRangeProvider('r', new RStatementRangeProvider(this._client));
-							this.activationDisposables.push(disposable);
+							// Register Positron-specific LSP extension methods
+							this.registerPositronLspExtensions(this._client);
 						}
 						out.resolve();
 					}
@@ -203,6 +203,26 @@ export class ArkLsp implements vscode.Disposable {
 	 */
 	get state(): LspState {
 		return this._state;
+	}
+
+	/**
+	 * Registers additional Positron-specific LSP methods. These programmatic
+	 * language features are not part of the LSP specification, and are
+	 * consequently not covered by vscode-languageserver, but are used by
+	 * Positron to provide additional functionality.
+	 *
+	 * @param client The language client instance
+	 */
+	private registerPositronLspExtensions(client: LanguageClient) {
+		// Register a statement range provider to detect R statements
+		const rangeDisposable = positron.languages.registerStatementRangeProvider('r',
+			new RStatementRangeProvider(client));
+		this.activationDisposables.push(rangeDisposable);
+
+		// Register a help topic provider to provide help topics for R
+		const helpDisposable = positron.languages.registerHelpTopicProvider('r',
+			new RHelpTopicProvider(client));
+		this.activationDisposables.push(helpDisposable);
 	}
 
 	/**

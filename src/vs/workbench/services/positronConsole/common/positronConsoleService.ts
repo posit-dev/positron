@@ -5,6 +5,7 @@
 import * as nls from 'vs/nls';
 import { Emitter } from 'vs/base/common/event';
 import { generateUuid } from 'vs/base/common/uuid';
+import { IEditor } from 'vs/editor/common/editorCommon';
 import { ILogService } from 'vs/platform/log/common/log';
 import { IViewsService } from 'vs/workbench/common/views';
 import { ILanguageService } from 'vs/editor/common/languages/language';
@@ -284,6 +285,11 @@ class PositronConsoleService extends Disposable implements IPositronConsoleServi
 		return this._activePositronConsoleInstance;
 	}
 
+	// Gets the active input text editor.
+	get activeInputTextEditor(): IEditor | undefined {
+		return this._activePositronConsoleInstance?.inputTextEditor;
+	}
+
 	/**
 	 * Placeholder that gets called to "initialize" the PositronConsoleService.
 	 */
@@ -523,6 +529,12 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	 */
 	private readonly _onDidAttachRuntime = this._register(new Emitter<ILanguageRuntime | undefined>);
 
+	/**
+	 * Provides access to the input text editor, if it's available. Note that we generally prefer to
+	 * interact with this editor indirectly, since its state is managed by React.
+	 */
+	private _inputTextEditor: IEditor | undefined;
+
 	//#endregion Private Properties
 
 	//#region Constructor & Dispose
@@ -541,6 +553,21 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 
 		// Attach to the runtime.
 		this.attachRuntime(starting);
+	}
+
+	/**
+	 * Gets the current input text editor, if any.
+	 */
+	get inputTextEditor(): IEditor | undefined {
+		return this._inputTextEditor;
+	}
+
+	/**
+	 * Sets the input text editor. This is called from the React component after
+	 * the editor (a `CodeEditorWidget`) is created and mounted.
+	 */
+	set inputTextEditor(value: IEditor | undefined) {
+		this._inputTextEditor = value;
 	}
 
 	/**

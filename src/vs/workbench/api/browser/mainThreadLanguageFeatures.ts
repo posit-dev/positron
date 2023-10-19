@@ -775,6 +775,14 @@ export class MainThreadLanguageFeatures extends Disposable implements MainThread
 			}
 		}));
 	}
+
+	$registerHelpTopicProvider(handle: number, selector: IDocumentFilterDto[]): void {
+		this._registrations.set(handle, this._languageFeaturesService.helpTopicProvider.register(selector, {
+			provideHelpTopic: (model, position, token) => {
+				return this._proxy.$provideHelpTopic(handle, model.uri, position, token);
+			}
+		}));
+	}
 	// --- End Positron ---
 
 	// --- call hierarchy
