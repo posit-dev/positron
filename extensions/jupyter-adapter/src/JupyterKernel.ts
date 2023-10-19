@@ -299,7 +299,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 			// Establish a log channel for the kernel we're connecting to, if we
 			// don't already have one (we will if we're restarting)
 			if (!this._logChannel) {
-				this._logChannel = vscode.window.createOutputChannel(`Runtime: ${this._spec.display_name}`);
+				this._logChannel = positron.window.createRawLogOutputChannel(`Runtime: ${this._spec.display_name}`);
 			}
 
 			// Bind to the Jupyter session

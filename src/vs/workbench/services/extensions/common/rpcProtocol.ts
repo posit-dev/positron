@@ -256,7 +256,8 @@ export class RPCProtocol extends Disposable implements IRPCProtocol {
 	 */
 	public getRaw<T, R extends T>(identifier: ProxyIdentifier<T>): R {
 		if (!this._locals[identifier.nid]) {
-			throw new Error(`Missing actor ${identifier.sid}`);
+			throw new Error(`Missing actor ${identifier.sid}.` +
+				' The VS Code API must be created before the Positron API.');
 		}
 		return this._locals[identifier.nid];
 	}

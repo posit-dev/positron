@@ -819,6 +819,20 @@ declare module 'positron' {
 		 * @return New preview panel.
 		 */
 		export function createPreviewPanel(viewType: string, title: string, preserveFocus?: boolean, options?: PreviewOptions): PreviewPanel;
+
+		/**
+		 * Create a log output channel from raw data.
+		 *
+		 * Variant of `createOutputChannel()` that creates a "raw log" output channel.
+		 * Compared to a normal `LogOutputChannel`, this doesn't add timestamps or info
+		 * level. It's meant for extensions that create fully formed log lines but still
+		 * want to benefit from the colourised rendering of log output channels.
+		 *
+		 * @param name Human-readable string which will be used to represent the channel in the UI.
+		 *
+		 * @return New log output channel.
+		 */
+		export function createRawLogOutputChannel(name: string): vscode.OutputChannel;
 	}
 
 	namespace runtime {
