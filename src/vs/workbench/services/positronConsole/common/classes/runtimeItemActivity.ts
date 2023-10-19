@@ -103,7 +103,6 @@ export class RuntimeItemActivity extends RuntimeItem {
 
 		// Push the activity item.
 		this.activityItems.push(activityItem);
-		console.log(`this.activityItems.length ${this.activityItems.length}`);
 	}
 
 	//#endregion Public Methods
