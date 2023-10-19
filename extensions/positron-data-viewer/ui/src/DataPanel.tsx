@@ -94,8 +94,8 @@ export const DataPanel = (props: DataPanelProps) => {
 		// Overwrite fetchSize so that we never request rows past the end of the dataset
 		fetchSize = Math.min(fetchSize, totalRows - startRow);
 
-		// Let the server know we are requesting more rows
-		if (startRow > 0) {
+		// Request more rows from the server if we don't have them in the cache
+		if (startRow > 0 && !dataModel.renderedRows.includes(startRow)) {
 			vscode.postMessage({
 				msg_type: 'request_rows',
 				start_row: startRow,
