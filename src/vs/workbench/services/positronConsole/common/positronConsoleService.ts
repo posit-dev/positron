@@ -33,7 +33,13 @@ import { ActivityItemErrorStream, ActivityItemOutputStream } from 'vs/workbench/
 import { IPositronConsoleInstance, IPositronConsoleService, POSITRON_CONSOLE_VIEW_ID, PositronConsoleState } from 'vs/workbench/services/positronConsole/common/interfaces/positronConsoleService';
 import { formatLanguageRuntime, ILanguageRuntime, ILanguageRuntimeExit, ILanguageRuntimeMessage, ILanguageRuntimeService, LanguageRuntimeStartupBehavior, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeExitReason, RuntimeOnlineState, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 
-// Constants.
+/**
+ * The onDidChangeRuntimeItems throttle threshold and throttle interval. The throttle threshold
+ * specifies how many events can be fired during the throttle interval before throttling will occur.
+ * As long as fewer than throttle threshold events are occurring every throttle interval ms, events
+ * will be fired in real time. When the throttle threshold is exceeded during the throttle interval
+ * in ms, events will be fired at the throttle interval thereafter until event delivery slows down.
+ */
 const ON_DID_CHANGE_RUNTIME_ITEMS_THROTTLE_THRESHOLD = 20;
 const ON_DID_CHANGE_RUNTIME_ITEMS_THROTTLE_INTERVAL = 50;
 

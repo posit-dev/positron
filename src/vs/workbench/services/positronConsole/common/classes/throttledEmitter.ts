@@ -13,7 +13,7 @@ export class ThrottledEmitter<T> extends Emitter<T> {
 	/**
 	 * Gets or sets the throttle threshold.
 	 */
-	private readonly _throttleThreshhold: number;
+	private readonly _throttleThreshold: number;
 
 	/**
 	 * Gets or sets the throttle interval.
@@ -41,12 +41,19 @@ export class ThrottledEmitter<T> extends Emitter<T> {
 
 	/**
 	 * Constructor.
-	 * @param throttleThreshhold The number of events to throttle at.
-	 * @param throttleMs The throttle
+	 *
+	 * The throttle threshold specifies how many events can be fired during the throttle interval
+	 * before throttling will occur. As long as fewer than throttle threshold events are occurring
+	 * every throttle interval ms, events will be fired in real time. When the throttle threshold is
+	 * exceeded during the throttle interval in ms, events will be fired at the throttle interval
+	 * thereafter until event delivery slows down.
+	 *
+	 * @param throttleThreshold The throttle threshold.
+	 * @param throttleInterval The throttle interval in MS.
 	 */
-	constructor(throttleThreshhold: number, throttleInterval: number) {
+	constructor(throttleThreshold: number, throttleInterval: number) {
 		super();
-		this._throttleThreshhold = throttleThreshhold;
+		this._throttleThreshold = throttleThreshold;
 		this._throttleInterval = throttleInterval;
 	}
 
@@ -85,7 +92,7 @@ export class ThrottledEmitter<T> extends Emitter<T> {
 		}
 
 		// If the event can be fired immediately, fire it.
-		if (this._throttleHistory.length < this._throttleThreshhold) {
+		if (this._throttleHistory.length < this._throttleThreshold) {
 			super.fire(event);
 			return;
 		}
