@@ -59,6 +59,7 @@ body,
 .container {
 	position: relative;
 	overflow: auto;
+	overflow-anchor: none;
 }
 
 .processing {
