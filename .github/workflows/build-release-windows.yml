@@ -85,7 +85,6 @@ jobs:
           POSITRON_GITHUB_PAT: ${{ secrets.POSITRON_GITHUB_PAT }}
         # nvm on windows does not see .nvmrc
         run: |
-          nvm use 18
           yarn --network-timeout 120000
 
       # Build client
