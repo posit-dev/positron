@@ -101,6 +101,15 @@ export class SpdLogLogger extends AbstractMessageLogger implements ILogger {
 		}
 	}
 
+	// --- Start Positron ---
+	// Override pattern to avoid adding timestamps etc
+	public setRawLogger() {
+		this._loggerCreationPromise.then(() => {
+			this._logger!.setPattern('%v');
+		});
+	}
+	// --- End Positron ---
+
 	protected log(level: LogLevel, message: string): void {
 		if (this._logger) {
 			log(this._logger, level, message);

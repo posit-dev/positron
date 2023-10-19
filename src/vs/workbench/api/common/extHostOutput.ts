@@ -41,6 +41,15 @@ class ExtHostOutputChannel extends AbstractMessageLogger implements vscode.LogOu
 		this._register(logger.onDidChangeLogLevel(level => this.setLevel(level)));
 	}
 
+	// --- Start Positron ---
+	public setRawLogger() {
+		let loggerUnchecked = this.logger as any;
+		if (loggerUnchecked.setRawLogger) {
+			loggerUnchecked.setRawLogger();
+		};
+	}
+	// --- End Positron ---
+
 	get logLevel(): LogLevel {
 		return this.getLevel();
 	}
@@ -161,6 +170,24 @@ export class ExtHostOutputService implements ExtHostOutputServiceShape {
 		return log ? this.createExtHostLogOutputChannel(name, logLevel ?? this.logService.getLevel(), <Promise<ExtHostOutputChannel>>extHostOutputChannel) : this.createExtHostOutputChannel(name, <Promise<ExtHostOutputChannel>>extHostOutputChannel);
 	}
 
+	// --- Start Positron ---
+	// Variant of createOutputChannel() that creates a "raw log" output channel.
+	// Compared to a normal `LogOutputChannel`, this doesn't add timestamps or info
+	// level. It's meant for extensions that create fully formed log lines but still
+	// want to benefit from the colourised rendering of log output channels.
+	createRawLogOutputChannel(name: string, extension: IExtensionDescription): vscode.OutputChannel {
+		const channel = this.createOutputChannel(name, { log: true }, extension);
+
+		// Set our custom raw log
+		const channelUnchecked = channel as any
+		if (channelUnchecked.setRawLogger) {
+			channelUnchecked.setRawLogger();
+		}
+
+		return channel;
+	}
+	// --- End Positron ---
+
 	private async doCreateOutputChannel(name: string, languageId: string | undefined, extension: IExtensionDescription): Promise<ExtHostOutputChannel> {
 		if (!this.outputDirectoryPromise) {
 			this.outputDirectoryPromise = this.extHostFileSystem.value.createDirectory(this.outputsLocation).then(() => this.outputsLocation);
@@ -216,6 +243,13 @@ export class ExtHostOutputService implements ExtHostOutputServiceShape {
 				validate();
 				channelPromise.then(channel => channel.appendLine(value));
 			},
+			// --- Start Positron ---
+			// @ts-ignore
+			setRawLogger(): void {
+				validate();
+				channelPromise.then(channel => channel.setRawLogger());
+			},
+			// --- End Positron ---
 			clear(): void {
 				validate();
 				channelPromise.then(channel => channel.clear());
