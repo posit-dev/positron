@@ -39,6 +39,7 @@ export enum RuntimeClientType {
 	Plot = 'positron.plot',
 	DataViewer = 'positron.dataViewer',
 	FrontEnd = 'positron.frontEnd',
+	Help = 'positron.help',
 
 	// Future client types may include:
 	// - Watch window/variable explorer

@@ -323,11 +323,13 @@ export class LanguageRuntimeAdapter
 		params: object
 	) {
 
-		// Ensure the type of client we're being asked to create is one we know ark supports
+		// Ensure the type of client we're being asked to create is a known type
+		// that supports client-initiated creation
 		if (type === positron.RuntimeClientType.Environment ||
 			type === positron.RuntimeClientType.Lsp ||
 			type === positron.RuntimeClientType.Dap ||
-			type === positron.RuntimeClientType.FrontEnd) {
+			type === positron.RuntimeClientType.FrontEnd ||
+			type === positron.RuntimeClientType.Help) {
 			this._kernel.log(`Creating '${type}' client for ${this.metadata.languageName}`);
 
 			// Does the comm wrap a server? In that case the
@@ -806,7 +808,7 @@ export class LanguageRuntimeAdapter
 
 		// Create a unique client ID for this instance
 		const uniqueId = Math.floor(Math.random() * 0x100000000).toString(16);
-		const clientId = `positron-dap-${this.metadata.languageId}-${LanguageRuntimeAdapter._clientCounter++}-${uniqueId}}`;
+		const clientId = `positron-dap-${this.metadata.languageId}-${LanguageRuntimeAdapter._clientCounter++}-${uniqueId}`;
 		this._kernel.log(`Starting DAP server ${clientId} for ${serverAddress}`);
 
 		await this.createClient(
