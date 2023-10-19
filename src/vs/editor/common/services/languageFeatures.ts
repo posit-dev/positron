@@ -10,7 +10,7 @@ import { createDecorator } from 'vs/platform/instantiation/common/instantiation'
 // --- Start Positron ---
 // This import is on its own line to avoid unnecessary merge conflicts.
 // eslint-disable-next-line no-duplicate-imports
-import { StatementRangeProvider } from 'vs/editor/common/languages';
+import { StatementRangeProvider, HelpTopicProvider } from 'vs/editor/common/languages';
 // --- End Positron ---
 
 export const ILanguageFeaturesService = createDecorator<ILanguageFeaturesService>('ILanguageFeaturesService');
@@ -66,6 +66,8 @@ export interface ILanguageFeaturesService {
 	// --- Start Positron ---
 
 	readonly statementRangeProvider: LanguageFeatureRegistry<StatementRangeProvider>;
+
+	readonly helpTopicProvider: LanguageFeatureRegistry<HelpTopicProvider>;
 
 	// --- End Positron ---
 

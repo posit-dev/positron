@@ -7578,6 +7578,13 @@ declare namespace monaco.languages {
 		provideStatementRange(model: editor.ITextModel, position: Position, token: CancellationToken): ProviderResult<IRange>;
 	}
 
+	export interface HelpTopicProvider {
+		/**
+		 * Provide a help topic relevant to the current cursor position.
+		 */
+		provideHelpTopic(model: editor.ITextModel, position: Position, token: CancellationToken): ProviderResult<string>;
+	}
+
 	export interface WorkspaceEditMetadata {
 		needsConfirmation: boolean;
 		label: string;

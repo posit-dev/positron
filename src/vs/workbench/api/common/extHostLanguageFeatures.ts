@@ -1617,6 +1617,44 @@ class StatementRangeAdapter {
 		return typeConvert.Range.from(providerRange);
 	}
 }
+
+
+/**
+ * Adapter for the `HelpTopicProvider` API.
+ */
+class HelpTopicAdapter {
+
+	constructor(
+		private readonly _documents: ExtHostDocuments,
+		private readonly _provider: positron.HelpTopicProvider
+	) { }
+
+	/**
+	 * Provide a help topic related to the given position.
+	 *
+	 * @param resource The URI of the document to search
+	 * @param pos The position to search at
+	 * @param token The cancellation token (currently unused)
+	 *
+	 * @returns A promise that resolves to the help topic, or '' if none is found
+	 */
+	async provideHelpTopic(resource: URI, pos: IPosition, token: CancellationToken): Promise<string> {
+		const document = this._documents.getDocument(resource);
+		const position = typeConvert.Position.to(pos);
+
+		// Ask the provider for the help topic
+		const topic = await this._provider.provideHelpTopic(document, position, token);
+
+		// If a help topic was returned, return it
+		if (typeof topic === 'string') {
+			return topic;
+		}
+
+		// If no help topic was returned, return an empty string
+		return '';
+	}
+}
+
 // --- End Positron ---
 
 class SelectionRangeAdapter {
@@ -1892,7 +1930,7 @@ class MappedEditsAdapter {
 }
 
 // --- Start Positron ---
-// Add 'StatementRangeAdapter' to the list of adapters
+// Add 'StatementRangeAdapter and 'HelpTopicAdapter' to the list of adapters
 type Adapter = DocumentSymbolAdapter | CodeLensAdapter | DefinitionAdapter | HoverAdapter
 	| DocumentHighlightAdapter | ReferenceAdapter | CodeActionAdapter | DocumentPasteEditProvider | DocumentFormattingAdapter
 	| RangeFormattingAdapter | OnTypeFormattingAdapter | NavigateTypeAdapter | RenameAdapter
@@ -1902,7 +1940,7 @@ type Adapter = DocumentSymbolAdapter | CodeLensAdapter | DefinitionAdapter | Hov
 	| DocumentSemanticTokensAdapter | DocumentRangeSemanticTokensAdapter
 	| EvaluatableExpressionAdapter | InlineValuesAdapter
 	| LinkedEditingRangeAdapter | InlayHintsAdapter | InlineCompletionAdapter
-	| DocumentOnDropEditAdapter | MappedEditsAdapter | StatementRangeAdapter;
+	| DocumentOnDropEditAdapter | MappedEditsAdapter | StatementRangeAdapter | HelpTopicAdapter;
 // --- End Positron ---
 
 class AdapterData {
@@ -2492,6 +2530,17 @@ export class ExtHostLanguageFeatures implements extHostProtocol.ExtHostLanguageF
 	$provideStatementRange(handle: number, resource: UriComponents, position: IPosition, token: CancellationToken): Promise<IRange | undefined> {
 		return this._withAdapter(handle, StatementRangeAdapter, adapter => adapter.provideStatementRange(URI.revive(resource), position, token), undefined, token);
 	}
+
+	registerHelpTopicProvider(extension: IExtensionDescription, selector: vscode.DocumentSelector, provider: positron.HelpTopicProvider): vscode.Disposable {
+		const handle = this._addNewAdapter(new HelpTopicAdapter(this._documents, provider), extension);
+		this._proxy.$registerHelpTopicProvider(handle, this._transformDocumentSelector(selector, extension));
+		return this._createDisposable(handle);
+	}
+
+	$provideHelpTopic(handle: number, resource: UriComponents, position: IPosition, token: CancellationToken): Promise<string | undefined> {
+		return this._withAdapter(handle, HelpTopicAdapter, adapter => adapter.provideHelpTopic(URI.revive(resource), position, token), undefined, token);
+	}
+
 	// --- End Positron ---
 
 	// --- call hierarchy

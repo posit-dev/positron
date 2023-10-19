@@ -18,8 +18,9 @@ import { WebviewThemeDataProvider } from 'vs/workbench/contrib/webview/browser/t
 import { HelpEntry, IHelpEntry } from 'vs/workbench/contrib/positronHelp/browser/helpEntry';
 import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/common/extensions';
 import { IInstantiationService, createDecorator } from 'vs/platform/instantiation/common/instantiation';
-import { ILanguageRuntimeService, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
-import { LanguageRuntimeEventData, LanguageRuntimeEventType, ShowHelpEvent } from 'vs/workbench/services/languageRuntime/common/languageRuntimeEvents';
+import { ILanguageRuntime, ILanguageRuntimeService, IRuntimeClientInstance, RuntimeClientType, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { HelpClientInstance, IHelpClientMessageInput, IHelpClientMessageOutput, ShowHelpEvent } from 'vs/workbench/services/languageRuntime/common/languageRuntimeHelpClient';
+import { LanguageRuntimeEventData, LanguageRuntimeEventType } from 'vs/workbench/services/languageRuntime/common/languageRuntimeEvents';
 
 /**
  * The help HTML file path.
@@ -87,6 +88,15 @@ export interface IPositronHelpService {
 	openHelpEntryIndex(helpEntryIndex: number): void;
 
 	/**
+	 * Ask an active runtime to show help for the given topic.
+	 *
+	 * @param languageId The language ID. A runtime for this language must be active.
+	 * @param topic The help topic.
+	 * @returns A boolean indicating whether help was found for the requested topic.
+	 */
+	showHelpTopic(languageId: string, topic: string): Promise<boolean>;
+
+	/**
 	 * Navigates the help service.
 	 * @param fromUrl The from URL.
 	 * @param toUrl The to URL.
@@ -129,6 +139,11 @@ class PositronHelpService extends Disposable implements IPositronHelpService {
 	 * Gets the proxy servers. Keyed by the target URL origin.
 	 */
 	private readonly _proxyServers = new Map<string, string>();
+
+	/**
+	 * Gets the help clients. Keyed by the runtime ID.
+	 */
+	private readonly _helpClients = new Map<string, HelpClientInstance>();
 
 	/**
 	 * The onDidFocusHelp event emitter.
@@ -198,19 +213,19 @@ class PositronHelpService extends Disposable implements IPositronHelpService {
 		// Register onDidReceiveRuntimeEvent handler.
 		this._register(
 			this._languageRuntimeService.onDidChangeRuntimeState(languageRuntimeStateEvent => {
-				// When a language runtime shuts down, delete its help entries.
-				switch (languageRuntimeStateEvent.new_state) {
-					case RuntimeState.Restarting:
-					case RuntimeState.Exiting:
-					case RuntimeState.Exited:
-					case RuntimeState.Offline:
-						this.deleteLanguageRuntimeHelpEntries(languageRuntimeStateEvent.runtime_id);
-						break;
+				if (languageRuntimeStateEvent.new_state === RuntimeState.Ready) {
+					this.attachRuntime(languageRuntimeStateEvent.runtime_id);
 				}
 			})
 		);
 
 		// Register onDidReceiveRuntimeEvent handler.
+		//
+		// ***
+		// TEMPORARY: Currently, some runtimes deliver the ShowHelp event as a
+		// global event. This code can go away as soon as all runtimes send this
+		// event over the `positron.help` comm channel instead.
+		// ***
 		this._register(
 			this._languageRuntimeService.onDidReceiveRuntimeEvent(async languageRuntimeGlobalEvent => {
 				/**
@@ -235,122 +250,34 @@ class PositronHelpService extends Disposable implements IPositronHelpService {
 
 				// Get the show help event.
 				const showHelpEvent = languageRuntimeGlobalEvent.event.data as ShowHelpEvent;
-
-				// Only url help events are supported.
-				if (showHelpEvent.kind !== 'url') {
-					this._logService.error(`PositronHelpService does not support help event kind ${showHelpEvent.kind}.`);
-					return;
-				}
-
-				// Get the target URL.
-				const targetUrl = new URL(showHelpEvent.content);
-
-				// Logging.
-				this._logService.info(`PositronHelpService language runtime server sent show help event for: ${targetUrl.toString()}`);
-
-				// If the target URL is not for localhost, open it externally.
-				if (!isLocalhost(targetUrl.hostname)) {
-					try {
-						await this._openerService.open(targetUrl.toString(), {
-							openExternal: true
-						} satisfies OpenExternalOptions);
-					} catch {
-						this._notificationService.error(localize(
-							'positronHelpServiceOpenFailed',
-							"The Positron help service was unable to open '{0}'.", targetUrl.toString()
-						));
-					}
-
-					// Return.
-					return;
-				}
-
-				// Get the proxy server origin for the help URL. If one isn't found, ask the
-				// PositronProxy to start one.
-				let proxyServerOrigin = this._proxyServers.get(targetUrl.origin);
-				if (!proxyServerOrigin) {
-					// Try to start a help proxy server.
-					try {
-						proxyServerOrigin = await this._commandService.executeCommand<string>(
-							'positronProxy.startHelpProxyServer',
-							targetUrl.origin
-						);
-					} catch (error) {
-						this._logService.error(`PositronHelpService could not start the proxy server for ${targetUrl.origin}.`);
-						this._logService.error(error);
-					}
-
-					// If the help proxy server could not be started, notify the user, and return.
-					if (!proxyServerOrigin) {
-						this._notificationService.error(localize(
-							'positronHelpServiceUnavailable',
-							"The Positron help service is unavailable."
-						));
-						return;
-					}
-
-					// Add the proxy server.
-					this._proxyServers.set(targetUrl.origin, proxyServerOrigin);
-				}
-
-				// Create the source URL.
-				const sourceUrl = new URL(targetUrl);
-				const proxyServerOriginUrl = new URL(proxyServerOrigin);
-				sourceUrl.protocol = proxyServerOriginUrl.protocol;
-				sourceUrl.hostname = proxyServerOriginUrl.hostname;
-				sourceUrl.port = proxyServerOriginUrl.port;
-
-				// Get the runtime.
 				const runtime = this._languageRuntimeService.getRuntime(
-					languageRuntimeGlobalEvent.runtime_id
-				);
-
-				// Basically this can't happen.
-				if (!runtime) {
-					this._notificationService.error(localize(
-						'positronHelpServiceInternalError',
-						"The Positron help service experienced an unexpected error."
-					));
-					return;
+					languageRuntimeGlobalEvent.runtime_id);
+				if (runtime) {
+					this.handleShowHelpEvent(runtime, showHelpEvent);
+				} else {
+					this._logService.error(`PositronHelpService could not find runtime ${languageRuntimeGlobalEvent.runtime_id}.`);
 				}
+			}));
 
-				// Open the help view.
-				await this._viewsService.openView(POSITRON_HELP_VIEW_ID, false);
+	}
 
-				// Create the help entry.
-				const helpEntry = this._instantiationService.createInstance(HelpEntry,
-					this._helpHTML,
-					runtime.metadata.languageId,
-					runtime.metadata.runtimeId,
-					runtime.metadata.languageName,
-					sourceUrl.toString(),
-					targetUrl.toString()
-				);
-
-				// Add the onDidNavigate event handler.
-				helpEntry.onDidNavigate(url => {
-					this.navigate(helpEntry.sourceUrl, url);
-				});
-
-				// Add the onDidNavigateBackward event handler.
-				helpEntry.onDidNavigateBackward(() => {
-					this.navigateBackward();
-				});
-
-				// Add the onDidNavigateForward event handler.
-				helpEntry.onDidNavigateForward(() => {
-					this.navigateForward();
-				});
-
-				// Add the help entry.
-				this.addHelpEntry(helpEntry);
-
-				// Raise the onDidFocusHelp event, if we should.
-				if (showHelpEvent.focus) {
-					this._onDidFocusHelpEmitter.fire();
-				}
-			})
-		);
+	/**
+	 * Requests that the given help topic be shown in the Help pane.
+	 *
+	 * @param languageId The language ID. A runtime for this language must be active.
+	 * @param topic The help topic.
+	 * @returns A boolean indicating whether help was found for the requested topic.
+	 */
+	showHelpTopic(languageId: string, topic: string): Promise<boolean> {
+		const clients = this._helpClients.values();
+		for (const client of clients) {
+			if (client.languageId === languageId) {
+				return client.showHelpTopic(topic);
+			}
+		}
+		this._logService.warn(`Can't show help for ${topic}: ` +
+			`no runtime for language ${languageId} is active.`);
+		return Promise.resolve(false);
 	}
 
 	/**
@@ -461,6 +388,16 @@ class PositronHelpService extends Disposable implements IPositronHelpService {
 			// Add the onDidNavigate event handler.
 			helpEntry.onDidNavigate(url => {
 				this.navigate(helpEntry.sourceUrl, url);
+			});
+
+			// Add the onDidNavigateBackward event handler.
+			helpEntry.onDidNavigateBackward(() => {
+				this.navigateBackward();
+			});
+
+			// Add the onDidNavigateForward event handler.
+			helpEntry.onDidNavigateForward(() => {
+				this.navigateForward();
 			});
 
 			// Add the help entry.
@@ -579,6 +516,173 @@ class PositronHelpService extends Disposable implements IPositronHelpService {
 				);
 			}
 		});
+	}
+
+	/**
+	 * Attaches a runtime to the Help service by opening a client connection to it.
+	 *
+	 * @param runtimeId The runtime ID.
+	 */
+	async attachRuntime(runtimeId: string) {
+		// Look up the runtime in the runtime service.
+		const runtime = this._languageRuntimeService.getRuntime(runtimeId);
+		if (!runtime) {
+			this._logService.error(`PositronHelpService could not attach to runtime ${runtimeId}.`);
+			return;
+		}
+
+		try {
+			// Create the server side of the help client.
+			const client: IRuntimeClientInstance<IHelpClientMessageInput, IHelpClientMessageOutput> =
+				await runtime.createClient(RuntimeClientType.Help, {});
+
+			// Create and attach the help client wrapper.
+			const helpClient = new HelpClientInstance(client, runtime.metadata.languageId);
+			this.attachClientInstance(runtime, helpClient);
+
+		} catch (error) {
+			this._logService.error(
+				`PositronHelpService could not create client for runtime ${runtimeId}: ` +
+				`${error}`);
+		}
+	}
+
+	/**
+	 * Attaches a client instance to the Help service.
+	 *
+	 * @param runtime The language runtime.
+	 * @param client The help client instance.
+	 */
+	attachClientInstance(runtime: ILanguageRuntime, client: HelpClientInstance) {
+		const runtimeId = runtime.metadata.runtimeId;
+
+		// Shouldn't happen.
+		if (this._helpClients.has(runtimeId)) {
+			this._logService.warn(`
+			PositronHelpService already has a client for runtime ${runtimeId}; ` +
+				`it will be replaced.`);
+			const oldClient = this._helpClients.get(runtimeId);
+			if (oldClient) {
+				oldClient.dispose();
+			}
+		}
+
+		// Save our connection to the client.
+		this._register(client);
+		this._helpClients.set(runtimeId, client);
+
+		// When the client emits help content, show it in the Help pane.
+		this._register(client.onDidEmitHelpContent(helpContent => {
+			this.handleShowHelpEvent(runtime, helpContent);
+		}));
+
+		// When the client closes, delete the help entries for the runtime.
+		this._register(client.onDidClose(() => {
+			this.deleteLanguageRuntimeHelpEntries(runtimeId);
+			this._helpClients.delete(runtimeId);
+		}));
+	}
+
+	private async handleShowHelpEvent(runtime: ILanguageRuntime, showHelpEvent: ShowHelpEvent) {
+
+		// Only url help events are supported.
+		if (showHelpEvent.kind !== 'url') {
+			this._logService.error(`PositronHelpService does not support help event kind ${showHelpEvent.kind}.`);
+			return;
+		}
+
+		// Get the target URL.
+		const targetUrl = new URL(showHelpEvent.content);
+
+		// Logging.
+		this._logService.info(`PositronHelpService language runtime server sent show help event for: ${targetUrl.toString()}`);
+
+		// If the target URL is not for localhost, open it externally.
+		if (!isLocalhost(targetUrl.hostname)) {
+			try {
+				await this._openerService.open(targetUrl.toString(), {
+					openExternal: true
+				} satisfies OpenExternalOptions);
+			} catch {
+				this._notificationService.error(localize(
+					'positronHelpServiceOpenFailed',
+					"The Positron help service was unable to open '{0}'.", targetUrl.toString()
+				));
+			}
+
+			// Return.
+			return;
+		}
+
+		// Get the proxy server origin for the help URL. If one isn't found, ask the
+		// PositronProxy to start one.
+		let proxyServerOrigin = this._proxyServers.get(targetUrl.origin);
+		if (!proxyServerOrigin) {
+			// Try to start a help proxy server.
+			try {
+				proxyServerOrigin = await this._commandService.executeCommand<string>(
+					'positronProxy.startHelpProxyServer',
+					targetUrl.origin
+				);
+			} catch (error) {
+				this._logService.error(`PositronHelpService could not start the proxy server for ${targetUrl.origin}.`);
+				this._logService.error(error);
+			}
+
+			// If the help proxy server could not be started, notify the user, and return.
+			if (!proxyServerOrigin) {
+				this._notificationService.error(localize(
+					'positronHelpServiceUnavailable',
+					"The Positron help service is unavailable."
+				));
+				return;
+			}
+
+			// Add the proxy server.
+			this._proxyServers.set(targetUrl.origin, proxyServerOrigin);
+		}
+
+		// Create the source URL.
+		const sourceUrl = new URL(targetUrl);
+		const proxyServerOriginUrl = new URL(proxyServerOrigin);
+		sourceUrl.protocol = proxyServerOriginUrl.protocol;
+		sourceUrl.hostname = proxyServerOriginUrl.hostname;
+		sourceUrl.port = proxyServerOriginUrl.port;
+
+		// Basically this can't happen.
+		if (!runtime) {
+			this._notificationService.error(localize(
+				'positronHelpServiceInternalError',
+				"The Positron help service experienced an unexpected error."
+			));
+			return;
+		}
+
+		// Open the help view.
+		await this._viewsService.openView(POSITRON_HELP_VIEW_ID, false);
+
+		// Create the help entry.
+		const helpEntry = this._instantiationService.createInstance(HelpEntry,
+			this._helpHTML,
+			runtime.metadata.languageId,
+			runtime.metadata.runtimeId,
+			runtime.metadata.languageName,
+			sourceUrl.toString(),
+			targetUrl.toString()
+		);
+
+		// Add the onDidNavigate event handler.
+		helpEntry.onDidNavigate(url => {
+			this.navigate(helpEntry.sourceUrl, url);
+		});
+
+		// Add the help entry.
+		this.addHelpEntry(helpEntry);
+
+		// Raise the onDidFocusHelp event, if we should.
+		if (showHelpEvent.focus) {
+			this._onDidFocusHelpEmitter.fire();
+		}
 	}
 
 	//#endregion Private Methods

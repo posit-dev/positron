@@ -19,6 +19,8 @@ import { POSITRON_HELP_COPY } from 'vs/workbench/contrib/positronHelp/browser/po
 import { ICommandAndKeybindingRule, KeybindingWeight, KeybindingsRegistry } from 'vs/platform/keybinding/common/keybindingsRegistry';
 import { IWorkbenchContributionsRegistry, Extensions as WorkbenchExtensions, IWorkbenchContribution } from 'vs/workbench/common/contributions';
 import { ViewContainer, IViewContainersRegistry, ViewContainerLocation, Extensions as ViewContainerExtensions, IViewsRegistry } from 'vs/workbench/common/views';
+import { registerAction2 } from 'vs/platform/actions/common/actions';
+import { LookupHelpTopic, ShowHelpAtCursor } from 'vs/workbench/contrib/positronHelp/browser/positronHelpActions';
 
 // The Positron help view icon.
 const positronHelpViewIcon = registerIcon('positron-help-view-icon', Codicon.positronHelpView, nls.localize('positronHelpViewIcon', 'View icon of the Positron help view.'));
@@ -72,6 +74,8 @@ KeybindingsRegistry.registerCommandAndKeybindingRule({
 	handler: accessor => { }
 } satisfies ICommandAndKeybindingRule);
 
+
+
 class PositronHelpContribution extends Disposable implements IWorkbenchContribution {
 	constructor(
 		@IInstantiationService instantiationService: IInstantiationService
@@ -81,9 +85,11 @@ class PositronHelpContribution extends Disposable implements IWorkbenchContribut
 	}
 
 	private registerActions(): void {
+		registerAction2(ShowHelpAtCursor);
+		registerAction2(LookupHelpTopic);
 	}
 }
 
 Registry.
 	as<IWorkbenchContributionsRegistry>(WorkbenchExtensions.Workbench).
-	registerWorkbenchContribution(PositronHelpContribution, LifecyclePhase.Restored);
+	registerWorkbenchContribution(PositronHelpContribution, LifecyclePhase.Ready);

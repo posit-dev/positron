@@ -426,6 +426,7 @@ export interface MainThreadLanguageFeaturesShape extends IDisposable {
 	$registerSelectionRangeProvider(handle: number, selector: IDocumentFilterDto[]): void;
 	// --- Start Positron ---
 	$registerStatementRangeProvider(handle: number, selector: IDocumentFilterDto[]): void;
+	$registerHelpTopicProvider(handle: number, selector: IDocumentFilterDto[]): void;
 	// --- End Positron ---
 	$registerCallHierarchyProvider(handle: number, selector: IDocumentFilterDto[]): void;
 	$registerTypeHierarchyProvider(handle: number, selector: IDocumentFilterDto[]): void;
@@ -2065,6 +2066,7 @@ export interface ExtHostLanguageFeaturesShape {
 	$provideSelectionRanges(handle: number, resource: UriComponents, positions: IPosition[], token: CancellationToken): Promise<languages.SelectionRange[][]>;
 	// --- Start Positron ---
 	$provideStatementRange(handle: number, resource: UriComponents, position: IPosition, token: CancellationToken): Promise<IRange | undefined>;
+	$provideHelpTopic(handle: number, resource: UriComponents, position: IPosition, token: CancellationToken): Promise<string | undefined>;
 	// --- End Positron ---
 	$prepareCallHierarchy(handle: number, resource: UriComponents, position: IPosition, token: CancellationToken): Promise<ICallHierarchyItemDto[] | undefined>;
 	$provideCallHierarchyIncomingCalls(handle: number, sessionId: string, itemId: string, token: CancellationToken): Promise<IIncomingCallDto[] | undefined>;

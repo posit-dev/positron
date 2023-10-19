@@ -263,7 +263,13 @@ export class ShowAllCommandsAction extends Action2 {
 				weight: KeybindingWeight.WorkbenchContrib,
 				when: undefined,
 				primary: !isFirefox ? (KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.KeyP) : undefined,
-				secondary: [KeyCode.F1]
+				// --- Start Positron ---
+				// This keybinding conflicts with Positron's Show Help at Cursor command (F1), so
+				// we disable it here.
+				//
+				// secondary: [KeyCode.F1]
+				secondary: []
+				// --- End Positron ---
 			},
 			f1: true
 		});
