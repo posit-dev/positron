@@ -3,7 +3,7 @@ name: "Positron: Build Windows Release"
 on:
   push:
     branches:
-      - "winx64-build"
+      - "win32-x64-build"
 
 jobs:
   version_string:
