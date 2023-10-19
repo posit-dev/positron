@@ -287,10 +287,7 @@ class PositronConsoleService extends Disposable implements IPositronConsoleServi
 
 	// Gets the active input text editor.
 	get activeInputTextEditor(): IEditor | undefined {
-		if (this._activePositronConsoleInstance) {
-			return this._activePositronConsoleInstance.inputTextEditor;
-		}
-		return undefined;
+		return this._activePositronConsoleInstance?.inputTextEditor;
 	}
 
 	/**
