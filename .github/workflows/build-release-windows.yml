@@ -98,7 +98,7 @@ jobs:
         run: |
           cd ..
           # Zip executable
-          zip -Xry $GITHUB_WORKSPACE/positron-${{ needs.version_string.outputs.short_version }}-${{ matrix.platform }}-${{ matrix.arch }}.zip Positron-${{ matrix.platform }}-${{ matrix.arch }}.exe
+          zip -Xry $GITHUB_WORKSPACE/positron-${{ needs.version_string.outputs.short_version }}-${{ matrix.platform }}-${{ matrix.arch }}.zip VSCode-${{ matrix.platform }}-${{ matrix.arch }}
 
       # Create build artifact
       - name: Upload client archive
