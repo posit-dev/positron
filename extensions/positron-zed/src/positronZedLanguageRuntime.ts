@@ -877,17 +877,49 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 	 * @param type The runtime client type.
 	 */
 	async createClient(id: string, type: positron.RuntimeClientType, _params: any) {
-		if (type === positron.RuntimeClientType.Environment) {
-			// Allocate a new ID and ZedEnvironment object for this environment backend
-			const env = new ZedEnvironment(id, this.metadata.languageVersion, this);
+		switch (type) {
 
-			// Connect it and save the instance to coordinate future communication
-			this.connectClientEmitter(env);
-			this._environments.set(env.id, env);
-		} else {
-			// All other types are unknown to Zed
-			throw new Error(`Unknown client type ${type}`);
+			case positron.RuntimeClientType.Environment:
+				// Create the Environment client when requested
+				this.createEnvironmentClient(id);
+				break;
+
+			case positron.RuntimeClientType.Help:
+			case positron.RuntimeClientType.Lsp:
+			case positron.RuntimeClientType.FrontEnd:
+			case positron.RuntimeClientType.Dap:
+				// These types aren't currently supported by Zed, so close the
+				// comm immediately to signal this to the client.
+				this._onDidReceiveRuntimeMessage.fire({
+					id: randomUUID(),
+					parent_id: '',
+					when: new Date().toISOString(),
+					type: positron.LanguageRuntimeMessageType.CommClosed,
+					comm_id: id,
+					data: {}
+				} as positron.LanguageRuntimeCommClosed);
+				break;
+
+			case positron.RuntimeClientType.Plot:
+			case positron.RuntimeClientType.DataViewer:
+				// These types can only be created by the back end; it's an
+				// error if the front end tries to create one.
+				throw new Error(`Client type ${type} cannot be created by the front end.`);
+				break;
+
+			default:
+				// All other types are unknown to Zed
+				throw new Error(`Unknown client type ${type}`);
 		}
+	}
+
+	createEnvironmentClient(id: string) {
+		// Allocate a new ID and ZedEnvironment object for this environment backend
+		const env = new ZedEnvironment(id, this.metadata.languageVersion, this);
+
+		// Connect it and save the instance to coordinate future communication
+		this.connectClientEmitter(env);
+		this._environments.set(env.id, env);
 	}
 
 	/**
