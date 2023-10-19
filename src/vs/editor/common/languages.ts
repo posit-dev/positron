@@ -1569,6 +1569,14 @@ export interface IStatementRange {
 	readonly code?: string;
 
 }
+
+export interface HelpTopicProvider {
+	/**
+	 * Provide a help topic relevant to the current cursor position.
+	 */
+	provideHelpTopic(model: model.ITextModel, position: Position, token: CancellationToken):
+		ProviderResult<string>;
+}
 // --- End Positron ---
 
 export interface WorkspaceEditMetadata {

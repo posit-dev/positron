@@ -314,8 +314,9 @@ class ExtHostLanguageRuntimeAdapter implements ILanguageRuntime {
 			if (client.getClientState() === RuntimeClientState.Opening) {
 				client.setClientState(RuntimeClientState.Connected);
 			} else {
-				this._logService.warn(`Client '${id}' in runtime '${this.metadata.runtimeName}' ` +
-					`was closed before it could be created`);
+				this._logService.trace(`Client '${id}' in runtime '${this.metadata.runtimeName}' ` +
+					`was closed instead of being created; it is unsupported by this runtime.`);
+				client.setClientState(RuntimeClientState.Closed);
 			}
 		}).catch((err) => {
 			this._logService.error(`Failed to create client '${id}' ` +
