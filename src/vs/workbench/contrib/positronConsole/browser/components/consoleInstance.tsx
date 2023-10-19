@@ -4,7 +4,7 @@
 
 import 'vs/css!./consoleInstance';
 import * as React from 'react';
-import { KeyboardEvent, MouseEvent, UIEvent, useEffect, useRef, useState } from 'react'; // eslint-disable-line no-duplicate-imports
+import { KeyboardEvent, MouseEvent, UIEvent, useEffect, useLayoutEffect, useRef, useState, WheelEvent } from 'react'; // eslint-disable-line no-duplicate-imports
 import * as nls from 'vs/nls';
 import { generateUuid } from 'vs/base/common/uuid';
 import { PixelRatio } from 'vs/base/browser/browser';
@@ -18,6 +18,7 @@ import { BareFontInfo, FontInfo } from 'vs/editor/common/config/fontInfo';
 import { FontMeasurements } from 'vs/editor/browser/config/fontMeasurements';
 import { IReactComponentContainer } from 'vs/base/browser/positronReactRenderer';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
+import { POSITRON_PLOTS_VIEW_ID } from 'vs/workbench/services/positronPlots/common/positronPlots';
 import { AnchorAlignment, AnchorAxisAlignment } from 'vs/base/browser/ui/contextview/contextview';
 import { ConsoleInput } from 'vs/workbench/contrib/positronConsole/browser/components/consoleInput';
 import { RuntimeTrace } from 'vs/workbench/contrib/positronConsole/browser/components/runtimeTrace';
@@ -37,15 +38,14 @@ import { RuntimeItemActivity } from 'vs/workbench/services/positronConsole/commo
 import { usePositronConsoleContext } from 'vs/workbench/contrib/positronConsole/browser/positronConsoleContext';
 import { RuntimeReconnected } from 'vs/workbench/contrib/positronConsole/browser/components/runtimeReconnected';
 import { RuntimePendingInput } from 'vs/workbench/contrib/positronConsole/browser/components/runtimePendingInput';
+import { RuntimeRestartButton } from 'vs/workbench/contrib/positronConsole/browser/components/runtimeRestartButton';
 import { RuntimeItemReconnected } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemReconnected';
 import { RuntimeStartupFailure } from 'vs/workbench/contrib/positronConsole/browser/components/runtimeStartupFailure';
 import { RuntimeItemPendingInput } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemPendingInput';
+import { RuntimeItemRestartButton } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemRestartButton';
 import { IPositronConsoleInstance } from 'vs/workbench/services/positronConsole/common/interfaces/positronConsoleService';
 import { RuntimeItemStartupFailure } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemStartupFailure';
 import { POSITRON_CONSOLE_COPY, POSITRON_CONSOLE_CUT, POSITRON_CONSOLE_PASTE, POSITRON_CONSOLE_SELECT_ALL } from 'vs/workbench/contrib/positronConsole/browser/positronConsoleIdentifiers';
-import { POSITRON_PLOTS_VIEW_ID } from 'vs/workbench/services/positronPlots/common/positronPlots';
-import { RuntimeItemRestartButton } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemRestartButton';
-import { RuntimeRestartButton } from 'vs/workbench/contrib/positronConsole/browser/components/runtimeRestartButton';
 
 // ConsoleInstanceProps interface.
 interface ConsoleInstanceProps {
@@ -89,6 +89,8 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 	const [wordWrap, setWordWrap] = useState(props.positronConsoleInstance.wordWrap);
 	const [marker, setMarker] = useState(generateUuid());
 	const [, setLastScrollTop, lastScrollTopRef] = useStateRef(0);
+	const [, setScrollLock, scrollLockRef] = useStateRef(false);
+	const [, setIgnoreNextScrollEvent, ignoreNextScrollEventRef] = useStateRef(false);
 
 	/**
 	 * Gets the selection.
@@ -116,8 +118,11 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 	 * @param text The text to paste.
 	 */
 	const pasteText = (text: string) => {
+		// Scroll to the bottom so the pasted text will be visible.
+		scrollToBottom();
+
+		// Paste the text.
 		props.positronConsoleInstance.pasteText(text);
-		consoleInstanceRef.current.scrollTo(consoleInstanceRef.current.scrollLeft, consoleInstanceRef.current.scrollHeight);
 	};
 
 	/**
@@ -264,13 +269,13 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 		}));
 
 		// Add the onDidChangeRuntimeItems event handler.
-		disposableStore.add(props.positronConsoleInstance.onDidChangeRuntimeItems(runtimeItems => {
+		disposableStore.add(props.positronConsoleInstance.onDidChangeRuntimeItems(() => {
 			setMarker(generateUuid());
 		}));
 
 		// Add the onDidExecuteCode event handler.
 		disposableStore.add(props.positronConsoleInstance.onDidExecuteCode(() => {
-			consoleInstanceRef.current.scrollTo(consoleInstanceRef.current.scrollLeft, consoleInstanceRef.current.scrollHeight);
+			scrollVertically(consoleInstanceRef.current.scrollHeight);
 		}));
 
 		// Add the onDidSelectPlot event handler.
@@ -296,10 +301,23 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 		return () => disposableStore.dispose();
 	}, []);
 
-	// Experimental.
-	useEffect(() => {
-		consoleInstanceRef.current.scrollTo(0, consoleInstanceRef.current.scrollHeight);
+	useLayoutEffect(() => {
+		// If the view is not scroll locked, scroll to the bottom to reveal the most recent items.
+		if (!scrollLockRef.current) {
+			scrollVertically(consoleInstanceRef.current.scrollHeight);
+		}
 	}, [marker]);
+
+	/**
+	 * onClick event handler.
+	 * @param e A MouseEvent<HTMLElement> that describes a user interaction with the mouse.
+	 */
+	const clickHandler = (e: MouseEvent<HTMLDivElement>) => {
+		const selection = getSelection();
+		if (!selection || selection.type !== 'Range') {
+			props.positronConsoleInstance.focusInput();
+		}
+	};
 
 	/**
 	 * onKeyDown event handler.
@@ -317,50 +335,90 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 		// Determine whether the cmd or ctrl key is pressed.
 		const cmdOrCtrlKey = isMacintosh ? e.metaKey : e.ctrlKey;
 
-		// When the user presses a key in the console instance, activate the input and clear scroll
-		// lock. This has the effect of driving the keystroke into the code editor widget.
-		if (!cmdOrCtrlKey) {
-			props.positronConsoleInstance.focusInput();
-			return;
-		}
+		// Calculates the page height.
+		const pageHeight = () =>
+			Math.max(
+				Math.floor(consoleInstanceRef.current.clientHeight / editorFontInfo.lineHeight) - 1,
+				1
+			) * editorFontInfo.lineHeight;
 
-		// Process the key.
-		switch (e.code) {
-			// A key.
-			case 'KeyA': {
-				// Handle select all shortcut.
-				if (getSelection()) {
+		// Handle the key.
+		if (!cmdOrCtrlKey) {
+			// Handle scrolling keys.
+			switch (e.code) {
+				// Page up key.
+				case 'PageUp':
+					consumeEvent();
+					setScrollLock(scrollable());
+					scrollVertically(consoleInstanceRef.current.scrollTop - pageHeight());
+					break;
+
+				// Page down key.
+				case 'PageDown':
+					consumeEvent();
+					scrollVertically(consoleInstanceRef.current.scrollTop + pageHeight());
+					break;
+
+				// Home key.
+				case 'Home':
+					// Consume the event, set scroll lock, and scroll to the top.
+					consumeEvent();
+					setScrollLock(scrollable());
+					scrollVertically(0);
+					break;
+
+				// End key.
+				case 'End':
+					consumeEvent();
+					scrollToBottom();
+					break;
+
+				// Any other key gets driven to the input.
+				default: {
+					scrollToBottom();
+					props.positronConsoleInstance.focusInput();
+					break;
+				}
+			}
+		} else {
+			// Process the key.
+			switch (e.code) {
+				// A key.
+				case 'KeyA': {
+					// Handle select all shortcut.
+					if (getSelection()) {
+						// Consume the event.
+						consumeEvent();
+
+						// Select all runtime items.
+						selectAllRuntimeItems();
+					}
+					break;
+				}
+
+				// C key.
+				case 'KeyC': {
 					// Consume the event.
 					consumeEvent();
 
-					// Select all runtime items.
-					selectAllRuntimeItems();
+					// Get the selection. If there is one, copy it to the clipboard.
+					const selection = getSelection();
+					if (selection) {
+						// Copy the selection to the clipboard.
+						positronConsoleContext.clipboardService.writeText(selection.toString());
+					}
+					break;
 				}
-				break;
-			}
 
-			// C key.
-			case 'KeyC': {
-				// Consume the event.
-				consumeEvent();
+				// V key.
+				case 'KeyV': {
+					// Consume the event.
+					consumeEvent();
 
-				// Get the selection. If there is one, copy it to the clipboard.
-				const selection = getSelection();
-				if (selection) {
-					// Copy the selection to the clipboard.
-					positronConsoleContext.clipboardService.writeText(selection.toString());
+					// Paste text.
+					pasteText(await positronConsoleContext.clipboardService.readText());
+					break;
 				}
-				break;
-			}
-
-			// V key.
-			case 'KeyV': {
-				// Consume the event.
-				consumeEvent();
-
-				// Paste text.
-				pasteText(await positronConsoleContext.clipboardService.readText());
-				break;
 			}
 		}
 	};
@@ -422,25 +480,51 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 	};
 
 	/**
-	 * onClick event handler.
-	 * @param e A MouseEvent<HTMLElement> that describes a user interaction with the mouse.
-	 */
-	const clickHandler = (e: MouseEvent<HTMLDivElement>) => {
-		const selection = getSelection();
-		if (!selection || selection.type !== 'Range') {
-			props.positronConsoleInstance.focusInput();
-		}
-	};
-
-	/**
 	 * onScroll event handler.
 	 * @param e A UIEvent<HTMLDivElement> that describes a user interaction with the mouse.
 	 */
 	const scrollHandler = (e: UIEvent<HTMLDivElement>) => {
-		// Set the last scroll top, when active.
-		if (props.active) {
-			setLastScrollTop(consoleInstanceRef.current.scrollTop);
+		// If we are ignoring the next scroll event
+		if (ignoreNextScrollEventRef.current) {
+			setIgnoreNextScrollEvent(false);
+		} else {
+			// Calculate the scroll position.
+			const scrollPosition = Math.abs(
+				consoleInstanceRef.current.scrollHeight -
+				consoleInstanceRef.current.clientHeight -
+				consoleInstanceRef.current.scrollTop);
+
+			// Update scroll lock.
+			setScrollLock(scrollPosition >= 1);
 		}
+	};
+
+	/**
+	 * onWheel event handler.
+	 * @param e A WheelEvent<HTMLDivElement> that describes a user interaction with the wheel.
+	 */
+	const wheelHandler = (e: WheelEvent<HTMLDivElement>) => {
+		// Negative delta Y immediantly engages scroll lock, if the console is scrollable.
+		if (e.deltaY < 0 && !scrollLockRef.current) {
+			setScrollLock(scrollable());
+			return;
+		}
+	};
+
+	// Determines whether the console is scrollable.
+	const scrollable = () =>
+		consoleInstanceRef.current.scrollHeight > consoleInstanceRef.current.clientHeight;
+
+	// Scrolls to the bottom.
+	const scrollToBottom = () => {
+		setScrollLock(false);
+		setIgnoreNextScrollEvent(true);
+		scrollVertically(consoleInstanceRef.current.scrollHeight);
+	};
+
+	// Scrolls the console vertically.
+	const scrollVertically = (y: number) => {
+		consoleInstanceRef.current.scrollTo(consoleInstanceRef.current.scrollLeft, y);
 	};
 
 	// Calculate the adjusted width (to account for indentation of the entire console instance).
@@ -464,9 +548,10 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 				whiteSpace: wordWrap ? 'pre-wrap' : 'pre',
 				zIndex: props.active ? 'auto' : -1
 			}}
+			onClick={clickHandler}
 			onKeyDown={keyDownHandler}
 			onMouseDown={mouseDownHandler}
-			onClick={clickHandler}
+			onWheel={wheelHandler}
 			onScroll={scrollHandler}>
 			<div ref={runtimeItemsRef} className='runtime-items'>
 				<div className='top-spacer' />
