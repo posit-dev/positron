@@ -2,7 +2,7 @@
  *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
-import { ANSIOutput, ANSIOutputLine } from 'ansi-output';
+import { ANSIOutput, ANSIOutputLine } from 'vs/base/common/ansi-output';
 
 /**
  * ActivityItemErrorMessage class.

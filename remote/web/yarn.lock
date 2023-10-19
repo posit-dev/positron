@@ -55,11 +55,6 @@
   resolved "https://registry.yarnpkg.com/@vscode/vscode-languagedetection/-/vscode-languagedetection-1.0.21.tgz#89b48f293f6aa3341bb888c1118d16ff13b032d3"
   integrity sha512-zSUH9HYCw5qsCtd7b31yqkpaCU6jhtkKLkvOOA8yTrIRfBSOFb8PPhgmMicD7B/m+t4PwOJXzU1XDtrM9Fd3/g==
 
-ansi-output@^0.0.1:
-  version "0.0.1"
-  resolved "https://registry.yarnpkg.com/ansi-output/-/ansi-output-0.0.1.tgz#3585f2b2153a37b7c4a3adc37d21ba50b8d7e969"
-  integrity sha512-aVkfC9rIKl55QH4mi9ItewuW0KSdpHt7xpmg4McP+mAFFaX4GoO6/MtfWggZL5ij1iMTKg9XwGwkSH91l6uixg==
-
 "js-tokens@^3.0.0 || ^4.0.0":
   version "4.0.0"
   resolved "https://registry.yarnpkg.com/js-tokens/-/js-tokens-4.0.0.tgz#19203fb59991df98e3a287050d4647cdeaf32499"
