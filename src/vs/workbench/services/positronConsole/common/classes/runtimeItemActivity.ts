@@ -80,6 +80,7 @@ export class RuntimeItemActivity extends RuntimeItem {
 						return;
 					}
 
+					// Set the activity item to add.
 					activityItem = activityItemStream;
 				}
 			} else if (activityItem instanceof ActivityItemInput &&
