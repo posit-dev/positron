@@ -55,7 +55,7 @@ jobs:
     name: Build Windows
     runs-on: windows-2022
     needs: [version_string]
-    timeout-minutes: 60
+    timeout-minutes: 90
 
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
