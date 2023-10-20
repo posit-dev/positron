@@ -727,6 +727,25 @@ export class NotebookService extends Disposable implements INotebookService {
 		return this._notebookRenderersInfoStore.getAll();
 	}
 
+	// --- Start Positron ---
+	/**
+	 * Gets the preferred notebook output renderer, given a mime type, or
+	 * `undefined` if no renderer is registered for the type.
+	 *
+	 * @param mimeType The mime type
+	 * @returns A NotebookOutputRendererInfo or undefined if no renderer could
+	 *   be found for the mime type.
+	 */
+	getPreferredRenderer(mimeType: string): NotebookOutputRendererInfo | undefined {
+		const renderers = this._notebookRenderersInfoStore.findBestRenderers(
+			undefined, mimeType, undefined);
+		if (renderers.length === 0) {
+			return undefined;
+		}
+		return this._notebookRenderersInfoStore.get(renderers[0].rendererId);
+	}
+	// --- End Positron ---
+
 	*getStaticPreloads(viewType: string): Iterable<INotebookStaticPreloadInfo> {
 		for (const preload of this._notebookStaticPreloadInfoStore) {
 			if (preload.type === viewType) {

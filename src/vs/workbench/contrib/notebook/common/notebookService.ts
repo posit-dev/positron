@@ -68,6 +68,10 @@ export interface INotebookService {
 	getRendererInfo(id: string): INotebookRendererInfo | undefined;
 	getRenderers(): INotebookRendererInfo[];
 
+	// --- Start Positron ---
+	getPreferredRenderer(mimeType: string): INotebookRendererInfo | undefined;
+	// --- End Positron ---
+
 	getStaticPreloads(viewType: string): Iterable<INotebookStaticPreloadInfo>;
 
 	/** Updates the preferred renderer for the given mimetype in the workspace. */
