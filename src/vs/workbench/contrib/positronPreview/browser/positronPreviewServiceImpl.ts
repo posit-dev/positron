@@ -14,6 +14,7 @@ import { INotebookService } from 'vs/workbench/contrib/notebook/common/notebookS
 import { INotebookRendererInfo } from 'vs/workbench/contrib/notebook/common/notebookCommon';
 import { asWebviewUri } from 'vs/workbench/contrib/webview/common/webview';
 import { IWorkspaceTrustManagementService } from 'vs/platform/workspace/common/workspaceTrust';
+import { IExtensionService } from 'vs/workbench/services/extensions/common/extensions';
 
 /**
  * Positron preview service; keeps track of the set of active previews and
@@ -37,6 +38,7 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 		@ILanguageRuntimeService private readonly _languageRuntimeService: ILanguageRuntimeService,
 		@INotebookService private readonly _notebookService: INotebookService,
 		@IWorkspaceTrustManagementService private readonly _workspaceTrustManagementService: IWorkspaceTrustManagementService,
+		@IExtensionService private readonly _extensionService: IExtensionService,
 	) {
 		super();
 		this.onDidCreatePreviewWebview = this._onDidCreatePreviewWebviewEmitter.event;
@@ -171,10 +173,15 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 		});
 	}
 
-	createRawHtmlOutput(id: string, runtime: ILanguageRuntime, html: string) {
+	async createRawHtmlOutput(id: string, runtime: ILanguageRuntime, html: string) {
+		const jupyterExtension = await this._extensionService.getExtension('ms-toolsai.jupyter');
+		if (!jupyterExtension) {
+			return;
+		}
 		const webview: WebviewInitInfo = {
 			contentOptions: {
 				allowScripts: true,
+				localResourceRoots: [jupyterExtension.extensionLocation]
 			},
 			extension: {
 				id: runtime.metadata.extensionId
@@ -183,7 +190,12 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 			title: '',
 		};
 		const preview = this.openPreview(id, webview, 'htmlRenderer', runtime.metadata.runtimeName);
-		preview.webview.setHtml(html);
+		const jQueryPath = asWebviewUri(
+			jupyterExtension.extensionLocation.with({
+				path: jupyterExtension.extensionLocation.path +
+					'/out/node_modules/jquery/dist/jquery.min.js'
+			}));
+		preview.webview.setHtml(`<script src='${jQueryPath}'></script>${html}`);
 	}
 
 	createNotebookRenderOutput(id: string, renderer: INotebookRendererInfo, mimeType: string, data: any) {
