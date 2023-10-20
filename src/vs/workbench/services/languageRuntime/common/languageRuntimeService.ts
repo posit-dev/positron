@@ -4,6 +4,7 @@
 
 import { Event } from 'vs/base/common/event';
 import { IDisposable } from 'vs/base/common/lifecycle';
+import { ExtensionIdentifier } from 'vs/platform/extensions/common/extensions';
 import { createDecorator } from 'vs/platform/instantiation/common/instantiation';
 import { IRuntimeClientInstance, RuntimeClientType } from 'vs/workbench/services/languageRuntime/common/languageRuntimeClientInstance';
 import { IRuntimeClientEvent } from 'vs/workbench/services/languageRuntime/common/languageRuntimeFrontEndClient';
@@ -419,7 +420,7 @@ export interface ILanguageRuntimeMetadata {
 	readonly base64EncodedIconSvg: string | undefined;
 
 	/** The identifier of the extension that provides the language support. */
-	readonly extensionId: string;
+	readonly extensionId: ExtensionIdentifier;
 
 	/**
 	 * The fully qualified name of the runtime displayed to the user; e.g. "R 4.2 (64-bit)".
