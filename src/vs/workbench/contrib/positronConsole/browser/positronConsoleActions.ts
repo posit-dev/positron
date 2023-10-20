@@ -296,78 +296,73 @@ export function registerPositronConsoleActions() {
 					// returned `undefined` if it didn't think it was important.
 					code = isString(statementRange.code) ? statementRange.code : model.getValueInRange(statementRange.range);
 
-					// TODO: We can flatten this now, but it makes an ugly diff
-					if (isString(code)) {
-						// If code was returned, move the cursor to the next
-						// statement by creating a position on the line
-						// following the statement and then invoking the
-						// statement range provider again to find the appropriate
-						// boundary of the next statement.
-						let newPosition = new Position(
-							statementRange.range.endLineNumber + 1,
+					// Move the cursor to the next
+					// statement by creating a position on the line
+					// following the statement and then invoking the
+					// statement range provider again to find the appropriate
+					// boundary of the next statement.
+					let newPosition = new Position(
+						statementRange.range.endLineNumber + 1,
+						1
+					);
+					if (newPosition.lineNumber > model.getLineCount()) {
+						// If the new position is past the end of the
+						// document, add a newline to the end of the
+						// document, unless it already ends with an empty
+						// line, then move to that empty line at the end.
+						if (model.getLineContent(model.getLineCount()).trim().length > 0) {
+							// The document doesn't end with an empty line; add one
+							this.amendNewlineToEnd(model);
+						}
+						newPosition = new Position(
+							model.getLineCount(),
 							1
 						);
-						if (newPosition.lineNumber > model.getLineCount()) {
-							// If the new position is past the end of the
-							// document, add a newline to the end of the
-							// document, unless it already ends with an empty
-							// line, then move to that empty line at the end.
-							if (model.getLineContent(model.getLineCount()).trim().length > 0) {
-								// The document doesn't end with an empty line; add one
-								this.amendNewlineToEnd(model);
-							}
-							newPosition = new Position(
-								model.getLineCount(),
-								1
-							);
-							editor.setPosition(newPosition);
-							editor.revealPositionInCenterIfOutsideViewport(newPosition);
-						} else {
-							// Invoke the statement range provider again to
-							// find the appropriate boundary of the next statement.
-
-							let nextStatementRange: IStatementRange | null | undefined = undefined;
-							try {
-								nextStatementRange = await statementRangeProviders[0].provideStatementRange(
-									model,
-									newPosition,
-									CancellationToken.None);
-							} catch (err) {
-								logService.warn(`Failed to get statement range for next statement ` +
-									`at position ${newPosition}: ${err}`);
-							}
-
-							if (nextStatementRange) {
-								// If we found the next statement, determine exactly where to move
-								// the cursor to, maintaining the invariant that we should always
-								// step further down the page, never up, as this is too "jumpy".
-								// If for some reason the next statement doesn't meet this
-								// invariant, we don't use it and instead use the default
-								// `newPosition`.
-								const nextStatement = nextStatementRange.range;
-								if (nextStatement.startLineNumber > statementRange.range.endLineNumber) {
-									// If the next statement's start is after this statement's end,
-									// then move to the start of the next statement.
-									newPosition = new Position(
-										nextStatement.startLineNumber,
-										nextStatement.startColumn
-									);
-								} else if (nextStatement.endLineNumber > statementRange.range.endLineNumber) {
-									// If the above condition failed, but the next statement's end
-									// is after this statement's end, assume we are exiting some
-									// nested scope (like running an individual line of an R
-									// function) and move to the end of the next statement.
-									newPosition = new Position(
-										nextStatement.endLineNumber,
-										nextStatement.endColumn
-									);
-								}
-							}
-							editor.setPosition(newPosition);
-							editor.revealPositionInCenterIfOutsideViewport(newPosition);
-						}
+						editor.setPosition(newPosition);
+						editor.revealPositionInCenterIfOutsideViewport(newPosition);
 					} else {
+						// Invoke the statement range provider again to
+						// find the appropriate boundary of the next statement.
 
+						let nextStatementRange: IStatementRange | null | undefined = undefined;
+						try {
+							nextStatementRange = await statementRangeProviders[0].provideStatementRange(
+								model,
+								newPosition,
+								CancellationToken.None);
+						} catch (err) {
+							logService.warn(`Failed to get statement range for next statement ` +
+								`at position ${newPosition}: ${err}`);
+						}
+
+						if (nextStatementRange) {
+							// If we found the next statement, determine exactly where to move
+							// the cursor to, maintaining the invariant that we should always
+							// step further down the page, never up, as this is too "jumpy".
+							// If for some reason the next statement doesn't meet this
+							// invariant, we don't use it and instead use the default
+							// `newPosition`.
+							const nextStatement = nextStatementRange.range;
+							if (nextStatement.startLineNumber > statementRange.range.endLineNumber) {
+								// If the next statement's start is after this statement's end,
+								// then move to the start of the next statement.
+								newPosition = new Position(
+									nextStatement.startLineNumber,
+									nextStatement.startColumn
+								);
+							} else if (nextStatement.endLineNumber > statementRange.range.endLineNumber) {
+								// If the above condition failed, but the next statement's end
+								// is after this statement's end, assume we are exiting some
+								// nested scope (like running an individual line of an R
+								// function) and move to the end of the next statement.
+								newPosition = new Position(
+									nextStatement.endLineNumber,
+									nextStatement.endColumn
+								);
+							}
+						}
+						editor.setPosition(newPosition);
+						editor.revealPositionInCenterIfOutsideViewport(newPosition);
 					}
 				} else {
 					// The statement range provider didn't return a range. This
