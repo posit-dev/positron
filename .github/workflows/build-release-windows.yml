@@ -53,7 +53,8 @@ jobs:
 
   build-windows:
     name: Build Windows
-    runs-on: windows-2022
+    runs-on:
+      labels: [windows-latest-8x]
     needs: [version_string]
     timeout-minutes: 90
 
