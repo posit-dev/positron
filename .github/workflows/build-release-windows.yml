@@ -91,18 +91,20 @@ jobs:
       - name: Build client
         env:
           POSITRON_BUILD_NUMBER: ${{ needs.version_string.outputs.build_number }}
-        run: yarn gulp vscode-${{ matrix.platform }}-${{ matrix.arch }}
+        run: |
+          yarn gulp vscode-${{ matrix.platform }}-${{ matrix.arch }}
+          yarn gulp vscode-${{ matrix.platform }}-${{ matrix.arch }}-system-setup
 
       # Compress client to a zip file
       - name: Create client archive
         run: |
           cd ..
-          # Zip executable
-          zip -Xry $GITHUB_WORKSPACE/positron-${{ needs.version_string.outputs.short_version }}-${{ matrix.platform }}-${{ matrix.arch }}.zip VSCode-${{ matrix.platform }}-${{ matrix.arch }}
+          # Zip setup executable
+          zip -Xry $GITHUB_WORKSPACE/positron-${{ needs.version_string.outputs.short_version }}-${{ matrix.platform }}-${{ matrix.arch }}-setup.zip positron/.build/${{ matrix.platform }}-${{ matrix.arch }}/system-setup/PositronSetup.exe
 
       # Create build artifact
       - name: Upload client archive
         uses: actions/upload-artifact@v3
         with:
-          name: positron-${{ matrix.platform }}-${{ matrix.arch }}-archive
-          path: positron-${{ needs.version_string.outputs.short_version }}-${{ matrix.platform }}-${{ matrix.arch }}.zip
+          name: positron-${{ matrix.platform }}-${{ matrix.arch }}-setup-archive
+          path: positron-${{ needs.version_string.outputs.short_version }}-${{ matrix.platform }}-${{ matrix.arch }}-setup.zip
