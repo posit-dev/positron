@@ -61,8 +61,8 @@
 
 		// Handle indent-outdent for '{}'.
 		{
-			"beforeText": "\\{",
-			"afterText":  "\\}",
+			"beforeText": "\\{$",
+			"afterText":  "^\\}",
 			"action": { "indent": "indentOutdent" }
 		},
 
@@ -75,8 +75,8 @@
 
 		// Handle indent-outdent for '[]'.
 		{
-			"beforeText": "\\[",
-			"afterText":  "\\]",
+			"beforeText": "\\[$",
+			"afterText":  "^\\]",
 			"action": { "indent": "indentOutdent" }
 		},
 
