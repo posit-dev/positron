@@ -51,7 +51,9 @@ export class RStatementRangeProvider implements positron.StatementRangeProvider 
 				return undefined;
 			}
 			const range = this._client.protocol2CodeConverter.asRange(data.range);
-			return { range: range, code: data.code } as positron.StatementRange;
+			// Explicitly normalize non-strings to `undefined` (i.e. a possible `null`)
+			const code = typeof data.code === 'string' ? data.code : undefined;
+			return { range: range, code: code } as positron.StatementRange;
 		});
 	}
 }
