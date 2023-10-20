@@ -93,12 +93,19 @@ export class RuntimeItemActivity extends RuntimeItem {
 		// Perform activity item processing if this is not the first activity item.
 		if (this._activityItems.length) {
 			// If the activity item being added is an ActivityItemStream, see if we can append it to
-			// the last ActivityItemStream of the same type and with the same parent identifier.
+			// the last ActivityItemStream of the same type with the same parent identifier.
 			if (activityItem instanceof ActivityItemStream) {
 				// Get the last activity item.
 				const lastActivityItem = this._activityItems[this._activityItems.length - 1];
 				if (lastActivityItem instanceof ActivityItemStream) {
+					// If the ActivityItemStream being added and the last ActivityItemStream are of
+					// the same type with the same parent identifier, add the ActivityItemStream
+					// being added to the last ActivityItemStream.
 					if (isSameActivityItemStream(lastActivityItem, activityItem)) {
+
+						// Add the ActivityItemStream being added to the last ActivityItemStream. If
+						// an ActivityItemStream is returned, it becomes the next activity item to
+						// add.
 						const activityItemStream = lastActivityItem.addActivityItemStream(activityItem);
 						if (!activityItemStream) {
 							return;
