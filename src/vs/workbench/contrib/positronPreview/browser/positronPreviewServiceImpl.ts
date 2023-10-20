@@ -156,14 +156,28 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 				// Check to see if we have a renderer for this MIME type
 				const renderer = this._notebookService.getPreferredRenderer(mimeType);
 				if (renderer) {
-					this.createNotebookRenderOutput(renderer, e.data[mimeType]);
+					this.createNotebookRenderOutput(e.id, renderer, e.data[mimeType]);
 					break;
 				}
 			}
 		});
 	}
 
-	createNotebookRenderOutput(renderer: INotebookRendererInfo, data: any) {
+	createNotebookRenderOutput(id: string, renderer: INotebookRendererInfo, data: any) {
+		const webview: WebviewInitInfo = {
+			contentOptions: {
+				allowScripts: true,
+			},
+			extension: {
+				id: renderer.extensionId,
+			},
+			options: {},
+			title: '',
+		};
 
+		const preview = this.openPreview(id, webview, 'notebookRenderer', renderer.displayName);
+		preview.webview.setHtml(`
+<h1>${renderer.displayName}</h1>
+<body><pre>${JSON.stringify(data)}<pre>`);
 	}
 }
