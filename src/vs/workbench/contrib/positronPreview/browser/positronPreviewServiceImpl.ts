@@ -12,6 +12,8 @@ import { POSITRON_PREVIEW_VIEW_ID } from 'vs/workbench/contrib/positronPreview/b
 import { ILanguageRuntime, ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { INotebookService } from 'vs/workbench/contrib/notebook/common/notebookService';
 import { INotebookRendererInfo } from 'vs/workbench/contrib/notebook/common/notebookCommon';
+import { asWebviewUri } from 'vs/workbench/contrib/webview/common/webview';
+import { IWorkspaceTrustManagementService } from 'vs/platform/workspace/common/workspaceTrust';
 
 /**
  * Positron preview service; keeps track of the set of active previews and
@@ -34,6 +36,7 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 		@IViewsService private readonly _viewsService: IViewsService,
 		@ILanguageRuntimeService private readonly _languageRuntimeService: ILanguageRuntimeService,
 		@INotebookService private readonly _notebookService: INotebookService,
+		@IWorkspaceTrustManagementService private readonly _workspaceTrustManagementService: IWorkspaceTrustManagementService,
 	) {
 		super();
 		this.onDidCreatePreviewWebview = this._onDidCreatePreviewWebviewEmitter.event;
@@ -156,17 +159,21 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 				// Check to see if we have a renderer for this MIME type
 				const renderer = this._notebookService.getPreferredRenderer(mimeType);
 				if (renderer) {
-					this.createNotebookRenderOutput(e.id, renderer, e.data[mimeType]);
+					this.createNotebookRenderOutput(e.id, renderer, mimeType, e.data[mimeType]);
 					break;
 				}
 			}
 		});
 	}
 
-	createNotebookRenderOutput(id: string, renderer: INotebookRendererInfo, data: any) {
+	createNotebookRenderOutput(id: string, renderer: INotebookRendererInfo, mimeType: string, data: any) {
+		const rendererPath = asWebviewUri(renderer.entrypoint.path);
 		const webview: WebviewInitInfo = {
 			contentOptions: {
 				allowScripts: true,
+				localResourceRoots: [
+					renderer.extensionLocation
+				],
 			},
 			extension: {
 				id: renderer.extensionId,
@@ -177,7 +184,36 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 
 		const preview = this.openPreview(id, webview, 'notebookRenderer', renderer.displayName);
 		preview.webview.setHtml(`
-<h1>${renderer.displayName}</h1>
-<body><pre>${JSON.stringify(data)}<pre>`);
+<body>
+<div id='container'></div>
+<script type="module">
+		import { activate } from "${rendererPath.toString()}"
+		var ctx = {
+			workspace: {
+				isTrusted: ${this._workspaceTrustManagementService.isWorkspaceTrusted()}
+			}
+		}
+		var renderer = activate(ctx);
+		var rawData = '${JSON.stringify(data)}';
+		var data = {
+			id: '${id}',
+    		mime: '${mimeType}',
+			text: () => { return rawData },
+			json: () => { return JSON.parse(rawData) },
+			data: () => { return new Uint8Array() },
+			blob: () => { return new Blob(); },
+		};
+
+		console.log('** activated!!');
+		const controller = new AbortController();
+		const signal = controller.signal;
+		window.onload = function() {
+			let container = document.getElementById('container');
+			console.log('** container: ' + container);
+			renderer.renderOutputItem(data, container, signal);
+			console.log('** rendered.');
+		};
+</script>
+</body>`);
 	}
 }
