@@ -146,6 +146,11 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 		runtime.onDidReceiveRuntimeMessageOutput(e => {
 			for (const mimeType of Object.keys(e.data)) {
 
+				if (mimeType === 'text/html') {
+					if (e.data[mimeType].indexOf('<script') !== -1) {
+						this.createRawHtmlOutput(e.id, runtime, e.data[mimeType]);
+					}
+				}
 				// Ignore plaintext output; handled by the Console
 				if (mimeType.startsWith('text/')) {
 					continue;
@@ -164,6 +169,21 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 				}
 			}
 		});
+	}
+
+	createRawHtmlOutput(id: string, runtime: ILanguageRuntime, html: string) {
+		const webview: WebviewInitInfo = {
+			contentOptions: {
+				allowScripts: true,
+			},
+			extension: {
+				id: runtime.metadata.extensionId
+			},
+			options: {},
+			title: '',
+		};
+		const preview = this.openPreview(id, webview, 'htmlRenderer', runtime.metadata.runtimeName);
+		preview.webview.setHtml(html);
 	}
 
 	createNotebookRenderOutput(id: string, renderer: INotebookRendererInfo, mimeType: string, data: any) {
