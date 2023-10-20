@@ -418,6 +418,9 @@ export interface ILanguageRuntimeMetadata {
 	/** The Base64-encoded icon SVG for the language. */
 	readonly base64EncodedIconSvg: string | undefined;
 
+	/** The identifier of the extension that provides the language support. */
+	readonly extensionId: string;
+
 	/**
 	 * The fully qualified name of the runtime displayed to the user; e.g. "R 4.2 (64-bit)".
 	 * Should be unique across languages.

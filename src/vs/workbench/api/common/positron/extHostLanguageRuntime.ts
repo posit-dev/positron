@@ -10,6 +10,7 @@ import { IDisposable } from 'vs/base/common/lifecycle';
 import { Disposable, LanguageRuntimeMessageType } from 'vs/workbench/api/common/extHostTypes';
 import { RuntimeClientType } from 'vs/workbench/api/common/positron/extHostTypes.positron';
 import { ExtHostRuntimeClientInstance } from 'vs/workbench/api/common/positron/extHostClientInstance';
+import { IExtensionDescription } from 'vs/platform/extensions/common/extensions';
 
 export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRuntimeShape {
 
@@ -17,7 +18,7 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 
 	private readonly _runtimes = new Array<positron.LanguageRuntime>();
 
-	private readonly _runtimeProviders = new Array<positron.LanguageRuntimeProvider>();
+	private readonly _runtimeProviders = new Array<LanguageRuntimeProvider>();
 
 	private readonly _clientInstances = new Array<ExtHostRuntimeClientInstance>();
 
@@ -186,7 +187,7 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 	 *
 	 * @param providers The set of providers to discover runtimes from
 	 */
-	private async discoverLanguageRuntimes(providers: Array<positron.LanguageRuntimeProvider>):
+	private async discoverLanguageRuntimes(providers: Array<LanguageRuntimeProvider>):
 		Promise<void> {
 
 		// The number of providers we're waiting on (initially all providers)
@@ -199,14 +200,18 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		// index. If the provider throws an error attempting to get the next
 		// provider, then the error is logged and the function signals that the
 		// provider is done.
-		const getNext = async (asyncGen: positron.LanguageRuntimeProvider, index: number) => {
+		const getNext = async (asyncGen: LanguageRuntimeProvider, index: number) => {
 			try {
-				const result = await asyncGen.next();
-				return ({ index, result });
+				const result = await asyncGen.provider.next();
+				return ({ index, extension: asyncGen.extension, result });
 			} catch (err) {
 				console.error(`Language runtime provider threw an error during registration: ` +
 					`${err}`);
-				return { index, result: { value: undefined, done: true } };
+				return {
+					index,
+					extension: asyncGen.extension,
+					result: { value: undefined, done: true }
+				};
 			}
 		};
 
@@ -216,7 +221,7 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		try {
 			while (count) {
 				// Wait for the next runtime to be discovered from any provider
-				const { index, result } = await Promise.race(nextPromises);
+				const { index, extension, result } = await Promise.race(nextPromises);
 				if (result.done) {
 					// If the provider is done supplying runtimes, remove it
 					// from the list of providers we're waiting on
@@ -227,7 +232,7 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 					// and register the runtime it returned
 					nextPromises[index] = getNext(providers[index], index);
 					try {
-						this.registerLanguageRuntime(result.value);
+						this.registerLanguageRuntime(extension, result.value);
 					} catch (err) {
 						console.error(`Error registering language runtime ` +
 							`${result.value.metadata.runtimeName}: ${err}`);
@@ -239,8 +244,8 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		} finally {
 			// Clean up any remaining promises
 			for (const [index, iterator] of providers.entries()) {
-				if (nextPromises[index] !== never && iterator.return !== null) {
-					void iterator.return(null);
+				if (nextPromises[index] !== never && iterator.provider.return !== null) {
+					void iterator.provider.return(null);
 				}
 			}
 		}
@@ -274,6 +279,7 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 	}
 
 	public registerLanguageRuntimeProvider(
+		extension: IExtensionDescription,
 		languageId: string,
 		provider: positron.LanguageRuntimeProvider): void {
 		if (this._runtimeDiscoveryComplete) {
@@ -281,17 +287,18 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 			// generator and register each runtime it returns right away.
 			void (async () => {
 				for await (const runtime of provider) {
-					this.registerLanguageRuntime(runtime);
+					this.registerLanguageRuntime(extension, runtime);
 				}
 			})();
 		} else {
 			// We didn't miss it; either discovery is happening now or it hasn't started. Add
 			// the provider to the list of providers on which we need to perform discovery.
-			this._runtimeProviders.push(provider);
+			this._runtimeProviders.push({ extension, provider });
 		}
 	}
 
 	public registerLanguageRuntime(
+		extension: IExtensionDescription,
 		runtime: positron.LanguageRuntime): IDisposable {
 
 		// Create a handle and register the runtime with the main thread
@@ -339,7 +346,10 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		this._eventClocks.push(0);
 
 		// Register the runtime with the main thread
-		this._proxy.$registerLanguageRuntime(handle, runtime.metadata, runtime.dynState);
+		this._proxy.$registerLanguageRuntime(handle, {
+			extensionId: extension.identifier.value,
+			...runtime.metadata
+		}, runtime.dynState);
 		this._onDidRegisterRuntimeEmitter.fire(runtime);
 
 		return new Disposable(() => {
@@ -439,4 +449,10 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 
 		this._proxy.$emitLanguageRuntimeMessage(handle, message);
 	}
+
+}
+
+interface LanguageRuntimeProvider {
+	provider: positron.LanguageRuntimeProvider;
+	extension: IExtensionDescription;
 }
