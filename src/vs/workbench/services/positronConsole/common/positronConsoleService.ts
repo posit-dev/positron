@@ -44,6 +44,11 @@ import { formatLanguageRuntime, ILanguageRuntime, ILanguageRuntimeExit, ILanguag
 const ON_DID_CHANGE_RUNTIME_ITEMS_THROTTLE_THRESHOLD = 20;
 const ON_DID_CHANGE_RUNTIME_ITEMS_THROTTLE_INTERVAL = 50;
 
+/**
+ * The maximum items to display in the console.
+ */
+const MAX_ITEMS = 10000;
+
 //#region Helper Functions
 
 /**
@@ -1753,6 +1758,9 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 			// Add the activity item to the activity runtime item.
 			runtimeItemActivity.addActivityItem(activityItem);
 
+			// Trim items.
+			this.trimItems();
+
 			// Fire the onDidChangeRuntimeItems event.
 			this._onDidChangeRuntimeItemsEmitter.fire();
 		} else {
@@ -1773,8 +1781,48 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 			this._runtimeItemActivities.set(runtimeItem.id, runtimeItem);
 		}
 
+		// Trim items.
+		this.trimItems();
+
 		// Fire the onDidChangeRuntimeItems event.
 		this._onDidChangeRuntimeItemsEmitter.fire();
+	}
+
+	/**
+	 * Trims items displayed in the console.
+	 */
+	private trimItems() {
+		// Trim items.
+		let remainingItems = MAX_ITEMS;
+		let runtimeItemIndex = this._runtimeItems.length;
+		while (remainingItems > 0 && runtimeItemIndex > 0) {
+			// Get the runtime item.
+			const runtimeItem = this._runtimeItems[--runtimeItemIndex];
+
+			// If the runtime item is a RuntimeItemActivity, trim its activity items; otherwise,
+			// decrement the remaining items counter.
+			if (runtimeItem instanceof RuntimeItemActivity) {
+				remainingItems -= runtimeItem.trimActivityItems(remainingItems);
+			} else {
+				remainingItems--;
+			}
+		}
+
+		// If no runtime items were trimmed, return.
+		if (!runtimeItemIndex) {
+			return;
+		}
+
+		// Trim the runtime items.
+		const trimmedRuntimeItems = this._runtimeItems.slice(0, runtimeItemIndex);
+		this._runtimeItems = this._runtimeItems.slice(runtimeItemIndex);
+
+		// Remove runtime item activities that were trimmed.
+		trimmedRuntimeItems.filter(trimmedRuntimeItem =>
+			trimmedRuntimeItem instanceof RuntimeItemActivity
+		).forEach(runtimeItemActivity =>
+			this._runtimeItemActivities.delete(runtimeItemActivity.id)
+		);
 	}
 
 	//#endregion Private Methods
