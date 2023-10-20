@@ -25,15 +25,43 @@ export type ActivityItem =
 	ActivityItemPrompt;
 
 /**
+ * Checks whether two ActivityItemStream objects are of the same type and have the same parent ID.
+ * @param activityItemStream1
+ * @param activityItemStream2
+ * @returns
+ */
+const isSameActivityItemStream = (
+	activityItemStream1: ActivityItemStream,
+	activityItemStream2: ActivityItemStream
+) =>
+	(
+		(activityItemStream1 instanceof ActivityItemOutputStream &&
+			activityItemStream2 instanceof ActivityItemOutputStream) ||
+		(activityItemStream1 instanceof ActivityItemErrorStream &&
+			activityItemStream2 instanceof ActivityItemErrorStream)
+	) && activityItemStream1.parentId === activityItemStream2.parentId;
+
+/**
  * RuntimeItemActivity class.
  */
 export class RuntimeItemActivity extends RuntimeItem {
+	//#region Private Properties
+
+	/**
+	 * Gets or sets the activity items.
+	 */
+	private _activityItems: ActivityItem[] = [];
+
+	//#endregion Private Properties
+
 	//#region Public Properties
 
 	/**
-	 * The activity items.
+	 * Gets the activity items.
 	 */
-	readonly activityItems: ActivityItem[] = [];
+	public get activityItems() {
+		return this._activityItems;
+	}
 
 	//#endregion Public Properties
 
@@ -61,39 +89,43 @@ export class RuntimeItemActivity extends RuntimeItem {
 	 * @param activityItem The activity item to add.
 	 */
 	public addActivityItem(activityItem: ActivityItem) {
+
 		// Perform activity item processing if this is not the first activity item.
-		if (this.activityItems.length) {
+		if (this._activityItems.length) {
 			// If the activity item being added is an ActivityItemStream, see if we can append it to
-			// the last ActivityItemStream of the same time and with the same parent identifier.
+			// the last ActivityItemStream of the same type with the same parent identifier.
 			if (activityItem instanceof ActivityItemStream) {
 				// Get the last activity item.
-				const lastActivityItem = this.activityItems[this.activityItems.length - 1];
+				const lastActivityItem = this._activityItems[this._activityItems.length - 1];
+				if (lastActivityItem instanceof ActivityItemStream) {
+					// If the ActivityItemStream being added and the last ActivityItemStream are of
+					// the same type with the same parent identifier, add the ActivityItemStream
+					// being added to the last ActivityItemStream.
+					if (isSameActivityItemStream(lastActivityItem, activityItem)) {
 
-				// If the last activity item is an ActivityItemStream of the same type with the same
-				// parent identifier, append this ActivityItemStream to it. If this returns another
-				// ActivityItemStream, then it becomes the activity item to add.
-				if (lastActivityItem instanceof ActivityItemStream &&
-					typeof activityItem === typeof lastActivityItem &&
-					activityItem.parentId === lastActivityItem.parentId) {
-					const activityItemStream = lastActivityItem.addActivityItemStream(activityItem);
-					if (!activityItemStream) {
-						return;
+						// Add the ActivityItemStream being added to the last ActivityItemStream. If
+						// an ActivityItemStream is returned, it becomes the next activity item to
+						// add.
+						const activityItemStream = lastActivityItem.addActivityItemStream(activityItem);
+						if (!activityItemStream) {
+							return;
+						}
+
+						// Set the activity item to add.
+						activityItem = activityItemStream;
 					}
-
-					// Set the activity item to add.
-					activityItem = activityItemStream;
 				}
 			} else if (activityItem instanceof ActivityItemInput &&
 				activityItem.state !== ActivityItemInputState.Provisional) {
 				// When a non-provisional ActivityItemInput is being added, see if there's a
 				// provisional ActivityItemInput for it in the activity items. If there is, replace
 				// the provisional ActivityItemInput with the actual ActivityItemInput.
-				for (let i = this.activityItems.length - 1; i >= 0; --i) {
-					const activityItemToCheck = this.activityItems[i];
+				for (let i = this._activityItems.length - 1; i >= 0; --i) {
+					const activityItemToCheck = this._activityItems[i];
 					if (activityItemToCheck instanceof ActivityItemInput) {
 						if (activityItemToCheck.state === ActivityItemInputState.Provisional &&
 							activityItemToCheck.parentId === activityItem.parentId) {
-							this.activityItems[i] = activityItem;
+							this._activityItems[i] = activityItem;
 							return;
 						}
 						break;
@@ -103,7 +135,19 @@ export class RuntimeItemActivity extends RuntimeItem {
 		}
 
 		// Push the activity item.
-		this.activityItems.push(activityItem);
+		this._activityItems.push(activityItem);
+	}
+
+	/**
+	 * Trims activity items.
+	 * @param max The maximum number of activity items to keep.
+	 */
+	public trimActivityItems(max: number) {
+		// Slice the array of activity items.
+		this._activityItems = this._activityItems.slice(-max);
+
+		// Return the count of activity items.
+		return this._activityItems.length;
 	}
 
 	//#endregion Public Methods
