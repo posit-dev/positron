@@ -9,6 +9,9 @@ import { IWebviewService, WebviewInitInfo } from 'vs/workbench/contrib/webview/b
 import { PreviewWebview } from 'vs/workbench/contrib/positronPreview/browser/previewWebview';
 import { IViewsService } from 'vs/workbench/common/views';
 import { POSITRON_PREVIEW_VIEW_ID } from 'vs/workbench/contrib/positronPreview/browser/positronPreviewSevice';
+import { ILanguageRuntime, ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { INotebookService } from 'vs/workbench/contrib/notebook/common/notebookService';
+import { INotebookRendererInfo } from 'vs/workbench/contrib/notebook/common/notebookCommon';
 
 /**
  * Positron preview service; keeps track of the set of active previews and
@@ -28,11 +31,19 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 
 	constructor(
 		@IWebviewService private readonly _webviewService: IWebviewService,
-		@IViewsService private readonly _viewsService: IViewsService
+		@IViewsService private readonly _viewsService: IViewsService,
+		@ILanguageRuntimeService private readonly _languageRuntimeService: ILanguageRuntimeService,
+		@INotebookService private readonly _notebookService: INotebookService,
 	) {
 		super();
 		this.onDidCreatePreviewWebview = this._onDidCreatePreviewWebviewEmitter.event;
 		this.onDidChangeActivePreviewWebview = this._onDidChangeActivePreviewWebview.event;
+		this._languageRuntimeService.registeredRuntimes.forEach(runtime => {
+			this.attachRuntime(runtime);
+		});
+		this._languageRuntimeService.onDidRegisterRuntime(runtime => {
+			this.attachRuntime(runtime);
+		});
 	}
 
 	get previewWebviews(): PreviewWebview[] {
@@ -126,5 +137,33 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 		this._viewsService.openView(POSITRON_PREVIEW_VIEW_ID, !!preserveFocus);
 
 		return preview;
+	}
+
+	attachRuntime(runtime: ILanguageRuntime) {
+		runtime.onDidReceiveRuntimeMessageOutput(e => {
+			for (const mimeType of Object.keys(e.data)) {
+
+				// Ignore plaintext output; handled by the Console
+				if (mimeType.startsWith('text/')) {
+					continue;
+				}
+
+				// Ignore image output; handled by the Plots pane
+				if (mimeType.startsWith('image/')) {
+					continue;
+				}
+
+				// Check to see if we have a renderer for this MIME type
+				const renderer = this._notebookService.getPreferredRenderer(mimeType);
+				if (renderer) {
+					this.createNotebookRenderOutput(renderer, e.data[mimeType]);
+					break;
+				}
+			}
+		});
+	}
+
+	createNotebookRenderOutput(renderer: INotebookRendererInfo, data: any) {
+
 	}
 }
