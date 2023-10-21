@@ -1,290 +1,347 @@
 <!DOCTYPE html>
 <html>
-<!-- This file provides a sane place to develop scripts for use in the PositronProxy extension. -->
+	<!-- This file provides a sane place to develop scripts for use in the PositronProxy extension. -->
 
-<head>
-	<!-- The help header style. -->
-	<style id="help-header-style">
-		::-webkit-scrollbar {
-			background: transparent;
-			width: 8px;
-			height: 8px;
-			cursor: default !important;
-		}
-
-		::-webkit-scrollbar-track {
-			opacity: 0;
-		}
-
-		::-webkit-scrollbar-thumb {
-			min-height: 20px;
-			background-color: var(--vscode-scrollbarSlider-background);
-		}
-
-		::-webkit-scrollbar-thumb:hover {
-			cursor: pointer !important;
-			background-color: var(--vscode-scrollbarSlider-hoverBackground);
-		}
-	</style>
-
-	<!-- The help header script. -->
-	<script id="help-header-script" async type="module">
-		// Set the find result.
-		let findResult = false;
-
-		// Process ready state changes.
-		document.addEventListener("readystatechange", event => {
-			// Process the ready state change.
-			switch (document.readyState) {
-				// Interactive.
-				case "interactive":
-					// Indicate that help is interactive.
-					window.parent.postMessage({
-						id: "positron-help-interactive",
-						url: window.location.href,
-						title: document.title
-					}, "*");
-					break;
-
-				// Complete.
-				case "complete":
-					// Add our listeners.
-					addScrollListener();
-					addMouseListeners();
-					addMessageListener();
-					addKeyboardListeners();
-					addContextMenuListener();
-
-					// Hijack links.
-					hijackLinks();
-
-					// Indicate that help is complete.
-					window.parent.postMessage({
-						id: "positron-help-complete",
-						url: window.location.href,
-						title: document.title
-					}, "*");
-					break;
+	<head>
+		<!--
+		Style elements must be in the form:
+		<style id="identifier">
+		...
+		</style>
+		-->
+		<style id="help-style-defaults">
+			::selection {
+				background: var(--vscode-editor-selectionBackground);
 			}
-		});
 
-		// Add scroll listener.
-		const addScrollListener = () => {
-			// The scroll Y position and a value which indicates whether we are throttling
-			// scroll events.
-			let scrollX = 0;
-			let scrollY = 0;
-			let throttling = false;
+			body {
+				font-size: var(--vscode-font-size);
+				font-family: var(--vscode-font-family);
+				color: var(--vscode-editor-foreground);
+				background: var(--vscode-editor-background);
+				line-height: 1.5;
+			}
 
-			// Add the scroll event listener.
-			window.addEventListener("scroll", event => {
-				// Save the scroll position.
-				scrollX = window.scrollX;
-				scrollY = window.scrollY;
+			a {
+				color: var(--vscode-textLink-foreground);
+			}
+		</style>
+		<style id="help-style-overrides">
+			::-webkit-scrollbar {
+				background: transparent;
+				width: 14px;
+				height: 14px;
+				cursor: default !important;
+			}
 
-				// If we are not throttling, start throttling.
-				if (!throttling) {
-					// Start throttling.
-					throttling = true;
-					window.requestAnimationFrame(() => {
-						// Stop throttling.
-						throttling = false;
+			::-webkit-scrollbar-track {
+				opacity: 0;
+			}
 
-						// Post a scroll message.
-						window.parent.postMessage({
-							id: "positron-help-scroll",
-							scrollX,
-							scrollY
-						}, "*");
-					});
-				}
-			});
-		};
+			::-webkit-scrollbar-thumb {
+				min-height: 20px;
+				background-color: var(--vscode-scrollbarSlider-background);
+			}
 
-		// Add mouse listeners.
-		const addMouseListeners = () => {
-			// Add the mouseup event listener.
-			window.addEventListener("mouseup", event => {
-				if (event.button === 3) {
-					// Post the positron-help-navigate-backward message.
-					window.parent.postMessage({
-						id: "positron-help-navigate-backward"
-					}, "*");
-				} else if (event.button === 4) {
-					// Post the positron-help-navigate-forward message.
-					window.parent.postMessage({
-						id: "positron-help-navigate-forward"
-					}, "*");
-				}
-			});
-		};
+			::-webkit-scrollbar-thumb:hover {
+				cursor: pointer !important;
+				background-color: var(--vscode-scrollbarSlider-hoverBackground);
+			}
+		</style>
+		<!--
+		Script elements must be in the form:
+		<script id="identifier" type="module">
+		...
+		</script>
+		-->
+		<script id="help-script" type="module">
+			// Set the find result.
+			let findResult = false;
 
-		// Adds message listener.
-		const addMessageListener = () => {
-			// Add the event listener.
-			window.addEventListener("message", message => {
-				// Switch on the message ID.
-				switch (message.data.id) {
-					// positron-help-scroll-to message. Sent to scroll the window to a saved scroll
-					// position. This message will arrive when the document's readyState becomes
-					// interactive.
-					case "positron-help-scroll-to":
-						window.scrollTo(message.data.scrollX, message.data.scrollY);
+			// Process ready state changes.
+			document.addEventListener("readystatechange", (event) => {
+				// Process the ready state change.
+				switch (document.readyState) {
+					// Interactive.
+					case "interactive":
+						// Indicate that help is interactive.
+						window.parent.postMessage(
+							{
+								id: "positron-help-interactive",
+								url: window.location.href,
+								title: document.title,
+							},
+							"*"
+						);
 						break;
 
-					// positron-help-update-find message. Sent to start a new find operation.
-					case "positron-help-update-find":
-						// Reset selection so we are finding from the top of the document.
-						window.getSelection().removeAllRanges();
+					// Complete.
+					case "complete":
+						// Add our listeners.
+						addScrollListener();
+						addMouseListeners();
+						addMessageListener();
+						addKeyboardListeners();
+						addContextMenuListener();
 
-						// If the find value was specified, perform the find.
-						if (message.data.findValue) {
-							// Perform the find.
-							findResult = window.find(
-								message.data.findValue,
-								false,	// aCaseSensitive
-								false,	// aBackwards
-								false,	// aWrapAround
-								false,	// aWholeWord - Unimplemented
-								false	// aSearchInFrames
+						// Hijack links.
+						hijackLinks();
+
+						// Indicate that help is complete.
+						window.parent.postMessage(
+							{
+								id: "positron-help-complete",
+								url: window.location.href,
+								title: document.title,
+							},
+							"*"
+						);
+						break;
+				}
+			});
+
+			// Add scroll listener.
+			const addScrollListener = () => {
+				// The scroll Y position and a value which indicates whether we are throttling
+				// scroll events.
+				let scrollX = 0;
+				let scrollY = 0;
+				let throttling = false;
+
+				// Add the scroll event listener.
+				window.addEventListener("scroll", (event) => {
+					// Save the scroll position.
+					scrollX = window.scrollX;
+					scrollY = window.scrollY;
+
+					// If we are not throttling, start throttling.
+					if (!throttling) {
+						// Start throttling.
+						throttling = true;
+						window.requestAnimationFrame(() => {
+							// Stop throttling.
+							throttling = false;
+
+							// Post a scroll message.
+							window.parent.postMessage(
+								{
+									id: "positron-help-scroll",
+									scrollX,
+									scrollY,
+								},
+								"*"
 							);
+						});
+					}
+				});
+			};
 
-							// Post the find result.
-							window.parent.postMessage({
-								id: "positron-help-find-result",
-								findResult
-							}, "*");
-						}
-						break;
+			// Add mouse listeners.
+			const addMouseListeners = () => {
+				// Add the mouseup event listener.
+				window.addEventListener("mouseup", (event) => {
+					if (event.button === 3) {
+						// Post the positron-help-navigate-backward message.
+						window.parent.postMessage(
+							{
+								id: "positron-help-navigate-backward",
+							},
+							"*"
+						);
+					} else if (event.button === 4) {
+						// Post the positron-help-navigate-forward message.
+						window.parent.postMessage(
+							{
+								id: "positron-help-navigate-forward",
+							},
+							"*"
+						);
+					}
+				});
+			};
 
-					// positron-help-find-previous message. Sent to find the previous occurance.
-					case "positron-help-find-previous":
-						if (findResult && message.data.findValue) {
-							window.find(
-								message.data.findValue,
-								false,	// aCaseSensitive
-								true,	// aBackwards
-								false,	// aWrapAround
-								false,	// aWholeWord - Unimplemented
-								false	// aSearchInFrames
+			// Adds message listener.
+			const addMessageListener = () => {
+				// Add the event listener.
+				window.addEventListener("message", (message) => {
+					// Switch on the message ID.
+					switch (message.data.id) {
+						// positron-help-scroll-to message. Sent to scroll the window to a saved scroll
+						// position. This message will arrive when the document's readyState becomes
+						// interactive.
+						case "positron-help-scroll-to":
+							window.scrollTo(message.data.scrollX, message.data.scrollY);
+							break;
+
+						// positron-help-update-find message. Sent to start a new find operation.
+						case "positron-help-update-find":
+							// Reset selection so we are finding from the top of the document.
+							window.getSelection().removeAllRanges();
+
+							// If the find value was specified, perform the find.
+							if (message.data.findValue) {
+								// Perform the find.
+								findResult = window.find(
+									message.data.findValue,
+									false, // aCaseSensitive
+									false, // aBackwards
+									false, // aWrapAround
+									false, // aWholeWord - Unimplemented
+									false // aSearchInFrames
+								);
+
+								// Post the find result.
+								window.parent.postMessage(
+									{
+										id: "positron-help-find-result",
+										findResult,
+									},
+									"*"
+								);
+							}
+							break;
+
+						// positron-help-find-previous message. Sent to find the previous occurance.
+						case "positron-help-find-previous":
+							if (findResult && message.data.findValue) {
+								window.find(
+									message.data.findValue,
+									false, // aCaseSensitive
+									true, // aBackwards
+									false, // aWrapAround
+									false, // aWholeWord - Unimplemented
+									false // aSearchInFrames
+								);
+							}
+							break;
+
+						// positron-help-find-previous message. Sent to find the next occurance.
+						case "positron-help-find-next":
+							if (findResult && message.data.findValue) {
+								window.find(
+									message.data.findValue,
+									false, // aCaseSensitive
+									false, // aBackwards
+									false, // aWrapAround
+									false, // aWholeWord - Unimplemented
+									false // aSearchInFrames
+								);
+							}
+							break;
+
+						// positron-help-focus message. Sent to focus the help window.
+						case "positron-help-focus":
+							window.focus();
+							break;
+
+						// positron-help-copy-selection message. Sent to copy the selection.
+						case "positron-help-copy-selection":
+							// Post the positron-help-selection message.
+							window.parent.postMessage(
+								{
+									id: "positron-help-copy-selection",
+									selection: window.getSelection().toString(),
+								},
+								"*"
 							);
-						}
-						break;
+							break;
+					}
+				});
+			};
 
-					// positron-help-find-previous message. Sent to find the next occurance.
-					case "positron-help-find-next":
-						if (findResult && message.data.findValue) {
-							window.find(
-								message.data.findValue,
-								false,	// aCaseSensitive
-								false,	// aBackwards
-								false,	// aWrapAround
-								false,	// aWholeWord - Unimplemented
-								false	// aSearchInFrames
-							);
-						}
-						break;
+			// Add keyboard listeners.
+			const addKeyboardListeners = () => {
+				// Add the keydown event handler.
+				window.addEventListener("keydown", (e) => {
+					/**
+					 * Determines whether the KeyboardEvent is ctrl or meta.
+					 * @param e The keyboard event.
+					 * @return A value which indicates whether the KeyboardEvent is ctrl or meta.
+					 */
+					const isAltCtrlOrMeta = (e) => e.altKey || e.ctrlKey || e.metaKey;
 
-					// positron-help-focus message. Sent to focus the help window.
-					case "positron-help-focus":
-						window.focus();
-						break;
+					// Rope off select all (65: keyCode of "A").
+					if (isAltCtrlOrMeta && e.keyCode === 65) {
+						e.preventDefault();
+						return;
+					}
 
-					// positron-help-copy-selection message. Sent to copy the selection.
-					case "positron-help-copy-selection":
-						// Post the positron-help-selection message.
-						window.parent.postMessage({
-							id: "positron-help-copy-selection",
-							selection: window.getSelection().toString()
-						}, "*");
-						break;
-				}
-			});
-		};
+					// Post the positron-help-keydown message.
+					window.parent.postMessage(
+						{
+							id: "positron-help-keydown",
+							key: e.key,
+							keyCode: e.keyCode,
+							code: e.code,
+							shiftKey: e.shiftKey,
+							altKey: e.altKey,
+							ctrlKey: e.ctrlKey,
+							metaKey: e.metaKey,
+							repeat: e.repeat,
+						},
+						"*"
+					);
+				});
 
-		// Add keyboard listeners.
-		const addKeyboardListeners = () => {
-			// Add the keydown event handler.
-			window.addEventListener('keydown', e => {
-				/**
-				 * Determines whether the KeyboardEvent is ctrl or meta.
-				 * @param e The keyboard event.
-				 * @return A value which indicates whether the KeyboardEvent is ctrl or meta.
-				 */
-				const isAltCtrlOrMeta = (e) => e.altKey || e.ctrlKey || e.metaKey;
+				// Add the keyup event handler.
+				window.addEventListener("keyup", (e) => {
+					// Post the positron-help-keyup message.
+					window.parent.postMessage(
+						{
+							id: "positron-help-key-up",
+							key: e.key,
+							keyCode: e.keyCode,
+							code: e.code,
+							shiftKey: e.shiftKey,
+							altKey: e.altKey,
+							ctrlKey: e.ctrlKey,
+							metaKey: e.metaKey,
+							repeat: e.repeat,
+						},
+						"*"
+					);
+				});
+			};
 
-				// Rope off select all (65: keyCode of "A").
-				if (isAltCtrlOrMeta && e.keyCode === 65) {
-					e.preventDefault();
-					return;
-				}
+			// Adds context menu listener.
+			const addContextMenuListener = () => {
+				// Add the contextmenu event handler.
+				window.addEventListener("contextmenu", (e) => {
+					// Post the positron-help-context-menu message.
+					window.parent.postMessage(
+						{
+							id: "positron-help-context-menu",
+							screenX: e.screenX,
+							screenY: e.screenY,
+							selection: window.getSelection().toString(),
+						},
+						"*"
+					);
 
-				// Post the positron-help-keydown message.
-				window.parent.postMessage({
-					id: "positron-help-keydown",
-					key: e.key,
-					keyCode: e.keyCode,
-					code: e.code,
-					shiftKey: e.shiftKey,
-					altKey: e.altKey,
-					ctrlKey: e.ctrlKey,
-					metaKey: e.metaKey,
-					repeat: e.repeat
-				}, "*");
-			});
-
-			// Add the keyup event handler.
-			window.addEventListener('keyup', e => {
-				// Post the positron-help-keyup message.
-				window.parent.postMessage({
-					id: "positron-help-key-up",
-					key: e.key,
-					keyCode: e.keyCode,
-					code: e.code,
-					shiftKey: e.shiftKey,
-					altKey: e.altKey,
-					ctrlKey: e.ctrlKey,
-					metaKey: e.metaKey,
-					repeat: e.repeat
-				}, "*");
-			});
-		};
-
-		// Adds context menu listener.
-		const addContextMenuListener = () => {
-			// Add the contextmenu event handler.
-			window.addEventListener("contextmenu", e => {
-				// Post the positron-help-context-menu message.
-				window.parent.postMessage({
-					id: "positron-help-context-menu",
-					screenX: e.screenX,
-					screenY: e.screenY,
-					selection: window.getSelection().toString()
-				}, "*");
-
-				// Consume the event.
-				return false;
-			});
-		};
-
-		// Hijacks all the links in the document. When a link is clicked, post a message to
-		// navigate.
-		const hijackLinks = () => {
-			var links = document.links;
-			for (let i = 0; i < links.length; i++) {
-				links[i].onclick = (e) => {
-					window.parent.postMessage({
-						id: "positron-help-navigate",
-						url: links[i].href
-					}, "*");
+					// Consume the event.
 					return false;
-				};
-			}
-		};
-	</script>
-</head>
+				});
+			};
 
-<body>
-</body>
+			// Hijacks all the links in the document. When a link is clicked, post a message to
+			// navigate.
+			const hijackLinks = () => {
+				var links = document.links;
+				for (let i = 0; i < links.length; i++) {
+					links[i].onclick = (e) => {
+						window.parent.postMessage(
+							{
+								id: "positron-help-navigate",
+								url: links[i].href,
+							},
+							"*"
+						);
+						return false;
+					};
+				}
+			};
+		</script>
+	</head>
 
+	<body></body>
 </html>
