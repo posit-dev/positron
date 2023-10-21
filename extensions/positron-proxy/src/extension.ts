@@ -34,7 +34,7 @@ export function activate(context: vscode.ExtensionContext) {
 		)
 	);
 
-	// Register the positronProxy.stopHelpProxyServer command and add its disposable.
+	// Register the positronProxy.setHelpProxyServerStyles command and add its disposable.
 	context.subscriptions.push(
 		vscode.commands.registerCommand(
 			'positronProxy.setHelpProxyServerStyles',

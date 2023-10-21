@@ -16,14 +16,28 @@ import { createProxyMiddleware, responseInterceptor } from 'http-proxy-middlewar
 const HOST = 'localhost';
 
 /**
- * Gets an element out of a script.
+ * Gets a style element out of the scripts file. Style elements must be in the form:
+ * <style id="identifier">
+ * ....
+ * </style>
  * @param script The script.
- * @param tag The element tag.
  * @param id The element id.
  * @returns The element, if found; otherwise, undefined.
  */
-const getElement = (script: string, tag: string, id: string) =>
-	script.match(new RegExp(`<${tag}\\s+id\\s*=\\s*("${id}"|'${id}')\\s*.*>.*<\/${tag}\\s*>`, 'gs'))?.[0];
+const getStyleElement = (script: string, id: string) =>
+	script.match(new RegExp(`<style id="${id}">.*?<\/style>`, 'gs'))?.[0];
+
+/**
+ * Gets a script element out of the scripts file. Script tags must be in the form:
+ * <script id="identifier" type="module">
+ * ...
+ * </script>
+ * @param script The script.
+ * @param id The element id.
+ * @returns The element, if found; otherwise, undefined.
+ */
+const getScriptElement = (script: string, id: string) =>
+	script.match(new RegExp(`<script id="${id}" type="module">.*?<\/script>`, 'gs'))?.[0];
 
 /**
  * ContentRewriter type.
@@ -89,14 +103,19 @@ export class PositronProxy implements Disposable {
 	private _helpStyles?: ProxyServerStyles;
 
 	/**
-	 * Gets or sets the help header style.
+	 * Gets or sets the help style defaults.
 	 */
-	private _helpHeaderStyle?: string;
+	private _helpStyleDefaults?: string;
 
 	/**
-	 * Gets or sets the help header script.
+	 * Gets or sets the help style overrides.
 	 */
-	private _helpHeaderScript?: string;
+	private _helpStyleOverrides?: string;
+
+	/**
+	 * Gets or sets the help script.
+	 */
+	private _helpScript?: string;
 
 	/**
 	 * Gets or sets the proxy servers, keyed by target origin.
@@ -115,18 +134,20 @@ export class PositronProxy implements Disposable {
 		// Try to load the resources/scripts.html file and the elements within it. This will either
 		// work or it will not work, but there's not sense in trying it again, if it doesn't.
 		try {
-			// Load the resources/scripts.html file.
+			// Load the resources/scripts.html scripts file.
 			const scriptsPath = path.join(this.context.extensionPath, 'resources', 'scripts.html');
 			const scripts = fs.readFileSync(scriptsPath).toString('utf8');
 
-			// Get the elements from the file.
-			this._helpHeaderStyle = getElement(scripts, 'style', 'help-header-style');
-			this._helpHeaderScript = getElement(scripts, 'script', 'help-header-script');
+			// Get the elements from the scripts file.
+			this._helpStyleDefaults = getStyleElement(scripts, 'help-style-defaults');
+			this._helpStyleOverrides = getStyleElement(scripts, 'help-style-overrides');
+			this._helpScript = getScriptElement(scripts, 'help-script');
 
 			// Set the scripts file loaded flag if everything appears to have worked.
 			this._scriptsFileLoaded =
-				this._helpHeaderStyle !== undefined &&
-				this._helpHeaderScript !== undefined;
+				this._helpStyleDefaults !== undefined &&
+				this._helpStyleOverrides !== undefined &&
+				this._helpScript !== undefined;
 		} catch (error) {
 			console.log(`Failed to load the resources/scripts.html file.`);
 		}
@@ -160,29 +181,34 @@ export class PositronProxy implements Disposable {
 					return responseBuffer;
 				}
 
-				// Build the help header vars.
-				let helpHeaderVars = '';
+				// Build the help vars.
+				let helpVars = '';
 				if (this._helpStyles) {
-					helpHeaderVars += '<style id="help-header-vars">\n';
-					helpHeaderVars += '    body {\n';
+					helpVars += '<style id="help-vars">\n';
+					helpVars += '    body {\n';
 					for (const style in this._helpStyles) {
-						helpHeaderVars += `        --${style}: ${this._helpStyles[style]};\n`;
+						helpVars += `        --${style}: ${this._helpStyles[style]};\n`;
 					}
-					helpHeaderVars += '    }\n';
-					helpHeaderVars += '</style>\n';
+					helpVars += '    }\n';
+					helpVars += '</style>\n';
 				}
 
-				// Inject styles and scripts.
+				// Get the response.
 				let response = responseBuffer.toString('utf8');
-				// response = response.replace(
-				// 	'<body>',
-				// 	`<body><div class="url-information">Help URL is: ${url}</div>`
-				// );
+
+				// Inject the help style defaults for unstyled help documents and the help vars.
+				response = response.replace(
+					'<head>',
+					`<head>\n
+					${helpVars}\n
+					${this._helpStyleDefaults}`
+				);
+
+				// Inject the help style overrides and the help script.
 				response = response.replace(
 					'</head>',
-					`${helpHeaderVars}
-					${this._helpHeaderStyle}\n
-					${this._helpHeaderScript}\n
+					`${this._helpStyleOverrides}\n
+					${this._helpScript}\n
 					</head>`
 				);
 
