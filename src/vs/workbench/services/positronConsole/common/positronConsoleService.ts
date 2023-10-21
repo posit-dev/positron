@@ -49,6 +49,11 @@ const ON_DID_CHANGE_RUNTIME_ITEMS_THROTTLE_INTERVAL = 50;
  */
 const MAX_ITEMS = 10000;
 
+/**
+ * The trim threshold.
+ */
+const TRIM_THRESHOLD = 500;
+
 //#region Helper Functions
 
 /**
@@ -463,6 +468,11 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	 * The RuntimeItemPendingInput.
 	 */
 	private _runtimeItemPendingInput?: RuntimeItemPendingInput;
+
+	/**
+	 * Gets or sets the trim counter.
+	 */
+	private _trimCounter = 0;
 
 	/**
 	 * Gets or sets the runtime items.
@@ -1792,6 +1802,14 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	 * Trims items displayed in the console.
 	 */
 	private trimItems() {
+		// Increment the trim counter. Trim items when we reach the trim threshold.
+		if (++this._trimCounter < TRIM_THRESHOLD) {
+			return;
+		}
+
+		// Reset the trim counter.
+		this._trimCounter = 0;
+
 		// Trim items.
 		let remainingItems = MAX_ITEMS;
 		let runtimeItemIndex = this._runtimeItems.length;
