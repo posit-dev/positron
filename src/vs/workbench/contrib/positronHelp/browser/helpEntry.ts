@@ -674,11 +674,7 @@ export class HelpEntry extends Disposable implements IHelpEntry, WebviewFindDele
 	 * Focus.
 	 */
 	public focus() {
-		if (this._helpOverlayWebview) {
-			this._helpOverlayWebview.postMessage({
-				id: 'positron-help-focus'
-			});
-		}
+		// NOOP to fix https://github.com/posit-dev/positron/issues/1644.
 	}
 
 	//#endregion WebviewFindDelegate Implementation
