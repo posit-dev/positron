@@ -618,7 +618,7 @@ export class HelpEntry extends Disposable implements IHelpEntry, WebviewFindDele
 	readonly onDidStopFind = this._onDidStopFindEmitter.event;
 
 	/**
-	 * Finds the valye.
+	 * Finds the value.
 	 * @param value The value to find.
 	 * @param previous A value which indicates whether to find previous.
 	 */
