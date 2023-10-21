@@ -94,6 +94,12 @@ jobs:
           POSITRON_BUILD_NUMBER: ${{ needs.version_string.outputs.build_number }}
         run: |
           yarn gulp vscode-${{ matrix.platform }}-${{ matrix.arch }}
+
+      # Build setup installer
+      - name: Build setup
+        env:
+          POSITRON_BUILD_NUMBER: ${{ needs.version_string.outputs.build_number }}
+        run: |
           yarn gulp vscode-${{ matrix.platform }}-${{ matrix.arch }}-system-setup
 
       # Compress client to a zip file
