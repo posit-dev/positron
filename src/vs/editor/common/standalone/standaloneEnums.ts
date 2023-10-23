@@ -321,7 +321,8 @@ export enum EditorOption {
 	defaultColorDecorators = 145,
 	colorDecoratorsActivatedOn = 146,
 	inlineCompletionsAccessibilityVerbose = 147,
-	quickSuggestionsMinimumLength = 148
+	quickSuggestionsMinimumLength = 148,
+	tabSuggest = 149
 }
 
 /**
