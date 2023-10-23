@@ -540,7 +540,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	/**
 	 * The onDidExecuteCode event emitter.
 	 */
-	private readonly _onDidExecuteCodeEmitter = this._register(new Emitter<void>);
+	private readonly _onDidExecuteCodeEmitter = this._register(new Emitter<string>);
 
 	/**
 	 * The onDidSelectPlot event emitter.
@@ -1701,14 +1701,14 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 					RuntimeErrorBehavior.Continue);
 
 				// Fire the onDidExecuteCode event.
-				this._onDidExecuteCodeEmitter.fire();
+				this._onDidExecuteCodeEmitter.fire(codeFragment);
 
 				// Return.
 				return;
 			}
 		}
 
-		// Fire the onDidExecuteCode event because we removed the pending input runtime item.
+		// Fire the onDidChangeRuntimeItems event because we removed the pending input runtime item.
 		this._onDidChangeRuntimeItemsEmitter.fire();
 
 		// The pending input line(s) now become the pending code.
@@ -1747,7 +1747,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 			RuntimeErrorBehavior.Continue);
 
 		// Fire the onDidExecuteCode event.
-		this._onDidExecuteCodeEmitter.fire();
+		this._onDidExecuteCodeEmitter.fire(code);
 	}
 
 	/**
