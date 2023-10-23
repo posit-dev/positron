@@ -8,6 +8,7 @@ import { useEffect, useState } from 'react'; // eslint-disable-line no-duplicate
 import { localize } from 'vs/nls';
 import { DisposableStore } from 'vs/base/common/lifecycle';
 import { IReactComponentContainer } from 'vs/base/browser/positronReactRenderer';
+import { IsDevelopmentContext } from 'vs/platform/contextkey/common/contextkeys';
 import { PositronActionBar } from 'vs/platform/positronActionBar/browser/positronActionBar';
 import { ActionBarRegion } from 'vs/platform/positronActionBar/browser/components/actionBarRegion';
 import { ActionBarButton } from 'vs/platform/positronActionBar/browser/components/actionBarButton';
@@ -15,25 +16,39 @@ import { ActionBarSeparator } from 'vs/platform/positronActionBar/browser/compon
 import { PositronActionBarServices } from 'vs/platform/positronActionBar/browser/positronActionBarState';
 import { usePositronConsoleContext } from 'vs/workbench/contrib/positronConsole/browser/positronConsoleContext';
 import { PositronActionBarContextProvider } from 'vs/platform/positronActionBar/browser/positronActionBarContext';
+import { ILanguageRuntime, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { PositronConsoleState } from 'vs/workbench/services/positronConsole/common/interfaces/positronConsoleService';
 import { ConsoleInstanceMenuButton } from 'vs/workbench/contrib/positronConsole/browser/components/consoleInstanceMenuButton';
-import { ILanguageRuntime, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 
-// Constants.
+/**
+ * Constants.
+ */
 const kPaddingLeft = 8;
 const kPaddingRight = 8;
 
-// ActionBarProps interface.
+/**
+ * ActionBarProps interface.
+ */
 interface ActionBarProps {
 	readonly reactComponentContainer: IReactComponentContainer;
 }
 
-// Localized strings for transitional/transient states.
+/**
+ * Localized strings for transitional/transient states.
+ */
 const stateLabelStarting = localize('positronConsoleState.Starting', "Starting");
 const stateLabelInterrupting = localize('positronConsoleState.Interrupting', "Interrupting");
 const stateLabelShuttingDown = localize('positronConsoleState.ShuttingDown', "Shutting down");
 const stateLabelRestarting = localize('positronConsoleState.Restarting', "Restarting");
 const stateLabelReconecting = localize('positronConsoleState.Reconnecting', "Reconnecting");
+
+/**
+ * Localized strings for UI.
+ */
+const positronInterruptExeuction = localize('positronInterruptExeuction', "Interrupt execution");
+const positronToggleTrace = localize('positronToggleTrace', "Toggle trace");
+const positronToggleWordWrap = localize('positronToggleWordWrap', "Toggle word wrap");
+const positronClearConsole = localize('positronClearConsole', "Clear console");
 
 /**
  * Provides a localized label for the given runtime state. Only the transient
@@ -74,6 +89,9 @@ function labelForState(state: RuntimeState): string {
 export const ActionBar = (props: ActionBarProps) => {
 	// Context hooks.
 	const positronConsoleContext = usePositronConsoleContext();
+
+	// Constants,
+	const showDeveloperUI = IsDevelopmentContext.getValue(positronConsoleContext.contextKeyService);
 
 	// State hooks.
 	const [activePositronConsoleInstance, setActivePositronConsoleInstance] =
@@ -210,7 +228,13 @@ export const ActionBar = (props: ActionBarProps) => {
 	return (
 		<PositronActionBarContextProvider {...positronConsoleContext as PositronActionBarServices}>
 			<div className='action-bar'>
-				<PositronActionBar size='small' borderTop={true} borderBottom={true} paddingLeft={kPaddingLeft} paddingRight={kPaddingRight}>
+				<PositronActionBar
+					size='small'
+					borderTop={true}
+					borderBottom={true}
+					paddingLeft={kPaddingLeft}
+					paddingRight={kPaddingRight}
+				>
 					<ActionBarRegion location='left'>
 						<ConsoleInstanceMenuButton {...props} />
 					</ActionBarRegion>
@@ -221,16 +245,39 @@ export const ActionBar = (props: ActionBarProps) => {
 								fadeIn={true}
 								disabled={interrupting}
 								align='right'
-								tooltip={localize('positronInterruptExeuction', "Interrupt execution")}
+								tooltip={positronInterruptExeuction}
 								onClick={interruptHandler}
 							>
-								<div className={`action-bar-button-icon interrupt codicon codicon-positron-interrupt-runtime`} />
+								<div className={
+									`action-bar-button-icon
+									interrupt
+									codicon
+									codicon-positron-interrupt-runtime`
+								}
+								/>
 							</ActionBarButton>
 						}
-						<ActionBarButton iconId='positron-list' align='right' tooltip={localize('positronToggleTrace', "Toggle trace")} onClick={toggleTraceHandler} />
-						<ActionBarButton iconId='word-wrap' align='right' tooltip={localize('positronWordWrap', "Toggle word wrap")} onClick={toggleWordWrapHandler} />
+						{showDeveloperUI &&
+							<ActionBarButton
+								iconId='positron-list'
+								align='right'
+								tooltip={positronToggleTrace}
+								onClick={toggleTraceHandler}
+							/>
+						}
+						<ActionBarButton
+							iconId='word-wrap'
+							align='right'
+							tooltip={positronToggleWordWrap}
+							onClick={toggleWordWrapHandler}
+						/>
 						<ActionBarSeparator />
-						<ActionBarButton iconId='positron-clear-pane' align='right' tooltip={localize('positronClearConsole', "Clear console")} onClick={clearConsoleHandler} />
+						<ActionBarButton
+							iconId='positron-clear-pane'
+							align='right'
+							tooltip={positronClearConsole}
+							onClick={clearConsoleHandler}
+						/>
 					</ActionBarRegion>
 				</PositronActionBar>
 			</div>
