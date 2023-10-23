@@ -744,6 +744,9 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	 */
 	toggleTrace() {
 		this._trace = !this._trace;
+		if (this._trace) {
+			this.addRuntimeItemTrace('Trace enabled');
+		}
 		this._onDidChangeTraceEmitter.fire(this._trace);
 	}
 
