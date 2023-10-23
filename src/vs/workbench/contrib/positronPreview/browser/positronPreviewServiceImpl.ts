@@ -226,7 +226,7 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 			}
 		}
 		var renderer = activate(ctx);
-		var rawData = '${JSON.stringify(data)}';
+		var rawData = ${JSON.stringify(data)};
 		var data = {
 			id: '${id}',
     		mime: '${mimeType}',
