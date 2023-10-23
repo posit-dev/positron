@@ -239,6 +239,11 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 		console.log('** activated!!');
 		const controller = new AbortController();
 		const signal = controller.signal;
+		window.onerror = function (e) {
+			let pre = document.createElement('pre');
+			pre.innerText = data.text();
+			container.appendChild(pre);
+		};
 		window.onload = function() {
 			let container = document.getElementById('container');
 			console.log('** container: ' + container);
