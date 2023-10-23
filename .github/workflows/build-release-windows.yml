@@ -8,7 +8,7 @@ on:
 jobs:
   version_string:
     name: Determine version
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     outputs:
       short_version: ${{ steps.short_version.outputs.result }}
       build_number: ${{ steps.build_number.outputs.result }}
