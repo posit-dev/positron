@@ -44,7 +44,9 @@ export const DataPanel = (props: DataPanelProps) => {
 	const rowHeightPx = 30;
 
 	// The number of rows to render above and below the visible area of the table.
-	const scrollOverscan = 50;
+	const scrollOverscan = 30;
+
+	const scrollThresholdRows = 10;
 
 	// A reference to the table container element.
 	const tableContainerRef = React.useRef<HTMLDivElement>(null);
@@ -115,16 +117,13 @@ export const DataPanel = (props: DataPanelProps) => {
 		isFetchingNextPage,
 		fetchNextPage,
 		hasNextPage
-	} = ReactQuery.useInfiniteQuery<DataFragment>(
-			['table-data', dataModel.id],
-			({pageParam = 0}) => fetchNextDataFragment(pageParam, fetchSize),
-			{
-				// undefined if we are on the final page of data
-				getNextPageParam: (_lastGroup, groups) => groups.length !== maxPages ? groups.length : undefined,
-				keepPreviousData: true,
-				refetchOnWindowFocus: false,
-			}
-		);
+	} = ReactQuery.useInfiniteQuery<DataFragment>({
+			queryKey: ['table-data', dataModel.id],
+			queryFn: ({pageParam = 0}) => fetchNextDataFragment(pageParam, fetchSize),
+			// undefined if we are on the final page of data
+			getNextPageParam: (_lastGroup, groups) => groups.length !== maxPages ? groups.length : undefined,
+			refetchOnWindowFocus: false,
+		});
 
 
 	// Flatten and transpose the data. The data model stores data in a column-major
@@ -205,9 +204,9 @@ export const DataPanel = (props: DataPanelProps) => {
 			return;
 		}
 
-		// user has scrolled to the last row of the loaded virtual rows
+		// user has scrolled almost to the end of the loaded virtual rows
 		// so fetch more from the backend if there are more pages
-		if (lastItem.index >= rows.length - 1 &&
+		if (lastItem.index >= rows.length - scrollThresholdRows &&
 			hasNextPage &&
 			!isFetchingNextPage
 		) {
