@@ -618,7 +618,7 @@ export class HelpEntry extends Disposable implements IHelpEntry, WebviewFindDele
 	readonly onDidStopFind = this._onDidStopFindEmitter.event;
 
 	/**
-	 * Finds the valye.
+	 * Finds the value.
 	 * @param value The value to find.
 	 * @param previous A value which indicates whether to find previous.
 	 */
@@ -674,11 +674,7 @@ export class HelpEntry extends Disposable implements IHelpEntry, WebviewFindDele
 	 * Focus.
 	 */
 	public focus() {
-		if (this._helpOverlayWebview) {
-			this._helpOverlayWebview.postMessage({
-				id: 'positron-help-focus'
-			});
-		}
+		// NOOP to fix https://github.com/posit-dev/positron/issues/1644.
 	}
 
 	//#endregion WebviewFindDelegate Implementation
