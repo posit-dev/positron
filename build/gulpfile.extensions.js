@@ -132,7 +132,7 @@ const tasks = compilations.map(function (tsconfigFile) {
 			// --- Start Positron ---
 			// Add '**/*.tsx'.
 			const tsFilter = filter(['**/*.ts', '**/*.tsx', '!**/lib/lib*.d.ts', '!**/node_modules/**'], { restore: true });
-			// --- Start Positron ---
+			// --- End Positron ---
 			const output = input
 				.pipe(plumber({
 					errorHandler: function (err) {
@@ -202,12 +202,33 @@ const tasks = compilations.map(function (tsconfigFile) {
 		// --- Start Positron ---
 		// Add '!**/*.tsx'.
 		const nonts = gulp.src(src, srcOpts).pipe(filter(['**', '!**/*.ts', '!**/*.tsx']));
+
+		// Check if the extension has defined a bundle-dev task to be run
+		const fs = require('fs');
+		const webpack = require('webpack-stream');
+		const compiler = require('webpack');
+
+		const absoluteExtPath = path.join(extensionsPath, name);
+		const metadataPath = path.join(absoluteExtPath, 'package.json');
+		const webpackConfigPath = path.join(absoluteExtPath, 'extension.webpack.config.js');
+
+		let needsBundling = false;
+		if (fs.existsSync(metadataPath)) {
+			const scripts = JSON.parse(fs.readFileSync(metadataPath).toString('utf8')).scripts;
+			needsBundling = 'bundle-dev' in scripts && process.env.NODE_ENV !== 'production';
+		}
+
 		// --- End Positron ---
 		const input = es.merge(nonts, pipeline.tsProjectSrc());
 		const watchInput = watcher(src, { ...srcOpts, ...{ readDelay: 200 } });
 
 		return watchInput
 			.pipe(util.incremental(pipeline, input))
+			// --- Start Positron ---
+			.pipe(needsBundling
+				? webpack(require(webpackConfigPath), compiler)
+				: es.through())
+			// --- End Positron ---
 			.pipe(gulp.dest(out));
 	}));
 
