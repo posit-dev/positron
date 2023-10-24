@@ -14,6 +14,15 @@
 	background-color: var(--vscode-sideBar-background);
 }
 
+/* Start Positron */
+/* When the Console is in the auxiliary bar, set the background color to the editor background. */
+.monaco-workbench .part.auxiliarybar > .content .console-instance .console-input .monaco-editor,
+.monaco-workbench .part.auxiliarybar > .content .console-instance .console-input .monaco-editor .margin,
+.monaco-workbench .part.auxiliarybar > .content .console-instance .console-input .monaco-editor .monaco-editor-background {
+	background-color: unset;
+}
+/* End Positron */
+
 .monaco-workbench .part.auxiliarybar > .title > .panel-switcher-container > .monaco-action-bar .action-item:hover .action-label,
 .monaco-workbench .part.auxiliarybar > .title > .panel-switcher-container > .monaco-action-bar .action-item:focus .action-label {
 	color: var(--vscode-sideBarTitle-foreground) !important;
