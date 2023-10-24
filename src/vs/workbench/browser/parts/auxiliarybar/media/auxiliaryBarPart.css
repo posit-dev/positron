@@ -19,7 +19,7 @@
 .monaco-workbench .part.auxiliarybar > .content .console-instance .console-input .monaco-editor,
 .monaco-workbench .part.auxiliarybar > .content .console-instance .console-input .monaco-editor .margin,
 .monaco-workbench .part.auxiliarybar > .content .console-instance .console-input .monaco-editor .monaco-editor-background {
-	background-color: var(--vscode-editor-background);
+	background-color: unset;
 }
 /* End Positron */
 
