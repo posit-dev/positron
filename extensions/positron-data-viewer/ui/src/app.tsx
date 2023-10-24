@@ -37,13 +37,15 @@ window.addEventListener('message', (event: any) => {
 	if (message.msg_type === 'initial_data') {
 		const dataMessage = message as DataViewerMessageRowResponse;
 		const queryClient = new ReactQuery.QueryClient();
+		const container = document.getElementById('root');
+
 		ReactDOM.render(
 			<React.StrictMode>
 				<ReactQuery.QueryClientProvider client={queryClient}>
 					<DataPanel initialData={dataMessage.data} fetchSize={fetchSize} vscode={vscode} />
 				</ReactQuery.QueryClientProvider>
 			</React.StrictMode>,
-			document.getElementById('root')
+			container
 		);
 	} // Other message types are handled in the DataPanel component.
 });

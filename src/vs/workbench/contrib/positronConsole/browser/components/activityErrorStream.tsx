@@ -5,7 +5,7 @@
 import 'vs/css!./activityErrorStream';
 import * as React from 'react';
 import { OutputLines } from 'vs/workbench/contrib/positronConsole/browser/components/outputLines';
-import { ActivityItemErrorStream } from 'vs/workbench/services/positronConsole/common/classes/activityItemErrorStream';
+import { ActivityItemErrorStream } from 'vs/workbench/services/positronConsole/common/classes/activityItemStream';
 
 // ActivityErrorStreamProps interface.
 export interface ActivityErrorStreamProps {

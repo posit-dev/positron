@@ -18,6 +18,7 @@ import { ExtHostContext } from 'vs/workbench/api/common/extHost.protocol';
 import { IExtHostWorkspace } from 'vs/workbench/api/common/extHostWorkspace';
 import { ExtHostWebviews } from 'vs/workbench/api/common/extHostWebview';
 import { ExtHostLanguageFeatures } from 'vs/workbench/api/common/extHostLanguageFeatures';
+import { ExtHostOutputService } from 'vs/workbench/api/common/extHostOutput';
 
 /**
  * Factory interface for creating an instance of the Positron API.
@@ -45,10 +46,7 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 	// VS Code API can share a single instance of `ExtHostWebViews`, which is
 	// necessary since the instance effectively needs to be a singleton.
 	const extHostWebviews: ExtHostWebviews = rpcProtocol.getRaw(ExtHostContext.ExtHostWebviews);
-	if (!extHostWebviews) {
-		throw new Error('Could not retrieve ExtHostWebviews from the RPC protocol. ' +
-			' The VS Code API must be created before the Positron API.');
-	}
+	const extHostOutputService: ExtHostOutputService = rpcProtocol.getRaw(ExtHostContext.ExtHostOutputService);
 
 	// Same deal for the `ExtHostLanguageFeatures` object
 	const extHostLanguageFeatures: ExtHostLanguageFeatures =
@@ -96,6 +94,9 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 		const window: typeof positron.window = {
 			createPreviewPanel(viewType: string, title: string, preserveFocus?: boolean, options?: vscode.WebviewPanelOptions & vscode.WebviewOptions) {
 				return extHostPreviewPanels.createPreviewPanel(extension, viewType, title, preserveFocus, options);
+			},
+			createRawLogOutputChannel(name: string): vscode.OutputChannel {
+				return extHostOutputService.createRawLogOutputChannel(name, extension);
 			}
 		};
 
