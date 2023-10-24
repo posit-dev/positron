@@ -6,6 +6,7 @@ import * as semver from 'semver';
 import * as path from 'path';
 import * as fs from 'fs';
 import { extractValue, readLines } from './util';
+import { getLogger } from './logging';
 
 /**
  * Represents a single installation of R on a user's system.
@@ -36,7 +37,13 @@ export class RInstallation {
 	 *   R
 	 */
 	constructor(pth: string, current: boolean = false) {
-		console.log('Candidate R binary at %s', pth);
+		const log = getLogger();
+		log.trace('TRACE!');
+		log.info('INFO!');
+		log.warn('WARN!');
+		log.error('ERROR!');
+
+		log.info(`Candidate R binary at ${pth}`);
 
 		this.binpath = pth;
 		this.current = current;
@@ -44,12 +51,12 @@ export class RInstallation {
 		const binLines = readLines(this.binpath);
 		const re = new RegExp('Shell wrapper for R executable');
 		if (!binLines.some(x => re.test(x))) {
-			console.log('Binary is not a shell script wrapping the executable');
+			log.info('Binary is not a shell script wrapping the executable');
 			return;
 		}
 		const targetLine = binLines.find(line => line.match('R_HOME_DIR'));
 		if (!targetLine) {
-			console.log('Can\'t determine R_HOME_DIR from the binary');
+			log.info('Can\'t determine R_HOME_DIR from the binary');
 			return;
 		}
 		// macOS: R_HOME_DIR=/Library/Frameworks/R.framework/Versions/4.3-arm64/Resources
@@ -58,7 +65,7 @@ export class RInstallation {
 		const R_HOME_DIR = extractValue(targetLine, 'R_HOME_DIR');
 		this.homepath = R_HOME_DIR;
 		if (this.homepath === '') {
-			console.log('Can\'t determine R_HOME_DIR from the binary');
+			log.info('Can\'t determine R_HOME_DIR from the binary');
 			return;
 		}
 
@@ -76,13 +83,13 @@ export class RInstallation {
 		// We have actually seen an R "installation" that doesn't have the base packages!
 		// https://github.com/posit-dev/positron/issues/1314
 		if (!fs.existsSync(descPath)) {
-			console.log('Can\'t find DESCRIPTION for the utils package at %s', descPath);
+			log.info(`Can\'t find DESCRIPTION for the utils package at ${descPath}`);
 			return;
 		}
 		const descLines = readLines(descPath);
 		const targetLine2 = descLines.filter(line => line.match('Built'))[0];
 		if (!targetLine2) {
-			console.log('Can\'t find \'Built\' field for the utils package in its DESCRIPTION: %s', descPath);
+			log.info(`Can't find 'Built' field for the utils package in its DESCRIPTION: ${descPath}`);
 			return;
 		}
 		// macOS arm64: Built: R 4.3.1; aarch64-apple-darwin20; 2023-06-16 21:52:54 UTC; unix
@@ -119,6 +126,6 @@ export class RInstallation {
 
 		this.valid = true;
 
-		console.log('R installation discovered: %o', this);
+		log.info(`R installation discovered: ${JSON.stringify(this)}`);
 	}
 }
