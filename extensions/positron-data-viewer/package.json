@@ -20,7 +20,7 @@
     "bundle-dev": "npx webpack-cli watch --mode development --config ./extension.webpack.config.js"
 	},
 	"devDependencies": {
-		"@types/node": "16.x",
+		"@types/node": "18.x",
 		"typescript": "^4.5.5"
 	},
 	"repository": {
