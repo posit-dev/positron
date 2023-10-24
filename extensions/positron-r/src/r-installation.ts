@@ -125,6 +125,6 @@ export class RInstallation {
 
 		this.valid = true;
 
-		Logger.info(`R installation discovered: ${JSON.stringify(this)}`);
+		Logger.info(`R installation discovered: ${JSON.stringify(this, null, 2)}`);
 	}
 }
