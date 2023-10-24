@@ -31,6 +31,7 @@ import { SelectionClipboardContributionID } from 'vs/workbench/contrib/codeEdito
 import { usePositronConsoleContext } from 'vs/workbench/contrib/positronConsole/browser/positronConsoleContext';
 import { RuntimeCodeFragmentStatus } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { IPositronConsoleInstance, PositronConsoleState } from 'vs/workbench/services/positronConsole/common/interfaces/positronConsoleService';
+import { ParameterHintsController } from 'vs/editor/contrib/parameterHints/browser/parameterHints';
 
 // Position enumeration.
 const enum Position {
@@ -446,6 +447,7 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 					TabCompletionController.ID,
 					ModesHoverController.ID,
 					MarkerController.ID,
+					ParameterHintsController.ID
 				])
 			}
 		);
