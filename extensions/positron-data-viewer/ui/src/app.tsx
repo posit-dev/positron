@@ -39,7 +39,7 @@ window.addEventListener('message', (event: any) => {
 		const dataMessage = message as DataViewerMessageRowResponse;
 		const queryClient = new ReactQuery.QueryClient();
 		const container = document.getElementById('root');
-		const root = createRoot(container!!);
+		const root = createRoot(container!);
 		root.render(
 			<React.StrictMode>
 				<ReactQuery.QueryClientProvider client={queryClient}>
