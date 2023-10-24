@@ -136,28 +136,6 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 				break;
 		}
 
-		// If the code fragment isn't just whitespace characters, and it's not a duplicate, add it
-		// to the history navigator.
-		if (code.trim().length) {
-			// Creates an IInputHistoryEntry.
-			const createInputHistoryEntry = (): IInputHistoryEntry => ({
-				when: new Date().getTime(),
-				input: code,
-			});
-
-			// Add the history entry, if it's not a duplicate.
-			if (!historyNavigatorRef.current) {
-				setHistoryNavigator(new HistoryNavigator2<IInputHistoryEntry>(
-					[createInputHistoryEntry()],
-					1000
-				));
-			} else {
-				if (historyNavigatorRef.current.last().input !== code) {
-					historyNavigatorRef.current.add(createInputHistoryEntry());
-				}
-			}
-		}
-
 		// Execute the code.
 		props.positronConsoleInstance.executeCode(code);
 
@@ -582,20 +560,48 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 			codeEditorWidget.focus();
 		}));
 
-		// Add the onDidSetCode event handler.
+		// Add the onDidSetPendingCode event handler.
 		disposableStore.add(props.positronConsoleInstance.onDidSetPendingCode(pendingCode => {
 			codeEditorWidget.setValue(pendingCode || '');
 			updateCodeEditorWidgetPosition(Position.Last, Position.Last);
 		}));
 
-		// Add the onDidReceiveRuntimeMessagePromptConfig event handler.
-		disposableStore.add(props.positronConsoleInstance.runtime.onDidReceiveRuntimeMessagePromptConfig(() => {
-			// Update just the line number options.
-			codeEditorWidget.updateOptions(createLineNumbersOptions());
+		// Add the onDidExecuteCode event handler.
+		disposableStore.add(props.positronConsoleInstance.onDidExecuteCode(code => {
+			// Trim the code. If it isn't empty, or a duplicate of the last history entry, add it to
+			// the history.
+			const trimmedCode = code.trim();
+			if (trimmedCode.length) {
+				// Creates an IInputHistoryEntry.
+				const createInputHistoryEntry = (): IInputHistoryEntry => ({
+					when: new Date().getTime(),
+					input: trimmedCode,
+				});
 
-			// Render the code editor widget.
-			codeEditorWidget.render(true);
+				// Add the history entry, if it's not a duplicate.
+				if (!historyNavigatorRef.current) {
+					setHistoryNavigator(new HistoryNavigator2<IInputHistoryEntry>(
+						[createInputHistoryEntry()],
+						1000
+					));
+				} else {
+					if (historyNavigatorRef.current.last().input !== code) {
+						historyNavigatorRef.current.add(createInputHistoryEntry());
+					}
+				}
+			}
 		}));
+
+		// Add the onDidReceiveRuntimeMessagePromptConfig event handler.
+		disposableStore.add(
+			props.positronConsoleInstance.runtime.onDidReceiveRuntimeMessagePromptConfig(() => {
+				// Update just the line number options.
+				codeEditorWidget.updateOptions(createLineNumbersOptions());
+
+				// Render the code editor widget.
+				codeEditorWidget.render(true);
+			})
+		);
 
 		// Focus the console.
 		codeEditorWidget.focus();
