@@ -9,7 +9,7 @@ import {
 	ExtHostPositronContext
 } from '../../common/positron/extHost.positron.protocol';
 import { extHostNamedCustomer, IExtHostContext } from 'vs/workbench/services/extensions/common/extHostCustomers';
-import { ILanguageRuntime, ILanguageRuntimeClientCreatedEvent, ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMessageCommClosed, ILanguageRuntimeMessageCommData, ILanguageRuntimeMessageCommOpen, ILanguageRuntimeMessageError, ILanguageRuntimeMessageInput, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessagePrompt, ILanguageRuntimeMessageState, ILanguageRuntimeMessageStream, ILanguageRuntimeMetadata, ILanguageRuntimeDynState as ILanguageRuntimeDynState, ILanguageRuntimeService, ILanguageRuntimeStartupFailure, LanguageRuntimeMessageType, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeState, LanguageRuntimeDiscoveryPhase, ILanguageRuntimeExit } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntime, ILanguageRuntimeClientCreatedEvent, ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMessageCommClosed, ILanguageRuntimeMessageCommData, ILanguageRuntimeMessageCommOpen, ILanguageRuntimeMessageError, ILanguageRuntimeMessageInput, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessagePrompt, ILanguageRuntimeMessageState, ILanguageRuntimeMessageStream, ILanguageRuntimeMetadata, ILanguageRuntimeDynState as ILanguageRuntimeDynState, ILanguageRuntimeService, ILanguageRuntimeStartupFailure, LanguageRuntimeMessageType, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeState, LanguageRuntimeDiscoveryPhase, ILanguageRuntimeExit, RuntimeOutputKind } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { Disposable, DisposableStore } from 'vs/base/common/lifecycle';
 import { Event, Emitter } from 'vs/base/common/event';
 import { IPositronConsoleService } from 'vs/workbench/services/positronConsole/common/interfaces/positronConsoleService';
@@ -591,6 +591,23 @@ class ExtHostLanguageRuntimeAdapter implements ILanguageRuntime {
 		}
 	}
 
+	private inferPositronOutputKind(_message: ILanguageRuntimeMessageOutput): RuntimeOutputKind {
+		// TODO
+		return RuntimeOutputKind.Unknown;
+	}
+
+	private emitRuntimeMessageOutput(message: ILanguageRuntimeMessageOutput): void {
+		const outputMessage: ILanguageRuntimeMessageOutput = {
+			// The incoming message from the backend doesn't actually have a
+			// 'kind' property; we amend it with one here.
+			//
+			// @ts-ignore
+			kind: this.inferPositronOutputKind(message),
+			...message,
+		};
+		this.emitDidReceiveRuntimeMessageOutput(outputMessage);
+	}
+
 	private processMessage(message: ILanguageRuntimeMessage): void {
 		// Broker the message type to one of the discrete message events.
 		switch (message.type) {
@@ -599,7 +616,7 @@ class ExtHostLanguageRuntimeAdapter implements ILanguageRuntime {
 				break;
 
 			case LanguageRuntimeMessageType.Output:
-				this.emitDidReceiveRuntimeMessageOutput(message as ILanguageRuntimeMessageOutput);
+				this.emitRuntimeMessageOutput(message as ILanguageRuntimeMessageOutput);
 				break;
 
 			case LanguageRuntimeMessageType.Input:
