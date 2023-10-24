@@ -16,6 +16,11 @@ const Logger = vscode.window.createOutputChannel('Positron R Extension', { log: 
 export default Logger;
 
 export function activate(context: vscode.ExtensionContext) {
+	const onDidChangeLogLevel = (logLevel: vscode.LogLevel) => {
+		Logger.appendLine(vscode.l10n.t('Log level: {0}', vscode.LogLevel[logLevel]));
+	};
+	context.subscriptions.push(Logger.onDidChangeLogLevel(onDidChangeLogLevel));
+	onDidChangeLogLevel(Logger.logLevel);
 
 	const runtimes = new Map<string, RRuntime>();
 	positron.runtime.registerLanguageRuntimeProvider(
