@@ -3,14 +3,15 @@
 #
 
 import codecs
-import comm
 import logging
 import pickle
 import uuid
-from typing import Dict, Literal, Optional, Tuple, List
+from typing import Dict, List, Literal, Optional, Tuple
 
+import comm
 from IPython.core.interactiveshell import InteractiveShell
-from pydantic import BaseModel, Field, ValidationError
+
+from ._pydantic_compat import BaseModel, Field, ValidationError
 
 logger = logging.getLogger(__name__)
 

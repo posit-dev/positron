@@ -2,13 +2,14 @@
 # Copyright (C) 2023 Posit Software, PBC. All rights reserved.
 #
 
-import comm
-import uuid
-import logging
 import enum
+import logging
+import uuid
 from typing import Any, Dict, List
-from pydantic import BaseModel, Field, NonNegativeInt
 
+import comm
+
+from ._pydantic_compat import BaseModel, Field, NonNegativeInt
 from .utils import json_clean
 
 logger = logging.getLogger(__name__)
@@ -34,7 +35,8 @@ class DataSet(BaseModel):
 
     id: str = Field(description="The unique ID of the dataset")
     title: str = Field(
-        default="Data", description="The title of the dataset, to be displayed in the viewer"
+        default="Data",
+        description="The title of the dataset, to be displayed in the viewer",
     )
     columns: List[DataColumn] = Field(default=[], description="The columns of data in the dataset")
     rowCount: NonNegativeInt = Field(
@@ -51,7 +53,11 @@ class DataSet(BaseModel):
             # No need to slice the data
             return self.columns
         return [
-            DataColumn(name=column.name, type=column.type, data=column.data[start : start + size])
+            DataColumn(
+                name=column.name,
+                type=column.type,
+                data=column.data[start : start + size],
+            )
             for column in self.columns
         ]
 

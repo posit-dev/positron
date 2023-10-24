@@ -9,7 +9,7 @@ import types
 from collections.abc import Iterable, Mapping, Sequence
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set
 
-from pydantic import BaseModel, Field, validator
+from ._pydantic_compat import BaseModel, Field, validator
 
 from .inspectors import MAX_ITEMS, get_inspector
 from .utils import get_qualname
