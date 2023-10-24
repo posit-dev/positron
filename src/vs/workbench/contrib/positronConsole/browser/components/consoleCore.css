@@ -8,7 +8,5 @@
 }
 
 .positron-console .console-core .console-instances-container {
-	left: 0;
-	top: 32px;
-	position: absolute;
+	position: relative;
 }
