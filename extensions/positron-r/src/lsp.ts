@@ -100,7 +100,6 @@ export class ArkLsp implements vscode.Disposable {
 			synchronize: this._notebook && {
 				fileEvents: vscode.workspace.createFileSystemWatcher('**/*.R')
 			},
-			traceOutputChannel: Logger,
 		};
 
 		// With a `.` rather than a `-` so vscode-languageserver can look up related options correctly
