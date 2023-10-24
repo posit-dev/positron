@@ -5,12 +5,12 @@
 import { localize } from 'vs/nls';
 import { Codicon } from 'vs/base/common/codicons';
 import { ITextModel } from 'vs/editor/common/model';
-import { IRange } from 'vs/editor/common/core/range';
 import { IEditor } from 'vs/editor/common/editorCommon';
 import { ILogService } from 'vs/platform/log/common/log';
 import { KeyCode, KeyMod } from 'vs/base/common/keyCodes';
 import { Position } from 'vs/editor/common/core/position';
 import { IViewsService } from 'vs/workbench/common/views';
+import { IStatementRange } from 'vs/editor/common/languages';
 import { CancellationToken } from 'vs/base/common/cancellation';
 import { ILocalizedString } from 'vs/platform/action/common/action';
 import { EditorContextKeys } from 'vs/editor/common/editorContextKeys';
@@ -29,6 +29,7 @@ import { PositronConsoleViewPane } from 'vs/workbench/contrib/positronConsole/br
 import { confirmationModalDialog } from 'vs/workbench/browser/positronModalDialogs/confirmationModalDialog';
 import { IExecutionHistoryService } from 'vs/workbench/contrib/executionHistory/common/executionHistoryService';
 import { IPositronConsoleService, POSITRON_CONSOLE_VIEW_ID } from 'vs/workbench/services/positronConsole/common/interfaces/positronConsoleService';
+import { isString } from 'vs/base/common/types';
 
 /**
  * Positron console command ID's.
@@ -233,7 +234,7 @@ export function registerPositronConsoleActions() {
 			const logService = accessor.get(ILogService);
 
 			// The code to execute.
-			let code = '';
+			let code: string | undefined = undefined;
 
 			// If there is no active editor, there is nothing to execute.
 			const editor = editorService.activeTextEditorControl as IEditor;
@@ -275,9 +276,9 @@ export function registerPositronConsoleActions() {
 
 			// If the user doesn't have an explicit selection, consult a statement range provider,
 			// which can be used to get the code to execute.
-			if (code.length === 0 && statementRangeProviders.length > 0) {
+			if (!isString(code) && statementRangeProviders.length > 0) {
 
-				let statementRange: IRange | null | undefined = undefined;
+				let statementRange: IStatementRange | null | undefined = undefined;
 				try {
 					// Just consult the first statement range provider if several are registered
 					statementRange = await statementRangeProviders[0].provideStatementRange(
@@ -290,81 +291,78 @@ export function registerPositronConsoleActions() {
 				}
 
 				if (statementRange) {
-					// If a statement was found, get the code to execute.
-					code = model.getValueInRange(statementRange);
+					// If a statement was found, get the code to execute. Always use whatever the
+					// range provider returns, even if it is an empty string, as it should have
+					// returned `undefined` if it didn't think it was important.
+					code = isString(statementRange.code) ? statementRange.code : model.getValueInRange(statementRange.range);
 
-					if (code.length > 0) {
-						// If code was returned, move the cursor to the next
-						// statement by creating a position on the line
-						// following the statement and then invoking the
-						// statement range provider again to find the appropriate
-						// boundary of the next statement.
-						let newPosition = new Position(
-							statementRange.endLineNumber + 1,
+					// Move the cursor to the next
+					// statement by creating a position on the line
+					// following the statement and then invoking the
+					// statement range provider again to find the appropriate
+					// boundary of the next statement.
+					let newPosition = new Position(
+						statementRange.range.endLineNumber + 1,
+						1
+					);
+					if (newPosition.lineNumber > model.getLineCount()) {
+						// If the new position is past the end of the
+						// document, add a newline to the end of the
+						// document, unless it already ends with an empty
+						// line, then move to that empty line at the end.
+						if (model.getLineContent(model.getLineCount()).trim().length > 0) {
+							// The document doesn't end with an empty line; add one
+							this.amendNewlineToEnd(model);
+						}
+						newPosition = new Position(
+							model.getLineCount(),
 							1
 						);
-						if (newPosition.lineNumber > model.getLineCount()) {
-							// If the new position is past the end of the
-							// document, add a newline to the end of the
-							// document, unless it already ends with an empty
-							// line, then move to that empty line at the end.
-							if (model.getLineContent(model.getLineCount()).trim().length > 0) {
-								// The document doesn't end with an empty line; add one
-								this.amendNewlineToEnd(model);
-							}
-							newPosition = new Position(
-								model.getLineCount(),
-								1
-							);
-							editor.setPosition(newPosition);
-							editor.revealPositionInCenterIfOutsideViewport(newPosition);
-						} else {
-							// Invoke the statement range provider again to
-							// find the appropriate boundary of the next statement.
-
-							let nextStatement: IRange | null | undefined = undefined;
-							try {
-								nextStatement = await statementRangeProviders[0].provideStatementRange(
-									model,
-									newPosition,
-									CancellationToken.None);
-							} catch (err) {
-								logService.warn(`Failed to get statement range for next statement ` +
-									`at position ${newPosition}: ${err}`);
-							}
-
-							if (nextStatement) {
-								// If we found the next statement, determine exactly where to move
-								// the cursor to, maintaining the invariant that we should always
-								// step further down the page, never up, as this is too "jumpy".
-								// If for some reason the next statement doesn't meet this
-								// invariant, we don't use it and instead use the default
-								// `newPosition`.
-								if (nextStatement.startLineNumber > statementRange.endLineNumber) {
-									// If the next statement's start is after this statement's end,
-									// then move to the start of the next statement.
-									newPosition = new Position(
-										nextStatement.startLineNumber,
-										nextStatement.startColumn
-									);
-								} else if (nextStatement.endLineNumber > statementRange.endLineNumber) {
-									// If the above condition failed, but the next statement's end
-									// is after this statement's end, assume we are exiting some
-									// nested scope (like running an individual line of an R
-									// function) and move to the end of the next statement.
-									newPosition = new Position(
-										nextStatement.endLineNumber,
-										nextStatement.endColumn
-									);
-								}
-							}
-							editor.setPosition(newPosition);
-							editor.revealPositionInCenterIfOutsideViewport(newPosition);
-						}
+						editor.setPosition(newPosition);
+						editor.revealPositionInCenterIfOutsideViewport(newPosition);
 					} else {
-						// The statement range provider returned a range that
-						// didn't contain any code. This is okay; we'll fall
-						// back to line-based execution below.
+						// Invoke the statement range provider again to
+						// find the appropriate boundary of the next statement.
+
+						let nextStatementRange: IStatementRange | null | undefined = undefined;
+						try {
+							nextStatementRange = await statementRangeProviders[0].provideStatementRange(
+								model,
+								newPosition,
+								CancellationToken.None);
+						} catch (err) {
+							logService.warn(`Failed to get statement range for next statement ` +
+								`at position ${newPosition}: ${err}`);
+						}
+
+						if (nextStatementRange) {
+							// If we found the next statement, determine exactly where to move
+							// the cursor to, maintaining the invariant that we should always
+							// step further down the page, never up, as this is too "jumpy".
+							// If for some reason the next statement doesn't meet this
+							// invariant, we don't use it and instead use the default
+							// `newPosition`.
+							const nextStatement = nextStatementRange.range;
+							if (nextStatement.startLineNumber > statementRange.range.endLineNumber) {
+								// If the next statement's start is after this statement's end,
+								// then move to the start of the next statement.
+								newPosition = new Position(
+									nextStatement.startLineNumber,
+									nextStatement.startColumn
+								);
+							} else if (nextStatement.endLineNumber > statementRange.range.endLineNumber) {
+								// If the above condition failed, but the next statement's end
+								// is after this statement's end, assume we are exiting some
+								// nested scope (like running an individual line of an R
+								// function) and move to the end of the next statement.
+								newPosition = new Position(
+									nextStatement.endLineNumber,
+									nextStatement.endColumn
+								);
+							}
+						}
+						editor.setPosition(newPosition);
+						editor.revealPositionInCenterIfOutsideViewport(newPosition);
 					}
 				} else {
 					// The statement range provider didn't return a range. This
@@ -372,19 +370,20 @@ export function registerPositronConsoleActions() {
 				}
 			}
 
-			// If no selection (or empty selection) was found, use the contents
-			// of the line containing the cursor position.
-			if (code.length === 0) {
+			// If no selection was found, use the contents of the line containing the cursor
+			// position.
+			if (!isString(code)) {
 				const position = editor.getPosition();
 				let lineNumber = position?.lineNumber ?? 0;
 
-				if (!code.length && lineNumber > 0) {
+				if (lineNumber > 0) {
 					// Find the first non-empty line after the cursor position and read the
 					// contents of that line.
 					for (let number = lineNumber; number <= model.getLineCount(); ++number) {
-						code = trimNewlines(model.getLineContent(number));
+						const temp = trimNewlines(model.getLineContent(number));
 
-						if (code.length > 0) {
+						if (temp.length > 0) {
+							code = temp;
 							lineNumber = number;
 							break;
 						}
@@ -393,7 +392,7 @@ export function registerPositronConsoleActions() {
 
 				// If we have code and a position move the cursor to the next line with code on it,
 				// or just to the next line if all additional lines are blank.
-				if (code.length && position) {
+				if (isString(code) && position) {
 					// HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK
 					// This attempts to address https://github.com/posit-dev/positron/issues/1177
 					// by tacking a newline onto indented Python code fragments that end at an empty
@@ -434,7 +433,7 @@ export function registerPositronConsoleActions() {
 					editor.revealPositionInCenterIfOutsideViewport(newPosition);
 				}
 
-				if (!code.length && position && lineNumber === model.getLineCount()) {
+				if (!isString(code) && position && lineNumber === model.getLineCount()) {
 					// If we still don't have code and we are at the end of the document, add a
 					// newline to the end of the document.
 					this.amendNewlineToEnd(model);
@@ -445,6 +444,12 @@ export function registerPositronConsoleActions() {
 					const newPosition = new Position(lineNumber, 1);
 					editor.setPosition(newPosition);
 					editor.revealPositionInCenterIfOutsideViewport(newPosition);
+				}
+
+				// If we still don't have code after looking at the cursor position,
+				// execute an empty string.
+				if (!isString(code)) {
+					code = '';
 				}
 			}
 

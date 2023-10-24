@@ -13,6 +13,7 @@ interface StatementRangeParams {
 
 interface StatementRangeResponse {
 	range: Range;
+	code?: string;
 }
 
 export namespace StatementRangeRequest {
@@ -36,7 +37,7 @@ export class RStatementRangeProvider implements positron.StatementRangeProvider 
 	async provideStatementRange(
 		document: vscode.TextDocument,
 		position: vscode.Position,
-		token: vscode.CancellationToken): Promise<vscode.Range | undefined> {
+		token: vscode.CancellationToken): Promise<positron.StatementRange | undefined> {
 
 		const params: StatementRangeParams = {
 			textDocument: this._client.code2ProtocolConverter.asVersionedTextDocumentIdentifier(document),
@@ -46,7 +47,13 @@ export class RStatementRangeProvider implements positron.StatementRangeProvider 
 		const response = this._client.sendRequest(StatementRangeRequest.type, params, token);
 
 		return response.then(data => {
-			return this._client.protocol2CodeConverter.asRange(data?.range);
+			if (!data) {
+				return undefined;
+			}
+			const range = this._client.protocol2CodeConverter.asRange(data.range);
+			// Explicitly normalize non-strings to `undefined` (i.e. a possible `null`)
+			const code = typeof data.code === 'string' ? data.code : undefined;
+			return { range: range, code: code } as positron.StatementRange;
 		});
 	}
 }
