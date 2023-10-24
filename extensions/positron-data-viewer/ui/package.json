@@ -19,6 +19,7 @@
   },
   "scripts": {
     "compile": "gulp compile-extension:positron-data-viewer-ui",
-    "watch": "gulp watch-extension:positron-data-viewer-ui"
+    "watch": "gulp watch-extension:positron-data-viewer-ui",
+    "bundle-dev": "npx webpack-cli watch --mode development --config ./extension.webpack.config.js"
   }
 }
