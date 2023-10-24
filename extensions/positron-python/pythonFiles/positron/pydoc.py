@@ -23,7 +23,7 @@ from typing import Any, Dict, List, Optional, Type
 
 from docstring_to_markdown.rst import rst_to_markdown
 from markdown_it import MarkdownIt
-from pydantic import BaseModel
+from ._pydantic_compat import BaseModel
 from pygments import highlight
 from pygments.formatters import HtmlFormatter
 from pygments.lexers import get_lexer_by_name
