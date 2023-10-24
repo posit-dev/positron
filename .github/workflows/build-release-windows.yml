@@ -103,12 +103,11 @@ jobs:
           yarn gulp vscode-${{ matrix.platform }}-${{ matrix.arch }}-inno-updater
           yarn gulp vscode-${{ matrix.platform }}-${{ matrix.arch }}-system-setup
 
-      # Compress client to a zip file
+      # Compress client setup executable
       - name: Create client archive
         run: |
           cd ..
-          # Zip setup executable
-          zip -Xry $GITHUB_WORKSPACE/positron-${{ needs.version_string.outputs.short_version }}-${{ matrix.platform }}-${{ matrix.arch }}-setup.zip positron/.build/${{ matrix.platform }}-${{ matrix.arch }}/system-setup/PositronSetup.exe
+          tar -a -c -f $GITHUB_WORKSPACE/positron-${{ needs.version_string.outputs.short_version }}-${{ matrix.platform }}-${{ matrix.arch }}-setup.zip positron/.build/${{ matrix.platform }}-${{ matrix.arch }}/system-setup/PositronSetup.exe
 
       # Create build artifact
       - name: Upload client archive
