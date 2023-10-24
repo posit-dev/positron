@@ -30,7 +30,6 @@ export async function createDataPanel(context: vscode.ExtensionContext,
 	const indexJs = path.join(context.extensionPath, 'ui', 'dist', 'index.js');
 	const fs = require('fs');
 	const productionMode = fs.existsSync(indexJs);
-	console.log(`productionMode: ${productionMode}`);
 
 	// Get a list of all the script files in the extension's ui/out or ui/dist folder and
 	// add them to the list of scripts to load in the webview
