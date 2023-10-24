@@ -36,10 +36,6 @@ window.addEventListener('message', (event: any) => {
 	const message = event.data as DataViewerMessage;
 
 	if (message.msg_type === 'initial_data') {
-		console.log('+++ WE ARE GOING TO CHECK ON createRoot');
-		console.log(createRoot);
-		console.log('--- WE ARE GOING TO CHECK ON createRoot');
-
 		const dataMessage = message as DataViewerMessageRowResponse;
 		const queryClient = new ReactQuery.QueryClient();
 		const container = document.getElementById('root');
