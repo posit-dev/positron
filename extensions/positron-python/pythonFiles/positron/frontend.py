@@ -5,7 +5,7 @@
 import logging
 
 from comm.base_comm import BaseComm
-from pydantic import BaseModel, Field
+from ._pydantic_compat import BaseModel, Field
 
 logger = logging.getLogger(__name__)
 

@@ -10,7 +10,7 @@ import logging
 import pydoc
 from typing import TYPE_CHECKING, Any, Optional, Union
 
-from pydantic import Field
+from ._pydantic_compat import Field
 
 from .frontend import BaseFrontendEvent
 from .pydoc import start_server
