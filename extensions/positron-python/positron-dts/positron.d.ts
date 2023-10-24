@@ -758,8 +758,24 @@ declare module 'positron' {
             document: vscode.TextDocument,
             position: vscode.Position,
             token: vscode.CancellationToken,
-        ): vscode.ProviderResult<vscode.Range>;
+        ): vscode.ProviderResult<StatementRange>;
     }
+
+    /**
+	 * The range of a statement, plus optionally the code for the range.
+	 */
+	export interface StatementRange {
+		/**
+		 * The range of the statement at the given position.
+		 */
+		readonly range: vscode.Range;
+
+		/**
+		 * The code for this statement range, if different from the document contents at this range.
+		 */
+		readonly code?: string;
+
+	}
 
     namespace languages {
         /**
