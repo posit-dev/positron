@@ -1,20 +1,16 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
 import { Disposable } from 'vs/base/common/lifecycle';
 import { IPositronPreviewService } from 'vs/workbench/contrib/positronPreview/browser/positronPreview';
 import { Event, Emitter } from 'vs/base/common/event';
-import { IWebviewService, WebviewInitInfo } from 'vs/workbench/contrib/webview/browser/webview';
+import { IOverlayWebview, IWebviewService, WebviewInitInfo } from 'vs/workbench/contrib/webview/browser/webview';
 import { PreviewWebview } from 'vs/workbench/contrib/positronPreview/browser/previewWebview';
 import { IViewsService } from 'vs/workbench/common/views';
 import { POSITRON_PREVIEW_VIEW_ID } from 'vs/workbench/contrib/positronPreview/browser/positronPreviewSevice';
 import { ILanguageRuntime, ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
-import { INotebookService } from 'vs/workbench/contrib/notebook/common/notebookService';
-import { INotebookRendererInfo } from 'vs/workbench/contrib/notebook/common/notebookCommon';
-import { asWebviewUri } from 'vs/workbench/contrib/webview/common/webview';
-import { IWorkspaceTrustManagementService } from 'vs/platform/workspace/common/workspaceTrust';
-import { IExtensionService } from 'vs/workbench/services/extensions/common/extensions';
+import { IPositronNotebookOutputWebviewService } from 'vs/workbench/contrib/positronOutputWebview/browser/notebookOutputWebviewService';
 
 /**
  * Positron preview service; keeps track of the set of active previews and
@@ -36,9 +32,7 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 		@IWebviewService private readonly _webviewService: IWebviewService,
 		@IViewsService private readonly _viewsService: IViewsService,
 		@ILanguageRuntimeService private readonly _languageRuntimeService: ILanguageRuntimeService,
-		@INotebookService private readonly _notebookService: INotebookService,
-		@IWorkspaceTrustManagementService private readonly _workspaceTrustManagementService: IWorkspaceTrustManagementService,
-		@IExtensionService private readonly _extensionService: IExtensionService,
+		@IPositronNotebookOutputWebviewService private readonly _notebookOutputWebviewService: IPositronNotebookOutputWebviewService,
 	) {
 		super();
 		this.onDidCreatePreviewWebview = this._onDidCreatePreviewWebviewEmitter.event;
@@ -108,9 +102,22 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 		title: string,
 		preserveFocus?: boolean | undefined): PreviewWebview {
 
-		const webview = this._webviewService.createWebviewOverlay(webviewInitInfo);
-		const preview = new PreviewWebview(viewType, previewId, title, webview);
+		return this.openPreviewWebview(previewId,
+			this._webviewService.createWebviewOverlay(webviewInitInfo),
+			viewType,
+			title,
+			preserveFocus);
+	}
 
+	openPreviewWebview(
+		previewId: string,
+		webview: IOverlayWebview,
+		viewType: string,
+		title: string,
+		preserveFocus?: boolean | undefined
+	) {
+
+		const preview = new PreviewWebview(viewType, previewId, title, webview);
 		this._items.set(previewId, preview);
 
 		this._onDidCreatePreviewWebviewEmitter.fire(preview);
@@ -145,112 +152,13 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 	}
 
 	attachRuntime(runtime: ILanguageRuntime) {
-		runtime.onDidReceiveRuntimeMessageOutput(e => {
-			for (const mimeType of Object.keys(e.data)) {
-
-				if (mimeType === 'text/html') {
-					if (e.data[mimeType].indexOf('<script') !== -1) {
-						this.createRawHtmlOutput(e.id, runtime, e.data[mimeType]);
-					}
-				}
-				// Ignore plaintext output; handled by the Console
-				if (mimeType.startsWith('text/')) {
-					continue;
-				}
-
-				// Ignore image output; handled by the Plots pane
-				if (mimeType.startsWith('image/')) {
-					continue;
-				}
-
-				// Check to see if we have a renderer for this MIME type
-				const renderer = this._notebookService.getPreferredRenderer(mimeType);
-				if (renderer) {
-					this.createNotebookRenderOutput(e.id, renderer, mimeType, e.data[mimeType]);
-					break;
-				}
+		runtime.onDidReceiveRuntimeMessageOutput(async (e) => {
+			const webview = await
+				this._notebookOutputWebviewService.createNotebookOutputWebview(runtime, e);
+			if (webview) {
+				this.openPreviewWebview(e.id,
+					webview.webview, 'notebookRenderer', runtime.metadata.runtimeName);
 			}
 		});
-	}
-
-	async createRawHtmlOutput(id: string, runtime: ILanguageRuntime, html: string) {
-		const jupyterExtension = await this._extensionService.getExtension('ms-toolsai.jupyter');
-		if (!jupyterExtension) {
-			return;
-		}
-		const webview: WebviewInitInfo = {
-			contentOptions: {
-				allowScripts: true,
-				localResourceRoots: [jupyterExtension.extensionLocation]
-			},
-			extension: {
-				id: runtime.metadata.extensionId
-			},
-			options: {},
-			title: '',
-		};
-		const preview = this.openPreview(id, webview, 'htmlRenderer', runtime.metadata.runtimeName);
-		const jQueryPath = asWebviewUri(
-			jupyterExtension.extensionLocation.with({
-				path: jupyterExtension.extensionLocation.path +
-					'/out/node_modules/jquery/dist/jquery.min.js'
-			}));
-		preview.webview.setHtml(`<script src='${jQueryPath}'></script>${html}`);
-	}
-
-	createNotebookRenderOutput(id: string, renderer: INotebookRendererInfo, mimeType: string, data: any) {
-		const rendererPath = asWebviewUri(renderer.entrypoint.path);
-		const webview: WebviewInitInfo = {
-			contentOptions: {
-				allowScripts: true,
-				localResourceRoots: [
-					renderer.extensionLocation
-				],
-			},
-			extension: {
-				id: renderer.extensionId,
-			},
-			options: {},
-			title: '',
-		};
-
-		const preview = this.openPreview(id, webview, 'notebookRenderer', renderer.displayName);
-		preview.webview.setHtml(`
-<body>
-<div id='container'></div>
-<script type="module">
-		import { activate } from "${rendererPath.toString()}"
-		var ctx = {
-			workspace: {
-				isTrusted: ${this._workspaceTrustManagementService.isWorkspaceTrusted()}
-			}
-		}
-		var renderer = activate(ctx);
-		var rawData = ${JSON.stringify(data)};
-		var data = {
-			id: '${id}',
-    		mime: '${mimeType}',
-			text: () => { return rawData },
-			json: () => { return JSON.parse(rawData) },
-			data: () => { return new Uint8Array() },
-			blob: () => { return new Blob(); },
-		};
-
-		console.log('** activated!!');
-		const controller = new AbortController();
-		const signal = controller.signal;
-		window.onerror = function (e) {
-			let pre = document.createElement('pre');
-			pre.innerText = data.text();
-			container.appendChild(pre);
-		};
-		window.onload = function() {
-			let container = document.getElementById('container');
-			console.log('** container: ' + container);
-			renderer.renderOutputItem(data, container, signal);
-			console.log('** rendered.');
-		};
-</script>
-</body>`);
 	}
 }
