@@ -5,6 +5,7 @@
 // External libraries.
 import * as ReactDOM from 'react-dom';
 import * as React from 'react';
+import { createRoot } from 'react-dom/client';
 
 // External modules.
 import * as ReactQuery from '@tanstack/react-query';
@@ -35,6 +36,10 @@ window.addEventListener('message', (event: any) => {
 	const message = event.data as DataViewerMessage;
 
 	if (message.msg_type === 'initial_data') {
+		console.log('+++ WE ARE GOING TO CHECK ON createRoot');
+		console.log(createRoot);
+		console.log('--- WE ARE GOING TO CHECK ON createRoot');
+
 		const dataMessage = message as DataViewerMessageRowResponse;
 		const queryClient = new ReactQuery.QueryClient();
 		ReactDOM.render(
