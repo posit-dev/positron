@@ -27,11 +27,15 @@ export async function createDataPanel(context: vscode.ExtensionContext,
 		}
 	);
 
-	const scriptPaths: string[] = [];
+	const indexJs = path.join(context.extensionPath, 'ui', 'dist', 'index.js');
+	const fs = require('fs');
+	const productionMode = fs.existsSync(indexJs);
+	console.log(`productionMode: ${productionMode}`);
 
-	// Get a list of all the script files in the extension's ui/out folder and
+	// Get a list of all the script files in the extension's ui/out or ui/dist folder and
 	// add them to the list of scripts to load in the webview
-	const outFolder = path.join(context.extensionPath, 'ui', 'dist');
+	const scriptPaths: string[] = [];
+	const outFolder = path.join(context.extensionPath, 'ui', productionMode ? 'dist' : 'out');
 	const files = await vscode.workspace.fs.readDirectory(vscode.Uri.file(outFolder));
 	files.forEach((file) => {
 		// If this file is a JavaScript file, add it to the list of scripts
