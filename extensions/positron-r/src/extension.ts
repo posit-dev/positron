@@ -12,8 +12,7 @@ import { discoverTests } from './testing';
 import { rRuntimeProvider } from './provider';
 import { RRuntime } from './runtime';
 
-const Logger = vscode.window.createOutputChannel('Positron R Extension', { log: true });
-export default Logger;
+export const Logger = vscode.window.createOutputChannel('Positron R Extension', { log: true });
 
 export function activate(context: vscode.ExtensionContext) {
 	const onDidChangeLogLevel = (logLevel: vscode.LogLevel) => {

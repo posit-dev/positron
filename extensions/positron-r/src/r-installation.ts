@@ -6,7 +6,7 @@ import * as semver from 'semver';
 import * as path from 'path';
 import * as fs from 'fs';
 import { extractValue, readLines } from './util';
-import Logger from './extension';
+import { Logger } from './extension';
 
 /**
  * Represents a single installation of R on a user's system.

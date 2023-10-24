@@ -6,7 +6,7 @@ import * as vscode from 'vscode';
 import * as positron from 'positron';
 import { PromiseHandles } from './util';
 import { RStatementRangeProvider } from './statement-range';
-import Logger from './extension';
+import { Logger } from './extension';
 
 import {
 	LanguageClient,
