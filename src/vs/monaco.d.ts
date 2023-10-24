@@ -7575,7 +7575,21 @@ declare namespace monaco.languages {
 		/**
 		 * Provide the statement that contains the given position.
 		 */
-		provideStatementRange(model: editor.ITextModel, position: Position, token: CancellationToken): ProviderResult<IRange>;
+		provideStatementRange(model: editor.ITextModel, position: Position, token: CancellationToken): ProviderResult<IStatementRange>;
+	}
+
+	/**
+	 * The range of a statement, plus optionally the code for the range.
+	 */
+	export interface IStatementRange {
+		/**
+		 * The range of the statement at the given position.
+		 */
+		readonly range: IRange;
+		/**
+		 * The code for this statement range, if different from the document contents at this range.
+		 */
+		readonly code?: string;
 	}
 
 	export interface HelpTopicProvider {
