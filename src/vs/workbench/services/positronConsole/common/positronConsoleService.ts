@@ -49,6 +49,11 @@ const ON_DID_CHANGE_RUNTIME_ITEMS_THROTTLE_INTERVAL = 50;
  */
 const MAX_ITEMS = 10000;
 
+/**
+ * The trim threshold.
+ */
+const TRIM_THRESHOLD = 500;
+
 //#region Helper Functions
 
 /**
@@ -465,6 +470,11 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	private _runtimeItemPendingInput?: RuntimeItemPendingInput;
 
 	/**
+	 * Gets or sets the trim counter.
+	 */
+	private _trimCounter = 0;
+
+	/**
 	 * Gets or sets the runtime items.
 	 */
 	private _runtimeItems: RuntimeItem[] = [];
@@ -530,7 +540,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	/**
 	 * The onDidExecuteCode event emitter.
 	 */
-	private readonly _onDidExecuteCodeEmitter = this._register(new Emitter<void>);
+	private readonly _onDidExecuteCodeEmitter = this._register(new Emitter<string>);
 
 	/**
 	 * The onDidSelectPlot event emitter.
@@ -734,6 +744,9 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	 */
 	toggleTrace() {
 		this._trace = !this._trace;
+		if (this._trace) {
+			this.addRuntimeItemTrace('Trace enabled');
+		}
 		this._onDidChangeTraceEmitter.fire(this._trace);
 	}
 
@@ -1688,14 +1701,14 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 					RuntimeErrorBehavior.Continue);
 
 				// Fire the onDidExecuteCode event.
-				this._onDidExecuteCodeEmitter.fire();
+				this._onDidExecuteCodeEmitter.fire(codeFragment);
 
 				// Return.
 				return;
 			}
 		}
 
-		// Fire the onDidExecuteCode event because we removed the pending input runtime item.
+		// Fire the onDidChangeRuntimeItems event because we removed the pending input runtime item.
 		this._onDidChangeRuntimeItemsEmitter.fire();
 
 		// The pending input line(s) now become the pending code.
@@ -1734,7 +1747,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 			RuntimeErrorBehavior.Continue);
 
 		// Fire the onDidExecuteCode event.
-		this._onDidExecuteCodeEmitter.fire();
+		this._onDidExecuteCodeEmitter.fire(code);
 	}
 
 	/**
@@ -1792,6 +1805,14 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	 * Trims items displayed in the console.
 	 */
 	private trimItems() {
+		// Increment the trim counter. Trim items when we reach the trim threshold.
+		if (++this._trimCounter < TRIM_THRESHOLD) {
+			return;
+		}
+
+		// Reset the trim counter.
+		this._trimCounter = 0;
+
 		// Trim items.
 		let remainingItems = MAX_ITEMS;
 		let runtimeItemIndex = this._runtimeItems.length;

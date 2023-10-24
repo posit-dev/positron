@@ -1602,19 +1602,21 @@ class StatementRangeAdapter {
 	 * @param resource The URI of the document to search
 	 * @param pos The position to search at
 	 * @param token The cancellation token (currently unused)
-	 * @returns A promise that resolves to the statement range
+	 * @returns A promise that resolves to the statement range plus optionally the range's code
 	 */
-	async provideStatementRange(resource: URI, pos: IPosition, token: CancellationToken): Promise<IRange | undefined> {
+	async provideStatementRange(resource: URI, pos: IPosition, token: CancellationToken): Promise<languages.IStatementRange | undefined> {
 		const document = this._documents.getDocument(resource);
 		const position = typeConvert.Position.to(pos);
 
 		const providerRange = await this._provider.provideStatementRange(document, position, token);
 
-		if (!Range.isRange(providerRange)) {
+		if (!providerRange || !Range.isRange(providerRange?.range)) {
 			return undefined;
 		}
 
-		return typeConvert.Range.from(providerRange);
+		const range = typeConvert.Range.from(providerRange.range);
+		const statementRange: languages.IStatementRange = { range: range, code: providerRange.code };
+		return statementRange;
 	}
 }
 
@@ -2527,7 +2529,7 @@ export class ExtHostLanguageFeatures implements extHostProtocol.ExtHostLanguageF
 		return this._createDisposable(handle);
 	}
 
-	$provideStatementRange(handle: number, resource: UriComponents, position: IPosition, token: CancellationToken): Promise<IRange | undefined> {
+	$provideStatementRange(handle: number, resource: UriComponents, position: IPosition, token: CancellationToken): Promise<languages.IStatementRange | undefined> {
 		return this._withAdapter(handle, StatementRangeAdapter, adapter => adapter.provideStatementRange(URI.revive(resource), position, token), undefined, token);
 	}
 
