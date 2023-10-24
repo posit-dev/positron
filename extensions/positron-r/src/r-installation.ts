@@ -6,7 +6,7 @@ import * as semver from 'semver';
 import * as path from 'path';
 import * as fs from 'fs';
 import { extractValue, readLines } from './util';
-import { getLogger } from './logging';
+import Logger from './extension';
 
 /**
  * Represents a single installation of R on a user's system.
@@ -37,13 +37,12 @@ export class RInstallation {
 	 *   R
 	 */
 	constructor(pth: string, current: boolean = false) {
-		const log = getLogger();
-		log.trace('TRACE!');
-		log.info('INFO!');
-		log.warn('WARN!');
-		log.error('ERROR!');
+		Logger.trace('TRACE!');
+		Logger.info('INFO!');
+		Logger.warn('WARN!');
+		Logger.error('ERROR!');
 
-		log.info(`Candidate R binary at ${pth}`);
+		Logger.info(`Candidate R binary at ${pth}`);
 
 		this.binpath = pth;
 		this.current = current;
@@ -51,12 +50,12 @@ export class RInstallation {
 		const binLines = readLines(this.binpath);
 		const re = new RegExp('Shell wrapper for R executable');
 		if (!binLines.some(x => re.test(x))) {
-			log.info('Binary is not a shell script wrapping the executable');
+			Logger.info('Binary is not a shell script wrapping the executable');
 			return;
 		}
 		const targetLine = binLines.find(line => line.match('R_HOME_DIR'));
 		if (!targetLine) {
-			log.info('Can\'t determine R_HOME_DIR from the binary');
+			Logger.info('Can\'t determine R_HOME_DIR from the binary');
 			return;
 		}
 		// macOS: R_HOME_DIR=/Library/Frameworks/R.framework/Versions/4.3-arm64/Resources
@@ -65,7 +64,7 @@ export class RInstallation {
 		const R_HOME_DIR = extractValue(targetLine, 'R_HOME_DIR');
 		this.homepath = R_HOME_DIR;
 		if (this.homepath === '') {
-			log.info('Can\'t determine R_HOME_DIR from the binary');
+			Logger.info('Can\'t determine R_HOME_DIR from the binary');
 			return;
 		}
 
@@ -83,13 +82,13 @@ export class RInstallation {
 		// We have actually seen an R "installation" that doesn't have the base packages!
 		// https://github.com/posit-dev/positron/issues/1314
 		if (!fs.existsSync(descPath)) {
-			log.info(`Can\'t find DESCRIPTION for the utils package at ${descPath}`);
+			Logger.info(`Can\'t find DESCRIPTION for the utils package at ${descPath}`);
 			return;
 		}
 		const descLines = readLines(descPath);
 		const targetLine2 = descLines.filter(line => line.match('Built'))[0];
 		if (!targetLine2) {
-			log.info(`Can't find 'Built' field for the utils package in its DESCRIPTION: ${descPath}`);
+			Logger.info(`Can't find 'Built' field for the utils package in its DESCRIPTION: ${descPath}`);
 			return;
 		}
 		// macOS arm64: Built: R 4.3.1; aarch64-apple-darwin20; 2023-06-16 21:52:54 UTC; unix
@@ -126,6 +125,6 @@ export class RInstallation {
 
 		this.valid = true;
 
-		log.info(`R installation discovered: ${JSON.stringify(this)}`);
+		Logger.info(`R installation discovered: ${JSON.stringify(this)}`);
 	}
 }
