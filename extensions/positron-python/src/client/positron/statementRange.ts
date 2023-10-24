@@ -89,7 +89,7 @@ export class PythonStatementRangeProvider implements positron.StatementRangeProv
     provideStatementRange(
         document: vscode.TextDocument,
         position: vscode.Position,
-        _token: vscode.CancellationToken): vscode.ProviderResult<vscode.Range> {
+        _token: vscode.CancellationToken): vscode.ProviderResult<positron.StatementRange> {
 
         // When inferring an expanded code range, always start at the beginning of a line
         let initialPosition = movePositionToStartOfLine(position);
@@ -107,6 +107,6 @@ export class PythonStatementRangeProvider implements positron.StatementRangeProv
         const beginRange = new vscode.Range(initialPosition, initialPosition);
         const initialIndentText = getInitialIndentTextAtLine(document, initialPosition);
         const finalRange = expandRangeDownward(document, beginRange, initialIndentText);
-        return finalRange;
+        return { range: finalRange };
     }
 }
