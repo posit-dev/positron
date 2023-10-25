@@ -132,6 +132,20 @@ const tasks = compilations.map(function (tsconfigFile) {
 			// --- Start Positron ---
 			// Add '**/*.tsx'.
 			const tsFilter = filter(['**/*.ts', '**/*.tsx', '!**/lib/lib*.d.ts', '!**/node_modules/**'], { restore: true });
+			// Check if the extension has defined a bundle-dev task to be run
+			let needsBundling = false;
+			const absoluteExtPath = path.join(extensionsPath, relativeDirname);
+			const metadataPath = path.join(absoluteExtPath, 'package.json');
+			const webpackConfigPath = path.join(absoluteExtPath, 'extension.webpack.config.js');
+
+			const fs = require('fs');
+			const webpack = require('webpack-stream');
+			const compiler = require('webpack');
+
+			if (fs.existsSync(metadataPath)) {
+				const scripts = JSON.parse(fs.readFileSync(metadataPath).toString('utf8')).scripts;
+				needsBundling = 'bundle-dev' in scripts && process.env.NODE_ENV !== 'production';
+			}
 			// --- End Positron ---
 			const output = input
 				.pipe(plumber({
@@ -157,6 +171,19 @@ const tasks = compilations.map(function (tsconfigFile) {
 				.pipe(build ? nlsDev.bundleMetaDataFiles(headerId, headerOut) : es.through())
 				// Filter out *.nls.json file. We needed them only to bundle meta data file.
 				.pipe(filter(['**', '!**/*.nls.json']))
+				// --- Start Positron ---
+				.pipe(needsBundling
+					? webpack({
+						...require(webpackConfigPath),
+						mode: 'development'
+					}, compiler, function (_err, stats) {
+						// output some info about the compiled assets
+						console.log(stats.toString({ preset: 'minimal', colors: true }));
+						const outputPath = path.join(stats.compilation.options.context, 'out');
+						console.log(`Assets written to ${outputPath}`);
+					})
+					: es.through())
+				// --- End Positron ---
 				.pipe(reporter.end(emitError));
 
 			return es.duplex(input, output);
@@ -202,40 +229,13 @@ const tasks = compilations.map(function (tsconfigFile) {
 		// --- Start Positron ---
 		// Add '!**/*.tsx'.
 		const nonts = gulp.src(src, srcOpts).pipe(filter(['**', '!**/*.ts', '!**/*.tsx']));
-
-		// Check if the extension has defined a bundle-dev task to be run
-		let needsBundling = false;
-		const absoluteExtPath = path.join(extensionsPath, relativeDirname);
-		const metadataPath = path.join(absoluteExtPath, 'package.json');
-		const webpackConfigPath = path.join(absoluteExtPath, 'extension.webpack.config.js');
-
-		const fs = require('fs');
-		const webpack = require('webpack-stream');
-		const compiler = require('webpack');
-
-		if (fs.existsSync(metadataPath)) {
-			const scripts = JSON.parse(fs.readFileSync(metadataPath).toString('utf8')).scripts;
-			needsBundling = 'bundle-dev' in scripts && process.env.NODE_ENV !== 'production';
-		}
 		// --- End Positron ---
+
 		const input = es.merge(nonts, pipeline.tsProjectSrc());
 		const watchInput = watcher(src, { ...srcOpts, ...{ readDelay: 200 } });
 
 		return watchInput
 			.pipe(util.incremental(pipeline, input))
-			// --- Start Positron ---
-			.pipe(needsBundling
-				? webpack({
-					...require(webpackConfigPath),
-					mode: 'development'
-				}, compiler, function (_err, stats) {
-					// output some info about the compiled assets
-					console.log(stats.toString({ preset: 'minimal', colors: true }));
-					const outputPath = path.join(stats.compilation.options.context, 'out');
-					console.log(`Assets written to ${outputPath}`);
-				})
-				: es.through())
-			// --- End Positron ---
 			.pipe(gulp.dest(out));
 	}));
 
