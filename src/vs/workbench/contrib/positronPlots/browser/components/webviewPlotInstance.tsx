@@ -4,13 +4,13 @@
 
 import * as React from 'react';
 import { useEffect } from 'react'; // eslint-disable-line no-duplicate-imports
-import { INotebookOutputWebview } from 'vs/workbench/contrib/positronOutputWebview/browser/notebookOutputWebviewService';
+import { WebviewPlotClient } from 'vs/workbench/contrib/positronPlots/browser/webviewPlotClient';
 
 /**
  * WebviewPlotInstanceProps interface.
  */
 interface WebviewPlotInstanceProps {
-	output: INotebookOutputWebview;
+	plotClient: WebviewPlotClient;
 }
 
 /**
@@ -24,10 +24,13 @@ export const WebviewPlotInstance = (props: WebviewPlotInstanceProps) => {
 	const webviewRef = React.useRef<HTMLDivElement>(null);
 
 	useEffect(() => {
-		const webview = props.output.webview;
+		const webview = props.plotClient.webview.webview;
 		webview.claim(this, undefined);
 		if (webviewRef.current) {
 			webview.layoutWebviewOverElement(webviewRef.current);
+			setTimeout(() => {
+				props.plotClient.renderThumbnail();
+			}, 250);
 		}
 		return () => {
 			webview.release(this);

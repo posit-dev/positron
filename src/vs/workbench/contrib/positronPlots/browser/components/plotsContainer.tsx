@@ -94,7 +94,7 @@ export const PlotsContainer = (props: PlotContainerProps) => {
 		} else if (plotInstance instanceof WebviewPlotClient) {
 			return <WebviewPlotInstance
 				key={plotInstance.id}
-				output={plotInstance.webview} />;
+				plotClient={plotInstance} />;
 		}
 		return null;
 	};
