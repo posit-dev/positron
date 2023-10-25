@@ -35,6 +35,7 @@ interface DataPanelProps {
  * @param props The properties for the component.
  */
 export const DataPanel = (props: DataPanelProps) => {
+
 	// The distance from the bottom of the table container at which we will
 	// trigger a fetch of more data.
 	const scrollThresholdPx = 300;
@@ -89,7 +90,7 @@ export const DataPanel = (props: DataPanelProps) => {
 			}),
 		[dataModel]);
 
-	async function fetchNextDataFragment(pageParam: any, fetchSize: number): Promise<DataFragment> {
+	async function fetchNextDataFragment(pageParam: number, fetchSize: number): Promise<DataFragment> {
 		// Fetches a single page of data from the data model.
 		const startRow = pageParam * fetchSize;
 		// Overwrite fetchSize so that we never request rows past the end of the dataset
@@ -118,7 +119,7 @@ export const DataPanel = (props: DataPanelProps) => {
 		hasNextPage
 	} = ReactQuery.useInfiniteQuery<DataFragment>({
 			queryKey: ['table-data', dataModel.id],
-			queryFn: ({pageParam = 0}) => fetchNextDataFragment(pageParam, fetchSize),
+			queryFn: ({pageParam = 0}) => fetchNextDataFragment(pageParam as number, fetchSize),
 			initialPageParam: 0,
 			// undefined if we are on the final page of data
 			getNextPageParam: (_lastGroup, groups) => groups.length !== maxPages ? groups.length : undefined,
