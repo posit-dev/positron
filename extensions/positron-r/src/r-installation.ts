@@ -37,11 +37,6 @@ export class RInstallation {
 	 *   R
 	 */
 	constructor(pth: string, current: boolean = false) {
-		Logger.trace('TRACE!');
-		Logger.info('INFO!');
-		Logger.warn('WARN!');
-		Logger.error('ERROR!');
-
 		Logger.info(`Candidate R binary at ${pth}`);
 
 		this.binpath = pth;
