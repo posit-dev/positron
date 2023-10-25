@@ -8,6 +8,7 @@ import { createRoot } from 'react-dom/client';
 
 // External modules.
 import * as ReactQuery from '@tanstack/react-query';
+import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 
 // Local modules.
 import { DataPanel } from './DataPanel';
@@ -43,6 +44,7 @@ window.addEventListener('message', (event: any) => {
 			<React.StrictMode>
 				<ReactQuery.QueryClientProvider client={queryClient}>
 					<DataPanel initialData={dataMessage.data} fetchSize={fetchSize} vscode={vscode} />
+					<ReactQueryDevtools initialIsOpen={false} />
 				</ReactQuery.QueryClientProvider>
 			</React.StrictMode>
 		);

@@ -2,7 +2,7 @@
  *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
-import { DataColumn, DataSet, DataViewerMessage, DataViewerMessageRowResponse } from './positron-data-viewer';
+import { DataColumn, DataSet, DataViewerMessageRowResponse } from './positron-data-viewer';
 
 /**
  * A fragment of data, arranged by column.
@@ -102,17 +102,17 @@ export class DataModel {
 	/**
 	 *
 	 * @param event The message event received from the runtime
-	 * @returns Either the original data model, or a new data model that includes the message's data
+	 * @returns A new data model that includes the message's data, or the original data model
 	 */
-	handleDataMessage(event: any): DataModel {
-		const message = event.data as DataViewerMessage;
-		if (message.msg_type === 'receive_rows' && !this.renderedRows.includes(message.start_row)) {
-			const dataMessage = message as DataViewerMessageRowResponse;
-
+	handleDataMessage(message: DataViewerMessageRowResponse): DataModel {
+		// Check if we actually need to handle this message
+		if (message.msg_type === 'receive_rows' &&
+			!this.renderedRows.includes(message.start_row)
+		) {
 			const incrementalData: DataFragment = {
-				rowStart: dataMessage.start_row,
-				rowEnd: dataMessage.start_row + dataMessage.fetch_size - 1,
-				columns: dataMessage.data.columns
+				rowStart: message.start_row,
+				rowEnd: message.start_row + message.fetch_size - 1,
+				columns: message.data.columns
 			};
 			return this.appendFragment(incrementalData);
 		}

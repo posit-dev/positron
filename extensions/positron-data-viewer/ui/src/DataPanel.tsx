@@ -89,7 +89,7 @@ export const DataPanel = (props: DataPanelProps) => {
 			}),
 		[dataModel]);
 
-	async function fetchNextDataFragment(pageParam: number, fetchSize: number): Promise<DataFragment> {
+	async function fetchNextDataFragment(pageParam: any, fetchSize: number): Promise<DataFragment> {
 		// Fetches a single page of data from the data model.
 		const startRow = pageParam * fetchSize;
 		// Overwrite fetchSize so that we never request rows past the end of the dataset
@@ -119,6 +119,7 @@ export const DataPanel = (props: DataPanelProps) => {
 	} = ReactQuery.useInfiniteQuery<DataFragment>({
 			queryKey: ['table-data', dataModel.id],
 			queryFn: ({pageParam = 0}) => fetchNextDataFragment(pageParam, fetchSize),
+			initialPageParam: 0,
 			// undefined if we are on the final page of data
 			getNextPageParam: (_lastGroup, groups) => groups.length !== maxPages ? groups.length : undefined,
 			refetchOnWindowFocus: false,
