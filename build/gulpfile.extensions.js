@@ -230,7 +230,6 @@ const tasks = compilations.map(function (tsconfigFile) {
 		// Add '!**/*.tsx'.
 		const nonts = gulp.src(src, srcOpts).pipe(filter(['**', '!**/*.ts', '!**/*.tsx']));
 		// --- End Positron ---
-
 		const input = es.merge(nonts, pipeline.tsProjectSrc());
 		const watchInput = watcher(src, { ...srcOpts, ...{ readDelay: 200 } });
 

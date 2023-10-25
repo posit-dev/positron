@@ -27,6 +27,8 @@ export async function createDataPanel(context: vscode.ExtensionContext,
 		}
 	);
 
+	// Check for the 'ui/dist/index.js' file in the extension directory;
+	// In dev mode this is written to 'ui/out/index.js' instead of 'ui/dist'
 	const indexJs = path.join(context.extensionPath, 'ui', 'dist', 'index.js');
 	const fs = require('fs');
 	const productionMode = fs.existsSync(indexJs);
