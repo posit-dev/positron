@@ -8,7 +8,9 @@ import { DynamicPlotInstance } from 'vs/workbench/contrib/positronPlots/browser/
 import { DynamicPlotThumbnail } from 'vs/workbench/contrib/positronPlots/browser/components/dynamicPlotThumbnail';
 import { StaticPlotInstance } from 'vs/workbench/contrib/positronPlots/browser/components/staticPlotInstance';
 import { StaticPlotThumbnail } from 'vs/workbench/contrib/positronPlots/browser/components/staticPlotThumbnail';
+import { WebviewPlotInstance } from 'vs/workbench/contrib/positronPlots/browser/components/webviewPlotInstance';
 import { usePositronPlotsContext } from 'vs/workbench/contrib/positronPlots/browser/positronPlotsContext';
+import { WebviewPlotClient } from 'vs/workbench/contrib/positronPlots/browser/webviewPlotClient';
 import { PlotClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimePlotClient';
 import { IPositronPlotClient } from 'vs/workbench/services/positronPlots/common/positronPlots';
 import { StaticPlotClient } from 'vs/workbench/services/positronPlots/common/staticPlotClient';
@@ -88,6 +90,10 @@ export const PlotsContainer = (props: PlotContainerProps) => {
 			return <StaticPlotInstance
 				key={plotInstance.id}
 				plotClient={plotInstance} />;
+		} else if (plotInstance instanceof WebviewPlotClient) {
+			return <WebviewPlotInstance
+				key={plotInstance.id}
+				output={plotInstance.webview} />;
 		}
 		return null;
 	};
@@ -114,6 +120,9 @@ export const PlotsContainer = (props: PlotContainerProps) => {
 				selected={selected}
 				plotService={positronPlotsContext}
 				plotClient={plotInstance} />;
+		} else if (plotInstance instanceof WebviewPlotClient) {
+			// TODO: This is a placeholder.
+			return <div>{plotInstance.id}</div>;
 		}
 		return null;
 	};
