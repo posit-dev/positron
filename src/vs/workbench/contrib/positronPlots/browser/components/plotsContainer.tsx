@@ -10,7 +10,7 @@ import { StaticPlotInstance } from 'vs/workbench/contrib/positronPlots/browser/c
 import { StaticPlotThumbnail } from 'vs/workbench/contrib/positronPlots/browser/components/staticPlotThumbnail';
 import { usePositronPlotsContext } from 'vs/workbench/contrib/positronPlots/browser/positronPlotsContext';
 import { PlotClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimePlotClient';
-import { PositronPlotClient } from 'vs/workbench/services/positronPlots/common/positronPlots';
+import { IPositronPlotClient } from 'vs/workbench/services/positronPlots/common/positronPlots';
 import { StaticPlotClient } from 'vs/workbench/services/positronPlots/common/staticPlotClient';
 
 /**
@@ -77,7 +77,7 @@ export const PlotsContainer = (props: PlotContainerProps) => {
 	 * @param plotInstance The plot instance to render
 	 * @returns The rendered component.
 	 */
-	const render = (plotInstance: PositronPlotClient) => {
+	const render = (plotInstance: IPositronPlotClient) => {
 		if (plotInstance instanceof PlotClientInstance) {
 			return <DynamicPlotInstance
 				key={plotInstance.id}
@@ -101,7 +101,7 @@ export const PlotsContainer = (props: PlotContainerProps) => {
 	 * @param selected Whether the thumbnail is selected
 	 * @returns
 	 */
-	const renderThumbnail = (plotInstance: PositronPlotClient, selected: boolean) => {
+	const renderThumbnail = (plotInstance: IPositronPlotClient, selected: boolean) => {
 		if (plotInstance instanceof PlotClientInstance) {
 			return <DynamicPlotThumbnail
 				key={plotInstance.id}
