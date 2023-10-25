@@ -6,6 +6,7 @@ import * as React from 'react';
 import { useEffect } from 'react'; // eslint-disable-line no-duplicate-imports
 import { DynamicPlotInstance } from 'vs/workbench/contrib/positronPlots/browser/components/dynamicPlotInstance';
 import { DynamicPlotThumbnail } from 'vs/workbench/contrib/positronPlots/browser/components/dynamicPlotThumbnail';
+import { PlotGalleryThumbnail } from 'vs/workbench/contrib/positronPlots/browser/components/plotGalleryThumbnail';
 import { StaticPlotInstance } from 'vs/workbench/contrib/positronPlots/browser/components/staticPlotInstance';
 import { StaticPlotThumbnail } from 'vs/workbench/contrib/positronPlots/browser/components/staticPlotThumbnail';
 import { WebviewPlotInstance } from 'vs/workbench/contrib/positronPlots/browser/components/webviewPlotInstance';
@@ -108,23 +109,25 @@ export const PlotsContainer = (props: PlotContainerProps) => {
 	 * @returns
 	 */
 	const renderThumbnail = (plotInstance: IPositronPlotClient, selected: boolean) => {
-		if (plotInstance instanceof PlotClientInstance) {
-			return <DynamicPlotThumbnail
-				key={plotInstance.id}
-				selected={selected}
-				plotService={positronPlotsContext}
-				plotClient={plotInstance} />;
-		} else if (plotInstance instanceof StaticPlotClient) {
-			return <StaticPlotThumbnail
-				key={plotInstance.id}
-				selected={selected}
-				plotService={positronPlotsContext}
-				plotClient={plotInstance} />;
-		} else if (plotInstance instanceof WebviewPlotClient) {
-			// TODO: This is a placeholder.
-			return <div>{plotInstance.id}</div>;
-		}
-		return null;
+		const renderThumbnailImage = () => {
+			if (plotInstance instanceof PlotClientInstance) {
+				return <DynamicPlotThumbnail plotClient={plotInstance} />;
+			} else if (plotInstance instanceof StaticPlotClient) {
+				return <StaticPlotThumbnail plotClient={plotInstance} />;
+			} else if (plotInstance instanceof WebviewPlotClient) {
+				return <div>{plotInstance.id}</div>;
+			} else {
+				return null;
+			}
+		};
+
+		return <PlotGalleryThumbnail
+			key={plotInstance.id}
+			selected={selected}
+			plotService={positronPlotsContext}
+			plotClient={plotInstance}>
+			{renderThumbnailImage()}
+		</PlotGalleryThumbnail>;
 	};
 
 	// Render the plot history gallery.
