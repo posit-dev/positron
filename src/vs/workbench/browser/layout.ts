@@ -1827,21 +1827,7 @@ export abstract class Layout extends Disposable implements IWorkbenchLayoutServi
 		if (!isMaximized) {
 			if (this.isVisible(Parts.PANEL_PART)) {
 				if (panelPosition === Position.BOTTOM) {
-					// --- Start Positron ---
-					// When the panel is at its minimum height, instead of maximizing the panel from
-					// this height, set the panel height to its preferred height.
-					if (size.height === this.panelPartView.minimumHeight) {
-						this.workbenchGrid.resizeView(
-							this.panelPartView,
-							{
-								width: size.width,
-								height: this.panelPartView.preferredHeight || this.stateModel.getRuntimeValue(LayoutStateKeys.PANEL_LAST_NON_MAXIMIZED_HEIGHT)
-							});
-						return;
-					} else {
-						this.stateModel.setRuntimeValue(LayoutStateKeys.PANEL_LAST_NON_MAXIMIZED_HEIGHT, size.height);
-					}
-					// --- End Positron ---
+					this.stateModel.setRuntimeValue(LayoutStateKeys.PANEL_LAST_NON_MAXIMIZED_HEIGHT, size.height);
 				} else {
 					this.stateModel.setRuntimeValue(LayoutStateKeys.PANEL_LAST_NON_MAXIMIZED_WIDTH, size.width);
 				}
@@ -1857,6 +1843,89 @@ export abstract class Layout extends Disposable implements IWorkbenchLayoutServi
 		}
 		this.stateModel.setRuntimeValue(LayoutStateKeys.PANEL_WAS_LAST_MAXIMIZED, !isMaximized);
 	}
+
+	// --- Start Positron ---
+	/**
+	 * Maximizes the panel.
+	 */
+	maximizePanel(): void {
+		// This method works when the panel position is bottom and the panel alignment is center. It
+		// should not be called, and is not called, otherwise. This is a safety check.
+		if (this.getPanelPosition() === Position.BOTTOM && this.getPanelAlignment() === 'center') {
+			// Get the panel size.
+			const size = this.workbenchGrid.getViewSize(this.panelPartView);
+
+			// If the panel is not maximized, and it's visible, and its height is greater than its
+			// minimum height, save its last non-mazimized height.
+			if (!this.isPanelMaximized() &&
+				this.isVisible(Parts.PANEL_PART) &&
+				size.height > this.panelPartView.minimumHeight) {
+				this.stateModel.setRuntimeValue(
+					LayoutStateKeys.PANEL_LAST_NON_MAXIMIZED_HEIGHT,
+					size.height
+				);
+			}
+
+			// Hide the editor. This as the effect of maximizing the panel.
+			this.setEditorHidden(true);
+		}
+	}
+
+	/**
+	 * Minimizes the panel.
+	 */
+	minimizePanel(): void {
+		// This method works when the panel position is bottom and the panel alignment is center. It
+		// should not be called, and is not called, otherwise. This is a safety check.
+		if (this.getPanelPosition() === Position.BOTTOM && this.getPanelAlignment() === 'center') {
+			// Get the panel size.
+			const size = this.workbenchGrid.getViewSize(this.panelPartView);
+
+			// If the panel is not maximized, and it's visible, and its height is greater than its
+			// minimum height, save its last non-mazimized height.
+			if (!this.isPanelMaximized() &&
+				this.isVisible(Parts.PANEL_PART) &&
+				size.height > this.panelPartView.minimumHeight) {
+				this.stateModel.setRuntimeValue(
+					LayoutStateKeys.PANEL_LAST_NON_MAXIMIZED_HEIGHT,
+					size.height
+				);
+			}
+
+			// Show the editor.
+			this.setEditorHidden(false);
+
+			// Resize the panel to its current width and its minimum height.
+			this.workbenchGrid.resizeView(this.panelPartView, {
+				width: size.width,
+				height: this.panelPartView.minimumHeight
+			});
+		}
+	}
+
+	/**
+	 * Restores the panel.
+	 */
+	restorePanel(): void {
+		// This method works when the panel position is bottom and the panel alignment is center. It
+		// should not be called, and is not called, otherwise. This is a safety check.
+		if (this.getPanelPosition() === Position.BOTTOM && this.getPanelAlignment() === 'center') {
+			// Get the panel size.
+			const size = this.workbenchGrid.getViewSize(this.panelPartView);
+
+			// Show the editor.
+			this.setEditorHidden(false);
+
+			// Resize the panel to its current width and its last non-maximized height.
+			this.workbenchGrid.resizeView(this.panelPartView, {
+				width: size.width,
+				height: this.stateModel.getRuntimeValue(
+					LayoutStateKeys.PANEL_LAST_NON_MAXIMIZED_HEIGHT
+				)
+			});
+		}
+	}
+	// --- End Positron ---
 
 	/**
 	 * Returns whether or not the panel opens maximized
@@ -2026,7 +2095,16 @@ export abstract class Layout extends Disposable implements IWorkbenchLayoutServi
 			if (position === Position.BOTTOM) {
 				this.stateModel.setRuntimeValue(LayoutStateKeys.PANEL_LAST_NON_MAXIMIZED_WIDTH, size.width);
 			} else if (positionFromString(oldPositionValue) === Position.BOTTOM) {
-				this.stateModel.setRuntimeValue(LayoutStateKeys.PANEL_LAST_NON_MAXIMIZED_HEIGHT, size.height);
+				// --- Start Positron ---
+				// Only set the last non-maximized height for the panel when its height is
+				// greater than its minimum height.
+				if (size.height > this.panelPartView.minimumHeight) {
+					this.stateModel.setRuntimeValue(
+						LayoutStateKeys.PANEL_LAST_NON_MAXIMIZED_HEIGHT,
+						size.height
+					);
+				}
+				// --- End Positron ---
 			}
 		}
 
