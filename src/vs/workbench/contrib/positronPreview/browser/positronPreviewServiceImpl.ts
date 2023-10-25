@@ -9,7 +9,7 @@ import { IOverlayWebview, IWebviewService, WebviewInitInfo } from 'vs/workbench/
 import { PreviewWebview } from 'vs/workbench/contrib/positronPreview/browser/previewWebview';
 import { IViewsService } from 'vs/workbench/common/views';
 import { POSITRON_PREVIEW_VIEW_ID } from 'vs/workbench/contrib/positronPreview/browser/positronPreviewSevice';
-import { ILanguageRuntime, ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntime, ILanguageRuntimeService, RuntimeOutputKind } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { IPositronNotebookOutputWebviewService } from 'vs/workbench/contrib/positronOutputWebview/browser/notebookOutputWebviewService';
 
 /**
@@ -151,14 +151,21 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 		return preview;
 	}
 
+	/**
+	 * Attaches to a runtime and listens for messages that should be rendered.
+	 *
+	 * @param runtime The runtime to attach to
+	 */
 	attachRuntime(runtime: ILanguageRuntime) {
-		runtime.onDidReceiveRuntimeMessageOutput(async (e) => {
-			const webview = await
-				this._notebookOutputWebviewService.createNotebookOutputWebview(runtime, e);
-			if (webview) {
-				this.openPreviewWebview(e.id,
-					webview.webview, 'notebookRenderer', runtime.metadata.runtimeName);
+		this._register(runtime.onDidReceiveRuntimeMessageOutput(async (e) => {
+			if (e.kind === RuntimeOutputKind.ViewerWidget) {
+				const webview = await
+					this._notebookOutputWebviewService.createNotebookOutputWebview(runtime, e);
+				if (webview) {
+					this.openPreviewWebview(e.id,
+						webview.webview, 'notebookRenderer', runtime.metadata.runtimeName);
+				}
 			}
-		});
+		}));
 	}
 }
