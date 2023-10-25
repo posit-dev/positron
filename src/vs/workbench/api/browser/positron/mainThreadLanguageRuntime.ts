@@ -21,6 +21,7 @@ import { generateUuid } from 'vs/base/common/uuid';
 import { IPositronPlotsService } from 'vs/workbench/services/positronPlots/common/positronPlots';
 import { LanguageRuntimeEventType, PromptStateEvent } from 'vs/workbench/services/languageRuntime/common/languageRuntimeEvents';
 import { IPositronHelpService } from 'vs/workbench/contrib/positronHelp/browser/positronHelpService';
+import { INotebookService } from 'vs/workbench/contrib/notebook/common/notebookService';
 
 /**
  * Represents a language runtime event (for example a message or state change)
@@ -98,6 +99,7 @@ class ExtHostLanguageRuntimeAdapter implements ILanguageRuntime {
 		readonly dynState: ILanguageRuntimeDynState,
 		private readonly _languageRuntimeService: ILanguageRuntimeService,
 		private readonly _logService: ILogService,
+		private readonly _notebookService: INotebookService,
 		private readonly _proxy: ExtHostLanguageRuntimeShape) {
 
 		// Bind events to emitters
@@ -591,8 +593,74 @@ class ExtHostLanguageRuntimeAdapter implements ILanguageRuntime {
 		}
 	}
 
-	private inferPositronOutputKind(_message: ILanguageRuntimeMessageOutput): RuntimeOutputKind {
-		// TODO
+	/**
+	 * Given a message from the language runtime, infer the kind of output that
+	 * we should display for the message. The protocol allows a message to
+	 * contain output in multiple formats, designated by MIME types; the goal of
+	 * this routine is to centralize the logic around which MIME type to use for
+	 * display.
+	 *
+	 * @param message A message from the language runtime
+	 * @returns The kind of output that the message represents
+	 */
+	private inferPositronOutputKind(message: ILanguageRuntimeMessageOutput): RuntimeOutputKind {
+		const mimeTypes = Object.keys(message.data);
+
+		// The most common type of output is plain text, so short-circuit for that before we
+		// do any more expensive processing.
+		if (mimeTypes.length === 1 && mimeTypes[0] === 'text/plain') {
+			return RuntimeOutputKind.Text;
+		}
+
+		// Short-circuit for static image types
+		if (mimeTypes.length === 1 && mimeTypes[0].startsWith('image/')) {
+			return RuntimeOutputKind.StaticImage;
+		}
+
+		// If there's an `application/` MIME type, check to see if there are any
+		// renderers registered for the type. These renderers are custom built
+		// for displaying notebook output in VS Code / Positron so should have
+		// priority over other visualization types.
+		for (const mimeType of mimeTypes) {
+			if (mimeType.startsWith('application/')) {
+				const renderer = this._notebookService.getPreferredRenderer(mimeType);
+				if (renderer) {
+					// Mime type guessing: if it has "table" in the name, it's
+					// probably tabular data, which should go in the Viewer.
+					if (mimeType.indexOf('table') >= 0) {
+						return RuntimeOutputKind.ViewerWidget;
+					} else {
+						return RuntimeOutputKind.PlotWidget;
+					}
+				}
+			}
+		}
+
+		// If there's an HTML representation, use that.
+		if (mimeTypes.includes('text/html')) {
+			// Check to see if there are any <script>, <html>, or <body> tags.
+			if (/<(script|html|body)/.test(message.data['text/html'])) {
+				// This looks like standalone HTML. Render it in the Viewer.
+				return RuntimeOutputKind.ViewerWidget;
+			} else {
+				// This looks like a small HTML fragment we can render inline.
+				return RuntimeOutputKind.InlineHtml;
+			}
+		}
+
+		// We have now eliminated all rich output types; if _any_ output type is an image, use it.
+		for (const mimeType of mimeTypes) {
+			if (mimeType.startsWith('image/')) {
+				return RuntimeOutputKind.StaticImage;
+			}
+		}
+
+		// At this point, use the lowest common denominator (plain text) if it exists.
+		if (mimeTypes.includes('text/plain')) {
+			return RuntimeOutputKind.Text;
+		}
+
+		// If we get here, we don't know what kind of output this is.
 		return RuntimeOutputKind.Unknown;
 	}
 
@@ -821,7 +889,8 @@ export class MainThreadLanguageRuntime implements MainThreadLanguageRuntimeShape
 		@IPositronEnvironmentService private readonly _positronEnvironmentService: IPositronEnvironmentService,
 		@IPositronHelpService private readonly _positronHelpService: IPositronHelpService,
 		@IPositronPlotsService private readonly _positronPlotService: IPositronPlotsService,
-		@ILogService private readonly _logService: ILogService
+		@ILogService private readonly _logService: ILogService,
+		@INotebookService private readonly _notebookService: INotebookService
 	) {
 		// TODO@softwarenerd - We needed to find a central place where we could ensure that certain
 		// Positron services were up and running early in the application lifecycle. For now, this
@@ -859,6 +928,7 @@ export class MainThreadLanguageRuntime implements MainThreadLanguageRuntimeShape
 			dynState,
 			this._languageRuntimeService,
 			this._logService,
+			this._notebookService,
 			this._proxy
 		);
 		this._runtimes.set(handle, adapter);
