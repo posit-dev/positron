@@ -106,8 +106,8 @@ jobs:
       # Compress client setup executable
       - name: Create client archive
         run: |
-          cd ..
-          tar -a -c -f $GITHUB_WORKSPACE/positron-${{ needs.version_string.outputs.short_version }}-${{ matrix.platform }}-${{ matrix.arch }}-setup.tar positron/.build/${{ matrix.platform }}-${{ matrix.arch }}/system-setup/PositronSetup.exe
+          echo "$GITHUB_WORKSPACE"
+          tar -a -c -f $GITHUB_WORKSPACE/positron-${{ needs.version_string.outputs.short_version }}-${{ matrix.platform }}-${{ matrix.arch }}-setup.tar .build/${{ matrix.platform }}-${{ matrix.arch }}/system-setup/PositronSetup.exe
 
       # Create build artifact
       - name: Upload client archive
