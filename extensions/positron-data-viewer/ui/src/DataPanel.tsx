@@ -122,8 +122,9 @@ export const DataPanel = (props: DataPanelProps) => {
 			queryFn: ({pageParam = 0}) => fetchNextDataFragment(pageParam as number, fetchSize),
 			initialPageParam: 0,
 			// undefined if we are on the final page of data
-			getNextPageParam: (_lastGroup, groups) => groups.length !== maxPages ? groups.length : undefined,
+			getNextPageParam: (_lastPage, allPages) => allPages.length !== maxPages ? allPages.length : undefined,
 			refetchOnWindowFocus: false,
+			placeholderData: (previousData) => previousData
 		});
 
 
