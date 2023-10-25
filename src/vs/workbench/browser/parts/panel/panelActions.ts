@@ -22,18 +22,16 @@ import { INotificationService } from 'vs/platform/notification/common/notificati
 import { ICommandActionTitle } from 'vs/platform/action/common/action';
 import { KeybindingWeight } from 'vs/platform/keybinding/common/keybindingsRegistry';
 
-// --- Start Positron ---
 const maximizeIcon = registerIcon('panel-maximize', Codicon.chevronUp, localize('maximizeIcon', 'Icon to maximize a panel.'));
 const restoreIcon = registerIcon('panel-restore', Codicon.chevronDown, localize('restoreIcon', 'Icon to restore a panel.'));
-// --- End Positron ---
 const closeIcon = registerIcon('panel-close', Codicon.close, localize('closeIcon', 'Icon to close a panel.'));
 const panelIcon = registerIcon('panel-layout-icon', Codicon.layoutPanel, localize('togglePanelOffIcon', 'Icon to toggle the panel off when it is on.'));
 const panelOffIcon = registerIcon('panel-layout-icon-off', Codicon.layoutPanelOff, localize('togglePanelOnIcon', 'Icon to toggle the panel on when it is off.'));
 
 // --- Start Positron ---
-const positronMaximizePanelIcon = registerIcon('panel-maximize2', Codicon.chromeMaximize, localize('maximizeIcon', 'Icon to maximize a panel.'));
-const positronMinimizePanelIcon = registerIcon('panel-minimize2', Codicon.chromeMinimize, localize('minimizeIcon', 'Icon to minimize a panel.'));
-const positronRestorePanelIcon = registerIcon('panel-restore2', Codicon.chromeRestore, localize('restoreIcon', 'Icon to restore a panel.'));
+const positronMaximizePanelIcon = registerIcon('positron-maximize-panel', Codicon.chromeMaximize, localize('maximizeIcon', 'Icon to maximize a panel.'));
+const positronMinimizePanelIcon = registerIcon('positron-minimize-panel', Codicon.chromeMinimize, localize('minimizeIcon', 'Icon to minimize a panel.'));
+const positronRestorePanelIcon = registerIcon('positron-restore-panel', Codicon.chromeRestore, localize('restoreIcon', 'Icon to restore a panel.'));
 // --- End Positron ---
 
 export class TogglePanelAction extends Action2 {

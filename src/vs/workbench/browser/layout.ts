@@ -2097,7 +2097,7 @@ export abstract class Layout extends Disposable implements IWorkbenchLayoutServi
 			} else if (positionFromString(oldPositionValue) === Position.BOTTOM) {
 				// --- Start Positron ---
 				// Only set the last non-maximized height for the panel when its height is
-				// greater than minimum height.
+				// greater than its minimum height.
 				if (size.height > this.panelPartView.minimumHeight) {
 					this.stateModel.setRuntimeValue(
 						LayoutStateKeys.PANEL_LAST_NON_MAXIMIZED_HEIGHT,
