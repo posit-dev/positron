@@ -10,6 +10,7 @@ import { PlotGalleryThumbnail } from 'vs/workbench/contrib/positronPlots/browser
 import { StaticPlotInstance } from 'vs/workbench/contrib/positronPlots/browser/components/staticPlotInstance';
 import { StaticPlotThumbnail } from 'vs/workbench/contrib/positronPlots/browser/components/staticPlotThumbnail';
 import { WebviewPlotInstance } from 'vs/workbench/contrib/positronPlots/browser/components/webviewPlotInstance';
+import { WebviewPlotThumbnail } from 'vs/workbench/contrib/positronPlots/browser/components/webviewPlotThumbnail';
 import { usePositronPlotsContext } from 'vs/workbench/contrib/positronPlots/browser/positronPlotsContext';
 import { WebviewPlotClient } from 'vs/workbench/contrib/positronPlots/browser/webviewPlotClient';
 import { PlotClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimePlotClient';
@@ -73,9 +74,9 @@ export const PlotsContainer = (props: PlotContainerProps) => {
 	});
 
 	/**
-	 * Renders either a DynamicPlotInstance (resizable plot) or a
-	 * StaticPlotInstance (static plot image), depending on the type of plot
-	 * instance.
+	 * Renders either a DynamicPlotInstance (resizable plot), a
+	 * StaticPlotInstance (static plot image), or a WebviewPlotInstance
+	 * (interactive HTML plot) depending on the type of plot instance.
 	 *
 	 * @param plotInstance The plot instance to render
 	 * @returns The rendered component.
@@ -100,9 +101,9 @@ export const PlotsContainer = (props: PlotContainerProps) => {
 	};
 
 	/**
-	 * Renders a thumbnail of either a DynamicPlotInstance (resizable plot) or a
-	 * StaticPlotInstance (static plot image), depending on the type of plot
-	 * instance.
+	 * Renders a thumbnail of either a DynamicPlotInstance (resizable plot), a
+	 * StaticPlotInstance (static plot image), or a WebviewPlotInstance
+	 * (interactive HTML plot) depending on the type of plot instance.
 	 *
 	 * @param plotInstance The plot instance to render
 	 * @param selected Whether the thumbnail is selected
@@ -115,7 +116,7 @@ export const PlotsContainer = (props: PlotContainerProps) => {
 			} else if (plotInstance instanceof StaticPlotClient) {
 				return <StaticPlotThumbnail plotClient={plotInstance} />;
 			} else if (plotInstance instanceof WebviewPlotClient) {
-				return <div>{plotInstance.id}</div>;
+				return <WebviewPlotThumbnail plotClient={plotInstance} />;
 			} else {
 				return null;
 			}
