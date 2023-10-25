@@ -12,7 +12,7 @@ import * as React from 'react';
 export const ActionBarSeparator = () => {
 	// Render.
 	return (
-		<div className='action-bar-separator'>
+		<div className='action-bar-separator' aria-hidden='true' >
 			<div className='action-bar-separator-icon codicon codicon-positron-separator' />
 		</div>
 	);
