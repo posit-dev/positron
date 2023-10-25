@@ -72,7 +72,7 @@ jobs:
     steps:
       # Checkout sources
       - name: Checkout sources
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       # Set up Node
       - uses: actions/setup-node@v3
@@ -105,9 +105,7 @@ jobs:
 
       # Compress client setup executable
       - name: Create client archive
-        run: |
-          echo "$GITHUB_WORKSPACE"
-          tar -a -c -f $GITHUB_WORKSPACE/positron-${{ needs.version_string.outputs.short_version }}-${{ matrix.platform }}-${{ matrix.arch }}-setup.tar .build/${{ matrix.platform }}-${{ matrix.arch }}/system-setup/PositronSetup.exe
+        run: tar -a -c -f $GITHUB_WORKSPACE/positron-${{ needs.version_string.outputs.short_version }}-${{ matrix.platform }}-${{ matrix.arch }}-setup.tar .build/${{ matrix.platform }}-${{ matrix.arch }}/system-setup/PositronSetup.exe
 
       # Create build artifact
       - name: Upload client archive
