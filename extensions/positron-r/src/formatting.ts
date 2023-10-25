@@ -3,7 +3,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import * as positron from 'positron';
+import { lastRuntimePath } from './runtime';
 
 export async function registerFormatter(context: vscode.ExtensionContext) {
 
@@ -13,27 +13,26 @@ export async function registerFormatter(context: vscode.ExtensionContext) {
 		vscode.languages.registerDocumentFormattingEditProvider(
 			rDocumentSelector,
 			new FormatterProvider
-		),
-		vscode.languages.registerDocumentRangeFormattingEditProvider(
-			rDocumentSelector,
-			new FormatterProvider
 		)
 	);
-
 }
 
-class FormatterProvider implements vscode.DocumentFormattingEditProvider, vscode.DocumentRangeFormattingEditProvider {
-	public provideDocumentFormattingEdits(document: vscode.TextDocument, _options: vscode.FormattingOptions, _token: vscode.CancellationToken): vscode.ProviderResult<vscode.TextEdit[]> {
+class FormatterProvider implements vscode.DocumentFormattingEditProvider {
+	public provideDocumentFormattingEdits(document: vscode.TextDocument):
+		vscode.ProviderResult<vscode.TextEdit[]> {
 		return formatDocument(document);
 	}
-	public provideDocumentRangeFormattingEdits(document: vscode.TextDocument, range: vscode.Range, _options: vscode.FormattingOptions, _token: vscode.CancellationToken): vscode.ProviderResult<vscode.TextEdit[]> {
-		return formatDocument(document, range);
-	}
 }
 
-function formatDocument(document: vscode.TextDocument, range?: vscode.Range) {
-	const firstLine = document.lineAt(0);
-	if (firstLine.text !== '42') {
-		return [vscode.TextEdit.insert(firstLine.range.start, '42\n')];
+function formatDocument(document: vscode.TextDocument): vscode.TextEdit[] {
+	if (!lastRuntimePath) {
+		throw new Error(`No running R runtime to provide R package tasks.`);
 	}
+
+	// Just run in terminal for now:
+	const terminal = vscode.window.createTerminal();
+	terminal.sendText(`${lastRuntimePath}/R -e "styler::style_file('${document.fileName}')"`);
+
+	// A terrible hack to return an empty edit:
+	return [vscode.TextEdit.insert(document.lineAt(0).range.start, '')];
 }
