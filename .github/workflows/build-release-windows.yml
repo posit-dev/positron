@@ -114,4 +114,4 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: positron-${{ matrix.platform }}-${{ matrix.arch }}-setup-archive
-          path: positron-${{ needs.version_string.outputs.short_version }}-${{ matrix.platform }}-${{ matrix.arch }}-setup.tar
+          path: $GITHUB_WORKSPACE/positron-${{ needs.version_string.outputs.short_version }}-${{ matrix.platform }}-${{ matrix.arch }}-setup.tar
