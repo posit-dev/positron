@@ -28,6 +28,12 @@ const closeIcon = registerIcon('panel-close', Codicon.close, localize('closeIcon
 const panelIcon = registerIcon('panel-layout-icon', Codicon.layoutPanel, localize('togglePanelOffIcon', 'Icon to toggle the panel off when it is on.'));
 const panelOffIcon = registerIcon('panel-layout-icon-off', Codicon.layoutPanelOff, localize('togglePanelOnIcon', 'Icon to toggle the panel on when it is off.'));
 
+// --- Start Positron ---
+const positronMaximizePanelIcon = registerIcon('positron-maximize-panel', Codicon.chromeMaximize, localize('maximizeIcon', 'Icon to maximize a panel.'));
+const positronMinimizePanelIcon = registerIcon('positron-minimize-panel', Codicon.chromeMinimize, localize('minimizeIcon', 'Icon to minimize a panel.'));
+const positronRestorePanelIcon = registerIcon('positron-restore-panel', Codicon.chromeRestore, localize('restoreIcon', 'Icon to restore a panel.'));
+// --- End Positron ---
+
 export class TogglePanelAction extends Action2 {
 
 	static readonly ID = 'workbench.action.togglePanel';
@@ -332,14 +338,16 @@ registerAction2(class extends Action2 {
 			icon: maximizeIcon,
 			// the workbench grid currently prevents us from supporting panel maximization with non-center panel alignment
 			precondition: ContextKeyExpr.or(PanelAlignmentContext.isEqualTo('center'), PanelPositionContext.notEqualsTo('bottom')),
-			toggled: { condition: PanelMaximizedContext, icon: restoreIcon, tooltip: localize('minimizePanel', "Restore Panel Size") },
+			// --- Start Positron ---
+			toggled: { condition: PanelMaximizedContext, icon: restoreIcon, tooltip: localize('restoresPanel', "Restores Panel Size") },
 			menu: [{
 				id: MenuId.PanelTitle,
 				group: 'navigation',
-				order: 1,
+				order: 100,
 				// the workbench grid currently prevents us from supporting panel maximization with non-center panel alignment
-				when: ContextKeyExpr.or(PanelAlignmentContext.isEqualTo('center'), PanelPositionContext.notEqualsTo('bottom'))
+				when: PanelPositionContext.notEqualsTo('bottom') //ContextKeyExpr.or(PanelAlignmentContext.isEqualTo('center'), PanelPositionContext.notEqualsTo('bottom'))
 			}]
+			// --- End Positron ---
 		});
 	}
 	run(accessor: ServicesAccessor) {
@@ -362,6 +370,131 @@ registerAction2(class extends Action2 {
 		}
 	}
 });
+
+// --- Start Positron ---
+/**
+ * Positron minimize panel action.
+ */
+registerAction2(class extends Action2 {
+	constructor() {
+		super({
+			id: 'workbench.action.minimizePanel',
+			title: { value: localize('minimizePanel', "Minimize Panel"), original: 'Minimizes Panel' },
+			tooltip: localize('minimizesPanel', "Minimizes Panel Size"),
+			category: Categories.View,
+			f1: true,
+			icon: positronMinimizePanelIcon,
+			// This action is only enabled when the panel position is bottom and the panel alignment
+			// is center.
+			precondition: ContextKeyExpr.and(PanelPositionContext.isEqualTo('bottom'), PanelAlignmentContext.isEqualTo('center')),
+			menu: [{
+				id: MenuId.PanelTitle,
+				group: 'navigation',
+				order: 1,
+				// This navigation icon is only enabled when the panel position is bottom and the
+				// panel alignment is center.
+				when: ContextKeyExpr.and(PanelPositionContext.isEqualTo('bottom'), PanelAlignmentContext.isEqualTo('center'))
+			}]
+		});
+	}
+
+	run(accessor: ServicesAccessor) {
+		// Access services.
+		const layoutService = accessor.get(IWorkbenchLayoutService);
+
+		// If the panel part isn't visible, unhide it.
+		if (!layoutService.isVisible(Parts.PANEL_PART)) {
+			// Unhide the panel part.
+			layoutService.setPartHidden(false, Parts.PANEL_PART);
+		}
+
+		// Have the layout service minimize the panel.
+		layoutService.minimizePanel();
+	}
+});
+
+/**
+ * Positron maximize panel action.
+ */
+registerAction2(class extends Action2 {
+	constructor() {
+		super({
+			id: 'workbench.action.maximizePanel',
+			title: { value: localize('mazimizePanel', "Maximize Panel"), original: 'Maximize Panel' },
+			tooltip: localize('maximizesPanel', "Maximizes Panel Size"),
+			category: Categories.View,
+			f1: true,
+			icon: positronMaximizePanelIcon,
+			// This action is only enabled when the panel position is bottom and the panel alignment
+			// is center.
+			precondition: ContextKeyExpr.and(PanelPositionContext.isEqualTo('bottom'), PanelAlignmentContext.isEqualTo('center')),
+			menu: [{
+				id: MenuId.PanelTitle,
+				group: 'navigation',
+				order: 2,
+				// This navigation icon is only enabled when the panel position is bottom and the
+				// panel alignment is center.
+				when: ContextKeyExpr.and(PanelPositionContext.isEqualTo('bottom'), PanelAlignmentContext.isEqualTo('center'))
+			}]
+		});
+	}
+
+	run(accessor: ServicesAccessor) {
+		// Access services.
+		const layoutService = accessor.get(IWorkbenchLayoutService);
+
+		// If the panel part isn't visible, unhide it.
+		if (!layoutService.isVisible(Parts.PANEL_PART)) {
+			// Unhide the panel part.
+			layoutService.setPartHidden(false, Parts.PANEL_PART);
+		}
+
+		// Have the layout service maximize the panel.
+		layoutService.maximizePanel();
+	}
+});
+
+/**
+ * Positron restore panel action.
+ */
+registerAction2(class extends Action2 {
+	constructor() {
+		super({
+			id: 'workbench.action.restorePanel',
+			title: { value: localize('restorePanel', "Restore Panel"), original: 'Restore Panel' },
+			tooltip: localize('restoresPanel', "Restores Panel Size"),
+			category: Categories.View,
+			f1: true,
+			icon: positronRestorePanelIcon,
+			// This action is only enabled when the panel position is bottom and the panel alignment
+			// is center.
+			precondition: ContextKeyExpr.and(PanelPositionContext.isEqualTo('bottom'), PanelAlignmentContext.isEqualTo('center')),
+			menu: [{
+				id: MenuId.PanelTitle,
+				group: 'navigation',
+				order: 3,
+				// This navigation icon is only enabled when the panel position is bottom and the
+				// panel alignment is center.
+				when: ContextKeyExpr.and(PanelPositionContext.isEqualTo('bottom'), PanelAlignmentContext.isEqualTo('center'))
+			}]
+		});
+	}
+
+	run(accessor: ServicesAccessor) {
+		// Access services.
+		const layoutService = accessor.get(IWorkbenchLayoutService);
+
+		// If the panel part isn't visible, unhide it.
+		if (!layoutService.isVisible(Parts.PANEL_PART)) {
+			// Unhide the panel part.
+			layoutService.setPartHidden(false, Parts.PANEL_PART);
+		}
+
+		// Have the layout service restore the panel.
+		layoutService.restorePanel();
+	}
+});
+// --- End Positron ---
 
 registerAction2(class extends Action2 {
 	constructor() {

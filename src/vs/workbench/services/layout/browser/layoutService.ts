@@ -179,6 +179,23 @@ export interface IWorkbenchLayoutService extends ILayoutService {
 	 */
 	toggleMaximizedPanel(): void;
 
+	// --- Start Positron ---
+	/**
+	 * Maximizes the panel height.
+	 */
+	maximizePanel(): void;
+
+	/**
+	 * Minimizes the panel height.
+	 */
+	minimizePanel(): void;
+
+	/**
+	 * Restores the panel height.
+	 */
+	restorePanel(): void;
+	// --- End Positron ---
+
 	/**
 	 * Returns true if the window has a border.
 	 */
