@@ -20,6 +20,15 @@ export interface WebviewWindowId {
 	readonly windowId: number;
 }
 
+// --- Start Positron ---
+export interface WebviewRectangle {
+	readonly x: number;
+	readonly y: number;
+	readonly width: number;
+	readonly height: number;
+}
+// --- End Positron ---
+
 export interface FindInFrameOptions {
 	readonly forward?: boolean;
 	readonly findNext?: boolean;
@@ -46,6 +55,6 @@ export interface IWebviewManagerService {
 	stopFindInFrame(windowId: WebviewWindowId, frameName: string, options: { keepSelection?: boolean }): Promise<void>;
 
 	// --- Start Positron ---
-	captureContentsAsPng(windowId: WebviewWindowId): Promise<VSBuffer | undefined>;
+	captureContentsAsPng(windowId: WebviewWindowId, area?: WebviewRectangle): Promise<VSBuffer | undefined>;
 	// --- End Positron ---
 }

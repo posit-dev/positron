@@ -169,8 +169,13 @@ export class ElectronWebviewElement extends WebviewElement {
 		if (!this.element) {
 			return Promise.resolve(undefined);
 		}
+
+		// Get the bounding box of the webview element so we can scope the capture
+		// to the webview's viewport.
+		const bounding = this.element.getBoundingClientRect();
+
 		return this._webviewMainService.captureContentsAsPng(
-			{ windowId: this._nativeHostService.windowId });
+			{ windowId: this._nativeHostService.windowId }, bounding);
 	}
 	// --- End Positron ---
 
