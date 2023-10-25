@@ -10,6 +10,7 @@ export class NotebookOutputWebview extends Disposable implements INotebookOutput
 
 	constructor(
 		readonly id: string,
+		readonly runtimeId: string,
 		readonly webview: IOverlayWebview) {
 		super();
 	}

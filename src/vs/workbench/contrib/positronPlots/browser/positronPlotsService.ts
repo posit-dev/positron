@@ -17,6 +17,8 @@ import { PlotSizingPolicyFill } from 'vs/workbench/services/positronPlots/common
 import { PlotSizingPolicyLandscape } from 'vs/workbench/services/positronPlots/common/sizingPolicyLandscape';
 import { PlotSizingPolicyPortrait } from 'vs/workbench/services/positronPlots/common/sizingPolicyPortrait';
 import { PlotSizingPolicyCustom } from 'vs/workbench/services/positronPlots/common/sizingPolicyCustom';
+import { WebviewPlotClient } from 'vs/workbench/contrib/positronPlots/browser/webviewPlotClient';
+import { IPositronNotebookOutputWebviewService } from 'vs/workbench/contrib/positronOutputWebview/browser/notebookOutputWebviewService';
 
 /** The maximum number of recent executions to store. */
 const MaxRecentExecutions = 10;
@@ -86,7 +88,8 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 	constructor(
 		@ILanguageRuntimeService private _languageRuntimeService: ILanguageRuntimeService,
 		@IStorageService private _storageService: IStorageService,
-		@IViewsService private _viewsService: IViewsService) {
+		@IViewsService private _viewsService: IViewsService,
+		@IPositronNotebookOutputWebviewService private _notebookOutputWebviewService: IPositronNotebookOutputWebviewService) {
 		super();
 
 		// Register for language runtime service startups
@@ -416,7 +419,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 
 		// Listen for static plots being emitted, and register each one with
 		// the plots service.
-		this._register(runtime.onDidReceiveRuntimeMessageOutput((message) => {
+		this._register(runtime.onDidReceiveRuntimeMessageOutput(async (message) => {
 			// Check to see if we we already have a plot client for this
 			// message ID. If so, we don't need to do anything.
 			if (this.hasPlot(runtime.metadata.runtimeId, message.id)) {
@@ -428,6 +431,12 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 			if (message.kind === RuntimeOutputKind.StaticImage) {
 				// Create a new static plot client instance and register it with the service.
 				this.registerStaticPlot(runtime.metadata.runtimeId, message, code);
+
+				// Raise the Plots pane so the plot is visible.
+				this._viewsService.openView(POSITRON_PLOTS_VIEW_ID, false);
+			} else if (message.kind === RuntimeOutputKind.PlotWidget) {
+				// Create a new webview plot client instance and register it with the service.
+				await this.registerWebviewPlot(runtime, message, code);
 
 				// Raise the Plots pane so the plot is visible.
 				this._viewsService.openView(POSITRON_PLOTS_VIEW_ID, false);
@@ -496,6 +505,30 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		this._onDidEmitPlot.fire(client);
 		this._onDidSelectPlot.fire(client.id);
 		this._register(client);
+	}
+
+	/**
+	 * Creates a new webview plot client instance and registers it with the
+	 * service.
+	 *
+	 * @param message The message containing the source for the webview.
+	 * @param code The code that generated the plot, if available.
+	 */
+	private async registerWebviewPlot(
+		runtime: ILanguageRuntime,
+		message: ILanguageRuntimeMessageOutput,
+		code?: string) {
+		// Create a new webview
+
+		const webview = await this._notebookOutputWebviewService.createNotebookOutputWebview(
+			runtime, message);
+		if (webview) {
+			const client = new WebviewPlotClient(webview, message, code);
+			this._plots.unshift(client);
+			this._onDidEmitPlot.fire(client);
+			this._onDidSelectPlot.fire(client.id);
+			this._register(client);
+		}
 	}
 
 	onDidEmitPlot: Event<IPositronPlotClient> = this._onDidEmitPlot.event;

@@ -35,7 +35,7 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 
 			const renderer = this._notebookService.getPreferredRenderer(mimeType);
 			if (renderer) {
-				return this.createNotebookRenderOutput(output.id,
+				return this.createNotebookRenderOutput(output.id, runtime,
 					renderer, mimeType, output.data[mimeType]);
 			}
 		}
@@ -45,6 +45,7 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 	}
 
 	async createNotebookRenderOutput(id: string,
+		runtime: ILanguageRuntime,
 		renderer: INotebookRendererInfo,
 		mimeType: string,
 		data: any): Promise<INotebookOutputWebview> {
@@ -104,7 +105,7 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 </script>
 </body>`);
 
-		return new NotebookOutputWebview(id, webview);
+		return new NotebookOutputWebview(id, runtime.metadata.runtimeId, webview);
 	}
 
 	async createRawHtmlOutput(id: string, runtime: ILanguageRuntime, html: string):
@@ -133,7 +134,7 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 
 		webview.setHtml(`<script src='${jQueryPath}'></script>${html}`);
 
-		return new NotebookOutputWebview(id, webview);
+		return new NotebookOutputWebview(id, runtime.metadata.runtimeId, webview);
 	}
 }
 

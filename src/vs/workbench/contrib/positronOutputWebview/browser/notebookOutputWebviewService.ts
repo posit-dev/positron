@@ -13,7 +13,13 @@ export const IPositronNotebookOutputWebviewService =
 		POSITRON_NOTEBOOK_OUTPUT_WEBVIEW_SERVICE_ID);
 
 export interface INotebookOutputWebview {
+	/** The ID of the notebook output */
 	id: string;
+
+	/** The ID of the runtime that emitted (and owns) the output */
+	runtimeId: string;
+
+	/** The webview containing the output's content */
 	webview: IOverlayWebview;
 }
 
