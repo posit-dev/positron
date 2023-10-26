@@ -81,6 +81,7 @@ export const PositronButton = forwardRef<HTMLDivElement, PropsWithChildren<Posit
 			tabIndex={0}
 			role='button'
 			aria-label={props.ariaLabel}
+			aria-disabled={props.disabled ? 'true' : undefined}
 			onKeyDown={keyDownHandler}
 			onClick={clickHandler}>
 			{props.children}
