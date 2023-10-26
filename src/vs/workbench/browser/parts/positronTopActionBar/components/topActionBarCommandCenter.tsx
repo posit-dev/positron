@@ -4,9 +4,15 @@
 
 import 'vs/css!./topActionBarCommandCenter';
 import * as React from 'react';
+import { localize } from 'vs/nls';
 import { MouseEvent } from 'react'; // eslint-disable-line no-duplicate-imports
 import { AnythingQuickAccessProviderRunOptions } from 'vs/platform/quickinput/common/quickAccess';
 import { usePositronTopActionBarContext } from 'vs/workbench/browser/parts/positronTopActionBar/positronTopActionBarContext';
+
+/**
+ * Localized strings.
+ */
+const positronShowQuickAccess = localize('positronShowQuickAccess', "Show Quick Access");
 
 /**
  * TopActionBarCommandCenter component.
@@ -30,7 +36,7 @@ export const TopActionBarCommandCenter = () => {
 		});
 	};
 
-	// DropDownCkick handler.
+	// DropDownClick handler.
 	const dropDownClickHandler = (e: MouseEvent<HTMLButtonElement>) => {
 		// Consume the event.
 		e.preventDefault();
@@ -44,7 +50,7 @@ export const TopActionBarCommandCenter = () => {
 	return (
 		<div className='top-action-bar-command-center' onClick={(e) => clickHandler(e)}>
 			<div className='left'>
-				<div className='codicon codicon-positron-search' />
+				<div className='codicon codicon-positron-search' aria-hidden='true' />
 			</div>
 			<div className='center'>
 				<button className='search' onClick={(e) => clickHandler(e)}>
@@ -52,7 +58,7 @@ export const TopActionBarCommandCenter = () => {
 				</button>
 			</div>
 			<div className='right'>
-				<button className='drop-down' onClick={(e) => dropDownClickHandler(e)}>
+				<button className='drop-down' onClick={(e) => dropDownClickHandler(e)} aria-label={positronShowQuickAccess} >
 					<div className='icon codicon codicon-chevron-down' />
 				</button>
 			</div>
