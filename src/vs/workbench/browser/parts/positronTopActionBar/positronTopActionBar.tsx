@@ -12,6 +12,7 @@ import { IHostService } from 'vs/workbench/services/host/browser/host';
 import { ILayoutService } from 'vs/platform/layout/browser/layoutService';
 import { IQuickInputService } from 'vs/platform/quickinput/common/quickInput';
 import { IWorkspacesService } from 'vs/platform/workspaces/common/workspaces';
+import { CommandCenter } from 'vs/platform/commandCenter/common/commandCenter';
 import { IWorkspaceContextService } from 'vs/platform/workspace/common/workspace';
 import { PositronActionBar } from 'vs/platform/positronActionBar/browser/positronActionBar';
 import { ActionBarRegion } from 'vs/platform/positronActionBar/browser/components/actionBarRegion';
@@ -33,6 +34,10 @@ import { ILanguageRuntime, ILanguageRuntimeService, RuntimeState } from 'vs/work
 const kHorizontalPadding = 4;
 const kCenterUIBreak = 600;
 const kFulllCenterUIBreak = 765;
+const SAVE = 'workbench.action.files.save';
+const SAVE_FILES = 'workbench.action.files.saveFiles';
+const NAV_BACK = NavigateBackwardsAction.ID;
+const NAV_FORWARD = NavigateForwardAction.ID;
 
 /**
  * IPositronTopActionBarContainer interface.
@@ -136,8 +141,8 @@ export const PositronTopActionBar = (props: PositronTopActionBarProps) => {
 						<ActionBarSeparator />
 						<TopActionBarOpenMenu />
 						<ActionBarSeparator />
-						<ActionBarCommandButton iconId='positron-save' commandId={'workbench.action.files.save'} />
-						<ActionBarCommandButton iconId='positron-save-all' commandId={'workbench.action.files.saveFiles'} />
+						<ActionBarCommandButton iconId='positron-save' commandId={SAVE} ariaLabel={CommandCenter.title(SAVE)} />
+						<ActionBarCommandButton iconId='positron-save-all' commandId={SAVE_FILES} ariaLabel={CommandCenter.title(SAVE_FILES)} />
 					</ActionBarRegion>
 
 					{showCenterUI && (
@@ -146,8 +151,8 @@ export const PositronTopActionBar = (props: PositronTopActionBarProps) => {
 							<PositronActionBar size='large' nestedActionBar={true}>
 								{showFullCenterUI && (
 									<ActionBarRegion width={60} location='left' justify='right'>
-										<ActionBarCommandButton iconId='chevron-left' commandId={NavigateBackwardsAction.ID} />
-										<ActionBarCommandButton iconId='chevron-right' commandId={NavigateForwardAction.ID} />
+										<ActionBarCommandButton iconId='chevron-left' commandId={NAV_BACK} ariaLabel={CommandCenter.title(NAV_BACK)} />
+										<ActionBarCommandButton iconId='chevron-right' commandId={NAV_FORWARD} ariaLabel={CommandCenter.title(NAV_FORWARD)} />
 									</ActionBarRegion>
 								)}
 								<ActionBarRegion location='center'>

@@ -4,9 +4,15 @@
 
 import 'vs/css!./topActionBarCustomFolderMenu';
 import * as React from 'react';
+import { localize } from 'vs/nls';
 import { KeyboardEvent, useRef } from 'react'; // eslint-disable-line no-duplicate-imports
 import { usePositronTopActionBarContext } from 'vs/workbench/browser/parts/positronTopActionBar/positronTopActionBarContext';
 import { showCustomFolderModalPopup } from 'vs/workbench/browser/parts/positronTopActionBar/customFolderModalPopup/customFolderModalPopup';
+
+/**
+ * Localized strings.
+ */
+const positronFolderMenu = localize('positronFolderMenu', "Folder Commands");
 
 /**
  * TopActionBarCustonFolderMenu component.
@@ -55,7 +61,7 @@ export const TopActionBarCustonFolderMenu = () => {
 
 	// Render.
 	return (
-		<div ref={ref} className='top-action-bar-custom-folder-menu' role='button' tabIndex={0} onKeyDown={keyDownHandler} onClick={clickHandler}>
+		<div ref={ref} className='top-action-bar-custom-folder-menu' role='button' tabIndex={0} onKeyDown={keyDownHandler} onClick={clickHandler} aria-label={positronFolderMenu}>
 			<div className='left'>
 				<div className='label'>
 					<div className={'action-bar-button-icon codicon codicon-folder'} />

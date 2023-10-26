@@ -22,6 +22,7 @@ export interface KeyboardModifiers {
 interface PositronButtonProps {
 	className?: string;
 	disabled?: boolean;
+	ariaLabel?: string;
 	onClick?: (e: KeyboardModifiers) => void;
 }
 
@@ -79,6 +80,8 @@ export const PositronButton = forwardRef<HTMLDivElement, PropsWithChildren<Posit
 			className={classNames}
 			tabIndex={0}
 			role='button'
+			aria-label={props.ariaLabel}
+			aria-disabled={props.disabled ? 'true' : undefined}
 			onKeyDown={keyDownHandler}
 			onClick={clickHandler}>
 			{props.children}
