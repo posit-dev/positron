@@ -24,13 +24,13 @@ export const WebviewPlotInstance = (props: WebviewPlotInstanceProps) => {
 	const webviewRef = React.useRef<HTMLDivElement>(null);
 
 	useEffect(() => {
-		const webview = props.plotClient.webview.webview;
-		webview.claim(this, undefined);
+		const client = props.plotClient;
+		client.claim(this);
 		if (webviewRef.current) {
-			webview.layoutWebviewOverElement(webviewRef.current);
+			client.layoutWebviewOverElement(webviewRef.current);
 		}
 		return () => {
-			webview.release(this);
+			client.release(this);
 		};
 	});
 

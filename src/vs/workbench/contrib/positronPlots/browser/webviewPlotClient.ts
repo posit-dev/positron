@@ -21,6 +21,8 @@ export class WebviewPlotClient extends Disposable implements IPositronPlotClient
 
 	private _onDidRenderThumbnail: Emitter<string>;
 
+	private _claimed: boolean = false;
+
 	constructor(public readonly webview: INotebookOutputWebview,
 		message: ILanguageRuntimeMessageOutput,
 		code?: string) {
@@ -37,7 +39,9 @@ export class WebviewPlotClient extends Disposable implements IPositronPlotClient
 
 		this._register(this.webview.onDidRender(e => {
 			setTimeout(() => {
-				this.renderThumbnail();
+				if (this._claimed) {
+					this.renderThumbnail();
+				}
 			}, 500);
 		}));
 
@@ -54,6 +58,20 @@ export class WebviewPlotClient extends Disposable implements IPositronPlotClient
 			return this.asDataUri(this._thumbnail);
 		}
 		return undefined;
+	}
+
+	public claim(claimant: any) {
+		this.webview.webview.claim(claimant, undefined);
+		this._claimed = true;
+	}
+
+	public layoutWebviewOverElement(ele: HTMLElement) {
+		this.webview.webview.layoutWebviewOverElement(ele);
+	}
+
+	public release(claimant: any) {
+		this.webview.webview.release(claimant);
+		this._claimed = false;
 	}
 
 	public renderThumbnail() {
