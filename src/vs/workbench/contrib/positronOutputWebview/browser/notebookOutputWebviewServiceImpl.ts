@@ -44,7 +44,7 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 		return Promise.resolve(undefined);
 	}
 
-	async createNotebookRenderOutput(id: string,
+	private async createNotebookRenderOutput(id: string,
 		runtime: ILanguageRuntime,
 		renderer: INotebookRendererInfo,
 		mimeType: string,
@@ -78,7 +78,7 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 			}
 		}
 		var renderer = activate(ctx);
-		var rawData = ${JSON.stringify(data)};
+		var rawData = '${JSON.stringify(data)}';
 		var data = {
 			id: '${id}',
     		mime: '${mimeType}',
