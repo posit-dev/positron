@@ -3,8 +3,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 // External libraries.
-import * as ReactDOM from 'react-dom';
 import * as React from 'react';
+import { createRoot } from 'react-dom/client';
 
 // External modules.
 import * as ReactQuery from '@tanstack/react-query';
@@ -38,14 +38,13 @@ window.addEventListener('message', (event: any) => {
 		const dataMessage = message as DataViewerMessageRowResponse;
 		const queryClient = new ReactQuery.QueryClient();
 		const container = document.getElementById('root');
-
-		ReactDOM.render(
+		const root = createRoot(container!);
+		root.render(
 			<React.StrictMode>
 				<ReactQuery.QueryClientProvider client={queryClient}>
 					<DataPanel initialData={dataMessage.data} fetchSize={fetchSize} vscode={vscode} />
 				</ReactQuery.QueryClientProvider>
-			</React.StrictMode>,
-			container
+			</React.StrictMode>
 		);
-	} // Other message types are handled in the DataPanel component.
+	} // Other message types are handled in the DataPanel component after app initialization.
 });

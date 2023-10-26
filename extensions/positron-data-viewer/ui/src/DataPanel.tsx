@@ -35,7 +35,6 @@ interface DataPanelProps {
  * @param props The properties for the component.
  */
 export const DataPanel = (props: DataPanelProps) => {
-
 	// The distance from the bottom of the table container at which we will
 	// trigger a fetch of more data.
 	const scrollThresholdPx = 300;

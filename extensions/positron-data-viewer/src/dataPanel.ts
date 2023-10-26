@@ -27,40 +27,15 @@ export async function createDataPanel(context: vscode.ExtensionContext,
 		}
 	);
 
-	// Check for the 'index.js' file in the extension directory; this only exists in
-	// production mode.
+	// Check for the 'ui/dist/index.js' file in the extension directory;
+	// In dev mode this is written to 'ui/out/index.js' instead of 'ui/dist'
 	const indexJs = path.join(context.extensionPath, 'ui', 'dist', 'index.js');
 	const fs = require('fs');
 	const productionMode = fs.existsSync(indexJs);
 
-	const scriptPaths = [];
-
-	if (!productionMode) {
-		const nodeFolder = path.join(context.extensionPath, 'ui', 'node_modules');
-		// In development mode, we use the React libraries from the extension
-		// folder directly. In production mode, webpack bundles these libraries
-		// into the index.js file.
-		scriptPaths.push(path.join(nodeFolder,
-			'react', 'umd', 'react.development.js'));
-		scriptPaths.push(path.join(nodeFolder,
-			'react-dom', 'umd', 'react-dom.development.js'));
-
-		// In development mode, we use the TanStack libraries from the extension
-		// folder directly as well.
-		const tanstackLibraries = [
-			'query-core',
-			'react-query',
-			'react-table',
-			'react-virtual',
-			'table-core'];
-		tanstackLibraries.forEach((library) => {
-			scriptPaths.push(path.join(nodeFolder,
-				'@tanstack', library, 'build', 'umd', `index.development.js`));
-		});
-	}
-
-	// Get a list of all the script files in the extension's ui/out folder and
+	// Get a list of all the script files in the extension's ui/out or ui/dist folder and
 	// add them to the list of scripts to load in the webview
+	const scriptPaths: string[] = [];
 	const outFolder = path.join(context.extensionPath, 'ui', productionMode ? 'dist' : 'out');
 	const files = await vscode.workspace.fs.readDirectory(vscode.Uri.file(outFolder));
 	files.forEach((file) => {
@@ -93,20 +68,11 @@ export async function createDataPanel(context: vscode.ExtensionContext,
 
 	panel.title = data.title;
 
-	// In development mode, load the CSS file directly from the extension folder
-	let cssTag = '';
-	if (!productionMode) {
-		const cssUri = vscode.Uri.file(path.join(context.extensionPath, 'ui', 'src', 'DataPanel.css'));
-		const cssWebviewUri = panel.webview.asWebviewUri(cssUri);
-		cssTag = `<link rel="stylesheet" href="${cssWebviewUri}">`;
-	}
-
 	// Set the HTML content of the webview
 	panel.webview.html = `
 		<head>
 			<meta charset="UTF-8">
 			<title>${data.title}</title>
-			${cssTag}
 		</head>
 		<body>
 			<div id="root"></div>
