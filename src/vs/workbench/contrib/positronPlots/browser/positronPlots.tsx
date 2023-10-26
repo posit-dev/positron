@@ -8,7 +8,6 @@ import { PropsWithChildren, useEffect, useState } from 'react'; // eslint-disabl
 import { ICommandService } from 'vs/platform/commands/common/commands';
 import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
 import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
-import { IReactComponentContainer } from 'vs/base/browser/positronReactRenderer';
 import { IContextMenuService } from 'vs/platform/contextview/browser/contextView';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/layoutService';
@@ -19,6 +18,7 @@ import { DisposableStore } from 'vs/base/common/lifecycle';
 import { PlotsContainer } from 'vs/workbench/contrib/positronPlots/browser/components/plotsContainer';
 import { ActionBars } from 'vs/workbench/contrib/positronPlots/browser/components/actionBars';
 import { INotificationService } from 'vs/platform/notification/common/notification';
+import { PositronPlotsViewPane } from 'vs/workbench/contrib/positronPlots/browser/positronPlotsView';
 
 /**
  * PositronPlotsProps interface.
@@ -31,7 +31,7 @@ export interface PositronPlotsProps extends PositronPlotsServices {
 	readonly contextMenuService: IContextMenuService;
 	readonly keybindingService: IKeybindingService;
 	readonly layoutService: IWorkbenchLayoutService;
-	readonly reactComponentContainer: IReactComponentContainer;
+	readonly reactComponentContainer: PositronPlotsViewPane;
 	readonly positronPlotsService: IPositronPlotsService;
 	readonly notificationService: INotificationService;
 }
@@ -70,6 +70,8 @@ export const PositronPlots = (props: PropsWithChildren<PositronPlotsProps>) => {
 	// Hooks.
 	const [width, setWidth] = useState(props.reactComponentContainer.width);
 	const [height, setHeight] = useState(props.reactComponentContainer.height);
+	const [posX, setPosX] = useState(0);
+	const [posY, setPosY] = useState(0);
 	const [showHistory, setShowHistory] = useState(computeHistoryVisibility(
 		props.positronPlotsService.historyPolicy));
 
@@ -83,6 +85,12 @@ export const PositronPlots = (props: PropsWithChildren<PositronPlotsProps>) => {
 			setWidth(size.width);
 			setHeight(size.height);
 			setShowHistory(computeHistoryVisibility(props.positronPlotsService.historyPolicy));
+		}));
+
+		// Add the onSizeChanged event handler.
+		disposableStore.add(props.reactComponentContainer.onPositionChanged(pos => {
+			setPosX(pos.x);
+			setPosY(pos.y);
 		}));
 
 		// Add event handlers so we can show/hide the history portion of the panel as the set
@@ -113,7 +121,9 @@ export const PositronPlots = (props: PropsWithChildren<PositronPlotsProps>) => {
 			<PlotsContainer
 				showHistory={showHistory}
 				width={width}
-				height={height - 34} />
+				height={height - 34}
+				x={posX}
+				y={posY} />
 		</PositronPlotsContextProvider>
 	);
 

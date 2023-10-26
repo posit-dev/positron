@@ -23,6 +23,8 @@ import { StaticPlotClient } from 'vs/workbench/services/positronPlots/common/sta
 interface PlotContainerProps {
 	width: number;
 	height: number;
+	x: number;
+	y: number;
 	showHistory: boolean;
 }
 
@@ -95,6 +97,8 @@ export const PlotsContainer = (props: PlotContainerProps) => {
 		} else if (plotInstance instanceof WebviewPlotClient) {
 			return <WebviewPlotInstance
 				key={plotInstance.id}
+				width={plotWidth}
+				height={plotHeight}
 				plotClient={plotInstance} />;
 		}
 		return null;

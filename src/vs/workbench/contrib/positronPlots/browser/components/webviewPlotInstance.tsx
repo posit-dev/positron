@@ -10,6 +10,8 @@ import { WebviewPlotClient } from 'vs/workbench/contrib/positronPlots/browser/we
  * WebviewPlotInstanceProps interface.
  */
 interface WebviewPlotInstanceProps {
+	width: number;
+	height: number;
 	plotClient: WebviewPlotClient;
 }
 
@@ -34,10 +36,15 @@ export const WebviewPlotInstance = (props: WebviewPlotInstanceProps) => {
 		};
 	});
 
+	const style = {
+		width: `${props.width}px`,
+		height: `${props.height}px`,
+	};
+
 	// The DOM we render is just a single div that the webview will be
 	// positioned over.
 	return (
-		<div className='plot-instance' ref={webviewRef}>
+		<div style={style} className='plot-instance' ref={webviewRef}>
 		</div>
 	);
 };
