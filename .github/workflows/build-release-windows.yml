@@ -66,8 +66,10 @@ jobs:
       matrix:
         platform: [win32]
         arch: [x64]
+        target: [system]
         include:
           - arch: x64
+          - target: system
 
     steps:
       # Checkout sources
@@ -101,16 +103,11 @@ jobs:
           POSITRON_BUILD_NUMBER: ${{ needs.version_string.outputs.build_number }}
         run: |
           yarn gulp vscode-${{ matrix.platform }}-${{ matrix.arch }}-inno-updater
-          yarn gulp vscode-${{ matrix.platform }}-${{ matrix.arch }}-system-setup
-
-      # Compress client setup executable
-      - name: Create client archive
-        run: |
-          tar -a -c -f positron-${{ needs.version_string.outputs.short_version }}-${{ matrix.platform }}-${{ matrix.arch }}-setup.tar .build/${{ matrix.platform }}-${{ matrix.arch }}/system-setup/PositronSetup.exe
+          yarn gulp vscode-${{ matrix.platform }}-${{ matrix.arch }}-${{ matrix.target }}-setup
 
       # Create build artifact
       - name: Upload client archive
         uses: actions/upload-artifact@v3
         with:
-          name: positron-${{ matrix.platform }}-${{ matrix.arch }}-setup-archive
-          path: positron-${{ needs.version_string.outputs.short_version }}-${{ matrix.platform }}-${{ matrix.arch }}-setup.tar
+          name: positron-${{ matrix.platform }}-${{ matrix.arch }}-${{ matrix.target }}-setup.exe
+          path: .build/${{ matrix.platform }}-${{ matrix.arch }}/${{ matrix.target }}-setup/PositronSetup.exe
