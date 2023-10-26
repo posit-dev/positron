@@ -216,14 +216,19 @@ export const DataPanel = (props: DataPanelProps) => {
 	{
 		count: rows.length,
 		getScrollElement: () => tableContainerRef.current,
+		// For now, we assume all rows are of constant height
+		// TODO: account for variable height rows, here and below in the totalSize variable
 		estimateSize: () => rowHeightPx,
 		overscan: scrollOverscan
 	});
 
 	// Compute the padding for the table container.
 	const virtualRows = rowVirtualizer.getVirtualItems();
-	const totalSize = rowVirtualizer.getTotalSize();
-	const paddingTop = virtualRows.length > 0 ? virtualRows?.[0]?.start || 0 : 0;
+	const totalSize = rowHeightPx * totalRows;
+	const paddingTop =
+		virtualRows.length > 0
+			? virtualRows?.[0]?.start || 0
+			: 0;
 	const paddingBottom =
 		virtualRows.length > 0
 			? totalSize - (virtualRows?.[virtualRows.length - 1]?.end || 0)
