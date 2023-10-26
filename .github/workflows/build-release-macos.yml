@@ -50,10 +50,10 @@ jobs:
         with:
           fetch-depth: 0
 
-      # Set up Node 16; needed since the show-version.js script runs under Node
+      # Set up Node; needed since the show-version.js script runs under Node
       - uses: actions/setup-node@v3
         with:
-          node-version: 16
+          node-version: 18
 
       # Call version script to determine short version. This is the version
       # string that we will use later to form the file name of the release
