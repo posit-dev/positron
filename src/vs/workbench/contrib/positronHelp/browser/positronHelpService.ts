@@ -18,9 +18,9 @@ import { WebviewThemeDataProvider } from 'vs/workbench/contrib/webview/browser/t
 import { HelpEntry, IHelpEntry } from 'vs/workbench/contrib/positronHelp/browser/helpEntry';
 import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/common/extensions';
 import { IInstantiationService, createDecorator } from 'vs/platform/instantiation/common/instantiation';
-import { ILanguageRuntime, ILanguageRuntimeService, IRuntimeClientInstance, RuntimeClientType, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
-import { HelpClientInstance, IHelpClientMessageInput, IHelpClientMessageOutput, ShowHelpEvent } from 'vs/workbench/services/languageRuntime/common/languageRuntimeHelpClient';
 import { LanguageRuntimeEventData, LanguageRuntimeEventType } from 'vs/workbench/services/languageRuntime/common/languageRuntimeEvents';
+import { HelpClientInstance, IHelpClientMessageInput, IHelpClientMessageOutput, ShowHelpEvent } from 'vs/workbench/services/languageRuntime/common/languageRuntimeHelpClient';
+import { ILanguageRuntime, ILanguageRuntimeService, IRuntimeClientInstance, RuntimeClientType, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 
 /**
  * The help HTML file path.
@@ -136,6 +136,11 @@ class PositronHelpService extends Disposable implements IPositronHelpService {
 	private _helpEntryIndex = -1;
 
 	/**
+	 * Gets or sets a value which indicates whether the proxy server styles have been set.
+	 */
+	private _proxyServerStylesHaveBeenSet = false;
+
+	/**
 	 * Gets the proxy servers. Keyed by the target URL origin.
 	 */
 	private readonly _proxyServers = new Map<string, string>();
@@ -191,23 +196,9 @@ class PositronHelpService extends Disposable implements IPositronHelpService {
 			.then(fileContent => this._helpHTML = fileContent.value.toString());
 
 		// Register onDidColorThemeChange handler.
-		this._register(this._themeService.onDidColorThemeChange(async colorTheme => {
-			// Create a webview theme data provider. It's a convenient way to get the styles we need
-			// for the help prosy server. Get the webview styles.
-			const webviewThemeDataProvider = _instantiationService.createInstance(WebviewThemeDataProvider);
-			const { styles } = webviewThemeDataProvider.getWebviewThemeData();
-			webviewThemeDataProvider.dispose();
-
-			// Try to set the help proxy server styles.
-			try {
-				await this._commandService.executeCommand(
-					'positronProxy.setHelpProxyServerStyles',
-					styles
-				);
-			} catch (error) {
-				this._logService.error('PositronHelpService could not set the proxy server styles');
-				this._logService.error(error);
-			}
+		this._register(this._themeService.onDidColorThemeChange(async _colorTheme => {
+			// Set the proxy server styles when the color theme changes.
+			await this.setProxyServerStyles();
 		}));
 
 		// Register onDidReceiveRuntimeEvent handler.
@@ -257,8 +248,8 @@ class PositronHelpService extends Disposable implements IPositronHelpService {
 				} else {
 					this._logService.error(`PositronHelpService could not find runtime ${languageRuntimeGlobalEvent.runtime_id}.`);
 				}
-			}));
-
+			})
+		);
 	}
 
 	/**
@@ -426,6 +417,34 @@ class PositronHelpService extends Disposable implements IPositronHelpService {
 	//#endregion IPositronHelpService
 
 	//#region Private Methods
+
+	/**
+	 * Sets the proxy server styles.
+	 */
+	private async setProxyServerStyles() {
+		// Create a webview theme data provider. It's a convenient way to get the styles we need for
+		// the help proxy server. Get the webview styles.
+		const webviewThemeDataProvider = this._instantiationService.createInstance(
+			WebviewThemeDataProvider
+		);
+		const { styles } = webviewThemeDataProvider.getWebviewThemeData();
+		webviewThemeDataProvider.dispose();
+
+		// Try to set the proxy server styles.
+		try {
+			// Set the proxy server styles.
+			await this._commandService.executeCommand(
+				'positronProxy.setHelpProxyServerStyles',
+				styles
+			);
+
+			// Note that the proxy server styles have been set.
+			this._proxyServerStylesHaveBeenSet = true;
+		} catch (error) {
+			this._logService.error('PositronHelpService could not set the proxy server styles');
+			this._logService.error(error);
+		}
+	}
 
 	/**
 	 * Adds a help entry.
@@ -618,6 +637,11 @@ class PositronHelpService extends Disposable implements IPositronHelpService {
 		// PositronProxy to start one.
 		let proxyServerOrigin = this._proxyServers.get(targetUrl.origin);
 		if (!proxyServerOrigin) {
+			// Ensure that the proxy server styles have been set.
+			if (!this._proxyServerStylesHaveBeenSet) {
+				await this.setProxyServerStyles();
+			}
+
 			// Try to start a help proxy server.
 			try {
 				proxyServerOrigin = await this._commandService.executeCommand<string>(
