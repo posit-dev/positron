@@ -35,13 +35,10 @@
 	"wordPattern": "(-?\\d*\\.\\d\\w*)|([^\\`\\~|%\\!\\@\\#\\%\\^\\$\\&\\*\\(\\)\\-\\=\\+\\[\\{\\]\\}\\\\\\|\\;\\:\\'\\\"\\,\\<\\>\\/\\?\\s]+)",
 	"indentationRules": {
 		"increaseIndentPattern": {
-			"pattern": "^[^#]*[\\{\\(\\[]\\s*(?:#|$)"
+			"pattern": "^[^#]*(\\{[^}\"'`]*|\\([^)\"'`]*|\\[[^\\]\"'`]*)(?:#|$)"
 		},
 		"decreaseIndentPattern": {
 			"pattern": "^\\s*[\\}\\)\\]].*$"
-		},
-		"indentNextLinePattern": {
-			"pattern": "^\\s*(?:if|else|for|while|repeat)\\s*(?:\\(.*?\\))?\\s*(?:#|$)"
 		}
 	},
 	"onEnterRules": [
@@ -58,59 +55,31 @@
 			"action": { "indent": "none", "appendText": "#| " }
 		},
 
-		// Handle indent-outdent for '{}'.
-		{
-			"beforeText": "\\{",
-			"afterText":  "\\}",
-			"action": { "indent": "indentOutdent" }
-		},
-
-		// Handle indent-outdent for '()'.
-		{
-			"beforeText": "\\(",
-			"afterText":  "\\)",
-			"action": { "indent": "indentOutdent" }
-		},
-
-		// Handle indent-outdent for '[]'.
-		{
-			"beforeText": "\\[",
-			"afterText":  "\\]",
-			"action": { "indent": "indentOutdent" }
-		},
-
-		// An empty line.
-		{
-			"beforeText": "^\\s*(?:#|$)",
-			"action": { "indent": "none" }
-		},
-
 		// A line ending with an operator, preceded by a blank line.
 		{
 			"previousLineText": "^\\s*(?:#|$)",
-			"beforeText":		"^\\s*[^#]+[=|\\+|-|\\*?|/|\\^|>|<|!|&|\\||~|%|\\$|:|@|\\?]\\s*(?:#|$)",
+			"beforeText":		"^\\s*[^#]+[=\\+\\-\\*?/\\^><!&\\|~%\\$:@\\?]\\s*(?:#|$)",
+			"action":			{ "indent": "indent" }
+},
+
+		// A line ending with an operator, preceded by a line not ending with an operator.
+		{
+			"previousLineText": "^(?!.*[=\\+\\-\\*?/\\^><!&\\|~%\\$:@\\?]\\s*(?:#|$))[^#]+.*$",
+			"beforeText":		"^\\s*[^#]+[=\\+\\-\\*?/\\^><!&\\|~%\\$:@\\?]\\s*(?:#|$)",
 			"action":			{ "indent": "indent" }
 		},
 
-		// A line with an operator, preceded by a line not containing any operator.
+		// A line not ending with an operator, preceded by a line ending with an operator.
 		{
-			"previousLineText": "^\\s*[^#]+[^=|\\+|-|\\*?|/|\\^|>|<|!|&|\\||~|%|\\$|:|@|\\?]\\s*(?:#|$)",
-			"beforeText":		"^\\s*[^#]+[=|\\+|-|\\*?|/|\\^|>|<|!|&|\\||~|%|\\$|:|@|\\?]\\s*(?:#|$)",
-			"action":			{ "indent": "indent" }
-		},
-
-		// A line with an operator, preceded by a line with an operator.
-		{
-			"previousLineText": "^[^#]*[=|\\+|-|\\*?|/|\\^|>|<|!|&|\\||~|%|\\$|:|@|\\?]\\s*(?:#|$)",
-			"beforeText":		"^[^#]*[=|\\+|-|\\*?|/|\\^|>|<|!|&|\\||~|%|\\$|:|@|\\?]\\s*(?:#|$)",
-			"action":			{ "indent": "none" }
-		},
-
-		// A line without an operator, preceded by a line with an operator.
-		{
-			"previousLineText": "^[^#]*[=|\\+|-|\\*?|/|\\^|>|<|!|&|\\||~|%|\\$|:|@|\\?]\\s*(?:#|$)",
-			"beforeText":		"^[^#]*[^=|\\+|-|\\*?|/|\\^|>|<|!|&|\\||~|%|\\$|:|@|\\?]\\s*(?:#|$)",
+			"previousLineText": "^\\s*[^#]+[=\\+\\-\\*?/\\^><!&\\|~%\\$:@\\?]\\s*(?:#|$)",
+			"beforeText":		"^(?!.*[=\\+\\-\\*?/\\^><!&\\|~%\\$:@\\?]\\s*(?:#|$))[^#]+.*$",
 			"action":			{ "indent": "outdent" }
+		},
+
+		// Control flow keywords.
+		{
+			"beforeText": "^\\s*(?:if|else|for|while|repeat)\\s*(?:\\(.*?\\))?\\s*(?:#|$)",
+			"action": { "indent": "indent" }
 		}
 	]
 }
