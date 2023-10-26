@@ -107,6 +107,7 @@ export class DataModel {
 	handleDataMessage(event: any): DataModel {
 		const message = event.data as DataViewerMessage;
 		if (message.msg_type === 'receive_rows' && !this.renderedRows.includes(message.start_row)) {
+			console.log(`Message received: ${message.start_row}`);
 			const dataMessage = message as DataViewerMessageRowResponse;
 
 			const incrementalData: DataFragment = {

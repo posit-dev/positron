@@ -36,10 +36,6 @@ interface DataPanelProps {
  */
 export const DataPanel = (props: DataPanelProps) => {
 
-	// The distance from the bottom of the table container at which we will
-	// trigger a fetch of more data.
-	const scrollThresholdPx = 300;
-
 	// The height of a single row of data
 	const rowHeightPx = 30;
 
@@ -53,19 +49,24 @@ export const DataPanel = (props: DataPanelProps) => {
 
 	const {initialData, fetchSize, vscode} = props;
 
-	const [dataModel, updateDataModel] = React.useState<DataModel>(
-		new DataModel(initialData)
-	);
+	const dataModelRef = React.useRef(new DataModel(initialData));
+	const requestQueue = React.useRef<number[]>([]);
 
-	// Count total rows against those we have fetched.
-	const totalRows = dataModel.rowCount;
+	// Count total rows and pages, including those we have not yet fetched
+	const totalRows = dataModelRef.current.rowCount;
 	const maxPages = Math.ceil(totalRows / fetchSize);
 
 	React.useEffect(() => {
 		const handleMessage = ((event: any) => {
-			updateDataModel((prevDataModel) => {
-				return prevDataModel.handleDataMessage(event);
-			});
+			const prevDataModel = dataModelRef.current;
+			dataModelRef.current = prevDataModel.handleDataMessage(event);
+			if (dataModelRef.current.loadedRowCount > prevDataModel.loadedRowCount) {
+				console.log(`Fulfilling request for ${event?.data?.start_row}`);
+				requestQueue.current = requestQueue.current.filter(
+					// remove fulfilled requests from the queue
+					rowRequest => !dataModelRef.current.renderedRows.includes(rowRequest)
+				);
+			}
 		});
 
 		window.addEventListener('message', handleMessage);
@@ -78,7 +79,7 @@ export const DataPanel = (props: DataPanelProps) => {
 	// Create the columns for the table. These use the 'any' type since the data
 	// model is generic.
 	const columns = React.useMemo<ReactTable.ColumnDef<any>[]>(
-		() => dataModel.columns.map((column, idx) => {
+		() => dataModelRef.current.columns.map((column, idx) => {
 				return {
 					id: '' + idx,
 					accessorKey: idx,
@@ -88,72 +89,98 @@ export const DataPanel = (props: DataPanelProps) => {
 					header: column.name
 				};
 			}),
-		[dataModel]);
+		[dataModelRef.current]);
 
-	async function fetchNextDataFragment(pageParam: number, fetchSize: number): Promise<DataFragment> {
+	function fetchNextDataFragment(pageParam: number, fetchSize: number): DataFragment {
 		// Fetches a single page of data from the data model.
 		const startRow = pageParam * fetchSize;
 		// Overwrite fetchSize so that we never request rows past the end of the dataset
 		fetchSize = Math.min(fetchSize, totalRows - startRow);
 
 		// Request more rows from the server if we don't have them in the cache
-		if (startRow > 0 && !dataModel.renderedRows.includes(startRow)) {
-			vscode.postMessage({
-				msg_type: 'request_rows',
-				start_row: startRow,
-				fetch_size: fetchSize
-			});
-		}
+		if (startRow > 0 && !dataModelRef.current.renderedRows.includes(startRow)) {
+			// Don't send duplicate requests
+			if (!requestQueue.current.includes(startRow)) {
+				console.log(`Sending request for ${startRow}`);
+				vscode.postMessage({
+					msg_type: 'request_rows',
+					start_row: startRow,
+					fetch_size: fetchSize
+				});
+				// Add the outstanding request to the front of the queue
+				requestQueue.current = [startRow, ...requestQueue.current];
+			}
 
-		const fragment = dataModel.loadDataFragment(startRow, fetchSize);
-		return fragment;
+			// We can't return the requested fragment yet, so return an empty fragment for now
+			return {
+				rowStart: startRow,
+				rowEnd: startRow + fetchSize - 1,
+				columns: []
+			};
+		} else {
+			const fragment = dataModelRef.current.loadDataFragment(startRow, fetchSize);
+			return fragment;
+		}
 	}
 
+	const initialDataFragment: DataFragment = {
+		rowStart: 0,
+		rowEnd: Math.min(fetchSize, totalRows),
+		columns: initialData.columns
+	};
+
 	// Use a React Query infinite query to fetch data from the data model,
-	// with the dataModel id as cache key so we re-query when new data comes in.
+	// with the loaded row count as cache key so we re-query when new data comes in.
 	const {
 		data,
 		isLoading,
 		isFetchingNextPage,
 		fetchNextPage,
 		hasNextPage
-	} = ReactQuery.useInfiniteQuery<DataFragment>({
-			queryKey: ['table-data', dataModel.id],
-			queryFn: ({pageParam = 0}) => fetchNextDataFragment(pageParam as number, fetchSize),
+	} = ReactQuery.useInfiniteQuery({
+			queryKey: ['table-data', dataModelRef.current.loadedRowCount],
+			queryFn: ({pageParam}) => fetchNextDataFragment(pageParam, fetchSize),
 			initialPageParam: 0,
+			initialData: {
+				pages: [initialDataFragment],
+				pageParams: [0]
+			},
 			// undefined if we are on the final page of data
-			getNextPageParam: (_lastPage, allPages) => allPages.length !== maxPages ? allPages.length : undefined,
+			getNextPageParam: (_page, fetchedPages) => {
+				return fetchedPages.length === maxPages ? undefined : fetchedPages.length;
+			},
 			refetchOnWindowFocus: false,
 			placeholderData: (previousData) => previousData
 		});
 
 
-	// Flatten and transpose the data. The data model stores data in a column-major
+	// Transpose and flatten the data. The data model stores data in a column-major
 	// format, but React Table expects data in a row-major format, so we need to
 	// transpose the data.
 	const flatData = React.useMemo(
 		() => {
-			const rows: any[] = [];
-			// Loop over each page of data
-			data?.pages?.forEach(page => {
-				// Loop over each column in the page and add the values to the
-				// corresponding row.
-				page.columns.forEach((column, idx) => {
-					column.data.forEach((value, rowIdx) => {
-						// Create the index into the row; this is the row index
-						// plus the rowStart value of the page.
-						rowIdx += page.rowStart;
-						// Create the row if it doesn't exist.
-						const row = rows[rowIdx] || (rows[rowIdx] = {});
-						row[idx] = value;
-					});
-				});
-			});
-			return rows;
-		},
-		[data]);
+			// Loop over each page of data and transpose the data for that page.
+			// Then flatten all the transposed data pages together
 
-		// Define the main ReactTable instance.
+			// data and pages will never be null because we declared initialData
+			return data?.pages?.flatMap(page => {
+				// Get the number of rows for the current page
+				if (page.columns.length) {
+					return page.columns[0].data.map(
+						// Transpose the data for the current page
+						(_, rowIdx) => page.columns.map(col => col.data[rowIdx])
+					);
+				} else {
+					// No data available for current page
+					return [[]];
+				}
+
+			});
+		},
+		[data]
+	);
+
+	// Define the main ReactTable instance.
 	const table = ReactTable.useReactTable({
 		data: flatData,
 		columns,
@@ -182,40 +209,38 @@ export const DataPanel = (props: DataPanelProps) => {
 			: 0;
 
 	// Callback, invoked on scroll, that will fetch more data from the backend if we have reached
-	// the bottom of the table container by sending a new MessageRequest.
-	const fetchMoreOnBottomReached = React.useCallback(
-		(containerRefElement?: HTMLDivElement | null) => {
-			if (containerRefElement) {
-				const { scrollHeight, scrollTop, clientHeight } = containerRefElement;
-				const distance = scrollHeight - scrollTop - clientHeight;
-				if (distance < scrollThresholdPx &&
-					!isFetchingNextPage &&
-					hasNextPage
-				) {
-					fetchNextPage();
-				}
-			}
-		},
-		[fetchNextPage, isFetchingNextPage, hasNextPage]);
+	// the end of the virtualized rows by sending a new MessageRequest.
+	const fetchMoreOnBottomReached = React.useCallback(() => {
+		const [lastVirtualRow] = [...virtualRows].reverse();
+		const [lastFetchedRow] = [...rows].reverse();
+		const nextStartRow = lastFetchedRow.index + 1;
 
-	// Use an effect to fetch more data when the table container is scrolled.
-	React.useEffect(() => {
-		const [lastItem] = [...virtualRows].reverse();
-
-		if (!lastItem) {
+		if (!lastVirtualRow || !hasNextPage || isFetchingNextPage) {
 			return;
 		}
 
-		// user has scrolled almost to the end of the loaded virtual rows
-		// so fetch more from the backend if there are more pages
-		if (lastItem.index >= rows.length - scrollThresholdRows &&
-			hasNextPage &&
-			!isFetchingNextPage
+		// don't trigger fetchNextPage if the data has already been requested or received
+		if (requestQueue.current.includes(nextStartRow)
+			//|| dataModelRef.current.renderedRows.includes(nextStartRow)
 		) {
-			fetchMoreOnBottomReached(tableContainerRef.current);
+			return;
 		}
 
-	}, [fetchNextPage, isFetchingNextPage, hasNextPage, rows.length, virtualRows]);
+		const virtualRowsRemaining = lastFetchedRow.index - lastVirtualRow.index;
+		if (( virtualRowsRemaining < scrollThresholdRows)
+		) {
+			console.log(`FetchNextPage: virtual ${lastVirtualRow.index} fetched: ${lastFetchedRow.index}`);
+			console.log(`dataModel: ${dataModelRef.current.loadedRowCount} total starts: ${JSON.stringify(dataModelRef.current.renderedRows)}`);
+			console.log(`requestQueue: ${requestQueue.current}`);
+			fetchNextPage();
+		}
+	}, [fetchNextPage, isFetchingNextPage, hasNextPage, rows, virtualRows]);
+
+	// a check on mount and after a fetch to see if the table is already scrolled to the bottom
+	// and immediately needs to fetch more data
+	React.useEffect(() => {
+		fetchMoreOnBottomReached();
+	}, [fetchMoreOnBottomReached]);
 
 	if (isLoading) {
 		return <>Loading...</>;
@@ -224,7 +249,7 @@ export const DataPanel = (props: DataPanelProps) => {
 	return (
 		<div
 			className='container'
-			onScroll={e => fetchMoreOnBottomReached(e.target as HTMLDivElement)}
+			onScroll={fetchMoreOnBottomReached}
 			ref={tableContainerRef}
 		>
 			<table>
