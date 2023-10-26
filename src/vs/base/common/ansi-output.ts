@@ -74,6 +74,11 @@ export interface ANSIOutputLine {
 	readonly id: string;
 
 	/**
+	 * Gets the hyperlink.
+	 */
+	readonly hyperlink?: ANSIHyperlink;
+
+	/**
 	 * Gets the output runs.
 	 */
 	readonly outputRuns: ANSIOutputRun[];
@@ -89,6 +94,11 @@ export interface ANSIOutputRun {
 	readonly id: string;
 
 	/**
+	 * Gets the hyperlink.
+	 */
+	readonly hyperlink?: ANSIHyperlink;
+
+	/**
 	 * Gets the format.
 	 */
 	readonly format?: ANSIFormat;
@@ -97,6 +107,21 @@ export interface ANSIOutputRun {
 	 * Gets the text.
 	 */
 	readonly text: string;
+}
+
+/**
+* ANSIHyperlink interface.
+*/
+export interface ANSIHyperlink {
+	/**
+	 * Gets the URL.
+	 */
+	readonly url: string;
+
+	/**
+	 * Gets the params.
+	 */
+	readonly params?: Map<string, string>;
 }
 
 /**
@@ -143,12 +168,17 @@ export class ANSIOutput {
 	/**
 	 * Gets or sets the control sequence that's being parsed.
 	 */
-	private _controlSequence = '';
+	private _cs = '';
 
 	/**
 	 * Gets or sets the SGR state.
 	 */
 	private _sgrState?: SGRState = undefined;
+
+	/**
+	 * Gets or sets the operating system command that's being parsed.
+	 */
+	private _osc = '';
 
 	/**
 	 * Gets or sets the current set of output lines.
@@ -174,6 +204,11 @@ export class ANSIOutput {
 	 * Gets or sets a value which indicates whether there is a pending newline.
 	 */
 	private _pendingNewline = false;
+
+	/**
+	 * Gets or sets the hyperlink that is active.
+	 */
+	private _hyperlink?: Hyperlink;
 
 	//#endregion Private Properties
 
@@ -233,7 +268,7 @@ export class ANSIOutput {
 				// Flush the buffer.
 				this.flushBuffer();
 
-				// Adjust the output line and output column.
+				// Increment the output line and reset the output column.
 				this._outputLine++;
 				this._outputColumn = 0;
 
@@ -244,45 +279,112 @@ export class ANSIOutput {
 			// Get the character.
 			const char = output.charAt(i);
 
-			// Parse the character.
-			if (this._parserState === ParserState.BufferingOutput) {
-				// Check for the start of an control sequence (or CSI). This can be \x1b[ or \x9b.
-				if (char === '\x1b') {
-					// Flush the buffer.
-					this.flushBuffer();
+			// Process the character.
+			switch (this._parserState) {
+				// If the parser is buffering output, look for ESC, CSI, or OSC.
+				case ParserState.BufferingOutput: {
+					// Look for ESC, CSI, or OSC.
+					switch (char) {
+						// ESC.
+						case '\x1b': {
+							// Flush the buffer.
+							this.flushBuffer();
 
-					// Enter the control sequence started state.
-					this._parserState = ParserState.ControlSequenceStarted;
-				} else if (char === '\x9b') {
-					// Flush the buffer.
-					this.flushBuffer();
+							// Enter the escape sequence started state.
+							this._parserState = ParserState.EscapeSequenceStarted;
+							break;
+						}
 
-					// Enter the parsing control sequence state.
-					this._parserState = ParserState.ParsingControlSequence;
-				} else {
-					// Process the character.
-					this.processCharacter(char);
+						// CSI.
+						case '\x9b': {
+							// Flush the buffer.
+							this.flushBuffer();
+
+							// Enter the parsing control sequence state.
+							this._cs = '';
+							this._parserState = ParserState.ParsingControlSequence;
+							break;
+						}
+
+						// OSC.
+						case '\x9d': {
+							// Flush the buffer.
+							this.flushBuffer();
+
+							// Enter the parsing operating system command state.
+							this._osc = '';
+							this._parserState = ParserState.ParsingOperatingSystemCommand;
+							break;
+						}
+
+						// Other characters.
+						default: {
+							// Process the character.
+							this.processCharacter(char);
+							break;
+						}
+					}
+					break;
 				}
-			} else if (this._parserState === ParserState.ControlSequenceStarted) {
-				// Check for CSI.
-				if (char === '[') {
-					// Enter the parsing control sequence state.
-					this._parserState = ParserState.ParsingControlSequence;
-				} else {
-					// We encountered an ESC that is not part of a CSI. Ignore the ESC, go back to
-					// the buffering output state.
-					this._parserState = ParserState.BufferingOutput;
 
-					// Process the character.
-					this.processCharacter(char);
+				// If the parser is at the start of an escape sequence, look for CSI or OSC.
+				case ParserState.EscapeSequenceStarted: {
+					// Look for CSI or OSC.
+					switch (char) {
+						// CSI.
+						case '[': {
+							// Enter the parsing control sequence state.
+							this._cs = '';
+							this._parserState = ParserState.ParsingControlSequence;
+							break;
+						}
+
+						// OSC.
+						case ']': {
+							// Enter the parsing operating system command state.
+							this._osc = '';
+							this._parserState = ParserState.ParsingOperatingSystemCommand;
+							break;
+						}
+
+						// Unexpected character.
+						default: {
+							// We encountered an ESC that is not part of a CSI or OSC. Ignore the
+							// ESC, return to the buffering output state, and process the character.
+							this._parserState = ParserState.BufferingOutput;
+
+							// Process the character.
+							this.processCharacter(char);
+							break;
+						}
+					}
+					break;
 				}
-			} else if (this._parserState === ParserState.ParsingControlSequence) {
-				// Append the character to the control sequence.
-				this._controlSequence += char;
 
-				// If this character ends the control sequence, process it.
-				if (char.match(/^[A-Za-z]$/)) {
-					this.processControlSequence();
+				// Parsing a control sequence.
+				case ParserState.ParsingControlSequence: {
+					// Append the character to the control sequence.
+					this._cs += char;
+
+					// If this character ends the control sequence, process it.
+					if (char.match(/^[A-Za-z]$/)) {
+						this.processControlSequence();
+					}
+					break;
+				}
+
+				// Parsing an operating system command.
+				case ParserState.ParsingOperatingSystemCommand: {
+					// Append the character to the operating system command.
+					this._osc += char;
+
+					// If we parsed an operating system command, process it.
+					const match = this._osc.match(/^(.*)(?:\x1b\x5c|\x07|\x9c)$/);
+					if (match && match.length === 2) {
+						this._osc = match[1];
+						this.processOperatingSystemCommand();
+					}
+					break;
 				}
 			}
 		}
@@ -326,20 +428,23 @@ export class ANSIOutput {
 		// Handle special characters. Otherwise, buffer the character.
 		switch (char) {
 			// LF sets the pending newline flag.
-			case '\n':
+			case '\n': {
 				this._pendingNewline = true;
 				break;
+			}
 
 			// CR flushes the buffer and sets the output column to 0.
-			case '\r':
+			case '\r': {
 				this.flushBuffer();
 				this._outputColumn = 0;
 				break;
+			}
 
 			// Buffer the character.
-			default:
+			default: {
 				this._buffer += char;
 				break;
+			}
 		}
 	}
 
@@ -347,55 +452,63 @@ export class ANSIOutput {
 	 * Processes a control sequence.
 	 */
 	private processControlSequence() {
-		// Process SGR control sequence.
-		switch (this._controlSequence.charAt(this._controlSequence.length - 1)) {
+		// Process the control sequence.
+		switch (this._cs.charAt(this._cs.length - 1)) {
 			// CUU (Cursor Up).
-			case 'A':
+			case 'A': {
 				this.processCUU();
 				break;
+			}
 
 			// CUD (Cursor Down).
-			case 'B':
+			case 'B': {
 				this.processCUD();
 				break;
+			}
 
 			// CUF (Cursor Forward).
-			case 'C':
+			case 'C': {
 				this.processCUF();
 				break;
+			}
 
 			// CUB (Cursor Backward).
-			case 'D':
+			case 'D': {
 				this.processCUB();
 				break;
+			}
 
 			// CUP (Cursor Position).
-			case 'H':
+			case 'H': {
 				this.processCUP();
 				break;
+			}
 
 			// ED (Erase in Display).
-			case 'J':
+			case 'J': {
 				this.processED();
 				break;
+			}
 
 			// EL (Erase in Line).
-			case 'K':
+			case 'K': {
 				this.processEL();
 				break;
+			}
 
 			// SGR (Select Graphic Rendition).
-			case 'm':
+			case 'm': {
 				this.processSGR();
 				break;
+			}
 
 			// Unsupported control sequence.
-			default:
+			default: {
 				break;
+			}
 		}
 
-		// Clear the control sequence and go back to the buffering output state.
-		this._controlSequence = '';
+		// Return to the buffering output state.
 		this._parserState = ParserState.BufferingOutput;
 	}
 
@@ -404,7 +517,7 @@ export class ANSIOutput {
 	 */
 	private processCUU() {
 		// Match the control sequence.
-		const match = this._controlSequence.match(/^([0-9]*)A$/);
+		const match = this._cs.match(/^([0-9]*)A$/);
 		if (match) {
 			this._outputLine = Math.max(this._outputLine - rangeParam(match[1], 1, 1), 0);
 		}
@@ -415,7 +528,7 @@ export class ANSIOutput {
 	 */
 	private processCUD() {
 		// Match the control sequence.
-		const match = this._controlSequence.match(/^([0-9]*)B$/);
+		const match = this._cs.match(/^([0-9]*)B$/);
 		if (match) {
 			this._outputLine = this._outputLine + rangeParam(match[1], 1, 1);
 		}
@@ -426,7 +539,7 @@ export class ANSIOutput {
 	 */
 	private processCUF() {
 		// Match the control sequence.
-		const match = this._controlSequence.match(/^([0-9]*)C$/);
+		const match = this._cs.match(/^([0-9]*)C$/);
 		if (match) {
 			this._outputColumn = this._outputColumn + rangeParam(match[1], 1, 1);
 		}
@@ -437,7 +550,7 @@ export class ANSIOutput {
 	 */
 	private processCUB() {
 		// Match the control sequence.
-		const match = this._controlSequence.match(/^([0-9]*)D$/);
+		const match = this._cs.match(/^([0-9]*)D$/);
 		if (match) {
 			this._outputColumn = Math.max(this._outputColumn - rangeParam(match[1], 1, 1), 0);
 		}
@@ -448,7 +561,7 @@ export class ANSIOutput {
 	 */
 	private processCUP() {
 		// Match the control sequence.
-		const match = this._controlSequence.match(/^([0-9]*)(?:;?([0-9]*))H$/);
+		const match = this._cs.match(/^([0-9]*)(?:;?([0-9]*))H$/);
 		if (match) {
 			this._outputLine = rangeParam(match[1], 1, 1) - 1;
 			this._outputColumn = rangeParam(match[2], 1, 1) - 1;
@@ -460,32 +573,35 @@ export class ANSIOutput {
 	 */
 	private processED() {
 		// Match the control sequence.
-		const match = this._controlSequence.match(/^([0-9]*)J$/);
+		const match = this._cs.match(/^([0-9]*)J$/);
 		if (match) {
 			// Process the parameter.
 			switch (getParam(match[1], 0)) {
 				// Clear from cursor to the end of the screen.
-				case 0:
+				case 0: {
 					this._outputLines[this._outputLine].clearToEndOfLine(this._outputColumn);
 					for (let i = this._outputLine + 1; i < this._outputLines.length; i++) {
 						this._outputLines[i].clearEntireLine();
 					}
 					break;
+				}
 
 				// Clear from cursor to the beginning of the screen.
-				case 1:
+				case 1: {
 					this._outputLines[this._outputLine].clearToBeginningOfLine(this._outputColumn);
 					for (let i = 0; i < this._outputLine; i++) {
 						this._outputLines[i].clearEntireLine();
 					}
 					break;
+				}
 
 				// Clear the entire screen.
-				case 2:
+				case 2: {
 					for (let i = 0; i < this._outputLines.length; i++) {
 						this._outputLines[i].clearEntireLine();
 					}
 					break;
+				}
 			}
 		}
 	}
@@ -495,7 +611,7 @@ export class ANSIOutput {
 	 */
 	private processEL() {
 		// Match the control sequence.
-		const match = this._controlSequence.match(/^([0-9]*)K$/);
+		const match = this._cs.match(/^([0-9]*)K$/);
 		if (match) {
 			// Get the output line.
 			const outputLine = this._outputLines[this._outputLine];
@@ -503,19 +619,22 @@ export class ANSIOutput {
 			// Process the parameter.
 			switch (getParam(match[1], 0)) {
 				// Clear from cursor to the end of the line.
-				case 0:
+				case 0: {
 					outputLine.clearToEndOfLine(this._outputColumn);
 					break;
+				}
 
 				// Clear from cursor to the beginning of the line.
-				case 1:
+				case 1: {
 					outputLine.clearToBeginningOfLine(this._outputColumn);
 					break;
+				}
 
 				// Clear the entire line.
-				case 2:
+				case 2: {
 					outputLine.clearEntireLine();
 					break;
+				}
 			}
 		}
 	}
@@ -528,7 +647,7 @@ export class ANSIOutput {
 		const sgrState = this._sgrState ? this._sgrState.copy() : new SGRState();
 
 		// Parse the SGR parameters.
-		const sgrParams = this._controlSequence
+		const sgrParams = this._cs
 			// Remove ending character.
 			.slice(0, -1)
 			// Split the SGR parameters.
@@ -578,56 +697,72 @@ export class ANSIOutput {
 
 						// Process the color index. The first 16 indexes map to normal ANSIColors.
 						switch (colorIndex) {
-							case SGRParamIndexedColor.Black:
+							case SGRParamIndexedColor.Black: {
 								return ANSIColor.Black;
+							}
 
-							case SGRParamIndexedColor.Red:
+							case SGRParamIndexedColor.Red: {
 								return ANSIColor.Red;
+							}
 
-							case SGRParamIndexedColor.Green:
+							case SGRParamIndexedColor.Green: {
 								return ANSIColor.Green;
+							}
 
-							case SGRParamIndexedColor.Yellow:
+							case SGRParamIndexedColor.Yellow: {
 								return ANSIColor.Yellow;
+							}
 
-							case SGRParamIndexedColor.Blue:
+							case SGRParamIndexedColor.Blue: {
 								return ANSIColor.Blue;
+							}
 
-							case SGRParamIndexedColor.Magenta:
+							case SGRParamIndexedColor.Magenta: {
 								return ANSIColor.Magenta;
+							}
 
-							case SGRParamIndexedColor.Cyan:
+							case SGRParamIndexedColor.Cyan: {
 								return ANSIColor.Cyan;
+							}
 
-							case SGRParamIndexedColor.White:
+							case SGRParamIndexedColor.White: {
 								return ANSIColor.White;
+							}
 
-							case SGRParamIndexedColor.BrightBlack:
+							case SGRParamIndexedColor.BrightBlack: {
 								return ANSIColor.BrightBlack;
+							}
 
-							case SGRParamIndexedColor.BrightRed:
+							case SGRParamIndexedColor.BrightRed: {
 								return ANSIColor.BrightRed;
+							}
 
-							case SGRParamIndexedColor.BrightGreen:
+							case SGRParamIndexedColor.BrightGreen: {
 								return ANSIColor.BrightGreen;
+							}
 
-							case SGRParamIndexedColor.BrightYellow:
+							case SGRParamIndexedColor.BrightYellow: {
 								return ANSIColor.BrightYellow;
+							}
 
-							case SGRParamIndexedColor.BrightBlue:
+							case SGRParamIndexedColor.BrightBlue: {
 								return ANSIColor.BrightBlue;
+							}
 
-							case SGRParamIndexedColor.BrightMagenta:
+							case SGRParamIndexedColor.BrightMagenta: {
 								return ANSIColor.BrightMagenta;
+							}
 
-							case SGRParamIndexedColor.BrightCyan:
+							case SGRParamIndexedColor.BrightCyan: {
 								return ANSIColor.BrightCyan;
+							}
 
-							case SGRParamIndexedColor.BrightWhite:
+							case SGRParamIndexedColor.BrightWhite: {
 								return ANSIColor.BrightWhite;
+							}
 
 							// Process other color indexes.
-							default:
+							default: {
 								// Sanity check that the color index is an integer.
 								if (colorIndex % 1 !== 0) {
 									return undefined;
@@ -664,6 +799,7 @@ export class ANSIOutput {
 									// Wonky!
 									return undefined;
 								}
+							}
 						}
 					}
 
@@ -689,156 +825,195 @@ export class ANSIOutput {
 
 			// Process the SGR parameter.
 			switch (sgrParam) {
-				case SGRParam.Reset:
+				case SGRParam.Reset: {
 					sgrState.reset();
 					break;
+				}
 
-				case SGRParam.Bold:
+				case SGRParam.Bold: {
 					sgrState.setStyle(ANSIStyle.Bold);
 					break;
+				}
 
-				case SGRParam.Dim:
+				case SGRParam.Dim: {
 					sgrState.setStyle(ANSIStyle.Dim);
 					break;
+				}
 
-				case SGRParam.Italic:
+				case SGRParam.Italic: {
 					sgrState.setStyle(ANSIStyle.Italic);
 					break;
+				}
 
-				case SGRParam.Underlined:
+				case SGRParam.Underlined: {
 					sgrState.setStyle(ANSIStyle.Underlined, ANSIStyle.DoubleUnderlined);
 					break;
+				}
 
-				case SGRParam.SlowBlink:
+				case SGRParam.SlowBlink: {
 					sgrState.setStyle(ANSIStyle.SlowBlink, ANSIStyle.RapidBlink);
 					break;
+				}
 
-				case SGRParam.RapidBlink:
+				case SGRParam.RapidBlink: {
 					sgrState.setStyle(ANSIStyle.RapidBlink, ANSIStyle.SlowBlink);
 					break;
+				}
 
-				case SGRParam.Reversed:
+				case SGRParam.Reversed: {
 					sgrState.setReversed(true);
 					break;
+				}
 
-				case SGRParam.Hidden:
+				case SGRParam.Hidden: {
 					sgrState.setStyle(ANSIStyle.Hidden);
 					break;
+				}
 
-				case SGRParam.CrossedOut:
+				case SGRParam.CrossedOut: {
 					sgrState.setStyle(ANSIStyle.CrossedOut);
 					break;
+				}
 
-				case SGRParam.PrimaryFont:
+				case SGRParam.PrimaryFont: {
 					sgrState.setFont();
 					break;
+				}
 
-				case SGRParam.AlternativeFont1:
+				case SGRParam.AlternativeFont1: {
 					sgrState.setFont(ANSIFont.AlternativeFont1);
 					break;
+				}
 
-				case SGRParam.AlternativeFont2:
+				case SGRParam.AlternativeFont2: {
 					sgrState.setFont(ANSIFont.AlternativeFont2);
 					break;
+				}
 
-				case SGRParam.AlternativeFont3:
+				case SGRParam.AlternativeFont3: {
 					sgrState.setFont(ANSIFont.AlternativeFont3);
 					break;
+				}
 
-				case SGRParam.AlternativeFont4:
+				case SGRParam.AlternativeFont4: {
 					sgrState.setFont(ANSIFont.AlternativeFont4);
 					break;
-				case SGRParam.AlternativeFont5:
+				}
+
+				case SGRParam.AlternativeFont5: {
 					sgrState.setFont(ANSIFont.AlternativeFont5);
 					break;
+				}
 
-				case SGRParam.AlternativeFont6:
+				case SGRParam.AlternativeFont6: {
 					sgrState.setFont(ANSIFont.AlternativeFont6);
 					break;
+				}
 
-				case SGRParam.AlternativeFont7:
+				case SGRParam.AlternativeFont7: {
 					sgrState.setFont(ANSIFont.AlternativeFont7);
 					break;
+				}
 
-				case SGRParam.AlternativeFont8:
+				case SGRParam.AlternativeFont8: {
 					sgrState.setFont(ANSIFont.AlternativeFont8);
 					break;
+				}
 
-				case SGRParam.AlternativeFont9:
+				case SGRParam.AlternativeFont9: {
 					sgrState.setFont(ANSIFont.AlternativeFont9);
 					break;
+				}
 
-				case SGRParam.Fraktur:
+				case SGRParam.Fraktur: {
 					sgrState.setStyle(ANSIStyle.Fraktur);
 					break;
+				}
 
-				case SGRParam.DoubleUnderlined:
+				case SGRParam.DoubleUnderlined: {
 					sgrState.setStyle(ANSIStyle.DoubleUnderlined, ANSIStyle.Underlined);
 					break;
+				}
 
-				case SGRParam.NormalIntensity:
+				case SGRParam.NormalIntensity: {
 					sgrState.deleteStyles(ANSIStyle.Bold, ANSIStyle.Dim);
 					break;
+				}
 
-				case SGRParam.NotItalicNotFraktur:
+				case SGRParam.NotItalicNotFraktur: {
 					sgrState.deleteStyles(ANSIStyle.Italic, ANSIStyle.Fraktur);
 					break;
+				}
 
-				case SGRParam.NotUnderlined:
+				case SGRParam.NotUnderlined: {
 					sgrState.deleteStyles(ANSIStyle.Underlined, ANSIStyle.DoubleUnderlined);
 					break;
+				}
 
-				case SGRParam.NotBlinking:
+				case SGRParam.NotBlinking: {
 					sgrState.deleteStyles(ANSIStyle.SlowBlink, ANSIStyle.RapidBlink);
 					break;
+				}
 
-				case SGRParam.ProportionalSpacing:
+				case SGRParam.ProportionalSpacing: {
 					// Do nothing.
 					break;
+				}
 
-				case SGRParam.NotReversed:
+				case SGRParam.NotReversed: {
 					sgrState.setReversed(false);
 					break;
+				}
 
-				case SGRParam.Reveal:
+				case SGRParam.Reveal: {
 					sgrState.deleteStyles(ANSIStyle.Hidden);
 					break;
+				}
 
-				case SGRParam.NotCrossedOut:
+				case SGRParam.NotCrossedOut: {
 					sgrState.deleteStyles(ANSIStyle.CrossedOut);
 					break;
+				}
 
-				case SGRParam.ForegroundBlack:
+				case SGRParam.ForegroundBlack: {
 					sgrState.setForegroundColor(ANSIColor.Black);
 					break;
+				}
 
-				case SGRParam.ForegroundRed:
+				case SGRParam.ForegroundRed: {
 					sgrState.setForegroundColor(ANSIColor.Red);
 					break;
+				}
 
-				case SGRParam.ForegroundGreen:
+				case SGRParam.ForegroundGreen: {
 					sgrState.setForegroundColor(ANSIColor.Green);
 					break;
+				}
 
-				case SGRParam.ForegroundYellow:
+				case SGRParam.ForegroundYellow: {
 					sgrState.setForegroundColor(ANSIColor.Yellow);
 					break;
+				}
 
-				case SGRParam.ForegroundBlue:
+				case SGRParam.ForegroundBlue: {
 					sgrState.setForegroundColor(ANSIColor.Blue);
 					break;
+				}
 
-				case SGRParam.ForegroundMagenta:
+				case SGRParam.ForegroundMagenta: {
 					sgrState.setForegroundColor(ANSIColor.Magenta);
 					break;
+				}
 
-				case SGRParam.ForegroundCyan:
+				case SGRParam.ForegroundCyan: {
 					sgrState.setForegroundColor(ANSIColor.Cyan);
 					break;
+				}
 
-				case SGRParam.ForegroundWhite:
+				case SGRParam.ForegroundWhite: {
 					sgrState.setForegroundColor(ANSIColor.White);
 					break;
+				}
 
 				case SGRParam.SetForeground: {
 					const foregroundColor = processSetColor();
@@ -848,41 +1023,50 @@ export class ANSIOutput {
 					break;
 				}
 
-				case SGRParam.DefaultForeground:
+				case SGRParam.DefaultForeground: {
 					sgrState.setForegroundColor();
 					break;
+				}
 
-				case SGRParam.BackgroundBlack:
+				case SGRParam.BackgroundBlack: {
 					sgrState.setBackgroundColor(ANSIColor.Black);
 					break;
+				}
 
-				case SGRParam.BackgroundRed:
+				case SGRParam.BackgroundRed: {
 					sgrState.setBackgroundColor(ANSIColor.Red);
 					break;
+				}
 
-				case SGRParam.BackgroundGreen:
+				case SGRParam.BackgroundGreen: {
 					sgrState.setBackgroundColor(ANSIColor.Green);
 					break;
+				}
 
-				case SGRParam.BackgroundYellow:
+				case SGRParam.BackgroundYellow: {
 					sgrState.setBackgroundColor(ANSIColor.Yellow);
 					break;
+				}
 
-				case SGRParam.BackgroundBlue:
+				case SGRParam.BackgroundBlue: {
 					sgrState.setBackgroundColor(ANSIColor.Blue);
 					break;
+				}
 
-				case SGRParam.BackgroundMagenta:
+				case SGRParam.BackgroundMagenta: {
 					sgrState.setBackgroundColor(ANSIColor.Magenta);
 					break;
+				}
 
-				case SGRParam.BackgroundCyan:
+				case SGRParam.BackgroundCyan: {
 					sgrState.setBackgroundColor(ANSIColor.Cyan);
 					break;
+				}
 
-				case SGRParam.BackgroundWhite:
+				case SGRParam.BackgroundWhite: {
 					sgrState.setBackgroundColor(ANSIColor.White);
 					break;
+				}
 
 				case SGRParam.SetBackground: {
 					const backgroundColor = processSetColor();
@@ -892,77 +1076,95 @@ export class ANSIOutput {
 					break;
 				}
 
-				case SGRParam.DefaultBackground:
+				case SGRParam.DefaultBackground: {
 					sgrState.setBackgroundColor();
 					break;
+				}
 
-				case SGRParam.ForegroundBrightBlack:
+				case SGRParam.ForegroundBrightBlack: {
 					sgrState.setForegroundColor(ANSIColor.BrightBlack);
 					break;
+				}
 
-				case SGRParam.ForegroundBrightRed:
+				case SGRParam.ForegroundBrightRed: {
 					sgrState.setForegroundColor(ANSIColor.BrightRed);
 					break;
+				}
 
-				case SGRParam.ForegroundBrightGreen:
+				case SGRParam.ForegroundBrightGreen: {
 					sgrState.setForegroundColor(ANSIColor.BrightGreen);
 					break;
+				}
 
-				case SGRParam.ForegroundBrightYellow:
+				case SGRParam.ForegroundBrightYellow: {
 					sgrState.setForegroundColor(ANSIColor.BrightYellow);
 					break;
+				}
 
-				case SGRParam.ForegroundBrightBlue:
+				case SGRParam.ForegroundBrightBlue: {
 					sgrState.setForegroundColor(ANSIColor.BrightBlue);
 					break;
+				}
 
-				case SGRParam.ForegroundBrightMagenta:
+				case SGRParam.ForegroundBrightMagenta: {
 					sgrState.setForegroundColor(ANSIColor.BrightMagenta);
 					break;
+				}
 
-				case SGRParam.ForegroundBrightCyan:
+				case SGRParam.ForegroundBrightCyan: {
 					sgrState.setForegroundColor(ANSIColor.BrightCyan);
 					break;
+				}
 
-				case SGRParam.ForegroundBrightWhite:
+				case SGRParam.ForegroundBrightWhite: {
 					sgrState.setForegroundColor(ANSIColor.BrightWhite);
 					break;
+				}
 
-				case SGRParam.BackgroundBrightBlack:
+				case SGRParam.BackgroundBrightBlack: {
 					sgrState.setBackgroundColor(ANSIColor.BrightBlack);
 					break;
+				}
 
-				case SGRParam.BackgroundBrightRed:
+				case SGRParam.BackgroundBrightRed: {
 					sgrState.setBackgroundColor(ANSIColor.BrightRed);
 					break;
+				}
 
-				case SGRParam.BackgroundBrightGreen:
+				case SGRParam.BackgroundBrightGreen: {
 					sgrState.setBackgroundColor(ANSIColor.BrightGreen);
 					break;
+				}
 
-				case SGRParam.BackgroundBrightYellow:
+				case SGRParam.BackgroundBrightYellow: {
 					sgrState.setBackgroundColor(ANSIColor.BrightYellow);
 					break;
+				}
 
-				case SGRParam.BackgroundBrightBlue:
+				case SGRParam.BackgroundBrightBlue: {
 					sgrState.setBackgroundColor(ANSIColor.BrightBlue);
 					break;
+				}
 
-				case SGRParam.BackgroundBrightMagenta:
+				case SGRParam.BackgroundBrightMagenta: {
 					sgrState.setBackgroundColor(ANSIColor.BrightMagenta);
 					break;
+				}
 
-				case SGRParam.BackgroundBrightCyan:
+				case SGRParam.BackgroundBrightCyan: {
 					sgrState.setBackgroundColor(ANSIColor.BrightCyan);
 					break;
+				}
 
-				case SGRParam.BackgroundBrightWhite:
+				case SGRParam.BackgroundBrightWhite: {
 					sgrState.setBackgroundColor(ANSIColor.BrightWhite);
 					break;
+				}
 
 				// Unexpected SGR parameter.
-				default:
+				default: {
 					break;
+				}
 			}
 		}
 
@@ -972,6 +1174,59 @@ export class ANSIOutput {
 		}
 	}
 
+	/**
+	 * Processes an operating system command.
+	 */
+	private processOperatingSystemCommand() {
+		// Match the operating system command number an payload.
+		const match = this._osc.match(/^([0-9]+);(.*)$/);
+		if (match && match.length === 3) {
+			// Set the operating system command payload.
+			this._osc = match[2];
+
+			// Switch on the operating system command number.
+			switch (match[1]) {
+				// OSC 8.
+				case '8': {
+					this.processOSC8();
+					break;
+				}
+
+				// Unsupported operating system command.
+				default: {
+					break;
+				}
+			}
+		}
+
+		// Return to the buffering output state.
+		this._parserState = ParserState.BufferingOutput;
+	}
+
+	/**
+	 * Processes an OSC 8 (anchor).
+	 */
+	private processOSC8() {
+		// Assume that we didn't find a hyperlink.
+		let hyperlink: Hyperlink | undefined = undefined;
+
+		// Match the hyperlink and the hyperlink params. If we have a match, process the hyperlink
+		// further.
+		const match = this._osc.match(/^(.*?);(.*?)$/);
+		if (match && match.length === 3) {
+			// Get the URL.
+			const url = match[2].trim();
+
+			// If the URL has a value, create the hyperlink.
+			if (url) {
+				// Create the hyperlink.
+				hyperlink = new Hyperlink(url, match[1].trim());
+			}
+		}
+
+		// Set the hyperlink.
+		this._hyperlink = hyperlink;
+	}
 
 	//#endregion Private Methods
 }
@@ -1129,8 +1384,9 @@ enum SGRParamIndexedColor {
  */
 enum ParserState {
 	BufferingOutput,
-	ControlSequenceStarted,
-	ParsingControlSequence
+	EscapeSequenceStarted,
+	ParsingControlSequence,
+	ParsingOperatingSystemCommand
 }
 
 //#endregion Private Enumerations
@@ -1332,8 +1588,9 @@ class SGRState implements ANSIFormat {
 				case ANSIColor.Black:
 				case ANSIColor.BrightBlack:
 				case ANSIColor.Red:
-				case ANSIColor.BrightRed:
+				case ANSIColor.BrightRed: {
 					return ANSIColor.White;
+				}
 
 				case ANSIColor.Green:
 				case ANSIColor.BrightGreen:
@@ -1346,8 +1603,9 @@ class SGRState implements ANSIFormat {
 				case ANSIColor.Cyan:
 				case ANSIColor.BrightCyan:
 				case ANSIColor.White:
-				case ANSIColor.BrightWhite:
+				case ANSIColor.BrightWhite: {
 					return ANSIColor.Black;
+				}
 			}
 		}
 
@@ -1785,6 +2043,9 @@ class OutputRun implements ANSIOutputRun {
 
 	//#region Public Properties
 
+	/**
+	 * Gets the SGR state.
+	 */
 	get sgrState() {
 		return this._sgrState;
 	}
@@ -1799,8 +2060,8 @@ class OutputRun implements ANSIOutputRun {
 	 * @param sgrState The SGR state.
 	 */
 	constructor(text: string, sgrState?: SGRState) {
-		this._sgrState = sgrState;
 		this._text = text;
+		this._sgrState = sgrState;
 	}
 
 	//#endregion Constructor
@@ -1864,6 +2125,56 @@ class OutputRun implements ANSIOutputRun {
 	}
 
 	//#endregion ANSIOutputRun Implementation
+}
+
+/**
+ * Hyperlink class.
+ */
+class Hyperlink implements ANSIHyperlink {
+	//#region Public Properties
+
+	/**
+	 * Gets the params.
+	 */
+	params?: Map<string, string>;
+
+	//#endregion Public Properties
+
+	//#region Constructor
+
+	/**
+	 * Constructor.
+	 * @param url The URL.
+	 * @param params The params.
+	 */
+	constructor(public readonly url: string, params: string) {
+		// If params were supplied, parse them.
+		if (params) {
+			// Split params and parse each of them.
+			for (const param of params.split(':')) {
+				// Match the param. If it is in key=value format, attempt to add it to the params.
+				const match = param.match(/^(.+)=(.*)$/);
+				if (match && match.length === 3) {
+					// Trim the name. If it has a value, add the param.
+					const name = match[1].trim();
+					if (name) {
+						// Trim the value.
+						const value = match[2].trim();
+
+						// Create the params, if we haven't done so yet.
+						if (!this.params) {
+							this.params = new Map<string, string>();
+						}
+
+						// Set the param.
+						this.params.set(name, value);
+					}
+				}
+			}
+		}
+	}
+
+	//#endregion Constructor
 }
 
 //#endregion Private Classes
