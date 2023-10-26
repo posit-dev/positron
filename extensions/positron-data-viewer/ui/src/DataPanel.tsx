@@ -49,24 +49,18 @@ export const DataPanel = (props: DataPanelProps) => {
 
 	const {initialData, fetchSize, vscode} = props;
 
-	const dataModelRef = React.useRef(new DataModel(initialData));
+	const [dataModel, updateDataModel] = React.useState(new DataModel(initialData));
 	const requestQueue = React.useRef<number[]>([]);
 
 	// Count total rows and pages, including those we have not yet fetched
-	const totalRows = dataModelRef.current.rowCount;
+	const totalRows = dataModel.rowCount;
 	const maxPages = Math.ceil(totalRows / fetchSize);
 
 	React.useEffect(() => {
+
 		const handleMessage = ((event: any) => {
-			const prevDataModel = dataModelRef.current;
-			dataModelRef.current = prevDataModel.handleDataMessage(event);
-			if (dataModelRef.current.loadedRowCount > prevDataModel.loadedRowCount) {
-				console.log(`Fulfilling request for ${event?.data?.start_row}`);
-				requestQueue.current = requestQueue.current.filter(
-					// remove fulfilled requests from the queue
-					rowRequest => !dataModelRef.current.renderedRows.includes(rowRequest)
-				);
-			}
+			console.log(`handling event: ${event?.data?.start_row}`);
+			updateDataModel(prevDataModel => prevDataModel.handleDataMessage(event));
 		});
 
 		window.addEventListener('message', handleMessage);
@@ -76,20 +70,28 @@ export const DataPanel = (props: DataPanelProps) => {
 		};
 	}, []);
 
+	React.useEffect(() => {
+		// When the dataModel updates, filter out fulfilled requests from the queue
+		requestQueue.current = requestQueue.current.filter(
+			rowRequest => !dataModel.renderedRows.includes(rowRequest)
+		);
+		console.log(`updated requestQueue: ${JSON.stringify(requestQueue.current)}`);
+	}, [dataModel]);
+
 	// Create the columns for the table. These use the 'any' type since the data
 	// model is generic.
-	const columns = React.useMemo<ReactTable.ColumnDef<any>[]>(
-		() => dataModelRef.current.columns.map((column, idx) => {
-				return {
-					id: '' + idx,
-					accessorKey: idx,
-					accessorFn: (_row: any, index: number) => {
-						return column.data[index];
-					},
-					header: column.name
-				};
-			}),
-		[dataModelRef.current]);
+	const columns = React.useMemo<ReactTable.ColumnDef<any>[]>(() => {
+		return dataModel.columns.map((column, idx) => {
+			return {
+				id: '' + idx,
+				accessorKey: idx,
+				accessorFn: (_row: any, rowIdx: number) => {
+					return column.data[rowIdx];
+				},
+				header: column.name
+			};
+		});
+	}, [dataModel]);
 
 	function fetchNextDataFragment(pageParam: number, fetchSize: number): DataFragment {
 		// Fetches a single page of data from the data model.
@@ -98,7 +100,7 @@ export const DataPanel = (props: DataPanelProps) => {
 		fetchSize = Math.min(fetchSize, totalRows - startRow);
 
 		// Request more rows from the server if we don't have them in the cache
-		if (startRow > 0 && !dataModelRef.current.renderedRows.includes(startRow)) {
+		if (startRow > 0 && !dataModel.renderedRows.includes(startRow)) {
 			// Don't send duplicate requests
 			if (!requestQueue.current.includes(startRow)) {
 				console.log(`Sending request for ${startRow}`);
@@ -118,7 +120,7 @@ export const DataPanel = (props: DataPanelProps) => {
 				columns: []
 			};
 		} else {
-			const fragment = dataModelRef.current.loadDataFragment(startRow, fetchSize);
+			const fragment = dataModel.loadDataFragment(startRow, fetchSize);
 			return fragment;
 		}
 	}
@@ -137,51 +139,50 @@ export const DataPanel = (props: DataPanelProps) => {
 		isFetchingNextPage,
 		fetchNextPage,
 		hasNextPage
-	} = ReactQuery.useInfiniteQuery({
-			queryKey: ['table-data', dataModelRef.current.loadedRowCount],
-			queryFn: ({pageParam}) => fetchNextDataFragment(pageParam, fetchSize),
-			initialPageParam: 0,
-			initialData: {
-				pages: [initialDataFragment],
-				pageParams: [0]
-			},
-			// undefined if we are on the final page of data
-			getNextPageParam: (_page, fetchedPages) => {
-				return fetchedPages.length === maxPages ? undefined : fetchedPages.length;
-			},
-			refetchOnWindowFocus: false,
-			placeholderData: (previousData) => previousData
-		});
+	} = ReactQuery.useInfiniteQuery(
+	{
+		queryKey: ['table-data', dataModel.loadedRowCount],
+		queryFn: ({pageParam}) => fetchNextDataFragment(pageParam, fetchSize),
+		initialPageParam: 0,
+		initialData: {
+			pages: [initialDataFragment],
+			pageParams: [0]
+		},
+		// undefined if we are on the final page of data
+		getNextPageParam: (_page, fetchedPages) => {
+			return fetchedPages.length === maxPages ? undefined : fetchedPages.length;
+		},
+		refetchOnWindowFocus: false,
+		placeholderData: (previousData) => previousData
+	});
 
 
 	// Transpose and flatten the data. The data model stores data in a column-major
 	// format, but React Table expects data in a row-major format, so we need to
 	// transpose the data.
-	const flatData = React.useMemo(
-		() => {
-			// Loop over each page of data and transpose the data for that page.
-			// Then flatten all the transposed data pages together
+	const flatData = React.useMemo(() => {
+		// Loop over each page of data and transpose the data for that page.
+		// Then flatten all the transposed data pages together
 
-			// data and pages will never be null because we declared initialData
-			return data?.pages?.flatMap(page => {
-				// Get the number of rows for the current page
-				if (page.columns.length) {
-					return page.columns[0].data.map(
-						// Transpose the data for the current page
-						(_, rowIdx) => page.columns.map(col => col.data[rowIdx])
-					);
-				} else {
-					// No data available for current page
-					return [[]];
-				}
+		// data and pages will never be null because we declared initialData
+		return data?.pages?.flatMap(page => {
+			// Get the number of rows for the current page
+			if (page.columns.length) {
+				return page.columns[0].data.map(
+					// Transpose the data for the current page
+					(_, rowIdx) => page.columns.map(col => col.data[rowIdx])
+				);
+			} else {
+				// No data available for current page
+				return [[]];
+			}
 
-			});
-		},
-		[data]
-	);
+		});
+	}, [data]);
 
 	// Define the main ReactTable instance.
-	const table = ReactTable.useReactTable({
+	const table = ReactTable.useReactTable(
+	{
 		data: flatData,
 		columns,
 		getCoreRowModel: ReactTable.getCoreRowModel(),
@@ -192,7 +193,8 @@ export const DataPanel = (props: DataPanelProps) => {
 	const {rows} = table.getRowModel();
 
 	// Use a virtualizer to render only the rows that are visible.
-	const rowVirtualizer = ReactVirtual.useVirtualizer({
+	const rowVirtualizer = ReactVirtual.useVirtualizer(
+	{
 		count: rows.length,
 		getScrollElement: () => tableContainerRef.current,
 		estimateSize: () => rowHeightPx,
@@ -219,9 +221,8 @@ export const DataPanel = (props: DataPanelProps) => {
 			return;
 		}
 
-		// don't trigger fetchNextPage if the data has already been requested or received
+		// don't trigger fetchNextPage if the data has already been requested
 		if (requestQueue.current.includes(nextStartRow)
-			//|| dataModelRef.current.renderedRows.includes(nextStartRow)
 		) {
 			return;
 		}
@@ -229,9 +230,6 @@ export const DataPanel = (props: DataPanelProps) => {
 		const virtualRowsRemaining = lastFetchedRow.index - lastVirtualRow.index;
 		if (( virtualRowsRemaining < scrollThresholdRows)
 		) {
-			console.log(`FetchNextPage: virtual ${lastVirtualRow.index} fetched: ${lastFetchedRow.index}`);
-			console.log(`dataModel: ${dataModelRef.current.loadedRowCount} total starts: ${JSON.stringify(dataModelRef.current.renderedRows)}`);
-			console.log(`requestQueue: ${requestQueue.current}`);
 			fetchNextPage();
 		}
 	}, [fetchNextPage, isFetchingNextPage, hasNextPage, rows, virtualRows]);

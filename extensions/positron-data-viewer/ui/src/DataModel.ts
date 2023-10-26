@@ -121,13 +121,10 @@ export class DataModel {
 	}
 
 	/**
-	 * A unique identifier for the data model, used to cache the data query.
+	 * A stable unique identifier for the data model (doesn't change as new rows are loaded)
 	 */
 	get id(): String {
-		return `
-		Rendered rows: ${this.renderedRows}
-		Dataset: ${this.dataSet.id}
-		`;
+		return this.dataSet.id;
 	}
 
 	/**
