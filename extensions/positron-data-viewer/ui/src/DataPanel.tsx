@@ -42,6 +42,8 @@ export const DataPanel = (props: DataPanelProps) => {
 	// The number of rows to render above and below the visible area of the table.
 	const scrollOverscan = 30;
 
+	// The number of rows away from the bottom (not including scrollOverscan) when we should
+	// trigger a fetch for more data.
 	const scrollThresholdRows = 10;
 
 	// A reference to the table container element.
@@ -239,14 +241,12 @@ export const DataPanel = (props: DataPanelProps) => {
 		}
 
 		// don't trigger fetchNextPage if the data has already been requested
-		if (requestQueue.current.includes(nextStartRow)
-		) {
+		if (requestQueue.current.includes(nextStartRow)) {
 			return;
 		}
 
 		const virtualRowsRemaining = lastFetchedRow.index - lastVirtualRow.index;
-		if (( virtualRowsRemaining < scrollThresholdRows)
-		) {
+		if (virtualRowsRemaining < scrollThresholdRows) {
 			fetchNextPage();
 		}
 	}, [fetchNextPage, isFetchingNextPage, hasNextPage, rows, virtualRows]);
