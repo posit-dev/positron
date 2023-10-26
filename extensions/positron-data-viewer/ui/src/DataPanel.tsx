@@ -56,11 +56,31 @@ export const DataPanel = (props: DataPanelProps) => {
 	const totalRows = dataModel.rowCount;
 	const maxPages = Math.ceil(totalRows / fetchSize);
 
-	React.useEffect(() => {
+	// We store functions used to resolve a Promise for a DataFragment
+	// resolver functions are indexed by the request ID (the start row number)
+	// and resolved when that request is fulfilled in the event handler.
+	interface ResolverLookup {
+		[requestId: number]: {
+			resolve: (fragment: DataFragment) => void;
+			reject: any;
+		};
+	}
+	// The resolver functions need to persist between re-renders
+	const requestResolvers = React.useRef<ResolverLookup>({});
 
+	React.useEffect(() => {
 		const handleMessage = ((event: any) => {
-			console.log(`handling event: ${event?.data?.start_row}`);
-			updateDataModel(prevDataModel => prevDataModel.handleDataMessage(event));
+			// Update state for the data model and resolve the outstanding request,
+			// indexed by requestId with the new DataFragment
+			updateDataModel((prevDataModel) => {
+				const fragment = prevDataModel.handleDataMessage(event);
+				if (!fragment) {
+					return prevDataModel;
+				}
+				const requestId: number = event!.data!.start_row;
+				requestResolvers.current[requestId].resolve(fragment);
+				return prevDataModel.appendFragment(fragment);
+			});
 		});
 
 		window.addEventListener('message', handleMessage);
@@ -75,7 +95,6 @@ export const DataPanel = (props: DataPanelProps) => {
 		requestQueue.current = requestQueue.current.filter(
 			rowRequest => !dataModel.renderedRows.includes(rowRequest)
 		);
-		console.log(`updated requestQueue: ${JSON.stringify(requestQueue.current)}`);
 	}, [dataModel]);
 
 	// Create the columns for the table. These use the 'any' type since the data
@@ -93,7 +112,7 @@ export const DataPanel = (props: DataPanelProps) => {
 		});
 	}, [dataModel]);
 
-	function fetchNextDataFragment(pageParam: number, fetchSize: number): DataFragment {
+	async function fetchNextDataFragment(pageParam: number, fetchSize: number): Promise<DataFragment> {
 		// Fetches a single page of data from the data model.
 		const startRow = pageParam * fetchSize;
 		// Overwrite fetchSize so that we never request rows past the end of the dataset
@@ -113,15 +132,17 @@ export const DataPanel = (props: DataPanelProps) => {
 				requestQueue.current = [startRow, ...requestQueue.current];
 			}
 
-			// We can't return the requested fragment yet, so return an empty fragment for now
-			return {
-				rowStart: startRow,
-				rowEnd: startRow + fetchSize - 1,
-				columns: []
-			};
+			const promisedFragment = new Promise<DataFragment>((resolve, reject) => {
+				// This promise will be resolved in the event handler
+				requestResolvers.current[startRow] = {resolve, reject};
+			});
+			return promisedFragment.then((fragment) => {
+				console.log(`Fulfilled request: ${fragment.rowStart}`);
+				return fragment;
+			});
 		} else {
-			const fragment = dataModel.loadDataFragment(startRow, fetchSize);
-			return fragment;
+			// No need to wait for a response, return the fragment immediately
+			return dataModel.loadDataFragment(startRow, fetchSize);
 		}
 	}
 

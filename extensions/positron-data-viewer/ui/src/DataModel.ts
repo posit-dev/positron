@@ -102,22 +102,22 @@ export class DataModel {
 	/**
 	 *
 	 * @param event The message event received from the runtime
-	 * @returns Either the original data model, or a new data model that includes the message's data
+	 * @returns A DataFragment to be appended to this dataModel
 	 */
-	handleDataMessage(event: any): DataModel {
+	handleDataMessage(event: any): DataFragment | undefined {
 		const message = event.data as DataViewerMessage;
 		if (message.msg_type === 'receive_rows' && !this.renderedRows.includes(message.start_row)) {
 			console.log(`Message received: ${message.start_row}`);
 			const dataMessage = message as DataViewerMessageRowResponse;
 
-			const incrementalData: DataFragment = {
+			const incrementalData = {
 				rowStart: dataMessage.start_row,
 				rowEnd: dataMessage.start_row + dataMessage.fetch_size - 1,
 				columns: dataMessage.data.columns
 			};
-			return this.appendFragment(incrementalData);
+			return incrementalData;
 		}
-		return this;
+		return undefined;
 	}
 
 	/**
