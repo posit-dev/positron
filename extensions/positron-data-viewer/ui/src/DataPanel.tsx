@@ -183,7 +183,8 @@ export const DataPanel = (props: DataPanelProps) => {
 		// Loop over each page of data and transpose the data for that page.
 		// Then flatten all the transposed data pages together
 
-		// data and pages will never be null because we declared initialData
+		// data and pages should never be null because we declared initialData
+		// and placeholderData in the infinite query
 		return data?.pages?.flatMap(page => {
 			// Get the number of rows for the current page
 			if (page.columns.length) {
