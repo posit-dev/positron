@@ -6,7 +6,7 @@ import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/
 import { IWorkspaceTrustManagementService } from 'vs/platform/workspace/common/workspaceTrust';
 import { INotebookRendererInfo } from 'vs/workbench/contrib/notebook/common/notebookCommon';
 import { INotebookService } from 'vs/workbench/contrib/notebook/common/notebookService';
-import { NotebookOutputWebview } from 'vs/workbench/contrib/positronOutputWebview/browser/notebookOutputWebview';
+import { NotebookOutputWebview, RENDER_COMPLETE } from 'vs/workbench/contrib/positronOutputWebview/browser/notebookOutputWebview';
 import { INotebookOutputWebview, IPositronNotebookOutputWebviewService } from 'vs/workbench/contrib/positronOutputWebview/browser/notebookOutputWebviewService';
 import { IWebviewService, WebviewInitInfo } from 'vs/workbench/contrib/webview/browser/webview';
 import { asWebviewUri } from 'vs/workbench/contrib/webview/common/webview';
@@ -71,6 +71,7 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 <body>
 <div id='container'></div>
 <script type="module">
+		const vscode = acquireVsCodeApi();
 		import { activate } from "${rendererPath.toString()}"
 		var ctx = {
 			workspace: {
@@ -100,6 +101,7 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 			let container = document.getElementById('container');
 			console.log('** container: ' + container);
 			renderer.renderOutputItem(data, container, signal);
+			vscode.postMessage('${RENDER_COMPLETE}');
 			console.log('** rendered.');
 		};
 </script>
@@ -132,8 +134,15 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 					'/out/node_modules/jquery/dist/jquery.min.js'
 			}));
 
-		webview.setHtml(`<script src='${jQueryPath}'></script>${html}`);
-
+		webview.setHtml(`
+<script src='${jQueryPath}'></script>
+${html}
+<script>
+const vscode = acquireVsCodeApi();
+window.onload = function() {
+	vscode.postMessage('${RENDER_COMPLETE}');
+};
+</script>`);
 		return new NotebookOutputWebview(id, runtime.metadata.runtimeId, webview);
 	}
 }

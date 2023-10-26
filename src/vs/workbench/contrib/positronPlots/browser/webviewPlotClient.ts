@@ -35,6 +35,12 @@ export class WebviewPlotClient extends Disposable implements IPositronPlotClient
 			code: code ? code : '',
 		};
 
+		this._register(this.webview.onDidRender(e => {
+			setTimeout(() => {
+				this.renderThumbnail();
+			}, 500);
+		}));
+
 		this._onDidRenderThumbnail = new Emitter<string>();
 		this.onDidRenderThumbnail = this._onDidRenderThumbnail.event;
 	}

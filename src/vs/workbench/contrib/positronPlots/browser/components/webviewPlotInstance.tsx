@@ -28,9 +28,6 @@ export const WebviewPlotInstance = (props: WebviewPlotInstanceProps) => {
 		webview.claim(this, undefined);
 		if (webviewRef.current) {
 			webview.layoutWebviewOverElement(webviewRef.current);
-			setTimeout(() => {
-				props.plotClient.renderThumbnail();
-			}, 250);
 		}
 		return () => {
 			webview.release(this);
