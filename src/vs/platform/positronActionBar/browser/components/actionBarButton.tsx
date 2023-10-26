@@ -24,6 +24,7 @@ export interface ActionBarButtonProps {
 	layout?: 'loose' | 'tight';
 	tooltip?: string | (() => string | undefined);
 	disabled?: boolean;
+	ariaLabel?: string;
 	onClick?: () => void;
 }
 
@@ -37,8 +38,7 @@ export const ActionBarButton = forwardRef<HTMLDivElement, PropsWithChildren<Acti
 	const buttonClassNames = positronClassNames(
 		'action-bar-button',
 		{ 'border': optionalBoolean(props.border) },
-		{ 'fade-in': optionalBoolean(props.fadeIn) },
-		{ 'disabled': optionalBoolean(props.disabled) }
+		{ 'fade-in': optionalBoolean(props.fadeIn) }
 	);
 
 	// Create the icon style.
@@ -50,7 +50,7 @@ export const ActionBarButton = forwardRef<HTMLDivElement, PropsWithChildren<Acti
 	// Render.
 	return (
 		<ActionBarTooltip {...props}>
-			<PositronButton ref={ref} className={buttonClassNames} onClick={props.onClick}>
+			<PositronButton ref={ref} className={buttonClassNames} onClick={props.onClick} ariaLabel={props.ariaLabel} disabled={props.disabled}>
 				<div className='action-bar-button-face' style={{ padding: props.layout === 'tight' ? '0' : '0 2px' }}>
 					{props.iconId && <div className={`action-bar-button-icon codicon codicon-${props.iconId}`} style={iconStyle} />}
 					{props.text && <div className='action-bar-button-text' style={{ maxWidth: optionalValue(props.maxTextWidth, 'none') }}>{props.text}</div>}
