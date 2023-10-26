@@ -134,10 +134,10 @@ export const DataPanel = (props: DataPanelProps) => {
 			}
 
 			const promisedFragment = new Promise<DataFragment>((resolve, reject) => {
-				// This promise will be resolved in the event handler
+				// This promise will be resolved in the message event handler
 				requestResolvers.current[startRow] = {resolve, reject};
 			});
-			return await promisedFragment;
+			return promisedFragment;
 		} else {
 			// No need to wait for a response, return the fragment immediately
 			return dataModel.loadDataFragment(startRow, fetchSize);
@@ -226,32 +226,26 @@ export const DataPanel = (props: DataPanelProps) => {
 	// Compute the padding for the table container.
 	const virtualRows = rowVirtualizer.getVirtualItems();
 	const totalSize = rowHeightPx * totalRows;
-	const paddingTop =
-		virtualRows.length > 0
-			? virtualRows?.[0]?.start || 0
-			: 0;
-	const paddingBottom =
-		virtualRows.length > 0
-			? totalSize - (virtualRows?.[virtualRows.length - 1]?.end || 0)
-			: 0;
+	const paddingTop = virtualRows?.[0]?.start || 0;
+	const paddingBottom = totalSize - (virtualRows?.[virtualRows.length - 1]?.end || 0);
 
 	// Callback, invoked on scroll, that will fetch more data from the backend if we have reached
 	// the end of the virtualized rows by sending a new MessageRequest.
 	const fetchMoreOnBottomReached = React.useCallback(() => {
-		const [lastVirtualRow] = [...virtualRows].reverse();
-		const [lastFetchedRow] = [...rows].reverse();
-		const nextStartRow = lastFetchedRow.index + 1;
+		// Note that index of the last virtual row is not the same as virtualRows.length
+		const lastVirtualRow = virtualRows?.[virtualRows.length - 1]?.index;
+		const lastFetchedRow = rows.length - 1;
 
 		if (!lastVirtualRow || !hasNextPage || isFetchingNextPage) {
 			return;
 		}
 
 		// don't trigger fetchNextPage if the data has already been requested
-		if (requestQueue.current.includes(nextStartRow)) {
+		if (requestQueue.current.includes(lastFetchedRow + 1)) {
 			return;
 		}
 
-		const virtualRowsRemaining = lastFetchedRow.index - lastVirtualRow.index;
+		const virtualRowsRemaining = lastFetchedRow - lastVirtualRow;
 		if (virtualRowsRemaining < scrollThresholdRows) {
 			fetchNextPage();
 		}
