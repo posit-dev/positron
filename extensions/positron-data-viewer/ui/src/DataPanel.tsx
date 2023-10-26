@@ -122,7 +122,6 @@ export const DataPanel = (props: DataPanelProps) => {
 		if (startRow > 0 && !dataModel.renderedRows.includes(startRow)) {
 			// Don't send duplicate requests
 			if (!requestQueue.current.includes(startRow)) {
-				console.log(`Sending request for ${startRow}`);
 				vscode.postMessage({
 					msg_type: 'request_rows',
 					start_row: startRow,
@@ -136,10 +135,7 @@ export const DataPanel = (props: DataPanelProps) => {
 				// This promise will be resolved in the event handler
 				requestResolvers.current[startRow] = {resolve, reject};
 			});
-			return promisedFragment.then((fragment) => {
-				console.log(`Fulfilled request: ${fragment.rowStart}`);
-				return fragment;
-			});
+			return await promisedFragment;
 		} else {
 			// No need to wait for a response, return the fragment immediately
 			return dataModel.loadDataFragment(startRow, fetchSize);
