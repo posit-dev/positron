@@ -97,9 +97,11 @@ export class ArkLsp implements vscode.Disposable {
 					{ language: 'r', scheme: 'inmemory' },  // Console
 					{ language: 'r', pattern: '**/*.R' },
 				],
-			synchronize: this._notebook && {
-				fileEvents: vscode.workspace.createFileSystemWatcher('**/*.R')
-			},
+			synchronize: this._notebook ?
+				undefined :
+				{
+					fileEvents: vscode.workspace.createFileSystemWatcher('**/*.R')
+				}
 		};
 
 		// With a `.` rather than a `-` so vscode-languageserver can look up related options correctly
