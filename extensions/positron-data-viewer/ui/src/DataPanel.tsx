@@ -228,7 +228,8 @@ export const DataPanel = (props: DataPanelProps) => {
 
 	// Compute the padding for the table container.
 	const virtualRows = rowVirtualizer.getVirtualItems();
-	const totalSize = rowHeightPx * totalRows;
+	// Assume unfetched rows are all of height rowHeightPx
+	const totalSize = (totalRows - rows.length) * rowHeightPx + rowVirtualizer.getTotalSize();
 	const paddingTop = virtualRows?.[0]?.start || 0;
 	const paddingBottom = totalSize - (virtualRows?.[virtualRows.length - 1]?.end || 0);
 
