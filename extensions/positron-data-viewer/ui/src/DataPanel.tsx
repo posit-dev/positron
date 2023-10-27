@@ -29,6 +29,16 @@ interface DataPanelProps {
 	vscode: any;
 }
 
+// A dict-like object to store functions used to resolve/reject a Promise with a DataFragment.
+// Resolver functions are indexed by the request ID (i.e. the start row number)
+// and resolved when that request is fulfilled in the message event handler.
+type ResolverLookup = {
+	[requestId: number]: {
+		resolve: (fragment: DataFragment) => void;
+		reject: any;
+	};
+};
+
 /**
  * React component that displays a tabular data panel.
  *
@@ -54,21 +64,12 @@ export const DataPanel = (props: DataPanelProps) => {
 	const [dataModel, updateDataModel] = React.useState(new DataModel(initialData));
 	const requestQueue = React.useRef<number[]>([]);
 
+	// The resolver functions need to persist between re-renders
+	const requestResolvers = React.useRef<ResolverLookup>({});
+
 	// Count total rows and pages, including those we have not yet fetched
 	const totalRows = dataModel.rowCount;
 	const maxPages = Math.ceil(totalRows / fetchSize);
-
-	// We store functions used to resolve a Promise for a DataFragment
-	// resolver functions are indexed by the request ID (the start row number)
-	// and resolved when that request is fulfilled in the event handler.
-	interface ResolverLookup {
-		[requestId: number]: {
-			resolve: (fragment: DataFragment) => void;
-			reject: any;
-		};
-	}
-	// The resolver functions need to persist between re-renders
-	const requestResolvers = React.useRef<ResolverLookup>({});
 
 	React.useEffect(() => {
 		const handleMessage = ((event: any) => {
@@ -167,10 +168,12 @@ export const DataPanel = (props: DataPanelProps) => {
 			pages: [initialDataFragment],
 			pageParams: [0]
 		},
-		// undefined if we are on the final page of data
-		getNextPageParam: (_page, fetchedPages) => {
-			return fetchedPages.length === maxPages ? undefined : fetchedPages.length;
+		getNextPageParam: (_page, _pages, lastPageParam) => {
+			// undefined if we are on the final page of data
+			return lastPageParam + 1 === maxPages ? undefined : lastPageParam + 1;
 		},
+		// we don't need to check for active network connection before retrying a query
+		networkMode: 'always',
 		refetchOnWindowFocus: false,
 		placeholderData: (previousData) => previousData
 	});

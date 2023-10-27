@@ -102,7 +102,7 @@ export class DataModel {
 	/**
 	 *
 	 * @param event The message event received from the runtime
-	 * @returns A DataFragment to be appended to this dataModel
+	 * @returns A DataFragment representing the data in the message, or undefined
 	 */
 	handleDataMessage(event: any): DataFragment | undefined {
 		const message = event.data as DataViewerMessage;
