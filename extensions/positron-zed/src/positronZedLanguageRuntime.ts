@@ -847,6 +847,11 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 				break;
 			}
 
+			case 'markdown': {
+				this.simulateMarkdownOutput(id, code);
+				break;
+			}
+
 			case 'restart': {
 				this.restart();
 				break;
@@ -1387,6 +1392,28 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 		} as positron.LanguageRuntimeOutput);
 
 		// Return to idle state.
+		this.simulateIdleState(parentId);
+	}
+
+	private simulateMarkdownOutput(parentId: string, code: string) {
+		// Enter busy state and output the code.
+		this.simulateBusyState(parentId);
+		this.simulateInputMessage(parentId, code);
+
+		const mdPath = path.join(this.context.extensionPath, 'resources', 'markdown.md');
+		const md = fs.readFileSync(mdPath).toString();
+
+		this._onDidReceiveRuntimeMessage.fire({
+			id: randomUUID(),
+			parent_id: parentId,
+			when: new Date().toISOString(),
+			type: positron.LanguageRuntimeMessageType.Output,
+			data: {
+				'text/plain': '<ZedMarkdown>',
+				'text/markdown': md
+			} as Record<string, string>
+		} as positron.LanguageRuntimeOutput);
+
 		this.simulateIdleState(parentId);
 	}
 
