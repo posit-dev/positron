@@ -45,6 +45,9 @@ import { ISelectedSuggestion, SuggestWidget } from './suggestWidget';
 import { ITelemetryService } from 'vs/platform/telemetry/common/telemetry';
 import { basename, extname } from 'vs/base/common/resources';
 import { hash } from 'vs/base/common/hash';
+// --- Start Positron ---
+import { TabSuggestContextKey } from 'vs/editor/contrib/suggest/browser/tabSuggestContextKey';
+// --- End Positron ---
 
 // sticky suggest widget which doesn't disappear on focus out and such
 const _sticky = false
@@ -227,6 +230,9 @@ export class SuggestController implements IEditorContribution {
 		}));
 
 		this._toDispose.add(_instantiationService.createInstance(WordContextKey, editor));
+		// --- Start Positron ---
+		this._toDispose.add(_instantiationService.createInstance(TabSuggestContextKey, editor));
+		// --- End Positron ---
 
 		this._toDispose.add(this.model.onDidTrigger(e => {
 			this.widget.value.showTriggered(e.auto, e.shy ? 250 : 50);
@@ -797,6 +803,33 @@ const weight = KeybindingWeight.EditorContrib + 90;
 
 const SuggestCommand = EditorCommand.bindToContribution<SuggestController>(SuggestController.get);
 
+// --- Start Positron ---
+registerEditorCommand(new SuggestCommand({
+	id: 'tabSuggest',
+	precondition: ContextKeyExpr.and(
+		EditorContextKeys.textInputFocus,
+		ContextKeyExpr.equals('config.editor.tabSuggest', 'on'),
+		// Not when tab completion or tab to change focus are enabled
+		ContextKeyExpr.equals('config.editor.tabCompletion', 'off'),
+		ContextKeyExpr.equals('config.editor.tabFocusMode', false),
+		TabSuggestContextKey.InTabSuggestContext,
+		// Not when the suggest menu is already up (critical to be able to accept suggestions)
+		SuggestContext.Visible.toNegated(),
+		// Not in snippet mode, when tab bounces between snippet placeholders.
+		// Notably snippet mode turns off when you hit the last placeholder!
+		SnippetController2.InSnippetMode.toNegated()
+	),
+	handler: (x) => {
+		// This is a user requested trigger
+		const auto = false;
+		x.triggerSuggest(undefined, auto, undefined);
+	},
+	kbOpts: {
+		weight: KeybindingWeight.EditorContrib,
+		primary: KeyCode.Tab
+	}
+}));
+// --- End Positron ---
 
 registerEditorCommand(new SuggestCommand({
 	id: 'acceptSelectedSuggestion',
