@@ -106,7 +106,6 @@ export class DataModel {
 	 */
 	handleDataMessage(event: any): DataFragment | undefined {
 		const message = event.data as DataViewerMessage;
-		console.log(`Processing response from the backend for row ${message.start_row}-${message.start_row + message.fetch_size - 1}`);
 		if (message.msg_type === 'receive_rows' && !this.renderedRows.includes(message.start_row)) {
 			const dataMessage = message as DataViewerMessageRowResponse;
 
