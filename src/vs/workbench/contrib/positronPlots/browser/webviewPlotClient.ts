@@ -132,7 +132,7 @@ export class WebviewPlotClient extends Disposable implements IPositronPlotClient
 			if (this._claimed) {
 				this.renderThumbnail();
 			}
-		}, 500);
+		}, 1000);
 	}
 
 	private cancelPendingRender() {
