@@ -16,6 +16,9 @@ import { VSBuffer } from 'vs/base/common/buffer';
 import { ConfigurationTarget } from 'vs/platform/configuration/common/configuration';
 import { IFileStatWithMetadata, IWriteFileOptions } from 'vs/platform/files/common/files';
 
+// --- Start Positron ---
+import { ExtensionIdentifier } from 'vs/platform/extensions/common/extensions';
+// --- End Positron ---
 
 export const INotebookService = createDecorator<INotebookService>('notebookService');
 
@@ -70,6 +73,7 @@ export interface INotebookService {
 
 	// --- Start Positron ---
 	getPreferredRenderer(mimeType: string): INotebookRendererInfo | undefined;
+	getStaticPreloadsForExt(extensionId: ExtensionIdentifier): Promise<INotebookStaticPreloadInfo[]>;
 	// --- End Positron ---
 
 	getStaticPreloads(viewType: string): Iterable<INotebookStaticPreloadInfo>;

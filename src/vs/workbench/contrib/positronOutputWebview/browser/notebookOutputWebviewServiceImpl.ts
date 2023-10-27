@@ -2,8 +2,13 @@
  *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
+import { Schemas } from 'vs/base/common/network';
+import { URI } from 'vs/base/common/uri';
+import { ExtensionIdentifier } from 'vs/platform/extensions/common/extensions';
 import { IWorkspaceTrustManagementService } from 'vs/platform/workspace/common/workspaceTrust';
-import { INotebookRendererInfo } from 'vs/workbench/contrib/notebook/common/notebookCommon';
+import { RendererMetadata, StaticPreloadMetadata } from 'vs/workbench/contrib/notebook/browser/view/renderers/webviewMessages';
+import { preloadsScriptStr } from 'vs/workbench/contrib/notebook/browser/view/renderers/webviewPreloads';
+import { INotebookRendererInfo, RendererMessagingSpec } from 'vs/workbench/contrib/notebook/common/notebookCommon';
 import { INotebookService } from 'vs/workbench/contrib/notebook/common/notebookService';
 import { NotebookOutputWebview, RENDER_COMPLETE } from 'vs/workbench/contrib/positronOutputWebview/browser/notebookOutputWebview';
 import { INotebookOutputWebview, IPositronNotebookOutputWebviewService } from 'vs/workbench/contrib/positronOutputWebview/browser/notebookOutputWebviewService';
@@ -31,6 +36,9 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 		// Check to see if any of the MIME types have a renderer associated with
 		// them. If they do, prefer the renderer.
 		for (const mimeType of Object.keys(output.data)) {
+			if (mimeType === 'text/plain') {
+				continue;
+			}
 			const renderer = this._notebookService.getPreferredRenderer(mimeType);
 			if (renderer) {
 				return this.createNotebookRenderOutput(output.id, runtime,
@@ -50,6 +58,53 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 		return Promise.resolve(undefined);
 	}
 
+	/**
+	 * Gets renderer data for a given MIME type. This is used to inject only the
+	 * needed renderers into the webview.
+	 *
+	 * @param mimeType The MIME type to get renderers for
+	 * @returns An array of renderers that can render the given MIME type
+	 */
+	private getRendererData(mimeType: string): RendererMetadata[] {
+		return this._notebookService.getRenderers()
+			.filter(renderer => renderer.mimeTypes.includes(mimeType))
+			.map((renderer): RendererMetadata => {
+				const entrypoint = {
+					extends: renderer.entrypoint.extends,
+					path: this.asWebviewUri(renderer.entrypoint.path, renderer.extensionLocation).toString()
+				};
+				return {
+					id: renderer.id,
+					entrypoint,
+					mimeTypes: renderer.mimeTypes,
+					messaging: renderer.messaging !== RendererMessagingSpec.Never,
+					isBuiltin: renderer.isBuiltin
+				};
+			});
+	}
+
+	/**
+	 * Convert a URI to a webview URI.
+	 */
+	private asWebviewUri(uri: URI, fromExtension: URI | undefined) {
+		return asWebviewUri(uri, fromExtension?.scheme === Schemas.vscodeRemote ? { isRemote: true, authority: fromExtension.authority } : undefined);
+	}
+
+	/**
+	 * Gets the static preloads for a given extension.
+	 */
+	private async getStaticPreloadsData(ext: ExtensionIdentifier):
+		Promise<StaticPreloadMetadata[]> {
+		const preloads = await this._notebookService.getStaticPreloadsForExt(ext);
+		return Array.from(preloads, preload => {
+			return {
+				entrypoint: this.asWebviewUri(preload.entrypoint, preload.extensionLocation)
+					.toString()
+					.toString()
+			};
+		});
+	}
+
 	private async createNotebookRenderOutput(id: string,
 		runtime: ILanguageRuntime,
 		renderer: INotebookRendererInfo,
@@ -59,10 +114,33 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 		// Get the renderer's entrypoint and convert it to a webview URI
 		const rendererPath = asWebviewUri(renderer.entrypoint.path);
 
+		// Create the preload script contents. This is a simplified version of the
+		// preloads script that the notebook renderer API creates.
+		const preloads = preloadsScriptStr({
+			// PreloadStyles
+			outputNodeLeftPadding: 0,
+			outputNodePadding: 0,
+			tokenizationCss: '',
+		}, {
+			// PreloadOptions
+			dragAndDropEnabled: false
+		}, {
+			lineLimit: 1000,
+			outputScrolling: true,
+			outputWordWrap: false
+		},
+			this.getRendererData(mimeType),
+			await this.getStaticPreloadsData(renderer.extensionId),
+			this._workspaceTrustManagementService.isWorkspaceTrusted(),
+			id);
+
 		// Create the metadata for the webview
 		const webviewInitInfo: WebviewInitInfo = {
 			contentOptions: {
 				allowScripts: true,
+				// Needed since we use the API ourselves, and it's also used by
+				// preload scripts
+				allowMultipleAPIAcquire: true,
 				localResourceRoots: [
 					// Ensure that the renderer can load local resources from
 					// the extension that provides it
@@ -86,13 +164,20 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 		// - Message passing between the renderer and the host (RenderContext)
 		// - Extending another renderer (RenderContext)
 		// - State management (RenderContext)
-		// - Preloads (PreloadContext)
 		// - Raw Uint8Array data and blobs
 
 		webview.setHtml(`
+<head>
+	<style nonce="${id}">
+		#_defaultColorPalatte {
+			color: var(--vscode-editor-findMatchHighlightBackground);
+			background-color: var(--vscode-editor-findMatchBackground);
+		}
+	</style>
+</head>
 <body>
 <div id='container'></div>
-</body>
+<div id="_defaultColorPalatte"></div>
 <script type="module">
 	const vscode = acquireVsCodeApi();
 	import { activate } from "${rendererPath.toString()}"
@@ -135,6 +220,8 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 		vscode.postMessage('${RENDER_COMPLETE}');
 	};
 </script>
+<script type="module">${preloads}</script>
+</body>
 `);
 
 		return new NotebookOutputWebview(id, runtime.metadata.runtimeId, webview);
