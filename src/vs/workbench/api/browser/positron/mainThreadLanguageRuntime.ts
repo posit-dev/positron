@@ -617,17 +617,20 @@ class ExtHostLanguageRuntimeAdapter implements ILanguageRuntime {
 			return RuntimeOutputKind.StaticImage;
 		}
 
-		// If there's an `application/` MIME type, check to see if there are any
-		// renderers registered for the type. These renderers are custom built
-		// for displaying notebook output in VS Code / Positron so should have
-		// priority over other visualization types.
+		// Check to see if there are any renderers registered for the type.
+		// These renderers are custom built for displaying notebook output in VS
+		// Code / Positron so should have priority over other visualization
+		// types.
 		for (const mimeType of mimeTypes) {
-			if (mimeType.startsWith('application/')) {
+			if (mimeType.startsWith('application/') ||
+				mimeType === 'text/markdown' ||
+				mimeType.startsWith('text/x-')) {
 				const renderer = this._notebookService.getPreferredRenderer(mimeType);
 				if (renderer) {
 					// Mime type guessing: if it has "table" in the name, it's
 					// probably tabular data, which should go in the Viewer.
-					if (mimeType.indexOf('table') >= 0) {
+					// Same deal for text-based output types.
+					if (mimeType.indexOf('table') >= 0 || mimeType.startsWith('text/')) {
 						return RuntimeOutputKind.ViewerWidget;
 					} else {
 						return RuntimeOutputKind.PlotWidget;
