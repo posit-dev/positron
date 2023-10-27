@@ -29,8 +29,8 @@ interface DataPanelProps {
 	vscode: any;
 }
 
-// A dict-like object to store functions used to resolve/reject a Promise with a DataFragment.
-// Resolver functions are indexed by the request ID (i.e. the start row number)
+// A dict-like object to store functions used to resolve a Promise with a DataFragment (or reject it).
+// Resolve functions are indexed by the request ID (i.e. the start row number)
 // and resolved when that request is fulfilled in the message event handler.
 type ResolverLookup = {
 	[requestId: number]: {
