@@ -29,10 +29,19 @@ export interface INotebookOutputWebview {
 
 export interface IPositronNotebookOutputWebviewService {
 
+	// Required for dependency injection
+	readonly _serviceBrand: undefined;
+
+	/**
+	 * Create a new notebook output webview from an output message.
+	 *
+	 * @param runtime The runtime that emitted the output
+	 * @param output The message containing the contents to be rendered in the webview.
+	 * @returns A promise that resolves to the new webview, or undefined if the
+	 *   output does not have a suitable renderer.
+	 */
 	createNotebookOutputWebview(
 		runtime: ILanguageRuntime,
 		output: ILanguageRuntimeMessageOutput): Promise<INotebookOutputWebview | undefined>;
-
-	readonly _serviceBrand: undefined;
 }
 

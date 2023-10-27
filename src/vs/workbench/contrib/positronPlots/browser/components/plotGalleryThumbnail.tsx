@@ -17,7 +17,8 @@ interface PlotGalleryThumbnailProps {
 }
 
 /**
- * PlotGalleryThumbnail component. This component renders a thumbnail of a plot instance.
+ * PlotGalleryThumbnail component. This component renders a thumbnail of a plot
+ * instance as a child component, and is used as a wrapper for all plot thumbnails.
  *
  * @param props A PlotGalleryThumbnailProps that contains the component properties.
  * @returns The rendered component.

@@ -12,6 +12,15 @@ import { RuntimeClientType } from 'vs/workbench/api/common/positron/extHostTypes
 import { ExtHostRuntimeClientInstance } from 'vs/workbench/api/common/positron/extHostClientInstance';
 import { IExtensionDescription } from 'vs/platform/extensions/common/extensions';
 
+
+/**
+ * A language runtime provider and metadata about the extension that registered it.
+ */
+interface LanguageRuntimeProvider {
+	provider: positron.LanguageRuntimeProvider;
+	extension: IExtensionDescription;
+}
+
 export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRuntimeShape {
 
 	private readonly _proxy: extHostProtocol.MainThreadLanguageRuntimeShape;
@@ -450,9 +459,4 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		this._proxy.$emitLanguageRuntimeMessage(handle, message);
 	}
 
-}
-
-interface LanguageRuntimeProvider {
-	provider: positron.LanguageRuntimeProvider;
-	extension: IExtensionDescription;
 }

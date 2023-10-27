@@ -2,7 +2,6 @@
  *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
-import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/common/extensions';
 import { IWorkspaceTrustManagementService } from 'vs/platform/workspace/common/workspaceTrust';
 import { INotebookRendererInfo } from 'vs/workbench/contrib/notebook/common/notebookCommon';
 import { INotebookService } from 'vs/workbench/contrib/notebook/common/notebookService';
@@ -15,6 +14,7 @@ import { ILanguageRuntime, ILanguageRuntimeMessageOutput } from 'vs/workbench/se
 
 export class PositronNotebookOutputWebviewService implements IPositronNotebookOutputWebviewService {
 
+	// Required for dependency injection
 	readonly _serviceBrand: undefined;
 
 	constructor(
@@ -28,15 +28,21 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 	async createNotebookOutputWebview(runtime: ILanguageRuntime,
 		output: ILanguageRuntimeMessageOutput): Promise<INotebookOutputWebview | undefined> {
 
+		// Check to see if any of the MIME types have a renderer associated with
+		// them. If they do, prefer the renderer.
 		for (const mimeType of Object.keys(output.data)) {
-			if (mimeType === 'text/html') {
-				return this.createRawHtmlOutput(output.id, runtime, output.data[mimeType]);
-			}
-
 			const renderer = this._notebookService.getPreferredRenderer(mimeType);
 			if (renderer) {
 				return this.createNotebookRenderOutput(output.id, runtime,
 					renderer, mimeType, output.data[mimeType]);
+			}
+		}
+
+		// If no dedicated renderer is found, check to see if there is a raw
+		// HTML representation of the output.
+		for (const mimeType of Object.keys(output.data)) {
+			if (mimeType === 'text/html') {
+				return this.createRawHtmlOutput(output.id, runtime, output.data[mimeType]);
 			}
 		}
 
@@ -50,11 +56,16 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 		mimeType: string,
 		data: any): Promise<INotebookOutputWebview> {
 
+		// Get the renderer's entrypoint and convert it to a webview URI
 		const rendererPath = asWebviewUri(renderer.entrypoint.path);
+
+		// Create the metadata for the webview
 		const webviewInitInfo: WebviewInitInfo = {
 			contentOptions: {
 				allowScripts: true,
 				localResourceRoots: [
+					// Ensure that the renderer can load local resources from
+					// the extension that provides it
 					renderer.extensionLocation
 				],
 			},
@@ -65,57 +76,90 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 			title: '',
 		};
 
+		// Create the webview itself
 		const webview = this._webviewService.createWebviewOverlay(webviewInitInfo);
+
+		// Form the HTML to send to the webview. Currently, this is a very simplified version
+		// of the HTML that the notebook renderer API creates, but it works for many renderers.
+		//
+		// Some features known to be NYI:
+		// - Message passing between the renderer and the host (RenderContext)
+		// - Extending another renderer (RenderContext)
+		// - State management (RenderContext)
+		// - Preloads (PreloadContext)
+		// - Raw Uint8Array data and blobs
 
 		webview.setHtml(`
 <body>
 <div id='container'></div>
+</body>
 <script type="module">
-		const vscode = acquireVsCodeApi();
-		import { activate } from "${rendererPath.toString()}"
-		var ctx = {
-			workspace: {
-				isTrusted: ${this._workspaceTrustManagementService.isWorkspaceTrusted()}
-			}
-		}
-		var renderer = activate(ctx);
-		var rawData = '${JSON.stringify(data)}';
-		var data = {
-			id: '${id}',
-    		mime: '${mimeType}',
-			text: () => { return rawData },
-			json: () => { return JSON.parse(rawData) },
-			data: () => { return new Uint8Array() },
-			blob: () => { return new Blob(); },
-		};
+	const vscode = acquireVsCodeApi();
+	import { activate } from "${rendererPath.toString()}"
 
-		console.log('** activated!!');
-		const controller = new AbortController();
-		const signal = controller.signal;
-		window.onerror = function (e) {
-			let pre = document.createElement('pre');
-			pre.innerText = data.text();
-			container.appendChild(pre);
-		};
-		window.onload = function() {
-			let container = document.getElementById('container');
-			console.log('** container: ' + container);
-			renderer.renderOutputItem(data, container, signal);
-			vscode.postMessage('${RENDER_COMPLETE}');
-			console.log('** rendered.');
-		};
+	// A stub implementation of RendererContext
+	var ctx = {
+		workspace: {
+			isTrusted: ${this._workspaceTrustManagementService.isWorkspaceTrusted()}
+		}
+	}
+
+	// Activate the renderer and create the data object
+	var renderer = activate(ctx);
+	var rawData = '${JSON.stringify(data)}';
+	var data = {
+		id: '${id}',
+		mime: '${mimeType}',
+		text: () => { return rawData },
+		json: () => { return JSON.parse(rawData) },
+		data: () => { return new Uint8Array() /* NYI */ },
+		blob: () => { return new Blob(); /* NYI */ },
+	};
+
+	const controller = new AbortController();
+	const signal = controller.signal;
+
+	// Error management: if the renderer fails to load, we show the raw data in
+	// the window for diagnosis.
+	window.onerror = function (e) {
+		let pre = document.createElement('pre');
+		pre.innerText = data.text();
+		container.appendChild(pre);
+	};
+
+	// Render the widget when the page is loaded, then post a message to the
+	// host letting it know that render is complete.
+	window.onload = function() {
+		let container = document.getElementById('container');
+		renderer.renderOutputItem(data, container, signal);
+		vscode.postMessage('${RENDER_COMPLETE}');
+	};
 </script>
-</body>`);
+`);
 
 		return new NotebookOutputWebview(id, runtime.metadata.runtimeId, webview);
 	}
 
+	/**
+	 * Renders raw HTML in a webview.
+	 *
+	 * @param id The ID of the notebook output
+	 * @param runtime The runtime that emitted the output
+	 * @param html The HTML to render
+	 *
+	 * @returns A promise that resolves to the new webview.
+	 */
 	async createRawHtmlOutput(id: string, runtime: ILanguageRuntime, html: string):
 		Promise<INotebookOutputWebview> {
+
+		// Load the Jupyter extension. Many notebook HTML outputs have a dependency on jQuery,
+		// which is provided by the Jupyter extension.
 		const jupyterExtension = await this._extensionService.getExtension('ms-toolsai.jupyter');
 		if (!jupyterExtension) {
 			return Promise.reject(`Jupyter extension 'ms-toolsai.jupyter' not found`);
 		}
+
+		// Create the metadata for the webview
 		const webviewInitInfo: WebviewInitInfo = {
 			contentOptions: {
 				allowScripts: true,
@@ -128,6 +172,8 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 			title: '',
 		};
 		const webview = this._webviewService.createWebviewOverlay(webviewInitInfo);
+
+		// Form the path to the jQuery library and inject it into the HTML
 		const jQueryPath = asWebviewUri(
 			jupyterExtension.extensionLocation.with({
 				path: jupyterExtension.extensionLocation.path +
@@ -146,7 +192,3 @@ window.onload = function() {
 		return new NotebookOutputWebview(id, runtime.metadata.runtimeId, webview);
 	}
 }
-
-registerSingleton(IPositronNotebookOutputWebviewService,
-	PositronNotebookOutputWebviewService,
-	InstantiationType.Delayed);
