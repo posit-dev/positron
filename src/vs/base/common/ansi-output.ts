@@ -74,11 +74,6 @@ export interface ANSIOutputLine {
 	readonly id: string;
 
 	/**
-	 * Gets the hyperlink.
-	 */
-	readonly hyperlink?: ANSIHyperlink;
-
-	/**
 	 * Gets the output runs.
 	 */
 	readonly outputRuns: ANSIOutputRun[];
@@ -238,7 +233,7 @@ export class ANSIOutput {
 	 * @param output The output to process.
 	 * @returns The ANSIOutput lines of the output.
 	 */
-	static processOutput(output: string) {
+	public static processOutput(output: string) {
 		const ansiOutput = new ANSIOutput();
 		ansiOutput.processOutput(output);
 		return ansiOutput.outputLines;
@@ -412,7 +407,7 @@ export class ANSIOutput {
 			const outputLine = this._outputLines[this._outputLine];
 
 			// Insert the buffer into the output line.
-			outputLine.insert(this._buffer, this._outputColumn, this._sgrState);
+			outputLine.insert(this._buffer, this._outputColumn, this._sgrState, this._hyperlink);
 
 			// Adjust the output column and empty the buffer.
 			this._outputColumn += this._buffer.length;
@@ -1432,6 +1427,26 @@ class SGRState implements ANSIFormat {
 
 	//#endregion Private Properties.
 
+	//#region Public Static Methods
+
+	/**
+	 * Determines whether two SGRStates are equivalent.
+	 * @param sgrState1 The 1st SGRState.
+	 * @param sgrState2 The 2nd SGRState.
+	 * @returns A value which indicates whether the two SGRStates are equivalent.
+	 */
+	public static equivalent(sgrState1?: SGRState, sgrState2?: SGRState) {
+		// The set replacer.
+		const setReplacer = (_: any, value: any) =>
+			value instanceof Set ? !value.size ? undefined : Array.from(value) : value;
+
+		// Determines whether the two SGRStates are equivalent.
+		return sgrState1 === sgrState2 ||
+			JSON.stringify(sgrState1, setReplacer) === JSON.stringify(sgrState2, setReplacer);
+	}
+
+	//#endregion Public Static Methods
+
 	//#region Public Methods
 
 	/**
@@ -1549,20 +1564,6 @@ class SGRState implements ANSIFormat {
 	setFont(font?: ANSIFont) {
 		// Set the font.
 		this._font = font;
-	}
-
-	/**
-	 *
-	 * @param left
-	 * @param right
-	 * @returns
-	 */
-	static equivalent(left?: SGRState, right?: SGRState) {
-		const setReplacer = (_: any, value: any) =>
-			value instanceof Set ? !value.size ? undefined : Array.from(value) : value;
-
-		return left === right ||
-			JSON.stringify(left, setReplacer) === JSON.stringify(right, setReplacer);
 	}
 
 	//#endregion Public Methods
@@ -1820,8 +1821,9 @@ class OutputLine implements ANSIOutputLine {
 	 * @param text The text to insert.
 	 * @param column The column at which to insert the text.
 	 * @param sgrState The SGR state.
+	 * @param hyperlink The hyperlink.
 	 */
-	public insert(text: string, column: number, sgrState?: SGRState) {
+	public insert(text: string, column: number, sgrState?: SGRState, hyperlink?: Hyperlink) {
 		// Sanity check the text length.
 		if (!text.length) {
 			return;
@@ -1835,14 +1837,15 @@ class OutputLine implements ANSIOutputLine {
 			// When possible, append the text being inserted to the last output run.
 			if (this._outputRuns.length) {
 				const lastOutputRun = this._outputRuns[this._outputRuns.length - 1];
-				if (SGRState.equivalent(lastOutputRun.sgrState, sgrState)) {
+				if (SGRState.equivalent(lastOutputRun.sgrState, sgrState) &&
+					Hyperlink.equivalent(lastOutputRun.hyperlink, hyperlink)) {
 					lastOutputRun.appendText(text);
 					return;
 				}
 			}
 
 			// Append an output run for the text being inserted.
-			this._outputRuns.push(new OutputRun(text, sgrState));
+			this._outputRuns.push(new OutputRun(text, sgrState, hyperlink));
 			return;
 		}
 
@@ -1871,7 +1874,7 @@ class OutputLine implements ANSIOutputLine {
 				// inserted. The spacer must be neutral because text for it has not been set using any
 				// SGR state.
 				this._outputRuns.push(new OutputRun(spacer));
-				this._outputRuns.push(new OutputRun(text, sgrState));
+				this._outputRuns.push(new OutputRun(text, sgrState, hyperlink));
 			}
 		}
 
@@ -2039,6 +2042,11 @@ class OutputRun implements ANSIOutputRun {
 	 */
 	private readonly _sgrState?: SGRState;
 
+	/**
+	 * Gets the hyperlink.
+	 */
+	private readonly _hyperlink?: Hyperlink;
+
 	//#endregion Private Properties
 
 	//#region Public Properties
@@ -2050,6 +2058,13 @@ class OutputRun implements ANSIOutputRun {
 		return this._sgrState;
 	}
 
+	/**
+	 * Gets the hyperlink.
+	 */
+	get hyperlink() {
+		return this._hyperlink;
+	}
+
 	//#endregion Public Properties
 
 	//#region Constructor
@@ -2058,15 +2073,17 @@ class OutputRun implements ANSIOutputRun {
 	 * Constructor.
 	 * @param text The text.
 	 * @param sgrState The SGR state.
+	 * @param hyperlink The hyperlink.
 	 */
-	constructor(text: string, sgrState?: SGRState) {
+	constructor(text: string, sgrState?: SGRState, hyperlink?: Hyperlink) {
 		this._text = text;
 		this._sgrState = sgrState;
+		this._hyperlink = hyperlink;
 	}
 
 	//#endregion Constructor
 
-	//#region Public Methods
+	//#region Public Static Methods
 
 	/**
 	 * Optimizes a an array of output runs by combining adjacent output runs with equivalent SGR
@@ -2075,12 +2092,13 @@ class OutputRun implements ANSIOutputRun {
 	 * @returns The optimized output runs.
 	 */
 	public static optimizeOutputRuns(outputRunsIn: OutputRun[]) {
-		// Build the optimized output runs by combining adjacent output runs with equivalent
-		// SGR states.
+		// Build the optimized output runs by combining adjacent output runs with equivalent SGR
+		// states and equivalent hyperlinks.
 		const outputRunsOut = [outputRunsIn[0]];
 		for (let i = 1, o = 0; i < outputRunsIn.length; i++) {
 			const outputRun = outputRunsIn[i];
-			if (SGRState.equivalent(outputRunsOut[o].sgrState, outputRun.sgrState)) {
+			if (SGRState.equivalent(outputRunsOut[o].sgrState, outputRun.sgrState) &&
+				Hyperlink.equivalent(outputRunsOut[o].hyperlink, outputRun.hyperlink)) {
 				outputRunsOut[o]._text += outputRun.text;
 			} else {
 				outputRunsOut[++o] = outputRun;
@@ -2090,6 +2108,10 @@ class OutputRun implements ANSIOutputRun {
 		// Return the optimized output runs.
 		return outputRunsOut;
 	}
+
+	//#endregion Public Static Methods
+
+	//#region Public Methods
 
 	/**
 	 * Appends text to the end of the output run.
@@ -2136,7 +2158,7 @@ class Hyperlink implements ANSIHyperlink {
 	/**
 	 * Gets the params.
 	 */
-	params?: Map<string, string>;
+	public params?: Map<string, string>;
 
 	//#endregion Public Properties
 
@@ -2175,6 +2197,22 @@ class Hyperlink implements ANSIHyperlink {
 	}
 
 	//#endregion Constructor
+
+	//#region Public Static Methods
+
+	/**
+	 * Determines whether two Hyperlinks are equivalent.
+	 * @param hyperlink1 The first Hyperlink.
+	 * @param hyperlink2 The second Hyperlink.
+	 * @returns A value which indicates whether the two Hyperlinks are equivalent.
+	 */
+	public static equivalent(hyperlink1?: Hyperlink, hyperlink2?: Hyperlink) {
+		// Determines whether the two SGRStates are equivalent.
+		return hyperlink1 === hyperlink2 ||
+			JSON.stringify(hyperlink1) === JSON.stringify(hyperlink2);
+	}
+
+	//#endregion Public Static Methods
 }
 
 //#endregion Private Classes

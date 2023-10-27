@@ -155,8 +155,17 @@ export const OutputRun = (props: OutputRunProps) => {
 			};
 	};
 
-	// Render.
-	return (
-		<span style={computeCSSProperties(props.outputRun)}>{props.outputRun.text}</span>
-	);
+	if (props.outputRun.hyperlink) {
+		// Render.
+		return (
+			<span style={computeCSSProperties(props.outputRun)}>
+				<a href={props.outputRun.hyperlink.url} style={{ textDecoration: 'underline' }}>{props.outputRun.text}</a>
+			</span>
+		);
+	} else {
+		// Render.
+		return (
+			<span style={computeCSSProperties(props.outputRun)}>{props.outputRun.text}</span>
+		);
+	}
 };
