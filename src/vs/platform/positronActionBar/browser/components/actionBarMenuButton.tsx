@@ -18,6 +18,7 @@ interface ActionBarMenuButtonProps {
 	iconId?: string;
 	iconFontSize?: number;
 	text?: string;
+	ariaLabel?: string;
 	maxTextWidth?: number;
 	align?: 'left' | 'right';
 	tooltip?: string | (() => string | undefined);

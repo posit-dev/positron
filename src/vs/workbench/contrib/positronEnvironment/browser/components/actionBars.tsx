@@ -32,6 +32,12 @@ const kPaddingRight = 8;
 const kFilterTimeout = 800;
 
 /**
+ * Localized strings.
+ */
+const positronRefreshObjects = localize('positronRefreshObjects', "Refresh objects");
+const positronDeleteAllObjects = localize('positronDeleteAllObjects', "Delete all objects");
+
+/**
  * ActionBarsProps interface.
  */
 export interface ActionBarsProps extends PositronEnvironmentServices {
@@ -111,9 +117,9 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 						{/* Disabled for Private Alpha <ActionBarButton iconId='positron-import-data' text='Import Dataset' dropDown={true} /> */}
 					</ActionBarRegion>
 					<ActionBarRegion location='right'>
-						<ActionBarButton align='right' iconId='positron-refresh' tooltip={localize('positronRefreshObjects', "Refresh objects")} onClick={refreshObjectsHandler} />
+						<ActionBarButton align='right' iconId='positron-refresh' tooltip={positronRefreshObjects} ariaLabel={positronRefreshObjects} onClick={refreshObjectsHandler} />
 						<ActionBarSeparator />
-						<ActionBarButton align='right' iconId='positron-clear-pane' tooltip={localize('positronDeleteAllObjects', "Delete all objects")} onClick={deleteAllObjectsHandler} />
+						<ActionBarButton align='right' iconId='positron-clear-pane' tooltip={positronDeleteAllObjects} ariaLabel={positronDeleteAllObjects} onClick={deleteAllObjectsHandler} />
 					</ActionBarRegion>
 				</PositronActionBar>
 				<PositronActionBar size='small' borderBottom={true} gap={kSecondaryActionBarGap} paddingLeft={kPaddingLeft} paddingRight={kPaddingRight}>
