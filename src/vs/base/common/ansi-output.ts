@@ -2033,6 +2033,11 @@ class OutputRun implements ANSIOutputRun {
 	private _id = generateId();
 
 	/**
+	 * Gets the hyperlink.
+	 */
+	private readonly _hyperlink?: Hyperlink;
+
+	/**
 	 * Gets or sets the text.
 	 */
 	private _text: string;
@@ -2041,11 +2046,6 @@ class OutputRun implements ANSIOutputRun {
 	 * Gets the SGR state.
 	 */
 	private readonly _sgrState?: SGRState;
-
-	/**
-	 * Gets the hyperlink.
-	 */
-	private readonly _hyperlink?: Hyperlink;
 
 	//#endregion Private Properties
 
@@ -2056,13 +2056,6 @@ class OutputRun implements ANSIOutputRun {
 	 */
 	get sgrState() {
 		return this._sgrState;
-	}
-
-	/**
-	 * Gets the hyperlink.
-	 */
-	get hyperlink() {
-		return this._hyperlink;
 	}
 
 	//#endregion Public Properties
@@ -2130,6 +2123,13 @@ class OutputRun implements ANSIOutputRun {
 	 */
 	public get id() {
 		return this._id;
+	}
+
+	/**
+	 * Gets the hyperlink.
+	 */
+	get hyperlink() {
+		return this._hyperlink;
 	}
 
 	/**
