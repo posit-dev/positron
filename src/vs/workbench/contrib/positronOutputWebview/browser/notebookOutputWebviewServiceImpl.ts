@@ -2,6 +2,7 @@
  *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
+import { VSBuffer, encodeBase64 } from 'vs/base/common/buffer';
 import { Schemas } from 'vs/base/common/network';
 import { URI } from 'vs/base/common/uri';
 import { ExtensionIdentifier } from 'vs/platform/extensions/common/extensions';
@@ -157,6 +158,11 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 		// Create the webview itself
 		const webview = this._webviewService.createWebviewOverlay(webviewInitInfo);
 
+		// Encode the data as base64, as either a raw string or JSON object
+		const rawData = encodeBase64(
+			typeof (data) === 'string' ? VSBuffer.fromString(data) :
+				VSBuffer.fromString(JSON.stringify(data)));
+
 		// Form the HTML to send to the webview. Currently, this is a very simplified version
 		// of the HTML that the notebook renderer API creates, but it works for many renderers.
 		//
@@ -191,7 +197,7 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 
 	// Activate the renderer and create the data object
 	var renderer = activate(ctx);
-	var rawData = '${JSON.stringify(data)}';
+	var rawData = atob('${rawData}');
 	var data = {
 		id: '${id}',
 		mime: '${mimeType}',
