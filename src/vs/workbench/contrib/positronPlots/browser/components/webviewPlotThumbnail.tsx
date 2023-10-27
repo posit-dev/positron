@@ -4,6 +4,7 @@
 
 import * as React from 'react';
 import { useEffect, useState } from 'react'; // eslint-disable-line no-duplicate-imports
+import { PlaceholderThumbnail } from 'vs/workbench/contrib/positronPlots/browser/components/placeholderThumbnail';
 import { WebviewPlotClient } from 'vs/workbench/contrib/positronPlots/browser/webviewPlotClient';
 
 /**
@@ -43,6 +44,6 @@ export const WebviewPlotThumbnail = (props: WebviewPlotThumbnailProps) => {
 	if (uri) {
 		return <img src={uri} alt={'Plot ' + props.plotClient.id} />;
 	} else {
-		return <div className='plot-thumbnail-placeholder'></div>;
+		return <PlaceholderThumbnail />;
 	}
 };
