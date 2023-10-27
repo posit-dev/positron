@@ -72,6 +72,7 @@ export const PositronPlots = (props: PropsWithChildren<PositronPlotsProps>) => {
 	const [height, setHeight] = useState(props.reactComponentContainer.height);
 	const [posX, setPosX] = useState(0);
 	const [posY, setPosY] = useState(0);
+	const [visible, setVisible] = useState(props.reactComponentContainer.visible);
 	const [showHistory, setShowHistory] = useState(computeHistoryVisibility(
 		props.positronPlotsService.historyPolicy));
 
@@ -91,6 +92,11 @@ export const PositronPlots = (props: PropsWithChildren<PositronPlotsProps>) => {
 		disposableStore.add(props.reactComponentContainer.onPositionChanged(pos => {
 			setPosX(pos.x);
 			setPosY(pos.y);
+		}));
+
+		// Add the onVisibilityChanged event handler.
+		disposableStore.add(props.reactComponentContainer.onVisibilityChanged(visible => {
+			setVisible(visible);
 		}));
 
 		// Add event handlers so we can show/hide the history portion of the panel as the set
@@ -120,6 +126,7 @@ export const PositronPlots = (props: PropsWithChildren<PositronPlotsProps>) => {
 			<ActionBars {...props} />
 			<PlotsContainer
 				showHistory={showHistory}
+				visible={visible}
 				width={width}
 				height={height - 34}
 				x={posX}

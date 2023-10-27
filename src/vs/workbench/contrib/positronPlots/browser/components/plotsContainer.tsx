@@ -25,6 +25,7 @@ interface PlotContainerProps {
 	height: number;
 	x: number;
 	y: number;
+	visible: boolean;
 	showHistory: boolean;
 }
 
