@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
 import * as fs from 'fs';
@@ -48,6 +48,7 @@ const HelpLines = [
 	'ansi hidden    - Displays hidden text',
 	'ansi rgb       - Displays RGB ANSI colors as foreground and background colors',
 	'busy X Y       - Simulates an interuptible busy state for X seconds that takes Y seconds to interrupt (default X = 5, Y = 1)',
+	'clock          - Show a plot containing a clock, using the notebook renderer API',
 	'code X Y       - Simulates a successful X line input with Y lines of output (where X >= 1 and Y >= 0)',
 	'crash          - Simulates a crash',
 	'env clear      - Clears all variables from the environment',
@@ -842,6 +843,11 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 				break;
 			}
 
+			case 'clock': {
+				this.simulateNotebookOutputClock(id, code);
+				break;
+			}
+
 			case 'html': {
 				this.simulateHtmlOutput(id, code);
 				break;
@@ -1331,6 +1337,37 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 			data: {
 				'text/plain': '<ZedHTML Fancy Object>',
 				'text/html': fancyHtml.toString(),
+			} as Record<string, string>
+		} as positron.LanguageRuntimeOutput);
+
+		// Return to idle state.
+		this.simulateIdleState(parentId);
+	}
+
+	private simulateNotebookOutputClock(parentId: string, code: string) {
+		// Enter busy state and output the code.
+		this.simulateBusyState(parentId);
+		this.simulateInputMessage(parentId, code);
+
+		// Get the data for the clock.
+		const now = new Date();
+		const clockTime = {
+			hour: now.getHours(),
+			minute: now.getMinutes(),
+			second: now.getSeconds(),
+		};
+
+		// Send the data as a notebook output of the type
+		// 'application/vnd.zed.clock'. We supply a renderer for this type that
+		// draws the digits in a plot-like way.
+		this._onDidReceiveRuntimeMessage.fire({
+			id: randomUUID(),
+			parent_id: parentId,
+			when: new Date().toISOString(),
+			type: positron.LanguageRuntimeMessageType.Output,
+			data: {
+				'text/plain': '<ZedClock>',
+				'application/vnd.zed.clock': JSON.stringify(clockTime),
 			} as Record<string, string>
 		} as positron.LanguageRuntimeOutput);
 
