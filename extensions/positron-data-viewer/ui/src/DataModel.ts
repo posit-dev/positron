@@ -102,31 +102,28 @@ export class DataModel {
 	/**
 	 *
 	 * @param event The message event received from the runtime
-	 * @returns Either the original data model, or a new data model that includes the message's data
+	 * @returns A DataFragment representing the data in the message, or undefined
 	 */
-	handleDataMessage(event: any): DataModel {
+	handleDataMessage(event: any): DataFragment | undefined {
 		const message = event.data as DataViewerMessage;
 		if (message.msg_type === 'receive_rows' && !this.renderedRows.includes(message.start_row)) {
 			const dataMessage = message as DataViewerMessageRowResponse;
 
-			const incrementalData: DataFragment = {
+			const incrementalData = {
 				rowStart: dataMessage.start_row,
 				rowEnd: dataMessage.start_row + dataMessage.fetch_size - 1,
 				columns: dataMessage.data.columns
 			};
-			return this.appendFragment(incrementalData);
+			return incrementalData;
 		}
-		return this;
+		return undefined;
 	}
 
 	/**
-	 * A unique identifier for the data model, used to cache the data query.
+	 * A stable unique identifier for the data model (doesn't change as new rows are loaded)
 	 */
 	get id(): String {
-		return `
-		Rendered rows: ${this.renderedRows}
-		Dataset: ${this.dataSet.id}
-		`;
+		return this.dataSet.id;
 	}
 
 	/**
