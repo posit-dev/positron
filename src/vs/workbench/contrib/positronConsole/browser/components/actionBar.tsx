@@ -45,7 +45,7 @@ const stateLabelReconecting = localize('positronConsoleState.Reconnecting', "Rec
 /**
  * Localized strings for UI.
  */
-const positronInterruptExeuction = localize('positronInterruptExeuction', "Interrupt execution");
+const positronInterruptExecution = localize('positronInterruptExecution', "Interrupt execution");
 const positronToggleTrace = localize('positronToggleTrace', "Toggle trace");
 const positronToggleWordWrap = localize('positronToggleWordWrap', "Toggle word wrap");
 const positronClearConsole = localize('positronClearConsole', "Clear console");
@@ -245,7 +245,8 @@ export const ActionBar = (props: ActionBarProps) => {
 								fadeIn={true}
 								disabled={interrupting}
 								align='right'
-								tooltip={positronInterruptExeuction}
+								tooltip={positronInterruptExecution}
+								ariaLabel={positronInterruptExecution}
 								onClick={interruptHandler}
 							>
 								<div className={
@@ -262,6 +263,7 @@ export const ActionBar = (props: ActionBarProps) => {
 								iconId='positron-list'
 								align='right'
 								tooltip={positronToggleTrace}
+								ariaLabel={positronToggleTrace}
 								onClick={toggleTraceHandler}
 							/>
 						}
@@ -269,6 +271,7 @@ export const ActionBar = (props: ActionBarProps) => {
 							iconId='word-wrap'
 							align='right'
 							tooltip={positronToggleWordWrap}
+							ariaLabel={positronToggleWordWrap}
 							onClick={toggleWordWrapHandler}
 						/>
 						<ActionBarSeparator />
@@ -276,6 +279,7 @@ export const ActionBar = (props: ActionBarProps) => {
 							iconId='positron-clear-pane'
 							align='right'
 							tooltip={positronClearConsole}
+							ariaLabel={positronClearConsole}
 							onClick={clearConsoleHandler}
 						/>
 					</ActionBarRegion>
