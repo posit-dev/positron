@@ -58,6 +58,7 @@ const HelpLines = [
 	'env update X   - Updates X variables',
 	'error X Y Z    - Simulates an unsuccessful X line input with Y lines of error message and Z lines of traceback (where X >= 1 and Y >= 1 and Z >= 0)',
 	'exec X Y       - Executes a code snippet Y in the language X',
+	'fancy          - Simulates fancy HTML output',
 	'flicker        - Simulates a flickering console prompt',
 	'help           - Shows this help',
 	'html           - Simulates HTML output',
@@ -836,6 +837,11 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 				break;
 			}
 
+			case 'fancy': {
+				this.simulateFancyHtmlOutput(id, code);
+				break;
+			}
+
 			case 'html': {
 				this.simulateHtmlOutput(id, code);
 				break;
@@ -1299,6 +1305,29 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 				this.simulateOutputMessage(parentId, `Unknown preview command '${command}'.`);
 				break;
 		}
+
+		// Return to idle state.
+		this.simulateIdleState(parentId);
+	}
+
+	private simulateFancyHtmlOutput(parentId: string, code: string) {
+		// Enter busy state and output the code.
+		this.simulateBusyState(parentId);
+		this.simulateInputMessage(parentId, code);
+
+		const fancyHtmlPath = path.join(this.context.extensionPath, 'resources', 'inline.html');
+		const fancyHtml = fs.readFileSync(fancyHtmlPath);
+
+		this._onDidReceiveRuntimeMessage.fire({
+			id: randomUUID(),
+			parent_id: parentId,
+			when: new Date().toISOString(),
+			type: positron.LanguageRuntimeMessageType.Output,
+			data: {
+				'text/plain': '<ZedHTML Fancy Object>',
+				'text/html': fancyHtml.toString(),
+			} as Record<string, string>
+		} as positron.LanguageRuntimeOutput);
 
 		// Return to idle state.
 		this.simulateIdleState(parentId);
