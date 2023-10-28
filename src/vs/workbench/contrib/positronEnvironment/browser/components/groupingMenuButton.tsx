@@ -11,6 +11,11 @@ import { usePositronEnvironmentContext } from 'vs/workbench/contrib/positronEnvi
 import { PositronEnvironmentGrouping } from 'vs/workbench/services/positronEnvironment/common/interfaces/positronEnvironmentInstance';
 
 /**
+ * Localized strings.
+ */
+const positronChangeHowObjectsAreGrouped = localize('positronChangeHowObjectsAreGrouped', "Change how objects are grouped");
+
+/**
  * GroupingMenuButton component.
  * @returns The rendered component.
  */
@@ -102,7 +107,8 @@ export const GroupingMenuButton = () => {
 	return (
 		<ActionBarMenuButton
 			iconId='positron-environment-grouping'
-			tooltip={localize('positronChangeHowObjectsAreGrouped', "Change how objects are grouped")}
+			tooltip={positronChangeHowObjectsAreGrouped}
+			ariaLabel={positronChangeHowObjectsAreGrouped}
 			actions={actions}
 		/>
 	);

@@ -28,6 +28,13 @@ const kPaddingLeft = 14;
 const kPaddingRight = 8;
 
 /**
+ * Localized strings.
+ */
+const positronShowPreviousPlot = localize('positronShowPreviousPlot', "Show previous plot");
+const positronShowNextPlot = localize('positronShowNextPlot', "Show next plot");
+const positronClearAllPlots = localize('positronClearAllPlots', "Clear all plots");
+
+/**
  * ActionBarsProps interface.
  */
 export interface ActionBarsProps {
@@ -94,8 +101,8 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 			<div className='action-bars'>
 				<PositronActionBar size='small' borderTop={true} borderBottom={true} paddingLeft={kPaddingLeft} paddingRight={kPaddingRight}>
 					<ActionBarRegion location='left'>
-						<ActionBarButton iconId='positron-left-arrow' disabled={disableLeft} tooltip={localize('positronShowPreviousPlot', "Show previous plot")} onClick={showPreviousPlotHandler} />
-						<ActionBarButton iconId='positron-right-arrow' disabled={disableRight} tooltip={localize('positronShowNextPlot', "Show next plot")} onClick={showNextPlotHandler} />
+						<ActionBarButton iconId='positron-left-arrow' disabled={disableLeft} tooltip={positronShowPreviousPlot} ariaLabel={positronShowPreviousPlot} onClick={showPreviousPlotHandler} />
+						<ActionBarButton iconId='positron-right-arrow' disabled={disableRight} tooltip={positronShowNextPlot} ariaLabel={positronShowNextPlot} onClick={showNextPlotHandler} />
 						{enableSizingPolicy && <ActionBarSeparator />}
 						{enableSizingPolicy && <SizingPolicyMenuButton
 							layoutService={props.layoutService}
@@ -106,7 +113,7 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 					<ActionBarRegion location='right'>
 						<HistoryPolicyMenuButton plotsService={positronPlotsContext.positronPlotsService} />
 						<ActionBarSeparator />
-						<ActionBarButton iconId='positron-clear-pane' align='right' disabled={noPlots} tooltip={localize('positronClearAllPlots', "Clear all plots")} onClick={clearAllPlotsHandler} />
+						<ActionBarButton iconId='positron-clear-pane' align='right' disabled={noPlots} tooltip={positronClearAllPlots} ariaLabel={positronClearAllPlots} onClick={clearAllPlotsHandler} />
 					</ActionBarRegion>
 				</PositronActionBar>
 			</div>
