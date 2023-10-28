@@ -63,6 +63,7 @@ export const HistoryPolicyMenuButton = (props: HistoryPolicyMenuButtonProps) => 
 		<ActionBarMenuButton
 			iconId='layout'
 			tooltip={historyPolicyTooltip}
+			ariaLabel={historyPolicyTooltip}
 			align='right'
 			actions={actions}
 		/>

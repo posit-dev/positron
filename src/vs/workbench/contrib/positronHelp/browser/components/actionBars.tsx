@@ -158,12 +158,14 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 						disabled={!canNavigateBackward}
 						iconId='positron-left-arrow'
 						tooltip={tooltipPreviousTopic}
+						ariaLabel={tooltipPreviousTopic}
 						onClick={() => props.positronHelpService.navigateBackward()}
 					/>
 					<ActionBarButton
 						disabled={!canNavigateForward}
 						iconId='positron-right-arrow'
 						tooltip={tooltipNextTopic}
+						ariaLabel={tooltipNextTopic}
 						onClick={() => props.positronHelpService.navigateForward()}
 					/>
 
@@ -172,6 +174,7 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 					<ActionBarButton
 						iconId='positron-home'
 						tooltip={tooltipShowPositronHelp}
+						ariaLabel={tooltipShowPositronHelp}
 						disabled={true}
 						onClick={() => props.onHome()}
 					/>
@@ -203,6 +206,7 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 						<ActionBarButton
 							iconId='positron-search'
 							tooltip={tooltipShowPositronHelp}
+							ariaLabel={tooltipShowPositronHelp}
 							align='right'
 							disabled={currentHelpEntry === undefined}
 							onClick={() => currentHelpEntry?.showFind()}
