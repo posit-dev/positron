@@ -1743,7 +1743,11 @@ class OutputLine implements ANSIOutputLine {
 		} else {
 			// Some of the left output run is not being erased.
 			const leftText = leftOutputRun.text.slice(0, leftTextLength);
-			outputRuns.push(new OutputRun(leftText, leftOutputRun.sgrState));
+			outputRuns.push(new OutputRun(
+				leftText,
+				leftOutputRun.sgrState,
+				leftOutputRun.hyperlink
+			));
 			outputRuns.push(new OutputRun(erasureText));
 		}
 
@@ -1751,7 +1755,8 @@ class OutputLine implements ANSIOutputLine {
 		this.outputRuns.splice(
 			leftOutputRunIndex,
 			this._outputRuns.length - leftOutputRunIndex,
-			...outputRuns);
+			...outputRuns
+		);
 	}
 
 	/**
@@ -1806,14 +1811,19 @@ class OutputLine implements ANSIOutputLine {
 		const outputRuns = [new OutputRun(erasureText)];
 		if (rightTextLength) {
 			const rightOutputRunText = rightOutputRun.text.slice(-rightTextLength);
-			outputRuns.push(new OutputRun(rightOutputRunText, rightOutputRun.sgrState));
+			outputRuns.push(new OutputRun(
+				rightOutputRunText,
+				rightOutputRun.sgrState,
+				rightOutputRun.hyperlink
+			));
 		}
 
 		// Splice the new output runs in.
 		this.outputRuns.splice(
 			0,
 			this._outputRuns.length - rightOutputRunIndex,
-			...outputRuns);
+			...outputRuns
+		);
 	}
 
 	/**
@@ -1824,58 +1834,66 @@ class OutputLine implements ANSIOutputLine {
 	 * @param hyperlink The hyperlink.
 	 */
 	public insert(text: string, column: number, sgrState?: SGRState, hyperlink?: Hyperlink) {
-		// Sanity check the text length.
+		// If the text being inserted is empty, the insertion is complete.
 		if (!text.length) {
 			return;
 		}
 
-		// Inserting text at the end of the output line.
+		// Optimize inserting text at the end of the output line.
 		if (column === this._totalLength) {
-			// Adjust the total length.
+			// Adjust the total length to account for the text being inserted.
 			this._totalLength += text.length;
 
 			// When possible, append the text being inserted to the last output run.
 			if (this._outputRuns.length) {
+				// Get the last output run. If we can append the text to it, do it.
 				const lastOutputRun = this._outputRuns[this._outputRuns.length - 1];
 				if (SGRState.equivalent(lastOutputRun.sgrState, sgrState) &&
 					Hyperlink.equivalent(lastOutputRun.hyperlink, hyperlink)) {
+					// Append the text to the last output run.
 					lastOutputRun.appendText(text);
+
+					// The insert is complete.
 					return;
 				}
 			}
 
-			// Append an output run for the text being inserted.
+			// Append a new output run for the text being inserted.
 			this._outputRuns.push(new OutputRun(text, sgrState, hyperlink));
+
+			// The insert is complete.
 			return;
 		}
 
-		// Inserting text past the end of the output line.
+		// Optimize inserting text past the end of the output line
 		if (column > this._totalLength) {
 			// Create the spacer we need to insert.
 			const spacer = ' '.repeat(column - this._totalLength);
 
-			// Adjust the total length.
+			// Adjust the total length to account for the spacer and the text being inserted.
 			this._totalLength += spacer.length + text.length;
 
-			// When possible, append the spacer and the text being inserted to the last output run.
-			if (!sgrState && this._outputRuns.length) {
+			// When possible, append the text being inserted to the last output run.
+			if (this._outputRuns.length) {
+				// Get the last output run. If we can append the text to it, do it.
 				const lastOutputRun = this._outputRuns[this._outputRuns.length - 1];
-				if (!lastOutputRun.sgrState) {
-					lastOutputRun.appendText(spacer);
-					lastOutputRun.appendText(text);
+				if (SGRState.equivalent(lastOutputRun.sgrState, sgrState) &&
+					Hyperlink.equivalent(lastOutputRun.hyperlink, hyperlink)) {
+					// Append the text to the last output run.
+					lastOutputRun.appendText(spacer + text);
+
+					// The insert is complete.
 					return;
 				}
 			}
 
-			if (!sgrState) {
-				this._outputRuns.push(new OutputRun(spacer + text));
-			} else {
-				// Append a neutral output run for the spacer and an output run for the text being
-				// inserted. The spacer must be neutral because text for it has not been set using any
-				// SGR state.
-				this._outputRuns.push(new OutputRun(spacer));
-				this._outputRuns.push(new OutputRun(text, sgrState, hyperlink));
-			}
+			// Append a neutral output run for the spacer and an output run for the text being
+			// inserted.
+			this._outputRuns.push(new OutputRun(spacer));
+			this._outputRuns.push(new OutputRun(text, sgrState, hyperlink));
+
+			// The insert is complete.
+			return;
 		}
 
 		// Find the left output run that is impacted by the insertion.
@@ -1895,10 +1913,12 @@ class OutputLine implements ANSIOutputLine {
 			leftOffset += outputRun.text.length;
 		}
 
-		// If the left output run wasn't found, there's an egregious bug in this code. Append a new
-		// output run for the text so it's not lost and return.
+		// If the left output run wasn't found, there's an egregious bug in this code.
 		if (leftOutputRunIndex === undefined) {
-			this._outputRuns.push(new OutputRun(text, sgrState));
+			// Append a new output run for the text being inserted so it's not lost.
+			this._outputRuns.push(new OutputRun(text, sgrState, hyperlink));
+
+			// The insert is complete.
 			return;
 		}
 
@@ -1911,26 +1931,41 @@ class OutputLine implements ANSIOutputLine {
 			const outputRuns: OutputRun[] = [];
 			if (!leftTextLength) {
 				// The left output run is being completely overwritten so just add a new output run.
-				outputRuns.push(new OutputRun(text, sgrState));
+				outputRuns.push(new OutputRun(text, sgrState, hyperlink));
 			} else {
 				// Some of the left output run is not being overwritten.
 				const leftOutputRun = this._outputRuns[leftOutputRunIndex];
 				const leftText = leftOutputRun.text.slice(0, leftTextLength);
-				if (SGRState.equivalent(leftOutputRun.sgrState, sgrState)) {
-					// The left output run and the text being inserted have equivalent SGR states so
-					// they can be combined into one output run.
-					outputRuns.push(new OutputRun(leftText + text, sgrState));
+
+				// If the left output run has the same SGR state and hyperlink as the text being
+				// inserted, we can just push a single output run with the left text and the text
+				// being inserted. Otherwise, we need to push an output run for the left text and
+				// an output run for the text being inserted.
+				if (SGRState.equivalent(leftOutputRun.sgrState, sgrState) &&
+					Hyperlink.equivalent(leftOutputRun.hyperlink, hyperlink)) {
+					outputRuns.push(new OutputRun(leftText + text, sgrState, hyperlink));
 				} else {
-					// The left output run and the text being inserted do not have have equivalent
-					// SGR states so two output runs are required.
-					outputRuns.push(new OutputRun(leftText, leftOutputRun.sgrState));
-					outputRuns.push(new OutputRun(text, sgrState));
+					// Push an output run for the left text.
+					outputRuns.push(new OutputRun(
+						leftText,
+						leftOutputRun.sgrState,
+						leftOutputRun.hyperlink
+					));
+
+					// Push an output run for the text being inserted.
+					outputRuns.push(new OutputRun(
+						text,
+						sgrState,
+						hyperlink
+					));
 				}
 			}
 
-			// Splice the new output runs in, adjust the total length, and complete the insertion.
-			this.outputRuns.splice(leftOutputRunIndex, 1, ...outputRuns);
+			// Adjust the total length and splice the new output runs in.
 			this._totalLength = leftOffset + leftTextLength + text.length;
+			this.outputRuns.splice(leftOutputRunIndex, 1, ...outputRuns);
+
+			// The insertion is complete.
 			return;
 		}
 
@@ -1952,10 +1987,12 @@ class OutputLine implements ANSIOutputLine {
 			rightOffset -= outputRun.text.length;
 		}
 
-		// If the right output run wasn't found, there's an egregious bug in this code. Append a new
-		// output run for the text so it's not lost and return.
+		// If the right output run wasn't found, there's an egregious bug in this code
 		if (rightOutputRunIndex === undefined) {
-			this._outputRuns.push(new OutputRun(text, sgrState));
+			// Append a new output run for the text being inserted so it's not lost.
+			this._outputRuns.push(new OutputRun(text, sgrState, hyperlink));
+
+			// The insertion is complete.
 			return;
 		}
 
@@ -1967,18 +2004,26 @@ class OutputLine implements ANSIOutputLine {
 		if (leftOutputRunTextLength) {
 			const leftOutputRun = this._outputRuns[leftOutputRunIndex];
 			const leftOutputRunText = leftOutputRun.text.slice(0, leftOutputRunTextLength);
-			outputRuns.push(new OutputRun(leftOutputRunText, leftOutputRun.sgrState));
+			outputRuns.push(new OutputRun(
+				leftOutputRunText,
+				leftOutputRun.sgrState,
+				leftOutputRun.hyperlink
+			));
 		}
 
 		// Add the new output run.
-		outputRuns.push(new OutputRun(text, sgrState));
+		outputRuns.push(new OutputRun(text, sgrState, hyperlink));
 
 		// Add the right output run, if needed.
 		const rightOutputRunTextLength = rightOffset - (column + text.length);
 		if (rightOutputRunTextLength) {
 			const rightOutputRun = this._outputRuns[rightOutputRunIndex];
 			const rightOutputRunText = rightOutputRun.text.slice(-rightOutputRunTextLength);
-			outputRuns.push(new OutputRun(rightOutputRunText, rightOutputRun.sgrState));
+			outputRuns.push(new OutputRun(
+				rightOutputRunText,
+				rightOutputRun.sgrState,
+				rightOutputRun.hyperlink
+			));
 		}
 
 		// Splice the new output runs into the output runs,
@@ -2079,27 +2124,31 @@ class OutputRun implements ANSIOutputRun {
 	//#region Public Static Methods
 
 	/**
-	 * Optimizes a an array of output runs by combining adjacent output runs with equivalent SGR
-	 * states.
-	 * @param outputRunsIn The output runs to optimize.
+	 * Optimizes an array of output runs by combining adjacent output runs that can be combined.
+	 * @param outputRuns The output runs to optimize.
 	 * @returns The optimized output runs.
 	 */
-	public static optimizeOutputRuns(outputRunsIn: OutputRun[]) {
-		// Build the optimized output runs by combining adjacent output runs with equivalent SGR
-		// states and equivalent hyperlinks.
-		const outputRunsOut = [outputRunsIn[0]];
-		for (let i = 1, o = 0; i < outputRunsIn.length; i++) {
-			const outputRun = outputRunsIn[i];
-			if (SGRState.equivalent(outputRunsOut[o].sgrState, outputRun.sgrState) &&
-				Hyperlink.equivalent(outputRunsOut[o].hyperlink, outputRun.hyperlink)) {
-				outputRunsOut[o]._text += outputRun.text;
+	public static optimizeOutputRuns(outputRuns: OutputRun[]) {
+		// Build the optimized output runs by combining adjacent output runs that can be combined.
+		const optimizedOutputRuns = [outputRuns[0]];
+		for (let right = 1, left = 0; right < outputRuns.length; right++) {
+			// Set the left and right output runs.
+			const leftOutputRun = outputRuns[left];
+			const rightOutputRun = outputRuns[right];
+
+			// If left and right output runs have equivalent SGRStates and equivalent hyperlinks,
+			// they can be combined. In this case, append the right output run's text to the left
+			// output run's text. Otherwise, add the right output run to the optimized output runs.
+			if (SGRState.equivalent(leftOutputRun.sgrState, rightOutputRun.sgrState) &&
+				Hyperlink.equivalent(leftOutputRun.hyperlink, rightOutputRun.hyperlink)) {
+				leftOutputRun._text += rightOutputRun._text;
 			} else {
-				outputRunsOut[++o] = outputRun;
+				optimizedOutputRuns[++left] = rightOutputRun;
 			}
 		}
 
 		// Return the optimized output runs.
-		return outputRunsOut;
+		return optimizedOutputRuns;
 	}
 
 	//#endregion Public Static Methods
@@ -2202,14 +2251,13 @@ class Hyperlink implements ANSIHyperlink {
 
 	/**
 	 * Determines whether two Hyperlinks are equivalent.
-	 * @param hyperlink1 The first Hyperlink.
-	 * @param hyperlink2 The second Hyperlink.
+	 * @param hyperlink1 The 1st Hyperlink.
+	 * @param hyperlink2 The 2nd Hyperlink.
 	 * @returns A value which indicates whether the two Hyperlinks are equivalent.
 	 */
 	public static equivalent(hyperlink1?: Hyperlink, hyperlink2?: Hyperlink) {
-		// Determines whether the two SGRStates are equivalent.
-		return hyperlink1 === hyperlink2 ||
-			JSON.stringify(hyperlink1) === JSON.stringify(hyperlink2);
+		// Determines whether the two Hyperlinks are equivalent.
+		return hyperlink1 === hyperlink2 || hyperlink1?.url === hyperlink2?.url;
 	}
 
 	//#endregion Public Static Methods
