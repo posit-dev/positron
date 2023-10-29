@@ -4,7 +4,7 @@
 
 import 'vs/css!./actionBarMenuButton';
 import * as React from 'react';
-import { useRef } from 'react'; // eslint-disable-line no-duplicate-imports
+import { useEffect, useRef } from 'react'; // eslint-disable-line no-duplicate-imports
 import { IAction } from 'vs/base/common/actions';
 import { AnchorAlignment, AnchorAxisAlignment } from 'vs/base/browser/ui/contextview/contextview';
 import { IContextMenuEvent } from 'vs/base/browser/contextmenu';
@@ -34,6 +34,20 @@ export const ActionBarMenuButton = (props: ActionBarMenuButtonProps) => {
 	// Hooks.
 	const positronActionBarContext = usePositronActionBarContext();
 	const buttonRef = useRef<HTMLDivElement>(undefined!);
+
+	// Manage the aria-haspopup and aria-expanded attributes.
+	useEffect(() => {
+		buttonRef.current.setAttribute('aria-haspopup', 'menu');
+	}, []);
+
+	useEffect(() => {
+		if (positronActionBarContext.menuShowing) {
+			buttonRef.current.setAttribute('aria-expanded', 'true');
+		} else {
+			buttonRef.current.removeAttribute('aria-expanded');
+		}
+
+	}, [positronActionBarContext.menuShowing]);
 
 	// Handlers.
 	const clickHandler = async () => {
