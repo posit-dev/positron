@@ -11,5 +11,4 @@ options(cli.default_num_colors = 256L)
 options(cli.dynamic = TRUE)
 
 # Tell cli that Positron's console supports hyperlinks
-# TODO: This would be better as `cli.default_dynamic`, but that doesn't exist yet
 options(cli.hyperlink = TRUE)
