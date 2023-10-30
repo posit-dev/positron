@@ -505,6 +505,12 @@ export interface ILanguageRuntimeDynState {
 
 	/** The text the language's interpreter uses to prompt the user for continued input, e.g. "+" or "..." */
 	continuationPrompt: string;
+
+	/** The current working directory of the interpreter. */
+	currentWorkingDirectory: string;
+
+	/** Whether the interpreter is currently busy. */
+	busy: boolean;
 }
 
 export interface ILanguageRuntime {
