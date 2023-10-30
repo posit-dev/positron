@@ -96,8 +96,8 @@ export class ArkLsp implements vscode.Disposable {
 					{ language: 'r', scheme: 'untitled' },
 					{ language: 'r', scheme: 'inmemory' },  // Console
 					{ language: 'r', pattern: '**/*.{r,R}' },
-					{ language: 'r', pattern: '**/*.qmd' },
-					{ language: 'r', pattern: '**/*.Rmd' },
+					{ language: 'r', pattern: '**/*.{qmd,Qmd}' },
+					{ language: 'r', pattern: '**/*.{rmd,Rmd}' },
 				],
 			synchronize: this._notebook ?
 				undefined :
