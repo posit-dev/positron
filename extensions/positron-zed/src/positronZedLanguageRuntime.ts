@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
 import * as fs from 'fs';
@@ -48,6 +48,7 @@ const HelpLines = [
 	'ansi hidden    - Displays hidden text',
 	'ansi rgb       - Displays RGB ANSI colors as foreground and background colors',
 	'busy X Y       - Simulates an interuptible busy state for X seconds that takes Y seconds to interrupt (default X = 5, Y = 1)',
+	'clock          - Show a plot containing a clock, using the notebook renderer API',
 	'code X Y       - Simulates a successful X line input with Y lines of output (where X >= 1 and Y >= 0)',
 	'crash          - Simulates a crash',
 	'env clear      - Clears all variables from the environment',
@@ -58,6 +59,7 @@ const HelpLines = [
 	'env update X   - Updates X variables',
 	'error X Y Z    - Simulates an unsuccessful X line input with Y lines of error message and Z lines of traceback (where X >= 1 and Y >= 1 and Z >= 0)',
 	'exec X Y       - Executes a code snippet Y in the language X',
+	'fancy          - Simulates fancy HTML output',
 	'flicker        - Simulates a flickering console prompt',
 	'help           - Shows this help',
 	'html           - Simulates HTML output',
@@ -836,8 +838,23 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 				break;
 			}
 
+			case 'fancy': {
+				this.simulateFancyHtmlOutput(id, code);
+				break;
+			}
+
+			case 'clock': {
+				this.simulateNotebookOutputClock(id, code);
+				break;
+			}
+
 			case 'html': {
 				this.simulateHtmlOutput(id, code);
+				break;
+			}
+
+			case 'markdown': {
+				this.simulateMarkdownOutput(id, code);
 				break;
 			}
 
@@ -1304,6 +1321,60 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 		this.simulateIdleState(parentId);
 	}
 
+	private simulateFancyHtmlOutput(parentId: string, code: string) {
+		// Enter busy state and output the code.
+		this.simulateBusyState(parentId);
+		this.simulateInputMessage(parentId, code);
+
+		const fancyHtmlPath = path.join(this.context.extensionPath, 'resources', 'inline.html');
+		const fancyHtml = fs.readFileSync(fancyHtmlPath);
+
+		this._onDidReceiveRuntimeMessage.fire({
+			id: randomUUID(),
+			parent_id: parentId,
+			when: new Date().toISOString(),
+			type: positron.LanguageRuntimeMessageType.Output,
+			data: {
+				'text/plain': '<ZedHTML Fancy Object>',
+				'text/html': fancyHtml.toString(),
+			} as Record<string, string>
+		} as positron.LanguageRuntimeOutput);
+
+		// Return to idle state.
+		this.simulateIdleState(parentId);
+	}
+
+	private simulateNotebookOutputClock(parentId: string, code: string) {
+		// Enter busy state and output the code.
+		this.simulateBusyState(parentId);
+		this.simulateInputMessage(parentId, code);
+
+		// Get the data for the clock.
+		const now = new Date();
+		const clockTime = {
+			hour: now.getHours(),
+			minute: now.getMinutes(),
+			second: now.getSeconds(),
+		};
+
+		// Send the data as a notebook output of the type
+		// 'application/vnd.zed.clock'. We supply a renderer for this type that
+		// draws the digits in a plot-like way.
+		this._onDidReceiveRuntimeMessage.fire({
+			id: randomUUID(),
+			parent_id: parentId,
+			when: new Date().toISOString(),
+			type: positron.LanguageRuntimeMessageType.Output,
+			data: {
+				'text/plain': '<ZedClock>',
+				'application/vnd.zed.clock': JSON.stringify(clockTime),
+			} as Record<string, string>
+		} as positron.LanguageRuntimeOutput);
+
+		// Return to idle state.
+		this.simulateIdleState(parentId);
+	}
+
 	private simulateHtmlOutput(parentId: string, code: string) {
 		// Enter busy state and output the code.
 		this.simulateBusyState(parentId);
@@ -1358,6 +1429,28 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 		} as positron.LanguageRuntimeOutput);
 
 		// Return to idle state.
+		this.simulateIdleState(parentId);
+	}
+
+	private simulateMarkdownOutput(parentId: string, code: string) {
+		// Enter busy state and output the code.
+		this.simulateBusyState(parentId);
+		this.simulateInputMessage(parentId, code);
+
+		const mdPath = path.join(this.context.extensionPath, 'resources', 'markdown.md');
+		const md = fs.readFileSync(mdPath).toString();
+
+		this._onDidReceiveRuntimeMessage.fire({
+			id: randomUUID(),
+			parent_id: parentId,
+			when: new Date().toISOString(),
+			type: positron.LanguageRuntimeMessageType.Output,
+			data: {
+				'text/plain': '<ZedMarkdown>',
+				'text/markdown': md
+			} as Record<string, string>
+		} as positron.LanguageRuntimeOutput);
+
 		this.simulateIdleState(parentId);
 	}
 

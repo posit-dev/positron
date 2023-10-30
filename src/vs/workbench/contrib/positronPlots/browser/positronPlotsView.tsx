@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
 import 'vs/css!./positronPlotsView';
@@ -20,7 +20,7 @@ import { ViewPane, IViewPaneOptions } from 'vs/workbench/browser/parts/views/vie
 import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/layoutService';
 import { PositronPlots } from 'vs/workbench/contrib/positronPlots/browser/positronPlots';
 import { ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
-import { IReactComponentContainer, ISize, PositronReactRenderer } from 'vs/base/browser/positronReactRenderer';
+import { IElementPosition, IReactComponentContainer, ISize, PositronReactRenderer } from 'vs/base/browser/positronReactRenderer';
 import { IPositronPlotsService } from 'vs/workbench/services/positronPlots/common/positronPlots';
 import { INotificationService } from 'vs/platform/notification/common/notification';
 
@@ -32,6 +32,9 @@ export class PositronPlotsViewPane extends ViewPane implements IReactComponentCo
 
 	// The onSizeChanged emitter.
 	private _onSizeChangedEmitter = this._register(new Emitter<ISize>());
+
+	// The onPositionChanged emitter.
+	private _onPositionChangedEmitter = this._register(new Emitter<IElementPosition>);
 
 	// The onVisibilityChanged event emitter.
 	private _onVisibilityChangedEmitter = this._register(new Emitter<boolean>());
@@ -95,6 +98,11 @@ export class PositronPlotsViewPane extends ViewPane implements IReactComponentCo
 	 * The onSizeChanged event.
 	 */
 	readonly onSizeChanged: Event<ISize> = this._onSizeChangedEmitter.event;
+
+	/**
+	 * The onPositionChanged event.
+	 */
+	readonly onPositionChanged: Event<IElementPosition> = this._onPositionChangedEmitter.event;
 
 	/**
 	 * The onVisibilityChanged event.
@@ -236,6 +244,13 @@ export class PositronPlotsViewPane extends ViewPane implements IReactComponentCo
 		this._onSizeChangedEmitter.fire({
 			width,
 			height
+		});
+
+		// Raise the onPositionChanged event.
+		const bounding = this._positronPlotsContainer.getBoundingClientRect();
+		this._onPositionChangedEmitter.fire({
+			x: bounding.x,
+			y: bounding.y
 		});
 	}
 

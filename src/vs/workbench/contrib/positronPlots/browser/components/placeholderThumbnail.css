@@ -1,0 +1,17 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
+ *--------------------------------------------------------------------------------------------*/
+
+.plot-thumbnail-placeholder {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	height: 75px;
+	width: 75px;
+	background-color: var(--vscode-input-background);
+	cursor: pointer;
+}
+
+button .plot-thumbnail-placeholder .codicon[class*='codicon-'] {
+	font-size: 40px;
+}

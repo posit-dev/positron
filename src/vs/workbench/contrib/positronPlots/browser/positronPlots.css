@@ -96,6 +96,8 @@
 .plot-thumbnail button {
 	cursor: pointer;
 	overflow: hidden;
+	margin: 0;
+	padding: 0;
 }
 
 .plot-thumbnail button:active img,
@@ -158,13 +160,6 @@
 	top: 50%;
 	left: 50%;
 	transform: translate(-50%, -50%);
-}
-
-.plot-thumbnail-placeholder {
-	height: 75px;
-	width: 75px;
-	background-color: var(--vscode-input-background);
-	cursor: pointer;
 }
 
 .plot-instance {

@@ -159,6 +159,26 @@ export class ElectronWebviewElement extends WebviewElement {
 		this._onDidStopFind.fire();
 	}
 
+	// --- Start Positron ---
+	/**
+	 * Captures the contents of the webview as a PNG.
+	 *
+	 * @returns A VSBuffer containing a PNG encoded image.
+	 */
+	public override captureContentsAsPng(): Promise<VSBuffer | undefined> {
+		if (!this.element) {
+			return Promise.resolve(undefined);
+		}
+
+		// Get the bounding box of the webview element so we can scope the capture
+		// to the webview's viewport.
+		const bounding = this.element.getBoundingClientRect();
+
+		return this._webviewMainService.captureContentsAsPng(
+			{ windowId: this._nativeHostService.windowId }, bounding);
+	}
+	// --- End Positron ---
+
 	protected override handleFocusChange(isFocused: boolean): void {
 		super.handleFocusChange(isFocused);
 		if (isFocused) {

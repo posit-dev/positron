@@ -15,6 +15,10 @@ import { ExtensionIdentifier } from 'vs/platform/extensions/common/extensions';
 import { ILayoutService } from 'vs/platform/layout/browser/layoutService';
 import { IOverlayWebview, IWebview, IWebviewElement, IWebviewService, KEYBINDING_CONTEXT_WEBVIEW_FIND_WIDGET_ENABLED, KEYBINDING_CONTEXT_WEBVIEW_FIND_WIDGET_VISIBLE, WebviewContentOptions, WebviewExtensionDescription, WebviewInitInfo, WebviewMessageReceivedEvent, WebviewOptions } from 'vs/workbench/contrib/webview/browser/webview';
 
+// --- Start Positron ---
+import { VSBuffer } from 'vs/base/common/buffer';
+// --- End Positron ---
+
 /**
  * Webview that is absolutely positioned over another element and that can creates and destroys an underlying webview as needed.
  */
@@ -365,6 +369,21 @@ export class OverlayWebview extends Disposable implements IOverlayWebview {
 	}
 
 	runFindAction(previous: boolean): void { this._webview.value?.runFindAction(previous); }
+
+	// --- Start Positron ---
+
+	/**
+	 * Captures (as in a screenshot) the contents of a Webview.
+	 *
+	 * @returns The contents of the webview as a VSBuffer containing a PNG image.
+	 */
+	captureContentsAsPng(): Promise<VSBuffer | undefined> {
+		if (this._webview.value) {
+			return this._webview.value.captureContentsAsPng();
+		}
+		return Promise.resolve(undefined);
+	}
+	// --- End Positron ---
 
 	private _withWebview(f: (webview: IWebview) => void): void {
 		if (this._webview.value) {

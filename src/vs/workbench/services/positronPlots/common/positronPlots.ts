@@ -3,10 +3,10 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { createDecorator } from 'vs/platform/instantiation/common/instantiation';
-import { PlotClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimePlotClient';
 import { Event } from 'vs/base/common/event';
-import { StaticPlotClient } from 'vs/workbench/services/positronPlots/common/staticPlotClient';
 import { IPlotSize, IPositronPlotSizingPolicy } from 'vs/workbench/services/positronPlots/common/sizingPolicy';
+import { IDisposable } from 'vs/base/common/lifecycle';
+import { IPositronPlotMetadata } from 'vs/workbench/services/languageRuntime/common/languageRuntimePlotClient';
 
 export const POSITRON_PLOTS_VIEW_ID = 'workbench.panel.positronPlots';
 
@@ -14,7 +14,10 @@ export const POSITRON_PLOTS_SERVICE_ID = 'positronPlotsService';
 
 export const IPositronPlotsService = createDecorator<IPositronPlotsService>(POSITRON_PLOTS_SERVICE_ID);
 
-export type PositronPlotClient = PlotClientInstance | StaticPlotClient;
+export interface IPositronPlotClient extends IDisposable {
+	readonly id: string;
+	readonly metadata: IPositronPlotMetadata;
+}
 
 /**
  * The set of policies governing when we show the plot history (filmstrip
@@ -35,7 +38,7 @@ export interface IPositronPlotsService {
 	/**
 	 * Gets the individual Positron plot instances.
 	 */
-	readonly positronPlotInstances: PositronPlotClient[];
+	readonly positronPlotInstances: IPositronPlotClient[];
 
 	/**
 	 * Gets the currently selected Positron plot instance.
@@ -70,7 +73,7 @@ export interface IPositronPlotsService {
 	/**
 	 * Notifies subscribers when a new Positron plot instance is created.
 	 */
-	readonly onDidEmitPlot: Event<PositronPlotClient>;
+	readonly onDidEmitPlot: Event<IPositronPlotClient>;
 
 	/**
 	 * Notifies subscribers when a Positron plot instance is selected. The ID
@@ -91,7 +94,7 @@ export interface IPositronPlotsService {
 	 * when several plots are removed or a newly started language runtime has
 	 * plots to display.
 	 */
-	readonly onDidReplacePlots: Event<PositronPlotClient[]>;
+	readonly onDidReplacePlots: Event<IPositronPlotClient[]>;
 
 	/**
 	 * Selects the plot with the specified ID.
