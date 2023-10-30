@@ -21,7 +21,6 @@ from traceback import format_exception_only
 from types import ModuleType
 from typing import Any, Dict, List, Optional, Type
 
-from docstring_to_markdown.rst import rst_to_markdown
 from markdown_it import MarkdownIt
 from ._pydantic_compat import BaseModel
 from pygments import highlight
@@ -29,6 +28,7 @@ from pygments.formatters import HtmlFormatter
 from pygments.lexers import get_lexer_by_name
 
 from .utils import get_module_name, is_numpy_ufunc
+from .docstrings import convert_docstring
 
 logger = logging.getLogger(__name__)
 
@@ -872,7 +872,8 @@ def _rst_to_html(docstring: str, object: Any) -> str:
     """
     logger.debug(f"Parsing rST to html for object: {object}")
 
-    markdown = rst_to_markdown(docstring)
+    markdown = convert_docstring(docstring)
+
     markdown = _linkify(markdown, object)
 
     md = MarkdownIt("commonmark", {"html": True, "highlight": _highlight}).enable("table")
