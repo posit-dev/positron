@@ -4,6 +4,7 @@
 
 import { Event } from 'vs/base/common/event';
 import { IDisposable } from 'vs/base/common/lifecycle';
+import { ExtensionIdentifier } from 'vs/platform/extensions/common/extensions';
 import { createDecorator } from 'vs/platform/instantiation/common/instantiation';
 import { IRuntimeClientInstance, RuntimeClientType } from 'vs/workbench/services/languageRuntime/common/languageRuntimeClientInstance';
 import { IRuntimeClientEvent } from 'vs/workbench/services/languageRuntime/common/languageRuntimeFrontEndClient';
@@ -39,9 +40,61 @@ export interface ILanguageRuntimeMessage {
 	when: string;
 }
 
+/**
+ * An enum representing the different kinds of runtime output.
+ */
+export enum RuntimeOutputKind {
+	/**
+	 * Plain text output. Typically displayed only in the Console.
+	 */
+	Text = 'text',
+
+	/**
+	 * A static image, such as a PNG or JPG. These are typically displayed as
+	 * plots.
+	 */
+	StaticImage = 'static_image',
+
+	/**
+	 * HTML that should be displayed inline. This is typically used for small
+	 * HTML fragments that can be displayed directly in the Console. Inline HTML
+	 * is heavily sanitized and doesn't support scripts or active content.
+	 *
+	 * Example: Simple display of Jupyter HTML tables.
+	 */
+	InlineHtml = 'inline_html',
+
+	/**
+	 * Viewer widget. This is typically displayed in the Viewer pane inside
+	 * a WebView.
+	 *
+	 * Example: Interactive DataTables.
+	 */
+	ViewerWidget = 'viewer_widget',
+
+	/**
+	 * Plot widget. This is typically displayed in the Plots pane inside a
+	 * WebView.
+	 *
+	 * Example: Interactive Plotly plots.
+	 */
+	PlotWidget = 'plot',
+
+	/**
+	 * Some other kind of output. We've never heard of it.
+	 */
+	Unknown = 'unknown',
+}
 
 /** LanguageRuntimeOutput is a LanguageRuntimeMessage representing output (text, plots, etc.) */
 export interface ILanguageRuntimeMessageOutput extends ILanguageRuntimeMessage {
+	/**
+	 * The kind of output this message contains. Output messages often have
+	 * multiple representations (as text, as HTML, etc.); this enum is used to
+	 * determine how the output is presented in Positron.
+	 */
+	readonly kind: RuntimeOutputKind;
+
 	/** A record of data MIME types to the associated data, e.g. `text/plain` => `'hello world'` */
 	readonly data: Record<string, string>;
 }
@@ -417,6 +470,9 @@ export interface ILanguageRuntimeMetadata {
 
 	/** The Base64-encoded icon SVG for the language. */
 	readonly base64EncodedIconSvg: string | undefined;
+
+	/** The identifier of the extension that provides the language support. */
+	readonly extensionId: ExtensionIdentifier;
 
 	/**
 	 * The fully qualified name of the runtime displayed to the user; e.g. "R 4.2 (64-bit)".

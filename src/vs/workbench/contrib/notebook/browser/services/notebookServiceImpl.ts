@@ -43,6 +43,10 @@ import { IExtensionService, isProposedApiEnabled } from 'vs/workbench/services/e
 import { IExtensionPointUser } from 'vs/workbench/services/extensions/common/extensionsRegistry';
 import { InstallRecommendedExtensionAction } from 'vs/workbench/contrib/extensions/browser/extensionsActions';
 
+// --- Start Positron ---
+import { ExtensionIdentifier } from 'vs/platform/extensions/common/extensions';
+// --- End Positron ---
+
 export class NotebookProviderInfoStore extends Disposable {
 
 	private static readonly CUSTOM_EDITORS_STORAGE_ID = 'notebookEditors';
@@ -726,6 +730,45 @@ export class NotebookService extends Disposable implements INotebookService {
 	getRenderers(): INotebookRendererInfo[] {
 		return this._notebookRenderersInfoStore.getAll();
 	}
+
+	// --- Start Positron ---
+	/**
+	 * Gets the preferred notebook output renderer, given a mime type, or
+	 * `undefined` if no renderer is registered for the type.
+	 *
+	 * @param mimeType The mime type
+	 * @returns A NotebookOutputRendererInfo or undefined if no renderer could
+	 *   be found for the mime type.
+	 */
+	getPreferredRenderer(mimeType: string): NotebookOutputRendererInfo | undefined {
+		const renderers = this._notebookRenderersInfoStore.findBestRenderers(
+			undefined, mimeType, undefined);
+		if (renderers.length === 0) {
+			return undefined;
+		}
+		return this._notebookRenderersInfoStore.get(renderers[0].rendererId);
+	}
+
+	/**
+	 * Gets the static notebook preloads associated with the given extension.
+	 *
+	 * @param extensionId The ID of the extension to get static preloads for
+	 * @returns The static preloads for the extension
+	 */
+	async getStaticPreloadsForExt(extensionId: ExtensionIdentifier):
+		Promise<INotebookStaticPreloadInfo[]> {
+
+		const extInfo = await this._extensionService.getExtension(extensionId.value);
+
+		const results: INotebookStaticPreloadInfo[] = [];
+		for (const preload of this._notebookStaticPreloadInfoStore) {
+			if (preload.extensionLocation === extInfo?.extensionLocation) {
+				results.push(preload);
+			}
+		}
+		return results;
+	}
+	// --- End Positron ---
 
 	*getStaticPreloads(viewType: string): Iterable<INotebookStaticPreloadInfo> {
 		for (const preload of this._notebookStaticPreloadInfoStore) {

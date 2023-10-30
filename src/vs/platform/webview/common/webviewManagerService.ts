@@ -6,6 +6,10 @@
 import { Event } from 'vs/base/common/event';
 import { createDecorator } from 'vs/platform/instantiation/common/instantiation';
 
+// --- Start Positron ---
+import { VSBuffer } from 'vs/base/common/buffer';
+// --- End Positron ---
+
 export const IWebviewManagerService = createDecorator<IWebviewManagerService>('webviewManagerService');
 
 export interface WebviewWebContentsId {
@@ -15,6 +19,15 @@ export interface WebviewWebContentsId {
 export interface WebviewWindowId {
 	readonly windowId: number;
 }
+
+// --- Start Positron ---
+export interface WebviewRectangle {
+	readonly x: number;
+	readonly y: number;
+	readonly width: number;
+	readonly height: number;
+}
+// --- End Positron ---
 
 export interface FindInFrameOptions {
 	readonly forward?: boolean;
@@ -40,4 +53,8 @@ export interface IWebviewManagerService {
 	findInFrame(windowId: WebviewWindowId, frameName: string, text: string, options: FindInFrameOptions): Promise<void>;
 
 	stopFindInFrame(windowId: WebviewWindowId, frameName: string, options: { keepSelection?: boolean }): Promise<void>;
+
+	// --- Start Positron ---
+	captureContentsAsPng(windowId: WebviewWindowId, area?: WebviewRectangle): Promise<VSBuffer | undefined>;
+	// --- End Positron ---
 }

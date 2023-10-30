@@ -6,11 +6,15 @@ import * as React from 'react';
 import { useEffect } from 'react'; // eslint-disable-line no-duplicate-imports
 import { DynamicPlotInstance } from 'vs/workbench/contrib/positronPlots/browser/components/dynamicPlotInstance';
 import { DynamicPlotThumbnail } from 'vs/workbench/contrib/positronPlots/browser/components/dynamicPlotThumbnail';
+import { PlotGalleryThumbnail } from 'vs/workbench/contrib/positronPlots/browser/components/plotGalleryThumbnail';
 import { StaticPlotInstance } from 'vs/workbench/contrib/positronPlots/browser/components/staticPlotInstance';
 import { StaticPlotThumbnail } from 'vs/workbench/contrib/positronPlots/browser/components/staticPlotThumbnail';
+import { WebviewPlotInstance } from 'vs/workbench/contrib/positronPlots/browser/components/webviewPlotInstance';
+import { WebviewPlotThumbnail } from 'vs/workbench/contrib/positronPlots/browser/components/webviewPlotThumbnail';
 import { usePositronPlotsContext } from 'vs/workbench/contrib/positronPlots/browser/positronPlotsContext';
+import { WebviewPlotClient } from 'vs/workbench/contrib/positronPlots/browser/webviewPlotClient';
 import { PlotClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimePlotClient';
-import { PositronPlotClient } from 'vs/workbench/services/positronPlots/common/positronPlots';
+import { IPositronPlotClient } from 'vs/workbench/services/positronPlots/common/positronPlots';
 import { StaticPlotClient } from 'vs/workbench/services/positronPlots/common/staticPlotClient';
 
 /**
@@ -19,6 +23,9 @@ import { StaticPlotClient } from 'vs/workbench/services/positronPlots/common/sta
 interface PlotContainerProps {
 	width: number;
 	height: number;
+	x: number;
+	y: number;
+	visible: boolean;
 	showHistory: boolean;
 }
 
@@ -70,14 +77,14 @@ export const PlotsContainer = (props: PlotContainerProps) => {
 	});
 
 	/**
-	 * Renders either a DynamicPlotInstance (resizable plot) or a
-	 * StaticPlotInstance (static plot image), depending on the type of plot
-	 * instance.
+	 * Renders either a DynamicPlotInstance (resizable plot), a
+	 * StaticPlotInstance (static plot image), or a WebviewPlotInstance
+	 * (interactive HTML plot) depending on the type of plot instance.
 	 *
 	 * @param plotInstance The plot instance to render
 	 * @returns The rendered component.
 	 */
-	const render = (plotInstance: PositronPlotClient) => {
+	const render = (plotInstance: IPositronPlotClient) => {
 		if (plotInstance instanceof PlotClientInstance) {
 			return <DynamicPlotInstance
 				key={plotInstance.id}
@@ -88,34 +95,45 @@ export const PlotsContainer = (props: PlotContainerProps) => {
 			return <StaticPlotInstance
 				key={plotInstance.id}
 				plotClient={plotInstance} />;
+		} else if (plotInstance instanceof WebviewPlotClient) {
+			return <WebviewPlotInstance
+				key={plotInstance.id}
+				width={plotWidth}
+				height={plotHeight}
+				plotClient={plotInstance} />;
 		}
 		return null;
 	};
 
 	/**
-	 * Renders a thumbnail of either a DynamicPlotInstance (resizable plot) or a
-	 * StaticPlotInstance (static plot image), depending on the type of plot
-	 * instance.
+	 * Renders a thumbnail of either a DynamicPlotInstance (resizable plot), a
+	 * StaticPlotInstance (static plot image), or a WebviewPlotInstance
+	 * (interactive HTML plot) depending on the type of plot instance.
 	 *
 	 * @param plotInstance The plot instance to render
 	 * @param selected Whether the thumbnail is selected
 	 * @returns
 	 */
-	const renderThumbnail = (plotInstance: PositronPlotClient, selected: boolean) => {
-		if (plotInstance instanceof PlotClientInstance) {
-			return <DynamicPlotThumbnail
-				key={plotInstance.id}
-				selected={selected}
-				plotService={positronPlotsContext}
-				plotClient={plotInstance} />;
-		} else if (plotInstance instanceof StaticPlotClient) {
-			return <StaticPlotThumbnail
-				key={plotInstance.id}
-				selected={selected}
-				plotService={positronPlotsContext}
-				plotClient={plotInstance} />;
-		}
-		return null;
+	const renderThumbnail = (plotInstance: IPositronPlotClient, selected: boolean) => {
+		const renderThumbnailImage = () => {
+			if (plotInstance instanceof PlotClientInstance) {
+				return <DynamicPlotThumbnail plotClient={plotInstance} />;
+			} else if (plotInstance instanceof StaticPlotClient) {
+				return <StaticPlotThumbnail plotClient={plotInstance} />;
+			} else if (plotInstance instanceof WebviewPlotClient) {
+				return <WebviewPlotThumbnail plotClient={plotInstance} />;
+			} else {
+				return null;
+			}
+		};
+
+		return <PlotGalleryThumbnail
+			key={plotInstance.id}
+			selected={selected}
+			plotService={positronPlotsContext}
+			plotClient={plotInstance}>
+			{renderThumbnailImage()}
+		</PlotGalleryThumbnail>;
 	};
 
 	// Render the plot history gallery.

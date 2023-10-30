@@ -5,44 +5,42 @@
 import * as React from 'react';
 import { useEffect, useState } from 'react'; // eslint-disable-line no-duplicate-imports
 import { PlaceholderThumbnail } from 'vs/workbench/contrib/positronPlots/browser/components/placeholderThumbnail';
-import { PlotClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimePlotClient';
+import { WebviewPlotClient } from 'vs/workbench/contrib/positronPlots/browser/webviewPlotClient';
 
 /**
- * DynamicPlotThumbnailProps interface.
+ * WebviewPlotThumbnailProps interface.
  */
-interface DynamicPlotThumbnailProps {
-	plotClient: PlotClientInstance;
+interface WebviewPlotThumbnailProps {
+	plotClient: WebviewPlotClient;
 }
 
 /**
- * DynamicPlotThumbnail component. This component renders a thumbnail of a plot instance.
+ * WebviewPlotThumbnail component. This component renders a thumbnail of a plot
+ * instance backed by a webview.
  *
- * @param props A DynamicPlotThumbnailProps that contains the component properties.
+ * @param props A WebviewPlotThumbnailProps that contains the component properties.
  * @returns The rendered component.
  */
-export const DynamicPlotThumbnail = (props: DynamicPlotThumbnailProps) => {
+export const WebviewPlotThumbnail = (props: WebviewPlotThumbnailProps) => {
 
 	const [uri, setUri] = useState('');
 
 	useEffect(() => {
 		// If the plot is already rendered, show the URI; otherwise, wait for
 		// the plot to render.
-		if (props.plotClient.lastRender) {
-			setUri(props.plotClient.lastRender.uri);
+		if (props.plotClient.thumbnailUri) {
+			setUri(props.plotClient.thumbnailUri);
 		}
 
 		// When the plot is rendered, update the URI. This can happen multiple times if the plot
 		// is resized.
-		props.plotClient.onDidCompleteRender((result) => {
-			setUri(result.uri);
+		props.plotClient.onDidRenderThumbnail((result) => {
+			setUri(result);
 		});
 	});
 
 	// If the plot is not yet rendered yet (no URI), show a placeholder;
-	// otherwise, show the rendered plot.
-	//
-	// Consider: we probably want a more explicit loading state; as written we
-	// will show the old URI until the new one is ready.
+	// otherwise, show the rendered thumbnail.
 	if (uri) {
 		return <img src={uri} alt={'Plot ' + props.plotClient.id} />;
 	} else {
