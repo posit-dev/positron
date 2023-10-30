@@ -38,6 +38,11 @@ import { FromWebviewMessage, KeyEvent, ToWebviewMessage } from 'vs/workbench/con
 import { decodeAuthority, webviewGenericCspSource, webviewRootResourceAuthority } from 'vs/workbench/contrib/webview/common/webview';
 import { IWorkbenchEnvironmentService } from 'vs/workbench/services/environment/common/environmentService';
 
+// --- Start Positron ---
+// eslint-disable-next-line no-duplicate-imports
+import { VSBuffer } from 'vs/base/common/buffer';
+// --- End Positron ---
+
 interface WebviewContent {
 	readonly html: string;
 	readonly title: string | undefined;
@@ -885,4 +890,11 @@ export class WebviewElement extends Disposable implements IWebview, WebviewFindD
 	public runFindAction(previous: boolean) {
 		this._webviewFindWidget?.find(previous);
 	}
+
+	// --- Start Positron ---
+	public captureContentsAsPng(): Promise<VSBuffer | undefined> {
+		// The default implementation doesn't support PNG screen capture
+		return Promise.resolve(undefined);
+	}
+	// --- End Positron ---
 }
