@@ -12,6 +12,7 @@ import { ZedData } from './positronZedData';
 import { ZedPreview } from './positronZedPreview';
 import { ZedEnvironment } from './positronZedEnvironment';
 import { makeCUB, makeCUF, makeCUP, makeED, makeEL, makeSGR, SGR } from './ansi';
+import { ZedFrontend } from './positronZedFrontend';
 
 /**
  * Constants.
@@ -132,6 +133,11 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 	 * A map of environment IDs to environment instances.
 	 */
 	private readonly _environments: Map<string, ZedEnvironment> = new Map();
+
+	/**
+	 * The currently connected frontend, if any
+	 */
+	private _frontend: ZedFrontend | undefined;
 
 	/**
 	 * A map of plot IDs to plot instances.
@@ -901,9 +907,13 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 				this.createEnvironmentClient(id);
 				break;
 
+			case positron.RuntimeClientType.FrontEnd:
+				// Create the front-end client when requested
+				this.createFrontendClient(id);
+				break;
+
 			case positron.RuntimeClientType.Help:
 			case positron.RuntimeClientType.Lsp:
-			case positron.RuntimeClientType.FrontEnd:
 			case positron.RuntimeClientType.Dap:
 				// These types aren't currently supported by Zed, so close the
 				// comm immediately to signal this to the client.
@@ -940,6 +950,20 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 	}
 
 	/**
+	 * Creates a new Zed frontend client.
+	 *
+	 * @param id The ID of the client.
+	 */
+	createFrontendClient(id: string) {
+		// Allocate a new ID and ZedEnvironment object for this environment backend
+		const frontend = new ZedFrontend(id);
+
+		// Connect it and save the instance to coordinate future communication
+		this.connectClientEmitter(frontend);
+		this._frontend = frontend;
+	}
+
+	/**
 	 * Lists all clients of a given type.
 	 *
 	 * @param type The type of client to list. If undefined, all clients are listed.
@@ -960,6 +984,11 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 		if (!type || type === positron.RuntimeClientType.DataViewer) {
 			for (const data of this._data.values()) {
 				clients[data.id] = positron.RuntimeClientType.Plot;
+			}
+		}
+		if (!type || type === positron.RuntimeClientType.FrontEnd) {
+			if (this._frontend) {
+				clients[this._frontend.id] = positron.RuntimeClientType.FrontEnd;
 			}
 		}
 		return clients;
@@ -1786,7 +1815,7 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 	 *
 	 * @param client The environment or plot to connect
 	 */
-	private connectClientEmitter(client: ZedEnvironment | ZedPlot | ZedData) {
+	private connectClientEmitter(client: ZedEnvironment | ZedPlot | ZedData | ZedFrontend) {
 
 		// Listen for data emitted from the environment instance
 		client.onDidEmitData(data => {
