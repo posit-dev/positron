@@ -4,8 +4,8 @@
 
 import { Disposable } from 'vs/base/common/lifecycle';
 import { IPositronPlotMetadata, PlotClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimePlotClient';
-import { ILanguageRuntime, ILanguageRuntimeMessageOutput, ILanguageRuntimeService, RuntimeClientType } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
-import { HistoryPolicy, IPositronPlotsService, POSITRON_PLOTS_VIEW_ID, PositronPlotClient } from 'vs/workbench/services/positronPlots/common/positronPlots';
+import { ILanguageRuntime, ILanguageRuntimeMessageOutput, ILanguageRuntimeService, RuntimeClientType, RuntimeOutputKind } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { HistoryPolicy, IPositronPlotClient, IPositronPlotsService, POSITRON_PLOTS_VIEW_ID } from 'vs/workbench/services/positronPlots/common/positronPlots';
 import { Emitter, Event } from 'vs/base/common/event';
 import { StaticPlotClient } from 'vs/workbench/services/positronPlots/common/staticPlotClient';
 import { IStorageService, StorageTarget, StorageScope } from 'vs/platform/storage/common/storage';
@@ -17,6 +17,8 @@ import { PlotSizingPolicyFill } from 'vs/workbench/services/positronPlots/common
 import { PlotSizingPolicyLandscape } from 'vs/workbench/services/positronPlots/common/sizingPolicyLandscape';
 import { PlotSizingPolicyPortrait } from 'vs/workbench/services/positronPlots/common/sizingPolicyPortrait';
 import { PlotSizingPolicyCustom } from 'vs/workbench/services/positronPlots/common/sizingPolicyCustom';
+import { WebviewPlotClient } from 'vs/workbench/contrib/positronPlots/browser/webviewPlotClient';
+import { IPositronNotebookOutputWebviewService } from 'vs/workbench/contrib/positronOutputWebview/browser/notebookOutputWebviewService';
 
 /** The maximum number of recent executions to store. */
 const MaxRecentExecutions = 10;
@@ -38,7 +40,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 	declare readonly _serviceBrand: undefined;
 
 	/** The list of Positron plots. */
-	private readonly _plots: PositronPlotClient[] = [];
+	private readonly _plots: IPositronPlotClient[] = [];
 
 	/** The list of sizing policies. */
 	private readonly _sizingPolicies: IPositronPlotSizingPolicy[] = [];
@@ -50,10 +52,10 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 	private readonly _onDidChangeHistoryPolicy = new Emitter<HistoryPolicy>();
 
 	/** The emitter for the onDidReplacePlots event */
-	private readonly _onDidReplacePlots = new Emitter<PositronPlotClient[]>();
+	private readonly _onDidReplacePlots = new Emitter<IPositronPlotClient[]>();
 
 	/** The emitter for the onDidEmitPlot event */
-	private readonly _onDidEmitPlot = new Emitter<PositronPlotClient>();
+	private readonly _onDidEmitPlot = new Emitter<IPositronPlotClient>();
 
 	/** The emitter for the onDidSelectPlot event */
 	private readonly _onDidSelectPlot = new Emitter<string>();
@@ -86,7 +88,8 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 	constructor(
 		@ILanguageRuntimeService private _languageRuntimeService: ILanguageRuntimeService,
 		@IStorageService private _storageService: IStorageService,
-		@IViewsService private _viewsService: IViewsService) {
+		@IViewsService private _viewsService: IViewsService,
+		@IPositronNotebookOutputWebviewService private _notebookOutputWebviewService: IPositronNotebookOutputWebviewService) {
 		super();
 
 		// Register for language runtime service startups
@@ -416,7 +419,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 
 		// Listen for static plots being emitted, and register each one with
 		// the plots service.
-		this._register(runtime.onDidReceiveRuntimeMessageOutput((message) => {
+		this._register(runtime.onDidReceiveRuntimeMessageOutput(async (message) => {
 			// Check to see if we we already have a plot client for this
 			// message ID. If so, we don't need to do anything.
 			if (this.hasPlot(runtime.metadata.runtimeId, message.id)) {
@@ -425,10 +428,15 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 
 			const code = this._recentExecutions.has(message.parent_id) ?
 				this._recentExecutions.get(message.parent_id) : '';
-			const imageKey = Object.keys(message.data).find(key => key.startsWith('image/'));
-			if (imageKey) {
+			if (message.kind === RuntimeOutputKind.StaticImage) {
 				// Create a new static plot client instance and register it with the service.
 				this.registerStaticPlot(runtime.metadata.runtimeId, message, code);
+
+				// Raise the Plots pane so the plot is visible.
+				this._viewsService.openView(POSITRON_PLOTS_VIEW_ID, false);
+			} else if (message.kind === RuntimeOutputKind.PlotWidget) {
+				// Create a new webview plot client instance and register it with the service.
+				await this.registerWebviewPlot(runtime, message, code);
 
 				// Raise the Plots pane so the plot is visible.
 				this._viewsService.openView(POSITRON_PLOTS_VIEW_ID, false);
@@ -499,15 +507,39 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		this._register(client);
 	}
 
-	onDidEmitPlot: Event<PositronPlotClient> = this._onDidEmitPlot.event;
+	/**
+	 * Creates a new webview plot client instance and registers it with the
+	 * service.
+	 *
+	 * @param message The message containing the source for the webview.
+	 * @param code The code that generated the plot, if available.
+	 */
+	private async registerWebviewPlot(
+		runtime: ILanguageRuntime,
+		message: ILanguageRuntimeMessageOutput,
+		code?: string) {
+		// Create a new webview
+
+		const webview = await this._notebookOutputWebviewService.createNotebookOutputWebview(
+			runtime, message);
+		if (webview) {
+			const client = new WebviewPlotClient(webview, message, code);
+			this._plots.unshift(client);
+			this._onDidEmitPlot.fire(client);
+			this._onDidSelectPlot.fire(client.id);
+			this._register(client);
+		}
+	}
+
+	onDidEmitPlot: Event<IPositronPlotClient> = this._onDidEmitPlot.event;
 	onDidSelectPlot: Event<string> = this._onDidSelectPlot.event;
 	onDidRemovePlot: Event<string> = this._onDidRemovePlot.event;
-	onDidReplacePlots: Event<PositronPlotClient[]> = this._onDidReplacePlots.event;
+	onDidReplacePlots: Event<IPositronPlotClient[]> = this._onDidReplacePlots.event;
 	onDidChangeSizingPolicy: Event<IPositronPlotSizingPolicy> = this._onDidChangeSizingPolicy.event;
 	onDidChangeHistoryPolicy: Event<HistoryPolicy> = this._onDidChangeHistoryPolicy.event;
 
 	// Gets the individual plot instances.
-	get positronPlotInstances(): PositronPlotClient[] {
+	get positronPlotInstances(): IPositronPlotClient[] {
 		return this._plots;
 	}
 

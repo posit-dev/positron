@@ -7,7 +7,7 @@ import { DisposableStore } from 'vs/base/common/lifecycle';
 import { INotificationService } from 'vs/platform/notification/common/notification';
 import { PlotClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimePlotClient';
 import { ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
-import { IPositronPlotsService, PositronPlotClient } from 'vs/workbench/services/positronPlots/common/positronPlots';
+import { IPositronPlotClient, IPositronPlotsService } from 'vs/workbench/services/positronPlots/common/positronPlots';
 
 /**
  * PositronPlotsServices interface. Defines the set of services that are required by the Positron plots.
@@ -22,7 +22,7 @@ export interface PositronPlotsServices {
  * The Positron plots state.
  */
 export interface PositronPlotsState extends PositronPlotsServices {
-	readonly positronPlotInstances: PositronPlotClient[];
+	readonly positronPlotInstances: IPositronPlotClient[];
 	selectedInstanceId: string;
 	selectedInstanceIndex: number;
 }
@@ -36,7 +36,7 @@ export const usePositronPlotsState = (services: PositronPlotsServices): Positron
 	// Hooks.
 
 	// Initial set of plot instances.
-	const [positronPlotInstances, setPositronPlotInstances] = useState<PositronPlotClient[]>(
+	const [positronPlotInstances, setPositronPlotInstances] = useState<IPositronPlotClient[]>(
 		services.positronPlotsService.positronPlotInstances);
 
 	// Initial selected plot instance.

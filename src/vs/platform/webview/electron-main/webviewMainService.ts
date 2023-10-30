@@ -10,6 +10,12 @@ import { FindInFrameOptions, FoundInFrameResult, IWebviewManagerService, Webview
 import { WebviewProtocolProvider } from 'vs/platform/webview/electron-main/webviewProtocolProvider';
 import { IWindowsMainService } from 'vs/platform/windows/electron-main/windows';
 
+// --- Start Positron ---
+// eslint-disable-next-line no-duplicate-imports
+import { Rectangle } from 'electron';
+import { VSBuffer } from 'vs/base/common/buffer';
+// --- End Positron ---
+
 export class WebviewMainService extends Disposable implements IWebviewManagerService {
 
 	declare readonly _serviceBrand: undefined;
@@ -83,6 +89,28 @@ export class WebviewMainService extends Disposable implements IWebviewManagerSer
 			frame.stopFindInFrame(options.keepSelection ? 'keepSelection' : 'clearSelection');
 		}
 	}
+
+	// --- Start Positron ---
+	/**
+	 * Captures the contents of the webview in the given window as a PNG image.
+	 *
+	 * @param windowId The ID of the window containing the webview
+	 * @param area The bounding box of the area to capture. If omitted, the
+	 *   entire window will be captured.
+	 * @returns A promise that resolves to the contents of the webview as a PNG
+	 *   image, or undefined if the webview is not found.
+	 */
+	public async captureContentsAsPng(windowId: WebviewWindowId, area?: Rectangle):
+		Promise<VSBuffer | undefined> {
+		const window = this.windowsMainService.getWindowById(windowId.windowId);
+		if (!window?.win) {
+			throw new Error(`Invalid windowId: ${windowId}`);
+		}
+		const contents = window.win.webContents;
+		const image = await contents.capturePage(area);
+		return VSBuffer.wrap(image.toPNG());
+	}
+	// --- End Positron ---
 
 	private getFrameByName(windowId: WebviewWindowId, frameName: string): WebFrameMain {
 		const window = this.windowsMainService.getWindowById(windowId.windowId);
