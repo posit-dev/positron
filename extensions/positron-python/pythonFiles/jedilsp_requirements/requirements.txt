@@ -16,9 +16,9 @@ cattrs==23.1.2 \
     # via
     #   jedi-language-server
     #   lsprotocol
-docstring-to-markdown==0.12 \
-    --hash=sha256:40004224b412bd6f64c0f3b85bb357a41341afd66c4b4896709efa56827fb2bb \
-    --hash=sha256:7df6311a887dccf9e770f51242ec002b19f0591994c4783be49d24cdc1df3737
+docstring-to-markdown==0.13 \
+    --hash=sha256:3025c428638ececae920d6d26054546a20335af3504a145327e657e7ad7ce1ce \
+    --hash=sha256:aa487059d0883e70e54da25c7b230e918d9e4d40f23d6dfaa2b73e4225b2d7dd
     # via
     #   -r pythonFiles/jedilsp_requirements/requirements.in
     #   jedi-language-server

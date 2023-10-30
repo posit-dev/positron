@@ -18,3 +18,5 @@ from .environment import (
     EnvironmentVariableValueKind,
 )
 from .inspectors import PRINT_WIDTH, TRUNCATE_AT
+
+from .docstrings import convert_docstring, looks_like_epytext, epytext_to_markdown

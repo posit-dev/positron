@@ -448,7 +448,8 @@ class PositronIPyKernel(IPythonKernel):
         if len(removed) > 0:
             command = "del " + ", ".join(removed)
             try:
-                self._publish_execute_input(command, parent, self.execution_count - 1)
+                if self.execution_count:
+                    self._publish_execute_input(command, parent, self.execution_count - 1)
             except Exception:
                 pass
 
@@ -471,7 +472,8 @@ class PositronIPyKernel(IPythonKernel):
 
         # Publish an input to inform clients of the "delete all" operation
         try:
-            self._publish_execute_input(command, parent, self.execution_count - 1)
+            if self.execution_count:
+                self._publish_execute_input(command, parent, self.execution_count - 1)
         except Exception:
             pass
 
