@@ -47,7 +47,7 @@ type ResolverLookup = {
 export const DataPanel = (props: DataPanelProps) => {
 
 	// The height of a single row of data
-	const rowHeightPx = 30;
+	const rowHeightPx = 35;
 
 	// The number of rows to render above and below the visible area of the table.
 	const scrollOverscan = 30;
@@ -108,9 +108,7 @@ export const DataPanel = (props: DataPanelProps) => {
 			return {
 				id: '' + idx,
 				accessorKey: idx,
-				accessorFn: (_row: any, rowIdx: number) => {
-					return column.data[rowIdx];
-				},
+				accessorFn: (_row: any, rowIdx: number) => column.data[rowIdx],
 				header: column.name
 			};
 		});
