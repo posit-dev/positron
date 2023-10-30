@@ -14,7 +14,7 @@ from typing import Any, Callable, Container, Dict, Mapping, Optional, Set, Tuple
 from ipykernel.comm.manager import CommManager
 from ipykernel.ipkernel import IPythonKernel
 from ipykernel.kernelapp import IPKernelApp
-from ipykernel.zmqshell import ZMQInteractiveShell
+from ipykernel.zmqshell import ZMQInteractiveShell, ZMQDisplayPublisher
 from IPython.core import oinspect
 from IPython.core.interactiveshell import InteractiveShell
 from IPython.core.magic import Magics, line_magic, magics_class, needs_local_scope, MagicsManager
@@ -96,6 +96,7 @@ class PositronShell(ZMQInteractiveShell):
     kernel: PositronIPyKernel
     object_info_string_level: int
     magics_manager: MagicsManager
+    display_pub: ZMQDisplayPublisher
 
     inspector_class: Type[PositronIPythonInspector] = traitlets.Type(
         PositronIPythonInspector, help="Class to use to instantiate the shell inspector"  # type: ignore
@@ -130,6 +131,7 @@ class PositronIPyKernel(IPythonKernel):
 
     shell: PositronShell
     comm_manager: CommManager
+    execution_count: int
 
     shell_class: PositronShell = traitlets.Type(PositronShell, klass=InteractiveShell)  # type: ignore
 
