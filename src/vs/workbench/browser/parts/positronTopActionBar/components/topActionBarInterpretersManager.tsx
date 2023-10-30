@@ -59,13 +59,16 @@ export const TopActionBarInterpretersManager = (props: TopActionBarInterpretersM
 	 * Shows the interpreters manager modal popup.
 	 */
 	const showPopup = () => {
+		ref.current.setAttribute('aria-expanded', 'true');
 		showInterpretersManagerModalPopup(
 			positronTopActionBarContext.languageRuntimeService,
 			positronTopActionBarContext.layoutService.container,
 			ref.current,
 			props.onStartRuntime,
 			props.onActivateRuntime
-		);
+		).then(() => {
+			ref.current.removeAttribute('aria-expanded');
+		});
 	};
 
 	/**
@@ -87,19 +90,21 @@ export const TopActionBarInterpretersManager = (props: TopActionBarInterpretersM
 		showPopup();
 	};
 
+	const label = !activeRuntime ? 'Start Interpreter' : activeRuntime.metadata.runtimeName;
+
 	// Render.
 	return (
-		<div ref={ref} className='top-action-bar-interpreters-manager' role='button' tabIndex={0} onKeyDown={keyDownHandler} onClick={clickHandler}>
-			<div className='left'>
+		<div ref={ref} className='top-action-bar-interpreters-manager' role='button' tabIndex={0} onKeyDown={keyDownHandler} onClick={clickHandler} aria-haspopup='menu' aria-label={label}>
+			<div className='left' aria-hidden='true'>
 				{!activeRuntime ?
-					<div className='label'>Start Interpreter</div> :
+					<div className='label'>{label}</div> :
 					<div className='label'>
 						<img className='icon' src={`data:image/svg+xml;base64,${activeRuntime.metadata.base64EncodedIconSvg}`} />
-						<span>{activeRuntime.metadata.runtimeName}</span>
+						<span>{label}</span>
 					</div>
 				}
 			</div>
-			<div className='right'>
+			<div className='right' aria-hidden='true'>
 				<div className='chevron codicon codicon-chevron-down' />
 			</div>
 		</div>

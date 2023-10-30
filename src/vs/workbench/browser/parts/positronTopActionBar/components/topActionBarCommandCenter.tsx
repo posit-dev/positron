@@ -59,7 +59,7 @@ export const TopActionBarCommandCenter = () => {
 			</div>
 			<div className='right'>
 				<button className='drop-down' onClick={(e) => dropDownClickHandler(e)} aria-label={positronShowQuickAccess} >
-					<div className='icon codicon codicon-chevron-down' />
+					<div className='icon codicon codicon-chevron-down' aria-hidden='true' />
 				</button>
 			</div>
 		</div>
