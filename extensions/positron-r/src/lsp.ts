@@ -89,17 +89,21 @@ export class ArkLsp implements vscode.Disposable {
 		const clientOptions: LanguageClientOptions = {
 			// If this client belongs to a notebook, set the document selector to only include that notebook.
 			// Otherwise, this is the main client for this language, so set the document selector to include
-			// untitled R files, in-memory R files (e.g. the console), and R files on disk.
+			// untitled R files, in-memory R files (e.g. the console), and R / Quarto / R Markdown files on disk.
 			documentSelector: this._notebook ?
 				[{ language: 'r', pattern: this._notebook.uri.path }] :
 				[
 					{ language: 'r', scheme: 'untitled' },
 					{ language: 'r', scheme: 'inmemory' },  // Console
-					{ language: 'r', pattern: '**/*.R' },
+					{ language: 'r', pattern: '**/*.{r,R}' },
+					{ language: 'r', pattern: '**/*.{qmd,Qmd}' },
+					{ language: 'r', pattern: '**/*.{rmd,Rmd}' },
 				],
-			synchronize: this._notebook && {
-				fileEvents: vscode.workspace.createFileSystemWatcher('**/*.R')
-			},
+			synchronize: this._notebook ?
+				undefined :
+				{
+					fileEvents: vscode.workspace.createFileSystemWatcher('**/*.R')
+				}
 		};
 
 		// With a `.` rather than a `-` so vscode-languageserver can look up related options correctly
