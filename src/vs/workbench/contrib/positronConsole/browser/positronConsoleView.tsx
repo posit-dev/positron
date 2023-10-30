@@ -18,6 +18,7 @@ import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
 import { IContextMenuService } from 'vs/platform/contextview/browser/contextView';
 import { IClipboardService } from 'vs/platform/clipboard/common/clipboardService';
 import { IViewDescriptorService, IViewsService } from 'vs/workbench/common/views';
+import { INotificationService } from 'vs/platform/notification/common/notification';
 import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import { ViewPane, IViewPaneOptions } from 'vs/workbench/browser/parts/views/viewPane';
@@ -164,6 +165,7 @@ export class PositronConsoleViewPane extends ViewPane implements IReactComponent
 	 * @param languageService The language service.
 	 * @param logService The log service.
 	 * @param modelService The model service.
+	 * @param notificationService The notification service.
 	 * @param openerService The opener service.
 	 * @param positronConsoleService The Positron console service.
 	 * @param positronPlotsService The Positron plots service.
@@ -187,6 +189,7 @@ export class PositronConsoleViewPane extends ViewPane implements IReactComponent
 		@ILanguageService private readonly languageService: ILanguageService,
 		@ILogService private readonly logService: ILogService,
 		@IModelService private readonly modelService: IModelService,
+		@INotificationService private readonly notificationService: INotificationService,
 		@IOpenerService openerService: IOpenerService,
 		@IPositronConsoleService private readonly positronConsoleService: IPositronConsoleService,
 		@IPositronPlotsService private readonly positronPlotsService: IPositronPlotsService,
@@ -268,6 +271,8 @@ export class PositronConsoleViewPane extends ViewPane implements IReactComponent
 				languageService={this.languageService}
 				logService={this.logService}
 				modelService={this.modelService}
+				notificationService={this.notificationService}
+				openerService={this.openerService}
 				positronConsoleService={this.positronConsoleService}
 				positronPlotsService={this.positronPlotsService}
 				viewsService={this.viewsService}

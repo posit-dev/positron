@@ -7,3 +7,9 @@
 		opacity: 0;
 	}
 }
+
+a.output-run-hyperlink {
+	cursor: pointer;
+	text-decoration: underline dotted;
+	color: var(--vscode-textLink-foreground);
+}
