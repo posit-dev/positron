@@ -5,7 +5,9 @@
 import 'vs/css!./outputRun';
 import * as React from 'react';
 import { CSSProperties } from 'react'; // eslint-disable-line no-duplicate-imports
+import * as nls from 'vs/nls';
 import { ANSIColor, ANSIOutputRun, ANSIStyle } from 'vs/base/common/ansi-output';
+import { usePositronConsoleContext } from 'vs/workbench/contrib/positronConsole/browser/positronConsoleContext';
 
 // OutputRunProps interface.
 export interface OutputRunProps {
@@ -18,6 +20,9 @@ export interface OutputRunProps {
  * @returns The rendered component.
  */
 export const OutputRun = (props: OutputRunProps) => {
+	// Context hooks.
+	const positronConsoleContext = usePositronConsoleContext();
+
 	/**
 	 * ColorType enumeration.
 	 */
@@ -27,8 +32,23 @@ export const OutputRun = (props: OutputRunProps) => {
 	}
 
 	/**
+	 * Hyperlink click handler.
+	 */
+	const clickHandler = () => {
+		// Open the hyperlink.
+		if (props.outputRun.hyperlink) {
+			positronConsoleContext.openerService.open(props.outputRun.hyperlink.url);
+		} else {
+			// Can't happen.
+			positronConsoleContext.notificationService.error(
+				nls.localize('positron.unableToOpenHyperlink', "The hyperlink could not be opened.")
+			);
+		}
+	};
+
+	/**
 	 * Computes the styles.
-	 * @param styles The styles to compute.
+	 * @param styles The ANSIStyle array to compute.
 	 * @returns A CSSProperties that represents the styles.
 	 */
 	const computeStyles = (styles?: ANSIStyle[]): CSSProperties => {
@@ -38,51 +58,108 @@ export const OutputRun = (props: OutputRunProps) => {
 			styles.forEach(style => {
 				switch (style) {
 					// Bold.
-					case ANSIStyle.Bold:
-						cssProperties = { ...cssProperties, ...{ fontWeight: 'bold' } };
+					case ANSIStyle.Bold: {
+						cssProperties = {
+							...cssProperties,
+							...{
+								fontWeight: 'bold'
+							}
+						};
 						break;
+					}
 
 					// Dim.
-					case ANSIStyle.Dim:
-						cssProperties = { ...cssProperties, ...{ fontWeight: 'lighter' } };
+					case ANSIStyle.Dim: {
+						cssProperties = {
+							...cssProperties,
+							...{
+								fontWeight: 'lighter'
+							}
+						};
 						break;
+					}
 
 					// Italic.
-					case ANSIStyle.Italic:
-						cssProperties = { ...cssProperties, ...{ fontStyle: 'italic' } };
+					case ANSIStyle.Italic: {
+						cssProperties = {
+							...cssProperties,
+							...{
+								fontStyle: 'italic'
+							}
+						};
 						break;
+					}
 
 					// Underlined.
-					case ANSIStyle.Underlined:
-						cssProperties = { ...cssProperties, ...{ textDecorationLine: 'underline', textDecorationStyle: 'solid' } };
+					case ANSIStyle.Underlined: {
+						cssProperties = {
+							...cssProperties,
+							...{
+								textDecorationLine: 'underline',
+								textDecorationStyle: 'solid'
+							}
+						};
 						break;
+					}
 
 					// Slow blink.
-					case ANSIStyle.SlowBlink:
-						cssProperties = { ...cssProperties, ...{ animation: 'output-run-blink 1s linear infinite' } };
+					case ANSIStyle.SlowBlink: {
+						cssProperties = {
+							...cssProperties,
+							...{
+								animation: 'output-run-blink 1s linear infinite'
+							}
+						};
 						break;
+					}
 
 					// Rapid blink.
-					case ANSIStyle.RapidBlink:
-						cssProperties = { ...cssProperties, ...{ animation: 'output-run-blink 0.5s linear infinite' } };
+					case ANSIStyle.RapidBlink: {
+						cssProperties = {
+							...cssProperties,
+							...{
+								animation: 'output-run-blink 0.5s linear infinite'
+							}
+						};
 						break;
+					}
 
 					// Hidden.
-					case ANSIStyle.Hidden:
-						cssProperties = { ...cssProperties, ...{ visibility: 'hidden' } };
+					case ANSIStyle.Hidden: {
+						cssProperties = {
+							...cssProperties,
+							...{
+								visibility: 'hidden'
+							}
+						};
 						break;
+					}
 
 					// CrossedOut.
-					case ANSIStyle.CrossedOut:
-						cssProperties = { ...cssProperties, ...{ textDecorationLine: 'line-through', textDecorationStyle: 'solid' } };
+					case ANSIStyle.CrossedOut: {
+						cssProperties = {
+							...cssProperties,
+							...{
+								textDecorationLine: 'line-through',
+								textDecorationStyle: 'solid'
+							}
+						};
 						break;
+					}
 
 					// TODO Fraktur
 
 					// DoubleUnderlined.
-					case ANSIStyle.DoubleUnderlined:
-						cssProperties = { ...cssProperties, ...{ textDecorationLine: 'underline', textDecorationStyle: 'double' } };
+					case ANSIStyle.DoubleUnderlined: {
+						cssProperties = {
+							...cssProperties,
+							...{
+								textDecorationLine: 'underline',
+								textDecorationStyle: 'double'
+							}
+						};
 						break;
+					}
 
 					// TODO Framed
 					// TODO Encircled
@@ -100,16 +177,19 @@ export const OutputRun = (props: OutputRunProps) => {
 	/**
 	 * Computes the foreground or background color.
 	 * @param colorType The color type (foreground or background).
-	 * @param color The color. This can be one of the standard ANSI colors from
-	 * the ANSIColor enumeration or
-	 * @returns A CSSProperties that represents the foreground or background
-	 * color.
+	 * @param color The color. This can be one of the standard ANSI colors from the ANSIColor
+	 * enumeration or a string with an RGB color.
+	 * @returns A CSSProperties that represents the foreground or background color.
 	 */
-	const computeForegroundBackgroundColor = (colorType: ColorType, color?: ANSIColor | string): CSSProperties => {
+	const computeForegroundBackgroundColor = (
+		colorType: ColorType,
+		color?: ANSIColor | string
+	): CSSProperties => {
 		switch (color) {
 			// Undefined.
-			case undefined:
+			case undefined: {
 				return {};
+			}
 
 			// One of the standard colors.
 			case ANSIColor.Black:
@@ -127,20 +207,22 @@ export const OutputRun = (props: OutputRunProps) => {
 			case ANSIColor.BrightBlue:
 			case ANSIColor.BrightMagenta:
 			case ANSIColor.BrightCyan:
-			case ANSIColor.BrightWhite:
+			case ANSIColor.BrightWhite: {
 				if (colorType === ColorType.Foreground) {
 					return { color: `var(--vscode-positronConsole-${color})` };
 				} else {
 					return { background: `var(--vscode-positronConsole-${color})` };
 				}
+			}
 
 			// TODO@softwarenerd - This isn't hooked up.
-			default:
+			default: {
 				if (colorType === ColorType.Foreground) {
 					return { color: color };
 				} else {
 					return { background: color };
 				}
+			}
 		}
 	};
 
@@ -150,13 +232,27 @@ export const OutputRun = (props: OutputRunProps) => {
 			{} :
 			{
 				...computeStyles(outputRun.format.styles),
-				...computeForegroundBackgroundColor(ColorType.Foreground, outputRun.format.foregroundColor),
-				...computeForegroundBackgroundColor(ColorType.Background, outputRun.format.backgroundColor),
+				...computeForegroundBackgroundColor(
+					ColorType.Foreground,
+					outputRun.format.foregroundColor
+				),
+				...computeForegroundBackgroundColor(
+					ColorType.Background,
+					outputRun.format.backgroundColor
+				),
 			};
 	};
 
 	// Render.
-	return (
-		<span style={computeCSSProperties(props.outputRun)}>{props.outputRun.text}</span>
-	);
+	if (!props.outputRun.hyperlink) {
+		return (
+			<span style={computeCSSProperties(props.outputRun)}>{props.outputRun.text}</span>
+		);
+	} else {
+		return (
+			<a className='output-run-hyperlink' href='#' onClick={clickHandler}>
+				<span style={computeCSSProperties(props.outputRun)}>{props.outputRun.text}</span>
+			</a>
+		);
+	}
 };
