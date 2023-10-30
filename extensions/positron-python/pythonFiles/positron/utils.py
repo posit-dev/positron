@@ -10,17 +10,7 @@ import types
 from binascii import b2a_base64
 from datetime import datetime
 from types import ModuleType
-from typing import Any, Coroutine, Optional, Set, Tuple
-
-
-def get_value_length(value) -> int:
-    length = 0
-    if hasattr(value, "__len__"):
-        try:
-            length = len(value)
-        except Exception:
-            pass
-    return length
+from typing import Any, Coroutine, Optional, Set, Tuple, cast
 
 
 def get_qualname(value: Any) -> str:
@@ -55,6 +45,9 @@ def get_qualname(value: Any) -> str:
     if qualname is None:
         # Finally, try to return the generic type's name, otherwise report object
         qualname = getattr(type(value), "__name__", "object")
+
+    # Tell the type checker that it's a string
+    qualname = cast(str, qualname)
 
     # If the value is not itself a module, prepend its module name if it exists
     if not inspect.ismodule(value):
@@ -119,7 +112,7 @@ def pretty_format(
 
 
 def truncate_string(value: str, max: int) -> Tuple[str, bool]:
-    if get_value_length(value) > max:
+    if len(value) > max:
         return (value[:max], True)
     else:
         return (value, False)

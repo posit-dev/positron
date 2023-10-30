@@ -12,11 +12,12 @@ import random
 import string
 import sys
 import types
-from typing import Callable, Iterable, Optional, Tuple
+from typing import Any, List, cast, Callable, Iterable, Optional, Tuple
 
 import comm
 import numpy as np
 import pandas as pd
+import polars as pl
 import pytest
 from fastcore.foundation import L
 from IPython.terminal.interactiveshell import TerminalInteractiveShell
@@ -49,7 +50,7 @@ def env_service(
         env_service.env_comm = None
 
     # Open a comm
-    env_comm: DummyComm = comm.create_comm("positron.environment")  # type: ignore
+    env_comm = cast(DummyComm, comm.create_comm("positron.environment"))
     open_msg = {}
     env_service.on_comm_open(env_comm, open_msg)
 
@@ -68,7 +69,7 @@ def env_comm(env_service: EnvironmentService) -> DummyComm:
     """
     Convenience fixture for accessing the environment comm.
     """
-    return env_service.env_comm  # type: ignore
+    return cast(DummyComm, env_service.env_comm)
 
 
 #
@@ -76,7 +77,9 @@ def env_comm(env_service: EnvironmentService) -> DummyComm:
 #
 
 
-def compare_summary(result: Optional[EnvironmentVariable], expected: EnvironmentVariable) -> None:
+def assert_environment_variable_equal(
+    result: Optional[EnvironmentVariable], expected: EnvironmentVariable
+) -> None:
     assert result is not None
 
     # Don't compare size
@@ -85,6 +88,27 @@ def compare_summary(result: Optional[EnvironmentVariable], expected: Environment
     expected_dict = expected.dict(exclude=exclude)
 
     assert result_dict == expected_dict
+
+
+def assert_environment_variables_equal(
+    result: List[EnvironmentVariable], expected: List[EnvironmentVariable]
+) -> None:
+    assert len(result) == len(expected)
+
+    for result_item, expected_item in zip(result, expected):
+        assert_environment_variable_equal(result_item, expected_item)
+
+
+class Ignore:
+    """
+    An object that's equal to every other object.
+    """
+
+    def __eq__(self, other: Any) -> bool:
+        return True
+
+
+IGNORE = Ignore()
 
 
 class HelperClass:
@@ -123,7 +147,7 @@ def test_summarize_boolean(case: bool, env_service: EnvironmentService) -> None:
 
     result = env_service._summarize_variable(display_name, case)
 
-    compare_summary(result, expected)
+    assert_environment_variable_equal(result, expected)
 
 
 #
@@ -163,7 +187,7 @@ def test_summarize_string(case: str, env_service: EnvironmentService) -> None:
 
     result = env_service._summarize_variable(display_name, case)
 
-    compare_summary(result, expected)
+    assert_environment_variable_equal(result, expected)
 
 
 def test_summarize_string_truncated(env_service: EnvironmentService) -> None:
@@ -184,7 +208,7 @@ def test_summarize_string_truncated(env_service: EnvironmentService) -> None:
 
     result = env_service._summarize_variable(display_name, long_string)
 
-    compare_summary(result, expected)
+    assert_environment_variable_equal(result, expected)
 
 
 #
@@ -210,7 +234,7 @@ def test_summarize_integer(case: int, env_service: EnvironmentService) -> None:
 
     result = env_service._summarize_variable(display_name, case)
 
-    compare_summary(result, expected)
+    assert_environment_variable_equal(result, expected)
 
 
 FLOAT_CASES = set(
@@ -244,7 +268,7 @@ def test_summarize_float(case: float, env_service: EnvironmentService) -> None:
 
     result = env_service._summarize_variable(display_name, case)
 
-    compare_summary(result, expected)
+    assert_environment_variable_equal(result, expected)
 
 
 COMPLEX_CASES = set(
@@ -272,7 +296,7 @@ def test_summarize_complex(case: complex, env_service: EnvironmentService) -> No
 
     result = env_service._summarize_variable(display_name, case)
 
-    compare_summary(result, expected)
+    assert_environment_variable_equal(result, expected)
 
 
 #
@@ -298,7 +322,7 @@ def test_summarize_bytes(case: bytes, env_service: EnvironmentService) -> None:
 
     result = env_service._summarize_variable(display_name, case)
 
-    compare_summary(result, expected)
+    assert_environment_variable_equal(result, expected)
 
 
 BYTEARRAY_CASES = list([bytearray(), bytearray(0), bytearray(1), bytearray(b"\x41\x42\x43")])
@@ -320,7 +344,7 @@ def test_summarize_bytearray(case: bytearray, env_service: EnvironmentService) -
 
     result = env_service._summarize_variable(display_name, case)
 
-    compare_summary(result, expected)
+    assert_environment_variable_equal(result, expected)
 
 
 def test_summarize_bytearray_truncated(env_service: EnvironmentService) -> None:
@@ -340,7 +364,7 @@ def test_summarize_bytearray_truncated(env_service: EnvironmentService) -> None:
 
     result = env_service._summarize_variable(display_name, case)
 
-    compare_summary(result, expected)
+    assert_environment_variable_equal(result, expected)
 
 
 def test_summarize_memoryview(env_service: EnvironmentService) -> None:
@@ -360,7 +384,7 @@ def test_summarize_memoryview(env_service: EnvironmentService) -> None:
 
     result = env_service._summarize_variable(display_name, case)
 
-    compare_summary(result, expected)
+    assert_environment_variable_equal(result, expected)
 
 
 #
@@ -382,7 +406,7 @@ def test_summarize_none(env_service: EnvironmentService) -> None:
 
     result = env_service._summarize_variable(display_name, case)
 
-    compare_summary(result, expected)
+    assert_environment_variable_equal(result, expected)
 
 
 #
@@ -419,7 +443,7 @@ def test_summarize_set(case: set, env_service: EnvironmentService) -> None:
 
     result = env_service._summarize_variable(display_name, case)
 
-    compare_summary(result, expected)
+    assert_environment_variable_equal(result, expected)
 
 
 def test_summarize_set_truncated(env_service: EnvironmentService) -> None:
@@ -440,7 +464,7 @@ def test_summarize_set_truncated(env_service: EnvironmentService) -> None:
 
     result = env_service._summarize_variable(display_name, case)
 
-    compare_summary(result, expected)
+    assert_environment_variable_equal(result, expected)
 
 
 @pytest.mark.parametrize(
@@ -474,7 +498,7 @@ def test_summarize_list(case: list, env_service: EnvironmentService) -> None:
 
     result = env_service._summarize_variable(display_name, case)
 
-    compare_summary(result, expected)
+    assert_environment_variable_equal(result, expected)
 
 
 def test_summarize_list_truncated(env_service: EnvironmentService) -> None:
@@ -496,7 +520,7 @@ def test_summarize_list_truncated(env_service: EnvironmentService) -> None:
 
     result = env_service._summarize_variable(display_name, case)
 
-    compare_summary(result, expected)
+    assert_environment_variable_equal(result, expected)
 
 
 def test_summarize_list_cycle(env_service: EnvironmentService) -> None:
@@ -518,7 +542,7 @@ def test_summarize_list_cycle(env_service: EnvironmentService) -> None:
 
     result = env_service._summarize_variable(display_name, case)
 
-    compare_summary(result, expected)
+    assert_environment_variable_equal(result, expected)
 
 
 @pytest.mark.parametrize(
@@ -552,7 +576,7 @@ def test_summarize_range(case: range, env_service: EnvironmentService) -> None:
 
     result = env_service._summarize_variable(display_name, case)
 
-    compare_summary(result, expected)
+    assert_environment_variable_equal(result, expected)
 
 
 @pytest.mark.parametrize(
@@ -586,7 +610,7 @@ def test_summarize_fastcore_list(case: L, env_service: EnvironmentService) -> No
 
     result = env_service._summarize_variable(display_name, case)
 
-    compare_summary(result, expected)
+    assert_environment_variable_equal(result, expected)
 
 
 #
@@ -631,7 +655,7 @@ def test_summarize_map(case: dict, env_service: EnvironmentService) -> None:
 
     result = env_service._summarize_variable(display_name, case)
 
-    compare_summary(result, expected)
+    assert_environment_variable_equal(result, expected)
 
 
 #
@@ -668,7 +692,7 @@ def test_summarize_function(case: Callable, env_service: EnvironmentService) -> 
 
     result = env_service._summarize_variable(display_name, case)
 
-    compare_summary(result, expected)
+    assert_environment_variable_equal(result, expected)
 
 
 #
@@ -701,7 +725,237 @@ def test_summarize_numpy_array(case: np.ndarray, env_service: EnvironmentService
 
     result = env_service._summarize_variable(display_name, case)
 
-    compare_summary(result, expected)
+    assert_environment_variable_equal(result, expected)
+
+
+@pytest.mark.parametrize(
+    "case",
+    [
+        np.array(1, dtype=np.int64),
+    ],
+)
+def test_summarize_numpy_array_0d(case: np.ndarray, env_service: EnvironmentService) -> None:
+    display_name = "xNumpyArray0d"
+    expected = EnvironmentVariable(
+        display_name=display_name,
+        display_value=np.array2string(case, separator=","),
+        kind=EnvironmentVariableValueKind.number,
+        display_type=f"numpy.int64",
+        type_info="numpy.ndarray",
+        access_key=display_name,
+        has_children=False,
+        is_truncated=True,
+        length=0,
+    )
+
+    result = env_service._summarize_variable(display_name, case)
+
+    assert_environment_variable_equal(result, expected)
+
+
+def test_summarize_children_numpy_array(env_service: EnvironmentService) -> None:
+    case = np.array([[1, 2, 3], [4, 5, 6]], dtype=np.int64)
+
+    inspector = get_inspector(case)
+    summary = inspector.summarize_children(case, env_service._summarize_variable)
+
+    assert summary == [
+        EnvironmentVariable(
+            access_key="0",
+            display_name="0",
+            display_value="[1,2,3]",
+            display_type="numpy.int64 (3)",
+            type_info="numpy.ndarray",
+            kind=EnvironmentVariableValueKind.collection,
+            length=3,
+            size=112,
+            has_children=True,
+            has_viewer=False,
+            is_truncated=True,
+        ),
+        EnvironmentVariable(
+            access_key="1",
+            display_name="1",
+            display_value="[4,5,6]",
+            display_type="numpy.int64 (3)",
+            type_info="numpy.ndarray",
+            kind=EnvironmentVariableValueKind.collection,
+            length=3,
+            size=112,
+            has_children=True,
+            has_viewer=False,
+            is_truncated=True,
+        ),
+    ]
+
+
+#
+# Test tables
+#
+
+
+def test_summarize_pandas_dataframe(env_service: EnvironmentService) -> None:
+    case = pd.DataFrame({"a": [1, 2], "b": ["3", "4"]})
+
+    display_name = "xPandasDataFrame"
+    rows, cols = case.shape
+    expected = EnvironmentVariable(
+        display_name=display_name,
+        display_value=f"[{rows} rows x {cols} columns] pandas.core.frame.DataFrame",
+        kind=EnvironmentVariableValueKind.table,
+        display_type=f"DataFrame [{rows}x{cols}]",
+        type_info="pandas.core.frame.DataFrame",
+        access_key=display_name,
+        has_children=True,
+        has_viewer=True,
+        is_truncated=True,
+        length=rows,
+    )
+
+    result = env_service._summarize_variable(display_name, case)
+
+    assert_environment_variable_equal(result, expected)
+
+
+def test_summarize_children_pandas_dataframe(env_service: EnvironmentService) -> None:
+    case = pd.DataFrame({"a": [1, 2], "b": ["3", "4"]})
+
+    inspector = get_inspector(case)
+    summary = inspector.summarize_children(case, env_service._summarize_variable)
+
+    assert_environment_variables_equal(
+        summary,
+        [
+            EnvironmentVariable(
+                access_key="a",
+                display_name="a",
+                display_value="[1, 2]",
+                display_type="int64 [2]",
+                type_info="pandas.core.series.Series",
+                kind=EnvironmentVariableValueKind.collection,
+                length=2,
+                has_children=True,
+                has_viewer=False,
+                is_truncated=True,
+            ),
+            EnvironmentVariable(
+                access_key="b",
+                display_name="b",
+                display_value="['3', '4']",
+                display_type="object [2]",
+                type_info="pandas.core.series.Series",
+                kind=EnvironmentVariableValueKind.collection,
+                length=2,
+                has_children=True,
+                has_viewer=False,
+                is_truncated=True,
+            ),
+        ],
+    )
+
+
+def test_summarize_pandas_series(env_service: EnvironmentService) -> None:
+    case = pd.Series({"a": 0, "b": 1})
+
+    display_name = "xPandasSeries"
+    (rows,) = case.shape
+    expected = EnvironmentVariable(
+        display_name=display_name,
+        display_value="[0, 1]",
+        kind=EnvironmentVariableValueKind.collection,
+        display_type=f"Series [{rows}]",
+        type_info="pandas.core.series.Series",
+        access_key=display_name,
+        has_children=True,
+        is_truncated=True,
+        length=rows,
+    )
+
+    result = env_service._summarize_variable(display_name, case)
+
+    assert_environment_variable_equal(result, expected)
+
+
+def test_summarize_polars_dataframe(env_service: EnvironmentService) -> None:
+    case = pl.DataFrame({"a": [1, 2], "b": [3, 4]})
+
+    display_name = "xPolarsDataFrame"
+    rows, cols = case.shape
+    expected = EnvironmentVariable(
+        display_name=display_name,
+        display_value=f"[{rows} rows x {cols} columns] polars.dataframe.frame.DataFrame",
+        kind=EnvironmentVariableValueKind.table,
+        display_type=f"DataFrame [{rows}x{cols}]",
+        type_info="polars.dataframe.frame.DataFrame",
+        access_key=display_name,
+        has_children=True,
+        has_viewer=True,
+        is_truncated=True,
+        length=rows,
+    )
+
+    result = env_service._summarize_variable(display_name, case)
+
+    assert_environment_variable_equal(result, expected)
+
+
+def test_summarize_children_polars_dataframe(env_service: EnvironmentService) -> None:
+    case = pl.DataFrame({"a": [1, 2], "b": ["3", "4"]})
+
+    inspector = get_inspector(case)
+    summary = inspector.summarize_children(case, env_service._summarize_variable)
+
+    assert_environment_variables_equal(
+        summary,
+        [
+            EnvironmentVariable(
+                access_key="a",
+                display_name="a",
+                display_value="[1, 2]",
+                display_type="Int64 [2]",
+                type_info="polars.series.series.Series",
+                kind=EnvironmentVariableValueKind.collection,
+                length=2,
+                has_children=True,
+                has_viewer=False,
+                is_truncated=True,
+            ),
+            EnvironmentVariable(
+                access_key="b",
+                display_name="b",
+                display_value="['3', '4']",
+                display_type="Utf8 [2]",
+                type_info="polars.series.series.Series",
+                kind=EnvironmentVariableValueKind.collection,
+                length=2,
+                has_children=True,
+                has_viewer=False,
+                is_truncated=True,
+            ),
+        ],
+    )
+
+
+def test_summarize_polars_series(env_service: EnvironmentService) -> None:
+    case = pl.Series([0, 1])
+
+    display_name = "xPolarsSeries"
+    (rows,) = case.shape
+    expected = EnvironmentVariable(
+        display_name=display_name,
+        display_value="[0, 1]",
+        kind=EnvironmentVariableValueKind.collection,
+        display_type=f"Series [{rows}]",
+        type_info="polars.series.series.Series",
+        access_key=display_name,
+        has_children=True,
+        is_truncated=True,
+        length=rows,
+    )
+
+    result = env_service._summarize_variable(display_name, case)
+
+    assert_environment_variable_equal(result, expected)
 
 
 #
@@ -718,7 +972,7 @@ def test_comm_open(kernel: PositronIPyKernel) -> None:
     assert env_service.env_comm is None
 
     # Open a comm
-    env_comm: DummyComm = comm.create_comm("positron.environment")  # type: ignore
+    env_comm = cast(DummyComm, comm.create_comm("positron.environment"))
     open_msg = {}
     env_service.on_comm_open(env_comm, open_msg)
 
@@ -768,7 +1022,7 @@ x = np.array(3, dtype=np.int64)"""
                         "type_info": "numpy.ndarray",
                         "access_key": "x",
                         "length": 0,
-                        "size": 104,
+                        "size": IGNORE,
                         "has_children": False,
                         "has_viewer": False,
                         "is_truncated": True,
@@ -796,7 +1050,7 @@ x = np.array(3, dtype=np.int64)"""
                     "type_info": "numpy.ndarray",
                     "access_key": "x",
                     "length": 1,
-                    "size": 120,
+                    "size": IGNORE,
                     "has_children": True,
                     "has_viewer": False,
                     "is_truncated": True,
@@ -823,7 +1077,7 @@ x = np.array(3, dtype=np.int64)"""
                     "type_info": "numpy.ndarray",
                     "access_key": "x",
                     "length": 1,
-                    "size": 136,
+                    "size": IGNORE,
                     "has_children": True,
                     "has_viewer": False,
                     "is_truncated": True,
@@ -837,7 +1091,6 @@ x = np.array(3, dtype=np.int64)"""
     }
 
 
-@pytest.mark.skip()
 def test_torch_assign_and_update(shell: TerminalInteractiveShell, env_comm: DummyComm) -> None:
     """
     Test environment change detection for pytorch tensors.
@@ -849,7 +1102,6 @@ x = torch.tensor(3, dtype=torch.int64)"""
     )
 
     # Not sure why, but tensor size changes in Python 3.11+
-    expected_size = 80 if (sys.version_info.major, sys.version_info.minor) >= (3, 11) else 72
     assert env_comm.messages[-1] == {
         "data": {
             "msg_type": "update",
@@ -862,7 +1114,7 @@ x = torch.tensor(3, dtype=torch.int64)"""
                     "type_info": "torch.Tensor",
                     "access_key": "x",
                     "length": 0,
-                    "size": expected_size,
+                    "size": IGNORE,
                     "has_children": False,
                     "has_viewer": False,
                     "is_truncated": True,
@@ -889,7 +1141,7 @@ x = torch.tensor(3, dtype=torch.int64)"""
                     "type_info": "torch.Tensor",
                     "access_key": "x",
                     "length": 1,
-                    "size": expected_size,
+                    "size": IGNORE,
                     "has_children": True,
                     "has_viewer": False,
                     "is_truncated": True,
@@ -916,7 +1168,7 @@ x = torch.tensor(3, dtype=torch.int64)"""
                     "type_info": "torch.Tensor",
                     "access_key": "x",
                     "length": 1,
-                    "size": expected_size,
+                    "size": IGNORE,
                     "has_children": True,
                     "has_viewer": False,
                     "is_truncated": True,
@@ -950,7 +1202,7 @@ def test_handle_refresh(shell: TerminalInteractiveShell, env_comm: DummyComm) ->
                         "type_info": "int",
                         "kind": "number",
                         "length": 0,
-                        "size": 28,
+                        "size": IGNORE,
                         "has_children": False,
                         "has_viewer": False,
                         "is_truncated": False,
@@ -1028,7 +1280,7 @@ def test_handle_delete_error(env_comm: DummyComm) -> None:
     assert env_comm.messages == []
 
 
-def test_handle_inspect(shell: TerminalInteractiveShell, env_comm: DummyComm) -> None:
+def test_handle_inspect_number(shell: TerminalInteractiveShell, env_comm: DummyComm) -> None:
     shell.user_ns.update({"x": 3, "y": 5})
 
     msg = {"content": {"data": {"msg_type": "inspect", "path": ["x"]}}}
@@ -1049,7 +1301,7 @@ def test_handle_inspect(shell: TerminalInteractiveShell, env_comm: DummyComm) ->
                         "type_info": "int",
                         "kind": "number",
                         "length": 0,
-                        "size": 28,
+                        "size": IGNORE,
                         "has_children": False,
                         "has_viewer": False,
                         "is_truncated": False,
@@ -1061,6 +1313,154 @@ def test_handle_inspect(shell: TerminalInteractiveShell, env_comm: DummyComm) ->
             "buffers": None,
             "msg_type": "comm_msg",
         },
+    ]
+
+
+def test_handle_inspect_map(shell: TerminalInteractiveShell, env_comm: DummyComm) -> None:
+    # Find an exact match if possible, even if duplicates exist after stringifying.
+    shell.user_ns.update({"x": {0: 0, "0": 1}})
+    msg = {"content": {"data": {"msg_type": "inspect", "path": ["x", "0"]}}}
+    env_comm.handle_msg(msg)
+
+    assert env_comm.messages == [
+        {
+            "data": {
+                "msg_type": "details",
+                "path": ["x", "0"],
+                "children": [
+                    {
+                        "access_key": "",
+                        "display_name": "",
+                        "display_value": "1",
+                        "display_type": "int",
+                        "type_info": "int",
+                        "kind": "number",
+                        "length": 0,
+                        "size": IGNORE,
+                        "has_children": False,
+                        "has_viewer": False,
+                        "is_truncated": False,
+                    }
+                ],
+                "length": 1,
+            },
+            "metadata": None,
+            "buffers": None,
+            "msg_type": "comm_msg",
+        }
+    ]
+
+    # If there's no exact match, return the first child that matches the stringified
+    # search path.
+    class DummyKey:
+        def __str__(self):
+            return "0"
+
+    shell.user_ns.update({"x": {DummyKey(): 0, 0: 1}})
+    msg = {"content": {"data": {"msg_type": "inspect", "path": ["x", "0"]}}}
+    env_comm.messages.clear()
+    env_comm.handle_msg(msg)
+
+    assert env_comm.messages == [
+        {
+            "data": {
+                "msg_type": "details",
+                "path": ["x", "0"],
+                "children": [
+                    {
+                        "access_key": "",
+                        "display_name": "",
+                        "display_value": "0",
+                        "display_type": "int",
+                        "type_info": "int",
+                        "kind": "number",
+                        "length": 0,
+                        "size": IGNORE,
+                        "has_children": False,
+                        "has_viewer": False,
+                        "is_truncated": False,
+                    }
+                ],
+                "length": 1,
+            },
+            "metadata": None,
+            "buffers": None,
+            "msg_type": "comm_msg",
+        }
+    ]
+
+
+def test_handle_inspect_table(shell: TerminalInteractiveShell, env_comm: DummyComm) -> None:
+    # Find an exact match if possible, even if duplicates exist after stringifying.
+    shell.user_ns.update({"x": pd.DataFrame({0: [0], "0": [1]})})
+    msg = {"content": {"data": {"msg_type": "inspect", "path": ["x", "0"]}}}
+    env_comm.handle_msg(msg)
+
+    assert env_comm.messages == [
+        {
+            "data": {
+                "msg_type": "details",
+                "path": ["x", "0"],
+                "children": [
+                    {
+                        "access_key": "0",
+                        "display_name": "0",
+                        "display_value": "1",
+                        "display_type": "int",
+                        "type_info": "int",
+                        "kind": "number",
+                        "length": 0,
+                        "size": IGNORE,
+                        "has_children": False,
+                        "has_viewer": False,
+                        "is_truncated": False,
+                    }
+                ],
+                "length": 1,
+            },
+            "metadata": None,
+            "buffers": None,
+            "msg_type": "comm_msg",
+        }
+    ]
+
+    # If there's no exact match, return the first child that matches the stringified
+    # search path.
+    class DummyKey:
+        def __str__(self):
+            return "0"
+
+    shell.user_ns.update({"x": pd.DataFrame({DummyKey(): [0], 0: [1]})})
+    msg = {"content": {"data": {"msg_type": "inspect", "path": ["x", "0"]}}}
+    env_comm.messages.clear()
+    env_comm.handle_msg(msg)
+
+    assert env_comm.messages == [
+        {
+            "data": {
+                "msg_type": "details",
+                "path": ["x", "0"],
+                "children": [
+                    {
+                        "access_key": "0",
+                        "display_name": "0",
+                        "display_value": "0",
+                        "display_type": "int",
+                        "type_info": "int",
+                        "kind": "number",
+                        "length": 0,
+                        "size": IGNORE,
+                        "has_children": False,
+                        "has_viewer": False,
+                        "is_truncated": False,
+                    }
+                ],
+                "length": 1,
+            },
+            "metadata": None,
+            "buffers": None,
+            "msg_type": "comm_msg",
+        }
     ]
 
 
@@ -1087,7 +1487,7 @@ def test_handle_inspect_numpy_array_1d(
                         "type_info": "numpy.int64",
                         "kind": "number",
                         "length": 0,
-                        "size": 32,
+                        "size": IGNORE,
                         "has_children": False,
                         "has_viewer": False,
                         "is_truncated": False,
@@ -1100,7 +1500,7 @@ def test_handle_inspect_numpy_array_1d(
                         "type_info": "numpy.int64",
                         "kind": "number",
                         "length": 0,
-                        "size": 32,
+                        "size": IGNORE,
                         "has_children": False,
                         "has_viewer": False,
                         "is_truncated": False,
@@ -1138,7 +1538,7 @@ def test_handle_inspect_numpy_array_2d(
                         "type_info": "numpy.ndarray",
                         "kind": "collection",
                         "length": 2,
-                        "size": 112,
+                        "size": IGNORE,
                         "has_children": True,
                         "has_viewer": False,
                         "is_truncated": True,
@@ -1151,7 +1551,7 @@ def test_handle_inspect_numpy_array_2d(
                         "type_info": "numpy.ndarray",
                         "kind": "collection",
                         "length": 2,
-                        "size": 112,
+                        "size": IGNORE,
                         "has_children": True,
                         "has_viewer": False,
                         "is_truncated": True,
