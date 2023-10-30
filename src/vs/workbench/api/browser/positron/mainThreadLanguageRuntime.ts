@@ -643,8 +643,14 @@ class ExtHostLanguageRuntimeAdapter implements ILanguageRuntime {
 		if (mimeTypes.includes('text/html')) {
 			// Check to see if there are any <script>, <html>, or <body> tags.
 			if (/<(script|html|body)/.test(message.data['text/html'])) {
-				// This looks like standalone HTML. Render it in the Plots pane.
-				return RuntimeOutputKind.PlotWidget;
+				// This looks like standalone HTML.
+				if (message.data['text/html'].includes('<table')) {
+					// Tabular data? Probably best in the Viewer pane.
+					return RuntimeOutputKind.ViewerWidget;
+				} else {
+					// Guess that anything else is a plot.
+					return RuntimeOutputKind.PlotWidget;
+				}
 			} else {
 				// This looks like a small HTML fragment we can render inline.
 				return RuntimeOutputKind.InlineHtml;
