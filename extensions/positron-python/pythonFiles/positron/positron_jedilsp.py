@@ -12,7 +12,7 @@ import threading
 EXTENSION_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(EXTENSION_ROOT, "pythonFiles", "lib", "jedilsp"))
 
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Union
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Union, cast
 
 from comm.base_comm import BaseComm
 from jedi.api import Interpreter
@@ -128,7 +128,7 @@ class PositronJediLanguageServer(JediLanguageServer):
                 return None
 
             """(Re-)register a feature with the LSP."""
-            lsp: JediLanguageServerProtocol = self.lsp  # type: ignore
+            lsp = self.lsp
 
             if feature_name in lsp.fm.features:
                 del lsp.fm.features[feature_name]
@@ -316,7 +316,7 @@ def positron_completion(
         has_whitespace = " " in trimmed_line
         if server.kernel is not None and not (is_completing_attribute or has_whitespace):
             # Cast type from traitlets.Dict to typing.Dict
-            magic_commands: Dict[str, Callable] = server.kernel.shell.magics_manager.lsmagic()  # type: ignore
+            magic_commands = cast(Dict[str, Callable], server.kernel.shell.magics_manager.lsmagic())
 
             chars_before_cursor = trimmed_line[: params.position.character]
 

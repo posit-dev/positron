@@ -1,12 +1,13 @@
 import codecs
 import pickle
 from pathlib import Path
-from typing import Iterable
+from typing import cast, Iterable
 
 import matplotlib
 import matplotlib.pyplot as plt
 import pytest
 from IPython.conftest import get_ipython
+from IPython.core.formatters import DisplayFormatter
 from matplotlib.figure import Figure
 from matplotlib.testing.compare import compare_images
 from matplotlib_inline.backend_inline import configure_inline_support
@@ -27,10 +28,9 @@ def setup_matplotlib() -> Iterable[None]:
 
     # Enable all IPython mimetype formatters
     ip = get_ipython()
-    display_formatter = ip.display_formatter
-    assert display_formatter is not None, "Display formatter was not initialized"
+    display_formatter = cast(DisplayFormatter, ip.display_formatter)
     active_types = display_formatter.active_types
-    display_formatter.active_types = display_formatter.format_types  # type: ignore
+    display_formatter.active_types = display_formatter.format_types
 
     # Enable matplotlib IPython formatters
     configure_inline_support(ip, backend)
@@ -38,7 +38,7 @@ def setup_matplotlib() -> Iterable[None]:
     yield
 
     # Restore the original active formatters
-    display_formatter.active_types = active_types  # type: ignore
+    display_formatter.active_types = active_types
 
 
 @pytest.fixture(scope="session")
@@ -66,7 +66,7 @@ def figure_comm(hook: PositronDisplayPublisherHook) -> DummyComm:
 
     # Return the comm corresponding to the first figure
     id = next(iter(hook.comms))
-    figure_comm: DummyComm = hook.comms[id]  # type: ignore
+    figure_comm = cast(DummyComm, hook.comms[id])
 
     # Clear messages due to the comm_open
     figure_comm.messages.clear()
@@ -216,8 +216,8 @@ def test_hook_render(figure_comm: DummyComm, images_path: Path) -> None:
     fig_ref.set_size_inches(width_in, height_in)
 
     # Serialize the reference figure as a base64-encoded image
-    ip = get_ipython()
-    data_ref, _ = ip.display_formatter.format(fig_ref, include=["image/png"], exclude=[])  # type: ignore
+    display_formatter = cast(DisplayFormatter, get_ipython().display_formatter)
+    data_ref, _ = display_formatter.format(fig_ref, include=["image/png"], exclude=[])
     expected = images_path / "test-hook-render-expected.png"
     _save_base64_image(data_ref["image/png"], expected)
 

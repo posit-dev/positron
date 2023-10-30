@@ -6,9 +6,10 @@ import codecs
 import logging
 import pickle
 import uuid
-from typing import Dict, List, Literal, Optional, Tuple
+from typing import Dict, List, Literal, Optional, Tuple, cast
 
 import comm
+from IPython.core.formatters import DisplayFormatter
 from IPython.core.interactiveshell import InteractiveShell
 
 from ._pydantic_compat import BaseModel, Field, ValidationError
@@ -203,7 +204,7 @@ class PositronDisplayPublisherHook:
         # Check to see if there are any figures left in stack to display
         # If not, get the number of figures to display from matplotlib
         if len(self.fignums) == 0:
-            self.fignums = plt.get_fignums()  # type: ignore
+            self.fignums = plt.get_fignums()
 
         # Get the current figure, remove from it from being called next hook
         if len(self.fignums) > 0:
@@ -265,9 +266,8 @@ class PositronDisplayPublisherHook:
 
         figure.set_size_inches(width_in, height_in)
 
-        display_formatter = InteractiveShell.instance().display_formatter
-        assert display_formatter is not None, "Display formatter was not initialized"
-        format_dict, md_dict = display_formatter.format(figure, include=formats, exclude=[])  # type: ignore
+        display_formatter = cast(DisplayFormatter, InteractiveShell.instance().display_formatter)
+        format_dict, md_dict = display_formatter.format(figure, include=formats, exclude=[])
 
         plt.close(figure)
 
