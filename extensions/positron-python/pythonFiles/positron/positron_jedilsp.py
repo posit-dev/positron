@@ -143,28 +143,26 @@ class PositronJediLanguageServer(JediLanguageServer):
         """Starts TCP server."""
         logger.info("Starting TCP server on %s:%s", host, port)
 
-        # --- Start Positron ---
         # Set the event loop's debug mode.
         self.loop.set_debug(self._debug)
 
         # Use our event loop as the thread's main event loop.
         asyncio.set_event_loop(self.loop)
-        # --- End Positron ---
 
         self._stop_event = threading.Event()
         self._server = self.loop.run_until_complete(self.loop.create_server(self.lsp, host, port))
 
-        # --- Start Positron ---
         # Notify the frontend that the LSP server is ready
         if self._comm is None:
             logger.warning("LSP comm was not set, could not send server_started message")
         else:
             logger.info("LSP server is ready, sending server_started message")
             self._comm.send({"msg_type": "server_started", "content": {}})
-        # --- End Positron ---
 
+        # Run the event loop until the stop event is set.
         try:
-            self.loop.run_forever()
+            while not self._stop_event.is_set():
+                self.loop.run_until_complete(asyncio.sleep(1))
         except (KeyboardInterrupt, SystemExit):
             pass
         finally:
@@ -194,19 +192,44 @@ class PositronJediLanguageServer(JediLanguageServer):
         )
         self._server_thread.start()
 
-    def shutdown(self):
+    def shutdown(self) -> None:
         logger.info("Shutting down LSP server thread")
-        super().shutdown()
+
+        # Below is taken as-is from pygls.server.Server.shutdown to remove awaiting
+        # server.wait_closed since it is a no-op if called after server.close in <=3.11 and blocks
+        # forever in >=3.12. See: https://github.com/python/cpython/issues/79033 for more.
+        if self._stop_event is not None:
+            self._stop_event.set()
+
+        if self._thread_pool:
+            self._thread_pool.terminate()
+            self._thread_pool.join()
+
+        if self._thread_pool_executor:
+            self._thread_pool_executor.shutdown()
+
+        if self._server:
+            self._server.close()
+            # This is where we should wait for the server to close but don't due to the issue
+            # described above.
 
         # Reset the loop and thread reference to allow starting a new server in the same process,
         # e.g. when a browser-based Positron is refreshed.
         if not self.loop.is_closed():
-            logger.info("Closing the event loop.")
             self.loop.close()
+
         self.loop = asyncio.new_event_loop()
         self._server_thread = None
 
-    def set_debug(self, debug):
+    def stop(self) -> None:
+        """Notify the LSP server thread to stop from another thread."""
+        if self._stop_event is None:
+            logger.warning("Cannot stop the LSP server thread, it was not started")
+            return
+
+        self._stop_event.set()
+
+    def set_debug(self, debug: bool) -> None:
         self._debug = debug
 
 

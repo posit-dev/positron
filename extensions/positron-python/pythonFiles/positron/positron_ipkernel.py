@@ -117,9 +117,35 @@ class PositronShell(ZMQInteractiveShell):
         super().init_hooks()
 
         # For paged output, send display_data messages instead of using the legacy "payload"
-        # functionality of execute_reply messages. The priority of 90 is chosen arbitrary as long
+        # functionality of execute_reply messages. The priority of 90 is chosen arbitrarily, as long
         # as its lower than other hooks registered by IPython and ipykernel.
         self.set_hook("show_in_pager", page.as_hook(page.display_page), 90)
+
+    async def _stop(self):
+        # Initiate the kernel shutdown sequence.
+        await self.kernel.do_shutdown(restart=False)
+
+        # Stop the main event loop.
+        self.kernel.io_loop.stop()
+
+    @traitlets.observe("exit_now")
+    def _update_exit_now(self, change):
+        """stop eventloop when exit_now fires"""
+        if change["new"]:
+            if hasattr(self.kernel, "io_loop"):
+                loop = self.kernel.io_loop
+                # --- Start Positron ---
+                # This is reached when a user types `quit` or `exit` into the Positron Console.
+                # Perform a full kernel shutdown sequence before stopping the loop.
+                # TODO: We'll need to update this once Positron has a way for kernels to kick off
+                # Positron's shutdown sequencing. Currently, this is seen as a kernel crash.
+                # See: https://github.com/posit-dev/positron/issues/628.
+                loop.call_later(0.1, self._stop)
+                # --- End Positron ---
+            if self.kernel.eventloop:
+                exit_hook = getattr(self.kernel.eventloop, "exit_hook", None)
+                if exit_hook:
+                    exit_hook(self.kernel)
 
 
 class PositronIPyKernel(IPythonKernel):
