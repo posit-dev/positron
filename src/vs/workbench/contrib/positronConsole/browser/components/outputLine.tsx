@@ -4,7 +4,7 @@
 
 import 'vs/css!./outputLine';
 import * as React from 'react';
-import { ANSIOutputLine } from 'vs/base/common/ansi-output';
+import { ANSIOutputLine } from 'vs/base/common/ansiOutput';
 import { OutputRun } from 'vs/workbench/contrib/positronConsole/browser/components/outputRun';
 
 // OutputLineProps interface.
