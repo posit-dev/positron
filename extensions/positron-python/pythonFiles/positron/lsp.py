@@ -47,7 +47,7 @@ class LSPService:
             logger.warning(f"Could not parse host and port from client address: {client_address}")
             return
 
-        # Start the language server
+        # Start the language server thread
         POSITRON.start(lsp_host=host, lsp_port=port, kernel=self._kernel, comm=comm)
 
     def receive_message(self, msg: Dict[str, Any]) -> None:
@@ -57,6 +57,9 @@ class LSPService:
         pass
 
     def shutdown(self) -> None:
+        # Stop the language server thread
+        POSITRON.stop()
+
         if self._comm is not None:
             try:
                 self._comm.close()
