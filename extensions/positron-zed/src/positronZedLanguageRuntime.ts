@@ -49,6 +49,7 @@ const HelpLines = [
 	'ansi hidden    - Displays hidden text',
 	'ansi rgb       - Displays RGB ANSI colors as foreground and background colors',
 	'busy X Y       - Simulates an interuptible busy state for X seconds that takes Y seconds to interrupt (default X = 5, Y = 1)',
+	'cd X           - Changes the current working directory to X, or to a random directory if X is not specified',
 	'clock          - Show a plot containing a clock, using the notebook renderer API',
 	'code X Y       - Simulates a successful X line input with Y lines of output (where X >= 1 and Y >= 0)',
 	'crash          - Simulates a crash',
@@ -415,6 +416,10 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 		} else if (match = code.match(/^preview( .+)?/)) {
 			const command = (match.length > 1 && match[1]) ? match[1].trim() : 'default';
 			this.simulatePreview(id, code, command);
+			return;
+		} else if (match = code.match(/^cd( .+)?/)) {
+			const directory = (match.length > 1 && match[1]) ? match[1].trim() : '';
+			this.simulateDirectoryChange(id, code, directory);
 			return;
 		}
 
@@ -1344,6 +1349,29 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 			default:
 				this.simulateOutputMessage(parentId, `Unknown preview command '${command}'.`);
 				break;
+		}
+
+		// Return to idle state.
+		this.simulateIdleState(parentId);
+	}
+
+	/**
+	 * Simulates a directory change by sending the relevant event to the frontend comm.
+	 *
+	 * @param parentId The ID of the message that requested the directory change.
+	 * @param code The code that was executed.
+	 * @param directory The directory to change to.
+	 */
+	private simulateDirectoryChange(parentId: string, code: string, directory: string) {
+		// Enter busy state and output the code.
+		this.simulateBusyState(parentId);
+		this.simulateInputMessage(parentId, code);
+
+		if (this._frontend) {
+			this._frontend.changeDirectory(directory);
+			this.simulateOutputMessage(parentId, `Changed directory to '${this._frontend.directory}'.`);
+		} else {
+			this.simulateErrorMessage(parentId, 'No Frontend', 'No frontend is connected.', []);
 		}
 
 		// Return to idle state.
