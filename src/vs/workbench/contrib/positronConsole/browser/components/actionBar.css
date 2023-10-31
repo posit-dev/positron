@@ -9,3 +9,17 @@
 .action-bar-button-icon.interrupt::before {
 	color: var(--vscode-errorForeground);
 }
+
+.positron-console .directory-label {
+	color: var(--positronActionBar-foreground);
+	font-size: 12px;
+	display: flex;
+}
+
+.positron-console .directory-label .codicon {
+	color: var(--positronActionBar-foreground);
+}
+
+.positron-console .directory-label .label {
+	padding-left: 5px;
+}
