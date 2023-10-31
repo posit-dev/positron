@@ -86,7 +86,7 @@
 		},
 		{
 			"name": "quarto.quarto",
-			"version": "1.106.1",
+			"version": "1.106.2",
 			"repo": "https://github.com/quarto-dev/quarto/tree/main/apps/vscode",
 			"metadata": {
 				"id": "0c8ba31b-5771-4fa9-bc20-a9f2e69a77ad",
