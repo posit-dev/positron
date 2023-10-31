@@ -915,6 +915,11 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 			case positron.RuntimeClientType.FrontEnd:
 				// Create the front-end client when requested
 				this.createFrontendClient(id);
+
+				// Immediately notify Positron of a "working directory"
+				if (this._frontend) {
+					this._frontend.changeDirectory('');
+				}
 				break;
 
 			case positron.RuntimeClientType.Help:
