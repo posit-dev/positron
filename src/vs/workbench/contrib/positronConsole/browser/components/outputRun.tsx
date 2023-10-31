@@ -6,7 +6,7 @@ import 'vs/css!./outputRun';
 import * as React from 'react';
 import { CSSProperties } from 'react'; // eslint-disable-line no-duplicate-imports
 import * as nls from 'vs/nls';
-import { ANSIColor, ANSIOutputRun, ANSIStyle } from 'vs/base/common/ansi-output';
+import { ANSIColor, ANSIOutputRun, ANSIStyle } from 'vs/base/common/ansiOutput';
 import { usePositronConsoleContext } from 'vs/workbench/contrib/positronConsole/browser/positronConsoleContext';
 
 // OutputRunProps interface.
