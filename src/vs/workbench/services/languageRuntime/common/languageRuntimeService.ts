@@ -546,6 +546,7 @@ export interface ILanguageRuntime {
 	onDidReceiveRuntimeMessageError: Event<ILanguageRuntimeMessageError>;
 	onDidReceiveRuntimeMessagePrompt: Event<ILanguageRuntimeMessagePrompt>;
 	onDidReceiveRuntimeMessageState: Event<ILanguageRuntimeMessageState>;
+	onDidReceiveRuntimeClientEvent: Event<IRuntimeClientEvent>;
 	onDidReceiveRuntimeMessagePromptConfig: Event<void>;
 
 	/** The current state of the runtime (tracks events above) */
