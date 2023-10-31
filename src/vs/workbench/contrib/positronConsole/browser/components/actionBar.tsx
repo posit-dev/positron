@@ -254,8 +254,11 @@ export const ActionBar = (props: ActionBarProps) => {
 						<ConsoleInstanceMenuButton {...props} />
 						<div className='action-bar-separator' />
 						{directoryLabel &&
-							<div className='directory-label'>
-								<span className='codicon codicon-folder'></span>
+							<div className='directory-label'
+								aria-label={
+									localize('directoryLabel', "Current Working Directory")
+								}>
+								<span className='codicon codicon-folder' role='presentation'></span>
 								<span className='label'>{directoryLabel}</span>
 							</div>
 						}
@@ -307,6 +310,6 @@ export const ActionBar = (props: ActionBarProps) => {
 					</ActionBarRegion>
 				</PositronActionBar>
 			</div>
-		</PositronActionBarContextProvider >
+		</PositronActionBarContextProvider>
 	);
 };
