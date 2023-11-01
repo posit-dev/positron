@@ -45,6 +45,12 @@ import { ILoggerMainService } from 'vs/platform/log/electron-main/loggerService'
 import { firstOrDefault } from 'vs/base/common/arrays';
 import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
 
+// --- Start Positron ---
+// eslint-disable-next-line no-duplicate-imports
+import { isLinux } from 'vs/base/common/platform';
+import { join } from 'vs/base/common/path';
+// -- End Positron ---
+
 export interface IWindowCreationOptions {
 	readonly state: IWindowState;
 	readonly extensionDevelopmentPath?: string[];
@@ -244,6 +250,14 @@ export class CodeWindow extends BaseWindow implements ICodeWindow {
 					v8CacheOptions: this.environmentMainService.useCodeCache ? 'bypassHeatCheck' : 'none',
 				}
 			});
+
+			// --- Start Positron ---
+			if (isLinux) {
+				options.icon = join(this.environmentMainService.appRoot, 'resources/linux/positron.png');
+			} else if (isWindows && !this.environmentMainService.isBuilt) {
+				options.icon = join(this.environmentMainService.appRoot, 'resources/win32/positron_150x150.png');
+			}
+			// --- End Positron ---
 
 			if (isMacintosh && !this.useNativeFullScreen()) {
 				options.fullscreenable = false; // enables simple fullscreen mode
