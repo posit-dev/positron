@@ -121,14 +121,12 @@ jobs:
 
           & 'C:\Program Files (x86)\Windows Kits\10\bin\10.0.22621.0\x64\signtool.exe' sign /fd SHA256 /p $env:CODESIGN_PASSWORD /f certificates\codesign.pfx .build\${{ matrix.platform }}-${{ matrix.arch }}\${{ matrix.target }}-setup\PositronSetup.exe
 
-          Remove-Item -Force -Recurse certificates
-
       # Clean-up after signing
       - name: Clean up
         if: always()
         shell: pwsh
         run: |
-          Remove-Item -Force -Recurse certificates
+          if (Test-Path certificates) { Remove-Item -Force -Recurse certificates }
 
       # Create build artifact
       - name: Upload client archive
