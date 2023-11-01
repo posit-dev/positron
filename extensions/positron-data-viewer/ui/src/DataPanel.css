@@ -13,7 +13,7 @@ table {
 
 thead, tfoot {
 	position: sticky;
-	background-color: var(--vscode-panel-background);
+	background-color: var(--vscode-positronDataViewer-headerBackground);
 	margin: 0;
 	top: 0;
 }
@@ -25,8 +25,12 @@ tbody tr td:first-child {
 
 thead th,
 tbody td {
-	border: 1px solid var(--vscode-panel-border);
+	border: 1px solid var(--vscode-positronDataViewer-gridColor);
 	padding: 5px;
+}
+
+tbody td {
+	background-color: var(--vscode-positronDataViewer-background);
 }
 
 thead tr th {
