@@ -19,9 +19,10 @@ import { IRuntimeClientInstance, RuntimeClientState, RuntimeClientType } from 'v
 import { DeferredPromise } from 'vs/base/common/async';
 import { generateUuid } from 'vs/base/common/uuid';
 import { IPositronPlotsService } from 'vs/workbench/services/positronPlots/common/positronPlots';
-import { LanguageRuntimeEventType, PromptStateEvent } from 'vs/workbench/services/languageRuntime/common/languageRuntimeEvents';
+import { BusyEvent, LanguageRuntimeEventType, PromptStateEvent, WorkingDirectoryEvent } from 'vs/workbench/services/languageRuntime/common/languageRuntimeEvents';
 import { IPositronHelpService } from 'vs/workbench/contrib/positronHelp/browser/positronHelpService';
 import { INotebookService } from 'vs/workbench/contrib/notebook/common/notebookService';
+import { IRuntimeClientEvent } from 'vs/workbench/services/languageRuntime/common/languageRuntimeFrontEndClient';
 
 /**
  * Represents a language runtime event (for example a message or state change)
@@ -77,6 +78,7 @@ class ExtHostLanguageRuntimeAdapter implements ILanguageRuntime {
 	private readonly _onDidReceiveRuntimeMessageErrorEmitter = new Emitter<ILanguageRuntimeMessageError>();
 	private readonly _onDidReceiveRuntimeMessagePromptEmitter = new Emitter<ILanguageRuntimeMessagePrompt>();
 	private readonly _onDidReceiveRuntimeMessageStateEmitter = new Emitter<ILanguageRuntimeMessageState>();
+	private readonly _onDidReceiveRuntimeMessageClientEventEmitter = new Emitter<IRuntimeClientEvent>();
 	private readonly _onDidReceiveRuntimeMessagePromptConfigEmitter = new Emitter<void>();
 	private readonly _onDidCreateClientInstanceEmitter = new Emitter<ILanguageRuntimeClientCreatedEvent>();
 
@@ -156,7 +158,18 @@ class ExtHostLanguageRuntimeAdapter implements ILanguageRuntime {
 				// Don't include new state in event, clients should
 				// inspect the runtime's dyn state instead
 				this.emitDidReceiveRuntimeMessagePromptConfig();
+			} else if (ev.name === LanguageRuntimeEventType.Busy) {
+				// Update busy state
+				const busy = ev.data as BusyEvent;
+				this.dynState.busy = busy.busy;
+			} else if (ev.name === LanguageRuntimeEventType.WorkingDirectory) {
+				// Update current working directory
+				const dir = ev.data as WorkingDirectoryEvent;
+				this.dynState.currentWorkingDirectory = dir.directory;
 			}
+
+			// Propagate event
+			this._onDidReceiveRuntimeMessageClientEventEmitter.fire(ev);
 		});
 	}
 
@@ -174,6 +187,7 @@ class ExtHostLanguageRuntimeAdapter implements ILanguageRuntime {
 	onDidReceiveRuntimeMessageError = this._onDidReceiveRuntimeMessageErrorEmitter.event;
 	onDidReceiveRuntimeMessagePrompt = this._onDidReceiveRuntimeMessagePromptEmitter.event;
 	onDidReceiveRuntimeMessageState = this._onDidReceiveRuntimeMessageStateEmitter.event;
+	onDidReceiveRuntimeClientEvent = this._onDidReceiveRuntimeMessageClientEventEmitter.event;
 	onDidReceiveRuntimeMessagePromptConfig = this._onDidReceiveRuntimeMessagePromptConfigEmitter.event;
 	onDidCreateClientInstance = this._onDidCreateClientInstanceEmitter.event;
 

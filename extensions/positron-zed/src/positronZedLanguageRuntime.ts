@@ -12,6 +12,7 @@ import { ZedData } from './positronZedData';
 import { ZedPreview } from './positronZedPreview';
 import { ZedEnvironment } from './positronZedEnvironment';
 import { makeCUB, makeCUF, makeCUP, makeED, makeEL, makeSGR, SGR } from './ansi';
+import { ZedFrontend } from './positronZedFrontend';
 
 /**
  * Constants.
@@ -48,6 +49,7 @@ const HelpLines = [
 	'ansi hidden    - Displays hidden text',
 	'ansi rgb       - Displays RGB ANSI colors as foreground and background colors',
 	'busy X Y       - Simulates an interuptible busy state for X seconds that takes Y seconds to interrupt (default X = 5, Y = 1)',
+	'cd X           - Changes the current working directory to X, or to a random directory if X is not specified',
 	'clock          - Show a plot containing a clock, using the notebook renderer API',
 	'code X Y       - Simulates a successful X line input with Y lines of output (where X >= 1 and Y >= 0)',
 	'crash          - Simulates a crash',
@@ -132,6 +134,11 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 	 * A map of environment IDs to environment instances.
 	 */
 	private readonly _environments: Map<string, ZedEnvironment> = new Map();
+
+	/**
+	 * The currently connected frontend, if any
+	 */
+	private _frontend: ZedFrontend | undefined;
 
 	/**
 	 * A map of plot IDs to plot instances.
@@ -409,6 +416,10 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 		} else if (match = code.match(/^preview( .+)?/)) {
 			const command = (match.length > 1 && match[1]) ? match[1].trim() : 'default';
 			this.simulatePreview(id, code, command);
+			return;
+		} else if (match = code.match(/^cd( .+)?/)) {
+			const directory = (match.length > 1 && match[1]) ? match[1].trim() : '';
+			this.simulateDirectoryChange(id, code, directory);
 			return;
 		}
 
@@ -901,9 +912,18 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 				this.createEnvironmentClient(id);
 				break;
 
+			case positron.RuntimeClientType.FrontEnd:
+				// Create the front-end client when requested
+				this.createFrontendClient(id);
+
+				// Immediately notify Positron of a "working directory"
+				if (this._frontend) {
+					this._frontend.changeDirectory('');
+				}
+				break;
+
 			case positron.RuntimeClientType.Help:
 			case positron.RuntimeClientType.Lsp:
-			case positron.RuntimeClientType.FrontEnd:
 			case positron.RuntimeClientType.Dap:
 				// These types aren't currently supported by Zed, so close the
 				// comm immediately to signal this to the client.
@@ -940,6 +960,20 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 	}
 
 	/**
+	 * Creates a new Zed frontend client.
+	 *
+	 * @param id The ID of the client.
+	 */
+	createFrontendClient(id: string) {
+		// Allocate a new ID and ZedEnvironment object for this environment backend
+		const frontend = new ZedFrontend(id);
+
+		// Connect it and save the instance to coordinate future communication
+		this.connectClientEmitter(frontend);
+		this._frontend = frontend;
+	}
+
+	/**
 	 * Lists all clients of a given type.
 	 *
 	 * @param type The type of client to list. If undefined, all clients are listed.
@@ -960,6 +994,11 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 		if (!type || type === positron.RuntimeClientType.DataViewer) {
 			for (const data of this._data.values()) {
 				clients[data.id] = positron.RuntimeClientType.Plot;
+			}
+		}
+		if (!type || type === positron.RuntimeClientType.FrontEnd) {
+			if (this._frontend) {
+				clients[this._frontend.id] = positron.RuntimeClientType.FrontEnd;
 			}
 		}
 		return clients;
@@ -1315,6 +1354,29 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 			default:
 				this.simulateOutputMessage(parentId, `Unknown preview command '${command}'.`);
 				break;
+		}
+
+		// Return to idle state.
+		this.simulateIdleState(parentId);
+	}
+
+	/**
+	 * Simulates a directory change by sending the relevant event to the frontend comm.
+	 *
+	 * @param parentId The ID of the message that requested the directory change.
+	 * @param code The code that was executed.
+	 * @param directory The directory to change to.
+	 */
+	private simulateDirectoryChange(parentId: string, code: string, directory: string) {
+		// Enter busy state and output the code.
+		this.simulateBusyState(parentId);
+		this.simulateInputMessage(parentId, code);
+
+		if (this._frontend) {
+			this._frontend.changeDirectory(directory);
+			this.simulateOutputMessage(parentId, `Changed directory to '${this._frontend.directory}'.`);
+		} else {
+			this.simulateErrorMessage(parentId, 'No Frontend', 'No frontend is connected.', []);
 		}
 
 		// Return to idle state.
@@ -1786,7 +1848,7 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 	 *
 	 * @param client The environment or plot to connect
 	 */
-	private connectClientEmitter(client: ZedEnvironment | ZedPlot | ZedData) {
+	private connectClientEmitter(client: ZedEnvironment | ZedPlot | ZedData | ZedFrontend) {
 
 		// Listen for data emitted from the environment instance
 		client.onDidEmitData(data => {

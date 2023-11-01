@@ -19,6 +19,7 @@ import { PositronActionBarContextProvider } from 'vs/platform/positronActionBar/
 import { ILanguageRuntime, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { PositronConsoleState } from 'vs/workbench/services/positronConsole/common/interfaces/positronConsoleService';
 import { ConsoleInstanceMenuButton } from 'vs/workbench/contrib/positronConsole/browser/components/consoleInstanceMenuButton';
+import { LanguageRuntimeEventType } from 'vs/workbench/services/languageRuntime/common/languageRuntimeEvents';
 
 /**
  * Constants.
@@ -99,6 +100,7 @@ export const ActionBar = (props: ActionBarProps) => {
 	const [interruptible, setInterruptible] = useState(false);
 	const [interrupting, setInterrupting] = useState(false);
 	const [stateLabel, setStateLabel] = useState('');
+	const [directoryLabel, setDirectoryLabel] = useState('');
 
 	// Main useEffect hook.
 	useEffect(() => {
@@ -128,9 +130,15 @@ export const ActionBar = (props: ActionBarProps) => {
 				setInterruptible(false);
 				setInterrupting(false);
 				setStateLabel('');
+				setDirectoryLabel('');
 				return;
 			}
 
+			// Set the initial state.
+			setInterruptible(runtime.dynState.busy);
+			setDirectoryLabel(runtime.dynState.currentWorkingDirectory);
+
+			// Listen for state changes.
 			disposableRuntimeStore.add(runtime.onDidChangeRuntimeState((state) => {
 				switch (state) {
 					case RuntimeState.Starting:
@@ -176,6 +184,13 @@ export const ActionBar = (props: ActionBarProps) => {
 						setInterrupting(false);
 						setInterruptible(false);
 						break;
+				}
+			}));
+
+			// Listen for changes to the working directory.
+			disposableRuntimeStore.add(runtime.onDidReceiveRuntimeClientEvent((event) => {
+				if (event.name === LanguageRuntimeEventType.WorkingDirectory) {
+					setDirectoryLabel(runtime.dynState.currentWorkingDirectory);
 				}
 			}));
 		};
@@ -237,6 +252,16 @@ export const ActionBar = (props: ActionBarProps) => {
 				>
 					<ActionBarRegion location='left'>
 						<ConsoleInstanceMenuButton {...props} />
+						<div className='action-bar-separator' />
+						{directoryLabel &&
+							<div className='directory-label'
+								aria-label={
+									localize('directoryLabel', "Current Working Directory")
+								}>
+								<span className='codicon codicon-folder' role='presentation'></span>
+								<span className='label'>{directoryLabel}</span>
+							</div>
+						}
 					</ActionBarRegion>
 					<ActionBarRegion location='right'>
 						<div className='state-label'>{stateLabel}</div>

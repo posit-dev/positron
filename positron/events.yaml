@@ -1,4 +1,3 @@
-
 - name: Busy
   comment: >
     Represents a change in the runtime's busy state.
@@ -9,39 +8,47 @@
     The kernel is busy when it is processing a request,
     but the runtime is busy only when a computation is running.
   params:
-  - name: busy
-    type: boolean
-    comment: Whether the runtime is busy.
+    - name: busy
+      type: boolean
+      comment: Whether the runtime is busy.
 
 - name: ShowMessage
   comment: >
     Use this event to show a message to the user.
   params:
-  - name: message
-    type: string
-    comment: The message to show to the user.
+    - name: message
+      type: string
+      comment: The message to show to the user.
 
 - name: ShowHelp
   comment: >
     Show help content in the Help pane.
   params:
-  - name: content
-    type: string
-    comment: The help content to be shown.
-  - name: kind
-    type: string
-    comment: The content help type. Must be one of 'html', 'markdown', or 'url'.
-  - name: focus
-    type: boolean
-    comment: Focus the Help pane after the Help content has been rendered?
+    - name: content
+      type: string
+      comment: The help content to be shown.
+    - name: kind
+      type: string
+      comment: The content help type. Must be one of 'html', 'markdown', or 'url'.
+    - name: focus
+      type: boolean
+      comment: Focus the Help pane after the Help content has been rendered?
 
 - name: PromptState
   comment: >
     Update strings of future input and continuation prompts.
   params:
-  - name: inputPrompt
-    type: string
-    comment: String for future input prompts.
-  - name: continuationPrompt
-    type: string
-    comment: String for future continuation prompts.
+    - name: inputPrompt
+      type: string
+      comment: String for future input prompts.
+    - name: continuationPrompt
+      type: string
+      comment: String for future continuation prompts.
+
+- name: WorkingDirectory
+  comment: >
+    Change the displayed working directory for the interpreter.
+  params:
+    - name: directory
+      type: string
+      comment: The new working directory.

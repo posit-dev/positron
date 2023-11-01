@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
 import { existsSync, readFileSync, writeFileSync } from 'fs';
@@ -218,10 +218,10 @@ while (!existsSync(`${process.cwd()}/.git`)) {
 	process.chdir('..');
 }
 
-const rustEventsFile = 'extensions/positron-r/amalthea/crates/amalthea/src/events/mod.rs';
+const rustEventsFile = '../amalthea/crates/amalthea/src/events/mod.rs';
 updateRustEventsFile(rustEventsFile);
 
-const rustClientEventsFile = 'extensions/positron-r/amalthea/crates/amalthea/src/wire/client_event.rs';
+const rustClientEventsFile = '../amalthea/crates/amalthea/src/wire/client_event.rs';
 updateRustClientEventsFile(rustClientEventsFile);
 
 const languageRuntimeEventsFile = 'src/vs/workbench/services/languageRuntime/common/languageRuntimeEvents.ts';
