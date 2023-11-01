@@ -68,7 +68,6 @@ body,
 	left: 0;
 	padding-top: 50vh;
 	padding-left: 50vw;
-	backdrop-filter: blur(2px);
 }
 .overlay-inside {
 	font-weight: bold;

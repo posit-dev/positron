@@ -155,6 +155,8 @@ export const DataPanel = (props: DataPanelProps) => {
 	const {
 		data,
 		isLoading,
+		isFetching,
+		isPlaceholderData,
 		isFetchingNextPage,
 		fetchNextPage,
 		hasNextPage
@@ -345,10 +347,9 @@ export const DataPanel = (props: DataPanelProps) => {
 					)}
 				</tbody>
 			</table>
-			{ isFetchingNextPage ?
+			{ // TODO: this doesn't seem to adequately capture the loading state
+				isFetching || isPlaceholderData ?
 				<div className='overlay' style={{
-					width: clientWidth,
-					height: clientHeight,
 					marginTop: headerHeight,
 					marginBottom: horizontalScrollbarHeight,
 					marginRight: verticalScrollbarWidth
