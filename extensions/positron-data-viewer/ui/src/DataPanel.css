@@ -6,10 +6,6 @@ th {
 	padding: 5px;
 }
 
-td.col-number {
-	text-align: right;
-}
-
 table {
 	border-collapse: collapse;
 	table-layout: fixed;
