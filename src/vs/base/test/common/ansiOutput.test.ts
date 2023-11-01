@@ -10,12 +10,58 @@ import { ANSIColor, ANSIFormat, ANSIOutput, ANSIStyle } from 'vs/base/common/ans
 /**
  * Constants.
  */
-const CR = "\r";
-const LF = "\n";
-const CRLF = `${CR}${LF}`;
-const ESC = '\x1b';
-const CSI = ESC + '[';
-const PANGRAM = "The quick brown fox jumps over the lazy dog";
+const CR = '\r';
+const LF = '\n';
+const CRLF = `\r\n`;
+const PANGRAM = 'The quick brown fox jumps over the lazy dog';
+
+/**
+ * Gets one of the possible CSI values in an alternating fashion to increase test coverage.
+ */
+let csiIndex = 0;
+const CSI = () => {
+	switch (csiIndex) {
+		case 0:
+			csiIndex++;
+			return '\x1b[';
+		default:
+			csiIndex = 0;
+			return '\x9b';
+	}
+};
+
+/**
+ * Gets one of the possible OSC values in an alternating fashion to increase test coverage.
+ */
+let oscIndex = 0;
+const OSC = () => {
+	switch (oscIndex) {
+		case 0:
+			oscIndex++;
+			return '\x1b]';
+		default:
+			oscIndex = 0;
+			return '\x9d';
+	}
+};
+
+/**
+ * Gets one of the possible ST values in an alternating fashion to increase test coverage.
+ */
+let stIndex = 0;
+const ST = () => {
+	switch (stIndex) {
+		case 0:
+			stIndex++;
+			return '\x1b\x5c';
+		case 1:
+			stIndex++;
+			return '\x07';
+		default:
+			stIndex = 0;
+			return '\x9c';
+	}
+};
 
 /**
  * SGR (Select Graphic Rendition).
@@ -250,47 +296,15 @@ const map8BitColorIndexToColor = (colorIndex: number) => {
 };
 
 /**
- * Makes an array of lines.
- * @param count The number of lines to put in the array.
- * @returns The array of lines.
- */
-const makeLines = (count: number): string[] => {
-	// Make the lines.
-	const lines: string[] = [];
-	for (let i = 0; i < count; i++) {
-		lines.push("0".repeat(Math.floor(Math.random() * 1025)));
-	}
-
-	// Done.
-	return lines;
-};
-
-/**
- * Sets up an ANSIOutput with a standard "screen" of content.
- * @returns The newly set up ANSIOutput.
- */
-const setupStandardScreen = () => {
-	const ansiOutput = new ANSIOutput();
-	for (let i = 0; i < 25; i++) {
-		ansiOutput.processOutput("0".repeat(80));
-		if (i < 24) {
-			ansiOutput.processOutput(CRLF);
-		}
-	}
-
-	return ansiOutput;
-};
-
-/**
  * Makes a CUB (Cursor Backward) escape sequence.
  * @param count The count.
  * @returns The CUB escape sequence.
  */
 const makeCUB = (count?: number) => {
 	if (count === undefined) {
-		return `${CSI}D`;
+		return `${CSI()}D`;
 	} else {
-		return `${CSI}${count}D`;
+		return `${CSI()}${count}D`;
 	}
 };
 
@@ -301,9 +315,9 @@ const makeCUB = (count?: number) => {
  */
 const makeCUD = (count?: number) => {
 	if (count === undefined) {
-		return `${CSI}B`;
+		return `${CSI()}B`;
 	} else {
-		return `${CSI}${count}B`;
+		return `${CSI()}${count}B`;
 	}
 };
 
@@ -314,9 +328,9 @@ const makeCUD = (count?: number) => {
  */
 const makeCUF = (count?: number) => {
 	if (count === undefined) {
-		return `${CSI}C`;
+		return `${CSI()}C`;
 	} else {
-		return `${CSI}${count}C`;
+		return `${CSI()}${count}C`;
 	}
 };
 
@@ -328,13 +342,13 @@ const makeCUF = (count?: number) => {
  */
 const makeCUP = (line?: number, column?: number) => {
 	if (line === undefined && column === undefined) {
-		return `${CSI}H`;
+		return `${CSI()}H`;
 	} else if (line !== undefined && column === undefined) {
-		return `${CSI}${line}H`;
+		return `${CSI()}${line}H`;
 	} else if (line === undefined && column !== undefined) {
-		return `${CSI};${column}H`;
+		return `${CSI()};${column}H`;
 	} else {
-		return `${CSI}${line};${column}H`;
+		return `${CSI()}${line};${column}H`;
 	}
 };
 
@@ -345,9 +359,9 @@ const makeCUP = (line?: number, column?: number) => {
  */
 const makeCUU = (count?: number) => {
 	if (count === undefined) {
-		return `${CSI}A`;
+		return `${CSI()}A`;
 	} else {
-		return `${CSI}${count}A`;
+		return `${CSI()}${count}A`;
 	}
 };
 
@@ -359,16 +373,16 @@ const makeCUU = (count?: number) => {
 const makeED = (direction: 'end-of-screen' | 'end-of-screen-explicit-0' | 'beginning-of-screen' | 'entire-screen' = 'end-of-screen') => {
 	switch (direction) {
 		case 'end-of-screen':
-			return `${CSI}J`;
+			return `${CSI()}J`;
 
 		case 'end-of-screen-explicit-0':
-			return `${CSI}0J`;
+			return `${CSI()}0J`;
 
 		case 'beginning-of-screen':
-			return `${CSI}1J`;
+			return `${CSI()}1J`;
 
 		case 'entire-screen':
-			return `${CSI}2J`;
+			return `${CSI()}2J`;
 	}
 };
 
@@ -380,16 +394,16 @@ const makeED = (direction: 'end-of-screen' | 'end-of-screen-explicit-0' | 'begin
 const makeEL = (direction: 'end-of-line' | 'end-of-line-explicit-0' | 'beginning-of-line' | 'entire-line' = 'end-of-line') => {
 	switch (direction) {
 		case 'end-of-line':
-			return `${CSI}K`;
+			return `${CSI()}K`;
 
 		case 'end-of-line-explicit-0':
-			return `${CSI}0K`;
+			return `${CSI()}0K`;
 
 		case 'beginning-of-line':
-			return `${CSI}1K`;
+			return `${CSI()}1K`;
 
 		case 'entire-line':
-			return `${CSI}2K`;
+			return `${CSI()}2K`;
 	}
 };
 
@@ -399,7 +413,50 @@ const makeEL = (direction: 'end-of-line' | 'end-of-line-explicit-0' | 'beginning
  * @returns The SGR escape sequence.
  */
 const makeSGR = (...parameters: SGRParam[]) => {
-	return CSI + parameters.map(parameter => `${parameter}`).join(';') + 'm';
+	return CSI() + parameters.map(parameter => `${parameter}`).join(';') + 'm';
+};
+
+/**
+ * Makes an OSC 8 (Anchor) escape sequence.
+ * @param text The text.
+ * @param url The URL.
+ * @param params The parameters (e.g. foo=bar:bar=foo).
+ * @returns The SGR escape sequence.
+ */
+const makeOSC8 = (text: string, url: string, params: string = '') => {
+	return `${OSC()}8;${params};${url}${ST()}${text}${OSC()}8;;${ST()}`;
+};
+
+/**
+ * Sets up an ANSIOutput with a standard "screen" of content.
+ * @returns The newly set up ANSIOutput.
+ */
+const setupStandardScreen = () => {
+	const ansiOutput = new ANSIOutput();
+	for (let i = 0; i < 25; i++) {
+		ansiOutput.processOutput('0'.repeat(80));
+		if (i < 24) {
+			ansiOutput.processOutput(CRLF);
+		}
+	}
+
+	return ansiOutput;
+};
+
+/**
+ * Makes an array of lines.
+ * @param count The number of lines to put in the array.
+ * @returns The array of lines.
+ */
+const makeLines = (count: number): string[] => {
+	// Make the lines.
+	const lines: string[] = [];
+	for (let i = 0; i < count; i++) {
+		lines.push('0'.repeat(Math.floor(Math.random() * 1025)));
+	}
+
+	// Done.
+	return lines;
 };
 
 /**
@@ -430,7 +487,7 @@ export const twoDigitHex = (value: number) => {
 suite('ANSIOutout', () => {
 	test('Test ANSIOutput.processOutput with empty string', () => {
 		// Setup.
-		const outputLines = ANSIOutput.processOutput("");
+		const outputLines = ANSIOutput.processOutput('');
 
 		// Tests.
 		assert.equal(outputLines.length, 1);
@@ -524,52 +581,28 @@ suite('ANSIOutout', () => {
 		testOutputLines(10000, CRLF);
 	});
 
-	const testOutputLines = (count: number, terminator: string) => {
-		// Setup.
-		const lines = makeLines(10);
-		const ansiOutput = new ANSIOutput();
-		ansiOutput.processOutput(lines.join(LF));
-		const outputLines = ansiOutput.outputLines;
-
-		// Tests.
-		assert.equal(outputLines.length, lines.length);
-		for (let i = 0; i < outputLines.length; i++) {
-			if (!lines[i].length) {
-				assert.equal(outputLines[i].outputRuns.length, 0);
-			} else {
-				assert.equal(outputLines[i].id.length, 36);
-				assert.equal(outputLines[i].outputRuns.length, 1);
-				assert.equal(outputLines[i].outputRuns[0].text.length, lines[i].length);
-			}
-		}
-	};
-
 	test('Test CUB (Cursor Backward)', () => {
 		// Setup.
 		const ansiOutput = new ANSIOutput();
-		ansiOutput.processOutput("0".repeat(80));
+		ansiOutput.processOutput('0'.repeat(80));
 
 		// Test.
 		ansiOutput.processOutput(makeCUB());
-		assert.equal(ansiOutput["_outputLine"] as number, 0);
-		assert.equal(ansiOutput["_outputColumn"] as number, 79);
+		checkOutputPosition(ansiOutput, 0, 79);
 		ansiOutput.processOutput(makeCUB(1));
-		assert.equal(ansiOutput["_outputLine"] as number, 0);
-		assert.equal(ansiOutput["_outputColumn"] as number, 78);
+		checkOutputPosition(ansiOutput, 0, 78);
 		ansiOutput.processOutput(makeCUB(10));
-		assert.equal(ansiOutput["_outputLine"] as number, 0);
-		assert.equal(ansiOutput["_outputColumn"] as number, 68);
+		checkOutputPosition(ansiOutput, 0, 68);
 		ansiOutput.processOutput(makeCUB(100));
-		assert.equal(ansiOutput["_outputLine"] as number, 0);
-		assert.equal(ansiOutput["_outputColumn"] as number, 0);
+		checkOutputPosition(ansiOutput, 0, 0);
 	});
 
 	test('Test CUB (Cursor Backward) to start of line', () => {
 		// Setup.
 		const ansiOutput = new ANSIOutput();
-		ansiOutput.processOutput("0".repeat(80));
+		ansiOutput.processOutput('0'.repeat(80));
 		ansiOutput.processOutput(makeCUB(80));
-		ansiOutput.processOutput("XXXXXXXXXX");
+		ansiOutput.processOutput('XXXXXXXXXX');
 		const outputLines = ansiOutput.outputLines;
 
 		// Test.
@@ -577,15 +610,15 @@ suite('ANSIOutout', () => {
 		assert.equal(outputLines[0].outputRuns.length, 1);
 		assert.equal(outputLines[0].outputRuns[0].id.length, 36);
 		assert.equal(outputLines[0].outputRuns[0].format, undefined);
-		assert.equal(outputLines[0].outputRuns[0].text, "XXXXXXXXXX0000000000000000000000000000000000000000000000000000000000000000000000");
+		assert.equal(outputLines[0].outputRuns[0].text, 'XXXXXXXXXX0000000000000000000000000000000000000000000000000000000000000000000000');
 	});
 
 	test('Test CUB (Cursor Backward) to middle of line', () => {
 		// Setup.
 		const ansiOutput = new ANSIOutput();
-		ansiOutput.processOutput("0".repeat(80));
+		ansiOutput.processOutput('0'.repeat(80));
 		ansiOutput.processOutput(makeCUB(45));
-		ansiOutput.processOutput("XXXXXXXXXX");
+		ansiOutput.processOutput('XXXXXXXXXX');
 		const outputLines = ansiOutput.outputLines;
 
 		// Test.
@@ -593,15 +626,15 @@ suite('ANSIOutout', () => {
 		assert.equal(outputLines[0].outputRuns.length, 1);
 		assert.equal(outputLines[0].outputRuns[0].id.length, 36);
 		assert.equal(outputLines[0].outputRuns[0].format, undefined);
-		assert.equal(outputLines[0].outputRuns[0].text, "00000000000000000000000000000000000XXXXXXXXXX00000000000000000000000000000000000");
+		assert.equal(outputLines[0].outputRuns[0].text, '00000000000000000000000000000000000XXXXXXXXXX00000000000000000000000000000000000');
 	});
 
 	test('Test CUB (Cursor Backward) to end of line', () => {
 		// Setup.
 		const ansiOutput = new ANSIOutput();
-		ansiOutput.processOutput("0".repeat(80));
+		ansiOutput.processOutput('0'.repeat(80));
 		ansiOutput.processOutput(makeCUB(10));
-		ansiOutput.processOutput("XXXXXXXXXX");
+		ansiOutput.processOutput('XXXXXXXXXX');
 		const outputLines = ansiOutput.outputLines;
 
 		// Test.
@@ -609,7 +642,7 @@ suite('ANSIOutout', () => {
 		assert.equal(outputLines[0].outputRuns.length, 1);
 		assert.equal(outputLines[0].outputRuns[0].id.length, 36);
 		assert.equal(outputLines[0].outputRuns[0].format, undefined);
-		assert.equal(outputLines[0].outputRuns[0].text, "0000000000000000000000000000000000000000000000000000000000000000000000XXXXXXXXXX");
+		assert.equal(outputLines[0].outputRuns[0].text, '0000000000000000000000000000000000000000000000000000000000000000000000XXXXXXXXXX');
 	});
 
 	test('Test CUD (Cursor Down)', () => {
@@ -619,17 +652,13 @@ suite('ANSIOutout', () => {
 
 		// Test.
 		ansiOutput.processOutput(makeCUD());
-		assert.equal(ansiOutput["_outputLine"] as number, 1);
-		assert.equal(ansiOutput["_outputColumn"] as number, 0);
+		checkOutputPosition(ansiOutput, 1, 0);
 		ansiOutput.processOutput(makeCUD(1));
-		assert.equal(ansiOutput["_outputLine"] as number, 2);
-		assert.equal(ansiOutput["_outputColumn"] as number, 0);
+		checkOutputPosition(ansiOutput, 2, 0);
 		ansiOutput.processOutput(makeCUD(10));
-		assert.equal(ansiOutput["_outputLine"] as number, 12);
-		assert.equal(ansiOutput["_outputColumn"] as number, 0);
+		checkOutputPosition(ansiOutput, 12, 0);
 		ansiOutput.processOutput(makeCUD(100));
-		assert.equal(ansiOutput["_outputLine"] as number, 112);
-		assert.equal(ansiOutput["_outputColumn"] as number, 0);
+		checkOutputPosition(ansiOutput, 112, 0);
 	});
 
 	test('Test CUF (Cursor Forward)', () => {
@@ -640,26 +669,22 @@ suite('ANSIOutout', () => {
 
 		// Test.
 		ansiOutput.processOutput(makeCUF());
-		assert.equal(ansiOutput["_outputLine"] as number, 0);
-		assert.equal(ansiOutput["_outputColumn"] as number, 1);
+		checkOutputPosition(ansiOutput, 0, 1);
 		ansiOutput.processOutput(makeCUF(1));
-		assert.equal(ansiOutput["_outputLine"] as number, 0);
-		assert.equal(ansiOutput["_outputColumn"] as number, 2);
+		checkOutputPosition(ansiOutput, 0, 2);
 		ansiOutput.processOutput(makeCUF(10));
-		assert.equal(ansiOutput["_outputLine"] as number, 0);
-		assert.equal(ansiOutput["_outputColumn"] as number, 12);
+		checkOutputPosition(ansiOutput, 0, 12);
 		ansiOutput.processOutput(makeCUF(100));
-		assert.equal(ansiOutput["_outputLine"] as number, 0);
-		assert.equal(ansiOutput["_outputColumn"] as number, 112);
+		checkOutputPosition(ansiOutput, 0, 112);
 	});
 
 	test('Test CUF (Cursor Forward) to start of line', () => {
 		// Setup.
 		const ansiOutput = new ANSIOutput();
-		ansiOutput.processOutput("0".repeat(80));
+		ansiOutput.processOutput('0'.repeat(80));
 		ansiOutput.processOutput(makeCUB(80));
 		ansiOutput.processOutput(makeCUF());
-		ansiOutput.processOutput("XXXXXXXXXX");
+		ansiOutput.processOutput('XXXXXXXXXX');
 		const outputLines = ansiOutput.outputLines;
 
 		// Test.
@@ -667,16 +692,16 @@ suite('ANSIOutout', () => {
 		assert.equal(outputLines[0].outputRuns.length, 1);
 		assert.equal(outputLines[0].outputRuns[0].id.length, 36);
 		assert.equal(outputLines[0].outputRuns[0].format, undefined);
-		assert.equal(outputLines[0].outputRuns[0].text, "0XXXXXXXXXX000000000000000000000000000000000000000000000000000000000000000000000");
+		assert.equal(outputLines[0].outputRuns[0].text, '0XXXXXXXXXX000000000000000000000000000000000000000000000000000000000000000000000');
 	});
 
 	test('Test CUF (Cursor Forward) to middle of line', () => {
 		// Setup.
 		const ansiOutput = new ANSIOutput();
-		ansiOutput.processOutput("0".repeat(80));
+		ansiOutput.processOutput('0'.repeat(80));
 		ansiOutput.processOutput(makeCUB(80));
 		ansiOutput.processOutput(makeCUF(35));
-		ansiOutput.processOutput("XXXXXXXXXX");
+		ansiOutput.processOutput('XXXXXXXXXX');
 		const outputLines = ansiOutput.outputLines;
 
 		// Test.
@@ -684,16 +709,16 @@ suite('ANSIOutout', () => {
 		assert.equal(outputLines[0].outputRuns.length, 1);
 		assert.equal(outputLines[0].outputRuns[0].id.length, 36);
 		assert.equal(outputLines[0].outputRuns[0].format, undefined);
-		assert.equal(outputLines[0].outputRuns[0].text, "00000000000000000000000000000000000XXXXXXXXXX00000000000000000000000000000000000");
+		assert.equal(outputLines[0].outputRuns[0].text, '00000000000000000000000000000000000XXXXXXXXXX00000000000000000000000000000000000');
 	});
 
 	test('Test CUF (Cursor Forward) to end of line', () => {
 		// Setup.
 		const ansiOutput = new ANSIOutput();
-		ansiOutput.processOutput("0".repeat(80));
+		ansiOutput.processOutput('0'.repeat(80));
 		ansiOutput.processOutput(makeCUB(80));
 		ansiOutput.processOutput(makeCUF(70));
-		ansiOutput.processOutput("XXXXXXXXXX");
+		ansiOutput.processOutput('XXXXXXXXXX');
 		const outputLines = ansiOutput.outputLines;
 
 		// Test.
@@ -701,7 +726,7 @@ suite('ANSIOutout', () => {
 		assert.equal(outputLines[0].outputRuns.length, 1);
 		assert.equal(outputLines[0].outputRuns[0].id.length, 36);
 		assert.equal(outputLines[0].outputRuns[0].format, undefined);
-		assert.equal(outputLines[0].outputRuns[0].text, "0000000000000000000000000000000000000000000000000000000000000000000000XXXXXXXXXX");
+		assert.equal(outputLines[0].outputRuns[0].text, '0000000000000000000000000000000000000000000000000000000000000000000000XXXXXXXXXX');
 	});
 
 	test("Tests CUP (Cursor Position)", () => {
@@ -710,17 +735,13 @@ suite('ANSIOutout', () => {
 
 		// Test.
 		ansiOutput.processOutput(makeCUP());
-		assert.equal(ansiOutput["_outputLine"] as number, 0);
-		assert.equal(ansiOutput["_outputColumn"] as number, 0);
+		checkOutputPosition(ansiOutput, 0, 0);
 		ansiOutput.processOutput(makeCUP(10, 10));
-		assert.equal(ansiOutput["_outputLine"] as number, 9);
-		assert.equal(ansiOutput["_outputColumn"] as number, 9);
+		checkOutputPosition(ansiOutput, 9, 9);
 		ansiOutput.processOutput(makeCUP(100, 100));
-		assert.equal(ansiOutput["_outputLine"] as number, 99);
-		assert.equal(ansiOutput["_outputColumn"] as number, 99);
+		checkOutputPosition(ansiOutput, 99, 99);
 		ansiOutput.processOutput(makeCUP(8192, 8192));
-		assert.equal(ansiOutput["_outputLine"] as number, 8191);
-		assert.equal(ansiOutput["_outputColumn"] as number, 8191);
+		checkOutputPosition(ansiOutput, 8191, 8191);
 	});
 
 	test("Tests CUU (Cursor Up)", () => {
@@ -729,123 +750,115 @@ suite('ANSIOutout', () => {
 
 		// Test.
 		ansiOutput.processOutput(makeCUU());
-		assert.equal(ansiOutput["_outputLine"] as number, 23);
-		assert.equal(ansiOutput["_outputColumn"] as number, 80);
+		checkOutputPosition(ansiOutput, 23, 80);
 		ansiOutput.processOutput(makeCUU(1));
-		assert.equal(ansiOutput["_outputLine"] as number, 22);
-		assert.equal(ansiOutput["_outputColumn"] as number, 80);
+		checkOutputPosition(ansiOutput, 22, 80);
 		ansiOutput.processOutput(makeCUU(10));
-		assert.equal(ansiOutput["_outputLine"] as number, 12);
-		assert.equal(ansiOutput["_outputColumn"] as number, 80);
+		checkOutputPosition(ansiOutput, 12, 80);
 		ansiOutput.processOutput(makeCUU(20));
-		assert.equal(ansiOutput["_outputLine"] as number, 0);
-		assert.equal(ansiOutput["_outputColumn"] as number, 80);
+		checkOutputPosition(ansiOutput, 0, 80);
 	});
 
-	test("Tests end of screen ED using implicit 0", () => {
+	test('Tests end of screen ED using implicit 0', () => {
 		// Setup.
 		const ansiOutput = setupStandardScreen();
 		ansiOutput.processOutput(makeCUP(13, 41));
 
 		// Test.
-		ansiOutput.processOutput(makeED("end-of-screen"));
-		const zeros = "0".repeat(80);
+		ansiOutput.processOutput(makeED('end-of-screen'));
+		const zeros = '0'.repeat(80);
 		for (let i = 0; i < 12; i++) {
 			assert.equal(ansiOutput.outputLines[i].outputRuns.length, 1);
 			assert.equal(ansiOutput.outputLines[i].outputRuns[0].text, zeros);
 		}
 		assert.equal(ansiOutput.outputLines[12].outputRuns.length, 2);
-		assert.equal(ansiOutput.outputLines[12].outputRuns[0].text, "0000000000000000000000000000000000000000");
-		assert.equal(ansiOutput.outputLines[12].outputRuns[1].text, "                                        ");
-		const spaces = " ".repeat(80);
+		assert.equal(ansiOutput.outputLines[12].outputRuns[0].text, '0000000000000000000000000000000000000000');
+		assert.equal(ansiOutput.outputLines[12].outputRuns[1].text, '                                        ');
+		const spaces = ' '.repeat(80);
 		for (let i = 13; i < 24; i++) {
 			assert.equal(ansiOutput.outputLines[i].outputRuns.length, 1);
 			assert.equal(ansiOutput.outputLines[i].outputRuns[0].text, spaces);
 		}
 	});
 
-	test("Tests end of screen ED using explicit 0", () => {
+	test('Tests end of screen ED using explicit 0', () => {
 		// Setup.
 		const ansiOutput = setupStandardScreen();
 		ansiOutput.processOutput(makeCUP(13, 41));
 
 		// Test.
-		assert.equal(ansiOutput["_outputLine"] as number, 12);
-		assert.equal(ansiOutput["_outputColumn"] as number, 40);
-		ansiOutput.processOutput(makeED("end-of-screen-explicit-0"));
-		const zeros = "0".repeat(80);
+		checkOutputPosition(ansiOutput, 12, 40);
+		ansiOutput.processOutput(makeED('end-of-screen-explicit-0'));
+		const zeros = '0'.repeat(80);
 		for (let i = 0; i < 12; i++) {
 			assert.equal(ansiOutput.outputLines[i].outputRuns.length, 1);
 			assert.equal(ansiOutput.outputLines[i].outputRuns[0].text, zeros);
 		}
 		assert.equal(ansiOutput.outputLines[12].outputRuns.length, 2);
-		assert.equal(ansiOutput.outputLines[12].outputRuns[0].text, "0000000000000000000000000000000000000000");
-		assert.equal(ansiOutput.outputLines[12].outputRuns[1].text, "                                        ");
-		const spaces = " ".repeat(80);
+		assert.equal(ansiOutput.outputLines[12].outputRuns[0].text, '0000000000000000000000000000000000000000');
+		assert.equal(ansiOutput.outputLines[12].outputRuns[1].text, '                                        ');
+		const spaces = ' '.repeat(80);
 		for (let i = 13; i < 24; i++) {
 			assert.equal(ansiOutput.outputLines[i].outputRuns.length, 1);
 			assert.equal(ansiOutput.outputLines[i].outputRuns[0].text, spaces);
 		}
 	});
 
-	test("Tests ED 1", () => {
+	test('Tests ED 1', () => {
 		// Setup.
 		const ansiOutput = setupStandardScreen();
 		ansiOutput.processOutput(makeCUP(13, 41));
 
 		// Test.
-		assert.equal(ansiOutput["_outputLine"] as number, 12);
-		assert.equal(ansiOutput["_outputColumn"] as number, 40);
-		ansiOutput.processOutput(makeED("beginning-of-screen"));
-		const spaces = " ".repeat(80);
+		checkOutputPosition(ansiOutput, 12, 40);
+		ansiOutput.processOutput(makeED('beginning-of-screen'));
+		const spaces = ' '.repeat(80);
 		for (let i = 0; i < 12; i++) {
 			assert.equal(ansiOutput.outputLines[i].outputRuns.length, 1);
 			assert.equal(ansiOutput.outputLines[i].outputRuns[0].text, spaces);
 		}
 		assert.equal(ansiOutput.outputLines[12].outputRuns.length, 2);
-		assert.equal(ansiOutput.outputLines[12].outputRuns[0].text, "                                        ");
-		assert.equal(ansiOutput.outputLines[12].outputRuns[1].text, "0000000000000000000000000000000000000000");
-		const zeros = "0".repeat(80);
+		assert.equal(ansiOutput.outputLines[12].outputRuns[0].text, '                                        ');
+		assert.equal(ansiOutput.outputLines[12].outputRuns[1].text, '0000000000000000000000000000000000000000');
+		const zeros = '0'.repeat(80);
 		for (let i = 13; i < 24; i++) {
 			assert.equal(ansiOutput.outputLines[i].outputRuns.length, 1);
 			assert.equal(ansiOutput.outputLines[i].outputRuns[0].text, zeros);
 		}
 	});
 
-	test("Tests ED 2 from the bottom", () => {
+	test('Tests ED 2 from the bottom', () => {
 		// Setup.
 		const ansiOutput = setupStandardScreen();
 
 		// Test.
-		ansiOutput.processOutput(makeED("entire-screen"));
-		assert.equal(ansiOutput["_outputLine"] as number, 24);
-		assert.equal(ansiOutput["_outputColumn"] as number, 80);
+		ansiOutput.processOutput(makeED('entire-screen'));
+		checkOutputPosition(ansiOutput, 24, 80);
 		assert.equal(ansiOutput.outputLines.length, 25);
-		const spaces = " ".repeat(80);
+		const spaces = ' '.repeat(80);
 		for (let i = 0; i < 25; i++) {
 			assert.equal(ansiOutput.outputLines[i].outputRuns.length, 1);
 			assert.equal(ansiOutput.outputLines[i].outputRuns[0].text, spaces);
 		}
 	});
 
-	test("Tests ED 2 from the top", () => {
+	test('Tests ED 2 from the top', () => {
 		// Setup.
 		const ansiOutput = setupStandardScreen();
 		ansiOutput.processOutput(makeCUP());
 
 		// Test.
-		ansiOutput.processOutput(makeED("entire-screen"));
-		assert.equal(ansiOutput["_outputLine"] as number, 0);
-		assert.equal(ansiOutput["_outputColumn"] as number, 0);
+		ansiOutput.processOutput(makeED('entire-screen'));
+		checkOutputPosition(ansiOutput, 0, 0);
 		assert.equal(ansiOutput.outputLines.length, 25);
-		const spaces = " ".repeat(80);
+		const spaces = ' '.repeat(80);
 		for (let i = 0; i < 25; i++) {
 			assert.equal(ansiOutput.outputLines[i].outputRuns.length, 1);
 			assert.equal(ansiOutput.outputLines[i].outputRuns[0].text, spaces);
 		}
 	});
 
-	test("Tests EL 0 when there's nothing to clear", () => {
+	test("Tests EL 0 when there is nothing to clear", () => {
 		// Setup.
 		const ansiOutput = new ANSIOutput();
 
@@ -854,54 +867,54 @@ suite('ANSIOutout', () => {
 		assert.equal(ansiOutput.outputLines[0].outputRuns.length, 0);
 	});
 
-	test("Tests EL 0 using implicit 0", () => {
+	test('Tests EL 0 using implicit 0', () => {
 		// Setup.
 		const ansiOutput = new ANSIOutput();
-		ansiOutput.processOutput("0".repeat(80));
+		ansiOutput.processOutput('0'.repeat(80));
 		ansiOutput.processOutput(CR);
 
 		// Test.
-		ansiOutput.processOutput(makeEL("end-of-line"));
+		ansiOutput.processOutput(makeEL('end-of-line'));
 		assert.equal(ansiOutput.outputLines[0].outputRuns.length, 1);
-		assert.equal(ansiOutput.outputLines[0].outputRuns[0].text, " ".repeat(80));
+		assert.equal(ansiOutput.outputLines[0].outputRuns[0].text, ' '.repeat(80));
 	});
 
-	test("Tests EL 0 using explicit 0", () => {
+	test('Tests EL 0 using explicit 0', () => {
 		// Setup.
 		const ansiOutput = new ANSIOutput();
-		ansiOutput.processOutput("0".repeat(80));
+		ansiOutput.processOutput('0'.repeat(80));
 		ansiOutput.processOutput(CR);
 
 		// Test.
-		ansiOutput.processOutput(makeEL("end-of-line-explicit-0"));
+		ansiOutput.processOutput(makeEL('end-of-line-explicit-0'));
 		assert.equal(ansiOutput.outputLines[0].outputRuns.length, 1);
-		assert.equal(ansiOutput.outputLines[0].outputRuns[0].text, " ".repeat(80));
+		assert.equal(ansiOutput.outputLines[0].outputRuns[0].text, ' '.repeat(80));
 	});
 
-	test("Tests EL 1", () => {
+	test('Tests EL 1', () => {
 		// Setup.
 		const ansiOutput = new ANSIOutput();
-		ansiOutput.processOutput("0".repeat(80));
+		ansiOutput.processOutput('0'.repeat(80));
 
 		// Test.
-		ansiOutput.processOutput(makeEL("beginning-of-line"));
+		ansiOutput.processOutput(makeEL('beginning-of-line'));
 		assert.equal(ansiOutput.outputLines[0].outputRuns.length, 1);
-		assert.equal(ansiOutput.outputLines[0].outputRuns[0].text, " ".repeat(80));
+		assert.equal(ansiOutput.outputLines[0].outputRuns[0].text, ' '.repeat(80));
 	});
 
-	test("Tests EL 2", () => {
+	test('Tests EL 2', () => {
 		// Setup.
 		const ansiOutput = new ANSIOutput();
-		ansiOutput.processOutput("0".repeat(80));
+		ansiOutput.processOutput('0'.repeat(80));
 		ansiOutput.processOutput(makeCUP(1, 41));
 
 		// Test.
-		ansiOutput.processOutput(makeEL("entire-line"));
+		ansiOutput.processOutput(makeEL('entire-line'));
 		assert.equal(ansiOutput.outputLines[0].outputRuns.length, 1);
-		assert.equal(ansiOutput.outputLines[0].outputRuns[0].text, " ".repeat(80));
+		assert.equal(ansiOutput.outputLines[0].outputRuns[0].text, ' '.repeat(80));
 	});
 
-	test("Tests foreground colors with no background colors", () => {
+	test('Tests foreground colors with no background colors', () => {
 		// Create the test scenarios.
 		const testScenarios: SGRTestScenario[] = [
 			{
@@ -1058,7 +1071,7 @@ suite('ANSIOutout', () => {
 		}
 	});
 
-	test("Tests background colors and automatically contrasting foreground colors", () => {
+	test('Tests background colors and automatically contrasting foreground colors', () => {
 		// Create the test scenarios.
 		const testScenarios: SGRTestScenario[] = [
 			{
@@ -1231,7 +1244,7 @@ suite('ANSIOutout', () => {
 		}
 	});
 
-	test("Tests ANSI 16 matrix", () => {
+	test('Tests ANSI 16 matrix', () => {
 		/**
 		 * SGRToAnsiColorMap type.
 		 */
@@ -1315,7 +1328,7 @@ suite('ANSIOutout', () => {
 		}
 	});
 
-	test("Tests ANSI 256 matrix", () => {
+	test('Tests ANSI 256 matrix', () => {
 		const testScenarios: SGRTestScenario[] = [];
 		for (let foregroundIndex = 0; foregroundIndex < 256; foregroundIndex++) {
 			for (let backgroundIndex = 0; backgroundIndex < 256; backgroundIndex++) {
@@ -1360,7 +1373,7 @@ suite('ANSIOutout', () => {
 		}
 	});
 
-	test("Tests ANSI RGB matrix", () => {
+	test('Tests ANSI RGB matrix', () => {
 		const testScenarios: SGRTestScenario[] = [];
 		for (let r = 0; r < 256; r++) {
 			for (let g = 0; g < 256; g++) {
@@ -1409,11 +1422,11 @@ suite('ANSIOutout', () => {
 		}
 	});
 
-	test("Tests insertion of blue text into an output run of red text", () => {
+	test('Tests insertion of blue text into an output run of red text', () => {
 		// Setup.
 		const ansiOutput = new ANSIOutput();
 		// Create a red output run.
-		ansiOutput.processOutput(`${makeSGR(SGRParam.ForegroundRed)}${"0".repeat(80)}${makeSGR()}`);
+		ansiOutput.processOutput(`${makeSGR(SGRParam.ForegroundRed)}${'0'.repeat(80)}${makeSGR()}`);
 		// Insert a blue output in the middle of the red output run.
 		ansiOutput.processOutput(makeCUB(45));
 		ansiOutput.processOutput(`${makeSGR(SGRParam.ForegroundBlue)}XXXXXXXXXX${makeSGR()}`);
@@ -1431,7 +1444,7 @@ suite('ANSIOutout', () => {
 		assert.equal(outputLines[0].outputRuns[0].format!.backgroundColor, undefined);
 		assert.equal(outputLines[0].outputRuns[0].format!.underlinedColor, undefined);
 		assert.equal(outputLines[0].outputRuns[0].format!.font, undefined);
-		assert.equal(outputLines[0].outputRuns[0].text, "00000000000000000000000000000000000");
+		assert.equal(outputLines[0].outputRuns[0].text, '00000000000000000000000000000000000');
 
 		// Inserted blue segment.
 		assert.equal(outputLines[0].outputRuns[1].id.length, 36);
@@ -1441,7 +1454,7 @@ suite('ANSIOutout', () => {
 		assert.equal(outputLines[0].outputRuns[1].format!.backgroundColor, undefined);
 		assert.equal(outputLines[0].outputRuns[1].format!.underlinedColor, undefined);
 		assert.equal(outputLines[0].outputRuns[1].format!.font, undefined);
-		assert.equal(outputLines[0].outputRuns[1].text, "XXXXXXXXXX");
+		assert.equal(outputLines[0].outputRuns[1].text, 'XXXXXXXXXX');
 
 		// Second red segment.
 		assert.equal(outputLines[0].outputRuns[2].id.length, 36);
@@ -1451,28 +1464,28 @@ suite('ANSIOutout', () => {
 		assert.equal(outputLines[0].outputRuns[2].format!.backgroundColor, undefined);
 		assert.equal(outputLines[0].outputRuns[2].format!.underlinedColor, undefined);
 		assert.equal(outputLines[0].outputRuns[2].format!.font, undefined);
-		assert.equal(outputLines[0].outputRuns[2].text, "00000000000000000000000000000000000");
+		assert.equal(outputLines[0].outputRuns[2].text, '00000000000000000000000000000000000');
 	});
 
-	const testStyle = (sgr: SGRParam, ansiStyle: ANSIStyle) => {
-		// Setup.
-		const ansiOutput = new ANSIOutput();
-		ansiOutput.processOutput(`${makeSGR(sgr)}${"0".repeat(80)}${makeSGR()}`);
-		const outputLines = ansiOutput.outputLines;
-		assert.equal(outputLines.length, 1);
-		assert.equal(outputLines[0].outputRuns.length, 1);
-		assert.equal(outputLines[0].outputRuns[0].id.length, 36);
-		assert.notEqual(outputLines[0].outputRuns[0].format, undefined);
-		assert.equal(outputLines[0].outputRuns[0].format!.styles!.length, 1);
-		assert.equal(outputLines[0].outputRuns[0].format!.styles![0], ansiStyle);
-		assert.equal(outputLines[0].outputRuns[0].format!.foregroundColor, undefined);
-		assert.equal(outputLines[0].outputRuns[0].format!.backgroundColor, undefined);
-		assert.equal(outputLines[0].outputRuns[0].format!.underlinedColor, undefined);
-		assert.equal(outputLines[0].outputRuns[0].format!.font, undefined);
-		assert.equal(outputLines[0].outputRuns[0].text, "0".repeat(80));
-	};
-
 	test("Tests styles", () => {
+		const testStyle = (sgr: SGRParam, ansiStyle: ANSIStyle) => {
+			// Setup.
+			const ansiOutput = new ANSIOutput();
+			ansiOutput.processOutput(`${makeSGR(sgr)}${'0'.repeat(80)}${makeSGR()}`);
+			const outputLines = ansiOutput.outputLines;
+			assert.equal(outputLines.length, 1);
+			assert.equal(outputLines[0].outputRuns.length, 1);
+			assert.equal(outputLines[0].outputRuns[0].id.length, 36);
+			assert.notEqual(outputLines[0].outputRuns[0].format, undefined);
+			assert.equal(outputLines[0].outputRuns[0].format!.styles!.length, 1);
+			assert.equal(outputLines[0].outputRuns[0].format!.styles![0], ansiStyle);
+			assert.equal(outputLines[0].outputRuns[0].format!.foregroundColor, undefined);
+			assert.equal(outputLines[0].outputRuns[0].format!.backgroundColor, undefined);
+			assert.equal(outputLines[0].outputRuns[0].format!.underlinedColor, undefined);
+			assert.equal(outputLines[0].outputRuns[0].format!.font, undefined);
+			assert.equal(outputLines[0].outputRuns[0].text, '0'.repeat(80));
+		};
+
 		testStyle(SGRParam.Bold, ANSIStyle.Bold);
 		testStyle(SGRParam.Dim, ANSIStyle.Dim);
 		testStyle(SGRParam.Italic, ANSIStyle.Italic);
@@ -1490,6 +1503,183 @@ suite('ANSIOutout', () => {
 		// testStyle(SGRParam.Superscript, ANSIStyle.Superscript);
 		// testStyle(SGRParam.Subscript, ANSIStyle.Subscript);
 	});
+
+	test('Tests OSC 8 scenario 1', () => {
+		// Setup.
+		const linkText = 'This is POSIT!!!';
+		const linkURL = 'http://www.posit.co';
+		const ansiOutput = new ANSIOutput();
+		ansiOutput.processOutput(makeOSC8(linkText, linkURL));
+		const outputLines = ansiOutput.outputLines;
+
+		// Test.
+		assert.equal(outputLines.length, 1);
+		assert.equal(outputLines[0].id.length, 36);
+		assert.equal(outputLines[0].outputRuns.length, 1);
+		assert.equal(outputLines[0].outputRuns[0].format, undefined);
+		assert.notEqual(outputLines[0].outputRuns[0].hyperlink, undefined);
+		assert.equal(outputLines[0].outputRuns[0].hyperlink!.url, linkURL);
+		assert.equal(outputLines[0].outputRuns[0].hyperlink!.params, undefined);
+		assert.equal(outputLines[0].outputRuns[0].text, linkText);
+	});
+
+	test('Tests OSC 8 scenario 2', () => {
+		// Setup.
+		const linkText = 'This is POSIT!!!';
+		const linkURL = 'http://www.posit.co';
+		const ansiOutput = new ANSIOutput();
+		ansiOutput.processOutput(PANGRAM);
+		ansiOutput.processOutput(makeOSC8(linkText, linkURL));
+		ansiOutput.processOutput(PANGRAM);
+		// ansiOutput.processOutput(PANGRAM);
+		const outputLines = ansiOutput.outputLines;
+
+		// Test.
+		assert.equal(outputLines.length, 1);
+
+		assert.equal(outputLines[0].id.length, 36);
+		assert.equal(outputLines[0].outputRuns.length, 3);
+
+		assert.equal(outputLines[0].outputRuns[0].id.length, 36);
+		assert.equal(outputLines[0].outputRuns[0].format, undefined);
+		assert.equal(outputLines[0].outputRuns[0].hyperlink, undefined);
+		assert.equal(outputLines[0].outputRuns[0].text, PANGRAM);
+
+		assert.equal(outputLines[0].outputRuns[1].id.length, 36);
+		assert.equal(outputLines[0].outputRuns[1].format, undefined);
+		assert.notEqual(outputLines[0].outputRuns[1].hyperlink, undefined);
+		assert.equal(outputLines[0].outputRuns[1].hyperlink!.url, linkURL);
+		assert.equal(outputLines[0].outputRuns[1].hyperlink!.params, undefined);
+		assert.equal(outputLines[0].outputRuns[1].text, linkText);
+
+		assert.equal(outputLines[0].outputRuns[2].id.length, 36);
+		assert.equal(outputLines[0].outputRuns[2].format, undefined);
+		assert.equal(outputLines[0].outputRuns[2].hyperlink, undefined);
+		assert.equal(outputLines[0].outputRuns[2].text, PANGRAM);
+	});
+
+	test('Tests OSC 8 scenario 3', () => {
+		// Setup.
+		const linkText = 'This is POSIT!!!';
+		const linkURL = 'http://www.posit.co';
+		const ansiOutput = new ANSIOutput();
+		ansiOutput.processOutput(PANGRAM + '\n');
+		ansiOutput.processOutput(makeOSC8(`${linkText}\n${linkText}\n`, linkURL));
+		ansiOutput.processOutput(PANGRAM);
+		// ansiOutput.processOutput(PANGRAM);
+		const outputLines = ansiOutput.outputLines;
+
+		// Test.
+		assert.equal(outputLines.length, 4);
+
+		assert.equal(outputLines[0].id.length, 36);
+		assert.equal(outputLines[0].outputRuns.length, 1);
+		assert.equal(outputLines[0].outputRuns[0].id.length, 36);
+		assert.equal(outputLines[0].outputRuns[0].format, undefined);
+		assert.equal(outputLines[0].outputRuns[0].text, PANGRAM);
+
+		assert.equal(outputLines[1].id.length, 36);
+		assert.equal(outputLines[1].outputRuns.length, 1);
+		assert.equal(outputLines[1].outputRuns[0].id.length, 36);
+		assert.equal(outputLines[1].outputRuns[0].format, undefined);
+		assert.notEqual(outputLines[1].outputRuns[0].hyperlink, undefined);
+		assert.equal(outputLines[1].outputRuns[0].hyperlink!.url, linkURL);
+		assert.equal(outputLines[1].outputRuns[0].hyperlink!.params, undefined);
+		assert.equal(outputLines[1].outputRuns[0].text, linkText);
+
+		assert.equal(outputLines[2].id.length, 36);
+		assert.equal(outputLines[2].outputRuns.length, 1);
+		assert.equal(outputLines[2].outputRuns[0].id.length, 36);
+		assert.equal(outputLines[2].outputRuns[0].format, undefined);
+		assert.notEqual(outputLines[2].outputRuns[0].hyperlink, undefined);
+		assert.equal(outputLines[2].outputRuns[0].hyperlink!.url, linkURL);
+		assert.equal(outputLines[1].outputRuns[0].hyperlink!.params, undefined);
+		assert.equal(outputLines[2].outputRuns[0].text, linkText);
+
+		assert.equal(outputLines[3].id.length, 36);
+		assert.equal(outputLines[3].outputRuns.length, 1);
+		assert.equal(outputLines[3].outputRuns[0].id.length, 36);
+		assert.equal(outputLines[3].outputRuns[0].format, undefined);
+		assert.equal(outputLines[3].outputRuns[0].text, PANGRAM);
+	});
+
+	test('Tests OSC 8 scenario 4', () => {
+		// Setup.
+		const linkText = 'This is POSIT!!!';
+		const linkURL = 'http://www.posit.co';
+		const ansiOutput = new ANSIOutput();
+		ansiOutput.processOutput(PANGRAM + '\n');
+		ansiOutput.processOutput(makeOSC8(`${makeSGR(SGRParam.ForegroundRed)}${linkText}\n${linkText}${makeSGR()}\n`, linkURL));
+		ansiOutput.processOutput(PANGRAM);
+		// ansiOutput.processOutput(PANGRAM);
+		const outputLines = ansiOutput.outputLines;
+
+		// Test.
+		assert.equal(outputLines.length, 4);
+
+		assert.equal(outputLines[0].id.length, 36);
+		assert.equal(outputLines[0].outputRuns.length, 1);
+		assert.equal(outputLines[0].outputRuns[0].id.length, 36);
+		assert.equal(outputLines[0].outputRuns[0].format, undefined);
+		assert.equal(outputLines[0].outputRuns[0].text, PANGRAM);
+
+		assert.equal(outputLines[1].id.length, 36);
+		assert.equal(outputLines[1].outputRuns.length, 1);
+		assert.equal(outputLines[1].outputRuns[0].id.length, 36);
+		assert.notEqual(outputLines[1].outputRuns[0].format, undefined);
+		assert.equal(outputLines[1].outputRuns[0].format!.foregroundColor, ANSIColor.Red);
+		assert.notEqual(outputLines[1].outputRuns[0].hyperlink, undefined);
+		assert.equal(outputLines[1].outputRuns[0].hyperlink!.url, linkURL);
+		assert.equal(outputLines[1].outputRuns[0].hyperlink!.params, undefined);
+		assert.equal(outputLines[1].outputRuns[0].text, linkText);
+
+		assert.equal(outputLines[2].id.length, 36);
+		assert.equal(outputLines[2].outputRuns.length, 1);
+		assert.equal(outputLines[2].outputRuns[0].id.length, 36);
+		assert.notEqual(outputLines[2].outputRuns[0].format, undefined);
+		assert.equal(outputLines[2].outputRuns[0].format!.foregroundColor, ANSIColor.Red);
+		assert.notEqual(outputLines[2].outputRuns[0].hyperlink, undefined);
+		assert.equal(outputLines[2].outputRuns[0].hyperlink!.url, linkURL);
+		assert.equal(outputLines[2].outputRuns[0].hyperlink!.params, undefined);
+		assert.equal(outputLines[2].outputRuns[0].text, linkText);
+
+		assert.equal(outputLines[3].id.length, 36);
+		assert.equal(outputLines[3].outputRuns.length, 1);
+		assert.equal(outputLines[3].outputRuns[0].id.length, 36);
+		assert.equal(outputLines[3].outputRuns[0].format, undefined);
+		assert.equal(outputLines[3].outputRuns[0].text, PANGRAM);
+	});
+
+	const testOutputLines = (count: number, terminator: string) => {
+		// Setup.
+		const lines = makeLines(10);
+		const ansiOutput = new ANSIOutput();
+		ansiOutput.processOutput(lines.join(LF));
+		const outputLines = ansiOutput.outputLines;
+
+		// Tests.
+		assert.equal(outputLines.length, lines.length);
+		for (let i = 0; i < outputLines.length; i++) {
+			if (!lines[i].length) {
+				assert.equal(outputLines[i].outputRuns.length, 0);
+			} else {
+				assert.equal(outputLines[i].id.length, 36);
+				assert.equal(outputLines[i].outputRuns.length, 1);
+				assert.equal(outputLines[i].outputRuns[0].text.length, lines[i].length);
+			}
+		}
+	};
+
+	/**
+	 * Checks the output position for an ANSIOutput.
+	 * @param ansiOutput The ANSIOutput to check the output position for.
+	 * @param outputLine The expected output line.
+	 * @param outputColumn The expected output column.
+	 */
+	const checkOutputPosition = (ansiOutput: ANSIOutput, outputLine: number, outputColumn: number) => {
+		assert.equal(ansiOutput['_outputLine' as keyof ANSIOutput] as unknown as number, outputLine);
+		assert.equal(ansiOutput['_outputColumn' as keyof ANSIOutput] as unknown as number, outputColumn);
+	};
 });
 
 //#endregion Test Suite

@@ -248,7 +248,9 @@ export class ANSIOutput {
 	 * @param ansiOutput The ANSIOutput to copy styles from.
 	 */
 	copyStylesFrom(ansiOutput: ANSIOutput) {
-		this._sgrState = ansiOutput._sgrState?.copy();
+		this._sgrState = !ansiOutput._sgrState || ansiOutput._sgrState.isNeutral ?
+			undefined :
+			ansiOutput._sgrState.copy();
 	}
 
 	/**
@@ -692,66 +694,82 @@ export class ANSIOutput {
 
 						// Process the color index. The first 16 indexes map to normal ANSIColors.
 						switch (colorIndex) {
+							// Black indexed.
 							case SGRParamIndexedColor.Black: {
 								return ANSIColor.Black;
 							}
 
+							// Red indexed.
 							case SGRParamIndexedColor.Red: {
 								return ANSIColor.Red;
 							}
 
+							// Green indexed.
 							case SGRParamIndexedColor.Green: {
 								return ANSIColor.Green;
 							}
 
+							// Yellow indexed.
 							case SGRParamIndexedColor.Yellow: {
 								return ANSIColor.Yellow;
 							}
 
+							// Blue indexed.
 							case SGRParamIndexedColor.Blue: {
 								return ANSIColor.Blue;
 							}
 
+							// Magenta indexed.
 							case SGRParamIndexedColor.Magenta: {
 								return ANSIColor.Magenta;
 							}
 
+							// Cyan indexed.
 							case SGRParamIndexedColor.Cyan: {
 								return ANSIColor.Cyan;
 							}
 
+							// White indexed.
 							case SGRParamIndexedColor.White: {
 								return ANSIColor.White;
 							}
 
+							// Bright black indexed.
 							case SGRParamIndexedColor.BrightBlack: {
 								return ANSIColor.BrightBlack;
 							}
 
+							// Bright red indexed.
 							case SGRParamIndexedColor.BrightRed: {
 								return ANSIColor.BrightRed;
 							}
 
+							// Bright green indexed.
 							case SGRParamIndexedColor.BrightGreen: {
 								return ANSIColor.BrightGreen;
 							}
 
+							// Bright yellow indexed.
 							case SGRParamIndexedColor.BrightYellow: {
 								return ANSIColor.BrightYellow;
 							}
 
+							// Bright blue indexed.
 							case SGRParamIndexedColor.BrightBlue: {
 								return ANSIColor.BrightBlue;
 							}
 
+							// Bright magenta indexed.
 							case SGRParamIndexedColor.BrightMagenta: {
 								return ANSIColor.BrightMagenta;
 							}
 
+							// Bright cyan indexed.
 							case SGRParamIndexedColor.BrightCyan: {
 								return ANSIColor.BrightCyan;
 							}
 
+							// Bright white indexed.
 							case SGRParamIndexedColor.BrightWhite: {
 								return ANSIColor.BrightWhite;
 							}
@@ -820,196 +838,235 @@ export class ANSIOutput {
 
 			// Process the SGR parameter.
 			switch (sgrParam) {
+				// Reset.
 				case SGRParam.Reset: {
 					sgrState.reset();
 					break;
 				}
 
+				// Bold.
 				case SGRParam.Bold: {
 					sgrState.setStyle(ANSIStyle.Bold);
 					break;
 				}
 
+				// Dim.
 				case SGRParam.Dim: {
 					sgrState.setStyle(ANSIStyle.Dim);
 					break;
 				}
 
+				// Italic.
 				case SGRParam.Italic: {
 					sgrState.setStyle(ANSIStyle.Italic);
 					break;
 				}
 
+				// Underlined.
 				case SGRParam.Underlined: {
 					sgrState.setStyle(ANSIStyle.Underlined, ANSIStyle.DoubleUnderlined);
 					break;
 				}
 
+				// Slow blink.
 				case SGRParam.SlowBlink: {
 					sgrState.setStyle(ANSIStyle.SlowBlink, ANSIStyle.RapidBlink);
 					break;
 				}
 
+				// Rapid blink.
 				case SGRParam.RapidBlink: {
 					sgrState.setStyle(ANSIStyle.RapidBlink, ANSIStyle.SlowBlink);
 					break;
 				}
 
+				// Reversed.
 				case SGRParam.Reversed: {
 					sgrState.setReversed(true);
 					break;
 				}
 
+				// Hidden.
 				case SGRParam.Hidden: {
 					sgrState.setStyle(ANSIStyle.Hidden);
 					break;
 				}
 
+				// Crossed out.
 				case SGRParam.CrossedOut: {
 					sgrState.setStyle(ANSIStyle.CrossedOut);
 					break;
 				}
 
+				// Primary font.
 				case SGRParam.PrimaryFont: {
 					sgrState.setFont();
 					break;
 				}
 
+				// Alternative font 1.
 				case SGRParam.AlternativeFont1: {
 					sgrState.setFont(ANSIFont.AlternativeFont1);
 					break;
 				}
 
+				// Alternative font 2.
 				case SGRParam.AlternativeFont2: {
 					sgrState.setFont(ANSIFont.AlternativeFont2);
 					break;
 				}
 
+				// Alternative font 3.
 				case SGRParam.AlternativeFont3: {
 					sgrState.setFont(ANSIFont.AlternativeFont3);
 					break;
 				}
 
+				// Alternative font 4.
 				case SGRParam.AlternativeFont4: {
 					sgrState.setFont(ANSIFont.AlternativeFont4);
 					break;
 				}
 
+				// Alternative font 5.
 				case SGRParam.AlternativeFont5: {
 					sgrState.setFont(ANSIFont.AlternativeFont5);
 					break;
 				}
 
+				// Alternative font 6.
 				case SGRParam.AlternativeFont6: {
 					sgrState.setFont(ANSIFont.AlternativeFont6);
 					break;
 				}
 
+				// Alternative font 7.
 				case SGRParam.AlternativeFont7: {
 					sgrState.setFont(ANSIFont.AlternativeFont7);
 					break;
 				}
 
+				// Alternative font 8.
 				case SGRParam.AlternativeFont8: {
 					sgrState.setFont(ANSIFont.AlternativeFont8);
 					break;
 				}
 
+				// Alternative font 9.
 				case SGRParam.AlternativeFont9: {
 					sgrState.setFont(ANSIFont.AlternativeFont9);
 					break;
 				}
 
+				// Fraktur.
 				case SGRParam.Fraktur: {
 					sgrState.setStyle(ANSIStyle.Fraktur);
 					break;
 				}
 
+				// Double underlined.
 				case SGRParam.DoubleUnderlined: {
 					sgrState.setStyle(ANSIStyle.DoubleUnderlined, ANSIStyle.Underlined);
 					break;
 				}
 
+				// Normal intensity.
 				case SGRParam.NormalIntensity: {
 					sgrState.deleteStyles(ANSIStyle.Bold, ANSIStyle.Dim);
 					break;
 				}
 
+				// Not italic / not fraktur.
 				case SGRParam.NotItalicNotFraktur: {
 					sgrState.deleteStyles(ANSIStyle.Italic, ANSIStyle.Fraktur);
 					break;
 				}
 
+				// Not underlined.
 				case SGRParam.NotUnderlined: {
 					sgrState.deleteStyles(ANSIStyle.Underlined, ANSIStyle.DoubleUnderlined);
 					break;
 				}
 
+				// Not blinking.
 				case SGRParam.NotBlinking: {
 					sgrState.deleteStyles(ANSIStyle.SlowBlink, ANSIStyle.RapidBlink);
 					break;
 				}
 
+				// Proportional spacing.
 				case SGRParam.ProportionalSpacing: {
-					// Do nothing.
+					// Do nothing. Not supported.
 					break;
 				}
 
+				// Not reversed.
 				case SGRParam.NotReversed: {
 					sgrState.setReversed(false);
 					break;
 				}
 
+				// Reveal.
 				case SGRParam.Reveal: {
 					sgrState.deleteStyles(ANSIStyle.Hidden);
 					break;
 				}
 
+				// Not crossed out.
 				case SGRParam.NotCrossedOut: {
 					sgrState.deleteStyles(ANSIStyle.CrossedOut);
 					break;
 				}
 
+				// Forground black.
 				case SGRParam.ForegroundBlack: {
 					sgrState.setForegroundColor(ANSIColor.Black);
 					break;
 				}
 
+				// Forground red.
 				case SGRParam.ForegroundRed: {
 					sgrState.setForegroundColor(ANSIColor.Red);
 					break;
 				}
 
+				// Forground green.
 				case SGRParam.ForegroundGreen: {
 					sgrState.setForegroundColor(ANSIColor.Green);
 					break;
 				}
 
+				// Forground yellow.
 				case SGRParam.ForegroundYellow: {
 					sgrState.setForegroundColor(ANSIColor.Yellow);
 					break;
 				}
 
+				// Forground blue.
 				case SGRParam.ForegroundBlue: {
 					sgrState.setForegroundColor(ANSIColor.Blue);
 					break;
 				}
 
+				// Forground magenta.
 				case SGRParam.ForegroundMagenta: {
 					sgrState.setForegroundColor(ANSIColor.Magenta);
 					break;
 				}
 
+				// Forground cyan.
 				case SGRParam.ForegroundCyan: {
 					sgrState.setForegroundColor(ANSIColor.Cyan);
 					break;
 				}
 
+				// Forground white.
 				case SGRParam.ForegroundWhite: {
 					sgrState.setForegroundColor(ANSIColor.White);
 					break;
 				}
 
+				// Set foreground.
 				case SGRParam.SetForeground: {
 					const foregroundColor = processSetColor();
 					if (foregroundColor) {
@@ -1018,51 +1075,61 @@ export class ANSIOutput {
 					break;
 				}
 
+				// Default foreground.
 				case SGRParam.DefaultForeground: {
 					sgrState.setForegroundColor();
 					break;
 				}
 
+				// Background black.
 				case SGRParam.BackgroundBlack: {
 					sgrState.setBackgroundColor(ANSIColor.Black);
 					break;
 				}
 
+				// Background red.
 				case SGRParam.BackgroundRed: {
 					sgrState.setBackgroundColor(ANSIColor.Red);
 					break;
 				}
 
+				// Background green.
 				case SGRParam.BackgroundGreen: {
 					sgrState.setBackgroundColor(ANSIColor.Green);
 					break;
 				}
 
+				// Background yellow.
 				case SGRParam.BackgroundYellow: {
 					sgrState.setBackgroundColor(ANSIColor.Yellow);
 					break;
 				}
 
+				// Background blue.
 				case SGRParam.BackgroundBlue: {
 					sgrState.setBackgroundColor(ANSIColor.Blue);
 					break;
 				}
 
+				// Background magenta.
 				case SGRParam.BackgroundMagenta: {
 					sgrState.setBackgroundColor(ANSIColor.Magenta);
 					break;
 				}
 
+				// Background cyan.
 				case SGRParam.BackgroundCyan: {
 					sgrState.setBackgroundColor(ANSIColor.Cyan);
 					break;
 				}
 
+				// Background white.
 				case SGRParam.BackgroundWhite: {
 					sgrState.setBackgroundColor(ANSIColor.White);
 					break;
 				}
 
+				// Set background.
 				case SGRParam.SetBackground: {
 					const backgroundColor = processSetColor();
 					if (backgroundColor) {
@@ -1071,86 +1138,103 @@ export class ANSIOutput {
 					break;
 				}
 
+				// Default background.
 				case SGRParam.DefaultBackground: {
 					sgrState.setBackgroundColor();
 					break;
 				}
 
+				// Foreground bright black.
 				case SGRParam.ForegroundBrightBlack: {
 					sgrState.setForegroundColor(ANSIColor.BrightBlack);
 					break;
 				}
 
+				// Foreground bright red.
 				case SGRParam.ForegroundBrightRed: {
 					sgrState.setForegroundColor(ANSIColor.BrightRed);
 					break;
 				}
 
+				// Foreground bright green.
 				case SGRParam.ForegroundBrightGreen: {
 					sgrState.setForegroundColor(ANSIColor.BrightGreen);
 					break;
 				}
 
+				// Foreground bright yellow.
 				case SGRParam.ForegroundBrightYellow: {
 					sgrState.setForegroundColor(ANSIColor.BrightYellow);
 					break;
 				}
 
+				// Foreground bright blue.
 				case SGRParam.ForegroundBrightBlue: {
 					sgrState.setForegroundColor(ANSIColor.BrightBlue);
 					break;
 				}
 
+				// Foreground bright magenta.
 				case SGRParam.ForegroundBrightMagenta: {
 					sgrState.setForegroundColor(ANSIColor.BrightMagenta);
 					break;
 				}
 
+				// Foreground bright cyan.
 				case SGRParam.ForegroundBrightCyan: {
 					sgrState.setForegroundColor(ANSIColor.BrightCyan);
 					break;
 				}
 
+				// Foreground bright white.
 				case SGRParam.ForegroundBrightWhite: {
 					sgrState.setForegroundColor(ANSIColor.BrightWhite);
 					break;
 				}
 
+				// Background bright black.
 				case SGRParam.BackgroundBrightBlack: {
 					sgrState.setBackgroundColor(ANSIColor.BrightBlack);
 					break;
 				}
 
+				// Background bright red.
 				case SGRParam.BackgroundBrightRed: {
 					sgrState.setBackgroundColor(ANSIColor.BrightRed);
 					break;
 				}
 
+				// Background bright green.
 				case SGRParam.BackgroundBrightGreen: {
 					sgrState.setBackgroundColor(ANSIColor.BrightGreen);
 					break;
 				}
 
+				// Background bright yellow.
 				case SGRParam.BackgroundBrightYellow: {
 					sgrState.setBackgroundColor(ANSIColor.BrightYellow);
 					break;
 				}
 
+				// Background bright blue.
 				case SGRParam.BackgroundBrightBlue: {
 					sgrState.setBackgroundColor(ANSIColor.BrightBlue);
 					break;
 				}
 
+				// Background bright magenta.
 				case SGRParam.BackgroundBrightMagenta: {
 					sgrState.setBackgroundColor(ANSIColor.BrightMagenta);
 					break;
 				}
 
+				// Background bright cyan.
 				case SGRParam.BackgroundBrightCyan: {
 					sgrState.setBackgroundColor(ANSIColor.BrightCyan);
 					break;
 				}
 
+				// Background bright white.
 				case SGRParam.BackgroundBrightWhite: {
 					sgrState.setBackgroundColor(ANSIColor.BrightWhite);
 					break;
@@ -1163,10 +1247,8 @@ export class ANSIOutput {
 			}
 		}
 
-		// Detect changes in SGR state.
-		if (!SGRState.equivalent(sgrState, this._sgrState)) {
-			this._sgrState = sgrState;
-		}
+		// Update the SGR state.
+		this._sgrState = sgrState.isNeutral ? undefined : sgrState;
 	}
 
 	/**
@@ -1446,6 +1528,24 @@ class SGRState implements ANSIFormat {
 	}
 
 	//#endregion Public Static Methods
+
+	//#region Public Properties
+
+	/**
+	 * Returns a value which indicates whether the SGRState is neutral.
+	 */
+	get isNeutral() {
+		return (
+			this._styles === undefined &&
+			this._foregroundColor === undefined &&
+			this._backgroundColor === undefined &&
+			this._underlinedColor === undefined &&
+			this._reversed === undefined &&
+			this._font === undefined
+		);
+	}
+
+	//#endregion Public Properties
 
 	//#region Public Methods
 
