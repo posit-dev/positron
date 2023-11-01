@@ -264,14 +264,6 @@ export const DataPanel = (props: DataPanelProps) => {
 		return <>Loading...</>;
 	}
 
-	columns.forEach((column, colIdx) => {
-		console.log(`Column ${colIdx}: ${column.header} size: ${table.getFlatHeaders()[colIdx].getSize()} `);
-	});
-
-	table.getFlatHeaders().forEach((header, colIdx) => {
-			console.log(`Header ${colIdx}: ${header.column.columnDef.header} width: ${header.getSize()} ${JSON.stringify(header.column)}`);
-	});
-
 	return (
 		<div
 			className='container'
@@ -281,13 +273,13 @@ export const DataPanel = (props: DataPanelProps) => {
 			<table>
 				<thead>
 					{table.getHeaderGroups().map(headerGroup => (
-						<tr key={headerGroup.id} >
+						<tr key={headerGroup.id}>
 							{headerGroup.headers.map(header => {
 								return (
 									<th
 										key={header.id}
 										colSpan={header.colSpan}
-										style={{ width: header.getSize()}}
+										style={{ width: header.getSize() }}
 									>
 										{header.isPlaceholder ? null : (
 											<div
