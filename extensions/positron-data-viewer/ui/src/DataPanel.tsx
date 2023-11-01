@@ -264,6 +264,12 @@ export const DataPanel = (props: DataPanelProps) => {
 		return <>Loading...</>;
 	}
 
+	const {clientWidth, clientHeight, offsetWidth, offsetHeight} = tableContainerRef.current || {};
+	const headerRef = React.useRef<HTMLTableSectionElement>(null);
+	const headerHeight = headerRef.current?.clientHeight || 0;
+	const verticalScrollbarWidth = (clientWidth && offsetWidth) ? offsetWidth - clientWidth : 0;
+	const horizontalScrollbarHeight = (clientHeight && offsetHeight) ? offsetHeight - clientHeight : 0;
+
 	return (
 		<div
 			className='container'
@@ -271,7 +277,7 @@ export const DataPanel = (props: DataPanelProps) => {
 			ref={tableContainerRef}
 		>
 			<table>
-				<thead>
+				<thead ref={headerRef}>
 					{table.getHeaderGroups().map(headerGroup => (
 						<tr key={headerGroup.id}>
 							{headerGroup.headers.map(header => {
@@ -338,17 +344,21 @@ export const DataPanel = (props: DataPanelProps) => {
 						</tr>
 					)}
 				</tbody>
+			</table>
 			{ isFetchingNextPage ?
-				<tfoot>
-					<tr>
-						<th className='processing' colSpan={columns.length}>
-							Loading more rows...
-						</th>
-					</tr>
-				</tfoot> :
+				<div className='overlay' style={{
+					width: clientWidth,
+					height: clientHeight,
+					marginTop: headerHeight,
+					marginBottom: horizontalScrollbarHeight,
+					marginRight: verticalScrollbarWidth
+				}}>
+					<div className='overlay-inside'>
+						Loading more rows...
+					</div>
+				</div> :
 				null
 			}
-			</table>
 		</div>
 	);
 };

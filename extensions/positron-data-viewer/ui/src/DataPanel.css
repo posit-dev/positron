@@ -57,12 +57,19 @@ body,
 }
 
 .container {
-	position: relative;
 	overflow: auto;
 	overflow-anchor: none;
 }
 
-.processing {
-	text-align: center;
+.overlay {
+	position: fixed;
+	box-sizing: border-box;
+	top: 0;
+	left: 0;
+	padding-top: 50vh;
+	padding-left: 50vw;
+	backdrop-filter: blur(2px);
+}
+.overlay-inside {
 	font-weight: bold;
 }
