@@ -132,7 +132,10 @@ export class AuxiliaryBarPart extends AbstractPaneCompositePart {
 			pinnedViewContainersKey: AuxiliaryBarPart.pinnedPanelsKey,
 			placeholderViewContainersKey: AuxiliaryBarPart.placeholdeViewContainersKey,
 			viewContainersWorkspaceStateKey: AuxiliaryBarPart.viewContainersWorkspaceStateKey,
-			icon: true,
+			// --- Start Positron ---
+			// Do not use icons.
+			icon: false,
+			// --- End Positron ---
 			orientation: ActionsOrientation.HORIZONTAL,
 			recomputeSizes: true,
 			activityHoverOptions: {
