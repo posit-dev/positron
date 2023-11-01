@@ -288,6 +288,9 @@ export enum RuntimeExitReason {
  * language runtime exits.
  */
 export interface ILanguageRuntimeExit {
+	/** Runtime name */
+	runtime_name: string;
+
 	/**
 	 * The process exit code, if the runtime is backed by a process. If the
 	 * runtime is not backed by a process, this should just be 0 for a

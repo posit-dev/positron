@@ -730,6 +730,7 @@ export class LanguageRuntimeAdapter
 
 		// Create and fire the exit event.
 		const event: positron.LanguageRuntimeExit = {
+			runtime_name: this.metadata.runtimeName,
 			exit_code: exitCode,
 			reason: this._exitReason,
 			message: ''

@@ -1112,6 +1112,7 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 		this.simulateOutputMessage(parentId, 'Restarting.');
 		this._onDidChangeRuntimeState.fire(positron.RuntimeState.Exited);
 		this._onDidEndSession.fire({
+			runtime_name: this.metadata.runtimeName,
 			exit_code: 0,
 			reason: positron.RuntimeExitReason.Restart,
 			message: ''
@@ -1166,6 +1167,7 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 		this.simulateOutputMessage(parentId, 'Zed Kernel exiting.');
 		this._onDidChangeRuntimeState.fire(positron.RuntimeState.Exited);
 		this._onDidEndSession.fire({
+			runtime_name: this.metadata.runtimeName,
 			exit_code: 0,
 			reason: positron.RuntimeExitReason.Shutdown,
 			message: ''
@@ -1177,6 +1179,7 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 		// Simulate a force quit by immediately "exiting"
 		this._onDidChangeRuntimeState.fire(positron.RuntimeState.Exited);
 		this._onDidEndSession.fire({
+			runtime_name: this.metadata.runtimeName,
 			exit_code: 0,
 			reason: positron.RuntimeExitReason.ForcedQuit,
 			message: ''
@@ -1843,6 +1846,7 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 		this.simulateInputMessage(parentId, code);
 		this._onDidChangeRuntimeState.fire(positron.RuntimeState.Exited);
 		this._onDidEndSession.fire({
+			runtime_name: this.metadata.runtimeName,
 			exit_code: 137,
 			reason: positron.RuntimeExitReason.Error,
 			message: `I'm terribly sorry, but a segmentation fault has occurred.`

@@ -1432,23 +1432,23 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	private formatExit(exit: ILanguageRuntimeExit): string {
 		switch (exit.reason) {
 			case RuntimeExitReason.ForcedQuit:
-				return nls.localize('positronConsole.exit.forcedQuit', "{0} was forced to quit.", this._runtime.metadata.runtimeName);
+				return nls.localize('positronConsole.exit.forcedQuit', "{0} was forced to quit.", exit.runtime_name);
 
 			case RuntimeExitReason.Restart:
-				return nls.localize('positronConsole.exit.restart', "{0} exited (preparing for restart)", this._runtime.metadata.runtimeName);
+				return nls.localize('positronConsole.exit.restart', "{0} exited (preparing for restart)", exit.runtime_name);
 
 			case RuntimeExitReason.Shutdown:
-				return nls.localize('positronConsole.exit.shutdown', "{0} shut down successfully.", this._runtime.metadata.runtimeName);
+				return nls.localize('positronConsole.exit.shutdown', "{0} shut down successfully.", exit.runtime_name);
 
 			case RuntimeExitReason.Error:
-				return nls.localize('positronConsole.exit.error', "{0} exited unexpectedly: {1}", this._runtime.metadata.runtimeName, this.formatExitCode(exit.exit_code));
+				return nls.localize('positronConsole.exit.error', "{0} exited unexpectedly: {1}", exit.runtime_name, this.formatExitCode(exit.exit_code));
 
 			case RuntimeExitReason.StartupFailed:
-				return nls.localize('positronConsole.exit.startupFailed', "{0} failed to start up (exit code {1})", this._runtime.metadata.runtimeName, exit.exit_code);
+				return nls.localize('positronConsole.exit.startupFailed', "{0} failed to start up (exit code {1})", exit.runtime_name, exit.exit_code);
 
 			default:
 			case RuntimeExitReason.Unknown:
-				return nls.localize('positronConsole.exit.unknown', "{0} exited (exit code {1})", this._runtime.metadata.runtimeName, exit.exit_code);
+				return nls.localize('positronConsole.exit.unknown', "{0} exited (exit code {1})", exit.runtime_name, exit.exit_code);
 		}
 	}
 
@@ -1613,6 +1613,10 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	 * has become ready, since at that point the restart is complete.
 	 */
 	private clearRestartItems() {
+		if (this._trace) {
+			this.addRuntimeItemTrace(`clearRestartItems`);
+		}
+
 		const itemCount = this._runtimeItems.length;
 
 		// Remove all restart buttons from the console.
@@ -1621,6 +1625,10 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 
 		// If we removed buttons, fire the runtime items changed event.
 		if (this._runtimeItems.length !== itemCount) {
+			if (this._trace) {
+				this.addRuntimeItemTrace(`Removed RuntimeItemRestartButton`);
+			}
+
 			this._onDidChangeRuntimeItemsEmitter.fire();
 		}
 	}
