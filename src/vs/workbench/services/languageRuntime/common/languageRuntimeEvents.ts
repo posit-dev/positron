@@ -12,6 +12,7 @@ export enum LanguageRuntimeEventType {
 	ShowMessage = 'show_message',
 	ShowHelp = 'show_help',
 	PromptState = 'prompt_state',
+	WorkingDirectory = 'working_directory',
 }
 
 // Represents a change in the runtime's busy state.
@@ -54,6 +55,14 @@ export interface PromptStateEvent extends LanguageRuntimeEventData {
 
 	/** String for future continuation prompts. */
 	continuationPrompt: string;
+
+}
+
+// Change the displayed working directory for the interpreter.
+export interface WorkingDirectoryEvent extends LanguageRuntimeEventData {
+
+	/** The new working directory. */
+	directory: string;
 
 }
 

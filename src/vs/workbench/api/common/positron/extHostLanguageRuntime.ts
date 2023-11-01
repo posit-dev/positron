@@ -358,7 +358,11 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		this._proxy.$registerLanguageRuntime(handle, {
 			extensionId: extension.identifier,
 			...runtime.metadata
-		}, runtime.dynState);
+		}, {
+			busy: false,
+			currentWorkingDirectory: '',
+			...runtime.dynState
+		});
 		this._onDidRegisterRuntimeEmitter.fire(runtime);
 
 		return new Disposable(() => {

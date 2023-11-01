@@ -9,3 +9,23 @@
 .action-bar-button-icon.interrupt::before {
 	color: var(--vscode-errorForeground);
 }
+
+.positron-console .directory-label {
+	color: var(--positronActionBar-foreground);
+	font-size: 12px;
+	overflow: hidden;
+	display: flex;
+	max-width: 300px;
+}
+
+.positron-console .directory-label .codicon {
+	color: var(--positronActionBar-foreground);
+	padding-top: 1px;
+}
+
+.positron-console .directory-label .label {
+	padding-left: 5px;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
