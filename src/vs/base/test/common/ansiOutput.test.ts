@@ -581,26 +581,6 @@ suite('ANSIOutout', () => {
 		testOutputLines(10000, CRLF);
 	});
 
-	const testOutputLines = (count: number, terminator: string) => {
-		// Setup.
-		const lines = makeLines(10);
-		const ansiOutput = new ANSIOutput();
-		ansiOutput.processOutput(lines.join(LF));
-		const outputLines = ansiOutput.outputLines;
-
-		// Tests.
-		assert.equal(outputLines.length, lines.length);
-		for (let i = 0; i < outputLines.length; i++) {
-			if (!lines[i].length) {
-				assert.equal(outputLines[i].outputRuns.length, 0);
-			} else {
-				assert.equal(outputLines[i].id.length, 36);
-				assert.equal(outputLines[i].outputRuns.length, 1);
-				assert.equal(outputLines[i].outputRuns[0].text.length, lines[i].length);
-			}
-		}
-	};
-
 	test('Test CUB (Cursor Backward)', () => {
 		// Setup.
 		const ansiOutput = new ANSIOutput();
@@ -608,17 +588,13 @@ suite('ANSIOutout', () => {
 
 		// Test.
 		ansiOutput.processOutput(makeCUB());
-		assert.equal(ansiOutput['_outputLine'] as number, 0);
-		assert.equal(ansiOutput['_outputColumn'] as number, 79);
+		checkOutputPosition(ansiOutput, 0, 79);
 		ansiOutput.processOutput(makeCUB(1));
-		assert.equal(ansiOutput['_outputLine'] as number, 0);
-		assert.equal(ansiOutput['_outputColumn'] as number, 78);
+		checkOutputPosition(ansiOutput, 0, 78);
 		ansiOutput.processOutput(makeCUB(10));
-		assert.equal(ansiOutput['_outputLine'] as number, 0);
-		assert.equal(ansiOutput['_outputColumn'] as number, 68);
+		checkOutputPosition(ansiOutput, 0, 68);
 		ansiOutput.processOutput(makeCUB(100));
-		assert.equal(ansiOutput['_outputLine'] as number, 0);
-		assert.equal(ansiOutput['_outputColumn'] as number, 0);
+		checkOutputPosition(ansiOutput, 0, 0);
 	});
 
 	test('Test CUB (Cursor Backward) to start of line', () => {
@@ -676,17 +652,13 @@ suite('ANSIOutout', () => {
 
 		// Test.
 		ansiOutput.processOutput(makeCUD());
-		assert.equal(ansiOutput['_outputLine'] as number, 1);
-		assert.equal(ansiOutput['_outputColumn'] as number, 0);
+		checkOutputPosition(ansiOutput, 1, 0);
 		ansiOutput.processOutput(makeCUD(1));
-		assert.equal(ansiOutput['_outputLine'] as number, 2);
-		assert.equal(ansiOutput['_outputColumn'] as number, 0);
+		checkOutputPosition(ansiOutput, 2, 0);
 		ansiOutput.processOutput(makeCUD(10));
-		assert.equal(ansiOutput['_outputLine'] as number, 12);
-		assert.equal(ansiOutput['_outputColumn'] as number, 0);
+		checkOutputPosition(ansiOutput, 12, 0);
 		ansiOutput.processOutput(makeCUD(100));
-		assert.equal(ansiOutput['_outputLine'] as number, 112);
-		assert.equal(ansiOutput['_outputColumn'] as number, 0);
+		checkOutputPosition(ansiOutput, 112, 0);
 	});
 
 	test('Test CUF (Cursor Forward)', () => {
@@ -697,17 +669,13 @@ suite('ANSIOutout', () => {
 
 		// Test.
 		ansiOutput.processOutput(makeCUF());
-		assert.equal(ansiOutput['_outputLine'] as number, 0);
-		assert.equal(ansiOutput['_outputColumn'] as number, 1);
+		checkOutputPosition(ansiOutput, 0, 1);
 		ansiOutput.processOutput(makeCUF(1));
-		assert.equal(ansiOutput['_outputLine'] as number, 0);
-		assert.equal(ansiOutput['_outputColumn'] as number, 2);
+		checkOutputPosition(ansiOutput, 0, 2);
 		ansiOutput.processOutput(makeCUF(10));
-		assert.equal(ansiOutput['_outputLine'] as number, 0);
-		assert.equal(ansiOutput['_outputColumn'] as number, 12);
+		checkOutputPosition(ansiOutput, 0, 12);
 		ansiOutput.processOutput(makeCUF(100));
-		assert.equal(ansiOutput['_outputLine'] as number, 0);
-		assert.equal(ansiOutput['_outputColumn'] as number, 112);
+		checkOutputPosition(ansiOutput, 0, 112);
 	});
 
 	test('Test CUF (Cursor Forward) to start of line', () => {
@@ -767,17 +735,13 @@ suite('ANSIOutout', () => {
 
 		// Test.
 		ansiOutput.processOutput(makeCUP());
-		assert.equal(ansiOutput['_outputLine'] as number, 0);
-		assert.equal(ansiOutput['_outputColumn'] as number, 0);
+		checkOutputPosition(ansiOutput, 0, 0);
 		ansiOutput.processOutput(makeCUP(10, 10));
-		assert.equal(ansiOutput['_outputLine'] as number, 9);
-		assert.equal(ansiOutput['_outputColumn'] as number, 9);
+		checkOutputPosition(ansiOutput, 9, 9);
 		ansiOutput.processOutput(makeCUP(100, 100));
-		assert.equal(ansiOutput['_outputLine'] as number, 99);
-		assert.equal(ansiOutput['_outputColumn'] as number, 99);
+		checkOutputPosition(ansiOutput, 99, 99);
 		ansiOutput.processOutput(makeCUP(8192, 8192));
-		assert.equal(ansiOutput['_outputLine'] as number, 8191);
-		assert.equal(ansiOutput['_outputColumn'] as number, 8191);
+		checkOutputPosition(ansiOutput, 8191, 8191);
 	});
 
 	test("Tests CUU (Cursor Up)", () => {
@@ -786,17 +750,13 @@ suite('ANSIOutout', () => {
 
 		// Test.
 		ansiOutput.processOutput(makeCUU());
-		assert.equal(ansiOutput['_outputLine'] as number, 23);
-		assert.equal(ansiOutput['_outputColumn'] as number, 80);
+		checkOutputPosition(ansiOutput, 23, 80);
 		ansiOutput.processOutput(makeCUU(1));
-		assert.equal(ansiOutput['_outputLine'] as number, 22);
-		assert.equal(ansiOutput['_outputColumn'] as number, 80);
+		checkOutputPosition(ansiOutput, 22, 80);
 		ansiOutput.processOutput(makeCUU(10));
-		assert.equal(ansiOutput['_outputLine'] as number, 12);
-		assert.equal(ansiOutput['_outputColumn'] as number, 80);
+		checkOutputPosition(ansiOutput, 12, 80);
 		ansiOutput.processOutput(makeCUU(20));
-		assert.equal(ansiOutput['_outputLine'] as number, 0);
-		assert.equal(ansiOutput['_outputColumn'] as number, 80);
+		checkOutputPosition(ansiOutput, 0, 80);
 	});
 
 	test('Tests end of screen ED using implicit 0', () => {
@@ -827,8 +787,7 @@ suite('ANSIOutout', () => {
 		ansiOutput.processOutput(makeCUP(13, 41));
 
 		// Test.
-		assert.equal(ansiOutput['_outputLine'] as number, 12);
-		assert.equal(ansiOutput['_outputColumn'] as number, 40);
+		checkOutputPosition(ansiOutput, 12, 40);
 		ansiOutput.processOutput(makeED('end-of-screen-explicit-0'));
 		const zeros = '0'.repeat(80);
 		for (let i = 0; i < 12; i++) {
@@ -851,8 +810,7 @@ suite('ANSIOutout', () => {
 		ansiOutput.processOutput(makeCUP(13, 41));
 
 		// Test.
-		assert.equal(ansiOutput['_outputLine'] as number, 12);
-		assert.equal(ansiOutput['_outputColumn'] as number, 40);
+		checkOutputPosition(ansiOutput, 12, 40);
 		ansiOutput.processOutput(makeED('beginning-of-screen'));
 		const spaces = ' '.repeat(80);
 		for (let i = 0; i < 12; i++) {
@@ -875,8 +833,7 @@ suite('ANSIOutout', () => {
 
 		// Test.
 		ansiOutput.processOutput(makeED('entire-screen'));
-		assert.equal(ansiOutput['_outputLine'] as number, 24);
-		assert.equal(ansiOutput['_outputColumn'] as number, 80);
+		checkOutputPosition(ansiOutput, 24, 80);
 		assert.equal(ansiOutput.outputLines.length, 25);
 		const spaces = ' '.repeat(80);
 		for (let i = 0; i < 25; i++) {
@@ -892,8 +849,7 @@ suite('ANSIOutout', () => {
 
 		// Test.
 		ansiOutput.processOutput(makeED('entire-screen'));
-		assert.equal(ansiOutput['_outputLine'] as number, 0);
-		assert.equal(ansiOutput['_outputColumn'] as number, 0);
+		checkOutputPosition(ansiOutput, 0, 0);
 		assert.equal(ansiOutput.outputLines.length, 25);
 		const spaces = ' '.repeat(80);
 		for (let i = 0; i < 25; i++) {
@@ -1693,6 +1649,37 @@ suite('ANSIOutout', () => {
 		assert.equal(outputLines[3].outputRuns[0].format, undefined);
 		assert.equal(outputLines[3].outputRuns[0].text, PANGRAM);
 	});
+
+	const testOutputLines = (count: number, terminator: string) => {
+		// Setup.
+		const lines = makeLines(10);
+		const ansiOutput = new ANSIOutput();
+		ansiOutput.processOutput(lines.join(LF));
+		const outputLines = ansiOutput.outputLines;
+
+		// Tests.
+		assert.equal(outputLines.length, lines.length);
+		for (let i = 0; i < outputLines.length; i++) {
+			if (!lines[i].length) {
+				assert.equal(outputLines[i].outputRuns.length, 0);
+			} else {
+				assert.equal(outputLines[i].id.length, 36);
+				assert.equal(outputLines[i].outputRuns.length, 1);
+				assert.equal(outputLines[i].outputRuns[0].text.length, lines[i].length);
+			}
+		}
+	};
+
+	/**
+	 * Checks the output position for an ANSIOutput.
+	 * @param ansiOutput The ANSIOutput to check the output position for.
+	 * @param outputLine The expected output line.
+	 * @param outputColumn The expected output column.
+	 */
+	const checkOutputPosition = (ansiOutput: ANSIOutput, outputLine: number, outputColumn: number) => {
+		assert.equal(ansiOutput['_outputLine' as keyof ANSIOutput] as unknown as number, outputLine);
+		assert.equal(ansiOutput['_outputColumn' as keyof ANSIOutput] as unknown as number, outputColumn);
+	};
 });
 
 //#endregion Test Suite
