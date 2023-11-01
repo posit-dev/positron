@@ -47,7 +47,7 @@ type ResolverLookup = {
 export const DataPanel = (props: DataPanelProps) => {
 
 	// The height of a single row of data
-	const rowHeightPx = 35;
+	const rowHeightPx = 30;
 
 	// The number of rows to render above and below the visible area of the table.
 	const scrollOverscan = 30;
@@ -102,13 +102,13 @@ export const DataPanel = (props: DataPanelProps) => {
 
 	// Create the column definitions (metadata) for the table.
 	// These use the 'any' type since the data model is generic.
-	// They do not contain data and therefore do not change when the data model changes.
+	// They do not contain data and therefore do not need to change when the data model changes.
 	const columns = React.useMemo<ReactTable.ColumnDef<any>[]>(() => {
-		return initialData.columns.map((column, idx) => {
+		return initialData.columns.map((column, colIdx) => {
 			return {
-				id: '' + idx,
-				accessorKey: idx,
-				accessorFn: (_row: any, rowIdx: number) => column.data[rowIdx],
+				id: '' + colIdx,
+				accessorKey: colIdx,
+				accessorFn: (row: any[]) => row[colIdx],
 				header: column.name
 			};
 		});
@@ -264,6 +264,14 @@ export const DataPanel = (props: DataPanelProps) => {
 		return <>Loading...</>;
 	}
 
+	columns.forEach((column, colIdx) => {
+		console.log(`Column ${colIdx}: ${column.header} size: ${table.getFlatHeaders()[colIdx].getSize()} `);
+	});
+
+	table.getFlatHeaders().forEach((header, colIdx) => {
+			console.log(`Header ${colIdx}: ${header.column.columnDef.header} width: ${header.getSize()} ${JSON.stringify(header.column)}`);
+	});
+
 	return (
 		<div
 			className='container'
@@ -273,13 +281,13 @@ export const DataPanel = (props: DataPanelProps) => {
 			<table>
 				<thead>
 					{table.getHeaderGroups().map(headerGroup => (
-						<tr key={headerGroup.id}>
+						<tr key={headerGroup.id} >
 							{headerGroup.headers.map(header => {
 								return (
 									<th
 										key={header.id}
 										colSpan={header.colSpan}
-										style={{ width: header.getSize() }}
+										style={{ width: header.getSize()}}
 									>
 										{header.isPlaceholder ? null : (
 											<div
