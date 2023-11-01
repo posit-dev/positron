@@ -10,11 +10,15 @@ import { DisposableStore, IDisposable, toDisposable } from 'vs/base/common/lifec
 import { LinkedList } from 'vs/base/common/linkedList';
 import { ICommandAction, ICommandActionTitle, Icon, ILocalizedString } from 'vs/platform/action/common/action';
 import { Categories } from 'vs/platform/action/common/actionCommonCategories';
-import { CommandCenter } from 'vs/platform/commandCenter/common/commandCenter';
-import { CommandsRegistry, ICommandHandlerDescription, ICommandService } from 'vs/platform/commands/common/commands';
+import { CommandsRegistry, ICommandService } from 'vs/platform/commands/common/commands';
 import { ContextKeyExpr, ContextKeyExpression, IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
 import { createDecorator, ServicesAccessor } from 'vs/platform/instantiation/common/instantiation';
 import { IKeybindingRule, KeybindingsRegistry } from 'vs/platform/keybinding/common/keybindingsRegistry';
+
+// --- Start Positron ---
+import { CommandCenter } from 'vs/platform/commandCenter/common/commandCenter';
+// --- End Positron ---
+
 
 export interface IMenuItem {
 	command: ICommandAction;
@@ -70,10 +74,12 @@ export class MenuId {
 	static readonly EmptyEditorGroup = new MenuId('EmptyEditorGroup');
 	static readonly EmptyEditorGroupContext = new MenuId('EmptyEditorGroupContext');
 	static readonly EditorTabsBarContext = new MenuId('EditorTabsBarContext');
+	static readonly EditorTabsBarShowTabsSubmenu = new MenuId('EditorTabsBarShowTabsSubmenu');
 	static readonly ExplorerContext = new MenuId('ExplorerContext');
 	static readonly ExplorerContextShare = new MenuId('ExplorerContextShare');
 	static readonly ExtensionContext = new MenuId('ExtensionContext');
 	static readonly GlobalActivity = new MenuId('GlobalActivity');
+	static readonly TitleBarGlobalControlMenu = new MenuId('TitleBarGlobalControlMenu');
 	static readonly CommandCenter = new MenuId('CommandCenter');
 	static readonly CommandCenterCenter = new MenuId('CommandCenterCenter');
 	static readonly LayoutControlMenuSubmenu = new MenuId('LayoutControlMenuSubmenu');
@@ -90,6 +96,7 @@ export class MenuId {
 	static readonly MenubarNewBreakpointMenu = new MenuId('MenubarNewBreakpointMenu');
 	static readonly PanelAlignmentMenu = new MenuId('PanelAlignmentMenu');
 	static readonly PanelPositionMenu = new MenuId('PanelPositionMenu');
+	static readonly ActivityBarPositionMenu = new MenuId('ActivityBarPositionMenu');
 	static readonly MenubarPreferencesMenu = new MenuId('MenubarPreferencesMenu');
 	static readonly MenubarRecentMenu = new MenuId('MenubarRecentMenu');
 	static readonly MenubarSelectionMenu = new MenuId('MenubarSelectionMenu');
@@ -170,6 +177,7 @@ export class MenuId {
 	static readonly TimelineTitleContext = new MenuId('TimelineTitleContext');
 	static readonly TimelineFilterSubMenu = new MenuId('TimelineFilterSubMenu');
 	static readonly AccountsContext = new MenuId('AccountsContext');
+	static readonly SidebarTitle = new MenuId('SidebarTitle');
 	static readonly PanelTitle = new MenuId('PanelTitle');
 	static readonly AuxiliaryBarTitle = new MenuId('AuxiliaryBarTitle');
 	static readonly TerminalInstanceContext = new MenuId('TerminalInstanceContext');
@@ -514,12 +522,6 @@ interface IAction2CommonOptions extends ICommandAction {
 	 * One keybinding.
 	 */
 	keybinding?: OneOrN<Omit<IKeybindingRule, 'id'>>;
-
-	/**
-	 * Metadata about this command, used for API commands or when
-	 * showing keybindings that have no other UX.
-	 */
-	description?: ICommandHandlerDescription;
 }
 
 interface IBaseAction2Options extends IAction2CommonOptions {
@@ -571,7 +573,7 @@ export function registerAction2(ctor: { new(): Action2 }): IDisposable {
 	const disposables = new DisposableStore();
 	const action = new ctor();
 
-	const { f1, menu, keybinding, description, ...command } = action.desc;
+	const { f1, menu, keybinding, ...command } = action.desc;
 
 	// -- Start Positron ---
 	// Add command information to the command center.
@@ -586,7 +588,7 @@ export function registerAction2(ctor: { new(): Action2 }): IDisposable {
 	disposables.add(CommandsRegistry.registerCommand({
 		id: command.id,
 		handler: (accessor, ...args) => action.run(accessor, ...args),
-		description: description,
+		metadata: command.metadata,
 	}));
 
 	// menu

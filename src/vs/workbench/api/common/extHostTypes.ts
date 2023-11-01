@@ -4191,8 +4191,8 @@ export enum RuntimeErrorBehavior {
 //#region Interactive session
 
 export enum InteractiveSessionVoteDirection {
-	Up = 1,
-	Down = 2
+	Down = 0,
+	Up = 1
 }
 
 export enum InteractiveSessionCopyKind {
@@ -4236,6 +4236,11 @@ export class ChatMessage implements vscode.ChatMessage {
 	}
 }
 
+export enum ChatAgentResultFeedbackKind {
+	Unhelpful = 0,
+	Helpful = 1,
+}
+
 //#endregion
 
 //#region ai
@@ -4245,6 +4250,17 @@ export enum RelatedInformationType {
 	CommandInformation = 2,
 	SearchInformation = 3,
 	SettingInformation = 4
+}
+
+//#endregion
+
+//#region Speech
+
+export enum SpeechToTextStatus {
+	Started = 1,
+	Recognizing = 2,
+	Recognized = 3,
+	Stopped = 4
 }
 
 //#endregion

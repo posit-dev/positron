@@ -3,6 +3,12 @@
 	"build": {
 		"dockerfile": "Dockerfile"
 	},
+	"features": {
+		"ghcr.io/devcontainers/features/desktop-lite:1": {}
+	},
+	"containerEnv": {
+		"DISPLAY": "" // Allow the Dev Containers extension to set DISPLAY, post-create.sh will add it back in ~/.bashrc and ~/.zshrc if not set.
+	},
 	"overrideCommand": false,
 	"privileged": true,
 	"mounts": [
@@ -12,15 +18,39 @@
 			"type": "volume"
 		}
 	],
+	"postCreateCommand": "./.devcontainer/post-create.sh",
 	"customizations": {
 		"vscode": {
+			"settings": {
+				"resmon.show.battery": false,
+				"resmon.show.cpufreq": false
+			},
 			"extensions": [
-				"mutantdino.resourcemonitor",
+				"EditorConfig.EditorConfig",
+				"GitHub.vscode-pull-request-github",
+				"dbaeumer.vscode-eslint",
+				"ms-python.python",
+				"ms-python.vscode-pylance",
 				"ms-toolsai.jupyter",
 				"ms-toolsai.jupyter-renderers",
-				"ms-python.vscode-pylance",
-				"ms-python.python"
+				"ms-vscode.vscode-github-issue-notebooks",
+				"ms-vscode.vscode-selfhost-test-provider",
+				"mutantdino.resourcemonitor"
 			]
 		}
+	},
+	"forwardPorts": [6080, 5901],
+	"portsAttributes": {
+		"6080": {
+			"label": "VNC web client (noVNC)",
+			"onAutoForward": "silent"
+		},
+		"5901": {
+			"label": "VNC TCP port",
+			"onAutoForward": "silent"
+		}
+	},
+	"hostRequirements": {
+		"memory": "9gb"
 	}
 }
