@@ -30,6 +30,11 @@ import { ICommandService } from 'vs/platform/commands/common/commands';
 import { createAndFillInContextMenuActions } from 'vs/platform/actions/browser/menuEntryActionViewItem';
 import { IPaneCompositeBarOptions } from 'vs/workbench/browser/parts/paneCompositeBar';
 
+// --- Start Positron ---
+// eslint-disable-next-line no-duplicate-imports
+import { PANEL_HEADER_BACKGROUND } from 'vs/workbench/common/theme';
+// --- End Positron ---
+
 export class PanelPart extends AbstractPaneCompositePart {
 
 	//#region IView
@@ -117,7 +122,10 @@ export class PanelPart extends AbstractPaneCompositePart {
 		super.updateStyles();
 
 		const container = assertIsDefined(this.getContainer());
-		container.style.backgroundColor = this.getColor(PANEL_BACKGROUND) || '';
+		// --- Start Positron ---
+		// Replace PANEL_BACKGROUND with PANEL_HEADER_BACKGROUND.
+		container.style.backgroundColor = this.getColor(PANEL_HEADER_BACKGROUND) || '';
+		// --- End Positron ---
 		const borderColor = this.getColor(PANEL_BORDER) || this.getColor(contrastBorder) || '';
 		container.style.borderLeftColor = borderColor;
 		container.style.borderRightColor = borderColor;
