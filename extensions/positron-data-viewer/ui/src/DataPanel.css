@@ -29,6 +29,10 @@ tbody td {
 	padding: 5px;
 }
 
+tbody td {
+	background-color: var(--vscode-positronDataViewer-background);
+}
+
 thead tr th {
 	border-top: none;
 }
