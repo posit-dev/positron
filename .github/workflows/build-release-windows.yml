@@ -1,9 +1,10 @@
 name: "Positron: Build Windows Release"
 
+# Run windows builds daily at 12:00 UTC on weekdays for now, or manually
 on:
-  push:
-    branches:
-      - "win32-x64-build"
+  schedule:
+    - cron: "0 12 * * 1-5"
+  workflow_dispatch:
 
 jobs:
   version_string:
