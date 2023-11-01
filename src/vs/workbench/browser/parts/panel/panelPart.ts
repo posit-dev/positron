@@ -36,7 +36,11 @@ export class PanelPart extends AbstractPaneCompositePart {
 
 	readonly minimumWidth: number = 300;
 	readonly maximumWidth: number = Number.POSITIVE_INFINITY;
-	readonly minimumHeight: number = 77;
+	// --- Start Positron ---
+	// In Positron, set the minimum height to 35, which is enough to show just the tabs in the panel.
+	// readonly minimumHeight: number = 77;
+	readonly minimumHeight: number = 35;
+	// --- End Positron ---
 	readonly maximumHeight: number = Number.POSITIVE_INFINITY;
 
 	get preferredHeight(): number | undefined {
@@ -64,10 +68,6 @@ export class PanelPart extends AbstractPaneCompositePart {
 
 	static readonly activePanelSettingsKey = 'workbench.panelpart.activepanelid';
 
-	// --- Start Positron ---
-	// In Positron, set the minimum height to 35, which is enough to show just the tabs in the panel.
-	override readonly minimumHeight: number = 35;
-	// --- End Positron ---
 
 	// --- Start Positron ---
 	// In Positron, the panel doesn't snap (meaning it doesn't snap into being hidden).

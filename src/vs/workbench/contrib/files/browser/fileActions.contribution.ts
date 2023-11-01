@@ -26,7 +26,6 @@ import { ServicesAccessor } from 'vs/platform/instantiation/common/instantiation
 import { ThemeIcon } from 'vs/base/common/themables';
 import { IExplorerService } from 'vs/workbench/contrib/files/browser/files';
 import { Codicon } from 'vs/base/common/codicons';
-import { CommandCenter } from 'vs/platform/commandCenter/common/commandCenter';
 import { Categories } from 'vs/platform/action/common/actionCommonCategories';
 
 // Contribute Global Actions
@@ -205,7 +204,7 @@ export function appendToCommandPalette({ id, title, category, metadata }: IComma
 				category,
 				metadata
 			},
-			DirtyWorkingCopiesContext
+			when: DirtyWorkingCopiesContext
 		});
 	} else {
 		MenuRegistry.appendMenuItem(MenuId.CommandPalette, {
