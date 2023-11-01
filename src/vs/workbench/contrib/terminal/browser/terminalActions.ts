@@ -1246,13 +1246,6 @@ export function registerTerminalActions() {
 		if (c.groupService.instances.length > 0) {
 			await c.groupService.showPanel(true);
 		}
-		// --- Start Positron ---
-		// Switch to Console if last terminal is killed
-		// https://github.com/posit-dev/positron/issues/1458
-		else {
-			await c.groupService.switchToPositronConsole!();
-		}
-		// --- End Positron ---
 	}
 	registerTerminalAction({
 		id: TerminalCommandId.Kill,

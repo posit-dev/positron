@@ -6,6 +6,7 @@ import * as vscode from 'vscode';
 import * as positron from 'positron';
 import { PromiseHandles } from './util';
 import { RStatementRangeProvider } from './statement-range';
+import { Logger } from './extension';
 
 import {
 	LanguageClient,
@@ -14,7 +15,6 @@ import {
 	StreamInfo,
 } from 'vscode-languageclient/node';
 
-import { trace, traceOutputChannel } from './logging';
 import { Socket } from 'net';
 import { RHelpTopicProvider } from './help';
 
@@ -89,24 +89,27 @@ export class ArkLsp implements vscode.Disposable {
 		const clientOptions: LanguageClientOptions = {
 			// If this client belongs to a notebook, set the document selector to only include that notebook.
 			// Otherwise, this is the main client for this language, so set the document selector to include
-			// untitled R files, in-memory R files (e.g. the console), and R files on disk.
+			// untitled R files, in-memory R files (e.g. the console), and R / Quarto / R Markdown files on disk.
 			documentSelector: this._notebook ?
 				[{ language: 'r', pattern: this._notebook.uri.path }] :
 				[
 					{ language: 'r', scheme: 'untitled' },
 					{ language: 'r', scheme: 'inmemory' },  // Console
-					{ language: 'r', pattern: '**/*.R' },
+					{ language: 'r', pattern: '**/*.{r,R}' },
+					{ language: 'r', pattern: '**/*.{qmd,Qmd}' },
+					{ language: 'r', pattern: '**/*.{rmd,Rmd}' },
 				],
-			synchronize: this._notebook && {
-				fileEvents: vscode.workspace.createFileSystemWatcher('**/*.R')
-			},
-			traceOutputChannel: traceOutputChannel(),
+			synchronize: this._notebook ?
+				undefined :
+				{
+					fileEvents: vscode.workspace.createFileSystemWatcher('**/*.R')
+				}
 		};
 
 		// With a `.` rather than a `-` so vscode-languageserver can look up related options correctly
 		const id = 'positron.r';
 
-		trace(`Creating Positron R ${this._version} language client (port ${port})...`);
+		Logger.trace(`Creating Positron R ${this._version} language client (port ${port})...`);
 		this._client = new LanguageClient(id, `Positron R Language Server (${this._version})`, serverOptions, clientOptions);
 
 		const out = new PromiseHandles<void>();
@@ -121,7 +124,7 @@ export class ArkLsp implements vscode.Disposable {
 					break;
 				case State.Running:
 					if (this._initializing) {
-						trace(`ARK (R ${this._version}) language client init successful`);
+						Logger.trace(`ARK (R ${this._version}) language client init successful`);
 						this._initializing = undefined;
 						if (this._client) {
 							// Register Positron-specific LSP extension methods
@@ -133,13 +136,13 @@ export class ArkLsp implements vscode.Disposable {
 					break;
 				case State.Stopped:
 					if (this._initializing) {
-						trace(`ARK (R ${this._version}) language client init failed`);
+						Logger.trace(`ARK (R ${this._version}) language client init failed`);
 						out.reject('Ark LSP client stopped before initialization');
 					}
 					this._state = LspState.stopped;
 					break;
 			}
-			trace(`ARK (R ${this._version}) language client state changed ${oldState} => ${this._state}`);
+			Logger.trace(`ARK (R ${this._version}) language client state changed ${oldState} => ${this._state}`);
 		}));
 
 		this._client.start();

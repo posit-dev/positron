@@ -11,6 +11,11 @@ import { usePositronEnvironmentContext } from 'vs/workbench/contrib/positronEnvi
 import { PositronEnvironmentSorting } from 'vs/workbench/services/positronEnvironment/common/interfaces/positronEnvironmentInstance';
 
 /**
+ * Localized strings.
+ */
+const positronChangeHowObjectsAreSorted = localize('positronChangeHowObjectsAreSorted', "Change how objects are sorted");
+
+/**
  * SortingMenuButton component.
  * @returns The rendered component.
  */
@@ -81,7 +86,8 @@ export const SortingMenuButton = () => {
 	return (
 		<ActionBarMenuButton
 			iconId='positron-environment-sorting'
-			tooltip={localize('positronChangeHowObjectsAreSorted', "Change how objects are sorted")}
+			tooltip={positronChangeHowObjectsAreSorted}
+			ariaLabel={positronChangeHowObjectsAreSorted}
 			actions={actions}
 		/>
 	);

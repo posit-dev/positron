@@ -559,6 +559,13 @@ export interface IEditorOptions {
 	 * Enable tab completion.
 	 */
 	tabCompletion?: 'on' | 'off' | 'onlySnippets';
+	// --- Start Positron ---
+	/**
+	 * Controls whether tab triggers quick suggestions.
+	 * Ignored if `tabCompletion` or `tabFocusMode` are enabled.
+	 */
+	tabSuggest?: 'on' | 'off';
+	// --- End Positron ---
 	/**
 	 * Enable selection highlight.
 	 * Defaults to true.
@@ -5182,7 +5189,8 @@ export const enum EditorOption {
 	inlineCompletionsAccessibilityVerbose,
 	// --- Start Positron ---
 	// Placed at the end to limit merge conflicts in the generated files
-	quickSuggestionsMinimumLength
+	quickSuggestionsMinimumLength,
+	tabSuggest
 	// --- End Positron ---
 }
 
@@ -5837,6 +5845,20 @@ export const EditorOptions = {
 			description: nls.localize('tabCompletion', "Enables tab completions.")
 		}
 	)),
+	// --- Start Positron ---
+	tabSuggest: register(new EditorStringEnumOption(
+		EditorOption.tabSuggest, 'tabSuggest',
+		'on' as 'on' | 'off',
+		['on', 'off'] as const,
+		{
+			enumDescriptions: [
+				nls.localize('tabSuggest.on', "Tab will trigger quick suggestions."),
+				nls.localize('tabSuggest.off', "Tab will not trigger quick suggestions.")
+			],
+			description: nls.localize('tabSuggest', "Controls whether tab triggers quick suggestions. Ignored if tab completions or tab focus mode are enabled.")
+		}
+	)),
+	// --- End Positron ---
 	tabIndex: register(new EditorIntOption(
 		EditorOption.tabIndex, 'tabIndex',
 		0, -1, Constants.MAX_SAFE_SMALL_INTEGER

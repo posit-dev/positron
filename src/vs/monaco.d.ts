@@ -3527,6 +3527,11 @@ declare namespace monaco.editor {
 		 */
 		tabCompletion?: 'on' | 'off' | 'onlySnippets';
 		/**
+		 * Controls whether tab triggers quick suggestions.
+		 * Ignored if `tabCompletion` or `tabFocusMode` are enabled.
+		 */
+		tabSuggest?: 'on' | 'off';
+		/**
 		 * Enable selection highlight.
 		 * Defaults to true.
 		 */
@@ -4853,7 +4858,8 @@ declare namespace monaco.editor {
 		defaultColorDecorators = 145,
 		colorDecoratorsActivatedOn = 146,
 		inlineCompletionsAccessibilityVerbose = 147,
-		quickSuggestionsMinimumLength = 148
+		quickSuggestionsMinimumLength = 148,
+		tabSuggest = 149
 	}
 
 	export const EditorOptions: {
@@ -4985,6 +4991,7 @@ declare namespace monaco.editor {
 		suggestOnTriggerCharacters: IEditorOption<EditorOption.suggestOnTriggerCharacters, boolean>;
 		suggestSelection: IEditorOption<EditorOption.suggestSelection, 'first' | 'recentlyUsed' | 'recentlyUsedByPrefix'>;
 		tabCompletion: IEditorOption<EditorOption.tabCompletion, 'on' | 'off' | 'onlySnippets'>;
+		tabSuggest: IEditorOption<EditorOption.tabSuggest, 'on' | 'off'>;
 		tabIndex: IEditorOption<EditorOption.tabIndex, number>;
 		unicodeHighlight: IEditorOption<EditorOption.unicodeHighlighting, any>;
 		unusualLineTerminators: IEditorOption<EditorOption.unusualLineTerminators, 'auto' | 'off' | 'prompt'>;
@@ -7575,7 +7582,21 @@ declare namespace monaco.languages {
 		/**
 		 * Provide the statement that contains the given position.
 		 */
-		provideStatementRange(model: editor.ITextModel, position: Position, token: CancellationToken): ProviderResult<IRange>;
+		provideStatementRange(model: editor.ITextModel, position: Position, token: CancellationToken): ProviderResult<IStatementRange>;
+	}
+
+	/**
+	 * The range of a statement, plus optionally the code for the range.
+	 */
+	export interface IStatementRange {
+		/**
+		 * The range of the statement at the given position.
+		 */
+		readonly range: IRange;
+		/**
+		 * The code for this statement range, if different from the document contents at this range.
+		 */
+		readonly code?: string;
 	}
 
 	export interface HelpTopicProvider {

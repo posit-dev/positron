@@ -4,14 +4,17 @@
 
 import { useEffect, useState } from 'react';  // eslint-disable-line no-duplicate-imports
 import { ILogService } from 'vs/platform/log/common/log';
+import { IViewsService } from 'vs/workbench/common/views';
 import { DisposableStore } from 'vs/base/common/lifecycle';
 import { IModelService } from 'vs/editor/common/services/model';
+import { IOpenerService } from 'vs/platform/opener/common/opener';
 import { ILanguageService } from 'vs/editor/common/languages/language';
 import { ICommandService } from 'vs/platform/commands/common/commands';
 import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
 import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
 import { IContextMenuService } from 'vs/platform/contextview/browser/contextView';
 import { IClipboardService } from 'vs/platform/clipboard/common/clipboardService';
+import { INotificationService } from 'vs/platform/notification/common/notification';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
 import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/layoutService';
@@ -19,7 +22,6 @@ import { IPositronPlotsService } from 'vs/workbench/services/positronPlots/commo
 import { ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { IExecutionHistoryService } from 'vs/workbench/contrib/executionHistory/common/executionHistoryService';
 import { IPositronConsoleInstance, IPositronConsoleService } from 'vs/workbench/services/positronConsole/common/interfaces/positronConsoleService';
-import { IViewsService } from 'vs/workbench/common/views';
 
 /**
  * PositronConsoleServices interface. Defines the set of services that are required by the Positron console.
@@ -37,6 +39,8 @@ export interface PositronConsoleServices {
 	readonly languageService: ILanguageService;
 	readonly logService: ILogService;
 	readonly modelService: IModelService;
+	readonly notificationService: INotificationService;
+	readonly openerService: IOpenerService;
 	readonly positronConsoleService: IPositronConsoleService;
 	readonly positronPlotsService: IPositronPlotsService;
 	readonly viewsService: IViewsService;

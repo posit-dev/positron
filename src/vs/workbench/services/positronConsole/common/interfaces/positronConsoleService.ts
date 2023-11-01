@@ -134,7 +134,7 @@ export interface IPositronConsoleInstance {
 	/**
 	 * The onDidChangeRuntimeItems event.
 	 */
-	readonly onDidChangeRuntimeItems: Event<RuntimeItem[]>;
+	readonly onDidChangeRuntimeItems: Event<void>;
 
 	/**
 	 * The onDidPasteText event.
@@ -159,7 +159,7 @@ export interface IPositronConsoleInstance {
 	/**
 	 * The onDidExecuteCode event.
 	 */
-	readonly onDidExecuteCode: Event<void>;
+	readonly onDidExecuteCode: Event<string>;
 
 	/**
 	 * The onDidSelectPlot event.

@@ -12,6 +12,7 @@ import { ILanguageService } from 'vs/editor/common/languages/language';
 import { Disposable, DisposableStore } from 'vs/base/common/lifecycle';
 import { RuntimeItem } from 'vs/workbench/services/positronConsole/common/classes/runtimeItem';
 import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/common/extensions';
+import { ThrottledEmitter } from 'vs/workbench/services/positronConsole/common/classes/throttledEmitter';
 import { RuntimeItemTrace } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemTrace';
 import { RuntimeItemExited } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemExited';
 import { RuntimeItemStarted } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemStarted';
@@ -23,16 +24,35 @@ import { ActivityItemOutputPlot } from 'vs/workbench/services/positronConsole/co
 import { RuntimeItemReconnected } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemReconnected';
 import { ActivityItemOutputHtml } from 'vs/workbench/services/positronConsole/common/classes/activityItemOutputHtml';
 import { RuntimeItemPendingInput } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemPendingInput';
-import { ActivityItemErrorStream } from 'vs/workbench/services/positronConsole/common/classes/activityItemErrorStream';
-import { ActivityItemOutputStream } from 'vs/workbench/services/positronConsole/common/classes/activityItemOutputStream';
 import { RuntimeItemRestartButton } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemRestartButton';
 import { ActivityItemErrorMessage } from 'vs/workbench/services/positronConsole/common/classes/activityItemErrorMessage';
 import { ActivityItemOutputMessage } from 'vs/workbench/services/positronConsole/common/classes/activityItemOutputMessage';
 import { RuntimeItemStartupFailure } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemStartupFailure';
 import { ActivityItem, RuntimeItemActivity } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemActivity';
 import { ActivityItemInput, ActivityItemInputState } from 'vs/workbench/services/positronConsole/common/classes/activityItemInput';
+import { ActivityItemErrorStream, ActivityItemOutputStream } from 'vs/workbench/services/positronConsole/common/classes/activityItemStream';
 import { IPositronConsoleInstance, IPositronConsoleService, POSITRON_CONSOLE_VIEW_ID, PositronConsoleState } from 'vs/workbench/services/positronConsole/common/interfaces/positronConsoleService';
 import { formatLanguageRuntime, ILanguageRuntime, ILanguageRuntimeExit, ILanguageRuntimeMessage, ILanguageRuntimeService, LanguageRuntimeStartupBehavior, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeExitReason, RuntimeOnlineState, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+
+/**
+ * The onDidChangeRuntimeItems throttle threshold and throttle interval. The throttle threshold
+ * specifies how many events can be fired during the throttle interval before throttling will occur.
+ * As long as fewer than throttle threshold events are occurring every throttle interval ms, events
+ * will be fired in real time. When the throttle threshold is exceeded during the throttle interval
+ * in ms, events will be fired at the throttle interval thereafter until event delivery slows down.
+ */
+const ON_DID_CHANGE_RUNTIME_ITEMS_THROTTLE_THRESHOLD = 20;
+const ON_DID_CHANGE_RUNTIME_ITEMS_THROTTLE_INTERVAL = 50;
+
+/**
+ * The maximum items to display in the console.
+ */
+const MAX_ITEMS = 10000;
+
+/**
+ * The trim threshold.
+ */
+const TRIM_THRESHOLD = 500;
 
 //#region Helper Functions
 
@@ -450,6 +470,11 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	private _runtimeItemPendingInput?: RuntimeItemPendingInput;
 
 	/**
+	 * Gets or sets the trim counter.
+	 */
+	private _trimCounter = 0;
+
+	/**
 	 * Gets or sets the runtime items.
 	 */
 	private _runtimeItems: RuntimeItem[] = [];
@@ -485,9 +510,12 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	private readonly _onDidChangeWordWrapEmitter = this._register(new Emitter<boolean>);
 
 	/**
-	 * The onDidChangeRuntimeItems event emitter.
+	 * The onDidChangeRuntimeItems throttled event emitter.
 	 */
-	private readonly _onDidChangeRuntimeItemsEmitter = this._register(new Emitter<RuntimeItem[]>);
+	private readonly _onDidChangeRuntimeItemsEmitter = this._register(new ThrottledEmitter<void>(
+		ON_DID_CHANGE_RUNTIME_ITEMS_THROTTLE_THRESHOLD,
+		ON_DID_CHANGE_RUNTIME_ITEMS_THROTTLE_INTERVAL
+	));
 
 	/**
 	 * The onDidPasteText event emitter.
@@ -512,7 +540,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	/**
 	 * The onDidExecuteCode event emitter.
 	 */
-	private readonly _onDidExecuteCodeEmitter = this._register(new Emitter<void>);
+	private readonly _onDidExecuteCodeEmitter = this._register(new Emitter<string>);
 
 	/**
 	 * The onDidSelectPlot event emitter.
@@ -581,7 +609,10 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	 * Disposes of the PositronConsoleInstance.
 	 */
 	override dispose() {
-		this.addRuntimeItemTrace('dispose()');
+		// If trace is enabled, add a trace runtime item.
+		if (this._trace) {
+			this.addRuntimeItemTrace('dispose()');
+		}
 
 		// Call Disposable's dispose.
 		super.dispose();
@@ -713,6 +744,9 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	 */
 	toggleTrace() {
 		this._trace = !this._trace;
+		if (this._trace) {
+			this.addRuntimeItemTrace('Trace enabled');
+		}
 		this._onDidChangeTraceEmitter.fire(this._trace);
 	}
 
@@ -738,7 +772,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	clearConsole() {
 		this._runtimeItems = [];
 		this._runtimeItemActivities.clear();
-		this._onDidChangeRuntimeItemsEmitter.fire(this._runtimeItems);
+		this._onDidChangeRuntimeItemsEmitter.fire();
 		this._onDidClearConsoleEmitter.fire();
 	}
 
@@ -880,7 +914,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 				// done; just let the user know we're starting up if we are
 				// currently showing as Exited.
 				if (this._state === PositronConsoleState.Exited) {
-					this.emitStartItems(starting);
+					this.emitStartRuntimeItems(starting);
 				}
 			} else {
 				// It's the same one, but it isn't attached. Reattach it.
@@ -931,9 +965,12 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	 * @param state The new state.
 	 */
 	setState(state: PositronConsoleState) {
-		if (this._state !== state) {
+		// If trace is enabled, add a trace runtime item.
+		if (this._trace && this._state !== state) {
 			this.addRuntimeItemTrace(`Console state change: ${this._state} => ${state}`);
 		}
+
+		// Process the state change.
 		switch (state) {
 			case PositronConsoleState.Uninitialized:
 			case PositronConsoleState.Starting:
@@ -951,7 +988,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 									`${this._runtime.metadata.runtimeName} ` +
 									`${runtimeItem.isRestart ? 'restarted' : 'started'}.`
 								);
-								this._onDidChangeRuntimeItemsEmitter.fire(this._runtimeItems);
+								this._onDidChangeRuntimeItemsEmitter.fire();
 							}
 						}
 						break;
@@ -986,7 +1023,11 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 
 	//#region Private Methods
 
-	private emitStartItems(starting: boolean) {
+	/**
+	 * Emits start runtime items.
+	 * @param starting A value which indicates whether the runtime is starting.
+	 */
+	private emitStartRuntimeItems(starting: boolean) {
 		// Set the state and add the appropriate runtime item to indicate whether the Positron
 		// console instance is is starting or is reconnected.
 		if (starting) {
@@ -1014,13 +1055,21 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	private attachRuntime(starting: boolean) {
 		// Mark the runtime as attached.
 		this._runtimeAttached = true;
-		this.addRuntimeItemTrace(`Attach runtime ${this._runtime.metadata.runtimeName} (starting = ${starting})`);
-		this.emitStartItems(starting);
+
+		// If trace is enabled, add a trace runtime item.
+		if (this._trace) {
+			this.addRuntimeItemTrace(`Attach runtime ${this._runtime.metadata.runtimeName} (starting = ${starting})`);
+		}
+
+		// Emit the start runtime items.
+		this.emitStartRuntimeItems(starting);
 
 		// Add the onDidChangeRuntimeState event handler.
 		this._runtimeDisposableStore.add(this._runtime.onDidChangeRuntimeState(async runtimeState => {
-			// Add a trace item.
-			this.addRuntimeItemTrace(`onDidChangeRuntimeState (${runtimeState})`);
+			// If trace is enabled, add a trace runtime item.
+			if (this._trace) {
+				this.addRuntimeItemTrace(`onDidChangeRuntimeState (${runtimeState})`);
+			}
 
 			// When the runtime goes idle or ready, process pending input.
 			if (runtimeState === RuntimeState.Idle || runtimeState === RuntimeState.Ready) {
@@ -1080,8 +1129,10 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 		this._runtimeDisposableStore.add(this._runtime.onDidCompleteStartup(languageRuntimeInfo => {
 			this.setState(PositronConsoleState.Ready);
 
-			// Add item trace.
-			this.addRuntimeItemTrace(`onDidCompleteStartup`);
+			// If trace is enabled, add a trace runtime item.
+			if (this._trace) {
+				this.addRuntimeItemTrace(`onDidCompleteStartup`);
+			}
 
 			// Add the item startup.
 			this.addRuntimeItem(new RuntimeItemStartup(
@@ -1095,8 +1146,10 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 		// Add the onDidEncounterStartupFailure event handler. This can arrive before or after
 		// the state change to Exited, so we need to handle it in both places.
 		this._runtimeDisposableStore.add(this._runtime.onDidEncounterStartupFailure(startupFailure => {
-			// Add item trace.
-			this.addRuntimeItemTrace(`onDidEncounterStartupFailure`);
+			// If trace is enabled, add a trace runtime item.
+			if (this._trace) {
+				this.addRuntimeItemTrace(`onDidEncounterStartupFailure`);
+			}
 
 			// Add the item startup.
 			this.addRuntimeItem(new RuntimeItemStartupFailure(
@@ -1113,12 +1166,14 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 
 		// Add the onDidReceiveRuntimeMessageInput event handler.
 		this._runtimeDisposableStore.add(this._runtime.onDidReceiveRuntimeMessageInput(languageRuntimeMessageInput => {
-			// Add trace item.
-			this.addRuntimeItemTrace(
-				formatCallbackTrace('onDidReceiveRuntimeMessageInput', languageRuntimeMessageInput) +
-				'\nCode:\n' +
-				languageRuntimeMessageInput.code
-			);
+			// If trace is enabled, add a trace runtime item.
+			if (this._trace) {
+				this.addRuntimeItemTrace(
+					formatCallbackTrace('onDidReceiveRuntimeMessageInput', languageRuntimeMessageInput) +
+					'\nCode:\n' +
+					languageRuntimeMessageInput.code
+				);
+			}
 
 			// Add or update the runtime item activity.
 			this.addOrUpdateUpdateRuntimeItemActivity(
@@ -1137,12 +1192,14 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 
 		// Add the onDidReceiveRuntimeMessagePrompt event handler.
 		this._runtimeDisposableStore.add(this._runtime.onDidReceiveRuntimeMessagePrompt(languageRuntimeMessagePrompt => {
-			// Add trace item.
-			this.addRuntimeItemTrace(
-				formatCallbackTrace('onDidReceiveRuntimeMessagePrompt', languageRuntimeMessagePrompt) +
-				`\nPrompt: ${languageRuntimeMessagePrompt.prompt}` +
-				`\nPassword: ${languageRuntimeMessagePrompt.password}`
-			);
+			// If trace is enabled, add a trace runtime item.
+			if (this._trace) {
+				this.addRuntimeItemTrace(
+					formatCallbackTrace('onDidReceiveRuntimeMessagePrompt', languageRuntimeMessagePrompt) +
+					`\nPrompt: ${languageRuntimeMessagePrompt.prompt}` +
+					`\nPassword: ${languageRuntimeMessagePrompt.password}`
+				);
+			}
 
 			// Set the prompt active flag.
 			this._promptActive = true;
@@ -1162,11 +1219,13 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 
 		// Add the onDidReceiveRuntimeMessageOutput event handler.
 		this._runtimeDisposableStore.add(this._runtime.onDidReceiveRuntimeMessageOutput(languageRuntimeMessageOutput => {
-			// Add trace item.
-			this.addRuntimeItemTrace(
-				formatCallbackTrace('onDidReceiveRuntimeMessageOutput', languageRuntimeMessageOutput) +
-				formatOutputData(languageRuntimeMessageOutput.data)
-			);
+			// If trace is enabled, add a trace runtime item.
+			if (this._trace) {
+				this.addRuntimeItemTrace(
+					formatCallbackTrace('onDidReceiveRuntimeMessageOutput', languageRuntimeMessageOutput) +
+					formatOutputData(languageRuntimeMessageOutput.data)
+				);
+			}
 
 			// Check to see if the data contains an image by checking the record for the
 			// "image/" mime type.
@@ -1239,11 +1298,13 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 			traceOutput = traceOutput.replaceAll('\x1b', 'ESC');
 			traceOutput = traceOutput.replaceAll('\x9B', 'CSI');
 
-			// Add trace item.
-			this.addRuntimeItemTrace(
-				formatCallbackTrace('onDidReceiveRuntimeMessageStream', languageRuntimeMessageStream) +
-				formatOutputStream(languageRuntimeMessageStream.name, traceOutput)
-			);
+			// If trace is enabled, add a trace runtime item.
+			if (this._trace) {
+				this.addRuntimeItemTrace(
+					formatCallbackTrace('onDidReceiveRuntimeMessageStream', languageRuntimeMessageStream) +
+					formatOutputStream(languageRuntimeMessageStream.name, traceOutput)
+				);
+			}
 
 			// Handle stdout and stderr.
 			if (languageRuntimeMessageStream.name === 'stdout') {
@@ -1271,14 +1332,16 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 
 		// Add the onDidReceiveRuntimeMessageError event handler.
 		this._runtimeDisposableStore.add(this._runtime.onDidReceiveRuntimeMessageError(languageRuntimeMessageError => {
-			// Add trace item.
-			this.addRuntimeItemTrace(
-				formatCallbackTrace('onDidReceiveRuntimeMessageError', languageRuntimeMessageError) +
-				`\nName: ${languageRuntimeMessageError.name}` +
-				'\nMessage:\n' +
-				languageRuntimeMessageError.message +
-				formatTraceback(languageRuntimeMessageError.traceback)
-			);
+			// If trace is enabled, add a trace runtime item.
+			if (this._trace) {
+				this.addRuntimeItemTrace(
+					formatCallbackTrace('onDidReceiveRuntimeMessageError', languageRuntimeMessageError) +
+					`\nName: ${languageRuntimeMessageError.name}` +
+					'\nMessage:\n' +
+					languageRuntimeMessageError.message +
+					formatTraceback(languageRuntimeMessageError.traceback)
+				);
+			}
 
 			// Add or update the runtime item activity.
 			this.addOrUpdateUpdateRuntimeItemActivity(
@@ -1296,10 +1359,12 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 
 		// Add the onDidReceiveRuntimeMessageState event handler.
 		this._runtimeDisposableStore.add(this._runtime.onDidReceiveRuntimeMessageState(languageRuntimeMessageState => {
-			// Add trace event.
-			this.addRuntimeItemTrace(
-				formatCallbackTrace('onDidReceiveRuntimeMessageState', languageRuntimeMessageState) +
-				`\nState: ${languageRuntimeMessageState.state}`);
+			// If trace is enabled, add a trace runtime item.
+			if (this._trace) {
+				this.addRuntimeItemTrace(
+					formatCallbackTrace('onDidReceiveRuntimeMessageState', languageRuntimeMessageState) +
+					`\nState: ${languageRuntimeMessageState.state}`);
+			}
 
 			switch (languageRuntimeMessageState.state) {
 				case RuntimeOnlineState.Starting: {
@@ -1334,7 +1399,10 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 		}));
 
 		this._runtimeDisposableStore.add(this._runtime.onDidEndSession((exit) => {
-			this.addRuntimeItemTrace(`onDidEndSession (code ${exit.exit_code}, reason '${exit.reason}')`);
+			// If trace is enabled, add a trace runtime item.
+			if (this._trace) {
+				this.addRuntimeItemTrace(`onDidEndSession (code ${exit.exit_code}, reason '${exit.reason}')`);
+			}
 
 			// Add a message explaining that the exit occurred, and why.
 			const exited = new RuntimeItemExited(generateUuid(),
@@ -1450,7 +1518,11 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	 * Detaches from a runtime.
 	 */
 	private detachRuntime() {
-		this.addRuntimeItemTrace(`Detach runtime ${this._runtime.metadata.runtimeName}`);
+		// If trace is enabled, add a trace runtime item.
+		if (this._trace) {
+			this.addRuntimeItemTrace(`Detach runtime ${this._runtime.metadata.runtimeName}`);
+		}
+
 		if (this._runtimeAttached) {
 			// We are currently attached; detach.
 			this._runtimeAttached = false;
@@ -1549,7 +1621,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 
 		// If we removed buttons, fire the runtime items changed event.
 		if (this._runtimeItems.length !== itemCount) {
-			this._onDidChangeRuntimeItemsEmitter.fire(this._runtimeItems);
+			this._onDidChangeRuntimeItemsEmitter.fire();
 		}
 	}
 
@@ -1619,7 +1691,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 				}
 
 				// Fire the runtime items changed event once, now, after everything is set up.
-				this._onDidChangeRuntimeItemsEmitter.fire(this._runtimeItems);
+				this._onDidChangeRuntimeItemsEmitter.fire();
 
 				// Execute the code fragment.
 				this.runtime.execute(
@@ -1629,15 +1701,15 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 					RuntimeErrorBehavior.Continue);
 
 				// Fire the onDidExecuteCode event.
-				this._onDidExecuteCodeEmitter.fire();
+				this._onDidExecuteCodeEmitter.fire(codeFragment);
 
 				// Return.
 				return;
 			}
 		}
 
-		// Fire the onDidExecuteCode event because we removed the pending input runtime item.
-		this._onDidChangeRuntimeItemsEmitter.fire(this._runtimeItems);
+		// Fire the onDidChangeRuntimeItems event because we removed the pending input runtime item.
+		this._onDidChangeRuntimeItemsEmitter.fire();
 
 		// The pending input line(s) now become the pending code.
 		this.setPendingCode(pendingInputLines.join('\n'));
@@ -1675,7 +1747,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 			RuntimeErrorBehavior.Continue);
 
 		// Fire the onDidExecuteCode event.
-		this._onDidExecuteCodeEmitter.fire();
+		this._onDidExecuteCodeEmitter.fire(code);
 	}
 
 	/**
@@ -1692,9 +1764,18 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	 * @param activityItem The activity item.
 	 */
 	private addOrUpdateUpdateRuntimeItemActivity(parentId: string, activityItem: ActivityItem) {
+		// Find the activity runtime item. If it was found, add the activity item to it. If not, add
+		// a new activity runtime item.
 		const runtimeItemActivity = this._runtimeItemActivities.get(parentId);
 		if (runtimeItemActivity) {
+			// Add the activity item to the activity runtime item.
 			runtimeItemActivity.addActivityItem(activityItem);
+
+			// Trim items.
+			this.trimItems();
+
+			// Fire the onDidChangeRuntimeItems event.
+			this._onDidChangeRuntimeItemsEmitter.fire();
 		} else {
 			const runtimeItemActivity = new RuntimeItemActivity(parentId, activityItem);
 			this._runtimeItemActivities.set(parentId, runtimeItemActivity);
@@ -1713,8 +1794,56 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 			this._runtimeItemActivities.set(runtimeItem.id, runtimeItem);
 		}
 
-		// Fire the runtime items changed event.
-		this._onDidChangeRuntimeItemsEmitter.fire(this._runtimeItems);
+		// Trim items.
+		this.trimItems();
+
+		// Fire the onDidChangeRuntimeItems event.
+		this._onDidChangeRuntimeItemsEmitter.fire();
+	}
+
+	/**
+	 * Trims items displayed in the console.
+	 */
+	private trimItems() {
+		// Increment the trim counter. Trim items when we reach the trim threshold.
+		if (++this._trimCounter < TRIM_THRESHOLD) {
+			return;
+		}
+
+		// Reset the trim counter.
+		this._trimCounter = 0;
+
+		// Trim items.
+		let remainingItems = MAX_ITEMS;
+		let runtimeItemIndex = this._runtimeItems.length;
+		while (remainingItems > 0 && runtimeItemIndex > 0) {
+			// Get the runtime item.
+			const runtimeItem = this._runtimeItems[--runtimeItemIndex];
+
+			// If the runtime item is a RuntimeItemActivity, trim its activity items; otherwise,
+			// decrement the remaining items counter.
+			if (runtimeItem instanceof RuntimeItemActivity) {
+				remainingItems -= runtimeItem.trimActivityItems(remainingItems);
+			} else {
+				remainingItems--;
+			}
+		}
+
+		// If no runtime items were trimmed, return.
+		if (!runtimeItemIndex) {
+			return;
+		}
+
+		// Trim the runtime items.
+		const trimmedRuntimeItems = this._runtimeItems.slice(0, runtimeItemIndex);
+		this._runtimeItems = this._runtimeItems.slice(runtimeItemIndex);
+
+		// Remove runtime item activities that were trimmed.
+		trimmedRuntimeItems.filter(trimmedRuntimeItem =>
+			trimmedRuntimeItem instanceof RuntimeItemActivity
+		).forEach(runtimeItemActivity =>
+			this._runtimeItemActivities.delete(runtimeItemActivity.id)
+		);
 	}
 
 	//#endregion Private Methods

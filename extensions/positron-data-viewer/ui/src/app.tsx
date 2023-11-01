@@ -3,11 +3,12 @@
  *--------------------------------------------------------------------------------------------*/
 
 // External libraries.
-import * as ReactDOM from 'react-dom';
 import * as React from 'react';
+import { createRoot } from 'react-dom/client';
 
 // External modules.
 import * as ReactQuery from '@tanstack/react-query';
+import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 
 // Local modules.
 import { DataPanel } from './DataPanel';
@@ -37,13 +38,15 @@ window.addEventListener('message', (event: any) => {
 	if (message.msg_type === 'initial_data') {
 		const dataMessage = message as DataViewerMessageRowResponse;
 		const queryClient = new ReactQuery.QueryClient();
-		ReactDOM.render(
+		const container = document.getElementById('root');
+		const root = createRoot(container!);
+		root.render(
 			<React.StrictMode>
 				<ReactQuery.QueryClientProvider client={queryClient}>
 					<DataPanel initialData={dataMessage.data} fetchSize={fetchSize} vscode={vscode} />
+					<ReactQueryDevtools initialIsOpen={false} />
 				</ReactQuery.QueryClientProvider>
-			</React.StrictMode>,
-			document.getElementById('root')
+			</React.StrictMode>
 		);
-	} // Other message types are handled in the DataPanel component.
+	} // Other message types are handled in the DataPanel component after app initialization.
 });

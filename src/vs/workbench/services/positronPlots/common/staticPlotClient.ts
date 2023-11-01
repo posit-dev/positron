@@ -5,11 +5,12 @@
 import { Disposable } from 'vs/base/common/lifecycle';
 import { IPositronPlotMetadata } from 'vs/workbench/services/languageRuntime/common/languageRuntimePlotClient';
 import { ILanguageRuntimeMessageOutput } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { IPositronPlotClient } from 'vs/workbench/services/positronPlots/common/positronPlots';
 
 /**
  * Creates a static plot client from a language runtime message.
  */
-export class StaticPlotClient extends Disposable {
+export class StaticPlotClient extends Disposable implements IPositronPlotClient {
 	public readonly metadata: IPositronPlotMetadata;
 	public readonly mimeType;
 	public readonly data;

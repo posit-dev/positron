@@ -17,8 +17,10 @@ import { createDecorator } from 'vs/platform/instantiation/common/instantiation'
 import { IStorageService, StorageScope, StorageTarget } from 'vs/platform/storage/common/storage';
 import { IWebviewPortMapping } from 'vs/platform/webview/common/webviewPortMapping';
 import { Memento, MementoObject } from 'vs/workbench/common/memento';
+
 // --- Start Positron ---
 import { WebviewFindDelegate } from 'vs/workbench/contrib/webview/browser/webviewFindWidget';
+import { VSBuffer } from 'vs/base/common/buffer';
 // --- End Positron ---
 
 /**
@@ -257,6 +259,7 @@ export interface IWebview extends IDisposable {
 	// --- Start Positron
 	// Added keepSelection?: boolean.
 	hideFind(animated?: boolean, keepSelection?: boolean): void;
+	captureContentsAsPng(): Promise<VSBuffer | undefined>;
 	// --- End Positron
 	runFindAction(previous: boolean): void;
 
