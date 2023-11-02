@@ -175,7 +175,8 @@ const tasks = compilations.map(function (tsconfigFile) {
 				.pipe(needsBundling
 					? webpack({
 						...require(webpackConfigPath),
-						mode: 'development'
+						mode: 'development',
+						devtool: 'eval-cheap-source-map',
 					}, compiler, function (_err, stats) {
 						// output some info about the compiled assets
 						console.log(stats.toString({ preset: 'minimal', colors: true }));
