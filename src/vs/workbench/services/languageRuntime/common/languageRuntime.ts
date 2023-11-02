@@ -460,7 +460,8 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 			// are currently processing have been called (i.e. everyone knows it has exited)
 			setTimeout(() => {
 				if (languageRuntimeInfo.state === RuntimeState.Exited &&
-					exit.reason === RuntimeExitReason.Restart) {
+					(exit.reason === RuntimeExitReason.Restart ||
+						exit.reason === RuntimeExitReason.SwitchRuntime)) {
 					this._onWillStartRuntimeEmitter.fire(runtime);
 				}
 			}, 0);

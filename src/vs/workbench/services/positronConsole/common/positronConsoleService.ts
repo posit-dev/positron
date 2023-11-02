@@ -1438,6 +1438,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 				return nls.localize('positronConsole.exit.restart', "{0} exited (preparing for restart)", exit.runtime_name);
 
 			case RuntimeExitReason.Shutdown:
+			case RuntimeExitReason.SwitchRuntime:
 				return nls.localize('positronConsole.exit.shutdown', "{0} shut down successfully.", exit.runtime_name);
 
 			case RuntimeExitReason.Error:
