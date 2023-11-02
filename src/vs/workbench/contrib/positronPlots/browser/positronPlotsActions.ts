@@ -19,16 +19,7 @@ export class PlotsRefreshAction extends Action2 {
 			id: PlotsRefreshAction.ID,
 			title: { value: 'Refresh Plots', original: 'Refresh Plots' },
 			f1: true,
-			category,
-			description: {
-				description: 'Refresh the list of variables and values in the Plots view.',
-				args: [{
-					name: 'options',
-					schema: {
-						type: 'object'
-					}
-				}]
-			}
+			category
 		});
 	}
 

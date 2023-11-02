@@ -26,6 +26,7 @@ import { ILanguageConfigurationService } from 'vs/editor/common/languages/langua
 import { ILanguageFeaturesService } from 'vs/editor/common/services/languageFeatures';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import { ICodeEditor } from 'vs/editor/browser/editorBrowser';
+import { clamp } from 'vs/base/common/numbers';
 
 export const ctxCommentEditorFocused = new RawContextKey<boolean>('commentEditorFocused', false);
 export const MIN_EDITOR_HEIGHT = 5 * 18;
@@ -124,11 +125,8 @@ export function calculateEditorHeight(parentEditor: LayoutableEditor, editor: IC
 	if ((contentHeight > layoutInfo.height) ||
 		(contentHeight < layoutInfo.height && currentHeight > MIN_EDITOR_HEIGHT)) {
 		const linesToAdd = Math.ceil((contentHeight - layoutInfo.height) / lineHeight);
-		const lowerBoundOfMaxEditorHeight = Math.max(parentEditor.getLayoutInfo().height - 90, MIN_EDITOR_HEIGHT);
-		const maxCommentEditorHeightForParentEditor = Math.min(MAX_EDITOR_HEIGHT, lowerBoundOfMaxEditorHeight);
-
 		const proposedHeight = layoutInfo.height + (lineHeight * linesToAdd);
-		return Math.min(maxCommentEditorHeightForParentEditor, Math.max(MIN_EDITOR_HEIGHT, proposedHeight));
+		return clamp(proposedHeight, MIN_EDITOR_HEIGHT, clamp(parentEditor.getLayoutInfo().height - 90, MIN_EDITOR_HEIGHT, MAX_EDITOR_HEIGHT));
 	}
 	return currentHeight;
 }

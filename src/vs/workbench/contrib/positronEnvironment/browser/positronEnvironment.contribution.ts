@@ -60,7 +60,10 @@ Registry.as<IViewsRegistry>(ViewContainerExtensions.ViewsRegistry).registerViews
 	[
 		{
 			id: POSITRON_ENVIRONMENT_VIEW_ID,
-			name: nls.localize('positron.environment', "Environment"),
+			name: {
+				value: nls.localize('positron.environment', "Environment"),
+				original: 'Environment'
+			},
 			ctorDescriptor: new SyncDescriptor(PositronEnvironmentViewPane),
 			canToggleVisibility: false,
 			canMoveView: true,

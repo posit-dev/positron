@@ -577,6 +577,11 @@ export interface IEditorOptions {
 	 */
 	occurrencesHighlight?: boolean;
 	/**
+	 * Enable semantic occurrences highlight.
+	 * Defaults to true.
+	 */
+	multiDocumentOccurrencesHighlight?: boolean;
+	/**
 	 * Show code lens
 	 * Defaults to true.
 	 */
@@ -1319,9 +1324,9 @@ class EditorAccessibilitySupport extends BaseEditorOption<EditorOption.accessibi
 				type: 'string',
 				enum: ['auto', 'on', 'off'],
 				enumDescriptions: [
-					nls.localize('accessibilitySupport.auto', "Use platform APIs to detect when a Screen Reader is attached"),
-					nls.localize('accessibilitySupport.on', "Optimize for usage with a Screen Reader"),
-					nls.localize('accessibilitySupport.off', "Assume a screen reader is not attached"),
+					nls.localize('accessibilitySupport.auto', "Use platform APIs to detect when a Screen Reader is attached."),
+					nls.localize('accessibilitySupport.on', "Optimize for usage with a Screen Reader."),
+					nls.localize('accessibilitySupport.off', "Assume a screen reader is not attached."),
 				],
 				default: 'auto',
 				tags: ['accessibility'],
@@ -2103,7 +2108,7 @@ class EditorHover extends BaseEditorOption<EditorOption.hover, IEditorHoverOptio
 					type: 'integer',
 					minimum: 0,
 					default: defaults.hidingDelay,
-					description: nls.localize('hover.hidingDelay', "Controls the delay in milliseconds after thich the hover is hidden. Requires `editor.hover.sticky` to be enabled.")
+					description: nls.localize('hover.hidingDelay', "Controls the delay in milliseconds after which the hover is hidden. Requires `editor.hover.sticky` to be enabled.")
 				},
 				'editor.hover.above': {
 					type: 'boolean',
@@ -2830,7 +2835,7 @@ class EditorStickyScroll extends BaseEditorOption<EditorOption.stickyScroll, IEd
 				'editor.stickyScroll.scrollWithEditor': {
 					type: 'boolean',
 					default: defaults.scrollWithEditor,
-					description: nls.localize('editor.stickyScroll.scrollWithEditor', "Enable scrolling of the sticky scroll widget with the editor's horizontal scrollbar.")
+					description: nls.localize('editor.stickyScroll.scrollWithEditor', "Enable scrolling of Sticky Scroll with the editor's horizontal scrollbar.")
 				},
 			}
 		);
@@ -3640,6 +3645,12 @@ export interface IEditorScrollbarOptions {
 	 * Defaults to false.
 	 */
 	scrollByPage?: boolean;
+
+	/**
+	 * When set, the horizontal scrollbar will not increase content height.
+	 * Defaults to false.
+	 */
+	ignoreHorizontalScrollbarInContentHeight?: boolean;
 }
 
 export interface InternalEditorScrollbarOptions {
@@ -3656,6 +3667,7 @@ export interface InternalEditorScrollbarOptions {
 	readonly verticalScrollbarSize: number;
 	readonly verticalSliderSize: number;
 	readonly scrollByPage: boolean;
+	readonly ignoreHorizontalScrollbarInContentHeight: boolean;
 }
 
 function _scrollbarVisibilityFromString(visibility: string | undefined, defaultValue: ScrollbarVisibility): ScrollbarVisibility {
@@ -3685,7 +3697,8 @@ class EditorScrollbar extends BaseEditorOption<EditorOption.scrollbar, IEditorSc
 			verticalSliderSize: 14,
 			handleMouseWheel: true,
 			alwaysConsumeMouseWheel: true,
-			scrollByPage: false
+			scrollByPage: false,
+			ignoreHorizontalScrollbarInContentHeight: false,
 		};
 		super(
 			EditorOption.scrollbar, 'scrollbar', defaults,
@@ -3726,6 +3739,11 @@ class EditorScrollbar extends BaseEditorOption<EditorOption.scrollbar, IEditorSc
 					type: 'boolean',
 					default: defaults.scrollByPage,
 					description: nls.localize('scrollbar.scrollByPage', "Controls whether clicks scroll by page or jump to click position.")
+				},
+				'editor.scrollbar.ignoreHorizontalScrollbarInContentHeight': {
+					type: 'boolean',
+					default: defaults.ignoreHorizontalScrollbarInContentHeight,
+					description: nls.localize('scrollbar.ignoreHorizontalScrollbarInContentHeight', "When set, the horizontal scrollbar will not increase the size of the editor's content.")
 				}
 			}
 		);
@@ -3752,6 +3770,7 @@ class EditorScrollbar extends BaseEditorOption<EditorOption.scrollbar, IEditorSc
 			verticalScrollbarSize: verticalScrollbarSize,
 			verticalSliderSize: EditorIntOption.clampedInt(input.verticalSliderSize, verticalScrollbarSize, 0, 1000),
 			scrollByPage: boolean(input.scrollByPage, this.defaultValue.scrollByPage),
+			ignoreHorizontalScrollbarInContentHeight: boolean(input.ignoreHorizontalScrollbarInContentHeight, this.defaultValue.ignoreHorizontalScrollbarInContentHeight),
 		};
 	}
 }
@@ -5118,6 +5137,7 @@ export const enum EditorOption {
 	multiCursorModifier,
 	multiCursorPaste,
 	multiCursorLimit,
+	multiDocumentOccurrencesHighlight,
 	occurrencesHighlight,
 	overviewRulerBorder,
 	overviewRulerLanes,
@@ -5622,6 +5642,10 @@ export const EditorOptions = {
 	occurrencesHighlight: register(new EditorBooleanOption(
 		EditorOption.occurrencesHighlight, 'occurrencesHighlight', true,
 		{ description: nls.localize('occurrencesHighlight', "Controls whether the editor should highlight semantic symbol occurrences.") }
+	)),
+	multiDocumentOccurrencesHighlight: register(new EditorBooleanOption(
+		EditorOption.multiDocumentOccurrencesHighlight, 'multiDocumentOccurrencesHighlight', false,
+		{ description: nls.localize('multiDocumentOccurrencesHighlight', "Experimental: Controls whether the editor should highlight word occurrences accross multiple open editors.") }
 	)),
 	overviewRulerBorder: register(new EditorBooleanOption(
 		EditorOption.overviewRulerBorder, 'overviewRulerBorder', true,

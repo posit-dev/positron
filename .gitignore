@@ -20,7 +20,9 @@ vscode.db
 /cli/openssl
 product.overrides.json
 *.snap.actual
+.vscode-test
 
 # --- Start Positron ---
 .Rproj.user
 # --- End Positron ---
+

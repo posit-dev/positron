@@ -83,10 +83,6 @@ export function registerPositronConsoleActions() {
 					weight: KeybindingWeight.WorkbenchContrib,
 					primary: KeyMod.WinCtrl | KeyCode.KeyL
 				},
-				description: {
-					description: 'workbench.action.positronConsole.clearConsole',
-					args: []
-				}
 			});
 		}
 
@@ -127,10 +123,6 @@ export function registerPositronConsoleActions() {
 				f1: true,
 				category,
 				icon: Codicon.clearAll,
-				description: {
-					description: 'workbench.action.positronConsole.clearInputHistory',
-					args: []
-				}
 			});
 		}
 
@@ -212,10 +204,6 @@ export function registerPositronConsoleActions() {
 						secondary: [KeyMod.WinCtrl | KeyCode.Enter]
 					}
 				},
-				description: {
-					description: 'workbench.action.positronConsole.executeCode',
-					args: []
-				}
 			});
 		}
 
