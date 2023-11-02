@@ -285,47 +285,25 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 					new Error(`${formatLanguageRuntime(runningRuntime)} is already running.`));
 			}
 
-			const promiseDidEndSession = new Promise<void>(resolve => {
+			const promise = new Promise<void>(resolve => {
 				const disposable = runningRuntime.onDidEndSession((exit) => {
 					resolve();
 					disposable.dispose();
 				});
 			});
 
-			const timeout1 = new Promise<void>((_, reject) => {
+			const timeout = new Promise<void>((_, reject) => {
 				setTimeout(() => {
-					reject(new Error(`Timed out waiting for runtime ${formatLanguageRuntime(runningRuntime)} to exit.`));
+					reject(new Error(`Timed out waiting for runtime ${formatLanguageRuntime(runningRuntime)} to finish exiting.`));
 				}, 5000);
 			});
 
 			// Ask the runtime to shut down.
 			await runningRuntime.shutdown();
 
-			// If the runtime doesn't exit immediately, wait for it to exit.
-			if (runningRuntime.getRuntimeState() !== RuntimeState.Exited) {
-				// Create a promise that resolves when the runtime exits.
-				const promiseRuntimeExit = new Promise<void>(resolve => {
-					const disposable = runningRuntime.onDidChangeRuntimeState(state => {
-						if (state === RuntimeState.Exited) {
-							resolve();
-							disposable.dispose();
-						}
-					});
-				});
-
-				// Create a promise that rejects after a timeout.
-				const timeout2 = new Promise<void>((_, reject) => {
-					setTimeout(() => {
-						reject(new Error(`Timed out waiting for runtime ${formatLanguageRuntime(runningRuntime)} to exit.`));
-					}, 5000);
-				});
-
-				// Wait for the runtime to exit, or for the timeout to expire
-				// (whichever comes first)
-				await Promise.race([promiseRuntimeExit, timeout2]);
-			}
-
-			await Promise.race([promiseDidEndSession, timeout1]);
+			// Wait for the runtime onDidEndSession to solve, or for the timeout to expire
+			// (whichever comes first)
+			await Promise.race([promise, timeout]);
 		}
 
 		// Start the selected runtime.
