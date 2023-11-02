@@ -4,11 +4,8 @@
 
 import * as vscode from 'vscode';
 import * as path from 'path';
-
-// new dependencies that seem worth it
 import { spawn } from 'child_process';
 import * as split2 from 'split2';
-
 import { Logger } from '../extension';
 import { lastRuntimePath } from '../runtime';
 import { ItemType, TestingTools, encodeNodeId } from './util-testing';
