@@ -155,8 +155,6 @@ export const DataPanel = (props: DataPanelProps) => {
 	const {
 		data,
 		isLoading,
-		isFetching,
-		isPlaceholderData,
 		isFetchingNextPage,
 		fetchNextPage,
 		hasNextPage
@@ -278,11 +276,6 @@ export const DataPanel = (props: DataPanelProps) => {
 	const verticalScrollbarWidth = offsetWidth - clientWidth;
 	const horizontalScrollbarHeight = offsetHeight - clientHeight;
 
-	React.useEffect(() => {
-		console.log(`isPlaceholderData: ${isPlaceholderData}`);
-	}, [isPlaceholderData]);
-
-
 	return (
 		<div
 			className='container'
@@ -358,13 +351,15 @@ export const DataPanel = (props: DataPanelProps) => {
 					)}
 				</tbody>
 			</table>
-			{ // TODO: this doesn't seem to adequately capture the loading state
-				isFetching || isPlaceholderData ?
+			{ // TODO: this doesn't adequately capture the loading state, but it's a start
+				isFetchingNextPage ?
 				<div className='overlay' style={{
 					marginTop: headerHeight,
 					marginBottom: horizontalScrollbarHeight,
 					marginRight: verticalScrollbarWidth,
-					paddingLeft: Math.min(headerWidth, clientWidth) / 2, // center the loading text
+					// center the loading text, using the table width rather than container width
+					// when the table doesn't take up the full container
+					paddingLeft: Math.min(headerWidth, clientWidth) / 2,
 				}}>
 					<div className='loading'>
 						Loading more rows...
