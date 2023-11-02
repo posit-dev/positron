@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
@@ -17,7 +17,6 @@ import { JupyterMessageSpec } from './JupyterMessageSpec';
 import { JupyterMessagePacket } from './JupyterMessagePacket';
 import { JupyterCommOpen } from './JupyterCommOpen';
 import { JupyterCommClose } from './JupyterCommClose';
-import { v4 as uuidv4 } from 'uuid';
 import { JupyterShutdownRequest } from './JupyterShutdownRequest';
 import { JupyterInterruptRequest } from './JupyterInterruptRequest';
 import { JupyterConnectionSpec } from './JupyterConnectionSpec';
@@ -31,7 +30,7 @@ import path = require('path');
 import { StartupFailure } from './StartupFailure';
 import { JupyterKernelStatus } from './JupyterKernelStatus';
 import { JupyterKernelSpec, JupyterKernelExtra } from './jupyter-adapter';
-import { delay, PromiseHandles } from './utils';
+import { delay, PromiseHandles, uuidv4 } from './utils';
 
 /** The message sent to the Heartbeat socket on a regular interval to test connectivity */
 const HEARTBEAT_MESSAGE = 'heartbeat';
@@ -817,7 +816,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	/**
 	 * Return message type as a string for logging purposes.
 	 */
-	  private messageType(msg: JupyterMessage) {
+	private messageType(msg: JupyterMessage) {
 		let msg_type = msg.header.msg_type;
 
 		switch (msg_type) {

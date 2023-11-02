@@ -28,7 +28,7 @@ import { JupyterCommOpen } from './JupyterCommOpen';
 import { JupyterCommInfoRequest } from './JupyterCommInfoRequest';
 import { JupyterCommInfoReply } from './JupyterCommInfoReply';
 import { JupyterExecuteReply } from './JupyterExecuteReply';
-import { v4 as uuidv4 } from 'uuid';
+import { uuidv4 } from './utils';
 
 /**
  * LangaugeRuntimeAdapter wraps a JupyterKernel in a LanguageRuntime compatible interface.

@@ -47,7 +47,10 @@ const VIEW_CONTAINER: ViewContainer = Registry.as<IViewContainersRegistry>(ViewC
 
 Registry.as<IViewsRegistry>(ViewContainerExtensions.ViewsRegistry).registerViews([{
 	id: POSITRON_CONSOLE_VIEW_ID,
-	name: nls.localize('positron.console', "Console"),
+	name: {
+		value: nls.localize('positron.console', "Console"),
+		original: 'Console'
+	},
 	containerIcon: positronConsoleViewIcon,
 	canMoveView: true,
 	canToggleVisibility: false,

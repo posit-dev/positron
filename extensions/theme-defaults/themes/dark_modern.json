@@ -126,6 +126,8 @@
 		"textCodeBlock.background": "#6e768166",
 		"textLink.activeForeground": "#8cc9ff",
 		"textLink.foreground": "#8cc9ff",
+		"textPreformat.foreground": "#D7BA7D",
+		"textPreformat.background": "#3C3C3C",
 		"textSeparator.foreground": "#21262d",
 		"titleBar.activeBackground": "#181818",
 		"titleBar.activeForeground": "#cccccc",

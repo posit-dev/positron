@@ -110,16 +110,7 @@ export function registerLanguageRuntimeActions() {
 					title: { value: title, original: title },
 					f1: true,
 					category,
-					keybinding,
-					description: {
-						description: id,
-						args: [{
-							name: 'options',
-							schema: {
-								type: 'object'
-							}
-						}]
-					}
+					keybinding
 				});
 			}
 
