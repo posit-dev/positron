@@ -5,6 +5,7 @@
 import 'vs/css!./activityPrompt';
 import * as React from 'react';
 import { KeyboardEvent, useEffect, useRef } from 'react'; // eslint-disable-line no-duplicate-imports
+import { DisposableStore } from 'vs/base/common/lifecycle';
 import { OutputRun } from 'vs/workbench/contrib/positronConsole/browser/components/outputRun';
 import { OutputLines } from 'vs/workbench/contrib/positronConsole/browser/components/outputLines';
 import { IPositronConsoleInstance } from 'vs/workbench/services/positronConsole/common/interfaces/positronConsoleService';
@@ -25,12 +26,37 @@ export const ActivityPrompt = (props: ActivityPromptProps) => {
 	// Reference hooks.
 	const inputRef = useRef<HTMLInputElement>(undefined!);
 
+	/**
+	 * Readies the input.
+	 */
+	const readyInput = () => {
+		if (inputRef.current) {
+			inputRef.current.scrollIntoView({ behavior: 'auto' });
+			inputRef.current.focus();
+		}
+	};
+
 	// Main useEffect hook.
 	useEffect(() => {
-		// Make sure the input is scrolled into view.
-		inputRef.current?.scrollIntoView({ behavior: 'auto' });
-		inputRef.current.focus();
+		// Create the disposable store for cleanup.
+		const disposableStore = new DisposableStore();
+
+		// Add the onFocusInput event handler.
+		disposableStore.add(props.positronConsoleInstance.onFocusInput(() => {
+			// Ready the input.
+			readyInput();
+		}));
+
+		// Return the cleanup function that will dispose of the disposables.
+		return () => disposableStore.dispose();
+	}, []);
+
+	// useEffect hook that gets the input scrolled into view and focused.
+	useEffect(() => {
+		// Ready the input.
+		readyInput();
 	}, [inputRef]);
+
 
 	/**
 	 * onKeyDown event handler.
