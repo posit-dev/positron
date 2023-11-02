@@ -266,11 +266,22 @@ export const DataPanel = (props: DataPanelProps) => {
 		return <>Loading...</>;
 	}
 
-	const {clientWidth, clientHeight, offsetWidth, offsetHeight} = tableContainerRef.current || {};
+	const emptyElement = {
+		clientHeight: 0,
+		clientWidth: 0,
+		offsetHeight: 0,
+		offsetWidth: 0
+	};
+	const {clientWidth, clientHeight, offsetWidth, offsetHeight} = tableContainerRef.current || emptyElement;
 	const headerRef = React.useRef<HTMLTableSectionElement>(null);
-	const headerHeight = headerRef.current?.clientHeight || 0;
-	const verticalScrollbarWidth = (clientWidth && offsetWidth) ? offsetWidth - clientWidth : 0;
-	const horizontalScrollbarHeight = (clientHeight && offsetHeight) ? offsetHeight - clientHeight : 0;
+	const {clientHeight: headerHeight, clientWidth: headerWidth} = headerRef.current || emptyElement;
+	const verticalScrollbarWidth = offsetWidth - clientWidth;
+	const horizontalScrollbarHeight = offsetHeight - clientHeight;
+
+	React.useEffect(() => {
+		console.log(`isPlaceholderData: ${isPlaceholderData}`);
+	}, [isPlaceholderData]);
+
 
 	return (
 		<div
@@ -352,9 +363,10 @@ export const DataPanel = (props: DataPanelProps) => {
 				<div className='overlay' style={{
 					marginTop: headerHeight,
 					marginBottom: horizontalScrollbarHeight,
-					marginRight: verticalScrollbarWidth
+					marginRight: verticalScrollbarWidth,
+					paddingLeft: Math.min(headerWidth, clientWidth) / 2, // center the loading text
 				}}>
-					<div className='overlay-inside'>
+					<div className='loading'>
 						Loading more rows...
 					</div>
 				</div> :
