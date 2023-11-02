@@ -29,3 +29,22 @@ export class PromiseHandles<T> {
 export function delay(ms: number) {
 	return new Promise(resolve => setTimeout(resolve, ms));
 }
+
+/**
+ * Creates a uuidv4 string. We use this to create message and comm identifiers
+ * instead of using the popular uuid Node package, since the uuid package relies
+ * on `getRandomValues()` which, while cryptographically secure, is not
+ * available everywhere.
+ *
+ * The values returned are unique, but not cryptographically secure, which is
+ * fine for our purposes.
+ *
+ * @returns A unique (but not cryptographically secure) UUIDv4 string
+ */
+export function uuidv4() {
+	return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+		const r = Math.random() * 16 | 0;
+		const v = c === 'x' ? r : (r & 0x3 | 0x8);
+		return v.toString(16);
+	});
+}

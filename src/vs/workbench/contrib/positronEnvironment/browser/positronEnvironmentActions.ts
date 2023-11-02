@@ -19,16 +19,7 @@ export class EnvironmentRefreshAction extends Action2 {
 			id: EnvironmentRefreshAction.ID,
 			title: { value: 'Refresh Environment', original: 'Refresh Environment' },
 			f1: true,
-			category,
-			description: {
-				description: 'Refresh the list of variables and values in the Environment view.',
-				args: [{
-					name: 'options',
-					schema: {
-						type: 'object'
-					}
-				}]
-			}
+			category
 		});
 	}
 
