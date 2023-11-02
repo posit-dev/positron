@@ -587,7 +587,7 @@ export interface ILanguageRuntime {
 	restart(): Thenable<void>;
 
 	/** Shut down the runtime */
-	shutdown(): Thenable<void>;
+	shutdown(exitReason: RuntimeExitReason): Thenable<void>;
 
 	/** Force quit the runtime */
 	forceQuit(): Thenable<void>;

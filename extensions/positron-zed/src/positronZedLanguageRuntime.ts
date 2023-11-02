@@ -1130,7 +1130,7 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 	/**
 	 * Shuts down the runtime.
 	 */
-	async shutdown(): Promise<void> {
+	async shutdown(exitReason = positron.RuntimeExitReason.Shutdown): Promise<void> {
 		const parentId = randomUUID();
 
 		// Enter busy state to do shutdown processing.
@@ -1169,7 +1169,7 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 		this._onDidEndSession.fire({
 			runtime_name: this.metadata.runtimeName,
 			exit_code: 0,
-			reason: positron.RuntimeExitReason.Shutdown,
+			reason: exitReason,
 			message: ''
 		});
 	}

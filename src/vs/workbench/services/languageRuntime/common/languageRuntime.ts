@@ -299,7 +299,7 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 			});
 
 			// Ask the runtime to shut down.
-			await runningRuntime.shutdown();
+			await runningRuntime.shutdown(RuntimeExitReason.SwitchRuntime);
 
 			// Wait for the runtime onDidEndSession to solve, or for the timeout to expire
 			// (whichever comes first)
@@ -460,8 +460,7 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 			// are currently processing have been called (i.e. everyone knows it has exited)
 			setTimeout(() => {
 				if (languageRuntimeInfo.state === RuntimeState.Exited &&
-					(exit.reason === RuntimeExitReason.Restart ||
-						exit.reason === RuntimeExitReason.SwitchRuntime)) {
+					exit.reason === RuntimeExitReason.Restart) {
 					this._onWillStartRuntimeEmitter.fire(runtime);
 				}
 			}, 0);

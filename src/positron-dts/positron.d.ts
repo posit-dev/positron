@@ -570,7 +570,7 @@ declare module 'positron' {
 		 * runtime shutdown sequence has been successfully started (not
 		 * necessarily when it has completed).
 		 */
-		shutdown(): Thenable<void>;
+		shutdown(exitReason: RuntimeExitReason): Thenable<void>;
 
 		/**
 		 * Forcibly quits the runtime; returns a Thenable that resolves when the
