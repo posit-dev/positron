@@ -54,7 +54,6 @@
   },
   "devDependencies": {
     "@types/tail": "^2.2.1",
-    "@types/uuid": "^8.3.3",
     "@types/zeromq": "^5.2.1",
     "electron-rebuild": "^3.2.9",
     "ts-node": "^10.9.1"
@@ -62,7 +61,6 @@
   "dependencies": {
     "portfinder": "^1.0.28",
     "tail": "^2.2.6",
-    "uuid": "^9.0.0",
     "vscode-nls": "^5.2.0"
   },
   "repository": {
