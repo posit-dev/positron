@@ -31,7 +31,7 @@ export function activate(context: vscode.ExtensionContext) {
 	registerCommands(context, runtimes);
 
 	// Register formatter.
-	registerFormatter(context);
+	registerFormatter(context, runtimes);
 
 	// Provide tasks.
 	providePackageTasks(context);
