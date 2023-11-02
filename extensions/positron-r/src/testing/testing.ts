@@ -1,0 +1,65 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
+ *--------------------------------------------------------------------------------------------*/
+
+import * as vscode from 'vscode';
+import { ItemType, TestingTools } from './util-testing';
+import { discoverTestFiles, loadTestsFromFile } from './loader';
+import { createTestthatWatchers } from './watcher';
+import { runHandler } from './runner';
+import { Logger } from '../extension';
+
+export function discoverTests(context: vscode.ExtensionContext) {
+	const extConfig = vscode.workspace.getConfiguration('positron.r');
+	const testingFeatureFlag = extConfig.get<string>('testing.experimental');
+
+	if (!testingFeatureFlag) {
+		return [];
+	}
+
+	// TODO: check workspace folder(s) for package-hood
+	// if no package, return
+	// if exactly one package among the workspace folders, proceed
+	// consider adding package metadata to testingTools (eg name and filepath)
+	// if >1 package, consult our non-existent policy re: multi-root, multi-package workspace
+
+	const controller = vscode.tests.createTestController(
+		'rPackageTests',
+		'R Package Tests'
+	);
+	context.subscriptions.push(controller);
+
+	const testItemData = new WeakMap<vscode.TestItem, ItemType>();
+	const testingTools: TestingTools = {
+		controller,
+		testItemData,
+	};
+
+	// The first time this is called, `test` is undefined, therefore we do full file discovery and
+	// set up file watchers for the future.
+	// In subsequent calls, `test` will refer to a test file.
+	controller.resolveHandler = async (test) => {
+		if (test) {
+			await loadTestsFromFile(testingTools, test);
+		} else {
+			await discoverTestFiles(testingTools);
+			// there will be one watcher per workspace folder (so, usually, just one)
+			const watchers = await createTestthatWatchers(testingTools);
+			for (const watcher of watchers) {
+				context.subscriptions.push(watcher);
+			}
+			Logger.info('Testthat file watchers are in place.');
+		}
+	};
+
+	// We'll create the "run" type profile here, and give it the function to call.
+	// You can also create debug and coverage profile types. The last `true` argument
+	// indicates that this should by the default "run" profile, in case there were
+	// multiple run profiles.
+	controller.createRunProfile(
+		'Run',
+		vscode.TestRunProfileKind.Run,
+		(request, token) => runHandler(testingTools, request, token),
+		true
+	);
+}

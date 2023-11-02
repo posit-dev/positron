@@ -9,7 +9,7 @@ import { registerCommands } from './commands';
 import { registerFormatter } from './formatting';
 import { providePackageTasks } from './tasks';
 import { setContexts } from './contexts';
-import { discoverTests } from './testing';
+import { discoverTests } from './testing/testing';
 import { rRuntimeProvider } from './provider';
 import { RRuntime } from './runtime';
 
