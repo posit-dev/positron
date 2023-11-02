@@ -22,6 +22,7 @@ export class NotebookController implements vscode.Disposable {
 	// Notebook runtimes keyed by notebook.
 	private notebookRuntimes: Map<vscode.NotebookDocument, NotebookRuntime> = new Map();
 
+	// Incremented for each cell we create to give it unique ID.
 	private static CELL_COUNTER = 0;
 
 	/**
