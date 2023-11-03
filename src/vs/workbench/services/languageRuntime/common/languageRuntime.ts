@@ -285,6 +285,8 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 					new Error(`${formatLanguageRuntime(runningRuntime)} is already running.`));
 			}
 
+			// We wait for `onDidEndSession()` rather than `RuntimeState.Exited`, because the former
+			// generates some Console output that must finish before starting up a new runtime:
 			const promise = new Promise<void>(resolve => {
 				const disposable = runningRuntime.onDidEndSession((exit) => {
 					resolve();
