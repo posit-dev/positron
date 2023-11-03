@@ -308,12 +308,55 @@ export abstract class Layout extends Disposable implements IWorkbenchLayoutServi
 			}
 		};
 
+		// --- Start Positron ---
+		/**
+		 * onDidVisibleEditorsChange event handler.
+		 */
+		const onDidVisibleEditorsChangeHandler = () => {
+			// When the panel position is bottom and the panel alignment is center, and there isn't
+			// an active editor, and the editor isn't hidden, then we want to hide the editor.
+			if (this.getPanelPosition() === Position.BOTTOM &&
+				this.getPanelAlignment() === 'center' &&
+				!this.editorService.activeEditor &&
+				!this.stateModel.getRuntimeValue(LayoutStateKeys.EDITOR_HIDDEN)) {
+				// Get the panel size and set the last non-maximized height.
+				const size = this.workbenchGrid.getViewSize(this.panelPartView);
+				this.stateModel.setRuntimeValue(
+					LayoutStateKeys.PANEL_LAST_NON_MAXIMIZED_HEIGHT,
+					size.height
+				);
+
+				// Hide the editor.
+				this.setEditorHidden(true);
+				return;
+			}
+
+			// Fall back to VS Code's handler logic from showEditorIfHidden above.
+			if (!this.isVisible(Parts.EDITOR_PART)) {
+				this.toggleMaximizedPanel();
+			}
+		};
+		// --- End Positron ---
+
 		// Wait to register these listeners after the editor group service
 		// is ready to avoid conflicts on startup
 		this.editorGroupService.mainPart.whenRestored.then(() => {
+			// --- Start Positron ---
+			if (this.getPanelPosition() === Position.BOTTOM &&
+				this.getPanelAlignment() === 'center' &&
+				!this.editorService.activeEditor &&
+				!this.stateModel.getRuntimeValue(LayoutStateKeys.EDITOR_HIDDEN)) {
+
+				this.setEditorHidden(true);
+				console.log('There is no editor. We should hide the editor part');
+			}
+			// --- End Positron ---
 
 			// Restore editor part on any editor change
-			this._register(this.editorService.onDidVisibleEditorsChange(showEditorIfHidden));
+			// --- Start Positron ---
+			// this._register(this.editorService.onDidVisibleEditorsChange(showEditorIfHidden));
+			this._register(this.editorService.onDidVisibleEditorsChange(onDidVisibleEditorsChangeHandler));
+			// --- End Positron ---
 			this._register(this.editorGroupService.onDidActivateGroup(showEditorIfHidden));
 
 			// Revalidate center layout when active editor changes: diff editor quits centered mode.
