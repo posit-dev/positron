@@ -5,7 +5,7 @@
 import 'vs/css!./outputRun';
 import * as React from 'react';
 import { CSSProperties } from 'react'; // eslint-disable-line no-duplicate-imports
-// import * as nls from 'vs/nls';
+import { localize } from 'vs/nls';
 import { ANSIColor, ANSIOutputRun, ANSIStyle } from 'vs/base/common/ansiOutput';
 import { usePositronConsoleContext } from 'vs/workbench/contrib/positronConsole/browser/positronConsoleContext';
 import { Schemas } from 'vs/base/common/network';
@@ -93,7 +93,10 @@ export const OutputRun = (props: OutputRunProps) => {
 			positronConsoleContext.openerService.open(url);
 		} else {
 			// Can't happen.
-			positronConsoleContext.notificationService.error('The hyperlink could not be opened.');
+			positronConsoleContext.notificationService.error(localize(
+				'positron.unableToOpenHyperlink',
+				"The hyperlink could not be opened."
+			));
 		}
 	};
 
