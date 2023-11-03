@@ -160,7 +160,7 @@ declare module 'positron' {
 	 * language runtime exits.
 	 */
 	export interface LanguageRuntimeExit {
-		/** Runtime's name */
+		/** Runtime name */
 		runtime_name: string;
 
 		/**
