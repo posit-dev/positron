@@ -16,7 +16,7 @@ import { INotebookOutputWebview, IPositronNotebookOutputWebviewService } from 'v
 import { IWebviewService, WebviewInitInfo } from 'vs/workbench/contrib/webview/browser/webview';
 import { asWebviewUri } from 'vs/workbench/contrib/webview/common/webview';
 import { IExtensionService } from 'vs/workbench/services/extensions/common/extensions';
-import { ILanguageRuntime, ILanguageRuntimeMessageOutput } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntime, ILanguageRuntimeMessageOutput, ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 
 export class PositronNotebookOutputWebviewService implements IPositronNotebookOutputWebviewService {
 
@@ -28,6 +28,7 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 		@INotebookService private readonly _notebookService: INotebookService,
 		@IWorkspaceTrustManagementService private readonly _workspaceTrustManagementService: IWorkspaceTrustManagementService,
 		@IExtensionService private readonly _extensionService: IExtensionService,
+		@ILanguageRuntimeService private readonly _languageRuntimeService: ILanguageRuntimeService
 	) {
 	}
 
@@ -135,6 +136,12 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 			this._workspaceTrustManagementService.isWorkspaceTrusted(),
 			id);
 
+		// Get auxiliary resource roots from the runtime service and convert
+		// them to webview URIs
+		const resourceRoots =
+			(await this._languageRuntimeService.getLocalResourceRoots(mimeType, data))
+				.map(uri => asWebviewUri(uri));
+
 		// Create the metadata for the webview
 		const webviewInitInfo: WebviewInitInfo = {
 			contentOptions: {
@@ -145,7 +152,8 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 				localResourceRoots: [
 					// Ensure that the renderer can load local resources from
 					// the extension that provides it
-					renderer.extensionLocation
+					renderer.extensionLocation,
+					...resourceRoots
 				],
 			},
 			extension: {
