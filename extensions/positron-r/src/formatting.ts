@@ -71,7 +71,8 @@ class FormatterProvider implements vscode.DocumentFormattingEditProvider {
 		});
 
 		// Actual formatting is done by styler
-		runtime.execute(`styler::style_file('${stylerFile}')`,
+		runtime.execute(
+			`withr::with_options(list(styler.quiet = TRUE), styler::style_file('${stylerFile}'))`,
 			id,
 			positron.RuntimeCodeExecutionMode.Silent,
 			positron.RuntimeErrorBehavior.Continue);
