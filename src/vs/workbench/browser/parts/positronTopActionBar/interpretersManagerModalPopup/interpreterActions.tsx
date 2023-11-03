@@ -8,7 +8,7 @@ import { PropsWithChildren, useEffect, useState } from 'react'; // eslint-disabl
 import { localize } from 'vs/nls';
 import { DisposableStore } from 'vs/base/common/lifecycle';
 import { PositronButton } from 'vs/base/browser/ui/positronComponents/positronButton';
-import { ILanguageRuntime, RuntimeExitReason, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntime, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 
 /**
  * InterpreterActionsProps interface.
@@ -95,7 +95,7 @@ export const InterpreterActions = (props: PropsWithChildren<InterpreterActionsPr
 				runtimeState === RuntimeState.Offline ||
 				runtimeState === RuntimeState.Interrupting
 			) &&
-				<PositronButton className='action-button' onClick={() => props.runtime.shutdown(RuntimeExitReason.Shutdown)}>
+				<PositronButton className='action-button' onClick={() => props.runtime.shutdown()}>
 					<span
 						className='codicon codicon-positron-power-button'
 						title={localize('positronStopTheInterpreter', "Stop the interpreter")}

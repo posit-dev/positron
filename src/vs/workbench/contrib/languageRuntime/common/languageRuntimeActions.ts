@@ -11,7 +11,7 @@ import { ServicesAccessor } from 'vs/platform/instantiation/common/instantiation
 import { IExtensionService } from 'vs/workbench/services/extensions/common/extensions';
 import { IQuickInputService, IQuickPickItem } from 'vs/platform/quickinput/common/quickInput';
 import { LANGUAGE_RUNTIME_ACTION_CATEGORY } from 'vs/workbench/contrib/languageRuntime/common/languageRuntime';
-import { ILanguageRuntime, ILanguageRuntimeService, IRuntimeClientInstance, RuntimeClientType, RuntimeExitReason } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntime, ILanguageRuntimeService, IRuntimeClientInstance, RuntimeClientType } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { IKeybindingRule, KeybindingWeight } from 'vs/platform/keybinding/common/keybindingsRegistry';
 import { KeyCode, KeyMod } from 'vs/base/common/keyCodes';
 import { IPositronConsoleService } from 'vs/workbench/services/positronConsole/common/interfaces/positronConsoleService';
@@ -242,7 +242,7 @@ export function registerLanguageRuntimeActions() {
 		(await selectRunningLanguageRuntime(
 			accessor.get(ILanguageRuntimeService),
 			accessor.get(IQuickInputService),
-			'Select the interpreter to shutdown'))?.shutdown(RuntimeExitReason.Shutdown);
+			'Select the interpreter to shutdown'))?.shutdown();
 	});
 
 	// Registers the force quit language runtime action.
