@@ -634,16 +634,18 @@ declare module 'positron' {
 		data: any) => vscode.Uri[];
 
 	/**
-	 * A data structure that describes a local resource root provider
+	 * A data structure that describes a local resource root provider.
 	 */
 	export interface RuntimeResourceRootProvider {
 		/**
-		 * The MIME type supported by this renderer.
+		 * The MIME type supported by this provider.
 		 */
 		mimeType: string;
 
 		/**
-		 * A callback that is called when a client of the given type is created.
+		 * A callback invoked when data matching the MIME type is being rendered
+		 * in a webview. The callback returns additional local resource roots
+		 * that should be used to resolve local resources referenced by the data.
 		 */
 		callback: RuntimeResourceRootProviderCallback;
 	}
@@ -953,8 +955,9 @@ declare module 'positron' {
 		export function registerClientHandler(handler: RuntimeClientHandler): vscode.Disposable;
 
 		/**
-		 * A provider that supplies the root paths from which the webview can load local
-		 * (filesystem) resources using uris from `asWebviewUri`.
+		 * A provider that supplies additional root paths from which a webview
+		 * can load local (filesystem) resources, when rendering HTML content
+		 * returned by a runtime.
 		 */
 		export function registerLocalResourceRootsProvider(provider: RuntimeResourceRootProvider):
 			vscode.Disposable;

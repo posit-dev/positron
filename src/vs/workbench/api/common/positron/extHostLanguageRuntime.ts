@@ -29,6 +29,8 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 
 	private readonly _runtimeProviders = new Array<LanguageRuntimeProvider>();
 
+	private readonly _resourceRootProviders = new Array<positron.RuntimeResourceRootProvider>();
+
 	private readonly _clientInstances = new Array<ExtHostRuntimeClientInstance>();
 
 	private readonly _clientHandlers = new Array<positron.RuntimeClientHandler>();
@@ -305,6 +307,30 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 			this._runtimeProviders.push({ extension, provider });
 		}
 	}
+
+	/**
+	 * Registers a local resource root provider.
+	 *
+	 * @param provider A provider that supplies resource roots for data returned
+	 * from a language runtime.
+	 *
+	 * @returns A Disposable that unregisters the provider when disposed.
+	 */
+	public registerLocalResourceRootsProvider(provider: positron.RuntimeResourceRootProvider):
+		IDisposable {
+
+		// Add to our set of resource root providers
+		this._resourceRootProviders.push(provider);
+
+		// Return a disposable that removes the provider from the set when it's disposed
+		return new Disposable(() => {
+			const index = this._resourceRootProviders.indexOf(provider);
+			if (index >= 0) {
+				this._resourceRootProviders.splice(index, 1);
+			}
+		});
+	}
+
 
 	public registerLanguageRuntime(
 		extension: IExtensionDescription,
