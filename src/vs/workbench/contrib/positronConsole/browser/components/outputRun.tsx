@@ -14,6 +14,8 @@ import { Schemas } from 'vs/base/common/network';
  * Constants.
  */
 const numberRegex = /^\d+$/;
+const fileURLWithLine = /^(file:\/\/\/.+):(\d+)$/;
+const fileURLWithLineAndColumn = /^(file:\/\/\/.+):(\d+):(\d+)$/;
 
 // OutputRunProps interface.
 export interface OutputRunProps {
@@ -57,6 +59,23 @@ export const OutputRun = (props: OutputRunProps) => {
 		// Get the line parameter. If it's not present, return the URL.
 		const line = props.outputRun.hyperlink.params?.get('line') || undefined;
 		if (!line) {
+			// See if the URL has line / column information in :line:col format.
+			{
+				const match = url.match(fileURLWithLineAndColumn);
+				if (match && match.length === 4) {
+					return `${match[1]}#${match[2]},${match[3]}`;
+				}
+			}
+
+			// See if the URL has line information in :line format.
+			{
+				const match = url.match(fileURLWithLine);
+				if (match && match.length === 3) {
+					return `${match[1]}#${match[2]},1`;
+				}
+			}
+
+			// Just return the URL without line / column information.
 			return url;
 		}
 		const lineMatch = line.match(numberRegex);
