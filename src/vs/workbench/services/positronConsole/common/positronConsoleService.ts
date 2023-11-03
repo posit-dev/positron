@@ -1621,9 +1621,6 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	 * has become ready, since at that point the restart is complete.
 	 */
 	private clearRestartItems() {
-		if (this._trace) {
-			this.addRuntimeItemTrace(`clearRestartItems`);
-		}
 
 		const itemCount = this._runtimeItems.length;
 
@@ -1633,10 +1630,6 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 
 		// If we removed buttons, fire the runtime items changed event.
 		if (this._runtimeItems.length !== itemCount) {
-			if (this._trace) {
-				this.addRuntimeItemTrace(`Removed RuntimeItemRestartButton`);
-			}
-
 			this._onDidChangeRuntimeItemsEmitter.fire();
 		}
 	}

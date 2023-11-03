@@ -301,7 +301,7 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 			// Ask the runtime to shut down.
 			await runningRuntime.shutdown(RuntimeExitReason.SwitchRuntime);
 
-			// Wait for the runtime onDidEndSession to solve, or for the timeout to expire
+			// Wait for the runtime onDidEndSession to resolve, or for the timeout to expire
 			// (whichever comes first)
 			await Promise.race([promise, timeout]);
 		}
