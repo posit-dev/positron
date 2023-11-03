@@ -246,7 +246,6 @@ jobs:
 
           # Create the disk image itself.
           hdiutil create \
-            -verbose \
             -size 1g \
             -fs "APFS" \
             -volname "${POSITRON_BUNDLE_NAME}" \
