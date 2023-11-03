@@ -1031,7 +1031,14 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 		// Set the state and add the appropriate runtime item to indicate whether the Positron
 		// console instance is is starting or is reconnected.
 		if (starting) {
-			const restart = this._state === PositronConsoleState.Exited;
+			let switchingRuntime = false;
+			for (let i = 0; i < this._runtimeItems.length; i++) {
+				if (this._runtimeItems[i] instanceof RuntimeItemExited) {
+					const runtimeItem = this._runtimeItems[i] as RuntimeItemExited;
+					switchingRuntime = runtimeItem.reason === RuntimeExitReason.SwitchRuntime;
+				}
+			}
+			const restart = this._state === PositronConsoleState.Exited && !switchingRuntime;
 			this.setState(PositronConsoleState.Starting);
 			this.addRuntimeItem(new RuntimeItemStarting(
 				generateUuid(),
