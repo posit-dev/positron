@@ -3,6 +3,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import type * as positron from 'positron';
+import type * as vscode from 'vscode';
 import { ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMessageCommData, ILanguageRuntimeMessageCommOpen, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import * as extHostProtocol from './extHost.positron.protocol';
 import { Emitter } from 'vs/base/common/event';
@@ -331,6 +332,27 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		});
 	}
 
+	/**
+	 * Gets the local resource roots needed to render a given MIME type and data.
+	 *
+	 * @param mimeType The MIME type of the data
+	 * @param data The data
+	 * @returns A promise that resolves to the local resource roots needed to
+	 *   render the data in a webview.
+	 */
+	public $getLocalResourceRoots(mimeType: string, data: any): Promise<vscode.Uri[]> {
+		const uris = new Array<vscode.Uri>();
+
+		// Loop over the providers and invoke each one that matches the MIME
+		// type, accumulating the results
+		for (const provider of this._resourceRootProviders) {
+			if (provider.mimeType === mimeType) {
+				uris.push(...provider.callback(data));
+			}
+		}
+
+		return Promise.resolve(uris);
+	}
 
 	public registerLanguageRuntime(
 		extension: IExtensionDescription,

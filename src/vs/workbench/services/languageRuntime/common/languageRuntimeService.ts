@@ -4,6 +4,7 @@
 
 import { Event } from 'vs/base/common/event';
 import { IDisposable } from 'vs/base/common/lifecycle';
+import { URI } from 'vs/base/common/uri';
 import { ExtensionIdentifier } from 'vs/platform/extensions/common/extensions';
 import { createDecorator } from 'vs/platform/instantiation/common/instantiation';
 import { IRuntimeClientInstance, RuntimeClientType } from 'vs/workbench/services/languageRuntime/common/languageRuntimeClientInstance';
@@ -513,6 +514,11 @@ export interface ILanguageRuntimeDynState {
 	busy: boolean;
 }
 
+/**
+ * A provider for local resource roots.
+ */
+export type RuntimeResourceRootProvider = (mimeType: string, data: any) => Promise<URI[]>;
+
 export interface ILanguageRuntime {
 	/** The language runtime's static metadata */
 	readonly metadata: ILanguageRuntimeMetadata;
@@ -694,5 +700,17 @@ export interface ILanguageRuntimeService {
 	 */
 	restartRuntime(runtimeId: string, source: string): Promise<void>;
 
+	/**
+	 * Establish a provider for local resource roots.
+	 *
+	 * @param provider The resource root provider
+	 */
+	setLocalResourceRootProvider(provider: RuntimeResourceRootProvider): void;
+
+	/**
+	 * Provide local resource roots for a given MIME type and data.
+	 */
+	getLocalResourceRoots(mimeType: string, data: any): Promise<URI[]>;
 }
+
 export { RuntimeClientType, IRuntimeClientInstance };
