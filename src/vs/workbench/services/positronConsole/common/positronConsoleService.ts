@@ -1621,7 +1621,6 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	 * has become ready, since at that point the restart is complete.
 	 */
 	private clearRestartItems() {
-
 		const itemCount = this._runtimeItems.length;
 
 		// Remove all restart buttons from the console.
