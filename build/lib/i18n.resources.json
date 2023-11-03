@@ -83,17 +83,15 @@
 			"project": "vscode-workbench"
 		},
 		{
-<<<<<<< HEAD
 			"name": "vs/workbench/services/languageRuntime",
 			"project": "vscode-workbench"
 		},
 		{
 			"name": "vs/workbench/services/voiceRecognition",
-||||||| ba36ae4dcca
-			"name": "vs/workbench/services/voiceRecognition",
-=======
+			"project": "vscode-workbench"
+		},
+		{
 			"name": "vs/workbench/services/auxiliaryWindow",
->>>>>>> 1.84.0
 			"project": "vscode-workbench"
 		},
 		{
