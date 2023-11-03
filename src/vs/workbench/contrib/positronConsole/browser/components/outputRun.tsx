@@ -5,9 +5,15 @@
 import 'vs/css!./outputRun';
 import * as React from 'react';
 import { CSSProperties } from 'react'; // eslint-disable-line no-duplicate-imports
-import * as nls from 'vs/nls';
+import { localize } from 'vs/nls';
 import { ANSIColor, ANSIOutputRun, ANSIStyle } from 'vs/base/common/ansiOutput';
 import { usePositronConsoleContext } from 'vs/workbench/contrib/positronConsole/browser/positronConsoleContext';
+import { Schemas } from 'vs/base/common/network';
+
+/**
+ * Constants.
+ */
+const numberRegex = /^\d+$/;
 
 // OutputRunProps interface.
 export interface OutputRunProps {
@@ -32,17 +38,65 @@ export const OutputRun = (props: OutputRunProps) => {
 	}
 
 	/**
+	 * Builds the hyperlink URL for the output run.
+	 * @returns The hyperlink URL for the output run. Returns undefined if the output run's
+	 * hyperlink is undefined.
+	 */
+	const buildHyperlinkURL = () => {
+		// If the hyperlink is undefined, return undefined.
+		if (!props.outputRun.hyperlink) {
+			return undefined;
+		}
+
+		// Get the URL. If it's not a file URL, return it.
+		let url = props.outputRun.hyperlink.url;
+		if (!url.startsWith(`${Schemas.file}:`)) {
+			return url;
+		}
+
+		// Get the line parameter. If it's not present, return the URL.
+		const line = props.outputRun.hyperlink.params?.get('line') || undefined;
+		if (!line) {
+			return url;
+		}
+		const lineMatch = line.match(numberRegex);
+		if (!lineMatch) {
+			return url;
+		}
+
+		// Append the line number to the URL.
+		url += `#${lineMatch[0]}`;
+
+		// Get the column parameter. If it's not present, return the URL.
+		const col = props.outputRun.hyperlink.params?.get('col') || undefined;
+		if (!col) {
+			return url;
+		}
+		const colMatch = col.match(numberRegex);
+		if (!colMatch) {
+			return url;
+		}
+
+		// Append the column number to the URL.
+		url += `,${colMatch[0]}`;
+
+		// Return the URL.
+		return url;
+	};
+
+	/**
 	 * Hyperlink click handler.
 	 */
-	const clickHandler = () => {
-		// Open the hyperlink.
-		if (props.outputRun.hyperlink) {
-			positronConsoleContext.openerService.open(props.outputRun.hyperlink.url);
+	const hyperlinkClickHandler = () => {
+		const url = buildHyperlinkURL();
+		if (url) {
+			positronConsoleContext.openerService.open(url);
 		} else {
 			// Can't happen.
-			positronConsoleContext.notificationService.error(
-				nls.localize('positron.unableToOpenHyperlink', "The hyperlink could not be opened.")
-			);
+			positronConsoleContext.notificationService.error(localize(
+				'positron.unableToOpenHyperlink',
+				"The hyperlink could not be opened."
+			));
 		}
 	};
 
@@ -250,7 +304,7 @@ export const OutputRun = (props: OutputRunProps) => {
 		);
 	} else {
 		return (
-			<a className='output-run-hyperlink' href='#' onClick={clickHandler}>
+			<a className='output-run-hyperlink' href='#' onClick={hyperlinkClickHandler}>
 				<span style={computeCSSProperties(props.outputRun)}>{props.outputRun.text}</span>
 			</a>
 		);
