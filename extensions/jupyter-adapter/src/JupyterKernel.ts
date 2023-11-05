@@ -1358,6 +1358,15 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 			output.appendLine(`[${prefix}] ${error}`);
 		});
 
+		// Initialise number of lines seen, which might not be zero as the
+		// kernel might have already started outputing lines, or we might be
+		// refreshing with an existing log file. This is used for flushing
+		// the tail of the log on disposal. There is a race condition here so
+		// this might be slightly off, causing duplicate lines in the tail of
+		// the log.
+		const lines = fs.readFileSync(this._session!.state.logFile, 'utf8').split('\n');
+		this._logNLines = lines.length;
+
 		// Start watching the log file. This streams output until the kernel is
 		// disposed.
 		this._logTail.watch();
