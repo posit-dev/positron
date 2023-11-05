@@ -1354,6 +1354,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 			output.appendLine(`[${prefix}] ${data}`);
 		});
 		this._logTail.on('error', function (error: string) {
+			ses._logNLines += 1;
 			output.appendLine(`[${prefix}] ${error}`);
 		});
 
