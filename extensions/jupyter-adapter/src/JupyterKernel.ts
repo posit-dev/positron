@@ -6,7 +6,6 @@ import * as vscode from 'vscode';
 import * as positron from 'positron';
 import * as os from 'os';
 import * as fs from 'fs';
-import * as rl from 'readline';
 import { JupyterSocket } from './JupyterSocket';
 import { serializeJupyterMessage } from './JupyterMessageSerializer';
 import { deserializeJupyterMessage } from './JupyterMessageDeserializer';
@@ -1048,26 +1047,19 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 
 		this._logTail.unwatch();
 
-		// Push remaining lines in case new line events
-		// haven't had time to fire up before unwatching.
 		const file = this._session!.state.logFile;
 		if (!file || !fs.existsSync(file) || !this._logChannel) {
 			return;
 		}
 
-		const lines = rl.createInterface({
-			input: fs.createReadStream(file)
-		});
+		const lines = fs.readFileSync(this._session!.state.logFile, 'utf8').split('\n');
 
-		let i = 0;
-
-		for await (const line of lines) {
-			// Skip lines that we've already seen
-			if (++i <= this._logNLines) {
-				continue;
-			}
+		// Push remaining lines in case new line events haven't had time to
+		// fire up before unwatching. We skip lines that we've already seen and
+		// flush the rest.
+		for (let i = this._logNLines + 1; i < lines.length; ++i) {
 			const prefix = this._spec.language;
-			this._logChannel.appendLine(`[${prefix}] ${line}`);
+			this._logChannel.appendLine(`[${prefix}] ${lines[i]}`);
 		}
 	}
 
@@ -1362,8 +1354,18 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 			output.appendLine(`[${prefix}] ${data}`);
 		});
 		this._logTail.on('error', function (error: string) {
+			ses._logNLines += 1;
 			output.appendLine(`[${prefix}] ${error}`);
 		});
+
+		// Initialise number of lines seen, which might not be zero as the
+		// kernel might have already started outputing lines, or we might be
+		// refreshing with an existing log file. This is used for flushing
+		// the tail of the log on disposal. There is a race condition here so
+		// this might be slightly off, causing duplicate lines in the tail of
+		// the log.
+		const lines = fs.readFileSync(this._session!.state.logFile, 'utf8').split('\n');
+		this._logNLines = lines.length;
 
 		// Start watching the log file. This streams output until the kernel is
 		// disposed.
