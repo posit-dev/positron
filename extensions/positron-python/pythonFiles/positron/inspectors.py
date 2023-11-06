@@ -4,7 +4,9 @@
 from __future__ import annotations
 
 import copy
+import datetime
 import inspect
+import json
 import logging
 import numbers
 import sys
@@ -22,17 +24,22 @@ from collections.abc import (
 from typing import (
     Any,
     Callable,
+    Collection,
     Dict,
     FrozenSet,
     Generic,
+    Hashable,
     Iterable,
     List,
     Optional,
+    Protocol,
     Sized,
     Tuple,
     TYPE_CHECKING,
+    Type,
     TypeVar,
     Union,
+    cast,
 )
 
 from .dataviewer import DataColumn, DataSet
@@ -44,8 +51,6 @@ if TYPE_CHECKING:
     import polars as pl
     import torch
 
-    from .environment import EnvironmentVariable
-
 # General display settings
 MAX_ITEMS: int = 10000
 MAX_CHILDREN: int = 100
@@ -56,17 +61,20 @@ PRINT_WIDTH: int = 100
 ARRAY_THRESHOLD = 20
 ARRAY_EDGEITEMS = 9
 
-# Marker used to track if our default object was returned from a
-# conditional property lookup
-__POSITRON_DEFAULT__ = object()
-
 logger = logging.getLogger(__name__)
 
 #
 # Base inspector
 #
 
+JsonData = Union[Dict[str, "JsonData"], List["JsonData"], str, int, float, bool, None]
 T = TypeVar("T")
+T_co = TypeVar("T_co", covariant=True)
+
+
+class Summarizer(Protocol[T_co]):
+    def __call__(self, key: Any, value: Any) -> Optional[T_co]:
+        ...
 
 
 class PositronInspector(Generic[T]):
@@ -100,8 +108,8 @@ class PositronInspector(Generic[T]):
     def get_type_info(self, value: T) -> str:
         return get_qualname(type(value))
 
-    def get_access_key(self, name: str) -> str:
-        return self.get_display_name(name)
+    def get_access_key(self, key: Any) -> str:
+        return encode_access_key(key)
 
     def get_length(self, value: T) -> int:
         return len(value) if isinstance(value, Sized) else 0
@@ -112,17 +120,17 @@ class PositronInspector(Generic[T]):
     def has_children(self, value: T) -> bool:
         return self.get_length(value) > 0
 
-    def has_child(self, value: T, child_name: str) -> bool:
+    def has_child(self, value: T, access_key: str) -> bool:
         return False
 
-    def get_child(self, value: T, child_name: str) -> Any:
+    def get_child(self, value: T, access_key: str) -> Any:
         return None
 
     def summarize_children(
         self,
         value: T,
-        summarizer: Callable[[str, T], Optional[EnvironmentVariable]],
-    ) -> List[EnvironmentVariable]:
+        summarizer: Summarizer[T_co],
+    ) -> List[T_co]:
         return []
 
     def has_viewer(self, value: T) -> bool:
@@ -137,7 +145,7 @@ class PositronInspector(Generic[T]):
     def copy(self, value: T) -> T:
         return copy.copy(value)
 
-    def to_dataset(self, value: T, title: str) -> Optional[DataSet]:
+    def to_dataset(self, value: T, title: str) -> DataSet:
         raise TypeError(f"Type {type(value)} is not supported by `View()`.")
 
     def to_html(self, value: T) -> str:
@@ -145,6 +153,31 @@ class PositronInspector(Generic[T]):
 
     def to_plaintext(self, value: T) -> str:
         return repr(value)
+
+    def to_json(self, value: T) -> JsonData:
+        return dict(type=self.type_to_json(value), data=self.value_to_json(value))
+
+    def type_to_json(self, value: T) -> str:
+        return self.get_type_info(value)
+
+    def value_to_json(self, value: T) -> JsonData:
+        raise NotImplementedError(
+            f"value_to_json() is not implemented for this type. type: {type(value)}"
+        )
+
+    def from_json(self, json_data: JsonData) -> T:
+        if not isinstance(json_data, dict):
+            raise ValueError(f"Expected json_data to be dict, got {json_data}")
+
+        if not isinstance(json_data["type"], str):
+            raise ValueError(f"Expected json_data['type'] to be str, got {json_data['type']}")
+
+        return self.value_from_json(json_data["type"], json_data["data"])
+
+    def value_from_json(self, type_name: str, data: JsonData) -> T:
+        raise NotImplementedError(
+            f"value_from_json() is not implemented for this type. type_name: {type_name}, data: {data}"
+        )
 
 
 #
@@ -155,6 +188,15 @@ class PositronInspector(Generic[T]):
 class BooleanInspector(PositronInspector[bool]):
     def get_kind(self, value: bool) -> str:
         return "boolean"
+
+    def value_to_json(self, value: bool) -> JsonData:
+        return value
+
+    def value_from_json(self, type_name: str, data: JsonData) -> bool:
+        if not isinstance(data, bool):
+            raise ValueError(f"Expected data to be bool, got {data}")
+
+        return data
 
 
 class BytesInspector(PositronInspector[bytes]):
@@ -169,6 +211,15 @@ class BytesInspector(PositronInspector[bytes]):
 
     def has_children(self, value: bytes) -> bool:
         return False
+
+    def value_to_json(self, value: bytes) -> str:
+        return value.decode()
+
+    def value_from_json(self, type_name: str, data: JsonData) -> bytes:
+        if not isinstance(data, str):
+            raise ValueError(f"Expected data to be str, got {data}")
+
+        return data.encode()
 
 
 class FunctionInspector(PositronInspector[Callable]):
@@ -192,6 +243,47 @@ class NumberInspector(PositronInspector[numbers.Number]):
     def get_kind(self, value: numbers.Number) -> str:
         return "number"
 
+    def type_to_json(self, value: numbers.Number) -> str:
+        # Note that our serialization of numbers is lossy, since for example `numpy.int8(0)` would
+        # be serialized as `int`. This is fine for our purposes, since `numpy.int8(0)` and `int(0)`
+        # can be used interchangeably as keys in a dictionary.
+        if isinstance(value, numbers.Integral):
+            return "int"
+        if isinstance(value, numbers.Real):
+            return "float"
+        if isinstance(value, numbers.Complex):
+            return "complex"
+        raise NotImplementedError(
+            f"type_to_json() is not implemented for this type. type: {type(value)}"
+        )
+
+    def value_to_json(self, value: numbers.Number) -> JsonData:
+        if isinstance(value, numbers.Integral):
+            return int(value)
+        if isinstance(value, numbers.Real):
+            return float(value)
+        if isinstance(value, numbers.Complex):
+            return str(value)
+        return super().value_to_json(value)
+
+    def value_from_json(self, type_name: str, data: JsonData) -> numbers.Number:
+        if type_name == "int":
+            if not isinstance(data, numbers.Integral):
+                raise ValueError(f"Expected data to be int, got {data}")
+            return data
+
+        if type_name == "float":
+            if not isinstance(data, numbers.Real):
+                raise ValueError(f"Expected data to be float, got {data}")
+            return data
+
+        if type_name == "complex":
+            if not isinstance(data, str):
+                raise ValueError(f"Expected data to be str, got {data}")
+            return cast(numbers.Number, complex(data))
+
+        return super().value_from_json(type_name, data)
+
 
 class StringInspector(PositronInspector[str]):
     def get_display_value(
@@ -213,6 +305,51 @@ class StringInspector(PositronInspector[str]):
     def has_children(self, value: str) -> bool:
         return False
 
+    def value_to_json(self, value: str) -> JsonData:
+        return value
+
+    def value_from_json(self, type_name: str, data: JsonData) -> str:
+        if not isinstance(data, str):
+            raise ValueError(f"Expected data to be str, got {data}")
+
+        return data
+
+
+Timestamp = TypeVar("Timestamp", datetime.datetime, "pd.Timestamp")
+
+
+class _BaseTimestampInspector(PositronInspector[Timestamp], ABC):
+    CLASS: Type[Timestamp]
+
+    @abstractmethod
+    def value_from_isoformat(self, string: str) -> Timestamp:
+        pass
+
+    def value_to_json(self, value: Timestamp) -> JsonData:
+        return value.isoformat()
+
+    def value_from_json(self, type_name: str, data: JsonData) -> Timestamp:
+        if not isinstance(data, str):
+            raise ValueError(f"Expected data to be str, got {data}")
+
+        return self.value_from_isoformat(data)
+
+
+class DatetimeInspector(_BaseTimestampInspector[datetime.datetime]):
+    CLASS_QNAME = "datetime.datetime"
+
+    def value_from_isoformat(self, string: str) -> datetime.datetime:
+        return datetime.datetime.fromisoformat(string)
+
+
+class PandasTimestampInspector(_BaseTimestampInspector["pd.Timestamp"]):
+    CLASS_QNAME = "pandas._libs.tslibs.timestamps.Timestamp"
+
+    def value_from_isoformat(self, string: str) -> pd.Timestamp:
+        import pandas as pd
+
+        return pd.Timestamp.fromisoformat(string)
+
 
 #
 # Collections
@@ -225,21 +362,21 @@ class _BaseCollectionInspector(PositronInspector[CT], ABC):
     def get_kind(self, value: CT) -> str:
         return "collection"
 
-    def has_child(self, value: CT, child_name: str) -> bool:
-        return int(child_name) < self.get_length(value)
+    def has_child(self, value: CT, access_key: str) -> bool:
+        return decode_access_key(access_key) < self.get_length(value)
 
     def summarize_children(
         self,
         value: CT,
-        summarizer: Callable[[str, Any], Optional[EnvironmentVariable]],
-    ) -> List[EnvironmentVariable]:
+        summarizer: Summarizer[T_co],
+    ) -> List[T_co]:
         # Treat collection items as children, with the index as the name
-        children: List[EnvironmentVariable] = []
+        children: List[T_co] = []
         for i, item in enumerate(value):
             if len(children) >= MAX_CHILDREN:
                 break
 
-            summary = summarizer(str(i), item)
+            summary = summarizer(i, item)
             if summary is not None:
                 children.append(summary)
 
@@ -248,11 +385,11 @@ class _BaseCollectionInspector(PositronInspector[CT], ABC):
 
 # We don't use typing.Sequence here since it includes mappings,
 # for which we have a separate inspector.
-Collection = Union[range, FrozenSet, Sequence, Set, Tuple]
+CollectionT = Union[range, FrozenSet, Sequence, Set, Tuple]
 
 
-class CollectionInspector(_BaseCollectionInspector[Collection]):
-    def get_display_type(self, value: Collection) -> str:
+class CollectionInspector(_BaseCollectionInspector[CollectionT]):
+    def get_display_type(self, value: CollectionT) -> str:
         # Display length for various collections and maps
         # using the Python notation for the type
         type_name = type(value).__name__
@@ -265,7 +402,7 @@ class CollectionInspector(_BaseCollectionInspector[Collection]):
         else:
             return f"{type_name} [{length}]"
 
-    def has_children(self, value: Collection) -> bool:
+    def has_children(self, value: CollectionT) -> bool:
         # For ranges, we don't visualize the children as they're
         # implied as a contiguous set of integers in a range.
         # For sets, we don't visualize the children as they're
@@ -275,96 +412,38 @@ class CollectionInspector(_BaseCollectionInspector[Collection]):
 
         return super().has_children(value)
 
-    def get_child(self, value: Collection, child_name: str) -> Any:
+    def get_child(self, value: CollectionT, access_key: str) -> Any:
         # Don't allow indexing into sets.
         if isinstance(value, (Set, FrozenSet)):
             return None
-        return value[int(child_name)]
+        return value[decode_access_key(access_key)]
 
-    def is_snapshottable(self, value: Collection) -> bool:
+    def is_snapshottable(self, value: CollectionT) -> bool:
         return isinstance(value, (MutableSequence, MutableSet))
 
+    def value_to_json(self, value: CollectionT) -> JsonData:
+        if isinstance(value, range):
+            return {"start": value.start, "stop": value.stop, "step": value.step}
 
-Column = TypeVar("Column", "pd.Series", "pl.Series")
+        return super().value_to_json(value)
 
+    def value_from_json(self, type_name: str, data: JsonData) -> CollectionT:
+        if type_name == "range":
+            if not isinstance(data, dict):
+                raise ValueError(f"Expected data to be dict, got {data}")
 
-class _BaseColumnInspector(_BaseCollectionInspector[Column]):
-    def get_display_value(
-        self,
-        value: pd.Series,
-        print_width: Optional[int] = PRINT_WIDTH,
-        truncate_at: int = TRUNCATE_AT,
-    ) -> Tuple[str, bool]:
-        display_value = str(value.head(MAX_CHILDREN).to_list())
-        return (display_value, True)
+            if not isinstance(data["start"], int):
+                raise ValueError(f"Expected data['start'] to be int, got {data['start']}")
 
-    def summarize_children(
-        self, value: Column, summarizer: Callable[[str, Any], Optional[EnvironmentVariable]]
-    ) -> List[EnvironmentVariable]:
-        children: List[EnvironmentVariable] = []
+            if not isinstance(data["stop"], int):
+                raise ValueError(f"Expected data['stop'] to be int, got {data['stop']}")
 
-        # Only include the first MAX_CHILDREN columns in the summary.
-        items = value.head(MAX_CHILDREN).to_list()
-        # TODO: We should use the index of the series as the access key.
-        for i, item in enumerate(items):
-            summary = summarizer(str(i), item)
-            if summary is None:
-                logger.warning(f"Failed to summarize column {value.name}")
-            else:
-                children.append(summary)
+            if not isinstance(data["step"], int):
+                raise ValueError(f"Expected data['step'] to be int, got {data['step']}")
 
-        return children
+            return range(data["start"], data["stop"], data["step"])
 
-    def to_data_column(self, value: Column, name: str) -> DataColumn:
-        # Use BaseModel.construct to avoid validation due to performance issues.
-        # TODO: Revisit __init__ and the new SkipValidation type when we upgrade to pydantic 2.0
-        # since the performance gap has been considerably reduced.
-        type_name = type(value).__name__
-        return DataColumn.construct(name=name, type=type_name, data=value.to_list())
-
-
-class PandasSeriesInspector(_BaseColumnInspector["pd.Series"]):
-    CLASS_QNAME = "pandas.core.series.Series"
-
-    def get_child(self, value: pd.Series, child_name: str) -> Any:
-        # TODO: We should use the index of the series as the access key.
-        return value.iat[int(child_name)]
-
-    def equals(self, value1: pd.Series, value2: pd.Series) -> bool:
-        return value1.equals(value2)
-
-    def copy(self, value: pd.Series) -> pd.Series:
-        return value.copy()
-
-    def to_html(self, value: pd.Series) -> str:
-        # TODO: Support HTML
-        return self.to_plaintext(value)
-
-    def to_plaintext(self, value: pd.Series) -> str:
-        return value.to_csv(path_or_buf=None, sep="\t")
-
-
-class PolarsSeriesInspector(_BaseColumnInspector["pl.Series"]):
-    CLASS_QNAME = [
-        "polars.series.series.Series",
-        "polars.internals.series.series.Series",
-    ]
-
-    def get_child(self, value: pl.Series, child_name: str) -> Any:
-        return value[int(child_name)]
-
-    def equals(self, value1: pl.Series, value2: pl.Series) -> bool:
-        return value1.series_equal(value2)
-
-    def copy(self, value: pl.Series) -> pl.Series:
-        return value.clone()
-
-    def to_html(self, value: pl.Series) -> str:
-        # TODO: Support HTML
-        return self.to_plaintext(value)
-
-    def to_plaintext(self, value: pl.Series) -> str:
-        return value.to_frame().write_csv(file=None, separator="\t")
+        return super().value_from_json(type_name, data)
 
 
 Array = TypeVar("Array", "np.ndarray", "torch.Tensor")
@@ -481,62 +560,114 @@ class TorchTensorInspector(_BaseArrayInspector["torch.Tensor"]):
 #
 
 
-MT = TypeVar("MT", Mapping, "pd.DataFrame", "pl.DataFrame")
+MT = TypeVar("MT", Mapping, "pd.DataFrame", "pl.DataFrame", "pd.Series", "pl.Series")
 
 
-class _BaseMapInspector(PositronInspector[MT]):
-    @abstractmethod
-    def get_child_names(self, value: MT) -> Iterable[Any]:
-        pass
-
-    def has_child(self, value: MT, child_name: Any) -> bool:
-        # Try to find an exact match
-        if child_name in value:
-            return True
-
-        # If we can't get an exact match, try to find a key whose str() matches
-        return any(str(key) == child_name for key in self.get_child_names(value))
-
-    def get_child(self, value: MT, child_name: Any) -> Any:
-        # Try to find an exact match
-        try:
-            return value[child_name]
-        except KeyError:
-            pass
-
-        # If we can't get an exact match, try to find a key whose str() matches
-        matches = [key for key in self.get_child_names(value) if str(key) == child_name]
-        if matches:
-            return value[matches[0]]
-
-        # We couldn't find a match
-        return None
-
-
-class MapInspector(_BaseMapInspector[Mapping]):
+class _BaseMapInspector(PositronInspector[MT], ABC):
     def get_kind(self, value: Mapping) -> str:
         return "map"
 
-    def get_child_names(self, value: Mapping) -> Iterable[Any]:
+    @abstractmethod
+    def get_keys(self, value: MT) -> Collection[Any]:
+        pass
+
+    def has_child(self, value: MT, access_key: str) -> bool:
+        return decode_access_key(access_key) in self.get_keys(value)
+
+    def get_child(self, value: MT, access_key: str) -> Any:
+        return value[decode_access_key(access_key)]
+
+    def summarize_children(self, value: MT, summarizer: Summarizer[T_co]) -> List[T_co]:
+        children: List[T_co] = []
+
+        for key in self.get_keys(value):
+            if len(children) >= MAX_CHILDREN:
+                break
+
+            child_value = value[key]
+            summary = summarizer(key, child_value)
+            if summary is not None:
+                children.append(summary)
+
+        return children
+
+
+class MapInspector(_BaseMapInspector[Mapping]):
+    def get_keys(self, value: Mapping) -> Collection[Any]:
         return value.keys()
 
     def is_snapshottable(self, value: Mapping) -> bool:
         return isinstance(value, MutableMapping)
 
-    def summarize_children(
-        self, value: Mapping, summarizer: Callable[[str, Any], Optional[EnvironmentVariable]]
-    ) -> List[EnvironmentVariable]:
-        children: List[EnvironmentVariable] = []
 
-        for key, value in value.items():
-            if len(children) >= MAX_CHILDREN:
-                break
+Column = TypeVar("Column", "pd.Series", "pl.Series")
 
-            summary = summarizer(str(key), value)
-            if summary is not None:
-                children.append(summary)
 
-        return children
+class _BaseColumnInspector(_BaseMapInspector[Column], ABC):
+    def get_child(self, value: Column, access_key: str) -> Any:
+        return value[decode_access_key(access_key)]
+
+    def get_display_type(self, value: Column) -> str:
+        return f"{value.dtype} [{self.get_length(value)}]"
+
+    def get_display_value(
+        self,
+        value: Column,
+        print_width: Optional[int] = PRINT_WIDTH,
+        truncate_at: int = TRUNCATE_AT,
+    ) -> Tuple[str, bool]:
+        display_value = str(value.head(MAX_CHILDREN).to_list())
+        return (display_value, True)
+
+    def to_data_column(self, value: Column, name: str) -> DataColumn:
+        # Use BaseModel.construct to avoid validation due to performance issues.
+        # TODO: Revisit __init__ and the new SkipValidation type when we upgrade to pydantic 2.0
+        # since the performance gap has been considerably reduced.
+        type_name = type(value).__name__
+        return DataColumn.construct(name=name, type=type_name, data=value.to_list())
+
+
+class PandasSeriesInspector(_BaseColumnInspector["pd.Series"]):
+    CLASS_QNAME = "pandas.core.series.Series"
+
+    def get_keys(self, value: pd.Series) -> Collection[Any]:
+        return value.index
+
+    def equals(self, value1: pd.Series, value2: pd.Series) -> bool:
+        return value1.equals(value2)
+
+    def copy(self, value: pd.Series) -> pd.Series:
+        return value.copy()
+
+    def to_html(self, value: pd.Series) -> str:
+        # TODO: Support HTML
+        return self.to_plaintext(value)
+
+    def to_plaintext(self, value: pd.Series) -> str:
+        return value.to_csv(path_or_buf=None, sep="\t")
+
+
+class PolarsSeriesInspector(_BaseColumnInspector["pl.Series"]):
+    CLASS_QNAME = [
+        "polars.series.series.Series",
+        "polars.internals.series.series.Series",
+    ]
+
+    def get_keys(self, value: pl.Series) -> Collection[Any]:
+        return range(len(value))
+
+    def equals(self, value1: pl.Series, value2: pl.Series) -> bool:
+        return value1.series_equal(value2)
+
+    def copy(self, value: pl.Series) -> pl.Series:
+        return value.clone()
+
+    def to_html(self, value: pl.Series) -> str:
+        # TODO: Support HTML
+        return self.to_plaintext(value)
+
+    def to_plaintext(self, value: pl.Series) -> str:
+        return value.to_frame().write_csv(file=None, separator="\t")
 
 
 Table = TypeVar("Table", "pd.DataFrame", "pl.DataFrame")
@@ -558,35 +689,12 @@ class _BaseTableInspector(_BaseMapInspector[Table], Generic[Table, Column], ABC)
     def get_length(self, value: Table) -> int:
         return value.shape[0]
 
-    def get_child_names(self, value: Table) -> Iterable[Any]:
+    def get_keys(self, value: Table) -> Collection[Any]:
         return value.columns
 
     @abstractmethod
     def get_column_inspector(self) -> _BaseColumnInspector[Column]:
         pass
-
-    def summarize_children(
-        self, value: Table, summarizer: Callable[[str, Any], Optional[EnvironmentVariable]]
-    ) -> List[EnvironmentVariable]:
-        children: List[EnvironmentVariable] = []
-
-        length = self.get_length(value)
-        for column_name in self.get_child_names(value):
-            # Only include the first MAX_CHILDREN columns in the summary.
-            if len(children) >= MAX_CHILDREN:
-                break
-
-            column_value = self.get_child(value, column_name)
-            summary = summarizer(str(column_name), column_value)
-            if summary is None:
-                logger.warning(f"Failed to summarize column {column_name} in table")
-            else:
-                # Override the column's display type to only show the datatype and length.
-                summary.display_type = f"{column_value.dtype} [{length}]"
-
-                children.append(summary)
-
-        return children
 
     def has_viewer(self, value: Table) -> bool:
         return True
@@ -598,8 +706,8 @@ class _BaseTableInspector(_BaseMapInspector[Table], Generic[Table, Column], ABC)
         column_inspector = self.get_column_inspector()
 
         columns: List[DataColumn] = []
-        for column_name in self.get_child_names(value):
-            column_value = self.get_child(value, column_name)
+        for column_name in self.get_keys(value):
+            column_value = cast(Column, value[column_name])
             data_column = column_inspector.to_data_column(column_value, str(column_name))
             columns.append(data_column)
         rowCount = value.shape[0]
@@ -630,9 +738,6 @@ class PandasDataFrameInspector(_BaseTableInspector["pd.DataFrame", "pd.Series"])
 
     def get_column_inspector(self) -> PandasSeriesInspector:
         return _PANDAS_SERIES_INSPECTOR
-
-    def get_column_names(self, value: pd.DataFrame) -> List[Any]:
-        return value.columns.tolist()
 
     def equals(self, value1: pd.DataFrame, value2: pd.DataFrame) -> bool:
         return value1.equals(value2)
@@ -685,10 +790,12 @@ _POLARS_SERIES_INSPECTOR = PolarsSeriesInspector()
 INSPECTORS: Dict[str, PositronInspector] = {
     PandasDataFrameInspector.CLASS_QNAME: PandasDataFrameInspector(),
     PandasSeriesInspector.CLASS_QNAME: _PANDAS_SERIES_INSPECTOR,
+    PandasTimestampInspector.CLASS_QNAME: PandasTimestampInspector(),
     NumpyNdarrayInspector.CLASS_QNAME: NumpyNdarrayInspector(),
     TorchTensorInspector.CLASS_QNAME: TorchTensorInspector(),
     **dict.fromkeys(PolarsDataFrameInspector.CLASS_QNAME, PolarsDataFrameInspector()),
     **dict.fromkeys(PolarsSeriesInspector.CLASS_QNAME, _POLARS_SERIES_INSPECTOR),
+    DatetimeInspector.CLASS_QNAME: DatetimeInspector(),
     "boolean": BooleanInspector(),
     "bytes": BytesInspector(),
     "collection": CollectionInspector(),
@@ -703,7 +810,7 @@ INSPECTORS: Dict[str, PositronInspector] = {
 #
 
 
-def get_inspector(value: Any) -> PositronInspector:
+def get_inspector(value: T) -> PositronInspector[T]:
     # Look for a specific inspector by qualified classname
     qualname = get_qualname(value)
     inspector = INSPECTORS.get(qualname, None)
@@ -739,3 +846,57 @@ def _get_kind(value: Any) -> str:
         return "other"
     else:
         return "empty"
+
+
+def encode_access_key(key: Any) -> str:
+    # If it's not hashable, raise an error.
+    if not isinstance(key, Hashable):
+        raise TypeError(f"Key {key} is not hashable.")
+
+    # If it's a blank string, return it as-is.
+    if isinstance(key, str) and key == "":
+        return key
+
+    # Get the key's inspector and serialize the key.
+    inspector = get_inspector(key)
+    json_data = inspector.to_json(key)
+    # Pass separators to json.dumps to remove whitespace after "," and ":".
+    return json.dumps(json_data, separators=(",", ":"))
+
+
+# Since access keys are serialized to JSON, we can't use get_inspector to find the inspector
+# corresponding to a serialized access key. We instead use the key's type's qualname, but need this
+# dict to map known and supported qualnames to keys that are accepted by get_inspector.
+_ACCESS_KEY_QUALNAME_TO_INSPECTOR_KEY: Dict[str, str] = {
+    "int": "number",
+    "float": "number",
+    "complex": "number",
+    "bool": "boolean",
+    "str": "string",
+    "range": "collection",
+}
+
+
+def decode_access_key(access_key: str) -> Any:
+    # If it's a blank string, return it as-is.
+    if access_key == "":
+        return access_key
+
+    # Deserialize the access key.
+    json_data: JsonData = json.loads(access_key)
+
+    # Validate the json data structure.
+    if (
+        not isinstance(json_data, dict)
+        or not isinstance(json_data["type"], str)
+        or not isinstance(json_data["data"], (dict, list, str, int, float, bool, type(None)))
+    ):
+        raise ValueError(f"Unexpected json data structure: {json_data}")
+
+    # Get the inspector for this type.
+    type_name = json_data["type"]
+    inspector_key = _ACCESS_KEY_QUALNAME_TO_INSPECTOR_KEY.get(json_data["type"], type_name)
+    inspector = INSPECTORS.get(inspector_key, PositronInspector())
+
+    # Reconstruct the access key's original object using the deserialized JSON data.
+    return inspector.from_json(json_data)

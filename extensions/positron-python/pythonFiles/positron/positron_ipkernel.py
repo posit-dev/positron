@@ -7,7 +7,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import warnings
-from collections.abc import Iterable, Sequence
+from collections.abc import Iterable
 from itertools import chain
 from typing import Any, Callable, Container, Dict, Mapping, Optional, Set, Tuple, Type
 
@@ -177,8 +177,11 @@ class PositronIPyKernel(IPythonKernel):
         self.lsp_service = LSPService(self)
         self.comm_manager.register_target(POSITRON_LSP_COMM, self.lsp_service.on_comm_open)
 
+        # Setup Positron's dataviewer service
+        self.dataviewer_service = DataViewerService(POSITRON_DATA_VIEWER_COMM)
+
         # Setup Positron's environment service
-        self.env_service = EnvironmentService(self)
+        self.env_service = EnvironmentService(self, self.dataviewer_service)
         self.comm_manager.register_target(POSITRON_ENVIRONMENT_COMM, self.env_service.on_comm_open)
 
         # Setup Positron's frontend service
@@ -214,9 +217,8 @@ class PositronIPyKernel(IPythonKernel):
             module="jedi",
         )
 
-        # Setup Positron's dataviewer service
-        self.dataviewer_service = DataViewerService(POSITRON_DATA_VIEWER_COMM)
-        load_ipython_extension(self.shell)
+        # Register the `%view` magic.
+        self.shell.register_magics(ViewerMagic)
 
     def start(self) -> None:
         super().start()
@@ -408,18 +410,12 @@ class PositronIPyKernel(IPythonKernel):
         context = self.get_user_ns()
 
         # Walk the given path segment by segment
-        for segment in path:
-            # Check for membership as a property
-            name = str(segment)
-            is_known = hasattr(context, name)
+        for access_key in path:
+            # Check for membership via inspector
+            inspector = get_inspector(context)
+            is_known = inspector.has_child(context, access_key)
             if is_known:
-                value = getattr(context, name, None)
-            else:
-                # Check for membership via inspector
-                inspector = get_inspector(context)
-                is_known = inspector.has_child(context, name)
-                if is_known:
-                    value = inspector.get_child(context, name)
+                value = inspector.get_child(context, access_key)
 
             # Subsequent segment starts from the value
             context = value
@@ -429,30 +425,6 @@ class PositronIPyKernel(IPythonKernel):
                 break
 
         return is_known, value
-
-    def view_var(self, path: Sequence[str]) -> None:
-        """
-        Opens a viewer comm for the variable at the requested path in the
-        current user session.
-        """
-        if path is None:
-            return
-
-        error_message = None
-        is_known, value = self.find_var(path)
-
-        if is_known:
-            inspector = get_inspector(value)
-            # Use the leaf segment as the title
-            title = path[-1:][0]
-            dataset = inspector.to_dataset(value, title)
-            if dataset is not None:
-                self.dataviewer_service.register_dataset(dataset)
-        else:
-            error_message = f"Cannot find variable at '{path}' to inspect"
-
-        if error_message is not None:
-            raise ValueError(error_message)
 
     def delete_vars(self, names: Iterable[str], parent: Dict[str, Any]) -> Tuple[dict, set]:
         """
@@ -517,6 +489,8 @@ class PositronIPKernelApp(IPKernelApp):
 
 @magics_class
 class ViewerMagic(Magics):
+    shell: PositronShell
+
     @needs_local_scope
     @line_magic
     def view(self, value: str, local_ns: Dict[str, Any]):
@@ -532,15 +506,4 @@ class ViewerMagic(Magics):
             dataset = inspector.to_dataset(eval_value, value)
 
         if dataset is not None:
-            DataViewerService(POSITRON_DATA_VIEWER_COMM).register_dataset(dataset)
-
-
-def load_ipython_extension(ipython):
-    """
-    Any module file that define a function named `load_ipython_extension`
-    can be loaded via `%load_ext module.path` or be configured to be
-    autoloaded by IPython at startup time.
-    """
-    # You can register the class itself without instantiating it.  IPython will
-    # call the default constructor on it.
-    ipython.register_magics(ViewerMagic)
+            self.shell.kernel.dataviewer_service.register_dataset(dataset)

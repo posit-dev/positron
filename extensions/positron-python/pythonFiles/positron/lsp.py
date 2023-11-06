@@ -26,7 +26,7 @@ class LSPService:
         self._kernel = kernel
         self._comm: Optional[BaseComm] = None
 
-    def on_comm_open(self, comm, msg: Dict[str, Any]) -> None:
+    def on_comm_open(self, comm: BaseComm, msg: Dict[str, Any]) -> None:
         """
         Setup positron.lsp comm to receive messages.
         """
