@@ -6,12 +6,15 @@ from __future__ import annotations
 import enum
 import logging
 import types
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Iterable, Mapping
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set
+
+from comm.base_comm import BaseComm
 
 from ._pydantic_compat import BaseModel, Field, validator
 
-from .inspectors import MAX_ITEMS, get_inspector
+from .dataviewer import DataViewerService
+from .inspectors import MAX_ITEMS, decode_access_key, get_inspector
 from .utils import get_qualname
 
 if TYPE_CHECKING:
@@ -259,15 +262,17 @@ class EnvironmentMessageError(EnvironmentMessageOutput):
 
 
 class EnvironmentService:
-    def __init__(self, kernel: PositronIPyKernel):
+    def __init__(self, kernel: PositronIPyKernel, dataviewer_service: DataViewerService) -> None:
         self.kernel = kernel
-        self.env_comm = None
+        self.dataviewer_service = dataviewer_service
 
-    def on_comm_open(self, comm, open_msg) -> None:
+        self._comm: Optional[BaseComm] = None
+
+    def on_comm_open(self, comm: BaseComm, msg: Dict[str, Any]) -> None:
         """
         Setup positron.environment comm to receive messages.
         """
-        self.env_comm = comm
+        self._comm = comm
         comm.on_msg(self._receive_message)
 
         # Send summary of user environment on comm initialization
@@ -345,15 +350,16 @@ class EnvironmentService:
         }
         """
         variables = self.kernel.get_filtered_vars()
-        filtered_variables = self._summarize_variables(variables)
+        inspector = get_inspector(variables)
+        filtered_variables = inspector.summarize_children(variables, _summarize_variable)
 
         msg = EnvironmentMessageList(variables=filtered_variables)
         self._send_message(msg)
 
     def shutdown(self) -> None:
-        if self.env_comm is not None:
+        if self._comm is not None:
             try:
-                self.env_comm.close()
+                self._comm.close()
             except Exception:
                 pass
 
@@ -363,12 +369,12 @@ class EnvironmentService:
         """
         Send a message through the environment comm to the client.
         """
-        if self.env_comm is None:
+        if self._comm is None:
             logger.warning("Cannot send message, environment comm is not open")
             return
 
         msg_dict = msg.dict()
-        self.env_comm.send(msg_dict)
+        self._comm.send(msg_dict)
 
     def _send_error(self, error_message: str) -> None:
         """
@@ -407,7 +413,8 @@ class EnvironmentService:
         """
         # Filter out hidden assigned variables
         variables = self.kernel.get_filtered_vars(assigned)
-        filtered_assigned = self._summarize_variables(variables)
+        inspector = get_inspector(variables)
+        filtered_assigned = inspector.summarize_children(variables, _summarize_variable)
 
         # Filter out hidden removed variables
         filtered_removed = self.kernel.get_filtered_var_names(removed)
@@ -459,21 +466,29 @@ class EnvironmentService:
         if is_known:
             self._send_details(path, value)
         else:
-            message = f"Cannot find variable at '{path}' to inspect"
-            self._send_error(message)
+            self._send_error(f"Cannot find variable at '{path}' to inspect")
 
-    def _view_var(self, path: Sequence[str]) -> None:
+    def _view_var(self, path: List[str]) -> None:
         """
         Opens a viewer comm for the variable at the requested path in the
         current user session.
         """
-        try:
-            self.kernel.view_var(path)
-        except ValueError as error:
-            self._send_error(str(error))
+        if path is None:
+            return
+
+        is_known, value = self.kernel.find_var(path)
+        if is_known:
+            inspector = get_inspector(value)
+            # Use the leaf segment to get the title
+            access_key = path[-1]
+            title = str(decode_access_key(access_key))
+            dataset = inspector.to_dataset(value, title)
+            self.dataviewer_service.register_dataset(dataset)
+        else:
+            self._send_error(f"Cannot find variable at '{path}' to view")
 
     def _send_formatted_var(
-        self, path: Sequence[str], clipboard_format: ClipboardFormat = ClipboardFormat.plain
+        self, path: List[str], clipboard_format: ClipboardFormat = ClipboardFormat.plain
     ) -> None:
         """
         Formats the variable at the requested path in the current user session
@@ -491,14 +506,12 @@ class EnvironmentService:
             return
 
         is_known, value = self.kernel.find_var(path)
-
         if is_known:
-            content = self._format_value(value, clipboard_format)
+            content = _format_value(value, clipboard_format)
             msg = EnvironmentMessageFormattedVariable(format=clipboard_format, content=content)
             self._send_message(msg)
         else:
-            message = f"Cannot find variable at '{path}' to format"
-            self._send_error(message)
+            self._send_error(f"Cannot find variable at '{path}' to format")
 
     def _send_details(self, path: List[str], value: Any = None):
         """
@@ -536,10 +549,10 @@ class EnvironmentService:
         children = []
         inspector = get_inspector(value)
         if inspector.has_children(value):
-            children = inspector.summarize_children(value, self._summarize_variable)
+            children = inspector.summarize_children(value, _summarize_variable)
         else:
             # Otherwise, treat as a simple value at given path
-            summary = self._summarize_variable("", value)
+            summary = _summarize_variable("", value)
             if summary is not None:
                 children.append(summary)
             # TODO: Handle scalar objects with a specific message type
@@ -547,87 +560,71 @@ class EnvironmentService:
         msg = EnvironmentMessageDetails(path=path, children=children)
         self._send_message(msg)
 
-    def _summarize_variables(
-        self, variables: Mapping, max_items: int = MAX_ITEMS
-    ) -> List[EnvironmentVariable]:
-        """
-        Summarizes the given variables into a list of EnvironmentVariable objects.
 
-        Args:
-            variables:
-                A mapping of variable names to values.
-            max_items:
-                The maximum number of items to summarize.
-        """
-        summaries = []
+def _summarize_variable(key: Any, value: Any) -> Optional[EnvironmentVariable]:
+    """
+    Summarizes the given variable into an EnvironmentVariable object.
 
-        for key, value in variables.items():
-            # Ensure the number of items summarized is within our max limit
-            if len(summaries) >= max_items:
-                break
+    Args:
+        key:
+            The actual key of the variable in its parent object, used as an input to determine the
+            variable's string access key.
+        value:
+            The variable's value.
 
-            summary = self._summarize_variable(key, value)
-            if summary is not None:
-                summaries.append(summary)
+    Returns:
+        An EnvironmentVariable summary, or None if the variable should be skipped.
+    """
+    # Hide module types for now
+    if isinstance(value, types.ModuleType):
+        return None
 
-        return summaries
+    try:
+        # Use an inspector to summarize the value
+        ins = get_inspector(value)
 
-    def _summarize_variable(self, key: Any, value: Any) -> Optional[EnvironmentVariable]:
-        """
-        Summarizes the given variable into an EnvironmentVariable object.
+        display_name = ins.get_display_name(key)
+        kind_str = ins.get_kind(value)
+        kind = EnvironmentVariableValueKind(kind_str)
+        display_value, is_truncated = ins.get_display_value(value)
+        display_type = ins.get_display_type(value)
+        type_info = ins.get_type_info(value)
+        access_key = ins.get_access_key(key)
+        length = ins.get_length(value)
+        size = ins.get_size(value)
+        has_children = ins.has_children(value)
+        has_viewer = ins.has_viewer(value)
 
-        Returns:
-            An EnvironmentVariable summary, or None if the variable should be skipped.
-        """
-        # Hide module types for now
-        if isinstance(value, types.ModuleType):
-            return None
+        return EnvironmentVariable(
+            display_name=display_name,
+            display_value=display_value,
+            display_type=display_type,
+            kind=kind,
+            type_info=type_info,
+            access_key=access_key,
+            length=length,
+            size=size,
+            has_children=has_children,
+            has_viewer=has_viewer,
+            is_truncated=is_truncated,
+        )
 
-        try:
-            # Use an inspector to summarize the value
-            ins = get_inspector(value)
+    except Exception as err:
+        logger.warning(err, exc_info=True)
+        return EnvironmentVariable(
+            display_name=str(key),
+            display_value=get_qualname(value),
+            kind=EnvironmentVariableValueKind.other,
+        )
 
-            display_name = ins.get_display_name(key)
-            kind_str = ins.get_kind(value)
-            kind = EnvironmentVariableValueKind(kind_str)
-            display_value, is_truncated = ins.get_display_value(value)
-            display_type = ins.get_display_type(value)
-            type_info = ins.get_type_info(value)
-            access_key = ins.get_access_key(key)
-            length = ins.get_length(value)
-            size = ins.get_size(value)
-            has_children = ins.has_children(value)
-            has_viewer = ins.has_viewer(value)
 
-            return EnvironmentVariable(
-                display_name=display_name,
-                display_value=display_value,
-                display_type=display_type,
-                kind=kind,
-                type_info=type_info,
-                access_key=access_key,
-                length=length,
-                size=size,
-                has_children=has_children,
-                has_viewer=has_viewer,
-                is_truncated=is_truncated,
-            )
+def _format_value(value: Any, clipboard_format: ClipboardFormat) -> str:
+    """
+    Formats the given value using the requested clipboard format.
+    """
+    inspector = get_inspector(value)
 
-        except Exception as err:
-            logger.warning(err, exc_info=True)
-            return EnvironmentVariable(
-                display_name=str(key),
-                display_value=get_qualname(value),
-                kind=EnvironmentVariableValueKind.other,
-            )
-
-    def _format_value(self, value: Any, clipboard_format: ClipboardFormat) -> str:
-        """
-        Formats the given value using the requested clipboard format.
-        """
-        inspector = get_inspector(value)
-
-        if clipboard_format == ClipboardFormat.html:
-            return inspector.to_html(value)
-        else:
-            return inspector.to_plaintext(value)
+    if clipboard_format == ClipboardFormat.html:
+        return inspector.to_html(value)
+    else:
+        return inspector.to_plaintext(value)
