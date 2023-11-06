@@ -133,6 +133,13 @@ def test_bad_id_error_execution():
     [
         (
             [
+                "test_env_vars.py::test_clear_env",
+                "test_env_vars.py::test_check_env",
+            ],
+            expected_execution_test_output.safe_clear_env_vars_expected_execution_output,
+        ),
+        (
+            [
                 "skip_tests.py::test_something",
                 "skip_tests.py::test_another_thing",
                 "skip_tests.py::test_decorator_thing",
@@ -215,23 +222,30 @@ def test_bad_id_error_execution():
             ],
             expected_execution_test_output.doctest_pytest_expected_execution_output,
         ),
+        (
+            ["test_logging.py::test_logging2", "test_logging.py::test_logging"],
+            expected_execution_test_output.logging_test_expected_execution_output,
+        ),
     ],
 )
 def test_pytest_execution(test_ids, expected_const):
     """
     Test that pytest discovery works as expected where run pytest is always successful
     but the actual test results are both successes and failures.:
-    1. uf_execution_expected_output: unittest tests run on multiple files.
-    2. uf_single_file_expected_output: test run on a single file.
-    3. uf_single_method_execution_expected_output: test run on a single method in a file.
-    4. uf_non_adjacent_tests_execution_expected_output: test run on unittests in two files with single selection in test explorer.
-    5. unit_pytest_same_file_execution_expected_output: test run on a file with both unittest and pytest tests.
-    6. dual_level_nested_folder_execution_expected_output: test run on a file with one test file
+    1: skip_tests_execution_expected_output: test run on a file with skipped tests.
+    2. error_raised_exception_execution_expected_output: test run on a file that raises an exception.
+    3. uf_execution_expected_output: unittest tests run on multiple files.
+    4. uf_single_file_expected_output: test run on a single file.
+    5. uf_single_method_execution_expected_output: test run on a single method in a file.
+    6. uf_non_adjacent_tests_execution_expected_output: test run on unittests in two files with single selection in test explorer.
+    7. unit_pytest_same_file_execution_expected_output: test run on a file with both unittest and pytest tests.
+    8. dual_level_nested_folder_execution_expected_output: test run on a file with one test file
     at the top level and one test file in a nested folder.
-    7. double_nested_folder_expected_execution_output: test run on a double nested folder.
-    8. parametrize_tests_expected_execution_output: test run on a parametrize test with 3 inputs.
-    9. single_parametrize_tests_expected_execution_output: test run on single parametrize test.
-    10. doctest_pytest_expected_execution_output: test run on doctest file.
+    9. double_nested_folder_expected_execution_output: test run on a double nested folder.
+    10. parametrize_tests_expected_execution_output: test run on a parametrize test with 3 inputs.
+    11. single_parametrize_tests_expected_execution_output: test run on single parametrize test.
+    12. doctest_pytest_expected_execution_output: test run on doctest file.
+    13. logging_test_expected_execution_output: test run on a file with logging.
 
 
     Keyword arguments:

@@ -21,14 +21,13 @@ from testing_tools import process_json_util, socket_manager
 from typing_extensions import Literal, NotRequired, TypeAlias, TypedDict
 from unittestadapter.utils import parse_unittest_args
 
-DEFAULT_PORT = "45454"
-
 ErrorType = Union[
     Tuple[Type[BaseException], BaseException, TracebackType], Tuple[None, None, None]
 ]
 testPort = 0
 testUuid = 0
 START_DIR = ""
+DEFAULT_PORT = 45454
 
 
 class TestOutcomeEnum(str, enum.Enum):
@@ -104,13 +103,18 @@ class UnittestTestResult(unittest.TextTestResult):
         subtest: Union[unittest.TestCase, None] = None,
     ):
         tb = None
-        if error and error[2] is not None:
-            # Format traceback
+
+        message = ""
+        # error is a tuple of the form returned by sys.exc_info(): (type, value, traceback).
+        if error is not None:
+            try:
+                message = f"{error[0]} {error[1]}"
+            except Exception:
+                message = "Error occurred, unknown type or value"
             formatted = traceback.format_exception(*error)
+            tb = "".join(formatted)
             # Remove the 'Traceback (most recent call last)'
             formatted = formatted[1:]
-            tb = "".join(formatted)
-
         if subtest:
             test_id = subtest.id()
         else:
@@ -119,7 +123,7 @@ class UnittestTestResult(unittest.TextTestResult):
         result = {
             "test": test.id(),
             "outcome": outcome,
-            "message": str(error),
+            "message": message,
             "traceback": tb,
             "subtest": subtest.id() if subtest else None,
         }
@@ -163,6 +167,9 @@ def run_tests(
     pattern: str,
     top_level_dir: Optional[str],
     uuid: Optional[str],
+    verbosity: int,
+    failfast: Optional[bool],
+    locals: Optional[bool] = None,
 ) -> PayloadDict:
     cwd = os.path.abspath(start_dir)
     status = TestExecutionStatus.error
@@ -186,8 +193,18 @@ def run_tests(
         }
         suite = loader.discover(start_dir, pattern, top_level_dir)  # noqa: F841
 
-        # Run tests.
-        runner = unittest.TextTestRunner(resultclass=UnittestTestResult)
+        if failfast is None:
+            failfast = False
+        if locals is None:
+            locals = False
+        if verbosity is None:
+            verbosity = 1
+        runner = unittest.TextTestRunner(
+            resultclass=UnittestTestResult,
+            tb_locals=locals,
+            failfast=failfast,
+            verbosity=verbosity,
+        )
         # lets try to tailer our own suite so we can figure out running only the ones we want
         loader = unittest.TestLoader()
         tailor: unittest.TestSuite = loader.loadTestsFromNames(test_ids)
@@ -258,13 +275,21 @@ if __name__ == "__main__":
     argv = sys.argv[1:]
     index = argv.index("--udiscovery")
 
-    start_dir, pattern, top_level_dir = parse_unittest_args(argv[index + 1 :])
+    (
+        start_dir,
+        pattern,
+        top_level_dir,
+        verbosity,
+        failfast,
+        locals,
+    ) = parse_unittest_args(argv[index + 1 :])
 
     run_test_ids_port = os.environ.get("RUN_TEST_IDS_PORT")
     run_test_ids_port_int = (
         int(run_test_ids_port) if run_test_ids_port is not None else 0
     )
-
+    if run_test_ids_port_int == 0:
+        print("Error[vscode-unittest]: RUN_TEST_IDS_PORT env var is not set.")
     # get data from socket
     test_ids_from_buffer = []
     try:
@@ -288,8 +313,6 @@ if __name__ == "__main__":
                 )
                 # Clear the buffer as complete JSON object is received
                 buffer = b""
-
-                # Process the JSON data
                 break
             except json.JSONDecodeError:
                 # JSON decoding error, the complete JSON object is not yet received
@@ -300,10 +323,30 @@ if __name__ == "__main__":
 
     testPort = int(os.environ.get("TEST_PORT", DEFAULT_PORT))
     testUuid = os.environ.get("TEST_UUID")
+    if testPort is DEFAULT_PORT:
+        print(
+            "Error[vscode-unittest]: TEST_PORT is not set.",
+            " TEST_UUID = ",
+            testUuid,
+        )
+    if testUuid is None:
+        print(
+            "Error[vscode-unittest]: TEST_UUID is not set.",
+            " TEST_PORT = ",
+            testPort,
+        )
+        testUuid = "unknown"
     if test_ids_from_buffer:
         # Perform test execution.
         payload = run_tests(
-            start_dir, test_ids_from_buffer, pattern, top_level_dir, testUuid
+            start_dir,
+            test_ids_from_buffer,
+            pattern,
+            top_level_dir,
+            testUuid,
+            verbosity,
+            failfast,
+            locals,
         )
     else:
         cwd = os.path.abspath(start_dir)
