@@ -9,6 +9,7 @@ import * as os from 'os';
 import * as fs from 'fs';
 import { RRuntime, lastRuntimePath } from './runtime';
 import { getRunningRRuntime } from './provider';
+import { timeout } from './util';
 import { randomUUID } from 'crypto';
 
 export async function registerFormatter(context: vscode.ExtensionContext, runtimes: Map<string, RRuntime>) {
@@ -63,13 +64,6 @@ class FormatterProvider implements vscode.DocumentFormattingEditProvider {
 			});
 		});
 
-		// A promise that rejects after a timeout;
-		const timeout = new Promise<void>((_, reject) => {
-			setTimeout(() => {
-				reject(new Error('Timed out after 20 seconds waiting for formatting to finish.'));
-			}, 2e4);
-		});
-
 		// Actual formatting is done by styler
 		runtime.execute(
 			`withr::with_options(list(styler.quiet = TRUE), styler::style_file('${stylerFile}'))`,
@@ -78,7 +72,7 @@ class FormatterProvider implements vscode.DocumentFormattingEditProvider {
 			positron.RuntimeErrorBehavior.Continue);
 
 		// Wait for the the runtime to be idle, or for the timeout:
-		await Promise.race([promise, timeout]);
+		await Promise.race([promise, timeout(2e4, 'waiting for formatting')]);
 
 		// Read the now formatted file and then delete it
 		const formattedSource = fs.readFileSync(stylerFile).toString();

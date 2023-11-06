@@ -4,7 +4,7 @@
 
 import * as vscode from 'vscode';
 import * as positron from 'positron';
-import { delay } from './util';
+import { timeout } from './util';
 import { RRuntime } from './runtime';
 import { getRunningRRuntime } from './provider';
 import { getRPackageName } from './contexts';
@@ -81,15 +81,8 @@ export async function registerCommands(context: vscode.ExtensionContext, runtime
 							});
 						});
 
-						// A promise that rejects after a timeout;
-						const timeout = new Promise<void>((_, reject) => {
-							setTimeout(() => {
-								reject(new Error('Timed out after 10 seconds waiting for R to be ready.'));
-							}, 1e4);
-						});
-
-						// Wait for the the runtime to be ready, or for the timeout:
-						await Promise.race([promise, timeout]);
+						// Wait for the the runtime to be ready, or for a timeout:
+						await Promise.race([promise, timeout(1e4, 'waiting for R to be ready')]);
 						runtime.execute(`library(${packageName})`,
 							randomUUID(),
 							positron.RuntimeCodeExecutionMode.Interactive,
