@@ -50,6 +50,7 @@ import { ITestDebugLauncher } from '../common/types';
 import { IServiceContainer } from '../../ioc/types';
 import { PythonResultResolver } from './common/resultResolver';
 import { onDidSaveTextDocument } from '../../common/vscodeApis/workspaceApis';
+import { IEnvironmentVariablesProvider } from '../../common/variables/types';
 
 // Types gymnastics to make sure that sendTriggerTelemetry only accepts the correct types.
 type EventPropertyType = IEventNamePropertyMapping[EventName.UNITTEST_DISCOVERY_TRIGGER];
@@ -100,6 +101,7 @@ export class PythonTestController implements ITestController, IExtensionSingleAc
         @inject(ITestDebugLauncher) private readonly debugLauncher: ITestDebugLauncher,
         @inject(ITestOutputChannel) private readonly testOutputChannel: ITestOutputChannel,
         @inject(IServiceContainer) private readonly serviceContainer: IServiceContainer,
+        @inject(IEnvironmentVariablesProvider) private readonly envVarsService: IEnvironmentVariablesProvider,
     ) {
         this.refreshCancellation = new CancellationTokenSource();
 
@@ -174,12 +176,14 @@ export class PythonTestController implements ITestController, IExtensionSingleAc
                     this.configSettings,
                     this.testOutputChannel,
                     resultResolver,
+                    this.envVarsService,
                 );
                 executionAdapter = new UnittestTestExecutionAdapter(
                     this.pythonTestServer,
                     this.configSettings,
                     this.testOutputChannel,
                     resultResolver,
+                    this.envVarsService,
                 );
             } else {
                 testProvider = PYTEST_PROVIDER;
@@ -189,12 +193,14 @@ export class PythonTestController implements ITestController, IExtensionSingleAc
                     this.configSettings,
                     this.testOutputChannel,
                     resultResolver,
+                    this.envVarsService,
                 );
                 executionAdapter = new PytestTestExecutionAdapter(
                     this.pythonTestServer,
                     this.configSettings,
                     this.testOutputChannel,
                     resultResolver,
+                    this.envVarsService,
                 );
             }
 
@@ -263,13 +269,20 @@ export class PythonTestController implements ITestController, IExtensionSingleAc
             if (settings.testing.pytestEnabled) {
                 if (pythonTestAdapterRewriteEnabled(this.serviceContainer)) {
                     traceInfo(`Running discovery for pytest using the new test adapter.`);
-                    const testAdapter =
-                        this.testAdapters.get(uri) || (this.testAdapters.values().next().value as WorkspaceTestAdapter);
-                    testAdapter.discoverTests(
-                        this.testController,
-                        this.refreshCancellation.token,
-                        this.pythonExecFactory,
-                    );
+                    if (workspace && workspace.uri) {
+                        const testAdapter = this.testAdapters.get(workspace.uri);
+                        if (testAdapter) {
+                            testAdapter.discoverTests(
+                                this.testController,
+                                this.refreshCancellation.token,
+                                this.pythonExecFactory,
+                            );
+                        } else {
+                            traceError('Unable to find test adapter for workspace.');
+                        }
+                    } else {
+                        traceError('Unable to find workspace for given file');
+                    }
                 } else {
                     // else use OLD test discovery mechanism
                     await this.pytest.refreshTestData(this.testController, uri, this.refreshCancellation.token);
@@ -277,13 +290,20 @@ export class PythonTestController implements ITestController, IExtensionSingleAc
             } else if (settings.testing.unittestEnabled) {
                 if (pythonTestAdapterRewriteEnabled(this.serviceContainer)) {
                     traceInfo(`Running discovery for unittest using the new test adapter.`);
-                    const testAdapter =
-                        this.testAdapters.get(uri) || (this.testAdapters.values().next().value as WorkspaceTestAdapter);
-                    testAdapter.discoverTests(
-                        this.testController,
-                        this.refreshCancellation.token,
-                        this.pythonExecFactory,
-                    );
+                    if (workspace && workspace.uri) {
+                        const testAdapter = this.testAdapters.get(workspace.uri);
+                        if (testAdapter) {
+                            testAdapter.discoverTests(
+                                this.testController,
+                                this.refreshCancellation.token,
+                                this.pythonExecFactory,
+                            );
+                        } else {
+                            traceError('Unable to find test adapter for workspace.');
+                        }
+                    } else {
+                        traceError('Unable to find workspace for given file');
+                    }
                 } else {
                     // else use OLD test discovery mechanism
                     await this.unittest.refreshTestData(this.testController, uri, this.refreshCancellation.token);

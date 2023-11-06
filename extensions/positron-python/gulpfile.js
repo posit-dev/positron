@@ -20,7 +20,9 @@ const nativeDependencyChecker = require('node-has-native-dependencies');
 const flat = require('flat');
 const { argv } = require('yargs');
 const os = require('os');
+// --- Start Positron ---
 const rmrf = require('rimraf');
+// --- End Positron ---
 const typescript = require('typescript');
 
 const tsProject = ts.createProject('./tsconfig.json', { typescript });
@@ -247,6 +249,7 @@ gulp.task('prePublishBundle', gulp.series('webpack', 'renameSourceMaps'));
 gulp.task('checkDependencies', gulp.series('checkNativeDependencies'));
 gulp.task('prePublishNonBundle', gulp.series('compile'));
 
+// --- Start Positron ---
 gulp.task('installPythonRequirements', async () => {
     let args = [
         '-m',
@@ -264,9 +267,7 @@ gulp.task('installPythonRequirements', async () => {
         '-r',
         './requirements.txt',
     ];
-    // --- Start Positron ---
     await spawnAsync(pythonCommand, args, undefined, true)
-    // --- End Positron ---
         .then(() => true)
         .catch((ex) => {
             console.error("Failed to install requirements using 'python'", ex);
@@ -289,9 +290,7 @@ gulp.task('installPythonRequirements', async () => {
         '-r',
         './pythonFiles/jedilsp_requirements/requirements.txt',
     ];
-    // --- Start Positron ---
     await spawnAsync(pythonCommand, args, undefined, true)
-    // --- End Positron ---
         .then(() => true)
         .catch((ex) => {
             console.error("Failed to install Jedi LSP requirements using 'python'", ex);
@@ -313,9 +312,7 @@ gulp.task('installDebugpy', async () => {
         '-r',
         './build/build-install-requirements.txt',
     ];
-    // --- Start Positron ---
     await spawnAsync(pythonCommand, depsArgs, undefined, true)
-    // --- End Positron ---
         .then(() => true)
         .catch((ex) => {
             console.error("Failed to install dependencies need by 'install_debugpy.py' using 'python'", ex);
@@ -325,9 +322,7 @@ gulp.task('installDebugpy', async () => {
     // Install new DEBUGPY with wheels for python
     const wheelsArgs = ['./pythonFiles/install_debugpy.py'];
     const wheelsEnv = { PYTHONPATH: './pythonFiles/lib/temp' };
-    // --- Start Positron ---
     await spawnAsync(pythonCommand, wheelsArgs, wheelsEnv, true)
-    // --- End Positron ---
         .then(() => true)
         .catch((ex) => {
             console.error("Failed to install DEBUGPY wheels using 'python'", ex);
@@ -349,7 +344,6 @@ gulp.task('installDebugpy', async () => {
 
 gulp.task('installPythonLibs', gulp.series('installPythonRequirements', 'installDebugpy'));
 
-// --- Start Positron ---
 function locatePython() {
     let pythonPath = process.env.CI_PYTHON_PATH || 'python3';
     const whichCommand = os.platform() === 'win32' ? 'where' : 'which';

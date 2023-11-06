@@ -23,6 +23,11 @@ export function fixLogLines(content: string): string {
     const lines = content.split(/\r?\n/g);
     return `${lines.join('\r\n')}\r\n`;
 }
+
+export function fixLogLinesNoTrailing(content: string): string {
+    const lines = content.split(/\r?\n/g);
+    return `${lines.join('\r\n')}`;
+}
 export interface IJSONRPCData {
     extractedJSON: string;
     remainingRawData: string;
@@ -42,6 +47,11 @@ export interface ExtractOutput {
 export const JSONRPC_UUID_HEADER = 'Request-uuid';
 export const JSONRPC_CONTENT_LENGTH_HEADER = 'Content-Length';
 export const JSONRPC_CONTENT_TYPE_HEADER = 'Content-Type';
+export const MESSAGE_ON_TESTING_OUTPUT_MOVE =
+    'Starting now, all test run output will be sent to the Test Result panel,' +
+    ' while test discovery output will be sent to the "Python" output channel instead of the "Python Test Log" channel.' +
+    ' The "Python Test Log" channel will be deprecated within the next month.' +
+    ' See https://github.com/microsoft/vscode-python/wiki/New-Method-for-Output-Handling-in-Python-Testing for details.';
 
 export function createTestingDeferred(): Deferred<void> {
     return createDeferred<void>();
@@ -287,7 +297,7 @@ export function createExecutionErrorPayload(
     const etp: ExecutionTestPayload = {
         cwd,
         status: 'error',
-        error: 'Test run failed, the python test process was terminated before it could exit on its own.',
+        error: `Test run failed, the python test process was terminated before it could exit on its own for workspace ${cwd}`,
         result: {},
     };
     // add error result for each attempted test.
@@ -311,7 +321,7 @@ export function createDiscoveryErrorPayload(
         cwd,
         status: 'error',
         error: [
-            ` \n The python test process was terminated before it could exit on its own, the process errored with: Code: ${code}, Signal: ${signal}`,
+            ` \n The python test process was terminated before it could exit on its own, the process errored with: Code: ${code}, Signal: ${signal} for workspace ${cwd}`,
         ],
     };
 }

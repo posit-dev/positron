@@ -15,7 +15,7 @@ export interface ICodeExecutionService {
 export const ICodeExecutionHelper = Symbol('ICodeExecutionHelper');
 
 export interface ICodeExecutionHelper {
-    normalizeLines(code: string): Promise<string>;
+    normalizeLines(code: string, wholeFileContent?: string): Promise<string>;
     getFileToExecute(): Promise<Uri | undefined>;
     saveFileIfDirty(file: Uri): Promise<Resource>;
     getSelectedTextToExecute(textEditor: TextEditor): Promise<string | undefined>;
@@ -32,4 +32,12 @@ export const ITerminalAutoActivation = Symbol('ITerminalAutoActivation');
 export interface ITerminalAutoActivation extends IDisposable {
     register(): void;
     disableAutoActivation(terminal: Terminal): void;
+}
+
+export const ITerminalEnvVarCollectionService = Symbol('ITerminalEnvVarCollectionService');
+export interface ITerminalEnvVarCollectionService {
+    /**
+     * Returns true if we know with high certainity the terminal prompt is set correctly for a particular resource.
+     */
+    isTerminalPromptSetCorrectly(resource?: Resource): boolean;
 }

@@ -18,7 +18,14 @@ import {
     ITestResultResolver,
     ITestServer,
 } from '../common/types';
-import { createDiscoveryErrorPayload, createEOTPayload, createTestingDeferred } from '../common/utils';
+import {
+    MESSAGE_ON_TESTING_OUTPUT_MOVE,
+    createDiscoveryErrorPayload,
+    createEOTPayload,
+    createTestingDeferred,
+    fixLogLinesNoTrailing,
+} from '../common/utils';
+import { IEnvironmentVariablesProvider } from '../../../common/variables/types';
 
 /**
  * Wrapper class for unittest test discovery. This is where we call `runTestCommand`. #this seems incorrectly copied
@@ -29,6 +36,7 @@ export class PytestTestDiscoveryAdapter implements ITestDiscoveryAdapter {
         public configSettings: IConfigurationService,
         private readonly outputChannel: ITestOutputChannel,
         private readonly resultResolver?: ITestResultResolver,
+        private readonly envVarsService?: IEnvironmentVariablesProvider,
     ) {}
 
     async discoverTests(uri: Uri, executionFactory?: IPythonExecutionFactory): Promise<DiscoveredTestPayload> {
@@ -46,7 +54,7 @@ export class PytestTestDiscoveryAdapter implements ITestDiscoveryAdapter {
             await this.runPytestDiscovery(uri, uuid, executionFactory);
         } finally {
             await deferredTillEOT.promise;
-            traceVerbose('deferredTill EOT resolved');
+            traceVerbose(`deferredTill EOT resolved for ${uri.fsPath}`);
             disposeDataReceiver(this.testServer);
         }
         // this is only a placeholder to handle function overloading until rewrite is finished
@@ -61,18 +69,26 @@ export class PytestTestDiscoveryAdapter implements ITestDiscoveryAdapter {
         const { pytestArgs } = settings.testing;
         const cwd = settings.testing.cwd && settings.testing.cwd.length > 0 ? settings.testing.cwd : uri.fsPath;
 
-        const pythonPathParts: string[] = process.env.PYTHONPATH?.split(path.delimiter) ?? [];
+        // get and edit env vars
+        const mutableEnv = {
+            ...(await this.envVarsService?.getEnvironmentVariables(uri)),
+        };
+        // get python path from mutable env, it contains process.env as well
+        const pythonPathParts: string[] = mutableEnv.PYTHONPATH?.split(path.delimiter) ?? [];
         const pythonPathCommand = [fullPluginPath, ...pythonPathParts].join(path.delimiter);
-
+        mutableEnv.PYTHONPATH = pythonPathCommand;
+        mutableEnv.TEST_UUID = uuid.toString();
+        mutableEnv.TEST_PORT = this.testServer.getPort().toString();
+        traceInfo(
+            `All environment variables set for pytest discovery for workspace ${uri.fsPath}: ${JSON.stringify(
+                mutableEnv,
+            )} \n`,
+        );
         const spawnOptions: SpawnOptions = {
             cwd,
             throwOnStdErr: true,
-            extraVariables: {
-                PYTHONPATH: pythonPathCommand,
-                TEST_UUID: uuid.toString(),
-                TEST_PORT: this.testServer.getPort().toString(),
-            },
             outputChannel: this.outputChannel,
+            env: mutableEnv,
         };
 
         // Create the Python environment in which to execute the command.
@@ -83,28 +99,38 @@ export class PytestTestDiscoveryAdapter implements ITestDiscoveryAdapter {
         const execService = await executionFactory?.createActivatedEnvironment(creationOptions);
         // delete UUID following entire discovery finishing.
         const execArgs = ['-m', 'pytest', '-p', 'vscode_pytest', '--collect-only'].concat(pytestArgs);
-        traceVerbose(`Running pytest discovery with command: ${execArgs.join(' ')}`);
+        traceVerbose(`Running pytest discovery with command: ${execArgs.join(' ')} for workspace ${uri.fsPath}.`);
 
         const deferredTillExecClose: Deferred<void> = createTestingDeferred();
         const result = execService?.execObservable(execArgs, spawnOptions);
 
         // Take all output from the subprocess and add it to the test output channel. This will be the pytest output.
         // Displays output to user and ensure the subprocess doesn't run into buffer overflow.
+        // TODO: after a release, remove discovery output from the "Python Test Log" channel and send it to the "Python" channel instead.
+
         result?.proc?.stdout?.on('data', (data) => {
-            spawnOptions.outputChannel?.append(data.toString());
+            const out = fixLogLinesNoTrailing(data.toString());
+            traceInfo(out);
+            spawnOptions?.outputChannel?.append(`${out}`);
         });
         result?.proc?.stderr?.on('data', (data) => {
-            spawnOptions.outputChannel?.append(data.toString());
+            const out = fixLogLinesNoTrailing(data.toString());
+            traceError(out);
+            spawnOptions?.outputChannel?.append(`${out}`);
         });
         result?.proc?.on('exit', (code, signal) => {
+            this.outputChannel?.append(MESSAGE_ON_TESTING_OUTPUT_MOVE);
             if (code !== 0) {
-                traceError(`Subprocess exited unsuccessfully with exit code ${code} and signal ${signal}.`);
+                traceError(
+                    `Subprocess exited unsuccessfully with exit code ${code} and signal ${signal} on workspace ${uri.fsPath}.`,
+                );
             }
         });
         result?.proc?.on('close', (code, signal) => {
-            if (code !== 0) {
+            // pytest exits with code of 5 when 0 tests are found- this is not a failure for discovery.
+            if (code !== 0 && code !== 5) {
                 traceError(
-                    `Subprocess exited unsuccessfully with exit code ${code} and signal ${signal}. Creating and sending error discovery payload`,
+                    `Subprocess exited unsuccessfully with exit code ${code} and signal ${signal} on workspace ${uri.fsPath}. Creating and sending error discovery payload`,
                 );
                 // if the child process exited with a non-zero exit code, then we need to send the error payload.
                 this.testServer.triggerDiscoveryDataReceivedEvent({

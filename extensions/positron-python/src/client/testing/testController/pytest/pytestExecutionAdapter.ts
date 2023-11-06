@@ -24,6 +24,7 @@ import { ITestDebugLauncher, LaunchOptions } from '../../common/types';
 import { PYTEST_PROVIDER } from '../../common/constants';
 import { EXTENSION_ROOT_DIR } from '../../../common/constants';
 import * as utils from '../common/utils';
+import { IEnvironmentVariablesProvider } from '../../../common/variables/types';
 
 export class PytestTestExecutionAdapter implements ITestExecutionAdapter {
     constructor(
@@ -31,6 +32,7 @@ export class PytestTestExecutionAdapter implements ITestExecutionAdapter {
         public configSettings: IConfigurationService,
         private readonly outputChannel: ITestOutputChannel,
         private readonly resultResolver?: ITestResultResolver,
+        private readonly envVarsService?: IEnvironmentVariablesProvider,
     ) {}
 
     async runTests(
@@ -46,11 +48,12 @@ export class PytestTestExecutionAdapter implements ITestExecutionAdapter {
         const deferredTillEOT: Deferred<void> = utils.createTestingDeferred();
 
         const dataReceivedDisposable = this.testServer.onRunDataReceived((e: DataReceivedEvent) => {
+            runInstance?.token.isCancellationRequested;
             if (runInstance) {
                 const eParsed = JSON.parse(e.data);
                 this.resultResolver?.resolveExecution(eParsed, runInstance, deferredTillEOT);
             } else {
-                traceError('No run instance found, cannot resolve execution.');
+                traceError(`No run instance found, cannot resolve execution, for workspace ${uri.fsPath}.`);
             }
         });
         const disposeDataReceiver = function (testServer: ITestServer) {
@@ -59,7 +62,7 @@ export class PytestTestExecutionAdapter implements ITestExecutionAdapter {
             dataReceivedDisposable.dispose();
         };
         runInstance?.token.onCancellationRequested(() => {
-            traceInfo("Test run cancelled, resolving 'till EOT' deferred.");
+            traceInfo(`Test run cancelled, resolving 'till EOT' deferred for ${uri.fsPath}.`);
             deferredTillEOT.resolve();
         });
 
@@ -105,20 +108,16 @@ export class PytestTestExecutionAdapter implements ITestExecutionAdapter {
         const settings = this.configSettings.getSettings(uri);
         const { pytestArgs } = settings.testing;
         const cwd = settings.testing.cwd && settings.testing.cwd.length > 0 ? settings.testing.cwd : uri.fsPath;
-
-        const pythonPathParts: string[] = process.env.PYTHONPATH?.split(path.delimiter) ?? [];
-        const pythonPathCommand = [fullPluginPath, ...pythonPathParts].join(path.delimiter);
-        const spawnOptions: SpawnOptions = {
-            cwd,
-            throwOnStdErr: true,
-            extraVariables: {
-                PYTHONPATH: pythonPathCommand,
-                TEST_UUID: uuid.toString(),
-                TEST_PORT: this.testServer.getPort().toString(),
-            },
-            outputChannel: this.outputChannel,
-            stdinStr: testIds.toString(),
+        // get and edit env vars
+        const mutableEnv = {
+            ...(await this.envVarsService?.getEnvironmentVariables(uri)),
         };
+        // get python path from mutable env, it contains process.env as well
+        const pythonPathParts: string[] = mutableEnv.PYTHONPATH?.split(path.delimiter) ?? [];
+        const pythonPathCommand = [fullPluginPath, ...pythonPathParts].join(path.delimiter);
+        mutableEnv.PYTHONPATH = pythonPathCommand;
+        mutableEnv.TEST_UUID = uuid.toString();
+        mutableEnv.TEST_PORT = this.testServer.getPort().toString();
 
         // Create the Python environment in which to execute the command.
         const creationOptions: ExecutionFactoryCreateWithEnvironmentOptions = {
@@ -141,9 +140,22 @@ export class PytestTestExecutionAdapter implements ITestExecutionAdapter {
                 testArgs.push('--capture', 'no');
             }
 
+            // add port with run test ids to env vars
             const pytestRunTestIdsPort = await utils.startTestIdServer(testIds);
-            if (spawnOptions.extraVariables)
-                spawnOptions.extraVariables.RUN_TEST_IDS_PORT = pytestRunTestIdsPort.toString();
+            mutableEnv.RUN_TEST_IDS_PORT = pytestRunTestIdsPort.toString();
+            traceInfo(
+                `All environment variables set for pytest execution in ${uri.fsPath} workspace: \n ${JSON.stringify(
+                    mutableEnv,
+                )}`,
+            );
+
+            const spawnOptions: SpawnOptions = {
+                cwd,
+                throwOnStdErr: true,
+                outputChannel: this.outputChannel,
+                stdinStr: testIds.toString(),
+                env: mutableEnv,
+            };
 
             if (debugBool) {
                 const pytestPort = this.testServer.getPort().toString();
@@ -157,7 +169,9 @@ export class PytestTestExecutionAdapter implements ITestExecutionAdapter {
                     pytestUUID,
                     runTestIdsPort: pytestRunTestIdsPort.toString(),
                 };
-                traceInfo(`Running DEBUG pytest with arguments: ${testArgs.join(' ')}\r\n`);
+                traceInfo(
+                    `Running DEBUG pytest with arguments: ${testArgs.join(' ')} for workspace ${uri.fsPath} \r\n`,
+                );
                 await debugLauncher!.launchDebugger(launchOptions, () => {
                     deferredTillEOT?.resolve();
                 });
@@ -167,12 +181,12 @@ export class PytestTestExecutionAdapter implements ITestExecutionAdapter {
                 // combine path to run script with run args
                 const scriptPath = path.join(fullPluginPath, 'vscode_pytest', 'run_pytest_script.py');
                 const runArgs = [scriptPath, ...testArgs];
-                traceInfo(`Running pytest with arguments: ${runArgs.join(' ')}\r\n`);
+                traceInfo(`Running pytest with arguments: ${runArgs.join(' ')} for workspace ${uri.fsPath} \r\n`);
 
                 let resultProc: ChildProcess | undefined;
 
                 runInstance?.token.onCancellationRequested(() => {
-                    traceInfo('Test run cancelled, killing pytest subprocess.');
+                    traceInfo(`Test run cancelled, killing pytest subprocess for workspace ${uri.fsPath}`);
                     // if the resultProc exists just call kill on it which will handle resolving the ExecClose deferred, otherwise resolve the deferred here.
                     if (resultProc) {
                         resultProc?.kill();
@@ -186,15 +200,23 @@ export class PytestTestExecutionAdapter implements ITestExecutionAdapter {
 
                 // Take all output from the subprocess and add it to the test output channel. This will be the pytest output.
                 // Displays output to user and ensure the subprocess doesn't run into buffer overflow.
+                // TODO: after a release, remove run output from the "Python Test Log" channel and send it to the "Test Result" channel instead.
                 result?.proc?.stdout?.on('data', (data) => {
-                    this.outputChannel?.append(data.toString());
+                    const out = utils.fixLogLinesNoTrailing(data.toString());
+                    runInstance?.appendOutput(out);
+                    this.outputChannel?.append(out);
                 });
                 result?.proc?.stderr?.on('data', (data) => {
-                    this.outputChannel?.append(data.toString());
+                    const out = utils.fixLogLinesNoTrailing(data.toString());
+                    runInstance?.appendOutput(out);
+                    this.outputChannel?.append(out);
                 });
                 result?.proc?.on('exit', (code, signal) => {
+                    this.outputChannel?.append(utils.MESSAGE_ON_TESTING_OUTPUT_MOVE);
                     if (code !== 0 && testIds) {
-                        traceError(`Subprocess exited unsuccessfully with exit code ${code} and signal ${signal}.`);
+                        traceError(
+                            `Subprocess exited unsuccessfully with exit code ${code} and signal ${signal} on workspace ${uri.fsPath}`,
+                        );
                     }
                 });
 
@@ -204,7 +226,7 @@ export class PytestTestExecutionAdapter implements ITestExecutionAdapter {
                     // if the child process exited with a non-zero exit code, then we need to send the error payload.
                     if (code !== 0 && testIds) {
                         traceError(
-                            `Subprocess closed unsuccessfully with exit code ${code} and signal ${signal}. Creating and sending error execution payload`,
+                            `Subprocess closed unsuccessfully with exit code ${code} and signal ${signal} for workspace ${uri.fsPath}. Creating and sending error execution payload \n`,
                         );
                         this.testServer.triggerRunDataReceivedEvent({
                             uuid,
@@ -223,7 +245,7 @@ export class PytestTestExecutionAdapter implements ITestExecutionAdapter {
                 await deferredTillExecClose?.promise;
             }
         } catch (ex) {
-            traceError(`Error while running tests: ${testIds}\r\n${ex}\r\n\r\n`);
+            traceError(`Error while running tests for workspace ${uri}: ${testIds}\r\n${ex}\r\n\r\n`);
             return Promise.reject(ex);
         }
 

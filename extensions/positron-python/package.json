@@ -22,7 +22,8 @@
         "quickPickSortByLabel",
         "testObserver",
         "quickPickItemTooltip",
-        "saveEditor"
+        "saveEditor",
+        "terminalDataWriteEvent"
     ],
     "author": {
         "name": "Microsoft Corporation"
@@ -526,14 +527,18 @@
                             "pythonSurveyNotification",
                             "pythonPromptNewToolsExt",
                             "pythonTerminalEnvVarActivation",
-                            "pythonTestAdapter"
+                            "pythonTestAdapter",
+                            "pythonREPLSmartSend",
+                            "pythonRecommendTensorboardExt"
                         ],
                         "enumDescriptions": [
                             "%python.experiments.All.description%",
                             "%python.experiments.pythonSurveyNotification.description%",
                             "%python.experiments.pythonPromptNewToolsExt.description%",
                             "%python.experiments.pythonTerminalEnvVarActivation.description%",
-                            "%python.experiments.pythonTestAdapter.description%"
+                            "%python.experiments.pythonTestAdapter.description%",
+                            "%python.experiments.pythonREPLSmartSend.description%",
+                            "%python.experiments.pythonRecommendTensorboardExt.description%"
                         ]
                     },
                     "scope": "machine",
@@ -549,90 +554,21 @@
                             "pythonSurveyNotification",
                             "pythonPromptNewToolsExt",
                             "pythonTerminalEnvVarActivation",
-                            "pythonTestAdapter"
+                            "pythonTestAdapter",
+                            "pythonREPLSmartSend"
                         ],
                         "enumDescriptions": [
                             "%python.experiments.All.description%",
                             "%python.experiments.pythonSurveyNotification.description%",
                             "%python.experiments.pythonPromptNewToolsExt.description%",
                             "%python.experiments.pythonTerminalEnvVarActivation.description%",
-                            "%python.experiments.pythonTestAdapter.description%"
+                            "%python.experiments.pythonTestAdapter.description%",
+                            "%python.experiments.pythonREPLSmartSend.description%"
                         ]
                     },
                     "scope": "machine",
                     "type": "array",
                     "uniqueItems": true
-                },
-                "python.formatting.autopep8Args": {
-                    "default": [],
-                    "description": "%python.formatting.autopep8Args.description%",
-                    "items": {
-                        "type": "string"
-                    },
-                    "scope": "resource",
-                    "type": "array",
-                    "markdownDeprecationMessage": "%python.formatting.autopep8Args.markdownDeprecationMessage%",
-                    "deprecationMessage": "%python.formatting.autopep8Args.deprecationMessage%"
-                },
-                "python.formatting.autopep8Path": {
-                    "default": "autopep8",
-                    "description": "%python.formatting.autopep8Path.description%",
-                    "scope": "machine-overridable",
-                    "type": "string",
-                    "markdownDeprecationMessage": "%python.formatting.autopep8Path.markdownDeprecationMessage%",
-                    "deprecationMessage": "%python.formatting.autopep8Path.deprecationMessage%"
-                },
-                "python.formatting.blackArgs": {
-                    "default": [],
-                    "description": "%python.formatting.blackArgs.description%",
-                    "items": {
-                        "type": "string"
-                    },
-                    "scope": "resource",
-                    "type": "array",
-                    "markdownDeprecationMessage": "%python.formatting.blackArgs.markdownDeprecationMessage%",
-                    "deprecationMessage": "%python.formatting.blackArgs.deprecationMessage%"
-                },
-                "python.formatting.blackPath": {
-                    "default": "black",
-                    "description": "%python.formatting.blackPath.description%",
-                    "scope": "machine-overridable",
-                    "type": "string",
-                    "markdownDeprecationMessage": "%python.formatting.blackPath.markdownDeprecationMessage%",
-                    "deprecationMessage": "%python.formatting.blackPath.deprecationMessage%"
-                },
-                "python.formatting.provider": {
-                    "default": "autopep8",
-                    "description": "%python.formatting.provider.description%",
-                    "enum": [
-                        "autopep8",
-                        "black",
-                        "none",
-                        "yapf"
-                    ],
-                    "scope": "resource",
-                    "type": "string",
-                    "markdownDeprecationMessage": "%python.formatting.provider.markdownDeprecationMessage%",
-                    "deprecationMessage": "%python.formatting.provider.deprecationMessage%"
-                },
-                "python.formatting.yapfArgs": {
-                    "default": [],
-                    "description": "%python.formatting.yapfArgs.description%",
-                    "items": {
-                        "type": "string"
-                    },
-                    "scope": "resource",
-                    "type": "array",
-                    "markdownDeprecationMessage": "%python.formatting.yapfArgs.markdownDeprecationMessage%",
-                    "deprecationMessage": "%python.formatting.yapfArgs.deprecationMessage%"
-                },
-                "python.formatting.yapfPath": {
-                    "default": "yapf",
-                    "description": "%python.formatting.yapfPath.description%",
-                    "scope": "machine-overridable",
-                    "type": "string",
-                    "markdownDeprecationMessage": "%python.formatting.yapfPath.markdownDeprecationMessage%",
-                    "deprecationMessage": "%python.formatting.yapfPath.deprecationMessage%"
                 },
                 "python.globalModuleInstallation": {
                     "default": false,
@@ -659,88 +595,6 @@
                     "scope": "application",
                     "type": "string"
                 },
-                "python.linting.banditArgs": {
-                    "default": [],
-                    "description": "%python.linting.banditArgs.description%",
-                    "items": {
-                        "type": "string"
-                    },
-                    "scope": "resource",
-                    "type": "array",
-                    "markdownDeprecationMessage": "%python.linting.banditArgs.markdownDeprecationMessage%",
-                    "deprecationMessage": "%python.linting.banditArgs.deprecationMessage%"
-                },
-                "python.linting.banditEnabled": {
-                    "default": false,
-                    "description": "%python.linting.banditEnabled.description%",
-                    "scope": "resource",
-                    "type": "boolean",
-                    "markdownDeprecationMessage": "%python.linting.banditArgs.markdownDeprecationMessage%",
-                    "deprecationMessage": "%python.linting.banditArgs.deprecationMessage%"
-                },
-                "python.linting.banditPath": {
-                    "default": "bandit",
-                    "description": "%python.linting.banditPath.description%",
-                    "scope": "machine-overridable",
-                    "type": "string",
-                    "markdownDeprecationMessage": "%python.linting.banditPath.markdownDeprecationMessage%",
-                    "deprecationMessage": "%python.linting.banditPath.deprecationMessage%"
-                },
-                "python.linting.cwd": {
-                    "default": null,
-                    "description": "%python.linting.cwd.description%",
-                    "scope": "resource",
-                    "type": "string",
-                    "markdownDeprecationMessage": "%python.linting.cwd.markdownDeprecationMessage%",
-                    "deprecationMessage": "%python.linting.cwd.deprecationMessage%"
-                },
-                "python.linting.enabled": {
-                    "default": true,
-                    "description": "%python.linting.enabled.description%",
-                    "scope": "resource",
-                    "type": "boolean",
-                    "markdownDeprecationMessage": "%python.linting.enabled.markdownDeprecationMessage%",
-                    "deprecationMessage": "%python.linting.enabled.deprecationMessage%"
-                },
-                "python.linting.flake8Args": {
-                    "default": [],
-                    "description": "%python.linting.flake8Args.description%",
-                    "items": {
-                        "type": "string"
-                    },
-                    "scope": "resource",
-                    "type": "array",
-                    "markdownDeprecationMessage": "%python.linting.flake8Args.markdownDeprecationMessage%",
-                    "deprecationMessage": "%python.linting.flake8Args.deprecationMessage%"
-                },
-                "python.linting.flake8CategorySeverity.E": {
-                    "default": "Error",
-                    "description": "%python.linting.flake8CategorySeverity.E.description%",
-                    "enum": [
-                        "Error",
-                        "Hint",
-                        "Information",
-                        "Warning"
-                    ],
-                    "scope": "resource",
-                    "type": "string",
-                    "markdownDeprecationMessage": "%python.linting.flake8CategorySeverity.E.markdownDeprecationMessage%",
-                    "deprecationMessage": "%python.linting.flake8CategorySeverity.E.deprecationMessage%"
-                },
-                "python.linting.flake8CategorySeverity.F": {
-                    "default": "Error",
-                    "description": "%python.linting.flake8CategorySeverity.F.description%",
-                    "enum": [
-                        "Error",
-                        "Hint",
-                        "Information",
-                        "Warning"
-                    ],
-                    "scope": "resource",
-                    "type": "string",
-                    "markdownDeprecationMessage": "%python.linting.flake8CategorySeverity.F.markdownDeprecationMessage%",
-                    "deprecationMessage": "%python.linting.flake8CategorySeverity.F.deprecationMessage%"
-                },
                 "python.interpreter.infoVisibility": {
                     "default": "never",
                     "description": "%python.interpreter.infoVisibility.description%",
@@ -756,360 +610,6 @@
                     ],
                     "scope": "machine",
                     "type": "string"
-                },
-                "python.linting.flake8CategorySeverity.W": {
-                    "default": "Warning",
-                    "description": "%python.linting.flake8CategorySeverity.W.description%",
-                    "enum": [
-                        "Error",
-                        "Hint",
-                        "Information",
-                        "Warning"
-                    ],
-                    "scope": "resource",
-                    "type": "string",
-                    "markdownDeprecationMessage": "%python.linting.flake8CategorySeverity.W.markdownDeprecationMessage%",
-                    "deprecationMessage": "%python.linting.flake8CategorySeverity.W.deprecationMessage%"
-                },
-                "python.linting.flake8Enabled": {
-                    "default": false,
-                    "description": "%python.linting.flake8Enabled.description%",
-                    "scope": "resource",
-                    "type": "boolean",
-                    "markdownDeprecationMessage": "%python.linting.flake8Enabled.markdownDeprecationMessage%",
-                    "deprecationMessage": "%python.linting.flake8Enabled.deprecationMessage%"
-                },
-                "python.linting.flake8Path": {
-                    "default": "flake8",
-                    "description": "%python.linting.flake8Path.description%",
-                    "scope": "machine-overridable",
-                    "type": "string",
-                    "markdownDeprecationMessage": "%python.linting.flake8Path.markdownDeprecationMessage%",
-                    "deprecationMessage": "%python.linting.flake8Path.deprecationMessage%"
-                },
-                "python.linting.ignorePatterns": {
-                    "default": [
-                        "**/site-packages/**/*.py",
-                        ".vscode/*.py"
-                    ],
-                    "description": "%python.linting.ignorePatterns.description%",
-                    "items": {
-                        "type": "string"
-                    },
-                    "scope": "resource",
-                    "type": "array",
-                    "uniqueItems": true,
-                    "markdownDeprecationMessage": "%python.linting.ignorePatterns.markdownDeprecationMessage%",
-                    "deprecationMessage": "%python.linting.ignorePatterns.deprecationMessage%"
-                },
-                "python.linting.lintOnSave": {
-                    "default": true,
-                    "description": "%python.linting.lintOnSave.description%",
-                    "scope": "resource",
-                    "type": "boolean",
-                    "markdownDeprecationMessage": "%python.linting.lintOnSave.markdownDeprecationMessage%",
-                    "deprecationMessage": "%python.linting.lintOnSave.deprecationMessage%"
-                },
-                "python.linting.maxNumberOfProblems": {
-                    "default": 100,
-                    "description": "%python.linting.maxNumberOfProblems.description%",
-                    "scope": "resource",
-                    "type": "number",
-                    "markdownDeprecationMessage": "%python.linting.maxNumberOfProblems.markdownDeprecationMessage%",
-                    "deprecationMessage": "%python.linting.maxNumberOfProblems.deprecationMessage%"
-                },
-                "python.linting.mypyArgs": {
-                    "default": [
-                        "--follow-imports=silent",
-                        "--ignore-missing-imports",
-                        "--show-column-numbers",
-                        "--no-pretty"
-                    ],
-                    "description": "%python.linting.mypyArgs.description%",
-                    "items": {
-                        "type": "string"
-                    },
-                    "scope": "resource",
-                    "type": "array",
-                    "markdownDeprecationMessage": "%python.linting.mypyArgs.markdownDeprecationMessage%",
-                    "deprecationMessage": "%python.linting.mypyArgs.deprecationMessage%"
-                },
-                "python.linting.mypyCategorySeverity.error": {
-                    "default": "Error",
-                    "description": "%python.linting.mypyCategorySeverity.error.description%",
-                    "enum": [
-                        "Error",
-                        "Hint",
-                        "Information",
-                        "Warning"
-                    ],
-                    "scope": "resource",
-                    "type": "string",
-                    "markdownDeprecationMessage": "%python.linting.mypyCategorySeverity.error.markdownDeprecationMessage%",
-                    "deprecationMessage": "%python.linting.mypyCategorySeverity.error.deprecationMessage%"
-                },
-                "python.linting.mypyCategorySeverity.note": {
-                    "default": "Information",
-                    "description": "%python.linting.mypyCategorySeverity.note.description%",
-                    "enum": [
-                        "Error",
-                        "Hint",
-                        "Information",
-                        "Warning"
-                    ],
-                    "scope": "resource",
-                    "type": "string",
-                    "markdownDeprecationMessage": "%python.linting.mypyCategorySeverity.note.markdownDeprecationMessage%",
-                    "deprecationMessage": "%python.linting.mypyCategorySeverity.note.deprecationMessage%"
-                },
-                "python.linting.mypyEnabled": {
-                    "default": false,
-                    "description": "%python.linting.mypyEnabled.description%",
-                    "scope": "resource",
-                    "type": "boolean",
-                    "markdownDeprecationMessage": "%python.linting.mypyEnabled.markdownDeprecationMessage%",
-                    "deprecationMessage": "%python.linting.mypyEnabled.deprecationMessage%"
-                },
-                "python.linting.mypyPath": {
-                    "default": "mypy",
-                    "description": "%python.linting.mypyPath.description%",
-                    "scope": "machine-overridable",
-                    "type": "string",
-                    "markdownDeprecationMessage": "%python.linting.mypyPath.markdownDeprecationMessage%",
-                    "deprecationMessage": "%python.linting.mypyPath.deprecationMessage%"
-                },
-                "python.linting.prospectorArgs": {
-                    "default": [],
-                    "description": "%python.linting.prospectorArgs.description%",
-                    "items": {
-                        "type": "string"
-                    },
-                    "scope": "resource",
-                    "type": "array",
-                    "markdownDeprecationMessage": "%python.linting.prospectorArgs.markdownDeprecationMessage%",
-                    "deprecationMessage": "%python.linting.prospectorArgs.deprecationMessage%"
-                },
-                "python.linting.prospectorEnabled": {
-                    "default": false,
-                    "description": "%python.linting.prospectorEnabled.description%",
-                    "scope": "resource",
-                    "type": "boolean",
-                    "markdownDeprecationMessage": "%python.linting.prospectorEnabled.markdownDeprecationMessage%",
-                    "deprecationMessage": "%python.linting.prospectorEnabled.deprecationMessage%"
-                },
-                "python.linting.prospectorPath": {
-                    "default": "prospector",
-                    "description": "%python.linting.prospectorPath.description%",
-                    "scope": "machine-overridable",
-                    "type": "string",
-                    "markdownDeprecationMessage": "%python.linting.prospectorPath.markdownDeprecationMessage%",
-                    "deprecationMessage": "%python.linting.prospectorPath.deprecationMessage%"
-                },
-                "python.linting.pycodestyleArgs": {
-                    "default": [],
-                    "description": "%python.linting.pycodestyleArgs.description%",
-                    "items": {
-                        "type": "string"
-                    },
-                    "scope": "resource",
-                    "type": "array",
-                    "markdownDeprecationMessage": "%python.linting.pycodestyleArgs.markdownDeprecationMessage%",
-                    "deprecationMessage": "%python.linting.pycodestyleArgs.deprecationMessage%"
-                },
-                "python.linting.pycodestyleCategorySeverity.E": {
-                    "default": "Error",
-                    "description": "%python.linting.pycodestyleCategorySeverity.E.description%",
-                    "enum": [
-                        "Error",
-                        "Hint",
-                        "Information",
-                        "Warning"
-                    ],
-                    "scope": "resource",
-                    "type": "string",
-                    "markdownDeprecationMessage": "%python.linting.pycodestyleCategorySeverity.E.markdownDeprecationMessage%",
-                    "deprecationMessage": "%python.linting.pycodestyleCategorySeverity.E.deprecationMessage%"
-                },
-                "python.linting.pycodestyleCategorySeverity.W": {
-                    "default": "Warning",
-                    "description": "%python.linting.pycodestyleCategorySeverity.W.description%",
-                    "enum": [
-                        "Error",
-                        "Hint",
-                        "Information",
-                        "Warning"
-                    ],
-                    "scope": "resource",
-                    "type": "string",
-                    "markdownDeprecationMessage": "%python.linting.pycodestyleCategorySeverity.W.markdownDeprecationMessage%",
-                    "deprecationMessage": "%python.linting.pycodestyleCategorySeverity.W.deprecationMessage%"
-                },
-                "python.linting.pycodestyleEnabled": {
-                    "default": false,
-                    "description": "%python.linting.pycodestyleEnabled.description%",
-                    "scope": "resource",
-                    "type": "boolean",
-                    "markdownDeprecationMessage": "%python.linting.pycodestyleEnabled.markdownDeprecationMessage%",
-                    "deprecationMessage": "%python.linting.pycodestyleEnabled.deprecationMessage%"
-                },
-                "python.linting.pycodestylePath": {
-                    "default": "pycodestyle",
-                    "description": "%python.linting.pycodestylePath.description%",
-                    "scope": "machine-overridable",
-                    "type": "string",
-                    "markdownDeprecationMessage": "%python.linting.pycodestylePath.markdownDeprecationMessage%",
-                    "deprecationMessage": "%python.linting.pycodestylePath.deprecationMessage%"
-                },
-                "python.linting.pydocstyleArgs": {
-                    "default": [],
-                    "description": "%python.linting.pydocstyleArgs.description%",
-                    "items": {
-                        "type": "string"
-                    },
-                    "scope": "resource",
-                    "type": "array",
-                    "markdownDeprecationMessage": "%python.linting.pydocstyleArgs.markdownDeprecationMessage%",
-                    "deprecationMessage": "%python.linting.pydocstyleArgs.deprecationMessage%"
-                },
-                "python.linting.pydocstyleEnabled": {
-                    "default": false,
-                    "description": "%python.linting.pydocstyleEnabled.description%",
-                    "scope": "resource",
-                    "type": "boolean",
-                    "markdownDeprecationMessage": "%python.linting.pydocstyleEnabled.markdownDeprecationMessage%",
-                    "deprecationMessage": "%python.linting.pydocstyleEnabled.deprecationMessage%"
-                },
-                "python.linting.pydocstylePath": {
-                    "default": "pydocstyle",
-                    "description": "%python.linting.pydocstylePath.description%",
-                    "scope": "machine-overridable",
-                    "type": "string",
-                    "markdownDeprecationMessage": "%python.linting.pydocstylePath.markdownDeprecationMessage%",
-                    "deprecationMessage": "%python.linting.pydocstylePath.deprecationMessage%"
-                },
-                "python.linting.pylamaArgs": {
-                    "default": [],
-                    "description": "%python.linting.pylamaArgs.description%",
-                    "items": {
-                        "type": "string"
-                    },
-                    "scope": "resource",
-                    "type": "array",
-                    "markdownDeprecationMessage": "%python.linting.pylamaArgs.markdownDeprecationMessage%",
-                    "deprecationMessage": "%python.linting.pylamaArgs.deprecationMessage%"
-                },
-                "python.linting.pylamaEnabled": {
-                    "default": false,
-                    "description": "%python.linting.pylamaEnabled.description%",
-                    "scope": "resource",
-                    "type": "boolean",
-                    "markdownDeprecationMessage": "%python.linting.pylamaEnabled.markdownDeprecationMessage%",
-                    "deprecationMessage": "%python.linting.pylamaEnabled.deprecationMessage%"
-                },
-                "python.linting.pylamaPath": {
-                    "default": "pylama",
-                    "description": "%python.linting.pylamaPath.description%",
-                    "scope": "machine-overridable",
-                    "type": "string",
-                    "markdownDeprecationMessage": "%python.linting.pylamaPath.markdownDeprecationMessage%",
-                    "deprecationMessage": "%python.linting.pylamaPath.deprecationMessage%"
-                },
-                "python.linting.pylintArgs": {
-                    "default": [],
-                    "description": "%python.linting.pylintArgs.description%",
-                    "items": {
-                        "type": "string"
-                    },
-                    "scope": "resource",
-                    "type": "array",
-                    "markdownDeprecationMessage": "%python.linting.pylintArgs.markdownDeprecationMessage%",
-                    "deprecationMessage": "%python.linting.pylintArgs.deprecationMessage%"
-                },
-                "python.linting.pylintCategorySeverity.convention": {
-                    "default": "Information",
-                    "description": "%python.linting.pylintCategorySeverity.convention.description%",
-                    "enum": [
-                        "Error",
-                        "Hint",
-                        "Information",
-                        "Warning"
-                    ],
-                    "scope": "resource",
-                    "type": "string",
-                    "markdownDeprecationMessage": "%python.linting.pylintCategorySeverity.convention.markdownDeprecationMessage%",
-                    "deprecationMessage": "%python.linting.pylintCategorySeverity.convention.deprecationMessage%"
-                },
-                "python.linting.pylintCategorySeverity.error": {
-                    "default": "Error",
-                    "description": "%python.linting.pylintCategorySeverity.error.description%",
-                    "enum": [
-                        "Error",
-                        "Hint",
-                        "Information",
-                        "Warning"
-                    ],
-                    "scope": "resource",
-                    "type": "string",
-                    "markdownDeprecationMessage": "%python.linting.pylintCategorySeverity.error.markdownDeprecationMessage%",
-                    "deprecationMessage": "%python.linting.pylintCategorySeverity.error.deprecationMessage%"
-                },
-                "python.linting.pylintCategorySeverity.fatal": {
-                    "default": "Error",
-                    "description": "%python.linting.pylintCategorySeverity.fatal.description%",
-                    "enum": [
-                        "Error",
-                        "Hint",
-                        "Information",
-                        "Warning"
-                    ],
-                    "scope": "resource",
-                    "type": "string",
-                    "markdownDeprecationMessage": "%python.linting.pylintCategorySeverity.fatal.markdownDeprecationMessage%",
-                    "deprecationMessage": "%python.linting.pylintCategorySeverity.fatal.deprecationMessage%"
-                },
-                "python.linting.pylintCategorySeverity.refactor": {
-                    "default": "Hint",
-                    "description": "%python.linting.pylintCategorySeverity.refactor.description%",
-                    "enum": [
-                        "Error",
-                        "Hint",
-                        "Information",
-                        "Warning"
-                    ],
-                    "scope": "resource",
-                    "type": "string",
-                    "markdownDeprecationMessage": "%python.linting.pylintCategorySeverity.refactor.markdownDeprecationMessage%",
-                    "deprecationMessage": "%python.linting.pylintCategorySeverity.refactor.deprecationMessage%"
-                },
-                "python.linting.pylintCategorySeverity.warning": {
-                    "default": "Warning",
-                    "description": "%python.linting.pylintCategorySeverity.warning.description%",
-                    "enum": [
-                        "Error",
-                        "Hint",
-                        "Information",
-                        "Warning"
-                    ],
-                    "scope": "resource",
-                    "type": "string",
-                    "markdownDeprecationMessage": "%python.linting.pylintCategorySeverity.warning.markdownDeprecationMessage%",
-                    "deprecationMessage": "%python.linting.pylintCategorySeverity.warning.deprecationMessage%"
-                },
-                "python.linting.pylintEnabled": {
-                    "default": false,
-                    "description": "%python.linting.pylintEnabled.description%",
-                    "scope": "resource",
-                    "type": "boolean",
-                    "markdownDeprecationMessage": "%python.linting.pylintEnabled.markdownDeprecationMessage%",
-                    "deprecationMessage": "%python.linting.pylintEnabled.deprecationMessage%"
-                },
-                "python.linting.pylintPath": {
-                    "default": "pylint",
-                    "description": "%python.linting.pylintPath.description%",
-                    "scope": "machine-overridable",
-                    "type": "string",
-                    "markdownDeprecationMessage": "%python.linting.pylintPath.markdownDeprecationMessage%",
-                    "deprecationMessage": "%python.linting.pylintPath.deprecationMessage%"
                 },
                 "python.logging.level": {
                     "default": "error",
@@ -1152,28 +652,13 @@
                     "scope": "machine-overridable",
                     "type": "string"
                 },
-                "python.sortImports.args": {
-                    "default": [],
-                    "description": "%python.sortImports.args.description%",
-                    "items": {
-                        "type": "string"
-                    },
-                    "scope": "resource",
-                    "type": "array",
-                    "deprecationMessage": "%python.sortImports.args.deprecationMessage%"
-                },
-                "python.sortImports.path": {
-                    "default": "",
-                    "description": "%python.sortImports.path.description%",
-                    "scope": "machine-overridable",
-                    "type": "string",
-                    "deprecationMessage": "%python.sortImports.path.deprecationMessage%"
-                },
                 "python.tensorBoard.logDirectory": {
                     "default": "",
                     "description": "%python.tensorBoard.logDirectory.description%",
                     "scope": "resource",
-                    "type": "string"
+                    "type": "string",
+                    "markdownDeprecationMessage": "%python.tensorBoard.logDirectory.markdownDeprecationMessage%",
+                    "deprecationMessage": "%python.tensorBoard.logDirectory.deprecationMessage%"
                 },
                 "python.terminal.activateEnvInCurrentTerminal": {
                     "default": false,
@@ -1845,7 +1330,7 @@
                     "category": "Python",
                     "command": "python.launchTensorBoard",
                     "title": "%python.command.python.launchTensorBoard.title%",
-                    "when": "!virtualWorkspace && shellExecutionSupported"
+                    "when": "!virtualWorkspace && shellExecutionSupported && !python.tensorboardExtInstalled"
                 },
                 {
                     "category": "Python",
@@ -1853,7 +1338,7 @@
                     "enablement": "python.hasActiveTensorBoardSession",
                     "icon": "$(refresh)",
                     "title": "%python.command.python.refreshTensorBoard.title%",
-                    "when": "!virtualWorkspace && shellExecutionSupported"
+                    "when": "!virtualWorkspace && shellExecutionSupported && !python.tensorboardExtInstalled"
                 },
                 {
                     "category": "Python",
@@ -2089,7 +1574,6 @@
         "@vscode/extension-telemetry": "^0.8.4",
         "@vscode/jupyter-lsp-middleware": "^0.2.50",
         "arch": "^2.1.0",
-        "diff-match-patch": "^1.0.0",
         "fs-extra": "^10.0.1",
         "glob": "^7.2.0",
         "hash.js": "^1.1.7",
@@ -2097,7 +1581,6 @@
         "inversify": "^6.0.1",
         "jsonc-parser": "^3.0.0",
         "lodash": "^4.17.21",
-        "md5": "^2.2.1",
         "minimatch": "^5.0.1",
         "named-js-regexp": "^1.3.3",
         "node-stream-zip": "^1.6.0",
@@ -2113,12 +1596,10 @@
         "uint64be": "^3.0.0",
         "unicode": "^14.0.0",
         "untildify": "^4.0.0",
-        "vscode-debugadapter": "^1.28.0",
         "vscode-debugprotocol": "^1.28.0",
-        "vscode-jsonrpc": "8.0.2-next.1",
-        "vscode-languageclient": "^8.1.0",
-        "vscode-languageserver": "^8.1.0",
-        "vscode-languageserver-protocol": "^3.17.3",
+        "vscode-jsonrpc": "^8.2.0",
+        "vscode-languageclient": "^9.0.1",
+        "vscode-languageserver-protocol": "^3.17.5",
         "vscode-tas-client": "^0.1.63",
         "which": "^2.0.2",
         "winreg": "^1.2.4",
@@ -2130,21 +1611,17 @@
         "@types/chai": "^4.1.2",
         "@types/chai-arrays": "^2.0.0",
         "@types/chai-as-promised": "^7.1.0",
-        "@types/diff-match-patch": "^1.0.32",
         "@types/download": "^8.0.1",
         "@types/fs-extra": "^9.0.13",
         "@types/glob": "^7.2.0",
         "@types/lodash": "^4.14.104",
-        "@types/md5": "^2.1.32",
         "@types/mocha": "^9.1.0",
-        "@types/nock": "^10.0.3",
         "@types/node": "^18.17.1",
         "@types/semver": "^5.5.0",
         "@types/shortid": "^0.0.29",
         "@types/sinon": "^10.0.11",
         "@types/stack-trace": "0.0.29",
         "@types/tmp": "^0.0.33",
-        "@types/uuid": "^8.3.4",
         "@types/vscode": "^1.81.0",
         "@types/which": "^2.0.1",
         "@types/winreg": "^1.2.30",
@@ -2161,7 +1638,6 @@
         "cross-spawn": "^6.0.5",
         "del": "^6.0.0",
         "download": "^8.0.0",
-        "es5-ext": "0.10.53",
         "eslint": "^7.2.0",
         "eslint-config-airbnb": "^18.2.0",
         "eslint-config-prettier": "^8.3.0",
@@ -2177,7 +1653,7 @@
         "mocha": "^9.2.2",
         "mocha-junit-reporter": "^2.0.2",
         "mocha-multi-reporters": "^1.1.7",
-        "nock": "^10.0.6",
+
         "node-has-native-dependencies": "^1.0.2",
         "node-loader": "^1.0.2",
         "node-polyfill-webpack-plugin": "^1.1.4",
@@ -2195,7 +1671,6 @@
         "typemoq": "^2.1.0",
         "typescript": "4.5.5",
         "uuid": "^8.3.2",
-        "vscode-debugadapter-testsupport": "^1.27.0",
         "webpack": "^5.76.0",
         "webpack-bundle-analyzer": "^4.5.0",
         "webpack-cli": "^4.9.2",

@@ -22,7 +22,7 @@ def test_no_ids_run() -> None:
     start_dir: str = os.fspath(TEST_DATA_PATH)
     testids = []
     pattern = "discovery_simple*"
-    actual = run_tests(start_dir, testids, pattern, None, "fake-uuid")
+    actual = run_tests(start_dir, testids, pattern, None, "fake-uuid", 1, None)
     assert actual
     assert all(item in actual for item in ("cwd", "status"))
     assert actual["status"] == "success"
@@ -41,7 +41,13 @@ def test_single_ids_run() -> None:
     """
     id = "discovery_simple.DiscoverySimple.test_one"
     actual = run_tests(
-        os.fspath(TEST_DATA_PATH), [id], "discovery_simple*", None, "fake-uuid"
+        os.fspath(TEST_DATA_PATH),
+        [id],
+        "discovery_simple*",
+        None,
+        "fake-uuid",
+        1,
+        None,
     )
     assert actual
     assert all(item in actual for item in ("cwd", "status"))
@@ -65,7 +71,13 @@ def test_subtest_run() -> None:
     """
     id = "test_subtest.NumbersTest.test_even"
     actual = run_tests(
-        os.fspath(TEST_DATA_PATH), [id], "test_subtest.py", None, "fake-uuid"
+        os.fspath(TEST_DATA_PATH),
+        [id],
+        "test_subtest.py",
+        None,
+        "fake-uuid",
+        1,
+        None,
     )
     subtests_ids = [
         "test_subtest.NumbersTest.test_even (i=0)",
@@ -162,7 +174,7 @@ def test_multiple_ids_run(test_ids, pattern, cwd, expected_outcome) -> None:
 
     All tests should have the outcome of `success`.
     """
-    actual = run_tests(cwd, test_ids, pattern, None, "fake-uuid")
+    actual = run_tests(cwd, test_ids, pattern, None, "fake-uuid", 1, None)
     assert actual
     assert all(item in actual for item in ("cwd", "status"))
     assert actual["status"] == "success"
@@ -186,7 +198,13 @@ def test_failed_tests():
         "test_fail_simple.RunFailSimple.test_two_fail",
     ]
     actual = run_tests(
-        os.fspath(TEST_DATA_PATH), test_ids, "test_fail_simple*", None, "fake-uuid"
+        os.fspath(TEST_DATA_PATH),
+        test_ids,
+        "test_fail_simple*",
+        None,
+        "fake-uuid",
+        1,
+        None,
     )
     assert actual
     assert all(item in actual for item in ("cwd", "status"))
@@ -202,6 +220,9 @@ def test_failed_tests():
         assert "outcome" in id_result
         assert id_result["outcome"] == "failure"
         assert "message" and "traceback" in id_result
+        assert "2 not greater than 3" in str(id_result["message"]) or "1 == 1" in str(
+            id_result["traceback"]
+        )
     assert True
 
 
@@ -211,7 +232,13 @@ def test_unknown_id():
     """
     test_ids = ["unknown_id"]
     actual = run_tests(
-        os.fspath(TEST_DATA_PATH), test_ids, "test_fail_simple*", None, "fake-uuid"
+        os.fspath(TEST_DATA_PATH),
+        test_ids,
+        "test_fail_simple*",
+        None,
+        "fake-uuid",
+        1,
+        None,
     )
     assert actual
     assert all(item in actual for item in ("cwd", "status"))
@@ -239,6 +266,8 @@ def test_incorrect_path():
         "test_fail_simple*",
         None,
         "fake-uuid",
+        1,
+        None,
     )
     assert actual
     assert all(item in actual for item in ("cwd", "status", "error"))

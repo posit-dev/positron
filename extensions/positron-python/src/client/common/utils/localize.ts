@@ -39,9 +39,6 @@ export namespace Diagnostics {
         'Your settings needs to be updated to change the setting "python.unitTest." to "python.testing.", otherwise testing Python code using the extension may not work. Would you like to automatically update your settings now?',
     );
     export const updateSettings = l10n.t('Yes, update settings');
-    export const checkIsort5UpgradeGuide = l10n.t(
-        'We found outdated configuration for sorting imports in this workspace. Check the [isort upgrade guide](https://aka.ms/AA9j5x4) to update your settings.',
-    );
     export const pylanceDefaultMessage = l10n.t(
         "The Python extension now includes Pylance to improve completions, code navigation, overall performance and much more! You can learn more about the update and learn how to change your language server [here](https://aka.ms/new-python-bundle).\n\nRead Pylance's license [here](https://marketplace.visualstudio.com/items/ms-python.vscode-pylance/license).",
     );
@@ -64,6 +61,7 @@ export namespace Common {
     export const noIWillDoItLater = l10n.t('No, I will do it later');
     export const notNow = l10n.t('Not now');
     export const doNotShowAgain = l10n.t("Don't show again");
+    export const editSomething = l10n.t('Edit {0}');
     export const reload = l10n.t('Reload');
     export const moreInfo = l10n.t('More Info');
     export const learnMore = l10n.t('Learn more');
@@ -199,7 +197,12 @@ export namespace Interpreters {
     export const activatingTerminals = l10n.t('Reactivating terminals...');
     export const activateTerminalDescription = l10n.t('Activated environment for');
     export const terminalEnvVarCollectionPrompt = l10n.t(
-        'The Python extension automatically activates all terminals using the selected environment, even when the name of the environment{0} is not present in the terminal prompt. [Learn more](https://aka.ms/vscodePythonTerminalActivation).',
+        '{0} environment was successfully activated, even though {1} may not be present in the terminal prompt. [Learn more](https://aka.ms/vscodePythonTerminalActivation).',
+    );
+    export const terminalDeactivateProgress = l10n.t('Editing {0}...');
+    export const restartingTerminal = l10n.t('Restarting terminal and deactivating...');
+    export const terminalDeactivatePrompt = l10n.t(
+        'Deactivating virtual environments may not work by default. To make it work, edit your "{0}" and then restart your shell. [Learn more](https://aka.ms/AAmx2ft).',
     );
     export const activatedCondaEnvLaunch = l10n.t(
         'We noticed VS Code was launched from an activated conda environment, would you like to select it?',
@@ -508,39 +511,4 @@ export namespace CreateEnv {
         export const disableCheck = l10n.t('Disable');
         export const disableCheckWorkspace = l10n.t('Disable (Workspace)');
     }
-}
-
-export namespace ToolsExtensions {
-    export const flake8PromptMessage = l10n.t(
-        'Use the Flake8 extension to enable easier configuration and new features such as quick fixes.',
-    );
-    export const pylintPromptMessage = l10n.t(
-        'Use the Pylint extension to enable easier configuration and new features such as quick fixes.',
-    );
-    export const isortPromptMessage = l10n.t(
-        'To use sort imports, install the isort extension. It provides easier configuration and new features such as code actions.',
-    );
-    export const installPylintExtension = l10n.t('Install Pylint extension');
-    export const installFlake8Extension = l10n.t('Install Flake8 extension');
-    export const installISortExtension = l10n.t('Install isort extension');
-
-    export const selectBlackFormatterPrompt = l10n.t(
-        'You have the Black formatter extension installed, would you like to use that as the default formatter?',
-    );
-
-    export const selectAutopep8FormatterPrompt = l10n.t(
-        'You have the Autopep8 formatter extension installed, would you like to use that as the default formatter?',
-    );
-
-    export const selectMultipleFormattersPrompt = l10n.t(
-        'You have multiple formatters installed, would you like to select one as the default formatter?',
-    );
-
-    export const installBlackFormatterPrompt = l10n.t(
-        'You triggered formatting with Black, would you like to install one of our new formatter extensions? This will also set it as the default formatter for Python.',
-    );
-
-    export const installAutopep8FormatterPrompt = l10n.t(
-        'You triggered formatting with Autopep8, would you like to install one of our new formatter extension? This will also set it as the default formatter for Python.',
-    );
 }

@@ -31,7 +31,7 @@ export abstract class ModuleInstaller implements IModuleInstaller {
 
     public abstract get type(): ModuleInstallerType;
 
-    constructor(protected serviceContainer: IServiceContainer) { }
+    constructor(protected serviceContainer: IServiceContainer) {}
 
     public async installModule(
         productOrModuleName: Product | string,
@@ -243,32 +243,10 @@ export abstract class ModuleInstaller implements IModuleInstaller {
 
 export function translateProductToModule(product: Product): string {
     switch (product) {
-        case Product.mypy:
-            return 'mypy';
-        case Product.pylama:
-            return 'pylama';
-        case Product.prospector:
-            return 'prospector';
-        case Product.pylint:
-            return 'pylint';
         case Product.pytest:
             return 'pytest';
-        case Product.autopep8:
-            return 'autopep8';
-        case Product.black:
-            return 'black';
-        case Product.pycodestyle:
-            return 'pycodestyle';
-        case Product.pydocstyle:
-            return 'pydocstyle';
-        case Product.yapf:
-            return 'yapf';
-        case Product.flake8:
-            return 'flake8';
         case Product.unittest:
             return 'unittest';
-        case Product.bandit:
-            return 'bandit';
         case Product.ipykernel:
             return 'ipykernel';
         case Product.tensorboard:

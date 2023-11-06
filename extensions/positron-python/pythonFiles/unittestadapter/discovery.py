@@ -19,7 +19,7 @@ from typing_extensions import Literal, NotRequired, TypedDict
 # If I use from utils then there will be an import error in test_discovery.py.
 from unittestadapter.utils import TestNode, build_test_tree, parse_unittest_args
 
-DEFAULT_PORT = "45454"
+DEFAULT_PORT = 45454
 
 
 class PayloadDict(TypedDict):
@@ -37,7 +37,10 @@ class EOTPayloadDict(TypedDict):
 
 
 def discover_tests(
-    start_dir: str, pattern: str, top_level_dir: Optional[str], uuid: Optional[str]
+    start_dir: str,
+    pattern: str,
+    top_level_dir: Optional[str],
+    uuid: Optional[str],
 ) -> PayloadDict:
     """Returns a dictionary containing details of the discovered tests.
 
@@ -119,14 +122,27 @@ if __name__ == "__main__":
     argv = sys.argv[1:]
     index = argv.index("--udiscovery")
 
-    start_dir, pattern, top_level_dir = parse_unittest_args(argv[index + 1 :])
+    (
+        start_dir,
+        pattern,
+        top_level_dir,
+        _verbosity,
+        _failfast,
+        _locals,
+    ) = parse_unittest_args(argv[index + 1 :])
 
-    # Perform test discovery.
     testPort = int(os.environ.get("TEST_PORT", DEFAULT_PORT))
     testUuid = os.environ.get("TEST_UUID")
-    # Post this discovery payload.
+    if testPort is DEFAULT_PORT:
+        print(
+            "Error[vscode-unittest]: TEST_PORT is not set.",
+            " TEST_UUID = ",
+            testUuid,
+        )
     if testUuid is not None:
+        # Perform test discovery.
         payload = discover_tests(start_dir, pattern, top_level_dir, testUuid)
+        # Post this discovery payload.
         post_response(payload, testPort, testUuid)
         # Post EOT token.
         eot_payload: EOTPayloadDict = {"command_type": "discovery", "eot": True}

@@ -3,7 +3,6 @@
     "python.linting.flake8Enabled": false,
     "python.testing.pytestArgs": [],
     "python.testing.unittestArgs": ["-s=./tests", "-p=test_*.py", "-v", "-s", ".", "-p", "*test*.py"],
-    "python.sortImports.args": [],
     "python.linting.lintOnSave": false,
     "python.linting.enabled": true,
     "python.linting.pycodestyleEnabled": false,
@@ -12,7 +11,6 @@
     "python.linting.pylamaEnabled": false,
     "python.linting.mypyEnabled": false,
     "python.linting.banditEnabled": false,
-    "python.formatting.provider": "yapf",
     // Don't set this to `Pylance`, for CI we want to use the LS that ships with the extension.
     "python.languageServer": "Jedi",
     "python.pythonPath": "C:\\GIT\\s p\\vscode-python\\.venv\\Scripts\\python.exe"

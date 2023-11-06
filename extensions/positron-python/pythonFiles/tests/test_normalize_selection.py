@@ -1,8 +1,12 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 
+
+import importlib
 import textwrap
 
+# __file__ = "/Users/anthonykim/Desktop/vscode-python/pythonFiles/normalizeSelection.py"
+# sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__))))
 import normalizeSelection
 
 
@@ -214,4 +218,53 @@ class TestNormalizationScript(object):
             """
         )
         result = normalizeSelection.normalize_lines(src)
+        assert result == expected
+
+    def test_fstring(self):
+        importlib.reload(normalizeSelection)
+        src = textwrap.dedent(
+            """\
+            name = "Ahri"
+            age = 10
+
+            print(f'My name is {name}')
+            """
+        )
+
+        expected = textwrap.dedent(
+            """\
+            name = "Ahri"
+            age = 10
+            print(f'My name is {name}')
+            """
+        )
+        result = normalizeSelection.normalize_lines(src)
+
+        assert result == expected
+
+    def test_list_comp(self):
+        importlib.reload(normalizeSelection)
+        src = textwrap.dedent(
+            """\
+            names = ['Ahri', 'Bobby', 'Charlie']
+            breed = ['Pomeranian', 'Welsh Corgi', 'Siberian Husky']
+            dogs = [(name, breed) for name, breed in zip(names, breed)]
+
+            print(dogs)
+            my_family_dog = 'Corgi'
+            """
+        )
+
+        expected = textwrap.dedent(
+            """\
+            names = ['Ahri', 'Bobby', 'Charlie']
+            breed = ['Pomeranian', 'Welsh Corgi', 'Siberian Husky']
+            dogs = [(name, breed) for name, breed in zip(names, breed)]
+            print(dogs)
+            my_family_dog = 'Corgi'
+            """
+        )
+
+        result = normalizeSelection.normalize_lines(src)
+
         assert result == expected

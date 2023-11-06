@@ -6,7 +6,6 @@ import json
 import os
 import pathlib
 import sys
-import time
 import traceback
 
 import pytest
@@ -19,6 +18,8 @@ from typing import Any, Dict, List, Optional, Union
 
 from testing_tools import socket_manager
 from typing_extensions import Literal, TypedDict
+
+DEFAULT_PORT = 45454
 
 
 class TestData(TypedDict):
@@ -54,9 +55,21 @@ ERRORS = []
 IS_DISCOVERY = False
 map_id_to_path = dict()
 collected_tests_so_far = list()
+TEST_PORT = os.getenv("TEST_PORT")
+TEST_UUID = os.getenv("TEST_UUID")
 
 
 def pytest_load_initial_conftests(early_config, parser, args):
+    global TEST_PORT
+    global TEST_UUID
+    TEST_PORT = os.getenv("TEST_PORT")
+    TEST_UUID = os.getenv("TEST_UUID")
+    error_string = (
+        "PYTEST ERROR: TEST_UUID and/or TEST_PORT are not set at the time of pytest starting. Please confirm these environment variables are not being"
+        " changed or removed as they are required for successful test discovery and execution."
+        f" \nTEST_UUID = {TEST_UUID}\nTEST_PORT = {TEST_PORT}\n"
+    )
+    print(error_string, file=sys.stderr)
     if "--collect-only" in args:
         global IS_DISCOVERY
         IS_DISCOVERY = True
@@ -181,6 +194,7 @@ class testRunResultDict(Dict[str, Dict[str, TestOutcome]]):
     tests: Dict[str, TestOutcome]
 
 
+@pytest.hookimpl(hookwrapper=True, trylast=True)
 def pytest_report_teststatus(report, config):
     """
     A pytest hook that is called when a test is called. It is called 3 times per test,
@@ -221,6 +235,7 @@ def pytest_report_teststatus(report, config):
                 "success",
                 collected_test if collected_test else None,
             )
+    yield
 
 
 ERROR_MESSAGE_CONST = {
@@ -231,6 +246,7 @@ ERROR_MESSAGE_CONST = {
 }
 
 
+@pytest.hookimpl(hookwrapper=True, trylast=True)
 def pytest_runtest_protocol(item, nextitem):
     map_id_to_path[item.nodeid] = get_node_path(item)
     skipped = check_skipped_wrapper(item)
@@ -253,6 +269,7 @@ def pytest_runtest_protocol(item, nextitem):
                 "success",
                 collected_test if collected_test else None,
             )
+    yield
 
 
 def check_skipped_wrapper(item):
@@ -300,12 +317,12 @@ def pytest_sessionfinish(session, exitstatus):
     session -- the pytest session object.
     exitstatus -- the status code of the session.
 
-    0: All tests passed successfully.
-    1: One or more tests failed.
-    2: Pytest was unable to start or run any tests due to issues with test discovery or test collection.
-    3: Pytest was interrupted by the user, for example by pressing Ctrl+C during test execution.
-    4: Pytest encountered an internal error or exception during test execution.
-    5: Pytest was unable to find any tests to run.
+    Exit code 0: All tests were collected and passed successfully
+    Exit code 1: Tests were collected and run but some of the tests failed
+    Exit code 2: Test execution was interrupted by the user
+    Exit code 3: Internal error happened while executing tests
+    Exit code 4: pytest command line usage error
+    Exit code 5: No tests were collected
     """
     cwd = pathlib.Path.cwd()
     if IS_DISCOVERY:
@@ -616,7 +633,13 @@ class EOTPayloadDict(TypedDict):
 
 def get_node_path(node: Any) -> pathlib.Path:
     """A function that returns the path of a node given the switch to pathlib.Path."""
-    return getattr(node, "path", pathlib.Path(node.fspath))
+    path = getattr(node, "path", None) or pathlib.Path(node.fspath)
+
+    if not path:
+        raise VSCodePytestError(
+            f"Unable to find path for node: {node}, node.path: {node.path}, node.fspath: {node.fspath}"
+        )
+    return path
 
 
 __socket = None
@@ -683,9 +706,19 @@ def send_post_request(
     payload -- the payload data to be sent.
     cls_encoder -- a custom encoder if needed.
     """
-    testPort = os.getenv("TEST_PORT", 45454)
-    testUuid = os.getenv("TEST_UUID")
-    addr = ("localhost", int(testPort))
+    global TEST_PORT
+    global TEST_UUID
+    if TEST_UUID is None or TEST_PORT is None:
+        # if TEST_UUID or TEST_PORT is None, print an error and fail as these are both critical errors
+        error_msg = (
+            "PYTEST ERROR: TEST_UUID and/or TEST_PORT are not set at the time of pytest starting. Please confirm these environment variables are not being"
+            " changed or removed as they are required for successful pytest discovery and execution."
+            f" \nTEST_UUID = {TEST_UUID}\nTEST_PORT = {TEST_PORT}\n"
+        )
+        print(error_msg, file=sys.stderr)
+        raise VSCodePytestError(error_msg)
+
+    addr = ("localhost", int(TEST_PORT))
     global __socket
 
     if __socket is None:
@@ -693,34 +726,34 @@ def send_post_request(
             __socket = socket_manager.SocketManager(addr)
             __socket.connect()
         except Exception as error:
-            print(f"Plugin error connection error[vscode-pytest]: {error}")
+            error_msg = f"Error attempting to connect to extension communication socket[vscode-pytest]: {error}"
+            print(error_msg, file=sys.stderr)
+            print(
+                "If you are on a Windows machine, this error may be occurring if any of your tests clear environment variables"
+                " as they are required to communicate with the extension. Please reference https://docs.pytest.org/en/stable/how-to/monkeypatch.html#monkeypatching-environment-variables"
+                "for the correct way to clear environment variables during testing.\n",
+                file=sys.stderr,
+            )
             __socket = None
+            raise VSCodePytestError(error_msg)
 
     data = json.dumps(payload, cls=cls_encoder)
     request = f"""Content-Length: {len(data)}
 Content-Type: application/json
-Request-uuid: {testUuid}
+Request-uuid: {TEST_UUID}
 
 {data}"""
 
-    max_retries = 3
-    retries = 0
-    while retries < max_retries:
-        try:
-            if __socket is not None and __socket.socket is not None:
-                __socket.socket.sendall(request.encode("utf-8"))
-                # print("Post request sent successfully!")
-                # print("data sent", payload, "end of data")
-                break  # Exit the loop if the send was successful
-            else:
-                print("Plugin error connection error[vscode-pytest]")
-                print(f"[vscode-pytest] data: {request}")
-        except Exception as error:
-            print(f"Plugin error connection error[vscode-pytest]: {error}")
-            print(f"[vscode-pytest] data: {request}")
-            retries += 1  # Increment retry counter
-            if retries < max_retries:
-                print(f"Retrying ({retries}/{max_retries}) in 2 seconds...")
-                time.sleep(2)  # Wait for a short duration before retrying
-            else:
-                print("Maximum retry attempts reached. Cannot send post request.")
+    try:
+        if __socket is not None and __socket.socket is not None:
+            __socket.socket.sendall(request.encode("utf-8"))
+        else:
+            print(
+                f"Plugin error connection error[vscode-pytest], socket is None \n[vscode-pytest] data: \n{request} \n",
+                file=sys.stderr,
+            )
+    except Exception as error:
+        print(
+            f"Plugin error, exception thrown while attempting to send data[vscode-pytest]: {error} \n[vscode-pytest] data: \n{request}\n",
+            file=sys.stderr,
+        )
