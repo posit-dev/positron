@@ -20,6 +20,7 @@ import { UnittestTestExecutionAdapter } from '../../../client/testing/testContro
 import { PythonResultResolver } from '../../../client/testing/testController/common/resultResolver';
 import { TestProvider } from '../../../client/testing/types';
 import { PYTEST_PROVIDER, UNITTEST_PROVIDER } from '../../../client/testing/common/constants';
+import { IEnvironmentVariablesProvider } from '../../../client/common/variables/types';
 
 suite('End to End Tests: test adapters', () => {
     let resultResolver: ITestResultResolver;
@@ -28,6 +29,7 @@ suite('End to End Tests: test adapters', () => {
     let debugLauncher: ITestDebugLauncher;
     let configService: IConfigurationService;
     let serviceContainer: IServiceContainer;
+    let envVarsService: IEnvironmentVariablesProvider;
     let workspaceUri: Uri;
     let testOutputChannel: typeMoq.IMock<ITestOutputChannel>;
     let testController: TestController;
@@ -67,6 +69,7 @@ suite('End to End Tests: test adapters', () => {
         pythonExecFactory = serviceContainer.get<IPythonExecutionFactory>(IPythonExecutionFactory);
         debugLauncher = serviceContainer.get<ITestDebugLauncher>(ITestDebugLauncher);
         testController = serviceContainer.get<TestController>(ITestController);
+        envVarsService = serviceContainer.get<IEnvironmentVariablesProvider>(IEnvironmentVariablesProvider);
 
         // create objects that were not injected
         pythonTestServer = new PythonTestServer(pythonExecFactory, debugLauncher);
@@ -121,6 +124,7 @@ suite('End to End Tests: test adapters', () => {
             configService,
             testOutputChannel.object,
             resultResolver,
+            envVarsService,
         );
 
         await discoveryAdapter.discoverTests(workspaceUri).finally(() => {
@@ -167,6 +171,7 @@ suite('End to End Tests: test adapters', () => {
             configService,
             testOutputChannel.object,
             resultResolver,
+            envVarsService,
         );
 
         await discoveryAdapter.discoverTests(workspaceUri).finally(() => {
@@ -206,6 +211,7 @@ suite('End to End Tests: test adapters', () => {
             configService,
             testOutputChannel.object,
             resultResolver,
+            envVarsService,
         );
 
         // set workspace to test workspace folder
@@ -248,6 +254,7 @@ suite('End to End Tests: test adapters', () => {
             configService,
             testOutputChannel.object,
             resultResolver,
+            envVarsService,
         );
 
         // set workspace to test workspace folder
@@ -268,7 +275,7 @@ suite('End to End Tests: test adapters', () => {
             assert.strictEqual(callCount, 1, 'Expected _resolveDiscovery to be called once');
         });
     });
-    test('unittest execution adapter small workspace', async () => {
+    test('unittest execution adapter small workspace with correct output', async () => {
         // result resolver and saved data for assertions
         resultResolver = new PythonResultResolver(testController, unittestProvider, workspaceUri);
         let callCount = 0;
@@ -301,6 +308,7 @@ suite('End to End Tests: test adapters', () => {
             configService,
             testOutputChannel.object,
             resultResolver,
+            envVarsService,
         );
         const testRun = typeMoq.Mock.ofType<TestRun>();
         testRun
@@ -311,12 +319,34 @@ suite('End to End Tests: test adapters', () => {
                         onCancellationRequested: () => undefined,
                     } as any),
             );
+        let collectedOutput = '';
+        testRun
+            .setup((t) => t.appendOutput(typeMoq.It.isAny()))
+            .callback((output: string) => {
+                collectedOutput += output;
+                traceLog('appendOutput was called with:', output);
+            })
+            .returns(() => false);
         await executionAdapter
             .runTests(workspaceUri, ['test_simple.SimpleClass.test_simple_unit'], false, testRun.object)
             .finally(() => {
                 // verify that the _resolveExecution was called once per test
                 assert.strictEqual(callCount, 1, 'Expected _resolveExecution to be called once');
                 assert.strictEqual(failureOccurred, false, failureMsg);
+
+                // verify output works for stdout and stderr as well as unittest output
+                assert.ok(
+                    collectedOutput.includes('expected printed output, stdout'),
+                    'The test string does not contain the expected stdout output.',
+                );
+                assert.ok(
+                    collectedOutput.includes('expected printed output, stderr'),
+                    'The test string does not contain the expected stderr output.',
+                );
+                assert.ok(
+                    collectedOutput.includes('Ran 1 test in'),
+                    'The test string does not contain the expected unittest output.',
+                );
             });
     });
     test('unittest execution adapter large workspace', async () => {
@@ -353,6 +383,7 @@ suite('End to End Tests: test adapters', () => {
             configService,
             testOutputChannel.object,
             resultResolver,
+            envVarsService,
         );
         const testRun = typeMoq.Mock.ofType<TestRun>();
         testRun
@@ -363,15 +394,33 @@ suite('End to End Tests: test adapters', () => {
                         onCancellationRequested: () => undefined,
                     } as any),
             );
+        let collectedOutput = '';
+        testRun
+            .setup((t) => t.appendOutput(typeMoq.It.isAny()))
+            .callback((output: string) => {
+                collectedOutput += output;
+                traceLog('appendOutput was called with:', output);
+            })
+            .returns(() => false);
         await executionAdapter
             .runTests(workspaceUri, ['test_parameterized_subtest.NumbersTest.test_even'], false, testRun.object)
             .then(() => {
                 // verify that the _resolveExecution was called once per test
                 assert.strictEqual(callCount, 2000, 'Expected _resolveExecution to be called once');
                 assert.strictEqual(failureOccurred, false, failureMsg);
+
+                // verify output
+                assert.ok(
+                    collectedOutput.includes('test_parameterized_subtest.py'),
+                    'The test string does not contain the correct test name which should be printed',
+                );
+                assert.ok(
+                    collectedOutput.includes('FAILED (failures=1000)'),
+                    'The test string does not contain the last of the unittest output',
+                );
             });
     });
-    test('pytest execution adapter small workspace', async () => {
+    test('pytest execution adapter small workspace with correct output', async () => {
         // result resolver and saved data for assertions
         resultResolver = new PythonResultResolver(testController, unittestProvider, workspaceUri);
         let callCount = 0;
@@ -403,6 +452,7 @@ suite('End to End Tests: test adapters', () => {
             configService,
             testOutputChannel.object,
             resultResolver,
+            envVarsService,
         );
         const testRun = typeMoq.Mock.ofType<TestRun>();
         testRun
@@ -413,6 +463,14 @@ suite('End to End Tests: test adapters', () => {
                         onCancellationRequested: () => undefined,
                     } as any),
             );
+        let collectedOutput = '';
+        testRun
+            .setup((t) => t.appendOutput(typeMoq.It.isAny()))
+            .callback((output: string) => {
+                collectedOutput += output;
+                traceLog('appendOutput was called with:', output);
+            })
+            .returns(() => false);
         await executionAdapter
             .runTests(
                 workspaceUri,
@@ -425,6 +483,30 @@ suite('End to End Tests: test adapters', () => {
                 // verify that the _resolveExecution was called once per test
                 assert.strictEqual(callCount, 1, 'Expected _resolveExecution to be called once');
                 assert.strictEqual(failureOccurred, false, failureMsg);
+
+                // verify output works for stdout and stderr as well as pytest output
+                assert.ok(
+                    collectedOutput.includes('test session starts'),
+                    'The test string does not contain the expected stdout output.',
+                );
+                assert.ok(
+                    collectedOutput.includes('Captured log call'),
+                    'The test string does not contain the expected log section.',
+                );
+                const searchStrings = [
+                    'This is a warning message.',
+                    'This is an error message.',
+                    'This is a critical message.',
+                ];
+                let searchString: string;
+                for (searchString of searchStrings) {
+                    const count: number = (collectedOutput.match(new RegExp(searchString, 'g')) || []).length;
+                    assert.strictEqual(
+                        count,
+                        2,
+                        `The test string does not contain two instances of ${searchString}. Should appear twice from logging output and stack trace`,
+                    );
+                }
             });
     });
     test('pytest execution adapter large workspace', async () => {
@@ -467,6 +549,7 @@ suite('End to End Tests: test adapters', () => {
             configService,
             testOutputChannel.object,
             resultResolver,
+            envVarsService,
         );
         const testRun = typeMoq.Mock.ofType<TestRun>();
         testRun
@@ -477,10 +560,24 @@ suite('End to End Tests: test adapters', () => {
                         onCancellationRequested: () => undefined,
                     } as any),
             );
+        let collectedOutput = '';
+        testRun
+            .setup((t) => t.appendOutput(typeMoq.It.isAny()))
+            .callback((output: string) => {
+                collectedOutput += output;
+                traceLog('appendOutput was called with:', output);
+            })
+            .returns(() => false);
         await executionAdapter.runTests(workspaceUri, testIds, false, testRun.object, pythonExecFactory).then(() => {
             // verify that the _resolveExecution was called once per test
             assert.strictEqual(callCount, 2000, 'Expected _resolveExecution to be called once');
             assert.strictEqual(failureOccurred, false, failureMsg);
+
+            // verify output works for large repo
+            assert.ok(
+                collectedOutput.includes('test session starts'),
+                'The test string does not contain the expected stdout output from pytest.',
+            );
         });
     });
     test('unittest discovery adapter seg fault error handling', async () => {
@@ -524,6 +621,7 @@ suite('End to End Tests: test adapters', () => {
             configService,
             testOutputChannel.object,
             resultResolver,
+            envVarsService,
         );
         const testRun = typeMoq.Mock.ofType<TestRun>();
         testRun
@@ -555,17 +653,21 @@ suite('End to End Tests: test adapters', () => {
                     if (data.error === undefined) {
                         // Dereference a NULL pointer
                         const indexOfTest = JSON.stringify(data).search('Dereference a NULL pointer');
-                        assert.notDeepEqual(indexOfTest, -1, 'Expected test to have a null pointer');
-                    } else {
-                        assert.ok(data.error, "Expected errors in 'error' field");
+                        if (indexOfTest === -1) {
+                            failureOccurred = true;
+                            failureMsg = 'Expected test to have a null pointer';
+                        }
+                    } else if (data.error.length === 0) {
+                        failureOccurred = true;
+                        failureMsg = "Expected errors in 'error' field";
                     }
                 } else {
                     const indexOfTest = JSON.stringify(data.tests).search('error');
-                    assert.notDeepEqual(
-                        indexOfTest,
-                        -1,
-                        'If payload status is not error then the individual tests should be marked as errors. This should occur on windows machines.',
-                    );
+                    if (indexOfTest === -1) {
+                        failureOccurred = true;
+                        failureMsg =
+                            'If payload status is not error then the individual tests should be marked as errors. This should occur on windows machines.';
+                    }
                 }
             } catch (err) {
                 failureMsg = err ? (err as Error).toString() : '';
@@ -579,6 +681,7 @@ suite('End to End Tests: test adapters', () => {
             configService,
             testOutputChannel.object,
             resultResolver,
+            envVarsService,
         );
 
         // set workspace to test workspace folder
@@ -606,22 +709,32 @@ suite('End to End Tests: test adapters', () => {
                     if (data.error === undefined) {
                         // Dereference a NULL pointer
                         const indexOfTest = JSON.stringify(data).search('Dereference a NULL pointer');
-                        assert.notDeepEqual(indexOfTest, -1, 'Expected test to have a null pointer');
-                    } else {
-                        assert.ok(data.error, "Expected errors in 'error' field");
+                        if (indexOfTest === -1) {
+                            failureOccurred = true;
+                            failureMsg = 'Expected test to have a null pointer';
+                        }
+                    } else if (data.error.length === 0) {
+                        failureOccurred = true;
+                        failureMsg = "Expected errors in 'error' field";
                     }
                 } else {
                     const indexOfTest = JSON.stringify(data.result).search('error');
-                    assert.notDeepEqual(
-                        indexOfTest,
-                        -1,
-                        'If payload status is not error then the individual tests should be marked as errors. This should occur on windows machines.',
-                    );
+                    if (indexOfTest === -1) {
+                        failureOccurred = true;
+                        failureMsg =
+                            'If payload status is not error then the individual tests should be marked as errors. This should occur on windows machines.';
+                    }
                 }
-                assert.ok(data.result, 'Expected results to be present');
+                if (data.result === undefined) {
+                    failureOccurred = true;
+                    failureMsg = 'Expected results to be present';
+                }
                 // make sure the testID is found in the results
                 const indexOfTest = JSON.stringify(data).search('test_seg_fault.TestSegmentationFault.test_segfault');
-                assert.notDeepEqual(indexOfTest, -1, 'Expected testId to be present');
+                if (indexOfTest === -1) {
+                    failureOccurred = true;
+                    failureMsg = 'Expected testId to be present';
+                }
             } catch (err) {
                 failureMsg = err ? (err as Error).toString() : '';
                 failureOccurred = true;
@@ -641,6 +754,7 @@ suite('End to End Tests: test adapters', () => {
             configService,
             testOutputChannel.object,
             resultResolver,
+            envVarsService,
         );
         const testRun = typeMoq.Mock.ofType<TestRun>();
         testRun
@@ -701,6 +815,7 @@ suite('End to End Tests: test adapters', () => {
             configService,
             testOutputChannel.object,
             resultResolver,
+            envVarsService,
         );
         const testRun = typeMoq.Mock.ofType<TestRun>();
         testRun

@@ -40,13 +40,15 @@ export class ProcessService extends EventEmitter implements IProcessService {
     }
 
     public execObservable(file: string, args: string[], options: SpawnOptions = {}): ObservableExecutionResult<string> {
-        const result = execObservable(file, args, options, this.env, this.processesToKill);
+        const execOptions = { ...options, doNotLog: true };
+        const result = execObservable(file, args, execOptions, this.env, this.processesToKill);
         this.emit('exec', file, args, options);
         return result;
     }
 
     public exec(file: string, args: string[], options: SpawnOptions = {}): Promise<ExecutionResult<string>> {
-        const promise = plainExec(file, args, options, this.env, this.processesToKill);
+        const execOptions = { ...options, doNotLog: true };
+        const promise = plainExec(file, args, execOptions, this.env, this.processesToKill);
         this.emit('exec', file, args, options);
         return promise;
     }
@@ -54,7 +56,8 @@ export class ProcessService extends EventEmitter implements IProcessService {
     public shellExec(command: string, options: ShellOptions = {}): Promise<ExecutionResult<string>> {
         this.emit('exec', command, undefined, options);
         const disposables = new Set<IDisposable>();
-        return shellExec(command, options, this.env, disposables).finally(() => {
+        const shellOptions = { ...options, doNotLog: true };
+        return shellExec(command, shellOptions, this.env, disposables).finally(() => {
             // Ensure the process we started is cleaned up.
             disposables.forEach((p) => {
                 try {

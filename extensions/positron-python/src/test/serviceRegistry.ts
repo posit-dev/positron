@@ -33,7 +33,6 @@ import {
     ITestOutputChannel,
 } from '../client/common/types';
 import { registerTypes as variableRegisterTypes } from '../client/common/variables/serviceRegistry';
-import { registerTypes as formattersRegisterTypes } from '../client/formatters/serviceRegistry';
 import { EnvironmentActivationService } from '../client/interpreter/activation/service';
 import { IEnvironmentActivationService } from '../client/interpreter/activation/types';
 import {
@@ -46,7 +45,6 @@ import { registerInterpreterTypes } from '../client/interpreter/serviceRegistry'
 import { ServiceContainer } from '../client/ioc/container';
 import { ServiceManager } from '../client/ioc/serviceManager';
 import { IServiceContainer, IServiceManager } from '../client/ioc/types';
-import { registerTypes as lintersRegisterTypes } from '../client/linters/serviceRegistry';
 import { registerTypes as unittestsRegisterTypes } from '../client/testing/serviceRegistry';
 import { LegacyFileSystem } from './legacyFileSystem';
 import { MockOutputChannel } from './mockClasses';
@@ -141,14 +139,6 @@ export class IocContainer {
 
     public registerUnitTestTypes(): void {
         unittestsRegisterTypes(this.serviceManager);
-    }
-
-    public registerLinterTypes(): void {
-        lintersRegisterTypes(this.serviceManager);
-    }
-
-    public registerFormatterTypes(): void {
-        formattersRegisterTypes(this.serviceManager);
     }
 
     public registerPlatformTypes(): void {
