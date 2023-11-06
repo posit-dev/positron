@@ -17,12 +17,15 @@ import { DataReceivedEvent, ITestServer, TestCommandOptions } from './types';
 import { ITestDebugLauncher, LaunchOptions } from '../../common/types';
 import { UNITTEST_PROVIDER } from '../../common/constants';
 import {
+    MESSAGE_ON_TESTING_OUTPUT_MOVE,
     createDiscoveryErrorPayload,
     createEOTPayload,
     createExecutionErrorPayload,
     extractJsonPayload,
+    fixLogLinesNoTrailing,
 } from './utils';
 import { createDeferred } from '../../../common/utils/async';
+import { EnvironmentVariables } from '../../../api/types';
 
 export class PythonTestServer implements ITestServer, Disposable {
     private _onDataReceived: EventEmitter<DataReceivedEvent> = new EventEmitter<DataReceivedEvent>();
@@ -41,6 +44,7 @@ export class PythonTestServer implements ITestServer, Disposable {
         this.server = net.createServer((socket: net.Socket) => {
             let buffer: Buffer = Buffer.alloc(0); // Buffer to accumulate received data
             socket.on('data', (data: Buffer) => {
+                traceVerbose('data received from python server: ', data.toString());
                 buffer = Buffer.concat([buffer, data]); // get the new data and add it to the buffer
                 while (buffer.length > 0) {
                     try {
@@ -89,6 +93,10 @@ export class PythonTestServer implements ITestServer, Disposable {
                 // if a full json was found in the buffer, fire the data received event then keep cycling with the remaining raw data.
                 traceVerbose(`Firing data received event,  ${extractedJsonPayload.cleanedJsonData}`);
                 this._fireDataReceived(extractedJsonPayload.uuid, extractedJsonPayload.cleanedJsonData);
+            } else {
+                traceVerbose(
+                    `extract json payload incomplete, uuid= ${extractedJsonPayload.uuid} and cleanedJsonData= ${extractedJsonPayload.cleanedJsonData}`,
+                );
             }
             buffer = Buffer.from(extractedJsonPayload.remainingRawData);
             if (buffer.length === 0) {
@@ -165,28 +173,30 @@ export class PythonTestServer implements ITestServer, Disposable {
 
     async sendCommand(
         options: TestCommandOptions,
+        env: EnvironmentVariables,
         runTestIdPort?: string,
         runInstance?: TestRun,
         testIds?: string[],
         callback?: () => void,
     ): Promise<void> {
         const { uuid } = options;
-
-        const pythonPathParts: string[] = process.env.PYTHONPATH?.split(path.delimiter) ?? [];
+        const isDiscovery = (testIds === undefined || testIds.length === 0) && runTestIdPort === undefined;
+        const mutableEnv = { ...env };
+        // get python path from mutable env, it contains process.env as well
+        const pythonPathParts: string[] = mutableEnv.PYTHONPATH?.split(path.delimiter) ?? [];
         const pythonPathCommand = [options.cwd, ...pythonPathParts].join(path.delimiter);
+        mutableEnv.PYTHONPATH = pythonPathCommand;
+        mutableEnv.TEST_UUID = uuid.toString();
+        mutableEnv.TEST_PORT = this.getPort().toString();
+        mutableEnv.RUN_TEST_IDS_PORT = runTestIdPort;
+
         const spawnOptions: SpawnOptions = {
             token: options.token,
             cwd: options.cwd,
             throwOnStdErr: true,
             outputChannel: options.outChannel,
-            extraVariables: {
-                PYTHONPATH: pythonPathCommand,
-                TEST_UUID: uuid.toString(),
-                TEST_PORT: this.getPort().toString(),
-            },
+            env: mutableEnv,
         };
-
-        if (spawnOptions.extraVariables) spawnOptions.extraVariables.RUN_TEST_IDS_PORT = runTestIdPort;
         const isRun = runTestIdPort !== undefined;
         // Create the Python environment in which to execute the command.
         const creationOptions: ExecutionFactoryCreateWithEnvironmentOptions = {
@@ -194,7 +204,6 @@ export class PythonTestServer implements ITestServer, Disposable {
             resource: options.workspaceFolder,
         };
         const execService = await this.executionFactory.createActivatedEnvironment(creationOptions);
-
         const args = [options.command.script].concat(options.command.args);
 
         if (options.outChannel) {
@@ -209,8 +218,10 @@ export class PythonTestServer implements ITestServer, Disposable {
                     token: options.token,
                     testProvider: UNITTEST_PROVIDER,
                     runTestIdsPort: runTestIdPort,
+                    pytestUUID: uuid.toString(),
+                    pytestPort: this.getPort().toString(),
                 };
-                traceInfo(`Running DEBUG unittest with arguments: ${args}\r\n`);
+                traceInfo(`Running DEBUG unittest for workspace ${options.cwd} with arguments: ${args}\r\n`);
 
                 await this.debugLauncher!.launchDebugger(launchOptions, () => {
                     callback?.();
@@ -218,17 +229,17 @@ export class PythonTestServer implements ITestServer, Disposable {
             } else {
                 if (isRun) {
                     // This means it is running the test
-                    traceInfo(`Running unittests with arguments: ${args}\r\n`);
+                    traceInfo(`Running unittests for workspace ${options.cwd} with arguments: ${args}\r\n`);
                 } else {
                     // This means it is running discovery
-                    traceLog(`Discovering unittest tests with arguments: ${args}\r\n`);
+                    traceLog(`Discovering unittest tests for workspace ${options.cwd} with arguments: ${args}\r\n`);
                 }
                 const deferredTillExecClose = createDeferred<ExecutionResult<string>>();
 
                 let resultProc: ChildProcess | undefined;
 
                 runInstance?.token.onCancellationRequested(() => {
-                    traceInfo('Test run cancelled, killing unittest subprocess.');
+                    traceInfo(`Test run cancelled, killing unittest subprocess for workspace ${options.cwd}.`);
                     // if the resultProc exists just call kill on it which will handle resolving the ExecClose deferred, otherwise resolve the deferred here.
                     if (resultProc) {
                         resultProc?.kill();
@@ -240,25 +251,57 @@ export class PythonTestServer implements ITestServer, Disposable {
                 const result = execService?.execObservable(args, spawnOptions);
                 resultProc = result?.proc;
 
-                // Take all output from the subprocess and add it to the test output channel. This will be the pytest output.
                 // Displays output to user and ensure the subprocess doesn't run into buffer overflow.
-                result?.proc?.stdout?.on('data', (data) => {
-                    spawnOptions?.outputChannel?.append(data.toString());
-                });
-                result?.proc?.stderr?.on('data', (data) => {
-                    spawnOptions?.outputChannel?.append(data.toString());
-                });
-                result?.proc?.on('exit', (code, signal) => {
-                    if (code !== 0) {
-                        traceError(`Subprocess exited unsuccessfully with exit code ${code} and signal ${signal}`);
-                    }
-                });
+                // TODO: after a release, remove discovery output from the "Python Test Log" channel and send it to the "Python" channel instead.
+                // TODO: after a release, remove run output from the "Python Test Log" channel and send it to the "Test Result" channel instead.
+                if (isDiscovery) {
+                    result?.proc?.stdout?.on('data', (data) => {
+                        const out = fixLogLinesNoTrailing(data.toString());
+                        spawnOptions?.outputChannel?.append(`${out}`);
+                        traceInfo(out);
+                    });
+                    result?.proc?.stderr?.on('data', (data) => {
+                        const out = fixLogLinesNoTrailing(data.toString());
+                        spawnOptions?.outputChannel?.append(`${out}`);
+                        traceError(out);
+                    });
+                } else {
+                    result?.proc?.stdout?.on('data', (data) => {
+                        const out = fixLogLinesNoTrailing(data.toString());
+                        runInstance?.appendOutput(`${out}`);
+                        spawnOptions?.outputChannel?.append(out);
+                    });
+                    result?.proc?.stderr?.on('data', (data) => {
+                        const out = fixLogLinesNoTrailing(data.toString());
+                        runInstance?.appendOutput(`${out}`);
+                        spawnOptions?.outputChannel?.append(out);
+                    });
+                }
 
                 result?.proc?.on('exit', (code, signal) => {
                     // if the child has testIds then this is a run request
-                    if (code !== 0 && testIds && testIds?.length !== 0) {
+                    spawnOptions?.outputChannel?.append(MESSAGE_ON_TESTING_OUTPUT_MOVE);
+                    if (isDiscovery) {
+                        if (code !== 0) {
+                            // This occurs when we are running discovery
+                            traceError(
+                                `Subprocess exited unsuccessfully with exit code ${code} and signal ${signal} on workspace ${options.cwd}. Creating and sending error discovery payload \n`,
+                            );
+                            this._onDiscoveryDataReceived.fire({
+                                uuid,
+                                data: JSON.stringify(createDiscoveryErrorPayload(code, signal, options.cwd)),
+                            });
+                            // then send a EOT payload
+                            this._onDiscoveryDataReceived.fire({
+                                uuid,
+                                data: JSON.stringify(createEOTPayload(true)),
+                            });
+                        }
+                    } else if (code !== 0 && testIds) {
+                        // This occurs when we are running the test and there is an error which occurs.
+
                         traceError(
-                            `Subprocess exited unsuccessfully with exit code ${code} and signal ${signal}. Creating and sending error execution payload`,
+                            `Subprocess exited unsuccessfully with exit code ${code} and signal ${signal} for workspace ${options.cwd}. Creating and sending error execution payload \n`,
                         );
                         // if the child process exited with a non-zero exit code, then we need to send the error payload.
                         this._onRunDataReceived.fire({
@@ -270,27 +313,13 @@ export class PythonTestServer implements ITestServer, Disposable {
                             uuid,
                             data: JSON.stringify(createEOTPayload(true)),
                         });
-                    } else if (code !== 0) {
-                        // This occurs when we are running discovery
-                        traceError(
-                            `Subprocess exited unsuccessfully with exit code ${code} and signal ${signal}. Creating and sending error discovery payload`,
-                        );
-                        this._onDiscoveryDataReceived.fire({
-                            uuid,
-                            data: JSON.stringify(createDiscoveryErrorPayload(code, signal, options.cwd)),
-                        });
-                        // then send a EOT payload
-                        this._onDiscoveryDataReceived.fire({
-                            uuid,
-                            data: JSON.stringify(createEOTPayload(true)),
-                        });
                     }
-                    deferredTillExecClose.resolve({ stdout: '', stderr: '' });
+                    deferredTillExecClose.resolve();
                 });
                 await deferredTillExecClose.promise;
             }
         } catch (ex) {
-            traceError(`Error while server attempting to run unittest command: ${ex}`);
+            traceError(`Error while server attempting to run unittest command for workspace ${options.cwd}: ${ex}`);
             this.uuids = this.uuids.filter((u) => u !== uuid);
             this._onDataReceived.fire({
                 uuid,
