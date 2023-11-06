@@ -195,6 +195,9 @@ export enum RuntimeExitReason {
 	/** The runtime is exiting in order to restart. */
 	Restart = 'restart',
 
+	/** The runtime is exiting in order to switch to a new runtime. */
+	SwitchRuntime = 'switchRuntime',
+
 	/** The runtime exited because of an error, most often a crash. */
 	Error = 'error',
 

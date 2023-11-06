@@ -285,32 +285,27 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 					new Error(`${formatLanguageRuntime(runningRuntime)} is already running.`));
 			}
 
+			// We wait for `onDidEndSession()` rather than `RuntimeState.Exited`, because the former
+			// generates some Console output that must finish before starting up a new runtime:
+			const promise = new Promise<void>(resolve => {
+				const disposable = runningRuntime.onDidEndSession((exit) => {
+					resolve();
+					disposable.dispose();
+				});
+			});
+
+			const timeout = new Promise<void>((_, reject) => {
+				setTimeout(() => {
+					reject(new Error(`Timed out waiting for runtime ${formatLanguageRuntime(runningRuntime)} to finish exiting.`));
+				}, 5000);
+			});
+
 			// Ask the runtime to shut down.
-			await runningRuntime.shutdown();
+			await runningRuntime.shutdown(RuntimeExitReason.SwitchRuntime);
 
-			// If the runtime doesn't exit immediately, wait for it to exit.
-			if (runningRuntime.getRuntimeState() !== RuntimeState.Exited) {
-				// Create a promise that resolves when the runtime exits.
-				const promise = new Promise<void>(resolve => {
-					const disposable = runningRuntime.onDidChangeRuntimeState(state => {
-						if (state === RuntimeState.Exited) {
-							resolve();
-							disposable.dispose();
-						}
-					});
-				});
-
-				// Create a promise that rejects after a timeout.
-				const timeout = new Promise<void>((_, reject) => {
-					setTimeout(() => {
-						reject(new Error(`Timed out waiting for runtime ${formatLanguageRuntime(runningRuntime)} to exit.`));
-					}, 5000);
-				});
-
-				// Wait for the runtime to exit, or for the timeout to expire
-				// (whichever comes first)
-				await Promise.race([promise, timeout]);
-			}
+			// Wait for the runtime onDidEndSession to resolve, or for the timeout to expire
+			// (whichever comes first)
+			await Promise.race([promise, timeout]);
 		}
 
 		// Start the selected runtime.
