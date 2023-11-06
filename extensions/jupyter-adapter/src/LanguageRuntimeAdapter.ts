@@ -246,14 +246,14 @@ export class LanguageRuntimeAdapter
 	 * Restarts the kernel.
 	 */
 	public async restart(): Promise<void> {
-		return this.shutdownKernel(true);
+		return this.shutdownKernel(positron.RuntimeExitReason.Restart);
 	}
 
 	/**
 	 * Shuts down the kernel permanently.
 	 */
-	public async shutdown(): Promise<void> {
-		return this.shutdownKernel(false);
+	public async shutdown(exitReason: positron.RuntimeExitReason): Promise<void> {
+		return this.shutdownKernel(exitReason);
 	}
 
 	/**
@@ -271,7 +271,7 @@ export class LanguageRuntimeAdapter
 	 * @returns A promise that resolves when the kernel has been instructed to
 	 *   shut down (not necessarily when it has exited)
 	 */
-	private async shutdownKernel(restart: boolean): Promise<void> {
+	private async shutdownKernel(exitReason: positron.RuntimeExitReason): Promise<void> {
 		// Ensure the kernel is in a running state before allowing the shutdown
 		if (this._kernelState !== positron.RuntimeState.Idle &&
 			this._kernelState !== positron.RuntimeState.Busy &&
@@ -279,13 +279,10 @@ export class LanguageRuntimeAdapter
 			return Promise.reject(new Error('Cannot shut down kernel; it is not (yet) running.' +
 				` (state = ${this._kernelState})`));
 		}
-		this._restarting = restart;
 
-		// Set up the exit reason for replay when we receive the Exited state
-		// after shutdown is complete
-		this._exitReason = restart ?
-			positron.RuntimeExitReason.Restart :
-			positron.RuntimeExitReason.Shutdown;
+		const restart = exitReason === positron.RuntimeExitReason.Restart;
+		this._restarting = restart;
+		this._exitReason = exitReason;
 
 		try {
 			await this._kernel.shutdown(restart);
@@ -730,6 +727,7 @@ export class LanguageRuntimeAdapter
 
 		// Create and fire the exit event.
 		const event: positron.LanguageRuntimeExit = {
+			runtime_name: this.metadata.runtimeName,
 			exit_code: exitCode,
 			reason: this._exitReason,
 			message: ''
