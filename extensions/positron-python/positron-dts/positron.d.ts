@@ -141,6 +141,9 @@ declare module 'positron' {
         /** The runtime is exiting in order to restart. */
         Restart = 'restart',
 
+        /** The runtime is exiting in order to switch to a new runtime. */
+        SwitchRuntime = 'switchRuntime',
+
         /** The runtime exited because of an error, most often a crash. */
         Error = 'error',
 
@@ -559,7 +562,7 @@ declare module 'positron' {
          * runtime shutdown sequence has been successfully started (not
          * necessarily when it has completed).
          */
-        shutdown(): Thenable<void>;
+        shutdown(exitReason: RuntimeExitReason): Thenable<void>;
 
         /**
          * Forcibly quits the runtime; returns a Thenable that resolves when the
@@ -762,20 +765,19 @@ declare module 'positron' {
     }
 
     /**
-	 * The range of a statement, plus optionally the code for the range.
-	 */
-	export interface StatementRange {
-		/**
-		 * The range of the statement at the given position.
-		 */
-		readonly range: vscode.Range;
+     * The range of a statement, plus optionally the code for the range.
+     */
+    export interface StatementRange {
+        /**
+         * The range of the statement at the given position.
+         */
+        readonly range: vscode.Range;
 
-		/**
-		 * The code for this statement range, if different from the document contents at this range.
-		 */
-		readonly code?: string;
-
-	}
+        /**
+         * The code for this statement range, if different from the document contents at this range.
+         */
+        readonly code?: string;
+    }
 
     namespace languages {
         /**
