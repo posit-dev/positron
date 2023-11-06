@@ -199,11 +199,11 @@ export class PythonRuntime implements positron.LanguageRuntime, vscode.Disposabl
         }
     }
 
-    async shutdown(): Promise<void> {
+    async shutdown(exitReason = positron.RuntimeExitReason.Shutdown): Promise<void> {
         if (this._kernel) {
             // Stop the LSP client before shutting down the kernel
             await this._lsp.deactivate(true);
-            return this._kernel.shutdown();
+            return this._kernel.shutdown(exitReason);
         } else {
             throw new Error('Cannot shutdown; kernel not started');
         }
