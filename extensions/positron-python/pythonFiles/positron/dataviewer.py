@@ -247,7 +247,7 @@ class DataViewerService:
         Send a message through the data viewer comm to the client.
         """
         msg_dict = json_clean(msg.dict())
-        comm.send(msg_dict)
+        comm.send(msg_dict)  # type: ignore
 
     def _send_error(self, error_message: str, comm: comm.base_comm.BaseComm) -> None:
         """
