@@ -4,7 +4,7 @@
 
 import * as vscode from 'vscode';
 import * as positron from 'positron';
-import { PromiseHandles } from './util';
+import { PromiseHandles, timeout } from './util';
 import { RStatementRangeProvider } from './statement-range';
 import { Logger } from './extension';
 
@@ -190,15 +190,8 @@ export class ArkLsp implements vscode.Disposable {
 				this._client!.stop();
 			});
 
-		// Don't wait more than a couple of seconds for the client to stop.
-		const timeout = new Promise<void>((_, reject) => {
-			setTimeout(() => {
-				reject(`Timed out after 2 seconds waiting for client to stop.`);
-			}, 2000);
-		});
-
-		// Wait for the client to enter the stopped state, or for the timeout
-		await Promise.race([promise, timeout]);
+		// Don't wait more than a couple of seconds for the client to stop
+		await Promise.race([promise, timeout(2000, 'waiting for client to stop')]);
 	}
 
 	/**

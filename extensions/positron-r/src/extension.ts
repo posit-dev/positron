@@ -6,6 +6,7 @@ import * as vscode from 'vscode';
 import * as positron from 'positron';
 
 import { registerCommands } from './commands';
+import { registerFormatter } from './formatting';
 import { providePackageTasks } from './tasks';
 import { setContexts } from './contexts';
 import { discoverTests } from './testing';
@@ -30,6 +31,9 @@ export function activate(context: vscode.ExtensionContext) {
 
 	// Register commands.
 	registerCommands(context, runtimes);
+
+	// Register formatter.
+	registerFormatter(context, runtimes);
 
 	// Provide tasks.
 	providePackageTasks(context);
