@@ -4,8 +4,9 @@
 
 import * as vscode from 'vscode';
 import * as positron from 'positron';
-import { delay } from './util';
+import { timeout } from './util';
 import { RRuntime } from './runtime';
+import { getRunningRRuntime } from './provider';
 import { getRPackageName } from './contexts';
 import { getRPackageTasks } from './tasks';
 import { randomUUID } from 'crypto';
@@ -56,57 +57,40 @@ export async function registerCommands(context: vscode.ExtensionContext, runtime
 			const packageName = await getRPackageName();
 			const tasks = await getRPackageTasks();
 			const task = tasks.filter(task => task.definition.task === 'r.task.packageInstall')[0];
-			const runningRuntimes = await positron.runtime.getRunningRuntimes('r');
-			if (!runningRuntimes || !runningRuntimes.length) {
-				vscode.window.showWarningMessage('Cannot install package as there is no R interpreter running.');
-				return;
-			}
-			// For now, there will be only one running R runtime:
-			const runtime = runtimes.get(runningRuntimes[0].runtimeId);
+			const runtime = await getRunningRRuntime(runtimes);
 
-			if (runtime) {
-				const execution = await vscode.tasks.executeTask(task);
-				const disp1 = vscode.tasks.onDidEndTaskProcess(async e => {
-					if (e.execution === execution) {
-						if (e.exitCode === 0) {
-							vscode.commands.executeCommand('workbench.panel.positronConsole.focus');
-							try {
-								await positron.runtime.restartLanguageRuntime(runtime.metadata.runtimeId);
-							} catch {
-								// If restarting promise rejects, dispose of listener:
-								disp1.dispose();
-							}
-
-							// A promise that resolves when the runtime is ready:
-							const promise = new Promise<void>(resolve => {
-								const disp2 = runtime.onDidChangeRuntimeState(runtimeState => {
-									if (runtimeState === positron.RuntimeState.Ready) {
-										resolve();
-										disp2.dispose();
-									}
-								});
-							});
-
-							// A promise that rejects after a timeout;
-							const timeout = new Promise<void>((_, reject) => {
-								setTimeout(() => {
-									reject(new Error('Timed out after 10 seconds waiting for R to be ready.'));
-								}, 1e4);
-							});
-
-							// Wait for the the runtime to be ready, or for the timeout:
-							await Promise.race([promise, timeout]);
-							runtime.execute(`library(${packageName})`,
-								randomUUID(),
-								positron.RuntimeCodeExecutionMode.Interactive,
-								positron.RuntimeErrorBehavior.Continue);
+			const execution = await vscode.tasks.executeTask(task);
+			const disp1 = vscode.tasks.onDidEndTaskProcess(async e => {
+				if (e.execution === execution) {
+					if (e.exitCode === 0) {
+						vscode.commands.executeCommand('workbench.panel.positronConsole.focus');
+						try {
+							await positron.runtime.restartLanguageRuntime(runtime.metadata.runtimeId);
+						} catch {
+							// If restarting promise rejects, dispose of listener:
+							disp1.dispose();
 						}
-						disp1.dispose();
+
+						// A promise that resolves when the runtime is ready:
+						const promise = new Promise<void>(resolve => {
+							const disp2 = runtime.onDidChangeRuntimeState(runtimeState => {
+								if (runtimeState === positron.RuntimeState.Ready) {
+									resolve();
+									disp2.dispose();
+								}
+							});
+						});
+
+						// Wait for the the runtime to be ready, or for a timeout:
+						await Promise.race([promise, timeout(1e4, 'waiting for R to be ready')]);
+						runtime.execute(`library(${packageName})`,
+							randomUUID(),
+							positron.RuntimeCodeExecutionMode.Interactive,
+							positron.RuntimeErrorBehavior.Continue);
 					}
-				});
-			} else {
-				throw new Error(`R runtime '${runningRuntimes[0].runtimeId}' is not registered in the extension host`);
-			}
+					disp1.dispose();
+				}
+			});
 		}),
 
 		vscode.commands.registerCommand('r.packageTest', () => {

@@ -277,6 +277,20 @@ export async function* rRuntimeProvider(
 	}
 }
 
+
+export async function getRunningRRuntime(runtimes: Map<string, RRuntime>): Promise<RRuntime> {
+	const runningRuntimes = await positron.runtime.getRunningRuntimes('r');
+	if (!runningRuntimes || !runningRuntimes.length) {
+		throw new Error('Cannot get running runtime as there is no R interpreter running.');
+	}
+	// For now, there will be only one running R runtime:
+	const runtime = runtimes.get(runningRuntimes[0].runtimeId);
+	if (!runtime) {
+		throw new Error(`R runtime '${runningRuntimes[0].runtimeId}' is not registered in the extension host`);
+	}
+	return runtime;
+}
+
 // directory where this OS is known to keep its R installations
 function rHeadquarters(): string {
 	switch (process.platform) {
