@@ -3,7 +3,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { IDisposable } from 'vs/base/common/lifecycle';
-import { ILanguageRuntimeInfo, ILanguageRuntimeMetadata, RuntimeClientType, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeState, ILanguageRuntimeMessage, ILanguageRuntimeDynState, ILanguageRuntimeExit } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntimeInfo, ILanguageRuntimeMetadata, RuntimeClientType, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeState, ILanguageRuntimeMessage, ILanguageRuntimeDynState, ILanguageRuntimeExit, RuntimeExitReason } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { createProxyIdentifier, IRPCProtocol } from 'vs/workbench/services/extensions/common/proxyIdentifier';
 import { IWebviewPortMapping, WebviewExtensionDescription } from 'vs/workbench/api/common/extHost.protocol';
 import { UriComponents } from 'vs/base/common/uri';
@@ -35,7 +35,7 @@ export interface ExtHostLanguageRuntimeShape {
 	$replyToPrompt(handle: number, id: string, response: string): void;
 	$interruptLanguageRuntime(handle: number): Promise<void>;
 	$restartLanguageRuntime(handle: number): Promise<void>;
-	$shutdownLanguageRuntime(handle: number): Promise<void>;
+	$shutdownLanguageRuntime(handle: number, exitReason: RuntimeExitReason): Promise<void>;
 	$forceQuitLanguageRuntime(handle: number): Promise<void>;
 	$showOutputLanguageRuntime(handle: number): void;
 	$discoverLanguageRuntimes(): void;

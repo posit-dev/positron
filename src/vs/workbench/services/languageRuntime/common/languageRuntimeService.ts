@@ -273,6 +273,9 @@ export enum RuntimeExitReason {
 	/** The runtime is exiting in order to restart. */
 	Restart = 'restart',
 
+	/** The runtime is exiting in order to switch to a new runtime. */
+	SwitchRuntime = 'switchRuntime',
+
 	/** The runtime exited because of an error, most often a crash. */
 	Error = 'error',
 
@@ -288,6 +291,9 @@ export enum RuntimeExitReason {
  * language runtime exits.
  */
 export interface ILanguageRuntimeExit {
+	/** Runtime name */
+	runtime_name: string;
+
 	/**
 	 * The process exit code, if the runtime is backed by a process. If the
 	 * runtime is not backed by a process, this should just be 0 for a
@@ -588,7 +594,7 @@ export interface ILanguageRuntime {
 	restart(): Thenable<void>;
 
 	/** Shut down the runtime */
-	shutdown(): Thenable<void>;
+	shutdown(exitReason?: RuntimeExitReason): Thenable<void>;
 
 	/** Force quit the runtime */
 	forceQuit(): Thenable<void>;

@@ -77,11 +77,11 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		return this._runtimes[handle].interrupt();
 	}
 
-	async $shutdownLanguageRuntime(handle: number): Promise<void> {
+	async $shutdownLanguageRuntime(handle: number, exitReason: positron.RuntimeExitReason): Promise<void> {
 		if (handle >= this._runtimes.length) {
 			throw new Error(`Cannot shut down runtime: language runtime handle '${handle}' not found or no longer valid.`);
 		}
-		return this._runtimes[handle].shutdown();
+		return this._runtimes[handle].shutdown(exitReason);
 	}
 
 	async $forceQuitLanguageRuntime(handle: number): Promise<void> {

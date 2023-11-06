@@ -9,7 +9,7 @@ import {
 	ExtHostPositronContext
 } from '../../common/positron/extHost.positron.protocol';
 import { extHostNamedCustomer, IExtHostContext } from 'vs/workbench/services/extensions/common/extHostCustomers';
-import { ILanguageRuntime, ILanguageRuntimeClientCreatedEvent, ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMessageCommClosed, ILanguageRuntimeMessageCommData, ILanguageRuntimeMessageCommOpen, ILanguageRuntimeMessageError, ILanguageRuntimeMessageInput, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessagePrompt, ILanguageRuntimeMessageState, ILanguageRuntimeMessageStream, ILanguageRuntimeMetadata, ILanguageRuntimeDynState as ILanguageRuntimeDynState, ILanguageRuntimeService, ILanguageRuntimeStartupFailure, LanguageRuntimeMessageType, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeState, LanguageRuntimeDiscoveryPhase, ILanguageRuntimeExit, RuntimeOutputKind } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntime, ILanguageRuntimeClientCreatedEvent, ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMessageCommClosed, ILanguageRuntimeMessageCommData, ILanguageRuntimeMessageCommOpen, ILanguageRuntimeMessageError, ILanguageRuntimeMessageInput, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessagePrompt, ILanguageRuntimeMessageState, ILanguageRuntimeMessageStream, ILanguageRuntimeMetadata, ILanguageRuntimeDynState as ILanguageRuntimeDynState, ILanguageRuntimeService, ILanguageRuntimeStartupFailure, LanguageRuntimeMessageType, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeState, LanguageRuntimeDiscoveryPhase, ILanguageRuntimeExit, RuntimeOutputKind, RuntimeExitReason } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { Disposable, DisposableStore } from 'vs/base/common/lifecycle';
 import { Event, Emitter } from 'vs/base/common/event';
 import { IPositronConsoleService } from 'vs/workbench/services/positronConsole/common/interfaces/positronConsoleService';
@@ -412,13 +412,13 @@ class ExtHostLanguageRuntimeAdapter implements ILanguageRuntime {
 		return this._proxy.$restartLanguageRuntime(this.handle);
 	}
 
-	async shutdown(): Promise<void> {
+	async shutdown(exitReason = RuntimeExitReason.Shutdown): Promise<void> {
 		if (!this.canShutdown()) {
 			throw new Error(`Cannot shut down runtime '${this.metadata.runtimeName}': ` +
 				`runtime is in state '${this._currentState}'`);
 		}
 		this._stateEmitter.fire(RuntimeState.Exiting);
-		return this._proxy.$shutdownLanguageRuntime(this.handle);
+		return this._proxy.$shutdownLanguageRuntime(this.handle, exitReason);
 	}
 
 	async forceQuit(): Promise<void> {

@@ -49,8 +49,8 @@ export class NotebookRuntime implements vscode.Disposable {
 		return this.runtime.start();
 	}
 
-	async shutdown(): Promise<void> {
-		return this.runtime.shutdown();
+	async shutdown(exitReason = positron.RuntimeExitReason.Shutdown): Promise<void> {
+		return this.runtime.shutdown(exitReason);
 	}
 
 	execute(code: string, id: string, mode: positron.RuntimeCodeExecutionMode, errorBehavior: positron.RuntimeErrorBehavior) {
