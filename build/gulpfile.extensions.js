@@ -34,6 +34,7 @@ const compilations = [
 	'positron-data-viewer/tsconfig.json',
 	'positron-data-viewer/ui/tsconfig.json',
 	'positron-javascript/tsconfig.json',
+	'positron-editor-cells/tsconfig.json',
 	'positron-notebook-controllers/tsconfig.json',
 	'positron-r/tsconfig.json',
 	'positron-python/tsconfig.json',
