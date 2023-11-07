@@ -154,13 +154,12 @@ export const DataPanel = (props: DataPanelProps) => {
 	// with the loaded row count as cache key so we re-query when new data comes in.
 	const {
 		data,
-		isLoading,
 		isFetchingNextPage,
 		fetchNextPage,
 		hasNextPage
 	} = ReactQuery.useInfiniteQuery(
 	{
-		queryKey: ['table-data', dataModel.loadedRowCount],
+		queryKey: ['table-data'],
 		queryFn: ({pageParam}) => fetchNextDataFragment(pageParam, fetchSize),
 		initialPageParam: 0,
 		initialData: {
@@ -173,6 +172,7 @@ export const DataPanel = (props: DataPanelProps) => {
 		},
 		// we don't need to check for active network connection before retrying a query
 		networkMode: 'always',
+		staleTime: Infinity,
 		refetchOnWindowFocus: false,
 		placeholderData: (previousData) => previousData
 	});
@@ -260,21 +260,26 @@ export const DataPanel = (props: DataPanelProps) => {
 		fetchMoreOnBottomReached();
 	}, [fetchMoreOnBottomReached]);
 
-	if (isLoading) {
-		return <>Loading...</>;
-	}
-
 	const emptyElement = {
 		clientHeight: 0,
 		clientWidth: 0,
 		offsetHeight: 0,
-		offsetWidth: 0
+		offsetWidth: 0,
+		scrollTop: 0,
 	};
-	const {clientWidth, clientHeight, offsetWidth, offsetHeight} = tableContainerRef.current || emptyElement;
+	const {clientWidth, clientHeight, offsetWidth, offsetHeight, scrollTop} = tableContainerRef.current || emptyElement;
 	const headerRef = React.useRef<HTMLTableSectionElement>(null);
 	const {clientHeight: headerHeight, clientWidth: headerWidth} = headerRef.current || emptyElement;
 	const verticalScrollbarWidth = offsetWidth - clientWidth;
 	const horizontalScrollbarHeight = offsetHeight - clientHeight;
+
+	React.useEffect(() => {
+		console.log('isFetchingNextPage: ', isFetchingNextPage);
+		console.log('data length: ', data?.pages?.length);
+		console.log('scrollTop: ', scrollTop);
+		console.log('unrendered row height: ', (totalRows - rows.length) * rowHeightPx);
+
+	}, [isFetchingNextPage, data?.pages?.length, rows.length]);
 
 	return (
 		<div
@@ -352,7 +357,7 @@ export const DataPanel = (props: DataPanelProps) => {
 				</tbody>
 			</table>
 			{ // TODO: this doesn't adequately capture the loading state, but it's a start
-				isFetchingNextPage ?
+				isFetchingNextPage || requestQueue.current.length > 0 ?
 				<div className='overlay' style={{
 					marginTop: headerHeight,
 					marginBottom: horizontalScrollbarHeight,
