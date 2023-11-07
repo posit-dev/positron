@@ -57,12 +57,16 @@ body,
 }
 
 .container {
-	position: relative;
 	overflow: auto;
 	overflow-anchor: none;
 }
 
-.processing {
-	text-align: center;
+.overlay {
+	position: fixed;
+	box-sizing: border-box;
+	top: 0;
+	left: 0;
+}
+.loading {
 	font-weight: bold;
 }
