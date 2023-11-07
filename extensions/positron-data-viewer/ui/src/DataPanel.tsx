@@ -267,19 +267,11 @@ export const DataPanel = (props: DataPanelProps) => {
 		offsetWidth: 0,
 		scrollTop: 0,
 	};
-	const {clientWidth, clientHeight, offsetWidth, offsetHeight, scrollTop} = tableContainerRef.current || emptyElement;
+	const {clientWidth, clientHeight, offsetWidth, offsetHeight} = tableContainerRef.current || emptyElement;
 	const headerRef = React.useRef<HTMLTableSectionElement>(null);
 	const {clientHeight: headerHeight, clientWidth: headerWidth} = headerRef.current || emptyElement;
 	const verticalScrollbarWidth = offsetWidth - clientWidth;
 	const horizontalScrollbarHeight = offsetHeight - clientHeight;
-
-	React.useEffect(() => {
-		console.log('isFetchingNextPage: ', isFetchingNextPage);
-		console.log('data length: ', data?.pages?.length);
-		console.log('scrollTop: ', scrollTop);
-		console.log('unrendered row height: ', (totalRows - rows.length) * rowHeightPx);
-
-	}, [isFetchingNextPage, data?.pages?.length, rows.length]);
 
 	return (
 		<div
@@ -359,12 +351,12 @@ export const DataPanel = (props: DataPanelProps) => {
 			{ // TODO: this doesn't adequately capture the loading state, but it's a start
 				isFetchingNextPage || requestQueue.current.length > 0 ?
 				<div className='overlay' style={{
-					marginTop: headerHeight,
+					marginTop: (headerHeight + clientHeight) / 2,
 					marginBottom: horizontalScrollbarHeight,
 					marginRight: verticalScrollbarWidth,
-					// center the loading text, using the table width rather than container width
-					// when the table doesn't take up the full container
-					paddingLeft: Math.min(headerWidth, clientWidth) / 2,
+					// horizontally center the loading text, using the table width rather than
+					// container width when the table doesn't take up the full container
+					marginLeft: Math.min(headerWidth, clientWidth) / 2,
 				}}>
 					<div className='loading'>
 						Loading more rows...
