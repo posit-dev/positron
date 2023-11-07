@@ -41,7 +41,10 @@ const VIEW_CONTAINER: ViewContainer = Registry.as<IViewContainersRegistry>(ViewC
 
 Registry.as<IViewsRegistry>(ViewContainerExtensions.ViewsRegistry).registerViews([{
 	id: POSITRON_HISTORY_VIEW_ID,
-	name: nls.localize('positron.history', "History"),
+	name: {
+		value: nls.localize('positron.history', "History"),
+		original: 'History'
+	},
 	containerIcon: positronHistoryViewIcon,
 	canMoveView: true,
 	canToggleVisibility: false,

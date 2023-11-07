@@ -50,7 +50,10 @@ const VIEW_CONTAINER: ViewContainer = Registry.as<IViewContainersRegistry>(
 
 Registry.as<IViewsRegistry>(ViewContainerExtensions.ViewsRegistry).registerViews([{
 	id: POSITRON_HELP_VIEW_ID,
-	name: nls.localize('positron.help', "Help"),
+	name: {
+		value: nls.localize('positron.help', "Help"),
+		original: 'Help'
+	},
 	containerIcon: positronHelpViewIcon,
 	canMoveView: true,
 	canToggleVisibility: false,

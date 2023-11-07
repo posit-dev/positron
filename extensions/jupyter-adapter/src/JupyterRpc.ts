@@ -3,10 +3,10 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { JupyterKernel } from './JupyterKernel';
-import { v4 as uuidv4 } from 'uuid';
 import { JupyterMessagePacket } from './JupyterMessagePacket';
 import { JupyterSockets } from './JupyterSockets';
 import { JupyterMessageSpec } from './JupyterMessageSpec';
+import { uuidv4 } from './utils';
 
 /**
  * Represents a generic Jupyter RPC request/response pair; generic over the

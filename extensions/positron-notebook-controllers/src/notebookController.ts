@@ -4,7 +4,6 @@
 import * as crypto from 'crypto';
 import * as vscode from 'vscode';
 import * as positron from 'positron';
-import { v4 as uuidv4 } from 'uuid';
 import { NotebookRuntime } from './notebookRuntime';
 import { trace } from './logging';
 import { delay, noop } from './util';
@@ -22,6 +21,9 @@ export class NotebookController implements vscode.Disposable {
 
 	// Notebook runtimes keyed by notebook.
 	private notebookRuntimes: Map<vscode.NotebookDocument, NotebookRuntime> = new Map();
+
+	// Incremented for each cell we create to give it unique ID.
+	private static CELL_COUNTER = 0;
 
 	/**
 	 * @param languageId The language ID for which this controller is responsible.
@@ -185,7 +187,7 @@ export class NotebookController implements vscode.Disposable {
 
 		// Create a promise that resolves when the cell execution is complete i.e. when the runtime
 		// receives an error or status idle reply message.
-		const cellId = uuidv4();
+		const cellId = `positron-notebook-cell-${NotebookController.CELL_COUNTER++}`;
 		const promise = new Promise<void>((resolve, _reject) => {
 			// Update the cell execution using received runtime messages.
 			const handler = runtime.onDidReceiveRuntimeMessage(message => {

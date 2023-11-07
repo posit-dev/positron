@@ -21,6 +21,11 @@ export function delay(ms: number) {
 	return new Promise(resolve => setTimeout(resolve, ms));
 }
 
+export function timeout(ms: number, reason: string) {
+	return new Promise((_, reject) => {
+		setTimeout(() => reject(`Timeout while ${reason}`), ms);
+	});
+}
 
 export function readLines(pth: string): Array<string> {
 	const bigString = fs.readFileSync(pth, 'utf8');

@@ -1131,6 +1131,11 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 					// we canceled, or is it the interrupt operation?
 					this.simulateOutputMessage(this._busyOperationId!, 'Interrupted.');
 					this.simulateIdleState(this._busyOperationId!);
+
+					// Notify Positron that the interrupt is complete.
+					if (this._frontend) {
+						this._frontend.markBusy(false);
+					}
 					this._busyOperationId = undefined;
 				}, this._busyInterruptSeconds * 1000);
 			}
@@ -1151,6 +1156,7 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 		this.simulateOutputMessage(parentId, 'Restarting.');
 		this._onDidChangeRuntimeState.fire(positron.RuntimeState.Exited);
 		this._onDidEndSession.fire({
+			runtime_name: this.metadata.runtimeName,
 			exit_code: 0,
 			reason: positron.RuntimeExitReason.Restart,
 			message: ''
@@ -1168,7 +1174,7 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 	/**
 	 * Shuts down the runtime.
 	 */
-	async shutdown(): Promise<void> {
+	async shutdown(exitReason = positron.RuntimeExitReason.Shutdown): Promise<void> {
 		const parentId = randomUUID();
 
 		// Enter busy state to do shutdown processing.
@@ -1205,8 +1211,9 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 		this.simulateOutputMessage(parentId, 'Zed Kernel exiting.');
 		this._onDidChangeRuntimeState.fire(positron.RuntimeState.Exited);
 		this._onDidEndSession.fire({
+			runtime_name: this.metadata.runtimeName,
 			exit_code: 0,
-			reason: positron.RuntimeExitReason.Shutdown,
+			reason: exitReason,
 			message: ''
 		});
 	}
@@ -1216,6 +1223,7 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 		// Simulate a force quit by immediately "exiting"
 		this._onDidChangeRuntimeState.fire(positron.RuntimeState.Exited);
 		this._onDidEndSession.fire({
+			runtime_name: this.metadata.runtimeName,
 			exit_code: 0,
 			reason: positron.RuntimeExitReason.ForcedQuit,
 			message: ''
@@ -1678,6 +1686,11 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 		this.simulateStreamMessage(parentId, positron.LanguageRuntimeStreamName.Stdout, 'Long running task:');
 		this.simulateStreamMessage(parentId, positron.LanguageRuntimeStreamName.Stderr, 'Initializing task...');
 
+		// Mark the runtime as busy while we show the progress bar.
+		if (this._frontend) {
+			this._frontend.markBusy(true);
+		}
+
 		// After a tingle of delay, output the progress bar.
 		setTimeout(() => {
 			// Simulate the progress bar in 100 50ms intervals.
@@ -1701,6 +1714,9 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 					// End the progress bar.
 					this.simulateStreamMessage(parentId, positron.LanguageRuntimeStreamName.Stdout, 'Long running task is completed.');
 					this.simulateIdleState(parentId);
+					if (this._frontend) {
+						this._frontend.markBusy(false);
+					}
 				}
 			}, 25);
 
@@ -1882,6 +1898,11 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 		// Acknowledge the command
 		this.simulateOutputMessage(parentId, `Entering busy state for ${durationSeconds} seconds.`);
 
+		// Notify the frontend that a computation is in progress
+		if (this._frontend) {
+			this._frontend.markBusy(true);
+		}
+
 		// Exit the busy state after the specified duration. We save the timer to a
 		// private field so that we can cancel it if the user interrupts the kernel.
 		this._busyOperationId = parentId;
@@ -1890,6 +1911,11 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 			this.simulateIdleState(parentId);
 			this.simulateOutputMessage(parentId, `Exiting busy state.`);
 			this._busyTimer = undefined;
+
+			// Notify frontend that the computation is complete
+			if (this._frontend) {
+				this._frontend.markBusy(false);
+			}
 		}, durationSeconds * 1000);
 	}
 
@@ -1905,6 +1931,7 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 		this.simulateInputMessage(parentId, code);
 		this._onDidChangeRuntimeState.fire(positron.RuntimeState.Exited);
 		this._onDidEndSession.fire({
+			runtime_name: this.metadata.runtimeName,
 			exit_code: 137,
 			reason: positron.RuntimeExitReason.Error,
 			message: `I'm terribly sorry, but a segmentation fault has occurred.`

@@ -39,6 +39,21 @@ export class ZedFrontend {
 		});
 	}
 
+	/**
+	 * Mark Zed as busy or idle.
+	 *
+	 * @param busy Whether to mark Zed as busy (true) or idle (false)
+	 */
+	public markBusy(busy: boolean) {
+		this._onDidEmitData.fire({
+			msg_type: 'event',
+			name: 'busy',
+			data: {
+				busy: busy,
+			}
+		});
+	}
+
 	get directory(): string {
 		return this._directory;
 	}
