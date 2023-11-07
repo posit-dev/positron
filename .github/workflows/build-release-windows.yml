@@ -121,7 +121,7 @@ jobs:
           Set-Content -Path certificates\codesign.txt -Value $env:CODESIGN_BASE64
           certutil -decode certificates\codesign.txt certificates\codesign.pfx
 
-          & 'C:\Program Files (x86)\Windows Kits\10\bin\10.0.22621.0\x64\signtool.exe' sign /fd SHA256 /p $env:CODESIGN_PASSWORD /f certificates\codesign.pfx .build\${{ matrix.platform }}-${{ matrix.arch }}\${{ matrix.target }}-setup\PositronSetup.exe
+          & 'C:\Program Files (x86)\Windows Kits\10\bin\10.0.22621.0\x64\signtool.exe' sign /fd certHash /p $env:CODESIGN_PASSWORD /f certificates\codesign.pfx .build\${{ matrix.platform }}-${{ matrix.arch }}\${{ matrix.target }}-setup\PositronSetup.exe
 
       # Clean-up after signing
       - name: Clean up
