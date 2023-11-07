@@ -2,8 +2,9 @@ name: "Positron: Build Windows Release"
 
 # Run windows builds daily at 12:00 UTC on weekdays for now, or manually
 on:
-  schedule:
-    - cron: "0 12 * * 1-5"
+  push:
+    branches:
+      - "win32-x64-build"
   workflow_dispatch:
 
 jobs:
@@ -112,8 +113,8 @@ jobs:
       # Code sign binary
       - name: Code sign setup installer
         env:
-          CODESIGN_BASE64: ${{ secrets.TEST_WIN_CODESIGN_BASE64 }}
-          CODESIGN_PASSWORD: ${{ secrets.TEST_WIN_CODESIGN_PASSWORD }}
+          CODESIGN_BASE64: ${{ secrets.SM_CLIENT_CERT_FILE_B64 }}
+          CODESIGN_PASSWORD: ${{ secrets.SM_CLIENT_CERT_PASSWORD }}
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path certificates
