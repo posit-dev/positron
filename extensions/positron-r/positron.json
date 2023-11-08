@@ -9,10 +9,6 @@
 			"to": "resources/scripts"
 		},
 		{
-			"from": "resources/js/htmlwidget.js",
-			"to": "resources/js"
-		},
-		{
 			"from": "resources/ark/ark",
 			"to": "./dist/bin"
 		},

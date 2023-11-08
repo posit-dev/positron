@@ -10,6 +10,7 @@ import { JupyterAdapterApi, JupyterKernelSpec, JupyterLanguageRuntime, JupyterKe
 import { ArkLsp, LspState } from './lsp';
 import { delay } from './util';
 import { ArkAttachOnStartup, ArkDelayStartup } from './startup';
+import { previewHtmlWidget } from './htmlwidgets';
 
 export let lastRuntimePath = '';
 
@@ -222,6 +223,13 @@ export class RRuntime implements positron.LanguageRuntime, vscode.Disposable {
 		});
 		kernel.onDidReceiveRuntimeMessage((message) => {
 			this._messageEmitter.fire(message);
+
+			if (message.type === positron.LanguageRuntimeMessageType.Output) {
+				const outputMessage = message as positron.LanguageRuntimeOutput;
+				if (Object.keys(outputMessage.data).includes('application/vnd.r.htmlwidget')) {
+					previewHtmlWidget(outputMessage.data['application/vnd.r.htmlwidget'] as any);
+				}
+			}
 		});
 		kernel.onDidEndSession((exit) => {
 			this._exitEmitter.fire(exit);

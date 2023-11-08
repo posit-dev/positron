@@ -414,16 +414,6 @@
         "type": "ark",
         "label": "R Debugger"
       }
-    ],
-    "notebookRenderer": [
-      {
-        "id": "positron.r.htmlwidget",
-        "displayName": "R HTML Widget",
-        "mimeTypes": [
-          "application/vnd.r.htmlwidget"
-        ],
-        "entrypoint": "resources/js/htmlwidget.js"
-      }
     ]
   },
   "scripts": {
