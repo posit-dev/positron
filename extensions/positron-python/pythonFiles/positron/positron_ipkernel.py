@@ -258,6 +258,11 @@ class PositronIPyKernel(IPythonKernel):
         After execution, sends an update message to the client to summarize
         the changes observed to variables in the user's environment.
         """
+        # Check for changes to the working directory
+        try:
+            self.frontend_service.poll_working_directory()
+        except:
+            logger.exception("Error polling working directory")
 
         # First check pre_execute snapshot exists
         hidden = self.get_user_ns_hidden()
