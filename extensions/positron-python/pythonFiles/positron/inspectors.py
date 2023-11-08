@@ -560,7 +560,7 @@ class TorchTensorInspector(_BaseArrayInspector["torch.Tensor"]):
 #
 
 
-MT = TypeVar("MT", Mapping, "pd.DataFrame", "pl.DataFrame", "pd.Series", "pl.Series")
+MT = TypeVar("MT", Mapping, "pd.DataFrame", "pl.DataFrame", "pd.Series", "pl.Series", "pd.Index")
 
 
 class _BaseMapInspector(PositronInspector[MT], ABC):
@@ -600,7 +600,7 @@ class MapInspector(_BaseMapInspector[Mapping]):
         return isinstance(value, MutableMapping)
 
 
-Column = TypeVar("Column", "pd.Series", "pl.Series")
+Column = TypeVar("Column", "pd.Series", "pl.Series", "pd.Index")
 
 
 class _BaseColumnInspector(_BaseMapInspector[Column], ABC):
@@ -616,7 +616,8 @@ class _BaseColumnInspector(_BaseMapInspector[Column], ABC):
         print_width: Optional[int] = PRINT_WIDTH,
         truncate_at: int = TRUNCATE_AT,
     ) -> Tuple[str, bool]:
-        display_value = str(value.head(MAX_CHILDREN).to_list())
+        # TODO: This cast shouldn't be necessary, might be a bug in pyright.
+        display_value = str(cast(Column, value[:MAX_CHILDREN]).to_list())
         return (display_value, True)
 
     def to_data_column(self, value: Column, name: str) -> DataColumn:
@@ -645,6 +646,55 @@ class PandasSeriesInspector(_BaseColumnInspector["pd.Series"]):
 
     def to_plaintext(self, value: pd.Series) -> str:
         return value.to_csv(path_or_buf=None, sep="\t")
+
+
+class PandasIndexInspector(_BaseColumnInspector["pd.Index"]):
+    CLASS_QNAME = [
+        "pandas.core.indexes.base.Index",
+        "pandas.core.indexes.datetimes.DatetimeIndex",
+        "pandas.core.indexes.range.RangeIndex",
+        "pandas.core.indexes.multi.MultiIndex",
+    ]
+
+    def get_display_value(
+        self,
+        value: pd.Index,
+        print_width: Optional[int] = PRINT_WIDTH,
+        truncate_at: int = TRUNCATE_AT,
+    ) -> Tuple[str, bool]:
+        import pandas as pd
+
+        # RangeIndexes don't need to be truncated.
+        if isinstance(value, pd.RangeIndex):
+            return str(value), False
+
+        return super().get_display_value(value, print_width, truncate_at)
+
+    def has_children(self, value: pd.Index) -> bool:
+        import pandas as pd
+
+        # For ranges, we don't visualize the children as they're
+        # implied as a contiguous set of integers in a range.
+        if isinstance(value, pd.RangeIndex):
+            return False
+
+        return super().has_children(value)
+
+    def get_keys(self, value: pd.Index) -> Collection[Any]:
+        return range(len(value))
+
+    def equals(self, value1: pd.Index, value2: pd.Index) -> bool:
+        return value1.equals(value2)
+
+    def copy(self, value: pd.Index) -> pd.Index:
+        return value.copy()
+
+    def to_html(self, value: pd.Index) -> str:
+        # TODO: Support HTML
+        return self.to_plaintext(value)
+
+    def to_plaintext(self, value: pd.Index) -> str:
+        return value.to_series().to_csv(path_or_buf=None, sep="\t")
 
 
 class PolarsSeriesInspector(_BaseColumnInspector["pl.Series"]):
@@ -790,6 +840,7 @@ _POLARS_SERIES_INSPECTOR = PolarsSeriesInspector()
 INSPECTORS: Dict[str, PositronInspector] = {
     PandasDataFrameInspector.CLASS_QNAME: PandasDataFrameInspector(),
     PandasSeriesInspector.CLASS_QNAME: _PANDAS_SERIES_INSPECTOR,
+    **dict.fromkeys(PandasIndexInspector.CLASS_QNAME, PandasIndexInspector()),
     PandasTimestampInspector.CLASS_QNAME: PandasTimestampInspector(),
     NumpyNdarrayInspector.CLASS_QNAME: NumpyNdarrayInspector(),
     TorchTensorInspector.CLASS_QNAME: TorchTensorInspector(),
