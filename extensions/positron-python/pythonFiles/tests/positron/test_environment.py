@@ -791,21 +791,6 @@ def test_summarize_numpy_array_0d(case: np.ndarray) -> None:
     assert_environment_variable_equal(result, expected)
 
 
-def test_summarize_children_numpy_array() -> None:
-    case = np.array([[1, 2, 3], [4, 5, 6]], dtype=np.int64)
-
-    inspector = get_inspector(case)
-    summary = inspector.summarize_children(case, _summarize_variable)
-
-    assert_environment_variables_equal(
-        summary,
-        [
-            not_none(_summarize_variable(0, case[0])),
-            not_none(_summarize_variable(1, case[1])),
-        ],
-    )
-
-
 #
 # Test tables
 #
@@ -833,19 +818,33 @@ def test_summarize_pandas_dataframe() -> None:
     assert_environment_variable_equal(result, expected)
 
 
-def test_summarize_children_pandas_dataframe() -> None:
-    case = pd.DataFrame({"a": [1, 2], "b": ["3", "4"]})
-
-    inspector = get_inspector(case)
-    summary = inspector.summarize_children(case, _summarize_variable)
-
-    assert_environment_variables_equal(
-        summary,
-        [
-            not_none(_summarize_variable("a", case["a"])),
-            not_none(_summarize_variable("b", case["b"])),
-        ],
+@pytest.mark.parametrize(
+    "case",
+    [
+        pd.RangeIndex(0, 2),
+        pd.Index([0, 1]),
+        pd.date_range("2021-01-01 00:00:00", "2021-01-01 02:00:00", freq="h"),
+        pd.MultiIndex.from_tuples([(0, "a"), (1, "b"), (2, "c")]),
+    ],
+)
+def test_summarize_pandas_index(case: pd.Index) -> None:
+    display_name = "xPandasIndex"
+    (rows,) = case.shape
+    not_range_index = not isinstance(case, pd.RangeIndex)
+    expected = EnvironmentVariable(
+        display_name=display_name,
+        display_value=str(case.to_list() if not_range_index else case),
+        kind=EnvironmentVariableValueKind.map,
+        display_type=f"{case.dtype} [{rows}]",
+        type_info=get_qualname(case),
+        has_children=not_range_index,
+        is_truncated=not_range_index,
+        length=rows,
     )
+
+    result = _summarize_variable(display_name, case)
+
+    assert_environment_variable_equal(result, expected)
 
 
 def test_summarize_pandas_series() -> None:
@@ -891,21 +890,6 @@ def test_summarize_polars_dataframe() -> None:
     assert_environment_variable_equal(result, expected)
 
 
-def test_summarize_children_polars_dataframe() -> None:
-    case = pl.DataFrame({"a": [1, 2], "b": ["3", "4"]})
-
-    inspector = get_inspector(case)
-    summary = inspector.summarize_children(case, _summarize_variable)
-
-    assert_environment_variables_equal(
-        summary,
-        [
-            not_none(_summarize_variable("a", case["a"])),
-            not_none(_summarize_variable("b", case["b"])),
-        ],
-    )
-
-
 def test_summarize_polars_series() -> None:
     case = pl.Series([0, 1])
 
@@ -925,6 +909,32 @@ def test_summarize_polars_series() -> None:
     result = _summarize_variable(display_name, case)
 
     assert_environment_variable_equal(result, expected)
+
+
+@pytest.mark.parametrize(
+    ("cls", "value"),
+    [
+        (pd.Series, {"a": 0, "b": 1}),
+        (pl.Series, [0, 1]),
+        (pd.DataFrame, {"a": [1, 2], "b": ["3", "4"]}),
+        (pl.DataFrame, {"a": [1, 2], "b": ["3", "4"]}),
+        (pd.Index, [0, 1]),
+        (pd.Index, [datetime.datetime(2021, 1, 1), datetime.datetime(2021, 1, 2)]),
+        (np.array, [0, 1]),  # 1D
+        (np.array, [[0, 1], [2, 3]]),  # 2D
+    ],
+)
+def test_summarize_children(cls: Type, value: Any) -> None:
+    case = cls(value)
+
+    inspector = get_inspector(case)
+    summary = inspector.summarize_children(case, _summarize_variable)
+
+    keys = value.keys() if isinstance(value, dict) else range(len(value))
+    assert_environment_variables_equal(
+        summary,
+        [not_none(_summarize_variable(key, case[key])) for key in keys],
+    )
 
 
 #
