@@ -66,6 +66,36 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 			}
 		}),
 
+		vscode.commands.registerCommand('positron-editor-cells.runCellsAbove', (line?: number) => {
+			const editor = vscode.window.activeTextEditor;
+			if (!editor || !(line || editor.selection)) {
+				return;
+			}
+
+			const position = line ? new vscode.Position(line, 0) : editor.selection.start;
+			const cellRanges = generateCellRangesFromDocument(editor.document);
+			const i = cellRanges.findIndex(cellRange => cellRange.range.contains(position));
+			for (const cellRange of cellRanges.slice(0, i)) {
+				const text = editor.document.getText(cellRange.range);
+				positron.runtime.executeCode(editor.document.languageId, text, true);
+			}
+		}),
+
+		vscode.commands.registerCommand('positron-editor-cells.runCellsBelow', (line?: number) => {
+			const editor = vscode.window.activeTextEditor;
+			if (!editor || !(line || editor.selection)) {
+				return;
+			}
+
+			const position = line ? new vscode.Position(line, 0) : editor.selection.start;
+			const cellRanges = generateCellRangesFromDocument(editor.document);
+			const i = cellRanges.findIndex(cellRange => cellRange.range.contains(position));
+			for (const cellRange of cellRanges.slice(i + 1)) {
+				const text = editor.document.getText(cellRange.range);
+				positron.runtime.executeCode(editor.document.languageId, text, true);
+			}
+		}),
+
 		vscode.commands.registerCommand('positron-editor-cells.goToPreviousCell', () => {
 			const editor = vscode.window.activeTextEditor;
 			if (!editor || !editor.selection) {

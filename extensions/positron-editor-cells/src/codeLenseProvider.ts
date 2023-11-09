@@ -67,7 +67,22 @@ export class CodeLensProvider implements vscode.CodeLensProvider {
 		const codeLenses: vscode.CodeLens[] = [];
 		const cellRanges = generateCellRangesFromDocument(document);
 		for (const cellRange of cellRanges) {
-			codeLenses.push(new vscode.CodeLens(cellRange.range, { title: '$(run) Run cell', command: 'positron-editor-cells.runCurrentCell', arguments: [cellRange.range.start.line] }));
+			codeLenses.push(
+				new vscode.CodeLens(
+					cellRange.range,
+					{
+						title: '$(run) Run Cell',
+						command: 'positron-editor-cells.runCurrentCell',
+						arguments: [cellRange.range.start.line]
+					}));
+			codeLenses.push(
+				new vscode.CodeLens(
+					cellRange.range,
+					{
+						title: 'Run Above',
+						command: 'positron-editor-cells.runCellsAbove',
+						arguments: [cellRange.range.start.line]
+					}));
 		}
 		return codeLenses;
 	}
