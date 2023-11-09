@@ -95,7 +95,8 @@ class FormatterProvider implements vscode.DocumentFormattingEditProvider {
 		const fileEnd = document.lineAt(document.lineCount - 1).range.end;
 		const edit = vscode.TextEdit.replace(
 			range || new vscode.Range(fileStart, fileEnd),
-			formattedSource);
+			formattedSource
+		);
 		return [edit];
 	}
 }
