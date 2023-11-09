@@ -12,6 +12,7 @@ import { setContexts } from './contexts';
 import { discoverTests } from './testing';
 import { rRuntimeProvider } from './provider';
 import { RRuntime } from './runtime';
+import { registerHtmlWidgets } from './htmlwidgets';
 
 export const Logger = vscode.window.createOutputChannel('Positron R Extension', { log: true });
 
@@ -34,6 +35,9 @@ export function activate(context: vscode.ExtensionContext) {
 
 	// Register formatter.
 	registerFormatter(context, runtimes);
+
+	// Register HTML widget provider.
+	registerHtmlWidgets();
 
 	// Provide tasks.
 	providePackageTasks(context);

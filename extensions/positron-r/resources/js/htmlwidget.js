@@ -1,0 +1,137 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
+ *--------------------------------------------------------------------------------------------*/
+
+/*
+ * This script bridges the worlds of HTML widgets and VS Code notebooks by
+ * providing render methods for HTML widgets.
+ */
+
+/**
+ * Convert a path to a URI that can be used in a webview. This is effectively a
+ * port of `asWebviewUri` from VS Code.
+ */
+const asWebviewUri = (path) => {
+	return 'https://file%2B.vscode-resource.vscode-cdn.net' + path;
+};
+
+/**
+ * Coerce an object to an array. This is a convenience method for dealing with
+ * the fact that HTML widgets can specify dependencies as either a single object
+ * or an array of objects.
+ *
+ * @param obj The object to coerce to an array.
+ */
+const arrayify = (obj) => {
+	if (obj === null || obj === undefined) {
+		return [];
+	} else if (Array.isArray(obj)) {
+		return obj;
+	} else {
+		return [obj];
+	}
+};
+
+/**
+ * Inject script and style dependencies into the document. The dependencies are
+ * a JSON-serialized form of the HTML widget's dependencies, defined with
+ * `htmltools::htmlDependency`.
+ *
+ * @param dependencies The dependencies to inject.
+ */
+const renderDependencies = (dependencies) => {
+	for (let i = 0; i < dependencies.length; i++) {
+		const dep = dependencies[i];
+		if (dep.src.file) {
+			// Compute the root as a webview URI.
+			const root = asWebviewUri(dep.src.file);
+
+			// Add each script.
+			arrayify(dep.script).forEach((file) => {
+				const script = document.createElement('script');
+				script.setAttribute('src', root + '/' + file);
+				document.head.appendChild(script);
+			});
+
+			// Add each stylesheet.
+			arrayify(dep.stylesheet).forEach((file) => {
+				const link = document.createElement('link');
+				link.setAttribute('rel', 'stylesheet');
+				link.setAttribute('href', root + '/' + file);
+				document.head.appendChild(link);
+			});
+		}
+	}
+};
+
+/**
+ * Render HTML tags. These tags define the top-level structure of the widget.
+ *
+ * @param parent The parent element to render into.
+ * @param tags The tags to render.
+ */
+const renderTags = (parent, tags) => {
+	for (let i = 0; i < tags.length; i++) {
+		const tag = tags[i];
+		// Skip null tags.
+		if (tag === null) {
+			continue;
+		}
+
+		// If the tag has a name, render it.
+		if (tag.name) {
+			// Create the element.
+			const ele = document.createElement(tag.name);
+
+			// Set any attributes.
+			if (tag.attribs) {
+				for (const key in tag.attribs) {
+					let val = tag.attribs[key];
+					// Some attributes, like `class`, can be arrays. Join them
+					// to a single value.
+					if (Array.isArray(val)) {
+						val = val.join(' ');
+					}
+					ele.setAttribute(key, tag.attribs[key]);
+				}
+			}
+
+			// Render any children.
+			if (tag.children) {
+				if (typeof tag.children[0] === 'string') {
+					// A single string child is just a text node.
+					ele.innerText = tag.children[0];
+				} else {
+					// Otherwise, it's a set of tags; recurse.
+					renderTags(ele, tag.children[0]);
+				}
+			}
+
+			// Add the element to the parent.
+			parent.appendChild(ele);
+		}
+	}
+};
+
+/**
+ * The main VS Code notebook renderer for HTML widgets.
+ *
+ * @param {*} _context  The context for the widget.
+ * @returns A VS Code notebook renderer.
+ */
+export const activate = (_context) => ({
+	renderOutputItem(data, element) {
+
+		const widget = data.json();
+
+		renderDependencies(widget.dependencies);
+
+		renderTags(element, widget.tags);
+
+		setTimeout(() => {
+			window.HTMLWidgets.staticRender();
+		}, 500);
+	},
+	disposeOutputItem(id) {
+	}
+});

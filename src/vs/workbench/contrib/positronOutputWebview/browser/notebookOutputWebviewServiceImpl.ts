@@ -139,8 +139,7 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 		// Get auxiliary resource roots from the runtime service and convert
 		// them to webview URIs
 		const resourceRoots =
-			(await this._languageRuntimeService.getLocalResourceRoots(mimeType, data))
-				.map(uri => asWebviewUri(uri));
+			await this._languageRuntimeService.getLocalResourceRoots(mimeType, data);
 
 		// Create the metadata for the webview
 		const webviewInitInfo: WebviewInitInfo = {
@@ -217,14 +216,6 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 
 	const controller = new AbortController();
 	const signal = controller.signal;
-
-	// Error management: if the renderer fails to load, we show the raw data in
-	// the window for diagnosis.
-	window.onerror = function (e) {
-		let pre = document.createElement('pre');
-		pre.innerText = data.text();
-		container.appendChild(pre);
-	};
 
 	// Render the widget when the page is loaded, then post a message to the
 	// host letting it know that render is complete.

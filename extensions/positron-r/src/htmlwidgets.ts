@@ -22,8 +22,7 @@ export interface RHtmlDependency {
 
 export interface RHtmlWidget {
 	dependencies: RHtmlDependency[];
-	head: string;
-	html: string;
+	tags: string;
 }
 
 function arrayify(src: string | string[] | null): string[] {
@@ -71,10 +70,23 @@ export function previewHtmlWidget(widget: RHtmlWidget) {
 		}
 	});
 
-	if (widget.head) {
-		dependencies += widget.head;
-	}
-
 	preview.webview.html = `<head>${dependencies}</head>` +
-		`<body>${widget.html}</body>`;
+		`<body>${JSON.stringify(widget.tags)}</body>`;
+}
+
+export function registerHtmlWidgets() {
+	positron.runtime.registerLocalResourceRootsProvider({
+		mimeType: 'application/vnd.r.htmlwidget',
+		callback: (data) => {
+			const widget = data as RHtmlWidget;
+			const roots: Uri[] = [];
+			data.dependencies.forEach((dep: RHtmlDependency) => {
+				if (dep.src.file) {
+					roots.push(Uri.file(dep.src.file));
+				}
+			});
+			return roots;
+		}
+	}
+	);
 }
