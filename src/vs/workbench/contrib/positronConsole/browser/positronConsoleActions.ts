@@ -25,6 +25,7 @@ import { ILanguageFeaturesService } from 'vs/editor/common/services/languageFeat
 import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/layoutService';
 import { INotificationService, Severity } from 'vs/platform/notification/common/notification';
 import { NOTEBOOK_EDITOR_FOCUSED } from 'vs/workbench/contrib/notebook/common/notebookContextKeys';
+import { RuntimeConsoleFocus } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { PositronConsoleViewPane } from 'vs/workbench/contrib/positronConsole/browser/positronConsoleView';
 import { confirmationModalDialog } from 'vs/workbench/browser/positronModalDialogs/confirmationModalDialog';
 import { IExecutionHistoryService } from 'vs/workbench/contrib/executionHistory/common/executionHistoryService';
@@ -456,7 +457,7 @@ export function registerPositronConsoleActions() {
 			await viewsService.openView<PositronConsoleViewPane>(POSITRON_CONSOLE_VIEW_ID, false);
 
 			// Ask the Positron console service to execute the code.
-			if (!await positronConsoleService.executeCode(languageId, code, true)) {
+			if (!await positronConsoleService.executeCode(languageId, code, RuntimeConsoleFocus.Focus)) {
 				const languageName = languageService.getLanguageName(languageId);
 				notificationService.notify({
 					severity: Severity.Info,

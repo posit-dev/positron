@@ -1606,7 +1606,7 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 		this.simulateOutputMessage(parentId, `Executing ${languageId} snippet: ${codeToExecute}`);
 
 		// Perform the execution
-		const success = await positron.runtime.executeCode(languageId, codeToExecute, true);
+		const success = await positron.runtime.executeCode(languageId, codeToExecute, positron.RuntimeConsoleFocus.Focus);
 		if (!success) {
 			this.simulateOutputMessage(parentId, `Failed; is there an active console for ${languageId}?`);
 		}

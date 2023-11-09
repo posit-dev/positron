@@ -152,7 +152,7 @@ async function runTest(run: vscode.TestRun, test: vscode.TestItem): Promise<vsco
 		const testSource = source.slice(startIndex, endIndex);
 		const start = Date.now();
 		try {
-			positron.runtime.executeCode('r', testSource, true);
+			positron.runtime.executeCode('r', testSource, positron.RuntimeConsoleFocus.Focus);
 			run.passed(test, Date.now() - start);
 		} catch (error) {
 			run.failed(test, new vscode.TestMessage(String(error)), Date.now() - start);

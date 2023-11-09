@@ -217,6 +217,20 @@ export enum RuntimeState {
 }
 
 /**
+ * Possible console focus options for when code is executed in a language runtime
+ */
+export enum RuntimeConsoleFocus {
+	/** The console is raised AND focused. */
+	Focus = 'focus',
+
+	/** The console is raised but NOT focused. */
+	Raise = 'raise',
+
+	/** The code execution is run in the console in the background; the console is not raised or focused. */
+	Background = 'background'
+}
+
+/**
  * Possible code execution modes for a language runtime
  */
 export enum RuntimeCodeExecutionMode {

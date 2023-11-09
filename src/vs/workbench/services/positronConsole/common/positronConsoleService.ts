@@ -32,7 +32,7 @@ import { ActivityItem, RuntimeItemActivity } from 'vs/workbench/services/positro
 import { ActivityItemInput, ActivityItemInputState } from 'vs/workbench/services/positronConsole/common/classes/activityItemInput';
 import { ActivityItemErrorStream, ActivityItemOutputStream } from 'vs/workbench/services/positronConsole/common/classes/activityItemStream';
 import { IPositronConsoleInstance, IPositronConsoleService, POSITRON_CONSOLE_VIEW_ID, PositronConsoleState } from 'vs/workbench/services/positronConsole/common/interfaces/positronConsoleService';
-import { formatLanguageRuntime, ILanguageRuntime, ILanguageRuntimeExit, ILanguageRuntimeMessage, ILanguageRuntimeService, LanguageRuntimeStartupBehavior, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeExitReason, RuntimeOnlineState, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { formatLanguageRuntime, ILanguageRuntime, ILanguageRuntimeExit, ILanguageRuntimeMessage, ILanguageRuntimeService, LanguageRuntimeStartupBehavior, RuntimeConsoleFocus, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeExitReason, RuntimeOnlineState, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 
 /**
  * The onDidChangeRuntimeItems throttle threshold and throttle interval. The throttle threshold
@@ -320,15 +320,16 @@ class PositronConsoleService extends Disposable implements IPositronConsoleServi
 	 * Executes code in a PositronConsoleInstance.
 	 * @param languageId The language ID.
 	 * @param code The code.
-	 * @param activate A value which indicates whether the REPL should be activated.
+	 * @param activate Whether to raise *and* focus the runtime's console, only raise, or neither
+	 *   focus nor raise
 	 * @returns A value which indicates whether the code could be executed.
 	 */
-	async executeCode(languageId: string, code: string, activate: boolean) {
+	async executeCode(languageId: string, code: string, activate: RuntimeConsoleFocus) {
 		// If the console is to be activated, make sure we raise the console pane before we
 		// start attempting to run the code. We do this before we attempt to run anything so the
 		// user can see what's going on in the console (e.g. a language runtime starting up
 		// in order to handle the code that's about to be executed)
-		if (activate) {
+		if (activate === RuntimeConsoleFocus.Focus) {
 			await this._viewsService.openView(POSITRON_CONSOLE_VIEW_ID, false);
 		}
 
@@ -362,7 +363,7 @@ class PositronConsoleService extends Disposable implements IPositronConsoleServi
 		}
 
 		// If we're supposed to, activate the Positron console instance, if it isn't active.
-		if (activate && positronConsoleInstance !== this._activePositronConsoleInstance) {
+		if (activate === RuntimeConsoleFocus.Focus && positronConsoleInstance !== this._activePositronConsoleInstance) {
 			this.setActivePositronConsoleInstance(positronConsoleInstance);
 		}
 

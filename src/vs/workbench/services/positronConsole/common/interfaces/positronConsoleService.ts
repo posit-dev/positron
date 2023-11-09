@@ -5,7 +5,7 @@
 import { Event } from 'vs/base/common/event';
 import { createDecorator } from 'vs/platform/instantiation/common/instantiation';
 import { RuntimeItem } from 'vs/workbench/services/positronConsole/common/classes/runtimeItem';
-import { ILanguageRuntime } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntime, RuntimeConsoleFocus } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { IEditor } from 'vs/editor/common/editorCommon';
 
 // Create the decorator for the Positron console service (used in dependency injection).
@@ -71,10 +71,11 @@ export interface IPositronConsoleService {
 	 * Executes code in a PositronConsoleInstance.
 	 * @param languageId The language ID.
 	 * @param code The code.
-	 * @param activate A value which indicates whether to activate the Positron console instance.
+	 * @param activate Whether to raise *and* focus the runtime's console, only raise, or neither
+	 *   focus nor raise
 	 * @returns A value which indicates whether the code could be executed.
 	 */
-	executeCode(languageId: string, code: string, activate: boolean): Promise<boolean>;
+	executeCode(languageId: string, code: string, activate: RuntimeConsoleFocus): Promise<boolean>;
 }
 
 /**

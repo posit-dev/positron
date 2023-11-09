@@ -46,11 +46,11 @@ export async function registerCommands(context: vscode.ExtensionContext, runtime
 
 		// Commands for package development tooling
 		vscode.commands.registerCommand('r.packageLoad', () => {
-			positron.runtime.executeCode('r', 'devtools::load_all()', true);
+			positron.runtime.executeCode('r', 'devtools::load_all()', positron.RuntimeConsoleFocus.Focus);
 		}),
 
 		vscode.commands.registerCommand('r.packageBuild', () => {
-			positron.runtime.executeCode('r', 'devtools::build()', true);
+			positron.runtime.executeCode('r', 'devtools::build()', positron.RuntimeConsoleFocus.Focus);
 		}),
 
 		vscode.commands.registerCommand('r.packageInstall', async () => {
@@ -94,7 +94,7 @@ export async function registerCommands(context: vscode.ExtensionContext, runtime
 		}),
 
 		vscode.commands.registerCommand('r.packageTest', () => {
-			positron.runtime.executeCode('r', 'devtools::test()', true);
+			positron.runtime.executeCode('r', 'devtools::test()', positron.RuntimeConsoleFocus.Focus);
 		}),
 
 		vscode.commands.registerCommand('r.packageCheck', async () => {
@@ -104,7 +104,7 @@ export async function registerCommands(context: vscode.ExtensionContext, runtime
 		}),
 
 		vscode.commands.registerCommand('r.packageDocument', () => {
-			positron.runtime.executeCode('r', 'devtools::document()', true);
+			positron.runtime.executeCode('r', 'devtools::document()', positron.RuntimeConsoleFocus.Focus);
 		}),
 
 		// Command used to source the current file
@@ -142,7 +142,7 @@ export async function registerCommands(context: vscode.ExtensionContext, runtime
 				// to ensure that it is properly escaped.
 				if (fsStat) {
 					const command = `source(${JSON.stringify(filePath)})`;
-					positron.runtime.executeCode('r', command, true);
+					positron.runtime.executeCode('r', command, positron.RuntimeConsoleFocus.Focus);
 				}
 			} catch (e) {
 				// This is not a valid file path, which isn't an error; it just

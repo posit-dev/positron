@@ -102,6 +102,20 @@ declare module 'positron' {
 	}
 
 	/**
+	 * Possible console focus options for when code is executed in a language runtime
+	 */
+	export enum RuntimeConsoleFocus {
+		/** The console is raised AND focused. */
+		Focus = 'focus',
+
+		/** The console is raised but NOT focused. */
+		Raise = 'raise',
+
+		/** The code execution is run in the console in the background; the console is not raised or focused. */
+		Background = 'background'
+	}
+
+	/**
 	 * Possible code execution modes for a language runtime
 	 */
 	export enum RuntimeCodeExecutionMode {
@@ -865,13 +879,14 @@ declare module 'positron' {
 		 *
 		 * @param languageId The language ID of the code snippet
 		 * @param code The code snippet to execute
-		 * @param focus Whether to raise and focus the runtime's console
+		 * @param focus Whether to raise *and* focus the runtime's console, only raise, or neither
+		 *   focus nor raise
 		 * @returns A Thenable that resolves with true if the code was sent to a
 		 *   runtime successfully, false otherwise.
 		 */
 		export function executeCode(languageId: string,
 			code: string,
-			focus: boolean): Thenable<boolean>;
+			focus: RuntimeConsoleFocus): Thenable<boolean>;
 
 		/**
 		 * Register a language runtime provider with Positron.

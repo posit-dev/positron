@@ -3,7 +3,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { IDisposable } from 'vs/base/common/lifecycle';
-import { ILanguageRuntimeInfo, ILanguageRuntimeMetadata, RuntimeClientType, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeState, ILanguageRuntimeMessage, ILanguageRuntimeDynState, ILanguageRuntimeExit, RuntimeExitReason } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntimeInfo, ILanguageRuntimeMetadata, RuntimeClientType, RuntimeConsoleFocus, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeState, ILanguageRuntimeMessage, ILanguageRuntimeDynState, ILanguageRuntimeExit, RuntimeExitReason } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { createProxyIdentifier, IRPCProtocol } from 'vs/workbench/services/extensions/common/proxyIdentifier';
 import { IWebviewPortMapping, WebviewExtensionDescription } from 'vs/workbench/api/common/extHost.protocol';
 import { UriComponents } from 'vs/base/common/uri';
@@ -15,7 +15,7 @@ export interface MainThreadLanguageRuntimeShape extends IDisposable {
 	$restartLanguageRuntime(handle: number): Promise<void>;
 	$completeLanguageRuntimeDiscovery(): void;
 	$unregisterLanguageRuntime(handle: number): void;
-	$executeCode(languageId: string, code: string, focus: boolean): Promise<boolean>;
+	$executeCode(languageId: string, code: string, focus: RuntimeConsoleFocus): Promise<boolean>;
 	$getPreferredRuntime(languageId: string): Promise<ILanguageRuntimeMetadata>;
 	$getRunningRuntimes(languageId: string): Promise<ILanguageRuntimeMetadata[]>;
 	$emitLanguageRuntimeMessage(handle: number, message: ILanguageRuntimeMessage): void;
