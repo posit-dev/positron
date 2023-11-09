@@ -38,30 +38,52 @@ const arrayify = (obj) => {
  * `htmltools::htmlDependency`.
  *
  * @param dependencies The dependencies to inject.
+ * @returns A promise that resolves when all scripts have been injected and have
+ *  loaded.
  */
 const renderDependencies = (dependencies) => {
-	for (let i = 0; i < dependencies.length; i++) {
-		const dep = dependencies[i];
-		if (dep.src.file) {
-			// Compute the root as a webview URI.
-			const root = asWebviewUri(dep.src.file);
+	return new Promise((resolve, _reject) => {
+		let scriptsRemaining = 0;
+		for (let i = 0; i < dependencies.length; i++) {
+			const dep = dependencies[i];
+			if (dep.src.file) {
+				// Compute the root as a webview URI.
+				const root = asWebviewUri(dep.src.file);
 
-			// Add each script.
-			arrayify(dep.script).forEach((file) => {
-				const script = document.createElement('script');
-				script.setAttribute('src', root + '/' + file);
-				document.head.appendChild(script);
-			});
+				// Add each script.
+				arrayify(dep.script).forEach((file) => {
 
-			// Add each stylesheet.
-			arrayify(dep.stylesheet).forEach((file) => {
-				const link = document.createElement('link');
-				link.setAttribute('rel', 'stylesheet');
-				link.setAttribute('href', root + '/' + file);
-				document.head.appendChild(link);
-			});
+					// Create the script element.
+					const script = document.createElement('script');
+					script.setAttribute('src', root + '/' + file);
+
+					// Wait for the script to load.
+					scriptsRemaining++;
+					script.addEventListener('load', () => {
+						console.log('loaded script ' + file + ' (' + scriptsRemaining + ' remaining)');
+						scriptsRemaining--;
+						if (scriptsRemaining === 0) {
+							resolve();
+						}
+					});
+					document.head.appendChild(script);
+				});
+
+				// Add each stylesheet.
+				arrayify(dep.stylesheet).forEach((file) => {
+					const link = document.createElement('link');
+					link.setAttribute('rel', 'stylesheet');
+					link.setAttribute('href', root + '/' + file);
+					document.head.appendChild(link);
+				});
+			}
 		}
-	}
+
+		// If there are no scripts, resolve immediately.
+		if (scriptsRemaining === 0) {
+			resolve();
+		}
+	});
 };
 
 /**
@@ -124,13 +146,13 @@ export const activate = (_context) => ({
 
 		const widget = data.json();
 
-		renderDependencies(widget.dependencies);
+		// Render the dependencies; once they have all loaded, trigger a static
+		// render of the widget.
+		renderDependencies(widget.dependencies).then(() => {
+			window.HTMLWidgets.staticRender();
+		});
 
 		renderTags(element, widget.tags);
-
-		setTimeout(() => {
-			window.HTMLWidgets.staticRender();
-		}, 500);
 	},
 	disposeOutputItem(id) {
 	}
