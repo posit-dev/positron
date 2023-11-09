@@ -32,14 +32,22 @@ export class DataModel {
 	 * @param dataSet The data contained by the data model
 	 * @param rowStart The row index of the first row in the currently rendered data.
 	 * @param renderedRows A list of the rowStart indices that have been rendered so far in the panel.
+	 * @param queueSize
 	 */
 	// All properties must be readonly, since we never want to modify the data model state in place
 	// It can only be modified by passing a new data model to the DataPanel's updater function
+
+	// The maximum number of requests in the queue to handle. Requests further down
+	// the queue will be ignored.
+	// Keep in sync with queue size on the language backends
+	private static readonly queueSize = 3;
+
 	constructor(
 		public readonly dataSet: DataSet,
 		public readonly rowStart = 0,
 		public readonly renderedRows = [0]
 	) {
+
 	}
 
 	/**
@@ -104,19 +112,25 @@ export class DataModel {
 	 * @param event The message event received from the runtime
 	 * @returns A DataFragment representing the data in the message, or undefined
 	 */
-	handleDataMessage(event: any): DataFragment | undefined {
+	handleDataMessage(event: any, requestQueue: number[]): DataFragment | undefined {
 		const message = event.data as DataViewerMessage;
-		if (message.msg_type === 'receive_rows' && !this.renderedRows.includes(message.start_row)) {
-			const dataMessage = message as DataViewerMessageRowResponse;
-
-			const incrementalData = {
-				rowStart: dataMessage.start_row,
-				rowEnd: dataMessage.start_row + dataMessage.fetch_size - 1,
-				columns: dataMessage.data.columns
-			};
-			return incrementalData;
+		// Ignore messages that are not data messages or that have already been processed
+		if (message.msg_type !== 'receive_rows' || this.renderedRows.includes(message.start_row)) {
+			return undefined;
 		}
-		return undefined;
+		// If this request is not within the n most recently made requests , ignore the response
+		if (!requestQueue.slice(0, DataModel.queueSize).includes(message.start_row)) {
+			return undefined;
+		}
+
+		const dataMessage = message as DataViewerMessageRowResponse;
+
+		const incrementalData = {
+			rowStart: dataMessage.start_row,
+			rowEnd: dataMessage.start_row + dataMessage.fetch_size - 1,
+			columns: dataMessage.data.columns
+		};
+		return incrementalData;
 	}
 
 	/**

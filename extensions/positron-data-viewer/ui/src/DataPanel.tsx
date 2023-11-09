@@ -76,7 +76,7 @@ export const DataPanel = (props: DataPanelProps) => {
 			// Update state for the data model and resolve the outstanding request,
 			// indexed by requestId with the new DataFragment
 			updateDataModel((prevDataModel) => {
-				const fragment = prevDataModel.handleDataMessage(event);
+				const fragment = prevDataModel.handleDataMessage(event, requestQueue.current);
 				if (!fragment) {
 					return prevDataModel;
 				}
@@ -94,7 +94,7 @@ export const DataPanel = (props: DataPanelProps) => {
 	}, []);
 
 	React.useEffect(() => {
-		// When the dataModel updates, filter out fulfilled requests from the queue
+		// Whenever the dataModel updates, filter out all fulfilled requests from the queue
 		requestQueue.current = requestQueue.current.filter(
 			rowRequest => !dataModel.renderedRows.includes(rowRequest)
 		);

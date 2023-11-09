@@ -37,7 +37,12 @@ export class ZedData implements DataSet {
 
 	public readonly id: string;
 	public readonly columns: Array<ZedColumn> = [];
-	private request_processing?: number;
+	private requestQueue: number[] = [];
+
+	// The maximum number of requests in the queue to handle. Requests further down
+	// the queue will be ignored.
+	// Keep in sync with queue size on the language backends
+	private static readonly queueSize = 3;
 
 	/**
 	 * Create a new ZedData instance
@@ -46,6 +51,7 @@ export class ZedData implements DataSet {
 	 * @param rowCount The number of rows
 	 * @param colCount The number of columns
 	 */
+
 	constructor(readonly title: string,
 		public readonly rowCount = 10_000, // temporary change
 		colCount = 10) {
@@ -86,7 +92,7 @@ export class ZedData implements DataSet {
 	}
 
 	public sendData(message: DataViewerMessageRowRequest): void {
-		this.request_processing = message.start_row;
+		this.requestQueue.unshift(message.start_row);
 		const response: DataViewerMessageRowResponse = {
 			msg_type: message.msg_type === 'ready' ? 'initial_data' : 'receive_rows',
 			start_row: message.start_row,
@@ -98,9 +104,12 @@ export class ZedData implements DataSet {
 				rowCount: this.rowCount
 			} as ZedData,
 		};
-		// Emit to the front end only if this is the most recent request received.
-		if (this.request_processing === message.start_row) {
+		// Emit to the front end only if this is one of the most recent requests received.
+		if (this.requestQueue.slice(0, ZedData.queueSize).includes(message.start_row)) {
 			this._onDidEmitData.fire(response);
+			// Remove this fulfilled request from the queue
+			const index = this.requestQueue.indexOf(message.start_row);
+			this.requestQueue.splice(index, 1);
 		}
 	}
 }
