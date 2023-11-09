@@ -32,7 +32,7 @@ import { ActivityItem, RuntimeItemActivity } from 'vs/workbench/services/positro
 import { ActivityItemInput, ActivityItemInputState } from 'vs/workbench/services/positronConsole/common/classes/activityItemInput';
 import { ActivityItemErrorStream, ActivityItemOutputStream } from 'vs/workbench/services/positronConsole/common/classes/activityItemStream';
 import { IPositronConsoleInstance, IPositronConsoleService, POSITRON_CONSOLE_VIEW_ID, PositronConsoleState } from 'vs/workbench/services/positronConsole/common/interfaces/positronConsoleService';
-import { formatLanguageRuntime, ILanguageRuntime, ILanguageRuntimeExit, ILanguageRuntimeMessage, ILanguageRuntimeService, LanguageRuntimeStartupBehavior, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeExitReason, RuntimeOnlineState, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { formatLanguageRuntime, ILanguageRuntime, ILanguageRuntimeExit, ILanguageRuntimeMessage, ILanguageRuntimeService, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeExitReason, RuntimeOnlineState, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 
 /**
  * The onDidChangeRuntimeItems throttle threshold and throttle interval. The throttle threshold
@@ -338,17 +338,15 @@ class PositronConsoleService extends Disposable implements IPositronConsoleServi
 
 		// If there isn't a running runtime for the language, start one.
 		if (!runningLanguageRuntimes.length) {
-			// Get the registered runtimes for the language.
-			const languageRuntimes = this._languageRuntimeService.registeredRuntimes.filter(
-				runtime => (runtime.metadata.languageId === languageId &&
-					runtime.metadata.startupBehavior === LanguageRuntimeStartupBehavior.Implicit ||
-					runtime.metadata.startupBehavior === LanguageRuntimeStartupBehavior.Immediate));
-			if (!languageRuntimes.length) {
+			// Get the preferred runtime for the language.
+			let languageRuntime: ILanguageRuntime;
+			try {
+				languageRuntime = this._languageRuntimeService.getPreferredRuntime(languageId);
+			} catch {
 				return false;
 			}
 
-			// Start the first runtime that was found.
-			const languageRuntime = languageRuntimes[0];
+			// Start the preferred runtime.
 			this._logService.trace(`Language runtime ${formatLanguageRuntime(languageRuntime)} automatically starting`);
 			await this._languageRuntimeService.startRuntime(languageRuntime.metadata.runtimeId,
 				`User executed code in language ${languageId}, and no running runtime was found ` +
