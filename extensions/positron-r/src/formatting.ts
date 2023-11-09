@@ -20,6 +20,10 @@ export async function registerFormatter(context: vscode.ExtensionContext, runtim
 		vscode.languages.registerDocumentFormattingEditProvider(
 			rDocumentSelector,
 			new FormatterProvider(runtimes)
+		),
+		vscode.languages.registerDocumentRangeFormattingEditProvider(
+			rDocumentSelector,
+			new FormatterProvider(runtimes)
 		)
 	);
 }
@@ -32,9 +36,17 @@ class FormatterProvider implements vscode.DocumentFormattingEditProvider {
 		return this.formatDocument(document, this.runtimes);
 	}
 
+	public provideDocumentRangeFormattingEdits(
+		document: vscode.TextDocument,
+		range: vscode.Range,
+	): vscode.ProviderResult<vscode.TextEdit[]> {
+		return this.formatDocument(document, this.runtimes, range);
+	}
+
 	private async formatDocument(
 		document: vscode.TextDocument,
-		runtimes: Map<string, RRuntime>
+		runtimes: Map<string, RRuntime>,
+		range?: vscode.Range
 	): Promise<vscode.TextEdit[]> {
 		if (!lastRuntimePath) {
 			throw new Error(`No running R runtime to provide R package tasks.`);
@@ -44,11 +56,11 @@ class FormatterProvider implements vscode.DocumentFormattingEditProvider {
 		const id = randomUUID();
 
 		// We can only use styler on files right now, so write the document to a temp file
-		const originalSource = document.getText();
+		const originalSource = document.getText(range);
 		const tempdir = os.tmpdir();
-		const fileToStyle = path.basename(document.fileName);
-		const stylerFile = path.join(tempdir, `styler-${fileToStyle}`);
-		fs.writeFileSync(stylerFile, originalSource);
+		const fileToStyle = 'styler-' + randomUUID() + '.R';
+		const stylerPath = path.join(tempdir, fileToStyle);
+		fs.writeFileSync(stylerPath, originalSource);
 
 		// A promise that resolves when the runtime is idle:
 		const promise = new Promise<void>(resolve => {
@@ -66,7 +78,7 @@ class FormatterProvider implements vscode.DocumentFormattingEditProvider {
 
 		// Actual formatting is done by styler
 		runtime.execute(
-			`styler::style_file('${stylerFile}')`,
+			`styler::style_file('${stylerPath}')`,
 			id,
 			positron.RuntimeCodeExecutionMode.Silent,
 			positron.RuntimeErrorBehavior.Continue);
@@ -75,12 +87,16 @@ class FormatterProvider implements vscode.DocumentFormattingEditProvider {
 		await Promise.race([promise, timeout(2e4, 'waiting for formatting')]);
 
 		// Read the now formatted file and then delete it
-		const formattedSource = fs.readFileSync(stylerFile).toString();
-		fs.promises.unlink(stylerFile);
+		const formattedSource = fs.readFileSync(stylerPath).toString();
+		fs.promises.unlink(stylerPath);
 
 		// Return the formatted source
 		const fileStart = new vscode.Position(0, 0);
 		const fileEnd = document.lineAt(document.lineCount - 1).range.end;
-		return [new vscode.TextEdit(new vscode.Range(fileStart, fileEnd), formattedSource)];
+		const edit = vscode.TextEdit.replace(
+			range || new vscode.Range(fileStart, fileEnd),
+			formattedSource
+		);
+		return [edit];
 	}
 }
