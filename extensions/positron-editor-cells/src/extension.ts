@@ -7,6 +7,36 @@ import * as vscode from 'vscode';
 import { initializeLogging } from './logging';
 import { CodeLensProvider, generateCellRangesFromDocument } from './codeLenseProvider';
 
+function runCurrentCell(line?: number): void {
+	const editor = vscode.window.activeTextEditor;
+	if (!editor || !(line || editor.selection)) {
+		return;
+	}
+
+	const cellRanges = generateCellRangesFromDocument(editor.document);
+	const position = line ? new vscode.Position(line, 0) : editor.selection.start;
+	const i = cellRanges.findIndex(cellRange => cellRange.range.contains(position));
+	const cellRange = cellRanges[i];
+
+	const text = editor.document.getText(cellRange.range);
+	positron.runtime.executeCode(editor.document.languageId, text, true);
+}
+
+function goToNextCell(): void {
+	const editor = vscode.window.activeTextEditor;
+	if (!editor || !editor.selection) {
+		return;
+	}
+
+	const cellRanges = generateCellRangesFromDocument(editor.document);
+	const i = cellRanges.findIndex(cellRange => cellRange.range.contains(editor.selection.start));
+	if (i < cellRanges.length - 1) {
+		const nextCellRange = cellRanges[i + 1];
+		editor.selection = new vscode.Selection(nextCellRange.range.start, nextCellRange.range.start);
+		editor.revealRange(nextCellRange.range);
+	}
+}
+
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
 	initializeLogging();
 
@@ -15,19 +45,12 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 	vscode.languages.registerCodeLensProvider('*', codelensProvider);
 
 	context.subscriptions.push(
-		vscode.commands.registerCommand('positron-editor-cells.runCurrentCell', () => {
-			const editor = vscode.window.activeTextEditor;
-			if (!editor || !editor.selection) {
-				return;
-			}
+		vscode.commands.registerCommand('positron-editor-cells.runCurrentCell', runCurrentCell),
 
-			const cellRanges = generateCellRangesFromDocument(editor.document);
-			const currentSelection = editor.selection;
-			const i = cellRanges.findIndex(cellRange => cellRange.range.contains(currentSelection.start));
-			const cellRange = cellRanges[i];
-
-			const text = editor.document.getText(cellRange.range);
-			positron.runtime.executeCode(editor.document.languageId, text, true);
+		vscode.commands.registerCommand('positron-editor-cells.runCurrentAdvance', () => {
+			runCurrentCell();
+			goToNextCell();
+			// TODO: Should this create a new cell if it's in the last?
 		}),
 
 		vscode.commands.registerCommand('positron-editor-cells.goToPreviousCell', () => {
@@ -46,21 +69,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 			}
 		}),
 
-		vscode.commands.registerCommand('positron-editor-cells.goToNextCell', () => {
-			const editor = vscode.window.activeTextEditor;
-			if (!editor || !editor.selection) {
-				return;
-			}
-
-			const cellRanges = generateCellRangesFromDocument(editor.document);
-			const currentSelection = editor.selection;
-			const i = cellRanges.findIndex(cellRange => cellRange.range.contains(currentSelection.start));
-			if (i < cellRanges.length - 1) {
-				const nextCellRange = cellRanges[i + 1];
-				editor.selection = new vscode.Selection(nextCellRange.range.start, nextCellRange.range.start);
-				editor.revealRange(nextCellRange.range);
-			}
-		}),
+		vscode.commands.registerCommand('positron-editor-cells.goToNextCell', goToNextCell),
 	);
 
 	let timeout: NodeJS.Timer | undefined = undefined;
