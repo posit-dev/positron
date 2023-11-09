@@ -15,7 +15,7 @@ export interface RHtmlDependency {
 	src: {
 		file: string;
 	};
-	stylesheet: string | null;
+	stylesheet: string | string[] | null;
 	version: string | null;
 }
 
@@ -38,7 +38,6 @@ function arrayify(src: string | string[] | null): string[] {
 
 export function previewHtmlWidget(widget: RHtmlWidget) {
 
-	let html = '';
 	const roots: Uri[] = [];
 	widget.dependencies.forEach((dep) => {
 		if (dep.src.file) {
@@ -58,17 +57,24 @@ export function previewHtmlWidget(widget: RHtmlWidget) {
 		false,
 		options);
 
+	let dependencies = '';
 	widget.dependencies.forEach((dep) => {
 		if (dep.src.file) {
 			arrayify(dep.script).forEach((script) => {
 				const scriptUri = preview.webview.asWebviewUri(Uri.file(path.join(dep.src.file, script!)));
-				html += `<script src="${scriptUri}"></script>`;
+				dependencies += `<script src="${scriptUri}"></script>`;
 			});
 			arrayify(dep.stylesheet).forEach((stylesheet) => {
 				const styleUri = preview.webview.asWebviewUri(Uri.file(path.join(dep.src.file, stylesheet)));
-				html += `<link rel="stylesheet" src="${styleUri}"></link>`;
+				dependencies += `<link rel="stylesheet" src="${styleUri}"></link>`;
 			});
 		}
 	});
-	preview.webview.html = html + widget.html;
+
+	if (widget.head) {
+		dependencies += widget.head;
+	}
+
+	preview.webview.html = `<head>${dependencies}</head>` +
+		`<body>${widget.html}</body>`;
 }
