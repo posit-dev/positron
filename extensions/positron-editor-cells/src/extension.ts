@@ -93,4 +93,11 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 			triggerUpdateDecorations();
 		}
 	}, null, context.subscriptions);
+
+	vscode.languages.registerFoldingRangeProvider('*', {
+		provideFoldingRanges: (document) =>
+			generateCellRangesFromDocument(document).map((cellRange) =>
+				new vscode.FoldingRange(cellRange.range.start.line, cellRange.range.end.line)
+			)
+	});
 }
