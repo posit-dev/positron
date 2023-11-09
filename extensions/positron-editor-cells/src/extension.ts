@@ -53,6 +53,19 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 			// TODO: Should this create a new cell if it's in the last?
 		}),
 
+		vscode.commands.registerCommand('positron-editor-cells.runAllCells', () => {
+			const editor = vscode.window.activeTextEditor;
+			if (!editor) {
+				return;
+			}
+
+			const cellRanges = generateCellRangesFromDocument(editor.document);
+			for (const cellRange of cellRanges) {
+				const text = editor.document.getText(cellRange.range);
+				positron.runtime.executeCode(editor.document.languageId, text, true);
+			}
+		}),
+
 		vscode.commands.registerCommand('positron-editor-cells.goToPreviousCell', () => {
 			const editor = vscode.window.activeTextEditor;
 			if (!editor || !editor.selection) {

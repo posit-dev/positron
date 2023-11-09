@@ -15,15 +15,28 @@
     "commands": [
       {
         "command": "positron-editor-cells.goToPreviousCell",
-        "title": "Python: Go to Previous Cell"
+        "title": "Go to Previous Cell",
+        "category": "Python"
       },
       {
         "command": "positron-editor-cells.goToNextCell",
-        "title": "Python: Go to Next Cell"
+        "title": "Go to Next Cell",
+        "category": "Python"
+      },
+      {
+        "command": "positron-editor-cells.runCurrentAdvance",
+        "title": "Run Cell and Advance",
+        "category": "Python"
       },
       {
         "command": "positron-editor-cells.runCurrentCell",
-        "title": "Python: Run Cell"
+        "title": "Run Cell",
+        "category": "Python"
+      },
+      {
+        "command": "positron-editor-cells.runAllCells",
+        "title": "Run All Cells",
+        "category": "Python"
       }
     ],
     "configuration": [
@@ -46,9 +59,20 @@
         "mac": "cmd+pagedown"
       },
       {
+        "command": "positron-editor-cells.runCurrentAdvance",
+        "key": "shift+enter",
+        "when": "editorTextFocus && !findInputFocussed && !replaceInputFocussed"
+      },
+      {
         "command": "positron-editor-cells.runCurrentCell",
         "key": "ctrl+shift+enter",
         "mac": "cmd+shift+enter",
+        "when": "editorTextFocus && !findInputFocussed && !replaceInputFocussed"
+      },
+      {
+        "command": "positron-editor-cells.runAllCells",
+        "key": "ctrl+alt+r",
+        "mac": "cmd+alt+r",
         "when": "editorTextFocus && !findInputFocussed && !replaceInputFocussed"
       }
     ]
