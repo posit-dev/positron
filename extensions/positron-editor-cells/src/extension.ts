@@ -30,7 +30,29 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 
 	let timeout: NodeJS.Timer | undefined = undefined;
 
-	const cellDecorationType = vscode.window.createTextEditorDecorationType({
+	// // TODO: Move imports to top
+	// const fs = require('fs');
+	// const path = require('path');
+
+	// // TODO: IDK if we can reliably get the comment color...
+	// const themePath = path.join(vscode.extensions.getExtension('vscode.theme-defaults')!.extensionPath, 'themes', 'light_vs.json');
+	// const themeContent = JSON.parse(fs.readFileSync(themePath, 'utf8'));
+	// // TODO: Propertly type this
+	// const commentColor = themeContent.tokenColors.filter((tokenColor: any) => tokenColor.scope === 'comment').map((tokenColor: any) => tokenColor.settings.foreground);
+	// const commentColor = '#008000';
+
+	const cellTopDecorationType = vscode.window.createTextEditorDecorationType({
+		borderWidth: '1px 0px 0px 0px',
+		borderStyle: 'solid',
+		isWholeLine: true,
+		light: {
+			borderColor: '#E1E1E1'
+		},
+		dark: {
+			borderColor: '#404040'
+		},
+	});
+	const activeCellDecorationType = vscode.window.createTextEditorDecorationType({
 		light: {
 			backgroundColor: '#E1E1E166'
 		},
@@ -47,13 +69,26 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 			return;
 		}
 		const cellRanges = generateCellRangesFromDocument(activeEditor.document);
-		const cells: vscode.DecorationOptions[] = [];
+		const activeCellRanges: vscode.Range[] = [];
+		// Loop through cellRange indices
 		for (const cellRange of cellRanges) {
-			// const rangeTop = new vscode.Range(cellRange.range.start, cellRange.range.start);
-			const decoration = { range: cellRange.range };
-			cells.push(decoration);
+			// If the cursor is in the cellRange, then highlight it
+			if (activeEditor.selection.active.line >= cellRange.range.start.line &&
+				activeEditor.selection.active.line <= cellRange.range.end.line) {
+				activeCellRanges.push(cellRange.range);
+				break;
+			}
 		}
-		activeEditor.setDecorations(cellDecorationType, cells);
+		activeEditor.setDecorations(activeCellDecorationType, activeCellRanges);
+
+		// Loop through all except first cellRanges
+		const cellTopRanges: vscode.Range[] = [];
+		for (let i = 1; i < cellRanges.length; i += 1) {
+			const cellRange = cellRanges[i];
+			const cellTopRange = new vscode.Range(cellRange.range.start, cellRange.range.start);
+			cellTopRanges.push(cellTopRange);
+		}
+		activeEditor.setDecorations(cellTopDecorationType, cellTopRanges);
 	}
 
 	function triggerUpdateDecorations(throttle = false) {
@@ -85,5 +120,11 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 		}
 	}, null, context.subscriptions);
 
-
+	// When the cursor position changes, trigger update decorations
+	vscode.window.onDidChangeTextEditorSelection(event => {
+		if (activeEditor && event.textEditor === activeEditor) {
+			// TODO: Don't redo _all_ decorations, only active cell?
+			triggerUpdateDecorations();
+		}
+	}, null, context.subscriptions);
 }
