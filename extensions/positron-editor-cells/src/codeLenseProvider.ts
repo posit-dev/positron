@@ -66,7 +66,8 @@ export class CodeLensProvider implements vscode.CodeLensProvider {
 	public provideCodeLenses(document: vscode.TextDocument, _token: vscode.CancellationToken): vscode.CodeLens[] | Thenable<vscode.CodeLens[]> {
 		const codeLenses: vscode.CodeLens[] = [];
 		const cellRanges = generateCellRangesFromDocument(document);
-		for (const cellRange of cellRanges) {
+		for (let i = 0; i < cellRanges.length; i += 1) {
+			const cellRange = cellRanges[i];
 			codeLenses.push(
 				new vscode.CodeLens(
 					cellRange.range,
@@ -83,6 +84,16 @@ export class CodeLensProvider implements vscode.CodeLensProvider {
 						command: 'positron-editor-cells.runCellsAbove',
 						arguments: [cellRange.range.start.line]
 					}));
+			if (i < cellRanges.length - 1) {
+				codeLenses.push(
+					new vscode.CodeLens(
+						cellRange.range,
+						{
+							title: 'Run Next Cell',
+							command: 'positron-editor-cells.runNextCell',
+							arguments: [cellRange.range.start.line]
+						}));
+			}
 		}
 		return codeLenses;
 	}

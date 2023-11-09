@@ -22,14 +22,15 @@ function runCurrentCell(line?: number): void {
 	positron.runtime.executeCode(editor.document.languageId, text, true);
 }
 
-function goToNextCell(): void {
+function goToNextCell(line?: number): void {
 	const editor = vscode.window.activeTextEditor;
-	if (!editor || !editor.selection) {
+	if (!editor || !(line || editor.selection)) {
 		return;
 	}
 
 	const cellRanges = generateCellRangesFromDocument(editor.document);
-	const i = cellRanges.findIndex(cellRange => cellRange.range.contains(editor.selection.start));
+	const position = line ? new vscode.Position(line, 0) : editor.selection.start;
+	const i = cellRanges.findIndex(cellRange => cellRange.range.contains(position));
 	if (i < cellRanges.length - 1) {
 		const nextCellRange = cellRanges[i + 1];
 		editor.selection = new vscode.Selection(nextCellRange.range.start, nextCellRange.range.start);
@@ -51,6 +52,11 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 			runCurrentCell();
 			goToNextCell();
 			// TODO: Should this create a new cell if it's in the last?
+		}),
+
+		vscode.commands.registerCommand('positron-editor-cells.runNextCell', (line?: number) => {
+			goToNextCell(line);
+			runCurrentCell();
 		}),
 
 		vscode.commands.registerCommand('positron-editor-cells.runAllCells', () => {

@@ -47,6 +47,11 @@
         "command": "positron-editor-cells.runCellsBelow",
         "title": "Run Cells Below",
         "category": "Python"
+      },
+      {
+        "command": "positron-editor-cells.runNextCell",
+        "title": "Run Next Cell",
+        "category": "Python"
       }
     ],
     "configuration": [
@@ -95,6 +100,12 @@
         "command": "positron-editor-cells.runCellsAbove",
         "key": "ctrl+shift+alt+p",
         "mac": "cmd+shift+alt+p",
+        "when": "editorTextFocus && !findInputFocussed && !replaceInputFocussed"
+      },
+      {
+        "command": "positron-editor-cells.runNextCell",
+        "key": "ctrl+alt+n",
+        "mac": "cmd+alt+n",
         "when": "editorTextFocus && !findInputFocussed && !replaceInputFocussed"
       }
     ]
