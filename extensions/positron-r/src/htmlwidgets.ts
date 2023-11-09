@@ -3,9 +3,12 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as positron from 'positron';
-import * as path from 'path';
 import { Uri } from 'vscode';
 
+/**
+ * Represents an HTML dependency of an R HTML widget. This data structure is a
+ * JSON-serialized form of the htmltools::htmlDependency R object.
+ */
 export interface RHtmlDependency {
 	all_files: boolean; // eslint-disable-line
 	head: string | null;
@@ -20,71 +23,31 @@ export interface RHtmlDependency {
 }
 
 
+/**
+ * Represents an R HTML widget.
+ */
 export interface RHtmlWidget {
 	dependencies: RHtmlDependency[];
 	tags: string;
 }
 
-function arrayify(src: string | string[] | null): string[] {
-	if (src === null) {
-		return [];
-	} else if (Array.isArray(src)) {
-		return src;
-	} else {
-		return [src];
-	}
-}
-
-export function previewHtmlWidget(widget: RHtmlWidget) {
-
-	const roots: Uri[] = [];
-	widget.dependencies.forEach((dep) => {
-		if (dep.src.file) {
-			roots.push(Uri.file(dep.src.file));
-		}
-	});
-
-	const options: positron.PreviewOptions = {
-		enableForms: true,
-		enableScripts: true,
-		localResourceRoots: roots
-	};
-
-	const preview = positron.window.createPreviewPanel(
-		'positron.r.htmlwidget',
-		'R HTML Widget',
-		false,
-		options);
-
-	let dependencies = '';
-	widget.dependencies.forEach((dep) => {
-		if (dep.src.file) {
-			arrayify(dep.script).forEach((script) => {
-				const scriptUri = preview.webview.asWebviewUri(Uri.file(path.join(dep.src.file, script!)));
-				dependencies += `<script src="${scriptUri}"></script>`;
-			});
-			arrayify(dep.stylesheet).forEach((stylesheet) => {
-				const styleUri = preview.webview.asWebviewUri(Uri.file(path.join(dep.src.file, stylesheet)));
-				dependencies += `<link rel="stylesheet" src="${styleUri}"></link>`;
-			});
-		}
-	});
-
-	preview.webview.html = `<head>${dependencies}</head>` +
-		`<body>${JSON.stringify(widget.tags)}</body>`;
-}
-
+/**
+ * Register a local resource roots provider for R HTML widgets.
+ */
 export function registerHtmlWidgets() {
 	positron.runtime.registerLocalResourceRootsProvider({
 		mimeType: 'application/vnd.r.htmlwidget',
 		callback: (data) => {
 			const widget = data as RHtmlWidget;
 			const roots: Uri[] = [];
-			data.dependencies.forEach((dep: RHtmlDependency) => {
+
+			// Mark each dependency as a local resource root.
+			widget.dependencies.forEach((dep: RHtmlDependency) => {
 				if (dep.src.file) {
 					roots.push(Uri.file(dep.src.file));
 				}
 			});
+
 			return roots;
 		}
 	}

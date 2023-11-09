@@ -46,37 +46,44 @@ const renderDependencies = (dependencies) => {
 		let scriptsRemaining = 0;
 		for (let i = 0; i < dependencies.length; i++) {
 			const dep = dependencies[i];
-			if (dep.src.file) {
-				// Compute the root as a webview URI.
-				const root = asWebviewUri(dep.src.file);
 
-				// Add each script.
-				arrayify(dep.script).forEach((file) => {
+			// For now, we only support local file dependencies. HTML widgets
+			// can also rely on external libraries, using `href` rather than
+			// `file`.
+			if (!dep.src.file) {
+				continue;
 
-					// Create the script element.
-					const script = document.createElement('script');
-					script.setAttribute('src', root + '/' + file);
-
-					// Wait for the script to load.
-					scriptsRemaining++;
-					script.addEventListener('load', () => {
-						console.log('loaded script ' + file + ' (' + scriptsRemaining + ' remaining)');
-						scriptsRemaining--;
-						if (scriptsRemaining === 0) {
-							resolve();
-						}
-					});
-					document.head.appendChild(script);
-				});
-
-				// Add each stylesheet.
-				arrayify(dep.stylesheet).forEach((file) => {
-					const link = document.createElement('link');
-					link.setAttribute('rel', 'stylesheet');
-					link.setAttribute('href', root + '/' + file);
-					document.head.appendChild(link);
-				});
 			}
+
+			// Compute the root as a webview URI.
+			const root = asWebviewUri(dep.src.file);
+
+			// Add each script.
+			arrayify(dep.script).forEach((file) => {
+
+				// Create the script element.
+				const script = document.createElement('script');
+				script.setAttribute('src', root + '/' + file);
+
+				// Increment the number of scripts remaining; once they have all
+				// loaded, resolve.
+				scriptsRemaining++;
+				script.addEventListener('load', () => {
+					scriptsRemaining--;
+					if (scriptsRemaining === 0) {
+						resolve();
+					}
+				});
+				document.head.appendChild(script);
+			});
+
+			// Add each stylesheet.
+			arrayify(dep.stylesheet).forEach((file) => {
+				const link = document.createElement('link');
+				link.setAttribute('rel', 'stylesheet');
+				link.setAttribute('href', root + '/' + file);
+				document.head.appendChild(link);
+			});
 		}
 
 		// If there are no scripts, resolve immediately.
@@ -90,17 +97,19 @@ const renderDependencies = (dependencies) => {
  * Render HTML tags. These tags define the top-level structure of the widget.
  *
  * @param parent The parent element to render into.
- * @param tags The tags to render.
+ * @param tags The tags to render. These are JSON-serialized HTML tags;
+ *   originally R objects of type `shiny.tag`.
  */
 const renderTags = (parent, tags) => {
 	for (let i = 0; i < tags.length; i++) {
 		const tag = tags[i];
+
 		// Skip null tags.
 		if (tag === null) {
 			continue;
 		}
 
-		// If the tag has a name, render it.
+		// If the tag has a name, render it into an element.
 		if (tag.name) {
 			// Create the element.
 			const ele = document.createElement(tag.name);
@@ -144,6 +153,7 @@ const renderTags = (parent, tags) => {
 export const activate = (_context) => ({
 	renderOutputItem(data, element) {
 
+		// Parse the widget data.
 		const widget = data.json();
 
 		// Render the dependencies; once they have all loaded, trigger a static
@@ -152,6 +162,7 @@ export const activate = (_context) => ({
 			window.HTMLWidgets.staticRender();
 		});
 
+		// Render the widget's HTML content.
 		renderTags(element, widget.tags);
 	},
 	disposeOutputItem(id) {
