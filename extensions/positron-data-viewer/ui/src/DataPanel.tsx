@@ -13,6 +13,7 @@ import * as ReactTable from '@tanstack/react-table';
 // Local modules.
 import { DataFragment, DataModel } from './DataModel';
 import { DataSet } from './positron-data-viewer';
+import { DataFetcher } from './DataFetcher';
 
 interface DataPanelProps {
 	/**
@@ -32,7 +33,7 @@ interface DataPanelProps {
 // A dict-like object to store functions used to resolve a Promise with a DataFragment (or reject it).
 // Resolve functions are indexed by the request ID (i.e. the start row number)
 // and resolved when that request is fulfilled in the message event handler.
-type ResolverLookup = {
+export type ResolverLookup = {
 	[requestId: number]: {
 		resolve: (fragment: DataFragment) => void;
 		reject: any;
@@ -80,8 +81,9 @@ export const DataPanel = (props: DataPanelProps) => {
 				if (!fragment) {
 					return prevDataModel;
 				}
-				const requestId: number = event!.data!.start_row;
+				const requestId: number = fragment.rowStart;
 				requestResolvers.current[requestId].resolve(fragment);
+				//console.log(`Updated data model for rows ${fragment.rowStart} to ${fragment.rowEnd}`);
 				return prevDataModel.appendFragment(fragment);
 			});
 		});
@@ -114,41 +116,12 @@ export const DataPanel = (props: DataPanelProps) => {
 		});
 	}, []);
 
-	async function fetchNextDataFragment(pageParam: number, fetchSize: number): Promise<DataFragment> {
-		// Fetches a single page of data from the data model.
-		const startRow = pageParam * fetchSize;
-		// Overwrite fetchSize so that we never request rows past the end of the dataset
-		fetchSize = Math.min(fetchSize, totalRows - startRow);
-
-		// Request more rows from the server if we don't have them in the cache
-		if (startRow > 0 && !dataModel.renderedRows.includes(startRow)) {
-			// Don't send duplicate requests
-			if (!requestQueue.current.includes(startRow)) {
-				vscode.postMessage({
-					msg_type: 'request_rows',
-					start_row: startRow,
-					fetch_size: fetchSize
-				});
-				// Add the outstanding request to the front of the queue
-				requestQueue.current = [startRow, ...requestQueue.current];
-			}
-
-			const promisedFragment = new Promise<DataFragment>((resolve, reject) => {
-				// This promise will be resolved in the message event handler
-				requestResolvers.current[startRow] = {resolve, reject};
-			});
-			return promisedFragment;
-		} else {
-			// No need to wait for a response, return the fragment immediately
-			return dataModel.loadDataFragment(startRow, fetchSize);
-		}
-	}
-
 	const initialDataFragment: DataFragment = {
 		rowStart: 0,
 		rowEnd: Math.min(fetchSize, totalRows),
 		columns: initialData.columns
 	};
+	const dataFetcher = new DataFetcher(totalRows, dataModel, requestQueue.current, requestResolvers.current, vscode);
 
 	// Use a React Query infinite query to fetch data from the data model,
 	// with the loaded row count as cache key so we re-query when new data comes in.
@@ -160,7 +133,10 @@ export const DataPanel = (props: DataPanelProps) => {
 	} = ReactQuery.useInfiniteQuery(
 	{
 		queryKey: ['table-data'],
-		queryFn: ({pageParam}) => fetchNextDataFragment(pageParam, fetchSize),
+		queryFn: ({pageParam}) => {
+			// perform a debounced fetch of the next data fragment
+			return dataFetcher.fetchNextDataFragment(pageParam, fetchSize);
+		},
 		initialPageParam: 0,
 		initialData: {
 			pages: [initialDataFragment],

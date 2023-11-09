@@ -106,10 +106,14 @@ export class ZedData implements DataSet {
 		};
 		// Emit to the front end only if this is one of the most recent requests received.
 		if (this.requestQueue.slice(0, ZedData.queueSize).includes(message.start_row)) {
+			//console.log(`Sending response for ${message.start_row} from Zed`);
 			this._onDidEmitData.fire(response);
 			// Remove this fulfilled request from the queue
 			const index = this.requestQueue.indexOf(message.start_row);
 			this.requestQueue.splice(index, 1);
+		}
+		else {
+			console.log('Not sending superceded response for ' + message.start_row);
 		}
 	}
 }

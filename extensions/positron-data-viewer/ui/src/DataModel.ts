@@ -120,9 +120,11 @@ export class DataModel {
 		}
 		// If this request is not within the n most recently made requests , ignore the response
 		if (!requestQueue.slice(0, DataModel.queueSize).includes(message.start_row)) {
+			console.log('Ignoring stale response for ' + message.start_row);
 			return undefined;
 		}
 
+		//console.log(`Received response for ${message.start_row} from backend`);
 		const dataMessage = message as DataViewerMessageRowResponse;
 
 		const incrementalData = {
