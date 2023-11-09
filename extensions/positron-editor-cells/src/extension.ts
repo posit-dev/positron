@@ -15,17 +15,52 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 	vscode.languages.registerCodeLensProvider('*', codelensProvider);
 
 	context.subscriptions.push(
-		vscode.commands.registerCommand('positron-editor-cells.runCell', (range: vscode.Range) => {
-			const document = vscode.window.activeTextEditor?.document!;
+		vscode.commands.registerCommand('positron-editor-cells.runCurrentCell', () => {
+			const editor = vscode.window.activeTextEditor;
+			if (!editor || !editor.selection) {
+				return;
+			}
 
-			// Skip the cell marker
-			// TODO: Should we do this? Should this happen in the code lens provider?
-			const newRange = new vscode.Range(range.start.line + 1, 0, range.end.line, range.end.character);
-			// TODO: Should we trim?
-			const text = document.getText(newRange).trim();
+			const cellRanges = generateCellRangesFromDocument(editor.document);
+			const currentSelection = editor.selection;
+			const i = cellRanges.findIndex(cellRange => cellRange.range.contains(currentSelection.start));
+			const cellRange = cellRanges[i];
 
-			positron.runtime.executeCode(document.languageId, text, true);
-		})
+			const text = editor.document.getText(cellRange.range);
+			positron.runtime.executeCode(editor.document.languageId, text, true);
+		}),
+
+		vscode.commands.registerCommand('positron-editor-cells.goToPreviousCell', () => {
+			const editor = vscode.window.activeTextEditor;
+			if (!editor || !editor.selection) {
+				return;
+			}
+
+			const cellRanges = generateCellRangesFromDocument(editor.document);
+			const currentSelection = editor.selection;
+			const i = cellRanges.findIndex(cellRange => cellRange.range.contains(currentSelection.start));
+			if (i > 0) {
+				const previousCellRange = cellRanges[i - 1];
+				editor.selection = new vscode.Selection(previousCellRange.range.start, previousCellRange.range.start);
+				editor.revealRange(previousCellRange.range);
+			}
+		}),
+
+		vscode.commands.registerCommand('positron-editor-cells.goToNextCell', () => {
+			const editor = vscode.window.activeTextEditor;
+			if (!editor || !editor.selection) {
+				return;
+			}
+
+			const cellRanges = generateCellRangesFromDocument(editor.document);
+			const currentSelection = editor.selection;
+			const i = cellRanges.findIndex(cellRange => cellRange.range.contains(currentSelection.start));
+			if (i < cellRanges.length - 1) {
+				const nextCellRange = cellRanges[i + 1];
+				editor.selection = new vscode.Selection(nextCellRange.range.start, nextCellRange.range.start);
+				editor.revealRange(nextCellRange.range);
+			}
+		}),
 	);
 
 	let timeout: NodeJS.Timer | undefined = undefined;

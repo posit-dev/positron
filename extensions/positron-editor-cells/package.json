@@ -12,10 +12,44 @@
     "onStartupFinished"
   ],
   "contributes": {
+    "commands": [
+      {
+        "command": "positron-editor-cells.goToPreviousCell",
+        "title": "Python: Go to Previous Cell"
+      },
+      {
+        "command": "positron-editor-cells.goToNextCell",
+        "title": "Python: Go to Next Cell"
+      },
+      {
+        "command": "positron-editor-cells.runCurrentCell",
+        "title": "Python: Run Cell"
+      }
+    ],
     "configuration": [
       {
         "title": "Positron Editor Cells",
         "properties": {}
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "positron-editor-cells.goToPreviousCell",
+        "when": "editorTextFocus",
+        "key": "ctrl+pageup",
+        "mac": "cmd+pageup"
+      },
+      {
+        "command": "positron-editor-cells.goToNextCell",
+        "when": "editorTextFocus",
+        "key": "ctrl+pagedown",
+        "mac": "cmd+pagedown"
+      },
+      {
+        "command": "positron-editor-cells.runCurrentCell",
+        "key": "ctrl+shift+enter",
+        "mac": "cmd+shift+enter",
+        "when": "editorTextFocus && !findInputFocussed && !replaceInputFocussed"
       }
     ]
   },
