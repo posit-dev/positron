@@ -83,6 +83,7 @@ export class ZedData implements DataSet {
 		switch (message.msg_type) {
 			case 'ready':
 			case 'request_rows':
+				this.requestQueue.unshift(message.start_row);
 				this.sendData(message as DataViewerMessageRowRequest);
 				break;
 			default:
@@ -92,7 +93,6 @@ export class ZedData implements DataSet {
 	}
 
 	public sendData(message: DataViewerMessageRowRequest): void {
-		this.requestQueue.unshift(message.start_row);
 		const response: DataViewerMessageRowResponse = {
 			msg_type: message.msg_type === 'ready' ? 'initial_data' : 'receive_rows',
 			start_row: message.start_row,
@@ -105,15 +105,14 @@ export class ZedData implements DataSet {
 			} as ZedData,
 		};
 		// Emit to the front end only if this is one of the most recent requests received.
-		if (this.requestQueue.slice(0, ZedData.queueSize).includes(message.start_row)) {
-			//console.log(`Sending response for ${message.start_row} from Zed`);
+		if (message.msg_type === 'ready' || this.requestQueue.slice(0, ZedData.queueSize).includes(message.start_row)) {
 			this._onDidEmitData.fire(response);
-			// Remove this fulfilled request from the queue
-			const index = this.requestQueue.indexOf(message.start_row);
-			this.requestQueue.splice(index, 1);
 		}
 		else {
-			console.log('Not sending superceded response for ' + message.start_row);
+			this._onDidEmitData.fire({ msg_type: 'canceled_request', start_row: message.start_row });
 		}
+		// Remove this fulfilled/canceled request from the queue
+		const index = this.requestQueue.indexOf(message.start_row);
+		this.requestQueue.splice(index, 1);
 	}
 }
