@@ -57,6 +57,11 @@
         "command": "positron-editor-cells.runPreviousCell",
         "title": "Run Previous Cell",
         "category": "Python"
+      },
+      {
+        "command": "positron-editor-cells.insertCodeCell",
+        "title": "Insert Code Cell",
+        "category": "Python"
       }
     ],
     "configuration": [
@@ -118,6 +123,11 @@
         "key": "ctrl+alt+p",
         "mac": "cmd+alt+p",
         "when": "editorTextFocus && !findInputFocussed && !replaceInputFocussed"
+      },
+      {
+        "command": "positron-editor-cells.insertCodeCell",
+        "key": "ctrl+shift+i",
+        "mac": "cmd+shift+i"
       }
     ]
   },

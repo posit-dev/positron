@@ -64,6 +64,28 @@ function goToPreviousCell(line?: number): boolean {
 	return false;
 }
 
+function insertCodeCell(): void {
+	const editor = vscode.window.activeTextEditor;
+	if (!editor || !editor.selection) {
+		return;
+	}
+
+	const cellRanges = generateCellRangesFromDocument(editor.document);
+	const position = editor.selection.active;
+	const i = cellRanges.findIndex(cellRange => cellRange.range.contains(position));
+	const cellRange = cellRanges[i];
+
+	// TODO: Allow customizing/extending cell markers
+	const cellMarker = '# %%';
+	// Add the cell marker and navigate to the end of the new cell
+	editor.edit(editBuilder => {
+		const cellText = `\n${cellMarker}\n`;
+		editBuilder.insert(cellRange.range.end, cellText);
+	});
+
+	goToNextCell();
+}
+
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
 	initializeLogging();
 
@@ -138,6 +160,8 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 		vscode.commands.registerCommand('positron-editor-cells.goToPreviousCell', goToPreviousCell),
 
 		vscode.commands.registerCommand('positron-editor-cells.goToNextCell', goToNextCell),
+
+		vscode.commands.registerCommand('positron-editor-cells.insertCodeCell', insertCodeCell),
 	);
 
 	let timeout: NodeJS.Timer | undefined = undefined;
