@@ -147,7 +147,7 @@
         },
         "positron.r.testing.experimental": {
           "type": "boolean",
-          "default": false,
+          "default": true,
           "description": "%r.configuration.experimentalPackageTesting.description%"
         },
         "positron.r.restoreWorkspace": {
