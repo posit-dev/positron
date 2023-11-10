@@ -16,43 +16,28 @@ const testReporterPath = path
 	.join(__dirname, 'vscodereporter')
 	.replace(/\\/g, '/');
 
-export async function runTest(
+export async function runThatTest(
 	testingTools: TestingTools,
 	run: vscode.TestRun,
 	test: vscode.TestItem
 ): Promise<string> {
 	const getType = (testItem: vscode.TestItem) => testingTools.testItemData.get(testItem)!;
-
-	switch (getType(test)) {
-		case ItemType.File:
-			Logger.info('Test type is file');
-			// If we're running a file and don't know what it contains yet, parse it now
-			if (test.children.size === 0) {
-				Logger.info('Children are not yet available. Parsing children.');
-				await parseTestsFromFile(testingTools, test);
-			}
-			// Run the file - it is faster than running tests one by one
-			Logger.info('Run test file as a whole.');
-			return runThatTest(testingTools, run, test);
-		case ItemType.TestCase:
-			if (test.children.size === 0) {
-				Logger.info('Test type is test case and a single test');
-				return runThatTest(testingTools, run, test);
-			} else {
-				Logger.info('Test type is test case and a describe suite');
-				return runThatTest(testingTools, run, test);
-			}
-	}
-}
-
-async function runThatTest(
-	testingTools: TestingTools,
-	run: vscode.TestRun,
-	test: vscode.TestItem,
-): Promise<string> {
-	const getType = (testItem: vscode.TestItem) => testingTools.testItemData.get(testItem)!;
 	const testType = getType(test);
 	const isSingleTest = testType === ItemType.TestCase;
+
+	if (isSingleTest) {
+		if (test.children.size === 0) {
+			Logger.info('Test type is test case and a single test');
+		} else {
+			Logger.info('Test type is test case and a describe suite');
+		}
+	} else {
+		Logger.info('Test type is file');
+		if (test.children.size === 0) {
+			Logger.info('Children are not yet available. Parsing children.');
+			await parseTestsFromFile(testingTools, test);
+		}
+	}
 
 	const filePath = test.uri!.fsPath;
 	const cleanFilePath = filePath.replace(/\\/g, '/');

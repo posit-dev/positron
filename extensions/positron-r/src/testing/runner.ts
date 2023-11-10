@@ -3,7 +3,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { runTest } from './runner-testthat';
+import { runThatTest } from './runner-testthat';
 import { TestingTools, TestRunner } from './util-testing';
 import { Logger } from '../extension';
 
@@ -59,7 +59,7 @@ export async function runHandler(
 		try {
 			Logger.info(`Running test with label "${test.label}"`);
 			test.busy = true;
-			const stdout = await runTest(testingTools, run, test);
+			const stdout = await runThatTest(testingTools, run, test);
 			test.busy = false;
 			Logger.debug(`Test output:\n${stdout}`);
 		} catch (error) {
