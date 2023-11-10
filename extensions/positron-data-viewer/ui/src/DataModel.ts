@@ -33,7 +33,6 @@ export class DataModel {
 	 * @param dataSet The data contained by the data model
 	 * @param rowStart The row index of the first row in the currently rendered data.
 	 * @param renderedRows A list of the rowStart indices that have been rendered so far in the panel.
-	 * @param queueSize
 	 */
 	// All properties must be readonly, since we never want to modify the data model state in place
 	// It can only be modified by passing a new data model to the DataPanel's updater function
@@ -41,7 +40,7 @@ export class DataModel {
 	// The maximum number of requests in the queue to handle. Requests further down
 	// the queue will be ignored.
 	// Keep in sync with queue size on the language backends
-	private static readonly queueSize = 3;
+	//private static readonly queueSize = 3;
 
 	constructor(
 		public readonly dataSet: DataSet,
@@ -120,20 +119,22 @@ export class DataModel {
 	): DataFragment | undefined {
 		const message = event.data as DataViewerMessage;
 
-		if (message.msg_type === 'canceled_request' ||
-			!requestQueue.slice(0, DataModel.queueSize).includes(message.start_row)
+		if (message.msg_type === 'canceled_request' //||
+			//!requestQueue.slice(0, DataModel.queueSize).includes(message.start_row)
 		) {
 			// If this request has been canceled or is not within the n most recently made requests,
 			// reject the promise and remove it from the queue
 			const queuePosition = requestQueue.indexOf(message.start_row);
 			requestQueue.splice(queuePosition, 1);
 			requestResolvers[message.start_row].reject('Request canceled');
-			console.log(`Request ${message.start_row} canceled`);
-			return undefined;
+			//requestResolvers[message.start_row].resolve(this.emptyPage);
+			console.log(`Request ${message.start_row} rejected`);
+			return this.emptyPage;
 		}
 
 		// Ignore messages that are not data messages or that have already been processed
 		if (message.msg_type !== 'receive_rows' || this.renderedRows.includes(message.start_row)) {
+			console.log(`Request ${message.start_row} ignored`);
 			return undefined;
 		}
 
@@ -186,5 +187,16 @@ export class DataModel {
 			return this.dataSet.rowCount;
 		}
 		return this.loadedRowCount;
+	}
+
+	/**
+	 * A placeholder fragment for when data is not available, this will not be rendered.
+	 */
+	get emptyPage(): DataFragment {
+		return {
+			rowStart: 0,
+			rowEnd: 0,
+			columns: []
+		};
 	}
 }

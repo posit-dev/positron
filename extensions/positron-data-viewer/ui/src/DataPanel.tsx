@@ -61,7 +61,7 @@ export const DataPanel = (props: DataPanelProps) => {
 
 	// Count total rows and pages, including those we have not yet fetched
 	const totalRows = dataModel.rowCount;
-	const maxPages = Math.ceil(totalRows / fetchSize);
+	const maxPage = Math.floor(totalRows / fetchSize);
 
 	// Makes an async request to the backend for data, and handles updating the request queue and
 	// calling the appropriate resolve or reject function when the request completes.
@@ -72,7 +72,8 @@ export const DataPanel = (props: DataPanelProps) => {
 			// Update state for the data model and resolve/reject the outstanding request
 			updateDataModel((prevDataModel) => {
 				const fragment = prevDataModel.handleDataMessage(event, requestQueue.current, requestResolvers.current);
-				if (!fragment) {
+				if (!fragment || !fragment.columns.length) {
+					console.log('No data for ' + event?.data?.start_row);
 					return prevDataModel;
 				}
 				return prevDataModel.appendFragment(fragment);
@@ -113,13 +114,31 @@ export const DataPanel = (props: DataPanelProps) => {
 		columns: initialData.columns
 	};
 
+	const emptyElement = {
+		clientHeight: 0,
+		clientWidth: 0,
+		offsetHeight: 0,
+		offsetWidth: 0,
+		scrollTop: 0
+	};
+
+	const {clientWidth, clientHeight, offsetWidth, offsetHeight, scrollTop} = tableContainerRef.current || emptyElement;
+	const headerRef = React.useRef<HTMLTableSectionElement>(null);
+	const {clientHeight: headerHeight, clientWidth: headerWidth} = headerRef.current || emptyElement;
+	const verticalScrollbarWidth = offsetWidth - clientWidth;
+	const horizontalScrollbarHeight = offsetHeight - clientHeight;
+	const scrollBottom = scrollTop + clientHeight;
+	// Assume overscan rows are all of height rowHeightPx
+	// We can probably do better using the size property of the virtual rows
+	const triggerFetchHeight = (scrollThresholdRows + scrollOverscan) * rowHeightPx;
+	const pageHeight = rowHeightPx * fetchSize;
+	const scrollPage = Math.min(
+		Math.floor((scrollBottom + triggerFetchHeight) / pageHeight),
+		maxPage // scroll page cannot exceed the total number of pages of data
+	);
+
 	// Use a React Query infinite query to fetch data from the data model
-	const {
-		data,
-		isFetchingNextPage,
-		fetchNextPage,
-		hasNextPage
-	} = ReactQuery.useInfiniteQuery(
+	const {data, fetchNextPage, isFetchingNextPage} = ReactQuery.useInfiniteQuery(
 	{
 		queryKey: ['table-data'],
 		queryFn: ({pageParam}) => fetcher.fetchNextDataFragment(pageParam, fetchSize, dataModel),
@@ -128,9 +147,12 @@ export const DataPanel = (props: DataPanelProps) => {
 			pages: [initialDataFragment],
 			pageParams: [0]
 		},
-		getNextPageParam: (_page, _pages, lastPageParam) => {
-			// undefined if we are on the final page of data
-			return lastPageParam + 1 === maxPages ? undefined : lastPageParam + 1;
+		getNextPageParam: (_page, _pages, _lastPageParam, allPageParams) => {
+			console.log(`scrollPage: ${scrollPage}`);
+
+			return allPageParams.includes(scrollPage)
+				? undefined // don't refetch if we have already fetched data for this page
+				: scrollPage; // otherwise, use current scroll position to determine next page
 		},
 		// we don't need to check for active network connection before retrying a query
 		networkMode: 'always',
@@ -146,6 +168,9 @@ export const DataPanel = (props: DataPanelProps) => {
 	const flatData = React.useMemo(() => {
 		// Loop over each page of data and transpose the data for that page.
 		// Then flatten all the transposed data pages together
+
+		// TODO: re-sort the data in case the pageParams are out of order
+		//const allPageParams = data?.pageParams || [];
 
 		// data and pages should never be null because we declared initialData
 		// and placeholderData in the infinite query
@@ -190,33 +215,34 @@ export const DataPanel = (props: DataPanelProps) => {
 	// Compute the padding for the table container.
 	const virtualRows = rowVirtualizer.getVirtualItems();
 	const fetchedRowHeight = rowVirtualizer.getTotalSize();
-	// Assume unfetched and overscan rows are all of height rowHeightPx
-	const triggerFetchHeight = (scrollThresholdRows + scrollOverscan) * rowHeightPx;
+	// Assume unfetched rows are all of height rowHeightPx
 	const unfetchedRowHeight = (totalRows - rows.length) * rowHeightPx;
 	const totalSize = fetchedRowHeight + unfetchedRowHeight;
 	const paddingTop = virtualRows?.[0]?.start || 0;
 	const paddingBottom = totalSize - (virtualRows?.[virtualRows.length - 1]?.end || 0);
 
-	const emptyElement = {
-		clientHeight: 0,
-		clientWidth: 0,
-		offsetHeight: 0,
-		offsetWidth: 0,
-		scrollTop: 0
-	};
-	const {clientWidth, clientHeight, offsetWidth, offsetHeight, scrollTop} = tableContainerRef.current || emptyElement;
-	const headerRef = React.useRef<HTMLTableSectionElement>(null);
-	const {clientHeight: headerHeight, clientWidth: headerWidth} = headerRef.current || emptyElement;
-	const verticalScrollbarWidth = offsetWidth - clientWidth;
-	const horizontalScrollbarHeight = offsetHeight - clientHeight;
-	const scrollBottom = scrollTop + clientHeight;
+	const {hasNextPage, lastPageFetched, lastFetchedRow} = React.useMemo(() => {
+		const totalPagesFetched = data?.pageParams?.length || 0;
+		const lastPageFetched = data?.pageParams?.[totalPagesFetched - 1] as number;
+		const lastFetchedRow = data?.pages?.[totalPagesFetched - 1]?.rowEnd;
+		const hasNextPage = lastPageFetched < maxPage;
+
+		console.log(`lastPageFetched: ${lastPageFetched}`);
+		console.log(`lastFetchedRow: ${lastFetchedRow}`);
+		return {hasNextPage, lastPageFetched, lastFetchedRow};
+	}, [data]);
 
 	// Callback, invoked on scroll, that will fetch more data from the backend if we have reached
 	// the end of the virtualized rows by sending a new MessageRequest.
 	const fetchMoreOnBottomReached = React.useCallback(() => {
-		// Note that index of the last virtual row is not the same as virtualRows.length
-		const lastVirtualRow = virtualRows?.[virtualRows.length - 1]?.index;
-		const lastFetchedRow = rows.length - 1;
+		// The virtual row index will not account for pages we skipped, so we need to recalculate
+		// the actual row index of the last virtual row
+		const lastVirtualIndex = virtualRows?.[virtualRows.length - 1]?.index;
+		const virtualRowsOnCurrentPage = lastVirtualIndex % fetchSize;
+		const priorPageRows = lastVirtualIndex < lastPageFetched * fetchSize
+			? (lastPageFetched - 1) * fetchSize
+			: lastPageFetched * fetchSize;
+		const lastVirtualRow = priorPageRows + virtualRowsOnCurrentPage;
 
 		if (!lastVirtualRow || !hasNextPage || isFetchingNextPage) {
 			return;
@@ -228,10 +254,12 @@ export const DataPanel = (props: DataPanelProps) => {
 		}
 
 		const virtualRowsRemaining = lastFetchedRow - lastVirtualRow;
-		if (virtualRowsRemaining < scrollThresholdRows) {
+		// Allow fetching more data even if a fetch is already in progress
+		console.log(`scrollPage: ${scrollPage} virtualRowsRemaining: ${virtualRowsRemaining} lastVirtualRow: ${lastVirtualRow} lastFetchedRow: ${lastFetchedRow}`);
+		if (virtualRowsRemaining < scrollThresholdRows || scrollPage > lastPageFetched) {
 			fetchNextPage();
 		}
-	}, [fetchNextPage, isFetchingNextPage, hasNextPage, rows.length, virtualRows]);
+	}, [fetchNextPage, virtualRows, hasNextPage, lastPageFetched, lastFetchedRow, scrollPage]);
 
 	// a check on mount and after a fetch to see if the table is already scrolled to the bottom
 	// and immediately needs to fetch more data
@@ -289,6 +317,7 @@ export const DataPanel = (props: DataPanelProps) => {
 					)}
 					{virtualRows.map(virtualRow => {
 						const row = rows[virtualRow.index] as ReactTable.Row<any>;
+						console.log(`row: ${row.id} ${row.getVisibleCells().length} ${row.getVisibleCells()[0].getValue()}`);
 
 						return (
 							<tr key={row.id}>
@@ -315,7 +344,8 @@ export const DataPanel = (props: DataPanelProps) => {
 				</tbody>
 			</table>
 			{
-				hasNextPage && (fetchedRowHeight - triggerFetchHeight) <= scrollBottom  ?
+				//hasNextPage && (fetchedRowHeight - triggerFetchHeight) <= scrollBottom  ?
+				false ?
 				<div className='overlay' style={{
 					marginTop: (headerHeight + clientHeight) / 2,
 					marginBottom: horizontalScrollbarHeight,
