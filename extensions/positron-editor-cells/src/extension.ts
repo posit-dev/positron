@@ -33,7 +33,9 @@ function goToNextCell(line?: number): void {
 	const i = cellRanges.findIndex(cellRange => cellRange.range.contains(position));
 	if (i < cellRanges.length - 1) {
 		const nextCellRange = cellRanges[i + 1];
-		editor.selection = new vscode.Selection(nextCellRange.range.start, nextCellRange.range.start);
+		// Skip the cell marker
+		const position = new vscode.Position(nextCellRange.range.start.line + 1, 0);
+		editor.selection = new vscode.Selection(position, position);
 		editor.revealRange(nextCellRange.range);
 	}
 }
@@ -113,7 +115,9 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 			const i = cellRanges.findIndex(cellRange => cellRange.range.contains(currentSelection.start));
 			if (i > 0) {
 				const previousCellRange = cellRanges[i - 1];
-				editor.selection = new vscode.Selection(previousCellRange.range.start, previousCellRange.range.start);
+				// Skip the cell marker
+				const position = new vscode.Position(previousCellRange.range.start.line + 1, 0);
+				editor.selection = new vscode.Selection(position, position);
 				editor.revealRange(previousCellRange.range);
 			}
 		}),
