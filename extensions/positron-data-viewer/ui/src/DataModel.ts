@@ -128,6 +128,7 @@ export class DataModel {
 			const queuePosition = requestQueue.indexOf(message.start_row);
 			requestQueue.splice(queuePosition, 1);
 			requestResolvers[message.start_row].reject('Request canceled');
+			console.log(`Request ${message.start_row} canceled`);
 			return undefined;
 		}
 
@@ -147,6 +148,7 @@ export class DataModel {
 		const queuePosition = requestQueue.indexOf(message.start_row);
 		requestQueue.splice(queuePosition, 1);
 		requestResolvers[message.start_row].resolve(incrementalData);
+		console.log(`Request ${message.start_row} fulfilled`);
 		return incrementalData;
 	}
 

@@ -109,7 +109,7 @@ export const DataPanel = (props: DataPanelProps) => {
 
 	const initialDataFragment: DataFragment = {
 		rowStart: 0,
-		rowEnd: Math.min(fetchSize, totalRows),
+		rowEnd: Math.min(fetchSize, totalRows) - 1,
 		columns: initialData.columns
 	};
 
