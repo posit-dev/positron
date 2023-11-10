@@ -22,10 +22,10 @@ function runCurrentCell(line?: number): void {
 	positron.runtime.executeCode(editor.document.languageId, text, true);
 }
 
-function goToNextCell(line?: number): void {
+function goToNextCell(line?: number): boolean {
 	const editor = vscode.window.activeTextEditor;
 	if (!editor || !(line || editor.selection)) {
-		return;
+		return false;
 	}
 
 	const cellRanges = generateCellRangesFromDocument(editor.document);
@@ -37,7 +37,31 @@ function goToNextCell(line?: number): void {
 		const position = new vscode.Position(nextCellRange.range.start.line + 1, 0);
 		editor.selection = new vscode.Selection(position, position);
 		editor.revealRange(nextCellRange.range);
+		return true;
 	}
+
+	return false;
+}
+
+function goToPreviousCell(line?: number): boolean {
+	const editor = vscode.window.activeTextEditor;
+	if (!editor || !(line || editor.selection)) {
+		return false;
+	}
+
+	const cellRanges = generateCellRangesFromDocument(editor.document);
+	const position = line ? new vscode.Position(line, 0) : editor.selection.start;
+	const i = cellRanges.findIndex(cellRange => cellRange.range.contains(position));
+	if (i > 0) {
+		const previousCellRange = cellRanges[i - 1];
+		// Skip the cell marker
+		const position = new vscode.Position(previousCellRange.range.start.line + 1, 0);
+		editor.selection = new vscode.Selection(position, position);
+		editor.revealRange(previousCellRange.range);
+		return true;
+	}
+
+	return false;
 }
 
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
@@ -57,8 +81,15 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 		}),
 
 		vscode.commands.registerCommand('positron-editor-cells.runNextCell', (line?: number) => {
-			goToNextCell(line);
-			runCurrentCell();
+			if (goToNextCell(line)) {
+				runCurrentCell();
+			}
+		}),
+
+		vscode.commands.registerCommand('positron-editor-cells.runPreviousCell', (line?: number) => {
+			if (goToPreviousCell(line)) {
+				runCurrentCell();
+			}
 		}),
 
 		vscode.commands.registerCommand('positron-editor-cells.runAllCells', () => {
@@ -104,23 +135,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 			}
 		}),
 
-		vscode.commands.registerCommand('positron-editor-cells.goToPreviousCell', () => {
-			const editor = vscode.window.activeTextEditor;
-			if (!editor || !editor.selection) {
-				return;
-			}
-
-			const cellRanges = generateCellRangesFromDocument(editor.document);
-			const currentSelection = editor.selection;
-			const i = cellRanges.findIndex(cellRange => cellRange.range.contains(currentSelection.start));
-			if (i > 0) {
-				const previousCellRange = cellRanges[i - 1];
-				// Skip the cell marker
-				const position = new vscode.Position(previousCellRange.range.start.line + 1, 0);
-				editor.selection = new vscode.Selection(position, position);
-				editor.revealRange(previousCellRange.range);
-			}
-		}),
+		vscode.commands.registerCommand('positron-editor-cells.goToPreviousCell', goToPreviousCell),
 
 		vscode.commands.registerCommand('positron-editor-cells.goToNextCell', goToNextCell),
 	);
