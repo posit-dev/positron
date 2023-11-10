@@ -109,7 +109,11 @@ export class ZedData implements DataSet {
 			this._onDidEmitData.fire(response);
 		}
 		else {
-			this._onDidEmitData.fire({ msg_type: 'canceled_request', start_row: message.start_row });
+			this._onDidEmitData.fire({
+				msg_type: 'canceled_request',
+				start_row: message.start_row,
+				fetch_size: message.fetch_size
+			});
 		}
 		// Remove this fulfilled/canceled request from the queue
 		const index = this.requestQueue.indexOf(message.start_row);

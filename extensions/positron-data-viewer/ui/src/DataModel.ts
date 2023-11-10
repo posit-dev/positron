@@ -3,6 +3,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { DataColumn, DataSet, DataViewerMessage, DataViewerMessageRowResponse } from './positron-data-viewer';
+import { ResolverLookup } from './fetchData';
 
 /**
  * A fragment of data, arranged by column.
@@ -112,25 +113,40 @@ export class DataModel {
 	 * @param event The message event received from the runtime
 	 * @returns A DataFragment representing the data in the message, or undefined
 	 */
-	handleDataMessage(event: any, requestQueue: number[]): DataFragment | undefined {
+	handleDataMessage(
+		event: any,
+		requestQueue: number[],
+		requestResolvers: ResolverLookup
+	): DataFragment | undefined {
 		const message = event.data as DataViewerMessage;
+
+		if (message.msg_type === 'canceled_request' ||
+			!requestQueue.slice(0, DataModel.queueSize).includes(message.start_row)
+		) {
+			// If this request has been canceled or is not within the n most recently made requests,
+			// reject the promise and remove it from the queue
+			const queuePosition = requestQueue.indexOf(message.start_row);
+			requestQueue.splice(queuePosition, 1);
+			requestResolvers[message.start_row].reject('Request canceled');
+			return undefined;
+		}
+
 		// Ignore messages that are not data messages or that have already been processed
 		if (message.msg_type !== 'receive_rows' || this.renderedRows.includes(message.start_row)) {
 			return undefined;
 		}
 
-		// If this request is not within the n most recently made requests , ignore the response
-		if (!requestQueue.slice(0, DataModel.queueSize).includes(message.start_row)) {
-			return undefined;
-		}
-
 		const dataMessage = message as DataViewerMessageRowResponse;
-
 		const incrementalData = {
 			rowStart: dataMessage.start_row,
 			rowEnd: dataMessage.start_row + dataMessage.fetch_size - 1,
 			columns: dataMessage.data.columns
-		};
+		} as DataFragment;
+
+		// Resolve the promise and remove this request from the queue
+		const queuePosition = requestQueue.indexOf(message.start_row);
+		requestQueue.splice(queuePosition, 1);
+		requestResolvers[message.start_row].resolve(incrementalData);
 		return incrementalData;
 	}
 
