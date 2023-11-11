@@ -227,10 +227,27 @@ export const DataPanel = (props: DataPanelProps) => {
 
 	// Compute the padding for the table container.
 	const virtualRows = rowVirtualizer.getVirtualItems();
-	// Assume unfetched rows are all of height rowHeightPx
-	const totalSize = (totalRows - rows.length) * rowHeightPx + rowVirtualizer.getTotalSize();
+	const fetchedRowHeight = rowVirtualizer.getTotalSize();
+	// Assume unfetched and overscan rows are all of height rowHeightPx
+	const triggerFetchHeight = (scrollThresholdRows + scrollOverscan) * rowHeightPx;
+	const unfetchedRowHeight = (totalRows - rows.length) * rowHeightPx;
+	const totalSize = fetchedRowHeight + unfetchedRowHeight;
 	const paddingTop = virtualRows?.[0]?.start || 0;
 	const paddingBottom = totalSize - (virtualRows?.[virtualRows.length - 1]?.end || 0);
+
+	const emptyElement = {
+		clientHeight: 0,
+		clientWidth: 0,
+		offsetHeight: 0,
+		offsetWidth: 0,
+		scrollTop: 0
+	};
+	const {clientWidth, clientHeight, offsetWidth, offsetHeight, scrollTop} = tableContainerRef.current || emptyElement;
+	const headerRef = React.useRef<HTMLTableSectionElement>(null);
+	const {clientHeight: headerHeight, clientWidth: headerWidth} = headerRef.current || emptyElement;
+	const verticalScrollbarWidth = offsetWidth - clientWidth;
+	const horizontalScrollbarHeight = offsetHeight - clientHeight;
+	const scrollBottom = scrollTop + clientHeight;
 
 	// Callback, invoked on scroll, that will fetch more data from the backend if we have reached
 	// the end of the virtualized rows by sending a new MessageRequest.
@@ -252,26 +269,13 @@ export const DataPanel = (props: DataPanelProps) => {
 		if (virtualRowsRemaining < scrollThresholdRows) {
 			fetchNextPage();
 		}
-	}, [fetchNextPage, isFetchingNextPage, hasNextPage, rows, virtualRows]);
+	}, [fetchNextPage, isFetchingNextPage, hasNextPage, rows.length, virtualRows]);
 
 	// a check on mount and after a fetch to see if the table is already scrolled to the bottom
 	// and immediately needs to fetch more data
 	React.useEffect(() => {
 		fetchMoreOnBottomReached();
 	}, [fetchMoreOnBottomReached]);
-
-	const emptyElement = {
-		clientHeight: 0,
-		clientWidth: 0,
-		offsetHeight: 0,
-		offsetWidth: 0,
-		scrollTop: 0,
-	};
-	const {clientWidth, clientHeight, offsetWidth, offsetHeight} = tableContainerRef.current || emptyElement;
-	const headerRef = React.useRef<HTMLTableSectionElement>(null);
-	const {clientHeight: headerHeight, clientWidth: headerWidth} = headerRef.current || emptyElement;
-	const verticalScrollbarWidth = offsetWidth - clientWidth;
-	const horizontalScrollbarHeight = offsetHeight - clientHeight;
 
 	return (
 		<div
@@ -348,8 +352,8 @@ export const DataPanel = (props: DataPanelProps) => {
 					)}
 				</tbody>
 			</table>
-			{ // TODO: this doesn't adequately capture the loading state, but it's a start
-				isFetchingNextPage || requestQueue.current.length > 0 ?
+			{
+				hasNextPage && (fetchedRowHeight - triggerFetchHeight) <= scrollBottom  ?
 				<div className='overlay' style={{
 					marginTop: (headerHeight + clientHeight) / 2,
 					marginBottom: horizontalScrollbarHeight,
