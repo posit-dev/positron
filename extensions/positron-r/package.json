@@ -145,10 +145,10 @@
           "default": "off",
           "description": "%r.configuration.tracing.description%"
         },
-        "positron.r.testing.experimental": {
+        "positron.r.testing": {
           "type": "boolean",
           "default": true,
-          "description": "%r.configuration.experimentalPackageTesting.description%"
+          "description": "%r.configuration.packageTesting.description%"
         },
         "positron.r.restoreWorkspace": {
           "scope": "window",
@@ -401,6 +401,12 @@
       {
         "language": "r",
         "path": "./snippets/r.code-snippets"
+      }
+    ],
+    "viewsWelcome": [
+      {
+        "view": "testing",
+        "contents": "R tests appear here when (1) current workspace includes an R package that uses testthat and (2) the setting Positron > R: Testing is set to 'true'.\n[Adjust Settings](command:workbench.action.openSettings?\"positron.r.testing\")"
       }
     ],
     "taskDefinitions": [

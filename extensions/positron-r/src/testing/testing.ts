@@ -9,23 +9,51 @@ import { createTestthatWatchers } from './watcher';
 import { runHandler } from './runner';
 import { Logger } from '../extension';
 
-export function discoverTests(context: vscode.ExtensionContext) {
-	const extConfig = vscode.workspace.getConfiguration('positron.r');
-	const testingFeatureFlag = extConfig.get<string>('testing.experimental');
+let controller: vscode.TestController | undefined;
 
-	if (!testingFeatureFlag) {
-		return [];
+export async function setupTestExplorer(context: vscode.ExtensionContext) {
+	if (testExplorerEnabled()) {
+		return discoverTests(context);
+	}
+}
+
+export function refreshTestExplorer(context: vscode.ExtensionContext) {
+	const enabled = testExplorerEnabled();
+	const inPlace = hasTestingController();
+
+	if ((enabled && inPlace) || (!enabled && !inPlace)) {
+		return;
 	}
 
+	if (enabled) {
+		return discoverTests(context);
+	}
+
+	controller?.dispose();
+	controller = undefined;
+}
+
+function testExplorerEnabled(): boolean {
+	const extConfig = vscode.workspace.getConfiguration('positron.r');
+	const testingEnabled = extConfig.get<boolean>('testing');
+
+	return testingEnabled === true;
+}
+
+function hasTestingController(): boolean {
+	return controller !== undefined;
+}
+
+export function discoverTests(context: vscode.ExtensionContext) {
 	// TODO: check workspace folder(s) for package-hood
 	// if no package, return
 	// if exactly one package among the workspace folders, proceed
 	// consider adding package metadata to testingTools (eg name and filepath)
 	// if >1 package, consult our non-existent policy re: multi-root, multi-package workspace
 
-	const controller = vscode.tests.createTestController(
+	controller = vscode.tests.createTestController(
 		'rPackageTests',
-		'R Package Tests'
+		'R Package Test Explorer'
 	);
 	context.subscriptions.push(controller);
 
@@ -63,3 +91,5 @@ export function discoverTests(context: vscode.ExtensionContext) {
 		true
 	);
 }
+
+
