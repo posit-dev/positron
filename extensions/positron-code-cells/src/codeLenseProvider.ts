@@ -77,7 +77,7 @@ export class CodeLensProvider implements vscode.CodeLensProvider {
 					cellRange.range,
 					{
 						title: '$(run) Run Cell',
-						command: 'positron.CodeCells.runCurrentCell',
+						command: 'positron.runCurrentCell',
 						arguments: [cellRange.range.start.line]
 					}));
 			if (i > 0) {
@@ -86,7 +86,7 @@ export class CodeLensProvider implements vscode.CodeLensProvider {
 						cellRange.range,
 						{
 							title: 'Run Above',
-							command: 'positron.CodeCells.runCellsAbove',
+							command: 'positron.runCellsAbove',
 							arguments: [cellRange.range.start.line]
 						}));
 			}
@@ -96,7 +96,7 @@ export class CodeLensProvider implements vscode.CodeLensProvider {
 						cellRange.range,
 						{
 							title: 'Run Next Cell',
-							command: 'positron.CodeCells.runNextCell',
+							command: 'positron.runNextCell',
 							arguments: [cellRange.range.start.line]
 						}));
 			}
@@ -105,7 +105,7 @@ export class CodeLensProvider implements vscode.CodeLensProvider {
 		if (cellRanges.length) {
 			vscode.commands.executeCommand(
 				'setContext',
-				'positron.codeCells.hasCodeCells',
+				'positron.hasCodeCells',
 				true,
 			);
 		}
