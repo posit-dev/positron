@@ -10,6 +10,8 @@
 	"r.command.packageBuild.title": "Build R Package",
 	"r.command.packageInstall.title": "Install R Package and Restart R",
 	"r.command.packageTest.title": "Test R Package",
+	"r.command.useTestthat.title": "Configure testthat",
+	"r.command.useTest.title": "Add (or visit) a test file",
 	"r.command.packageCheck.title": "Check R Package",
 	"r.command.packageDocument.title": "Document R Package",
 	"r.menu.createNewFile.title": "R File",

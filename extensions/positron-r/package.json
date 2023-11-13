@@ -81,6 +81,16 @@
         "shortTitle": "%r.menu.packageTest.title%"
       },
       {
+        "command": "r.useTestthat",
+        "category": "R",
+        "title": "%r.command.useTestthat.title%"
+      },
+      {
+        "command": "r.useTest",
+        "category": "R",
+        "title": "%r.command.useTest.title%"
+      },
+      {
         "command": "r.packageCheck",
         "category": "R",
         "title": "%r.command.packageCheck.title%",
@@ -406,7 +416,23 @@
     "viewsWelcome": [
       {
         "view": "testing",
-        "contents": "R tests appear here when (1) current workspace includes an R package that uses testthat and (2) the setting Positron > R: Testing is set to 'true'.\n[Adjust Settings](command:workbench.action.openSettings?\"positron.r.testing\")"
+        "contents": "Workspace does not appear to be an R package.",
+        "when": "!isRPackage"
+      },
+      {
+        "view": "testing",
+        "contents": "R tests can appear here if the package uses testthat and the setting Positron > R: Testing is set to 'true'.\n[Adjust this setting](command:workbench.action.openSettings?\"positron.r.testing\")",
+        "when": "isRPackage && !config.positron.r.testing"
+      },
+      {
+        "view": "testing",
+        "contents": "Package does not appear to use testthat.\n[Configure testhat for R](command:r.useTestthat)",
+        "when": "isRPackage && config.positron.r.testing && !testthatIsConfigured"
+      },
+      {
+        "view": "testing",
+        "contents": "No testthat tests found.\n[Add a test](command:r.useTest)",
+        "when": "isRPackage && config.positron.r.testing && testthatIsConfigured && !testthatHasTests"
       }
     ],
     "taskDefinitions": [

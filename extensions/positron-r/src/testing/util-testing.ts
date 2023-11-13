@@ -15,8 +15,6 @@ export interface TestingTools {
 	testItemData: WeakMap<vscode.TestItem, ItemType>;
 }
 
-export const testthatFilePattern = '**/tests/testthat/test*.[Rr]';
-
 export function encodeNodeId(
 	filePath: string,
 	testLabel: string,

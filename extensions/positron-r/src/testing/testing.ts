@@ -71,7 +71,6 @@ export function discoverTests(context: vscode.ExtensionContext) {
 			await loadTestsFromFile(testingTools, test);
 		} else {
 			await discoverTestFiles(testingTools);
-			// there will be one watcher per workspace folder (so, usually, just one)
 			const watchers = await createTestthatWatchers(testingTools);
 			for (const watcher of watchers) {
 				context.subscriptions.push(watcher);
@@ -91,5 +90,3 @@ export function discoverTests(context: vscode.ExtensionContext) {
 		true
 	);
 }
-
-

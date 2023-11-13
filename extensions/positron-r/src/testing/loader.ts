@@ -4,7 +4,9 @@
 
 import * as vscode from 'vscode';
 import { parseTestsFromFile } from './parser';
-import { ItemType, TestingTools, testthatFilePattern } from './util-testing';
+import { ItemType, TestingTools } from './util-testing';
+import { testthatTestFilePattern } from './watcher';
+
 import { Logger } from '../extension';
 
 export async function discoverTestFiles(testingTools: TestingTools) {
@@ -16,7 +18,7 @@ export async function discoverTestFiles(testingTools: TestingTools) {
 	return Promise.all(
 		vscode.workspace.workspaceFolders.map(async (workspaceFolder) => {
 			Logger.info(`Discovering testthat test files in ${workspaceFolder.uri}`);
-			const pattern = new vscode.RelativePattern(workspaceFolder, testthatFilePattern);
+			const pattern = new vscode.RelativePattern(workspaceFolder, testthatTestFilePattern);
 			for (const file of await vscode.workspace.findFiles(pattern)) {
 				getOrCreateFileItem(testingTools, file);
 			}
