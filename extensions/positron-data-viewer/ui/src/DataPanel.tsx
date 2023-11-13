@@ -166,26 +166,34 @@ export const DataPanel = (props: DataPanelProps) => {
 	// format, but React Table expects data in a row-major format, so we need to
 	// transpose the data.
 	const flatData = React.useMemo(() => {
-		// Loop over each page of data and transpose the data for that page.
+		// Loop over each page of data in sequence and transpose the data for that page.
 		// Then flatten all the transposed data pages together
 
-		// TODO: re-sort the data in case the pageParams are out of order
-		//const allPageParams = data?.pageParams || [];
+		const transposePage = (page: DataFragment) => {
+			return page.columns[0].data.map(
+				// Transpose the data for the current page
+				(_, rowIdx) => page.columns.map(col => col.data[rowIdx])
+			);
+		};
 
-		// data and pages should never be null because we declared initialData
-		// and placeholderData in the infinite query
-		return data?.pages?.flatMap(page => {
-			// Get the number of rows for the current page
-			if (page.columns.length) {
-				return page.columns[0].data.map(
-					// Transpose the data for the current page
-					(_, rowIdx) => page.columns.map(col => col.data[rowIdx])
-				);
+		// If we have skipped over pages while scrolling, those pages will not exist
+		// So we need to iterate over all indices from 0 to the max page in pageParams
+		// and insert empty placeholder rows for the missing pages
+		const highestPage = Math.max(...data?.pageParams as number[]) ?? 0;
+		const allPages = Array.from({ length: highestPage + 1 }, (_, pageParam) => pageParam);
+		const numColumns = data?.pages?.[0]?.columns.length ?? 0;
+
+		return allPages.flatMap(pageParam => {
+			const index = data?.pageParams?.indexOf(pageParam) ?? -1;
+			const page = data?.pages?.[index];
+
+			if (!page || !page.columns.length ) {
+				// No data for this page, fill to correct dimensions with empty data
+				const emptyRow = Array(numColumns);
+				return Array(fetchSize).fill(emptyRow);
 			} else {
-				// No data available for current page
-				return [[]];
+				return transposePage(page);
 			}
-
 		});
 	}, [data]);
 
@@ -200,6 +208,7 @@ export const DataPanel = (props: DataPanelProps) => {
 	});
 
 	const {rows} = table.getRowModel();
+	console.log(`rows.length: ${JSON.stringify(rows.length)}`);
 
 	// Use a virtualizer to render only the rows that are visible.
 	const rowVirtualizer = ReactVirtual.useVirtualizer(
@@ -214,14 +223,14 @@ export const DataPanel = (props: DataPanelProps) => {
 
 	// Compute the padding for the table container.
 	const virtualRows = rowVirtualizer.getVirtualItems();
-	console.log(`rows.length: ${rows.length}`);
 	const fetchedRowHeight = rowVirtualizer.getTotalSize();
 	// Assume unfetched rows are all of height rowHeightPx
 	const unfetchedRowHeight = (totalRows - rows.length) * rowHeightPx;
 	const totalSize = fetchedRowHeight + unfetchedRowHeight;
 	const paddingTop = virtualRows?.[0]?.start || 0;
 	const paddingBottom = totalSize - (virtualRows?.[virtualRows.length - 1]?.end || 0);
-	console.log(`paddingTop: ${paddingTop}
+	console.log(`
+		paddingTop: ${paddingTop}
 		paddingBottom: ${paddingBottom}
 		totalSize: ${totalSize}
 		fetchedRowHeight: ${fetchedRowHeight}
@@ -234,8 +243,8 @@ export const DataPanel = (props: DataPanelProps) => {
 		const lastFetchedRow = data?.pages?.[totalPagesFetched - 1]?.rowEnd;
 		const hasNextPage = lastPageFetched < maxPage;
 
-		console.log(`lastPageFetched: ${lastPageFetched}`);
-		console.log(`lastFetchedRow: ${lastFetchedRow}`);
+		/*console.log(`lastPageFetched: ${lastPageFetched}`);
+		console.log(`lastFetchedRow: ${lastFetchedRow}`);*/
 		return {hasNextPage, lastPageFetched, lastFetchedRow};
 	}, [data]);
 
@@ -262,7 +271,12 @@ export const DataPanel = (props: DataPanelProps) => {
 
 		const virtualRowsRemaining = lastFetchedRow - lastVirtualRow;
 		// Allow fetching more data even if a fetch is already in progress
-		console.log(`scrollPage: ${scrollPage} virtualRowsRemaining: ${virtualRowsRemaining} lastVirtualRow: ${lastVirtualRow} lastFetchedRow: ${lastFetchedRow}`);
+		console.log(`
+			scrollPage: ${scrollPage}
+			virtualRowsRemaining: ${virtualRowsRemaining}
+			lastVirtualRow: ${lastVirtualRow}
+			lastFetchedRow: ${lastFetchedRow}
+		`);
 		if (virtualRowsRemaining < scrollThresholdRows || scrollPage > lastPageFetched) {
 			fetchNextPage();
 		}
@@ -324,7 +338,6 @@ export const DataPanel = (props: DataPanelProps) => {
 					)}
 					{virtualRows.map(virtualRow => {
 						const row = rows[virtualRow.index] as ReactTable.Row<any>;
-						console.log(`row: ${row.id} ${row.getVisibleCells().length} ${row.getVisibleCells()[0].getValue()}`);
 
 						return (
 							<tr key={row.id}>

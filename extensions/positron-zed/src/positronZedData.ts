@@ -84,10 +84,7 @@ export class ZedData implements DataSet {
 			case 'ready':
 			case 'request_rows':
 				this.requestQueue.unshift(message.start_row);
-				console.log(`Backend queue: ${this.requestQueue}`);
-				// simulate slow response
-				setTimeout(() => this.sendData(message as DataViewerMessageRowRequest), 1000);
-				//this.sendData(message as DataViewerMessageRowRequest);
+				this.sendData(message as DataViewerMessageRowRequest);
 				break;
 			default:
 				console.error(`ZedData ${this.id} got unknown message type: ${message.msg_type}`);
