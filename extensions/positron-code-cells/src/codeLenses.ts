@@ -4,6 +4,7 @@
 
 import * as vscode from 'vscode';
 import { parseCells } from './parser';
+import { IGNORED_SCHEMES } from './extension';
 
 function runCellCodeLens(range: vscode.Range, line: number): vscode.CodeLens {
 	return new vscode.CodeLens(range, {
@@ -36,7 +37,7 @@ export function registerCodeLensProvider(context: vscode.ExtensionContext): void
 	context.subscriptions.push(
 		vscode.languages.registerCodeLensProvider('*', {
 			provideCodeLenses: (document, _token) => {
-				if (['vscode-notebook-cell', 'vscode-interactive-input'].includes(document.uri.scheme)) {
+				if (IGNORED_SCHEMES.includes(document.uri.scheme)) {
 					return [];
 				}
 

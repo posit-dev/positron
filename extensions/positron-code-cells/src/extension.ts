@@ -9,6 +9,8 @@ import { registerCommands } from './commands';
 import { registerDecorations } from './decorations';
 import { registerFoldingRangeProvider } from './folding';
 
+export const IGNORED_SCHEMES = ['vscode-notebook-cell', 'vscode-interactive-input'];
+
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
 	initializeLogging();
 

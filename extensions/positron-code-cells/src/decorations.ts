@@ -3,9 +3,11 @@
  *--------------------------------------------------------------------------------------------*/
 import * as vscode from 'vscode';
 import { CellManager } from './cellManager';
+import { IGNORED_SCHEMES } from './extension';
 
 export function registerDecorations(context: vscode.ExtensionContext): void {
 	let timeout: NodeJS.Timer | undefined = undefined;
+	let activeEditor = vscode.window.activeTextEditor;
 
 	const activeCellDecorationType = vscode.window.createTextEditorDecorationType({
 		light: {
@@ -17,10 +19,8 @@ export function registerDecorations(context: vscode.ExtensionContext): void {
 		isWholeLine: true,
 	});
 
-	let activeEditor = vscode.window.activeTextEditor;
-
 	function updateDecorations() {
-		if (!activeEditor || ['vscode-notebook-cell', 'vscode-interactive-input'].includes(activeEditor.document.uri.scheme)) {
+		if (!activeEditor || IGNORED_SCHEMES.includes(activeEditor.document.uri.scheme)) {
 			return;
 		}
 		const activeCell = new CellManager(activeEditor).getCurrentCell(activeEditor.selection.active.line);
