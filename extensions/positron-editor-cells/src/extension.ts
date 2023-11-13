@@ -5,7 +5,21 @@
 import * as positron from 'positron';
 import * as vscode from 'vscode';
 import { initializeLogging } from './logging';
-import { CodeLensProvider, generateCellRangesFromDocument } from './codeLenseProvider';
+import { CodeLensProvider, ICellRange, generateCellRangesFromDocument } from './codeLenseProvider';
+
+
+function runCellRange(cellRange: ICellRange): void {
+	const editor = vscode.window.activeTextEditor;
+	if (!editor) {
+		return;
+	}
+	// Skip the cell marker
+	// TODO: Should we use the same regex matcher?
+	// TODO: Not sure why end needs a +1 too?
+	const range = new vscode.Range(cellRange.range.start.line + 1, 0, cellRange.range.end.line + 1, 0);
+	const text = editor.document.getText(range);
+	positron.runtime.executeCode(editor.document.languageId, text, true);
+}
 
 function runCurrentCell(line?: number): void {
 	const editor = vscode.window.activeTextEditor;
@@ -14,12 +28,10 @@ function runCurrentCell(line?: number): void {
 	}
 
 	const cellRanges = generateCellRangesFromDocument(editor.document);
-	const position = line ? new vscode.Position(line, 0) : editor.selection.start;
+	const position = line === undefined ? editor.selection.start : new vscode.Position(line, 0);
 	const i = cellRanges.findIndex(cellRange => cellRange.range.contains(position));
 	const cellRange = cellRanges[i];
-
-	const text = editor.document.getText(cellRange.range);
-	positron.runtime.executeCode(editor.document.languageId, text, true);
+	runCellRange(cellRange);
 }
 
 function goToNextCell(line?: number): boolean {
@@ -29,7 +41,7 @@ function goToNextCell(line?: number): boolean {
 	}
 
 	const cellRanges = generateCellRangesFromDocument(editor.document);
-	const position = line ? new vscode.Position(line, 0) : editor.selection.start;
+	const position = line === undefined ? editor.selection.start : new vscode.Position(line, 0);
 	const i = cellRanges.findIndex(cellRange => cellRange.range.contains(position));
 	if (i < cellRanges.length - 1) {
 		const nextCellRange = cellRanges[i + 1];
@@ -50,7 +62,7 @@ function goToPreviousCell(line?: number): boolean {
 	}
 
 	const cellRanges = generateCellRangesFromDocument(editor.document);
-	const position = line ? new vscode.Position(line, 0) : editor.selection.start;
+	const position = line === undefined ? editor.selection.start : new vscode.Position(line, 0);
 	const i = cellRanges.findIndex(cellRange => cellRange.range.contains(position));
 	if (i > 0) {
 		const previousCellRange = cellRanges[i - 1];
@@ -124,8 +136,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 
 			const cellRanges = generateCellRangesFromDocument(editor.document);
 			for (const cellRange of cellRanges) {
-				const text = editor.document.getText(cellRange.range);
-				positron.runtime.executeCode(editor.document.languageId, text, true);
+				runCellRange(cellRange);
 			}
 		}),
 
@@ -135,12 +146,11 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 				return;
 			}
 
-			const position = line ? new vscode.Position(line, 0) : editor.selection.start;
+			const position = line === undefined ? editor.selection.start : new vscode.Position(line, 0);
 			const cellRanges = generateCellRangesFromDocument(editor.document);
 			const i = cellRanges.findIndex(cellRange => cellRange.range.contains(position));
 			for (const cellRange of cellRanges.slice(0, i)) {
-				const text = editor.document.getText(cellRange.range);
-				positron.runtime.executeCode(editor.document.languageId, text, true);
+				runCellRange(cellRange);
 			}
 		}),
 
@@ -150,12 +160,11 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 				return;
 			}
 
-			const position = line ? new vscode.Position(line, 0) : editor.selection.start;
+			const position = line === undefined ? editor.selection.start : new vscode.Position(line, 0);
 			const cellRanges = generateCellRangesFromDocument(editor.document);
 			const i = cellRanges.findIndex(cellRange => cellRange.range.contains(position));
 			for (const cellRange of cellRanges.slice(i + 1)) {
-				const text = editor.document.getText(cellRange.range);
-				positron.runtime.executeCode(editor.document.languageId, text, true);
+				runCellRange(cellRange);
 			}
 		}),
 
