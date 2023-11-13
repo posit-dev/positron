@@ -190,7 +190,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 	let activeEditor = vscode.window.activeTextEditor;
 
 	function updateDecorations() {
-		if (!activeEditor) {
+		if (!activeEditor || ['vscode-notebook-cell', 'vscode-interactive-input'].includes(activeEditor.document.uri.scheme)) {
 			return;
 		}
 		const cellRanges = generateCellRangesFromDocument(activeEditor.document);
@@ -247,4 +247,14 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 				new vscode.FoldingRange(cellRange.range.start.line, cellRange.range.end.line)
 			)
 	});
+
+	// Set the default value of the hasCodeCells context variable upon onDidChangeActiveTextEditor
+	vscode.window.onDidChangeActiveTextEditor(() => {
+		// TODO: Do we need to actually check if it has cells?
+		vscode.commands.executeCommand(
+			'setContext',
+			'hasCodeCells',
+			false,
+		);
+	}, null, context.subscriptions);
 }

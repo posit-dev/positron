@@ -64,6 +64,10 @@ export class CodeLensProvider implements vscode.CodeLensProvider {
 	}
 
 	public provideCodeLenses(document: vscode.TextDocument, _token: vscode.CancellationToken): vscode.CodeLens[] | Thenable<vscode.CodeLens[]> {
+		if (['vscode-notebook-cell', 'vscode-interactive-input'].includes(document.uri.scheme)) {
+			return [];
+		}
+
 		const codeLenses: vscode.CodeLens[] = [];
 		const cellRanges = generateCellRangesFromDocument(document);
 		for (let i = 0; i < cellRanges.length; i += 1) {
@@ -97,6 +101,15 @@ export class CodeLensProvider implements vscode.CodeLensProvider {
 						}));
 			}
 		}
+
+		if (cellRanges.length) {
+			vscode.commands.executeCommand(
+				'setContext',
+				'hasCodeCells',
+				true,
+			);
+		}
+
 		return codeLenses;
 	}
 
