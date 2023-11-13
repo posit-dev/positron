@@ -237,15 +237,16 @@ export const DataPanel = (props: DataPanelProps) => {
 		unfetchedRowHeight: ${unfetchedRowHeight}
 	`);
 
-	const {hasNextPage, lastPageFetched, lastFetchedRow} = React.useMemo(() => {
+	const {hasNextPage, lastPageFetched, penultimatePageFetched, lastFetchedRow} = React.useMemo(() => {
 		const totalPagesFetched = data?.pageParams?.length || 0;
 		const lastPageFetched = data?.pageParams?.[totalPagesFetched - 1] as number;
+		const penultimatePageFetched = data?.pageParams?.[totalPagesFetched - 2] as number;
 		const lastFetchedRow = data?.pages?.[totalPagesFetched - 1]?.rowEnd;
 		const hasNextPage = lastPageFetched < maxPage;
 
 		/*console.log(`lastPageFetched: ${lastPageFetched}`);
 		console.log(`lastFetchedRow: ${lastFetchedRow}`);*/
-		return {hasNextPage, lastPageFetched, lastFetchedRow};
+		return {hasNextPage, lastPageFetched, penultimatePageFetched, lastFetchedRow};
 	}, [data]);
 
 	// Callback, invoked on scroll, that will fetch more data from the backend if we have reached
@@ -256,7 +257,7 @@ export const DataPanel = (props: DataPanelProps) => {
 		const lastVirtualIndex = virtualRows?.[virtualRows.length - 1]?.index;
 		const virtualRowsOnCurrentPage = lastVirtualIndex % fetchSize;
 		const priorPageRows = lastVirtualIndex < lastPageFetched * fetchSize
-			? (lastPageFetched - 1) * fetchSize
+			? (penultimatePageFetched) * fetchSize
 			: lastPageFetched * fetchSize;
 		const lastVirtualRow = priorPageRows + virtualRowsOnCurrentPage;
 
@@ -280,7 +281,7 @@ export const DataPanel = (props: DataPanelProps) => {
 		if (virtualRowsRemaining < scrollThresholdRows || scrollPage > lastPageFetched) {
 			fetchNextPage();
 		}
-	}, [fetchNextPage, virtualRows, hasNextPage, lastPageFetched, lastFetchedRow, scrollPage]);
+	}, [fetchNextPage, hasNextPage, lastPageFetched, penultimatePageFetched, lastFetchedRow, scrollPage, virtualRows]);
 
 	// a check on mount and after a fetch to see if the table is already scrolled to the bottom
 	// and immediately needs to fetch more data
@@ -340,7 +341,7 @@ export const DataPanel = (props: DataPanelProps) => {
 						const row = rows[virtualRow.index] as ReactTable.Row<any>;
 
 						return (
-							<tr key={row.id}>
+							<tr key={row.id} style={{ minHeight: `${rowHeightPx}px` }}>
 							{
 								row.getVisibleCells().map(cell => {
 									return (
