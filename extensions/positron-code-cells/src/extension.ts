@@ -110,10 +110,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 
 		vscode.commands.registerCommand('positron.CodeCells.runCurrentAdvance', async () => {
 			runCurrentCell();
-			if (!goToNextCell()) {
-				// TODO: Only create the new cell if the current one is empty?
-				await insertCodeCell();
-			}
+			goToNextCell();
 		}),
 
 		vscode.commands.registerCommand('positron.CodeCells.runNextCell', (line?: number) => {
