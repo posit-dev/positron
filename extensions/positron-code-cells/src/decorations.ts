@@ -24,7 +24,9 @@ export function registerDecorations(context: vscode.ExtensionContext): void {
 			return;
 		}
 		const activeCell = new CellManager(activeEditor).getCurrentCell(activeEditor.selection.active.line);
-		activeEditor.setDecorations(activeCellDecorationType, [activeCell.range]);
+		if (activeCell) {
+			activeEditor.setDecorations(activeCellDecorationType, [activeCell.range]);
+		}
 	}
 
 	function triggerUpdateDecorations(throttle = false) {

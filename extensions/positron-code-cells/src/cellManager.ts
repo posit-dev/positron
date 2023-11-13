@@ -26,7 +26,7 @@ export class CellManager {
 		return this.cells.findIndex(cell => cell.range.contains(cursor));
 	}
 
-	public getCurrentCell(line?: number): ICell {
+	public getCurrentCell(line?: number): ICell | undefined {
 		return this.cells[this.getCurrentCellIndex(line)];
 	}
 
@@ -48,7 +48,10 @@ export class CellManager {
 
 	public runCurrentCell(line?: number): void {
 		// TODO: Shouldn't getCurrentCell possibly return undefined?
-		this.runCell(this.getCurrentCell(line));
+		const cell = this.getCurrentCell(line);
+		if (cell) {
+			this.runCell(cell);
+		}
 	}
 
 	public runCurrentAdvance(line?: number): void {
@@ -115,7 +118,7 @@ export class CellManager {
 	}
 
 	public async insertCodeCell(line?: number): Promise<void> {
-		const location = this.getCurrentCell(line).range.end;
+		const location = this.getCurrentCell(line)?.range.end ?? this.editor.selection.active;
 		// TODO: Allow customizing/extending cell markers
 		const cellMarker = '# %%';
 		await this.editor.edit(editBuilder => {
