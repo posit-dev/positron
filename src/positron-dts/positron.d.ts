@@ -206,6 +206,32 @@ declare module 'positron' {
 	}
 
 	/**
+	 * The set of possible output locations for a LanguageRuntimeOutput.
+	 */
+	export enum PositronOutputLocation {
+		/** The output should be displayed inline in Positron's Console */
+		Console = 'console',
+
+		/** The output should be displayed in Positron's Viewer pane */
+		Viewer = 'viewer',
+
+		/** The output should be displayed in Positron's Plots pane */
+		Plot = 'plot',
+	}
+
+	/**
+	 * LanguageRuntimeWebOutput amends LanguageRuntimeOutput with additional information needed
+	 * to render web content in Positron.
+	 */
+	export interface LanguageRuntimeWebOutput extends LanguageRuntimeOutput {
+		/** Where the web output should be displayed */
+		output_location: PositronOutputLocation;
+
+		/** The set of resource roots needed to display the output */
+		resource_roots: vscode.Uri[];
+	}
+
+	/**
 	 * The set of standard stream names supported for streaming textual output.
 	 */
 	export enum LanguageRuntimeStreamName {
@@ -630,34 +656,6 @@ declare module 'positron' {
 	}
 
 	/**
-	 * A callback used to supply local resource roots for a data fragment.
-	 *
-	 * @param data The data to be rendered, as a JSON object
-	 * @returns An array of local resource roots, specifying supplementary
-	 *   locations for local resources needed to render the data.
-	 */
-	export type RuntimeResourceRootProviderCallback = (
-		data: any) => vscode.Uri[];
-
-	/**
-	 * A data structure that describes a local resource root provider.
-	 */
-	export interface RuntimeResourceRootProvider {
-		/**
-		 * The MIME type supported by this provider.
-		 */
-		mimeType: string;
-
-		/**
-		 * A callback invoked when data matching the MIME type is being rendered
-		 * in a webview. The callback returns additional local resource roots
-		 * that should be used to resolve local resources referenced by the data.
-		 */
-		callback: RuntimeResourceRootProviderCallback;
-	}
-
-
-	/**
 	 * Content settings for webviews hosted in the Preview panel.
 	 *
 	 * This interface mirrors the `WebviewOptions` & `WebviewPanelOptions` interfaces, with
@@ -959,14 +957,6 @@ declare module 'positron' {
 		 * @param handler A handler for runtime client instances
 		 */
 		export function registerClientHandler(handler: RuntimeClientHandler): vscode.Disposable;
-
-		/**
-		 * A provider that supplies additional root paths from which a webview
-		 * can load local (filesystem) resources, when rendering HTML content
-		 * returned by a runtime.
-		 */
-		export function registerLocalResourceRootsProvider(provider: RuntimeResourceRootProvider):
-			vscode.Disposable;
 
 		/**
 		 * An event that fires when a new runtime is registered.

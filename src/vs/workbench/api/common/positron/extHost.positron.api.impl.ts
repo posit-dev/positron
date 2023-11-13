@@ -89,10 +89,6 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			get onDidRegisterRuntime() {
 				return extHostLanguageRuntime.onDidRegisterRuntime;
 			},
-			registerLocalResourceRootsProvider(provider: positron.RuntimeResourceRootProvider):
-				vscode.Disposable {
-				return extHostLanguageRuntime.registerLocalResourceRootsProvider(provider);
-			}
 		};
 
 		const window: typeof positron.window = {
@@ -124,6 +120,7 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			runtime,
 			window,
 			languages,
+			PositronOutputLocation: extHostTypes.PositronOutputLocation,
 			RuntimeClientType: extHostTypes.RuntimeClientType,
 			RuntimeClientState: extHostTypes.RuntimeClientState,
 			RuntimeExitReason: extHostTypes.RuntimeExitReason,

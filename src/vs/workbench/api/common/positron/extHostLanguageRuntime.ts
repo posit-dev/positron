@@ -3,7 +3,6 @@
  *--------------------------------------------------------------------------------------------*/
 
 import type * as positron from 'positron';
-import type * as vscode from 'vscode';
 import { ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMessageCommData, ILanguageRuntimeMessageCommOpen, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import * as extHostProtocol from './extHost.positron.protocol';
 import { Emitter } from 'vs/base/common/event';
@@ -29,8 +28,6 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 	private readonly _runtimes = new Array<positron.LanguageRuntime>();
 
 	private readonly _runtimeProviders = new Array<LanguageRuntimeProvider>();
-
-	private readonly _resourceRootProviders = new Array<positron.RuntimeResourceRootProvider>();
 
 	private readonly _clientInstances = new Array<ExtHostRuntimeClientInstance>();
 
@@ -307,51 +304,6 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 			// the provider to the list of providers on which we need to perform discovery.
 			this._runtimeProviders.push({ extension, provider });
 		}
-	}
-
-	/**
-	 * Registers a local resource root provider.
-	 *
-	 * @param provider A provider that supplies resource roots for data returned
-	 * from a language runtime.
-	 *
-	 * @returns A Disposable that unregisters the provider when disposed.
-	 */
-	public registerLocalResourceRootsProvider(provider: positron.RuntimeResourceRootProvider):
-		IDisposable {
-
-		// Add to our set of resource root providers
-		this._resourceRootProviders.push(provider);
-
-		// Return a disposable that removes the provider from the set when it's disposed
-		return new Disposable(() => {
-			const index = this._resourceRootProviders.indexOf(provider);
-			if (index >= 0) {
-				this._resourceRootProviders.splice(index, 1);
-			}
-		});
-	}
-
-	/**
-	 * Gets the local resource roots needed to render a given MIME type and data.
-	 *
-	 * @param mimeType The MIME type of the data
-	 * @param data The data
-	 * @returns A promise that resolves to the local resource roots needed to
-	 *   render the data in a webview.
-	 */
-	public $getLocalResourceRoots(mimeType: string, data: any): Promise<vscode.Uri[]> {
-		const uris = new Array<vscode.Uri>();
-
-		// Loop over the providers and invoke each one that matches the MIME
-		// type, accumulating the results
-		for (const provider of this._resourceRootProviders) {
-			if (provider.mimeType === mimeType) {
-				uris.push(...provider.callback(data));
-			}
-		}
-
-		return Promise.resolve(uris);
 	}
 
 	public registerLanguageRuntime(

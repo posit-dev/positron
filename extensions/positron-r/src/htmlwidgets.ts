@@ -32,24 +32,17 @@ export interface RHtmlWidget {
 }
 
 /**
- * Register a local resource roots provider for R HTML widgets.
+ * Get the resource roots for R HTML widgets.
  */
-export function registerHtmlWidgets() {
-	positron.runtime.registerLocalResourceRootsProvider({
-		mimeType: 'application/vnd.r.htmlwidget',
-		callback: (data) => {
-			const widget = data as RHtmlWidget;
-			const roots: Uri[] = [];
+export function getResourceRoots(widget: RHtmlWidget) {
+	const roots: Uri[] = [];
 
-			// Mark each dependency as a local resource root.
-			widget.dependencies.forEach((dep: RHtmlDependency) => {
-				if (dep.src.file) {
-					roots.push(Uri.file(dep.src.file));
-				}
-			});
-
-			return roots;
+	// Mark each dependency as a local resource root.
+	widget.dependencies.forEach((dep: RHtmlDependency) => {
+		if (dep.src.file) {
+			roots.push(Uri.file(dep.src.file));
 		}
-	}
-	);
+	});
+
+	return roots;
 }

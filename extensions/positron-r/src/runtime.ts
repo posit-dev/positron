@@ -10,6 +10,8 @@ import { JupyterAdapterApi, JupyterKernelSpec, JupyterLanguageRuntime, JupyterKe
 import { ArkLsp, LspState } from './lsp';
 import { delay } from './util';
 import { ArkAttachOnStartup, ArkDelayStartup } from './startup';
+import { RHtmlWidget, getResourceRoots } from './htmlwidgets';
+import { getRPackageName } from './contexts';
 
 export let lastRuntimePath = '';
 
@@ -221,13 +223,36 @@ export class RRuntime implements positron.LanguageRuntime, vscode.Disposable {
 			this._stateEmitter.fire(state);
 		});
 		kernel.onDidReceiveRuntimeMessage((message) => {
-			this._messageEmitter.fire(message);
+			this.onMessage(message);
 		});
 		kernel.onDidEndSession((exit) => {
 			this._exitEmitter.fire(exit);
 		});
 
 		return kernel;
+	}
+
+	private onMessage(message: positron.LanguageRuntimeMessage): void {
+		let delivered = false;
+		if (message.type === positron.LanguageRuntimeMessageType.Output) {
+			const msg = message as positron.LanguageRuntimeOutput;
+			if (Object.keys(msg.data).includes('application/vnd.r.htmlwidget')) {
+
+				const widget = msg.data['application/vnd.r.htmlwidget'] as any as RHtmlWidget;
+				const webMsg = msg as positron.LanguageRuntimeWebOutput;
+
+				webMsg.resource_roots = getResourceRoots(widget);
+				webMsg.output_location = positron.PositronOutputLocation.Plot;
+
+				this._messageEmitter.fire(message);
+				delivered = true;
+			}
+		}
+
+		// The message hasn't been delivered yet, so deliver it
+		if (!delivered) {
+			this._messageEmitter.fire(message);
+		}
 	}
 
 	private async startLsp(): Promise<void> {

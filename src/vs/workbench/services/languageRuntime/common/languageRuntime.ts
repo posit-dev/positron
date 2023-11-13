@@ -8,7 +8,7 @@ import { ILogService } from 'vs/platform/log/common/log';
 import { ILanguageService } from 'vs/editor/common/languages/language';
 import { Disposable, IDisposable, toDisposable } from 'vs/base/common/lifecycle';
 import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/common/extensions';
-import { formatLanguageRuntime, ILanguageRuntime, ILanguageRuntimeGlobalEvent, ILanguageRuntimeService, ILanguageRuntimeStateEvent, LanguageRuntimeDiscoveryPhase, LanguageRuntimeStartupBehavior, RuntimeClientType, RuntimeExitReason, RuntimeResourceRootProvider, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { formatLanguageRuntime, ILanguageRuntime, ILanguageRuntimeGlobalEvent, ILanguageRuntimeService, ILanguageRuntimeStateEvent, LanguageRuntimeDiscoveryPhase, LanguageRuntimeStartupBehavior, RuntimeClientType, RuntimeExitReason, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { FrontEndClientInstance, IFrontEndClientMessageInput, IFrontEndClientMessageOutput } from 'vs/workbench/services/languageRuntime/common/languageRuntimeFrontEndClient';
 import { LanguageRuntimeWorkspaceAffiliation } from 'vs/workbench/services/languageRuntime/common/languageRuntimeWorkspaceAffiliation';
 import { IStorageService } from 'vs/platform/storage/common/storage';
@@ -17,7 +17,6 @@ import { IWorkspaceTrustManagementService } from 'vs/platform/workspace/common/w
 import { DeferredPromise } from 'vs/base/common/async';
 import { INotificationService } from 'vs/platform/notification/common/notification';
 import { IModalDialogPromptInstance, IPositronModalDialogsService } from 'vs/workbench/services/positronModalDialogs/common/positronModalDialogs';
-import { URI } from 'vs/base/common/uri';
 
 /**
  * LanguageRuntimeInfo class.
@@ -104,9 +103,6 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 	// The event emitter for the onDidChangeActiveRuntime event.
 	private readonly _onDidChangeActiveRuntimeEmitter = this._register(new Emitter<ILanguageRuntime | undefined>);
 
-	// The resource root provider.
-	private _resourceRootProvider: RuntimeResourceRootProvider | undefined = undefined;
-
 	//#endregion Private Properties
 
 	//#region Constructor
@@ -174,31 +170,6 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 		this.onDidChangeDiscoveryPhase(phase => {
 			this._discoveryPhase = phase;
 		});
-	}
-
-	/**
-	 * Sets the resource root provider.
-	 *
-	 * @param provider The resource root provider.
-	 */
-	setLocalResourceRootProvider(provider: RuntimeResourceRootProvider): void {
-		this._resourceRootProvider = provider;
-	}
-
-	/**
-	 * Gets the resource roots for a MIME type and data.
-	 *
-	 * @param mimeType The MIME type to get resource roots for
-	 * @param data The data to get resource roots for
-	 * @returns
-	 */
-	getLocalResourceRoots(mimeType: string, data: any): Promise<URI[]> {
-		if (this._resourceRootProvider) {
-			return this._resourceRootProvider(mimeType, data);
-		}
-		this._logService.warn(`No local resource root provider is registered ` +
-			` (rendering ${mimeType}).`);
-		return Promise.resolve([]);
 	}
 
 	//#endregion Constructor

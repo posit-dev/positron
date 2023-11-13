@@ -39,7 +39,6 @@ export interface ExtHostLanguageRuntimeShape {
 	$forceQuitLanguageRuntime(handle: number): Promise<void>;
 	$showOutputLanguageRuntime(handle: number): void;
 	$discoverLanguageRuntimes(): void;
-	$getLocalResourceRoots(mimeType: string, data: any): Promise<UriComponents[]>;
 }
 
 /**

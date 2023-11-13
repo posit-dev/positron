@@ -23,7 +23,6 @@ import { BusyEvent, LanguageRuntimeEventType, PromptStateEvent, WorkingDirectory
 import { IPositronHelpService } from 'vs/workbench/contrib/positronHelp/browser/positronHelpService';
 import { INotebookService } from 'vs/workbench/contrib/notebook/common/notebookService';
 import { IRuntimeClientEvent } from 'vs/workbench/services/languageRuntime/common/languageRuntimeFrontEndClient';
-import { URI } from 'vs/base/common/uri';
 
 /**
  * Represents a language runtime event (for example a message or state change)
@@ -930,21 +929,6 @@ export class MainThreadLanguageRuntime implements MainThreadLanguageRuntimeShape
 				this._proxy.$discoverLanguageRuntimes();
 			}
 		});
-
-		// Set the local resource root provider for the language runtime service
-		this._languageRuntimeService.setLocalResourceRootProvider(
-			async (mimeType: string, data: any) => {
-				// Get the URIs from the extension host
-				const uris = await this._proxy.$getLocalResourceRoots(mimeType, data);
-
-				// Revive each URI and return the result
-				const result: URI[] = [];
-				for (const uri of uris) {
-					result.push(URI.revive(uri));
-				}
-
-				return result;
-			});
 	}
 
 	$emitLanguageRuntimeMessage(handle: number, message: ILanguageRuntimeMessage): void {
