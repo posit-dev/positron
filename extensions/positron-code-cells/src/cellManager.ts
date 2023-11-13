@@ -1,6 +1,7 @@
 /*---------------------------------------------------------------------------------------------
  *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
+
 import * as positron from 'positron';
 import * as vscode from 'vscode';
 import { newCell, parseCells } from './parser';
@@ -9,7 +10,7 @@ export interface ICell {
 	range: vscode.Range;
 }
 
-// Provides a set of commands for interacting with Jupyter-like cells in an editor.
+// Provides a set of commands for interacting with Jupyter-like cells in a vscode.TextEditor
 export class CellManager {
 	cells: ICell[];
 

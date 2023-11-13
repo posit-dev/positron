@@ -1,6 +1,7 @@
 /*---------------------------------------------------------------------------------------------
  *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
+
 import * as vscode from 'vscode';
 import { CellManager } from './cellManager';
 import { IGNORED_SCHEMES } from './extension';
