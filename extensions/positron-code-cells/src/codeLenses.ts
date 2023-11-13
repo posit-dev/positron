@@ -44,41 +44,31 @@ export function generateCellRangesFromDocument(document: vscode.TextDocument): I
 	return cells;
 }
 
-class RunCellCodeLens extends vscode.CodeLens {
-	constructor(range: vscode.Range, line: number) {
-		super(
-			range,
-			{
-				title: '$(run) Run Cell',
-				command: 'positron.runCurrentCell',
-				arguments: [line],
-			});
-	}
+function runCellCodeLens(range: vscode.Range, line: number): vscode.CodeLens {
+	return new vscode.CodeLens(range, {
+		title: '$(run) Run Cell',
+		command: 'positron.runCurrentCell',
+		arguments: [line],
+	});
 }
 
 
-class RunAboveCodeLens extends vscode.CodeLens {
-	constructor(range: vscode.Range, line: number) {
-		super(
-			range,
-			{
-				title: '$(run-above) Run Above',
-				command: 'positron.runCellsAbove',
-				arguments: [line],
-			});
-	}
+function runAboveCodeLens(range: vscode.Range, line: number): vscode.CodeLens {
+	return new vscode.CodeLens(range, {
+		title: '$(run-above) Run Above',
+		command: 'positron.runCellsAbove',
+		arguments: [line],
+	});
 }
 
-class RunNextCodeLens extends vscode.CodeLens {
-	constructor(range: vscode.Range, line: number) {
-		super(
-			range,
-			{
-				title: '$(run-next) Run Next',
-				command: 'positron.runNextCell',
-				arguments: [line],
-			});
-	}
+function runNextCodeLens(range: vscode.Range, line: number): vscode.CodeLens {
+	return new vscode.CodeLens(
+		range,
+		{
+			title: '$(run-next) Run Next',
+			command: 'positron.runNextCell',
+			arguments: [line],
+		});
 }
 
 export function registerCodeLensProvider(context: vscode.ExtensionContext): void {
@@ -95,12 +85,12 @@ export function registerCodeLensProvider(context: vscode.ExtensionContext): void
 					const cell = cells[i];
 					const range = cell.range;
 					const line = range.start.line;
-					codeLenses.push(new RunCellCodeLens(range, line));
+					codeLenses.push(runCellCodeLens(range, line));
 					if (i > 0) {
-						codeLenses.push(new RunAboveCodeLens(range, line));
+						codeLenses.push(runAboveCodeLens(range, line));
 					}
 					if (i < cells.length - 1) {
-						codeLenses.push(new RunNextCodeLens(range, line));
+						codeLenses.push(runNextCodeLens(range, line));
 					}
 				}
 
