@@ -3,7 +3,7 @@
  *--------------------------------------------------------------------------------------------*/
 import * as positron from 'positron';
 import * as vscode from 'vscode';
-import { parseCells } from './parser';
+import { newCell, parseCells } from './parser';
 
 export interface ICell {
 	range: vscode.Range;
@@ -120,12 +120,7 @@ export class CellManager {
 
 	public async insertCodeCell(line?: number): Promise<void> {
 		const location = this.getCurrentCell(line)?.range.end ?? this.editor.selection.active;
-		// TODO: Allow customizing/extending cell markers
-		const cellMarker = '# %%';
-		await this.editor.edit(editBuilder => {
-			const cellText = `\n${cellMarker}\n`;
-			editBuilder.insert(location, cellText);
-		});
+		await this.editor.edit(editBuilder => { editBuilder.insert(location, newCell()); });
 		this.goToNextCell(location.line);
 	}
 
