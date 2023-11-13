@@ -3,7 +3,7 @@
  *--------------------------------------------------------------------------------------------*/
 import * as positron from 'positron';
 import * as vscode from 'vscode';
-import { generateCellRangesFromDocument } from './codeLenses';
+import { parseCells } from './parser';
 
 export interface ICell {
 	range: vscode.Range;
@@ -19,7 +19,7 @@ export class CellManager {
 	}
 
 	private parseCells(): void {
-		this.cells = generateCellRangesFromDocument(this.editor.document);
+		this.cells = parseCells(this.editor.document);
 	}
 
 	private getCurrentCellIndex(line?: number): number {
