@@ -45,7 +45,7 @@ export function generateCellRangesFromDocument(document: vscode.TextDocument): I
 }
 
 
-export class CodeLensProvider implements vscode.CodeLensProvider {
+class CodeLensProvider implements vscode.CodeLensProvider {
 
 	private _onDidChangeCodeLenses: vscode.EventEmitter<void> = new vscode.EventEmitter<void>();
 	public readonly onDidChangeCodeLenses: vscode.Event<void> = this._onDidChangeCodeLenses.event;
@@ -116,4 +116,10 @@ export class CodeLensProvider implements vscode.CodeLensProvider {
 		// };
 		return codeLens;
 	}
+}
+
+export function registerCodeLensProvider(context: vscode.ExtensionContext): void {
+	context.subscriptions.push(
+		vscode.languages.registerCodeLensProvider('*', new CodeLensProvider())
+	);
 }
