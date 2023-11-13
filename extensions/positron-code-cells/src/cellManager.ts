@@ -9,6 +9,7 @@ export interface ICell {
 	range: vscode.Range;
 }
 
+// Provides a set of commands for interacting with Jupyter-like cells in an editor.
 export class CellManager {
 	cells: ICell[];
 

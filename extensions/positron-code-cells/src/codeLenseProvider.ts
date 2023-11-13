@@ -44,82 +44,76 @@ export function generateCellRangesFromDocument(document: vscode.TextDocument): I
 	return cells;
 }
 
-
-class CodeLensProvider implements vscode.CodeLensProvider {
-
-	private _onDidChangeCodeLenses: vscode.EventEmitter<void> = new vscode.EventEmitter<void>();
-	public readonly onDidChangeCodeLenses: vscode.Event<void> = this._onDidChangeCodeLenses.event;
-
-	constructor() {
-		// TODO: Not sure when we're supposed to fire onDidChangeCodeLenses
-		vscode.workspace.onDidChangeConfiguration((_) => {
-			this._onDidChangeCodeLenses.fire();
-		});
+class RunCellCodeLens extends vscode.CodeLens {
+	constructor(range: vscode.Range, line: number) {
+		super(
+			range,
+			{
+				title: '$(run) Run Cell',
+				command: 'positron.runCurrentCell',
+				arguments: [line],
+			});
 	}
+}
 
-	public provideCodeLenses(document: vscode.TextDocument, _token: vscode.CancellationToken): vscode.CodeLens[] | Thenable<vscode.CodeLens[]> {
-		if (['vscode-notebook-cell', 'vscode-interactive-input'].includes(document.uri.scheme)) {
-			return [];
-		}
 
-		const codeLenses: vscode.CodeLens[] = [];
-		const cells = generateCellRangesFromDocument(document);
-		for (let i = 0; i < cells.length; i += 1) {
-			const cell = cells[i];
-			codeLenses.push(
-				new vscode.CodeLens(
-					cell.range,
-					{
-						title: '$(run) Run Cell',
-						command: 'positron.runCurrentCell',
-						arguments: [cell.range.start.line]
-					}));
-			if (i > 0) {
-				codeLenses.push(
-					new vscode.CodeLens(
-						cell.range,
-						{
-							title: 'Run Above',
-							command: 'positron.runCellsAbove',
-							arguments: [cell.range.start.line]
-						}));
-			}
-			if (i < cells.length - 1) {
-				codeLenses.push(
-					new vscode.CodeLens(
-						cell.range,
-						{
-							title: 'Run Next Cell',
-							command: 'positron.runNextCell',
-							arguments: [cell.range.start.line]
-						}));
-			}
-		}
-
-		if (cells.length) {
-			vscode.commands.executeCommand(
-				'setContext',
-				'positron.hasCodeCells',
-				true,
-			);
-		}
-
-		return codeLenses;
+class RunAboveCodeLens extends vscode.CodeLens {
+	constructor(range: vscode.Range, line: number) {
+		super(
+			range,
+			{
+				title: '$(run-above) Run Above',
+				command: 'positron.runCellsAbove',
+				arguments: [line],
+			});
 	}
+}
 
-	public resolveCodeLens(codeLens: vscode.CodeLens, _token: vscode.CancellationToken): vscode.CodeLens {
-		// codeLens.command = {
-		// 	title: '$(run) Codelens provided by sample extension',
-		// 	tooltip: 'Tooltip provided by sample extension',
-		// 	command: 'codelens-sample.codelensAction',
-		// 	arguments: ['Argument 1', false]
-		// };
-		return codeLens;
+class RunNextCodeLens extends vscode.CodeLens {
+	constructor(range: vscode.Range, line: number) {
+		super(
+			range,
+			{
+				title: '$(run-next) Run Next',
+				command: 'positron.runNextCell',
+				arguments: [line],
+			});
 	}
 }
 
 export function registerCodeLensProvider(context: vscode.ExtensionContext): void {
 	context.subscriptions.push(
-		vscode.languages.registerCodeLensProvider('*', new CodeLensProvider())
-	);
+		vscode.languages.registerCodeLensProvider('*', {
+			provideCodeLenses: (document, _token) => {
+				if (['vscode-notebook-cell', 'vscode-interactive-input'].includes(document.uri.scheme)) {
+					return [];
+				}
+
+				const codeLenses: vscode.CodeLens[] = [];
+				const cells = generateCellRangesFromDocument(document);
+				for (let i = 0; i < cells.length; i += 1) {
+					const cell = cells[i];
+					const range = cell.range;
+					const line = range.start.line;
+					codeLenses.push(new RunCellCodeLens(range, line));
+					if (i > 0) {
+						codeLenses.push(new RunAboveCodeLens(range, line));
+					}
+					if (i < cells.length - 1) {
+						codeLenses.push(new RunNextCodeLens(range, line));
+					}
+				}
+
+				// TODO: Should this live elsewhere?
+				if (cells.length) {
+					vscode.commands.executeCommand(
+						'setContext',
+						'positron.hasCodeCells',
+						true,
+					);
+				}
+
+				return codeLenses;
+			}
+		}));
 }
