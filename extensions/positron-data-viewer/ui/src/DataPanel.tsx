@@ -148,8 +148,7 @@ export const DataPanel = (props: DataPanelProps) => {
 			pageParams: [0]
 		},
 		getNextPageParam: (_page, _pages, _lastPageParam, allPageParams) => {
-			console.log(`scrollPage: ${scrollPage}`);
-
+			console.log(`getNextPageParam: ${scrollPage}`);
 			return allPageParams.includes(scrollPage)
 				? undefined // don't refetch if we have already fetched data for this page
 				: scrollPage; // otherwise, use current scroll position to determine next page
@@ -160,7 +159,6 @@ export const DataPanel = (props: DataPanelProps) => {
 		refetchOnWindowFocus: false,
 		placeholderData: (previousData) => previousData
 	});
-
 
 	// Transpose and flatten the data. The data model stores data in a column-major
 	// format, but React Table expects data in a row-major format, so we need to
@@ -218,36 +216,60 @@ export const DataPanel = (props: DataPanelProps) => {
 	// Assume unfetched rows are all of height rowHeightPx
 	const unfetchedRowHeight = (totalRows - rows.length) * rowHeightPx;
 	const totalSize = fetchedRowHeight + unfetchedRowHeight;
-	const paddingTop = virtualRows?.[0]?.start || 0;
-	const paddingBottom = totalSize - (virtualRows?.[virtualRows.length - 1]?.end || 0);
 
-	const {hasNextPage, lastPageFetched, lastFetchedRow} = React.useMemo(() => {
-		const totalPagesFetched = data?.pageParams?.length || 0;
-		const lastPageFetched = data?.pageParams?.[totalPagesFetched - 1] as number;
-		const lastFetchedRow = data?.pages?.[totalPagesFetched - 1]?.rowEnd;
+	// Re-run on new page fetch (changes data)
+	const {hasNextPage, lastPageFetched, lastFetchedRow, totalPagesFetched, penultimatePageFetched} = React.useMemo(() => {
+		const totalPagesFetched = data?.pageParams?.length || 0; // 3
+		const lastPageFetched = (data?.pageParams?.[totalPagesFetched - 1] as number) ?? 0; // 13
+		const penultimatePageFetched = (data?.pageParams?.[totalPagesFetched - 2] as number) ?? 0; // 1
+		const lastFetchedRow = data?.pages?.[totalPagesFetched - 1]?.rowEnd; // 1399
 		const hasNextPage = lastPageFetched < maxPage;
+		return {hasNextPage, lastPageFetched, lastFetchedRow, totalPagesFetched, penultimatePageFetched};
 
-		console.log(`lastPageFetched: ${lastPageFetched}`);
-		console.log(`lastFetchedRow: ${lastFetchedRow}`);
-		return {hasNextPage, lastPageFetched, lastFetchedRow};
 	}, [data]);
+
+	// Re-run on scroll (changes virtual rows)
+	const {lastVirtualRow, paddingTop, paddingBottom} = React.useMemo(() => {
+		// The virtual row index will not account for pages we skipped, so we need to recalculate
+		// the actual row index of the last virtual row
+		const lastVirtualIndexUncorrected = virtualRows?.[virtualRows.length - 1]?.index; // 299
+		const lastVRowRemainder = lastVirtualIndexUncorrected % fetchSize; // 99
+		const lastVRowPageIndex = Math.floor(lastVirtualIndexUncorrected / fetchSize); // 2
+		const lastVRowPageActual = Math.floor(data.pages[lastVRowPageIndex]?.rowEnd / fetchSize); // 13
+		const lastVirtualRow = lastVRowPageActual * fetchSize + lastVRowRemainder; // 1399
+
+		const firstVirtualIndexUncorrected = virtualRows?.[0]?.index; // 269
+		const firstVRowRemainder = firstVirtualIndexUncorrected % fetchSize; // 69
+		const firstVRowPageIndex = Math.floor(firstVirtualIndexUncorrected / fetchSize); // 2
+		const firstVRowPageActual = Math.floor(data.pages[firstVRowPageIndex]?.rowEnd / fetchSize); // 13
+		const firstVirtualRow = firstVRowPageActual * fetchSize + firstVRowRemainder; // 1369
+
+		// Recalculate padding based on the actual first and last virtual row
+		// This also assumes constant row height, but we'll fix that later
+		const paddingTop = firstVirtualRow * rowHeightPx;
+		const paddingBottom = totalSize - (lastVirtualRow + 1) * rowHeightPx;
+
+		return {lastVirtualRow, paddingTop, paddingBottom};
+	}, [virtualRows, totalPagesFetched, penultimatePageFetched, lastPageFetched]);
+
+	// @ts-ignore
+	const unwrap = ({index, start, end}) => ({index, start, end});
+	console.log(`
+		first virtual row: ${JSON.stringify(unwrap(virtualRows?.[0]))}
+		first virtual adjusted: ${paddingTop / rowHeightPx}
+		last virtual row: ${JSON.stringify(unwrap(virtualRows?.[virtualRows.length - 1]))}
+		last virtual adjusted: ${lastVirtualRow}
+		pages: ${data?.pageParams}
+		paddingTop: ${paddingTop}
+		paddingBottom: ${paddingBottom}
+	`);
 
 	// Callback, invoked on scroll, that will fetch more data from the backend if we have reached
 	// the end of the virtualized rows by sending a new MessageRequest.
 	const fetchMoreOnBottomReached = React.useCallback(() => {
-		// The virtual row index will not account for pages we skipped, so we need to recalculate
-		// the actual row index of the last virtual row
-		const lastVirtualIndex = virtualRows?.[virtualRows.length - 1]?.index;
-		const virtualRowsOnCurrentPage = lastVirtualIndex % fetchSize;
-		const priorPageRows = lastVirtualIndex < lastPageFetched * fetchSize
-			? (lastPageFetched - 1) * fetchSize
-			: lastPageFetched * fetchSize;
-		const lastVirtualRow = priorPageRows + virtualRowsOnCurrentPage;
-
 		if (!lastVirtualRow || !hasNextPage || isFetchingNextPage) {
 			return;
 		}
-
 		// don't trigger fetchNextPage if the data has already been requested
 		if (requestQueue.current.includes(lastFetchedRow + 1)) {
 			return;
@@ -255,11 +277,12 @@ export const DataPanel = (props: DataPanelProps) => {
 
 		const virtualRowsRemaining = lastFetchedRow - lastVirtualRow;
 		// Allow fetching more data even if a fetch is already in progress
-		console.log(`scrollPage: ${scrollPage} virtualRowsRemaining: ${virtualRowsRemaining} lastVirtualRow: ${lastVirtualRow} lastFetchedRow: ${lastFetchedRow}`);
+		console.log(`scrollPage: ${scrollPage} lastVirtualRow: ${lastVirtualRow} lastFetchedRow: ${lastFetchedRow} lastPageFetched: ${lastPageFetched}`);
+		console.log(`data.pageParams: ${JSON.stringify(data?.pageParams)}`);
 		if (virtualRowsRemaining < scrollThresholdRows || scrollPage > lastPageFetched) {
 			fetchNextPage();
 		}
-	}, [fetchNextPage, virtualRows, hasNextPage, lastPageFetched, lastFetchedRow, scrollPage]);
+	}, [fetchNextPage, isFetchingNextPage, lastVirtualRow, hasNextPage, lastPageFetched, lastFetchedRow, scrollPage]);
 
 	// a check on mount and after a fetch to see if the table is already scrolled to the bottom
 	// and immediately needs to fetch more data
@@ -317,7 +340,6 @@ export const DataPanel = (props: DataPanelProps) => {
 					)}
 					{virtualRows.map(virtualRow => {
 						const row = rows[virtualRow.index] as ReactTable.Row<any>;
-						console.log(`row: ${row.id} ${row.getVisibleCells().length} ${row.getVisibleCells()[0].getValue()}`);
 
 						return (
 							<tr key={row.id}>
