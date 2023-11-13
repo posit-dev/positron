@@ -76,14 +76,16 @@ export class CodeLensProvider implements vscode.CodeLensProvider {
 						command: 'positron-editor-cells.runCurrentCell',
 						arguments: [cellRange.range.start.line]
 					}));
-			codeLenses.push(
-				new vscode.CodeLens(
-					cellRange.range,
-					{
-						title: 'Run Above',
-						command: 'positron-editor-cells.runCellsAbove',
-						arguments: [cellRange.range.start.line]
-					}));
+			if (i > 0) {
+				codeLenses.push(
+					new vscode.CodeLens(
+						cellRange.range,
+						{
+							title: 'Run Above',
+							command: 'positron-editor-cells.runCellsAbove',
+							arguments: [cellRange.range.start.line]
+						}));
+			}
 			if (i < cellRanges.length - 1) {
 				codeLenses.push(
 					new vscode.CodeLens(
