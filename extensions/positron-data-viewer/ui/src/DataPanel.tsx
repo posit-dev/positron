@@ -67,6 +67,9 @@ export const DataPanel = (props: DataPanelProps) => {
 	// calling the appropriate resolve or reject function when the request completes.
 	const fetcher = new DataFetcher(requestQueue.current, requestResolvers.current, totalRows, vscode);
 
+	// Dimensions to keep track of as the table container scrolls and resizes
+	const dimensionsRef = React.useRef<any>({});
+
 	React.useEffect(() => {
 		const handleMessage = ((event: any) => {
 			// Update state for the data model and resolve/reject the outstanding request
@@ -113,6 +116,8 @@ export const DataPanel = (props: DataPanelProps) => {
 		rowEnd: Math.min(fetchSize, totalRows) - 1,
 		columns: initialData.columns
 	};
+
+
 
 	const emptyElement = {
 		clientHeight: 0,
@@ -282,12 +287,6 @@ export const DataPanel = (props: DataPanelProps) => {
 			fetchNextPage();
 		}
 	}, [fetchNextPage, hasNextPage, lastPageFetched, penultimatePageFetched, lastFetchedRow, scrollPage, virtualRows]);
-
-	// a check on mount and after a fetch to see if the table is already scrolled to the bottom
-	// and immediately needs to fetch more data
-	React.useEffect(() => {
-		fetchMoreOnBottomReached();
-	}, [fetchMoreOnBottomReached]);
 
 	return (
 		<div
