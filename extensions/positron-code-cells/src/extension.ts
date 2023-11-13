@@ -106,9 +106,9 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 	vscode.languages.registerCodeLensProvider('*', codelensProvider);
 
 	context.subscriptions.push(
-		vscode.commands.registerCommand('positron-editor-cells.runCurrentCell', runCurrentCell),
+		vscode.commands.registerCommand('positron.CodeCells.runCurrentCell', runCurrentCell),
 
-		vscode.commands.registerCommand('positron-editor-cells.runCurrentAdvance', async () => {
+		vscode.commands.registerCommand('positron.CodeCells.runCurrentAdvance', async () => {
 			runCurrentCell();
 			if (!goToNextCell()) {
 				// TODO: Only create the new cell if the current one is empty?
@@ -116,19 +116,19 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 			}
 		}),
 
-		vscode.commands.registerCommand('positron-editor-cells.runNextCell', (line?: number) => {
+		vscode.commands.registerCommand('positron.CodeCells.runNextCell', (line?: number) => {
 			if (goToNextCell(line)) {
 				runCurrentCell();
 			}
 		}),
 
-		vscode.commands.registerCommand('positron-editor-cells.runPreviousCell', (line?: number) => {
+		vscode.commands.registerCommand('positron.CodeCells.runPreviousCell', (line?: number) => {
 			if (goToPreviousCell(line)) {
 				runCurrentCell();
 			}
 		}),
 
-		vscode.commands.registerCommand('positron-editor-cells.runAllCells', () => {
+		vscode.commands.registerCommand('positron.CodeCells.runAllCells', () => {
 			const editor = vscode.window.activeTextEditor;
 			if (!editor) {
 				return;
@@ -140,7 +140,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 			}
 		}),
 
-		vscode.commands.registerCommand('positron-editor-cells.runCellsAbove', (line?: number) => {
+		vscode.commands.registerCommand('positron.CodeCells.runCellsAbove', (line?: number) => {
 			const editor = vscode.window.activeTextEditor;
 			if (!editor || !(line || editor.selection)) {
 				return;
@@ -154,7 +154,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 			}
 		}),
 
-		vscode.commands.registerCommand('positron-editor-cells.runCellsBelow', (line?: number) => {
+		vscode.commands.registerCommand('positron.CodeCells.runCellsBelow', (line?: number) => {
 			const editor = vscode.window.activeTextEditor;
 			if (!editor || !(line || editor.selection)) {
 				return;
@@ -168,11 +168,11 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 			}
 		}),
 
-		vscode.commands.registerCommand('positron-editor-cells.goToPreviousCell', goToPreviousCell),
+		vscode.commands.registerCommand('positron.CodeCells.goToPreviousCell', goToPreviousCell),
 
-		vscode.commands.registerCommand('positron-editor-cells.goToNextCell', goToNextCell),
+		vscode.commands.registerCommand('positron.CodeCells.goToNextCell', goToNextCell),
 
-		vscode.commands.registerCommand('positron-editor-cells.insertCodeCell', insertCodeCell),
+		vscode.commands.registerCommand('positron.CodeCells.insertCodeCell', insertCodeCell),
 	);
 
 	let timeout: NodeJS.Timer | undefined = undefined;
@@ -253,7 +253,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 		// TODO: Do we need to actually check if it has cells?
 		vscode.commands.executeCommand(
 			'setContext',
-			'hasCodeCells',
+			'positron.codeCells.hasCodeCells',
 			false,
 		);
 	}, null, context.subscriptions);

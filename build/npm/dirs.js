@@ -11,10 +11,10 @@ const dirs = [
 	'build',
 	'extensions',
 	// --- Start Positron ---
+	'extensions/positron-code-cells',
 	'extensions/positron-data-viewer',
 	'extensions/positron-data-viewer/ui',
 	'extensions/positron-javascript',
-	'extensions/positron-editor-cells',
 	'extensions/positron-notebook-controllers',
 	'extensions/positron-r',
 	'extensions/positron-python',
