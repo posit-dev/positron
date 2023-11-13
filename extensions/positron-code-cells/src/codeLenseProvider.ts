@@ -5,9 +5,8 @@
 import * as vscode from 'vscode';
 
 
-export interface ICellRange {
+export interface ICell {
 	range: vscode.Range;
-	cell_type: string;
 }
 
 
@@ -15,17 +14,13 @@ class CellMatcher {
 	isCell(line: string): boolean {
 		return line.startsWith('# %%');
 	}
-
-	getCellType(_line: string): string {
-		return 'code';
-	}
 }
 
 
-export function generateCellRangesFromDocument(document: vscode.TextDocument): ICellRange[] {
+export function generateCellRangesFromDocument(document: vscode.TextDocument): ICell[] {
 	// Implmentation of getCells here based on Don's Jupyter extension work
 	const matcher = new CellMatcher();
-	const cells: ICellRange[] = [];
+	const cells: ICell[] = [];
 	for (let index = 0; index < document.lineCount; index += 1) {
 		const line = document.lineAt(index);
 		if (matcher.isCell(line.text)) {
@@ -36,7 +31,6 @@ export function generateCellRangesFromDocument(document: vscode.TextDocument): I
 
 			cells.push({
 				range: line.range,
-				cell_type: matcher.getCellType(line.text)
 			});
 		}
 	}
@@ -69,40 +63,40 @@ export class CodeLensProvider implements vscode.CodeLensProvider {
 		}
 
 		const codeLenses: vscode.CodeLens[] = [];
-		const cellRanges = generateCellRangesFromDocument(document);
-		for (let i = 0; i < cellRanges.length; i += 1) {
-			const cellRange = cellRanges[i];
+		const cells = generateCellRangesFromDocument(document);
+		for (let i = 0; i < cells.length; i += 1) {
+			const cell = cells[i];
 			codeLenses.push(
 				new vscode.CodeLens(
-					cellRange.range,
+					cell.range,
 					{
 						title: '$(run) Run Cell',
 						command: 'positron.runCurrentCell',
-						arguments: [cellRange.range.start.line]
+						arguments: [cell.range.start.line]
 					}));
 			if (i > 0) {
 				codeLenses.push(
 					new vscode.CodeLens(
-						cellRange.range,
+						cell.range,
 						{
 							title: 'Run Above',
 							command: 'positron.runCellsAbove',
-							arguments: [cellRange.range.start.line]
+							arguments: [cell.range.start.line]
 						}));
 			}
-			if (i < cellRanges.length - 1) {
+			if (i < cells.length - 1) {
 				codeLenses.push(
 					new vscode.CodeLens(
-						cellRange.range,
+						cell.range,
 						{
 							title: 'Run Next Cell',
 							command: 'positron.runNextCell',
-							arguments: [cellRange.range.start.line]
+							arguments: [cell.range.start.line]
 						}));
 			}
 		}
 
-		if (cellRanges.length) {
+		if (cells.length) {
 			vscode.commands.executeCommand(
 				'setContext',
 				'positron.hasCodeCells',

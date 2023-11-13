@@ -5,18 +5,17 @@
 import * as positron from 'positron';
 import * as vscode from 'vscode';
 import { initializeLogging } from './logging';
-import { CodeLensProvider, ICellRange, generateCellRangesFromDocument } from './codeLenseProvider';
+import { CodeLensProvider, ICell, generateCellRangesFromDocument } from './codeLenseProvider';
 
 
-function runCellRange(cellRange: ICellRange): void {
+function runCell(cell: ICell): void {
 	const editor = vscode.window.activeTextEditor;
 	if (!editor) {
 		return;
 	}
 	// Skip the cell marker
 	// TODO: Should we use the same regex matcher?
-	// TODO: Not sure why end needs a +1 too?
-	const range = new vscode.Range(cellRange.range.start.line + 1, 0, cellRange.range.end.line + 1, 0);
+	const range = new vscode.Range(cell.range.start.line + 1, 0, cell.range.end.line, cell.range.end.character);
 	const text = editor.document.getText(range);
 	positron.runtime.executeCode(editor.document.languageId, text, true);
 }
@@ -27,11 +26,11 @@ function runCurrentCell(line?: number): void {
 		return;
 	}
 
-	const cellRanges = generateCellRangesFromDocument(editor.document);
+	const cells = generateCellRangesFromDocument(editor.document);
 	const position = line === undefined ? editor.selection.start : new vscode.Position(line, 0);
-	const i = cellRanges.findIndex(cellRange => cellRange.range.contains(position));
-	const cellRange = cellRanges[i];
-	runCellRange(cellRange);
+	const i = cells.findIndex(cell => cell.range.contains(position));
+	const cell = cells[i];
+	runCell(cell);
 }
 
 function goToNextCell(line?: number): boolean {
@@ -40,11 +39,11 @@ function goToNextCell(line?: number): boolean {
 		return false;
 	}
 
-	const cellRanges = generateCellRangesFromDocument(editor.document);
+	const cells = generateCellRangesFromDocument(editor.document);
 	const position = line === undefined ? editor.selection.start : new vscode.Position(line, 0);
-	const i = cellRanges.findIndex(cellRange => cellRange.range.contains(position));
-	if (i < cellRanges.length - 1) {
-		const nextCellRange = cellRanges[i + 1];
+	const i = cells.findIndex(cell => cell.range.contains(position));
+	if (i < cells.length - 1) {
+		const nextCellRange = cells[i + 1];
 		// Skip the cell marker
 		const position = new vscode.Position(nextCellRange.range.start.line + 1, 0);
 		editor.selection = new vscode.Selection(position, position);
@@ -61,11 +60,11 @@ function goToPreviousCell(line?: number): boolean {
 		return false;
 	}
 
-	const cellRanges = generateCellRangesFromDocument(editor.document);
+	const cells = generateCellRangesFromDocument(editor.document);
 	const position = line === undefined ? editor.selection.start : new vscode.Position(line, 0);
-	const i = cellRanges.findIndex(cellRange => cellRange.range.contains(position));
+	const i = cells.findIndex(cell => cell.range.contains(position));
 	if (i > 0) {
-		const previousCellRange = cellRanges[i - 1];
+		const previousCellRange = cells[i - 1];
 		// Skip the cell marker
 		const position = new vscode.Position(previousCellRange.range.start.line + 1, 0);
 		editor.selection = new vscode.Selection(position, position);
@@ -82,17 +81,17 @@ async function insertCodeCell(): Promise<void> {
 		return;
 	}
 
-	const cellRanges = generateCellRangesFromDocument(editor.document);
+	const cells = generateCellRangesFromDocument(editor.document);
 	const position = editor.selection.active;
-	const i = cellRanges.findIndex(cellRange => cellRange.range.contains(position));
-	const cellRange = cellRanges[i];
+	const i = cells.findIndex(cell => cell.range.contains(position));
+	const cell = cells[i];
 
 	// TODO: Allow customizing/extending cell markers
 	const cellMarker = '# %%';
 	// Add the cell marker and navigate to the end of the new cell
 	await editor.edit(editBuilder => {
 		const cellText = `\n${cellMarker}\n`;
-		editBuilder.insert(cellRange.range.end, cellText);
+		editBuilder.insert(cell.range.end, cellText);
 	});
 
 	goToNextCell();
@@ -131,9 +130,9 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 				return;
 			}
 
-			const cellRanges = generateCellRangesFromDocument(editor.document);
-			for (const cellRange of cellRanges) {
-				runCellRange(cellRange);
+			const cells = generateCellRangesFromDocument(editor.document);
+			for (const cell of cells) {
+				runCell(cell);
 			}
 		}),
 
@@ -144,10 +143,10 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 			}
 
 			const position = line === undefined ? editor.selection.start : new vscode.Position(line, 0);
-			const cellRanges = generateCellRangesFromDocument(editor.document);
-			const i = cellRanges.findIndex(cellRange => cellRange.range.contains(position));
-			for (const cellRange of cellRanges.slice(0, i)) {
-				runCellRange(cellRange);
+			const cells = generateCellRangesFromDocument(editor.document);
+			const i = cells.findIndex(cell => cell.range.contains(position));
+			for (const cell of cells.slice(0, i)) {
+				runCell(cell);
 			}
 		}),
 
@@ -158,10 +157,10 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 			}
 
 			const position = line === undefined ? editor.selection.start : new vscode.Position(line, 0);
-			const cellRanges = generateCellRangesFromDocument(editor.document);
-			const i = cellRanges.findIndex(cellRange => cellRange.range.contains(position));
-			for (const cellRange of cellRanges.slice(i + 1)) {
-				runCellRange(cellRange);
+			const cells = generateCellRangesFromDocument(editor.document);
+			const i = cells.findIndex(cell => cell.range.contains(position));
+			for (const cell of cells.slice(i + 1)) {
+				runCell(cell);
 			}
 		}),
 
@@ -190,13 +189,13 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 		if (!activeEditor || ['vscode-notebook-cell', 'vscode-interactive-input'].includes(activeEditor.document.uri.scheme)) {
 			return;
 		}
-		const cellRanges = generateCellRangesFromDocument(activeEditor.document);
+		const cells = generateCellRangesFromDocument(activeEditor.document);
 		const activeCellRanges: vscode.Range[] = [];
-		for (const cellRange of cellRanges) {
-			// If the cursor is in the cellRange, then highlight it
-			if (activeEditor.selection.active.line >= cellRange.range.start.line &&
-				activeEditor.selection.active.line <= cellRange.range.end.line) {
-				activeCellRanges.push(cellRange.range);
+		for (const cell of cells) {
+			// If the cursor is in the cell, then highlight it
+			if (activeEditor.selection.active.line >= cell.range.start.line &&
+				activeEditor.selection.active.line <= cell.range.end.line) {
+				activeCellRanges.push(cell.range);
 				break;
 			}
 		}
@@ -240,8 +239,8 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 
 	vscode.languages.registerFoldingRangeProvider('*', {
 		provideFoldingRanges: (document) =>
-			generateCellRangesFromDocument(document).map((cellRange) =>
-				new vscode.FoldingRange(cellRange.range.start.line, cellRange.range.end.line)
+			generateCellRangesFromDocument(document).map((cell) =>
+				new vscode.FoldingRange(cell.range.start.line, cell.range.end.line)
 			)
 	});
 
