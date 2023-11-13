@@ -7,7 +7,6 @@ import * as vscode from 'vscode';
 import { initializeLogging } from './logging';
 import { CodeLensProvider, ICell, generateCellRangesFromDocument } from './codeLenseProvider';
 
-
 function runCell(cell: ICell): void {
 	const editor = vscode.window.activeTextEditor;
 	if (!editor) {
@@ -22,7 +21,7 @@ function runCell(cell: ICell): void {
 
 function runCurrentCell(line?: number): void {
 	const editor = vscode.window.activeTextEditor;
-	if (!editor || !(line || editor.selection)) {
+	if (!editor) {
 		return;
 	}
 
@@ -35,7 +34,7 @@ function runCurrentCell(line?: number): void {
 
 function goToNextCell(line?: number): boolean {
 	const editor = vscode.window.activeTextEditor;
-	if (!editor || !(line || editor.selection)) {
+	if (!editor) {
 		return false;
 	}
 
@@ -56,7 +55,7 @@ function goToNextCell(line?: number): boolean {
 
 function goToPreviousCell(line?: number): boolean {
 	const editor = vscode.window.activeTextEditor;
-	if (!editor || !(line || editor.selection)) {
+	if (!editor) {
 		return false;
 	}
 
@@ -77,7 +76,7 @@ function goToPreviousCell(line?: number): boolean {
 
 async function insertCodeCell(): Promise<void> {
 	const editor = vscode.window.activeTextEditor;
-	if (!editor || !editor.selection) {
+	if (!editor) {
 		return;
 	}
 
@@ -138,7 +137,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 
 		vscode.commands.registerCommand('positron.runCellsAbove', (line?: number) => {
 			const editor = vscode.window.activeTextEditor;
-			if (!editor || !(line || editor.selection)) {
+			if (!editor) {
 				return;
 			}
 
@@ -152,7 +151,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 
 		vscode.commands.registerCommand('positron.runCellsBelow', (line?: number) => {
 			const editor = vscode.window.activeTextEditor;
-			if (!editor || !(line || editor.selection)) {
+			if (!editor) {
 				return;
 			}
 
