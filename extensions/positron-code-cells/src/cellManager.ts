@@ -42,14 +42,13 @@ export class CellManager {
 
 	public runCell(cell: ICell): void {
 		// Skip the cell marker
-		// TODO: Reuse the same regex matcher?
+		// TODO: Support multiline cell markers?
 		const range = new vscode.Range(cell.range.start.line + 1, 0, cell.range.end.line, cell.range.end.character);
 		const text = this.editor.document.getText(range);
 		positron.runtime.executeCode(this.editor.document.languageId, text, true);
 	}
 
 	public runCurrentCell(line?: number): void {
-		// TODO: Shouldn't getCurrentCell possibly return undefined?
 		const cell = this.getCurrentCell(line);
 		if (cell) {
 			this.runCell(cell);
@@ -99,7 +98,7 @@ export class CellManager {
 
 	private goToCell(cell: ICell): void {
 		// Skip the cell marker
-		// TODO: Reuse the same regex matcher?
+		// TODO: Support multiline cell markers?
 		const cursor = new vscode.Position(cell.range.start.line + 1, 0);
 		this.editor.selection = new vscode.Selection(cursor, cursor);
 		this.editor.revealRange(cell.range);
