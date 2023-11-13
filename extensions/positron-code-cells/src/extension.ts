@@ -4,7 +4,7 @@
 
 import * as vscode from 'vscode';
 import { initializeLogging } from './logging';
-import { registerCodeLensProvider } from './codeLenseProvider';
+import { registerCodeLensProvider } from './codeLenses';
 import { registerCommands } from './commands';
 import { registerDecorations } from './decorations';
 import { registerFoldingRangeProvider } from './folding';

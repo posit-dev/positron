@@ -3,7 +3,7 @@
  *--------------------------------------------------------------------------------------------*/
 import * as positron from 'positron';
 import * as vscode from 'vscode';
-import { generateCellRangesFromDocument } from './codeLenseProvider';
+import { generateCellRangesFromDocument } from './codeLenses';
 
 export interface ICell {
 	range: vscode.Range;
