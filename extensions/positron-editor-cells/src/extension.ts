@@ -64,7 +64,7 @@ function goToPreviousCell(line?: number): boolean {
 	return false;
 }
 
-function insertCodeCell(): void {
+async function insertCodeCell(): Promise<void> {
 	const editor = vscode.window.activeTextEditor;
 	if (!editor || !editor.selection) {
 		return;
@@ -78,7 +78,7 @@ function insertCodeCell(): void {
 	// TODO: Allow customizing/extending cell markers
 	const cellMarker = '# %%';
 	// Add the cell marker and navigate to the end of the new cell
-	editor.edit(editBuilder => {
+	await editor.edit(editBuilder => {
 		const cellText = `\n${cellMarker}\n`;
 		editBuilder.insert(cellRange.range.end, cellText);
 	});
@@ -96,10 +96,12 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 	context.subscriptions.push(
 		vscode.commands.registerCommand('positron-editor-cells.runCurrentCell', runCurrentCell),
 
-		vscode.commands.registerCommand('positron-editor-cells.runCurrentAdvance', () => {
+		vscode.commands.registerCommand('positron-editor-cells.runCurrentAdvance', async () => {
 			runCurrentCell();
-			goToNextCell();
-			// TODO: Should this create a new cell if it's in the last?
+			if (!goToNextCell()) {
+				// TODO: Only create the new cell if the current one is empty?
+				await insertCodeCell();
+			}
 		}),
 
 		vscode.commands.registerCommand('positron-editor-cells.runNextCell', (line?: number) => {
