@@ -31,20 +31,9 @@ async function createTestthatWatcher(
 	const pattern = new vscode.RelativePattern(workspaceFolder, testthatFilePattern);
 	const watcher = vscode.workspace.createFileSystemWatcher(pattern);
 
-	// Check that tests are not from RCMD and are not temp files
-	const RCMDpattern = '**/check/*.Rcheck/**';
-	const isValid = (uri: vscode.Uri) =>
-		match([uri.path], RCMDpattern).length === 0;
-
-	watcher.onDidCreate((uri) => (isValid(uri) ? getOrCreateFileItem(testingTools, uri) : undefined));
-	watcher.onDidChange((uri) =>
-		isValid(uri)
-			? parseTestsFromFile(testingTools, getOrCreateFileItem(testingTools, uri))
-			: undefined
-	);
-	watcher.onDidDelete((uri) =>
-		isValid(uri) ? testingTools.controller.items.delete(uri.path) : undefined
-	);
+	watcher.onDidCreate((uri) => getOrCreateFileItem(testingTools, uri));
+	watcher.onDidChange((uri) => parseTestsFromFile(testingTools, getOrCreateFileItem(testingTools, uri)));
+	watcher.onDidDelete((uri) => testingTools.controller.items.delete(uri.path));
 
 	return watcher;
 }
