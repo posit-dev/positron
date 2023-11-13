@@ -16,7 +16,7 @@ function runCellCodeLens(range: vscode.Range, line: number): vscode.CodeLens {
 
 function runAboveCodeLens(range: vscode.Range, line: number): vscode.CodeLens {
 	return new vscode.CodeLens(range, {
-		title: '$(run-above) Run Above',
+		title: 'Run Above',
 		command: 'positron.runCellsAbove',
 		arguments: [line],
 	});
@@ -26,7 +26,7 @@ function runNextCodeLens(range: vscode.Range, line: number): vscode.CodeLens {
 	return new vscode.CodeLens(
 		range,
 		{
-			title: '$(run-next) Run Next',
+			title: 'Run Next',
 			command: 'positron.runNextCell',
 			arguments: [line],
 		});
