@@ -19,12 +19,14 @@ export class DataFragment {
 	// The maximum number of requests in the queue to handle. Requests further down the queue will be ignored.
 	// Keep in sync with queue size on the language backends
 	private static readonly queueSize = 3;
+	public readonly rowEnd: number;
 
 	constructor(
 		public readonly columns: DataColumn[],
-		public readonly rowStart: number = 0
-
+		public readonly rowStart: number,
+		size: number
 	) {
+		this.rowEnd = rowStart + size - 1;
 	}
 
 	public static handleDataMessage(event: any, requestQueue: number[], requestResolvers: ResolverLookup) {
@@ -48,17 +50,15 @@ export class DataFragment {
 		if (message.msg_type === 'canceled_request' || queuePosition >= this.queueSize) {
 			requestQueue.splice(queuePosition, 1);
 			requestResolvers[message.start_row].reject('Request canceled');
-			console.log(`Request ${message.start_row} rejected`);
 			return undefined;
 		}
 
 		const dataMessage = message as DataViewerMessageRowResponse;
-		const incrementalData = new DataFragment(dataMessage.data.columns, dataMessage.start_row);
+		const incrementalData = new DataFragment(dataMessage.data.columns, dataMessage.start_row, dataMessage.fetch_size);
 
 		// Resolve the promise and remove this request from the queue
 		requestQueue.splice(queuePosition, 1);
 		requestResolvers[message.start_row].resolve(incrementalData);
-		console.log(`Request ${message.start_row} fulfilled`);
 		return incrementalData;
 	}
 

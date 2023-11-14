@@ -30,7 +30,6 @@ export class DataFetcher {
 		pageParam: number,
 		fetchSize: number,
 	): Promise<DataFragment> {
-		console.log('fetching page ' + pageParam);
 		const startRow = pageParam * fetchSize;
 		// Overwrite fetchSize so that we never request rows past the end of the dataset
 		fetchSize = Math.min(fetchSize, this.totalRows - startRow);
