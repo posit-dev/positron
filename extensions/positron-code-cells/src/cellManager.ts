@@ -141,6 +141,7 @@ export class CellManager {
 	public async insertCodeCell(line?: number): Promise<void> {
 		const location = this.getCurrentCell(line)?.range.end ?? this.editor.selection.active;
 		await this.editor.edit(editBuilder => { editBuilder.insert(location, this.parser.newCell()); });
+		this.parseCells();
 		this.goToNextCell(location.line);
 	}
 
