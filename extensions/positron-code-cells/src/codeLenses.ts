@@ -56,15 +56,6 @@ export function registerCodeLensProvider(context: vscode.ExtensionContext): void
 					}
 				}
 
-				// TODO: Should this live elsewhere?
-				if (cells.length) {
-					vscode.commands.executeCommand(
-						'setContext',
-						'positron.hasCodeCells',
-						true,
-					);
-				}
-
 				return codeLenses;
 			}
 		}));

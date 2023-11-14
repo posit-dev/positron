@@ -8,6 +8,7 @@ import { registerCodeLensProvider } from './codeLenses';
 import { registerCommands } from './commands';
 import { registerDecorations } from './decorations';
 import { registerFoldingRangeProvider } from './folding';
+import { registerContextKeys } from './context';
 
 export const IGNORED_SCHEMES = ['vscode-notebook-cell', 'vscode-interactive-input'];
 
@@ -22,13 +23,5 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 
 	registerFoldingRangeProvider(context);
 
-	// Set the default value of the hasCodeCells context variable upon onDidChangeActiveTextEditor
-	vscode.window.onDidChangeActiveTextEditor(() => {
-		// TODO: Do we need to actually check if it has cells?
-		vscode.commands.executeCommand(
-			'setContext',
-			'positron.hasCodeCells',
-			false,
-		);
-	}, null, context.subscriptions);
+	registerContextKeys(context);
 }
