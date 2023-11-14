@@ -4,7 +4,7 @@
 
 import * as positron from 'positron';
 import * as vscode from 'vscode';
-import { newCell, parseCells } from './parser';
+import { CellParser, getParser, parseCells } from './parser';
 
 export interface ICell {
 	range: vscode.Range;
@@ -13,10 +13,17 @@ export interface ICell {
 // Provides a set of commands for interacting with Jupyter-like cells in a vscode.TextEditor
 export class CellManager {
 	cells: ICell[];
+	parser: CellParser;
 
 	constructor(private editor: vscode.TextEditor) {
 		this.cells = [];
 		this.parseCells();
+
+		const parser = getParser(this.editor.document.languageId);
+		if (!parser) {
+			throw new Error(`No parser found for language ${this.editor.document.languageId}`);
+		}
+		this.parser = parser;
 	}
 
 	private parseCells(): void {
@@ -41,8 +48,7 @@ export class CellManager {
 	}
 
 	public runCell(cell: ICell): void {
-		// Skip the cell marker
-		// TODO: Support multiline cell markers?
+		// Skip the cell marker line
 		const range = new vscode.Range(cell.range.start.line + 1, 0, cell.range.end.line, cell.range.end.character);
 		const text = this.editor.document.getText(range);
 		positron.runtime.executeCode(this.editor.document.languageId, text, true);
@@ -97,8 +103,7 @@ export class CellManager {
 	}
 
 	private goToCell(cell: ICell): void {
-		// Skip the cell marker
-		// TODO: Support multiline cell markers?
+		// Skip the cell marker line
 		const cursor = new vscode.Position(cell.range.start.line + 1, 0);
 		this.editor.selection = new vscode.Selection(cursor, cursor);
 		this.editor.revealRange(cell.range);
@@ -120,7 +125,7 @@ export class CellManager {
 
 	public async insertCodeCell(line?: number): Promise<void> {
 		const location = this.getCurrentCell(line)?.range.end ?? this.editor.selection.active;
-		await this.editor.edit(editBuilder => { editBuilder.insert(location, newCell()); });
+		await this.editor.edit(editBuilder => { editBuilder.insert(location, this.parser.newCell()); });
 		this.goToNextCell(location.line);
 	}
 

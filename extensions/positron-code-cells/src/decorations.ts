@@ -11,12 +11,8 @@ export function registerDecorations(context: vscode.ExtensionContext): void {
 	let activeEditor = vscode.window.activeTextEditor;
 
 	const activeCellDecorationType = vscode.window.createTextEditorDecorationType({
-		light: {
-			backgroundColor: '#E1E1E166'
-		},
-		dark: {
-			backgroundColor: '#40404066'
-		},
+		light: { backgroundColor: '#E1E1E166' },
+		dark: { backgroundColor: '#40404066' },
 		isWholeLine: true,
 	});
 
