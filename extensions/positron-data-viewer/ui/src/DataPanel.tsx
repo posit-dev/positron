@@ -55,7 +55,7 @@ export const DataPanel = (props: DataPanelProps) => {
 
 	// Count total rows and pages, including those we have not yet fetched
 	const totalRows = initialData.rowCount;
-	const maxPage = Math.floor(totalRows / fetchSize);
+	const maxPage = Math.ceil(totalRows / fetchSize) - 1;
 
 	// Makes an async request to the backend for data, and handles updating the request queue and
 	// calling the appropriate resolve or reject function when the request completes.
@@ -132,6 +132,8 @@ export const DataPanel = (props: DataPanelProps) => {
 		const highestPage = Math.max(...data?.pageParams as number[]) ?? 0;
 		const allPages = Array.from({ length: highestPage + 1 }, (_, pageParam) => pageParam);
 		const numColumns = data?.pages?.[0]?.columns.length ?? 0;
+		const emptyPage = Array(fetchSize).fill(Array(numColumns).fill(null));
+		console.log(emptyPage);
 
 		return allPages.flatMap(pageParam => {
 			const index = data?.pageParams?.indexOf(pageParam) ?? -1;
@@ -139,8 +141,7 @@ export const DataPanel = (props: DataPanelProps) => {
 
 			if (!page || !page.columns.length ) {
 				// No data for this page, fill to correct dimensions with empty data
-				const emptyRow = Array(numColumns);
-				return Array(fetchSize).fill(emptyRow);
+				return emptyPage;
 			} else {
 				return page.transpose();
 			}
@@ -149,7 +150,7 @@ export const DataPanel = (props: DataPanelProps) => {
 
 	React.useEffect(() => {
 		console.log(`flatData length: ${flatData.length}`);
-		const actualDataRows = flatData.filter(row => row[0] !== undefined);
+		const actualDataRows = flatData.filter(row => row[0] !== null);
 		console.log(`actual data rows: ${actualDataRows.length}`);
 	}, [flatData]);
 
