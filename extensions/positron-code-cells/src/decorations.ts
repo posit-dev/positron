@@ -6,7 +6,7 @@ import * as vscode from 'vscode';
 import { IGNORED_SCHEMES } from './extension';
 import { CellDecorationSetting, getParser, parseCells } from './parser';
 
-export function registerDecorations(context: vscode.ExtensionContext): void {
+export function activateDecorations(context: vscode.ExtensionContext): void {
 	let timeout: NodeJS.Timer | undefined = undefined;
 	let activeEditor = vscode.window.activeTextEditor;
 

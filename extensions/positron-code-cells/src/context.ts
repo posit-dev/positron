@@ -21,7 +21,7 @@ function setHasCodeCellsContext(document: vscode.TextDocument | undefined): void
 	);
 }
 
-export function registerContextKeys(context: vscode.ExtensionContext): void {
+export function activateContextKeys(context: vscode.ExtensionContext): void {
 	let activeEditor = vscode.window.activeTextEditor;
 
 	if (activeEditor) {
