@@ -5,7 +5,7 @@
 import 'vs/css!./runtimeExited';
 import * as React from 'react';
 import { OutputLines } from 'vs/workbench/contrib/positronConsole/browser/components/outputLines';
-import { RuntimeItemExited } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemExited';
+import { RuntimeItemExited } from 'vs/workbench/services/positronConsole/browser/classes/runtimeItemExited';
 
 // RuntimeExitedProps interface.
 export interface RuntimeExitedProps {

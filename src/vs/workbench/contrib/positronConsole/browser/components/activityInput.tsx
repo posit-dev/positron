@@ -9,7 +9,7 @@ import { DisposableStore } from 'vs/base/common/lifecycle';
 import { FontInfo } from 'vs/editor/common/config/fontInfo';
 import { positronClassNames } from 'vs/base/common/positronUtilities';
 import { OutputRun } from 'vs/workbench/contrib/positronConsole/browser/components/outputRun';
-import { ActivityItemInput, ActivityItemInputState } from 'vs/workbench/services/positronConsole/common/classes/activityItemInput';
+import { ActivityItemInput, ActivityItemInputState } from 'vs/workbench/services/positronConsole/browser/classes/activityItemInput';
 
 // ActivityInputProps interface.
 export interface ActivityInputProps {

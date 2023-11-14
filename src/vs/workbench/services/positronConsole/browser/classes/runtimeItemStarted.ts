@@ -3,12 +3,12 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { ANSIOutput, ANSIOutputLine } from 'vs/base/common/ansiOutput';
-import { RuntimeItem } from 'vs/workbench/services/positronConsole/common/classes/runtimeItem';
+import { RuntimeItem } from 'vs/workbench/services/positronConsole/browser/classes/runtimeItem';
 
 /**
- * RuntimeItemPendingInput class.
+ * RuntimeItemStarted class.
  */
-export class RuntimeItemPendingInput extends RuntimeItem {
+export class RuntimeItemStarted extends RuntimeItem {
 	//#region Public Properties
 
 	/**
@@ -23,19 +23,14 @@ export class RuntimeItemPendingInput extends RuntimeItem {
 	/**
 	 * Constructor.
 	 * @param id The identifier.
-	 * @param inputPrompt The input prompt.
-	 * @param code The banner.
+	 * @param message The message.
 	 */
-	constructor(
-		id: string,
-		readonly inputPrompt: string,
-		readonly code: string
-	) {
+	constructor(id: string, message: string) {
 		// Call the base class's constructor.
 		super(id);
 
 		// Process the message directly into ANSI output lines suitable for rendering.
-		this.outputLines = ANSIOutput.processOutput(code);
+		this.outputLines = ANSIOutput.processOutput(message);
 	}
 
 	//#endregion Constructor

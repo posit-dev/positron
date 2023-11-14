@@ -5,7 +5,7 @@
 import 'vs/css!./runtimeStartupFailure';
 import * as React from 'react';
 import { OutputLines } from 'vs/workbench/contrib/positronConsole/browser/components/outputLines';
-import { RuntimeItemStartupFailure } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemStartupFailure';
+import { RuntimeItemStartupFailure } from 'vs/workbench/services/positronConsole/browser/classes/runtimeItemStartupFailure';
 
 // RuntimeStartupFailureProps interface.
 export interface RuntimeStartupFailureProps {
