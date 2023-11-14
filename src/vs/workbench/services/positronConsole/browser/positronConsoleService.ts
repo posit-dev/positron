@@ -8,8 +8,8 @@ import { generateUuid } from 'vs/base/common/uuid';
 import { IEditor } from 'vs/editor/common/editorCommon';
 import { ILogService } from 'vs/platform/log/common/log';
 import { IViewsService } from 'vs/workbench/common/views';
-import { ILanguageService } from 'vs/editor/common/languages/language';
 import { Disposable, DisposableStore } from 'vs/base/common/lifecycle';
+import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/layoutService';
 import { RuntimeItem } from 'vs/workbench/services/positronConsole/browser/classes/runtimeItem';
 import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/common/extensions';
 import { ThrottledEmitter } from 'vs/workbench/services/positronConsole/browser/classes/throttledEmitter';
@@ -156,15 +156,16 @@ class PositronConsoleService extends Disposable implements IPositronConsoleServi
 
 	/**
 	 * Constructor.
-	 * @param _languageRuntimeService The language runtime service.
-	 * @param _languageService The language service.
-	 * @param _logService The log service.
+	 * @param _languageRuntimeService The ILanguageRuntimeService.
+	 * @param _logService The ILogService service.
+	 * @param _viewsService The IViewsService.
+	 * @param _layoutService The IWorkbenchLayoutService.
 	 */
 	constructor(
-		@ILanguageRuntimeService private _languageRuntimeService: ILanguageRuntimeService,
-		@ILanguageService _languageService: ILanguageService,
-		@ILogService private _logService: ILogService,
-		@IViewsService private _viewsService: IViewsService,
+		@ILanguageRuntimeService private readonly _languageRuntimeService: ILanguageRuntimeService,
+		@ILogService private readonly _logService: ILogService,
+		@IViewsService private readonly _viewsService: IViewsService,
+		@IWorkbenchLayoutService private readonly _layoutService: IWorkbenchLayoutService,
 	) {
 		// Call the disposable constrcutor.
 		super();
@@ -320,17 +321,14 @@ class PositronConsoleService extends Disposable implements IPositronConsoleServi
 	 * Executes code in a PositronConsoleInstance.
 	 * @param languageId The language ID.
 	 * @param code The code.
-	 * @param activate A value which indicates whether the REPL should be activated.
+	 * @param focus A value which indicates whether to focus the Positron console instance.
 	 * @returns A value which indicates whether the code could be executed.
 	 */
-	async executeCode(languageId: string, code: string, activate: boolean) {
-		// If the console is to be activated, make sure we raise the console pane before we
-		// start attempting to run the code. We do this before we attempt to run anything so the
-		// user can see what's going on in the console (e.g. a language runtime starting up
-		// in order to handle the code that's about to be executed)
-		if (activate) {
-			await this._viewsService.openView(POSITRON_CONSOLE_VIEW_ID, false);
-		}
+	async executeCode(languageId: string, code: string, focus: boolean) {
+		// When code is executed in the console service, ensure that the panel is restored, if it
+		// needs to be, and open the console view.
+		this._layoutService.restorePanel();
+		await this._viewsService.openView(POSITRON_CONSOLE_VIEW_ID, false);
 
 		// Get the running runtimes for the language.
 		const runningLanguageRuntimes = this._languageRuntimeService.runningRuntimes.filter(
@@ -359,9 +357,14 @@ class PositronConsoleService extends Disposable implements IPositronConsoleServi
 			return false;
 		}
 
-		// If we're supposed to, activate the Positron console instance, if it isn't active.
-		if (activate && positronConsoleInstance !== this._activePositronConsoleInstance) {
+		// Activate the Positron console instance.
+		if (positronConsoleInstance !== this._activePositronConsoleInstance) {
 			this.setActivePositronConsoleInstance(positronConsoleInstance);
+		}
+
+		// Focus the Positron console instance, if we're supposed to.
+		if (focus) {
+			positronConsoleInstance.focusInput();
 		}
 
 		// Enqueue the code in the Positron console instance.
