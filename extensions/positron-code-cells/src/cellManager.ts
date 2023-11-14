@@ -61,10 +61,17 @@ export class CellManager {
 	}
 
 	public runCell(cell: ICell): void {
+		let text = '';
 		// Skip the cell marker line
-		const startLine = Math.min(cell.range.start.line + 1, cell.range.end.line);
-		const range = new vscode.Range(startLine, 0, cell.range.end.line, cell.range.end.character);
-		const text = this.editor.document.getText(range);
+		if (cell.range.start.line < cell.range.end.line) {
+			const range = new vscode.Range(
+				cell.range.start.line + 1,
+				cell.range.start.character,
+				cell.range.end.line,
+				cell.range.end.character
+			);
+			text = this.editor.document.getText(range);
+		}
 		positron.runtime.executeCode(this.editor.document.languageId, text, true);
 	}
 
