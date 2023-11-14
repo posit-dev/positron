@@ -1,0 +1,25 @@
+Package: vscodereporter
+Title: 'testthat' Test Reporter for R Test Explorer VSCode Extension
+Version: 0.0.1
+Date: 2022-02-20
+Authors@R: 
+    c(person(given = "Kirill",
+           family = "Müller",
+           role = c("aut", "cph"),
+           email = "krlmlr+r@mailbox.org",
+           comment = c(ORCID = "0000-0002-1416-3412")),
+    person(given = "M. Eren",
+           family = "Akbiyik",
+           role = c("cre", "cph"),
+           email = "erenakbiyik@gmail.com"))
+Description: A test reporter of 'testthat' package for the R Test Explorer extension of VSCode editor.
+License: MIT + file LICENSE
+Encoding: UTF-8
+LazyData: true
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.1.1.9001
+Imports: 
+    rlang,
+    testthat (>= 3.0.0),
+    withr
+Config/testthat/edition: 3
