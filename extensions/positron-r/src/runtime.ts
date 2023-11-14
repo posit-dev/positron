@@ -242,7 +242,12 @@ export class RRuntime implements positron.LanguageRuntime, vscode.Disposable {
 				const webMsg = msg as positron.LanguageRuntimeWebOutput;
 
 				webMsg.resource_roots = getResourceRoots(widget);
-				webMsg.output_location = positron.PositronOutputLocation.Plot;
+
+				// Set the output location based on the sizing policy
+				const sizing = widget.sizing_policy;
+				webMsg.output_location = sizing?.knitr?.figure ?
+					positron.PositronOutputLocation.Plot :
+					positron.PositronOutputLocation.Viewer;
 
 				this._messageEmitter.fire(message);
 				delivered = true;

@@ -2,7 +2,6 @@
  *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
-import * as positron from 'positron';
 import { Uri } from 'vscode';
 
 /**
@@ -23,11 +22,39 @@ export interface RHtmlDependency {
 }
 
 
+export interface WidgetSizingPolicy {
+	defaultHeight: string | null;
+	defaultWidth: string | null;
+	fill: boolean | null;
+	padding: number | null;
+}
+
+export interface ViewerSizingPolicy extends WidgetSizingPolicy {
+	paneHeight: number | null;
+	suppress: boolean | null;
+}
+
+export interface BrowserSizingPolicy extends WidgetSizingPolicy {
+	external: boolean | null;
+}
+
+export interface KnitrSizingPolicy extends WidgetSizingPolicy {
+	figure: boolean | null;
+}
+
+export interface HtmlWidgetSizingPolicy extends WidgetSizingPolicy {
+	viewer: ViewerSizingPolicy;
+	browser: BrowserSizingPolicy;
+	knitr: KnitrSizingPolicy;
+}
+
 /**
  * Represents an R HTML widget.
  */
 export interface RHtmlWidget {
 	dependencies: RHtmlDependency[];
+	// eslint-disable-next-line
+	sizing_policy: HtmlWidgetSizingPolicy;
 	tags: string;
 }
 
