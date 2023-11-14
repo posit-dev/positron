@@ -4,7 +4,7 @@
 
 import * as vscode from 'vscode';
 import { IGNORED_SCHEMES } from './extension';
-import { getParser, parseCells } from './parser';
+import { CellDecorationSetting, getParser, parseCells } from './parser';
 
 export function registerDecorations(context: vscode.ExtensionContext): void {
 	let timeout: NodeJS.Timer | undefined = undefined;
@@ -16,12 +16,17 @@ export function registerDecorations(context: vscode.ExtensionContext): void {
 		isWholeLine: true,
 	});
 
+	// Update the active editor's cell decorations.
 	function updateDecorations() {
 		if (!activeEditor || IGNORED_SCHEMES.includes(activeEditor.document.uri.scheme)) {
 			return;
 		}
 		const parser = getParser(activeEditor.document.languageId);
+		if (!parser) {
+			return;
+		}
 
+		// Get the relevant decoration ranges.
 		const activeCellRanges: vscode.Range[] = [];
 		const allCellRanges: vscode.Range[] = [];
 		for (const cell of parseCells(activeEditor.document)) {
@@ -31,18 +36,18 @@ export function registerDecorations(context: vscode.ExtensionContext): void {
 			}
 		}
 
-		if (parser) {
-			switch (parser.cellDecoration()) {
-				case 'current':
-					activeEditor.setDecorations(cellDecorationType, activeCellRanges);
-					break;
-				case 'all':
-					activeEditor.setDecorations(cellDecorationType, allCellRanges);
-					break;
-			}
+		// Set decorations depending on the language configuration.
+		switch (parser.cellDecorationSetting()) {
+			case CellDecorationSetting.Current:
+				activeEditor.setDecorations(cellDecorationType, activeCellRanges);
+				break;
+			case CellDecorationSetting.All:
+				activeEditor.setDecorations(cellDecorationType, allCellRanges);
+				break;
 		}
 	}
 
+	// Trigger an update of the active editor's cell decorations, with optional throttling.
 	function triggerUpdateDecorations(throttle = false) {
 		if (timeout) {
 			clearTimeout(timeout);
@@ -55,25 +60,30 @@ export function registerDecorations(context: vscode.ExtensionContext): void {
 		}
 	}
 
+	// Trigger a decorations update for the current active editor.
 	if (activeEditor) {
 		triggerUpdateDecorations();
 	}
 
 	context.subscriptions.push(
 		vscode.window.onDidChangeActiveTextEditor(editor => {
+			// Update the active editor.
 			activeEditor = editor;
+			// Trigger a decorations update when the active editor changes.
 			if (editor) {
 				triggerUpdateDecorations();
 			}
 		}),
 
 		vscode.workspace.onDidChangeTextDocument(event => {
+			// Trigger a decorations update when the active editor's content changes.
 			if (activeEditor && event.document === activeEditor.document) {
 				triggerUpdateDecorations(true);
 			}
 		}),
 
 		vscode.window.onDidChangeTextEditorSelection(event => {
+			// Trigger a decorations update when the active editor's selection changes.
 			if (activeEditor && event.textEditor === activeEditor) {
 				triggerUpdateDecorations();
 			}

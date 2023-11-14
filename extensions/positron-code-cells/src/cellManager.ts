@@ -21,7 +21,7 @@ export class CellManager {
 
 		const parser = getParser(this.editor.document.languageId);
 		if (!parser) {
-			throw new Error(`No parser found for language ${this.editor.document.languageId}`);
+			throw new Error(`Code cells not configured for language ${this.editor.document.languageId}`);
 		}
 		this.parser = parser;
 	}
@@ -47,6 +47,7 @@ export class CellManager {
 		if (index !== -1) {
 			return this.cells[index - 1];
 		} else {
+			// If we weren't inside a cell, find the last cell before the cursor.
 			return this.cells.reverse().find(cell => cell.range.end.isBefore(this.getCursor(line)));
 		}
 	}
@@ -56,6 +57,7 @@ export class CellManager {
 		if (index !== -1) {
 			return this.cells[index + 1];
 		} else {
+			// If we weren't inside a cell, find the first cell after the cursor.
 			return this.cells.find(cell => cell.range.end.isAfter(this.getCursor(line)));
 		}
 	}

@@ -8,31 +8,31 @@ export interface Cell {
 	range: vscode.Range;
 }
 
-enum CellDecoration {
-	Current = 'current',
-	All = 'all',
+export enum CellDecorationSetting {
+	Current,
+	All,
 }
 
 export interface CellParser {
 	isCellStart(line: string): boolean;
 	isCellEnd(line: string): boolean;
 	newCell(): string;
-	cellDecoration(): CellDecoration;
+	cellDecorationSetting(): CellDecorationSetting;
 }
 
-// TODO: Expose an API to let extensions register parsers?
+// TODO: Expose an API to let extensions register parsers
 const pythonCellParser: CellParser = {
 	isCellStart: (line) => line.startsWith('# %%'),
 	isCellEnd: (_line) => false,
 	newCell: () => '\n# %%\n',
-	cellDecoration: () => CellDecoration.Current,
+	cellDecorationSetting: () => CellDecorationSetting.Current,
 };
 
 const rCellParser: CellParser = {
 	isCellStart: (line) => line.startsWith('#+'),
 	isCellEnd: (line) => line.trim() === '',
 	newCell: () => '\n\n#+',
-	cellDecoration: () => CellDecoration.All,
+	cellDecorationSetting: () => CellDecorationSetting.All,
 };
 
 const parsers: Map<string, CellParser> = new Map([
