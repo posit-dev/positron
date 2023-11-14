@@ -83,6 +83,8 @@ from lsprotocol.types import (
 from pygls.capabilities import get_capability
 from pygls.feature_manager import has_ls_param_or_annotation
 
+from .help import ShowTopicRequest, HelpMessageType
+
 if TYPE_CHECKING:
     from .positron_ipkernel import PositronIPyKernel
 
@@ -91,6 +93,7 @@ logger = logging.getLogger(__name__)
 
 _LINE_MAGIC_PREFIX = "%"
 _CELL_MAGIC_PREFIX = "%%"
+_HELP_TOPIC_REQUEST = "positron/textDocument/helpTopic"
 
 
 @enum.unique
@@ -514,6 +517,29 @@ def positron_rename(
     server: PositronJediLanguageServer, params: RenameParams
 ) -> Optional[WorkspaceEdit]:
     return rename(server, params)
+
+
+@POSITRON.feature(_HELP_TOPIC_REQUEST)
+def positron_help_topic_request(
+    server: PositronJediLanguageServer, params: TextDocumentPositionParams
+) -> Optional[ShowTopicRequest]:
+    """Return topic to display in Help pane"""
+    # TODO: cast params attribute names to camel case, currently ignoring type
+    document = server.workspace.get_document(params.textDocument.uri)  # type: ignore
+    jedi_script = jedi_utils.script(server.project, document)
+    line = params.position.line + 1  # otherwise is off by one
+    column = params.position.character
+    names = jedi_script.infer(line=line, column=column)
+
+    try:
+        # if something is found, infer will pass back a list of Name objects
+        # but the len is always 1
+        topic = names[0].full_name
+        logger.info(f"Help topic found: {topic}")
+        return ShowTopicRequest(topic=topic)
+    except IndexError:
+        logger.warning("LSP comm was not set, could not send server_started message")
+        return None
 
 
 @POSITRON.feature(
