@@ -13,5 +13,5 @@
 .column-splitter .sizer {
 	width: 2px;
 	/* Since border-box is context-box, the border will be in the middle of the 5px splitter. */
-	border-right: 1px solid var(--vscode-positronEnvironment-gridColor);
+	border-right: 1px solid var(--vscode-positronEnvironment-grid);
 }

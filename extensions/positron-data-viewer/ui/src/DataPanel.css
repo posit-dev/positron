@@ -25,7 +25,7 @@ tbody tr td:first-child {
 
 thead th,
 tbody td {
-	border: 1px solid var(--vscode-positronDataViewer-gridColor);
+	border: 1px solid var(--vscode-positronDataViewer-grid);
 	padding: 5px;
 }
 

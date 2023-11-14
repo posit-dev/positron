@@ -5,7 +5,7 @@
 import 'vs/css!./environmentVariableItem';
 import * as React from 'react';
 import { CSSProperties, MouseEvent } from 'react'; // eslint-disable-line no-duplicate-imports
-import * as nls from 'vs/nls';
+import { localize } from 'vs/nls';
 import { isNumber } from 'vs/base/common/types';
 import * as platform from 'vs/base/common/platform';
 import { IAction, Separator } from 'vs/base/common/actions';
@@ -37,29 +37,29 @@ const formatSize = (size: number) => {
 	// < KB.
 	if (size < KB) {
 		if (size === 1) {
-			return nls.localize('positron.sizeByte', "{0} Byte", size.toFixed(0));
+			return localize('positron.sizeByte', "{0} Byte", size.toFixed(0));
 		} else {
-			return nls.localize('positron.sizeBytes', "{0} Bytes", size.toFixed(0));
+			return localize('positron.sizeBytes', "{0} Bytes", size.toFixed(0));
 		}
 	}
 
 	// < MB.
 	if (size < MB) {
-		return nls.localize('positron.sizeKB', "{0} KB", (size / KB).toFixed(2));
+		return localize('positron.sizeKB', "{0} KB", (size / KB).toFixed(2));
 	}
 
 	// < GB.
 	if (size < GB) {
-		return nls.localize('positron.sizeMB', "{0} MB", (size / MB).toFixed(2));
+		return localize('positron.sizeMB', "{0} MB", (size / MB).toFixed(2));
 	}
 
 	// < TB.
 	if (size < TB) {
-		return nls.localize('positron.sizeGB', "{0} GB", (size / GB).toFixed(2));
+		return localize('positron.sizeGB', "{0} GB", (size / GB).toFixed(2));
 	}
 
 	// >= TB.
-	return nls.localize('positron.sizeTB', "{0} TB", (size / TB).toFixed(2));
+	return localize('positron.sizeTB', "{0} TB", (size / TB).toFixed(2));
 };
 
 /**
@@ -88,7 +88,9 @@ export interface EnvironmentVariableItemProps {
  * @returns The rendered component.
  */
 export const EnvironmentVariableItem = (props: EnvironmentVariableItemProps) => {
-	// Context hooks.
+	/**
+	 * Context hooks.
+	 */
 	const positronEnvironmentContext = usePositronEnvironmentContext();
 
 	/**
@@ -177,7 +179,7 @@ export const EnvironmentVariableItem = (props: EnvironmentVariableItemProps) => 
 		if (props.environmentVariableItem.hasViewer) {
 			actions.push({
 				id: POSITRON_ENVIRONMENT_VIEW,
-				label: nls.localize('positron.environment.view', "View"),
+				label: localize('positron.environment.view', "View"),
 				tooltip: '',
 				class: undefined,
 				enabled: true,
@@ -196,7 +198,7 @@ export const EnvironmentVariableItem = (props: EnvironmentVariableItemProps) => 
 			if (props.environmentVariableItem.expanded) {
 				actions.push({
 					id: POSITRON_ENVIRONMENT_COLLAPSE,
-					label: nls.localize('positron.environment.collapse', "Collapse"),
+					label: localize('positron.environment.collapse', "Collapse"),
 					tooltip: '',
 					class: undefined,
 					enabled: true,
@@ -205,7 +207,7 @@ export const EnvironmentVariableItem = (props: EnvironmentVariableItemProps) => 
 			} else {
 				actions.push({
 					id: POSITRON_ENVIRONMENT_EXPAND,
-					label: nls.localize('positron.environment.expand', "Expand"),
+					label: localize('positron.environment.expand', "Expand"),
 					tooltip: '',
 					class: undefined,
 					enabled: true,
@@ -312,7 +314,7 @@ export const EnvironmentVariableItem = (props: EnvironmentVariableItemProps) => 
 	return (
 		<div className={classNames} onMouseDown={mouseDownHandler} style={props.style}>
 			<div className='name-column' style={{ width: props.nameColumnWidth, minWidth: props.nameColumnWidth }}>
-				<div style={{ display: 'flex', marginLeft: props.environmentVariableItem.indentLevel * 20 }}>
+				<div className='name-column-indenter' style={{ marginLeft: props.environmentVariableItem.indentLevel * 20 }}>
 					<div className='gutter'>
 						<div className='expand-collapse-area' onMouseDown={chevronMouseDownHandler} onMouseUp={chevronMouseUpHandler} >
 							{props.environmentVariableItem.hasChildren && (
