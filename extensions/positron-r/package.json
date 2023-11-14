@@ -81,6 +81,16 @@
         "shortTitle": "%r.menu.packageTest.title%"
       },
       {
+        "command": "r.useTestthat",
+        "category": "R",
+        "title": "%r.command.useTestthat.title%"
+      },
+      {
+        "command": "r.useTest",
+        "category": "R",
+        "title": "%r.command.useTest.title%"
+      },
+      {
         "command": "r.packageCheck",
         "category": "R",
         "title": "%r.command.packageCheck.title%",
@@ -145,10 +155,10 @@
           "default": "off",
           "description": "%r.configuration.tracing.description%"
         },
-        "positron.r.testing.experimental": {
+        "positron.r.testing": {
           "type": "boolean",
-          "default": false,
-          "description": "%r.configuration.experimentalPackageTesting.description%"
+          "default": true,
+          "description": "%r.configuration.packageTesting.description%"
         },
         "positron.r.restoreWorkspace": {
           "scope": "window",
@@ -403,6 +413,28 @@
         "path": "./snippets/r.code-snippets"
       }
     ],
+    "viewsWelcome": [
+      {
+        "view": "testing",
+        "contents": "Workspace does not appear to be an R package.",
+        "when": "!isRPackage"
+      },
+      {
+        "view": "testing",
+        "contents": "R tests can appear here if the package uses testthat and the setting Positron > R: Testing is set to 'true'.\n[Adjust this setting](command:workbench.action.openSettings?\"positron.r.testing\")",
+        "when": "isRPackage && !config.positron.r.testing"
+      },
+      {
+        "view": "testing",
+        "contents": "Package does not appear to use testthat.\n[Configure testhat for R](command:r.useTestthat)",
+        "when": "isRPackage && config.positron.r.testing && !testthatIsConfigured"
+      },
+      {
+        "view": "testing",
+        "contents": "No testthat tests found.\n[Add a test](command:r.useTest)",
+        "when": "isRPackage && config.positron.r.testing && testthatIsConfigured && !testthatHasTests"
+      }
+    ],
     "taskDefinitions": [
       {
         "type": "rPackageTask",
@@ -435,6 +467,7 @@
     "@types/glob": "^7.2.0",
     "@types/mocha": "^9.1.0",
     "@types/node": "14.x",
+    "@types/split2": "^4.2.2",
     "@types/which": "^3.0.0",
     "@typescript-eslint/eslint-plugin": "^5.12.1",
     "@typescript-eslint/parser": "^5.12.1",
@@ -448,7 +481,9 @@
   },
   "dependencies": {
     "p-queue": "^6.6.2",
-    "vscode-languageclient": "^7.0.0"
+    "split2": "^4.2.0",
+    "vscode-languageclient": "^7.0.0",
+    "web-tree-sitter": "^0.20.8"
   },
   "repository": {
     "type": "git",

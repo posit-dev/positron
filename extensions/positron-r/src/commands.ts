@@ -10,6 +10,7 @@ import { getRunningRRuntime } from './provider';
 import { getRPackageName } from './contexts';
 import { getRPackageTasks } from './tasks';
 import { randomUUID } from 'crypto';
+import { refreshTestthatStatus } from './testing/watcher';
 
 export async function registerCommands(context: vscode.ExtensionContext, runtimes: Map<string, RRuntime>) {
 
@@ -95,6 +96,14 @@ export async function registerCommands(context: vscode.ExtensionContext, runtime
 
 		vscode.commands.registerCommand('r.packageTest', () => {
 			positron.runtime.executeCode('r', 'devtools::test()', true);
+		}),
+
+		vscode.commands.registerCommand('r.useTestthat', () => {
+			positron.runtime.executeCode('r', 'usethis::use_testthat()', true);
+		}),
+
+		vscode.commands.registerCommand('r.useTest', () => {
+			positron.runtime.executeCode('r', 'usethis::use_test("rename-me")', true);
 		}),
 
 		vscode.commands.registerCommand('r.packageCheck', async () => {

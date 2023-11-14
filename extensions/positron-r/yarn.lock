@@ -130,6 +130,13 @@
   resolved "https://registry.npmjs.org/@types/node/-/node-14.18.12.tgz"
   integrity sha512-q4jlIR71hUpWTnGhXWcakgkZeHa3CCjcQcnuzU8M891BAWA2jHiziiWEPEkdS5pFsz7H9HJiy8BrK7tBRNrY7A==
 
+"@types/split2@^4.2.2":
+  version "4.2.2"
+  resolved "https://registry.yarnpkg.com/@types/split2/-/split2-4.2.2.tgz#1037b94ed77dca17bbdc6614472e2bc9e23fd979"
+  integrity sha512-jKo76iDQja9V5FTNFXhZfSThQFTIpI+7SrRjcIZwbaDgg6xhDAyx35s7w6E5h7A3pQbu11Kwo9H7HAH0JYDn1Q==
+  dependencies:
+    "@types/node" "*"
+
 "@types/which@^3.0.0":
   version "3.0.0"
   resolved "https://registry.yarnpkg.com/@types/which/-/which-3.0.0.tgz#849afdd9fdcb0b67339b9cfc80fa6ea4e0253fc5"
@@ -1752,6 +1759,11 @@ slash@^3.0.0:
   resolved "https://registry.npmjs.org/slash/-/slash-3.0.0.tgz"
   integrity sha512-g9Q1haeby36OSStwb4ntCGGGaKsaVSjQ68fBxoQcutl5fS1vuY18H3wSt3jFyFtrkx+Kz0V1G85A4MyAdDMi2Q==
 
+split2@^4.2.0:
+  version "4.2.0"
+  resolved "https://registry.yarnpkg.com/split2/-/split2-4.2.0.tgz#c9c5920904d148bab0b9f67145f245a86aadbfa4"
+  integrity sha512-UcjcJOWknrNkF6PLX83qcHM6KHgVKNkV62Y8a5uYDVv9ydGQVwAHMKqHdJje1VTWpljG0WYpCDhrCdAOYH4TWg==
+
 string-width@^4.1.0, string-width@^4.2.0:
   version "4.2.3"
   resolved "https://registry.npmjs.org/string-width/-/string-width-4.2.3.tgz"
@@ -2025,6 +2037,11 @@ vscode-languageserver-types@3.16.0:
   version "3.16.0"
   resolved "https://registry.npmjs.org/vscode-languageserver-types/-/vscode-languageserver-types-3.16.0.tgz"
   integrity sha512-k8luDIWJWyenLc5ToFQQMaSrqCHiLwyKPHKPQZ5zz21vM+vIVUSvsRpcbiECH4WR88K2XZqc4ScRcZ7nk/jbeA==
+
+web-tree-sitter@^0.20.8:
+  version "0.20.8"
+  resolved "https://registry.yarnpkg.com/web-tree-sitter/-/web-tree-sitter-0.20.8.tgz#1e371cb577584789cadd75cb49c7ddfbc99d04c8"
+  integrity sha512-weOVgZ3aAARgdnb220GqYuh7+rZU0Ka9k9yfKtGAzEYMa6GgiCzW9JjQRJyCJakvibQW+dfjJdihjInKuuCAUQ==
 
 which@2.0.2, which@^2.0.1:
   version "2.0.2"

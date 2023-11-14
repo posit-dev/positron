@@ -3,10 +3,13 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import { refreshTestthatStatus } from './testing/watcher';
 
 export async function setContexts(_context: vscode.ExtensionContext): Promise<void> {
 	const isRPackage = await detectRPackage();
 	vscode.commands.executeCommand('setContext', 'isRPackage', isRPackage);
+
+	await refreshTestthatStatus();
 }
 
 export async function detectRPackage(): Promise<boolean> {
