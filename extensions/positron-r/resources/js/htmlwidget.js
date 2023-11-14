@@ -4,7 +4,11 @@
 
 /*
  * This script bridges the worlds of HTML widgets and VS Code notebooks by
- * providing render methods for HTML widgets.
+ * providing render methods for HTML widgets that conform to VS Code's notebook
+ * output renderer API.
+ *
+ * Its input is a JSON-serialized form of the HTML widget data, which is created in the R
+ * kernel by the .ps.view_html_widget() R function.
  */
 
 /**
@@ -52,7 +56,6 @@ const renderDependencies = (dependencies) => {
 			// `file`.
 			if (!dep.src.file) {
 				continue;
-
 			}
 
 			// Compute the root as a webview URI.
@@ -166,5 +169,6 @@ export const activate = (_context) => ({
 		renderTags(element, widget.tags);
 	},
 	disposeOutputItem(id) {
+		// No cleanup needed.
 	}
 });
