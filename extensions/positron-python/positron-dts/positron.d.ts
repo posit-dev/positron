@@ -193,7 +193,7 @@ declare module 'positron' {
         type: LanguageRuntimeMessageType;
     }
 
-    export interface LanguageRuntimeEventData {}
+    export interface LanguageRuntimeEventData { }
 
     /** LanguageRuntimeOutput is a LanguageRuntimeMessage representing output (text, plots, etc.) */
     export interface LanguageRuntimeOutput extends LanguageRuntimeMessage {
@@ -411,6 +411,7 @@ declare module 'positron' {
         Plot = 'positron.plot',
         DataViewer = 'positron.dataViewer',
         FrontEnd = 'positron.frontEnd',
+        Help = 'positron.help',
 
         // Future client types may include:
         // - Watch window/variable explorer
@@ -791,6 +792,17 @@ declare module 'positron' {
             selector: vscode.DocumentSelector,
             provider: StatementRangeProvider,
         ): vscode.Disposable;
+
+        /**
+         * Register a help topic provider.
+         *
+         * @param selector A selector that defines the documents this provider is applicable to.
+         * @param provider A help topic provider.
+         * @return A {@link Disposable} that unregisters this provider when being disposed.
+         */
+        export function registerHelpTopicProvider(
+            selector: vscode.DocumentSelector,
+            provider: HelpTopicProvider): vscode.Disposable;
     }
 
     namespace window {
@@ -886,5 +898,22 @@ declare module 'positron' {
          * An event that fires when a new runtime is registered.
          */
         export const onDidRegisterRuntime: vscode.Event<LanguageRuntime>;
+    }
+
+    export interface HelpTopicProvider {
+        /**
+         * Given a cursor position, return the help topic relevant to the cursor
+         * position, or an empty string if no help topic is recommended or
+         * relevant.
+         *
+         * @param document The document in which the command was invoked.
+         * @param position The position at which the command was invoked.
+         * @param token A cancellation token.
+         * @return A string containing the help topic relevant to the cursor
+         *   position
+         */
+        provideHelpTopic(document: vscode.TextDocument,
+            position: vscode.Position,
+            token: vscode.CancellationToken): vscode.ProviderResult<string>;
     }
 }
