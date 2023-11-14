@@ -2,21 +2,23 @@
 # Copyright (C) 2023 Posit Software, PBC. All rights reserved.
 #
 
-from typing import Any
+from typing import Any, cast
 from unittest.mock import AsyncMock, Mock
 from urllib.request import urlopen
 
+import comm
 import numpy as np
 import pandas as pd
 import pytest
-from positron.help import HelpService, ShowHelpEvent, ShowHelpEventKind, help
+from positron.help import HelpMessageType, HelpService, ShowHelpContent, ShowHelpEventKind, help
+
+from .conftest import DummyComm
 
 
 @pytest.fixture
 def help_service():
     kernel = Mock()
-    frontend_service = Mock()
-    return HelpService(kernel=kernel, frontend_service=frontend_service)
+    return HelpService(kernel=kernel)
 
 
 @pytest.fixture
@@ -28,6 +30,18 @@ def running_help_service(help_service: HelpService):
     help_service.start()
     yield help_service
     help_service.shutdown()
+
+
+@pytest.fixture
+def help_comm(help_service: HelpService) -> DummyComm:
+    """
+    Convenience fixture for accessing the environment comm.
+    """
+    # Close any existing comm
+    if help_service._comm is not None:
+        help_service._comm.close()
+        help_service._comm = None
+    return cast(DummyComm, comm.create_comm("positron.help"))
 
 
 def test_pydoc_server_starts_and_shuts_down(running_help_service: HelpService):
@@ -88,26 +102,56 @@ def test_pydoc_server_styling(running_help_service: HelpService):
         (help, "positron.help.help"),
     ],
 )
-def test_show_help(obj: Any, expected_path: str, help_service: HelpService):
+def test_show_help(obj: Any, expected_path: str, help_service: HelpService, help_comm: DummyComm):
     """
-    Calling `show_help` should send a `ShowHelpEvent` to the frontend service.
+    Calling `show_help` should send a `ShowHelpContent` to the help service.
     """
     # Mock the pydoc server
     url = "http://localhost:1234/"
     help_service.pydoc_thread = Mock()
     help_service.pydoc_thread.url = url
 
+    # Open a comm
+    open_msg = {}
+    help_service.on_comm_open(help_comm, open_msg)
+    help_comm.messages.clear()
+
     help_service.show_help(obj)
 
     assert help_service.pydoc_thread is not None
+    assert help_service._comm is not None
 
-    [event] = help_service.frontend_service.send_event.call_args.args
+    [event] = help_service._comm.messages  # type: ignore
 
-    # We should have sent a ShowHelpEvent with the expected content
-    assert isinstance(event, ShowHelpEvent)
-    assert event.name == "show_help"
-    assert event.kind == ShowHelpEventKind.url
-    assert event.focus == True
+    # We should have sent a ShowHelpContent with the expected content
+    assert event["data"]["msg_type"] == HelpMessageType.show_help
+    assert event["data"]["kind"] == ShowHelpEventKind.url
+    assert event["data"]["focus"] == True
     prefix = f"{url}get?key="
-    assert event.content.startswith(prefix)
-    assert event.content[len(prefix) :] == expected_path
+    assert event["data"]["content"].startswith(prefix)
+    assert event["data"]["content"][len(prefix) :] == expected_path
+
+
+def test_handle_show_topic_request_message_type(
+    help_service: HelpService, help_comm: DummyComm
+) -> None:
+    open_msg = {}
+    help_service.on_comm_open(help_comm, open_msg)
+    help_comm.messages.clear()
+
+    msg = {"content": {"data": {"msg_type": "show_help_topic_request", "topic": "logging"}}}
+    help_comm.handle_msg(msg)
+    data = msg["content"]["data"]
+    msg_type = data.get("msg_type", None)
+
+    assert msg_type == HelpMessageType.topic_request
+
+    assert len(help_comm.messages) == 1
+    assert help_comm.messages == [
+        {
+            "data": {"found": True, "msg_type": "show_help_topic_reply"},
+            "metadata": None,
+            "buffers": None,
+            "msg_type": "comm_msg",
+        }
+    ]

@@ -40,6 +40,9 @@ POSITRON_ENVIRONMENT_COMM = "positron.environment"
 POSITRON_FRONTEND_COMM = "positron.frontEnd"
 """The comm channel target_name for Positron's Frontend i.e. unscoped to any particular view"""
 
+POSITRON_HELP_COMM = "positron.help"
+"""The comm channel target_name for Positron's Help View"""
+
 POSITRON_LSP_COMM = "positron.lsp"
 """The comm channel target_name for Positron's LSP"""
 
@@ -191,7 +194,8 @@ class PositronIPyKernel(IPythonKernel):
         )
 
         # Setup Positron's help service
-        self.help_service = HelpService(self, self.frontend_service)
+        self.help_service = HelpService(self)
+        self.comm_manager.register_target(POSITRON_HELP_COMM, self.help_service.on_comm_open)
 
         # Register Positron's display publisher hook to intercept display_data messages
         # and establish a comm channel with the frontend for rendering plots
