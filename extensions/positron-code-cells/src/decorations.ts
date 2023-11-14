@@ -3,14 +3,14 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { CellManager } from './cellManager';
 import { IGNORED_SCHEMES } from './extension';
+import { getParser, parseCells } from './parser';
 
 export function registerDecorations(context: vscode.ExtensionContext): void {
 	let timeout: NodeJS.Timer | undefined = undefined;
 	let activeEditor = vscode.window.activeTextEditor;
 
-	const activeCellDecorationType = vscode.window.createTextEditorDecorationType({
+	const cellDecorationType = vscode.window.createTextEditorDecorationType({
 		light: { backgroundColor: '#E1E1E166' },
 		dark: { backgroundColor: '#40404066' },
 		isWholeLine: true,
@@ -20,9 +20,26 @@ export function registerDecorations(context: vscode.ExtensionContext): void {
 		if (!activeEditor || IGNORED_SCHEMES.includes(activeEditor.document.uri.scheme)) {
 			return;
 		}
-		const activeCell = new CellManager(activeEditor).getCurrentCell(activeEditor.selection.active.line);
-		if (activeCell) {
-			activeEditor.setDecorations(activeCellDecorationType, [activeCell.range]);
+		const parser = getParser(activeEditor.document.languageId);
+
+		const activeCellRanges: vscode.Range[] = [];
+		const allCellRanges: vscode.Range[] = [];
+		for (const cell of parseCells(activeEditor.document)) {
+			allCellRanges.push(cell.range);
+			if (cell.range.contains(activeEditor.selection.active)) {
+				activeCellRanges.push(cell.range);
+			}
+		}
+
+		if (parser) {
+			switch (parser.cellDecoration()) {
+				case 'current':
+					activeEditor.setDecorations(cellDecorationType, activeCellRanges);
+					break;
+				case 'all':
+					activeEditor.setDecorations(cellDecorationType, allCellRanges);
+					break;
+			}
 		}
 	}
 
