@@ -30,9 +30,12 @@ export class CellManager {
 		this.cells = parseCells(this.editor.document);
 	}
 
+	private getCursor(line?: number): vscode.Position {
+		return line !== undefined ? new vscode.Position(line, 0) : this.editor.selection.active;
+	}
+
 	private getCurrentCellIndex(line?: number): number {
-		const cursor = line !== undefined ? new vscode.Position(line, 0) : this.editor.selection.active;
-		return this.cells.findIndex(cell => cell.range.contains(cursor));
+		return this.cells.findIndex(cell => cell.range.contains(this.getCursor(line)));
 	}
 
 	public getCurrentCell(line?: number): ICell | undefined {
@@ -40,11 +43,21 @@ export class CellManager {
 	}
 
 	public getPreviousCell(line?: number): ICell | undefined {
-		return this.cells[this.getCurrentCellIndex(line) - 1];
+		const index = this.getCurrentCellIndex(line);
+		if (index !== -1) {
+			return this.cells[index - 1];
+		} else {
+			return this.cells.reverse().find(cell => cell.range.end.isBefore(this.getCursor(line)));
+		}
 	}
 
 	public getNextCell(line?: number): ICell | undefined {
-		return this.cells[this.getCurrentCellIndex(line) + 1];
+		const index = this.getCurrentCellIndex(line);
+		if (index !== -1) {
+			return this.cells[index + 1];
+		} else {
+			return this.cells.find(cell => cell.range.end.isAfter(this.getCursor(line)));
+		}
 	}
 
 	public runCell(cell: ICell): void {
