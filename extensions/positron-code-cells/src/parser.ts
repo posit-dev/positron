@@ -31,7 +31,7 @@ const pythonCellParser: CellParser = {
 const rCellParser: CellParser = {
 	isCellStart: (line) => line.startsWith('#+'),
 	isCellEnd: (line) => line.trim() === '',
-	newCell: () => '\n#+\n',
+	newCell: () => '\n\n#+',
 	cellDecoration: () => CellDecoration.All,
 };
 
