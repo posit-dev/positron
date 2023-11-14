@@ -57,7 +57,7 @@ function getJupyterMarkdownCellText(cell: Cell, document: vscode.TextDocument): 
 	}
 	// If the text is enclosed in """s, remove them
 	if (text.startsWith('"""') && text.endsWith('"""')) {
-		text = text.slice(3, -3);
+		text = text.slice(3, -3).trim();
 	}
 	// Execute the resulting text with the %%markdown cell magic
 	return `%%markdown\n${text}\n\n`;
