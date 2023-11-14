@@ -6,8 +6,8 @@
 	display: flex;
 	cursor: pointer;
 	box-sizing: border-box; /* Draw the borders inside the box. */
-	border-top: 0.5px solid var(--vscode-positronEnvironment-gridColor);
-	border-bottom: 0.5px solid var(--vscode-positronEnvironment-gridColor);
+	border-top: 0.5px solid var(--vscode-positronEnvironment-grid);
+	border-bottom: 0.5px solid var(--vscode-positronEnvironment-grid);
 }
 
 .environment-variable:hover {
@@ -15,13 +15,13 @@
 }
 
 .environment-variable.selected {
-	color: var(--vscode-positronEnvironment-inactiveSelectionForegroundColor);
-	background: var(--vscode-positronEnvironment-inactiveSelectionBackgroundColor);
+	color: var(--vscode-positronEnvironment-inactiveSelectionForeground);
+	background: var(--vscode-positronEnvironment-inactiveSelectionBackground);
 }
 
 .environment-variable.focused.selected {
-	color: var(--vscode-positronEnvironment-activeSelectionForegroundColor);
-	background: var(--vscode-positronEnvironment-activeSelectionBackgroundColor);
+	color: var(--vscode-positronEnvironment-activeSelectionForeground);
+	background: var(--vscode-positronEnvironment-activeSelectionBackground);
 }
 
 .environment-variable .name-column {
@@ -31,6 +31,10 @@
 	align-items: center;
 	white-space: nowrap;
 	text-overflow: ellipsis;
+}
+
+.environment-variable .name-column .name-column-indenter {
+	display: flex;
 }
 
 .environment-variable .name-column .gutter {
@@ -47,7 +51,7 @@
 }
 
 .environment-variable.focused.selected .expand-collapse-icon {
-	color: var(--vscode-positronEnvironment-activeSelectionForegroundColor);
+	color: var(--vscode-positronEnvironment-activeSelectionForeground);
 }
 
 .environment-variable .name-value {

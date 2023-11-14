@@ -12,8 +12,8 @@
 	box-sizing: border-box; /* Draw the borders inside the box. */
 	text-transform: uppercase;
 	background: var(--vscode-positronEnvironment-headerBackground);
-	border-top: 0.5px solid var(--vscode-positronEnvironment-gridColor);
-	border-bottom: 0.5px solid var(--vscode-positronEnvironment-gridColor);
+	border-top: 0.5px solid var(--vscode-positronEnvironment-grid);
+	border-bottom: 0.5px solid var(--vscode-positronEnvironment-grid);
 }
 
 .environment-variable-group:hover {
@@ -21,13 +21,13 @@
 }
 
 .environment-variable-group.selected {
-	color: var(--vscode-positronEnvironment-inactiveSelectionForegroundColor);
-	background: var(--vscode-positronEnvironment-inactiveSelectionBackgroundColor);
+	color: var(--vscode-positronEnvironment-inactiveSelectionForeground);
+	background: var(--vscode-positronEnvironment-inactiveSelectionBackground);
 }
 
 .environment-variable-group.focused.selected {
-	color: var(--vscode-positronEnvironment-activeSelectionForegroundColor);
-	background: var(--vscode-positronEnvironment-activeSelectionBackgroundColor);
+	color: var(--vscode-positronEnvironment-activeSelectionForeground);
+	background: var(--vscode-positronEnvironment-activeSelectionBackground);
 }
 
 .environment-variable-group .expand-collapse-area {
@@ -39,7 +39,7 @@
 }
 
 .environment-variable-group.focused.selected .expand-collapse-icon {
-	color: var(--vscode-positronEnvironment-activeSelectionForegroundColor);
+	color: var(--vscode-positronEnvironment-activeSelectionForeground);
 }
 
 .environment-variable-group .title {

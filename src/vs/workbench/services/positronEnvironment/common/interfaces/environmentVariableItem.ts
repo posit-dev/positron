@@ -9,58 +9,58 @@ export interface IEnvironmentVariableItem {
 	/**
 	 * Gets the identifier.
 	 */
-	id: string;
+	readonly id: string;
 
 	/**
 	 * Gets the path.
 	 */
-	path: string[];
+	readonly path: string[];
 
 	/**
 	 * Gets a value which indicates whether the environment variable has children.
 	 */
-	hasChildren: boolean;
+	readonly hasChildren: boolean;
 
 	/**
 	 * Gets a value which indicates whether the environment variable has a
 	 * viewer supplied by the runtime.
 	 */
-	hasViewer: boolean;
+	readonly hasViewer: boolean;
 
 	/**
 	 * Gets the indent level.
 	 */
-	indentLevel: number;
+	readonly indentLevel: number;
 
 	/**
 	 * Gets the display name.
 	 */
-	displayName: string;
+	readonly displayName: string;
 
 	/**
 	 * Gets the display value.
 	 */
-	displayValue: string;
+	readonly displayValue: string;
 
 	/**
 	 * Gets the display type.
 	 */
-	displayType: string;
+	readonly displayType: string;
 
 	/**
 	 * Gets the variable's kind.
 	 */
-	kind: string;
+	readonly kind: string;
 
 	/**
 	 * Gets the size.
 	 */
-	size: number;
+	readonly size: number;
 
 	/**
 	 * Gets a value which indicates whether the environment variable is expanded.
 	 */
-	expanded: boolean;
+	readonly expanded: boolean;
 
 	/**
 	 * Formats the value of this variable in a format suitable for placing on the clipboard.
