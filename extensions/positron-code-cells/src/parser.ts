@@ -42,15 +42,18 @@ function getCellText(cell: Cell, document: vscode.TextDocument): string {
 	return document.getText(range);
 }
 
+const whitespaceRegExp = new RegExp(/^\s*$/);
+const commentRegExp = new RegExp(/^# ?/);
+
 // Get the text to be executed from a Jupyter markdown cell following the format
 // described in https://jupytext.readthedocs.io/en/latest/formats-scripts.html.
 function getJupyterMarkdownCellText(cell: Cell, document: vscode.TextDocument): string {
 	let text = getCellText(cell, document);
 	text = text.trim();
-	// If all lines start with '# ', remove the prefix
+	// If all non-empty lines start with a comment, remove the comment characters
 	const lines = text.split('\n');
-	if (lines.every(line => line.startsWith('# '))) {
-		text = lines.map(line => line.slice(2)).join('\n');
+	if (lines.every(line => whitespaceRegExp.test(line) || commentRegExp.test(line))) {
+		text = lines.map(line => line.replace(commentRegExp, '')).join('\n');
 	}
 	// If the text is enclosed in """s, remove them
 	if (text.startsWith('"""') && text.endsWith('"""')) {
