@@ -65,6 +65,7 @@ const HelpLines = [
 	'flicker        - Simulates a flickering console prompt',
 	'help           - Shows this help',
 	'html           - Simulates HTML output',
+	'modal          - Simulates a simple modal dialog',
 	'offline        - Simulates going offline for two seconds',
 	'plot X         - Renders a dynamic (auto-sizing) plot of the letter X',
 	'preview        - Opens or gets the status of a preview pane',
@@ -839,6 +840,11 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 				break;
 			}
 
+			case 'modal': {
+				this.simulateModalDialog();
+				break;
+			}
+
 			case 'progress': {
 				this.simulateProgressBar(id, code);
 				break;
@@ -1389,6 +1395,10 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 
 		// Return to idle state.
 		this.simulateIdleState(parentId);
+	}
+
+	private async simulateModalDialog() {
+		positron.window.showSimpleModalDialogPrompt('Howdy there!', 'You are using the Zed runtime right now.');
 	}
 
 	private simulateFancyHtmlOutput(parentId: string, code: string) {
