@@ -4,15 +4,11 @@
 
 import * as positron from 'positron';
 import * as vscode from 'vscode';
-import { CellParser, getParser, parseCells } from './parser';
-
-export interface ICell {
-	range: vscode.Range;
-}
+import { Cell, CellParser, getParser, parseCells } from './parser';
 
 // Provides a set of commands for interacting with Jupyter-like cells in a vscode.TextEditor
 export class CellManager {
-	cells: ICell[];
+	cells: Cell[];
 	parser: CellParser;
 
 	constructor(private editor: vscode.TextEditor) {
@@ -38,11 +34,11 @@ export class CellManager {
 		return this.cells.findIndex(cell => cell.range.contains(this.getCursor(line)));
 	}
 
-	public getCurrentCell(line?: number): ICell | undefined {
+	public getCurrentCell(line?: number): Cell | undefined {
 		return this.cells[this.getCurrentCellIndex(line)];
 	}
 
-	public getPreviousCell(line?: number): ICell | undefined {
+	public getPreviousCell(line?: number): Cell | undefined {
 		const index = this.getCurrentCellIndex(line);
 		if (index !== -1) {
 			return this.cells[index - 1];
@@ -52,7 +48,7 @@ export class CellManager {
 		}
 	}
 
-	public getNextCell(line?: number): ICell | undefined {
+	public getNextCell(line?: number): Cell | undefined {
 		const index = this.getCurrentCellIndex(line);
 		if (index !== -1) {
 			return this.cells[index + 1];
@@ -62,18 +58,8 @@ export class CellManager {
 		}
 	}
 
-	public runCell(cell: ICell): void {
-		let text = '';
-		// Skip the cell marker line
-		if (cell.range.start.line < cell.range.end.line) {
-			const range = new vscode.Range(
-				cell.range.start.line + 1,
-				cell.range.start.character,
-				cell.range.end.line,
-				cell.range.end.character
-			);
-			text = this.editor.document.getText(range);
-		}
+	public runCell(cell: Cell): void {
+		const text = this.parser.getCellText(cell, this.editor.document);
 		positron.runtime.executeCode(this.editor.document.languageId, text, true);
 	}
 
@@ -125,7 +111,7 @@ export class CellManager {
 		}
 	}
 
-	private goToCell(cell: ICell): void {
+	private goToCell(cell: Cell): void {
 		// Skip the cell marker line
 		const line = Math.min(cell.range.start.line + 1, cell.range.end.line);
 		const cursor = new vscode.Position(line, 0);
