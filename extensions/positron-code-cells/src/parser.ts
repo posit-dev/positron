@@ -50,9 +50,17 @@ export function parseCells(document: vscode.TextDocument): Cell[] {
 		const line = document.lineAt(index);
 
 		if (parser.isCellStart(line.text)) {
+			// Close and push the current cell
+			if (currentStart && !currentEnd) {
+				currentEnd = document.lineAt(index - 1).range.end;
+				cells.push({ range: new vscode.Range(currentStart, currentEnd) });
+			}
+
+			// Start a new cell
 			currentStart = line.range.start;
 			currentEnd = undefined;
 		}
+
 		if (currentStart !== undefined) {
 			if (parser.isCellEnd(line.text)) {
 				currentEnd = document.lineAt(index - 1).range.end;
