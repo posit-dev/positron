@@ -4,6 +4,7 @@
 
 import * as vscode from 'vscode';
 import * as positron from 'positron';
+import path = require('path');
 
 class ConnectionItem {
 	constructor(readonly name: string, readonly client: positron.RuntimeClientInstance) {
@@ -20,14 +21,14 @@ class ConnectionItemField extends ConnectionItem {
 }
 
 /**
- * Stub implementation of a tree data provider.
+ * Provides connection items to the Connections treeview.
  */
 class ConnectionItemsProvider implements vscode.TreeDataProvider<ConnectionItem> {
 	private _onDidChangeTreeData: vscode.EventEmitter<ConnectionItem | undefined> =
 		new vscode.EventEmitter<ConnectionItem | undefined>();
 	private _connections: ConnectionItem[] = [];
 
-	constructor() {
+	constructor(readonly context: vscode.ExtensionContext) {
 		this.onDidChangeTreeData = this._onDidChangeTreeData.event;
 	}
 
@@ -35,8 +36,16 @@ class ConnectionItemsProvider implements vscode.TreeDataProvider<ConnectionItem>
 
 	getTreeItem(item: ConnectionItem): vscode.TreeItem {
 		const collapsibleState = item instanceof ConnectionItemDatabase || item instanceof ConnectionItemTable;
-		return new vscode.TreeItem(item.name, collapsibleState ? vscode.TreeItemCollapsibleState.Collapsed :
+		const treeItem = new vscode.TreeItem(item.name, collapsibleState ? vscode.TreeItemCollapsibleState.Collapsed :
 			vscode.TreeItemCollapsibleState.None);
+		if (item instanceof ConnectionItemDatabase) {
+			treeItem.iconPath = vscode.Uri.file(path.join(this.context.extensionPath, 'media', 'database.svg'));
+		} else if (item instanceof ConnectionItemTable) {
+			treeItem.iconPath = vscode.Uri.file(path.join(this.context.extensionPath, 'media', 'table.svg'));
+		} else if (item instanceof ConnectionItemField) {
+			treeItem.iconPath = vscode.Uri.file(path.join(this.context.extensionPath, 'media', 'field.svg'));
+		}
+		return treeItem;
 	}
 
 	addConnection(client: positron.RuntimeClientInstance, name: string) {
@@ -90,7 +99,7 @@ class ConnectionItemsProvider implements vscode.TreeDataProvider<ConnectionItem>
  * @param context An ExtensionContext that contains the extention context.
  */
 export function activate(context: vscode.ExtensionContext) {
-	const connectionProvider = new ConnectionItemsProvider();
+	const connectionProvider = new ConnectionItemsProvider(context);
 
 	context.subscriptions.push(
 		vscode.window.registerTreeDataProvider('connections', connectionProvider));
