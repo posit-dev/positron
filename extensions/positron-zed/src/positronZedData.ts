@@ -37,6 +37,12 @@ export class ZedData implements DataSet {
 
 	public readonly id: string;
 	public readonly columns: Array<ZedColumn> = [];
+	private requestQueue: number[] = [];
+
+	// The maximum number of requests in the queue to handle. Requests further down
+	// the queue will be ignored.
+	// Keep in sync with queue size on the language backends
+	private static readonly queueSize = 3;
 
 	/**
 	 * Create a new ZedData instance
@@ -45,8 +51,9 @@ export class ZedData implements DataSet {
 	 * @param rowCount The number of rows
 	 * @param colCount The number of columns
 	 */
+
 	constructor(readonly title: string,
-		public readonly rowCount = 1000,
+		public readonly rowCount = 10_000, // temporary change
 		colCount = 10) {
 		// Create a unique ID for this instance
 		this.id = randomUUID();
@@ -76,6 +83,7 @@ export class ZedData implements DataSet {
 		switch (message.msg_type) {
 			case 'ready':
 			case 'request_rows':
+				this.requestQueue.unshift(message.start_row);
 				this.sendData(message as DataViewerMessageRowRequest);
 				break;
 			default:
@@ -96,7 +104,19 @@ export class ZedData implements DataSet {
 				rowCount: this.rowCount
 			} as ZedData,
 		};
-		// Emit to the front end.
-		this._onDidEmitData.fire(response);
+		// Emit to the front end only if this is one of the most recent requests received.
+		if (message.msg_type === 'ready' || this.requestQueue.slice(0, ZedData.queueSize).includes(message.start_row)) {
+			this._onDidEmitData.fire(response);
+		}
+		else {
+			this._onDidEmitData.fire({
+				msg_type: 'canceled_request',
+				start_row: message.start_row,
+				fetch_size: message.fetch_size
+			});
+		}
+		// Remove this fulfilled/canceled request from the queue
+		const index = this.requestQueue.indexOf(message.start_row);
+		this.requestQueue.splice(index, 1);
 	}
 }
