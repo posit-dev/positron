@@ -3,13 +3,13 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { localize } from 'vs/nls';
+import { isString } from 'vs/base/common/types';
 import { Codicon } from 'vs/base/common/codicons';
 import { ITextModel } from 'vs/editor/common/model';
 import { IEditor } from 'vs/editor/common/editorCommon';
 import { ILogService } from 'vs/platform/log/common/log';
 import { KeyCode, KeyMod } from 'vs/base/common/keyCodes';
 import { Position } from 'vs/editor/common/core/position';
-import { IViewsService } from 'vs/workbench/common/views';
 import { IStatementRange } from 'vs/editor/common/languages';
 import { CancellationToken } from 'vs/base/common/cancellation';
 import { ILocalizedString } from 'vs/platform/action/common/action';
@@ -25,11 +25,9 @@ import { ILanguageFeaturesService } from 'vs/editor/common/services/languageFeat
 import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/layoutService';
 import { INotificationService, Severity } from 'vs/platform/notification/common/notification';
 import { NOTEBOOK_EDITOR_FOCUSED } from 'vs/workbench/contrib/notebook/common/notebookContextKeys';
-import { PositronConsoleViewPane } from 'vs/workbench/contrib/positronConsole/browser/positronConsoleView';
 import { confirmationModalDialog } from 'vs/workbench/browser/positronModalDialogs/confirmationModalDialog';
 import { IExecutionHistoryService } from 'vs/workbench/contrib/executionHistory/common/executionHistoryService';
-import { IPositronConsoleService, POSITRON_CONSOLE_VIEW_ID } from 'vs/workbench/services/positronConsole/common/interfaces/positronConsoleService';
-import { isString } from 'vs/base/common/types';
+import { IPositronConsoleService } from 'vs/workbench/services/positronConsole/browser/interfaces/positronConsoleService';
 
 /**
  * Positron console command ID's.
@@ -214,12 +212,11 @@ export function registerPositronConsoleActions() {
 		async run(accessor: ServicesAccessor) {
 			// Access services.
 			const editorService = accessor.get(IEditorService);
+			const languageFeaturesService = accessor.get(ILanguageFeaturesService);
 			const languageService = accessor.get(ILanguageService);
+			const logService = accessor.get(ILogService);
 			const notificationService = accessor.get(INotificationService);
 			const positronConsoleService = accessor.get(IPositronConsoleService);
-			const viewsService = accessor.get(IViewsService);
-			const languageFeaturesService = accessor.get(ILanguageFeaturesService);
-			const logService = accessor.get(ILogService);
 
 			// The code to execute.
 			let code: string | undefined = undefined;
@@ -452,11 +449,9 @@ export function registerPositronConsoleActions() {
 				return;
 			}
 
-			// Ask the views service to open the view.
-			await viewsService.openView<PositronConsoleViewPane>(POSITRON_CONSOLE_VIEW_ID, false);
-
-			// Ask the Positron console service to execute the code.
-			if (!await positronConsoleService.executeCode(languageId, code, true)) {
+			// Ask the Positron console service to execute the code. Do not focus the console as
+			// this will rip focus away from the editor.
+			if (!await positronConsoleService.executeCode(languageId, code, false)) {
 				const languageName = languageService.getLanguageName(languageId);
 				notificationService.notify({
 					severity: Severity.Info,

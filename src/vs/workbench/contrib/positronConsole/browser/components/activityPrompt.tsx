@@ -8,8 +8,8 @@ import { KeyboardEvent, useEffect, useRef } from 'react'; // eslint-disable-line
 import { DisposableStore } from 'vs/base/common/lifecycle';
 import { OutputRun } from 'vs/workbench/contrib/positronConsole/browser/components/outputRun';
 import { OutputLines } from 'vs/workbench/contrib/positronConsole/browser/components/outputLines';
-import { IPositronConsoleInstance } from 'vs/workbench/services/positronConsole/common/interfaces/positronConsoleService';
-import { ActivityItemPrompt, ActivityItemPromptState } from 'vs/workbench/services/positronConsole/common/classes/activityItemPrompt';
+import { IPositronConsoleInstance } from 'vs/workbench/services/positronConsole/browser/interfaces/positronConsoleService';
+import { ActivityItemPrompt, ActivityItemPromptState } from 'vs/workbench/services/positronConsole/browser/classes/activityItemPrompt';
 
 // ActivityPromptProps interface.
 export interface ActivityPromptProps {

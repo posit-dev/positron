@@ -8,7 +8,7 @@ import { useEffect, useRef, useState } from 'react'; // eslint-disable-line no-d
 import { localize } from 'vs/nls';
 import { PositronButton } from 'vs/base/browser/ui/positronComponents/positronButton';
 import { OutputLines } from 'vs/workbench/contrib/positronConsole/browser/components/outputLines';
-import { ActivityItemErrorMessage } from 'vs/workbench/services/positronConsole/common/classes/activityItemErrorMessage';
+import { ActivityItemErrorMessage } from 'vs/workbench/services/positronConsole/browser/classes/activityItemErrorMessage';
 
 // ActivityErrorProps interface.
 export interface ActivityErrorMessageProps {

@@ -6,7 +6,7 @@ import 'vs/css!./activityOutputPlot';
 import * as React from 'react';
 import * as nls from 'vs/nls';
 import { OutputLines } from 'vs/workbench/contrib/positronConsole/browser/components/outputLines';
-import { ActivityItemOutputPlot } from 'vs/workbench/services/positronConsole/common/classes/activityItemOutputPlot';
+import { ActivityItemOutputPlot } from 'vs/workbench/services/positronConsole/browser/classes/activityItemOutputPlot';
 
 // ActivityOutputPlot interface.
 export interface ActivityOutputPlotProps {

@@ -3,12 +3,12 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { ANSIOutput, ANSIOutputLine } from 'vs/base/common/ansiOutput';
-import { RuntimeItem } from 'vs/workbench/services/positronConsole/common/classes/runtimeItem';
+import { RuntimeItem } from 'vs/workbench/services/positronConsole/browser/classes/runtimeItem';
 
 /**
- * RuntimeItemOffline class.
+ * RuntimeItemStarting class.
  */
-export class RuntimeItemOffline extends RuntimeItem {
+export class RuntimeItemStarting extends RuntimeItem {
 	//#region Public Properties
 
 	/**
@@ -25,7 +25,7 @@ export class RuntimeItemOffline extends RuntimeItem {
 	 * @param id The identifier.
 	 * @param message The message.
 	 */
-	constructor(id: string, message: string) {
+	constructor(id: string, message: string, public isRestart: boolean) {
 		// Call the base class's constructor.
 		super(id);
 

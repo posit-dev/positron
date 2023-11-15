@@ -4,7 +4,7 @@
 
 import 'vs/css!./activityOutputHtml';
 import * as React from 'react';
-import { ActivityItemOutputHtml } from 'vs/workbench/services/positronConsole/common/classes/activityItemOutputHtml';
+import { ActivityItemOutputHtml } from 'vs/workbench/services/positronConsole/browser/classes/activityItemOutputHtml';
 import { HtmlNode, parseHtml } from 'vs/base/common/htmlParser';
 
 // ActivityOutputHtml interface.
