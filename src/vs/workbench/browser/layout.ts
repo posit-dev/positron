@@ -2016,8 +2016,18 @@ export abstract class Layout extends Disposable implements IWorkbenchLayoutServi
 			// Get the panel size.
 			const size = this.workbenchGrid.getViewSize(this.panelPartView);
 
-			// Show the editor.
-			this.setEditorHidden(false);
+			// One oddity of how Workbench layout works in vanilla Visual Studio Code is that the
+			// PANEL_LAST_NON_MAXIMIZED_HEIGHT runtime value is ONLY updated when the panel is being
+			// maximized (meaning that the editor is being hidden). In Positron, we've augmented
+			// Workbench layout to allow the panel to be minimized, maximized, and restored, so we
+			// update the PANEL_LAST_NON_MAXIMIZED_HEIGHT whenever the panel is being minimized or
+			// mazimized, and we use it to restore the panel height when the panel is being restored
+			// from the minimized or maximized state.
+			if (!this.isVisible(Parts.EDITOR_PART)) {
+				this.setEditorHidden(false);
+			} else if (size.height !== this.panelPartView.minimumHeight) {
+				return;
+			}
 
 			// Resize the panel to its current width and its last non-maximized height.
 			this.workbenchGrid.resizeView(this.panelPartView, {

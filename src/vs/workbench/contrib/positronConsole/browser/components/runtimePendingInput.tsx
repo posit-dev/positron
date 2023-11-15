@@ -6,7 +6,7 @@ import 'vs/css!./runtimePendingInput';
 import * as React from 'react';
 import { FontInfo } from 'vs/editor/common/config/fontInfo';
 import { OutputRun } from 'vs/workbench/contrib/positronConsole/browser/components/outputRun';
-import { RuntimeItemPendingInput } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemPendingInput';
+import { RuntimeItemPendingInput } from 'vs/workbench/services/positronConsole/browser/classes/runtimeItemPendingInput';
 
 // RuntimePendingInputProps interface.
 export interface RuntimePendingInputProps {
