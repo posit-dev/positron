@@ -108,11 +108,11 @@ export const TitleBarVisibleContext = new RawContextKey<boolean>('titleBarVisibl
 
 
 // --- Start Positron ---
-export const PositronTopActionBarFocused = new RawContextKey<boolean>('positronTopActionBarFocused', false, localize('positronTopActionBarFocused', "Whether the Positron top action bar has keyboard focus"));
-export const PositronTopActionBarVisibleContext = new RawContextKey<boolean>('positronTopActionBarVisible', true, localize('positronTopActionBarVisible', "Whether the Positron top action bar is visible"));
-export const PositronConsoleFocused = new RawContextKey<boolean>('positronConsoleFocused', false, localize('positronConsoleFocused', "Whether the Positron Console has keyboard focus"));
-export const PositronEnvironmentFocused = new RawContextKey<boolean>('positronEnvironmentFocused', false, localize('positronEnvironmentFocused', "Whether the Positron Environment has keyboard focus"));
-export const PositronHelpFocused = new RawContextKey<boolean>('positronHelpFocused', false, localize('positronHelpFocused', "Whether the Positron Help has keyboard focus"));
+export const PositronTopActionBarFocused = new RawContextKey<boolean>('positronTopActionBarFocused', false, localize('positronTopActionBarFocused', "Whether the Positron Top Action Bar has keyboard focus"));
+export const PositronTopActionBarVisibleContext = new RawContextKey<boolean>('positronTopActionBarVisible', true, localize('positronTopActionBarVisible', "Whether Positron Top Action Bar is visible"));
+export const PositronConsoleFocused = new RawContextKey<boolean>('positronConsoleFocused', false, localize('positronConsoleFocused', "Whether Positron Console has keyboard focus"));
+export const PositronVariablesFocused = new RawContextKey<boolean>('positronVariablesFocused', false, localize('positronVariablesFocused', "Whether Positron Variables has keyboard focus"));
+export const PositronHelpFocused = new RawContextKey<boolean>('positronHelpFocused', false, localize('positronHelpFocused', "Whether Positron Help has keyboard focus"));
 // --- End Positron ---
 
 //#region < --- Banner --- >

@@ -1,0 +1,85 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
+ *--------------------------------------------------------------------------------------------*/
+
+.variable-item {
+	display: flex;
+	cursor: pointer;
+	box-sizing: border-box; /* Draw the borders inside the box. */
+	border-top: 0.5px solid var(--vscode-positronVariables-grid);
+	border-bottom: 0.5px solid var(--vscode-positronVariables-grid);
+}
+
+.variable-item:hover {
+	background: var(--vscode-positronVariables-rowHoverBackground)
+}
+
+.variable-item.selected {
+	color: var(--vscode-positronVariables-inactiveSelectionForeground);
+	background: var(--vscode-positronVariables-inactiveSelectionBackground);
+}
+
+.variable-item.focused.selected {
+	color: var(--vscode-positronVariables-activeSelectionForeground);
+	background: var(--vscode-positronVariables-activeSelectionBackground);
+}
+
+.variable-item .name-column {
+	display: flex;
+	flex-shrink: 0;
+	overflow: hidden;
+	align-items: center;
+	white-space: nowrap;
+	text-overflow: ellipsis;
+}
+
+.variable-item .name-column .name-column-indenter {
+	display: flex;
+}
+
+.variable-item .name-column .gutter {
+	display: flex;
+	align-items: center;
+}
+
+.variable-item .expand-collapse-area {
+	width: 26px;
+	height: 26px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.variable-item.focused.selected .expand-collapse-icon {
+	color: var(--vscode-positronVariables-activeSelectionForeground);
+}
+
+.variable-item .name-value {
+	display: flex;
+	align-items: center;
+}
+
+.variable-item .details-column {
+	display: flex;
+	align-items: center;
+}
+
+.variable-item .details-column .value {
+	flex-grow: 1;
+	flex-shrink: 1;
+	overflow: hidden;
+	white-space: nowrap;
+	margin: 0 10px 0 8px;
+	text-overflow: ellipsis;
+}
+
+.variable-item .details-column .right-column {
+	opacity: 0.75;
+	flex: 0 0 auto;
+	margin: 0 10px 0 0;
+}
+
+.variable-item .details-column .right-column .viewer-icon {
+	display: flex;
+}
+

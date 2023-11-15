@@ -163,7 +163,7 @@
 			"project": "vscode-workbench"
 		},
 		{
-			"name": "vs/workbench/contrib/positronEnvironment",
+			"name": "vs/workbench/contrib/positronVariables",
 			"project": "vscode-workbench"
 		},
 		{

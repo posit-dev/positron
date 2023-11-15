@@ -18,7 +18,7 @@ import { IWorkbenchContributionsRegistry, Extensions as WorkbenchExtensions, IWo
 import { Extensions as ViewContainerExtensions, IViewsRegistry } from 'vs/workbench/common/views';
 import { registerAction2 } from 'vs/platform/actions/common/actions';
 import { PlotsRefreshAction } from 'vs/workbench/contrib/positronPlots/browser/positronPlotsActions';
-import { VIEW_CONTAINER } from 'vs/workbench/contrib/positronEnvironment/browser/positronEnvironment.contribution';
+import { VIEW_CONTAINER } from 'vs/workbench/contrib/positronVariables/browser/positronVariables.contribution';
 
 // Register the Positron plots service.
 registerSingleton(IPositronPlotsService, PositronPlotsService, InstantiationType.Delayed);
