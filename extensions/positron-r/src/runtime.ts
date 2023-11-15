@@ -10,6 +10,8 @@ import { JupyterAdapterApi, JupyterKernelSpec, JupyterLanguageRuntime, JupyterKe
 import { ArkLsp, LspState } from './lsp';
 import { delay } from './util';
 import { ArkAttachOnStartup, ArkDelayStartup } from './startup';
+import { RHtmlWidget, getResourceRoots } from './htmlwidgets';
+import { getRPackageName } from './contexts';
 
 export let lastRuntimePath = '';
 
@@ -221,13 +223,55 @@ export class RRuntime implements positron.LanguageRuntime, vscode.Disposable {
 			this._stateEmitter.fire(state);
 		});
 		kernel.onDidReceiveRuntimeMessage((message) => {
-			this._messageEmitter.fire(message);
+			this.onMessage(message);
 		});
 		kernel.onDidEndSession((exit) => {
 			this._exitEmitter.fire(exit);
 		});
 
 		return kernel;
+	}
+
+	/**
+	 * Processes a message received from the kernel; amends it with any
+	 * necessary metadata and then emits it to Positron.
+	 *
+	 * @param message The message to process
+	 */
+	private onMessage(message: positron.LanguageRuntimeMessage): void {
+		// Have we delivered the message to Positron yet?
+		let delivered = false;
+
+		if (message.type === positron.LanguageRuntimeMessageType.Output) {
+
+			// If this is an R HTML widget, upgrade the message to a web output
+			const msg = message as positron.LanguageRuntimeOutput;
+			if (Object.keys(msg.data).includes('application/vnd.r.htmlwidget')) {
+
+				// Get the widget data from the message
+				const widget = msg.data['application/vnd.r.htmlwidget'] as any as RHtmlWidget;
+				const webMsg = msg as positron.LanguageRuntimeWebOutput;
+
+				// Compute all the resource roots; these are the URIs the widget
+				// will need to render.
+				webMsg.resource_roots = getResourceRoots(widget);
+
+				// Set the output location based on the sizing policy
+				const sizing = widget.sizing_policy;
+				webMsg.output_location = sizing?.knitr?.figure ?
+					positron.PositronOutputLocation.Plot :
+					positron.PositronOutputLocation.Viewer;
+
+				// Deliver the message to Positron
+				this._messageEmitter.fire(message);
+				delivered = true;
+			}
+		}
+
+		// The message hasn't been delivered yet, so deliver it
+		if (!delivered) {
+			this._messageEmitter.fire(message);
+		}
 	}
 
 	private async startLsp(): Promise<void> {

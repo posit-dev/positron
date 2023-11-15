@@ -3,14 +3,18 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { ANSIOutput, ANSIOutputLine } from 'vs/base/common/ansiOutput';
-import { RuntimeItem } from 'vs/workbench/services/positronConsole/common/classes/runtimeItem';
-import { RuntimeExitReason } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { RuntimeItem } from 'vs/workbench/services/positronConsole/browser/classes/runtimeItem';
 
 /**
- * RuntimeItemExited class.
+ * RuntimeItemTrace class.
  */
-export class RuntimeItemExited extends RuntimeItem {
+export class RuntimeItemTrace extends RuntimeItem {
 	//#region Public Properties
+
+	/**
+	 * Gets the timestamp.
+	 */
+	readonly timestamp = new Date();
 
 	/**
 	 * Gets the output lines.
@@ -24,17 +28,18 @@ export class RuntimeItemExited extends RuntimeItem {
 	/**
 	 * Constructor.
 	 * @param id The identifier.
-	 * @param reason The exit reason.
-	 * @param message A message to display.
+	 * @param text The text.
 	 */
-	constructor(id: string,
-		readonly reason: RuntimeExitReason,
-		message: string) {
+	constructor(id: string, text: string) {
 		// Call the base class's constructor.
 		super(id);
 
-		// Process the message directly into ANSI output lines suitable for rendering.
-		this.outputLines = ANSIOutput.processOutput(message);
+		// Replace ESC and CSI with text so ANSI escape sequences are not regognized.
+		text = text.replaceAll('\x1b', 'ESC');
+		text = text.replaceAll('\x9B', 'CSI');
+
+		// Process the text directly into ANSI output lines suitable for rendering.
+		this.outputLines = ANSIOutput.processOutput(text);
 	}
 
 	//#endregion Constructor

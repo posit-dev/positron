@@ -7,21 +7,21 @@ import * as React from 'react';
 import { FontInfo } from 'vs/editor/common/config/fontInfo';
 import { ActivityInput } from 'vs/workbench/contrib/positronConsole/browser/components/activityInput';
 import { ActivityPrompt } from 'vs/workbench/contrib/positronConsole/browser/components/activityPrompt';
-import { ActivityItemInput } from 'vs/workbench/services/positronConsole/common/classes/activityItemInput';
-import { ActivityItemPrompt } from 'vs/workbench/services/positronConsole/common/classes/activityItemPrompt';
-import { RuntimeItemActivity } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemActivity';
+import { ActivityItemInput } from 'vs/workbench/services/positronConsole/browser/classes/activityItemInput';
+import { ActivityItemPrompt } from 'vs/workbench/services/positronConsole/browser/classes/activityItemPrompt';
+import { RuntimeItemActivity } from 'vs/workbench/services/positronConsole/browser/classes/runtimeItemActivity';
 import { ActivityOutputPlot } from 'vs/workbench/contrib/positronConsole/browser/components/activityOutputPlot';
 import { ActivityOutputHtml } from 'vs/workbench/contrib/positronConsole/browser/components/activityOutputHtml';
 import { ActivityErrorStream } from 'vs/workbench/contrib/positronConsole/browser/components/activityErrorStream';
 import { ActivityOutputStream } from 'vs/workbench/contrib/positronConsole/browser/components/activityOutputStream';
 import { ActivityErrorMessage } from 'vs/workbench/contrib/positronConsole/browser/components/activityErrorMessage';
-import { ActivityItemOutputPlot } from 'vs/workbench/services/positronConsole/common/classes/activityItemOutputPlot';
-import { ActivityItemOutputHtml } from 'vs/workbench/services/positronConsole/common/classes/activityItemOutputHtml';
+import { ActivityItemOutputPlot } from 'vs/workbench/services/positronConsole/browser/classes/activityItemOutputPlot';
+import { ActivityItemOutputHtml } from 'vs/workbench/services/positronConsole/browser/classes/activityItemOutputHtml';
 import { ActivityOutputMessage } from 'vs/workbench/contrib/positronConsole/browser/components/activityOutputMessage';
-import { ActivityItemErrorMessage } from 'vs/workbench/services/positronConsole/common/classes/activityItemErrorMessage';
-import { IPositronConsoleInstance } from 'vs/workbench/services/positronConsole/common/interfaces/positronConsoleService';
-import { ActivityItemOutputMessage } from 'vs/workbench/services/positronConsole/common/classes/activityItemOutputMessage';
-import { ActivityItemErrorStream, ActivityItemOutputStream } from 'vs/workbench/services/positronConsole/common/classes/activityItemStream';
+import { ActivityItemErrorMessage } from 'vs/workbench/services/positronConsole/browser/classes/activityItemErrorMessage';
+import { IPositronConsoleInstance } from 'vs/workbench/services/positronConsole/browser/interfaces/positronConsoleService';
+import { ActivityItemOutputMessage } from 'vs/workbench/services/positronConsole/browser/classes/activityItemOutputMessage';
+import { ActivityItemErrorStream, ActivityItemOutputStream } from 'vs/workbench/services/positronConsole/browser/classes/activityItemStream';
 
 // RuntimeActivityProps interface.
 export interface RuntimeActivityProps {

@@ -120,6 +120,7 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			runtime,
 			window,
 			languages,
+			PositronOutputLocation: extHostTypes.PositronOutputLocation,
 			RuntimeClientType: extHostTypes.RuntimeClientType,
 			RuntimeClientState: extHostTypes.RuntimeClientState,
 			RuntimeExitReason: extHostTypes.RuntimeExitReason,

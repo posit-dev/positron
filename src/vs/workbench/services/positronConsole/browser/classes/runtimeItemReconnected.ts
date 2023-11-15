@@ -3,18 +3,13 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { ANSIOutput, ANSIOutputLine } from 'vs/base/common/ansiOutput';
-import { RuntimeItem } from 'vs/workbench/services/positronConsole/common/classes/runtimeItem';
+import { RuntimeItem } from 'vs/workbench/services/positronConsole/browser/classes/runtimeItem';
 
 /**
- * RuntimeItemTrace class.
+ * RuntimeItemReconnected class.
  */
-export class RuntimeItemTrace extends RuntimeItem {
+export class RuntimeItemReconnected extends RuntimeItem {
 	//#region Public Properties
-
-	/**
-	 * Gets the timestamp.
-	 */
-	readonly timestamp = new Date();
 
 	/**
 	 * Gets the output lines.
@@ -28,18 +23,14 @@ export class RuntimeItemTrace extends RuntimeItem {
 	/**
 	 * Constructor.
 	 * @param id The identifier.
-	 * @param text The text.
+	 * @param message The message.
 	 */
-	constructor(id: string, text: string) {
+	constructor(id: string, message: string) {
 		// Call the base class's constructor.
 		super(id);
 
-		// Replace ESC and CSI with text so ANSI escape sequences are not regognized.
-		text = text.replaceAll('\x1b', 'ESC');
-		text = text.replaceAll('\x9B', 'CSI');
-
-		// Process the text directly into ANSI output lines suitable for rendering.
-		this.outputLines = ANSIOutput.processOutput(text);
+		// Process the message directly into ANSI output lines suitable for rendering.
+		this.outputLines = ANSIOutput.processOutput(message);
 	}
 
 	//#endregion Constructor

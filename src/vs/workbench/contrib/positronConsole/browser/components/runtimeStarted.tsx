@@ -5,7 +5,7 @@
 import 'vs/css!./runtimeStarted';
 import * as React from 'react';
 import { OutputLines } from 'vs/workbench/contrib/positronConsole/browser/components/outputLines';
-import { RuntimeItemStarted } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemStarted';
+import { RuntimeItemStarted } from 'vs/workbench/services/positronConsole/browser/classes/runtimeItemStarted';
 
 // RuntimeStartedProps interface.
 export interface RuntimeStartedProps {

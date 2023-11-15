@@ -5,7 +5,7 @@
 import 'vs/css!./activityOutputMessage';
 import * as React from 'react';
 import { OutputLines } from 'vs/workbench/contrib/positronConsole/browser/components/outputLines';
-import { ActivityItemOutputMessage } from 'vs/workbench/services/positronConsole/common/classes/activityItemOutputMessage';
+import { ActivityItemOutputMessage } from 'vs/workbench/services/positronConsole/browser/classes/activityItemOutputMessage';
 
 // ActivityOutputMessageProps interface.
 export interface ActivityOutputMessageProps {
