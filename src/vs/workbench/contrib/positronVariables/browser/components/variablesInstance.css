@@ -1,0 +1,60 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
+ *--------------------------------------------------------------------------------------------*/
+
+.variables-core .variables-instance {
+	top: 0;
+	cursor: default;
+	position: absolute;
+	-webkit-user-select: none;
+	-moz-user-select: none;
+	-ms-user-select: none;
+	user-select: none;
+	background: var(--vscode-positronVariables-background);
+}
+
+.variables-core .variables-instance:focus {
+	outline: none !important;
+}
+
+.variables-core .variables-instance .list {
+	overflow: overlay !important;
+}
+
+.expand-collapse-button:focus {
+	outline: none !important;
+}
+
+.expand-collapse-button:focus-visible {
+	border-radius: 6px;
+	outline: 1px solid var(--vscode-focusBorder) !important;
+}
+
+.variables-core .variables-instance.resizing {
+	cursor: col-resize;	/* The cursor will drift out of the column splitter every now and then. */
+}
+
+::-webkit-scrollbar {
+	background: transparent;
+	width: 8px;
+	height: 0;
+	cursor: default !important;
+}
+
+::-webkit-scrollbar-track {
+	opacity: 0;
+}
+
+::-webkit-scrollbar-thumb {
+	min-height: 20px;
+	background-color: var(--vscode-scrollbarSlider-background) !important;
+}
+
+::-webkit-scrollbar-thumb:hover {
+	cursor: pointer !important;
+	background-color: var(--vscode-scrollbarSlider-hoverBackground) !important;
+}
+
+::-webkit-scrollbar-corner {
+	display: none;
+}

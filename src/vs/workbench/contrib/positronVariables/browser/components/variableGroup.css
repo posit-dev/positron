@@ -1,0 +1,47 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
+ *--------------------------------------------------------------------------------------------*/
+
+.variable-group {
+	display: flex;
+	border: none;
+	font-size: 11px;
+	cursor: pointer;
+	padding-right: 8px;
+	align-items: center;
+	box-sizing: border-box; /* Draw the borders inside the box. */
+	text-transform: uppercase;
+	background: var(--vscode-positronVariables-headerBackground);
+	border-top: 0.5px solid var(--vscode-positronVariables-grid);
+	border-bottom: 0.5px solid var(--vscode-positronVariables-grid);
+}
+
+.variable-group:hover {
+	background: var(--vscode-positronVariables-rowHoverBackground)
+}
+
+.variable-group.selected {
+	color: var(--vscode-positronVariables-inactiveSelectionForeground);
+	background: var(--vscode-positronVariables-inactiveSelectionBackground);
+}
+
+.variable-group.focused.selected {
+	color: var(--vscode-positronVariables-activeSelectionForeground);
+	background: var(--vscode-positronVariables-activeSelectionBackground);
+}
+
+.variable-group .expand-collapse-area {
+	width: 26px;
+	height: 26px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.variable-group.focused.selected .expand-collapse-icon {
+	color: var(--vscode-positronVariables-activeSelectionForeground);
+}
+
+.variable-group .title {
+	font-weight: 700;
+}

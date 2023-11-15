@@ -1,0 +1,18 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
+ *--------------------------------------------------------------------------------------------*/
+
+.positron-variables .variables-core {
+	width: 100%;
+	position: relative;
+}
+
+.positron-variables .variables-core .variables-instances-container {
+	top: 0;
+	left: 0;
+	position: relative;
+}
+
+.positron-variables .variables-core .variables-instances-container:focus {
+	outline: none !important;
+}

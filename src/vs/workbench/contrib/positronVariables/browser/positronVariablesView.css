@@ -1,0 +1,24 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
+ *--------------------------------------------------------------------------------------------*/
+
+.positron-variables-container {
+	height: 100%;
+	display: flex;
+	flex-direction: column;
+}
+
+.positron-variables-container .variables-action-bars-container {
+	height: min-content;
+}
+
+.positron-variables-container .variables-data-container {
+	flex-grow: 1;
+}
+
+.not-selectable {
+	user-select: none;
+	-ms-user-select: none;
+	-moz-user-select: none;
+	-webkit-user-select: none;
+}
