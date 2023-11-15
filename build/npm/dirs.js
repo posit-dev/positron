@@ -11,6 +11,7 @@ const dirs = [
 	'build',
 	'extensions',
 	// --- Start Positron ---
+	'extensions/positron-connections',
 	'extensions/positron-data-viewer',
 	'extensions/positron-data-viewer/ui',
 	'extensions/positron-javascript',

@@ -1,0 +1,50 @@
+{
+  "name": "positron-connections",
+  "displayName": "%displayName%",
+  "description": "%description%",
+  "version": "0.0.1",
+  "publisher": "vscode",
+  "engines": {
+    "vscode": "^1.65.0"
+  },
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./out/extension.js",
+  "scripts": {
+    "vscode:prepublish": "yarn run compile",
+    "pretest": "yarn run compile && yarn run lint",
+    "lint": "eslint src --ext ts"
+  },
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "positron-connections",
+          "title": "%view.description%",
+          "icon": "media/database.svg"
+        }
+      ]
+    },
+    "views": {
+      "positron-connections": [
+        {
+          "id": "connections",
+          "name": "%view.description%",
+          "icon": "media/database.svg",
+          "contextualTitle": "%view.description%"
+        }
+      ]
+    },
+    "viewsWelcome": [
+      {
+        "view": "connections",
+        "contents": "%view.welcome%"
+      }
+    ]
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/posit-dev/positron"
+  }
+}
