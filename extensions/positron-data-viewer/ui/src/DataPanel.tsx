@@ -218,13 +218,13 @@ export const DataPanel = (props: DataPanelProps) => {
 	}, [positionOverlay]);
 
 	const fetchMorePages = React.useCallback(() => {
-		if (hasPreviousPage) {
-			fetchPreviousPage({cancelRefetch: false});
+		if (hasPreviousPage && !isFetching) {
+			fetchPreviousPage();
 		}
 		// We use else here to avoid fetching both pages simultaneously
 		// The callback will be invoked again after the previous page is fetched
-		else if (hasNextPage) {
-			fetchNextPage({cancelRefetch: false});
+		else if (hasNextPage && !isFetching) {
+			fetchNextPage();
 		}
 	}, [fetchNextPage, fetchPreviousPage, isFetching, hasPreviousPage, hasNextPage]);
 
@@ -239,7 +239,6 @@ export const DataPanel = (props: DataPanelProps) => {
 		const scrollPageBottom = Math.floor(lastVirtualRow / fetchSize);
 		dimensionsRef.current.scrollPageBottom = Math.min(scrollPageBottom, maxPage);
 
-		// Fetch more pages only if necessary
 		fetchMorePages();
 	}, [virtualRows, fetchMorePages]);
 
@@ -310,6 +309,7 @@ export const DataPanel = (props: DataPanelProps) => {
 								//ref={rowVirtualizer.measureElement}
 							>
 							{
+								!hasNextPage && !hasPreviousPage && !isFetching ?
 								row.getVisibleCells().map(cell => {
 									return (
 										<td key={cell.id}>
@@ -319,7 +319,8 @@ export const DataPanel = (props: DataPanelProps) => {
 											)}
 										</td>
 									);
-								})
+								}) :
+								null
 							}
 							</tr>
 						);
