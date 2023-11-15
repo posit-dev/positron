@@ -109,6 +109,6 @@ export interface DataViewerMessageRowResponse extends DataViewerMessage {
  * - `initial_data`: Initial data to be displayed in the data viewer.
  * - `request_rows`: The data viewer is requesting additional data from the host.
  * - `receive_rows`: The data viewer is receiving additional data from the host.
+ * - `canceled_request`: The host has canceled a request for data from the data viewer.
  */
 export type DataViewerMessageType = 'ready' | 'initial_data' | 'request_rows' | 'receive_rows' | 'canceled_request';
-

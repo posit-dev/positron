@@ -82,6 +82,12 @@ export interface DataViewerMessage {
 export interface DataViewerMessageRowRequest extends DataViewerMessage { }
 
 /**
+ * A message sent from the host to the data viewer indicating that
+ * the data viewer's request for a specific batch of data has been canceled.
+ */
+export interface DataViewerMessageCanceled extends DataViewerMessage { }
+
+/**
  * A message sent from the host to the data viewer containing a batch of rows
  * to be rendered in the data viewer.
  */
@@ -103,5 +109,6 @@ export interface DataViewerMessageRowResponse extends DataViewerMessage {
  * - `initial_data`: Initial data to be displayed in the data viewer.
  * - `request_rows`: The data viewer is requesting additional data from the host.
  * - `receive_rows`: The data viewer is receiving additional data from the host.
+ * - `canceled_request`: The host has canceled a request for data from the data viewer.
  */
-export type DataViewerMessageType = 'ready' | 'initial_data' | 'request_rows' | 'receive_rows';
+export type DataViewerMessageType = 'ready' | 'initial_data' | 'request_rows' | 'receive_rows' | 'canceled_request';
