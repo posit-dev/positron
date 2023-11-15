@@ -101,8 +101,7 @@ export const DataPanel = (props: DataPanelProps) => {
 	const initialDataFragment: DataFragment = new DataFragment(initialData.columns, 0, Math.min(fetchSize, totalRows));
 
 	// Use a React Query infinite query to fetch data from the data model
-	const {data, fetchNextPage, fetchPreviousPage, isFetching
-		, hasNextPage, hasPreviousPage
+	const {data, fetchNextPage, fetchPreviousPage, isFetching, hasNextPage, hasPreviousPage
 	} = ReactQuery.useInfiniteQuery(
 	{
 		queryKey: ['table-data'],
@@ -143,7 +142,7 @@ export const DataPanel = (props: DataPanelProps) => {
 		const flatData = Array(totalRows).fill(emptyRow);
 
 		// We don't expect pages to be in order, but we do expect that there aren't duplicates
-		// That shouldn't be possible based on our current implementation of getNext/PrevPageParams,
+		// That shouldn't be possible based on our implementation of getNext/PrevPageParams,
 		// but we check anyway to future-proof against changes to the query logic
 		const allPages = new Set(data.pageParams);
 		if (allPages.size !== data.pageParams.length) {
