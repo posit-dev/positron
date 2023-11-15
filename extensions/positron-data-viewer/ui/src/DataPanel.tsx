@@ -14,6 +14,7 @@ import * as ReactTable from '@tanstack/react-table';
 import { DataFragment } from './DataFragment';
 import { DataFetcher, ResolverLookup } from './fetchData';
 import { DataSet } from './positron-data-viewer';
+import * as M from 'minimatch';
 
 interface DataPanelProps {
 	/**
@@ -226,27 +227,10 @@ export const DataPanel = (props: DataPanelProps) => {
 		// when the table doesn't take up the full width of the container
 		dimensionsRef.current.overlayLeft = Math.min(headerWidth, clientWidth) / 2;
 
-		// Extract the height in pixels of the bottom of each page from the last page in the row
-		// Using the measurements cache means we don't make assumptions about the height of each row
-		const pageBoundaries = Array.from({ length: maxPage }, (_, page) => {
-				const firstRowOnPage = page * fetchSize;
-				const lastRowOnPage = firstRowOnPage + (fetchSize - scrollOverscan);
-				const end = rowVirtualizer.measurementsCache[lastRowOnPage]?.end ?? 0;
-				const start = rowVirtualizer.measurementsCache[firstRowOnPage]?.start ?? 0;
-				return {start, end};
-			}
-		);
-
-		const scrollPageTop = pageBoundaries.findIndex(
-			page => page.start > (scrollTop + headerHeight)
-		) - 1;
-		const scrollPageBottom = scrollPageTop + (
-			// start with the scroll page of the top of the viewport so we don't iterate twice
-			// scrollPageBottom will always be >= scrollPageTop
-			pageBoundaries.slice(scrollPageTop).findIndex(
-				page => page.end > (scrollTop + clientHeight)
-			)
-		);
+		const firstVirtualRow = virtualRows?.[0]?.index ?? 0;
+		const lastVirtualRow = virtualRows?.[virtualRows.length - 1]?.index ?? 0;
+		const scrollPageTop = Math.floor(firstVirtualRow / fetchSize);
+		const scrollPageBottom = Math.floor(lastVirtualRow / fetchSize);
 
 		// scroll page cannot exceed the total number of pages of data
 		dimensionsRef.current.scrollPageBottom = Math.min(scrollPageBottom, maxPage);
