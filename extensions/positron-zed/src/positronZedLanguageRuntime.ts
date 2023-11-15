@@ -1074,7 +1074,15 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 			return;
 		}
 
-		// It wasn't either one! Give up.
+		// See if this ID is a known plot
+		const connection = this._connections.get(client_id);
+		if (connection) {
+			this._pendingRpcs.push(message_id);
+			connection.handleMessage(message);
+			return;
+		}
+
+		// It wasn't any of these! Give up.
 		throw new Error(`Can't send message; unknown client id ${client_id}`);
 	}
 
