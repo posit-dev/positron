@@ -28,6 +28,9 @@ class ConnectionItemsProvider implements vscode.TreeDataProvider<string> {
 	}
 
 	getChildren(element?: string): Thenable<string[]> {
+		if (element) {
+			return Promise.resolve([]);
+		}
 		return Promise.resolve(this._connections);
 	}
 }
@@ -46,10 +49,9 @@ export function activate(context: vscode.ExtensionContext) {
 	context.subscriptions.push(
 		positron.runtime.registerClientHandler({
 			clientType: 'positron.connection',
-			callback: (client, params: object) => {
+			callback: (client, params: any) => {
 				// Presume that the params are a connection name
-				const name = params as any as string;
-				connectionProvider.addConnection(name);
+				connectionProvider.addConnection(params.name);
 				return true;
 			}
 		}));

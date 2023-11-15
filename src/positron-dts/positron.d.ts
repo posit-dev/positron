@@ -625,7 +625,8 @@ declare module 'positron' {
 		clientType: string;
 
 		/**
-		 * A callback that is called when a client of the given type is created.
+		 * A callback that is called when a client of the given type is created;
+		 * returns whether the handler took ownership of the client.
 		 */
 		callback: RuntimeClientHandlerCallback;
 	}

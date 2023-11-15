@@ -13,6 +13,7 @@ import { ZedPreview } from './positronZedPreview';
 import { ZedEnvironment } from './positronZedEnvironment';
 import { makeCUB, makeCUF, makeCUP, makeED, makeEL, makeSGR, SGR } from './ansi';
 import { ZedFrontend } from './positronZedFrontend';
+import { ZedConnection } from './positronZedConnection';
 
 /**
  * Constants.
@@ -51,6 +52,7 @@ const HelpLines = [
 	'busy X Y       - Simulates an interuptible busy state for X seconds that takes Y seconds to interrupt (default X = 5, Y = 1)',
 	'cd X           - Changes the current working directory to X, or to a random directory if X is not specified',
 	'clock          - Show a plot containing a clock, using the notebook renderer API',
+	'connection X   - Create a database connection, optionally named X',
 	'code X Y       - Simulates a successful X line input with Y lines of output (where X >= 1 and Y >= 0)',
 	'crash          - Simulates a crash',
 	'env clear      - Clears all variables from the environment',
@@ -134,6 +136,11 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 	 * A map of environment IDs to environment instances.
 	 */
 	private readonly _environments: Map<string, ZedEnvironment> = new Map();
+
+	/*
+	 * A map of connection IDs to connection instances.
+	 */
+	private readonly _connections: Map<string, ZedConnection> = new Map();
 
 	/**
 	 * The currently connected frontend, if any
@@ -420,6 +427,12 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 		} else if (match = code.match(/^cd( .+)?/)) {
 			const directory = (match.length > 1 && match[1]) ? match[1].trim() : '';
 			this.simulateDirectoryChange(id, code, directory);
+			return;
+		} else if (match = code.match(/^connection( .+)?/)) {
+			// Simulate a connection
+			const title = (match.length > 1 && match[1]) ? match[1].trim() :
+				`Connection ${this._connections.size + 1}`;
+			this.simulateConnection(id, code, title);
 			return;
 		}
 
@@ -989,6 +1002,11 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 		if (!type || type === positron.RuntimeClientType.Plot) {
 			for (const plot of this._plots.values()) {
 				clients[plot.id] = positron.RuntimeClientType.Plot;
+			}
+		}
+		if (!type || type === positron.RuntimeClientType.Connection) {
+			for (const connection of this._connections.values()) {
+				clients[connection.id] = positron.RuntimeClientType.Connection;
 			}
 		}
 		if (!type || type === positron.RuntimeClientType.DataViewer) {
@@ -1675,6 +1693,51 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 	}
 
 	/**
+	 * Simulates a database connection.
+	 *
+	 * @param parentId The parent identifier.
+	 * @param code The code.
+	 * @param name The name of the connection.
+	 */
+	private simulateConnection(parentId: string, code: string, name: string) {
+		// Enter busy state and output the code.
+		this.simulateBusyState(parentId);
+		this.simulateInputMessage(parentId, code);
+
+		// Create the connection client comm.
+		const connection = new ZedConnection(name);
+		this.connectClientEmitter(connection);
+		this._connections.set(connection.id, connection);
+
+		// Send the comm open message to the client.
+		this._onDidReceiveRuntimeMessage.fire({
+			id: randomUUID(),
+			parent_id: parentId,
+			when: new Date().toISOString(),
+			type: positron.LanguageRuntimeMessageType.CommOpen,
+			comm_id: connection.id,
+			target_name: 'positron.connection',
+			data: {
+				name: name
+			}
+		} as positron.LanguageRuntimeCommOpen);
+
+		// Emit text output so something shows up in the console.
+		this._onDidReceiveRuntimeMessage.fire({
+			id: randomUUID(),
+			parent_id: parentId,
+			when: new Date().toISOString(),
+			type: positron.LanguageRuntimeMessageType.Output,
+			data: {
+				'text/plain': `<ZedConnection '${name}'>`
+			} as Record<string, string>
+		} as positron.LanguageRuntimeOutput);
+
+		// Return to idle state.
+		this.simulateIdleState(parentId);
+	}
+
+	/**
 	 * Simulates a progress bar.
 	 * @param parentId The parent identifier.
 	 * @param code The code.
@@ -1864,7 +1927,7 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 	 *
 	 * @param client The environment or plot to connect
 	 */
-	private connectClientEmitter(client: ZedEnvironment | ZedPlot | ZedData | ZedFrontend) {
+	private connectClientEmitter(client: ZedEnvironment | ZedPlot | ZedData | ZedFrontend | ZedConnection) {
 
 		// Listen for data emitted from the environment instance
 		client.onDidEmitData(data => {
