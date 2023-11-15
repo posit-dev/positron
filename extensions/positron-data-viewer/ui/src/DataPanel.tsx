@@ -146,11 +146,12 @@ export const DataPanel = (props: DataPanelProps) => {
 			const page = data.pages[index];
 			if (page && page.columns.length) {
 				const {rowStart, rowEnd} = page;
-				flatData.splice(rowStart, rowEnd - rowStart, ...page.transpose());
+				flatData.splice(rowStart, rowEnd - rowStart + 1, ...page.transpose());
 			}
 		});
 		return flatData;
 	}, [data]);
+	console.log(`flatData: ${flatData.length} rows`);
 
 	// Define the main ReactTable instance.
 	const table = ReactTable.useReactTable(
