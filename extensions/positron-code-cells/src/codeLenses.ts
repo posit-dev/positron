@@ -8,29 +8,26 @@ import { IGNORED_SCHEMES } from './extension';
 
 function runCellCodeLens(range: vscode.Range, line: number): vscode.CodeLens {
 	return new vscode.CodeLens(range, {
-		title: '$(run) Run Cell',
+		title: vscode.l10n.t('$(run) Run Cell'),
 		command: 'positron.runCurrentCell',
 		arguments: [line],
 	});
 }
 
-
 function runAboveCodeLens(range: vscode.Range, line: number): vscode.CodeLens {
 	return new vscode.CodeLens(range, {
-		title: 'Run Above',
+		title: vscode.l10n.t('Run Above'),
 		command: 'positron.runCellsAbove',
 		arguments: [line],
 	});
 }
 
 function runNextCodeLens(range: vscode.Range, line: number): vscode.CodeLens {
-	return new vscode.CodeLens(
-		range,
-		{
-			title: 'Run Next',
-			command: 'positron.runNextCell',
-			arguments: [line],
-		});
+	return new vscode.CodeLens(range, {
+		title: vscode.l10n.t('Run Next'),
+		command: 'positron.runNextCell',
+		arguments: [line],
+	});
 }
 
 export function registerCodeLensProvider(context: vscode.ExtensionContext): void {
