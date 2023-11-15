@@ -5,7 +5,7 @@
 import 'vs/css!./runtimeRestartButton';
 import * as nls from 'vs/nls';
 import * as React from 'react';
-import { RuntimeItemRestartButton } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemRestartButton';
+import { RuntimeItemRestartButton } from 'vs/workbench/services/positronConsole/browser/classes/runtimeItemRestartButton';
 
 // RuntimeRestartButtonProps interface.
 export interface RuntimeRestartButtonProps {

@@ -3,12 +3,13 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { ANSIOutput, ANSIOutputLine } from 'vs/base/common/ansiOutput';
-import { RuntimeItem } from 'vs/workbench/services/positronConsole/common/classes/runtimeItem';
+import { RuntimeItem } from 'vs/workbench/services/positronConsole/browser/classes/runtimeItem';
+import { RuntimeExitReason } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 
 /**
- * RuntimeItemStarted class.
+ * RuntimeItemExited class.
  */
-export class RuntimeItemStarted extends RuntimeItem {
+export class RuntimeItemExited extends RuntimeItem {
 	//#region Public Properties
 
 	/**
@@ -23,9 +24,12 @@ export class RuntimeItemStarted extends RuntimeItem {
 	/**
 	 * Constructor.
 	 * @param id The identifier.
-	 * @param message The message.
+	 * @param reason The exit reason.
+	 * @param message A message to display.
 	 */
-	constructor(id: string, message: string) {
+	constructor(id: string,
+		readonly reason: RuntimeExitReason,
+		message: string) {
 		// Call the base class's constructor.
 		super(id);
 

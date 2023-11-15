@@ -26,25 +26,25 @@ import { RuntimeExited } from 'vs/workbench/contrib/positronConsole/browser/comp
 import { RuntimeStartup } from 'vs/workbench/contrib/positronConsole/browser/components/runtimeStartup';
 import { RuntimeStarted } from 'vs/workbench/contrib/positronConsole/browser/components/runtimeStarted';
 import { RuntimeOffline } from 'vs/workbench/contrib/positronConsole/browser/components/runtimeOffline';
-import { RuntimeItemTrace } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemTrace';
+import { RuntimeItemTrace } from 'vs/workbench/services/positronConsole/browser/classes/runtimeItemTrace';
 import { RuntimeStarting } from 'vs/workbench/contrib/positronConsole/browser/components/runtimeStarting';
 import { RuntimeActivity } from 'vs/workbench/contrib/positronConsole/browser/components/runtimeActivity';
-import { RuntimeItemExited } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemExited';
-import { RuntimeItemStartup } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemStartup';
-import { RuntimeItemStarted } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemStarted';
-import { RuntimeItemOffline } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemOffline';
-import { RuntimeItemStarting } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemStarting';
-import { RuntimeItemActivity } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemActivity';
+import { RuntimeItemExited } from 'vs/workbench/services/positronConsole/browser/classes/runtimeItemExited';
+import { RuntimeItemStartup } from 'vs/workbench/services/positronConsole/browser/classes/runtimeItemStartup';
+import { RuntimeItemStarted } from 'vs/workbench/services/positronConsole/browser/classes/runtimeItemStarted';
+import { RuntimeItemOffline } from 'vs/workbench/services/positronConsole/browser/classes/runtimeItemOffline';
+import { RuntimeItemStarting } from 'vs/workbench/services/positronConsole/browser/classes/runtimeItemStarting';
+import { RuntimeItemActivity } from 'vs/workbench/services/positronConsole/browser/classes/runtimeItemActivity';
 import { usePositronConsoleContext } from 'vs/workbench/contrib/positronConsole/browser/positronConsoleContext';
 import { RuntimeReconnected } from 'vs/workbench/contrib/positronConsole/browser/components/runtimeReconnected';
 import { RuntimePendingInput } from 'vs/workbench/contrib/positronConsole/browser/components/runtimePendingInput';
 import { RuntimeRestartButton } from 'vs/workbench/contrib/positronConsole/browser/components/runtimeRestartButton';
-import { RuntimeItemReconnected } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemReconnected';
+import { RuntimeItemReconnected } from 'vs/workbench/services/positronConsole/browser/classes/runtimeItemReconnected';
 import { RuntimeStartupFailure } from 'vs/workbench/contrib/positronConsole/browser/components/runtimeStartupFailure';
-import { RuntimeItemPendingInput } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemPendingInput';
-import { RuntimeItemRestartButton } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemRestartButton';
-import { IPositronConsoleInstance } from 'vs/workbench/services/positronConsole/common/interfaces/positronConsoleService';
-import { RuntimeItemStartupFailure } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemStartupFailure';
+import { RuntimeItemPendingInput } from 'vs/workbench/services/positronConsole/browser/classes/runtimeItemPendingInput';
+import { RuntimeItemRestartButton } from 'vs/workbench/services/positronConsole/browser/classes/runtimeItemRestartButton';
+import { IPositronConsoleInstance } from 'vs/workbench/services/positronConsole/browser/interfaces/positronConsoleService';
+import { RuntimeItemStartupFailure } from 'vs/workbench/services/positronConsole/browser/classes/runtimeItemStartupFailure';
 import { POSITRON_CONSOLE_COPY, POSITRON_CONSOLE_CUT, POSITRON_CONSOLE_PASTE, POSITRON_CONSOLE_SELECT_ALL } from 'vs/workbench/contrib/positronConsole/browser/positronConsoleIdentifiers';
 
 // ConsoleInstanceProps interface.

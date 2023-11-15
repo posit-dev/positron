@@ -2,7 +2,7 @@
  *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
-import { RuntimeItem } from 'vs/workbench/services/positronConsole/common/classes/runtimeItem';
+import { RuntimeItem } from 'vs/workbench/services/positronConsole/browser/classes/runtimeItem';
 
 /**
  * RuntimeItemRestartButton class.

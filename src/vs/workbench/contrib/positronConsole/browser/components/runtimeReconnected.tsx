@@ -5,7 +5,7 @@
 import 'vs/css!./runtimeReconnected';
 import * as React from 'react';
 import { OutputLines } from 'vs/workbench/contrib/positronConsole/browser/components/outputLines';
-import { RuntimeItemReconnected } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemReconnected';
+import { RuntimeItemReconnected } from 'vs/workbench/services/positronConsole/browser/classes/runtimeItemReconnected';
 
 // RuntimeReconnectedProps interface.
 export interface RuntimeReconnectedProps {

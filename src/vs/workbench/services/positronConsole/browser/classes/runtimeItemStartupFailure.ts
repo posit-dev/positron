@@ -3,7 +3,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { ANSIOutput, ANSIOutputLine } from 'vs/base/common/ansiOutput';
-import { RuntimeItem } from 'vs/workbench/services/positronConsole/common/classes/runtimeItem';
+import { RuntimeItem } from 'vs/workbench/services/positronConsole/browser/classes/runtimeItem';
 
 /**
  * RuntimeItemStartupFailure class.

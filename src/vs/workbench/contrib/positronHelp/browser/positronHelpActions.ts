@@ -21,7 +21,7 @@ import { KeybindingWeight } from 'vs/platform/keybinding/common/keybindingsRegis
 import { EditorContextKeys } from 'vs/editor/common/editorContextKeys';
 import { PositronConsoleFocused } from 'vs/workbench/common/contextkeys';
 import { ContextKeyExpr } from 'vs/platform/contextkey/common/contextkey';
-import { IPositronConsoleService } from 'vs/workbench/services/positronConsole/common/interfaces/positronConsoleService';
+import { IPositronConsoleService } from 'vs/workbench/services/positronConsole/browser/interfaces/positronConsoleService';
 
 export class ShowHelpAtCursor extends Action2 {
 	constructor() {
