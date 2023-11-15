@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
 declare module 'positron' {
@@ -416,6 +416,7 @@ declare module 'positron' {
 		DataViewer = 'positron.dataViewer',
 		FrontEnd = 'positron.frontEnd',
 		Help = 'positron.help',
+		Connection = 'positron.connection'
 
 		// Future client types may include:
 		// - Watch window/variable explorer
