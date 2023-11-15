@@ -206,6 +206,32 @@ declare module 'positron' {
 	}
 
 	/**
+	 * The set of possible output locations for a LanguageRuntimeOutput.
+	 */
+	export enum PositronOutputLocation {
+		/** The output should be displayed inline in Positron's Console */
+		Console = 'console',
+
+		/** The output should be displayed in Positron's Viewer pane */
+		Viewer = 'viewer',
+
+		/** The output should be displayed in Positron's Plots pane */
+		Plot = 'plot',
+	}
+
+	/**
+	 * LanguageRuntimeWebOutput amends LanguageRuntimeOutput with additional information needed
+	 * to render web content in Positron.
+	 */
+	export interface LanguageRuntimeWebOutput extends LanguageRuntimeOutput {
+		/** Where the web output should be displayed */
+		output_location: PositronOutputLocation;
+
+		/** The set of resource roots needed to display the output */
+		resource_roots: vscode.Uri[];
+	}
+
+	/**
 	 * The set of standard stream names supported for streaming textual output.
 	 */
 	export enum LanguageRuntimeStreamName {
@@ -936,5 +962,6 @@ declare module 'positron' {
 		 * An event that fires when a new runtime is registered.
 		 */
 		export const onDidRegisterRuntime: vscode.Event<LanguageRuntime>;
+
 	}
 }

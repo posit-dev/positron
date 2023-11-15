@@ -4,6 +4,7 @@
 
 import { Event } from 'vs/base/common/event';
 import { IDisposable } from 'vs/base/common/lifecycle';
+import { URI, UriComponents } from 'vs/base/common/uri';
 import { ExtensionIdentifier } from 'vs/platform/extensions/common/extensions';
 import { createDecorator } from 'vs/platform/instantiation/common/instantiation';
 import { IRuntimeClientInstance, RuntimeClientType } from 'vs/workbench/services/languageRuntime/common/languageRuntimeClientInstance';
@@ -97,6 +98,32 @@ export interface ILanguageRuntimeMessageOutput extends ILanguageRuntimeMessage {
 
 	/** A record of data MIME types to the associated data, e.g. `text/plain` => `'hello world'` */
 	readonly data: Record<string, string>;
+}
+
+/**
+ * The set of possible output locations for a LanguageRuntimeWebOutput.
+ */
+export enum PositronOutputLocation {
+	/** The output should be displayed inline in Positron's Console */
+	Console = 'console',
+
+	/** The output should be displayed in Positron's Viewer pane */
+	Viewer = 'viewer',
+
+	/** The output should be displayed in Positron's Plots pane */
+	Plot = 'plot',
+}
+
+/**
+ * LanguageRuntimeWebOutput amends LanguageRuntimeOutput with additional information needed
+ * to render web content in Positron.
+ */
+export interface ILanguageRuntimeMessageWebOutput extends ILanguageRuntimeMessageOutput {
+	/** Where the web output should be displayed */
+	output_location: PositronOutputLocation | undefined;
+
+	/** The set of resource roots needed to display the output */
+	resource_roots: UriComponents[] | undefined;
 }
 
 /**
@@ -519,6 +546,11 @@ export interface ILanguageRuntimeDynState {
 	busy: boolean;
 }
 
+/**
+ * A provider for local resource roots.
+ */
+export type RuntimeResourceRootProvider = (mimeType: string, data: any) => Promise<URI[]>;
+
 export interface ILanguageRuntime {
 	/** The language runtime's static metadata */
 	readonly metadata: ILanguageRuntimeMetadata;
@@ -699,6 +731,6 @@ export interface ILanguageRuntimeService {
 	 * @param source The source of the request to restart the runtime, for debugging purposes.
 	 */
 	restartRuntime(runtimeId: string, source: string): Promise<void>;
-
 }
+
 export { RuntimeClientType, IRuntimeClientInstance };
