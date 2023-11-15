@@ -136,14 +136,18 @@ export const DataPanel = (props: DataPanelProps) => {
 		// If we have skipped over pages while scrolling, those pages will not exist
 		// So we need to iterate over all indices from 0 to the max page in pageParams
 		// and insert empty placeholder rows for the missing pages
-		const highestPage = Math.max(...data?.pageParams as number[]) ?? 0;
+		if (!data.pages.length || !data.pageParams) {
+			return [];
+		}
+
+		const highestPage = Math.max(...data.pageParams as number[]);
 		const allPages = Array.from({ length: highestPage + 1 }, (_, pageParam) => pageParam);
-		const numColumns = data?.pages?.[0]?.columns.length ?? 0;
+		const numColumns = data.pages[0].columns.length ?? 0;
 		const emptyPage = Array(fetchSize).fill(Array(numColumns).fill(null));
 
 		return allPages.flatMap(pageParam => {
-			const index = data?.pageParams?.indexOf(pageParam) ?? -1;
-			const page = data?.pages?.[index];
+			const index = data.pageParams.indexOf(pageParam);
+			const page = data.pages[index];
 
 			if (!page || !page.columns.length ) {
 				// No data for this page, fill to correct dimensions with empty data
@@ -308,7 +312,7 @@ export const DataPanel = (props: DataPanelProps) => {
 						const row = rows[virtualRow.index] as ReactTable.Row<any>;
 
 						return (
-							<tr key={row.id} style={{ height: `${rowHeightPx}px` }}>
+							<tr key={row.id} style={{ minHeight: `${rowHeightPx}px` }}>
 							{
 								row.getVisibleCells().map(cell => {
 									return (

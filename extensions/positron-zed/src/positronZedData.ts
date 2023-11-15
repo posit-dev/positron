@@ -109,7 +109,6 @@ export class ZedData implements DataSet {
 			this._onDidEmitData.fire(response);
 		}
 		else {
-			console.log(`Request ${message.start_row} canceled by backend`);
 			this._onDidEmitData.fire({
 				msg_type: 'canceled_request',
 				start_row: message.start_row,

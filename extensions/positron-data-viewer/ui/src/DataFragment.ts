@@ -36,21 +36,23 @@ export class DataFragment {
 		const isValidRequest = (
 			// Ignore non-data messages
 			(message.msg_type === 'receive_rows' || message.msg_type === 'canceled_request') &&
-			// Ignore requests that have already been fulfilled (i.e. are not in the queue)
+			// Ignore requests that have already been fulfilled (i.e. are not in the queue anymore)
 			requestQueue.length &&
 			queuePosition !== -1
 		);
 
 		if (!isValidRequest) {
-			return undefined;
+			return;
 		}
 
 		// If this request has been canceled by the backend or is not within the n most recently made requests,
 		// reject the promise and remove it from the queue
 		if (message.msg_type === 'canceled_request' || queuePosition >= this.queueSize) {
 			requestQueue.splice(queuePosition, 1);
-			requestResolvers[message.start_row].reject('Request canceled');
-			return undefined;
+			requestResolvers[message.start_row].reject(
+				`Request for rows ${message.start_row} to ${message.start_row + message.fetch_size - 1} canceled`
+			);
+			return;
 		}
 
 		const dataMessage = message as DataViewerMessageRowResponse;
@@ -59,7 +61,6 @@ export class DataFragment {
 		// Resolve the promise and remove this request from the queue
 		requestQueue.splice(queuePosition, 1);
 		requestResolvers[message.start_row].resolve(incrementalData);
-		return incrementalData;
 	}
 
 	public transpose() {
