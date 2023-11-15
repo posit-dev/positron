@@ -143,9 +143,10 @@ export const DataPanel = (props: DataPanelProps) => {
 		const highestPage = Math.max(...data.pageParams as number[]);
 		const allPages = Array.from({ length: highestPage + 1 }, (_, pageParam) => pageParam);
 		const numColumns = data.pages[0].columns.length ?? 0;
-		const emptyPage = Array(fetchSize).fill(Array(numColumns).fill(null));
+		const emptyRow = Array(numColumns).fill(null);
+		const emptyPage = Array(fetchSize).fill(emptyRow);
 
-		return allPages.flatMap(pageParam => {
+		const flatData = allPages.flatMap(pageParam => {
 			const index = data.pageParams.indexOf(pageParam);
 			const page = data.pages[index];
 
@@ -156,7 +157,20 @@ export const DataPanel = (props: DataPanelProps) => {
 				return page.transpose();
 			}
 		});
+		const remainingRows = totalRows - flatData.length;
+		if (remainingRows > 0)
+		{
+			flatData.push(...Array(remainingRows).fill(emptyRow));
+		}
+		return flatData;
 	}, [data]);
+
+	React.useEffect(() => {
+		console.log(`flatData length: ${flatData.length}}`);
+		console.log(`totalRows: ${totalRows}}`);
+		const actualRows = flatData.filter(row => row.some((cell:any) => cell !== null));
+		console.log(`flatData actual data: ${actualRows.length}`);
+	}, [flatData]);
 
 	// Define the main ReactTable instance.
 	const table = ReactTable.useReactTable(
