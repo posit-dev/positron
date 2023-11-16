@@ -39,11 +39,9 @@ async function createWatchers(
 	const dotRWatcher = vscode.workspace.createFileSystemWatcher(dotRPattern);
 
 	dotRWatcher.onDidCreate((uri) => {
-		vscode.window.showInformationMessage('Detected creation of tests/testthat.R!');
 		refreshTestthatStatus();
 	});
 	dotRWatcher.onDidDelete((uri) => {
-		vscode.window.showInformationMessage('Detected deletion of tests/testthat.R!');
 		refreshTestthatStatus();
 	});
 
@@ -53,7 +51,6 @@ async function createWatchers(
 	const folderWatcher = vscode.workspace.createFileSystemWatcher(folderPattern);
 
 	folderWatcher.onDidDelete((uri) => {
-		vscode.window.showInformationMessage('Detected deletion of tests/ folder');
 		refreshTestthatStatus();
 	});
 
@@ -62,16 +59,14 @@ async function createWatchers(
 	const testFileWatcher = vscode.workspace.createFileSystemWatcher(testFilePattern);
 
 	testFileWatcher.onDidCreate((uri) => {
-		vscode.window.showInformationMessage('Detected file creation!');
 		getOrCreateFileItem(testingTools, uri);
-		// important to know if we go from 0 to 1 test files
+		// important to know when we go from 0 to 1 test file
 		refreshTestthatStatus();
 	});
 	testFileWatcher.onDidChange((uri) => parseTestsFromFile(testingTools, getOrCreateFileItem(testingTools, uri)));
 	testFileWatcher.onDidDelete((uri) => {
-		vscode.window.showInformationMessage('Detected file deletion!');
 		testingTools.controller.items.delete(uri.path);
-		// important to know if we drop to 1 test files
+		// important to know if there are no test files left
 		refreshTestthatStatus();
 	});
 
