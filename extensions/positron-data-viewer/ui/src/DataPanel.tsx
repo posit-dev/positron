@@ -180,7 +180,6 @@ export const DataPanel = (props: DataPanelProps) => {
 		count: rows.length,
 		getScrollElement: () => tableContainerRef.current,
 		// This is just an initial estimate of row height
-		// The height of each row will be measured dynamically as it is rendered
 		estimateSize: () => rowHeightPx,
 		overscan: scrollOverscan
 	});
@@ -241,8 +240,7 @@ export const DataPanel = (props: DataPanelProps) => {
 		const lastVirtualRow = virtualRows?.[virtualRows.length - 1]?.index ?? 0;
 		const bottom = Math.min(Math.floor(lastVirtualRow / fetchSize), maxPage);
 		setScrollPages({top, bottom});
-		fetchMorePages();
-	}, [virtualRows, fetchMorePages]);
+	}, [virtualRows]);
 
 	React.useEffect(() => {
 		// Make sure we've caught up with the latest scroll position
@@ -250,7 +248,8 @@ export const DataPanel = (props: DataPanelProps) => {
 		// Also ensures that we fetch both the previous and next page if both are needed
 		// (i.e. the viewport crosses a page boundary)
 		updateScroll();
-	}, [updateScroll]);
+		fetchMorePages();
+	}, [updateScroll, fetchMorePages]);
 
 	return (
 		<div
@@ -308,9 +307,7 @@ export const DataPanel = (props: DataPanelProps) => {
 							<tr
 								key={virtualRow.key}
 								data-index={virtualRow.index}
-								style={{
-									height: `${virtualRow.size}px`
-								}}
+								style={{height: `${virtualRow.size}px`}}
 								//ref={rowVirtualizer.measureElement}
 							>
 							{
