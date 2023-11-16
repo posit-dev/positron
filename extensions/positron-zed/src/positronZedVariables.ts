@@ -38,7 +38,7 @@ class ZedVariable {
 		this.type_info = `'${this.display_type} (${this.kind}), ${this.size} bytes'`;
 
 		// The Zed language has a sample type named 'blob' that has its own Zed
-		// type, ZedBLOB, but is represented as a 'vector' in the environment.
+		// type, ZedBLOB, but is represented as a 'vector' in the variables.
 		if (this.kind === 'blob') {
 			this.kind = 'vector';
 		}
@@ -53,9 +53,10 @@ class ZedVariable {
 }
 
 /**
- * ZedEnvironment is a synthetic environment backend for the Zed language containing a set of ZedVariables.
+ * ZedVariables is a synthetic variables backend for the Zed language containing a set of
+ * ZedVariables.
  */
-export class ZedEnvironment {
+export class ZedVariables {
 
 	/**
 	 * Emitter that handles outgoing messages to the front end
@@ -74,15 +75,15 @@ export class ZedEnvironment {
 	private _varCounter = 1;
 
 	/**
-	 * The maximum number of variables to return when listing the environment. This is
+	 * The maximum number of variables to return when listing the variables. This is
 	 * configurable using the `env max` Zed command.
 	 */
 	private _maxVarDisplay = 1024;
 
 	/**
-	 * Creates a new ZedEnvironment backend
+	 * Creates a new ZedVariables backend
 	 *
-	 * @param id The ID of the environment client instance
+	 * @param id The ID of the variables client instance
 	 */
 	constructor(readonly id: string,
 		private readonly zedVersion: string,
@@ -101,9 +102,9 @@ export class ZedEnvironment {
 			this.zedVersion.length));
 
 		setTimeout(() => {
-			// List the environment on the first tick after startup. There's no
-			// reason we couldn't do this immediately, but waiting a tick simulates the
-			// behavior of a "real" language more accuratley.
+			// List the variables on the first tick after startup. There's no reason we couldn't do
+			// this immediately, but waiting a tick simulates the behavior of a "real" language more
+			// accuratley.
 
 			this.emitFullList();
 		});
@@ -117,12 +118,12 @@ export class ZedEnvironment {
 	public handleMessage(message_id: string, message: any) {
 		switch (message.msg_type) {
 
-			// A request to refresh the environment by sending a full list to the front end
+			// A request to refresh the variables by sending a full list to the front end
 			case 'refresh':
 				this.emitFullList();
 				break;
 
-			// A request to clear the environment
+			// A request to clear
 			case 'clear':
 				this.clearAllVars();
 				break;
@@ -174,14 +175,14 @@ export class ZedEnvironment {
 	}
 
 	/**
-	 * Updates some number of variables in the environment
+	 * Updates some number of variables
 	 *
 	 * @param count The number of variables to update
 	 * @returns The number of variables that were updated
 	 */
 	public updateVars(count: number): number {
-		// We can't update more variables than we have, so clamp the count to
-		// the number of variables in the environment.
+		// We can't update more variables than we have, so clamp the count to the number of
+		// variables
 		if (count > this._vars.size) {
 			count = this._vars.size;
 		}
@@ -268,8 +269,8 @@ export class ZedEnvironment {
 	 * @returns The number of variables that were removed
 	 */
 	public removeVars(count: number): number {
-		// We can't remove more variables than we have, so clamp the count to
-		// the number of variables in the environment.
+		// We can't remove more variables than we have, so clamp the count to the number of
+		// variables
 		if (count > this._vars.size) {
 			count = this._vars.size;
 		}
@@ -287,7 +288,7 @@ export class ZedEnvironment {
 	}
 
 	/**
-	 * Clears all variables from the environment
+	 * Clears all variables
 	 */
 	public clearAllVars() {
 		// Clear the variables
@@ -298,7 +299,7 @@ export class ZedEnvironment {
 	}
 
 	/**
-	 * Deletes the variables with the given names from the environment
+	 * Deletes the variables with the given names
 	 */
 	public deleteVars(names: string[]) {
 		const removed = [];
@@ -361,7 +362,7 @@ export class ZedEnvironment {
 	 * Emits a full list of variables to the front end
 	 */
 	private emitFullList() {
-		// Create a list of all the variables in the environment
+		// Create a list of all the variables
 		const vars = Array.from(this._vars.values());
 
 		// Clamp the number of variables we are about to return to the maximum
@@ -472,8 +473,7 @@ export class ZedEnvironment {
 	 * @returns An array of keys representing the names of the selected variables
 	 */
 	private selectRandomKeys(count: number): Array<string> {
-		// Make a list of variables; we randomly select variables from the
-		// environment until we have the desired number.
+		// Make a list of variables; we randomly select variables until we have the desired number.
 		const keys = Array.from(this._vars.keys());
 		const randomKeys = [];
 		for (let i = 0; i < count; i++) {
