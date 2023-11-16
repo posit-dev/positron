@@ -132,7 +132,7 @@ export enum PositronOutputLocation {
  * "positron".
  */
 export enum RuntimeClientType {
-	Environment = 'positron.environment',
+	Variables = 'positron.variables',
 	Lsp = 'positron.lsp',
 	Dap = 'positron.dap',
 	Plot = 'positron.plot',

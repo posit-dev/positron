@@ -10,7 +10,7 @@ import * as positron from 'positron';
 import { ZedPlot } from './positronZedPlot';
 import { ZedData } from './positronZedData';
 import { ZedPreview } from './positronZedPreview';
-import { ZedEnvironment } from './positronZedEnvironment';
+import { ZedVariables } from './positronZedVariables';
 import { makeCUB, makeCUF, makeCUP, makeED, makeEL, makeSGR, SGR } from './ansi';
 import { ZedFrontend } from './positronZedFrontend';
 
@@ -133,7 +133,7 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 	/*
 	 * A map of environment IDs to environment instances.
 	 */
-	private readonly _environments: Map<string, ZedEnvironment> = new Map();
+	private readonly _environments: Map<string, ZedVariables> = new Map();
 
 	/**
 	 * The currently connected frontend, if any
@@ -907,9 +907,9 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 	async createClient(id: string, type: positron.RuntimeClientType, _params: any) {
 		switch (type) {
 
-			case positron.RuntimeClientType.Environment:
-				// Create the Environment client when requested
-				this.createEnvironmentClient(id);
+			case positron.RuntimeClientType.Variables:
+				// Create the variables client when requested
+				this.createVariablesClient(id);
 				break;
 
 			case positron.RuntimeClientType.FrontEnd:
@@ -950,9 +950,9 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 		}
 	}
 
-	createEnvironmentClient(id: string) {
-		// Allocate a new ID and ZedEnvironment object for this environment backend
-		const env = new ZedEnvironment(id, this.metadata.languageVersion, this);
+	createVariablesClient(id: string) {
+		// Allocate a new ID and ZedVariables object for this variables backend
+		const env = new ZedVariables(id, this.metadata.languageVersion, this);
 
 		// Connect it and save the instance to coordinate future communication
 		this.connectClientEmitter(env);
@@ -965,7 +965,7 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 	 * @param id The ID of the client.
 	 */
 	createFrontendClient(id: string) {
-		// Allocate a new ID and ZedEnvironment object for this environment backend
+		// Allocate a new ID and ZedVariables object for this variables backend
 		const frontend = new ZedFrontend(id);
 
 		// Connect it and save the instance to coordinate future communication
@@ -981,9 +981,9 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 	 */
 	async listClients(type?: positron.RuntimeClientType) {
 		const clients: Record<string, string> = {};
-		if (!type || type === positron.RuntimeClientType.Environment) {
+		if (!type || type === positron.RuntimeClientType.Variables) {
 			for (const env of this._environments.values()) {
-				clients[env.id] = positron.RuntimeClientType.Environment;
+				clients[env.id] = positron.RuntimeClientType.Variables;
 			}
 		}
 		if (!type || type === positron.RuntimeClientType.Plot) {
@@ -1864,7 +1864,7 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 	 *
 	 * @param client The environment or plot to connect
 	 */
-	private connectClientEmitter(client: ZedEnvironment | ZedPlot | ZedData | ZedFrontend) {
+	private connectClientEmitter(client: ZedVariables | ZedPlot | ZedData | ZedFrontend) {
 
 		// Listen for data emitted from the environment instance
 		client.onDidEmitData(data => {

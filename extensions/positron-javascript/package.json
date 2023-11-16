@@ -23,7 +23,7 @@
     "commands": [
       {
         "command": "javascript.startExtHostRuntime",
-        "category": "Javascript",
+        "category": "JavaScript",
         "title": "%javascript.command.startExtHostRuntime.title%"
       }
     ]
