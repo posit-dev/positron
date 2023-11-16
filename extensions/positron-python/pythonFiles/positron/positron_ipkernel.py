@@ -23,7 +23,7 @@ from IPython.utils import PyColorize
 import traitlets
 
 from .dataviewer import DataViewerService
-from .environment import EnvironmentService
+from .variables import VariablesService
 from .frontend import FrontendService
 from .help import HelpService
 from .inspectors import get_inspector
@@ -34,8 +34,8 @@ from .utils import cancel_tasks, create_task
 POSITRON_DATA_VIEWER_COMM = "positron.dataViewer"
 """The comm channel target_name for Positron's Data Viewer"""
 
-POSITRON_ENVIRONMENT_COMM = "positron.environment"
-"""The comm channel target_name for Positron's Environment View"""
+POSITRON_VARIABLES_COMM = "positron.variables"
+"""The comm channel target_name for Positron's Variables View"""
 
 POSITRON_FRONTEND_COMM = "positron.frontEnd"
 """The comm channel target_name for Positron's Frontend i.e. unscoped to any particular view"""
@@ -183,9 +183,11 @@ class PositronIPyKernel(IPythonKernel):
         # Setup Positron's dataviewer service
         self.dataviewer_service = DataViewerService(POSITRON_DATA_VIEWER_COMM)
 
-        # Setup Positron's environment service
-        self.env_service = EnvironmentService(self, self.dataviewer_service)
-        self.comm_manager.register_target(POSITRON_ENVIRONMENT_COMM, self.env_service.on_comm_open)
+        # Setup Positron's variables service
+        self.variables_service = VariablesService(self, self.dataviewer_service)
+        self.comm_manager.register_target(
+            POSITRON_VARIABLES_COMM, self.variables_service.on_comm_open
+        )
 
         # Setup Positron's frontend service
         self.frontend_service = FrontendService()
@@ -234,7 +236,7 @@ class PositronIPyKernel(IPythonKernel):
         """
         logger.info("Shutting down the kernel")
         self.display_pub_hook.shutdown()
-        self.env_service.shutdown()
+        self.variables_service.shutdown()
         self.lsp_service.shutdown()
         self.help_service.shutdown()
         self.frontend_service.shutdown()
@@ -276,7 +278,7 @@ class PositronIPyKernel(IPythonKernel):
         try:
             # Try to detect the changes made since the last execution
             assigned, removed = self.compare_user_ns()
-            self.env_service.send_update(assigned, removed)
+            self.variables_service.send_update(assigned, removed)
         except Exception as err:
             logger.warning(err, exc_info=True)
 
@@ -487,7 +489,7 @@ class PositronIPyKernel(IPythonKernel):
             pass
 
         # Refresh the client state
-        self.env_service.send_list()
+        self.variables_service.send_list()
 
         return reply_content
 

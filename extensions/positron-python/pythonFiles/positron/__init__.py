@@ -12,10 +12,10 @@ from .dataviewer import (
     DataViewerMessageTypeInput,
     DataViewerMessageTypeOutput,
 )
-from .environment import (
-    EnvironmentService,
-    EnvironmentVariable,
-    EnvironmentVariableValueKind,
+from .variables import (
+    VariablesService,
+    Variable,
+    VariableValueKind,
 )
 from .inspectors import PRINT_WIDTH, TRUNCATE_AT
 
