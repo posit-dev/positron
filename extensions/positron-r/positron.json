@@ -23,6 +23,14 @@
 		{
 			"from": "resources/ark/modules/private/*.R",
 			"to": "./dist/bin/modules/private"
+		},
+		{
+			"from": "resources/testing/tree-sitter-r.wasm",
+			"to": "resources/testing"
+		},
+		{
+			"from": "resources/testing/vscodereporter/*",
+			"to": "resources/testing"
 		}
 	]
 }

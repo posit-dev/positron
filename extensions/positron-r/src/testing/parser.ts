@@ -6,8 +6,9 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import { ItemType, TestingTools, encodeNodeId } from './util-testing';
 import { Logger } from '../extension';
+import { EXTENSION_ROOT_DIR } from '../constants';
 
-const wasmPath = path.join(__dirname, 'tree-sitter-r.wasm');
+const wasmPath = path.join(EXTENSION_ROOT_DIR, 'resources', 'testing', 'tree-sitter-r.wasm');
 const Parser = require('web-tree-sitter');
 let R: any;
 
