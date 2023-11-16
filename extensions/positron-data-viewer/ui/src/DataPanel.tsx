@@ -61,14 +61,14 @@ export const DataPanel = (props: DataPanelProps) => {
 	// calling the appropriate resolve or reject function when the request completes.
 	const fetcher = new DataFetcher(requestQueue.current, requestResolvers.current, totalRows, vscode);
 
+	const [scrollPages, setScrollPages] = React.useState<{top: number; bottom: number}>({top: 0, bottom: 0});
+
 	// Dimensions to keep track of as the table container scrolls and resizes
 	const dimensionsRef = React.useRef<any>({
-		overlayTop: 0,
-		overlayBottom: 0,
-		overlayLeft: 0,
-		overlayRight: 0,
-		scrollPageBottom: 0,
-		scrollPageTop: 0
+		marginTop: 0,
+		marginBottom: 0,
+		marginLeft: 0,
+		marginRight: 0
 	});
 
 	React.useEffect(() => {
@@ -112,20 +112,26 @@ export const DataPanel = (props: DataPanelProps) => {
 			pageParams: [0]
 		},
 		getPreviousPageParam: (_page, _pages, _firstPageParam, allPageParams) => {
-			return allPageParams.includes(dimensionsRef.current.scrollPageTop)
+			return allPageParams.includes(scrollPages.top)
 				? undefined // don't refetch if we have already fetched data for this page
-				: dimensionsRef.current.scrollPageTop; // otherwise, use scroll position to determine previous page
+				: scrollPages.top; // otherwise, use scroll position to determine previous page
 		},
 		getNextPageParam: (_page, _pages, _lastPageParam, allPageParams) => {
-			return allPageParams.includes(dimensionsRef.current.scrollPageBottom)
+			return allPageParams.includes(scrollPages.bottom)
 				? undefined // don't refetch if we have already fetched data for this page
-				: dimensionsRef.current.scrollPageBottom; // otherwise, use scroll position to determine next page
+				: scrollPages.bottom; // otherwise, use scroll position to determine next page
 		},
 		// we don't need to check for active network connection before retrying a query
 		networkMode: 'always',
 		staleTime: Infinity,
 		refetchOnWindowFocus: false
 	});
+
+	const transposePage = React.useCallback((page: DataFragment) => {
+		const {rowStart, rowEnd} = page;
+		const pageSize = rowEnd - rowStart + 1;
+		return {rowStart, pageSize, data: page.transpose()};
+	}, []);
 
 	// Transpose and flatten the data. The data model stores data in a column-major
 	// format, but React Table expects data in a row-major format, so we need to
@@ -136,11 +142,6 @@ export const DataPanel = (props: DataPanelProps) => {
 			return [];
 		}
 
-		// Start with a sparse array, and then fill in the pages we do have data for
-		const numColumns = data.pages[0].columns.length ?? 0;
-		const emptyRow = Array(numColumns).fill(null);
-		const flatData = Array(totalRows).fill(emptyRow);
-
 		// We don't expect pages to be in order, but we do expect that there aren't duplicates
 		// That shouldn't be possible based on our implementation of getNext/PrevPageParams,
 		// but we check anyway to future-proof against changes to the query logic
@@ -149,10 +150,14 @@ export const DataPanel = (props: DataPanelProps) => {
 			console.error('Duplicate pages fetched in the data');
 		}
 
+		// Start with a sparse array, and then fill in the pages we do have data for
+		const numColumns = data.pages[0].columns.length ?? 0;
+		const emptyRow = Array(numColumns).fill(null);
+		const flatData = Array(totalRows).fill(emptyRow);
+
 		data.pages.forEach(page => {
-			const {rowStart, rowEnd} = page;
-			const pageSize = rowEnd - rowStart + 1;
-			flatData.splice(rowStart, pageSize, ...page.transpose());
+			const {rowStart, pageSize, data} = transposePage(page);
+			flatData.splice(rowStart, pageSize, ...data);
 		});
 		return flatData;
 	}, [data]);
@@ -203,19 +208,18 @@ export const DataPanel = (props: DataPanelProps) => {
 
 		// Vertically and horizontally center the loading overlay
 		// accounting for scrollbars, header, and container size
-		const verticalScrollbarWidth = offsetWidth - clientWidth;
-		const horizontalScrollbarHeight = offsetHeight - clientHeight;
-		dimensionsRef.current.overlayTop = (clientHeight - headerHeight) / 2;
-		dimensionsRef.current.overlayBottom = horizontalScrollbarHeight;
-		dimensionsRef.current.overlayRight = verticalScrollbarWidth;
+		const marginTop = (clientHeight - headerHeight) / 2;
+		const marginBottom = offsetHeight - clientHeight; // horizontal scrollbar height
+		const marginRight = offsetWidth - clientWidth; // vertical scrollbar width
 		// Use the table header width rather than the full container width
 		// when the table doesn't take up the full width of the container
-		dimensionsRef.current.overlayLeft = Math.min(headerWidth, clientWidth) / 2;
+		const marginLeft = Math.min(headerWidth, clientWidth) / 2;
+		dimensionsRef.current = {marginTop, marginBottom, marginRight, marginLeft};
 	}, []);
 
 	React.useLayoutEffect(() => {
 		positionOverlay(tableContainerRef.current);
-	}, [positionOverlay]);
+	}, []);
 
 	const fetchMorePages = React.useCallback(() => {
 		if (hasPreviousPage && !isFetching) {
@@ -233,12 +237,10 @@ export const DataPanel = (props: DataPanelProps) => {
 	const updateScroll = React.useCallback(() => {
 		// The virtual rows exist before we've fetched them, they are just empty
 		const firstVirtualRow = virtualRows?.[0]?.index ?? 0;
-		dimensionsRef.current.scrollPageTop = Math.floor(firstVirtualRow / fetchSize);
-
+		const top = Math.floor(firstVirtualRow / fetchSize);
 		const lastVirtualRow = virtualRows?.[virtualRows.length - 1]?.index ?? 0;
-		const scrollPageBottom = Math.floor(lastVirtualRow / fetchSize);
-		dimensionsRef.current.scrollPageBottom = Math.min(scrollPageBottom, maxPage);
-
+		const bottom = Math.min(Math.floor(lastVirtualRow / fetchSize), maxPage);
+		setScrollPages({top, bottom});
 		fetchMorePages();
 	}, [virtualRows, fetchMorePages]);
 
@@ -294,11 +296,11 @@ export const DataPanel = (props: DataPanelProps) => {
 					))}
 				</thead>
 				<tbody>
-					{paddingTop > 0 && (
+					{
 						<tr>
 							<td style={{ height: `${paddingTop}px` }} />
 						</tr>
-					)}
+					}
 					{virtualRows.map(virtualRow => {
 						const row = rows[virtualRow.index] as ReactTable.Row<any>;
 
@@ -306,6 +308,9 @@ export const DataPanel = (props: DataPanelProps) => {
 							<tr
 								key={virtualRow.key}
 								data-index={virtualRow.index}
+								style={{
+									height: `${virtualRow.size}px`
+								}}
 								//ref={rowVirtualizer.measureElement}
 							>
 							{
@@ -325,23 +330,16 @@ export const DataPanel = (props: DataPanelProps) => {
 							</tr>
 						);
 					})}
-					{paddingBottom > 0 && (
+					{
 						<tr>
 							<td style={{ height: `${paddingBottom}px` }} />
 						</tr>
-					)}
+					}
 				</tbody>
 			</table>
 			{
 				(hasNextPage || hasPreviousPage) && isFetching ?
-				<div className='overlay' style={{
-					marginTop: dimensionsRef.current.overlayTop,
-					marginBottom: dimensionsRef.current.overlayBottom,
-					marginRight: dimensionsRef.current.overlayRight,
-					// horizontally center the loading text, using the table width rather than
-					// container width when the table doesn't take up the full container
-					marginLeft: dimensionsRef.current.overlayLeft,
-				}}>
+				<div className='overlay' style={dimensionsRef.current}>
 					<div className='loading'>
 						Loading more rows...
 					</div>
