@@ -53,15 +53,17 @@ export const DataPanel = (props: DataPanelProps) => {
 	const requestResolvers = React.useRef<ResolverLookup>({});
 	const requestQueue = React.useRef<number[]>([]);
 
+	const scrollPageRef = React.useRef<number[]>([0]);
+
 	// Count total rows and pages, including those we have not yet fetched
 	const totalRows = initialData.rowCount;
-	const maxPage = Math.ceil(totalRows / fetchSize) - 1;
+	const numPages = Math.ceil(totalRows / fetchSize);
+	const maxPage = numPages - 1;
+	const allPages = Array.from({length:numPages}, (_, i) => i);
 
 	// Makes an async request to the backend for data, and handles updating the request queue and
 	// calling the appropriate resolve or reject function when the request completes.
 	const fetcher = new DataFetcher(requestQueue.current, requestResolvers.current, totalRows, vscode);
-
-	const [scrollPages, setScrollPages] = React.useState<{top: number; bottom: number}>({top: 0, bottom: 0});
 
 	// Dimensions to keep track of as the table container scrolls and resizes
 	const dimensionsRef = React.useRef<any>({
@@ -100,72 +102,59 @@ export const DataPanel = (props: DataPanelProps) => {
 
 	const initialDataFragment: DataFragment = new DataFragment(initialData.columns, 0, Math.min(fetchSize, totalRows));
 
-	// Use a React Query infinite query to fetch data from the data model
-	const {data, fetchNextPage, fetchPreviousPage, isFetching, hasNextPage, hasPreviousPage
-	} = ReactQuery.useInfiniteQuery(
-	{
-		queryKey: ['table-data'],
-		queryFn: ({pageParam}) => fetcher.fetchNextDataFragment(pageParam, fetchSize),
-		initialPageParam: 0,
-		initialData: {
-			pages: [initialDataFragment],
-			pageParams: [0]
-		},
-		getPreviousPageParam: (_page, _pages, _firstPageParam, allPageParams) => {
-			return allPageParams.includes(scrollPages.top)
-				? undefined // don't refetch if we have already fetched data for this page
-				: scrollPages.top; // otherwise, use scroll position to determine previous page
-		},
-		getNextPageParam: (_page, _pages, _lastPageParam, allPageParams) => {
-			return allPageParams.includes(scrollPages.bottom)
-				? undefined // don't refetch if we have already fetched data for this page
-				: scrollPages.bottom; // otherwise, use scroll position to determine next page
-		},
-		// we don't need to check for active network connection before retrying a query
-		networkMode: 'always',
-		staleTime: Infinity,
-		refetchOnWindowFocus: false
-	});
-
-	const transposePage = React.useCallback((page: DataFragment) => {
-		const {rowStart, rowEnd} = page;
-		const pageSize = rowEnd - rowStart + 1;
-		return {rowStart, pageSize, data: page.transpose()};
+	const flattenResult = React.useCallback((result: ReactQuery.UseQueryResult<DataFragment>) => {
+		if (result.isSuccess && result.data) {
+			const {rowStart, rowEnd} = result.data;
+			const pageSize = rowEnd - rowStart + 1;
+			return {rowStart, pageSize, data: result.data.transpose()};
+		}
+		return {};
 	}, []);
 
-	// Transpose and flatten the data. The data model stores data in a column-major
-	// format, but React Table expects data in a row-major format, so we need to
-	// transpose the data. We also need to pad the array with placeholder rows for data we have
-	// not yet fetched, keeping the dimensions correct.
-	const flatData = React.useMemo(() => {
-		if (!data.pages.length || !data.pageParams) {
-			return [];
-		}
-
-		// We don't expect pages to be in order, but we do expect that there aren't duplicates
-		// That shouldn't be possible based on our implementation of getNext/PrevPageParams,
-		// but we check anyway to future-proof against changes to the query logic
-		const allPages = new Set(data.pageParams);
-		if (allPages.size !== data.pageParams.length) {
-			console.error('Duplicate pages fetched in the data');
-		}
-
+	const combineResultData = (results: ReactQuery.UseQueryResult<DataFragment>[]) => {
 		// Start with a sparse array, and then fill in the pages we do have data for
-		const numColumns = data.pages[0].columns.length ?? 0;
+		const numColumns = initialDataFragment.columns.length;
 		const emptyRow = Array(numColumns).fill(null);
-		const flatData = Array(totalRows).fill(emptyRow);
+		const flattenedData = Array(totalRows).fill(emptyRow) as any[][];
 
-		data.pages.forEach(page => {
-			const {rowStart, pageSize, data} = transposePage(page);
-			flatData.splice(rowStart, pageSize, ...data);
+		results.forEach(result => {
+			const {rowStart, pageSize, data} = flattenResult(result);
+			if (data) {
+				flattenedData.splice(rowStart, pageSize, ...data);
+			}
 		});
-		return flatData;
-	}, [data]);
+
+		const isFetching = results.some(result => result.isFetching);
+		const isSuccess = results.map(result => result.isSuccess);
+		return {data: flattenedData, isFetching, isSuccess};
+	};
+
+	// All queries are disabled, and will not be automatically fetched/refetched
+	// We manually trigger the queries with the refetch function from each result
+	const results = ReactQuery.useQueries({
+		queries: allPages.map(pageParam => {
+			const options = ReactQuery.queryOptions({
+				queryKey: ['table-data', pageParam],
+				queryFn: () => fetcher.fetchNextDataFragment(pageParam, fetchSize),
+				enabled: scrollPageRef.current.includes(pageParam),
+				networkMode: 'always',
+				staleTime: Infinity
+			});
+			if (pageParam === 0) {
+				return {
+					...options,
+					initialData: initialDataFragment
+				};
+			}
+			return options;
+		}),
+		combine: combineResultData
+	});
 
 	// Define the main ReactTable instance.
 	const table = ReactTable.useReactTable(
 	{
-		data: flatData,
+		data: results.data,
 		columns,
 		getCoreRowModel: ReactTable.getCoreRowModel(),
 		debugTable: false,
@@ -220,17 +209,6 @@ export const DataPanel = (props: DataPanelProps) => {
 		positionOverlay(tableContainerRef.current);
 	}, []);
 
-	const fetchMorePages = React.useCallback(() => {
-		if (hasPreviousPage && !isFetching) {
-			fetchPreviousPage();
-		}
-		// We use else here to avoid fetching both pages simultaneously
-		// The callback will be invoked again after the previous page is fetched
-		else if (hasNextPage && !isFetching) {
-			fetchNextPage();
-		}
-	}, [fetchNextPage, fetchPreviousPage, isFetching, hasPreviousPage, hasNextPage]);
-
 	// Callback, invoked on scroll, that will fetch more data from the backend if we have reached
 	// a previously unseen scroll position.
 	const updateScroll = React.useCallback(() => {
@@ -239,7 +217,7 @@ export const DataPanel = (props: DataPanelProps) => {
 		const top = Math.floor(firstVirtualRow / fetchSize);
 		const lastVirtualRow = virtualRows?.[virtualRows.length - 1]?.index ?? 0;
 		const bottom = Math.min(Math.floor(lastVirtualRow / fetchSize), maxPage);
-		setScrollPages({top, bottom});
+		scrollPageRef.current = allPages.slice(top, bottom + 1);
 	}, [virtualRows]);
 
 	React.useEffect(() => {
@@ -248,8 +226,7 @@ export const DataPanel = (props: DataPanelProps) => {
 		// Also ensures that we fetch both the previous and next page if both are needed
 		// (i.e. the viewport crosses a page boundary)
 		updateScroll();
-		fetchMorePages();
-	}, [updateScroll, fetchMorePages]);
+	}, [updateScroll]);
 
 	return (
 		<div
@@ -311,7 +288,6 @@ export const DataPanel = (props: DataPanelProps) => {
 								//ref={rowVirtualizer.measureElement}
 							>
 							{
-								!hasNextPage && !hasPreviousPage && !isFetching ?
 								row.getVisibleCells().map(cell => {
 									return (
 										<td key={cell.id}>
@@ -321,8 +297,7 @@ export const DataPanel = (props: DataPanelProps) => {
 											)}
 										</td>
 									);
-								}) :
-								null
+								})
 							}
 							</tr>
 						);
@@ -335,7 +310,7 @@ export const DataPanel = (props: DataPanelProps) => {
 				</tbody>
 			</table>
 			{
-				(hasNextPage || hasPreviousPage) && isFetching ?
+				results.isFetching ?
 				<div className='overlay' style={dimensionsRef.current}>
 					<div className='loading'>
 						Loading more rows...
