@@ -9,11 +9,11 @@ import {
 	ExtHostPositronContext
 } from '../../common/positron/extHost.positron.protocol';
 import { extHostNamedCustomer, IExtHostContext } from 'vs/workbench/services/extensions/common/extHostCustomers';
-import { ILanguageRuntime, ILanguageRuntimeClientCreatedEvent, ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMessageCommClosed, ILanguageRuntimeMessageCommData, ILanguageRuntimeMessageCommOpen, ILanguageRuntimeMessageError, ILanguageRuntimeMessageInput, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessagePrompt, ILanguageRuntimeMessageState, ILanguageRuntimeMessageStream, ILanguageRuntimeMetadata, ILanguageRuntimeDynState as ILanguageRuntimeDynState, ILanguageRuntimeService, ILanguageRuntimeStartupFailure, LanguageRuntimeMessageType, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeState, LanguageRuntimeDiscoveryPhase, ILanguageRuntimeExit, RuntimeOutputKind, RuntimeExitReason } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntime, ILanguageRuntimeClientCreatedEvent, ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMessageCommClosed, ILanguageRuntimeMessageCommData, ILanguageRuntimeMessageCommOpen, ILanguageRuntimeMessageError, ILanguageRuntimeMessageInput, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessagePrompt, ILanguageRuntimeMessageState, ILanguageRuntimeMessageStream, ILanguageRuntimeMetadata, ILanguageRuntimeDynState as ILanguageRuntimeDynState, ILanguageRuntimeService, ILanguageRuntimeStartupFailure, LanguageRuntimeMessageType, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeState, LanguageRuntimeDiscoveryPhase, ILanguageRuntimeExit, RuntimeOutputKind, RuntimeExitReason, ILanguageRuntimeMessageWebOutput, PositronOutputLocation } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { Disposable, DisposableStore } from 'vs/base/common/lifecycle';
 import { Event, Emitter } from 'vs/base/common/event';
-import { IPositronConsoleService } from 'vs/workbench/services/positronConsole/common/interfaces/positronConsoleService';
-import { IPositronEnvironmentService } from 'vs/workbench/services/positronEnvironment/common/interfaces/positronEnvironmentService';
+import { IPositronConsoleService } from 'vs/workbench/services/positronConsole/browser/interfaces/positronConsoleService';
+import { IPositronVariablesService } from 'vs/workbench/services/positronVariables/common/interfaces/positronVariablesService';
 import { ILogService } from 'vs/platform/log/common/log';
 import { IRuntimeClientInstance, RuntimeClientState, RuntimeClientType } from 'vs/workbench/services/languageRuntime/common/languageRuntimeClientInstance';
 import { DeferredPromise } from 'vs/base/common/async';
@@ -631,6 +631,19 @@ class ExtHostLanguageRuntimeAdapter implements ILanguageRuntime {
 			return RuntimeOutputKind.StaticImage;
 		}
 
+		// Check to see if the message itself indicates where it'd like to be placed.
+		if (Object.keys(message).includes('output_location')) {
+			const webOutput = message as ILanguageRuntimeMessageWebOutput;
+			switch (webOutput.output_location) {
+				case PositronOutputLocation.Console:
+					return RuntimeOutputKind.InlineHtml;
+				case PositronOutputLocation.Viewer:
+					return RuntimeOutputKind.ViewerWidget;
+				case PositronOutputLocation.Plot:
+					return RuntimeOutputKind.PlotWidget;
+			}
+		}
+
 		// Check to see if there are any renderers registered for the type.
 		// These renderers are custom built for displaying notebook output in VS
 		// Code / Positron so should have priority over other visualization
@@ -909,7 +922,7 @@ export class MainThreadLanguageRuntime implements MainThreadLanguageRuntimeShape
 		extHostContext: IExtHostContext,
 		@ILanguageRuntimeService private readonly _languageRuntimeService: ILanguageRuntimeService,
 		@IPositronConsoleService private readonly _positronConsoleService: IPositronConsoleService,
-		@IPositronEnvironmentService private readonly _positronEnvironmentService: IPositronEnvironmentService,
+		@IPositronVariablesService private readonly _positronVariablesService: IPositronVariablesService,
 		@IPositronHelpService private readonly _positronHelpService: IPositronHelpService,
 		@IPositronPlotsService private readonly _positronPlotService: IPositronPlotsService,
 		@ILogService private readonly _logService: ILogService,
@@ -920,7 +933,7 @@ export class MainThreadLanguageRuntime implements MainThreadLanguageRuntimeShape
 		// is where we're doing this.
 		this._positronHelpService.initialize();
 		this._positronConsoleService.initialize();
-		this._positronEnvironmentService.initialize();
+		this._positronVariablesService.initialize();
 		this._positronPlotService.initialize();
 		this._proxy = extHostContext.getProxy(ExtHostPositronContext.ExtHostLanguageRuntime);
 
