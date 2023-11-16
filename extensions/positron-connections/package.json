@@ -41,6 +41,14 @@
         "view": "connections",
         "contents": "%view.welcome%"
       }
+    ],
+    "commands": [
+      {
+        "command": "positron.connections.previewTable",
+        "title": "%commands.previewTable.title%",
+        "category": "%commands.previewTable.category%",
+        "icon": "$(eye)"
+      }
     ]
   },
   "devDependencies": {
