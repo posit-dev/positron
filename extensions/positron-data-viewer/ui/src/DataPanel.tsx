@@ -182,14 +182,6 @@ export const DataPanel = (props: DataPanelProps) => {
 
 	const virtualRows = rowVirtualizer.getVirtualItems();
 
-	const {paddingTop, paddingBottom} = React.useMemo(() => {
-		// Compute the padding for the table container.
-		const paddingTop = virtualRows?.[0]?.start || 0;
-		const totalSize = rowVirtualizer.getTotalSize();
-		const paddingBottom = totalSize - (virtualRows?.[virtualRows.length - 1]?.end || 0);
-		return {paddingTop, paddingBottom};
-	}, [virtualRows]);
-
 	const positionOverlay = React.useCallback((container: HTMLDivElement | null) => {
 		const emptyElement = {
 			clientHeight: 0,
@@ -257,6 +249,7 @@ export const DataPanel = (props: DataPanelProps) => {
 			onResize={e => positionOverlay(e.target as HTMLDivElement)}
 			ref={tableContainerRef}
 		>
+			<div style={{ height: `${rowVirtualizer.getTotalSize()}px` }}>
 			<table>
 				<thead ref={headerRef}>
 					{table.getHeaderGroups().map(headerGroup => (
@@ -294,19 +287,18 @@ export const DataPanel = (props: DataPanelProps) => {
 					))}
 				</thead>
 				<tbody>
-					{paddingTop > 0 && (
-						<tr>
-							<td style={{ height: `${paddingTop}px` }} />
-						</tr>
-					)}
-					{virtualRows.map(virtualRow => {
+					{virtualRows.map((virtualRow, index) => {
 						const row = rows[virtualRow.index] as ReactTable.Row<any>;
+						const translateY = virtualRow.start - index * virtualRow.size;
 
 						return (
 							<tr
 								key={virtualRow.key}
 								data-index={virtualRow.index}
-								//ref={rowVirtualizer.measureElement}
+								style={{
+									transform: `translateY(${translateY}px)`,
+									height: `${virtualRow.size}px`
+								}}
 							>
 							{
 								!hasNextPage && !hasPreviousPage && !isFetching ?
@@ -325,11 +317,6 @@ export const DataPanel = (props: DataPanelProps) => {
 							</tr>
 						);
 					})}
-					{paddingBottom > 0 && (
-						<tr>
-							<td style={{ height: `${paddingBottom}px` }} />
-						</tr>
-					)}
 				</tbody>
 			</table>
 			{
@@ -348,6 +335,7 @@ export const DataPanel = (props: DataPanelProps) => {
 				</div> :
 				null
 			}
+			</div>
 		</div>
 	);
 };
