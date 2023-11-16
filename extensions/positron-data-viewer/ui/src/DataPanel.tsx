@@ -177,7 +177,7 @@ export const DataPanel = (props: DataPanelProps) => {
 	// Use a virtualizer to render only the rows that are visible.
 	const rowVirtualizer = ReactVirtual.useVirtualizer(
 	{
-		count: rows.length,
+		count: totalRows,
 		getScrollElement: () => tableContainerRef.current,
 		// This is just an initial estimate of row height
 		estimateSize: () => rowHeightPx,
@@ -185,14 +185,6 @@ export const DataPanel = (props: DataPanelProps) => {
 	});
 
 	const virtualRows = rowVirtualizer.getVirtualItems();
-
-	const {paddingTop, paddingBottom} = React.useMemo(() => {
-		// Compute the padding for the table container.
-		const paddingTop = virtualRows?.[0]?.start || 0;
-		const totalSize = rowVirtualizer.getTotalSize();
-		const paddingBottom = totalSize - (virtualRows?.[virtualRows.length - 1]?.end || 0);
-		return {paddingTop, paddingBottom};
-	}, [virtualRows]);
 
 	const positionOverlay = React.useCallback((container: HTMLDivElement | null) => {
 		const emptyElement = {
@@ -221,35 +213,35 @@ export const DataPanel = (props: DataPanelProps) => {
 	}, []);
 
 	const fetchMorePages = React.useCallback(() => {
-		if (hasPreviousPage && !isFetching) {
-			fetchPreviousPage();
+		if (hasPreviousPage) {
+			fetchPreviousPage({cancelRefetch: false});
 		}
 		// We use else here to avoid fetching both pages simultaneously
 		// The callback will be invoked again after the previous page is fetched
-		else if (hasNextPage && !isFetching) {
-			fetchNextPage();
+		if (hasNextPage) {
+			fetchNextPage({cancelRefetch: false});
 		}
-	}, [fetchNextPage, fetchPreviousPage, isFetching, hasPreviousPage, hasNextPage]);
+	}, [fetchNextPage, fetchPreviousPage, hasPreviousPage, hasNextPage]);
 
 	// Callback, invoked on scroll, that will fetch more data from the backend if we have reached
 	// a previously unseen scroll position.
-	const updateScroll = React.useCallback(() => {
+	const updateScroll = React.useCallback((first: ReactVirtual.VirtualItem, last: ReactVirtual.VirtualItem) => {
 		// The virtual rows exist before we've fetched them, they are just empty
-		const firstVirtualRow = virtualRows?.[0]?.index ?? 0;
+		const firstVirtualRow = first.index ?? 0;
 		const top = Math.floor(firstVirtualRow / fetchSize);
-		const lastVirtualRow = virtualRows?.[virtualRows.length - 1]?.index ?? 0;
+		const lastVirtualRow = last.index ?? 0;
 		const bottom = Math.min(Math.floor(lastVirtualRow / fetchSize), maxPage);
 		scrollPages.current = {top, bottom};
-	}, [virtualRows]);
+	}, []);
 
 	React.useEffect(() => {
 		// Make sure we've caught up with the latest scroll position
 		// Otherwise the data can get stuck out of sync with the scroll if the user has scrolled quickly
 		// Also ensures that we fetch both the previous and next page if both are needed
 		// (i.e. the viewport crosses a page boundary)
-		updateScroll();
+		updateScroll(virtualRows?.[0], virtualRows?.[virtualRows.length - 1]);
 		fetchMorePages();
-	}, [updateScroll, fetchMorePages, rowVirtualizer.isScrolling]);
+	}, [virtualRows, fetchMorePages, rowVirtualizer.isScrolling]);
 
 	return (
 		<div
@@ -295,9 +287,11 @@ export const DataPanel = (props: DataPanelProps) => {
 				</thead>
 				<tbody>
 					{
+						virtualRows[0].index > 0 ?
 						<tr>
-							<td style={{ height: `${paddingTop}px` }} />
-						</tr>
+							<td style={{ height: `${virtualRows[0].start}px` }} />
+						</tr> :
+						null
 					}
 					{virtualRows.map(virtualRow => {
 						const row = rows[virtualRow.index] as ReactTable.Row<any>;
@@ -327,9 +321,13 @@ export const DataPanel = (props: DataPanelProps) => {
 						);
 					})}
 					{
+						virtualRows[virtualRows.length - 1].index < totalRows - 1 ?
 						<tr>
-							<td style={{ height: `${paddingBottom}px` }} />
-						</tr>
+							<td style={{ height: `${
+								rowVirtualizer.getTotalSize() - (virtualRows?.[virtualRows.length - 1]?.end || 0)
+							}px` }} />
+						</tr> :
+						null
 					}
 				</tbody>
 			</table>
