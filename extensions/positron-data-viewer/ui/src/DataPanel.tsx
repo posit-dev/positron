@@ -240,7 +240,10 @@ export const DataPanel = (props: DataPanelProps) => {
 		// Also ensures that we fetch both the previous and next page if both are needed
 		// (i.e. the viewport crosses a page boundary)
 		updateScroll(virtualRows?.[0], virtualRows?.[virtualRows.length - 1]);
-		fetchMorePages();
+
+		if (!rowVirtualizer.isScrolling) {
+			fetchMorePages();
+		}
 	}, [virtualRows, fetchMorePages, rowVirtualizer.isScrolling]);
 
 	return (
