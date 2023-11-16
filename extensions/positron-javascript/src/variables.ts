@@ -5,12 +5,12 @@
 import * as vscode from 'vscode';
 
 /**
- * Represents a single variable in the Javascript environment, serialized for transmission to the front end
- * Positron's environment pane.
+ * Represents a single JavaScript variable, serialized for transmission to the front end (the
+ * Positron Variables pane).
  */
-class JavascriptVariable {
+class JavaScriptVariable {
 
-	// Fields and default values used by Positron's environment pane
+	// Fields and default values used by the Positron Variables pane.
 	public readonly is_truncated: boolean = false;
 	public readonly type_info: string = '';
 	public readonly has_viewer: boolean = false;
@@ -58,8 +58,8 @@ class JavascriptVariable {
 				break;
 
 			case 'object':
-				// All objects and other types. Including 'null' because of course
-				// null is an object in Javascript. Of course it is.
+				// All objects and other types. Including 'null' because of course null is an object
+				// in JavaScript. Of course it is.
 				if (value === null) {
 					this.kind = 'empty';
 				} else {
@@ -91,7 +91,7 @@ class JavascriptVariable {
 
 }
 
-export class JavascriptEnvironment {
+export class JavaScriptVariables {
 
 	/**
 	 * The currently known set of keys (variable names); used to generate a
@@ -100,15 +100,15 @@ export class JavascriptEnvironment {
 	private _keys: Array<string> = [];
 
 	/**
-	 * Emitter for environment data; used to send data to the front end
+	 * Emitter for variables data; used to send data to the front end
 	 */
 	private readonly _onDidEmitData = new vscode.EventEmitter<object>();
 	onDidEmitData: vscode.Event<object> = this._onDidEmitData.event;
 
 	/**
-	 * Creates a new JavascriptEnvironment backend
+	 * Creates a new JavaScriptVariables backend
 	 *
-	 * @param id The ID of the environment client instance
+	 * @param id The ID of the variables client instance
 	 */
 	constructor(readonly id: string) {
 		// Send the full set of variables to the front end
@@ -125,7 +125,7 @@ export class JavascriptEnvironment {
 	public handleMessage(message_id: string, message: any) {
 		switch (message.msg_type) {
 
-			// A request to refresh the environment by sending a full list to the front end
+			// A request to refresh the variables by sending a full list to the front end
 			case 'refresh':
 				this.emitFullList();
 				break;
@@ -142,18 +142,18 @@ export class JavascriptEnvironment {
 				break;
 
 			default:
-				// Note that we don't handle `clear` or `delete` since you can't
-				// reliably delete variables in Javascript.
+				// Note that we don't handle `clear` or `delete` since you can't reliably delete
+				// variables in JavaScript.
 				console.log(`Unhandled message type: ${message.msg_type}`);
 				break;
 		}
 	}
 
 	/**
-	 * Scan for changes in the global environment and send them to the front end
+	 * Scan for changes in global variables and send them to the front end
 	 */
 	public scanForChanges() {
-		// Get the set of keys (variable names) in the global environment
+		// Get the set of keys (variable names) of global variables
 		const keys = Object.keys(global);
 
 		// Filter for any added or removed keys
@@ -164,7 +164,7 @@ export class JavascriptEnvironment {
 		// Serialize the content of any new variables
 		const added = Object.entries(global)
 			.filter((entry) => addedKeys.includes(entry[0]))
-			.map((entry) => new JavascriptVariable(entry[0], entry[1]));
+			.map((entry) => new JavaScriptVariable(entry[0], entry[1]));
 
 		// Emit the changes to the front end
 		this._onDidEmitData.fire({
@@ -197,22 +197,22 @@ export class JavascriptEnvironment {
 	 * Recursively inspects a variable (or object property) and returns
 	 * a list of its children
 	 */
-	private inspectVariable(path: string[], obj: any): JavascriptVariable[] {
+	private inspectVariable(path: string[], obj: any): JavaScriptVariable[] {
 		// If we've reached the end of the path, return the variable
 		if (path.length === 1) {
 			const val = obj[path[0]];
 			switch (typeof (obj)) {
 				case 'object': {
-					// If the variable is an object, return its properties
-					// as a list of JavascriptVariable objects
+					// If the variable is an object, return its properties as a list of
+					// JavaScriptVariable objects.
 					return Object.entries(val).map((entry) => {
-						return new JavascriptVariable(entry[0], entry[1]);
+						return new JavaScriptVariable(entry[0], entry[1]);
 					});
 					break;
 				}
 				default: {
 					// If it isn't, just return the variable itself
-					return [new JavascriptVariable(path[0], obj)];
+					return [new JavaScriptVariable(path[0], obj)];
 				}
 			}
 		}
@@ -233,9 +233,9 @@ export class JavascriptEnvironment {
 		// Replace the list of keys
 		this._keys = Object.keys(global);
 
-		// Create a list of all the variables in the global environment
+		// Create a list of all the global variables
 		let vars = Object.entries(global).map((entry) => {
-			return new JavascriptVariable(entry[0], entry[1]);
+			return new JavaScriptVariable(entry[0], entry[1]);
 		});
 
 		// Remove any variables that couldn't be stringified

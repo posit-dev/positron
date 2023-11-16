@@ -34,7 +34,7 @@ export enum RuntimeClientState {
  * "positron".
  */
 export enum RuntimeClientType {
-	Environment = 'positron.environment',
+	Variables = 'positron.variables',
 	Lsp = 'positron.lsp',
 	Plot = 'positron.plot',
 	DataViewer = 'positron.dataViewer',

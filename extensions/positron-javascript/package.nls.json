@@ -1,5 +1,5 @@
 {
-	"displayName": "Javascript",
-	"description": "Javascript Language Pack for Positron",
+	"displayName": "JavaScript",
+	"description": "JavaScript Language Pack for Positron",
 	"javascript.command.startExtHostRuntime.title": "Connect Extension Host Runtime"
 }

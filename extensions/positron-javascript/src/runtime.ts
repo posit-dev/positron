@@ -8,12 +8,12 @@ import { randomUUID } from 'crypto';
 
 import path = require('path');
 import fs = require('fs');
-import { JavascriptEnvironment } from './environment';
+import { JavaScriptVariables } from './variables';
 
 /**
- * A Positron language runtime for Javascript.
+ * A Positron language runtime for JavaScript.
  */
-export class JavascriptLanguageRuntime implements positron.LanguageRuntime {
+export class JavaScriptLanguageRuntime implements positron.LanguageRuntime {
 
 	private readonly _onDidReceiveRuntimeMessage = new vscode.EventEmitter<positron.LanguageRuntimeMessage>();
 
@@ -21,7 +21,7 @@ export class JavascriptLanguageRuntime implements positron.LanguageRuntime {
 
 	private readonly _onDidEndSession = new vscode.EventEmitter<positron.LanguageRuntimeExit>();
 
-	private _env?: JavascriptEnvironment;
+	private _env?: JavaScriptVariables;
 
 	/**
 	 * A stack of pending RPCs.
@@ -114,16 +114,15 @@ export class JavascriptLanguageRuntime implements positron.LanguageRuntime {
 	}
 
 	isCodeFragmentComplete(code: string): Thenable<positron.RuntimeCodeFragmentStatus> {
-		// Treat all code as complete; without the aid of third-party libraries,
-		// it's difficult to test code for completeness in Javascript without
-		// actually executing it.
+		// Treat all code as complete; without the aid of third-party libraries, it's difficult to
+		// test code for completeness in JavaScript without actually executing it.
 		return Promise.resolve(positron.RuntimeCodeFragmentStatus.Complete);
 	}
 
 	createClient(id: string, type: positron.RuntimeClientType, params: any): Thenable<void> {
-		if (type === positron.RuntimeClientType.Environment) {
+		if (type === positron.RuntimeClientType.Variables) {
 			// The only client type we support right now is an environment.
-			this._env = new JavascriptEnvironment(id);
+			this._env = new JavaScriptVariables(id);
 			this.connectClientEmitter(this._env);
 		} else {
 			throw new Error(`Unknown client type ${type}`);
@@ -135,13 +134,13 @@ export class JavascriptLanguageRuntime implements positron.LanguageRuntime {
 		// The environment is the only client type we support right now, so if a
 		// type other than environment is specified, then we can return an empty
 		// list.
-		if (type !== undefined && type !== positron.RuntimeClientType.Environment) {
+		if (type !== undefined && type !== positron.RuntimeClientType.Variables) {
 			return Promise.resolve({});
 		}
 
 		// Return the environment ID if it exists.
 		if (this._env) {
-			return Promise.resolve({ [positron.RuntimeClientType.Environment]: this._env.id });
+			return Promise.resolve({ [positron.RuntimeClientType.Variables]: this._env.id });
 		} else {
 			return Promise.resolve({});
 		}
@@ -185,8 +184,8 @@ export class JavascriptLanguageRuntime implements positron.LanguageRuntime {
 	}
 
 	interrupt(): Thenable<void> {
-		// It's not currently possible to interrupt Javascript code, because
-		// the code is executed in the same thread as the extension host.
+		// It's not currently possible to interrupt JavaScript code, because the code is executed in
+		// the same thread as the extension host.
 		//
 		// We could address this by using a worker thread.
 		return Promise.resolve();
@@ -208,7 +207,7 @@ export class JavascriptLanguageRuntime implements positron.LanguageRuntime {
 	}
 
 	clone(): positron.LanguageRuntime {
-		return new JavascriptLanguageRuntime(this.context);
+		return new JavaScriptLanguageRuntime(this.context);
 	}
 
 	dispose() { }
@@ -277,7 +276,7 @@ export class JavascriptLanguageRuntime implements positron.LanguageRuntime {
 	 *
 	 * @param client The environment or plot to connect
 	 */
-	private connectClientEmitter(client: JavascriptEnvironment) {
+	private connectClientEmitter(client: JavaScriptVariables) {
 
 		// Listen for data emitted from the environment instance
 		client.onDidEmitData(data => {
