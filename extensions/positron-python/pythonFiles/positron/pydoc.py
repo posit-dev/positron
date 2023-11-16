@@ -19,12 +19,12 @@ from pydoc import _is_bound_method  # type: ignore
 from pydoc import Helper, ModuleScanner, describe, isdata, locate, visiblename
 from traceback import format_exception_only
 from types import ModuleType
-from typing import Any, Dict, List, Optional, Type
+from typing import Any, Dict, List, Optional, Type, cast
 
 from markdown_it import MarkdownIt
 from ._pydantic_compat import BaseModel
 from pygments import highlight
-from pygments.formatters import HtmlFormatter
+from pygments.formatters.html import HtmlFormatter
 from pygments.lexers import get_lexer_by_name
 
 from .utils import get_module_name, is_numpy_ufunc
@@ -863,7 +863,7 @@ def _highlight(code: str, name: str, attrs: str) -> str:
     lexer = get_lexer_by_name(name)
     formatter = HtmlFormatter()
     result = highlight(code, lexer, formatter)
-    return result
+    return cast(str, result)
 
 
 def _rst_to_html(docstring: str, object: Any) -> str:
