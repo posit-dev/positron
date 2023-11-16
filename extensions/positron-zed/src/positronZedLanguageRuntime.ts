@@ -1079,7 +1079,7 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 			return;
 		}
 
-		// See if this ID is a known plot
+		// See if this ID is a known connection
 		const connection = this._connections.get(client_id);
 		if (connection) {
 			this._pendingRpcs.push(message_id);
