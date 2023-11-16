@@ -335,8 +335,8 @@ registerAction2(class extends Action2 {
 	constructor() {
 		super({
 			id: 'workbench.action.minimizePanel',
-			title: { value: localize('minimizePanel', "Minimize Panel"), original: 'Minimizes Panel' },
-			tooltip: localize('minimizesPanel', "Minimizes Panel Size"),
+			title: { value: localize('positron.minimizePanel', "Minimize Panel"), original: 'Minimizes Panel' },
+			tooltip: localize('positron.minimizePanel', "Minimize Panel"),
 			category: Categories.View,
 			f1: true,
 			icon: positronMinimizePanelIcon,
@@ -370,17 +370,17 @@ registerAction2(class extends Action2 {
 });
 
 /**
- * Positron maximize panel action.
+ * Positron restore panel action.
  */
 registerAction2(class extends Action2 {
 	constructor() {
 		super({
-			id: 'workbench.action.maximizePanel',
-			title: { value: localize('mazimizePanel', "Maximize Panel"), original: 'Maximize Panel' },
-			tooltip: localize('maximizesPanel', "Maximizes Panel Size"),
+			id: 'workbench.action.restorePanel',
+			title: { value: localize('positron.restorePanel', "Restore Panel"), original: 'Restore Panel' },
+			tooltip: localize('positron.restorePanel', "Restore Panel"),
 			category: Categories.View,
 			f1: true,
-			icon: positronMaximizePanelIcon,
+			icon: positronRestorePanelIcon,
 			// This action is only enabled when the panel position is bottom and the panel alignment
 			// is center.
 			precondition: ContextKeyExpr.and(PanelPositionContext.isEqualTo('bottom'), PanelAlignmentContext.isEqualTo('center')),
@@ -405,23 +405,23 @@ registerAction2(class extends Action2 {
 			layoutService.setPartHidden(false, Parts.PANEL_PART);
 		}
 
-		// Have the layout service maximize the panel.
-		layoutService.maximizePanel();
+		// Have the layout service restore the panel.
+		layoutService.restorePanel();
 	}
 });
 
 /**
- * Positron restore panel action.
+ * Positron maximize panel action.
  */
 registerAction2(class extends Action2 {
 	constructor() {
 		super({
-			id: 'workbench.action.restorePanel',
-			title: { value: localize('restorePanel', "Restore Panel"), original: 'Restore Panel' },
-			tooltip: localize('restoresPanel', "Restores Panel Size"),
+			id: 'workbench.action.maximizePanel',
+			title: { value: localize('positron.maximizePanel', "Maximize Panel"), original: 'Maximize Panel' },
+			tooltip: localize('positron.maximizePanel', "Maximize Panel"),
 			category: Categories.View,
 			f1: true,
-			icon: positronRestorePanelIcon,
+			icon: positronMaximizePanelIcon,
 			// This action is only enabled when the panel position is bottom and the panel alignment
 			// is center.
 			precondition: ContextKeyExpr.and(PanelPositionContext.isEqualTo('bottom'), PanelAlignmentContext.isEqualTo('center')),
@@ -446,8 +446,8 @@ registerAction2(class extends Action2 {
 			layoutService.setPartHidden(false, Parts.PANEL_PART);
 		}
 
-		// Have the layout service restore the panel.
-		layoutService.restorePanel();
+		// Have the layout service maximize the panel.
+		layoutService.maximizePanel();
 	}
 });
 // --- End Positron ---
