@@ -34,53 +34,54 @@ const CONTRAST_FOREGROUND = '  Contrast Foreground  ';
 const HelpLines = [
 	'Zed help:',
 	'',
-	'1k             - Inserts 1,000 lines of ANSI output',
-	'ansi 16        - Displays standard ANSI colors as foreground and background colors',
-	'ansi 256       - Displays indexed ANSI colors as foreground and background colors',
-	'ansi blink     - Displays blinking output',
-	'ansi cub       - Outputs text using CUB',
-	'ansi cuf       - Outputs text using CUF',
-	'ansi cup       - Outputs text using CUP',
-	'ansi ed 0      - Clears to the end of the screen using ED',
-	'ansi ed 1      - Clears to the beginning of the screen using ED',
-	'ansi ed 2      - Clears an entire screen using ED',
-	'ansi el 0      - Clears to the end of the line using EL',
-	'ansi el 1      - Clears to the beginning of the line using EL',
-	'ansi el 2      - Clears an entire line using EL',
-	'ansi hidden    - Displays hidden text',
-	'ansi rgb       - Displays RGB ANSI colors as foreground and background colors',
-	'busy X Y       - Simulates an interuptible busy state for X seconds that takes Y seconds to interrupt (default X = 5, Y = 1)',
-	'cd X           - Changes the current working directory to X, or to a random directory if X is not specified',
-	'clock          - Show a plot containing a clock, using the notebook renderer API',
-	'connection X   - Create a database connection, optionally named X',
-	'code X Y       - Simulates a successful X line input with Y lines of output (where X >= 1 and Y >= 0)',
-	'crash          - Simulates a crash',
-	'env clear      - Clears all variables from the environment',
-	'env def X      - Defines X variables (randomly typed)',
-	'env def X Y    - Defines X variables of type Y, where Y is one of: string, number, vector, list, or blob',
-	'env max X      - Set the maximum number of displayed variables to X',
-	'env rm X       - Removes X variables',
-	'env update X   - Updates X variables',
-	'error X Y Z    - Simulates an unsuccessful X line input with Y lines of error message and Z lines of traceback (where X >= 1 and Y >= 1 and Z >= 0)',
-	'exec X Y       - Executes a code snippet Y in the language X',
-	'fancy          - Simulates fancy HTML output',
-	'flicker        - Simulates a flickering console prompt',
-	'help           - Shows this help',
-	'html           - Simulates HTML output',
-	'offline        - Simulates going offline for two seconds',
-	'plot X         - Renders a dynamic (auto-sizing) plot of the letter X',
-	'preview        - Opens or gets the status of a preview pane',
-	'preview open   - Opens a new preview pane',
-	'preview close  - Closes the preview pane, if it is open',
-	'preview status - Gets the status of the preview pane',
-	'preview show   - Shows the preview pane, if it is hidden',
-	'preview msg    - Sends a message to the preview pane',
-	'progress       - Renders a progress bar',
-	'restart        - Simulates orderly restart',
-	'shutdown X     - Simulates orderly shutdown, or sets the shutdown delay to X',
-	'static plot    - Renders a static plot (image)',
-	'view X         - Open a data viewer named X',
-	'version        - Shows the Zed version'
+	'1k               - Inserts 1,000 lines of ANSI output',
+	'ansi 16          - Displays standard ANSI colors as foreground and background colors',
+	'ansi 256         - Displays indexed ANSI colors as foreground and background colors',
+	'ansi blink       - Displays blinking output',
+	'ansi cub         - Outputs text using CUB',
+	'ansi cuf         - Outputs text using CUF',
+	'ansi cup         - Outputs text using CUP',
+	'ansi ed 0        - Clears to the end of the screen using ED',
+	'ansi ed 1        - Clears to the beginning of the screen using ED',
+	'ansi ed 2        - Clears an entire screen using ED',
+	'ansi el 0        - Clears to the end of the line using EL',
+	'ansi el 1        - Clears to the beginning of the line using EL',
+	'ansi el 2        - Clears an entire line using EL',
+	'ansi hidden      - Displays hidden text',
+	'ansi rgb         - Displays RGB ANSI colors as foreground and background colors',
+	'busy X Y         - Simulates an interuptible busy state for X seconds that takes Y seconds to interrupt (default X = 5, Y = 1)',
+	'cd X             - Changes the current working directory to X, or to a random directory if X is not specified',
+	'clock            - Show a plot containing a clock, using the notebook renderer API',
+	'connection X     - Create a database connection, optionally named X',
+	'connection close - Close a random database connection',
+	'code X Y         - Simulates a successful X line input with Y lines of output (where X >= 1 and Y >= 0)',
+	'crash            - Simulates a crash',
+	'env clear        - Clears all variables from the environment',
+	'env def X        - Defines X variables (randomly typed)',
+	'env def X Y      - Defines X variables of type Y, where Y is one of: string, number, vector, list, or blob',
+	'env max X        - Set the maximum number of displayed variables to X',
+	'env rm X         - Removes X variables',
+	'env update X     - Updates X variables',
+	'error X Y Z      - Simulates an unsuccessful X line input with Y lines of error message and Z lines of traceback (where X >= 1 and Y >= 1 and Z >= 0)',
+	'exec X Y         - Executes a code snippet Y in the language X',
+	'fancy            - Simulates fancy HTML output',
+	'flicker          - Simulates a flickering console prompt',
+	'help             - Shows this help',
+	'html             - Simulates HTML output',
+	'offline          - Simulates going offline for two seconds',
+	'plot X           - Renders a dynamic (auto-sizing) plot of the letter X',
+	'preview          - Opens or gets the status of a preview pane',
+	'preview open     - Opens a new preview pane',
+	'preview close    - Closes the preview pane, if it is open',
+	'preview status   - Gets the status of the preview pane',
+	'preview show     - Shows the preview pane, if it is hidden',
+	'preview msg      - Sends a message to the preview pane',
+	'progress         - Renders a progress bar',
+	'restart          - Simulates orderly restart',
+	'shutdown X       - Simulates orderly shutdown, or sets the shutdown delay to X',
+	'static plot      - Renders a static plot (image)',
+	'view X           - Open a data viewer named X',
+	'version          - Shows the Zed version'
 ].join('\n');
 
 /**
@@ -432,7 +433,11 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 			// Simulate a connection
 			const title = (match.length > 1 && match[1]) ? match[1].trim() :
 				`Connection ${this._connections.size + 1}`;
-			this.simulateConnection(id, code, title);
+			if (title === 'close') {
+				this.closeConnection(id, code);
+			} else {
+				this.simulateConnection(id, code, title);
+			}
 			return;
 		}
 
@@ -1749,6 +1754,51 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 
 		// Return to idle state.
 		this.simulateIdleState(parentId);
+	}
+
+	private closeConnection(parentId: string, code: string) {
+		// Enter busy state and output the code.
+		this.simulateBusyState(parentId);
+		this.simulateInputMessage(parentId, code);
+
+		if (this._connections.size === 0) {
+			this.simulateErrorMessage(parentId,
+				'No Connections Open',
+				'There are no connections open to close. ' +
+				'Open a connection with the "connection" command', []);
+		}
+		else {
+
+			// Create the connection client comm.
+			const target = this._connections.values().next().value;
+			this._connections.delete(target.id);
+
+			// Send the comm open message to the client.
+			this._onDidReceiveRuntimeMessage.fire({
+				id: randomUUID(),
+				parent_id: parentId,
+				when: new Date().toISOString(),
+				type: positron.LanguageRuntimeMessageType.CommClosed,
+				comm_id: target.id,
+				target_name: 'positron.connection',
+				data: { name: target.name }
+			} as positron.LanguageRuntimeCommClosed);
+
+			// Emit text output so something shows up in the console.
+			this._onDidReceiveRuntimeMessage.fire({
+				id: randomUUID(),
+				parent_id: parentId,
+				when: new Date().toISOString(),
+				type: positron.LanguageRuntimeMessageType.Output,
+				data: {
+					'text/plain': `Connection '${target.name}' closed`
+				} as Record<string, string>
+			} as positron.LanguageRuntimeOutput);
+		}
+
+		// Return to idle state.
+		this.simulateIdleState(parentId);
+
 	}
 
 	/**
