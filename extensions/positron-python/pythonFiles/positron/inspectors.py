@@ -172,7 +172,8 @@ class PositronInspector(Generic[T]):
         if not isinstance(json_data["type"], str):
             raise ValueError(f"Expected json_data['type'] to be str, got {json_data['type']}")
 
-        return self.value_from_json(json_data["type"], json_data["data"])
+        # TODO(pyright): cast shouldn't be necessary, recheck in a future version of pyright
+        return self.value_from_json(cast(str, json_data["type"]), json_data["data"])
 
     def value_from_json(self, type_name: str, data: JsonData) -> T:
         raise NotImplementedError(
@@ -441,7 +442,8 @@ class CollectionInspector(_BaseCollectionInspector[CollectionT]):
             if not isinstance(data["step"], int):
                 raise ValueError(f"Expected data['step'] to be int, got {data['step']}")
 
-            return range(data["start"], data["stop"], data["step"])
+            # TODO(pyright): cast shouldn't be necessary, recheck in a future version of pyright
+            return range(cast(int, data["start"]), cast(int, data["stop"]), cast(int, data["step"]))
 
         return super().value_from_json(type_name, data)
 
@@ -616,7 +618,7 @@ class _BaseColumnInspector(_BaseMapInspector[Column], ABC):
         print_width: Optional[int] = PRINT_WIDTH,
         truncate_at: int = TRUNCATE_AT,
     ) -> Tuple[str, bool]:
-        # TODO: This cast shouldn't be necessary, might be a bug in pyright.
+        # TODO(pyright): cast shouldn't be necessary, recheck in a future version of pyright
         display_value = str(cast(Column, value[:MAX_CHILDREN]).to_list())
         return (display_value, True)
 
@@ -945,8 +947,9 @@ def decode_access_key(access_key: str) -> Any:
         raise ValueError(f"Unexpected json data structure: {json_data}")
 
     # Get the inspector for this type.
-    type_name = json_data["type"]
-    inspector_key = _ACCESS_KEY_QUALNAME_TO_INSPECTOR_KEY.get(json_data["type"], type_name)
+    # TODO(pyright): cast shouldn't be necessary, recheck in a future version of pyright
+    type_name = cast(str, json_data["type"])
+    inspector_key = _ACCESS_KEY_QUALNAME_TO_INSPECTOR_KEY.get(type_name, type_name)
     inspector = INSPECTORS.get(inspector_key, PositronInspector())
 
     # Reconstruct the access key's original object using the deserialized JSON data.
