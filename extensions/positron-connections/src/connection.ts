@@ -121,6 +121,19 @@ export class ConnectionItemsProvider implements vscode.TreeDataProvider<Connecti
 		// Fire the event to indicate that the tree data has changed. This will
 		// trigger a refresh.
 		this._onDidChangeTreeData.fire(undefined);
+
+		// Add an event listener to the client so that we can remove the
+		// connection when it closes.
+		client.onDidChangeClientState((state: positron.RuntimeClientState) => {
+			if (state === positron.RuntimeClientState.Closed) {
+				// Get the ID and discard the connection matching the ID
+				const clientId = client.getClientId();
+				this._connections = this._connections.filter((connection) => {
+					return connection.client.getClientId() !== clientId;
+				});
+				this._onDidChangeTreeData.fire(undefined);
+			}
+		});
 	}
 
 	/**

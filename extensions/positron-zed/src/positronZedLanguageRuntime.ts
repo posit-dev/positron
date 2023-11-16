@@ -1218,7 +1218,8 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 		const enviromentIds = Array.from(this._environments.keys());
 		const plotIds = Array.from(this._plots.keys());
 		const dataIds = Array.from(this._data.keys());
-		const allIds = enviromentIds.concat(plotIds).concat(dataIds);
+		const connectionIds = Array.from(this._connections.keys());
+		const allIds = enviromentIds.concat(plotIds).concat(dataIds).concat(connectionIds);
 		allIds.forEach(id => {
 			this._onDidReceiveRuntimeMessage.fire({
 				id: randomUUID(),
