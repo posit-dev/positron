@@ -56,10 +56,6 @@ body,
 	height: 100%;
 }
 
-tr {
-	position: relative;
-}
-
 .container {
 	overflow: auto;
 	overflow-anchor: none;
