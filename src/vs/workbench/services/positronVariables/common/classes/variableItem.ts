@@ -3,7 +3,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { IVariableItem } from 'vs/workbench/services/positronVariables/common/interfaces/variableItem';
-import { EnvironmentVariable } from 'vs/workbench/services/languageRuntime/common/languageRuntimeEnvironmentClient';
+import { Variable } from 'vs/workbench/services/languageRuntime/common/languageRuntimeVariablesClient';
 
 /**
  * VariableItem class. This is used to represent an variable in a language runtime.
@@ -19,7 +19,7 @@ export class VariableItem implements IVariableItem {
 	/**
 	 * Gets the variable.
 	 */
-	private readonly _variable: EnvironmentVariable;
+	private readonly _variable: Variable;
 
 	/**
 	 * Gets or sets the child variable items.
@@ -162,7 +162,7 @@ export class VariableItem implements IVariableItem {
 	 * Constructor.
 	 * @param name The variable.
 	 */
-	constructor(variable: EnvironmentVariable) {
+	constructor(variable: Variable) {
 		this._variable = variable;
 	}
 

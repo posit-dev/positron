@@ -9,8 +9,8 @@ import { VariableItem } from 'vs/workbench/services/positronVariables/common/cla
 import { VariableGroup } from 'vs/workbench/services/positronVariables/common/classes/variableGroup';
 import { ILanguageRuntime, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { sortVariableItemsByName, sortVariableItemsBySize } from 'vs/workbench/services/positronVariables/common/helpers/utils';
+import { VariablesClientInstance, VariablesClientList, VariablesClientUpdate, VariableValueKind, IVariablesClientMessageError } from 'vs/workbench/services/languageRuntime/common/languageRuntimeVariablesClient';
 import { VariableEntry, IPositronVariablesInstance, PositronVariablesGrouping, PositronVariablesSorting, PositronVariablesInstanceState } from 'vs/workbench/services/positronVariables/common/interfaces/positronVariablesInstance';
-import { EnvironmentClientInstance, EnvironmentClientList, EnvironmentClientUpdate, EnvironmentVariableValueKind, IEnvironmentClientMessageError } from 'vs/workbench/services/languageRuntime/common/languageRuntimeEnvironmentClient';
 
 /**
  * Constants.
@@ -85,7 +85,7 @@ export class PositronVariablesInstance extends Disposable implements IPositronVa
 	/**
 	 * Gets or sets the environment client that is used to communicate with the language runtime.
 	 */
-	private _environmentClient?: EnvironmentClientInstance;
+	private _environmentClient?: VariablesClientInstance;
 
 	/**
 	 * The onDidChangeState event emitter.
@@ -407,7 +407,7 @@ export class PositronVariablesInstance extends Disposable implements IPositronVa
 		// Try to create the runtime client.
 		try {
 			// Create the runtime client.
-			this._environmentClient = new EnvironmentClientInstance(this._runtime);
+			this._environmentClient = new VariablesClientInstance(this._runtime);
 
 			// Add the onDidReceiveList event handler.
 			this._runtimeDisposableStore.add(
@@ -441,7 +441,7 @@ export class PositronVariablesInstance extends Disposable implements IPositronVa
 	 * Processes an IEnvironmentClientMessageList.
 	 * @param environmentClientMessageList The IEnvironmentClientMessageList.
 	 */
-	private async processList(environmentClientMessageList: EnvironmentClientList) {
+	private async processList(environmentClientMessageList: VariablesClientList) {
 		/**
 		 * Returns a value which indicates whether the path is expanded.
 		 * @param path The path.
@@ -479,7 +479,7 @@ export class PositronVariablesInstance extends Disposable implements IPositronVa
 	 * Processes an IEnvironmentClientMessageError.
 	 * @param environmentClientMessageError The IEnvironmentClientMessageError.
 	 */
-	private async processUpdate(environmentClientUpdate: EnvironmentClientUpdate) {
+	private async processUpdate(environmentClientUpdate: VariablesClientUpdate) {
 		/**
 		 * Returns a value which indicates whether the path is expanded.
 		 * @param path The path.
@@ -522,7 +522,7 @@ export class PositronVariablesInstance extends Disposable implements IPositronVa
 	 * Processes an IEnvironmentClientMessageError.
 	 * @param environmentClientMessageError The IEnvironmentClientMessageError.
 	 */
-	private processError(environmentClientMessageError: IEnvironmentClientMessageError) {
+	private processError(environmentClientMessageError: IVariablesClientMessageError) {
 		this._logService.error(`There was an error with the Environment client: ${environmentClientMessageError.message}`);
 	}
 
@@ -591,9 +591,9 @@ export class PositronVariablesInstance extends Disposable implements IPositronVa
 		const valueItems: VariableItem[] = [];
 		const functionItems: VariableItem[] = [];
 		items.forEach(item => {
-			if (item.kind === EnvironmentVariableValueKind.Table) {
+			if (item.kind === VariableValueKind.Table) {
 				dataItems.push(item);
-			} else if (item.kind === EnvironmentVariableValueKind.Function) {
+			} else if (item.kind === VariableValueKind.Function) {
 				functionItems.push(item);
 			} else {
 				valueItems.push(item);

@@ -5,7 +5,7 @@
 import * as vscode from 'vscode';
 
 import * as positron from 'positron';
-import { JavascriptLanguageRuntime } from './runtime';
+import { JavaScriptLanguageRuntime } from './runtime';
 
 /**
  * Registers the extension's commands.
@@ -19,7 +19,7 @@ export async function registerCommands(context: vscode.ExtensionContext) {
 		}));
 }
 
-// Singleton instance of the Javascript language runtime
+// Singleton instance of the JavaScript language runtime
 let _runtime: positron.LanguageRuntime | undefined;
 
 function startExtHostRuntime(context: vscode.ExtensionContext): void {
@@ -29,7 +29,7 @@ function startExtHostRuntime(context: vscode.ExtensionContext): void {
 	} else {
 		// Otherwise, try to create it
 		try {
-			_runtime = new JavascriptLanguageRuntime(context);
+			_runtime = new JavaScriptLanguageRuntime(context);
 			context.subscriptions.push(
 				positron.runtime.registerLanguageRuntime(_runtime));
 			// Start the runtime on the next tick

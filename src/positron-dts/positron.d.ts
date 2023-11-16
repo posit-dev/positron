@@ -435,7 +435,7 @@ declare module 'positron' {
 	 * "positron".
 	 */
 	export enum RuntimeClientType {
-		Environment = 'positron.environment',
+		Variables = 'positron.variables',
 		Lsp = 'positron.lsp',
 		Dap = 'positron.dap',
 		Plot = 'positron.plot',
@@ -489,15 +489,14 @@ declare module 'positron' {
 	}
 
 	/**
-	 * RuntimeEnvironmentClient is a client that tracks the current environment
-	 * variables in the runtime.
+	 * RuntimeVariablesClient is a client that tracks the variables in the runtime.
 	 */
-	export interface RuntimeEnvironmentClient extends RuntimeClientInstance {
-		onDidChangeEnvironmentVariables: vscode.Event<Array<EnvironmentVariable>>;
-		getCurrentEnvironmentVariables(): Array<EnvironmentVariable>;
+	export interface RuntimeVariablesClient extends RuntimeClientInstance {
+		onDidChangeVariables: vscode.Event<Array<Variable>>;
+		getCurrentVariables(): Array<Variable>;
 	}
 
-	export interface EnvironmentVariable {
+	export interface Variable {
 		name: string;
 		value: string;
 		length: number;

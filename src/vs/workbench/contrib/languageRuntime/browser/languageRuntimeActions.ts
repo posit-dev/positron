@@ -267,7 +267,7 @@ export function registerLanguageRuntimeActions() {
 		const selection = await quickInputService.pick<RuntimeClientTypeQuickPickItem>([{
 			id: generateUuid(),
 			label: 'Environment Pane',
-			runtimeClientType: RuntimeClientType.Environment,
+			runtimeClientType: RuntimeClientType.Variables,
 		}], {
 			canPickMany: false,
 			placeHolder: `Select runtime client for ${languageRuntime.metadata.runtimeName}`

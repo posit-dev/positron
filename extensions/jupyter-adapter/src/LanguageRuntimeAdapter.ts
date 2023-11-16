@@ -320,9 +320,9 @@ export class LanguageRuntimeAdapter
 		params: object
 	) {
 
-		// Ensure the type of client we're being asked to create is a known type
-		// that supports client-initiated creation
-		if (type === positron.RuntimeClientType.Environment ||
+		// Ensure the type of client we're being asked to create is a known type that supports
+		// client-initiated creation
+		if (type === positron.RuntimeClientType.Variables ||
 			type === positron.RuntimeClientType.Lsp ||
 			type === positron.RuntimeClientType.Dap ||
 			type === positron.RuntimeClientType.FrontEnd ||
