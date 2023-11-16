@@ -129,8 +129,7 @@ export const DataPanel = (props: DataPanelProps) => {
 		return {data: flattenedData, isFetching, isSuccess};
 	};
 
-	// All queries are disabled, and will not be automatically fetched/refetched
-	// We manually trigger the queries with the refetch function from each result
+	// Only queries within the viewport are enable
 	const results = ReactQuery.useQueries({
 		queries: allPages.map(pageParam => {
 			const options = ReactQuery.queryOptions({
@@ -226,12 +225,13 @@ export const DataPanel = (props: DataPanelProps) => {
 		// Also ensures that we fetch both the previous and next page if both are needed
 		// (i.e. the viewport crosses a page boundary)
 		updateScroll();
-	}, [updateScroll]);
+	}, [rowVirtualizer.isScrolling]);
+
+	console.log(`Rendering. Virtual rows: ${virtualRows.length}, ${virtualRows[0].index} to ${virtualRows[virtualRows.length - 1].index}`);
 
 	return (
 		<div
 			className='container'
-			onScroll={updateScroll}
 			onResize={e => positionOverlay(e.target as HTMLDivElement)}
 			ref={tableContainerRef}
 		>
@@ -288,7 +288,7 @@ export const DataPanel = (props: DataPanelProps) => {
 								//ref={rowVirtualizer.measureElement}
 							>
 							{
-								row.getVisibleCells().map(cell => {
+								row.getAllCells().map(cell => {
 									return (
 										<td key={cell.id}>
 											{ReactTable.flexRender(
