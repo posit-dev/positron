@@ -61,7 +61,7 @@ export const DataPanel = (props: DataPanelProps) => {
 	// calling the appropriate resolve or reject function when the request completes.
 	const fetcher = new DataFetcher(requestQueue.current, requestResolvers.current, totalRows, vscode);
 
-	const [scrollPages, setScrollPages] = React.useState<{top: number; bottom: number}>({top: 0, bottom: 0});
+	const scrollPages = React.useRef<{top: number; bottom: number}>({top: 0, bottom: 0});
 
 	// Dimensions to keep track of as the table container scrolls and resizes
 	const dimensionsRef = React.useRef<any>({
@@ -112,14 +112,14 @@ export const DataPanel = (props: DataPanelProps) => {
 			pageParams: [0]
 		},
 		getPreviousPageParam: (_page, _pages, _firstPageParam, allPageParams) => {
-			return allPageParams.includes(scrollPages.top)
+			return allPageParams.includes(scrollPages.current.top)
 				? undefined // don't refetch if we have already fetched data for this page
-				: scrollPages.top; // otherwise, use scroll position to determine previous page
+				: scrollPages.current.top; // otherwise, use scroll position to determine previous page
 		},
 		getNextPageParam: (_page, _pages, _lastPageParam, allPageParams) => {
-			return allPageParams.includes(scrollPages.bottom)
+			return allPageParams.includes(scrollPages.current.bottom)
 				? undefined // don't refetch if we have already fetched data for this page
-				: scrollPages.bottom; // otherwise, use scroll position to determine next page
+				: scrollPages.current.bottom; // otherwise, use scroll position to determine next page
 		},
 		// we don't need to check for active network connection before retrying a query
 		networkMode: 'always',
@@ -239,7 +239,7 @@ export const DataPanel = (props: DataPanelProps) => {
 		const top = Math.floor(firstVirtualRow / fetchSize);
 		const lastVirtualRow = virtualRows?.[virtualRows.length - 1]?.index ?? 0;
 		const bottom = Math.min(Math.floor(lastVirtualRow / fetchSize), maxPage);
-		setScrollPages({top, bottom});
+		scrollPages.current = {top, bottom};
 	}, [virtualRows]);
 
 	React.useEffect(() => {
@@ -249,12 +249,11 @@ export const DataPanel = (props: DataPanelProps) => {
 		// (i.e. the viewport crosses a page boundary)
 		updateScroll();
 		fetchMorePages();
-	}, [updateScroll, fetchMorePages]);
+	}, [updateScroll, fetchMorePages, rowVirtualizer.isScrolling]);
 
 	return (
 		<div
 			className='container'
-			onScroll={updateScroll}
 			onResize={e => positionOverlay(e.target as HTMLDivElement)}
 			ref={tableContainerRef}
 		>
