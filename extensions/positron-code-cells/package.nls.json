@@ -1,0 +1,14 @@
+{
+	"displayName": "Positron Code Cells",
+	"description": "Jupyter-like code cells in Positron",
+	"positron.codeCells.command.goToPreviousCell.title": "Go to Previous Cell",
+	"positron.codeCells.command.goToNextCell.title": "Go to Next Cell",
+	"positron.codeCells.command.insertCodeCell.title": "Insert Code Cell",
+	"positron.codeCells.command.runAllCells.title": "Run All Cells",
+	"positron.codeCells.command.runCellsAbove.title": "Run Cells Above",
+	"positron.codeCells.command.runCellsBelow.title": "Run Cells Below",
+	"positron.codeCells.command.runCurrentAdvance.title": "Run Cell and Advance",
+	"positron.codeCells.command.runCurrentCell.title": "Run Cell",
+	"positron.codeCells.command.runNextCell.title": "Run Next Cell",
+	"positron.codeCells.command.runPreviousCell.title": "Run Previous Cell"
+}

@@ -1,0 +1,190 @@
+{
+  "name": "positron-code-cells",
+  "displayName": "%displayName%",
+  "description": "%description%",
+  "publisher": "vscode",
+  "version": "0.0.1",
+  "engines": {
+    "vscode": "^1.65.0"
+  },
+  "categories": [],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "contributes": {
+    "commands": [
+      {
+        "command": "positron.goToPreviousCell",
+        "title": "%positron.codeCells.command.goToPreviousCell.title%",
+        "category": "Positron"
+      },
+      {
+        "command": "positron.goToNextCell",
+        "title": "%positron.codeCells.command.goToNextCell.title%",
+        "category": "Positron"
+      },
+      {
+        "command": "positron.insertCodeCell",
+        "title": "%positron.codeCells.command.insertCodeCell.title%",
+        "category": "Positron"
+      },
+      {
+        "command": "positron.runAllCells",
+        "title": "%positron.codeCells.command.runAllCells.title%",
+        "category": "Positron"
+      },
+      {
+        "command": "positron.runCellsAbove",
+        "title": "%positron.codeCells.command.runCellsAbove.title%",
+        "category": "Positron"
+      },
+      {
+        "command": "positron.runCellsBelow",
+        "title": "%positron.codeCells.command.runCellsBelow.title%",
+        "category": "Positron"
+      },
+      {
+        "command": "positron.runCurrentAdvance",
+        "title": "%positron.codeCells.command.runCurrentAdvance.title%",
+        "category": "Positron"
+      },
+      {
+        "command": "positron.runCurrentCell",
+        "title": "%positron.codeCells.command.runCurrentCell.title%",
+        "category": "Positron"
+      },
+      {
+        "command": "positron.runNextCell",
+        "title": "%positron.codeCells.command.runNextCell.title%",
+        "category": "Positron"
+      },
+      {
+        "command": "positron.runPreviousCell",
+        "title": "%positron.codeCells.command.runPreviousCell.title%",
+        "category": "Positron"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "positron.goToPreviousCell",
+        "key": "ctrl+pageup",
+        "mac": "cmd+pageup",
+        "when": "editorTextFocus && positron.hasCodeCells && !findInputFocussed && !replaceInputFocussed"
+      },
+      {
+        "command": "positron.goToNextCell",
+        "key": "ctrl+pagedown",
+        "mac": "cmd+pagedown",
+        "when": "editorTextFocus && positron.hasCodeCells && !findInputFocussed && !replaceInputFocussed"
+      },
+      {
+        "command": "positron.insertCodeCell",
+        "key": "ctrl+shift+i",
+        "mac": "cmd+shift+i",
+        "when": "editorTextFocus && positron.supportsCodeCells && !findInputFocussed && !replaceInputFocussed"
+      },
+      {
+        "command": "positron.runAllCells",
+        "key": "ctrl+alt+r",
+        "mac": "cmd+alt+r",
+        "when": "editorTextFocus && positron.hasCodeCells && !findInputFocussed && !replaceInputFocussed"
+      },
+      {
+        "command": "positron.runCellsAbove",
+        "key": "ctrl+shift+alt+p",
+        "mac": "cmd+shift+alt+p",
+        "when": "editorTextFocus && positron.hasCodeCells && !findInputFocussed && !replaceInputFocussed"
+      },
+      {
+        "command": "positron.runCellsBelow",
+        "key": "ctrl+shift+alt+n",
+        "mac": "cmd+shift+alt+n",
+        "when": "editorTextFocus && positron.hasCodeCells && !findInputFocussed && !replaceInputFocussed"
+      },
+      {
+        "command": "positron.runCurrentAdvance",
+        "key": "shift+enter",
+        "when": "editorTextFocus && positron.hasCodeCells && !findInputFocussed && !replaceInputFocussed"
+      },
+      {
+        "command": "positron.runCurrentCell",
+        "key": "ctrl+shift+enter",
+        "mac": "cmd+shift+enter",
+        "when": "editorTextFocus && positron.hasCodeCells && !findInputFocussed && !replaceInputFocussed"
+      },
+      {
+        "command": "positron.runNextCell",
+        "key": "ctrl+alt+n",
+        "mac": "cmd+alt+n",
+        "when": "editorTextFocus && positron.hasCodeCells && !findInputFocussed && !replaceInputFocussed"
+      },
+      {
+        "command": "positron.runPreviousCell",
+        "key": "ctrl+alt+p",
+        "mac": "cmd+alt+p",
+        "when": "editorTextFocus && positron.hasCodeCells && !findInputFocussed && !replaceInputFocussed"
+      }
+    ],
+    "menus": {
+      "commandPalette": [
+        {
+          "command": "positron.goToPreviousCell",
+          "when": "positron.hasCodeCells"
+        },
+        {
+          "command": "positron.goToNextCell",
+          "when": "positron.hasCodeCells"
+        },
+        {
+          "command": "positron.insertCodeCell",
+          "when": "positron.supportsCodeCells"
+        },
+        {
+          "command": "positron.runAllCells",
+          "when": "positron.hasCodeCells"
+        },
+        {
+          "command": "positron.runCellsAbove",
+          "when": "positron.hasCodeCells"
+        },
+        {
+          "command": "positron.runCellsBelow",
+          "when": "positron.hasCodeCells"
+        },
+        {
+          "command": "positron.runCurrentAdvance",
+          "when": "positron.hasCodeCells"
+        },
+        {
+          "command": "positron.runCurrentCell",
+          "when": "positron.hasCodeCells"
+        },
+        {
+          "command": "positron.runNextCell",
+          "when": "positron.hasCodeCells"
+        },
+        {
+          "command": "positron.runPreviousCell",
+          "when": "positron.hasCodeCells"
+        }
+      ],
+      "editor/title": [
+        {
+          "command": "positron.insertCodeCell",
+          "when": "positron.supportsCodeCells"
+        }
+      ]
+    }
+  },
+  "main": "./out/extension.js",
+  "scripts": {
+    "vscode:prepublish": "yarn run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "lint": "eslint src --ext ts"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/posit-dev/positron"
+  }
+}
