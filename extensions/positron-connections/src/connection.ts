@@ -6,20 +6,44 @@ import * as vscode from 'vscode';
 import * as positron from 'positron';
 import path = require('path');
 
+/**
+ * Base class for connection items.
+ */
 export class ConnectionItem {
-	constructor(readonly name: string, readonly client: positron.RuntimeClientInstance) {
+	/**
+	 * Create a new ConnectionItem instance
+	 *
+	 * @param name The name of the item
+	 * @param client A reference to the client instance (comm) that owns the
+	 *   item
+	 */
+	constructor(
+		readonly name: string,
+		readonly client: positron.RuntimeClientInstance) {
 	}
 }
 
+/**
+ * A connection item representing a database connection (top-level)
+ */
 export class ConnectionItemDatabase extends ConnectionItem {
 }
 
+/**
+ * A connection item representing a table in a database
+ */
 export class ConnectionItemTable extends ConnectionItem {
+	/**
+	 * Preview the table's contents
+	 */
 	preview() {
 		this.client.performRpc({ msg_type: 'preview_table', table: this.name });
 	}
 }
 
+/**
+ * A connection item representing a field in a table
+ */
 export class ConnectionItemField extends ConnectionItem {
 }
 
@@ -27,24 +51,50 @@ export class ConnectionItemField extends ConnectionItem {
  * Provides connection items to the Connections treeview.
  */
 export class ConnectionItemsProvider implements vscode.TreeDataProvider<ConnectionItem> {
+
+	// Fires when the tree data is changed. We fire this when a new connection
+	// is created.
 	private _onDidChangeTreeData: vscode.EventEmitter<ConnectionItem | undefined> =
 		new vscode.EventEmitter<ConnectionItem | undefined>();
+
+	// The list of active connections
 	private _connections: ConnectionItem[] = [];
 
+	/**
+	 * Create a new ConnectionItemsProvider instance
+	 *
+	 * @param context The extension context
+	 */
 	constructor(readonly context: vscode.ExtensionContext) {
 		this.onDidChangeTreeData = this._onDidChangeTreeData.event;
 	}
 
 	onDidChangeTreeData: vscode.Event<ConnectionItem | undefined> | undefined;
 
+	/**
+	 * Constructs a visual representation (TreeItem) from a ConnectionItem.
+	 *
+	 * @param item The item to get the tree item for
+	 * @returns A TreeItem for the item
+	 */
 	getTreeItem(item: ConnectionItem): vscode.TreeItem {
+		// Both databases and tables can be expanded.
 		const collapsibleState = item instanceof ConnectionItemDatabase || item instanceof ConnectionItemTable;
-		const treeItem = new vscode.TreeItem(item.name, collapsibleState ? vscode.TreeItemCollapsibleState.Collapsed :
-			vscode.TreeItemCollapsibleState.None);
+
+		// Create the tree item.
+		const treeItem = new vscode.TreeItem(item.name,
+			collapsibleState ?
+				vscode.TreeItemCollapsibleState.Collapsed :
+				vscode.TreeItemCollapsibleState.None);
+
 		if (item instanceof ConnectionItemDatabase) {
+			// Set the icon for databases
 			treeItem.iconPath = vscode.Uri.file(path.join(this.context.extensionPath, 'media', 'database.svg'));
 		} else if (item instanceof ConnectionItemTable) {
+			// Set the icon for tables
 			treeItem.iconPath = vscode.Uri.file(path.join(this.context.extensionPath, 'media', 'table.svg'));
+
+			// Tables can previewed in a new editor
 			treeItem.command = {
 				title: vscode.l10n.t('Preview Table'),
 				command: 'positron.connections.previewTable',
@@ -52,16 +102,33 @@ export class ConnectionItemsProvider implements vscode.TreeDataProvider<Connecti
 				arguments: [item]
 			};
 		} else if (item instanceof ConnectionItemField) {
+			// Set the icon for fields
 			treeItem.iconPath = vscode.Uri.file(path.join(this.context.extensionPath, 'media', 'field.svg'));
 		}
 		return treeItem;
 	}
 
+	/**
+	 * Adds a connection to the pane.
+	 *
+	 * @param client The client instance that owns the connection
+	 * @param name The name of the connection
+	 */
 	addConnection(client: positron.RuntimeClientInstance, name: string) {
+		// Add the connection to the list
 		this._connections.push(new ConnectionItemDatabase(name, client));
+
+		// Fire the event to indicate that the tree data has changed. This will
+		// trigger a refresh.
 		this._onDidChangeTreeData.fire(undefined);
 	}
 
+	/**
+	 * Gets the children of an element.
+	 *
+	 * @param element The element to get the children for
+	 * @returns The children of the element
+	 */
 	getChildren(element?: ConnectionItem): Thenable<ConnectionItem[]> {
 		// Fields don't have children
 		if (element instanceof ConnectionItemField) {
@@ -98,6 +165,5 @@ export class ConnectionItemsProvider implements vscode.TreeDataProvider<Connecti
 			// At the root, return the top-level connections
 			return Promise.resolve(this._connections);
 		}
-
 	}
 }

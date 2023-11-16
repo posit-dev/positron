@@ -14,19 +14,22 @@ import { ConnectionItemTable, ConnectionItemsProvider } from './connection';
 export function activate(context: vscode.ExtensionContext) {
 	const connectionProvider = new ConnectionItemsProvider(context);
 
+	// Register the tree data provider that will provide the connections
 	context.subscriptions.push(
 		vscode.window.registerTreeDataProvider('connections', connectionProvider));
 
+	// Register a handler for the positron.connection client type. This client
+	// represents an active, queryable database connection.
 	context.subscriptions.push(
 		positron.runtime.registerClientHandler({
 			clientType: 'positron.connection',
 			callback: (client, params: any) => {
-				// Presume that the params are a connection name
 				connectionProvider.addConnection(client, params.name);
 				return true;
 			}
 		}));
 
+	// Register a command to preview a table
 	context.subscriptions.push(
 		vscode.commands.registerCommand('positron.connections.previewTable',
 			(item: ConnectionItemTable) => {
