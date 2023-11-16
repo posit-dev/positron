@@ -1172,11 +1172,6 @@
                 "key": "ctrl+shift+enter",
                 "mac": "cmd+shift+enter",
                 "when": "editorTextFocus && editorLangId == python && !findInputFocussed && !replaceInputFocussed && !jupyter.ownsSelection && !notebookEditorFocused"
-            },
-            {
-                "command": "workbench.action.positronConsole.executeCode",
-                "key": "shift+enter",
-                "when": "editorTextFocus && editorLangId == python && !findInputFocussed && !replaceInputFocussed && !jupyter.ownsSelection && !notebookEditorFocused"
             }
         ],
         "languages": [
