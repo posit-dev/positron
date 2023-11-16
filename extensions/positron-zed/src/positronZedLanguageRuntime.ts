@@ -1577,11 +1577,7 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 		this.simulateIdleState(parentId);
 	}
 
-	public simulateDataView(parentId: string, code: string, title: string) {
-		// Enter busy state and output the code.
-		this.simulateBusyState(parentId);
-		this.simulateInputMessage(parentId, code);
-
+	public createZedDataView(parentId: string, title: string) {
 		// Create the data client comm.
 		const data = new ZedData(title);
 		this.connectClientEmitter(data);
@@ -1597,6 +1593,14 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 			target_name: 'positron.dataViewer',
 			data: { 'title': data.title }
 		} as positron.LanguageRuntimeCommOpen);
+	}
+
+	public simulateDataView(parentId: string, code: string, title: string) {
+		// Enter busy state and output the code.
+		this.simulateBusyState(parentId);
+		this.simulateInputMessage(parentId, code);
+
+		this.createZedDataView(parentId, title);
 
 		// Emit text output so something shows up in the console.
 		this._onDidReceiveRuntimeMessage.fire({
@@ -1608,6 +1612,7 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 				'text/plain': `<ZedData view>`
 			} as Record<string, string>
 		} as positron.LanguageRuntimeOutput);
+
 		// Return to idle state.
 		this.simulateIdleState(parentId);
 	}
@@ -1713,7 +1718,7 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 		this.simulateInputMessage(parentId, code);
 
 		// Create the connection client comm.
-		const connection = new ZedConnection(name);
+		const connection = new ZedConnection(this, name);
 		this.connectClientEmitter(connection);
 		this._connections.set(connection.id, connection);
 
