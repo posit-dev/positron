@@ -11,7 +11,7 @@
     "Programming Languages"
   ],
   "activationEvents": [
-    "*"
+    "onCommand:positron.startExtensions"
   ],
   "main": "./out/extension.js",
   "capabilities": {
@@ -501,7 +501,7 @@
   },
   "positron": {
     "binaryDependencies": {
-      "ark": "0.1.25"
+      "ark": "0.1.24"
     }
   }
 }
