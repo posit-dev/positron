@@ -634,9 +634,10 @@ export class TestLayoutService implements IWorkbenchLayoutService {
 	async setPanelHidden(_hidden: boolean): Promise<void> { }
 	toggleMaximizedPanel(): void { }
 	// --- Start Positron ---
-	maximizePanel(): void { }
 	minimizePanel(): void { }
 	restorePanel(): void { }
+	maximizePanel(): void { }
+	isPanelMinimized(): boolean { return false; }
 	// --- End Positron ---
 	isPanelMaximized(): boolean { return false; }
 	getMenubarVisibility(): MenuBarVisibility { throw new Error('not implemented'); }
