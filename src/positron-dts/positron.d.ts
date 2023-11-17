@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
 declare module 'positron' {
@@ -442,6 +442,7 @@ declare module 'positron' {
 		DataViewer = 'positron.dataViewer',
 		FrontEnd = 'positron.frontEnd',
 		Help = 'positron.help',
+		Connection = 'positron.connection'
 
 		// Future client types may include:
 		// - Watch window/variable explorer
@@ -649,7 +650,8 @@ declare module 'positron' {
 		clientType: string;
 
 		/**
-		 * A callback that is called when a client of the given type is created.
+		 * A callback that is called when a client of the given type is created;
+		 * returns whether the handler took ownership of the client.
 		 */
 		callback: RuntimeClientHandlerCallback;
 	}
