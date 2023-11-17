@@ -205,11 +205,14 @@ export const DataPanel = (props: DataPanelProps) => {
 	// Callback, invoked on scroll, that will fetch more data from the backend if we have reached
 	// the end of the virtualized rows by sending a new MessageRequest.
 	const fetchMorePages = React.useCallback(() => {
+		// cancelRefetch: false allows us to fetch both the previous and next pages if both are needed
+		// (i.e. the user has scrolled quickly and the updated viewport crosses a page boundary)
+		// without one request invalidating the other
 		if (hasNextPage) {
-			fetchNextPage();
+			fetchNextPage({cancelRefetch: false});
 		}
 		if (hasPreviousPage) {
-			fetchPreviousPage();
+			fetchPreviousPage({cancelRefetch: false});
 		}
 	}, [fetchNextPage, hasNextPage, fetchPreviousPage, hasPreviousPage]);
 
