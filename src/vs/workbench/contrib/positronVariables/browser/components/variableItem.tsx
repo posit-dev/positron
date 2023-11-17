@@ -94,6 +94,21 @@ export const VariableItem = (props: VariableItemProps) => {
 	const positronVariablesContext = usePositronVariablesContext();
 
 	/**
+	 * onDoubleClick handler.
+	 * @param e A MouseEvent<HTMLElement> that describes a user interaction with the mouse.
+	 */
+	const doubleClickHandler = (e: MouseEvent<HTMLElement>) => {
+		// Consume the event.
+		e.preventDefault();
+		e.stopPropagation();
+
+		// If the variable item has a viewer, launch it.
+		if (props.variableItem.hasViewer) {
+			props.variableItem.view();
+		}
+	};
+
+	/**
 	 * onMouseDown handler.
 	 * @param e A MouseEvent<HTMLElement> that describes a user interaction with the mouse.
 	 */
@@ -312,7 +327,7 @@ export const VariableItem = (props: VariableItemProps) => {
 
 	// Render.
 	return (
-		<div className={classNames} onMouseDown={mouseDownHandler} style={props.style}>
+		<div className={classNames} onDoubleClick={doubleClickHandler} onMouseDown={mouseDownHandler} style={props.style}>
 			<div className='name-column' style={{ width: props.nameColumnWidth, minWidth: props.nameColumnWidth }}>
 				<div className='name-column-indenter' style={{ marginLeft: props.variableItem.indentLevel * 20 }}>
 					<div className='gutter'>
