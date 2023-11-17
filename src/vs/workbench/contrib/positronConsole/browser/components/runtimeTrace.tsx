@@ -5,7 +5,7 @@
 import 'vs/css!./runtimeTrace';
 import * as React from 'react';
 import { OutputLines } from 'vs/workbench/contrib/positronConsole/browser/components/outputLines';
-import { RuntimeItemTrace } from 'vs/workbench/services/positronConsole/common/classes/runtimeItemTrace';
+import { RuntimeItemTrace } from 'vs/workbench/services/positronConsole/browser/classes/runtimeItemTrace';
 
 // RuntimeTraceProps interface.
 export interface RuntimeTraceProps {

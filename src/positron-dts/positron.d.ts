@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
 declare module 'positron' {
@@ -206,6 +206,32 @@ declare module 'positron' {
 	}
 
 	/**
+	 * The set of possible output locations for a LanguageRuntimeOutput.
+	 */
+	export enum PositronOutputLocation {
+		/** The output should be displayed inline in Positron's Console */
+		Console = 'console',
+
+		/** The output should be displayed in Positron's Viewer pane */
+		Viewer = 'viewer',
+
+		/** The output should be displayed in Positron's Plots pane */
+		Plot = 'plot',
+	}
+
+	/**
+	 * LanguageRuntimeWebOutput amends LanguageRuntimeOutput with additional information needed
+	 * to render web content in Positron.
+	 */
+	export interface LanguageRuntimeWebOutput extends LanguageRuntimeOutput {
+		/** Where the web output should be displayed */
+		output_location: PositronOutputLocation;
+
+		/** The set of resource roots needed to display the output */
+		resource_roots: vscode.Uri[];
+	}
+
+	/**
 	 * The set of standard stream names supported for streaming textual output.
 	 */
 	export enum LanguageRuntimeStreamName {
@@ -409,13 +435,14 @@ declare module 'positron' {
 	 * "positron".
 	 */
 	export enum RuntimeClientType {
-		Environment = 'positron.environment',
+		Variables = 'positron.variables',
 		Lsp = 'positron.lsp',
 		Dap = 'positron.dap',
 		Plot = 'positron.plot',
 		DataViewer = 'positron.dataViewer',
 		FrontEnd = 'positron.frontEnd',
 		Help = 'positron.help',
+		Connection = 'positron.connection'
 
 		// Future client types may include:
 		// - Watch window/variable explorer
@@ -463,15 +490,14 @@ declare module 'positron' {
 	}
 
 	/**
-	 * RuntimeEnvironmentClient is a client that tracks the current environment
-	 * variables in the runtime.
+	 * RuntimeVariablesClient is a client that tracks the variables in the runtime.
 	 */
-	export interface RuntimeEnvironmentClient extends RuntimeClientInstance {
-		onDidChangeEnvironmentVariables: vscode.Event<Array<EnvironmentVariable>>;
-		getCurrentEnvironmentVariables(): Array<EnvironmentVariable>;
+	export interface RuntimeVariablesClient extends RuntimeClientInstance {
+		onDidChangeVariables: vscode.Event<Array<Variable>>;
+		getCurrentVariables(): Array<Variable>;
 	}
 
-	export interface EnvironmentVariable {
+	export interface Variable {
 		name: string;
 		value: string;
 		length: number;
@@ -624,7 +650,8 @@ declare module 'positron' {
 		clientType: string;
 
 		/**
-		 * A callback that is called when a client of the given type is created.
+		 * A callback that is called when a client of the given type is created;
+		 * returns whether the handler took ownership of the client.
 		 */
 		callback: RuntimeClientHandlerCallback;
 	}
@@ -882,7 +909,7 @@ declare module 'positron' {
 		 *
 		 * @param languageId The language ID of the code snippet
 		 * @param code The code snippet to execute
-		 * @param focus Whether to raise and focus the runtime's console
+		 * @param focus Whether to focus the runtime's console
 		 * @returns A Thenable that resolves with true if the code was sent to a
 		 *   runtime successfully, false otherwise.
 		 */
@@ -953,5 +980,6 @@ declare module 'positron' {
 		 * An event that fires when a new runtime is registered.
 		 */
 		export const onDidRegisterRuntime: vscode.Event<LanguageRuntime>;
+
 	}
 }

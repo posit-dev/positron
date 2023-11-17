@@ -3,7 +3,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import type * as positron from 'positron';
-import { ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMessageCommData, ILanguageRuntimeMessageCommOpen, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMessageCommClosed, ILanguageRuntimeMessageCommData, ILanguageRuntimeMessageCommOpen, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import * as extHostProtocol from './extHost.positron.protocol';
 import { Emitter } from 'vs/base/common/event';
 import { IDisposable } from 'vs/base/common/lifecycle';
@@ -338,6 +338,10 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 					this.handleCommData(handle, runtimeMessage as ILanguageRuntimeMessageCommData);
 					break;
 
+				case LanguageRuntimeMessageType.CommClosed:
+					this.handleCommClosed(handle, runtimeMessage as ILanguageRuntimeMessageCommClosed);
+					break;
+
 				// Pass everything else to the main thread
 				default:
 					this._proxy.$emitLanguageRuntimeMessage(handle, runtimeMessage);
@@ -463,4 +467,23 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		this._proxy.$emitLanguageRuntimeMessage(handle, message);
 	}
 
+	/**
+	 * Handles a comm closed message from the language runtime
+	 *
+	 * @param handle The handle of the language runtime
+	 * @param message The message to handle
+	 */
+	private handleCommClosed(handle: number, message: ILanguageRuntimeMessageCommClosed): void {
+		// See if this client instance is still active
+		const idx = this._clientInstances.findIndex(instance =>
+			instance.getClientId() === message.comm_id);
+		if (idx >= 0) {
+			// If it is, dispose and remove it
+			const clientInstance = this._clientInstances[idx];
+			clientInstance.dispose();
+			this._clientInstances.splice(idx, 1);
+		}
+
+		this._proxy.$emitLanguageRuntimeMessage(handle, message);
+	}
 }

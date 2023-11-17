@@ -16,7 +16,7 @@ import { INotebookOutputWebview, IPositronNotebookOutputWebviewService } from 'v
 import { IWebviewService, WebviewInitInfo } from 'vs/workbench/contrib/webview/browser/webview';
 import { asWebviewUri } from 'vs/workbench/contrib/webview/common/webview';
 import { IExtensionService } from 'vs/workbench/services/extensions/common/extensions';
-import { ILanguageRuntime, ILanguageRuntimeMessageOutput } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntime, ILanguageRuntimeMessageWebOutput } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 
 export class PositronNotebookOutputWebviewService implements IPositronNotebookOutputWebviewService {
 
@@ -32,7 +32,7 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 	}
 
 	async createNotebookOutputWebview(runtime: ILanguageRuntime,
-		output: ILanguageRuntimeMessageOutput): Promise<INotebookOutputWebview | undefined> {
+		output: ILanguageRuntimeMessageWebOutput): Promise<INotebookOutputWebview | undefined> {
 
 		// Check to see if any of the MIME types have a renderer associated with
 		// them. If they do, prefer the renderer.
@@ -43,7 +43,7 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 			const renderer = this._notebookService.getPreferredRenderer(mimeType);
 			if (renderer) {
 				return this.createNotebookRenderOutput(output.id, runtime,
-					renderer, mimeType, output.data[mimeType]);
+					renderer, mimeType, output);
 			}
 		}
 
@@ -110,7 +110,10 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 		runtime: ILanguageRuntime,
 		renderer: INotebookRendererInfo,
 		mimeType: string,
-		data: any): Promise<INotebookOutputWebview> {
+		message: ILanguageRuntimeMessageWebOutput
+	): Promise<INotebookOutputWebview> {
+
+		const data = message.data[mimeType] as any;
 
 		// Get the renderer's entrypoint and convert it to a webview URI
 		const rendererPath = asWebviewUri(renderer.entrypoint.path);
@@ -135,6 +138,15 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 			this._workspaceTrustManagementService.isWorkspaceTrusted(),
 			id);
 
+		// Get auxiliary resource roots from the runtime service and convert
+		// them to webview URIs
+		const resourceRoots = new Array<URI>();
+		if (message.resource_roots) {
+			for (const root of message.resource_roots) {
+				resourceRoots.push(URI.revive(root));
+			}
+		}
+
 		// Create the metadata for the webview
 		const webviewInitInfo: WebviewInitInfo = {
 			contentOptions: {
@@ -145,7 +157,8 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 				localResourceRoots: [
 					// Ensure that the renderer can load local resources from
 					// the extension that provides it
-					renderer.extensionLocation
+					renderer.extensionLocation,
+					...resourceRoots
 				],
 			},
 			extension: {
@@ -209,14 +222,6 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 
 	const controller = new AbortController();
 	const signal = controller.signal;
-
-	// Error management: if the renderer fails to load, we show the raw data in
-	// the window for diagnosis.
-	window.onerror = function (e) {
-		let pre = document.createElement('pre');
-		pre.innerText = data.text();
-		container.appendChild(pre);
-	};
 
 	// Render the widget when the page is loaded, then post a message to the
 	// host letting it know that render is complete.

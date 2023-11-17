@@ -10,9 +10,10 @@ import * as positron from 'positron';
 import { ZedPlot } from './positronZedPlot';
 import { ZedData } from './positronZedData';
 import { ZedPreview } from './positronZedPreview';
-import { ZedEnvironment } from './positronZedEnvironment';
+import { ZedVariables } from './positronZedVariables';
 import { makeCUB, makeCUF, makeCUP, makeED, makeEL, makeSGR, SGR } from './ansi';
 import { ZedFrontend } from './positronZedFrontend';
+import { ZedConnection } from './positronZedConnection';
 
 /**
  * Constants.
@@ -33,53 +34,55 @@ const CONTRAST_FOREGROUND = '  Contrast Foreground  ';
 const HelpLines = [
 	'Zed help:',
 	'',
-	'1k             - Inserts 1,000 lines of ANSI output',
-	'ansi 16        - Displays standard ANSI colors as foreground and background colors',
-	'ansi 256       - Displays indexed ANSI colors as foreground and background colors',
-	'ansi blink     - Displays blinking output',
-	'ansi cub       - Outputs text using CUB',
-	'ansi cuf       - Outputs text using CUF',
-	'ansi cup       - Outputs text using CUP',
-	'ansi ed 0      - Clears to the end of the screen using ED',
-	'ansi ed 1      - Clears to the beginning of the screen using ED',
-	'ansi ed 2      - Clears an entire screen using ED',
-	'ansi el 0      - Clears to the end of the line using EL',
-	'ansi el 1      - Clears to the beginning of the line using EL',
-	'ansi el 2      - Clears an entire line using EL',
-	'ansi hidden    - Displays hidden text',
-	'ansi rgb       - Displays RGB ANSI colors as foreground and background colors',
-	'busy X Y       - Simulates an interuptible busy state for X seconds that takes Y seconds to interrupt (default X = 5, Y = 1)',
-	'cd X           - Changes the current working directory to X, or to a random directory if X is not specified',
-	'clock          - Show a plot containing a clock, using the notebook renderer API',
-	'code X Y       - Simulates a successful X line input with Y lines of output (where X >= 1 and Y >= 0)',
-	'crash          - Simulates a crash',
-	'env clear      - Clears all variables from the environment',
-	'env def X      - Defines X variables (randomly typed)',
-	'env def X Y    - Defines X variables of type Y, where Y is one of: string, number, vector, list, or blob',
-	'env max X      - Set the maximum number of displayed variables to X',
-	'env rm X       - Removes X variables',
-	'env update X   - Updates X variables',
-	'error X Y Z    - Simulates an unsuccessful X line input with Y lines of error message and Z lines of traceback (where X >= 1 and Y >= 1 and Z >= 0)',
-	'exec X Y       - Executes a code snippet Y in the language X',
-	'fancy          - Simulates fancy HTML output',
-	'flicker        - Simulates a flickering console prompt',
-	'help           - Shows this help',
-	'html           - Simulates HTML output',
-	'modal          - Simulates a simple modal dialog',
-	'offline        - Simulates going offline for two seconds',
-	'plot X         - Renders a dynamic (auto-sizing) plot of the letter X',
-	'preview        - Opens or gets the status of a preview pane',
-	'preview open   - Opens a new preview pane',
-	'preview close  - Closes the preview pane, if it is open',
-	'preview status - Gets the status of the preview pane',
-	'preview show   - Shows the preview pane, if it is hidden',
-	'preview msg    - Sends a message to the preview pane',
-	'progress       - Renders a progress bar',
-	'restart        - Simulates orderly restart',
-	'shutdown X     - Simulates orderly shutdown, or sets the shutdown delay to X',
-	'static plot    - Renders a static plot (image)',
-	'view X         - Open a data viewer named X',
-	'version        - Shows the Zed version'
+	'1k               - Inserts 1,000 lines of ANSI output',
+	'ansi 16          - Displays standard ANSI colors as foreground and background colors',
+	'ansi 256         - Displays indexed ANSI colors as foreground and background colors',
+	'ansi blink       - Displays blinking output',
+	'ansi cub         - Outputs text using CUB',
+	'ansi cuf         - Outputs text using CUF',
+	'ansi cup         - Outputs text using CUP',
+	'ansi ed 0        - Clears to the end of the screen using ED',
+	'ansi ed 1        - Clears to the beginning of the screen using ED',
+	'ansi ed 2        - Clears an entire screen using ED',
+	'ansi el 0        - Clears to the end of the line using EL',
+	'ansi el 1        - Clears to the beginning of the line using EL',
+	'ansi el 2        - Clears an entire line using EL',
+	'ansi hidden      - Displays hidden text',
+	'ansi rgb         - Displays RGB ANSI colors as foreground and background colors',
+	'busy X Y         - Simulates an interuptible busy state for X seconds that takes Y seconds to interrupt (default X = 5, Y = 1)',
+	'cd X             - Changes the current working directory to X, or to a random directory if X is not specified',
+	'clock            - Show a plot containing a clock, using the notebook renderer API',
+	'connection X     - Create a database connection, optionally named X',
+	'connection close - Close a random database connection',
+	'code X Y         - Simulates a successful X line input with Y lines of output (where X >= 1 and Y >= 0)',
+	'crash            - Simulates a crash',
+	'env clear        - Clears all variables from the environment',
+	'env def X        - Defines X variables (randomly typed)',
+	'env def X Y      - Defines X variables of type Y, where Y is one of: string, number, vector, list, or blob',
+	'env max X        - Set the maximum number of displayed variables to X',
+	'env rm X         - Removes X variables',
+	'env update X     - Updates X variables',
+	'error X Y Z      - Simulates an unsuccessful X line input with Y lines of error message and Z lines of traceback (where X >= 1 and Y >= 1 and Z >= 0)',
+	'exec X Y         - Executes a code snippet Y in the language X',
+	'fancy            - Simulates fancy HTML output',
+	'flicker          - Simulates a flickering console prompt',
+	'help             - Shows this help',
+	'html             - Simulates HTML output',
+  'modal            - Simulates a simple modal dialog',
+	'offline          - Simulates going offline for two seconds',
+	'plot X           - Renders a dynamic (auto-sizing) plot of the letter X',
+	'preview          - Opens or gets the status of a preview pane',
+	'preview open     - Opens a new preview pane',
+	'preview close    - Closes the preview pane, if it is open',
+	'preview status   - Gets the status of the preview pane',
+	'preview show     - Shows the preview pane, if it is hidden',
+	'preview msg      - Sends a message to the preview pane',
+	'progress         - Renders a progress bar',
+	'restart          - Simulates orderly restart',
+	'shutdown X       - Simulates orderly shutdown, or sets the shutdown delay to X',
+	'static plot      - Renders a static plot (image)',
+	'view X           - Open a data viewer named X',
+	'version          - Shows the Zed version'
 ].join('\n');
 
 /**
@@ -134,7 +137,12 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 	/*
 	 * A map of environment IDs to environment instances.
 	 */
-	private readonly _environments: Map<string, ZedEnvironment> = new Map();
+	private readonly _environments: Map<string, ZedVariables> = new Map();
+
+	/*
+	 * A map of connection IDs to connection instances.
+	 */
+	private readonly _connections: Map<string, ZedConnection> = new Map();
 
 	/**
 	 * The currently connected frontend, if any
@@ -421,6 +429,16 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 		} else if (match = code.match(/^cd( .+)?/)) {
 			const directory = (match.length > 1 && match[1]) ? match[1].trim() : '';
 			this.simulateDirectoryChange(id, code, directory);
+			return;
+		} else if (match = code.match(/^connection( .+)?/)) {
+			// Simulate a connection
+			const title = (match.length > 1 && match[1]) ? match[1].trim() :
+				`Connection ${this._connections.size + 1}`;
+			if (title === 'close') {
+				this.closeConnection(id, code);
+			} else {
+				this.simulateConnection(id, code, title);
+			}
 			return;
 		}
 
@@ -913,9 +931,9 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 	async createClient(id: string, type: positron.RuntimeClientType, _params: any) {
 		switch (type) {
 
-			case positron.RuntimeClientType.Environment:
-				// Create the Environment client when requested
-				this.createEnvironmentClient(id);
+			case positron.RuntimeClientType.Variables:
+				// Create the variables client when requested
+				this.createVariablesClient(id);
 				break;
 
 			case positron.RuntimeClientType.FrontEnd:
@@ -956,9 +974,9 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 		}
 	}
 
-	createEnvironmentClient(id: string) {
-		// Allocate a new ID and ZedEnvironment object for this environment backend
-		const env = new ZedEnvironment(id, this.metadata.languageVersion, this);
+	createVariablesClient(id: string) {
+		// Allocate a new ID and ZedVariables object for this variables backend
+		const env = new ZedVariables(id, this.metadata.languageVersion, this);
 
 		// Connect it and save the instance to coordinate future communication
 		this.connectClientEmitter(env);
@@ -971,7 +989,7 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 	 * @param id The ID of the client.
 	 */
 	createFrontendClient(id: string) {
-		// Allocate a new ID and ZedEnvironment object for this environment backend
+		// Allocate a new ID and ZedVariables object for this variables backend
 		const frontend = new ZedFrontend(id);
 
 		// Connect it and save the instance to coordinate future communication
@@ -987,14 +1005,19 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 	 */
 	async listClients(type?: positron.RuntimeClientType) {
 		const clients: Record<string, string> = {};
-		if (!type || type === positron.RuntimeClientType.Environment) {
+		if (!type || type === positron.RuntimeClientType.Variables) {
 			for (const env of this._environments.values()) {
-				clients[env.id] = positron.RuntimeClientType.Environment;
+				clients[env.id] = positron.RuntimeClientType.Variables;
 			}
 		}
 		if (!type || type === positron.RuntimeClientType.Plot) {
 			for (const plot of this._plots.values()) {
 				clients[plot.id] = positron.RuntimeClientType.Plot;
+			}
+		}
+		if (!type || type === positron.RuntimeClientType.Connection) {
+			for (const connection of this._connections.values()) {
+				clients[connection.id] = positron.RuntimeClientType.Connection;
 			}
 		}
 		if (!type || type === positron.RuntimeClientType.DataViewer) {
@@ -1062,7 +1085,15 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 			return;
 		}
 
-		// It wasn't either one! Give up.
+		// See if this ID is a known connection
+		const connection = this._connections.get(client_id);
+		if (connection) {
+			this._pendingRpcs.push(message_id);
+			connection.handleMessage(message);
+			return;
+		}
+
+		// It wasn't any of these! Give up.
 		throw new Error(`Can't send message; unknown client id ${client_id}`);
 	}
 
@@ -1198,7 +1229,8 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 		const enviromentIds = Array.from(this._environments.keys());
 		const plotIds = Array.from(this._plots.keys());
 		const dataIds = Array.from(this._data.keys());
-		const allIds = enviromentIds.concat(plotIds).concat(dataIds);
+		const connectionIds = Array.from(this._connections.keys());
+		const allIds = enviromentIds.concat(plotIds).concat(dataIds).concat(connectionIds);
 		allIds.forEach(id => {
 			this._onDidReceiveRuntimeMessage.fire({
 				id: randomUUID(),
@@ -1561,11 +1593,7 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 		this.simulateIdleState(parentId);
 	}
 
-	public simulateDataView(parentId: string, code: string, title: string) {
-		// Enter busy state and output the code.
-		this.simulateBusyState(parentId);
-		this.simulateInputMessage(parentId, code);
-
+	public createZedDataView(parentId: string, title: string) {
 		// Create the data client comm.
 		const data = new ZedData(title);
 		this.connectClientEmitter(data);
@@ -1581,6 +1609,14 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 			target_name: 'positron.dataViewer',
 			data: { 'title': data.title }
 		} as positron.LanguageRuntimeCommOpen);
+	}
+
+	public simulateDataView(parentId: string, code: string, title: string) {
+		// Enter busy state and output the code.
+		this.simulateBusyState(parentId);
+		this.simulateInputMessage(parentId, code);
+
+		this.createZedDataView(parentId, title);
 
 		// Emit text output so something shows up in the console.
 		this._onDidReceiveRuntimeMessage.fire({
@@ -1592,6 +1628,7 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 				'text/plain': `<ZedData view>`
 			} as Record<string, string>
 		} as positron.LanguageRuntimeOutput);
+
 		// Return to idle state.
 		this.simulateIdleState(parentId);
 	}
@@ -1682,6 +1719,96 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 
 		// Return to idle state.
 		this.simulateIdleState(parentId);
+	}
+
+	/**
+	 * Simulates a database connection.
+	 *
+	 * @param parentId The parent identifier.
+	 * @param code The code.
+	 * @param name The name of the connection.
+	 */
+	private simulateConnection(parentId: string, code: string, name: string) {
+		// Enter busy state and output the code.
+		this.simulateBusyState(parentId);
+		this.simulateInputMessage(parentId, code);
+
+		// Create the connection client comm.
+		const connection = new ZedConnection(this, name);
+		this.connectClientEmitter(connection);
+		this._connections.set(connection.id, connection);
+
+		// Send the comm open message to the client.
+		this._onDidReceiveRuntimeMessage.fire({
+			id: randomUUID(),
+			parent_id: parentId,
+			when: new Date().toISOString(),
+			type: positron.LanguageRuntimeMessageType.CommOpen,
+			comm_id: connection.id,
+			target_name: 'positron.connection',
+			data: {
+				name: name
+			}
+		} as positron.LanguageRuntimeCommOpen);
+
+		// Emit text output so something shows up in the console.
+		this._onDidReceiveRuntimeMessage.fire({
+			id: randomUUID(),
+			parent_id: parentId,
+			when: new Date().toISOString(),
+			type: positron.LanguageRuntimeMessageType.Output,
+			data: {
+				'text/plain': `<ZedConnection '${name}'>`
+			} as Record<string, string>
+		} as positron.LanguageRuntimeOutput);
+
+		// Return to idle state.
+		this.simulateIdleState(parentId);
+	}
+
+	private closeConnection(parentId: string, code: string) {
+		// Enter busy state and output the code.
+		this.simulateBusyState(parentId);
+		this.simulateInputMessage(parentId, code);
+
+		if (this._connections.size === 0) {
+			this.simulateErrorMessage(parentId,
+				'No Connections Open',
+				'There are no connections open to close. ' +
+				'Open a connection with the "connection" command', []);
+		}
+		else {
+
+			// Create the connection client comm.
+			const target = this._connections.values().next().value;
+			this._connections.delete(target.id);
+
+			// Send the comm open message to the client.
+			this._onDidReceiveRuntimeMessage.fire({
+				id: randomUUID(),
+				parent_id: parentId,
+				when: new Date().toISOString(),
+				type: positron.LanguageRuntimeMessageType.CommClosed,
+				comm_id: target.id,
+				target_name: 'positron.connection',
+				data: { name: target.name }
+			} as positron.LanguageRuntimeCommClosed);
+
+			// Emit text output so something shows up in the console.
+			this._onDidReceiveRuntimeMessage.fire({
+				id: randomUUID(),
+				parent_id: parentId,
+				when: new Date().toISOString(),
+				type: positron.LanguageRuntimeMessageType.Output,
+				data: {
+					'text/plain': `Connection '${target.name}' closed`
+				} as Record<string, string>
+			} as positron.LanguageRuntimeOutput);
+		}
+
+		// Return to idle state.
+		this.simulateIdleState(parentId);
+
 	}
 
 	/**
@@ -1874,7 +2001,7 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 	 *
 	 * @param client The environment or plot to connect
 	 */
-	private connectClientEmitter(client: ZedEnvironment | ZedPlot | ZedData | ZedFrontend) {
+	private connectClientEmitter(client: ZedVariables | ZedPlot | ZedData | ZedFrontend | ZedConnection) {
 
 		// Listen for data emitted from the environment instance
 		client.onDidEmitData(data => {
