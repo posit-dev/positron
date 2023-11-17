@@ -45,8 +45,8 @@ export const PaddingRow = ({padding}: {padding: number}) => {
 	);
 };
 
-export const HeaderRow = (
-	{table, ref}: {table: ReactTable.Table<any>; ref: React.RefObject<HTMLTableSectionElement>}) => {
+export const HeaderRow = React.forwardRef(function HeaderRow(
+	{table}: {table: ReactTable.Table<any>}, ref: React.Ref<HTMLTableSectionElement>) {
 
 	return (
 		<thead ref={ref}>
@@ -85,4 +85,4 @@ export const HeaderRow = (
 			))}
 		</thead>
 	);
-};
+});

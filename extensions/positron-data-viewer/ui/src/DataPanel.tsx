@@ -119,33 +119,42 @@ export const DataPanel = (props: DataPanelProps) => {
 		refetchOnWindowFocus: false
 	});
 
+	const transposePage = React.useCallback((page: DataFragment) => {
+		const {rowStart, rowEnd} = page;
+		const pageSize = rowEnd - rowStart + 1;
+		return {rowStart, pageSize, data: page.transpose()};
+	}, []);
+
+	const createEmptyData = React.useCallback((highestFetchedRow: number) => {
+		const numColumns = initialData.columns[0].data.length;
+		return Array(highestFetchedRow).fill(Array(numColumns).fill(undefined));
+	}, []);
+
 	// Transpose and flatten the data. The data model stores data in a column-major
 	// format, but React Table expects data in a row-major format, so we need to
 	// transpose the data. We also need to pad the array with placeholder rows
 	const flatData = React.useMemo(() => {
-		// If we have skipped over pages while scrolling, those pages will not exist
-		// So we need to iterate over all indices from 0 to the max page in pageParams
-		// and insert empty placeholder rows for the missing pages
-		if (!data.pages.length || !data.pageParams) {
-			return [];
+		if (!data.pages.length || !data.pageParams.length) {
+			return createEmptyData(0);
 		}
 
-		const highestPage = Math.max(...data.pageParams as number[]);
-		const allPages = Array.from({ length: highestPage + 1 }, (_, pageParam) => pageParam);
-		const numColumns = data.pages[0].columns.length ?? 0;
-		const emptyPage = Array(fetchSize).fill(Array(numColumns).fill(undefined));
+		// We don't expect pages to be in order, but we do expect that there aren't duplicates
+		// That shouldn't be possible based on our implementation of getNext/PrevPageParams,
+		// but we check anyway to future-proof against changes to the query logic
+		const allPages = new Set(data.pageParams);
+		if (allPages.size !== data.pageParams.length) {
+			console.error('Duplicate pages fetched in the data');
+		}
 
-		return allPages.flatMap(pageParam => {
-			const index = data.pageParams.indexOf(pageParam);
-			const page = data.pages[index];
+		const highestFetchedRow = Math.max(...data.pages.map(page => page.rowEnd));
+		const flatData = createEmptyData(highestFetchedRow);
 
-			if (!page || !page.columns.length ) {
-				// No data for this page, fill to correct dimensions with empty data
-				return emptyPage;
-			} else {
-				return page.transpose();
-			}
+		data.pages.forEach(page => {
+			const {rowStart, pageSize, data} = transposePage(page);
+			flatData.splice(rowStart, pageSize, ...data);
 		});
+
+		return flatData;
 	}, [data]);
 
 	// Define the main ReactTable instance.
@@ -173,12 +182,25 @@ export const DataPanel = (props: DataPanelProps) => {
 
 	const virtualRows = rowVirtualizer.getVirtualItems();
 
-	const {paddingTop, paddingBottom} = React.useMemo(() => {
+	const {firstVirtualRow, lastVirtualRow, paddingTop, paddingBottom} = React.useMemo(() => {
+		if (!virtualRows.length) {
+			return {firstVirtualRow: 0, lastVirtualRow: 0, paddingTop: 0, paddingBottom: 0};
+		}
+		const firstVirtual = virtualRows[0];
+		const lastVirtual = virtualRows[virtualRows.length - 1];
+
+		if (!firstVirtual || !lastVirtual) {
+			return {firstVirtualRow: 0, lastVirtualRow: 0, paddingTop: 0, paddingBottom: 0};
+		}
+
+		const firstVirtualRow = firstVirtual.index;
+		const lastVirtualRow = lastVirtual.index;
+
 		const totalSize = rowVirtualizer.getTotalSize();
 		// Compute the padding for the table container.
-		const paddingTop = virtualRows?.[0]?.start || 0;
-		const paddingBottom = totalSize - (virtualRows?.[virtualRows.length - 1]?.end || 0);
-		return {paddingTop, paddingBottom};
+		const paddingTop = firstVirtual.start;
+		const paddingBottom = totalSize - lastVirtual.end;
+		return {firstVirtualRow, lastVirtualRow, paddingTop, paddingBottom};
 	}, [virtualRows]);
 
 	// Callback, invoked on scroll, that will fetch more data from the backend if we have reached
@@ -200,9 +222,6 @@ export const DataPanel = (props: DataPanelProps) => {
 		scrollPages.current = {top, bottom};
 	}, []);
 
-	const firstVirtualRow = virtualRows?.[0]?.index ?? 0;
-	const lastVirtualRow = virtualRows?.[virtualRows.length - 1]?.index ?? 0;
-
 	React.useEffect(() => {
 		// Make sure we've caught up with the latest scroll position
 		// Otherwise the data can get stuck out of sync with the scroll if the user has scrolled quickly
@@ -212,18 +231,25 @@ export const DataPanel = (props: DataPanelProps) => {
 		fetchMorePages();
 	}, [firstVirtualRow, lastVirtualRow, fetchMorePages, rowVirtualizer.isScrolling]);
 
-	const columnId = columns[0].id;
-	const topHasData = (
-		!!columnId &&
-		rows.length > firstVirtualRow &&
-		rows[firstVirtualRow].getValue(columnId) !== undefined
-	);
-	const bottomHasData = (
-		!!columnId &&
-		rows.length > lastVirtualRow &&
-		rows[lastVirtualRow].getValue(columnId) !== undefined
-	);
-	const isLoading = !topHasData || !bottomHasData;
+	const isLoading = React.useMemo(() => {
+		const columnId = columns[0].id;
+		if (!columnId) {
+			return true;
+		}
+
+		// Top of the screen is loading if the first virtual row is past the end of the data
+		// or in the sparse area of the data padded with undefined values
+		const topLoading = (
+			rows?.[firstVirtualRow] === undefined ||
+			rows[firstVirtualRow].getValue(columnId) === undefined
+		);
+		// Same for bottom of the screen, but with the last virtual row
+		const bottomLoading = (
+			rows?.[lastVirtualRow] === undefined ||
+			rows[lastVirtualRow].getValue(columnId) === undefined
+		);
+		return topLoading || bottomLoading;
+	}, [rows, firstVirtualRow, lastVirtualRow, columns]);
 
 	return (
 		<div
