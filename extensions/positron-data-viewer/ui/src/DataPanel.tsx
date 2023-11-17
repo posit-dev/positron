@@ -134,10 +134,6 @@ export const DataPanel = (props: DataPanelProps) => {
 	// format, but React Table expects data in a row-major format, so we need to
 	// transpose the data. We also need to pad the array with placeholder rows
 	const flatData = React.useMemo(() => {
-		if (!data.pages.length || !data.pageParams.length) {
-			return createEmptyData(0);
-		}
-
 		// We don't expect pages to be in order, but we do expect that there aren't duplicates
 		// That shouldn't be possible based on our implementation of getNext/PrevPageParams,
 		// but we check anyway to future-proof against changes to the query logic
