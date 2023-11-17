@@ -351,15 +351,9 @@ class PositronIPyKernel(IPythonKernel):
                     inspector1 = get_inspector(v1)
                     inspector2 = get_inspector(v2)
 
-                    # If either value is snapshottable, compare using the
-                    # inspector's special equals() method
-                    if inspector1.is_snapshottable(v1) or inspector2.is_snapshottable(v2):
-                        if inspector1 != inspector2 or not inspector2.equals(v1, v2):
-                            assigned[key] = v2
-
-                    # Otherwise, check if key's value is no longer
+                    # If type changes or if key's values is no longer
                     # the same after exection
-                    elif v1 != v2 and key not in assigned:
+                    if type(inspector1) != type(inspector2) or not inspector2.equals(v1, v2):
                         assigned[key] = v2
 
             except Exception as err:
