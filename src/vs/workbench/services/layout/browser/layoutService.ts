@@ -203,11 +203,6 @@ export interface IWorkbenchLayoutService extends ILayoutService {
 
 	// --- Start Positron ---
 	/**
-	 * Maximizes the panel height.
-	 */
-	maximizePanel(): void;
-
-	/**
 	 * Minimizes the panel height.
 	 */
 	minimizePanel(): void;
@@ -216,6 +211,11 @@ export interface IWorkbenchLayoutService extends ILayoutService {
 	 * Restores the panel height.
 	 */
 	restorePanel(): void;
+
+	/**
+	 * Maximizes the panel height.
+	 */
+	maximizePanel(): void;
 	// --- End Positron ---
 
 	/**
@@ -232,6 +232,13 @@ export interface IWorkbenchLayoutService extends ILayoutService {
 	 * Returns the window border radius if any.
 	 */
 	getWindowBorderRadius(): string | undefined;
+
+	// --- Start Positron ---
+	/**
+	 * Returns true if the panel is maximized.
+	 */
+	isPanelMinimized(): boolean;
+	// --- End Positron ---
 
 	/**
 	 * Returns true if the panel is maximized.
