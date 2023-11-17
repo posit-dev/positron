@@ -50,8 +50,10 @@ export const DataPanel = (props: DataPanelProps) => {
 	const headerRef = React.useRef<HTMLTableSectionElement>(null);
 	const scrollPages = React.useRef<{top: number; bottom: number}>({top: 0, bottom: 0});
 
+	// We set a very brief debounce delay to avoid making requests while the user is still scrolling
+	//
 	const debounceRef = React.useRef<NodeJS.Timeout>();
-	const debounceDelay = 200;
+	const debounceDelay = 100;
 
 	const {initialData, fetchSize, vscode} = props;
 
