@@ -14,6 +14,7 @@ import { ExtHostPositronContext } from 'vs/workbench/api/common/positron/extHost
 import * as extHostTypes from 'vs/workbench/api/common/positron/extHostTypes.positron';
 import { IExtHostInitDataService } from 'vs/workbench/api/common/extHostInitDataService';
 import { ExtHostPreviewPanels } from 'vs/workbench/api/common/positron/extHostPreviewPanels';
+import { ExtHostModalDialogs } from 'vs/workbench/api/common/positron/extHostModalDialogs';
 import { ExtHostContext } from 'vs/workbench/api/common/extHost.protocol';
 import { IExtHostWorkspace } from 'vs/workbench/api/common/extHostWorkspace';
 import { ExtHostWebviews } from 'vs/workbench/api/common/extHostWebview';
@@ -54,6 +55,7 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 
 	const extHostLanguageRuntime = rpcProtocol.set(ExtHostPositronContext.ExtHostLanguageRuntime, new ExtHostLanguageRuntime(rpcProtocol));
 	const extHostPreviewPanels = rpcProtocol.set(ExtHostPositronContext.ExtHostPreviewPanel, new ExtHostPreviewPanels(rpcProtocol, extHostWebviews, extHostWorkspace));
+	const extHostModalDialogs = rpcProtocol.set(ExtHostPositronContext.ExtHostModalDialogs, new ExtHostModalDialogs(rpcProtocol));
 
 	return function (extension: IExtensionDescription, extensionInfo: IExtensionRegistries, configProvider: ExtHostConfigProvider): typeof positron {
 
@@ -97,6 +99,9 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			},
 			createRawLogOutputChannel(name: string): vscode.OutputChannel {
 				return extHostOutputService.createRawLogOutputChannel(name, extension);
+			},
+			showSimpleModalDialogPrompt(title: string, message: string, okButtonTitle?: string, cancelButtonTitle?: string): Thenable<boolean> {
+				return extHostModalDialogs.showSimpleModalDialogPrompt(title, message, okButtonTitle, cancelButtonTitle);
 			}
 		};
 

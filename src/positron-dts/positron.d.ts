@@ -882,6 +882,23 @@ declare module 'positron' {
 		 * @return New log output channel.
 		 */
 		export function createRawLogOutputChannel(name: string): vscode.OutputChannel;
+
+		/**
+		 * Create and show a simple modal dialog prompt.
+		 *
+		 * @param title The title of the dialog
+		 * @param message The message to display in the dialog
+		 * @param okButtonTitle The title of the OK button (optional; defaults to 'OK')
+		 * @param cancelButtonTitle The title of the Cancel button (optional; defaults to 'Cancel')
+		 *
+		 * @returns A Thenable that resolves to true if the user clicked OK, or false
+		 *   if the user clicked Cancel.
+		 */
+		export function showSimpleModalDialogPrompt(title: string,
+			message: string,
+			okButtonTitle?: string,
+			cancelButtonTitle?: string): Thenable<boolean>;
+
 	}
 
 	namespace runtime {
