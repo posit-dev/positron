@@ -50,6 +50,9 @@ export const DataPanel = (props: DataPanelProps) => {
 	const headerRef = React.useRef<HTMLTableSectionElement>(null);
 	const scrollPages = React.useRef<{top: number; bottom: number}>({top: 0, bottom: 0});
 
+	const debounceRef = React.useRef<NodeJS.Timeout>();
+	const debounceDelay = 200;
+
 	const {initialData, fetchSize, vscode} = props;
 
 	// The resolver functions and request queue need to persist between re-renders
@@ -203,10 +206,10 @@ export const DataPanel = (props: DataPanelProps) => {
 	// the end of the virtualized rows by sending a new MessageRequest.
 	const fetchMorePages = React.useCallback(() => {
 		if (hasNextPage) {
-			fetchNextPage({cancelRefetch: false});
+			fetchNextPage();
 		}
 		if (hasPreviousPage) {
-			fetchPreviousPage({cancelRefetch: false});
+			fetchPreviousPage();
 		}
 	}, [fetchNextPage, hasNextPage, fetchPreviousPage, hasPreviousPage]);
 
@@ -224,7 +227,20 @@ export const DataPanel = (props: DataPanelProps) => {
 		// Also ensures that we fetch both the previous and next page if both are needed
 		// (i.e. the viewport crosses a page boundary)
 		updateScroll(firstVirtualRow, lastVirtualRow);
-		fetchMorePages();
+
+		// Debounce the fetchMorePages call to avoid making too many requests
+		// when the user scrolls quickly
+		if (rowVirtualizer.isScrolling) {
+			if (debounceRef.current) {
+				clearTimeout(debounceRef.current);
+			}
+			debounceRef.current = setTimeout(() => {
+				fetchMorePages();
+			}, debounceDelay);
+		}
+		else {
+			fetchMorePages();
+		}
 	}, [firstVirtualRow, lastVirtualRow, fetchMorePages, rowVirtualizer.isScrolling]);
 
 	const isLoading = React.useMemo(() => {
