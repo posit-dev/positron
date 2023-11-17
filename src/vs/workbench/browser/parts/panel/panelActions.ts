@@ -65,6 +65,15 @@ export class TogglePanelAction extends Action2 {
 
 	override async run(accessor: ServicesAccessor): Promise<void> {
 		const layoutService = accessor.get(IWorkbenchLayoutService);
+
+		// --- Start Positron ---
+		// If the panel is minimized, restore it instead of toggling it.
+		if (layoutService.isPanelMinimized()) {
+			layoutService.restorePanel();
+			return;
+		}
+		// --- End Positron ---
+
 		layoutService.setPartHidden(layoutService.isVisible(Parts.PANEL_PART), Parts.PANEL_PART);
 	}
 }
