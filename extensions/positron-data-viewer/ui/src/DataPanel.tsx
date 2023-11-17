@@ -13,6 +13,7 @@ import * as ReactTable from '@tanstack/react-table';
 // Local modules.
 import { DataFragment } from './DataFragment';
 import { LoadingOverlay } from './LoadingOverlay';
+import { DataRow, HeaderRow, PaddingRow } from './Rows';
 import { DataFetcher, ResolverLookup } from './fetchData';
 import { DataSet } from './positron-data-viewer';
 
@@ -230,79 +231,24 @@ export const DataPanel = (props: DataPanelProps) => {
 			ref={tableContainerRef}
 		>
 			<table>
-				<thead ref={headerRef}>
-					{table.getHeaderGroups().map(headerGroup => (
-						<tr key={headerGroup.id}>
-							{headerGroup.headers.map(header => {
-								return (
-									<th
-										key={header.id}
-										colSpan={header.colSpan}
-										style={{ width: header.getSize() }}
-									>
-										{header.isPlaceholder ? null : (
-											<div
-												{...{
-													className: header.column.getCanSort()
-														? 'cursor-pointer select-none'
-														: '',
-													onClick: header.column.getToggleSortingHandler(),
-												}}
-											>
-												{ReactTable.flexRender(
-													header.column.columnDef.header,
-													header.getContext()
-												)}
-												{{
-													asc: '🔼', // allow-any-unicode-next-line
-													desc: '🔽', // allow-any-unicode-next-line
-												}[header.column.getIsSorted() as string] ?? null}
-											</div>
-										)}
-									</th>
-								);
-							})}
-						</tr>
-					))}
-				</thead>
+				<HeaderRow ref={headerRef} table={table} />
 				<tbody>
-					{paddingTop > 0 && (
-						<tr>
-							<td style={{ height: `${paddingTop}px` }} />
-						</tr>
-					)}
+					<PaddingRow padding={paddingTop} />
 					{
 						isLoading ?
 							null :
 							virtualRows.map(virtualRow => {
-							const row = rows[virtualRow.index] as ReactTable.Row<any>;
+								const row = rows[virtualRow.index] as ReactTable.Row<any>;
 
-							return (
-								<tr
+								return (
+								<DataRow
 									key={virtualRow.key}
-									data-index={virtualRow.index}
-									style={{height: `${virtualRow.size}px`}}
-								>
-								{
-									row.getVisibleCells().map(cell => {
-										return (
-											<td key={cell.id}>
-												{ReactTable.flexRender(
-													cell.column.columnDef.cell,
-													cell.getContext()
-												)}
-											</td>
-										);
-									})
-								}
-								</tr>
-							);
-					})}
-					{paddingBottom > 0 && (
-						<tr>
-							<td style={{ height: `${paddingBottom}px` }} />
-						</tr>
-					)}
+									virtualRow={virtualRow}
+									row={row}
+								/>);
+							})
+					}
+					<PaddingRow padding={paddingBottom} />
 				</tbody>
 			</table>
 			<LoadingOverlay

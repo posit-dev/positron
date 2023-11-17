@@ -7,23 +7,8 @@ import './DataPanel.css';
 // External libraries.
 import * as React from 'react';
 
-interface OverlayProps {
-	/**
-	 * Whether or not to display the loading overlay
-	 */
-	isLoading: boolean;
-	/**
-	 * A scrollable container element
-	 */
-	container: HTMLDivElement | null;
-	/**
-	 * The header row element of a table
-	 */
-	header: HTMLTableSectionElement | null;
-}
-
-export const LoadingOverlay = (props: OverlayProps) => {
-	const {isLoading, container, header} = props;
+export const LoadingOverlay = (
+	{isLoading, container, header}: {isLoading: boolean; container: HTMLDivElement | null; header: HTMLTableSectionElement | null}) => {
 
 	if (!isLoading || !container || !header) {
 		return null;
