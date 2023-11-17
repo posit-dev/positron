@@ -4,29 +4,36 @@
 
 import * as vscode from 'vscode';
 import * as path from 'path';
+import * as Parser from 'web-tree-sitter';
 import { ItemType, TestingTools, encodeNodeId } from './util-testing';
 import { Logger } from '../extension';
 import { EXTENSION_ROOT_DIR } from '../constants';
 
 const wasmPath = path.join(EXTENSION_ROOT_DIR, 'resources', 'testing', 'tree-sitter-r.wasm');
-const Parser = require('web-tree-sitter');
-let R: any;
+let parser: Parser | undefined;
+let R: Parser.Language | undefined;
 
-async function prepareParser(): Promise<any> {
+export async function initializeParser(): Promise<Parser> {
+	Logger.info(`entered initializeParser()`);
 	await Parser.init();
+	Logger.info(`past Parser.init()`);
 	const parser = new Parser();
+	Logger.info(`have new Parser()`);
+
 	R = await Parser.Language.load(wasmPath);
+	Logger.info(`past Parser.Language.load()`);
+
 	parser.setLanguage(R);
+	Logger.info(`have set R language`);
 	return parser;
 }
-
-const parser = prepareParser();
 
 export async function parseTestsFromFile(
 	testingTools: TestingTools,
 	file: vscode.TestItem
 ): Promise<void> {
 	Logger.info(`Parsing test file ${file.uri}`);
+	Logger.info(`wasm path: ${wasmPath}`);
 
 	const uri = file.uri!;
 	let matches;
@@ -36,6 +43,7 @@ export async function parseTestsFromFile(
 		Logger.error(String(error));
 		return;
 	}
+	Logger.info(`Done with parsing test file ${file.uri}`);
 
 	const tests: Map<string, vscode.TestItem> = new Map();
 	for (const match of matches) {
@@ -78,11 +86,18 @@ export async function parseTestsFromFile(
 }
 
 async function findTests(uri: vscode.Uri) {
-	const parserResolved = await parser;
+	Logger.info(`entered findTests()`);
+	if (parser === undefined) {
+		Logger.info(`Parser is undefined`);
+		parser = await initializeParser();
+	}
+	Logger.info(`Parser ready`);
+
 	return vscode.workspace.openTextDocument(uri).then(
 		(document: vscode.TextDocument) => {
-			const tree = parserResolved.parse(document.getText());
-			const query = R.query(
+			const tree = parser!.parse(document.getText());
+			Logger.info(`Document parsed`);
+			const query = R!.query(
 				`
 				(call
 					function: [
@@ -128,6 +143,7 @@ async function findTests(uri: vscode.Uri) {
 				`
 			);
 			const raw_matches = query.matches(tree.rootNode);
+			Logger.info(`Matches the query`);
 			const toVSCodePosition = (pos: any) => new vscode.Position(pos.row, pos.column);
 
 			const matches = [];
@@ -137,6 +153,7 @@ async function findTests(uri: vscode.Uri) {
 					continue;
 				}
 				if (match.pattern === 0) {
+					Logger.info(`test_that() match found`);
 					matches.push({
 						testLabel: match.captures[2].node.text.substring(
 							1,
