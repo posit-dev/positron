@@ -31,6 +31,10 @@
 		{
 			"from": "resources/testing/vscodereporter/*",
 			"to": "resources/testing"
+		},
+		{
+			"from": "node_modules/web-tree-sitter/tree-sitter.wasm",
+			"to":"./dist"
 		}
 	]
 }
