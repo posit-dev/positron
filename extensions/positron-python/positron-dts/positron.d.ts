@@ -193,7 +193,7 @@ declare module 'positron' {
         type: LanguageRuntimeMessageType;
     }
 
-    export interface LanguageRuntimeEventData { }
+    export interface LanguageRuntimeEventData {}
 
     /** LanguageRuntimeOutput is a LanguageRuntimeMessage representing output (text, plots, etc.) */
     export interface LanguageRuntimeOutput extends LanguageRuntimeMessage {
@@ -801,7 +801,8 @@ declare module 'positron' {
          */
         export function registerHelpTopicProvider(
             selector: vscode.DocumentSelector,
-            provider: HelpTopicProvider): vscode.Disposable;
+            provider: HelpTopicProvider,
+        ): vscode.Disposable;
     }
 
     namespace window {
@@ -820,6 +821,24 @@ declare module 'positron' {
             preserveFocus?: boolean,
             options?: PreviewOptions,
         ): PreviewPanel;
+
+        /**
+         * Create and show a simple modal dialog prompt.
+         *
+         * @param title The title of the dialog
+         * @param message The message to display in the dialog
+         * @param okButtonTitle The title of the OK button (optional; defaults to 'OK')
+         * @param cancelButtonTitle The title of the Cancel button (optional; defaults to 'Cancel')
+         *
+         * @returns A Thenable that resolves to true if the user clicked OK, or false
+         *   if the user clicked Cancel.
+         */
+        export function showSimpleModalDialogPrompt(
+            title: string,
+            message: string,
+            okButtonTitle?: string,
+            cancelButtonTitle?: string,
+        ): Thenable<boolean>;
     }
 
     namespace runtime {
@@ -911,8 +930,10 @@ declare module 'positron' {
          * @return A string containing the help topic relevant to the cursor
          *   position
          */
-        provideHelpTopic(document: vscode.TextDocument,
+        provideHelpTopic(
+            document: vscode.TextDocument,
             position: vscode.Position,
-            token: vscode.CancellationToken): vscode.ProviderResult<string>;
+            token: vscode.CancellationToken,
+        ): vscode.ProviderResult<string>;
     }
 }
