@@ -132,6 +132,10 @@ export class ExtHostRuntimeClientInstance implements positron.RuntimeClientInsta
 		return this._state;
 	}
 
+	setClientState(state: positron.RuntimeClientState): void {
+		this._onDidChangeClientState.fire(state);
+	}
+
 	getClientId(): string {
 		return this.message.comm_id;
 	}
@@ -143,6 +147,8 @@ export class ExtHostRuntimeClientInstance implements positron.RuntimeClientInsta
 	dispose() {
 		// If the client is still connected, close it.
 		if (this._state === RuntimeClientState.Connected) {
+			this._onDidChangeClientState.fire(RuntimeClientState.Closing);
+			this._onDidChangeClientState.fire(RuntimeClientState.Closed);
 			this.closer();
 		}
 	}
