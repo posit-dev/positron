@@ -1949,32 +1949,6 @@ export abstract class Layout extends Disposable implements IWorkbenchLayoutServi
 
 	// --- Start Positron ---
 	/**
-	 * Maximizes the panel.
-	 */
-	maximizePanel(): void {
-		// This method works when the panel position is bottom and the panel alignment is center. It
-		// should not be called, and is not called, otherwise. This is a safety check.
-		if (this.getPanelPosition() === Position.BOTTOM && this.getPanelAlignment() === 'center') {
-			// Get the panel size.
-			const size = this.workbenchGrid.getViewSize(this.panelPartView);
-
-			// If the panel is not maximized, and it's visible, and its height is greater than its
-			// minimum height, save its last non-mazimized height.
-			if (!this.isPanelMaximized() &&
-				this.isVisible(Parts.PANEL_PART) &&
-				size.height > this.panelPartView.minimumHeight) {
-				this.stateModel.setRuntimeValue(
-					LayoutStateKeys.PANEL_LAST_NON_MAXIMIZED_HEIGHT,
-					size.height
-				);
-			}
-
-			// Hide the editor. This as the effect of maximizing the panel.
-			this.setEditorHidden(true);
-		}
-	}
-
-	/**
 	 * Minimizes the panel.
 	 */
 	minimizePanel(): void {
@@ -2036,6 +2010,32 @@ export abstract class Layout extends Disposable implements IWorkbenchLayoutServi
 					LayoutStateKeys.PANEL_LAST_NON_MAXIMIZED_HEIGHT
 				)
 			});
+		}
+	}
+
+	/**
+	 * Maximizes the panel.
+	 */
+	maximizePanel(): void {
+		// This method works when the panel position is bottom and the panel alignment is center. It
+		// should not be called, and is not called, otherwise. This is a safety check.
+		if (this.getPanelPosition() === Position.BOTTOM && this.getPanelAlignment() === 'center') {
+			// Get the panel size.
+			const size = this.workbenchGrid.getViewSize(this.panelPartView);
+
+			// If the panel is not maximized, and it's visible, and its height is greater than its
+			// minimum height, save its last non-mazimized height.
+			if (!this.isPanelMaximized() &&
+				this.isVisible(Parts.PANEL_PART) &&
+				size.height > this.panelPartView.minimumHeight) {
+				this.stateModel.setRuntimeValue(
+					LayoutStateKeys.PANEL_LAST_NON_MAXIMIZED_HEIGHT,
+					size.height
+				);
+			}
+
+			// Hide the editor. This as the effect of maximizing the panel.
+			this.setEditorHidden(true);
 		}
 	}
 	// --- End Positron ---
@@ -2133,6 +2133,21 @@ export abstract class Layout extends Disposable implements IWorkbenchLayoutServi
 	getWindowBorderRadius(): string | undefined {
 		return this.state.runtime.windowBorder && isMacintosh ? '5px' : undefined;
 	}
+
+	// --- Start Positron ---
+	/**
+	 * Returns true if the panel is minimized.
+	 */
+	isPanelMinimized() {
+		// The panel is minimized when the panel position is bottom and the panel alignment is
+		// center and the editor part is visible and the panel part height is at its minimum value.
+		return this.getPanelPosition() === Position.BOTTOM &&
+			this.getPanelAlignment() === 'center' &&
+			this.isVisible(Parts.EDITOR_PART) &&
+			this.workbenchGrid.getViewSize(this.panelPartView).height ===
+			this.panelPartView.minimumHeight;
+	}
+	// --- End Positron ---
 
 	isPanelMaximized(): boolean {
 
