@@ -1,0 +1,8 @@
+{
+	"displayName": "Positron Connections",
+	"description": "Provides a view of active database connections.",
+	"view.description": "Database Connections",
+	"view.welcome": "No database connections are currently active.",
+	"commands.previewTable.title": "Preview Table",
+	"commands.previewTable.category": "Connections"
+}
