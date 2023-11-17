@@ -41,6 +41,14 @@ export interface ExtHostLanguageRuntimeShape {
 	$discoverLanguageRuntimes(): void;
 }
 
+// This is the interface that the main process exposes to the extension host
+export interface MainThreadModalDialogsShape extends IDisposable {
+	$showSimpleModalDialogPrompt(title: string, message: string, okButtonTitle?: string, cancelButtonTitle?: string): Promise<boolean>;
+}
+
+// The interface to the main thread exposed by the extension host
+export interface ExtHostModalDialogsShape { }
+
 /**
  * The view state of a preview in the Preview panel. Only one preview can be
  * active at a time (the one currently loaded into the panel); the active
@@ -99,9 +107,11 @@ export interface IMainPositronContext extends IRPCProtocol {
 export const ExtHostPositronContext = {
 	ExtHostLanguageRuntime: createProxyIdentifier<ExtHostLanguageRuntimeShape>('ExtHostLanguageRuntime'),
 	ExtHostPreviewPanel: createProxyIdentifier<ExtHostPreviewPanelShape>('ExtHostPreviewPanel'),
+	ExtHostModalDialogs: createProxyIdentifier<ExtHostModalDialogsShape>('ExtHostModalDialogs'),
 };
 
 export const MainPositronContext = {
 	MainThreadLanguageRuntime: createProxyIdentifier<MainThreadLanguageRuntimeShape>('MainThreadLanguageRuntime'),
 	MainThreadPreviewPanel: createProxyIdentifier<MainThreadPreviewPanelShape>('MainThreadPreviewPanel'),
+	MainThreadModalDialogs: createProxyIdentifier<MainThreadModalDialogsShape>('MainThreadModalDialogs'),
 };
