@@ -14,7 +14,7 @@ import random
 import string
 import sys
 import types
-from typing import Any, List, Set, Type, TypeVar, cast, Callable, Iterable, Optional, Tuple
+from typing import Any, Callable, Iterable, List, Optional, Set, Tuple, Type, TypeVar, cast
 
 import comm
 import numpy as np
@@ -24,7 +24,6 @@ import pytest
 import torch
 from fastcore.foundation import L
 from IPython.terminal.interactiveshell import TerminalInteractiveShell
-
 from positron import (
     PRINT_WIDTH,
     TRUNCATE_AT,
@@ -984,17 +983,8 @@ def test_comm_open(kernel: PositronIPyKernel) -> None:
         #
         ("import numpy as np", [f"np.array({x})" for x in [3, [3], [[3]]]]),
         ("import torch", [f"torch.tensor({x})" for x in [3, [3], [[3]]]]),
-        # TODO: Remove the `pytest.param` required to set `marks` once we fix https://github.com/posit-dev/positron/issues/609.
-        pytest.param(
-            "import pandas as pd",
-            [f"pd.Series({x})" for x in [[], [3], [3, 3], ["3"]]],
-            marks=pytest.mark.skip(reason="This is a known bug (#609)."),
-        ),
-        pytest.param(
-            "import polars as pl",
-            [f"pl.Series({x})" for x in [[], [3], [3, 3], ["3"]]],
-            marks=pytest.mark.skip(reason="This is a known bug (#609)."),
-        ),
+        pytest.param("import pandas as pd", [f"pd.Series({x})" for x in [[], [3], [3, 3], ["3"]]]),
+        pytest.param("import polars as pl", [f"pl.Series({x})" for x in [[], [3], [3, 3], ["3"]]]),
         (
             "import pandas as pd",
             [
