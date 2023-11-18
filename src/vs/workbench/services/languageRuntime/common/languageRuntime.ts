@@ -7,6 +7,7 @@ import { Emitter } from 'vs/base/common/event';
 import { ILogService } from 'vs/platform/log/common/log';
 import { ILanguageService } from 'vs/editor/common/languages/language';
 import { Disposable, IDisposable, toDisposable } from 'vs/base/common/lifecycle';
+import { CommandsRegistry, ICommandService } from 'vs/platform/commands/common/commands';
 import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/common/extensions';
 import { formatLanguageRuntime, ILanguageRuntime, ILanguageRuntimeGlobalEvent, ILanguageRuntimeService, ILanguageRuntimeStateEvent, LanguageRuntimeDiscoveryPhase, LanguageRuntimeStartupBehavior, RuntimeClientType, RuntimeExitReason, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { FrontEndClientInstance, IFrontEndClientMessageInput, IFrontEndClientMessageOutput } from 'vs/workbench/services/languageRuntime/common/languageRuntimeFrontEndClient';
@@ -116,6 +117,7 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 	constructor(
 		@ILanguageService private readonly _languageService: ILanguageService,
 		@ILogService private readonly _logService: ILogService,
+		@ICommandService private readonly _commandService: ICommandService,
 		@IStorageService private readonly _storageService: IStorageService,
 		@IExtensionService private readonly _extensionService: IExtensionService,
 		@IWorkspaceTrustManagementService private readonly _workspaceTrustManagementService: IWorkspaceTrustManagementService,
@@ -124,6 +126,9 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 	) {
 		// Call the base class's constructor.
 		super();
+
+		// Start the Positron extensions.
+		this._commandService.executeCommand('positron.activateInterpreters');
 
 		// Create the object that tracks the affiliation of runtimes to workspaces.
 		this._workspaceAffiliation =
@@ -901,6 +906,8 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 
 	//#region Private Methods
 }
+
+CommandsRegistry.registerCommand('positron.activateInterpreters', () => true);
 
 // Instantiate the language runtime service "eagerly", meaning as soon as a
 // consumer depdends on it. This fixes an issue where languages are encountered
