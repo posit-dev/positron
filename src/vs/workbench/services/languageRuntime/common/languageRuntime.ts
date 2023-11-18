@@ -128,7 +128,7 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 		super();
 
 		// Start the Positron extensions.
-		this._commandService.executeCommand('positron.startExtensions');
+		this._commandService.executeCommand('positron.activateInterpreters');
 
 		// Create the object that tracks the affiliation of runtimes to workspaces.
 		this._workspaceAffiliation =
@@ -907,7 +907,7 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 	//#region Private Methods
 }
 
-CommandsRegistry.registerCommand('positron.startExtensions', () => true);
+CommandsRegistry.registerCommand('positron.activateInterpreters', () => true);
 
 // Instantiate the language runtime service "eagerly", meaning as soon as a
 // consumer depdends on it. This fixes an issue where languages are encountered
