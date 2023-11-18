@@ -11,7 +11,7 @@
     "Programming Languages"
   ],
   "activationEvents": [
-    "*"
+    "onCommand:positron.activateInterpreters"
   ],
   "main": "./out/extension.js",
   "contributes": {
