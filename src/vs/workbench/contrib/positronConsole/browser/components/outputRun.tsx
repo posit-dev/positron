@@ -4,7 +4,7 @@
 
 import 'vs/css!./outputRun';
 import * as React from 'react';
-import { CSSProperties } from 'react'; // eslint-disable-line no-duplicate-imports
+import { CSSProperties, MouseEvent } from 'react'; // eslint-disable-line no-duplicate-imports
 import { localize } from 'vs/nls';
 import { ANSIColor, ANSIOutputRun, ANSIStyle } from 'vs/base/common/ansiOutput';
 import { usePositronConsoleContext } from 'vs/workbench/contrib/positronConsole/browser/positronConsoleContext';
@@ -105,8 +105,14 @@ export const OutputRun = (props: OutputRunProps) => {
 
 	/**
 	 * Hyperlink click handler.
+	 * @param e A MouseEvent<HTMLElement> that describes a user interaction with the mouse.
 	 */
-	const hyperlinkClickHandler = () => {
+	const hyperlinkClickHandler = (e: MouseEvent<HTMLElement>) => {
+		// Consume the event.
+		e.preventDefault();
+		e.stopPropagation();
+
+		// Build the hyperlink URL. If there is one, open it.
 		const url = buildHyperlinkURL();
 		if (url) {
 			positronConsoleContext.openerService.open(url);
