@@ -4,22 +4,24 @@
 
 import * as vscode from 'vscode';
 import * as path from 'path';
+import * as Parser from 'web-tree-sitter';
 import { ItemType, TestingTools, encodeNodeId } from './util-testing';
 import { Logger } from '../extension';
+import { EXTENSION_ROOT_DIR } from '../constants';
 
-const wasmPath = path.join(__dirname, 'tree-sitter-r.wasm');
-const Parser = require('web-tree-sitter');
-let R: any;
+const wasmPath = path.join(EXTENSION_ROOT_DIR, 'resources', 'testing', 'tree-sitter-r.wasm');
+let parser: Parser | undefined;
+let R: Parser.Language | undefined;
 
-async function prepareParser(): Promise<any> {
+export async function initializeParser(): Promise<Parser> {
+	Logger.info(`Initializing parser`);
 	await Parser.init();
 	const parser = new Parser();
+	Logger.info(`tree-sitter-r.wasm path: ${wasmPath}`);
 	R = await Parser.Language.load(wasmPath);
 	parser.setLanguage(R);
 	return parser;
 }
-
-const parser = prepareParser();
 
 export async function parseTestsFromFile(
 	testingTools: TestingTools,
@@ -77,11 +79,14 @@ export async function parseTestsFromFile(
 }
 
 async function findTests(uri: vscode.Uri) {
-	const parserResolved = await parser;
+	if (parser === undefined) {
+		parser = await initializeParser();
+	}
+
 	return vscode.workspace.openTextDocument(uri).then(
 		(document: vscode.TextDocument) => {
-			const tree = parserResolved.parse(document.getText());
-			const query = R.query(
+			const tree = parser!.parse(document.getText());
+			const query = R!.query(
 				`
 				(call
 					function: [
