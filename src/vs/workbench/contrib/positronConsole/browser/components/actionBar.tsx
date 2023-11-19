@@ -259,7 +259,7 @@ export const ActionBar = (props: ActionBarProps) => {
 									localize('directoryLabel', "Current Working Directory")
 								}>
 								<span className='codicon codicon-folder' role='presentation'></span>
-								<span className='label'>{directoryLabel}</span>
+								<span className='label' title={directoryLabel}>{directoryLabel}</span>
 							</div>
 						}
 					</ActionBarRegion>
