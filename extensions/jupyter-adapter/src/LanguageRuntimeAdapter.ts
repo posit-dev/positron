@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
@@ -104,6 +104,26 @@ export class LanguageRuntimeAdapter
 		// Bind to the kernel's exit event
 		this.onKernelExited = this.onKernelExited.bind(this);
 		this._kernel.addListener('exit', this.onKernelExited);
+	}
+
+	async callMethod(method: string, ...args: any[]): Promise<positron.RuntimeMethodResult> {
+		// Find the frontend comm
+		const frontend = Array.from(this._comms.values())
+			.find(c => c.getClientType() === positron.RuntimeClientType.FrontEnd);
+		if (!frontend) {
+			throw new Error(`Cannot invoke '${method}'; no frontend comm is open.`);
+		}
+
+		// Create the request
+		const request = {
+			jsonrpc: '2.0',
+			method: method,
+			params: args,
+		};
+
+		// Return a promise that resolves when the server side of the frontend
+		// comm replies
+		return frontend.performRpc(request);
 	}
 
 	onDidReceiveRuntimeMessage: vscode.Event<positron.LanguageRuntimeMessage>;

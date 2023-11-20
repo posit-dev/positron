@@ -507,6 +507,48 @@ declare module 'positron' {
 	export type LanguageRuntimeProvider = AsyncGenerator<LanguageRuntime>;
 
 	/**
+	 * A response to a runtime method call. This interface, and those that
+	 * extend it, provide a JSONRPC-like interface for calling methods in an
+	 * extension's language runtime.
+	 *
+	 * https://www.jsonrpc.org/specification
+	 */
+	export interface RuntimeMethodResponse {
+		/** The ID of the request */
+		id: string;
+	}
+
+	/**
+	 * A successful response to a runtime method call.
+	 */
+	export interface RuntimeMethodResult extends RuntimeMethodResponse {
+		/** The data returned by the method */
+		result: any;
+	}
+
+	/**
+	 * An unsuccessful response to a runtime method call.
+	 */
+	export interface RuntimeMethodError extends RuntimeMethodResponse {
+		/** The error returned by the method */
+		error: RuntimeMethodErrorData;
+	}
+
+	/**
+	 * The data returned by a runtime method call.
+	 */
+	export interface RuntimeMethodErrorData {
+		/** An error code; see JSON RPC specification for values */
+		code: number;
+
+		/** A human-readable error message */
+		message: string;
+
+		/** Additional error information (optional) */
+		data: any | undefined;
+	}
+
+	/**
 	 * LanguageRuntime is an interface implemented by extensions that provide a
 	 * set of common tools for interacting with a language runtime, such as code
 	 * execution, LSP implementation, and plotting.
@@ -532,6 +574,14 @@ declare module 'positron' {
 			id: string,
 			mode: RuntimeCodeExecutionMode,
 			errorBehavior: RuntimeErrorBehavior): void;
+
+		/**
+		 * Calls a method in the runtime and returns the result.
+		 *
+		 * @param method The name of the method to call
+		 * @param args Arguments to pass to the method
+		 */
+		callMethod?(method: string, ...args: any[]): Thenable<RuntimeMethodResponse>;
 
 		/** Test a code fragment for completeness */
 		isCodeFragmentComplete(code: string): Thenable<RuntimeCodeFragmentStatus>;
