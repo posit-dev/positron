@@ -149,7 +149,11 @@ async function downloadAndReplaceArk(version: string,
 					`for the host 'github.com'`);
 			}
 			throw new Error(`The PAT returned by 'git credential' is invalid. Ark cannot be\n` +
-				`downloaded.`);
+				`downloaded.\n\n` +
+				`Check to be sure that your Personal Access Token:\n` +
+				'- Has the `repo` scope\n' +
+				'- Is not expired\n' +
+				'- Has been authorized for the "posit-dev" organization on Github (Configure SSO)\n');
 		}
 
 		let responseBody = '';
@@ -335,7 +339,7 @@ async function main() {
 		console.log(`Attempting to retrieve a Github Personal Access Token from git in order\n` +
 			`to download Ark ${packageJsonVersion}. If you are prompted for a username and\n` +
 			`password, enter your Github username and a Personal Access Token with the\n` +
-			`'repo' scope.You can read about how to create a Personal Access Token here: \n` +
+			`'repo' scope. You can read about how to create a Personal Access Token here: \n` +
 			`\n` +
 			`https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens\n` +
 			`\n` +
