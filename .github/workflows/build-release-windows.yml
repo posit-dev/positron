@@ -4,7 +4,7 @@ name: "Positron: Build Windows Release"
 on:
   push:
     branches:
-      - "win-x64-install"
+      - "feature/win-x64-setup-installer"
   workflow_dispatch:
 
 jobs:
