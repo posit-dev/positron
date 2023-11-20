@@ -22,13 +22,13 @@ from types import ModuleType
 from typing import Any, Dict, List, Optional, Type, cast
 
 from markdown_it import MarkdownIt
-from ._pydantic_compat import BaseModel
 from pygments import highlight
 from pygments.formatters.html import HtmlFormatter
 from pygments.lexers import get_lexer_by_name
 
-from .utils import get_module_name, is_numpy_ufunc
+from ._pydantic_compat import BaseModel  # type: ignore
 from .docstrings import convert_docstring
+from .utils import get_module_name, is_numpy_ufunc
 
 logger = logging.getLogger(__name__)
 
@@ -824,25 +824,44 @@ def _linkify_match(match: re.Match, object: Any) -> str:
     if _is_argument_name(match):
         return match.group(0)
 
-    start_enclosure, name, end_enclosure = match.groups()
+    # gather all groups
+    start, name, end = match.groups()
 
     # Try to resolve `target` and replace it with a link.
     key = _resolve(name, object)
     if key is None:
         logger.debug("Could not resolve")
         return match.group(0)
-    result = f"[{start_enclosure}{name}{end_enclosure}](get?key={key})"
+    result = f"[{start}{name}{end}](get?key={key})"
     logger.debug(f"Resolved: {key}")
     return result
 
 
+def _link_url(match: re.Match, object: Any) -> str:
+    logger.debug(f"Creating link: {match.group(0)}")
+
+    start, url, end = match.groups()
+
+    return '%s<a href="%s">%s</a>%s' % (start, url, url, end)
+
+
 def _linkify(markdown: str, object: Any) -> str:
     """
-    Replace all instances like '`<name>`' with a relative pydoc link to a resolved object.
+    Replace all instances like '`<name>`' or '`[](~name)`' with a
+    relative pydoc link to a resolved object.
     """
-    pattern = r"(?P<start>`+)(?P<name>[^\d\W`][\w\.]*)(?P<end>`+)"
+    pattern_sphinx = r"(?P<start>`+)(?P<name>[^\d\W`][\w\.]*)(?P<end>`+)"
     replacement = partial(_linkify_match, object=object)
-    result = re.sub(pattern, replacement, markdown)
+    result = re.sub(pattern_sphinx, replacement, markdown)
+
+    pattern_md = r"`?\[\]\((?P<start>`?)~(?P<name>[^)^`]+)(?P<end>`?)\)`?"
+    replacement = partial(_linkify_match, object=object)
+    result = re.sub(pattern_md, replacement, result)
+
+    pattern_url = re.compile(r"(?P<start>\s)(?P<url>https?://\S+)(?P<end>\s)")
+    replacement = partial(_link_url, object=object)
+    result = re.sub(pattern_url, replacement, result)
+
     return result
 
 
@@ -876,7 +895,7 @@ def _rst_to_html(docstring: str, object: Any) -> str:
 
     markdown = _linkify(markdown, object)
 
-    md = MarkdownIt("commonmark", {"html": True, "highlight": _highlight}).enable("table")
+    md = MarkdownIt("commonmark", {"html": True, "highlight": _highlight}).enable(["table"])
 
     html = md.render(markdown)
 
