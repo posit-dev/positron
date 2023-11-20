@@ -4,18 +4,16 @@ from typing import Any, Callable, List, Tuple
 import numpy as np
 import pandas as pd
 import pytest
-
 from positron.pydoc import (
     _Attr,
     _compact_signature,
-    _getdoc,
     _get_summary,
+    _getdoc,
+    _PositronHTMLDoc,
     _resolve,
     _tabulate_attrs,
     _untyped_signature,
-    _PositronHTMLDoc,
 )
-
 
 # Test data
 
@@ -82,14 +80,58 @@ def _test_getdoc_links_arguments_section() -> None:
     """
 
 
+def _test_getdoc_md_links_arguments_section() -> None:
+    """
+    Summary.
+
+    Parameters
+    ----------
+    copy : bool
+        Uses [](`~copy.copy`).
+    second : int
+        Description 2.
+    """
+
+
+_TEST_GETDOC_LINKS_ARGS_SECTION_OUTPUT = """\
+<p>Summary.</p>
+<h4>Parameters</h4>
+<ul>
+<li><code>copy</code>: bool
+Uses <a href="get?key=copy.copy"><code>copy.copy</code></a>.</li>
+<li><code>second</code>: int
+Description 2.</li>
+</ul>
+"""
+
+
 def _test_getdoc_links_see_also_section() -> None:
     """
     Summary.
 
     See Also
     --------
-    copy : Description 1.
+    copy.copy : Description 1.
     """
+
+
+def _test_getdoc_md_links_see_also_section() -> None:
+    """
+    Summary.
+
+    See Also
+    --------
+    [](`~copy.copy`) : Description 1.
+    """
+
+
+_TEST_GETDOC_LINKS_SEE_ALSO_SECTION_OUTPUT = """\
+<p>Summary.</p>
+<h4>See Also</h4>
+<ul>
+<li><a href="get?key=copy.copy"><code>copy.copy</code></a>: Description 1.</li>
+</ul>
+"""
 
 
 def _test_getdoc_code_blocks() -> None:
@@ -99,6 +141,22 @@ def _test_getdoc_code_blocks() -> None:
     Empty DataFrame
     Columns: []
     Index: []
+    """
+
+
+def _test_getdoc_urls() -> None:
+    """
+    Note
+    ----
+    See https://url.com for more info
+    """
+
+
+def _test_getdoc_md_urls() -> None:
+    """
+    Note
+    ----
+    See [url](https://url.com) for more info
     """
 
 
@@ -369,27 +427,22 @@ def test_resolve(target: str, from_obj: Any, expected: Any) -> None:
         # Does not link item names/types in Arguments section, but does link descriptions.
         (
             _test_getdoc_links_arguments_section,
-            """\
-<p>Summary.</p>
-<h4>Parameters</h4>
-<ul>
-<li><code>copy</code>: bool
-Uses <a href="get?key=copy.copy"><code>copy.copy</code></a>.</li>
-<li><code>second</code>: int
-Description 2.</li>
-</ul>
-""",
+            _TEST_GETDOC_LINKS_ARGS_SECTION_OUTPUT,
+        ),
+        # Same as previous but using markdown link format.
+        (
+            _test_getdoc_md_links_arguments_section,
+            _TEST_GETDOC_LINKS_ARGS_SECTION_OUTPUT,
         ),
         # Links items in the list under the See Also section.
         (
             _test_getdoc_links_see_also_section,
-            """\
-<p>Summary.</p>
-<h4>See Also</h4>
-<ul>
-<li><a href="get?key=copy"><code>copy</code></a>: Description 1.</li>
-</ul>
-""",
+            _TEST_GETDOC_LINKS_SEE_ALSO_SECTION_OUTPUT,
+        ),
+        # Same as previous but using markdown link format.
+        (
+            _test_getdoc_md_links_see_also_section,
+            _TEST_GETDOC_LINKS_SEE_ALSO_SECTION_OUTPUT,
         ),
         # Highlights code blocks.
         # Inputs and outputs are split into separate html elements.
@@ -405,6 +458,22 @@ Columns: []
 Index: []
 </pre></div>
 </code></pre>
+""",
+        ),
+        # Match and replace bare urls
+        (
+            _test_getdoc_urls,
+            """\
+<h2>Note</h2>
+<p>See <a href="https://url.com">https://url.com</a> for more info</p>
+""",
+        ),
+        # Should not match to markdown URLs
+        (
+            _test_getdoc_md_urls,
+            """\
+<h2>Note</h2>
+<p>See <a href="https://url.com">url</a> for more info</p>
 """,
         ),
     ],
