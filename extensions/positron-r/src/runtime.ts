@@ -76,6 +76,14 @@ export class RRuntime implements positron.LanguageRuntime, vscode.Disposable {
 		}
 	}
 
+	callMethod(method: string, ...args: any[]): Thenable<positron.RuntimeMethodResponse> {
+		if (this._kernel) {
+			return this._kernel.callMethod(method, ...args);
+		} else {
+			throw new Error(`Cannot call method '${method}'; kernel not started`);
+		}
+	}
+
 	isCodeFragmentComplete(code: string): Thenable<positron.RuntimeCodeFragmentStatus> {
 		if (this._kernel) {
 			return this._kernel.isCodeFragmentComplete(code);

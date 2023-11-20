@@ -116,14 +116,18 @@ export class LanguageRuntimeAdapter
 
 		// Create the request
 		const request = {
-			jsonrpc: '2.0',
-			method: method,
-			params: args,
+			msg_type: 'rpc_request',
+			request: {
+				jsonrpc: '2.0',
+				method: method,
+				params: args,
+			}
 		};
 
 		// Return a promise that resolves when the server side of the frontend
 		// comm replies
-		return frontend.performRpc(request);
+		const response = await frontend.performRpc(request);
+		return response.data;
 	}
 
 	onDidReceiveRuntimeMessage: vscode.Event<positron.LanguageRuntimeMessage>;

@@ -75,6 +75,11 @@ export interface JupyterLanguageRuntime extends positron.LanguageRuntime {
 	 * method, so we declare it non-optional.
 	 */
 	showOutput(): void;
+
+	/**
+	 * A Jupyter kernel is guaranteed to have a `callMethod()` method
+	 */
+	callMethod(method: string, ...args: Array<any>): Promise<any>;
 }
 
 /**
