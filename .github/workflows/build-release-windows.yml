@@ -121,7 +121,7 @@ jobs:
 
       - name: Set Signing Variables
         id: variables
-        shell: cmd
+        shell: bash
         run: |
           echo "SM_HOST=${{ secrets.SM_HOST }}" >> "$GITHUB_ENV"
           echo "SM_API_KEY=${{ secrets.SM_API_KEY }}" >> "$GITHUB_ENV"
