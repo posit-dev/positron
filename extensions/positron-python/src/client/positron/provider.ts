@@ -238,7 +238,16 @@ export async function createPythonRuntime(
 
     // Create an adapter for the kernel to fulfill the LanguageRuntime interface.
     traceInfo(`createPythonRuntime: creating PythonRuntime`);
-    return new PythonRuntime(kernelSpec, metadata, dynState, languageClientOptions, interpreter, installer, extra);
+    return new PythonRuntime(
+        serviceContainer,
+        kernelSpec,
+        metadata,
+        dynState,
+        languageClientOptions,
+        interpreter,
+        installer,
+        extra,
+    );
 }
 
 // Returns a sorted copy of the array of Python environments, in descending order
