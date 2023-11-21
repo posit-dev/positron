@@ -12,7 +12,8 @@ import { cloneDeep } from 'lodash';
 import PQueue from 'p-queue';
 import { LanguageClientOptions } from 'vscode-languageclient/node';
 import { InstallOptions } from '../common/installer/types';
-import { IInstaller, Product, InstallerResponse } from '../common/types';
+import { IInstaller, InstallerResponse, Product } from '../common/types';
+import { IServiceContainer } from '../ioc/types';
 import { JupyterAdapterApi, JupyterKernelSpec, JupyterLanguageRuntime, JupyterKernelExtra } from '../jupyter-adapter.d';
 import { traceInfo } from '../logging';
 import { PythonEnvironment } from '../pythonEnvironments/info';
@@ -45,6 +46,7 @@ export class PythonRuntime implements positron.LanguageRuntime, vscode.Disposabl
     private adapterApi?: JupyterAdapterApi;
 
     constructor(
+        private readonly serviceContainer: IServiceContainer,
         readonly kernelSpec: JupyterKernelSpec,
         readonly metadata: positron.LanguageRuntimeMetadata,
         readonly dynState: positron.LanguageRuntimeDynState,
@@ -54,7 +56,7 @@ export class PythonRuntime implements positron.LanguageRuntime, vscode.Disposabl
         readonly extra?: JupyterKernelExtra,
         readonly notebook?: vscode.NotebookDocument,
     ) {
-        this._lsp = new PythonLsp(metadata.languageVersion, languageClientOptions, notebook);
+        this._lsp = new PythonLsp(serviceContainer, metadata.languageVersion, languageClientOptions, notebook);
         this._queue = new PQueue({ concurrency: 1 });
         this.onDidReceiveRuntimeMessage = this._messageEmitter.event;
         this.onDidChangeRuntimeState = this._stateEmitter.event;
@@ -285,6 +287,7 @@ export class PythonRuntime implements positron.LanguageRuntime, vscode.Disposabl
     clone(metadata: positron.LanguageRuntimeMetadata, notebook: vscode.NotebookDocument): positron.LanguageRuntime {
         const kernelSpec: JupyterKernelSpec = { ...this.kernelSpec, display_name: metadata.runtimeName };
         return new PythonRuntime(
+            this.serviceContainer,
             kernelSpec,
             metadata,
             { ...this.dynState },
