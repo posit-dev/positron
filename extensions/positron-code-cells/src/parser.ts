@@ -56,7 +56,7 @@ function getJupyterMarkdownCellText(cell: Cell, document: vscode.TextDocument): 
 		text = lines.map(line => line.replace(commentRegExp, '')).join('\n');
 	}
 	// If the text is enclosed in """s, remove them
-	if (text.startsWith('"""') && text.endsWith('"""')) {
+	if (text.startsWith(`"""`) && text.endsWith(`"""`) || text.startsWith(`'''`) && text.endsWith(`'''`)) {
 		text = text.slice(3, -3).trim();
 	}
 	// Execute the resulting text with the %%markdown cell magic
