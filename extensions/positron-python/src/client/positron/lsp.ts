@@ -8,6 +8,7 @@ import { LanguageClient, LanguageClientOptions, State, StreamInfo } from 'vscode
 import { Socket } from 'net';
 
 import { PYTHON_LANGUAGE } from '../common/constants';
+import { IServiceContainer } from '../ioc/types';
 import { traceError, traceInfo } from '../logging';
 import { ProgressReporting } from '../activation/progress';
 import { PromiseHandles } from './util';
@@ -40,10 +41,11 @@ export class PythonLsp implements vscode.Disposable {
     private activationDisposables: vscode.Disposable[] = [];
 
     public constructor(
+        private readonly serviceContainer: IServiceContainer,
         private readonly _version: string,
         private readonly _clientOptions: LanguageClientOptions,
         private readonly _notebook: vscode.NotebookDocument | undefined,
-    ) { }
+    ) {}
 
     /**
      * Activate the language server; returns a promise that resolves when the LSP is
@@ -82,10 +84,10 @@ export class PythonLsp implements vscode.Disposable {
         this._clientOptions.documentSelector = this._notebook
             ? [{ language: 'python', pattern: this._notebook.uri.path }]
             : [
-                { language: 'python', scheme: 'untitled' },
-                { language: 'python', scheme: 'inmemory' }, // Console
-                { language: 'python', pattern: '**/*.py' },
-            ];
+                  { language: 'python', scheme: 'untitled' },
+                  { language: 'python', scheme: 'inmemory' }, // Console
+                  { language: 'python', pattern: '**/*.py' },
+              ];
 
         traceInfo(`Creating Positron Python ${this._version} language client (port ${port})...`);
         this._client = new LanguageClient(
@@ -165,20 +167,20 @@ export class PythonLsp implements vscode.Disposable {
 
         const promise = awaitStop
             ? // If the kernel hasn't exited, we can just await the promise directly
-            this._client!.stop()
+              this._client!.stop()
             : // The promise returned by `stop()` never resolves if the server
-            // side is disconnected, so rather than awaiting it when the runtime
-            // has exited, we wait for the client to change state to `stopped`,
-            // which does happen reliably.
-            new Promise<void>((resolve) => {
-                const disposable = this._client!.onDidChangeState((event) => {
-                    if (event.newState === State.Stopped) {
-                        resolve();
-                        disposable.dispose();
-                    }
-                });
-                this._client!.stop();
-            });
+              // side is disconnected, so rather than awaiting it when the runtime
+              // has exited, we wait for the client to change state to `stopped`,
+              // which does happen reliably.
+              new Promise<void>((resolve) => {
+                  const disposable = this._client!.onDidChangeState((event) => {
+                      if (event.newState === State.Stopped) {
+                          resolve();
+                          disposable.dispose();
+                      }
+                  });
+                  this._client!.stop();
+              });
 
         // Don't wait more than a couple of seconds for the client to stop.
         const timeout = new Promise<void>((_, reject) => {
@@ -208,16 +210,19 @@ export class PythonLsp implements vscode.Disposable {
      */
     private registerPositronLspExtensions(client: LanguageClient) {
         // Register a statement range provider to detect Python statements
-        const rangeDisposable = positron.languages.registerStatementRangeProvider('python',
-            new PythonStatementRangeProvider());
+        const rangeDisposable = positron.languages.registerStatementRangeProvider(
+            'python',
+            new PythonStatementRangeProvider(this.serviceContainer),
+        );
         this.activationDisposables.push(rangeDisposable);
 
         // Register a help topic provider to provide help topics for Python
-        const helpDisposable = positron.languages.registerHelpTopicProvider('python',
-            new PythonHelpTopicProvider(client));
+        const helpDisposable = positron.languages.registerHelpTopicProvider(
+            'python',
+            new PythonHelpTopicProvider(client),
+        );
         this.activationDisposables.push(helpDisposable);
     }
-
 
     /**
      * Dispose of the client instance.

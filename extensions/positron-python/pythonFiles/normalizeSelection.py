@@ -181,9 +181,7 @@ def traverse_file(wholeFileContent, start_line, end_line, was_highlighted):
             ast.IfExp,
             ast.ExceptHandler,
         )
-        if isinstance(node, ast_types_with_nodebody) and isinstance(
-            node.body, Iterable
-        ):
+        if isinstance(node, ast_types_with_nodebody) and isinstance(node.body, Iterable):
             for child_nodes in node.body:
                 top_level_nodes.append(child_nodes)
 
@@ -194,13 +192,18 @@ def traverse_file(wholeFileContent, start_line, end_line, was_highlighted):
         which_line_next = 0
         for same_line_node in exact_nodes:
             should_run_top_blocks.append(same_line_node)
-            smart_code += (
-                f"{ast.get_source_segment(wholeFileContent, same_line_node)}\n"
-            )
+            smart_code += f"{ast.get_source_segment(wholeFileContent, same_line_node)}\n"
             which_line_next = get_next_block_lineno(should_run_top_blocks)
         return {
             "normalized_smart_result": smart_code,
             "which_line_next": which_line_next,
+            # --- Start Positron ---
+            # Return additional info required by a Positron statement range provider.
+            "start_line": should_run_top_blocks[0].lineno,
+            "start_character": should_run_top_blocks[0].col_offset,
+            "end_line": should_run_top_blocks[-1].end_lineno,
+            "end_character": should_run_top_blocks[-1].end_col_offset,
+            # --- End Positron ---
         }
 
     # For each of the nodes in the parsed file content,
@@ -228,11 +231,28 @@ def traverse_file(wholeFileContent, start_line, end_line, was_highlighted):
             smart_code += str(ast.get_source_segment(wholeFileContent, top_node))
             smart_code += "\n"
 
+    # --- Start Positron ---
+    # If we get here, we may still be between top-level nodes -- try to find the next one.
+    if not should_run_top_blocks:
+        for node in top_level_nodes:
+            if node.lineno > start_line:
+                should_run_top_blocks.append(node)
+                smart_code += f"{ast.get_source_segment(wholeFileContent, top_node)}\n"
+                break
+    # --- End Positron ---
+
     normalized_smart_result = normalize_lines(smart_code)
     which_line_next = get_next_block_lineno(should_run_top_blocks)
     return {
         "normalized_smart_result": normalized_smart_result,
         "which_line_next": which_line_next,
+        # --- Start Positron ---
+        # Return additional info required by a Positron statement range provider.
+        "start_line": should_run_top_blocks[0].lineno,
+        "start_character": should_run_top_blocks[0].col_offset,
+        "end_line": should_run_top_blocks[-1].end_lineno,
+        "end_character": should_run_top_blocks[-1].end_col_offset,
+        # --- End Positron ---
     }
 
 
@@ -277,7 +297,17 @@ if __name__ == "__main__":
         normalized = result["normalized_smart_result"]
         which_line_next = result["which_line_next"]
         data = json.dumps(
-            {"normalized": normalized, "nextBlockLineno": result["which_line_next"]}
+            # --- Start Positron ---
+            # Return additional info required by a Positron statement range provider.
+            {
+                "normalized": normalized,
+                "nextBlockLineno": result["which_line_next"],
+                "startLine": result["start_line"],
+                "endLine": result["end_line"],
+                "startCharacter": result["start_character"],
+                "endCharacter": result["end_character"],
+            }
+            # --- End Positron ---
         )
     else:
         normalized = normalize_lines(contents["code"])
