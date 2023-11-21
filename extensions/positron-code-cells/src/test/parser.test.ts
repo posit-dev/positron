@@ -17,7 +17,7 @@ suite(
 			const document = await createDocument(language, content);
 			const lastLine = document.lineAt(document.lineCount - 1);
 			const cell: Cell = {
-				range: new vscode.Range(zeroPosition, lastLine.range.end),
+				range: new vscode.Range(new vscode.Position(0, 0), lastLine.range.end),
 				type: cellType,
 			};
 			return [document, cell];
@@ -27,8 +27,6 @@ suite(
 			const document = await createDocument(language, content);
 			assert.deepStrictEqual(parseCells(document), expected);
 		}
-
-		const zeroPosition = new vscode.Position(0, 0);
 
 		const noCellsTests: [string, string, string][] = [
 			['Empty Python document should have no cells', 'python', ''],
