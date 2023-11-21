@@ -181,10 +181,17 @@
     "vscode:prepublish": "yarn run compile",
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
-    "lint": "eslint src --ext ts"
+    "lint": "eslint src --ext ts",
+    "test": "vscode-test"
   },
   "repository": {
     "type": "git",
     "url": "https://github.com/posit-dev/positron"
+  },
+  "devDependencies": {
+    "@types/mocha": "^10.0.4",
+    "@vscode/test-cli": "^0.0.4",
+    "@vscode/test-electron": "^2.3.6",
+    "mocha": "^10.2.0"
   }
 }

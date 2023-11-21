@@ -3,6 +3,7 @@
 	"compilerOptions": {
 		"outDir": "./out",
 		"types": [
+			"mocha",
 			"node"
 		]
 	},
