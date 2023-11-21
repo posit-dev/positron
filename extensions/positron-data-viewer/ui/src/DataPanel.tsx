@@ -12,6 +12,8 @@ import * as ReactTable from '@tanstack/react-table';
 
 // Local modules.
 import { DataFragment } from './DataFragment';
+import { LoadingOverlay } from './LoadingOverlay';
+import { DataRow, HeaderRow, PaddingRow } from './Rows';
 import { DataFetcher, ResolverLookup } from './fetchData';
 import { DataSet } from './positron-data-viewer';
 
@@ -46,7 +48,7 @@ export const DataPanel = (props: DataPanelProps) => {
 	// A reference to the scrollable table container element.
 	const tableContainerRef = React.useRef<HTMLDivElement>(null);
 	const headerRef = React.useRef<HTMLTableSectionElement>(null);
-	const debounceRef = React.useRef<NodeJS.Timeout>();
+	const scrollPages = React.useRef<{top: number; bottom: number}>({top: 0, bottom: 0});
 
 	const {initialData, fetchSize, vscode} = props;
 
@@ -62,21 +64,10 @@ export const DataPanel = (props: DataPanelProps) => {
 	// calling the appropriate resolve or reject function when the request completes.
 	const fetcher = new DataFetcher(requestQueue.current, requestResolvers.current, totalRows, vscode);
 
-	// Dimensions to keep track of as the table container scrolls and resizes
-	const dimensionsRef = React.useRef<any>({
-		overlayTop: 0,
-		overlayBottom: 0,
-		overlayLeft: 0,
-		overlayRight: 0,
-		scrollPageBottom: 0,
-		scrollPageTop: 0
-	});
-
 	React.useEffect(() => {
 		const handleMessage = ((event: any) => {
 			// Update the data model in place and resolve/reject the outstanding request
 			DataFragment.handleDataMessage(event, requestQueue.current, requestResolvers.current);
-			fetchMorePages(); // Check if we still need to fetch the previous page
 		});
 
 		window.addEventListener('message', handleMessage);
@@ -103,7 +94,7 @@ export const DataPanel = (props: DataPanelProps) => {
 	const initialDataFragment: DataFragment = new DataFragment(initialData.columns, 0, Math.min(fetchSize, totalRows));
 
 	// Use a React Query infinite query to fetch data from the data model
-	const {data, fetchNextPage, fetchPreviousPage, isFetchingNextPage, isFetchingPreviousPage, hasNextPage, hasPreviousPage} = ReactQuery.useInfiniteQuery(
+	const {data, fetchNextPage, fetchPreviousPage, hasNextPage, hasPreviousPage} = ReactQuery.useInfiniteQuery(
 	{
 		queryKey: ['table-data'],
 		queryFn: ({pageParam}) => fetcher.fetchNextDataFragment(pageParam, fetchSize),
@@ -113,49 +104,53 @@ export const DataPanel = (props: DataPanelProps) => {
 			pageParams: [0]
 		},
 		getPreviousPageParam: (_page, _pages, _firstPageParam, allPageParams) => {
-			return allPageParams.includes(dimensionsRef.current.scrollPageTop)
+			return allPageParams.includes(scrollPages.current.top)
 				? undefined // don't refetch if we have already fetched data for this page
-				: dimensionsRef.current.scrollPageTop; // otherwise, use scroll position to determine previous page
+				: scrollPages.current.top; // otherwise, use scroll position to determine previous page
 		},
 		getNextPageParam: (_page, _pages, _lastPageParam, allPageParams) => {
-			return allPageParams.includes(dimensionsRef.current.scrollPageBottom)
+			return allPageParams.includes(scrollPages.current.bottom)
 				? undefined // don't refetch if we have already fetched data for this page
-				: dimensionsRef.current.scrollPageBottom; // otherwise, use scroll position to determine next page
+				: scrollPages.current.bottom; // otherwise, use scroll position to determine next page
 		},
 		// we don't need to check for active network connection before retrying a query
 		networkMode: 'always',
 		staleTime: Infinity,
-		refetchOnWindowFocus: false,
-		placeholderData: (previousData) => previousData
+		refetchOnWindowFocus: false
 	});
+
+	const transposePage = React.useCallback((page: DataFragment) => {
+		const {rowStart, rowEnd} = page;
+		const pageSize = rowEnd - rowStart + 1;
+		return {rowStart, pageSize, data: page.transpose()};
+	}, []);
+
+	const createEmptyData = React.useCallback((highestFetchedRow: number) => {
+		const numColumns = initialData.columns[0].data.length;
+		return Array(highestFetchedRow).fill(Array(numColumns).fill(undefined));
+	}, []);
 
 	// Transpose and flatten the data. The data model stores data in a column-major
 	// format, but React Table expects data in a row-major format, so we need to
 	// transpose the data. We also need to pad the array with placeholder rows
 	const flatData = React.useMemo(() => {
-		// If we have skipped over pages while scrolling, those pages will not exist
-		// So we need to iterate over all indices from 0 to the max page in pageParams
-		// and insert empty placeholder rows for the missing pages
-		if (!data.pages.length || !data.pageParams) {
-			return [];
+		// We don't expect pages to be in order, but we do expect that there aren't duplicates
+		// That shouldn't be possible based on our implementation of getNext/PrevPageParams,
+		// but we check anyway to future-proof against changes to the query logic
+		const allPages = new Set(data.pageParams);
+		if (allPages.size !== data.pageParams.length) {
+			console.error('Duplicate pages fetched in the data');
 		}
 
-		const highestPage = Math.max(...data.pageParams as number[]);
-		const allPages = Array.from({ length: highestPage + 1 }, (_, pageParam) => pageParam);
-		const numColumns = data.pages[0].columns.length ?? 0;
-		const emptyPage = Array(fetchSize).fill(Array(numColumns).fill(null));
+		const highestFetchedRow = Math.max(...data.pages.map(page => page.rowEnd));
+		const flatData = createEmptyData(highestFetchedRow);
 
-		return allPages.flatMap(pageParam => {
-			const index = data.pageParams.indexOf(pageParam);
-			const page = data.pages[index];
-
-			if (!page || !page.columns.length ) {
-				// No data for this page, fill to correct dimensions with empty data
-				return emptyPage;
-			} else {
-				return page.transpose();
-			}
+		data.pages.forEach(page => {
+			const {rowStart, pageSize, data} = transposePage(page);
+			flatData.splice(rowStart, pageSize, ...data);
 		});
+
+		return flatData;
 	}, [data]);
 
 	// Define the main ReactTable instance.
@@ -173,7 +168,7 @@ export const DataPanel = (props: DataPanelProps) => {
 	// Use a virtualizer to render only the rows that are visible.
 	const rowVirtualizer = ReactVirtual.useVirtualizer(
 	{
-		count: rows.length,
+		count: totalRows,
 		getScrollElement: () => tableContainerRef.current,
 		// For now, we assume all rows are of constant height
 		// TODO: account for variable height rows, here and below in the totalSize variable
@@ -183,174 +178,106 @@ export const DataPanel = (props: DataPanelProps) => {
 
 	const virtualRows = rowVirtualizer.getVirtualItems();
 
-	const {paddingTop, paddingBottom} = React.useMemo(() => {
+	const {firstVirtualRow, lastVirtualRow, paddingTop, paddingBottom} = React.useMemo(() => {
+		if (!virtualRows.length) {
+			return {firstVirtualRow: 0, lastVirtualRow: 0, paddingTop: 0, paddingBottom: 0};
+		}
+		const firstVirtual = virtualRows[0];
+		const lastVirtual = virtualRows[virtualRows.length - 1];
 
-		const fetchedRowHeight = rowVirtualizer.getTotalSize();
-		// Assume unfetched rows are all of height rowHeightPx, since we don't have data for them yet
-		const unfetchedRowHeight = (totalRows - rows.length) * rowHeightPx;
-		const totalSize = fetchedRowHeight + unfetchedRowHeight;
+		if (!firstVirtual || !lastVirtual) {
+			return {firstVirtualRow: 0, lastVirtualRow: 0, paddingTop: 0, paddingBottom: 0};
+		}
 
+		const firstVirtualRow = firstVirtual.index;
+		const lastVirtualRow = lastVirtual.index;
+
+		const totalSize = rowVirtualizer.getTotalSize();
 		// Compute the padding for the table container.
-		const paddingTop = virtualRows?.[0]?.start || 0;
-		const paddingBottom = totalSize - (virtualRows?.[virtualRows.length - 1]?.end || 0);
-		return {paddingTop, paddingBottom};
-	}, [rows, virtualRows]);
+		const paddingTop = firstVirtual.start;
+		const paddingBottom = totalSize - lastVirtual.end;
+		return {firstVirtualRow, lastVirtualRow, paddingTop, paddingBottom};
+	}, [virtualRows]);
 
 	// Callback, invoked on scroll, that will fetch more data from the backend if we have reached
 	// the end of the virtualized rows by sending a new MessageRequest.
 	const fetchMorePages = React.useCallback(() => {
-		if (hasNextPage && !isFetchingNextPage) {
+		if (hasNextPage) {
 			fetchNextPage({cancelRefetch: false});
-		} else if (hasPreviousPage && !isFetchingPreviousPage) {
-			fetchPreviousPage({cancelRefetch: false});
 		}
-		clearTimeout(debounceRef.current);
-	}, [fetchNextPage, isFetchingNextPage, hasNextPage, fetchPreviousPage, isFetchingPreviousPage, hasPreviousPage]);
-
-	React.useEffect(() => {
-		// If we have scrolled a lot, we might need to fetch both the next and previous pages at once
-		// (because the viewport crosses a page boundary)
-		// React Query only processes one request at a time, so we need to check if the previous page
-		// still needs to be fetched once the next page has been fetched
 		if (hasPreviousPage) {
 			fetchPreviousPage({cancelRefetch: false});
 		}
-	}, [hasNextPage, isFetchingNextPage]);
+	}, [fetchNextPage, hasNextPage, fetchPreviousPage, hasPreviousPage]);
 
-	// Compute the current scroll page and overlay position based on the table container dimensions
-	const updateDimensions = React.useCallback((container?: HTMLDivElement | null) => {
-		const emptyElement = {
-			clientHeight: 0,
-			clientWidth: 0,
-			offsetHeight: 0,
-			offsetWidth: 0,
-			scrollTop: 0
-		};
+	// Compute the current scroll page based on the virtualized rows
+	const updateScroll = React.useCallback((firstVirtualRow: number, lastVirtualRow: number) => {
+		// The virtual rows exist before we've fetched them, they are just empty
+		const top = Math.floor(firstVirtualRow / fetchSize);
+		const bottom = Math.min(Math.floor(lastVirtualRow / fetchSize), maxPage);
+		scrollPages.current = {top, bottom};
+	}, []);
 
-		const {clientWidth, clientHeight, offsetWidth, offsetHeight, scrollTop} = container || emptyElement;
-		const {clientHeight: headerHeight, clientWidth: headerWidth} = headerRef.current || emptyElement;
+	React.useEffect(() => {
+		// Make sure we've caught up with the latest scroll position
+		// Otherwise the data can get stuck out of sync with the scroll if the user has scrolled quickly
+		// Also ensures that we fetch both the previous and next page if both are needed
+		// (i.e. the viewport crosses a page boundary)
+		updateScroll(firstVirtualRow, lastVirtualRow);
+		fetchMorePages();
+	}, [firstVirtualRow, lastVirtualRow, fetchMorePages, rowVirtualizer.isScrolling]);
 
-		// Vertically and horizontally center the loading overlay
-		// accounting for scrollbars, header, and container size
-		const verticalScrollbarWidth = offsetWidth - clientWidth;
-		const horizontalScrollbarHeight = offsetHeight - clientHeight;
-		dimensionsRef.current.overlayTop = (clientHeight - headerHeight) / 2;
-		dimensionsRef.current.overlayBottom = horizontalScrollbarHeight;
-		dimensionsRef.current.overlayRight = verticalScrollbarWidth;
-		// Use the table header width rather than the full container width
-		// when the table doesn't take up the full width of the container
-		dimensionsRef.current.overlayLeft = Math.min(headerWidth, clientWidth) / 2;
-
-		// Assume rows are all of height rowHeightPx
-		// We can probably do better using the size property of the virtual rows
-		const overscanHeight = scrollOverscan * rowHeightPx;
-		const pageHeight = rowHeightPx * fetchSize;
-		const scrollBottomAdj = scrollTop + clientHeight + overscanHeight;
-		const currentScrollPageBottom = Math.floor(scrollBottomAdj / pageHeight);
-		const currentScrollPageTop = currentScrollPageBottom - 1;
-
-		// scroll page cannot exceed the total number of pages of data
-		dimensionsRef.current.scrollPageBottom = Math.min(currentScrollPageBottom, maxPage);
-		dimensionsRef.current.scrollPageTop = Math.max(currentScrollPageTop, 0);
-		// Debounce before fetching more data
-		if (debounceRef.current) {
-			clearTimeout(debounceRef.current);
+	const isLoading = React.useMemo(() => {
+		const columnId = columns[0].id;
+		if (!columnId) {
+			return true;
 		}
-		debounceRef.current = setTimeout(fetchMorePages, 200);
-	}, [fetchMorePages]);
+
+		// Top of the screen is loading if the first virtual row is past the end of the data
+		// or in the sparse area of the data padded with undefined values
+		const topLoading = (
+			rows?.[firstVirtualRow] === undefined ||
+			rows[firstVirtualRow].getValue(columnId) === undefined
+		);
+		// Same for bottom of the screen, but with the last virtual row
+		const bottomLoading = (
+			rows?.[lastVirtualRow] === undefined ||
+			rows[lastVirtualRow].getValue(columnId) === undefined
+		);
+		return topLoading || bottomLoading;
+	}, [rows, firstVirtualRow, lastVirtualRow, columns]);
 
 	return (
 		<div
 			className='container'
-			onScroll={e => updateDimensions(e.target as HTMLDivElement)}
-			onResize={e => updateDimensions(e.target as HTMLDivElement)}
 			ref={tableContainerRef}
 		>
 			<table>
-				<thead ref={headerRef}>
-					{table.getHeaderGroups().map(headerGroup => (
-						<tr key={headerGroup.id}>
-							{headerGroup.headers.map(header => {
-								return (
-									<th
-										key={header.id}
-										colSpan={header.colSpan}
-										style={{ width: header.getSize() }}
-									>
-										{header.isPlaceholder ? null : (
-											<div
-												{...{
-													className: header.column.getCanSort()
-														? 'cursor-pointer select-none'
-														: '',
-													onClick: header.column.getToggleSortingHandler(),
-												}}
-											>
-												{ReactTable.flexRender(
-													header.column.columnDef.header,
-													header.getContext()
-												)}
-												{{
-													asc: '🔼', // allow-any-unicode-next-line
-													desc: '🔽', // allow-any-unicode-next-line
-												}[header.column.getIsSorted() as string] ?? null}
-											</div>
-										)}
-									</th>
-								);
-							})}
-						</tr>
-					))}
-				</thead>
+				<HeaderRow ref={headerRef} table={table} />
 				<tbody>
-					{paddingTop > 0 && (
-						<tr>
-							<td style={{ height: `${paddingTop}px` }} />
-						</tr>
-					)}
-					{virtualRows.map(virtualRow => {
-						const row = rows[virtualRow.index] as ReactTable.Row<any>;
+					<PaddingRow padding={paddingTop} />
+					{
+						isLoading ?
+							null :
+							virtualRows.map(virtualRow => {
+								const row = rows[virtualRow.index] as ReactTable.Row<any>;
 
-						return (
-							<tr key={row.id} style={{ minHeight: `${rowHeightPx}px` }}>
-							{
-								row.getVisibleCells().map(cell => {
-									return (
-										<td key={cell.id}>
-											{ReactTable.flexRender(
-												cell.column.columnDef.cell,
-												cell.getContext()
-											)}
-										</td>
-									);
-								})
-							}
-							</tr>
-						);
-					})}
-					{paddingBottom > 0 && (
-						<tr>
-							<td style={{ height: `${paddingBottom}px` }} />
-						</tr>
-					)}
+								return (
+								<DataRow
+									key={virtualRow.key}
+									virtualRow={virtualRow}
+									row={row}
+								/>);
+							})
+					}
+					<PaddingRow padding={paddingBottom} />
 				</tbody>
 			</table>
-			{
-				(hasNextPage && isFetchingNextPage) || (hasPreviousPage && isFetchingPreviousPage) ?
-				<div className='overlay' style={{
-					marginTop: dimensionsRef.current.overlayTop,
-					marginBottom: dimensionsRef.current.overlayBottom,
-					marginRight: dimensionsRef.current.overlayRight,
-					// horizontally center the loading text, using the table width rather than
-					// container width when the table doesn't take up the full container
-					marginLeft: dimensionsRef.current.overlayLeft,
-				}}>
-					<div className='loading'>
-						Loading more rows...
-					</div>
-				</div> :
-				null
-			}
+			<LoadingOverlay
+				isLoading={isLoading}
+				container={tableContainerRef.current}
+				header={headerRef.current}
+			/>
 		</div>
 	);
 };

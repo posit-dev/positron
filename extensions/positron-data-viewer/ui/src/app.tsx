@@ -20,7 +20,7 @@ import { DataViewerMessage, DataViewerMessageRowRequest, DataViewerMessageRowRes
 //
 // @ts-ignore
 const vscode = acquireVsCodeApi();
-const fetchSize = 100;
+const fetchSize = 500;
 
 // Let the extension know that we're ready to receive the initial data.
 const msg: DataViewerMessageRowRequest = {
