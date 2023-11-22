@@ -10,9 +10,9 @@ import { Logger } from '../extension';
 import { detectRPackage } from '../contexts';
 import { getFirstWorkspaceFolder } from './testing';
 
-const testsPattern = '**/tests';
-const testthatDotRPattern = '**/tests/testthat.[Rr]';
-export const testthatTestFilePattern = '**/tests/testthat/test*.[Rr]';
+const testsPattern = 'tests';
+const testthatDotRPattern = 'tests/testthat.[Rr]';
+export const testthatTestFilePattern = 'tests/testthat/test*.[Rr]';
 
 export async function createTestthatWatchers(testingTools: TestingTools): Promise<vscode.FileSystemWatcher[]> {
 	const packageRoot = testingTools.packageRoot;
