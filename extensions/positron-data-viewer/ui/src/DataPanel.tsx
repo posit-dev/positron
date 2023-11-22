@@ -126,8 +126,9 @@ export const DataPanel = (props: DataPanelProps) => {
 	}, []);
 
 	const createEmptyData = React.useCallback((highestFetchedRow: number) => {
-		const numColumns = initialData.columns[0].data.length;
-		return Array(highestFetchedRow).fill(Array(numColumns).fill(undefined));
+		const numColumns = initialData.columns.length;
+		const numRows = highestFetchedRow + 1;
+		return Array(numRows).fill(Array(numColumns).fill(undefined));
 	}, []);
 
 	// Transpose and flatten the data. The data model stores data in a column-major
