@@ -37,6 +37,7 @@ export async function* rRuntimeProvider(
 	// Check the R kernel log level setting
 	const config = vscode.workspace.getConfiguration('positron.r');
 	const logLevel = config.get<string>('kernel.logLevel') ?? 'warn';
+	const userEnv = config.get<object>('kernel.env') ?? {};
 
 	const binaries = new Set<string>();
 
@@ -133,7 +134,8 @@ export async function* rRuntimeProvider(
 		const env = <Record<string, string>>{
 			'RUST_BACKTRACE': '1',
 			'RUST_LOG': logLevel,
-			'R_HOME': rHome.homepath
+			'R_HOME': rHome.homepath,
+			...userEnv
 		};
 		/* eslint-enable */
 
