@@ -17,12 +17,12 @@ import { JupyterKernelSpec } from './jupyter-adapter';
 import { getArkKernelPath } from './kernel';
 
 /**
- * Provides R language runtimes to Positron; implements
- * positron.LanguageRuntimeProvider.
+ * Discovers R language runtimes for Positron; implements
+ * positron.LanguageRuntimeDiscoveryAgent.
  *
  * @param context The extension context.
  */
-export async function* rRuntimeProvider(
+export async function* rRuntimeDiscoveryAgent(
 	context: vscode.ExtensionContext,
 	runtimes: Map<string, RRuntime>
 ): AsyncGenerator<positron.LanguageRuntime> {

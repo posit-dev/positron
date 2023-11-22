@@ -16,8 +16,8 @@ import { IExtensionDescription } from 'vs/platform/extensions/common/extensions'
 /**
  * A language runtime provider and metadata about the extension that registered it.
  */
-interface LanguageRuntimeProvider {
-	provider: positron.LanguageRuntimeProvider;
+interface LanguageRuntimeDiscoveryAgent {
+	agent: positron.LanguageRuntimeDiscoveryAgent;
 	extension: IExtensionDescription;
 }
 
@@ -27,7 +27,7 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 
 	private readonly _runtimes = new Array<positron.LanguageRuntime>();
 
-	private readonly _runtimeProviders = new Array<LanguageRuntimeProvider>();
+	private readonly _runtimeDiscoveryAgents = new Array<LanguageRuntimeDiscoveryAgent>();
 
 	private readonly _clientInstances = new Array<ExtHostRuntimeClientInstance>();
 
@@ -163,11 +163,11 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 	public async $discoverLanguageRuntimes(): Promise<void> {
 		// Discover runtimes from each provider in parallel
 		let start = 0;
-		let end = this._runtimeProviders.length;
+		let end = this._runtimeDiscoveryAgents.length;
 		while (start !== end) {
 			// Extract the section of the providers list we're working on and discover
 			// runtimes from it
-			const providers = this._runtimeProviders.slice(start, end);
+			const providers = this._runtimeDiscoveryAgents.slice(start, end);
 			try {
 				await this.discoverLanguageRuntimes(providers);
 			} catch (err) {
@@ -182,7 +182,7 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 			// need to go back into the body of the loop to discover those
 			// runtimes as well.
 			start = end;
-			end = this._runtimeProviders.length;
+			end = this._runtimeDiscoveryAgents.length;
 		}
 
 		// Notify the main thread that discovery is complete
@@ -191,16 +191,16 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 	}
 
 	/**
-	 * Discovers language runtimes from a set of providers in parallel and
+	 * Discovers language runtimes from a set of discovery agents in parallel and
 	 * registers each one with the main thread.
 	 *
-	 * @param providers The set of providers to discover runtimes from
+	 * @param agents The set of agents to discover runtimes from
 	 */
-	private async discoverLanguageRuntimes(providers: Array<LanguageRuntimeProvider>):
+	private async discoverLanguageRuntimes(agents: Array<LanguageRuntimeDiscoveryAgent>):
 		Promise<void> {
 
 		// The number of providers we're waiting on (initially all providers)
-		let count = providers.length;
+		let count = agents.length;
 
 		// Utility promise
 		const never: Promise<never> = new Promise(() => { });
@@ -209,9 +209,9 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		// index. If the provider throws an error attempting to get the next
 		// provider, then the error is logged and the function signals that the
 		// provider is done.
-		const getNext = async (asyncGen: LanguageRuntimeProvider, index: number) => {
+		const getNext = async (asyncGen: LanguageRuntimeDiscoveryAgent, index: number) => {
 			try {
-				const result = await asyncGen.provider.next();
+				const result = await asyncGen.agent.next();
 				return ({ index, extension: asyncGen.extension, result });
 			} catch (err) {
 				console.error(`Language runtime provider threw an error during registration: ` +
@@ -225,7 +225,7 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		};
 
 		// Array mapping each provider to a promise for its next runtime
-		const nextPromises = providers.map(getNext);
+		const nextPromises = agents.map(getNext);
 
 		try {
 			while (count) {
@@ -233,13 +233,13 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 				const { index, extension, result } = await Promise.race(nextPromises);
 				if (result.done) {
 					// If the provider is done supplying runtimes, remove it
-					// from the list of providers we're waiting on
+					// from the list of discovery agents we're waiting on
 					nextPromises[index] = never;
 					count--;
 				} else if (result.value !== undefined) {
 					// Otherwise, move on to the next runtime from the provider
 					// and register the runtime it returned
-					nextPromises[index] = getNext(providers[index], index);
+					nextPromises[index] = getNext(agents[index], index);
 					try {
 						this.registerLanguageRuntime(extension, result.value);
 					} catch (err) {
@@ -252,9 +252,9 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 			console.error(`Halting language runtime registration: ${err}`);
 		} finally {
 			// Clean up any remaining promises
-			for (const [index, iterator] of providers.entries()) {
-				if (nextPromises[index] !== never && iterator.provider.return !== null) {
-					void iterator.provider.return(null);
+			for (const [index, iterator] of agents.entries()) {
+				if (nextPromises[index] !== never && iterator.agent.return !== null) {
+					void iterator.agent.return(null);
 				}
 			}
 		}
@@ -287,22 +287,22 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		return this._proxy.$getRunningRuntimes(languageId);
 	}
 
-	public registerLanguageRuntimeProvider(
+	public registerLanguageRuntimeDiscoveryAgent(
 		extension: IExtensionDescription,
 		languageId: string,
-		provider: positron.LanguageRuntimeProvider): void {
+		agent: positron.LanguageRuntimeDiscoveryAgent): void {
 		if (this._runtimeDiscoveryComplete) {
 			// We missed the discovery phase. Invoke the provider's async
 			// generator and register each runtime it returns right away.
 			void (async () => {
-				for await (const runtime of provider) {
+				for await (const runtime of agent) {
 					this.registerLanguageRuntime(extension, runtime);
 				}
 			})();
 		} else {
 			// We didn't miss it; either discovery is happening now or it hasn't started. Add
 			// the provider to the list of providers on which we need to perform discovery.
-			this._runtimeProviders.push({ extension, provider });
+			this._runtimeDiscoveryAgents.push({ extension, agent });
 		}
 	}
 
