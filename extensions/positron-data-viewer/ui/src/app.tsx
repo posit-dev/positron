@@ -41,12 +41,12 @@ window.addEventListener('message', (event: any) => {
 		const container = document.getElementById('root');
 		const root = createRoot(container!);
 		root.render(
-			<React.StrictMode>
+
 				<ReactQuery.QueryClientProvider client={queryClient}>
 					<DataPanel initialData={dataMessage.data} fetchSize={fetchSize} vscode={vscode} />
 					<ReactQueryDevtools initialIsOpen={false} />
 				</ReactQuery.QueryClientProvider>
-			</React.StrictMode>
+
 		);
 	} // Other message types are handled in the DataPanel component after app initialization.
 });

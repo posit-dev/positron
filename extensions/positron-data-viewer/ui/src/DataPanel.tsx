@@ -134,6 +134,8 @@ export const DataPanel = (props: DataPanelProps) => {
 	// format, but React Table expects data in a row-major format, so we need to
 	// transpose the data. We also need to pad the array with placeholder rows
 	const flatData = React.useMemo(() => {
+		console.log(`calling flat data with ${data.pageParams.length} pages`);
+		console.log(`pageParams: ${JSON.stringify(data.pageParams)}`);
 		// We don't expect pages to be in order, but we do expect that there aren't duplicates
 		// That shouldn't be possible based on our implementation of getNext/PrevPageParams,
 		// but we check anyway to future-proof against changes to the query logic
@@ -150,8 +152,9 @@ export const DataPanel = (props: DataPanelProps) => {
 			flatData.splice(rowStart, pageSize, ...data);
 		});
 
+		console.log(`Updated flat data with ${data.pages.length} pages, ${flatData.length} rows`);
 		return flatData;
-	}, [data]);
+	}, [data.pageParams.length]);
 
 	// Define the main ReactTable instance.
 	const table = ReactTable.useReactTable(
@@ -162,6 +165,11 @@ export const DataPanel = (props: DataPanelProps) => {
 		debugTable: false,
 		enableSorting: false,
 	});
+
+	React.useEffect(() => {
+		console.log(`updating table`);
+	}, [table]);
+
 
 	const {rows} = table.getRowModel();
 
@@ -203,15 +211,18 @@ export const DataPanel = (props: DataPanelProps) => {
 	// the end of the virtualized rows by sending a new MessageRequest.
 	const fetchMorePages = React.useCallback(() => {
 		if (hasNextPage) {
+			console.log(`fetching next page`);
 			fetchNextPage({cancelRefetch: false});
 		}
 		if (hasPreviousPage) {
+			console.log(`fetching prev page`);
 			fetchPreviousPage({cancelRefetch: false});
 		}
 	}, [fetchNextPage, hasNextPage, fetchPreviousPage, hasPreviousPage]);
 
 	// Compute the current scroll page based on the virtualized rows
 	const updateScroll = React.useCallback((firstVirtualRow: number, lastVirtualRow: number) => {
+		console.log(`updating scroll`);
 		// The virtual rows exist before we've fetched them, they are just empty
 		const top = Math.floor(firstVirtualRow / fetchSize);
 		const bottom = Math.min(Math.floor(lastVirtualRow / fetchSize), maxPage);
@@ -228,6 +239,7 @@ export const DataPanel = (props: DataPanelProps) => {
 	}, [firstVirtualRow, lastVirtualRow, fetchMorePages, rowVirtualizer.isScrolling]);
 
 	const isLoading = React.useMemo(() => {
+		console.log(`checking loading status`);
 		const columnId = columns[0].id;
 		if (!columnId) {
 			return true;

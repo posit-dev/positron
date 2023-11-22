@@ -11,6 +11,7 @@ import * as ReactTable from '@tanstack/react-table';
 
 export const DataRow = (
 	{virtualRow, row}: {virtualRow: ReactVirtual.VirtualItem; row: ReactTable.Row<any>}) => {
+		console.log(`Rendering DataRow`);
 
 	return (
 		<tr
