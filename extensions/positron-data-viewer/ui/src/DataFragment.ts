@@ -61,7 +61,6 @@ export class DataFragment {
 		// Resolve the promise and remove this request from the queue
 		requestQueue.splice(queuePosition, 1);
 		requestResolvers[message.start_row].resolve(incrementalData);
-		console.log(`Resolved request for rows ${message.start_row} to ${message.start_row + message.fetch_size - 1}`);
 	}
 
 	public transpose() {
