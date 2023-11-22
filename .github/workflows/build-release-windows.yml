@@ -117,16 +117,16 @@ jobs:
 
       # Note: We must export GITHUB_ENV and GITHUB_PATH before they are used in the next step
       - name: Setup Signing Variables
-        shell: cmd
+        shell: bash
         run: |
-          echo "SM_HOST=${{ secrets.SM_HOST }}" >> %GITHUB_ENV%
-          echo "SM_API_KEY=${{ secrets.SM_API_KEY }}" >> %GITHUB_ENV%
-          echo "SM_CLIENT_CERT_FILE=${{github.workspace}}\certificates\codesign.pfx" >> %GITHUB_ENV%
-          echo "SM_CLIENT_CERT_PASSWORD=${{ secrets.SM_CLIENT_CERT_PASSWORD }}" >> %GITHUB_ENV%
-          echo "SM_CLIENT_CERT_FINGERPRINT=${{ secrets.SM_CLIENT_CERT_FINGERPRINT }}" >> %GITHUB_ENV%
-          echo "INSTALLER_FILE=${{github.workspace}}\.build\${{ matrix.platform }}-${{ matrix.arch }}\${{ matrix.target }}-setup\PositronSetup.exe" >> %GITHUB_ENV%
-          echo "C:\Program Files (x86)\Windows Kits\10\App Certification Kit" >> %GITHUB_PATH%
-          echo "C:\Program Files\DigiCert\DigiCert One Signing Manager Tools" >> %GITHUB_PATH%
+          echo "SM_HOST=${{ secrets.SM_HOST }}" >> $GITHUB_ENV
+          echo "SM_API_KEY=${{ secrets.SM_API_KEY }}" >> $GITHUB_ENV
+          echo "SM_CLIENT_CERT_FILE=${{github.workspace}}\certificates\codesign.pfx" >> $GITHUB_ENV
+          echo "SM_CLIENT_CERT_PASSWORD=${{ secrets.SM_CLIENT_CERT_PASSWORD }}" >> $GITHUB_ENV
+          echo "SM_CLIENT_CERT_FINGERPRINT=${{ secrets.SM_CLIENT_CERT_FINGERPRINT }}" >> $GITHUB_ENV
+          echo "INSTALLER_FILE=${{github.workspace}}\.build\${{ matrix.platform }}-${{ matrix.arch }}\${{ matrix.target }}-setup\PositronSetup.exe" >> $GITHUB_ENV
+          echo "C:\Program Files (x86)\Windows Kits\10\App Certification Kit" >> $GITHUB_PATH
+          echo "C:\Program Files\DigiCert\DigiCert One Signing Manager Tools" >> $GITHUB_PATH
 
       - name: Setup SMCTL KSP Tools for Windows
         shell: cmd
