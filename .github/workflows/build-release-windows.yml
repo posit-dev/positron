@@ -74,17 +74,15 @@ jobs:
           - target: system
 
     steps:
-      # Checkout sources
-      - name: Checkout sources
+      - name: Checkout Sources
         uses: actions/checkout@v4
 
-      # Set up Node
-      - uses: actions/setup-node@v3
+      - name: Setup Node
+        uses: actions/setup-node@v3
         with:
           node-version-file: .nvmrc
 
-      # Run yarn to install node_modules dependencies
-      - name: Install dependencies
+      - name: Install node dependencies with yarn
         env:
           npm_config_arch: ${{ matrix.arch }}
           POSITRON_GITHUB_PAT: ${{ secrets.POSITRON_GITHUB_PAT }}
@@ -93,16 +91,14 @@ jobs:
         run: |
           yarn --network-timeout 120000
 
-      # Build client
-      - name: Build client
+      - name: Build Positron
         env:
           POSITRON_BUILD_NUMBER: ${{ needs.version_string.outputs.build_number }}
         shell: pwsh
         run: |
           yarn gulp vscode-${{ matrix.platform }}-${{ matrix.arch }}
 
-      # Build setup installer
-      - name: Build setup installer
+      - name: Build Positron Installer for Windows
         env:
           POSITRON_BUILD_NUMBER: ${{ needs.version_string.outputs.build_number }}
         shell: pwsh
@@ -110,7 +106,7 @@ jobs:
           yarn gulp vscode-${{ matrix.platform }}-${{ matrix.arch }}-inno-updater
           yarn gulp vscode-${{ matrix.platform }}-${{ matrix.arch }}-${{ matrix.target }}-setup
 
-      - name: Setup Certificate
+      - name: Setup Signing Certificate
         shell: pwsh
         env:
           SM_CLIENT_CERT_FILE_B64: ${{ secrets.SM_CLIENT_CERT_FILE_B64 }}
@@ -119,20 +115,20 @@ jobs:
           Set-Content -Path "${{github.workspace}}\certificates\codesign.txt" -Value $env:SM_CLIENT_CERT_FILE_B64
           & certutil -decode "${{github.workspace}}\certificates\codesign.txt" "${{github.workspace}}\certificates\codesign.pfx"
 
-      - name: Set Signing Variables
-        id: variables
-        shell: bash
+      # Note: We must export GITHUB_ENV and GITHUB_PATH before they are used in the next step
+      - name: Setup Signing Variables
+        shell: cmd
         run: |
-          echo "SM_HOST=${{ secrets.SM_HOST }}" >> "$GITHUB_ENV"
-          echo "SM_API_KEY=${{ secrets.SM_API_KEY }}" >> "$GITHUB_ENV"
-          echo "SM_CLIENT_CERT_FILE=${{github.workspace}}\certificates\codesign.pfx" >> "$GITHUB_ENV"
-          echo "SM_CLIENT_CERT_PASSWORD=${{ secrets.SM_CLIENT_CERT_PASSWORD }}" >> "$GITHUB_ENV"
-          echo "SM_CLIENT_CERT_FINGERPRINT=${{ secrets.SM_CLIENT_CERT_FINGERPRINT }}" >> "$GITHUB_ENV"
-          echo "INSTALLER_FILE=${{github.workspace}}\.build\${{ matrix.platform }}-${{ matrix.arch }}\${{ matrix.target }}-setup\PositronSetup.exe" >> "$GITHUB_ENV"
-          echo "C:\Program Files (x86)\Windows Kits\10\App Certification Kit" >> $GITHUB_PATH
-          echo "C:\Program Files\DigiCert\DigiCert One Signing Manager Tools" >> $GITHUB_PATH
+          echo "SM_HOST=${{ secrets.SM_HOST }}" >> %GITHUB_ENV%
+          echo "SM_API_KEY=${{ secrets.SM_API_KEY }}" >> %GITHUB_ENV%
+          echo "SM_CLIENT_CERT_FILE=${{github.workspace}}\certificates\codesign.pfx" >> %GITHUB_ENV%
+          echo "SM_CLIENT_CERT_PASSWORD=${{ secrets.SM_CLIENT_CERT_PASSWORD }}" >> %GITHUB_ENV%
+          echo "SM_CLIENT_CERT_FINGERPRINT=${{ secrets.SM_CLIENT_CERT_FINGERPRINT }}" >> %GITHUB_ENV%
+          echo "INSTALLER_FILE=${{github.workspace}}\.build\${{ matrix.platform }}-${{ matrix.arch }}\${{ matrix.target }}-setup\PositronSetup.exe" >> %GITHUB_ENV%
+          echo "C:\Program Files (x86)\Windows Kits\10\App Certification Kit" >> %GITHUB_PATH%
+          echo "C:\Program Files\DigiCert\DigiCert One Signing Manager Tools" >> %GITHUB_PATH%
 
-      - name: Setup SMCTL KSP Tools on Windows
+      - name: Setup SMCTL KSP Tools for Windows
         shell: cmd
         run: |
           curl -o smtools-windows-x64.msi "https://rstudio-buildtools.s3.amazonaws.com/posit-dev/smtools-windows-x64.msi"
@@ -143,22 +139,20 @@ jobs:
           C:\Windows\System32\certutil.exe -csp "DigiCert Signing Manager KSP" -key -user
           smksp_cert_sync.exe
 
-      - name: Sign using Signtool
+      - name: Sign Positron Installer using Signtool
         shell: cmd
         run: |
           signtool.exe sign /sha1 "%SM_CLIENT_CERT_FINGERPRINT%" /tr http://timestamp.digicert.com /td SHA256 /fd SHA256 "%INSTALLER_FILE%"
           signtool.exe verify /v /pa "%INSTALLER_FILE%"
 
-      # Clean-up after signing
-      - name: Clean up
+      - name: Clean Up
         if: always()
         shell: pwsh
         run: |
           if (Test-Path certificates) { Remove-Item -Force -Recurse certificates }
 
-      # Create build artifact
-      - name: Upload client archive
+      - name: Upload Positron Installer to Github Archive
         uses: actions/upload-artifact@v3
         with:
           name: positron-${{ matrix.platform }}-${{ matrix.arch }}-${{ matrix.target }}-setup.exe
-          path: .build\${{ matrix.platform }}-${{ matrix.arch }}\${{ matrix.target }}-setup\PositronSetup.exe
+          path: ${{github.workspace}}\.build\${{ matrix.platform }}-${{ matrix.arch }}\${{ matrix.target }}-setup\PositronSetup.exe
