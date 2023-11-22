@@ -223,9 +223,9 @@ export const DataPanel = (props: DataPanelProps) => {
 		data: flatData,
 		columns,
 		getCoreRowModel: ReactTable.getCoreRowModel(),
-		debugTable: true,
-		debugColumns: true,
-		debugHeaders: true,
+		debugTable: false,
+		debugColumns: false,
+		debugHeaders: false,
 		enableSorting: false,
 	});
 
