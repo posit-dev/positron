@@ -11,6 +11,8 @@ export enum ItemType {
 }
 
 export interface TestingTools {
+	packageRoot: vscode.Uri;
+	packageName: string;
 	controller: vscode.TestController;
 	testItemData: WeakMap<vscode.TestItem, ItemType>;
 }
