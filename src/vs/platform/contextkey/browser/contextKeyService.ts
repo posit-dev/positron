@@ -595,6 +595,14 @@ function findContextAttr(domNode: IContextKeyServiceTarget | null): number {
 }
 
 export function setContext(accessor: ServicesAccessor, contextKey: any, contextValue: any) {
+	// --- Start Positron ---
+	// Disable vscode-jupyter's cell-related keybindings, preferring the positron-code-cells
+	// extension instead.
+	// TODO(seem): We can remove this if we eventually decide to unbundle vscode-jupyter.
+	if (contextKey === 'jupyter.hascodecells') {
+		contextValue = false;
+	}
+	// --- End Positron ---
 	const contextKeyService = accessor.get(IContextKeyService);
 	contextKeyService.createKey(String(contextKey), stringifyURIs(contextValue));
 }
