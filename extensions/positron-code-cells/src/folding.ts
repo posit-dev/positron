@@ -5,13 +5,16 @@
 import * as vscode from 'vscode';
 import { parseCells } from './parser';
 
+export class CellFoldingRangeProvider implements vscode.FoldingRangeProvider {
+	provideFoldingRanges(document: vscode.TextDocument): vscode.ProviderResult<vscode.FoldingRange[]> {
+		return parseCells(document).map((cell) =>
+			new vscode.FoldingRange(cell.range.start.line, cell.range.end.line)
+		);
+	}
+}
+
 export function registerFoldingRangeProvider(context: vscode.ExtensionContext): void {
 	context.subscriptions.push(
-		vscode.languages.registerFoldingRangeProvider('*', {
-			provideFoldingRanges: (document) =>
-				parseCells(document).map((cell) =>
-					new vscode.FoldingRange(cell.range.start.line, cell.range.end.line)
-				)
-		}),
+		vscode.languages.registerFoldingRangeProvider('*', new CellFoldingRangeProvider()),
 	);
 }
