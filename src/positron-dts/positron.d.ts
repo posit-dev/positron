@@ -949,6 +949,10 @@ declare module 'positron' {
 			okButtonTitle?: string,
 			cancelButtonTitle?: string): Thenable<boolean>;
 
+		/**
+		 * Fires when the width of the console changes.
+		 */
+		export const onDidChangeConsoleWidth: vscode.Event<number>;
 	}
 
 	namespace runtime {
