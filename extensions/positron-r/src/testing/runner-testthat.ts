@@ -76,7 +76,19 @@ export async function runThatTest(
 	// TODO @jennybc: if this code stays, figure this out
 	// eslint-disable-next-line no-async-promise-executor
 	return new Promise<string>(async (resolve, reject) => {
-		const childProcess = spawn(command, { cwd, shell: true });
+		// FIXME (@jennybc): once I can ask the current runtime for its LC_CTYPE (and possibly
+		// other locale categories or even LANG), use something like this to make the child
+		// process better match the runtime. Learned this from reprex's UTF-8 test which currently
+		// fails in the test explorer because the reprex is being rendered in the C locale.
+		// const childProcess = spawn(command, {
+		// 	cwd: wd,
+		// 	shell: true,
+		// 	env: {
+		// 		...process.env,
+		// 		LC_CTYPE: 'en_US.UTF-8'
+		// 	}
+		// });
+		const childProcess = spawn(command, { cwd: wd, shell: true });
 		let stdout = '';
 		const testStartDates = new WeakMap<vscode.TestItem, number>();
 		childProcess.stdout!
