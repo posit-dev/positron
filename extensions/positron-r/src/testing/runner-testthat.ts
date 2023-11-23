@@ -20,34 +20,45 @@ const testReporterPath = path
 export async function runThatTest(
 	testingTools: TestingTools,
 	run: vscode.TestRun,
-	test: vscode.TestItem
+	test?: vscode.TestItem
 ): Promise<string> {
-	const getType = (testItem: vscode.TestItem) => testingTools.testItemData.get(testItem)!;
+	const getType = (testItem?: vscode.TestItem) => {
+		if (testItem) {
+			return testingTools.testItemData.get(testItem)!;
+		} else {
+			return ItemType.Directory;
+		}
+	};
 	const testType = getType(test);
 	const isSingleTest = testType === ItemType.TestCase;
 
 	if (isSingleTest) {
-		if (test.children.size === 0) {
+		if (test!.children.size === 0) {
 			Logger.info('Test type is test case and a single test');
 		} else {
 			Logger.info('Test type is test case and a describe suite');
 		}
-	} else {
+	} else if (testType === ItemType.File) {
 		Logger.info('Test type is file');
-		if (test.children.size === 0) {
+		if (test!.children.size === 0) {
 			Logger.info('Children are not yet available. Parsing children.');
-			await parseTestsFromFile(testingTools, test);
+			await parseTestsFromFile(testingTools, test!);
 		}
+	} else if (testType === ItemType.Directory) {
+		Logger.info('Test type is directory');
+		testingTools.controller.items.forEach(async (test) => {
+			await parseTestsFromFile(testingTools, test!);
+		});
 	}
 
-	const filePath = test.uri!.fsPath;
-	const cleanFilePath = filePath.replace(/\\/g, '/');
+	let testPath = testType === ItemType.Directory ? testingTools.packageRoot.fsPath : test!.uri!.fsPath;
+	testPath = testPath.replace(/\\/g, '/');
 
 	Logger.info(
-		`Started running${isSingleTest ? ' single test' : ' all tests'} in file ${filePath}`
+		`Started running ${isSingleTest ? 'single test' : 'all tests'
+		} in ${testType === ItemType.Directory ? 'directory' : 'file'
+		} '${testPath}'`
 	);
-
-	const projectDirMatch = cleanFilePath.match(/(.+?)\/tests\/testthat.+?/i);
 
 	const rBinPath = await getRBinPath(testingTools);
 
@@ -60,19 +71,22 @@ export async function runThatTest(
 			)
 		);
 	}
-	const devtoolsMethod = major === 2 && minor < 4 ? 'test_file' : 'test_active_file';
-	const descInsert = isSingleTest ? ` desc = '${test.label}', ` : '';
+
+	const devtoolsMethod = testType === ItemType.Directory
+		? 'test'
+		: major === 2 && minor < 4 ? 'test_file' : 'test_active_file';
+
+	const descInsert = isSingleTest ? ` desc = '${test?.label || '<all tests>'}', ` : '';
 	const devtoolsCall =
 		`devtools::load_all('${testReporterPath}');` +
-		`devtools::${devtoolsMethod}('${cleanFilePath}',` +
+		`devtools::${devtoolsMethod}('${testPath}',` +
 		`${descInsert}reporter = VSCodeReporter)`;
 	const command = `${rBinPath} --no-echo -e "${devtoolsCall}"`;
 	Logger.info(`devtools call is:\n${command}`);
 
-	const cwd = projectDirMatch
-		? projectDirMatch[1]
-		: vscode.workspace.workspaceFolders![0].uri.fsPath;
-	Logger.info(`Running devtools call in working directory ${cwd}`);
+	const wd = testingTools.packageRoot.fsPath;
+	Logger.info(`Running devtools call in working directory ${wd}`);
+	let hostFile = '';
 	// TODO @jennybc: if this code stays, figure this out
 	// eslint-disable-next-line no-async-promise-executor
 	return new Promise<string>(async (resolve, reject) => {
@@ -91,25 +105,26 @@ export async function runThatTest(
 		const childProcess = spawn(command, { cwd: wd, shell: true });
 		let stdout = '';
 		const testStartDates = new WeakMap<vscode.TestItem, number>();
-		childProcess.stdout!
-			.pipe(split2((line: string) => {
-				try {
-					return JSON.parse(line);
-				} catch { }
-			}))
+		childProcess.stdout!.pipe(split2(JSON.parse))
 			.on('data', (data: TestResult) => {
 				stdout += JSON.stringify(data);
 				Logger.info(`Received test data: ${JSON.stringify(data)}`);
 				switch (data.type) {
+					case 'start_file':
+						if (data.filename !== undefined) {
+							Logger.info(`Setting hostFile to ${data.filename}`);
+							hostFile = data.filename;
+						}
+						break;
 					case 'start_test':
 						if (data.test !== undefined) {
 							const testItem = isSingleTest
 								? test
-								: findTestRecursively(encodeNodeId(test.uri!.fsPath, data.test), test);
+								: findTest(hostFile, data.test, testingTools);
 							if (testItem === undefined) {
 								reject(
 									`Test with id ${encodeNodeId(
-										test.uri!.fsPath,
+										hostFile,
 										data.test
 									)} could not be found. Please report this.`
 								);
@@ -122,11 +137,11 @@ export async function runThatTest(
 						if (data.result !== undefined && data.test !== undefined) {
 							const testItem = isSingleTest
 								? test
-								: findTestRecursively(encodeNodeId(test.uri!.fsPath, data.test), test);
+								: findTest(hostFile, data.test, testingTools);
 							if (testItem === undefined) {
 								reject(
 									`Test with id ${encodeNodeId(
-										test.uri!.fsPath,
+										hostFile,
 										data.test
 									)} could not be found. Please report this.`
 								);
@@ -178,17 +193,17 @@ export async function runThatTest(
 	});
 }
 
-function findTestRecursively(testIdToFind: string, testToSearch: vscode.TestItem) {
-	let testFound: vscode.TestItem | undefined = undefined;
-	testToSearch.children.forEach((childTest: vscode.TestItem) => {
-		if (testFound === undefined) {
-			testFound =
-				testIdToFind === childTest.id
-					? childTest
-					: findTestRecursively(testIdToFind, childTest);
-		}
-	});
-	return testFound;
+// Current plan is to only support running top-level test_that() or describe() calls via mouse
+// click, as that's what is (test_that() case) or, I assume, will be (describe() case) supported
+// by testthat itself.
+// At the moment, though, smaller units are still parsed out of describe() calls (nested describe()s
+// and it() calls) and results are reported for these units. This function currently fails to find
+// these units, so this needs work to support describe() suites.
+function findTest(testFile: string, testLabel: string, testingTools: TestingTools) {
+	const testIdToFind = encodeNodeId(testFile, testLabel);
+	Logger.info(`Looking for test with id ${testIdToFind}`);
+	const testFileToSearch = testingTools.controller.items.get(testFile);
+	return testFileToSearch?.children.get(testIdToFind);
 }
 
 async function getRBinPath(testingTools: TestingTools) {

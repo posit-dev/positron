@@ -39,13 +39,14 @@ export async function parseTestsFromFile(
 	}
 
 	const tests: Map<string, vscode.TestItem> = new Map();
+	const testFile = path.basename(uri.fsPath);
 	for (const match of matches) {
 		if (match === undefined) {
 			continue;
 		}
 
 		const testItem = testingTools.controller.createTestItem(
-			encodeNodeId(uri.fsPath, match.testLabel, match.testSuperLabel),
+			encodeNodeId(testFile, match.testLabel, match.testSuperLabel),
 			match.testLabel,
 			uri
 		);
@@ -59,7 +60,7 @@ export async function parseTestsFromFile(
 				tests.get(match.testSuperLabel)!.children.add(testItem);
 			} else {
 				const supertestItem = testingTools.controller.createTestItem(
-					encodeNodeId(uri.fsPath, match.testSuperLabel),
+					encodeNodeId(testFile, match.testSuperLabel),
 					match.testSuperLabel,
 					uri
 				);
