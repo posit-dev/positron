@@ -6,25 +6,6 @@ import * as assert from 'assert';
 import * as vscode from 'vscode';
 import { CellManager, ExecuteCode } from '../cellManager';
 
-interface ExecuteCodeResult {
-	language: string;
-	code: string;
-}
-
-class TestCellManager extends CellManager {
-	executedCode: ExecuteCodeResult[];
-
-	constructor(
-		editor: vscode.TextEditor,
-	) {
-		const executedCode: ExecuteCodeResult[] = [];
-		const executeCode: ExecuteCode = async (language, code) => { executedCode.push({ language, code }); };
-
-		super(editor, executeCode);
-		this.executedCode = executedCode;
-	}
-}
-
 suite(
 	'CellManager',
 	() => {
@@ -130,6 +111,25 @@ testing3`);
 		});
 	}
 );
+
+interface ExecuteCodeResult {
+	language: string;
+	code: string;
+}
+
+class TestCellManager extends CellManager {
+	executedCode: ExecuteCodeResult[];
+
+	constructor(
+		editor: vscode.TextEditor,
+	) {
+		const executedCode: ExecuteCodeResult[] = [];
+		const executeCode: ExecuteCode = async (language, code) => { executedCode.push({ language, code }); };
+
+		super(editor, executeCode);
+		this.executedCode = executedCode;
+	}
+}
 
 async function createCellManager(language: string, content: string): Promise<TestCellManager> {
 	const document = await vscode.workspace.openTextDocument({ language, content });
