@@ -185,13 +185,18 @@ export class ExtHostConfigProvider {
 			},
 			get: <T>(key: string, defaultValue?: T) => {
 				// --- Start Positron ---
-				// Disable vscode-jupyter's cell support in preference of the positron-code-cell extension.
+				// Disable vscode-jupyter's cell decorations and code lenses, preferring
+				// the positron-code-cell extension instead.
 				// TODO(seem): We can remove this if we eventually decide to unbundle vscode-jupyter.
-				if (section === 'jupyter' && key === 'interactiveWindow.cellMarker.decorateCells') {
-					return 'None';
-				}
-				if (section === 'jupyter' && key === 'interactiveWindow.codeLens.enable') {
-					return false;
+				if (section === 'jupyter') {
+					switch (key) {
+						case 'interactiveWindow.cellMarker.decorateCells':
+						case 'interactiveWindow.codeLens.enable':
+						// Legacy versions of above settings.
+						case 'decorateCells':
+						case 'enableCellCodeLens':
+							return false;
+					}
 				}
 				// --- End Positron ---
 				this._validateConfigurationAccess(section ? `${section}.${key}` : key, overrides, extensionDescription?.identifier);
