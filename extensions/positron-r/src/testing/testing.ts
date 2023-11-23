@@ -103,7 +103,7 @@ export async function discoverTests(context: vscode.ExtensionContext) {
 
 // Temporarily making it explicit here that we only support this scenario:
 // first workspace folder is the root directory of a source R package
-async function getFirstWorkspaceFolder(): Promise<vscode.Uri | null> {
+export async function getFirstWorkspaceFolder(): Promise<vscode.Uri | null> {
 	const workspaceFolders = vscode.workspace.workspaceFolders;
 	if (!workspaceFolders) {
 		return null;

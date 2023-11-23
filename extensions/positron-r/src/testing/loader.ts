@@ -3,27 +3,18 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import { Logger } from '../extension';
 import { parseTestsFromFile } from './parser';
 import { ItemType, TestingTools } from './util-testing';
 import { testthatTestFilePattern } from './watcher';
 
-import { Logger } from '../extension';
-
 export async function discoverTestFiles(testingTools: TestingTools) {
-	if (!vscode.workspace.workspaceFolders) {
-		Logger.info('No open workspace; no test discovery.');
-		return;
+	const packageRoot = testingTools.packageRoot;
+	Logger.info(`Discovering testthat test files in ${packageRoot.path}`);
+	const pattern = new vscode.RelativePattern(packageRoot, testthatTestFilePattern);
+	for (const file of await vscode.workspace.findFiles(pattern)) {
+		getOrCreateFileItem(testingTools, file);
 	}
-
-	return Promise.all(
-		vscode.workspace.workspaceFolders.map(async (workspaceFolder) => {
-			Logger.info(`Discovering testthat test files in ${workspaceFolder.uri}`);
-			const pattern = new vscode.RelativePattern(workspaceFolder, testthatTestFilePattern);
-			for (const file of await vscode.workspace.findFiles(pattern)) {
-				getOrCreateFileItem(testingTools, file);
-			}
-		})
-	);
 }
 
 export function getOrCreateFileItem(testingTools: TestingTools, uri: vscode.Uri) {
