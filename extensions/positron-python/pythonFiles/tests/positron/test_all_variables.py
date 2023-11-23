@@ -1128,37 +1128,43 @@ def test_handle_delete_error(variables_comm: DummyComm) -> None:
 
 
 @pytest.mark.parametrize(
-    "cls",
+    ("cls", "value"),
     [
-        dict,
-        pd.DataFrame,
-        pd.Series,
-        # We don't test polars series/dataframes here since they only supports string keys.
+        # We should be able to inspect the children of a map/table with keys that have the same string representation.
+        (dict, {0: [0], "0": [1]}),
+        (pd.DataFrame, {0: [0], "0": [1]}),
+        # DataFrames
+        (pd.DataFrame, {"a": [1, 2], "b": ["3", "4"]}),
+        (pl.DataFrame, {"a": [1, 2], "b": ["3", "4"]}),
+        # Arrays
+        (np.array, [[0, 1], [2, 3]]),  # 2D
     ],
 )
-def test_handle_inspect_mixed_types(
-    cls: Type, shell: TerminalInteractiveShell, variables_comm: DummyComm
+def test_handle_inspect_2d(
+    cls: Type, value: Any, shell: TerminalInteractiveShell, variables_comm: DummyComm
 ) -> None:
     """
-    We should be able to inspect the children of a map/table with keys that have the same string representation.
+    Test that we can inspect "two-dimensional" objects.
     """
-    value = cls({0: [0], "0": [1]})
-    shell.user_ns.update({"x": value})
+    x = cls(value)
+    shell.user_ns.update({"x": x})
 
-    for key in ["0", 0]:
+    keys = value.keys() if isinstance(value, dict) else range(len(value))
+    for key in keys:
         path = [encode_access_key("x"), encode_access_key(key)]
         msg = {"content": {"data": {"msg_type": "inspect", "path": path}}}
         variables_comm.handle_msg(msg)
 
-        inspector = get_inspector(value[key])
+        inspector = get_inspector(x[key])
+        children = inspector.summarize_children(x[key], _summarize_variable)
 
         assert variables_comm.messages == [
             {
                 "data": {
                     "msg_type": "details",
                     "path": path,
-                    "children": inspector.summarize_children(value[key], _summarize_variable),
-                    "length": 1,
+                    "children": children,
+                    "length": len(children),
                 },
                 "metadata": None,
                 "buffers": None,

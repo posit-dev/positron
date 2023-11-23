@@ -124,7 +124,7 @@ class PositronInspector(Generic[T]):
         return False
 
     def get_child(self, value: T, access_key: str) -> Any:
-        return None
+        raise TypeError(f"get_child() is not implemented for type: {type(value)}")
 
     def summarize_children(
         self,
@@ -356,15 +356,33 @@ class PandasTimestampInspector(_BaseTimestampInspector["pd.Timestamp"]):
 # Collections
 #
 
-CT = TypeVar("CT", bound=Iterable)
+CollectionT = Union[range, FrozenSet, Sequence, Set, Tuple]
+CT = TypeVar("CT", CollectionT, "np.ndarray", "torch.Tensor")
 
 
 class _BaseCollectionInspector(PositronInspector[CT], ABC):
     def get_kind(self, value: CT) -> str:
         return "collection"
 
+    def has_children(self, value: CT) -> bool:
+        # For ranges, we don't visualize the children as they're
+        # implied as a contiguous set of integers in a range.
+        # For sets, we don't visualize the children as they're
+        # not subscriptable objects.
+        if isinstance(value, (range, Set, FrozenSet)):
+            return False
+
+        return super().has_children(value)
+
     def has_child(self, value: CT, access_key: str) -> bool:
         return decode_access_key(access_key) < self.get_length(value)
+
+    def get_child(self, value: CT, access_key: str) -> Any:
+        # Don't allow indexing into ranges or sets.
+        if isinstance(value, (range, Set, FrozenSet)):
+            raise TypeError(f"get_child() is not implemented for type: {type(value)}")
+
+        return value[decode_access_key(access_key)]
 
     def summarize_children(
         self,
@@ -386,7 +404,6 @@ class _BaseCollectionInspector(PositronInspector[CT], ABC):
 
 # We don't use typing.Sequence here since it includes mappings,
 # for which we have a separate inspector.
-CollectionT = Union[range, FrozenSet, Sequence, Set, Tuple]
 
 
 class CollectionInspector(_BaseCollectionInspector[CollectionT]):
@@ -402,22 +419,6 @@ class CollectionInspector(_BaseCollectionInspector[CollectionT]):
             return f"{type_name} ({length})"
         else:
             return f"{type_name} [{length}]"
-
-    def has_children(self, value: CollectionT) -> bool:
-        # For ranges, we don't visualize the children as they're
-        # implied as a contiguous set of integers in a range.
-        # For sets, we don't visualize the children as they're
-        # not subscriptable objects.
-        if isinstance(value, (frozenset, range, set)):
-            return False
-
-        return super().has_children(value)
-
-    def get_child(self, value: CollectionT, access_key: str) -> Any:
-        # Don't allow indexing into sets.
-        if isinstance(value, (Set, FrozenSet)):
-            return None
-        return value[decode_access_key(access_key)]
 
     def is_snapshottable(self, value: CollectionT) -> bool:
         return isinstance(value, (MutableSequence, MutableSet))
