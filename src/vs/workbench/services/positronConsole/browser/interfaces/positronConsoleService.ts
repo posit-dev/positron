@@ -63,6 +63,11 @@ export interface IPositronConsoleService {
 	readonly onDidChangeActivePositronConsoleInstance: Event<IPositronConsoleInstance | undefined>;
 
 	/**
+	 * The onDidChangeConsoleWidth event.
+	 */
+	readonly onDidChangeConsoleWidth: Event<number>;
+
+	/**
 	 * Placeholder that gets called to "initialize" the PositronConsoleService.
 	 */
 	initialize(): void;

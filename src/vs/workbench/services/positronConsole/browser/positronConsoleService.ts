@@ -150,6 +150,11 @@ class PositronConsoleService extends Disposable implements IPositronConsoleServi
 	 */
 	private readonly _onDidChangeActivePositronConsoleInstanceEmitter = this._register(new Emitter<IPositronConsoleInstance | undefined>);
 
+	/**
+	 * The onDidChangeConsoleWidth event emitter.
+	 */
+	private readonly _onDidChangeConsoleWidthEmitter = this._register(new Emitter<number>());
+
 	//#endregion Private Properties
 
 	//#region Constructor & Dispose
@@ -295,6 +300,9 @@ class PositronConsoleService extends Disposable implements IPositronConsoleServi
 
 	// An event that is fired when the active REPL instance changes.
 	readonly onDidChangeActivePositronConsoleInstance = this._onDidChangeActivePositronConsoleInstanceEmitter.event;
+
+	// An event that is fired when the width of the console changes.
+	readonly onDidChangeConsoleWidth = this._onDidChangeConsoleWidthEmitter.event;
 
 	// Gets the repl instances.
 	get positronConsoleInstances(): IPositronConsoleInstance[] {
