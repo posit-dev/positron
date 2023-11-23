@@ -60,7 +60,7 @@ export class CellManager {
 
 	public runCell(cell: Cell): void {
 		const text = this.parser.getCellText(cell, this.editor.document);
-		positron.runtime.executeCode(this.editor.document.languageId, text, true);
+		positron.runtime.executeCode(this.editor.document.languageId, text, false);
 	}
 
 	public runCurrentCell(line?: number): void {
