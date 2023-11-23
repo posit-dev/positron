@@ -409,6 +409,11 @@ class PositronConsoleService extends Disposable implements IPositronConsoleServi
 		// Fire the onDidChangeActivePositronConsoleInstance event.
 		this._onDidChangeActivePositronConsoleInstanceEmitter.fire(positronConsoleInstance);
 
+		// Listen for console width changes.
+		this._register(positronConsoleInstance.onDidChangeWidth(width => {
+			this._onDidChangeConsoleWidthEmitter.fire(width);
+		}));
+
 		// Return the instance.
 		return positronConsoleInstance;
 	}
@@ -567,10 +572,20 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	private readonly _onDidAttachRuntime = this._register(new Emitter<ILanguageRuntime | undefined>);
 
 	/**
+	 * The onDidChangeWidth event emitter.
+	 */
+	private readonly _onDidChangeWidth = this._register(new Emitter<number>);
+
+	/**
 	 * Provides access to the input text editor, if it's available. Note that we generally prefer to
 	 * interact with this editor indirectly, since its state is managed by React.
 	 */
 	private _inputTextEditor: IEditor | undefined;
+
+	/**
+	 * The current width of the console.
+	 */
+	private _width = 0;
 
 	//#endregion Private Properties
 
@@ -605,6 +620,17 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	 */
 	set inputTextEditor(value: IEditor | undefined) {
 		this._inputTextEditor = value;
+	}
+
+	/**
+	 * Sets the console's width.
+	 * @param newWidth The new width.
+	 */
+	setWidth(newWidth: number): void {
+		if (this._width !== newWidth) {
+			this._width = newWidth;
+			this._onDidChangeWidth.fire(newWidth);
+		}
 	}
 
 	/**
@@ -740,6 +766,11 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	 * onDidAttachRuntime event.
 	 */
 	readonly onDidAttachRuntime = this._onDidAttachRuntime.event;
+
+	/**
+	 * onDidChangeWidth event.
+	 */
+	readonly onDidChangeWidth = this._onDidChangeWidth.event;
 
 	/**
 	 * Focuses the input for the console.
