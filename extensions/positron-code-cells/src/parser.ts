@@ -63,11 +63,12 @@ function getJupyterMarkdownCellText(cell: Cell, document: vscode.TextDocument): 
 	return `%%markdown\n${text}\n\n`;
 }
 
-const pythonMarkdownRegExp = new RegExp(/^(#\s*%%\s*\[markdown\]|#\s*\<markdowncell\>)/);
+const pythonIsCellStartRegExp = new RegExp(/^\s*#\s*%%/);
+const pythonMarkdownRegExp = new RegExp(/^\s*#\s*%%[^[]*\[markdown\]/);
 
 // TODO: Expose an API to let extensions register parsers
 const pythonCellParser: CellParser = {
-	isCellStart: (line) => line.startsWith('# %%'),
+	isCellStart: (line) => pythonIsCellStartRegExp.test(line),
 	isCellEnd: (_line) => false,
 	getCellType: (line) => pythonMarkdownRegExp.test(line) ? CellType.Markdown : CellType.Code,
 	getCellText: (cell, document) =>
