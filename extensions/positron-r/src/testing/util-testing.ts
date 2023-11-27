@@ -8,7 +8,9 @@ import { Logger } from '../extension';
 export enum ItemType {
 	Directory = 'directory',
 	File = 'file',
-	TestCase = 'test',
+	TestThat = 'test_that',
+	Describe = 'describe',
+	It = 'it',
 }
 
 export interface TestingTools {

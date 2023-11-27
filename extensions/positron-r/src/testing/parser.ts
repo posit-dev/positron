@@ -51,11 +51,12 @@ export async function parseTestsFromFile(
 			uri
 		);
 		testItem.range = new vscode.Range(match.testStartPosition, match.testEndPosition);
-		testingTools.testItemData.set(testItem, ItemType.TestCase);
 
 		if (match.testSuperLabel === undefined) {
+			testingTools.testItemData.set(testItem, ItemType.TestThat);
 			tests.set(match.testLabel, testItem);
 		} else {
+			testingTools.testItemData.set(testItem, ItemType.It);
 			if (tests.has(match.testSuperLabel)) {
 				tests.get(match.testSuperLabel)!.children.add(testItem);
 			} else {
@@ -64,7 +65,7 @@ export async function parseTestsFromFile(
 					match.testSuperLabel,
 					uri
 				);
-				testingTools.testItemData.set(supertestItem, ItemType.TestCase);
+				testingTools.testItemData.set(supertestItem, ItemType.Describe);
 				supertestItem.range = new vscode.Range(
 					match.testSuperStartPosition!,
 					match.testSuperEndPosition!

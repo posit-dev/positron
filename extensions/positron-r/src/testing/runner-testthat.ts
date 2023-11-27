@@ -30,29 +30,36 @@ export async function runThatTest(
 		}
 	};
 	const testType = getType(test);
-	const isSingleTest = testType === ItemType.TestCase;
 
-	if (isSingleTest) {
-		if (test!.children.size === 0) {
-			Logger.info('Test type is test case and a single test');
-		} else {
-			Logger.info('Test type is test case and a describe suite');
-		}
-	} else if (testType === ItemType.File) {
-		Logger.info('Test type is file');
-		if (test!.children.size === 0) {
-			Logger.info('Children are not yet available. Parsing children.');
-			await parseTestsFromFile(testingTools, test!);
-		}
-	} else if (testType === ItemType.Directory) {
-		Logger.info('Test type is directory');
-		testingTools.controller.items.forEach(async (test) => {
-			await parseTestsFromFile(testingTools, test!);
-		});
+	switch (testType) {
+		case ItemType.TestThat:
+			Logger.info('Single test_that() test');
+			break;
+		case ItemType.Describe:
+			Logger.info('Single describe() test: can\'t be run individually (yet)');
+			// TODO: testthat doesn't support running a single describe() yet
+			// TODO: figure out how to handle nested describe()
+			return Promise.resolve('Single describe() test: can\'t be run individually (yet)');
+		case ItemType.It:
+			Logger.info('Individual it() call: can\'t be run individually');
+			return Promise.resolve('Individual it() call: can\'t be run individually');
+		case ItemType.File:
+			Logger.info('Test type is file');
+			if (test!.children.size === 0) {
+				Logger.info('Children are not yet available. Parsing children.');
+				await parseTestsFromFile(testingTools, test!);
+			}
+			break;
+		case ItemType.Directory:
+			Logger.info('Test type is directory');
+			testingTools.controller.items.forEach(async (test) => {
+				await parseTestsFromFile(testingTools, test);
+			});
+			break;
 	}
 
-	let testPath = testType === ItemType.Directory ? testingTools.packageRoot.fsPath : test!.uri!.fsPath;
-	testPath = testPath.replace(/\\/g, '/');
+	const isSingleTest = testType === ItemType.TestThat;
+	const testPath = testType === ItemType.Directory ? testingTools.packageRoot.fsPath : test!.uri!.fsPath;
 
 	Logger.info(
 		`Started running ${isSingleTest ? 'single test' : 'all tests'
@@ -94,6 +101,7 @@ export async function runThatTest(
 		// other locale categories or even LANG), use something like this to make the child
 		// process better match the runtime. Learned this from reprex's UTF-8 test which currently
 		// fails in the test explorer because the reprex is being rendered in the C locale.
+		// Also affects the tests for glue.
 		// const childProcess = spawn(command, {
 		// 	cwd: wd,
 		// 	shell: true,
@@ -196,14 +204,32 @@ export async function runThatTest(
 // Current plan is to only support running top-level test_that() or describe() calls via mouse
 // click, as that's what is (test_that() case) or, I assume, will be (describe() case) supported
 // by testthat itself.
-// At the moment, though, smaller units are still parsed out of describe() calls (nested describe()s
-// and it() calls) and results are reported for these units. This function currently fails to find
-// these units, so this needs work to support describe() suites.
-function findTest(testFile: string, testLabel: string, testingTools: TestingTools) {
+// However, when we parse test files, smaller units are still parsed out of describe() calls
+// (e.g. the it() calls) and results are reported for these units. Even though the it() calls aren't
+// runnable individually, we still need to have a concept of them for reporting.
+//
+// I guess the best description of what happens for nested describe() calls at this point is
+// "undefined behaviour".
+function findTest(
+	testFile: string,
+	testLabel: string,
+	testingTools: TestingTools): vscode.TestItem | undefined {
 	const testIdToFind = encodeNodeId(testFile, testLabel);
 	Logger.info(`Looking for test with id ${testIdToFind}`);
 	const testFileToSearch = testingTools.controller.items.get(testFile);
-	return testFileToSearch?.children.get(testIdToFind);
+	const firstGenerationFound = testFileToSearch?.children.get(testIdToFind);
+	if (firstGenerationFound) {
+		return firstGenerationFound;
+	}
+	// if file contains any describe() calls, search the it()s within those too
+	let secondGenerationFound: vscode.TestItem | undefined;
+	testFileToSearch?.children.forEach((item) => {
+		const found = item.children?.get(testIdToFind);
+		if (found) {
+			secondGenerationFound = found;
+		}
+	});
+	return secondGenerationFound;
 }
 
 async function getRBinPath(testingTools: TestingTools) {
