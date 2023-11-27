@@ -70,9 +70,9 @@ suite('Context', () => {
 });
 
 function assertContextsEqual(expectedSupportsCodeCells: boolean, expectedHasCodeCells: boolean): void {
-	assert.strictEqual(contexts[ContextKey.SupportsCodeCells], expectedSupportsCodeCells,
+	assert.strictEqual(contexts.get(ContextKey.SupportsCodeCells), expectedSupportsCodeCells,
 		`Expected context '${ContextKey.SupportsCodeCells}' to be ${expectedSupportsCodeCells}`);
 
-	assert.strictEqual(contexts[ContextKey.HasCodeCells], expectedHasCodeCells,
+	assert.strictEqual(contexts.get(ContextKey.HasCodeCells), expectedHasCodeCells,
 		`Expected context '${ContextKey.HasCodeCells}' to be ${expectedHasCodeCells}`);
 }

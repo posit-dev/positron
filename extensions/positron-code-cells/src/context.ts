@@ -10,14 +10,14 @@ export enum ContextKey {
 	HasCodeCells = 'positron.hasCodeCells',
 }
 
-export const contexts: { [key in ContextKey]: boolean | undefined } = {
-	[ContextKey.SupportsCodeCells]: false,
-	[ContextKey.HasCodeCells]: false,
-};
+export const contexts: Map<ContextKey, boolean | undefined> = new Map([
+	[ContextKey.SupportsCodeCells, false],
+	[ContextKey.HasCodeCells, false],
+]);
 
 function setSupportsCodeCellsContext(editor: vscode.TextEditor | undefined): void {
 	const value = editor && getParser(editor.document.languageId) !== undefined;
-	contexts[ContextKey.SupportsCodeCells] = value;
+	contexts.set(ContextKey.SupportsCodeCells, value);
 	vscode.commands.executeCommand(
 		'setContext',
 		ContextKey.SupportsCodeCells,
@@ -27,7 +27,7 @@ function setSupportsCodeCellsContext(editor: vscode.TextEditor | undefined): voi
 
 function setHasCodeCellsContext(document: vscode.TextDocument | undefined): void {
 	const value = document && parseCells(document).length > 0;
-	contexts[ContextKey.HasCodeCells] = value;
+	contexts.set(ContextKey.HasCodeCells, value);
 	vscode.commands.executeCommand(
 		'setContext',
 		'positron.hasCodeCells',
