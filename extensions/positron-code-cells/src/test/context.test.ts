@@ -4,16 +4,15 @@
 
 import * as assert from 'assert';
 import * as vscode from 'vscode';
-import { ContextKey, activateContextKeys, contexts } from '../context';
-import { closeAllEditors, disposeAll } from './utils';
+import { ContextKey, contexts } from '../context';
+import { closeAllEditors } from './utils';
 
 suite('Context', () => {
-	const disposables: vscode.Disposable[] = [];
-	teardown(async () => {
-		await closeAllEditors();
-		disposeAll(disposables);
+	setup(async () => {
+		// Testing the context keys requires the extension to be activated.
+		await vscode.extensions.getExtension('vscode.positron-code-cells')!.activate();
 	});
-	activateContextKeys(disposables);
+	teardown(closeAllEditors);
 
 	test('Opening an empty Python document', async () => {
 		const document = await vscode.workspace.openTextDocument({ language: 'python' });
