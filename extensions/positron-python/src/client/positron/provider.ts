@@ -27,14 +27,13 @@ import { IEnvironmentVariablesProvider } from '../common/variables/types';
 import { IWorkspaceService } from '../common/application/types';
 
 /**
- * Provides Python language runtimes to Positron; implements
- * positron.LanguageRuntimeProvider.
+ * Provides Python language runtimes to Positron; implements positron.LanguageRuntimeDiscoverer.
  *
  * @param serviceContainer The Python extension's service container to use for dependency injection.
  * @param runtimes A map from interpreter path to language runtime metadata.
  * @param activatedPromise Resolves when all Python extension components are activated.
  */
-export async function* pythonRuntimeProvider(
+export async function* pythonRuntimeDiscoverer(
     serviceContainer: IServiceContainer,
     runtimes: Map<string, positron.LanguageRuntimeMetadata>,
     activatedPromise: Promise<void>,

@@ -473,7 +473,7 @@ declare module 'positron' {
         size: number;
     }
 
-    export type LanguageRuntimeProvider = AsyncGenerator<LanguageRuntime>;
+    export type LanguageRuntimeDiscoverer = AsyncGenerator<LanguageRuntime>;
 
     /**
      * LanguageRuntime is an interface implemented by extensions that provide a
@@ -855,12 +855,15 @@ declare module 'positron' {
         export function executeCode(languageId: string, code: string, focus: boolean): Thenable<boolean>;
 
         /**
-         * Register a language runtime provider with Positron.
+         * Register a language runtime discoverer with Positron.
          *
          * @param languageId The language ID for which runtimes will be supplied
-         * @param provider A function that returns an AsyncIterable of runtime registrations
+         * @param discoverer A function that returns an AsyncIterable of runtime registrations
          */
-        export function registerLanguageRuntimeProvider(languageId: string, provider: LanguageRuntimeProvider): void;
+        export function registerLanguageRuntimeDiscoverer(
+            languageId: string,
+            discoverer: LanguageRuntimeDiscoverer,
+        ): void;
 
         /**
          * Register a single language runtime with Positron.
