@@ -9,8 +9,7 @@ import { JupyterKernel } from './JupyterKernel';
 import { JupyterMessagePacket } from './JupyterMessagePacket';
 import { JupyterCommMsg } from './JupyterCommMsg';
 import { JupyterCommClose } from './JupyterCommClose';
-import { PromiseHandles, delay } from './utils';
-import { randomUUID } from 'crypto';
+import { PromiseHandles, delay, uuidv4 } from './utils';
 
 /**
  * Adapts a Positron Language Runtime client widget to a Jupyter kernel.
@@ -198,7 +197,7 @@ export class RuntimeClientAdapter {
 	 */
 	performRpc(request: any): Promise<any> {
 		// Create a random ID for this request
-		const id = randomUUID();
+		const id = uuidv4();
 
 		// Create a promise for the response
 		const out = new PromiseHandles<any>();
