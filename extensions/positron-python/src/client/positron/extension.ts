@@ -9,7 +9,7 @@ import { IDisposableRegistry } from '../common/types';
 import { IInterpreterService } from '../interpreter/contracts';
 import { IServiceContainer } from '../ioc/types';
 import { traceError, traceInfo } from '../logging';
-import { createPythonRuntime, pythonRuntimeProvider } from './provider';
+import { createPythonRuntime, pythonRuntimeDiscoverer } from './provider';
 
 export async function activatePositron(
     activatedPromise: Promise<void>,
@@ -23,9 +23,9 @@ export async function activatePositron(
 
         // Register the Python language runtime provider with positron.
         traceInfo('activatePositron: registering python runtime provider');
-        positron.runtime.registerLanguageRuntimeProvider(
+        positron.runtime.registerLanguageRuntimeDiscoverer(
             'python',
-            pythonRuntimeProvider(serviceContainer, runtimes, activatedPromise),
+            pythonRuntimeDiscoverer(serviceContainer, runtimes, activatedPromise),
         );
 
         // Wait for all extension components to be activated before registering event listeners
