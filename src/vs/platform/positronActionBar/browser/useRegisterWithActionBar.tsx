@@ -12,19 +12,19 @@ import { usePositronActionBarContext } from 'vs/platform/positronActionBar/brows
  * The arrow keys are used to move between the components in the Action Bar.
  */
 export const useRegisterWithActionBar = (refs: MutableRefObject<HTMLElement>[]) => {
-	const positronActionBarContext = usePositronActionBarContext();
+	const { focusableComponents } = usePositronActionBarContext();
 
 	useEffect(() => {
 		refs.forEach(ref => {
-			if (positronActionBarContext.focusableComponents.size === 0) {
+			if (focusableComponents.size === 0) {
 				ref.current.tabIndex = 0; // initially the first component is focusable
 			} else {
 				ref.current.tabIndex = -1;
 			}
-			positronActionBarContext.focusableComponents.add(ref.current);
+			focusableComponents.add(ref.current);
 		});
 		return () => {
-			refs.forEach(ref => positronActionBarContext.focusableComponents.delete(ref.current));
+			refs.forEach(ref => focusableComponents.delete(ref.current));
 		};
 	}, []);
 };
