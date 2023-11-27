@@ -113,7 +113,12 @@ export async function runThatTest(
 		const childProcess = spawn(command, { cwd: wd, shell: true });
 		let stdout = '';
 		const testStartDates = new WeakMap<vscode.TestItem, number>();
-		childProcess.stdout!.pipe(split2(JSON.parse))
+		childProcess.stdout!
+			.pipe(split2((line: string) => {
+				try {
+					return JSON.parse(line);
+				} catch { }
+			}))
 			.on('data', (data: TestResult) => {
 				stdout += JSON.stringify(data);
 				Logger.info(`Received test data: ${JSON.stringify(data)}`);
