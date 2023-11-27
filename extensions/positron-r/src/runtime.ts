@@ -45,6 +45,12 @@ export class RRuntime implements positron.LanguageRuntime, vscode.Disposable {
 	/** The Jupyter Adapter extension API */
 	private adapterApi?: JupyterAdapterApi;
 
+	/** The registration for console width changes */
+	private _consoleWidthDisposable?: vscode.Disposable;
+
+	/** The current state of the runtime */
+	private _state: positron.RuntimeState = positron.RuntimeState.Uninitialized;
+
 	constructor(
 		readonly context: vscode.ExtensionContext,
 		readonly kernelSpec: JupyterKernelSpec,
@@ -137,7 +143,30 @@ export class RRuntime implements positron.LanguageRuntime, vscode.Disposable {
 			this._kernel = await this.createKernel();
 		}
 		lastRuntimePath = this._kernel.metadata.runtimePath;
+
+		// Register for console width changes, if we haven't already
+		if (!this._consoleWidthDisposable) {
+			this._consoleWidthDisposable =
+				positron.window.onDidChangeConsoleWidth((newWidth) => {
+					this.onConsoleWidthChange(newWidth);
+				});
+		}
 		return this._kernel.start();
+	}
+
+	private onConsoleWidthChange(newWidth: number): void {
+		// Ignore if no kernel
+		if (!this._kernel) {
+			return;
+		}
+
+		// Ignore if kernel exited
+		if (this._state === positron.RuntimeState.Exited) {
+			return;
+		}
+
+		// Send the new width to R
+		this.callMethod('setConsoleWidth', newWidth);
 	}
 
 	async interrupt(): Promise<void> {
@@ -199,6 +228,10 @@ export class RRuntime implements positron.LanguageRuntime, vscode.Disposable {
 	}
 
 	async dispose() {
+		// Clean up the console width listener
+		this._consoleWidthDisposable?.dispose();
+		this._consoleWidthDisposable = undefined;
+
 		await this._lsp.dispose();
 		if (this._kernel) {
 			await this._kernel.dispose();
@@ -301,6 +334,7 @@ export class RRuntime implements positron.LanguageRuntime, vscode.Disposable {
 	}
 
 	private onStateChange(state: positron.RuntimeState): void {
+		this._state = state;
 		if (state === positron.RuntimeState.Ready) {
 			this._queue.add(async () => {
 				const lsp = this.startLsp();
