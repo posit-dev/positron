@@ -117,11 +117,9 @@ export class LanguageRuntimeAdapter
 		// Create the request
 		const request = {
 			msg_type: 'rpc_request',
-			request: {
-				jsonrpc: '2.0',
-				method: method,
-				params: args,
-			}
+			jsonrpc: '2.0',
+			method: method,
+			params: args,
 		};
 
 		// Return a promise that resolves when the server side of the frontend
