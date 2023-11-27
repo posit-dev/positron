@@ -14,7 +14,8 @@
 		},
 		{
 			"from": "resources/ark/ark",
-			"to": "./dist/bin"
+			"to": "./dist/bin",
+			"platforms": ["darwin"]
 		},
 		{
 			"from": "resources/ark/modules/public/*.R",
