@@ -10,3 +10,7 @@ export function closeAllEditors(): Thenable<any> {
 export function disposeAll(disposables: vscode.Disposable[]) {
 	vscode.Disposable.from(...disposables).dispose();
 }
+
+export function delay(ms: number) {
+	return new Promise(resolve => setTimeout(resolve, ms));
+}
