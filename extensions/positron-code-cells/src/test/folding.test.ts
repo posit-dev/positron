@@ -5,8 +5,11 @@
 import * as assert from 'assert';
 import * as vscode from 'vscode';
 import { CellFoldingRangeProvider } from '../folding';
+import { closeAllEditors } from './utils';
 
 suite('Folding', () => {
+	teardown(closeAllEditors);
+
 	test('Provides Python cell folding ranges', async () => {
 		const language = 'python';
 		const content = `#%%

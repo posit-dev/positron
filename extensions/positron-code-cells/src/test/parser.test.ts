@@ -5,8 +5,11 @@
 import * as assert from 'assert';
 import * as vscode from 'vscode';
 import { Cell, CellDecorationSetting, CellType, getParser, parseCells } from '../parser';
+import { closeAllEditors } from './utils';
 
 suite('Parsers', () => {
+	teardown(closeAllEditors);
+
 	const noCellsTests: [string, string, string][] = [
 		['Empty Python document should have no cells', 'python', ''],
 		['Empty R document should have no cells', 'r', ''],
@@ -14,7 +17,7 @@ suite('Parsers', () => {
 	];
 	noCellsTests.forEach(([title, language, content]) => {
 		test(title, async () => {
-			const document = await createDocument(language, content);
+			const document = await vscode.workspace.openTextDocument({ language, content });
 			assert.deepStrictEqual(parseCells(document), []);
 		});
 	});
@@ -44,14 +47,14 @@ And a [link](target)`;
 		];
 		singleCellTests.forEach(([title, content, expectedType]) => {
 			test(title, async () => {
-				const document = await createDocument(language, content);
+				const document = await vscode.workspace.openTextDocument({ language, content });
 				assert.deepStrictEqual(parseCells(document), [singleCell(document, expectedType)]);
 			});
 		});
 
 		test('Parses multiple cells', async () => {
 			const content = [codeCell, commentedMarkdownCell].join('\n');
-			const document = await createDocument(language, content);
+			const document = await vscode.workspace.openTextDocument({ language, content });
 			assert.deepStrictEqual(parseCells(document), [
 				{ range: new vscode.Range(0, 0, 2, 3), type: CellType.Code },
 				{ range: new vscode.Range(3, 0, 7, 22), type: CellType.Markdown }
@@ -78,7 +81,7 @@ And a [link](target)`;
 		];
 		getCellTextTests.forEach(([title, content, expectedType, expectedText]) => {
 			test(title, async () => {
-				const document = await createDocument(language, content);
+				const document = await vscode.workspace.openTextDocument({ language, content });
 				const cell = singleCell(document, expectedType);
 				assert.deepStrictEqual(parser?.getCellText(cell, document), expectedText);
 			});
@@ -110,14 +113,14 @@ And a [link](target)`;
 		];
 		singleCellTests.forEach(([title, content, expectedType]) => {
 			test(title, async () => {
-				const document = await createDocument(language, content);
+				const document = await vscode.workspace.openTextDocument({ language, content });
 				assert.deepStrictEqual(parseCells(document), [singleCell(document, expectedType)]);
 			});
 		});
 
 		test('Parses multiple cells', async () => {
 			const content = [codeCell1, codeCell2].join('\n\n');
-			const document = await createDocument(language, content);
+			const document = await vscode.workspace.openTextDocument({ language, content });
 			assert.deepStrictEqual(parseCells(document), [
 				{ range: new vscode.Range(0, 0, 2, 3), type: CellType.Code },
 				{ range: new vscode.Range(4, 0, 6, 3), type: CellType.Code }
@@ -139,7 +142,7 @@ And a [link](target)`;
 		];
 		getCellTextTests.forEach(([title, content, expectedType, expectedText]) => {
 			test(title, async () => {
-				const document = await createDocument(language, content);
+				const document = await vscode.workspace.openTextDocument({ language, content });
 				const cell = singleCell(document, expectedType);
 				assert.strictEqual(parser?.getCellText(cell, document), expectedText);
 			});
@@ -154,10 +157,6 @@ And a [link](target)`;
 		});
 	});
 });
-
-async function createDocument(language: string, content: string): Promise<vscode.TextDocument> {
-	return vscode.workspace.openTextDocument({ language, content });
-}
 
 // WARNING: This does not check that the document does in fact contain a single cell.
 function singleCell(document: vscode.TextDocument, cellType: CellType): Cell {

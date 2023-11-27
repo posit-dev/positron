@@ -5,8 +5,11 @@
 import * as assert from 'assert';
 import * as vscode from 'vscode';
 import { CellCodeLensProvider, runAboveCodeLens, runCellCodeLens, runNextCodeLens } from '../codeLenses';
+import { closeAllEditors } from './utils';
 
 suite('CodeLenses', () => {
+	teardown(closeAllEditors);
+
 	test('Provides Python cell code lenses', async () => {
 		const language = 'python';
 		const content = `#%%
