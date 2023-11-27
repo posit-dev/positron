@@ -23,5 +23,5 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 
 	activateDecorations(context);
 
-	activateContextKeys(context);
+	activateContextKeys(context.subscriptions);
 }
