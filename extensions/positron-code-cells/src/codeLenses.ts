@@ -53,9 +53,3 @@ export class CellCodeLensProvider implements vscode.CodeLensProvider {
 		return codeLenses;
 	}
 }
-
-export function registerCodeLensProvider(context: vscode.ExtensionContext): void {
-	context.subscriptions.push(
-		vscode.languages.registerCodeLensProvider('*', new CellCodeLensProvider())
-	);
-}

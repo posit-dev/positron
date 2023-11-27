@@ -6,7 +6,7 @@ import * as vscode from 'vscode';
 import { IGNORED_SCHEMES } from './extension';
 import { CellDecorationSetting, getParser, parseCells } from './parser';
 
-export function activateDecorations(context: vscode.ExtensionContext): void {
+export function activateDecorations(disposables: vscode.Disposable[]): void {
 	let timeout: NodeJS.Timeout | undefined = undefined;
 	let activeEditor = vscode.window.activeTextEditor;
 
@@ -65,7 +65,7 @@ export function activateDecorations(context: vscode.ExtensionContext): void {
 		triggerUpdateDecorations();
 	}
 
-	context.subscriptions.push(
+	disposables.push(
 		vscode.window.onDidChangeActiveTextEditor(editor => {
 			// Update the active editor.
 			activeEditor = editor;

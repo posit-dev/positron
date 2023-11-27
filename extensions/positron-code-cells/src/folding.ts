@@ -12,9 +12,3 @@ export class CellFoldingRangeProvider implements vscode.FoldingRangeProvider {
 		);
 	}
 }
-
-export function registerFoldingRangeProvider(context: vscode.ExtensionContext): void {
-	context.subscriptions.push(
-		vscode.languages.registerFoldingRangeProvider('*', new CellFoldingRangeProvider()),
-	);
-}
