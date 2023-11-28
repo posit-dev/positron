@@ -776,6 +776,12 @@
             "title": "Python",
             "type": "object"
         },
+        "configurationDefaults": {
+            "pyright.disableLanguageServices": true,
+            "pyright.disableOrganizeImports": true,
+            "python.analysis.autoImportCompletions": false,
+            "python.analysis.typeCheckingMode": "off"
+        },
         "debuggers": [
             {
                 "configurationAttributes": {
