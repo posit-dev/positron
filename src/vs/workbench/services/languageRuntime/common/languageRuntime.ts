@@ -18,6 +18,8 @@ import { IWorkspaceTrustManagementService } from 'vs/platform/workspace/common/w
 import { DeferredPromise } from 'vs/base/common/async';
 import { INotificationService } from 'vs/platform/notification/common/notification';
 import { IModalDialogPromptInstance, IPositronModalDialogsService } from 'vs/workbench/services/positronModalDialogs/common/positronModalDialogs';
+import { IOpener, IOpenerService, OpenExternalOptions, OpenInternalOptions } from 'vs/platform/opener/common/opener';
+import { URI } from 'vs/base/common/uri';
 
 /**
  * LanguageRuntimeInfo class.
@@ -37,7 +39,7 @@ class LanguageRuntimeInfo {
 /**
  * The implementation of ILanguageRuntimeService
  */
-export class LanguageRuntimeService extends Disposable implements ILanguageRuntimeService {
+export class LanguageRuntimeService extends Disposable implements ILanguageRuntimeService, IOpener {
 	//#region Private Properties
 
 	// The set of encountered languages. This is keyed by the languageId and is
@@ -110,19 +112,26 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 
 	/**
 	 * Constructor.
+	 * @param _commandService The command service.
+	 * @param _extensionService The extension service.
 	 * @param _languageService The language service.
 	 * @param _logService The log service.
+	 * @param _notificationService The notification service.
+	 * @param _openerService The opener service.
+	 * @param _positronModalDialogsService The Positron modal dialog service.
 	 * @param _storageService The storage service.
+	 * @param _workspaceTrustManagementService The workspace trust management service.
 	 */
 	constructor(
+		@ICommandService private readonly _commandService: ICommandService,
+		@IExtensionService private readonly _extensionService: IExtensionService,
 		@ILanguageService private readonly _languageService: ILanguageService,
 		@ILogService private readonly _logService: ILogService,
-		@ICommandService private readonly _commandService: ICommandService,
-		@IStorageService private readonly _storageService: IStorageService,
-		@IExtensionService private readonly _extensionService: IExtensionService,
-		@IWorkspaceTrustManagementService private readonly _workspaceTrustManagementService: IWorkspaceTrustManagementService,
 		@INotificationService private readonly _notificationService: INotificationService,
-		@IPositronModalDialogsService private readonly _positronModalDialogsService: IPositronModalDialogsService
+		@IOpenerService private readonly _openerService: IOpenerService,
+		@IPositronModalDialogsService private readonly _positronModalDialogsService: IPositronModalDialogsService,
+		@IStorageService private readonly _storageService: IStorageService,
+		@IWorkspaceTrustManagementService private readonly _workspaceTrustManagementService: IWorkspaceTrustManagementService,
 	) {
 		// Call the base class's constructor.
 		super();
@@ -134,6 +143,9 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 		this._workspaceAffiliation =
 			new LanguageRuntimeWorkspaceAffiliation(this, this._storageService, this._logService);
 		this._register(this._workspaceAffiliation);
+
+		// Register as an opener in the opener service.
+		this._openerService.registerOpener(this);
 
 		// Add the onDidEncounterLanguage event handler.
 		this._register(this._languageService.onDidRequestRichLanguageFeatures(languageId => {
@@ -634,6 +646,42 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 
 	//#endregion ILanguageRuntimeService Implementation
 
+	//#region IOpener Implementation
+
+	/**
+	 * Opens a resource.
+	 * @param resource The resource to open.
+	 * @param options The options.
+	 * @returns A value which indicates whether the resource was opened.
+	 */
+	async open(resource: URI | string, options?: OpenInternalOptions | OpenExternalOptions): Promise<boolean> {
+		// If the resource is a string, parse it as a URI.
+		if (typeof resource === 'string') {
+			resource = URI.parse(resource);
+		}
+
+		// Options cannot be handled.
+		if (options) {
+			return false;
+		}
+
+		// Enumerate the running runtimes and attempt to open the resource.
+		for (const runtime of this._runningRuntimesByLanguageId.values()) {
+			try {
+				if (await runtime.openResource(resource)) {
+					return true;
+				}
+			} catch (reason) {
+				this._logService.error(`Error opening resource "${resource.toString()}". Reason: ${reason}`);
+			}
+		}
+
+		// The resource was not opened.
+		return false;
+	}
+
+	//#endregion IOpener Implementation
+
 	//#region Private Methods
 
 	/**
@@ -843,6 +891,7 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 			30,
 			warning);
 	}
+
 	/**
 	 * Waits for the runtime to change one of the target states. If the runtime
 	 * does not change to one of the target states within the specified number
@@ -904,7 +953,7 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 		});
 	}
 
-	//#region Private Methods
+	//#endregion Private Methods
 }
 
 CommandsRegistry.registerCommand('positron.activateInterpreters', () => true);
