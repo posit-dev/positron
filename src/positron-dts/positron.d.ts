@@ -504,7 +504,7 @@ declare module 'positron' {
 		size: number;
 	}
 
-	export type LanguageRuntimeDiscoveryAgent = AsyncGenerator<LanguageRuntime>;
+	export type LanguageRuntimeDiscoverer = AsyncGenerator<LanguageRuntime>;
 
 	export interface LanguageRuntimeProvider {
 		/**
@@ -930,13 +930,13 @@ declare module 'positron' {
 			focus: boolean): Thenable<boolean>;
 
 		/**
-		 * Register a language runtime discovery agent with Positron.
+		 * Register a language runtime discoverer with Positron.
 		 *
 		 * @param languageId The language ID for which runtimes will be supplied
-		 * @param agent A function that returns an AsyncIterable of runtime registrations
+		 * @param discoverer A function that returns an AsyncIterable of runtime registrations
 		 */
-		export function registerLanguageRuntimeDiscoveryAgent(languageId: string,
-			agent: LanguageRuntimeDiscoveryAgent): void;
+		export function registerLanguageRuntimeDiscoverer(languageId: string,
+			discoverer: LanguageRuntimeDiscoverer): void;
 
 		/**
 		 * Register a single language runtime with Positron.

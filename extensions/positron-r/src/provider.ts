@@ -18,11 +18,11 @@ import { getArkKernelPath } from './kernel';
 
 /**
  * Discovers R language runtimes for Positron; implements
- * positron.LanguageRuntimeDiscoveryAgent.
+ * positron.LanguageRuntimeDiscoverer.
  *
  * @param context The extension context.
  */
-export async function* rRuntimeDiscoveryAgent(
+export async function* rRuntimeDiscoverer(
 	context: vscode.ExtensionContext,
 	runtimes: Map<string, RRuntime>
 ): AsyncGenerator<positron.LanguageRuntime> {
