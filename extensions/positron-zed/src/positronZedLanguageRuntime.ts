@@ -913,11 +913,11 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 	/**
 	 * Stub placeholder for `callMethod`; not implemented in Zed.
 	 */
-	callMethod(method: string, ...args: any[]): Thenable<positron.RuntimeMethodResult> {
+	callMethod(method: string, ...args: any[]): Thenable<positron.RuntimeMethodResponseResult> {
 		return Promise.resolve({
 			id: randomUUID(),
 			result: {}
-		} as positron.RuntimeMethodResult);
+		} as positron.RuntimeMethodResponseResult);
 	}
 
 	/**

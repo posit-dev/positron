@@ -521,21 +521,13 @@ declare module 'positron' {
 	/**
 	 * A successful response to a runtime method call.
 	 */
-	export interface RuntimeMethodResult extends RuntimeMethodResponse {
+	export interface RuntimeMethodResponseResult extends RuntimeMethodResponse {
 		/** The data returned by the method */
 		result: any;
 	}
 
 	/**
-	 * An unsuccessful response to a runtime method call.
-	 */
-	export interface RuntimeMethodError extends RuntimeMethodResponse {
-		/** The error returned by the method */
-		error: RuntimeMethodErrorData;
-	}
-
-	/**
-	 * The data returned by a runtime method call.
+	 * An error returned by a runtime method call.
 	 */
 	export interface RuntimeMethodErrorData {
 		/** An error code; see JSON RPC specification for values */
@@ -546,6 +538,14 @@ declare module 'positron' {
 
 		/** Additional error information (optional) */
 		data: any | undefined;
+	}
+
+	/**
+	 * An unsuccessful response to a runtime method call.
+	 */
+	export interface RuntimeMethodResponseError extends RuntimeMethodResponse {
+		/** The error returned by the method */
+		error: RuntimeMethodErrorData;
 	}
 
 	/**

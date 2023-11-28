@@ -154,7 +154,7 @@ export class RRuntime implements positron.LanguageRuntime, vscode.Disposable {
 		return this._kernel.start();
 	}
 
-	private onConsoleWidthChange(newWidth: number): void {
+	private async onConsoleWidthChange(newWidth: number): Promise<void> {
 		// Ignore if no kernel
 		if (!this._kernel) {
 			return;
@@ -166,7 +166,14 @@ export class RRuntime implements positron.LanguageRuntime, vscode.Disposable {
 		}
 
 		// Send the new width to R
-		this.callMethod('setConsoleWidth', newWidth);
+		const response = await this.callMethod('setConsoleWidth', newWidth);
+		if (Object.keys(response).includes('error')) {
+			const error = response as positron.RuntimeMethodResponseError;
+			this._kernel!.emitJupyterLog(`Error setting console width: ${error.error.message} (${error.error.code})`);
+		} else {
+			const result = response as positron.RuntimeMethodResponseResult;
+			this._kernel!.emitJupyterLog(`Set console width from ${result.result} to ${result.result.newWidth}`);
+		}
 	}
 
 	async interrupt(): Promise<void> {

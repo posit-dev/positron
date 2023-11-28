@@ -106,7 +106,7 @@ export class LanguageRuntimeAdapter
 		this._kernel.addListener('exit', this.onKernelExited);
 	}
 
-	async callMethod(method: string, ...args: any[]): Promise<positron.RuntimeMethodResult> {
+	async callMethod(method: string, ...args: any[]): Promise<positron.RuntimeMethodResponseResult> {
 		// Find the frontend comm
 		const frontend = Array.from(this._comms.values())
 			.find(c => c.getClientType() === positron.RuntimeClientType.FrontEnd);
