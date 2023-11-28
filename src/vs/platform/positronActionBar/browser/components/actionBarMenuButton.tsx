@@ -10,6 +10,7 @@ import { AnchorAlignment, AnchorAxisAlignment } from 'vs/base/browser/ui/context
 import { IContextMenuEvent } from 'vs/base/browser/contextmenu';
 import { ActionBarButton } from 'vs/platform/positronActionBar/browser/components/actionBarButton';
 import { usePositronActionBarContext } from 'vs/platform/positronActionBar/browser/positronActionBarContext';
+import { useRegisterWithActionBar } from 'vs/platform/positronActionBar/browser/useRegisterWithActionBar';
 
 /**
  * ActionBarMenuButtonProps interface.
@@ -48,6 +49,9 @@ export const ActionBarMenuButton = (props: ActionBarMenuButtonProps) => {
 		}
 
 	}, [positronActionBarContext.menuShowing]);
+
+	// Participate in roving tabindex.
+	useRegisterWithActionBar([buttonRef]);
 
 	// Handlers.
 	const clickHandler = async () => {

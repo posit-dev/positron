@@ -8,6 +8,7 @@ import { localize } from 'vs/nls';
 import { MouseEvent } from 'react'; // eslint-disable-line no-duplicate-imports
 import { AnythingQuickAccessProviderRunOptions } from 'vs/platform/quickinput/common/quickAccess';
 import { usePositronTopActionBarContext } from 'vs/workbench/browser/parts/positronTopActionBar/positronTopActionBarContext';
+import { useRegisterWithActionBar } from 'vs/platform/positronActionBar/browser/useRegisterWithActionBar';
 
 /**
  * Localized strings.
@@ -21,6 +22,13 @@ const positronShowQuickAccess = localize('positronShowQuickAccess', "Show Quick 
 export const TopActionBarCommandCenter = () => {
 	// Hooks.
 	const positronTopActionBarContext = usePositronTopActionBarContext();
+
+	// Ref.
+	const searchRef = React.useRef<HTMLButtonElement>(undefined!);
+	const dropdownRef = React.useRef<HTMLButtonElement>(undefined!);
+
+	// Participate in roving tabindex.
+	useRegisterWithActionBar([searchRef, dropdownRef]);
 
 	// Click handler.
 	const clickHandler = (e: MouseEvent<HTMLElement>) => {
@@ -53,12 +61,12 @@ export const TopActionBarCommandCenter = () => {
 				<div className='codicon codicon-positron-search' aria-hidden='true' />
 			</div>
 			<div className='center'>
-				<button className='search' onClick={(e) => clickHandler(e)}>
+				<button className='search' ref={searchRef} onClick={(e) => clickHandler(e)}>
 					<div className='action-bar-button-text'>Search</div>
 				</button>
 			</div>
 			<div className='right'>
-				<button className='drop-down' onClick={(e) => dropDownClickHandler(e)} aria-label={positronShowQuickAccess} >
+				<button className='drop-down' ref={dropdownRef} onClick={(e) => dropDownClickHandler(e)} aria-label={positronShowQuickAccess} >
 					<div className='icon codicon codicon-chevron-down' aria-hidden='true' />
 				</button>
 			</div>

@@ -120,7 +120,7 @@ export class PositronTopActionBarPart extends Part implements IPositronTopAction
 	protected override createContentArea(parent: HTMLElement): HTMLElement {
 		// Set the element.
 		this.element = parent;
-		this.element.tabIndex = 0;
+		this.element.tabIndex = -1;
 
 		// Render the Positron top action bar component.
 		this.positronReactRenderer = new PositronReactRenderer(this.element);
