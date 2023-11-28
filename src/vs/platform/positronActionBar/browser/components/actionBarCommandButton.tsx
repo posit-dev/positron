@@ -4,11 +4,12 @@
 
 import 'vs/css!./actionBarCommandButton';
 import * as React from 'react';
-import { useEffect, useState } from 'react'; // eslint-disable-line no-duplicate-imports
+import { useEffect, useRef, useState } from 'react'; // eslint-disable-line no-duplicate-imports
 import { DisposableStore } from 'vs/base/common/lifecycle';
 import { CommandCenter } from 'vs/platform/commandCenter/common/commandCenter';
 import { usePositronActionBarContext } from 'vs/platform/positronActionBar/browser/positronActionBarContext';
 import { ActionBarButton, ActionBarButtonProps } from 'vs/platform/positronActionBar/browser/components/actionBarButton';
+import { useRegisterWithActionBar } from 'vs/platform/positronActionBar/browser/useRegisterWithActionBar';
 
 /**
  * ActionBarCommandButtonProps interface.
@@ -26,6 +27,7 @@ export const ActionBarCommandButton = (props: ActionBarCommandButtonProps) => {
 	// Hooks.
 	const positronActionBarContext = usePositronActionBarContext();
 	const [disabled, setDisabled] = useState(!positronActionBarContext.isCommandEnabled(props.commandId));
+	const buttonRef = useRef<HTMLDivElement>(undefined!);
 
 	// Add our event handlers.
 	useEffect(() => {
@@ -51,6 +53,9 @@ export const ActionBarCommandButton = (props: ActionBarCommandButtonProps) => {
 		return () => disposableStore.dispose();
 	}, []);
 
+	// Participate in roving tabindex.
+	useRegisterWithActionBar([buttonRef]);
+
 	// Handlers.
 	const executeHandler = () => positronActionBarContext.commandService.executeCommand(props.commandId);
 
@@ -75,5 +80,5 @@ export const ActionBarCommandButton = (props: ActionBarCommandButtonProps) => {
 	};
 
 	// Render.
-	return <ActionBarButton {...props} tooltip={tooltip} disabled={disabled} onClick={executeHandler} />;
+	return <ActionBarButton {...props} ref={buttonRef} tooltip={tooltip} disabled={disabled} onClick={executeHandler} />;
 };

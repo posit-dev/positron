@@ -49,6 +49,7 @@ export interface PositronActionBarState extends PositronActionBarServices {
 	resetTooltipLastHiddenAt(): void;
 	menuShowing: boolean;
 	setMenuShowing(menuShowing: boolean): void;
+	focusableComponents: Set<HTMLElement>;
 }
 
 /**
@@ -60,6 +61,7 @@ export const usePositronActionBarState = (services: PositronActionBarServices): 
 	// Hooks.
 	const [lastTooltipHiddenAt, setLastTooltipHiddenAt] = useState<number>(0);
 	const [menuShowing, setMenuShowing] = useState(false);
+	const [focusableComponents] = useState(new Set<HTMLElement>());
 
 	/**
 	 * Appends a command action.
@@ -121,6 +123,7 @@ export const usePositronActionBarState = (services: PositronActionBarServices): 
 		updateTooltipLastHiddenAt: () => setLastTooltipHiddenAt(new Date().getTime()),
 		resetTooltipLastHiddenAt: () => setLastTooltipHiddenAt(0),
 		menuShowing,
-		setMenuShowing
+		setMenuShowing,
+		focusableComponents
 	};
 };
