@@ -33,6 +33,7 @@ import { ActivityItemInput, ActivityItemInputState } from 'vs/workbench/services
 import { ActivityItemErrorStream, ActivityItemOutputStream } from 'vs/workbench/services/positronConsole/browser/classes/activityItemStream';
 import { IPositronConsoleInstance, IPositronConsoleService, POSITRON_CONSOLE_VIEW_ID, PositronConsoleState } from 'vs/workbench/services/positronConsole/browser/interfaces/positronConsoleService';
 import { formatLanguageRuntime, ILanguageRuntime, ILanguageRuntimeExit, ILanguageRuntimeMessage, ILanguageRuntimeService, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeExitReason, RuntimeOnlineState, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 
 /**
  * The onDidChangeRuntimeItems throttle threshold and throttle interval. The throttle threshold
@@ -155,6 +156,11 @@ class PositronConsoleService extends Disposable implements IPositronConsoleServi
 	 */
 	private readonly _onDidChangeConsoleWidthEmitter = this._register(new Emitter<number>());
 
+	/**
+	 * The debounce timer for the onDidChangeConsoleWidth event.
+	 */
+	private _consoleWidthDebounceTimer: NodeJS.Timeout | undefined;
+
 	//#endregion Private Properties
 
 	//#region Constructor & Dispose
@@ -171,6 +177,7 @@ class PositronConsoleService extends Disposable implements IPositronConsoleServi
 		@ILogService private readonly _logService: ILogService,
 		@IViewsService private readonly _viewsService: IViewsService,
 		@IWorkbenchLayoutService private readonly _layoutService: IWorkbenchLayoutService,
+		@IConfigurationService private readonly _configurationService: IConfigurationService
 	) {
 		// Call the disposable constrcutor.
 		super();
@@ -411,11 +418,30 @@ class PositronConsoleService extends Disposable implements IPositronConsoleServi
 
 		// Listen for console width changes.
 		this._register(positronConsoleInstance.onDidChangeWidth(width => {
-			this._onDidChangeConsoleWidthEmitter.fire(width);
+			this.onConsoleWidthChange(width);
 		}));
 
 		// Return the instance.
 		return positronConsoleInstance;
+	}
+
+	private onConsoleWidthChange(newWidth: number) {
+		// Clear the previous debounce timer, if any.
+		if (this._consoleWidthDebounceTimer) {
+			clearTimeout(this._consoleWidthDebounceTimer);
+		}
+
+		this._consoleWidthDebounceTimer = setTimeout(() => {
+			// Use the font size to calculate the new text width.
+			//
+			// TODO: 1.5 is a fudge factor; the font's width is _proportional_
+			// to the font size, but it's not _exactly_ proportional, and varies
+			// by font. To be more precise, we could use a DOM or canvas element
+			// to measure the width of a string of text in the console's font.
+			const fontSize = this._configurationService.getValue<number>('editor.fontSize');
+			const textWidth = Math.floor((newWidth / fontSize) * 1.5);
+			this._onDidChangeConsoleWidthEmitter.fire(textWidth);
+		}, 500);
 	}
 
 	/**
