@@ -172,7 +172,7 @@ export class RRuntime implements positron.LanguageRuntime, vscode.Disposable {
 			this._kernel!.emitJupyterLog(`Error setting console width: ${error.error.message} (${error.error.code})`);
 		} else {
 			const result = response as positron.RuntimeMethodResponseResult;
-			this._kernel!.emitJupyterLog(`Set console width from ${result.result} to ${result.result.newWidth}`);
+			this._kernel!.emitJupyterLog(`Set console width from ${result.result} to ${newWidth}`);
 		}
 	}
 

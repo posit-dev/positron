@@ -126,8 +126,7 @@ export class LanguageRuntimeAdapter
 
 		// Return a promise that resolves when the server side of the frontend
 		// comm replies
-		const response = await frontend.performRpc(request);
-		return response.data;
+		return frontend.performRpc(request);
 	}
 
 	onDidReceiveRuntimeMessage: vscode.Event<positron.LanguageRuntimeMessage>;
