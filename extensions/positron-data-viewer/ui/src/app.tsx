@@ -49,4 +49,7 @@ window.addEventListener('message', (event: any) => {
 			</React.StrictMode>
 		);
 	} // Other message types are handled in the DataPanel component after app initialization.
-});
+	// The initial data event only fires once, so we can remove the listener after the first event.
+}, { once: true });
+
+
