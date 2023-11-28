@@ -228,12 +228,7 @@ async function downloadAndReplaceArk(version: string,
 }
 
 async function main() {
-
-	// Temporarily skip downloading ARK on Windows until we have a Windows build.
-	if (platform() === 'win32') {
-		console.warn('ARK is not yet supported on Windows. Skipping download.');
-		return;
-	}
+	// TODO: Relying on locally build ark to exist for Windows
 
 	// Before we do any work, check to see if there is a locally built copy of Amalthea in the
 	// `amalthea / target` directory. If so, we'll assume that the user is a kernel developer
