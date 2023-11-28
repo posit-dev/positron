@@ -114,7 +114,9 @@ export class LanguageRuntimeAdapter
 			throw new Error(`Cannot invoke '${method}'; no frontend comm is open.`);
 		}
 
-		// Create the request
+		// Create the request. This uses a JSON-RPC 2.0 format, with an
+		// additional `msg_type` field to indicate that this is a request type
+		// for the frontend comm.
 		const request = {
 			msg_type: 'rpc_request',
 			jsonrpc: '2.0',

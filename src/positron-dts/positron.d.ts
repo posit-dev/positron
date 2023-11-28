@@ -950,7 +950,9 @@ declare module 'positron' {
 			cancelButtonTitle?: string): Thenable<boolean>;
 
 		/**
-		 * Fires when the width of the console changes.
+		 * Fires when the width of the console changes. The new width is passed as
+		 * a number, which represents the number of characters that can fit in the
+		 * console horizontally.
 		 */
 		export const onDidChangeConsoleWidth: vscode.Event<number>;
 	}

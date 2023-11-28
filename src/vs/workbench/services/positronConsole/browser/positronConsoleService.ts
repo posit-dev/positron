@@ -417,8 +417,8 @@ class PositronConsoleService extends Disposable implements IPositronConsoleServi
 		this._onDidChangeActivePositronConsoleInstanceEmitter.fire(positronConsoleInstance);
 
 		// Listen for console width changes.
-		this._register(positronConsoleInstance.onDidChangeWidth(width => {
-			this.onConsoleWidthChange(width);
+		this._register(positronConsoleInstance.onDidChangeWidthPx(widthPx => {
+			this.onConsoleWidthChange(widthPx);
 		}));
 
 		// Return the instance.
@@ -432,7 +432,8 @@ class PositronConsoleService extends Disposable implements IPositronConsoleServi
 		}
 
 		this._consoleWidthDebounceTimer = setTimeout(() => {
-			// Use the font size to calculate the new text width.
+			// Use the font size to calculate the new text width, in characters,
+			// from the new width in pixels.
 			//
 			// TODO: 1.5 is a fudge factor; the font's width is _proportional_
 			// to the font size, but it's not _exactly_ proportional, and varies
@@ -600,7 +601,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	/**
 	 * The onDidChangeWidth event emitter.
 	 */
-	private readonly _onDidChangeWidth = this._register(new Emitter<number>);
+	private readonly _onDidChangeWidthPx = this._register(new Emitter<number>);
 
 	/**
 	 * Provides access to the input text editor, if it's available. Note that we generally prefer to
@@ -649,13 +650,14 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	}
 
 	/**
-	 * Sets the console's width.
-	 * @param newWidth The new width.
+	 * Sets the console's width in pixels.
+	 *
+	 * @param newWidth The new width, in pixels.
 	 */
-	setWidth(newWidth: number): void {
+	setWidthPx(newWidth: number): void {
 		if (this._width !== newWidth) {
 			this._width = newWidth;
-			this._onDidChangeWidth.fire(newWidth);
+			this._onDidChangeWidthPx.fire(newWidth);
 		}
 	}
 
@@ -794,9 +796,9 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	readonly onDidAttachRuntime = this._onDidAttachRuntime.event;
 
 	/**
-	 * onDidChangeWidth event.
+	 * onDidChangeWidthPx event.
 	 */
-	readonly onDidChangeWidth = this._onDidChangeWidth.event;
+	readonly onDidChangeWidthPx = this._onDidChangeWidthPx.event;
 
 	/**
 	 * Focuses the input for the console.

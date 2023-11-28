@@ -18,8 +18,12 @@ export class MainThreadConsole implements MainThreadConsoleShape {
 		extHostContext: IExtHostContext,
 		@IPositronConsoleService private readonly _positronConsoleService: IPositronConsoleService,
 	) {
+		// Create the proxy for the extension host.
 		this._proxy = extHostContext.getProxy(ExtHostPositronContext.ExtHostConsole);
 
+		// Register to be notified of changes to the console width; when they are
+		// received, forward them to the extension host so extensions can be
+		// notified.
 		this._disposables.add(
 			this._positronConsoleService.onDidChangeConsoleWidth((newWidth) => {
 				this._proxy.$onDidChangeConsoleWidth(newWidth);

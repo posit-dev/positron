@@ -538,7 +538,7 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 	}
 
 	// Forward the adjusted width to the console instance.
-	props.positronConsoleInstance.setWidth(adjustedWidth);
+	props.positronConsoleInstance.setWidthPx(adjustedWidth);
 
 	// Render.
 	return (

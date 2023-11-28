@@ -16,6 +16,8 @@ export class ExtHostConsole implements extHostProtocol.ExtHostConsoleShape {
 
 	onDidChangeConsoleWidth = this._onDidChangeConsoleWidth.event;
 
+	// Called by the main thread when the console width changes; fires the
+	// onDidChangeConsoleWidth event to any extensions that are listening.
 	$onDidChangeConsoleWidth(newWidth: number): void {
 		this._onDidChangeConsoleWidth.fire(newWidth);
 	}

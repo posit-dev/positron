@@ -22,7 +22,13 @@ export class RuntimeClientAdapter {
 	private _disposables: vscode.Disposable[] = [];
 	onDidChangeClientState: vscode.Event<positron.RuntimeClientState>;
 
+	/**
+	 * Map of pending RPCs. The key is the RPC ID (derived from the message ID),
+	 * and the value is a promise that will be resolved when the RPC response is
+	 * received.
+	 */
 	private _pendingRpcs = new Map<string, PromiseHandles<any>>();
+
 	private readonly _messageEmitter = new vscode.EventEmitter<{ [key: string]: any }>();
 	readonly onDidReceiveCommMsg = this._messageEmitter.event;
 
@@ -239,11 +245,22 @@ export class RuntimeClientAdapter {
 		// emitting the message.
 		if (this._pendingRpcs.has(msg.originId)) {
 			const promise = this._pendingRpcs.get(msg.originId)!;
-			if (!promise.settled) {
+			if (promise.settled) {
+				// If the promise is already settled in some way (resolved or
+				// rejected) we can't do anything with it, so just log a
+				// warning.
+				console.warn(`Ignoring RPC response for ${msg.originId}; ` +
+					`RPC already settled (timed out?)`);
+			} else {
+				// Otherwise, resolve the promise with the message data.
 				promise.resolve(message.data);
 			}
+
+			// Remove the RPC from the pending list
 			this._pendingRpcs.delete(msg.originId);
 		} else {
+
+			// Not an RPC response, so emit the message
 			this._messageEmitter.fire(message.data);
 		}
 	}
