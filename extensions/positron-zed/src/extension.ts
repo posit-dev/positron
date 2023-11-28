@@ -26,5 +26,5 @@ export function activate(context: vscode.ExtensionContext) {
 			'0.98.0');
 	};
 
-	positron.runtime.registerLanguageRuntimeProvider('zed', generator());
+	positron.runtime.registerLanguageRuntimeDiscoverer('zed', generator());
 }
