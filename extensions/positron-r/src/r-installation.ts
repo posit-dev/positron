@@ -2,6 +2,7 @@
  *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
+import * as os from 'os';
 import * as semver from 'semver';
 import * as path from 'path';
 import * as fs from 'fs';
@@ -42,25 +43,30 @@ export class RInstallation {
 		this.binpath = pth;
 		this.current = current;
 
-		const binLines = readLines(this.binpath);
-		const re = new RegExp('Shell wrapper for R executable');
-		if (!binLines.some(x => re.test(x))) {
-			Logger.info('Binary is not a shell script wrapping the executable');
-			return;
-		}
-		const targetLine = binLines.find(line => line.match('R_HOME_DIR'));
-		if (!targetLine) {
-			Logger.info('Can\'t determine R_HOME_DIR from the binary');
-			return;
-		}
-		// macOS: R_HOME_DIR=/Library/Frameworks/R.framework/Versions/4.3-arm64/Resources
-		// macOS non-orthogonal: R_HOME_DIR=/Library/Frameworks/R.framework/Resources
-		// linux: R_HOME_DIR=/opt/R/4.2.3/lib/R
-		const R_HOME_DIR = extractValue(targetLine, 'R_HOME_DIR');
-		this.homepath = R_HOME_DIR;
-		if (this.homepath === '') {
-			Logger.info('Can\'t determine R_HOME_DIR from the binary');
-			return;
+		if (os.platform() === 'win32') {
+			// TODO: Windows - do we want something more robust here?
+			this.homepath = path.join(pth, '..', '..');
+		} else {
+			const binLines = readLines(this.binpath);
+			const re = new RegExp('Shell wrapper for R executable');
+			if (!binLines.some(x => re.test(x))) {
+				Logger.info('Binary is not a shell script wrapping the executable');
+				return;
+			}
+			const targetLine = binLines.find(line => line.match('R_HOME_DIR'));
+			if (!targetLine) {
+				Logger.info('Can\'t determine R_HOME_DIR from the binary');
+				return;
+			}
+			// macOS: R_HOME_DIR=/Library/Frameworks/R.framework/Versions/4.3-arm64/Resources
+			// macOS non-orthogonal: R_HOME_DIR=/Library/Frameworks/R.framework/Resources
+			// linux: R_HOME_DIR=/opt/R/4.2.3/lib/R
+			const R_HOME_DIR = extractValue(targetLine, 'R_HOME_DIR');
+			this.homepath = R_HOME_DIR;
+			if (this.homepath === '') {
+				Logger.info('Can\'t determine R_HOME_DIR from the binary');
+				return;
+			}
 		}
 
 		// orthogonality is a concern specific to macOS
@@ -89,6 +95,7 @@ export class RInstallation {
 		// macOS arm64: Built: R 4.3.1; aarch64-apple-darwin20; 2023-06-16 21:52:54 UTC; unix
 		// macOS intel: Built: R 4.3.1; x86_64-apple-darwin20; 2023-06-16 21:51:34 UTC; unix
 		// linux: Built: R 4.2.3; x86_64-pc-linux-gnu; 2023-03-15 09:03:13 UTC; unix
+		// windows: Built: R 4.3.2; x86_64-w64-mingw32; 2023-10-31 13:57:45 UTC; windows
 		const builtField = extractValue(targetLine2, 'Built', ':');
 		const builtParts = builtField.split(new RegExp(';\\s+'));
 
