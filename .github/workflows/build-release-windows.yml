@@ -1,0 +1,157 @@
+name: "Positron: Build Windows Release"
+
+# Run windows builds daily at 12:00 UTC on weekdays for now, or manually
+on:
+  schedule:
+    - cron: "0 12 * * 1-5"
+  workflow_dispatch:
+
+jobs:
+  version_string:
+    name: Determine version
+    runs-on: ubuntu-latest
+    outputs:
+      short_version: ${{ steps.short_version.outputs.result }}
+      build_number: ${{ steps.build_number.outputs.result }}
+    steps:
+      # Fetch full history; required so we can determine the build version with rev-list
+      - name: Checkout sources
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # Set up Node (used by show-version.js)
+      - uses: actions/setup-node@v3
+        with:
+          node-version-file: .nvmrc
+
+      # Call version script to determine short version. This is the version
+      # string that we will use later to form the file name of the release
+      # artifact.
+      #
+      # Example: 2022.10.0-123
+      - name: Determine Version (Short)
+        id: short_version
+        run: |
+          result=`./versions/show-version.js --short`
+          echo "result=$result" >> $GITHUB_OUTPUT
+
+      # If we're on main, we will be producing a release later, so make sure
+      # that no release is already in place with this tag
+      - name: Check for Existing Tag
+        id: tag_check
+        if: github.ref == 'refs/heads/main'
+        run: |
+          result=`./versions/show-version.js --short`
+          git fetch --tags
+          tag_exists=`git tag -l "${result}"`
+          if [ -n "${tag_exists}" ]; then exit 78; fi
+
+      # Call again to get just the build number. Example: 123
+      - name: Determine Version (Build Number)
+        id: build_number
+        run: echo "result=$(./versions/show-version.js --build)" >> $GITHUB_OUTPUT
+
+  build-windows:
+    name: Build Windows
+    runs-on:
+      labels: [windows-latest-8x]
+    needs: [version_string]
+    timeout-minutes: 90
+
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    strategy:
+      max-parallel: 1
+      matrix:
+        platform: [win32]
+        arch: [x64]
+        target: [system]
+        include:
+          - arch: x64
+          - target: system
+
+    steps:
+      - name: Checkout Sources
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v3
+        with:
+          node-version-file: .nvmrc
+
+      - name: Install node dependencies with yarn
+        env:
+          npm_config_arch: ${{ matrix.arch }}
+          POSITRON_GITHUB_PAT: ${{ secrets.POSITRON_GITHUB_PAT }}
+        shell: pwsh
+        # nvm on windows does not see .nvmrc
+        run: |
+          yarn --network-timeout 120000
+
+      - name: Build Positron
+        env:
+          POSITRON_BUILD_NUMBER: ${{ needs.version_string.outputs.build_number }}
+        shell: pwsh
+        run: |
+          yarn gulp vscode-${{ matrix.platform }}-${{ matrix.arch }}
+
+      - name: Build Positron Installer for Windows
+        env:
+          POSITRON_BUILD_NUMBER: ${{ needs.version_string.outputs.build_number }}
+        shell: pwsh
+        run: |
+          yarn gulp vscode-${{ matrix.platform }}-${{ matrix.arch }}-inno-updater
+          yarn gulp vscode-${{ matrix.platform }}-${{ matrix.arch }}-${{ matrix.target }}-setup
+
+      - name: Setup Signing Certificate
+        shell: pwsh
+        env:
+          SM_CLIENT_CERT_FILE_B64: ${{ secrets.SM_CLIENT_CERT_FILE_B64 }}
+        run: |
+          New-Item -ItemType Directory -Force -Path certificates
+          Set-Content -Path "${{github.workspace}}\certificates\codesign.txt" -Value $env:SM_CLIENT_CERT_FILE_B64
+          & certutil -decode "${{github.workspace}}\certificates\codesign.txt" "${{github.workspace}}\certificates\codesign.pfx"
+
+      # Note: We must export GITHUB_ENV and GITHUB_PATH before they are used in the next step
+      - name: Setup Signing Variables
+        shell: bash
+        run: |
+          echo "SM_HOST=${{ secrets.SM_HOST }}" >> $GITHUB_ENV
+          echo "SM_API_KEY=${{ secrets.SM_API_KEY }}" >> $GITHUB_ENV
+          echo "SM_CLIENT_CERT_FILE=${{github.workspace}}\certificates\codesign.pfx" >> $GITHUB_ENV
+          echo "SM_CLIENT_CERT_PASSWORD=${{ secrets.SM_CLIENT_CERT_PASSWORD }}" >> $GITHUB_ENV
+          echo "SM_CLIENT_CERT_FINGERPRINT=${{ secrets.SM_CLIENT_CERT_FINGERPRINT }}" >> $GITHUB_ENV
+          echo "INSTALLER_FILE=${{github.workspace}}\.build\${{ matrix.platform }}-${{ matrix.arch }}\${{ matrix.target }}-setup\PositronSetup.exe" >> $GITHUB_ENV
+          echo "C:\Program Files (x86)\Windows Kits\10\App Certification Kit" >> $GITHUB_PATH
+          echo "C:\Program Files\DigiCert\DigiCert One Signing Manager Tools" >> $GITHUB_PATH
+
+      - name: Setup SMCTL KSP Tools for Windows
+        shell: cmd
+        run: |
+          curl -o smtools-windows-x64.msi "https://rstudio-buildtools.s3.amazonaws.com/posit-dev/smtools-windows-x64.msi"
+          msiexec /i smtools-windows-x64.msi /quiet /qn /log smtools-windows-x64.log
+          type smtools-windows-x64.log
+          smksp_registrar.exe list
+          smctl.exe keypair ls
+          C:\Windows\System32\certutil.exe -csp "DigiCert Signing Manager KSP" -key -user
+          smksp_cert_sync.exe
+
+      - name: Sign Positron Installer using Signtool
+        shell: cmd
+        run: |
+          signtool.exe sign /sha1 "%SM_CLIENT_CERT_FINGERPRINT%" /tr http://timestamp.digicert.com /td SHA256 /fd SHA256 "%INSTALLER_FILE%"
+          signtool.exe verify /v /pa "%INSTALLER_FILE%"
+
+      - name: Clean Up
+        if: always()
+        shell: pwsh
+        run: |
+          if (Test-Path certificates) { Remove-Item -Force -Recurse certificates }
+
+      - name: Upload Positron Installer to Github Archive
+        uses: actions/upload-artifact@v3
+        with:
+          name: positron-${{ matrix.platform }}-${{ matrix.arch }}-${{ matrix.target }}-setup.exe
+          path: ${{github.workspace}}\.build\${{ matrix.platform }}-${{ matrix.arch }}\${{ matrix.target }}-setup\PositronSetup.exe
