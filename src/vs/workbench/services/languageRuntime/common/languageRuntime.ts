@@ -9,7 +9,7 @@ import { ILanguageService } from 'vs/editor/common/languages/language';
 import { Disposable, IDisposable, toDisposable } from 'vs/base/common/lifecycle';
 import { CommandsRegistry, ICommandService } from 'vs/platform/commands/common/commands';
 import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/common/extensions';
-import { formatLanguageRuntime, ILanguageRuntime, ILanguageRuntimeGlobalEvent, ILanguageRuntimeService, ILanguageRuntimeStateEvent, LanguageRuntimeDiscoveryPhase, LanguageRuntimeStartupBehavior, RuntimeClientType, RuntimeExitReason, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { formatLanguageRuntime, ILanguageRuntime, ILanguageRuntimeProvider, ILanguageRuntimeGlobalEvent, ILanguageRuntimeService, ILanguageRuntimeStateEvent, LanguageRuntimeDiscoveryPhase, LanguageRuntimeStartupBehavior, RuntimeClientType, RuntimeExitReason, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { FrontEndClientInstance, IFrontEndClientMessageInput, IFrontEndClientMessageOutput } from 'vs/workbench/services/languageRuntime/common/languageRuntimeFrontEndClient';
 import { LanguageRuntimeWorkspaceAffiliation } from 'vs/workbench/services/languageRuntime/common/languageRuntimeWorkspaceAffiliation';
 import { IStorageService } from 'vs/platform/storage/common/storage';
@@ -134,6 +134,9 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 		this._workspaceAffiliation =
 			new LanguageRuntimeWorkspaceAffiliation(this, this._storageService, this._logService);
 		this._register(this._workspaceAffiliation);
+		if (this._workspaceAffiliation.hasAffiliatedRuntime()) {
+			this.startAffiliatedRuntimes();
+		}
 
 		// Add the onDidEncounterLanguage event handler.
 		this._register(this._languageService.onDidRequestRichLanguageFeatures(languageId => {
@@ -495,6 +498,15 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 		});
 	}
 
+	/**
+	 * Register a new runtime provider
+	 *
+	 * @returns A disposable that unregisters the runtime
+	 */
+	registerRuntimeProvider(provider: ILanguageRuntimeProvider): IDisposable {
+		return toDisposable(() => { });
+	}
+
 	getPreferredRuntime(languageId: string): ILanguageRuntime {
 		// If there's a running runtime for the language, return it.
 		const runningRuntime = this._runningRuntimesByLanguageId.get(languageId);
@@ -682,6 +694,29 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 	private hasAnyStartedOrRunningRuntimes(): boolean {
 		return this._startingRuntimesByLanguageId.size > 0 ||
 			this._runningRuntimesByLanguageId.size > 0;
+	}
+
+	/**
+	 * Starts any affiliated runtimes.
+	 */
+	private async startAffiliatedRuntimes(): Promise<void> {
+		// TODO: actually implement this without looking at registered runtimes:
+
+		const affiliatedRuntimeId = this._workspaceAffiliation.getAffiliatedRuntimeId('r');
+
+		if (affiliatedRuntimeId) {
+			// Get the runtime from the extension.
+			const affiliatedRuntime = this._registeredRuntimesByRuntimeId.get(affiliatedRuntimeId)?.runtime;
+			if (!affiliatedRuntime) {
+				// This should never happen, but if it does, log an error and return.
+				this._logService.error(`Language runtime with runtime ID ${affiliatedRuntimeId} is not registered.`);
+				return;
+			}
+
+			// Start the runtime affiliated with the workspace right away.
+			this._logService.trace(`Language runtime ${formatLanguageRuntime(affiliatedRuntime)} automatically starting`);
+			this.autoStartRuntime(affiliatedRuntime, `Affiliated runtime for workspace`);
+		}
 	}
 
 	/**
