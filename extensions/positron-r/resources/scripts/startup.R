@@ -13,5 +13,6 @@ options(cli.dynamic = TRUE)
 
 # Tell cli what kind of hyperlinks are supported in the Positron console.
 options(cli.hyperlink = TRUE)
+options(cli.hyperlink_run = TRUE)
 options(cli.hyperlink_help = TRUE)
 options(cli.hyperlink_vignette = TRUE)
