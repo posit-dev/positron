@@ -23,6 +23,7 @@ import { BusyEvent, LanguageRuntimeEventType, PromptStateEvent, WorkingDirectory
 import { IPositronHelpService } from 'vs/workbench/contrib/positronHelp/browser/positronHelpService';
 import { INotebookService } from 'vs/workbench/contrib/notebook/common/notebookService';
 import { IRuntimeClientEvent } from 'vs/workbench/services/languageRuntime/common/languageRuntimeFrontEndClient';
+import { URI } from 'vs/base/common/uri';
 
 /**
  * Represents a language runtime event (for example a message or state change)
@@ -292,6 +293,10 @@ class ExtHostLanguageRuntimeAdapter implements ILanguageRuntime {
 	/** Gets the current state of the notebook runtime */
 	getRuntimeState(): RuntimeState {
 		return this._currentState;
+	}
+
+	openResource(resource: URI | string): Thenable<boolean> {
+		return this._proxy.$openResource(this.handle, resource);
 	}
 
 	execute(code: string, id: string, mode: RuntimeCodeExecutionMode, errorBehavior: RuntimeErrorBehavior): void {
