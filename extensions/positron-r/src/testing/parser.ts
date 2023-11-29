@@ -39,31 +39,33 @@ export async function parseTestsFromFile(
 	}
 
 	const tests: Map<string, vscode.TestItem> = new Map();
+	const testFile = path.basename(uri.fsPath);
 	for (const match of matches) {
 		if (match === undefined) {
 			continue;
 		}
 
 		const testItem = testingTools.controller.createTestItem(
-			encodeNodeId(uri.fsPath, match.testLabel, match.testSuperLabel),
+			encodeNodeId(testFile, match.testLabel, match.testSuperLabel),
 			match.testLabel,
 			uri
 		);
 		testItem.range = new vscode.Range(match.testStartPosition, match.testEndPosition);
-		testingTools.testItemData.set(testItem, ItemType.TestCase);
 
 		if (match.testSuperLabel === undefined) {
+			testingTools.testItemData.set(testItem, ItemType.TestThat);
 			tests.set(match.testLabel, testItem);
 		} else {
+			testingTools.testItemData.set(testItem, ItemType.It);
 			if (tests.has(match.testSuperLabel)) {
 				tests.get(match.testSuperLabel)!.children.add(testItem);
 			} else {
 				const supertestItem = testingTools.controller.createTestItem(
-					encodeNodeId(uri.fsPath, match.testSuperLabel),
+					encodeNodeId(testFile, match.testSuperLabel),
 					match.testSuperLabel,
 					uri
 				);
-				testingTools.testItemData.set(supertestItem, ItemType.TestCase);
+				testingTools.testItemData.set(supertestItem, ItemType.Describe);
 				supertestItem.range = new vscode.Range(
 					match.testSuperStartPosition!,
 					match.testSuperEndPosition!

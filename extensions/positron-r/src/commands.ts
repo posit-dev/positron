@@ -10,7 +10,6 @@ import { getRunningRRuntime } from './provider';
 import { getRPackageName } from './contexts';
 import { getRPackageTasks } from './tasks';
 import { randomUUID } from 'crypto';
-import { refreshTestthatStatus } from './testing/watcher';
 
 export async function registerCommands(context: vscode.ExtensionContext, runtimes: Map<string, RRuntime>) {
 

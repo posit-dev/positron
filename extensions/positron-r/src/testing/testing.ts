@@ -8,6 +8,7 @@ import { discoverTestFiles, loadTestsFromFile } from './loader';
 import { createTestthatWatchers } from './watcher';
 import { runHandler } from './runner';
 import { Logger } from '../extension';
+import { detectRPackage, getRPackageName } from '../contexts';
 
 let controller: vscode.TestController | undefined;
 
@@ -44,12 +45,18 @@ function hasTestingController(): boolean {
 	return controller !== undefined;
 }
 
-export function discoverTests(context: vscode.ExtensionContext) {
-	// TODO: check workspace folder(s) for package-hood
-	// if no package, return
-	// if exactly one package among the workspace folders, proceed
-	// consider adding package metadata to testingTools (eg name and filepath)
-	// if >1 package, consult our non-existent policy re: multi-root, multi-package workspace
+export async function discoverTests(context: vscode.ExtensionContext) {
+	// Incremental progress re: vetting the workspace folder(s) and R package-hood
+	const inRPackage = await detectRPackage();
+	if (!inRPackage) {
+		return;
+	}
+	const packageRoot = await getFirstWorkspaceFolder();
+	// we know packageRoot can't be null, but typescript doesn't know that, so check again
+	if (!packageRoot) {
+		return;
+	}
+	const packageName = await getRPackageName();
 
 	controller = vscode.tests.createTestController(
 		'rPackageTests',
@@ -59,9 +66,12 @@ export function discoverTests(context: vscode.ExtensionContext) {
 
 	const testItemData = new WeakMap<vscode.TestItem, ItemType>();
 	const testingTools: TestingTools = {
+		packageRoot,
+		packageName,
 		controller,
 		testItemData,
 	};
+	Logger.info(`Testthat test explorer enabled for '${packageName}' at '${packageRoot.fsPath}'`);
 
 	// The first time this is called, `test` is undefined, therefore we do full file discovery and
 	// set up file watchers for the future.
@@ -89,4 +99,19 @@ export function discoverTests(context: vscode.ExtensionContext) {
 		(request, token) => runHandler(testingTools, request, token),
 		true
 	);
+}
+
+// Temporarily making it explicit here that we only support this scenario:
+// first workspace folder is the root directory of a source R package
+export async function getFirstWorkspaceFolder(): Promise<vscode.Uri | null> {
+	const workspaceFolders = vscode.workspace.workspaceFolders;
+	if (!workspaceFolders) {
+		return null;
+	}
+
+	if (workspaceFolders.length > 1) {
+		Logger.info('Test explorer does not support multi-root workspaces. Consulting first workspace folder only.');
+	}
+
+	return workspaceFolders[0].uri;
 }
