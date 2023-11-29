@@ -34,6 +34,10 @@ import { ActivityItemErrorStream, ActivityItemOutputStream } from 'vs/workbench/
 import { IPositronConsoleInstance, IPositronConsoleService, POSITRON_CONSOLE_VIEW_ID, PositronConsoleState } from 'vs/workbench/services/positronConsole/browser/interfaces/positronConsoleService';
 import { formatLanguageRuntime, ILanguageRuntime, ILanguageRuntimeExit, ILanguageRuntimeMessage, ILanguageRuntimeService, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeExitReason, RuntimeOnlineState, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
+import { IEditorOptions } from 'vs/editor/common/config/editorOptions';
+import { FontMeasurements } from 'vs/editor/browser/config/fontMeasurements';
+import { PixelRatio } from 'vs/base/browser/browser';
+import { BareFontInfo } from 'vs/editor/common/config/fontInfo';
 
 /**
  * The onDidChangeRuntimeItems throttle threshold and throttle interval. The throttle threshold
@@ -431,16 +435,21 @@ class PositronConsoleService extends Disposable implements IPositronConsoleServi
 			clearTimeout(this._consoleWidthDebounceTimer);
 		}
 
+		// When the debounce timer fires, compute the new console width and fire the
+		// onDidChangeConsoleWidth event.
 		this._consoleWidthDebounceTimer = setTimeout(() => {
-			// Use the font size to calculate the new text width, in characters,
-			// from the new width in pixels.
-			//
-			// TODO: 1.5 is a fudge factor; the font's width is _proportional_
-			// to the font size, but it's not _exactly_ proportional, and varies
-			// by font. To be more precise, we could use a DOM or canvas element
-			// to measure the width of a string of text in the console's font.
-			const fontSize = this._configurationService.getValue<number>('editor.fontSize');
-			const textWidth = Math.floor((newWidth / fontSize) * 1.5);
+
+			// Read the current editor font settings;  use them to create font
+			// measurments and compute the new console width.
+			const editorOptions = this._configurationService.getValue<IEditorOptions>('editor');
+			const fontInfo = FontMeasurements.readFontInfo(
+				BareFontInfo.createFromRawSettings(editorOptions, PixelRatio.value)
+			);
+
+			// We use the width of a space character to compute the new console
+			// width; this assumes a monospace font.
+			const textWidth = Math.floor(newWidth / fontInfo.spaceWidth);
+
 			this._onDidChangeConsoleWidthEmitter.fire(textWidth);
 		}, 500);
 	}
