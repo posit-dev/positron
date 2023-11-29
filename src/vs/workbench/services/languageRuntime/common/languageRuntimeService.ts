@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
 import { Event } from 'vs/base/common/event';
@@ -635,6 +635,9 @@ export interface ILanguageRuntime {
 	showOutput(): void;
 }
 
+export interface ILanguageRuntimeProvider {
+}
+
 export interface ILanguageRuntimeService {
 	// Needed for service branding in dependency injector.
 	readonly _serviceBrand: undefined;
@@ -688,6 +691,13 @@ export interface ILanguageRuntimeService {
 	 * @returns A disposable that can be used to unregister the runtime
 	 */
 	registerRuntime(runtime: ILanguageRuntime, startupBehavior: LanguageRuntimeStartupBehavior): IDisposable;
+
+	/**
+	 * Register a new language runtime provider
+	 * @param provider The language runtime provider to register
+	 * @returns A disposable that can be used to unregister the runtime provider
+	 */
+	registerRuntimeProvider(provider: ILanguageRuntimeProvider): IDisposable;
 
 	/**
 	 * Selects a previously registered runtime as the active runtime.

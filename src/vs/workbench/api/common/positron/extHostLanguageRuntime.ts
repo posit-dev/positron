@@ -29,6 +29,8 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 
 	private readonly _runtimeDiscoverers = new Array<LanguageRuntimeDiscoverer>();
 
+	private readonly _runtimeProviders = new Array<positron.LanguageRuntimeProvider>();
+
 	private readonly _clientInstances = new Array<ExtHostRuntimeClientInstance>();
 
 	private readonly _clientHandlers = new Array<positron.RuntimeClientHandler>();
@@ -303,6 +305,19 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 			// the provider to the list of providers on which we need to perform discovery.
 			this._runtimeDiscoverers.push({ extension, discoverer });
 		}
+	}
+
+	public registerLanguageRuntimeProvider(
+		extension: IExtensionDescription,
+		provider: positron.LanguageRuntimeProvider): IDisposable {
+
+		// Create a handle and register the runtime provider with the main thread
+		const handle = this._runtimeProviders.length;
+		this._runtimeProviders.push(provider);
+		this._proxy.$registerLanguageRuntimeProvider(handle, provider);
+		return new Disposable(() => {
+			this._proxy.$unregisterLanguageRuntimeProvider(handle);
+		});
 	}
 
 	public registerLanguageRuntime(

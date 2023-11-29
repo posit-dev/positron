@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
 import {
@@ -9,8 +9,8 @@ import {
 	ExtHostPositronContext
 } from '../../common/positron/extHost.positron.protocol';
 import { extHostNamedCustomer, IExtHostContext } from 'vs/workbench/services/extensions/common/extHostCustomers';
-import { ILanguageRuntime, ILanguageRuntimeClientCreatedEvent, ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMessageCommClosed, ILanguageRuntimeMessageCommData, ILanguageRuntimeMessageCommOpen, ILanguageRuntimeMessageError, ILanguageRuntimeMessageInput, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessagePrompt, ILanguageRuntimeMessageState, ILanguageRuntimeMessageStream, ILanguageRuntimeMetadata, ILanguageRuntimeDynState as ILanguageRuntimeDynState, ILanguageRuntimeService, ILanguageRuntimeStartupFailure, LanguageRuntimeMessageType, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeState, LanguageRuntimeDiscoveryPhase, ILanguageRuntimeExit, RuntimeOutputKind, RuntimeExitReason, ILanguageRuntimeMessageWebOutput, PositronOutputLocation } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
-import { Disposable, DisposableStore } from 'vs/base/common/lifecycle';
+import { ILanguageRuntime, ILanguageRuntimeProvider, ILanguageRuntimeClientCreatedEvent, ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMessageCommClosed, ILanguageRuntimeMessageCommData, ILanguageRuntimeMessageCommOpen, ILanguageRuntimeMessageError, ILanguageRuntimeMessageInput, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessagePrompt, ILanguageRuntimeMessageState, ILanguageRuntimeMessageStream, ILanguageRuntimeMetadata, ILanguageRuntimeDynState as ILanguageRuntimeDynState, ILanguageRuntimeService, ILanguageRuntimeStartupFailure, LanguageRuntimeMessageType, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeState, LanguageRuntimeDiscoveryPhase, ILanguageRuntimeExit, RuntimeOutputKind, RuntimeExitReason, ILanguageRuntimeMessageWebOutput, PositronOutputLocation } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { Disposable, DisposableStore, IDisposable } from 'vs/base/common/lifecycle';
 import { Event, Emitter } from 'vs/base/common/event';
 import { IPositronConsoleService } from 'vs/workbench/services/positronConsole/browser/interfaces/positronConsoleService';
 import { IPositronVariablesService } from 'vs/workbench/services/positronVariables/common/interfaces/positronVariablesService';
@@ -918,6 +918,8 @@ export class MainThreadLanguageRuntime implements MainThreadLanguageRuntimeShape
 
 	private readonly _runtimes: Map<number, ExtHostLanguageRuntimeAdapter> = new Map();
 
+	private readonly _runtimeProviders: Map<number, ILanguageRuntimeProvider> = new Map();
+
 	constructor(
 		extHostContext: IExtHostContext,
 		@ILanguageRuntimeService private readonly _languageRuntimeService: ILanguageRuntimeService,
@@ -972,6 +974,11 @@ export class MainThreadLanguageRuntime implements MainThreadLanguageRuntimeShape
 		this._languageRuntimeService.registerRuntime(adapter, metadata.startupBehavior);
 	}
 
+	$registerLanguageRuntimeProvider(handle: number, provider: ILanguageRuntimeProvider): IDisposable {
+		this._runtimeProviders.set(handle, provider);
+		return this._languageRuntimeService.registerRuntimeProvider(provider);
+	}
+
 	$getPreferredRuntime(languageId: string): Promise<ILanguageRuntimeMetadata> {
 		return Promise.resolve(this._languageRuntimeService.getPreferredRuntime(languageId).metadata);
 	}
@@ -1004,6 +1011,10 @@ export class MainThreadLanguageRuntime implements MainThreadLanguageRuntimeShape
 
 	$unregisterLanguageRuntime(handle: number): void {
 		this._runtimes.delete(handle);
+	}
+
+	$unregisterLanguageRuntimeProvider(handle: number): void {
+		this._runtimeProviders.delete(handle);
 	}
 
 	$executeCode(languageId: string, code: string, focus: boolean): Promise<boolean> {
