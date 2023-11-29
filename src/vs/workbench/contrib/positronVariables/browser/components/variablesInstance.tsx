@@ -15,8 +15,9 @@ import { IReactComponentContainer } from 'vs/base/browser/positronReactRenderer'
 import { VariableItem } from 'vs/workbench/contrib/positronVariables/browser/components/variableItem';
 import { VariableGroup } from 'vs/workbench/contrib/positronVariables/browser/components/variableGroup';
 import { VariablesEmpty } from 'vs/workbench/contrib/positronVariables/browser/components/variablesEmpty';
+import { VariableOverflow } from 'vs/workbench/contrib/positronVariables/browser/components/variableOverflow';
 import { usePositronVariablesContext } from 'vs/workbench/contrib/positronVariables/browser/positronVariablesContext';
-import { VariableEntry, IPositronVariablesInstance, isVariableGroup, isVariableItem } from 'vs/workbench/services/positronVariables/common/interfaces/positronVariablesInstance';
+import { VariableEntry, IPositronVariablesInstance, isVariableGroup, isVariableItem, isVariableOverflow } from 'vs/workbench/services/positronVariables/common/interfaces/positronVariablesInstance';
 
 /**
  * Constants.
@@ -418,7 +419,6 @@ export const VariablesInstance = (props: VariablesInstanceProps) => {
 		const entry = variableEntries[index];
 		if (isVariableGroup(entry)) {
 			return (
-				// <div style={style}>Group</div>
 				<VariableGroup
 					key={entry.id}
 					variableGroup={entry}
@@ -451,6 +451,23 @@ export const VariablesInstance = (props: VariablesInstanceProps) => {
 					positronVariablesInstance={props.positronVariablesInstance}
 				/>
 			);
+		} else if (isVariableOverflow(entry)) {
+			return (
+				<VariableOverflow
+					key={entry.id}
+					nameColumnWidth={nameColumnWidth}
+					detailsColumnWidth={detailsColumnWidth}
+					variableOverflow={entry}
+					style={style}
+					focused={focused}
+					selected={selectedId === entry.id}
+					onSelected={() => selectedHandler(index)}
+					onDeselected={deselectedHandler}
+					onStartResizeNameColumn={startResizeNameColumnHandler}
+					onResizeNameColumn={resizeNameColumnHandler}
+					onStopResizeNameColumn={stopResizeNameColumnHandler}
+				/>
+			);
 		} else {
 			// It's a bug to get here.
 			return null;
@@ -460,7 +477,9 @@ export const VariablesInstance = (props: VariablesInstanceProps) => {
 	// Create the class names.
 	const classNames = positronClassNames(
 		'variables-instance',
-		{ 'resizing': resizingColumn }
+		{
+			'resizing': resizingColumn
+		}
 	);
 
 	// Render.

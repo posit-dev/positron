@@ -7,6 +7,7 @@ import { ILogService } from 'vs/platform/log/common/log';
 import { Disposable, DisposableStore } from 'vs/base/common/lifecycle';
 import { VariableItem } from 'vs/workbench/services/positronVariables/common/classes/variableItem';
 import { VariableGroup } from 'vs/workbench/services/positronVariables/common/classes/variableGroup';
+import { VariableOverflow } from 'vs/workbench/services/positronVariables/common/classes/variableOverflow';
 import { ILanguageRuntime, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { sortVariableItemsByName, sortVariableItemsBySize } from 'vs/workbench/services/positronVariables/common/helpers/utils';
 import { VariablesClientInstance, VariablesClientList, VariablesClientUpdate, VariableValueKind, IVariablesClientMessageError } from 'vs/workbench/services/languageRuntime/common/languageRuntimeVariablesClient';
@@ -290,11 +291,11 @@ export class PositronVariablesInstance extends Disposable implements IPositronVa
 		const pathString = JSON.stringify(path);
 		if (!this._expandedPaths.has(pathString)) {
 			// Locate the variable item. If it was found, expand it.
-			const variableItem = this.findVariableItem(path);
+			const variableItem = this.locateVariableItem(path);
 			if (variableItem) {
 				this._expandedPaths.add(pathString);
 				if (variableItem) {
-					await variableItem.loadChildren(isExpanded);
+					await variableItem.loadChildEntries(isExpanded);
 				}
 			}
 
@@ -459,9 +460,9 @@ export class PositronVariablesInstance extends Disposable implements IPositronVa
 			// Add the variable item.
 			variableItems.set(variableItem.accessKey, variableItem);
 
-			// If the variable item is expanded, load its children.
+			// If the variable item is expanded, load its child entries.
 			if (isExpanded(variableItem.path)) {
-				promises.push(variableItem.loadChildren(isExpanded));
+				promises.push(variableItem.loadChildEntries(isExpanded));
 			}
 		}
 
@@ -499,9 +500,9 @@ export class PositronVariablesInstance extends Disposable implements IPositronVa
 			// Add the variable item.
 			this._variableItems.set(variableItem.accessKey, variableItem);
 
-			// If the variable item is expanded, load its children.
+			// If the variable item is expanded, load its child entries.
 			if (isExpanded(variableItem.path)) {
-				promises.push(variableItem.loadChildren(isExpanded));
+				promises.push(variableItem.loadChildEntries(isExpanded));
 			}
 		}
 
@@ -741,19 +742,19 @@ export class PositronVariablesInstance extends Disposable implements IPositronVa
 	}
 
 	/**
-	 * Finds a variable item by its path.
-	 * @param path The path of the variable item.
+	 * Locates a variable item by its path.
+	 * @param path The path of the variable item to locate.
 	 * @returns The variable item, if found; otherwise, undefined.
 	 */
-	private findVariableItem(path: string[]): VariableItem | undefined {
-		// Find the root variable item.
+	private locateVariableItem(path: string[]): VariableItem | undefined {
+		// Get the root variable item.
 		const variableItem = this._variableItems.get(path[0]);
 		if (!variableItem) {
 			return undefined;
 		}
 
-		// Find the variable item.
-		return variableItem.locateChildEntry(path.slice(1));
+		// Recursively locate the variable item.
+		return variableItem.locateVariableItem(path.slice(1));
 	}
 
 	/**
@@ -765,12 +766,12 @@ export class PositronVariablesInstance extends Disposable implements IPositronVa
 			if (entry instanceof VariableGroup) {
 				entry.expanded = !this._collapsedGroupIds.has(entry.id);
 				if (entry.expanded) {
-					return [entry, ...this.flattenVariableItems(entry.variableItems)];
+					return [entry, ...this.flatten(entry.variableItems)];
 				} else {
 					return [entry];
 				}
 			} else if (entry instanceof VariableItem) {
-				return this.flattenVariableItems([entry]);
+				return this.flatten([entry]);
 			} else {
 				return [];
 			}
@@ -782,10 +783,10 @@ export class PositronVariablesInstance extends Disposable implements IPositronVa
 
 	/**
 	 * Flattens an array of variable items.
-	 * @param variableItems The array of variable items to flatten.
-	 * @returns The flattened array of variable items.
+	 * @param variableItems The array of variable items.
+	 * @returns The flattened child entries.
 	 */
-	private flattenVariableItems(variableItems: VariableItem[]): VariableItem[] {
+	private flatten(variableItems: VariableItem[]): (VariableItem | VariableOverflow)[] {
 		/**
 		 * Returns a value which indicates whether the path is expanded.
 		 * @param path The path.
