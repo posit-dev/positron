@@ -6,6 +6,7 @@ import { Event } from 'vs/base/common/event';
 import { ILanguageRuntime } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { IVariableItem } from 'vs/workbench/services/positronVariables/common/interfaces/variableItem';
 import { IVariableGroup } from 'vs/workbench/services/positronVariables/common/interfaces/variableGroup';
+import { IVariableOverflow as IVariableOverflow } from 'vs/workbench/services/positronVariables/common/interfaces/variableOverflow';
 
 /**
  * PositronVariablesInstanceState enumeration.
@@ -40,12 +41,12 @@ export const enum PositronVariablesSorting {
 /**
  * The VariableEntry type alias.
  */
-export type VariableEntry = IVariableGroup | IVariableItem;
+export type VariableEntry = IVariableGroup | IVariableItem | IVariableOverflow;
 
 /**
  * isVariableGroup user-defined type guard.
  * @param _ The entry.
- * @returns Whether the entry is an IVariableGroup.
+ * @returns A value which indicates whether the entry is an IVariableGroup.
  */
 export const isVariableGroup = (_: VariableEntry): _ is IVariableGroup => {
 	return 'title' in _;
@@ -54,10 +55,19 @@ export const isVariableGroup = (_: VariableEntry): _ is IVariableGroup => {
 /**
  * isVariableItem user-defined type guard.
  * @param _ The entry.
- * @returns Whether the entry is an IVariableItem.
+ * @returns A value which indicates whether the entry is an IVariableItem.
  */
 export const isVariableItem = (_: VariableEntry): _ is IVariableItem => {
 	return 'path' in _;
+};
+
+/**
+ * isVariableOverflow user-defined type guard.
+ * @param _ The entry.
+ * @returns A value which indicates whether the entry is an IVariableOverflow.
+ */
+export const isVariableOverflow = (_: VariableEntry): _ is IVariableOverflow => {
+	return 'overflowValues' in _;
 };
 
 /**
