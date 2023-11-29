@@ -507,45 +507,36 @@ declare module 'positron' {
 	export type LanguageRuntimeProvider = AsyncGenerator<LanguageRuntime>;
 
 	/**
-	 * A response to a runtime method call. This interface, and those that
-	 * extend it, provide a JSONRPC-like interface for calling methods in an
-	 * extension's language runtime.
-	 *
-	 * https://www.jsonrpc.org/specification
+	 * An enum representing the set of JSON-RPC error codes.
 	 */
-	export interface RuntimeMethodResponse {
-		/** The ID of the request */
-		id: string;
-	}
-
-	/**
-	 * A successful response to a runtime method call.
-	 */
-	export interface RuntimeMethodResponseResult extends RuntimeMethodResponse {
-		/** The data returned by the method */
-		result: any;
+	export enum JsonRpcErrorCode {
+		ParseError = -32700,
+		InvalidRequest = -32600,
+		MethodNotFound = -32601,
+		InvalidParams = -32602,
+		InternalError = -32603,
+		ServerErrorStart = -32000,
+		ServerErrorEnd = -32099
 	}
 
 	/**
 	 * An error returned by a runtime method call.
 	 */
-	export interface RuntimeMethodErrorData {
-		/** An error code; see JSON RPC specification for values */
-		code: number;
+	export interface RuntimeMethodError {
+		/** An error code */
+		code: JsonRpcErrorCode;
 
 		/** A human-readable error message */
 		message: string;
 
+		/**
+		 * A name for the error, for compatibility with the Error object.
+		 * Usually `RPC Error ${code}`.
+		 */
+		name: string;
+
 		/** Additional error information (optional) */
 		data: any | undefined;
-	}
-
-	/**
-	 * An unsuccessful response to a runtime method call.
-	 */
-	export interface RuntimeMethodResponseError extends RuntimeMethodResponse {
-		/** The error returned by the method */
-		error: RuntimeMethodErrorData;
 	}
 
 	/**
@@ -578,10 +569,12 @@ declare module 'positron' {
 		/**
 		 * Calls a method in the runtime and returns the result.
 		 *
+		 * Throws a RuntimeMethodError if the method call fails.
+		 *
 		 * @param method The name of the method to call
 		 * @param args Arguments to pass to the method
 		 */
-		callMethod?(method: string, ...args: any[]): Thenable<RuntimeMethodResponse>;
+		callMethod?(method: string, ...args: any[]): Thenable<any>;
 
 		/** Test a code fragment for completeness */
 		isCodeFragmentComplete(code: string): Thenable<RuntimeCodeFragmentStatus>;

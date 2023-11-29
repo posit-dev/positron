@@ -106,7 +106,7 @@ export class LanguageRuntimeAdapter
 		this._kernel.addListener('exit', this.onKernelExited);
 	}
 
-	async callMethod(method: string, ...args: any[]): Promise<positron.RuntimeMethodResponseResult> {
+	async callMethod(method: string, ...args: any[]): Promise<any> {
 		// Find the frontend comm
 		const frontend = Array.from(this._comms.values())
 			.find(c => c.getClientType() === positron.RuntimeClientType.FrontEnd);
@@ -125,8 +125,53 @@ export class LanguageRuntimeAdapter
 		};
 
 		// Return a promise that resolves when the server side of the frontend
-		// comm replies
-		return frontend.performRpc(request);
+		// comm replies. Rejects if either an error is returned from the backend
+		// or we are unsuccessful in sending the request.
+		let response = {} as any;
+		try {
+			// Send the request and wait for a response
+			response = await frontend.performRpc(request);
+		} catch (err) {
+			// Convert the error to a runtime method error. This handles errors
+			// that occur while performing the RPC; if the RPC is successfully
+			// sent and a response received, errors named in the response are
+			// handled below.
+			const error: positron.RuntimeMethodError = {
+				code: positron.JsonRpcErrorCode.InternalError,
+				message: err.message,
+				name: err.name,
+				data: err, // Wrap the underlying error in a data object
+			};
+			throw error;
+		}
+
+		// If the response is an error, throw it
+		if (Object.keys(response).includes('error')) {
+			const error = response.error;
+
+			// Populate the error object with the name of the error code
+			// for conformity with code that expects an Error object.
+			error.name = `RPC Error ${response.error.code}`;
+
+			throw error;
+		}
+
+		// JSON-RPC specifies that the return value must have either a 'result'
+		// or an 'error'; make sure we got a result before we pass it back.
+		if (!Object.keys(response).includes('result')) {
+			const error: positron.RuntimeMethodError = {
+				code: positron.JsonRpcErrorCode.InternalError,
+				message: `Invalid response from frontend comm: no 'result' field. ` +
+					`(response = ${JSON.stringify(response)})`,
+				name: `InvalidResponseError`,
+				data: {},
+			};
+
+			throw error;
+		}
+
+		// Otherwise, return the result
+		return response.result;
 	}
 
 	onDidReceiveRuntimeMessage: vscode.Event<positron.LanguageRuntimeMessage>;

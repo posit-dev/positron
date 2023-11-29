@@ -82,7 +82,7 @@ export class RRuntime implements positron.LanguageRuntime, vscode.Disposable {
 		}
 	}
 
-	callMethod(method: string, ...args: any[]): Thenable<positron.RuntimeMethodResponse> {
+	callMethod(method: string, ...args: any[]): Thenable<any> {
 		if (this._kernel) {
 			return this._kernel.callMethod(method, ...args);
 		} else {
@@ -165,14 +165,17 @@ export class RRuntime implements positron.LanguageRuntime, vscode.Disposable {
 			return;
 		}
 
-		// Send the new width to R
-		const response = await this.callMethod('setConsoleWidth', newWidth);
-		if (Object.keys(response).includes('error')) {
-			const error = response as positron.RuntimeMethodResponseError;
-			this._kernel!.emitJupyterLog(`Error setting console width: ${error.error.message} (${error.error.code})`);
-		} else {
-			const result = response as positron.RuntimeMethodResponseResult;
-			this._kernel!.emitJupyterLog(`Set console width from ${result.result} to ${newWidth}`);
+		try {
+			// Send the new width to R; this returns the old width for logging
+			const oldWidth = await this.callMethod('setConsoleWidth', newWidth);
+			this._kernel!.emitJupyterLog(`Set console width from ${oldWidth} to ${newWidth}`);
+		} catch (err) {
+			// Log the error if we can't set the console width; this is not
+			// fatal, so we don't rethrow the error
+			const runtimeError = err as positron.RuntimeMethodError;
+			this._kernel!.emitJupyterLog(
+				`Error setting console width: ${runtimeError.message} ` +
+				`(${runtimeError.code})`);
 		}
 	}
 
