@@ -539,6 +539,13 @@ declare module 'positron' {
 		/** An object that emits an event when the user's session ends and the runtime exits */
 		onDidEndSession: vscode.Event<LanguageRuntimeExit>;
 
+		/**
+		 * Opens a resource in the runtime.
+		 * @param resource The resource to open.
+		 * @returns true if the resource was opened; otherwise, false.
+		 */
+		openResource?(resource: vscode.Uri | string): Thenable<boolean>;
+
 		/** Execute code in the runtime */
 		execute(code: string,
 			id: string,
