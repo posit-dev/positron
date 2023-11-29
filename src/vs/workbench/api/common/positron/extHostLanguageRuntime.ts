@@ -11,6 +11,7 @@ import { Disposable, LanguageRuntimeMessageType } from 'vs/workbench/api/common/
 import { RuntimeClientType } from 'vs/workbench/api/common/positron/extHostTypes.positron';
 import { ExtHostRuntimeClientInstance } from 'vs/workbench/api/common/positron/extHostClientInstance';
 import { IExtensionDescription } from 'vs/platform/extensions/common/extensions';
+import { URI } from 'vs/base/common/uri';
 
 
 /**
@@ -106,6 +107,16 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 			throw new Error(`Cannot show output for runtime: language runtime handle '${handle}' does not implement logging.`);
 		}
 		return this._runtimes[handle].showOutput!();
+	}
+
+	$openResource(handle: number, resource: URI | string): Promise<boolean> {
+		if (handle >= this._runtimes.length) {
+			throw new Error(`Cannot open resource: language runtime handle '${handle}' not found or no longer valid.`);
+		}
+		if (!this._runtimes[handle].openResource) {
+			return Promise.resolve(false);
+		}
+		return Promise.resolve(this._runtimes[handle].openResource!(resource));
 	}
 
 	$executeCode(handle: number, code: string, id: string, mode: RuntimeCodeExecutionMode, errorBehavior: RuntimeErrorBehavior): void {

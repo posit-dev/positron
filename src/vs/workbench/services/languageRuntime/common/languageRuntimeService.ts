@@ -590,6 +590,13 @@ export interface ILanguageRuntime {
 	/** The current state of the runtime (tracks events above) */
 	getRuntimeState(): RuntimeState;
 
+	/**
+	 * Opens a resource in the runtime.
+	 * @param resource The resource to open.
+	 * @returns true if the resource was opened; otherwise, false.
+	 */
+	openResource(resource: URI | string): Thenable<boolean>;
+
 	/** Execute code in the runtime */
 	execute(code: string,
 		id: string,

@@ -68,6 +68,39 @@ export class RRuntime implements positron.LanguageRuntime, vscode.Disposable {
 	onDidReceiveRuntimeMessage: vscode.Event<positron.LanguageRuntimeMessage>;
 	onDidChangeRuntimeState: vscode.Event<positron.RuntimeState>;
 
+	/**
+	 * Opens a resource in the runtime.
+	 * @param resource The resource to open.
+	 * @returns true if the resource was opened; otherwise, false.
+	 */
+	openResource(resource: vscode.Uri | string): Thenable<boolean> {
+		// If the resource is a string, parse it as a URI.
+		if (typeof resource === 'string') {
+			resource = vscode.Uri.parse(resource);
+		}
+
+		// Dispatch the open.
+		switch (resource.scheme) {
+			// Help resource.
+			case 'x-r-help':
+				console.log('*******************************************************');
+				console.log(`R runtime should open help resource "${resource.path}"`);
+				console.log('*******************************************************');
+				return Promise.resolve(true);
+
+			// Vignette resource.
+			case 'x-r-vignette':
+				console.log('*******************************************************');
+				console.log(`R runtime should open vignette resource "${resource.path}"`);
+				console.log('*******************************************************');
+				return Promise.resolve(true);
+
+			// Unhandled.
+			default:
+				return Promise.resolve(false);
+		}
+	}
+
 	execute(code: string, id: string, mode: positron.RuntimeCodeExecutionMode, errorBehavior: positron.RuntimeErrorBehavior): void {
 		if (this._kernel) {
 			this._kernel.execute(code, id, mode, errorBehavior);
