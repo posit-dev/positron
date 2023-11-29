@@ -121,7 +121,7 @@ export async function runThatTest(
 			}))
 			.on('data', (data: TestResult) => {
 				stdout += JSON.stringify(data);
-				Logger.info(`Received test data: ${JSON.stringify(data)}`);
+				Logger.debug(`Received test data: ${JSON.stringify(data)}`);
 				switch (data.type) {
 					case 'start_file':
 						if (data.filename !== undefined) {
@@ -135,12 +135,22 @@ export async function runThatTest(
 								? test
 								: findTest(hostFile, data.test, testingTools);
 							if (testItem === undefined) {
-								reject(
+								// Something is clearly wrong with this test vis-a-vis the test
+								// explorer, but I suspect we should just soldier on.
+								// Changed from reject() in response to dplyr having a test like so:
+								// test_that(paste0("blah blah"), {})
+								// which would bring the whole test run to a halt.
+								// In that case, the test was never registered, because it doesn't
+								// match the tree-sitter query. Long-term, I plan to modify the
+								// query (make it more permissive), then make a headless
+								// `match.call()` test to resolve `desc`.
+								Logger.error(
 									`Test with id ${encodeNodeId(
 										hostFile,
 										data.test
 									)} could not be found. Please report this.`
 								);
+								return;
 							}
 							testStartDates.set(testItem!, Date.now());
 							run.started(testItem!);
@@ -152,12 +162,14 @@ export async function runThatTest(
 								? test
 								: findTest(hostFile, data.test, testingTools);
 							if (testItem === undefined) {
-								reject(
+								// See above.
+								Logger.error(
 									`Test with id ${encodeNodeId(
 										hostFile,
 										data.test
 									)} could not be found. Please report this.`
 								);
+								return;
 							}
 							const duration = Date.now() - testStartDates.get(testItem!)!;
 							switch (data.result) {
@@ -220,7 +232,7 @@ function findTest(
 	testLabel: string,
 	testingTools: TestingTools): vscode.TestItem | undefined {
 	const testIdToFind = encodeNodeId(testFile, testLabel);
-	Logger.info(`Looking for test with id ${testIdToFind}`);
+	Logger.debug(`Looking for test with id ${testIdToFind}`);
 	const testFileToSearch = testingTools.controller.items.get(testFile);
 	const firstGenerationFound = testFileToSearch?.children.get(testIdToFind);
 	if (firstGenerationFound) {
