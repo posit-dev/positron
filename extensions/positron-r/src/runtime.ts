@@ -45,6 +45,12 @@ export class RRuntime implements positron.LanguageRuntime, vscode.Disposable {
 	/** The Jupyter Adapter extension API */
 	private adapterApi?: JupyterAdapterApi;
 
+	/** The registration for console width changes */
+	private _consoleWidthDisposable?: vscode.Disposable;
+
+	/** The current state of the runtime */
+	private _state: positron.RuntimeState = positron.RuntimeState.Uninitialized;
+
 	constructor(
 		readonly context: vscode.ExtensionContext,
 		readonly kernelSpec: JupyterKernelSpec,
@@ -109,6 +115,14 @@ export class RRuntime implements positron.LanguageRuntime, vscode.Disposable {
 		}
 	}
 
+	callMethod(method: string, ...args: any[]): Thenable<any> {
+		if (this._kernel) {
+			return this._kernel.callMethod(method, ...args);
+		} else {
+			throw new Error(`Cannot call method '${method}'; kernel not started`);
+		}
+	}
+
 	isCodeFragmentComplete(code: string): Thenable<positron.RuntimeCodeFragmentStatus> {
 		if (this._kernel) {
 			return this._kernel.isCodeFragmentComplete(code);
@@ -162,7 +176,40 @@ export class RRuntime implements positron.LanguageRuntime, vscode.Disposable {
 			this._kernel = await this.createKernel();
 		}
 		lastRuntimePath = this._kernel.metadata.runtimePath;
+
+		// Register for console width changes, if we haven't already
+		if (!this._consoleWidthDisposable) {
+			this._consoleWidthDisposable =
+				positron.window.onDidChangeConsoleWidth((newWidth) => {
+					this.onConsoleWidthChange(newWidth);
+				});
+		}
 		return this._kernel.start();
+	}
+
+	private async onConsoleWidthChange(newWidth: number): Promise<void> {
+		// Ignore if no kernel
+		if (!this._kernel) {
+			return;
+		}
+
+		// Ignore if kernel exited
+		if (this._state === positron.RuntimeState.Exited) {
+			return;
+		}
+
+		try {
+			// Send the new width to R; this returns the old width for logging
+			const oldWidth = await this.callMethod('setConsoleWidth', newWidth);
+			this._kernel!.emitJupyterLog(`Set console width from ${oldWidth} to ${newWidth}`);
+		} catch (err) {
+			// Log the error if we can't set the console width; this is not
+			// fatal, so we don't rethrow the error
+			const runtimeError = err as positron.RuntimeMethodError;
+			this._kernel!.emitJupyterLog(
+				`Error setting console width: ${runtimeError.message} ` +
+				`(${runtimeError.code})`);
+		}
 	}
 
 	async interrupt(): Promise<void> {
@@ -224,6 +271,10 @@ export class RRuntime implements positron.LanguageRuntime, vscode.Disposable {
 	}
 
 	async dispose() {
+		// Clean up the console width listener
+		this._consoleWidthDisposable?.dispose();
+		this._consoleWidthDisposable = undefined;
+
 		await this._lsp.dispose();
 		if (this._kernel) {
 			await this._kernel.dispose();
@@ -326,6 +377,7 @@ export class RRuntime implements positron.LanguageRuntime, vscode.Disposable {
 	}
 
 	private onStateChange(state: positron.RuntimeState): void {
+		this._state = state;
 		if (state === positron.RuntimeState.Ready) {
 			this._queue.add(async () => {
 				const lsp = this.startLsp();
