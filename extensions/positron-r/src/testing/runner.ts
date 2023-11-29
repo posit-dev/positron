@@ -4,19 +4,16 @@
 
 import * as vscode from 'vscode';
 import { runThatTest } from './runner-testthat';
-import { TestingTools, TestRunner } from './util-testing';
+import { TestingTools } from './util-testing';
 import { Logger } from '../extension';
 
-function setRecursively(
+function maybeEnqueue(
 	test: vscode.TestItem,
-	callback: (test: vscode.TestItem) => any,
+	queue: vscode.TestItem[],
 	excludeSet: readonly vscode.TestItem[] | undefined
 ) {
 	if (!excludeSet?.includes(test)) {
-		callback(test);
-		test.children.forEach((childTest) => {
-			setRecursively(childTest, callback, excludeSet);
-		});
+		queue.push(test);
 	}
 }
 
@@ -25,62 +22,65 @@ export async function runHandler(
 	request: vscode.TestRunRequest,
 	token: vscode.CancellationToken
 ) {
-	Logger.info('Test run started.');
+	Logger.info('Test run started');
 	const run = testingTools.controller.createTestRun(request);
 	const queue: vscode.TestItem[] = [];
+	const explicitInclude = Boolean(request.include?.length);
+	const explicitExclude = Boolean(request.exclude?.length);
+	const runAllTests = !explicitInclude && !explicitExclude;
 
-	// Loop through all included tests, or all known tests, and add them to our queue
-	if (request.include) {
-		request.include.forEach((test) => {
-			queue.push(test);
-			setRecursively(test, (test) => run.enqueued(test), request.exclude);
-		});
-	} else {
-		testingTools.controller.items.forEach((test) => {
-			queue.push(test);
-			setRecursively(test, (test) => run.enqueued(test), request.exclude);
+	// If an individual test (case) is excluded, we approach its parent test (file) as a collection
+	// of tests (cases), instead of as a single test (file).
+	const toBreakUp: vscode.TestItem[] = [];
+	if (explicitExclude) {
+		request.exclude!.forEach((test) => {
+			if (test.parent !== undefined) {
+				toBreakUp.push(test.parent!);
+			}
 		});
 	}
-	Logger.info('Tests are enqueued.');
 
-	// For every test that was queued, try to run it. Call run.passed() or run.failed().
-	// The `TestMessage` can contain extra information, like a failing location or
-	// a diff output. But here we'll just give it a textual message.
-	while (queue.length > 0 && !token.isCancellationRequested) {
-		const test = queue.pop()!;
+	// We only enqueue tests if we are running something smaller than the whole suite.
+	if (!runAllTests) {
+		const eligibleTests = explicitInclude ? request.include! : testingTools.controller.items;
+		eligibleTests.forEach((test) => {
+			if (toBreakUp.includes(test)) {
+				test.children.forEach((childTest) => {
+					maybeEnqueue(childTest, queue, request.exclude);
+				});
+			} else {
+				maybeEnqueue(test, queue, request.exclude);
+			}
+		});
+		Logger.info(`${queue.length} tests are enqueued`);
+	}
 
-		// Skip tests the user asked to exclude
-		if (request.exclude?.includes(test)) {
-			Logger.info(`Excluded test skipped: ${test.label}`);
-			continue;
+	while (!token.isCancellationRequested && (queue.length > 0 || runAllTests)) {
+		let test: vscode.TestItem | undefined;
+		if (queue.length > 0) {
+			test = queue.pop()!;
 		}
 
 		const startDate = Date.now();
 		try {
-			Logger.info(`Running test with label "${test.label}"`);
-			test.busy = true;
+			if (runAllTests) {
+				Logger.info('Running all tests');
+			} else {
+				Logger.info(`Running test with label "${test!.label}"`);
+			}
 			const stdout = await runThatTest(testingTools, run, test);
-			test.busy = false;
 			Logger.debug(`Test output:\n${stdout}`);
 		} catch (error) {
 			Logger.error(`Run errored with reason: "${error}"`);
-			setRecursively(
-				test,
-				(test) => {
-					if (test.busy) {
-						run.errored(
-							test,
-							new vscode.TestMessage(String(error)),
-							test.range === undefined ? Date.now() - startDate : undefined
-						);
-					}
-				},
-				request.exclude
-			);
-			test.busy = false;
+			if (test) {
+				run.errored(test, new vscode.TestMessage(String(error)), Date.now() - startDate);
+			}
+		}
+
+		if (runAllTests) {
+			break;
 		}
 	}
 
-	// Make sure to end the run after all tests have been executed:
 	run.end();
 }
