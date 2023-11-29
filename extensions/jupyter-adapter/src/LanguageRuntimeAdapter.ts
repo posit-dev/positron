@@ -137,7 +137,7 @@ export class LanguageRuntimeAdapter
 			// sent and a response received, errors named in the response are
 			// handled below.
 			const error: positron.RuntimeMethodError = {
-				code: positron.JsonRpcErrorCode.InternalError,
+				code: positron.RuntimeMethodErrorCode.InternalError,
 				message: err.message,
 				name: err.name,
 				data: err, // Wrap the underlying error in a data object
@@ -160,7 +160,7 @@ export class LanguageRuntimeAdapter
 		// or an 'error'; make sure we got a result before we pass it back.
 		if (!Object.keys(response).includes('result')) {
 			const error: positron.RuntimeMethodError = {
-				code: positron.JsonRpcErrorCode.InternalError,
+				code: positron.RuntimeMethodErrorCode.InternalError,
 				message: `Invalid response from frontend comm: no 'result' field. ` +
 					`(response = ${JSON.stringify(response)})`,
 				name: `InvalidResponseError`,

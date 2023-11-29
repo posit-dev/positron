@@ -134,6 +134,7 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			RuntimeClientType: extHostTypes.RuntimeClientType,
 			RuntimeClientState: extHostTypes.RuntimeClientState,
 			RuntimeExitReason: extHostTypes.RuntimeExitReason,
+			RuntimeMethodErrorCode: extHostTypes.RuntimeMethodErrorCode,
 			LanguageRuntimeMessageType: extHostTypes.LanguageRuntimeMessageType,
 			LanguageRuntimeStreamName: extHostTypes.LanguageRuntimeStreamName,
 			RuntimeCodeExecutionMode: extHostTypes.RuntimeCodeExecutionMode,

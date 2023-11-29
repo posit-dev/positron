@@ -507,9 +507,10 @@ declare module 'positron' {
 	export type LanguageRuntimeProvider = AsyncGenerator<LanguageRuntime>;
 
 	/**
-	 * An enum representing the set of JSON-RPC error codes.
+	 * An enum representing the set of runtime method error codes; these map to
+	 * JSON-RPC error codes.
 	 */
-	export enum JsonRpcErrorCode {
+	export enum RuntimeMethodErrorCode {
 		ParseError = -32700,
 		InvalidRequest = -32600,
 		MethodNotFound = -32601,
@@ -524,7 +525,7 @@ declare module 'positron' {
 	 */
 	export interface RuntimeMethodError {
 		/** An error code */
-		code: JsonRpcErrorCode;
+		code: RuntimeMethodErrorCode;
 
 		/** A human-readable error message */
 		message: string;
