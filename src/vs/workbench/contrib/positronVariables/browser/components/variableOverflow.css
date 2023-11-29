@@ -1,0 +1,59 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
+ *--------------------------------------------------------------------------------------------*/
+
+.variable-overflow {
+	display: flex;
+	cursor: pointer;
+	box-sizing: border-box; /* Draw the borders inside the box. */
+	border-top: 0.5px solid var(--vscode-positronVariables-grid);
+	border-bottom: 0.5px solid var(--vscode-positronVariables-grid);
+}
+
+.variable-overflow:hover {
+	background: var(--vscode-positronVariables-rowHoverBackground)
+}
+
+.variable-overflow.selected {
+	color: var(--vscode-positronVariables-inactiveSelectionForeground);
+	background: var(--vscode-positronVariables-inactiveSelectionBackground);
+}
+
+.variable-overflow.focused.selected {
+	color: var(--vscode-positronVariables-activeSelectionForeground);
+	background: var(--vscode-positronVariables-activeSelectionBackground);
+}
+
+.variable-overflow .name-column {
+	display: flex;
+	flex-shrink: 0;
+	overflow: hidden;
+	align-items: center;
+	white-space: nowrap;
+	text-overflow: ellipsis;
+}
+
+.variable-overflow .name-column .name-column-indenter {
+	display: flex;
+}
+
+.variable-overflow .name-value {
+	height: 26px;
+	display: flex;
+	margin-left: 26px;
+	align-items: center;
+}
+
+.variable-overflow .details-column {
+	display: flex;
+	align-items: center;
+}
+
+.variable-overflow .details-column .value {
+	flex-grow: 1;
+	flex-shrink: 1;
+	overflow: hidden;
+	white-space: nowrap;
+	margin: 0 10px 0 8px;
+	text-overflow: ellipsis;
+}
