@@ -33,6 +33,11 @@ import { ActivityItemInput, ActivityItemInputState } from 'vs/workbench/services
 import { ActivityItemErrorStream, ActivityItemOutputStream } from 'vs/workbench/services/positronConsole/browser/classes/activityItemStream';
 import { IPositronConsoleInstance, IPositronConsoleService, POSITRON_CONSOLE_VIEW_ID, PositronConsoleState } from 'vs/workbench/services/positronConsole/browser/interfaces/positronConsoleService';
 import { formatLanguageRuntime, ILanguageRuntime, ILanguageRuntimeExit, ILanguageRuntimeMessage, ILanguageRuntimeService, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeExitReason, RuntimeOnlineState, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
+import { IEditorOptions } from 'vs/editor/common/config/editorOptions';
+import { FontMeasurements } from 'vs/editor/browser/config/fontMeasurements';
+import { PixelRatio } from 'vs/base/browser/browser';
+import { BareFontInfo } from 'vs/editor/common/config/fontInfo';
 
 /**
  * The onDidChangeRuntimeItems throttle threshold and throttle interval. The throttle threshold
@@ -150,6 +155,16 @@ class PositronConsoleService extends Disposable implements IPositronConsoleServi
 	 */
 	private readonly _onDidChangeActivePositronConsoleInstanceEmitter = this._register(new Emitter<IPositronConsoleInstance | undefined>);
 
+	/**
+	 * The onDidChangeConsoleWidth event emitter.
+	 */
+	private readonly _onDidChangeConsoleWidthEmitter = this._register(new Emitter<number>());
+
+	/**
+	 * The debounce timer for the onDidChangeConsoleWidth event.
+	 */
+	private _consoleWidthDebounceTimer: NodeJS.Timeout | undefined;
+
 	//#endregion Private Properties
 
 	//#region Constructor & Dispose
@@ -166,6 +181,7 @@ class PositronConsoleService extends Disposable implements IPositronConsoleServi
 		@ILogService private readonly _logService: ILogService,
 		@IViewsService private readonly _viewsService: IViewsService,
 		@IWorkbenchLayoutService private readonly _layoutService: IWorkbenchLayoutService,
+		@IConfigurationService private readonly _configurationService: IConfigurationService
 	) {
 		// Call the disposable constrcutor.
 		super();
@@ -296,6 +312,9 @@ class PositronConsoleService extends Disposable implements IPositronConsoleServi
 	// An event that is fired when the active REPL instance changes.
 	readonly onDidChangeActivePositronConsoleInstance = this._onDidChangeActivePositronConsoleInstanceEmitter.event;
 
+	// An event that is fired when the width of the console changes.
+	readonly onDidChangeConsoleWidth = this._onDidChangeConsoleWidthEmitter.event;
+
 	// Gets the repl instances.
 	get positronConsoleInstances(): IPositronConsoleInstance[] {
 		return Array.from(this._positronConsoleInstancesByRuntimeId.values());
@@ -401,8 +420,38 @@ class PositronConsoleService extends Disposable implements IPositronConsoleServi
 		// Fire the onDidChangeActivePositronConsoleInstance event.
 		this._onDidChangeActivePositronConsoleInstanceEmitter.fire(positronConsoleInstance);
 
+		// Listen for console width changes.
+		this._register(positronConsoleInstance.onDidChangeWidthPx(widthPx => {
+			this.onConsoleWidthChange(widthPx);
+		}));
+
 		// Return the instance.
 		return positronConsoleInstance;
+	}
+
+	private onConsoleWidthChange(newWidth: number) {
+		// Clear the previous debounce timer, if any.
+		if (this._consoleWidthDebounceTimer) {
+			clearTimeout(this._consoleWidthDebounceTimer);
+		}
+
+		// When the debounce timer fires, compute the new console width and fire the
+		// onDidChangeConsoleWidth event.
+		this._consoleWidthDebounceTimer = setTimeout(() => {
+
+			// Read the current editor font settings;  use them to create font
+			// measurments and compute the new console width.
+			const editorOptions = this._configurationService.getValue<IEditorOptions>('editor');
+			const fontInfo = FontMeasurements.readFontInfo(
+				BareFontInfo.createFromRawSettings(editorOptions, PixelRatio.value)
+			);
+
+			// We use the width of a space character to compute the new console
+			// width; this assumes a monospace font.
+			const textWidth = Math.floor(newWidth / fontInfo.spaceWidth);
+
+			this._onDidChangeConsoleWidthEmitter.fire(textWidth);
+		}, 500);
 	}
 
 	/**
@@ -559,10 +608,20 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	private readonly _onDidAttachRuntime = this._register(new Emitter<ILanguageRuntime | undefined>);
 
 	/**
+	 * The onDidChangeWidth event emitter.
+	 */
+	private readonly _onDidChangeWidthPx = this._register(new Emitter<number>);
+
+	/**
 	 * Provides access to the input text editor, if it's available. Note that we generally prefer to
 	 * interact with this editor indirectly, since its state is managed by React.
 	 */
 	private _inputTextEditor: IEditor | undefined;
+
+	/**
+	 * The current width of the console.
+	 */
+	private _width = 0;
 
 	//#endregion Private Properties
 
@@ -597,6 +656,18 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	 */
 	set inputTextEditor(value: IEditor | undefined) {
 		this._inputTextEditor = value;
+	}
+
+	/**
+	 * Sets the console's width in pixels.
+	 *
+	 * @param newWidth The new width, in pixels.
+	 */
+	setWidthPx(newWidth: number): void {
+		if (this._width !== newWidth) {
+			this._width = newWidth;
+			this._onDidChangeWidthPx.fire(newWidth);
+		}
 	}
 
 	/**
@@ -732,6 +803,11 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	 * onDidAttachRuntime event.
 	 */
 	readonly onDidAttachRuntime = this._onDidAttachRuntime.event;
+
+	/**
+	 * onDidChangeWidthPx event.
+	 */
+	readonly onDidChangeWidthPx = this._onDidChangeWidthPx.event;
 
 	/**
 	 * Focuses the input for the console.

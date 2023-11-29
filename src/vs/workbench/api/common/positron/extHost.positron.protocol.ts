@@ -50,6 +50,12 @@ export interface MainThreadModalDialogsShape extends IDisposable {
 // The interface to the main thread exposed by the extension host
 export interface ExtHostModalDialogsShape { }
 
+export interface ExtHostConsoleShape {
+	$onDidChangeConsoleWidth(newWidth: number): void;
+}
+
+export interface MainThreadConsoleShape { }
+
 /**
  * The view state of a preview in the Preview panel. Only one preview can be
  * active at a time (the one currently loaded into the panel); the active
@@ -109,10 +115,12 @@ export const ExtHostPositronContext = {
 	ExtHostLanguageRuntime: createProxyIdentifier<ExtHostLanguageRuntimeShape>('ExtHostLanguageRuntime'),
 	ExtHostPreviewPanel: createProxyIdentifier<ExtHostPreviewPanelShape>('ExtHostPreviewPanel'),
 	ExtHostModalDialogs: createProxyIdentifier<ExtHostModalDialogsShape>('ExtHostModalDialogs'),
+	ExtHostConsole: createProxyIdentifier<ExtHostConsoleShape>('ExtHostConsole'),
 };
 
 export const MainPositronContext = {
 	MainThreadLanguageRuntime: createProxyIdentifier<MainThreadLanguageRuntimeShape>('MainThreadLanguageRuntime'),
 	MainThreadPreviewPanel: createProxyIdentifier<MainThreadPreviewPanelShape>('MainThreadPreviewPanel'),
 	MainThreadModalDialogs: createProxyIdentifier<MainThreadModalDialogsShape>('MainThreadModalDialogs'),
+	MainThreadConsole: createProxyIdentifier<MainThreadConsoleShape>('MainThreadConsole'),
 };

@@ -68,7 +68,7 @@ const HelpLines = [
 	'flicker          - Simulates a flickering console prompt',
 	'help             - Shows this help',
 	'html             - Simulates HTML output',
-  'modal            - Simulates a simple modal dialog',
+	'modal            - Simulates a simple modal dialog',
 	'offline          - Simulates going offline for two seconds',
 	'plot X           - Renders a dynamic (auto-sizing) plot of the letter X',
 	'preview          - Opens or gets the status of a preview pane',
@@ -908,6 +908,16 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 				break;
 			}
 		}
+	}
+
+	/**
+	 * Stub placeholder for `callMethod`; not implemented in Zed.
+	 */
+	callMethod(method: string, ...args: any[]): Thenable<any> {
+		return Promise.resolve({
+			id: randomUUID(),
+			result: {}
+		});
 	}
 
 	/**

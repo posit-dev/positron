@@ -96,6 +96,7 @@ import './mainThreadIssueReporter';
 import './positron/mainThreadLanguageRuntime';
 import './positron/mainThreadPreviewPanel';
 import './positron/mainThreadModalDialogs';
+import './positron/mainThreadConsole';
 // --- End Positron ---
 
 export class ExtensionPoints implements IWorkbenchContribution {

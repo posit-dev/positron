@@ -63,6 +63,11 @@ export interface IPositronConsoleService {
 	readonly onDidChangeActivePositronConsoleInstance: Event<IPositronConsoleInstance | undefined>;
 
 	/**
+	 * The onDidChangeConsoleWidth event.
+	 */
+	readonly onDidChangeConsoleWidth: Event<number>;
+
+	/**
 	 * Placeholder that gets called to "initialize" the PositronConsoleService.
 	 */
 	initialize(): void;
@@ -178,9 +183,20 @@ export interface IPositronConsoleInstance {
 	readonly onDidAttachRuntime: Event<ILanguageRuntime | undefined>;
 
 	/**
+	 * The onDidChangeWidthPx event.
+	 */
+	readonly onDidChangeWidthPx: Event<number>;
+
+	/**
 	 * Focuses the input for the console.
 	 */
 	focusInput(): void;
+
+	/**
+	 * Tells the console its current width, in pixels. Fires the
+	 * onDidChangeWidth event if the width has changed.
+	 */
+	setWidthPx(newWidth: number): void;
 
 	/**
 	 * Returns the active text editor widget for the console, if it exists.
