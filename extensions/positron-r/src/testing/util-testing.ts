@@ -3,28 +3,33 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import * as path from 'path';
+import { Logger } from '../extension';
 
 export enum ItemType {
+	Directory = 'directory',
 	File = 'file',
-	TestCase = 'test',
+	TestThat = 'test_that',
+	Describe = 'describe',
+	It = 'it',
 }
 
 export interface TestingTools {
+	packageRoot: vscode.Uri;
+	packageName: string;
 	controller: vscode.TestController;
 	testItemData: WeakMap<vscode.TestItem, ItemType>;
 }
 
 export function encodeNodeId(
-	filePath: string,
-	testLabel: string,
+	testFile: string,
+	testLabel: string | undefined = undefined,
 	testSuperLabel: string | undefined = undefined
 ) {
-	let normalizedFilePath = path.normalize(filePath);
-	normalizedFilePath = normalizedFilePath.replace(/^[\\\/]+|[\\\/]+$/g, '');
 	return testSuperLabel
-		? `${normalizedFilePath}&${testSuperLabel}: ${testLabel}`
-		: `${normalizedFilePath}&${testLabel}`;
+		? `${testFile}&${testSuperLabel}: ${testLabel}`
+		: testLabel
+			? `${testFile}&${testLabel}`
+			: testFile;
 }
 
 export interface TestParser {
