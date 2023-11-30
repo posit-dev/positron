@@ -89,16 +89,12 @@ export class RRuntime implements positron.LanguageRuntime, vscode.Disposable {
 		switch (resource.scheme) {
 			// Help resource.
 			case 'x-r-help':
-				console.log('*******************************************************');
-				console.log(`R runtime should open help resource "${resource.path}"`);
-				console.log('*******************************************************');
+				this.showHelpTopic(resource.path);
 				return Promise.resolve(true);
 
 			// Vignette resource.
 			case 'x-r-vignette':
-				console.log('*******************************************************');
-				console.log(`R runtime should open vignette resource "${resource.path}"`);
-				console.log('*******************************************************');
+				this.showVignetteTopic(resource.path);
 				return Promise.resolve(true);
 
 			// Unhandled.
@@ -393,6 +389,48 @@ export class RRuntime implements positron.LanguageRuntime, vscode.Disposable {
 					await this._lsp.deactivate(false);
 				});
 			}
+		}
+	}
+
+	/**
+	 * Shows a help topic in the Positron help viewer.
+	 *
+	 * @param topic The help topic to show.
+	 */
+	private async showHelpTopic(topic: string): Promise<void> {
+		try {
+			// showHelpTopic returns a logical value indicating whether the
+			// topic was found. If it wasn't, we'll show an error message.
+			const result = await this.callMethod('showHelpTopic', topic);
+			if (!result) {
+				vscode.window.showWarningMessage(
+					`The requested help topic '${topic}' was not found.`);
+			}
+		} catch (err) {
+			const runtimeError = err as positron.RuntimeMethodError;
+			vscode.window.showErrorMessage(
+				`Error showing help topic '${topic}': ${runtimeError.message} ` +
+				`(${runtimeError.code})`);
+		}
+	}
+
+	/**
+	 * Shows a vignette topic in the Positron help viewer.
+	 *
+	 * @param topic The vignette topic to show.
+	 */
+	private async showVignetteTopic(topic: string): Promise<void> {
+		try {
+			const result = await this.callMethod('showVignetteTopic', topic);
+			if (!result) {
+				vscode.window.showWarningMessage(
+					`The requested vignette topic '${topic}' was not found.`);
+			}
+		} catch (err) {
+			const runtimeError = err as positron.RuntimeMethodError;
+			vscode.window.showErrorMessage(
+				`Error showing vignette topic '${topic}': ${runtimeError.message} ` +
+				`(${runtimeError.code})`);
 		}
 	}
 }
