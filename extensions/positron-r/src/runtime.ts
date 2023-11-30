@@ -87,14 +87,21 @@ export class RRuntime implements positron.LanguageRuntime, vscode.Disposable {
 
 		// Dispatch the open.
 		switch (resource.scheme) {
-			// Help resource.
+			// Open help resource.
 			case 'x-r-help':
 				this.showHelpTopic(resource.path);
 				return Promise.resolve(true);
 
-			// Vignette resource.
+			// Open vignette resource.
 			case 'x-r-vignette':
 				this.showVignetteTopic(resource.path);
+				return Promise.resolve(true);
+
+			// Run code.
+			case 'x-r-run':
+				console.log('********************************************************************');
+				console.log(`R runtime should run resource "${resource.path}"`);
+				console.log('********************************************************************');
 				return Promise.resolve(true);
 
 			// Unhandled.

@@ -5,23 +5,37 @@
 import * as vscode from 'vscode';
 import { getParser, parseCells } from './parser';
 
+export enum ContextKey {
+	SupportsCodeCells = 'positron.supportsCodeCells',
+	HasCodeCells = 'positron.hasCodeCells',
+}
+
+export const contexts: Map<ContextKey, boolean | undefined> = new Map([
+	[ContextKey.SupportsCodeCells, false],
+	[ContextKey.HasCodeCells, false],
+]);
+
 function setSupportsCodeCellsContext(editor: vscode.TextEditor | undefined): void {
+	const value = editor && getParser(editor.document.languageId) !== undefined;
+	contexts.set(ContextKey.SupportsCodeCells, value);
 	vscode.commands.executeCommand(
 		'setContext',
-		'positron.supportsCodeCells',
-		editor && getParser(editor.document.languageId),
+		ContextKey.SupportsCodeCells,
+		value,
 	);
 }
 
 function setHasCodeCellsContext(document: vscode.TextDocument | undefined): void {
+	const value = document && parseCells(document).length > 0;
+	contexts.set(ContextKey.HasCodeCells, value);
 	vscode.commands.executeCommand(
 		'setContext',
 		'positron.hasCodeCells',
-		document && parseCells(document).length > 0,
+		value,
 	);
 }
 
-export function activateContextKeys(context: vscode.ExtensionContext): void {
+export function activateContextKeys(disposables: vscode.Disposable[]): void {
 	let activeEditor = vscode.window.activeTextEditor;
 
 	if (activeEditor) {
@@ -29,7 +43,7 @@ export function activateContextKeys(context: vscode.ExtensionContext): void {
 		setHasCodeCellsContext(activeEditor.document);
 	}
 
-	context.subscriptions.push(
+	disposables.push(
 		vscode.window.onDidChangeActiveTextEditor((editor) => {
 			// Update the active editor.
 			activeEditor = editor;
