@@ -740,7 +740,7 @@ def _resolve(target: str, from_obj: Any) -> Optional[str]:
     # Is `target` a module?
     try:
         importlib.import_module(target)
-    except ImportError:
+    except:
         pass
     else:
         return target
@@ -750,7 +750,7 @@ def _resolve(target: str, from_obj: Any) -> Optional[str]:
         module_path, object_path = target.rsplit(".", 1)
         try:
             module = importlib.import_module(module_path)
-        except ImportError:
+        except:
             pass
         else:
             # Ignore all warnings that happen upon `hasattr(module, object_path)` e.g.
@@ -772,7 +772,7 @@ def _resolve(target: str, from_obj: Any) -> Optional[str]:
             module_path, object_path = module_path.rsplit(".", 1)
             try:
                 module = importlib.import_module(module_path)
-            except ImportError:
+            except:
                 pass
             else:
                 obj = getattr(module, object_path, None)
