@@ -519,6 +519,40 @@ declare module 'positron' {
 	}
 
 	/**
+	 * An enum representing the set of runtime method error codes; these map to
+	 * JSON-RPC error codes.
+	 */
+	export enum RuntimeMethodErrorCode {
+		ParseError = -32700,
+		InvalidRequest = -32600,
+		MethodNotFound = -32601,
+		InvalidParams = -32602,
+		InternalError = -32603,
+		ServerErrorStart = -32000,
+		ServerErrorEnd = -32099
+	}
+
+	/**
+	 * An error returned by a runtime method call.
+	 */
+	export interface RuntimeMethodError {
+		/** An error code */
+		code: RuntimeMethodErrorCode;
+
+		/** A human-readable error message */
+		message: string;
+
+		/**
+		 * A name for the error, for compatibility with the Error object.
+		 * Usually `RPC Error ${code}`.
+		 */
+		name: string;
+
+		/** Additional error information (optional) */
+		data: any | undefined;
+	}
+
+	/**
 	 * LanguageRuntime is an interface implemented by extensions that provide a
 	 * set of common tools for interacting with a language runtime, such as code
 	 * execution, LSP implementation, and plotting.
@@ -539,11 +573,28 @@ declare module 'positron' {
 		/** An object that emits an event when the user's session ends and the runtime exits */
 		onDidEndSession: vscode.Event<LanguageRuntimeExit>;
 
+		/**
+		 * Opens a resource in the runtime.
+		 * @param resource The resource to open.
+		 * @returns true if the resource was opened; otherwise, false.
+		 */
+		openResource?(resource: vscode.Uri | string): Thenable<boolean>;
+
 		/** Execute code in the runtime */
 		execute(code: string,
 			id: string,
 			mode: RuntimeCodeExecutionMode,
 			errorBehavior: RuntimeErrorBehavior): void;
+
+		/**
+		 * Calls a method in the runtime and returns the result.
+		 *
+		 * Throws a RuntimeMethodError if the method call fails.
+		 *
+		 * @param method The name of the method to call
+		 * @param args Arguments to pass to the method
+		 */
+		callMethod?(method: string, ...args: any[]): Thenable<any>;
 
 		/** Test a code fragment for completeness */
 		isCodeFragmentComplete(code: string): Thenable<RuntimeCodeFragmentStatus>;
@@ -911,6 +962,12 @@ declare module 'positron' {
 			okButtonTitle?: string,
 			cancelButtonTitle?: string): Thenable<boolean>;
 
+		/**
+		 * Fires when the width of the console changes. The new width is passed as
+		 * a number, which represents the number of characters that can fit in the
+		 * console horizontally.
+		 */
+		export const onDidChangeConsoleWidth: vscode.Event<number>;
 	}
 
 	namespace runtime {

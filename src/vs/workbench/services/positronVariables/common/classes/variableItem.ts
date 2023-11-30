@@ -2,8 +2,10 @@
  *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
+import { generateUuid } from 'vs/base/common/uuid';
 import { IVariableItem } from 'vs/workbench/services/positronVariables/common/interfaces/variableItem';
 import { Variable } from 'vs/workbench/services/languageRuntime/common/languageRuntimeVariablesClient';
+import { VariableOverflow } from 'vs/workbench/services/positronVariables/common/classes/variableOverflow';
 
 /**
  * VariableItem class. This is used to represent an variable in a language runtime.
@@ -22,9 +24,9 @@ export class VariableItem implements IVariableItem {
 	private readonly _variable: Variable;
 
 	/**
-	 * Gets or sets the child variable items.
+	 * Gets or sets the child entries.
 	 */
-	private _variableItems: Map<string, VariableItem> | undefined = undefined;
+	private _childEntries: Map<string, VariableItem | VariableOverflow> | undefined = undefined;
 
 	/**
 	 * Gets or sets a value which indicates whether the variable item is expanded.
@@ -171,29 +173,30 @@ export class VariableItem implements IVariableItem {
 	//#region Public Methods
 
 	/**
-	 * Locates a child entry.
-	 * @param path The path of the child entry to locate.
+	 * Locates a variable item by its path.
+	 * @param path The path of the variable item locate.
+	 * @returns The variable item, if found; otherwise, undefined.
 	 */
-	locateChildEntry(path: string[]): VariableItem | undefined {
+	locateVariableItem(path: string[]): VariableItem | undefined {
 		// When the path is empty, return this.
 		if (!path.length) {
 			return this;
 		}
 
-		// Find the matching child variable item.
-		const variableItem = this._variableItems?.get(path[0]);
-		if (!variableItem) {
+		// Find the matching child entry.
+		const childEntry = this._childEntries?.get(path[0]);
+		if (!childEntry || !(childEntry instanceof VariableItem)) {
 			return undefined;
 		}
 
-		// Recursively locate the child entry.
-		return variableItem.locateChildEntry(path.slice(1));
+		// Recursively locate the variable item.
+		return childEntry.locateVariableItem(path.slice(1));
 	}
 
 	/**
-	 * Loads the children.
+	 * Loads the child entries.
 	 */
-	async loadChildren(isExpanded: (path: string[]) => boolean): Promise<void> {
+	async loadChildEntries(isExpanded: (path: string[]) => boolean): Promise<void> {
 		// If this variable item has no children, return. (It may have had children and been
 		// expanded in the past, so this can happen from time to time.)
 		if (!this.hasChildren) {
@@ -203,18 +206,18 @@ export class VariableItem implements IVariableItem {
 		// Asynchronously load the children of this this variable item.
 		const environmentClientList = await this._variable.getChildren();
 
-		// Add the children variables, recursively loading each one that is expanded.
-		this._variableItems = new Map<string, VariableItem>();
+		// Add the children entries, recursively loading each one that is expanded.
+		this._childEntries = new Map<string, VariableItem>();
 		const promises: Promise<void>[] = [];
 		for (const variable of environmentClientList.variables) {
-			// Create and add the child variable item.
+			// Create and add the variable item.
 			const variableItem = new VariableItem(variable);
-			this._variableItems.set(variableItem.accessKey, variableItem);
+			this._childEntries.set(variableItem.accessKey, variableItem);
 
 			// If the child variable item has children and is expanded, recursively load its
-			// children.
+			// child entries.
 			if (variableItem.hasChildren && isExpanded(variableItem.path)) {
-				promises.push(variableItem.loadChildren(isExpanded));
+				promises.push(variableItem.loadChildEntries(isExpanded));
 			}
 		}
 
@@ -222,37 +225,53 @@ export class VariableItem implements IVariableItem {
 		if (promises.length) {
 			await Promise.all(promises);
 		}
+
+		// If this variable is truncated, add the variable overflow.
+		if (this._variable.data.is_truncated) {
+			// Create the variable overflow.
+			const variableOverflow = new VariableOverflow(
+				generateUuid(),
+				this._variable.parentKeys.length + 1,
+				this._variable.data.length - this._childEntries.size);
+
+			// Add the variable overflow.
+			this._childEntries.set(variableOverflow.id, variableOverflow);
+		}
 	}
 
 	/**
-	 * Flattens this variable item.
-	 * @returns The flattened variable item.
+	 * Flattens the variable item.
+	 * @returns The flattened variable item child entries.
 	 */
-	flatten(isExpanded: (path: string[]) => boolean): VariableItem[] {
-		// Create the flattened variable items with this variable item as the first entry.
-		const items: VariableItem[] = [this];
+	flatten(isExpanded: (path: string[]) => boolean): (VariableItem | VariableOverflow)[] {
+		// Create the child entries flattened variable items with this variable item as the first entry.
+		const childEntries: (VariableItem | VariableOverflow)[] = [this];
 
 		// If this variable item doesn't have children, return the flattened variable items
 		if (!this.hasChildren) {
 			this.expanded = false;
-			return items;
+			return childEntries;
 		}
 
 		// Update the expanded state of this variable item.
 		this.expanded = isExpanded(this._variable.path);
 
 		// If this variable item isn't expanded or the children have not been loaded, return.
-		if (!this.expanded || !this._variableItems) {
-			return items;
+		if (!this.expanded || !this._childEntries) {
+			return childEntries;
 		}
 
 		// Recursively flatten the children of this variable item.
-		for (const variableItem of this._variableItems.values()) {
-			items.push(...variableItem.flatten(isExpanded));
+		for (const variableItem of this._childEntries.values()) {
+			if (variableItem instanceof VariableOverflow) {
+				childEntries.push(variableItem);
+			} else {
+				childEntries.push(...variableItem.flatten(isExpanded));
+			}
 		}
 
 		// Done.
-		return items;
+		return childEntries;
 	}
 
 	/**

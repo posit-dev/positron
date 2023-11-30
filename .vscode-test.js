@@ -35,7 +35,14 @@ const extensions = [
 		label: 'github-authentication',
 		workspaceFolder: path.join(os.tmpdir(), `msft-auth-${Math.floor(Math.random() * 100000)}`),
 		mocha: { timeout: 60_000 }
+	},
+	// --- Start Positron ---
+	{
+		label: 'positron-code-cells',
+		workspaceFolder: path.join(os.tmpdir(), `positron-code-cells-${Math.floor(Math.random() * 100000)}`),
+		mocha: { timeout: 60_000 }
 	}
+	// --- End Positron ---
 ];
 
 

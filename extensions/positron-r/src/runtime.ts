@@ -45,6 +45,12 @@ export class RRuntime implements positron.LanguageRuntime, vscode.Disposable {
 	/** The Jupyter Adapter extension API */
 	private adapterApi?: JupyterAdapterApi;
 
+	/** The registration for console width changes */
+	private _consoleWidthDisposable?: vscode.Disposable;
+
+	/** The current state of the runtime */
+	private _state: positron.RuntimeState = positron.RuntimeState.Uninitialized;
+
 	constructor(
 		readonly context: vscode.ExtensionContext,
 		readonly kernelSpec: JupyterKernelSpec,
@@ -68,11 +74,55 @@ export class RRuntime implements positron.LanguageRuntime, vscode.Disposable {
 	onDidReceiveRuntimeMessage: vscode.Event<positron.LanguageRuntimeMessage>;
 	onDidChangeRuntimeState: vscode.Event<positron.RuntimeState>;
 
+	/**
+	 * Opens a resource in the runtime.
+	 * @param resource The resource to open.
+	 * @returns true if the resource was opened; otherwise, false.
+	 */
+	openResource(resource: vscode.Uri | string): Thenable<boolean> {
+		// If the resource is a string, parse it as a URI.
+		if (typeof resource === 'string') {
+			resource = vscode.Uri.parse(resource);
+		}
+
+		// Dispatch the open.
+		switch (resource.scheme) {
+			// Open help resource.
+			case 'x-r-help':
+				this.showHelpTopic(resource.path);
+				return Promise.resolve(true);
+
+			// Open vignette resource.
+			case 'x-r-vignette':
+				this.showVignetteTopic(resource.path);
+				return Promise.resolve(true);
+
+			// Run code.
+			case 'x-r-run':
+				console.log('********************************************************************');
+				console.log(`R runtime should run resource "${resource.path}"`);
+				console.log('********************************************************************');
+				return Promise.resolve(true);
+
+			// Unhandled.
+			default:
+				return Promise.resolve(false);
+		}
+	}
+
 	execute(code: string, id: string, mode: positron.RuntimeCodeExecutionMode, errorBehavior: positron.RuntimeErrorBehavior): void {
 		if (this._kernel) {
 			this._kernel.execute(code, id, mode, errorBehavior);
 		} else {
 			throw new Error(`Cannot execute '${code}'; kernel not started`);
+		}
+	}
+
+	callMethod(method: string, ...args: any[]): Thenable<any> {
+		if (this._kernel) {
+			return this._kernel.callMethod(method, ...args);
+		} else {
+			throw new Error(`Cannot call method '${method}'; kernel not started`);
 		}
 	}
 
@@ -129,7 +179,40 @@ export class RRuntime implements positron.LanguageRuntime, vscode.Disposable {
 			this._kernel = await this.createKernel();
 		}
 		lastRuntimePath = this._kernel.metadata.runtimePath;
+
+		// Register for console width changes, if we haven't already
+		if (!this._consoleWidthDisposable) {
+			this._consoleWidthDisposable =
+				positron.window.onDidChangeConsoleWidth((newWidth) => {
+					this.onConsoleWidthChange(newWidth);
+				});
+		}
 		return this._kernel.start();
+	}
+
+	private async onConsoleWidthChange(newWidth: number): Promise<void> {
+		// Ignore if no kernel
+		if (!this._kernel) {
+			return;
+		}
+
+		// Ignore if kernel exited
+		if (this._state === positron.RuntimeState.Exited) {
+			return;
+		}
+
+		try {
+			// Send the new width to R; this returns the old width for logging
+			const oldWidth = await this.callMethod('setConsoleWidth', newWidth);
+			this._kernel!.emitJupyterLog(`Set console width from ${oldWidth} to ${newWidth}`);
+		} catch (err) {
+			// Log the error if we can't set the console width; this is not
+			// fatal, so we don't rethrow the error
+			const runtimeError = err as positron.RuntimeMethodError;
+			this._kernel!.emitJupyterLog(
+				`Error setting console width: ${runtimeError.message} ` +
+				`(${runtimeError.code})`);
+		}
 	}
 
 	async interrupt(): Promise<void> {
@@ -191,6 +274,10 @@ export class RRuntime implements positron.LanguageRuntime, vscode.Disposable {
 	}
 
 	async dispose() {
+		// Clean up the console width listener
+		this._consoleWidthDisposable?.dispose();
+		this._consoleWidthDisposable = undefined;
+
 		await this._lsp.dispose();
 		if (this._kernel) {
 			await this._kernel.dispose();
@@ -293,6 +380,7 @@ export class RRuntime implements positron.LanguageRuntime, vscode.Disposable {
 	}
 
 	private onStateChange(state: positron.RuntimeState): void {
+		this._state = state;
 		if (state === positron.RuntimeState.Ready) {
 			this._queue.add(async () => {
 				const lsp = this.startLsp();
@@ -308,6 +396,48 @@ export class RRuntime implements positron.LanguageRuntime, vscode.Disposable {
 					await this._lsp.deactivate(false);
 				});
 			}
+		}
+	}
+
+	/**
+	 * Shows a help topic in the Positron help viewer.
+	 *
+	 * @param topic The help topic to show.
+	 */
+	private async showHelpTopic(topic: string): Promise<void> {
+		try {
+			// showHelpTopic returns a logical value indicating whether the
+			// topic was found. If it wasn't, we'll show an error message.
+			const result = await this.callMethod('showHelpTopic', topic);
+			if (!result) {
+				vscode.window.showWarningMessage(
+					`The requested help topic '${topic}' was not found.`);
+			}
+		} catch (err) {
+			const runtimeError = err as positron.RuntimeMethodError;
+			vscode.window.showErrorMessage(
+				`Error showing help topic '${topic}': ${runtimeError.message} ` +
+				`(${runtimeError.code})`);
+		}
+	}
+
+	/**
+	 * Shows a vignette topic in the Positron help viewer.
+	 *
+	 * @param topic The vignette topic to show.
+	 */
+	private async showVignetteTopic(topic: string): Promise<void> {
+		try {
+			const result = await this.callMethod('showVignetteTopic', topic);
+			if (!result) {
+				vscode.window.showWarningMessage(
+					`The requested vignette topic '${topic}' was not found.`);
+			}
+		} catch (err) {
+			const runtimeError = err as positron.RuntimeMethodError;
+			vscode.window.showErrorMessage(
+				`Error showing vignette topic '${topic}': ${runtimeError.message} ` +
+				`(${runtimeError.code})`);
 		}
 	}
 }
