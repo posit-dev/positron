@@ -108,10 +108,10 @@ export class PositronIPyWidgetsService extends Disposable implements IPositronIP
 	}
 
 	/**
-	 * Generates a storage key for a plot.
+	 * Generates a storage key for a widget's metadata.
 	 *
-	 * @param runtimeId The ID of the runtime that owns the plot.
-	 * @param plotId The ID of the plot itself.
+	 * @param runtimeId The ID of the runtime that owns the widget.
+	 * @param widgetId The ID of the widget itself.
 	 */
 	private generateStorageKey(runtimeId: string, widgetId: string): string {
 		return `positron.ipywidget.${runtimeId}.${widgetId}`;
@@ -119,7 +119,7 @@ export class PositronIPyWidgetsService extends Disposable implements IPositronIP
 
 	onDidEmitIPyWidget: Event<IPyWidgetClientInstance> = this._onDidEmitIPyWidget.event;
 
-	// Gets the individual plot instances.
+	// Gets the individual widget client instances.
 	get positronWidgetInstances(): IPyWidgetClientInstance[] {
 		return this._widgets;
 	}
