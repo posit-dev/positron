@@ -24,6 +24,7 @@ import { IPositronHelpService } from 'vs/workbench/contrib/positronHelp/browser/
 import { INotebookService } from 'vs/workbench/contrib/notebook/common/notebookService';
 import { IRuntimeClientEvent } from 'vs/workbench/services/languageRuntime/common/languageRuntimeFrontEndClient';
 import { URI } from 'vs/base/common/uri';
+import { IPositronIPyWidgetsService } from 'vs/workbench/services/positronIPyWidgets/common/positronIPyWidgetsService';
 
 /**
  * Represents a language runtime event (for example a message or state change)
@@ -930,6 +931,7 @@ export class MainThreadLanguageRuntime implements MainThreadLanguageRuntimeShape
 		@IPositronVariablesService private readonly _positronVariablesService: IPositronVariablesService,
 		@IPositronHelpService private readonly _positronHelpService: IPositronHelpService,
 		@IPositronPlotsService private readonly _positronPlotService: IPositronPlotsService,
+		@IPositronIPyWidgetsService private readonly _positronIPyWidgetsService: IPositronIPyWidgetsService,
 		@ILogService private readonly _logService: ILogService,
 		@INotebookService private readonly _notebookService: INotebookService
 	) {
@@ -940,6 +942,7 @@ export class MainThreadLanguageRuntime implements MainThreadLanguageRuntimeShape
 		this._positronConsoleService.initialize();
 		this._positronVariablesService.initialize();
 		this._positronPlotService.initialize();
+		this._positronIPyWidgetsService.initialize();
 		this._proxy = extHostContext.getProxy(ExtHostPositronContext.ExtHostLanguageRuntime);
 
 		this._languageRuntimeService.onDidChangeDiscoveryPhase((phase) => {
