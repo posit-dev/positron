@@ -25,7 +25,7 @@ export interface IPositronIPyWidgetClient extends IDisposable {
 }
 
 /**
- * IPositronPlotsService interface.
+ * IPositronIPyWidgetsService interface.
  */
 export interface IPositronIPyWidgetsService {
 	/**

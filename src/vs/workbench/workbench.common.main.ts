@@ -422,6 +422,5 @@ import 'vs/workbench/services/languageRuntime/common/languageRuntime';
 import 'vs/workbench/contrib/positronHelp/browser/positronHelpService';
 import 'vs/workbench/services/positronConsole/browser/positronConsoleService';
 import 'vs/workbench/services/positronVariables/common/positronVariablesService';
-import 'vs/workbench/services/positronIpWidgets/common/positronIpWidgetsService';
 
 // --- End Positron ---
