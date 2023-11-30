@@ -1,4 +1,4 @@
-"""Positron extenstions to the Jedi Language Server."""
+"""Positron extensions to the Jedi Language Server."""
 
 import asyncio
 import enum
@@ -12,10 +12,11 @@ import threading
 EXTENSION_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(EXTENSION_ROOT, "pythonFiles", "lib", "jedilsp"))
 
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Union, cast
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Type, Union, cast
 
+import attrs
 from comm.base_comm import BaseComm
-from jedi.api import Interpreter
+from jedi.api import Interpreter, Project
 from jedi_language_server import jedi_utils, pygls_utils
 from jedi_language_server.server import (
     JediLanguageServer,
@@ -72,18 +73,21 @@ from lsprotocol.types import (
     Hover,
     InsertTextFormat,
     Location,
+    Position,
     RenameParams,
     SignatureHelp,
     SignatureHelpOptions,
     SymbolInformation,
+    TextDocumentIdentifier,
     TextDocumentPositionParams,
     WorkspaceEdit,
     WorkspaceSymbolParams,
 )
 from pygls.capabilities import get_capability
 from pygls.feature_manager import has_ls_param_or_annotation
+from pygls.workspace import Document
 
-from .help import ShowTopicRequest, HelpMessageType
+from .help import ShowTopicRequest
 
 if TYPE_CHECKING:
     from .positron_ipkernel import PositronIPyKernel
@@ -93,13 +97,36 @@ logger = logging.getLogger(__name__)
 
 _LINE_MAGIC_PREFIX = "%"
 _CELL_MAGIC_PREFIX = "%%"
-_HELP_TOPIC_REQUEST = "positron/textDocument/helpTopic"
+_HELP_TOPIC = "positron/textDocument/helpTopic"
 
 
 @enum.unique
 class _MagicType(str, enum.Enum):
     cell = "cell"
     line = "line"
+
+
+@attrs.define
+class HelpTopicParams:
+    text_document: TextDocumentIdentifier = attrs.field()
+    position: "Position" = attrs.field()
+
+
+@attrs.define
+class HelpTopicRequest:
+    id: Union[int, str] = attrs.field()
+    params: HelpTopicParams = attrs.field()
+    method: str = _HELP_TOPIC
+    jsonrpc: str = attrs.field(default="2.0")
+
+
+class PositronJediLanguageServerProtocol(JediLanguageServerProtocol):
+    def get_message_type(self, method: str) -> Optional[Type]:
+        # Overriden to include custom Positron LSP messages.
+        # Doing so ensures that the corresponding feature function receives `params` of the correct type.
+        if method == _HELP_TOPIC:
+            return HelpTopicRequest
+        return super().get_message_type(method)
 
 
 class PositronJediLanguageServer(JediLanguageServer):
@@ -109,7 +136,7 @@ class PositronJediLanguageServer(JediLanguageServer):
         super().__init__(*args, **kwargs)
 
         self.loop: asyncio.AbstractEventLoop
-        self.lsp: JediLanguageServerProtocol
+        self.lsp: PositronJediLanguageServerProtocol
 
         # LSP comm used to notify the frontend when the server is ready
         self._comm: Optional[BaseComm] = None
@@ -239,7 +266,7 @@ class PositronJediLanguageServer(JediLanguageServer):
 POSITRON = PositronJediLanguageServer(
     name="jedi-language-server",
     version="0.18.2",
-    protocol_cls=JediLanguageServerProtocol,
+    protocol_cls=PositronJediLanguageServerProtocol,
     # Provide an event loop, else the pygls Server base class sets its own event loop as the main
     # event loop, which we use to run the kernel.
     loop=asyncio.new_event_loop(),
@@ -274,16 +301,9 @@ def positron_completion(
     if trimmed_line.startswith(("#", "!")):
         return None
 
-    # Get a reference to the kernel's namespace for enhanced completions
-    namespaces = []
-    if server.kernel is not None:
-        ns = server.kernel.get_user_ns()
-        namespaces.append(ns)
-
     # Use Interpreter instead of Script to include the kernel namespaces in completions
-    jedi_script = Interpreter(
-        document.source, namespaces, path=document.path, project=server.project
-    )
+    jedi_script = interpreter(server.project, document, server.kernel)
+
     # --- End Positron ---
 
     try:
@@ -519,27 +539,26 @@ def positron_rename(
     return rename(server, params)
 
 
-@POSITRON.feature(_HELP_TOPIC_REQUEST)
+@POSITRON.feature(_HELP_TOPIC)
 def positron_help_topic_request(
-    server: PositronJediLanguageServer, params: TextDocumentPositionParams
+    server: PositronJediLanguageServer, params: HelpTopicParams
 ) -> Optional[ShowTopicRequest]:
     """Return topic to display in Help pane"""
-    # TODO: cast params attribute names to camel case, currently ignoring type
-    document = server.workspace.get_document(params.textDocument.uri)  # type: ignore
-    jedi_script = jedi_utils.script(server.project, document)
-    line = params.position.line + 1  # otherwise is off by one
-    column = params.position.character
-    names = jedi_script.infer(line=line, column=column)
+    document = server.workspace.get_document(params.text_document.uri)
+    jedi_script = interpreter(server.project, document, server.kernel)
+    jedi_lines = jedi_utils.line_column(params.position)
+    names = jedi_script.infer(*jedi_lines)
 
     try:
         # if something is found, infer will pass back a list of Name objects
         # but the len is always 1
         topic = names[0].full_name
+    except IndexError:
+        logger.warning(f"Could not find help topic for request: {params}")
+        return None
+    else:
         logger.info(f"Help topic found: {topic}")
         return ShowTopicRequest(topic=topic)
-    except IndexError:
-        logger.warning("LSP comm was not set, could not send server_started message")
-        return None
 
 
 @POSITRON.feature(
@@ -644,3 +663,16 @@ def did_change_diagnostics(server: JediLanguageServer, params: DidChangeTextDocu
 def did_open_diagnostics(server: JediLanguageServer, params: DidOpenTextDocumentParams) -> None:
     """Actions run on textDocument/didOpen: diagnostics."""
     _publish_diagnostics(server, params.text_document.uri)
+
+
+def interpreter(
+    project: Optional[Project], document: Document, kernel: Optional["PositronIPyKernel"]
+) -> Interpreter:
+    """
+    Return a `jedi.Interpreter` with a reference to the kernel's user namespace.
+    """
+    namespaces: List[Dict[str, Any]] = []
+    if kernel is not None:
+        namespaces.append(kernel.get_user_ns())
+
+    return Interpreter(document.source, namespaces, path=document.path, project=project)
