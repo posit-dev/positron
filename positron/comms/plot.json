@@ -1,0 +1,9 @@
+{
+	"name": "positron.plot",
+	"initiator": "backend",
+	"initial_data": {
+		"schema": {
+			"type": "null"
+		}
+	}
+}
