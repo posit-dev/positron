@@ -5,8 +5,8 @@
 import * as vscode from 'vscode';
 import { CellManager } from './cellManager';
 
-export function registerCommands(context: vscode.ExtensionContext) {
-	context.subscriptions.push(
+export function registerCommands(disposables: vscode.Disposable[]) {
+	disposables.push(
 		vscode.commands.registerCommand('positron.goToPreviousCell', (line?: number) => {
 			CellManager.fromActiveTextEditor()?.goToPreviousCell(line);
 		}),
@@ -46,7 +46,6 @@ export function registerCommands(context: vscode.ExtensionContext) {
 		vscode.commands.registerCommand('positron.runPreviousCell', (line?: number) => {
 			CellManager.fromActiveTextEditor()?.runPreviousCell(line);
 		}),
-
 
 	);
 }

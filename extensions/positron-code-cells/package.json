@@ -186,5 +186,9 @@
   "repository": {
     "type": "git",
     "url": "https://github.com/posit-dev/positron"
+  },
+  "devDependencies": {
+    "@types/mocha": "^10.0.4",
+    "@types/node": "^20.9.3"
   }
 }

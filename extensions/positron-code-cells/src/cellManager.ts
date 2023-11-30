@@ -6,12 +6,23 @@ import * as positron from 'positron';
 import * as vscode from 'vscode';
 import { Cell, CellParser, getParser, parseCells } from './parser';
 
+export interface ExecuteCode {
+	(language: string, code: string): Promise<void>;
+}
+
+const defaultExecuteCode: ExecuteCode = async (language, code) => {
+	await positron.runtime.executeCode(language, code, false);
+};
+
 // Provides a set of commands for interacting with Jupyter-like cells in a vscode.TextEditor
 export class CellManager {
-	cells: Cell[];
-	parser: CellParser;
+	private cells: Cell[];
+	private parser: CellParser;
 
-	constructor(private editor: vscode.TextEditor) {
+	constructor(
+		private editor: vscode.TextEditor,
+		private readonly executeCode: ExecuteCode = defaultExecuteCode,
+	) {
 		this.cells = [];
 		this.parseCells();
 
@@ -34,11 +45,11 @@ export class CellManager {
 		return this.cells.findIndex(cell => cell.range.contains(this.getCursor(line)));
 	}
 
-	public getCurrentCell(line?: number): Cell | undefined {
+	private getCurrentCell(line?: number): Cell | undefined {
 		return this.cells[this.getCurrentCellIndex(line)];
 	}
 
-	public getPreviousCell(line?: number): Cell | undefined {
+	private getPreviousCell(line?: number): Cell | undefined {
 		const index = this.getCurrentCellIndex(line);
 		if (index !== -1) {
 			return this.cells[index - 1];
@@ -48,7 +59,7 @@ export class CellManager {
 		}
 	}
 
-	public getNextCell(line?: number): Cell | undefined {
+	private getNextCell(line?: number): Cell | undefined {
 		const index = this.getCurrentCellIndex(line);
 		if (index !== -1) {
 			return this.cells[index + 1];
@@ -58,9 +69,9 @@ export class CellManager {
 		}
 	}
 
-	public runCell(cell: Cell): void {
+	private runCell(cell: Cell): void {
 		const text = this.parser.getCellText(cell, this.editor.document);
-		positron.runtime.executeCode(this.editor.document.languageId, text, false);
+		this.executeCode(this.editor.document.languageId, text);
 	}
 
 	public runCurrentCell(line?: number): void {
