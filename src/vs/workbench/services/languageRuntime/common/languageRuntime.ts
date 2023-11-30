@@ -13,6 +13,7 @@ import { formatLanguageRuntime, ILanguageRuntime, ILanguageRuntimeProvider, ILan
 import { FrontEndClientInstance, IFrontEndClientMessageInput, IFrontEndClientMessageOutput } from 'vs/workbench/services/languageRuntime/common/languageRuntimeFrontEndClient';
 import { LanguageRuntimeWorkspaceAffiliation } from 'vs/workbench/services/languageRuntime/common/languageRuntimeWorkspaceAffiliation';
 import { IStorageService } from 'vs/platform/storage/common/storage';
+import { CancellationToken } from 'vs/base/common/cancellation';
 import { IExtensionService } from 'vs/workbench/services/extensions/common/extensions';
 import { IWorkspaceTrustManagementService } from 'vs/platform/workspace/common/workspaceTrust';
 import { DeferredPromise } from 'vs/base/common/async';
@@ -49,8 +50,9 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 	// The array of registered runtimes.
 	private readonly _registeredRuntimes: LanguageRuntimeInfo[] = [];
 
-	// The array of runtime providers.
-	private readonly _runtimeProviders: ILanguageRuntimeProvider[] = [];
+	// A map of the runtime providers. This is keyed by the languageId
+	// (metadata.languageId) of the runtime provider.
+	private readonly _runtimeProviders = new Map<string, ILanguageRuntimeProvider>();
 
 	// The current discovery phase for language runtime registration.
 	private _discoveryPhase: LanguageRuntimeDiscoveryPhase =
@@ -518,9 +520,9 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 	 *
 	 * @returns A disposable that unregisters the runtime
 	 */
-	registerRuntimeProvider(provider: ILanguageRuntimeProvider): IDisposable {
+	registerRuntimeProvider(languageId: string, provider: ILanguageRuntimeProvider): IDisposable {
 		// Add the provider to the registered runtimes.
-		this._runtimeProviders.push(provider);
+		this._runtimeProviders.set(languageId, provider);
 		return toDisposable(() => { });
 	}
 
@@ -755,14 +757,19 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 	private async startAffiliatedRuntimes(): Promise<void> {
 		// TODO: actually implement this without looking at registered runtimes:
 
-		const affiliatedRuntimeId = this._workspaceAffiliation.getAffiliatedRuntimeId('r');
+		const languageId = 'zed';
+		const affiliatedRuntimeId = this._workspaceAffiliation.getAffiliatedRuntimeId(languageId);
 
 		if (affiliatedRuntimeId) {
-			// Get the runtime from the extension.
-			const affiliatedRuntime = this._registeredRuntimesByRuntimeId.get(affiliatedRuntimeId)?.runtime;
+			const provider = this._runtimeProviders.get(languageId);
+			if (!provider) {
+				this._logService.error(`No language runtime provider for ${languageId}.`);
+				return;
+			}
+			const affiliatedRuntime = provider.provideLanguageRuntime(affiliatedRuntimeId, CancellationToken.None);
 			if (!affiliatedRuntime) {
 				// This should never happen, but if it does, log an error and return.
-				this._logService.error(`Language runtime with runtime ID ${affiliatedRuntimeId} is not registered.`);
+				this._logService.error(`Language runtime with runtime ID ${affiliatedRuntimeId} could not be provided.`);
 				return;
 			}
 

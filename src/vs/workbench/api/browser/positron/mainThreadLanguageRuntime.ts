@@ -979,9 +979,9 @@ export class MainThreadLanguageRuntime implements MainThreadLanguageRuntimeShape
 		this._languageRuntimeService.registerRuntime(adapter, metadata.startupBehavior);
 	}
 
-	$registerLanguageRuntimeProvider(handle: number, provider: ILanguageRuntimeProvider): IDisposable {
+	$registerLanguageRuntimeProvider(handle: number, languageId: string, provider: ILanguageRuntimeProvider): IDisposable {
 		this._runtimeProviders.set(handle, provider);
-		return this._languageRuntimeService.registerRuntimeProvider(provider);
+		return this._languageRuntimeService.registerRuntimeProvider(languageId, provider);
 	}
 
 	$getPreferredRuntime(languageId: string): Promise<ILanguageRuntimeMetadata> {
