@@ -5,6 +5,8 @@
 import { Event } from 'vs/base/common/event';
 import { IDisposable } from 'vs/base/common/lifecycle';
 import { URI, UriComponents } from 'vs/base/common/uri';
+import { CancellationToken } from 'vs/base/common/cancellation';
+import { ProviderResult } from 'vs/editor/common/languages';
 import { ExtensionIdentifier } from 'vs/platform/extensions/common/extensions';
 import { createDecorator } from 'vs/platform/instantiation/common/instantiation';
 import { IRuntimeClientInstance, RuntimeClientType } from 'vs/workbench/services/languageRuntime/common/languageRuntimeClientInstance';
@@ -636,6 +638,15 @@ export interface ILanguageRuntime {
 }
 
 export interface ILanguageRuntimeProvider {
+	/**
+	 * Given a `runtimeId`, return the corresponding `LanguageRuntime` object.
+	 *
+	 * @param runtimeId The runtime identifier as a string.
+	 * @param token A cancellation token.
+	 * @return The language runtime.
+	 */
+	provideLanguageRuntime(runtimeId: string, token: CancellationToken):
+		ProviderResult<ILanguageRuntime>;
 }
 
 export interface ILanguageRuntimeService {
