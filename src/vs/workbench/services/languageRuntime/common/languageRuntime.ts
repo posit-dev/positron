@@ -49,6 +49,9 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 	// The array of registered runtimes.
 	private readonly _registeredRuntimes: LanguageRuntimeInfo[] = [];
 
+	// The array of runtime providers.
+	private readonly _runtimeProviders: ILanguageRuntimeProvider[] = [];
+
 	// The current discovery phase for language runtime registration.
 	private _discoveryPhase: LanguageRuntimeDiscoveryPhase =
 		LanguageRuntimeDiscoveryPhase.AwaitingExtensions;
@@ -516,6 +519,8 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 	 * @returns A disposable that unregisters the runtime
 	 */
 	registerRuntimeProvider(provider: ILanguageRuntimeProvider): IDisposable {
+		// Add the provider to the registered runtimes.
+		this._runtimeProviders.push(provider);
 		return toDisposable(() => { });
 	}
 
