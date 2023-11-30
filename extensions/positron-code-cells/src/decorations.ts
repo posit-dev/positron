@@ -6,15 +6,34 @@ import * as vscode from 'vscode';
 import { IGNORED_SCHEMES } from './extension';
 import { CellDecorationSetting, getParser, parseCells } from './parser';
 
-export function activateDecorations(context: vscode.ExtensionContext): void {
-	let timeout: NodeJS.Timer | undefined = undefined;
-	let activeEditor = vscode.window.activeTextEditor;
+export interface SetDecorations {
+	(
+		editor: vscode.TextEditor,
+		decorationType: vscode.TextEditorDecorationType,
+		ranges: vscode.Range[]
+	): void;
+}
 
-	const cellDecorationType = vscode.window.createTextEditorDecorationType({
-		light: { backgroundColor: '#E1E1E166' },
-		dark: { backgroundColor: '#40404066' },
-		isWholeLine: true,
-	});
+function defaultSetDecorations(
+	editor: vscode.TextEditor,
+	decorationType: vscode.TextEditorDecorationType,
+	ranges: vscode.Range[]
+): void {
+	editor.setDecorations(decorationType, ranges);
+}
+
+export const cellDecorationType = vscode.window.createTextEditorDecorationType({
+	light: { backgroundColor: '#E1E1E166' },
+	dark: { backgroundColor: '#40404066' },
+	isWholeLine: true,
+});
+
+export function activateDecorations(
+	disposables: vscode.Disposable[],
+	setDecorations: SetDecorations = defaultSetDecorations,
+): void {
+	let timeout: NodeJS.Timeout | undefined = undefined;
+	let activeEditor = vscode.window.activeTextEditor;
 
 	// Update the active editor's cell decorations.
 	function updateDecorations() {
@@ -39,10 +58,10 @@ export function activateDecorations(context: vscode.ExtensionContext): void {
 		// Set decorations depending on the language configuration.
 		switch (parser.cellDecorationSetting()) {
 			case CellDecorationSetting.Current:
-				activeEditor.setDecorations(cellDecorationType, activeCellRanges);
+				setDecorations(activeEditor, cellDecorationType, activeCellRanges);
 				break;
 			case CellDecorationSetting.All:
-				activeEditor.setDecorations(cellDecorationType, allCellRanges);
+				setDecorations(activeEditor, cellDecorationType, allCellRanges);
 				break;
 		}
 	}
@@ -65,7 +84,7 @@ export function activateDecorations(context: vscode.ExtensionContext): void {
 		triggerUpdateDecorations();
 	}
 
-	context.subscriptions.push(
+	disposables.push(
 		vscode.window.onDidChangeActiveTextEditor(editor => {
 			// Update the active editor.
 			activeEditor = editor;

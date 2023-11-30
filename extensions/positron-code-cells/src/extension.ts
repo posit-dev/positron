@@ -4,10 +4,10 @@
 
 import * as vscode from 'vscode';
 import { initializeLogging } from './logging';
-import { registerCodeLensProvider } from './codeLenses';
+import { CellCodeLensProvider } from './codeLenses';
 import { registerCommands } from './commands';
 import { activateDecorations } from './decorations';
-import { registerFoldingRangeProvider } from './folding';
+import { CellFoldingRangeProvider } from './folding';
 import { activateContextKeys } from './context';
 
 export const IGNORED_SCHEMES = ['vscode-notebook-cell', 'vscode-interactive-input'];
@@ -15,13 +15,15 @@ export const IGNORED_SCHEMES = ['vscode-notebook-cell', 'vscode-interactive-inpu
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
 	initializeLogging();
 
-	registerCodeLensProvider(context);
+	registerCommands(context.subscriptions);
 
-	registerCommands(context);
+	context.subscriptions.push(
+		vscode.languages.registerCodeLensProvider('*', new CellCodeLensProvider()),
 
-	registerFoldingRangeProvider(context);
+		vscode.languages.registerFoldingRangeProvider('*', new CellFoldingRangeProvider()),
+	);
 
-	activateDecorations(context);
+	activateDecorations(context.subscriptions);
 
-	activateContextKeys(context);
+	activateContextKeys(context.subscriptions);
 }
