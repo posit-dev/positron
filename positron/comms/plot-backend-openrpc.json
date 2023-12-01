@@ -36,6 +36,7 @@
 				"schema": {
 					"name": "plot_result",
 					"type": "object",
+					"description": "A rendered plot",
 					"properties": {
 						"data": {
 							"description": "The plot data, as a base64-encoded string",

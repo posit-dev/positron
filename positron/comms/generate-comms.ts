@@ -106,6 +106,15 @@ async function createComm(name: string) {
 					process.stdout.write(`   * ${line}\n`);
 				}
 			}
+			process.stdout.write(`   *\n`);
+			for (let i = 0; i < method.params.length; i++) {
+				const param = method.params[i];
+				process.stdout.write(`   * @param ${snakeCaseToCamelCase(param.name)} ${param.description}\n`);
+			}
+			process.stdout.write(`   *\n`);
+			if (method.result) {
+				process.stdout.write(`   * @returns ${method.result.schema.description}\n`);
+			}
 			process.stdout.write('   */\n');
 			process.stdout.write('  ' + snakeCaseToCamelCase(method.name) + '(');
 			for (let i = 0; i < method.params.length; i++) {
