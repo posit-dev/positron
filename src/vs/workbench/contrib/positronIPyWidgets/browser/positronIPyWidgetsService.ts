@@ -153,19 +153,8 @@ export class PositronIPyWidgetsService extends Disposable implements IPositronIP
 		}
 		))}`);
 
-		const managerState = {
-			version_major: 2,
-			version_minor: 0,
-			state: {}
-		};
-		const widgetViews = [
-			{
-				version_major: 2,
-				version_minor: 0,
-				model_id: '123'
-			}
-		];
-		const htmlData = new IPyWidgetHtmlData(managerState, widgetViews);
+		const htmlData = new IPyWidgetHtmlData(this.positronWidgetInstances);
+		// TODO: Figure out which widget is the primary widget and add it to the viewspec
 
 		const widgetMessage = {
 			...message,
@@ -178,7 +167,7 @@ export class PositronIPyWidgetsService extends Disposable implements IPositronIP
 		const webview = await this._notebookOutputWebviewService.createNotebookOutputWebview(
 			runtime, widgetMessage, htmlData);
 		if (webview) {
-			// do something with the webview?
+			// TODO: do something with the webview?
 		}
 	}
 

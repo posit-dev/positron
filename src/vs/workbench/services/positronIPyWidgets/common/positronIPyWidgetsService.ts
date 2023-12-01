@@ -25,17 +25,34 @@ export interface IPyWidgetState {
 }
 export class IPyWidgetHtmlData {
 
-	constructor(
-		private _managerState: {
-			version_major: number;
-			version_minor: number;
-			state: {
-				[model_id: string]: IPyWidgetState;
-			};
-		},
-		private _widgetViews: IPyWidgetViewSpec[]
-	) {
+	private _managerState: {
+		version_major: number;
+		version_minor: number;
+		state: {
+			[model_id: string]: IPyWidgetState;
+		};
+	};
 
+	private _widgetViews: IPyWidgetViewSpec[] = [];
+
+	constructor(
+		widgets: IPositronIPyWidgetClient[]
+	) {
+		this._managerState = {
+			// TODO: Where do these come from?
+			version_major: 2,
+			version_minor: 0,
+			state: {}
+		};
+
+		widgets.forEach(widget => {
+			this._managerState.state[widget.metadata.id] = {
+				model_name: widget.metadata.widget_state.model_name,
+				model_module: widget.metadata.widget_state.model_module,
+				model_module_version: widget.metadata.widget_state.model_module_version,
+				state: widget.metadata.widget_state.state
+			};
+		});
 	}
 
 	addWidgetView(view: IPyWidgetViewSpec) {
