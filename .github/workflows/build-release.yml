@@ -49,17 +49,55 @@ jobs:
         id: build_number
         run: echo "result=$(./versions/show-version.js --build)" >> $GITHUB_OUTPUT
 
-  macos-release:
-    uses: posit-dev/positron/.github/workflows/build-release-macos.yml@feature/build-multi-platform
+  macos-installer:
+    uses: posit-dev/positron/.github/workflows/build-release-mac.yml@build/multi-platform
     needs: [version_string]
-    if: false
+    secrets: inherit
     with:
       short-version: ${{ needs.version_string.outputs.short_version }}
       build-number: ${{ needs.version_string.outputs.build_number }}
 
-  windows-release:
-    uses: posit-dev/positron/.github/workflows/build-release-windows.yml@feature/build-multi-platform
+  windows-installer:
+    uses: posit-dev/positron/.github/workflows/build-release-win.yml@build/multi-platform
     needs: [version_string]
-    if: false
+    secrets: inherit
     with:
       build-number: ${{ needs.version_string.outputs.build_number }}
+
+  releases:
+    runs-on: self-hosted
+    needs: [version_string, macos-installer, windows-installer]
+    steps:
+      # Create a GitHub release for the installers we just created, if
+      # we're running against the main branch
+      - name: Create release
+        uses: actions/create-release@v1
+        id: create_release
+        if: github.ref == 'refs/heads/main'
+        with:
+          draft: false
+          prerelease: true
+          release_name: ${{ needs.version_string.outputs.short_version }}
+          tag_name: ${{ needs.version_string.outputs.short_version }}
+
+      - name: Upload MacOS release artifact
+        uses: actions/upload-release-asset@v1
+        if: github.ref == 'refs/heads/main'
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ${{ needs.macos-installer.outputs.artifact }}
+          asset_name: ${{ needs.macos-installer.outputs.artifact }}
+          asset_content_type: application/octet-stream
+
+      - name: Upload Windows release artifact
+        uses: actions/upload-release-asset@v1
+        if: github.ref == 'refs/heads/main'
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ${{ needs.windows-installer.outputs.artifact }}
+          asset_name: ${{ needs.windows-installer.outputs.artifact }}
+          asset_content_type: application/octet-stream
