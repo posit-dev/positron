@@ -3,6 +3,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { existsSync, readdirSync, readFileSync } from 'fs';
+import { compile } from 'json-schema-to-typescript'
 import path from 'path';
 
 // Read the contents of the sibling "comms" directory
@@ -20,7 +21,7 @@ interface CommMetadata {
 }
 
 
-function createComm(name: string) {
+async function createComm(name: string) {
 	// Read the metadata file
 	const metadata: CommMetadata = JSON.parse(
 		readFileSync(path.join(commsDir, `${name}.json`), { encoding: 'utf-8' }));
@@ -42,6 +43,7 @@ function createComm(name: string) {
 	}
 
 	console.log(`export class ${name}Comm extends PositronComm {`);
+	console.log(await compile(metadata.initial_data.schema, name, { bannerComment: '' }));
 	console.log(`}`);
 }
 
