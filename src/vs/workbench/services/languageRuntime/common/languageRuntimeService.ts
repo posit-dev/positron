@@ -664,6 +664,9 @@ export interface ILanguageRuntimeService {
 	readonly onDidChangeDiscoveryPhase: Event<LanguageRuntimeDiscoveryPhase>;
 
 	// An event that fires when a new runtime is registered.
+	readonly onDidRegisterRuntimeProvider: Event<ILanguageRuntimeProvider>;
+
+	// An event that fires when a new runtime is registered.
 	readonly onDidRegisterRuntime: Event<ILanguageRuntime>;
 
 	// An event that fires when a runtime is about to start.

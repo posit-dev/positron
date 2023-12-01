@@ -96,6 +96,9 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			get onDidRegisterRuntime() {
 				return extHostLanguageRuntime.onDidRegisterRuntime;
 			},
+			get onDidRegisterRuntimeProvider() {
+				return extHostLanguageRuntime.onDidRegisterRuntimeProvider;
+			},
 		};
 
 		const window: typeof positron.window = {

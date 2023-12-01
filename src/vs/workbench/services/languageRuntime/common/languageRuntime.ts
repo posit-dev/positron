@@ -87,6 +87,9 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 	// The event emitter for the onDidChangeDisoveryPhase event.
 	private readonly _onDidChangeDiscoveryPhaseEmitter = this._register(new Emitter<LanguageRuntimeDiscoveryPhase>);
 
+	// The event emitter for the onDidRegisterRuntimeProvider event.
+	private readonly _onDidRegisterRuntimeProviderEmitter = this._register(new Emitter<ILanguageRuntimeProvider>);
+
 	// The event emitter for the onDidRegisterRuntime event.
 	private readonly _onDidRegisterRuntimeEmitter = this._register(new Emitter<ILanguageRuntime>);
 
@@ -149,7 +152,9 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 			new LanguageRuntimeWorkspaceAffiliation(this, this._storageService, this._logService);
 		this._register(this._workspaceAffiliation);
 		if (this._workspaceAffiliation.hasAffiliatedRuntime()) {
-			this.startAffiliatedRuntimes();
+			this._register(this.onDidRegisterRuntimeProvider(provider => {
+				this.startAffiliatedRuntimes(provider);
+			}));
 		}
 
 		// Register as an opener in the opener service.
@@ -206,6 +211,9 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 
 	// An event that fires when the language runtime discovery phase changes.
 	readonly onDidChangeDiscoveryPhase = this._onDidChangeDiscoveryPhaseEmitter.event;
+
+	// An event that fires when a new runtime provider is registered.
+	readonly onDidRegisterRuntimeProvider = this._onDidRegisterRuntimeProviderEmitter.event;
 
 	// An event that fires when a new runtime is registered.
 	readonly onDidRegisterRuntime = this._onDidRegisterRuntimeEmitter.event;
@@ -523,6 +531,10 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 	registerRuntimeProvider(languageId: string, provider: ILanguageRuntimeProvider): IDisposable {
 		// Add the provider to the registered runtimes.
 		this._runtimeProviders.set(languageId, provider);
+
+		// Signal that the set of registered runtime providers has changed.
+		this._onDidRegisterRuntimeProviderEmitter.fire(provider);
+
 		return toDisposable(() => { });
 	}
 
@@ -754,7 +766,7 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 	/**
 	 * Starts any affiliated runtimes.
 	 */
-	private async startAffiliatedRuntimes(): Promise<void> {
+	private async startAffiliatedRuntimes(provider: ILanguageRuntimeProvider): Promise<void> {
 		// TODO: implement for all language packs
 		const languageId = 'zed';
 		const affiliatedRuntimeId = this._workspaceAffiliation.getAffiliatedRuntimeId(languageId);
@@ -775,7 +787,7 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 
 			// Start the runtime affiliated with the workspace right away.
 			this._logService.trace(`Language runtime ${formatLanguageRuntime(affiliatedRuntime)} automatically starting`);
-			this.autoStartRuntime(affiliatedRuntime, `Affiliated runtime for workspace`);
+			this.autoStartRuntime(affiliatedRuntime, `Affiliated runtime for workspace via provider`);
 		}
 	}
 
