@@ -13,7 +13,6 @@ export const IPositronIPyWidgetsService = createDecorator<IPositronIPyWidgetsSer
 export interface IPositronIPyWidgetMetadata {
 	id: string;
 	runtime_id: string;
-	comm_id: string;
 	model_name: string;
 	model_module: string;
 	model_module_version: string;

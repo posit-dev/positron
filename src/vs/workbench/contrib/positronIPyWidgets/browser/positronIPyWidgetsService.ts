@@ -28,6 +28,46 @@ export interface IPositronIPyWidgetCommOpenData {
 	buffer_paths: string[];
 }
 
+export interface IPyWidgetViewSpec {
+	version_major: number;
+	version_minor: number;
+	model_id: string;
+}
+
+export interface IPyWidgetState {
+	model_name: string;
+	model_module: string;
+	model_module_version: string;
+	state: any;
+}
+export class IPyWidgetHtmlData {
+
+	constructor(
+		private _managerState: {
+			version_major: number;
+			version_minor: number;
+			state: {
+				[model_id: string]: IPyWidgetState;
+			};
+		},
+		private _widgetViews: IPyWidgetViewSpec[]
+	) {
+
+	}
+
+	addWidgetView(view: IPyWidgetViewSpec) {
+		this._widgetViews.push(view);
+	}
+
+	get managerState(): string {
+		return JSON.stringify(this._managerState);
+	}
+
+	get widgetViews(): string[] {
+		return this._widgetViews.map(view => JSON.stringify(view));
+	}
+}
+
 export class PositronIPyWidgetsService extends Disposable implements IPositronIPyWidgetsService {
 	/** Needed for service branding in dependency injector. */
 	declare readonly _serviceBrand: undefined;
@@ -117,7 +157,6 @@ export class PositronIPyWidgetsService extends Disposable implements IPositronIP
 				const metadata: IPositronIPyWidgetMetadata = {
 					id: clientId,
 					runtime_id: runtime.metadata.runtimeId,
-					comm_id: event.message.comm_id,
 					model_name: data.state._model_name,
 					model_module: data.state._model_module,
 					model_module_version: data.state._model_module_version,
@@ -141,25 +180,39 @@ export class PositronIPyWidgetsService extends Disposable implements IPositronIP
 
 	private async createWebviewWidgets(runtime: ILanguageRuntime, message: ILanguageRuntimeMessageCommOpen) {
 		// Combine our existing list of widgets
-		console.log(`widgets: ${JSON.stringify(this.positronWidgetInstances.map(widget => widget.metadata))}`);
+		console.log(`widgets: ${JSON.stringify(this.positronWidgetInstances.map(widget => {
+			return {
+				id: widget.id,
+				runtime_id: widget.metadata.runtime_id,
+				model_name: widget.metadata.model_name,
+			};
+		}
+		))}`);
 		// TODO: this is where we need to combine the widget data
-		const manager_state = '';
-		const widget_views = '';
+		const managerState = {
+			version_major: 2,
+			version_minor: 0,
+			state: {}
+		};
+		const widgetViews = [
+			{
+				version_major: 2,
+				version_minor: 0,
+				model_id: '123'
+			}
+		];
+		const htmlData = new IPyWidgetHtmlData(managerState, widgetViews);
 
 		const widgetMessage = {
 			...message,
 			output_location: PositronOutputLocation.Plot,
 			resource_roots: undefined,
 			kind: RuntimeOutputKind.IPyWidget,
-			// TODO: figure out a better way to pass this data
-			data: {
-				'ipywidget/manager_state': manager_state,
-				'ipywidget/widget_views': widget_views
-			}
+			data: {},
 		} as ILanguageRuntimeMessageOutput;
 
 		const webview = await this._notebookOutputWebviewService.createNotebookOutputWebview(
-			runtime, widgetMessage);
+			runtime, widgetMessage, htmlData);
 		if (webview) {
 			// do something with the webview?
 		}

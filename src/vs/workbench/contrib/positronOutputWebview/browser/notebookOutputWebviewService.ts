@@ -6,6 +6,7 @@ import { createDecorator } from 'vs/platform/instantiation/common/instantiation'
 import { IOverlayWebview } from 'vs/workbench/contrib/webview/browser/webview';
 import { ILanguageRuntime, ILanguageRuntimeMessageOutput } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { Event } from 'vs/base/common/event';
+import { IPyWidgetHtmlData } from 'vs/workbench/contrib/positronIPyWidgets/browser/positronIPyWidgetsService';
 
 export const POSITRON_NOTEBOOK_OUTPUT_WEBVIEW_SERVICE_ID = 'positronNotebookOutputWebview';
 
@@ -42,6 +43,8 @@ export interface IPositronNotebookOutputWebviewService {
 	 */
 	createNotebookOutputWebview(
 		runtime: ILanguageRuntime,
-		output: ILanguageRuntimeMessageOutput): Promise<INotebookOutputWebview | undefined>;
+		output: ILanguageRuntimeMessageOutput,
+		widgetData?: IPyWidgetHtmlData
+	): Promise<INotebookOutputWebview | undefined>;
 }
 

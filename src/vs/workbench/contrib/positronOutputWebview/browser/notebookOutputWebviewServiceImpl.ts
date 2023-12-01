@@ -17,6 +17,7 @@ import { IWebviewService, WebviewInitInfo } from 'vs/workbench/contrib/webview/b
 import { asWebviewUri } from 'vs/workbench/contrib/webview/common/webview';
 import { IExtensionService } from 'vs/workbench/services/extensions/common/extensions';
 import { ILanguageRuntime, ILanguageRuntimeMessageWebOutput, RuntimeOutputKind } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { IPyWidgetHtmlData } from 'vs/workbench/contrib/positronIPyWidgets/browser/positronIPyWidgetsService';
 
 export class PositronNotebookOutputWebviewService implements IPositronNotebookOutputWebviewService {
 
@@ -31,14 +32,16 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 	) {
 	}
 
-	async createNotebookOutputWebview(runtime: ILanguageRuntime,
-		output: ILanguageRuntimeMessageWebOutput): Promise<INotebookOutputWebview | undefined> {
 
-		// Check to see if the output is an IPyWidget, and if so, use the widget renderer
-		if (output.kind === RuntimeOutputKind.IPyWidget) {
-			const widget_views = output.data['ipywidget/widget_views'];
-			const manager_state = output.data['ipywidget/manager_state'];
-			return this.createWidgetHtmlOutput(output.id, runtime, manager_state, widget_views);
+	async createNotebookOutputWebview(
+		runtime: ILanguageRuntime,
+		output: ILanguageRuntimeMessageWebOutput,
+		widgetData?: IPyWidgetHtmlData
+	): Promise<INotebookOutputWebview | undefined> {
+
+		// If the output is an IPyWidget, render it as HTML with the custom renderer
+		if (widgetData && output.kind === RuntimeOutputKind.IPyWidget) {
+			return this.createWidgetHtmlOutput(output.id, runtime, widgetData.managerState, widgetData.widgetViews);
 		}
 
 		// Check to see if any of the MIME types have a renderer associated with
@@ -306,7 +309,7 @@ window.onload = function() {
 	 *
 	 * @returns A promise that resolves to the new webview.
 	 */
-	async createWidgetHtmlOutput(id: string, runtime: ILanguageRuntime, manager_state: string, widget_views: string):
+	async createWidgetHtmlOutput(id: string, runtime: ILanguageRuntime, managerState: string, widgetViews: string[]):
 		Promise<INotebookOutputWebview> {
 
 		// Load the Jupyter extension. Many notebook HTML outputs have a dependency on jQuery,
@@ -329,6 +332,16 @@ window.onload = function() {
 			title: '',
 		};
 		const webview = this._webviewService.createWebviewOverlay(webviewInitInfo);
+
+		const createWidgetDiv = (widgetView: string, id: number) => {
+			return `
+			<div id="widget-{id}">
+				<!-- This script tag will be replaced by the view's DOM tree -->
+				<script type="application/vnd.jupyter.widget-view+json">
+					'${widgetView}'
+				</script>
+			</div>`;
+		};
 
 		// Form the path to the requires library and inject it into the HTML
 		// TODO: make this loaded locally
@@ -357,19 +370,13 @@ window.onload = function() {
 
 		<!-- The state of all the widget models on the page -->
 		<script type="application/vnd.jupyter.widget-state+json">
-			'${manager_state}'
+			'${managerState}'
 		</script>
 		</head>
 
 		<body>
-
-			<div id="widget">
-				<!-- This script tag will be replaced by the view's DOM tree -->
-				<script type="application/vnd.jupyter.widget-view+json">
-					'${widget_views}'
-				</script>
-			</div>
-
+			<!-- The views of all the widget models on the page -->
+			${widgetViews.map((view, id) => createWidgetDiv(view, id)).join('\n')}
 		</body>
 		<script>
 		const vscode = acquireVsCodeApi();
