@@ -15,7 +15,6 @@ on:
       artifact:
         description: "The artifact filename"
         value: ${{ jobs.macos-universal.outputs.artifact }}
-  workflow_dispatch:
 
 jobs:
   revive_agent:

@@ -50,19 +50,19 @@ jobs:
         run: echo "result=$(./versions/show-version.js --build)" >> $GITHUB_OUTPUT
 
   macos-installer:
-    uses: ./.github/workflows/build-release-macos.yml@build/multi-platform
+    uses: ./.github/workflows/build-release-macos.yml
     needs: version_string
     secrets: inherit
     with:
-      build-number: ${{ needs.version_string.outputs.build_number }}
-      short-version: ${{ needs.version_string.outputs.short_version }}
+      build-number: ${{ jobs.version_string.outputs.build_number }}
+      short-version: ${{ jobs.version_string.outputs.short_version }}
 
   windows-installer:
-    uses: ./.github/workflows/build-release-windows.yml@build/multi-platform
+    uses: ./.github/workflows/build-release-windows.yml
     needs: version_string
     secrets: inherit
     with:
-      build-number: ${{ needs.version_string.outputs.build_number }}
+      build-number: ${{ jobs.version_string.outputs.build_number }}
 
   releases:
     runs-on: self-hosted

@@ -12,7 +12,6 @@ on:
       artifact:
         description: "The artifact filename"
         value: ${{ jobs.build-windows.outputs.artifact }}
-  workflow_dispatch:
 
 jobs:
   build-windows:
