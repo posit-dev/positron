@@ -54,15 +54,15 @@ jobs:
     needs: version_string
     secrets: inherit
     with:
-      build-number: ${{ jobs.version_string.outputs.build_number }}
-      short-version: ${{ jobs.version_string.outputs.short_version }}
+      build-number: ${{ needs.version_string.outputs.build_number }}
+      short-version: ${{ needs.version_string.outputs.short_version }}
 
   windows-installer:
     uses: ./.github/workflows/build-release-windows.yml
     needs: version_string
     secrets: inherit
     with:
-      build-number: ${{ jobs.version_string.outputs.build_number }}
+      build-number: ${{ needs.version_string.outputs.build_number }}
 
   releases:
     runs-on: self-hosted
