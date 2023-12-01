@@ -1065,4 +1065,12 @@ declare module 'positron' {
 		export const onDidRegisterRuntime: vscode.Event<LanguageRuntime>;
 
 	}
+
+	namespace methods {
+		export function lastActiveTextEditorContext(): Thenable<TextEditorContext | undefined>;
+	}
+
+	export interface TextEditorContext {
+		readonly path: string;
+	}
 }
