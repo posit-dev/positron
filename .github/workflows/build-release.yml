@@ -50,16 +50,16 @@ jobs:
         run: echo "result=$(./versions/show-version.js --build)" >> $GITHUB_OUTPUT
 
   macos-installer:
-    uses: posit-dev/positron/.github/workflows/build-release-mac.yml@build/multi-platform
-    needs: [version_string]
+    uses: posit-dev/positron/.github/workflows/build-release-macos.yml@build/multi-platform
+    needs: version_string
     secrets: inherit
     with:
       short-version: ${{ needs.version_string.outputs.short_version }}
       build-number: ${{ needs.version_string.outputs.build_number }}
 
   windows-installer:
-    uses: posit-dev/positron/.github/workflows/build-release-win.yml@build/multi-platform
-    needs: [version_string]
+    uses: posit-dev/positron/.github/workflows/build-release-windows.yml@build/multi-platform
+    needs: version_string
     secrets: inherit
     with:
       build-number: ${{ needs.version_string.outputs.build_number }}
