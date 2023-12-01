@@ -6,7 +6,7 @@ on:
 jobs:
   version_string:
     name: Determine version
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     outputs:
       short_version: ${{ steps.short_version.outputs.result }}
       build_number: ${{ steps.build_number.outputs.result }}
@@ -65,7 +65,7 @@ jobs:
       build_number: ${{ needs.version_string.outputs.build_number }}
 
   releases:
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     needs: [version_string, macos-installer, windows-installer]
     steps:
       # Create a GitHub release for the installers we just created, if

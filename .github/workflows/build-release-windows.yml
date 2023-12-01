@@ -124,7 +124,7 @@ jobs:
 
   status:
     if: ${{ failure() }}
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     needs: build-windows
     steps:
       - name: Notify slack if build fails
