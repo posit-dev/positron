@@ -38,7 +38,7 @@ function snakeCaseToSentenceCase(name: string) {
 	return snakeCaseToCamelCase(name).replace(/^[a-z]/, (m) => m[0].toUpperCase());
 }
 
-// Breaks a single line of text into mutliple lines, each of which is no longer than
+// Breaks a single line of text into multiple lines, each of which is no longer than
 // 70 characters.
 function formatLines(line: string): string[] {
 	const words = line.split(' ');
@@ -97,6 +97,7 @@ async function createComm(name: string) {
 				process.stdout.write(await compile(method.result.schema,
 					method.result.schema.name,
 					{ bannerComment: '', additionalProperties: false }));
+				process.stdout.write('\n');
 			}
 		}
 	}
@@ -125,6 +126,19 @@ async function createComm(name: string) {
 
 	process.stdout.write(`export class Positron${snakeCaseToSentenceCase(name)}Comm extends PositronComm {\n`);
 
+	// TODO: supply initial data
+	process.stdout.write('  constructor() {\n');
+	if (frontend) {
+		for (const method of frontend.methods) {
+			// Ignore methods that have a result; we're generating events here
+			if (method.result) {
+				continue;
+			}
+			process.stdout.write(`    this.onDid${snakeCaseToSentenceCase(method.name)} = `);
+			process.stdout.write(`super.createEventEmitter('${method.name}');\n`);
+		}
+	}
+	process.stdout.write('  }\n\n');
 	if (backend) {
 		// Then create all the methods
 		for (const method of backend.methods) {
@@ -178,17 +192,28 @@ async function createComm(name: string) {
 			process.stdout.write(');\n');
 			process.stdout.write(`  }\n`);
 		}
-		process.stdout.write(`}\n\n`);
 	}
 
 	if (frontend) {
+		process.stdout.write('\n');
 		for (const method of frontend.methods) {
 			// Ignore methods that have a result; we're generating events here
 			if (method.result) {
 				continue;
 			}
+			process.stdout.write('  /**\n');
+			process.stdout.write(formatComment('   * ', method.summary));
+			if (method.description) {
+				process.stdout.write(`   *\n`);
+				process.stdout.write(formatComment('   * ', method.description));
+			}
+			process.stdout.write('   */\n');
+			process.stdout.write(`  onDid${snakeCaseToSentenceCase(method.name)}: `);
+			process.stdout.write(`Event<${snakeCaseToSentenceCase(method.name)}Event>;\n`);
 		}
 	}
+
+	process.stdout.write(`}\n\n`);
 }
 
 async function createCommInterface() {
