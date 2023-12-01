@@ -30,18 +30,31 @@ export class IPyWidgetClientInstance extends Disposable implements IPositronIPyW
 		this.onDidClose = this._closeEmitter.event;
 	}
 
+	/**
+	 * True if this widget has a `layout` property.
+	 */
 	private hasLayout(): boolean {
 		return this.state.get('layout') !== undefined;
 	}
 
+	/**
+	 * True if this widget has a `dom_classes` property.
+	 */
 	private hasDomClasses(): boolean {
 		return this.state.get('dom_classes') !== undefined;
 	}
 
+	/**
+	 * True if this widget is possibly a viewable main widget.
+	 * At minimum, it must have a `layout` property and a `dom_classes` property.
+	 */
 	public isViewable(): boolean {
 		return this.hasLayout() && this.hasDomClasses();
 	}
 
+	/**
+	 * Returns a list of IDs of widgets that this widget depends on.
+	 */
 	get dependencies(): string[] {
 		const stateValues = this.state.values();
 		const dependencies: string[] = [];
