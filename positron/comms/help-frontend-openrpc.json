@@ -7,7 +7,7 @@
 	"methods": [
 		{
 			"name": "show_help",
-			"summary": "Display help in the frontend",
+			"summary": "Request to show help in the frontend",
 			"params": [
 				{
 					"name": "content",
@@ -35,13 +35,7 @@
 						"type": "boolean"
 					}
 				}
-			],
-			"result": {
-				"name": "Notification",
-				"schema": {
-					"type": "null"
-				}
-			}
+			]
 		}
 	]
 }

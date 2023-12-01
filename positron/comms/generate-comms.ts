@@ -4,7 +4,7 @@
 
 import { existsSync, readdirSync, readFileSync } from 'fs';
 import { compile } from 'json-schema-to-typescript';
-import path from 'path';
+import path, { format } from 'path';
 
 // Read the contents of the sibling "comms" directory
 const commsDir = `${__dirname}/../comms`;
@@ -59,6 +59,15 @@ function formatLines(line: string): string[] {
 	return lines;
 }
 
+function formatComment(leader: string, comment: string): string {
+	const lines = formatLines(comment);
+	let result = '';
+	for (const line of lines) {
+		result += leader + line + '\n';
+	}
+	return result;
+}
+
 async function createComm(name: string) {
 	// Read the metadata file
 	const metadata: CommMetadata = JSON.parse(
@@ -71,7 +80,6 @@ async function createComm(name: string) {
 			readFileSync(path.join(commsDir, `${name}-frontend-openrpc.json`), { encoding: 'utf-8' }));
 
 	}
-
 	// Read the backend file
 	let backend: any = null;
 	if (existsSync(path.join(commsDir, `${name}-backend-openrpc.json`))) {
@@ -86,34 +94,59 @@ async function createComm(name: string) {
 			if (method.result &&
 				method.result.schema &&
 				method.result.schema.type === 'object') {
-				process.stdout.write(await compile(method.result.schema, name + '_result', { bannerComment: '' }));
+				process.stdout.write(await compile(method.result.schema,
+					method.result.schema.name,
+					{ bannerComment: '', additionalProperties: false }));
 			}
 		}
 	}
 
-	process.stdout.write(`export class ${snakeCaseToSentenceCase(name)}Comm extends PositronComm {\n`);
+	if (frontend) {
+		for (const method of frontend.methods) {
+			// Ignore methods that have a result; we're generating event types here
+			if (method.result) {
+				continue;
+			}
+			process.stdout.write('/**\n');
+			process.stdout.write(formatComment(' * ', `Event: ${method.summary}`));
+			process.stdout.write(' */\n');
+			process.stdout.write(`export interface ${snakeCaseToSentenceCase(method.name)}Event {\n`);
+			for (const param of method.params) {
+				process.stdout.write('  /**\n');
+				process.stdout.write(formatComment('   * ', `${param.description}`));
+				process.stdout.write('   */\n');
+				process.stdout.write(`  ${snakeCaseToCamelCase(param.name)}: `);
+				process.stdout.write(TypescriptTypeMap[param.schema.type as string]);
+				process.stdout.write(`;\n\n`);
+			}
+			process.stdout.write('}\n\n');
+		}
+	}
+
+	process.stdout.write(`export class Positron${snakeCaseToSentenceCase(name)}Comm extends PositronComm {\n`);
 
 	if (backend) {
 		// Then create all the methods
 		for (const method of backend.methods) {
 			// Write the comment header
 			process.stdout.write('  /**\n');
-			process.stdout.write(`   * ${method.summary}\n`);
+			process.stdout.write(formatComment('   * ', method.summary));
 			if (method.description) {
 				process.stdout.write(`   *\n`);
-				const lines = formatLines(method.description);
-				for (const line of lines) {
-					process.stdout.write(`   * ${line}\n`);
-				}
+				process.stdout.write(formatComment('   * ', method.description));
 			}
 			process.stdout.write(`   *\n`);
 			for (let i = 0; i < method.params.length; i++) {
 				const param = method.params[i];
-				process.stdout.write(`   * @param ${snakeCaseToCamelCase(param.name)} ${param.description}\n`);
+				process.stdout.write(
+					formatComment('   * ',
+						`@param ${snakeCaseToCamelCase(param.name)} ${param.description}`));
 			}
 			process.stdout.write(`   *\n`);
 			if (method.result) {
-				process.stdout.write(`   * @returns ${method.result.schema.description}\n`);
+				process.stdout.write(
+					formatComment('   * ',
+						`@returns ${method.result.schema.description}`));
 			}
 			process.stdout.write('   */\n');
 			process.stdout.write('  ' + snakeCaseToCamelCase(method.name) + '(');
@@ -145,7 +178,16 @@ async function createComm(name: string) {
 			process.stdout.write(');\n');
 			process.stdout.write(`  }\n`);
 		}
-		process.stdout.write(`}\n`);
+		process.stdout.write(`}\n\n`);
+	}
+
+	if (frontend) {
+		for (const method of frontend.methods) {
+			// Ignore methods that have a result; we're generating events here
+			if (method.result) {
+				continue;
+			}
+		}
 	}
 }
 
