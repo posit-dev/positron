@@ -155,6 +155,7 @@ export class PositronIPyWidgetsService extends Disposable implements IPositronIP
 
 		const htmlData = new IPyWidgetHtmlData(this.positronWidgetInstances);
 		// TODO: Figure out which widget is the primary widget and add it to the viewspec
+		console.log(`htmlData: ${JSON.stringify(htmlData)}`);
 
 		const widgetMessage = {
 			...message,

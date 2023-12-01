@@ -39,7 +39,8 @@ export class IPyWidgetHtmlData {
 		widgets: IPositronIPyWidgetClient[]
 	) {
 		this._managerState = {
-			// TODO: Where do these come from?
+			// We only support ipywidget state schema version 2.0
+			// https://github.com/jupyter-widgets/ipywidgets/blob/52663ac472c38ba12575dfb4979fa2d250e79bc3/packages/schema/v2/state.schema.json
 			version_major: 2,
 			version_minor: 0,
 			state: {}
@@ -55,7 +56,14 @@ export class IPyWidgetHtmlData {
 		});
 	}
 
-	addWidgetView(view: IPyWidgetViewSpec) {
+	addWidgetView(model_id: string) {
+		// We only support ipywidget view schema version 2.0
+		// https://github.com/jupyter-widgets/ipywidgets/blob/52663ac472c38ba12575dfb4979fa2d250e79bc3/packages/schema/v2/view.schema.json
+		const view = {
+			version_major: 2,
+			version_minor: 0,
+			model_id: model_id
+		};
 		this._widgetViews.push(view);
 	}
 
