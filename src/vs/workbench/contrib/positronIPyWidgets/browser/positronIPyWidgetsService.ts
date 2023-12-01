@@ -112,7 +112,6 @@ export class PositronIPyWidgetsService extends Disposable implements IPositronIP
 				}
 
 				const data = event.message.data as IPositronIPyWidgetCommOpenData;
-				console.log(`data: ${JSON.stringify(data)}`);
 
 				// Create the metadata object
 				const metadata: IPositronIPyWidgetMetadata = {
@@ -142,7 +141,7 @@ export class PositronIPyWidgetsService extends Disposable implements IPositronIP
 
 	private async createWebviewWidgets(runtime: ILanguageRuntime, message: ILanguageRuntimeMessageCommOpen) {
 		// Combine our existing list of widgets
-		console.log(`widgets: ${JSON.stringify(this.positronWidgetInstances)}`);
+		console.log(`widgets: ${JSON.stringify(this.positronWidgetInstances.map(widget => widget.metadata))}`);
 		// TODO: this is where we need to combine the widget data
 		const manager_state = '';
 		const widget_views = '';
