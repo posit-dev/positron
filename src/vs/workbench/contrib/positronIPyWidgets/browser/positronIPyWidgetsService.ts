@@ -3,13 +3,29 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Disposable } from 'vs/base/common/lifecycle';
-import { ILanguageRuntimeService, ILanguageRuntime, RuntimeClientType, ILanguageRuntimeMessageOutput } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntimeService, ILanguageRuntime, RuntimeClientType } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { Emitter, Event } from 'vs/base/common/event';
 import { IStorageService, StorageScope } from 'vs/platform/storage/common/storage';
 import { IViewsService } from 'vs/workbench/common/views';
 import { IPositronIPyWidgetsService, IPositronIPyWidgetMetadata } from 'vs/workbench/services/positronIPyWidgets/common/positronIPyWidgetsService';
 import { IPyWidgetClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeIPyWidgetClient';
 import { POSITRON_PLOTS_VIEW_ID } from 'vs/workbench/services/positronPlots/common/positronPlots';
+
+export interface IPositronIPyWidgetCommOpenData {
+	state: {
+		// required widget properties
+		_model_module: string;
+		_model_module_version: string;
+		_model_name: string;
+		_view_module: string;
+		_view_module_version: string;
+		_view_name: string;
+		_view_count: number;
+		// additional properties depending on the widget
+		[key: string]: any;
+	};
+	buffer_paths: string[];
+}
 
 export class PositronIPyWidgetsService extends Disposable implements IPositronIPyWidgetsService {
 	/** Needed for service branding in dependency injector. */
@@ -83,16 +99,51 @@ export class PositronIPyWidgetsService extends Disposable implements IPositronIP
 			});
 		});
 
-		this._register(runtime.onDidReceiveRuntimeMessageOutput(async (message: ILanguageRuntimeMessageOutput) => {
-			if (this.hasWidget(runtime.metadata.runtimeId, message.id)) {
-				return;
+		this._register(runtime.onDidCreateClientInstance((event) => {
+			if (event.client.getClientType() === RuntimeClientType.IPyWidget) {
+				const clientId = event.client.getClientId();
+
+				// Check to see if we we already have a widget client for this
+				// client ID. If so, we don't need to do anything.
+				if (this.hasWidget(runtime.metadata.runtimeId, clientId)) {
+					return;
+				}
+
+				const data = event.message.data as IPositronIPyWidgetCommOpenData;
+				console.log(`data: ${JSON.stringify(data)}`);
+
+				// Create the metadata object
+				const metadata: IPositronIPyWidgetMetadata = {
+					id: clientId,
+					runtime_id: runtime.metadata.runtimeId,
+					comm_id: event.message.comm_id,
+					model_name: data.state._model_name,
+					model_module: data.state._model_module,
+					model_module_version: data.state._model_module_version,
+					state: data.state
+				};
+
+				// Register the widget client
+				const widgetClient = new IPyWidgetClientInstance(event.client, metadata);
+				this.registerIPyWidgetClient(widgetClient);
+
+				// Call the notebook output webview service method with combined data
+				this.createWebviewWidgets(runtime);
+
+
+				// TODO: the widget may need to be viewable in either the Plots or Viewer pane
+				// Raise the Plots pane so the widget is visible.
+				this._viewsService.openView(POSITRON_PLOTS_VIEW_ID, false);
 			}
-
-			// Raise the Plots pane so the widget is visible.
-			// TODO: widget may go to either the Plots pane or the Viewer pane
-			this._viewsService.openView(POSITRON_PLOTS_VIEW_ID, false);
-
 		}));
+	}
+
+	private async createWebviewWidgets(runtime: ILanguageRuntime) {
+		// Combine our existing list of widgets
+		console.log(`widgets: ${JSON.stringify(this.positronWidgetInstances)}`);
+
+		//const webview = await this._notebookOutputWebviewService.createNotebookOutputWebview(
+		//	id, runtime, manager_state, widget_views);
 	}
 
 	/**
