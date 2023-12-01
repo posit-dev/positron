@@ -16,7 +16,7 @@ import { INotebookOutputWebview, IPositronNotebookOutputWebviewService } from 'v
 import { IWebviewService, WebviewInitInfo } from 'vs/workbench/contrib/webview/browser/webview';
 import { asWebviewUri } from 'vs/workbench/contrib/webview/common/webview';
 import { IExtensionService } from 'vs/workbench/services/extensions/common/extensions';
-import { ILanguageRuntime, ILanguageRuntimeMessageWebOutput } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntime, ILanguageRuntimeMessageWebOutput, RuntimeOutputKind } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 
 export class PositronNotebookOutputWebviewService implements IPositronNotebookOutputWebviewService {
 
@@ -33,6 +33,13 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 
 	async createNotebookOutputWebview(runtime: ILanguageRuntime,
 		output: ILanguageRuntimeMessageWebOutput): Promise<INotebookOutputWebview | undefined> {
+
+		// Check to see if the output is an IPyWidget, and if so, use the widget renderer
+		if (output.kind === RuntimeOutputKind.IPyWidget) {
+			const widget_views = output.data['ipywidget/widget_views'];
+			const manager_state = output.data['ipywidget/manager_state'];
+			return this.createWidgetHtmlOutput(output.id, runtime, manager_state, widget_views);
+		}
 
 		// Check to see if any of the MIME types have a renderer associated with
 		// them. If they do, prefer the renderer.

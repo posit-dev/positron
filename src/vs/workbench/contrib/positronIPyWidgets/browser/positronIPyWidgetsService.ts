@@ -3,12 +3,13 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Disposable } from 'vs/base/common/lifecycle';
-import { ILanguageRuntimeService, ILanguageRuntime, RuntimeClientType } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntimeService, ILanguageRuntime, RuntimeClientType, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessageCommOpen, PositronOutputLocation, RuntimeOutputKind } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { Emitter, Event } from 'vs/base/common/event';
 import { IStorageService, StorageScope } from 'vs/platform/storage/common/storage';
 import { IViewsService } from 'vs/workbench/common/views';
 import { IPositronIPyWidgetsService, IPositronIPyWidgetMetadata } from 'vs/workbench/services/positronIPyWidgets/common/positronIPyWidgetsService';
 import { IPyWidgetClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeIPyWidgetClient';
+import { IPositronNotebookOutputWebviewService } from 'vs/workbench/contrib/positronOutputWebview/browser/notebookOutputWebviewService';
 import { POSITRON_PLOTS_VIEW_ID } from 'vs/workbench/services/positronPlots/common/positronPlots';
 
 export interface IPositronIPyWidgetCommOpenData {
@@ -41,7 +42,8 @@ export class PositronIPyWidgetsService extends Disposable implements IPositronIP
 	constructor(
 		@ILanguageRuntimeService private _languageRuntimeService: ILanguageRuntimeService,
 		@IStorageService private _storageService: IStorageService,
-		@IViewsService private _viewsService: IViewsService
+		@IViewsService private _viewsService: IViewsService,
+		@IPositronNotebookOutputWebviewService private _notebookOutputWebviewService: IPositronNotebookOutputWebviewService
 	) {
 		super();
 
@@ -128,7 +130,7 @@ export class PositronIPyWidgetsService extends Disposable implements IPositronIP
 				this.registerIPyWidgetClient(widgetClient);
 
 				// Call the notebook output webview service method with combined data
-				this.createWebviewWidgets(runtime);
+				this.createWebviewWidgets(runtime, event.message);
 
 
 				// TODO: the widget may need to be viewable in either the Plots or Viewer pane
@@ -138,12 +140,30 @@ export class PositronIPyWidgetsService extends Disposable implements IPositronIP
 		}));
 	}
 
-	private async createWebviewWidgets(runtime: ILanguageRuntime) {
+	private async createWebviewWidgets(runtime: ILanguageRuntime, message: ILanguageRuntimeMessageCommOpen) {
 		// Combine our existing list of widgets
 		console.log(`widgets: ${JSON.stringify(this.positronWidgetInstances)}`);
+		// TODO: this is where we need to combine the widget data
+		const manager_state = '';
+		const widget_views = '';
 
-		//const webview = await this._notebookOutputWebviewService.createNotebookOutputWebview(
-		//	id, runtime, manager_state, widget_views);
+		const widgetMessage = {
+			...message,
+			output_location: PositronOutputLocation.Plot,
+			resource_roots: undefined,
+			kind: RuntimeOutputKind.IPyWidget,
+			// TODO: figure out a better way to pass this data
+			data: {
+				'ipywidget/manager_state': manager_state,
+				'ipywidget/widget_views': widget_views
+			}
+		} as ILanguageRuntimeMessageOutput;
+
+		const webview = await this._notebookOutputWebviewService.createNotebookOutputWebview(
+			runtime, widgetMessage);
+		if (webview) {
+			// do something with the webview?
+		}
 	}
 
 	/**
