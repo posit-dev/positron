@@ -8,6 +8,7 @@
 		{
 			"name": "render",
 			"summary": "Render a plot",
+			"description": "Requests a plot to be rendered at a given height and width. The plot data is returned in a base64-encoded string.",
 			"params": [
 				{
 					"name": "height",

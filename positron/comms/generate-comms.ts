@@ -34,6 +34,31 @@ function snakeCaseToCamelCase(name: string) {
 	return name.replace(/_([a-z])/g, (m) => m[1].toUpperCase());
 }
 
+function snakeCaseToSentenceCase(name: string) {
+	return snakeCaseToCamelCase(name).replace(/^[a-z]/, (m) => m[0].toUpperCase());
+}
+
+// Breaks a single line of text into mutliple lines, each of which is no longer than
+// 70 characters.
+function formatLines(line: string): string[] {
+	const words = line.split(' ');
+	const lines = new Array<string>();
+	let currentLine = '';
+	for (const word of words) {
+		if (currentLine.length + word.length + 1 > 70) {
+			lines.push(currentLine);
+			currentLine = word;
+		} else {
+			if (currentLine.length > 0) {
+				currentLine += ' ';
+			}
+			currentLine += word;
+		}
+	}
+	lines.push(currentLine);
+	return lines;
+}
+
 async function createComm(name: string) {
 	// Read the metadata file
 	const metadata: CommMetadata = JSON.parse(
@@ -55,23 +80,39 @@ async function createComm(name: string) {
 
 	}
 
-	process.stdout.write(`export class ${name}Comm extends PositronComm {\n`);
 	if (backend) {
 		// Create interfaces for all the object schemas first
 		for (const method of backend.methods) {
 			if (method.result &&
 				method.result.schema &&
 				method.result.schema.type === 'object') {
-				process.stdout.write(await compile(method.result.schema, name, { bannerComment: '' }));
+				process.stdout.write(await compile(method.result.schema, name + '_result', { bannerComment: '' }));
 			}
 		}
+	}
 
+	process.stdout.write(`export class ${snakeCaseToSentenceCase(name)}Comm extends PositronComm {\n`);
+
+	if (backend) {
 		// Then create all the methods
 		for (const method of backend.methods) {
+			// Write the comment header
+			process.stdout.write('  /**\n');
+			process.stdout.write(`   * ${method.summary}\n`);
+			if (method.description) {
+				process.stdout.write(`   *\n`);
+				const lines = formatLines(method.description);
+				for (const line of lines) {
+					process.stdout.write(`   * ${line}\n`);
+				}
+			}
+			process.stdout.write('   */\n');
 			process.stdout.write('  ' + snakeCaseToCamelCase(method.name) + '(');
 			for (let i = 0; i < method.params.length; i++) {
 				const param = method.params[i];
-				process.stdout.write(param.name + ': ' + TypescriptTypeMap[param.schema.type as string]);
+				process.stdout.write(snakeCaseToCamelCase(param.name) +
+					': ' +
+					TypescriptTypeMap[param.schema.type as string]);
 				if (i < method.params.length - 1) {
 					process.stdout.write(', ');
 				}
@@ -79,12 +120,21 @@ async function createComm(name: string) {
 			process.stdout.write('): Promise<');
 			if (method.result) {
 				if (method.result.schema.type === 'object') {
-					process.stdout.write(method.result.schema.name);
+					process.stdout.write(snakeCaseToSentenceCase(method.result.schema.name));
 				} else {
 					process.stdout.write(TypescriptTypeMap[method.result.schema.type as string]);
 				}
 			}
-			process.stdout.write('>;\n');
+			process.stdout.write('> {\n');
+			process.stdout.write('    return super.performRpc(\'' + method.name + '\', ');
+			for (let i = 0; i < method.params.length; i++) {
+				process.stdout.write(snakeCaseToCamelCase(method.params[i].name));
+				if (i < method.params.length - 1) {
+					process.stdout.write(', ');
+				}
+			}
+			process.stdout.write(');\n');
+			process.stdout.write(`  }\n`);
 		}
 		process.stdout.write(`}\n`);
 	}
