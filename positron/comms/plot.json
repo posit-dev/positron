@@ -1,5 +1,5 @@
 {
-	"name": "positron.plot",
+	"name": "plot",
 	"initiator": "backend",
 	"initial_data": {
 		"schema": {
