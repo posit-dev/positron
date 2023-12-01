@@ -7,7 +7,7 @@ import { ILanguageRuntimeService, ILanguageRuntime, RuntimeClientType, ILanguage
 import { Emitter, Event } from 'vs/base/common/event';
 import { IStorageService, StorageScope } from 'vs/platform/storage/common/storage';
 import { IViewsService } from 'vs/workbench/common/views';
-import { IPositronIPyWidgetsService, IPositronIPyWidgetMetadata } from 'vs/workbench/services/positronIPyWidgets/common/positronIPyWidgetsService';
+import { IPositronIPyWidgetsService, IPositronIPyWidgetMetadata, IPyWidgetHtmlData } from 'vs/workbench/services/positronIPyWidgets/common/positronIPyWidgetsService';
 import { IPyWidgetClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeIPyWidgetClient';
 import { IPositronNotebookOutputWebviewService } from 'vs/workbench/contrib/positronOutputWebview/browser/notebookOutputWebviewService';
 import { POSITRON_PLOTS_VIEW_ID } from 'vs/workbench/services/positronPlots/common/positronPlots';
@@ -27,47 +27,6 @@ export interface IPositronIPyWidgetCommOpenData {
 	};
 	buffer_paths: string[];
 }
-
-export interface IPyWidgetViewSpec {
-	version_major: number;
-	version_minor: number;
-	model_id: string;
-}
-
-export interface IPyWidgetState {
-	model_name: string;
-	model_module: string;
-	model_module_version: string;
-	state: any;
-}
-export class IPyWidgetHtmlData {
-
-	constructor(
-		private _managerState: {
-			version_major: number;
-			version_minor: number;
-			state: {
-				[model_id: string]: IPyWidgetState;
-			};
-		},
-		private _widgetViews: IPyWidgetViewSpec[]
-	) {
-
-	}
-
-	addWidgetView(view: IPyWidgetViewSpec) {
-		this._widgetViews.push(view);
-	}
-
-	get managerState(): string {
-		return JSON.stringify(this._managerState);
-	}
-
-	get widgetViews(): string[] {
-		return this._widgetViews.map(view => JSON.stringify(view));
-	}
-}
-
 export class PositronIPyWidgetsService extends Disposable implements IPositronIPyWidgetsService {
 	/** Needed for service branding in dependency injector. */
 	declare readonly _serviceBrand: undefined;
@@ -157,10 +116,12 @@ export class PositronIPyWidgetsService extends Disposable implements IPositronIP
 				const metadata: IPositronIPyWidgetMetadata = {
 					id: clientId,
 					runtime_id: runtime.metadata.runtimeId,
-					model_name: data.state._model_name,
-					model_module: data.state._model_module,
-					model_module_version: data.state._model_module_version,
-					state: data.state
+					widget_state: {
+						model_name: data.state._model_name,
+						model_module: data.state._model_module,
+						model_module_version: data.state._model_module_version,
+						state: data.state
+					}
 				};
 
 				// Register the widget client
@@ -180,15 +141,18 @@ export class PositronIPyWidgetsService extends Disposable implements IPositronIP
 
 	private async createWebviewWidgets(runtime: ILanguageRuntime, message: ILanguageRuntimeMessageCommOpen) {
 		// Combine our existing list of widgets
+		// TODO: this is where we need to combine the widget data
+
+		// log the full list of widgets
 		console.log(`widgets: ${JSON.stringify(this.positronWidgetInstances.map(widget => {
 			return {
 				id: widget.id,
 				runtime_id: widget.metadata.runtime_id,
-				model_name: widget.metadata.model_name,
+				model_name: widget.metadata.widget_state.model_name,
 			};
 		}
 		))}`);
-		// TODO: this is where we need to combine the widget data
+
 		const managerState = {
 			version_major: 2,
 			version_minor: 0,
