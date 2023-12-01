@@ -153,7 +153,7 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 		this._register(this._workspaceAffiliation);
 		if (this._workspaceAffiliation.hasAffiliatedRuntime()) {
 			this._register(this.onDidRegisterRuntimeProvider(provider => {
-				this.startAffiliatedRuntimes(provider);
+				this.startAffiliatedRuntimes();
 			}));
 		}
 
@@ -766,7 +766,7 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 	/**
 	 * Starts any affiliated runtimes.
 	 */
-	private async startAffiliatedRuntimes(provider: ILanguageRuntimeProvider): Promise<void> {
+	private async startAffiliatedRuntimes(): Promise<void> {
 		// TODO: implement for all language packs
 		const languageId = 'zed';
 		const affiliatedRuntimeId = this._workspaceAffiliation.getAffiliatedRuntimeId(languageId);
@@ -777,8 +777,7 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 				this._logService.error(`No language runtime provider for ${languageId}.`);
 				return;
 			}
-			let affiliatedRuntime: ILanguageRuntime | null | undefined = undefined;
-			affiliatedRuntime = await provider.provideLanguageRuntime(affiliatedRuntimeId, CancellationToken.None);
+			const affiliatedRuntime = await provider.provideLanguageRuntime(affiliatedRuntimeId, CancellationToken.None);
 			if (!affiliatedRuntime) {
 				// This should never happen, but if it does, log an error and return.
 				this._logService.error(`Language runtime with runtime ID ${affiliatedRuntimeId} could not be provided.`);
