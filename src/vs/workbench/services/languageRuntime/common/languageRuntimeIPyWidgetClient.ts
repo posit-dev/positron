@@ -30,6 +30,33 @@ export class IPyWidgetClientInstance extends Disposable implements IPositronIPyW
 		this.onDidClose = this._closeEmitter.event;
 	}
 
+	private hasLayout(): boolean {
+		return this.state.get('layout') !== undefined;
+	}
+
+	private hasDomClasses(): boolean {
+		return this.state.get('dom_classes') !== undefined;
+	}
+
+	public isViewable(): boolean {
+		return this.hasLayout() && this.hasDomClasses();
+	}
+
+	get dependencies(): string[] {
+		const stateValues = this.state.values();
+		const dependencies: string[] = [];
+		stateValues.forEach((value: any) => {
+			if (typeof value === 'string' && value.startsWith('IPY_MODEL_')) {
+				dependencies.push(value.substring('IPY_MODEL_'.length));
+			}
+		});
+		return dependencies;
+	}
+
+	get state(): any {
+		return this.metadata.widget_state.state;
+	}
+
 	/**
 	 * Returns the widget's unique ID.
 	 */
