@@ -289,4 +289,89 @@ window.onload = function() {
 </script>`);
 		return new NotebookOutputWebview(id, runtime.metadata.runtimeId, webview);
 	}
+
+	/**
+	 * Renders widget HTML in a webview.
+	 *
+	 * @param id The ID of the notebook output
+	 * @param runtime The runtime that emitted the output
+	 * @param html The HTML to render
+	 *
+	 * @returns A promise that resolves to the new webview.
+	 */
+	async createWidgetHtmlOutput(id: string, runtime: ILanguageRuntime, manager_state: string, widget_views: string):
+		Promise<INotebookOutputWebview> {
+
+		// Load the Jupyter extension. Many notebook HTML outputs have a dependency on jQuery,
+		// which is provided by the Jupyter extension.
+		const jupyterExtension = await this._extensionService.getExtension('ms-toolsai.jupyter');
+		if (!jupyterExtension) {
+			return Promise.reject(`Jupyter extension 'ms-toolsai.jupyter' not found`);
+		}
+
+		// Create the metadata for the webview
+		const webviewInitInfo: WebviewInitInfo = {
+			contentOptions: {
+				allowScripts: true,
+				localResourceRoots: [jupyterExtension.extensionLocation]
+			},
+			extension: {
+				id: runtime.metadata.extensionId
+			},
+			options: {},
+			title: '',
+		};
+		const webview = this._webviewService.createWebviewOverlay(webviewInitInfo);
+
+		// Form the path to the requires library and inject it into the HTML
+		// TODO: make this loaded locally
+		const requiresPath = asWebviewUri(
+			jupyterExtension.extensionLocation.with({
+				path: jupyterExtension.extensionLocation.path +
+					'/out/node_modules/requires/dist/requires.js'
+			})
+		);
+
+		webview.setHtml(`
+		<html>
+		<head>
+
+		<!-- Load RequireJS, used by the IPywidgets for dependency management -->
+		<script src='${requiresPath}'></script>
+
+		<!-- Load IPywidgets bundle for embedding. -->
+		<!-- TODO: make this loaded locally -->
+		<script
+			data-jupyter-widgets-cdn="https://unpkg.com/"
+			data-jupyter-widgets-cdn-only
+			src="https://cdn.jsdelivr.net/npm/@jupyter-widgets/html-manager@*/dist/embed-amd.js"
+			crossorigin="anonymous"
+		></script>
+
+		<!-- The state of all the widget models on the page -->
+		<script type="application/vnd.jupyter.widget-state+json">
+			'${manager_state}'
+		</script>
+		</head>
+
+		<body>
+
+			<div id="widget">
+				<!-- This script tag will be replaced by the view's DOM tree -->
+				<script type="application/vnd.jupyter.widget-view+json">
+					'${widget_views}'
+				</script>
+			</div>
+
+		</body>
+		<script>
+		const vscode = acquireVsCodeApi();
+		window.onload = function() {
+			vscode.postMessage('${RENDER_COMPLETE}');
+		};
+		</script>
+		</html>
+		`);
+		return new NotebookOutputWebview(id, runtime.metadata.runtimeId, webview);
+	}
 }
