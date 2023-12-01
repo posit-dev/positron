@@ -1,5 +1,5 @@
 {
-	"openrpc": "1.3.0",
+	"openrpc": "1.2.6",
 	"info": {
 		"title": "Plot Backend",
 		"version": "1.0.0"
@@ -33,6 +33,7 @@
 			],
 			"result": {
 				"schema": {
+					"name": "plot_result",
 					"type": "object",
 					"properties": {
 						"data": {
