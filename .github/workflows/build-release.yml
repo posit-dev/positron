@@ -1,0 +1,65 @@
+name: "Positron: Build Release"
+
+on:
+  workflow_dispatch:
+
+jobs:
+  version_string:
+    name: Determine version
+    runs-on: self-hosted
+    outputs:
+      short_version: ${{ steps.short_version.outputs.result }}
+      build_number: ${{ steps.build_number.outputs.result }}
+    steps:
+      # Fetch full history; required so we can determine the build version with rev-list
+      - name: Checkout sources
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # Set up Node; needed since the show-version.js script runs under Node
+      - uses: actions/setup-node@v3
+        with:
+          node-version: 18
+
+      # Call version script to determine short version. This is the version
+      # string that we will use later to form the file name of the release
+      # artifact.
+      #
+      # Example: 2022.10.0-123
+      - name: Determine Version (Short)
+        id: short_version
+        run: |
+          result=`./versions/show-version.js --short`
+          echo "result=$result" >> $GITHUB_OUTPUT
+
+      # If we're on main, we will be producing a release later, so make sure
+      # that no release is already in place with this tag
+      - name: Check for Existing Tag
+        id: tag_check
+        if: github.ref == 'refs/heads/main'
+        run: |
+          result=`./versions/show-version.js --short`
+          git fetch --tags
+          tag_exists=`git tag -l "${result}"`
+          if [ -n "${tag_exists}" ]; then exit 78; fi
+
+      # Call again to get just the build number. Example: 123
+      - name: Determine Version (Build Number)
+        id: build_number
+        run: echo "result=$(./versions/show-version.js --build)" >> $GITHUB_OUTPUT
+
+  macos-release:
+    uses: posit-dev/positron/.github/workflows/build-release-macos.yml@feature/build-multi-platform
+    needs: [version_string]
+    if: false
+    with:
+      short-version: ${{ needs.version_string.outputs.short_version }}
+      build-number: ${{ needs.version_string.outputs.build_number }}
+
+  windows-release:
+    uses: posit-dev/positron/.github/workflows/build-release-windows.yml@feature/build-multi-platform
+    needs: [version_string]
+    if: false
+    with:
+      build-number: ${{ needs.version_string.outputs.build_number }}
