@@ -1067,6 +1067,7 @@ declare module 'positron' {
 	}
 
 	namespace methods {
+		export function call(method: string, data: any): Thenable<any>;
 		export function lastActiveTextEditorContext(): Thenable<TextEditorContext | undefined>;
 	}
 

@@ -132,6 +132,9 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 		};
 
 		const methods: typeof positron.methods = {
+			call(method: string, params: any): Thenable<any> {
+				return extHostMethods.call(method, params);
+			},
 			lastActiveTextEditorContext(): Thenable<positron.TextEditorContext | undefined> {
 				return extHostMethods.lastActiveTextEditorContext();
 			},

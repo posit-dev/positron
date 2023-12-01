@@ -13,6 +13,17 @@ export class ExtHostMethods implements extHostProtocol.ExtHostMethodsShape {
 	) {
 	}
 
+	async call(method: string, params: any): Promise<any> {
+		switch (method) {
+			case 'lastActiveEditorContext': {
+				if (params && params.len) {
+					throw new Error(`Unexpected arguments for '${method}'`);
+				}
+				return this.lastActiveTextEditorContext();
+			}
+		}
+	}
+
 	async lastActiveTextEditorContext(): Promise<ITextEditorContext | undefined> {
 		let editor = this.editors.getActiveTextEditor();
 		if (!editor) {
