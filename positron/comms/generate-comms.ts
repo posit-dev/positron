@@ -135,7 +135,15 @@ async function createComm(name: string) {
 				continue;
 			}
 			process.stdout.write(`    this.onDid${snakeCaseToSentenceCase(method.name)} = `);
-			process.stdout.write(`super.createEventEmitter('${method.name}');\n`);
+			process.stdout.write(`super.createEventEmitter('${method.name}', [`);
+			for (let i = 0; i < method.params.length; i++) {
+				const param = method.params[i];
+				process.stdout.write(`'${param.name}'`);
+				if (i < method.params.length - 1) {
+					process.stdout.write(', ');
+				}
+			}
+			process.stdout.write(`]);\n`);
 		}
 	}
 	process.stdout.write('  }\n\n');
