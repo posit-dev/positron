@@ -274,7 +274,7 @@ jobs:
       - name: Record artifact
         id: artifact
         run: |
-          echo "result=Positron-${{ inputs.short_version }}.dmg" >> $GITHUB_OUTPUT
+          echo "result=positron-darwin-universal-installer" >> $GITHUB_OUTPUT
 
   status:
     if: ${{ failure() }}

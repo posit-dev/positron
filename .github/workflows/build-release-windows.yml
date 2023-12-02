@@ -117,13 +117,13 @@ jobs:
       - name: Upload Positron Installer to Github Archive
         uses: actions/upload-artifact@v3
         with:
-          name: positron-${{ matrix.platform }}-${{ matrix.arch }}-${{ matrix.target }}-setup.exe
+          name: positron-${{ matrix.platform }}-${{ matrix.arch }}-${{ matrix.target }}-installer
           path: ${{github.workspace}}\.build\${{ matrix.platform }}-${{ matrix.arch }}\${{ matrix.target }}-setup\PositronSetup.exe
 
       - name: Record artifact
         id: artifact
         run: |
-          echo "result=positron-${{ matrix.platform }}-${{ matrix.arch }}-${{ matrix.target }}-setup.exe" >> $GITHUB_OUTPUT
+          echo "result=positron-${{ matrix.platform }}-${{ matrix.arch }}-${{ matrix.target }}-installer" >> $GITHUB_OUTPUT
 
   status:
     if: ${{ failure() }}

@@ -82,7 +82,13 @@ jobs:
           release_name: ${{ needs.version_string.outputs.short_version }}
           tag_name: ${{ needs.version_string.outputs.short_version }}
 
-      - name: Upload MacOS release artifact
+      - name: Download MacOS artifact
+        uses: actions/download-artifact@v2
+        # if: github.ref == 'refs/heads/main'
+        with:
+          name: ${{ needs.macos-installer.outputs.artifact }}
+
+      - name: Upload MacOS release asset
         uses: actions/upload-release-asset@v1
         # if: github.ref == 'refs/heads/main'
         env:
@@ -93,7 +99,13 @@ jobs:
           asset_name: ${{ needs.macos-installer.outputs.artifact }}
           asset_content_type: application/octet-stream
 
-      - name: Upload Windows release artifact
+      - name: Download Windows artifact
+        uses: actions/download-artifact@v2
+        # if: github.ref == 'refs/heads/main'
+        with:
+          name: ${{ needs.windows-installer.outputs.artifact }}
+
+      - name: Upload Windows release asset
         uses: actions/upload-release-asset@v1
         # if: github.ref == 'refs/heads/main'
         env:
