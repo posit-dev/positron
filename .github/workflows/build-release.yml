@@ -67,6 +67,8 @@ jobs:
   releases:
     runs-on: ubuntu-latest
     needs: [version_string, macos-installer, windows-installer]
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
       # Create a GitHub release for the installers we just created, if
       # we're running against the main branch
