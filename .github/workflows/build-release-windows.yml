@@ -126,13 +126,15 @@ jobs:
 
       - name: Record artifact name
         id: artifact-name
+        shell: bash
         run: |
           echo "result=positron-${{ matrix.platform }}-${{ matrix.arch }}-${{ matrix.target }}-installer" >> $GITHUB_OUTPUT
 
       - name: Record artifact file
         id: artifact-file
+        shell: bash
         run: |
-          echo "result=${{github.workspace}}\.build\${{ matrix.platform }}-${{ matrix.arch }}\${{ matrix.target }}-setup\PositronSetup.exe" >> $GITHUB_OUTPUT
+          echo "result=PositronSetup.exe" >> $GITHUB_OUTPUT
 
 
   status:
