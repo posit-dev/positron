@@ -69,6 +69,8 @@ jobs:
     needs: [version_string, macos-installer, windows-installer]
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    outputs:
+      upload_url: ${{ steps.create_release.outputs.upload_url }}
     steps:
       # Create a GitHub release for the installers we just created, if
       # we're running against the main branch
@@ -82,8 +84,15 @@ jobs:
           release_name: ${{ needs.version_string.outputs.short_version }}
           tag_name: ${{ needs.version_string.outputs.short_version }}
 
+  macos-releases:
+    needs: [macos-installer, releases]
+    runs-on: [self-hosted, macos, arm64]
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
       - name: Download MacOS artifact
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v3
+        id: download-macos-artifact
         # if: github.ref == 'refs/heads/main'
         with:
           name: ${{ needs.macos-installer.outputs.artifact }}
@@ -94,13 +103,21 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
         with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ${{ needs.macos-installer.outputs.artifact }}
+          upload_url: ${{ needs.releases.outputs.upload_url }}
+          asset_path: ${{ steps.download-macos-artifact.outputs.download-path }}
           asset_name: ${{ needs.macos-installer.outputs.artifact }}
           asset_content_type: application/octet-stream
 
+  windows-releases:
+    runs-on:
+      labels: [windows-latest-8x]
+    needs: [windows-installer, releases]
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
       - name: Download Windows artifact
-        uses: actions/download-artifact@v2
+        id: download-windows-artifact
+        uses: actions/download-artifact@v3
         # if: github.ref == 'refs/heads/main'
         with:
           name: ${{ needs.windows-installer.outputs.artifact }}
@@ -111,7 +128,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
         with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ${{ needs.windows-installer.outputs.artifact }}
+          upload_url: ${{ needs.releases.outputs.upload_url }}
+          asset_path: ${{ steps.download-windows-artifact.outputs.download-path }}
           asset_name: ${{ needs.windows-installer.outputs.artifact }}
           asset_content_type: application/octet-stream
