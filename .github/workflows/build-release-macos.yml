@@ -16,9 +16,12 @@ on:
         default: ${{ github.sha }}
         type: string
     outputs:
-      artifact:
-        description: "The release artifact filename"
-        value: ${{ jobs.macos-universal.outputs.artifact }}
+      artifact-name:
+        description: "The release artifact name"
+        value: ${{ jobs.macos-universal.outputs.artifact-name }}
+      artifact-file:
+        description: "The release artifact file"
+        value: ${{ jobs.macos-universal.outputs.artifact-file }}
   workflow_dispatch:
 
 jobs:
@@ -145,7 +148,8 @@ jobs:
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     outputs:
-      artifact: ${{ steps.artifact.outputs.result }}
+      artifact-file: ${{ steps.artifact-file.outputs.result }}
+      artifact-name: ${{ steps.artifact-name.outputs.result }}
     steps:
       # Download arm64 and x64 binaries
       - name: Download arm64 client
@@ -271,10 +275,15 @@ jobs:
           name: positron-darwin-universal-installer
           path: Positron-${{ inputs.short_version }}.dmg
 
-      - name: Record artifact
-        id: artifact
+      - name: Record artifact name
+        id: artifact-name
         run: |
           echo "result=positron-darwin-universal-installer" >> $GITHUB_OUTPUT
+
+      - name: Record artifact file
+        id: artifact-file
+        run: |
+          echo "result=Positron-${{ inputs.short_version }}.dmg" >> $GITHUB_OUTPUT
 
   status:
     if: ${{ failure() }}

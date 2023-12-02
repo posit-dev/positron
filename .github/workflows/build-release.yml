@@ -95,7 +95,8 @@ jobs:
         id: download-macos-artifact
         # if: github.ref == 'refs/heads/main'
         with:
-          name: ${{ needs.macos-installer.outputs.artifact }}
+          name: ${{ needs.macos-installer.outputs.artifact-name }}
+          path: ./
 
       - name: Upload MacOS release asset
         uses: actions/upload-release-asset@v1
@@ -104,8 +105,8 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
         with:
           upload_url: ${{ needs.releases.outputs.upload_url }}
-          asset_path: ${{ steps.download-macos-artifact.outputs.download-path }}
-          asset_name: ${{ needs.macos-installer.outputs.artifact }}
+          asset_path: ${{ needs.macos-installer.outputs.artifact-file }}
+          asset_name: ${{ needs.macos-installer.outputs.artifact-file }}
           asset_content_type: application/octet-stream
 
   windows-releases:
@@ -120,7 +121,8 @@ jobs:
         uses: actions/download-artifact@v3
         # if: github.ref == 'refs/heads/main'
         with:
-          name: ${{ needs.windows-installer.outputs.artifact }}
+          name: ${{ needs.windows-installer.outputs.artifact-name }}
+          path: ./
 
       - name: Upload Windows release asset
         uses: actions/upload-release-asset@v1
@@ -129,6 +131,6 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
         with:
           upload_url: ${{ needs.releases.outputs.upload_url }}
-          asset_path: ${{ steps.download-windows-artifact.outputs.download-path }}
-          asset_name: ${{ needs.windows-installer.outputs.artifact }}
+          asset_path: ${{ needs.windows-installer.outputs.artifact-file }}
+          asset_name: ${{ needs.windows-installer.outputs.artifact-file }}
           asset_content_type: application/octet-stream

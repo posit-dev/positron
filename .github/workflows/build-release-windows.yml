@@ -11,9 +11,12 @@ on:
         default: ${{ github.sha }}
         type: string
     outputs:
-      artifact:
-        description: "The release artifact filename"
-        value: ${{ jobs.build-windows.outputs.artifact }}
+      artifact-name:
+        description: "The release artifact name"
+        value: ${{ jobs.build-windows.outputs.artifact-name }}
+      artifact-file:
+        description: "The release artifact file"
+        value: ${{ jobs.build-windows.outputs.artifact-file }}
   workflow_dispatch:
 
 jobs:
@@ -25,7 +28,8 @@ jobs:
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     outputs:
-      artifact: ${{ steps.artifact.outputs.result }}
+      artifact-file: ${{ steps.artifact-file.outputs.result }}
+      artifact-name: ${{ steps.artifact-name.outputs.result }}
     strategy:
       max-parallel: 1
       matrix:
@@ -120,10 +124,16 @@ jobs:
           name: positron-${{ matrix.platform }}-${{ matrix.arch }}-${{ matrix.target }}-installer
           path: ${{github.workspace}}\.build\${{ matrix.platform }}-${{ matrix.arch }}\${{ matrix.target }}-setup\PositronSetup.exe
 
-      - name: Record artifact
-        id: artifact
+      - name: Record artifact name
+        id: artifact-name
         run: |
           echo "result=positron-${{ matrix.platform }}-${{ matrix.arch }}-${{ matrix.target }}-installer" >> $GITHUB_OUTPUT
+
+      - name: Record artifact file
+        id: artifact-file
+        run: |
+          echo "result=${{github.workspace}}\.build\${{ matrix.platform }}-${{ matrix.arch }}\${{ matrix.target }}-setup\PositronSetup.exe" >> $GITHUB_OUTPUT
+
 
   status:
     if: ${{ failure() }}
