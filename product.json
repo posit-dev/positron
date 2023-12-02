@@ -433,6 +433,9 @@
 			"resolvers",
 			"contribRemoteHelp",
 			"contribViewsRemote"
+		],
+		"vscode.positron-zed": [
+			"extensionRuntime"
 		]
 	}
 }
