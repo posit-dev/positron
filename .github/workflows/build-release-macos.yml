@@ -6,15 +6,20 @@ on:
   workflow_call:
     inputs:
       build_number:
-        required: true
+        required: false
+        description: "The build distance number only, e.g. 123"
+        default: ${{ github.sha }}
         type: string
       short_version:
         required: true
+        description: "The short version number, including the build distance, e.g. 2023.12.0-123"
+        default: ${{ github.sha }}
         type: string
     outputs:
       artifact:
-        description: "The artifact filename"
+        description: "The release artifact filename"
         value: ${{ jobs.macos-universal.outputs.artifact }}
+  workflow_dispatch:
 
 jobs:
   revive_agent:
