@@ -340,18 +340,18 @@ window.onload = function() {
 		const createWidgetDiv = (widgetView: string) => {
 			const model_id = JSON.parse(widgetView).model_id;
 			return (`
-			<div id="widget-${model_id}">
-				<!-- This script tag will be replaced by the view's DOM tree -->
-				<script type="application/vnd.jupyter.widget-view+json">
-					${widgetView}
-				</script>
-			</div>`);
+<div id="widget-${model_id}">
+	<!-- This script tag will be replaced by the view's DOM tree -->
+	<script type="application/vnd.jupyter.widget-view+json">
+		${widgetView}
+	</script>
+</div>`);
 		};
 
-		const widgetDivs = widgetViews.map(view => createWidgetDiv(view));
+		const widgetDivs = widgetViews.map(view => createWidgetDiv(view)).join('\n');
+		console.log(widgetDivs);
 
 		// Form the path to the requires library and inject it into the HTML
-		// TODO: make this loaded locally
 		const requiresPath = asWebviewUri(
 			jupyterExtension.extensionLocation.with({
 				path: jupyterExtension.extensionLocation.path +
@@ -361,39 +361,39 @@ window.onload = function() {
 		);
 
 		webview.setHtml(`
-		<html>
-		<head>
+<html>
+<head>
 
-		<!-- Load RequireJS, used by the IPywidgets for dependency management -->
-		<script src='${requiresPath}'></script>
+<!-- Load RequireJS, used by the IPywidgets for dependency management -->
+<script src='${requiresPath}'></script>
 
-		<!-- Load IPywidgets bundle for embedding. -->
-		<!-- TODO: make this loaded locally -->
-		<script
-			data-jupyter-widgets-cdn="https://unpkg.com/"
-			data-jupyter-widgets-cdn-only
-			src="https://cdn.jsdelivr.net/npm/@jupyter-widgets/html-manager@*/dist/embed-amd.js"
-			crossorigin="anonymous"
-		></script>
+<!-- Load IPywidgets bundle for embedding. -->
+<!-- TODO: make this loaded locally -->
+<script
+	data-jupyter-widgets-cdn="https://unpkg.com/"
+	data-jupyter-widgets-cdn-only
+	src="https://cdn.jsdelivr.net/npm/@jupyter-widgets/html-manager@*/dist/embed-amd.js"
+	crossorigin="anonymous"
+></script>
 
-		<!-- The state of all the widget models on the page -->
-		<script type="application/vnd.jupyter.widget-state+json">
-			'${managerState}'
-		</script>
-		</head>
+<!-- The state of all the widget models on the page -->
+<script type="application/vnd.jupyter.widget-state+json">
+	'${managerState}'
+</script>
+</head>
 
-		<body>
-			<!-- The views of all the widget models on the page -->
-			${widgetDivs}
-		</body>
-		<script>
-		const vscode = acquireVsCodeApi();
-		window.onload = function() {
-			vscode.postMessage('${RENDER_COMPLETE}');
-		};
-		</script>
-		</html>
-		`);
+<body>
+	<!-- The views of all the widget models on the page -->
+	${widgetDivs}
+</body>
+<script>
+const vscode = acquireVsCodeApi();
+window.onload = function() {
+	vscode.postMessage('${RENDER_COMPLETE}');
+};
+</script>
+</html>
+`);
 		return new NotebookOutputWebview(id, runtime.metadata.runtimeId, webview);
 	}
 }

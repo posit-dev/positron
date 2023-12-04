@@ -141,8 +141,8 @@ export class PositronIPyWidgetsService extends Disposable implements IPositronIP
 	}
 
 	private findPrimaryWidgets(runtime: ILanguageRuntime): IPyWidgetClientInstance[] {
-		// Primary widgets must match the current runtime ID, have no dependencies,
-		// and be "viewable" (i.e. have a layout and dom_classes property)
+		// Primary widgets must match the current runtime ID, no widgets are dependent on it,
+		// and they are "viewable" (i.e. they have both a layout and dom_classes property)
 		const matchingRuntimeWidgets = this._widgets.filter(widget => widget.metadata.runtime_id === runtime.metadata.runtimeId);
 		const dependentWidgets = new Set<string>();
 		matchingRuntimeWidgets.forEach(widget => {
