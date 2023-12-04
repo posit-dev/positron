@@ -38,21 +38,95 @@ export interface PositronCommError {
 	data: any | undefined;
 }
 
+/**
+ * An event emitter that can be used to fire events from the backend to the
+ * frontend.
+ */
+class PositronCommEmitter<T> extends Emitter<T> {
+	/**
+	 * Create a new event emitter.
+	 *
+	 * @param name The name of the event, as a JSON-RPC method name.
+	 * @param properties The names of the properties in the event payload; used
+	 *   to convert positional parameters to named parameters.
+	 */
+	constructor(readonly name: string, readonly properties: string[]) {
+		super();
+	}
+}
+
+/**
+ * A base class for Positron comm instances. This class handles communication
+ * with the backend, and provides methods for creating event emitters and
+ * performing RPCs.
+ *
+ * Used by generated comm classes.
+ */
 export class PositronBaseComm {
-	private _emitters = new Map<string, Emitter<any>>();
+	/**
+	 * A map of event names to emitters. This is used to create event emitters
+	 * from the backend to the frontend.
+	 */
+	private _emitters = new Map<string, PositronCommEmitter<any>>();
+
+	/**
+	 * Create a new Positron com
+	 *
+	 * @param clientInstance The client instance to use for communication with the backend.
+	 *  This instance must be connected to the backend before it is passed to this class.
+	 */
 	constructor(private readonly clientInstance: IRuntimeClientInstance<any, any>) {
 		clientInstance.onDidReceiveData((data) => {
 			const emitter = this._emitters.get(data.method);
 			if (emitter) {
-				emitter.fire(data);
+				const payload = data.params;
+				// JSON-RPC parameters can be specified either as an array or as
+				// key/value pairs. If the payload is an array, convert it to
+				// the object form.
+				if (Array.isArray(payload)) {
+					// Create the object from the array, converting positional
+					// parameters to named parameters.
+					const obj: any = {};
+					for (let i = 0; i < payload.length; i++) {
+						obj[emitter.properties[i]] = payload[i];
+					}
+					emitter.fire(obj);
+				} else if (typeof payload === 'object') {
+					// If the payload is already an object, just fire the event
+					emitter.fire(payload);
+				} else {
+					// If the payload is some other kind of object, log a
+					// warning; we can't fire an event with it.
+					console.warn(`Invalid payload type ${typeof payload} ` +
+						`for event '${data.method}' ` +
+						`on comm ${this.clientInstance.getClientId()}: ` +
+						`${JSON.stringify(payload)} ` +
+						`(Expected an object or an array)`);
+				}
 			}
 		});
 	}
 
-	protected createEventEmitter<T>(): Event<T> | undefined {
-		return undefined;
+	/**
+	 * Create a new event emitter.
+	 * @param name The name of the event, as a JSON-RPC method name.
+	 * @param properties The names of the properties in the event payload; used
+	 *  to convert positional parameters to named parameters.
+	 * @returns
+	 */
+	protected createEventEmitter<T>(name: string, properties: string[]): Event<T> | undefined {
+		const emitter = new PositronCommEmitter<T>(name, properties);
+		return emitter.event;
 	}
 
+	/**
+	 * Perform an RPC and wait for the result.
+	 *
+	 * @param rpcName The name of the RPC to perform.
+	 * @param rpcArgs The arguments to the RPC.
+	 * @returns A promise that resolves to the result of the RPC, or rejects
+	 *  with a PositronCommError.
+	 */
 	protected async performRpc<T>(rpcName: string, ...rpcArgs: any[]): Promise<T> {
 		// Form the request object
 		const request = {
