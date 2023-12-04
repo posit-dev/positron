@@ -100,8 +100,8 @@ function formatComment(leader: string, comment: string): string {
 	return result;
 }
 
-async function createRustComm(name: string, frontend: any, backend: any): Promise<string> {
-	let output = `/*---------------------------------------------------------------------------------------------
+function* createRustComm(name: string, frontend: any, backend: any): Generator<string> {
+	yield `/*---------------------------------------------------------------------------------------------
  *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
@@ -125,78 +125,76 @@ async function createRustComm(name: string, frontend: any, backend: any): Promis
 			if (method.result &&
 				method.result.schema &&
 				method.result.schema.type === 'object') {
-				output += '#[derive(Debug, Serialize, Deserialize)]\n';
-				output += `pub struct ${snakeCaseToSentenceCase(method.result.schema.name)} {\n`;
+				yield '#[derive(Debug, Serialize, Deserialize)]\n';
+				yield `pub struct ${snakeCaseToSentenceCase(method.result.schema.name)} {\n`;
 				console.log('serialize ${method.result.schema.name}');
 				console.log(JSON.stringify(method.result.schema, null, 4));
 				for (const prop of Object.keys(method.result.schema.properties)) {
 					const schema = method.result.schema.properties[prop];
 					if (schema.description) {
-						output += formatComment('\t/// ', schema.description);
+						yield formatComment('\t/// ', schema.description);
 					}
-					output += `\tpub ${prop}: ${RustTypeMap[schema.type]},\n\n`;
+					yield `\tpub ${prop}: ${RustTypeMap[schema.type]},\n\n`;
 				}
-				output += '}\n\n';
+				yield '}\n\n';
 			}
 		}
 	}
 
 	if (backend) {
 		for (const method of backend.methods) {
-			output += '#[derive(Debug, Serialize, Deserialize)]\n';
-			output += `pub struct ${snakeCaseToSentenceCase(method.name)}Params {\n`;
+			yield '#[derive(Debug, Serialize, Deserialize)]\n';
+			yield `pub struct ${snakeCaseToSentenceCase(method.name)}Params {\n`;
 			for (const param of method.params) {
 				if (param.description) {
-					output += formatComment('\t/// ', param.description);
+					yield formatComment('\t/// ', param.description);
 				}
-				output += `\tpub ${param.name}: ${RustTypeMap[param.schema.type]},\n\n`;
+				yield `\tpub ${param.name}: ${RustTypeMap[param.schema.type]},\n\n`;
 			}
 		}
-		output += `}\n\n`;
+		yield `}\n\n`;
 	}
 
 	if (backend) {
-		output += `#[derive(Debug, Serialize, Deserialize, PartialEq)]\n`;
-		output += `pub enum ${snakeCaseToSentenceCase(name)}RpcRequest {\n`;
+		yield `#[derive(Debug, Serialize, Deserialize, PartialEq)]\n`;
+		yield `pub enum ${snakeCaseToSentenceCase(name)}RpcRequest {\n`;
 		for (const method of backend.methods) {
-			output += `\t#[serde(rename = "${method.name}")]\n`;
-			output += `\t${snakeCaseToSentenceCase(method.name)}`;
+			yield `\t#[serde(rename = "${method.name}")]\n`;
+			yield `\t${snakeCaseToSentenceCase(method.name)}`;
 			if (method.params.length > 0) {
-				output += `(${snakeCaseToSentenceCase(method.name)}Params),\n`;
+				yield `(${snakeCaseToSentenceCase(method.name)}Params),\n`;
 			} else {
-				output += ',\n';
+				yield ',\n';
 			}
 		}
-		output += `}\n\n`;
+		yield `}\n\n`;
 
-		output += `#[derive(Debug, Serialize, Deserialize, PartialEq)]\n`;
-		output += `pub enum ${snakeCaseToSentenceCase(name)}RpcReply {\n`;
+		yield `#[derive(Debug, Serialize, Deserialize, PartialEq)]\n`;
+		yield `pub enum ${snakeCaseToSentenceCase(name)}RpcReply {\n`;
 		for (const method of backend.methods) {
 			if (method.result.schema) {
 				const schema = method.result.schema;
 				if (schema.description) {
-					output += formatComment('\t/// ', schema.description);
+					yield formatComment('\t/// ', schema.description);
 				}
-				output += `\t${snakeCaseToSentenceCase(method.name)}Reply`;
+				yield `\t${snakeCaseToSentenceCase(method.name)}Reply`;
 				if (schema.type === 'object') {
-					output += `(${snakeCaseToSentenceCase(schema.name)}),\n`;
+					yield `(${snakeCaseToSentenceCase(schema.name)}),\n`;
 				} else {
-					output += `(${RustTypeMap[schema.type]}),\n`;
+					yield `(${RustTypeMap[schema.type]}),\n`;
 				}
 			}
 		}
-		output += `}\n\n`;
+		yield `}\n\n`;
 	}
-
-	return output;
 }
 
 
-async function createTypescriptComm(name: string, frontend: any, backend: any): Promise<string> {
+async function* createTypescriptComm(name: string, frontend: any, backend: any): AsyncGenerator<string> {
 	// Read the metadata file
 	const metadata: CommMetadata = JSON.parse(
 		readFileSync(path.join(commsDir, `${name}.json`), { encoding: 'utf-8' }));
-	let output = `/*---------------------------------------------------------------------------------------------
+	yield `/*---------------------------------------------------------------------------------------------
  *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
@@ -216,7 +214,7 @@ import { IRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/co
 			if (method.result &&
 				method.result.schema &&
 				method.result.schema.type === 'object') {
-				output += await compile(method.result.schema,
+				yield await compile(method.result.schema,
 					method.result.schema.name, {
 					bannerComment: '',
 					additionalProperties: false,
@@ -224,7 +222,7 @@ import { IRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/co
 						useTabs: true
 					}
 				});
-				output += '\n';
+				yield '\n';
 			}
 		}
 	}
@@ -235,131 +233,128 @@ import { IRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/co
 			if (method.result) {
 				continue;
 			}
-			output += '/**\n';
-			output += formatComment(' * ', `Event: ${method.summary}`);
-			output += ' */\n';
-			output += `export interface ${snakeCaseToSentenceCase(method.name)}Event {\n`;
+			yield '/**\n';
+			yield formatComment(' * ', `Event: ${method.summary}`);
+			yield ' */\n';
+			yield `export interface ${snakeCaseToSentenceCase(method.name)}Event {\n`;
 			for (const param of method.params) {
-				output += '\t/**\n';
-				output += formatComment('\t * ', `${param.description}`);
-				output += '\t */\n';
-				output += `\t${snakeCaseToCamelCase(param.name)}: `;
-				output += TypescriptTypeMap[param.schema.type as string];
-				output += `;\n\n`;
+				yield '\t/**\n';
+				yield formatComment('\t * ', `${param.description}`);
+				yield '\t */\n';
+				yield `\t${snakeCaseToCamelCase(param.name)}: `;
+				yield TypescriptTypeMap[param.schema.type as string];
+				yield `;\n\n`;
 			}
-			output += '}\n\n';
+			yield '}\n\n';
 		}
 	}
 
-	output += `export class Positron${snakeCaseToSentenceCase(name)}Comm extends PositronBaseComm {\n`;
+	yield `export class Positron${snakeCaseToSentenceCase(name)}Comm extends PositronBaseComm {\n`;
 
 	// TODO: supply initial data
-	output += '\tconstructor(instance: IRuntimeClientInstance<any, any>) {\n';
-	output += '\t\tsuper(instance);\n';
+	yield '\tconstructor(instance: IRuntimeClientInstance<any, any>) {\n';
+	yield '\t\tsuper(instance);\n';
 	if (frontend) {
 		for (const method of frontend.methods) {
 			// Ignore methods that have a result; we're generating events here
 			if (method.result) {
 				continue;
 			}
-			output += `\t\tthis.onDid${snakeCaseToSentenceCase(method.name)} = `;
-			output += `super.createEventEmitter('${method.name}', [`;
+			yield `\t\tthis.onDid${snakeCaseToSentenceCase(method.name)} = `;
+			yield `super.createEventEmitter('${method.name}', [`;
 			for (let i = 0; i < method.params.length; i++) {
 				const param = method.params[i];
-				output += `'${param.name}'`;
+				yield `'${param.name}'`;
 				if (i < method.params.length - 1) {
-					output += ', ';
+					yield ', ';
 				}
 			}
-			output += `]);\n`;
+			yield `]);\n`;
 		}
 	}
 
-	output += '\t}\n\n';
+	yield '\t}\n\n';
 
 	if (backend) {
 		// Then create all the methods
 		for (const method of backend.methods) {
 			// Write the comment header
-			output += '\t/**\n';
-			output += formatComment('\t * ', method.summary);
+			yield '\t/**\n';
+			yield formatComment('\t * ', method.summary);
 			if (method.description) {
-				output += `\t *\n`;
-				output += formatComment('\t * ', method.description);
+				yield `\t *\n`;
+				yield formatComment('\t * ', method.description);
 			}
-			output += `\t *\n`;
+			yield `\t *\n`;
 			for (let i = 0; i < method.params.length; i++) {
 				const param = method.params[i];
-				output +=
-					formatComment('\t * ',
-						`@param ${snakeCaseToCamelCase(param.name)} ${param.description}`);
+				yield formatComment('\t * ',
+					`@param ${snakeCaseToCamelCase(param.name)} ${param.description}`);
 			}
-			output += `\t *\n`;
+			yield `\t *\n`;
 			if (method.result) {
-				output += formatComment('\t * ',
+				yield formatComment('\t * ',
 					`@returns ${method.result.schema.description}`);
 			}
-			output += '\t */\n';
-			output += '\t' + snakeCaseToCamelCase(method.name) + '(';
+			yield '\t */\n';
+			yield '\t' + snakeCaseToCamelCase(method.name) + '(';
 			for (let i = 0; i < method.params.length; i++) {
 				const param = method.params[i];
-				output += snakeCaseToCamelCase(param.name) +
+				yield snakeCaseToCamelCase(param.name) +
 					': ' +
 					TypescriptTypeMap[param.schema.type as string];
 				if (i < method.params.length - 1) {
-					output += ', ';
+					yield ', ';
 				}
 			}
-			output += '): Promise<';
+			yield '): Promise<';
 			if (method.result) {
 				if (method.result.schema.type === 'object') {
-					output += snakeCaseToSentenceCase(method.result.schema.name);
+					yield snakeCaseToSentenceCase(method.result.schema.name);
 				} else {
-					output += TypescriptTypeMap[method.result.schema.type as string];
+					yield TypescriptTypeMap[method.result.schema.type as string];
 				}
 			}
-			output += '> {\n';
-			output += '\t\treturn super.performRpc(\'' + method.name + '\', [';
+			yield '> {\n';
+			yield '\t\treturn super.performRpc(\'' + method.name + '\', [';
 			for (let i = 0; i < method.params.length; i++) {
-				output += `'${method.params[i].name}'`;
+				yield `'${method.params[i].name}'`;
 				if (i < method.params.length - 1) {
-					output += ', ';
+					yield ', ';
 				}
 			}
-			output += '], [';
+			yield '], [';
 			for (let i = 0; i < method.params.length; i++) {
-				output += snakeCaseToCamelCase(method.params[i].name);
+				yield snakeCaseToCamelCase(method.params[i].name);
 				if (i < method.params.length - 1) {
-					output += ', ';
+					yield ', ';
 				}
 			}
-			output += ']);\n';
-			output += `\t}\n`;
+			yield ']);\n';
+			yield `\t}\n`;
 		}
 	}
 
 	if (frontend) {
-		output += '\n';
+		yield '\n';
 		for (const method of frontend.methods) {
 			// Ignore methods that have a result; we're generating events here
 			if (method.result) {
 				continue;
 			}
-			output += '\t/**\n';
-			output += formatComment('\t * ', method.summary);
+			yield '\t/**\n';
+			yield formatComment('\t * ', method.summary);
 			if (method.description) {
-				output += `\t *\n`;
-				output += formatComment('\t * ', method.description);
+				yield `\t *\n`;
+				yield formatComment('\t * ', method.description);
 			}
-			output += '\t */\n';
-			output += `\tonDid${snakeCaseToSentenceCase(method.name)}: `;
-			output += `Event<${snakeCaseToSentenceCase(method.name)}Event>;\n`;
+			yield '\t */\n';
+			yield `\tonDid${snakeCaseToSentenceCase(method.name)}: `;
+			yield `Event<${snakeCaseToSentenceCase(method.name)}Event>;\n`;
 		}
 	}
 
-	output += `}\n\n`;
-
-	return output;
+	yield `}\n\n`;
 }
 
 async function createCommInterface() {
@@ -394,7 +389,10 @@ async function createCommInterface() {
 
 			// Create the Typescript output file
 			const tsOutputFile = path.join(tsOutputDir, `positron${snakeCaseToSentenceCase(name)}Comm.ts`);
-			const ts = await createTypescriptComm(name, frontend, backend);
+			let ts = '';
+			for await (const chunk of createTypescriptComm(name, frontend, backend)) {
+				ts += chunk;
+			}
 
 			// Write the output file
 			writeFileSync(tsOutputFile, ts, { encoding: 'utf-8' });
@@ -404,8 +402,10 @@ async function createCommInterface() {
 
 			// Create the Rust output file
 			const rustOutputFile = path.join(rustOutputDir, `${name}_comm.rs`);
-
-			const rust = await createRustComm(name, frontend, backend);
+			let rust = '';
+			for await (const chunk of createRustComm(name, frontend, backend)) {
+				rust += chunk;
+			}
 
 			// Write the output file
 			writeFileSync(rustOutputFile, rust, { encoding: 'utf-8' });
