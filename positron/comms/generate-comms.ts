@@ -2,13 +2,15 @@
  *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
-import { existsSync, readdirSync, readFileSync } from 'fs';
+import { existsSync, readdirSync, readFileSync, writeFileSync } from 'fs';
 import { compile } from 'json-schema-to-typescript';
 import path, { format } from 'path';
 
 // Read the contents of the sibling "comms" directory
 const commsDir = `${__dirname}/../comms`;
 const commsFiles = readdirSync(commsDir);
+
+const outputDir = `${__dirname}/../../src/vs/workbench/services/languageRuntime/common`;
 
 const comms = new Array<string>();
 
@@ -68,10 +70,23 @@ function formatComment(leader: string, comment: string): string {
 	return result;
 }
 
-async function createComm(name: string) {
+async function createComm(name: string): Promise<string> {
 	// Read the metadata file
 	const metadata: CommMetadata = JSON.parse(
 		readFileSync(path.join(commsDir, `${name}.json`), { encoding: 'utf-8' }));
+	let output = `/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
+ *--------------------------------------------------------------------------------------------*/
+
+//
+// AUTO-GENERATED from ${name}.json; do not edit.
+//
+
+import { Event } from 'vs/base/common/event';
+import { PositronBaseComm } from 'vs/workbench/services/languageRuntime/common/positronBaseComm';
+import { IRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeClientInstance';
+
+`;
 
 	// Read the frontend file
 	let frontend: any = null;
@@ -94,10 +109,15 @@ async function createComm(name: string) {
 			if (method.result &&
 				method.result.schema &&
 				method.result.schema.type === 'object') {
-				process.stdout.write(await compile(method.result.schema,
-					method.result.schema.name,
-					{ bannerComment: '', additionalProperties: false }));
-				process.stdout.write('\n');
+				output += await compile(method.result.schema,
+					method.result.schema.name, {
+					bannerComment: '',
+					additionalProperties: false,
+					style: {
+						useTabs: true
+					}
+				});
+				output += '\n';
 			}
 		}
 	}
@@ -108,120 +128,124 @@ async function createComm(name: string) {
 			if (method.result) {
 				continue;
 			}
-			process.stdout.write('/**\n');
-			process.stdout.write(formatComment(' * ', `Event: ${method.summary}`));
-			process.stdout.write(' */\n');
-			process.stdout.write(`export interface ${snakeCaseToSentenceCase(method.name)}Event {\n`);
+			output += '/**\n';
+			output += formatComment(' * ', `Event: ${method.summary}`);
+			output += ' */\n';
+			output += `export interface ${snakeCaseToSentenceCase(method.name)}Event {\n`;
 			for (const param of method.params) {
-				process.stdout.write('  /**\n');
-				process.stdout.write(formatComment('   * ', `${param.description}`));
-				process.stdout.write('   */\n');
-				process.stdout.write(`  ${snakeCaseToCamelCase(param.name)}: `);
-				process.stdout.write(TypescriptTypeMap[param.schema.type as string]);
-				process.stdout.write(`;\n\n`);
+				output += '\t/**\n';
+				output += formatComment('\t * ', `${param.description}`);
+				output += '\t */\n';
+				output += `\t${snakeCaseToCamelCase(param.name)}: `;
+				output += TypescriptTypeMap[param.schema.type as string];
+				output += `;\n\n`;
 			}
-			process.stdout.write('}\n\n');
+			output += '}\n\n';
 		}
 	}
 
-	process.stdout.write(`export class Positron${snakeCaseToSentenceCase(name)}Comm extends PositronComm {\n`);
+	output += `export class Positron${snakeCaseToSentenceCase(name)}Comm extends PositronBaseComm {\n`;
 
 	// TODO: supply initial data
-	process.stdout.write('  constructor() {\n');
+	output += '\tconstructor(instance: IRuntimeClientInstance<any, any>) {\n';
+	output += '\t\tsuper(instance);\n';
 	if (frontend) {
 		for (const method of frontend.methods) {
 			// Ignore methods that have a result; we're generating events here
 			if (method.result) {
 				continue;
 			}
-			process.stdout.write(`    this.onDid${snakeCaseToSentenceCase(method.name)} = `);
-			process.stdout.write(`super.createEventEmitter('${method.name}', [`);
+			output += `\t\tthis.onDid${snakeCaseToSentenceCase(method.name)} = `;
+			output += `super.createEventEmitter('${method.name}', [`;
 			for (let i = 0; i < method.params.length; i++) {
 				const param = method.params[i];
-				process.stdout.write(`'${param.name}'`);
+				output += `'${param.name}'`;
 				if (i < method.params.length - 1) {
-					process.stdout.write(', ');
+					output += ', ';
 				}
 			}
-			process.stdout.write(`]);\n`);
+			output += `]);\n`;
 		}
 	}
-	process.stdout.write('  }\n\n');
+
+	output += '\t}\n\n';
+
 	if (backend) {
 		// Then create all the methods
 		for (const method of backend.methods) {
 			// Write the comment header
-			process.stdout.write('  /**\n');
-			process.stdout.write(formatComment('   * ', method.summary));
+			output += '\t/**\n';
+			output += formatComment('\t * ', method.summary);
 			if (method.description) {
-				process.stdout.write(`   *\n`);
-				process.stdout.write(formatComment('   * ', method.description));
+				output += `\t *\n`;
+				output += formatComment('\t * ', method.description);
 			}
-			process.stdout.write(`   *\n`);
+			output += `\t *\n`;
 			for (let i = 0; i < method.params.length; i++) {
 				const param = method.params[i];
-				process.stdout.write(
-					formatComment('   * ',
-						`@param ${snakeCaseToCamelCase(param.name)} ${param.description}`));
+				output +=
+					formatComment('\t * ',
+						`@param ${snakeCaseToCamelCase(param.name)} ${param.description}`);
 			}
-			process.stdout.write(`   *\n`);
+			output += `\t *\n`;
 			if (method.result) {
-				process.stdout.write(
-					formatComment('   * ',
-						`@returns ${method.result.schema.description}`));
+				output += formatComment('\t * ',
+					`@returns ${method.result.schema.description}`);
 			}
-			process.stdout.write('   */\n');
-			process.stdout.write('  ' + snakeCaseToCamelCase(method.name) + '(');
+			output += '\t */\n';
+			output += '\t' + snakeCaseToCamelCase(method.name) + '(';
 			for (let i = 0; i < method.params.length; i++) {
 				const param = method.params[i];
-				process.stdout.write(snakeCaseToCamelCase(param.name) +
+				output += snakeCaseToCamelCase(param.name) +
 					': ' +
-					TypescriptTypeMap[param.schema.type as string]);
+					TypescriptTypeMap[param.schema.type as string];
 				if (i < method.params.length - 1) {
-					process.stdout.write(', ');
+					output += ', ';
 				}
 			}
-			process.stdout.write('): Promise<');
+			output += '): Promise<';
 			if (method.result) {
 				if (method.result.schema.type === 'object') {
-					process.stdout.write(snakeCaseToSentenceCase(method.result.schema.name));
+					output += snakeCaseToSentenceCase(method.result.schema.name);
 				} else {
-					process.stdout.write(TypescriptTypeMap[method.result.schema.type as string]);
+					output += TypescriptTypeMap[method.result.schema.type as string];
 				}
 			}
-			process.stdout.write('> {\n');
-			process.stdout.write('    return super.performRpc(\'' + method.name + '\', ');
+			output += '> {\n';
+			output += '\t\treturn super.performRpc(\'' + method.name + '\', ';
 			for (let i = 0; i < method.params.length; i++) {
-				process.stdout.write(snakeCaseToCamelCase(method.params[i].name));
+				output += snakeCaseToCamelCase(method.params[i].name);
 				if (i < method.params.length - 1) {
-					process.stdout.write(', ');
+					output += ', ';
 				}
 			}
-			process.stdout.write(');\n');
-			process.stdout.write(`  }\n`);
+			output += ');\n';
+			output += `\t}\n`;
 		}
 	}
 
 	if (frontend) {
-		process.stdout.write('\n');
+		output += '\n';
 		for (const method of frontend.methods) {
 			// Ignore methods that have a result; we're generating events here
 			if (method.result) {
 				continue;
 			}
-			process.stdout.write('  /**\n');
-			process.stdout.write(formatComment('   * ', method.summary));
+			output += '\t/**\n';
+			output += formatComment('\t * ', method.summary);
 			if (method.description) {
-				process.stdout.write(`   *\n`);
-				process.stdout.write(formatComment('   * ', method.description));
+				output += `\t *\n`;
+				output += formatComment('\t * ', method.description);
 			}
-			process.stdout.write('   */\n');
-			process.stdout.write(`  onDid${snakeCaseToSentenceCase(method.name)}: `);
-			process.stdout.write(`Event<${snakeCaseToSentenceCase(method.name)}Event>;\n`);
+			output += '\t */\n';
+			output += `\tonDid${snakeCaseToSentenceCase(method.name)}: `;
+			output += `Event<${snakeCaseToSentenceCase(method.name)}Event>;\n`;
 		}
 	}
 
-	process.stdout.write(`}\n\n`);
+	output += `}\n\n`;
+
+	return output;
 }
 
 async function createCommInterface() {
@@ -237,7 +261,17 @@ async function createCommInterface() {
 		// If there's a corresponding frontend and/or backend file, process the comm
 		if (existsSync(path.join(commsDir, `${name}-frontend-openrpc.json`)) ||
 			existsSync(path.join(commsDir, `${name}-backend-openrpc.json`))) {
-			await createComm(name);
+
+			// Create the output file
+			const outputFile = path.join(outputDir, `positron${snakeCaseToSentenceCase(name)}Comm.ts`);
+			const content = await createComm(name);
+
+			// Write the output file
+			writeFileSync(outputFile, content, { encoding: 'utf-8' });
+
+			// Write to stdout too
+			console.log(content);
+
 			comms.push(name);
 		}
 	}

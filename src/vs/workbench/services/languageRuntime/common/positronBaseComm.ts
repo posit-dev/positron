@@ -114,7 +114,7 @@ export class PositronBaseComm {
 	 *  to convert positional parameters to named parameters.
 	 * @returns
 	 */
-	protected createEventEmitter<T>(name: string, properties: string[]): Event<T> | undefined {
+	protected createEventEmitter<T>(name: string, properties: string[]): Event<T> {
 		const emitter = new PositronCommEmitter<T>(name, properties);
 		return emitter.event;
 	}
