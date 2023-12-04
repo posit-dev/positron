@@ -46,7 +46,7 @@ export class PositronHelpComm extends PositronBaseComm {
 	 * Show Help notification.
 	 */
 	showHelpTopic(topic: string): Promise<boolean> {
-		return super.performRpc('show_help_topic', topic);
+		return super.performRpc('show_help_topic', ['topic'], [topic]);
 	}
 
 	/**

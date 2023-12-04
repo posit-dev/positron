@@ -212,14 +212,21 @@ import { IRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/co
 				}
 			}
 			output += '> {\n';
-			output += '\t\treturn super.performRpc(\'' + method.name + '\', ';
+			output += '\t\treturn super.performRpc(\'' + method.name + '\', [';
+			for (let i = 0; i < method.params.length; i++) {
+				output += `'${method.params[i].name}'`;
+				if (i < method.params.length - 1) {
+					output += ', ';
+				}
+			}
+			output += '], [';
 			for (let i = 0; i < method.params.length; i++) {
 				output += snakeCaseToCamelCase(method.params[i].name);
 				if (i < method.params.length - 1) {
 					output += ', ';
 				}
 			}
-			output += ');\n';
+			output += ']);\n';
 			output += `\t}\n`;
 		}
 	}

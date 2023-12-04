@@ -123,11 +123,23 @@ export class PositronBaseComm {
 	 * Perform an RPC and wait for the result.
 	 *
 	 * @param rpcName The name of the RPC to perform.
-	 * @param rpcArgs The arguments to the RPC.
+	 * @param paramNames The parameter names
+	 * @param paramValues The parameter values
 	 * @returns A promise that resolves to the result of the RPC, or rejects
 	 *  with a PositronCommError.
 	 */
-	protected async performRpc<T>(rpcName: string, ...rpcArgs: any[]): Promise<T> {
+	protected async performRpc<T>(rpcName: string,
+		paramNames: Array<string>,
+		paramValues: Array<any>): Promise<T> {
+
+		// Create the RPC arguments from the parameter names and values. This
+		// allows us to pass the parameters as positional parameters, but
+		// still have them be named parameters in the RPC.
+		const rpcArgs: any = {};
+		for (let i = 0; i < paramNames.length; i++) {
+			rpcArgs[paramNames[i]] = paramValues[i];
+		}
+
 		// Form the request object
 		const request = {
 			jsonrpc: '2.0',
