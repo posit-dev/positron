@@ -35,8 +35,8 @@ export class PositronIPyWidgetsService extends Disposable implements IPositronIP
 	/** The list of IPyWidgets. */
 	private readonly _widgets: IPyWidgetClientInstance[] = [];
 
-	/** The emitter for the onDidEmitIPyWidget event */
-	private readonly _onDidEmitIPyWidget = new Emitter<IPyWidgetClientInstance>();
+	/** The emitter for the onDidCreatePlot event */
+	private readonly _onDidCreatePlot = new Emitter<WebviewPlotClient>();
 
 	/** Creates the Positron plots service instance */
 	constructor(
@@ -55,10 +55,8 @@ export class PositronIPyWidgetsService extends Disposable implements IPositronIP
 
 	private registerIPyWidgetClient(widgetClient: IPyWidgetClientInstance) {
 
-		// Add to our list of plots
+		// Add to our list of widgets
 		this._widgets.push(widgetClient);
-
-		this._onDidEmitIPyWidget.fire(widgetClient);
 
 		// Dispose the widget client when this service is disposed
 		this._register(widgetClient);
@@ -163,6 +161,10 @@ export class PositronIPyWidgetsService extends Disposable implements IPositronIP
 		const htmlData = new IPyWidgetHtmlData(this.positronWidgetInstances);
 		// TODO: Figure out which widget is the primary widget and add it to the viewspec
 		const primaryWidgets = this.findPrimaryWidgets(runtime);
+		if (primaryWidgets.length === 0) {
+			return;
+		}
+
 		primaryWidgets.forEach(widget => {
 			htmlData.addWidgetView(widget.id);
 		});
@@ -179,15 +181,8 @@ export class PositronIPyWidgetsService extends Disposable implements IPositronIP
 			runtime, widgetMessage, htmlData);
 		if (webview) {
 			// TODO: do something with the webview to get it to display?
-			// not sure if we need any of this
-			primaryWidgets.forEach(widget => {
-				this._onDidEmitIPyWidget.fire(widget);
-			});
-			const client = new WebviewPlotClient(webview, widgetMessage);
-			//this._plots.unshift(client);
-			//this._onDidEmitPlot.fire(client);
-			//this._onDidSelectPlot.fire(client.id);
-			this._register(client);
+			const plotClient = new WebviewPlotClient(webview, widgetMessage);
+			this._onDidCreatePlot.fire(plotClient);
 		}
 	}
 
@@ -213,7 +208,7 @@ export class PositronIPyWidgetsService extends Disposable implements IPositronIP
 		return `positron.ipywidget.${runtimeId}.${widgetId}`;
 	}
 
-	onDidEmitIPyWidget: Event<IPyWidgetClientInstance> = this._onDidEmitIPyWidget.event;
+	onDidCreatePlot: Event<WebviewPlotClient> = this._onDidCreatePlot.event;
 
 	// Gets the individual widget client instances.
 	get positronWidgetInstances(): IPyWidgetClientInstance[] {

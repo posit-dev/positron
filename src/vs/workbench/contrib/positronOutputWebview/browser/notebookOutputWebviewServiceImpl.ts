@@ -311,12 +311,8 @@ window.onload = function() {
 	 */
 	async createWidgetHtmlOutput(id: string, runtime: ILanguageRuntime, managerState: string, widgetViews: string[]):
 		Promise<INotebookOutputWebview> {
-		if (!widgetViews || widgetViews.length === 0) {
-			return Promise.reject('No widget views found');
-		}
-
-		// Load the Jupyter extension. Many notebook HTML outputs have a dependency on jQuery,
-		// which is provided by the Jupyter extension.
+		// Load the Jupyter extension. In reality we probably want the Positron Python extension
+		// so we can make sure we load requirejs from there
 		const jupyterExtension = await this._extensionService.getExtension('ms-toolsai.jupyter');
 		if (!jupyterExtension) {
 			return Promise.reject(`Jupyter extension 'ms-toolsai.jupyter' not found`);
@@ -352,20 +348,18 @@ window.onload = function() {
 		console.log(widgetDivs);
 
 		// Form the path to the requires library and inject it into the HTML
-		const requiresPath = asWebviewUri(
-			jupyterExtension.extensionLocation.with({
-				path: jupyterExtension.extensionLocation.path +
-					'/out/node_modules/requires/dist/requires.js',
-				authority: null
-			})
-		);
+		// TODO: this should be loaded locally from the Positron Python extension
+		const requiresPath = `
+src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"
+integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA="
+crossorigin="anonymous">`;
 
 		webview.setHtml(`
 <html>
 <head>
 
 <!-- Load RequireJS, used by the IPywidgets for dependency management -->
-<script src='${requiresPath}'></script>
+<script ${requiresPath}></script>
 
 <!-- Load IPywidgets bundle for embedding. -->
 <!-- TODO: make this loaded locally -->

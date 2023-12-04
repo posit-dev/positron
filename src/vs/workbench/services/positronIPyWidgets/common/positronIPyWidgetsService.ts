@@ -5,7 +5,7 @@
 import { createDecorator } from 'vs/platform/instantiation/common/instantiation';
 import { Event } from 'vs/base/common/event';
 import { IDisposable } from 'vs/base/common/lifecycle';
-
+import { IPositronPlotClient } from 'vs/workbench/services/positronPlots/common/positronPlots';
 
 export const POSITRON_IPYWIDGETS_SERVICE_ID = 'positronIPyWidgetsService';
 
@@ -103,9 +103,9 @@ export interface IPositronIPyWidgetsService {
 	readonly positronWidgetInstances: IPositronIPyWidgetClient[];
 
 	/**
-	 * Notifies subscribers when a new IPyWidget instance is created.
+	 * Notifies subscribers when a new plot client is created from IPyWidgets.
 	 */
-	readonly onDidEmitIPyWidget: Event<IPositronIPyWidgetClient>;
+	readonly onDidCreatePlot: Event<IPositronPlotClient>;
 
 	/**
 	 * Placeholder for service initialization.
