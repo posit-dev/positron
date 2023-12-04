@@ -134,13 +134,60 @@ async function createRustComm(name: string, frontend: any, backend: any): Promis
 					if (schema.description) {
 						output += formatComment('\t/// ', schema.description);
 					}
-					output += `\t#[serde(rename = "${prop}")]\n`;
-					output += `\tpub ${snakeCaseToCamelCase(prop)}: ${RustTypeMap[schema.type]},\n\n`;
+					output += `\tpub ${prop}: ${RustTypeMap[schema.type]},\n\n`;
 				}
-				output += '}\n';
+				output += '}\n\n';
 			}
 		}
 	}
+
+	if (backend) {
+		for (const method of backend.methods) {
+			output += '#[derive(Debug, Serialize, Deserialize)]\n';
+			output += `pub struct ${snakeCaseToSentenceCase(method.name)}Params {\n`;
+			for (const param of method.params) {
+				if (param.description) {
+					output += formatComment('\t/// ', param.description);
+				}
+				output += `\tpub ${param.name}: ${RustTypeMap[param.schema.type]},\n\n`;
+			}
+		}
+		output += `}\n\n`;
+	}
+
+	if (backend) {
+		output += `#[derive(Debug, Serialize, Deserialize, PartialEq)]\n`;
+		output += `pub enum ${snakeCaseToSentenceCase(name)}RpcRequest {\n`;
+		for (const method of backend.methods) {
+			output += `\t#[serde(rename = "${method.name}")]\n`;
+			output += `\t${snakeCaseToSentenceCase(method.name)}`;
+			if (method.params.length > 0) {
+				output += `(${snakeCaseToSentenceCase(method.name)}Params),\n`;
+			} else {
+				output += ',\n';
+			}
+		}
+		output += `}\n\n`;
+
+		output += `#[derive(Debug, Serialize, Deserialize, PartialEq)]\n`;
+		output += `pub enum ${snakeCaseToSentenceCase(name)}RpcReply {\n`;
+		for (const method of backend.methods) {
+			if (method.result.schema) {
+				const schema = method.result.schema;
+				if (schema.description) {
+					output += formatComment('\t/// ', schema.description);
+				}
+				output += `\t${snakeCaseToSentenceCase(method.name)}Reply`;
+				if (schema.type === 'object') {
+					output += `(${snakeCaseToSentenceCase(schema.name)}),\n`;
+				} else {
+					output += `(${RustTypeMap[schema.type]}),\n`;
+				}
+			}
+		}
+		output += `}\n\n`;
+	}
+
 	return output;
 }
 
