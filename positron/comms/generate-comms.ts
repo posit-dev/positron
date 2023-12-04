@@ -6,11 +6,11 @@ import { existsSync, readdirSync, readFileSync, writeFileSync } from 'fs';
 import { compile } from 'json-schema-to-typescript';
 import path, { format } from 'path';
 
-// Read the contents of the sibling "comms" directory
-const commsDir = `${__dirname}/../comms`;
+const commsDir = `${__dirname}`;
 const commsFiles = readdirSync(commsDir);
 
-const outputDir = `${__dirname}/../../src/vs/workbench/services/languageRuntime/common`;
+const tsOutputDir = `${__dirname}/../../src/vs/workbench/services/languageRuntime/common`;
+const rustOutputDir = `${__dirname}/../../../amalthea/crates/amalthea/src/comm`;
 
 const comms = new Array<string>();
 
@@ -32,10 +32,32 @@ const TypescriptTypeMap: Record<string, string> = {
 	'object': 'object',
 };
 
+const RustTypeMap: Record<string, string> = {
+	'boolean': 'bool',
+	'integer': 'i64',
+	'number': 'f64',
+	'string': 'String',
+	'null': 'null',
+	'array': 'Vec',
+	'object': 'HashMap',
+};
+
+/**
+ * Converter from snake_case to camelCase
+ *
+ * @param name A snake_case name
+ * @returns A camelCase name
+ */
 function snakeCaseToCamelCase(name: string) {
 	return name.replace(/_([a-z])/g, (m) => m[1].toUpperCase());
 }
 
+/**
+ * Converter from snake_case to SentenceCase
+ *
+ * @param name A snake_case name
+ * @returns A SentenceCase name
+ */
 function snakeCaseToSentenceCase(name: string) {
 	return snakeCaseToCamelCase(name).replace(/^[a-z]/, (m) => m[0].toUpperCase());
 }
@@ -61,6 +83,14 @@ function formatLines(line: string): string[] {
 	return lines;
 }
 
+/**
+ * Formats a comment, breaking it into multiple lines and adding a leader to
+ * each line.
+ *
+ * @param leader The leader to use for each line
+ * @param comment The comment to format
+ * @returns The formatted comment
+ */
 function formatComment(leader: string, comment: string): string {
 	const lines = formatLines(comment);
 	let result = '';
@@ -70,7 +100,52 @@ function formatComment(leader: string, comment: string): string {
 	return result;
 }
 
-async function createComm(name: string): Promise<string> {
+async function createRustComm(name: string, frontend: any, backend: any): Promise<string> {
+	let output = `/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
+ *--------------------------------------------------------------------------------------------*/
+
+//
+// AUTO-GENERATED from ${name}.json; do not edit.
+//
+
+`;
+
+	if (backend) {
+		/*
+		#[derive(Debug, Serialize, Deserialize)]
+		#[serde(rename_all = "snake_case")]
+		pub struct FrontendRpcErrorData {
+			pub message: String,
+			pub code: JsonRpcErrorCode,
+		}
+		*/
+		// Create objects for all the object schemas first
+		for (const method of backend.methods) {
+			if (method.result &&
+				method.result.schema &&
+				method.result.schema.type === 'object') {
+				output += '#[derive(Debug, Serialize, Deserialize)]\n';
+				output += `pub struct ${snakeCaseToSentenceCase(method.result.schema.name)} {\n`;
+				console.log('serialize ${method.result.schema.name}');
+				console.log(JSON.stringify(method.result.schema, null, 4));
+				for (const prop of Object.keys(method.result.schema.properties)) {
+					const schema = method.result.schema.properties[prop];
+					if (schema.description) {
+						output += formatComment('\t/// ', schema.description);
+					}
+					output += `\t#[serde(rename = "${prop}")]\n`;
+					output += `\tpub ${snakeCaseToCamelCase(prop)}: ${RustTypeMap[schema.type]},\n\n`;
+				}
+				output += '}\n';
+			}
+		}
+	}
+	return output;
+}
+
+
+async function createTypescriptComm(name: string, frontend: any, backend: any): Promise<string> {
 	// Read the metadata file
 	const metadata: CommMetadata = JSON.parse(
 		readFileSync(path.join(commsDir, `${name}.json`), { encoding: 'utf-8' }));
@@ -87,21 +162,6 @@ import { PositronBaseComm } from 'vs/workbench/services/languageRuntime/common/p
 import { IRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeClientInstance';
 
 `;
-
-	// Read the frontend file
-	let frontend: any = null;
-	if (existsSync(path.join(commsDir, `${name}-frontend-openrpc.json`))) {
-		frontend = JSON.parse(
-			readFileSync(path.join(commsDir, `${name}-frontend-openrpc.json`), { encoding: 'utf-8' }));
-
-	}
-	// Read the backend file
-	let backend: any = null;
-	if (existsSync(path.join(commsDir, `${name}-backend-openrpc.json`))) {
-		backend = JSON.parse(
-			readFileSync(path.join(commsDir, `${name}-backend-openrpc.json`), { encoding: 'utf-8' }));
-
-	}
 
 	if (backend) {
 		// Create interfaces for all the object schemas first
@@ -269,15 +329,42 @@ async function createCommInterface() {
 		if (existsSync(path.join(commsDir, `${name}-frontend-openrpc.json`)) ||
 			existsSync(path.join(commsDir, `${name}-backend-openrpc.json`))) {
 
-			// Create the output file
-			const outputFile = path.join(outputDir, `positron${snakeCaseToSentenceCase(name)}Comm.ts`);
-			const content = await createComm(name);
+			// Read the frontend file
+			let frontend: any = null;
+			if (existsSync(path.join(commsDir, `${name}-frontend-openrpc.json`))) {
+				frontend = JSON.parse(
+					readFileSync(path.join(commsDir, `${name}-frontend-openrpc.json`), { encoding: 'utf-8' }));
+
+			}
+
+			// Read the backend file
+			let backend: any = null;
+			if (existsSync(path.join(commsDir, `${name}-backend-openrpc.json`))) {
+				backend = JSON.parse(
+					readFileSync(path.join(commsDir, `${name}-backend-openrpc.json`), { encoding: 'utf-8' }));
+
+			}
+
+			// Create the Typescript output file
+			const tsOutputFile = path.join(tsOutputDir, `positron${snakeCaseToSentenceCase(name)}Comm.ts`);
+			const ts = await createTypescriptComm(name, frontend, backend);
 
 			// Write the output file
-			writeFileSync(outputFile, content, { encoding: 'utf-8' });
+			writeFileSync(tsOutputFile, ts, { encoding: 'utf-8' });
 
 			// Write to stdout too
-			console.log(content);
+			console.log(ts);
+
+			// Create the Rust output file
+			const rustOutputFile = path.join(rustOutputDir, `${name}_comm.rs`);
+
+			const rust = await createRustComm(name, frontend, backend);
+
+			// Write the output file
+			writeFileSync(rustOutputFile, rust, { encoding: 'utf-8' });
+
+			// Write to stdout too
+			console.log(rust);
 
 			comms.push(name);
 		}
