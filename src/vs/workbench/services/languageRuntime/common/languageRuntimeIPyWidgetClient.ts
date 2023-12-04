@@ -34,14 +34,14 @@ export class IPyWidgetClientInstance extends Disposable implements IPositronIPyW
 	 * True if this widget has a `layout` property.
 	 */
 	private hasLayout(): boolean {
-		return this.state.get('layout') !== undefined;
+		return 'layout' in this.state;
 	}
 
 	/**
-	 * True if this widget has a `dom_classes` property.
+	 * True if this widget has a `_dom_classes` property.
 	 */
 	private hasDomClasses(): boolean {
-		return this.state.get('dom_classes') !== undefined;
+		return '_dom_classes' in this.state;
 	}
 
 	/**
@@ -56,7 +56,8 @@ export class IPyWidgetClientInstance extends Disposable implements IPositronIPyW
 	 * Returns a list of IDs of widgets that this widget depends on.
 	 */
 	get dependencies(): string[] {
-		const stateValues = this.state.values();
+
+		const stateValues = Object.values(this.state);
 		const dependencies: string[] = [];
 		stateValues.forEach((value: any) => {
 			if (typeof value === 'string' && value.startsWith('IPY_MODEL_')) {
@@ -66,7 +67,7 @@ export class IPyWidgetClientInstance extends Disposable implements IPositronIPyW
 		return dependencies;
 	}
 
-	get state(): any {
+	get state() {
 		return this.metadata.widget_state.state;
 	}
 

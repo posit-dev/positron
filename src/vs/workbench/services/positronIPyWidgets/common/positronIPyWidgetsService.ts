@@ -21,7 +21,7 @@ export interface IPyWidgetState {
 	model_name: string;
 	model_module: string;
 	model_module_version: string;
-	state: any;
+	state: Record<string, any>;
 }
 export class IPyWidgetHtmlData {
 
