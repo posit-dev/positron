@@ -139,7 +139,7 @@ export class PositronIPyWidgetsService extends Disposable implements IPositronIP
 		}));
 	}
 
-	private findPrimaryWidget(runtime: ILanguageRuntime): IPyWidgetClientInstance[] {
+	private findPrimaryWidgets(runtime: ILanguageRuntime): IPyWidgetClientInstance[] {
 		// Primary widgets must match the current runtime ID, have no dependencies,
 		// and be "viewable" (i.e. have a layout and dom_classes property)
 		const matchingRuntimeWidgets = this._widgets.filter(widget => widget.metadata.runtime_id === runtime.metadata.runtimeId);
@@ -171,8 +171,11 @@ export class PositronIPyWidgetsService extends Disposable implements IPositronIP
 
 		const htmlData = new IPyWidgetHtmlData(this.positronWidgetInstances);
 		// TODO: Figure out which widget is the primary widget and add it to the viewspec
+		const primaryWidgets = this.findPrimaryWidgets(runtime);
+		primaryWidgets.forEach(widget => {
+			htmlData.addWidgetView(widget.id);
+		});
 		console.log(`htmlData: ${JSON.stringify(htmlData)}`);
-		console.log(`findPrimaryWidget: ${this.findPrimaryWidget(runtime).map(widget => widget.id)}`);
 
 		const widgetMessage = {
 			...message,
