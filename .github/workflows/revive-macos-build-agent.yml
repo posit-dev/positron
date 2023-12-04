@@ -8,7 +8,7 @@ jobs:
   # exists as a separate job only for convenience.
   revive_agent:
     name: Revive build agent
-    runs-on: [self-hosted, linux]
+    runs-on: ubuntu-latest
     steps:
       - name: Setup SSH Keys and known_hosts
         env:
