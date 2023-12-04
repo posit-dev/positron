@@ -11,6 +11,7 @@ import { IPositronIPyWidgetsService, IPositronIPyWidgetMetadata, IPyWidgetHtmlDa
 import { IPyWidgetClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeIPyWidgetClient';
 import { IPositronNotebookOutputWebviewService } from 'vs/workbench/contrib/positronOutputWebview/browser/notebookOutputWebviewService';
 import { POSITRON_PLOTS_VIEW_ID } from 'vs/workbench/services/positronPlots/common/positronPlots';
+import { WebviewPlotClient } from 'vs/workbench/contrib/positronPlots/browser/webviewPlotClient';
 
 export interface IPositronIPyWidgetCommOpenData {
 	state: {
@@ -159,23 +160,12 @@ export class PositronIPyWidgetsService extends Disposable implements IPositronIP
 		// Combine our existing list of widgets
 		// TODO: this is where we need to combine the widget data
 
-		// log the full list of widgets
-		console.log(`widgets: ${JSON.stringify(this.positronWidgetInstances.map(widget => {
-			return {
-				id: widget.id,
-				runtime_id: widget.metadata.runtime_id,
-				model_name: widget.metadata.widget_state.model_name,
-			};
-		}
-		))}`);
-
 		const htmlData = new IPyWidgetHtmlData(this.positronWidgetInstances);
 		// TODO: Figure out which widget is the primary widget and add it to the viewspec
 		const primaryWidgets = this.findPrimaryWidgets(runtime);
 		primaryWidgets.forEach(widget => {
 			htmlData.addWidgetView(widget.id);
 		});
-		console.log(`htmlData: ${JSON.stringify(htmlData)}`);
 
 		const widgetMessage = {
 			...message,
@@ -188,7 +178,16 @@ export class PositronIPyWidgetsService extends Disposable implements IPositronIP
 		const webview = await this._notebookOutputWebviewService.createNotebookOutputWebview(
 			runtime, widgetMessage, htmlData);
 		if (webview) {
-			// TODO: do something with the webview?
+			// TODO: do something with the webview to get it to display?
+			// not sure if we need any of this
+			primaryWidgets.forEach(widget => {
+				this._onDidEmitIPyWidget.fire(widget);
+			});
+			const client = new WebviewPlotClient(webview, widgetMessage);
+			//this._plots.unshift(client);
+			//this._onDidEmitPlot.fire(client);
+			//this._onDidSelectPlot.fire(client.id);
+			this._register(client);
 		}
 	}
 

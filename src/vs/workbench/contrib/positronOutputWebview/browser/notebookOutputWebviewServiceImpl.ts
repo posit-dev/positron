@@ -311,6 +311,9 @@ window.onload = function() {
 	 */
 	async createWidgetHtmlOutput(id: string, runtime: ILanguageRuntime, managerState: string, widgetViews: string[]):
 		Promise<INotebookOutputWebview> {
+		if (!widgetViews || widgetViews.length === 0) {
+			return Promise.reject('No widget views found');
+		}
 
 		// Load the Jupyter extension. Many notebook HTML outputs have a dependency on jQuery,
 		// which is provided by the Jupyter extension.
@@ -329,26 +332,31 @@ window.onload = function() {
 				id: runtime.metadata.extensionId
 			},
 			options: {},
-			title: '',
+			title: '', // TODO: should this be a parameter?
 		};
 		const webview = this._webviewService.createWebviewOverlay(webviewInitInfo);
 
-		const createWidgetDiv = (widgetView: string, id: number) => {
-			return `
-			<div id="widget-{id}">
+		// TODO: this isn't actually working correctly
+		const createWidgetDiv = (widgetView: string) => {
+			const model_id = JSON.parse(widgetView).model_id;
+			return (`
+			<div id="widget-${model_id}">
 				<!-- This script tag will be replaced by the view's DOM tree -->
 				<script type="application/vnd.jupyter.widget-view+json">
-					'${widgetView}'
+					${widgetView}
 				</script>
-			</div>`;
+			</div>`);
 		};
+
+		const widgetDivs = widgetViews.map(view => createWidgetDiv(view));
 
 		// Form the path to the requires library and inject it into the HTML
 		// TODO: make this loaded locally
 		const requiresPath = asWebviewUri(
 			jupyterExtension.extensionLocation.with({
 				path: jupyterExtension.extensionLocation.path +
-					'/out/node_modules/requires/dist/requires.js'
+					'/out/node_modules/requires/dist/requires.js',
+				authority: null
 			})
 		);
 
@@ -376,7 +384,7 @@ window.onload = function() {
 
 		<body>
 			<!-- The views of all the widget models on the page -->
-			${widgetViews.map((view, id) => createWidgetDiv(view, id)).join('\n')}
+			${widgetDivs}
 		</body>
 		<script>
 		const vscode = acquireVsCodeApi();
