@@ -308,13 +308,23 @@ window.onload = function() {
 	 */
 	async createWidgetHtmlOutput(id: string, runtime: ILanguageRuntime, data: Record<string, string>):
 		Promise<INotebookOutputWebview> {
+<<<<<<< HEAD
 		const managerState = data[MIME_TYPE_WIDGET_STATE];
 		const widgetViews = JSON.parse(data[MIME_TYPE_WIDGET_VIEW]) as IPyWidgetViewSpec[];
+=======
+
+		// load positron-python extension, which has requires.js needed to load ipywidgets
+		const pythonExtension = await this._extensionService.getExtension('ms-python.python');
+		if (!pythonExtension) {
+			return Promise.reject(`positron-python not found`);
+		}
+>>>>>>> 5481bc77a91 (load requirejs from python extension)
 
 		// Create the metadata for the webview
 		const webviewInitInfo: WebviewInitInfo = {
 			contentOptions: {
-				allowScripts: true
+				allowScripts: true,
+				localResourceRoots: [pythonExtension.extensionLocation]
 			},
 			extension: {
 				id: runtime.metadata.extensionId
@@ -325,11 +335,11 @@ window.onload = function() {
 		const webview = this._webviewService.createWebviewOverlay(webviewInitInfo);
 
 		// Form the path to the requires library and inject it into the HTML
-		// TODO: this should be loaded locally from the Positron Python extension
-		const requiresPath = `
-src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"
-integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA="
-crossorigin="anonymous"`;
+		const requiresPath = asWebviewUri(
+			pythonExtension.extensionLocation.with({
+				path: pythonExtension.extensionLocation.path +
+					'/node_modules/requirejs/require.js'
+			}));
 
 		// TODO: this should be loaded locally from the Positron Python extension
 		const htmlManagerPath = `
@@ -354,8 +364,9 @@ crossorigin="anonymous"`;
 		webview.setHtml(`
 <html>
 <head>
-<!-- Load RequireJS, used by the IPyWidgets for dependency management -->
-<script ${requiresPath}></script>
+
+<!-- Load RequireJS, used by the IPywidgets for dependency management -->
+<script src='${requiresPath}'></script>
 
 <!-- Load the HTML manager, which is used to render the widgets -->
 <script ${htmlManagerPath}></script>
