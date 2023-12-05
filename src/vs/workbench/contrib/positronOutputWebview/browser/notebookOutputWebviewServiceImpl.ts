@@ -311,7 +311,7 @@ window.onload = function() {
 		const managerState = data[MIME_TYPE_WIDGET_STATE];
 		const widgetViews = JSON.parse(data[MIME_TYPE_WIDGET_VIEW]) as IPyWidgetViewSpec[];
 
-		// load positron-python extension, which has requires.js needed to load ipywidgets
+		// load positron-python extension, which has modules needed to load ipywidgets
 		const pythonExtension = await this._extensionService.getExtension('ms-python.python');
 		if (!pythonExtension) {
 			return Promise.reject(`positron-python not found`);
@@ -331,19 +331,18 @@ window.onload = function() {
 		};
 		const webview = this._webviewService.createWebviewOverlay(webviewInitInfo);
 
-		// Form the path to the requires library and inject it into the HTML
+		// Form the path to the necessary libraries and inject it into the HTML
 		const requiresPath = asWebviewUri(
 			pythonExtension.extensionLocation.with({
 				path: pythonExtension.extensionLocation.path +
 					'/node_modules/requirejs/require.js'
 			}));
 
-		// TODO: this should be loaded locally from the Positron Python extension
-		const htmlManagerPath = `
-data-jupyter-widgets-cdn="https://unpkg.com/"
-data-jupyter-widgets-cdn-only
-src="https://cdn.jsdelivr.net/npm/@jupyter-widgets/html-manager@*/dist/embed-amd.js"
-crossorigin="anonymous"`;
+		const htmlManagerPath = asWebviewUri(
+			pythonExtension.extensionLocation.with({
+				path: pythonExtension.extensionLocation.path +
+					'/node_modules/@jupyter-widgets/html-manager/dist/embed-amd.js'
+			}));
 
 		const createWidgetDiv = (widgetView: IPyWidgetViewSpec) => {
 			const model_id = widgetView.model_id;
@@ -366,7 +365,7 @@ crossorigin="anonymous"`;
 <script src='${requiresPath}'></script>
 
 <!-- Load the HTML manager, which is used to render the widgets -->
-<script ${htmlManagerPath}></script>
+<script src='${htmlManagerPath}'></script>
 
 <!-- The state of all the widget models on the page -->
 <script type="${MIME_TYPE_WIDGET_STATE}">
