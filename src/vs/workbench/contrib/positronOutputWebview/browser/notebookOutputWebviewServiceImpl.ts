@@ -16,8 +16,8 @@ import { INotebookOutputWebview, IPositronNotebookOutputWebviewService } from 'v
 import { IWebviewService, WebviewInitInfo } from 'vs/workbench/contrib/webview/browser/webview';
 import { asWebviewUri } from 'vs/workbench/contrib/webview/common/webview';
 import { IExtensionService } from 'vs/workbench/services/extensions/common/extensions';
-import { ILanguageRuntime, ILanguageRuntimeMessageWebOutput, RuntimeOutputKind } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
-import { IPyWidgetHtmlData } from 'vs/workbench/services/positronIPyWidgets/common/positronIPyWidgetsService';
+import { ILanguageRuntime, ILanguageRuntimeMessageWebOutput } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { MIME_TYPE_WIDGET_STATE, MIME_TYPE_WIDGET_VIEW, IPyWidgetViewSpec } from 'vs/workbench/services/positronIPyWidgets/common/positronIPyWidgetsService';
 
 export class PositronNotebookOutputWebviewService implements IPositronNotebookOutputWebviewService {
 
@@ -35,18 +35,15 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 
 	async createNotebookOutputWebview(
 		runtime: ILanguageRuntime,
-		output: ILanguageRuntimeMessageWebOutput,
-		widgetData?: IPyWidgetHtmlData
+		output: ILanguageRuntimeMessageWebOutput
 	): Promise<INotebookOutputWebview | undefined> {
-
-		// If the output is an IPyWidget, render it as HTML with the custom renderer
-		if (widgetData && output.kind === RuntimeOutputKind.IPyWidget) {
-			return this.createWidgetHtmlOutput(output.id, runtime, widgetData.managerState, widgetData.widgetViews);
-		}
-
 		// Check to see if any of the MIME types have a renderer associated with
 		// them. If they do, prefer the renderer.
 		for (const mimeType of Object.keys(output.data)) {
+			if (mimeType === MIME_TYPE_WIDGET_STATE || mimeType === MIME_TYPE_WIDGET_VIEW) {
+				return this.createWidgetHtmlOutput(output.id, runtime, output.data);
+			}
+
 			if (mimeType === 'text/plain') {
 				continue;
 			}
@@ -309,8 +306,11 @@ window.onload = function() {
 	 *
 	 * @returns A promise that resolves to the new webview.
 	 */
-	async createWidgetHtmlOutput(id: string, runtime: ILanguageRuntime, managerState: string, widgetViews: string[]):
+	async createWidgetHtmlOutput(id: string, runtime: ILanguageRuntime, data: Record<string, string>):
 		Promise<INotebookOutputWebview> {
+		const managerState = data[MIME_TYPE_WIDGET_STATE];
+		const widgetViews = JSON.parse(data[MIME_TYPE_WIDGET_VIEW]) as IPyWidgetViewSpec[];
+
 		// Create the metadata for the webview
 		const webviewInitInfo: WebviewInitInfo = {
 			contentOptions: {
@@ -331,22 +331,20 @@ src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"
 integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA="
 crossorigin="anonymous"`;
 
+		// TODO: this should be loaded locally from the Positron Python extension
 		const htmlManagerPath = `
 data-jupyter-widgets-cdn="https://unpkg.com/"
 data-jupyter-widgets-cdn-only
 src="https://cdn.jsdelivr.net/npm/@jupyter-widgets/html-manager@*/dist/embed-amd.js"
 crossorigin="anonymous"`;
 
-		const mimeTypeWidgetState = 'application/vnd.jupyter.widget-state+json';
-		const mimeTypeWidgetView = 'application/vnd.jupyter.widget-view+json';
-
-		const createWidgetDiv = (widgetView: string) => {
-			const model_id = JSON.parse(widgetView).model_id;
+		const createWidgetDiv = (widgetView: IPyWidgetViewSpec) => {
+			const model_id = widgetView.model_id;
+			const viewString = JSON.stringify(widgetView);
 			return (`
 <div id="widget-${model_id}">
-	<!-- This script tag will be replaced by the view's DOM tree -->
-	<script type="${mimeTypeWidgetView}">
-		${widgetView}
+	<script type="${MIME_TYPE_WIDGET_VIEW}">
+		${viewString}
 	</script>
 </div>`
 			);
@@ -363,7 +361,7 @@ crossorigin="anonymous"`;
 <script ${htmlManagerPath}></script>
 
 <!-- The state of all the widget models on the page -->
-<script type="${mimeTypeWidgetState}">
+<script type="${MIME_TYPE_WIDGET_STATE}">
 ${managerState}
 </script>
 </head>

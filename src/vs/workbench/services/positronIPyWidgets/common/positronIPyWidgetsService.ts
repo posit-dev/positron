@@ -8,6 +8,8 @@ import { IDisposable } from 'vs/base/common/lifecycle';
 import { IPositronPlotClient } from 'vs/workbench/services/positronPlots/common/positronPlots';
 
 export const POSITRON_IPYWIDGETS_SERVICE_ID = 'positronIPyWidgetsService';
+export const MIME_TYPE_WIDGET_STATE = 'application/vnd.jupyter.widget-state+json';
+export const MIME_TYPE_WIDGET_VIEW = 'application/vnd.jupyter.widget-view+json';
 
 export const IPositronIPyWidgetsService = createDecorator<IPositronIPyWidgetsService>(POSITRON_IPYWIDGETS_SERVICE_ID);
 
@@ -17,7 +19,7 @@ export interface IPyWidgetViewSpec {
 	model_id: string;
 }
 
-export interface IPyWidgetState {
+interface IPyWidgetState {
 	model_name: string;
 	model_module: string;
 	model_module_version: string;
@@ -71,8 +73,15 @@ export class IPyWidgetHtmlData {
 		return JSON.stringify(this._managerState);
 	}
 
-	get widgetViews(): string[] {
-		return this._widgetViews.map(view => JSON.stringify(view));
+	get widgetViews(): string {
+		return JSON.stringify(this._widgetViews);
+	}
+
+	get data(): Record<string, string> {
+		return {
+			[MIME_TYPE_WIDGET_STATE]: this.managerState,
+			[MIME_TYPE_WIDGET_VIEW]: this.widgetViews,
+		};
 	}
 }
 

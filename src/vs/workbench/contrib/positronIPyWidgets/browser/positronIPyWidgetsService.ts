@@ -6,11 +6,9 @@ import { Disposable } from 'vs/base/common/lifecycle';
 import { ILanguageRuntimeService, ILanguageRuntime, RuntimeClientType, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessageCommOpen, PositronOutputLocation, RuntimeOutputKind } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { Emitter, Event } from 'vs/base/common/event';
 import { IStorageService, StorageScope } from 'vs/platform/storage/common/storage';
-import { IViewsService } from 'vs/workbench/common/views';
 import { IPositronIPyWidgetsService, IPositronIPyWidgetMetadata, IPyWidgetHtmlData } from 'vs/workbench/services/positronIPyWidgets/common/positronIPyWidgetsService';
 import { IPyWidgetClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeIPyWidgetClient';
 import { IPositronNotebookOutputWebviewService } from 'vs/workbench/contrib/positronOutputWebview/browser/notebookOutputWebviewService';
-import { POSITRON_PLOTS_VIEW_ID } from 'vs/workbench/services/positronPlots/common/positronPlots';
 import { WebviewPlotClient } from 'vs/workbench/contrib/positronPlots/browser/webviewPlotClient';
 
 export interface IPositronIPyWidgetCommOpenData {
@@ -42,7 +40,6 @@ export class PositronIPyWidgetsService extends Disposable implements IPositronIP
 	constructor(
 		@ILanguageRuntimeService private _languageRuntimeService: ILanguageRuntimeService,
 		@IStorageService private _storageService: IStorageService,
-		@IViewsService private _viewsService: IViewsService,
 		@IPositronNotebookOutputWebviewService private _notebookOutputWebviewService: IPositronNotebookOutputWebviewService
 	) {
 		super();
@@ -129,11 +126,6 @@ export class PositronIPyWidgetsService extends Disposable implements IPositronIP
 
 				// Call the notebook output webview service method with combined data
 				this.createWebviewWidgets(runtime, event.message);
-
-
-				// TODO: the widget may need to be viewable in either the Plots or Viewer pane
-				// Raise the Plots pane so the widget is visible.
-				this._viewsService.openView(POSITRON_PLOTS_VIEW_ID, false);
 			}
 		}));
 	}
@@ -155,11 +147,10 @@ export class PositronIPyWidgetsService extends Disposable implements IPositronIP
 	}
 
 	private async createWebviewWidgets(runtime: ILanguageRuntime, message: ILanguageRuntimeMessageCommOpen) {
-		// Combine our existing list of widgets
-		// TODO: this is where we need to combine the widget data
+		// Combine our existing list of widgets into a single WebviewPlotClient
 
 		const htmlData = new IPyWidgetHtmlData(this.positronWidgetInstances);
-		// TODO: Figure out which widget is the primary widget and add it to the viewspec
+		// Figure out which widget is the primary widget and add it to the viewspec
 		const primaryWidgets = this.findPrimaryWidgets(runtime);
 		if (primaryWidgets.length === 0) {
 			return;
@@ -172,15 +163,13 @@ export class PositronIPyWidgetsService extends Disposable implements IPositronIP
 		const widgetMessage = {
 			...message,
 			output_location: PositronOutputLocation.Plot,
-			resource_roots: undefined,
 			kind: RuntimeOutputKind.IPyWidget,
-			data: {},
+			data: htmlData.data,
 		} as ILanguageRuntimeMessageOutput;
 
 		const webview = await this._notebookOutputWebviewService.createNotebookOutputWebview(
-			runtime, widgetMessage, htmlData);
+			runtime, widgetMessage);
 		if (webview) {
-			// TODO: do something with the webview to get it to display?
 			const plotClient = new WebviewPlotClient(webview, widgetMessage);
 			this._onDidCreatePlot.fire(plotClient);
 		}
