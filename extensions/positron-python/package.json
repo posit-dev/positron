@@ -1588,6 +1588,7 @@
         "p-queue": "^6.6.2",
         "portfinder": "^1.0.28",
         "reflect-metadata": "^0.1.12",
+        "requirejs": "^2.3.6",
         "rxjs": "^6.5.4",
         "rxjs-compat": "^6.5.4",
         "semver": "^7.5.2",
