@@ -779,12 +779,12 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 			}
 			const affiliatedRuntime = await provider.provideLanguageRuntime(affiliatedRuntimeId, CancellationToken.None);
 			if (!affiliatedRuntime) {
-				// This should never happen, but if it does, log an error and return.
 				this._logService.error(`Language runtime with runtime ID ${affiliatedRuntimeId} could not be provided.`);
 				return;
 			}
 
-			// Start the runtime affiliated with the workspace right away.
+			// Register and start the runtime affiliated with the workspace right away.
+			this.registerRuntime(affiliatedRuntime, affiliatedRuntime.metadata.startupBehavior);
 			this._logService.trace(`Language runtime ${formatLanguageRuntime(affiliatedRuntime)} automatically starting`);
 			this.autoStartRuntime(affiliatedRuntime, `Affiliated runtime for workspace via provider`);
 		}

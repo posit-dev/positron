@@ -24,7 +24,6 @@ import { IPositronHelpService } from 'vs/workbench/contrib/positronHelp/browser/
 import { INotebookService } from 'vs/workbench/contrib/notebook/common/notebookService';
 import { IRuntimeClientEvent } from 'vs/workbench/services/languageRuntime/common/languageRuntimeFrontEndClient';
 import { URI } from 'vs/base/common/uri';
-import { CancellationToken } from 'vs/base/common/cancellation';
 
 /**
  * Represents a language runtime event (for example a message or state change)
@@ -762,39 +761,6 @@ class ExtHostLanguageRuntimeAdapter implements ILanguageRuntime {
 	static clientCounter = 0;
 }
 
-// Adapter class for the ILanguageRuntimeProvider interface.
-class ExtHostLanguageRuntimeProviderAdapter implements ILanguageRuntimeProvider {
-
-	constructor(
-		readonly handle: number,
-		readonly provider: ILanguageRuntimeProvider,
-		private readonly _languageRuntimeService: ILanguageRuntimeService,
-		private readonly _logService: ILogService,
-		private readonly _notebookService: INotebookService,
-		private readonly _proxy: ExtHostLanguageRuntimeShape
-	) { }
-
-	async provideLanguageRuntime(runtimeId: string, token: CancellationToken): Promise<ILanguageRuntime> {
-		const runtime = await this.provider.provideLanguageRuntime(runtimeId, token);
-		if (!runtime) {
-			throw new Error(`Unknown language runtime Id: ${runtimeId}`);
-		}
-		const adapter = new ExtHostLanguageRuntimeAdapter(
-			this.handle,
-			runtime.metadata,
-			runtime.dynState,
-			this._languageRuntimeService,
-			this._logService,
-			this._notebookService,
-			this._proxy
-		);
-		// When an extension provides a runtime, register it.
-		this._languageRuntimeService.registerRuntime(adapter, runtime.metadata.startupBehavior);
-		return adapter;
-	}
-
-}
-
 /**
  * Represents the front-end instance of a client widget inside a language runtime.
  *
@@ -957,7 +923,7 @@ export class MainThreadLanguageRuntime implements MainThreadLanguageRuntimeShape
 
 	private readonly _runtimes: Map<number, ExtHostLanguageRuntimeAdapter> = new Map();
 
-	private readonly _runtimeProviders: Map<number, ExtHostLanguageRuntimeProviderAdapter> = new Map();
+	private readonly _runtimeProviders: Map<number, ILanguageRuntimeProvider> = new Map();
 
 	constructor(
 		extHostContext: IExtHostContext,
@@ -1013,17 +979,10 @@ export class MainThreadLanguageRuntime implements MainThreadLanguageRuntimeShape
 		this._languageRuntimeService.registerRuntime(adapter, metadata.startupBehavior);
 	}
 
+	// Called by the extension host to provide a single language runtime on demand
 	$registerLanguageRuntimeProvider(handle: number, languageId: string, provider: ILanguageRuntimeProvider): IDisposable {
-		const adapter = new ExtHostLanguageRuntimeProviderAdapter(
-			handle,
-			provider,
-			this._languageRuntimeService,
-			this._logService,
-			this._notebookService,
-			this._proxy
-		);
-		this._runtimeProviders.set(handle, adapter);
-		return this._languageRuntimeService.registerRuntimeProvider(languageId, adapter);
+		this._runtimeProviders.set(handle, provider);
+		return this._languageRuntimeService.registerRuntimeProvider(languageId, provider);
 	}
 
 	$getPreferredRuntime(languageId: string): Promise<ILanguageRuntimeMetadata> {

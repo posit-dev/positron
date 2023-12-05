@@ -515,7 +515,7 @@ declare module 'positron' {
 		 * @return The language runtime.
 		 */
 		provideLanguageRuntime(runtimeId: string, token: vscode.CancellationToken):
-			vscode.ProviderResult<LanguageRuntimeMetadata>;
+			vscode.ProviderResult<LanguageRuntime>;
 	}
 
 	/**
