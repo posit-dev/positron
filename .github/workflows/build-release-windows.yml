@@ -72,6 +72,7 @@ jobs:
         run: |
           yarn gulp vscode-${{ matrix.platform }}-${{ matrix.arch }}-inno-updater
           yarn gulp vscode-${{ matrix.platform }}-${{ matrix.arch }}-${{ matrix.target }}-setup
+          Copy-Item "${{github.workspace}}\.build\${{ matrix.platform }}-${{ matrix.arch }}\${{ matrix.target }}-setup\PositronSetup.exe" -Destination "${{github.workspace}}\Positron-${{ inputs.short_version }}-Setup.exe"
 
       - name: Setup Signing Certificate
         shell: pwsh
@@ -91,7 +92,7 @@ jobs:
           echo "SM_CLIENT_CERT_FILE=${{github.workspace}}\certificates\codesign.pfx" >> $GITHUB_ENV
           echo "SM_CLIENT_CERT_PASSWORD=${{ secrets.SM_CLIENT_CERT_PASSWORD }}" >> $GITHUB_ENV
           echo "SM_CLIENT_CERT_FINGERPRINT=${{ secrets.SM_CLIENT_CERT_FINGERPRINT }}" >> $GITHUB_ENV
-          echo "INSTALLER_FILE=${{github.workspace}}\.build\${{ matrix.platform }}-${{ matrix.arch }}\${{ matrix.target }}-setup\PositronSetup.exe" >> $GITHUB_ENV
+          echo "INSTALLER_FILE=${{github.workspace}}\Positron-${{ inputs.short_version }}-Setup.exe" >> $GITHUB_ENV
           echo "C:\Program Files (x86)\Windows Kits\10\App Certification Kit" >> $GITHUB_PATH
           echo "C:\Program Files\DigiCert\DigiCert One Signing Manager Tools" >> $GITHUB_PATH
 
@@ -122,7 +123,7 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: positron-${{ matrix.platform }}-${{ matrix.arch }}-${{ matrix.target }}-installer
-          path: ${{github.workspace}}\.build\${{ matrix.platform }}-${{ matrix.arch }}\${{ matrix.target }}-setup\PositronSetup.exe
+          path: ${{github.workspace}}\Positron-${{ inputs.short_version }}-Setup.exe
 
       - name: Record artifact name
         id: artifact-name
@@ -134,7 +135,7 @@ jobs:
         id: artifact-file
         shell: bash
         run: |
-          echo "result=PositronSetup.exe" >> $GITHUB_OUTPUT
+          echo "result=${{github.workspace}}\Positron-${{ inputs.short_version }}-Setup.exe" >> $GITHUB_OUTPUT
 
 
   status:
