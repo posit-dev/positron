@@ -308,17 +308,14 @@ window.onload = function() {
 	 */
 	async createWidgetHtmlOutput(id: string, runtime: ILanguageRuntime, data: Record<string, string>):
 		Promise<INotebookOutputWebview> {
-<<<<<<< HEAD
 		const managerState = data[MIME_TYPE_WIDGET_STATE];
 		const widgetViews = JSON.parse(data[MIME_TYPE_WIDGET_VIEW]) as IPyWidgetViewSpec[];
-=======
 
 		// load positron-python extension, which has requires.js needed to load ipywidgets
 		const pythonExtension = await this._extensionService.getExtension('ms-python.python');
 		if (!pythonExtension) {
 			return Promise.reject(`positron-python not found`);
 		}
->>>>>>> 5481bc77a91 (load requirejs from python extension)
 
 		// Create the metadata for the webview
 		const webviewInitInfo: WebviewInitInfo = {
