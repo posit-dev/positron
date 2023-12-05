@@ -173,6 +173,21 @@
 				},
 				"publisherDisplayName": "ms-toolsai"
 			}
+		},
+		{
+			"name": "ms-pyright.pyright",
+			"version": "1.1.337",
+			"repo": "https://github.com/Microsoft/pyright",
+			"metadata": {
+				"id": "593fe6a5-513e-4cb3-abfb-5b9f5fe39802",
+				"publisherId": {
+					"publisherId": "26b7f243-cfb3-448b-8209-25b30d7e81c0",
+					"publisherName": "ms-pyright",
+					"displayName": "Pyright",
+					"flags": "verified"
+				},
+				"publisherDisplayName": "ms-pyright"
+			}
 		}
 	],
 	"extensionsGallery": {
