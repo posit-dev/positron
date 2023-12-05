@@ -311,18 +311,10 @@ window.onload = function() {
 	 */
 	async createWidgetHtmlOutput(id: string, runtime: ILanguageRuntime, managerState: string, widgetViews: string[]):
 		Promise<INotebookOutputWebview> {
-		// Load the Jupyter extension. In reality we probably want the Positron Python extension
-		// so we can make sure we load requirejs from there
-		const jupyterExtension = await this._extensionService.getExtension('ms-toolsai.jupyter');
-		if (!jupyterExtension) {
-			return Promise.reject(`Jupyter extension 'ms-toolsai.jupyter' not found`);
-		}
-
 		// Create the metadata for the webview
 		const webviewInitInfo: WebviewInitInfo = {
 			contentOptions: {
-				allowScripts: true,
-				localResourceRoots: [jupyterExtension.extensionLocation]
+				allowScripts: true
 			},
 			extension: {
 				id: runtime.metadata.extensionId
@@ -332,52 +324,52 @@ window.onload = function() {
 		};
 		const webview = this._webviewService.createWebviewOverlay(webviewInitInfo);
 
-		// TODO: this isn't actually working correctly
-		const createWidgetDiv = (widgetView: string) => {
-			const model_id = JSON.parse(widgetView).model_id;
-			return (`
-<div id="widget-${model_id}">
-	<!-- This script tag will be replaced by the view's DOM tree -->
-	<script type="application/vnd.jupyter.widget-view+json">
-		${widgetView}
-	</script>
-</div>`);
-		};
-
-		const widgetDivs = widgetViews.map(view => createWidgetDiv(view)).join('\n');
-		console.log(widgetDivs);
-
 		// Form the path to the requires library and inject it into the HTML
 		// TODO: this should be loaded locally from the Positron Python extension
 		const requiresPath = `
 src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"
 integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA="
-crossorigin="anonymous">`;
+crossorigin="anonymous"`;
+
+		const htmlManagerPath = `
+data-jupyter-widgets-cdn="https://unpkg.com/"
+data-jupyter-widgets-cdn-only
+src="https://cdn.jsdelivr.net/npm/@jupyter-widgets/html-manager@*/dist/embed-amd.js"
+crossorigin="anonymous"`;
+
+		const mimeTypeWidgetState = 'application/vnd.jupyter.widget-state+json';
+		const mimeTypeWidgetView = 'application/vnd.jupyter.widget-view+json';
+
+		const createWidgetDiv = (widgetView: string) => {
+			const model_id = JSON.parse(widgetView).model_id;
+			return (`
+<div id="widget-${model_id}">
+	<!-- This script tag will be replaced by the view's DOM tree -->
+	<script type="${mimeTypeWidgetView}">
+		${widgetView}
+	</script>
+</div>`
+			);
+		};
+		const widgetDivs = widgetViews.map(view => createWidgetDiv(view)).join('\n');
 
 		webview.setHtml(`
 <html>
 <head>
-
-<!-- Load RequireJS, used by the IPywidgets for dependency management -->
+<!-- Load RequireJS, used by the IPyWidgets for dependency management -->
 <script ${requiresPath}></script>
 
-<!-- Load IPywidgets bundle for embedding. -->
-<!-- TODO: make this loaded locally -->
-<script
-	data-jupyter-widgets-cdn="https://unpkg.com/"
-	data-jupyter-widgets-cdn-only
-	src="https://cdn.jsdelivr.net/npm/@jupyter-widgets/html-manager@*/dist/embed-amd.js"
-	crossorigin="anonymous"
-></script>
+<!-- Load the HTML manager, which is used to render the widgets -->
+<script ${htmlManagerPath}></script>
 
 <!-- The state of all the widget models on the page -->
-<script type="application/vnd.jupyter.widget-state+json">
-	'${managerState}'
+<script type="${mimeTypeWidgetState}">
+${managerState}
 </script>
 </head>
 
 <body>
-	<!-- The views of all the widget models on the page -->
+	<!-- The view specs of the primary widget models only -->
 	${widgetDivs}
 </body>
 <script>
@@ -387,7 +379,7 @@ window.onload = function() {
 };
 </script>
 </html>
-`);
+		`);
 		return new NotebookOutputWebview(id, runtime.metadata.runtimeId, webview);
 	}
 }
