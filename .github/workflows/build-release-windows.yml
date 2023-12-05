@@ -1,67 +1,35 @@
 name: "Positron: Build Windows Release"
 
-# Run windows builds daily at 12:00 UTC on weekdays for now, or manually
+# Callable workflow that builds Positron for Windows
+# Note: our releases are now multi-platform, coordinated by build-release.yml
 on:
-  schedule:
-    - cron: "0 12 * * 1-5"
+  workflow_call:
+    inputs:
+      short_version:
+        required: false
+        description: "The short version number, including the build distance, e.g. 2023.12.0-123"
+        default: ${{ github.sha }}
+        type: string
+    outputs:
+      artifact-name:
+        description: "The release artifact name"
+        value: ${{ jobs.build-windows.outputs.artifact-name }}
+      artifact-file:
+        description: "The release artifact file"
+        value: ${{ jobs.build-windows.outputs.artifact-file }}
   workflow_dispatch:
 
 jobs:
-  version_string:
-    name: Determine version
-    runs-on: ubuntu-latest
-    outputs:
-      short_version: ${{ steps.short_version.outputs.result }}
-      build_number: ${{ steps.build_number.outputs.result }}
-    steps:
-      # Fetch full history; required so we can determine the build version with rev-list
-      - name: Checkout sources
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      # Set up Node (used by show-version.js)
-      - uses: actions/setup-node@v3
-        with:
-          node-version-file: .nvmrc
-
-      # Call version script to determine short version. This is the version
-      # string that we will use later to form the file name of the release
-      # artifact.
-      #
-      # Example: 2022.10.0-123
-      - name: Determine Version (Short)
-        id: short_version
-        run: |
-          result=`./versions/show-version.js --short`
-          echo "result=$result" >> $GITHUB_OUTPUT
-
-      # If we're on main, we will be producing a release later, so make sure
-      # that no release is already in place with this tag
-      - name: Check for Existing Tag
-        id: tag_check
-        if: github.ref == 'refs/heads/main'
-        run: |
-          result=`./versions/show-version.js --short`
-          git fetch --tags
-          tag_exists=`git tag -l "${result}"`
-          if [ -n "${tag_exists}" ]; then exit 78; fi
-
-      # Call again to get just the build number. Example: 123
-      - name: Determine Version (Build Number)
-        id: build_number
-        run: echo "result=$(./versions/show-version.js --build)" >> $GITHUB_OUTPUT
-
   build-windows:
     name: Build Windows
     runs-on:
       labels: [windows-latest-8x]
-    needs: [version_string]
     timeout-minutes: 90
-
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
+    outputs:
+      artifact-file: ${{ steps.artifact-file.outputs.result }}
+      artifact-name: ${{ steps.artifact-name.outputs.result }}
     strategy:
       max-parallel: 1
       matrix:
@@ -92,14 +60,14 @@ jobs:
 
       - name: Build Positron
         env:
-          POSITRON_BUILD_NUMBER: ${{ needs.version_string.outputs.build_number }}
+          POSITRON_BUILD_NUMBER: ${{ inputs.short_version }}
         shell: pwsh
         run: |
           yarn gulp vscode-${{ matrix.platform }}-${{ matrix.arch }}
 
       - name: Build Positron Installer for Windows
         env:
-          POSITRON_BUILD_NUMBER: ${{ needs.version_string.outputs.build_number }}
+          POSITRON_BUILD_NUMBER: ${{ inputs.short_version }}
         shell: pwsh
         run: |
           yarn gulp vscode-${{ matrix.platform }}-${{ matrix.arch }}-inno-updater
@@ -153,5 +121,36 @@ jobs:
       - name: Upload Positron Installer to Github Archive
         uses: actions/upload-artifact@v3
         with:
-          name: positron-${{ matrix.platform }}-${{ matrix.arch }}-${{ matrix.target }}-setup.exe
+          name: positron-${{ matrix.platform }}-${{ matrix.arch }}-${{ matrix.target }}-installer
           path: ${{github.workspace}}\.build\${{ matrix.platform }}-${{ matrix.arch }}\${{ matrix.target }}-setup\PositronSetup.exe
+
+      - name: Record artifact name
+        id: artifact-name
+        shell: bash
+        run: |
+          echo "result=positron-${{ matrix.platform }}-${{ matrix.arch }}-${{ matrix.target }}-installer" >> $GITHUB_OUTPUT
+
+      - name: Record artifact file
+        id: artifact-file
+        shell: bash
+        run: |
+          echo "result=PositronSetup.exe" >> $GITHUB_OUTPUT
+
+
+  status:
+    if: ${{ failure() }}
+    runs-on: ubuntu-latest
+    needs: build-windows
+    steps:
+      - name: Notify slack if build fails
+        uses: slackapi/slack-github-action@v1.24.0
+        id: slack-failure
+        with:
+          payload: |
+            {
+              "message": "Positron Windows build ${{ inputs.short_version }} failed",
+              "status": "Failure",
+              "run_url": "https://github.com/posit-dev/positron/actions/runs/${{ github.run_id }}"
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
