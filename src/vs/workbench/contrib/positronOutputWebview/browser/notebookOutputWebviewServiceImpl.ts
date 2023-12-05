@@ -373,9 +373,9 @@ ${managerState}
 	${widgetDivs}
 </body>
 <script>
-const vscode = acquireVsCodeApi();
-window.onload = function() {
-	vscode.postMessage('${RENDER_COMPLETE}');
+	const vscode = acquireVsCodeApi();
+	window.onload = function() {
+		vscode.postMessage('${RENDER_COMPLETE}');
 };
 </script>
 </html>
