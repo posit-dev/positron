@@ -34,7 +34,9 @@ pandas
 pillow>=10.0.1
 pydantic
 pyright
-pytest-asyncio
+# bugs in later versions that cause internal pytest errors
+# see https://pytest-asyncio.readthedocs.io/en/latest/reference/changelog.html#id26
+pytest-asyncio==0.21.1
 pytest-mock
 polars
 torch
