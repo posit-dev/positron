@@ -1,9 +1,27 @@
 name: "Positron: Build macOS Release"
 
-# run builds daily at 2am UTC (10p EST) on weekdays for now, or manually
+# Callable workflow that builds Positron for MacOS
+# Note: our releases are now multi-platform, coordinated by build-release.yml
 on:
-  schedule:
-    - cron: "0 2 * * 1-5"
+  workflow_call:
+    inputs:
+      build_number:
+        required: false
+        description: "The build distance number only, e.g. 123"
+        default: ${{ github.sha }}
+        type: string
+      short_version:
+        required: true
+        description: "The short version number, including the build distance, e.g. 2023.12.0-123"
+        default: ${{ github.sha }}
+        type: string
+    outputs:
+      artifact-name:
+        description: "The release artifact name"
+        value: ${{ jobs.macos-universal.outputs.artifact-name }}
+      artifact-file:
+        description: "The release artifact file"
+        value: ${{ jobs.macos-universal.outputs.artifact-file }}
   workflow_dispatch:
 
 jobs:
@@ -37,55 +55,10 @@ jobs:
           # nothing, but if there isn't one, start one up now.
           ssh -o "StrictHostKeyChecking no" user229818@NY503.macincloud.com "/bin/zsh -li -c \"if screen -list | grep -q 'No Sockets found'; then screen -dmS agent_session /bin/zsh -li -c 'cd ./actions-runner && ./run.sh'; fi\""
 
-  version_string:
-    name: Determine version
-    runs-on: self-hosted
-    outputs:
-      short_version: ${{ steps.short_version.outputs.result }}
-      build_number: ${{ steps.build_number.outputs.result }}
-    steps:
-      # Fetch full history; required so we can determine the build version with rev-list
-      - name: Checkout sources
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      # Set up Node; needed since the show-version.js script runs under Node
-      - uses: actions/setup-node@v3
-        with:
-          node-version: 18
-
-      # Call version script to determine short version. This is the version
-      # string that we will use later to form the file name of the release
-      # artifact.
-      #
-      # Example: 2022.10.0-123
-      - name: Determine Version (Short)
-        id: short_version
-        run: |
-          result=`./versions/show-version.js --short`
-          echo "result=$result" >> $GITHUB_OUTPUT
-
-      # If we're on main, we will be producing a release later, so make sure
-      # that no release is already in place with this tag
-      - name: Check for Existing Tag
-        id: tag_check
-        if: github.ref == 'refs/heads/main'
-        run: |
-          result=`./versions/show-version.js --short`
-          git fetch --tags
-          tag_exists=`git tag -l "${result}"`
-          if [ -n "${tag_exists}" ]; then exit 78; fi
-
-      # Call again to get just the build number. Example: 123
-      - name: Determine Version (Build Number)
-        id: build_number
-        run: echo "result=$(./versions/show-version.js --build)" >> $GITHUB_OUTPUT
-
   build-archs:
     name: Build macOS
     runs-on: [self-hosted, macos, arm64]
-    needs: [revive_agent, version_string]
+    needs: [revive_agent]
     timeout-minutes: 60
 
     env:
@@ -143,7 +116,7 @@ jobs:
       # Build client
       - name: Build client
         env:
-          POSITRON_BUILD_NUMBER: ${{ needs.version_string.outputs.build_number }}
+          POSITRON_BUILD_NUMBER: ${{ inputs.build_number }}
         run: |
           export NVM_DIR="$HOME/.nvm"
           [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
@@ -157,7 +130,7 @@ jobs:
           # Clean up ZeroMQ build folder from Jupyter Adapter extension
           rm -rf VSCode-darwin-${{ matrix.arch }}/Positron.app/Contents/Resources/app/extensions/jupyter-adapter/node_modules/zeromq/build
           # Zip all remaining app contents
-          zip -Xry $GITHUB_WORKSPACE/positron-${{ needs.version_string.outputs.short_version }}-darwin-${{ matrix.arch }}.zip VSCode-darwin-${{ matrix.arch }}
+          zip -Xry $GITHUB_WORKSPACE/positron-${{ inputs.short_version }}-darwin-${{ matrix.arch }}.zip VSCode-darwin-${{ matrix.arch }}
           popd
 
       # Create build artifact
@@ -165,15 +138,18 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: positron-darwin-${{ matrix.arch }}-archive
-          path: positron-${{ needs.version_string.outputs.short_version }}-darwin-${{ matrix.arch }}.zip
+          path: positron-${{ inputs.short_version }}-darwin-${{ matrix.arch }}.zip
 
   macos-universal:
     name: Create macOS universal binary
-    needs: [version_string, build-archs]
+    needs: [build-archs]
     runs-on: [self-hosted, macos, arm64]
     timeout-minutes: 60
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    outputs:
+      artifact-file: ${{ steps.artifact-file.outputs.result }}
+      artifact-name: ${{ steps.artifact-name.outputs.result }}
     steps:
       # Download arm64 and x64 binaries
       - name: Download arm64 client
@@ -189,8 +165,8 @@ jobs:
       # Expand client archives produced in previous workflow steps
       - name: Expand client archives
         run: |
-          unzip positron-${{ needs.version_string.outputs.short_version }}-darwin-arm64.zip
-          unzip positron-${{ needs.version_string.outputs.short_version }}-darwin-x64.zip
+          unzip positron-${{ inputs.short_version }}-darwin-arm64.zip
+          unzip positron-${{ inputs.short_version }}-darwin-x64.zip
 
       - name: Align arm64 and x64 app content
         run: |
@@ -238,7 +214,7 @@ jobs:
       - name: Create universal client disk image
         run: |
           # Create the name of the DMG file we will bundle to
-          export POSITRON_BUNDLE_NAME=Positron-${{ needs.version_string.outputs.short_version }}
+          export POSITRON_BUNDLE_NAME=Positron-${{ inputs.short_version }}
 
           # Create a symlink to /Applications, so that the disk image will have
           # a drag-to-install target for Positron.app.
@@ -257,7 +233,7 @@ jobs:
       - name: Notarize binary
         run: |
           # Create the name of the DMG to notarize
-          export NOTARIZATION_TARGET=$GITHUB_WORKSPACE/Positron-${{ needs.version_string.outputs.short_version }}.dmg
+          export NOTARIZATION_TARGET=$GITHUB_WORKSPACE/Positron-${{ inputs.short_version }}.dmg
 
           # Submit the DMG to Apple's notarization service. This consumes the
           # user name and password of an Apple account under which to perform
@@ -291,44 +267,27 @@ jobs:
           # validation with Gatekeeper.
           xcrun stapler staple $NOTARIZATION_TARGET
 
-      # Create a GitHub release for the universal binary we just created, if
-      # we're running against the main branch
-      #
-      # TODO: This shouldn't be nested inside the macOS build task, but since
-      # macOS is all we're building now, a macOS release and a Positron release
-      # are the same thing.
-      - name: Create release
-        uses: actions/create-release@v1
-        id: create_release
-        if: github.ref == 'refs/heads/main'
-        with:
-          draft: false
-          prerelease: true
-          release_name: ${{ needs.version_string.outputs.short_version }}
-          tag_name: ${{ needs.version_string.outputs.short_version }}
-
-      - name: Upload release artifact
-        uses: actions/upload-release-asset@v1
-        if: github.ref == 'refs/heads/main'
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: Positron-${{ needs.version_string.outputs.short_version }}.dmg
-          asset_name: Positron-${{ needs.version_string.outputs.short_version }}.dmg
-          asset_content_type: application/octet-stream
-
       # Create a regular build artifact for the universal archive, to be
       # downloaded from the actions page for testing purposes.
       - name: Upload
         uses: actions/upload-artifact@v3
         with:
           name: positron-darwin-universal-installer
-          path: Positron-${{ needs.version_string.outputs.short_version }}.dmg
+          path: Positron-${{ inputs.short_version }}.dmg
+
+      - name: Record artifact name
+        id: artifact-name
+        run: |
+          echo "result=positron-darwin-universal-installer" >> $GITHUB_OUTPUT
+
+      - name: Record artifact file
+        id: artifact-file
+        run: |
+          echo "result=Positron-${{ inputs.short_version }}.dmg" >> $GITHUB_OUTPUT
 
   status:
     if: ${{ failure() }}
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     needs: macos-universal
     steps:
       - name: Notify slack if build fails
@@ -337,7 +296,7 @@ jobs:
         with:
           payload: |
             {
-              "message": "Positron build ${{ needs.version_string.outputs.build_number }} failed",
+              "message": "Positron MacOS build ${{ inputs.build_number }} failed",
               "status": "Failure",
               "run_url": "https://github.com/posit-dev/positron/actions/runs/${{ github.run_id }}"
             }
