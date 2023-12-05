@@ -1572,6 +1572,7 @@
     },
     "dependencies": {
         "@iarna/toml": "^2.2.5",
+        "@jupyter-widgets/html-manager":"^0.20.6",
         "@vscode/extension-telemetry": "^0.8.4",
         "@vscode/jupyter-lsp-middleware": "^0.2.50",
         "arch": "^2.1.0",
