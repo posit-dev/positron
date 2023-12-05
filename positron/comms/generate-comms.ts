@@ -162,9 +162,20 @@ function* createRustComm(name: string, frontend: any, backend: any): Generator<s
 	}
 
 	if (backend) {
+		yield '/**\n';
+		yield ` * RPC request types for the ${name} comm\n`;
+		yield ' */\n';
 		yield `#[derive(Debug, Serialize, Deserialize, PartialEq)]\n`;
 		yield `pub enum ${snakeCaseToSentenceCase(name)}RpcRequest {\n`;
 		for (const method of backend.methods) {
+			if (method.summary) {
+				if (method.description) {
+					yield formatComment('\t/// ',
+						`${method.summary}: ${method.description}`);
+				} else {
+					yield formatComment('\t/// ', method.summary);
+				}
+			}
 			yield `\t#[serde(rename = "${method.name}")]\n`;
 			yield `\t${snakeCaseToSentenceCase(method.name)}`;
 			if (method.params.length > 0) {
@@ -175,7 +186,11 @@ function* createRustComm(name: string, frontend: any, backend: any): Generator<s
 		}
 		yield `}\n\n`;
 
+		yield '/**\n';
+		yield ` * RPC Reply types for the ${name} comm\n`;
+		yield ' */\n';
 		yield `#[derive(Debug, Serialize, Deserialize, PartialEq)]\n`;
+		yield `#[serde(tag = "method", content = "result")]\n`;
 		yield `pub enum ${snakeCaseToSentenceCase(name)}RpcReply {\n`;
 		for (const method of backend.methods) {
 			if (method.result.schema) {
@@ -195,7 +210,11 @@ function* createRustComm(name: string, frontend: any, backend: any): Generator<s
 	}
 
 	if (frontend) {
+		yield '/**\n';
+		yield ` * Front-end events for the ${name} comm\n`;
+		yield ' */\n';
 		yield `#[derive(Debug, Serialize, Deserialize, PartialEq)]\n`;
+		yield `#[serde(tag = "method", content = "params")]\n`;
 		yield `pub enum ${snakeCaseToSentenceCase(name)}Event {\n`;
 		for (const method of frontend.methods) {
 			yield `\t#[serde(rename = "${method.name}")]\n`;
