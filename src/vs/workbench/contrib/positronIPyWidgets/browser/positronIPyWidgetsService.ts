@@ -5,7 +5,6 @@
 import { Disposable } from 'vs/base/common/lifecycle';
 import { ILanguageRuntimeService, ILanguageRuntime, RuntimeClientType, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessageCommOpen, PositronOutputLocation, RuntimeOutputKind } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { Emitter, Event } from 'vs/base/common/event';
-import { IStorageService, StorageScope } from 'vs/platform/storage/common/storage';
 import { IPositronIPyWidgetsService, IPositronIPyWidgetMetadata, IPyWidgetHtmlData } from 'vs/workbench/services/positronIPyWidgets/common/positronIPyWidgetsService';
 import { IPyWidgetClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeIPyWidgetClient';
 import { IPositronNotebookOutputWebviewService } from 'vs/workbench/contrib/positronOutputWebview/browser/notebookOutputWebviewService';
@@ -39,7 +38,6 @@ export class PositronIPyWidgetsService extends Disposable implements IPositronIP
 	/** Creates the Positron plots service instance */
 	constructor(
 		@ILanguageRuntimeService private _languageRuntimeService: ILanguageRuntimeService,
-		@IStorageService private _storageService: IStorageService,
 		@IPositronNotebookOutputWebviewService private _notebookOutputWebviewService: IPositronNotebookOutputWebviewService
 	) {
 		super();
@@ -68,21 +66,6 @@ export class PositronIPyWidgetsService extends Disposable implements IPositronIP
 				if (client.getClientType() === RuntimeClientType.IPyWidget) {
 					if (this.hasWidget(runtime.metadata.runtimeId, client.getClientId())) {
 						return;
-					}
-
-					// Attempt to load the metadata for this widget from storage
-					const storedMetadata = this._storageService.get(
-						this.generateStorageKey(runtime.metadata.runtimeId, client.getClientId()),
-						StorageScope.WORKSPACE);
-
-					// If we have metadata, try to parse it
-					if (storedMetadata) {
-						try {
-							const metadata = JSON.parse(storedMetadata) as IPositronIPyWidgetMetadata;
-							widgetClients.push(new IPyWidgetClientInstance(client, metadata));
-						} catch (error) {
-							console.warn(`Error parsing widget metadata: ${error}`);
-						}
 					}
 				} else {
 					console.warn(
@@ -185,16 +168,6 @@ export class PositronIPyWidgetsService extends Disposable implements IPositronIP
 		return this._widgets.some(widget =>
 			widget.metadata.runtime_id === runtimeId &&
 			widget.metadata.id === widgetId);
-	}
-
-	/**
-	 * Generates a storage key for a widget's metadata.
-	 *
-	 * @param runtimeId The ID of the runtime that owns the widget.
-	 * @param widgetId The ID of the widget itself.
-	 */
-	private generateStorageKey(runtimeId: string, widgetId: string): string {
-		return `positron.ipywidget.${runtimeId}.${widgetId}`;
 	}
 
 	onDidCreatePlot: Event<WebviewPlotClient> = this._onDidCreatePlot.event;
