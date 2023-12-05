@@ -20,12 +20,6 @@ interface DataToolPanelProps extends PositronDataToolProps {
  * @returns The rendered component.
  */
 export const DataToolPanel = (props: DataToolPanelProps) => {
-	// Context hooks.
-	// const positronDataToolContext = usePositronDataToolContext();
-
-	// Calculate the adjusted height (the height minus the action bars height).
-	// const adjustedHeight = props.height - 64;
-
 	// Render.
 	return (
 		<div className='data-tool-panel' style={{ width: props.width, height: props.height }}>

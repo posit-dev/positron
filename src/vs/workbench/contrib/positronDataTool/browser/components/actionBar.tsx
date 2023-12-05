@@ -50,7 +50,6 @@ export const ActionBar = (props: ActionBarProps) => {
 			<div className='action-bar'>
 				<PositronActionBar
 					size='small'
-					borderTop={false}
 					borderBottom={true}
 					paddingLeft={kPaddingLeft}
 					paddingRight={kPaddingRight}
