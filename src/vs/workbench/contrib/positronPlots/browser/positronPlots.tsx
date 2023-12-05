@@ -72,7 +72,7 @@ export const PositronPlots = (props: PropsWithChildren<PositronPlotsProps>) => {
 	const [height, setHeight] = useState(props.reactComponentContainer.height);
 	const [posX, setPosX] = useState(0);
 	const [posY, setPosY] = useState(0);
-	const [visible, setVisible] = useState(props.reactComponentContainer.visible);
+	const [visible, setVisible] = useState(props.reactComponentContainer.containerVisible);
 	const [showHistory, setShowHistory] = useState(computeHistoryVisibility(
 		props.positronPlotsService.historyPolicy));
 

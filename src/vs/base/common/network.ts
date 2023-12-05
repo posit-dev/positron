@@ -111,7 +111,7 @@ export namespace Schemas {
 	// --- Start Positron ---
 
 	/**
-	 * Scheme used for the Positron Data Tool.
+	 * Scheme used for the Positron data tool.
 	 */
 	export const positronDataTool = 'positron-data-tool';
 
