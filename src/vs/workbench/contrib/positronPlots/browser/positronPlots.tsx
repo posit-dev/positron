@@ -5,11 +5,6 @@
 import 'vs/css!./positronPlots';
 import * as React from 'react';
 import { PropsWithChildren, useEffect, useState } from 'react'; // eslint-disable-line no-duplicate-imports
-import { ICommandService } from 'vs/platform/commands/common/commands';
-import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
-import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
-import { IContextMenuService } from 'vs/platform/contextview/browser/contextView';
-import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/layoutService';
 import { PositronPlotsServices } from 'vs/workbench/contrib/positronPlots/browser/positronPlotsState';
 import { PositronPlotsContextProvider } from 'vs/workbench/contrib/positronPlots/browser/positronPlotsContext';
@@ -25,11 +20,6 @@ import { PositronPlotsViewPane } from 'vs/workbench/contrib/positronPlots/browse
  */
 export interface PositronPlotsProps extends PositronPlotsServices {
 	// Services.
-	readonly commandService: ICommandService;
-	readonly configurationService: IConfigurationService;
-	readonly contextKeyService: IContextKeyService;
-	readonly contextMenuService: IContextMenuService;
-	readonly keybindingService: IKeybindingService;
 	readonly layoutService: IWorkbenchLayoutService;
 	readonly reactComponentContainer: PositronPlotsViewPane;
 	readonly positronPlotsService: IPositronPlotsService;
