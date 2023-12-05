@@ -1,12 +1,15 @@
 name: "Positron: Build Release"
 
+# Run builds daily at 2am UTC (10p EST) on weekdays for now, or manually
 on:
+  schedule:
+    - cron: "0 2 * * 1-5"
   workflow_dispatch:
 
 jobs:
   version_string:
     name: Determine version
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     outputs:
       short_version: ${{ steps.short_version.outputs.result }}
       build_number: ${{ steps.build_number.outputs.result }}
@@ -26,7 +29,7 @@ jobs:
       # string that we will use later to form the file name of the release
       # artifact.
       #
-      # Example: 2022.10.0-123
+      # Example: 2023.12.0-123
       - name: Determine Version (Short)
         id: short_version
         run: |
@@ -49,17 +52,88 @@ jobs:
         id: build_number
         run: echo "result=$(./versions/show-version.js --build)" >> $GITHUB_OUTPUT
 
-  macos-release:
-    uses: posit-dev/positron/.github/workflows/build-release-macos.yml@feature/build-multi-platform
-    needs: [version_string]
-    if: false
+  macos-installer:
+    uses: ./.github/workflows/build-release-macos.yml
+    needs: version_string
+    secrets: inherit
     with:
-      short-version: ${{ needs.version_string.outputs.short_version }}
-      build-number: ${{ needs.version_string.outputs.build_number }}
+      build_number: ${{ needs.version_string.outputs.build_number }}
+      short_version: ${{ needs.version_string.outputs.short_version }}
 
-  windows-release:
-    uses: posit-dev/positron/.github/workflows/build-release-windows.yml@feature/build-multi-platform
-    needs: [version_string]
-    if: false
+  windows-installer:
+    uses: ./.github/workflows/build-release-windows.yml
+    needs: version_string
+    secrets: inherit
     with:
-      build-number: ${{ needs.version_string.outputs.build_number }}
+      short_version: ${{ needs.version_string.outputs.short_version }}
+
+  releases:
+    runs-on: ubuntu-latest
+    needs: [version_string, macos-installer, windows-installer]
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    outputs:
+      upload_url: ${{ steps.create_release.outputs.upload_url }}
+    steps:
+      # Create a GitHub release for the installers we just created, if
+      # we're running against the main branch
+      - name: Create release
+        uses: actions/create-release@v1
+        id: create_release
+        if: github.ref == 'refs/heads/main'
+        with:
+          draft: false
+          prerelease: true
+          release_name: ${{ needs.version_string.outputs.short_version }}
+          tag_name: ${{ needs.version_string.outputs.short_version }}
+
+  macos-releases:
+    needs: [macos-installer, releases]
+    runs-on: [self-hosted, macos, arm64]
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Download MacOS artifact
+        uses: actions/download-artifact@v3
+        id: download-macos-artifact
+        if: github.ref == 'refs/heads/main'
+        with:
+          name: ${{ needs.macos-installer.outputs.artifact-name }}
+          path: ./
+
+      - name: Upload MacOS release asset
+        uses: actions/upload-release-asset@v1
+        if: github.ref == 'refs/heads/main'
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        with:
+          upload_url: ${{ needs.releases.outputs.upload_url }}
+          asset_path: ${{ needs.macos-installer.outputs.artifact-file }}
+          asset_name: ${{ needs.macos-installer.outputs.artifact-file }}
+          asset_content_type: application/octet-stream
+
+  windows-releases:
+    runs-on:
+      labels: [windows-latest-8x]
+    needs: [windows-installer, releases]
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Download Windows artifact
+        id: download-windows-artifact
+        uses: actions/download-artifact@v3
+        if: github.ref == 'refs/heads/main'
+        with:
+          name: ${{ needs.windows-installer.outputs.artifact-name }}
+          path: ./
+
+      - name: Upload Windows release asset
+        uses: actions/upload-release-asset@v1
+        if: github.ref == 'refs/heads/main'
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        with:
+          upload_url: ${{ needs.releases.outputs.upload_url }}
+          asset_path: ${{ needs.windows-installer.outputs.artifact-file }}
+          asset_name: ${{ needs.windows-installer.outputs.artifact-file }}
+          asset_content_type: application/octet-stream
