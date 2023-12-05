@@ -112,14 +112,6 @@ function* createRustComm(name: string, frontend: any, backend: any): Generator<s
 `;
 
 	if (backend) {
-		/*
-		#[derive(Debug, Serialize, Deserialize)]
-		#[serde(rename_all = "snake_case")]
-		pub struct FrontendRpcErrorData {
-			pub message: String,
-			pub code: JsonRpcErrorCode,
-		}
-		*/
 		// Create objects for all the object schemas first
 		for (const method of backend.methods) {
 			if (method.result &&
@@ -127,8 +119,6 @@ function* createRustComm(name: string, frontend: any, backend: any): Generator<s
 				method.result.schema.type === 'object') {
 				yield '#[derive(Debug, Serialize, Deserialize)]\n';
 				yield `pub struct ${snakeCaseToSentenceCase(method.result.schema.name)} {\n`;
-				console.log('serialize ${method.result.schema.name}');
-				console.log(JSON.stringify(method.result.schema, null, 4));
 				for (const prop of Object.keys(method.result.schema.properties)) {
 					const schema = method.result.schema.properties[prop];
 					if (schema.description) {
@@ -150,6 +140,22 @@ function* createRustComm(name: string, frontend: any, backend: any): Generator<s
 					yield formatComment('\t/// ', param.description);
 				}
 				yield `\tpub ${param.name}: ${RustTypeMap[param.schema.type]},\n\n`;
+			}
+		}
+		yield `}\n\n`;
+	}
+
+	if (frontend) {
+		for (const method of frontend.methods) {
+			if (!method.result) {
+				yield '#[derive(Debug, Serialize, Deserialize)]\n';
+				yield `pub struct ${snakeCaseToSentenceCase(method.name)}Params {\n`;
+				for (const param of method.params) {
+					if (param.description) {
+						yield formatComment('\t/// ', param.description);
+					}
+					yield `\tpub ${param.name}: ${RustTypeMap[param.schema.type]},\n\n`;
+				}
 			}
 		}
 		yield `}\n\n`;
@@ -183,6 +189,21 @@ function* createRustComm(name: string, frontend: any, backend: any): Generator<s
 				} else {
 					yield `(${RustTypeMap[schema.type]}),\n`;
 				}
+			}
+		}
+		yield `}\n\n`;
+	}
+
+	if (frontend) {
+		yield `#[derive(Debug, Serialize, Deserialize, PartialEq)]\n`;
+		yield `pub enum ${snakeCaseToSentenceCase(name)}Event {\n`;
+		for (const method of frontend.methods) {
+			yield `\t#[serde(rename = "${method.name}")]\n`;
+			yield `\t${snakeCaseToSentenceCase(method.name)}`;
+			if (method.params.length > 0) {
+				yield `(${snakeCaseToSentenceCase(method.name)}Params),\n`;
+			} else {
+				yield ',\n';
 			}
 		}
 		yield `}\n\n`;
