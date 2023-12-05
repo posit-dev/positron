@@ -7,7 +7,8 @@ import * as React from 'react';
 import { PropsWithChildren, useEffect, useState } from 'react'; // eslint-disable-line no-duplicate-imports
 import { DisposableStore } from 'vs/base/common/lifecycle';
 import { IReactComponentContainer } from 'vs/base/browser/positronReactRenderer';
-import { DataToolCore } from 'vs/workbench/contrib/positronDataTool/browser/components/dataToolCore';
+import { ActionBar } from 'vs/workbench/contrib/positronDataTool/browser/components/actionBar';
+import { DataToolPanel } from 'vs/workbench/contrib/positronDataTool/browser/components/dataToolPanel';
 import { PositronDataToolServices } from 'vs/workbench/contrib/positronDataTool/browser/positronDataToolState';
 import { PositronDataToolContextProvider } from 'vs/workbench/contrib/positronDataTool/browser/positronDataToolContext';
 
@@ -47,7 +48,8 @@ export const PositronDataTool = (props: PropsWithChildren<PositronDataToolProps>
 	return (
 		<PositronDataToolContextProvider {...props}>
 			<div className='positron-data-tool'>
-				<DataToolCore width={width} height={height} {...props} />
+				<ActionBar {...props} />
+				<DataToolPanel width={width} height={height - 32} {...props} />
 			</div>
 		</PositronDataToolContextProvider>
 	);

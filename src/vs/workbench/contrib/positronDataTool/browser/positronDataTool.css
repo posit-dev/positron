@@ -3,8 +3,6 @@
  *--------------------------------------------------------------------------------------------*/
 
 .positron-data-tool {
-	height: 100%;
-	display: flex;
 	color: var(--vscode-positronDataTool-foreground);
 	background: var(--vscode-positronDataTool-background);
 }

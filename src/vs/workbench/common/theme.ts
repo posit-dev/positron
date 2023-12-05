@@ -1306,7 +1306,7 @@ export const POSITRON_SIDE_ACTION_BAR_SEPARATOR = registerColor('positronSideAct
 
 // Positron side action bar hover background color.
 export const POSITRON_SIDE_ACTION_BAR_HOVER_BACKGROUND = registerColor('positronSideActionBar.hoverBackground', {
-	dark: editorBackground,
+	dark: '#292a2a',
 	light: '#dae1ea',
 	hcDark: null,
 	hcLight: null

@@ -5,9 +5,11 @@
 import 'vs/css!./actionBar';
 import * as React from 'react';
 import { useEffect } from 'react'; // eslint-disable-line no-duplicate-imports
+import { IsDevelopmentContext } from 'vs/platform/contextkey/common/contextkeys';
 import { IReactComponentContainer } from 'vs/base/browser/positronReactRenderer';
 import { PositronActionBar } from 'vs/platform/positronActionBar/browser/positronActionBar';
 import { ActionBarRegion } from 'vs/platform/positronActionBar/browser/components/actionBarRegion';
+import { ActionBarButton } from 'vs/platform/positronActionBar/browser/components/actionBarButton';
 import { PositronActionBarContextProvider } from 'vs/platform/positronActionBar/browser/positronActionBarContext';
 import { usePositronDataToolContext } from 'vs/workbench/contrib/positronDataTool/browser/positronDataToolContext';
 
@@ -34,7 +36,7 @@ export const ActionBar = (props: ActionBarProps) => {
 	const positronDataToolContext = usePositronDataToolContext();
 
 	// Constants.
-	// const showDeveloperUI = IsDevelopmentContext.getValue(positronDataToolContext.contextKeyService);
+	const showDeveloperUI = IsDevelopmentContext.getValue(positronDataToolContext.contextKeyService);
 
 	// State hooks.
 
@@ -48,14 +50,36 @@ export const ActionBar = (props: ActionBarProps) => {
 			<div className='action-bar'>
 				<PositronActionBar
 					size='small'
-					borderTop={true}
+					borderTop={false}
 					borderBottom={true}
 					paddingLeft={kPaddingLeft}
 					paddingRight={kPaddingRight}
 				>
 					<ActionBarRegion location='left'>
+						<ActionBarButton
+							disabled={false}
+							iconId='positron-left-arrow'
+							tooltip='Test tooltip'
+							ariaLabel='Text label'
+							onClick={() => console.log('HERE')}
+						/>
+						<ActionBarButton
+							iconId='positron-right-arrow'
+							tooltip='Test tooltip'
+							ariaLabel='Text label'
+							onClick={() => console.log('HERE')}
+						/>
 					</ActionBarRegion>
 					<ActionBarRegion location='right'>
+						{showDeveloperUI &&
+							<ActionBarButton
+								iconId='positron-clear-pane'
+								align='right'
+								tooltip='Test tooltip'
+								ariaLabel='Text label'
+								onClick={() => console.log('HERE')}
+							/>
+						}
 					</ActionBarRegion>
 				</PositronActionBar>
 			</div>
