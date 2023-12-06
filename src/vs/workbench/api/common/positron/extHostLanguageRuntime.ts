@@ -62,12 +62,6 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 	// The event that fires when a runtime is registered.
 	public onDidRegisterRuntime = this._onDidRegisterRuntimeEmitter.event;
 
-	// The event emitter for the onDidRegisterRuntimeProvider event.
-	private readonly _onDidRegisterRuntimeProviderEmitter = new Emitter<positron.LanguageRuntimeProvider>;
-
-	// The event that fires when a runtime provider is registered.
-	public onDidRegisterRuntimeProvider = this._onDidRegisterRuntimeProviderEmitter.event;
-
 	constructor(
 		mainContext: extHostProtocol.IMainPositronContext
 	) {

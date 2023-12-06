@@ -1060,10 +1060,5 @@ declare module 'positron' {
 		 */
 		export const onDidRegisterRuntime: vscode.Event<LanguageRuntime>;
 
-		/**
-		 * An event that fires when a new runtime is registered.
-		 */
-		export const onDidRegisterRuntimeProvider: vscode.Event<LanguageRuntimeProvider>;
-
 	}
 }
