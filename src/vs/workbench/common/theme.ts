@@ -1710,6 +1710,16 @@ export const POSITRON_DATA_TOOL_FOREGROUND_COLOR = registerColor('positronDataTo
 	hcLight: editorForeground
 }, localize('positronDataTool.foreground', "Positron data tool foreground color."));
 
+// Positron data tool border color.
+export const POSITRON_DATA_TOOL_BORDER_COLOR = registerColor('positronDataTool.border', {
+	dark: '#434b4f',
+	light: '#d9dee2',
+	hcDark: contrastBorder,
+	hcLight: contrastBorder
+}, localize('positronDataTool.border', "Positron data tool border color."));
+
+// shit
+
 // < --- Positron Variables --- >
 
 // Positron variables background color.

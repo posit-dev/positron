@@ -5,6 +5,7 @@
 import 'vs/css!./actionBar';
 import * as React from 'react';
 import { useEffect } from 'react'; // eslint-disable-line no-duplicate-imports
+import { localize } from 'vs/nls';
 import { IsDevelopmentContext } from 'vs/platform/contextkey/common/contextkeys';
 import { IReactComponentContainer } from 'vs/base/browser/positronReactRenderer';
 import { PositronActionBar } from 'vs/platform/positronActionBar/browser/positronActionBar';
@@ -12,12 +13,19 @@ import { ActionBarRegion } from 'vs/platform/positronActionBar/browser/component
 import { ActionBarButton } from 'vs/platform/positronActionBar/browser/components/actionBarButton';
 import { PositronActionBarContextProvider } from 'vs/platform/positronActionBar/browser/positronActionBarContext';
 import { usePositronDataToolContext } from 'vs/workbench/contrib/positronDataTool/browser/positronDataToolContext';
+import { LayoutMenuButton } from 'vs/workbench/contrib/positronDataTool/browser/components/actionBarComponents/layoutMenuButton';
 
 /**
  * Constants.
  */
 const kPaddingLeft = 8;
 const kPaddingRight = 8;
+
+/**
+ * Localized strings.
+ */
+const clearSortButtonTitle = localize('positron.clearSortButtonLabel', "Clear Sort");
+const clearSortButtonDescription = localize('positron.clearSortButtonDescription', "Clear sort");
 
 /**
  * ActionBarProps interface.
@@ -57,17 +65,13 @@ export const ActionBar = (props: ActionBarProps) => {
 					<ActionBarRegion location='left'>
 						<ActionBarButton
 							disabled={false}
-							iconId='positron-left-arrow'
-							tooltip='Test tooltip'
-							ariaLabel='Text label'
+							iconId='positron-clear-sort'
+							text={clearSortButtonTitle}
+							tooltip={clearSortButtonDescription}
+							ariaLabel={clearSortButtonDescription}
 							onClick={() => console.log('HERE')}
 						/>
-						<ActionBarButton
-							iconId='positron-right-arrow'
-							tooltip='Test tooltip'
-							ariaLabel='Text label'
-							onClick={() => console.log('HERE')}
-						/>
+						<LayoutMenuButton />
 					</ActionBarRegion>
 					<ActionBarRegion location='right'>
 						{showDeveloperUI &&
