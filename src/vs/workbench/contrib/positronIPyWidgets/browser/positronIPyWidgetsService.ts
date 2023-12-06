@@ -32,6 +32,9 @@ export class PositronIPyWidgetsService extends Disposable implements IPositronIP
 	/** The list of IPyWidgets. */
 	private readonly _widgets: IPyWidgetClientInstance[] = [];
 
+	private readonly _primaryWidgets: Set<string> = new Set<string>();
+	private readonly _secondaryWidgets: Set<string> = new Set<string>();
+
 	/** The emitter for the onDidCreatePlot event */
 	private readonly _onDidCreatePlot = new Emitter<WebviewPlotClient>();
 
@@ -52,6 +55,8 @@ export class PositronIPyWidgetsService extends Disposable implements IPositronIP
 
 		// Add to our list of widgets
 		this._widgets.push(widgetClient);
+
+		this.updatePrimaryWidgets(widgetClient);
 
 		// Dispose the widget client when this service is disposed
 		this._register(widgetClient);
@@ -103,30 +108,27 @@ export class PositronIPyWidgetsService extends Disposable implements IPositronIP
 					}
 				};
 
-				// Register the widget client
+				// Register the widget client and update the list of primary widgets
 				const widgetClient = new IPyWidgetClientInstance(event.client, metadata);
 				this.registerIPyWidgetClient(widgetClient);
 
-				// Call the notebook output webview service method with combined data
+				// Combine the widget data, and then create a webview for it
 				this.createWebviewWidgets(runtime, event.message);
 			}
 		}));
 	}
 
-	private findPrimaryWidgets(runtime: ILanguageRuntime): IPyWidgetClientInstance[] {
-		// Primary widgets must match the current runtime ID, no widgets are dependent on it,
+	private updatePrimaryWidgets(latestWidget: IPyWidgetClientInstance): void {
+		// A widget is primary if no other widgets are dependent on it,
 		// and they are "viewable" (i.e. they have both a layout and dom_classes property)
-		const matchingRuntimeWidgets = this._widgets.filter(widget => widget.metadata.runtime_id === runtime.metadata.runtimeId);
-		const dependentWidgets = new Set<string>();
-		matchingRuntimeWidgets.forEach(widget => {
-			widget.dependencies.forEach(dependency => {
-				dependentWidgets.add(dependency);
-			});
+		latestWidget.dependencies.forEach(dependency => {
+			// If the widget has a dependency, add it to the secondary list and remove from the primary list
+			this._secondaryWidgets.add(dependency);
+			this._primaryWidgets.delete(dependency);
 		});
-		const primaryWidgets = matchingRuntimeWidgets.filter(widget => {
-			return !dependentWidgets.has(widget.id) && widget.isViewable();
-		});
-		return primaryWidgets;
+		if (latestWidget.isViewable() && !this._secondaryWidgets.has(latestWidget.id)) {
+			this._primaryWidgets.add(latestWidget.id);
+		}
 	}
 
 	private async createWebviewWidgets(runtime: ILanguageRuntime, message: ILanguageRuntimeMessageCommOpen) {
@@ -134,13 +136,12 @@ export class PositronIPyWidgetsService extends Disposable implements IPositronIP
 
 		const htmlData = new IPyWidgetHtmlData(this.positronWidgetInstances);
 		// Figure out which widget is the primary widget and add it to the viewspec
-		const primaryWidgets = this.findPrimaryWidgets(runtime);
-		if (primaryWidgets.length === 0) {
+		if (this._primaryWidgets.size === 0) {
 			return;
 		}
 
-		primaryWidgets.forEach(widget => {
-			htmlData.addWidgetView(widget.id);
+		this._primaryWidgets.forEach(widgetId => {
+			htmlData.addWidgetView(widgetId);
 		});
 
 		const widgetMessage = {
@@ -168,23 +169,6 @@ export class PositronIPyWidgetsService extends Disposable implements IPositronIP
 		return this._widgets.some(widget =>
 			widget.metadata.runtime_id === runtimeId &&
 			widget.metadata.id === widgetId);
-	}
-
-	/**
-	 * Remove a widget client by ID
-	 *
-	 * @param id The ID of the widget to remove
-	 */
-	removeWidget(id: string): void {
-		// Find the widget with the given ID and remove it from the list
-		this._widgets.forEach((widget, index) => {
-			if (widget.id === id) {
-				widget.dispose();
-
-				// Remove the widget from the list
-				this._widgets.splice(index, 1);
-			}
-		});
 	}
 
 	/**

@@ -117,13 +117,6 @@ export interface IPositronIPyWidgetsService {
 	readonly onDidCreatePlot: Event<IPositronPlotClient>;
 
 	/**
-	 * Remove a widget client by ID
-	 *
-	 * @param id The ID of the widget to remove
-	 */
-	removeWidget(id: string): void;
-
-	/**
 	 * Remove all widget clients
 	 */
 	removeAllWidgets(): void;
