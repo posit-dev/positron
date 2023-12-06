@@ -97,6 +97,10 @@ export class PositronBaseComm extends Disposable {
 				} else if (typeof payload === 'object') {
 					// If the payload is already an object, just fire the event
 					emitter.fire(payload);
+				} else if (typeof payload === 'undefined') {
+					// If the payload is undefined, fire the event with an empty
+					// object.
+					emitter.fire({});
 				} else {
 					// If the payload is some other kind of object, log a
 					// warning; we can't fire an event with it.
@@ -119,6 +123,7 @@ export class PositronBaseComm extends Disposable {
 	 */
 	protected createEventEmitter<T>(name: string, properties: string[]): Event<T> {
 		const emitter = new PositronCommEmitter<T>(name, properties);
+		this._emitters.set(name, emitter);
 		this._register(emitter);
 		return emitter.event;
 	}
