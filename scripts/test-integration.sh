@@ -118,6 +118,14 @@ echo
 yarn test-extension -l github-authentication
 kill_app
 
+# Positron Extensions
+
+echo
+echo "### Positron Code Cells tests"
+echo
+yarn test-extension -l positron-code-cells
+kill_app
+
 # Tests standalone (CommonJS)
 
 echo
