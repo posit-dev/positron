@@ -170,6 +170,35 @@ export class PositronIPyWidgetsService extends Disposable implements IPositronIP
 			widget.metadata.id === widgetId);
 	}
 
+	/**
+	 * Remove a widget client by ID
+	 *
+	 * @param id The ID of the widget to remove
+	 */
+	removeWidget(id: string): void {
+		// Find the widget with the given ID and remove it from the list
+		this._widgets.forEach((widget, index) => {
+			if (widget.id === id) {
+				widget.dispose();
+
+				// Remove the widget from the list
+				this._widgets.splice(index, 1);
+			}
+		});
+	}
+
+	/**
+	 * Remove all widget clients
+	 */
+	removeAllWidgets(): void {
+		this._widgets.forEach(widget => {
+			widget.dispose();
+		});
+
+		// Clear the list of widgets
+		this._widgets.length = 0;
+	}
+
 	onDidCreatePlot: Event<WebviewPlotClient> = this._onDidCreatePlot.event;
 
 	// Gets the individual widget client instances.
