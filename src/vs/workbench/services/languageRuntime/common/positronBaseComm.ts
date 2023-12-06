@@ -4,6 +4,7 @@
 
 import { IRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeClientInstance';
 import { Event, Emitter } from 'vs/base/common/event';
+import { Disposable } from 'vs/base/common/lifecycle';
 
 /**
  * An enum representing the set of JSON-RPC error codes.
@@ -62,7 +63,7 @@ class PositronCommEmitter<T> extends Emitter<T> {
  *
  * Used by generated comm classes.
  */
-export class PositronBaseComm {
+export class PositronBaseComm extends Disposable {
 	/**
 	 * A map of event names to emitters. This is used to create event emitters
 	 * from the backend to the frontend.
@@ -76,7 +77,9 @@ export class PositronBaseComm {
 	 *  This instance must be connected to the backend before it is passed to this class.
 	 */
 	constructor(private readonly clientInstance: IRuntimeClientInstance<any, any>) {
-		clientInstance.onDidReceiveData((data) => {
+		super();
+		this._register(clientInstance);
+		this._register(clientInstance.onDidReceiveData((data) => {
 			const emitter = this._emitters.get(data.method);
 			if (emitter) {
 				const payload = data.params;
@@ -104,7 +107,7 @@ export class PositronBaseComm {
 						`(Expected an object or an array)`);
 				}
 			}
-		});
+		}));
 	}
 
 	/**
@@ -116,6 +119,7 @@ export class PositronBaseComm {
 	 */
 	protected createEventEmitter<T>(name: string, properties: string[]): Event<T> {
 		const emitter = new PositronCommEmitter<T>(name, properties);
+		this._register(emitter);
 		return emitter.event;
 	}
 

@@ -7,6 +7,7 @@ import { IRuntimeClientInstance, RuntimeClientState } from 'vs/workbench/service
 import { Event, Emitter } from 'vs/base/common/event';
 import { DeferredPromise } from 'vs/base/common/async';
 import { IPositronPlotClient } from 'vs/workbench/services/positronPlots/common/positronPlots';
+import { PositronPlotComm } from 'vs/workbench/services/languageRuntime/common/positronPlotComm';
 
 /**
  * The possible states for the plot client instance
@@ -194,6 +195,11 @@ class DeferredRender {
  */
 export class PlotClientInstance extends Disposable implements IPositronPlotClient {
 	/**
+	 * The underlying comm
+	 */
+	private _comm: PositronPlotComm;
+
+	/**
 	 * The currently active render request, if any.
 	 */
 	private _currentRender?: DeferredRender;
@@ -258,13 +264,15 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 	 * @param metadata The plot's metadata
 	 */
 	constructor(
-		private readonly _client: IRuntimeClientInstance<IPlotClientMessageInput, IPlotClientMessageOutput>,
+		client: IRuntimeClientInstance<IPlotClientMessageInput, IPlotClientMessageOutput>,
 		public readonly metadata: IPositronPlotMetadata) {
 		super();
 
+		this._comm = new PositronPlotComm(client);
+
 		// Connect close emitter event
 		this.onDidClose = this._closeEmitter.event;
-		_client.onDidChangeClientState((state) => {
+		client.onDidChangeClientState((state) => {
 			if (state === RuntimeClientState.Closed) {
 				this._closeEmitter.fire();
 			}
@@ -286,18 +294,14 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 		});
 
 		// Listen for plot updates
-		_client.onDidReceiveData(async (data) => {
-			if (data.msg_type === PlotClientMessageTypeOutput.Update) {
-				// When the server notifies us that a plot update has occurred,
-				// queue a request for the UI to update the plot.
-				const rendered = await this.queuePlotUpdateRequest();
-				this._renderUpdateEmitter.fire(rendered);
-			}
+		this._comm.onDidUpdate(async (_evt) => {
+			const rendered = await this.queuePlotUpdateRequest();
+			this._renderUpdateEmitter.fire(rendered);
 		});
 
 		// Register the client instance with the runtime, so that when this instance is disposed,
 		// the runtime will also dispose the client.
-		this._register(_client);
+		this._register(this._comm);
 	}
 
 	/**
@@ -389,20 +393,20 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 		const startedTime = Date.now();
 
 		// Perform the RPC request and resolve the promise when the response is received
-		this._client.performRpc(request.renderRequest).then((response) => {
+		const renderRequest = request.renderRequest;
+		this._comm.render(renderRequest.height,
+			renderRequest.width,
+			renderRequest.pixel_ratio).then((response) => {
 
-			// Ignore if the request was cancelled or already fulfilled
-			if (!request.isComplete) {
-				if (response.msg_type === PlotClientMessageTypeOutput.Image) {
-
+				// Ignore if the request was cancelled or already fulfilled
+				if (!request.isComplete) {
 					// The render was successful; record the render time so we can estimate it
 					// for future renders.
 					const finishedTime = Date.now();
 					this._lastRenderTimeMs = finishedTime - startedTime;
 
 					// The server returned a rendered plot image; save it and resolve the promise
-					const image = response as IPlotClientMessageImage;
-					const uri = `data:${image.mime_type};base64,${image.data}`;
+					const uri = `data:${response.mime_type};base64,${response.data}`;
 					this._lastRender = {
 						...request.renderRequest,
 						uri
@@ -410,26 +414,19 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 					request.complete(this._lastRender);
 					this._stateEmitter.fire(PlotClientState.Rendered);
 					this._completeRenderEmitter.fire(this._lastRender);
-				} else if (response.msg_type === PlotClientMessageTypeOutput.Error) {
-					const err = response as IPlotClientMessageError;
-					request.error(new Error(`Failed to render plot: ${err.message}`));
-
-					// TODO: Do we want to have a separate state for this case, or
-					// return to the unrendered state?
 				}
-			}
 
-			// If there is a queued render request, promote it to the current
-			// request and perform it now. Queued renders don't have cooldown
-			// period; they are already deferred because they were requested
-			// while a render was in progress.
-			if (this._queuedRender) {
-				const queuedRender = this._queuedRender;
-				this._queuedRender = undefined;
-				this._currentRender = queuedRender;
-				this.scheduleRender(queuedRender, 0);
-			}
-		});
+				// If there is a queued render request, promote it to the current
+				// request and perform it now. Queued renders don't have cooldown
+				// period; they are already deferred because they were requested
+				// while a render was in progress.
+				if (this._queuedRender) {
+					const queuedRender = this._queuedRender;
+					this._queuedRender = undefined;
+					this._currentRender = queuedRender;
+					this.scheduleRender(queuedRender, 0);
+				}
+			});
 	}
 
 	/**
