@@ -237,16 +237,31 @@ export class RuntimeClientAdapter {
 	 * Perform a reverse RPC call over the comm channel.
 	 */
 	async callFrontendMethod(request_id: string, method: string, params: any): Promise<any> {
-		let result = await positron.methods.call(method, params)
-
 		const msg_id = uuidv4();
-		const response = {
-			msg_type: 'rpc_request',
-			jsonrpc: '2.0',
-			result: result,
-			id: request_id,
-		};
-		this._kernel.sendCommMessage(this._id, msg_id, response);
+		try {
+			let result = await positron.methods.call(method, params)
+
+			const response = {
+				msg_type: 'rpc_request',
+				jsonrpc: '2.0',
+				result: result,
+				id: request_id,
+			};
+			this._kernel.sendCommMessage(this._id, msg_id, response);
+		} catch (err) {
+			const error = `Failed to call frontend method '${method}': ${err}.`
+			this._kernel.log(error);
+
+			// Convert error to an RPC error response
+			const response = {
+				msg_type: 'rpc_request',
+				jsonrpc: '2.0',
+				error,
+				id: request_id,
+			};
+			this._kernel.sendCommMessage(this._id, msg_id, response);
+		}
+
 	}
 
 	/**
