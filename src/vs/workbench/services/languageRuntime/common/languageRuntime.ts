@@ -147,7 +147,12 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 			new LanguageRuntimeWorkspaceAffiliation(this, this._storageService, this._logService);
 		this._register(this._workspaceAffiliation);
 		if (this._workspaceAffiliation.hasAffiliatedRuntime()) {
-			this.startAffiliatedRuntimes();
+			this._register(this.onDidChangeDiscoveryPhase((phase) => {
+				// When we start discovering runtimes, start the affiliated runtime.
+				if (phase === LanguageRuntimeDiscoveryPhase.Discovering) {
+					this.startAffiliatedRuntimes();
+				}
+			}));
 		}
 
 		// Register as an opener in the opener service.
@@ -229,7 +234,7 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 	// An event that fires when the active runtime changes.
 	readonly onDidChangeActiveRuntime = this._onDidChangeActiveRuntimeEmitter.event;
 
-	// An event that fires when a language runtime is provided.
+	// An event that fires when a language runtime is requested.
 	readonly onDidRequestLanguageRuntime = this._onDidRequestLanguageRuntimeEmitter.event;
 
 	/**
