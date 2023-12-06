@@ -5,8 +5,6 @@
 import { Event } from 'vs/base/common/event';
 import { IDisposable } from 'vs/base/common/lifecycle';
 import { URI, UriComponents } from 'vs/base/common/uri';
-import { ProviderResult } from 'vs/editor/common/languages';
-import { CancellationToken } from 'vs/base/common/cancellation';
 import { ExtensionIdentifier } from 'vs/platform/extensions/common/extensions';
 import { createDecorator } from 'vs/platform/instantiation/common/instantiation';
 import { IRuntimeClientInstance, RuntimeClientType } from 'vs/workbench/services/languageRuntime/common/languageRuntimeClientInstance';
@@ -644,27 +642,12 @@ export interface ILanguageRuntime {
 	showOutput(): void;
 }
 
-export interface ILanguageRuntimeProvider {
-	/**
-	 * Given a `runtimeId`, return the corresponding `LanguageRuntime` object.
-	 *
-	 * @param runtimeId The runtime identifier as a string.
-	 * @param token A cancellation token.
-	 * @return The language runtime.
-	 */
-	provideLanguageRuntime(runtimeId: string, token: CancellationToken):
-		ProviderResult<ILanguageRuntime>;
-}
-
 export interface ILanguageRuntimeService {
 	// Needed for service branding in dependency injector.
 	readonly _serviceBrand: undefined;
 
 	// An event that fires when the language runtime discovery phase changes.
 	readonly onDidChangeDiscoveryPhase: Event<LanguageRuntimeDiscoveryPhase>;
-
-	// An event that fires when a new runtime is registered.
-	readonly onDidRegisterRuntimeProvider: Event<ILanguageRuntimeProvider>;
 
 	// An event that fires when a new runtime is registered.
 	readonly onDidRegisterRuntime: Event<ILanguageRuntime>;
@@ -714,20 +697,19 @@ export interface ILanguageRuntimeService {
 	registerRuntime(runtime: ILanguageRuntime, startupBehavior: LanguageRuntimeStartupBehavior): IDisposable;
 
 	/**
-	 * Register a new language runtime provider
-	 * @param languageId The language identifier.
-	 * @param provider The language runtime provider to register
-	 * @returns A disposable that can be used to unregister the runtime provider
-	 */
-	registerRuntimeProvider(languageId: string, provider: ILanguageRuntimeProvider): IDisposable;
-
-	/**
 	 * Selects a previously registered runtime as the active runtime.
 	 *
 	 * @param runtimeId The identifier of the runtime to select.
 	 * @param source The source of the request to select the runtime, for debugging purposes.
 	 */
 	selectRuntime(runtimeId: string, source: string): Promise<void>;
+
+	/**
+	 * Provide a single language runtime by ID.
+	 * @param languageId The language identifier.
+	 * @param runtimeId The runtime identifier of the runtime to provide.
+	 */
+	provideRuntime(languageId: string, runtimeId: string): Promise<void>;
 
 	/**
 	 * Get the preferred runtime for a language.

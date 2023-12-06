@@ -3,7 +3,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import type * as positron from 'positron';
-import { ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMessageCommClosed, ILanguageRuntimeMessageCommData, ILanguageRuntimeMessageCommOpen, ILanguageRuntimeProvider, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMessageCommClosed, ILanguageRuntimeMessageCommData, ILanguageRuntimeMessageCommOpen, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import * as extHostProtocol from './extHost.positron.protocol';
 import { Emitter } from 'vs/base/common/event';
 import { IDisposable } from 'vs/base/common/lifecycle';
@@ -11,8 +11,8 @@ import { Disposable, LanguageRuntimeMessageType } from 'vs/workbench/api/common/
 import { RuntimeClientType } from 'vs/workbench/api/common/positron/extHostTypes.positron';
 import { ExtHostRuntimeClientInstance } from 'vs/workbench/api/common/positron/extHostClientInstance';
 import { IExtensionDescription } from 'vs/platform/extensions/common/extensions';
+import { CancellationToken } from 'vs/base/common/cancellation';
 import { URI } from 'vs/base/common/uri';
-
 
 /**
  * A language runtime discoverer and metadata about the extension that registered it.
@@ -30,7 +30,8 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 
 	private readonly _runtimeDiscoverers = new Array<LanguageRuntimeDiscoverer>();
 
-	private readonly _runtimeProviders = new Array<positron.LanguageRuntimeProvider>();
+	// A map of the runtime providers. This is keyed by the languageId of the runtime provider.
+	private readonly _runtimeProviders = new Map<string, positron.LanguageRuntimeProvider>();
 
 	private readonly _clientInstances = new Array<ExtHostRuntimeClientInstance>();
 
@@ -326,15 +327,23 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 
 	public registerLanguageRuntimeProvider(
 		languageId: string,
-		provider: positron.LanguageRuntimeProvider): IDisposable {
+		provider: positron.LanguageRuntimeProvider): void {
+		this._runtimeProviders.set(languageId, provider);
+	}
 
-		// Create a handle and register the runtime provider with the main thread
-		const handle = this._runtimeProviders.length;
-		this._runtimeProviders.push(provider);
-		this._proxy.$registerLanguageRuntimeProvider(handle, languageId, provider as ILanguageRuntimeProvider);
-		return new Disposable(() => {
-			this._proxy.$unregisterLanguageRuntimeProvider(handle);
-		});
+	public async provideLanguageRuntime(
+		languageId: string,
+		extension: IExtensionDescription,
+		runtimeId: string): Promise<void> {
+		const provider = this._runtimeProviders.get(languageId);
+		if (!provider) {
+			throw new Error(`Cannot get runtime provider for '${languageId}'.`);
+		}
+		const runtime = await provider.provideLanguageRuntime(runtimeId, CancellationToken.None);
+		if (!runtime) {
+			throw new Error(`Cannot provide runtime '${runtimeId}'.`);
+		}
+		this.registerLanguageRuntime(extension, runtime);
 	}
 
 	public registerLanguageRuntime(

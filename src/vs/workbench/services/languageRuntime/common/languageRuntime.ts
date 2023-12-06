@@ -9,11 +9,10 @@ import { ILanguageService } from 'vs/editor/common/languages/language';
 import { Disposable, IDisposable, toDisposable } from 'vs/base/common/lifecycle';
 import { CommandsRegistry, ICommandService } from 'vs/platform/commands/common/commands';
 import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/common/extensions';
-import { formatLanguageRuntime, ILanguageRuntime, ILanguageRuntimeProvider, ILanguageRuntimeGlobalEvent, ILanguageRuntimeService, ILanguageRuntimeStateEvent, LanguageRuntimeDiscoveryPhase, LanguageRuntimeStartupBehavior, RuntimeClientType, RuntimeExitReason, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { formatLanguageRuntime, ILanguageRuntime, ILanguageRuntimeGlobalEvent, ILanguageRuntimeService, ILanguageRuntimeStateEvent, LanguageRuntimeDiscoveryPhase, LanguageRuntimeStartupBehavior, RuntimeClientType, RuntimeExitReason, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { FrontEndClientInstance, IFrontEndClientMessageInput, IFrontEndClientMessageOutput } from 'vs/workbench/services/languageRuntime/common/languageRuntimeFrontEndClient';
 import { LanguageRuntimeWorkspaceAffiliation } from 'vs/workbench/services/languageRuntime/common/languageRuntimeWorkspaceAffiliation';
 import { IStorageService } from 'vs/platform/storage/common/storage';
-import { CancellationToken } from 'vs/base/common/cancellation';
 import { IExtensionService } from 'vs/workbench/services/extensions/common/extensions';
 import { IWorkspaceTrustManagementService } from 'vs/platform/workspace/common/workspaceTrust';
 import { DeferredPromise } from 'vs/base/common/async';
@@ -50,10 +49,6 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 	// The array of registered runtimes.
 	private readonly _registeredRuntimes: LanguageRuntimeInfo[] = [];
 
-	// A map of the runtime providers. This is keyed by the languageId
-	// (metadata.languageId) of the runtime provider.
-	private readonly _runtimeProviders = new Map<string, ILanguageRuntimeProvider>();
-
 	// The current discovery phase for language runtime registration.
 	private _discoveryPhase: LanguageRuntimeDiscoveryPhase =
 		LanguageRuntimeDiscoveryPhase.AwaitingExtensions;
@@ -86,9 +81,6 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 
 	// The event emitter for the onDidChangeDisoveryPhase event.
 	private readonly _onDidChangeDiscoveryPhaseEmitter = this._register(new Emitter<LanguageRuntimeDiscoveryPhase>);
-
-	// The event emitter for the onDidRegisterRuntimeProvider event.
-	private readonly _onDidRegisterRuntimeProviderEmitter = this._register(new Emitter<ILanguageRuntimeProvider>);
 
 	// The event emitter for the onDidRegisterRuntime event.
 	private readonly _onDidRegisterRuntimeEmitter = this._register(new Emitter<ILanguageRuntime>);
@@ -152,9 +144,7 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 			new LanguageRuntimeWorkspaceAffiliation(this, this._storageService, this._logService);
 		this._register(this._workspaceAffiliation);
 		if (this._workspaceAffiliation.hasAffiliatedRuntime()) {
-			this._register(this.onDidRegisterRuntimeProvider(provider => {
-				this.startAffiliatedRuntimes();
-			}));
+			this.startAffiliatedRuntimes();
 		}
 
 		// Register as an opener in the opener service.
@@ -211,9 +201,6 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 
 	// An event that fires when the language runtime discovery phase changes.
 	readonly onDidChangeDiscoveryPhase = this._onDidChangeDiscoveryPhaseEmitter.event;
-
-	// An event that fires when a new runtime provider is registered.
-	readonly onDidRegisterRuntimeProvider = this._onDidRegisterRuntimeProviderEmitter.event;
 
 	// An event that fires when a new runtime is registered.
 	readonly onDidRegisterRuntime = this._onDidRegisterRuntimeEmitter.event;
@@ -523,21 +510,6 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 		});
 	}
 
-	/**
-	 * Register a new runtime provider
-	 *
-	 * @returns A disposable that unregisters the runtime
-	 */
-	registerRuntimeProvider(languageId: string, provider: ILanguageRuntimeProvider): IDisposable {
-		// Add the provider to the registered runtimes.
-		this._runtimeProviders.set(languageId, provider);
-
-		// Signal that the set of registered runtime providers has changed.
-		this._onDidRegisterRuntimeProviderEmitter.fire(provider);
-
-		return toDisposable(() => { });
-	}
-
 	getPreferredRuntime(languageId: string): ILanguageRuntime {
 		// If there's a running runtime for the language, return it.
 		const runningRuntime = this._runningRuntimesByLanguageId.get(languageId);
@@ -576,6 +548,11 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 
 		// There are no registered runtimes for the language, throw an error.
 		throw new Error(`No language runtimes registered for language ID '${languageId}'.`);
+	}
+
+	provideRuntime(languageId: string, runtimeId: string): Promise<void> {
+		// TODO
+		return Promise.resolve();
 	}
 
 	/**
@@ -766,27 +743,13 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 	/**
 	 * Starts any affiliated runtimes.
 	 */
-	private async startAffiliatedRuntimes(): Promise<void> {
+	private startAffiliatedRuntimes(): void {
 		// TODO: implement for all language packs
 		const languageId = 'zed';
 		const affiliatedRuntimeId = this._workspaceAffiliation.getAffiliatedRuntimeId(languageId);
 
 		if (affiliatedRuntimeId) {
-			const provider = this._runtimeProviders.get(languageId);
-			if (!provider) {
-				this._logService.error(`No language runtime provider for ${languageId}.`);
-				return;
-			}
-			const affiliatedRuntime = await provider.provideLanguageRuntime(affiliatedRuntimeId, CancellationToken.None);
-			if (!affiliatedRuntime) {
-				this._logService.error(`Language runtime with runtime ID ${affiliatedRuntimeId} could not be provided.`);
-				return;
-			}
-
-			// Register and start the runtime affiliated with the workspace right away.
-			this.registerRuntime(affiliatedRuntime, affiliatedRuntime.metadata.startupBehavior);
-			this._logService.trace(`Language runtime ${formatLanguageRuntime(affiliatedRuntime)} automatically starting`);
-			this.autoStartRuntime(affiliatedRuntime, `Affiliated runtime for workspace via provider`);
+			this.provideRuntime(languageId, affiliatedRuntimeId);
 		}
 	}
 

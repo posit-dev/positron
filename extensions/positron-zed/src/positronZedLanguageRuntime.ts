@@ -2097,7 +2097,7 @@ export class PositronZedLanguageRuntimeProvider implements positron.LanguageRunt
 		private readonly context: vscode.ExtensionContext
 	) { }
 
-	async provideLanguageRuntime(runtimeId: string, token: vscode.CancellationToken): Promise<positron.LanguageRuntime> {
+	provideLanguageRuntime(runtimeId: string, token: vscode.CancellationToken): positron.LanguageRuntime {
 		let version = null;
 		switch (runtimeId) {
 			case '00000000-0000-0000-0000-000000000200': {
