@@ -109,6 +109,9 @@ function* createRustComm(name: string, frontend: any, backend: any): Generator<s
 // AUTO-GENERATED from ${name}.json; do not edit.
 //
 
+use serde::Deserialize;
+use serde::Serialize;
+
 `;
 
 	if (backend) {
@@ -117,7 +120,7 @@ function* createRustComm(name: string, frontend: any, backend: any): Generator<s
 			if (method.result &&
 				method.result.schema &&
 				method.result.schema.type === 'object') {
-				yield '#[derive(Debug, Serialize, Deserialize)]\n';
+				yield '#[derive(Debug, Serialize, Deserialize, PartialEq)]\n';
 				yield `pub struct ${snakeCaseToSentenceCase(method.result.schema.name)} {\n`;
 				for (const prop of Object.keys(method.result.schema.properties)) {
 					const schema = method.result.schema.properties[prop];
@@ -133,7 +136,7 @@ function* createRustComm(name: string, frontend: any, backend: any): Generator<s
 
 	if (backend) {
 		for (const method of backend.methods) {
-			yield '#[derive(Debug, Serialize, Deserialize)]\n';
+			yield '#[derive(Debug, Serialize, Deserialize, PartialEq)]\n';
 			yield `pub struct ${snakeCaseToSentenceCase(method.name)}Params {\n`;
 			for (const param of method.params) {
 				if (param.description) {
@@ -148,7 +151,7 @@ function* createRustComm(name: string, frontend: any, backend: any): Generator<s
 	if (frontend) {
 		for (const method of frontend.methods) {
 			if (!method.result) {
-				yield '#[derive(Debug, Serialize, Deserialize)]\n';
+				yield '#[derive(Debug, Serialize, Deserialize, PartialEq)]\n';
 				yield `pub struct ${snakeCaseToSentenceCase(method.name)}Params {\n`;
 				for (const param of method.params) {
 					if (param.description) {
