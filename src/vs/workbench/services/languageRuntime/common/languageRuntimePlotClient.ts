@@ -30,85 +30,6 @@ export enum PlotClientState {
 }
 
 /**
- * The possible types of messages that can be sent to the language runtime as
- * requests to the plot backend.
- */
-export enum PlotClientMessageTypeInput {
-	/** A request to render the plot at a specific size */
-	Render = 'render',
-}
-
-/**
- * The possible types of messages that can be sent from the plot backend.
- */
-export enum PlotClientMessageTypeOutput {
-	/** Rendered plot output */
-	Image = 'image',
-
-	/** Notification that a plot has changed on the backend */
-	Update = 'update',
-
-	/** A processing error */
-	Error = 'error',
-}
-
-/**
- * A message used to send data to the language runtime plot client.
- */
-export interface IPlotClientMessageInput {
-	msg_type: PlotClientMessageTypeInput;
-}
-
-/**
- * A message used to request that a plot render at a specific size.
- */
-export interface IPlotClientMessageRender extends IPlotClientMessageInput {
-	/** The plot height, in pixels */
-	height: number;
-
-	/** The plot width, in pixels */
-	width: number;
-
-	/**
-	 * The pixel ratio of the display device; typically 1 for standard displays,
-	 * 2 for retina/high DPI displays, etc.
-	 */
-	pixel_ratio: number;
-}
-
-/**
- * A message used to receive data from the language runtime plot client.
- */
-export interface IPlotClientMessageOutput {
-	msg_type: PlotClientMessageTypeOutput;
-}
-
-/**
- * A message used to receive rendered plot output.
- */
-export interface IPlotClientMessageImage extends IPlotClientMessageOutput {
-	/**
-	 * The data for the plot image, as a base64-encoded string. We need to send
-	 * the plot data as a string because the underlying image file exists only
-	 * on the machine running the language runtime process.
-	 */
-	data: string;
-
-	/**
-	 * The MIME type of the image data, e.g. `image/png`. This is used to
-	 * determine how to display the image in the UI.
-	 */
-	mime_type: string;
-}
-
-/**
- * A message used to deliver a plot rendering error.
- */
-export interface IPlotClientMessageError extends IPlotClientMessageOutput {
-	message: string;
-}
-
-/**
  * A rendered plot.
  */
 export interface IRenderedPlot {
@@ -144,6 +65,20 @@ export interface IPositronPlotMetadata {
 }
 
 /**
+ * A request to render a plot.
+ */
+interface RenderRequest {
+	/** The height of the plot, in logical pixels */
+	height: number;
+
+	/** The width of the plot, in logical pixels */
+	width: number;
+
+	/** The pixel ratio of the device for which the plot was rendered */
+	pixel_ratio: number;
+}
+
+/**
  * A deferred render request. Used to track the state of a render request that
  * hasn't been fulfilled; mostly a thin wrapper over a `DeferredPromise` that
  * includes the original render request.
@@ -151,7 +86,7 @@ export interface IPositronPlotMetadata {
 class DeferredRender {
 	private readonly deferred: DeferredPromise<IRenderedPlot>;
 
-	constructor(public readonly renderRequest: IPlotClientMessageRender) {
+	constructor(public readonly renderRequest: RenderRequest) {
 		this.deferred = new DeferredPromise<IRenderedPlot>();
 	}
 
@@ -264,7 +199,7 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 	 * @param metadata The plot's metadata
 	 */
 	constructor(
-		client: IRuntimeClientInstance<IPlotClientMessageInput, IPlotClientMessageOutput>,
+		client: IRuntimeClientInstance<any, any>,
 		public readonly metadata: IPositronPlotMetadata) {
 		super();
 
@@ -330,8 +265,7 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 		}
 
 		// Create a new deferred promise to track the render request
-		const request: IPlotClientMessageRender = {
-			msg_type: PlotClientMessageTypeInput.Render,
+		const request: RenderRequest = {
 			height,
 			width,
 			pixel_ratio
@@ -497,7 +431,6 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 		// it right away. `scheduleRender` takes care of cancelling the render
 		// timer for any previously deferred render requests.
 		const req = new DeferredRender({
-			msg_type: PlotClientMessageTypeInput.Render,
 			height: Math.floor(height!),
 			width: Math.floor(width!),
 			pixel_ratio: pixel_ratio!

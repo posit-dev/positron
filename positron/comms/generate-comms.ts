@@ -169,6 +169,7 @@ use serde::Serialize;
 		yield ` * RPC request types for the ${name} comm\n`;
 		yield ' */\n';
 		yield `#[derive(Debug, Serialize, Deserialize, PartialEq)]\n`;
+		yield `#[serde(tag = "method", content = "params")]\n`;
 		yield `pub enum ${snakeCaseToSentenceCase(name)}RpcRequest {\n`;
 		for (const method of backend.methods) {
 			if (method.summary) {
