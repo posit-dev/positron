@@ -55,6 +55,10 @@ jobs:
       - name: Compile Integration Tests
         run: yarn --cwd test/integration/browser compile
 
+      - name: Run Unit Tests (Electron)
+        id: electron-unit-tests
+        run: DISPLAY=:10 ./scripts/test.sh
+
       - name: Run Unit Tests (node.js)
         id: nodejs-unit-tests
         run: yarn test-node
@@ -66,3 +70,12 @@ jobs:
       - name: Run Integration Tests (Electron)
         id: electron-integration-tests
         run: DISPLAY=:10 ./scripts/test-integration.sh
+
+      - name: Run Integration Tests (Browser, Chromium)
+        id: browser-integration-tests
+        run: DISPLAY=:10 ./scripts/test-web-integration.sh --browser chromium
+
+      - name: Run Integration Tests (Remote)
+        id: electron-remote-integration-tests
+        timeout-minutes: 15
+        run: DISPLAY=:10 ./scripts/test-remote-integration.sh
