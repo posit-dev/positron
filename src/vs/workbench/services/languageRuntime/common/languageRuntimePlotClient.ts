@@ -313,6 +313,10 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 	 * @returns A promise that resolves to a rendered image, or rejects with an error.
 	 */
 	public render(height: number, width: number, pixel_ratio: number): Promise<IRenderedPlot> {
+		// Deal with whole pixels only
+		height = Math.floor(height);
+		width = Math.floor(width);
+
 		// Compare against the last render request. It is normal for the same
 		// render request to be made multiple times, e.g. when the UI component
 		// is redrawn without changing the plot size.
@@ -494,8 +498,8 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 		// timer for any previously deferred render requests.
 		const req = new DeferredRender({
 			msg_type: PlotClientMessageTypeInput.Render,
-			height: height!,
-			width: width!,
+			height: Math.floor(height!),
+			width: Math.floor(width!),
 			pixel_ratio: pixel_ratio!
 		});
 
