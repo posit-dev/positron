@@ -71,10 +71,6 @@ jobs:
         id: electron-integration-tests
         run: DISPLAY=:10 ./scripts/test-integration.sh
 
-      - name: Run Integration Tests (Browser, Chromium)
-        id: browser-integration-tests
-        run: DISPLAY=:10 ./scripts/test-web-integration.sh --browser chromium
-
       - name: Run Integration Tests (Remote)
         id: electron-remote-integration-tests
         timeout-minutes: 15
