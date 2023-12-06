@@ -2,7 +2,7 @@
  *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
-import { IRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeClientInstance';
+import { IRuntimeClientInstance, RuntimeClientState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeClientInstance';
 import { Event, Emitter } from 'vs/base/common/event';
 import { Disposable } from 'vs/base/common/lifecycle';
 
@@ -71,6 +71,11 @@ export class PositronBaseComm extends Disposable {
 	private _emitters = new Map<string, PositronCommEmitter<any>>();
 
 	/**
+	 * An emitter for the close event.
+	 */
+	private _closeEmitter = new Emitter<void>();
+
+	/**
 	 * Create a new Positron com
 	 *
 	 * @param clientInstance The client instance to use for communication with the backend.
@@ -112,7 +117,24 @@ export class PositronBaseComm extends Disposable {
 				}
 			}
 		}));
+
+		/**
+		 * If the client is closed, emit the close event.
+		 */
+		this._register(clientInstance.onDidChangeClientState(state => {
+			// If the client is closed, emit the close event.
+			if (state === RuntimeClientState.Closed) {
+				this._closeEmitter.fire();
+			}
+		}));
+
+		this.onDidClose = this._closeEmitter.event;
 	}
+
+	/**
+	 * Fires when the client is closed.
+	 */
+	public onDidClose: Event<void>;
 
 	/**
 	 * Create a new event emitter.
