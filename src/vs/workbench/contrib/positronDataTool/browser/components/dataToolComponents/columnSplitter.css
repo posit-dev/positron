@@ -1,0 +1,22 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
+ *--------------------------------------------------------------------------------------------*/
+
+.data-tool-panel .column-splitter {
+	width: 7px;
+	display: flex;
+	flex-shrink: 0;
+	cursor: col-resize;
+	justify-content: left;
+}
+
+.data-tool-panel .column-splitter .sizer {
+	width: 3px;
+	/* Since border-box is context-box, the border will be in the middle of the 7px splitter. */
+	/* border-right: 1px solid var(--vscode-positronVariables-grid); */
+	/* border-right: 1px solid red; */
+}
+
+.data-tool-panel .column-splitter:hover .sizer {
+	border-right: 1px solid var(--vscode-positronVariables-grid);
+}

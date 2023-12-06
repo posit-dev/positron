@@ -11,6 +11,7 @@ import { PositronDataToolLayout } from 'vs/workbench/contrib/positronDataTool/br
 import { RowsPanel } from 'vs/workbench/contrib/positronDataTool/browser/components/dataToolComponents/rowsPanel';
 import { usePositronDataToolContext } from 'vs/workbench/contrib/positronDataTool/browser/positronDataToolContext';
 import { ColumnsPanel } from 'vs/workbench/contrib/positronDataTool/browser/components/dataToolComponents/columnsPanel';
+import { ColumnSplitter } from 'vs/workbench/contrib/positronDataTool/browser/components/dataToolComponents/columnSplitter';
 
 /**
  * DataToolPanelProps interface.
@@ -37,20 +38,33 @@ export const DataToolPanel = (props: DataToolPanelProps) => {
 	const column2 = useRef<HTMLDivElement>(undefined!);
 
 	// State hooks.
-	const [columnsWidth, setColumnsWidth] = useState(200);
+	const [columnWidth, setColumnWidth] = useState(200);
+	const [resizingColumn, setResizingColumn] = useState(false);
+
+	/**
+	 * Resizes column.
+	 * @param x The X delta.
+	 */
+	const resizeColumn = (x: number) => {
+		// Calculate the new column width.
+		const newColumnWidth = Math.min(Math.max(columnWidth + x, 150), props.width - (150 + 8 + 7 + 8));
+
+		// Adjust the column width.
+		setColumnWidth(newColumnWidth);
+	};
 
 	// Layout effect.
 	useEffect(() => {
 		switch (positronDataToolContext.layout) {
 			case PositronDataToolLayout.ColumnsLeft:
-				dataToolPanel.current.style.gridTemplateColumns = `[left-gutter] 8px [column-1] ${columnsWidth}px [splitter] 8px [column-2] 1fr [right-gutter] 8px`;
+				dataToolPanel.current.style.gridTemplateColumns = `[left-gutter] 8px [column-1] ${columnWidth}px [splitter] 8px [column-2] 1fr [right-gutter] 8px`;
 				column1.current.style.display = 'flex';
 				column1.current.style.gridColumn = 'column-1 / splitter';
 				column2.current.style.gridColumn = 'column-2 / right-gutter';
 				break;
 
 			case PositronDataToolLayout.ColumnsRight:
-				dataToolPanel.current.style.gridTemplateColumns = `[left-gutter] 8px [column-1] 1fr [splitter] 8px [column-2] ${columnsWidth}px [right-gutter] 8px`;
+				dataToolPanel.current.style.gridTemplateColumns = `[left-gutter] 8px [column-1] 1fr [splitter] 8px [column-2] ${columnWidth}px [right-gutter] 8px`;
 				column1.current.style.display = 'flex';
 				column1.current.style.gridColumn = 'column-2 / right-gutter';
 				column2.current.style.gridColumn = 'column-1 / splitter';
@@ -62,7 +76,7 @@ export const DataToolPanel = (props: DataToolPanelProps) => {
 				column2.current.style.gridColumn = 'column-1 / right-gutter';
 				break;
 		}
-	}, [positronDataToolContext.layout]);
+	}, [positronDataToolContext.layout, columnWidth]);
 
 	// Render.
 	return (
@@ -71,6 +85,11 @@ export const DataToolPanel = (props: DataToolPanelProps) => {
 				<ColumnsPanel />
 			</div>
 			<div ref={splitter} className='splitter'>
+				<ColumnSplitter
+					onStartResize={() => setResizingColumn(true)}
+					onResize={(x, y) => resizeColumn(x)}
+					onStopResize={() => setResizingColumn(false)}
+				/>
 			</div>
 			<div ref={column2} className='column-2'>
 				<RowsPanel />

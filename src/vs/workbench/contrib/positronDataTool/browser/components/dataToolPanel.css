@@ -5,7 +5,7 @@
 .data-tool-panel {
 	display: grid;
 	grid-template-rows: [top-gutter] 8px [body] 1fr [bottom-gutter] 8px;
-	grid-template-columns: [left-gutter] 8px [column-1] 200px [splitter] 8px [column-2] 1fr [right-gutter] 8px;
+	grid-template-columns: [left-gutter] 8px [column-1] 200px [splitter] 7px [column-2] 1fr [right-gutter] 8px;
 }
 
 .data-tool-panel .column-1 {
