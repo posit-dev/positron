@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
 import { IDisposable } from 'vs/base/common/lifecycle';
@@ -16,7 +16,6 @@ export interface MainThreadLanguageRuntimeShape extends IDisposable {
 	$completeLanguageRuntimeDiscovery(): void;
 	$unregisterLanguageRuntime(handle: number): void;
 	$executeCode(languageId: string, code: string, focus: boolean): Promise<boolean>;
-	$provideLanguageRuntime(languageId: string, runtimeId: string): Promise<void>;
 	$getPreferredRuntime(languageId: string): Promise<ILanguageRuntimeMetadata>;
 	$getRunningRuntimes(languageId: string): Promise<ILanguageRuntimeMetadata[]>;
 	$emitLanguageRuntimeMessage(handle: number, message: ILanguageRuntimeMessage): void;
@@ -40,6 +39,7 @@ export interface ExtHostLanguageRuntimeShape {
 	$shutdownLanguageRuntime(handle: number, exitReason: RuntimeExitReason): Promise<void>;
 	$forceQuitLanguageRuntime(handle: number): Promise<void>;
 	$showOutputLanguageRuntime(handle: number): void;
+	$provideLanguageRuntime(languageId: string, runtimeId: string): Promise<void>;
 	$discoverLanguageRuntimes(): void;
 }
 

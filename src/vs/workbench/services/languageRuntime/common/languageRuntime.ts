@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
 import * as nls from 'vs/nls';
@@ -9,7 +9,7 @@ import { ILanguageService } from 'vs/editor/common/languages/language';
 import { Disposable, IDisposable, toDisposable } from 'vs/base/common/lifecycle';
 import { CommandsRegistry, ICommandService } from 'vs/platform/commands/common/commands';
 import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/common/extensions';
-import { formatLanguageRuntime, ILanguageRuntime, ILanguageRuntimeGlobalEvent, ILanguageRuntimeService, ILanguageRuntimeStateEvent, LanguageRuntimeDiscoveryPhase, LanguageRuntimeStartupBehavior, RuntimeClientType, RuntimeExitReason, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { formatLanguageRuntime, ILanguageRuntime, ILanguageRuntimeGlobalEvent, ILanguageRuntimeService, ILanguageRuntimeStateEvent, ILanguageRuntimeIdEvent, LanguageRuntimeDiscoveryPhase, LanguageRuntimeStartupBehavior, RuntimeClientType, RuntimeExitReason, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { FrontEndClientInstance, IFrontEndClientMessageInput, IFrontEndClientMessageOutput } from 'vs/workbench/services/languageRuntime/common/languageRuntimeFrontEndClient';
 import { LanguageRuntimeWorkspaceAffiliation } from 'vs/workbench/services/languageRuntime/common/languageRuntimeWorkspaceAffiliation';
 import { IStorageService } from 'vs/platform/storage/common/storage';
@@ -105,6 +105,9 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 
 	// The event emitter for the onDidChangeActiveRuntime event.
 	private readonly _onDidChangeActiveRuntimeEmitter = this._register(new Emitter<ILanguageRuntime | undefined>);
+
+	// The event emitter for the onDidRequestLanguageRuntime event.
+	private readonly _onDidRequestLanguageRuntimeEmitter = this._register(new Emitter<ILanguageRuntimeIdEvent>);
 
 	//#endregion Private Properties
 
@@ -225,6 +228,9 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 
 	// An event that fires when the active runtime changes.
 	readonly onDidChangeActiveRuntime = this._onDidChangeActiveRuntimeEmitter.event;
+
+	// An event that fires when a language runtime is provided.
+	readonly onDidRequestLanguageRuntime = this._onDidRequestLanguageRuntimeEmitter.event;
 
 	/**
 	 * Gets the registered runtimes.
@@ -550,11 +556,6 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 		throw new Error(`No language runtimes registered for language ID '${languageId}'.`);
 	}
 
-	provideRuntime(languageId: string, runtimeId: string): Promise<void> {
-		// TODO
-		return Promise.resolve();
-	}
-
 	/**
 	 * Completes the language runtime discovery phase. If no runtimes were
 	 * started or will be started, automatically start one.
@@ -749,7 +750,10 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 		const affiliatedRuntimeId = this._workspaceAffiliation.getAffiliatedRuntimeId(languageId);
 
 		if (affiliatedRuntimeId) {
-			this.provideRuntime(languageId, affiliatedRuntimeId);
+			this._onDidRequestLanguageRuntimeEmitter.fire({
+				runtime_id: affiliatedRuntimeId,
+				language_id: languageId
+			});
 		}
 	}
 

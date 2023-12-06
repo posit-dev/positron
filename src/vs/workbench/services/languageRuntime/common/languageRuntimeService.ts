@@ -482,6 +482,14 @@ export interface ILanguageRuntimeStateEvent {
 	new_state: RuntimeState;
 }
 
+export interface ILanguageRuntimeIdEvent {
+	/** The ID of the runtime is being provided */
+	runtime_id: string;
+
+	/** The runtime's language */
+	language_id: string;
+}
+
 /* ILanguageRuntimeMetadata contains information about a language runtime that is known
  * before the runtime is started.
  */
@@ -673,6 +681,9 @@ export interface ILanguageRuntimeService {
 	// An event that fires when the active runtime changes.
 	readonly onDidChangeActiveRuntime: Event<ILanguageRuntime | undefined>;
 
+	// An event that fires when a runtime is requested.
+	readonly onDidRequestLanguageRuntime: Event<ILanguageRuntimeIdEvent>;
+
 	/**
 	 * Gets the running language runtimes.
 	 */
@@ -703,13 +714,6 @@ export interface ILanguageRuntimeService {
 	 * @param source The source of the request to select the runtime, for debugging purposes.
 	 */
 	selectRuntime(runtimeId: string, source: string): Promise<void>;
-
-	/**
-	 * Provide a single language runtime by ID.
-	 * @param languageId The language identifier.
-	 * @param runtimeId The runtime identifier of the runtime to provide.
-	 */
-	provideRuntime(languageId: string, runtimeId: string): Promise<void>;
 
 	/**
 	 * Get the preferred runtime for a language.

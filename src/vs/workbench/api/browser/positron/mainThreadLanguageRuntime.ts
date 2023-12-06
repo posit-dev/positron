@@ -948,6 +948,10 @@ export class MainThreadLanguageRuntime implements MainThreadLanguageRuntimeShape
 				this._proxy.$discoverLanguageRuntimes();
 			}
 		});
+		this._languageRuntimeService.onDidRequestLanguageRuntime((ILanguageRuntimeIdEvent) => {
+			this._proxy.$provideLanguageRuntime(ILanguageRuntimeIdEvent.language_id,
+				ILanguageRuntimeIdEvent.runtime_id);
+		});
 	}
 
 	$emitLanguageRuntimeMessage(handle: number, message: ILanguageRuntimeMessage): void {
@@ -1014,11 +1018,6 @@ export class MainThreadLanguageRuntime implements MainThreadLanguageRuntimeShape
 
 	$executeCode(languageId: string, code: string, focus: boolean): Promise<boolean> {
 		return this._positronConsoleService.executeCode(languageId, code, focus);
-	}
-
-	// Called by the extension host to provide a single language runtime by ID
-	$provideLanguageRuntime(languageId: string, runtimeId: string): Promise<void> {
-		return this._languageRuntimeService.provideRuntime(languageId, runtimeId);
 	}
 
 	public dispose(): void {

@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
 import type * as positron from 'positron';
@@ -22,6 +22,14 @@ interface LanguageRuntimeDiscoverer {
 	extension: IExtensionDescription;
 }
 
+/**
+ * A language runtime provider and metadata about the extension that registered it.
+ */
+interface LanguageRuntimeProvider {
+	provider: positron.LanguageRuntimeProvider;
+	extension: IExtensionDescription;
+}
+
 export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRuntimeShape {
 
 	private readonly _proxy: extHostProtocol.MainThreadLanguageRuntimeShape;
@@ -31,7 +39,7 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 	private readonly _runtimeDiscoverers = new Array<LanguageRuntimeDiscoverer>();
 
 	// A map of the runtime providers. This is keyed by the languageId of the runtime provider.
-	private readonly _runtimeProviders = new Map<string, positron.LanguageRuntimeProvider>();
+	private readonly _runtimeProviders = new Map<string, LanguageRuntimeProvider>();
 
 	private readonly _clientInstances = new Array<ExtHostRuntimeClientInstance>();
 
@@ -326,24 +334,24 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 	}
 
 	public registerLanguageRuntimeProvider(
+		extension: IExtensionDescription,
 		languageId: string,
 		provider: positron.LanguageRuntimeProvider): void {
-		this._runtimeProviders.set(languageId, provider);
+		this._runtimeProviders.set(languageId, { extension, provider });
 	}
 
-	public async provideLanguageRuntime(
+	public async $provideLanguageRuntime(
 		languageId: string,
-		extension: IExtensionDescription,
 		runtimeId: string): Promise<void> {
 		const provider = this._runtimeProviders.get(languageId);
 		if (!provider) {
 			throw new Error(`Cannot get runtime provider for '${languageId}'.`);
 		}
-		const runtime = await provider.provideLanguageRuntime(runtimeId, CancellationToken.None);
+		const runtime = await provider.provider.provideLanguageRuntime(runtimeId, CancellationToken.None);
 		if (!runtime) {
 			throw new Error(`Cannot provide runtime '${runtimeId}'.`);
 		}
-		this.registerLanguageRuntime(extension, runtime);
+		this.registerLanguageRuntime(provider.extension, runtime);
 	}
 
 	public registerLanguageRuntime(
