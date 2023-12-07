@@ -144,8 +144,9 @@ export class PositronIPyWidgetsService extends Disposable implements IPositronIP
 		// Combine our existing list of widgets into a single WebviewPlotClient
 
 		const htmlData = new IPyWidgetHtmlData(this.positronWidgetInstances);
-		// Figure out which widget is the primary widget and add it to the viewspec
-		if (this._primaryWidgets.size === 0) {
+		const latestWidgetId = message.comm_id;
+
+		if (!this._primaryWidgets.has(latestWidgetId)) {
 			return;
 		}
 
