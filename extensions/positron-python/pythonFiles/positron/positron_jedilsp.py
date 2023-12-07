@@ -88,6 +88,7 @@ from pygls.feature_manager import has_ls_param_or_annotation
 from pygls.workspace import Document
 
 from .help import ShowTopicRequest
+from .jedi import PositronInterpreter
 
 if TYPE_CHECKING:
     from .positron_ipkernel import PositronIPyKernel
@@ -675,4 +676,4 @@ def interpreter(
     if kernel is not None:
         namespaces.append(kernel.get_user_ns())
 
-    return Interpreter(document.source, namespaces, path=document.path, project=project)
+    return PositronInterpreter(document.source, namespaces, path=document.path, project=project)
