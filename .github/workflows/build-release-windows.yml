@@ -123,7 +123,7 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: positron-${{ matrix.platform }}-${{ matrix.arch }}-${{ matrix.target }}-installer
-          path: ${{github.workspace}}\Positron-${{ inputs.short_version }}-Setup.exe
+          path: Positron-${{ inputs.short_version }}-Setup.exe
 
       - name: Record artifact name
         id: artifact-name
@@ -135,7 +135,7 @@ jobs:
         id: artifact-file
         shell: bash
         run: |
-          echo "result=${{github.workspace}}\Positron-${{ inputs.short_version }}-Setup.exe" >> $GITHUB_OUTPUT
+          echo "result=Positron-${{ inputs.short_version }}-Setup.exe" >> $GITHUB_OUTPUT
 
 
   status:
