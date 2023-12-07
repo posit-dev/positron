@@ -1179,7 +1179,7 @@ export abstract class Layout extends Disposable implements IWorkbenchLayoutServi
 		switch (part) {
 			// --- Start Positron ---
 			case Parts.POSITRON_TOP_ACTION_BAR_PART: {
-				const container = this.getContainer(part);
+				const container = this.getContainer(targetWindow, part);
 				container?.focus();
 				break;
 			}
