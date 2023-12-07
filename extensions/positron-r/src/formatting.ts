@@ -9,6 +9,7 @@ import * as os from 'os';
 import * as fs from 'fs';
 import { RRuntime, lastRuntimePath } from './runtime';
 import { getRunningRRuntime } from './provider';
+import { checkInstalled } from './check-installed';
 import { timeout } from './util';
 import { randomUUID } from 'crypto';
 
@@ -49,11 +50,15 @@ class FormatterProvider implements vscode.DocumentFormattingEditProvider {
 		range?: vscode.Range
 	): Promise<vscode.TextEdit[]> {
 		if (!lastRuntimePath) {
-			throw new Error(`No running R runtime to provide R package tasks.`);
+			throw new Error(`No running R runtime to provide R formatter.`);
 		}
 
 		const runtime = await getRunningRRuntime(runtimes);
 		const id = randomUUID();
+		const isInstalled = await checkInstalled(runtime, 'styler', 'format document');
+		if (!isInstalled) {
+			return [];
+		}
 
 		// We can only use styler on files right now, so write the document to a temp file
 		const originalSource = document.getText(range);
