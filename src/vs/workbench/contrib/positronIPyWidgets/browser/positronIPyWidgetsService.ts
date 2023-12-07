@@ -56,7 +56,16 @@ export class PositronIPyWidgetsService extends Disposable implements IPositronIP
 		// Add to our list of widgets
 		this._widgets.push(widgetClient);
 
+		// Update the list of primary widgets whenever a new widget comes in
 		this.updatePrimaryWidgets(widgetClient);
+
+		// Remove the widget from our list when it is closed
+		widgetClient.onDidClose(() => {
+			const index = this._widgets.indexOf(widgetClient);
+			if (index >= 0) {
+				this._widgets.splice(index, 1);
+			}
+		});
 
 		// Dispose the widget client when this service is disposed
 		this._register(widgetClient);

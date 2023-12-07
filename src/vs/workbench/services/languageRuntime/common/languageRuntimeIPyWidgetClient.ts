@@ -4,7 +4,7 @@
 
 import { Disposable } from 'vs/base/common/lifecycle';
 import { Emitter, Event } from 'vs/base/common/event';
-import { IRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeClientInstance';
+import { IRuntimeClientInstance, RuntimeClientState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeClientInstance';
 import { IPositronIPyWidgetClient, IPositronIPyWidgetMetadata } from 'vs/workbench/services/positronIPyWidgets/common/positronIPyWidgetsService';
 
 /**
@@ -63,9 +63,14 @@ export class IPyWidgetClientInstance extends Disposable implements IPositronIPyW
 		public metadata: IPositronIPyWidgetMetadata) {
 
 		super();
-		this._register(this._client);
 		// Connect close emitter event
 		this.onDidClose = this._closeEmitter.event;
+		_client.onDidChangeClientState((state) => {
+			if (state === RuntimeClientState.Closed) {
+				this._closeEmitter.fire();
+			}
+		});
+		this._register(this._client);
 	}
 
 	/**
