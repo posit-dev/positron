@@ -228,13 +228,6 @@ async function downloadAndReplaceArk(version: string,
 }
 
 async function main() {
-
-	// Temporarily skip downloading ARK on Windows until we have a Windows build.
-	if (platform() === 'win32') {
-		console.warn('ARK is not yet supported on Windows. Skipping download.');
-		return;
-	}
-
 	// Before we do any work, check to see if there is a locally built copy of Amalthea in the
 	// `amalthea / target` directory. If so, we'll assume that the user is a kernel developer
 	// and skip the download; this version will take precedence over any downloaded version.
@@ -274,6 +267,12 @@ async function main() {
 	} else {
 		console.log(`No locally built Ark found in ${path.join(positronParent, 'amalthea')}; ` +
 			`checking downloaded version.`);
+	}
+
+	// TODO: Remove once we have ark releases
+	if (platform() === 'win32') {
+		console.warn('On Windows, only locally built versions of Ark are currently supported.');
+		return;
 	}
 
 	const packageJsonVersion = await getVersionFromPackageJson();

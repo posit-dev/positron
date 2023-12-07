@@ -150,6 +150,7 @@ module.exports.indentationFilter = [
 
 	// --- Start Positron ---
 	'!**/amalthea/**/*',
+	'!extensions/positron-r/resources/scripts/*.R'
 	// --- End Positron ---
 ];
 
