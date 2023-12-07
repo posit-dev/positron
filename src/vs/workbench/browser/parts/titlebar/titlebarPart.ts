@@ -686,7 +686,10 @@ export class BrowserTitlebarPart extends Part implements ITitlebarPart {
 	}
 
 	protected get isCommandCenterVisible() {
-		return this.configurationService.getValue<boolean>(LayoutSettings.COMMAND_CENTER) !== false;
+		// --- Start Positron ---
+		return false;
+		// return this.configurationService.getValue<boolean>(LayoutSettings.COMMAND_CENTER) !== false;
+		// --- End Positron ---
 	}
 
 	private get editorActionsEnabled(): boolean {

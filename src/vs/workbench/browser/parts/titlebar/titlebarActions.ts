@@ -44,11 +44,15 @@ class ToggleConfigAction extends Action2 {
 	}
 }
 
+// --- Start Positron ---
+/*
 registerAction2(class ToggleCommandCenter extends ToggleConfigAction {
 	constructor() {
 		super(LayoutSettings.COMMAND_CENTER, localize('toggle.commandCenter', 'Command Center'), 1, false);
 	}
 });
+*/
+// --- End Positron ---
 
 registerAction2(class ToggleLayoutControl extends ToggleConfigAction {
 	constructor() {
