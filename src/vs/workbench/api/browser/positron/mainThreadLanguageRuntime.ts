@@ -19,7 +19,7 @@ import { IRuntimeClientInstance, RuntimeClientState, RuntimeClientType } from 'v
 import { DeferredPromise } from 'vs/base/common/async';
 import { generateUuid } from 'vs/base/common/uuid';
 import { IPositronPlotsService } from 'vs/workbench/services/positronPlots/common/positronPlots';
-import { IPositronIPyWidgetsService } from 'vs/workbench/services/positronIPyWidgets/common/positronIPyWidgetsService';
+import { IPositronIPyWidgetsService, MIME_TYPE_WIDGET_STATE, MIME_TYPE_WIDGET_VIEW } from 'vs/workbench/services/positronIPyWidgets/common/positronIPyWidgetsService';
 import { BusyEvent, LanguageRuntimeEventType, PromptStateEvent, WorkingDirectoryEvent } from 'vs/workbench/services/languageRuntime/common/languageRuntimeEvents';
 import { IPositronHelpService } from 'vs/workbench/contrib/positronHelp/browser/positronHelpService';
 import { INotebookService } from 'vs/workbench/contrib/notebook/common/notebookService';
@@ -655,6 +655,11 @@ class ExtHostLanguageRuntimeAdapter implements ILanguageRuntime {
 		// Code / Positron so should have priority over other visualization
 		// types.
 		for (const mimeType of mimeTypes) {
+			// These mime types are exclusive to IPyWidgets, and should be coded as such.
+			if (mimeType === MIME_TYPE_WIDGET_STATE || mimeType === MIME_TYPE_WIDGET_VIEW) {
+				return RuntimeOutputKind.IPyWidget;
+			}
+
 			if (mimeType.startsWith('application/') ||
 				mimeType === 'text/markdown' ||
 				mimeType.startsWith('text/x-')) {
