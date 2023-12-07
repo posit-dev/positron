@@ -2,6 +2,7 @@
  *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
+import * as os from 'os';
 import * as vscode from 'vscode';
 
 /**
@@ -25,11 +26,13 @@ export function getArkKernelPath(context: vscode.ExtensionContext): string | und
 		return kernelPath;
 	}
 
+	const kernelName = os.platform() === 'win32' ? 'ark.exe' : 'ark';
+
 	// No kernel path specified; try the default (embedded) kernel. This is where the kernel
 	// is placed in release builds.
 	const path = require('path');
 	const fs = require('fs');
-	const embeddedKernel = path.join(context.extensionPath, 'dist', 'bin', 'ark');
+	const embeddedKernel = path.join(context.extensionPath, 'dist', 'bin', kernelName);
 	if (fs.existsSync(embeddedKernel)) {
 		return embeddedKernel;
 	}
@@ -39,8 +42,8 @@ export function getArkKernelPath(context: vscode.ExtensionContext): string | und
 	// by developers, who have `positron` and `amalthea` directories side-by-side.
 	let devKernel = undefined;
 	const positronParent = path.dirname(path.dirname(path.dirname(context.extensionPath)));
-	const devDebugKernel = path.join(positronParent, 'amalthea', 'target', 'debug', 'ark');
-	const devReleaseKernel = path.join(positronParent, 'amalthea', 'target', 'release', 'ark');
+	const devDebugKernel = path.join(positronParent, 'amalthea', 'target', 'debug', kernelName);
+	const devReleaseKernel = path.join(positronParent, 'amalthea', 'target', 'release', kernelName);
 	const debugModified = fs.statSync(devDebugKernel, { throwIfNoEntry: false })?.mtime;
 	const releaseModified = fs.statSync(devReleaseKernel, { throwIfNoEntry: false })?.mtime;
 
@@ -55,7 +58,7 @@ export function getArkKernelPath(context: vscode.ExtensionContext): string | und
 
 	// Finally, look for a local copy of the kernel in our `resources` directory. This is
 	// where the kernel is placed by the `install-kernel` script in development builds.
-	const localKernel = path.join(context.extensionPath, 'resources', 'ark', 'ark');
+	const localKernel = path.join(context.extensionPath, 'resources', 'ark', kernelName);
 	if (fs.existsSync(localKernel)) {
 		return localKernel;
 	}

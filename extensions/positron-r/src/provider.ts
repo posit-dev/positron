@@ -71,14 +71,21 @@ export async function* rRuntimeDiscoverer(
 		binaries.add(b);
 	}
 
-	// make sure we include R executable found on the PATH
-	// we've probably already discovered it, but we still need to single it out, so that we mark
-	// that particular R installation as the current one
-	const whichR = await which('R', { nothrow: true }) as string;
-	if (whichR) {
-		const whichRCanonical = fs.realpathSync(whichR);
-		rInstallations.push(new RInstallation(whichRCanonical, true));
-		binaries.delete(whichRCanonical);
+	// TODO: Windows
+	// On Windows this finds `C:\Program Files\R\bin\R.BAT`, a batch file that starts
+	// the underlying version of R, i.e. try right clicking and editing the batch file to see the
+	// underlying path it ends up using. We will need some way to associate this with the `R.exe`
+	// file it ends up starting.
+	if (os.platform() !== 'win32') {
+		// make sure we include R executable found on the PATH
+		// we've probably already discovered it, but we still need to single it out, so that we mark
+		// that particular R installation as the current one
+		const whichR = await which('R', { nothrow: true }) as string;
+		if (whichR) {
+			const whichRCanonical = fs.realpathSync(whichR);
+			rInstallations.push(new RInstallation(whichRCanonical, true));
+			binaries.delete(whichRCanonical);
+		}
 	}
 
 	binaries.forEach((b: string) => {
@@ -157,6 +164,22 @@ export async function* rRuntimeDiscoverer(
 			// DYLD_FALLBACK_LIBRARY_PATH if it's present.
 			env['POSITRON_DYLD_FALLBACK_LIBRARY_PATH'] = dyldFallbackLibraryPaths.join(':');
 
+		}
+
+		if (process.platform === 'win32') {
+			// On Windows, we must place the `bin/` path for the current R version on the PATH
+			// so that the DLLs in that same folder can be resolved properly when ark starts up
+			// (like `R.dll`, `Rblas.dll`, `Rgraphapp.dll`, `Riconv.dll`, and `Rlapack.dll`).
+			// https://learn.microsoft.com/en-us/windows/win32/dlls/dynamic-link-library-search-order#standard-search-order-for-unpackaged-apps
+			const binpath = path.join(rHome.homepath, 'bin', 'x64');
+
+			const processPath = process.env['PATH'];
+
+			const subprocessPath = processPath === undefined ?
+				binpath :
+				processPath + ';' + binpath;
+
+			env['PATH'] = subprocessPath;
 		}
 
 		// Is the runtime path within the user's home directory?
@@ -297,11 +320,12 @@ export async function getRunningRRuntime(runtimes: Map<string, RRuntime>): Promi
 function rHeadquarters(): string {
 	switch (process.platform) {
 		case 'darwin':
-			return '/Library/Frameworks/R.framework/Versions';
+			return path.join('/Library', 'Frameworks', 'R.framework', 'Versions');
 		case 'linux':
-			return '/opt/R';
+			return path.join('/opt', 'R');
+		case 'win32':
+			return path.join('C:\\', 'Program Files', 'R');
 		default:
-			// TODO: handle Windows
 			throw new Error('Unsupported platform');
 	}
 }
@@ -309,11 +333,12 @@ function rHeadquarters(): string {
 function binFragment(version: string): string {
 	switch (process.platform) {
 		case 'darwin':
-			return `${version}/Resources/bin/R`;
+			return path.join(version, 'Resources', 'bin', 'R');
 		case 'linux':
-			return `${version}/bin/R`;
+			return path.join(version, 'bin', 'R');
+		case 'win32':
+			return path.join(version, 'bin', 'R.exe');
 		default:
-			// TODO: handle Windows
 			throw new Error('Unsupported platform');
 	}
 }
@@ -379,6 +404,7 @@ function isRStudioUser(): boolean {
  * @returns The path to RStudio's state folder directory.
  */
 function rstudioStateFolderPath(pathToAppend = ''): string {
+	// TODO: Windows
 	const newPath = path.join(process.env.HOME!, '.local/share/rstudio', pathToAppend);
 	return newPath;
 }
