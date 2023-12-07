@@ -8,6 +8,15 @@ import { RRuntime } from './runtime';
 import { timeout } from './util';
 import { randomUUID } from 'crypto';
 
+
+/**
+ * Checks whether a package is installed in the runtime.
+ * @param runtime The current running `RRuntime`
+ * @param pkgName The name of the package to check
+ * @param intendedUse A string describing the intended use of the package, for a warning message
+ * @returns true if the package is installed, false otherwise
+ */
+
 export async function checkInstalled(runtime: RRuntime, pkgName: string, intendedUse: string): Promise<boolean> {
 	const isInstalled = await runtime.callMethod('is_installed', pkgName);
 	if (!isInstalled) {
