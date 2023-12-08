@@ -73,11 +73,7 @@ class OpenPositronDataTool extends Action2 {
 
 		const handle = Math.floor(Math.random() * 1e9);
 		const fd = URI.from({ scheme: Schemas.positronDataTool, path: `chat-${handle}` });
-		const d = await editorService.openEditor({ resource: fd });
-
-		if (d) {
-			console.log(`Title is ${d.getTitle()}`);
-		}
+		await editorService.openEditor({ resource: fd });
 
 		instantiationService.createInstance(PositronDataToolEditor);
 	}
