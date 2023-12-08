@@ -17,8 +17,14 @@ import { randomUUID } from 'crypto';
  * @returns true if the package is installed, false otherwise
  */
 
-export async function checkInstalled(runtime: RRuntime, pkgName: string, intendedUse: string): Promise<boolean> {
-	const isInstalled = await runtime.callMethod('is_installed', pkgName);
+export async function checkInstalled(runtime: RRuntime, pkgName: string, intendedUse: string, pkgVersion?: string): Promise<boolean> {
+	let isInstalled: boolean;
+	if (pkgVersion) {
+		isInstalled = await runtime.callMethod('is_installed', pkgName, pkgVersion);
+	} else {
+		isInstalled = await runtime.callMethod('is_installed', pkgName);
+	}
+
 	if (!isInstalled) {
 		const install = await positron.window.showSimpleModalDialogPrompt(
 			'Missing R package',
@@ -52,7 +58,11 @@ export async function checkInstalled(runtime: RRuntime, pkgName: string, intende
 
 			return true;
 		} else {
-			vscode.window.showWarningMessage(`Cannot ${intendedUse} without ${pkgName} package.`);
+			if (pkgVersion) {
+				vscode.window.showWarningMessage(`Cannot ${intendedUse} without ${pkgName} ${pkgVersion}.`);
+			} else {
+				vscode.window.showWarningMessage(`Cannot ${intendedUse} without ${pkgName} package.`);
+			}
 			return false;
 		}
 	}
