@@ -4,32 +4,32 @@
 
 """ Positron extensions to the iPython Kernel."""
 from __future__ import annotations
+
 import asyncio
 import logging
 import warnings
 from collections.abc import Iterable
 from itertools import chain
-from typing import Any, Callable, Container, Dict, Mapping, Optional, Set, Tuple, Type
+from typing import Any, Callable, Container, Coroutine, Dict, Mapping, Optional, Set, Tuple, Type
 
+import traitlets
 from ipykernel.comm.manager import CommManager
 from ipykernel.ipkernel import IPythonKernel
 from ipykernel.kernelapp import IPKernelApp
-from ipykernel.zmqshell import ZMQInteractiveShell, ZMQDisplayPublisher
-from IPython.core import oinspect
+from ipykernel.zmqshell import ZMQDisplayPublisher, ZMQInteractiveShell
+from IPython.core import oinspect, page
 from IPython.core.interactiveshell import InteractiveShell
-from IPython.core.magic import Magics, line_magic, magics_class, needs_local_scope, MagicsManager
-from IPython.core import page
+from IPython.core.magic import Magics, MagicsManager, line_magic, magics_class, needs_local_scope
 from IPython.utils import PyColorize
-import traitlets
 
 from .dataviewer import DataViewerService
-from .variables import VariablesService
 from .frontend import FrontendService
 from .help import HelpService
 from .inspectors import get_inspector
 from .lsp import LSPService
 from .plots import PositronDisplayPublisherHook
 from .utils import cancel_tasks, create_task
+from .variables import VariablesService
 
 POSITRON_DATA_VIEWER_COMM = "positron.dataViewer"
 """The comm channel target_name for Positron's Data Viewer"""
@@ -69,12 +69,11 @@ class PositronIPythonInspector(oinspect.Inspector):
     def pinfo(
         self,
         obj: Any,
-        oname: str,
-        formatter: Callable[[str], Dict[str, str]],
-        info: oinspect.OInfo,
-        *,
-        detail_level: int,
-        enable_html_pager: bool,
+        oname: str = "",
+        formatter: Optional[Callable[[str], Dict[str, str]]] = None,
+        info: Optional[oinspect.OInfo] = None,
+        detail_level: int = 0,
+        enable_html_pager: bool = True,
         omit_sections: Container[str] = (),
     ) -> None:
         # Intercept `%pinfo obj` / `obj?` calls, and instead use Positron's help service
@@ -106,7 +105,7 @@ class PositronShell(ZMQInteractiveShell):
     ).tag(config=True)
 
     @traitlets.observe("colors")
-    def init_inspector(self, change: Optional[traitlets.Bunch] = None) -> None:
+    def init_inspector(self, changes: Optional[traitlets.Bunch] = None) -> None:
         # Override to pass `parent=self` to the inspector
         self.inspector = self.inspector_class(
             oinspect.InspectColors,
@@ -160,7 +159,6 @@ class PositronIPyKernel(IPythonKernel):
 
     shell: PositronShell
     comm_manager: CommManager
-    execution_count: int
 
     shell_class: PositronShell = traitlets.Type(PositronShell, klass=InteractiveShell)  # type: ignore
 
@@ -230,7 +228,7 @@ class PositronIPyKernel(IPythonKernel):
         super().start()
         self.help_service.start()
 
-    async def do_shutdown(self, restart: bool) -> Dict[str, Any]:
+    async def do_shutdown(self, restart: bool) -> Dict[str, str | bool]:  # type: ignore ReportIncompatibleMethodOverride
         """
         Handle kernel shutdown.
         """
