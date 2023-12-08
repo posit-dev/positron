@@ -9,16 +9,12 @@ import { localize } from 'vs/nls';
 import { IAction } from 'vs/base/common/actions';
 import { generateUuid } from 'vs/base/common/uuid';
 import { DisposableStore } from 'vs/base/common/lifecycle';
-import { ICommandService } from 'vs/platform/commands/common/commands';
-import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
-import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
 import { IReactComponentContainer } from 'vs/base/browser/positronReactRenderer';
-import { IContextMenuService } from 'vs/platform/contextview/browser/contextView';
-import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import { PositronActionBar } from 'vs/platform/positronActionBar/browser/positronActionBar';
 import { ActionBarButton } from 'vs/platform/positronActionBar/browser/components/actionBarButton';
 import { ActionBarRegion } from 'vs/platform/positronActionBar/browser/components/actionBarRegion';
 import { IPositronHelpService } from 'vs/workbench/contrib/positronHelp/browser/positronHelpService';
+import { PositronActionBarServices } from 'vs/platform/positronActionBar/browser/positronActionBarState';
 import { ActionBarSeparator } from 'vs/platform/positronActionBar/browser/components/actionBarSeparator';
 import { ActionBarMenuButton } from 'vs/platform/positronActionBar/browser/components/actionBarMenuButton';
 import { PositronActionBarContextProvider } from 'vs/platform/positronActionBar/browser/positronActionBarContext';
@@ -44,13 +40,8 @@ const shortenUrl = (url: string) => url.replace(new URL(url).origin, '');
 /**
  * ActionBarsProps interface.
  */
-export interface ActionBarsProps {
+export interface ActionBarsProps extends PositronActionBarServices {
 	// Services.
-	commandService: ICommandService;
-	configurationService: IConfigurationService;
-	contextKeyService: IContextKeyService;
-	contextMenuService: IContextMenuService;
-	keybindingService: IKeybindingService;
 	positronHelpService: IPositronHelpService;
 	reactComponentContainer: IReactComponentContainer;
 

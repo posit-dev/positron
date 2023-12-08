@@ -1,0 +1,20 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
+ *--------------------------------------------------------------------------------------------*/
+
+.positron-column-splitter {
+	display: flex;
+	flex-shrink: 0;
+	cursor: ew-resize;
+	justify-content: left;
+}
+
+.mac .positron-column-splitter {
+	/* On macOS, the cursor is col-resize instead of ew-resize. */
+	cursor: col-resize;
+}
+
+.positron-column-splitter .sizer {
+	/* Provide the border color in the component that is using the Positron column splitter. */
+	border-right: 1px solid transparent;
+}

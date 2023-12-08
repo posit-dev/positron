@@ -97,9 +97,9 @@ export class PositronHelpView extends ViewPane implements IReactComponentContain
 	}
 
 	/**
-	 * Gets the visible state.
+	 * Gets the container visibility.
 	 */
-	get visible() {
+	get containerVisible() {
 		return this.isBodyVisible();
 	}
 

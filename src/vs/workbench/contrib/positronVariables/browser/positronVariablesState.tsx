@@ -6,19 +6,16 @@ import { useEffect, useState } from 'react';  // eslint-disable-line no-duplicat
 import { DisposableStore } from 'vs/base/common/lifecycle';
 import { IReactComponentContainer } from 'vs/base/browser/positronReactRenderer';
 import { IClipboardService } from 'vs/platform/clipboard/common/clipboardService';
-import { IContextMenuService } from 'vs/platform/contextview/browser/contextView';
-import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import { ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { IPositronVariablesService } from 'vs/workbench/services/positronVariables/common/interfaces/positronVariablesService';
 import { IPositronVariablesInstance } from 'vs/workbench/services/positronVariables/common/interfaces/positronVariablesInstance';
+import { PositronActionBarServices } from 'vs/platform/positronActionBar/browser/positronActionBarState';
 
 /**
  * PositronVariablesServices interface.
  */
-export interface PositronVariablesServices {
+export interface PositronVariablesServices extends PositronActionBarServices {
 	readonly clipboardService: IClipboardService;
-	readonly configurationService: IConfigurationService;
-	readonly contextMenuService: IContextMenuService;
 	readonly languageRuntimeService: ILanguageRuntimeService;
 	readonly positronVariablesService: IPositronVariablesService;
 	readonly reactComponentContainer: IReactComponentContainer;

@@ -619,7 +619,7 @@ export const Codicon = {
 	positronPlots: register('positron-plots', 0xf251),
 	positronVariablesSorting: register('positron-variables-sorting', 0xf253),
 	positronInterrupt: register('positron-interrupt', 0xf254),
-	positronAvailable5: register('positron-available-5', 0xf255),
+	positronClearSort: register('positron-clear-sort', 0xf255),
 	positronSearch: register('positron-search', 0xf256),
 	positronInterruptRuntime: register('positron-interrupt-runtime', 0xf257),
 	positronRestartRuntime: register('positron-restart-runtime', 0xf258),
@@ -628,6 +628,9 @@ export const Codicon = {
 	positronTopActionBar: register('positron-top-action-bar', 0xf25b),
 	positronTriangleDown: register('positron-triangle-down', 0xf25c),
 	positronTriangleRight: register('positron-triangle-right', 0xf25d),
+	positronDataToolColumnsHidden: register('positron-data-tool-columns-hidden', 0xf25e),
+	positronDataToolColumnsLeft: register('positron-data-tool-columns-left', 0xf25f),
+	positronDataToolColumnsRight: register('positron-data-tool-columns-right', 0xf260),
 
 	// --- End Positron ---
 
