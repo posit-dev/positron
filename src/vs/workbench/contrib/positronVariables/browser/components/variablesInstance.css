@@ -30,10 +30,6 @@
 	outline: 1px solid var(--vscode-focusBorder) !important;
 }
 
-.variables-core .variables-instance.resizing {
-	cursor: col-resize;	/* The cursor will drift out of the column splitter every now and then. */
-}
-
 ::-webkit-scrollbar {
 	background: transparent;
 	width: 8px;

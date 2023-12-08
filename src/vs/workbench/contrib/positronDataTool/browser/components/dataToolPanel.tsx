@@ -11,7 +11,12 @@ import { PositronDataToolLayout } from 'vs/workbench/contrib/positronDataTool/br
 import { RowsPanel } from 'vs/workbench/contrib/positronDataTool/browser/components/dataToolComponents/rowsPanel';
 import { usePositronDataToolContext } from 'vs/workbench/contrib/positronDataTool/browser/positronDataToolContext';
 import { ColumnsPanel } from 'vs/workbench/contrib/positronDataTool/browser/components/dataToolComponents/columnsPanel';
-import { ColumnSplitter } from 'vs/workbench/contrib/positronDataTool/browser/components/dataToolComponents/columnSplitter';
+import { PositronColumnSplitter, PositronColumnSplitterResizeResult } from 'vs/base/browser/ui/positronComponents/positronColumnSplitter';
+
+/**
+ * Constants.
+ */
+const MIN_COLUMN_WIDTH = 150;
 
 /**
  * DataToolPanelProps interface.
@@ -39,18 +44,35 @@ export const DataToolPanel = (props: DataToolPanelProps) => {
 
 	// State hooks.
 	const [columnWidth, setColumnWidth] = useState(200);
-	const [resizingColumn, setResizingColumn] = useState(false);
+	// const [resizingColumn, setResizingColumn] = useState(false);
 
 	/**
-	 * Resizes column.
+	 * onResize handler.
 	 * @param x The X delta.
 	 */
-	const resizeColumn = (x: number) => {
+	const resizeHandler = (x: number) => {
 		// Calculate the new column width.
-		const newColumnWidth = Math.min(Math.max(columnWidth + x, 150), props.width - (150 + 8 + 7 + 8));
+		const newColumnWidth = columnWidth + x;
 
-		// Adjust the column width.
+		// If the new column width is too small, pin it at the minimum column width and return
+		// ColumnSplitterResizeResult.TooSmall to get the cursor updated.
+		if (newColumnWidth < MIN_COLUMN_WIDTH) {
+			setColumnWidth(MIN_COLUMN_WIDTH);
+			return PositronColumnSplitterResizeResult.TooSmall;
+		}
+
+		// If the new column width is too large, pin it at the maximum column width and return
+		// ColumnSplitterResizeResult.TooLarge to get the cursor updated.
+		const maxColumnWidth = props.width - (MIN_COLUMN_WIDTH + 24);
+		if (newColumnWidth > maxColumnWidth) {
+			setColumnWidth(maxColumnWidth);
+			return PositronColumnSplitterResizeResult.TooLarge;
+		}
+
+		// Set the column width and return ColumnSplitterResizeResult.Resizing to get the cursor
+		// updated.
 		setColumnWidth(newColumnWidth);
+		return PositronColumnSplitterResizeResult.Resizing;
 	};
 
 	// Layout effect.
@@ -85,11 +107,7 @@ export const DataToolPanel = (props: DataToolPanelProps) => {
 				<ColumnsPanel />
 			</div>
 			<div ref={splitter} className='splitter'>
-				<ColumnSplitter
-					onStartResize={() => setResizingColumn(true)}
-					onResize={(x, y) => resizeColumn(x)}
-					onStopResize={() => setResizingColumn(false)}
-				/>
+				<PositronColumnSplitter width={8} onResize={resizeHandler} />
 			</div>
 			<div ref={column2} className='column-2'>
 				<RowsPanel />
