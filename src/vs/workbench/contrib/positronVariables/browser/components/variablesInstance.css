@@ -21,6 +21,10 @@
 	overflow: overlay !important;
 }
 
+.variables-core .variables-instance .positron-column-splitter .sizer {
+	border-color: var(--vscode-positronVariables-grid);
+}
+
 .expand-collapse-button:focus {
 	outline: none !important;
 }
@@ -28,10 +32,6 @@
 .expand-collapse-button:focus-visible {
 	border-radius: 6px;
 	outline: 1px solid var(--vscode-focusBorder) !important;
-}
-
-.variables-core .variables-instance.resizing {
-	cursor: col-resize;	/* The cursor will drift out of the column splitter every now and then. */
 }
 
 ::-webkit-scrollbar {

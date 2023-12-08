@@ -108,6 +108,15 @@ export namespace Schemas {
 	 * Scheme used for the Source Control commit input's text document
 	 */
 	export const vscodeSourceControl = 'vscode-scm';
+
+	// --- Start Positron ---
+
+	/**
+	 * Scheme used for the Positron data tool.
+	 */
+	export const positronDataTool = 'positron-data-tool';
+
+	// --- End Positron ---
 }
 
 export function matchesScheme(target: URI | string, scheme: string): boolean {
