@@ -1,21 +1,20 @@
 import codecs
 import pickle
 from pathlib import Path
-from typing import cast, Iterable
+from typing import Iterable, cast
 
 import matplotlib
 import matplotlib.pyplot as plt
 import pytest
 from IPython.conftest import get_ipython
 from IPython.core.formatters import DisplayFormatter
+from matplotlib.axes import Axes
 from matplotlib.figure import Figure
 from matplotlib.testing.compare import compare_images
 from matplotlib_inline.backend_inline import configure_inline_support
-
 from positron.plots import BASE_DPI, PositronDisplayPublisherHook
 
 from .conftest import DummyComm
-
 
 PLOT_DATA = [1, 2]
 
@@ -113,8 +112,9 @@ def test_hook_call(hook: PositronDisplayPublisherHook, images_path: Path) -> Non
     fig.savefig(str(actual))
 
     # Create the reference figure
-    fig_ref: plt.figure.Figure = plt.figure()
-    fig_ref.subplots().plot(PLOT_DATA)
+    fig_ref = cast(Figure, plt.figure())
+    fig_axes = cast(Axes, fig_ref.subplots())
+    fig_axes.plot(PLOT_DATA)
     expected = images_path / "test-hook-call-expected.png"
     fig_ref.savefig(str(expected))
 
@@ -210,8 +210,9 @@ def test_hook_render(figure_comm: DummyComm, images_path: Path) -> None:
     width_in = width_px / BASE_DPI
     height_in = height_px / BASE_DPI
 
-    fig_ref: plt.figure.Figure = plt.figure()
-    fig_ref.subplots().plot([1, 2])
+    fig_ref = cast(Figure, plt.figure())
+    fig_axes = cast(Axes, fig_ref.subplots())
+    fig_axes.plot([1, 2])
     fig_ref.set_dpi(dpi)
     fig_ref.set_size_inches(width_in, height_in)
 
