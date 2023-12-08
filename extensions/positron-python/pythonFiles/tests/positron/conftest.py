@@ -4,7 +4,6 @@ import comm
 import pytest
 from IPython.conftest import get_ipython
 from IPython.terminal.interactiveshell import TerminalInteractiveShell
-
 from positron.positron_ipkernel import PositronIPyKernel
 
 
@@ -17,7 +16,7 @@ class DummyComm(comm.base_comm.BaseComm):
         self.messages = []
         super().__init__(*args, **kwargs)
 
-    def publish_msg(self, msg_type, **msg):
+    def publish_msg(self, msg_type, **msg):  # type: ignore ReportIncompatibleMethodOverride
         msg["msg_type"] = msg_type
         self.messages.append(msg)
 
