@@ -53,7 +53,7 @@
 }
 
 .action-bar-button-text {
-	margin: 0 4px;
+	margin-right: 4px;
 	display: flex;
 	font-size: 12px;
 	overflow: hidden;

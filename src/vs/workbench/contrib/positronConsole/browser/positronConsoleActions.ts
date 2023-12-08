@@ -57,7 +57,10 @@ export function registerPositronConsoleActions() {
 	/**
 	 * The category for the actions below.
 	 */
-	const category: ILocalizedString = { value: POSITRON_CONSOLE_ACTION_CATEGORY, original: 'CONSOLE' };
+	const category: ILocalizedString = {
+		value: POSITRON_CONSOLE_ACTION_CATEGORY,
+		original: 'Console'
+	};
 
 	/**
 	 * Register the clear console action. This action removes everything from the active console,
