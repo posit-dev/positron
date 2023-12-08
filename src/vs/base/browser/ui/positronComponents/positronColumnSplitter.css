@@ -15,7 +15,6 @@
 }
 
 .positron-column-splitter .sizer {
-	width: 2px;
-	/* Since border-box is context-box, the border will be in the middle of the 5px splitter. */
-	border-right: 1px solid var(--vscode-positronVariables-grid);
+	/* Provide the border color in the component that is using the Positron column splitter. */
+	border-right: 1px solid transparent;
 }

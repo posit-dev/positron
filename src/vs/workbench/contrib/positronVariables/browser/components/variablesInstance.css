@@ -21,6 +21,10 @@
 	overflow: overlay !important;
 }
 
+.variables-core .variables-instance .positron-column-splitter .sizer {
+	border-color: var(--vscode-positronVariables-grid);
+}
+
 .expand-collapse-button:focus {
 	outline: none !important;
 }
