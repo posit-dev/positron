@@ -15,6 +15,11 @@ import { randomUUID } from 'crypto';
 
 export let lastRuntimePath = '';
 
+interface RPackageInstallation {
+	packageName: string;
+	packageVersion?: string;
+}
+
 /**
  * A Positron language runtime that wraps a Jupyter kernel and a Language Server
  * Protocol client.
@@ -50,6 +55,9 @@ export class RRuntime implements positron.LanguageRuntime, vscode.Disposable {
 
 	/** The current state of the runtime */
 	private _state: positron.RuntimeState = positron.RuntimeState.Uninitialized;
+
+	/** Cache for which packages we know are installed in this runtime **/
+	private _packageCache = new Array<RPackageInstallation>();
 
 	constructor(
 		readonly context: vscode.ExtensionContext,
@@ -300,6 +308,11 @@ export class RRuntime implements positron.LanguageRuntime, vscode.Disposable {
 
 	async checkInstalled(pkgName: string, intendedUse: string, pkgVersion?: string): Promise<boolean> {
 		let isInstalled: boolean;
+		// Check the cache first
+		if (this._packageCache.includes({ packageName: pkgName, packageVersion: pkgVersion }) ||
+			(pkgVersion === undefined && this._packageCache.some(p => p.packageName === pkgName))) {
+			return true;
+		}
 		try {
 			if (pkgVersion) {
 				isInstalled = await this.callMethod('is_installed', pkgName, pkgVersion);
@@ -353,6 +366,7 @@ export class RRuntime implements positron.LanguageRuntime, vscode.Disposable {
 				return false;
 			}
 		}
+		this._packageCache.push({ packageName: pkgName, packageVersion: pkgVersion });
 		return true;
 	}
 
