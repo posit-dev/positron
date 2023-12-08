@@ -85,7 +85,6 @@ export class IPyWidgetHtmlData {
 	}
 }
 
-// TODO: Do we need this or can we use the
 export interface IPositronIPyWidgetMetadata {
 	id: string;
 	runtime_id: string;

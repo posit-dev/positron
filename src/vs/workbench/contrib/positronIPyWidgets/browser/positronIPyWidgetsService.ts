@@ -141,14 +141,13 @@ export class PositronIPyWidgetsService extends Disposable implements IPositronIP
 	}
 
 	private async createWebviewWidgets(runtime: ILanguageRuntime, message: ILanguageRuntimeMessageCommOpen) {
-		// Combine our existing list of widgets into a single WebviewPlotClient
-
-		const htmlData = new IPyWidgetHtmlData(this.positronWidgetInstances);
 		const latestWidgetId = message.comm_id;
 
 		if (!this._primaryWidgets.has(latestWidgetId)) {
 			return;
 		}
+		// Combine our existing list of widgets into a single WebviewPlotClient
+		const htmlData = new IPyWidgetHtmlData(this.positronWidgetInstances);
 
 		this._primaryWidgets.forEach(widgetId => {
 			htmlData.addWidgetView(widgetId);
