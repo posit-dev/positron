@@ -13,15 +13,9 @@ import sys
 import types
 import uuid
 from abc import ABC, abstractmethod
-from collections.abc import (
-    Mapping,
-    MutableMapping,
-    MutableSequence,
-    MutableSet,
-    Sequence,
-    Set,
-)
+from collections.abc import Mapping, MutableMapping, MutableSequence, MutableSet, Sequence, Set
 from typing import (
+    TYPE_CHECKING,
     Any,
     Callable,
     Collection,
@@ -35,7 +29,6 @@ from typing import (
     Protocol,
     Sized,
     Tuple,
-    TYPE_CHECKING,
     Type,
     TypeVar,
     Union,
@@ -567,7 +560,7 @@ MT = TypeVar("MT", Mapping, "pd.DataFrame", "pl.DataFrame", "pd.Series", "pl.Ser
 
 
 class _BaseMapInspector(PositronInspector[MT], ABC):
-    def get_kind(self, value: Mapping) -> str:
+    def get_kind(self, value: MT) -> str:
         return "map"
 
     @abstractmethod

@@ -122,7 +122,7 @@ class HelpTopicRequest:
 
 
 class PositronJediLanguageServerProtocol(JediLanguageServerProtocol):
-    def get_message_type(self, method: str) -> Optional[Type]:
+    def get_message_type(self, method: str) -> Optional[Type]:  # type: ignore
         # Overriden to include custom Positron LSP messages.
         # Doing so ensures that the corresponding feature function receives `params` of the correct type.
         if method == _HELP_TOPIC:
@@ -137,7 +137,7 @@ class PositronJediLanguageServer(JediLanguageServer):
         super().__init__(*args, **kwargs)
 
         self.loop: asyncio.AbstractEventLoop
-        self.lsp: PositronJediLanguageServerProtocol
+        self.lsp: PositronJediLanguageServerProtocol  # type: ignore reportIncompatibleVariableOverride
 
         # LSP comm used to notify the frontend when the server is ready
         self._comm: Optional[BaseComm] = None
@@ -363,7 +363,7 @@ def positron_completion(
         has_whitespace = " " in trimmed_line
         if server.kernel is not None and not (is_completing_attribute or has_whitespace):
             # Cast type from traitlets.Dict to typing.Dict
-            magic_commands = cast(Dict[str, Callable], server.kernel.shell.magics_manager.lsmagic())
+            magic_commands = cast(Dict[str, Any], server.kernel.shell.magics_manager.lsmagic())
 
             chars_before_cursor = trimmed_line[: params.position.character]
 

@@ -689,7 +689,7 @@ def post_response(cwd: str, session_node: TestNode) -> None:
 class PathEncoder(json.JSONEncoder):
     """A custom JSON encoder that encodes pathlib.Path objects as strings."""
 
-    def default(self, obj):
+    def default(self, obj):  # type: ignore ReportIncompatibleMethodOverride (remove once updated upstream)
         if isinstance(obj, pathlib.Path):
             return os.fspath(obj)
         return super().default(obj)

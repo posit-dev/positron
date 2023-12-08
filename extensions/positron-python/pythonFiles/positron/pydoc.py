@@ -218,7 +218,7 @@ class _PositronHTMLDoc(pydoc.HTMLDoc):
         )
         # --- End Positron ---
 
-    def heading(self, title: str, extras="") -> str:
+    def heading(self, title: str, extras="") -> str:  # type: ignore ReportIncompatibleMethodOverride
         """Format a page heading."""
         # Simplified version of pydoc.HTMLDoc.heading that doesn't use tables
         lines = [f"<h1>{title}</h1>"]
@@ -227,7 +227,7 @@ class _PositronHTMLDoc(pydoc.HTMLDoc):
         result = "\n".join(lines)
         return result
 
-    def section(
+    def section(  # type: ignore
         self,
         title: str,
         cls: str,
@@ -236,7 +236,7 @@ class _PositronHTMLDoc(pydoc.HTMLDoc):
         prelude="",
         marginalia=None,
         gap=None,
-    ) -> str:
+    ) -> str:  # type: ignore ReportIncompatibleMethodOverride
         """Format a section with a heading."""
         # Simplified version of pydoc.HTMLDoc.section that doesn't use tables
         if width is not None:
@@ -264,7 +264,7 @@ class _PositronHTMLDoc(pydoc.HTMLDoc):
         return self.section(*args)
 
     # Heavily customized version of pydoc.HTMLDoc.docmodule
-    def docmodule(self, object: ModuleType, *_):
+    def docmodule(self, object: ModuleType, *_):  # type: ignore reportIncompatibleMethodOverride
         obj_name = object.__name__
 
         # Create the heading, with links to each parent module
@@ -338,7 +338,7 @@ class _PositronHTMLDoc(pydoc.HTMLDoc):
         return result
 
     # Heavily customized version of pydoc.HTMLDoc.docclass
-    def docclass(self, obj: Type, name=None, *_):
+    def docclass(self, obj: Type, name=None, *_):  # type: ignore reportIncompatibleMethodOverride
         obj_name = name or obj.__name__
 
         # Separate the class's members into attributes and methods
@@ -497,7 +497,7 @@ class _PositronHTMLDoc(pydoc.HTMLDoc):
         return text
 
     # as is from pydoc.HTMLDoc to port Python 3.11 breaking CSS changes
-    def index(self, dir, shadowed: Optional[Dict[str, int]] = None):
+    def index(self, dir, shadowed: Optional[Dict[str, int]] = None):  # type: ignore reportIncompatibleMethodOverride
         """Generate an HTML index for a directory of modules."""
         modpkgs = []
         if shadowed is None:
