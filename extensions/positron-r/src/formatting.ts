@@ -9,7 +9,6 @@ import * as os from 'os';
 import * as fs from 'fs';
 import { RRuntime, lastRuntimePath } from './runtime';
 import { getRunningRRuntime } from './provider';
-import { checkInstalled } from './check-installed';
 import { timeout } from './util';
 import { randomUUID } from 'crypto';
 
@@ -55,7 +54,7 @@ class FormatterProvider implements vscode.DocumentFormattingEditProvider {
 
 		const runtime = await getRunningRRuntime(runtimes);
 		const id = randomUUID();
-		const isInstalled = await checkInstalled(runtime, 'styler', 'format document');
+		const isInstalled = await runtime.checkInstalled('styler', 'format document');
 		if (!isInstalled) {
 			return [];
 		}
