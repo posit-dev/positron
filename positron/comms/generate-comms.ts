@@ -11,6 +11,7 @@ const commsFiles = readdirSync(commsDir);
 
 const tsOutputDir = `${__dirname}/../../src/vs/workbench/services/languageRuntime/common`;
 const rustOutputDir = `${__dirname}/../../../amalthea/crates/amalthea/src/comm`;
+const pythonOutputDir = `${__dirname}/../../extensions/positron-python/pythonFiles/positron`;
 
 const comms = new Array<string>();
 
@@ -40,6 +41,16 @@ const RustTypeMap: Record<string, string> = {
 	'null': 'null',
 	'array': 'Vec',
 	'object': 'HashMap',
+};
+
+const PythonTypeMap: Record<string, string> = {
+	'boolean': 'bool',
+	'integer': 'int',
+	'number': 'float',
+	'string': 'str',
+	'null': 'null',
+	'array': 'List',
+	'object': 'Dict',
 };
 
 /**
@@ -233,6 +244,45 @@ use serde::Serialize;
 	}
 }
 
+function* createPythonComm(name: string, frontend: any, backend: any): Generator<string> {
+	yield `#
+#  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
+#
+
+#
+# AUTO-GENERATED from ${name}.json; do not edit.
+#
+
+import enum
+
+`;
+
+	if (backend) {
+		// Create classes for all the object schemas first
+		for (const method of backend.methods) {
+			if (method.result &&
+				method.result.schema &&
+				method.result.schema.type === 'object') {
+				yield '@dataclass\n';
+				yield `class ${snakeCaseToSentenceCase(method.result.schema.name)} {\n`;
+				if (method.result.schema.description) {
+					yield '\t"""\n';
+					yield formatComment('\t', method.result.schema.description);
+					yield '\t"""\n';
+				}
+				for (const prop of Object.keys(method.result.schema.properties)) {
+					const schema = method.result.schema.properties[prop];
+					if (schema.description) {
+						yield formatComment('\t# ', schema.description);
+					}
+					yield `\t${prop}: ${PythonTypeMap[schema.type]}\n\n`;
+				}
+				yield '\n\n';
+			}
+		}
+	}
+
+}
 
 async function* createTypescriptComm(name: string, frontend: any, backend: any): AsyncGenerator<string> {
 	// Read the metadata file
@@ -456,6 +506,19 @@ async function createCommInterface() {
 
 			// Write to stdout too
 			console.log(rust);
+
+			// Create the Python output file
+			const pythonOutputFile = path.join(pythonOutputDir, `${name}_comm.py`);
+			let python = '';
+			for await (const chunk of createPythonComm(name, frontend, backend)) {
+				python += chunk;
+			}
+
+			// Write the output file
+			writeFileSync(pythonOutputFile, python, { encoding: 'utf-8' });
+
+			// Write to stdout too
+			console.log(python);
 
 			comms.push(name);
 		}
