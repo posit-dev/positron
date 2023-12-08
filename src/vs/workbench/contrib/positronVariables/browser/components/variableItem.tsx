@@ -12,8 +12,8 @@ import { IAction, Separator } from 'vs/base/common/actions';
 import { positronClassNames } from 'vs/base/common/positronUtilities';
 import { AnchorAlignment, AnchorAxisAlignment } from 'vs/base/browser/ui/contextview/contextview';
 import { IVariableItem } from 'vs/workbench/services/positronVariables/common/interfaces/variableItem';
-import { ColumnSplitter } from 'vs/workbench/contrib/positronVariables/browser/components/columnSplitter';
 import { usePositronVariablesContext } from 'vs/workbench/contrib/positronVariables/browser/positronVariablesContext';
+import { PositronColumnSplitter, PositronColumnSplitterResizeResult } from 'vs/base/browser/ui/positronComponents/positronColumnSplitter';
 import { IPositronVariablesInstance, PositronVariablesSorting } from 'vs/workbench/services/positronVariables/common/interfaces/positronVariablesInstance';
 import { POSITRON_VARIABLES_COLLAPSE, POSITRON_VARIABLES_COPY_AS_HTML, POSITRON_VARIABLES_COPY_AS_TEXT, POSITRON_VARIABLES_EXPAND, POSITRON_VARIABLES_VIEW } from 'vs/workbench/contrib/positronVariables/browser/positronVariablesIdentifiers';
 
@@ -76,9 +76,7 @@ export interface VariableItemProps {
 	onSelected: () => void;
 	onDeselected: () => void;
 	onToggleExpandCollapse: () => void;
-	onStartResizeNameColumn: () => void;
-	onResizeNameColumn: (x: number, y: number) => void;
-	onStopResizeNameColumn: (x: number, y: number) => void;
+	onResizeNameColumn: (x: number, y: number) => PositronColumnSplitterResizeResult;
 	positronVariablesInstance: IPositronVariablesInstance;
 }
 
@@ -344,10 +342,7 @@ export const VariableItem = (props: VariableItemProps) => {
 					</div>
 				</div>
 			</div>
-			<ColumnSplitter
-				onStartResize={props.onStartResizeNameColumn}
-				onResize={props.onResizeNameColumn}
-				onStopResize={props.onStopResizeNameColumn} />
+			<PositronColumnSplitter width={5} showSizer={true} onResize={props.onResizeNameColumn} />
 			<div className='details-column' style={{ width: props.detailsColumnWidth - 6, minWidth: props.detailsColumnWidth - 6 }}>
 				<div className='value'>
 					{props.variableItem.displayValue}

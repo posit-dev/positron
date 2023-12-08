@@ -46,6 +46,7 @@ export const ActionBarButton = forwardRef<HTMLDivElement, PropsWithChildren<Acti
 	if (props.iconId && props.iconFontSize) {
 		iconStyle = { ...iconStyle, fontSize: props.iconFontSize };
 	}
+
 	// Aria-hide the inner elements and promote the button text to an aria-label in order to
 	// avoid VoiceOver treating buttons as groups. See VSCode issue for more:
 	// https://github.com/microsoft/vscode/issues/181739#issuecomment-1779701917
@@ -57,7 +58,7 @@ export const ActionBarButton = forwardRef<HTMLDivElement, PropsWithChildren<Acti
 			<PositronButton ref={ref} className={buttonClassNames} onClick={props.onClick} ariaLabel={ariaLabel} disabled={props.disabled}>
 				<div className='action-bar-button-face' style={{ padding: props.layout === 'tight' ? '0' : '0 2px' }} aria-hidden='true' >
 					{props.iconId && <div className={`action-bar-button-icon codicon codicon-${props.iconId}`} style={iconStyle} />}
-					{props.text && <div className='action-bar-button-text' style={{ maxWidth: optionalValue(props.maxTextWidth, 'none') }}>{props.text}</div>}
+					{props.text && <div className='action-bar-button-text' style={{ marginLeft: props.iconId ? 0 : 4, maxWidth: optionalValue(props.maxTextWidth, 'none') }}>{props.text}</div>}
 					{props.dropDown && <div className='action-bar-button-drop-down-arrow codicon codicon-positron-drop-down-arrow' />}
 					{props.children}
 				</div>

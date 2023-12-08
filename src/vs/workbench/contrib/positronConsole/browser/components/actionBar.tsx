@@ -13,13 +13,12 @@ import { PositronActionBar } from 'vs/platform/positronActionBar/browser/positro
 import { ActionBarRegion } from 'vs/platform/positronActionBar/browser/components/actionBarRegion';
 import { ActionBarButton } from 'vs/platform/positronActionBar/browser/components/actionBarButton';
 import { ActionBarSeparator } from 'vs/platform/positronActionBar/browser/components/actionBarSeparator';
-import { PositronActionBarServices } from 'vs/platform/positronActionBar/browser/positronActionBarState';
+import { LanguageRuntimeEventType } from 'vs/workbench/services/languageRuntime/common/languageRuntimeEvents';
 import { usePositronConsoleContext } from 'vs/workbench/contrib/positronConsole/browser/positronConsoleContext';
 import { PositronActionBarContextProvider } from 'vs/platform/positronActionBar/browser/positronActionBarContext';
 import { ILanguageRuntime, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { PositronConsoleState } from 'vs/workbench/services/positronConsole/browser/interfaces/positronConsoleService';
 import { ConsoleInstanceMenuButton } from 'vs/workbench/contrib/positronConsole/browser/components/consoleInstanceMenuButton';
-import { LanguageRuntimeEventType } from 'vs/workbench/services/languageRuntime/common/languageRuntimeEvents';
 
 /**
  * Constants.
@@ -91,7 +90,7 @@ export const ActionBar = (props: ActionBarProps) => {
 	// Context hooks.
 	const positronConsoleContext = usePositronConsoleContext();
 
-	// Constants,
+	// Constants.
 	const showDeveloperUI = IsDevelopmentContext.getValue(positronConsoleContext.contextKeyService);
 
 	// State hooks.
@@ -241,7 +240,7 @@ export const ActionBar = (props: ActionBarProps) => {
 
 	// Render.
 	return (
-		<PositronActionBarContextProvider {...positronConsoleContext as PositronActionBarServices}>
+		<PositronActionBarContextProvider {...positronConsoleContext}>
 			<div className='action-bar'>
 				<PositronActionBar
 					size='small'

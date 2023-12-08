@@ -504,6 +504,8 @@
 		"--vscode-positronConsole-errorForeground",
 		"--vscode-positronConsole-foreground",
 		"--vscode-positronConsole-traceBackground",
+		"--vscode-positronDataTool-background",
+		"--vscode-positronDataTool-foreground",
 		"--vscode-positronDataViewer-background",
 		"--vscode-positronDataViewer-grid",
 		"--vscode-positronDataViewer-headerBackground",

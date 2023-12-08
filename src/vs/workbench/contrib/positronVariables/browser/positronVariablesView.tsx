@@ -102,9 +102,9 @@ export class PositronVariablesViewPane extends ViewPane implements IReactCompone
 	}
 
 	/**
-	 * Gets the visible state.
+	 * Gets the container visibility.
 	 */
-	get visible() {
+	get containerVisible() {
 		return this.isBodyVisible();
 	}
 

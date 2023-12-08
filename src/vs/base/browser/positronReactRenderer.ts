@@ -37,9 +37,9 @@ export interface IReactComponentContainer {
 	readonly height: number;
 
 	/**
-	 * Gets the visibility.
+	 * Gets the container visibility.
 	 */
-	readonly visible: boolean;
+	readonly containerVisible: boolean;
 
 	/**
 	 * Directs the React component container to take focus.

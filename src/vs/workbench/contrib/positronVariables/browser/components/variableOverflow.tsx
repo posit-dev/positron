@@ -8,8 +8,8 @@ import { CSSProperties, MouseEvent } from 'react'; // eslint-disable-line no-dup
 import { localize } from 'vs/nls';
 import * as platform from 'vs/base/common/platform';
 import { positronClassNames } from 'vs/base/common/positronUtilities';
-import { ColumnSplitter } from 'vs/workbench/contrib/positronVariables/browser/components/columnSplitter';
 import { IVariableOverflow as IVariableOverflow } from 'vs/workbench/services/positronVariables/common/interfaces/variableOverflow';
+import { PositronColumnSplitter, PositronColumnSplitterResizeResult } from 'vs/base/browser/ui/positronComponents/positronColumnSplitter';
 
 /**
  * VariableOverflowProps interface.
@@ -23,9 +23,7 @@ export interface VariableOverflowProps {
 	style: CSSProperties;
 	onSelected: () => void;
 	onDeselected: () => void;
-	onStartResizeNameColumn: () => void;
-	onResizeNameColumn: (x: number, y: number) => void;
-	onStopResizeNameColumn: (x: number, y: number) => void;
+	onResizeNameColumn: (x: number, y: number) => PositronColumnSplitterResizeResult;
 }
 
 /**
@@ -89,10 +87,7 @@ export const VariableOverflow = (props: VariableOverflowProps) => {
 					</div>
 				</div>
 			</div>
-			<ColumnSplitter
-				onStartResize={props.onStartResizeNameColumn}
-				onResize={props.onResizeNameColumn}
-				onStopResize={props.onStopResizeNameColumn} />
+			<PositronColumnSplitter width={5} showSizer={true} onResize={props.onResizeNameColumn} />
 			<div className='details-column' style={{ width: props.detailsColumnWidth - 6, minWidth: props.detailsColumnWidth - 6 }}>
 				<div className='value'>
 					{value}

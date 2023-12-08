@@ -1306,7 +1306,7 @@ export const POSITRON_SIDE_ACTION_BAR_SEPARATOR = registerColor('positronSideAct
 
 // Positron side action bar hover background color.
 export const POSITRON_SIDE_ACTION_BAR_HOVER_BACKGROUND = registerColor('positronSideActionBar.hoverBackground', {
-	dark: editorBackground,
+	dark: '#292a2a',
 	light: '#dae1ea',
 	hcDark: null,
 	hcLight: null
@@ -1524,291 +1524,317 @@ export const POSITRON_MODAL_DIALOG_CHECKBOX_BORDER = registerColor('positronModa
 
 // < --- Positron Console --- >
 
-// Positron Console background color.
+// Positron console background color.
 export const POSITRON_CONSOLE_BACKGROUND_COLOR = registerColor('positronConsole.background', {
 	dark: 'terminal.background',
 	light: 'terminal.background',
 	hcDark: 'terminal.background',
 	hcLight: 'terminal.background'
-}, localize('positronConsole.background', "Positron Console background color."));
+}, localize('positronConsole.background', "Positron console background color."));
 
-// Positron Console foreground color.
+// Positron console foreground color.
 export const POSITRON_CONSOLE_FOREGROUND_COLOR = registerColor('positronConsole.foreground', {
 	dark: 'terminal.foreground',
 	light: 'terminal.foreground',
 	hcDark: 'terminal.foreground',
 	hcLight: 'terminal.foreground'
-}, localize('positronConsole.foreground', "Positron Console foreground color."));
+}, localize('positronConsole.foreground', "Positron console foreground color."));
 
-// Positron Console error background color.
+// Positron console error background color.
 export const POSITRON_CONSOLE_ERROR_BACKGROUND_COLOR = registerColor('positronConsole.errorBackground', {
 	dark: transparent('terminal.ansiRed', 0.1),
 	light: transparent('terminal.ansiRed', 0.05),
 	hcDark: 'terminal.background',
 	hcLight: 'terminal.background'
-}, localize('positronConsole.errorBackground', "Positron Console error background color."));
+}, localize('positronConsole.errorBackground', "Positron console error background color."));
 
-// Positron Console error foreground color.
+// Positron console error foreground color.
 export const POSITRON_CONSOLE_ERROR_FOREGROUND_COLOR = registerColor('positronConsole.errorForeground', {
 	dark: errorForeground,
 	light: errorForeground,
 	hcDark: errorForeground,
 	hcLight: errorForeground
-}, localize('positronConsole.errorForeground', "Positron Console error foreground color."));
+}, localize('positronConsole.errorForeground', "Positron console error foreground color."));
 
-// Positron Console ANSI black color.
+// Positron console ANSI black color.
 export const POSITRON_CONSOLE_ANSI_BLACK = registerColor('positronConsole.ansiBlack', {
 	dark: 'terminal.ansiBlack',
 	light: 'terminal.ansiBlack',
 	hcDark: 'terminal.ansiBlack',
 	hcLight: 'terminal.ansiBlack'
-}, localize('positronConsole.ansiBlack', "Positron Console ANSI black color."));
+}, localize('positronConsole.ansiBlack', "Positron console ANSI black color."));
 
-// Positron Console ANSI red color.
+// Positron console ANSI red color.
 export const POSITRON_CONSOLE_ANSI_RED = registerColor('positronConsole.ansiRed', {
 	dark: 'terminal.ansiRed',
 	light: 'terminal.ansiRed',
 	hcDark: 'terminal.ansiRed',
 	hcLight: 'terminal.ansiRed'
-}, localize('positronConsole.ansiRed', "Positron Console ANSI red color."));
+}, localize('positronConsole.ansiRed', "Positron console ANSI red color."));
 
-// Positron Console ANSI green color.
+// Positron console ANSI green color.
 export const POSITRON_CONSOLE_ANSI_GREEN = registerColor('positronConsole.ansiGreen', {
 	dark: 'terminal.ansiGreen',
 	light: 'terminal.ansiGreen',
 	hcDark: 'terminal.ansiGreen',
 	hcLight: 'terminal.ansiGreen'
-}, localize('positronConsole.ansiGreen', "Positron Console ANSI green color."));
+}, localize('positronConsole.ansiGreen', "Positron console ANSI green color."));
 
-// Positron Console ANSI yellow color.
+// Positron console ANSI yellow color.
 export const POSITRON_CONSOLE_ANSI_YELLOW = registerColor('positronConsole.ansiYellow', {
 	dark: 'terminal.ansiYellow',
 	light: 'terminal.ansiYellow',
 	hcDark: 'terminal.ansiYellow',
 	hcLight: 'terminal.ansiYellow'
-}, localize('positronConsole.ansiYellow', "Positron Console ANSI yellow color."));
+}, localize('positronConsole.ansiYellow', "Positron console ANSI yellow color."));
 
-// Positron Console ANSI blue color.
+// Positron console ANSI blue color.
 export const POSITRON_CONSOLE_ANSI_BLUE = registerColor('positronConsole.ansiBlue', {
 	dark: 'terminal.ansiBlue',
 	light: 'terminal.ansiBlue',
 	hcDark: 'terminal.ansiBlue',
 	hcLight: 'terminal.ansiBlue'
-}, localize('positronConsole.ansiBlue', "Positron Console ANSI blue color."));
+}, localize('positronConsole.ansiBlue', "Positron console ANSI blue color."));
 
-// Positron Console ANSI magenta color.
+// Positron console ANSI magenta color.
 export const POSITRON_CONSOLE_ANSI_MAGENTA = registerColor('positronConsole.ansiMagenta', {
 	dark: 'terminal.ansiMagenta',
 	light: 'terminal.ansiMagenta',
 	hcDark: 'terminal.ansiMagenta',
 	hcLight: 'terminal.ansiMagenta'
-}, localize('positronConsole.ansiMagenta', "Positron Console ANSI magenta color."));
+}, localize('positronConsole.ansiMagenta', "Positron console ANSI magenta color."));
 
-// Positron Console ANSI cyan color.
+// Positron console ANSI cyan color.
 export const POSITRON_CONSOLE_ANSI_CYAN = registerColor('positronConsole.ansiCyan', {
 	dark: 'terminal.ansiCyan',
 	light: 'terminal.ansiCyan',
 	hcDark: 'terminal.ansiCyan',
 	hcLight: 'terminal.ansiCyan'
-}, localize('positronConsole.ansiCyan', "Positron Console ANSI cyan color."));
+}, localize('positronConsole.ansiCyan', "Positron console ANSI cyan color."));
 
-// Positron Console ANSI white color.
+// Positron console ANSI white color.
 export const POSITRON_CONSOLE_ANSI_WHITE = registerColor('positronConsole.ansiWhite', {
 	dark: 'terminal.ansiWhite',
 	light: 'terminal.ansiWhite',
 	hcDark: 'terminal.ansiWhite',
 	hcLight: 'terminal.ansiWhite'
-}, localize('positronConsole.ansiWhite', "Positron Console ANSI white color."));
+}, localize('positronConsole.ansiWhite', "Positron console ANSI white color."));
 
-// Positron Console ANSI bright black color.
+// Positron console ANSI bright black color.
 export const POSITRON_CONSOLE_ANSI_BRIGHT_BLACK = registerColor('positronConsole.ansiBrightBlack', {
 	dark: 'terminal.ansiBrightBlack',
 	light: 'terminal.ansiBrightBlack',
 	hcDark: 'terminal.ansiBrightBlack',
 	hcLight: 'terminal.ansiBrightBlack'
-}, localize('positronConsole.ansiBrightBlack', "Positron Console ANSI bright black color."));
+}, localize('positronConsole.ansiBrightBlack', "Positron console ANSI bright black color."));
 
-// Positron Console ANSI bright red color.
+// Positron console ANSI bright red color.
 export const POSITRON_CONSOLE_ANSI_BRIGHT_RED = registerColor('positronConsole.ansiBrightRed', {
 	dark: 'terminal.ansiBrightRed',
 	light: 'terminal.ansiBrightRed',
 	hcDark: 'terminal.ansiBrightRed',
 	hcLight: 'terminal.ansiBrightRed'
-}, localize('positronConsole.ansiBrightRed', "Positron Console ANSI bright red color."));
+}, localize('positronConsole.ansiBrightRed', "Positron console ANSI bright red color."));
 
-// Positron Console ANSI bright green color.
+// Positron console ANSI bright green color.
 export const POSITRON_CONSOLE_ANSI_BRIGHT_GREEN = registerColor('positronConsole.ansiBrightGreen', {
 	dark: 'terminal.ansiBrightGreen',
 	light: 'terminal.ansiBrightGreen',
 	hcDark: 'terminal.ansiBrightGreen',
 	hcLight: 'terminal.ansiBrightGreen'
-}, localize('positronConsole.ansiBrightGreen', "Positron Console ANSI bright green color."));
+}, localize('positronConsole.ansiBrightGreen', "Positron console ANSI bright green color."));
 
-// Positron Console ANSI bright yellow color.
+// Positron console ANSI bright yellow color.
 export const POSITRON_CONSOLE_ANSI_BRIGHT_YELLOW = registerColor('positronConsole.ansiBrightYellow', {
 	dark: 'terminal.ansiBrightYellow',
 	light: 'terminal.ansiBrightYellow',
 	hcDark: 'terminal.ansiBrightYellow',
 	hcLight: 'terminal.ansiBrightYellow'
-}, localize('positronConsole.ansiBrightYellow', "Positron Console ANSI bright yellow color."));
+}, localize('positronConsole.ansiBrightYellow', "Positron console ANSI bright yellow color."));
 
-// Positron Console ANSI bright blue color.
+// Positron console ANSI bright blue color.
 export const POSITRON_CONSOLE_ANSI_BRIGHT_BLUE = registerColor('positronConsole.ansiBrightBlue', {
 	dark: 'terminal.ansiBrightBlue',
 	light: 'terminal.ansiBrightBlue',
 	hcDark: 'terminal.ansiBrightBlue',
 	hcLight: 'terminal.ansiBrightBlue'
-}, localize('positronConsole.ansiBrightBlue', "Positron Console ANSI bright blue color."));
+}, localize('positronConsole.ansiBrightBlue', "Positron console ANSI bright blue color."));
 
-// Positron Console ANSI bright magenta color.
+// Positron console ANSI bright magenta color.
 export const POSITRON_CONSOLE_ANSI_BRIGHT_MAGENTA = registerColor('positronConsole.ansiBrightMagenta', {
 	dark: 'terminal.ansiBrightMagenta',
 	light: 'terminal.ansiBrightMagenta',
 	hcDark: 'terminal.ansiBrightMagenta',
 	hcLight: 'terminal.ansiBrightMagenta'
-}, localize('positronConsole.ansiBrightMagenta', "Positron Console ANSI bright magenta color."));
+}, localize('positronConsole.ansiBrightMagenta', "Positron console ANSI bright magenta color."));
 
-// Positron Console ANSI bright cyan color.
+// Positron console ANSI bright cyan color.
 export const POSITRON_CONSOLE_ANSI_BRIGHT_CYAN = registerColor('positronConsole.ansiBrightCyan', {
 	dark: 'terminal.ansiBrightCyan',
 	light: 'terminal.ansiBrightCyan',
 	hcDark: 'terminal.ansiBrightCyan',
 	hcLight: 'terminal.ansiBrightCyan'
-}, localize('positronConsole.ansiBrightCyan', "Positron Console ANSI bright cyan color."));
+}, localize('positronConsole.ansiBrightCyan', "Positron console ANSI bright cyan color."));
 
-// Positron Console ANSI bright white color.
+// Positron console ANSI bright white color.
 export const POSITRON_CONSOLE_ANSI_BRIGHT_WHITE = registerColor('positronConsole.ansiBrightWhite', {
 	dark: 'terminal.ansiBrightWhite',
 	light: 'terminal.ansiBrightWhite',
 	hcDark: 'terminal.ansiBrightWhite',
 	hcLight: 'terminal.ansiBrightWhite'
-}, localize('positronConsole.ansiBrightWhite', "Positron Console ANSI bright white color."));
+}, localize('positronConsole.ansiBrightWhite', "Positron console ANSI bright white color."));
 
-// Positron Console trace background color.
+// Positron console trace background color.
 export const POSITRON_CONSOLE_TRACE_BACKGROUND_COLOR = registerColor('positronConsole.traceBackground', {
 	dark: '#262626',
 	light: '#e5e5e5',
 	hcDark: '#262626',
 	hcLight: '#e5e5e5'
-}, localize('positronConsole.traceBackground', "Positron Console trace background color."));
+}, localize('positronConsole.traceBackground', "Positron console trace background color."));
+
+// < --- Positron Data Tool --- >
+
+// Positron data tool background color.
+export const POSITRON_DATA_TOOL_BACKGROUND_COLOR = registerColor('positronDataTool.background', {
+	dark: editorBackground,
+	light: editorBackground,
+	hcDark: editorBackground,
+	hcLight: editorBackground
+}, localize('positronDataTool.background', "Positron data tool background color."));
+
+// Positron data tool foreground color.
+export const POSITRON_DATA_TOOL_FOREGROUND_COLOR = registerColor('positronDataTool.foreground', {
+	dark: editorForeground,
+	light: editorForeground,
+	hcDark: editorForeground,
+	hcLight: editorForeground
+}, localize('positronDataTool.foreground', "Positron data tool foreground color."));
+
+// Positron data tool border color.
+export const POSITRON_DATA_TOOL_BORDER_COLOR = registerColor('positronDataTool.border', {
+	dark: '#434b4f',
+	light: '#d9dee2',
+	hcDark: contrastBorder,
+	hcLight: contrastBorder
+}, localize('positronDataTool.border', "Positron data tool border color."));
 
 // < --- Positron Variables --- >
 
-// Positron Variables background color.
+// Positron variables background color.
 export const POSITRON_VARIABLES_BACKGROUND_COLOR = registerColor('positronVariables.background', {
 	dark: 'terminal.background',
 	light: 'terminal.background',
 	hcDark: 'terminal.background',
 	hcLight: 'terminal.background'
-}, localize('positronVariables.background', "Positron Variables background color."));
+}, localize('positronVariables.background', "Positron variables background color."));
 
-// Positron Variables foreground color.
+// Positron variables foreground color.
 export const POSITRON_VARIABLES_FOREGROUND_COLOR = registerColor('positronVariables.foreground', {
 	dark: editorForeground,
 	light: editorForeground,
 	hcDark: editorForeground,
 	hcLight: editorForeground
-}, localize('positronVariables.foreground', "Positron Variables foreground color."));
+}, localize('positronVariables.foreground', "Positron variables foreground color."));
 
-// Positron Variables header background color.
+// Positron variables header background color.
 export const POSITRON_VARIABLES_HEADER_BACKGROUND_COLOR = registerColor('positronVariables.headerBackground', {
 	dark: lighten(editorBackground, 0.2),
 	light: darken(editorBackground, 0.05),
 	hcDark: editorBackground,
 	hcLight: editorBackground
-}, localize('positronVariables.headerBackground', "Positron Variables header background color."));
+}, localize('positronVariables.headerBackground', "Positron variables header background color."));
 
-// Positron Variables grid color.
+// Positron variables grid color.
 export const POSITRON_VARIABLES_GRID_COLOR = registerColor('positronVariables.grid', {
 	dark: tableColumnsBorder,
 	light: tableColumnsBorder,
 	hcDark: tableColumnsBorder,
 	hcLight: tableColumnsBorder
-}, localize('positronVariables.grid', "Positron Variables grid color."));
+}, localize('positronVariables.grid', "Positron variables grid color."));
 
-// Positron Variables row hover background color.
+// Positron variables row hover background color.
 export const POSITRON_VARIABLES_ROW_HOVER_BACKGROUND_COLOR = registerColor('positronVariables.rowHoverBackground', {
 	dark: lighten(listHoverBackground, 0.05),
 	light: darken(listHoverBackground, 0.05),
 	hcDark: listHoverBackground,
 	hcLight: listHoverBackground
-}, localize('positronVariables.rowHoverBackground', "Positron Variables row hover background color."));
+}, localize('positronVariables.rowHoverBackground', "Positron variables row hover background color."));
 
-// Positron Variables row hover foreground color.
+// Positron variables row hover foreground color.
 export const POSITRON_VARIABLES_ROW_HOVER_FOREGROUND_COLOR = registerColor('positronVariables.rowHoverForeground', {
 	dark: listHoverForeground,
 	light: listHoverForeground,
 	hcDark: listHoverForeground,
 	hcLight: listHoverForeground
-}, localize('positronVariables.rowHoverForeground', "Positron Variables row hover foreground color."));
+}, localize('positronVariables.rowHoverForeground', "Positron variables row hover foreground color."));
 
-// Positron Variables active selection background color.
+// Positron variables active selection background color.
 export const POSITRON_VARIABLES_ACTIVE_SELECTION_BACKGROUND_COLOR = registerColor('positronVariables.activeSelectionBackground', {
 	dark: listActiveSelectionBackground,
 	light: listActiveSelectionBackground,
 	hcDark: listActiveSelectionBackground,
 	hcLight: listActiveSelectionBackground
-}, localize('positronVariables.activeSelectionBackground', "Positron Variables active selection background color."));
+}, localize('positronVariables.activeSelectionBackground', "Positron variables active selection background color."));
 
-// Positron Variables active selection foreground color.
+// Positron variables active selection foreground color.
 export const POSITRON_VARIABLES_ACTIVE_SELECTION_FOREGROUND_COLOR = registerColor('positronVariables.activeSelectionForeground', {
 	dark: listActiveSelectionForeground,
 	light: listActiveSelectionForeground,
 	hcDark: listActiveSelectionForeground,
 	hcLight: listActiveSelectionForeground
-}, localize('positronVariables.activeSelectionForeground', "Positron Variables active selection foreground color."));
+}, localize('positronVariables.activeSelectionForeground', "Positron variables active selection foreground color."));
 
-// Positron Variables inactive selection background color.
+// Positron variables inactive selection background color.
 export const POSITRON_VARIABLES_INACTIVE_SELECTION_BACKGROUND_COLOR = registerColor('positronVariables.inactiveSelectionBackground', {
 	dark: listInactiveSelectionBackground,
 	light: listInactiveSelectionBackground,
 	hcDark: listInactiveSelectionBackground,
 	hcLight: listInactiveSelectionBackground
-}, localize('positronVariables.inactiveSelectionBackground', "Positron Variables inactive selection background color."));
+}, localize('positronVariables.inactiveSelectionBackground', "Positron variables inactive selection background color."));
 
-// Positron Variables inactive selection foreground color.
+// Positron variables inactive selection foreground color.
 export const POSITRON_VARIABLES_INACTIVE_SELECTION_FOREGROUND_COLOR = registerColor('positronVariables.inactiveSelectionForeground', {
 	dark: listInactiveSelectionForeground,
 	light: listInactiveSelectionForeground,
 	hcDark: listInactiveSelectionForeground,
 	hcLight: listInactiveSelectionForeground
-}, localize('positronVariables.inactiveSelectionForeground', "Positron Variables inactive selection foreground color."));
+}, localize('positronVariables.inactiveSelectionForeground', "Positron variables inactive selection foreground color."));
 
 // < --- Positron Data Viewer --- >
 
-// Positron Data Viewer background color.
+// Positron data viewer background color.
 export const POSITRON_DATAVIEWER_BACKGROUND_COLOR = registerColor('positronDataViewer.background', {
 	dark: 'terminal.background',
 	light: 'terminal.background',
 	hcDark: 'terminal.background',
 	hcLight: 'terminal.background'
-}, localize('positronDataViewer.background', "Positron Data Viewer background color."));
+}, localize('positronDataViewer.background', "Positron data viewer background color."));
 
-// Positron Data Viewer header background color.
+// Positron data viewer header background color.
 export const POSITRON_DATAVIEWER_HEADER_BACKGROUND_COLOR = registerColor('positronDataViewer.headerBackground', {
 	dark: lighten(editorBackground, 0.2),
 	light: darken(editorBackground, 0.05),
 	hcDark: editorBackground,
 	hcLight: editorBackground
-}, localize('positronDataViewer.headerBackground', "Positron Data Viewer header background color."));
+}, localize('positronDataViewer.headerBackground', "Positron data viewer header background color."));
 
-// Positron Data Viewer grid color.
+// Positron data viewer grid color.
 export const POSITRON_DATAVIEWER_GRID_COLOR = registerColor('positronDataViewer.grid', {
 	dark: tableColumnsBorder,
 	light: tableColumnsBorder,
 	hcDark: tableColumnsBorder,
 	hcLight: tableColumnsBorder
-}, localize('positronDataViewer.grid', "Positron Data Viewer grid color."));
+}, localize('positronDataViewer.grid', "Positron data viewer grid color."));
 
 // < --- Positron Plots --- >
 
-// Positron Plots background color.
+// Positron plots background color.
 export const POSITRON_PLOTS_BACKGROUND_COLOR = registerColor('positronPlots.background', {
 	dark: 'terminal.background',
 	light: 'terminal.background',
 	hcDark: 'terminal.background',
 	hcLight: 'terminal.background'
-}, localize('positronPlots.background', "Positron Plots background color."));
+}, localize('positronPlots.background', "Positron plots background color."));
 
 // *************************************************************************************************
 // *************************************************************************************************

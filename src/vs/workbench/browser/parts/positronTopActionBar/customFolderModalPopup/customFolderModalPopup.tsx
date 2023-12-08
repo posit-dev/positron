@@ -69,7 +69,8 @@ export const showCustomFolderModalPopup = async (
 						hostService={hostService}
 						labelService={labelService}
 						recentlyOpened={recentlyOpened}
-						onMenuItemSelected={dismiss} />
+						onMenuItemSelected={dismiss}
+					/>
 				</PositronModalPopup>
 			);
 		};
