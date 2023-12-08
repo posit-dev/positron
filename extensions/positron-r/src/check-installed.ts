@@ -19,10 +19,16 @@ import { randomUUID } from 'crypto';
 
 export async function checkInstalled(runtime: RRuntime, pkgName: string, intendedUse: string, pkgVersion?: string): Promise<boolean> {
 	let isInstalled: boolean;
-	if (pkgVersion) {
-		isInstalled = await runtime.callMethod('is_installed', pkgName, pkgVersion);
-	} else {
-		isInstalled = await runtime.callMethod('is_installed', pkgName);
+	try {
+		if (pkgVersion) {
+			isInstalled = await runtime.callMethod('is_installed', pkgName, pkgVersion);
+		} else {
+			isInstalled = await runtime.callMethod('is_installed', pkgName);
+		}
+	} catch (err) {
+		const runtimeError = err as positron.RuntimeMethodError;
+		throw new Error(`Error checking for package ${pkgName}: ${runtimeError.message} ` +
+			`(${runtimeError.code})`);
 	}
 
 	if (!isInstalled) {
