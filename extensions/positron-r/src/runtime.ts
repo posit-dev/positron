@@ -327,9 +327,9 @@ export class RRuntime implements positron.LanguageRuntime, vscode.Disposable {
 
 		if (!isInstalled) {
 			const install = await positron.window.showSimpleModalDialogPrompt(
-				'Missing R package',
-				`Package ${pkgName} required but not installed.`,
-				'Install now'
+				vscode.l10n.t('Missing R package'),
+				vscode.l10n.t('Package {0} required but not installed.', pkgName),
+				vscode.l10n.t('Install now')
 			);
 			if (install) {
 				const id = randomUUID();
