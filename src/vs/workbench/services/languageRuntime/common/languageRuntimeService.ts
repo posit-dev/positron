@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
 import { Event } from 'vs/base/common/event';
@@ -482,6 +482,14 @@ export interface ILanguageRuntimeStateEvent {
 	new_state: RuntimeState;
 }
 
+export interface ILanguageRuntimeIdEvent {
+	/** The ID of the runtime is being provided */
+	runtime_id: string;
+
+	/** The runtime's language */
+	language_id: string;
+}
+
 /* ILanguageRuntimeMetadata contains information about a language runtime that is known
  * before the runtime is started.
  */
@@ -672,6 +680,9 @@ export interface ILanguageRuntimeService {
 
 	// An event that fires when the active runtime changes.
 	readonly onDidChangeActiveRuntime: Event<ILanguageRuntime | undefined>;
+
+	// An event that fires when a runtime is requested.
+	readonly onDidRequestLanguageRuntime: Event<ILanguageRuntimeIdEvent>;
 
 	/**
 	 * Gets the running language runtimes.
