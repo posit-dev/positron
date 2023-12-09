@@ -1003,6 +1003,16 @@ declare module 'positron' {
 		export function registerLanguageRuntime(runtime: LanguageRuntime): vscode.Disposable;
 
 		/**
+		 * Register a language runtime provider.
+		 *
+		 * @param languageId The language ID for which a runtime will be provided
+		 * @param provider A language runtime provider.
+		 * @return A {@link Disposable} that unregisters this provider when being disposed.
+		 */
+		export function registerLanguageRuntimeProvider(languageId: string,
+			provider: LanguageRuntimeProvider): void;
+
+		/**
 		 * List all registered runtimes.
 		 */
 		export function getRegisteredRuntimes(): Thenable<LanguageRuntime[]>;
