@@ -35,7 +35,7 @@ export const showSetPlotSizeModalDialog = async (
 	return new Promise<SetPlotSizeResult | null | undefined>((resolve) => {
 		// Create the modal dialog React renderer.
 		const positronModalDialogReactRenderer = new PositronModalDialogReactRenderer(
-			layoutService.container
+			layoutService.mainContainer
 		);
 
 		// The modal dialog component.

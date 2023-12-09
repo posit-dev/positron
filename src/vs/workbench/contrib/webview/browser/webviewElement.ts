@@ -37,6 +37,7 @@ import { WebviewFindDelegate, WebviewFindWidget } from 'vs/workbench/contrib/web
 import { FromWebviewMessage, KeyEvent, ToWebviewMessage } from 'vs/workbench/contrib/webview/browser/webviewMessages';
 import { decodeAuthority, webviewGenericCspSource, webviewRootResourceAuthority } from 'vs/workbench/contrib/webview/common/webview';
 import { IWorkbenchEnvironmentService } from 'vs/workbench/services/environment/common/environmentService';
+import { $window } from 'vs/base/browser/window';
 
 // --- Start Positron ---
 // eslint-disable-next-line no-duplicate-imports
@@ -107,7 +108,7 @@ export class WebviewElement extends Disposable implements IWebview, WebviewFindD
 		if (!this._focused) {
 			return false;
 		}
-		if (document.activeElement && document.activeElement !== this.element) {
+		if ($window.document.activeElement && $window.document.activeElement !== this.element) {
 			// looks like https://github.com/microsoft/vscode/issues/132641
 			// where the focus is actually not in the `<iframe>`
 			return false;
@@ -164,7 +165,7 @@ export class WebviewElement extends Disposable implements IWebview, WebviewFindD
 		this.providedViewType = initInfo.providedViewType;
 		this.origin = initInfo.origin ?? this.id;
 
-		this._encodedWebviewOriginPromise = parentOriginHash(window.origin, this.origin).then(id => this._encodedWebviewOrigin = id);
+		this._encodedWebviewOriginPromise = parentOriginHash($window.origin, this.origin).then(id => this._encodedWebviewOrigin = id);
 
 		this._options = initInfo.options;
 		this.extension = initInfo.extension;
@@ -185,7 +186,7 @@ export class WebviewElement extends Disposable implements IWebview, WebviewFindD
 		this._element = this._createElement(initInfo.options, initInfo.contentOptions);
 
 
-		const subscription = this._register(addDisposableListener(window, 'message', (e: MessageEvent) => {
+		const subscription = this._register(addDisposableListener($window, 'message', (e: MessageEvent) => {
 			if (!this._encodedWebviewOrigin || e?.data?.target !== this.id) {
 				return;
 			}
@@ -470,7 +471,7 @@ export class WebviewElement extends Disposable implements IWebview, WebviewFindD
 			extensionId: extension?.id.value ?? '',
 			platform: this.platform,
 			'vscode-resource-base-authority': webviewRootResourceAuthority,
-			parentOrigin: window.origin,
+			parentOrigin: $window.origin,
 		};
 
 		if (this._options.disableServiceWorker) {
@@ -510,7 +511,7 @@ export class WebviewElement extends Disposable implements IWebview, WebviewFindD
 			}));
 		}
 
-		for (const node of [element, window]) {
+		for (const node of [element, $window]) {
 			this._register(addDisposableListener(node, EventType.DRAG_END, () => {
 				this._stopBlockingIframeDragEvents();
 			}));
@@ -693,7 +694,7 @@ export class WebviewElement extends Disposable implements IWebview, WebviewFindD
 			get: () => this.element,
 		});
 		// And re-dispatch
-		window.dispatchEvent(emulatedKeyboardEvent);
+		$window.dispatchEvent(emulatedKeyboardEvent);
 	}
 
 	windowDidDragStart(): void {
@@ -835,7 +836,7 @@ export class WebviewElement extends Disposable implements IWebview, WebviewFindD
 				return;
 			}
 
-			if (document.activeElement && document.activeElement !== this.element && document.activeElement?.tagName !== 'BODY') {
+			if ($window.document.activeElement && $window.document.activeElement !== this.element && $window.document.activeElement?.tagName !== 'BODY') {
 				return;
 			}
 

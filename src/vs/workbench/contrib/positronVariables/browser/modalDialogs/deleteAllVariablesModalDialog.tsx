@@ -38,7 +38,7 @@ export const showDeleteAllVariablesModalDialog = async (
 	return new Promise<DeleteAllVariablesResult | undefined>((resolve) => {
 		// Create the modal dialog React renderer.
 		const positronModalDialogReactRenderer = new PositronModalDialogReactRenderer(
-			layoutService.container
+			layoutService.mainContainer
 		);
 
 		// The modal dialog component.

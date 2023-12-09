@@ -619,6 +619,23 @@ const terminalConfiguration: IConfigurationNode = {
 			markdownDescription: localize('terminal.integrated.accessibleViewPreserveCursorPosition', "Preserve the cursor position on reopen of the terminal's accessible view rather than setting it to the bottom of the buffer."),
 			type: 'boolean',
 			default: false
+		},
+		[TerminalSettingId.AccessibleViewFocusOnCommandExecution]: {
+			markdownDescription: localize('terminal.integrated.accessibleViewFocusOnCommandExecution', "Focus the terminal accessible view when a command is executed."),
+			type: 'boolean',
+			default: false
+		},
+		[TerminalSettingId.StickyScrollEnabled]: {
+			markdownDescription: localize('terminal.integrated.stickyScroll.enabled', "Experimental: Shows the current command at the top of the terminal."),
+			type: 'boolean',
+			default: false
+		},
+		[TerminalSettingId.StickyScrollMaxLineCount]: {
+			markdownDescription: localize('terminal.integrated.stickyScroll.maxLineCount', "Defines the maximum number of sticky lines to show. Sticky scroll lines will never exceed 40% of the viewport regardless of this setting."),
+			type: 'number',
+			default: 5,
+			minimum: 1,
+			maximum: 10
 		}
 	}
 };

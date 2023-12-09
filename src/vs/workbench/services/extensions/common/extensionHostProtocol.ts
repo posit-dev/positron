@@ -44,6 +44,7 @@ export interface IExtensionHostInitData {
 	telemetryInfo: {
 		readonly sessionId: string;
 		readonly machineId: string;
+		readonly sqmId: string;
 		readonly firstSessionDate: string;
 		readonly msftInternal?: boolean;
 	};
