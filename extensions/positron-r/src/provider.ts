@@ -14,6 +14,8 @@ import * as crypto from 'crypto';
 import { RInstallation, getRHomePath } from './r-installation';
 import { RRuntime, createJupyterKernelExtra, createJupyterKernelSpec } from './runtime';
 import { RRuntimeManager } from './runtime-manager';
+import { Logger } from './extension';
+import { readLines } from './util';
 
 const initialDynState = {
 	inputPrompt: '>',
@@ -77,9 +79,10 @@ export async function* rRuntimeDiscoverer(
 	const rHq = rHeadquarters();
 	if (fs.existsSync(rHq)) {
 		const versionBinaries = fs.readdirSync(rHq)
-			// 'Current', if it exists, is a symlink to an actual version. Skip it here to avoid
-			// redundant entries. This is a macOS phenomenon.
+			// macOS: 'Current', if it exists, is a symlink to an actual version.
 			.filter(v => v !== 'Current')
+			// Windows: rig creates 'bin/', which is a directory of .bat files
+			.filter(v => v !== 'bin')
 			.map(v => path.join(rHq, binFragment(v)))
 			// By default, macOS CRAN installer deletes previous R installations, but sometimes
 			// it doesn't do a thorough job of it and a nearly-empty version directory lingers on.
@@ -103,17 +106,36 @@ export async function* rRuntimeDiscoverer(
 		binaries.add(b);
 	}
 
-	// TODO: Windows
-	// On Windows this finds `C:\Program Files\R\bin\R.BAT`, a batch file that starts
-	// the underlying version of R, i.e. try right clicking and editing the batch file to see the
-	// underlying path it ends up using. We will need some way to associate this with the `R.exe`
-	// file it ends up starting.
-	if (os.platform() !== 'win32') {
-		// make sure we include R executable found on the PATH
-		// we've probably already discovered it, but we still need to single it out, so that we mark
-		// that particular R installation as the current one
-		const whichR = await which('R', { nothrow: true }) as string;
-		if (whichR) {
+	// make sure we include R executable found on the PATH
+	// we've probably already discovered it, but we still need to single it out, so that we mark
+	// that particular R installation as the current one
+	const whichR = await which('R', { nothrow: true }) as string;
+	if (whichR) {
+		if (os.platform() === 'win32') {
+			// rig puts {R Headquarters}/bin on the PATH, so that is probably how we got here.
+			// (The CRAN installer does NOT put R on the PATH.)
+			// In the rig scenario, `whichR` is anticipated to be a batch file that launches the
+			// current version of R ('default' in rig-speak):
+			// Example filepath: C:\Program Files\R\bin\R.bat
+			// Example contents of this file:
+			// ::4.3.2
+			// @"C:\Program Files\R\R-4.3.2\bin\R" %*
+			if (path.extname(whichR).toLowerCase() === '.bat') {
+				const batLines = readLines(whichR);
+				const re = new RegExp(`^@"(.+R-[0-9]+[.][0-9]+[.][0-9]+.+)" %[*]$`);
+				const match = batLines.find((x: string) => re.test(x))?.match(re);
+				if (match) {
+					let whichRResolved = match[1];
+					// add the extension .exe if it's not already there
+					if (path.extname(whichRResolved).toLowerCase() !== '.exe') {
+						whichRResolved += '.exe';
+					}
+					Logger.info(`Resolved R binary at ${whichRResolved}`);
+					rInstallations.push(new RInstallation(whichRResolved, true));
+					binaries.delete(whichRResolved);
+				}
+			}
+		} else {
 			const whichRCanonical = fs.realpathSync(whichR);
 			rInstallations.push(new RInstallation(whichRCanonical, true));
 			binaries.delete(whichRCanonical);
