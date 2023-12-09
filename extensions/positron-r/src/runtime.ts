@@ -302,11 +302,11 @@ export class RRuntime implements positron.LanguageRuntime, vscode.Disposable {
 	/**
 	 * Checks whether a package is installed in the runtime.
 	 * @param pkgName The name of the package to check
-	 * @param intendedUse A string describing the intended use of the package, for a warning message
+	 * @param pkgVersion Optionally, the version of the package needed
 	 * @returns true if the package is installed, false otherwise
 	 */
 
-	async checkInstalled(pkgName: string, intendedUse: string, pkgVersion?: string): Promise<boolean> {
+	async checkInstalled(pkgName: string, pkgVersion?: string): Promise<boolean> {
 		let isInstalled: boolean;
 		// Check the cache first
 		if (this._packageCache.includes({ packageName: pkgName, packageVersion: pkgVersion }) ||
@@ -358,11 +358,6 @@ export class RRuntime implements positron.LanguageRuntime, vscode.Disposable {
 
 				return true;
 			} else {
-				if (pkgVersion) {
-					vscode.window.showWarningMessage(`Cannot ${intendedUse} without ${pkgName} ${pkgVersion}.`);
-				} else {
-					vscode.window.showWarningMessage(`Cannot ${intendedUse} without ${pkgName} package.`);
-				}
 				return false;
 			}
 		}
