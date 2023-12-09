@@ -113,8 +113,8 @@ suite('InteractiveChatController', function () {
 				}
 			}],
 			[IChatAccessibilityService, new class extends mock<IChatAccessibilityService>() {
-				override acceptResponse(response?: IChatResponseViewModel): void { }
-				override acceptRequest(): void { }
+				override acceptResponse(response: IChatResponseViewModel | undefined, requestId: number): void { }
+				override acceptRequest(): number { return -1; }
 			}],
 			[IAccessibleViewService, new class extends mock<IAccessibleViewService>() {
 				override getOpenAriaHint(verbositySettingKey: AccessibilityVerbositySettingId): string | null {
@@ -296,7 +296,7 @@ suite('InteractiveChatController', function () {
 
 		await ctrl.waitFor([State.MAKE_REQUEST, State.APPLY_RESPONSE, State.SHOW_RESPONSE, State.WAIT_FOR_INPUT]);
 
-		assert.deepStrictEqual(session.wholeRange.value, new Range(1, 1, 4, 12));
+		assert.deepStrictEqual(session.wholeRange.value, new Range(4, 1, 4, 12));
 
 		await ctrl.cancelSession();
 		await r;

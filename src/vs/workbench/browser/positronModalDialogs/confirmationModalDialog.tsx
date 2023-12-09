@@ -20,7 +20,8 @@ export const confirmationModalDialog = async (layoutService: IWorkbenchLayoutSer
 	// Return a promise that resolves when the dialog is done.
 	return new Promise<boolean>((resolve) => {
 		// Create the modal dialog React renderer.
-		const positronModalDialogReactRenderer = new PositronModalDialogReactRenderer(layoutService.container);
+		const positronModalDialogReactRenderer =
+			new PositronModalDialogReactRenderer(layoutService.mainContainer);
 
 		// The modal dialog component.
 		const ModalDialog = () => {

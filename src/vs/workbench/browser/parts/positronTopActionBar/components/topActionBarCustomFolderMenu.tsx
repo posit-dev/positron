@@ -40,7 +40,7 @@ export const TopActionBarCustonFolderMenu = () => {
 			positronTopActionBarContext.hostService,
 			positronTopActionBarContext.labelService,
 			positronTopActionBarContext.workspacesService,
-			positronTopActionBarContext.layoutService.container,
+			positronTopActionBarContext.layoutService.mainContainer,
 			ref.current
 		).then(() => {
 			ref.current.removeAttribute('aria-expanded');
