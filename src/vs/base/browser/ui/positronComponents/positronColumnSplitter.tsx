@@ -4,7 +4,7 @@
 
 import 'vs/css!./positronColumnSplitter';
 import * as React from 'react';
-import { MouseEvent } from 'react'; // eslint-disable-line no-duplicate-imports
+import { MouseEvent, useRef } from 'react'; // eslint-disable-line no-duplicate-imports
 import { isMacintosh } from 'vs/base/common/platform';
 import { createStyleSheet, getWindow } from 'vs/base/browser/dom';
 
@@ -37,6 +37,10 @@ type DocumentMouseEvent = globalThis.MouseEvent;
  * @returns The rendered component.
  */
 export const PositronColumnSplitter = (props: PositronColumnSplitterProps) => {
+
+	// Reference hooks.
+	const columnSplitter = useRef<HTMLDivElement>(undefined!);
+
 	/**
 	 * MouseDown handler.
 	 * @param e A MouseEvent hat describes a user interaction with the mouse.
@@ -49,7 +53,7 @@ export const PositronColumnSplitter = (props: PositronColumnSplitterProps) => {
 		// Set the starting X an starting Y.
 		const startingX = e.clientX;
 		const startingY = e.clientY;
-		const doc = getWindow(e.target as HTMLElement).document;
+		const doc = getWindow(columnSplitter.current)!.document;
 
 		// Create a style sheet on the column splitter. This style sheet is updated in the
 		// UpdateStyleSheet function below.
@@ -127,6 +131,7 @@ export const PositronColumnSplitter = (props: PositronColumnSplitterProps) => {
 	// Render.
 	return (
 		<div
+			ref={columnSplitter}
 			className='positron-column-splitter'
 			onMouseDown={mouseDownHandler}
 			style={{ width: props.width }}
