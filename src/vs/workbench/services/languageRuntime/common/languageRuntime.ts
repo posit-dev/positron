@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
 import * as nls from 'vs/nls';
@@ -9,7 +9,7 @@ import { ILanguageService } from 'vs/editor/common/languages/language';
 import { Disposable, IDisposable, toDisposable } from 'vs/base/common/lifecycle';
 import { CommandsRegistry, ICommandService } from 'vs/platform/commands/common/commands';
 import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/common/extensions';
-import { formatLanguageRuntime, ILanguageRuntime, ILanguageRuntimeGlobalEvent, ILanguageRuntimeService, ILanguageRuntimeStateEvent, LanguageRuntimeDiscoveryPhase, LanguageRuntimeStartupBehavior, RuntimeClientType, RuntimeExitReason, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { formatLanguageRuntime, ILanguageRuntime, ILanguageRuntimeGlobalEvent, ILanguageRuntimeService, ILanguageRuntimeStateEvent, ILanguageRuntimeIdEvent, LanguageRuntimeDiscoveryPhase, LanguageRuntimeStartupBehavior, RuntimeClientType, RuntimeExitReason, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { FrontEndClientInstance, IFrontEndClientMessageInput, IFrontEndClientMessageOutput } from 'vs/workbench/services/languageRuntime/common/languageRuntimeFrontEndClient';
 import { LanguageRuntimeWorkspaceAffiliation } from 'vs/workbench/services/languageRuntime/common/languageRuntimeWorkspaceAffiliation';
 import { IStorageService } from 'vs/platform/storage/common/storage';
@@ -106,6 +106,9 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 	// The event emitter for the onDidChangeActiveRuntime event.
 	private readonly _onDidChangeActiveRuntimeEmitter = this._register(new Emitter<ILanguageRuntime | undefined>);
 
+	// The event emitter for the onDidRequestLanguageRuntime event.
+	private readonly _onDidRequestLanguageRuntimeEmitter = this._register(new Emitter<ILanguageRuntimeIdEvent>);
+
 	//#endregion Private Properties
 
 	//#region Constructor
@@ -143,6 +146,14 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 		this._workspaceAffiliation =
 			new LanguageRuntimeWorkspaceAffiliation(this, this._storageService, this._logService);
 		this._register(this._workspaceAffiliation);
+		if (this._workspaceAffiliation.hasAffiliatedRuntime()) {
+			this._register(this.onDidChangeDiscoveryPhase((phase) => {
+				// When we start discovering runtimes, start the affiliated runtime.
+				if (phase === LanguageRuntimeDiscoveryPhase.Discovering) {
+					this.startAffiliatedRuntimes();
+				}
+			}));
+		}
 
 		// Register as an opener in the opener service.
 		this._openerService.registerOpener(this);
@@ -222,6 +233,9 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 
 	// An event that fires when the active runtime changes.
 	readonly onDidChangeActiveRuntime = this._onDidChangeActiveRuntimeEmitter.event;
+
+	// An event that fires when a language runtime is requested.
+	readonly onDidRequestLanguageRuntime = this._onDidRequestLanguageRuntimeEmitter.event;
 
 	/**
 	 * Gets the registered runtimes.
@@ -730,6 +744,22 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 	private hasAnyStartedOrRunningRuntimes(): boolean {
 		return this._startingRuntimesByLanguageId.size > 0 ||
 			this._runningRuntimesByLanguageId.size > 0;
+	}
+
+	/**
+	 * Starts any affiliated runtimes.
+	 */
+	private startAffiliatedRuntimes(): void {
+		// TODO: implement for all language packs
+		const languageId = 'zed';
+		const affiliatedRuntimeId = this._workspaceAffiliation.getAffiliatedRuntimeId(languageId);
+
+		if (affiliatedRuntimeId) {
+			this._onDidRequestLanguageRuntimeEmitter.fire({
+				runtime_id: affiliatedRuntimeId,
+				language_id: languageId
+			});
+		}
 	}
 
 	/**

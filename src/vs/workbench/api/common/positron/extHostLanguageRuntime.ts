@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
 import type * as positron from 'positron';
@@ -11,14 +11,22 @@ import { Disposable, LanguageRuntimeMessageType } from 'vs/workbench/api/common/
 import { RuntimeClientType } from 'vs/workbench/api/common/positron/extHostTypes.positron';
 import { ExtHostRuntimeClientInstance } from 'vs/workbench/api/common/positron/extHostClientInstance';
 import { IExtensionDescription } from 'vs/platform/extensions/common/extensions';
+import { CancellationToken } from 'vs/base/common/cancellation';
 import { URI } from 'vs/base/common/uri';
-
 
 /**
  * A language runtime discoverer and metadata about the extension that registered it.
  */
 interface LanguageRuntimeDiscoverer {
 	discoverer: positron.LanguageRuntimeDiscoverer;
+	extension: IExtensionDescription;
+}
+
+/**
+ * A language runtime provider and metadata about the extension that registered it.
+ */
+interface LanguageRuntimeProvider {
+	provider: positron.LanguageRuntimeProvider;
 	extension: IExtensionDescription;
 }
 
@@ -29,6 +37,9 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 	private readonly _runtimes = new Array<positron.LanguageRuntime>();
 
 	private readonly _runtimeDiscoverers = new Array<LanguageRuntimeDiscoverer>();
+
+	// A map of the runtime providers. This is keyed by the languageId of the runtime provider.
+	private readonly _runtimeProviders = new Map<string, LanguageRuntimeProvider>();
 
 	private readonly _clientInstances = new Array<ExtHostRuntimeClientInstance>();
 
@@ -314,6 +325,27 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 			// the provider to the list of providers on which we need to perform discovery.
 			this._runtimeDiscoverers.push({ extension, discoverer });
 		}
+	}
+
+	public registerLanguageRuntimeProvider(
+		extension: IExtensionDescription,
+		languageId: string,
+		provider: positron.LanguageRuntimeProvider): void {
+		this._runtimeProviders.set(languageId, { extension, provider });
+	}
+
+	public async $provideLanguageRuntime(
+		languageId: string,
+		runtimeId: string): Promise<void> {
+		const provider = this._runtimeProviders.get(languageId);
+		if (!provider) {
+			throw new Error(`Cannot get runtime provider for '${languageId}'.`);
+		}
+		const runtime = await provider.provider.provideLanguageRuntime(runtimeId, CancellationToken.None);
+		if (!runtime) {
+			throw new Error(`Cannot provide runtime '${runtimeId}'.`);
+		}
+		this.registerLanguageRuntime(provider.extension, runtime);
 	}
 
 	public registerLanguageRuntime(

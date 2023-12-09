@@ -72,6 +72,9 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			registerLanguageRuntimeDiscoverer(languageId: string, discoverer: positron.LanguageRuntimeDiscoverer): void {
 				return extHostLanguageRuntime.registerLanguageRuntimeDiscoverer(extension, languageId, discoverer);
 			},
+			registerLanguageRuntimeProvider(languageId: string, provider: positron.LanguageRuntimeProvider): void {
+				return extHostLanguageRuntime.registerLanguageRuntimeProvider(extension, languageId, provider);
+			},
 			getRegisteredRuntimes(): Thenable<positron.LanguageRuntime[]> {
 				return extHostLanguageRuntime.getRegisteredRuntimes();
 			},
@@ -92,7 +95,7 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			},
 			get onDidRegisterRuntime() {
 				return extHostLanguageRuntime.onDidRegisterRuntime;
-			},
+			}
 		};
 
 		const window: typeof positron.window = {

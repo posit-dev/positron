@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
 import {
@@ -942,6 +942,10 @@ export class MainThreadLanguageRuntime implements MainThreadLanguageRuntimeShape
 		this._positronPlotService.initialize();
 		this._proxy = extHostContext.getProxy(ExtHostPositronContext.ExtHostLanguageRuntime);
 
+		this._languageRuntimeService.onDidRequestLanguageRuntime((ILanguageRuntimeIdEvent) => {
+			this._proxy.$provideLanguageRuntime(ILanguageRuntimeIdEvent.language_id,
+				ILanguageRuntimeIdEvent.runtime_id);
+		});
 		this._languageRuntimeService.onDidChangeDiscoveryPhase((phase) => {
 			if (phase === LanguageRuntimeDiscoveryPhase.Discovering) {
 				this._proxy.$discoverLanguageRuntimes();
