@@ -1510,8 +1510,8 @@
         },
         "snippets": [
             {
-              "language": "python",
-              "path": "./snippets/python.code-snippets"
+                "language": "python",
+                "path": "./snippets/python.code-snippets"
             }
         ],
         "submenus": [
@@ -1587,7 +1587,7 @@
     },
     "dependencies": {
         "@iarna/toml": "^2.2.5",
-        "@jupyter-widgets/html-manager":"^0.20.6",
+        "@jupyter-widgets/html-manager": "^1.0.9",
         "@vscode/extension-telemetry": "^0.8.4",
         "@vscode/jupyter-lsp-middleware": "^0.2.50",
         "arch": "^2.1.0",
@@ -1671,7 +1671,6 @@
         "mocha": "^9.2.2",
         "mocha-junit-reporter": "^2.0.2",
         "mocha-multi-reporters": "^1.1.7",
-
         "node-has-native-dependencies": "^1.0.2",
         "node-loader": "^1.0.2",
         "node-polyfill-webpack-plugin": "^1.1.4",
