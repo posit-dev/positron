@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
 import { existsSync, readdirSync, readFileSync, writeFileSync } from 'fs';
@@ -269,6 +269,7 @@ import enum
 					yield '\t"""\n';
 					yield formatComment('\t', method.result.schema.description);
 					yield '\t"""\n';
+					yield '\n';
 				}
 				for (const prop of Object.keys(method.result.schema.properties)) {
 					const schema = method.result.schema.properties[prop];
@@ -282,6 +283,19 @@ import enum
 		}
 	}
 
+	if (backend) {
+		yield '@enum.unique\n';
+		yield `class ${snakeCaseToSentenceCase(name)}Request(str, enum.Enum):\n`;
+		yield `\t"""\n`;
+		yield `\tAn enumeration of all the possible requests that can be sent to the ${name} comm.\n`;
+		yield `\t"""\n`;
+		yield `\n`;
+		for (const method of backend.methods) {
+			yield formatComment('\t# ', method.summary);
+			yield `\t${snakeCaseToSentenceCase(method.name)} = "${method.name}"\n`;
+			yield '\n';
+		}
+	}
 }
 
 async function* createTypescriptComm(name: string, frontend: any, backend: any): AsyncGenerator<string> {
