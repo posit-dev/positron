@@ -51,7 +51,7 @@
     "prettier.printWidth": 120,
     "prettier.singleQuote": true,
     "editor.codeActionsOnSave": {
-        "source.fixAll.eslint": true
+        "source.fixAll.eslint": "explicit"
     },
     "editor.rulers": [
 		100
