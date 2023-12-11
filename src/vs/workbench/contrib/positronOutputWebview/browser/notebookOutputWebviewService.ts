@@ -42,6 +42,7 @@ export interface IPositronNotebookOutputWebviewService {
 	 */
 	createNotebookOutputWebview(
 		runtime: ILanguageRuntime,
-		output: ILanguageRuntimeMessageOutput): Promise<INotebookOutputWebview | undefined>;
+		output: ILanguageRuntimeMessageOutput
+	): Promise<INotebookOutputWebview | undefined>;
 }
 

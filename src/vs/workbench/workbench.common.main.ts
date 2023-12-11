@@ -421,6 +421,7 @@ import 'vs/workbench/contrib/positronDataTool/browser/positronDataTool.contribut
 import 'vs/workbench/contrib/positronDataTool/browser/positronDataToolEditor';
 import 'vs/workbench/contrib/languageRuntime/browser/languageRuntime.contribution';
 import 'vs/workbench/contrib/executionHistory/common/executionHistory';
+import 'vs/workbench/contrib/positronIPyWidgets/browser/positronIPyWidgets.contribution';
 
 // Workbench services
 import 'vs/workbench/services/languageRuntime/common/languageRuntime';

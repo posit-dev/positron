@@ -442,7 +442,8 @@ declare module 'positron' {
 		DataViewer = 'positron.dataViewer',
 		FrontEnd = 'positron.frontEnd',
 		Help = 'positron.help',
-		Connection = 'positron.connection'
+		Connection = 'positron.connection',
+		IPyWidget = 'jupyter.widget',
 
 		// Future client types may include:
 		// - Watch window/variable explorer
