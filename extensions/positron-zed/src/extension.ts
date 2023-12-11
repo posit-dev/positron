@@ -4,7 +4,7 @@
 
 import * as vscode from 'vscode';
 import * as positron from 'positron';
-import { PositronZedLanguageRuntime } from './positronZedLanguageRuntime';
+import { PositronZedLanguageRuntime, PositronZedLanguageRuntimeProvider } from './positronZedLanguageRuntime';
 
 /**
  * Activates the extension.
@@ -26,5 +26,6 @@ export function activate(context: vscode.ExtensionContext) {
 			'0.98.0');
 	};
 
+	positron.runtime.registerLanguageRuntimeProvider('zed', new PositronZedLanguageRuntimeProvider(context));
 	positron.runtime.registerLanguageRuntimeDiscoverer('zed', generator());
 }

@@ -44,7 +44,8 @@ export const showNewFolderFromGitModalDialog = async (accessor: ServicesAccessor
 	// Return a promise that resolves when the dialog is done.
 	return new Promise<NewFolderFromGitResult | undefined>((resolve) => {
 		// Create the modal dialog React renderer.
-		const positronModalDialogReactRenderer = new PositronModalDialogReactRenderer(layoutService.container);
+		const positronModalDialogReactRenderer =
+			new PositronModalDialogReactRenderer(layoutService.mainContainer);
 
 		// The new folder from git modal dialog component.
 		const NewFolderFromGitModalDialog = () => {

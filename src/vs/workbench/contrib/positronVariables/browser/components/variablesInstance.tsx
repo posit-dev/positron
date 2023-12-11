@@ -9,13 +9,13 @@ import * as DOM from 'vs/base/browser/dom';
 import { isMacintosh } from 'vs/base/common/platform';
 import { DisposableStore } from 'vs/base/common/lifecycle';
 import { useStateRef } from 'vs/base/browser/ui/react/useStateRef';
-import { positronClassNames } from 'vs/base/common/positronUtilities';
 import { FixedSizeList as List, ListChildComponentProps } from 'react-window';
 import { IReactComponentContainer } from 'vs/base/browser/positronReactRenderer';
 import { VariableItem } from 'vs/workbench/contrib/positronVariables/browser/components/variableItem';
 import { VariableGroup } from 'vs/workbench/contrib/positronVariables/browser/components/variableGroup';
 import { VariablesEmpty } from 'vs/workbench/contrib/positronVariables/browser/components/variablesEmpty';
 import { VariableOverflow } from 'vs/workbench/contrib/positronVariables/browser/components/variableOverflow';
+import { PositronColumnSplitterResizeResult } from 'vs/base/browser/ui/positronComponents/positronColumnSplitter';
 import { usePositronVariablesContext } from 'vs/workbench/contrib/positronVariables/browser/positronVariablesContext';
 import { VariableEntry, IPositronVariablesInstance, isVariableGroup, isVariableItem, isVariableOverflow } from 'vs/workbench/services/positronVariables/common/interfaces/positronVariablesInstance';
 
@@ -60,7 +60,6 @@ export const VariablesInstance = (props: VariablesInstanceProps) => {
 		useState(props.width - DEFAULT_NAME_COLUMN_WIDTH > RIGHT_COLUMN_VISIBILITY_THRESHOLD);
 	const [initializing, setInitializing] = useState(true);
 	const [variableEntries, setVariableEntries] = useState<VariableEntry[]>([]);
-	const [resizingColumn, setResizingColumn] = useState(false);
 	const [selectedId, setSelectedId] = useState<string | undefined>(undefined);
 	const [focused, setFocused] = useState(false);
 	const [, setScrollOffset, scrollOffsetRef] = useStateRef(0);
@@ -302,27 +301,36 @@ export const VariablesInstance = (props: VariablesInstanceProps) => {
 	};
 
 	/**
-	 * onStartResizeNameColumn event handler.
-	 */
-	const startResizeNameColumnHandler = () => {
-		setResizingColumn(true);
-	};
-
-	/**
 	 * onResizeNameColumn event handler.
 	 * @param x The X delta.
 	 */
 	const resizeNameColumnHandler = (x: number) => {
-		resizeNameColumn(x);
-	};
+		// Calculate the new column widths.
+		let newNameColumnWidth = nameColumnWidth + x;
+		let result: PositronColumnSplitterResizeResult;
+		if (newNameColumnWidth < MINIMUM_NAME_COLUMN_WIDTH) {
+			newNameColumnWidth = MINIMUM_NAME_COLUMN_WIDTH;
+			result = PositronColumnSplitterResizeResult.TooSmall;
+		} else {
+			const maxNameColumnWidth = Math.trunc(2 * props.width / 3);
+			if (newNameColumnWidth > maxNameColumnWidth) {
+				newNameColumnWidth = maxNameColumnWidth;
+				result = PositronColumnSplitterResizeResult.TooLarge;
+			} else {
+				result = PositronColumnSplitterResizeResult.Resizing;
+			}
+		}
+		const newDetailsColumnWidth = props.width - newNameColumnWidth;
 
-	/**
-	 * onStopResizeNameColumn event handler.
-	 * @param x The X delta.
-	 */
-	const stopResizeNameColumnHandler = (x: number) => {
-		resizeNameColumn(x);
-		setResizingColumn(false);
+		// Adjust the column widths.
+		setNameColumnWidth(newNameColumnWidth);
+		setDetailsColumnWidth(newDetailsColumnWidth);
+
+		// Set the right column visibility.
+		setRightColumnVisible(newDetailsColumnWidth > RIGHT_COLUMN_VISIBILITY_THRESHOLD);
+
+		// Done.
+		return result;
 	};
 
 	/**
@@ -389,26 +397,6 @@ export const VariablesInstance = (props: VariablesInstanceProps) => {
 	};
 
 	/**
-	 * Resizes the name column.
-	 * @param x The X delta.
-	 */
-	const resizeNameColumn = (x: number) => {
-		// Calculate the new column widths.
-		const newNameColumnWidth = Math.min(
-			Math.max(nameColumnWidth + x, MINIMUM_NAME_COLUMN_WIDTH),
-			Math.trunc(2 * props.width / 3)
-		);
-		const newDetailsColumnWidth = props.width - newNameColumnWidth;
-
-		// Adjust the column widths.
-		setNameColumnWidth(newNameColumnWidth);
-		setDetailsColumnWidth(newDetailsColumnWidth);
-
-		// Set the right column visibility.
-		setRightColumnVisible(newDetailsColumnWidth > RIGHT_COLUMN_VISIBILITY_THRESHOLD);
-	};
-
-	/**
 	 * VariableEntry component.
 	 * @param index The index of the variable entry.
 	 * @param style The style (positioning) at which to render the variable entry.
@@ -445,9 +433,7 @@ export const VariablesInstance = (props: VariablesInstanceProps) => {
 					onSelected={() => selectedHandler(index)}
 					onDeselected={deselectedHandler}
 					onToggleExpandCollapse={() => toggleExpandCollapseHandler(index)}
-					onStartResizeNameColumn={startResizeNameColumnHandler}
 					onResizeNameColumn={resizeNameColumnHandler}
-					onStopResizeNameColumn={stopResizeNameColumnHandler}
 					positronVariablesInstance={props.positronVariablesInstance}
 				/>
 			);
@@ -463,9 +449,7 @@ export const VariablesInstance = (props: VariablesInstanceProps) => {
 					selected={selectedId === entry.id}
 					onSelected={() => selectedHandler(index)}
 					onDeselected={deselectedHandler}
-					onStartResizeNameColumn={startResizeNameColumnHandler}
 					onResizeNameColumn={resizeNameColumnHandler}
-					onStopResizeNameColumn={stopResizeNameColumnHandler}
 				/>
 			);
 		} else {
@@ -474,19 +458,11 @@ export const VariablesInstance = (props: VariablesInstanceProps) => {
 		}
 	};
 
-	// Create the class names.
-	const classNames = positronClassNames(
-		'variables-instance',
-		{
-			'resizing': resizingColumn
-		}
-	);
-
 	// Render.
 	return (
 		<div
 			ref={outerRef}
-			className={classNames}
+			className='variables-instance'
 			style={{ width: props.width, height: props.height, zIndex: props.active ? 1 : -1 }}
 			tabIndex={0}
 			onKeyDown={keyDownHandler}
