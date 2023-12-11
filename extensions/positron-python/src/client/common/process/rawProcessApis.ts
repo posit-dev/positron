@@ -56,7 +56,6 @@ export function shellExec(
     disposables?: Set<IDisposable>,
 ): Promise<ExecutionResult<string>> {
     const shellOptions = getDefaultOptions(options, defaultEnv);
-    traceVerbose(`Shell Exec: ${command} with options: ${JSON.stringify(shellOptions, null, 4)}`);
     if (!options.doNotLog) {
         const processLogger = new ProcessLogger(new WorkspaceService());
         processLogger.logProcess(command, undefined, shellOptions);
@@ -75,10 +74,21 @@ export function shellExec(
                 resolve({ stderr: stderr && stderr.length > 0 ? stderr : undefined, stdout });
             }
         };
+        let procExited = false;
         const proc = exec(command, shellOptions, callback); // NOSONAR
+        proc.once('close', () => {
+            procExited = true;
+        });
+        proc.once('exit', () => {
+            procExited = true;
+        });
+        proc.once('error', () => {
+            procExited = true;
+        });
         const disposable: IDisposable = {
             dispose: () => {
-                if (!proc.killed) {
+                // If process has not exited nor killed, force kill it.
+                if (!procExited && !proc.killed) {
                     if (proc.pid) {
                         killPid(proc.pid);
                     } else {
@@ -114,7 +124,8 @@ export function plainExec(
     const deferred = createDeferred<ExecutionResult<string>>();
     const disposable: IDisposable = {
         dispose: () => {
-            if (!proc.killed) {
+            // If process has not exited nor killed, force kill it.
+            if (!proc.killed && !deferred.completed) {
                 if (proc.pid) {
                     killPid(proc.pid);
                 } else {

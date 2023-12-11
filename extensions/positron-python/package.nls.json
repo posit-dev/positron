@@ -43,6 +43,7 @@
     "python.experiments.pythonSurveyNotification.description": "Denotes the Python Survey Notification experiment.",
     "python.experiments.pythonPromptNewToolsExt.description": "Denotes the Python Prompt New Tools Extension experiment.",
     "python.experiments.pythonTerminalEnvVarActivation.description": "Enables use of environment variables to activate terminals instead of sending activation commands.",
+    "python.experiments.pythonDiscoveryUsingWorkers.description": "Enables use of worker threads to do heavy computation when discovering interpreters.",
     "python.experiments.pythonTestAdapter.description": "Denotes the Python Test Adapter experiment.",
     "python.experiments.pythonREPLSmartSend.description": "Denotes the Python REPL Smart Send experiment.",
     "python.experiments.pythonRecommendTensorboardExt.description": "Denotes the Tensorboard Extension recommendation experiment.",
@@ -63,6 +64,7 @@
     "python.missingPackage.severity.description": "Set severity of missing packages in requirements.txt or pyproject.toml",
     "python.pipenvPath.description": "Path to the pipenv executable to use for activation.",
     "python.poetryPath.description": "Path to the poetry executable.",
+    "python.EnableREPLSmartSend.description": "Toggle Smart Send for the Python REPL. Smart Send enables sending the smallest runnable block of code to the REPL on Shift+Enter and moves the cursor accordingly.",
     "python.tensorBoard.logDirectory.description": "Set this setting to your preferred TensorBoard log directory to skip log directory prompt when starting TensorBoard.",
     "python.tensorBoard.logDirectory.markdownDeprecationMessage": "Tensorboard support has been moved to the extension [Tensorboard extension](https://marketplace.visualstudio.com/items?itemName=ms-toolsai.tensorboard). Instead use the setting `tensorBoard.logDirectory`.",
     "python.tensorBoard.logDirectory.deprecationMessage": "Tensorboard support has been moved to the extension Tensorboard extension. Instead use the setting `tensorBoard.logDirectory`.",
@@ -86,24 +88,76 @@
     "walkthrough.pythonWelcome.description": "Your first steps to set up a Python project with all the powerful tools and features that the Python extension has to offer!",
     "walkthrough.step.python.createPythonFile.title": "Create a Python file",
     "walkthrough.step.python.createPythonFolder.title": "Open a Python project folder",
-    "walkthrough.step.python.createPythonFile.description": "[Open](command:toSide:workbench.action.files.openFile) or [create](command:toSide:workbench.action.files.newUntitledFile?%7B%22languageId%22%3A%22python%22%7D) a Python file - make sure to save it as \".py\".\n[Create Python File](command:toSide:workbench.action.files.newUntitledFile?%7B%22languageId%22%3A%22python%22%7D)",
-    "walkthrough.step.python.createPythonFolder.description": "[Open](command:workbench.action.files.openFolder) or create a project folder.\n[Open Project Folder](command:workbench.action.files.openFolder)",
+    "walkthrough.step.python.createPythonFile.description": {
+        "message": "[Open](command:toSide:workbench.action.files.openFile) or [create](command:toSide:workbench.action.files.newUntitledFile?%7B%22languageId%22%3A%22python%22%7D) a Python file - make sure to save it as \".py\".\n[Create Python File](command:toSide:workbench.action.files.newUntitledFile?%7B%22languageId%22%3A%22python%22%7D)",
+        "comment": [
+            "{Locked='](command:toSide:workbench.action.files.newUntitledFile?%7B%22languageId%22%3A%22python%22%7D'}",
+            "Do not translate the 'command:*' part inside of the '(..)'. It is an internal command syntax for VS Code",
+            "Please make sure there is no space between the right bracket and left parenthesis:  ]( this is an internal syntax for links"
+        ]
+    },
+    "walkthrough.step.python.createPythonFolder.description": {
+        "message": "[Open](command:workbench.action.files.openFolder) or create a project folder.\n[Open Project Folder](command:workbench.action.files.openFolder)",
+        "comment":  [
+            "{Locked='](command:workbench.action.files.openFolder'}",
+            "Do not translate the 'command:*' part inside of the '(..)'. It is an internal command syntax for VS Code",
+            "Please make sure there is no space between the right bracket and left parenthesis:  ]( this is an internal syntax for links"
+        ]
+    },
     "walkthrough.step.python.installPythonWin8.title": "Install Python",
     "walkthrough.step.python.installPythonWin8.description": "The Python Extension requires Python to be installed. Install Python [from python.org](https://www.python.org/downloads).\n\n[Install Python](https://www.python.org/downloads)\n",
     "walkthrough.step.python.installPythonMac.title": "Install Python",
-    "walkthrough.step.python.installPythonMac.description": "The Python Extension requires Python to be installed. Install Python 3 through the terminal.\n[Install Python via Brew](command:python.installPythonOnMac)\n",
+    "walkthrough.step.python.installPythonMac.description": {
+        "message": "The Python Extension requires Python to be installed. Install Python 3 through the terminal.\n[Install Python via Brew](command:python.installPythonOnMac)\n",
+        "comment": [
+            "{Locked='](command:python.installPythonOnMac'}",
+            "Do not translate the 'command:*' part inside of the '(..)'. It is an internal command syntax for VS Code",
+            "Please make sure there is no space between the right bracket and left parenthesis:  ]( this is an internal syntax for links"
+        ]
+    },
     "walkthrough.step.python.installPythonLinux.title": "Install Python",
-    "walkthrough.step.python.installPythonLinux.description": "The Python Extension requires Python to be installed. Install Python 3 through the terminal.\n[Install Python via terminal](command:python.installPythonOnLinux)\n",
+    "walkthrough.step.python.installPythonLinux.description": {
+        "message": "The Python Extension requires Python to be installed. Install Python 3 through the terminal.\n[Install Python via terminal](command:python.installPythonOnLinux)\n",
+        "comment": [
+            "{Locked='](command:python.installPythonOnLinux'}",
+            "Do not translate the 'command:*' part inside of the '(..)'. It is an internal command syntax for VS Code",
+            "Please make sure there is no space between the right bracket and left parenthesis:  ]( this is an internal syntax for links"
+        ]
+    },
     "walkthrough.step.python.selectInterpreter.title": "Select a Python Interpreter",
-    "walkthrough.step.python.selectInterpreter.description": "Choose which Python interpreter/environment you want to use for your Python project.\n[Select Python Interpreter](command:python.setInterpreter)\n**Tip**: Run the ``Python: Select Interpreter`` command in the [Command Palette](command:workbench.action.showCommands).",
+    "walkthrough.step.python.selectInterpreter.description": {
+        "message": "Choose which Python interpreter/environment you want to use for your Python project.\n[Select Python Interpreter](command:python.setInterpreter)\n**Tip**: Run the ``Python: Select Interpreter`` command in the [Command Palette](command:workbench.action.showCommands).",
+        "comment": [
+            "{Locked='](command:python.setInterpreter'}",
+             "{Locked='](command:workbench.action.showCommands'}",
+             "Do not translate the 'command:*' part inside of the '(..)'. It is an internal command syntax for VS Code",
+             "Please make sure there is no space between the right bracket and left parenthesis:  ]( this is an internal syntax for links"
+        ]
+    },
     "walkthrough.step.python.createEnvironment.title": "Create a Python Environment ",
     "walkthrough.step.python.createEnvironment.title2": "Create or select a Python Environment ",
-    "walkthrough.step.python.createEnvironment.description": "Create an environment for your Python project.\n[Create Environment](command:python.createEnvironment)\n**Tip**: Run the ``Python: Create Environment`` command in the [Command Palette](command:workbench.action.showCommands).\n 🔍 Check out our [docs](https://aka.ms/pythonenvs) to learn more.",
+    "walkthrough.step.python.createEnvironment.description": {
+        "message": "Create an environment for your Python project.\n[Create Environment](command:python.createEnvironment)\n**Tip**: Run the ``Python: Create Environment`` command in the [Command Palette](command:workbench.action.showCommands).\n 🔍 Check out our [docs](https://aka.ms/pythonenvs) to learn more.",
+        "comment":  [
+            "{Locked='](command:python.createEnvironment'}",
+            "{Locked='](command:workbench.action.showCommands'}",
+            "Do not translate the 'command:*' part inside of the '(..)'. It is an internal command syntax for VS Code",
+            "Please make sure there is no space between the right bracket and left parenthesis:  ]( this is an internal syntax for links"
+        ]
+    },
     "walkthrough.step.python.createEnvironment.description2": "Create an environment for your Python project or use [Select Python Interpreter](command:python.setInterpreter) to select an existing one.\n[Create Environment](command:python.createEnvironment)\n**Tip**: Run the ``Python: Create Environment`` command in the [Command Palette](command:workbench.action.showCommands).",
     "walkthrough.step.python.runAndDebug.title": "Run and debug your Python file",
     "walkthrough.step.python.runAndDebug.description": "Open your Python file  and click on the play button on the top right of the editor, or press F5 when on the file and select \"Python File\" to run with the debugger. \n  \n[Learn more](https://code.visualstudio.com/docs/python/python-tutorial#_run-hello-world)",
     "walkthrough.step.python.learnMoreWithDS.title": "Explore more resources",
-    "walkthrough.step.python.learnMoreWithDS.description": "🎨 Explore all the features the Python extension has to offer by looking for \"Python\" in the [Command Palette](command:workbench.action.showCommands). \n 📈 Learn more about getting started with [data science](command:workbench.action.openWalkthrough?%7B%22category%22%3A%22ms-python.python%23pythonDataScienceWelcome%22%2C%22step%22%3A%22ms-python.python%23python.createNewNotebook%22%7D) in Python. \n ✨ Take a look at our [Release Notes](https://aka.ms/AA8dxtb) to learn more about the latest features. \n \n[Learn More](https://aka.ms/AA8dqti)",
+    "walkthrough.step.python.learnMoreWithDS.description": {
+        "message":"🎨 Explore all the features the Python extension has to offer by looking for \"Python\" in the [Command Palette](command:workbench.action.showCommands). \n 📈 Learn more about getting started with [data science](command:workbench.action.openWalkthrough?%7B%22category%22%3A%22ms-python.python%23pythonDataScienceWelcome%22%2C%22step%22%3A%22ms-python.python%23python.createNewNotebook%22%7D) in Python. \n ✨ Take a look at our [Release Notes](https://aka.ms/AA8dxtb) to learn more about the latest features. \n \n[Learn More](https://aka.ms/AA8dqti)",
+        "comment":[
+            "{Locked='](command:workbench.action.showCommands'}",
+            "{Locked='](command:workbench.action.openWalkthrough?%7B%22category%22%3A%22ms-python.python%23pythonDataScienceWelcome%22%2C%22step%22%3A%22ms-python.python%23python.createNewNotebook%22%7D'}",
+            "Do not translate the 'command:*' part inside of the '(..)'. It is an internal command syntax for VS Code",
+            "Please make sure there is no space between the right bracket and left parenthesis:  ]( this is an internal syntax for links"
+        ]
+    },
     "walkthrough.step.python.learnMoreWithDS.description2": "🎨 Explore all the features the Python extension has to offer by looking for \"Python\" in the [Command Palette](command:workbench.action.showCommands). \n 📈 Learn more about getting started with [data science](command:workbench.action.openWalkthrough?%7B%22category%22%3A%22ms-python.python%23pythonDataScienceWelcome%22%2C%22step%22%3A%22ms-python.python%23python.createNewNotebook%22%7D) in Python. \n ✨ Take a look at our [Release Notes](https://aka.ms/AA8dxtb) to learn more about the latest features. \n \n[Follow along with the Python Tutorial](https://aka.ms/AA8dqti)",
     "walkthrough.pythonDataScienceWelcome.title": "Get Started with Python for Data Science",
     "walkthrough.pythonDataScienceWelcome.description": "Your first steps to getting started with a Data Science project with Python!",

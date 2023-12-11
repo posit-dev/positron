@@ -5,7 +5,6 @@
 
 import { injectable, unmanaged } from 'inversify';
 import { Terminal } from 'vscode';
-import { traceVerbose } from '../../../logging';
 import { IShellDetector, ShellIdentificationTelemetry, TerminalShellType } from '../types';
 
 /*
@@ -66,7 +65,7 @@ export abstract class BaseShellDetector implements IShellDetector {
 export function identifyShellFromShellPath(shellPath: string): TerminalShellType {
     // Remove .exe extension so shells can be more consistently detected
     // on Windows (including Cygwin).
-    const basePath = shellPath.replace(/\.exe$/, '');
+    const basePath = shellPath.replace(/\.exe$/i, '');
 
     const shell = Array.from(detectableShells.keys()).reduce((matchedShell, shellToDetect) => {
         if (matchedShell === TerminalShellType.other) {
@@ -78,7 +77,5 @@ export function identifyShellFromShellPath(shellPath: string): TerminalShellType
         return matchedShell;
     }, TerminalShellType.other);
 
-    traceVerbose(`Shell path '${shellPath}', base path '${basePath}'`);
-    traceVerbose(`Shell path identified as shell '${shell}'`);
     return shell;
 }
