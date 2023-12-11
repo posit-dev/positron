@@ -8,12 +8,17 @@ import PQueue from 'p-queue';
 
 import { JupyterAdapterApi, JupyterKernelSpec, JupyterLanguageRuntime, JupyterKernelExtra } from './jupyter-adapter';
 import { ArkLsp, LspState } from './lsp';
-import { delay } from './util';
+import { delay, timeout } from './util';
 import { ArkAttachOnStartup, ArkDelayStartup } from './startup';
 import { RHtmlWidget, getResourceRoots } from './htmlwidgets';
-import { getRPackageName } from './contexts';
+import { randomUUID } from 'crypto';
 
 export let lastRuntimePath = '';
+
+interface RPackageInstallation {
+	packageName: string;
+	packageVersion?: string;
+}
 
 /**
  * A Positron language runtime that wraps a Jupyter kernel and a Language Server
@@ -50,6 +55,9 @@ export class RRuntime implements positron.LanguageRuntime, vscode.Disposable {
 
 	/** The current state of the runtime */
 	private _state: positron.RuntimeState = positron.RuntimeState.Uninitialized;
+
+	/** Cache for which packages we know are installed in this runtime **/
+	private _packageCache = new Array<RPackageInstallation>();
 
 	constructor(
 		readonly context: vscode.ExtensionContext,
@@ -289,6 +297,72 @@ export class RRuntime implements positron.LanguageRuntime, vscode.Disposable {
 	 */
 	showOutput() {
 		this._kernel?.showOutput();
+	}
+
+	/**
+	 * Checks whether a package is installed in the runtime.
+	 * @param pkgName The name of the package to check
+	 * @param pkgVersion Optionally, the version of the package needed
+	 * @returns true if the package is installed, false otherwise
+	 */
+
+	async checkInstalled(pkgName: string, pkgVersion?: string): Promise<boolean> {
+		let isInstalled: boolean;
+		// Check the cache first
+		if (this._packageCache.includes({ packageName: pkgName, packageVersion: pkgVersion }) ||
+			(pkgVersion === undefined && this._packageCache.some(p => p.packageName === pkgName))) {
+			return true;
+		}
+		try {
+			if (pkgVersion) {
+				isInstalled = await this.callMethod('is_installed', pkgName, pkgVersion);
+			} else {
+				isInstalled = await this.callMethod('is_installed', pkgName);
+			}
+		} catch (err) {
+			const runtimeError = err as positron.RuntimeMethodError;
+			throw new Error(`Error checking for package ${pkgName}: ${runtimeError.message} ` +
+				`(${runtimeError.code})`);
+		}
+
+		if (!isInstalled) {
+			const install = await positron.window.showSimpleModalDialogPrompt(
+				vscode.l10n.t('Missing R package'),
+				vscode.l10n.t('Package {0} required but not installed.', pkgName),
+				vscode.l10n.t('Install now')
+			);
+			if (install) {
+				const id = randomUUID();
+
+				// A promise that resolves when the runtime is idle:
+				const promise = new Promise<void>(resolve => {
+					const disp = this.onDidReceiveRuntimeMessage(runtimeMessage => {
+						if (runtimeMessage.parent_id === id &&
+							runtimeMessage.type === positron.LanguageRuntimeMessageType.State) {
+							const runtimeMessageState = runtimeMessage as positron.LanguageRuntimeState;
+							if (runtimeMessageState.state === positron.RuntimeOnlineState.Idle) {
+								resolve();
+								disp.dispose();
+							}
+						}
+					});
+				});
+
+				this.execute(`install.packages("${pkgName}")`,
+					id,
+					positron.RuntimeCodeExecutionMode.Interactive,
+					positron.RuntimeErrorBehavior.Continue);
+
+				// Wait for the the runtime to be idle, or for the timeout:
+				await Promise.race([promise, timeout(2e4, 'waiting for package installation')]);
+
+				return true;
+			} else {
+				return false;
+			}
+		}
+		this._packageCache.push({ packageName: pkgName, packageVersion: pkgVersion });
+		return true;
 	}
 
 	private async createKernel(): Promise<JupyterLanguageRuntime> {
