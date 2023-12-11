@@ -227,7 +227,7 @@ class _PositronHTMLDoc(pydoc.HTMLDoc):
         result = "\n".join(lines)
         return result
 
-    def section(  # type: ignore
+    def section(  # type: ignore ReportIncompatibleMethodOverride
         self,
         title: str,
         cls: str,
@@ -236,7 +236,7 @@ class _PositronHTMLDoc(pydoc.HTMLDoc):
         prelude="",
         marginalia=None,
         gap=None,
-    ) -> str:  # type: ignore ReportIncompatibleMethodOverride
+    ) -> str:
         """Format a section with a heading."""
         # Simplified version of pydoc.HTMLDoc.section that doesn't use tables
         if width is not None:
