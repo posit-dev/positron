@@ -66,7 +66,7 @@ export const TopActionBarInterpretersManager = (props: TopActionBarInterpretersM
 		ref.current.setAttribute('aria-expanded', 'true');
 		showInterpretersManagerModalPopup(
 			positronTopActionBarContext.languageRuntimeService,
-			positronTopActionBarContext.layoutService.container,
+			positronTopActionBarContext.layoutService.mainContainer,
 			ref.current,
 			props.onStartRuntime,
 			props.onActivateRuntime
