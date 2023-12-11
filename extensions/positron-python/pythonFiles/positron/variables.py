@@ -7,11 +7,10 @@ import enum
 import logging
 import types
 from collections.abc import Iterable, Mapping
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set
+from dataclasses import asdict, dataclass, field
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set, Union
 
 from comm.base_comm import BaseComm
-
-from ._pydantic_compat import BaseModel, Field, validator
 
 from .dataviewer import DataViewerService
 from .inspectors import MAX_ITEMS, decode_access_key, get_inspector
@@ -126,7 +125,8 @@ class ClipboardFormat(str, enum.Enum):
     plain = "text/plain"
 
 
-class Variable(BaseModel):
+@dataclass
+class Variable:
     """
     Represents a variable in a language runtime -- a value with a named identifier, not a system
     environment variable.
@@ -134,83 +134,89 @@ class Variable(BaseModel):
     This is the raw data format used to communicate with the language runtime.
     """
 
-    access_key: Optional[str] = Field(
+    display_name: str = field(
+        metadata={"description": "The name of the variable, formatted for display"}
+    )
+
+    display_value: Any = field(
+        metadata={
+            "description": "A string representation of the variable's value formatted for display, possibly truncated"
+        }
+    )
+
+    access_key: Optional[str] = field(
         default=None,
-        description="A key that uniquely identifies the variable and can be used to access the variable in `inspect` requests",
+        metadata={
+            "description": "A key that uniquely identifies the variable and can be used to access the variable in `inspect` requests"
+        },
     )
 
-    display_name: str = Field(description="The name of the variable, formatted for display")
-
-    display_value: Any = Field(
-        description="A string representation of the variable's value formatted for display, possibly truncated"
+    display_type: Optional[str] = field(
+        default=None, metadata={"description": "The variable's type, formatted for display"}
     )
 
-    display_type: Optional[str] = Field(
-        default=None, description="The variable's type, formatted for display"
+    type_info: Optional[str] = field(
+        default=None, metadata={"description": "Extended information about the variable's type"}
     )
 
-    type_info: Optional[str] = Field(
-        default=None, description="Extended information about the variable's type"
-    )
-
-    kind: VariableValueKind = Field(
+    kind: VariableValueKind = field(
         default=VariableValueKind.other,
-        description="The kind of value the variable represents, such as 'string' or 'number'",
+        metadata={
+            "description": "The kind of value the variable represents, such as 'string' or 'number'"
+        },
     )
 
-    length: int = Field(
-        default=0, description="The number of elements in the variable's value, if applicable"
+    length: int = field(
+        default=0,
+        metadata={"description": "The number of elements in the variable's value, if applicable"},
     )
 
-    size: Optional[int] = Field(
-        default=None, description="The size of the variable's value, in bytes"
+    size: Optional[int] = field(
+        default=None, metadata={"description": "The size of the variable's value, in bytes"}
     )
 
-    has_children: bool = Field(
-        default=False, description="True if the variable contains other variables"
+    has_children: bool = field(
+        default=False, metadata={"description": "True if the variable contains other variables"}
     )
 
-    has_viewer: bool = Field(
+    has_viewer: bool = field(
         default=False,
-        description="""True if there is a viewer available for the variable (i.e. the runtime
-can handle a 'view' message for the variable)""",
+        metadata={
+            "description": """True if there is a viewer available for the variable (i.e. the runtime
+can handle a 'view' message for the variable)"""
+        },
     )
 
-    is_truncated: bool = Field(
-        default=False, description="True if the 'value' field was truncated to fit in the message"
+    is_truncated: bool = field(
+        default=False,
+        metadata={"description": "True if the 'value' field was truncated to fit in the message"},
     )
 
 
-class VariablesMessageOutput(BaseModel):
-    """
-    A message used to receive data from the language runtime client.
-    """
-
-    msg_type: VariablesMessageTypeOutput
-
-    class Config:
-        fields = {"msg_type": {"const": True}}
-
-
-class VariablesMessageList(VariablesMessageOutput):
+@dataclass
+class VariablesMessageList:
     """
     A list of all the variables and their values.
     """
 
-    variables: List[Variable] = Field(description="The list of variables")
-    length: Optional[int] = Field(
-        default=None,
-        description="""The total number of variables known to the runtime. This may be greater
-than the number of variables in the list if the list was truncated.""",
-    )
     msg_type: VariablesMessageTypeOutput = VariablesMessageTypeOutput.list
+    variables: List[Variable] = field(
+        default_factory=list, metadata={"description": "The list of variables"}
+    )
+    length: Optional[int] = field(
+        default=None,
+        metadata={
+            "description": """The total number of variables known to the runtime. This may be greater
+than the number of variables in the list if the list was truncated."""
+        },
+    )
 
-    @validator("length", always=True)
-    def default_length(cls, length: Optional[int], values: Dict[str, Any]) -> int:
-        return len(values["variables"]) if length is None else length
+    def __post_init__(self) -> int | None:
+        return self.length or setattr(self, "length", len(self.variables))
 
 
-class VariablesMessageFormattedVariable(VariablesMessageOutput):
+@dataclass
+class VariablesMessageFormattedVariable:
     """
     Summarize the variable in a text format suitable for copy and paste operations
     """
@@ -220,26 +226,32 @@ class VariablesMessageFormattedVariable(VariablesMessageOutput):
     msg_type: VariablesMessageTypeOutput = VariablesMessageTypeOutput.formatted_variable
 
 
-class VariablesMessageDetails(VariablesMessageOutput):
+@dataclass
+class VariablesMessageDetails:
     """
     The details (children) of a specific variable.
     """
 
-    path: List[str] = Field(description="The list of child variables")
-    children: List[Variable]
-    length: Optional[int] = Field(
-        default=None,
-        description="""The total number of child variables. This may be greater than the number
-of variables in the list if the list was truncated.""",
-    )
     msg_type: VariablesMessageTypeOutput = VariablesMessageTypeOutput.details
 
-    @validator("length", always=True)
-    def default_length(cls, length: Optional[int], values: Dict[str, Any]) -> int:
-        return len(values["children"]) if length is None else length
+    path: List[str] = field(
+        default_factory=list, metadata={"description": "The list of child variables"}
+    )
+    children: List[Variable] = field(default_factory=list)
+    length: Optional[int] = field(
+        default=None,
+        metadata={
+            "description": """The total number of child variables. This may be greater than the number
+of variables in the list if the list was truncated."""
+        },
+    )
+
+    def __post_init__(self) -> int | None:
+        return self.length or setattr(self, "length", len(self.children))
 
 
-class VariablesMessageUpdate(VariablesMessageOutput):
+@dataclass
+class VariablesMessageUpdate:
     """
     A partial update indicating the set of changes that have occurred since the
     last update or list event.
@@ -250,7 +262,8 @@ class VariablesMessageUpdate(VariablesMessageOutput):
     msg_type: VariablesMessageTypeOutput = VariablesMessageTypeOutput.update
 
 
-class VariablesMessageError(VariablesMessageOutput):
+@dataclass
+class VariablesMessageError:
     """
     Message 'error' type is used to report a problem to the client.
     """
@@ -363,7 +376,16 @@ class VariablesService:
 
     # -- Private Methods --
 
-    def _send_message(self, msg: VariablesMessageOutput) -> None:
+    def _send_message(
+        self,
+        msg: Union[
+            VariablesMessageDetails,
+            VariablesMessageError,
+            VariablesMessageFormattedVariable,
+            VariablesMessageList,
+            VariablesMessageUpdate,
+        ],
+    ) -> None:
         """
         Send a message through the variables comm to the client.
         """
@@ -371,7 +393,7 @@ class VariablesService:
             logger.warning("Cannot send message, variables comm is not open")
             return
 
-        msg_dict = msg.dict()
+        msg_dict = asdict(msg)
         self._comm.send(msg_dict)
 
     def _send_error(self, error_message: str) -> None:

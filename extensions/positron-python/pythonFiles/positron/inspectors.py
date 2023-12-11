@@ -617,11 +617,8 @@ class _BaseColumnInspector(_BaseMapInspector[Column], ABC):
         return (display_value, True)
 
     def to_data_column(self, value: Column, name: str) -> DataColumn:
-        # Use BaseModel.construct to avoid validation due to performance issues.
-        # TODO: Revisit __init__ and the new SkipValidation type when we upgrade to pydantic 2.0
-        # since the performance gap has been considerably reduced.
         type_name = type(value).__name__
-        return DataColumn.construct(name=name, type=type_name, data=value.to_list())
+        return DataColumn(name=name, type=type_name, data=value.to_list())
 
 
 class PandasSeriesInspector(_BaseColumnInspector["pd.Series"]):

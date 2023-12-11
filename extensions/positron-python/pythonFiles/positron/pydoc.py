@@ -14,6 +14,7 @@ import pydoc
 import re
 import sys
 import warnings
+from dataclasses import dataclass
 from functools import partial
 from pydoc import _is_bound_method  # type: ignore
 from pydoc import Helper, ModuleScanner, describe, isdata, locate, visiblename
@@ -26,7 +27,6 @@ from pygments import highlight
 from pygments.formatters.html import HtmlFormatter
 from pygments.lexers import get_lexer_by_name
 
-from ._pydantic_compat import BaseModel  # type: ignore
 from .docstrings import convert_docstring
 from .utils import get_module_name, is_numpy_ufunc
 
@@ -179,7 +179,8 @@ def _tabulate_attrs(attrs: List[_Attr], cls_name: Optional[str] = None) -> List[
     return result
 
 
-class _Attr(BaseModel):
+@dataclass
+class _Attr:
     name: str
     cls: Any
     value: Any

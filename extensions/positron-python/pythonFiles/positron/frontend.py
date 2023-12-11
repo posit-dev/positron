@@ -3,48 +3,54 @@
 #
 
 import logging
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Optional
+from typing import Any, Dict, Mapping, Optional
 
 from comm.base_comm import BaseComm
-from ._pydantic_compat import BaseModel, Field
 
 logger = logging.getLogger(__name__)
 
 
-class BaseFrontendEvent(BaseModel):
+@dataclass
+class BaseFrontendEvent:
     """
     Event submitted to the `FrontendService`.
     """
 
-    name: str
-
-    class Config:
-        fields = {"name": {"const": True, "exclude": True, "description": "Name of the event."}}
+    name: str = field(metadata={"include_in_dict": False})
 
 
-class WorkingDirectoryEvent(BaseFrontendEvent):
+@dataclass
+class _WorkingDirectoryBase:
+    directory: str
+
+
+@dataclass
+class WorkingDirectoryEvent(BaseFrontendEvent, _WorkingDirectoryBase):
     """
     Change the displayed working directory for the interpreter.
     """
 
-    directory: str = Field(description="The new working directory.")
+    directory: str = field(metadata={"description": "The new working directory."})
 
     name: str = "working_directory"
 
 
-class FrontendMessage(BaseModel):
+@dataclass
+class FrontendMessage:
     """
     Message sent over the Positron frontend comm channel.
     """
 
+    name: str = field(metadata={"description": "Name of the event"})
+    data: Dict[str, Any]
     msg_type: str = "event"
-    name: str = Field(description="Name of the event")
-    data: BaseFrontendEvent
 
     @classmethod
     def from_event(cls, event: BaseFrontendEvent) -> "FrontendMessage":
-        return cls(name=event.name, data=event)
+        data = asdict(event)
+        return cls(name=data.pop("name"), data=data)
 
 
 class FrontendService:
@@ -103,12 +109,13 @@ class FrontendService:
             except Exception:
                 pass
 
-    def send_event(self, event: BaseFrontendEvent) -> None:
+    def send_event(self, event) -> None:
         if self._comm is None:
             logger.warning("Cannot send message, frontend comm is not open")
             return
 
         # Convert the event to a message that the client understands and send it over the comm
-        msg = FrontendMessage.from_event(event).dict()
+        msg = asdict(FrontendMessage.from_event(event))
+
         logger.debug(msg)
         self._comm.send(msg)

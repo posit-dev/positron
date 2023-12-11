@@ -14,6 +14,7 @@ import random
 import string
 import sys
 import types
+from dataclasses import asdict
 from typing import Any, Callable, Iterable, List, Optional, Set, Tuple, Type, TypeVar, cast
 
 import comm
@@ -24,17 +25,11 @@ import pytest
 import torch
 from fastcore.foundation import L
 from IPython.terminal.interactiveshell import TerminalInteractiveShell
-from positron import (
-    PRINT_WIDTH,
-    TRUNCATE_AT,
-    VariablesService,
-    Variable,
-    VariableValueKind,
-)
-from positron.variables import _summarize_variable
+from positron import PRINT_WIDTH, TRUNCATE_AT, Variable, VariablesService, VariableValueKind
 from positron.inspectors import decode_access_key, encode_access_key, get_inspector
 from positron.positron_ipkernel import PositronIPyKernel
 from positron.utils import get_qualname
+from positron.variables import _summarize_variable
 
 from .conftest import DummyComm
 
@@ -85,15 +80,15 @@ def variables_comm(variables_service: VariablesService) -> DummyComm:
 # - size: since it depends on platform, Python version, and library versions.
 # - access_key: since we test it independently from summarizing variables and don't want
 #               to have to change all tests when we change the access_key format.
-def assert_variable_equal(
-    result: Optional[Variable],
-    expected: Variable,
-    exclude: Set[str] = {"size", "access_key"},
-) -> None:
+def assert_variable_equal(result: Optional[Variable], expected: Variable) -> None:
     assert result is not None
 
-    result_dict = result.dict(exclude=exclude)
-    expected_dict = expected.dict(exclude=exclude)
+    result_dict = asdict(result)
+    expected_dict = asdict(expected)
+
+    exclude = ["size", "access_key"]
+    [result_dict.pop(key) for key in exclude]
+    [expected_dict.pop(key) for key in exclude]
 
     assert result_dict == expected_dict
 
@@ -1028,7 +1023,7 @@ def test_change_detection(
                 "data": {
                     "msg_type": "update",
                     "assigned": [
-                        not_none(_summarize_variable("x", shell.user_ns["x"])).dict(),
+                        asdict(not_none(_summarize_variable("x", shell.user_ns["x"]))),
                     ],
                     "removed": set(),
                 },
@@ -1054,7 +1049,7 @@ def test_handle_refresh(shell: TerminalInteractiveShell, variables_comm: DummyCo
             "data": {
                 "msg_type": "list",
                 "variables": [
-                    not_none(_summarize_variable("x", shell.user_ns["x"])).dict(),
+                    asdict(not_none(_summarize_variable("x", shell.user_ns["x"]))),
                 ],
                 "length": 1,
             },
@@ -1157,13 +1152,12 @@ def test_handle_inspect_2d(
 
         inspector = get_inspector(x[key])
         children = inspector.summarize_children(x[key], _summarize_variable)
-
         assert variables_comm.messages == [
             {
                 "data": {
                     "msg_type": "details",
                     "path": path,
-                    "children": children,
+                    "children": [asdict(child) for child in children],
                     "length": len(children),
                 },
                 "metadata": None,
@@ -1271,7 +1265,7 @@ def test_handle_view(
     dataset = dataviewer_service.datasets[id]
 
     # Check the dataset
-    assert dataset == {
+    assert asdict(dataset) == {
         "id": id,
         "title": "x",
         "columns": [{"name": "a", "type": "Series", "data": [0]}],

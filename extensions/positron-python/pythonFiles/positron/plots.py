@@ -6,13 +6,12 @@ import codecs
 import logging
 import pickle
 import uuid
-from typing import Dict, List, Literal, Optional, Tuple, cast
+from dataclasses import asdict, dataclass, field
+from typing import Any, Dict, List, Literal, Optional, Tuple, cast
 
 import comm
 from IPython.core.formatters import DisplayFormatter
 from IPython.core.interactiveshell import InteractiveShell
-
-from ._pydantic_compat import BaseModel, Field, ValidationError
 
 logger = logging.getLogger(__name__)
 
@@ -21,71 +20,72 @@ logger = logging.getLogger(__name__)
 #     src/vs/workbench/services/languageRuntime/common/languageRuntimePlotClient.ts
 
 
-class PlotClientMessageRender(BaseModel):
+@dataclass
+class PlotClientMessageRender:
     """
     A message used to request that a plot render at a specific size.
     """
 
-    width: Optional[int] = Field(description="The width of the plot, in logical pixels")
-    height: Optional[int] = Field(description="The height of the plot, in logical pixels")
-    pixel_ratio: Optional[float] = Field(
-        description="""The pixel ratio of the display device; typically 1 for standard displays,
-2 for retina/high DPI displays, etc."""
+    width: Optional[int] = field(
+        metadata={"description": "The width of the plot, in logical pixels"}, default=None
     )
-    msg_type: Literal["render"]
+    height: Optional[int] = field(
+        metadata={"description": "The height of the plot, in logical pixels"}, default=None
+    )
+    pixel_ratio: Optional[float] = field(
+        metadata={
+            "description": """The pixel ratio of the display device; typically 1 for standard displays,
+2 for retina/high DPI displays, etc."""
+        },
+        default=None,
+    )
+    msg_type: Literal["render"] = "render"
 
 
-class LanguageRuntimeCommMessage(BaseModel):
+@dataclass
+class LanguageRuntimeCommMessage:
     """
     A message used to send data to the language runtime plot client.
     """
 
-    comm_id: str = Field(
-        description="The unique ID of the client comm ID for which the message is intended"
+    comm_id: str = field(
+        metadata={
+            "description": "The unique ID of the client comm ID for which the message is intended"
+        }
     )
     # NOTE: When we add more data types, we'll need to use a `Union` and `Field(discriminator='msg_type')`
-    data: PlotClientMessageRender = Field(description="The data from the back-end")
+    data: Dict[str, Any] = field(metadata={"description": "The data from the back-end"})
 
 
-class PlotClientMessageOutput(BaseModel):
-    """
-    A message used to receive data from the language runtime plot client.
-    """
-
-    msg_type: str
-
-    class Config:
-        fields = {
-            "msg_type": {
-                # If the unserialized message provides a `msg_type`, it must match the default value.
-                "const": True,
-            }
-        }
-
-
-class PlotClientMessageImage(PlotClientMessageOutput):
+@dataclass
+class PlotClientMessageImage:
     """
     A message used to send rendered plot output.
     """
 
-    data: str = Field(
-        description="""The data for the plot image, as a base64-encoded string. We need
+    data: str = field(
+        metadata={
+            "description": """The data for the plot image, as a base64-encoded string. We need
 to send the plot data as a string because the underlying image file
 exists only on the machine running the language runtime process."""
+        }
     )
-    mime_type: str = Field(
-        description="""The MIME type of the image data, e.g. `image/png`. This is used to
+    mime_type: str = field(
+        metadata={
+            "description": """The MIME type of the image data, e.g. `image/png`. This is used to
 determine how to display the image in the UI."""
+        }
     )
     msg_type: str = "image"
 
 
-class PlotClientMessageError(PlotClientMessageOutput):
+@dataclass
+class PlotClientMessageError:
     """
     A message used to send an error message.
     """
 
-    message: str = Field(description="The error message")
+    message: str = field(metadata={"description": "The error message"})
     msg_type: str = "error"
 
 
@@ -144,12 +144,16 @@ class PositronDisplayPublisherHook:
         """
         try:
             msg = LanguageRuntimeCommMessage(**raw_msg["content"])
-        except ValidationError as exception:
+        except TypeError as exception:
             logger.warning(f"Ignoring invalid plot client message input: {exception}")
             return
 
         comm_id = msg.comm_id
         data = msg.data
+        try:
+            data = PlotClientMessageRender(**data)
+        except TypeError:
+            pass
 
         if isinstance(data, PlotClientMessageRender):
             figure_comm = self.comms.get(comm_id, None)
@@ -159,7 +163,7 @@ class PositronDisplayPublisherHook:
 
             pickled = self.figures.get(comm_id, None)
             if pickled is None:
-                output = PlotClientMessageError(message=f"Figure {comm_id} not found").dict()
+                output = asdict(PlotClientMessageError(message=f"Figure {comm_id} not found"))
                 figure_comm.send(output)
                 return
 
@@ -172,7 +176,7 @@ class PositronDisplayPublisherHook:
                     pickled, width_px, height_px, pixel_ratio
                 )
                 data = format_dict["image/png"]
-                output = PlotClientMessageImage(data=data, mime_type="image/png").dict()
+                output = asdict(PlotClientMessageImage(data=data, mime_type="image/png"))
                 figure_comm.send(data=output, metadata=md_dict)
 
     def shutdown(self) -> None:

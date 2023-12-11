@@ -5,42 +5,47 @@
 import enum
 import logging
 import uuid
+from dataclasses import asdict, dataclass, field
 from typing import Any, Dict, List
 
 import comm
 
-from ._pydantic_compat import BaseModel, Field, NonNegativeInt
 from .utils import json_clean
 
 logger = logging.getLogger(__name__)
 
 
-class DataColumn(BaseModel):
+@dataclass
+class DataColumn:
     """
     A single column of data. The viewer deals with data in columnar format since
     that best matches the way data is stored in most data sources.
     """
 
-    name: str = Field(description="The name of the column")
-    type: str = Field(description="The data type of the column")
-    # TODO: Consider using List[SkipValidation[Any]] when we upgrade to pydantic 2.0. We currently
-    # aren't validating anything due to performance reasons but probably only need to skip `data`.
-    data: List[Any] = Field(description="The data in the column")
+    name: str = field(metadata={"description": "The name of the column"})
+    type: str = field(metadata={"description": "The data type of the column"})
+    data: List[Any] = field(
+        default_factory=list, metadata={"description": "The data in the column"}
+    )
 
 
-class DataSet(BaseModel):
+@dataclass
+class DataSet:
     """
     A data set that can be displayed in the data viewer.
     """
 
-    id: str = Field(description="The unique ID of the dataset")
-    title: str = Field(
+    id: str = field(metadata={"description": "The unique ID of the dataset"})
+    title: str = field(
         default="Data",
-        description="The title of the dataset, to be displayed in the viewer",
+        metadata={"description": "The title of the dataset, to be displayed in the viewer"},
     )
-    columns: List[DataColumn] = Field(default=[], description="The columns of data in the dataset")
-    rowCount: NonNegativeInt = Field(
-        default=0, description="The total number of rows in the dataset"
+    columns: List[DataColumn] = field(
+        default_factory=list,
+        metadata={"description": "The columns of data in the dataset"},
+    )
+    rowCount: int = field(
+        default=0, metadata={"description": "The total number of rows in the dataset"}
     )
 
     def _slice_data(self, start: int, size: int) -> List[DataColumn]:
@@ -93,7 +98,8 @@ class DataViewerMessageTypeOutput(str, enum.Enum):
     error = "error"
 
 
-class DataViewerMessageOutput(BaseModel):
+@dataclass
+class DataViewerMessageOutput:
     """
     A message sent from the language runtime to the data viewer client.
     """
@@ -101,39 +107,47 @@ class DataViewerMessageOutput(BaseModel):
     msg_type: DataViewerMessageTypeOutput
 
 
-class DataViewerMessageError(DataViewerMessageOutput):
+@dataclass
+class _DataViewerMessageError:
+    error: str
+
+
+@dataclass
+class DataViewerMessageError(DataViewerMessageOutput, _DataViewerMessageError):
     msg_type: DataViewerMessageTypeOutput = DataViewerMessageTypeOutput.error
-    error: str = Field(description="The error message")
-
-    class Config:
-        fields = {"msg_type": {"const": True}}
+    error: str = field(metadata={"description": "The error message"})
 
 
-class DataViewerMessageInitialData(DataViewerMessageOutput):
+@dataclass
+class _DataViewerMessageData:
+    data: DataSet
+
+
+@dataclass
+class DataViewerMessageInitialData(DataViewerMessageOutput, _DataViewerMessageData):
+    data: DataSet = field(metadata={"description": "The data to be rendered"})
     msg_type: DataViewerMessageTypeOutput = DataViewerMessageTypeOutput.initial_data
 
     # For initial data, the start row should always be 0
-    start_row: NonNegativeInt = Field(
-        default=0, description="The index of the first row in the batch"
+    start_row: int = field(
+        default=0, metadata={"description": "The index of the first row in the batch"}
     )
-    fetch_size: NonNegativeInt = Field(default=100, description="The number of rows in the batch")
-    data: DataSet = Field(description="The data to be rendered")
-
-    class Config:
-        fields = {"msg_type": {"const": True}, "start_row": {"const": True}}
+    fetch_size: int = field(
+        default=100, metadata={"description": "The number of rows in the batch"}
+    )
 
 
-class DataViewerMessageReceiveRows(DataViewerMessageOutput):
+@dataclass
+class DataViewerMessageReceiveRows(DataViewerMessageOutput, _DataViewerMessageData):
+    data: DataSet = field(metadata={"description": "The data to be rendered"})
     msg_type: DataViewerMessageTypeOutput = DataViewerMessageTypeOutput.receive_rows
 
-    start_row: NonNegativeInt = Field(
-        default=0, description="The index of the first row in the batch"
+    start_row: int = field(
+        default=0, metadata={"description": "The index of the first row in the batch"}
     )
-    fetch_size: NonNegativeInt = Field(default=100, description="The number of rows in the batch")
-    data: DataSet = Field(description="The data to be rendered")
-
-    class Config:
-        fields = {"msg_type": {"const": True}}
+    fetch_size: int = field(
+        default=100, metadata={"description": "The number of rows in the batch"}
+    )
 
 
 class DataViewerService:
@@ -202,8 +216,8 @@ class DataViewerService:
 
     def send_data(
         self,
-        start_row: NonNegativeInt,
-        fetch_size: NonNegativeInt,
+        start_row: int,
+        fetch_size: int,
         response_type: DataViewerMessageTypeOutput,
         dataset: DataSet,
         comm: comm.base_comm.BaseComm,
@@ -246,7 +260,7 @@ class DataViewerService:
         """
         Send a message through the data viewer comm to the client.
         """
-        msg_dict = json_clean(msg.dict())
+        msg_dict = json_clean(asdict(msg))
         comm.send(msg_dict)  # type: ignore
 
     def _send_error(self, error_message: str, comm: comm.base_comm.BaseComm) -> None:
