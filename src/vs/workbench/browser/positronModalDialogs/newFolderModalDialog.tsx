@@ -44,7 +44,8 @@ export const showNewFolderModalDialog = async (accessor: ServicesAccessor): Prom
 	// Return a promise that resolves when the dialog is done.
 	return new Promise<NewFolderResult | undefined>((resolve) => {
 		// Create the modal dialog React renderer.
-		const positronModalDialogReactRenderer = new PositronModalDialogReactRenderer(layoutService.container);
+		const positronModalDialogReactRenderer =
+			new PositronModalDialogReactRenderer(layoutService.mainContainer);
 
 		// The new folder modal dialog component.
 		const NewFolderModalDialog = () => {

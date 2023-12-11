@@ -245,6 +245,9 @@ import 'vs/workbench/contrib/markers/browser/markers.contribution';
 // Merge Editor
 import 'vs/workbench/contrib/mergeEditor/browser/mergeEditor.contribution';
 
+// Multi Diff Editor
+import 'vs/workbench/contrib/multiDiffEditor/browser/multiDiffEditor.contribution';
+
 // Mapped Edits
 import 'vs/workbench/contrib/mappedEdits/common/mappedEdits.contribution';
 
@@ -414,6 +417,8 @@ import 'vs/workbench/contrib/accountEntitlements/browser/accountsEntitlements.co
 // Contributions
 import 'vs/workbench/contrib/positronConsole/browser/positronConsole.contribution';
 import 'vs/workbench/contrib/positronConsole/browser/positronConsoleView';
+import 'vs/workbench/contrib/positronDataTool/browser/positronDataTool.contribution';
+import 'vs/workbench/contrib/positronDataTool/browser/positronDataToolEditor';
 import 'vs/workbench/contrib/languageRuntime/browser/languageRuntime.contribution';
 import 'vs/workbench/contrib/executionHistory/common/executionHistory';
 

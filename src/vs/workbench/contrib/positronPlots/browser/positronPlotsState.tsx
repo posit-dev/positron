@@ -5,6 +5,7 @@
 import { useEffect, useState } from 'react';
 import { DisposableStore } from 'vs/base/common/lifecycle';
 import { INotificationService } from 'vs/platform/notification/common/notification';
+import { PositronActionBarServices } from 'vs/platform/positronActionBar/browser/positronActionBarState';
 import { PlotClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimePlotClient';
 import { ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { IPositronPlotClient, IPositronPlotsService } from 'vs/workbench/services/positronPlots/common/positronPlots';
@@ -12,7 +13,7 @@ import { IPositronPlotClient, IPositronPlotsService } from 'vs/workbench/service
 /**
  * PositronPlotsServices interface. Defines the set of services that are required by the Positron plots.
  */
-export interface PositronPlotsServices {
+export interface PositronPlotsServices extends PositronActionBarServices {
 	readonly languageRuntimeService: ILanguageRuntimeService;
 	readonly positronPlotsService: IPositronPlotsService;
 	readonly notificationService: INotificationService;

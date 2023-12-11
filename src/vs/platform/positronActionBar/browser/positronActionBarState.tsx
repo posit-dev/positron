@@ -18,7 +18,8 @@ import { ContextKeyExpression, IContextKeyService } from 'vs/platform/contextkey
 const kTooltipReset = 500;
 
 /**
- * PositronActionBarServices interface. Defines the set of services that are required by a Positron action bar.
+ * PositronActionBarServices interface. Defines the set of services that are required by a Positron
+ * action bar.
  */
 export interface PositronActionBarServices {
 	commandService: ICommandService;
@@ -57,7 +58,9 @@ export interface PositronActionBarState extends PositronActionBarServices {
  * @param services A PositronActionBarServices that contains the Positron action bar services.
  * @returns The hook.
  */
-export const usePositronActionBarState = (services: PositronActionBarServices): PositronActionBarState => {
+export const usePositronActionBarState = (
+	services: PositronActionBarServices
+): PositronActionBarState => {
 	// Hooks.
 	const [lastTooltipHiddenAt, setLastTooltipHiddenAt] = useState<number>(0);
 	const [menuShowing, setMenuShowing] = useState(false);
@@ -76,8 +79,13 @@ export const usePositronActionBarState = (services: PositronActionBarServices): 
 		// and push it to the actions.
 		if (commandInfo && services.contextKeyService.contextMatchesRules(commandAction.when)) {
 			// Determine whether the command action will be enabled and set the label to use.
-			const enabled = !commandInfo.precondition || services.contextKeyService.contextMatchesRules(commandInfo.precondition);
-			const label = commandAction.label || (typeof (commandInfo.title) === 'string' ? commandInfo.title : commandInfo.title.value);
+			const enabled = !commandInfo.precondition ||
+				services.contextKeyService.contextMatchesRules(commandInfo.precondition);
+			const label = commandAction.label ||
+				(typeof (commandInfo.title) === 'string' ?
+					commandInfo.title :
+					commandInfo.title.value
+				);
 
 			// Append the separator.
 			if (commandAction.separator) {
@@ -85,9 +93,14 @@ export const usePositronActionBarState = (services: PositronActionBarServices): 
 			}
 
 			// Create the command action and push it.
-			actions.push(new Action(commandAction.id, unmnemonicLabel(label), undefined, enabled, () => {
-				services.commandService.executeCommand(commandAction.id);
-			}));
+			actions.push(new Action(
+				commandAction.id,
+				unmnemonicLabel(label),
+				undefined,
+				enabled, () => {
+					services.commandService.executeCommand(commandAction.id);
+				}
+			));
 		}
 	};
 

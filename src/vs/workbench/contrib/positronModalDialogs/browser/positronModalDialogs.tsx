@@ -35,7 +35,7 @@ export class PositronModalDialogs implements IPositronModalDialogsService {
 		// Return a promise that resolves when the example modal dialog is done.
 		return new Promise<void>((resolve) => {
 			// Create the modal dialog React renderer.
-			const positronModalDialogReactRenderer = new PositronModalDialogReactRenderer(this.layoutService.container);
+			const positronModalDialogReactRenderer = new PositronModalDialogReactRenderer(this.layoutService.mainContainer);
 
 			// The accept handler.
 			const acceptHandler = () => {
@@ -67,7 +67,7 @@ export class PositronModalDialogs implements IPositronModalDialogsService {
 	async showExampleModalDialog2(title: string): Promise<boolean> {
 		return new Promise<boolean>((resolve) => {
 			// Create the modal dialog React renderer.
-			const positronModalDialogReactRenderer = new PositronModalDialogReactRenderer(this.layoutService.container);
+			const positronModalDialogReactRenderer = new PositronModalDialogReactRenderer(this.layoutService.mainContainer);
 
 			// The accept handler.
 			const acceptHandler = () => {
@@ -115,7 +115,7 @@ export class PositronModalDialogs implements IPositronModalDialogsService {
 		cancelButtonTitle?: string): IModalDialogPromptInstance {
 
 		const positronModalDialogReactRenderer =
-			new PositronModalDialogReactRenderer(this.layoutService.container);
+			new PositronModalDialogReactRenderer(this.layoutService.mainContainer);
 
 		// Single-shot emitter for the user's choice.
 		const choiceEmitter = new Emitter<boolean>();
