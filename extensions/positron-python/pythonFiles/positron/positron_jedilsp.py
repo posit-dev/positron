@@ -7,12 +7,12 @@ import os
 import re
 import sys
 import threading
+from functools import lru_cache
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Type, Union, cast
 
 # Add the lib path to our sys path so jedi_language_server can find its references
 EXTENSION_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(EXTENSION_ROOT, "pythonFiles", "lib", "jedilsp"))
-
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Type, Union, cast
 
 import attrs
 from comm.base_comm import BaseComm
@@ -122,7 +122,8 @@ class HelpTopicRequest:
 
 
 class PositronJediLanguageServerProtocol(JediLanguageServerProtocol):
-    def get_message_type(self, method: str) -> Optional[Type]:  # type: ignore
+    @lru_cache()
+    def get_message_type(self, method: str) -> Optional[Type]:
         # Overriden to include custom Positron LSP messages.
         # Doing so ensures that the corresponding feature function receives `params` of the correct type.
         if method == _HELP_TOPIC:
@@ -133,11 +134,11 @@ class PositronJediLanguageServerProtocol(JediLanguageServerProtocol):
 class PositronJediLanguageServer(JediLanguageServer):
     """Positron extension to the Jedi language server."""
 
+    loop: asyncio.AbstractEventLoop
+    lsp: PositronJediLanguageServerProtocol  # type: ignore reportIncompatibleVariableOverride
+
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
-
-        self.loop: asyncio.AbstractEventLoop
-        self.lsp: PositronJediLanguageServerProtocol  # type: ignore reportIncompatibleVariableOverride
 
         # LSP comm used to notify the frontend when the server is ready
         self._comm: Optional[BaseComm] = None
@@ -362,8 +363,9 @@ def positron_completion(
         # - or if the trimmed line has additional whitespace characters e.g `if <cursor>`
         has_whitespace = " " in trimmed_line
         if server.kernel is not None and not (is_completing_attribute or has_whitespace):
-            # Cast type from traitlets.Dict to typing.Dict
-            magic_commands = cast(Dict[str, Any], server.kernel.shell.magics_manager.lsmagic())
+            magic_commands = cast(
+                Dict[str, Dict[str, Callable]], server.kernel.shell.magics_manager.lsmagic()
+            )
 
             chars_before_cursor = trimmed_line[: params.position.character]
 
