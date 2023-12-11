@@ -49,11 +49,15 @@ class FormatterProvider implements vscode.DocumentFormattingEditProvider {
 		range?: vscode.Range
 	): Promise<vscode.TextEdit[]> {
 		if (!lastRuntimePath) {
-			throw new Error(`No running R runtime to provide R package tasks.`);
+			throw new Error(`No running R runtime to provide R formatter.`);
 		}
 
 		const runtime = await getRunningRRuntime(runtimes);
 		const id = randomUUID();
+		const isInstalled = await runtime.checkInstalled('styler');
+		if (!isInstalled) {
+			return [];
+		}
 
 		// We can only use styler on files right now, so write the document to a temp file
 		const originalSource = document.getText(range);
