@@ -214,56 +214,6 @@ export class RuntimeClientAdapter {
 		return out.promise;
 	}
 
-	async replyRpc(id: string, data: any): Promise<void> {
-		// If no method field this must be an RPC reply. In that case,
-		// fulfill the RPC instead of emitting the message.
-		const promise = this._pendingRpcs.get(id)!;
-		if (promise.settled) {
-			// If the promise is already settled in some way (resolved or
-			// rejected) we can't do anything with it, so just log a
-			// warning.
-			console.warn(`Ignoring RPC response for ${id}; ` +
-					`RPC already settled (timed out?)`);
-		} else {
-			// Otherwise, resolve the promise with the message data.
-			promise.resolve(data);
-		}
-
-		// Remove the RPC from the pending list
-		this._pendingRpcs.delete(id);
-	}
-
-	/**
-	 * Perform a reverse RPC call over the comm channel.
-	 */
-	async callFrontendMethod(request_id: string, method: string, params: any): Promise<any> {
-		const msg_id = uuidv4();
-		try {
-			let result = await positron.methods.call(method, params)
-
-			const response = {
-				msg_type: 'rpc_request',
-				jsonrpc: '2.0',
-				result: result,
-				id: request_id,
-			};
-			this._kernel.sendCommMessage(this._id, msg_id, response);
-		} catch (err) {
-			const error = `Failed to call frontend method '${method}': ${err}.`
-			this._kernel.log(error);
-
-			// Convert error to an RPC error response
-			const response = {
-				msg_type: 'rpc_request',
-				jsonrpc: '2.0',
-				error,
-				id: request_id,
-			};
-			this._kernel.sendCommMessage(this._id, msg_id, response);
-		}
-
-	}
-
 	/**
 	 * Process a comm_msg message from the kernel. This usually represents
 	 * an event from the server that should be forwarded to the client, or
@@ -291,18 +241,26 @@ export class RuntimeClientAdapter {
 			// earlier, before receiving any messages.
 		}
 
-		if (message.data.msg_type === 'rpc_request') {
-			if (message.data.method !== undefined) {
-				// If a method field is present, this must be an RPC request.
-				// We don't support RPC notifications as we have other
-				// mechanisms for simple events, so an ID must be present.
-				this.callFrontendMethod(message.data.id, message.data.method, message.data.params);
-			} else if (this._pendingRpcs.has(msg.originId)) {
-				// If no method field is present, this is an RPC response.
-				this.replyRpc(msg.originId, message.data);
+		// If this message is in reply to an RPC, fulfill the RPC instead of
+		// emitting the message.
+		if (this._pendingRpcs.has(msg.originId)) {
+			const promise = this._pendingRpcs.get(msg.originId)!;
+			if (promise.settled) {
+				// If the promise is already settled in some way (resolved or
+				// rejected) we can't do anything with it, so just log a
+				// warning.
+				console.warn(`Ignoring RPC response for ${msg.originId}; ` +
+					`RPC already settled (timed out?)`);
+			} else {
+				// Otherwise, resolve the promise with the message data.
+				promise.resolve(message.data);
 			}
+
+			// Remove the RPC from the pending list
+			this._pendingRpcs.delete(msg.originId);
 		} else {
-			// Not an RPC response or request, so emit the message
+
+			// Not an RPC response, so emit the message
 			this._messageEmitter.fire(message.data);
 		}
 	}
