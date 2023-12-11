@@ -19,6 +19,7 @@ import { IRuntimeClientInstance, RuntimeClientState, RuntimeClientType } from 'v
 import { DeferredPromise } from 'vs/base/common/async';
 import { generateUuid } from 'vs/base/common/uuid';
 import { IPositronPlotsService } from 'vs/workbench/services/positronPlots/common/positronPlots';
+import { IPositronIPyWidgetsService, MIME_TYPE_WIDGET_STATE, MIME_TYPE_WIDGET_VIEW } from 'vs/workbench/services/positronIPyWidgets/common/positronIPyWidgetsService';
 import { BusyEvent, LanguageRuntimeEventType, PromptStateEvent, WorkingDirectoryEvent } from 'vs/workbench/services/languageRuntime/common/languageRuntimeEvents';
 import { IPositronHelpService } from 'vs/workbench/contrib/positronHelp/browser/positronHelpService';
 import { INotebookService } from 'vs/workbench/contrib/notebook/common/notebookService';
@@ -654,6 +655,11 @@ class ExtHostLanguageRuntimeAdapter implements ILanguageRuntime {
 		// Code / Positron so should have priority over other visualization
 		// types.
 		for (const mimeType of mimeTypes) {
+			// These mime types are exclusive to IPyWidgets, and should be coded as such.
+			if (mimeType === MIME_TYPE_WIDGET_STATE || mimeType === MIME_TYPE_WIDGET_VIEW) {
+				return RuntimeOutputKind.IPyWidget;
+			}
+
 			if (mimeType.startsWith('application/') ||
 				mimeType === 'text/markdown' ||
 				mimeType.startsWith('text/x-')) {
@@ -930,6 +936,7 @@ export class MainThreadLanguageRuntime implements MainThreadLanguageRuntimeShape
 		@IPositronVariablesService private readonly _positronVariablesService: IPositronVariablesService,
 		@IPositronHelpService private readonly _positronHelpService: IPositronHelpService,
 		@IPositronPlotsService private readonly _positronPlotService: IPositronPlotsService,
+		@IPositronIPyWidgetsService private readonly _positronIPyWidgetsService: IPositronIPyWidgetsService,
 		@ILogService private readonly _logService: ILogService,
 		@INotebookService private readonly _notebookService: INotebookService
 	) {
@@ -940,6 +947,7 @@ export class MainThreadLanguageRuntime implements MainThreadLanguageRuntimeShape
 		this._positronConsoleService.initialize();
 		this._positronVariablesService.initialize();
 		this._positronPlotService.initialize();
+		this._positronIPyWidgetsService.initialize();
 		this._proxy = extHostContext.getProxy(ExtHostPositronContext.ExtHostLanguageRuntime);
 
 		this._languageRuntimeService.onDidRequestLanguageRuntime((ILanguageRuntimeIdEvent) => {
