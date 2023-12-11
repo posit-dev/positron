@@ -54,7 +54,7 @@ class FormatterProvider implements vscode.DocumentFormattingEditProvider {
 
 		const runtime = await getRunningRRuntime(runtimes);
 		const id = randomUUID();
-		const isInstalled = await runtime.checkInstalled('styler', 'format document');
+		const isInstalled = await runtime.checkInstalled('styler');
 		if (!isInstalled) {
 			return [];
 		}
