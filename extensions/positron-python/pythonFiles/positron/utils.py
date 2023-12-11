@@ -2,8 +2,8 @@
 # Copyright (C) 2023 Posit Software, PBC. All rights reserved.
 #
 
-import inspect
 import asyncio
+import inspect
 import numbers
 import pprint
 import types

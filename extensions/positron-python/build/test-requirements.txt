@@ -32,7 +32,6 @@ matplotlib
 pandas
 # Require pillow >= 10.0.1 to avoid CVE-2023-4863
 pillow>=10.0.1
-pydantic
 pyright
 # bugs in later versions that cause internal pytest errors
 # see https://pytest-asyncio.readthedocs.io/en/latest/reference/changelog.html#id26
