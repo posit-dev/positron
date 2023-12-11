@@ -119,12 +119,20 @@ async function provideStatementRangeFromAst(
         // Hardcode these to true so that smart send is enabled in the script.
         emptyHighlight: true,
         smartSendExperimentEnabled: true,
+        smartSendSettingsEnabled: true,
     });
     observable.proc?.stdin?.write(input);
     observable.proc?.stdin?.end();
 
     const outputRaw = await outputPromise.promise;
     const output = JSON.parse(outputRaw);
+
+    // Unfortunately, the script handles code with a syntax error by returning 'deprecated', and by
+    // only returning the `normalized` key. We use that information to distinguish from the user
+    // trying to actually execute the code 'deprecated' (e.g. if it's a variable in their script).
+    if (Object.keys(output).length === 1 && output.normalized === 'deprecated') {
+        throw new Error('Failed to parse the Python script.');
+    }
 
     return {
         // parse() doesn't do anything at the time of writing this, but we call it on
