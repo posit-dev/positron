@@ -2,11 +2,12 @@
 # Copyright (C) 2023 Posit Software, PBC. All rights reserved.
 #
 
-import pytest
+from dataclasses import dataclass
 from typing import ClassVar
-from unittest.mock import call, Mock
+from unittest.mock import Mock, call
 
-from positron.frontend import FrontendService, BaseFrontendEvent
+import pytest
+from positron.frontend import BaseFrontendEvent, FrontendService
 
 
 @pytest.fixture()
@@ -14,9 +15,10 @@ def frontend_service() -> FrontendService:
     return FrontendService()
 
 
-class DummyFrontendEvent(BaseFrontendEvent):
-    foo = "foo"
-    bar = 1
+@dataclass
+class DummyFrontendEvent:
+    foo: str = "foo"
+    bar: int = 1
 
     name: str = "dummy"
 
