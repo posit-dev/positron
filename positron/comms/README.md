@@ -38,7 +38,7 @@ Because most messages sent to the frontend are events, many methods defined by t
 
 JSON-RPC is useful as a standardized specification format, but because we are using it in a slightly off-label way, we've made a few tweaks to suit our use case.
 
-- **The id field is not used**. Because the JSON-RPC messages are being delivered as `comm_msg` Jupyter messages, each message already has an ID and a parent ID. This makes the JSON-RPC ID redundant.
+- **The "id" field is not used**. Because the JSON-RPC messages are being delivered as `comm_msg` Jupyter messages, each message already has an ID and a parent ID. This makes the JSON-RPC ID redundant.
 - **The "jsonrpc" field is optional**.
 
 ## Making Changes

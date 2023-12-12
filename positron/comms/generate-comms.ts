@@ -2,6 +2,14 @@
  *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
+/**
+ * This is a code generator that parses OpenRPC specificationos and generates
+ * Typescript, Rust, and Python code for each of the comms defined in this
+ * directory.
+ *
+ * See the README.md file in this directory for more information.
+ */
+
 import { existsSync, readdirSync, readFileSync, writeFileSync } from 'fs';
 import { compile } from 'json-schema-to-typescript';
 import path, { format } from 'path';
@@ -9,8 +17,15 @@ import path, { format } from 'path';
 const commsDir = `${__dirname}`;
 const commsFiles = readdirSync(commsDir);
 
+/// The directory to write the generated Typescript files to
 const tsOutputDir = `${__dirname}/../../src/vs/workbench/services/languageRuntime/common`;
+
+/// The directory to write the generated Rust files to (note that this presumes
+/// that the amalthea repo is cloned into the same parent directory as the
+/// positron repo)
 const rustOutputDir = `${__dirname}/../../../amalthea/crates/amalthea/src/comm`;
+
+/// The directory to write the generated Python files to
 const pythonOutputDir = `${__dirname}/../../extensions/positron-python/pythonFiles/positron`;
 
 const comms = new Array<string>();
@@ -23,6 +38,7 @@ interface CommMetadata {
 	};
 }
 
+// Maps from JSON schema types to Typescript types
 const TypescriptTypeMap: Record<string, string> = {
 	'boolean': 'boolean',
 	'integer': 'number',
@@ -33,6 +49,7 @@ const TypescriptTypeMap: Record<string, string> = {
 	'object': 'object',
 };
 
+// Maps from JSON schema types to Rust types
 const RustTypeMap: Record<string, string> = {
 	'boolean': 'bool',
 	'integer': 'i64',
@@ -43,6 +60,7 @@ const RustTypeMap: Record<string, string> = {
 	'object': 'HashMap',
 };
 
+// Maps from JSON schema types to Python types
 const PythonTypeMap: Record<string, string> = {
 	'boolean': 'bool',
 	'integer': 'int',
