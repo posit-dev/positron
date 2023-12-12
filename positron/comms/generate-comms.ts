@@ -30,6 +30,8 @@ const pythonOutputDir = `${__dirname}/../../extensions/positron-python/pythonFil
 
 const comms = new Array<string>();
 
+const year = new Date().getFullYear();
+
 interface CommMetadata {
 	name: string;
 	initiator: 'frontend' | 'backend';
@@ -131,7 +133,7 @@ function formatComment(leader: string, comment: string): string {
 
 function* createRustComm(name: string, frontend: any, backend: any): Generator<string> {
 	yield `/*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) ${year} Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
 //
@@ -264,7 +266,7 @@ use serde::Serialize;
 
 function* createPythonComm(name: string, frontend: any, backend: any): Generator<string> {
 	yield `#
-#  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
+#  Copyright (C) ${year} Posit Software, PBC. All rights reserved.
 #
 
 #
@@ -395,7 +397,7 @@ async function* createTypescriptComm(name: string, frontend: any, backend: any):
 	const metadata: CommMetadata = JSON.parse(
 		readFileSync(path.join(commsDir, `${name}.json`), { encoding: 'utf-8' }));
 	yield `/*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) ${year} Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
 //
