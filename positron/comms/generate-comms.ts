@@ -254,6 +254,7 @@ function* createPythonComm(name: string, frontend: any, backend: any): Generator
 #
 
 import enum
+from dataclasses import dataclass, field
 
 `;
 
@@ -328,8 +329,11 @@ import enum
 			yield `\tparams: ${snakeCaseToSentenceCase(method.name)}Params\n`;
 			yield `\n`;
 			yield '\t# The RPC method name\n';
-			yield `\tmethod: ${snakeCaseToSentenceCase(name)}Request = ${snakeCaseToSentenceCase(name)}Request.${snakeCaseToSentenceCase(method.name)}\n\n`;
+			yield `\tmethod: ${snakeCaseToSentenceCase(name)}Request = ${snakeCaseToSentenceCase(name)}Request.${snakeCaseToSentenceCase(method.name)}\n`;
 			yield '\n';
+			yield '\t# JSON-RPC indicator\n';
+			yield `\tjsonrpc: str = "2.0"\n`;
+			yield `\n`;
 		}
 	}
 
