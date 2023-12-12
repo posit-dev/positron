@@ -480,6 +480,7 @@
     "vscode.jupyter-adapter"
   ],
   "devDependencies": {
+    "@types/decompress": "^4.2.7",
     "@types/glob": "^7.2.0",
     "@types/mocha": "^9.1.0",
     "@types/node": "14.x",
@@ -488,6 +489,7 @@
     "@typescript-eslint/eslint-plugin": "^5.12.1",
     "@typescript-eslint/parser": "^5.12.1",
     "@vscode/test-electron": "^2.1.2",
+    "decompress": "^4.2.1",
     "eslint": "^8.9.0",
     "glob": "^7.2.0",
     "mocha": "^9.2.1",
@@ -507,7 +509,7 @@
   },
   "positron": {
     "binaryDependencies": {
-      "ark": "0.1.32"
+      "ark": "0.1.33"
     }
   }
 }
