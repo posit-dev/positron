@@ -12,6 +12,7 @@
 
 import { existsSync, readdirSync, readFileSync, writeFileSync } from 'fs';
 import { compile } from 'json-schema-to-typescript';
+import { execSync } from 'child_process';
 import path, { format } from 'path';
 
 const commsDir = `${__dirname}`;
@@ -287,19 +288,19 @@ from dataclasses import dataclass, field
 				yield '@dataclass\n';
 				yield `class ${snakeCaseToSentenceCase(method.result.schema.name)}:\n`;
 				if (method.result.schema.description) {
-					yield '\t"""\n';
-					yield formatComment('\t', method.result.schema.description);
-					yield '\t"""\n';
+					yield '    """\n';
+					yield formatComment('    ', method.result.schema.description);
+					yield '    """\n';
 					yield '\n';
 				}
 				for (const prop of Object.keys(method.result.schema.properties)) {
 					const schema = method.result.schema.properties[prop];
-					yield `\t${prop}: ${PythonTypeMap[schema.type]}`;
+					yield `    ${prop}: ${PythonTypeMap[schema.type]}`;
 					yield ' = field(\n';
-					yield `\t\tmetadata = {\n`;
-					yield `\t\t\t"description": "${schema.description}",\n`;
-					yield `\t\t}\n`;
-					yield `\t)\n\n`;
+					yield `        metadata={\n`;
+					yield `            "description": "${schema.description}",\n`;
+					yield `        }\n`;
+					yield `    )\n\n`;
 				}
 				yield '\n\n';
 			}
@@ -309,14 +310,14 @@ from dataclasses import dataclass, field
 	if (backend) {
 		yield '@enum.unique\n';
 		yield `class ${snakeCaseToSentenceCase(name)}Request(str, enum.Enum):\n`;
-		yield `\t"""\n`;
-		yield `\tAn enumeration of all the possible requests that can be sent to the ${name} comm.\n`;
-		yield `\t"""\n`;
+		yield `    """\n`;
+		yield `    An enumeration of all the possible requests that can be sent to the ${name} comm.\n`;
+		yield `    """\n`;
 		yield `\n`;
 		for (const method of backend.methods) {
 			if (method.result) {
-				yield formatComment('\t# ', method.summary);
-				yield `\t${snakeCaseToSentenceCase(method.name)} = "${method.name}"\n`;
+				yield formatComment('    # ', method.summary);
+				yield `    ${snakeCaseToSentenceCase(method.name)} = "${method.name}"\n`;
 				yield '\n';
 			}
 		}
@@ -326,33 +327,33 @@ from dataclasses import dataclass, field
 		for (const method of backend.methods) {
 			yield `@dataclass\n`;
 			yield `class ${snakeCaseToSentenceCase(method.name)}Params:\n`;
-			yield `\t"""\n`;
-			yield formatComment('\t', method.description);
-			yield `\t"""\n`;
+			yield `    """\n`;
+			yield formatComment('    ', method.description);
+			yield `    """\n`;
 			yield `\n`;
 			for (const param of method.params) {
-				yield `\t${param.name}: ${PythonTypeMap[param.schema.type]}`;
+				yield `    ${param.name}: ${PythonTypeMap[param.schema.type]}`;
 				yield ' = field(\n';
-				yield `\t\tmetadata = {\n`;
-				yield `\t\t\t"description": "${param.description}",\n`;
-				yield `\t\t}\n`;
-				yield `\t)\n\n`;
+				yield `        metadata={\n`;
+				yield `            "description": "${param.description}",\n`;
+				yield `        }\n`;
+				yield `    )\n\n`;
 			}
 
 			yield `@dataclass\n`;
 			yield `class ${snakeCaseToSentenceCase(method.name)}Request:\n`;
-			yield `\t"""\n`;
-			yield formatComment('\t', method.description);
-			yield `\t"""\n`;
+			yield `    """\n`;
+			yield formatComment('    ', method.description);
+			yield `    """\n`;
 			yield `\n`;
-			yield '\t# The RPC parameters\n';
-			yield `\tparams: ${snakeCaseToSentenceCase(method.name)}Params\n`;
+			yield '    # The RPC parameters\n';
+			yield `    params: ${snakeCaseToSentenceCase(method.name)}Params\n`;
 			yield `\n`;
-			yield '\t# The RPC method name\n';
-			yield `\tmethod: ${snakeCaseToSentenceCase(name)}Request = ${snakeCaseToSentenceCase(name)}Request.${snakeCaseToSentenceCase(method.name)}\n`;
+			yield '    # The RPC method name\n';
+			yield `    method: ${snakeCaseToSentenceCase(name)}Request = ${snakeCaseToSentenceCase(name)}Request.${snakeCaseToSentenceCase(method.name)}\n`;
 			yield '\n';
-			yield '\t# JSON-RPC indicator\n';
-			yield `\tjsonrpc: str = "2.0"\n`;
+			yield '    # JSON-RPC indicator\n';
+			yield `    jsonrpc: str = "2.0"\n`;
 			yield `\n`;
 		}
 	}
@@ -361,13 +362,13 @@ from dataclasses import dataclass, field
 	if (frontend) {
 		yield `@enum.unique\n`;
 		yield `class ${snakeCaseToSentenceCase(name)}Event(str, enum.Enum):\n`;
-		yield `\t"""\n`;
-		yield `\tAn enumeration of all the possible events that can be sent from the ${name} comm.\n`;
-		yield `\t"""\n`;
+		yield `    """\n`;
+		yield `    An enumeration of all the possible events that can be sent from the ${name} comm.\n`;
+		yield `    """\n`;
 		yield `\n`;
 		for (const method of frontend.methods) {
-			yield formatComment('\t# ', method.summary);
-			yield `\t${snakeCaseToSentenceCase(method.name)} = "${method.name}"\n`;
+			yield formatComment('    # ', method.summary);
+			yield `    ${snakeCaseToSentenceCase(method.name)} = "${method.name}"\n`;
 			yield '\n';
 		}
 
@@ -375,17 +376,17 @@ from dataclasses import dataclass, field
 			if (method.params.length > 0) {
 				yield `@dataclass\n`;
 				yield `class ${snakeCaseToSentenceCase(method.name)}Params:\n`;
-				yield `\t"""\n`;
-				yield formatComment('\t', method.summary);
-				yield `\t"""\n`;
+				yield `    """\n`;
+				yield formatComment('    ', method.summary);
+				yield `    """\n`;
 				yield `\n`;
 				for (const param of method.params) {
-					yield `\t${param.name}: ${PythonTypeMap[param.schema.type]}`;
+					yield `    ${param.name}: ${PythonTypeMap[param.schema.type]}`;
 					yield ' = field(\n';
-					yield `\t\tmetadata = {\n`;
-					yield `\t\t\t"description": "${param.description}"\n`;
-					yield `\t\t}\n`;
-					yield `\t)\n\n`;
+					yield `        metadata={\n`;
+					yield `            "description": "${param.description}"\n`;
+					yield `        }\n`;
+					yield `    )\n\n`;
 				}
 			}
 		}
@@ -625,12 +626,36 @@ async function createCommInterface() {
 			// Write the output file
 			writeFileSync(pythonOutputFile, python, { encoding: 'utf-8' });
 
+			// Use black to format the Python file; the lint tests for the
+			// Python extension require that the Python files have exactly the
+			// format that black produces.
+			execSync(`python3 -m black ${pythonOutputFile}`);
+
 			// Write to stdout too
 			console.log(python);
 
 			comms.push(name);
 		}
 	}
+}
+
+// Check prerequisites
+
+// Check that the amalthea repo is cloned
+if (!existsSync(rustOutputDir)) {
+	console.error('The amalthea repo must be cloned into the same parent directory as the ' +
+		'Positron rep, so that Rust output types can be written.');
+	process.exit(1);
+}
+
+// Check that the Python module 'black' is installed by running Python
+// and importing it
+try {
+	execSync('python3 -m black --version');
+} catch (e) {
+	console.error('The Python module "black" must be installed to run this script; it is ' +
+		'required to properly format the Python output.');
+	process.exit(1);
 }
 
 createCommInterface();
