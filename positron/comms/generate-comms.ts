@@ -273,10 +273,12 @@ import enum
 				}
 				for (const prop of Object.keys(method.result.schema.properties)) {
 					const schema = method.result.schema.properties[prop];
-					if (schema.description) {
-						yield formatComment('\t# ', schema.description);
-					}
-					yield `\t${prop}: ${PythonTypeMap[schema.type]}\n\n`;
+					yield `\t${prop}: ${PythonTypeMap[schema.type]}`;
+					yield ' = field(\n';
+					yield `\t\tmetadata = {\n`;
+					yield `\t\t\t"description": "${schema.description}",\n`;
+					yield `\t\t}\n`;
+					yield `\t)\n\n`;
 				}
 				yield '\n\n';
 			}
@@ -301,23 +303,33 @@ import enum
 
 	if (backend) {
 		for (const method of backend.methods) {
-			if (method.result) {
-				yield `@dataclass\n`;
-				yield `class ${snakeCaseToSentenceCase(name)}${snakeCaseToSentenceCase(method.name)}Request:\n`;
-				yield `\t"""\n`;
-				yield formatComment('\t', method.summary);
-				yield `\t"""\n`;
-				yield `\n`;
-				for (const param of method.params) {
-					if (param.description) {
-						yield formatComment('\t# ', param.description);
-					}
-					yield `\t${param.name}: ${PythonTypeMap[param.schema.type]}\n\n`;
-				}
-				yield '\t# The RPC method name\n';
-				yield `\tmethod: ${snakeCaseToSentenceCase(name)}Request = ${snakeCaseToSentenceCase(name)}Request.${snakeCaseToSentenceCase(method.name)}\n\n`;
-				yield '\n';
+			yield `@dataclass\n`;
+			yield `class ${snakeCaseToSentenceCase(method.name)}Params:\n`;
+			yield `\t"""\n`;
+			yield formatComment('\t', method.description);
+			yield `\t"""\n`;
+			yield `\n`;
+			for (const param of method.params) {
+				yield `\t${param.name}: ${PythonTypeMap[param.schema.type]}`;
+				yield ' = field(\n';
+				yield `\t\tmetadata = {\n`;
+				yield `\t\t\t"description": "${param.description}",\n`;
+				yield `\t\t}\n`;
+				yield `\t)\n\n`;
 			}
+
+			yield `@dataclass\n`;
+			yield `class ${snakeCaseToSentenceCase(method.name)}Request:\n`;
+			yield `\t"""\n`;
+			yield formatComment('\t', method.description);
+			yield `\t"""\n`;
+			yield `\n`;
+			yield '\t# The RPC parameters\n';
+			yield `\tparams: ${snakeCaseToSentenceCase(method.name)}Params\n`;
+			yield `\n`;
+			yield '\t# The RPC method name\n';
+			yield `\tmethod: ${snakeCaseToSentenceCase(name)}Request = ${snakeCaseToSentenceCase(name)}Request.${snakeCaseToSentenceCase(method.name)}\n\n`;
+			yield '\n';
 		}
 	}
 
@@ -336,17 +348,21 @@ import enum
 		}
 
 		for (const method of frontend.methods) {
-			yield `@dataclass\n`;
-			yield `class ${snakeCaseToSentenceCase(method.name)}Params:\n`;
-			yield `\t"""\n`;
-			yield formatComment('\t', method.summary);
-			yield `\t"""\n`;
-			yield `\n`;
-			for (const param of method.params) {
-				if (param.description) {
-					yield formatComment('\t# ', param.description);
+			if (method.params.length > 0) {
+				yield `@dataclass\n`;
+				yield `class ${snakeCaseToSentenceCase(method.name)}Params:\n`;
+				yield `\t"""\n`;
+				yield formatComment('\t', method.summary);
+				yield `\t"""\n`;
+				yield `\n`;
+				for (const param of method.params) {
+					yield `\t${param.name}: ${PythonTypeMap[param.schema.type]}`;
+					yield ' = field(\n';
+					yield `\t\tmetadata = {\n`;
+					yield `\t\t\t"description": "${param.description}"\n`;
+					yield `\t\t}\n`;
+					yield `\t)\n\n`;
 				}
-				yield `\t${param.name}: ${PythonTypeMap[param.schema.type]}\n\n`;
 			}
 		}
 	}

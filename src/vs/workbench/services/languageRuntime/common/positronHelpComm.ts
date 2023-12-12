@@ -40,6 +40,11 @@ export class PositronHelpComm extends PositronBaseComm {
 	/**
 	 * Look for and, if found, show a help topic.
 	 *
+	 * Requests that the help backend look for a help topic and, if found,
+	 * show it. If the topic is found, it will be shown via a Show Help
+	 * notification. If the topic is not found, no notification will be
+	 * delivered.
+	 *
 	 * @param topic The help topic to show
 	 *
 	 * @returns Whether the topic was found and shown. Topics are shown via a
