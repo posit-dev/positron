@@ -142,6 +142,8 @@ export async function* rRuntimeDiscoverer(
 			'RUST_BACKTRACE': '1',
 			'RUST_LOG': logLevel,
 			'R_HOME': rHome.homepath,
+			'ARK_R_VERSION': rHome.version,
+			'ARK_R_DYNAMIC_LIBRARY_PATH': rHome.dynamicLibraryPath,
 			...userEnv
 		};
 		/* eslint-enable */
@@ -149,7 +151,7 @@ export async function* rRuntimeDiscoverer(
 		if (process.platform === 'darwin') {
 
 			const dyldFallbackLibraryPaths: string[] = [];
-			dyldFallbackLibraryPaths.push(`${rHome.homepath}/lib`);
+			dyldFallbackLibraryPaths.push(rHome.dynamicLibraryFolder);
 
 			const defaultDyldFallbackLibraryPath = process.env['DYLD_FALLBACK_LIBRARY_PATH'];
 			if (defaultDyldFallbackLibraryPath) {
@@ -167,17 +169,15 @@ export async function* rRuntimeDiscoverer(
 		}
 
 		if (process.platform === 'win32') {
-			// On Windows, we must place the `bin/` path for the current R version on the PATH
-			// so that the DLLs in that same folder can be resolved properly when ark starts up
+			// On Windows, we must place the dynamic library folder for the current R version on the
+			// PATH so that the DLLs in that same folder can be resolved properly when ark starts up
 			// (like `R.dll`, `Rblas.dll`, `Rgraphapp.dll`, `Riconv.dll`, and `Rlapack.dll`).
 			// https://learn.microsoft.com/en-us/windows/win32/dlls/dynamic-link-library-search-order#standard-search-order-for-unpackaged-apps
-			const binpath = path.join(rHome.homepath, 'bin', 'x64');
-
 			const processPath = process.env['PATH'];
 
 			const subprocessPath = processPath === undefined ?
-				binpath :
-				processPath + ';' + binpath;
+				rHome.dynamicLibraryFolder :
+				processPath + ';' + rHome.dynamicLibraryFolder;
 
 			env['PATH'] = subprocessPath;
 		}

@@ -19,6 +19,8 @@ export class RInstallation {
 
 	public readonly binpath: string = '';
 	public readonly homepath: string = '';
+	public readonly dynamicLibraryPath: string = '';
+	public readonly dynamicLibraryFolder: string = '';
 	// The semVersion field was added because changing the version field from a string that's
 	// "major.minor" to an instance of SemVer (conveying major.minor.patch) would have
 	// downstream consequence I don't want to take on now. But we can probably rationalize this
@@ -68,6 +70,9 @@ export class RInstallation {
 				return;
 			}
 		}
+
+		this.dynamicLibraryFolder = dynamicLibraryFolder(this.homepath);
+		this.dynamicLibraryPath = dynamicLibraryPath(this.dynamicLibraryFolder);
 
 		// orthogonality is a concern specific to macOS
 		// a non-orthogonal R "binary" is hard-wired to launch the current version of R,
@@ -128,5 +133,31 @@ export class RInstallation {
 		this.valid = true;
 
 		Logger.info(`R installation discovered: ${JSON.stringify(this, null, 2)}`);
+	}
+}
+
+function dynamicLibraryFolder(homePath: string): string {
+	switch (process.platform) {
+		case 'darwin':
+			return path.join(homePath, 'lib');
+		case 'linux':
+			return path.join(homePath, 'lib');
+		case 'win32':
+			return path.join(homePath, 'bin', 'x64');
+		default:
+			throw new Error('Unsupported platform');
+	}
+}
+
+function dynamicLibraryPath(dynamicLibraryFolder: string): string {
+	switch (process.platform) {
+		case 'darwin':
+			return path.join(dynamicLibraryFolder, 'libR.dylib');
+		case 'linux':
+			return path.join(dynamicLibraryFolder, 'libR.so');
+		case 'win32':
+			return path.join(dynamicLibraryFolder, 'R.dll');
+		default:
+			throw new Error('Unsupported platform');
 	}
 }
