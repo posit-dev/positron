@@ -264,7 +264,7 @@ import enum
 				method.result.schema &&
 				method.result.schema.type === 'object') {
 				yield '@dataclass\n';
-				yield `class ${snakeCaseToSentenceCase(method.result.schema.name)} {\n`;
+				yield `class ${snakeCaseToSentenceCase(method.result.schema.name)}:\n`;
 				if (method.result.schema.description) {
 					yield '\t"""\n';
 					yield formatComment('\t', method.result.schema.description);
@@ -291,9 +291,63 @@ import enum
 		yield `\t"""\n`;
 		yield `\n`;
 		for (const method of backend.methods) {
+			if (method.result) {
+				yield formatComment('\t# ', method.summary);
+				yield `\t${snakeCaseToSentenceCase(method.name)} = "${method.name}"\n`;
+				yield '\n';
+			}
+		}
+	}
+
+	if (backend) {
+		for (const method of backend.methods) {
+			if (method.result) {
+				yield `@dataclass\n`;
+				yield `class ${snakeCaseToSentenceCase(name)}${snakeCaseToSentenceCase(method.name)}Request:\n`;
+				yield `\t"""\n`;
+				yield formatComment('\t', method.summary);
+				yield `\t"""\n`;
+				yield `\n`;
+				for (const param of method.params) {
+					if (param.description) {
+						yield formatComment('\t# ', param.description);
+					}
+					yield `\t${param.name}: ${PythonTypeMap[param.schema.type]}\n\n`;
+				}
+				yield '\t# The RPC method name\n';
+				yield `\tmethod: ${snakeCaseToSentenceCase(name)}Request = ${snakeCaseToSentenceCase(name)}Request.${snakeCaseToSentenceCase(method.name)}\n\n`;
+				yield '\n';
+			}
+		}
+	}
+
+
+	if (frontend) {
+		yield `@enum.unique\n`;
+		yield `class ${snakeCaseToSentenceCase(name)}Event(str, enum.Enum):\n`;
+		yield `\t"""\n`;
+		yield `\tAn enumeration of all the possible events that can be sent from the ${name} comm.\n`;
+		yield `\t"""\n`;
+		yield `\n`;
+		for (const method of frontend.methods) {
 			yield formatComment('\t# ', method.summary);
 			yield `\t${snakeCaseToSentenceCase(method.name)} = "${method.name}"\n`;
 			yield '\n';
+		}
+
+		for (const method of frontend.methods) {
+			yield `@dataclass\n`;
+			yield `class ${snakeCaseToSentenceCase(method.name)}Params:\n`;
+			yield `\t"""\n`;
+			yield formatComment('\t', method.summary);
+			yield `\t"""\n`;
+			yield `\n`;
+			for (const param of method.params) {
+				if (param.description) {
+					yield formatComment('\t# ', param.description);
+				}
+				yield `\t${param.name}: ${PythonTypeMap[param.schema.type]}\n\n`;
+			}
 		}
 	}
 }
