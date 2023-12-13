@@ -599,7 +599,7 @@ class MapInspector(_BaseMapInspector[Mapping]):
 Column = TypeVar("Column", "pd.Series", "pl.Series", "pd.Index")
 
 
-class _BaseColumnInspector(_BaseMapInspector[Column], ABC):
+class BaseColumnInspector(_BaseMapInspector[Column], ABC):
     def get_child(self, value: Column, access_key: str) -> Any:
         return value[decode_access_key(access_key)]
 
@@ -621,7 +621,7 @@ class _BaseColumnInspector(_BaseMapInspector[Column], ABC):
         return DataColumn(name=name, type=type_name, data=value.to_list())
 
 
-class PandasSeriesInspector(_BaseColumnInspector["pd.Series"]):
+class PandasSeriesInspector(BaseColumnInspector["pd.Series"]):
     CLASS_QNAME = "pandas.core.series.Series"
 
     def get_keys(self, value: pd.Series) -> Collection[Any]:
@@ -641,7 +641,7 @@ class PandasSeriesInspector(_BaseColumnInspector["pd.Series"]):
         return value.to_csv(path_or_buf=None, sep="\t")
 
 
-class PandasIndexInspector(_BaseColumnInspector["pd.Index"]):
+class PandasIndexInspector(BaseColumnInspector["pd.Index"]):
     CLASS_QNAME = [
         "pandas.core.indexes.base.Index",
         "pandas.core.indexes.datetimes.DatetimeIndex",
@@ -690,7 +690,7 @@ class PandasIndexInspector(_BaseColumnInspector["pd.Index"]):
         return value.to_series().to_csv(path_or_buf=None, sep="\t")
 
 
-class PolarsSeriesInspector(_BaseColumnInspector["pl.Series"]):
+class PolarsSeriesInspector(BaseColumnInspector["pl.Series"]):
     CLASS_QNAME = [
         "polars.series.series.Series",
         "polars.internals.series.series.Series",
@@ -716,7 +716,7 @@ class PolarsSeriesInspector(_BaseColumnInspector["pl.Series"]):
 Table = TypeVar("Table", "pd.DataFrame", "pl.DataFrame")
 
 
-class _BaseTableInspector(_BaseMapInspector[Table], Generic[Table, Column], ABC):
+class BaseTableInspector(_BaseMapInspector[Table], Generic[Table, Column], ABC):
     """
     Base inspector for tabular data
     """
@@ -736,7 +736,7 @@ class _BaseTableInspector(_BaseMapInspector[Table], Generic[Table, Column], ABC)
         return value.columns
 
     @abstractmethod
-    def get_column_inspector(self) -> _BaseColumnInspector[Column]:
+    def get_column_inspector(self) -> BaseColumnInspector[Column]:
         pass
 
     def has_viewer(self, value: Table) -> bool:
@@ -763,7 +763,7 @@ class _BaseTableInspector(_BaseMapInspector[Table], Generic[Table, Column], ABC)
 #
 
 
-class PandasDataFrameInspector(_BaseTableInspector["pd.DataFrame", "pd.Series"]):
+class PandasDataFrameInspector(BaseTableInspector["pd.DataFrame", "pd.Series"]):
     CLASS_QNAME = "pandas.core.frame.DataFrame"
 
     def get_display_value(
@@ -795,7 +795,7 @@ class PandasDataFrameInspector(_BaseTableInspector["pd.DataFrame", "pd.Series"])
         return value.to_csv(path_or_buf=None, sep="\t")
 
 
-class PolarsDataFrameInspector(_BaseTableInspector["pl.DataFrame", "pl.Series"]):
+class PolarsDataFrameInspector(BaseTableInspector["pl.DataFrame", "pl.Series"]):
     CLASS_QNAME = [
         "polars.dataframe.frame.DataFrame",
         "polars.internals.dataframe.frame.DataFrame",

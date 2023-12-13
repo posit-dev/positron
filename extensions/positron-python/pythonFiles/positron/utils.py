@@ -6,10 +6,10 @@ import asyncio
 import inspect
 import numbers
 import pprint
+import sys
 import types
 from binascii import b2a_base64
 from datetime import datetime
-from types import ModuleType
 from typing import Any, Coroutine, Optional, Set, Tuple, cast
 
 
@@ -215,3 +215,19 @@ async def cancel_tasks(tasks: Set[asyncio.Task]) -> None:
         task.cancel()
     await asyncio.gather(*tasks)
     tasks.clear()
+
+
+def safe_isinstance(obj: Any, module: str, class_name: str, *attrs: str) -> bool:
+    """
+    Check if `obj` is an instance of module.class_name if loaded.
+
+    Adapted from `IPython.core.completer._safe_isinstance`.
+    """
+    if module in sys.modules:
+        m = sys.modules[module]
+        for attr in [class_name, *attrs]:
+            m = getattr(m, attr)
+        if not isinstance(m, type):
+            raise ValueError(f"{module}.{class_name}.{'.'.join(attrs)} is not a type")
+        return isinstance(obj, m)
+    return False
