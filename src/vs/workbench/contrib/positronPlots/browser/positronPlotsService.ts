@@ -609,6 +609,8 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 
 				// Remove the plot from the list
 				this._plots.splice(index, 1);
+
+				console.log(`Remaining widgets: ${this._positronIPyWidgetsService.positronWidgetInstances.map(widget => widget.id)}`);
 			}
 		});
 
@@ -651,9 +653,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 			const plots = this._plots.splice(i, 1);
 			plots[0].dispose();
 		}
-
-		// Also clear out the widget clients from the widget service
-		this._positronIPyWidgetsService.removeAllWidgets();
+		console.log(`Remaining widgets: ${this._positronIPyWidgetsService.positronWidgetInstances.map(widget => widget.id)}`);
 
 		// Update the front end with the now-empty array of plots
 		this._onDidSelectPlot.fire('');
