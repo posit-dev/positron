@@ -316,6 +316,12 @@ window.onload = function() {
 		if (!pythonExtension) {
 			return Promise.reject(`positron-python not found`);
 		}
+		// Form the path to the necessary libraries and inject it into the HTML
+		const requiresPath = asWebviewUri(
+			URI.joinPath(pythonExtension.extensionLocation, 'resources/js/requirejs/require.js'));
+
+		const htmlManagerPath = asWebviewUri(
+			URI.joinPath(pythonExtension.extensionLocation, 'resources/js/@jupyter-widgets/html-manager/dist/embed-amd.js'));
 
 		// Create the metadata for the webview
 		const webviewInitInfo: WebviewInitInfo = {
@@ -330,19 +336,6 @@ window.onload = function() {
 			title: '', // TODO: should this be a parameter?
 		};
 		const webview = this._webviewService.createWebviewOverlay(webviewInitInfo);
-
-		// Form the path to the necessary libraries and inject it into the HTML
-		const requiresPath = asWebviewUri(
-			pythonExtension.extensionLocation.with({
-				path: pythonExtension.extensionLocation.path +
-					'/node_modules/requirejs/require.js'
-			}));
-
-		const htmlManagerPath = asWebviewUri(
-			pythonExtension.extensionLocation.with({
-				path: pythonExtension.extensionLocation.path +
-					'/node_modules/@jupyter-widgets/html-manager/dist/embed-amd.js'
-			}));
 
 		const createWidgetDiv = (widgetView: IPyWidgetViewSpec) => {
 			const model_id = widgetView.model_id;
