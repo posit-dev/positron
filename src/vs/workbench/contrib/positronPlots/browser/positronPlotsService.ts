@@ -609,8 +609,6 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 
 				// Remove the plot from the list
 				this._plots.splice(index, 1);
-
-				console.log(`Remaining widgets: ${this._positronIPyWidgetsService.positronWidgetInstances.map(widget => widget.id)}`);
 			}
 		});
 
