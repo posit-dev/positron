@@ -346,6 +346,12 @@ from dataclasses import dataclass, field
 			yield formatComment('    ', method.description);
 			yield `    """\n`;
 			yield `\n`;
+			yield `    # Revive RPC parameters after initialization\n`;
+			yield `    def __post_init__(self):\n`;
+			yield `        if isinstance(self.params, dict):\n`;
+			yield `             self.params = `;
+			yield `${snakeCaseToSentenceCase(method.name)}Params(**self.params)\n`;
+			yield `\n`;
 			yield '    # The RPC parameters\n';
 			yield `    params: ${snakeCaseToSentenceCase(method.name)}Params\n`;
 			yield `\n`;
@@ -626,13 +632,13 @@ async function createCommInterface() {
 			// Write the output file
 			writeFileSync(pythonOutputFile, python, { encoding: 'utf-8' });
 
+			// Write to stdout too
+			console.log(python);
+
 			// Use black to format the Python file; the lint tests for the
 			// Python extension require that the Python files have exactly the
 			// format that black produces.
 			execSync(`python3 -m black ${pythonOutputFile}`);
-
-			// Write to stdout too
-			console.log(python);
 
 			comms.push(name);
 		}
