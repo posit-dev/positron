@@ -651,7 +651,6 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 			const plots = this._plots.splice(i, 1);
 			plots[0].dispose();
 		}
-		console.log(`Remaining widgets: ${this._positronIPyWidgetsService.positronWidgetInstances.map(widget => widget.id)}`);
 
 		// Update the front end with the now-empty array of plots
 		this._onDidSelectPlot.fire('');
