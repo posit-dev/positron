@@ -74,6 +74,8 @@ from lsprotocol.types import (
     InsertTextFormat,
     Location,
     Position,
+    MarkupContent,
+    MarkupKind,
     RenameParams,
     SignatureHelp,
     SignatureHelpOptions,
@@ -85,10 +87,12 @@ from lsprotocol.types import (
 )
 from pygls.capabilities import get_capability
 from pygls.feature_manager import has_ls_param_or_annotation
-from pygls.workspace import Document
+from pygls.workspace.text_document import TextDocument
+
 
 from .help import ShowTopicRequest
-from .jedi import PositronInterpreter
+from .jedi import PositronInterpreter, get_python_object
+from .inspectors import get_inspector, BaseTableInspector, BaseColumnInspector
 
 if TYPE_CHECKING:
     from .positron_ipkernel import PositronIPyKernel
@@ -274,6 +278,9 @@ POSITRON = PositronJediLanguageServer(
     loop=asyncio.new_event_loop(),
 )
 
+_MAGIC_COMPLETIONS: Dict[str, Any] = {}
+
+
 # Server Features
 # Unfortunately we need to re-register these as Pygls Feature Management does
 # not support subclassing of the LSP, and Jedi did not use the expected "ls"
@@ -340,6 +347,8 @@ def positron_completion(
         jedi_utils.clear_completions_cache()
 
         # --- Start Positron ---
+        _MAGIC_COMPLETIONS.clear()
+
         completion_items = []
 
         # Don't add jedi completions if completing an explicit magic command
@@ -362,7 +371,10 @@ def positron_completion(
         is_completing_attribute = "." in trimmed_line
         # - or if the trimmed line has additional whitespace characters e.g `if <cursor>`
         has_whitespace = " " in trimmed_line
-        if server.kernel is not None and not (is_completing_attribute or has_whitespace):
+        # - of if the trimmed line has a string, typically for dict completion e.g. `x['<cursor>`
+        has_string = '"' in trimmed_line or "'" in trimmed_line
+        exclude_magics = is_completing_attribute or has_whitespace or has_string
+        if server.kernel is not None and not exclude_magics:
             magic_commands = cast(
                 Dict[str, Dict[str, Callable]], server.kernel.shell.magics_manager.lsmagic()
             )
@@ -442,8 +454,12 @@ def _magic_completion_item(
     pad_count = max(0, len(prefix) - count)
     insert_text = prefix[0] * pad_count + name
 
+    label = prefix + name
+
+    _MAGIC_COMPLETIONS[label] = (f"{magic_type.value} magic {name}", func.__doc__)
+
     return CompletionItem(
-        label=prefix + name,
+        label=label,
         filter_text=name,
         kind=CompletionItemKind.Function,
         # Prefix sort_text with 'v', which ensures that it is ordered as an ordinary item
@@ -451,10 +467,6 @@ def _magic_completion_item(
         sort_text=f"v{name}",
         insert_text=insert_text,
         insert_text_format=InsertTextFormat.PlainText,
-        detail=f"{magic_type.value} magic {name}",
-        # Use the raw docstring since magic command docstrings do not follow a convention that is
-        # handled by our markdown parser
-        documentation=func.__doc__,
     )
 
 
@@ -463,9 +475,27 @@ def positron_completion_item_resolve(
     server: PositronJediLanguageServer, params: CompletionItem
 ) -> CompletionItem:
     # --- Start Positron ---
-    # Magic completion items are always resolved eagerly in positron_completion, so return early
-    if params.label.startswith(_LINE_MAGIC_PREFIX):
+    magic_completion = _MAGIC_COMPLETIONS.get(params.label)
+    if magic_completion is not None:
+        params.detail, params.documentation = magic_completion
         return params
+
+    # Try to include extra information for objects in the user's namespace e.g. dataframes and columns.
+    completion = jedi_utils._MOST_RECENT_COMPLETIONS[params.label]
+    obj, is_found = get_python_object(completion)
+    if is_found:
+        inspector = get_inspector(obj)
+        if isinstance(inspector, (BaseColumnInspector, BaseTableInspector)):
+            params.detail = inspector.get_display_type(obj)
+
+            markup_kind = _choose_markup(server)
+            # TODO: We may want to use get_display_value when we update inspectors to return
+            # multiline display values once Positron supports it.
+            doc = str(obj)
+            if markup_kind == MarkupKind.Markdown:
+                doc = f"```text\n{doc}\n```"
+            params.documentation = MarkupContent(kind=markup_kind, value=doc)
+            return params
     # --- End Positron ---
     return completion_item_resolve(server, params)
 
@@ -669,7 +699,7 @@ def did_open_diagnostics(server: JediLanguageServer, params: DidOpenTextDocument
 
 
 def interpreter(
-    project: Optional[Project], document: Document, kernel: Optional["PositronIPyKernel"]
+    project: Optional[Project], document: TextDocument, kernel: Optional["PositronIPyKernel"]
 ) -> Interpreter:
     """
     Return a `jedi.Interpreter` with a reference to the kernel's user namespace.
