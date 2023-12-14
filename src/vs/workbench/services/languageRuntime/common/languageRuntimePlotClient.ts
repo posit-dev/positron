@@ -7,6 +7,7 @@ import { IRuntimeClientInstance, RuntimeClientState } from 'vs/workbench/service
 import { Event, Emitter } from 'vs/base/common/event';
 import { DeferredPromise } from 'vs/base/common/async';
 import { IPositronPlotClient } from 'vs/workbench/services/positronPlots/common/positronPlots';
+import { PositronPlotComm } from 'vs/workbench/services/languageRuntime/common/positronPlotComm';
 
 /**
  * The possible states for the plot client instance
@@ -26,85 +27,6 @@ export enum PlotClientState {
 
 	/** The plot client is closed (disconnected); it cannot render any further plots */
 	Closed = 'closed',
-}
-
-/**
- * The possible types of messages that can be sent to the language runtime as
- * requests to the plot backend.
- */
-export enum PlotClientMessageTypeInput {
-	/** A request to render the plot at a specific size */
-	Render = 'render',
-}
-
-/**
- * The possible types of messages that can be sent from the plot backend.
- */
-export enum PlotClientMessageTypeOutput {
-	/** Rendered plot output */
-	Image = 'image',
-
-	/** Notification that a plot has changed on the backend */
-	Update = 'update',
-
-	/** A processing error */
-	Error = 'error',
-}
-
-/**
- * A message used to send data to the language runtime plot client.
- */
-export interface IPlotClientMessageInput {
-	msg_type: PlotClientMessageTypeInput;
-}
-
-/**
- * A message used to request that a plot render at a specific size.
- */
-export interface IPlotClientMessageRender extends IPlotClientMessageInput {
-	/** The plot height, in pixels */
-	height: number;
-
-	/** The plot width, in pixels */
-	width: number;
-
-	/**
-	 * The pixel ratio of the display device; typically 1 for standard displays,
-	 * 2 for retina/high DPI displays, etc.
-	 */
-	pixel_ratio: number;
-}
-
-/**
- * A message used to receive data from the language runtime plot client.
- */
-export interface IPlotClientMessageOutput {
-	msg_type: PlotClientMessageTypeOutput;
-}
-
-/**
- * A message used to receive rendered plot output.
- */
-export interface IPlotClientMessageImage extends IPlotClientMessageOutput {
-	/**
-	 * The data for the plot image, as a base64-encoded string. We need to send
-	 * the plot data as a string because the underlying image file exists only
-	 * on the machine running the language runtime process.
-	 */
-	data: string;
-
-	/**
-	 * The MIME type of the image data, e.g. `image/png`. This is used to
-	 * determine how to display the image in the UI.
-	 */
-	mime_type: string;
-}
-
-/**
- * A message used to deliver a plot rendering error.
- */
-export interface IPlotClientMessageError extends IPlotClientMessageOutput {
-	message: string;
 }
 
 /**
@@ -143,6 +65,20 @@ export interface IPositronPlotMetadata {
 }
 
 /**
+ * A request to render a plot.
+ */
+interface RenderRequest {
+	/** The height of the plot, in logical pixels */
+	height: number;
+
+	/** The width of the plot, in logical pixels */
+	width: number;
+
+	/** The pixel ratio of the device for which the plot was rendered */
+	pixel_ratio: number;
+}
+
+/**
  * A deferred render request. Used to track the state of a render request that
  * hasn't been fulfilled; mostly a thin wrapper over a `DeferredPromise` that
  * includes the original render request.
@@ -150,7 +86,7 @@ export interface IPositronPlotMetadata {
 class DeferredRender {
 	private readonly deferred: DeferredPromise<IRenderedPlot>;
 
-	constructor(public readonly renderRequest: IPlotClientMessageRender) {
+	constructor(public readonly renderRequest: RenderRequest) {
 		this.deferred = new DeferredPromise<IRenderedPlot>();
 	}
 
@@ -193,6 +129,11 @@ class DeferredRender {
  * by calling the `render` method, which returns a promise that resolves to the rendered plot.
  */
 export class PlotClientInstance extends Disposable implements IPositronPlotClient {
+	/**
+	 * The underlying comm
+	 */
+	private _comm: PositronPlotComm;
+
 	/**
 	 * The currently active render request, if any.
 	 */
@@ -258,13 +199,15 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 	 * @param metadata The plot's metadata
 	 */
 	constructor(
-		private readonly _client: IRuntimeClientInstance<IPlotClientMessageInput, IPlotClientMessageOutput>,
+		client: IRuntimeClientInstance<any, any>,
 		public readonly metadata: IPositronPlotMetadata) {
 		super();
 
+		this._comm = new PositronPlotComm(client);
+
 		// Connect close emitter event
 		this.onDidClose = this._closeEmitter.event;
-		_client.onDidChangeClientState((state) => {
+		client.onDidChangeClientState((state) => {
 			if (state === RuntimeClientState.Closed) {
 				this._closeEmitter.fire();
 			}
@@ -286,18 +229,14 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 		});
 
 		// Listen for plot updates
-		_client.onDidReceiveData(async (data) => {
-			if (data.msg_type === PlotClientMessageTypeOutput.Update) {
-				// When the server notifies us that a plot update has occurred,
-				// queue a request for the UI to update the plot.
-				const rendered = await this.queuePlotUpdateRequest();
-				this._renderUpdateEmitter.fire(rendered);
-			}
+		this._comm.onDidUpdate(async (_evt) => {
+			const rendered = await this.queuePlotUpdateRequest();
+			this._renderUpdateEmitter.fire(rendered);
 		});
 
 		// Register the client instance with the runtime, so that when this instance is disposed,
 		// the runtime will also dispose the client.
-		this._register(_client);
+		this._register(this._comm);
 	}
 
 	/**
@@ -309,6 +248,10 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 	 * @returns A promise that resolves to a rendered image, or rejects with an error.
 	 */
 	public render(height: number, width: number, pixel_ratio: number): Promise<IRenderedPlot> {
+		// Deal with whole pixels only
+		height = Math.floor(height);
+		width = Math.floor(width);
+
 		// Compare against the last render request. It is normal for the same
 		// render request to be made multiple times, e.g. when the UI component
 		// is redrawn without changing the plot size.
@@ -322,8 +265,7 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 		}
 
 		// Create a new deferred promise to track the render request
-		const request: IPlotClientMessageRender = {
-			msg_type: PlotClientMessageTypeInput.Render,
+		const request: RenderRequest = {
 			height,
 			width,
 			pixel_ratio
@@ -389,20 +331,20 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 		const startedTime = Date.now();
 
 		// Perform the RPC request and resolve the promise when the response is received
-		this._client.performRpc(request.renderRequest).then((response) => {
+		const renderRequest = request.renderRequest;
+		this._comm.render(renderRequest.height,
+			renderRequest.width,
+			renderRequest.pixel_ratio).then((response) => {
 
-			// Ignore if the request was cancelled or already fulfilled
-			if (!request.isComplete) {
-				if (response.msg_type === PlotClientMessageTypeOutput.Image) {
-
+				// Ignore if the request was cancelled or already fulfilled
+				if (!request.isComplete) {
 					// The render was successful; record the render time so we can estimate it
 					// for future renders.
 					const finishedTime = Date.now();
 					this._lastRenderTimeMs = finishedTime - startedTime;
 
 					// The server returned a rendered plot image; save it and resolve the promise
-					const image = response as IPlotClientMessageImage;
-					const uri = `data:${image.mime_type};base64,${image.data}`;
+					const uri = `data:${response.mime_type};base64,${response.data}`;
 					this._lastRender = {
 						...request.renderRequest,
 						uri
@@ -410,26 +352,19 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 					request.complete(this._lastRender);
 					this._stateEmitter.fire(PlotClientState.Rendered);
 					this._completeRenderEmitter.fire(this._lastRender);
-				} else if (response.msg_type === PlotClientMessageTypeOutput.Error) {
-					const err = response as IPlotClientMessageError;
-					request.error(new Error(`Failed to render plot: ${err.message}`));
-
-					// TODO: Do we want to have a separate state for this case, or
-					// return to the unrendered state?
 				}
-			}
 
-			// If there is a queued render request, promote it to the current
-			// request and perform it now. Queued renders don't have cooldown
-			// period; they are already deferred because they were requested
-			// while a render was in progress.
-			if (this._queuedRender) {
-				const queuedRender = this._queuedRender;
-				this._queuedRender = undefined;
-				this._currentRender = queuedRender;
-				this.scheduleRender(queuedRender, 0);
-			}
-		});
+				// If there is a queued render request, promote it to the current
+				// request and perform it now. Queued renders don't have cooldown
+				// period; they are already deferred because they were requested
+				// while a render was in progress.
+				if (this._queuedRender) {
+					const queuedRender = this._queuedRender;
+					this._queuedRender = undefined;
+					this._currentRender = queuedRender;
+					this.scheduleRender(queuedRender, 0);
+				}
+			});
 	}
 
 	/**
@@ -496,9 +431,8 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 		// it right away. `scheduleRender` takes care of cancelling the render
 		// timer for any previously deferred render requests.
 		const req = new DeferredRender({
-			msg_type: PlotClientMessageTypeInput.Render,
-			height: height!,
-			width: width!,
+			height: Math.floor(height!),
+			width: Math.floor(width!),
 			pixel_ratio: pixel_ratio!
 		});
 

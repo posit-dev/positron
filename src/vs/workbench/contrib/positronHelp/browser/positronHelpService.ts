@@ -19,8 +19,9 @@ import { HelpEntry, IHelpEntry } from 'vs/workbench/contrib/positronHelp/browser
 import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/common/extensions';
 import { IInstantiationService, createDecorator } from 'vs/platform/instantiation/common/instantiation';
 import { LanguageRuntimeEventData, LanguageRuntimeEventType } from 'vs/workbench/services/languageRuntime/common/languageRuntimeEvents';
-import { HelpClientInstance, IHelpClientMessageInput, IHelpClientMessageOutput, ShowHelpEvent } from 'vs/workbench/services/languageRuntime/common/languageRuntimeHelpClient';
+import { HelpClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeHelpClient';
 import { ILanguageRuntime, ILanguageRuntimeService, IRuntimeClientInstance, RuntimeClientType, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ShowHelpEvent } from 'vs/workbench/services/languageRuntime/common/positronHelpComm';
 
 /**
  * The help HTML file path.
@@ -552,7 +553,7 @@ class PositronHelpService extends Disposable implements IPositronHelpService {
 
 		try {
 			// Create the server side of the help client.
-			const client: IRuntimeClientInstance<IHelpClientMessageInput, IHelpClientMessageOutput> =
+			const client: IRuntimeClientInstance<any, any> =
 				await runtime.createClient(RuntimeClientType.Help, {});
 
 			// Create and attach the help client wrapper.
