@@ -413,12 +413,6 @@
         }
       ]
     },
-    "snippets": [
-      {
-        "language": "r",
-        "path": "./snippets/r.code-snippets"
-      }
-    ],
     "viewsWelcome": [
       {
         "view": "testing",
