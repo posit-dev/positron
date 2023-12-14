@@ -6,6 +6,7 @@ import { Disposable } from 'vs/base/common/lifecycle';
 import { Emitter, Event } from 'vs/base/common/event';
 import { IRuntimeClientInstance, RuntimeClientState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeClientInstance';
 import { IPositronIPyWidgetClient, IPositronIPyWidgetMetadata } from 'vs/workbench/services/positronIPyWidgets/common/positronIPyWidgetsService';
+import { ILanguageRuntimeMessageCommData } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 
 /**
  * The possible types of messages that can be sent from the widget frontend to the language runtime.
@@ -13,7 +14,7 @@ import { IPositronIPyWidgetClient, IPositronIPyWidgetMetadata } from 'vs/workben
  * https://github.com/jupyter-widgets/ipywidgets/blob/52663ac472c38ba12575dfb4979fa2d250e79bc3/packages/schema/messages.md#state-synchronization-1
  */
 export enum IPyWidgetClientMessageTypeInput {
-	/** When a widget's state changes in the frontend, notify the kernel */
+	/** When a widget's state (partially) changes in the frontend, notify the kernel */
 	Update = 'update',
 
 	/** When a frontend wants to request the full state of a widget from the kernel */
@@ -28,27 +29,36 @@ export enum IPyWidgetClientMessageTypeInput {
  * https://github.com/jupyter-widgets/ipywidgets/blob/52663ac472c38ba12575dfb4979fa2d250e79bc3/packages/schema/messages.md#state-synchronization-1
  */
 export enum IPyWidgetClientMessageTypeOutput {
-	/** When a widget's state changes in the kernel, notify the frontend */
+	/** When a widget's state (partially) changes in the kernel, notify the frontend */
 	Update = 'update',
 
+<<<<<<< HEAD
 	/** When a kernel is ready to display the widget in the UI, notify the frontend */
 	Display = 'display',
+=======
+	/** Widgets may also send custom comm messages to their counterpart. */
+	Custom = 'custom',
+
+	/** The kernel sends a message with the widget view mimetype to the comm channel of the widget to be displayed */
+	Display = 'display_data',
+>>>>>>> 6cc989a86b0 (checkpoint)
 }
 
 /**
  * A message used to deliver data from the frontend to the backend.
  */
-export interface IPyWidgetClientMessageInput {
-	msg_type: IPyWidgetClientMessageTypeInput;
+export interface IPyWidgetClientMessageInput extends ILanguageRuntimeMessageCommData {
+	method: IPyWidgetClientMessageTypeInput;
 }
 
 /**
  * A message used to deliver data from the backend to the frontend.
  */
-export interface IPyWidgetClientMessageOutput {
-	msg_type: IPyWidgetClientMessageTypeOutput;
+export interface IPyWidgetClientMessageOutput extends ILanguageRuntimeMessageCommData {
+	method: IPyWidgetClientMessageTypeOutput;
 }
 
+<<<<<<< HEAD
 export interface DisplayWidgetEvent {
 	/** An array containing the IDs of widgets to be included in the view. */
 	view_ids: string[];
@@ -59,6 +69,11 @@ export interface DisplayWidgetEvent {
  */
 export interface IPyWidgetClientMessageDisplay
 	extends IPyWidgetClientMessageOutput, DisplayWidgetEvent {
+=======
+export interface IPyWidgetClientMessageOutputUpdate extends IPyWidgetClientMessageOutput {
+	state: Record<string, any>;
+	buffer_paths: string[];
+>>>>>>> 6cc989a86b0 (checkpoint)
 }
 
 /**
@@ -88,6 +103,18 @@ export class IPyWidgetClientInstance extends Disposable implements IPositronIPyW
 				this._onDidClose.fire();
 			}
 		});
+
+		// Listen for widget updates
+		_client.onDidReceiveData(async (data) => {
+			console.log(`Received data from kernel: ${JSON.stringify(data)}`);
+			if (data.method === IPyWidgetClientMessageTypeOutput.Update) {
+				// When the server notifies us that a widget update has occurred,
+				// we need to update the widget's state in the frontend.
+				const updateMessage = data as IPyWidgetClientMessageOutputUpdate;
+				this.metadata.widget_state.state = { ...updateMessage.state, ...this.metadata.widget_state.state };
+			}
+		});
+
 		this._register(this._client);
 
 		this._register(this._client.onDidReceiveData(data => this.handleData(data)));
