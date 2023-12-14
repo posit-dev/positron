@@ -13,33 +13,10 @@ import comm
 from IPython.core.formatters import DisplayFormatter
 from IPython.core.interactiveshell import InteractiveShell
 
+from .plot_comm import PlotResult, RenderParams, RenderRequest
+from .positron_comm import JsonRpcErrorCode, PositronComm
+
 logger = logging.getLogger(__name__)
-
-
-# Synchronize the models below with:
-#     src/vs/workbench/services/languageRuntime/common/languageRuntimePlotClient.ts
-
-
-@dataclass
-class PlotClientMessageRender:
-    """
-    A message used to request that a plot render at a specific size.
-    """
-
-    width: Optional[int] = field(
-        metadata={"description": "The width of the plot, in logical pixels"}, default=None
-    )
-    height: Optional[int] = field(
-        metadata={"description": "The height of the plot, in logical pixels"}, default=None
-    )
-    pixel_ratio: Optional[float] = field(
-        metadata={
-            "description": """The pixel ratio of the display device; typically 1 for standard displays,
-2 for retina/high DPI displays, etc."""
-        },
-        default=None,
-    )
-    msg_type: Literal["render"] = "render"
 
 
 @dataclass
@@ -57,38 +34,6 @@ class LanguageRuntimeCommMessage:
     data: Dict[str, Any] = field(metadata={"description": "The data from the back-end"})
 
 
-@dataclass
-class PlotClientMessageImage:
-    """
-    A message used to send rendered plot output.
-    """
-
-    data: str = field(
-        metadata={
-            "description": """The data for the plot image, as a base64-encoded string. We need
-to send the plot data as a string because the underlying image file
-exists only on the machine running the language runtime process."""
-        }
-    )
-    mime_type: str = field(
-        metadata={
-            "description": """The MIME type of the image data, e.g. `image/png`. This is used to
-determine how to display the image in the UI."""
-        }
-    )
-    msg_type: str = "image"
-
-
-@dataclass
-class PlotClientMessageError:
-    """
-    A message used to send an error message.
-    """
-
-    message: str = field(metadata={"description": "The error message"})
-    msg_type: str = "error"
-
-
 # Matplotlib Default Figure Size
 DEFAULT_WIDTH_IN = 6.4
 DEFAULT_HEIGHT_IN = 4.8
@@ -97,7 +42,7 @@ BASE_DPI = 96
 
 class PositronDisplayPublisherHook:
     def __init__(self, target_name: str):
-        self.comms: Dict[str, comm.base_comm.BaseComm] = {}
+        self.comms: Dict[str, PositronComm] = {}
         self.figures: Dict[str, str] = {}
         self.target_name = target_name
         self.fignums: List[int] = []
@@ -135,7 +80,7 @@ class PositronDisplayPublisherHook:
         Create a new plot comm with the given id.
         """
         plot_comm = comm.create_comm(target_name=self.target_name, comm_id=comm_id)
-        self.comms[comm_id] = plot_comm
+        self.comms[comm_id] = PositronComm(plot_comm)
         plot_comm.on_msg(self._receive_message)
 
     def _receive_message(self, raw_msg) -> None:
@@ -150,34 +95,39 @@ class PositronDisplayPublisherHook:
 
         comm_id = msg.comm_id
         data = msg.data
+        figure_comm = self.comms.get(comm_id, None)
+        if figure_comm is None:
+            logger.warning(f"Plot figure comm {comm_id} not found")
+            return
+
         try:
-            data = PlotClientMessageRender(**data)
-        except TypeError:
-            pass
+            request = RenderRequest(**data)
+        except TypeError as exception:
+            figure_comm.send_error(
+                code=JsonRpcErrorCode.INVALID_REQUEST,
+                message=f"Invalid plot request {msg.data}: {exception}",
+            )
+            return
 
-        if isinstance(data, PlotClientMessageRender):
-            figure_comm = self.comms.get(comm_id, None)
-            if figure_comm is None:
-                logger.warning(f"Plot figure comm {comm_id} not found")
-                return
-
+        if isinstance(request, RenderRequest):
             pickled = self.figures.get(comm_id, None)
             if pickled is None:
-                output = asdict(PlotClientMessageError(message=f"Figure {comm_id} not found"))
-                figure_comm.send(output)
+                figure_comm.send_error(
+                    code=JsonRpcErrorCode.INVALID_PARAMS, message=f"Figure {comm_id} not found"
+                )
                 return
 
-            width_px = data.width or 0
-            height_px = data.height or 0
-            pixel_ratio = data.pixel_ratio or 1.0
+            width_px = request.params.width or 0
+            height_px = request.params.height or 0
+            pixel_ratio = request.params.pixel_ratio or 1.0
 
             if width_px != 0 and height_px != 0:
                 format_dict, md_dict = self._resize_pickled_figure(
                     pickled, width_px, height_px, pixel_ratio
                 )
                 data = format_dict["image/png"]
-                output = asdict(PlotClientMessageImage(data=data, mime_type="image/png"))
-                figure_comm.send(data=output, metadata=md_dict)
+                output = asdict(PlotResult(data=data, mime_type="image/png"))
+                figure_comm.send_result(data=output, metadata=md_dict)
 
     def shutdown(self) -> None:
         """

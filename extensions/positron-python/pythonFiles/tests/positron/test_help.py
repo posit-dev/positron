@@ -10,7 +10,8 @@ import comm
 import numpy as np
 import pandas as pd
 import pytest
-from positron.help import HelpMessageType, HelpService, ShowHelpContent, ShowHelpEventKind, help
+from positron.help import HelpService, help
+from positron.help_comm import HelpEvent, HelpRequest
 
 from .conftest import DummyComm
 
@@ -121,15 +122,15 @@ def test_show_help(obj: Any, expected_path: str, help_service: HelpService, help
     assert help_service.pydoc_thread is not None
     assert help_service._comm is not None
 
-    [event] = help_service._comm.messages  # type: ignore
+    [event] = help_service._comm.comm.messages  # type: ignore
 
     # We should have sent a ShowHelpContent with the expected content
-    assert event["data"]["msg_type"] == HelpMessageType.show_help
-    assert event["data"]["kind"] == ShowHelpEventKind.url
-    assert event["data"]["focus"] == True
+    assert event["data"]["method"] == HelpEvent.ShowHelp.value
+    assert event["data"]["params"]["kind"] == "url"
+    assert event["data"]["params"]["focus"] == True
     prefix = f"{url}get?key="
-    assert event["data"]["content"].startswith(prefix)
-    assert event["data"]["content"][len(prefix) :] == expected_path
+    assert event["data"]["params"]["content"].startswith(prefix)
+    assert event["data"]["params"]["content"][len(prefix) :] == expected_path
 
 
 def test_handle_show_topic_request_message_type(
@@ -139,17 +140,25 @@ def test_handle_show_topic_request_message_type(
     help_service.on_comm_open(help_comm, open_msg)
     help_comm.messages.clear()
 
-    msg = {"content": {"data": {"msg_type": "show_help_topic_request", "topic": "logging"}}}
+    msg = {
+        "content": {
+            "data": {
+                "jsonrpc": "2.0",
+                "method": HelpRequest.ShowHelpTopic.value,
+                "params": {"topic": "logging"},
+            }
+        }
+    }
     help_comm.handle_msg(msg)
     data = msg["content"]["data"]
-    msg_type = data.get("msg_type", None)
+    method = data.get("method", None)
 
-    assert msg_type == HelpMessageType.topic_request
+    assert method == HelpRequest.ShowHelpTopic.value
 
     assert len(help_comm.messages) == 1
     assert help_comm.messages == [
         {
-            "data": {"found": True, "msg_type": "show_help_topic_reply"},
+            "data": {"jsonrpc": "2.0", "result": True},
             "metadata": None,
             "buffers": None,
             "msg_type": "comm_msg",

@@ -8,76 +8,27 @@ import builtins
 import enum
 import logging
 import pydoc
+from dataclasses import asdict, dataclass
 from typing import TYPE_CHECKING, Any, Optional, Union
-from dataclasses import dataclass, asdict
 
 from .frontend import BaseFrontendEvent, FrontendMessage
+from .help_comm import (
+    HelpEvent,
+    ShowHelpKind,
+    ShowHelpParams,
+    ShowHelpTopicParams,
+    ShowHelpTopicRequest,
+)
+from .positron_comm import JsonRpcErrorCode, PositronComm
 from .pydoc import start_server
 from .utils import get_qualname
 
 if TYPE_CHECKING:
-    from .positron_ipkernel import PositronIPyKernel
     from comm.base_comm import BaseComm
 
+    from .positron_ipkernel import PositronIPyKernel
+
 logger = logging.getLogger(__name__)
-
-
-@enum.unique
-class HelpMessageType(str, enum.Enum):
-    """
-    Enum representing the different types of messages that can be sent over the
-    Help comm channel and their associated data.
-    """
-
-    # Request from the front end to show a help topic in the Help pane.
-    topic_request = "show_help_topic_request"
-
-    # Reply to ShowHelpTopicRequest
-    topic_reply = "show_help_topic_reply"
-
-    # Notify the front end of new content in the Help pane.
-    show_help = "show_help_event"
-
-
-@enum.unique
-class ShowHelpEventKind(str, enum.Enum):
-    """
-    Kind of content shown in the help pane.
-    """
-
-    html = "html"
-    markdown = "markdown"
-    url = "url"
-
-
-@dataclass
-class ShowHelpContent:
-    """
-    Show help content in the help pane.
-    """
-
-    # URL of help content to be shown
-    content: str
-
-    kind: ShowHelpEventKind
-
-    # Focus the Help pane after the Help content has been rendered
-    focus: bool
-
-    # Notify the front end of new content in the Help pane.
-    msg_type: HelpMessageType = HelpMessageType.show_help
-
-
-@dataclass
-class ShowTopicReply:
-    found: bool
-    msg_type: HelpMessageType = HelpMessageType.topic_reply
-
-
-@dataclass
-class ShowTopicRequest:
-    topic: str
-    msg_type: HelpMessageType = HelpMessageType.topic_request
 
 
 def help(topic="help"):
@@ -128,11 +79,11 @@ class HelpService:
 
     def __init__(self, kernel: PositronIPyKernel):
         self.kernel = kernel
-        self._comm: Optional[BaseComm] = None
+        self._comm: Optional[PositronComm] = None
         self.pydoc_thread = None
 
     def on_comm_open(self, comm: BaseComm, msg) -> None:
-        self._comm = comm
+        self._comm = PositronComm(comm)
         comm.on_msg(self.receive_message)
 
     def receive_message(self, msg) -> None:
@@ -142,10 +93,17 @@ class HelpService:
         data = msg["content"]["data"]
         msg_type = data.get("msg_type", None)
 
-        if msg_type == HelpMessageType.topic_request:
-            event = ShowTopicReply(found=True)
-            self._send_event(event)
-            self.show_help(data["topic"])
+        try:
+            request = ShowHelpTopicRequest(**data)
+            if self._comm is not None:
+                self._comm.send_result(data=True)
+            self.show_help(request.params.topic)
+        except TypeError as exception:
+            if self._comm is not None:
+                self._comm.send_error(
+                    code=JsonRpcErrorCode.INVALID_REQUEST,
+                    message=f"Invalid help request {data}: {exception}",
+                )
 
     def shutdown(self) -> None:
         # shutdown pydoc
@@ -205,14 +163,6 @@ class HelpService:
         url = f"{self.pydoc_thread.url}get?key={key}"
 
         # Submit the event to the frontend service
-        event = ShowHelpContent(content=url, kind=ShowHelpEventKind.url, focus=True)
-        self._send_event(event)
-
-    def _send_event(self, event: Union[ShowHelpContent, ShowTopicReply]) -> None:
-        if self._comm is None:
-            logger.warning("Cannot send message, frontend comm is not open")
-            return
-
-        msg = asdict(event)
-
-        self._comm.send(msg)
+        event = ShowHelpParams(content=url, kind=ShowHelpKind.Url, focus=True)
+        if self._comm is not None:
+            self._comm.send_event(name=HelpEvent.ShowHelp.value, payload=asdict(event))
