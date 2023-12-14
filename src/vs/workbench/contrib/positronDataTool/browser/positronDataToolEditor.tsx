@@ -148,7 +148,7 @@ export class PositronDataToolEditor extends EditorPane implements IReactComponen
 
 	//#endregion IReactComponentContainer
 
-	//#region Constructor
+	//#region Constructor & Dispose
 
 	/**
 	 * Constructor.
@@ -171,7 +171,15 @@ export class PositronDataToolEditor extends EditorPane implements IReactComponen
 		super(PositronDataToolEditor.ID, telemetryService, themeService, storageService);
 	}
 
-	//#endregion Constructor
+	/**
+	 * dispose override method.
+	 */
+	public override dispose(): void {
+		// Call the base class's dispose method.
+		super.dispose();
+	}
+
+	//#endregion Constructor & Dispose
 
 	//#region Protected Overrides
 
