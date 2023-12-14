@@ -115,6 +115,13 @@ export class PositronBaseComm extends Disposable {
 						`${JSON.stringify(payload)} ` +
 						`(Expected an object or an array)`);
 				}
+			} else {
+				// If there are no emitters, this event will get dropped on
+				// the floor. Log a warning.
+				console.warn(`Dropping event '${data.method}' ` +
+					`on comm ${this.clientInstance.getClientId()}: ` +
+					`${JSON.stringify(data.params)} ` +
+					`(No listeners for event event '${data.method}'`);
 			}
 		}));
 
