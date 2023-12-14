@@ -22,7 +22,7 @@ export interface ShowHelpEvent {
 	/**
 	 * The type of content to show
 	 */
-	kind: string;
+	kind: 'html' | 'markdown' | 'url';
 
 	/**
 	 * Whether to focus the Help pane when the content is displayed.

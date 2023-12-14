@@ -490,7 +490,11 @@ import { IRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/co
 				yield formatComment('\t * ', `${param.description}`);
 				yield '\t */\n';
 				yield `\t${snakeCaseToCamelCase(param.name)}: `;
-				yield TypescriptTypeMap[param.schema.type as string];
+				if (param.schema.type === 'string' && param.schema.enum) {
+					yield param.schema.enum.map((value: string) => `'${value}'`).join(' | ');
+				} else {
+					yield TypescriptTypeMap[param.schema.type as string];
+				}
 				yield `;\n\n`;
 			}
 			yield '}\n\n';
