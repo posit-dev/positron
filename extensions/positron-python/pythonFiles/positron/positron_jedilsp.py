@@ -73,9 +73,9 @@ from lsprotocol.types import (
     Hover,
     InsertTextFormat,
     Location,
-    Position,
     MarkupContent,
     MarkupKind,
+    Position,
     RenameParams,
     SignatureHelp,
     SignatureHelpOptions,
@@ -89,10 +89,9 @@ from pygls.capabilities import get_capability
 from pygls.feature_manager import has_ls_param_or_annotation
 from pygls.workspace.text_document import TextDocument
 
-
-from .help import ShowTopicRequest
+from .help_comm import ShowHelpTopicParams
+from .inspectors import BaseColumnInspector, BaseTableInspector, get_inspector
 from .jedi import PositronInterpreter, get_python_object
-from .inspectors import get_inspector, BaseTableInspector, BaseColumnInspector
 
 if TYPE_CHECKING:
     from .positron_ipkernel import PositronIPyKernel
@@ -575,7 +574,7 @@ def positron_rename(
 @POSITRON.feature(_HELP_TOPIC)
 def positron_help_topic_request(
     server: PositronJediLanguageServer, params: HelpTopicParams
-) -> Optional[ShowTopicRequest]:
+) -> Optional[ShowHelpTopicParams]:
     """Return topic to display in Help pane"""
     document = server.workspace.get_document(params.text_document.uri)
     jedi_script = interpreter(server.project, document, server.kernel)
@@ -591,7 +590,7 @@ def positron_help_topic_request(
         return None
     else:
         logger.info(f"Help topic found: {topic}")
-        return ShowTopicRequest(topic=topic)
+        return ShowHelpTopicParams(topic=topic)
 
 
 @POSITRON.feature(
