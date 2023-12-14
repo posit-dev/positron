@@ -107,7 +107,6 @@ export class ShowHelpAtCursor extends Action2 {
 					if (!found) {
 						notificationService.info(localize('positron.help.helpTopicNotFound', "No {0} help available for '{1}'", languageName, topic));
 					}
-
 				} else {
 					notificationService.info(localize('positron.help.noHelpTopic', "No {0} help is available at this location.", languageName));
 				}
@@ -195,10 +194,18 @@ export class LookupHelpTopic extends Action2 {
 
 		// If the user entered a topic, show it.
 		if (topic) {
-			const found = helpService.showHelpTopic(languageId, topic);
-			if (!found) {
-				const message = localize('positron.help.helpTopicUnavailable', "No help found for '{0}'.", topic);
-				notificationService.info(message);
+			try {
+				const found = await helpService.showHelpTopic(languageId, topic);
+				if (!found) {
+					const message = localize('positron.help.helpTopicUnavailable',
+						"No help found for '{0}'.", topic);
+					notificationService.info(message);
+					return;
+				}
+			} catch (err) {
+				const message = localize('positron.help.errorLookingUpTopic',
+					"Error finding help on '{0}': {1} ({2}).", topic, err.message, err.code);
+				notificationService.warn(message);
 				return;
 			}
 		}
