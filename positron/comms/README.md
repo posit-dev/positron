@@ -2,7 +2,7 @@
 
 This directory contains the [OpenRPC](https://open-rpc.org/) contracts for most of Positron's custom comm channels. The RPCs that pass through these channels are delivered as [Jupyter Custom messsages](https://jupyter-client.readthedocs.io/en/stable/messaging.html#custom-messages).
 
-OpenRPC is designed for straightforward client-server communication, but Positron's comms are bidirectional. For this reason, each comm has a *pair* of OpenRPC specifications: one defining the comm's **backend** (implemented by the kernel) and one defining the **frontend** (implemented by Positron)
+OpenRPC is designed for straightforward client-server communication, but Positron's comms are bidirectional. For this reason, each comm has a _pair_ of OpenRPC specifications: one defining the comm's **backend** (implemented by the kernel) and one defining the **frontend** (implemented by Positron)
 
 ```mermaid
 graph LR
@@ -18,10 +18,10 @@ Each Positron comm is defined using three files:
 
 This file contains metadata about the comm itself rather than the messages delivered on the comm. There are only 3 metadata fields:
 
-| field | value |
-| --- | --- |
-| `name` | The name of the comm |
-| `initiator` | Either `frontend` or `backend`; indicates who opens the comm |
+| field          | value                                                                                            |
+| -------------- | ------------------------------------------------------------------------------------------------ |
+| `name`         | The name of the comm                                                                             |
+| `initiator`    | Either `frontend` or `backend`; indicates who opens the comm                                     |
 | `initial_data` | A JSON Schema defining the initial data that is expected to be delivered when the comm is opened |
 
 #### Comm Backend: {comm}-backend-openrpc.json
@@ -40,6 +40,7 @@ JSON-RPC is useful as a standardized specification format, but because we are us
 
 - **The "id" field is not used**. Because the JSON-RPC messages are being delivered as `comm_msg` Jupyter messages, each message already has an ID and a parent ID. This makes the JSON-RPC ID redundant.
 - **The "jsonrpc" field is optional**.
+- **Parameters are always passed by name**. JSON-RPC allows parameters to be passed either positionally (in a JSON array) or by name (in a JSON object). Currently, we only pass arguments by name.
 
 ## Making Changes
 
@@ -83,5 +84,3 @@ Create new branches in all three repositories (`positron`, `positron-python`, an
 ### Step 6: Merge
 
 Once PRs have been approved on each branch, coordinate a merge of all three branches together. A convenient way to do this is to include the submodule bump (`positron-python`) and ark version bump (`amalthea`) as changes in your `positron` PR, so that all the changes land in Positron at the same time.
-
-
