@@ -171,29 +171,48 @@ use serde::Serialize;
 		}
 	}
 
-	if (backend) {
-		for (const method of backend.methods) {
-			if (method.params.length > 0) {
-				yield '#[derive(Debug, Serialize, Deserialize, PartialEq)]\n';
-				yield `pub struct ${snakeCaseToSentenceCase(method.name)}Params {\n`;
-				for (let i = 0; i < method.params.length; i++) {
-					const param = method.params[i];
-					if (param.description) {
-						yield formatComment('\t/// ', param.description);
+	// Create enums for all enum types
+	for (const source of [backend, frontend]) {
+		if (!source) {
+			continue;
+		}
+		for (const method of source.methods) {
+			for (const param of method.params) {
+				if (param.schema.enum) {
+					yield formatComment(`/// `,
+						`Possible values for the ` +
+						snakeCaseToSentenceCase(param.name) + ` ` +
+						`parameter of the ` +
+						snakeCaseToSentenceCase(method.name) + ` ` +
+						`method.`);
+					yield '#[derive(Debug, Serialize, Deserialize, PartialEq)]\n';
+					yield `pub enum ${snakeCaseToSentenceCase(method.name)}${snakeCaseToSentenceCase(param.name)} {\n`;
+					for (let i = 0; i < param.schema.enum.length; i++) {
+						const value = param.schema.enum[i];
+						yield `\t#[serde(rename = "${value}")]\n`;
+						yield `\t${snakeCaseToSentenceCase(value)}`;
+						if (i < param.schema.enum.length - 1) {
+							yield ',\n\n';
+						} else {
+							yield '\n';
+						}
 					}
-					yield `\tpub ${param.name}: ${RustTypeMap[param.schema.type]},\n`;
-					if (i < method.params.length - 1) {
-						yield '\n';
-					}
+					yield '}\n\n';
 				}
-				yield `}\n\n`;
 			}
 		}
 	}
 
-	if (frontend) {
-		for (const method of frontend.methods) {
-			if (!method.result && method.params.length > 0) {
+	for (const source of [backend, frontend]) {
+		if (!source) {
+			continue;
+		}
+		for (const method of source.methods) {
+			if (method.params.length > 0) {
+				yield formatComment(`/// `,
+					`Parameters for the ` +
+					snakeCaseToSentenceCase(method.name) + ` ` +
+					`method.`);
 				yield '#[derive(Debug, Serialize, Deserialize, PartialEq)]\n';
 				yield `pub struct ${snakeCaseToSentenceCase(method.name)}Params {\n`;
 				for (let i = 0; i < method.params.length; i++) {
@@ -201,7 +220,13 @@ use serde::Serialize;
 					if (param.description) {
 						yield formatComment('\t/// ', param.description);
 					}
-					yield `\tpub ${param.name}: ${RustTypeMap[param.schema.type]},\n`;
+					if (param.schema.enum) {
+						// Use an enum type if the schema has an enum
+						yield `\tpub ${param.name}: ${snakeCaseToSentenceCase(method.name)}${snakeCaseToSentenceCase(param.name)},\n`;
+					} else {
+						// Otherwise use the type directly
+						yield `\tpub ${param.name}: ${RustTypeMap[param.schema.type]},\n`;
+					}
 					if (i < method.params.length - 1) {
 						yield '\n';
 					}
