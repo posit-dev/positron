@@ -346,6 +346,41 @@ from dataclasses import dataclass, field
 		}
 	}
 
+	// Create enums for all enum types
+	for (const source of [backend, frontend]) {
+		if (!source) {
+			continue;
+		}
+		for (const method of source.methods) {
+			for (const param of method.params) {
+				if (param.schema.enum) {
+					yield '@enum.unique\n';
+					yield `class ${snakeCaseToSentenceCase(method.name)}`;
+					yield `${snakeCaseToSentenceCase(param.name)}(str, enum.Enum):\n`;
+					yield '    """\n';
+					yield formatComment(`    `,
+						`Possible values for the ` +
+						snakeCaseToSentenceCase(param.name) + ` ` +
+						`parameter of the ` +
+						snakeCaseToSentenceCase(method.name) + ` ` +
+						`method.`);
+					yield '    """\n';
+					yield '\n';
+					for (let i = 0; i < param.schema.enum.length; i++) {
+						const value = param.schema.enum[i];
+						yield `    ${snakeCaseToSentenceCase(value)} = "${value}"`;
+						if (i < param.schema.enum.length - 1) {
+							yield '\n\n';
+						} else {
+							yield '\n';
+						}
+					}
+					yield '\n\n';
+				}
+			}
+		}
+	}
+
 	if (backend) {
 		yield '@enum.unique\n';
 		yield `class ${snakeCaseToSentenceCase(name)}Request(str, enum.Enum):\n`;
@@ -371,7 +406,11 @@ from dataclasses import dataclass, field
 			yield `    """\n`;
 			yield `\n`;
 			for (const param of method.params) {
-				yield `    ${param.name}: ${PythonTypeMap[param.schema.type]}`;
+				if (param.schema.enum) {
+					yield `    ${param.name}: ${snakeCaseToSentenceCase(method.name)}${snakeCaseToSentenceCase(param.name)}`;
+				} else {
+					yield `    ${param.name}: ${PythonTypeMap[param.schema.type]}`;
+				}
 				yield ' = field(\n';
 				yield `        metadata={\n`;
 				yield `            "description": "${param.description}",\n`;
@@ -426,7 +465,11 @@ from dataclasses import dataclass, field
 				yield `    """\n`;
 				yield `\n`;
 				for (const param of method.params) {
-					yield `    ${param.name}: ${PythonTypeMap[param.schema.type]}`;
+					if (param.schema.enum) {
+						yield `    ${param.name}: ${snakeCaseToSentenceCase(method.name)}${snakeCaseToSentenceCase(param.name)}`;
+					} else {
+						yield `    ${param.name}: ${PythonTypeMap[param.schema.type]}`;
+					}
 					yield ' = field(\n';
 					yield `        metadata={\n`;
 					yield `            "description": "${param.description}"\n`;
