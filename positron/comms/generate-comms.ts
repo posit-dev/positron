@@ -154,12 +154,17 @@ use serde::Serialize;
 				method.result.schema.type === 'object') {
 				yield '#[derive(Debug, Serialize, Deserialize, PartialEq)]\n';
 				yield `pub struct ${snakeCaseToSentenceCase(method.result.schema.name)} {\n`;
-				for (const prop of Object.keys(method.result.schema.properties)) {
+				const props = Object.keys(method.result.schema.properties);
+				for (let i = 0; i < props.length; i++) {
+					const prop = props[i];
 					const schema = method.result.schema.properties[prop];
 					if (schema.description) {
 						yield formatComment('\t/// ', schema.description);
 					}
-					yield `\tpub ${prop}: ${RustTypeMap[schema.type]},\n\n`;
+					yield `\tpub ${prop}: ${RustTypeMap[schema.type]},\n`;
+					if (i < props.length - 1) {
+						yield '\n';
+					}
 				}
 				yield '}\n\n';
 			}
@@ -168,32 +173,42 @@ use serde::Serialize;
 
 	if (backend) {
 		for (const method of backend.methods) {
-			yield '#[derive(Debug, Serialize, Deserialize, PartialEq)]\n';
-			yield `pub struct ${snakeCaseToSentenceCase(method.name)}Params {\n`;
-			for (const param of method.params) {
-				if (param.description) {
-					yield formatComment('\t/// ', param.description);
+			if (method.params.length > 0) {
+				yield '#[derive(Debug, Serialize, Deserialize, PartialEq)]\n';
+				yield `pub struct ${snakeCaseToSentenceCase(method.name)}Params {\n`;
+				for (let i = 0; i < method.params.length; i++) {
+					const param = method.params[i];
+					if (param.description) {
+						yield formatComment('\t/// ', param.description);
+					}
+					yield `\tpub ${param.name}: ${RustTypeMap[param.schema.type]},\n`;
+					if (i < method.params.length - 1) {
+						yield '\n';
+					}
 				}
-				yield `\tpub ${param.name}: ${RustTypeMap[param.schema.type]},\n\n`;
+				yield `}\n\n`;
 			}
 		}
-		yield `}\n\n`;
 	}
 
 	if (frontend) {
 		for (const method of frontend.methods) {
-			if (!method.result) {
+			if (!method.result && method.params.length > 0) {
 				yield '#[derive(Debug, Serialize, Deserialize, PartialEq)]\n';
 				yield `pub struct ${snakeCaseToSentenceCase(method.name)}Params {\n`;
-				for (const param of method.params) {
+				for (let i = 0; i < method.params.length; i++) {
+					const param = method.params[i];
 					if (param.description) {
 						yield formatComment('\t/// ', param.description);
 					}
-					yield `\tpub ${param.name}: ${RustTypeMap[param.schema.type]},\n\n`;
+					yield `\tpub ${param.name}: ${RustTypeMap[param.schema.type]},\n`;
+					if (i < method.params.length - 1) {
+						yield '\n';
+					}
 				}
+				yield `}\n\n`;
 			}
 		}
-		yield `}\n\n`;
 	}
 
 	if (backend) {
@@ -205,11 +220,10 @@ use serde::Serialize;
 		yield `pub enum ${snakeCaseToSentenceCase(name)}RpcRequest {\n`;
 		for (const method of backend.methods) {
 			if (method.summary) {
+				yield formatComment('\t/// ', method.summary);
 				if (method.description) {
-					yield formatComment('\t/// ',
-						`${method.summary}: ${method.description}`);
-				} else {
-					yield formatComment('\t/// ', method.summary);
+					yield '\t///\n';
+					yield formatComment('\t/// ', method.description);
 				}
 			}
 			yield `\t#[serde(rename = "${method.name}")]\n`;
