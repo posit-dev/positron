@@ -15,9 +15,7 @@ from lsprotocol.types import (
     Position,
     TextDocumentIdentifier,
 )
-from pygls.workspace.text_document import TextDocument
-
-from positron.help import ShowTopicRequest
+from positron.help import ShowHelpTopicParams
 from positron.inspectors import get_inspector
 from positron.jedi import PositronInterpreter
 from positron.positron_ipkernel import PositronIPyKernel
@@ -27,6 +25,7 @@ from positron.positron_jedilsp import (
     positron_completion_item_resolve,
     positron_help_topic_request,
 )
+from pygls.workspace.text_document import TextDocument
 
 
 @pytest.fixture
@@ -81,7 +80,7 @@ def test_positron_help_topic_request(
     if expected_topic is None:
         assert topic is None
     else:
-        assert topic == ShowTopicRequest(expected_topic)
+        assert topic == ShowHelpTopicParams(expected_topic)
 
 
 class _ObjectWithProperty:
