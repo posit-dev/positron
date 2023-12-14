@@ -77,6 +77,10 @@ jobs:
         timeout-minutes: 15
         run: DISPLAY=:10 ./scripts/test-remote-integration.sh
 
+      - name: Run Integration Tests (Browser, Chromium)
+        id: browser-integration-tests
+        run: DISPLAY=:10 ./scripts/test-web-integration.sh --browser chromium
+
       - name: Run Smoke Tests (Electron)
         id: electron-smoke-tests
         run: DISPLAY=:10 yarn smoketest-no-compile --tracing
