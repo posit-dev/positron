@@ -40,9 +40,9 @@ export class ZedPlot {
 	 * @param message The message to handle
 	 */
 	public handleMessage(message: any): void {
-		switch (message.msg_type) {
+		switch (message.method) {
 			case 'render':
-				this.emitImage(message as IPlotRenderRequest);
+				this.emitImage(message.params as IPlotRenderRequest);
 				break;
 			default:
 				console.error(`ZedPlot ${this.id} got unknown message type: ${message.msg_type}`);
@@ -74,9 +74,11 @@ export class ZedPlot {
 
 		// Emit to the front end.
 		this._onDidEmitData.fire({
-			msg_type: 'image',
-			data: plotSvgBase64,
-			mime_type: 'image/svg+xml',
+			jsonrpc: '2.0',
+			result: {
+				data: plotSvgBase64,
+				mime_type: 'image/svg+xml',
+			}
 		});
 	}
 }
