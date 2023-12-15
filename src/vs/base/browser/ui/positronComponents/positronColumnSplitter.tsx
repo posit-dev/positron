@@ -131,7 +131,10 @@ export const PositronColumnSplitter = (props: PositronColumnSplitterProps) => {
 		 * @param e The mouse event.
 		 */
 		const fireOnResize = (e: DocumentMouseEvent): PositronColumnSplitterResizeResult =>
-			props.onResize(e.clientX - resizeStateRef.current!.startingX, e.clientY - resizeStateRef.current!.startingY);
+			props.onResize(
+				e.clientX - resizeStateRef.current!.startingX,
+				e.clientY - resizeStateRef.current!.startingY
+			);
 
 		// Capture the mouse.
 		body.addEventListener('mousemove', mouseMoveHandler, false);
