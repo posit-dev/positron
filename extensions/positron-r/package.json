@@ -413,12 +413,6 @@
         }
       ]
     },
-    "snippets": [
-      {
-        "language": "r",
-        "path": "./snippets/r.code-snippets"
-      }
-    ],
     "viewsWelcome": [
       {
         "view": "testing",
@@ -509,7 +503,7 @@
   },
   "positron": {
     "binaryDependencies": {
-      "ark": "0.1.36"
+      "ark": "0.1.37"
     }
   }
 }
