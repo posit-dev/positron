@@ -2063,7 +2063,11 @@ class OutputLine implements ANSIOutputLine {
 
 			// Adjust the total length and splice the new output runs in.
 			this._totalLength = leftOffset + leftTextLength + text.length;
-			this.outputRuns.splice(leftOutputRunIndex, 1, ...outputRuns);
+			this.outputRuns.splice(
+				leftOutputRunIndex,
+				this.outputRuns.length - leftOutputRunIndex,
+				...outputRuns
+			);
 
 			// The insertion is complete.
 			return;
