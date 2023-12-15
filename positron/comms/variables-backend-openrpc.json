@@ -17,7 +17,8 @@
 						"type": "boolean"
 					}
 				}
-			]
+			],
+			"result": {}
 		},
 		{
 			"name": "delete",
@@ -34,7 +35,8 @@
 						}
 					}
 				}
-			]
+			],
+			"result": {}
 		},
 		{
 			"name": "inspect",
@@ -55,6 +57,8 @@
 			"result": {
 				"schema": {
 					"type": "object",
+					"name": "inspected_variable",
+					"description": "An inspected variable.",
 					"properties": {
 						"children": {
 							"type": "array",
@@ -97,6 +101,8 @@
 			"result": {
 				"schema": {
 					"type": "object",
+					"name": "formatted_variable",
+					"description": "An object formatted for copying to the clipboard.",
 					"properties": {
 						"format": {
 							"type": "string",

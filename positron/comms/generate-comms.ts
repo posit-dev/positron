@@ -256,7 +256,7 @@ use serde::Serialize;
 			if (method.params.length > 0) {
 				yield `(${snakeCaseToSentenceCase(method.name)}Params),\n`;
 			} else {
-				yield ',\n';
+				yield ',\n\n';
 			}
 		}
 		yield `}\n\n`;
@@ -517,15 +517,24 @@ import { IRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/co
 			if (method.result &&
 				method.result.schema &&
 				method.result.schema.type === 'object') {
-				yield await compile(method.result.schema,
-					method.result.schema.name, {
-					bannerComment: '',
-					additionalProperties: false,
-					style: {
-						useTabs: true
+				yield '/**\n';
+				yield formatComment(' * ', method.result.schema.description);
+				yield ' */\n';
+				yield `export interface ${snakeCaseToSentenceCase(method.result.schema.name)} {\n`;
+				for (const prop of Object.keys(method.result.schema.properties)) {
+					const schema = method.result.schema.properties[prop];
+					yield '\t/**\n';
+					yield formatComment('\t * ', schema.description);
+					yield '\t */\n';
+					yield `\t${prop}: `;
+					if (schema.type === 'object') {
+						yield snakeCaseToSentenceCase(schema.name);
+					} else {
+						yield TypescriptTypeMap[schema.type];
 					}
-				});
-				yield '\n';
+					yield `;\n\n`;
+				}
+				yield '}\n\n';
 			}
 		}
 	}
@@ -599,7 +608,7 @@ import { IRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/co
 					`@param ${snakeCaseToCamelCase(param.name)} ${param.description}`);
 			}
 			yield `\t *\n`;
-			if (method.result) {
+			if (method.result && method.result.schema) {
 				yield formatComment('\t * ',
 					`@returns ${method.result.schema.description}`);
 			}
@@ -615,7 +624,7 @@ import { IRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/co
 				}
 			}
 			yield '): Promise<';
-			if (method.result) {
+			if (method.result && method.result.schema) {
 				if (method.result.schema.type === 'object') {
 					yield snakeCaseToSentenceCase(method.result.schema.name);
 				} else {
