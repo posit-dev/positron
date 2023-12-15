@@ -581,6 +581,46 @@ suite('ANSIOutout', () => {
 		testOutputLines(10000, CRLF);
 	});
 
+	test('Text that exactly overwriting output runs to the right works', () => {
+		// Setup.
+		const ansiOutput = new ANSIOutput();
+		ansiOutput.processOutput(`${makeSGR(SGRParam.ForegroundRed)}0123456789${makeSGR()}`);
+		ansiOutput.processOutput(`${makeSGR(SGRParam.ForegroundBlue)}0123456789${makeSGR()}`);
+		ansiOutput.processOutput(`${makeSGR(SGRParam.ForegroundGreen)}0123456789${makeSGR()}`);
+		ansiOutput.processOutput(CR);
+		ansiOutput.processOutput("                              ");
+		ansiOutput.processOutput(CR);
+		ansiOutput.processOutput("0123456789");
+		const outputLines = ansiOutput.outputLines;
+
+		// Test.
+		assert.equal(outputLines.length, 1);
+		assert.equal(outputLines[0].outputRuns.length, 1);
+		assert.equal(outputLines[0].outputRuns[0].id.length, 36);
+		assert.equal(outputLines[0].outputRuns[0].format, undefined);
+		assert.equal(outputLines[0].outputRuns[0].text, '0123456789                    ');
+	});
+
+	test('Text that over overwriting output runs to the right works', () => {
+		// Setup.
+		const ansiOutput = new ANSIOutput();
+		ansiOutput.processOutput(`${makeSGR(SGRParam.ForegroundRed)}0123456789${makeSGR()}`);
+		ansiOutput.processOutput(`${makeSGR(SGRParam.ForegroundBlue)}0123456789${makeSGR()}`);
+		ansiOutput.processOutput(`${makeSGR(SGRParam.ForegroundGreen)}0123456789${makeSGR()}`);
+		ansiOutput.processOutput(CR);
+		ansiOutput.processOutput("                                        ");
+		ansiOutput.processOutput(CR);
+		ansiOutput.processOutput("0123456789");
+		const outputLines = ansiOutput.outputLines;
+
+		// Test.
+		assert.equal(outputLines.length, 1);
+		assert.equal(outputLines[0].outputRuns.length, 1);
+		assert.equal(outputLines[0].outputRuns[0].id.length, 36);
+		assert.equal(outputLines[0].outputRuns[0].format, undefined);
+		assert.equal(outputLines[0].outputRuns[0].text, '0123456789                              ');
+	});
+
 	test('Test CUB (Cursor Backward)', () => {
 		// Setup.
 		const ansiOutput = new ANSIOutput();
