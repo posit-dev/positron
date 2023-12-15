@@ -9,6 +9,7 @@ import { DisposableStore } from 'vs/base/common/lifecycle';
 import { ILanguageRuntime } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { usePositronTopActionBarContext } from 'vs/workbench/browser/parts/positronTopActionBar/positronTopActionBarContext';
 import { showInterpretersManagerModalPopup } from 'vs/workbench/browser/parts/positronTopActionBar/interpretersManagerModalPopup/interpretersManagerModalPopup';
+import { useRegisterWithActionBar } from 'vs/platform/positronActionBar/browser/useRegisterWithActionBar';
 
 /**
  * TopActionBarInterpretersManagerProps interface.
@@ -55,6 +56,9 @@ export const TopActionBarInterpretersManager = (props: TopActionBarInterpretersM
 		return () => disposableStore.dispose();
 	}, []);
 
+	// Participate in roving tabindex.
+	useRegisterWithActionBar([ref]);
+
 	/**
 	 * Shows the interpreters manager modal popup.
 	 */
@@ -62,7 +66,7 @@ export const TopActionBarInterpretersManager = (props: TopActionBarInterpretersM
 		ref.current.setAttribute('aria-expanded', 'true');
 		showInterpretersManagerModalPopup(
 			positronTopActionBarContext.languageRuntimeService,
-			positronTopActionBarContext.layoutService.container,
+			positronTopActionBarContext.layoutService.mainContainer,
 			ref.current,
 			props.onStartRuntime,
 			props.onActivateRuntime

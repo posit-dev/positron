@@ -9,7 +9,7 @@ import { JupyterKernel } from './JupyterKernel';
 import { JupyterMessagePacket } from './JupyterMessagePacket';
 import { JupyterCommMsg } from './JupyterCommMsg';
 import { JupyterCommClose } from './JupyterCommClose';
-import { PromiseHandles, delay } from './utils';
+import { PromiseHandles, delay, uuidv4 } from './utils';
 
 /**
  * Adapts a Positron Language Runtime client widget to a Jupyter kernel.
@@ -21,6 +21,13 @@ export class RuntimeClientAdapter {
 	private _currentState: positron.RuntimeClientState;
 	private _disposables: vscode.Disposable[] = [];
 	onDidChangeClientState: vscode.Event<positron.RuntimeClientState>;
+
+	/**
+	 * Map of pending RPCs. The key is the RPC ID (derived from the message ID),
+	 * and the value is a promise that will be resolved when the RPC response is
+	 * received.
+	 */
+	private _pendingRpcs = new Map<string, PromiseHandles<any>>();
 
 	private readonly _messageEmitter = new vscode.EventEmitter<{ [key: string]: any }>();
 	readonly onDidReceiveCommMsg = this._messageEmitter.event;
@@ -38,6 +45,16 @@ export class RuntimeClientAdapter {
 		this.onDidChangeClientState = this._state.event;
 		this._disposables.push(this.onDidChangeClientState((e) => {
 			this._currentState = e;
+
+			// Reject all pending RPCs when the channel is closed
+			if (e === positron.RuntimeClientState.Closed) {
+				for (const [, promise] of this._pendingRpcs) {
+					promise.reject(
+						new Error(`The channel ${this._id} (${this.getClientType()}) ` +
+							` was closed before the RPC completed.`));
+				}
+			}
+
 		}));
 
 		// Listen to messages from the kernel so we can sort out the ones
@@ -182,6 +199,22 @@ export class RuntimeClientAdapter {
 	}
 
 	/**
+	 * Perform an RPC call over the comm channel.
+	 */
+	performRpc(request: any): Promise<any> {
+		// Create a random ID for this request
+		const id = uuidv4();
+
+		// Create a promise for the response
+		const out = new PromiseHandles<any>();
+		this._pendingRpcs.set(id, out);
+
+		// Send the request and return the promise
+		this._kernel.sendCommMessage(this._id, id, request);
+		return out.promise;
+	}
+
+	/**
 	 * Process a comm_msg message from the kernel. This usually represents
 	 * an event from the server that should be forwarded to the client, or
 	 * a response to a request from the client.
@@ -189,7 +222,7 @@ export class RuntimeClientAdapter {
 	 * @param _msg The raw message packet received from the kernel.
 	 * @param message The contents of the message received from the kernel.
 	 */
-	private onCommMsg(_msg: JupyterMessagePacket, message: JupyterCommMsg) {
+	private onCommMsg(msg: JupyterMessagePacket, message: JupyterCommMsg) {
 		// Ignore messages targeted at other comm channels
 		if (message.comm_id !== this._id) {
 			return;
@@ -208,7 +241,28 @@ export class RuntimeClientAdapter {
 			// earlier, before receiving any messages.
 		}
 
-		this._messageEmitter.fire(message.data);
+		// If this message is in reply to an RPC, fulfill the RPC instead of
+		// emitting the message.
+		if (this._pendingRpcs.has(msg.originId)) {
+			const promise = this._pendingRpcs.get(msg.originId)!;
+			if (promise.settled) {
+				// If the promise is already settled in some way (resolved or
+				// rejected) we can't do anything with it, so just log a
+				// warning.
+				console.warn(`Ignoring RPC response for ${msg.originId}; ` +
+					`RPC already settled (timed out?)`);
+			} else {
+				// Otherwise, resolve the promise with the message data.
+				promise.resolve(message.data);
+			}
+
+			// Remove the RPC from the pending list
+			this._pendingRpcs.delete(msg.originId);
+		} else {
+
+			// Not an RPC response, so emit the message
+			this._messageEmitter.fire(message.data);
+		}
 	}
 
 	/**
@@ -224,6 +278,7 @@ export class RuntimeClientAdapter {
 		if (message.comm_id !== this._id) {
 			return;
 		}
+
 		// Update the current state to closed
 		this._state.fire(positron.RuntimeClientState.Closed);
 	}

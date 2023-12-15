@@ -40,6 +40,7 @@ export enum RuntimeClientType {
 	DataViewer = 'positron.dataViewer',
 	FrontEnd = 'positron.frontEnd',
 	Help = 'positron.help',
+	IPyWidget = 'jupyter.widget',
 
 	// Future client types may include:
 	// - Watch window/variable explorer

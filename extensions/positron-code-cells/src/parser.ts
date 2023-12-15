@@ -56,18 +56,19 @@ function getJupyterMarkdownCellText(cell: Cell, document: vscode.TextDocument): 
 		text = lines.map(line => line.replace(commentRegExp, '')).join('\n');
 	}
 	// If the text is enclosed in """s, remove them
-	if (text.startsWith('"""') && text.endsWith('"""')) {
+	if (text.startsWith(`"""`) && text.endsWith(`"""`) || text.startsWith(`'''`) && text.endsWith(`'''`)) {
 		text = text.slice(3, -3).trim();
 	}
 	// Execute the resulting text with the %%markdown cell magic
 	return `%%markdown\n${text}\n\n`;
 }
 
-const pythonMarkdownRegExp = new RegExp(/^(#\s*%%\s*\[markdown\]|#\s*\<markdowncell\>)/);
+const pythonIsCellStartRegExp = new RegExp(/^\s*#\s*%%/);
+const pythonMarkdownRegExp = new RegExp(/^\s*#\s*%%[^[]*\[markdown\]/);
 
 // TODO: Expose an API to let extensions register parsers
 const pythonCellParser: CellParser = {
-	isCellStart: (line) => line.startsWith('# %%'),
+	isCellStart: (line) => pythonIsCellStartRegExp.test(line),
 	isCellEnd: (_line) => false,
 	getCellType: (line) => pythonMarkdownRegExp.test(line) ? CellType.Markdown : CellType.Code,
 	getCellText: (cell, document) =>

@@ -6,6 +6,7 @@ import * as React from 'react';
 import { useEffect, useState } from 'react'; // eslint-disable-line no-duplicate-imports
 import { ProgressBar } from 'vs/base/browser/ui/progressbar/progressbar';
 import { DisposableStore } from 'vs/base/common/lifecycle';
+import { localize } from 'vs/nls';
 import { usePositronPlotsContext } from 'vs/workbench/contrib/positronPlots/browser/positronPlotsContext';
 import { PlotClientInstance, PlotClientState } from 'vs/workbench/services/languageRuntime/common/languageRuntimePlotClient';
 
@@ -51,6 +52,15 @@ export const DynamicPlotInstance = (props: DynamicPlotInstanceProps) => {
 		});
 		props.plotClient.render(plotSize.height, plotSize.width, ratio).then((result) => {
 			setUri(result.uri);
+		}).catch((e) => {
+			// It's normal for a plot render to be canceled if the user invalidates the render
+			// by e.g. changing the plot size or the sizing policy while render
+			// is active. Don't show a warning in that case.
+			if (e.name === 'Canceled' || e.message === 'Canceled') {
+				return;
+			}
+			const message = localize('positronPlots.renderError', "Error rendering plot to {0} x {1}: {2} ({3})", plotSize.width, plotSize.height, e.message, e.code);
+			plotsContext.notificationService.warn(message);
 		});
 
 		// When the plot is rendered, update the URI.
@@ -64,8 +74,22 @@ export const DynamicPlotInstance = (props: DynamicPlotInstanceProps) => {
 				height: props.height,
 				width: props.width
 			});
-			const result = await props.plotClient.render(plotSize.height, plotSize.width, ratio);
-			setUri(result.uri);
+
+			try {
+				// Wait for the plot to render.
+				const result =
+					await props.plotClient.render(plotSize.height, plotSize.width, ratio);
+
+				// Update the URI to the URI of the new plot.
+				setUri(result.uri);
+
+			} catch (e) {
+				if (e.name === 'Canceled' || e.message === 'Canceled') {
+					return;
+				}
+				const message = localize('positronPlots.policyRenderError', "Error rendering plot to '{0}' size: {1} ({2})", policy.name, e.message, e.code);
+				plotsContext.notificationService.warn(message);
+			}
 		}));
 
 		let progressBar: ProgressBar | undefined;

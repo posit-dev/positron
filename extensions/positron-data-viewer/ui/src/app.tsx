@@ -20,7 +20,7 @@ import { DataViewerMessage, DataViewerMessageRowRequest, DataViewerMessageRowRes
 //
 // @ts-ignore
 const vscode = acquireVsCodeApi();
-const fetchSize = 100;
+const fetchSize = 500;
 
 // Let the extension know that we're ready to receive the initial data.
 const msg: DataViewerMessageRowRequest = {
@@ -49,4 +49,7 @@ window.addEventListener('message', (event: any) => {
 			</React.StrictMode>
 		);
 	} // Other message types are handled in the DataPanel component after app initialization.
-});
+	// The initial data event only fires once, so we can remove the listener after the first event.
+}, { once: true });
+
+

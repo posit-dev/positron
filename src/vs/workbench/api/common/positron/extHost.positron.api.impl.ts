@@ -20,6 +20,7 @@ import { IExtHostWorkspace } from 'vs/workbench/api/common/extHostWorkspace';
 import { ExtHostWebviews } from 'vs/workbench/api/common/extHostWebview';
 import { ExtHostLanguageFeatures } from 'vs/workbench/api/common/extHostLanguageFeatures';
 import { ExtHostOutputService } from 'vs/workbench/api/common/extHostOutput';
+import { ExtHostConsole } from 'vs/workbench/api/common/positron/extHostConsole';
 
 /**
  * Factory interface for creating an instance of the Positron API.
@@ -56,16 +57,20 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 	const extHostLanguageRuntime = rpcProtocol.set(ExtHostPositronContext.ExtHostLanguageRuntime, new ExtHostLanguageRuntime(rpcProtocol));
 	const extHostPreviewPanels = rpcProtocol.set(ExtHostPositronContext.ExtHostPreviewPanel, new ExtHostPreviewPanels(rpcProtocol, extHostWebviews, extHostWorkspace));
 	const extHostModalDialogs = rpcProtocol.set(ExtHostPositronContext.ExtHostModalDialogs, new ExtHostModalDialogs(rpcProtocol));
+	const extHostConsole = rpcProtocol.set(ExtHostPositronContext.ExtHostConsole, new ExtHostConsole(rpcProtocol));
 
 	return function (extension: IExtensionDescription, extensionInfo: IExtensionRegistries, configProvider: ExtHostConfigProvider): typeof positron {
 
 		// --- Start Positron ---
 		const runtime: typeof positron.runtime = {
-			executeCode(langaugeId, code, focus): Thenable<boolean> {
-				return extHostLanguageRuntime.executeCode(langaugeId, code, focus);
+			executeCode(languageId, code, focus): Thenable<boolean> {
+				return extHostLanguageRuntime.executeCode(languageId, code, focus);
 			},
 			registerLanguageRuntime(runtime: positron.LanguageRuntime): vscode.Disposable {
 				return extHostLanguageRuntime.registerLanguageRuntime(extension, runtime);
+			},
+			registerLanguageRuntimeDiscoverer(languageId: string, discoverer: positron.LanguageRuntimeDiscoverer): void {
+				return extHostLanguageRuntime.registerLanguageRuntimeDiscoverer(extension, languageId, discoverer);
 			},
 			registerLanguageRuntimeProvider(languageId: string, provider: positron.LanguageRuntimeProvider): void {
 				return extHostLanguageRuntime.registerLanguageRuntimeProvider(extension, languageId, provider);
@@ -90,7 +95,7 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			},
 			get onDidRegisterRuntime() {
 				return extHostLanguageRuntime.onDidRegisterRuntime;
-			},
+			}
 		};
 
 		const window: typeof positron.window = {
@@ -102,7 +107,10 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			},
 			showSimpleModalDialogPrompt(title: string, message: string, okButtonTitle?: string, cancelButtonTitle?: string): Thenable<boolean> {
 				return extHostModalDialogs.showSimpleModalDialogPrompt(title, message, okButtonTitle, cancelButtonTitle);
-			}
+			},
+			get onDidChangeConsoleWidth() {
+				return extHostConsole.onDidChangeConsoleWidth;
+			},
 		};
 
 		const languages: typeof positron.languages = {
@@ -129,6 +137,7 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			RuntimeClientType: extHostTypes.RuntimeClientType,
 			RuntimeClientState: extHostTypes.RuntimeClientState,
 			RuntimeExitReason: extHostTypes.RuntimeExitReason,
+			RuntimeMethodErrorCode: extHostTypes.RuntimeMethodErrorCode,
 			LanguageRuntimeMessageType: extHostTypes.LanguageRuntimeMessageType,
 			LanguageRuntimeStreamName: extHostTypes.LanguageRuntimeStreamName,
 			RuntimeCodeExecutionMode: extHostTypes.RuntimeCodeExecutionMode,

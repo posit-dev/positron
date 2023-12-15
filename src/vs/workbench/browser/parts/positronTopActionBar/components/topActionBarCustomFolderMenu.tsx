@@ -8,6 +8,7 @@ import { localize } from 'vs/nls';
 import { KeyboardEvent, useRef } from 'react'; // eslint-disable-line no-duplicate-imports
 import { usePositronTopActionBarContext } from 'vs/workbench/browser/parts/positronTopActionBar/positronTopActionBarContext';
 import { showCustomFolderModalPopup } from 'vs/workbench/browser/parts/positronTopActionBar/customFolderModalPopup/customFolderModalPopup';
+import { useRegisterWithActionBar } from 'vs/platform/positronActionBar/browser/useRegisterWithActionBar';
 
 /**
  * Localized strings.
@@ -25,6 +26,9 @@ export const TopActionBarCustonFolderMenu = () => {
 	// Reference hooks.
 	const ref = useRef<HTMLDivElement>(undefined!);
 
+	// Participate in roving tabindex.
+	useRegisterWithActionBar([ref]);
+
 	/**
 	 * Shows the custom folder modal popup.
 	 */
@@ -36,7 +40,7 @@ export const TopActionBarCustonFolderMenu = () => {
 			positronTopActionBarContext.hostService,
 			positronTopActionBarContext.labelService,
 			positronTopActionBarContext.workspacesService,
-			positronTopActionBarContext.layoutService.container,
+			positronTopActionBarContext.layoutService.mainContainer,
 			ref.current
 		).then(() => {
 			ref.current.removeAttribute('aria-expanded');

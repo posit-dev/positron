@@ -19,6 +19,7 @@ import { PlotSizingPolicyPortrait } from 'vs/workbench/services/positronPlots/co
 import { PlotSizingPolicyCustom } from 'vs/workbench/services/positronPlots/common/sizingPolicyCustom';
 import { WebviewPlotClient } from 'vs/workbench/contrib/positronPlots/browser/webviewPlotClient';
 import { IPositronNotebookOutputWebviewService } from 'vs/workbench/contrib/positronOutputWebview/browser/notebookOutputWebviewService';
+import { IPositronIPyWidgetsService } from 'vs/workbench/services/positronIPyWidgets/common/positronIPyWidgetsService';
 
 /** The maximum number of recent executions to store. */
 const MaxRecentExecutions = 10;
@@ -89,7 +90,8 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		@ILanguageRuntimeService private _languageRuntimeService: ILanguageRuntimeService,
 		@IStorageService private _storageService: IStorageService,
 		@IViewsService private _viewsService: IViewsService,
-		@IPositronNotebookOutputWebviewService private _notebookOutputWebviewService: IPositronNotebookOutputWebviewService) {
+		@IPositronNotebookOutputWebviewService private _notebookOutputWebviewService: IPositronNotebookOutputWebviewService,
+		@IPositronIPyWidgetsService private _positronIPyWidgetsService: IPositronIPyWidgetsService) {
 		super();
 
 		// Register for language runtime service startups
@@ -100,6 +102,15 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		// Listen for plots being selected and update the selected plot ID
 		this._register(this._onDidSelectPlot.event((id) => {
 			this._selectedPlotId = id;
+		}));
+
+		// Listen for plot clients being created by the IPyWidget service and register them with the plots service
+		// so they can be displayed in the plots pane.
+		this._register(this._positronIPyWidgetsService.onDidCreatePlot((plotClient) => {
+			this._plots.unshift(plotClient);
+			this._onDidEmitPlot.fire(plotClient);
+			this._onDidSelectPlot.fire(plotClient.id);
+			this._register(plotClient);
 		}));
 
 		// When the storage service is about to save state, store the current history policy
@@ -640,6 +651,9 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 			const plots = this._plots.splice(i, 1);
 			plots[0].dispose();
 		}
+
+		// Also clear out the widget clients from the widget service
+		this._positronIPyWidgetsService.removeAllWidgets();
 
 		// Update the front end with the now-empty array of plots
 		this._onDidSelectPlot.fire('');

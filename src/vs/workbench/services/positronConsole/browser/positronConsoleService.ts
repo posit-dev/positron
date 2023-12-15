@@ -2,14 +2,16 @@
  *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
-import * as nls from 'vs/nls';
+import { localize } from 'vs/nls';
 import { Emitter } from 'vs/base/common/event';
 import { generateUuid } from 'vs/base/common/uuid';
 import { IEditor } from 'vs/editor/common/editorCommon';
 import { ILogService } from 'vs/platform/log/common/log';
 import { IViewsService } from 'vs/workbench/common/views';
 import { Disposable, DisposableStore } from 'vs/base/common/lifecycle';
+import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
 import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/layoutService';
+import { INotificationService, Severity } from 'vs/platform/notification/common/notification';
 import { RuntimeItem } from 'vs/workbench/services/positronConsole/browser/classes/runtimeItem';
 import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/common/extensions';
 import { ThrottledEmitter } from 'vs/workbench/services/positronConsole/browser/classes/throttledEmitter';
@@ -33,6 +35,11 @@ import { ActivityItemInput, ActivityItemInputState } from 'vs/workbench/services
 import { ActivityItemErrorStream, ActivityItemOutputStream } from 'vs/workbench/services/positronConsole/browser/classes/activityItemStream';
 import { IPositronConsoleInstance, IPositronConsoleService, POSITRON_CONSOLE_VIEW_ID, PositronConsoleState } from 'vs/workbench/services/positronConsole/browser/interfaces/positronConsoleService';
 import { formatLanguageRuntime, ILanguageRuntime, ILanguageRuntimeExit, ILanguageRuntimeMessage, ILanguageRuntimeService, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeExitReason, RuntimeOnlineState, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
+import { IEditorOptions } from 'vs/editor/common/config/editorOptions';
+import { FontMeasurements } from 'vs/editor/browser/config/fontMeasurements';
+import { PixelRatio } from 'vs/base/browser/browser';
+import { BareFontInfo } from 'vs/editor/common/config/fontInfo';
 
 /**
  * The onDidChangeRuntimeItems throttle threshold and throttle interval. The throttle threshold
@@ -150,22 +157,35 @@ class PositronConsoleService extends Disposable implements IPositronConsoleServi
 	 */
 	private readonly _onDidChangeActivePositronConsoleInstanceEmitter = this._register(new Emitter<IPositronConsoleInstance | undefined>);
 
+	/**
+	 * The onDidChangeConsoleWidth event emitter.
+	 */
+	private readonly _onDidChangeConsoleWidthEmitter = this._register(new Emitter<number>());
+
+	/**
+	 * The debounce timer for the onDidChangeConsoleWidth event.
+	 */
+	private _consoleWidthDebounceTimer: NodeJS.Timeout | undefined;
+
 	//#endregion Private Properties
 
 	//#region Constructor & Dispose
 
 	/**
 	 * Constructor.
-	 * @param _languageRuntimeService The ILanguageRuntimeService.
-	 * @param _logService The ILogService service.
-	 * @param _viewsService The IViewsService.
-	 * @param _layoutService The IWorkbenchLayoutService.
+	 * @param _instantiationService The instantiation service.
+	 * @param _languageRuntimeService The language runtime service.
+	 * @param _logService The log service service.
+	 * @param _viewsService The views service.
+	 * @param _layoutService The workbench layout service.
 	 */
 	constructor(
+		@IInstantiationService private readonly _instantiationService: IInstantiationService,
 		@ILanguageRuntimeService private readonly _languageRuntimeService: ILanguageRuntimeService,
 		@ILogService private readonly _logService: ILogService,
 		@IViewsService private readonly _viewsService: IViewsService,
 		@IWorkbenchLayoutService private readonly _layoutService: IWorkbenchLayoutService,
+		@IConfigurationService private readonly _configurationService: IConfigurationService
 	) {
 		// Call the disposable constrcutor.
 		super();
@@ -296,6 +316,9 @@ class PositronConsoleService extends Disposable implements IPositronConsoleServi
 	// An event that is fired when the active REPL instance changes.
 	readonly onDidChangeActivePositronConsoleInstance = this._onDidChangeActivePositronConsoleInstanceEmitter.event;
 
+	// An event that is fired when the width of the console changes.
+	readonly onDidChangeConsoleWidth = this._onDidChangeConsoleWidthEmitter.event;
+
 	// Gets the repl instances.
 	get positronConsoleInstances(): IPositronConsoleInstance[] {
 		return Array.from(this._positronConsoleInstancesByRuntimeId.values());
@@ -384,13 +407,26 @@ class PositronConsoleService extends Disposable implements IPositronConsoleServi
 	 * @param starting A value which indicates whether the runtime is starting.
 	 * @returns The new Positron console instance.
 	 */
-	private startPositronConsoleInstance(runtime: ILanguageRuntime, starting: boolean): IPositronConsoleInstance {
+	private startPositronConsoleInstance(
+		runtime: ILanguageRuntime,
+		starting: boolean
+	): IPositronConsoleInstance {
 		// Create the new Positron console instance.
-		const positronConsoleInstance = new PositronConsoleInstance(runtime, starting);
+		const positronConsoleInstance = this._instantiationService.createInstance(
+			PositronConsoleInstance,
+			runtime,
+			starting
+		);
 
 		// Add the Positron console instance.
-		this._positronConsoleInstancesByLanguageId.set(runtime.metadata.languageId, positronConsoleInstance);
-		this._positronConsoleInstancesByRuntimeId.set(runtime.metadata.runtimeId, positronConsoleInstance);
+		this._positronConsoleInstancesByLanguageId.set(
+			runtime.metadata.languageId,
+			positronConsoleInstance
+		);
+		this._positronConsoleInstancesByRuntimeId.set(
+			runtime.metadata.runtimeId,
+			positronConsoleInstance
+		);
 
 		// Fire the onDidStartPositronConsoleInstance event.
 		this._onDidStartPositronConsoleInstanceEmitter.fire(positronConsoleInstance);
@@ -401,8 +437,38 @@ class PositronConsoleService extends Disposable implements IPositronConsoleServi
 		// Fire the onDidChangeActivePositronConsoleInstance event.
 		this._onDidChangeActivePositronConsoleInstanceEmitter.fire(positronConsoleInstance);
 
+		// Listen for console width changes.
+		this._register(positronConsoleInstance.onDidChangeWidthPx(widthPx => {
+			this.onConsoleWidthChange(widthPx);
+		}));
+
 		// Return the instance.
 		return positronConsoleInstance;
+	}
+
+	private onConsoleWidthChange(newWidth: number) {
+		// Clear the previous debounce timer, if any.
+		if (this._consoleWidthDebounceTimer) {
+			clearTimeout(this._consoleWidthDebounceTimer);
+		}
+
+		// When the debounce timer fires, compute the new console width and fire the
+		// onDidChangeConsoleWidth event.
+		this._consoleWidthDebounceTimer = setTimeout(() => {
+
+			// Read the current editor font settings;  use them to create font
+			// measurments and compute the new console width.
+			const editorOptions = this._configurationService.getValue<IEditorOptions>('editor');
+			const fontInfo = FontMeasurements.readFontInfo(
+				BareFontInfo.createFromRawSettings(editorOptions, PixelRatio.value)
+			);
+
+			// We use the width of a space character to compute the new console
+			// width; this assumes a monospace font.
+			const textWidth = Math.floor(newWidth / fontInfo.spaceWidth);
+
+			this._onDidChangeConsoleWidthEmitter.fire(textWidth);
+		}, 500);
 	}
 
 	/**
@@ -559,10 +625,20 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	private readonly _onDidAttachRuntime = this._register(new Emitter<ILanguageRuntime | undefined>);
 
 	/**
+	 * The onDidChangeWidth event emitter.
+	 */
+	private readonly _onDidChangeWidthPx = this._register(new Emitter<number>);
+
+	/**
 	 * Provides access to the input text editor, if it's available. Note that we generally prefer to
 	 * interact with this editor indirectly, since its state is managed by React.
 	 */
 	private _inputTextEditor: IEditor | undefined;
+
+	/**
+	 * The current width of the console.
+	 */
+	private _width = 0;
 
 	//#endregion Private Properties
 
@@ -572,8 +648,13 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	 * Constructor.
 	 * @param runtime The language runtime.
 	 * @param starting A value which indicates whether the Positron console instance is starting.
+	 * @param _notificationService The notification service.
 	 */
-	constructor(runtime: ILanguageRuntime, starting: boolean) {
+	constructor(
+		runtime: ILanguageRuntime,
+		starting: boolean,
+		@INotificationService private readonly _notificationService: INotificationService,
+	) {
 		// Call the base class's constructor.
 		super();
 
@@ -597,6 +678,18 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	 */
 	set inputTextEditor(value: IEditor | undefined) {
 		this._inputTextEditor = value;
+	}
+
+	/**
+	 * Sets the console's width in pixels.
+	 *
+	 * @param newWidth The new width, in pixels.
+	 */
+	setWidthPx(newWidth: number): void {
+		if (this._width !== newWidth) {
+			this._width = newWidth;
+			this._onDidChangeWidthPx.fire(newWidth);
+		}
 	}
 
 	/**
@@ -734,6 +827,11 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	readonly onDidAttachRuntime = this._onDidAttachRuntime.event;
 
 	/**
+	 * onDidChangeWidthPx event.
+	 */
+	readonly onDidChangeWidthPx = this._onDidChangeWidthPx.event;
+
+	/**
 	 * Focuses the input for the console.
 	 */
 	focusInput() {
@@ -771,10 +869,21 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	 * Clears the console.
 	 */
 	clearConsole() {
-		this._runtimeItems = [];
-		this._runtimeItemActivities.clear();
-		this._onDidChangeRuntimeItemsEmitter.fire();
-		this._onDidClearConsoleEmitter.fire();
+		// When a prompt is active, we cannot clear the console.
+		if (this._promptActive) {
+			// Notify the user that we cannot clear the console.
+			this._notificationService.notify({
+				severity: Severity.Info,
+				message: localize('positron.clearConsole.promptActive', "Cannot clear console. A prompt is active."),
+				sticky: false
+			});
+		} else {
+			// Clear the console.
+			this._runtimeItems = [];
+			this._runtimeItemActivities.clear();
+			this._onDidChangeRuntimeItemsEmitter.fire();
+			this._onDidClearConsoleEmitter.fire();
+		}
 	}
 
 	/**
@@ -1440,36 +1549,36 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	private formatExit(exit: ILanguageRuntimeExit): string {
 		switch (exit.reason) {
 			case RuntimeExitReason.ForcedQuit:
-				return nls.localize('positronConsole.exit.forcedQuit', "{0} was forced to quit.", exit.runtime_name);
+				return localize('positronConsole.exit.forcedQuit', "{0} was forced to quit.", exit.runtime_name);
 
 			case RuntimeExitReason.Restart:
-				return nls.localize('positronConsole.exit.restart', "{0} exited (preparing for restart)", exit.runtime_name);
+				return localize('positronConsole.exit.restart', "{0} exited (preparing for restart)", exit.runtime_name);
 
 			case RuntimeExitReason.Shutdown:
 			case RuntimeExitReason.SwitchRuntime:
-				return nls.localize('positronConsole.exit.shutdown', "{0} shut down successfully.", exit.runtime_name);
+				return localize('positronConsole.exit.shutdown', "{0} shut down successfully.", exit.runtime_name);
 
 			case RuntimeExitReason.Error:
-				return nls.localize('positronConsole.exit.error', "{0} exited unexpectedly: {1}", exit.runtime_name, this.formatExitCode(exit.exit_code));
+				return localize('positronConsole.exit.error', "{0} exited unexpectedly: {1}", exit.runtime_name, this.formatExitCode(exit.exit_code));
 
 			case RuntimeExitReason.StartupFailed:
-				return nls.localize('positronConsole.exit.startupFailed', "{0} failed to start up (exit code {1})", exit.runtime_name, exit.exit_code);
+				return localize('positronConsole.exit.startupFailed', "{0} failed to start up (exit code {1})", exit.runtime_name, exit.exit_code);
 
 			default:
 			case RuntimeExitReason.Unknown:
-				return nls.localize('positronConsole.exit.unknown', "{0} exited (exit code {1})", exit.runtime_name, exit.exit_code);
+				return localize('positronConsole.exit.unknown', "{0} exited (exit code {1})", exit.runtime_name, exit.exit_code);
 		}
 	}
 
 	private formatExitCode(exitCode: number): string {
 		if (exitCode === 1) {
-			return nls.localize('positronConsole.exitCode.error', "exit code 1 (error)");
+			return localize('positronConsole.exitCode.error', "exit code 1 (error)");
 		} else if (exitCode === 126) {
-			return nls.localize('positronConsole.exitCode.cannotExit', "exit code 126 (not an executable or no permissions)");
+			return localize('positronConsole.exitCode.cannotExit', "exit code 126 (not an executable or no permissions)");
 		} else if (exitCode === 127) {
-			return nls.localize('positronConsole.exitCode.notFound', "exit code 127 (command not found)");
+			return localize('positronConsole.exitCode.notFound', "exit code 127 (command not found)");
 		} else if (exitCode === 130) {
-			return nls.localize('positronConsole.exitCode.interrupted', "exit code 130 (interrupted)");
+			return localize('positronConsole.exitCode.interrupted', "exit code 130 (interrupted)");
 		} else if (exitCode > 128 && exitCode < 160) {
 			// Extract the signal from the exit code
 			const signal = exitCode - 128;
@@ -1480,9 +1589,9 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 				formattedSignal = ` (${formattedSignal})`;
 			}
 
-			return nls.localize('positronConsole.exitCode.killed', "killed with signal {0}{1}", signal, formattedSignal);
+			return localize('positronConsole.exitCode.killed', "killed with signal {0}{1}", signal, formattedSignal);
 		}
-		return nls.localize('positronConsole.exitCode.genericError', "exit code {0}", exitCode);
+		return localize('positronConsole.exitCode.genericError', "exit code {0}", exitCode);
 	}
 
 	/**

@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
@@ -104,6 +104,74 @@ export class LanguageRuntimeAdapter
 		// Bind to the kernel's exit event
 		this.onKernelExited = this.onKernelExited.bind(this);
 		this._kernel.addListener('exit', this.onKernelExited);
+	}
+
+	async callMethod(method: string, ...args: any[]): Promise<any> {
+		// Find the frontend comm
+		const frontend = Array.from(this._comms.values())
+			.find(c => c.getClientType() === positron.RuntimeClientType.FrontEnd);
+		if (!frontend) {
+			throw new Error(`Cannot invoke '${method}'; no frontend comm is open.`);
+		}
+
+		// Create the request. This uses a JSON-RPC 2.0 format, with an
+		// additional `msg_type` field to indicate that this is a request type
+		// for the frontend comm.
+		const request = {
+			msg_type: 'rpc_request',
+			jsonrpc: '2.0',
+			method: method,
+			params: args,
+		};
+
+		// Return a promise that resolves when the server side of the frontend
+		// comm replies. Rejects if either an error is returned from the backend
+		// or we are unsuccessful in sending the request.
+		let response = {} as any;
+		try {
+			// Send the request and wait for a response
+			response = await frontend.performRpc(request);
+		} catch (err) {
+			// Convert the error to a runtime method error. This handles errors
+			// that occur while performing the RPC; if the RPC is successfully
+			// sent and a response received, errors named in the response are
+			// handled below.
+			const error: positron.RuntimeMethodError = {
+				code: positron.RuntimeMethodErrorCode.InternalError,
+				message: err.message,
+				name: err.name,
+				data: err, // Wrap the underlying error in a data object
+			};
+			throw error;
+		}
+
+		// If the response is an error, throw it
+		if (Object.keys(response).includes('error')) {
+			const error = response.error;
+
+			// Populate the error object with the name of the error code
+			// for conformity with code that expects an Error object.
+			error.name = `RPC Error ${response.error.code}`;
+
+			throw error;
+		}
+
+		// JSON-RPC specifies that the return value must have either a 'result'
+		// or an 'error'; make sure we got a result before we pass it back.
+		if (!Object.keys(response).includes('result')) {
+			const error: positron.RuntimeMethodError = {
+				code: positron.RuntimeMethodErrorCode.InternalError,
+				message: `Invalid response from frontend comm: no 'result' field. ` +
+					`(response = ${JSON.stringify(response)})`,
+				name: `InvalidResponseError`,
+				data: {},
+			};
+
+			throw error;
+		}
+
+		// Otherwise, return the result
+		return response.result;
 	}
 
 	onDidReceiveRuntimeMessage: vscode.Event<positron.LanguageRuntimeMessage>;

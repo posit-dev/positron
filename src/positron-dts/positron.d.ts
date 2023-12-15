@@ -442,7 +442,8 @@ declare module 'positron' {
 		DataViewer = 'positron.dataViewer',
 		FrontEnd = 'positron.frontEnd',
 		Help = 'positron.help',
-		Connection = 'positron.connection'
+		Connection = 'positron.connection',
+		IPyWidget = 'jupyter.widget',
 
 		// Future client types may include:
 		// - Watch window/variable explorer
@@ -504,7 +505,53 @@ declare module 'positron' {
 		size: number;
 	}
 
-	export type LanguageRuntimeProvider = AsyncGenerator<LanguageRuntime>;
+	export type LanguageRuntimeDiscoverer = AsyncGenerator<LanguageRuntime>;
+
+	export interface LanguageRuntimeProvider {
+		/**
+		 * Given a `runtimeId`, return the corresponding `LanguageRuntime` object.
+		 *
+		 * @param runtimeId The runtime identifier as a string.
+		 * @param token A cancellation token.
+		 * @return The language runtime.
+		 */
+		provideLanguageRuntime(runtimeId: string, token: vscode.CancellationToken):
+			vscode.ProviderResult<LanguageRuntime>;
+	}
+
+	/**
+	 * An enum representing the set of runtime method error codes; these map to
+	 * JSON-RPC error codes.
+	 */
+	export enum RuntimeMethodErrorCode {
+		ParseError = -32700,
+		InvalidRequest = -32600,
+		MethodNotFound = -32601,
+		InvalidParams = -32602,
+		InternalError = -32603,
+		ServerErrorStart = -32000,
+		ServerErrorEnd = -32099
+	}
+
+	/**
+	 * An error returned by a runtime method call.
+	 */
+	export interface RuntimeMethodError {
+		/** An error code */
+		code: RuntimeMethodErrorCode;
+
+		/** A human-readable error message */
+		message: string;
+
+		/**
+		 * A name for the error, for compatibility with the Error object.
+		 * Usually `RPC Error ${code}`.
+		 */
+		name: string;
+
+		/** Additional error information (optional) */
+		data: any | undefined;
+	}
 
 	/**
 	 * LanguageRuntime is an interface implemented by extensions that provide a
@@ -527,11 +574,28 @@ declare module 'positron' {
 		/** An object that emits an event when the user's session ends and the runtime exits */
 		onDidEndSession: vscode.Event<LanguageRuntimeExit>;
 
+		/**
+		 * Opens a resource in the runtime.
+		 * @param resource The resource to open.
+		 * @returns true if the resource was opened; otherwise, false.
+		 */
+		openResource?(resource: vscode.Uri | string): Thenable<boolean>;
+
 		/** Execute code in the runtime */
 		execute(code: string,
 			id: string,
 			mode: RuntimeCodeExecutionMode,
 			errorBehavior: RuntimeErrorBehavior): void;
+
+		/**
+		 * Calls a method in the runtime and returns the result.
+		 *
+		 * Throws a RuntimeMethodError if the method call fails.
+		 *
+		 * @param method The name of the method to call
+		 * @param args Arguments to pass to the method
+		 */
+		callMethod?(method: string, ...args: any[]): Thenable<any>;
 
 		/** Test a code fragment for completeness */
 		isCodeFragmentComplete(code: string): Thenable<RuntimeCodeFragmentStatus>;
@@ -899,6 +963,12 @@ declare module 'positron' {
 			okButtonTitle?: string,
 			cancelButtonTitle?: string): Thenable<boolean>;
 
+		/**
+		 * Fires when the width of the console changes. The new width is passed as
+		 * a number, which represents the number of characters that can fit in the
+		 * console horizontally.
+		 */
+		export const onDidChangeConsoleWidth: vscode.Event<number>;
 	}
 
 	namespace runtime {
@@ -918,13 +988,13 @@ declare module 'positron' {
 			focus: boolean): Thenable<boolean>;
 
 		/**
-		 * Register a language runtime provider with Positron.
+		 * Register a language runtime discoverer with Positron.
 		 *
 		 * @param languageId The language ID for which runtimes will be supplied
-		 * @param provider A function that returns an AsyncIterable of runtime registrations
+		 * @param discoverer A function that returns an AsyncIterable of runtime registrations
 		 */
-		export function registerLanguageRuntimeProvider(languageId: string,
-			provider: LanguageRuntimeProvider): void;
+		export function registerLanguageRuntimeDiscoverer(languageId: string,
+			discoverer: LanguageRuntimeDiscoverer): void;
 
 		/**
 		 * Register a single language runtime with Positron.
@@ -932,6 +1002,16 @@ declare module 'positron' {
 		 * @param runtime The language runtime to register
 		 */
 		export function registerLanguageRuntime(runtime: LanguageRuntime): vscode.Disposable;
+
+		/**
+		 * Register a language runtime provider.
+		 *
+		 * @param languageId The language ID for which a runtime will be provided
+		 * @param provider A language runtime provider.
+		 * @return A {@link Disposable} that unregisters this provider when being disposed.
+		 */
+		export function registerLanguageRuntimeProvider(languageId: string,
+			provider: LanguageRuntimeProvider): void;
 
 		/**
 		 * List all registered runtimes.

@@ -155,7 +155,9 @@ function copyInnoUpdater(arch) {
  */
 function updateIcon(executablePath) {
 	return cb => {
-		const icon = path.join(repoPath, 'resources', 'win32', 'code.ico');
+		/// --- Start Positron ---
+		const icon = path.join(repoPath, 'resources', 'win32', 'positron.ico');
+		/// --- End Positron ---
 		rcedit(executablePath, { icon }, cb);
 	};
 }

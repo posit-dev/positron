@@ -1,0 +1,54 @@
+{
+	"openrpc": "1.3.0",
+	"info": {
+		"title": "Plot Backend",
+		"version": "1.0.0"
+	},
+	"methods": [
+		{
+			"name": "render",
+			"summary": "Render a plot",
+			"description": "Requests a plot to be rendered at a given height and width. The plot data is returned in a base64-encoded string.",
+			"params": [
+				{
+					"name": "height",
+					"description": "The requested plot height, in pixels",
+					"schema": {
+						"type": "integer"
+					}
+				},
+				{
+					"name": "width",
+					"description": "The requested plot width, in pixels",
+					"schema": {
+						"type": "integer"
+					}
+				},
+				{
+					"name": "pixel_ratio",
+					"description": "The pixel ratio of the display device",
+					"schema": {
+						"type": "number"
+					}
+				}
+			],
+			"result": {
+				"schema": {
+					"name": "plot_result",
+					"type": "object",
+					"description": "A rendered plot",
+					"properties": {
+						"data": {
+							"description": "The plot data, as a base64-encoded string",
+							"type": "string"
+						},
+						"mime_type": {
+							"description": "The MIME type of the plot data",
+							"type": "string"
+						}
+					}
+				}
+			}
+		}
+	]
+}

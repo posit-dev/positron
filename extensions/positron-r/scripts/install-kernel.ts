@@ -2,6 +2,7 @@
  *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
+import * as decompress from 'decompress';
 import * as fs from 'fs';
 import { IncomingMessage } from 'http';
 import * as https from 'https';
@@ -169,8 +170,13 @@ async function downloadAndReplaceArk(version: string,
 				console.error(`Could not find Ark ${version} in the releases.`);
 				return;
 			}
-			// For now, assume that the first asset is the one we want.
-			const asset = release.assets[0];
+			const os = platform() === 'win32' ? 'windows-x64' : 'darwin-universal';
+			const assetName = `ark-${version}-${os}.zip`;
+			const asset = release.assets.find((asset: any) => asset.name === assetName);
+			if (!asset) {
+				console.error(`Could not find Ark with asset name ${assetName} in the release.`);
+				return;
+			}
 			console.log(`Downloading Ark ${version} from ${asset.url}...`);
 			const url = new URL(asset.url);
 			const requestOptions: https.RequestOptions = {
@@ -196,27 +202,20 @@ async function downloadAndReplaceArk(version: string,
 				binaryData = Buffer.concat([binaryData, chunk]);
 			});
 			response.on('end', async () => {
+				const arkDir = path.join('resources', 'ark');
+
 				// Create the resources/ark directory if it doesn't exist.
-				if (!await existsAsync(path.join('resources', 'ark'))) {
-					await fs.promises.mkdir(path.join('resources', 'ark'));
+				if (!await existsAsync(arkDir)) {
+					await fs.promises.mkdir(arkDir);
 				}
 
 				console.log(`Successfully downloaded Ark ${version} (${binaryData.length} bytes).`);
-				const zipFileDest = path.join('resources', 'ark', 'ark.zip');
+				const zipFileDest = path.join(arkDir, 'ark.zip');
 				await writeFileAsync(zipFileDest, binaryData);
 
-				// Unzip the binary.
-				const { stdout, stderr } =
-					await executeCommand(`unzip -o ` +
-						`${path.join('resources', 'ark', 'ark.zip')}` +
-						` -d ` +
-						`${path.join('resources', 'ark')}`);
-				console.log(stdout);
-				if (stderr) {
-					console.error(stderr);
-				} else {
+				await decompress(zipFileDest, arkDir).then(files => {
 					console.log(`Successfully unzipped Ark ${version}.`);
-				}
+				});
 
 				// Clean up the zipfile.
 				await fs.promises.unlink(zipFileDest);
@@ -232,12 +231,7 @@ async function downloadAndReplaceArk(version: string,
 }
 
 async function main() {
-
-	// Temporarily skip downloading ARK on Windows until we have a Windows build.
-	if (platform() === 'win32') {
-		console.warn('ARK is not yet supported on Windows. Skipping download.');
-		return;
-	}
+	const kernelName = platform() === 'win32' ? 'ark.exe' : 'ark';
 
 	// Before we do any work, check to see if there is a locally built copy of Amalthea in the
 	// `amalthea / target` directory. If so, we'll assume that the user is a kernel developer
@@ -245,8 +239,8 @@ async function main() {
 	const positronParent = path.dirname(path.dirname(path.dirname(path.dirname(__dirname))));
 	const amaltheaFolder = path.join(positronParent, 'amalthea');
 	const targetFolder = path.join(amaltheaFolder, 'target');
-	const debugBinary = path.join(targetFolder, 'debug', 'ark');
-	const releaseBinary = path.join(targetFolder, 'release', 'ark');
+	const debugBinary = path.join(targetFolder, 'debug', kernelName);
+	const releaseBinary = path.join(targetFolder, 'release', kernelName);
 	if (fs.existsSync(debugBinary) || fs.existsSync(releaseBinary)) {
 		const binary = fs.existsSync(debugBinary) ? debugBinary : releaseBinary;
 		console.log(`Using locally built Ark in ${binary}.`);
@@ -257,7 +251,7 @@ async function main() {
 		// doesn't look for a sideloaded ark from an adjacent `amalthea`
 		// directory).
 		fs.mkdirSync(path.join('resources', 'ark'), { recursive: true });
-		fs.copyFileSync(binary, path.join('resources', 'ark', 'ark'));
+		fs.copyFileSync(binary, path.join('resources', 'ark', kernelName));
 
 		// Copy the 'public' and 'private' R modules from the ark crate to the
 		// resources/ark/modules directory.

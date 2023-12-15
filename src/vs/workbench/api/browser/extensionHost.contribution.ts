@@ -20,7 +20,6 @@ import { StatusBarItemsExtensionPoint } from 'vs/workbench/api/browser/statusBar
 import './mainThreadLocalization';
 import './mainThreadBulkEdits';
 import './mainThreadChatProvider';
-import './mainThreadChatAgents';
 import './mainThreadChatAgents2';
 import './mainThreadChatVariables';
 import './mainThreadCodeInsets';
@@ -96,6 +95,7 @@ import './mainThreadIssueReporter';
 import './positron/mainThreadLanguageRuntime';
 import './positron/mainThreadPreviewPanel';
 import './positron/mainThreadModalDialogs';
+import './positron/mainThreadConsole';
 // --- End Positron ---
 
 export class ExtensionPoints implements IWorkbenchContribution {

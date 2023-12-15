@@ -68,7 +68,7 @@ const HelpLines = [
 	'flicker          - Simulates a flickering console prompt',
 	'help             - Shows this help',
 	'html             - Simulates HTML output',
-  'modal            - Simulates a simple modal dialog',
+	'modal            - Simulates a simple modal dialog',
 	'offline          - Simulates going offline for two seconds',
 	'plot X           - Renders a dynamic (auto-sizing) plot of the letter X',
 	'preview          - Opens or gets the status of a preview pane',
@@ -908,6 +908,16 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 				break;
 			}
 		}
+	}
+
+	/**
+	 * Stub placeholder for `callMethod`; not implemented in Zed.
+	 */
+	callMethod(method: string, ...args: any[]): Thenable<any> {
+		return Promise.resolve({
+			id: randomUUID(),
+			result: {}
+		});
 	}
 
 	/**
@@ -2075,4 +2085,37 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 		});
 	}
 	//#endregion Private Methods
+}
+
+export class PositronZedLanguageRuntimeProvider implements positron.LanguageRuntimeProvider {
+
+	/**
+	 * Constructor.
+	 * @param context The extension context.
+	 */
+	constructor(
+		private readonly context: vscode.ExtensionContext
+	) { }
+
+	provideLanguageRuntime(runtimeId: string, token: vscode.CancellationToken): positron.LanguageRuntime {
+		let version = null;
+		switch (runtimeId) {
+			case '00000000-0000-0000-0000-000000000200': {
+				version = '2.0.0';
+				break;
+			}
+			case '00000000-0000-0000-0000-000000000100': {
+				version = '1.0.0';
+				break;
+			}
+			case '00000000-0000-0000-0000-000000000098': {
+				version = '0.98.0';
+				break;
+			}
+		}
+		if (!version) {
+			throw new Error('Unknown Zed runtime ID');
+		}
+		return new PositronZedLanguageRuntime(this.context, runtimeId, version);
+	}
 }

@@ -140,6 +140,7 @@ export enum RuntimeClientType {
 	FrontEnd = 'positron.frontEnd',
 	Help = 'positron.help',
 	Connection = 'positron.connection',
+	IPyWidget = 'jupyter.widget',
 
 	// Future client types may include:
 	// - Watch window/variable explorer
@@ -221,6 +222,20 @@ export enum RuntimeExitReason {
 	 * it exited unexpectedly but with a normal exit code (0).
 	 */
 	Unknown = 'unknown',
+}
+
+/**
+ * An enum representing the set of runtime method error codes; these map to
+ * JSON-RPC error codes.
+ */
+export enum RuntimeMethodErrorCode {
+	ParseError = -32700,
+	InvalidRequest = -32600,
+	MethodNotFound = -32601,
+	InvalidParams = -32602,
+	InternalError = -32603,
+	ServerErrorStart = -32000,
+	ServerErrorEnd = -32099
 }
 
 export enum LanguageRuntimeStartupBehavior {

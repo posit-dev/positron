@@ -1,0 +1,139 @@
+name: "Positron: Build Release"
+
+# Run builds daily at 2am UTC (10p EST) on weekdays for now, or manually
+on:
+  schedule:
+    - cron: "0 2 * * 1-5"
+  workflow_dispatch:
+
+jobs:
+  version_string:
+    name: Determine version
+    runs-on: ubuntu-latest
+    outputs:
+      short_version: ${{ steps.short_version.outputs.result }}
+      build_number: ${{ steps.build_number.outputs.result }}
+    steps:
+      # Fetch full history; required so we can determine the build version with rev-list
+      - name: Checkout sources
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # Set up Node; needed since the show-version.js script runs under Node
+      - uses: actions/setup-node@v3
+        with:
+          node-version: 18
+
+      # Call version script to determine short version. This is the version
+      # string that we will use later to form the file name of the release
+      # artifact.
+      #
+      # Example: 2023.12.0-123
+      - name: Determine Version (Short)
+        id: short_version
+        run: |
+          result=`./versions/show-version.js --short`
+          echo "result=$result" >> $GITHUB_OUTPUT
+
+      # If we're on main, we will be producing a release later, so make sure
+      # that no release is already in place with this tag
+      - name: Check for Existing Tag
+        id: tag_check
+        if: github.ref == 'refs/heads/main'
+        run: |
+          result=`./versions/show-version.js --short`
+          git fetch --tags
+          tag_exists=`git tag -l "${result}"`
+          if [ -n "${tag_exists}" ]; then exit 78; fi
+
+      # Call again to get just the build number. Example: 123
+      - name: Determine Version (Build Number)
+        id: build_number
+        run: echo "result=$(./versions/show-version.js --build)" >> $GITHUB_OUTPUT
+
+  macos-installer:
+    uses: ./.github/workflows/build-release-macos.yml
+    needs: version_string
+    secrets: inherit
+    with:
+      build_number: ${{ needs.version_string.outputs.build_number }}
+      short_version: ${{ needs.version_string.outputs.short_version }}
+
+  windows-installer:
+    uses: ./.github/workflows/build-release-windows.yml
+    needs: version_string
+    secrets: inherit
+    with:
+      short_version: ${{ needs.version_string.outputs.short_version }}
+
+  releases:
+    runs-on: ubuntu-latest
+    needs: [version_string, macos-installer, windows-installer]
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    outputs:
+      upload_url: ${{ steps.create_release.outputs.upload_url }}
+    steps:
+      # Create a GitHub release for the installers we just created, if
+      # we're running against the main branch
+      - name: Create release
+        uses: actions/create-release@v1
+        id: create_release
+        if: github.ref == 'refs/heads/main'
+        with:
+          draft: false
+          prerelease: true
+          release_name: ${{ needs.version_string.outputs.short_version }}
+          tag_name: ${{ needs.version_string.outputs.short_version }}
+
+  macos-releases:
+    needs: [macos-installer, releases]
+    runs-on: [self-hosted, macos, arm64]
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Download MacOS artifact
+        uses: actions/download-artifact@v3
+        id: download-macos-artifact
+        if: github.ref == 'refs/heads/main'
+        with:
+          name: ${{ needs.macos-installer.outputs.artifact-name }}
+          path: ./
+
+      - name: Upload MacOS release asset
+        uses: actions/upload-release-asset@v1
+        if: github.ref == 'refs/heads/main'
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        with:
+          upload_url: ${{ needs.releases.outputs.upload_url }}
+          asset_path: ${{ needs.macos-installer.outputs.artifact-file }}
+          asset_name: ${{ needs.macos-installer.outputs.artifact-file }}
+          asset_content_type: application/octet-stream
+
+  windows-releases:
+    runs-on:
+      labels: [windows-latest-8x]
+    needs: [windows-installer, releases]
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Download Windows artifact
+        id: download-windows-artifact
+        uses: actions/download-artifact@v3
+        if: github.ref == 'refs/heads/main'
+        with:
+          name: ${{ needs.windows-installer.outputs.artifact-name }}
+          path: ./
+
+      - name: Upload Windows release asset
+        uses: actions/upload-release-asset@v1
+        if: github.ref == 'refs/heads/main'
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        with:
+          upload_url: ${{ needs.releases.outputs.upload_url }}
+          asset_path: ${{ needs.windows-installer.outputs.artifact-file }}
+          asset_name: ${{ needs.windows-installer.outputs.artifact-file }}
+          asset_content_type: application/octet-stream

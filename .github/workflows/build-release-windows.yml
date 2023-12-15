@@ -1,0 +1,157 @@
+name: "Positron: Build Windows Release"
+
+# Callable workflow that builds Positron for Windows
+# Note: our releases are now multi-platform, coordinated by build-release.yml
+on:
+  workflow_call:
+    inputs:
+      short_version:
+        required: false
+        description: "The short version number, including the build distance, e.g. 2023.12.0-123"
+        default: ${{ github.sha }}
+        type: string
+    outputs:
+      artifact-name:
+        description: "The release artifact name"
+        value: ${{ jobs.build-windows.outputs.artifact-name }}
+      artifact-file:
+        description: "The release artifact file"
+        value: ${{ jobs.build-windows.outputs.artifact-file }}
+  workflow_dispatch:
+
+jobs:
+  build-windows:
+    name: Build Windows
+    runs-on:
+      labels: [windows-latest-8x]
+    timeout-minutes: 90
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    outputs:
+      artifact-file: ${{ steps.artifact-file.outputs.result }}
+      artifact-name: ${{ steps.artifact-name.outputs.result }}
+    strategy:
+      max-parallel: 1
+      matrix:
+        platform: [win32]
+        arch: [x64]
+        target: [system]
+        include:
+          - arch: x64
+          - target: system
+
+    steps:
+      - name: Checkout Sources
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v3
+        with:
+          node-version-file: .nvmrc
+
+      - name: Install node dependencies with yarn
+        env:
+          npm_config_arch: ${{ matrix.arch }}
+          POSITRON_GITHUB_PAT: ${{ secrets.POSITRON_GITHUB_PAT }}
+        shell: pwsh
+        # nvm on windows does not see .nvmrc
+        run: |
+          yarn --network-timeout 120000
+
+      - name: Build Positron
+        env:
+          POSITRON_BUILD_NUMBER: ${{ inputs.short_version }}
+        shell: pwsh
+        run: |
+          yarn gulp vscode-${{ matrix.platform }}-${{ matrix.arch }}
+
+      - name: Build Positron Installer for Windows
+        env:
+          POSITRON_BUILD_NUMBER: ${{ inputs.short_version }}
+        shell: pwsh
+        run: |
+          yarn gulp vscode-${{ matrix.platform }}-${{ matrix.arch }}-inno-updater
+          yarn gulp vscode-${{ matrix.platform }}-${{ matrix.arch }}-${{ matrix.target }}-setup
+          Copy-Item "${{github.workspace}}\.build\${{ matrix.platform }}-${{ matrix.arch }}\${{ matrix.target }}-setup\PositronSetup.exe" -Destination "${{github.workspace}}\Positron-${{ inputs.short_version }}-Setup.exe"
+
+      - name: Setup Signing Certificate
+        shell: pwsh
+        env:
+          SM_CLIENT_CERT_FILE_B64: ${{ secrets.SM_CLIENT_CERT_FILE_B64 }}
+        run: |
+          New-Item -ItemType Directory -Force -Path certificates
+          Set-Content -Path "${{github.workspace}}\certificates\codesign.txt" -Value $env:SM_CLIENT_CERT_FILE_B64
+          & certutil -decode "${{github.workspace}}\certificates\codesign.txt" "${{github.workspace}}\certificates\codesign.pfx"
+
+      # Note: We must export GITHUB_ENV and GITHUB_PATH before they are used in the next step
+      - name: Setup Signing Variables
+        shell: bash
+        run: |
+          echo "SM_HOST=${{ secrets.SM_HOST }}" >> $GITHUB_ENV
+          echo "SM_API_KEY=${{ secrets.SM_API_KEY }}" >> $GITHUB_ENV
+          echo "SM_CLIENT_CERT_FILE=${{github.workspace}}\certificates\codesign.pfx" >> $GITHUB_ENV
+          echo "SM_CLIENT_CERT_PASSWORD=${{ secrets.SM_CLIENT_CERT_PASSWORD }}" >> $GITHUB_ENV
+          echo "SM_CLIENT_CERT_FINGERPRINT=${{ secrets.SM_CLIENT_CERT_FINGERPRINT }}" >> $GITHUB_ENV
+          echo "INSTALLER_FILE=${{github.workspace}}\Positron-${{ inputs.short_version }}-Setup.exe" >> $GITHUB_ENV
+          echo "C:\Program Files (x86)\Windows Kits\10\App Certification Kit" >> $GITHUB_PATH
+          echo "C:\Program Files\DigiCert\DigiCert One Signing Manager Tools" >> $GITHUB_PATH
+
+      - name: Setup SMCTL KSP Tools for Windows
+        shell: cmd
+        run: |
+          curl -o smtools-windows-x64.msi "https://rstudio-buildtools.s3.amazonaws.com/posit-dev/smtools-windows-x64.msi"
+          msiexec /i smtools-windows-x64.msi /quiet /qn /log smtools-windows-x64.log
+          type smtools-windows-x64.log
+          smksp_registrar.exe list
+          smctl.exe keypair ls
+          C:\Windows\System32\certutil.exe -csp "DigiCert Signing Manager KSP" -key -user
+          smksp_cert_sync.exe
+
+      - name: Sign Positron Installer using Signtool
+        shell: cmd
+        run: |
+          signtool.exe sign /sha1 "%SM_CLIENT_CERT_FINGERPRINT%" /tr http://timestamp.digicert.com /td SHA256 /fd SHA256 "%INSTALLER_FILE%"
+          signtool.exe verify /v /pa "%INSTALLER_FILE%"
+
+      - name: Clean Up
+        if: always()
+        shell: pwsh
+        run: |
+          if (Test-Path certificates) { Remove-Item -Force -Recurse certificates }
+
+      - name: Upload Positron Installer to Github Archive
+        uses: actions/upload-artifact@v3
+        with:
+          name: positron-${{ matrix.platform }}-${{ matrix.arch }}-${{ matrix.target }}-installer
+          path: Positron-${{ inputs.short_version }}-Setup.exe
+
+      - name: Record artifact name
+        id: artifact-name
+        shell: bash
+        run: |
+          echo "result=positron-${{ matrix.platform }}-${{ matrix.arch }}-${{ matrix.target }}-installer" >> $GITHUB_OUTPUT
+
+      - name: Record artifact file
+        id: artifact-file
+        shell: bash
+        run: |
+          echo "result=Positron-${{ inputs.short_version }}-Setup.exe" >> $GITHUB_OUTPUT
+
+
+  status:
+    if: ${{ failure() }}
+    runs-on: ubuntu-latest
+    needs: build-windows
+    steps:
+      - name: Notify slack if build fails
+        uses: slackapi/slack-github-action@v1.24.0
+        id: slack-failure
+        with:
+          payload: |
+            {
+              "message": "Positron Windows build ${{ inputs.short_version }} failed",
+              "status": "Failure",
+              "run_url": "https://github.com/posit-dev/positron/actions/runs/${{ github.run_id }}"
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
