@@ -23,8 +23,35 @@ REM The first argument is the output file; consume it.
 set output_file=%1
 shift
 
+REM `shift` doesn't affect `%*`, so we have to manually remove the first argument
+set "args="
+:parse
+if "%~1" neq "" (
+  set args=%args% %1
+  shift
+  goto :parse
+)
+if defined args set args=%args:~1%
+
+REM Start log file with current date
+echo *** Log started at %date% %time% > "%output_file%"
+
+REM Print the command line to the log file
+echo *** Command line: >> "%output_file%"
+echo %args% >> "%output_file%"
+
 REM Run the program with its arguments, redirecting stdout and stderr to the output file
-"%*" > "%output_file%" 2>&1
+%args% >> "%output_file%" 2>&1
+
+REM Save the exit code of the program
+set exit_code=%ERRORLEVEL%
+
+REM Emit the exit code of the program to the log file. Note that there is a log
+REM file parser in the Jupyter Adapter that specifically looks for the string
+REM "exit code XX" on the last line of the log, so don't change this without
+REM updating the parser!
+echo *** Log ended at %date% %time% >> "%output_file%"
+echo Process exit code %exit_code% >> "%output_file%"
 
 REM Exit with the same code as the program so that the caller can correctly report errors
-exit /b %ERRORLEVEL%
+exit /b exit_code
