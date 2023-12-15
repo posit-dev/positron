@@ -40,8 +40,17 @@ REM Print the command line to the log file
 echo *** Command line: >> "%output_file%"
 echo %args% >> "%output_file%"
 
-REM Run the program with its arguments, redirecting stdout and stderr to the output file
-%args% >> "%output_file%" 2>&1
+REM Unlike `kernel-wrapper.sh`, we do not redirect stdout and stderr to the output file,
+REM since this would lock the file and prevent the kernel itself from being able to open the
+REM file and log to it, since on Windows only 1 process is allowed to hold write access to a file
+REM at any time (https://stackoverflow.com/questions/9337415/how-do-you-have-shared-log-files-under-windows).
+REM We generally care about capturing stdout and stderr in the case of startup failure, in which case we
+REM might get useful failure information from there, but history has shown us that Windows is not great
+REM about emitting problems to the tty, so it probably isn't that useful to try and capture it.
+REM https://github.com/posit-dev/positron/issues/1540
+
+REM Run the program with its arguments
+%args%
 
 REM Save the exit code of the program
 set exit_code=%ERRORLEVEL%
