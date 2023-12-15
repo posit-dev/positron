@@ -2,6 +2,12 @@
 
 This repository hosts the source code for the Positron IDE, a fork of [Visual Studio Code](https://github.com/microsoft/vscode) that provides a batteries-included, opinionated environment for data science and scientific authoring.
 
+## Releases
+
+In the [Releases](https://github.com/posit-dev/positron/releases) section you can download nightly Alpha builds of the Positron IDE. Currently Mac (Universal) and Windows (x86) installers are provided.
+
+## Positron Developers
+
 You can read more about Positron IDE development on the [Positron Wiki](https://connect.rstudioservices.com/positron-wiki).
 
 ## Extensions
