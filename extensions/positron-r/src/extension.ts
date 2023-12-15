@@ -30,10 +30,10 @@ export function activate(context: vscode.ExtensionContext) {
 	setContexts(context);
 
 	// Register commands.
-	registerCommands(context, runtimes);
+	registerCommands(context);
 
 	// Register formatter.
-	registerFormatter(context, runtimes);
+	registerFormatter(context);
 
 	// Provide tasks.
 	providePackageTasks(context);

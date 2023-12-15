@@ -12,6 +12,7 @@ import { delay, timeout } from './util';
 import { ArkAttachOnStartup, ArkDelayStartup } from './startup';
 import { RHtmlWidget, getResourceRoots } from './htmlwidgets';
 import { randomUUID } from 'crypto';
+import { getRunningRRuntime } from './provider';
 
 export let lastRuntimePath = '';
 
@@ -521,4 +522,9 @@ export function createJupyterKernelExtra(): JupyterKernelExtra {
 		attachOnStartup: new ArkAttachOnStartup(),
 		sleepOnStartup: new ArkDelayStartup(),
 	};
+}
+
+export async function checkInstalled(pkgName: string, pkgVersion?: string, runtime?: RRuntime) {
+	runtime = runtime || await getRunningRRuntime();
+	return runtime.checkInstalled(pkgName, pkgVersion);
 }
