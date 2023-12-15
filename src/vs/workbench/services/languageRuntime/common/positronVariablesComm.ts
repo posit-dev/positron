@@ -44,6 +44,67 @@ export interface FormattedVariable {
 
 }
 
+/**
+ * A single variable in the runtime.
+ */
+export interface Variable {
+	/**
+	 * A key that uniquely identifies the variable within the runtime and can
+	 * be used to access the variable in `inspect` requests
+	 */
+	access_key: string;
+
+	/**
+	 * The name of the variable, formatted for display
+	 */
+	display_name: string;
+
+	/**
+	 * A string representation of the variable's value, formatted for display
+	 * and possibly truncated
+	 */
+	display_value: string;
+
+	/**
+	 * The variable's type, formatted for display
+	 */
+	display_type: string;
+
+	/**
+	 * Extended information about the variable's type
+	 */
+	type_info: string;
+
+	/**
+	 * The kind of value the variable represents, such as 'string' or
+	 * 'number'
+	 */
+	kind: string;
+
+	/**
+	 * The number of elements in the variable, if it is a collection
+	 */
+	length: number;
+
+	/**
+	 * Whether the variable has child variables
+	 */
+	has_children: boolean;
+
+	/**
+	 * True if there is a viewer available for this variable (i.e. the
+	 * runtime can handle a 'view' request for this variable)
+	 */
+	has_viewer: boolean;
+
+	/**
+	 * True the 'value' field is a truncated representation of the variable's
+	 * value
+	 */
+	is_truncated: boolean;
+
+}
+
 export class PositronVariablesComm extends PositronBaseComm {
 	constructor(instance: IRuntimeClientInstance<any, any>) {
 		super(instance);

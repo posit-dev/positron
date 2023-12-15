@@ -132,6 +132,24 @@ function formatComment(leader: string, comment: string): string {
 	return result;
 }
 
+function* createRustStruct(name: string, description: string, properties: Record<string, any>): Generator<string> {
+	yield '#[derive(Debug, Serialize, Deserialize, PartialEq)]\n';
+	yield `pub struct ${snakeCaseToSentenceCase(name)} {\n`;
+	const props = Object.keys(properties);
+	for (let i = 0; i < props.length; i++) {
+		const prop = props[i];
+		const schema = properties[prop];
+		if (schema.description) {
+			yield formatComment('\t/// ', schema.description);
+		}
+		yield `\tpub ${prop}: ${RustTypeMap[schema.type]},\n`;
+		if (i < props.length - 1) {
+			yield '\n';
+		}
+	}
+	yield '}\n\n';
+}
+
 function* createRustComm(name: string, frontend: any, backend: any): Generator<string> {
 	yield `/*---------------------------------------------------------------------------------------------
  *  Copyright (C) ${year} Posit Software, PBC. All rights reserved.
@@ -152,21 +170,22 @@ use serde::Serialize;
 			if (method.result &&
 				method.result.schema &&
 				method.result.schema.type === 'object') {
-				yield '#[derive(Debug, Serialize, Deserialize, PartialEq)]\n';
-				yield `pub struct ${snakeCaseToSentenceCase(method.result.schema.name)} {\n`;
-				const props = Object.keys(method.result.schema.properties);
-				for (let i = 0; i < props.length; i++) {
-					const prop = props[i];
-					const schema = method.result.schema.properties[prop];
-					if (schema.description) {
-						yield formatComment('\t/// ', schema.description);
-					}
-					yield `\tpub ${prop}: ${RustTypeMap[schema.type]},\n`;
-					if (i < props.length - 1) {
-						yield '\n';
-					}
-				}
-				yield '}\n\n';
+				yield* createRustStruct(method.result.schema.name,
+					method.result.schema.description,
+					method.result.schema.properties);
+			}
+		}
+	}
+
+	for (const source of [backend, frontend]) {
+		if (!source) {
+			continue;
+		}
+		if (source.components && source.components.schemas) {
+			for (const schema of Object.keys(backend.components.schemas)) {
+				yield* createRustStruct(schema,
+					backend.components.schemas[schema].description,
+					backend.components.schemas[schema].properties);
 			}
 		}
 	}
@@ -176,6 +195,14 @@ use serde::Serialize;
 		if (!source) {
 			continue;
 		}
+		if (source.components && source.components.schemas) {
+			for (const schema of Object.keys(backend.components.schemas)) {
+				yield* createRustStruct(schema,
+					backend.components.schemas[schema].description,
+					backend.components.schemas[schema].properties);
+			}
+		}
+
 		for (const method of source.methods) {
 			for (const param of method.params) {
 				if (param.schema.enum) {
@@ -256,7 +283,7 @@ use serde::Serialize;
 			if (method.params.length > 0) {
 				yield `(${snakeCaseToSentenceCase(method.name)}Params),\n`;
 			} else {
-				yield ',\n\n';
+				yield ',\n';
 			}
 		}
 		yield `}\n\n`;
@@ -304,6 +331,28 @@ use serde::Serialize;
 	}
 }
 
+function* createPythonDataclass(name: string, description: string, properties: Record<string, any>): Generator<string> {
+	yield '@dataclass\n';
+	yield `class ${snakeCaseToSentenceCase(name)}:\n`;
+	if (description) {
+		yield '    """\n';
+		yield formatComment('    ', description);
+		yield '    """\n';
+		yield '\n';
+	}
+	for (const prop of Object.keys(properties)) {
+		const schema = properties[prop];
+		yield `    ${prop}: ${PythonTypeMap[schema.type]}`;
+		yield ' = field(\n';
+		yield `        metadata={\n`;
+		yield `            "description": "${schema.description}",\n`;
+		yield `        }\n`;
+		yield `    )\n\n`;
+	}
+	yield '\n\n';
+}
+
+
 function* createPythonComm(name: string, frontend: any, backend: any): Generator<string> {
 	yield `#
 #  Copyright (C) ${year} Posit Software, PBC. All rights reserved.
@@ -324,24 +373,22 @@ from dataclasses import dataclass, field
 			if (method.result &&
 				method.result.schema &&
 				method.result.schema.type === 'object') {
-				yield '@dataclass\n';
-				yield `class ${snakeCaseToSentenceCase(method.result.schema.name)}:\n`;
-				if (method.result.schema.description) {
-					yield '    """\n';
-					yield formatComment('    ', method.result.schema.description);
-					yield '    """\n';
-					yield '\n';
-				}
-				for (const prop of Object.keys(method.result.schema.properties)) {
-					const schema = method.result.schema.properties[prop];
-					yield `    ${prop}: ${PythonTypeMap[schema.type]}`;
-					yield ' = field(\n';
-					yield `        metadata={\n`;
-					yield `            "description": "${schema.description}",\n`;
-					yield `        }\n`;
-					yield `    )\n\n`;
-				}
-				yield '\n\n';
+				yield* createPythonDataclass(method.result.schema.name,
+					method.result.schema.description,
+					method.result.schema.properties);
+			}
+		}
+	}
+
+	for (const source of [backend, frontend]) {
+		if (!source) {
+			continue;
+		}
+		if (source.components && source.components.schemas) {
+			for (const schema of Object.keys(backend.components.schemas)) {
+				yield* createPythonDataclass(schema,
+					backend.components.schemas[schema].description,
+					backend.components.schemas[schema].properties);
 			}
 		}
 	}
@@ -493,6 +540,29 @@ from dataclasses import dataclass, field
 	}
 }
 
+async function* createTypescriptInterface(name: string,
+	description: string, properties: Record<string, any>) {
+
+	yield '/**\n';
+	yield formatComment(' * ', description);
+	yield ' */\n';
+	yield `export interface ${snakeCaseToSentenceCase(name)} {\n`;
+	for (const prop of Object.keys(properties)) {
+		const schema = properties[prop];
+		yield '\t/**\n';
+		yield formatComment('\t * ', schema.description);
+		yield '\t */\n';
+		yield `\t${prop}: `;
+		if (schema.type === 'object') {
+			yield snakeCaseToSentenceCase(schema.name);
+		} else {
+			yield TypescriptTypeMap[schema.type];
+		}
+		yield `;\n\n`;
+	}
+	yield '}\n\n';
+}
+
 async function* createTypescriptComm(name: string, frontend: any, backend: any): AsyncGenerator<string> {
 	// Read the metadata file
 	const metadata: CommMetadata = JSON.parse(
@@ -517,24 +587,22 @@ import { IRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/co
 			if (method.result &&
 				method.result.schema &&
 				method.result.schema.type === 'object') {
-				yield '/**\n';
-				yield formatComment(' * ', method.result.schema.description);
-				yield ' */\n';
-				yield `export interface ${snakeCaseToSentenceCase(method.result.schema.name)} {\n`;
-				for (const prop of Object.keys(method.result.schema.properties)) {
-					const schema = method.result.schema.properties[prop];
-					yield '\t/**\n';
-					yield formatComment('\t * ', schema.description);
-					yield '\t */\n';
-					yield `\t${prop}: `;
-					if (schema.type === 'object') {
-						yield snakeCaseToSentenceCase(schema.name);
-					} else {
-						yield TypescriptTypeMap[schema.type];
-					}
-					yield `;\n\n`;
-				}
-				yield '}\n\n';
+				yield* createTypescriptInterface(method.result.schema.name,
+					method.result.schema.description,
+					method.result.schema.properties);
+			}
+		}
+	}
+
+	for (const source of [backend, frontend]) {
+		if (!source) {
+			continue;
+		}
+		if (source.components && source.components.schemas) {
+			for (const schema of Object.keys(backend.components.schemas)) {
+				yield* createTypescriptInterface(schema,
+					backend.components.schemas[schema].description,
+					backend.components.schemas[schema].properties);
 			}
 		}
 	}
