@@ -56,10 +56,10 @@ class OpenPositronDataTool extends Action2 {
 			f1: true,
 			category,
 			// precondition: PositronConsoleFocused,
-			keybinding: {
-				weight: KeybindingWeight.WorkbenchContrib,
-				primary: KeyMod.WinCtrl | KeyCode.KeyA
-			},
+			// keybinding: {
+			// 	weight: KeybindingWeight.WorkbenchContrib,
+			// 	primary: KeyMod.WinCtrl | KeyCode.KeyA
+			// },
 		});
 	}
 
