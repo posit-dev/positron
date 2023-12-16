@@ -94,6 +94,49 @@ function snakeCaseToSentenceCase(name: string) {
 	return snakeCaseToCamelCase(name).replace(/^[a-z]/, (m) => m[0].toUpperCase());
 }
 
+/**
+ * Parse a ref tag
+ *
+ * @param ref The ref to parse
+ * @returns The name of the object referred to by the ref
+ */
+function parseRef(ref: string, contract: any): string {
+	const parts = ref.split('/');
+	let target = contract;
+	for (let i = 0; i < parts.length; i++) {
+		if (parts[i] === '#') {
+			continue;
+		}
+		if (Object.keys(target).includes(parts[i])) {
+			target = target[parts[i]];
+		} else {
+			throw new Error(`Invalid ref: ${ref} (part '${parts[i]}' not found)`);
+		}
+	}
+	if (!target.name) {
+		throw new Error(`Invalid ref: ${ref} (no name found)`);
+	}
+	return snakeCaseToSentenceCase(target.name);
+}
+
+function deriveType(contract: any, typeMap: Record<string, string>, schema: any): string {
+	if (schema.type === 'array') {
+		if (schema.items.type === 'object' && schema.items.$ref) {
+			return `${typeMap['array']}<${parseRef(schema.items.$ref, contract)}>`;
+		} else {
+			return `${typeMap['array']}<${typeMap[schema.items.type]}>`;
+		}
+	} else if (schema.type === 'object' && schema.$ref) {
+		return parseRef(schema.$ref, contract);
+	} else {
+		if (Object.keys(typeMap).includes(schema.type)) {
+			return typeMap[schema.type];
+		} else {
+			throw new Error(`Unknown type: ${schema.type}`);
+		}
+	}
+}
+
 // Breaks a single line of text into multiple lines, each of which is no longer than
 // 70 characters.
 function formatLines(line: string): string[] {
@@ -132,7 +175,8 @@ function formatComment(leader: string, comment: string): string {
 	return result;
 }
 
-function* createRustStruct(name: string, description: string, properties: Record<string, any>): Generator<string> {
+function* createRustStruct(contract: any, name: string, description: string, properties: Record<string, any>): Generator<string> {
+	yield formatComment('/// ', description);
 	yield '#[derive(Debug, Serialize, Deserialize, PartialEq)]\n';
 	yield `pub struct ${snakeCaseToSentenceCase(name)} {\n`;
 	const props = Object.keys(properties);
@@ -142,7 +186,7 @@ function* createRustStruct(name: string, description: string, properties: Record
 		if (schema.description) {
 			yield formatComment('\t/// ', schema.description);
 		}
-		yield `\tpub ${prop}: ${RustTypeMap[schema.type]},\n`;
+		yield `\tpub ${prop}: ${deriveType(contract, RustTypeMap, schema)},\n`;
 		if (i < props.length - 1) {
 			yield '\n';
 		}
@@ -170,7 +214,7 @@ use serde::Serialize;
 			if (method.result &&
 				method.result.schema &&
 				method.result.schema.type === 'object') {
-				yield* createRustStruct(method.result.schema.name,
+				yield* createRustStruct(backend, method.result.schema.name,
 					method.result.schema.description,
 					method.result.schema.properties);
 			}
@@ -183,7 +227,7 @@ use serde::Serialize;
 		}
 		if (source.components && source.components.schemas) {
 			for (const schema of Object.keys(backend.components.schemas)) {
-				yield* createRustStruct(schema,
+				yield* createRustStruct(source, schema,
 					backend.components.schemas[schema].description,
 					backend.components.schemas[schema].properties);
 			}
@@ -195,14 +239,6 @@ use serde::Serialize;
 		if (!source) {
 			continue;
 		}
-		if (source.components && source.components.schemas) {
-			for (const schema of Object.keys(backend.components.schemas)) {
-				yield* createRustStruct(schema,
-					backend.components.schemas[schema].description,
-					backend.components.schemas[schema].properties);
-			}
-		}
-
 		for (const method of source.methods) {
 			for (const param of method.params) {
 				if (param.schema.enum) {
@@ -252,7 +288,7 @@ use serde::Serialize;
 						yield `\tpub ${param.name}: ${snakeCaseToSentenceCase(method.name)}${snakeCaseToSentenceCase(param.name)},\n`;
 					} else {
 						// Otherwise use the type directly
-						yield `\tpub ${param.name}: ${RustTypeMap[param.schema.type]},\n`;
+						yield `\tpub ${param.name}: ${deriveType(source, RustTypeMap, param.schema)},\n`;
 					}
 					if (i < method.params.length - 1) {
 						yield '\n';
@@ -331,7 +367,7 @@ use serde::Serialize;
 	}
 }
 
-function* createPythonDataclass(name: string, description: string, properties: Record<string, any>): Generator<string> {
+function* createPythonDataclass(contract: any, name: string, description: string, properties: Record<string, any>): Generator<string> {
 	yield '@dataclass\n';
 	yield `class ${snakeCaseToSentenceCase(name)}:\n`;
 	if (description) {
@@ -342,7 +378,7 @@ function* createPythonDataclass(name: string, description: string, properties: R
 	}
 	for (const prop of Object.keys(properties)) {
 		const schema = properties[prop];
-		yield `    ${prop}: ${PythonTypeMap[schema.type]}`;
+		yield `    ${prop}: ${deriveType(contract, PythonTypeMap, schema)}`;
 		yield ' = field(\n';
 		yield `        metadata={\n`;
 		yield `            "description": "${schema.description}",\n`;
@@ -373,7 +409,7 @@ from dataclasses import dataclass, field
 			if (method.result &&
 				method.result.schema &&
 				method.result.schema.type === 'object') {
-				yield* createPythonDataclass(method.result.schema.name,
+				yield* createPythonDataclass(backend, method.result.schema.name,
 					method.result.schema.description,
 					method.result.schema.properties);
 			}
@@ -386,7 +422,7 @@ from dataclasses import dataclass, field
 		}
 		if (source.components && source.components.schemas) {
 			for (const schema of Object.keys(backend.components.schemas)) {
-				yield* createPythonDataclass(schema,
+				yield* createPythonDataclass(source, schema,
 					backend.components.schemas[schema].description,
 					backend.components.schemas[schema].properties);
 			}
@@ -456,7 +492,7 @@ from dataclasses import dataclass, field
 				if (param.schema.enum) {
 					yield `    ${param.name}: ${snakeCaseToSentenceCase(method.name)}${snakeCaseToSentenceCase(param.name)}`;
 				} else {
-					yield `    ${param.name}: ${PythonTypeMap[param.schema.type]}`;
+					yield `    ${param.name}: ${deriveType(backend, PythonTypeMap, param.schema)}`;
 				}
 				yield ' = field(\n';
 				yield `        metadata={\n`;
@@ -527,7 +563,7 @@ from dataclasses import dataclass, field
 					if (param.schema.enum) {
 						yield `    ${param.name}: ${snakeCaseToSentenceCase(method.name)}${snakeCaseToSentenceCase(param.name)}`;
 					} else {
-						yield `    ${param.name}: ${PythonTypeMap[param.schema.type]}`;
+						yield `    ${param.name}: ${deriveType(backend, PythonTypeMap, param.schema)}`;
 					}
 					yield ' = field(\n';
 					yield `        metadata={\n`;
@@ -540,7 +576,7 @@ from dataclasses import dataclass, field
 	}
 }
 
-async function* createTypescriptInterface(name: string,
+async function* createTypescriptInterface(contract: any, name: string,
 	description: string, properties: Record<string, any>) {
 
 	yield '/**\n';
@@ -556,7 +592,7 @@ async function* createTypescriptInterface(name: string,
 		if (schema.type === 'object') {
 			yield snakeCaseToSentenceCase(schema.name);
 		} else {
-			yield TypescriptTypeMap[schema.type];
+			yield deriveType(contract, TypescriptTypeMap, schema);
 		}
 		yield `;\n\n`;
 	}
@@ -587,7 +623,7 @@ import { IRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/co
 			if (method.result &&
 				method.result.schema &&
 				method.result.schema.type === 'object') {
-				yield* createTypescriptInterface(method.result.schema.name,
+				yield* createTypescriptInterface(backend, method.result.schema.name,
 					method.result.schema.description,
 					method.result.schema.properties);
 			}
@@ -600,7 +636,7 @@ import { IRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/co
 		}
 		if (source.components && source.components.schemas) {
 			for (const schema of Object.keys(backend.components.schemas)) {
-				yield* createTypescriptInterface(schema,
+				yield* createTypescriptInterface(backend, schema,
 					backend.components.schemas[schema].description,
 					backend.components.schemas[schema].properties);
 			}
@@ -625,7 +661,7 @@ import { IRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/co
 				if (param.schema.type === 'string' && param.schema.enum) {
 					yield param.schema.enum.map((value: string) => `'${value}'`).join(' | ');
 				} else {
-					yield TypescriptTypeMap[param.schema.type as string];
+					yield deriveType(frontend, TypescriptTypeMap, param.schema);
 				}
 				yield `;\n\n`;
 			}
@@ -686,7 +722,7 @@ import { IRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/co
 				const param = method.params[i];
 				yield snakeCaseToCamelCase(param.name) +
 					': ' +
-					TypescriptTypeMap[param.schema.type as string];
+					deriveType(backend, TypescriptTypeMap, param.schema);
 				if (i < method.params.length - 1) {
 					yield ', ';
 				}
@@ -696,7 +732,7 @@ import { IRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/co
 				if (method.result.schema.type === 'object') {
 					yield snakeCaseToSentenceCase(method.result.schema.name);
 				} else {
-					yield TypescriptTypeMap[method.result.schema.type as string];
+					yield deriveType(backend, TypescriptTypeMap, method.result.schema);
 				}
 			}
 			yield '> {\n';

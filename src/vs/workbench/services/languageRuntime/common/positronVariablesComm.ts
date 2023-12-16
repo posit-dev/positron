@@ -17,7 +17,7 @@ export interface InspectedVariable {
 	/**
 	 * The children of the inspected variable.
 	 */
-	children: Array;
+	children: Array<undefined>;
 
 	/**
 	 * The total number of children. This may be greater than the number of
@@ -130,7 +130,7 @@ export class PositronVariablesComm extends PositronBaseComm {
 	 * @param names The names of the variables to delete.
 	 *
 	 */
-	delete(names: Array): Promise<> {
+	delete(names: Array<string>): Promise<> {
 		return super.performRpc('delete', ['names'], [names]);
 	}
 	/**
@@ -143,7 +143,7 @@ export class PositronVariablesComm extends PositronBaseComm {
 	 *
 	 * @returns An inspected variable.
 	 */
-	inspect(path: Array): Promise<InspectedVariable> {
+	inspect(path: Array<string>): Promise<InspectedVariable> {
 		return super.performRpc('inspect', ['path'], [path]);
 	}
 	/**
@@ -158,7 +158,7 @@ export class PositronVariablesComm extends PositronBaseComm {
 	 *
 	 * @returns An object formatted for copying to the clipboard.
 	 */
-	clipboardFormat(path: Array, format: string): Promise<FormattedVariable> {
+	clipboardFormat(path: Array<string>, format: string): Promise<FormattedVariable> {
 		return super.performRpc('clipboard_format', ['path', 'format'], [path, format]);
 	}
 }
