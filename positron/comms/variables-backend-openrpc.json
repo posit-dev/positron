@@ -121,6 +121,7 @@
 		"schemas": {
 			"variable": {
 				"type": "object",
+				"name": "variable",
 				"description": "A single variable in the runtime.",
 				"properties": {
 					"access_key": {

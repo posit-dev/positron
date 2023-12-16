@@ -121,7 +121,7 @@ function parseRef(ref: string, contract: any): string {
 
 function deriveType(contract: any, typeMap: Record<string, string>, schema: any): string {
 	if (schema.type === 'array') {
-		if (schema.items.type === 'object' && schema.items.$ref) {
+		if (schema.items.$ref) {
 			return `${typeMap['array']}<${parseRef(schema.items.$ref, contract)}>`;
 		} else {
 			return `${typeMap['array']}<${typeMap[schema.items.type]}>`;

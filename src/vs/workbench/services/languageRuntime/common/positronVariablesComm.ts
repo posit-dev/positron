@@ -17,7 +17,7 @@ export interface InspectedVariable {
 	/**
 	 * The children of the inspected variable.
 	 */
-	children: Array<undefined>;
+	children: Array<Variable>;
 
 	/**
 	 * The total number of children. This may be greater than the number of
