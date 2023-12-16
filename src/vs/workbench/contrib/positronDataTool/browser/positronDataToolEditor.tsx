@@ -251,8 +251,12 @@ export class PositronDataToolEditor extends EditorPane implements IReactComponen
 	 * @param dimension The layout dimension.
 	 */
 	override layout(dimension: DOM.Dimension): void {
+		// Size the container.
+		DOM.size(this._positronDataToolsContainer, dimension.width, dimension.height);
+
 		this._width = dimension.width;
 		this._height = dimension.height;
+
 		this._onSizeChangedEmitter.fire({
 			width: this._width,
 			height: this._height
