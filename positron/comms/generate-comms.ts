@@ -672,7 +672,7 @@ async function createCommInterface() {
 		}
 
 		// Get the basename of the file
-		const name = file.replace(/\.json$/, '');
+		const name = snakeCaseToSentenceCase(file.replace(/\.json$/, ''));
 
 		// If there's a corresponding frontend and/or backend file, process the comm
 		if (existsSync(path.join(commsDir, `${name}-frontend-openrpc.json`)) ||
