@@ -302,31 +302,6 @@ export async function* rRuntimeDiscoverer(
 	}
 }
 
-async function getRegisteredRRuntimes(): Promise<Map<string, RRuntime>> {
-	const registeredRuntimes = await positron.runtime.getRegisteredRuntimes();
-	const registeredRRuntimes = registeredRuntimes.filter(runtime => runtime instanceof RRuntime);
-	const out = new Map<string, RRuntime>();
-	for (const runtime of registeredRRuntimes) {
-		out.set(runtime.metadata.runtimeId, runtime as RRuntime);
-	}
-	return out;
-}
-
-export async function getRunningRRuntime(): Promise<RRuntime> {
-	const runningRuntimes = await positron.runtime.getRunningRuntimes('r');
-	if (!runningRuntimes || !runningRuntimes.length) {
-		throw new Error('Cannot get running runtime as there is no R interpreter running.');
-	}
-
-	const rrr = await getRegisteredRRuntimes();
-	// For now, there will be only one running R runtime:
-	const runtime = rrr.get(runningRuntimes[0].runtimeId);
-	if (!runtime) {
-		throw new Error(`R runtime '${runningRuntimes[0].runtimeId}' is not registered in the extension host`);
-	}
-	return runtime;
-}
-
 // directory where this OS is known to keep its R installations
 function rHeadquarters(): string {
 	switch (process.platform) {

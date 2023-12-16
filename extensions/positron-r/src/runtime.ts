@@ -12,9 +12,21 @@ import { delay, timeout } from './util';
 import { ArkAttachOnStartup, ArkDelayStartup } from './startup';
 import { RHtmlWidget, getResourceRoots } from './htmlwidgets';
 import { randomUUID } from 'crypto';
-import { getRunningRRuntime } from './provider';
 
 export let lastRuntimePath = '';
+class RRuntimeManager {
+	private runtimes: Map<string, RRuntime>;
+
+	constructor() {
+		this.runtimes = new Map<string, RRuntime>();
+	}
+
+	getRuntimesMap(): Map<string, RRuntime> {
+		return this.runtimes;
+	}
+}
+
+export const manager: RRuntimeManager = new RRuntimeManager();
 
 interface RPackageInstallation {
 	packageName: string;
@@ -515,6 +527,20 @@ export class RRuntime implements positron.LanguageRuntime, vscode.Disposable {
 				`(${runtimeError.code})`);
 		}
 	}
+}
+
+export async function getRunningRRuntime(): Promise<RRuntime> {
+	const runningRuntimes = await positron.runtime.getRunningRuntimes('r');
+	if (!runningRuntimes || !runningRuntimes.length) {
+		throw new Error('Cannot get running runtime as there is no R interpreter running.');
+	}
+
+	// For now, there will be only one running R runtime:
+	const runtime = manager.getRuntimesMap().get(runningRuntimes[0].runtimeId);
+	if (!runtime) {
+		throw new Error(`R runtime '${runningRuntimes[0].runtimeId}' is not registered in the extension host`);
+	}
+	return runtime;
 }
 
 export function createJupyterKernelExtra(): JupyterKernelExtra {
