@@ -30,7 +30,7 @@ class PositronDataToolContribution extends Disposable {
 		this._register(editorResolverService.registerEditor(
 			`${Schemas.positronDataTool}:**/**`,
 			{
-				id: PositronDataToolEditorInput.ID,
+				id: PositronDataToolEditorInput.EditorID,
 				label: localize('positronDataTool', "Positron Data Tool"),
 				priority: RegisteredEditorPriority.builtin
 			},
@@ -51,7 +51,7 @@ class PositronDataToolContribution extends Disposable {
 Registry.as<IEditorPaneRegistry>(EditorExtensions.EditorPane).registerEditorPane(
 	EditorPaneDescriptor.create(
 		PositronDataToolEditor,
-		PositronDataToolEditor.ID,
+		PositronDataToolEditorInput.EditorID,
 		localize('positronDataToolEditor', "Positron Data Tool Editor")
 	),
 	[
