@@ -38,7 +38,7 @@ export const DraggableTitleBar = (props: DraggableTitleBarProps) => {
 
 	// Mouse down handler.
 	const mouseDownHandler = (e: MouseEvent) => {
-		// Eat the event.
+		// Consume the event.
 		e.preventDefault();
 		e.stopPropagation();
 
@@ -57,7 +57,7 @@ export const DraggableTitleBar = (props: DraggableTitleBarProps) => {
 
 		// Mouse move handler.
 		const mouseMoveHandler = (e: DocumentMouseEvent) => {
-			// Eat the event.
+			// Consume the event.
 			e.preventDefault();
 			e.stopPropagation();
 
@@ -70,7 +70,7 @@ export const DraggableTitleBar = (props: DraggableTitleBarProps) => {
 
 		// Mouse up handler.
 		const mouseUpHandler = (e: DocumentMouseEvent) => {
-			// Eat the event.
+			// Consume the event.
 			e.preventDefault();
 			e.stopPropagation();
 
