@@ -39,7 +39,7 @@ export interface ExtHostLanguageRuntimeShape {
 	$shutdownLanguageRuntime(handle: number, exitReason: RuntimeExitReason): Promise<void>;
 	$forceQuitLanguageRuntime(handle: number): Promise<void>;
 	$showOutputLanguageRuntime(handle: number): void;
-	$provideLanguageRuntime(languageId: string, runtimeId: string): Promise<void>;
+	$provideLanguageRuntime(languageId: string, runtimeMetadata: ILanguageRuntimeMetadata): Promise<void>;
 	$discoverLanguageRuntimes(): void;
 }
 
