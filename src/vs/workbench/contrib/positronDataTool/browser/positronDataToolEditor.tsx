@@ -6,6 +6,7 @@ import 'vs/css!./positronDataToolEditor';
 import * as React from 'react';
 import * as DOM from 'vs/base/browser/dom';
 import { Event, Emitter } from 'vs/base/common/event';
+import { IEditorOptions } from 'vs/platform/editor/common/editor';
 import { IStorageService } from 'vs/platform/storage/common/storage';
 import { IThemeService } from 'vs/platform/theme/common/themeService';
 import { ICommandService } from 'vs/platform/commands/common/commands';
@@ -19,20 +20,22 @@ import { IConfigurationService } from 'vs/platform/configuration/common/configur
 import { IEditorGroup } from 'vs/workbench/services/editor/common/editorGroupsService';
 import { PositronDataTool } from 'vs/workbench/contrib/positronDataTool/browser/positronDataTool';
 import { IReactComponentContainer, ISize, PositronReactRenderer } from 'vs/base/browser/positronReactRenderer';
+import { PositronDataToolEditorInput } from 'vs/workbench/contrib/positronDataTool/browser/positronDataToolEditorInput';
 
 // Temporary instance counter.
 let instance = 0;
+
+/**
+ * IPositronDataToolEditorOptions interface.
+ */
+export interface IPositronDataToolEditorOptions extends IEditorOptions {
+}
 
 /**
  * PositronDataToolEditor class.
  */
 export class PositronDataToolEditor extends EditorPane implements IReactComponentContainer {
 	//#region Static Properties
-
-	/**
-	 * Gets the identifier.
-	 */
-	static readonly ID: string = 'workbench.editor.positronDataTool';
 
 	//#endregion Static Properties
 
@@ -177,7 +180,7 @@ export class PositronDataToolEditor extends EditorPane implements IReactComponen
 		@IThemeService themeService: IThemeService,
 	) {
 		// Call the base class's constructor.
-		super(PositronDataToolEditor.ID, telemetryService, themeService, storageService);
+		super(PositronDataToolEditorInput.EditorID, telemetryService, themeService, storageService);
 
 		// Logging.
 		console.log(`PositronDataEditor ${this.instance} constructor`);
@@ -208,7 +211,7 @@ export class PositronDataToolEditor extends EditorPane implements IReactComponen
 
 		// Create and append the Positron data tool container.
 		this._positronDataToolsContainer = DOM.$('.positron-data-tool-container');
-		DOM.append(parent, this._positronDataToolsContainer);
+		parent.appendChild(this._positronDataToolsContainer);
 
 		// Create the PositronReactRenderer for the PositronDataTool component and render it.
 		this._positronReactRenderer = new PositronReactRenderer(this._positronDataToolsContainer);
@@ -248,8 +251,12 @@ export class PositronDataToolEditor extends EditorPane implements IReactComponen
 	 * @param dimension The layout dimension.
 	 */
 	override layout(dimension: DOM.Dimension): void {
+		// Size the container.
+		DOM.size(this._positronDataToolsContainer, dimension.width, dimension.height);
+
 		this._width = dimension.width;
 		this._height = dimension.height;
+
 		this._onSizeChangedEmitter.fire({
 			width: this._width,
 			height: this._height
