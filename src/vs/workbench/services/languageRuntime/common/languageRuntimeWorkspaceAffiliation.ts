@@ -65,11 +65,15 @@ export class LanguageRuntimeWorkspaceAffiliation extends Disposable {
 				if (!affiliatedRuntimeMetadata) {
 					return;
 				}
-				const affiliatedRuntimeId = JSON.parse(affiliatedRuntimeMetadata).runtimeId;
-				if (runtime.metadata.runtimeId === affiliatedRuntimeId) {
-					// Remove the affiliation
-					this._storageService.remove(this.storageKeyForRuntime(runtime),
-						StorageScope.WORKSPACE);
+				try {
+					const affiliatedRuntimeId = JSON.parse(affiliatedRuntimeMetadata).runtimeId;
+					if (runtime.metadata.runtimeId === affiliatedRuntimeId) {
+						// Remove the affiliation
+						this._storageService.remove(this.storageKeyForRuntime(runtime),
+							StorageScope.WORKSPACE);
+					}
+				} catch {
+					return;
 				}
 			}
 		}));
@@ -90,20 +94,24 @@ export class LanguageRuntimeWorkspaceAffiliation extends Disposable {
 		if (!affiliatedRuntimeMetadata) {
 			return;
 		}
-		const affiliatedRuntimeId = JSON.parse(affiliatedRuntimeMetadata).runtimeId;
+		try {
+			const affiliatedRuntimeId = JSON.parse(affiliatedRuntimeMetadata).runtimeId;
 
-		// If the runtime is affiliated with this workspace, start it.
-		if (runtime.metadata.runtimeId === affiliatedRuntimeId) {
-			try {
-				this._runtimeService.startRuntime(runtime.metadata.runtimeId,
-					`Affiliated runtime for workspace`);
-			} catch (e) {
-				// This isn't necessarily an error; if another runtime took precedence and has
-				// already started for this workspace, we don't want to start this one.
-				this._logService.debug(`Did not start affiliated runtime ` +
-					`${runtime.metadata.runtimeName} for this workspace: ` +
-					`${e.message}`);
+			// If the runtime is affiliated with this workspace, start it.
+			if (runtime.metadata.runtimeId === affiliatedRuntimeId) {
+				try {
+					this._runtimeService.startRuntime(runtime.metadata.runtimeId,
+						`Affiliated runtime for workspace`);
+				} catch (e) {
+					// This isn't necessarily an error; if another runtime took precedence and has
+					// already started for this workspace, we don't want to start this one.
+					this._logService.debug(`Did not start affiliated runtime ` +
+						`${runtime.metadata.runtimeName} for this workspace: ` +
+						`${e.message}`);
+				}
 			}
+		} catch {
+			return;
 		}
 	}
 
@@ -119,7 +127,11 @@ export class LanguageRuntimeWorkspaceAffiliation extends Disposable {
 		if (!stored) {
 			return undefined;
 		}
-		return JSON.parse(stored) as ILanguageRuntimeMetadata;
+		try {
+			return JSON.parse(stored) as ILanguageRuntimeMetadata;
+		} catch {
+			return undefined;
+		}
 	}
 
 	/**
