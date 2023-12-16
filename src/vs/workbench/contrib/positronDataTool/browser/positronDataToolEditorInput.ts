@@ -11,42 +11,74 @@ import { EditorInput } from 'vs/workbench/common/editor/editorInput';
  * PositronDataToolEditorInput class.
  */
 export class PositronDataToolEditorInput extends EditorInput {
+	//#region Static Properties
+
 	/**
-	 *
+	 * Gets the type ID.
 	 */
-	static readonly ID: string = 'workbench.input.positronDataTool';
+	static readonly TypeID: string = 'workbench.input.positronDataTool';
+
+	/**
+	 * Gets the editor ID.
+	 */
+	static readonly EditorID: string = 'workbench.editor.positronDataTool';
+
+	//#endregion Static Properties
 
 	//#region Constructor & Dispose
 
 	/**
 	 * Constructor.
-	 * @param resource
+	 * @param resource The resource.
 	 */
 	constructor(readonly resource: URI) {
+		// Call the base class's constructor.
 		super();
 	}
 
+	/**
+	 * dispose override method.
+	 */
 	override dispose(): void {
+		// Call the base class's dispose method.
 		super.dispose();
 	}
 
 	//#endregion Constructor & Dispose
 
+	//#region AbstractEditorInput Overrides
+
+	/**
+	 * Gets the type identifier.
+	 */
+	override get typeId(): string {
+		return PositronDataToolEditorInput.TypeID;
+	}
+
+	/**
+	 * Gets the editor identifier.
+	 */
+	override get editorId(): string {
+		return PositronDataToolEditorInput.EditorID;
+	}
+
+	/**
+	 * Gets the display name of this input.
+	 * @returns The display name of this input.
+	 */
+	override getName(): string {
+		return localize('positronDataToolInputName', "Positron Data Tool");
+	}
+
+	/**
+	 * Determines whether the other input matches this input
+	 * @param otherInput The other input.
+	 * @returns true if the other input matches this input; otherwise, false.
+	 */
 	override matches(otherInput: EditorInput | IUntypedEditorInput): boolean {
 		return otherInput instanceof PositronDataToolEditorInput &&
 			otherInput.resource.toString() === this.resource.toString();
 	}
 
-	override get typeId(): string {
-		return PositronDataToolEditorInput.ID;
-	}
-
-	override getName(): string {
-		return localize('positronDataTool', "Positron Data Tool");
-	}
-
-	override async resolve(): Promise<null> {
-		return null;
-	}
+	//#endregion AbstractEditorInput Overrides
 }
-
