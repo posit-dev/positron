@@ -267,13 +267,19 @@ export class BrowserAuxiliaryWindowService extends Disposable implements IAuxili
 	}
 
 	protected patchMethods(auxiliaryWindow: CodeWindow): void {
-
-		// Disallow `createElement` because it would create
-		// HTML Elements in the "wrong" context and break
-		// code that does "instanceof HTMLElement" etc.
-		auxiliaryWindow.document.createElement = function () {
-			throw new Error('Not allowed to create elements in child window JavaScript context. Always use the main window so that "xyz instanceof HTMLElement" continues to work.');
-		};
+		// --- Start Positron ---
+		// WORKAROUND WORKAROUND WORKAROUND WORKAROUND WORKAROUND WORKAROUND WORKAROUND WORKAROUND
+		// Positron uses React to render into auxiliary windows. React uses createElement to create
+		// its DOM elements. Therefore, we cannot simply monkey patch createElement out of existence
+		// because it breaks React.
+		// WORKAROUND WORKAROUND WORKAROUND WORKAROUND WORKAROUND WORKAROUND WORKAROUND WORKAROUND
+		// // Disallow `createElement` because it would create
+		// // HTML Elements in the "wrong" context and break
+		// // code that does "instanceof HTMLElement" etc.
+		// auxiliaryWindow.document.createElement = function () {
+		// 	throw new Error('Not allowed to create elements in child window JavaScript context. Always use the main window so that "xyz instanceof HTMLElement" continues to work.');
+		// };
+		// --- End Positron ---
 	}
 
 	private applyMeta(auxiliaryWindow: CodeWindow): void {

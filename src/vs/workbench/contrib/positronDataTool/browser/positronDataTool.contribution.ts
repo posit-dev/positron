@@ -40,7 +40,6 @@ class PositronDataToolContribution extends Disposable {
 			},
 			{
 				createEditorInput: ({ resource, options }) => {
-					console.log(`+++++++++++++++++++++++++ resource is ${resource}`);
 					return { editor: instantiationService.createInstance(PositronDataToolEditorInput, resource), options };
 				}
 			}

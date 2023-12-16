@@ -4,9 +4,10 @@
 
 import 'vs/css!./positronColumnSplitter';
 import * as React from 'react';
-import { MouseEvent, useRef } from 'react'; // eslint-disable-line no-duplicate-imports
+import { MouseEvent } from 'react'; // eslint-disable-line no-duplicate-imports
+import { useStateRef } from 'vs/base/browser/ui/react/useStateRef';
+import * as DOM from 'vs/base/browser/dom';
 import { isMacintosh } from 'vs/base/common/platform';
-import { createStyleSheet, getWindow } from 'vs/base/browser/dom';
 
 /**
  * PositronColumnSplitterResizeResult enumeration.
@@ -37,9 +38,13 @@ type DocumentMouseEvent = globalThis.MouseEvent;
  * @returns The rendered component.
  */
 export const PositronColumnSplitter = (props: PositronColumnSplitterProps) => {
-
-	// Reference hooks.
-	const columnSplitter = useRef<HTMLDivElement>(undefined!);
+	// State hooks.
+	const [, setResizeState, resizeStateRef] = useStateRef<{
+		readonly body: HTMLElement;
+		readonly startingX: number;
+		readonly startingY: number;
+		readonly stylesheet: HTMLStyleElement;
+	} | undefined>(undefined);
 
 	/**
 	 * MouseDown handler.
@@ -50,14 +55,46 @@ export const PositronColumnSplitter = (props: PositronColumnSplitterProps) => {
 		e.preventDefault();
 		e.stopPropagation();
 
-		// Set the starting X an starting Y.
-		const startingX = e.clientX;
-		const startingY = e.clientY;
-		const doc = getWindow(columnSplitter.current)!.document;
+		// Get the document body on which the resize operation is happening.
+		const body = DOM.getActiveWindow().document.body;
 
-		// Create a style sheet on the column splitter. This style sheet is updated in the
-		// UpdateStyleSheet function below.
-		const styleSheet = createStyleSheet();
+		// Set the resize state.
+		setResizeState({
+			body,
+			startingX: e.clientX,
+			startingY: e.clientY,
+			stylesheet: DOM.createStyleSheet(body)
+		});
+
+		// Mouse move handler.
+		const mouseMoveHandler = (e: DocumentMouseEvent) => {
+			// Consume the event.
+			e.preventDefault();
+			e.stopPropagation();
+
+			// Fire onResize.
+			updateStyleSheet(fireOnResize(e));
+		};
+
+		// Mouse up handler.
+		const mouseUpHandler = (e: DocumentMouseEvent) => {
+			// Consume the event.
+			e.preventDefault();
+			e.stopPropagation();
+
+			// Remove the drag event handlers.
+			resizeStateRef.current!.body.removeEventListener('mousemove', mouseMoveHandler);
+			resizeStateRef.current!.body.removeEventListener('mouseup', mouseUpHandler);
+
+			// Fire onResize one last time.
+			fireOnResize(e);
+
+			// Remove the style sheet.
+			resizeStateRef.current!.body.removeChild(resizeStateRef.current!.stylesheet);
+
+			// Clear the resize state.
+			setResizeState(undefined);
+		};
 
 		/**
 		 * Updates the style sheet based on the column splitter resize result.
@@ -86,7 +123,7 @@ export const PositronColumnSplitter = (props: PositronColumnSplitterProps) => {
 
 			// Update the style sheet's text content with the desired cursor. This is a clever
 			// technique adopted from src/vs/base/browser/ui/sash/sash.ts.
-			styleSheet.textContent = `* { cursor: ${cursor} !important; }`;
+			resizeStateRef.current!.stylesheet.textContent = `* { cursor: ${cursor} !important; }`;
 		};
 
 		/**
@@ -94,44 +131,19 @@ export const PositronColumnSplitter = (props: PositronColumnSplitterProps) => {
 		 * @param e The mouse event.
 		 */
 		const fireOnResize = (e: DocumentMouseEvent): PositronColumnSplitterResizeResult =>
-			props.onResize(e.clientX - startingX, e.clientY - startingY);
+			props.onResize(
+				e.clientX - resizeStateRef.current!.startingX,
+				e.clientY - resizeStateRef.current!.startingY
+			);
 
-		// Mouse move handler.
-		const mouseMoveHandler = (e: DocumentMouseEvent) => {
-			// Eat the event.
-			e.preventDefault();
-			e.stopPropagation();
-
-			// Fire onResize.
-			updateStyleSheet(fireOnResize(e));
-		};
-
-		// Mouse up handler.
-		const mouseUpHandler = (e: DocumentMouseEvent) => {
-			// Eat the event.
-			e.preventDefault();
-			e.stopPropagation();
-
-			// Fire onResize one last time.
-			fireOnResize(e);
-
-			// Remove the style sheet.
-			doc.head.removeChild(styleSheet);
-
-			// Remove the drag event handlers.
-			doc.removeEventListener('mousemove', mouseMoveHandler);
-			doc.removeEventListener('mouseup', mouseUpHandler);
-		};
-
-		// Add the drag event handlers.
-		doc.addEventListener('mousemove', mouseMoveHandler, false);
-		doc.addEventListener('mouseup', mouseUpHandler, false);
+		// Capture the mouse.
+		body.addEventListener('mousemove', mouseMoveHandler, false);
+		body.addEventListener('mouseup', mouseUpHandler, false);
 	};
 
 	// Render.
 	return (
 		<div
-			ref={columnSplitter}
 			className='positron-column-splitter'
 			onMouseDown={mouseDownHandler}
 			style={{ width: props.width }}

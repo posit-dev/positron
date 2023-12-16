@@ -5,11 +5,9 @@
 import { localize } from 'vs/nls';
 import { URI } from 'vs/base/common/uri';
 import { Schemas } from 'vs/base/common/network';
-import { KeyCode, KeyMod } from 'vs/base/common/keyCodes';
 import { ILocalizedString } from 'vs/platform/action/common/action';
 import { Action2, registerAction2 } from 'vs/platform/actions/common/actions';
 import { IEditorService } from 'vs/workbench/services/editor/common/editorService';
-import { KeybindingWeight } from 'vs/platform/keybinding/common/keybindingsRegistry';
 import { IInstantiationService, ServicesAccessor } from 'vs/platform/instantiation/common/instantiation';
 import { PositronDataToolEditor } from 'vs/workbench/contrib/positronDataTool/browser/positronDataToolEditor';
 
@@ -56,10 +54,10 @@ class OpenPositronDataTool extends Action2 {
 			f1: true,
 			category,
 			// precondition: PositronConsoleFocused,
-			keybinding: {
-				weight: KeybindingWeight.WorkbenchContrib,
-				primary: KeyMod.WinCtrl | KeyCode.KeyA
-			},
+			// keybinding: {
+			// 	weight: KeybindingWeight.WorkbenchContrib,
+			// 	primary: KeyMod.WinCtrl | KeyCode.KeyA
+			// },
 		});
 	}
 
@@ -73,11 +71,7 @@ class OpenPositronDataTool extends Action2 {
 
 		const handle = Math.floor(Math.random() * 1e9);
 		const fd = URI.from({ scheme: Schemas.positronDataTool, path: `chat-${handle}` });
-		const d = await editorService.openEditor({ resource: fd });
-
-		if (d) {
-			console.log(`Title is ${d.getTitle()}`);
-		}
+		await editorService.openEditor({ resource: fd });
 
 		instantiationService.createInstance(PositronDataToolEditor);
 	}

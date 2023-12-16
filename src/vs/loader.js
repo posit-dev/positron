@@ -1598,18 +1598,22 @@ var AMDLoader;
 			let paths = this._config.moduleIdToPaths(strModuleId);
 
 			// --- Start Positron ---
-			// Fixup for loading react-dom/client.js.
-			if (paths[0].includes('react-dom.production.min.js/client.js')) {
+			// Fixup for loading react-dom/client.js from either production or development.
+			const reactDomClientMatch = paths[0].match(/react-dom.(production.min|development).js\/client.js/);
+			if (reactDomClientMatch && reactDomClientMatch.length === 2) {
+				// Set the edition.
+				const edition = reactDomClientMatch[1];
+
 				// Save the original path to the react-dom/client.js file.
 				const reactDomClientOriginalPath = paths[0];
 
 				// Release builds load from node_modules.asar.
 				if (paths[0].includes('/node_modules.asar/')) {
-					paths[0] = paths[0].replace("/../node_modules.asar/react-dom/umd/react-dom.production.min.js/client.js", "/react-dom/client.js");
+					paths[0] = paths[0].replace(`/../node_modules.asar/react-dom/umd/react-dom.${edition}.js/client.js`, "/react-dom/client.js");
 				} else {
 					// The set of original paths adjust.
-					const reactDomClientElectron = '/out/../node_modules/react-dom/umd/react-dom.production.min.js/client.js';
-					const reactDomClientWeb = 'remote/web/node_modules/react-dom/umd/react-dom.production.min.js/client.js';
+					const reactDomClientElectron = `/out/../node_modules/react-dom/umd/react-dom.${edition}.js/client.js`;
+					const reactDomClientWeb = `remote/web/node_modules/react-dom/umd/react-dom.${edition}.js/client.js`;
 
 					// Attempt to adjust the original path.
 					if (paths[0].endsWith(reactDomClientElectron)) {

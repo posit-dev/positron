@@ -4,7 +4,6 @@
 
 .positron-column-splitter {
 	display: flex;
-	flex-shrink: 0;
 	cursor: ew-resize;
 	justify-content: left;
 }
