@@ -2,35 +2,47 @@
  *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
-.data-tool-panel {
+.data-tool-panel-container {
 	display: grid;
-	grid-template-rows: [top-gutter] 8px [body] 1fr [bottom-gutter] 8px;
-	grid-template-columns: [left-gutter] 8px [column-1] 200px [splitter] 7px [column-2] 1fr [right-gutter] 8px;
+	grid-template-rows: [top-gutter] 8px [content] 1fr [bottom-gutter] 8px;
+	grid-template-columns: [left-gutter] 8px [content] 1fr [right-gutter] 8px;
+}
+
+.data-tool-panel {
+	/* Place the data-tool-panel in the data-tool-panel-container. */
+	grid-row: content / bottom-gutter;
+	grid-column: content / right-gutter;
+
+	/* Prevent 1fr from exceeding the parent height. */
+	min-height: 0;
+
+	/* Grid display. Layout happens in code. */
+	display: grid;
 }
 
 .data-tool-panel .column-1 {
-	padding: 8px;
-	display: flex;
+	/* Bordered. */
 	border-radius: 4px;
 	border: 1px solid var(--vscode-positronDataTool-border);
 
-	grid-row: body / bottom-gutter;
-	grid-column: column-1 / splitter;
+	/* This is the scroll container. */
+	overflow-y: scroll;
+
+	/* Initially hidden. Layout happens in code. */
+	display: none;
 }
 
 .data-tool-panel .splitter {
-	display: flex;
-
-	grid-row: body / bottom-gutter;
-	grid-column: splitter / column-2;
+	/* Initially hidden. Layout happens in code. */
+	display: none;
 }
 
 .data-tool-panel .column-2 {
-	padding: 8px;
-	display: flex;
+	/* Bordered. */
 	border-radius: 4px;
 	border: 1px solid var(--vscode-positronDataTool-border);
 
-	grid-row: body / bottom-gutter;
-	grid-column: column-2 / right-gutter;
+	/* Initially hidden. Layout happens in code. */
+	display: none;
+	overflow-y: scroll;
 }

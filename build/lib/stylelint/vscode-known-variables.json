@@ -509,6 +509,7 @@
 		"--vscode-positronConsole-foreground",
 		"--vscode-positronConsole-traceBackground",
 		"--vscode-positronDataTool-background",
+		"--vscode-positronDataTool-border",
 		"--vscode-positronDataTool-foreground",
 		"--vscode-positronDataViewer-background",
 		"--vscode-positronDataViewer-grid",

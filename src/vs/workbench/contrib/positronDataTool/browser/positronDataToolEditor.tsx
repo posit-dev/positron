@@ -20,6 +20,9 @@ import { IEditorGroup } from 'vs/workbench/services/editor/common/editorGroupsSe
 import { PositronDataTool } from 'vs/workbench/contrib/positronDataTool/browser/positronDataTool';
 import { IReactComponentContainer, ISize, PositronReactRenderer } from 'vs/base/browser/positronReactRenderer';
 
+// Temporary instance counter.
+let instance = 0;
+
 /**
  * PositronDataToolEditor class.
  */
@@ -81,6 +84,11 @@ export class PositronDataToolEditor extends EditorPane implements IReactComponen
 	 * IReactComponentContainer interface.
 	 */
 	private _height = 0;
+
+	/**
+	 * Gets the instance. This is a temporary property.
+	 */
+	private instance = `${++instance}`;
 
 	//#endregion Private Properties
 
@@ -148,7 +156,7 @@ export class PositronDataToolEditor extends EditorPane implements IReactComponen
 
 	//#endregion IReactComponentContainer
 
-	//#region Constructor
+	//#region Constructor & Dispose
 
 	/**
 	 * Constructor.
@@ -168,10 +176,25 @@ export class PositronDataToolEditor extends EditorPane implements IReactComponen
 		@ITelemetryService telemetryService: ITelemetryService,
 		@IThemeService themeService: IThemeService,
 	) {
+		// Call the base class's constructor.
 		super(PositronDataToolEditor.ID, telemetryService, themeService, storageService);
+
+		// Logging.
+		console.log(`PositronDataEditor ${this.instance} constructor`);
 	}
 
-	//#endregion Constructor
+	/**
+	 * dispose override method.
+	 */
+	public override dispose(): void {
+		// Call the base class's dispose method.
+		super.dispose();
+
+		// Logging.
+		console.log(`PositronDataEditor ${this.instance} dispose`);
+	}
+
+	//#endregion Constructor & Dispose
 
 	//#region Protected Overrides
 
@@ -180,6 +203,9 @@ export class PositronDataToolEditor extends EditorPane implements IReactComponen
 	 * @param parent The parent HTML element.
 	 */
 	protected override createEditor(parent: HTMLElement): void {
+		// Logging.
+		console.log(`PositronDataEditor ${this.instance} createEdtitor`);
+
 		// Create and append the Positron data tool container.
 		this._positronDataToolsContainer = DOM.$('.positron-data-tool-container');
 		DOM.append(parent, this._positronDataToolsContainer);
@@ -206,7 +232,11 @@ export class PositronDataToolEditor extends EditorPane implements IReactComponen
 	 * @param group The editor group.
 	 */
 	protected override setEditorVisible(visible: boolean, group: IEditorGroup | undefined): void {
+		// Call the base class's method.
 		super.setEditorVisible(visible, group);
+
+		// Logging.
+		console.log(`PositronDataEditor ${this.instance} setEditorVisible ${visible} group ${group}`);
 	}
 
 	//#endregion Protected Overrides
