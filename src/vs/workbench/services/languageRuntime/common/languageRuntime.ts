@@ -20,6 +20,7 @@ import { INotificationService } from 'vs/platform/notification/common/notificati
 import { IModalDialogPromptInstance, IPositronModalDialogsService } from 'vs/workbench/services/positronModalDialogs/common/positronModalDialogs';
 import { IOpener, IOpenerService, OpenExternalOptions, OpenInternalOptions } from 'vs/platform/opener/common/opener';
 import { URI } from 'vs/base/common/uri';
+import { LanguageRuntimeEventType } from './languageRuntimeEvents';
 
 /**
  * LanguageRuntimeInfo class.
@@ -713,16 +714,46 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 			(RuntimeClientType.FrontEnd, {}).then(client => {
 				// Create the frontend client instance wrapping the client instance.
 				const frontendClient = new FrontEndClientInstance(client);
+				this._register(frontendClient);
 
 				// When the frontend client instance emits an event, broadcast
-				// it to Positron.
-				this._register(frontendClient.onDidEmitEvent(event => {
+				// it to Positron with the corresponding runtime ID.
+				this._register(frontendClient.onDidBusy(event => {
 					this._onDidReceiveRuntimeEventEmitter.fire({
 						runtime_id: runtime.metadata.runtimeId,
-						event
+						event: {
+							name: LanguageRuntimeEventType.Busy,
+							data: event
+						}
 					});
 				}));
-				this._register(frontendClient);
+				this._register(frontendClient.onDidShowMessage(event => {
+					this._onDidReceiveRuntimeEventEmitter.fire({
+						runtime_id: runtime.metadata.runtimeId,
+						event: {
+							name: LanguageRuntimeEventType.ShowMessage,
+							data: event
+						}
+					});
+				}));
+				this._register(frontendClient.onDidPromptState(event => {
+					this._onDidReceiveRuntimeEventEmitter.fire({
+						runtime_id: runtime.metadata.runtimeId,
+						event: {
+							name: LanguageRuntimeEventType.PromptState,
+							data: event
+						}
+					});
+				}));
+				this._register(frontendClient.onDidWorkingDirectory(event => {
+					this._onDidReceiveRuntimeEventEmitter.fire({
+						runtime_id: runtime.metadata.runtimeId,
+						event: {
+							name: LanguageRuntimeEventType.WorkingDirectory,
+							data: event
+						}
+					});
+				}));
 			});
 	}
 
