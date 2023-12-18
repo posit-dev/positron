@@ -7,10 +7,10 @@
 
 export interface LanguageRuntimeEventData { }
 
+// TODO: Generate this in the comm type file
 export enum LanguageRuntimeEventType {
 	Busy = 'busy',
 	ShowMessage = 'show_message',
-	ShowHelp = 'show_help',
 	PromptState = 'prompt_state',
 	WorkingDirectory = 'working_directory',
 }
@@ -65,4 +65,3 @@ export interface WorkingDirectoryEvent extends LanguageRuntimeEventData {
 	directory: string;
 
 }
-
