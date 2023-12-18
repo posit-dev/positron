@@ -18,7 +18,6 @@ import { WebviewThemeDataProvider } from 'vs/workbench/contrib/webview/browser/t
 import { HelpEntry, IHelpEntry } from 'vs/workbench/contrib/positronHelp/browser/helpEntry';
 import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/common/extensions';
 import { IInstantiationService, createDecorator } from 'vs/platform/instantiation/common/instantiation';
-import { LanguageRuntimeEventData, LanguageRuntimeEventType } from 'vs/workbench/services/languageRuntime/common/languageRuntimeEvents';
 import { HelpClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeHelpClient';
 import { ILanguageRuntime, ILanguageRuntimeService, IRuntimeClientInstance, RuntimeClientType, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { ShowHelpEvent } from 'vs/workbench/services/languageRuntime/common/positronHelpComm';
@@ -207,47 +206,6 @@ class PositronHelpService extends Disposable implements IPositronHelpService {
 			this._languageRuntimeService.onDidChangeRuntimeState(languageRuntimeStateEvent => {
 				if (languageRuntimeStateEvent.new_state === RuntimeState.Ready) {
 					this.attachRuntime(languageRuntimeStateEvent.runtime_id);
-				}
-			})
-		);
-
-		// Register onDidReceiveRuntimeEvent handler.
-		//
-		// ***
-		// TEMPORARY: Currently, some runtimes deliver the ShowHelp event as a
-		// global event. This code can go away as soon as all runtimes send this
-		// event over the `positron.help` comm channel instead.
-		// ***
-		this._register(
-			this._languageRuntimeService.onDidReceiveRuntimeEvent(async languageRuntimeGlobalEvent => {
-				/**
-				 * Custom custom type guard for ShowHelpEvent.
-				 * @param _ The LanguageRuntimeEventData that should be a ShowHelpEvent.
-				 * @returns true if the LanguageRuntimeEventData is a ShowHelpEvent; otherwise, false.
-				 */
-				const isShowHelpEvent = (_: LanguageRuntimeEventData): _ is ShowHelpEvent => {
-					return (_ as ShowHelpEvent).kind !== undefined;
-				};
-
-				// Show help event types are supported.
-				if (languageRuntimeGlobalEvent.event.name !== LanguageRuntimeEventType.ShowHelp) {
-					return;
-				}
-
-				// Ensure that the right event data was supplied.
-				if (!isShowHelpEvent(languageRuntimeGlobalEvent.event.data)) {
-					this._logService.error(`ShowHelp event supplied unsupported event data.`);
-					return;
-				}
-
-				// Get the show help event.
-				const showHelpEvent = languageRuntimeGlobalEvent.event.data as ShowHelpEvent;
-				const runtime = this._languageRuntimeService.getRuntime(
-					languageRuntimeGlobalEvent.runtime_id);
-				if (runtime) {
-					this.handleShowHelpEvent(runtime, showHelpEvent);
-				} else {
-					this._logService.error(`PositronHelpService could not find runtime ${languageRuntimeGlobalEvent.runtime_id}.`);
 				}
 			})
 		);
