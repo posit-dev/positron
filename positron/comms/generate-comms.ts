@@ -163,23 +163,29 @@ function formatLines(line: string): string[] {
 }
 
 function* enumVisitor(
-	key: string,
+	context: Array<string>,
 	contract: any,
-	callback: (key: string, e: Array<string>) => Generator<string>
+	callback: (context: Array<string>, e: Array<string>) => Generator<string>
 ): Generator<string> {
 	if (contract.enum) {
-		yield* callback(key, contract.enum);
-	} else if (typeof contract === 'object') {
-		for (const key of Object.keys(contract)) {
-			if (key === 'schema' && contract['name']) {
-				yield* enumVisitor(contract['name'], contract[key], callback);
-			} else {
-				yield* enumVisitor(key, contract[key], callback);
-			}
-		}
+		yield* callback(context, contract.enum);
 	} else if (Array.isArray(contract)) {
 		for (const item of contract) {
-			yield* enumVisitor(key, item, callback);
+			yield* enumVisitor(context, item, callback);
+		}
+	} else if (typeof contract === 'object') {
+		for (const key of Object.keys(contract)) {
+			if (contract['name']) {
+				yield* enumVisitor(
+					[contract['name'], ...context], contract[key], callback);
+			} else if (key === 'properties' || key === 'params') {
+				yield* enumVisitor(
+					context, contract[key], callback);
+			} else {
+				yield* enumVisitor(
+					[key, ...context], contract[key], callback);
+			}
+
 		}
 	}
 }
@@ -268,12 +274,13 @@ use serde::Serialize;
 		if (!source) {
 			continue;
 		}
-		yield* enumVisitor('', source, function* (key: string, values: Array<string>) {
+		yield* enumVisitor([], source, function* (context: Array<string>, values: Array<string>) {
 			yield formatComment(`/// `,
 				`Possible values for ` +
-				snakeCaseToSentenceCase(key));
+				snakeCaseToSentenceCase(context[0]) + ` in ` +
+				snakeCaseToSentenceCase(context[1]));
 			yield '#[derive(Debug, Serialize, Deserialize, PartialEq)]\n';
-			yield `pub enum ${snakeCaseToSentenceCase(key)} {\n`;
+			yield `pub enum ${snakeCaseToSentenceCase(context[1])}${snakeCaseToSentenceCase(context[0])} {\n`;
 			for (let i = 0; i < values.length; i++) {
 				const value = values[i];
 				yield `\t#[serde(rename = "${value}")]\n`;
