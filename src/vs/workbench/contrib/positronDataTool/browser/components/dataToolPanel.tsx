@@ -45,7 +45,12 @@ export const DataToolPanel = (props: DataToolPanelProps) => {
 
 	// State hooks.
 	const [layout, setLayout] = useState(positronDataToolContext.positronDataToolInstance.layout);
-	const [columnWidth, setColumnWidth] = useState(200);
+	const [columnsWidth, setColumnsWidth] = useState(
+		Math.max(
+			positronDataToolContext.positronDataToolInstance.columnsWidthPercent * props.width,
+			MIN_COLUMN_WIDTH
+		)
+	);
 
 	// Main useEffect.
 	useEffect(() => {
@@ -67,7 +72,7 @@ export const DataToolPanel = (props: DataToolPanelProps) => {
 			// Columns left.
 			case PositronDataToolLayout.ColumnsLeft:
 				dataToolPanel.current.style.gridTemplateRows = '[main] 1fr [end]';
-				dataToolPanel.current.style.gridTemplateColumns = `[column-1] ${columnWidth}px [splitter] 8px [column-2] 1fr [end]`;
+				dataToolPanel.current.style.gridTemplateColumns = `[column-1] ${columnsWidth}px [splitter] 8px [column-2] 1fr [end]`;
 
 				column1.current.style.gridRow = 'main / end';
 				column1.current.style.gridColumn = 'column-1 / splitter';
@@ -85,7 +90,7 @@ export const DataToolPanel = (props: DataToolPanelProps) => {
 			// Columns right.
 			case PositronDataToolLayout.ColumnsRight:
 				dataToolPanel.current.style.gridTemplateRows = '[main] 1fr [end]';
-				dataToolPanel.current.style.gridTemplateColumns = `[column-1] 1fr [splitter] 8px [column-2] ${columnWidth}px [end]`;
+				dataToolPanel.current.style.gridTemplateColumns = `[column-1] 1fr [splitter] 8px [column-2] ${columnsWidth}px [end]`;
 
 				column1.current.style.gridRow = 'main / end';
 				column1.current.style.gridColumn = 'column-2 / end';
@@ -118,7 +123,7 @@ export const DataToolPanel = (props: DataToolPanelProps) => {
 				column2.current.style.display = 'inline';
 				break;
 		}
-	}, [layout, columnWidth]);
+	}, [layout, columnsWidth]);
 
 	// Width effect.
 	useEffect(() => {
@@ -135,12 +140,12 @@ export const DataToolPanel = (props: DataToolPanelProps) => {
 		switch (layout) {
 			// Columns left.
 			case PositronDataToolLayout.ColumnsLeft:
-				newColumnWidth = columnWidth + x;
+				newColumnWidth = columnsWidth + x;
 				break;
 
 			// Columns right.
 			case PositronDataToolLayout.ColumnsRight:
-				newColumnWidth = columnWidth - x;
+				newColumnWidth = columnsWidth - x;
 				break;
 
 			// Columns hidden. This can't happen.
@@ -151,7 +156,7 @@ export const DataToolPanel = (props: DataToolPanelProps) => {
 		// If the new column width is too small, pin it at the minimum column width and return
 		// ColumnSplitterResizeResult.TooSmall to get the cursor updated.
 		if (newColumnWidth < MIN_COLUMN_WIDTH) {
-			setColumnWidth(MIN_COLUMN_WIDTH);
+			setColumnsWidth(MIN_COLUMN_WIDTH);
 			return PositronColumnSplitterResizeResult.TooSmall;
 		}
 
@@ -159,13 +164,14 @@ export const DataToolPanel = (props: DataToolPanelProps) => {
 		// ColumnSplitterResizeResult.TooLarge to get the cursor updated.
 		const maxColumnWidth = props.width - (MIN_COLUMN_WIDTH + 24);
 		if (newColumnWidth > maxColumnWidth) {
-			setColumnWidth(maxColumnWidth);
+			setColumnsWidth(maxColumnWidth);
 			return PositronColumnSplitterResizeResult.TooLarge;
 		}
 
-		// Set the column width and return ColumnSplitterResizeResult.Resizing to get the cursor
-		// updated.
-		setColumnWidth(newColumnWidth);
+		// Update the the column width and return ColumnSplitterResizeResult.Resizing to get the
+		// cursor updated.
+		setColumnsWidth(newColumnWidth);
+		positronDataToolContext.positronDataToolInstance.columnsWidthPercent = newColumnWidth / props.width;
 		return PositronColumnSplitterResizeResult.Resizing;
 	};
 

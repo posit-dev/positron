@@ -83,10 +83,20 @@ class PositronDataToolInstance extends Disposable implements IPositronDataToolIn
 	private _layout = PositronDataToolLayout.ColumnsLeft;
 
 	/**
+	 * Gets or sets the columns width percent.
+	 */
+	private _columnsWidthPercent = 0.25;
+
+	/**
 	 * The onDidChangeLayout event emitter.
 	 */
 	private readonly _onDidChangeLayoutEmitter =
 		this._register(new Emitter<PositronDataToolLayout>);
+
+	/**
+	 * The onDidChangeColumnsWidthPercent event emitter.
+	 */
+	private readonly _onDidChangeColumnsWidthPercentEmitter = this._register(new Emitter<number>);
 
 	//#endregion Private Properties
 
@@ -123,9 +133,31 @@ class PositronDataToolInstance extends Disposable implements IPositronDataToolIn
 	}
 
 	/**
+	 * Gets the columns width.
+	 */
+	get columnsWidthPercent() {
+		return this._columnsWidthPercent;
+	}
+
+	/**
+	 * Sets the columns width.
+	 */
+	set columnsWidthPercent(columnsWidthPercent: number) {
+		if (columnsWidthPercent !== this._columnsWidthPercent) {
+			this._columnsWidthPercent = columnsWidthPercent;
+			this._onDidChangeColumnsWidthPercentEmitter.fire(this._columnsWidthPercent);
+		}
+	}
+
+	/**
 	 * onDidChangeLayout event.
 	 */
 	readonly onDidChangeLayout = this._onDidChangeLayoutEmitter.event;
+
+	/**
+	 * onDidChangeColumnsWidthPercent event.
+	 */
+	readonly onDidChangeColumnsWidthPercent = this._onDidChangeColumnsWidthPercentEmitter.event;
 
 	//#endregion IPositronDataToolInstance Implementation
 }

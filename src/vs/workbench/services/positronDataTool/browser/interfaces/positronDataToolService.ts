@@ -54,7 +54,17 @@ export interface IPositronDataToolInstance {
 	layout: PositronDataToolLayout;
 
 	/**
+	 * Gets or sets the columns width percent.
+	 */
+	columnsWidthPercent: number;
+
+	/**
 	 * The onDidChangeLayout event.
 	 */
 	readonly onDidChangeLayout: Event<PositronDataToolLayout>;
+
+	/**
+	 * The onDidChangeColumnsWidthPercent event.
+	 */
+	readonly onDidChangeColumnsWidthPercent: Event<number>;
 }
