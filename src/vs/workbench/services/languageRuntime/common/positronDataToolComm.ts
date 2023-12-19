@@ -373,7 +373,7 @@ export class PositronDataToolComm extends PositronBaseComm {
 	 *
 	 * @returns Result of computing column profile
 	 */
-	getColumnProfile(profileId: string, profileType: string, column: string): Promise<ProfileResult> {
+	getColumnProfile(profileId: string, profileType: GetColumnProfileProfileType, column: string): Promise<ProfileResult> {
 		return super.performRpc('get_column_profile', ['profile_id', 'profile_type', 'column'], [profileId, profileType, column]);
 	}
 

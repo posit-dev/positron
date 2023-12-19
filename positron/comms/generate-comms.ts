@@ -804,9 +804,13 @@ import { IRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/co
 				if (!param.schema) {
 					throw new Error(`No schema for '${method.name}' parameter '${param.name}'`);
 				}
-				yield snakeCaseToCamelCase(param.name) +
-					': ' +
-					deriveType(backend, TypescriptTypeMap, param.schema);
+				yield snakeCaseToCamelCase(param.name) + ': ';
+				const schema = param.schema;
+				if (schema.type === 'string' && schema.enum) {
+					yield `${snakeCaseToSentenceCase(method.name)}${snakeCaseToSentenceCase(param.name)}`;
+				} else {
+					yield deriveType(backend, TypescriptTypeMap, schema);
+				}
 				if (i < method.params.length - 1) {
 					yield ', ';
 				}
