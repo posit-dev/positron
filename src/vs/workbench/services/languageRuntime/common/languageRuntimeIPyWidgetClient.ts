@@ -54,8 +54,11 @@ export class IPyWidgetClientInstance extends Disposable implements IPositronIPyW
 	/**
 	 * Event that fires when the widget is closed on the runtime side
 	 */
-	onDidClose: Event<void>;
-	private readonly _closeEmitter = new Emitter<void>();
+	private readonly _onDidClose = new Emitter<void>();
+	readonly onDidClose: Event<void> = this._onDidClose.event;
+
+	private readonly _onDidDispose = new Emitter<void>();
+	readonly onDidDispose: Event<void> = this._onDidDispose.event;
 
 	/** Creates the IPyWidget client instance */
 	constructor(
@@ -63,11 +66,9 @@ export class IPyWidgetClientInstance extends Disposable implements IPositronIPyW
 		public metadata: IPositronIPyWidgetMetadata) {
 
 		super();
-		// Connect close emitter event
-		this.onDidClose = this._closeEmitter.event;
 		_client.onDidChangeClientState((state) => {
 			if (state === RuntimeClientState.Closed) {
-				this._closeEmitter.fire();
+				this._onDidClose.fire();
 			}
 		});
 		this._register(this._client);
@@ -119,5 +120,10 @@ export class IPyWidgetClientInstance extends Disposable implements IPositronIPyW
 	 */
 	get id(): string {
 		return this.metadata.id;
+	}
+
+	override dispose(): void {
+		super.dispose();
+		this._onDidDispose.fire();
 	}
 }

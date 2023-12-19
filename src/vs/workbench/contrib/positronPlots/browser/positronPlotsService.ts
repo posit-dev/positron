@@ -652,9 +652,6 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 			plots[0].dispose();
 		}
 
-		// Also clear out the widget clients from the widget service
-		this._positronIPyWidgetsService.removeAllWidgets();
-
 		// Update the front end with the now-empty array of plots
 		this._onDidSelectPlot.fire('');
 		this._onDidReplacePlots.fire(this._plots);
