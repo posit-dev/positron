@@ -113,10 +113,7 @@ function parseRef(ref: string, contract: any): string {
 			throw new Error(`Invalid ref: ${ref} (part '${parts[i]}' not found)`);
 		}
 	}
-	if (!target.name) {
-		throw new Error(`Invalid ref: ${ref} (no name found)`);
-	}
-	return snakeCaseToSentenceCase(target.name);
+	return snakeCaseToSentenceCase(parts[parts.length - 1]);
 }
 
 function deriveType(contract: any, typeMap: Record<string, string>, schema: any): string {
@@ -579,12 +576,21 @@ from dataclasses import dataclass, field
 async function* createTypescriptInterface(contract: any, name: string,
 	description: string, properties: Record<string, any>) {
 
+	if (!description) {
+		throw new Error(`No description for '${name}'; please add a description to the schema`);
+	}
 	yield '/**\n';
 	yield formatComment(' * ', description);
 	yield ' */\n';
 	yield `export interface ${snakeCaseToSentenceCase(name)} {\n`;
+	if (!properties || Object.keys(properties).length === 0) {
+		throw new Error(`No properties for '${name}'; please add properties to the schema`);
+	}
 	for (const prop of Object.keys(properties)) {
 		const schema = properties[prop];
+		if (!schema.description) {
+			throw new Error(`No description for the '${name}.${prop}' value; please add a description to the schema`);
+		}
 		yield '\t/**\n';
 		yield formatComment('\t * ', schema.description);
 		yield '\t */\n';
@@ -635,10 +641,13 @@ import { IRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/co
 			continue;
 		}
 		if (source.components && source.components.schemas) {
-			for (const schema of Object.keys(backend.components.schemas)) {
-				yield* createTypescriptInterface(backend, schema,
-					backend.components.schemas[schema].description,
-					backend.components.schemas[schema].properties);
+			for (const key of Object.keys(backend.components.schemas)) {
+				const schema = backend.components.schemas[key];
+				if (schema.type === 'object') {
+					yield* createTypescriptInterface(backend, key,
+						schema.description,
+						schema.properties);
+				}
 			}
 		}
 	}
@@ -720,6 +729,9 @@ import { IRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/co
 			yield '\t' + snakeCaseToCamelCase(method.name) + '(';
 			for (let i = 0; i < method.params.length; i++) {
 				const param = method.params[i];
+				if (!param.schema) {
+					throw new Error(`No schema for '${method.name}' parameter '${param.name}'`);
+				}
 				yield snakeCaseToCamelCase(param.name) +
 					': ' +
 					deriveType(backend, TypescriptTypeMap, param.schema);
