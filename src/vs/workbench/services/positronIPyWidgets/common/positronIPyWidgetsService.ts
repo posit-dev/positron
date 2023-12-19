@@ -116,11 +116,6 @@ export interface IPositronIPyWidgetsService {
 	readonly onDidCreatePlot: Event<IPositronPlotClient>;
 
 	/**
-	 * Remove all widget clients
-	 */
-	removeAllWidgets(): void;
-
-	/**
 	 * Placeholder for service initialization.
 	 */
 	initialize(): void;
