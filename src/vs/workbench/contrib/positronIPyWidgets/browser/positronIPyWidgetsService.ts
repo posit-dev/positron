@@ -8,7 +8,7 @@ import { Emitter, Event } from 'vs/base/common/event';
 import { IPositronIPyWidgetsService, IPositronIPyWidgetMetadata, IPyWidgetHtmlData } from 'vs/workbench/services/positronIPyWidgets/common/positronIPyWidgetsService';
 import { IPyWidgetClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeIPyWidgetClient';
 import { IPositronNotebookOutputWebviewService } from 'vs/workbench/contrib/positronOutputWebview/browser/notebookOutputWebviewService';
-import { WebviewPlotClient } from 'vs/workbench/contrib/positronPlots/browser/webviewPlotClient';
+import { WidgetPlotClient } from 'vs/workbench/contrib/positronPlots/browser/widgetPlotClient';
 
 export interface IPositronIPyWidgetCommOpenData {
 	state: {
@@ -30,13 +30,13 @@ export class PositronIPyWidgetsService extends Disposable implements IPositronIP
 	declare readonly _serviceBrand: undefined;
 
 	/** The list of IPyWidgets. */
-	private readonly _widgets: IPyWidgetClientInstance[] = [];
+	private readonly _widgets = new Map<string, IPyWidgetClientInstance>();
 
 	private readonly _primaryWidgets: Set<string> = new Set<string>();
 	private readonly _secondaryWidgets: Set<string> = new Set<string>();
 
 	/** The emitter for the onDidCreatePlot event */
-	private readonly _onDidCreatePlot = new Emitter<WebviewPlotClient>();
+	private readonly _onDidCreatePlot = new Emitter<WidgetPlotClient>();
 
 	/** Creates the Positron plots service instance */
 	constructor(
@@ -54,20 +54,19 @@ export class PositronIPyWidgetsService extends Disposable implements IPositronIP
 	private registerIPyWidgetClient(widgetClient: IPyWidgetClientInstance) {
 
 		// Add to our list of widgets
-		this._widgets.push(widgetClient);
+		this._widgets.set(widgetClient.id, widgetClient);
 
 		// Update the list of primary widgets whenever a new widget comes in
 		this.updatePrimaryWidgets(widgetClient);
 
-		// Remove the widget from our list when it is closed
-		widgetClient.onDidClose(() => {
-			const index = this._widgets.indexOf(widgetClient);
-			if (index >= 0) {
-				this._widgets.splice(index, 1);
-			}
+		// Listen for the widget client to be disposed (i.e. by the plots service via the
+		// widgetPlotClient) and make sure to remove it fully from the widget service
+		widgetClient.onDidDispose(() => {
+			this._widgets.delete(widgetClient.id);
+			this._primaryWidgets.delete(widgetClient.id);
+			this._secondaryWidgets.delete(widgetClient.id);
 		});
 
-		// Dispose the widget client when this service is disposed
 		this._register(widgetClient);
 	}
 
@@ -121,13 +120,20 @@ export class PositronIPyWidgetsService extends Disposable implements IPositronIP
 				const widgetClient = new IPyWidgetClientInstance(event.client, metadata);
 				this.registerIPyWidgetClient(widgetClient);
 
-				// Combine the widget data, and then create a webview for it
+				// TODO: instead of creating the webview on widget creation/comm_open,
+				// we plan to listen for a new message type from the kernel that indicates
+				// that the widget is ready to be displayed (because the user has requested it)
+				// Once that's available, we will remove this call to createWebview here
 				this.createWebviewWidgets(runtime, event.message);
 			}
 		}));
 	}
 
 	private updatePrimaryWidgets(latestWidget: IPyWidgetClientInstance): void {
+		// TODO: We plan to offload this logic to the Python language runtime, so the
+		// frontend doesn't need to make poor inferences about which widget(s) the user
+		// explicitly requested to view
+
 		// A widget is primary if no other widgets are dependent on it,
 		// and they are "viewable" (i.e. they have both a layout and dom_classes property)
 		latestWidget.dependencies.forEach(dependency => {
@@ -146,7 +152,7 @@ export class PositronIPyWidgetsService extends Disposable implements IPositronIP
 		if (!this._primaryWidgets.has(latestWidgetId)) {
 			return;
 		}
-		// Combine our existing list of widgets into a single WebviewPlotClient
+		// Combine our existing list of widgets into a single WidgetPlotClient
 		const htmlData = new IPyWidgetHtmlData(this.positronWidgetInstances);
 
 		this._primaryWidgets.forEach(widgetId => {
@@ -163,40 +169,37 @@ export class PositronIPyWidgetsService extends Disposable implements IPositronIP
 		const webview = await this._notebookOutputWebviewService.createNotebookOutputWebview(
 			runtime, widgetMessage);
 		if (webview) {
-			const plotClient = new WebviewPlotClient(webview, widgetMessage);
+			const widgetViewIds = Array.from(this._primaryWidgets);
+			const managedWidgets = widgetViewIds.flatMap((widgetId: string) => {
+				const widget = this._widgets.get(widgetId)!;
+				const dependentWidgets = widget.dependencies.map((dependentWidgetId: string) => {
+					return this._widgets.get(dependentWidgetId)!;
+				});
+				return [widget, ...dependentWidgets];
+			});
+			const plotClient = new WidgetPlotClient(webview, widgetMessage, managedWidgets);
 			this._onDidCreatePlot.fire(plotClient);
 		}
 	}
 
 	/**
-	 * Checks to see whether the service has a widget with the given ID.
+	 * Checks to see whether the service has a widget with the given ID and runtime ID.
 	 *
 	 * @param runtimeId The runtime ID that generated the widget.
 	 * @param widgetId The widget's unique ID.
 	 */
 	private hasWidget(runtimeId: string, widgetId: string): boolean {
-		return this._widgets.some(widget =>
-			widget.metadata.runtime_id === runtimeId &&
-			widget.metadata.id === widgetId);
+		return (
+			this._widgets.has(widgetId) &&
+			this._widgets.get(widgetId)!.metadata.runtime_id === runtimeId
+		);
 	}
 
-	/**
-	 * Remove all widget clients
-	 */
-	removeAllWidgets(): void {
-		this._widgets.forEach(widget => {
-			widget.dispose();
-		});
-
-		// Clear the list of widgets
-		this._widgets.length = 0;
-	}
-
-	onDidCreatePlot: Event<WebviewPlotClient> = this._onDidCreatePlot.event;
+	onDidCreatePlot: Event<WidgetPlotClient> = this._onDidCreatePlot.event;
 
 	// Gets the individual widget client instances.
 	get positronWidgetInstances(): IPyWidgetClientInstance[] {
-		return this._widgets;
+		return Array.from(this._widgets.values());
 	}
 
 	/**
