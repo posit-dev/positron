@@ -663,6 +663,13 @@ import { IRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/co
 					yield* createTypescriptInterface(backend, key,
 						schema.description,
 						schema.properties);
+				} else {
+					yield `/**\n`;
+					yield formatComment(' * ', schema.description);
+					yield ' */\n';
+					yield `export type ${snakeCaseToSentenceCase(key)} = `;
+					yield deriveType(source, TypescriptTypeMap, schema);
+					yield ';\n\n';
 				}
 			}
 		}
