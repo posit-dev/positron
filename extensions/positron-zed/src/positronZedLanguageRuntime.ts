@@ -2097,25 +2097,10 @@ export class PositronZedLanguageRuntimeProvider implements positron.LanguageRunt
 		private readonly context: vscode.ExtensionContext
 	) { }
 
-	provideLanguageRuntime(runtimeId: string, token: vscode.CancellationToken): positron.LanguageRuntime {
-		let version = null;
-		switch (runtimeId) {
-			case '00000000-0000-0000-0000-000000000200': {
-				version = '2.0.0';
-				break;
-			}
-			case '00000000-0000-0000-0000-000000000100': {
-				version = '1.0.0';
-				break;
-			}
-			case '00000000-0000-0000-0000-000000000098': {
-				version = '0.98.0';
-				break;
-			}
-		}
-		if (!version) {
-			throw new Error('Unknown Zed runtime ID');
-		}
-		return new PositronZedLanguageRuntime(this.context, runtimeId, version);
+	provideLanguageRuntime(runtimeMetadata: positron.LanguageRuntimeMetadata,
+		token: vscode.CancellationToken): positron.LanguageRuntime {
+		return new PositronZedLanguageRuntime(this.context,
+			runtimeMetadata.runtimeId,
+			runtimeMetadata.runtimeShortName);
 	}
 }

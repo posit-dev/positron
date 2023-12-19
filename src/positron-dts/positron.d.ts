@@ -509,13 +509,13 @@ declare module 'positron' {
 
 	export interface LanguageRuntimeProvider {
 		/**
-		 * Given a `runtimeId`, return the corresponding `LanguageRuntime` object.
+		 * Given runtime metadata, return the corresponding `LanguageRuntime` object.
 		 *
-		 * @param runtimeId The runtime identifier as a string.
+		 * @param runtimeMetadata The runtime metadata.
 		 * @param token A cancellation token.
 		 * @return The language runtime.
 		 */
-		provideLanguageRuntime(runtimeId: string, token: vscode.CancellationToken):
+		provideLanguageRuntime(runtimeMetadata: LanguageRuntimeMetadata, token: vscode.CancellationToken):
 			vscode.ProviderResult<LanguageRuntime>;
 	}
 

@@ -336,14 +336,14 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 
 	public async $provideLanguageRuntime(
 		languageId: string,
-		runtimeId: string): Promise<void> {
+		runtimeMetadata: positron.LanguageRuntimeMetadata): Promise<void> {
 		const provider = this._runtimeProviders.get(languageId);
 		if (!provider) {
 			throw new Error(`Cannot get runtime provider for '${languageId}'.`);
 		}
-		const runtime = await provider.provider.provideLanguageRuntime(runtimeId, CancellationToken.None);
+		const runtime = await provider.provider.provideLanguageRuntime(runtimeMetadata, CancellationToken.None);
 		if (!runtime) {
-			throw new Error(`Cannot provide runtime '${runtimeId}'.`);
+			throw new Error(`Cannot provide runtime '${runtimeMetadata.runtimeId}'.`);
 		}
 		this.registerLanguageRuntime(provider.extension, runtime);
 	}
