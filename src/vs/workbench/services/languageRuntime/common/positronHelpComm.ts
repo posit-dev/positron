@@ -11,6 +11,15 @@ import { PositronBaseComm } from 'vs/workbench/services/languageRuntime/common/p
 import { IRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeClientInstance';
 
 /**
+ * Possible values for Kind in ShowHelp
+ */
+enum ShowHelpKind {
+	Html = 'html',
+	Markdown = 'markdown',
+	Url = 'url'
+}
+
+/**
  * Event: Request to show help in the frontend
  */
 export interface ShowHelpEvent {
@@ -22,7 +31,7 @@ export interface ShowHelpEvent {
 	/**
 	 * The type of content to show
 	 */
-	kind: 'html' | 'markdown' | 'url';
+	kind: ShowHelpKind;
 
 	/**
 	 * Whether to focus the Help pane when the content is displayed.

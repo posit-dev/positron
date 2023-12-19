@@ -45,6 +45,22 @@ export interface FormattedVariable {
 }
 
 /**
+ * Possible values for Kind in Variable
+ */
+enum VariableKind {
+	Boolean = 'boolean',
+	Bytes = 'bytes',
+	Collection = 'collection',
+	Empty = 'empty',
+	Function = 'function',
+	Map = 'map',
+	Number = 'number',
+	Other = 'other',
+	String = 'string',
+	Table = 'table'
+}
+
+/**
  * A single variable in the runtime.
  */
 export interface Variable {

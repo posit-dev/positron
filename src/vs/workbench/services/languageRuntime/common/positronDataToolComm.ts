@@ -121,6 +121,47 @@ export interface BackendState {
 }
 
 /**
+ * Possible values for ProfileType in GetColumnProfile
+ */
+enum GetColumnProfileProfileType {
+	Freqtable = 'freqtable',
+	Histogram = 'histogram'
+}
+
+/**
+ * Possible values for FilterType in ColumnFilter
+ */
+enum ColumnFilterFilterType {
+	Isnull = 'isnull',
+	Notnull = 'notnull',
+	Compare = 'compare',
+	SetMembership = 'set_membership',
+	Search = 'search'
+}
+
+/**
+ * Possible values for CompareOp in ColumnFilter
+ */
+enum ColumnFilterCompareOp {
+	== = '==',
+	!= = '!=',
+	< = '<',
+	<= = '<=',
+	> = '>',
+	>= = '>='
+}
+
+/**
+ * Possible values for SearchType in ColumnFilter
+ */
+enum ColumnFilterSearchType {
+	Contains = 'contains',
+	Startswith = 'startswith',
+	Endswith = 'endswith',
+	Regex = 'regex'
+}
+
+/**
  * Schema for a column in a table
  */
 export interface ColumnSchema {

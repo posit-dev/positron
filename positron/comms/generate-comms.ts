@@ -674,6 +674,32 @@ import { IRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/co
 		}
 	}
 
+	// Create enums for all enum types
+	for (const source of [backend, frontend]) {
+		if (!source) {
+			continue;
+		}
+		yield* enumVisitor([], source, function* (context: Array<string>, values: Array<string>) {
+			yield '/**\n';
+			yield formatComment(` * `,
+				`Possible values for ` +
+				snakeCaseToSentenceCase(context[0]) + ` in ` +
+				snakeCaseToSentenceCase(context[1]));
+			yield ' */\n';
+			yield `enum ${snakeCaseToSentenceCase(context[1])}${snakeCaseToSentenceCase(context[0])} {\n`;
+			for (let i = 0; i < values.length; i++) {
+				const value = values[i];
+				yield `\t${snakeCaseToSentenceCase(value)} = '${value}'`;
+				if (i < values.length - 1) {
+					yield ',\n';
+				} else {
+					yield '\n';
+				}
+			}
+			yield '}\n\n';
+		});
+	}
+
 	for (const source of [backend, frontend]) {
 		if (!source) {
 			continue;
@@ -713,7 +739,7 @@ import { IRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/co
 				yield '\t */\n';
 				yield `\t${snakeCaseToCamelCase(param.name)}: `;
 				if (param.schema.type === 'string' && param.schema.enum) {
-					yield param.schema.enum.map((value: string) => `'${value}'`).join(' | ');
+					yield `${snakeCaseToSentenceCase(method.name)}${snakeCaseToSentenceCase(param.name)}`;
 				} else {
 					yield deriveType(frontend, TypescriptTypeMap, param.schema);
 				}
