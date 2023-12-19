@@ -470,34 +470,29 @@ from dataclasses import dataclass, field
 		if (!source) {
 			continue;
 		}
-		for (const method of source.methods) {
-			for (const param of method.params) {
-				if (param.schema.enum) {
-					yield '@enum.unique\n';
-					yield `class ${snakeCaseToSentenceCase(method.name)}`;
-					yield `${snakeCaseToSentenceCase(param.name)}(str, enum.Enum):\n`;
-					yield '    """\n';
-					yield formatComment(`    `,
-						`Possible values for the ` +
-						snakeCaseToSentenceCase(param.name) + ` ` +
-						`parameter of the ` +
-						snakeCaseToSentenceCase(method.name) + ` ` +
-						`method.`);
-					yield '    """\n';
-					yield '\n';
-					for (let i = 0; i < param.schema.enum.length; i++) {
-						const value = param.schema.enum[i];
-						yield `    ${snakeCaseToSentenceCase(value)} = "${value}"`;
-						if (i < param.schema.enum.length - 1) {
-							yield '\n\n';
-						} else {
-							yield '\n';
-						}
-					}
+		yield* enumVisitor([], source, function* (context: Array<string>, values: Array<string>) {
+			yield '@enum.unique\n';
+			yield `class ${snakeCaseToSentenceCase(context[1])}`;
+			yield `${snakeCaseToSentenceCase(context[0])}(str, enum.Enum):\n`;
+			yield '    """\n';
+			yield formatComment(`    `,
+				`Possible values for ` +
+				snakeCaseToSentenceCase(context[0]) +
+				` in ` +
+				snakeCaseToSentenceCase(context[1]));
+			yield '    """\n';
+			yield '\n';
+			for (let i = 0; i < values.length; i++) {
+				const value = values[i];
+				yield `    ${snakeCaseToSentenceCase(value)} = "${value}"`;
+				if (i < values.length - 1) {
 					yield '\n\n';
+				} else {
+					yield '\n';
 				}
 			}
-		}
+			yield '\n\n';
+		});
 	}
 
 	if (backend) {
