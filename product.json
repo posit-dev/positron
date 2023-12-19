@@ -204,8 +204,7 @@
 	],
 	"extensionEnabledApiProposals": {
 		"ms-vscode.vscode-selfhost-test-provider": [
-			"testObserver",
-			"testMessageContextValue"
+			"testObserver"
 		],
 		"VisualStudioExptTeam.vscodeintellicode-completions": [
 			"inlineCompletionsAdditions"
@@ -237,14 +236,15 @@
 			"contribEditorContentMenu",
 			"quickPickSortByLabel",
 			"portsAttributes",
+			"registerIssueDataProvider",
 			"testObserver",
 			"quickPickItemTooltip",
 			"terminalDataWriteEvent",
+			"terminalExecuteCommandEvent",
 			"saveEditor"
 		],
 		"ms-dotnettools.dotnet-interactive-vscode": [
-			"notebookMessaging",
-			"languageConfigurationAutoClosingPairs"
+			"notebookMessaging"
 		],
 		"GitHub.codespaces": [
 			"contribEditSessions",
@@ -310,6 +310,7 @@
 		"ms-vscode-remote.remote-containers": [
 			"contribEditSessions",
 			"resolvers",
+			"portsAttributes",
 			"tunnels",
 			"workspaceTrust",
 			"terminalDimensions",
@@ -324,6 +325,9 @@
 		],
 		"ms-vscode.lsif-browser": [
 			"documentFiltersExclusive"
+		],
+		"ms-vscode.vscode-speech": [
+			"speech"
 		],
 		"GitHub.vscode-pull-request-github": [
 			"contribCommentThreadAdditionalMenu",
@@ -349,17 +353,23 @@
 			"handleIssueUri",
 			"interactive",
 			"interactiveUserActions",
-			"terminalContextMenu",
 			"terminalDataWriteEvent",
+			"terminalExecuteCommandEvent",
 			"terminalSelection",
 			"terminalQuickFixProvider",
-			"chatSlashCommands",
 			"chatVariables",
-			"chatAgents",
+			"chatAgents2",
+			"chatAgents2Additions",
+			"defaultChatAgent",
 			"readonlyMessage",
 			"chatProvider",
 			"mappedEditsProvider",
-			"aiRelatedInformation"
+			"aiRelatedInformation",
+			"codeActionAI",
+			"findTextInFiles",
+			"textSearchProvider",
+			"scmInputBoxValueProvider",
+			"contribSourceControlInputBoxMenu"
 		],
 		"GitHub.remotehub": [
 			"contribRemoteHelp",
