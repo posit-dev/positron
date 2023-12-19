@@ -1,0 +1,60 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
+ *--------------------------------------------------------------------------------------------*/
+
+import { Event } from 'vs/base/common/event';
+import { createDecorator } from 'vs/platform/instantiation/common/instantiation';
+
+// Create the decorator for the Positron data tool service (used in dependency injection).
+export const IPositronDataToolService = createDecorator<IPositronDataToolService>('positronDataToolService');
+
+/**
+ * PositronDataToolLayout enumeration.
+ */
+export enum PositronDataToolLayout {
+	ColumnsLeft = 'ColumnsLeft',
+	ColumnsRight = 'ColumnsRight',
+	ColumnsHidden = 'ColumnsHidden',
+}
+
+/**
+ * IPositronDataToolService interface.
+ */
+export interface IPositronDataToolService {
+	/**
+	 * Needed for service branding in dependency injector.
+	 */
+	readonly _serviceBrand: undefined;
+
+	/**
+	 * Test open function.
+	 * @param identifier The identifier.
+	 */
+	testOpen(identifier: string): Promise<void>;
+
+	/**
+	 *
+	 * @param identifier
+	 */
+	getInstance(identifier: string): IPositronDataToolInstance | undefined;
+}
+
+/**
+ * IPositronDataToolInstance interface.
+ */
+export interface IPositronDataToolInstance {
+	/**
+	 * Gets the identifier.
+	 */
+	readonly identifier: string;
+
+	/**
+	 * Gets or sets the layout.
+	 */
+	layout: PositronDataToolLayout;
+
+	/**
+	 * The onDidChangeLayout event.
+	 */
+	readonly onDidChangeLayout: Event<PositronDataToolLayout>;
+}

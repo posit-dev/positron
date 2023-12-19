@@ -5,12 +5,13 @@
 import 'vs/css!./dataToolPanel';
 import * as React from 'react';
 import { useEffect, useRef, useState } from 'react'; // eslint-disable-line no-duplicate-imports
+import { DisposableStore } from 'vs/base/common/lifecycle';
 import { IReactComponentContainer } from 'vs/base/browser/positronReactRenderer';
 import { PositronDataToolProps } from 'vs/workbench/contrib/positronDataTool/browser/positronDataTool';
-import { PositronDataToolLayout } from 'vs/workbench/contrib/positronDataTool/browser/positronDataToolState';
 import { RowsPanel } from 'vs/workbench/contrib/positronDataTool/browser/components/dataToolComponents/rowsPanel';
 import { usePositronDataToolContext } from 'vs/workbench/contrib/positronDataTool/browser/positronDataToolContext';
 import { ColumnsPanel } from 'vs/workbench/contrib/positronDataTool/browser/components/dataToolComponents/columnsPanel';
+import { PositronDataToolLayout } from 'vs/workbench/services/positronDataTool/browser/interfaces/positronDataToolService';
 import { PositronColumnSplitter, PositronColumnSplitterResizeResult } from 'vs/base/browser/ui/positronComponents/positronColumnSplitter';
 
 /**
@@ -43,11 +44,26 @@ export const DataToolPanel = (props: DataToolPanelProps) => {
 	const column2 = useRef<HTMLDivElement>(undefined!);
 
 	// State hooks.
+	const [layout, setLayout] = useState(positronDataToolContext.positronDataToolInstance.layout);
 	const [columnWidth, setColumnWidth] = useState(200);
+
+	// Main useEffect.
+	useEffect(() => {
+		// Create the disposable store for cleanup.
+		const disposableStore = new DisposableStore();
+
+		// Add the onDidChangeLayout event handler.
+		disposableStore.add(positronDataToolContext.positronDataToolInstance.onDidChangeLayout(layout => {
+			setLayout(layout);
+		}));
+
+		// Return the cleanup function that will dispose of the event handlers.
+		return () => disposableStore.dispose();
+	}, []);
 
 	// Layout effect.
 	useEffect(() => {
-		switch (positronDataToolContext.layout) {
+		switch (layout) {
 			// Columns left.
 			case PositronDataToolLayout.ColumnsLeft:
 				dataToolPanel.current.style.gridTemplateRows = '[main] 1fr [end]';
@@ -102,7 +118,7 @@ export const DataToolPanel = (props: DataToolPanelProps) => {
 				column2.current.style.display = 'inline';
 				break;
 		}
-	}, [positronDataToolContext.layout, columnWidth]);
+	}, [layout, columnWidth]);
 
 	// Width effect.
 	useEffect(() => {
@@ -115,8 +131,8 @@ export const DataToolPanel = (props: DataToolPanelProps) => {
 	 */
 	const resizeHandler = (x: number) => {
 		// Calculate the new column width.
-		let newColumnWidth: number;
-		switch (positronDataToolContext.layout) {
+		let newColumnWidth = -1;
+		switch (layout) {
 			// Columns left.
 			case PositronDataToolLayout.ColumnsLeft:
 				newColumnWidth = columnWidth + x;
@@ -129,7 +145,7 @@ export const DataToolPanel = (props: DataToolPanelProps) => {
 
 			// Columns hidden. This can't happen.
 			case PositronDataToolLayout.ColumnsHidden:
-				throw new Error('Sizer should not be available.');
+				return PositronColumnSplitterResizeResult.TooLarge;
 		}
 
 		// If the new column width is too small, pin it at the minimum column width and return
