@@ -84,6 +84,10 @@ const PythonTypeMap: Record<string, string> = {
  * @returns A camelCase name
  */
 function snakeCaseToCamelCase(name: string) {
+	name = name.replace(/=/g, 'Eq');
+	name = name.replace(/!/g, 'Not');
+	name = name.replace(/</g, 'Lt');
+	name = name.replace(/>/g, 'Gt');
 	return name.replace(/_([a-z])/g, (m) => m[1].toUpperCase());
 }
 
@@ -635,6 +639,8 @@ async function* createTypescriptInterface(contract: any, name: string,
 		yield `\t${prop}: `;
 		if (schema.type === 'object') {
 			yield snakeCaseToSentenceCase(schema.name);
+		} else if (schema.type === 'string' && schema.enum) {
+			yield `${snakeCaseToSentenceCase(name)}${snakeCaseToSentenceCase(prop)}`;
 		} else {
 			yield deriveType(contract, TypescriptTypeMap, schema);
 		}

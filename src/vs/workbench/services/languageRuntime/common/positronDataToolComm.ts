@@ -143,12 +143,12 @@ enum ColumnFilterFilterType {
  * Possible values for CompareOp in ColumnFilter
  */
 enum ColumnFilterCompareOp {
-	== = '==',
-	!= = '!=',
-	< = '<',
-	<= = '<=',
-	> = '>',
-	>= = '>='
+	EqEq = '==',
+	NotEq = '!=',
+	Lt = '<',
+	LtEq = '<=',
+	Gt = '>',
+	GtEq = '>='
 }
 
 /**
@@ -224,12 +224,12 @@ export interface ColumnFilter {
 	/**
 	 * Type of filter to apply
 	 */
-	filter_type: string;
+	filter_type: ColumnFilterFilterType;
 
 	/**
 	 * String representation of a binary comparison
 	 */
-	compare_op: string;
+	compare_op: ColumnFilterCompareOp;
 
 	/**
 	 * A stringified column value for a comparison filter
@@ -249,7 +249,7 @@ export interface ColumnFilter {
 	/**
 	 * Type of search to perform
 	 */
-	search_type: string;
+	search_type: ColumnFilterSearchType;
 
 	/**
 	 * String value/regex to search for in stringified data

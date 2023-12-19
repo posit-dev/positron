@@ -95,7 +95,7 @@ export interface Variable {
 	 * The kind of value the variable represents, such as 'string' or
 	 * 'number'
 	 */
-	kind: string;
+	kind: VariableKind;
 
 	/**
 	 * The number of elements in the variable, if it is a collection
