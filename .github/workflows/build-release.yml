@@ -94,7 +94,7 @@ jobs:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - name: Download MacOS artifact
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         id: download-macos-artifact
         if: github.ref == 'refs/heads/main'
         with:
@@ -121,7 +121,7 @@ jobs:
     steps:
       - name: Download Windows artifact
         id: download-windows-artifact
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         if: github.ref == 'refs/heads/main'
         with:
           name: ${{ needs.windows-installer.outputs.artifact-name }}
