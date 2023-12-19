@@ -223,10 +223,13 @@ use serde::Serialize;
 			continue;
 		}
 		if (source.components && source.components.schemas) {
-			for (const schema of Object.keys(backend.components.schemas)) {
-				yield* createRustStruct(source, schema,
-					backend.components.schemas[schema].description,
-					backend.components.schemas[schema].properties);
+			for (const key of Object.keys(backend.components.schemas)) {
+				const schema = backend.components.schemas[key];
+				if (schema.type === 'object') {
+					yield* createRustStruct(backend, key,
+						schema.description,
+						schema.properties);
+				}
 			}
 		}
 	}
@@ -418,10 +421,13 @@ from dataclasses import dataclass, field
 			continue;
 		}
 		if (source.components && source.components.schemas) {
-			for (const schema of Object.keys(backend.components.schemas)) {
-				yield* createPythonDataclass(source, schema,
-					backend.components.schemas[schema].description,
-					backend.components.schemas[schema].properties);
+			for (const key of Object.keys(backend.components.schemas)) {
+				const schema = backend.components.schemas[key];
+				if (schema.type === 'object') {
+					yield* createPythonDataclass(backend, key,
+						schema.description,
+						schema.properties);
+				}
 			}
 		}
 	}
@@ -479,6 +485,9 @@ from dataclasses import dataclass, field
 
 	if (backend) {
 		for (const method of backend.methods) {
+			if (!method.description) {
+				throw new Error(`No description for '${method.name}'; please add a description to the schema`);
+			}
 			yield `@dataclass\n`;
 			yield `class ${snakeCaseToSentenceCase(method.name)}Params:\n`;
 			yield `    """\n`;

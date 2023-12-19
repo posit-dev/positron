@@ -7,7 +7,8 @@
 	"methods": [
 		{
 			"name": "get_schema",
-			"summary": "Request full schema for a table-like object",
+			"summary": "Request schema",
+			"description": "Request full schema for a table-like object",
 			"params": [],
 			"result": {
 				"schema": {
@@ -32,7 +33,8 @@
 		},
 		{
 			"name": "get_data_values",
-			"summary": "Request a rectangular subset of data with values formatted as strings",
+			"summary": "Get a rectangle of data values",
+			"description": "Request a rectangular subset of data with values formatted as strings",
 			"params": [
 				{
 					"name": "row_start_index",
@@ -94,7 +96,8 @@
 		},
 		{
 			"name": "set_column_filters",
-			"summary": "Set or clear column filters on table, replacing any previous filters",
+			"summary": "Set column filters",
+			"description": "Set or clear column filters on table, replacing any previous filters",
 			"params": [
 				{
 					"name": "filters",
@@ -124,6 +127,7 @@
 		{
 			"name": "set_sort_columns",
 			"summary": "Set or clear sort-by-column(s)",
+			"description": "Set or clear the columns(s) to sort by, replacing any previous sort columns",
 			"params": [
 				{
 					"name": "sort_keys",
@@ -140,7 +144,8 @@
 		},
 		{
 			"name": "get_column_profile",
-			"summary": "Requests a statistical summary or data profile for a column",
+			"summary": "Get a column profile",
+			"description": "Requests a statistical summary or data profile for a column",
 			"params": [
 				{
 					"name": "profile_id",
@@ -238,7 +243,8 @@
 		},
 		{
 			"name": "get_state",
-			"summary": "Request the current backend state (applied filters and sort columns)",
+			"summary": "Get the state",
+			"description": "Request the current backend state (applied filters and sort columns)",
 			"params": [],
 			"result": {
 				"schema": {
