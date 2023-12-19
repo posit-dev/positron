@@ -20,7 +20,7 @@ import { ILanguageRuntime, ILanguageRuntimeMetadata, ILanguageRuntimeService, Ru
  * manually shutting down a runtime removes the affiliation.
  */
 export class LanguageRuntimeWorkspaceAffiliation extends Disposable {
-	private readonly storageKey = 'positron.affiliatedRuntimeId';
+	private readonly storageKey = 'positron.affiliatedRuntimeMetadata';
 
 	constructor(
 		@ILanguageRuntimeService private readonly _runtimeService: ILanguageRuntimeService,
@@ -65,15 +65,11 @@ export class LanguageRuntimeWorkspaceAffiliation extends Disposable {
 				if (!affiliatedRuntimeMetadata) {
 					return;
 				}
-				try {
-					const affiliatedRuntimeId = JSON.parse(affiliatedRuntimeMetadata).runtimeId;
-					if (runtime.metadata.runtimeId === affiliatedRuntimeId) {
-						// Remove the affiliation
-						this._storageService.remove(this.storageKeyForRuntime(runtime),
-							StorageScope.WORKSPACE);
-					}
-				} catch {
-					return;
+				const affiliatedRuntimeId = JSON.parse(affiliatedRuntimeMetadata).runtimeId;
+				if (runtime.metadata.runtimeId === affiliatedRuntimeId) {
+					// Remove the affiliation
+					this._storageService.remove(this.storageKeyForRuntime(runtime),
+						StorageScope.WORKSPACE);
 				}
 			}
 		}));
@@ -94,24 +90,20 @@ export class LanguageRuntimeWorkspaceAffiliation extends Disposable {
 		if (!affiliatedRuntimeMetadata) {
 			return;
 		}
-		try {
-			const affiliatedRuntimeId = JSON.parse(affiliatedRuntimeMetadata).runtimeId;
+		const affiliatedRuntimeId = JSON.parse(affiliatedRuntimeMetadata).runtimeId;
 
-			// If the runtime is affiliated with this workspace, start it.
-			if (runtime.metadata.runtimeId === affiliatedRuntimeId) {
-				try {
-					this._runtimeService.startRuntime(runtime.metadata.runtimeId,
-						`Affiliated runtime for workspace`);
-				} catch (e) {
-					// This isn't necessarily an error; if another runtime took precedence and has
-					// already started for this workspace, we don't want to start this one.
-					this._logService.debug(`Did not start affiliated runtime ` +
-						`${runtime.metadata.runtimeName} for this workspace: ` +
-						`${e.message}`);
-				}
+		// If the runtime is affiliated with this workspace, start it.
+		if (runtime.metadata.runtimeId === affiliatedRuntimeId) {
+			try {
+				this._runtimeService.startRuntime(runtime.metadata.runtimeId,
+					`Affiliated runtime for workspace`);
+			} catch (e) {
+				// This isn't necessarily an error; if another runtime took precedence and has
+				// already started for this workspace, we don't want to start this one.
+				this._logService.debug(`Did not start affiliated runtime ` +
+					`${runtime.metadata.runtimeName} for this workspace: ` +
+					`${e.message}`);
 			}
-		} catch {
-			return;
 		}
 	}
 
@@ -129,7 +121,8 @@ export class LanguageRuntimeWorkspaceAffiliation extends Disposable {
 		}
 		try {
 			return JSON.parse(stored) as ILanguageRuntimeMetadata;
-		} catch {
+		} catch (err) {
+			this._logService.error(`Error parsing JSON for ${this.storageKey}: ${err}`);
 			return undefined;
 		}
 	}
