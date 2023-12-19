@@ -14,8 +14,8 @@
 # file and the second is the program to run and any arguments. If not, print a
 # usage message and exit with an error code.
 if [ $# -lt 2 ]; then
-  echo "Usage: $0 <output-file> <program> [program-args...]" >&2
-  exit 1
+	echo "Usage: $0 <output-file> <program> [program-args...]" >&2
+	exit 1
 fi
 
 # The first argument is the output file; consume it.
@@ -48,7 +48,7 @@ exit_code=$?
 # "exit code XX" on the last line of the log, so don't change this without
 # updating the parser!
 echo "*** Log ended at $(date)" >> "$output_file"
-echo "Process exit code ${exit_code}?" >> "$output_file"
+echo "Process exit code ${exit_code}" >> "$output_file"
 
 # Exit with the same code as the program so that the caller can correctly report errors
 exit $exit_code
