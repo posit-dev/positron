@@ -9,7 +9,7 @@ import { ILanguageService } from 'vs/editor/common/languages/language';
 import { Disposable, IDisposable, toDisposable } from 'vs/base/common/lifecycle';
 import { CommandsRegistry, ICommandService } from 'vs/platform/commands/common/commands';
 import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/common/extensions';
-import { formatLanguageRuntime, ILanguageRuntime, ILanguageRuntimeGlobalEvent, ILanguageRuntimeService, ILanguageRuntimeStateEvent, ILanguageRuntimeIdEvent, LanguageRuntimeDiscoveryPhase, LanguageRuntimeStartupBehavior, RuntimeClientType, RuntimeExitReason, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { formatLanguageRuntime, ILanguageRuntime, ILanguageRuntimeMetadata, ILanguageRuntimeGlobalEvent, ILanguageRuntimeService, ILanguageRuntimeStateEvent, LanguageRuntimeDiscoveryPhase, LanguageRuntimeStartupBehavior, RuntimeClientType, RuntimeExitReason, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { FrontEndClientInstance, IFrontEndClientMessageInput, IFrontEndClientMessageOutput } from 'vs/workbench/services/languageRuntime/common/languageRuntimeFrontEndClient';
 import { LanguageRuntimeWorkspaceAffiliation } from 'vs/workbench/services/languageRuntime/common/languageRuntimeWorkspaceAffiliation';
 import { IStorageService } from 'vs/platform/storage/common/storage';
@@ -107,7 +107,7 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 	private readonly _onDidChangeActiveRuntimeEmitter = this._register(new Emitter<ILanguageRuntime | undefined>);
 
 	// The event emitter for the onDidRequestLanguageRuntime event.
-	private readonly _onDidRequestLanguageRuntimeEmitter = this._register(new Emitter<ILanguageRuntimeIdEvent>);
+	private readonly _onDidRequestLanguageRuntimeEmitter = this._register(new Emitter<ILanguageRuntimeMetadata>);
 
 	//#endregion Private Properties
 
@@ -393,7 +393,7 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 		if (this._encounteredLanguagesByLanguageId.has(runtime.metadata.languageId) &&
 			!this.runtimeForLanguageIsStartingOrRunning(runtime.metadata.languageId) &&
 			startupBehavior === LanguageRuntimeStartupBehavior.Implicit &&
-			!this._workspaceAffiliation.getAffiliatedRuntimeId(runtime.metadata.languageId)) {
+			!this._workspaceAffiliation.getAffiliatedRuntimeMetadata(runtime.metadata.languageId)) {
 
 			this.autoStartRuntime(languageRuntimeInfo.runtime,
 				`A file with the language ID ${runtime.metadata.languageId} was open ` +
@@ -536,9 +536,9 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 
 		// If there's a runtime affiliated with the workspace for the language,
 		// return it.
-		const affiliatedRuntimeId = this._workspaceAffiliation.getAffiliatedRuntimeId(languageId);
-		if (affiliatedRuntimeId) {
-			const affiliatedRuntimeInfo = this._registeredRuntimesByRuntimeId.get(affiliatedRuntimeId);
+		const affiliatedRuntimeMetadata = this._workspaceAffiliation.getAffiliatedRuntimeMetadata(languageId);
+		if (affiliatedRuntimeMetadata) {
+			const affiliatedRuntimeInfo = this._registeredRuntimesByRuntimeId.get(affiliatedRuntimeMetadata.runtimeId);
 			if (affiliatedRuntimeInfo) {
 				return affiliatedRuntimeInfo.runtime;
 			}
@@ -752,13 +752,11 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 	private startAffiliatedRuntimes(): void {
 		// TODO: implement for all language packs
 		const languageId = 'zed';
-		const affiliatedRuntimeId = this._workspaceAffiliation.getAffiliatedRuntimeId(languageId);
+		const affiliatedRuntimeMetadata =
+			this._workspaceAffiliation.getAffiliatedRuntimeMetadata(languageId);
 
-		if (affiliatedRuntimeId) {
-			this._onDidRequestLanguageRuntimeEmitter.fire({
-				runtime_id: affiliatedRuntimeId,
-				language_id: languageId
-			});
+		if (affiliatedRuntimeMetadata) {
+			this._onDidRequestLanguageRuntimeEmitter.fire(affiliatedRuntimeMetadata);
 		}
 	}
 

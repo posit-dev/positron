@@ -5,7 +5,7 @@
 import { Disposable } from 'vs/base/common/lifecycle';
 import { ILogService } from 'vs/platform/log/common/log';
 import { IStorageService, StorageScope, StorageTarget } from 'vs/platform/storage/common/storage';
-import { ILanguageRuntime, ILanguageRuntimeService, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntime, ILanguageRuntimeMetadata, ILanguageRuntimeService, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 
 /**
  * The LanguageRuntimeWorkspaceAffiliation class is responsible for managing the
@@ -20,7 +20,7 @@ import { ILanguageRuntime, ILanguageRuntimeService, RuntimeState } from 'vs/work
  * manually shutting down a runtime removes the affiliation.
  */
 export class LanguageRuntimeWorkspaceAffiliation extends Disposable {
-	private readonly storageKey = 'positron.affiliatedRuntimeId';
+	private readonly storageKey = 'positron.affiliatedRuntimeMetadata';
 
 	constructor(
 		@ILanguageRuntimeService private readonly _runtimeService: ILanguageRuntimeService,
@@ -48,7 +48,7 @@ export class LanguageRuntimeWorkspaceAffiliation extends Disposable {
 
 		// Save this runtime as the affiliated runtime for the current workspace.
 		this._storageService.store(this.storageKeyForRuntime(runtime),
-			runtime.metadata.runtimeId,
+			JSON.stringify(runtime.metadata),
 			StorageScope.WORKSPACE,
 			StorageTarget.MACHINE);
 
@@ -60,8 +60,12 @@ export class LanguageRuntimeWorkspaceAffiliation extends Disposable {
 			if (newState === RuntimeState.Exiting) {
 				// Just to be safe, check that the runtime is still affiliated
 				// before removing the affiliation
-				const affiliatedRuntimeId = this._storageService.get(
+				const affiliatedRuntimeMetadata = this._storageService.get(
 					this.storageKeyForRuntime(runtime), StorageScope.WORKSPACE);
+				if (!affiliatedRuntimeMetadata) {
+					return;
+				}
+				const affiliatedRuntimeId = JSON.parse(affiliatedRuntimeMetadata).runtimeId;
 				if (runtime.metadata.runtimeId === affiliatedRuntimeId) {
 					// Remove the affiliation
 					this._storageService.remove(this.storageKeyForRuntime(runtime),
@@ -80,9 +84,13 @@ export class LanguageRuntimeWorkspaceAffiliation extends Disposable {
 	 */
 	private onDidRegisterRuntime(runtime: ILanguageRuntime): void {
 
-		// Get the runtime ID that is affiliated with this workspace, if any.
-		const affiliatedRuntimeId = this._storageService.get(
+		// Get the runtime metadata that is affiliated with this workspace, if any.
+		const affiliatedRuntimeMetadata = this._storageService.get(
 			this.storageKeyForRuntime(runtime), StorageScope.WORKSPACE);
+		if (!affiliatedRuntimeMetadata) {
+			return;
+		}
+		const affiliatedRuntimeId = JSON.parse(affiliatedRuntimeMetadata).runtimeId;
 
 		// If the runtime is affiliated with this workspace, start it.
 		if (runtime.metadata.runtimeId === affiliatedRuntimeId) {
@@ -104,10 +112,19 @@ export class LanguageRuntimeWorkspaceAffiliation extends Disposable {
 	 *
 	 * @param languageId The ID of the language for which to get the affiliated runtime.
 	 *
-	 * @returns The runtime ID.
+	 * @returns The runtime metadata.
 	 */
-	public getAffiliatedRuntimeId(languageId: string): string | undefined {
-		return this._storageService.get(`${this.storageKey}.${languageId}`, StorageScope.WORKSPACE);
+	public getAffiliatedRuntimeMetadata(languageId: string): ILanguageRuntimeMetadata | undefined {
+		const stored = this._storageService.get(`${this.storageKey}.${languageId}`, StorageScope.WORKSPACE);
+		if (!stored) {
+			return undefined;
+		}
+		try {
+			return JSON.parse(stored) as ILanguageRuntimeMetadata;
+		} catch (err) {
+			this._logService.error(`Error parsing JSON for ${this.storageKey}: ${err}`);
+			return undefined;
+		}
 	}
 
 	/**
