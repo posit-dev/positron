@@ -349,6 +349,9 @@ declare module 'positron' {
 		/** The path to the runtime. */
 		runtimePath: string;
 
+		/** The path to the runtime's executable. */
+		runtimeBinpath: string;
+
 		/** A unique identifier for this runtime; takes the form of a GUID */
 		runtimeId: string;
 

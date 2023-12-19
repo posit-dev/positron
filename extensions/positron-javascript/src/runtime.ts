@@ -39,6 +39,7 @@ export class JavaScriptLanguageRuntime implements positron.LanguageRuntime {
 
 		this.metadata = {
 			runtimePath: process.execPath,
+			runtimeBinpath: process.execPath,
 			runtimeId: '13C365D6-099A-43EC-934D-353ADEFD798F',
 			languageId: 'javascript',
 			languageName: 'Node.js',

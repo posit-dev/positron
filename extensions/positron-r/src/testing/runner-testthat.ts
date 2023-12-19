@@ -7,7 +7,7 @@ import * as path from 'path';
 import { spawn } from 'child_process';
 import * as split2 from 'split2';
 import { Logger } from '../extension';
-import { checkInstalled, lastRuntimePath } from '../runtime';
+import { checkInstalled, manager } from '../runtime';
 import { EXTENSION_ROOT_DIR } from '../constants';
 import { ItemType, TestingTools, encodeNodeId } from './util-testing';
 import { TestResult } from './reporter';
@@ -24,7 +24,7 @@ export async function runThatTest(
 ): Promise<string> {
 	// in all scenarios, we execute devtools::SOMETHING() in a child process
 	// if we can't get the path to the relevant R executable, no point in continuing
-	if (!lastRuntimePath) {
+	if (!manager.hasLastBinpath) {
 		return Promise.resolve('No running R runtime to run R package tests.');
 	}
 
@@ -83,7 +83,7 @@ export async function runThatTest(
 		} '${testPath}'`
 	);
 
-	const rBinPath = await getRBinPath(testingTools);
+	const rBinPath = manager.getLastBinpath();
 	const devtoolsMethod = testType === ItemType.Directory ? 'test' : 'test_active_file';
 	const descInsert = isSingleTest ? ` desc = '${test?.label || '<all tests>'}', ` : '';
 	const devtoolsCall =
@@ -249,14 +249,4 @@ function findTest(
 		}
 	});
 	return secondGenerationFound;
-}
-
-async function getRBinPath(testingTools: TestingTools) {
-	// TODO: check behaviour against lastRuntimePath being the empty string
-	if (!lastRuntimePath) {
-		throw new Error(`No running R runtime to use for package testing.`);
-	}
-	const rBinPath = `${lastRuntimePath}/bin/R`;
-	Logger.info(`Using R binary: ${rBinPath}`);
-	return Promise.resolve(rBinPath);
 }

@@ -505,6 +505,9 @@ export interface ILanguageRuntimeMetadata {
 	/** The path to the kernel. */
 	readonly runtimePath: string;
 
+	/** The path to the runtime's executable. */
+	readonly runtimeBinpath: string;
+
 	/** A unique identifier for this runtime; usually a GUID */
 	readonly runtimeId: string;
 

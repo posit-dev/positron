@@ -223,6 +223,7 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 		// Set the metadata for Zed.
 		this.metadata = {
 			runtimePath: '/zed',
+			runtimeBinpath: '/zed',
 			runtimeId,
 			languageId: 'zed',
 			languageName: 'Zed',

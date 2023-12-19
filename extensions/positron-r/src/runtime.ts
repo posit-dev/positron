@@ -13,16 +13,26 @@ import { ArkAttachOnStartup, ArkDelayStartup } from './startup';
 import { RHtmlWidget, getResourceRoots } from './htmlwidgets';
 import { randomUUID } from 'crypto';
 
-export let lastRuntimePath = '';
 class RRuntimeManager {
-	private runtimes: Map<string, RRuntime>;
+	private runtimes: Map<string, RRuntime> = new Map();
+	private lastBinpath = '';
 
-	constructor() {
-		this.runtimes = new Map<string, RRuntime>();
-	}
+	constructor() { }
 
 	getRuntimesMap(): Map<string, RRuntime> {
 		return this.runtimes;
+	}
+
+	setLastBinpath(path: string) {
+		this.lastBinpath = path;
+	}
+
+	hasLastBinpath(): boolean {
+		return this.lastBinpath !== '';
+	}
+
+	getLastBinpath(): string {
+		return this.lastBinpath;
 	}
 }
 
@@ -199,7 +209,7 @@ export class RRuntime implements positron.LanguageRuntime, vscode.Disposable {
 		if (!this._kernel) {
 			this._kernel = await this.createKernel();
 		}
-		lastRuntimePath = this._kernel.metadata.runtimePath;
+		manager.setLastBinpath(this._kernel.metadata.runtimeBinpath);
 
 		// Register for console width changes, if we haven't already
 		if (!this._consoleWidthDisposable) {

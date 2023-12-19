@@ -276,6 +276,7 @@ export async function* rRuntimeDiscoverer(
 			runtimeName,
 			runtimeShortName,
 			runtimePath,
+			runtimeBinpath: rHome.binpath,
 			runtimeVersion: packageJson.version,
 			runtimeSource,
 			languageId: 'r',
