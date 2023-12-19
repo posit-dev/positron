@@ -162,6 +162,28 @@ function formatLines(line: string): string[] {
 	return lines;
 }
 
+function* enumVisitor(
+	key: string,
+	contract: any,
+	callback: (key: string, e: Array<string>) => Generator<string>
+): Generator<string> {
+	if (contract.enum) {
+		yield* callback(key, contract.enum);
+	} else if (typeof contract === 'object') {
+		for (const key of Object.keys(contract)) {
+			if (key === 'schema' && contract['name']) {
+				yield* enumVisitor(contract['name'], contract[key], callback);
+			} else {
+				yield* enumVisitor(key, contract[key], callback);
+			}
+		}
+	} else if (Array.isArray(contract)) {
+		for (const item of contract) {
+			yield* enumVisitor(key, item, callback);
+		}
+	}
+}
+
 /**
  * Formats a comment, breaking it into multiple lines and adding a leader to
  * each line.
@@ -246,31 +268,24 @@ use serde::Serialize;
 		if (!source) {
 			continue;
 		}
-		for (const method of source.methods) {
-			for (const param of method.params) {
-				if (param.schema.enum) {
-					yield formatComment(`/// `,
-						`Possible values for the ` +
-						snakeCaseToSentenceCase(param.name) + ` ` +
-						`parameter of the ` +
-						snakeCaseToSentenceCase(method.name) + ` ` +
-						`method.`);
-					yield '#[derive(Debug, Serialize, Deserialize, PartialEq)]\n';
-					yield `pub enum ${snakeCaseToSentenceCase(method.name)}${snakeCaseToSentenceCase(param.name)} {\n`;
-					for (let i = 0; i < param.schema.enum.length; i++) {
-						const value = param.schema.enum[i];
-						yield `\t#[serde(rename = "${value}")]\n`;
-						yield `\t${snakeCaseToSentenceCase(value)}`;
-						if (i < param.schema.enum.length - 1) {
-							yield ',\n\n';
-						} else {
-							yield '\n';
-						}
-					}
-					yield '}\n\n';
+		yield* enumVisitor('', source, function* (key: string, values: Array<string>) {
+			yield formatComment(`/// `,
+				`Possible values for ` +
+				snakeCaseToSentenceCase(key));
+			yield '#[derive(Debug, Serialize, Deserialize, PartialEq)]\n';
+			yield `pub enum ${snakeCaseToSentenceCase(key)} {\n`;
+			for (let i = 0; i < values.length; i++) {
+				const value = values[i];
+				yield `\t#[serde(rename = "${value}")]\n`;
+				yield `\t${snakeCaseToSentenceCase(value)}`;
+				if (i < values.length - 1) {
+					yield ',\n\n';
+				} else {
+					yield '\n';
 				}
 			}
-		}
+			yield '}\n\n';
+		});
 	}
 
 	for (const source of [backend, frontend]) {
