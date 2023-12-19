@@ -48,7 +48,8 @@ const TypescriptTypeMap: Record<string, string> = {
 	'number': 'number',
 	'string': 'string',
 	'null': 'null',
-	'array': 'Array',
+	'array-begin': 'Array<',
+	'array-end': '>',
 	'object': 'object',
 };
 
@@ -59,7 +60,8 @@ const RustTypeMap: Record<string, string> = {
 	'number': 'f64',
 	'string': 'String',
 	'null': 'null',
-	'array': 'Vec',
+	'array-begin': 'Vec<',
+	'array-end': '>',
 	'object': 'HashMap',
 };
 
@@ -70,7 +72,8 @@ const PythonTypeMap: Record<string, string> = {
 	'number': 'float',
 	'string': 'str',
 	'null': 'null',
-	'array': 'List',
+	'array-begin': 'List[',
+	'array-end': ']',
 	'object': 'Dict',
 };
 
@@ -119,9 +122,13 @@ function parseRef(ref: string, contract: any): string {
 function deriveType(contract: any, typeMap: Record<string, string>, schema: any): string {
 	if (schema.type === 'array') {
 		if (schema.items.$ref) {
-			return `${typeMap['array']}<${parseRef(schema.items.$ref, contract)}>`;
+			return typeMap['array-begin'] +
+				parseRef(schema.items.$ref, contract) +
+				typeMap['array-end'];
 		} else {
-			return `${typeMap['array']}<${typeMap[schema.items.type]}>`;
+			return typeMap['array-begin'] +
+				typeMap[schema.items.type] +
+				typeMap['array-end'];
 		}
 	} else if (schema.type === 'object' && schema.$ref) {
 		return parseRef(schema.$ref, contract);
