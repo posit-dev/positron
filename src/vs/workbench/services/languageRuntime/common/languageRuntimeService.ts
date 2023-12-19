@@ -490,14 +490,6 @@ export interface ILanguageRuntimeStateEvent {
 	new_state: RuntimeState;
 }
 
-export interface ILanguageRuntimeIdEvent {
-	/** The ID of the runtime is being provided */
-	runtime_id: string;
-
-	/** The runtime's language */
-	language_id: string;
-}
-
 /* ILanguageRuntimeMetadata contains information about a language runtime that is known
  * before the runtime is started.
  */
@@ -690,7 +682,7 @@ export interface ILanguageRuntimeService {
 	readonly onDidChangeActiveRuntime: Event<ILanguageRuntime | undefined>;
 
 	// An event that fires when a runtime is requested.
-	readonly onDidRequestLanguageRuntime: Event<ILanguageRuntimeIdEvent>;
+	readonly onDidRequestLanguageRuntime: Event<ILanguageRuntimeMetadata>;
 
 	/**
 	 * Gets the running language runtimes.

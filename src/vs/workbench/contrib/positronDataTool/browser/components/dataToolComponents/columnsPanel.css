@@ -2,8 +2,9 @@
  *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
-.columns-panel {
+.data-tool-panel .columns-panel {
 }
 
-.title {
+.data-tool-panel .columns-panel .title {
+	padding: 10px;
 }
