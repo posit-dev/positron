@@ -54,6 +54,7 @@ export class PositronHelpComm extends PositronBaseComm {
 		return super.performRpc('show_help_topic', ['topic'], [topic]);
 	}
 
+
 	/**
 	 * Request to show help in the frontend
 	 */

@@ -54,6 +54,7 @@ export class PositronPlotComm extends PositronBaseComm {
 		return super.performRpc('render', ['height', 'width', 'pixel_ratio'], [height, width, pixelRatio]);
 	}
 
+
 	/**
 	 * Notification that a plot has been updated on the backend.
 	 */

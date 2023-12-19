@@ -119,9 +119,10 @@ export class PositronVariablesComm extends PositronBaseComm {
 	 * addition to normal variables
 	 *
 	 */
-	clear(includeHiddenObjects: boolean): Promise<> {
+	clear(includeHiddenObjects: boolean): Promise<void> {
 		return super.performRpc('clear', ['include_hidden_objects'], [includeHiddenObjects]);
 	}
+
 	/**
 	 * Deletes a set of named variables
 	 *
@@ -130,9 +131,10 @@ export class PositronVariablesComm extends PositronBaseComm {
 	 * @param names The names of the variables to delete.
 	 *
 	 */
-	delete(names: Array<string>): Promise<> {
+	delete(names: Array<string>): Promise<void> {
 		return super.performRpc('delete', ['names'], [names]);
 	}
+
 	/**
 	 * Inspect a variable
 	 *
@@ -146,6 +148,7 @@ export class PositronVariablesComm extends PositronBaseComm {
 	inspect(path: Array<string>): Promise<InspectedVariable> {
 		return super.performRpc('inspect', ['path'], [path]);
 	}
+
 	/**
 	 * Format for clipboard
 	 *
@@ -161,5 +164,6 @@ export class PositronVariablesComm extends PositronBaseComm {
 	clipboardFormat(path: Array<string>, format: string): Promise<FormattedVariable> {
 		return super.performRpc('clipboard_format', ['path', 'format'], [path, format]);
 	}
+
 }
 

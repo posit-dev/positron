@@ -769,6 +769,8 @@ import { IRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/co
 				} else {
 					yield deriveType(backend, TypescriptTypeMap, method.result.schema);
 				}
+			} else {
+				yield 'void';
 			}
 			yield '> {\n';
 			yield '\t\treturn super.performRpc(\'' + method.name + '\', [';
@@ -786,7 +788,7 @@ import { IRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/co
 				}
 			}
 			yield ']);\n';
-			yield `\t}\n`;
+			yield `\t}\n\n`;
 		}
 	}
 
