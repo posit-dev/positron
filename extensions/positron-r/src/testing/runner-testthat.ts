@@ -83,14 +83,13 @@ export async function runThatTest(
 		} '${testPath}'`
 	);
 
-	const rBinPath = manager.getLastBinpath();
 	const devtoolsMethod = testType === ItemType.Directory ? 'test' : 'test_active_file';
 	const descInsert = isSingleTest ? ` desc = '${test?.label || '<all tests>'}', ` : '';
 	const devtoolsCall =
 		`devtools::load_all('${testReporterPath}');` +
 		`devtools::${devtoolsMethod}('${testPath}',` +
 		`${descInsert}reporter = VSCodeReporter)`;
-	const command = `"${rBinPath}" --no-echo -e "${devtoolsCall}"`;
+	const command = `"${manager.getLastBinpath()}" --no-echo -e "${devtoolsCall}"`;
 	Logger.info(`devtools call is:\n${command}`);
 
 	const wd = testingTools.packageRoot.fsPath;
