@@ -15,7 +15,30 @@ import { RHtmlWidget, getResourceRoots } from './htmlwidgets';
 import { getArkKernelPath } from './kernel';
 import { randomUUID } from 'crypto';
 
-export let lastRuntimePath = '';
+class RRuntimeManager {
+	private runtimes: Map<string, RRuntime> = new Map();
+	private lastBinpath = '';
+
+	constructor() { }
+
+	getRuntimesMap(): Map<string, RRuntime> {
+		return this.runtimes;
+	}
+
+	setLastBinpath(path: string) {
+		this.lastBinpath = path;
+	}
+
+	hasLastBinpath(): boolean {
+		return this.lastBinpath !== '';
+	}
+
+	getLastBinpath(): string {
+		return this.lastBinpath;
+	}
+}
+
+export const runtimeManager: RRuntimeManager = new RRuntimeManager();
 
 interface RPackageInstallation {
 	packageName: string;
@@ -188,7 +211,7 @@ export class RRuntime implements positron.LanguageRuntime, vscode.Disposable {
 		if (!this._kernel) {
 			this._kernel = await this.createKernel();
 		}
-		lastRuntimePath = this._kernel.metadata.runtimePath;
+		runtimeManager.setLastBinpath(this._kernel.metadata.runtimePath);
 
 		// Register for console width changes, if we haven't already
 		if (!this._consoleWidthDisposable) {
@@ -518,6 +541,20 @@ export class RRuntime implements positron.LanguageRuntime, vscode.Disposable {
 	}
 }
 
+export async function getRunningRRuntime(): Promise<RRuntime> {
+	const runningRuntimes = await positron.runtime.getRunningRuntimes('r');
+	if (!runningRuntimes || !runningRuntimes.length) {
+		throw new Error('Cannot get running runtime as there is no R interpreter running.');
+	}
+
+	// For now, there will be only one running R runtime:
+	const runtime = runtimeManager.getRuntimesMap().get(runningRuntimes[0].runtimeId);
+	if (!runtime) {
+		throw new Error(`R runtime '${runningRuntimes[0].runtimeId}' is not registered in the extension host`);
+	}
+	return runtime;
+}
+
 export function createJupyterKernelExtra(): JupyterKernelExtra {
 	return {
 		attachOnStartup: new ArkAttachOnStartup(),
@@ -619,4 +656,9 @@ export function createJupyterKernelSpec(context: vscode.ExtensionContext, rHomeP
 	}
 
 	return kernelSpec;
+}
+
+export async function checkInstalled(pkgName: string, pkgVersion?: string, runtime?: RRuntime) {
+	runtime = runtime || await getRunningRRuntime();
+	return runtime.checkInstalled(pkgName, pkgVersion);
 }

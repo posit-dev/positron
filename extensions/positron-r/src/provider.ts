@@ -164,31 +164,31 @@ export async function* rRuntimeDiscoverer(
 
 		// Is the runtime path within the user's home directory?
 		const homedir = os.homedir();
-		const isUserInstallation = rHome.homepath.startsWith(homedir);
+		const isUserInstallation = rInst.binpath.startsWith(homedir);
 
 		// Create the runtime path.
 		// TODO@softwarenerd - We will need to update this for Windows.
 		const runtimePath = os.platform() !== 'win32' && isUserInstallation ?
-			path.join('~', rHome.homepath.substring(homedir.length)) :
-			rHome.homepath;
+			path.join('~', rInst.binpath.substring(homedir.length)) :
+			rInst.binpath;
 
 		// Does the runtime path have 'homebrew' as a component? (we assume that
 		// it's a Homebrew installation if it does)
-		const isHomebrewInstallation = rHome.homepath.includes('/homebrew/');
+		const isHomebrewInstallation = rInst.binpath.includes('/homebrew/');
 
 		const runtimeSource = isHomebrewInstallation ? 'Homebrew' :
 			isUserInstallation ?
 				'User' : 'System';
 
 		// Short name shown to users (when disambiguating within a language)
-		let runtimeShortName = rHome.version;
+		let runtimeShortName = rInst.version;
 
 		// If there is another R installation with the same version but different architecture,
 		// then disambiguate by appending the architecture to the runtime name.
 		// For example, if x86_64 and arm64 versions of R 4.4.0 exist simultaneously.
-		for (const otherRHome of rInstallations) {
-			if (rHome.version === otherRHome.version && rHome.arch !== otherRHome.arch) {
-				runtimeShortName = `${runtimeShortName} (${rHome.arch})`;
+		for (const otherRInst of rInstallations) {
+			if (rInst.version === otherRInst.version && rInst.arch !== otherRInst.arch) {
+				runtimeShortName = `${runtimeShortName} (${rInst.arch})`;
 				break;
 			}
 		}
@@ -203,11 +203,11 @@ export async function* rRuntimeDiscoverer(
 		// Get the version of this extension from package.json so we can pass it
 		// to the adapter as the implementation version.
 		const packageJson = require('../package.json');
-		const rVersion = rHome.version;
+		const rVersion = rInst.version;
 
 		// Create a stable ID for the runtime based on the interpreter path and version.
 		const digest = crypto.createHash('sha256');
-		digest.update(rHome.homepath);
+		digest.update(rInst.binpath);
 		digest.update(rVersion);
 		const runtimeId = digest.digest('hex').substring(0, 32);
 
@@ -244,20 +244,6 @@ export async function* rRuntimeDiscoverer(
 		yield runtime;
 		runtimes.set(runtimeId, runtime);
 	}
-}
-
-
-export async function getRunningRRuntime(runtimes: Map<string, RRuntime>): Promise<RRuntime> {
-	const runningRuntimes = await positron.runtime.getRunningRuntimes('r');
-	if (!runningRuntimes || !runningRuntimes.length) {
-		throw new Error('Cannot get running runtime as there is no R interpreter running.');
-	}
-	// For now, there will be only one running R runtime:
-	const runtime = runtimes.get(runningRuntimes[0].runtimeId);
-	if (!runtime) {
-		throw new Error(`R runtime '${runningRuntimes[0].runtimeId}' is not registered in the extension host`);
-	}
-	return runtime;
 }
 
 // directory where this OS is known to keep its R installations
