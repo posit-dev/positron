@@ -3,8 +3,11 @@
 #
 
 import enum
+from typing import Dict, Optional
 
 import comm
+
+from .utils import JsonData
 
 
 ## Create an enum of JSON-RPC error codes
@@ -19,10 +22,12 @@ class JsonRpcErrorCode(enum.Enum):
 class PositronComm:
     """A wrapper around a base IPython comm that provides a JSON-RPC interface"""
 
-    def __init__(self, comm: comm.base_comm.BaseComm):
+    def __init__(self, comm: comm.base_comm.BaseComm) -> None:
         self.comm = comm
 
-    def send_result(self, data=None, metadata=None):
+    def send_result(
+        self, data: JsonData = None, metadata: Optional[Dict[str, JsonData]] = None
+    ) -> None:
         """Send a JSON-RPC result to the frontend-side version of this comm"""
         result = dict(
             jsonrpc="2.0",
@@ -34,7 +39,7 @@ class PositronComm:
             buffers=None,
         )
 
-    def send_event(self, name: str, payload):
+    def send_event(self, name: str, payload: Dict[str, JsonData]) -> None:
         """Send a JSON-RPC notification (event) to the frontend-side version of this comm"""
         event = dict(
             jsonrpc="2.0",
@@ -43,7 +48,7 @@ class PositronComm:
         )
         self.comm.send(data=event)
 
-    def send_error(self, code: JsonRpcErrorCode, message=None):
+    def send_error(self, code: JsonRpcErrorCode, message: Optional[str] = None) -> None:
         """Send a JSON-RPC result to the frontend-side version of this comm"""
         error = dict(
             jsonrpc="2.0",
@@ -52,13 +57,12 @@ class PositronComm:
                 message=message,
             ),
         )
-        self.comm.publish_msg(
-            "comm_msg",
+        self.comm.send(
             data=error,
             metadata=None,
             buffers=None,
         )
 
-    def close(self):
+    def close(self) -> None:
         """Close the underlying comm."""
         self.comm.close()

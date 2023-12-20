@@ -13,7 +13,7 @@ from matplotlib.figure import Figure
 from matplotlib.testing.compare import compare_images
 from matplotlib_inline.backend_inline import configure_inline_support
 from positron.plots import BASE_DPI, PositronDisplayPublisherHook
-from positron.positron_comm import JsonRpcErrorCode, PositronComm
+from positron.positron_comm import JsonRpcErrorCode
 
 from .conftest import DummyComm
 

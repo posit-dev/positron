@@ -12,6 +12,7 @@ import pandas as pd
 import pytest
 from positron.help import HelpService, help
 from positron.help_comm import HelpEvent, HelpRequest
+from positron.positron_ipkernel import POSITRON_HELP_COMM
 
 from .conftest import DummyComm
 
@@ -42,7 +43,7 @@ def help_comm(help_service: HelpService) -> DummyComm:
     if help_service._comm is not None:
         help_service._comm.close()
         help_service._comm = None
-    return cast(DummyComm, comm.create_comm("positron.help"))
+    return cast(DummyComm, comm.create_comm(POSITRON_HELP_COMM))
 
 
 def test_pydoc_server_starts_and_shuts_down(running_help_service: HelpService):

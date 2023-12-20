@@ -10,7 +10,11 @@ import sys
 import types
 from binascii import b2a_base64
 from datetime import datetime
-from typing import Any, Coroutine, Optional, Set, Tuple, cast
+from pathlib import Path
+from typing import Any, Coroutine, Dict, List, Optional, Set, Tuple, TypeVar, Union, cast
+
+JsonData = Union[Dict[str, "JsonData"], List["JsonData"], str, int, float, bool, None]
+T = TypeVar("T")
 
 
 def get_qualname(value: Any) -> str:
@@ -231,3 +235,23 @@ def safe_isinstance(obj: Any, module: str, class_name: str, *attrs: str) -> bool
             raise ValueError(f"{module}.{class_name}.{'.'.join(attrs)} is not a type")
         return isinstance(obj, m)
     return False
+
+
+def not_none(value: Optional[T]) -> T:
+    """
+    Assert that a value is not None.
+    """
+    assert value is not None
+    return value
+
+
+def alias_home(path: Path) -> Path:
+    """
+    Alias the home directory to ~ in a path.
+    """
+    home_dir = Path.home()
+    try:
+        # relative_to will raise a ValueError if path is not within the home directory
+        return Path("~") / path.relative_to(home_dir)
+    except ValueError:
+        return path

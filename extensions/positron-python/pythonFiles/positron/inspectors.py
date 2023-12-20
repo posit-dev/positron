@@ -23,7 +23,6 @@ from typing import (
     FrozenSet,
     Generic,
     Hashable,
-    Iterable,
     List,
     Optional,
     Protocol,
@@ -36,7 +35,8 @@ from typing import (
 )
 
 from .dataviewer import DataColumn, DataSet
-from .utils import get_qualname, pretty_format
+from .third_party import np_, pd_, torch_
+from .utils import JsonData, get_qualname, not_none, pretty_format
 
 if TYPE_CHECKING:
     import numpy as np
@@ -60,7 +60,6 @@ logger = logging.getLogger(__name__)
 # Base inspector
 #
 
-JsonData = Union[Dict[str, "JsonData"], List["JsonData"], str, int, float, bool, None]
 T = TypeVar("T")
 T_co = TypeVar("T_co", covariant=True)
 
@@ -340,9 +339,7 @@ class PandasTimestampInspector(_BaseTimestampInspector["pd.Timestamp"]):
     CLASS_QNAME = "pandas._libs.tslibs.timestamps.Timestamp"
 
     def value_from_isoformat(self, string: str) -> pd.Timestamp:
-        import pandas as pd
-
-        return pd.Timestamp.fromisoformat(string)
+        return not_none(pd_).Timestamp.fromisoformat(string)
 
 
 #
@@ -484,10 +481,8 @@ class NumpyNdarrayInspector(_BaseArrayInspector["np.ndarray"]):
         print_width: Optional[int] = PRINT_WIDTH,
         truncate_at: int = TRUNCATE_AT,
     ) -> Tuple[str, bool]:
-        import numpy as np
-
         return (
-            np.array2string(
+            not_none(np_).array2string(
                 value,
                 max_line_width=print_width,
                 threshold=ARRAY_THRESHOLD,
@@ -498,9 +493,7 @@ class NumpyNdarrayInspector(_BaseArrayInspector["np.ndarray"]):
         )
 
     def equals(self, value1: np.ndarray, value2: np.ndarray) -> bool:
-        import numpy as np
-
-        return np.array_equal(value1, value2)
+        return not_none(np_).array_equal(value1, value2)
 
     def copy(self, value: np.ndarray) -> np.ndarray:
         return value.copy()
@@ -518,7 +511,7 @@ class TorchTensorInspector(_BaseArrayInspector["torch.Tensor"]):
         # NOTE:
         # Once https://github.com/pytorch/pytorch/commit/e03800a93af55ef61f2e610d65ac7194c0614edc
         # is in a stable version we can use it to temporarily set print options
-        import torch
+        torch = not_none(torch_)
 
         new_options = {
             "threshold": ARRAY_THRESHOLD,
@@ -539,9 +532,7 @@ class TorchTensorInspector(_BaseArrayInspector["torch.Tensor"]):
         return display_value, True
 
     def equals(self, value1: torch.Tensor, value2: torch.Tensor) -> bool:
-        import torch
-
-        return torch.equal(value1, value2)
+        return not_none(torch_).equal(value1, value2)
 
     def copy(self, value: torch.Tensor) -> torch.Tensor:
         # Detach the tensor from any existing computation graphs to avoid gradients propagating
@@ -655,20 +646,16 @@ class PandasIndexInspector(BaseColumnInspector["pd.Index"]):
         print_width: Optional[int] = PRINT_WIDTH,
         truncate_at: int = TRUNCATE_AT,
     ) -> Tuple[str, bool]:
-        import pandas as pd
-
         # RangeIndexes don't need to be truncated.
-        if isinstance(value, pd.RangeIndex):
+        if isinstance(value, not_none(pd_).RangeIndex):
             return str(value), False
 
         return super().get_display_value(value, print_width, truncate_at)
 
     def has_children(self, value: pd.Index) -> bool:
-        import pandas as pd
-
         # For ranges, we don't visualize the children as they're
         # implied as a contiguous set of integers in a range.
-        if isinstance(value, pd.RangeIndex):
+        if isinstance(value, not_none(pd_).RangeIndex):
             return False
 
         return super().has_children(value)

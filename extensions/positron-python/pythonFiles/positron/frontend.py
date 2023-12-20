@@ -3,54 +3,66 @@
 #
 
 import logging
-from dataclasses import asdict, dataclass, field
+import os
+from dataclasses import asdict
 from pathlib import Path
-from typing import Any, Dict, Mapping, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 from comm.base_comm import BaseComm
+
+from .frontend_comm import (
+    FrontendEvent,
+    FrontendEventData,
+    FrontendRpcRequest,
+    WorkingDirectoryEvent,
+)
+from .positron_comm import PositronComm
+from .third_party import np_, pd_, pl_, torch_
+from .utils import JsonData, alias_home
 
 logger = logging.getLogger(__name__)
 
 
-@dataclass
-class BaseFrontendEvent:
-    """
-    Event submitted to the `FrontendService`.
-    """
-
-    name: str = field(metadata={"include_in_dict": False})
+#
+# RPC methods called from the frontend.
+#
 
 
-@dataclass
-class _WorkingDirectoryBase:
-    directory: str
+class _InvalidParamsError(Exception):
+    pass
 
 
-@dataclass
-class WorkingDirectoryEvent(BaseFrontendEvent, _WorkingDirectoryBase):
-    """
-    Change the displayed working directory for the interpreter.
-    """
+def _set_console_width(params: List[JsonData]) -> None:
+    if not (isinstance(params, list) and len(params) == 1 and isinstance(params[0], int)):
+        raise _InvalidParamsError()
 
-    directory: str = field(metadata={"description": "The new working directory."})
+    width = params[0]
 
-    name: str = "working_directory"
+    # Set the COLUMNS variable to alter the value returned by shutil.get_terminal_size.
+    # For example, pandas uses this (if set) to automatically determine display.max_columns.
+    os.environ["COLUMNS"] = str(width)
+
+    # Library-specific options:
+
+    if np_ is not None:
+        np_.set_printoptions(linewidth=width)
+
+    if pd_ is not None:
+        # Set display.width to None so that pandas auto-detects the correct value given the
+        # terminal width configured via the COLUMNS variable above.
+        # See: https://pandas.pydata.org/docs/user_guide/options.html
+        pd_.set_option("display.width", None)
+
+    if pl_ is not None:
+        pl_.Config.set_tbl_width_chars(width)
+
+    if torch_ is not None:
+        torch_.set_printoptions(linewidth=width)
 
 
-@dataclass
-class FrontendMessage:
-    """
-    Message sent over the Positron frontend comm channel.
-    """
-
-    name: str = field(metadata={"description": "Name of the event"})
-    data: Dict[str, Any]
-    msg_type: str = "event"
-
-    @classmethod
-    def from_event(cls, event: BaseFrontendEvent) -> "FrontendMessage":
-        data = asdict(event)
-        return cls(name=data.pop("name"), data=data)
+_RPC_METHODS: Dict[str, Callable[[List[JsonData]], JsonData]] = {
+    "setConsoleWidth": _set_console_width,
+}
 
 
 class FrontendService:
@@ -59,14 +71,14 @@ class FrontendService:
     Used for communication with the frontend, unscoped to any particular view.
     """
 
-    def __init__(self):
-        self._comm = None
+    def __init__(self) -> None:
+        self._comm: Optional[PositronComm] = None
 
         self._working_directory: Optional[Path] = None
 
-    def on_comm_open(self, comm: BaseComm, msg) -> None:
-        self._comm = comm
-        comm.on_msg(self.receive_message)
+    def on_comm_open(self, comm: BaseComm, msg: Dict[str, JsonData]) -> None:
+        self._comm = PositronComm(comm)
+        comm.on_msg(self._receive_message)
 
         # Clear the current working directory to generate an event for the new
         # client (i.e. after a reconnect)
@@ -87,20 +99,32 @@ class FrontendService:
         # If it isn't the same as the last working directory, send an event
         if current_dir != self._working_directory:
             self._working_directory = current_dir
-
-            # Attempt to alias the directory, if it's within the home directory
-            home_dir = Path.home()
-            try:
-                # relative_to will raise a ValueError if current_dir is not within the home directory
-                current_dir = Path("~") / current_dir.relative_to(home_dir)
-            except ValueError:
-                pass
-
             # Deliver event to client
-            self.send_event(WorkingDirectoryEvent(directory=str(current_dir)))
+            if self._comm is not None:
+                data = WorkingDirectoryEvent(directory=str(alias_home(current_dir)))
+                self._send_event(data)
 
-    def receive_message(self, msg) -> None:
-        pass
+    def _receive_message(self, msg: Dict[str, Any]) -> None:
+        data = msg["content"]["data"]
+
+        try:
+            rpc_request = FrontendRpcRequest(**data)
+        except TypeError:
+            return logger.exception(f"Invalid frontend RPC request: {data}")
+
+        func = _RPC_METHODS.get(rpc_request.method, None)
+        if func is None:
+            return logger.warning(f"Invalid frontend RPC request method: {rpc_request.method}")
+
+        try:
+            result = func(rpc_request.params)
+        except _InvalidParamsError:
+            return logger.warning(
+                f"Invalid frontend RPC request params for method '{rpc_request.method}': {rpc_request.params}"
+            )
+
+        if self._comm is not None:
+            self._comm.send_result(data=result)
 
     def shutdown(self) -> None:
         if self._comm is not None:
@@ -109,13 +133,7 @@ class FrontendService:
             except Exception:
                 pass
 
-    def send_event(self, event) -> None:
-        if self._comm is None:
-            logger.warning("Cannot send message, frontend comm is not open")
-            return
-
-        # Convert the event to a message that the client understands and send it over the comm
-        msg = asdict(FrontendMessage.from_event(event))
-
-        logger.debug(msg)
-        self._comm.send(msg)
+    def _send_event(self, data: FrontendEventData) -> None:
+        if self._comm is not None:
+            event = FrontendEvent.from_event_data(data)
+            self._comm.comm.send(asdict(event))

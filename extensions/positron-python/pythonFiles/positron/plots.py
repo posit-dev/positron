@@ -7,13 +7,13 @@ import logging
 import pickle
 import uuid
 from dataclasses import asdict, dataclass, field
-from typing import Any, Dict, List, Literal, Optional, Tuple, cast
+from typing import Any, Dict, List, Optional, Tuple, cast
 
 import comm
 from IPython.core.formatters import DisplayFormatter
 from IPython.core.interactiveshell import InteractiveShell
 
-from .plot_comm import PlotResult, RenderParams, RenderRequest
+from .plot_comm import PlotResult, RenderRequest
 from .positron_comm import JsonRpcErrorCode, PositronComm
 
 logger = logging.getLogger(__name__)
