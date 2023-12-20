@@ -1,9 +1,10 @@
-from typing import Iterable
+from typing import Iterable, cast
 
 import comm
 import pytest
 from IPython.conftest import get_ipython
 from IPython.terminal.interactiveshell import TerminalInteractiveShell
+
 from positron.positron_ipkernel import PositronIPyKernel
 
 
@@ -45,8 +46,9 @@ def kernel() -> PositronIPyKernel:
     """
     shell = get_ipython()
 
-    # Create a Positron kernel. Update shell_class to avoid a traitlets validation error,
-    # since we use a TerminalInteractiveShell in tests (not a subclass of PositronShell).
+    # Create a Positron kernel. The kernel calls shell_class.instance() to get the globally
+    # registered shell instance, and IPython registers a TerminalInteractiveShell instead of a
+    # PositronShell. This causes a traitlets validation error unless we pass the shell_class explicitly.
     kernel = PositronIPyKernel.instance(shell_class=shell.__class__)
 
     return kernel
@@ -55,11 +57,13 @@ def kernel() -> PositronIPyKernel:
 # Enable autouse to ensure a clean namespace and correct user_ns_hidden in every test,
 # even if it doesn't explicitly use the `shell` fixture.
 @pytest.fixture(autouse=True)
-def shell() -> Iterable[TerminalInteractiveShell]:
+# Use the kernel fixture to ensure that the kernel is instantiated before the shell fixture is used,
+# otherwise, e.g. magics may not be registered, among other issues.
+def shell(kernel: PositronIPyKernel) -> Iterable[TerminalInteractiveShell]:
     """
     The Positron kernel's shell, configured for testing purposes.
     """
-    shell = get_ipython()
+    shell = cast(TerminalInteractiveShell, kernel.shell)
 
     # TODO: For some reason these vars are in user_ns but not user_ns_hidden during tests. For now,
     #       manually add them to user_ns_hidden to replicate running in Positron.
