@@ -6,6 +6,7 @@ import 'vs/css!./positronDataToolEditor';
 import * as React from 'react';
 import * as DOM from 'vs/base/browser/dom';
 import { Event, Emitter } from 'vs/base/common/event';
+import { IEditorOptions } from 'vs/platform/editor/common/editor';
 import { IStorageService } from 'vs/platform/storage/common/storage';
 import { IThemeService } from 'vs/platform/theme/common/themeService';
 import { ICommandService } from 'vs/platform/commands/common/commands';
@@ -19,17 +20,22 @@ import { IConfigurationService } from 'vs/platform/configuration/common/configur
 import { IEditorGroup } from 'vs/workbench/services/editor/common/editorGroupsService';
 import { PositronDataTool } from 'vs/workbench/contrib/positronDataTool/browser/positronDataTool';
 import { IReactComponentContainer, ISize, PositronReactRenderer } from 'vs/base/browser/positronReactRenderer';
+import { PositronDataToolEditorInput } from 'vs/workbench/contrib/positronDataTool/browser/positronDataToolEditorInput';
+
+// Temporary instance counter.
+let instance = 0;
+
+/**
+ * IPositronDataToolEditorOptions interface.
+ */
+export interface IPositronDataToolEditorOptions extends IEditorOptions {
+}
 
 /**
  * PositronDataToolEditor class.
  */
 export class PositronDataToolEditor extends EditorPane implements IReactComponentContainer {
 	//#region Static Properties
-
-	/**
-	 * Gets the identifier.
-	 */
-	static readonly ID: string = 'workbench.editor.positronDataTool';
 
 	//#endregion Static Properties
 
@@ -81,6 +87,11 @@ export class PositronDataToolEditor extends EditorPane implements IReactComponen
 	 * IReactComponentContainer interface.
 	 */
 	private _height = 0;
+
+	/**
+	 * Gets the instance. This is a temporary property.
+	 */
+	private instance = `${++instance}`;
 
 	//#endregion Private Properties
 
@@ -148,7 +159,7 @@ export class PositronDataToolEditor extends EditorPane implements IReactComponen
 
 	//#endregion IReactComponentContainer
 
-	//#region Constructor
+	//#region Constructor & Dispose
 
 	/**
 	 * Constructor.
@@ -168,10 +179,25 @@ export class PositronDataToolEditor extends EditorPane implements IReactComponen
 		@ITelemetryService telemetryService: ITelemetryService,
 		@IThemeService themeService: IThemeService,
 	) {
-		super(PositronDataToolEditor.ID, telemetryService, themeService, storageService);
+		// Call the base class's constructor.
+		super(PositronDataToolEditorInput.EditorID, telemetryService, themeService, storageService);
+
+		// Logging.
+		console.log(`PositronDataEditor ${this.instance} constructor`);
 	}
 
-	//#endregion Constructor
+	/**
+	 * dispose override method.
+	 */
+	public override dispose(): void {
+		// Call the base class's dispose method.
+		super.dispose();
+
+		// Logging.
+		console.log(`PositronDataEditor ${this.instance} dispose`);
+	}
+
+	//#endregion Constructor & Dispose
 
 	//#region Protected Overrides
 
@@ -180,9 +206,12 @@ export class PositronDataToolEditor extends EditorPane implements IReactComponen
 	 * @param parent The parent HTML element.
 	 */
 	protected override createEditor(parent: HTMLElement): void {
+		// Logging.
+		console.log(`PositronDataEditor ${this.instance} createEdtitor`);
+
 		// Create and append the Positron data tool container.
 		this._positronDataToolsContainer = DOM.$('.positron-data-tool-container');
-		DOM.append(parent, this._positronDataToolsContainer);
+		parent.appendChild(this._positronDataToolsContainer);
 
 		// Create the PositronReactRenderer for the PositronDataTool component and render it.
 		this._positronReactRenderer = new PositronReactRenderer(this._positronDataToolsContainer);
@@ -206,7 +235,11 @@ export class PositronDataToolEditor extends EditorPane implements IReactComponen
 	 * @param group The editor group.
 	 */
 	protected override setEditorVisible(visible: boolean, group: IEditorGroup | undefined): void {
+		// Call the base class's method.
 		super.setEditorVisible(visible, group);
+
+		// Logging.
+		console.log(`PositronDataEditor ${this.instance} setEditorVisible ${visible} group ${group}`);
 	}
 
 	//#endregion Protected Overrides
@@ -218,8 +251,12 @@ export class PositronDataToolEditor extends EditorPane implements IReactComponen
 	 * @param dimension The layout dimension.
 	 */
 	override layout(dimension: DOM.Dimension): void {
+		// Size the container.
+		DOM.size(this._positronDataToolsContainer, dimension.width, dimension.height);
+
 		this._width = dimension.width;
 		this._height = dimension.height;
+
 		this._onSizeChangedEmitter.fire({
 			width: this._width,
 			height: this._height

@@ -7,53 +7,51 @@ import * as positron from 'positron';
 import * as path from 'path';
 import * as os from 'os';
 import * as fs from 'fs';
-import { RRuntime, lastRuntimePath } from './runtime';
-import { getRunningRRuntime } from './provider';
+import { getRunningRRuntime } from './runtime';
 import { timeout } from './util';
 import { randomUUID } from 'crypto';
 
-export async function registerFormatter(context: vscode.ExtensionContext, runtimes: Map<string, RRuntime>) {
+export async function registerFormatter(context: vscode.ExtensionContext) {
 
 	const rDocumentSelector = { scheme: 'file', language: 'r' } as vscode.DocumentSelector;
 
 	context.subscriptions.push(
 		vscode.languages.registerDocumentFormattingEditProvider(
 			rDocumentSelector,
-			new FormatterProvider(runtimes)
+			new FormatterProvider()
 		),
 		vscode.languages.registerDocumentRangeFormattingEditProvider(
 			rDocumentSelector,
-			new FormatterProvider(runtimes)
+			new FormatterProvider()
 		)
 	);
 }
 
 class FormatterProvider implements vscode.DocumentFormattingEditProvider {
-	constructor(public runtimes: Map<string, RRuntime>) { }
+	constructor() { }
 
 	public provideDocumentFormattingEdits(document: vscode.TextDocument):
 		vscode.ProviderResult<vscode.TextEdit[]> {
-		return this.formatDocument(document, this.runtimes);
+		return this.formatDocument(document);
 	}
 
 	public provideDocumentRangeFormattingEdits(
 		document: vscode.TextDocument,
 		range: vscode.Range,
 	): vscode.ProviderResult<vscode.TextEdit[]> {
-		return this.formatDocument(document, this.runtimes, range);
+		return this.formatDocument(document, range);
 	}
 
 	private async formatDocument(
 		document: vscode.TextDocument,
-		runtimes: Map<string, RRuntime>,
 		range?: vscode.Range
 	): Promise<vscode.TextEdit[]> {
-		if (!lastRuntimePath) {
-			throw new Error(`No running R runtime to provide R package tasks.`);
-		}
-
-		const runtime = await getRunningRRuntime(runtimes);
+		const runtime = await getRunningRRuntime();
 		const id = randomUUID();
+		const isInstalled = await runtime.checkInstalled('styler');
+		if (!isInstalled) {
+			return [];
+		}
 
 		// We can only use styler on files right now, so write the document to a temp file
 		const originalSource = document.getText(range);
