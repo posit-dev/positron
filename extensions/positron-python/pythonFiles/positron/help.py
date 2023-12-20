@@ -5,18 +5,15 @@
 from __future__ import annotations
 
 import builtins
-import enum
 import logging
 import pydoc
-from dataclasses import asdict, dataclass
+from dataclasses import asdict
 from typing import TYPE_CHECKING, Any, Optional, Union
 
-from .frontend import BaseFrontendEvent, FrontendMessage
 from .help_comm import (
     HelpEvent,
     ShowHelpKind,
     ShowHelpParams,
-    ShowHelpTopicParams,
     ShowHelpTopicRequest,
 )
 from .positron_comm import JsonRpcErrorCode, PositronComm
@@ -91,7 +88,6 @@ class HelpService:
         Handle messages received from the client via the positron.help comm.
         """
         data = msg["content"]["data"]
-        msg_type = data.get("msg_type", None)
 
         try:
             request = ShowHelpTopicRequest(**data)

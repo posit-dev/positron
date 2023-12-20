@@ -15,7 +15,7 @@ import string
 import sys
 import types
 from dataclasses import asdict
-from typing import Any, Callable, Iterable, List, Optional, Set, Tuple, Type, TypeVar, cast
+from typing import Any, Callable, Iterable, List, Optional, Tuple, Type, TypeVar, cast
 
 import comm
 import numpy as np
@@ -27,7 +27,7 @@ from fastcore.foundation import L
 from IPython.terminal.interactiveshell import TerminalInteractiveShell
 from positron import PRINT_WIDTH, TRUNCATE_AT, Variable, VariablesService, VariableValueKind
 from positron.inspectors import decode_access_key, encode_access_key, get_inspector
-from positron.positron_ipkernel import PositronIPyKernel
+from positron.positron_ipkernel import PositronIPyKernel, POSITRON_VARIABLES_COMM
 from positron.utils import get_qualname
 from positron.variables import _summarize_variable
 
@@ -49,7 +49,7 @@ def variables_service(
         variables_service._comm = None
 
     # Open a comm
-    variables_comm = cast(DummyComm, comm.create_comm("positron.variables"))
+    variables_comm = cast(DummyComm, comm.create_comm(POSITRON_VARIABLES_COMM))
     open_msg = {}
     variables_service.on_comm_open(variables_comm, open_msg)
 

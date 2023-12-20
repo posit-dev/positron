@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
 declare module 'positron' {
@@ -159,6 +159,9 @@ declare module 'positron' {
      * language runtime exits.
      */
     export interface LanguageRuntimeExit {
+        /** Runtime name */
+        runtime_name: string;
+
         /**
          * The process exit code, if the runtime is backed by a process. If the
          * runtime is not backed by a process, this should just be 0 for a
@@ -199,6 +202,32 @@ declare module 'positron' {
     export interface LanguageRuntimeOutput extends LanguageRuntimeMessage {
         /** A record of data MIME types to the associated data, e.g. `text/plain` => `'hello world'` */
         data: Record<string, string>;
+    }
+
+    /**
+     * The set of possible output locations for a LanguageRuntimeOutput.
+     */
+    export enum PositronOutputLocation {
+        /** The output should be displayed inline in Positron's Console */
+        Console = 'console',
+
+        /** The output should be displayed in Positron's Viewer pane */
+        Viewer = 'viewer',
+
+        /** The output should be displayed in Positron's Plots pane */
+        Plot = 'plot',
+    }
+
+    /**
+     * LanguageRuntimeWebOutput amends LanguageRuntimeOutput with additional information needed
+     * to render web content in Positron.
+     */
+    export interface LanguageRuntimeWebOutput extends LanguageRuntimeOutput {
+        /** Where the web output should be displayed */
+        output_location: PositronOutputLocation;
+
+        /** The set of resource roots needed to display the output */
+        resource_roots: vscode.Uri[];
     }
 
     /**
@@ -412,6 +441,8 @@ declare module 'positron' {
         DataViewer = 'positron.dataViewer',
         FrontEnd = 'positron.frontEnd',
         Help = 'positron.help',
+        Connection = 'positron.connection',
+        IPyWidget = 'jupyter.widget',
 
         // Future client types may include:
         // - Watch window/variable explorer
@@ -475,6 +506,54 @@ declare module 'positron' {
 
     export type LanguageRuntimeDiscoverer = AsyncGenerator<LanguageRuntime>;
 
+    export interface LanguageRuntimeProvider {
+        /**
+         * Given a `runtimeId`, return the corresponding `LanguageRuntime` object.
+         *
+         * @param runtimeId The runtime identifier as a string.
+         * @param token A cancellation token.
+         * @return The language runtime.
+         */
+        provideLanguageRuntime(
+            runtimeId: string,
+            token: vscode.CancellationToken,
+        ): vscode.ProviderResult<LanguageRuntime>;
+    }
+
+    /**
+     * An enum representing the set of runtime method error codes; these map to
+     * JSON-RPC error codes.
+     */
+    export enum RuntimeMethodErrorCode {
+        ParseError = -32700,
+        InvalidRequest = -32600,
+        MethodNotFound = -32601,
+        InvalidParams = -32602,
+        InternalError = -32603,
+        ServerErrorStart = -32000,
+        ServerErrorEnd = -32099,
+    }
+
+    /**
+     * An error returned by a runtime method call.
+     */
+    export interface RuntimeMethodError {
+        /** An error code */
+        code: RuntimeMethodErrorCode;
+
+        /** A human-readable error message */
+        message: string;
+
+        /**
+         * A name for the error, for compatibility with the Error object.
+         * Usually `RPC Error ${code}`.
+         */
+        name: string;
+
+        /** Additional error information (optional) */
+        data: any | undefined;
+    }
+
     /**
      * LanguageRuntime is an interface implemented by extensions that provide a
      * set of common tools for interacting with a language runtime, such as code
@@ -496,8 +575,25 @@ declare module 'positron' {
         /** An object that emits an event when the user's session ends and the runtime exits */
         onDidEndSession: vscode.Event<LanguageRuntimeExit>;
 
+        /**
+         * Opens a resource in the runtime.
+         * @param resource The resource to open.
+         * @returns true if the resource was opened; otherwise, false.
+         */
+        openResource?(resource: vscode.Uri | string): Thenable<boolean>;
+
         /** Execute code in the runtime */
         execute(code: string, id: string, mode: RuntimeCodeExecutionMode, errorBehavior: RuntimeErrorBehavior): void;
+
+        /**
+         * Calls a method in the runtime and returns the result.
+         *
+         * Throws a RuntimeMethodError if the method call fails.
+         *
+         * @param method The name of the method to call
+         * @param args Arguments to pass to the method
+         */
+        callMethod?(method: string, ...args: any[]): Thenable<any>;
 
         /** Test a code fragment for completeness */
         isCodeFragmentComplete(code: string): Thenable<RuntimeCodeFragmentStatus>;
@@ -613,7 +709,8 @@ declare module 'positron' {
         clientType: string;
 
         /**
-         * A callback that is called when a client of the given type is created.
+         * A callback that is called when a client of the given type is created;
+         * returns whether the handler took ownership of the client.
          */
         callback: RuntimeClientHandlerCallback;
     }
@@ -779,6 +876,25 @@ declare module 'positron' {
         readonly code?: string;
     }
 
+    export interface HelpTopicProvider {
+        /**
+         * Given a cursor position, return the help topic relevant to the cursor
+         * position, or an empty string if no help topic is recommended or
+         * relevant.
+         *
+         * @param document The document in which the command was invoked.
+         * @param position The position at which the command was invoked.
+         * @param token A cancellation token.
+         * @return A string containing the help topic relevant to the cursor
+         *   position
+         */
+        provideHelpTopic(
+            document: vscode.TextDocument,
+            position: vscode.Position,
+            token: vscode.CancellationToken,
+        ): vscode.ProviderResult<string>;
+    }
+
     namespace languages {
         /**
          * Register a statement range provider.
@@ -823,6 +939,20 @@ declare module 'positron' {
         ): PreviewPanel;
 
         /**
+         * Create a log output channel from raw data.
+         *
+         * Variant of `createOutputChannel()` that creates a "raw log" output channel.
+         * Compared to a normal `LogOutputChannel`, this doesn't add timestamps or info
+         * level. It's meant for extensions that create fully formed log lines but still
+         * want to benefit from the colourised rendering of log output channels.
+         *
+         * @param name Human-readable string which will be used to represent the channel in the UI.
+         *
+         * @return New log output channel.
+         */
+        export function createRawLogOutputChannel(name: string): vscode.OutputChannel;
+
+        /**
          * Create and show a simple modal dialog prompt.
          *
          * @param title The title of the dialog
@@ -839,6 +969,13 @@ declare module 'positron' {
             okButtonTitle?: string,
             cancelButtonTitle?: string,
         ): Thenable<boolean>;
+
+        /**
+         * Fires when the width of the console changes. The new width is passed as
+         * a number, which represents the number of characters that can fit in the
+         * console horizontally.
+         */
+        export const onDidChangeConsoleWidth: vscode.Event<number>;
     }
 
     namespace runtime {
@@ -848,7 +985,7 @@ declare module 'positron' {
          *
          * @param languageId The language ID of the code snippet
          * @param code The code snippet to execute
-         * @param focus Whether to raise and focus the runtime's console
+         * @param focus Whether to focus the runtime's console
          * @returns A Thenable that resolves with true if the code was sent to a
          *   runtime successfully, false otherwise.
          */
@@ -871,6 +1008,15 @@ declare module 'positron' {
          * @param runtime The language runtime to register
          */
         export function registerLanguageRuntime(runtime: LanguageRuntime): vscode.Disposable;
+
+        /**
+         * Register a language runtime provider.
+         *
+         * @param languageId The language ID for which a runtime will be provided
+         * @param provider A language runtime provider.
+         * @return A {@link Disposable} that unregisters this provider when being disposed.
+         */
+        export function registerLanguageRuntimeProvider(languageId: string, provider: LanguageRuntimeProvider): void;
 
         /**
          * List all registered runtimes.
@@ -919,24 +1065,5 @@ declare module 'positron' {
          * An event that fires when a new runtime is registered.
          */
         export const onDidRegisterRuntime: vscode.Event<LanguageRuntime>;
-    }
-
-    export interface HelpTopicProvider {
-        /**
-         * Given a cursor position, return the help topic relevant to the cursor
-         * position, or an empty string if no help topic is recommended or
-         * relevant.
-         *
-         * @param document The document in which the command was invoked.
-         * @param position The position at which the command was invoked.
-         * @param token A cancellation token.
-         * @return A string containing the help topic relevant to the cursor
-         *   position
-         */
-        provideHelpTopic(
-            document: vscode.TextDocument,
-            position: vscode.Position,
-            token: vscode.CancellationToken,
-        ): vscode.ProviderResult<string>;
     }
 }
