@@ -88,6 +88,16 @@ class PositronDataToolInstance extends Disposable implements IPositronDataToolIn
 	private _columnsWidthPercent = 0.25;
 
 	/**
+	 * Gets or sets the columns scroll position.
+	 */
+	private _columnsScrollPosition = 0;
+
+	/**
+	 * Gets or sets the rows scroll position.
+	 */
+	private _rowsScrollPosition = 0;
+
+	/**
 	 * The onDidChangeLayout event emitter.
 	 */
 	private readonly _onDidChangeLayoutEmitter =
@@ -97,6 +107,16 @@ class PositronDataToolInstance extends Disposable implements IPositronDataToolIn
 	 * The onDidChangeColumnsWidthPercent event emitter.
 	 */
 	private readonly _onDidChangeColumnsWidthPercentEmitter = this._register(new Emitter<number>);
+
+	/**
+	 * The onDidChangeColumnsScrollPositon event emitter.
+	 */
+	private readonly _onDidChangeColumnsScrollPositionEmitter = this._register(new Emitter<number>);
+
+	/**
+	 * The onDidChangeRowsScrollPositon event emitter.
+	 */
+	private readonly _onDidChangeRowsScrollPositionEmitter = this._register(new Emitter<number>);
 
 	//#endregion Private Properties
 
@@ -133,19 +153,53 @@ class PositronDataToolInstance extends Disposable implements IPositronDataToolIn
 	}
 
 	/**
-	 * Gets the columns width.
+	 * Gets the columns width percent.
 	 */
 	get columnsWidthPercent() {
 		return this._columnsWidthPercent;
 	}
 
 	/**
-	 * Sets the columns width.
+	 * Sets the columns width percent.
 	 */
 	set columnsWidthPercent(columnsWidthPercent: number) {
 		if (columnsWidthPercent !== this._columnsWidthPercent) {
 			this._columnsWidthPercent = columnsWidthPercent;
 			this._onDidChangeColumnsWidthPercentEmitter.fire(this._columnsWidthPercent);
+		}
+	}
+
+	/**
+	 * Gets the columns scroll position.
+	 */
+	get columnsScrollPosition() {
+		return this._columnsScrollPosition;
+	}
+
+	/**
+	 * Sets the columns scroll position.
+	 */
+	set columnsScrollPosition(columnsScrollPosition: number) {
+		if (columnsScrollPosition !== this._columnsScrollPosition) {
+			this._columnsScrollPosition = columnsScrollPosition;
+			this._onDidChangeColumnsScrollPositionEmitter.fire(this._columnsScrollPosition);
+		}
+	}
+
+	/**
+	 * Gets the rows scroll position.
+	 */
+	get rowsScrollPosition() {
+		return this._rowsScrollPosition;
+	}
+
+	/**
+	 * Sets the rows scroll position.
+	 */
+	set rowsScrollPosition(rowsScrollPosition: number) {
+		if (rowsScrollPosition !== this._rowsScrollPosition) {
+			this._rowsScrollPosition = rowsScrollPosition;
+			this._onDidChangeRowsScrollPositionEmitter.fire(this._rowsScrollPosition);
 		}
 	}
 
@@ -158,6 +212,16 @@ class PositronDataToolInstance extends Disposable implements IPositronDataToolIn
 	 * onDidChangeColumnsWidthPercent event.
 	 */
 	readonly onDidChangeColumnsWidthPercent = this._onDidChangeColumnsWidthPercentEmitter.event;
+
+	/**
+	 * onDidChangeColumnsScrollPosition event.
+	 */
+	readonly onDidChangeColumnsScrollPosition = this._onDidChangeColumnsScrollPositionEmitter.event;
+
+	/**
+	 * onDidChangeRowsScrollPosition event.
+	 */
+	readonly onDidChangeRowsScrollPosition = this._onDidChangeRowsScrollPositionEmitter.event;
 
 	//#endregion IPositronDataToolInstance Implementation
 }

@@ -18,11 +18,11 @@ export const PositronDataToolContextProvider = (
 	props: PropsWithChildren<PositronDataToolConfiguration>
 ) => {
 	// State hooks.
-	const positronDataToolState = usePositronDataToolState(props);
+	const state = usePositronDataToolState(props);
 
 	// Render.
 	return (
-		<PositronDataToolContext.Provider value={positronDataToolState}>
+		<PositronDataToolContext.Provider value={state}>
 			{props.children}
 		</PositronDataToolContext.Provider>
 	);

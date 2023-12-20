@@ -59,6 +59,16 @@ export interface IPositronDataToolInstance {
 	columnsWidthPercent: number;
 
 	/**
+	 * Gets or sets the columns scroll position.
+	 */
+	columnsScrollPosition: number;
+
+	/**
+	 * Gets or sets the rows scroll position.
+	 */
+	rowsScrollPosition: number;
+
+	/**
 	 * The onDidChangeLayout event.
 	 */
 	readonly onDidChangeLayout: Event<PositronDataToolLayout>;
@@ -67,4 +77,14 @@ export interface IPositronDataToolInstance {
 	 * The onDidChangeColumnsWidthPercent event.
 	 */
 	readonly onDidChangeColumnsWidthPercent: Event<number>;
+
+	/**
+	 * The onDidChangeColumnsScrollPosition event.
+	 */
+	readonly onDidChangeColumnsScrollPosition: Event<number>;
+
+	/**
+	 * The onDidChangeRowsScrollPosition event.
+	 */
+	readonly onDidChangeRowsScrollPosition: Event<number>;
 }

@@ -30,7 +30,7 @@ export const LayoutMenuButton = () => {
 	// Builds the actions.
 	const actions = () => {
 		// Get the current layout.
-		const layout = positronDataToolContext.positronDataToolInstance.layout;
+		const layout = positronDataToolContext.instance.layout;
 
 		// Build the actions.
 		const actions: IAction[] = [];
@@ -44,7 +44,7 @@ export const LayoutMenuButton = () => {
 			enabled: true,
 			checked: layout === PositronDataToolLayout.ColumnsLeft,
 			run: () => {
-				positronDataToolContext.positronDataToolInstance.layout = PositronDataToolLayout.ColumnsLeft;
+				positronDataToolContext.instance.layout = PositronDataToolLayout.ColumnsLeft;
 			}
 		});
 
@@ -57,7 +57,7 @@ export const LayoutMenuButton = () => {
 			enabled: true,
 			checked: layout === PositronDataToolLayout.ColumnsRight,
 			run: () => {
-				positronDataToolContext.positronDataToolInstance.layout = PositronDataToolLayout.ColumnsRight;
+				positronDataToolContext.instance.layout = PositronDataToolLayout.ColumnsRight;
 			}
 		});
 
@@ -73,7 +73,7 @@ export const LayoutMenuButton = () => {
 			enabled: true,
 			checked: layout === PositronDataToolLayout.ColumnsHidden,
 			run: () => {
-				positronDataToolContext.positronDataToolInstance.layout = PositronDataToolLayout.ColumnsHidden;
+				positronDataToolContext.instance.layout = PositronDataToolLayout.ColumnsHidden;
 			}
 		});
 
@@ -86,7 +86,7 @@ export const LayoutMenuButton = () => {
 	 * @returns The icon ID for the layout.
 	 */
 	const selectIconId = () => {
-		switch (positronDataToolContext.positronDataToolInstance.layout) {
+		switch (positronDataToolContext.instance.layout) {
 			// Columns left.
 			case PositronDataToolLayout.ColumnsLeft:
 				return 'positron-data-tool-columns-left';

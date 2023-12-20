@@ -19,7 +19,7 @@ export interface PositronDataToolServices extends PositronActionBarServices {
  * PositronDataToolConfiguration interface.
  */
 export interface PositronDataToolConfiguration extends PositronDataToolServices {
-	readonly positronDataToolInstance: IPositronDataToolInstance;
+	readonly instance: IPositronDataToolInstance;
 }
 
 /**

@@ -220,7 +220,7 @@ export class PositronDataToolEditor extends EditorPane implements IReactComponen
 	 */
 	protected override createEditor(parent: HTMLElement): void {
 		// Logging.
-		console.log(`PositronDataEditor ${this.instance} createEdtitor`);
+		console.log(`PositronDataEditor ${this.instance} createEditor`);
 
 		// Create and append the Positron data tool container.
 		this._positronDataToolsContainer = DOM.$('.positron-data-tool-container');
@@ -243,6 +243,9 @@ export class PositronDataToolEditor extends EditorPane implements IReactComponen
 		// Call the base class's method.
 		await super.setInput(input, options, context, token);
 
+		// Logging.
+		console.log(`PositronDataEditor ${this.instance} setInput ${input.resource}`);
+
 		// Parse the Positron data tool URI.
 		const identifier = PositronDataToolUri.parse(input.resource);
 		if (identifier) {
@@ -261,10 +264,14 @@ export class PositronDataToolEditor extends EditorPane implements IReactComponen
 						contextKeyService={this._contextKeyService}
 						contextMenuService={this._contextMenuService}
 						keybindingService={this._keybindingService}
-						positronDataToolInstance={positronDataToolInstance}
+						instance={positronDataToolInstance}
 						reactComponentContainer={this}
 					/>
 				);
+
+				// Logging.
+				console.log(`PositronDataEditor ${this.instance} create PositronReactRenderer`);
+
 
 				// Success.
 				return;
@@ -272,9 +279,6 @@ export class PositronDataToolEditor extends EditorPane implements IReactComponen
 		}
 
 		// TODO: Render some kind of an error.
-
-		// Logging.
-		console.log(`PositronDataEditor ${this.instance} setInput ${input.resource}`);
 	}
 
 	/**
@@ -340,7 +344,7 @@ export class PositronDataToolEditor extends EditorPane implements IReactComponen
 		// the PositronDataTool from the DOM.
 		if (this._positronReactRenderer) {
 			// Logging.
-			console.log(`PositronDataEditor ${this.instance} disposePositronReactRenderer`);
+			console.log(`PositronDataEditor ${this.instance} dispose PositronReactRenderer`);
 
 			// Dispose of the PositronReactRenderer for the PositronDataTool.
 			this._positronReactRenderer.dispose();
