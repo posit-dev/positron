@@ -560,10 +560,20 @@ from dataclasses import dataclass, field
 			// Fields
 			for (const prop of Object.keys(o.properties)) {
 				const schema = o.properties[prop];
-				yield `    ${prop}: ${deriveType(source, PythonTypeMap, prop, schema)}`;
+				yield `    ${prop}: `;
+				if (!o.required || !o.required.includes(prop)) {
+					yield 'Optional[';
+					yield deriveType(source, PythonTypeMap, prop, schema);
+					yield ']';
+				} else {
+					yield deriveType(source, PythonTypeMap, prop, schema);
+				}
 				yield ' = field(\n';
 				yield `        metadata={\n`;
 				yield `            "description": "${schema.description}",\n`;
+				if (!o.required || !o.required.includes(prop)) {
+					yield `            "default": None,\n`;
+				}
 				yield `        }\n`;
 				yield `    )\n\n`;
 			}
