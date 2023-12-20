@@ -111,12 +111,12 @@ export class RInstallation {
 	}
 }
 
-export function getRHomePath(pth: string): string | undefined {
+export function getRHomePath(binPath: string): string | undefined {
 	if (os.platform() === 'win32') {
 		// TODO: Windows - do we want something more robust here?
-		return path.join(pth, '..', '..');
+		return path.join(binPath, '..', '..');
 	} else {
-		const binLines = readLines(pth);
+		const binLines = readLines(binPath);
 		const re = new RegExp('Shell wrapper for R executable');
 		if (!binLines.some(x => re.test(x))) {
 			Logger.info('Binary is not a shell script wrapping the executable');

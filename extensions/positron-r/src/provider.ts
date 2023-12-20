@@ -11,7 +11,7 @@ import * as which from 'which';
 import * as positron from 'positron';
 import * as crypto from 'crypto';
 
-import { RInstallation } from './r-installation';
+import { RInstallation, getRHomePath } from './r-installation';
 import { RRuntime, createJupyterKernelExtra, createJupyterKernelSpec } from './runtime';
 
 const initialDynState = {
@@ -37,9 +37,7 @@ export class RRuntimeProvider implements positron.LanguageRuntimeProvider {
 
 	async provideLanguageRuntime(runtimeMetadata: positron.LanguageRuntimeMetadata, token: vscode.CancellationToken): Promise<positron.LanguageRuntime> {
 
-		//const rHomePath = getRHomePath(runtimeMetadata.runtimePath);
-		//TODO this is just dummy for now:
-		const rHomePath = '/Library/Frameworks/R.framework/Resources';
+		const rHomePath = getRHomePath(runtimeMetadata.runtimePath);
 		if (!rHomePath) {
 			throw new Error(`Cannot find R_HOME for ${runtimeMetadata.runtimePath}`);
 		}
