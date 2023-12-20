@@ -95,7 +95,7 @@ export interface ProfileResult {
 	/**
 	 * Counts of distinct values in column
 	 */
-	freqtable_counts: Array<object>;
+	freqtable_counts: Array<FreqtableCounts>;
 
 	/**
 	 * Number of other values not accounted for in counts
