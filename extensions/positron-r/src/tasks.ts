@@ -32,12 +32,12 @@ export async function getRPackageTasks(): Promise<vscode.Task[]> {
 		{
 			'task': 'r.task.packageCheck',
 			'message': vscode.l10n.t('{taskName}', { taskName: 'Check R package' }),
-			'shellExecution': `${manager.getLastBinpath()} -e "devtools::check()"`
+			'shellExecution': `"${manager.getLastBinpath()}" -e "devtools::check()"`
 		},
 		{
 			'task': 'r.task.packageInstall',
 			'message': vscode.l10n.t('{taskName}', { taskName: 'Install R package' }),
-			'shellExecution': `${manager.getLastBinpath()} -e "devtools::install()"`
+			'shellExecution': `"${manager.getLastBinpath()}" -e "devtools::install()"`
 		}
 	];
 	return allPackageTasks.map(task => new vscode.Task(

@@ -90,7 +90,7 @@ export async function runThatTest(
 		`devtools::load_all('${testReporterPath}');` +
 		`devtools::${devtoolsMethod}('${testPath}',` +
 		`${descInsert}reporter = VSCodeReporter)`;
-	const command = `${rBinPath} --no-echo -e "${devtoolsCall}"`;
+	const command = `"${rBinPath}" --no-echo -e "${devtoolsCall}"`;
 	Logger.info(`devtools call is:\n${command}`);
 
 	const wd = testingTools.packageRoot.fsPath;
