@@ -98,5 +98,16 @@
         ],
         "operator-assignment": "off",
         "strict": "off"
-    }
+    },
+    // --- Start Positron ---
+    "overrides": [
+        {
+            // Disable no-explicit-any for jupyter-adapter.d.ts since we don't control that file.
+            "files": ["jupyter-adapter.d.ts"],
+            "rules": {
+                "@typescript-eslint/no-explicit-any": "off"
+            }
+        }
+    ]
+    // --- End Positron ---
 }
