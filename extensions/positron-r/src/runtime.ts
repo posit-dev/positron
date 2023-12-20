@@ -209,7 +209,7 @@ export class RRuntime implements positron.LanguageRuntime, vscode.Disposable {
 		if (!this._kernel) {
 			this._kernel = await this.createKernel();
 		}
-		manager.setLastBinpath(this._kernel.metadata.runtimeBinpath);
+		manager.setLastBinpath(this._kernel.metadata.runtimePath);
 
 		// Register for console width changes, if we haven't already
 		if (!this._consoleWidthDisposable) {
