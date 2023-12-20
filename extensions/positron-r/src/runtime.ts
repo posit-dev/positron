@@ -36,7 +36,7 @@ class RRuntimeManager {
 	}
 }
 
-export const manager: RRuntimeManager = new RRuntimeManager();
+export const runtimeManager: RRuntimeManager = new RRuntimeManager();
 
 interface RPackageInstallation {
 	packageName: string;
@@ -209,7 +209,7 @@ export class RRuntime implements positron.LanguageRuntime, vscode.Disposable {
 		if (!this._kernel) {
 			this._kernel = await this.createKernel();
 		}
-		manager.setLastBinpath(this._kernel.metadata.runtimePath);
+		runtimeManager.setLastBinpath(this._kernel.metadata.runtimePath);
 
 		// Register for console width changes, if we haven't already
 		if (!this._consoleWidthDisposable) {
@@ -546,7 +546,7 @@ export async function getRunningRRuntime(): Promise<RRuntime> {
 	}
 
 	// For now, there will be only one running R runtime:
-	const runtime = manager.getRuntimesMap().get(runningRuntimes[0].runtimeId);
+	const runtime = runtimeManager.getRuntimesMap().get(runningRuntimes[0].runtimeId);
 	if (!runtime) {
 		throw new Error(`R runtime '${runningRuntimes[0].runtimeId}' is not registered in the extension host`);
 	}

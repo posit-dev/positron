@@ -11,7 +11,7 @@ import { providePackageTasks } from './tasks';
 import { setContexts } from './contexts';
 import { setupTestExplorer, refreshTestExplorer } from './testing/testing';
 import { rRuntimeDiscoverer } from './provider';
-import { manager } from './runtime';
+import { runtimeManager } from './runtime';
 
 export const Logger = vscode.window.createOutputChannel('Positron R Extension', { log: true });
 
@@ -23,7 +23,7 @@ export function activate(context: vscode.ExtensionContext) {
 	onDidChangeLogLevel(Logger.logLevel);
 
 	positron.runtime.registerLanguageRuntimeDiscoverer(
-		'r', rRuntimeDiscoverer(context, manager.getRuntimesMap()));
+		'r', rRuntimeDiscoverer(context, runtimeManager.getRuntimesMap()));
 
 	// Set contexts.
 	setContexts(context);
