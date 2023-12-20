@@ -353,12 +353,26 @@ use serde::Serialize;
 			const name = o.name ? o.name : context[0] === 'items' ? context[1] : context[0];
 			yield '#[derive(Debug, Serialize, Deserialize, PartialEq)]\n';
 			yield `pub struct ${snakeCaseToSentenceCase(name)} {\n`;
-			for (const key of Object.keys(o.properties)) {
+			const props = Object.keys(o.properties);
+			for (let i = 0; i < props.length; i++) {
+				const key = props[i];
 				const prop = o.properties[key];
 				if (prop.description) {
 					yield formatComment('\t/// ', prop.description);
 				}
-				yield `\tpub ${key}: ${deriveType(source, RustTypeMap, key, prop)},\n\n`;
+				yield `\tpub ${key}: `;
+				if (!o.required || !o.required.includes(key)) {
+					yield 'Option<';
+					yield deriveType(source, RustTypeMap, key, prop);
+					yield '>';
+
+				} else {
+					yield deriveType(source, RustTypeMap, key, prop);
+				}
+				if (i < props.length - 1) {
+					yield ',\n';
+				}
+				yield '\n';
 			}
 			yield '}\n\n';
 		});
