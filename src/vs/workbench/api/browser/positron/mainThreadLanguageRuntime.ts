@@ -950,9 +950,9 @@ export class MainThreadLanguageRuntime implements MainThreadLanguageRuntimeShape
 		this._positronIPyWidgetsService.initialize();
 		this._proxy = extHostContext.getProxy(ExtHostPositronContext.ExtHostLanguageRuntime);
 
-		this._languageRuntimeService.onDidRequestLanguageRuntime((ILanguageRuntimeIdEvent) => {
-			this._proxy.$provideLanguageRuntime(ILanguageRuntimeIdEvent.language_id,
-				ILanguageRuntimeIdEvent.runtime_id);
+		this._languageRuntimeService.onDidRequestLanguageRuntime((ILanguageRuntimeMetadata) => {
+			this._proxy.$provideLanguageRuntime(ILanguageRuntimeMetadata.languageId,
+				ILanguageRuntimeMetadata);
 		});
 		this._languageRuntimeService.onDidChangeDiscoveryPhase((phase) => {
 			if (phase === LanguageRuntimeDiscoveryPhase.Discovering) {
