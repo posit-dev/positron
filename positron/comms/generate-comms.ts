@@ -337,6 +337,11 @@ use serde::Serialize;
 					yield* createRustStruct(backend, key,
 						schema.description,
 						schema.properties);
+				} else {
+					yield formatComment('/// ', schema.description);
+					yield `type ${snakeCaseToSentenceCase(key)} = `;
+					yield deriveType(source, RustTypeMap, schema);
+					yield ';\n\n';
 				}
 			}
 		}
