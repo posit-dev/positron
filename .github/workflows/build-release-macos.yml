@@ -135,7 +135,7 @@ jobs:
 
       # Create build artifact
       - name: Upload client archive
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: positron-darwin-${{ matrix.arch }}-archive
           path: positron-${{ inputs.short_version }}-darwin-${{ matrix.arch }}.zip
@@ -153,12 +153,12 @@ jobs:
     steps:
       # Download arm64 and x64 binaries
       - name: Download arm64 client
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: positron-darwin-arm64-archive
 
       - name: Download x64 client
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: positron-darwin-x64-archive
 
@@ -270,7 +270,7 @@ jobs:
       # Create a regular build artifact for the universal archive, to be
       # downloaded from the actions page for testing purposes.
       - name: Upload
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: positron-darwin-universal-installer
           path: Positron-${{ inputs.short_version }}.dmg
