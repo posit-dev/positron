@@ -160,7 +160,7 @@ export async function* rRuntimeDiscoverer(
 	// and its usages for more details.
 	//
 	// Given that DYLD_FALLBACK_LIBRARY_PATH works fine, we just set that below.
-	for (const rHome of rInstallations) {
+	for (const rInst of rInstallations) {
 
 		// Is the runtime path within the user's home directory?
 		const homedir = os.homedir();
@@ -197,7 +197,7 @@ export async function* rRuntimeDiscoverer(
 		const runtimeName = `R ${runtimeShortName}`;
 
 		const kernelSpec = createJupyterKernelSpec(context,
-			rHome.homepath,
+			rInst.homepath,
 			runtimeName);
 
 		// Get the version of this extension from package.json so we can pass it
