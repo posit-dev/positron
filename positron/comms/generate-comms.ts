@@ -11,9 +11,8 @@
  */
 
 import { existsSync, readdirSync, readFileSync, writeFileSync } from 'fs';
-import { compile } from 'json-schema-to-typescript';
 import { execSync } from 'child_process';
-import path, { format } from 'path';
+import path from 'path';
 
 const commsDir = `${__dirname}`;
 const commsFiles = readdirSync(commsDir);
@@ -78,7 +77,7 @@ const PythonTypeMap: Record<string, string> = {
 };
 
 /**
- * Converter from snake_case to camelCase
+ * Converter from snake_case to camelCase. Also replaces some special characters
  *
  * @param name A snake_case name
  * @returns A camelCase name
@@ -102,12 +101,15 @@ function snakeCaseToSentenceCase(name: string) {
 }
 
 /**
- * Parse a ref tag
+ * Parse a ref tag to get the name of the object referred to by the ref.
  *
  * @param ref The ref to parse
- * @returns The name of the object referred to by the ref
+ * @returns The name of the object referred to by the ref, as a SentenceCase
+ * string
  */
 function parseRef(ref: string, contract: any): string {
+	// Split the ref into parts, and then walk the contract to find the
+	// referenced object
 	const parts = ref.split('/');
 	let target = contract;
 	for (let i = 0; i < parts.length; i++) {
@@ -123,18 +125,32 @@ function parseRef(ref: string, contract: any): string {
 	return snakeCaseToSentenceCase(parts[parts.length - 1]);
 }
 
-function deriveType(contract: any, typeMap: Record<string, string>, schema: any): string {
+/**
+ * Generic function for deriving a type from a schema.
+ *
+ * @param contract The OpenRPC contract that the schema is part of
+ * @param typeMap A map from schema types to language types
+ * @param schema The schema to derive a type from
+ *
+ * @returns A string containing the derived type
+ */
+function deriveType(contract: any,
+	typeMap: Record<string, string>,
+	schema: any): string {
 	if (schema.type === 'array') {
 		if (schema.items.$ref) {
+			// If the array has a ref, use that to derive an array type
 			return typeMap['array-begin'] +
 				parseRef(schema.items.$ref, contract) +
 				typeMap['array-end'];
 		} else {
+			// Otherwise use the type of the items directly
 			return typeMap['array-begin'] +
 				typeMap[schema.items.type] +
 				typeMap['array-end'];
 		}
 	} else if (schema.type === 'object' && schema.$ref) {
+		// If the object has a ref, use that to derive an object type
 		return parseRef(schema.$ref, contract);
 	} else {
 		if (Object.keys(typeMap).includes(schema.type)) {
@@ -145,8 +161,13 @@ function deriveType(contract: any, typeMap: Record<string, string>, schema: any)
 	}
 }
 
-// Breaks a single line of text into multiple lines, each of which is no longer than
-// 70 characters.
+/**
+ * Breaks a single line of text into multiple lines, each of which is no longer
+ * than 70 characters.
+ *
+ * @param line The line to break
+ * @returns An array of lines
+ */
 function formatLines(line: string): string[] {
 	const words = line.split(' ');
 	const lines = new Array<string>();
@@ -166,34 +187,6 @@ function formatLines(line: string): string[] {
 	return lines;
 }
 
-function* enumVisitor(
-	context: Array<string>,
-	contract: any,
-	callback: (context: Array<string>, e: Array<string>) => Generator<string>
-): Generator<string> {
-	if (contract.enum) {
-		yield* callback(context, contract.enum);
-	} else if (Array.isArray(contract)) {
-		for (const item of contract) {
-			yield* enumVisitor(context, item, callback);
-		}
-	} else if (typeof contract === 'object') {
-		for (const key of Object.keys(contract)) {
-			if (contract['name']) {
-				yield* enumVisitor(
-					[contract['name'], ...context], contract[key], callback);
-			} else if (key === 'properties' || key === 'params') {
-				yield* enumVisitor(
-					context, contract[key], callback);
-			} else {
-				yield* enumVisitor(
-					[key, ...context], contract[key], callback);
-			}
-
-		}
-	}
-}
-
 /**
  * Formats a comment, breaking it into multiple lines and adding a leader to
  * each line.
@@ -211,10 +204,76 @@ function formatComment(leader: string, comment: string): string {
 	return result;
 }
 
-function* createRustStruct(contract: any, name: string, description: string, properties: Record<string, any>): Generator<string> {
+/**
+ * Visitor function for enums in an OpenRPC contract. Recursively discovers all
+ * enum values and calls the callback function for each enum.
+ *
+ * @param context The current context stack (names of objects leading to the enum)
+ * @param contract The OpenRPC contract to visit
+ * @param callback The callback function to call for each enum
+ *
+ * @returns An generator that yields the results of the callback function,
+ * invoked for each enum
+ */
+function* enumVisitor(
+	context: Array<string>,
+	contract: any,
+	callback: (context: Array<string>, e: Array<string>) => Generator<string>
+): Generator<string> {
+	if (contract.enum) {
+		// If this object has an enum, call the callback function and yield the
+		// result
+		yield* callback(context, contract.enum);
+	} else if (Array.isArray(contract)) {
+		// If this object is an array, recurse into each item
+		for (const item of contract) {
+			yield* enumVisitor(context, item, callback);
+		}
+	} else if (typeof contract === 'object') {
+		// If this object is an object, recurse into each property
+		for (const key of Object.keys(contract)) {
+			if (contract['name']) {
+				// If this is a named object, push the name onto the context
+				// and recurse
+				yield* enumVisitor(
+					[contract['name'], ...context], contract[key], callback);
+			} else if (key === 'properties' || key === 'params') {
+				// If this is a properties or params object, recurse into each
+				// property, but don't push the parent name onto the context
+				yield* enumVisitor(
+					context, contract[key], callback);
+			} else {
+				// For all other objects, push the key onto the context and
+				// recurse
+				yield* enumVisitor(
+					[key, ...context], contract[key], callback);
+			}
+
+		}
+	}
+}
+
+
+/**
+ * Create a Rust struct for a given object schema.
+ *
+ * @param contract The OpenRPC contract that the schema is part of
+ * @param name The name of the schema
+ * @param description The description of the schema
+ * @param properties The properties of the schema
+ *
+ * @returns A generator that yields the Rust code for the struct
+ */
+function* createRustStruct(contract: any, name: string,
+	description: string,
+	properties: Record<string, any>): Generator<string> {
+
+	// Create the preamble
 	yield formatComment('/// ', description);
 	yield '#[derive(Debug, Serialize, Deserialize, PartialEq)]\n';
 	yield `pub struct ${snakeCaseToSentenceCase(name)} {\n`;
+
+	// Create a field for each property
 	const props = Object.keys(properties);
 	for (let i = 0; i < props.length; i++) {
 		const prop = props[i];
@@ -230,6 +289,15 @@ function* createRustStruct(contract: any, name: string, description: string, pro
 	yield '}\n\n';
 }
 
+/**
+ * Create a Rust comm for a given OpenRPC contract.
+ *
+ * @param name The name of the comm
+ * @param frontend The OpenRPC contract for the frontend
+ * @param backend The OpenRPC contract for the backend
+ *
+ * @returns A generator that yields the Rust code for the comm
+ */
 function* createRustComm(name: string, frontend: any, backend: any): Generator<string> {
 	yield `/*---------------------------------------------------------------------------------------------
  *  Copyright (C) ${year} Posit Software, PBC. All rights reserved.
@@ -258,6 +326,7 @@ use serde::Serialize;
 	}
 
 	for (const source of [backend, frontend]) {
+		// Create objects for all the shared components
 		if (!source) {
 			continue;
 		}
@@ -299,6 +368,7 @@ use serde::Serialize;
 		});
 	}
 
+	// Create parameter objects for each method
 	for (const source of [backend, frontend]) {
 		if (!source) {
 			continue;
@@ -332,6 +402,7 @@ use serde::Serialize;
 		}
 	}
 
+	// Create the RPC request and reply enums
 	if (backend) {
 		yield '/**\n';
 		yield ` * RPC request types for the ${name} comm\n`;
@@ -380,6 +451,7 @@ use serde::Serialize;
 		yield `}\n\n`;
 	}
 
+	// Create the event enum
 	if (frontend) {
 		yield '/**\n';
 		yield ` * Front-end events for the ${name} comm\n`;
@@ -400,15 +472,35 @@ use serde::Serialize;
 	}
 }
 
-function* createPythonDataclass(contract: any, name: string, description: string, properties: Record<string, any>): Generator<string> {
+/**
+ * Create a Python dataclass for a given object schema.
+ *
+ * @param contract The OpenRPC contract that the schema is part of
+ * @param name The name of the schema
+ * @param description The description of the schema
+ * @param properties The properties of the schema
+ *
+ * @returns A generator that yields the Python code for a dataclass representing
+ * the schema
+ */
+function* createPythonDataclass(contract: any,
+	name: string,
+	description: string,
+	properties: Record<string, any>): Generator<string> {
+
+	// Preamble
 	yield '@dataclass\n';
 	yield `class ${snakeCaseToSentenceCase(name)}:\n`;
+
+	// Docstring
 	if (description) {
 		yield '    """\n';
 		yield formatComment('    ', description);
 		yield '    """\n';
 		yield '\n';
 	}
+
+	// Fields
 	for (const prop of Object.keys(properties)) {
 		const schema = properties[prop];
 		yield `    ${prop}: ${deriveType(contract, PythonTypeMap, schema)}`;
@@ -422,7 +514,18 @@ function* createPythonDataclass(contract: any, name: string, description: string
 }
 
 
-function* createPythonComm(name: string, frontend: any, backend: any): Generator<string> {
+/**
+ * Create a Python comm for a given OpenRPC contract.
+ *
+ * @param name The name of the comm
+ * @param frontend The OpenRPC contract for the frontend
+ * @param backend The OpenRPC contract for the backend
+ *
+ * @returns A generator that yields the Python code for the comm
+ */
+function* createPythonComm(name: string,
+	frontend: any,
+	backend: any): Generator<string> {
 	yield `#
 #  Copyright (C) ${year} Posit Software, PBC. All rights reserved.
 #
@@ -450,6 +553,7 @@ from dataclasses import dataclass, field
 	}
 
 	for (const source of [backend, frontend]) {
+		// Create classes for all the shared components
 		if (!source) {
 			continue;
 		}
@@ -610,8 +714,20 @@ from dataclasses import dataclass, field
 	}
 }
 
+/**
+ * Generates a Typescript interface for a given object schema.
+ *
+ * @param contract The OpenRPC contract that the schema is part of
+ * @param name The name of the schema
+ * @param description The description of the schema
+ * @param properties The properties of the schema
+ *
+ * @returns A generator that yields the Typescript code for an interface
+ * representing the schema
+ */
 async function* createTypescriptInterface(contract: any, name: string,
-	description: string, properties: Record<string, any>) {
+	description: string,
+	properties: Record<string, any>) {
 
 	if (!description) {
 		throw new Error(`No description for '${name}'; please add a description to the schema`);
@@ -644,6 +760,13 @@ async function* createTypescriptInterface(contract: any, name: string,
 	yield '}\n\n';
 }
 
+/**
+ * Create a Typescript comm for a given OpenRPC contract.
+ *
+ * @param name The name of the comm
+ * @param frontend The OpenRPC contract for the frontend
+ * @param backend The OpenRPC contract for the backend
+ */
 async function* createTypescriptComm(name: string, frontend: any, backend: any): AsyncGenerator<string> {
 	// Read the metadata file
 	const metadata: CommMetadata = JSON.parse(
