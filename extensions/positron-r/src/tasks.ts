@@ -25,7 +25,7 @@ export async function providePackageTasks(context: vscode.ExtensionContext): Pro
 }
 
 export async function getRPackageTasks(): Promise<vscode.Task[]> {
-	if (!manager.hasLastBinpath) {
+	if (!manager.hasLastBinpath()) {
 		throw new Error(`No running R runtime to use for R package tasks.`);
 	}
 	const allPackageTasks: PackageTask[] = [

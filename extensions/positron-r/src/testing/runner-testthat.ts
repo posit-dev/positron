@@ -24,7 +24,7 @@ export async function runThatTest(
 ): Promise<string> {
 	// in all scenarios, we execute devtools::SOMETHING() in a child process
 	// if we can't get the path to the relevant R executable, no point in continuing
-	if (!manager.hasLastBinpath) {
+	if (!manager.hasLastBinpath()) {
 		return Promise.resolve('No running R runtime to run R package tests.');
 	}
 
