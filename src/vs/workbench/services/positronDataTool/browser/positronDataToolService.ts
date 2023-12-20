@@ -33,8 +33,6 @@ class PositronDataToolService extends Disposable implements IPositronDataToolSer
 	) {
 		// Call the disposable constrcutor.
 		super();
-
-		this._positronDataToolInstanceMap.entries();
 	}
 
 	//#endregion Constructor & Dispose
@@ -50,19 +48,21 @@ class PositronDataToolService extends Disposable implements IPositronDataToolSer
 	 * Test open function.
 	 */
 	async testOpen(identifier: string): Promise<void> {
+		// Add the instance, if necessary.
 		if (!this._positronDataToolInstanceMap.has(identifier)) {
 			const positronDataToolInstance = new PositronDataToolInstance(identifier);
 			this._positronDataToolInstanceMap.set(identifier, positronDataToolInstance);
 		}
 
+		// Open the editor.
 		await this._editorService.openEditor({
 			resource: PositronDataToolUri.generate(identifier)
 		});
 	}
 
 	/**
-	 *
-	 * @param identifier
+	 * Gets a Positron data tool instance.
+	 * @param identifier The identifier of the Positron data tool instance.
 	 */
 	getInstance(identifier: string): IPositronDataToolInstance | undefined {
 		return this._positronDataToolInstanceMap.get(identifier);
