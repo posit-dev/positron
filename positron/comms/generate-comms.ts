@@ -793,8 +793,12 @@ function* createTypescriptComm(name: string, frontend: any, backend: any): Gener
 // AUTO-GENERATED from ${name}.json; do not edit.
 //
 
-import { Event } from 'vs/base/common/event';
-import { PositronBaseComm } from 'vs/workbench/services/languageRuntime/common/positronBaseComm';
+`;
+	// If there are frontend events, import the Event class
+	if (frontend) {
+		yield `import { Event } from 'vs/base/common/event';\n`;
+	}
+	yield `import { PositronBaseComm } from 'vs/workbench/services/languageRuntime/common/positronBaseComm';
 import { IRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeClientInstance';
 
 `;
