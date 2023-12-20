@@ -108,7 +108,7 @@ export interface Variable {
 /**
  * Possible values for Kind in Variable
  */
-enum VariableKind {
+export enum VariableKind {
 	Boolean = 'boolean',
 	Bytes = 'bytes',
 	Collection = 'collection',

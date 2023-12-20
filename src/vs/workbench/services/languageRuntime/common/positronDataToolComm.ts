@@ -274,7 +274,7 @@ export interface ColumnSortKey {
 /**
  * Possible values for ProfileType in GetColumnProfile
  */
-enum GetColumnProfileProfileType {
+export enum GetColumnProfileProfileType {
 	Freqtable = 'freqtable',
 	Histogram = 'histogram'
 }
@@ -282,7 +282,7 @@ enum GetColumnProfileProfileType {
 /**
  * Possible values for FilterType in ColumnFilter
  */
-enum ColumnFilterFilterType {
+export enum ColumnFilterFilterType {
 	Isnull = 'isnull',
 	Notnull = 'notnull',
 	Compare = 'compare',
@@ -293,7 +293,7 @@ enum ColumnFilterFilterType {
 /**
  * Possible values for CompareOp in ColumnFilter
  */
-enum ColumnFilterCompareOp {
+export enum ColumnFilterCompareOp {
 	EqEq = '==',
 	NotEq = '!=',
 	Lt = '<',
@@ -305,7 +305,7 @@ enum ColumnFilterCompareOp {
 /**
  * Possible values for SearchType in ColumnFilter
  */
-enum ColumnFilterSearchType {
+export enum ColumnFilterSearchType {
 	Contains = 'contains',
 	Startswith = 'startswith',
 	Endswith = 'endswith',

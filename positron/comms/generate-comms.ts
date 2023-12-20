@@ -789,7 +789,7 @@ import { IRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/co
 				snakeCaseToSentenceCase(context[0]) + ` in ` +
 				snakeCaseToSentenceCase(context[1]));
 			yield ' */\n';
-			yield `enum ${snakeCaseToSentenceCase(context[1])}${snakeCaseToSentenceCase(context[0])} {\n`;
+			yield `export enum ${snakeCaseToSentenceCase(context[1])}${snakeCaseToSentenceCase(context[0])} {\n`;
 			for (let i = 0; i < values.length; i++) {
 				const value = values[i];
 				yield `\t${snakeCaseToSentenceCase(value)} = '${value}'`;

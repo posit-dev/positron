@@ -13,7 +13,7 @@ import { IRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/co
 /**
  * Possible values for Kind in ShowHelp
  */
-enum ShowHelpKind {
+export enum ShowHelpKind {
 	Html = 'html',
 	Markdown = 'markdown',
 	Url = 'url'
