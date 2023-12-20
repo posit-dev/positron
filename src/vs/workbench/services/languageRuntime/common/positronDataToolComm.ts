@@ -6,7 +6,6 @@
 // AUTO-GENERATED from data_tool.json; do not edit.
 //
 
-import { Event } from 'vs/base/common/event';
 import { PositronBaseComm } from 'vs/workbench/services/languageRuntime/common/positronBaseComm';
 import { IRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeClientInstance';
 
