@@ -708,9 +708,9 @@ from dataclasses import dataclass, field
  * @returns A generator that yields the Typescript code for an interface
  * representing the schema
  */
-async function* createTypescriptInterface(contract: any, name: string,
+function* createTypescriptInterface(contract: any, name: string,
 	description: string,
-	properties: Record<string, any>) {
+	properties: Record<string, any>): Generator<string> {
 
 	if (!description) {
 		throw new Error(`No description for '${name}'; please add a description to the schema`);
@@ -750,7 +750,7 @@ async function* createTypescriptInterface(contract: any, name: string,
  * @param frontend The OpenRPC contract for the frontend
  * @param backend The OpenRPC contract for the backend
  */
-async function* createTypescriptComm(name: string, frontend: any, backend: any): AsyncGenerator<string> {
+function* createTypescriptComm(name: string, frontend: any, backend: any): Generator<string> {
 	// Read the metadata file
 	const metadata: CommMetadata = JSON.parse(
 		readFileSync(path.join(commsDir, `${name}.json`), { encoding: 'utf-8' }));
@@ -768,24 +768,20 @@ import { IRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/co
 
 `;
 
-	if (backend) {
-		// Create interfaces for all the object schemas first
-		for (const method of backend.methods) {
-			if (method.result &&
-				method.result.schema &&
-				method.result.schema.type === 'object') {
-				yield* createTypescriptInterface(backend, method.result.schema.name,
-					method.result.schema.description,
-					method.result.schema.properties);
-			}
-		}
-	}
-
-	// Create enums for all enum types
 	for (const source of [backend, frontend]) {
 		if (!source) {
 			continue;
 		}
+		yield* objectVisitor([], source,
+			function* (context: Array<string>, o: Record<string, any>): Generator<string> {
+				const name = o.name ? o.name : context[0] === 'items' ? context[1] : context[0];
+				const description = o.description ? o.description :
+					snakeCaseToSentenceCase(context[0]) + ' in ' +
+					snakeCaseToSentenceCase(context[1]);
+				yield* createTypescriptInterface(source, name, description, o.properties);
+			});
+
+		// Create enums for all enum types
 		yield* enumVisitor([], source, function* (context: Array<string>, values: Array<string>) {
 			yield '/**\n';
 			yield formatComment(` * `,
@@ -814,11 +810,7 @@ import { IRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/co
 		if (source.components && source.components.schemas) {
 			for (const key of Object.keys(backend.components.schemas)) {
 				const schema = backend.components.schemas[key];
-				if (schema.type === 'object') {
-					yield* createTypescriptInterface(backend, key,
-						schema.description,
-						schema.properties);
-				} else {
+				if (schema.type !== 'object') {
 					yield `/**\n`;
 					yield formatComment(' * ', schema.description);
 					yield ' */\n';

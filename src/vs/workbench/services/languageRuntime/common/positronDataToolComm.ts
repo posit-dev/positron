@@ -105,6 +105,22 @@ export interface ProfileResult {
 }
 
 /**
+ * Items in FreqtableCounts
+ */
+export interface FreqtableCounts {
+	/**
+	 * Stringified value
+	 */
+	value: string;
+
+	/**
+	 * Number of occurrences of value
+	 */
+	count: number;
+
+}
+
+/**
  * The current backend state
  */
 export interface BackendState {
@@ -118,47 +134,6 @@ export interface BackendState {
 	 */
 	sort_keys: Array<ColumnSortKey>;
 
-}
-
-/**
- * Possible values for ProfileType in GetColumnProfile
- */
-enum GetColumnProfileProfileType {
-	Freqtable = 'freqtable',
-	Histogram = 'histogram'
-}
-
-/**
- * Possible values for FilterType in ColumnFilter
- */
-enum ColumnFilterFilterType {
-	Isnull = 'isnull',
-	Notnull = 'notnull',
-	Compare = 'compare',
-	SetMembership = 'set_membership',
-	Search = 'search'
-}
-
-/**
- * Possible values for CompareOp in ColumnFilter
- */
-enum ColumnFilterCompareOp {
-	EqEq = '==',
-	NotEq = '!=',
-	Lt = '<',
-	LtEq = '<=',
-	Gt = '>',
-	GtEq = '>='
-}
-
-/**
- * Possible values for SearchType in ColumnFilter
- */
-enum ColumnFilterSearchType {
-	Contains = 'contains',
-	Startswith = 'startswith',
-	Endswith = 'endswith',
-	Regex = 'regex'
 }
 
 /**
@@ -206,11 +181,6 @@ export interface ColumnSchema {
 	type_size: number;
 
 }
-
-/**
- * Column values formatted as strings
- */
-export type ColumnFormattedData = Array<string>;
 
 /**
  * Specifies a table row filter based on a column's values
@@ -300,6 +270,52 @@ export interface ColumnSortKey {
 	ascending: boolean;
 
 }
+
+/**
+ * Possible values for ProfileType in GetColumnProfile
+ */
+enum GetColumnProfileProfileType {
+	Freqtable = 'freqtable',
+	Histogram = 'histogram'
+}
+
+/**
+ * Possible values for FilterType in ColumnFilter
+ */
+enum ColumnFilterFilterType {
+	Isnull = 'isnull',
+	Notnull = 'notnull',
+	Compare = 'compare',
+	SetMembership = 'set_membership',
+	Search = 'search'
+}
+
+/**
+ * Possible values for CompareOp in ColumnFilter
+ */
+enum ColumnFilterCompareOp {
+	EqEq = '==',
+	NotEq = '!=',
+	Lt = '<',
+	LtEq = '<=',
+	Gt = '>',
+	GtEq = '>='
+}
+
+/**
+ * Possible values for SearchType in ColumnFilter
+ */
+enum ColumnFilterSearchType {
+	Contains = 'contains',
+	Startswith = 'startswith',
+	Endswith = 'endswith',
+	Regex = 'regex'
+}
+
+/**
+ * Column values formatted as strings
+ */
+export type ColumnFormattedData = Array<string>;
 
 export class PositronDataToolComm extends PositronBaseComm {
 	constructor(instance: IRuntimeClientInstance<any, any>) {
