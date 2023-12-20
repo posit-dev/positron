@@ -181,5 +181,19 @@ export class PositronVariablesComm extends PositronBaseComm {
 		return super.performRpc('clipboard_format', ['path', 'format'], [path, format]);
 	}
 
+	/**
+	 * Request a viewer for a variable
+	 *
+	 * Request that the runtime open a data viewer to display the data in a
+	 * variable.
+	 *
+	 * @param path The path to the variable to view, as an array of access
+	 * keys.
+	 *
+	 */
+	view(path: Array<string>): Promise<void> {
+		return super.performRpc('view', ['path'], [path]);
+	}
+
 }
 

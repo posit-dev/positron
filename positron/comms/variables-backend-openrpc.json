@@ -123,6 +123,24 @@
 					]
 				}
 			}
+		},
+		{
+			"name": "view",
+			"summary": "Request a viewer for a variable",
+			"description": "Request that the runtime open a data viewer to display the data in a variable.",
+			"params": [
+				{
+					"name": "path",
+					"description": "The path to the variable to view, as an array of access keys.",
+					"schema": {
+						"type": "array",
+						"items": {
+							"type": "string"
+						}
+					}
+				}
+			],
+			"result": {}
 		}
 	],
 	"components": {
