@@ -88,7 +88,7 @@ export async function runThatTest(
 		`devtools::load_all('${testReporterPath}');` +
 		`devtools::${devtoolsMethod}('${testPath}',` +
 		`${descInsert}reporter = VSCodeReporter)`;
-	const command = `${rBinPath} --no-echo -e "${devtoolsCall}"`;
+	const command = `"${rBinPath}" --no-echo -e "${devtoolsCall}"`;
 	Logger.info(`devtools call is:\n${command}`);
 
 	const wd = testingTools.packageRoot.fsPath;
@@ -265,7 +265,7 @@ async function getDevtoolsVersion(rBinPath: string): Promise<{ major: number; mi
 	// eslint-disable-next-line no-async-promise-executor
 	return new Promise(async (resolve, reject) => {
 		const childProcess = spawn(
-			`${rBinPath} --no-echo -e "writeLines(format(packageVersion('devtools')))"`,
+			`"${rBinPath}" --no-echo -e "writeLines(format(packageVersion('devtools')))"`,
 			{
 				shell: true,
 			}
