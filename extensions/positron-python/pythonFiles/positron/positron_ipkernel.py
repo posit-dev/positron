@@ -7,10 +7,23 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import re
 import warnings
 from collections.abc import Iterable
 from itertools import chain
-from typing import Any, Callable, Container, Coroutine, Dict, Mapping, Optional, Set, Tuple, Type
+from pathlib import Path
+from typing import (
+    Any,
+    Callable,
+    Container,
+    Dict,
+    List,
+    Mapping,
+    Optional,
+    Set,
+    Tuple,
+    Type,
+)
 
 import traitlets
 from ipykernel.comm.manager import CommManager
@@ -19,7 +32,13 @@ from ipykernel.kernelapp import IPKernelApp
 from ipykernel.zmqshell import ZMQDisplayPublisher, ZMQInteractiveShell
 from IPython.core import oinspect, page
 from IPython.core.interactiveshell import InteractiveShell
-from IPython.core.magic import Magics, MagicsManager, line_magic, magics_class, needs_local_scope
+from IPython.core.magic import (
+    Magics,
+    MagicsManager,
+    line_magic,
+    magics_class,
+    needs_local_scope,
+)
 from IPython.utils import PyColorize
 
 from .dataviewer import DataViewerService
@@ -94,6 +113,9 @@ class PositronIPythonInspector(oinspect.Inspector):
     pinfo.__doc__ = oinspect.Inspector.pinfo.__doc__
 
 
+_traceback_file_link_re = re.compile(r"^(File \x1b\[\d+;\d+m)(.+):(\d+)")
+
+
 class PositronShell(ZMQInteractiveShell):
     kernel: PositronIPyKernel
     object_info_string_level: int
@@ -148,6 +170,44 @@ class PositronShell(ZMQInteractiveShell):
                 exit_hook = getattr(self.kernel.eventloop, "exit_hook", None)
                 if exit_hook:
                     exit_hook(self.kernel)
+
+    def _showtraceback(self, etype, evalue: Exception, stb: List[str]):  # type: ignore IPython type annotation is wrong
+        # Remove the first two lines of the traceback, which are the "---" header and the repeated
+        # exception name and "Traceback (most recent call last)".
+        # Remove the last line of the traceback, which repeats f"{etype}: {evalue}".
+        frames = stb[2:-1]
+
+        # Replace file links in each frame's header with an OSC8 link to the file and line number.
+        new_frames = []
+        for frame in frames:
+            lines = frame.split("\n")
+            # Add an OSC8 hyperlink to the frame header.
+            lines[0] = _traceback_file_link_re.sub(_add_osc8_link, lines[0])
+            new_frames.append("\n".join(lines))
+
+        # Pop the first stack trace into evalue, so that it shows above the "Show Traceback" button
+        # in the Positron Console.
+        first_frame = new_frames.pop(0) if new_frames else ""
+        evalue_str = f"{evalue}\n{first_frame}"
+
+        # The parent implementation actually expects evalue to be an Exception instance, but
+        # eventually calls str() on it. We're short-circuiting that by passing a string directly.
+        # It works for now but might not in future.
+        return super()._showtraceback(etype, evalue_str, new_frames)  # type: ignore IPython type annotation is wrong
+
+
+def _add_osc8_link(match: re.Match) -> str:
+    """
+    Convert a link matched by `_traceback_file_link_re` to an OSC8 link.
+    """
+    pre, path, line = match.groups()
+    abs_path = Path(path).expanduser()
+    try:
+        uri = abs_path.as_uri()
+    except ValueError:
+        # The path might be like '<ipython-...>' which raises a ValueError on as_uri().
+        return match.group(0)
+    return pre + _link(uri, f"{path}:{line}", {"line": line})
 
 
 class PositronIPyKernel(IPythonKernel):
@@ -510,3 +570,38 @@ class ViewerMagic(Magics):
 
         if dataset is not None:
             self.shell.kernel.dataviewer_service.register_dataset(dataset)
+
+
+#
+# OSC8 functionality
+#
+# See https://iterm2.com/3.2/documentation-escape-codes.html for a description.
+#
+
+# Define a few OSC8 excape codes for convenience.
+_ESC = "\x1b"
+_OSC = _ESC + "]"
+_OSC8 = _OSC + "8"
+_ST = _ESC + "\\"
+
+
+def _start_hyperlink(uri: str = "", params: Dict[str, str] = {}) -> str:
+    """
+    Start sequence for a hyperlink.
+    """
+    params_str = ":".join(f"{key}={value}" for key, value in params.items())
+    return ";".join([_OSC8, params_str, uri]) + _ST
+
+
+def _end_hyperlink() -> str:
+    """
+    End sequence for a hyperlink.
+    """
+    return _start_hyperlink()
+
+
+def _link(uri: str, label: str, params: Dict[str, str] = {}) -> str:
+    """
+    Create a hyperlink with the given label, URI, and params.
+    """
+    return _start_hyperlink(uri, params) + label + _end_hyperlink()
