@@ -17,12 +17,12 @@ export interface TableSchema {
 	/**
 	 * Schema for each column in the table
 	 */
-	columns: Array<ColumnSchema>;
+	columns?: Array<ColumnSchema>;
 
 	/**
 	 * Numbers of rows in the unfiltered dataset
 	 */
-	num_rows: number;
+	num_rows?: number;
 
 }
 
@@ -38,7 +38,7 @@ export interface TableData {
 	/**
 	 * Zero or more arrays of row labels
 	 */
-	row_labels: Array<ColumnFormattedData>;
+	row_labels?: Array<ColumnFormattedData>;
 
 }
 
@@ -49,7 +49,7 @@ export interface FilterResult {
 	/**
 	 * Number of rows in table after applying filters
 	 */
-	selected_num_rows: number;
+	selected_num_rows?: number;
 
 }
 
@@ -65,42 +65,42 @@ export interface ProfileResult {
 	/**
 	 * Minimum value as string computed as part of histogram
 	 */
-	min_value: string;
+	min_value?: string;
 
 	/**
 	 * Maximum value as string computed as part of histogram
 	 */
-	max_value: string;
+	max_value?: string;
 
 	/**
 	 * Average value as string computed as part of histogram
 	 */
-	mean_value: string;
+	mean_value?: string;
 
 	/**
 	 * Absolute count of values in each histogram bin
 	 */
-	histogram_bin_sizes: Array<number>;
+	histogram_bin_sizes?: Array<number>;
 
 	/**
 	 * Absolute floating-point width of a histogram bin
 	 */
-	histogram_bin_width: number;
+	histogram_bin_width?: number;
 
 	/**
 	 * Quantile values computed from histogram bins
 	 */
-	histogram_quantiles: Array<ColumnQuantileValue>;
+	histogram_quantiles?: Array<ColumnQuantileValue>;
 
 	/**
 	 * Counts of distinct values in column
 	 */
-	freqtable_counts: Array<FreqtableCounts>;
+	freqtable_counts?: Array<FreqtableCounts>;
 
 	/**
 	 * Number of other values not accounted for in counts
 	 */
-	freqtable_other_count: number;
+	freqtable_other_count?: number;
 
 }
 
@@ -111,12 +111,12 @@ export interface FreqtableCounts {
 	/**
 	 * Stringified value
 	 */
-	value: string;
+	value?: string;
 
 	/**
 	 * Number of occurrences of value
 	 */
-	count: number;
+	count?: number;
 
 }
 
@@ -127,12 +127,12 @@ export interface BackendState {
 	/**
 	 * The set of currently applied filters
 	 */
-	filters: Array<ColumnFilter>;
+	filters?: Array<ColumnFilter>;
 
 	/**
 	 * The set of currently applied sorts
 	 */
-	sort_keys: Array<ColumnSortKey>;
+	sort_keys?: Array<ColumnSortKey>;
 
 }
 
@@ -153,32 +153,32 @@ export interface ColumnSchema {
 	/**
 	 * Column annotation / description
 	 */
-	description: string;
+	description?: string;
 
 	/**
 	 * Schema of nested child types
 	 */
-	children: Array<ColumnSchema>;
+	children?: Array<ColumnSchema>;
 
 	/**
 	 * Precision for decimal types
 	 */
-	precision: number;
+	precision?: number;
 
 	/**
 	 * Scale for decimal types
 	 */
-	scale: number;
+	scale?: number;
 
 	/**
 	 * Time zone for timestamp with time zone
 	 */
-	timezone: string;
+	timezone?: string;
 
 	/**
 	 * Size parameter for fixed-size types (list, binary)
 	 */
-	type_size: number;
+	type_size?: number;
 
 }
 
@@ -199,37 +199,37 @@ export interface ColumnFilter {
 	/**
 	 * String representation of a binary comparison
 	 */
-	compare_op: ColumnFilterCompareOp;
+	compare_op?: ColumnFilterCompareOp;
 
 	/**
 	 * A stringified column value for a comparison filter
 	 */
-	compare_value: string;
+	compare_value?: string;
 
 	/**
 	 * Array of column values for a set membership filter
 	 */
-	set_member_values: Array<string>;
+	set_member_values?: Array<string>;
 
 	/**
 	 * Filter by including only values passed (true) or excluding (false)
 	 */
-	set_member_inclusive: boolean;
+	set_member_inclusive?: boolean;
 
 	/**
 	 * Type of search to perform
 	 */
-	search_type: ColumnFilterSearchType;
+	search_type?: ColumnFilterSearchType;
 
 	/**
 	 * String value/regex to search for in stringified data
 	 */
-	search_term: string;
+	search_term?: string;
 
 	/**
 	 * If true, do a case-sensitive search, otherwise case-insensitive
 	 */
-	search_case_sensitive: boolean;
+	search_case_sensitive?: boolean;
 
 }
 
@@ -240,18 +240,18 @@ export interface ColumnQuantileValue {
 	/**
 	 * Quantile number (percentile). E.g. 1 for 1%, 50 for median
 	 */
-	q: number;
+	q?: number;
 
 	/**
 	 * Stringified quantile value
 	 */
-	value: string;
+	value?: string;
 
 	/**
 	 * Whether value is exact or approximate (computed from binned data or
 	 * sketches)
 	 */
-	exact: boolean;
+	exact?: boolean;
 
 }
 
@@ -262,12 +262,12 @@ export interface ColumnSortKey {
 	/**
 	 * Column name to sort by
 	 */
-	column: string;
+	column?: string;
 
 	/**
 	 * Sort order, ascending (true) or descending (false)
 	 */
-	ascending: boolean;
+	ascending?: boolean;
 
 }
 

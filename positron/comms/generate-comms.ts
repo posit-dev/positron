@@ -704,13 +704,16 @@ from dataclasses import dataclass, field
  * @param name The name of the schema
  * @param description The description of the schema
  * @param properties The properties of the schema
+ * @param required An array of required properties
  *
  * @returns A generator that yields the Typescript code for an interface
  * representing the schema
  */
-function* createTypescriptInterface(contract: any, name: string,
+function* createTypescriptInterface(contract: any,
+	name: string,
 	description: string,
-	properties: Record<string, any>): Generator<string> {
+	properties: Record<string, any>,
+	required: Array<string>): Generator<string> {
 
 	if (!description) {
 		throw new Error(`No description for '${name}'; please add a description to the schema`);
@@ -730,7 +733,11 @@ function* createTypescriptInterface(contract: any, name: string,
 		yield '\t/**\n';
 		yield formatComment('\t * ', schema.description);
 		yield '\t */\n';
-		yield `\t${prop}: `;
+		yield `\t${prop}`;
+		if (!required.includes(prop)) {
+			yield '?';
+		}
+		yield `: `;
 		if (schema.type === 'object') {
 			yield snakeCaseToSentenceCase(schema.name);
 		} else if (schema.type === 'string' && schema.enum) {
@@ -778,7 +785,8 @@ import { IRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/co
 				const description = o.description ? o.description :
 					snakeCaseToSentenceCase(context[0]) + ' in ' +
 					snakeCaseToSentenceCase(context[1]);
-				yield* createTypescriptInterface(source, name, description, o.properties);
+				yield* createTypescriptInterface(source, name, description, o.properties,
+					o.required ? o.required : []);
 			});
 
 		// Create enums for all enum types

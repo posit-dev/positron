@@ -71,7 +71,11 @@
 							"type": "integer",
 							"description": "The total number of children. This may be greater than the number of children in the 'children' array if the array is truncated."
 						}
-					}
+					},
+					"required": [
+						"children",
+						"length"
+					]
 				}
 			}
 		},
@@ -112,7 +116,11 @@
 							"type": "string",
 							"description": "The formatted content of the variable."
 						}
-					}
+					},
+					"required": [
+						"format",
+						"content"
+					]
 				}
 			}
 		}
@@ -176,7 +184,19 @@
 						"type": "boolean",
 						"description": "True the 'value' field is a truncated representation of the variable's value"
 					}
-				}
+				},
+				"required": [
+					"access_key",
+					"display_name",
+					"display_value",
+					"display_type",
+					"type_info",
+					"kind",
+					"length",
+					"has_children",
+					"has_viewer",
+					"is_truncated"
+				]
 			}
 		}
 	}
