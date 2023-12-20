@@ -5,13 +5,12 @@
 import * as vscode from 'vscode';
 import * as positron from 'positron';
 import { timeout } from './util';
-import { RRuntime } from './runtime';
-import { getRunningRRuntime } from './provider';
+import { getRunningRRuntime } from './runtime';
 import { getRPackageName } from './contexts';
 import { getRPackageTasks } from './tasks';
 import { randomUUID } from 'crypto';
 
-export async function registerCommands(context: vscode.ExtensionContext, runtimes: Map<string, RRuntime>) {
+export async function registerCommands(context: vscode.ExtensionContext) {
 
 	context.subscriptions.push(
 
@@ -57,7 +56,7 @@ export async function registerCommands(context: vscode.ExtensionContext, runtime
 			const packageName = await getRPackageName();
 			const tasks = await getRPackageTasks();
 			const task = tasks.filter(task => task.definition.task === 'r.task.packageInstall')[0];
-			const runtime = await getRunningRRuntime(runtimes);
+			const runtime = await getRunningRRuntime();
 
 			const execution = await vscode.tasks.executeTask(task);
 			const disp1 = vscode.tasks.onDidEndTaskProcess(async e => {
