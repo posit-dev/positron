@@ -15,8 +15,7 @@ from lsprotocol.types import (
     Position,
     TextDocumentIdentifier,
 )
-from positron.help import ShowHelpTopicParams
-from positron.inspectors import get_inspector
+from positron.help_comm import ShowHelpTopicParams
 from positron.jedi import PositronInterpreter
 from positron.positron_ipkernel import PositronIPyKernel
 from positron.positron_jedilsp import (
