@@ -299,41 +299,6 @@ function* objectVisitor(
 }
 
 /**
- * Create a Rust struct for a given object schema.
- *
- * @param contract The OpenRPC contract that the schema is part of
- * @param name The name of the schema
- * @param description The description of the schema
- * @param properties The properties of the schema
- *
- * @returns A generator that yields the Rust code for the struct
- */
-function* createRustStruct(contract: any, name: string,
-	description: string,
-	properties: Record<string, any>): Generator<string> {
-
-	// Create the preamble
-	yield formatComment('/// ', description);
-	yield '#[derive(Debug, Serialize, Deserialize, PartialEq)]\n';
-	yield `pub struct ${snakeCaseToSentenceCase(name)} {\n`;
-
-	// Create a field for each property
-	const props = Object.keys(properties);
-	for (let i = 0; i < props.length; i++) {
-		const prop = props[i];
-		const schema = properties[prop];
-		if (schema.description) {
-			yield formatComment('\t/// ', schema.description);
-		}
-		yield `\tpub ${prop}: ${deriveType(contract, RustTypeMap, prop, schema)},\n`;
-		if (i < props.length - 1) {
-			yield '\n';
-		}
-	}
-	yield '}\n\n';
-}
-
-/**
  * Create a Rust comm for a given OpenRPC contract.
  *
  * @param name The name of the comm
@@ -526,48 +491,6 @@ use serde::Serialize;
 }
 
 /**
- * Create a Python dataclass for a given object schema.
- *
- * @param contract The OpenRPC contract that the schema is part of
- * @param name The name of the schema
- * @param description The description of the schema
- * @param properties The properties of the schema
- *
- * @returns A generator that yields the Python code for a dataclass representing
- * the schema
- */
-function* createPythonDataclass(contract: any,
-	name: string,
-	description: string,
-	properties: Record<string, any>): Generator<string> {
-
-	// Preamble
-	yield '@dataclass\n';
-	yield `class ${snakeCaseToSentenceCase(name)}:\n`;
-
-	// Docstring
-	if (description) {
-		yield '    """\n';
-		yield formatComment('    ', description);
-		yield '    """\n';
-		yield '\n';
-	}
-
-	// Fields
-	for (const prop of Object.keys(properties)) {
-		const schema = properties[prop];
-		yield `    ${prop}: ${deriveType(contract, PythonTypeMap, prop, schema)}`;
-		yield ' = field(\n';
-		yield `        metadata={\n`;
-		yield `            "description": "${schema.description}",\n`;
-		yield `        }\n`;
-		yield `    )\n\n`;
-	}
-	yield '\n\n';
-}
-
-
-/**
  * Create a Python comm for a given OpenRPC contract.
  *
  * @param name The name of the comm
@@ -592,41 +515,48 @@ from dataclasses import dataclass, field
 
 `;
 
-	if (backend) {
-		// Create classes for all the object schemas first
-		for (const method of backend.methods) {
-			if (method.result &&
-				method.result.schema &&
-				method.result.schema.type === 'object') {
-				yield* createPythonDataclass(backend, method.result.schema.name,
-					method.result.schema.description,
-					method.result.schema.properties);
-			}
-		}
-	}
-
-	for (const source of [backend, frontend]) {
-		// Create classes for all the shared components
-		if (!source) {
-			continue;
-		}
-		if (source.components && source.components.schemas) {
-			for (const key of Object.keys(backend.components.schemas)) {
-				const schema = backend.components.schemas[key];
-				if (schema.type === 'object') {
-					yield* createPythonDataclass(backend, key,
-						schema.description,
-						schema.properties);
-				}
-			}
-		}
-	}
-
-	// Create enums for all enum types
 	for (const source of [backend, frontend]) {
 		if (!source) {
 			continue;
 		}
+		// Create dataclasses for all object types
+		yield* objectVisitor([], source, function* (
+			context: Array<string>,
+			o: Record<string, any>) {
+
+			// Preamble
+			yield '@dataclass\n';
+			const name = o.name ? o.name : context[0] === 'items' ? context[1] : context[0];
+			yield `class ${snakeCaseToSentenceCase(name)}:\n`;
+
+			// Docstring
+			if (o.description) {
+				yield '    """\n';
+				yield formatComment('    ', o.description);
+				yield '    """\n';
+				yield '\n';
+			} else {
+				yield '    """\n';
+				yield formatComment('    ', snakeCaseToSentenceCase(context[0]) + ' in ' +
+					snakeCaseToSentenceCase(context[1]));
+				yield '    """\n';
+				yield '\n';
+			}
+
+			// Fields
+			for (const prop of Object.keys(o.properties)) {
+				const schema = o.properties[prop];
+				yield `    ${prop}: ${deriveType(source, PythonTypeMap, prop, schema)}`;
+				yield ' = field(\n';
+				yield `        metadata={\n`;
+				yield `            "description": "${schema.description}",\n`;
+				yield `        }\n`;
+				yield `    )\n\n`;
+			}
+			yield '\n\n';
+		});
+
+		// Create enums for all enum types
 		yield* enumVisitor([], source, function* (context: Array<string>, values: Array<string>) {
 			yield '@enum.unique\n';
 			yield `class ${snakeCaseToSentenceCase(context[1])}`;
