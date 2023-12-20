@@ -1,13 +1,15 @@
 import os
 from pathlib import Path
 from typing import Any, Dict, Iterable, cast
+from unittest.mock import Mock
 
 import comm
 import pytest
 from IPython.terminal.interactiveshell import TerminalInteractiveShell
+from IPython.utils.syspathcontext import prepended_to_syspath
 
 from positron.frontend import FrontendService
-from positron.positron_ipkernel import PositronIPyKernel
+from positron.positron_ipkernel import PositronIPyKernel, PositronShell
 
 from .conftest import DummyComm
 
@@ -70,16 +72,21 @@ def test_view_unsupported_type(shell):
         shell.run_line_magic("view", "12")
 
 
-def _working_directory_event() -> Dict[str, Any]:
-    # Get the current working directory
-    current_dir = Path.cwd()
-    # Alias ~ to the home directory
+def _alias_home(path: Path) -> Path:
+    """
+    Alias the home directory to ~ in a path.
+    """
     home_dir = Path.home()
     try:
-        # relative_to will raise a ValueError if current_dir is not within the home directory
-        current_dir = Path("~") / current_dir.relative_to(home_dir)
+        # relative_to will raise a ValueError if path is not within the home directory
+        return Path("~") / path.relative_to(home_dir)
     except ValueError:
-        pass
+        return path
+
+
+def _working_directory_event() -> Dict[str, Any]:
+    # Get the current working directory
+    current_dir = _alias_home(Path.cwd())
 
     return {
         "data": {
@@ -139,3 +146,117 @@ def test_poll_working_directory_post_execution(
 
     # Restore the original working directory for remaining tests
     os.chdir(cwd)
+
+
+code = """def f():
+    raise Exception("This is an error!")
+
+def g():
+    f()
+"""
+
+
+def test_traceback(tmp_path: Path) -> None:
+    # We follow the approach of IPython's test_ultratb.py, which is to create a temporary module,
+    # prepend its parent directory to sys.path, import it, then run a cell that calls a function
+    # from it.
+
+    # We can't use the shell fixture for this since it has non-ascii error messages and doesn't
+    # send errors to the frontend.
+    s = PositronShell()
+    # The error message is sent via the displayhook.
+    s.displayhook = Mock()
+
+    # Create a temporary module.
+    file = tmp_path / "foo.py"
+    file.write_text(code)
+
+    # Temporarily add the module to sys.path and call a function from it, which should error.
+    with prepended_to_syspath(str(tmp_path)):
+        s.run_cell("import foo; foo.g()")
+
+    # NOTE(seem): This is not elegant, but I'm not sure how else to test this than other than to
+    # compare the beginning of each frame of the traceback. The escape codes make it particularly
+    # challenging.
+
+    path = str(_alias_home(file))
+    uri = file.expanduser().as_uri()
+
+    # Define a few OSC8 escape codes for convenience.
+    esc = "\x1b"
+    osc8 = esc + "]8"
+    st = esc + "\\"
+
+    # Convenient reference to colors from the active scheme.
+    colors = cast(Any, s.InteractiveTB.Colors)
+
+    # This template matches the beginning of each traceback frame. We don't check each entire frame
+    # because syntax highlighted code is full of escape codes. For example, after removing
+    # escape codes a formatted version of below might look like:
+    #
+    # File /private/var/folders/.../foo.py:11, in func()
+    #
+    traceback_frame_header = "".join(
+        [
+            "File ",
+            colors.filenameEm,
+            # File paths are replaced with OSC8 links.
+            osc8,
+            ";line={line};",
+            uri,
+            st,
+            path,
+            ":{line}",
+            osc8,
+            ";;",
+            st,
+            colors.Normal,
+            ", in ",
+            colors.vName,
+            "{func}",
+            colors.valEm,
+            "()",
+            colors.Normal,
+        ]
+    )
+
+    # Check that a single message was sent to the frontend.
+    call_args_list = cast(Mock, s.displayhook.session.send).call_args_list
+    assert len(call_args_list) == 1
+
+    call_args = call_args_list[0]
+
+    # Check that the message was sent over the "error" stream.
+    assert call_args.args[1] == "error"
+
+    exc_content = call_args.args[2]
+
+    # Check that two frames were included (the top frame is included in the exception value below).
+    traceback = exc_content["traceback"]
+    assert len(traceback) == 2
+
+    # Check the beginning of each frame.
+    _assert_ansi_string_startswith(traceback[0], traceback_frame_header.format(line=5, func="g"))
+    _assert_ansi_string_startswith(traceback[1], traceback_frame_header.format(line=2, func="f"))
+
+    # Check the exception name.
+    assert exc_content["ename"] == "Exception"
+
+    # The exception value should include the top of the stack trace.
+    _assert_ansi_string_startswith(
+        exc_content["evalue"], "This is an error!\nFile " + colors.filenameEm
+    )
+
+
+def _assert_ansi_string_startswith(actual: str, expected: str) -> None:
+    """
+    Assert that an ansi-formatted string starts with an expected string, in a way that gets pytest
+    to print a helpful diff.
+    """
+    # We manually trim each string instead of using str.startswith else pytest doesn't highlight
+    # where strings differ. We compare reprs so that pytest displays escape codes instead of
+    # interpreting them - it's easier to debug.
+    length = min(len(actual), len(expected))
+    actual = repr(actual[:length])
+    expected = repr(expected[:length])
+    assert actual == expected
