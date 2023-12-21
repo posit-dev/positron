@@ -117,14 +117,10 @@ export const DataToolPanel = (props: DataToolPanelProps) => {
 
 				column2.current.style.gridRow = 'main / end';
 				column2.current.style.gridColumn = 'column / end';
-				column2.current.style.display = 'inline';
+				column2.current.style.display = 'grid';
 				break;
 		}
 	}, [layout, columnsWidth]);
-
-	// Width effect.
-	useEffect(() => {
-	}, [props.width]);
 
 	/**
 	 * onResize handler.
@@ -146,7 +142,7 @@ export const DataToolPanel = (props: DataToolPanelProps) => {
 
 			// Columns hidden. This can't happen.
 			case PositronDataToolLayout.ColumnsHidden:
-				return PositronColumnSplitterResizeResult.TooLarge;
+				throw new Error('Resize is unavailable');
 		}
 
 		// If the new column width is too small, pin it at the minimum column width and return
@@ -182,7 +178,7 @@ export const DataToolPanel = (props: DataToolPanelProps) => {
 				className='data-tool-panel'
 			>
 				<div ref={column1} className='column-1'>
-					<ColumnsPanel />
+					<ColumnsPanel height={props.height - 16} />
 				</div>
 				<div ref={splitter} className='splitter'>
 					<PositronColumnSplitter width={8} onResize={resizeHandler} />

@@ -88,20 +88,19 @@ class PositronDataToolInstance extends Disposable implements IPositronDataToolIn
 	private _columnsWidthPercent = 0.25;
 
 	/**
-	 * Gets or sets the columns scroll position.
+	 * Gets or sets the columns scroll offset.
 	 */
-	private _columnsScrollPosition = 0;
+	private _columnsScrollOffset = 200;
 
 	/**
-	 * Gets or sets the rows scroll position.
+	 * Gets or sets the rows scroll offset.
 	 */
-	private _rowsScrollPosition = 0;
+	private _rowsScrollOffset = 0;
 
 	/**
 	 * The onDidChangeLayout event emitter.
 	 */
-	private readonly _onDidChangeLayoutEmitter =
-		this._register(new Emitter<PositronDataToolLayout>);
+	private readonly _onDidChangeLayoutEmitter = this._register(new Emitter<PositronDataToolLayout>);
 
 	/**
 	 * The onDidChangeColumnsWidthPercent event emitter.
@@ -109,14 +108,14 @@ class PositronDataToolInstance extends Disposable implements IPositronDataToolIn
 	private readonly _onDidChangeColumnsWidthPercentEmitter = this._register(new Emitter<number>);
 
 	/**
-	 * The onDidChangeColumnsScrollPositon event emitter.
+	 * The onDidChangeColumnsScrollOffset event emitter.
 	 */
-	private readonly _onDidChangeColumnsScrollPositionEmitter = this._register(new Emitter<number>);
+	private readonly _onDidChangeColumnsScrollOffsetEmitter = this._register(new Emitter<number>);
 
 	/**
-	 * The onDidChangeRowsScrollPositon event emitter.
+	 * The onDidChangeRowsScrollOffset event emitter.
 	 */
-	private readonly _onDidChangeRowsScrollPositionEmitter = this._register(new Emitter<number>);
+	private readonly _onDidChangeRowsScrollOffsetEmitter = this._register(new Emitter<number>);
 
 	//#endregion Private Properties
 
@@ -170,36 +169,37 @@ class PositronDataToolInstance extends Disposable implements IPositronDataToolIn
 	}
 
 	/**
-	 * Gets the columns scroll position.
+	 * Gets the columns scroll offset.
 	 */
-	get columnsScrollPosition() {
-		return this._columnsScrollPosition;
+	get columnsScrollOffset() {
+		return this._columnsScrollOffset;
 	}
 
 	/**
-	 * Sets the columns scroll position.
+	 * Sets the columns scroll offset.
 	 */
-	set columnsScrollPosition(columnsScrollPosition: number) {
-		if (columnsScrollPosition !== this._columnsScrollPosition) {
-			this._columnsScrollPosition = columnsScrollPosition;
-			this._onDidChangeColumnsScrollPositionEmitter.fire(this._columnsScrollPosition);
+	set columnsScrollOffset(columnsScrollOffset: number) {
+		console.log(`************************* setting column scroll offset to ${columnsScrollOffset}`);
+		if (columnsScrollOffset !== this._columnsScrollOffset) {
+			this._columnsScrollOffset = columnsScrollOffset;
+			this._onDidChangeColumnsScrollOffsetEmitter.fire(this._columnsScrollOffset);
 		}
 	}
 
 	/**
-	 * Gets the rows scroll position.
+	 * Gets the rows scroll offset.
 	 */
-	get rowsScrollPosition() {
-		return this._rowsScrollPosition;
+	get rowsScrollOffset() {
+		return this._rowsScrollOffset;
 	}
 
 	/**
-	 * Sets the rows scroll position.
+	 * Sets the rows scroll offset.
 	 */
-	set rowsScrollPosition(rowsScrollPosition: number) {
-		if (rowsScrollPosition !== this._rowsScrollPosition) {
-			this._rowsScrollPosition = rowsScrollPosition;
-			this._onDidChangeRowsScrollPositionEmitter.fire(this._rowsScrollPosition);
+	set rowsScrollOffset(rowsScrollOffset: number) {
+		if (rowsScrollOffset !== this._rowsScrollOffset) {
+			this._rowsScrollOffset = rowsScrollOffset;
+			this._onDidChangeRowsScrollOffsetEmitter.fire(this._rowsScrollOffset);
 		}
 	}
 
@@ -214,14 +214,14 @@ class PositronDataToolInstance extends Disposable implements IPositronDataToolIn
 	readonly onDidChangeColumnsWidthPercent = this._onDidChangeColumnsWidthPercentEmitter.event;
 
 	/**
-	 * onDidChangeColumnsScrollPosition event.
+	 * onDidChangeColumnsScrollOffset event.
 	 */
-	readonly onDidChangeColumnsScrollPosition = this._onDidChangeColumnsScrollPositionEmitter.event;
+	readonly onDidChangeColumnsScrollOffset = this._onDidChangeColumnsScrollOffsetEmitter.event;
 
 	/**
-	 * onDidChangeRowsScrollPosition event.
+	 * onDidChangeRowsScrollOffset event.
 	 */
-	readonly onDidChangeRowsScrollPosition = this._onDidChangeRowsScrollPositionEmitter.event;
+	readonly onDidChangeRowsScrollOffset = this._onDidChangeRowsScrollOffsetEmitter.event;
 
 	//#endregion IPositronDataToolInstance Implementation
 }

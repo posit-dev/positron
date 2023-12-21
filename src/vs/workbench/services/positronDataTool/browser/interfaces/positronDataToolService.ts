@@ -59,14 +59,14 @@ export interface IPositronDataToolInstance {
 	columnsWidthPercent: number;
 
 	/**
-	 * Gets or sets the columns scroll position.
+	 * Gets or sets the columns scroll offset.
 	 */
-	columnsScrollPosition: number;
+	columnsScrollOffset: number;
 
 	/**
-	 * Gets or sets the rows scroll position.
+	 * Gets or sets the rows scroll offset.
 	 */
-	rowsScrollPosition: number;
+	rowsScrollOffset: number;
 
 	/**
 	 * The onDidChangeLayout event.
@@ -79,12 +79,12 @@ export interface IPositronDataToolInstance {
 	readonly onDidChangeColumnsWidthPercent: Event<number>;
 
 	/**
-	 * The onDidChangeColumnsScrollPosition event.
+	 * The onDidChangeColumnsScrollOffset event.
 	 */
-	readonly onDidChangeColumnsScrollPosition: Event<number>;
+	readonly onDidChangeColumnsScrollOffset: Event<number>;
 
 	/**
-	 * The onDidChangeRowsScrollPosition event.
+	 * The onDidChangeRowsScrollOffset event.
 	 */
-	readonly onDidChangeRowsScrollPosition: Event<number>;
+	readonly onDidChangeRowsScrollOffset: Event<number>;
 }

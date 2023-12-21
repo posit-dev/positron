@@ -25,12 +25,12 @@ const columnsHidden = localize('positron.columnsHidden', "Columns Hidden");
  */
 export const LayoutMenuButton = () => {
 	// Context hooks.
-	const positronDataToolContext = usePositronDataToolContext();
+	const context = usePositronDataToolContext();
 
 	// Builds the actions.
 	const actions = () => {
 		// Get the current layout.
-		const layout = positronDataToolContext.instance.layout;
+		const layout = context.instance.layout;
 
 		// Build the actions.
 		const actions: IAction[] = [];
@@ -44,7 +44,7 @@ export const LayoutMenuButton = () => {
 			enabled: true,
 			checked: layout === PositronDataToolLayout.ColumnsLeft,
 			run: () => {
-				positronDataToolContext.instance.layout = PositronDataToolLayout.ColumnsLeft;
+				context.instance.layout = PositronDataToolLayout.ColumnsLeft;
 			}
 		});
 
@@ -57,7 +57,7 @@ export const LayoutMenuButton = () => {
 			enabled: true,
 			checked: layout === PositronDataToolLayout.ColumnsRight,
 			run: () => {
-				positronDataToolContext.instance.layout = PositronDataToolLayout.ColumnsRight;
+				context.instance.layout = PositronDataToolLayout.ColumnsRight;
 			}
 		});
 
@@ -73,7 +73,7 @@ export const LayoutMenuButton = () => {
 			enabled: true,
 			checked: layout === PositronDataToolLayout.ColumnsHidden,
 			run: () => {
-				positronDataToolContext.instance.layout = PositronDataToolLayout.ColumnsHidden;
+				context.instance.layout = PositronDataToolLayout.ColumnsHidden;
 			}
 		});
 
@@ -86,7 +86,7 @@ export const LayoutMenuButton = () => {
 	 * @returns The icon ID for the layout.
 	 */
 	const selectIconId = () => {
-		switch (positronDataToolContext.instance.layout) {
+		switch (context.instance.layout) {
 			// Columns left.
 			case PositronDataToolLayout.ColumnsLeft:
 				return 'positron-data-tool-columns-left';
