@@ -10,8 +10,9 @@ import { VariableGroup } from 'vs/workbench/services/positronVariables/common/cl
 import { VariableOverflow } from 'vs/workbench/services/positronVariables/common/classes/variableOverflow';
 import { ILanguageRuntime, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { sortVariableItemsByName, sortVariableItemsBySize } from 'vs/workbench/services/positronVariables/common/helpers/utils';
-import { VariablesClientInstance, VariablesClientList, VariablesClientUpdate, VariableValueKind, IVariablesClientMessageError } from 'vs/workbench/services/languageRuntime/common/languageRuntimeVariablesClient';
+import { PositronVariablesList, PositronVariablesUpdate, VariablesClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeVariablesClient';
 import { VariableEntry, IPositronVariablesInstance, PositronVariablesGrouping, PositronVariablesSorting, PositronVariablesInstanceState } from 'vs/workbench/services/positronVariables/common/interfaces/positronVariablesInstance';
+import { VariableKind } from 'vs/workbench/services/languageRuntime/common/positronVariablesComm';
 
 /**
  * Constants.
@@ -424,13 +425,6 @@ export class PositronVariablesInstance extends Disposable implements IPositronVa
 				)
 			);
 
-			// Add the onDidReceiveError event handler.
-			this._runtimeDisposableStore.add(
-				this._environmentClient.onDidReceiveError(environmentClientMessageError => {
-					this.processError(environmentClientMessageError);
-				})
-			);
-
 			// Add the runtime client to the runtime disposable store.
 			this._runtimeDisposableStore.add(this._environmentClient);
 		} catch (error) {
@@ -439,10 +433,11 @@ export class PositronVariablesInstance extends Disposable implements IPositronVa
 	}
 
 	/**
-	 * Processes an IEnvironmentClientMessageList.
-	 * @param environmentClientMessageList The IEnvironmentClientMessageList.
+	 * Processes an updated list of variables from the runtime.
+	 *
+	 * @param variablesList The updated list of variables.
 	 */
-	private async processList(environmentClientMessageList: VariablesClientList) {
+	private async processList(variablesList: PositronVariablesList) {
 		/**
 		 * Returns a value which indicates whether the path is expanded.
 		 * @param path The path.
@@ -453,7 +448,7 @@ export class PositronVariablesInstance extends Disposable implements IPositronVa
 		// Build the new variable items.
 		const variableItems = new Map<string, VariableItem>();
 		const promises: Promise<void>[] = [];
-		for (const environmentVariable of environmentClientMessageList.variables) {
+		for (const environmentVariable of variablesList.variables) {
 			// Create the variable item.
 			const variableItem = new VariableItem(environmentVariable);
 
@@ -480,7 +475,7 @@ export class PositronVariablesInstance extends Disposable implements IPositronVa
 	 * Processes an IEnvironmentClientMessageError.
 	 * @param environmentClientMessageError The IEnvironmentClientMessageError.
 	 */
-	private async processUpdate(environmentClientUpdate: VariablesClientUpdate) {
+	private async processUpdate(environmentClientUpdate: PositronVariablesUpdate) {
 		/**
 		 * Returns a value which indicates whether the path is expanded.
 		 * @param path The path.
@@ -517,14 +512,6 @@ export class PositronVariablesInstance extends Disposable implements IPositronVa
 
 		// Update entries.
 		this.updateEntries();
-	}
-
-	/**
-	 * Processes an IEnvironmentClientMessageError.
-	 * @param environmentClientMessageError The IEnvironmentClientMessageError.
-	 */
-	private processError(environmentClientMessageError: IVariablesClientMessageError) {
-		this._logService.error(`There was an error with the Environment client: ${environmentClientMessageError.message}`);
 	}
 
 	/**
@@ -592,9 +579,9 @@ export class PositronVariablesInstance extends Disposable implements IPositronVa
 		const valueItems: VariableItem[] = [];
 		const functionItems: VariableItem[] = [];
 		items.forEach(item => {
-			if (item.kind === VariableValueKind.Table) {
+			if (item.kind === VariableKind.Table) {
 				dataItems.push(item);
-			} else if (item.kind === VariableValueKind.Function) {
+			} else if (item.kind === VariableKind.Function) {
 				functionItems.push(item);
 			} else {
 				valueItems.push(item);

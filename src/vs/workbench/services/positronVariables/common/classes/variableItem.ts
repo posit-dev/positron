@@ -4,8 +4,8 @@
 
 import { generateUuid } from 'vs/base/common/uuid';
 import { IVariableItem } from 'vs/workbench/services/positronVariables/common/interfaces/variableItem';
-import { Variable } from 'vs/workbench/services/languageRuntime/common/languageRuntimeVariablesClient';
 import { VariableOverflow } from 'vs/workbench/services/positronVariables/common/classes/variableOverflow';
+import { PositronVariable } from 'vs/workbench/services/languageRuntime/common/languageRuntimeVariablesClient';
 
 /**
  * VariableItem class. This is used to represent an variable in a language runtime.
@@ -21,7 +21,7 @@ export class VariableItem implements IVariableItem {
 	/**
 	 * Gets the variable.
 	 */
-	private readonly _variable: Variable;
+	private readonly _variable: PositronVariable;
 
 	/**
 	 * Gets or sets the child entries.
