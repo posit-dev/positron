@@ -1,0 +1,36 @@
+{
+	"openrpc": "1.3.0",
+	"info": {
+		"title": "Variables Frontend",
+		"version": "1.0.0"
+	},
+	"methods": [
+		{
+			"name": "update",
+			"summary": "Update variables",
+			"description": "Updates the variables in the current session.",
+			"params": [
+				{
+					"name": "assigned",
+					"description": "An array of variables that have been newly assigned.",
+					"schema": {
+						"type": "array",
+						"items": {
+							"$ref": "#/components/schemas/variable"
+						}
+					}
+				},
+				{
+					"name": "removed",
+					"description": "An array of variable names that have been removed.",
+					"schema": {
+						"type": "array",
+						"items": {
+							"type": "string"
+						}
+					}
+				}
+			]
+		}
+	]
+}

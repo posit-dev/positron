@@ -17,11 +17,13 @@ export interface PlotResult {
 	/**
 	 * The plot data, as a base64-encoded string
 	 */
-	data?: string;
+	data: string;
+
 	/**
 	 * The MIME type of the plot data
 	 */
-	mime_type?: string;
+	mime_type: string;
+
 }
 
 /**
@@ -51,6 +53,7 @@ export class PositronPlotComm extends PositronBaseComm {
 	render(height: number, width: number, pixelRatio: number): Promise<PlotResult> {
 		return super.performRpc('render', ['height', 'width', 'pixel_ratio'], [height, width, pixelRatio]);
 	}
+
 
 	/**
 	 * Notification that a plot has been updated on the backend.

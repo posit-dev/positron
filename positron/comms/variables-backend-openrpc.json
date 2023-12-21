@@ -1,0 +1,221 @@
+{
+	"openrpc": "1.3.0",
+	"info": {
+		"title": "Variables Backend",
+		"version": "1.0.0"
+	},
+	"methods": [
+		{
+			"name": "clear",
+			"summary": "Clear all variables",
+			"description": "Clears (deletes) all variables in the current session.",
+			"params": [
+				{
+					"name": "include_hidden_objects",
+					"description": "Whether to clear hidden objects in addition to normal variables",
+					"schema": {
+						"type": "boolean"
+					}
+				}
+			],
+			"result": {}
+		},
+		{
+			"name": "delete",
+			"summary": "Deletes a set of named variables",
+			"description": "Deletes the named variables from the current session.",
+			"params": [
+				{
+					"name": "names",
+					"description": "The names of the variables to delete.",
+					"schema": {
+						"type": "array",
+						"items": {
+							"type": "string"
+						}
+					}
+				}
+			],
+			"result": {}
+		},
+		{
+			"name": "inspect",
+			"summary": "Inspect a variable",
+			"description": "Returns the children of a variable, as an array of variables.",
+			"params": [
+				{
+					"name": "path",
+					"description": "The path to the variable to inspect, as an array of access keys.",
+					"schema": {
+						"type": "array",
+						"items": {
+							"type": "string"
+						}
+					}
+				}
+			],
+			"result": {
+				"schema": {
+					"type": "object",
+					"name": "inspected_variable",
+					"description": "An inspected variable.",
+					"properties": {
+						"children": {
+							"type": "array",
+							"description": "The children of the inspected variable.",
+							"items": {
+								"$ref": "#/components/schemas/variable"
+							}
+						},
+						"length": {
+							"type": "integer",
+							"description": "The total number of children. This may be greater than the number of children in the 'children' array if the array is truncated."
+						}
+					},
+					"required": [
+						"children",
+						"length"
+					]
+				}
+			}
+		},
+		{
+			"name": "clipboard_format",
+			"summary": "Format for clipboard",
+			"description": "Requests a formatted representation of a variable for copying to the clipboard.",
+			"params": [
+				{
+					"name": "path",
+					"description": "The path to the variable to format, as an array of access keys.",
+					"schema": {
+						"type": "array",
+						"items": {
+							"type": "string"
+						}
+					}
+				},
+				{
+					"name": "format",
+					"description": "The requested format for the variable, as a MIME type",
+					"schema": {
+						"type": "string"
+					}
+				}
+			],
+			"result": {
+				"schema": {
+					"type": "object",
+					"name": "formatted_variable",
+					"description": "An object formatted for copying to the clipboard.",
+					"properties": {
+						"format": {
+							"type": "string",
+							"description": "The format returned, as a MIME type; matches the MIME type of the format named in the request."
+						},
+						"content": {
+							"type": "string",
+							"description": "The formatted content of the variable."
+						}
+					},
+					"required": [
+						"format",
+						"content"
+					]
+				}
+			}
+		},
+		{
+			"name": "view",
+			"summary": "Request a viewer for a variable",
+			"description": "Request that the runtime open a data viewer to display the data in a variable.",
+			"params": [
+				{
+					"name": "path",
+					"description": "The path to the variable to view, as an array of access keys.",
+					"schema": {
+						"type": "array",
+						"items": {
+							"type": "string"
+						}
+					}
+				}
+			],
+			"result": {}
+		}
+	],
+	"components": {
+		"schemas": {
+			"variable": {
+				"type": "object",
+				"name": "variable",
+				"description": "A single variable in the runtime.",
+				"properties": {
+					"access_key": {
+						"type": "string",
+						"description": "A key that uniquely identifies the variable within the runtime and can be used to access the variable in `inspect` requests"
+					},
+					"display_name": {
+						"type": "string",
+						"description": "The name of the variable, formatted for display"
+					},
+					"display_value": {
+						"type": "string",
+						"description": "A string representation of the variable's value, formatted for display and possibly truncated"
+					},
+					"display_type": {
+						"type": "string",
+						"description": "The variable's type, formatted for display"
+					},
+					"type_info": {
+						"type": "string",
+						"description": "Extended information about the variable's type"
+					},
+					"kind": {
+						"type": "string",
+						"enum": [
+							"boolean",
+							"bytes",
+							"collection",
+							"empty",
+							"function",
+							"map",
+							"number",
+							"other",
+							"string",
+							"table"
+						],
+						"description": "The kind of value the variable represents, such as 'string' or 'number'"
+					},
+					"length": {
+						"type": "integer",
+						"description": "The number of elements in the variable, if it is a collection"
+					},
+					"has_children": {
+						"type": "boolean",
+						"description": "Whether the variable has child variables"
+					},
+					"has_viewer": {
+						"type": "boolean",
+						"description": "True if there is a viewer available for this variable (i.e. the runtime can handle a 'view' request for this variable)"
+					},
+					"is_truncated": {
+						"type": "boolean",
+						"description": "True the 'value' field is a truncated representation of the variable's value"
+					}
+				},
+				"required": [
+					"access_key",
+					"display_name",
+					"display_value",
+					"display_type",
+					"type_info",
+					"kind",
+					"length",
+					"has_children",
+					"has_viewer",
+					"is_truncated"
+				]
+			}
+		}
+	}
+}

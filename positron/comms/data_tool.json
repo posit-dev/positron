@@ -1,0 +1,9 @@
+{
+	"name": "data_tool",
+	"initiator": "frontend",
+	"initial_data": {
+		"schema": {
+			"type": "null"
+		}
+	}
+}
