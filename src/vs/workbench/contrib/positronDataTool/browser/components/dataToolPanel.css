@@ -25,8 +25,8 @@
 	border-radius: 4px;
 	border: 1px solid var(--vscode-positronDataTool-border);
 
-	/* This is the scroll container. */
-	overflow-y: scroll;
+	/* Prevent 1fr from exceeding the parent height. */
+	min-height: 0;
 
 	/* Initially hidden. Layout happens in code. */
 	display: none;
@@ -42,7 +42,9 @@
 	border-radius: 4px;
 	border: 1px solid var(--vscode-positronDataTool-border);
 
+	/* Prevent 1fr from exceeding the parent height. */
+	min-height: 0;
+
 	/* Initially hidden. Layout happens in code. */
 	display: none;
-	overflow-y: scroll;
 }

@@ -3,8 +3,11 @@
  *--------------------------------------------------------------------------------------------*/
 
 .data-tool-panel .columns-panel {
+	/* This is the scroll container. */
+	/* overflow-y: scroll; */
 }
 
 .data-tool-panel .columns-panel .title {
-	padding: 10px;
+	/* display: flex; */
+	height: 26px;
 }

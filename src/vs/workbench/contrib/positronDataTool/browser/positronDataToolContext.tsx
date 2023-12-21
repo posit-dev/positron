@@ -4,7 +4,7 @@
 
 import * as React from 'react';
 import { PropsWithChildren, createContext, useContext } from 'react'; // eslint-disable-line no-duplicate-imports
-import { PositronDataToolServices, PositronDataToolState, usePositronDataToolState } from 'vs/workbench/contrib/positronDataTool/browser/positronDataToolState';
+import { PositronDataToolConfiguration, PositronDataToolState, usePositronDataToolState } from 'vs/workbench/contrib/positronDataTool/browser/positronDataToolState';
 
 /**
  * Create the Positron data tool context.
@@ -15,14 +15,14 @@ const PositronDataToolContext = createContext<PositronDataToolState>(undefined!)
  * Export the PositronDataToolContextProvider.
  */
 export const PositronDataToolContextProvider = (
-	props: PropsWithChildren<PositronDataToolServices>
+	props: PropsWithChildren<PositronDataToolConfiguration>
 ) => {
 	// State hooks.
-	const positronDataToolState = usePositronDataToolState(props);
+	const state = usePositronDataToolState(props);
 
 	// Render.
 	return (
-		<PositronDataToolContext.Provider value={positronDataToolState}>
+		<PositronDataToolContext.Provider value={state}>
 			{props.children}
 		</PositronDataToolContext.Provider>
 	);

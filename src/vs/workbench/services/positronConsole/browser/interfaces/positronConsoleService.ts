@@ -33,7 +33,9 @@ export const enum PositronConsoleState {
  * IPositronConsoleService interface.
  */
 export interface IPositronConsoleService {
-	// Needed for service branding in dependency injector.
+	/**
+	 * Needed for service branding in dependency injector.
+	 */
 	readonly _serviceBrand: undefined;
 
 	/**
