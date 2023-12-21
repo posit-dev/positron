@@ -124,6 +124,14 @@ echo
 "$INTEGRATION_TEST_ELECTRON_PATH" $LINUX_EXTRA_ARGS --folder-uri=$AUTHORITY$(mktemp -d 2>/dev/null) --extensionDevelopmentPath=$REMOTE_VSCODE/configuration-editing --extensionTestsPath=$REMOTE_VSCODE/configuration-editing/out/test $API_TESTS_EXTRA_ARGS $EXTRA_INTEGRATION_TEST_ARGUMENTS
 kill_app
 
+# Positron Extensions
+
+echo
+echo "### Positron Code Cells tests"
+echo
+yarn test-extension -l positron-code-cells
+kill_app
+
 # Cleanup
 
 if [[ "$3" == "" ]]; then
