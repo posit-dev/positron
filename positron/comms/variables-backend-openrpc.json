@@ -12,11 +12,30 @@
 			"params": [],
 			"result": {
 				"schema": {
-					"type": "array",
-					"items": {
-						"$ref": "#/components/schemas/variable"
+					"name": "variable_list",
+					"description": "A view containing a list of variables in the session.",
+					"type": "object",
+					"properties": {
+						"variables": {
+							"type": "array",
+							"items": {
+								"$ref": "#/components/schemas/variable"
+							},
+							"description": "A list of variables in the session."
+						},
+						"length": {
+							"type": "integer",
+							"description": "The total number of variables in the session. This may be greater than the number of variables in the 'variables' array if the array is truncated."
+						},
+						"version": {
+							"type": "integer",
+							"description": "The version of the view (incremented with each update)"
+						}
 					},
-					"description": "A list of variables in the session."
+					"required": [
+						"variables",
+						"length"
+					]
 				}
 			}
 		},
@@ -217,7 +236,8 @@
 							"number",
 							"other",
 							"string",
-							"table"
+							"table",
+							"lazy"
 						],
 						"description": "The kind of value the variable represents, such as 'string' or 'number'"
 					},

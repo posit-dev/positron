@@ -140,7 +140,7 @@ export class VariablesClientInstance extends Disposable {
 	 */
 	public async requestRefresh(): Promise<PositronVariablesList> {
 		const list = await this._comm!.list();
-		return new PositronVariablesList(list, [], this._comm!);
+		return new PositronVariablesList(list.variables, [], this._comm!);
 	}
 
 	/**

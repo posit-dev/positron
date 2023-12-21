@@ -29,6 +29,13 @@
 							"type": "string"
 						}
 					}
+				},
+				{
+					"name": "version",
+					"description": "The version of the view (incremented with each update), or 0 if the backend doesn't track versions.",
+					"schema": {
+						"type": "integer"
+					}
 				}
 			]
 		},
@@ -45,6 +52,20 @@
 						"items": {
 							"$ref": "#/components/schemas/variable"
 						}
+					}
+				},
+				{
+					"name": "length",
+					"description": "The number of variables in the current session.",
+					"schema": {
+						"type": "integer"
+					}
+				},
+				{
+					"name": "version",
+					"description": "The version of the view (incremented with each update), or 0 if the backend doesn't track versions.",
+					"schema": {
+						"type": "integer"
 					}
 				}
 			]

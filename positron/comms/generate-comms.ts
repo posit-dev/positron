@@ -175,6 +175,12 @@ function deriveType(contracts: Array<any>,
 		} else {
 			return snakeCaseToSentenceCase(key);
 		}
+	} else if (schema.type === 'string' && schema.enum) {
+		if (schema.name) {
+			return snakeCaseToSentenceCase(schema.name) + snakeCaseToSentenceCase(key);
+		} else {
+			return snakeCaseToSentenceCase(key);
+		}
 	} else {
 		if (Object.keys(typeMap).includes(schema.type)) {
 			return typeMap[schema.type];
@@ -503,6 +509,9 @@ use serde::Serialize;
 				} else {
 					yield `(${deriveType(contracts, RustTypeMap, schema.name, schema)}),\n\n`;
 				}
+			} else {
+				yield formatComment('\t/// ', `Reply for the ${method.name} method (no result)`);
+				yield `\t${snakeCaseToSentenceCase(method.name)}Reply,\n\n`;
 			}
 		}
 		yield `}\n\n`;

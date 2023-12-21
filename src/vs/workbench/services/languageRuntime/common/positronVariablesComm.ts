@@ -11,6 +11,29 @@ import { PositronBaseComm } from 'vs/workbench/services/languageRuntime/common/p
 import { IRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeClientInstance';
 
 /**
+ * A view containing a list of variables in the session.
+ */
+export interface VariableList {
+	/**
+	 * A list of variables in the session.
+	 */
+	variables: Array<Variable>;
+
+	/**
+	 * The total number of variables in the session. This may be greater than
+	 * the number of variables in the 'variables' array if the array is
+	 * truncated.
+	 */
+	length: number;
+
+	/**
+	 * The version of the view (incremented with each update)
+	 */
+	version?: number;
+
+}
+
+/**
  * An inspected variable.
  */
 export interface InspectedVariable {
@@ -123,7 +146,8 @@ export enum VariableKind {
 	Number = 'number',
 	Other = 'other',
 	String = 'string',
-	Table = 'table'
+	Table = 'table',
+	Lazy = 'lazy'
 }
 
 /**
@@ -140,6 +164,12 @@ export interface UpdateEvent {
 	 */
 	removed: Array<string>;
 
+	/**
+	 * The version of the view (incremented with each update), or 0 if the
+	 * backend doesn't track versions.
+	 */
+	version: number;
+
 }
 
 /**
@@ -151,13 +181,24 @@ export interface RefreshEvent {
 	 */
 	variables: Array<Variable>;
 
+	/**
+	 * The number of variables in the current session.
+	 */
+	length: number;
+
+	/**
+	 * The version of the view (incremented with each update), or 0 if the
+	 * backend doesn't track versions.
+	 */
+	version: number;
+
 }
 
 export class PositronVariablesComm extends PositronBaseComm {
 	constructor(instance: IRuntimeClientInstance<any, any>) {
 		super(instance);
-		this.onDidUpdate = super.createEventEmitter('update', ['assigned', 'removed']);
-		this.onDidRefresh = super.createEventEmitter('refresh', ['variables']);
+		this.onDidUpdate = super.createEventEmitter('update', ['assigned', 'removed', 'version']);
+		this.onDidRefresh = super.createEventEmitter('refresh', ['variables', 'length', 'version']);
 	}
 
 	/**
@@ -166,9 +207,9 @@ export class PositronVariablesComm extends PositronBaseComm {
 	 * Returns a list of all the variables in the current session.
 	 *
 	 *
-	 * @returns A list of variables in the session.
+	 * @returns A view containing a list of variables in the session.
 	 */
-	list(): Promise<Array<Variable>> {
+	list(): Promise<VariableList> {
 		return super.performRpc('list', [], []);
 	}
 
