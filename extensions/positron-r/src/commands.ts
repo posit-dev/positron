@@ -5,7 +5,7 @@
 import * as vscode from 'vscode';
 import * as positron from 'positron';
 import { timeout } from './util';
-import { getRunningRRuntime } from './runtime';
+import { getRunningRRuntime, checkInstalled } from './runtime';
 import { getRPackageName } from './contexts';
 import { getRPackageTasks } from './tasks';
 import { randomUUID } from 'crypto';
@@ -44,18 +44,28 @@ export async function registerCommands(context: vscode.ExtensionContext) {
 		}),
 
 		// Commands for package development tooling
-		vscode.commands.registerCommand('r.packageLoad', () => {
-			positron.runtime.executeCode('r', 'devtools::load_all()', true);
+		vscode.commands.registerCommand('r.packageLoad', async () => {
+			const isInstalled = await checkInstalled('devtools');
+			if (isInstalled) {
+				positron.runtime.executeCode('r', 'devtools::load_all()', true);
+			}
 		}),
 
-		vscode.commands.registerCommand('r.packageBuild', () => {
-			positron.runtime.executeCode('r', 'devtools::build()', true);
+		vscode.commands.registerCommand('r.packageBuild', async () => {
+			const isInstalled = await checkInstalled('devtools');
+			if (isInstalled) {
+				positron.runtime.executeCode('r', 'devtools::build()', true);
+			}
 		}),
 
 		vscode.commands.registerCommand('r.packageInstall', async () => {
 			const packageName = await getRPackageName();
 			const tasks = await getRPackageTasks();
 			const task = tasks.filter(task => task.definition.task === 'r.task.packageInstall')[0];
+			const isInstalled = await checkInstalled(task.definition.pkg);
+			if (!isInstalled) {
+				return;
+			}
 			const runtime = await getRunningRRuntime();
 
 			const execution = await vscode.tasks.executeTask(task);
@@ -92,26 +102,41 @@ export async function registerCommands(context: vscode.ExtensionContext) {
 			});
 		}),
 
-		vscode.commands.registerCommand('r.packageTest', () => {
-			positron.runtime.executeCode('r', 'devtools::test()', true);
+		vscode.commands.registerCommand('r.packageTest', async () => {
+			const isInstalled = await checkInstalled('devtools');
+			if (isInstalled) {
+				positron.runtime.executeCode('r', 'devtools::test()', true);
+			}
 		}),
 
-		vscode.commands.registerCommand('r.useTestthat', () => {
-			positron.runtime.executeCode('r', 'usethis::use_testthat()', true);
+		vscode.commands.registerCommand('r.useTestthat', async () => {
+			const isInstalled = await checkInstalled('usethis');
+			if (isInstalled) {
+				positron.runtime.executeCode('r', 'usethis::use_testthat()', true);
+			}
 		}),
 
-		vscode.commands.registerCommand('r.useTest', () => {
-			positron.runtime.executeCode('r', 'usethis::use_test("rename-me")', true);
+		vscode.commands.registerCommand('r.useTest', async () => {
+			const isInstalled = await checkInstalled('usethis');
+			if (isInstalled) {
+				positron.runtime.executeCode('r', 'usethis::use_test("rename-me")', true);
+			}
 		}),
 
 		vscode.commands.registerCommand('r.packageCheck', async () => {
 			const tasks = await getRPackageTasks();
 			const task = tasks.filter(task => task.definition.task === 'r.task.packageCheck')[0];
-			vscode.tasks.executeTask(task);
+			const isInstalled = await checkInstalled(task.definition.pkg);
+			if (isInstalled) {
+				vscode.tasks.executeTask(task);
+			}
 		}),
 
-		vscode.commands.registerCommand('r.packageDocument', () => {
-			positron.runtime.executeCode('r', 'devtools::document()', true);
+		vscode.commands.registerCommand('r.packageDocument', async () => {
+			const isInstalled = await checkInstalled('devtools');
+			if (isInstalled) {
+				positron.runtime.executeCode('r', 'devtools::document()', true);
+			}
 		}),
 
 		// Command used to source the current file
