@@ -104,10 +104,11 @@ function snakeCaseToSentenceCase(name: string) {
  * Parse a ref tag to get the name of the object referred to by the ref.
  *
  * @param ref The ref to parse
+ * @param contract The OpenRPC contract that the ref is part of
  * @returns The name of the object referred to by the ref, as a SentenceCase
- * string
+ * string, or undefined if the ref could not be parsed or found.
  */
-function parseRef(ref: string, contract: any): string {
+function parseRefFromContract(ref: string, contract: any): string | undefined {
 	// Split the ref into parts, and then walk the contract to find the
 	// referenced object
 	const parts = ref.split('/');
@@ -119,33 +120,55 @@ function parseRef(ref: string, contract: any): string {
 		if (Object.keys(target).includes(parts[i])) {
 			target = target[parts[i]];
 		} else {
-			throw new Error(`Invalid ref: ${ref} (part '${parts[i]}' not found)`);
+			return undefined;
 		}
 	}
 	return snakeCaseToSentenceCase(parts[parts.length - 1]);
 }
 
 /**
+ * Parse a ref tag to get the name of the object referred to by the ref.
+ * Searches all the given contracts for the ref; throws if the ref cannot be
+ * found in any of the contracts.
+ *
+ * @param ref The ref to parse
+ * @param contracts The OpenRPC contracts to search for the ref.
+ * @returns The name of the object referred to by the ref.
+ */
+function parseRef(ref: string, contracts: Array<any>): string {
+	for (const contract of contracts) {
+		if (!contract) {
+			continue;
+		}
+		const name = parseRefFromContract(ref, contract);
+		if (name) {
+			return name;
+		}
+	}
+	throw new Error(`Could not find ref: ${ref}`);
+}
+
+/**
  * Generic function for deriving a type from a schema.
  *
- * @param contract The OpenRPC contract that the schema is part of
+ * @param contract The OpenRPC contracts
  * @param typeMap A map from schema types to language types
  * @param key The key beneath which this schema is defined
  * @param schema The schema to derive a type from
  *
  * @returns A string containing the derived type
  */
-function deriveType(contract: any,
+function deriveType(contracts: Array<any>,
 	typeMap: Record<string, string>,
 	key: string,
 	schema: any): string {
 	if (schema.type === 'array') {
 		// If the array has a ref, use that to derive an array type
 		return typeMap['array-begin'] +
-			deriveType(contract, typeMap, key, schema.items) +
+			deriveType(contracts, typeMap, key, schema.items) +
 			typeMap['array-end'];
 	} else if (schema.$ref) {
-		return parseRef(schema.$ref, contract);
+		return parseRef(schema.$ref, contracts);
 	} else if (schema.type === 'object') {
 		if (schema.name) {
 			return snakeCaseToSentenceCase(schema.name);
@@ -321,7 +344,9 @@ use serde::Serialize;
 
 `;
 
-	for (const source of [backend, frontend]) {
+	const contracts = [backend, frontend];
+
+	for (const source of contracts) {
 		if (!source) {
 			continue;
 		}
@@ -333,7 +358,7 @@ use serde::Serialize;
 				if (schema.type !== 'object') {
 					yield formatComment('/// ', schema.description);
 					yield `type ${snakeCaseToSentenceCase(key)} = `;
-					yield deriveType(source, RustTypeMap,
+					yield deriveType(contracts, RustTypeMap,
 						schema.name ? schema.name : key,
 						schema);
 					yield ';\n\n';
@@ -363,11 +388,11 @@ use serde::Serialize;
 				yield `\tpub ${key}: `;
 				if (!o.required || !o.required.includes(key)) {
 					yield 'Option<';
-					yield deriveType(source, RustTypeMap, key, prop);
+					yield deriveType(contracts, RustTypeMap, key, prop);
 					yield '>';
 
 				} else {
-					yield deriveType(source, RustTypeMap, key, prop);
+					yield deriveType(contracts, RustTypeMap, key, prop);
 				}
 				if (i < props.length - 1) {
 					yield ',\n';
@@ -423,7 +448,7 @@ use serde::Serialize;
 						yield `\tpub ${param.name}: ${snakeCaseToSentenceCase(method.name)}${snakeCaseToSentenceCase(param.name)},\n`;
 					} else {
 						// Otherwise use the type directly
-						yield `\tpub ${param.name}: ${deriveType(source, RustTypeMap, param.name, param.schema)},\n`;
+						yield `\tpub ${param.name}: ${deriveType(contracts, RustTypeMap, param.name, param.schema)},\n`;
 					}
 					if (i < method.params.length - 1) {
 						yield '\n';
@@ -528,8 +553,8 @@ import enum
 from dataclasses import dataclass, field
 
 `;
-
-	for (const source of [backend, frontend]) {
+	const contracts = [backend, frontend];
+	for (const source of contracts) {
 		if (!source) {
 			continue;
 		}
@@ -563,10 +588,10 @@ from dataclasses import dataclass, field
 				yield `    ${prop}: `;
 				if (!o.required || !o.required.includes(prop)) {
 					yield 'Optional[';
-					yield deriveType(source, PythonTypeMap, prop, schema);
+					yield deriveType(contracts, PythonTypeMap, prop, schema);
 					yield ']';
 				} else {
-					yield deriveType(source, PythonTypeMap, prop, schema);
+					yield deriveType(contracts, PythonTypeMap, prop, schema);
 				}
 				yield ' = field(\n';
 				yield `        metadata={\n`;
@@ -637,7 +662,7 @@ from dataclasses import dataclass, field
 				if (param.schema.enum) {
 					yield `    ${param.name}: ${snakeCaseToSentenceCase(method.name)}${snakeCaseToSentenceCase(param.name)}`;
 				} else {
-					yield `    ${param.name}: ${deriveType(backend, PythonTypeMap, param.name, param.schema)}`;
+					yield `    ${param.name}: ${deriveType(contracts, PythonTypeMap, param.name, param.schema)}`;
 				}
 				yield ' = field(\n';
 				yield `        metadata={\n`;
@@ -708,7 +733,7 @@ from dataclasses import dataclass, field
 					if (param.schema.enum) {
 						yield `    ${param.name}: ${snakeCaseToSentenceCase(method.name)}${snakeCaseToSentenceCase(param.name)}`;
 					} else {
-						yield `    ${param.name}: ${deriveType(backend, PythonTypeMap, param.name, param.schema)}`;
+						yield `    ${param.name}: ${deriveType(contracts, PythonTypeMap, param.name, param.schema)}`;
 					}
 					yield ' = field(\n';
 					yield `        metadata={\n`;
@@ -724,7 +749,7 @@ from dataclasses import dataclass, field
 /**
  * Generates a Typescript interface for a given object schema.
  *
- * @param contract The OpenRPC contract that the schema is part of
+ * @param contract The OpenRPC contracts that the schema is part of
  * @param name The name of the schema
  * @param description The description of the schema
  * @param properties The properties of the schema
@@ -733,7 +758,7 @@ from dataclasses import dataclass, field
  * @returns A generator that yields the Typescript code for an interface
  * representing the schema
  */
-function* createTypescriptInterface(contract: any,
+function* createTypescriptInterface(contracts: Array<any>,
 	name: string,
 	description: string,
 	properties: Record<string, any>,
@@ -767,7 +792,7 @@ function* createTypescriptInterface(contract: any,
 		} else if (schema.type === 'string' && schema.enum) {
 			yield `${snakeCaseToSentenceCase(name)}${snakeCaseToSentenceCase(prop)}`;
 		} else {
-			yield deriveType(contract, TypescriptTypeMap, prop, schema);
+			yield deriveType(contracts, TypescriptTypeMap, prop, schema);
 		}
 		yield `;\n\n`;
 	}
@@ -802,8 +827,8 @@ function* createTypescriptComm(name: string, frontend: any, backend: any): Gener
 import { IRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeClientInstance';
 
 `;
-
-	for (const source of [backend, frontend]) {
+	const contracts = [backend, frontend];
+	for (const source of contracts) {
 		if (!source) {
 			continue;
 		}
@@ -813,7 +838,7 @@ import { IRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/co
 				const description = o.description ? o.description :
 					snakeCaseToSentenceCase(context[0]) + ' in ' +
 					snakeCaseToSentenceCase(context[1]);
-				yield* createTypescriptInterface(source, name, description, o.properties,
+				yield* createTypescriptInterface(contracts, name, description, o.properties,
 					o.required ? o.required : []);
 			});
 
@@ -851,7 +876,7 @@ import { IRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/co
 					yield formatComment(' * ', schema.description);
 					yield ' */\n';
 					yield `export type ${snakeCaseToSentenceCase(key)} = `;
-					yield deriveType(source, TypescriptTypeMap, key, schema);
+					yield deriveType(contracts, TypescriptTypeMap, key, schema);
 					yield ';\n\n';
 				}
 			}
@@ -876,7 +901,7 @@ import { IRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/co
 				if (param.schema.type === 'string' && param.schema.enum) {
 					yield `${snakeCaseToSentenceCase(method.name)}${snakeCaseToSentenceCase(param.name)}`;
 				} else {
-					yield deriveType(frontend, TypescriptTypeMap, param.name, param.schema);
+					yield deriveType(contracts, TypescriptTypeMap, param.name, param.schema);
 				}
 				yield `;\n\n`;
 			}
@@ -943,7 +968,7 @@ import { IRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/co
 				if (schema.type === 'string' && schema.enum) {
 					yield `${snakeCaseToSentenceCase(method.name)}${snakeCaseToSentenceCase(param.name)}`;
 				} else {
-					yield deriveType(backend, TypescriptTypeMap, param.name, schema);
+					yield deriveType(contracts, TypescriptTypeMap, param.name, schema);
 				}
 				if (i < method.params.length - 1) {
 					yield ', ';
@@ -954,7 +979,7 @@ import { IRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/co
 				if (method.result.schema.type === 'object') {
 					yield snakeCaseToSentenceCase(method.result.schema.name);
 				} else {
-					yield deriveType(backend, TypescriptTypeMap, method.name, method.result.schema);
+					yield deriveType(contracts, TypescriptTypeMap, method.name, method.result.schema);
 				}
 			} else {
 				yield 'void';
