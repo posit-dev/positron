@@ -146,11 +146,11 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 		this._workspaceAffiliation =
 			new LanguageRuntimeWorkspaceAffiliation(this, this._storageService, this._logService);
 		this._register(this._workspaceAffiliation);
-		if (this._workspaceAffiliation.hasAffiliatedRuntime()) {
+		const languageIds = this._workspaceAffiliation.getAffiliatedRuntimeLanguageIds();
+		if (languageIds) {
 			this._register(this.onDidChangeDiscoveryPhase((phase) => {
-				// When we start discovering runtimes, start the affiliated runtime.
+				// When we start discovering runtimes, start the affiliated runtime(s).
 				if (phase === LanguageRuntimeDiscoveryPhase.Discovering) {
-					const languageIds = this._workspaceAffiliation.getAffiliatedRuntimeLanguageIds();
 					languageIds?.map(languageId => this.startAffiliatedRuntime(languageId));
 				}
 			}));
