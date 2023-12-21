@@ -177,7 +177,22 @@ export class PythonStatementRangeProvider implements positron.StatementRangeProv
             const beginRange = new vscode.Range(initialPosition, initialPosition);
             const initialIndentText = getInitialIndentTextAtLine(document, initialPosition);
             const finalRange = expandRangeDownward(document, beginRange, initialIndentText);
-            return { range: finalRange };
+
+            let code = document.getText(finalRange);
+
+            // Remove comment lines.
+            // Regex flags:
+            // - 'g' for global search, to look through the entire string
+            // - 'm' for multiline search, so that '^' and '$' match the beginning and end of each line
+            //   instead of the entire string
+            code = code.replace(/^\s*#.*$/gm, '');
+
+            // Ensure that multiline statements end with a single newline.
+            if (code.split(/\r?\n/).length > 1) {
+                code = `${code.trimEnd()}\n`;
+            }
+
+            return { code, range: finalRange };
         }
     }
 }
