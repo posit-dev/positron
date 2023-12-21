@@ -11,9 +11,8 @@
  */
 
 import { existsSync, readdirSync, readFileSync, writeFileSync } from 'fs';
-import { compile } from 'json-schema-to-typescript';
 import { execSync } from 'child_process';
-import path, { format } from 'path';
+import path from 'path';
 
 const commsDir = `${__dirname}`;
 const commsFiles = readdirSync(commsDir);
@@ -48,7 +47,8 @@ const TypescriptTypeMap: Record<string, string> = {
 	'number': 'number',
 	'string': 'string',
 	'null': 'null',
-	'array': 'Array',
+	'array-begin': 'Array<',
+	'array-end': '>',
 	'object': 'object',
 };
 
@@ -59,7 +59,8 @@ const RustTypeMap: Record<string, string> = {
 	'number': 'f64',
 	'string': 'String',
 	'null': 'null',
-	'array': 'Vec',
+	'array-begin': 'Vec<',
+	'array-end': '>',
 	'object': 'HashMap',
 };
 
@@ -70,17 +71,22 @@ const PythonTypeMap: Record<string, string> = {
 	'number': 'float',
 	'string': 'str',
 	'null': 'null',
-	'array': 'List',
+	'array-begin': 'List[',
+	'array-end': ']',
 	'object': 'Dict',
 };
 
 /**
- * Converter from snake_case to camelCase
+ * Converter from snake_case to camelCase. Also replaces some special characters
  *
  * @param name A snake_case name
  * @returns A camelCase name
  */
 function snakeCaseToCamelCase(name: string) {
+	name = name.replace(/=/g, 'Eq');
+	name = name.replace(/!/g, 'Not');
+	name = name.replace(/</g, 'Lt');
+	name = name.replace(/>/g, 'Gt');
 	return name.replace(/_([a-z])/g, (m) => m[1].toUpperCase());
 }
 
@@ -94,8 +100,97 @@ function snakeCaseToSentenceCase(name: string) {
 	return snakeCaseToCamelCase(name).replace(/^[a-z]/, (m) => m[0].toUpperCase());
 }
 
-// Breaks a single line of text into multiple lines, each of which is no longer than
-// 70 characters.
+/**
+ * Parse a ref tag to get the name of the object referred to by the ref.
+ *
+ * @param ref The ref to parse
+ * @param contract The OpenRPC contract that the ref is part of
+ * @returns The name of the object referred to by the ref, as a SentenceCase
+ * string, or undefined if the ref could not be parsed or found.
+ */
+function parseRefFromContract(ref: string, contract: any): string | undefined {
+	// Split the ref into parts, and then walk the contract to find the
+	// referenced object
+	const parts = ref.split('/');
+	let target = contract;
+	for (let i = 0; i < parts.length; i++) {
+		if (parts[i] === '#') {
+			continue;
+		}
+		if (Object.keys(target).includes(parts[i])) {
+			target = target[parts[i]];
+		} else {
+			return undefined;
+		}
+	}
+	return snakeCaseToSentenceCase(parts[parts.length - 1]);
+}
+
+/**
+ * Parse a ref tag to get the name of the object referred to by the ref.
+ * Searches all the given contracts for the ref; throws if the ref cannot be
+ * found in any of the contracts.
+ *
+ * @param ref The ref to parse
+ * @param contracts The OpenRPC contracts to search for the ref.
+ * @returns The name of the object referred to by the ref.
+ */
+function parseRef(ref: string, contracts: Array<any>): string {
+	for (const contract of contracts) {
+		if (!contract) {
+			continue;
+		}
+		const name = parseRefFromContract(ref, contract);
+		if (name) {
+			return name;
+		}
+	}
+	throw new Error(`Could not find ref: ${ref}`);
+}
+
+/**
+ * Generic function for deriving a type from a schema.
+ *
+ * @param contract The OpenRPC contracts
+ * @param typeMap A map from schema types to language types
+ * @param key The key beneath which this schema is defined
+ * @param schema The schema to derive a type from
+ *
+ * @returns A string containing the derived type
+ */
+function deriveType(contracts: Array<any>,
+	typeMap: Record<string, string>,
+	key: string,
+	schema: any): string {
+	if (schema.type === 'array') {
+		// If the array has a ref, use that to derive an array type
+		return typeMap['array-begin'] +
+			deriveType(contracts, typeMap, key, schema.items) +
+			typeMap['array-end'];
+	} else if (schema.$ref) {
+		return parseRef(schema.$ref, contracts);
+	} else if (schema.type === 'object') {
+		if (schema.name) {
+			return snakeCaseToSentenceCase(schema.name);
+		} else {
+			return snakeCaseToSentenceCase(key);
+		}
+	} else {
+		if (Object.keys(typeMap).includes(schema.type)) {
+			return typeMap[schema.type];
+		} else {
+			throw new Error(`Unknown type: ${schema.type}`);
+		}
+	}
+}
+
+/**
+ * Breaks a single line of text into multiple lines, each of which is no longer
+ * than 70 characters.
+ *
+ * @param line The line to break
+ * @returns An array of lines
+ */
 function formatLines(line: string): string[] {
 	const words = line.split(' ');
 	const lines = new Array<string>();
@@ -132,6 +227,109 @@ function formatComment(leader: string, comment: string): string {
 	return result;
 }
 
+/**
+ * Visitor function for enums in an OpenRPC contract. Recursively discovers all
+ * enum values and calls the callback function for each enum.
+ *
+ * @param context The current context stack (names of objects leading to the enum)
+ * @param contract The OpenRPC contract to visit
+ * @param callback The callback function to call for each enum
+ *
+ * @returns An generator that yields the results of the callback function,
+ * invoked for each enum
+ */
+function* enumVisitor(
+	context: Array<string>,
+	contract: any,
+	callback: (context: Array<string>, e: Array<string>) => Generator<string>
+): Generator<string> {
+	if (contract.enum) {
+		// If this object has an enum, call the callback function and yield the
+		// result
+		yield* callback(context, contract.enum);
+	} else if (Array.isArray(contract)) {
+		// If this object is an array, recurse into each item
+		for (const item of contract) {
+			yield* enumVisitor(context, item, callback);
+		}
+	} else if (typeof contract === 'object') {
+		// If this object is an object, recurse into each property
+		for (const key of Object.keys(contract)) {
+			if (contract['name']) {
+				// If this is a named object, push the name onto the context
+				// and recurse
+				yield* enumVisitor(
+					[contract['name'], ...context], contract[key], callback);
+			} else if (key === 'properties' || key === 'params') {
+				// If this is a properties or params object, recurse into each
+				// property, but don't push the parent name onto the context
+				yield* enumVisitor(
+					context, contract[key], callback);
+			} else {
+				// For all other objects, push the key onto the context and
+				// recurse
+				yield* enumVisitor(
+					[key, ...context], contract[key], callback);
+			}
+
+		}
+	}
+}
+
+
+/**
+ * Visitor function for object definitions (i.e. schema type = "object") in an
+ * OpenRPC contract. Recursively discovers all object definitions and invokes
+ * the callback for each one.
+ *
+ * @param context The current context stack (names of keys leading to the object)
+ * @param contract The OpenRPC contract to visit
+ * @param callback The callback function to call for each object
+ *
+ * @returns An generator that yields the results of the callback function,
+ * invoked for each object definition
+ */
+function* objectVisitor(
+	context: Array<string>,
+	contract: any,
+	callback: (context: Array<string>, o: Record<string, any>) => Generator<string>
+): Generator<string> {
+	if (contract.type === 'object') {
+		// This is an object definition, so call the callback function and yield
+		// the result
+		yield* callback(context, contract);
+
+		// Keep recursing into the object definition to discover any nested
+		// object definitions
+		yield* objectVisitor(context, contract.properties, callback);
+	} else if (Array.isArray(contract)) {
+		// If this object is an array, recurse into each item
+		for (const item of contract) {
+			yield* objectVisitor(context, item, callback);
+		}
+	} else if (typeof contract === 'object') {
+		// If this object is an object, recurse into each property
+		for (const key of Object.keys(contract)) {
+			if (key === 'schema') {
+				yield* objectVisitor(context, contract[key], callback);
+			}
+			else {
+				yield* objectVisitor(
+					[key, ...context], contract[key], callback);
+			}
+		}
+	}
+}
+
+/**
+ * Create a Rust comm for a given OpenRPC contract.
+ *
+ * @param name The name of the comm
+ * @param frontend The OpenRPC contract for the frontend
+ * @param backend The OpenRPC contract for the backend
+ *
+ * @returns A generator that yields the Rust code for the comm
+ */
 function* createRustComm(name: string, frontend: any, backend: any): Generator<string> {
 	yield `/*---------------------------------------------------------------------------------------------
  *  Copyright (C) ${year} Posit Software, PBC. All rights reserved.
@@ -146,63 +344,88 @@ use serde::Serialize;
 
 `;
 
-	if (backend) {
-		// Create objects for all the object schemas first
-		for (const method of backend.methods) {
-			if (method.result &&
-				method.result.schema &&
-				method.result.schema.type === 'object') {
-				yield '#[derive(Debug, Serialize, Deserialize, PartialEq)]\n';
-				yield `pub struct ${snakeCaseToSentenceCase(method.result.schema.name)} {\n`;
-				const props = Object.keys(method.result.schema.properties);
-				for (let i = 0; i < props.length; i++) {
-					const prop = props[i];
-					const schema = method.result.schema.properties[prop];
-					if (schema.description) {
-						yield formatComment('\t/// ', schema.description);
-					}
-					yield `\tpub ${prop}: ${RustTypeMap[schema.type]},\n`;
-					if (i < props.length - 1) {
-						yield '\n';
-					}
-				}
-				yield '}\n\n';
-			}
-		}
-	}
+	const contracts = [backend, frontend];
 
-	// Create enums for all enum types
-	for (const source of [backend, frontend]) {
+	for (const source of contracts) {
 		if (!source) {
 			continue;
 		}
-		for (const method of source.methods) {
-			for (const param of method.params) {
-				if (param.schema.enum) {
-					yield formatComment(`/// `,
-						`Possible values for the ` +
-						snakeCaseToSentenceCase(param.name) + ` ` +
-						`parameter of the ` +
-						snakeCaseToSentenceCase(method.name) + ` ` +
-						`method.`);
-					yield '#[derive(Debug, Serialize, Deserialize, PartialEq)]\n';
-					yield `pub enum ${snakeCaseToSentenceCase(method.name)}${snakeCaseToSentenceCase(param.name)} {\n`;
-					for (let i = 0; i < param.schema.enum.length; i++) {
-						const value = param.schema.enum[i];
-						yield `\t#[serde(rename = "${value}")]\n`;
-						yield `\t${snakeCaseToSentenceCase(value)}`;
-						if (i < param.schema.enum.length - 1) {
-							yield ',\n\n';
-						} else {
-							yield '\n';
-						}
-					}
-					yield '}\n\n';
+
+		// Create type aliases for all the shared types
+		if (source.components && source.components.schemas) {
+			for (const key of Object.keys(backend.components.schemas)) {
+				const schema = backend.components.schemas[key];
+				if (schema.type !== 'object') {
+					yield formatComment('/// ', schema.description);
+					yield `type ${snakeCaseToSentenceCase(key)} = `;
+					yield deriveType(contracts, RustTypeMap,
+						schema.name ? schema.name : key,
+						schema);
+					yield ';\n\n';
 				}
 			}
 		}
+
+		// Create structs for all object types
+		yield* objectVisitor([], source, function* (context: Array<string>, o: Record<string, any>) {
+			if (o.description) {
+				yield formatComment('/// ', o.description);
+			} else {
+				yield formatComment('/// ',
+					snakeCaseToSentenceCase(context[0]) + ' in ' +
+					snakeCaseToSentenceCase(context[1]));
+			}
+			const name = o.name ? o.name : context[0] === 'items' ? context[1] : context[0];
+			yield '#[derive(Debug, Serialize, Deserialize, PartialEq)]\n';
+			yield `pub struct ${snakeCaseToSentenceCase(name)} {\n`;
+			const props = Object.keys(o.properties);
+			for (let i = 0; i < props.length; i++) {
+				const key = props[i];
+				const prop = o.properties[key];
+				if (prop.description) {
+					yield formatComment('\t/// ', prop.description);
+				}
+				yield `\tpub ${key}: `;
+				if (!o.required || !o.required.includes(key)) {
+					yield 'Option<';
+					yield deriveType(contracts, RustTypeMap, key, prop);
+					yield '>';
+
+				} else {
+					yield deriveType(contracts, RustTypeMap, key, prop);
+				}
+				if (i < props.length - 1) {
+					yield ',\n';
+				}
+				yield '\n';
+			}
+			yield '}\n\n';
+		});
+
+
+		// Create enums for all enum types
+		yield* enumVisitor([], source, function* (context: Array<string>, values: Array<string>) {
+			yield formatComment(`/// `,
+				`Possible values for ` +
+				snakeCaseToSentenceCase(context[0]) + ` in ` +
+				snakeCaseToSentenceCase(context[1]));
+			yield '#[derive(Debug, Serialize, Deserialize, PartialEq)]\n';
+			yield `pub enum ${snakeCaseToSentenceCase(context[1])}${snakeCaseToSentenceCase(context[0])} {\n`;
+			for (let i = 0; i < values.length; i++) {
+				const value = values[i];
+				yield `\t#[serde(rename = "${value}")]\n`;
+				yield `\t${snakeCaseToSentenceCase(value)}`;
+				if (i < values.length - 1) {
+					yield ',\n\n';
+				} else {
+					yield '\n';
+				}
+			}
+			yield '}\n\n';
+		});
 	}
 
+	// Create parameter objects for each method
 	for (const source of [backend, frontend]) {
 		if (!source) {
 			continue;
@@ -225,7 +448,7 @@ use serde::Serialize;
 						yield `\tpub ${param.name}: ${snakeCaseToSentenceCase(method.name)}${snakeCaseToSentenceCase(param.name)},\n`;
 					} else {
 						// Otherwise use the type directly
-						yield `\tpub ${param.name}: ${RustTypeMap[param.schema.type]},\n`;
+						yield `\tpub ${param.name}: ${deriveType(contracts, RustTypeMap, param.name, param.schema)},\n`;
 					}
 					if (i < method.params.length - 1) {
 						yield '\n';
@@ -236,6 +459,7 @@ use serde::Serialize;
 		}
 	}
 
+	// Create the RPC request and reply enums
 	if (backend) {
 		yield '/**\n';
 		yield ` * RPC request types for the ${name} comm\n`;
@@ -254,9 +478,9 @@ use serde::Serialize;
 			yield `\t#[serde(rename = "${method.name}")]\n`;
 			yield `\t${snakeCaseToSentenceCase(method.name)}`;
 			if (method.params.length > 0) {
-				yield `(${snakeCaseToSentenceCase(method.name)}Params),\n`;
+				yield `(${snakeCaseToSentenceCase(method.name)}Params),\n\n`;
 			} else {
-				yield ',\n';
+				yield ',\n\n';
 			}
 		}
 		yield `}\n\n`;
@@ -275,15 +499,16 @@ use serde::Serialize;
 				}
 				yield `\t${snakeCaseToSentenceCase(method.name)}Reply`;
 				if (schema.type === 'object') {
-					yield `(${snakeCaseToSentenceCase(schema.name)}),\n`;
+					yield `(${snakeCaseToSentenceCase(schema.name)}),\n\n`;
 				} else {
-					yield `(${RustTypeMap[schema.type]}),\n`;
+					yield `(${RustTypeMap[schema.type]}),\n\n`;
 				}
 			}
 		}
 		yield `}\n\n`;
 	}
 
+	// Create the event enum
 	if (frontend) {
 		yield '/**\n';
 		yield ` * Front-end events for the ${name} comm\n`;
@@ -295,16 +520,27 @@ use serde::Serialize;
 			yield `\t#[serde(rename = "${method.name}")]\n`;
 			yield `\t${snakeCaseToSentenceCase(method.name)}`;
 			if (method.params.length > 0) {
-				yield `(${snakeCaseToSentenceCase(method.name)}Params),\n`;
+				yield `(${snakeCaseToSentenceCase(method.name)}Params),\n\n`;
 			} else {
-				yield ',\n';
+				yield ',\n\n';
 			}
 		}
 		yield `}\n\n`;
 	}
 }
 
-function* createPythonComm(name: string, frontend: any, backend: any): Generator<string> {
+/**
+ * Create a Python comm for a given OpenRPC contract.
+ *
+ * @param name The name of the comm
+ * @param frontend The OpenRPC contract for the frontend
+ * @param backend The OpenRPC contract for the backend
+ *
+ * @returns A generator that yields the Python code for the comm
+ */
+function* createPythonComm(name: string,
+	frontend: any,
+	backend: any): Generator<string> {
 	yield `#
 #  Copyright (C) ${year} Posit Software, PBC. All rights reserved.
 #
@@ -317,68 +553,82 @@ import enum
 from dataclasses import dataclass, field
 
 `;
-
-	if (backend) {
-		// Create classes for all the object schemas first
-		for (const method of backend.methods) {
-			if (method.result &&
-				method.result.schema &&
-				method.result.schema.type === 'object') {
-				yield '@dataclass\n';
-				yield `class ${snakeCaseToSentenceCase(method.result.schema.name)}:\n`;
-				if (method.result.schema.description) {
-					yield '    """\n';
-					yield formatComment('    ', method.result.schema.description);
-					yield '    """\n';
-					yield '\n';
-				}
-				for (const prop of Object.keys(method.result.schema.properties)) {
-					const schema = method.result.schema.properties[prop];
-					yield `    ${prop}: ${PythonTypeMap[schema.type]}`;
-					yield ' = field(\n';
-					yield `        metadata={\n`;
-					yield `            "description": "${schema.description}",\n`;
-					yield `        }\n`;
-					yield `    )\n\n`;
-				}
-				yield '\n\n';
-			}
-		}
-	}
-
-	// Create enums for all enum types
-	for (const source of [backend, frontend]) {
+	const contracts = [backend, frontend];
+	for (const source of contracts) {
 		if (!source) {
 			continue;
 		}
-		for (const method of source.methods) {
-			for (const param of method.params) {
-				if (param.schema.enum) {
-					yield '@enum.unique\n';
-					yield `class ${snakeCaseToSentenceCase(method.name)}`;
-					yield `${snakeCaseToSentenceCase(param.name)}(str, enum.Enum):\n`;
-					yield '    """\n';
-					yield formatComment(`    `,
-						`Possible values for the ` +
-						snakeCaseToSentenceCase(param.name) + ` ` +
-						`parameter of the ` +
-						snakeCaseToSentenceCase(method.name) + ` ` +
-						`method.`);
-					yield '    """\n';
-					yield '\n';
-					for (let i = 0; i < param.schema.enum.length; i++) {
-						const value = param.schema.enum[i];
-						yield `    ${snakeCaseToSentenceCase(value)} = "${value}"`;
-						if (i < param.schema.enum.length - 1) {
-							yield '\n\n';
-						} else {
-							yield '\n';
-						}
-					}
+		// Create dataclasses for all object types
+		yield* objectVisitor([], source, function* (
+			context: Array<string>,
+			o: Record<string, any>) {
+
+			// Preamble
+			yield '@dataclass\n';
+			const name = o.name ? o.name : context[0] === 'items' ? context[1] : context[0];
+			yield `class ${snakeCaseToSentenceCase(name)}:\n`;
+
+			// Docstring
+			if (o.description) {
+				yield '    """\n';
+				yield formatComment('    ', o.description);
+				yield '    """\n';
+				yield '\n';
+			} else {
+				yield '    """\n';
+				yield formatComment('    ', snakeCaseToSentenceCase(context[0]) + ' in ' +
+					snakeCaseToSentenceCase(context[1]));
+				yield '    """\n';
+				yield '\n';
+			}
+
+			// Fields
+			for (const prop of Object.keys(o.properties)) {
+				const schema = o.properties[prop];
+				yield `    ${prop}: `;
+				if (!o.required || !o.required.includes(prop)) {
+					yield 'Optional[';
+					yield deriveType(contracts, PythonTypeMap, prop, schema);
+					yield ']';
+				} else {
+					yield deriveType(contracts, PythonTypeMap, prop, schema);
+				}
+				yield ' = field(\n';
+				yield `        metadata={\n`;
+				yield `            "description": "${schema.description}",\n`;
+				if (!o.required || !o.required.includes(prop)) {
+					yield `            "default": None,\n`;
+				}
+				yield `        }\n`;
+				yield `    )\n\n`;
+			}
+			yield '\n\n';
+		});
+
+		// Create enums for all enum types
+		yield* enumVisitor([], source, function* (context: Array<string>, values: Array<string>) {
+			yield '@enum.unique\n';
+			yield `class ${snakeCaseToSentenceCase(context[1])}`;
+			yield `${snakeCaseToSentenceCase(context[0])}(str, enum.Enum):\n`;
+			yield '    """\n';
+			yield formatComment(`    `,
+				`Possible values for ` +
+				snakeCaseToSentenceCase(context[0]) +
+				` in ` +
+				snakeCaseToSentenceCase(context[1]));
+			yield '    """\n';
+			yield '\n';
+			for (let i = 0; i < values.length; i++) {
+				const value = values[i];
+				yield `    ${snakeCaseToSentenceCase(value)} = "${value}"`;
+				if (i < values.length - 1) {
 					yield '\n\n';
+				} else {
+					yield '\n';
 				}
 			}
-		}
+			yield '\n\n';
+		});
 	}
 
 	if (backend) {
@@ -399,6 +649,9 @@ from dataclasses import dataclass, field
 
 	if (backend) {
 		for (const method of backend.methods) {
+			if (!method.description) {
+				throw new Error(`No description for '${method.name}'; please add a description to the schema`);
+			}
 			yield `@dataclass\n`;
 			yield `class ${snakeCaseToSentenceCase(method.name)}Params:\n`;
 			yield `    """\n`;
@@ -409,7 +662,7 @@ from dataclasses import dataclass, field
 				if (param.schema.enum) {
 					yield `    ${param.name}: ${snakeCaseToSentenceCase(method.name)}${snakeCaseToSentenceCase(param.name)}`;
 				} else {
-					yield `    ${param.name}: ${PythonTypeMap[param.schema.type]}`;
+					yield `    ${param.name}: ${deriveType(contracts, PythonTypeMap, param.name, param.schema)}`;
 				}
 				yield ' = field(\n';
 				yield `        metadata={\n`;
@@ -480,7 +733,7 @@ from dataclasses import dataclass, field
 					if (param.schema.enum) {
 						yield `    ${param.name}: ${snakeCaseToSentenceCase(method.name)}${snakeCaseToSentenceCase(param.name)}`;
 					} else {
-						yield `    ${param.name}: ${PythonTypeMap[param.schema.type]}`;
+						yield `    ${param.name}: ${deriveType(contracts, PythonTypeMap, param.name, param.schema)}`;
 					}
 					yield ' = field(\n';
 					yield `        metadata={\n`;
@@ -493,7 +746,67 @@ from dataclasses import dataclass, field
 	}
 }
 
-async function* createTypescriptComm(name: string, frontend: any, backend: any): AsyncGenerator<string> {
+/**
+ * Generates a Typescript interface for a given object schema.
+ *
+ * @param contract The OpenRPC contracts that the schema is part of
+ * @param name The name of the schema
+ * @param description The description of the schema
+ * @param properties The properties of the schema
+ * @param required An array of required properties
+ *
+ * @returns A generator that yields the Typescript code for an interface
+ * representing the schema
+ */
+function* createTypescriptInterface(contracts: Array<any>,
+	name: string,
+	description: string,
+	properties: Record<string, any>,
+	required: Array<string>): Generator<string> {
+
+	if (!description) {
+		throw new Error(`No description for '${name}'; please add a description to the schema`);
+	}
+	yield '/**\n';
+	yield formatComment(' * ', description);
+	yield ' */\n';
+	yield `export interface ${snakeCaseToSentenceCase(name)} {\n`;
+	if (!properties || Object.keys(properties).length === 0) {
+		throw new Error(`No properties for '${name}'; please add properties to the schema`);
+	}
+	for (const prop of Object.keys(properties)) {
+		const schema = properties[prop];
+		if (!schema.description) {
+			throw new Error(`No description for the '${name}.${prop}' value; please add a description to the schema`);
+		}
+		yield '\t/**\n';
+		yield formatComment('\t * ', schema.description);
+		yield '\t */\n';
+		yield `\t${prop}`;
+		if (!required.includes(prop)) {
+			yield '?';
+		}
+		yield `: `;
+		if (schema.type === 'object') {
+			yield snakeCaseToSentenceCase(schema.name);
+		} else if (schema.type === 'string' && schema.enum) {
+			yield `${snakeCaseToSentenceCase(name)}${snakeCaseToSentenceCase(prop)}`;
+		} else {
+			yield deriveType(contracts, TypescriptTypeMap, prop, schema);
+		}
+		yield `;\n\n`;
+	}
+	yield '}\n\n';
+}
+
+/**
+ * Create a Typescript comm for a given OpenRPC contract.
+ *
+ * @param name The name of the comm
+ * @param frontend The OpenRPC contract for the frontend
+ * @param backend The OpenRPC contract for the backend
+ */
+function* createTypescriptComm(name: string, frontend: any, backend: any): Generator<string> {
 	// Read the metadata file
 	const metadata: CommMetadata = JSON.parse(
 		readFileSync(path.join(commsDir, `${name}.json`), { encoding: 'utf-8' }));
@@ -505,27 +818,67 @@ async function* createTypescriptComm(name: string, frontend: any, backend: any):
 // AUTO-GENERATED from ${name}.json; do not edit.
 //
 
-import { Event } from 'vs/base/common/event';
-import { PositronBaseComm } from 'vs/workbench/services/languageRuntime/common/positronBaseComm';
+`;
+	// If there are frontend events, import the Event class
+	if (frontend) {
+		yield `import { Event } from 'vs/base/common/event';\n`;
+	}
+	yield `import { PositronBaseComm } from 'vs/workbench/services/languageRuntime/common/positronBaseComm';
 import { IRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeClientInstance';
 
 `;
+	const contracts = [backend, frontend];
+	for (const source of contracts) {
+		if (!source) {
+			continue;
+		}
+		yield* objectVisitor([], source,
+			function* (context: Array<string>, o: Record<string, any>): Generator<string> {
+				const name = o.name ? o.name : context[0] === 'items' ? context[1] : context[0];
+				const description = o.description ? o.description :
+					snakeCaseToSentenceCase(context[0]) + ' in ' +
+					snakeCaseToSentenceCase(context[1]);
+				yield* createTypescriptInterface(contracts, name, description, o.properties,
+					o.required ? o.required : []);
+			});
 
-	if (backend) {
-		// Create interfaces for all the object schemas first
-		for (const method of backend.methods) {
-			if (method.result &&
-				method.result.schema &&
-				method.result.schema.type === 'object') {
-				yield await compile(method.result.schema,
-					method.result.schema.name, {
-					bannerComment: '',
-					additionalProperties: false,
-					style: {
-						useTabs: true
-					}
-				});
-				yield '\n';
+		// Create enums for all enum types
+		yield* enumVisitor([], source, function* (context: Array<string>, values: Array<string>) {
+			yield '/**\n';
+			yield formatComment(` * `,
+				`Possible values for ` +
+				snakeCaseToSentenceCase(context[0]) + ` in ` +
+				snakeCaseToSentenceCase(context[1]));
+			yield ' */\n';
+			yield `export enum ${snakeCaseToSentenceCase(context[1])}${snakeCaseToSentenceCase(context[0])} {\n`;
+			for (let i = 0; i < values.length; i++) {
+				const value = values[i];
+				yield `\t${snakeCaseToSentenceCase(value)} = '${value}'`;
+				if (i < values.length - 1) {
+					yield ',\n';
+				} else {
+					yield '\n';
+				}
+			}
+			yield '}\n\n';
+		});
+	}
+
+	for (const source of [backend, frontend]) {
+		if (!source) {
+			continue;
+		}
+		if (source.components && source.components.schemas) {
+			for (const key of Object.keys(backend.components.schemas)) {
+				const schema = backend.components.schemas[key];
+				if (schema.type !== 'object') {
+					yield `/**\n`;
+					yield formatComment(' * ', schema.description);
+					yield ' */\n';
+					yield `export type ${snakeCaseToSentenceCase(key)} = `;
+					yield deriveType(contracts, TypescriptTypeMap, key, schema);
+					yield ';\n\n';
+				}
 			}
 		}
 	}
@@ -546,9 +899,9 @@ import { IRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/co
 				yield '\t */\n';
 				yield `\t${snakeCaseToCamelCase(param.name)}: `;
 				if (param.schema.type === 'string' && param.schema.enum) {
-					yield param.schema.enum.map((value: string) => `'${value}'`).join(' | ');
+					yield `${snakeCaseToSentenceCase(method.name)}${snakeCaseToSentenceCase(param.name)}`;
 				} else {
-					yield TypescriptTypeMap[param.schema.type as string];
+					yield deriveType(contracts, TypescriptTypeMap, param.name, param.schema);
 				}
 				yield `;\n\n`;
 			}
@@ -599,7 +952,7 @@ import { IRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/co
 					`@param ${snakeCaseToCamelCase(param.name)} ${param.description}`);
 			}
 			yield `\t *\n`;
-			if (method.result) {
+			if (method.result && method.result.schema) {
 				yield formatComment('\t * ',
 					`@returns ${method.result.schema.description}`);
 			}
@@ -607,20 +960,29 @@ import { IRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/co
 			yield '\t' + snakeCaseToCamelCase(method.name) + '(';
 			for (let i = 0; i < method.params.length; i++) {
 				const param = method.params[i];
-				yield snakeCaseToCamelCase(param.name) +
-					': ' +
-					TypescriptTypeMap[param.schema.type as string];
+				if (!param.schema) {
+					throw new Error(`No schema for '${method.name}' parameter '${param.name}'`);
+				}
+				yield snakeCaseToCamelCase(param.name) + ': ';
+				const schema = param.schema;
+				if (schema.type === 'string' && schema.enum) {
+					yield `${snakeCaseToSentenceCase(method.name)}${snakeCaseToSentenceCase(param.name)}`;
+				} else {
+					yield deriveType(contracts, TypescriptTypeMap, param.name, schema);
+				}
 				if (i < method.params.length - 1) {
 					yield ', ';
 				}
 			}
 			yield '): Promise<';
-			if (method.result) {
+			if (method.result && method.result.schema) {
 				if (method.result.schema.type === 'object') {
 					yield snakeCaseToSentenceCase(method.result.schema.name);
 				} else {
-					yield TypescriptTypeMap[method.result.schema.type as string];
+					yield deriveType(contracts, TypescriptTypeMap, method.name, method.result.schema);
 				}
+			} else {
+				yield 'void';
 			}
 			yield '> {\n';
 			yield '\t\treturn super.performRpc(\'' + method.name + '\', [';
@@ -638,7 +1000,7 @@ import { IRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/co
 				}
 			}
 			yield ']);\n';
-			yield `\t}\n`;
+			yield `\t}\n\n`;
 		}
 	}
 

@@ -46,7 +46,11 @@
 							"description": "The MIME type of the plot data",
 							"type": "string"
 						}
-					}
+					},
+					"required": [
+						"data",
+						"mime_type"
+					]
 				}
 			}
 		}

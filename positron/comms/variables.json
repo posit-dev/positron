@@ -1,0 +1,9 @@
+{
+	"name": "variables",
+	"initiator": "frontend",
+	"initial_data": {
+		"schema": {
+			"type": "null"
+		}
+	}
+}
