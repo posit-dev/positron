@@ -175,8 +175,10 @@ export class PositronVariablesComm extends PositronBaseComm {
 	 * @param includeHiddenObjects Whether to clear hidden objects in
 	 * addition to normal variables
 	 *
+	 * @returns A list of variables in the session remaining after deletion;
+	 * usually empty.
 	 */
-	clear(includeHiddenObjects: boolean): Promise<void> {
+	clear(includeHiddenObjects: boolean): Promise<Array<Variable>> {
 		return super.performRpc('clear', ['include_hidden_objects'], [includeHiddenObjects]);
 	}
 
