@@ -501,7 +501,7 @@ use serde::Serialize;
 				if (schema.type === 'object') {
 					yield `(${snakeCaseToSentenceCase(schema.name)}),\n\n`;
 				} else {
-					yield `(${RustTypeMap[schema.type]}),\n\n`;
+					yield `(${deriveType(contracts, RustTypeMap, schema.name, schema)}),\n\n`;
 				}
 			}
 		}
@@ -517,6 +517,9 @@ use serde::Serialize;
 		yield `#[serde(tag = "method", content = "params")]\n`;
 		yield `pub enum ${snakeCaseToSentenceCase(name)}Event {\n`;
 		for (const method of frontend.methods) {
+			if (method.description) {
+				yield formatComment('\t/// ', method.description);
+			}
 			yield `\t#[serde(rename = "${method.name}")]\n`;
 			yield `\t${snakeCaseToSentenceCase(method.name)}`;
 			if (method.params.length > 0) {
