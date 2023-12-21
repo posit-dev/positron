@@ -45,17 +45,11 @@ export async function registerCommands(context: vscode.ExtensionContext) {
 
 		// Commands for package development tooling
 		vscode.commands.registerCommand('r.packageLoad', async () => {
-			const isInstalled = await checkInstalled('devtools');
-			if (isInstalled) {
-				positron.runtime.executeCode('r', 'devtools::load_all()', true);
-			}
+			executeCodeForCommand('devtools', 'devtools::load_all()');
 		}),
 
 		vscode.commands.registerCommand('r.packageBuild', async () => {
-			const isInstalled = await checkInstalled('devtools');
-			if (isInstalled) {
-				positron.runtime.executeCode('r', 'devtools::build()', true);
-			}
+			executeCodeForCommand('devtools', 'devtools::build()');
 		}),
 
 		vscode.commands.registerCommand('r.packageInstall', async () => {
@@ -103,24 +97,15 @@ export async function registerCommands(context: vscode.ExtensionContext) {
 		}),
 
 		vscode.commands.registerCommand('r.packageTest', async () => {
-			const isInstalled = await checkInstalled('devtools');
-			if (isInstalled) {
-				positron.runtime.executeCode('r', 'devtools::test()', true);
-			}
+			executeCodeForCommand('devtools', 'devtools::test()');
 		}),
 
 		vscode.commands.registerCommand('r.useTestthat', async () => {
-			const isInstalled = await checkInstalled('usethis');
-			if (isInstalled) {
-				positron.runtime.executeCode('r', 'usethis::use_testthat()', true);
-			}
+			executeCodeForCommand('usethis', 'usethis::use_testthat()');
 		}),
 
 		vscode.commands.registerCommand('r.useTest', async () => {
-			const isInstalled = await checkInstalled('usethis');
-			if (isInstalled) {
-				positron.runtime.executeCode('r', 'usethis::use_test("rename-me")', true);
-			}
+			executeCodeForCommand('usethis', 'usethis::use_test("rename-me")');
 		}),
 
 		vscode.commands.registerCommand('r.packageCheck', async () => {
@@ -133,10 +118,7 @@ export async function registerCommands(context: vscode.ExtensionContext) {
 		}),
 
 		vscode.commands.registerCommand('r.packageDocument', async () => {
-			const isInstalled = await checkInstalled('devtools');
-			if (isInstalled) {
-				positron.runtime.executeCode('r', 'devtools::document()', true);
-			}
+			executeCodeForCommand('devtools', 'devtools::document()');
 		}),
 
 		// Command used to source the current file
@@ -219,3 +201,9 @@ function insertOperatorWithSpace(op: string) {
 	});
 }
 
+async function executeCodeForCommand(pkg: string, code: string) {
+	const isInstalled = await checkInstalled(pkg);
+	if (isInstalled) {
+		positron.runtime.executeCode('r', code, true);
+	}
+}
