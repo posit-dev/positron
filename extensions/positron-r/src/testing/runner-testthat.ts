@@ -7,7 +7,7 @@ import * as path from 'path';
 import { spawn } from 'child_process';
 import * as split2 from 'split2';
 import { Logger } from '../extension';
-import { lastRuntimePath } from '../runtime';
+import { checkInstalled, runtimeManager } from '../runtime';
 import { EXTENSION_ROOT_DIR } from '../constants';
 import { ItemType, TestingTools, encodeNodeId } from './util-testing';
 import { TestResult } from './reporter';
@@ -22,6 +22,20 @@ export async function runThatTest(
 	run: vscode.TestRun,
 	test?: vscode.TestItem
 ): Promise<string> {
+	// in all scenarios, we execute devtools::SOMETHING() in a child process
+	// if we can't get the path to the relevant R executable, no point in continuing
+	if (!runtimeManager.hasLastBinpath()) {
+		return Promise.resolve('No running R runtime to run R package tests.');
+	}
+
+	// devtools 2.4.0 was released 2021-04-07
+	// chosen as minimum version because that's when test_active_file() was introduced
+	// indirectly imposes requirement for testthat >= 3.0.2
+	const devtoolsInstalled = await checkInstalled('devtools', '2.4.0');
+	if (!devtoolsInstalled) {
+		return Promise.resolve('devtools >= 2.4.0 is needed to run R package tests.');
+	}
+
 	const getType = (testItem?: vscode.TestItem) => {
 		if (testItem) {
 			return testingTools.testItemData.get(testItem)!;
@@ -32,17 +46,19 @@ export async function runThatTest(
 	const testType = getType(test);
 
 	switch (testType) {
-		case ItemType.TestThat:
+		case ItemType.TestThat: {
+			const testthatInstalled = await checkInstalled('testthat', '3.2.0');
+			if (!testthatInstalled) {
+				return Promise.resolve('testthat >= 3.2.0 is needed to run R a single test_that() test.');
+			}
 			Logger.info('Single test_that() test');
 			break;
+		}
+		// TODO: testthat >= 3.2.1 introduces support for running a single top-level describe().
 		case ItemType.Describe:
-			Logger.info('Single describe() test: can\'t be run individually (yet)');
-			// TODO: testthat doesn't support running a single describe() yet
-			// TODO: figure out how to handle nested describe()
-			return Promise.resolve('Single describe() test: can\'t be run individually (yet)');
+			return Promise.resolve('Single describe() test: can\'t be run individually (yet).');
 		case ItemType.It:
-			Logger.info('Individual it() call: can\'t be run individually');
-			return Promise.resolve('Individual it() call: can\'t be run individually');
+			return Promise.resolve('Individual it() call: can\'t be run individually.');
 		case ItemType.File:
 			Logger.info('Test type is file');
 			if (test!.children.size === 0) {
@@ -67,28 +83,13 @@ export async function runThatTest(
 		} '${testPath}'`
 	);
 
-	const rBinPath = await getRBinPath(testingTools);
-
-	const { major, minor, patch } = await getDevtoolsVersion(rBinPath);
-	if (major < 2 || (major === 2 && minor < 3) || (major === 2 && minor === 3 && patch < 2)) {
-		return Promise.reject(
-			Error(
-				'Devtools version too old. RTestAdapter requires devtools>=2.3.2' +
-				'to be installed in the Rscript environment'
-			)
-		);
-	}
-
-	const devtoolsMethod = testType === ItemType.Directory
-		? 'test'
-		: major === 2 && minor < 4 ? 'test_file' : 'test_active_file';
-
+	const devtoolsMethod = testType === ItemType.Directory ? 'test' : 'test_active_file';
 	const descInsert = isSingleTest ? ` desc = '${test?.label || '<all tests>'}', ` : '';
 	const devtoolsCall =
 		`devtools::load_all('${testReporterPath}');` +
 		`devtools::${devtoolsMethod}('${testPath}',` +
 		`${descInsert}reporter = VSCodeReporter)`;
-	const command = `${rBinPath} --no-echo -e "${devtoolsCall}"`;
+	const command = `"${runtimeManager.getLastBinpath()}" --no-echo -e "${devtoolsCall}"`;
 	Logger.info(`devtools call is:\n${command}`);
 
 	const wd = testingTools.packageRoot.fsPath;
@@ -247,45 +248,4 @@ function findTest(
 		}
 	});
 	return secondGenerationFound;
-}
-
-async function getRBinPath(testingTools: TestingTools) {
-	// TODO: check behaviour against lastRuntimePath being the empty string
-	if (!lastRuntimePath) {
-		throw new Error(`No running R runtime to use for package testing.`);
-	}
-	const rBinPath = `${lastRuntimePath}/bin/R`;
-	Logger.info(`Using R binary: ${rBinPath}`);
-	return Promise.resolve(rBinPath);
-}
-
-async function getDevtoolsVersion(rBinPath: string): Promise<{ major: number; minor: number; patch: number }> {
-	// TODO: abstract and refactor into a general minimum version checker, ie make package an argument
-	// TODO @jennybc: if this code stays, figure this out
-	// eslint-disable-next-line no-async-promise-executor
-	return new Promise(async (resolve, reject) => {
-		const childProcess = spawn(
-			`${rBinPath} --no-echo -e "writeLines(format(packageVersion('devtools')))"`,
-			{
-				shell: true,
-			}
-		);
-		let stdout = '';
-		childProcess.once('exit', () => {
-			stdout += childProcess.stdout.read() + '\n' + childProcess.stderr.read();
-			const version = stdout.match(/(\d*)\.(\d*)\.(\d*)/i);
-			if (version !== null) {
-				Logger.info(`devtools version: ${version[0]}`);
-				const major = parseInt(version[1]);
-				const minor = parseInt(version[2]);
-				const patch = parseInt(version[3]);
-				resolve({ major, minor, patch });
-			} else {
-				reject(Error('devtools version could not be detected. Output:\n' + stdout));
-			}
-		});
-		childProcess.once('error', (err) => {
-			reject(err);
-		});
-	});
 }
