@@ -59,7 +59,15 @@
 					}
 				}
 			],
-			"result": {}
+			"result": {
+				"schema": {
+					"description": "The names of the variables that were successfully deleted.",
+					"type": "array",
+					"items": {
+						"type": "string"
+					}
+				}
+			}
 		},
 		{
 			"name": "inspect",
@@ -193,6 +201,10 @@
 						"type": "string",
 						"description": "Extended information about the variable's type"
 					},
+					"size": {
+						"type": "integer",
+						"description": "The size of the variable's value in bytes"
+					},
 					"kind": {
 						"type": "string",
 						"enum": [
@@ -232,6 +244,7 @@
 					"display_value",
 					"display_type",
 					"type_info",
+					"size",
 					"kind",
 					"length",
 					"has_children",

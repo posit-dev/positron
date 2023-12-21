@@ -76,6 +76,11 @@ export interface Variable {
 	type_info: string;
 
 	/**
+	 * The size of the variable's value in bytes
+	 */
+	size: number;
+
+	/**
 	 * The kind of value the variable represents, such as 'string' or
 	 * 'number'
 	 */
@@ -189,8 +194,9 @@ export class PositronVariablesComm extends PositronBaseComm {
 	 *
 	 * @param names The names of the variables to delete.
 	 *
+	 * @returns The names of the variables that were successfully deleted.
 	 */
-	delete(names: Array<string>): Promise<void> {
+	delete(names: Array<string>): Promise<Array<string>> {
 		return super.performRpc('delete', ['names'], [names]);
 	}
 
