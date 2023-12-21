@@ -6,6 +6,7 @@ import 'vs/css!./consoleInstance';
 import * as React from 'react';
 import { KeyboardEvent, MouseEvent, UIEvent, useEffect, useLayoutEffect, useRef, useState, WheelEvent } from 'react'; // eslint-disable-line no-duplicate-imports
 import * as nls from 'vs/nls';
+import * as DOM from 'vs/base/browser/dom';
 import { generateUuid } from 'vs/base/common/uuid';
 import { PixelRatio } from 'vs/base/browser/browser';
 import { isMacintosh } from 'vs/base/common/platform';
@@ -98,7 +99,7 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 	 */
 	const getSelection = () => {
 		// Get the selection.
-		const selection = document.getSelection();
+		const selection = DOM.getActiveWindow().document.getSelection();
 		if (selection) {
 			// If the selection is outside the element, return null.
 			for (let i = 0; i < selection.rangeCount; i++) {
@@ -201,7 +202,7 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 	 * selectAllRuntimeItems selects all runtime items.
 	 */
 	const selectAllRuntimeItems = () => {
-		const selection = document.getSelection();
+		const selection = DOM.getActiveWindow().document.getSelection();
 		if (selection) {
 			selection.selectAllChildren(runtimeItemsRef.current);
 		}
@@ -492,7 +493,8 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 			const scrollPosition = Math.abs(
 				consoleInstanceRef.current.scrollHeight -
 				consoleInstanceRef.current.clientHeight -
-				consoleInstanceRef.current.scrollTop);
+				consoleInstanceRef.current.scrollTop
+			);
 
 			// Update scroll lock.
 			setScrollLock(scrollPosition >= 1);

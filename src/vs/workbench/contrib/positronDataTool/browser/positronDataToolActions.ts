@@ -3,16 +3,13 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { localize } from 'vs/nls';
-import { URI } from 'vs/base/common/uri';
-import { Schemas } from 'vs/base/common/network';
-import { generateUuid } from 'vs/base/common/uuid';
 import { KeyCode, KeyMod } from 'vs/base/common/keyCodes';
 import { ILocalizedString } from 'vs/platform/action/common/action';
 import { Action2, registerAction2 } from 'vs/platform/actions/common/actions';
 import { IsDevelopmentContext } from 'vs/platform/contextkey/common/contextkeys';
 import { ServicesAccessor } from 'vs/platform/instantiation/common/instantiation';
-import { IEditorService } from 'vs/workbench/services/editor/common/editorService';
 import { KeybindingWeight } from 'vs/platform/keybinding/common/keybindingsRegistry';
+import { IPositronDataToolService } from 'vs/workbench/services/positronDataTool/browser/interfaces/positronDataToolService';
 
 /**
  * Positron data tool action category.
@@ -70,9 +67,10 @@ class OpenPositronDataTool extends Action2 {
 	 */
 	async run(accessor: ServicesAccessor) {
 		// Access services.
-		const editorService = accessor.get(IEditorService);
-		const resource = URI.from({ scheme: Schemas.positronDataTool, path: `data-tool-${generateUuid()}` });
-		await editorService.openEditor({ resource });
+		const positronDataToolService = accessor.get(IPositronDataToolService);
+
+		// Test opening a positron data tool.
+		await positronDataToolService.testOpen('b809490e-1801-4f2f-911c-7b9539c78204');
 	}
 }
 
