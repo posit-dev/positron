@@ -60,30 +60,25 @@ export const ColumnsPanel = (props: ColumnsPanelProps) => {
 	const innerRef = useRef<HTMLElement>(undefined!);
 
 	// State hooks.
-	const [firstRender, setFirstRender] = useState(true);
+	const [initialScrollOffset, setInitialScrollOffset] = useState(context.instance.columnsScrollOffset);
 
 	useEffect(() => {
-		if (!firstRender) {
-			listRef.current.scrollTo(20 * LINE_HEIGHT);
+		if (initialScrollOffset) {
+			listRef.current.scrollTo(initialScrollOffset);
+			setInitialScrollOffset(0);
 		}
-	}, [firstRender]);
+	}, [initialScrollOffset]);
 
-	const itemsRenderedHandler = ({
-		visibleStartIndex,
-		visibleStopIndex
-	}: ListOnItemsRenderedProps) => {
-		console.log(context);
-		setFirstRender(true);
+	const itemsRenderedHandler = ({ visibleStartIndex, visibleStopIndex }: ListOnItemsRenderedProps) => {
 		console.log(`-----------------> LIST height ${props.height} itemsRenderedHandler: visibleStartIndex ${visibleStartIndex} visibleStopIndex ${visibleStopIndex}`);
 	};
 
-	const scrollHandler = ({
-		scrollDirection,
-		scrollOffset,
-	}: ListOnScrollProps) => {
-		console.log(`-----------------> LIST height ${props.height} scrollHandler: scrollDirection ${scrollDirection} scrollOffset ${scrollOffset}`);
-		// context.instance.columnsScrollOffset = props.scrollOffset;
-
+	const scrollHandler = ({ scrollDirection, scrollOffset }: ListOnScrollProps) => {
+		if (!initialScrollOffset) {
+			context.instance.columnsScrollOffset = scrollOffset;
+		} else {
+			console.log(`Ignoring scrollHandler during first render for scrollOffset ${scrollOffset}`);
+		}
 	};
 
 	/**
@@ -97,9 +92,9 @@ export const ColumnsPanel = (props: ColumnsPanelProps) => {
 		// Get the entry being rendered.
 		const column = dummyColumns[props.index];
 
-		console.log(`Render ColumnEntry ${props.index}`);
+		// console.log(`Render ColumnEntry ${props.index} firstRender ${firstRender}`);
 
-		if (!firstRender) {
+		if (initialScrollOffset) {
 			return (
 				<div key={column.key} style={props.style}></div>
 			);
@@ -107,7 +102,11 @@ export const ColumnsPanel = (props: ColumnsPanelProps) => {
 
 		// Render.
 		return (
-			<ColumnController key={column.key} dummyColumnInfo={column} style={props.style} />
+			<ColumnController
+				key={column.key}
+				dummyColumnInfo={column}
+				style={props.style}
+			/>
 		);
 	};
 

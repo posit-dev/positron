@@ -90,7 +90,7 @@ class PositronDataToolInstance extends Disposable implements IPositronDataToolIn
 	/**
 	 * Gets or sets the columns scroll offset.
 	 */
-	private _columnsScrollOffset = 200;
+	private _columnsScrollOffset = 0;
 
 	/**
 	 * Gets or sets the rows scroll offset.
