@@ -6,6 +6,7 @@
 // AUTO-GENERATED from variables.json; do not edit.
 //
 
+import { Event } from 'vs/base/common/event';
 import { PositronBaseComm } from 'vs/workbench/services/languageRuntime/common/positronBaseComm';
 import { IRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeClientInstance';
 
@@ -120,9 +121,26 @@ export enum VariableKind {
 	Table = 'table'
 }
 
+/**
+ * Event: Update variables
+ */
+export interface UpdateEvent {
+	/**
+	 * An array of variables that have been newly assigned.
+	 */
+	assigned: Array<Variable>;
+
+	/**
+	 * An array of variable names that have been removed.
+	 */
+	removed: Array<string>;
+
+}
+
 export class PositronVariablesComm extends PositronBaseComm {
 	constructor(instance: IRuntimeClientInstance<any, any>) {
 		super(instance);
+		this.onDidUpdate = super.createEventEmitter('update', ['assigned', 'removed']);
 	}
 
 	/**
@@ -194,5 +212,12 @@ export class PositronVariablesComm extends PositronBaseComm {
 		return super.performRpc('view', ['path'], [path]);
 	}
 
+
+	/**
+	 * Update variables
+	 *
+	 * Updates the variables in the current session.
+	 */
+	onDidUpdate: Event<UpdateEvent>;
 }
 
