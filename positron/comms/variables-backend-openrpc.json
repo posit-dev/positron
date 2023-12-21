@@ -6,6 +6,21 @@
 	},
 	"methods": [
 		{
+			"name": "list",
+			"summary": "List all variables",
+			"description": "Returns a list of all the variables in the current session.",
+			"params": [],
+			"result": {
+				"schema": {
+					"type": "array",
+					"items": {
+						"$ref": "#/components/schemas/variable"
+					},
+					"description": "A list of variables in the session."
+				}
+			}
+		},
+		{
 			"name": "clear",
 			"summary": "Clear all variables",
 			"description": "Clears (deletes) all variables in the current session.",

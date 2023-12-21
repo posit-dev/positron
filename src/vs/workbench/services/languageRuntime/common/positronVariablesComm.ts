@@ -156,6 +156,18 @@ export class PositronVariablesComm extends PositronBaseComm {
 	}
 
 	/**
+	 * List all variables
+	 *
+	 * Returns a list of all the variables in the current session.
+	 *
+	 *
+	 * @returns A list of variables in the session.
+	 */
+	list(): Promise<Array<Variable>> {
+		return super.performRpc('list', [], []);
+	}
+
+	/**
 	 * Clear all variables
 	 *
 	 * Clears (deletes) all variables in the current session.
