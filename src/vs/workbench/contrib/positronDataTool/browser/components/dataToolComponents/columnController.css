@@ -3,5 +3,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 .data-tool-panel .columns-panel .column-controller {
-
+	display: flex;
+	box-sizing: border-box; /* Draw the borders inside the box. */
+	align-items: center;
+	height: 26px;
 }

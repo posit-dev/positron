@@ -9,13 +9,13 @@ import { DisposableStore } from 'vs/base/common/lifecycle';
 import { IReactComponentContainer } from 'vs/base/browser/positronReactRenderer';
 import { ActionBar } from 'vs/workbench/contrib/positronDataTool/browser/components/actionBar';
 import { DataToolPanel } from 'vs/workbench/contrib/positronDataTool/browser/components/dataToolPanel';
-import { PositronDataToolServices } from 'vs/workbench/contrib/positronDataTool/browser/positronDataToolState';
+import { PositronDataToolConfiguration } from 'vs/workbench/contrib/positronDataTool/browser/positronDataToolState';
 import { PositronDataToolContextProvider } from 'vs/workbench/contrib/positronDataTool/browser/positronDataToolContext';
 
 /**
  * PositronDataToolProps interface.
  */
-export interface PositronDataToolProps extends PositronDataToolServices {
+export interface PositronDataToolProps extends PositronDataToolConfiguration {
 	readonly reactComponentContainer: IReactComponentContainer;
 }
 
@@ -29,7 +29,7 @@ export const PositronDataTool = (props: PropsWithChildren<PositronDataToolProps>
 	const [width, setWidth] = useState(props.reactComponentContainer.width);
 	const [height, setHeight] = useState(props.reactComponentContainer.height);
 
-	// Add IReactComponentContainer event handlers.
+	// Main useEffect.
 	useEffect(() => {
 		// Create the disposable store for cleanup.
 		const disposableStore = new DisposableStore();
