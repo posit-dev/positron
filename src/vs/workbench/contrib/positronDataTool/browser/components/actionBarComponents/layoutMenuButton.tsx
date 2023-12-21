@@ -7,8 +7,8 @@ import * as React from 'react';
 import { localize } from 'vs/nls';
 import { IAction, Separator } from 'vs/base/common/actions';
 import { ActionBarMenuButton } from 'vs/platform/positronActionBar/browser/components/actionBarMenuButton';
-import { PositronDataToolLayout } from 'vs/workbench/contrib/positronDataTool/browser/positronDataToolState';
 import { usePositronDataToolContext } from 'vs/workbench/contrib/positronDataTool/browser/positronDataToolContext';
+import { PositronDataToolLayout } from 'vs/workbench/services/positronDataTool/browser/interfaces/positronDataToolService';
 
 /**
  * Localized strings.
@@ -25,12 +25,12 @@ const columnsHidden = localize('positron.columnsHidden', "Columns Hidden");
  */
 export const LayoutMenuButton = () => {
 	// Context hooks.
-	const positronDataToolContext = usePositronDataToolContext();
+	const context = usePositronDataToolContext();
 
 	// Builds the actions.
 	const actions = () => {
 		// Get the current layout.
-		const layout = positronDataToolContext.layout;
+		const layout = context.instance.layout;
 
 		// Build the actions.
 		const actions: IAction[] = [];
@@ -44,7 +44,7 @@ export const LayoutMenuButton = () => {
 			enabled: true,
 			checked: layout === PositronDataToolLayout.ColumnsLeft,
 			run: () => {
-				positronDataToolContext.setLayout(PositronDataToolLayout.ColumnsLeft);
+				context.instance.layout = PositronDataToolLayout.ColumnsLeft;
 			}
 		});
 
@@ -57,7 +57,7 @@ export const LayoutMenuButton = () => {
 			enabled: true,
 			checked: layout === PositronDataToolLayout.ColumnsRight,
 			run: () => {
-				positronDataToolContext.setLayout(PositronDataToolLayout.ColumnsRight);
+				context.instance.layout = PositronDataToolLayout.ColumnsRight;
 			}
 		});
 
@@ -73,7 +73,7 @@ export const LayoutMenuButton = () => {
 			enabled: true,
 			checked: layout === PositronDataToolLayout.ColumnsHidden,
 			run: () => {
-				positronDataToolContext.setLayout(PositronDataToolLayout.ColumnsHidden);
+				context.instance.layout = PositronDataToolLayout.ColumnsHidden;
 			}
 		});
 
@@ -86,7 +86,7 @@ export const LayoutMenuButton = () => {
 	 * @returns The icon ID for the layout.
 	 */
 	const selectIconId = () => {
-		switch (positronDataToolContext.layout) {
+		switch (context.instance.layout) {
 			// Columns left.
 			case PositronDataToolLayout.ColumnsLeft:
 				return 'positron-data-tool-columns-left';

@@ -5,10 +5,15 @@
 import { localize } from 'vs/nls';
 import { Emitter } from 'vs/base/common/event';
 import { generateUuid } from 'vs/base/common/uuid';
+import { PixelRatio } from 'vs/base/browser/browser';
 import { IEditor } from 'vs/editor/common/editorCommon';
 import { ILogService } from 'vs/platform/log/common/log';
 import { IViewsService } from 'vs/workbench/common/views';
+import { BareFontInfo } from 'vs/editor/common/config/fontInfo';
 import { Disposable, DisposableStore } from 'vs/base/common/lifecycle';
+import { IEditorOptions } from 'vs/editor/common/config/editorOptions';
+import { FontMeasurements } from 'vs/editor/browser/config/fontMeasurements';
+import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
 import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/layoutService';
 import { INotificationService, Severity } from 'vs/platform/notification/common/notification';
@@ -35,11 +40,6 @@ import { ActivityItemInput, ActivityItemInputState } from 'vs/workbench/services
 import { ActivityItemErrorStream, ActivityItemOutputStream } from 'vs/workbench/services/positronConsole/browser/classes/activityItemStream';
 import { IPositronConsoleInstance, IPositronConsoleService, POSITRON_CONSOLE_VIEW_ID, PositronConsoleState } from 'vs/workbench/services/positronConsole/browser/interfaces/positronConsoleService';
 import { formatLanguageRuntime, ILanguageRuntime, ILanguageRuntimeExit, ILanguageRuntimeMessage, ILanguageRuntimeService, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeExitReason, RuntimeOnlineState, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
-import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
-import { IEditorOptions } from 'vs/editor/common/config/editorOptions';
-import { FontMeasurements } from 'vs/editor/browser/config/fontMeasurements';
-import { PixelRatio } from 'vs/base/browser/browser';
-import { BareFontInfo } from 'vs/editor/common/config/fontInfo';
 
 /**
  * The onDidChangeRuntimeItems throttle threshold and throttle interval. The throttle threshold
