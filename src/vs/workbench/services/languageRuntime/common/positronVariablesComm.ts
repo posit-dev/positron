@@ -137,10 +137,22 @@ export interface UpdateEvent {
 
 }
 
+/**
+ * Event: Refresh variables
+ */
+export interface RefreshEvent {
+	/**
+	 * An array listing all the variables in the current session.
+	 */
+	variables: Array<Variable>;
+
+}
+
 export class PositronVariablesComm extends PositronBaseComm {
 	constructor(instance: IRuntimeClientInstance<any, any>) {
 		super(instance);
 		this.onDidUpdate = super.createEventEmitter('update', ['assigned', 'removed']);
+		this.onDidRefresh = super.createEventEmitter('refresh', ['variables']);
 	}
 
 	/**
@@ -219,5 +231,12 @@ export class PositronVariablesComm extends PositronBaseComm {
 	 * Updates the variables in the current session.
 	 */
 	onDidUpdate: Event<UpdateEvent>;
+	/**
+	 * Refresh variables
+	 *
+	 * Replace all variables in the current session with the variables from
+	 * the backend.
+	 */
+	onDidRefresh: Event<RefreshEvent>;
 }
 
