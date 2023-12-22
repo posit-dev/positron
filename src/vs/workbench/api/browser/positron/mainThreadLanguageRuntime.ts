@@ -147,8 +147,8 @@ class ExtHostLanguageRuntimeAdapter implements ILanguageRuntime {
 
 				// Runtimes might supply prompts with trailing whitespace (e.g. R,
 				// Python) that we trim here because we add our own whitespace later on
-				const inputPrompt = state.inputPrompt?.trimEnd();
-				const continuationPrompt = state.continuationPrompt?.trimEnd();
+				const inputPrompt = state.input_prompt?.trimEnd();
+				const continuationPrompt = state.continuation_prompt?.trimEnd();
 
 				if (inputPrompt) {
 					this.dynState.inputPrompt = inputPrompt;
