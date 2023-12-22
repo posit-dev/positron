@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2022-2023 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
 import { Emitter, Event } from 'vs/base/common/event';
@@ -13,6 +13,9 @@ import { sortVariableItemsByName, sortVariableItemsBySize } from 'vs/workbench/s
 import { PositronVariablesList, PositronVariablesUpdate, VariablesClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeVariablesClient';
 import { VariableEntry, IPositronVariablesInstance, PositronVariablesGrouping, PositronVariablesSorting, PositronVariablesInstanceState } from 'vs/workbench/services/positronVariables/common/interfaces/positronVariablesInstance';
 import { VariableKind } from 'vs/workbench/services/languageRuntime/common/positronVariablesComm';
+import { INotificationService } from 'vs/platform/notification/common/notification';
+import { PositronCommError } from 'vs/workbench/services/languageRuntime/common/positronBaseComm';
+import { localize } from 'vs/nls';
 
 /**
  * Constants.
@@ -111,7 +114,8 @@ export class PositronVariablesInstance extends Disposable implements IPositronVa
 	 */
 	constructor(
 		runtime: ILanguageRuntime,
-		@ILogService private _logService: ILogService
+		@ILogService private _logService: ILogService,
+		@INotificationService private _notificationService: INotificationService
 	) {
 		// Call the base class's constructor.
 		super();
@@ -212,8 +216,15 @@ export class PositronVariablesInstance extends Disposable implements IPositronVa
 	async requestRefresh() {
 		if (this._variablesClient) {
 			this._expandedPaths.clear();
-			const list = await this._variablesClient.requestRefresh();
-			await this.processList(list);
+			try {
+				const list = await this._variablesClient.requestRefresh();
+				await this.processList(list);
+			} catch (e) {
+				const err = e as PositronCommError;
+				const message = localize('positronVariables.requestRefreshError',
+					'Error refreshing variables: {0}\n\n{1} ({2})', err.message, err.name, err.code);
+				this._notificationService.error(message);
+			}
 		} else {
 			this._logService.warn('Ignoring call to requestRefresh; client is not available.');
 		}
@@ -225,8 +236,15 @@ export class PositronVariablesInstance extends Disposable implements IPositronVa
 	 */
 	async requestClear(includeHiddenVariables: boolean) {
 		if (this._variablesClient) {
-			const list = await this._variablesClient.requestClear(includeHiddenVariables);
-			this.processList(list);
+			try {
+				const list = await this._variablesClient.requestClear(includeHiddenVariables);
+				this.processList(list);
+			} catch (e) {
+				const err = e as PositronCommError;
+				const message = localize('positronVariables.requestClearError',
+					'Error clearing variables: {0}\n\n{1} ({2})', err.message, err.name, err.code);
+				this._notificationService.error(message);
+			}
 		} else {
 			this._logService.warn('Ignoring call to requestClear; client is not available.');
 		}
@@ -238,8 +256,15 @@ export class PositronVariablesInstance extends Disposable implements IPositronVa
 	 */
 	async requestDelete(names: string[]) {
 		if (this._variablesClient) {
-			const update = await this._variablesClient.requestDelete(names);
-			await this.processUpdate(update);
+			try {
+				const update = await this._variablesClient.requestDelete(names);
+				await this.processUpdate(update);
+			} catch (e) {
+				const err = e as PositronCommError;
+				const message = localize('positronVariables.requestDeleteError',
+					'Error deleting variables: {0}\n\n{1} ({2})', err.message, err.name, err.code);
+				this._notificationService.error(message);
+			}
 		}
 		else {
 			this._logService.warn('Ignoring call to requestDelete; client is not available.');
@@ -290,18 +315,25 @@ export class PositronVariablesInstance extends Disposable implements IPositronVa
 
 		// If the variable item is not expanded, expand it.
 		const pathString = JSON.stringify(path);
-		if (!this._expandedPaths.has(pathString)) {
-			// Locate the variable item. If it was found, expand it.
-			const variableItem = this.locateVariableItem(path);
-			if (variableItem) {
-				this._expandedPaths.add(pathString);
+		try {
+			if (!this._expandedPaths.has(pathString)) {
+				// Locate the variable item. If it was found, expand it.
+				const variableItem = this.locateVariableItem(path);
 				if (variableItem) {
-					await variableItem.loadChildEntries(isExpanded);
+					this._expandedPaths.add(pathString);
+					if (variableItem) {
+						await variableItem.loadChildEntries(isExpanded);
+					}
 				}
-			}
 
-			// The entries changed.
-			this.entriesChanged();
+				// The entries changed.
+				this.entriesChanged();
+			}
+		} catch (e) {
+			const err = e as PositronCommError;
+			const message = localize('positronVariables.expandVariableItemError',
+				'Error expanding variable item: {0}\n\n{1} ({2})', err.message, err.name, err.code);
+			this._notificationService.error(message);
 		}
 	}
 
