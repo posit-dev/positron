@@ -73,6 +73,13 @@ export interface WorkingDirectoryEvent {
 
 }
 
+export enum FrontendEvent {
+	Busy = 'busy',
+	ShowMessage = 'show_message',
+	PromptState = 'prompt_state',
+	WorkingDirectory = 'working_directory'
+}
+
 export class PositronFrontendComm extends PositronBaseComm {
 	constructor(instance: IRuntimeClientInstance<any, any>) {
 		super(instance);
