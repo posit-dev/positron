@@ -167,6 +167,8 @@ export const DataToolPanel = (props: DataToolPanelProps) => {
 		return PositronColumnSplitterResizeResult.Resizing;
 	};
 
+	const panelHeight = props.height - 16;
+
 	// Render.
 	return (
 		<div
@@ -178,13 +180,13 @@ export const DataToolPanel = (props: DataToolPanelProps) => {
 				className='data-tool-panel'
 			>
 				<div ref={column1} className='column-1'>
-					<ColumnsPanel height={props.height - 16} />
+					<ColumnsPanel height={panelHeight} />
 				</div>
 				<div ref={splitter} className='splitter'>
 					<PositronColumnSplitter width={8} onResize={resizeHandler} />
 				</div>
 				<div ref={column2} className='column-2'>
-					<RowsPanel />
+					<RowsPanel height={panelHeight} />
 				</div>
 			</div>
 		</div>

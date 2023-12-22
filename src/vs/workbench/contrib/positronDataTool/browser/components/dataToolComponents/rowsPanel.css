@@ -3,10 +3,10 @@
  *--------------------------------------------------------------------------------------------*/
 
 .data-tool-panel .rows-panel {
-	/* This is the scroll container. */
-	overflow-y: scroll;
 }
 
+/* Temporary */
 .data-tool-panel .rows-panel .title {
-	padding: 10px;
+	display: flex;
+	align-items: center;
 }

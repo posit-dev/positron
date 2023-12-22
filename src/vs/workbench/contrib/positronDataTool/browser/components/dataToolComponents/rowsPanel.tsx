@@ -4,14 +4,21 @@
 
 import 'vs/css!./rowsPanel';
 import * as React from 'react';
-import { UIEvent, useEffect, useRef } from 'react'; // eslint-disable-line no-duplicate-imports
+import { useLayoutEffect, useRef, useState } from 'react'; // eslint-disable-line no-duplicate-imports
 import { generateUuid } from 'vs/base/common/uuid';
-// import { usePositronDataToolContext } from 'vs/workbench/contrib/positronDataTool/browser/positronDataToolContext';
+import { usePositronDataToolContext } from 'vs/workbench/contrib/positronDataTool/browser/positronDataToolContext';
+import { FixedSizeList as List, ListChildComponentProps, ListOnItemsRenderedProps, ListOnScrollProps } from 'react-window';
+
+/**
+ * Constants.
+ */
+const ROW_HEIGHT = 26;
 
 /**
  * RowsPanelProps interface.
  */
 interface RowsPanelProps {
+	height: number;
 }
 
 /**
@@ -44,29 +51,76 @@ for (let i = 0; i < 100; i++) {
  */
 export const RowsPanel = (props: RowsPanelProps) => {
 	// Context hooks.
-	// const context = usePositronDataToolContext();
+	const context = usePositronDataToolContext();
 
 	// Reference hooks.
 	const rowsPanel = useRef<HTMLDivElement>(undefined!);
+	const listRef = useRef<List>(undefined!);
+	const innerRef = useRef<HTMLElement>(undefined!);
 
-	// Main useEffect.
-	useEffect(() => {
-		// console.log(`rowsPanel is ${rowsPanel} and rowsScrollPosition is ${context.instance.rowsScrollOffset}`);
-	}, []);
+	// State hooks.
+	const [initialScrollOffset, setInitialScrollOffset] = useState(
+		context.instance.rowsScrollOffset
+	);
+
+	// Initial scroll position layout effect.
+	useLayoutEffect(() => {
+		if (initialScrollOffset) {
+			listRef.current.scrollTo(initialScrollOffset);
+			setInitialScrollOffset(0);
+		}
+	}, [initialScrollOffset]);
+
+	const itemsRenderedHandler = ({ visibleStartIndex, visibleStopIndex }: ListOnItemsRenderedProps) => {
+		console.log(`-----------------> LIST height ${props.height} itemsRenderedHandler: visibleStartIndex ${visibleStartIndex} visibleStopIndex ${visibleStopIndex}`);
+	};
+
+	const scrollHandler = ({ scrollDirection, scrollOffset }: ListOnScrollProps) => {
+		if (!initialScrollOffset) {
+			context.instance.rowsScrollOffset = scrollOffset;
+		} else {
+			console.log(`Ignoring scrollHandler during first render for scrollOffset ${scrollOffset}`);
+		}
+	};
 
 	/**
-	 * onScroll event handler.
-	 * @param e A UIEvent<HTMLDivElement> that describes a user interaction with the mouse.
+	 * RowEntry component.
+	 * @param index The index of the column entry.
+	 * @param style The style (positioning) at which to render the column entry.
+	 * @param isScrolling A value which indicates whether the list is scrolling.
+	 * @returns The rendered column entry.
 	 */
-	const scrollHandler = (e: UIEvent<HTMLDivElement>) => {
+	const RowEntry = (props: ListChildComponentProps<DummyRowInfo>) => {
+		// Get the entry being rendered.
+		const row = dummyRows[props.index];
+
+		// console.log(`Render ColumnEntry ${props.index} firstRender ${firstRender}`);
+
+		// Render.
+		return (
+			<div className='title' key={row.key} style={props.style}>{row.name}</div>
+		);
 	};
 
 	// Render.
 	return (
-		<div ref={rowsPanel} className='rows-panel' onScroll={scrollHandler}>
-			{dummyRows.map(row =>
-				<div className='title' key={row.key}>{row.name}</div>
-			)}
+		<div ref={rowsPanel} className='rows-panel'>
+			<List
+				className='list'
+				ref={listRef}
+				innerRef={innerRef}
+				itemCount={dummyRows.length}
+				// Use a custom item key instead of index.
+				itemKey={index => dummyRows[index].key}
+				width='100%'
+				height={props.height - 2}
+				itemSize={ROW_HEIGHT}
+				overscanCount={10}
+				onItemsRendered={itemsRenderedHandler}
+				onScroll={scrollHandler}
+			>
+				{RowEntry}
+			</List>
 		</div>
 	);
 };

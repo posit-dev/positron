@@ -6,14 +6,14 @@ import 'vs/css!./columnsPanel';
 import * as React from 'react';
 import { useLayoutEffect, useRef, useState } from 'react'; // eslint-disable-line no-duplicate-imports
 import { generateUuid } from 'vs/base/common/uuid';
-import { FixedSizeList as List, ListChildComponentProps, ListOnItemsRenderedProps, ListOnScrollProps } from 'react-window';
 import { usePositronDataToolContext } from 'vs/workbench/contrib/positronDataTool/browser/positronDataToolContext';
+import { FixedSizeList as List, ListChildComponentProps, ListOnItemsRenderedProps, ListOnScrollProps } from 'react-window';
 import { ColumnController } from 'vs/workbench/contrib/positronDataTool/browser/components/dataToolComponents/columnController';
 
 /**
  * Constants.
  */
-const LINE_HEIGHT = 26;
+const ROW_HEIGHT = 26;
 
 /**
  * ColumnsPanelProps interface.
@@ -60,7 +60,9 @@ export const ColumnsPanel = (props: ColumnsPanelProps) => {
 	const innerRef = useRef<HTMLElement>(undefined!);
 
 	// State hooks.
-	const [initialScrollOffset, setInitialScrollOffset] = useState(context.instance.columnsScrollOffset);
+	const [initialScrollOffset, setInitialScrollOffset] = useState(
+		context.instance.columnsScrollOffset
+	);
 
 	// Initial scroll position layout effect.
 	useLayoutEffect(() => {
@@ -123,7 +125,7 @@ export const ColumnsPanel = (props: ColumnsPanelProps) => {
 				itemKey={index => dummyColumns[index].key}
 				width='100%'
 				height={props.height - 2}
-				itemSize={LINE_HEIGHT}
+				itemSize={ROW_HEIGHT}
 				overscanCount={10}
 				onItemsRendered={itemsRenderedHandler}
 				onScroll={scrollHandler}
