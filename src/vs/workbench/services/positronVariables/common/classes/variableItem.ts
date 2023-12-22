@@ -164,7 +164,7 @@ export class VariableItem implements IVariableItem {
 	 * Constructor.
 	 * @param name The variable.
 	 */
-	constructor(variable: Variable) {
+	constructor(variable: PositronVariable) {
 		this._variable = variable;
 	}
 
