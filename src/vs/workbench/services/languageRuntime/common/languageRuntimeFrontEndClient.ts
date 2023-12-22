@@ -5,8 +5,7 @@
 import { Disposable } from 'vs/base/common/lifecycle';
 import { Event } from 'vs/base/common/event';
 import { IRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeClientInstance';
-import { LanguageRuntimeEventData, LanguageRuntimeEventType } from 'vs/workbench/services/languageRuntime/common/languageRuntimeEvents';
-import { BusyEvent, PositronFrontendComm, PromptStateEvent, ShowMessageEvent, WorkingDirectoryEvent } from './positronFrontendComm';
+import { BusyEvent, FrontendEvent, PositronFrontendComm, PromptStateEvent, ShowMessageEvent, WorkingDirectoryEvent } from './positronFrontendComm';
 
 
 /**
@@ -40,8 +39,8 @@ export interface IFrontEndClientMessageOutput {
  * An event from the backend.
  */
 export interface IRuntimeClientEvent {
-	name: LanguageRuntimeEventType;
-	data: LanguageRuntimeEventData;
+	name: FrontendEvent;
+	data: any;
 }
 
 /**

@@ -917,15 +917,22 @@ import { IRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/co
 	}
 
 	if (frontend) {
+		let events: string[] = [];
+
 		for (const method of frontend.methods) {
 			// Ignore methods that have a result; we're generating event types here
 			if (method.result) {
 				continue;
 			}
+
+			// Collect enum fields
+			const sentenceName = snakeCaseToSentenceCase(method.name);
+			events.push(`\t${sentenceName} = '${method.name}'`)
+
 			yield '/**\n';
 			yield formatComment(' * ', `Event: ${method.summary}`);
 			yield ' */\n';
-			yield `export interface ${snakeCaseToSentenceCase(method.name)}Event {\n`;
+			yield `export interface ${sentenceName}Event {\n`;
 			for (const param of method.params) {
 				yield '\t/**\n';
 				yield formatComment('\t * ', `${param.description}`);
@@ -940,6 +947,10 @@ import { IRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/co
 			}
 			yield '}\n\n';
 		}
+
+		yield `export enum ${snakeCaseToSentenceCase(name)}Event {\n`;
+		yield events.join(',\n');
+		yield '\n}\n\n';
 	}
 
 	yield `export class Positron${snakeCaseToSentenceCase(name)}Comm extends PositronBaseComm {\n`;

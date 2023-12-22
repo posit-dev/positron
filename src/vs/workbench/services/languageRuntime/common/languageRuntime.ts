@@ -20,7 +20,7 @@ import { INotificationService } from 'vs/platform/notification/common/notificati
 import { IModalDialogPromptInstance, IPositronModalDialogsService } from 'vs/workbench/services/positronModalDialogs/common/positronModalDialogs';
 import { IOpener, IOpenerService, OpenExternalOptions, OpenInternalOptions } from 'vs/platform/opener/common/opener';
 import { URI } from 'vs/base/common/uri';
-import { LanguageRuntimeEventType } from './languageRuntimeEvents';
+import { FrontendEvent } from './positronFrontendComm';
 
 /**
  * LanguageRuntimeInfo class.
@@ -722,7 +722,7 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 					this._onDidReceiveRuntimeEventEmitter.fire({
 						runtime_id: runtime.metadata.runtimeId,
 						event: {
-							name: LanguageRuntimeEventType.Busy,
+							name: FrontendEvent.Busy,
 							data: event
 						}
 					});
@@ -731,7 +731,7 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 					this._onDidReceiveRuntimeEventEmitter.fire({
 						runtime_id: runtime.metadata.runtimeId,
 						event: {
-							name: LanguageRuntimeEventType.ShowMessage,
+							name: FrontendEvent.ShowMessage,
 							data: event
 						}
 					});
@@ -740,7 +740,7 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 					this._onDidReceiveRuntimeEventEmitter.fire({
 						runtime_id: runtime.metadata.runtimeId,
 						event: {
-							name: LanguageRuntimeEventType.PromptState,
+							name: FrontendEvent.PromptState,
 							data: event
 						}
 					});
@@ -749,7 +749,7 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 					this._onDidReceiveRuntimeEventEmitter.fire({
 						runtime_id: runtime.metadata.runtimeId,
 						event: {
-							name: LanguageRuntimeEventType.WorkingDirectory,
+							name: FrontendEvent.WorkingDirectory,
 							data: event
 						}
 					});

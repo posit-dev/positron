@@ -20,12 +20,11 @@ import { DeferredPromise } from 'vs/base/common/async';
 import { generateUuid } from 'vs/base/common/uuid';
 import { IPositronPlotsService } from 'vs/workbench/services/positronPlots/common/positronPlots';
 import { IPositronIPyWidgetsService, MIME_TYPE_WIDGET_STATE, MIME_TYPE_WIDGET_VIEW } from 'vs/workbench/services/positronIPyWidgets/common/positronIPyWidgetsService';
-import { LanguageRuntimeEventType } from 'vs/workbench/services/languageRuntime/common/languageRuntimeEvents';
 import { IPositronHelpService } from 'vs/workbench/contrib/positronHelp/browser/positronHelpService';
 import { INotebookService } from 'vs/workbench/contrib/notebook/common/notebookService';
 import { IRuntimeClientEvent } from 'vs/workbench/services/languageRuntime/common/languageRuntimeFrontEndClient';
 import { URI } from 'vs/base/common/uri';
-import { BusyEvent, PromptStateEvent, WorkingDirectoryEvent } from 'vs/workbench/services/languageRuntime/common/positronFrontendComm';
+import { BusyEvent, FrontendEvent, PromptStateEvent, WorkingDirectoryEvent } from 'vs/workbench/services/languageRuntime/common/positronFrontendComm';
 
 /**
  * Represents a language runtime event (for example a message or state change)
@@ -142,7 +141,7 @@ class ExtHostLanguageRuntimeAdapter implements ILanguageRuntime {
 			}
 
 			const ev = globalEvent.event;
-			if (ev.name === LanguageRuntimeEventType.PromptState) {
+			if (ev.name === FrontendEvent.PromptState) {
 				// Update config before propagating event
 				const state = ev.data as PromptStateEvent;
 
@@ -161,11 +160,11 @@ class ExtHostLanguageRuntimeAdapter implements ILanguageRuntime {
 				// Don't include new state in event, clients should
 				// inspect the runtime's dyn state instead
 				this.emitDidReceiveRuntimeMessagePromptConfig();
-			} else if (ev.name === LanguageRuntimeEventType.Busy) {
+			} else if (ev.name === FrontendEvent.Busy) {
 				// Update busy state
 				const busy = ev.data as BusyEvent;
 				this.dynState.busy = busy.busy;
-			} else if (ev.name === LanguageRuntimeEventType.WorkingDirectory) {
+			} else if (ev.name === FrontendEvent.WorkingDirectory) {
 				// Update current working directory
 				const dir = ev.data as WorkingDirectoryEvent;
 				this.dynState.currentWorkingDirectory = dir.directory;
