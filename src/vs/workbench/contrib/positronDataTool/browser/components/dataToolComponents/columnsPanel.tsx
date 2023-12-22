@@ -4,7 +4,7 @@
 
 import 'vs/css!./columnsPanel';
 import * as React from 'react';
-import { useEffect, useRef, useState } from 'react'; // eslint-disable-line no-duplicate-imports
+import { useLayoutEffect, useRef, useState } from 'react'; // eslint-disable-line no-duplicate-imports
 import { generateUuid } from 'vs/base/common/uuid';
 import { FixedSizeList as List, ListChildComponentProps, ListOnItemsRenderedProps, ListOnScrollProps } from 'react-window';
 import { usePositronDataToolContext } from 'vs/workbench/contrib/positronDataTool/browser/positronDataToolContext';
@@ -62,7 +62,8 @@ export const ColumnsPanel = (props: ColumnsPanelProps) => {
 	// State hooks.
 	const [initialScrollOffset, setInitialScrollOffset] = useState(context.instance.columnsScrollOffset);
 
-	useEffect(() => {
+	// Initial scroll position layout effect.
+	useLayoutEffect(() => {
 		if (initialScrollOffset) {
 			listRef.current.scrollTo(initialScrollOffset);
 			setInitialScrollOffset(0);
