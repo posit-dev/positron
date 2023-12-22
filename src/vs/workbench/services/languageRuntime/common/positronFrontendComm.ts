@@ -53,12 +53,12 @@ export interface PromptStateEvent {
 	/**
 	 * Prompt for primary input.
 	 */
-	inputPrompt: string;
+	input_prompt: string;
 
 	/**
 	 * Prompt for incomplete input.
 	 */
-	continuationPrompt: string;
+	continuation_prompt: string;
 
 }
 
