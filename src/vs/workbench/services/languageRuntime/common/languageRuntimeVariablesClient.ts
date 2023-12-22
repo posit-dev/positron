@@ -1,11 +1,10 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2022-2023 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
 import { Emitter } from 'vs/base/common/event';
 import { Disposable } from 'vs/base/common/lifecycle';
-import { ILanguageRuntime } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
-import { RuntimeClientType } from 'vs/workbench/services/languageRuntime/common/languageRuntimeClientInstance';
+import { IRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeClientInstance';
 import { PositronVariablesComm, RefreshEvent, UpdateEvent, Variable } from 'vs/workbench/services/languageRuntime/common/positronVariablesComm';
 
 /**
@@ -111,7 +110,7 @@ export class PositronVariablesUpdate {
  */
 export class VariablesClientInstance extends Disposable {
 	/// The client instance; used to send messages to (and receive messages from) the back end
-	private _comm?: PositronVariablesComm;
+	private _comm: PositronVariablesComm;
 
 	private _onDidReceiveListEmitter = new Emitter<PositronVariablesList>();
 	private _onDidReceiveUpdateEmitter = new Emitter<PositronVariablesUpdate>();
@@ -122,15 +121,13 @@ export class VariablesClientInstance extends Disposable {
 	/**
 	 * Ceate a new variable client instance.
 	 *
-	 * @param _runtime The language runtime that will host the variables client
+	 * @param client The client instance to use to communicate with the back end.
 	 */
-	constructor(private readonly _runtime: ILanguageRuntime) {
+	constructor(client: IRuntimeClientInstance<any, any>) {
 		super();
 
-		this._runtime.createClient<any, any>(
-			RuntimeClientType.Variables, {}).then(client => {
-				this.connectClient(new PositronVariablesComm(client));
-			});
+		this._comm = new PositronVariablesComm(client);
+		this.connectClient(this._comm);
 	}
 
 	// Public methods --------------------------------------------------
@@ -139,16 +136,16 @@ export class VariablesClientInstance extends Disposable {
 	 * Requests that the variables client send a new list of variables.
 	 */
 	public async requestRefresh(): Promise<PositronVariablesList> {
-		const list = await this._comm!.list();
-		return new PositronVariablesList(list.variables, [], this._comm!);
+		const list = await this._comm.list();
+		return new PositronVariablesList(list.variables, [], this._comm);
 	}
 
 	/**
 	 * Requests that the variables client clear all variables.
 	 */
 	public async requestClear(includeHiddenObjects: boolean): Promise<PositronVariablesList> {
-		const list = await this._comm!.clear(includeHiddenObjects);
-		return new PositronVariablesList(list, [], this._comm!);
+		const list = await this._comm.clear(includeHiddenObjects);
+		return new PositronVariablesList(list, [], this._comm);
 	}
 
 	/**
@@ -158,8 +155,8 @@ export class VariablesClientInstance extends Disposable {
 	 * @returns The variable's children
 	 */
 	public async requestInspect(path: string[]): Promise<PositronVariablesList> {
-		const list = await this._comm!.inspect(path);
-		return new PositronVariablesList(list.children, path, this._comm!);
+		const list = await this._comm.inspect(path);
+		return new PositronVariablesList(list.children, path, this._comm);
 	}
 
 	/**
@@ -169,12 +166,12 @@ export class VariablesClientInstance extends Disposable {
 	 * @returns A promise that resolves to an update message with the variables that were deleted
 	 */
 	public async requestDelete(names: Array<string>): Promise<PositronVariablesUpdate> {
-		const removed = await this._comm!.delete(names);
+		const removed = await this._comm.delete(names);
 		return new PositronVariablesUpdate({
 			assigned: [],
 			removed,
 			version: 0
-		}, this._comm!);
+		}, this._comm);
 	}
 
 	/**
@@ -185,7 +182,7 @@ export class VariablesClientInstance extends Disposable {
 	 * @returns A promise that resolves to the formatted content
 	 */
 	public async requestClipboardFormat(format: string, path: string[]): Promise<string> {
-		const formatted = await this._comm!.clipboardFormat(path, format);
+		const formatted = await this._comm.clipboardFormat(path, format);
 		return formatted.content;
 	}
 
@@ -195,7 +192,7 @@ export class VariablesClientInstance extends Disposable {
 	 * @param path The path to the variable to view
 	 */
 	public async requestView(path: string[]) {
-		await this._comm!.view(path);
+		await this._comm.view(path);
 	}
 
 	// Private methods -------------------------------------------------
@@ -206,19 +203,18 @@ export class VariablesClientInstance extends Disposable {
 	 * @param client The client instance to connect
 	 */
 	private connectClient(client: PositronVariablesComm) {
-		this._comm = client;
 		this._register(client);
 
 		this._comm.onDidRefresh((e: RefreshEvent) => {
 			this._onDidReceiveListEmitter.fire(new PositronVariablesList(
 				e.variables,
 				[], // No parent names; this is the top-level list
-				this._comm!));
+				this._comm));
 		});
 
 		this._comm.onDidUpdate((e: UpdateEvent) => {
 			this._onDidReceiveUpdateEmitter.fire(new PositronVariablesUpdate(
-				e, this._comm!));
+				e, this._comm));
 		});
 	}
 }

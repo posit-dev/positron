@@ -8,7 +8,7 @@ import { Disposable, DisposableStore } from 'vs/base/common/lifecycle';
 import { VariableItem } from 'vs/workbench/services/positronVariables/common/classes/variableItem';
 import { VariableGroup } from 'vs/workbench/services/positronVariables/common/classes/variableGroup';
 import { VariableOverflow } from 'vs/workbench/services/positronVariables/common/classes/variableOverflow';
-import { ILanguageRuntime, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntime, RuntimeClientType, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { sortVariableItemsByName, sortVariableItemsBySize } from 'vs/workbench/services/positronVariables/common/helpers/utils';
 import { PositronVariablesList, PositronVariablesUpdate, VariablesClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeVariablesClient';
 import { VariableEntry, IPositronVariablesInstance, PositronVariablesGrouping, PositronVariablesSorting, PositronVariablesInstanceState } from 'vs/workbench/services/positronVariables/common/interfaces/positronVariablesInstance';
@@ -87,7 +87,7 @@ export class PositronVariablesInstance extends Disposable implements IPositronVa
 	/**
 	 * Gets or sets the environment client that is used to communicate with the language runtime.
 	 */
-	private _environmentClient?: VariablesClientInstance;
+	private _variablesClient?: VariablesClientInstance;
 
 	/**
 	 * The onDidChangeState event emitter.
@@ -210,9 +210,9 @@ export class PositronVariablesInstance extends Disposable implements IPositronVa
 	 * Requests refresh.
 	 */
 	async requestRefresh() {
-		if (this._environmentClient) {
+		if (this._variablesClient) {
 			this._expandedPaths.clear();
-			const list = await this._environmentClient.requestRefresh();
+			const list = await this._variablesClient.requestRefresh();
 			await this.processList(list);
 		} else {
 			this._logService.warn('Ignoring call to requestRefresh; client is not available.');
@@ -224,8 +224,8 @@ export class PositronVariablesInstance extends Disposable implements IPositronVa
 	 * @param includeHiddenVariables A value which indicates whether to include hidden variables.
 	 */
 	async requestClear(includeHiddenVariables: boolean) {
-		if (this._environmentClient) {
-			const list = await this._environmentClient.requestClear(includeHiddenVariables);
+		if (this._variablesClient) {
+			const list = await this._variablesClient.requestClear(includeHiddenVariables);
 			this.processList(list);
 		} else {
 			this._logService.warn('Ignoring call to requestClear; client is not available.');
@@ -237,8 +237,8 @@ export class PositronVariablesInstance extends Disposable implements IPositronVa
 	 * @param names The names of the variables to delete
 	 */
 	async requestDelete(names: string[]) {
-		if (this._environmentClient) {
-			const update = await this._environmentClient.requestDelete(names);
+		if (this._variablesClient) {
+			const update = await this._variablesClient.requestDelete(names);
 			await this.processUpdate(update);
 		}
 		else {
@@ -378,7 +378,7 @@ export class PositronVariablesInstance extends Disposable implements IPositronVa
 			this._runtime.onDidChangeRuntimeState(async runtimeState => {
 				switch (runtimeState) {
 					case RuntimeState.Ready: {
-						if (!this._environmentClient) {
+						if (!this._variablesClient) {
 							await this.createRuntimeClient();
 						}
 						break;
@@ -397,7 +397,7 @@ export class PositronVariablesInstance extends Disposable implements IPositronVa
 	 * Detaches from a runtime.
 	 */
 	private detachRuntime() {
-		this._environmentClient = undefined;
+		this._variablesClient = undefined;
 		this._runtimeDisposableStore.dispose();
 		this._runtimeDisposableStore = new DisposableStore();
 	}
@@ -409,24 +409,26 @@ export class PositronVariablesInstance extends Disposable implements IPositronVa
 		// Try to create the runtime client.
 		try {
 			// Create the runtime client.
-			this._environmentClient = new VariablesClientInstance(this._runtime);
+			const client = await this._runtime.createClient<any, any>(
+				RuntimeClientType.Variables, {});
+			this._variablesClient = new VariablesClientInstance(client);
 
 			// Add the onDidReceiveList event handler.
 			this._runtimeDisposableStore.add(
-				this._environmentClient.onDidReceiveList(environmentClientMessageList => {
+				this._variablesClient.onDidReceiveList(environmentClientMessageList => {
 					this.processList(environmentClientMessageList);
 				})
 			);
 
 			// Add the onDidReceiveUpdate event handler.
 			this._runtimeDisposableStore.add(
-				this._environmentClient.onDidReceiveUpdate(async environmentClientMessageUpdate =>
+				this._variablesClient.onDidReceiveUpdate(async environmentClientMessageUpdate =>
 					await this.processUpdate(environmentClientMessageUpdate)
 				)
 			);
 
 			// Add the runtime client to the runtime disposable store.
-			this._runtimeDisposableStore.add(this._environmentClient);
+			this._runtimeDisposableStore.add(this._variablesClient);
 		} catch (error) {
 			this._logService.error(error);
 		}
