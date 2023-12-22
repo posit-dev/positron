@@ -11,6 +11,20 @@ import { PositronBaseComm } from 'vs/workbench/services/languageRuntime/common/p
 import { IRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeClientInstance';
 
 /**
+ * Items in Params
+ */
+export interface Params {
+	[k: string]: unknown;
+}
+
+/**
+ * The method result
+ */
+export interface CallMethodResult {
+	[k: string]: unknown;
+}
+
+/**
  * Event: Change in backend's busy/idle status
  */
 export interface BusyEvent {
@@ -66,6 +80,22 @@ export class PositronFrontendComm extends PositronBaseComm {
 		this.onDidShowMessage = super.createEventEmitter('show_message', ['message']);
 		this.onDidPromptState = super.createEventEmitter('prompt_state', ['input_prompt', 'continuation_prompt']);
 		this.onDidWorkingDirectory = super.createEventEmitter('working_directory', ['directory']);
+	}
+
+	/**
+	 * Run a method in the interpreter and return the result to the frontend
+	 *
+	 * Unlike other RPC methods, `call_method` calls into methods implemented
+	 * in the interpreter and returns the result back to the frontend using
+	 * an implementation-defined serialization scheme.
+	 *
+	 * @param method The method to call inside the interpreter
+	 * @param params The parameters for `method`
+	 *
+	 * @returns The method result
+	 */
+	callMethod(method: string, params: Array<Params>): Promise<CallMethodResult> {
+		return super.performRpc('call_method', ['method', 'params'], [method, params]);
 	}
 
 
