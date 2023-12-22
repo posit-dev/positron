@@ -384,6 +384,7 @@ use serde::Serialize;
 			}
 
 			yield '#[derive(Debug, Serialize, Deserialize, PartialEq)]\n';
+			yield '#[serde(rename_all = "camelCase")]\n';
 			yield `pub struct ${snakeCaseToSentenceCase(name)} {\n`;
 
 			for (let i = 0; i < props.length; i++) {
@@ -444,6 +445,7 @@ use serde::Serialize;
 					snakeCaseToSentenceCase(method.name) + ` ` +
 					`method.`);
 				yield '#[derive(Debug, Serialize, Deserialize, PartialEq)]\n';
+				yield '#[serde(rename_all = "camelCase")]\n';
 				yield `pub struct ${snakeCaseToSentenceCase(method.name)}Params {\n`;
 				for (let i = 0; i < method.params.length; i++) {
 					const param = method.params[i];
