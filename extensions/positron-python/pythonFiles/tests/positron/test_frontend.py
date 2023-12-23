@@ -61,9 +61,9 @@ def frontend_comm(frontend_service: FrontendService) -> DummyComm:
 def _working_directory_event() -> Dict[str, Any]:
     return {
         "data": {
-            "msg_type": "event",
-            "name": "working_directory",
-            "data": {
+            "jsonrpc": "2.0",
+            "method": "working_directory",
+            "params": {
                 "directory": str(alias_home(Path.cwd())),
             },
         },
@@ -124,9 +124,11 @@ def test_handle_rpc_request_set_console_width(frontend_comm: DummyComm) -> None:
         "content": {
             "data": {
                 "jsonrpc": "2.0",
-                "msg_type": "rpc_request",
-                "method": "setConsoleWidth",
-                "params": [width],
+                "method": "call_method",
+                "params": {
+                    "method": "setConsoleWidth",
+                    "params": [width],
+                },
             }
         },
     }
