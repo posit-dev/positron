@@ -552,7 +552,7 @@ function* createPythonComm(name: string,
 	frontend: any,
 	backend: any): Generator<string> {
 	yield `#
-#  Copyright (C) ${year} Posit Software, PBC. All rights reserved.
+# Copyright (C) ${year} Posit Software, PBC. All rights reserved.
 #
 
 #
