@@ -20,11 +20,11 @@ import { DeferredPromise } from 'vs/base/common/async';
 import { generateUuid } from 'vs/base/common/uuid';
 import { IPositronPlotsService } from 'vs/workbench/services/positronPlots/common/positronPlots';
 import { IPositronIPyWidgetsService, MIME_TYPE_WIDGET_STATE, MIME_TYPE_WIDGET_VIEW } from 'vs/workbench/services/positronIPyWidgets/common/positronIPyWidgetsService';
-import { BusyEvent, LanguageRuntimeEventType, PromptStateEvent, WorkingDirectoryEvent } from 'vs/workbench/services/languageRuntime/common/languageRuntimeEvents';
 import { IPositronHelpService } from 'vs/workbench/contrib/positronHelp/browser/positronHelpService';
 import { INotebookService } from 'vs/workbench/contrib/notebook/common/notebookService';
 import { IRuntimeClientEvent } from 'vs/workbench/services/languageRuntime/common/languageRuntimeFrontEndClient';
 import { URI } from 'vs/base/common/uri';
+import { BusyEvent, FrontendEvent, PromptStateEvent, WorkingDirectoryEvent } from 'vs/workbench/services/languageRuntime/common/positronFrontendComm';
 
 /**
  * Represents a language runtime event (for example a message or state change)
@@ -141,14 +141,14 @@ class ExtHostLanguageRuntimeAdapter implements ILanguageRuntime {
 			}
 
 			const ev = globalEvent.event;
-			if (ev.name === LanguageRuntimeEventType.PromptState) {
+			if (ev.name === FrontendEvent.PromptState) {
 				// Update config before propagating event
 				const state = ev.data as PromptStateEvent;
 
 				// Runtimes might supply prompts with trailing whitespace (e.g. R,
 				// Python) that we trim here because we add our own whitespace later on
-				const inputPrompt = state.inputPrompt?.trimEnd();
-				const continuationPrompt = state.continuationPrompt?.trimEnd();
+				const inputPrompt = state.input_prompt?.trimEnd();
+				const continuationPrompt = state.continuation_prompt?.trimEnd();
 
 				if (inputPrompt) {
 					this.dynState.inputPrompt = inputPrompt;
@@ -160,11 +160,11 @@ class ExtHostLanguageRuntimeAdapter implements ILanguageRuntime {
 				// Don't include new state in event, clients should
 				// inspect the runtime's dyn state instead
 				this.emitDidReceiveRuntimeMessagePromptConfig();
-			} else if (ev.name === LanguageRuntimeEventType.Busy) {
+			} else if (ev.name === FrontendEvent.Busy) {
 				// Update busy state
 				const busy = ev.data as BusyEvent;
 				this.dynState.busy = busy.busy;
-			} else if (ev.name === LanguageRuntimeEventType.WorkingDirectory) {
+			} else if (ev.name === FrontendEvent.WorkingDirectory) {
 				// Update current working directory
 				const dir = ev.data as WorkingDirectoryEvent;
 				this.dynState.currentWorkingDirectory = dir.directory;

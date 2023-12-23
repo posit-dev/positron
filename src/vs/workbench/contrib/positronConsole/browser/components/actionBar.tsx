@@ -13,12 +13,12 @@ import { PositronActionBar } from 'vs/platform/positronActionBar/browser/positro
 import { ActionBarRegion } from 'vs/platform/positronActionBar/browser/components/actionBarRegion';
 import { ActionBarButton } from 'vs/platform/positronActionBar/browser/components/actionBarButton';
 import { ActionBarSeparator } from 'vs/platform/positronActionBar/browser/components/actionBarSeparator';
-import { LanguageRuntimeEventType } from 'vs/workbench/services/languageRuntime/common/languageRuntimeEvents';
 import { usePositronConsoleContext } from 'vs/workbench/contrib/positronConsole/browser/positronConsoleContext';
 import { PositronActionBarContextProvider } from 'vs/platform/positronActionBar/browser/positronActionBarContext';
 import { ILanguageRuntime, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { PositronConsoleState } from 'vs/workbench/services/positronConsole/browser/interfaces/positronConsoleService';
 import { ConsoleInstanceMenuButton } from 'vs/workbench/contrib/positronConsole/browser/components/consoleInstanceMenuButton';
+import { FrontendEvent } from 'vs/workbench/services/languageRuntime/common/positronFrontendComm';
 
 /**
  * Constants.
@@ -188,7 +188,7 @@ export const ActionBar = (props: ActionBarProps) => {
 
 			// Listen for changes to the working directory.
 			disposableRuntimeStore.add(runtime.onDidReceiveRuntimeClientEvent((event) => {
-				if (event.name === LanguageRuntimeEventType.WorkingDirectory) {
+				if (event.name === FrontendEvent.WorkingDirectory) {
 					setDirectoryLabel(runtime.dynState.currentWorkingDirectory);
 				}
 			}));
