@@ -1,0 +1,72 @@
+{
+	"openrpc": "1.3.0",
+	"info": {
+		"title": "Frontend Frontend",
+		"version": "1.0.0"
+	},
+	"methods": [
+		{
+			"name": "busy",
+			"summary": "Change in backend's busy/idle status",
+			"description": "This represents the busy state of the underlying computation engine, not the busy state of the kernel. The kernel is busy when it is processing a request, but the runtime is busy only when a computation is running.",
+			"params": [
+				{
+					"name": "busy",
+					"description": "Whether the backend is busy",
+					"schema": {
+						"type": "boolean"
+					}
+				}
+			]
+		},
+		{
+			"name": "show_message",
+			"summary": "Show a message",
+			"description": "Use this for messages that require immediate attention from the user",
+			"params": [
+				{
+					"name": "message",
+					"description": "The message to show to the user.",
+					"schema": {
+						"type": "string"
+					}
+				}
+			]
+		},
+		{
+			"name": "prompt_state",
+			"summary": "New state of the primary and secondary prompts",
+			"description": "Languages like R allow users to change the way their prompts look. This event signals a change in the prompt configuration.",
+			"params": [
+				{
+					"name": "input_prompt",
+					"description": "Prompt for primary input.",
+					"schema": {
+						"type": "string"
+					}
+				},
+				{
+					"name": "continuation_prompt",
+					"description": "Prompt for incomplete input.",
+					"schema": {
+						"type": "string"
+					}
+				}
+			]
+		},
+		{
+			"name": "working_directory",
+			"summary": "Change the displayed working directory",
+			"description": "This event signals a change in the working direcotry of the interpreter",
+			"params": [
+				{
+					"name": "directory",
+					"description": "The new working directory",
+					"schema": {
+						"type": "string"
+					}
+				}
+			]
+		}
+	]
+}

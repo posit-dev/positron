@@ -32,6 +32,10 @@ export interface PlotResult {
 export interface UpdateEvent {
 }
 
+export enum PlotEvent {
+	Update = 'update'
+}
+
 export class PositronPlotComm extends PositronBaseComm {
 	constructor(instance: IRuntimeClientInstance<any, any>) {
 		super(instance);

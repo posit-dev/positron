@@ -40,6 +40,10 @@ export interface ShowHelpEvent {
 
 }
 
+export enum HelpEvent {
+	ShowHelp = 'show_help'
+}
+
 export class PositronHelpComm extends PositronBaseComm {
 	constructor(instance: IRuntimeClientInstance<any, any>) {
 		super(instance);

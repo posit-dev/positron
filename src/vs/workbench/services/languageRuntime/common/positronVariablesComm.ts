@@ -137,6 +137,10 @@ export interface UpdateEvent {
 
 }
 
+export enum VariablesEvent {
+	Update = 'update'
+}
+
 export class PositronVariablesComm extends PositronBaseComm {
 	constructor(instance: IRuntimeClientInstance<any, any>) {
 		super(instance);
