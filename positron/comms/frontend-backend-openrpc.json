@@ -1,0 +1,44 @@
+{
+	"openrpc": "1.3.0",
+	"info": {
+		"title": "Frontend Backend",
+		"version": "1.0.0"
+	},
+	"methods": [
+		{
+			"name": "call_method",
+			"summary": "Run a method in the interpreter and return the result to the frontend",
+			"description": "Unlike other RPC methods, `call_method` calls into methods implemented in the interpreter and returns the result back to the frontend using an implementation-defined serialization scheme.",
+			"params": [
+				{
+					"name": "method",
+					"description": "The method to call inside the interpreter",
+					"schema": {
+						"type": "string"
+					}
+				},
+				{
+					"name": "params",
+					"description": "The parameters for `method`",
+					"schema": {
+						"type": "array",
+						"items": {
+							"type": "object",
+							"properties": {},
+							"additionalProperties": true
+						}
+					}
+				}
+			],
+			"result": {
+				"schema": {
+					"name": "call_method_result",
+					"description": "The method result",
+					"type": "object",
+					"properties": {},
+					"additionalProperties": true
+				}
+			}
+		}
+	]
+}
