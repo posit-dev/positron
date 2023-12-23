@@ -117,11 +117,17 @@ export class LanguageRuntimeAdapter
 		// Create the request. This uses a JSON-RPC 2.0 format, with an
 		// additional `msg_type` field to indicate that this is a request type
 		// for the frontend comm.
+		//
+		// NOTE: Currently using nested RPC messages for convenience but
+		// we'd like to do better
 		const request = {
 			msg_type: 'rpc_request',
 			jsonrpc: '2.0',
-			method: method,
-			params: args,
+			method: 'call_method',
+			params: {
+				method,
+				params: args
+			},
 		};
 
 		// Return a promise that resolves when the server side of the frontend

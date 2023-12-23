@@ -376,9 +376,16 @@ use serde::Serialize;
 					snakeCaseToSentenceCase(context[1]));
 			}
 			const name = o.name ? o.name : context[0] === 'items' ? context[1] : context[0];
+			const props = Object.keys(o.properties);
+
+			// Map "any" type to `Value`
+			if (props.length === 0 && o.additionalProperties === true) {
+				return yield `pub type ${snakeCaseToSentenceCase(name)} = serde_json::Value;\n\n`;
+			}
+
 			yield '#[derive(Debug, Serialize, Deserialize, PartialEq)]\n';
 			yield `pub struct ${snakeCaseToSentenceCase(name)} {\n`;
-			const props = Object.keys(o.properties);
+
 			for (let i = 0; i < props.length; i++) {
 				const key = props[i];
 				const prop = o.properties[key];
@@ -446,6 +453,9 @@ use serde::Serialize;
 					if (param.schema.enum) {
 						// Use an enum type if the schema has an enum
 						yield `\tpub ${param.name}: ${snakeCaseToSentenceCase(method.name)}${snakeCaseToSentenceCase(param.name)},\n`;
+					} else if (param.schema.type === 'object' && Object.keys(param.schema.properties).length === 0) {
+						// Handle the "any" type
+						yield `\tpub ${param.name}: serde_json::Value,\n`;
 					} else {
 						// Otherwise use the type directly
 						yield `\tpub ${param.name}: ${deriveType(contracts, RustTypeMap, param.name, param.schema)},\n`;
@@ -542,7 +552,7 @@ function* createPythonComm(name: string,
 	frontend: any,
 	backend: any): Generator<string> {
 	yield `#
-#  Copyright (C) ${year} Posit Software, PBC. All rights reserved.
+# Copyright (C) ${year} Posit Software, PBC. All rights reserved.
 #
 
 #
@@ -551,6 +561,8 @@ function* createPythonComm(name: string,
 
 import enum
 from dataclasses import dataclass, field
+from typing import Dict, List, Union
+JsonData = Union[Dict[str, "JsonData"], List["JsonData"], str, int, float, bool, None]
 
 `;
 	const contracts = [backend, frontend];
@@ -563,10 +575,18 @@ from dataclasses import dataclass, field
 			context: Array<string>,
 			o: Record<string, any>) {
 
+			let name = o.name ? o.name : context[0] === 'items' ? context[1] : context[0];
+			name = snakeCaseToSentenceCase(name);
+
+			// Empty object specs map to `JsonData`
+			const props = Object.keys(o.properties);
+			if ((!props || !props.length) && o.additionalProperties === true) {
+				return yield `${name} = JsonData\n`;
+			}
+
 			// Preamble
 			yield '@dataclass\n';
-			const name = o.name ? o.name : context[0] === 'items' ? context[1] : context[0];
-			yield `class ${snakeCaseToSentenceCase(name)}:\n`;
+			yield `class ${name}:\n`;
 
 			// Docstring
 			if (o.description) {
@@ -754,15 +774,20 @@ from dataclasses import dataclass, field
  * @param description The description of the schema
  * @param properties The properties of the schema
  * @param required An array of required properties
+ * @param additionalProperties Whether additional properties are allowed.
+ * 	Currently only used for "any" objects.
  *
  * @returns A generator that yields the Typescript code for an interface
  * representing the schema
  */
-function* createTypescriptInterface(contracts: Array<any>,
+function* createTypescriptInterface(
+	contracts: Array<any>,
 	name: string,
 	description: string,
 	properties: Record<string, any>,
-	required: Array<string>): Generator<string> {
+	required: Array<string>,
+	additionalProperties?: boolean,
+): Generator<string> {
 
 	if (!description) {
 		throw new Error(`No description for '${name}'; please add a description to the schema`);
@@ -772,7 +797,12 @@ function* createTypescriptInterface(contracts: Array<any>,
 	yield ' */\n';
 	yield `export interface ${snakeCaseToSentenceCase(name)} {\n`;
 	if (!properties || Object.keys(properties).length === 0) {
-		throw new Error(`No properties for '${name}'; please add properties to the schema`);
+		if (!additionalProperties) {
+			throw new Error(`No properties for '${name}'; please add properties to the schema`);
+		}
+
+		// If `additionalProperties` is true, treat empty object specs as an "any" object
+		yield '\t[k: string]: unknown;\n';
 	}
 	for (const prop of Object.keys(properties)) {
 		const schema = properties[prop];
@@ -838,8 +868,9 @@ import { IRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/co
 				const description = o.description ? o.description :
 					snakeCaseToSentenceCase(context[0]) + ' in ' +
 					snakeCaseToSentenceCase(context[1]);
+				const additionalProperties = o.additionalProperties ? o.additionalProperties : false;
 				yield* createTypescriptInterface(contracts, name, description, o.properties,
-					o.required ? o.required : []);
+					o.required ? o.required : [], additionalProperties);
 			});
 
 		// Create enums for all enum types
@@ -884,20 +915,27 @@ import { IRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/co
 	}
 
 	if (frontend) {
+		let events: string[] = [];
+
 		for (const method of frontend.methods) {
 			// Ignore methods that have a result; we're generating event types here
 			if (method.result) {
 				continue;
 			}
+
+			// Collect enum fields
+			const sentenceName = snakeCaseToSentenceCase(method.name);
+			events.push(`\t${sentenceName} = '${method.name}'`)
+
 			yield '/**\n';
 			yield formatComment(' * ', `Event: ${method.summary}`);
 			yield ' */\n';
-			yield `export interface ${snakeCaseToSentenceCase(method.name)}Event {\n`;
+			yield `export interface ${sentenceName}Event {\n`;
 			for (const param of method.params) {
 				yield '\t/**\n';
 				yield formatComment('\t * ', `${param.description}`);
 				yield '\t */\n';
-				yield `\t${snakeCaseToCamelCase(param.name)}: `;
+				yield `\t${param.name}: `;
 				if (param.schema.type === 'string' && param.schema.enum) {
 					yield `${snakeCaseToSentenceCase(method.name)}${snakeCaseToSentenceCase(param.name)}`;
 				} else {
@@ -907,6 +945,10 @@ import { IRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/co
 			}
 			yield '}\n\n';
 		}
+
+		yield `export enum ${snakeCaseToSentenceCase(name)}Event {\n`;
+		yield events.join(',\n');
+		yield '\n}\n\n';
 	}
 
 	yield `export class Positron${snakeCaseToSentenceCase(name)}Comm extends PositronBaseComm {\n`;
