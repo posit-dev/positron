@@ -1,5 +1,5 @@
 #
-#  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
+# Copyright (C) 2023 Posit Software, PBC. All rights reserved.
 #
 
 #
@@ -8,12 +8,15 @@
 
 import enum
 from dataclasses import dataclass, field
+from typing import Dict, List, Union
+
+JsonData = Union[Dict[str, "JsonData"], List["JsonData"], str, int, float, bool, None]
 
 
 @enum.unique
 class ShowHelpKind(str, enum.Enum):
     """
-    Possible values for the Kind parameter of the ShowHelp method.
+    Possible values for Kind in ShowHelp
     """
 
     Html = "html"

@@ -11,10 +11,9 @@ from typing import Any, Callable, Dict, List, Optional
 from comm.base_comm import BaseComm
 
 from .frontend_comm import (
+    CallMethodRequest,
     FrontendEvent,
-    FrontendEventData,
-    FrontendRpcRequest,
-    WorkingDirectoryEvent,
+    WorkingDirectoryParams,
 )
 from .positron_comm import PositronComm
 from .third_party import np_, pd_, pl_, torch_
@@ -101,16 +100,19 @@ class FrontendService:
             self._working_directory = current_dir
             # Deliver event to client
             if self._comm is not None:
-                data = WorkingDirectoryEvent(directory=str(alias_home(current_dir)))
-                self._send_event(data)
+                event = WorkingDirectoryParams(directory=str(alias_home(current_dir)))
+                self._send_event(name=FrontendEvent.WorkingDirectory.value, payload=event)
 
     def _receive_message(self, msg: Dict[str, Any]) -> None:
         data = msg["content"]["data"]
 
         try:
-            rpc_request = FrontendRpcRequest(**data)
+            rpc_request = CallMethodRequest(**data)
         except TypeError:
             return logger.exception(f"Invalid frontend RPC request: {data}")
+
+        # Unwrap nested JSON-RPC
+        rpc_request = rpc_request.params
 
         func = _RPC_METHODS.get(rpc_request.method, None)
         if func is None:
@@ -133,7 +135,6 @@ class FrontendService:
             except Exception:
                 pass
 
-    def _send_event(self, data: FrontendEventData) -> None:
+    def _send_event(self, name: str, payload: Any) -> None:
         if self._comm is not None:
-            event = FrontendEvent.from_event_data(data)
-            self._comm.comm.send(asdict(event))
+            self._comm.send_event(name=name, payload=asdict(payload))
