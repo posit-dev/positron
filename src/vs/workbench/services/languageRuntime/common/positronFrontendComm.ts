@@ -25,6 +25,17 @@ export interface CallMethodResult {
 }
 
 /**
+ * Editor metadata
+ */
+export interface EditorContextResult {
+	/**
+	 * URI of the resource viewed in the editor
+	 */
+	path: string;
+
+}
+
+/**
  * Event: Change in backend's busy/idle status
  */
 export interface BusyEvent {
