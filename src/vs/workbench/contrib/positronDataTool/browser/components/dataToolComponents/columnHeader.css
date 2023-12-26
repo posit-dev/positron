@@ -3,7 +3,16 @@
  *--------------------------------------------------------------------------------------------*/
 
 .rows-panel .column-headers .column-header {
+	display: flex;
 	height: 100%;
-	align-items: center;
-	border-right: 1px solid var(--vscode-positronDataTool-border);
+}
+
+.rows-panel .column-headers .column-header .title {
+	width: 100%;
+	height: 100%;
+}
+
+.rows-panel .column-headers .column-header .positron-column-splitter .sizer {
+	border-color: var(--vscode-positronVariables-grid);
+	border-color: red;
 }
