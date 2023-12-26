@@ -25,7 +25,7 @@ export async function activatePositron(
         traceInfo('activatePositron: registering python runtime provider');
         positron.runtime.registerLanguageRuntimeDiscoverer(
             'python',
-            pythonRuntimeDiscoverer(serviceContainer, runtimes, activatedPromise),
+            pythonRuntimeDiscoverer(serviceContainer, runtimes, activatedPromise, pythonApi),
         );
 
         // Wait for all extension components to be activated before registering event listeners
@@ -62,7 +62,7 @@ export async function activatePositron(
                         if (interpreter) {
                             // Set recommendedForWorkspace to false, since we change the active runtime
                             // in the onDidChangeActiveEnvironmentPath listener.
-                            const runtime = await createPythonRuntime(interpreter, serviceContainer, false);
+                            const runtime = await createPythonRuntime(interpreter, serviceContainer, false, pythonApi);
                             const runtimeMetadata = runtime.metadata;
                             disposables.push(positron.runtime.registerLanguageRuntime(runtime));
                             runtimes.set(interpreterPath, runtimeMetadata);
