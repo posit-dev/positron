@@ -15,11 +15,16 @@ export function inTerminalEnvVarExperiment(experimentService: IExperimentService
         traceInfo('Not enabling terminal env var experiment in multiroot remote workspaces');
         return false;
     }
+    // --- Start Positron ---
+    // Always opt into this experiment, as it is more reliable and a better UX than sending
+    // activation commands like `pyenv shell x.y.z` or `conda activate` to the terminal.
+    // It also provides a visual indicator in the terminal if the active interpreter changes.
+    //
+    // We leave the dead code path below to make merge conflicts easier to resolve.
+    return true;
+    // --- End Positron ---
     if (!experimentService.inExperimentSync(TerminalEnvVarActivation.experiment)) {
         return false;
     }
-    // --- Begin Positron ---
-    // return true;
-    return false;
-    // --- End Positron ---
+    return true;
 }

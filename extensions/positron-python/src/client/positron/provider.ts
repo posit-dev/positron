@@ -12,6 +12,7 @@ import * as positron from 'positron';
 import * as semver from 'semver';
 import * as vscode from 'vscode';
 
+import { PythonExtension } from '../api/types';
 import { EXTENSION_ROOT_DIR, PYTHON_LANGUAGE } from '../common/constants';
 import { IConfigurationService, IInstaller } from '../common/types';
 import { IServiceContainer } from '../ioc/types';
@@ -37,6 +38,7 @@ export async function* pythonRuntimeDiscoverer(
     serviceContainer: IServiceContainer,
     runtimes: Map<string, positron.LanguageRuntimeMetadata>,
     activatedPromise: Promise<void>,
+    pythonApi: PythonExtension,
 ): AsyncGenerator<positron.LanguageRuntime> {
     try {
         traceInfo('pythonRuntimeProvider: Starting Python runtime provider');
@@ -80,7 +82,12 @@ export async function* pythonRuntimeDiscoverer(
         for (const interpreter of interpreters) {
             // Only register runtimes for supported versions
             if (isVersionSupported(interpreter?.version, '3.8.0')) {
-                const runtime = await createPythonRuntime(interpreter, serviceContainer, recommendedForWorkspace);
+                const runtime = await createPythonRuntime(
+                    interpreter,
+                    serviceContainer,
+                    recommendedForWorkspace,
+                    pythonApi,
+                );
 
                 // Ensure we only recommend one runtime for the workspace.
                 recommendedForWorkspace = false;
@@ -103,6 +110,7 @@ export async function createPythonRuntime(
     interpreter: PythonEnvironment,
     serviceContainer: IServiceContainer,
     recommendedForWorkspace: boolean,
+    pythonApi: PythonExtension,
 ): Promise<PythonRuntime> {
     traceInfo('createPythonRuntime: getting service instances');
     const configService = serviceContainer.get<IConfigurationService>(IConfigurationService);
@@ -245,6 +253,7 @@ export async function createPythonRuntime(
         languageClientOptions,
         interpreter,
         installer,
+        pythonApi,
         extra,
     );
 }
