@@ -3,6 +3,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import 'vs/css!./consoleInput';
+import * as DOM from 'vs/base/browser/dom';
 import * as React from 'react';
 import { FocusEvent, useEffect, useRef } from 'react'; // eslint-disable-line no-duplicate-imports
 import { URI } from 'vs/base/common/uri';
@@ -163,8 +164,7 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 		// 'scoped' contexts makes that challenging to access here, and I
 		// haven't figured out the 'right' way to get access to those contexts.
 		if (!cmdOrCtrlKey) {
-			// eslint-disable-next-line no-restricted-syntax
-			const suggestWidgets = document.getElementsByClassName('suggest-widget');
+			const suggestWidgets = DOM.getActiveWindow().document.getElementsByClassName('suggest-widget');
 			for (const suggestWidget of suggestWidgets) {
 				if (suggestWidget.classList.contains('visible')) {
 					return;
