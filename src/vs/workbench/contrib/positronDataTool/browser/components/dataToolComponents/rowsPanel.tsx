@@ -8,6 +8,7 @@ import { useLayoutEffect, useRef, useState } from 'react'; // eslint-disable-lin
 import { generateUuid } from 'vs/base/common/uuid';
 import { usePositronDataToolContext } from 'vs/workbench/contrib/positronDataTool/browser/positronDataToolContext';
 import { FixedSizeList as List, ListChildComponentProps, ListOnItemsRenderedProps, ListOnScrollProps } from 'react-window';
+import { ColumnHeaders } from 'vs/workbench/contrib/positronDataTool/browser/components/dataToolComponents/columnHeaders';
 
 /**
  * Constants.
@@ -105,6 +106,7 @@ export const RowsPanel = (props: RowsPanelProps) => {
 	// Render.
 	return (
 		<div ref={rowsPanel} className='rows-panel'>
+			<ColumnHeaders />
 			<List
 				className='list'
 				ref={listRef}
@@ -113,7 +115,7 @@ export const RowsPanel = (props: RowsPanelProps) => {
 				// Use a custom item key instead of index.
 				itemKey={index => dummyRows[index].key}
 				width='100%'
-				height={props.height - 2}
+				height={props.height - 22 - 2}
 				itemSize={ROW_HEIGHT}
 				overscanCount={10}
 				onItemsRendered={itemsRenderedHandler}

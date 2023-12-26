@@ -14,6 +14,7 @@ import { ActionBarButton } from 'vs/platform/positronActionBar/browser/component
 import { PositronActionBarContextProvider } from 'vs/platform/positronActionBar/browser/positronActionBarContext';
 import { usePositronDataToolContext } from 'vs/workbench/contrib/positronDataTool/browser/positronDataToolContext';
 import { LayoutMenuButton } from 'vs/workbench/contrib/positronDataTool/browser/components/actionBarComponents/layoutMenuButton';
+import { ActionBarSeparator } from 'vs/platform/positronActionBar/browser/components/actionBarSeparator';
 
 /**
  * Constants.
@@ -71,6 +72,7 @@ export const ActionBar = (props: ActionBarProps) => {
 							ariaLabel={clearSortButtonDescription}
 							onClick={() => console.log('HERE')}
 						/>
+						<ActionBarSeparator />
 						<LayoutMenuButton />
 					</ActionBarRegion>
 					<ActionBarRegion location='right'>

@@ -6,7 +6,7 @@ import { useEffect } from 'react';  // eslint-disable-line no-duplicate-imports
 import { DisposableStore } from 'vs/base/common/lifecycle';
 import { IClipboardService } from 'vs/platform/clipboard/common/clipboardService';
 import { PositronActionBarServices } from 'vs/platform/positronActionBar/browser/positronActionBarState';
-import { IPositronDataToolInstance } from 'vs/workbench/services/positronDataTool/browser/interfaces/positronDataToolService';
+import { IPositronDataToolInstance } from 'vs/workbench/services/positronDataTool/browser/interfaces/positronDataToolInstance';
 
 /**
  * PositronDataToolServices interface.

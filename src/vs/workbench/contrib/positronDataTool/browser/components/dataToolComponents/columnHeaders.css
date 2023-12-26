@@ -2,8 +2,9 @@
  *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
-.rows-panel .column-headers .column-header {
-	height: 100%;
+.rows-panel .column-headers {
+	height: 22px;
+	display: flex;
 	align-items: center;
-	border-right: 1px solid var(--vscode-positronDataTool-border);
+	border-bottom: 1px solid var(--vscode-positronDataTool-border);
 }

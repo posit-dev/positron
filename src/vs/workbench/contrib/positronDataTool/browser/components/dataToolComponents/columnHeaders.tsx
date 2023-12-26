@@ -2,30 +2,32 @@
  *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
-import 'vs/css!./columnHeader';
+import 'vs/css!./columnHeaders';
 import * as React from 'react';
 import { usePositronDataToolContext } from 'vs/workbench/contrib/positronDataTool/browser/positronDataToolContext';
+import { ColumnHeader } from 'vs/workbench/contrib/positronDataTool/browser/components/dataToolComponents/columnHeader';
 
 /**
- * ColumnHeaderProps interface.
+ * ColumnHeadersProps interface.
  */
-interface ColumnHeaderProps {
-	index: number;
+interface ColumnHeadersProps {
 }
 
 /**
- * ColumnHeader component.
- * @param props A ColumnHeaderProps that contains the component properties.
+ * ColumnHeaders component.
+ * @param props A ColumnHeadersProps that contains the component properties.
  * @returns The rendered component.
  */
-export const ColumnHeader = (props: ColumnHeaderProps) => {
+export const ColumnHeaders = (props: ColumnHeadersProps) => {
 	// Context hooks.
 	const context = usePositronDataToolContext();
 
 	// Render.
 	return (
-		<div className='column-header'>
-			<div className='title'>{context.instance.columns[props.index].columnSchema.name}</div>
+		<div className='column-headers'>
+			{context.instance.columns.map((column, index) =>
+				<ColumnHeader index={index} />
+			)}
 		</div>
 	);
 };
