@@ -11,6 +11,7 @@ import * as vscode from 'vscode';
 import { cloneDeep } from 'lodash';
 import PQueue from 'p-queue';
 import { LanguageClientOptions } from 'vscode-languageclient/node';
+import { PythonExtension } from '../api/types';
 import { InstallOptions } from '../common/installer/types';
 import { IInstaller, InstallerResponse, Product } from '../common/types';
 import { IServiceContainer } from '../ioc/types';
@@ -59,6 +60,7 @@ export class PythonRuntime implements positron.LanguageRuntime, vscode.Disposabl
         readonly languageClientOptions: LanguageClientOptions,
         private readonly interpreter: PythonEnvironment,
         private readonly installer: IInstaller,
+        private readonly pythonApi: PythonExtension,
         readonly extra?: JupyterKernelExtra,
         readonly notebook?: vscode.NotebookDocument,
     ) {
@@ -194,7 +196,12 @@ export class PythonRuntime implements positron.LanguageRuntime, vscode.Disposabl
         if (!this._kernel) {
             this._kernel = await this.createKernel();
         }
+
+        // Ensure that the ipykernel module is installed for the interpreter.
         await this._installIpykernel();
+
+        // Update the active environment in the Python extension.
+        this.pythonApi.environments.updateActiveEnvironmentPath(this.interpreter.path);
 
         // Register for console width changes, if we haven't already
         if (!this._consoleWidthDisposable) {
@@ -202,6 +209,7 @@ export class PythonRuntime implements positron.LanguageRuntime, vscode.Disposabl
                 this.onConsoleWidthChange(newWidth);
             });
         }
+
         return this._kernel.start();
     }
 
@@ -223,9 +231,7 @@ export class PythonRuntime implements positron.LanguageRuntime, vscode.Disposabl
             // Log the error if we can't set the console width; this is not
             // fatal, so we don't rethrow the error
             const runtimeError = err as positron.RuntimeMethodError;
-            this._kernel.emitJupyterLog(
-                `Error setting console width: ${runtimeError.message} (${runtimeError.code})`,
-            );
+            this._kernel.emitJupyterLog(`Error setting console width: ${runtimeError.message} (${runtimeError.code})`);
         }
     }
 
@@ -345,6 +351,7 @@ export class PythonRuntime implements positron.LanguageRuntime, vscode.Disposabl
             cloneDeep(this.languageClientOptions),
             cloneDeep(this.interpreter),
             this.installer,
+            this.pythonApi,
             createJupyterKernelExtra(),
             notebook,
         );
