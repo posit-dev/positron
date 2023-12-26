@@ -20,12 +20,12 @@ export interface IPositronDataToolColumn {
 	readonly columnSchema: ColumnSchema;
 
 	/**
-	 * Gets or sets the column width.
+	 * Gets or sets the width.
 	 */
-	columnWidth: number;
+	width: number;
 
 	/**
-	 * The onDidChangeColumnWidth event.
+	 * The onDidChangeWidth event.
 	 */
-	readonly onDidChangeColumnWidth: Event<number>;
+	readonly onDidChangeWidth: Event<number>;
 }

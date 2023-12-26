@@ -13,6 +13,5 @@
 }
 
 .rows-panel .column-headers .column-header .positron-column-splitter .sizer {
-	border-color: var(--vscode-positronVariables-grid);
-	border-color: red;
+	border-color: var(--vscode-positronDataTool-border);
 }

@@ -24,14 +24,14 @@ export class PositronDataToolColumn extends Disposable implements IPositronDataT
 	private readonly _columnSchema: ColumnSchema;
 
 	/**
-	 * Gets or sets the column width.
+	 * Gets or sets the width.
 	 */
-	private _columnWidth: number;
+	private _width: number;
 
 	/**
-	 * The onDidChangeColumnWidth event emitter.
+	 * The onDidChangeWidth event emitter.
 	 */
-	private readonly _onDidChangeColumnWidthEmitter = this._register(new Emitter<number>);
+	private readonly _onDidChangeWidthEmitter = this._register(new Emitter<number>);
 
 	//#endregion Private Properties
 
@@ -50,8 +50,8 @@ export class PositronDataToolColumn extends Disposable implements IPositronDataT
 		this._identifier = identifier;		// TODO: Should be part of ColumnSchema...
 		this._columnSchema = columnSchema;
 
-		// Initialize the column width (eventually, this will be set based on the column schema).
-		this._columnWidth = 90;
+		// Initialize the width (eventually, this will be set based on the column schema).
+		this._width = 190;
 	}
 
 	//#endregion Constructor & Dispose
@@ -73,26 +73,26 @@ export class PositronDataToolColumn extends Disposable implements IPositronDataT
 	}
 
 	/**
-	 * Gets the column width.
+	 * Gets the width.
 	 */
-	get columnWidth() {
-		return this._columnWidth;
+	get width() {
+		return this._width;
 	}
 
 	/**
 	 * Sets the column width.
 	 */
-	set columnWidth(columnWidth: number) {
-		if (columnWidth !== this._columnWidth) {
-			this._columnWidth = columnWidth;
-			this._onDidChangeColumnWidthEmitter.fire(this._columnWidth);
+	set width(width: number) {
+		if (width !== this._width) {
+			this._width = width;
+			this._onDidChangeWidthEmitter.fire(this._width);
 		}
 	}
 
 	/**
-	 * onDidChangeColumnWidth event.
+	 * onDidChangeWidth event.
 	 */
-	readonly onDidChangeColumnWidth = this._onDidChangeColumnWidthEmitter.event;
+	readonly onDidChangeWidth = this._onDidChangeWidthEmitter.event;
 
 	//#endregion IPositronDataToolColumn Implementation
 }
