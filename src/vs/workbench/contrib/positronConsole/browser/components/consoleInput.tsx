@@ -3,6 +3,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import 'vs/css!./consoleInput';
+import * as DOM from 'vs/base/browser/dom';
 import * as React from 'react';
 import { FocusEvent, useEffect, useRef } from 'react'; // eslint-disable-line no-duplicate-imports
 import { URI } from 'vs/base/common/uri';
@@ -96,6 +97,7 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 
 	/**
 	 * Executes the code editor widget's code, if possible.
+	 * @returns A Promise<boolean> that indicates whether the code was executed.
 	 */
 	const executeCodeEditorWidgetCodeIfPossible = async () => {
 		// Get the code from the code editor widget.
@@ -110,13 +112,8 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 			// If the code fragment is incomplete, don't do anything. The user will just see a new
 			// line in the input area.
 			case RuntimeCodeFragmentStatus.Incomplete: {
-				// For the moment, this works. Ideally, we'd like to have the current code fragment
-				// prettied up by the runtime and updated.
-				const updatedCodeFragment = code + '\n';
-				setCurrentCodeFragment(updatedCodeFragment);
-				codeEditorWidgetRef.current.setValue(updatedCodeFragment);
-				updateCodeEditorWidgetPosition(Position.Last, Position.Last);
-				return;
+				// Don't execute the code, let the code editor widget handle the key event.
+				return false;
 			}
 
 			// If the code fragment is invalid (contains syntax errors), log a warning but execute
@@ -142,6 +139,8 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 		// Reset the code input state.
 		setCurrentCodeFragment(undefined);
 		codeEditorWidgetRef.current.setValue('');
+
+		return true;
 	};
 
 	// Key down event handler.
@@ -165,7 +164,7 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 		// 'scoped' contexts makes that challenging to access here, and I
 		// haven't figured out the 'right' way to get access to those contexts.
 		if (!cmdOrCtrlKey) {
-			const suggestWidgets = document.getElementsByClassName('suggest-widget');
+			const suggestWidgets = DOM.getActiveWindow().document.getElementsByClassName('suggest-widget');
 			for (const suggestWidget of suggestWidgets) {
 				if (suggestWidget.classList.contains('visible')) {
 					return;
@@ -298,16 +297,9 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 
 			// Enter processing.
 			case KeyCode.Enter: {
-				// Consume the event.
-				consumeEvent();
-
 				// If the shift key is pressed, do not process the event because the user is
 				// entering multiple lines.
 				if (e.shiftKey) {
-					codeEditorWidgetRef.current.setValue(
-						codeEditorWidgetRef.current.getValue() + '\n'
-					);
-					updateCodeEditorWidgetPosition(Position.Last, Position.Last);
 					return;
 				}
 
@@ -317,7 +309,12 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 				}
 
 				// Try to execute the code editor widget's code.
-				await executeCodeEditorWidgetCodeIfPossible();
+				if (await executeCodeEditorWidgetCodeIfPossible()) {
+					// Only consume the event if the code was executed. Otherwise, let the code
+					// editor widget handle the key event.
+					consumeEvent();
+				}
+
 				break;
 			}
 		}
