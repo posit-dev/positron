@@ -8,8 +8,12 @@
 }
 
 .rows-panel .column-headers .column-header .title {
+	margin-left: 5px;
 	width: 100%;
 	height: 100%;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
 }
 
 .rows-panel .column-headers .column-header .positron-column-splitter .sizer {

@@ -10,12 +10,25 @@ import * as DOM from 'vs/base/browser/dom';
 import { isMacintosh } from 'vs/base/common/platform';
 
 /**
- * PositronColumnSplitterResizeResult enumeration.
+ * PositronColumnSplitterResizeParams interface. This defines the parameters of a resize operation.
+ * When invert is true, the mouse delta is subtracted from the starting width instead of being added
+ * to it, which inverts the resize operation.
  */
-export enum PositronColumnSplitterResizeResult {
-	Resizing = 'Resizing',
-	TooSmall = 'TooSmall',
-	TooLarge = 'TooLarge'
+export interface PositronColumnSplitterResizeParams {
+	minimumWidth: number;
+	maximumWidth: number;
+	startingWidth: number;
+	invert?: boolean;
+}
+
+/**
+ * PositronColumnSplitterResizeState interface. This defines the state of a resize operation that is
+ * underway.
+ */
+interface PositronColumnSplitterResizeState extends PositronColumnSplitterResizeParams {
+	readonly body: HTMLElement;
+	readonly startingX: number;
+	readonly stylesheet: HTMLStyleElement;
 }
 
 /**
@@ -24,7 +37,8 @@ export enum PositronColumnSplitterResizeResult {
 interface PositronColumnSplitterProps {
 	width: number;
 	showSizer?: boolean;
-	onResize: (x: number, y: number) => PositronColumnSplitterResizeResult;
+	onBeginResize: () => PositronColumnSplitterResizeParams;
+	onResize: (width: number) => void;
 }
 
 /**
@@ -39,12 +53,8 @@ type DocumentMouseEvent = globalThis.MouseEvent;
  */
 export const PositronColumnSplitter = (props: PositronColumnSplitterProps) => {
 	// State hooks.
-	const [, setResizeState, resizeStateRef] = useStateRef<{
-		readonly body: HTMLElement;
-		readonly startingX: number;
-		readonly startingY: number;
-		readonly stylesheet: HTMLStyleElement;
-	} | undefined>(undefined);
+	const [, setResizeState, resizeStateRef] =
+		useStateRef<PositronColumnSplitterResizeState | undefined>(undefined);
 
 	/**
 	 * MouseDown handler.
@@ -60,9 +70,9 @@ export const PositronColumnSplitter = (props: PositronColumnSplitterProps) => {
 
 		// Set the resize state.
 		setResizeState({
+			...props.onBeginResize(),
 			body,
 			startingX: e.clientX,
-			startingY: e.clientY,
 			stylesheet: DOM.createStyleSheet(body)
 		});
 
@@ -72,8 +82,27 @@ export const PositronColumnSplitter = (props: PositronColumnSplitterProps) => {
 			e.preventDefault();
 			e.stopPropagation();
 
-			// Fire onResize.
-			updateStyleSheet(fireOnResize(e));
+			// Calculate the new width.
+			let newWidth = calculateNewWidth(e);
+
+			// Adjust the new width to be within limits and set the cursor accordingly.
+			let cursor: string;
+			if (newWidth < resizeStateRef.current!.minimumWidth) {
+				cursor = 'e-resize';
+				newWidth = resizeStateRef.current!.minimumWidth;
+			} else if (newWidth > resizeStateRef.current!.maximumWidth) {
+				cursor = 'w-resize';
+				newWidth = resizeStateRef.current!.maximumWidth;
+			} else {
+				cursor = isMacintosh ? 'col-resize' : 'ew-resize';
+			}
+
+			// Update the style sheet's text content with the desired cursor. This is a clever
+			// technique adopted from src/vs/base/browser/ui/sash/sash.ts.
+			resizeStateRef.current!.stylesheet.textContent = `* { cursor: ${cursor} !important; }`;
+
+			// Call the onResize callback.
+			props.onResize(newWidth);
 		};
 
 		// Mouse up handler.
@@ -86,55 +115,40 @@ export const PositronColumnSplitter = (props: PositronColumnSplitterProps) => {
 			resizeStateRef.current!.body.removeEventListener('mousemove', mouseMoveHandler);
 			resizeStateRef.current!.body.removeEventListener('mouseup', mouseUpHandler);
 
-			// Fire onResize one last time.
-			fireOnResize(e);
+			// Calculate the new width.
+			let newWidth = calculateNewWidth(e);
+
+			// Adjust the new width to be within limits.
+			if (newWidth < resizeStateRef.current!.minimumWidth) {
+				newWidth = resizeStateRef.current!.minimumWidth;
+			} else if (newWidth > resizeStateRef.current!.maximumWidth) {
+				newWidth = resizeStateRef.current!.maximumWidth;
+			}
 
 			// Remove the style sheet.
 			resizeStateRef.current!.body.removeChild(resizeStateRef.current!.stylesheet);
+
+			// Call the onResize callback for the final time so any mouse movement is captured.
+			props.onResize(newWidth);
 
 			// Clear the resize state.
 			setResizeState(undefined);
 		};
 
 		/**
-		 * Updates the style sheet based on the column splitter resize result.
-		 * @param columnSplitterResizeResult The column splitter resize result.
+		 * Calculates the new width based on a DocumentMouseEvent.
+		 * @param e The DocumentMouseEvent.
+		 * @returns The new width.
 		 */
-		const updateStyleSheet = (columnSplitterResizeResult: PositronColumnSplitterResizeResult) => {
-			// Set the cursor.
-			let cursor: string;
-			switch (columnSplitterResizeResult) {
-				// If the column is resizing (not too small and not too large), use the correct
-				// resize cursor.
-				case PositronColumnSplitterResizeResult.Resizing:
-					cursor = isMacintosh ? 'col-resize' : 'ew-resize';
-					break;
+		const calculateNewWidth = (e: DocumentMouseEvent) => {
+			// Calculate the delta.
+			const delta = e.clientX - resizeStateRef.current!.startingX;
 
-				// If the column is too small, use the e-resize cursor.
-				case PositronColumnSplitterResizeResult.TooSmall:
-					cursor = 'e-resize';
-					break;
-
-				// If the column is too large, use the w-resize cursor.
-				case PositronColumnSplitterResizeResult.TooLarge:
-					cursor = 'w-resize';
-					break;
-			}
-
-			// Update the style sheet's text content with the desired cursor. This is a clever
-			// technique adopted from src/vs/base/browser/ui/sash/sash.ts.
-			resizeStateRef.current!.stylesheet.textContent = `* { cursor: ${cursor} !important; }`;
+			// Calculate the new width.
+			return !resizeStateRef.current!.invert ?
+				resizeStateRef.current!.startingWidth + delta :
+				resizeStateRef.current!.startingWidth - delta;
 		};
-
-		/**
-		 * Fires onResize for a mouse event.
-		 * @param e The mouse event.
-		 */
-		const fireOnResize = (e: DocumentMouseEvent): PositronColumnSplitterResizeResult =>
-			props.onResize(
-				e.clientX - resizeStateRef.current!.startingX,
-				e.clientY - resizeStateRef.current!.startingY
-			);
 
 		// Capture the mouse.
 		body.addEventListener('mousemove', mouseMoveHandler, false);

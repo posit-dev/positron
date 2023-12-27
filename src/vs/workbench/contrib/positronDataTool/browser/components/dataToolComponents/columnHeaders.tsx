@@ -26,7 +26,7 @@ export const ColumnHeaders = (props: ColumnHeadersProps) => {
 	return (
 		<div className='column-headers'>
 			{context.instance.columns.map((column, index) =>
-				<ColumnHeader index={index} />
+				<ColumnHeader key={context.instance.columns[index].identifier} index={index} />
 			)}
 		</div>
 	);
