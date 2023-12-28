@@ -13,6 +13,7 @@ from comm.base_comm import BaseComm
 from .frontend_comm import (
     CallMethodRequest,
     FrontendEvent,
+    OpenEditorParams,
     WorkingDirectoryParams,
 )
 from .positron_comm import PositronComm
@@ -101,7 +102,12 @@ class FrontendService:
             # Deliver event to client
             if self._comm is not None:
                 event = WorkingDirectoryParams(directory=str(alias_home(current_dir)))
-                self._send_event(name=FrontendEvent.WorkingDirectory.value, payload=event)
+                self._send_event(name=FrontendEvent.WorkingDirectory, payload=event)
+
+    def open_editor(self, file: str, line: int, column: int) -> None:
+        if self._comm is not None:
+            event = OpenEditorParams(file=file, line=line, column=column)
+            self._comm.send_event(name=FrontendEvent.OpenEditor, payload=asdict(event))
 
     def _receive_message(self, msg: Dict[str, Any]) -> None:
         data = msg["content"]["data"]
