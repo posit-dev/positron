@@ -36,6 +36,27 @@ export interface BusyEvent {
 }
 
 /**
+ * Event: Open an editor
+ */
+export interface OpenEditorEvent {
+	/**
+	 * The path of the file to open
+	 */
+	file: string;
+
+	/**
+	 * The line number to jump to
+	 */
+	line: number;
+
+	/**
+	 * The column number to jump to
+	 */
+	column: number;
+
+}
+
+/**
  * Event: Show a message
  */
 export interface ShowMessageEvent {
@@ -75,6 +96,7 @@ export interface WorkingDirectoryEvent {
 
 export enum FrontendEvent {
 	Busy = 'busy',
+	OpenEditor = 'open_editor',
 	ShowMessage = 'show_message',
 	PromptState = 'prompt_state',
 	WorkingDirectory = 'working_directory'
@@ -84,6 +106,7 @@ export class PositronFrontendComm extends PositronBaseComm {
 	constructor(instance: IRuntimeClientInstance<any, any>) {
 		super(instance);
 		this.onDidBusy = super.createEventEmitter('busy', ['busy']);
+		this.onDidOpenEditor = super.createEventEmitter('open_editor', ['file', 'line', 'column']);
 		this.onDidShowMessage = super.createEventEmitter('show_message', ['message']);
 		this.onDidPromptState = super.createEventEmitter('prompt_state', ['input_prompt', 'continuation_prompt']);
 		this.onDidWorkingDirectory = super.createEventEmitter('working_directory', ['directory']);
@@ -115,6 +138,12 @@ export class PositronFrontendComm extends PositronBaseComm {
 	 * is running.
 	 */
 	onDidBusy: Event<BusyEvent>;
+	/**
+	 * Open an editor
+	 *
+	 * This event is used to open an editor with a given file and selection.
+	 */
+	onDidOpenEditor: Event<OpenEditorEvent>;
 	/**
 	 * Show a message
 	 *
