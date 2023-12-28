@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 from typing import Any, cast
 from unittest.mock import Mock
@@ -55,17 +56,17 @@ def test_traceback(tmp_path: Path) -> None:
 
     # We can't use the shell fixture for this since it has non-ascii error messages and doesn't
     # send errors to the frontend.
-    s = PositronShell()
+    shell = PositronShell()
     # The error message is sent via the displayhook.
-    s.displayhook = Mock()
+    shell.displayhook = Mock()
 
     # Create a temporary module.
-    file = tmp_path / "foo.py"
+    file = tmp_path / "test_traceback.py"
     file.write_text(code)
 
     # Temporarily add the module to sys.path and call a function from it, which should error.
     with prepended_to_syspath(str(tmp_path)):
-        s.run_cell("import foo; foo.g()")
+        shell.run_cell("import test_traceback; test_traceback.g()")
 
     # NOTE(seem): This is not elegant, but I'm not sure how else to test this than other than to
     # compare the beginning of each frame of the traceback. The escape codes make it particularly
@@ -80,13 +81,13 @@ def test_traceback(tmp_path: Path) -> None:
     st = esc + "\\"
 
     # Convenient reference to colors from the active scheme.
-    colors = cast(Any, s.InteractiveTB.Colors)
+    colors = cast(Any, shell.InteractiveTB.Colors)
 
     # This template matches the beginning of each traceback frame. We don't check each entire frame
     # because syntax highlighted code is full of escape codes. For example, after removing
     # escape codes a formatted version of below might look like:
     #
-    # File /private/var/folders/.../foo.py:11, in func()
+    # File /private/var/folders/.../test_traceback.py:11, in func()
     #
     traceback_frame_header = "".join(
         [
@@ -113,7 +114,7 @@ def test_traceback(tmp_path: Path) -> None:
     )
 
     # Check that a single message was sent to the frontend.
-    call_args_list = cast(Mock, s.displayhook.session.send).call_args_list
+    call_args_list = cast(Mock, shell.displayhook.session.send).call_args_list
     assert len(call_args_list) == 1
 
     call_args = call_args_list[0]
@@ -152,3 +153,39 @@ def _assert_ansi_string_startswith(actual: str, expected: str) -> None:
     actual = repr(actual[:length])
     expected = repr(expected[:length])
     assert actual == expected
+
+
+def test_pinfo() -> None:
+    """
+    Redirect `object?` to the Positron help service's `show_help` method.
+    """
+    shell = PositronShell()
+
+    shell.kernel = Mock()
+
+    shell.run_cell("object?")
+
+    shell.kernel.help_service.show_help.assert_called_once_with(object)
+
+
+def test_pinfo_2(tmp_path: Path) -> None:
+    """
+    Redirect `object??` to the Positron frontend service's `open_editor` method.
+    """
+    shell = PositronShell()
+
+    shell.kernel = Mock()
+
+    # Create a temporary module using a predefined code snippet, so that we know the expected
+    # file and line number where the object is defined.
+    file = tmp_path / "test_pinfo_2.py"
+    file.write_text(code)
+
+    # Temporarily add the module to sys.path and run the `??` magic.
+    with prepended_to_syspath(str(tmp_path)):
+        shell.run_cell("import test_pinfo_2")
+        shell.run_cell("test_pinfo_2.g??")
+
+    # IPython normalizes the case of the file path.
+    expected_file = os.path.normcase(file)
+    shell.kernel.frontend_service.open_editor.assert_called_once_with(expected_file, 4, 0)
