@@ -81,6 +81,9 @@ class FrontendEvent(str, enum.Enum):
     # Change in backend's busy/idle status
     Busy = "busy"
 
+    # Open an editor
+    OpenEditor = "open_editor"
+
     # Show a message
     ShowMessage = "show_message"
 
@@ -98,6 +101,19 @@ class BusyParams:
     """
 
     busy: bool = field(metadata={"description": "Whether the backend is busy"})
+
+
+@dataclass
+class OpenEditorParams:
+    """
+    Open an editor
+    """
+
+    file: str = field(metadata={"description": "The path of the file to open"})
+
+    line: int = field(metadata={"description": "The line number to jump to"})
+
+    column: int = field(metadata={"description": "The column number to jump to"})
 
 
 @dataclass

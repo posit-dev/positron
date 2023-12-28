@@ -152,7 +152,25 @@ def test_handle_rpc_request_set_console_width(frontend_comm: DummyComm) -> None:
     assert torch._tensor_str.PRINT_OPTS.linewidth == width
 
 
-def test_shutdown(frontend_service: FrontendService):
+def test_open_editor(frontend_service: FrontendService, frontend_comm: DummyComm) -> None:
+    file, line, column = "/Users/foo/bar/baz.py", 12, 34
+    frontend_service.open_editor(file, line, column)
+
+    assert frontend_comm.messages == [
+        {
+            "data": {
+                "jsonrpc": "2.0",
+                "method": "open_editor",
+                "params": {"file": file, "line": line, "column": column},
+            },
+            "metadata": None,
+            "buffers": None,
+            "msg_type": "comm_msg",
+        }
+    ]
+
+
+def test_shutdown(frontend_service: FrontendService) -> None:
     # Double-check that the comm is not yet closed
     assert frontend_service._comm is not None
     frontend_comm = frontend_service._comm.comm

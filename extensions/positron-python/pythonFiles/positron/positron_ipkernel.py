@@ -95,20 +95,31 @@ class PositronIPythonInspector(oinspect.Inspector):
         enable_html_pager: bool = True,
         omit_sections: Container[str] = (),
     ) -> None:
+        kernel = self.parent.kernel
+
         # Intercept `%pinfo obj` / `obj?` calls, and instead use Positron's help service
         if detail_level == 0:
-            self.parent.kernel.help_service.show_help(obj)
+            kernel.help_service.show_help(obj)
             return
 
-        super().pinfo(
-            obj=obj,
-            oname=oname,
-            formatter=formatter,
-            info=info,
-            detail_level=detail_level,
-            enable_html_pager=enable_html_pager,
-            omit_sections=omit_sections,
-        )
+        # For `%pinfo2 obj` / `obj??` calls, try to open an editor via Positron's frontend service
+        fname = oinspect.find_file(obj)
+
+        if fname is None:
+            # If we couldn't get a filename, fall back to the default implementation.
+            return super().pinfo(
+                obj,
+                oname,
+                formatter,
+                info,
+                detail_level,
+                enable_html_pager,
+                omit_sections,
+            )
+
+        # If we got a filename, try to get the line number and open an editor.
+        lineno = oinspect.find_source_lines(obj) or 0
+        kernel.frontend_service.open_editor(fname, lineno, 0)
 
     pinfo.__doc__ = oinspect.Inspector.pinfo.__doc__
 
