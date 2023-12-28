@@ -24,7 +24,9 @@ import { IPositronHelpService } from 'vs/workbench/contrib/positronHelp/browser/
 import { INotebookService } from 'vs/workbench/contrib/notebook/common/notebookService';
 import { IRuntimeClientEvent } from 'vs/workbench/services/languageRuntime/common/languageRuntimeFrontEndClient';
 import { URI } from 'vs/base/common/uri';
-import { BusyEvent, FrontendEvent, PromptStateEvent, WorkingDirectoryEvent } from 'vs/workbench/services/languageRuntime/common/positronFrontendComm';
+import { BusyEvent, FrontendEvent, OpenEditorEvent, PromptStateEvent, WorkingDirectoryEvent } from 'vs/workbench/services/languageRuntime/common/positronFrontendComm';
+import { IEditorService } from 'vs/workbench/services/editor/common/editorService';
+import { ITextResourceEditorInput } from 'vs/platform/editor/common/editor';
 
 /**
  * Represents a language runtime event (for example a message or state change)
@@ -104,6 +106,7 @@ class ExtHostLanguageRuntimeAdapter implements ILanguageRuntime {
 		private readonly _languageRuntimeService: ILanguageRuntimeService,
 		private readonly _logService: ILogService,
 		private readonly _notebookService: INotebookService,
+		private readonly _editorService: IEditorService,
 		private readonly _proxy: ExtHostLanguageRuntimeShape) {
 
 		// Bind events to emitters
@@ -164,6 +167,14 @@ class ExtHostLanguageRuntimeAdapter implements ILanguageRuntime {
 				// Update busy state
 				const busy = ev.data as BusyEvent;
 				this.dynState.busy = busy.busy;
+			} else if (ev.name === FrontendEvent.OpenEditor) {
+				// Open an editor
+				const ed = ev.data as OpenEditorEvent;
+				const editor: ITextResourceEditorInput = {
+					resource: URI.file(ed.file),
+					options: { selection: { startLineNumber: ed.line, startColumn: ed.column } }
+				};
+				this._editorService.openEditor(editor);
 			} else if (ev.name === FrontendEvent.WorkingDirectory) {
 				// Update current working directory
 				const dir = ev.data as WorkingDirectoryEvent;
@@ -938,7 +949,8 @@ export class MainThreadLanguageRuntime implements MainThreadLanguageRuntimeShape
 		@IPositronPlotsService private readonly _positronPlotService: IPositronPlotsService,
 		@IPositronIPyWidgetsService private readonly _positronIPyWidgetsService: IPositronIPyWidgetsService,
 		@ILogService private readonly _logService: ILogService,
-		@INotebookService private readonly _notebookService: INotebookService
+		@INotebookService private readonly _notebookService: INotebookService,
+		@IEditorService private readonly _editorService: IEditorService,
 	) {
 		// TODO@softwarenerd - We needed to find a central place where we could ensure that certain
 		// Positron services were up and running early in the application lifecycle. For now, this
@@ -982,6 +994,7 @@ export class MainThreadLanguageRuntime implements MainThreadLanguageRuntimeShape
 			this._languageRuntimeService,
 			this._logService,
 			this._notebookService,
+			this._editorService,
 			this._proxy
 		);
 		this._runtimes.set(handle, adapter);
