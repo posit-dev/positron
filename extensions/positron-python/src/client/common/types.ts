@@ -17,7 +17,6 @@ import {
     LogOutputChannel,
     Uri,
     OutputChannel,
-    MessageOptions,
 } from 'vscode';
 import { LanguageServerType } from '../activation/types';
 import type { InstallOptions, InterpreterUri, ModuleInstallFlags } from './installer/types';
@@ -112,7 +111,7 @@ export interface IInstaller {
         flags?: ModuleInstallFlags,
         // --- Start Positron ---
         options?: InstallOptions,
-        messageOptions?: MessageOptions,
+        message?: string,
         // --- End Positron ---
     ): Promise<InstallerResponse>;
     install(

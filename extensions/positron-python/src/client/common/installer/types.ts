@@ -1,7 +1,7 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
-import { CancellationToken, MessageOptions, Uri } from 'vscode';
+import { CancellationToken, Uri } from 'vscode';
 import { ModuleInstallerType, PythonEnvironment } from '../../pythonEnvironments/info';
 import { InstallerResponse, Product, ProductInstallStatus, ProductType, Resource } from '../types';
 
@@ -50,7 +50,7 @@ export interface IBaseInstaller {
         flags?: ModuleInstallFlags,
         // --- Start Positron ---
         options?: InstallOptions,
-        messageOptions?: MessageOptions,
+        message?: string,
         // --- End Positron ---
     ): Promise<InstallerResponse>;
     isProductVersionCompatible(
