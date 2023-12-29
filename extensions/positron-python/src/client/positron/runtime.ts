@@ -12,6 +12,7 @@ import { cloneDeep } from 'lodash';
 import PQueue from 'p-queue';
 import { LanguageClientOptions } from 'vscode-languageclient/node';
 import { PythonExtension } from '../api/types';
+import { ProductNames } from '../common/installer/productNames';
 import { InstallOptions } from '../common/installer/types';
 import { IInstaller, InstallerResponse, Product } from '../common/types';
 import { IServiceContainer } from '../ioc/types';
@@ -166,15 +167,22 @@ export class PythonRuntime implements positron.LanguageRuntime, vscode.Disposabl
             // Using a process to install modules avoids using the terminal service,
             // which has issues waiting for the outcome of the install.
             const installOptions: InstallOptions = { installAsProcess: true };
-            const messageOptions: vscode.MessageOptions = { modal: true };
+
+            const product = Product.ipykernel;
+            const message = vscode.l10n.t(
+                'To enable Python support, Positron needs to install the package "{0}" for the active interpreter {1} at: {2}.',
+                ProductNames.get(product)!,
+                `Python ${this.metadata.languageVersion}`,
+                this.metadata.runtimePath,
+            );
 
             const response = await this.installer.promptToInstall(
-                Product.ipykernel,
+                product,
                 this.interpreter,
                 installerToken,
                 undefined,
                 installOptions,
-                messageOptions,
+                message,
             );
 
             switch (response) {
