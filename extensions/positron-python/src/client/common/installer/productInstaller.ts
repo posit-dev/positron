@@ -1,8 +1,10 @@
 /* eslint-disable max-classes-per-file */
 
+// eslint-disable-next-line import/no-unresolved
+import * as positron from 'positron';
 import { inject, injectable } from 'inversify';
 import * as semver from 'semver';
-import { CancellationToken, l10n, MessageOptions, Uri } from 'vscode';
+import { CancellationToken, l10n, Uri } from 'vscode';
 import '../extensions';
 import { IInterpreterService } from '../../interpreter/contracts';
 import { IServiceContainer } from '../../ioc/types';
@@ -74,7 +76,7 @@ abstract class BaseInstaller implements IBaseInstaller {
         flags?: ModuleInstallFlags,
         // --- Start Positron ---
         options?: InstallOptions,
-        messageOptions?: MessageOptions,
+        message?: string,
         // --- End Positron ---
     ): Promise<InstallerResponse> {
         // If this method gets called twice, while previous promise has not been resolved, then return that same promise.
@@ -87,7 +89,7 @@ abstract class BaseInstaller implements IBaseInstaller {
             return BaseInstaller.PromptPromises.get(key)!;
         }
         // --- Start Positron ---
-        const promise = this.promptToInstallImplementation(product, resource, cancel, flags, options, messageOptions);
+        const promise = this.promptToInstallImplementation(product, resource, cancel, flags, options, message);
         // --- End Positron ---
         BaseInstaller.PromptPromises.set(key, promise);
         promise.then(() => BaseInstaller.PromptPromises.delete(key)).ignoreErrors();
@@ -216,7 +218,7 @@ abstract class BaseInstaller implements IBaseInstaller {
         flags?: ModuleInstallFlags,
         // --- Start Positron ---
         options?: InstallOptions,
-        messageOptions?: MessageOptions,
+        message?: string,
     ): // --- End Positron ---
     Promise<InstallerResponse>;
 
@@ -241,7 +243,7 @@ export class TestFrameworkInstaller extends BaseInstaller {
         _flags?: ModuleInstallFlags,
         // --- Start Positron ---
         _options?: InstallOptions,
-        _messageOptions?: MessageOptions,
+        _message?: string,
         // --- End Positron ---
     ): Promise<InstallerResponse> {
         const productName = ProductNames.get(product)!;
@@ -411,24 +413,24 @@ export class DataScienceInstaller extends BaseInstaller {
         _flags?: ModuleInstallFlags,
         // --- Start Positron ---
         options?: InstallOptions,
-        messageOptions?: MessageOptions,
+        message?: string,
         // --- End Positron ---
     ): Promise<InstallerResponse> {
-        const productName = ProductNames.get(product)!;
         // --- Start Positron ---
-        const item = await this.appShell.showWarningMessage(
-            l10n.t('Python support requires module {0}. Install?', productName),
-            messageOptions ?? {},
-            Common.bannerLabelYes,
-            Common.bannerLabelNo,
+        const productName = ProductNames.get(product)!;
+        const install = await positron.window.showSimpleModalDialogPrompt(
+            l10n.t('Install Python package "{0}"?', productName),
+            message ??
+                l10n.t(
+                    'To enable Python support, Positron needs to install the package "{0}" for the active interpreter.',
+                    productName,
+                ),
+            l10n.t('Install'),
         );
-
-        // --- End Positron ---
-        if (item === Common.bannerLabelYes) {
-            // --- Start Positron ---
+        if (install) {
             return this.install(product, resource, cancel, undefined, options);
-            // --- End Positron ---
         }
+        // --- End Positron ---
         return InstallerResponse.Ignore;
     }
 }
@@ -488,7 +490,7 @@ export class PythonInstaller implements IBaseInstaller {
         _flags?: ModuleInstallFlags,
         // --- Start Positron ---
         _options?: InstallOptions,
-        _messageOptions?: MessageOptions,
+        _message?: string,
         // --- End Positron ---
     ): Promise<InstallerResponse> {
         // This package is installed directly without any prompt.
@@ -527,7 +529,7 @@ export class ProductInstaller implements IInstaller {
         flags?: ModuleInstallFlags,
         // --- Start Positron ---
         options?: InstallOptions,
-        messageOptions?: MessageOptions,
+        message?: string,
         // --- End Positron ---
     ): Promise<InstallerResponse> {
         const currentInterpreter = isResource(resource)
@@ -537,7 +539,7 @@ export class ProductInstaller implements IInstaller {
             return InstallerResponse.Ignore;
         }
         // --- Start Positron ---
-        return this.createInstaller(product).promptToInstall(product, resource, cancel, flags, options, messageOptions);
+        return this.createInstaller(product).promptToInstall(product, resource, cancel, flags, options, message);
         // --- End Positron ---
     }
 
