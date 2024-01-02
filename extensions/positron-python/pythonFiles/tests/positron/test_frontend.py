@@ -170,6 +170,23 @@ def test_open_editor(frontend_service: FrontendService, frontend_comm: DummyComm
     ]
 
 
+def test_clear_console(frontend_service: FrontendService, frontend_comm: DummyComm) -> None:
+    frontend_service.clear_console()
+
+    assert frontend_comm.messages == [
+        {
+            "data": {
+                "jsonrpc": "2.0",
+                "method": "clear_console",
+                "params": {},
+            },
+            "metadata": None,
+            "buffers": None,
+            "msg_type": "comm_msg",
+        }
+    ]
+
+
 def test_shutdown(frontend_service: FrontendService) -> None:
     # Double-check that the comm is not yet closed
     assert frontend_service._comm is not None
