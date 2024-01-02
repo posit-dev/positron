@@ -124,6 +124,31 @@ class PositronIPythonInspector(oinspect.Inspector):
     pinfo.__doc__ = oinspect.Inspector.pinfo.__doc__
 
 
+@magics_class
+class PositronMagics(Magics):
+    shell: PositronShell
+
+    @line_magic
+    def clear(self, line: str) -> None:  # type: ignore reportIncompatibleMethodOverride
+        """Clear the console."""
+        # Send a message to the frontend to clear the console.
+        self.shell.kernel.frontend_service.clear_console()
+
+    @needs_local_scope
+    @line_magic
+    def view(self, line: str, local_ns: Dict[str, Any]):
+        """View an object in the Positron Data Tool."""
+        try:
+            obj = local_ns[line]
+        except KeyError:  # not in namespace
+            obj = eval(line, local_ns, local_ns)
+
+        # Register a dataset with the dataviewer service.
+        inspector = get_inspector(obj)
+        dataset = inspector.to_dataset(obj, line)
+        self.shell.kernel.dataviewer_service.register_dataset(dataset)
+
+
 _traceback_file_link_re = re.compile(r"^(File \x1b\[\d+;\d+m)(.+):(\d+)")
 
 
@@ -155,6 +180,10 @@ class PositronShell(ZMQInteractiveShell):
         # functionality of execute_reply messages. The priority of 90 is chosen arbitrarily, as long
         # as its lower than other hooks registered by IPython and ipykernel.
         self.set_hook("show_in_pager", page.as_hook(page.display_page), 90)
+
+    def init_magics(self):
+        super().init_magics()
+        self.register_magics(PositronMagics)
 
     async def _stop(self):
         # Initiate the kernel shutdown sequence.
@@ -291,9 +320,6 @@ class PositronIPyKernel(IPythonKernel):
             message=r"Module [^\s]+ not importable in path",
             module="jedi",
         )
-
-        # Register the `%view` magic.
-        self.shell.register_magics(ViewerMagic)
 
     def start(self) -> None:
         super().start()
@@ -559,28 +585,6 @@ class PositronIPyKernel(IPythonKernel):
 
 class PositronIPKernelApp(IPKernelApp):
     kernel_class: Type[PositronIPyKernel] = traitlets.Type(PositronIPyKernel)  # type: ignore
-
-
-@magics_class
-class ViewerMagic(Magics):
-    shell: PositronShell
-
-    @needs_local_scope
-    @line_magic
-    def view(self, value: str, local_ns: Dict[str, Any]):
-        """Open DataViewerService through %view magic command"""
-
-        try:
-            local_value = local_ns[value]
-            inspector = get_inspector(local_value)
-            dataset = inspector.to_dataset(local_value, value)
-        except KeyError:  # not in namespace
-            eval_value = eval(value, local_ns, local_ns)
-            inspector = get_inspector(eval_value)
-            dataset = inspector.to_dataset(eval_value, value)
-
-        if dataset is not None:
-            self.shell.kernel.dataviewer_service.register_dataset(dataset)
 
 
 #
