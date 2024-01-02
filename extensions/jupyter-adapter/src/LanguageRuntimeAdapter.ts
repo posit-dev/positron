@@ -121,7 +121,6 @@ export class LanguageRuntimeAdapter
 		// NOTE: Currently using nested RPC messages for convenience but
 		// we'd like to do better
 		const request = {
-			msg_type: 'rpc_request',
 			jsonrpc: '2.0',
 			method: 'call_method',
 			params: {
