@@ -81,6 +81,9 @@ class FrontendEvent(str, enum.Enum):
     # Change in backend's busy/idle status
     Busy = "busy"
 
+    # Clear the console
+    ClearConsole = "clear_console"
+
     # Open an editor
     OpenEditor = "open_editor"
 

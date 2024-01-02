@@ -11,9 +11,28 @@ import types
 from binascii import b2a_base64
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Coroutine, Dict, List, Optional, Set, Tuple, TypeVar, Union, cast
+from typing import (
+    Any,
+    ClassVar,
+    Coroutine,
+    Dict,
+    List,
+    Optional,
+    Protocol,
+    Set,
+    Tuple,
+    TypeVar,
+    Union,
+    cast,
+)
 
 JsonData = Union[Dict[str, "JsonData"], List["JsonData"], str, int, float, bool, None]
+
+
+class DataclassProtocol(Protocol):
+    __dataclass_fields__: ClassVar[dict]
+
+
 T = TypeVar("T")
 
 
