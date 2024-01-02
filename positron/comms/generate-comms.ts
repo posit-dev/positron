@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
 /**
@@ -574,7 +574,7 @@ function* createPythonComm(name: string,
 
 import enum
 from dataclasses import dataclass, field
-from typing import Dict, List, Union
+from typing import Dict, List, Union, Optional
 JsonData = Union[Dict[str, "JsonData"], List["JsonData"], str, int, float, bool, None]
 
 `;
@@ -583,6 +583,46 @@ JsonData = Union[Dict[str, "JsonData"], List["JsonData"], str, int, float, bool,
 		if (!source) {
 			continue;
 		}
+
+		// Forward declare all the object types. This is necessary because the
+		// OpenRPC contracts are not in dependency order (or may have cyclical
+		// dependencies), and Python requires that all types be defined before
+		// they are used.
+		yield '# Forward declarations\n';
+		yield* objectVisitor([], source, function* (
+			context: Array<string>,
+			o: Record<string, any>) {
+			let name = o.name ? o.name : context[0] === 'items' ? context[1] : context[0];
+			name = snakeCaseToSentenceCase(name);
+			yield `class ${name}:\n`;
+			yield `    pass\n`;
+		});
+
+		// Create enums for all enum types
+		yield* enumVisitor([], source, function* (context: Array<string>, values: Array<string>) {
+			yield '@enum.unique\n';
+			yield `class ${snakeCaseToSentenceCase(context[1])}`;
+			yield `${snakeCaseToSentenceCase(context[0])}(str, enum.Enum):\n`;
+			yield '    """\n';
+			yield formatComment(`    `,
+				`Possible values for ` +
+				snakeCaseToSentenceCase(context[0]) +
+				` in ` +
+				snakeCaseToSentenceCase(context[1]));
+			yield '    """\n';
+			yield '\n';
+			for (let i = 0; i < values.length; i++) {
+				const value = values[i];
+				yield `    ${snakeCaseToSentenceCase(value)} = "${value}"`;
+				if (i < values.length - 1) {
+					yield '\n\n';
+				} else {
+					yield '\n';
+				}
+			}
+			yield '\n\n';
+		});
+
 		// Create dataclasses for all object types
 		yield* objectVisitor([], source, function* (
 			context: Array<string>,
@@ -634,31 +674,6 @@ JsonData = Union[Dict[str, "JsonData"], List["JsonData"], str, int, float, bool,
 				}
 				yield `        }\n`;
 				yield `    )\n\n`;
-			}
-			yield '\n\n';
-		});
-
-		// Create enums for all enum types
-		yield* enumVisitor([], source, function* (context: Array<string>, values: Array<string>) {
-			yield '@enum.unique\n';
-			yield `class ${snakeCaseToSentenceCase(context[1])}`;
-			yield `${snakeCaseToSentenceCase(context[0])}(str, enum.Enum):\n`;
-			yield '    """\n';
-			yield formatComment(`    `,
-				`Possible values for ` +
-				snakeCaseToSentenceCase(context[0]) +
-				` in ` +
-				snakeCaseToSentenceCase(context[1]));
-			yield '    """\n';
-			yield '\n';
-			for (let i = 0; i < values.length; i++) {
-				const value = values[i];
-				yield `    ${snakeCaseToSentenceCase(value)} = "${value}"`;
-				if (i < values.length - 1) {
-					yield '\n\n';
-				} else {
-					yield '\n';
-				}
 			}
 			yield '\n\n';
 		});
