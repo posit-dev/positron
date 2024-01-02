@@ -105,7 +105,7 @@
 		{
 			"name": "last_active_text_editor_context",
 			"summary": "Context metadata for the last editor",
-			"description": "Returns metadata such as file path for the last editor selected by the user",
+			"description": "Returns metadata such as file path for the last editor selected by the user. The result may be undefined if there are no active editors.",
 			"params": [],
 			"result": {
 				"schema": {
@@ -121,7 +121,8 @@
 					"required": [
 						"path"
 					]
-				}
+				},
+				"required": false
 			}
 		}
 	]

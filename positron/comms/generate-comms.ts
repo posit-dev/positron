@@ -524,12 +524,25 @@ use serde::Serialize;
 				if (schema.description) {
 					yield formatComment('\t/// ', schema.description);
 				}
-				yield `\t${snakeCaseToSentenceCase(method.name)}Reply`;
-				if (schema.type === 'object') {
-					yield `(${snakeCaseToSentenceCase(schema.name)}),\n\n`;
-				} else {
-					yield `(${deriveType(contracts, RustTypeMap, [schema.name], schema)}),\n\n`;
+				yield `\t${snakeCaseToSentenceCase(method.name)}Reply(`;
+
+				if (method.result.required === false) {
+					yield 'Option<';
 				}
+
+				if (schema.type === 'object') {
+					yield snakeCaseToSentenceCase(schema.name);
+				} else {
+					yield deriveType(contracts, RustTypeMap, [schema.name], schema);
+				}
+
+				// Close `Option<>`
+				if (method.result.required === false) {
+					yield '>';
+				}
+
+				// Close enum parameter
+				yield '),\n\n';
 			} else {
 				yield formatComment('\t/// ', `Reply for the ${method.name} method (no result)`);
 				yield `\t${snakeCaseToSentenceCase(method.name)}Reply(),\n\n`;
