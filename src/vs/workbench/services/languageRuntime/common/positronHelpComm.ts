@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
 //
@@ -38,6 +38,10 @@ export interface ShowHelpEvent {
 	 */
 	focus: boolean;
 
+}
+
+export enum HelpEvent {
+	ShowHelp = 'show_help'
 }
 
 export class PositronHelpComm extends PositronBaseComm {

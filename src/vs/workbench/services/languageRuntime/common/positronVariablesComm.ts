@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
 //
@@ -192,6 +192,10 @@ export interface RefreshEvent {
 	 */
 	version: number;
 
+}
+
+export enum VariablesEvent {
+	Update = 'update'
 }
 
 export class PositronVariablesComm extends PositronBaseComm {

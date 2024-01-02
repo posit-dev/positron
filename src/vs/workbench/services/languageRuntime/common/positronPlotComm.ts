@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
 //
@@ -30,6 +30,10 @@ export interface PlotResult {
  * Event: Notification that a plot has been updated on the backend.
  */
 export interface UpdateEvent {
+}
+
+export enum PlotEvent {
+	Update = 'update'
 }
 
 export class PositronPlotComm extends PositronBaseComm {
