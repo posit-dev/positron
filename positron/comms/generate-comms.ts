@@ -784,6 +784,10 @@ JsonData = Union[Dict[str, "JsonData"], List["JsonData"], str, int, float, bool,
 		yield `    """\n`;
 		yield `\n`;
 		for (const method of frontend.methods) {
+			// Skip requests
+			if (method.result) {
+				continue;
+			}
 			yield formatComment('    # ', method.summary);
 			yield `    ${snakeCaseToSentenceCase(method.name)} = "${method.name}"\n`;
 			yield '\n';
