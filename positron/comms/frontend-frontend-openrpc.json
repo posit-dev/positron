@@ -20,6 +20,12 @@
 			]
 		},
 		{
+			"name": "clear_console",
+			"summary": "Clear the console",
+			"description": "Use this to clear the console.",
+			"params": []
+		},
+		{
 			"name": "open_editor",
 			"summary": "Open an editor",
 			"description": "This event is used to open an editor with a given file and selection.",
