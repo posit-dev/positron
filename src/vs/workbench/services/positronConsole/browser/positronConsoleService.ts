@@ -40,6 +40,7 @@ import { ActivityItemInput, ActivityItemInputState } from 'vs/workbench/services
 import { ActivityItemErrorStream, ActivityItemOutputStream } from 'vs/workbench/services/positronConsole/browser/classes/activityItemStream';
 import { IPositronConsoleInstance, IPositronConsoleService, POSITRON_CONSOLE_VIEW_ID, PositronConsoleState } from 'vs/workbench/services/positronConsole/browser/interfaces/positronConsoleService';
 import { formatLanguageRuntime, ILanguageRuntime, ILanguageRuntimeExit, ILanguageRuntimeMessage, ILanguageRuntimeService, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeExitReason, RuntimeOnlineState, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { FrontendEvent } from 'vs/workbench/services/languageRuntime/common/positronFrontendComm';
 
 /**
  * The onDidChangeRuntimeItems throttle threshold and throttle interval. The throttle threshold
@@ -1512,6 +1513,13 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 					this.markInputBusyState(languageRuntimeMessageState.parent_id, false);
 					break;
 				}
+			}
+		}));
+
+		// Add the onDidReceiveRuntimeClientEvent event handler.
+		this._runtimeDisposableStore.add(this._runtime.onDidReceiveRuntimeClientEvent((event) => {
+			if (event.name === FrontendEvent.ClearConsole) {
+				this.clearConsole();
 			}
 		}));
 

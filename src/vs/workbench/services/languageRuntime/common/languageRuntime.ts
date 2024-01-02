@@ -727,6 +727,15 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 						}
 					});
 				}));
+				this._register(frontendClient.onDidClearConsole(event => {
+					this._onDidReceiveRuntimeEventEmitter.fire({
+						runtime_id: runtime.metadata.runtimeId,
+						event: {
+							name: FrontendEvent.ClearConsole,
+							data: event
+						}
+					});
+				}));
 				this._register(frontendClient.onDidOpenEditor(event => {
 					this._onDidReceiveRuntimeEventEmitter.fire({
 						runtime_id: runtime.metadata.runtimeId,

@@ -36,6 +36,12 @@ export interface BusyEvent {
 }
 
 /**
+ * Event: Clear the console
+ */
+export interface ClearConsoleEvent {
+}
+
+/**
  * Event: Open an editor
  */
 export interface OpenEditorEvent {
@@ -96,6 +102,7 @@ export interface WorkingDirectoryEvent {
 
 export enum FrontendEvent {
 	Busy = 'busy',
+	ClearConsole = 'clear_console',
 	OpenEditor = 'open_editor',
 	ShowMessage = 'show_message',
 	PromptState = 'prompt_state',
@@ -106,6 +113,7 @@ export class PositronFrontendComm extends PositronBaseComm {
 	constructor(instance: IRuntimeClientInstance<any, any>) {
 		super(instance);
 		this.onDidBusy = super.createEventEmitter('busy', ['busy']);
+		this.onDidClearConsole = super.createEventEmitter('clear_console', []);
 		this.onDidOpenEditor = super.createEventEmitter('open_editor', ['file', 'line', 'column']);
 		this.onDidShowMessage = super.createEventEmitter('show_message', ['message']);
 		this.onDidPromptState = super.createEventEmitter('prompt_state', ['input_prompt', 'continuation_prompt']);
@@ -138,6 +146,12 @@ export class PositronFrontendComm extends PositronBaseComm {
 	 * is running.
 	 */
 	onDidBusy: Event<BusyEvent>;
+	/**
+	 * Clear the console
+	 *
+	 * Use this to clear the console.
+	 */
+	onDidClearConsole: Event<ClearConsoleEvent>;
 	/**
 	 * Open an editor
 	 *
