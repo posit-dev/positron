@@ -1,10 +1,10 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
 import * as extHostProtocol from './extHost.positron.protocol';
-import { ITextEditorContext } from "vs/workbench/services/frontendMethods/common/editorContext";
 import { ExtHostEditors } from '../extHostTextEditors';
+import { EditorContextResult } from 'vs/workbench/services/languageRuntime/common/positronFrontendComm';
 
 export class ExtHostMethods implements extHostProtocol.ExtHostMethodsShape {
 	constructor(
@@ -13,6 +13,7 @@ export class ExtHostMethods implements extHostProtocol.ExtHostMethodsShape {
 	) {
 	}
 
+	// Parses arguments and calls relevant method
 	async call(method: string, params: any): Promise<any> {
 		switch (method) {
 			case 'lastActiveEditorContext': {
@@ -24,7 +25,7 @@ export class ExtHostMethods implements extHostProtocol.ExtHostMethodsShape {
 		}
 	}
 
-	async lastActiveTextEditorContext(): Promise<ITextEditorContext | undefined> {
+	async lastActiveTextEditorContext(): Promise<EditorContextResult | undefined> {
 		let editor = this.editors.getActiveTextEditor();
 		if (!editor) {
 			return undefined;
