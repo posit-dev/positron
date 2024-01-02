@@ -23,6 +23,7 @@
 					"schema": {
 						"type": "array",
 						"items": {
+							"name": "param",
 							"type": "object",
 							"properties": {},
 							"additionalProperties": true

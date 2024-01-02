@@ -13,7 +13,7 @@ import { IRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/co
 /**
  * Items in Params
  */
-export interface Params {
+export interface Param {
 	[k: string]: unknown;
 }
 
@@ -132,7 +132,7 @@ export class PositronFrontendComm extends PositronBaseComm {
 	 *
 	 * @returns The method result
 	 */
-	callMethod(method: string, params: Array<Params>): Promise<CallMethodResult> {
+	callMethod(method: string, params: Array<Param>): Promise<CallMethodResult> {
 		return super.performRpc('call_method', ['method', 'params'], [method, params]);
 	}
 
