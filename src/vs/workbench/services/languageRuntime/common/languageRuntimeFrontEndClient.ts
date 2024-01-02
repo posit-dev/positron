@@ -5,7 +5,7 @@
 import { Disposable } from 'vs/base/common/lifecycle';
 import { Event } from 'vs/base/common/event';
 import { IRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeClientInstance';
-import { BusyEvent, FrontendEvent, OpenEditorEvent, PositronFrontendComm, PromptStateEvent, ShowMessageEvent, WorkingDirectoryEvent } from './positronFrontendComm';
+import { BusyEvent, ClearConsoleEvent, FrontendEvent, OpenEditorEvent, PositronFrontendComm, PromptStateEvent, ShowMessageEvent, WorkingDirectoryEvent } from './positronFrontendComm';
 
 
 /**
@@ -62,6 +62,7 @@ export class FrontEndClientInstance extends Disposable {
 
 	/** Emitters for events forwarded from the frontend comm */
 	onDidBusy: Event<BusyEvent>;
+	onDidClearConsole: Event<ClearConsoleEvent>;
 	onDidOpenEditor: Event<OpenEditorEvent>;
 	onDidShowMessage: Event<ShowMessageEvent>;
 	onDidPromptState: Event<PromptStateEvent>;
@@ -81,6 +82,7 @@ export class FrontEndClientInstance extends Disposable {
 
 		this._comm = new PositronFrontendComm(this._client);
 		this.onDidBusy = this._comm.onDidBusy;
+		this.onDidClearConsole = this._comm.onDidClearConsole;
 		this.onDidOpenEditor = this._comm.onDidOpenEditor;
 		this.onDidShowMessage = this._comm.onDidShowMessage;
 		this.onDidPromptState = this._comm.onDidPromptState;
