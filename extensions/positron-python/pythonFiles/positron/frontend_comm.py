@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2023 Posit Software, PBC. All rights reserved.
+# Copyright (C) 2024 Posit Software, PBC. All rights reserved.
 #
 
 #
@@ -12,7 +12,7 @@ from typing import Dict, List, Union
 
 JsonData = Union[Dict[str, "JsonData"], List["JsonData"], str, int, float, bool, None]
 
-Params = JsonData
+Param = JsonData
 CallMethodResult = JsonData
 
 
@@ -40,7 +40,7 @@ class CallMethodParams:
         }
     )
 
-    params: List[Params] = field(
+    params: List[Param] = field(
         metadata={
             "description": "The parameters for `method`",
         }
