@@ -126,11 +126,19 @@ export interface Variable {
 	has_viewer: boolean;
 
 	/**
-	 * True the 'value' field is a truncated representation of the variable's
-	 * value
+	 * True if the 'value' field is a truncated representation of the
+	 * variable's value
 	 */
 	is_truncated: boolean;
 
+}
+
+/**
+ * Possible values for Format in ClipboardFormat
+ */
+export enum ClipboardFormatFormat {
+	TextHtml = 'text/html',
+	TextPlain = 'text/plain'
 }
 
 /**
@@ -195,7 +203,8 @@ export interface RefreshEvent {
 }
 
 export enum VariablesEvent {
-	Update = 'update'
+	Update = 'update',
+	Refresh = 'refresh'
 }
 
 export class PositronVariablesComm extends PositronBaseComm {
@@ -271,7 +280,7 @@ export class PositronVariablesComm extends PositronBaseComm {
 	 *
 	 * @returns An object formatted for copying to the clipboard.
 	 */
-	clipboardFormat(path: Array<string>, format: string): Promise<FormattedVariable> {
+	clipboardFormat(path: Array<string>, format: ClipboardFormatFormat): Promise<FormattedVariable> {
 		return super.performRpc('clipboard_format', ['path', 'format'], [path, format]);
 	}
 

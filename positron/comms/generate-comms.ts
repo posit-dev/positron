@@ -87,6 +87,7 @@ function snakeCaseToCamelCase(name: string) {
 	name = name.replace(/!/g, 'Not');
 	name = name.replace(/</g, 'Lt');
 	name = name.replace(/>/g, 'Gt');
+	name = name.replace(/[/]/g, '_');
 	return name.replace(/_([a-z])/g, (m) => m[1].toUpperCase());
 }
 

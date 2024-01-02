@@ -148,7 +148,11 @@
 					"name": "format",
 					"description": "The requested format for the variable, as a MIME type",
 					"schema": {
-						"type": "string"
+						"type": "string",
+						"enum": [
+							"text/html",
+							"text/plain"
+						]
 					}
 				}
 			],
@@ -255,7 +259,7 @@
 					},
 					"is_truncated": {
 						"type": "boolean",
-						"description": "True the 'value' field is a truncated representation of the variable's value"
+						"description": "True if the 'value' field is a truncated representation of the variable's value"
 					}
 				},
 				"required": [
