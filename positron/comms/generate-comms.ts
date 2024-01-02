@@ -352,8 +352,11 @@ use serde::Serialize;
 `;
 
 	const contracts = [backend, frontend];
+	const namedContracts = [{ name: 'Backend', source: backend },
+				{ name: 'Frontend', source: frontend }];
 
-	for (const source of contracts) {
+	for (const contract of namedContracts) {
+		const source = contract.source;
 		if (!source) {
 			continue;
 		}
@@ -440,7 +443,7 @@ use serde::Serialize;
 	}
 
 	// Create parameter objects for each method
-	for (const source of [backend, frontend]) {
+	for (const source of contracts) {
 		if (!source) {
 			continue;
 		}
@@ -477,14 +480,21 @@ use serde::Serialize;
 	}
 
 	// Create the RPC request and reply enums
-	if (backend) {
+	for (const contract of namedContracts) {
+		const source = contract.source;
+		if (!source) {
+			continue;
+		}
 		yield '/**\n';
-		yield ` * RPC request types for the ${name} comm\n`;
+		yield ` * ${contract.name} RPC request types for the ${name} comm\n`;
 		yield ' */\n';
 		yield `#[derive(Debug, Serialize, Deserialize, PartialEq)]\n`;
 		yield `#[serde(tag = "method", content = "params")]\n`;
-		yield `pub enum ${snakeCaseToSentenceCase(name)}RpcRequest {\n`;
-		for (const method of backend.methods) {
+		yield `pub enum ${snakeCaseToSentenceCase(name)}${contract.name}RpcRequest {\n`;
+		for (const method of source.methods) {
+			if (!method.result) {
+				continue;
+			}
 			if (method.summary) {
 				yield formatComment('\t/// ', method.summary);
 				if (method.description) {
@@ -503,13 +513,13 @@ use serde::Serialize;
 		yield `}\n\n`;
 
 		yield '/**\n';
-		yield ` * RPC Reply types for the ${name} comm\n`;
+		yield ` * ${contract.name} RPC Reply types for the ${name} comm\n`;
 		yield ' */\n';
 		yield `#[derive(Debug, Serialize, Deserialize, PartialEq)]\n`;
 		yield `#[serde(tag = "method", content = "result")]\n`;
-		yield `pub enum ${snakeCaseToSentenceCase(name)}RpcReply {\n`;
-		for (const method of backend.methods) {
-			if (method.result.schema) {
+		yield `pub enum ${snakeCaseToSentenceCase(name)}${contract.name}RpcReply {\n`;
+		for (const method of source.methods) {
+			if (method.result && method.result.schema) {
 				const schema = method.result.schema;
 				if (schema.description) {
 					yield formatComment('\t/// ', schema.description);
