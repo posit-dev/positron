@@ -531,12 +531,15 @@ use serde::Serialize;
 	// Create the event enum
 	if (frontend) {
 		yield '/**\n';
-		yield ` * Front-end events for the ${name} comm\n`;
+		yield ` * Frontend events for the ${name} comm\n`;
 		yield ' */\n';
 		yield `#[derive(Debug, Serialize, Deserialize, PartialEq)]\n`;
 		yield `#[serde(tag = "method", content = "params")]\n`;
 		yield `pub enum ${snakeCaseToSentenceCase(name)}Event {\n`;
 		for (const method of frontend.methods) {
+			if (method.result !== undefined) {
+				continue;
+			}
 			if (method.description) {
 				yield formatComment('\t/// ', method.description);
 			}
