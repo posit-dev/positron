@@ -953,6 +953,7 @@ import { IRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/co
 
 	if (frontend) {
 		const events: string[] = [];
+		const requests: string[] = [];
 
 		for (const method of frontend.methods) {
 			// Ignore methods that have a result; we're generating event types here
@@ -983,9 +984,46 @@ import { IRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/co
 			yield '}\n\n';
 		}
 
-		yield `export enum ${snakeCaseToSentenceCase(name)}Event {\n`;
-		yield events.join(',\n');
-		yield '\n}\n\n';
+		for (const method of frontend.methods) {
+			// Ignore methods that don't have a result; we're generating request types here
+			if (!method.result) {
+				continue;
+			}
+
+			// Collect enum fields
+			const sentenceName = snakeCaseToSentenceCase(method.name);
+			requests.push(`\t${sentenceName} = '${method.name}'`);
+
+			yield '/**\n';
+			yield formatComment(' * ', `Request: ${method.summary}`);
+			yield ' */\n';
+			yield `export interface ${sentenceName}Request {\n`;
+			for (const param of method.params) {
+				yield '\t/**\n';
+				yield formatComment('\t * ', `${param.description}`);
+				yield '\t */\n';
+				yield `\t${param.name}: `;
+				if (param.schema.type === 'string' && param.schema.enum) {
+					yield `${snakeCaseToSentenceCase(method.name)}${snakeCaseToSentenceCase(param.name)}`;
+				} else {
+					yield deriveType(contracts, TypescriptTypeMap, param.name, param.schema);
+				}
+				yield `;\n\n`;
+			}
+			yield '}\n\n';
+		}
+
+		if (events.length) {
+			yield `export enum ${snakeCaseToSentenceCase(name)}Event {\n`;
+			yield events.join(',\n');
+			yield '\n}\n\n';
+		}
+
+		if (requests.length) {
+			yield `export enum ${snakeCaseToSentenceCase(name)}Request {\n`;
+			yield requests.join(',\n');
+			yield '\n}\n\n';
+		}
 	}
 
 	yield `export class Positron${snakeCaseToSentenceCase(name)}Comm extends PositronBaseComm {\n`;

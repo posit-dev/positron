@@ -111,6 +111,12 @@ export interface WorkingDirectoryEvent {
 
 }
 
+/**
+ * Request: Context metadata for the last editor
+ */
+export interface LastActiveTextEditorContextRequest {
+}
+
 export enum FrontendEvent {
 	Busy = 'busy',
 	ClearConsole = 'clear_console',
@@ -118,6 +124,10 @@ export enum FrontendEvent {
 	ShowMessage = 'show_message',
 	PromptState = 'prompt_state',
 	WorkingDirectory = 'working_directory'
+}
+
+export enum FrontendRequest {
+	LastActiveTextEditorContext = 'last_active_text_editor_context'
 }
 
 export class PositronFrontendComm extends PositronBaseComm {
