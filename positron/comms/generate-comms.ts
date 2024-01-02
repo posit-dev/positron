@@ -915,7 +915,7 @@ import { IRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/co
 	}
 
 	if (frontend) {
-		let events: string[] = [];
+		const events: string[] = [];
 
 		for (const method of frontend.methods) {
 			// Ignore methods that have a result; we're generating event types here
@@ -925,7 +925,7 @@ import { IRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/co
 
 			// Collect enum fields
 			const sentenceName = snakeCaseToSentenceCase(method.name);
-			events.push(`\t${sentenceName} = '${method.name}'`)
+			events.push(`\t${sentenceName} = '${method.name}'`);
 
 			yield '/**\n';
 			yield formatComment(' * ', `Event: ${method.summary}`);
