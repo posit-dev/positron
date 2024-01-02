@@ -57,13 +57,11 @@ def kernel() -> PositronIPyKernel:
 # Enable autouse to ensure a clean namespace and correct user_ns_hidden in every test,
 # even if it doesn't explicitly use the `shell` fixture.
 @pytest.fixture(autouse=True)
-# Use the kernel fixture to ensure that the kernel is instantiated before the shell fixture is used,
-# otherwise, e.g. magics may not be registered, among other issues.
-def shell(kernel: PositronIPyKernel) -> Iterable[TerminalInteractiveShell]:
+def shell() -> Iterable[TerminalInteractiveShell]:
     """
     The Positron kernel's shell, configured for testing purposes.
     """
-    shell = cast(TerminalInteractiveShell, kernel.shell)
+    shell = cast(TerminalInteractiveShell, get_ipython())
 
     # TODO: For some reason these vars are in user_ns but not user_ns_hidden during tests. For now,
     #       manually add them to user_ns_hidden to replicate running in Positron.

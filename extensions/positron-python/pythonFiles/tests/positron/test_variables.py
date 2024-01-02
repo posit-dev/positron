@@ -32,6 +32,7 @@ from positron.utils import get_qualname
 from positron.variables import _summarize_variable
 
 from .conftest import DummyComm
+from .utils import assert_dataclass_equal
 
 
 @pytest.fixture
@@ -76,21 +77,14 @@ def variables_comm(variables_service: VariablesService) -> DummyComm:
 #
 
 
-# Exclude the following fields by default:
-# - size: since it depends on platform, Python version, and library versions.
-# - access_key: since we test it independently from summarizing variables and don't want
-#               to have to change all tests when we change the access_key format.
 def assert_variable_equal(result: Optional[Variable], expected: Variable) -> None:
     assert result is not None
 
-    result_dict = asdict(result)
-    expected_dict = asdict(expected)
-
-    exclude = ["size", "access_key"]
-    [result_dict.pop(key) for key in exclude]
-    [expected_dict.pop(key) for key in exclude]
-
-    assert result_dict == expected_dict
+    # Exclude the following fields by default:
+    # - size: since it depends on platform, Python version, and library versions.
+    # - access_key: since we test it independently from summarizing variables and don't want
+    #               to have to change all tests when we change the access_key format.
+    assert_dataclass_equal(result, expected, ["size", "access_key"])
 
 
 def assert_variables_equal(result: List[Variable], expected: List[Variable]) -> None:

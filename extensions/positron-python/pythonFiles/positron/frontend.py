@@ -6,7 +6,7 @@ import logging
 import os
 from dataclasses import asdict
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional, Union
 
 from comm.base_comm import BaseComm
 
@@ -18,7 +18,7 @@ from .frontend_comm import (
 )
 from .positron_comm import PositronComm
 from .third_party import np_, pd_, pl_, torch_
-from .utils import JsonData, alias_home
+from .utils import DataclassProtocol, JsonData, alias_home
 
 logger = logging.getLogger(__name__)
 
@@ -105,9 +105,11 @@ class FrontendService:
                 self._send_event(name=FrontendEvent.WorkingDirectory, payload=event)
 
     def open_editor(self, file: str, line: int, column: int) -> None:
-        if self._comm is not None:
-            event = OpenEditorParams(file=file, line=line, column=column)
-            self._comm.send_event(name=FrontendEvent.OpenEditor, payload=asdict(event))
+        event = OpenEditorParams(file=file, line=line, column=column)
+        self._send_event(name=FrontendEvent.OpenEditor, payload=event)
+
+    def clear_console(self) -> None:
+        self._send_event(name=FrontendEvent.ClearConsole, payload={})
 
     def _receive_message(self, msg: Dict[str, Any]) -> None:
         data = msg["content"]["data"]
@@ -141,6 +143,10 @@ class FrontendService:
             except Exception:
                 pass
 
-    def _send_event(self, name: str, payload: Any) -> None:
+    def _send_event(
+        self, name: str, payload: Union[DataclassProtocol, Dict[str, JsonData]]
+    ) -> None:
         if self._comm is not None:
-            self._comm.send_event(name=name, payload=asdict(payload))
+            if not isinstance(payload, dict):
+                payload = asdict(payload)
+            self._comm.send_event(name=name, payload=payload)
