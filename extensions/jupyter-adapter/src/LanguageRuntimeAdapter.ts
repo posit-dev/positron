@@ -619,8 +619,6 @@ export class LanguageRuntimeAdapter
 			const result = await positron.methods.call(req.method, req.params)
 
 			response = {
-				msg_type: 'rpc_reply',
-				jsonrpc: '2.0',
 				result,
 				id: req.id,
 			};
@@ -635,8 +633,6 @@ export class LanguageRuntimeAdapter
 
 			// Convert error to an RPC error response
 			response = {
-				msg_type: 'rpc_reply',
-				jsonrpc: '2.0',
 				error,
 				id: req.id,
 			};
