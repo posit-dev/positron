@@ -22,16 +22,14 @@ suite('DataToolMocks', () => {
 
 	test('Test getExampleTableData', () => {
 		const schema = mocks.getTableSchema(1000, 10000);
-		let data = mocks.getExampleTableData(schema, 0, 100, 0, 10);
-		assert.equal(data.columns.length, 10);
+		let data = mocks.getExampleTableData(schema, 0, 100, [0, 1, 2, 3, 4]);
+		assert.equal(data.columns.length, 5);
 		assert.equal(data.columns[0].length, 100);
 
-		// Bounds respected
-		data = mocks.getExampleTableData(schema, 999, 100, 9999, 100);
+		data = mocks.getExampleTableData(schema, 999, 100, [999]);
 		assert.equal(data.columns.length, 1);
 		assert.equal(data.columns[0].length, 1);
-
-		data = mocks.getExampleTableData(schema, 1000, 100, 10000, 100);
+		data = mocks.getExampleTableData(schema, 1000, 100, []);
 		assert.equal(data.columns.length, 0);
 	});
 
