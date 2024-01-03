@@ -52,15 +52,7 @@
 					}
 				}
 			],
-			"result": {
-				"schema": {
-					"type": "array",
-					"items": {
-						"$ref": "#/components/schemas/variable"
-					},
-					"description": "A list of variables in the session remaining after deletion; usually empty."
-				}
-			}
+			"result": {}
 		},
 		{
 			"name": "delete",
