@@ -55,12 +55,6 @@ export interface InspectedVariable {
  */
 export interface FormattedVariable {
 	/**
-	 * The format returned, as a MIME type; matches the MIME type of the
-	 * format named in the request.
-	 */
-	format: string;
-
-	/**
 	 * The formatted content of the variable.
 	 */
 	content: string;

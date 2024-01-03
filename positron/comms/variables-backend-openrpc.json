@@ -154,10 +154,6 @@
 					"name": "formatted_variable",
 					"description": "An object formatted for copying to the clipboard.",
 					"properties": {
-						"format": {
-							"type": "string",
-							"description": "The format returned, as a MIME type; matches the MIME type of the format named in the request."
-						},
 						"content": {
 							"type": "string",
 							"description": "The formatted content of the variable."
