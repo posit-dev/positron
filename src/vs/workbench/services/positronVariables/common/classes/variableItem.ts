@@ -6,6 +6,7 @@ import { generateUuid } from 'vs/base/common/uuid';
 import { IVariableItem } from 'vs/workbench/services/positronVariables/common/interfaces/variableItem';
 import { VariableOverflow } from 'vs/workbench/services/positronVariables/common/classes/variableOverflow';
 import { PositronVariable } from 'vs/workbench/services/languageRuntime/common/languageRuntimeVariablesClient';
+import { ClipboardFormatFormat } from 'vs/workbench/services/languageRuntime/common/positronVariablesComm';
 
 /**
  * VariableItem class. This is used to represent an variable in a language runtime.
@@ -279,7 +280,7 @@ export class VariableItem implements IVariableItem {
 	 * @param mime The desired MIME type of the format, such as 'text/plain' or 'text/html'.
 	 * @returns A promise that resolves to the formatted value of this variable.
 	 */
-	async formatForClipboard(mime: string): Promise<string> {
+	async formatForClipboard(mime: ClipboardFormatFormat): Promise<string> {
 		return await this._variable.formatForClipboard(mime);
 	}
 

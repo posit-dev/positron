@@ -237,8 +237,7 @@ export class PositronVariablesInstance extends Disposable implements IPositronVa
 	async requestClear(includeHiddenVariables: boolean) {
 		if (this._variablesClient) {
 			try {
-				const list = await this._variablesClient.requestClear(includeHiddenVariables);
-				this.processList(list);
+				await this._variablesClient.requestClear(includeHiddenVariables);
 			} catch (e) {
 				const err = e as PositronCommError;
 				const message = localize('positronVariables.requestClearError',

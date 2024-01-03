@@ -5,7 +5,7 @@
 import { Emitter } from 'vs/base/common/event';
 import { Disposable } from 'vs/base/common/lifecycle';
 import { IRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeClientInstance';
-import { PositronVariablesComm, RefreshEvent, UpdateEvent, Variable } from 'vs/workbench/services/languageRuntime/common/positronVariablesComm';
+import { ClipboardFormatFormat, PositronVariablesComm, RefreshEvent, UpdateEvent, Variable } from 'vs/workbench/services/languageRuntime/common/positronVariablesComm';
 
 /**
  * Represents a variable in a language runtime; wraps the raw data format with additional metadata
@@ -56,7 +56,7 @@ export class PositronVariable {
 	 * @param mime The desired MIME type of the format, such as 'text/plain' or 'text/html'.
 	 * @returns A promise that resolves to the formatted value of this variable.
 	 */
-	async formatForClipboard(mime: string): Promise<string> {
+	async formatForClipboard(mime: ClipboardFormatFormat): Promise<string> {
 		const path = this.parentKeys.concat(this.data.access_key);
 		const result = await this._comm.clipboardFormat(path, mime);
 		return result.content;
@@ -143,9 +143,8 @@ export class VariablesClientInstance extends Disposable {
 	/**
 	 * Requests that the variables client clear all variables.
 	 */
-	public async requestClear(includeHiddenObjects: boolean): Promise<PositronVariablesList> {
-		const list = await this._comm.clear(includeHiddenObjects);
-		return new PositronVariablesList(list, [], this._comm);
+	public async requestClear(includeHiddenObjects: boolean): Promise<void> {
+		return this._comm.clear(includeHiddenObjects);
 	}
 
 	/**
@@ -181,7 +180,7 @@ export class VariablesClientInstance extends Disposable {
 	 * @param path The path to the variable to format
 	 * @returns A promise that resolves to the formatted content
 	 */
-	public async requestClipboardFormat(format: string, path: string[]): Promise<string> {
+	public async requestClipboardFormat(format: ClipboardFormatFormat, path: string[]): Promise<string> {
 		const formatted = await this._comm.clipboardFormat(path, format);
 		return formatted.content;
 	}
