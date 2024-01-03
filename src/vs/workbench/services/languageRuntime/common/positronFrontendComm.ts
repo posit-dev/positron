@@ -114,7 +114,7 @@ export interface WorkingDirectoryEvent {
 /**
  * Request: Context metadata for the last editor
  */
-export interface LastActiveTextEditorContextRequest {
+export interface LastActiveEditorContextRequest {
 }
 
 export enum FrontendEvent {
@@ -127,7 +127,7 @@ export enum FrontendEvent {
 }
 
 export enum FrontendRequest {
-	LastActiveTextEditorContext = 'last_active_text_editor_context'
+	LastActiveEditorContext = 'last_active_editor_context'
 }
 
 export class PositronFrontendComm extends PositronBaseComm {
