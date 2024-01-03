@@ -1078,71 +1078,78 @@ async function createCommInterface() {
 		// Get the basename of the file
 		const name = file.replace(/\.json$/, '');
 
-		// If there's a corresponding frontend and/or backend file, process the comm
-		if (existsSync(path.join(commsDir, `${name}-frontend-openrpc.json`)) ||
-			existsSync(path.join(commsDir, `${name}-backend-openrpc.json`))) {
+		try {
+			// If there's a corresponding frontend and/or backend file, process the comm
+			if (existsSync(path.join(commsDir, `${name}-frontend-openrpc.json`)) ||
+				existsSync(path.join(commsDir, `${name}-backend-openrpc.json`))) {
 
-			// Read the frontend file
-			let frontend: any = null;
-			if (existsSync(path.join(commsDir, `${name}-frontend-openrpc.json`))) {
-				frontend = JSON.parse(
-					readFileSync(path.join(commsDir, `${name}-frontend-openrpc.json`), { encoding: 'utf-8' }));
+				// Read the frontend file
+				let frontend: any = null;
+				if (existsSync(path.join(commsDir, `${name}-frontend-openrpc.json`))) {
+					frontend = JSON.parse(
+						readFileSync(path.join(commsDir, `${name}-frontend-openrpc.json`), { encoding: 'utf-8' }));
 
+				}
+
+				// Read the backend file
+				let backend: any = null;
+				if (existsSync(path.join(commsDir, `${name}-backend-openrpc.json`))) {
+					backend = JSON.parse(
+						readFileSync(path.join(commsDir, `${name}-backend-openrpc.json`), { encoding: 'utf-8' }));
+
+				}
+
+				// Create the Typescript output file
+				const tsOutputFile = path.join(tsOutputDir, `positron${snakeCaseToSentenceCase(name)}Comm.ts`);
+				let ts = '';
+				for await (const chunk of createTypescriptComm(name, frontend, backend)) {
+					ts += chunk;
+				}
+
+				// Write the output file
+				writeFileSync(tsOutputFile, ts, { encoding: 'utf-8' });
+
+				// Write to stdout too
+				console.log(ts);
+
+				// Create the Rust output file
+				const rustOutputFile = path.join(rustOutputDir, `${name}_comm.rs`);
+				let rust = '';
+				for await (const chunk of createRustComm(name, frontend, backend)) {
+					rust += chunk;
+				}
+
+				// Write the output file
+				writeFileSync(rustOutputFile, rust, { encoding: 'utf-8' });
+
+				// Write to stdout too
+				console.log(rust);
+
+				// Create the Python output file
+				const pythonOutputFile = path.join(pythonOutputDir, `${name}_comm.py`);
+				let python = '';
+				for await (const chunk of createPythonComm(name, frontend, backend)) {
+					python += chunk;
+				}
+
+				// Write the output file
+				writeFileSync(pythonOutputFile, python, { encoding: 'utf-8' });
+
+				// Write to stdout too
+				console.log(python);
+
+				// Use black to format the Python file; the lint tests for the
+				// Python extension require that the Python files have exactly the
+				// format that black produces.
+				execSync(`python3 -m black ${pythonOutputFile}`);
+
+				comms.push(name);
 			}
-
-			// Read the backend file
-			let backend: any = null;
-			if (existsSync(path.join(commsDir, `${name}-backend-openrpc.json`))) {
-				backend = JSON.parse(
-					readFileSync(path.join(commsDir, `${name}-backend-openrpc.json`), { encoding: 'utf-8' }));
-
+		} catch (e: any) {
+			if (e.message) {
+				e.message = `while processing ${name} comm:\n${e.message}`;
 			}
-
-			// Create the Typescript output file
-			const tsOutputFile = path.join(tsOutputDir, `positron${snakeCaseToSentenceCase(name)}Comm.ts`);
-			let ts = '';
-			for await (const chunk of createTypescriptComm(name, frontend, backend)) {
-				ts += chunk;
-			}
-
-			// Write the output file
-			writeFileSync(tsOutputFile, ts, { encoding: 'utf-8' });
-
-			// Write to stdout too
-			console.log(ts);
-
-			// Create the Rust output file
-			const rustOutputFile = path.join(rustOutputDir, `${name}_comm.rs`);
-			let rust = '';
-			for await (const chunk of createRustComm(name, frontend, backend)) {
-				rust += chunk;
-			}
-
-			// Write the output file
-			writeFileSync(rustOutputFile, rust, { encoding: 'utf-8' });
-
-			// Write to stdout too
-			console.log(rust);
-
-			// Create the Python output file
-			const pythonOutputFile = path.join(pythonOutputDir, `${name}_comm.py`);
-			let python = '';
-			for await (const chunk of createPythonComm(name, frontend, backend)) {
-				python += chunk;
-			}
-
-			// Write the output file
-			writeFileSync(pythonOutputFile, python, { encoding: 'utf-8' });
-
-			// Write to stdout too
-			console.log(python);
-
-			// Use black to format the Python file; the lint tests for the
-			// Python extension require that the Python files have exactly the
-			// format that black produces.
-			execSync(`python3 -m black ${pythonOutputFile}`);
-
-			comms.push(name);
+			throw e;
 		}
 	}
 }
