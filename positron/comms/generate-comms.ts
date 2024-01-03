@@ -393,7 +393,7 @@ use serde::Serialize;
 				return yield `pub type ${snakeCaseToSentenceCase(name)} = serde_json::Value;\n\n`;
 			}
 
-			yield '#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]\n';
+			yield '#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]\n';
 			yield `pub struct ${snakeCaseToSentenceCase(name)} {\n`;
 
 			for (let i = 0; i < props.length; i++) {
@@ -426,7 +426,7 @@ use serde::Serialize;
 				`Possible values for ` +
 				snakeCaseToSentenceCase(context[0]) + ` in ` +
 				snakeCaseToSentenceCase(context[1]));
-			yield '#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]\n';
+			yield '#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]\n';
 			yield `pub enum ${snakeCaseToSentenceCase(context[1])}${snakeCaseToSentenceCase(context[0])} {\n`;
 			for (let i = 0; i < values.length; i++) {
 				const value = values[i];
@@ -453,7 +453,7 @@ use serde::Serialize;
 					`Parameters for the ` +
 					snakeCaseToSentenceCase(method.name) + ` ` +
 					`method.`);
-				yield '#[derive(Debug, Serialize, Deserialize, PartialEq)]\n';
+				yield '#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]\n';
 				yield `pub struct ${snakeCaseToSentenceCase(method.name)}Params {\n`;
 				for (let i = 0; i < method.params.length; i++) {
 					const param = method.params[i];
@@ -488,7 +488,7 @@ use serde::Serialize;
 		yield '/**\n';
 		yield ` * ${contract.name} RPC request types for the ${name} comm\n`;
 		yield ' */\n';
-		yield `#[derive(Debug, Serialize, Deserialize, PartialEq)]\n`;
+		yield `#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]\n`;
 		yield `#[serde(tag = "method", content = "params")]\n`;
 		yield `pub enum ${snakeCaseToSentenceCase(name)}${contract.name}RpcRequest {\n`;
 		for (const method of source.methods) {
@@ -515,7 +515,7 @@ use serde::Serialize;
 		yield '/**\n';
 		yield ` * ${contract.name} RPC Reply types for the ${name} comm\n`;
 		yield ' */\n';
-		yield `#[derive(Debug, Serialize, Deserialize, PartialEq)]\n`;
+		yield `#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]\n`;
 		yield `#[serde(tag = "method", content = "result")]\n`;
 		yield `pub enum ${snakeCaseToSentenceCase(name)}${contract.name}RpcReply {\n`;
 		for (const method of source.methods) {
@@ -556,7 +556,7 @@ use serde::Serialize;
 		yield '/**\n';
 		yield ` * Frontend events for the ${name} comm\n`;
 		yield ' */\n';
-		yield `#[derive(Debug, Serialize, Deserialize, PartialEq)]\n`;
+		yield `#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]\n`;
 		yield `#[serde(tag = "method", content = "params")]\n`;
 		yield `pub enum ${snakeCaseToSentenceCase(name)}Event {\n`;
 		for (const method of frontend.methods) {
