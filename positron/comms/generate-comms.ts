@@ -572,6 +572,9 @@ function* createPythonComm(name: string,
 # AUTO-GENERATED from ${name}.json; do not edit.
 #
 
+# For forward declarations
+from __future__ import annotations
+
 import enum
 from dataclasses import dataclass, field
 from typing import Dict, List, Union, Optional
@@ -583,20 +586,6 @@ JsonData = Union[Dict[str, "JsonData"], List["JsonData"], str, int, float, bool,
 		if (!source) {
 			continue;
 		}
-
-		// Forward declare all the object types. This is necessary because the
-		// OpenRPC contracts are not in dependency order (or may have cyclical
-		// dependencies), and Python requires that all types be defined before
-		// they are used.
-		yield '# Forward declarations\n';
-		yield* objectVisitor([], source, function* (
-			context: Array<string>,
-			o: Record<string, any>) {
-			let name = o.name ? o.name : context[0] === 'items' ? context[1] : context[0];
-			name = snakeCaseToSentenceCase(name);
-			yield `class ${name}:\n`;
-			yield `    pass\n`;
-		});
 
 		// Create enums for all enum types
 		yield* enumVisitor([], source, function* (context: Array<string>, values: Array<string>) {
