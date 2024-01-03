@@ -15,6 +15,10 @@
 					"type": "object",
 					"name": "table_schema",
 					"description": "The schema for a table-like object",
+					"required": [
+						"columns",
+						"num_rows"
+					],
 					"properties": {
 						"columns": {
 							"type": "array",
@@ -45,25 +49,22 @@
 					}
 				},
 				{
-					"name": "row_end_index",
-					"description": "Last row to fetch (inclusive). May be beyond end",
+					"name": "num_rows",
+					"description": "Number of rows to fetch from start index. May extend beyond end of table",
 					"required": true,
 					"schema": {
 						"type": "integer"
 					}
 				},
 				{
-					"name": "column_start_index",
-					"description": "First column to fetch (inclusive)",
+					"name": "column_indices",
+					"description": "Indices to select, which can be a sequential, sparse, or random selection",
+					"required": true,
 					"schema": {
-						"type": "integer"
-					}
-				},
-				{
-					"name": "column_end_index",
-					"description": "Last column to fetch (inclusive). May extend beyond end",
-					"schema": {
-						"type": "integer"
+						"type": "array",
+						"items": {
+							"type": "integer"
+						}
 					}
 				}
 			],
@@ -102,6 +103,7 @@
 				{
 					"name": "filters",
 					"description": "Zero or more filters to apply",
+					"required": true,
 					"schema": {
 						"type": "array",
 						"items": {
@@ -115,6 +117,9 @@
 					"type": "object",
 					"name": "filter_result",
 					"description": "The result of applying filters to a table",
+					"required": [
+						"selected_num_rows"
+					],
 					"properties": {
 						"selected_num_rows": {
 							"type": "integer",
@@ -132,6 +137,7 @@
 				{
 					"name": "sort_keys",
 					"description": "Pass zero or more keys to sort by. Clears any existing keys",
+					"required": true,
 					"schema": {
 						"type": "array",
 						"items": {
@@ -150,6 +156,7 @@
 				{
 					"name": "profile_id",
 					"description": "Unique identifier for the requested profile",
+					"required": true,
 					"schema": {
 						"type": "string"
 					}
@@ -157,6 +164,7 @@
 				{
 					"name": "profile_type",
 					"description": "The type of analytical column profile",
+					"required": true,
 					"schema": {
 						"type": "string",
 						"enum": [
@@ -168,6 +176,7 @@
 				{
 					"name": "column",
 					"description": "Column name to compute profile for",
+					"required": true,
 					"schema": {
 						"type": "string"
 					}
@@ -221,6 +230,10 @@
 							"description": "Counts of distinct values in column",
 							"items": {
 								"type": "object",
+								"required": [
+									"value",
+									"count"
+								],
 								"properties": {
 									"value": {
 										"type": "string",
@@ -251,6 +264,10 @@
 					"type": "object",
 					"name": "backend_state",
 					"description": "The current backend state",
+					"required": [
+						"filters",
+						"sort_keys"
+					],
 					"properties": {
 						"filters": {
 							"type": "array",
@@ -331,7 +348,8 @@
 				"description": "Specifies a table row filter based on a column's values",
 				"required": [
 					"filter_id",
-					"filter_type"
+					"filter_type",
+					"column"
 				],
 				"properties": {
 					"filter_id": {
@@ -348,6 +366,10 @@
 							"set_membership",
 							"search"
 						]
+					},
+					"column": {
+						"type": "string",
+						"description": "Column name to compute profile for"
 					},
 					"compare_op": {
 						"type": "string",
@@ -399,6 +421,11 @@
 			"column_quantile_value": {
 				"type": "object",
 				"description": "An exact or approximate quantile value from a column",
+				"required": [
+					"q",
+					"value",
+					"exact"
+				],
 				"properties": {
 					"q": {
 						"type": "number",
@@ -417,6 +444,10 @@
 			"column_sort_key": {
 				"type": "object",
 				"description": "Specifies a column to sort by",
+				"required": [
+					"column",
+					"ascending"
+				],
 				"properties": {
 					"column": {
 						"type": "string",
