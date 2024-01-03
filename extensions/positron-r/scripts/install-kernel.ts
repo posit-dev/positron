@@ -150,7 +150,11 @@ async function downloadAndReplaceArk(version: string,
 					`for the host 'github.com'`);
 			}
 			throw new Error(`The PAT returned by 'git credential' is invalid. Ark cannot be\n` +
-				`downloaded.`);
+				`downloaded.\n\n` +
+				`Check to be sure that your Personal Access Token:\n` +
+				'- Has the `repo` scope\n' +
+				'- Is not expired\n' +
+				'- Has been authorized for the "posit-dev" organization on Github (Configure SSO)\n');
 		}
 
 		let responseBody = '';
@@ -160,7 +164,15 @@ async function downloadAndReplaceArk(version: string,
 		});
 
 		response.on('end', async () => {
+			if (response.statusCode !== 200) {
+				throw new Error(`Failed to download Ark: HTTP ${response.statusCode}\n\n` +
+					`${responseBody}`);
+			}
 			const releases = JSON.parse(responseBody);
+			if (!Array.isArray(releases)) {
+				throw new Error(`Unexpected response from Github:\n\n` +
+					`${responseBody}`);
+			}
 			const release = releases.find((asset: any) => asset.tag_name === version);
 			if (!release) {
 				console.error(`Could not find Ark ${version} in the releases.`);
@@ -187,17 +199,17 @@ async function downloadAndReplaceArk(version: string,
 				path: url.pathname
 			};
 
-			let response = await httpsGetAsync(requestOptions) as any;
-			while (response.statusCode === 302) {
+			let dlResponse = await httpsGetAsync(requestOptions) as any;
+			while (dlResponse.statusCode === 302) {
 				// Follow redirects.
-				response = await httpsGetAsync(response.headers.location) as any;
+				dlResponse = await httpsGetAsync(dlResponse.headers.location) as any;
 			}
 			let binaryData = Buffer.alloc(0);
 
-			response.on('data', (chunk: any) => {
+			dlResponse.on('data', (chunk: any) => {
 				binaryData = Buffer.concat([binaryData, chunk]);
 			});
-			response.on('end', async () => {
+			dlResponse.on('end', async () => {
 				const arkDir = path.join('resources', 'ark');
 
 				// Create the resources/ark directory if it doesn't exist.
@@ -329,7 +341,7 @@ async function main() {
 		console.log(`Attempting to retrieve a Github Personal Access Token from git in order\n` +
 			`to download Ark ${packageJsonVersion}. If you are prompted for a username and\n` +
 			`password, enter your Github username and a Personal Access Token with the\n` +
-			`'repo' scope.You can read about how to create a Personal Access Token here: \n` +
+			`'repo' scope. You can read about how to create a Personal Access Token here: \n` +
 			`\n` +
 			`https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens\n` +
 			`\n` +
