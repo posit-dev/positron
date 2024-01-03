@@ -65,7 +65,7 @@ export interface MainThreadConsoleShape {
 export interface MainThreadMethodsShape { }
 
 export interface ExtHostMethodsShape {
-	lastActiveTextEditorContext(): Promise<ITextEditorContext | undefined>;
+	lastActiveTextEditorContext(): Promise<ITextEditorContext | null>;
 }
 
 /**

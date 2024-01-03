@@ -25,10 +25,10 @@ export class ExtHostMethods implements extHostProtocol.ExtHostMethodsShape {
 		}
 	}
 
-	async lastActiveTextEditorContext(): Promise<EditorContextResult | undefined> {
-		let editor = this.editors.getActiveTextEditor();
+	async lastActiveTextEditorContext(): Promise<EditorContextResult | null> {
+		const editor = this.editors.getActiveTextEditor();
 		if (!editor) {
-			return undefined;
+			return null;
 		}
 
 		return { path: editor.document.fileName };
