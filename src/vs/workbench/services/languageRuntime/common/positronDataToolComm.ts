@@ -16,12 +16,12 @@ export interface TableSchema {
 	/**
 	 * Schema for each column in the table
 	 */
-	columns?: Array<ColumnSchema>;
+	columns: Array<ColumnSchema>;
 
 	/**
 	 * Numbers of rows in the unfiltered dataset
 	 */
-	num_rows?: number;
+	num_rows: number;
 
 }
 
@@ -48,7 +48,7 @@ export interface FilterResult {
 	/**
 	 * Number of rows in table after applying filters
 	 */
-	selected_num_rows?: number;
+	selected_num_rows: number;
 
 }
 
@@ -110,12 +110,12 @@ export interface FreqtableCounts {
 	/**
 	 * Stringified value
 	 */
-	value?: string;
+	value: string;
 
 	/**
 	 * Number of occurrences of value
 	 */
-	count?: number;
+	count: number;
 
 }
 
@@ -126,12 +126,12 @@ export interface BackendState {
 	/**
 	 * The set of currently applied filters
 	 */
-	filters?: Array<ColumnFilter>;
+	filters: Array<ColumnFilter>;
 
 	/**
 	 * The set of currently applied sorts
 	 */
-	sort_keys?: Array<ColumnSortKey>;
+	sort_keys: Array<ColumnSortKey>;
 
 }
 
@@ -196,6 +196,11 @@ export interface ColumnFilter {
 	filter_type: ColumnFilterFilterType;
 
 	/**
+	 * Column name to compute profile for
+	 */
+	column: string;
+
+	/**
 	 * String representation of a binary comparison
 	 */
 	compare_op?: ColumnFilterCompareOp;
@@ -239,18 +244,18 @@ export interface ColumnQuantileValue {
 	/**
 	 * Quantile number (percentile). E.g. 1 for 1%, 50 for median
 	 */
-	q?: number;
+	q: number;
 
 	/**
 	 * Stringified quantile value
 	 */
-	value?: string;
+	value: string;
 
 	/**
 	 * Whether value is exact or approximate (computed from binned data or
 	 * sketches)
 	 */
-	exact?: boolean;
+	exact: boolean;
 
 }
 
@@ -261,12 +266,12 @@ export interface ColumnSortKey {
 	/**
 	 * Column name to sort by
 	 */
-	column?: string;
+	column: string;
 
 	/**
 	 * Sort order, ascending (true) or descending (false)
 	 */
-	ascending?: boolean;
+	ascending: boolean;
 
 }
 
@@ -339,15 +344,15 @@ export class PositronDataToolComm extends PositronBaseComm {
 	 * Request a rectangular subset of data with values formatted as strings
 	 *
 	 * @param rowStartIndex First row to fetch (inclusive)
-	 * @param rowEndIndex Last row to fetch (inclusive). May be beyond end
-	 * @param columnStartIndex First column to fetch (inclusive)
-	 * @param columnEndIndex Last column to fetch (inclusive). May extend
-	 * beyond end
+	 * @param numRows Number of rows to fetch from start index. May extend
+	 * beyond end of table
+	 * @param columnIndices Indices to select, which can be a sequential,
+	 * sparse, or random selection
 	 *
 	 * @returns Table values formatted as strings
 	 */
-	getDataValues(rowStartIndex: number, rowEndIndex: number, columnStartIndex: number, columnEndIndex: number): Promise<TableData> {
-		return super.performRpc('get_data_values', ['row_start_index', 'row_end_index', 'column_start_index', 'column_end_index'], [rowStartIndex, rowEndIndex, columnStartIndex, columnEndIndex]);
+	getDataValues(rowStartIndex: number, numRows: number, columnIndices: Array<number>): Promise<TableData> {
+		return super.performRpc('get_data_values', ['row_start_index', 'num_rows', 'column_indices'], [rowStartIndex, numRows, columnIndices]);
 	}
 
 	/**
