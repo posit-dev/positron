@@ -10,7 +10,6 @@ import { JupyterMessageSpec } from './JupyterMessageSpec';
  * @link https://jupyter-client.readthedocs.io/en/stable/messaging.html#messages-on-the-stdin-router-dealer-channel
  */
 export interface JupyterCommRequest extends JupyterMessageSpec {
-	id: string,
-	method: string,
-	params: any,
+	method: string;
+	params: any;
 }

@@ -613,15 +613,13 @@ export class LanguageRuntimeAdapter
 	 * @param message The message packet
 	 * @param req The input request
 	 */
-	private async onRpcRequest(_message: JupyterMessagePacket, req: JupyterCommRequest): Promise<void> {
+	private async onRpcRequest(message: JupyterMessagePacket, req: JupyterCommRequest): Promise<void> {
+		const id = message.msgId;
+
 		let response;
 		try {
 			const result = await positron.methods.call(req.method, req.params)
-
-			response = {
-				result,
-				id: req.id,
-			};
+			response = { result, id };
 		} catch (err) {
 			const message = `Failed to call frontend method '${req.method}': ${err}.`
 			this._kernel.log(message);
@@ -632,10 +630,7 @@ export class LanguageRuntimeAdapter
 			}
 
 			// Convert error to an RPC error response
-			response = {
-				error,
-				id: req.id,
-			};
+			response = { error, id };
 		}
 
 		this._kernel.replyToComm(response);
