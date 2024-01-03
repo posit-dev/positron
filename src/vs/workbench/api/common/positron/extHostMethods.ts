@@ -15,12 +15,16 @@ export class ExtHostMethods implements extHostProtocol.ExtHostMethodsShape {
 
 	// Parses arguments and calls relevant method
 	async call(method: string, params: any): Promise<any> {
+		// FIXME: Throw typed JSON-RPC errors
 		switch (method) {
-			case 'lastActiveEditorContext': {
+			case 'last_active_editor_context': {
 				if (params && params.len) {
 					throw new Error(`Unexpected arguments for '${method}'`);
 				}
 				return this.lastActiveTextEditorContext();
+			}
+			default: {
+				throw new Error(`Undefined method ${method}`)
 			}
 		}
 	}
