@@ -1,19 +1,17 @@
-name: "Positron: CI"
+name: "Positron: Full Test Suite"
 
+# Run tests daily at 4am UTC (11p EST) on weekdays for now, or manually
 on:
-  push:
-    branches:
-      - main
-  pull_request:
-    branches:
-      - main
+  schedule:
+    - cron: "0 4 * * 1-5"
+  workflow_dispatch:
 
 jobs:
 
   linux:
     name: Tests on Linux
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 60
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       POSITRON_BUILD_NUMBER: 0 # CI skips building releases
@@ -58,13 +56,30 @@ jobs:
       - name: Compile Smoke Tests
         run: yarn --cwd test/smoke compile
 
+      - name: Run Unit Tests (Electron)
+        id: electron-unit-tests
+        run: DISPLAY=:10 ./scripts/test.sh
+
       - name: Run Unit Tests (node.js)
         id: nodejs-unit-tests
         run: yarn test-node
 
+      - name: Run Unit Tests (Browser, Chromium)
+        id: browser-unit-tests
+        run: DISPLAY=:10 yarn test-browser-no-install --browser chromium
+
       - name: Run Integration Tests (Electron)
         id: electron-integration-tests
         run: DISPLAY=:10 ./scripts/test-integration.sh
+
+      - name: Run Integration Tests (Remote)
+        id: electron-remote-integration-tests
+        timeout-minutes: 15
+        run: DISPLAY=:10 ./scripts/test-remote-integration.sh
+
+      - name: Run Integration Tests (Browser, Chromium)
+        id: browser-integration-tests
+        run: DISPLAY=:10 ./scripts/test-web-integration.sh --browser chromium
 
       - name: Run Smoke Tests (Electron)
         id: electron-smoke-tests
