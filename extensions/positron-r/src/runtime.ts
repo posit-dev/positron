@@ -12,6 +12,7 @@ import { delay, timeout } from './util';
 import { ArkAttachOnStartup, ArkDelayStartup } from './startup';
 import { RHtmlWidget, getResourceRoots } from './htmlwidgets';
 import { randomUUID } from 'crypto';
+import { handleRCode } from './hyperlink';
 
 class RRuntimeManager {
 	private runtimes: Map<string, RRuntime> = new Map();
@@ -130,9 +131,7 @@ export class RRuntime implements positron.LanguageRuntime, vscode.Disposable {
 
 			// Run code.
 			case 'x-r-run':
-				console.log('********************************************************************');
-				console.log(`R runtime should run resource "${resource.path}"`);
-				console.log('********************************************************************');
+				handleRCode(this, resource.path);
 				return Promise.resolve(true);
 
 			// Unhandled.
@@ -386,6 +385,22 @@ export class RRuntime implements positron.LanguageRuntime, vscode.Disposable {
 		}
 		this._packageCache.push({ packageName: pkgName, packageVersion: pkgVersion });
 		return true;
+	}
+
+	async isPackageAttached(packageName: string): Promise<boolean> {
+		let attached = false;
+
+		try {
+			attached = await this.callMethod('isPackageAttached', packageName);
+		} catch (err) {
+			const runtimeError = err as positron.RuntimeMethodError;
+			vscode.window.showErrorMessage(vscode.l10n.t(
+				`Error checking if '${packageName}' is attached: ${runtimeError.message} ` +
+				`(${runtimeError.code})`
+			));
+		}
+
+		return attached;
 	}
 
 	private async createKernel(): Promise<JupyterLanguageRuntime> {

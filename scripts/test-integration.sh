@@ -127,6 +127,12 @@ echo
 yarn test-extension -l positron-code-cells
 kill_app
 
+echo
+echo "### Positron R tests"
+echo
+yarn test-extension -l positron-r
+kill_app
+
 # --- End Positron ---
 
 # Tests standalone (CommonJS)
