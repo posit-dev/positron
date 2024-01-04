@@ -196,7 +196,7 @@ declare module 'positron' {
         type: LanguageRuntimeMessageType;
     }
 
-    export interface LanguageRuntimeEventData {}
+    export interface LanguageRuntimeEventData { }
 
     /** LanguageRuntimeOutput is a LanguageRuntimeMessage representing output (text, plots, etc.) */
     export interface LanguageRuntimeOutput extends LanguageRuntimeMessage {
@@ -508,15 +508,15 @@ declare module 'positron' {
 
     export interface LanguageRuntimeProvider {
         /**
-         * Given a `runtimeId`, return the corresponding `LanguageRuntime` object.
+         * Given runtime metadata, return the corresponding `LanguageRuntime` object.
          *
-         * @param runtimeId The runtime identifier as a string.
+         * @param runtimeMetadata The runtime metadata.
          * @param token A cancellation token.
          * @return The language runtime.
          */
         provideLanguageRuntime(
-            runtimeId: string,
-            token: vscode.CancellationToken,
+            runtimeMetadata: LanguageRuntimeMetadata,
+            token: vscode.CancellationToken
         ): vscode.ProviderResult<LanguageRuntime>;
     }
 
@@ -1016,7 +1016,8 @@ declare module 'positron' {
          * @param provider A language runtime provider.
          * @return A {@link Disposable} that unregisters this provider when being disposed.
          */
-        export function registerLanguageRuntimeProvider(languageId: string, provider: LanguageRuntimeProvider): void;
+        export function registerLanguageRuntimeProvider(languageId: string,
+            provider: LanguageRuntimeProvider): void;
 
         /**
          * List all registered runtimes.

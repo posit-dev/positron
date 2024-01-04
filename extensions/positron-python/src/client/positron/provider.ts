@@ -21,11 +21,45 @@ import { JupyterKernelSpec } from '../jupyter-adapter.d';
 import { traceError, traceInfo } from '../logging';
 import { PythonEnvironment } from '../pythonEnvironments/info';
 import { PythonVersion } from '../pythonEnvironments/info/pythonVersion';
+import { untildify } from '../pythonEnvironments/common/externalDependencies';
 import { ILanguageServerOutputChannel } from '../activation/types';
 import { PythonRuntime, createJupyterKernelExtra } from './runtime';
 import { JediLanguageServerAnalysisOptions } from '../activation/jedi/analysisOptions';
 import { IEnvironmentVariablesProvider } from '../common/variables/types';
 import { IWorkspaceService } from '../common/application/types';
+
+/**
+ * Provides a single Python language runtime for Positron; implements
+ * positron.LanguageRuntimeProvider.
+ *
+ * @param serviceContainer The Python extension's service container to use for dependency injection.
+ */
+export class PythonRuntimeProvider implements positron.LanguageRuntimeProvider {
+
+    /**
+     * Constructor.
+     * @param serviceContainer The Python extension's service container to use for dependency injection.
+     */
+    constructor(
+        private readonly serviceContainer: IServiceContainer,
+        private readonly pythonApi: PythonExtension
+    ) { }
+
+    async provideLanguageRuntime(
+        runtimeMetadata: positron.LanguageRuntimeMetadata,
+        _token: vscode.CancellationToken
+    ): Promise<positron.LanguageRuntime> {
+        traceInfo('PythonRuntimeProvider: Providing a single Python runtime');
+        const interpreterService = this.serviceContainer.get<IInterpreterService>(IInterpreterService);
+        const interpreter = await interpreterService.getInterpreterDetails(
+            untildify(runtimeMetadata.runtimePath));
+        if (!interpreter) {
+            throw new Error(`Cannot find Python interpreter for ${runtimeMetadata.runtimePath}`);
+        }
+        const runtime = await createPythonRuntime(interpreter, this.serviceContainer, true, this.pythonApi);
+        return runtime;
+    }
+}
 
 /**
  * Provides Python language runtimes to Positron; implements positron.LanguageRuntimeDiscoverer.
@@ -41,10 +75,10 @@ export async function* pythonRuntimeDiscoverer(
     pythonApi: PythonExtension,
 ): AsyncGenerator<positron.LanguageRuntime> {
     try {
-        traceInfo('pythonRuntimeProvider: Starting Python runtime provider');
+        traceInfo('pythonRuntimeDiscoverer: Starting Python runtime discoverer');
 
         // Wait for all extension components to be activated
-        traceInfo('pythonRuntimeProvider: awaiting extension activation');
+        traceInfo('pythonRuntimeDiscoverer: awaiting extension activation');
         await activatedPromise;
 
         const interpreterService = serviceContainer.get<IInterpreterService>(IInterpreterService);
@@ -58,8 +92,8 @@ export async function* pythonRuntimeDiscoverer(
         // Sort the available interpreters, favoring the active interpreter (if one is available)
         interpreters = sortInterpreters(interpreters, preferredInterpreter);
 
-        traceInfo(`pythonRuntimeProvider: discovered ${interpreters.length} Python interpreters`);
-        traceInfo(`pythonRuntimeProvider: preferred interpreter: ${preferredInterpreter?.path}`);
+        traceInfo(`pythonRuntimeDiscoverer: discovered ${interpreters.length} Python interpreters`);
+        traceInfo(`pythonRuntimeDiscoverer: preferred interpreter: ${preferredInterpreter?.path}`);
 
         // Recommend Python for the workspace if it contains Python-relevant files
         let recommendedForWorkspace = await hasFiles([
@@ -76,7 +110,7 @@ export async function* pythonRuntimeDiscoverer(
             '.python-version',
             'environment.yml',
         ]);
-        traceInfo(`pythonRuntimeProvider: recommended for workspace: ${recommendedForWorkspace}`);
+        traceInfo(`pythonRuntimeDiscoverer: recommended for workspace: ${recommendedForWorkspace}`);
 
         // Register each interpreter as a language runtime
         for (const interpreter of interpreters) {
@@ -93,16 +127,16 @@ export async function* pythonRuntimeDiscoverer(
                 recommendedForWorkspace = false;
 
                 traceInfo(
-                    `pythonRuntimeProvider: registering runtime for interpreter ${interpreter.path} with id ${runtime.metadata.runtimeId}`,
+                    `pythonRuntimeDiscoverer: registering runtime for interpreter ${interpreter.path} with id ${runtime.metadata.runtimeId}`,
                 );
                 yield runtime;
                 runtimes.set(interpreter.path, runtime.metadata);
             } else {
-                traceInfo(`pythonRuntimeProvider: skipping unsupported interpreter ${interpreter.path}`);
+                traceInfo(`pythonRuntimeDiscoverer: skipping unsupported interpreter ${interpreter.path}`);
             }
         }
     } catch (ex) {
-        traceError('pythonRuntimeProvider() failed', ex);
+        traceError('pythonRuntimeDiscoverer() failed', ex);
     }
 }
 
