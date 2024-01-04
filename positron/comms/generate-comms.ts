@@ -689,23 +689,26 @@ JsonData = Union[Dict[str, "JsonData"], List["JsonData"], str, int, float, bool,
 			if (!method.description) {
 				throw new Error(`No description for '${method.name}'; please add a description to the schema`);
 			}
-			yield `@dataclass\n`;
-			yield `class ${snakeCaseToSentenceCase(method.name)}Params:\n`;
-			yield `    """\n`;
-			yield formatComment('    ', method.description);
-			yield `    """\n`;
-			yield `\n`;
-			for (const param of method.params) {
-				if (param.schema.enum) {
-					yield `    ${param.name}: ${snakeCaseToSentenceCase(method.name)}${snakeCaseToSentenceCase(param.name)}`;
-				} else {
-					yield `    ${param.name}: ${deriveType(contracts, PythonTypeMap, [param.name], param.schema)}`;
+
+			if (method.params.length > 0) {
+				yield `@dataclass\n`;
+				yield `class ${snakeCaseToSentenceCase(method.name)}Params:\n`;
+				yield `    """\n`;
+				yield formatComment('    ', method.description);
+				yield `    """\n`;
+				yield `\n`;
+				for (const param of method.params) {
+					if (param.schema.enum) {
+						yield `    ${param.name}: ${snakeCaseToSentenceCase(method.name)}${snakeCaseToSentenceCase(param.name)}`;
+					} else {
+						yield `    ${param.name}: ${deriveType(contracts, PythonTypeMap, [param.name], param.schema)}`;
+					}
+					yield ' = field(\n';
+					yield `        metadata={\n`;
+					yield `            "description": "${param.description}",\n`;
+					yield `        }\n`;
+					yield `    )\n\n`;
 				}
-				yield ' = field(\n';
-				yield `        metadata={\n`;
-				yield `            "description": "${param.description}",\n`;
-				yield `        }\n`;
-				yield `    )\n\n`;
 			}
 
 			yield `@dataclass\n`;
@@ -714,18 +717,20 @@ JsonData = Union[Dict[str, "JsonData"], List["JsonData"], str, int, float, bool,
 			yield formatComment('    ', method.description);
 			yield `    """\n`;
 			yield `\n`;
-			yield `    def __post_init__(self):\n`;
-			yield `        """ Revive RPC parameters after initialization """\n`;
-			yield `        if isinstance(self.params, dict):\n`;
-			yield `             self.params = `;
-			yield `${snakeCaseToSentenceCase(method.name)}Params(**self.params)\n`;
-			yield `\n`;
-			yield `    params: ${snakeCaseToSentenceCase(method.name)}Params = field(\n`;
-			yield `        metadata={\n`;
-			yield `            "description": "Parameters to the ${snakeCaseToSentenceCase(method.name)} method"\n`;
-			yield `        }\n`;
-			yield `    )\n`;
-			yield `\n`;
+			if (method.params.length > 0) {
+				yield `    def __post_init__(self):\n`;
+				yield `        """ Revive RPC parameters after initialization """\n`;
+				yield `        if isinstance(self.params, dict):\n`;
+				yield `             self.params = `;
+				yield `${snakeCaseToSentenceCase(method.name)}Params(**self.params)\n`;
+				yield `\n`;
+				yield `    params: ${snakeCaseToSentenceCase(method.name)}Params = field(\n`;
+				yield `        metadata={\n`;
+				yield `            "description": "Parameters to the ${snakeCaseToSentenceCase(method.name)} method"\n`;
+				yield `        }\n`;
+				yield `    )\n`;
+				yield `\n`;
+			}
 			yield `    method: ${snakeCaseToSentenceCase(name)}Request = field(\n`;
 			yield `        metadata={\n`;
 			yield `            "description": "The JSON-RPC method name (${method.name})"\n`;
