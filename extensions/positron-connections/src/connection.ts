@@ -163,7 +163,7 @@ export class ConnectionItemsProvider implements vscode.TreeDataProvider<Connecti
 					);
 				} else if (element instanceof ConnectionItemTable) {
 					// The children of a table are the fields
-					element.client.performRpc({ msg_type: 'fields_request' }).then(
+					element.client.performRpc({ msg_type: 'fields_request', table: element.name }).then(
 						(response: any) => {
 							const fields = response.fields as string[];
 							const fieldItems = fields.map((field) => {
