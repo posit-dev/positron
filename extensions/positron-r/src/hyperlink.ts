@@ -65,6 +65,8 @@ function handleAutomaticallyRunnable(runtime: RRuntime, code: string) {
 }
 
 function matchRunnable(code: string): RegExpMatchArray | null {
+	// Of the form `package::function(args)` where `args` can't contain `(`, `)`, or `;`.
+	// See https://cli.r-lib.org/reference/links.html#security-considerations.
 	const runnableRegExp = /^(?<package>\w+)::(?<function>\w+)[(][^();]*[)]$/;
 	return code.match(runnableRegExp);
 }
