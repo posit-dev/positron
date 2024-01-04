@@ -9,7 +9,7 @@ import { IDisposableRegistry } from '../common/types';
 import { IInterpreterService } from '../interpreter/contracts';
 import { IServiceContainer } from '../ioc/types';
 import { traceError, traceInfo } from '../logging';
-import { createPythonRuntime, pythonRuntimeDiscoverer } from './provider';
+import { createPythonRuntime, pythonRuntimeDiscoverer, PythonRuntimeProvider } from './provider';
 
 export async function activatePositron(
     activatedPromise: Promise<void>,
@@ -17,11 +17,18 @@ export async function activatePositron(
     serviceContainer: IServiceContainer,
 ): Promise<void> {
     try {
+        // Register the Python runtime provider (for a single runtime) with positron.
+        traceInfo('activatePositron: registering python runtime provider');
+        positron.runtime.registerLanguageRuntimeProvider(
+            'python',
+            new PythonRuntimeProvider(serviceContainer, pythonApi),
+        );
+
         // Map of interpreter path to language runtime metadata, used to determine the runtimeId when
         // switching the active interpreter path.
         const runtimes = new Map<string, positron.LanguageRuntimeMetadata>();
 
-        // Register the Python language runtime provider with positron.
+        // Register the Python runtime discoverer (to find all available runtimes) with positron.
         traceInfo('activatePositron: registering python runtime provider');
         positron.runtime.registerLanguageRuntimeDiscoverer(
             'python',
