@@ -394,9 +394,10 @@ export class RRuntime implements positron.LanguageRuntime, vscode.Disposable {
 			attached = await this.callMethod('isPackageAttached', packageName);
 		} catch (err) {
 			const runtimeError = err as positron.RuntimeMethodError;
-			vscode.window.showErrorMessage(
+			vscode.window.showErrorMessage(vscode.l10n.t(
 				`Error checking if '${packageName}' is attached: ${runtimeError.message} ` +
-				`(${runtimeError.code})`);
+				`(${runtimeError.code})`
+			));
 		}
 
 		return attached;

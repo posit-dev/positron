@@ -41,14 +41,17 @@ export async function handleRCode(runtime: RRuntime, code: string): Promise<void
 }
 
 function handleNotRunnable(code: string) {
-	vscode.window.showInformationMessage(
+	vscode.window.showInformationMessage(vscode.l10n.t(
 		`Code hyperlink not recognized. Manually run the following if you trust the hyperlink source: \`${code}\`.`
-	);
+	));
 }
 
 function handleManuallyRunnable(_runtime: RRuntime, code: string) {
 	// TODO: Put `code` in the Console for the user, overwriting anything that was there.
 	// Seems like we will need a new API for that.
+	vscode.window.showInformationMessage(vscode.l10n.t(
+		`Code hyperlink written to clipboard: \`${code}\`.`
+	));
 	vscode.env.clipboard.writeText(code);
 }
 
