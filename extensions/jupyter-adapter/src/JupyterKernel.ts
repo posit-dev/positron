@@ -440,7 +440,9 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 
 					const seconds = vscode.workspace.getConfiguration('positron.jupyterAdapter').get('heartbeat', 30) as number;
 					this.log(`Starting heartbeat check at ${seconds} second intervals...`);
-					this.heartbeat();
+					if (seconds > 0) {
+						this.heartbeat();
+					}
 
 					// Dispose this listener now that we've received the initial heartbeat
 					reg?.dispose();
@@ -1154,7 +1156,12 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	 * Emits a heartbeat message and waits for the kernel to respond.
 	 */
 	private heartbeat() {
-		const seconds = vscode.workspace.getConfiguration('positron.jupyterAdapter').get('heartbeat', 30) as number;
+		let seconds = vscode.workspace.getConfiguration('positron.jupyterAdapter').get('heartbeat', 30) as number;
+
+		// A value of 0 disables automatic heartbeat checks but we've
+		// been called explicitly so use default value instead
+		seconds = seconds === 0 ? 30 : seconds;
+
 		this._lastHeartbeat = new Date().getUTCMilliseconds();
 		this.log(`SEND heartbeat with timeout of ${seconds} seconds`);
 		this._heartbeat?.send([HEARTBEAT_MESSAGE]);
