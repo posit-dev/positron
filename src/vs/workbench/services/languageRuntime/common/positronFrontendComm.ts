@@ -113,6 +113,9 @@ export interface WorkingDirectoryEvent {
 
 /**
  * Request: Context metadata for the last editor
+ *
+ * Returns metadata such as file path for the last editor selected by the
+ * user. The result may be undefined if there are no active editors.
  */
 export interface LastActiveEditorContextRequest {
 }

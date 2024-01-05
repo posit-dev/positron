@@ -1013,6 +1013,8 @@ import { IRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/co
 
 			yield '/**\n';
 			yield formatComment(' * ', `Request: ${method.summary}`);
+			yield formatComment(' *', '');
+			yield formatComment(' * ', `${method.description}`);
 			yield ' */\n';
 			yield `export interface ${sentenceName}Request {\n`;
 			for (const param of method.params) {
