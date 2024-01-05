@@ -4,7 +4,7 @@
 
 import * as extHostProtocol from './extHost.positron.protocol';
 import { ExtHostEditors } from '../extHostTextEditors';
-import { EditorContextResult } from 'vs/workbench/services/languageRuntime/common/positronFrontendComm';
+import { EditorContextResult, FrontendRequest } from 'vs/workbench/services/languageRuntime/common/positronFrontendComm';
 
 export class ExtHostMethods implements extHostProtocol.ExtHostMethodsShape {
 	constructor(
@@ -14,10 +14,10 @@ export class ExtHostMethods implements extHostProtocol.ExtHostMethodsShape {
 	}
 
 	// Parses arguments and calls relevant method
-	async call(method: string, params: any): Promise<any> {
+	async call(method: FrontendRequest, params: any): Promise<any> {
 		// FIXME: Throw typed JSON-RPC errors
 		switch (method) {
-			case 'last_active_editor_context': {
+			case FrontendRequest.LastActiveEditorContext: {
 				if (params && params.len) {
 					throw new Error(`Unexpected arguments for '${method}'`);
 				}

@@ -23,6 +23,7 @@ import { ExtHostOutputService } from 'vs/workbench/api/common/extHostOutput';
 import { ExtHostConsole } from 'vs/workbench/api/common/positron/extHostConsole';
 import { ExtHostMethods } from './extHostMethods';
 import { ExtHostEditors } from '../extHostTextEditors';
+import { FrontendRequest } from 'vs/workbench/services/languageRuntime/common/positronFrontendComm';
 
 /**
  * Factory interface for creating an instance of the Positron API.
@@ -132,8 +133,9 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 		};
 
 		const methods: typeof positron.methods = {
+			// This takes a string to avoid making `positron.d.ts` depend on the UI comm types
 			call(method: string, params: any): Thenable<any> {
-				return extHostMethods.call(method, params);
+				return extHostMethods.call(method as FrontendRequest, params);
 			},
 			lastActiveEditorContext(): Thenable<positron.TextEditorContext | null> {
 				return extHostMethods.lastActiveTextEditorContext();
