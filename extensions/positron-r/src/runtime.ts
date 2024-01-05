@@ -4,6 +4,7 @@
 
 import * as positron from 'positron';
 import * as vscode from 'vscode';
+import * as path from 'path';
 import PQueue from 'p-queue';
 
 import { JupyterAdapterApi, JupyterKernelSpec, JupyterLanguageRuntime, JupyterKernelExtra } from './jupyter-adapter';
@@ -11,6 +12,7 @@ import { ArkLsp, LspState } from './lsp';
 import { delay, timeout } from './util';
 import { ArkAttachOnStartup, ArkDelayStartup } from './startup';
 import { RHtmlWidget, getResourceRoots } from './htmlwidgets';
+import { getArkKernelPath } from './kernel';
 import { randomUUID } from 'crypto';
 import { handleRCode } from './hyperlink';
 
@@ -573,6 +575,102 @@ export function createJupyterKernelExtra(): JupyterKernelExtra {
 		attachOnStartup: new ArkAttachOnStartup(),
 		sleepOnStartup: new ArkDelayStartup(),
 	};
+}
+
+export function createJupyterKernelSpec(context: vscode.ExtensionContext, rHomePath: string, runtimeName: string): JupyterKernelSpec {
+
+	// Path to the kernel executable
+	const kernelPath = getArkKernelPath(context);
+	if (!kernelPath) {
+		throw new Error('Unable to find R kernel');
+	}
+
+	// Check the R kernel log level setting
+	const config = vscode.workspace.getConfiguration('positron.r');
+	const logLevel = config.get<string>('kernel.logLevel') ?? 'warn';
+	const userEnv = config.get<object>('kernel.env') ?? {};
+
+	/* eslint-disable */
+	const env = <Record<string, string>>{
+		'RUST_BACKTRACE': '1',
+		'RUST_LOG': logLevel,
+		'R_HOME': rHomePath,
+		...userEnv
+	};
+	/* eslint-enable */
+
+	if (process.platform === 'darwin') {
+
+		const dyldFallbackLibraryPaths: string[] = [];
+		dyldFallbackLibraryPaths.push(`${rHomePath}/lib`);
+
+		const defaultDyldFallbackLibraryPath = process.env['DYLD_FALLBACK_LIBRARY_PATH'];
+		if (defaultDyldFallbackLibraryPath) {
+			dyldFallbackLibraryPaths.push(defaultDyldFallbackLibraryPath);
+		}
+
+		// Set the DYLD_FALLBACK_LIBRARY_PATH to include the R installation.
+		// This specific environment variable can be blocked from being
+		// inherited by child processes on macOS with SIP enabled, so we
+		// prefix it with 'POSITRON_' here. The script that starts the
+		// kernel will check for this variable and set it as
+		// DYLD_FALLBACK_LIBRARY_PATH if it's present.
+		env['POSITRON_DYLD_FALLBACK_LIBRARY_PATH'] = dyldFallbackLibraryPaths.join(':');
+
+	}
+
+	if (process.platform === 'win32') {
+		// On Windows, we must place the `bin/` path for the current R version on the PATH
+		// so that the DLLs in that same folder can be resolved properly when ark starts up
+		// (like `R.dll`, `Rblas.dll`, `Rgraphapp.dll`, `Riconv.dll`, and `Rlapack.dll`).
+		// https://learn.microsoft.com/en-us/windows/win32/dlls/dynamic-link-library-search-order#standard-search-order-for-unpackaged-apps
+		const binpath = path.join(rHomePath, 'bin', 'x64');
+
+		const processPath = process.env['PATH'];
+
+		const subprocessPath = processPath === undefined ?
+			binpath :
+			processPath + ';' + binpath;
+
+		env['PATH'] = subprocessPath;
+	}
+
+	// R script to run on session startup
+	const startupFile = path.join(context.extensionPath, 'resources', 'scripts', 'startup.R');
+
+	// Create a kernel spec for this R installation
+	const kernelSpec: JupyterKernelSpec = {
+		'argv': [
+			kernelPath,
+			'--connection_file', '{connection_file}',
+			'--log', '{log_file}',
+			'--startup-file', `${startupFile}`,
+			// The arguments after `--` are passed verbatim to R
+			'--',
+			'--interactive',
+		],
+		'display_name': runtimeName, // eslint-disable-line
+		'language': 'R',
+		'env': env,
+	};
+
+	// Unless the user has chosen to restore the workspace, pass the
+	// `--no-restore-data` flag to R.
+	if (!config.get<boolean>('restoreWorkspace')) {
+		kernelSpec.argv.push('--no-restore-data');
+	}
+
+	// If the user has supplied extra arguments to R, pass them along.
+	const extraArgs = config.get<Array<string>>('extraArguments');
+	const quietMode = config.get<boolean>('quietMode');
+	if (quietMode && extraArgs?.indexOf('--quiet') === -1) {
+		extraArgs?.push('--quiet');
+	}
+	if (extraArgs) {
+		kernelSpec.argv.push(...extraArgs);
+	}
+
+	return kernelSpec;
 }
 
 export async function checkInstalled(pkgName: string, pkgVersion?: string, runtime?: RRuntime) {

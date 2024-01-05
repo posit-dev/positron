@@ -128,6 +128,23 @@ export class LanguageRuntimeWorkspaceAffiliation extends Disposable {
 	}
 
 	/**
+	 * Ascertains what languages are affiliated with the current workspace.
+	 *
+	 * @returns An array of language IDs for which there is a runtime affiliated
+	 */
+	public getAffiliatedRuntimeLanguageIds(): string[] | undefined {
+		// Get the keys from the storage service and find the language Ids.
+		const languageIds = new Array<string>();
+		const keys = this._storageService.keys(StorageScope.WORKSPACE, StorageTarget.MACHINE);
+		for (const key of keys) {
+			if (key.startsWith(this.storageKey)) {
+				languageIds.push(key.replace(`${this.storageKey}.`, ''));
+			}
+		}
+		return languageIds;
+	}
+
+	/**
 	 * Ascertains whether a runtime (of any language) is affiliated with the
 	 * current workspace.
 	 *
