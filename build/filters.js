@@ -67,6 +67,7 @@ module.exports.unicodeFilter = [
 
 	// --- Start Positron ---
 	'!**/amalthea/**/*',
+	'!scripts/positron/**/*',
 	// --- End Positron ---
 ];
 
@@ -150,7 +151,8 @@ module.exports.indentationFilter = [
 
 	// --- Start Positron ---
 	'!**/amalthea/**/*',
-	'!extensions/positron-r/resources/scripts/*.R'
+	'!extensions/positron-r/resources/scripts/*.R',
+	'!scripts/positron/**/*',
 	// --- End Positron ---
 ];
 
