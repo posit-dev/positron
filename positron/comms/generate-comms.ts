@@ -522,7 +522,7 @@ use serde::Serialize;
 				}
 			} else {
 				yield formatComment('\t/// ', `Reply for the ${method.name} method (no result)`);
-				yield `\t${snakeCaseToSentenceCase(method.name)}Reply,\n\n`;
+				yield `\t${snakeCaseToSentenceCase(method.name)}Reply(),\n\n`;
 			}
 		}
 		yield `}\n\n`;
