@@ -386,3 +386,28 @@ def test_send_try():
     )
     result = normalizeSelection.traverse_file(src, 1, 1, False)
     assert result["normalized_smart_result"] == expected
+
+
+# --- Start Positron ---
+
+
+def test_positron_comment():
+    # If we call from a comment, use the next top-level node.
+    importlib.reload(normalizeSelection)
+    src = textwrap.dedent(
+        """\
+        # a comment
+        1
+        2
+        """
+    )
+    expected = textwrap.dedent(
+        """\
+        1
+        """
+    )
+    result = normalizeSelection.traverse_file(src, 1, 1, False)
+    assert result["normalized_smart_result"] == expected
+
+
+# --- End Positron ---
