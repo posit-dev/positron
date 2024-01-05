@@ -124,6 +124,23 @@
 				},
 				"required": false
 			}
+		},
+		{
+			"name": "debug_sleep",
+			"summary": "Sleep for n seconds",
+			"description": "Useful for testing in the backend a long running frontend method",
+			"params": [
+				{
+					"name": "ms",
+					"description": "Duration in milliseconds",
+					"schema": {
+						"type": "number"
+					}
+				}
+			],
+			"result": {
+				"type": "null"
+			}
 		}
 	]
 }

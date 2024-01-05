@@ -120,6 +120,19 @@ export interface WorkingDirectoryEvent {
 export interface LastActiveEditorContextRequest {
 }
 
+/**
+ * Request: Sleep for n seconds
+ *
+ * Useful for testing in the backend a long running frontend method
+ */
+export interface DebugSleepRequest {
+	/**
+	 * Duration in milliseconds
+	 */
+	ms: number;
+
+}
+
 export enum FrontendEvent {
 	Busy = 'busy',
 	ClearConsole = 'clear_console',
@@ -130,7 +143,8 @@ export enum FrontendEvent {
 }
 
 export enum FrontendRequest {
-	LastActiveEditorContext = 'last_active_editor_context'
+	LastActiveEditorContext = 'last_active_editor_context',
+	DebugSleep = 'debug_sleep'
 }
 
 export class PositronFrontendComm extends PositronBaseComm {
