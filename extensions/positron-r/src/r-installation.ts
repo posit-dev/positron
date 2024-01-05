@@ -43,31 +43,11 @@ export class RInstallation {
 		this.binpath = pth;
 		this.current = current;
 
-		if (os.platform() === 'win32') {
-			// TODO: Windows - do we want something more robust here?
-			this.homepath = path.join(pth, '..', '..');
-		} else {
-			const binLines = readLines(this.binpath);
-			const re = new RegExp('Shell wrapper for R executable');
-			if (!binLines.some(x => re.test(x))) {
-				Logger.info('Binary is not a shell script wrapping the executable');
-				return;
-			}
-			const targetLine = binLines.find(line => line.match('R_HOME_DIR'));
-			if (!targetLine) {
-				Logger.info('Can\'t determine R_HOME_DIR from the binary');
-				return;
-			}
-			// macOS: R_HOME_DIR=/Library/Frameworks/R.framework/Versions/4.3-arm64/Resources
-			// macOS non-orthogonal: R_HOME_DIR=/Library/Frameworks/R.framework/Resources
-			// linux: R_HOME_DIR=/opt/R/4.2.3/lib/R
-			const R_HOME_DIR = extractValue(targetLine, 'R_HOME_DIR');
-			this.homepath = R_HOME_DIR;
-			if (this.homepath === '') {
-				Logger.info('Can\'t determine R_HOME_DIR from the binary');
-				return;
-			}
+		const rHomePath = getRHomePath(pth);
+		if (!rHomePath) {
+			return;
 		}
+		this.homepath = rHomePath;
 
 		// orthogonality is a concern specific to macOS
 		// a non-orthogonal R "binary" is hard-wired to launch the current version of R,
@@ -128,5 +108,34 @@ export class RInstallation {
 		this.valid = true;
 
 		Logger.info(`R installation discovered: ${JSON.stringify(this, null, 2)}`);
+	}
+}
+
+export function getRHomePath(binPath: string): string | undefined {
+	if (os.platform() === 'win32') {
+		// TODO: Windows - do we want something more robust here?
+		return path.join(binPath, '..', '..');
+	} else {
+		const binLines = readLines(binPath);
+		const re = new RegExp('Shell wrapper for R executable');
+		if (!binLines.some(x => re.test(x))) {
+			Logger.info('Binary is not a shell script wrapping the executable');
+			return undefined;
+		}
+		const targetLine = binLines.find(line => line.match('R_HOME_DIR'));
+		if (!targetLine) {
+			Logger.info('Can\'t determine R_HOME_DIR from the binary');
+			return undefined;
+		}
+		// macOS: R_HOME_DIR=/Library/Frameworks/R.framework/Versions/4.3-arm64/Resources
+		// macOS non-orthogonal: R_HOME_DIR=/Library/Frameworks/R.framework/Resources
+		// linux: R_HOME_DIR=/opt/R/4.2.3/lib/R
+		const R_HOME_DIR = extractValue(targetLine, 'R_HOME_DIR');
+		const homepath = R_HOME_DIR;
+		if (homepath === '') {
+			Logger.info('Can\'t determine R_HOME_DIR from the binary');
+			return undefined;
+		}
+		return homepath;
 	}
 }

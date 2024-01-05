@@ -147,11 +147,12 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 		this._workspaceAffiliation =
 			new LanguageRuntimeWorkspaceAffiliation(this, this._storageService, this._logService);
 		this._register(this._workspaceAffiliation);
-		if (this._workspaceAffiliation.hasAffiliatedRuntime()) {
+		const languageIds = this._workspaceAffiliation.getAffiliatedRuntimeLanguageIds();
+		if (languageIds) {
 			this._register(this.onDidChangeDiscoveryPhase((phase) => {
-				// When we start discovering runtimes, start the affiliated runtime.
+				// When we start discovering runtimes, start the affiliated runtime(s).
 				if (phase === LanguageRuntimeDiscoveryPhase.Discovering) {
-					this.startAffiliatedRuntimes();
+					languageIds?.map(languageId => this.startAffiliatedRuntime(languageId));
 				}
 			}));
 		}
@@ -798,9 +799,7 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 	/**
 	 * Starts any affiliated runtimes.
 	 */
-	private startAffiliatedRuntimes(): void {
-		// TODO: implement for all language packs
-		const languageId = 'zed';
+	private startAffiliatedRuntime(languageId: string): void {
 		const affiliatedRuntimeMetadata =
 			this._workspaceAffiliation.getAffiliatedRuntimeMetadata(languageId);
 

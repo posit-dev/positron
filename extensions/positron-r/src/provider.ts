@@ -11,10 +11,45 @@ import * as which from 'which';
 import * as positron from 'positron';
 import * as crypto from 'crypto';
 
-import { RInstallation } from './r-installation';
-import { RRuntime, createJupyterKernelExtra } from './runtime';
-import { JupyterKernelSpec } from './jupyter-adapter';
-import { getArkKernelPath } from './kernel';
+import { RInstallation, getRHomePath } from './r-installation';
+import { RRuntime, createJupyterKernelExtra, createJupyterKernelSpec } from './runtime';
+
+const initialDynState = {
+	inputPrompt: '>',
+	continuationPrompt: '+',
+} as positron.LanguageRuntimeDynState;
+
+/**
+ * Provides a single R language runtime for Positron; implements
+ * positron.LanguageRuntimeProvider.
+ *
+ * @param context The extension context.
+ */
+export class RRuntimeProvider implements positron.LanguageRuntimeProvider {
+
+	/**
+	 * Constructor.
+	 * @param context The extension context.
+	 */
+	constructor(
+		private readonly context: vscode.ExtensionContext
+	) { }
+
+	async provideLanguageRuntime(runtimeMetadata: positron.LanguageRuntimeMetadata, token: vscode.CancellationToken): Promise<positron.LanguageRuntime> {
+
+		const rHomePath = getRHomePath(runtimeMetadata.runtimePath);
+		if (!rHomePath) {
+			throw new Error(`Cannot find R_HOME for ${runtimeMetadata.runtimePath}`);
+		}
+		const kernelSpec = createJupyterKernelSpec(this.context,
+			rHomePath,
+			runtimeMetadata.runtimeName);
+
+		const extra = createJupyterKernelExtra();
+
+		return new RRuntime(this.context, kernelSpec, runtimeMetadata, initialDynState, extra);
+	}
+}
 
 /**
  * Discovers R language runtimes for Positron; implements
@@ -27,18 +62,6 @@ export async function* rRuntimeDiscoverer(
 	runtimes: Map<string, RRuntime>
 ): AsyncGenerator<positron.LanguageRuntime> {
 	let rInstallations: Array<RInstallation> = [];
-
-	// Path to the kernel executable
-	const kernelPath = getArkKernelPath(context);
-	if (!kernelPath) {
-		throw new Error('Unable to find R kernel');
-	}
-
-	// Check the R kernel log level setting
-	const config = vscode.workspace.getConfiguration('positron.r');
-	const logLevel = config.get<string>('kernel.logLevel') ?? 'warn';
-	const userEnv = config.get<object>('kernel.env') ?? {};
-
 	const binaries = new Set<string>();
 
 	// look in the well-known place for R installations on this OS
@@ -137,54 +160,6 @@ export async function* rRuntimeDiscoverer(
 	// Given that DYLD_FALLBACK_LIBRARY_PATH works fine, we just set that below.
 	for (const rInst of rInstallations) {
 
-		/* eslint-disable */
-		const env = <Record<string, string>>{
-			'RUST_BACKTRACE': '1',
-			'RUST_LOG': logLevel,
-			'R_HOME': rInst.homepath,
-			...userEnv
-		};
-		/* eslint-enable */
-
-		if (process.platform === 'darwin') {
-
-			const dyldFallbackLibraryPaths: string[] = [];
-			dyldFallbackLibraryPaths.push(`${rInst.homepath}/lib`);
-
-			const defaultDyldFallbackLibraryPath = process.env['DYLD_FALLBACK_LIBRARY_PATH'];
-			if (defaultDyldFallbackLibraryPath) {
-				dyldFallbackLibraryPaths.push(defaultDyldFallbackLibraryPath);
-			}
-
-			// Set the DYLD_FALLBACK_LIBRARY_PATH to include the R installation.
-			// This specific environment variable can be blocked from being
-			// inherited by child processes on macOS with SIP enabled, so we
-			// prefix it with 'POSITRON_' here. The script that starts the
-			// kernel will check for this variable and set it as
-			// DYLD_FALLBACK_LIBRARY_PATH if it's present.
-			env['POSITRON_DYLD_FALLBACK_LIBRARY_PATH'] = dyldFallbackLibraryPaths.join(':');
-
-		}
-
-		if (process.platform === 'win32') {
-			// On Windows, we must place the `bin/` path for the current R version on the PATH
-			// so that the DLLs in that same folder can be resolved properly when ark starts up
-			// (like `R.dll`, `Rblas.dll`, `Rgraphapp.dll`, `Riconv.dll`, and `Rlapack.dll`).
-			// https://learn.microsoft.com/en-us/windows/win32/dlls/dynamic-link-library-search-order#standard-search-order-for-unpackaged-apps
-			// TODO @jennybc: I suspect this should just use rHome.binpath, instead of DIYing it
-			// we can leave as is for now
-			// this is the sort of refinement that is in a PR I will make soon for windows
-			const binpath = path.join(rInst.homepath, 'bin', 'x64');
-
-			const processPath = process.env['PATH'];
-
-			const subprocessPath = processPath === undefined ?
-				binpath :
-				processPath + ';' + binpath;
-
-			env['PATH'] = subprocessPath;
-		}
-
 		// Is the runtime path within the user's home directory?
 		const homedir = os.homedir();
 		const isUserInstallation = rInst.binpath.startsWith(homedir);
@@ -219,40 +194,9 @@ export async function* rRuntimeDiscoverer(
 		// Full name shown to users
 		const runtimeName = `R ${runtimeShortName}`;
 
-		// R script to run on session startup
-		const startupFile = path.join(context.extensionPath, 'resources', 'scripts', 'startup.R');
-
-		// Create a kernel spec for this R installation
-		const kernelSpec: JupyterKernelSpec = {
-			'argv': [
-				kernelPath,
-				'--connection_file', '{connection_file}',
-				'--log', '{log_file}',
-				'--startup-file', `${startupFile}`,
-				// The arguments after `--` are passed verbatim to R
-				'--',
-				'--interactive',
-			],
-			'display_name': runtimeName, // eslint-disable-line
-			'language': 'R',
-			'env': env,
-		};
-
-		// Unless the user has chosen to restore the workspace, pass the
-		// `--no-restore-data` flag to R.
-		if (!config.get<boolean>('restoreWorkspace')) {
-			kernelSpec.argv.push('--no-restore-data');
-		}
-
-		// If the user has supplied extra arguments to R, pass them along.
-		const extraArgs = config.get<Array<string>>('extraArguments');
-		const quietMode = config.get<boolean>('quietMode');
-		if (quietMode && extraArgs?.indexOf('--quiet') === -1) {
-			extraArgs?.push('--quiet');
-		}
-		if (extraArgs) {
-			kernelSpec.argv.push(...extraArgs);
-		}
+		const kernelSpec = createJupyterKernelSpec(context,
+			rInst.homepath,
+			runtimeName);
 
 		// Get the version of this extension from package.json so we can pass it
 		// to the adapter as the implementation version.
@@ -291,15 +235,10 @@ export async function* rRuntimeDiscoverer(
 			startupBehavior
 		};
 
-		const dynState: positron.LanguageRuntimeDynState = {
-			inputPrompt: '>',
-			continuationPrompt: '+',
-		};
-
 		const extra = createJupyterKernelExtra();
 
 		// Create an adapter for the kernel to fulfill the LanguageRuntime interface.
-		const runtime = new RRuntime(context, kernelSpec, metadata, dynState, extra);
+		const runtime = new RRuntime(context, kernelSpec, metadata, initialDynState, extra);
 		yield runtime;
 		runtimes.set(runtimeId, runtime);
 	}
