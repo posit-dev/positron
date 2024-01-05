@@ -244,9 +244,9 @@ def traverse_file(wholeFileContent, start_line, end_line, was_highlighted):
     # --- Start Positron ---
     # If we get here, we may still be between top-level nodes -- try to find the next one.
     if not should_run_top_blocks:
-        for node in top_level_nodes:
-            if node.lineno > start_line:
-                should_run_top_blocks.append(node)
+        for top_node in ast.iter_child_nodes(parsed_file_content):
+            if top_node.lineno > start_line:
+                should_run_top_blocks.append(top_node)
                 smart_code += f"{ast.get_source_segment(wholeFileContent, top_node)}\n"
                 break
     # --- End Positron ---
