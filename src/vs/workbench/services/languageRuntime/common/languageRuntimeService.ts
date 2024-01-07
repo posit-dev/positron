@@ -438,14 +438,21 @@ export enum LanguageRuntimeStartupBehavior {
 
 export enum LanguageRuntimeDiscoveryPhase {
 	/**
-	 * We are waiting for extensions to register language runtime providers.
+	 * We are waiting for extensions to register language runtime providers/discoverers.
 	 */
 	AwaitingExtensions = 'AwaitingExtensions',
 
 	/**
+	 * Language runtimes for a workspace affiliation are currently being registered.
+	 * During this phase, the service emits `onDidRegisterRuntime` events as it
+	 * registers any runtimes that were affiliated with the workspace.
+	 */
+	RegisteringWorkspaceAffiliations = 'RegisteringWorkspaceAffiliations',
+
+	/**
 	 * Language runtimes are currently being discovered and registered. During
 	 * this phase, the service emits `onDidRegisterRuntime` events as it
-	 * discovers new runtimes.
+	 * discovers and registers new runtimes.
 	 */
 	Discovering = 'discovering',
 
