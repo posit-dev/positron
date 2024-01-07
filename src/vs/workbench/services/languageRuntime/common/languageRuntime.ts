@@ -150,8 +150,8 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 		const languageIds = this._workspaceAffiliation.getAffiliatedRuntimeLanguageIds();
 		if (languageIds) {
 			this._register(this.onDidChangeDiscoveryPhase((phase) => {
-				// When we start discovering runtimes, start the affiliated runtime(s).
-				if (phase === LanguageRuntimeDiscoveryPhase.Discovering) {
+				// Start the affiliated runtime(s).
+				if (phase === LanguageRuntimeDiscoveryPhase.RegisteringWorkspaceAffiliations) {
 					languageIds?.map(languageId => this.startAffiliatedRuntime(languageId));
 				}
 			}));
@@ -190,9 +190,9 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 				`A file with the language ID ${languageId} was opened.`);
 		}));
 
-		// Begin discovering language runtimes once all extensions have been
-		// registered.
+		// Begin registering and discovering language runtimes once all extensions have been started.
 		this._extensionService.whenAllExtensionHostsStarted().then(() => {
+			this._onDidChangeDiscoveryPhaseEmitter.fire(LanguageRuntimeDiscoveryPhase.RegisteringWorkspaceAffiliations);
 			this._onDidChangeDiscoveryPhaseEmitter.fire(LanguageRuntimeDiscoveryPhase.Discovering);
 		});
 
@@ -352,9 +352,9 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 	 * @returns A disposable that unregisters the runtime
 	 */
 	registerRuntime(runtime: ILanguageRuntime, startupBehavior: LanguageRuntimeStartupBehavior): IDisposable {
-		// If the runtime has already been registered, throw an error.
+		// If the runtime has already been registered, return early.
 		if (this._registeredRuntimesByRuntimeId.has(runtime.metadata.runtimeId)) {
-			throw new Error(`Language runtime ${formatLanguageRuntime(runtime)} has already been registered.`);
+			return toDisposable(() => { });
 		}
 
 		// Add the runtime to the registered runtimes.
