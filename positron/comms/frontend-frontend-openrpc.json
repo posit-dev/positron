@@ -139,7 +139,10 @@
 				}
 			],
 			"result": {
-				"type": "null"
+				"schema": {
+					"name": "debug_sleep_result",
+					"type": "null"
+				}
 			}
 		}
 	]

@@ -524,7 +524,16 @@ use serde::Serialize;
 				if (schema.description) {
 					yield formatComment('\t/// ', schema.description);
 				}
-				yield `\t${snakeCaseToSentenceCase(method.name)}Reply(`;
+				yield `\t${snakeCaseToSentenceCase(method.name)}Reply`;
+
+				// No enum parameter, close the variant and continue to next
+				if (schema.type === 'null') {
+					yield ',\n\n';
+					continue;
+				}
+
+				// Open enum parameter
+				yield '(';
 
 				if (method.result.required === false) {
 					yield 'Option<';
