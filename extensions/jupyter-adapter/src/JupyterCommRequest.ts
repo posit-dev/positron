@@ -11,5 +11,5 @@ import { JupyterMessageSpec } from './JupyterMessageSpec';
  */
 export interface JupyterCommRequest extends JupyterMessageSpec {
 	method: string;
-	params: any;
+	params: Record<string, any>;
 }

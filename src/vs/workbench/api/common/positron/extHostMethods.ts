@@ -37,7 +37,7 @@ export class ExtHostMethods implements extHostProtocol.ExtHostMethodsShape {
 
 	// Parses arguments and calls relevant method. Does not throw, returns
 	// JSON-RPC error responses instead.
-	async call(method: FrontendRequest, params: any): Promise<JsonRpcResponse> {
+	async call(method: FrontendRequest, params: Record<string, any>): Promise<JsonRpcResponse> {
 		try {
 			if (!Object.values(FrontendRequest).includes(method)) {
 				return <JsonRpcError> {

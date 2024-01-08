@@ -1081,7 +1081,7 @@ declare module 'positron' {
 		 * @param method The method name.
 		 * @param params An object of named parameters for `method`.
 		 */
-		export function call(method: string, params: any): Thenable<any>;
+		export function call(method: string, params: Record<string, any>): Thenable<any>;
 
 		/**
 		 * Retrieve last active editor context.

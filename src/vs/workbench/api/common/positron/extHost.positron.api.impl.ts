@@ -134,7 +134,7 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 
 		const methods: typeof positron.methods = {
 			// This takes a string to avoid making `positron.d.ts` depend on the UI comm types
-			call(method: string, params: any): Thenable<any> {
+			call(method: string, params: Record<string, any>): Thenable<any> {
 				return extHostMethods.call(method as FrontendRequest, params);
 			},
 			lastActiveEditorContext(): Thenable<positron.TextEditorContext | null> {
