@@ -6,9 +6,12 @@
 # AUTO-GENERATED from help.json; do not edit.
 #
 
+# For forward declarations
+from __future__ import annotations
+
 import enum
 from dataclasses import dataclass, field
-from typing import Dict, List, Union
+from typing import Dict, List, Union, Optional
 
 JsonData = Union[Dict[str, "JsonData"], List["JsonData"], str, int, float, bool, None]
 

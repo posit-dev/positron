@@ -12,18 +12,7 @@ import warnings
 from collections.abc import Iterable
 from itertools import chain
 from pathlib import Path
-from typing import (
-    Any,
-    Callable,
-    Container,
-    Dict,
-    List,
-    Mapping,
-    Optional,
-    Set,
-    Tuple,
-    Type,
-)
+from typing import Any, Callable, Container, Dict, List, Mapping, Optional, Set, Tuple, Type
 
 import traitlets
 from ipykernel.comm.manager import CommManager
@@ -32,13 +21,7 @@ from ipykernel.kernelapp import IPKernelApp
 from ipykernel.zmqshell import ZMQDisplayPublisher, ZMQInteractiveShell
 from IPython.core import oinspect, page
 from IPython.core.interactiveshell import InteractiveShell
-from IPython.core.magic import (
-    Magics,
-    MagicsManager,
-    line_magic,
-    magics_class,
-    needs_local_scope,
-)
+from IPython.core.magic import Magics, MagicsManager, line_magic, magics_class, needs_local_scope
 from IPython.utils import PyColorize
 
 from .dataviewer import DataViewerService
@@ -578,7 +561,7 @@ class PositronIPyKernel(IPythonKernel):
             pass
 
         # Refresh the client state
-        self.variables_service.send_list()
+        self.variables_service.send_refresh_event()
 
         return reply_content
 
