@@ -6,6 +6,40 @@
 	},
 	"methods": [
 		{
+			"name": "list",
+			"summary": "List all variables",
+			"description": "Returns a list of all the variables in the current session.",
+			"params": [],
+			"result": {
+				"schema": {
+					"name": "variable_list",
+					"description": "A view containing a list of variables in the session.",
+					"type": "object",
+					"properties": {
+						"variables": {
+							"type": "array",
+							"items": {
+								"$ref": "#/components/schemas/variable"
+							},
+							"description": "A list of variables in the session."
+						},
+						"length": {
+							"type": "integer",
+							"description": "The total number of variables in the session. This may be greater than the number of variables in the 'variables' array if the array is truncated."
+						},
+						"version": {
+							"type": "integer",
+							"description": "The version of the view (incremented with each update)"
+						}
+					},
+					"required": [
+						"variables",
+						"length"
+					]
+				}
+			}
+		},
+		{
 			"name": "clear",
 			"summary": "Clear all variables",
 			"description": "Clears (deletes) all variables in the current session.",
@@ -36,7 +70,15 @@
 					}
 				}
 			],
-			"result": {}
+			"result": {
+				"schema": {
+					"description": "The names of the variables that were successfully deleted.",
+					"type": "array",
+					"items": {
+						"type": "string"
+					}
+				}
+			}
 		},
 		{
 			"name": "inspect",
@@ -98,7 +140,11 @@
 					"name": "format",
 					"description": "The requested format for the variable, as a MIME type",
 					"schema": {
-						"type": "string"
+						"type": "string",
+						"enum": [
+							"text/html",
+							"text/plain"
+						]
 					}
 				}
 			],
@@ -108,10 +154,6 @@
 					"name": "formatted_variable",
 					"description": "An object formatted for copying to the clipboard.",
 					"properties": {
-						"format": {
-							"type": "string",
-							"description": "The format returned, as a MIME type; matches the MIME type of the format named in the request."
-						},
 						"content": {
 							"type": "string",
 							"description": "The formatted content of the variable."
@@ -170,6 +212,10 @@
 						"type": "string",
 						"description": "Extended information about the variable's type"
 					},
+					"size": {
+						"type": "integer",
+						"description": "The size of the variable's value in bytes"
+					},
 					"kind": {
 						"type": "string",
 						"enum": [
@@ -182,7 +228,8 @@
 							"number",
 							"other",
 							"string",
-							"table"
+							"table",
+							"lazy"
 						],
 						"description": "The kind of value the variable represents, such as 'string' or 'number'"
 					},
@@ -200,7 +247,7 @@
 					},
 					"is_truncated": {
 						"type": "boolean",
-						"description": "True the 'value' field is a truncated representation of the variable's value"
+						"description": "True if the 'value' field is a truncated representation of the variable's value"
 					}
 				},
 				"required": [
@@ -209,6 +256,7 @@
 					"display_value",
 					"display_type",
 					"type_info",
+					"size",
 					"kind",
 					"length",
 					"has_children",

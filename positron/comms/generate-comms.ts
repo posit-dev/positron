@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
 /**
@@ -87,6 +87,7 @@ function snakeCaseToCamelCase(name: string) {
 	name = name.replace(/!/g, 'Not');
 	name = name.replace(/</g, 'Lt');
 	name = name.replace(/>/g, 'Gt');
+	name = name.replace(/[/]/g, '_');
 	return name.replace(/_([a-z])/g, (m) => m[1].toUpperCase());
 }
 
@@ -153,19 +154,19 @@ function parseRef(ref: string, contracts: Array<any>): string {
  *
  * @param contract The OpenRPC contracts
  * @param typeMap A map from schema types to language types
- * @param key The key beneath which this schema is defined
+ * @param context An array of keys beneath which this schema is defined
  * @param schema The schema to derive a type from
  *
  * @returns A string containing the derived type
  */
 function deriveType(contracts: Array<any>,
 	typeMap: Record<string, string>,
-	key: string,
+	context: Array<string>,
 	schema: any): string {
 	if (schema.type === 'array') {
 		// If the array has a ref, use that to derive an array type
 		return typeMap['array-begin'] +
-			deriveType(contracts, typeMap, key, schema.items) +
+			deriveType(contracts, typeMap, context, schema.items) +
 			typeMap['array-end'];
 	} else if (schema.$ref) {
 		return parseRef(schema.$ref, contracts);
@@ -173,8 +174,14 @@ function deriveType(contracts: Array<any>,
 		if (schema.name) {
 			return snakeCaseToSentenceCase(schema.name);
 		} else {
-			return snakeCaseToSentenceCase(key);
+			return snakeCaseToSentenceCase(context[0]);
 		}
+	} else if (schema.type === 'string' && schema.enum) {
+		if (context.length < 2) {
+			throw new Error(`missing context (need at least 2 elements): ${context[0]}`);
+		}
+		return snakeCaseToSentenceCase(context[1]) +
+			snakeCaseToSentenceCase(context[0]);
 	} else {
 		if (Object.keys(typeMap).includes(schema.type)) {
 			return typeMap[schema.type];
@@ -359,7 +366,7 @@ use serde::Serialize;
 					yield formatComment('/// ', schema.description);
 					yield `type ${snakeCaseToSentenceCase(key)} = `;
 					yield deriveType(contracts, RustTypeMap,
-						schema.name ? schema.name : key,
+						[schema.name ? schema.name : key],
 						schema);
 					yield ';\n\n';
 				}
@@ -383,7 +390,7 @@ use serde::Serialize;
 				return yield `pub type ${snakeCaseToSentenceCase(name)} = serde_json::Value;\n\n`;
 			}
 
-			yield '#[derive(Debug, Serialize, Deserialize, PartialEq)]\n';
+			yield '#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]\n';
 			yield `pub struct ${snakeCaseToSentenceCase(name)} {\n`;
 
 			for (let i = 0; i < props.length; i++) {
@@ -395,11 +402,11 @@ use serde::Serialize;
 				yield `\tpub ${key}: `;
 				if (!o.required || !o.required.includes(key)) {
 					yield 'Option<';
-					yield deriveType(contracts, RustTypeMap, key, prop);
+					yield deriveType(contracts, RustTypeMap, [key, ...context], prop);
 					yield '>';
 
 				} else {
-					yield deriveType(contracts, RustTypeMap, key, prop);
+					yield deriveType(contracts, RustTypeMap, [key, ...context], prop);
 				}
 				if (i < props.length - 1) {
 					yield ',\n';
@@ -416,7 +423,7 @@ use serde::Serialize;
 				`Possible values for ` +
 				snakeCaseToSentenceCase(context[0]) + ` in ` +
 				snakeCaseToSentenceCase(context[1]));
-			yield '#[derive(Debug, Serialize, Deserialize, PartialEq)]\n';
+			yield '#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]\n';
 			yield `pub enum ${snakeCaseToSentenceCase(context[1])}${snakeCaseToSentenceCase(context[0])} {\n`;
 			for (let i = 0; i < values.length; i++) {
 				const value = values[i];
@@ -458,7 +465,7 @@ use serde::Serialize;
 						yield `\tpub ${param.name}: serde_json::Value,\n`;
 					} else {
 						// Otherwise use the type directly
-						yield `\tpub ${param.name}: ${deriveType(contracts, RustTypeMap, param.name, param.schema)},\n`;
+						yield `\tpub ${param.name}: ${deriveType(contracts, RustTypeMap, [param.name], param.schema)},\n`;
 					}
 					if (i < method.params.length - 1) {
 						yield '\n';
@@ -511,8 +518,11 @@ use serde::Serialize;
 				if (schema.type === 'object') {
 					yield `(${snakeCaseToSentenceCase(schema.name)}),\n\n`;
 				} else {
-					yield `(${RustTypeMap[schema.type]}),\n\n`;
+					yield `(${deriveType(contracts, RustTypeMap, [schema.name], schema)}),\n\n`;
 				}
+			} else {
+				yield formatComment('\t/// ', `Reply for the ${method.name} method (no result)`);
+				yield `\t${snakeCaseToSentenceCase(method.name)}Reply(),\n\n`;
 			}
 		}
 		yield `}\n\n`;
@@ -527,6 +537,9 @@ use serde::Serialize;
 		yield `#[serde(tag = "method", content = "params")]\n`;
 		yield `pub enum ${snakeCaseToSentenceCase(name)}Event {\n`;
 		for (const method of frontend.methods) {
+			if (method.description) {
+				yield formatComment('\t/// ', method.description);
+			}
 			yield `\t#[serde(rename = "${method.name}")]\n`;
 			yield `\t${snakeCaseToSentenceCase(method.name)}`;
 			if (method.params.length > 0) {
@@ -559,9 +572,12 @@ function* createPythonComm(name: string,
 # AUTO-GENERATED from ${name}.json; do not edit.
 #
 
+# For forward declarations
+from __future__ import annotations
+
 import enum
 from dataclasses import dataclass, field
-from typing import Dict, List, Union
+from typing import Dict, List, Union, Optional
 JsonData = Union[Dict[str, "JsonData"], List["JsonData"], str, int, float, bool, None]
 
 `;
@@ -570,6 +586,32 @@ JsonData = Union[Dict[str, "JsonData"], List["JsonData"], str, int, float, bool,
 		if (!source) {
 			continue;
 		}
+
+		// Create enums for all enum types
+		yield* enumVisitor([], source, function* (context: Array<string>, values: Array<string>) {
+			yield '@enum.unique\n';
+			yield `class ${snakeCaseToSentenceCase(context[1])}`;
+			yield `${snakeCaseToSentenceCase(context[0])}(str, enum.Enum):\n`;
+			yield '    """\n';
+			yield formatComment(`    `,
+				`Possible values for ` +
+				snakeCaseToSentenceCase(context[0]) +
+				` in ` +
+				snakeCaseToSentenceCase(context[1]));
+			yield '    """\n';
+			yield '\n';
+			for (let i = 0; i < values.length; i++) {
+				const value = values[i];
+				yield `    ${snakeCaseToSentenceCase(value)} = "${value}"`;
+				if (i < values.length - 1) {
+					yield '\n\n';
+				} else {
+					yield '\n';
+				}
+			}
+			yield '\n\n';
+		});
+
 		// Create dataclasses for all object types
 		yield* objectVisitor([], source, function* (
 			context: Array<string>,
@@ -608,10 +650,10 @@ JsonData = Union[Dict[str, "JsonData"], List["JsonData"], str, int, float, bool,
 				yield `    ${prop}: `;
 				if (!o.required || !o.required.includes(prop)) {
 					yield 'Optional[';
-					yield deriveType(contracts, PythonTypeMap, prop, schema);
+					yield deriveType(contracts, PythonTypeMap, [prop, ...context], schema);
 					yield ']';
 				} else {
-					yield deriveType(contracts, PythonTypeMap, prop, schema);
+					yield deriveType(contracts, PythonTypeMap, [prop, ...context], schema);
 				}
 				yield ' = field(\n';
 				yield `        metadata={\n`;
@@ -621,31 +663,6 @@ JsonData = Union[Dict[str, "JsonData"], List["JsonData"], str, int, float, bool,
 				}
 				yield `        }\n`;
 				yield `    )\n\n`;
-			}
-			yield '\n\n';
-		});
-
-		// Create enums for all enum types
-		yield* enumVisitor([], source, function* (context: Array<string>, values: Array<string>) {
-			yield '@enum.unique\n';
-			yield `class ${snakeCaseToSentenceCase(context[1])}`;
-			yield `${snakeCaseToSentenceCase(context[0])}(str, enum.Enum):\n`;
-			yield '    """\n';
-			yield formatComment(`    `,
-				`Possible values for ` +
-				snakeCaseToSentenceCase(context[0]) +
-				` in ` +
-				snakeCaseToSentenceCase(context[1]));
-			yield '    """\n';
-			yield '\n';
-			for (let i = 0; i < values.length; i++) {
-				const value = values[i];
-				yield `    ${snakeCaseToSentenceCase(value)} = "${value}"`;
-				if (i < values.length - 1) {
-					yield '\n\n';
-				} else {
-					yield '\n';
-				}
 			}
 			yield '\n\n';
 		});
@@ -672,23 +689,26 @@ JsonData = Union[Dict[str, "JsonData"], List["JsonData"], str, int, float, bool,
 			if (!method.description) {
 				throw new Error(`No description for '${method.name}'; please add a description to the schema`);
 			}
-			yield `@dataclass\n`;
-			yield `class ${snakeCaseToSentenceCase(method.name)}Params:\n`;
-			yield `    """\n`;
-			yield formatComment('    ', method.description);
-			yield `    """\n`;
-			yield `\n`;
-			for (const param of method.params) {
-				if (param.schema.enum) {
-					yield `    ${param.name}: ${snakeCaseToSentenceCase(method.name)}${snakeCaseToSentenceCase(param.name)}`;
-				} else {
-					yield `    ${param.name}: ${deriveType(contracts, PythonTypeMap, param.name, param.schema)}`;
+
+			if (method.params.length > 0) {
+				yield `@dataclass\n`;
+				yield `class ${snakeCaseToSentenceCase(method.name)}Params:\n`;
+				yield `    """\n`;
+				yield formatComment('    ', method.description);
+				yield `    """\n`;
+				yield `\n`;
+				for (const param of method.params) {
+					if (param.schema.enum) {
+						yield `    ${param.name}: ${snakeCaseToSentenceCase(method.name)}${snakeCaseToSentenceCase(param.name)}`;
+					} else {
+						yield `    ${param.name}: ${deriveType(contracts, PythonTypeMap, [param.name], param.schema)}`;
+					}
+					yield ' = field(\n';
+					yield `        metadata={\n`;
+					yield `            "description": "${param.description}",\n`;
+					yield `        }\n`;
+					yield `    )\n\n`;
 				}
-				yield ' = field(\n';
-				yield `        metadata={\n`;
-				yield `            "description": "${param.description}",\n`;
-				yield `        }\n`;
-				yield `    )\n\n`;
 			}
 
 			yield `@dataclass\n`;
@@ -697,18 +717,20 @@ JsonData = Union[Dict[str, "JsonData"], List["JsonData"], str, int, float, bool,
 			yield formatComment('    ', method.description);
 			yield `    """\n`;
 			yield `\n`;
-			yield `    def __post_init__(self):\n`;
-			yield `        """ Revive RPC parameters after initialization """\n`;
-			yield `        if isinstance(self.params, dict):\n`;
-			yield `             self.params = `;
-			yield `${snakeCaseToSentenceCase(method.name)}Params(**self.params)\n`;
-			yield `\n`;
-			yield `    params: ${snakeCaseToSentenceCase(method.name)}Params = field(\n`;
-			yield `        metadata={\n`;
-			yield `            "description": "Parameters to the ${snakeCaseToSentenceCase(method.name)} method"\n`;
-			yield `        }\n`;
-			yield `    )\n`;
-			yield `\n`;
+			if (method.params.length > 0) {
+				yield `    def __post_init__(self):\n`;
+				yield `        """ Revive RPC parameters after initialization """\n`;
+				yield `        if isinstance(self.params, dict):\n`;
+				yield `             self.params = `;
+				yield `${snakeCaseToSentenceCase(method.name)}Params(**self.params)\n`;
+				yield `\n`;
+				yield `    params: ${snakeCaseToSentenceCase(method.name)}Params = field(\n`;
+				yield `        metadata={\n`;
+				yield `            "description": "Parameters to the ${snakeCaseToSentenceCase(method.name)} method"\n`;
+				yield `        }\n`;
+				yield `    )\n`;
+				yield `\n`;
+			}
 			yield `    method: ${snakeCaseToSentenceCase(name)}Request = field(\n`;
 			yield `        metadata={\n`;
 			yield `            "description": "The JSON-RPC method name (${method.name})"\n`;
@@ -753,7 +775,7 @@ JsonData = Union[Dict[str, "JsonData"], List["JsonData"], str, int, float, bool,
 					if (param.schema.enum) {
 						yield `    ${param.name}: ${snakeCaseToSentenceCase(method.name)}${snakeCaseToSentenceCase(param.name)}`;
 					} else {
-						yield `    ${param.name}: ${deriveType(contracts, PythonTypeMap, param.name, param.schema)}`;
+						yield `    ${param.name}: ${deriveType(contracts, PythonTypeMap, [param.name], param.schema)}`;
 					}
 					yield ' = field(\n';
 					yield `        metadata={\n`;
@@ -770,6 +792,7 @@ JsonData = Union[Dict[str, "JsonData"], List["JsonData"], str, int, float, bool,
  * Generates a Typescript interface for a given object schema.
  *
  * @param contract The OpenRPC contracts that the schema is part of
+ * @param context An array of keys beneath which this schema is defined
  * @param name The name of the schema
  * @param description The description of the schema
  * @param properties The properties of the schema
@@ -782,6 +805,7 @@ JsonData = Union[Dict[str, "JsonData"], List["JsonData"], str, int, float, bool,
  */
 function* createTypescriptInterface(
 	contracts: Array<any>,
+	context: Array<string>,
 	name: string,
 	description: string,
 	properties: Record<string, any>,
@@ -822,7 +846,7 @@ function* createTypescriptInterface(
 		} else if (schema.type === 'string' && schema.enum) {
 			yield `${snakeCaseToSentenceCase(name)}${snakeCaseToSentenceCase(prop)}`;
 		} else {
-			yield deriveType(contracts, TypescriptTypeMap, prop, schema);
+			yield deriveType(contracts, TypescriptTypeMap, [prop, ...context], schema);
 		}
 		yield `;\n\n`;
 	}
@@ -869,7 +893,7 @@ import { IRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/co
 					snakeCaseToSentenceCase(context[0]) + ' in ' +
 					snakeCaseToSentenceCase(context[1]);
 				const additionalProperties = o.additionalProperties ? o.additionalProperties : false;
-				yield* createTypescriptInterface(contracts, name, description, o.properties,
+				yield* createTypescriptInterface(contracts, context, name, description, o.properties,
 					o.required ? o.required : [], additionalProperties);
 			});
 
@@ -907,7 +931,7 @@ import { IRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/co
 					yield formatComment(' * ', schema.description);
 					yield ' */\n';
 					yield `export type ${snakeCaseToSentenceCase(key)} = `;
-					yield deriveType(contracts, TypescriptTypeMap, key, schema);
+					yield deriveType(contracts, TypescriptTypeMap, [key], schema);
 					yield ';\n\n';
 				}
 			}
@@ -1010,7 +1034,7 @@ import { IRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/co
 				if (schema.type === 'string' && schema.enum) {
 					yield `${snakeCaseToSentenceCase(method.name)}${snakeCaseToSentenceCase(param.name)}`;
 				} else {
-					yield deriveType(contracts, TypescriptTypeMap, param.name, schema);
+					yield deriveType(contracts, TypescriptTypeMap, [method.name, param.name], schema);
 				}
 				if (i < method.params.length - 1) {
 					yield ', ';

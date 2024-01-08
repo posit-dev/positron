@@ -11,6 +11,7 @@ import { PositronVariablesInstance } from 'vs/workbench/services/positronVariabl
 import { IPositronVariablesService } from 'vs/workbench/services/positronVariables/common/interfaces/positronVariablesService';
 import { IPositronVariablesInstance, PositronVariablesInstanceState } from 'vs/workbench/services/positronVariables/common/interfaces/positronVariablesInstance';
 import { formatLanguageRuntime, ILanguageRuntime, ILanguageRuntimeService, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { INotificationService } from 'vs/platform/notification/common/notification';
 
 /**
  * PositronVariablesService class.
@@ -61,6 +62,7 @@ class PositronVariablesService extends Disposable implements IPositronVariablesS
 		@ILanguageRuntimeService private _languageRuntimeService: ILanguageRuntimeService,
 		@ILanguageService _languageService: ILanguageService,
 		@ILogService private _logService: ILogService,
+		@INotificationService private _notificationService: INotificationService
 	) {
 		// Call the disposable constrcutor.
 		super();
@@ -265,7 +267,8 @@ class PositronVariablesService extends Disposable implements IPositronVariablesS
 	 */
 	private startPositronVariablesInstance(runtime: ILanguageRuntime): IPositronVariablesInstance {
 		// Create the new Positron variables instance.
-		const positronVariablesInstance = new PositronVariablesInstance(runtime, this._logService);
+		const positronVariablesInstance = new PositronVariablesInstance(
+			runtime, this._logService, this._notificationService);
 
 		// Add the Positron variables instance.
 		this._positronVariablesInstancesByLanguageId.set(
