@@ -3,23 +3,23 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { DisposableStore } from 'vs/base/common/lifecycle';
-import { ExtHostConsoleShape, ExtHostPositronContext, MainPositronContext, MainThreadConsoleShape } from '../../common/positron/extHost.positron.protocol';
+import { ExtHostConsoleServiceShape, ExtHostPositronContext, MainPositronContext, MainThreadConsoleServiceShape } from '../../common/positron/extHost.positron.protocol';
 import { extHostNamedCustomer, IExtHostContext } from 'vs/workbench/services/extensions/common/extHostCustomers';
 import { IPositronConsoleService } from 'vs/workbench/services/positronConsole/browser/interfaces/positronConsoleService';
 
-@extHostNamedCustomer(MainPositronContext.MainThreadConsole)
-export class MainThreadConsole implements MainThreadConsoleShape {
+@extHostNamedCustomer(MainPositronContext.MainThreadConsoleService)
+export class MainThreadConsoleService implements MainThreadConsoleServiceShape {
 
 	private readonly _disposables = new DisposableStore();
 
-	private readonly _proxy: ExtHostConsoleShape;
+	private readonly _proxy: ExtHostConsoleServiceShape;
 
 	constructor(
 		extHostContext: IExtHostContext,
 		@IPositronConsoleService private readonly _positronConsoleService: IPositronConsoleService,
 	) {
 		// Create the proxy for the extension host.
-		this._proxy = extHostContext.getProxy(ExtHostPositronContext.ExtHostConsole);
+		this._proxy = extHostContext.getProxy(ExtHostPositronContext.ExtHostConsoleService);
 
 		// Register to be notified of changes to the console width; when they are
 		// received, forward them to the extension host so extensions can be

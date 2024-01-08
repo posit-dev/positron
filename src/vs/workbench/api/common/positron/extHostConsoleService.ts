@@ -5,16 +5,16 @@
 import { Emitter } from 'vs/base/common/event';
 import * as extHostProtocol from './extHost.positron.protocol';
 
-export class ExtHostConsole implements extHostProtocol.ExtHostConsoleShape {
+export class ExtHostConsoleService implements extHostProtocol.ExtHostConsoleServiceShape {
 
 	private readonly _onDidChangeConsoleWidth = new Emitter<number>();
 
-	private readonly _proxy: extHostProtocol.MainThreadConsoleShape;
+	private readonly _proxy: extHostProtocol.MainThreadConsoleServiceShape;
 
 	constructor(
 		mainContext: extHostProtocol.IMainPositronContext
 	) {
-		this._proxy = mainContext.getProxy(extHostProtocol.MainPositronContext.MainThreadConsole);
+		this._proxy = mainContext.getProxy(extHostProtocol.MainPositronContext.MainThreadConsoleService);
 	}
 
 	onDidChangeConsoleWidth = this._onDidChangeConsoleWidth.event;
