@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2022-2023 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
 import { Emitter, Event } from 'vs/base/common/event';
@@ -8,10 +8,14 @@ import { Disposable, DisposableStore } from 'vs/base/common/lifecycle';
 import { VariableItem } from 'vs/workbench/services/positronVariables/common/classes/variableItem';
 import { VariableGroup } from 'vs/workbench/services/positronVariables/common/classes/variableGroup';
 import { VariableOverflow } from 'vs/workbench/services/positronVariables/common/classes/variableOverflow';
-import { ILanguageRuntime, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntime, RuntimeClientType, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { sortVariableItemsByName, sortVariableItemsBySize } from 'vs/workbench/services/positronVariables/common/helpers/utils';
-import { VariablesClientInstance, VariablesClientList, VariablesClientUpdate, VariableValueKind, IVariablesClientMessageError } from 'vs/workbench/services/languageRuntime/common/languageRuntimeVariablesClient';
+import { PositronVariablesList, PositronVariablesUpdate, VariablesClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeVariablesClient';
 import { VariableEntry, IPositronVariablesInstance, PositronVariablesGrouping, PositronVariablesSorting, PositronVariablesInstanceState } from 'vs/workbench/services/positronVariables/common/interfaces/positronVariablesInstance';
+import { VariableKind } from 'vs/workbench/services/languageRuntime/common/positronVariablesComm';
+import { INotificationService } from 'vs/platform/notification/common/notification';
+import { PositronCommError } from 'vs/workbench/services/languageRuntime/common/positronBaseComm';
+import { localize } from 'vs/nls';
 
 /**
  * Constants.
@@ -86,7 +90,7 @@ export class PositronVariablesInstance extends Disposable implements IPositronVa
 	/**
 	 * Gets or sets the environment client that is used to communicate with the language runtime.
 	 */
-	private _environmentClient?: VariablesClientInstance;
+	private _variablesClient?: VariablesClientInstance;
 
 	/**
 	 * The onDidChangeState event emitter.
@@ -110,7 +114,8 @@ export class PositronVariablesInstance extends Disposable implements IPositronVa
 	 */
 	constructor(
 		runtime: ILanguageRuntime,
-		@ILogService private _logService: ILogService
+		@ILogService private _logService: ILogService,
+		@INotificationService private _notificationService: INotificationService
 	) {
 		// Call the base class's constructor.
 		super();
@@ -209,10 +214,17 @@ export class PositronVariablesInstance extends Disposable implements IPositronVa
 	 * Requests refresh.
 	 */
 	async requestRefresh() {
-		if (this._environmentClient) {
+		if (this._variablesClient) {
 			this._expandedPaths.clear();
-			const list = await this._environmentClient.requestRefresh();
-			await this.processList(list);
+			try {
+				const list = await this._variablesClient.requestRefresh();
+				await this.processList(list);
+			} catch (e) {
+				const err = e as PositronCommError;
+				const message = localize('positronVariables.requestRefreshError',
+					'Error refreshing variables: {0}\n\n{1} ({2})', err.message, err.name, err.code);
+				this._notificationService.error(message);
+			}
 		} else {
 			this._logService.warn('Ignoring call to requestRefresh; client is not available.');
 		}
@@ -223,9 +235,15 @@ export class PositronVariablesInstance extends Disposable implements IPositronVa
 	 * @param includeHiddenVariables A value which indicates whether to include hidden variables.
 	 */
 	async requestClear(includeHiddenVariables: boolean) {
-		if (this._environmentClient) {
-			const list = await this._environmentClient.requestClear(includeHiddenVariables);
-			this.processList(list);
+		if (this._variablesClient) {
+			try {
+				await this._variablesClient.requestClear(includeHiddenVariables);
+			} catch (e) {
+				const err = e as PositronCommError;
+				const message = localize('positronVariables.requestClearError',
+					'Error clearing variables: {0}\n\n{1} ({2})', err.message, err.name, err.code);
+				this._notificationService.error(message);
+			}
 		} else {
 			this._logService.warn('Ignoring call to requestClear; client is not available.');
 		}
@@ -236,9 +254,16 @@ export class PositronVariablesInstance extends Disposable implements IPositronVa
 	 * @param names The names of the variables to delete
 	 */
 	async requestDelete(names: string[]) {
-		if (this._environmentClient) {
-			const update = await this._environmentClient.requestDelete(names);
-			await this.processUpdate(update);
+		if (this._variablesClient) {
+			try {
+				const update = await this._variablesClient.requestDelete(names);
+				await this.processUpdate(update);
+			} catch (e) {
+				const err = e as PositronCommError;
+				const message = localize('positronVariables.requestDeleteError',
+					'Error deleting variables: {0}\n\n{1} ({2})', err.message, err.name, err.code);
+				this._notificationService.error(message);
+			}
 		}
 		else {
 			this._logService.warn('Ignoring call to requestDelete; client is not available.');
@@ -289,18 +314,25 @@ export class PositronVariablesInstance extends Disposable implements IPositronVa
 
 		// If the variable item is not expanded, expand it.
 		const pathString = JSON.stringify(path);
-		if (!this._expandedPaths.has(pathString)) {
-			// Locate the variable item. If it was found, expand it.
-			const variableItem = this.locateVariableItem(path);
-			if (variableItem) {
-				this._expandedPaths.add(pathString);
+		try {
+			if (!this._expandedPaths.has(pathString)) {
+				// Locate the variable item. If it was found, expand it.
+				const variableItem = this.locateVariableItem(path);
 				if (variableItem) {
-					await variableItem.loadChildEntries(isExpanded);
+					this._expandedPaths.add(pathString);
+					if (variableItem) {
+						await variableItem.loadChildEntries(isExpanded);
+					}
 				}
-			}
 
-			// The entries changed.
-			this.entriesChanged();
+				// The entries changed.
+				this.entriesChanged();
+			}
+		} catch (e) {
+			const err = e as PositronCommError;
+			const message = localize('positronVariables.expandVariableItemError',
+				'Error expanding variable item: {0}\n\n{1} ({2})', err.message, err.name, err.code);
+			this._notificationService.error(message);
 		}
 	}
 
@@ -377,7 +409,7 @@ export class PositronVariablesInstance extends Disposable implements IPositronVa
 			this._runtime.onDidChangeRuntimeState(async runtimeState => {
 				switch (runtimeState) {
 					case RuntimeState.Ready: {
-						if (!this._environmentClient) {
+						if (!this._variablesClient) {
 							await this.createRuntimeClient();
 						}
 						break;
@@ -396,7 +428,7 @@ export class PositronVariablesInstance extends Disposable implements IPositronVa
 	 * Detaches from a runtime.
 	 */
 	private detachRuntime() {
-		this._environmentClient = undefined;
+		this._variablesClient = undefined;
 		this._runtimeDisposableStore.dispose();
 		this._runtimeDisposableStore = new DisposableStore();
 	}
@@ -408,41 +440,37 @@ export class PositronVariablesInstance extends Disposable implements IPositronVa
 		// Try to create the runtime client.
 		try {
 			// Create the runtime client.
-			this._environmentClient = new VariablesClientInstance(this._runtime);
+			const client = await this._runtime.createClient<any, any>(
+				RuntimeClientType.Variables, {});
+			this._variablesClient = new VariablesClientInstance(client);
 
 			// Add the onDidReceiveList event handler.
 			this._runtimeDisposableStore.add(
-				this._environmentClient.onDidReceiveList(environmentClientMessageList => {
+				this._variablesClient.onDidReceiveList(environmentClientMessageList => {
 					this.processList(environmentClientMessageList);
 				})
 			);
 
 			// Add the onDidReceiveUpdate event handler.
 			this._runtimeDisposableStore.add(
-				this._environmentClient.onDidReceiveUpdate(async environmentClientMessageUpdate =>
+				this._variablesClient.onDidReceiveUpdate(async environmentClientMessageUpdate =>
 					await this.processUpdate(environmentClientMessageUpdate)
 				)
 			);
 
-			// Add the onDidReceiveError event handler.
-			this._runtimeDisposableStore.add(
-				this._environmentClient.onDidReceiveError(environmentClientMessageError => {
-					this.processError(environmentClientMessageError);
-				})
-			);
-
 			// Add the runtime client to the runtime disposable store.
-			this._runtimeDisposableStore.add(this._environmentClient);
+			this._runtimeDisposableStore.add(this._variablesClient);
 		} catch (error) {
 			this._logService.error(error);
 		}
 	}
 
 	/**
-	 * Processes an IEnvironmentClientMessageList.
-	 * @param environmentClientMessageList The IEnvironmentClientMessageList.
+	 * Processes an updated list of variables from the runtime.
+	 *
+	 * @param variablesList The updated list of variables.
 	 */
-	private async processList(environmentClientMessageList: VariablesClientList) {
+	private async processList(variablesList: PositronVariablesList) {
 		/**
 		 * Returns a value which indicates whether the path is expanded.
 		 * @param path The path.
@@ -453,7 +481,7 @@ export class PositronVariablesInstance extends Disposable implements IPositronVa
 		// Build the new variable items.
 		const variableItems = new Map<string, VariableItem>();
 		const promises: Promise<void>[] = [];
-		for (const environmentVariable of environmentClientMessageList.variables) {
+		for (const environmentVariable of variablesList.variables) {
 			// Create the variable item.
 			const variableItem = new VariableItem(environmentVariable);
 
@@ -480,7 +508,7 @@ export class PositronVariablesInstance extends Disposable implements IPositronVa
 	 * Processes an IEnvironmentClientMessageError.
 	 * @param environmentClientMessageError The IEnvironmentClientMessageError.
 	 */
-	private async processUpdate(environmentClientUpdate: VariablesClientUpdate) {
+	private async processUpdate(environmentClientUpdate: PositronVariablesUpdate) {
 		/**
 		 * Returns a value which indicates whether the path is expanded.
 		 * @param path The path.
@@ -517,14 +545,6 @@ export class PositronVariablesInstance extends Disposable implements IPositronVa
 
 		// Update entries.
 		this.updateEntries();
-	}
-
-	/**
-	 * Processes an IEnvironmentClientMessageError.
-	 * @param environmentClientMessageError The IEnvironmentClientMessageError.
-	 */
-	private processError(environmentClientMessageError: IVariablesClientMessageError) {
-		this._logService.error(`There was an error with the Environment client: ${environmentClientMessageError.message}`);
 	}
 
 	/**
@@ -592,9 +612,9 @@ export class PositronVariablesInstance extends Disposable implements IPositronVa
 		const valueItems: VariableItem[] = [];
 		const functionItems: VariableItem[] = [];
 		items.forEach(item => {
-			if (item.kind === VariableValueKind.Table) {
+			if (item.kind === VariableKind.Table) {
 				dataItems.push(item);
-			} else if (item.kind === VariableValueKind.Function) {
+			} else if (item.kind === VariableKind.Function) {
 				functionItems.push(item);
 			} else {
 				valueItems.push(item);

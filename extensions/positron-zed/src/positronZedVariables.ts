@@ -1,10 +1,11 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
 import { randomUUID } from 'crypto';
 import { PositronZedLanguageRuntime } from './positronZedLanguageRuntime';
+import { JsonRpcErrorCode } from './jsonrpc';
 
 /**
  * ZedVar is a simple Zed variable.
@@ -106,7 +107,7 @@ export class ZedVariables {
 			// this immediately, but waiting a tick simulates the behavior of a "real" language more
 			// accuratley.
 
-			this.emitFullList();
+			this.emitListRefresh();
 		});
 	}
 
@@ -116,42 +117,42 @@ export class ZedVariables {
 	 * @param message The message to handle
 	 */
 	public handleMessage(message_id: string, message: any) {
-		switch (message.msg_type) {
+		switch (message.method) {
 
 			// A request to refresh the variables by sending a full list to the front end
-			case 'refresh':
-				this.emitFullList();
+			case 'list':
+				this.emitListReply();
 				break;
 
-			// A request to clear
+			// A request to clear all variables
 			case 'clear':
 				this.clearAllVars();
 				break;
 
 			// A request to delete a set of variables
 			case 'delete':
-				this.deleteVars(message.names);
+				this.deleteVars(message.params.names);
 				break;
 
 			// A request to inspect a variable
 			case 'inspect':
-				this.inspectVar(message.path);
+				this.inspectVar(message.params.path);
 				break;
 
 			// A request to format a variable as a string suitable for placing on the clipboard
 			case 'clipboard_format':
-				this.formatVariable(message.format, message.path);
+				this.formatVariable(message.params.format, message.params.path);
 				break;
 
 			// A request to open a variable in a data viewer
 			case 'view':
 				// The object "name" to be viewed is just the path to the variable
 				this.runtime.simulateDataView(message_id,
-					`view ${message.path.join('.')}`,
-					`Zed: ${message.path.join('.')}`);
+					`view ${message.params.path.join('.')}`,
+					`Zed: ${message.params.path.join('.')}`);
 
 				// Let the front end know we're done
-				this._onDidEmitData.fire({ msg_type: 'success' });
+				this.emitResult(null);
 				break;
 		}
 	}
@@ -294,8 +295,11 @@ export class ZedVariables {
 		// Clear the variables
 		this._vars.clear();
 
+		// Reply to the RPC
+		this.emitResult(null);
+
 		// Refresh the client view
-		this.emitFullList();
+		this.emitListRefresh();
 	}
 
 	/**
@@ -307,10 +311,8 @@ export class ZedVariables {
 
 		// Ensure we got some variable names
 		if (names.length === 0) {
-			this._onDidEmitData.fire({
-				msg_type: 'error',
-				message: `No variable names selected for deletion`
-			});
+			this.emitError(JsonRpcErrorCode.INVALID_PARAMS,
+				`No variable names selected for deletion`);
 			return;
 		}
 
@@ -328,10 +330,8 @@ export class ZedVariables {
 
 		// If we failed to find any of the variables, emit an error to the client
 		if (unknown.length > 0) {
-			this._onDidEmitData.fire({
-				msg_type: 'error',
-				message: `Unknown variable${unknown.length > 1 ? 's' : ''}: ${unknown.join(', ')}`
-			});
+			this.emitError(JsonRpcErrorCode.INVALID_PARAMS,
+				`Unknown variable${unknown.length > 1 ? 's' : ''}: ${unknown.join(', ')}`);
 		}
 
 		// Refresh the client view. We don't need to do this if we didn't remove
@@ -355,13 +355,13 @@ export class ZedVariables {
 		this._maxVarDisplay = maxVarDisplay;
 
 		// Refresh the client view so the new maximum is applied
-		this.emitFullList();
+		this.emitListRefresh();
 	}
 
 	/**
-	 * Emits a full list of variables to the front end
+	 * Emits a full list of variables to the front end, as a refresh event
 	 */
-	private emitFullList() {
+	private emitListRefresh() {
 		// Create a list of all the variables
 		const vars = Array.from(this._vars.values());
 
@@ -373,10 +373,26 @@ export class ZedVariables {
 		}
 
 		// Emit the data to the front end
-		this._onDidEmitData.fire({
-			msg_type: 'list',
+		this.emitEvent('refresh', {
 			variables: vars,
-			length
+			length,
+			version: 0,
+		});
+	}
+
+	/**
+	 * Emits a list of variables to the front end, as a message reply
+	 */
+	private emitListReply() {
+		const vars = Array.from(this._vars.values());
+		const length = vars.length;
+		if (vars.length > this._maxVarDisplay) {
+			vars.length = this._maxVarDisplay;
+		}
+		this.emitResult({
+			variables: vars,
+			length,
+			version: 0,
 		});
 	}
 
@@ -390,17 +406,13 @@ export class ZedVariables {
 		const v = this.findVar(path);
 		if (v) {
 			// Emit the data to the front end
-			this._onDidEmitData.fire({
-				msg_type: 'formatted_variable',
-				format,
+			this.emitResult({
 				content: `"${v.display_value}" (${format})`
 			});
 		} else {
 			// We didn't find the variable, so emit an error
-			this._onDidEmitData.fire({
-				msg_type: 'error',
-				error: `Can't format for clipboard; variable not found: ${path.join('.')}`
-			});
+			this.emitError(JsonRpcErrorCode.INVALID_PARAMS,
+				`Can't format for clipboard; variable not found: ${path.join('.')}`);
 		}
 	}
 
@@ -411,8 +423,7 @@ export class ZedVariables {
 	 * @param removed The variables that were removed
 	 */
 	private emitUpdate(assigned?: Array<ZedVariable>, removed?: Array<string>) {
-		this._onDidEmitData.fire({
-			msg_type: 'update',
+		this.emitEvent('update', {
 			assigned: assigned || [],
 			removed: removed || []
 		});
@@ -452,17 +463,14 @@ export class ZedVariables {
 				v.children.slice(0, this._maxVarDisplay) : v.children;
 
 			// Emit the data to the front end
-			this._onDidEmitData.fire({
-				msg_type: 'details',
+			this.emitResult({
 				children,
 				length: v.children.length
 			});
 		} else {
 			// We didn't find the variable, so emit an error
-			this._onDidEmitData.fire({
-				msg_type: 'error',
-				error: `Can't inspect; variable not found: ${path.join('.')}`
-			});
+			this.emitError(JsonRpcErrorCode.INVALID_PARAMS,
+				`Can't inspect; variable not found: ${path.join('.')}`);
 		}
 	}
 
@@ -548,5 +556,47 @@ export class ZedVariables {
 			added.push(newZedVar);
 		}
 		return added;
+	}
+
+	/**
+	 * Emits a result to the front end
+	 *
+	 * @param result The result to emit
+	 */
+	private emitResult(result: any) {
+		this._onDidEmitData.fire({
+			'jsonrpc': '2.0',
+			'result': result
+		});
+	}
+
+	/**
+	 * Emits an error to the front end
+	 *
+	 * @param code The error code
+	 * @param message The error message
+	 */
+	private emitError(code: JsonRpcErrorCode, message: string) {
+		this._onDidEmitData.fire({
+			'jsonrpc': '2.0',
+			'error': {
+				'code': code,
+				'message': message
+			}
+		});
+	}
+
+	/**
+	 * Emits an event to the front end
+	 *
+	 * @param name The name of the event
+	 * @param payload The event payload
+	 */
+	private emitEvent(name: string, payload: any) {
+		this._onDidEmitData.fire({
+			'jsonrpc': '2.0',
+			'method': name,
+			'params': payload
+		});
 	}
 }

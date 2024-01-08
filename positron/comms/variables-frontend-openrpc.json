@@ -29,6 +29,44 @@
 							"type": "string"
 						}
 					}
+				},
+				{
+					"name": "version",
+					"description": "The version of the view (incremented with each update), or 0 if the backend doesn't track versions.",
+					"schema": {
+						"type": "integer"
+					}
+				}
+			]
+		},
+		{
+			"name": "refresh",
+			"summary": "Refresh variables",
+			"description": "Replace all variables in the current session with the variables from the backend.",
+			"params": [
+				{
+					"name": "variables",
+					"description": "An array listing all the variables in the current session.",
+					"schema": {
+						"type": "array",
+						"items": {
+							"$ref": "#/components/schemas/variable"
+						}
+					}
+				},
+				{
+					"name": "length",
+					"description": "The number of variables in the current session.",
+					"schema": {
+						"type": "integer"
+					}
+				},
+				{
+					"name": "version",
+					"description": "The version of the view (incremented with each update), or 0 if the backend doesn't track versions.",
+					"schema": {
+						"type": "integer"
+					}
 				}
 			]
 		}

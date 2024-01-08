@@ -179,11 +179,16 @@ export class PositronBaseComm extends Disposable {
 		}
 
 		// Form the request object
-		const request = {
+		const request: any = {
 			jsonrpc: '2.0',
 			method: rpcName,
-			params: rpcArgs
 		};
+
+		// Amend params if we have any (methods which take no parameters
+		// should not have a params field)
+		if (paramNames.length > 0) {
+			request.params = rpcArgs;
+		}
 
 		// Perform the RPC
 		let response = {} as any;
