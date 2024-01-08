@@ -195,6 +195,11 @@ export interface IPositronConsoleInstance {
 	readonly onDidChangeWidthPx: Event<number>;
 
 	/**
+	 * Get a unique id for this console instance.
+	 */
+	getId(): string;
+
+	/**
 	 * Focuses the input for the console.
 	 */
 	focusInput(): void;
