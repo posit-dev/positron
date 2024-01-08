@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2023 Posit Software, PBC. All rights reserved.
+# Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
 # VariablesService
 
 from __future__ import annotations
@@ -25,9 +25,9 @@ import pytest
 import torch
 from fastcore.foundation import L
 from IPython.terminal.interactiveshell import TerminalInteractiveShell
-from positron import PRINT_WIDTH, TRUNCATE_AT, Variable, VariablesService, VariableValueKind
+from positron import PRINT_WIDTH, TRUNCATE_AT, Variable, VariableKind, VariablesService
 from positron.inspectors import decode_access_key, encode_access_key, get_inspector
-from positron.positron_ipkernel import PositronIPyKernel, POSITRON_VARIABLES_COMM
+from positron.positron_ipkernel import POSITRON_VARIABLES_COMM, PositronIPyKernel
 from positron.utils import get_qualname
 from positron.variables import _summarize_variable
 
@@ -69,7 +69,9 @@ def variables_comm(variables_service: VariablesService) -> DummyComm:
     """
     Convenience fixture for accessing the variables comm.
     """
-    return cast(DummyComm, variables_service._comm)
+    comm = variables_service._comm
+    assert comm is not None
+    return cast(DummyComm, comm.comm)
 
 
 #
@@ -140,9 +142,15 @@ BOOL_CASES = [True, False]
 def test_summarize_boolean(case: bool) -> None:
     display_name = "xBool"
     expected = Variable(
+        access_key=encode_access_key(display_name),
+        size=0,
+        length=0,
+        has_children=False,
+        has_viewer=False,
+        is_truncated=False,
         display_name=display_name,
         display_value=str(case),
-        kind=VariableValueKind.boolean,
+        kind=VariableKind.Boolean,
         display_type="bool",
         type_info="bool",
     )
@@ -176,9 +184,14 @@ def test_summarize_string(case: str) -> None:
     display_name = "xStr"
     length = len(case)
     expected = Variable(
+        access_key=encode_access_key(display_name),
+        size=length,
+        has_children=False,
+        has_viewer=False,
+        is_truncated=False,
         display_name=display_name,
         display_value=repr(case),
-        kind=VariableValueKind.string,
+        kind=VariableKind.String,
         display_type="str",
         type_info="str",
         length=length,
@@ -195,9 +208,13 @@ def test_summarize_string_truncated() -> None:
     length = len(long_string)
     expected_value = f"'{long_string[:TRUNCATE_AT]}'"
     expected = Variable(
+        access_key=encode_access_key(display_name),
+        size=length,
+        has_children=False,
+        has_viewer=False,
         display_name=display_name,
         display_value=expected_value,
-        kind=VariableValueKind.string,
+        kind=VariableKind.String,
         display_type="str",
         type_info="str",
         length=length,
@@ -222,9 +239,15 @@ INT_CASES = [-sys.maxsize * 100, -sys.maxsize, -1, 0, 1, sys.maxsize, sys.maxsiz
 def test_summarize_integer(case: int) -> None:
     display_name = "xInt"
     expected = Variable(
+        access_key=encode_access_key(display_name),
+        size=0,
+        length=0,
+        has_children=False,
+        has_viewer=False,
+        is_truncated=False,
         display_name=display_name,
         display_value=str(case),
-        kind=VariableValueKind.number,
+        kind=VariableKind.Number,
         display_type="int",
         type_info="int",
     )
@@ -250,9 +273,15 @@ def test_summarize_numpy_scalars(case: np.integer) -> None:
     display_name = "xNumpyInt"
     dtype = str(case.dtype)
     expected = Variable(
+        access_key=encode_access_key(display_name),
+        size=1,
+        length=0,
+        has_children=False,
+        has_viewer=False,
+        is_truncated=False,
         display_name=display_name,
         display_value=str(case),
-        kind=VariableValueKind.number,
+        kind=VariableKind.Number,
         display_type=str(dtype),
         type_info=f"numpy.{dtype}",
     )
@@ -281,9 +310,15 @@ FLOAT_CASES = [
 def test_summarize_float(case: float) -> None:
     display_name = "xFloat"
     expected = Variable(
+        access_key=encode_access_key(display_name),
+        size=0,
+        length=0,
+        has_children=False,
+        has_viewer=False,
+        is_truncated=False,
         display_name=display_name,
         display_value=str(case),
-        kind=VariableValueKind.number,
+        kind=VariableKind.Number,
         display_type="float",
         type_info="float",
     )
@@ -306,9 +341,15 @@ COMPLEX_CASES = [
 def test_summarize_complex(case: complex) -> None:
     display_name = "xComplex"
     expected = Variable(
+        access_key=encode_access_key(display_name),
+        size=1,
+        length=0,
+        has_children=False,
+        has_viewer=False,
+        is_truncated=False,
         display_name=display_name,
         display_value=str(case),
-        kind=VariableValueKind.number,
+        kind=VariableKind.Number,
         display_type="complex",
         type_info="complex",
     )
@@ -330,9 +371,14 @@ def test_summarize_bytes(case: bytes) -> None:
     display_name = "xBytes"
     length = len(case)
     expected = Variable(
+        access_key=encode_access_key(display_name),
+        size=length,
+        has_children=False,
+        has_viewer=False,
+        is_truncated=False,
         display_name=display_name,
         display_value=str(case),
-        kind=VariableValueKind.bytes,
+        kind=VariableKind.Bytes,
         display_type=f"bytes [{length}]",
         type_info="bytes",
         length=length,
@@ -351,9 +397,14 @@ def test_summarize_bytearray(case: bytearray) -> None:
     display_name = "xBytearray"
     length = len(case)
     expected = Variable(
+        access_key=encode_access_key(display_name),
+        size=length,
+        has_children=False,
+        has_viewer=False,
+        is_truncated=False,
         display_name=display_name,
         display_value=str(case),
-        kind=VariableValueKind.bytes,
+        kind=VariableKind.Bytes,
         display_type=f"bytearray [{length}]",
         type_info="bytearray",
         length=length,
@@ -369,9 +420,13 @@ def test_summarize_bytearray_truncated() -> None:
     case = bytearray(TRUNCATE_AT * 2)
     length = len(case)
     expected = Variable(
+        access_key=encode_access_key(display_name),
+        size=length,
+        has_children=False,
+        has_viewer=False,
         display_name=display_name,
         display_value=str(case)[:TRUNCATE_AT],
-        kind=VariableValueKind.bytes,
+        kind=VariableKind.Bytes,
         display_type=f"bytearray [{length}]",
         type_info="bytearray",
         length=length,
@@ -389,9 +444,14 @@ def test_summarize_memoryview() -> None:
     case = memoryview(byte_array)
     length = len(case)
     expected = Variable(
+        access_key=encode_access_key(display_name),
+        size=length,
+        has_children=False,
+        has_viewer=False,
+        is_truncated=False,
         display_name=display_name,
         display_value=str(case),
-        kind=VariableValueKind.bytes,
+        kind=VariableKind.Bytes,
         display_type=f"memoryview [{length}]",
         type_info="memoryview",
         length=length,
@@ -409,9 +469,15 @@ TIMESTAMP_CASES = [pd.Timestamp("2021-01-01 01:23:45"), datetime.datetime(2021, 
 def test_summarize_timestamp(case: datetime.datetime) -> None:
     display_name = "xTimestamp"
     expected = Variable(
+        access_key=encode_access_key(display_name),
+        size=0,
+        length=0,
+        has_children=False,
+        has_viewer=False,
+        is_truncated=False,
         display_name=display_name,
         display_value=repr(case),
-        kind=VariableValueKind.other,
+        kind=VariableKind.Other,
         # TODO: Split these tests so we don't have to use type() and get_qualname()?
         display_type=type(case).__name__,
         type_info=get_qualname(case),
@@ -433,9 +499,15 @@ NONE_CASES = [None]
 def test_summarize_none(case: None) -> None:
     display_name = "xNone"
     expected = Variable(
+        access_key=encode_access_key(display_name),
+        size=0,
+        length=0,
+        has_children=False,
+        has_viewer=False,
+        is_truncated=False,
         display_name=display_name,
         display_value="None",
-        kind=VariableValueKind.empty,
+        kind=VariableKind.Empty,
         display_type="NoneType",
         type_info="NoneType",
     )
@@ -467,9 +539,14 @@ def test_summarize_set(case: set) -> None:
     length = len(case)
     expected_value = pprint.pformat(case, width=PRINT_WIDTH, compact=True)
     expected = Variable(
+        access_key=encode_access_key(display_name),
+        size=length,
+        has_children=False,
+        is_truncated=False,
+        has_viewer=False,
         display_name=display_name,
         display_value=expected_value,
-        kind=VariableValueKind.collection,
+        kind=VariableKind.Collection,
         display_type=f"set {{{length}}}",
         type_info="set",
         length=length,
@@ -486,9 +563,13 @@ def test_summarize_set_truncated() -> None:
     length = len(case)
     expected_value = pprint.pformat(case, width=PRINT_WIDTH, compact=True)
     expected = Variable(
+        access_key=encode_access_key(display_name),
+        size=length,
+        has_children=False,
+        has_viewer=False,
         display_name=display_name,
         display_value=expected_value[:TRUNCATE_AT],
-        kind=VariableValueKind.collection,
+        kind=VariableKind.Collection,
         display_type=f"set {{{length}}}",
         type_info="set",
         length=length,
@@ -519,9 +600,13 @@ def test_summarize_list(case: list) -> None:
     length = len(case)
     expected_value = pprint.pformat(case, width=PRINT_WIDTH, compact=True)
     expected = Variable(
+        access_key=encode_access_key(display_name),
+        size=length,
+        has_viewer=False,
+        is_truncated=False,
         display_name=display_name,
         display_value=expected_value,
-        kind=VariableValueKind.collection,
+        kind=VariableKind.Collection,
         display_type=f"list [{length}]",
         type_info="list",
         length=length,
@@ -539,9 +624,12 @@ def test_summarize_list_truncated() -> None:
     length = len(case)
     expected_value = pprint.pformat(case, width=PRINT_WIDTH, compact=True)
     expected = Variable(
+        access_key=encode_access_key(display_name),
+        size=length,
+        has_viewer=False,
         display_name=display_name,
         display_value=expected_value[:TRUNCATE_AT],
-        kind=VariableValueKind.collection,
+        kind=VariableKind.Collection,
         display_type=f"list [{length}]",
         type_info="list",
         length=length,
@@ -561,9 +649,13 @@ def test_summarize_list_cycle() -> None:
     length = len(case)
     expected_value = pprint.pformat(case, width=PRINT_WIDTH, compact=True)
     expected = Variable(
+        access_key=encode_access_key(display_name),
+        size=length,
+        has_viewer=False,
+        is_truncated=False,
         display_name=display_name,
         display_value=expected_value[:TRUNCATE_AT],
-        kind=VariableValueKind.collection,
+        kind=VariableKind.Collection,
         display_type=f"list [{length}]",
         type_info="list",
         length=length,
@@ -595,9 +687,14 @@ def test_summarize_range(case: range) -> None:
     length = len(case)
     expected_value = pprint.pformat(case, width=PRINT_WIDTH, compact=True)
     expected = Variable(
+        access_key=encode_access_key(display_name),
+        size=0,
+        has_children=False,
+        is_truncated=False,
+        has_viewer=False,
         display_name=display_name,
         display_value=expected_value,
-        kind=VariableValueKind.collection,
+        kind=VariableKind.Collection,
         display_type=f"range [{length}]",
         type_info="range",
         length=length,
@@ -627,9 +724,13 @@ def test_summarize_fastcore_list(case: L) -> None:
     length = len(case)
     expected_value = pprint.pformat(case, width=PRINT_WIDTH, compact=True)
     expected = Variable(
+        access_key=encode_access_key(display_name),
+        size=0,
+        has_viewer=False,
+        is_truncated=False,
         display_name=display_name,
         display_value=expected_value,
-        kind=VariableValueKind.collection,
+        kind=VariableKind.Collection,
         display_type=f"L [{length}]",
         type_info="fastcore.foundation.L",
         length=length,
@@ -671,9 +772,13 @@ def test_summarize_map(case: dict) -> None:
     length = len(case)
     expected_value = pprint.pformat(case, width=PRINT_WIDTH, compact=True)
     expected = Variable(
+        access_key=encode_access_key(display_name),
+        size=0,
+        has_viewer=False,
+        is_truncated=False,
         display_name=display_name,
         display_value=expected_value,
-        kind=VariableValueKind.map,
+        kind=VariableKind.Map,
         display_type=f"dict [{length}]",
         type_info="dict",
         length=length,
@@ -709,9 +814,15 @@ def test_summarize_function(case: Callable) -> None:
     if isinstance(case, types.MethodType):
         expected_type = "method"
     expected = Variable(
+        access_key=encode_access_key(display_name),
+        size=0,
+        length=0,
+        has_children=False,
+        has_viewer=False,
+        is_truncated=False,
         display_name=display_name,
         display_value=expected_value,
-        kind=VariableValueKind.function,
+        kind=VariableKind.Function,
         display_type=expected_type,
         type_info=expected_type,
     )
@@ -738,12 +849,15 @@ def test_summarize_numpy_array(case: np.ndarray) -> None:
     shape = case.shape
     display_shape = f"({shape[0]})" if len(shape) == 1 else str(tuple(shape))
     expected = Variable(
+        access_key=encode_access_key(display_name),
+        size=0,
         display_name=display_name,
         display_value=np.array2string(case, separator=","),
-        kind=VariableValueKind.collection,
+        kind=VariableKind.Collection,
         display_type=f"numpy.int64 {display_shape}",
         type_info="numpy.ndarray",
         has_children=True,
+        has_viewer=False,
         is_truncated=True,
         length=shape[0],
     )
@@ -762,9 +876,12 @@ def test_summarize_numpy_array(case: np.ndarray) -> None:
 def test_summarize_numpy_array_0d(case: np.ndarray) -> None:
     display_name = "xNumpyArray0d"
     expected = Variable(
+        access_key=encode_access_key(display_name),
+        size=0,
+        has_viewer=False,
         display_name=display_name,
         display_value=np.array2string(case, separator=","),
-        kind=VariableValueKind.number,
+        kind=VariableKind.Number,
         display_type=f"numpy.int64",
         type_info="numpy.ndarray",
         has_children=False,
@@ -788,9 +905,11 @@ def test_summarize_pandas_dataframe() -> None:
     display_name = "xPandasDataFrame"
     rows, cols = case.shape
     expected = Variable(
+        access_key=encode_access_key(display_name),
+        size=0,
         display_name=display_name,
         display_value=f"[{rows} rows x {cols} columns] pandas.core.frame.DataFrame",
-        kind=VariableValueKind.table,
+        kind=VariableKind.Table,
         display_type=f"DataFrame [{rows}x{cols}]",
         type_info="pandas.core.frame.DataFrame",
         has_children=True,
@@ -818,12 +937,15 @@ def test_summarize_pandas_index(case: pd.Index) -> None:
     (rows,) = case.shape
     not_range_index = not isinstance(case, pd.RangeIndex)
     expected = Variable(
+        access_key=encode_access_key(display_name),
+        size=0,
         display_name=display_name,
         display_value=str(case.to_list() if not_range_index else case),
-        kind=VariableValueKind.map,
+        kind=VariableKind.Map,
         display_type=f"{case.dtype} [{rows}]",
         type_info=get_qualname(case),
         has_children=not_range_index,
+        has_viewer=False,
         is_truncated=not_range_index,
         length=rows,
     )
@@ -839,12 +961,15 @@ def test_summarize_pandas_series() -> None:
     display_name = "xPandasSeries"
     (rows,) = case.shape
     expected = Variable(
+        access_key=encode_access_key(display_name),
+        size=0,
         display_name=display_name,
         display_value="[0, 1]",
-        kind=VariableValueKind.map,
+        kind=VariableKind.Map,
         display_type=f"int64 [{rows}]",
         type_info="pandas.core.series.Series",
         has_children=True,
+        has_viewer=False,
         is_truncated=True,
         length=rows,
     )
@@ -860,9 +985,11 @@ def test_summarize_polars_dataframe() -> None:
     display_name = "xPolarsDataFrame"
     rows, cols = case.shape
     expected = Variable(
+        access_key=encode_access_key(display_name),
+        size=0,
         display_name=display_name,
         display_value=f"[{rows} rows x {cols} columns] polars.dataframe.frame.DataFrame",
-        kind=VariableValueKind.table,
+        kind=VariableKind.Table,
         display_type=f"DataFrame [{rows}x{cols}]",
         type_info="polars.dataframe.frame.DataFrame",
         has_children=True,
@@ -882,12 +1009,15 @@ def test_summarize_polars_series() -> None:
     display_name = "xPolarsSeries"
     (rows,) = case.shape
     expected = Variable(
+        access_key=encode_access_key(display_name),
+        size=0,
         display_name=display_name,
         display_value="[0, 1]",
-        kind=VariableValueKind.map,
+        kind=VariableKind.Map,
         display_type=f"Int64 [{rows}]",
         type_info="polars.series.series.Series",
         has_children=True,
+        has_viewer=False,
         is_truncated=True,
         length=rows,
     )
@@ -953,9 +1083,9 @@ def test_comm_open(kernel: PositronIPyKernel) -> None:
         },
         {
             "data": {
-                "msg_type": "list",
-                "variables": [],
-                "length": 0,
+                "jsonrpc": "2.0",
+                "method": "refresh",
+                "params": {"variables": [], "length": 0, "version": 0},
             },
             "metadata": None,
             "buffers": None,
@@ -1015,11 +1145,15 @@ def test_change_detection(
         assert variables_comm.messages == [
             {
                 "data": {
-                    "msg_type": "update",
-                    "assigned": [
-                        asdict(not_none(_summarize_variable("x", shell.user_ns["x"]))),
-                    ],
-                    "removed": set(),
+                    "jsonrpc": "2.0",
+                    "method": "update",
+                    "params": {
+                        "assigned": [
+                            asdict(not_none(_summarize_variable("x", shell.user_ns["x"]))),
+                        ],
+                        "removed": [],
+                        "version": 0,
+                    },
                 },
                 "metadata": None,
                 "buffers": None,
@@ -1034,18 +1168,21 @@ def test_change_detection(
 def test_handle_refresh(shell: TerminalInteractiveShell, variables_comm: DummyComm) -> None:
     shell.user_ns.update({"x": 3})
 
-    msg = {"content": {"data": {"msg_type": "refresh"}}}
+    msg = {"content": {"data": {"jsonrpc": "2.0", "method": "list"}}}
     variables_comm.handle_msg(msg)
 
     # A list message is sent
     assert variables_comm.messages == [
         {
             "data": {
-                "msg_type": "list",
-                "variables": [
-                    asdict(not_none(_summarize_variable("x", shell.user_ns["x"]))),
-                ],
-                "length": 1,
+                "jsonrpc": "2.0",
+                "result": {
+                    "variables": [
+                        asdict(not_none(_summarize_variable("x", shell.user_ns["x"]))),
+                    ],
+                    "length": 1,
+                    "version": 0,
+                },
             },
             "metadata": None,
             "buffers": None,
@@ -1060,37 +1197,65 @@ async def test_handle_clear(
 ) -> None:
     shell.user_ns.update({"x": 3, "y": 5})
 
-    msg = {"msg_id": "0", "content": {"data": {"msg_type": "clear"}}}
+    msg = {
+        "msg_id": "0",
+        "content": {
+            "data": {
+                "jsonrpc": "2.0",
+                "method": "clear",
+                "params": {
+                    "include_hidden_objects": False,
+                },
+            }
+        },
+    }
     variables_comm.handle_msg(msg)
 
     # Wait until all resulting kernel tasks are processed
     await asyncio.gather(*kernel._pending_tasks)
 
-    # All user variables are removed
-    assert "x" not in shell.user_ns
-    assert "y" not in shell.user_ns
-
-    # An update message (with the expected variables removed), and list message are sent
+    # We should get a result
     assert variables_comm.messages == [
         {
-            "data": {"msg_type": "update", "assigned": [], "removed": {"x", "y"}},
+            "data": {
+                "jsonrpc": "2.0",
+                "result": {},
+            },
             "metadata": None,
             "buffers": None,
             "msg_type": "comm_msg",
         },
         {
-            "data": {"msg_type": "list", "variables": [], "length": 0},
+            "data": {
+                "jsonrpc": "2.0",
+                "method": "update",
+                "params": {"assigned": [], "removed": ["x", "y"], "version": 0},
+            },
+            "metadata": None,
+            "buffers": None,
+            "msg_type": "comm_msg",
+        },
+        {
+            "data": {
+                "jsonrpc": "2.0",
+                "method": "refresh",
+                "params": {"length": 0, "variables": [], "version": 0},
+            },
             "metadata": None,
             "buffers": None,
             "msg_type": "comm_msg",
         },
     ]
 
+    # All user variables are removed
+    assert "x" not in shell.user_ns
+    assert "y" not in shell.user_ns
+
 
 def test_handle_delete(shell: TerminalInteractiveShell, variables_comm: DummyComm) -> None:
     shell.user_ns.update({"x": 3, "y": 5})
 
-    msg = {"content": {"data": {"msg_type": "delete", "names": ["x"]}}}
+    msg = {"content": {"data": {"jsonrpc": "2.0", "method": "delete", "params": {"names": ["x"]}}}}
     variables_comm.handle_msg(msg)
 
     # Only the `x` variable is removed
@@ -1100,20 +1265,37 @@ def test_handle_delete(shell: TerminalInteractiveShell, variables_comm: DummyCom
     # An update message (with the expected variable removed) is sent
     assert variables_comm.messages == [
         {
-            "data": {"msg_type": "update", "assigned": [], "removed": {"x"}},
+            "data": {"jsonrpc": "2.0", "result": ["x"]},
+            "metadata": None,
+            "buffers": None,
+            "msg_type": "comm_msg",
+        },
+        {
+            "data": {
+                "jsonrpc": "2.0",
+                "method": "update",
+                "params": {"assigned": [], "removed": ["x"], "version": 0},
+            },
+            "metadata": None,
+            "buffers": None,
+            "msg_type": "comm_msg",
+        },
+    ]
+
+
+def test_handle_delete_error(variables_comm: DummyComm) -> None:
+    msg = {"content": {"data": {"jsonrpc": "2.0", "method": "delete", "params": {"names": ["x"]}}}}
+    variables_comm.handle_msg(msg)
+
+    # No variables are removed, since there are no variables named `x`
+    assert variables_comm.messages == [
+        {
+            "data": {"jsonrpc": "2.0", "result": []},
             "metadata": None,
             "buffers": None,
             "msg_type": "comm_msg",
         }
     ]
-
-
-def test_handle_delete_error(variables_comm: DummyComm) -> None:
-    msg = {"content": {"data": {"msg_type": "delete", "names": ["x"]}}}
-    variables_comm.handle_msg(msg)
-
-    # No messages are sent
-    assert variables_comm.messages == []
 
 
 @pytest.mark.parametrize(
@@ -1141,7 +1323,9 @@ def test_handle_inspect_2d(
     keys = value.keys() if isinstance(value, dict) else range(len(value))
     for key in keys:
         path = [encode_access_key("x"), encode_access_key(key)]
-        msg = {"content": {"data": {"msg_type": "inspect", "path": path}}}
+        msg = {
+            "content": {"data": {"jsonrpc": "2.0", "method": "inspect", "params": {"path": path}}}
+        }
         variables_comm.handle_msg(msg)
 
         inspector = get_inspector(x[key])
@@ -1149,10 +1333,11 @@ def test_handle_inspect_2d(
         assert variables_comm.messages == [
             {
                 "data": {
-                    "msg_type": "details",
-                    "path": path,
-                    "children": [asdict(child) for child in children],
-                    "length": len(children),
+                    "jsonrpc": "2.0",
+                    "result": {
+                        "children": [asdict(child) for child in children],
+                        "length": len(children),
+                    },
                 },
                 "metadata": None,
                 "buffers": None,
@@ -1165,15 +1350,18 @@ def test_handle_inspect_2d(
 
 def test_handle_inspect_error(variables_comm: DummyComm) -> None:
     path = [encode_access_key("x")]
-    msg = {"content": {"data": {"msg_type": "inspect", "path": path}}}
+    msg = {"content": {"data": {"jsonrpc": "2.0", "method": "inspect", "params": {"path": path}}}}
     variables_comm.handle_msg(msg)
 
     # An error message is sent
     assert variables_comm.messages == [
         {
             "data": {
-                "msg_type": "error",
-                "message": f"Cannot find variable at '{path}' to inspect",
+                "jsonrpc": "2.0",
+                "error": {
+                    "code": -32602,  # Invalid params
+                    "message": f"Cannot find variable at '{path}' to inspect",
+                },
             },
             "metadata": None,
             "buffers": None,
@@ -1190,10 +1378,12 @@ def test_handle_clipboard_format(
     msg = {
         "content": {
             "data": {
-                "path": [encode_access_key("x")],
-                "msg_type": "clipboard_format",
-                "format": "text/plain",
-                "data": "Hello, world!",
+                "jsonrpc": "2.0",
+                "method": "clipboard_format",
+                "params": {
+                    "path": [encode_access_key("x")],
+                    "format": "text/plain",
+                },
             }
         }
     }
@@ -1202,9 +1392,10 @@ def test_handle_clipboard_format(
     assert variables_comm.messages == [
         {
             "data": {
-                "msg_type": "formatted_variable",
-                "format": "text/plain",
-                "content": "3",
+                "jsonrpc": "2.0",
+                "result": {
+                    "content": "3",
+                },
             },
             "metadata": None,
             "buffers": None,
@@ -1218,10 +1409,9 @@ def test_handle_clipboard_format_error(variables_comm: DummyComm) -> None:
     msg = {
         "content": {
             "data": {
-                "path": path,
-                "msg_type": "clipboard_format",
-                "format": "text/plain",
-                "data": "Hello, world!",
+                "jsonrpc": "2.0",
+                "method": "clipboard_format",
+                "params": {"path": path, "format": "text/plain"},
             }
         }
     }
@@ -1231,8 +1421,11 @@ def test_handle_clipboard_format_error(variables_comm: DummyComm) -> None:
     assert variables_comm.messages == [
         {
             "data": {
-                "msg_type": "error",
-                "message": f"Cannot find variable at '{path}' to format",
+                "jsonrpc": "2.0",
+                "error": {
+                    "code": -32602,  # Invalid params
+                    "message": f"Cannot find variable at '{path}' to format",
+                },
             },
             "metadata": None,
             "buffers": None,
@@ -1246,11 +1439,26 @@ def test_handle_view(
 ) -> None:
     shell.user_ns.update({"x": pd.DataFrame({"a": [0]})})
 
-    msg = {"content": {"data": {"msg_type": "view", "path": [encode_access_key("x")]}}}
+    msg = {
+        "content": {
+            "data": {
+                "jsonrpc": "2.0",
+                "method": "view",
+                "params": {"path": [encode_access_key("x")]},
+            }
+        }
+    }
     variables_comm.handle_msg(msg)
 
-    # No messages are sent over the variables comm
-    assert variables_comm.messages == []
+    # An acknowledgment message is sent
+    assert variables_comm.messages == [
+        {
+            "data": {"jsonrpc": "2.0", "result": {}},
+            "metadata": None,
+            "buffers": None,
+            "msg_type": "comm_msg",
+        },
+    ]
 
     # A dataset and comm are added to the dataviewer service
     dataviewer_service = kernel.dataviewer_service
@@ -1274,15 +1482,18 @@ def test_handle_view(
 
 def test_handle_view_error(variables_comm: DummyComm) -> None:
     path = [encode_access_key("x")]
-    msg = {"content": {"data": {"msg_type": "view", "path": path}}}
+    msg = {"content": {"data": {"jsonrpc": "2.0", "method": "view", "params": {"path": path}}}}
     variables_comm.handle_msg(msg)
 
     # An error message is sent
     assert variables_comm.messages == [
         {
             "data": {
-                "msg_type": "error",
-                "message": f"Cannot find variable at '{path}' to view",
+                "jsonrpc": "2.0",
+                "error": {
+                    "code": -32602,  # Invalid params
+                    "message": f"Cannot find variable at '{path}' to view",
+                },
             },
             "metadata": None,
             "buffers": None,
@@ -1291,15 +1502,18 @@ def test_handle_view_error(variables_comm: DummyComm) -> None:
     ]
 
 
-def test_handle_unknown_message_type(variables_comm: DummyComm) -> None:
-    msg = {"content": {"data": {"msg_type": "unknown_msg_type"}}}
+def test_handle_unknown_method(variables_comm: DummyComm) -> None:
+    msg = {"content": {"data": {"method": "unknown_method"}}}
     variables_comm.handle_msg(msg)
 
     assert variables_comm.messages == [
         {
             "data": {
-                "msg_type": "error",
-                "message": "Unknown message type 'unknown_msg_type'",
+                "jsonrpc": "2.0",
+                "error": {
+                    "code": -32601,  # Method not found
+                    "message": "Unknown method 'unknown_method'",
+                },
             },
             "metadata": None,
             "buffers": None,
@@ -1312,12 +1526,12 @@ def test_shutdown(variables_service: VariablesService) -> None:
     # Double-check that the comm is not yet closed
     variables_comm = variables_service._comm
     assert variables_comm is not None
-    assert not variables_comm._closed
+    assert not variables_comm.comm._closed
 
     variables_service.shutdown()
 
     # Comm is closed
-    assert variables_comm._closed
+    assert variables_comm.comm._closed
 
 
 @pytest.mark.parametrize(

@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2023 Posit Software, PBC. All rights reserved.
+# Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
 #
 from __future__ import annotations
 
@@ -14,7 +14,26 @@ from comm.base_comm import BaseComm
 
 from .dataviewer import DataViewerService
 from .inspectors import MAX_ITEMS, decode_access_key, get_inspector
-from .utils import get_qualname
+from .positron_comm import JsonRpcErrorCode, PositronComm
+from .utils import JsonData, get_qualname
+from .variables_comm import (
+    ClearRequest,
+    ClipboardFormatFormat,
+    ClipboardFormatRequest,
+    DeleteRequest,
+    FormattedVariable,
+    InspectedVariable,
+    InspectRequest,
+    ListRequest,
+    RefreshParams,
+    UpdateParams,
+    Variable,
+    VariableKind,
+    VariableList,
+    VariablesEvent,
+    VariablesRequest,
+    ViewRequest,
+)
 
 if TYPE_CHECKING:
     from .positron_ipkernel import PositronIPyKernel
@@ -22,313 +41,114 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-# Synchronize the models below with:
-#     src/vs/workbench/services/languageRuntime/common/languageRuntimeVariablesClient.ts
-
-
-@enum.unique
-class VariablesMessageTypeInput(str, enum.Enum):
-    """
-    The possible types of messages that can be sent to the language runtime as
-    requests to the variables backend.
-    """
-
-    # A request to clear
-    clear = "clear"
-
-    # A request to format the variable's content in a format suitable for the clipboard
-    clipboard_format = "clipboard_format"
-
-    # A request to delete a specific set of named variables
-    delete = "delete"
-
-    # A request to inspect a specific variable
-    inspect = "inspect"
-
-    # A request to send another List event
-    refresh = "refresh"
-
-    # A request to open a viewer for a specific variable
-    view = "view"
-
-
-@enum.unique
-class VariablesMessageTypeOutput(str, enum.Enum):
-    """
-    Message types used in the positron.variables comm.
-    """
-
-    # A full list of all the variables and their values
-    list = "list"
-
-    # A partial update indicating the set of changes that have occurred since
-    # the last update or list event.
-    update = "update"
-
-    # The details (children) of a specific variable
-    details = "details"
-
-    # The formatted content of a variable, suitable for placing on the clipboard
-    formatted_variable = "formatted_variable"
-
-    # A successful result of an RPC that doesn't otherwise return data.
-    success = "success"
-
-    # A processing error
-    error = "error"
-
-
-@enum.unique
-class VariableValueKind(str, enum.Enum):
-    """
-    Represents the possible kinds of variable values
-    """
-
-    # A boolean value
-    boolean = "boolean"
-
-    # A sequence of bytes or raw binary data
-    bytes = "bytes"
-
-    # A iterable collection of unnamed values, such as a list or array
-    collection = "collection"
-
-    # An empty, missing, null, or invalid value
-    empty = "empty"
-
-    # A function, method, closure, or other callable object
-    function = "function"
-
-    # A map, dictionary, named list, or associative array
-    map = "map"
-
-    # A number, such as an integer or floating-point value
-    number = "number"
-
-    # A value of an unknown or unspecified type
-    other = "other"
-
-    # A character string
-    string = "string"
-
-    # A table, dataframe, 2D matrix, or other two-dimensional data structure
-    table = "table"
-
-
-@enum.unique
-class ClipboardFormat(str, enum.Enum):
-    """
-    Format styles for clipboard copy
-    """
-
-    html = "text/html"
-    plain = "text/plain"
-
-
-@dataclass
-class Variable:
-    """
-    Represents a variable in a language runtime -- a value with a named identifier, not a system
-    environment variable.
-
-    This is the raw data format used to communicate with the language runtime.
-    """
-
-    display_name: str = field(
-        metadata={"description": "The name of the variable, formatted for display"}
-    )
-
-    display_value: Any = field(
-        metadata={
-            "description": "A string representation of the variable's value formatted for display, possibly truncated"
-        }
-    )
-
-    access_key: Optional[str] = field(
-        default=None,
-        metadata={
-            "description": "A key that uniquely identifies the variable and can be used to access the variable in `inspect` requests"
-        },
-    )
-
-    display_type: Optional[str] = field(
-        default=None, metadata={"description": "The variable's type, formatted for display"}
-    )
-
-    type_info: Optional[str] = field(
-        default=None, metadata={"description": "Extended information about the variable's type"}
-    )
-
-    kind: VariableValueKind = field(
-        default=VariableValueKind.other,
-        metadata={
-            "description": "The kind of value the variable represents, such as 'string' or 'number'"
-        },
-    )
-
-    length: int = field(
-        default=0,
-        metadata={"description": "The number of elements in the variable's value, if applicable"},
-    )
-
-    size: Optional[int] = field(
-        default=None, metadata={"description": "The size of the variable's value, in bytes"}
-    )
-
-    has_children: bool = field(
-        default=False, metadata={"description": "True if the variable contains other variables"}
-    )
-
-    has_viewer: bool = field(
-        default=False,
-        metadata={
-            "description": """True if there is a viewer available for the variable (i.e. the runtime
-can handle a 'view' message for the variable)"""
-        },
-    )
-
-    is_truncated: bool = field(
-        default=False,
-        metadata={"description": "True if the 'value' field was truncated to fit in the message"},
-    )
-
-
-@dataclass
-class VariablesMessageList:
-    """
-    A list of all the variables and their values.
-    """
-
-    msg_type: VariablesMessageTypeOutput = VariablesMessageTypeOutput.list
-    variables: List[Variable] = field(
-        default_factory=list, metadata={"description": "The list of variables"}
-    )
-    length: Optional[int] = field(
-        default=None,
-        metadata={
-            "description": """The total number of variables known to the runtime. This may be greater
-than the number of variables in the list if the list was truncated."""
-        },
-    )
-
-    def __post_init__(self) -> int | None:
-        return self.length or setattr(self, "length", len(self.variables))
-
-
-@dataclass
-class VariablesMessageFormattedVariable:
-    """
-    Summarize the variable in a text format suitable for copy and paste operations
-    """
-
-    format: ClipboardFormat
-    content: str
-    msg_type: VariablesMessageTypeOutput = VariablesMessageTypeOutput.formatted_variable
-
-
-@dataclass
-class VariablesMessageDetails:
-    """
-    The details (children) of a specific variable.
-    """
-
-    msg_type: VariablesMessageTypeOutput = VariablesMessageTypeOutput.details
-
-    path: List[str] = field(
-        default_factory=list, metadata={"description": "The list of child variables"}
-    )
-    children: List[Variable] = field(default_factory=list)
-    length: Optional[int] = field(
-        default=None,
-        metadata={
-            "description": """The total number of child variables. This may be greater than the number
-of variables in the list if the list was truncated."""
-        },
-    )
-
-    def __post_init__(self) -> int | None:
-        return self.length or setattr(self, "length", len(self.children))
-
-
-@dataclass
-class VariablesMessageUpdate:
-    """
-    A partial update indicating the set of changes that have occurred since the
-    last update or list event.
-    """
-
-    assigned: List[Variable]
-    removed: Set[str]
-    msg_type: VariablesMessageTypeOutput = VariablesMessageTypeOutput.update
-
-
-@dataclass
-class VariablesMessageError:
-    """
-    Message 'error' type is used to report a problem to the client.
-    """
-
-    message: str
-    msg_type: VariablesMessageTypeOutput = VariablesMessageTypeOutput.error
-
-
 class VariablesService:
     def __init__(self, kernel: PositronIPyKernel, dataviewer_service: DataViewerService) -> None:
         self.kernel = kernel
         self.dataviewer_service = dataviewer_service
 
-        self._comm: Optional[BaseComm] = None
+        self._comm: Optional[PositronComm] = None
 
     def on_comm_open(self, comm: BaseComm, msg: Dict[str, Any]) -> None:
         """
         Setup positron.variables comm to receive messages.
         """
-        self._comm = comm
-        comm.on_msg(self._receive_message)
+        self._comm = PositronComm(comm)
+        comm.on_msg(self._handle_rpc)
 
         # Send list on comm initialization
-        self.send_list()
+        self.send_refresh_event()
 
-    def _receive_message(self, msg: Dict[str, Any]) -> None:
+    def _handle_rpc(self, msg: Dict[str, Any]) -> None:
         """
         Handle messages received from the client via the positron.variables comm.
-
-        Message Types:
-            "clear"            - Clear all user variables
-            "clipboard_format" - Format the variable at the requested path for the client clipboard
-            "delete"           - Delete user variables by name
-            "inspect"          - Inspect the user variable at the requested path
-            "refresh"          - Refresh the list of user variables
-            "view"             - Format the variable at the requested path for the data viewer
         """
         data = msg["content"]["data"]
 
-        msg_type = data.get("msg_type", None)
-        if msg_type == VariablesMessageTypeInput.refresh:
-            self.send_list()
+        try:
+            method = VariablesRequest(data.get("method", None))
+        except ValueError:
+            self._send_error(
+                JsonRpcErrorCode.METHOD_NOT_FOUND, f"Unknown method '{data.get('method')}'"
+            )
+            return
 
-        elif msg_type == VariablesMessageTypeInput.clear:
-            self._delete_all_vars(msg)
+        if method == VariablesRequest.List:
+            try:
+                request = ListRequest(**data)
+                self._send_list()
+            except TypeError as exception:
+                self._send_error(
+                    JsonRpcErrorCode.INVALID_REQUEST,
+                    message=f"Invalid list request {data}: {exception}",
+                )
 
-        elif msg_type == VariablesMessageTypeInput.delete:
-            names = data.get("names", [])
-            self._delete_vars(names, msg)
+        elif method == VariablesRequest.Clear:
+            try:
+                request = ClearRequest(**data)
+                self._delete_all_vars(msg)
+            except TypeError as exception:
+                self._send_error(
+                    JsonRpcErrorCode.INVALID_REQUEST,
+                    message=f"Invalid clear request {data}: {exception}",
+                )
 
-        elif msg_type == VariablesMessageTypeInput.inspect:
-            path = data.get("path", None)
-            self._inspect_var(path)
+        elif method == VariablesRequest.Delete:
+            try:
+                request = DeleteRequest(**data)
+                if request.params.names is None:
+                    self._missing_param_error("names")
+                else:
+                    self._delete_vars(request.params.names, msg)
+            except TypeError as exception:
+                self._send_error(
+                    JsonRpcErrorCode.INVALID_REQUEST,
+                    message=f"Invalid delete request {data}: {exception}",
+                )
 
-        elif msg_type == VariablesMessageTypeInput.clipboard_format:
-            path = data.get("path", None)
-            clipboard_format = data.get("format", ClipboardFormat.plain)
-            self._send_formatted_var(path, clipboard_format)
+        elif method == VariablesRequest.Inspect:
+            try:
+                request = InspectRequest(**data)
+                if request.params.path is None:
+                    self._missing_param_error("path")
+                else:
+                    self._inspect_var(request.params.path)
+            except TypeError as exception:
+                self._send_error(
+                    JsonRpcErrorCode.INVALID_REQUEST,
+                    message=f"Invalid inspect request {data}: {exception}",
+                )
 
-        elif msg_type == VariablesMessageTypeInput.view:
-            path = data.get("path", None)
-            self._view_var(path)
+        elif method == VariablesRequest.ClipboardFormat:
+            try:
+                request = ClipboardFormatRequest(**data)
+                if request.params.path is None:
+                    self._missing_param_error("path")
+                else:
+                    self._send_formatted_var(request.params.path, request.params.format)
+            except TypeError as exception:
+                self._send_error(
+                    JsonRpcErrorCode.INVALID_REQUEST,
+                    message=f"Invalid clipboard format request {data}: {exception}",
+                )
+
+        elif method == VariablesRequest.View:
+            try:
+                request = ViewRequest(**data)
+                if request.params.path is None:
+                    self._missing_param_error("path")
+                else:
+                    self._view_var(request.params.path)
+            except TypeError as exception:
+                self._send_error(
+                    JsonRpcErrorCode.INVALID_REQUEST,
+                    message=f"Invalid view request {data}: {exception}",
+                )
 
         else:
-            self._send_error(f"Unknown message type '{msg_type}'")
+            self._send_error(JsonRpcErrorCode.METHOD_NOT_FOUND, f"Unknown method '{method}'")
+
+    def _missing_param_error(self, param: str) -> None:
+        self._send_error(JsonRpcErrorCode.INVALID_PARAMS, f"Missing parameter '{param}'")
 
     def send_update(self, assigned: Mapping[str, Any], removed: Set[str]) -> None:
         """
@@ -340,17 +160,17 @@ class VariablesService:
             self._send_update(assigned, removed)
         else:
             # Otherwise, just refresh the client state
-            self.send_list()
+            self.send_refresh_event()
 
-    def send_list(self) -> None:
+    def send_refresh_event(self) -> None:
         """
-        Sends a list message summarizing the variables of the current user session through the
-        variables comm to the client.
+        Sends a refresh message summarizing the variables of the current user
+        session through the variables comm to the client.
 
         For example:
         {
             "data": {
-                "msg_type": "list",
+                "method": "refresh",
                 "variables": [{
                     "display_name": "mygreeting",
                     "display_value": "Hello",
@@ -364,8 +184,8 @@ class VariablesService:
         inspector = get_inspector(variables)
         filtered_variables = inspector.summarize_children(variables, _summarize_variable)
 
-        msg = VariablesMessageList(variables=filtered_variables)
-        self._send_message(msg)
+        msg = RefreshParams(variables=filtered_variables, length=len(filtered_variables), version=0)
+        self._send_event(VariablesEvent.Refresh.value, asdict(msg))
 
     def shutdown(self) -> None:
         if self._comm is not None:
@@ -376,57 +196,23 @@ class VariablesService:
 
     # -- Private Methods --
 
-    def _send_message(
-        self,
-        msg: Union[
-            VariablesMessageDetails,
-            VariablesMessageError,
-            VariablesMessageFormattedVariable,
-            VariablesMessageList,
-            VariablesMessageUpdate,
-        ],
-    ) -> None:
-        """
-        Send a message through the variables comm to the client.
-        """
-        if self._comm is None:
-            logger.warning("Cannot send message, variables comm is not open")
-            return
-
-        msg_dict = asdict(msg)
-        self._comm.send(msg_dict)
-
-    def _send_error(self, error_message: str) -> None:
-        """
-        Send an error message through the variables comm to the client.
-
-        For example:
-        {
-            "data": {
-                "msg_type": "error",
-                "message": "The error message"
-            }
-            ...
-        }
-        """
-        msg = VariablesMessageError(message=error_message)
-        self._send_message(msg)
-
     def _send_update(self, assigned: Mapping[str, Any], removed: Set[str]) -> None:
         """
-        Sends the list of variables in the current user session through the variables comm
-        to the client.
+        Sends updates to the list of variables in the current user session
+        through the variables comm to the client.
 
         For example:
         {
             "data": {
-                "msg_type": "update",
-                "assigned": [{
-                    "display_name": "newvar1",
-                    "display_value": "Hello",
-                    "kind": "string"
-                }],
-                "removed": ["oldvar1", "oldvar2"]
+                "method": "refresh",
+                "params: {
+                    "assigned": [{
+                        "display_name": "newvar1",
+                        "display_value": "Hello",
+                        "kind": "string"
+                    }],
+                    "removed": ["oldvar1", "oldvar2"]
+                }
             }
             ...
         }
@@ -440,8 +226,20 @@ class VariablesService:
         filtered_removed = self.kernel.get_filtered_var_names(removed)
 
         if filtered_assigned or filtered_removed:
-            msg = VariablesMessageUpdate(assigned=filtered_assigned, removed=filtered_removed)
-            self._send_message(msg)
+            msg = UpdateParams(
+                assigned=filtered_assigned, removed=sorted(filtered_removed), version=0
+            )
+            self._send_event(VariablesEvent.Update.value, asdict(msg))
+
+    def _list_all_vars(self) -> List[Variable]:
+        variables = self.kernel.get_filtered_vars()
+        inspector = get_inspector(variables)
+        return inspector.summarize_children(variables, _summarize_variable)
+
+    def _send_list(self) -> None:
+        filtered_variables = self._list_all_vars()
+        msg = VariableList(variables=filtered_variables, length=len(filtered_variables), version=0)
+        self._send_result(asdict(msg))
 
     def _delete_all_vars(self, parent: Dict[str, Any]) -> None:
         """
@@ -453,6 +251,7 @@ class VariablesService:
                 e.g. the client message requesting the clear operation
         """
         self.kernel.delete_all_vars(parent)
+        self._send_result({})
 
     def _delete_vars(self, names: Iterable[str], parent: Dict[str, Any]) -> None:
         """
@@ -469,6 +268,7 @@ class VariablesService:
             return
 
         assigned, removed = self.kernel.delete_vars(names, parent)
+        self._send_result(sorted(removed))
         self._send_update(assigned, removed)
 
     def _inspect_var(self, path: List[str]) -> None:
@@ -479,14 +279,14 @@ class VariablesService:
             path:
                 A list of names describing the path to the variable.
         """
-        if path is None:
-            return
 
         is_known, value = self.kernel.find_var(path)
         if is_known:
             self._send_details(path, value)
         else:
-            self._send_error(f"Cannot find variable at '{path}' to inspect")
+            self._send_error(
+                JsonRpcErrorCode.INVALID_PARAMS, f"Cannot find variable at '{path}' to inspect"
+            )
 
     def _view_var(self, path: List[str]) -> None:
         """
@@ -504,11 +304,43 @@ class VariablesService:
             title = str(decode_access_key(access_key))
             dataset = inspector.to_dataset(value, title)
             self.dataviewer_service.register_dataset(dataset)
+            self._send_result({})
         else:
-            self._send_error(f"Cannot find variable at '{path}' to view")
+            self._send_error(
+                JsonRpcErrorCode.INVALID_PARAMS, f"Cannot find variable at '{path}' to view"
+            )
+
+    def _send_event(self, name: str, payload: Dict[str, JsonData]) -> None:
+        """
+        Send an event payload to the client.
+        """
+        if self._comm is not None:
+            self._comm.send_event(name, payload)
+        else:
+            logger.warning(f"Cannot send {name} event: comm is not open")
+
+    def _send_error(self, code: JsonRpcErrorCode, message: str) -> None:
+        """
+        Send an error message to the client.
+        """
+        if self._comm is not None:
+            self._comm.send_error(code, message)
+        else:
+            logger.warning(f"Cannot send error {message} (code {code}): comm is not open)")
+
+    def _send_result(self, data: JsonData = None) -> None:
+        """
+        Send an RPC result value to the client.
+        """
+        if self._comm is not None:
+            self._comm.send_result(data)
+        else:
+            logger.warning(f"Cannot send RPC result: {data}: comm is not open")
 
     def _send_formatted_var(
-        self, path: List[str], clipboard_format: ClipboardFormat = ClipboardFormat.plain
+        self,
+        path: List[str],
+        clipboard_format: ClipboardFormatFormat = ClipboardFormatFormat.TextPlain,
     ) -> None:
         """
         Formats the variable at the requested path in the current user session
@@ -528,10 +360,12 @@ class VariablesService:
         is_known, value = self.kernel.find_var(path)
         if is_known:
             content = _format_value(value, clipboard_format)
-            msg = VariablesMessageFormattedVariable(format=clipboard_format, content=content)
-            self._send_message(msg)
+            msg = FormattedVariable(content=content)
+            self._send_result(asdict(msg))
         else:
-            self._send_error(f"Cannot find variable at '{path}' to format")
+            self._send_error(
+                JsonRpcErrorCode.INVALID_PARAMS, f"Cannot find variable at '{path}' to format"
+            )
 
     def _send_details(self, path: List[str], value: Any = None):
         """
@@ -542,19 +376,19 @@ class VariablesService:
         For example:
         {
             "data": {
-                "msg_type": "details",
-                "path": ["myobject", "myproperty"],
-                "children": [{
-                    "display_name": "property1",
-                    "display_value": "Hello",
-                    "kind": "string",
-                    "display_type": "str"
-                },{
-                    "display_name": "property2",
-                    "display_value": "123",
-                    "kind": "number"
-                    "display_type": "int"
-                }]
+                "result": {
+                    "children": [{
+                        "display_name": "property1",
+                        "display_value": "Hello",
+                        "kind": "string",
+                        "display_type": "str"
+                    },{
+                        "display_name": "property2",
+                        "display_value": "123",
+                        "kind": "number"
+                        "display_type": "int"
+                    }]
+                }
             }
             ...
         }
@@ -577,8 +411,8 @@ class VariablesService:
                 children.append(summary)
             # TODO: Handle scalar objects with a specific message type
 
-        msg = VariablesMessageDetails(path=path, children=children)
-        self._send_message(msg)
+        msg = InspectedVariable(children=children, length=len(children))
+        self._send_result(asdict(msg))
 
 
 def _summarize_variable(key: Any, value: Any) -> Optional[Variable]:
@@ -605,7 +439,7 @@ def _summarize_variable(key: Any, value: Any) -> Optional[Variable]:
 
         display_name = ins.get_display_name(key)
         kind_str = ins.get_kind(value)
-        kind = VariableValueKind(kind_str)
+        kind = VariableKind(kind_str)
         display_value, is_truncated = ins.get_display_value(value)
         display_type = ins.get_display_type(value)
         type_info = ins.get_type_info(value)
@@ -634,17 +468,25 @@ def _summarize_variable(key: Any, value: Any) -> Optional[Variable]:
         return Variable(
             display_name=str(key),
             display_value=get_qualname(value),
-            kind=VariableValueKind.other,
+            display_type="",
+            kind=VariableKind.Other,
+            type_info="",
+            access_key="",
+            length=0,
+            size=0,
+            has_children=False,
+            has_viewer=False,
+            is_truncated=False,
         )
 
 
-def _format_value(value: Any, clipboard_format: ClipboardFormat) -> str:
+def _format_value(value: Any, clipboard_format: ClipboardFormatFormat) -> str:
     """
     Formats the given value using the requested clipboard format.
     """
     inspector = get_inspector(value)
 
-    if clipboard_format == ClipboardFormat.html:
+    if clipboard_format == ClipboardFormatFormat.TextHtml:
         return inspector.to_html(value)
     else:
         return inspector.to_plaintext(value)
