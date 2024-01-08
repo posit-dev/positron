@@ -11,6 +11,29 @@ import { PositronBaseComm } from 'vs/workbench/services/languageRuntime/common/p
 import { IRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeClientInstance';
 
 /**
+ * A view containing a list of variables in the session.
+ */
+export interface VariableList {
+	/**
+	 * A list of variables in the session.
+	 */
+	variables: Array<Variable>;
+
+	/**
+	 * The total number of variables in the session. This may be greater than
+	 * the number of variables in the 'variables' array if the array is
+	 * truncated.
+	 */
+	length: number;
+
+	/**
+	 * The version of the view (incremented with each update)
+	 */
+	version?: number;
+
+}
+
+/**
  * An inspected variable.
  */
 export interface InspectedVariable {
@@ -31,12 +54,6 @@ export interface InspectedVariable {
  * An object formatted for copying to the clipboard.
  */
 export interface FormattedVariable {
-	/**
-	 * The format returned, as a MIME type; matches the MIME type of the
-	 * format named in the request.
-	 */
-	format: string;
-
 	/**
 	 * The formatted content of the variable.
 	 */
@@ -76,6 +93,11 @@ export interface Variable {
 	type_info: string;
 
 	/**
+	 * The size of the variable's value in bytes
+	 */
+	size: number;
+
+	/**
 	 * The kind of value the variable represents, such as 'string' or
 	 * 'number'
 	 */
@@ -98,11 +120,19 @@ export interface Variable {
 	has_viewer: boolean;
 
 	/**
-	 * True the 'value' field is a truncated representation of the variable's
-	 * value
+	 * True if the 'value' field is a truncated representation of the
+	 * variable's value
 	 */
 	is_truncated: boolean;
 
+}
+
+/**
+ * Possible values for Format in ClipboardFormat
+ */
+export enum ClipboardFormatFormat {
+	TextHtml = 'text/html',
+	TextPlain = 'text/plain'
 }
 
 /**
@@ -118,7 +148,8 @@ export enum VariableKind {
 	Number = 'number',
 	Other = 'other',
 	String = 'string',
-	Table = 'table'
+	Table = 'table',
+	Lazy = 'lazy'
 }
 
 /**
@@ -135,16 +166,58 @@ export interface UpdateEvent {
 	 */
 	removed: Array<string>;
 
+	/**
+	 * The version of the view (incremented with each update), or 0 if the
+	 * backend doesn't track versions.
+	 */
+	version: number;
+
+}
+
+/**
+ * Event: Refresh variables
+ */
+export interface RefreshEvent {
+	/**
+	 * An array listing all the variables in the current session.
+	 */
+	variables: Array<Variable>;
+
+	/**
+	 * The number of variables in the current session.
+	 */
+	length: number;
+
+	/**
+	 * The version of the view (incremented with each update), or 0 if the
+	 * backend doesn't track versions.
+	 */
+	version: number;
+
 }
 
 export enum VariablesEvent {
-	Update = 'update'
+	Update = 'update',
+	Refresh = 'refresh'
 }
 
 export class PositronVariablesComm extends PositronBaseComm {
 	constructor(instance: IRuntimeClientInstance<any, any>) {
 		super(instance);
-		this.onDidUpdate = super.createEventEmitter('update', ['assigned', 'removed']);
+		this.onDidUpdate = super.createEventEmitter('update', ['assigned', 'removed', 'version']);
+		this.onDidRefresh = super.createEventEmitter('refresh', ['variables', 'length', 'version']);
+	}
+
+	/**
+	 * List all variables
+	 *
+	 * Returns a list of all the variables in the current session.
+	 *
+	 *
+	 * @returns A view containing a list of variables in the session.
+	 */
+	list(): Promise<VariableList> {
+		return super.performRpc('list', [], []);
 	}
 
 	/**
@@ -167,8 +240,9 @@ export class PositronVariablesComm extends PositronBaseComm {
 	 *
 	 * @param names The names of the variables to delete.
 	 *
+	 * @returns The names of the variables that were successfully deleted.
 	 */
-	delete(names: Array<string>): Promise<void> {
+	delete(names: Array<string>): Promise<Array<string>> {
 		return super.performRpc('delete', ['names'], [names]);
 	}
 
@@ -198,7 +272,7 @@ export class PositronVariablesComm extends PositronBaseComm {
 	 *
 	 * @returns An object formatted for copying to the clipboard.
 	 */
-	clipboardFormat(path: Array<string>, format: string): Promise<FormattedVariable> {
+	clipboardFormat(path: Array<string>, format: ClipboardFormatFormat): Promise<FormattedVariable> {
 		return super.performRpc('clipboard_format', ['path', 'format'], [path, format]);
 	}
 
@@ -223,5 +297,12 @@ export class PositronVariablesComm extends PositronBaseComm {
 	 * Updates the variables in the current session.
 	 */
 	onDidUpdate: Event<UpdateEvent>;
+	/**
+	 * Refresh variables
+	 *
+	 * Replace all variables in the current session with the variables from
+	 * the backend.
+	 */
+	onDidRefresh: Event<RefreshEvent>;
 }
 

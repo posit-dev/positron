@@ -487,6 +487,10 @@
 			"project": "vscode-workbench"
 		},
 		{
+			"name": "vs/workbench/services/positronVariables",
+			"project": "vscode-workbench"
+		},
+		{
 			"name": "vs/workbench/services/progress",
 			"project": "vscode-workbench"
 		},
