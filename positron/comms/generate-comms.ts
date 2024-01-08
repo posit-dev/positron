@@ -585,6 +585,45 @@ use serde::Serialize;
 		}
 		yield `}\n\n`;
 	}
+
+	if (frontend && frontend.methods.some((method: any) => method.result && method.result.schema)) {
+		const enumRequestType = `${snakeCaseToSentenceCase(name)}FrontendRpcRequest`
+		const enumReplyType = `${snakeCaseToSentenceCase(name)}FrontendRpcReply`
+		yield `/**
+* Conversion of JSON values to frontend RPC Reply types
+*/
+pub fn ${name}_frontend_reply_from_value(
+	reply: serde_json::Value,
+	request: &${enumRequestType},
+) -> anyhow::Result<${snakeCaseToSentenceCase(name)}FrontendRpcReply> {
+	match request {
+`;
+		for (const method of frontend.methods) {
+			if (method.result && method.result.schema) {
+				const schema = method.result.schema;
+
+				const variantName = `${enumRequestType}::${snakeCaseToSentenceCase(method.name)}`;
+				const replyVariantName = `${enumReplyType}::${snakeCaseToSentenceCase(method.name)}Reply`;
+
+				const hasParams = method.params.length > 0;
+				const replyHasParams = schema.type !== 'null'
+
+				const variant = hasParams ? `${variantName}(_)` : variantName;
+
+				yield `\t\t${variant} => Ok(${replyVariantName}`;
+
+				// If reply has a parameter, unserialise it
+				if (replyHasParams) {
+					yield '(serde_json::from_value(reply)?)';
+				}
+
+				// Close Ok
+				yield '),\n';
+			}
+		}
+		yield '\t}\n';
+		yield '}\n\n';
+	}
 }
 
 /**
