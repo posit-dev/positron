@@ -895,6 +895,13 @@ declare module 'positron' {
 			token: vscode.CancellationToken): vscode.ProviderResult<string>;
 	}
 
+	export interface Console {
+		/**
+		 * Pastes text into the console.
+		 */
+		pasteText(text: string): void;
+	}
+
 	namespace languages {
 		/**
 		 * Register a statement range provider.
@@ -960,6 +967,13 @@ declare module 'positron' {
 			message: string,
 			okButtonTitle?: string,
 			cancelButtonTitle?: string): Thenable<boolean>;
+
+		/**
+		 * The currently active console or `undefined`. The active console is the one
+		 * that currently has focus or, when none has focus, the one that has changed
+		 * input most recently.
+		 */
+		export let activeConsole: Console | undefined;
 
 		/**
 		 * Fires when the width of the console changes. The new width is passed as

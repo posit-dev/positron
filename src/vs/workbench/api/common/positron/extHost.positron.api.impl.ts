@@ -6,6 +6,7 @@ import { ExtHostLanguageRuntime } from 'vs/workbench/api/common/positron/extHost
 import type * as positron from 'positron';
 import type * as vscode from 'vscode';
 import { IExtHostRpcService } from 'vs/workbench/api/common/extHostRpcService';
+import { ILogService } from 'vs/platform/log/common/log';
 import { ServicesAccessor } from 'vs/platform/instantiation/common/instantiation';
 import { IExtensionRegistries } from 'vs/workbench/api/common/extHost.api.impl';
 import { IExtensionDescription } from 'vs/platform/extensions/common/extensions';
@@ -40,6 +41,7 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 	const rpcProtocol = accessor.get(IExtHostRpcService);
 	const initData = accessor.get(IExtHostInitDataService);
 	const extHostWorkspace = accessor.get(IExtHostWorkspace);
+	const extHostLogService = accessor.get(ILogService);
 
 	// Retrieve the raw `ExtHostWebViews` object from the rpcProtocol; this
 	// object is needed to create webviews, and was previously created in
@@ -59,7 +61,7 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 	const extHostLanguageRuntime = rpcProtocol.set(ExtHostPositronContext.ExtHostLanguageRuntime, new ExtHostLanguageRuntime(rpcProtocol));
 	const extHostPreviewPanels = rpcProtocol.set(ExtHostPositronContext.ExtHostPreviewPanel, new ExtHostPreviewPanels(rpcProtocol, extHostWebviews, extHostWorkspace));
 	const extHostModalDialogs = rpcProtocol.set(ExtHostPositronContext.ExtHostModalDialogs, new ExtHostModalDialogs(rpcProtocol));
-	const extHostConsoleService = rpcProtocol.set(ExtHostPositronContext.ExtHostConsoleService, new ExtHostConsoleService(rpcProtocol));
+	const extHostConsoleService = rpcProtocol.set(ExtHostPositronContext.ExtHostConsoleService, new ExtHostConsoleService(rpcProtocol, extHostLogService));
 	const extHostMethods = rpcProtocol.set(ExtHostPositronContext.ExtHostMethods, new ExtHostMethods(rpcProtocol, extHostEditors));
 
 	return function (extension: IExtensionDescription, extensionInfo: IExtensionRegistries, configProvider: ExtHostConfigProvider): typeof positron {
@@ -110,6 +112,9 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			},
 			showSimpleModalDialogPrompt(title: string, message: string, okButtonTitle?: string, cancelButtonTitle?: string): Thenable<boolean> {
 				return extHostModalDialogs.showSimpleModalDialogPrompt(title, message, okButtonTitle, cancelButtonTitle);
+			},
+			get activeConsole() {
+				return extHostConsoleService.getActiveConsole();
 			},
 			get onDidChangeConsoleWidth() {
 				return extHostConsoleService.onDidChangeConsoleWidth;

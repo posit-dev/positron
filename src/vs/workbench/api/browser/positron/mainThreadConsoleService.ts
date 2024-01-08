@@ -5,12 +5,14 @@
 import { DisposableStore } from 'vs/base/common/lifecycle';
 import { ExtHostConsoleServiceShape, ExtHostPositronContext, MainPositronContext, MainThreadConsoleServiceShape } from '../../common/positron/extHost.positron.protocol';
 import { extHostNamedCustomer, IExtHostContext } from 'vs/workbench/services/extensions/common/extHostCustomers';
-import { IPositronConsoleService } from 'vs/workbench/services/positronConsole/browser/interfaces/positronConsoleService';
+import { IPositronConsoleInstance, IPositronConsoleService } from 'vs/workbench/services/positronConsole/browser/interfaces/positronConsoleService';
+import { MainThreadConsole } from 'vs/workbench/api/browser/positron/mainThreadConsole';
 
 @extHostNamedCustomer(MainPositronContext.MainThreadConsoleService)
 export class MainThreadConsoleService implements MainThreadConsoleServiceShape {
 
 	private readonly _disposables = new DisposableStore();
+	private readonly _consoles = new Map<string, MainThreadConsole>();
 
 	private readonly _proxy: ExtHostConsoleServiceShape;
 
@@ -28,6 +30,52 @@ export class MainThreadConsoleService implements MainThreadConsoleServiceShape {
 			this._positronConsoleService.onDidChangeConsoleWidth((newWidth) => {
 				this._proxy.$onDidChangeConsoleWidth(newWidth);
 			}));
+
+		// Forward new positron instance ids to the extension host, and then register them
+		// in the main thread too
+		this._disposables.add(
+			this._positronConsoleService.onDidStartPositronConsoleInstance((console) => {
+				const id = console.getId();
+
+				// First update ext host
+				this._proxy.$addConsole(id);
+
+				// Then update main thread
+				this.addConsole(id, console);
+			})
+		);
+
+		// TODO:
+		// As of right now, we never delete console instances from the maps in
+		// `MainThreadConsoleService` and `ExtHostConsoleService` because we don't have a hook to
+		// know when a console is stopped. In particular, we should really call the `ExtHostConsole`
+		// `dispose()` method, which will ensure that any API callers who use the corresponding
+		// `Console` object will get a warning / error when calling the API of a closed console.
+		//
+		// this._disposables.add(
+		// 	this._positronConsoleService.onDidRemovePositronConsoleInstance((console) => {
+		// 		const id = console.getId();
+		//
+		// 		// First update ext host
+		// 		this._proxy.$removeConsole(id);
+		//
+		// 		// Then update main thread
+		// 		this.removeConsole(id);
+		// 	})
+		// )
+
+		// Forward active console change to the extension host, so it can update its internal
+		// active console id
+		this._disposables.add(
+			this._positronConsoleService.onDidChangeActivePositronConsoleInstance((console) => {
+				if (console) {
+					const id = console.getId();
+					this._proxy.$setActiveConsole(id);
+				} else {
+					this._proxy.$setActiveConsole(null);
+				}
+			})
+		);
 	}
 
 	$getConsoleWidth(): Promise<number> {
@@ -36,5 +84,34 @@ export class MainThreadConsoleService implements MainThreadConsoleServiceShape {
 
 	dispose(): void {
 		this._disposables.dispose();
+	}
+
+	private getConsoleById(id: string): MainThreadConsole | undefined {
+		return this._consoles.get(id);
+	}
+
+	private addConsole(id: string, console: IPositronConsoleInstance) {
+		const mainThreadConsole = new MainThreadConsole(console);
+		this._consoles.set(id, mainThreadConsole);
+	}
+
+	// TODO:
+	// See comment in constructor
+	//
+	// private removeConsole(id: string) {
+	// 	// No dispose() method to call
+	// 	this._consoles.delete(id);
+	// }
+
+	// --- from extension host process
+
+	$tryPasteText(id: string, text: string): void {
+		const console = this.getConsoleById(id);
+
+		if (!console) {
+			return;
+		}
+
+		console.pasteText(text);
 	}
 }
