@@ -8,15 +8,11 @@ Poistron Python Language Server package
 from .dataviewer import (
     DataColumn,
     DataSet,
-    DataViewerService,
     DataViewerMessageTypeInput,
     DataViewerMessageTypeOutput,
+    DataViewerService,
 )
-from .variables import (
-    VariablesService,
-    Variable,
-    VariableValueKind,
-)
+from .docstrings import convert_docstring, epytext_to_markdown, looks_like_epytext
 from .inspectors import PRINT_WIDTH, TRUNCATE_AT
-
-from .docstrings import convert_docstring, looks_like_epytext, epytext_to_markdown
+from .variables import VariablesService
+from .variables_comm import Variable, VariableKind
