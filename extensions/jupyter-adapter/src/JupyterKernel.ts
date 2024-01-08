@@ -413,11 +413,15 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 				this._stdin?.onMessage((args: any[]) => {
 					const msg = deserializeJupyterMessage(args, this._session!.key, this._channel);
 					if (msg !== null) {
-						// If this is an input or comm request, save the header so we can
-						// can line it up with the client's response.
 						switch (msg.header.msg_type) {
+							// If this is an input or comm request, save the header so we can
+							// can line it up with the client's response.
 							case 'input_request':
 							case 'rpc_request': {
+								// Concurrent requests are not currently allowed
+								if (this._activeBackendRequestHeader !== undefined) {
+									this.log('ERROR: Overlapping request on StdIn');
+								}
 								this._activeBackendRequestHeader = msg.header;
 								break;
 							}
