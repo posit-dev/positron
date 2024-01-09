@@ -1,3 +1,7 @@
+#
+# Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
+#
+
 import codecs
 import pickle
 from pathlib import Path
@@ -6,34 +10,34 @@ from typing import Iterable, cast
 import matplotlib
 import matplotlib.pyplot as plt
 import pytest
-from IPython.conftest import get_ipython
-from IPython.core.formatters import DisplayFormatter
+from IPython.core.formatters import DisplayFormatter, format_display_data
 from matplotlib.axes import Axes
 from matplotlib.figure import Figure
 from matplotlib.testing.compare import compare_images
 from matplotlib_inline.backend_inline import configure_inline_support
+
 from positron.plots import BASE_DPI, PositronDisplayPublisherHook
 from positron.positron_comm import JsonRpcErrorCode
 
-from .conftest import DummyComm
+from .conftest import DummyComm, PositronShell
+from .utils import comm_request, json_rpc_error, json_rpc_request
 
 PLOT_DATA = [1, 2]
 
 
-@pytest.fixture(scope="session", autouse=True)
-def setup_matplotlib() -> Iterable[None]:
+@pytest.fixture(autouse=True)
+def setup_matplotlib(shell: PositronShell) -> Iterable[None]:
     # Use IPython's `matplotlib_inline` backend
     backend = "module://matplotlib_inline.backend_inline"
     matplotlib.use(backend)
 
     # Enable all IPython mimetype formatters
-    ip = get_ipython()
-    display_formatter = cast(DisplayFormatter, ip.display_formatter)
+    display_formatter = cast(DisplayFormatter, shell.display_formatter)
     active_types = display_formatter.active_types
     display_formatter.active_types = display_formatter.format_types
 
     # Enable matplotlib IPython formatters
-    configure_inline_support(ip, backend)
+    configure_inline_support(shell, backend)
 
     yield
 
@@ -60,7 +64,7 @@ def figure_comm(hook: PositronDisplayPublisherHook) -> DummyComm:
     """
     # Initialize the hook by calling it on a figure created with the test plot data
     plt.plot(PLOT_DATA)
-    msg = {"content": {"data": {"image/png": None}}, "msg_type": "display_data"}
+    msg = comm_request({"image/png": None}, msg_type="display_data")
     hook(msg)
     plt.close()
 
@@ -75,14 +79,14 @@ def figure_comm(hook: PositronDisplayPublisherHook) -> DummyComm:
 
 
 def test_hook_call_noop_on_non_display_data(hook: PositronDisplayPublisherHook) -> None:
-    msg = {"msg_type": "not_display_data"}
+    msg = comm_request({"image/png": None}, msg_type="not_display_data")
     assert hook(msg) == msg
     assert hook.figures == {}
     assert hook.comms == {}
 
 
 def test_hook_call_noop_on_no_image_png(hook: PositronDisplayPublisherHook) -> None:
-    msg = {"content": {"data": {}}, "msg_type": "display_data"}
+    msg = comm_request({}, msg_type="display_data")
     assert hook(msg) == msg
     assert hook.figures == {}
     assert hook.comms == {}
@@ -91,7 +95,7 @@ def test_hook_call_noop_on_no_image_png(hook: PositronDisplayPublisherHook) -> N
 def test_hook_call(hook: PositronDisplayPublisherHook, images_path: Path) -> None:
     # It returns `None` to indicate that it's consumed the message
     plt.plot(PLOT_DATA)
-    msg = {"content": {"data": {"image/png": None}}, "msg_type": "display_data"}
+    msg = comm_request({"image/png": None}, msg_type="display_data")
     assert hook(msg) is None
 
     # It creates a new figure and comm
@@ -126,12 +130,7 @@ def test_hook_call(hook: PositronDisplayPublisherHook, images_path: Path) -> Non
 
 def test_hook_handle_msg_noop_on_unknown_method(figure_comm: DummyComm) -> None:
     # Handle a message with an invalid msg_type
-    msg = {
-        "content": {
-            "comm_id": "unknown_comm_id",
-            "data": {"jsonrpc": "2.0", "method": "not_render"},
-        }
-    }
+    msg = json_rpc_request("not_render", {})
     figure_comm.handle_msg(msg)
 
     # No messages sent
@@ -140,9 +139,7 @@ def test_hook_handle_msg_noop_on_unknown_method(figure_comm: DummyComm) -> None:
 
 def test_hook_render_noop_on_unknown_comm(figure_comm: DummyComm) -> None:
     # Handle a message with a valid msg_type but invalid comm_id
-    msg = {
-        "content": {"comm_id": "unknown_comm_id", "data": {"jsonrpc": "2.0", "method": "render"}}
-    }
+    msg = json_rpc_request("render", {}, comm_id="unknown_comm_id")
     figure_comm.handle_msg(msg)
 
     # No messages sent
@@ -156,36 +153,20 @@ def test_hook_render_error_on_unknown_figure(
     hook.figures.clear()
 
     # Handle a message with a valid msg_type and valid comm_id, but the hook now has a missing figure
-    msg = {
-        "content": {
-            "comm_id": figure_comm.comm_id,
-            "data": {
-                "jsonrpc": "2.0",
-                "method": "render",
-                "params": {
-                    "width": 500,
-                    "height": 500,
-                    "pixel_ratio": 1,
-                },
-            },
-        }
-    }
+    msg = json_rpc_request(
+        "render",
+        {
+            "width": 500,
+            "height": 500,
+            "pixel_ratio": 1,
+        },
+        comm_id=figure_comm.comm_id,
+    )
     figure_comm.handle_msg(msg)
 
     # Check that we receive an error reply
     assert figure_comm.messages == [
-        {
-            "data": {
-                "jsonrpc": "2.0",
-                "error": {
-                    "code": JsonRpcErrorCode.INVALID_PARAMS.value,
-                    "message": f"Figure {figure_comm.comm_id} not found",
-                },
-            },
-            "metadata": None,
-            "buffers": None,
-            "msg_type": "comm_msg",
-        }
+        json_rpc_error(JsonRpcErrorCode.INVALID_PARAMS, f"Figure {figure_comm.comm_id} not found")
     ]
 
 
@@ -199,19 +180,11 @@ def test_hook_render(figure_comm: DummyComm, images_path: Path) -> None:
     # Send a valid render message with a custom width and height
     width_px = height_px = 100
     pixel_ratio = 1
-    msg = {
-        "content": {
-            "comm_id": figure_comm.comm_id,
-            "data": {
-                "method": "render",
-                "params": {
-                    "width": width_px,
-                    "height": height_px,
-                    "pixel_ratio": pixel_ratio,
-                },
-            },
-        }
-    }
+    msg = json_rpc_request(
+        "render",
+        {"width": width_px, "height": height_px, "pixel_ratio": 1},
+        comm_id=figure_comm.comm_id,
+    )
     figure_comm.handle_msg(msg)
 
     # Check that the reply is a comm_msg
@@ -242,8 +215,7 @@ def test_hook_render(figure_comm: DummyComm, images_path: Path) -> None:
     fig_ref.set_size_inches(width_in, height_in)
 
     # Serialize the reference figure as a base64-encoded image
-    display_formatter = cast(DisplayFormatter, get_ipython().display_formatter)
-    data_ref, _ = display_formatter.format(fig_ref, include=["image/png"], exclude=[])
+    data_ref, _ = format_display_data(fig_ref, include=["image/png"], exclude=[])  # type: ignore
     expected = images_path / "test-hook-render-expected.png"
     _save_base64_image(data_ref["image/png"], expected)
 
@@ -255,15 +227,15 @@ def test_hook_render(figure_comm: DummyComm, images_path: Path) -> None:
 # It's important that we depend on the figure_comm fixture too, so that the hook is initialized
 def test_shutdown(hook: PositronDisplayPublisherHook, figure_comm: DummyComm) -> None:
     # Double-check that it still has figures and comms
-    assert hook.figures
+    assert len(hook.figures) == 1
     assert len(hook.comms) == 1
 
     # Double-check that the comm is not yet closed
-    assert all(not comm.comm._closed for comm in hook.comms.values())
+    assert not figure_comm._closed
 
     hook.shutdown()
 
     # Figures and comms are closed and cleared
     assert not hook.figures
     assert not hook.comms
-    assert all(comm.comm._closed for comm in hook.comms.values())
+    assert figure_comm._closed

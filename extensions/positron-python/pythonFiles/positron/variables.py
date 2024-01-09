@@ -3,19 +3,19 @@
 #
 from __future__ import annotations
 
-import enum
+import asyncio
 import logging
 import types
 from collections.abc import Iterable, Mapping
-from dataclasses import asdict, dataclass, field
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set, Union
+from dataclasses import asdict
+from itertools import chain
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set, Tuple
 
 from comm.base_comm import BaseComm
 
-from .dataviewer import DataViewerService
 from .inspectors import MAX_ITEMS, decode_access_key, get_inspector
 from .positron_comm import JsonRpcErrorCode, PositronComm
-from .utils import JsonData, get_qualname
+from .utils import JsonData, cancel_tasks, create_task, get_qualname
 from .variables_comm import (
     ClearRequest,
     ClipboardFormatFormat,
@@ -42,11 +42,15 @@ logger = logging.getLogger(__name__)
 
 
 class VariablesService:
-    def __init__(self, kernel: PositronIPyKernel, dataviewer_service: DataViewerService) -> None:
+    def __init__(self, kernel: PositronIPyKernel) -> None:
         self.kernel = kernel
-        self.dataviewer_service = dataviewer_service
 
         self._comm: Optional[PositronComm] = None
+
+        # Hold strong references to pending tasks to prevent them from being garbage collected
+        self._pending_tasks: Set[asyncio.Task] = set()
+
+        self._snapshot: Optional[Dict[str, Any]] = None
 
     def on_comm_open(self, comm: BaseComm, msg: Dict[str, Any]) -> None:
         """
@@ -150,14 +154,14 @@ class VariablesService:
     def _missing_param_error(self, param: str) -> None:
         self._send_error(JsonRpcErrorCode.INVALID_PARAMS, f"Missing parameter '{param}'")
 
-    def send_update(self, assigned: Mapping[str, Any], removed: Set[str]) -> None:
+    def _send_update(self, assigned: Mapping[str, Any], removed: Set[str]) -> None:
         """
         Sends the list of variables that have changed in the current user session through the
         variables comm to the client.
         """
         # Ensure the number of changes does not exceed our maximum items
         if len(assigned) < MAX_ITEMS and len(removed) < MAX_ITEMS:
-            self._send_update(assigned, removed)
+            self.__send_update(assigned, removed)
         else:
             # Otherwise, just refresh the client state
             self.send_refresh_event()
@@ -180,23 +184,207 @@ class VariablesService:
             ...
         }
         """
-        variables = self.kernel.get_filtered_vars()
+        variables = self._get_filtered_vars()
         inspector = get_inspector(variables)
         filtered_variables = inspector.summarize_children(variables, _summarize_variable)
 
         msg = RefreshParams(variables=filtered_variables, length=len(filtered_variables), version=0)
         self._send_event(VariablesEvent.Refresh.value, asdict(msg))
 
-    def shutdown(self) -> None:
+    async def shutdown(self) -> None:
+        # Cancel and await pending tasks
+        await cancel_tasks(self._pending_tasks)
+
         if self._comm is not None:
             try:
                 self._comm.close()
             except Exception:
                 pass
 
+    def poll_variables(self) -> None:
+        # First check pre_execute snapshot exists
+        if self._snapshot is None:
+            return
+
+        try:
+            # Try to detect the changes made since the last execution
+            assigned, removed = self._compare_user_ns()
+            self._send_update(assigned, removed)
+        except Exception as err:
+            logger.warning(err, exc_info=True)
+
+    def snapshot_user_ns(self) -> None:
+        """
+        Caches a shallow copy snapshot of the user's environment
+        before execution and stores it in the hidden namespace.
+        """
+        ns = self._get_user_ns()
+        hidden = self._get_user_ns_hidden()
+        self._snapshot = ns.copy()
+
+        # TODO: Determine snapshot strategy for nested objects
+        for key, value in ns.items():
+            if key in hidden:
+                continue
+
+            inspector = get_inspector(value)
+            if inspector.is_snapshottable(value):
+                self._snapshot[key] = inspector.copy(value)
+
+    def _compare_user_ns(self) -> Tuple[Dict[str, Any], Set[str]]:
+        """
+        Attempts to detect changes to variables in the user's environment.
+
+        Returns:
+            A tuple (dict, set) containing a dict of variables that were modified
+            (added or updated) and a set of variables that were removed.
+        """
+        assert self._snapshot is not None
+
+        assigned = {}
+        removed = set()
+        after = self._get_user_ns()
+        hidden = self._get_user_ns_hidden()
+
+        # Check if a snapshot exists
+        snapshot = self._snapshot
+        if snapshot is None:
+            return assigned, removed
+
+        # Find assigned and removed variables
+        for key in chain(snapshot.keys(), after.keys()):
+            try:
+                if key in hidden:
+                    continue
+
+                if key in snapshot and key not in after:
+                    # Key was removed
+                    removed.add(key)
+
+                elif key not in snapshot and key in after:
+                    # Key was added
+                    assigned[key] = after[key]
+
+                elif key in snapshot and key in after:
+                    v1 = snapshot[key]
+                    v2 = after[key]
+                    inspector1 = get_inspector(v1)
+                    inspector2 = get_inspector(v2)
+
+                    # If type changes or if key's values is no longer
+                    # the same after exection
+                    if type(inspector1) != type(inspector2) or not inspector2.equals(v1, v2):
+                        assigned[key] = v2
+
+            except Exception as err:
+                logger.warning("err: %s", err, exc_info=True)
+
+        return assigned, removed
+
+    def _get_user_ns(self) -> Dict[str, Any]:
+        return self.kernel.shell.user_ns or {}
+
+    def _get_user_ns_hidden(self) -> Dict[str, Any]:
+        return self.kernel.shell.user_ns_hidden or {}
+
     # -- Private Methods --
 
-    def _send_update(self, assigned: Mapping[str, Any], removed: Set[str]) -> None:
+    def _get_filtered_vars(self, variables: Optional[Mapping[str, Any]] = None) -> Dict[str, Any]:
+        """
+        Returns:
+            A filtered dict of the variables, excluding hidden variables. If variables
+            is None, the current user namespace in the environment is used.
+        """
+        hidden = self._get_user_ns_hidden()
+
+        if variables is None:
+            variables = self._get_user_ns()
+
+        filtered_variables = {}
+        for key, value in variables.items():
+            if key not in hidden:
+                filtered_variables[key] = value
+        return filtered_variables
+
+    def _get_filtered_var_names(self, names: Iterable[str]) -> Set[str]:
+        """
+        Returns:
+            A filtered set of variable names, excluding hidden variables.
+        """
+        hidden = self._get_user_ns_hidden()
+
+        # Filter out hidden variables
+        filtered_names = set()
+        for name in names:
+            if name in hidden:
+                continue
+            filtered_names.add(name)
+        return filtered_names
+
+    def _find_var(self, path: Iterable[str]) -> Tuple[bool, Any]:
+        """
+        Finds the variable at the requested path in the current user session.
+
+        Args:
+            path: A list of path segments that will be traversed to find
+              the requested variable.
+            context: The context from which to start the search.
+
+        Returns:
+            A tuple (bool, Any) containing a boolean indicating whether the
+            variable was found, as well as the value of the variable, if found.
+        """
+
+        if path is None:
+            return False, None
+
+        is_known = False
+        value = None
+        context = self._get_user_ns()
+
+        # Walk the given path segment by segment
+        for access_key in path:
+            # Check for membership via inspector
+            inspector = get_inspector(context)
+            is_known = inspector.has_child(context, access_key)
+            if is_known:
+                value = inspector.get_child(context, access_key)
+
+            # Subsequent segment starts from the value
+            context = value
+
+            # But we stop if the path segment was unknown
+            if not is_known:
+                break
+
+        return is_known, value
+
+    def __delete_vars(self, names: Iterable[str], parent: Dict[str, Any]) -> Tuple[dict, set]:
+        """
+        Deletes the requested variables by name from the current user session.
+        """
+        if names is None:
+            return ({}, set())
+
+        self.snapshot_user_ns()
+
+        for name in names:
+            try:
+                self.kernel.shell.del_var(name, False)
+            except Exception:
+                logger.warning(f"Unable to delete variable '{name}'")
+                pass
+
+        assigned, removed = self._compare_user_ns()
+
+        # Publish an input to inform clients of the variables that were deleted
+        if len(removed) > 0:
+            code = "del " + ", ".join(removed)
+            self.kernel.publish_execute_input(code, parent)
+
+        return (assigned, removed)
+
+    def __send_update(self, assigned: Mapping[str, Any], removed: Set[str]) -> None:
         """
         Sends updates to the list of variables in the current user session
         through the variables comm to the client.
@@ -218,12 +406,12 @@ class VariablesService:
         }
         """
         # Filter out hidden assigned variables
-        variables = self.kernel.get_filtered_vars(assigned)
+        variables = self._get_filtered_vars(assigned)
         inspector = get_inspector(variables)
         filtered_assigned = inspector.summarize_children(variables, _summarize_variable)
 
         # Filter out hidden removed variables
-        filtered_removed = self.kernel.get_filtered_var_names(removed)
+        filtered_removed = self._get_filtered_var_names(removed)
 
         if filtered_assigned or filtered_removed:
             msg = UpdateParams(
@@ -232,7 +420,7 @@ class VariablesService:
             self._send_event(VariablesEvent.Update.value, asdict(msg))
 
     def _list_all_vars(self) -> List[Variable]:
-        variables = self.kernel.get_filtered_vars()
+        variables = self._get_filtered_vars()
         inspector = get_inspector(variables)
         return inspector.summarize_children(variables, _summarize_variable)
 
@@ -250,8 +438,26 @@ class VariablesService:
                 A dict providing the parent context for the response,
                 e.g. the client message requesting the clear operation
         """
-        self.kernel.delete_all_vars(parent)
+        create_task(self._soft_reset(parent), self._pending_tasks)
+
+        # Notify the frontend that the request is complete.
+        # Note that this must be received before the update/refresh event from the async task.
         self._send_result({})
+
+    async def _soft_reset(self, parent: Dict[str, Any]) -> None:
+        """
+        Use %reset with the soft switch to delete all user defined
+        variables from the environment.
+        """
+        # Run the %reset magic to clear user variables
+        code = "%reset -sf"
+        await self.kernel.do_execute(code, silent=False, store_history=False)
+
+        # Publish an input to inform clients of the "delete all" operation
+        self.kernel.publish_execute_input(code, parent)
+
+        # Refresh the client state
+        self.send_refresh_event()
 
     def _delete_vars(self, names: Iterable[str], parent: Dict[str, Any]) -> None:
         """
@@ -267,9 +473,8 @@ class VariablesService:
         if names is None:
             return
 
-        assigned, removed = self.kernel.delete_vars(names, parent)
+        assigned, removed = self.__delete_vars(names, parent)
         self._send_result(sorted(removed))
-        self._send_update(assigned, removed)
 
     def _inspect_var(self, path: List[str]) -> None:
         """
@@ -280,7 +485,7 @@ class VariablesService:
                 A list of names describing the path to the variable.
         """
 
-        is_known, value = self.kernel.find_var(path)
+        is_known, value = self._find_var(path)
         if is_known:
             self._send_details(path, value)
         else:
@@ -296,14 +501,14 @@ class VariablesService:
         if path is None:
             return
 
-        is_known, value = self.kernel.find_var(path)
+        is_known, value = self._find_var(path)
         if is_known:
             inspector = get_inspector(value)
             # Use the leaf segment to get the title
             access_key = path[-1]
             title = str(decode_access_key(access_key))
             dataset = inspector.to_dataset(value, title)
-            self.dataviewer_service.register_dataset(dataset)
+            self.kernel.dataviewer_service.register_dataset(dataset)
             self._send_result({})
         else:
             self._send_error(
@@ -357,7 +562,7 @@ class VariablesService:
         if path is None:
             return
 
-        is_known, value = self.kernel.find_var(path)
+        is_known, value = self._find_var(path)
         if is_known:
             content = _format_value(value, clipboard_format)
             msg = FormattedVariable(content=content)

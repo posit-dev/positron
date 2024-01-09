@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2023 Posit Software, PBC. All rights reserved.
+# Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
 #
 
 # Third-party packages that may be available in the user's environment.

@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2023 Posit Software, PBC. All rights reserved.
+# Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
 #
 
 import enum
@@ -167,36 +167,33 @@ class DataViewerService:
         """
         id = dataset.id or str(uuid.uuid4())
         self.datasets[id] = dataset
-        self.init_comm(id, dataset.title)
+        self._init_comm(id, dataset.title)
 
-    def has_dataset(self, id: str) -> bool:
-        return id in self.datasets
-
-    def init_comm(self, comm_id: str, title: str) -> None:
+    def _init_comm(self, comm_id: str, title: str) -> None:
         dataview_comm = self._create_comm(comm_id, title=title)
         self.comms[comm_id] = dataview_comm
-        dataview_comm.on_msg(self.receive_message)
+        dataview_comm.on_msg(self._receive_message)
 
-    def receive_message(self, msg) -> None:
+    def _receive_message(self, msg) -> None:
         """
         Handle client messages to send more data to the data viewer.
         """
-        comm_id = msg["content"]["comm_id"]
+        id = msg["content"]["comm_id"]
         msg_data = msg["content"]["data"]
         msg_type = msg_data.get("msg_type")
 
-        dataset = self.datasets.get(comm_id)
+        dataset = self.datasets.get(id)
         if dataset is None:
-            logger.warning(f"Data viewer dataset {comm_id} not found")
+            logger.warning(f"Data viewer dataset {id} not found")
             return
 
-        dataview_comm = self.comms.get(comm_id)
+        dataview_comm = self.comms.get(id)
         if dataview_comm is None:
-            logger.warning(f"Cannot send message, data viewer comm {comm_id} is not open")
+            logger.warning(f"Cannot send message, data viewer comm {id} is not open")
             return
 
         if msg_type == DataViewerMessageTypeInput.ready:
-            self.send_data(
+            self._send_data(
                 msg_data.get("start_row", 0),
                 msg_data.get("fetch_size", 100),
                 DataViewerMessageTypeOutput.initial_data,
@@ -204,7 +201,7 @@ class DataViewerService:
                 dataview_comm,
             )
         elif msg_type == DataViewerMessageTypeInput.request_rows:
-            self.send_data(
+            self._send_data(
                 msg_data.get("start_row", 0),
                 msg_data.get("fetch_size", 100),
                 DataViewerMessageTypeOutput.receive_rows,
@@ -214,7 +211,7 @@ class DataViewerService:
         else:
             self._send_error(f"Unknown message type '{msg_type}'", dataview_comm)
 
-    def send_data(
+    def _send_data(
         self,
         start_row: int,
         fetch_size: int,
@@ -250,7 +247,6 @@ class DataViewerService:
         self.comms.clear()
         self.datasets.clear()
 
-    # -- Private Methods --
     def _create_comm(self, comm_id: str, title: str):
         return comm.create_comm(
             target_name=self.target_name, comm_id=comm_id, data={"title": title}

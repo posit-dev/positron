@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2023 Posit Software, PBC. All rights reserved.
+# Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
 #
 from __future__ import annotations
 
@@ -13,7 +13,14 @@ import sys
 import types
 import uuid
 from abc import ABC, abstractmethod
-from collections.abc import Mapping, MutableMapping, MutableSequence, MutableSet, Sequence, Set
+from collections.abc import (
+    Mapping,
+    MutableMapping,
+    MutableSequence,
+    MutableSet,
+    Sequence,
+    Set,
+)
 from typing import (
     TYPE_CHECKING,
     Any,

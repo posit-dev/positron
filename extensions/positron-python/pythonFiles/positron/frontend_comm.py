@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import enum
 from dataclasses import dataclass, field
-from typing import Dict, List, Union, Optional
+from typing import Dict, List, Optional, Union
 
 JsonData = Union[Dict[str, "JsonData"], List["JsonData"], str, int, float, bool, None]
 

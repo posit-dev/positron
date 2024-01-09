@@ -1,10 +1,13 @@
-from typing import Any, Callable, Dict, List, Optional, cast
+#
+# Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
+#
+
+from typing import Any, Dict, List, Optional, cast
 from unittest.mock import Mock
 
 import pandas as pd
 import polars as pl
 import pytest
-from IPython.terminal.interactiveshell import TerminalInteractiveShell
 from jedi import Project
 from jedi_language_server import jedi_utils
 from lsprotocol.types import (
@@ -15,42 +18,34 @@ from lsprotocol.types import (
     Position,
     TextDocumentIdentifier,
 )
+from pygls.workspace.text_document import TextDocument
+
 from positron.help_comm import ShowHelpTopicParams
 from positron.jedi import PositronInterpreter
-from positron.positron_ipkernel import PositronIPyKernel
 from positron.positron_jedilsp import (
     HelpTopicParams,
     positron_completion,
     positron_completion_item_resolve,
     positron_help_topic_request,
 )
-from pygls.workspace.text_document import TextDocument
 
 
-@pytest.fixture
-def mock_server(kernel: PositronIPyKernel) -> Callable[[str, str], Mock]:
+def mock_server(uri: str, source: str, namespace: Dict[str, Any]) -> Mock:
     """
     Minimum interface for a pylgs server to support LSP unit tests.
     """
-
-    # Return a function that returns a mock server rather than an instantiated mock server,
-    # since uri and source change between tests.
-    def inner(uri: str, source: str) -> Mock:
-        server = Mock()
-        server.client_capabilities.text_document.completion.completion_item.documentation_format = (
-            list(MarkupKind)
-        )
-        server.initialization_options.completion.disable_snippets = False
-        server.initialization_options.completion.resolve_eagerly = False
-        server.initialization_options.completion.ignore_patterns = []
-        server.initialization_options.markup_kind_preferred = MarkupKind.Markdown
-        server.kernel = kernel
-        server.project = Project("")
-        server.workspace.get_document.return_value = TextDocument(uri, source)
-
-        return server
-
-    return inner
+    server = Mock()
+    server.client_capabilities.text_document.completion.completion_item.documentation_format = list(
+        MarkupKind
+    )
+    server.initialization_options.completion.disable_snippets = False
+    server.initialization_options.completion.resolve_eagerly = False
+    server.initialization_options.completion.ignore_patterns = []
+    server.initialization_options.markup_kind_preferred = MarkupKind.Markdown
+    server.shell.user_ns = namespace
+    server.project = Project("")
+    server.workspace.get_document.return_value = TextDocument(uri, source)
+    return server
 
 
 @pytest.mark.parametrize(
@@ -63,16 +58,12 @@ def mock_server(kernel: PositronIPyKernel) -> Callable[[str, str], Mock]:
     ],
 )
 def test_positron_help_topic_request(
-    mock_server: Callable[[str, str], Mock],
-    shell: TerminalInteractiveShell,
     source: str,
     namespace: Dict[str, Any],
     expected_topic: Optional[str],
 ) -> None:
-    shell.user_ns.update(namespace)
-
     params = HelpTopicParams(TextDocumentIdentifier("file:///foo.py"), Position(0, 0))
-    server = mock_server(params.text_document.uri, source)
+    server = mock_server(params.text_document.uri, source, namespace)
 
     topic = positron_help_topic_request(server, params)
 
@@ -92,18 +83,14 @@ _object_with_property = _ObjectWithProperty()
 
 
 def _completions(
-    mock_server: Callable[[str, str], Mock],
-    shell: TerminalInteractiveShell,
     source: str,
     namespace: Dict[str, Any],
 ) -> List[CompletionItem]:
-    shell.user_ns.update(namespace)
-
     lines = source.splitlines()
     line = len(lines) - 1
     character = len(lines[line])
     params = CompletionParams(TextDocumentIdentifier("file:///foo.py"), Position(line, character))
-    server = mock_server(params.text_document.uri, source)
+    server = mock_server(params.text_document.uri, source, namespace)
 
     completion_list = positron_completion(server, params)
 
@@ -132,13 +119,11 @@ def _completions(
     ],
 )
 def test_positron_completion_exact(
-    mock_server: Mock,
-    shell: TerminalInteractiveShell,
     source: str,
     namespace: Dict[str, Any],
     expected_labels: List[str],
 ) -> None:
-    completions = _completions(mock_server, shell, source, namespace)
+    completions = _completions(source, namespace)
     completion_labels = [completion.label for completion in completions]
     assert completion_labels == expected_labels
 
@@ -152,13 +137,11 @@ def test_positron_completion_exact(
     ],
 )
 def test_positron_completion_contains(
-    mock_server: Mock,
-    shell: TerminalInteractiveShell,
     source: str,
     namespace: Dict[str, Any],
     expected_label: str,
 ) -> None:
-    completions = _completions(mock_server, shell, source, namespace)
+    completions = _completions(source, namespace)
     completion_labels = [completion.label for completion in completions]
     assert expected_label in completion_labels
 
@@ -243,7 +226,6 @@ _pl_df = pl.DataFrame({"a": [0]})
     ],
 )
 def test_positron_completion_item_resolve(
-    mock_server: Mock,
     source: str,
     namespace: Dict[str, Any],
     expected_detail: str,
@@ -260,7 +242,7 @@ def test_positron_completion_item_resolve(
     [completion] = completions
     monkeypatch.setattr(jedi_utils, "_MOST_RECENT_COMPLETIONS", {"label": completion})
 
-    server = mock_server("", source)
+    server = mock_server("", source, namespace)
     params = CompletionItem("label")
 
     resolved = positron_completion_item_resolve(server, params)

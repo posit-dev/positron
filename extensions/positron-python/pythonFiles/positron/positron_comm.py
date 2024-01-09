@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2023 Posit Software, PBC. All rights reserved.
+# Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
 #
 
 import enum
@@ -11,7 +11,7 @@ from .utils import JsonData
 
 
 ## Create an enum of JSON-RPC error codes
-class JsonRpcErrorCode(enum.Enum):
+class JsonRpcErrorCode(enum.IntEnum):
     PARSE_ERROR = -32700
     INVALID_REQUEST = -32600
     METHOD_NOT_FOUND = -32601

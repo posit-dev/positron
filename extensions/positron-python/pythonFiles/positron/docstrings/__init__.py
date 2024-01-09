@@ -1,10 +1,10 @@
 #
 # Copyright (C) 2023 Posit Software, PBC. All rights reserved.
 #
+from docstring_to_markdown.google import google_to_markdown, looks_like_google
 from docstring_to_markdown.rst import rst_to_markdown
-from docstring_to_markdown.google import looks_like_google, google_to_markdown
 
-from .epytext import looks_like_epytext, epytext_to_markdown
+from .epytext import epytext_to_markdown, looks_like_epytext
 
 
 def convert_docstring(docstring: str) -> str:

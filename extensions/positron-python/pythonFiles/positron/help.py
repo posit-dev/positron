@@ -1,29 +1,21 @@
 #
-# Copyright (C) 2023 Posit Software, PBC. All rights reserved.
+# Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
 #
 
 from __future__ import annotations
 
-import builtins
 import logging
 import pydoc
 from dataclasses import asdict
 from typing import TYPE_CHECKING, Any, Optional, Union
 
-from .help_comm import (
-    HelpEvent,
-    ShowHelpKind,
-    ShowHelpParams,
-    ShowHelpTopicRequest,
-)
+from .help_comm import HelpEvent, ShowHelpKind, ShowHelpParams, ShowHelpTopicRequest
 from .positron_comm import JsonRpcErrorCode, PositronComm
 from .pydoc import start_server
 from .utils import get_qualname
 
 if TYPE_CHECKING:
     from comm.base_comm import BaseComm
-
-    from .positron_ipkernel import PositronIPyKernel
 
 logger = logging.getLogger(__name__)
 
@@ -74,16 +66,15 @@ class HelpService:
         "pandas.core.series": "pandas",
     }
 
-    def __init__(self, kernel: PositronIPyKernel):
-        self.kernel = kernel
+    def __init__(self):
         self._comm: Optional[PositronComm] = None
-        self.pydoc_thread = None
+        self._pydoc_thread = None
 
     def on_comm_open(self, comm: BaseComm, msg) -> None:
         self._comm = PositronComm(comm)
-        comm.on_msg(self.receive_message)
+        comm.on_msg(self._receive_message)
 
-    def receive_message(self, msg) -> None:
+    def _receive_message(self, msg) -> None:
         """
         Handle messages received from the client via the positron.help comm.
         """
@@ -103,9 +94,9 @@ class HelpService:
 
     def shutdown(self) -> None:
         # shutdown pydoc
-        if self.pydoc_thread is not None and self.pydoc_thread.serving:
+        if self._pydoc_thread is not None and self._pydoc_thread.serving:
             logger.info("Stopping pydoc server thread")
-            self.pydoc_thread.stop()
+            self._pydoc_thread.stop()
             logger.info("Pydoc server thread stopped")
         # shutdown comm
         if self._comm is not None:
@@ -115,22 +106,11 @@ class HelpService:
                 pass
 
     def start(self):
-        self.pydoc_thread = start_server()
-
-        if self.pydoc_thread and self.pydoc_thread.serving:
-            self._override_help()
-
-    def _override_help(self) -> None:
-        # Patch the shell's help function.
-        self.kernel.shell.user_ns_hidden["help"] = help
-        self.kernel.shell.user_ns["help"] = help
-
-        # Patch our own help function too so that `pydoc.resolve` resolves to it.
-        builtins.help = help
+        self._pydoc_thread = start_server()
 
     def show_help(self, request: Optional[Union[str, Any]]) -> None:
-        if self.pydoc_thread is None:
-            logger.warning("Ignoring help request, the pydoc server is not running")
+        if self._pydoc_thread is None or not self._pydoc_thread.serving:
+            logger.warning("Ignoring help request, the pydoc server is not serving")
             return
 
         # Map from the object to the URL for the pydoc server.
@@ -156,7 +136,7 @@ class HelpService:
                     key = key.replace(old, new)
                     break
 
-        url = f"{self.pydoc_thread.url}get?key={key}"
+        url = f"{self._pydoc_thread.url}get?key={key}"
 
         # Submit the event to the frontend service
         event = ShowHelpParams(content=url, kind=ShowHelpKind.Url, focus=True)
