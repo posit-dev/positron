@@ -1,3 +1,7 @@
+#
+# Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
+#
+
 import os
 from pathlib import Path
 from typing import Any, cast
@@ -7,11 +11,11 @@ import pandas as pd
 import pytest
 from IPython.utils.syspathcontext import prepended_to_syspath
 
-from positron.inspectors import get_inspector
-from positron.positron_ipkernel import PositronShell
+from positron.help import help
 from positron.utils import alias_home
 
-from .utils import assert_dataclass_equal
+from .conftest import PositronShell
+from .utils import assert_dataset_registered
 
 # The idea for these tests is to mock out communications with Positron via our various comms, and
 # only test IPython interactions. For example, in testing the %view magic, we assert that running
@@ -19,68 +23,53 @@ from .utils import assert_dataclass_equal
 # arguments. The actual messages sent over the comm are tested in the respective service tests.
 
 
-class MockPositronShell(PositronShell):
-    kernel: Mock
-    displayhook: Mock
-
-    def __init__(self, *args, **kwargs) -> None:
-        super().__init__(*args, **kwargs)
-        self.kernel = Mock()  # type: ignore [reportIncompatibleVariableOverride]
-        self.displayhook = Mock()
+def test_override_help(shell: PositronShell) -> None:
+    """
+    Check that we override the shell's `help` function with our own.
+    """
+    assert shell.user_ns["help"] == help
+    assert shell.user_ns_hidden["help"] == help
 
 
-@pytest.fixture
-def positron_shell() -> MockPositronShell:
-    return MockPositronShell()
-
-
-def assert_dataset_registered(positron_shell: MockPositronShell, obj: Any, title: str) -> None:
-    call_args_list = positron_shell.kernel.dataviewer_service.register_dataset.call_args_list
-    assert len(call_args_list) == 1
-
-    call_args = call_args_list[0].args
-
-    actual = call_args[0]
-    expected = get_inspector(obj).to_dataset(obj, title)
-
-    assert_dataclass_equal(actual, expected, ["id"])
-
-
-def test_view_pandas_df_expression(positron_shell: MockPositronShell) -> None:
+def test_view_pandas_df_expression(shell: PositronShell, mock_dataviewer_service: Mock) -> None:
     expr = "pd.DataFrame({'x': [1,2,3]})"
-    positron_shell.run_cell(
+
+    shell.run_cell(
         f"""import pandas as pd
 %view {expr}"""
     )
+
     obj = pd.DataFrame({"x": [1, 2, 3]})
-    assert_dataset_registered(positron_shell, obj, expr)
+    assert_dataset_registered(mock_dataviewer_service, obj, expr)
 
 
-def test_view_pandas_df_var(positron_shell: MockPositronShell) -> None:
-    positron_shell.run_cell(
-        """import pandas as pd
-a = pd.DataFrame({'x': [1,2,3]})
-%view a"""
-    )
+def test_view_pandas_df_var(shell: PositronShell, mock_dataviewer_service: Mock) -> None:
     name = "a"
-    obj = positron_shell.user_ns[name]
-    assert_dataset_registered(positron_shell, obj, name)
-
-
-def test_view_polars_df_var(positron_shell: MockPositronShell) -> None:
-    positron_shell.run_cell(
-        """import polars as pl
-a = pl.DataFrame()
-%view a"""
+    shell.run_cell(
+        f"""import pandas as pd
+{name} = pd.DataFrame({{'x': [1,2,3]}})
+%view {name}"""
     )
+
+    obj = shell.user_ns[name]
+    assert_dataset_registered(mock_dataviewer_service, obj, name)
+
+
+def test_view_polars_df_var(shell: PositronShell, mock_dataviewer_service: Mock) -> None:
     name = "a"
-    obj = positron_shell.user_ns[name]
-    assert_dataset_registered(positron_shell, obj, name)
+    shell.run_cell(
+        f"""import polars as pl
+{name} = pl.DataFrame({{'x': [1,2,3]}})
+%view {name}"""
+    )
+
+    obj = shell.user_ns[name]
+    assert_dataset_registered(mock_dataviewer_service, obj, name)
 
 
-def test_view_unsupported_type(positron_shell: MockPositronShell) -> None:
+def test_view_unsupported_type(shell: PositronShell) -> None:
     with pytest.raises(TypeError):
-        positron_shell.run_line_magic("view", "12")
+        shell.run_line_magic("view", "12")
 
 
 code = """def f():
@@ -91,7 +80,7 @@ def g():
 """
 
 
-def test_traceback(positron_shell: MockPositronShell, tmp_path: Path) -> None:
+def test_traceback(shell: PositronShell, tmp_path: Path, mock_displayhook: Mock) -> None:
     # We follow the approach of IPython's test_ultratb.py, which is to create a temporary module,
     # prepend its parent directory to sys.path, import it, then run a cell that calls a function
     # from it.
@@ -102,7 +91,7 @@ def test_traceback(positron_shell: MockPositronShell, tmp_path: Path) -> None:
 
     # Temporarily add the module to sys.path and call a function from it, which should error.
     with prepended_to_syspath(str(tmp_path)):
-        positron_shell.run_cell("import test_traceback; test_traceback.g()")
+        shell.run_cell("import test_traceback; test_traceback.g()")
 
     # NOTE(seem): This is not elegant, but I'm not sure how else to test this than other than to
     # compare the beginning of each frame of the traceback. The escape codes make it particularly
@@ -117,7 +106,7 @@ def test_traceback(positron_shell: MockPositronShell, tmp_path: Path) -> None:
     st = esc + "\\"
 
     # Convenient reference to colors from the active scheme.
-    colors = cast(Any, positron_shell.InteractiveTB.Colors)
+    colors = cast(Any, shell.InteractiveTB.Colors)
 
     # This template matches the beginning of each traceback frame. We don't check each entire frame
     # because syntax highlighted code is full of escape codes. For example, after removing
@@ -150,7 +139,7 @@ def test_traceback(positron_shell: MockPositronShell, tmp_path: Path) -> None:
     )
 
     # Check that a single message was sent to the frontend.
-    call_args_list = positron_shell.displayhook.session.send.call_args_list
+    call_args_list = mock_displayhook.session.send.call_args_list
     assert len(call_args_list) == 1
 
     call_args = call_args_list[0]
@@ -173,7 +162,7 @@ def test_traceback(positron_shell: MockPositronShell, tmp_path: Path) -> None:
 
     # The exception value should include the top of the stack trace.
     assert_ansi_string_startswith(
-        exc_content["evalue"], "This is an error!\nFile " + colors.filenameEm
+        exc_content["evalue"], "This is an error!\nCell " + colors.filenameEm
     )
 
 
@@ -191,15 +180,16 @@ def assert_ansi_string_startswith(actual: str, expected: str) -> None:
     assert actual == expected
 
 
-def test_pinfo(positron_shell: MockPositronShell) -> None:
+def test_pinfo(shell: PositronShell, mock_help_service: Mock) -> None:
     """
     Redirect `object?` to the Positron help service's `show_help` method.
     """
-    positron_shell.run_cell("object?")
-    positron_shell.kernel.help_service.show_help.assert_called_once_with(object)
+    shell.run_cell("object?")
+
+    mock_help_service.show_help.assert_called_once_with(object)
 
 
-def test_pinfo_2(positron_shell: MockPositronShell, tmp_path: Path) -> None:
+def test_pinfo_2(shell: PositronShell, tmp_path: Path, mock_frontend_service: Mock) -> None:
     """
     Redirect `object??` to the Positron frontend service's `open_editor` method.
     """
@@ -210,17 +200,18 @@ def test_pinfo_2(positron_shell: MockPositronShell, tmp_path: Path) -> None:
 
     # Temporarily add the module to sys.path and run the `??` magic.
     with prepended_to_syspath(str(tmp_path)):
-        positron_shell.run_cell("import test_pinfo_2")
-        positron_shell.run_cell("test_pinfo_2.g??")
+        shell.run_cell("import test_pinfo_2")
+        shell.run_cell("test_pinfo_2.g??")
 
     # IPython normalizes the case of the file path.
     expected_file = os.path.normcase(file)
-    positron_shell.kernel.frontend_service.open_editor.assert_called_once_with(expected_file, 4, 0)
+    mock_frontend_service.open_editor.assert_called_once_with(expected_file, 4, 0)
 
 
-def test_clear(positron_shell: MockPositronShell) -> None:
+def test_clear(shell: PositronShell, mock_frontend_service: Mock) -> None:
     """
     Redirect `%clear` to the Positron frontend service's `clear_console` method.
     """
-    positron_shell.run_cell("%clear")
-    positron_shell.kernel.frontend_service.clear_console.assert_called_once_with()
+    shell.run_cell("%clear")
+
+    mock_frontend_service.clear_console.assert_called_once_with()
