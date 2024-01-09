@@ -1,6 +1,10 @@
+#
+# Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
+#
+
 import pytest
 
-from positron import looks_like_epytext, epytext_to_markdown
+from positron.docstrings import epytext_to_markdown, looks_like_epytext
 
 BASIC_EXAMPLE = """Example of epytext docstring.
 

@@ -1,16 +1,19 @@
-from typing import Iterable, cast
+#
+# Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
+#
+
+from typing import Iterable
+from unittest.mock import Mock
 
 import comm
 import pytest
-from IPython.conftest import get_ipython
-from IPython.terminal.interactiveshell import TerminalInteractiveShell
 
-from positron.positron_ipkernel import PositronIPyKernel
+from positron.positron_ipkernel import PositronIPyKernel, PositronShell
 
 
 class DummyComm(comm.base_comm.BaseComm):
     """
-    A comm that stores published messages for testing purposes.
+    A comm that records published messages for testing purposes.
     """
 
     def __init__(self, *args, **kwargs):
@@ -22,34 +25,26 @@ class DummyComm(comm.base_comm.BaseComm):
         self.messages.append(msg)
 
 
-def _create_comm(*args, **kwargs) -> DummyComm:
-    return DummyComm(*args, **kwargs)
-
-
-@pytest.fixture(scope="session", autouse=True)
-def setup_comm() -> Iterable[None]:
+# Enable autouse so that all comms are created as DummyComms.
+@pytest.fixture(autouse=True)
+def patch_create_comm(monkeypatch: pytest.MonkeyPatch) -> None:
     """
-    Update the `comm` module to use our dummy comm.
+    Patch the `comm.create_comm` function to use our dummy comm.
     """
-    original_create_comm = comm.create_comm
-    comm.create_comm = _create_comm
-
-    yield
-
-    comm.create_comm = original_create_comm
+    monkeypatch.setattr(comm, "create_comm", DummyComm)
 
 
-@pytest.fixture
+# Enable autouse to ensure that the kernel is instantiated with the correct shell_class before
+# anyone else tries to instantiate it.
+@pytest.fixture(autouse=True)
 def kernel() -> PositronIPyKernel:
     """
     The Positron kernel, configured for testing purposes.
     """
-    shell = get_ipython()
-
     # Create a Positron kernel. The kernel calls shell_class.instance() to get the globally
     # registered shell instance, and IPython registers a TerminalInteractiveShell instead of a
     # PositronShell. This causes a traitlets validation error unless we pass the shell_class explicitly.
-    kernel = PositronIPyKernel.instance(shell_class=shell.__class__)
+    kernel = PositronIPyKernel.instance(shell_class=PositronShell)
 
     return kernel
 
@@ -57,11 +52,8 @@ def kernel() -> PositronIPyKernel:
 # Enable autouse to ensure a clean namespace and correct user_ns_hidden in every test,
 # even if it doesn't explicitly use the `shell` fixture.
 @pytest.fixture(autouse=True)
-def shell() -> Iterable[TerminalInteractiveShell]:
-    """
-    The Positron kernel's shell, configured for testing purposes.
-    """
-    shell = cast(TerminalInteractiveShell, get_ipython())
+def shell() -> Iterable[PositronShell]:
+    shell = PositronShell.instance()
 
     # TODO: For some reason these vars are in user_ns but not user_ns_hidden during tests. For now,
     #       manually add them to user_ns_hidden to replicate running in Positron.
@@ -85,3 +77,31 @@ def shell() -> Iterable[TerminalInteractiveShell]:
 
     # Reset the namespace so we don't interface with other tests (e.g. environment updates).
     shell.reset()
+
+
+@pytest.fixture
+def mock_dataviewer_service(shell: PositronShell, monkeypatch: pytest.MonkeyPatch) -> Mock:
+    mock = Mock()
+    monkeypatch.setattr(shell.kernel, "dataviewer_service", mock)
+    return mock
+
+
+@pytest.fixture
+def mock_frontend_service(shell: PositronShell, monkeypatch: pytest.MonkeyPatch) -> Mock:
+    mock = Mock()
+    monkeypatch.setattr(shell.kernel, "frontend_service", mock)
+    return mock
+
+
+@pytest.fixture
+def mock_help_service(shell: PositronShell, monkeypatch: pytest.MonkeyPatch) -> Mock:
+    mock = Mock()
+    monkeypatch.setattr(shell.kernel, "help_service", mock)
+    return mock
+
+
+@pytest.fixture
+def mock_displayhook(shell: PositronShell, monkeypatch: pytest.MonkeyPatch) -> Mock:
+    mock = Mock()
+    monkeypatch.setattr(shell, "displayhook", mock)
+    return mock

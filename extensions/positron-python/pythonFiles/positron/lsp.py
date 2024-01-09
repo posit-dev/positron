@@ -1,10 +1,10 @@
 #
-# Copyright (C) 2023 Posit Software, PBC. All rights reserved.
+# Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
 #
 
 import logging
 import urllib.parse
-from typing import Any, Dict, Optional, Tuple, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Dict, Optional, Tuple
 
 from comm.base_comm import BaseComm
 
@@ -33,7 +33,7 @@ class LSPService:
         self._comm = comm
 
         # Register the comm message handler
-        comm.on_msg(self.receive_message)
+        comm.on_msg(self._receive_message)
 
         # Parse the host and port from the comm open message
         data = msg["content"]["data"]
@@ -48,9 +48,9 @@ class LSPService:
             return
 
         # Start the language server thread
-        POSITRON.start(lsp_host=host, lsp_port=port, kernel=self._kernel, comm=comm)
+        POSITRON.start(lsp_host=host, lsp_port=port, shell=self._kernel.shell, comm=comm)
 
-    def receive_message(self, msg: Dict[str, Any]) -> None:
+    def _receive_message(self, msg: Dict[str, Any]) -> None:
         """
         Handle messages received from the client via the positron.lsp comm.
         """
