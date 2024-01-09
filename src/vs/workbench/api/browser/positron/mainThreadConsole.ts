@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
 import { DisposableStore } from 'vs/base/common/lifecycle';
@@ -28,6 +28,10 @@ export class MainThreadConsole implements MainThreadConsoleShape {
 			this._positronConsoleService.onDidChangeConsoleWidth((newWidth) => {
 				this._proxy.$onDidChangeConsoleWidth(newWidth);
 			}));
+	}
+
+	$getConsoleWidth(): Promise<number> {
+		return Promise.resolve(this._positronConsoleService.getConsoleWidth());
 	}
 
 	dispose(): void {

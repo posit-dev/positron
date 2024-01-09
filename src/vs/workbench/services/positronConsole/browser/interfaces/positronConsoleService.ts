@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
 import { Event } from 'vs/base/common/event';
@@ -73,6 +73,11 @@ export interface IPositronConsoleService {
 	 * Placeholder that gets called to "initialize" the PositronConsoleService.
 	 */
 	initialize(): void;
+
+	/**
+	 * Gets the current console width, in characters.
+	 */
+	getConsoleWidth(): number;
 
 	/**
 	 * Executes code in a PositronConsoleInstance.
@@ -199,6 +204,11 @@ export interface IPositronConsoleInstance {
 	 * onDidChangeWidth event if the width has changed.
 	 */
 	setWidthPx(newWidth: number): void;
+
+	/**
+	 * Gets the current width of the console, in pixels.
+	 */
+	getWidthPx(): number;
 
 	/**
 	 * Returns the active text editor widget for the console, if it exists.

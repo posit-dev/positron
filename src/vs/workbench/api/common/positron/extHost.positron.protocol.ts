@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
 import { IDisposable } from 'vs/base/common/lifecycle';
@@ -55,7 +55,9 @@ export interface ExtHostConsoleShape {
 	$onDidChangeConsoleWidth(newWidth: number): void;
 }
 
-export interface MainThreadConsoleShape { }
+export interface MainThreadConsoleShape {
+	$getConsoleWidth(): Promise<number>;
+}
 
 /**
  * The view state of a preview in the Preview panel. Only one preview can be
