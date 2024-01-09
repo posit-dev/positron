@@ -113,8 +113,18 @@ export class RInstallation {
 
 export function getRHomePath(binPath: string): string | undefined {
 	if (os.platform() === 'win32') {
-		// TODO: Windows - do we want something more robust here?
-		return path.join(binPath, '..', '..');
+		// find right-most 'bin' in the path and take everything to the left of it
+		// Example of two possible binPaths that are found in a single Windows installation:
+		// "C:\Program Files\R\R-4.3.2\bin\x64\R.exe"
+		// "C:\Program Files\R\R-4.2.3\bin\R.exe"
+		const binIndex = binPath.lastIndexOf(path.sep + 'bin' + path.sep);
+		if (binIndex === -1) {
+			Logger.info(`Can\'t determine R_HOME_DIR from the path to the R binary: ${binPath}`);
+			return undefined;
+		} else {
+			const pathUpToBin = binPath.substring(0, binIndex);
+			return pathUpToBin;
+		}
 	} else {
 		const binLines = readLines(binPath);
 		const re = new RegExp('Shell wrapper for R executable');
