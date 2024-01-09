@@ -142,6 +142,8 @@ export async function* rRuntimeDiscoverer(
 		}
 	}
 
+	// TODO: on Windows, check the registry for R installations
+
 	binaries.forEach((b: string) => {
 		rInstallations.push(new RInstallation(b));
 	});
@@ -290,6 +292,9 @@ function binFragment(version: string): string {
 			return path.join(version, 'bin', 'R');
 		case 'win32':
 			return path.join(version, 'bin', 'R.exe');
+		// TODO: I gather it is possible for a Windows installations to only have binaries in the
+		// subfolder, like this:
+		// C:\Program Files\R\R-4.3.2\bin\x64\R.exe
 		default:
 			throw new Error('Unsupported platform');
 	}
