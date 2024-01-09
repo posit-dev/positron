@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
 import { ExtHostLanguageRuntime } from 'vs/workbench/api/common/positron/extHostLanguageRuntime';
@@ -111,6 +111,9 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			get onDidChangeConsoleWidth() {
 				return extHostConsole.onDidChangeConsoleWidth;
 			},
+			getConsoleWidth(): Thenable<number> {
+				return extHostConsole.getConsoleWidth();
+			}
 		};
 
 		const languages: typeof positron.languages = {

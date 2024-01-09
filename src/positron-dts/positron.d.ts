@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
 declare module 'positron' {
@@ -967,6 +967,11 @@ declare module 'positron' {
 		 * console horizontally.
 		 */
 		export const onDidChangeConsoleWidth: vscode.Event<number>;
+
+		/**
+		 * Returns the current width of the console, in characters.
+		 */
+		export function getConsoleWidth(): Thenable<number>;
 	}
 
 	namespace runtime {
