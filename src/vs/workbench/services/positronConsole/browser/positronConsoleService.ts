@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
 import { localize } from 'vs/nls';
@@ -447,6 +447,21 @@ class PositronConsoleService extends Disposable implements IPositronConsoleServi
 		return positronConsoleInstance;
 	}
 
+	/**
+	 * Gets the current console width, in characters; throws an error if there is no active
+	 * Positron console instance.
+	 *
+	 * @returns The current console width, in characters.
+	 */
+	getConsoleWidth(): number {
+		if (this._activePositronConsoleInstance) {
+			return this.convertPxWidthToCharWidth(
+				this._activePositronConsoleInstance.getWidthPx()
+			);
+		}
+		throw new Error('No active Positron console instance; cannot get width.');
+	}
+
 	private onConsoleWidthChange(newWidth: number) {
 		// Clear the previous debounce timer, if any.
 		if (this._consoleWidthDebounceTimer) {
@@ -456,20 +471,29 @@ class PositronConsoleService extends Disposable implements IPositronConsoleServi
 		// When the debounce timer fires, compute the new console width and fire the
 		// onDidChangeConsoleWidth event.
 		this._consoleWidthDebounceTimer = setTimeout(() => {
-
-			// Read the current editor font settings;  use them to create font
-			// measurments and compute the new console width.
-			const editorOptions = this._configurationService.getValue<IEditorOptions>('editor');
-			const fontInfo = FontMeasurements.readFontInfo(
-				BareFontInfo.createFromRawSettings(editorOptions, PixelRatio.value)
-			);
-
-			// We use the width of a space character to compute the new console
-			// width; this assumes a monospace font.
-			const textWidth = Math.floor(newWidth / fontInfo.spaceWidth);
-
+			const textWidth = this.convertPxWidthToCharWidth(newWidth);
 			this._onDidChangeConsoleWidthEmitter.fire(textWidth);
 		}, 500);
+	}
+
+	/**
+	 * Compute the width of the console in characters (based on font metrics),
+	 * given the width in pixels.
+	 *
+	 * @param pxWidth The width in pixels.
+	 * @returns The width in characters.
+	 */
+	private convertPxWidthToCharWidth(pxWidth: number): number {
+		// Read the current editor font settings;  use them to create font
+		// measurments.
+		const editorOptions = this._configurationService.getValue<IEditorOptions>('editor');
+		const fontInfo = FontMeasurements.readFontInfo(
+			BareFontInfo.createFromRawSettings(editorOptions, PixelRatio.value)
+		);
+
+		// Convert the width in pixels to a width in characters using the
+		// space width; this assumes a monospace font.
+		return Math.floor(pxWidth / fontInfo.spaceWidth);
 	}
 
 	/**
@@ -691,6 +715,15 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 			this._width = newWidth;
 			this._onDidChangeWidthPx.fire(newWidth);
 		}
+	}
+
+	/**
+	 * Gets the console's width in pixels.
+	 *
+	 * @returns The console's current width in pixels.
+	 */
+	getWidthPx(): number {
+		return this._width;
 	}
 
 	/**

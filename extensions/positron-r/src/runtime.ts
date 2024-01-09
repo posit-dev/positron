@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
 import * as positron from 'positron';
@@ -496,11 +496,31 @@ export class RRuntime implements positron.LanguageRuntime, vscode.Disposable {
 	private onStateChange(state: positron.RuntimeState): void {
 		this._state = state;
 		if (state === positron.RuntimeState.Ready) {
+			// Start the LSP and DAP servers
 			this._queue.add(async () => {
 				const lsp = this.startLsp();
 				const dap = this.startDap();
 				await Promise.all([lsp, dap]);
 			});
+
+			this._queue.add(async () => {
+				try {
+					// Set the initial console width
+					const width = await positron.window.getConsoleWidth();
+					this.callMethod('setConsoleWidth', width);
+					this._kernel!.emitJupyterLog(`Set initial console width to ${width}`);
+				} catch (err) {
+					// Recoverable (we'll just use the default width); but log
+					// the error.
+					if (this._kernel) {
+						const runtimeError = err as positron.RuntimeMethodError;
+						this._kernel.emitJupyterLog(
+							`Error setting initial console width: ${runtimeError.message} ` +
+							`(${runtimeError.code})`);
+					}
+				}
+			});
+
 		} else if (state === positron.RuntimeState.Exited) {
 			if (this._lsp.state === LspState.running) {
 				this._queue.add(async () => {
