@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2023 Posit Software, PBC. All rights reserved.
+# Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
 #
 
 from typing import Any, Tuple
@@ -9,16 +9,15 @@ from jedi.api import Interpreter
 from jedi.api.classes import Completion
 from jedi.api.completion import (
     Completion as CompletionAPI,  # Rename to avoid conflict with classes.Completion
+)
+from jedi.api.completion import (
     _extract_string_while_in_string,
     _remove_duplicates,
     filter_names,
 )
 from jedi.api.file_name import complete_file_name
 from jedi.api.interpreter import MixedModuleContext
-from jedi.api.strings import (
-    complete_dict,
-    get_quote_ending,
-)
+from jedi.api.strings import complete_dict, get_quote_ending
 from jedi.cache import memoize_method
 from jedi.file_io import KnownContentFileIO
 from jedi.inference.base_value import HasNoContext

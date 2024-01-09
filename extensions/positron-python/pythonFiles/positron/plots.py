@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2023 Posit Software, PBC. All rights reserved.
+# Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
 #
 
 import codecs
@@ -7,11 +7,10 @@ import logging
 import pickle
 import uuid
 from dataclasses import asdict, dataclass, field
-from typing import Any, Dict, List, Optional, Tuple, cast
+from typing import Any, Dict, List, Optional, Tuple
 
 import comm
-from IPython.core.formatters import DisplayFormatter
-from IPython.core.interactiveshell import InteractiveShell
+from IPython.core.formatters import format_display_data
 
 from .plot_comm import PlotResult, RenderRequest
 from .positron_comm import JsonRpcErrorCode, PositronComm
@@ -220,8 +219,7 @@ class PositronDisplayPublisherHook:
 
         figure.set_size_inches(width_in, height_in)
 
-        display_formatter = cast(DisplayFormatter, InteractiveShell.instance().display_formatter)
-        format_dict, md_dict = display_formatter.format(figure, include=formats, exclude=[])
+        format_dict, md_dict = format_display_data(figure, include=formats, exclude=[])  # type: ignore
 
         plt.close(figure)
 

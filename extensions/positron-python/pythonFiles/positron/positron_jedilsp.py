@@ -1,18 +1,14 @@
-"""Positron extensions to the Jedi Language Server."""
+#
+# Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
+#
 
 import asyncio
 import enum
 import logging
-import os
 import re
-import sys
 import threading
 from functools import lru_cache
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Type, Union, cast
-
-# Add the lib path to our sys path so jedi_language_server can find its references
-EXTENSION_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, os.path.join(EXTENSION_ROOT, "pythonFiles", "lib", "jedilsp"))
 
 import attrs
 from comm.base_comm import BaseComm
@@ -94,7 +90,7 @@ from .inspectors import BaseColumnInspector, BaseTableInspector, get_inspector
 from .jedi import PositronInterpreter, get_python_object
 
 if TYPE_CHECKING:
-    from .positron_ipkernel import PositronIPyKernel
+    from .positron_ipkernel import PositronShell
 
 
 logger = logging.getLogger(__name__)
@@ -146,8 +142,8 @@ class PositronJediLanguageServer(JediLanguageServer):
         # LSP comm used to notify the frontend when the server is ready
         self._comm: Optional[BaseComm] = None
 
-        # Reference to an IPyKernel set on server start
-        self.kernel: Optional["PositronIPyKernel"] = None
+        # Reference to the user's namespace set on server start
+        self.shell: Optional["PositronShell"] = None
 
         # The LSP server is started in a separate thread
         self._server_thread: Optional[threading.Thread] = None
@@ -203,9 +199,7 @@ class PositronJediLanguageServer(JediLanguageServer):
         finally:
             self.shutdown()
 
-    def start(
-        self, lsp_host: str, lsp_port: int, kernel: "PositronIPyKernel", comm: BaseComm
-    ) -> None:
+    def start(self, lsp_host: str, lsp_port: int, shell: "PositronShell", comm: BaseComm) -> None:
         """
         Start the LSP with a reference to Positron's IPyKernel to enhance
         completions with awareness of live variables from user's namespace.
@@ -214,7 +208,7 @@ class PositronJediLanguageServer(JediLanguageServer):
         self._comm = comm
 
         # Give the LSP server access to the kernel to enhance completions with live variables
-        self.kernel = kernel
+        self.shell = shell
 
         if self._server_thread is not None:
             logger.warning("LSP server thread was not properly shutdown")
@@ -309,8 +303,8 @@ def positron_completion(
     if trimmed_line.startswith(("#", "!")):
         return None
 
-    # Use Interpreter instead of Script to include the kernel namespaces in completions
-    jedi_script = interpreter(server.project, document, server.kernel)
+    # Use Interpreter instead of Script to include the shell's namespaces in completions
+    jedi_script = interpreter(server.project, document, server.shell)
 
     # --- End Positron ---
 
@@ -373,9 +367,9 @@ def positron_completion(
         # - of if the trimmed line has a string, typically for dict completion e.g. `x['<cursor>`
         has_string = '"' in trimmed_line or "'" in trimmed_line
         exclude_magics = is_completing_attribute or has_whitespace or has_string
-        if server.kernel is not None and not exclude_magics:
+        if server.shell is not None and not exclude_magics:
             magic_commands = cast(
-                Dict[str, Dict[str, Callable]], server.kernel.shell.magics_manager.lsmagic()
+                Dict[str, Dict[str, Callable]], server.shell.magics_manager.lsmagic()
             )
 
             chars_before_cursor = trimmed_line[: params.position.character]
@@ -577,7 +571,7 @@ def positron_help_topic_request(
 ) -> Optional[ShowHelpTopicParams]:
     """Return topic to display in Help pane"""
     document = server.workspace.get_document(params.text_document.uri)
-    jedi_script = interpreter(server.project, document, server.kernel)
+    jedi_script = interpreter(server.project, document, server.shell)
     jedi_lines = jedi_utils.line_column(params.position)
     names = jedi_script.infer(*jedi_lines)
 
@@ -698,13 +692,13 @@ def did_open_diagnostics(server: JediLanguageServer, params: DidOpenTextDocument
 
 
 def interpreter(
-    project: Optional[Project], document: TextDocument, kernel: Optional["PositronIPyKernel"]
+    project: Optional[Project], document: TextDocument, shell: Optional["PositronShell"]
 ) -> Interpreter:
     """
-    Return a `jedi.Interpreter` with a reference to the kernel's user namespace.
+    Return a `jedi.Interpreter` with a reference to the shell's user namespace.
     """
     namespaces: List[Dict[str, Any]] = []
-    if kernel is not None:
-        namespaces.append(kernel.get_user_ns())
+    if shell is not None:
+        namespaces.append(shell.user_ns)
 
     return PositronInterpreter(document.source, namespaces, path=document.path, project=project)
