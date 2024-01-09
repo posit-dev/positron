@@ -5,6 +5,7 @@
 import { Disposable } from 'vs/base/common/lifecycle';
 import { ILanguageRuntimeService, ILanguageRuntime, RuntimeClientType, ILanguageRuntimeMessageOutput, PositronOutputLocation, RuntimeOutputKind } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { Emitter, Event } from 'vs/base/common/event';
+import { generateUuid } from 'vs/base/common/uuid';
 import { IPositronIPyWidgetsService, IPositronIPyWidgetMetadata, IPyWidgetHtmlData } from 'vs/workbench/services/positronIPyWidgets/common/positronIPyWidgetsService';
 import { IPyWidgetClientInstance, DisplayWidgetEvent } from 'vs/workbench/services/languageRuntime/common/languageRuntimeIPyWidgetClient';
 import { IPositronNotebookOutputWebviewService } from 'vs/workbench/contrib/positronOutputWebview/browser/notebookOutputWebviewService';
@@ -49,7 +50,6 @@ export class PositronIPyWidgetsService extends Disposable implements IPositronIP
 	}
 
 	private registerIPyWidgetClient(widgetClient: IPyWidgetClientInstance, runtime: ILanguageRuntime) {
-
 		// Add to our list of widgets
 		this._widgets.set(widgetClient.id, widgetClient);
 
@@ -130,7 +130,14 @@ export class PositronIPyWidgetsService extends Disposable implements IPositronIP
 			htmlData.addWidgetView(widgetId);
 		});
 
+		// None of these fields get used except for data, so we generate a random id and provide
+		// placeholders for the rest
 		const widgetMessage = {
+			id: generateUuid(),
+			type: 'output',
+			event_clock: 0,
+			parent_id: '',
+			when: '',
 			output_location: PositronOutputLocation.Plot,
 			kind: RuntimeOutputKind.IPyWidget,
 			data: htmlData.data,
