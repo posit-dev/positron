@@ -47,7 +47,7 @@ function handleNotRunnable(code: string) {
 }
 
 function handleManuallyRunnable(_runtime: RRuntime, code: string) {
-	positron.window.activeConsole?.pasteText(code);
+	positron.window.getConsoleForLanguage('r')?.pasteText(code);
 }
 
 function handleAutomaticallyRunnable(runtime: RRuntime, code: string) {

@@ -62,11 +62,6 @@ const MAX_ITEMS = 10000;
  */
 const TRIM_THRESHOLD = 500;
 
-/**
- * The unique console id.
- */
-let CONSOLE_ID = 0;
-
 //#region Helper Functions
 
 /**
@@ -521,11 +516,6 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	//#region Private Properties
 
 	/**
-	 * Gets the unique console id.
-	 */
-	private readonly _id: number;
-
-	/**
 	 * Gets or sets the runtime.
 	 */
 	private _runtime: ILanguageRuntime;
@@ -692,9 +682,6 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	) {
 		// Call the base class's constructor.
 		super();
-
-		// Set and bump the id.
-		this._id = (++CONSOLE_ID);
 
 		// Set the runtime.
 		this._runtime = runtime;
@@ -877,13 +864,6 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	 * onDidChangeWidthPx event.
 	 */
 	readonly onDidChangeWidthPx = this._onDidChangeWidthPx.event;
-
-	/**
-	 * Get a unique id for this console instance.
-	 */
-	getId(): string {
-		return 'positron.console' + ':' + this._id;
-	}
 
 	/**
 	 * Focuses the input for the console.

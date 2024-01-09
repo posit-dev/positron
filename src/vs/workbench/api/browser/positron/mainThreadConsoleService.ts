@@ -12,7 +12,12 @@ import { MainThreadConsole } from 'vs/workbench/api/browser/positron/mainThreadC
 export class MainThreadConsoleService implements MainThreadConsoleServiceShape {
 
 	private readonly _disposables = new DisposableStore();
-	private readonly _consoles = new Map<string, MainThreadConsole>();
+
+	// Map of language `id` to console.
+	// Assumes each language `id` maps to at most 1 console,
+	// which may need to be relaxed in the future.
+	// Kept in sync with consoles in `ExtHostConsoleService`.
+	private readonly _mainThreadConsolesByLanguageId = new Map<string, MainThreadConsole>();
 
 	private readonly _proxy: ExtHostConsoleServiceShape;
 
@@ -31,11 +36,11 @@ export class MainThreadConsoleService implements MainThreadConsoleServiceShape {
 				this._proxy.$onDidChangeConsoleWidth(newWidth);
 			}));
 
-		// Forward new positron instance ids to the extension host, and then register them
+		// Forward new positron console language id to the extension host, and then register it
 		// in the main thread too
 		this._disposables.add(
 			this._positronConsoleService.onDidStartPositronConsoleInstance((console) => {
-				const id = console.getId();
+				const id = console.runtime.metadata.languageId;
 
 				// First update ext host
 				this._proxy.$addConsole(id);
@@ -54,7 +59,7 @@ export class MainThreadConsoleService implements MainThreadConsoleServiceShape {
 		//
 		// this._disposables.add(
 		// 	this._positronConsoleService.onDidRemovePositronConsoleInstance((console) => {
-		// 		const id = console.getId();
+		// 		const id = console.runtime.metadata.languageId;
 		//
 		// 		// First update ext host
 		// 		this._proxy.$removeConsole(id);
@@ -63,19 +68,6 @@ export class MainThreadConsoleService implements MainThreadConsoleServiceShape {
 		// 		this.removeConsole(id);
 		// 	})
 		// )
-
-		// Forward active console change to the extension host, so it can update its internal
-		// active console id
-		this._disposables.add(
-			this._positronConsoleService.onDidChangeActivePositronConsoleInstance((console) => {
-				if (console) {
-					const id = console.getId();
-					this._proxy.$setActiveConsole(id);
-				} else {
-					this._proxy.$setActiveConsole(null);
-				}
-			})
-		);
 	}
 
 	$getConsoleWidth(): Promise<number> {
@@ -86,13 +78,13 @@ export class MainThreadConsoleService implements MainThreadConsoleServiceShape {
 		this._disposables.dispose();
 	}
 
-	private getConsoleById(id: string): MainThreadConsole | undefined {
-		return this._consoles.get(id);
+	private getConsoleForLanguage(id: string): MainThreadConsole | undefined {
+		return this._mainThreadConsolesByLanguageId.get(id);
 	}
 
 	private addConsole(id: string, console: IPositronConsoleInstance) {
 		const mainThreadConsole = new MainThreadConsole(console);
-		this._consoles.set(id, mainThreadConsole);
+		this._mainThreadConsolesByLanguageId.set(id, mainThreadConsole);
 	}
 
 	// TODO:
@@ -100,18 +92,18 @@ export class MainThreadConsoleService implements MainThreadConsoleServiceShape {
 	//
 	// private removeConsole(id: string) {
 	// 	// No dispose() method to call
-	// 	this._consoles.delete(id);
+	// 	this._mainThreadConsolesByLanguageId.delete(id);
 	// }
 
 	// --- from extension host process
 
 	$tryPasteText(id: string, text: string): void {
-		const console = this.getConsoleById(id);
+		const mainThreadConsole = this.getConsoleForLanguage(id);
 
-		if (!console) {
+		if (!mainThreadConsole) {
 			return;
 		}
 
-		console.pasteText(text);
+		mainThreadConsole.pasteText(text);
 	}
 }

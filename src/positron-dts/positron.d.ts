@@ -969,11 +969,13 @@ declare module 'positron' {
 			cancelButtonTitle?: string): Thenable<boolean>;
 
 		/**
-		 * The currently active console or `undefined`. The active console is the one
-		 * that currently has focus or, when none has focus, the one that has changed
-		 * input most recently.
+		 * Get the `Console` for a runtime language `id`
+		 *
+		 * @param id The runtime language `id` to retrieve a `Console` for, i.e. 'r' or 'python'.
+		 *
+		 * @returns A `Console`, or `undefined` if no `Console` for that language exists.
 		 */
-		export let activeConsole: Console | undefined;
+		export function getConsoleForLanguage(id: string): Console | undefined;
 
 		/**
 		 * Fires when the width of the console changes. The new width is passed as

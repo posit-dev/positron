@@ -11,9 +11,11 @@ import { dispose } from 'vs/base/common/lifecycle';
 
 export class ExtHostConsoleService implements extHostProtocol.ExtHostConsoleServiceShape {
 
-	private _activeConsoleId: string | null = null;
-
-	private readonly _consoles = new Map<string, ExtHostConsole>;
+	// Map of language `id` to console.
+	// Assumes each language `id` maps to at most 1 console,
+	// which may need to be relaxed in the future.
+	// Kept in sync with consoles in `MainThreadConsoleService`.
+	private readonly _extHostConsolesByLanguageId = new Map<string, ExtHostConsole>;
 
 	private readonly _onDidChangeConsoleWidth = new Emitter<number>();
 
@@ -37,19 +39,15 @@ export class ExtHostConsoleService implements extHostProtocol.ExtHostConsoleServ
 		return this._proxy.$getConsoleWidth();
 	}
 
-	getActiveConsole(): positron.Console | undefined {
-		if (!this._activeConsoleId) {
+	getConsoleForLanguage(id: string): positron.Console | undefined {
+		const extHostConsole = this._extHostConsolesByLanguageId.get(id);
+
+		if (!extHostConsole) {
+			// Console for this language `id` doesn't exist yet
 			return undefined;
 		}
 
-		const console = this._consoles.get(this._activeConsoleId);
-
-		if (!console) {
-			this._logService.warn(`Console ${this._activeConsoleId} is set as the active console, but isn't in the console map.`);
-			return undefined;
-		}
-
-		return console.getConsole();
+		return extHostConsole.getConsole();
 	}
 
 	// --- from main thread
@@ -62,22 +60,17 @@ export class ExtHostConsoleService implements extHostProtocol.ExtHostConsoleServ
 
 	// Called when a new console instance is started
 	$addConsole(id: string): void {
-		const console = new ExtHostConsole(id, this._proxy, this._logService);
-		this._consoles.set(id, console);
+		const extHostConsole = new ExtHostConsole(id, this._proxy, this._logService);
+		this._extHostConsolesByLanguageId.set(id, extHostConsole);
 	}
 
 	// Called when a console instance is removed
 	$removeConsole(id: string): void {
-		const console = this._consoles.get(id);
-		this._consoles.delete(id);
+		const extHostConsole = this._extHostConsolesByLanguageId.get(id);
+		this._extHostConsolesByLanguageId.delete(id);
 
 		// "Dispose" of an `ExtHostConsole`, ensuring that future API calls warn / error
-		dispose(console);
-	}
-
-	// Called when the active console changes
-	$setActiveConsole(id: string | null): void {
-		this._activeConsoleId = id;
+		dispose(extHostConsole);
 	}
 }
 

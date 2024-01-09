@@ -61,7 +61,6 @@ export interface ExtHostConsoleServiceShape {
 	$onDidChangeConsoleWidth(newWidth: number): void;
 	$addConsole(id: string): void;
 	$removeConsole(id: string): void;
-	$setActiveConsole(id: string | null): void;
 }
 
 export interface MainThreadMethodsShape { }
