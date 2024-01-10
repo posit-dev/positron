@@ -25,6 +25,7 @@ freezegun
 # iPython Kernel tests
 fastcore
 ipykernel
+ipywidgets
 jedi
 jedi_language_server
 lsprotocol
