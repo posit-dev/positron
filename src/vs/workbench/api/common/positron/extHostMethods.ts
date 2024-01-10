@@ -4,7 +4,7 @@
 
 import * as extHostProtocol from './extHost.positron.protocol';
 import { ExtHostEditors } from '../extHostTextEditors';
-import { EditorContextResult, FrontendRequest } from 'vs/workbench/services/languageRuntime/common/positronFrontendComm';
+import { EditorContextResult, UiRequest } from 'vs/workbench/services/languageRuntime/common/positronUiComm';
 import { JsonRpcErrorCode } from 'vs/workbench/services/languageRuntime/common/positronBaseComm';
 
 
@@ -37,9 +37,9 @@ export class ExtHostMethods implements extHostProtocol.ExtHostMethodsShape {
 
 	// Parses arguments and calls relevant method. Does not throw, returns
 	// JSON-RPC error responses instead.
-	async call(method: FrontendRequest, params: Record<string, any>): Promise<JsonRpcResponse> {
+	async call(method: UiRequest, params: Record<string, any>): Promise<JsonRpcResponse> {
 		try {
-			if (!Object.values(FrontendRequest).includes(method)) {
+			if (!Object.values(UiRequest).includes(method)) {
 				return <JsonRpcError> {
 					error: {
 						code: JsonRpcErrorCode.MethodNotFound,
@@ -53,14 +53,14 @@ export class ExtHostMethods implements extHostProtocol.ExtHostMethodsShape {
 
 			let result;
 			switch (method) {
-				case FrontendRequest.LastActiveEditorContext: {
+				case UiRequest.LastActiveEditorContext: {
 					if (params && Object.keys(params).length > 0) {
 						return newInvalidParamsError(method);
 					}
 					result = await this.lastActiveEditorContext();
 					break;
 				}
-				case FrontendRequest.DebugSleep: {
+				case UiRequest.DebugSleep: {
 					if (!params || !Object.keys(params).includes('ms')) {
 						return newInvalidParamsError(method);
 					}
@@ -98,7 +98,7 @@ export class ExtHostMethods implements extHostProtocol.ExtHostMethodsShape {
 
 /* Utils */
 
-function newInvalidParamsError(method: FrontendRequest) {
+function newInvalidParamsError(method: UiRequest) {
 	return <JsonRpcError> {
 		error: {
 			code: JsonRpcErrorCode.InvalidParams,

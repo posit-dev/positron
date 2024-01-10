@@ -137,7 +137,7 @@ export enum RuntimeClientType {
 	Dap = 'positron.dap',
 	Plot = 'positron.plot',
 	DataViewer = 'positron.dataViewer',
-	FrontEnd = 'positron.frontEnd',
+	Ui = 'positron.ui',
 	Help = 'positron.help',
 	Connection = 'positron.connection',
 	IPyWidget = 'jupyter.widget',
