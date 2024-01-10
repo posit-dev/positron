@@ -895,6 +895,13 @@ declare module 'positron' {
 			token: vscode.CancellationToken): vscode.ProviderResult<string>;
 	}
 
+	export interface Console {
+		/**
+		 * Pastes text into the console.
+		 */
+		pasteText(text: string): void;
+	}
+
 	namespace languages {
 		/**
 		 * Register a statement range provider.
@@ -960,6 +967,15 @@ declare module 'positron' {
 			message: string,
 			okButtonTitle?: string,
 			cancelButtonTitle?: string): Thenable<boolean>;
+
+		/**
+		 * Get the `Console` for a runtime language `id`
+		 *
+		 * @param id The runtime language `id` to retrieve a `Console` for, i.e. 'r' or 'python'.
+		 *
+		 * @returns A `Console`, or `undefined` if no `Console` for that language exists.
+		 */
+		export function getConsoleForLanguage(id: string): Console | undefined;
 
 		/**
 		 * Fires when the width of the console changes. The new width is passed as
