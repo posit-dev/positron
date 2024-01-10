@@ -1,37 +1,44 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
-import { Emitter } from 'vs/base/common/event';
-import * as extHostProtocol from './extHost.positron.protocol';
+import * as positron from 'positron';
+import { MainThreadConsoleServiceShape } from './extHost.positron.protocol';
+import { ILogService } from 'vs/platform/log/common/log';
 
-export class ExtHostConsole implements extHostProtocol.ExtHostConsoleShape {
+export class ExtHostConsole {
 
-	private readonly _onDidChangeConsoleWidth = new Emitter<number>();
+	private _disposed: boolean = false;
 
-	private readonly _proxy: extHostProtocol.MainThreadConsoleShape;
+	private readonly _value: positron.Console;
 
 	constructor(
-		mainContext: extHostProtocol.IMainPositronContext
+		id: string,
+		proxy: MainThreadConsoleServiceShape,
+		logService: ILogService,
 	) {
-		this._proxy = mainContext.getProxy(extHostProtocol.MainPositronContext.MainThreadConsole);
+		// So we can access private fields later on
+		const that = this;
+
+		// Implement `Console` interface, scoped in such a way that we can access the `id`,
+		// `proxy`, and `logService` at any time without requiring them as arguments
+		this._value = Object.freeze({
+			pasteText(text: string): void {
+				if (that._disposed) {
+					logService.warn('Console is closed/disposed.');
+					return;
+				}
+				proxy.$tryPasteText(id, text);
+			}
+		});
 	}
 
-	onDidChangeConsoleWidth = this._onDidChangeConsoleWidth.event;
-
-	/**
-	 * Queries the main thread for the current width of the console.
-	 *
-	 * @returns The width of the console in characters.
-	 */
-	getConsoleWidth(): Promise<number> {
-		return this._proxy.$getConsoleWidth();
+	dispose() {
+		this._disposed = true;
 	}
 
-	// Called by the main thread when the console width changes; fires the
-	// onDidChangeConsoleWidth event to any extensions that are listening.
-	$onDidChangeConsoleWidth(newWidth: number): void {
-		this._onDidChangeConsoleWidth.fire(newWidth);
+	getConsole(): positron.Console {
+		return this._value;
 	}
 }
 

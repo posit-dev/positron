@@ -47,12 +47,19 @@ function handleNotRunnable(code: string) {
 }
 
 function handleManuallyRunnable(_runtime: RRuntime, code: string) {
-	// TODO: Put `code` in the Console for the user, overwriting anything that was there.
-	// Seems like we will need a new API for that.
-	vscode.window.showInformationMessage(vscode.l10n.t(
-		`Code hyperlink written to clipboard: \`${code}\`.`
-	));
-	vscode.env.clipboard.writeText(code);
+	const console = positron.window.getConsoleForLanguage('r');
+
+	if (!console) {
+		// Not an expected path, but technically possible,
+		// and we should still do something somewhat useful.
+		vscode.window.showInformationMessage(vscode.l10n.t(
+			`Failed to locate an R console. Code hyperlink written to clipboard instead: \`${code}\`.`
+		));
+		vscode.env.clipboard.writeText(code);
+		return;
+	}
+
+	console.pasteText(code);
 }
 
 function handleAutomaticallyRunnable(runtime: RRuntime, code: string) {
