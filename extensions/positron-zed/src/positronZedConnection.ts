@@ -34,13 +34,28 @@ export class ZedConnection {
 
 			// A request to list the tables
 			case 'tables_request':
+
+				if (message.path.length > 0) {
+					if (message.path[0].type === 'schema') {
+						// Emit the data to the front end
+						this._onDidEmitData.fire({
+							msg_type: 'tables_response',
+							tables: [
+								{ name: 'table1', type: 'table' },
+								{ name: 'table2', type: 'table' },
+							]
+						});
+						break;
+					}
+				}
+
 				// Emit the data to the front end
 				this._onDidEmitData.fire({
 					msg_type: 'tables_response',
 					tables: [
-						'table1',
-						'table2',
-						'table3'
+						{ name: 'table1', type: 'table' },
+						{ name: 'table2', type: 'table' },
+						{ name: 'schema1', type: 'schema' },
 					]
 				});
 				break;
