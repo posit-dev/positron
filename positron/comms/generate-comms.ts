@@ -352,8 +352,11 @@ use serde::Serialize;
 `;
 
 	const contracts = [backend, frontend];
+	const namedContracts = [{ name: 'Backend', source: backend },
+				{ name: 'Frontend', source: frontend }];
 
-	for (const source of contracts) {
+	for (const contract of namedContracts) {
+		const source = contract.source;
 		if (!source) {
 			continue;
 		}
@@ -390,7 +393,7 @@ use serde::Serialize;
 				return yield `pub type ${snakeCaseToSentenceCase(name)} = serde_json::Value;\n\n`;
 			}
 
-			yield '#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]\n';
+			yield '#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]\n';
 			yield `pub struct ${snakeCaseToSentenceCase(name)} {\n`;
 
 			for (let i = 0; i < props.length; i++) {
@@ -423,7 +426,7 @@ use serde::Serialize;
 				`Possible values for ` +
 				snakeCaseToSentenceCase(context[0]) + ` in ` +
 				snakeCaseToSentenceCase(context[1]));
-			yield '#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]\n';
+			yield '#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]\n';
 			yield `pub enum ${snakeCaseToSentenceCase(context[1])}${snakeCaseToSentenceCase(context[0])} {\n`;
 			for (let i = 0; i < values.length; i++) {
 				const value = values[i];
@@ -440,7 +443,7 @@ use serde::Serialize;
 	}
 
 	// Create parameter objects for each method
-	for (const source of [backend, frontend]) {
+	for (const source of contracts) {
 		if (!source) {
 			continue;
 		}
@@ -450,7 +453,7 @@ use serde::Serialize;
 					`Parameters for the ` +
 					snakeCaseToSentenceCase(method.name) + ` ` +
 					`method.`);
-				yield '#[derive(Debug, Serialize, Deserialize, PartialEq)]\n';
+				yield '#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]\n';
 				yield `pub struct ${snakeCaseToSentenceCase(method.name)}Params {\n`;
 				for (let i = 0; i < method.params.length; i++) {
 					const param = method.params[i];
@@ -477,14 +480,21 @@ use serde::Serialize;
 	}
 
 	// Create the RPC request and reply enums
-	if (backend) {
+	for (const contract of namedContracts) {
+		const source = contract.source;
+		if (!source) {
+			continue;
+		}
 		yield '/**\n';
-		yield ` * RPC request types for the ${name} comm\n`;
+		yield ` * ${contract.name} RPC request types for the ${name} comm\n`;
 		yield ' */\n';
-		yield `#[derive(Debug, Serialize, Deserialize, PartialEq)]\n`;
+		yield `#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]\n`;
 		yield `#[serde(tag = "method", content = "params")]\n`;
-		yield `pub enum ${snakeCaseToSentenceCase(name)}RpcRequest {\n`;
-		for (const method of backend.methods) {
+		yield `pub enum ${snakeCaseToSentenceCase(name)}${contract.name}RpcRequest {\n`;
+		for (const method of source.methods) {
+			if (!method.result) {
+				continue;
+			}
 			if (method.summary) {
 				yield formatComment('\t/// ', method.summary);
 				if (method.description) {
@@ -503,26 +513,51 @@ use serde::Serialize;
 		yield `}\n\n`;
 
 		yield '/**\n';
-		yield ` * RPC Reply types for the ${name} comm\n`;
+		yield ` * ${contract.name} RPC Reply types for the ${name} comm\n`;
 		yield ' */\n';
-		yield `#[derive(Debug, Serialize, Deserialize, PartialEq)]\n`;
+		yield `#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]\n`;
 		yield `#[serde(tag = "method", content = "result")]\n`;
-		yield `pub enum ${snakeCaseToSentenceCase(name)}RpcReply {\n`;
-		for (const method of backend.methods) {
-			if (method.result.schema) {
+		yield `pub enum ${snakeCaseToSentenceCase(name)}${contract.name}RpcReply {\n`;
+		for (const method of source.methods) {
+			if (method.result) {
+				if (!method.result.schema) {
+					yield formatComment('\t/// ', `Reply for the ${method.name} method (no result)`);
+					yield `\t${snakeCaseToSentenceCase(method.name)}Reply(),\n\n`;
+					continue;
+				}
+
 				const schema = method.result.schema;
 				if (schema.description) {
 					yield formatComment('\t/// ', schema.description);
 				}
 				yield `\t${snakeCaseToSentenceCase(method.name)}Reply`;
-				if (schema.type === 'object') {
-					yield `(${snakeCaseToSentenceCase(schema.name)}),\n\n`;
-				} else {
-					yield `(${deriveType(contracts, RustTypeMap, [schema.name], schema)}),\n\n`;
+
+				// No enum parameter, close the variant and continue to next
+				if (schema.type === 'null') {
+					yield '(),\n\n';
+					continue;
 				}
-			} else {
-				yield formatComment('\t/// ', `Reply for the ${method.name} method (no result)`);
-				yield `\t${snakeCaseToSentenceCase(method.name)}Reply(),\n\n`;
+
+				// Open enum parameter
+				yield '(';
+
+				if (method.result.required === false) {
+					yield 'Option<';
+				}
+
+				if (schema.type === 'object') {
+					yield snakeCaseToSentenceCase(schema.name);
+				} else {
+					yield deriveType(contracts, RustTypeMap, [schema.name], schema);
+				}
+
+				// Close `Option<>`
+				if (method.result.required === false) {
+					yield '>';
+				}
+
+				// Close enum parameter
+				yield '),\n\n';
 			}
 		}
 		yield `}\n\n`;
@@ -531,12 +566,15 @@ use serde::Serialize;
 	// Create the event enum
 	if (frontend) {
 		yield '/**\n';
-		yield ` * Front-end events for the ${name} comm\n`;
+		yield ` * Frontend events for the ${name} comm\n`;
 		yield ' */\n';
-		yield `#[derive(Debug, Serialize, Deserialize, PartialEq)]\n`;
+		yield `#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]\n`;
 		yield `#[serde(tag = "method", content = "params")]\n`;
 		yield `pub enum ${snakeCaseToSentenceCase(name)}Event {\n`;
 		for (const method of frontend.methods) {
+			if (method.result !== undefined) {
+				continue;
+			}
 			if (method.description) {
 				yield formatComment('\t/// ', method.description);
 			}
@@ -549,6 +587,47 @@ use serde::Serialize;
 			}
 		}
 		yield `}\n\n`;
+	}
+
+	if (frontend && frontend.methods.some((method: any) => method.result && method.result.schema)) {
+		const enumRequestType = `${snakeCaseToSentenceCase(name)}FrontendRpcRequest`
+		const enumReplyType = `${snakeCaseToSentenceCase(name)}FrontendRpcReply`
+		yield `/**
+* Conversion of JSON values to frontend RPC Reply types
+*/
+pub fn ${name}_frontend_reply_from_value(
+	reply: serde_json::Value,
+	request: &${enumRequestType},
+) -> anyhow::Result<${snakeCaseToSentenceCase(name)}FrontendRpcReply> {
+	match request {
+`;
+		for (const method of frontend.methods) {
+			if (method.result) {
+				const variantName = `${enumRequestType}::${snakeCaseToSentenceCase(method.name)}`;
+				const replyVariantName = `${enumReplyType}::${snakeCaseToSentenceCase(method.name)}Reply`;
+
+				const hasParams = method.params.length > 0;
+
+				const schema = method.result.schema;
+				const replyHasParams = schema && schema.type !== 'null'
+
+				const variant = hasParams ? `${variantName}(_)` : variantName;
+
+				yield `\t\t${variant} => Ok(${replyVariantName}`;
+
+				// If reply has a parameter, unserialise it
+				if (replyHasParams) {
+					yield '(serde_json::from_value(reply)?)';
+				} else {
+					yield '()';
+				}
+
+				// Close Ok
+				yield '),\n';
+			}
+		}
+		yield '\t}\n';
+		yield '}\n\n';
 	}
 }
 
@@ -758,6 +837,10 @@ JsonData = Union[Dict[str, "JsonData"], List["JsonData"], str, int, float, bool,
 		yield `    """\n`;
 		yield `\n`;
 		for (const method of frontend.methods) {
+			// Skip requests
+			if (method.result) {
+				continue;
+			}
 			yield formatComment('    # ', method.summary);
 			yield `    ${snakeCaseToSentenceCase(method.name)} = "${method.name}"\n`;
 			yield '\n';
@@ -940,6 +1023,7 @@ import { IRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/co
 
 	if (frontend) {
 		const events: string[] = [];
+		const requests: string[] = [];
 
 		for (const method of frontend.methods) {
 			// Ignore methods that have a result; we're generating event types here
@@ -970,9 +1054,48 @@ import { IRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/co
 			yield '}\n\n';
 		}
 
-		yield `export enum ${snakeCaseToSentenceCase(name)}Event {\n`;
-		yield events.join(',\n');
-		yield '\n}\n\n';
+		for (const method of frontend.methods) {
+			// Ignore methods that don't have a result; we're generating request types here
+			if (!method.result) {
+				continue;
+			}
+
+			// Collect enum fields
+			const sentenceName = snakeCaseToSentenceCase(method.name);
+			requests.push(`\t${sentenceName} = '${method.name}'`);
+
+			yield '/**\n';
+			yield formatComment(' * ', `Request: ${method.summary}`);
+			yield formatComment(' *', '');
+			yield formatComment(' * ', `${method.description}`);
+			yield ' */\n';
+			yield `export interface ${sentenceName}Request {\n`;
+			for (const param of method.params) {
+				yield '\t/**\n';
+				yield formatComment('\t * ', `${param.description}`);
+				yield '\t */\n';
+				yield `\t${param.name}: `;
+				if (param.schema.type === 'string' && param.schema.enum) {
+					yield `${snakeCaseToSentenceCase(method.name)}${snakeCaseToSentenceCase(param.name)}`;
+				} else {
+					yield deriveType(contracts, TypescriptTypeMap, param.name, param.schema);
+				}
+				yield `;\n\n`;
+			}
+			yield '}\n\n';
+		}
+
+		if (events.length) {
+			yield `export enum ${snakeCaseToSentenceCase(name)}Event {\n`;
+			yield events.join(',\n');
+			yield '\n}\n\n';
+		}
+
+		if (requests.length) {
+			yield `export enum ${snakeCaseToSentenceCase(name)}Request {\n`;
+			yield requests.join(',\n');
+			yield '\n}\n\n';
+		}
 	}
 
 	yield `export class Positron${snakeCaseToSentenceCase(name)}Comm extends PositronBaseComm {\n`;

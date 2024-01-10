@@ -1065,4 +1065,37 @@ declare module 'positron' {
 		export const onDidRegisterRuntime: vscode.Event<LanguageRuntime>;
 
 	}
+
+	/**
+	 * This namespace contains all frontend RPC methods available to a runtime.
+	 */
+	namespace methods {
+		/**
+		 * Call a frontend method.
+		 *
+		 * `call()` is designed to be hooked up directly to an RPC mechanism. It takes
+                 * `method` and `params` arguments as defined by the UI frontend OpenRPC contract
+                 * and returns a JSON-RPC response. It never throws, all errors are returned as
+                 * JSON-RPC error responses.
+		 *
+		 * @param method The method name.
+		 * @param params An object of named parameters for `method`.
+		 */
+		export function call(method: string, params: Record<string, any>): Thenable<any>;
+
+		/**
+		 * Retrieve last active editor context.
+		 *
+		 * Returns a `TextEditorContext` for the last active editor.
+		 */
+		export function lastActiveEditorContext(): Thenable<TextEditorContext | null>;
+	}
+
+	/**
+	 * Contains information about an editor such as the URI path.
+	 */
+	export interface TextEditorContext {
+		/** URI of the edited document */
+		readonly path: string;
+	}
 }

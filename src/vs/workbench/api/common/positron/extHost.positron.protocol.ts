@@ -7,6 +7,7 @@ import { ILanguageRuntimeInfo, ILanguageRuntimeMetadata, RuntimeClientType, Runt
 import { createProxyIdentifier, IRPCProtocol } from 'vs/workbench/services/extensions/common/proxyIdentifier';
 import { IWebviewPortMapping, WebviewExtensionDescription } from 'vs/workbench/api/common/extHost.protocol';
 import { URI, UriComponents } from 'vs/base/common/uri';
+import { ITextEditorContext } from 'vs/workbench/services/frontendMethods/common/editorContext';
 
 // This is the interface that the main process exposes to the extension host
 export interface MainThreadLanguageRuntimeShape extends IDisposable {
@@ -51,12 +52,20 @@ export interface MainThreadModalDialogsShape extends IDisposable {
 // The interface to the main thread exposed by the extension host
 export interface ExtHostModalDialogsShape { }
 
+export interface MainThreadConsoleShape { }
+
 export interface ExtHostConsoleShape {
 	$onDidChangeConsoleWidth(newWidth: number): void;
 }
 
 export interface MainThreadConsoleShape {
 	$getConsoleWidth(): Promise<number>;
+}
+
+export interface MainThreadMethodsShape { }
+
+export interface ExtHostMethodsShape {
+	lastActiveEditorContext(): Promise<ITextEditorContext | null>;
 }
 
 /**
@@ -119,6 +128,7 @@ export const ExtHostPositronContext = {
 	ExtHostPreviewPanel: createProxyIdentifier<ExtHostPreviewPanelShape>('ExtHostPreviewPanel'),
 	ExtHostModalDialogs: createProxyIdentifier<ExtHostModalDialogsShape>('ExtHostModalDialogs'),
 	ExtHostConsole: createProxyIdentifier<ExtHostConsoleShape>('ExtHostConsole'),
+	ExtHostMethods: createProxyIdentifier<ExtHostMethodsShape>('ExtHostMethods'),
 };
 
 export const MainPositronContext = {
@@ -126,4 +136,5 @@ export const MainPositronContext = {
 	MainThreadPreviewPanel: createProxyIdentifier<MainThreadPreviewPanelShape>('MainThreadPreviewPanel'),
 	MainThreadModalDialogs: createProxyIdentifier<MainThreadModalDialogsShape>('MainThreadModalDialogs'),
 	MainThreadConsole: createProxyIdentifier<MainThreadConsoleShape>('MainThreadConsole'),
+	MainThreadMethods: createProxyIdentifier<MainThreadMethodsShape>('MainThreadMethods'),
 };
