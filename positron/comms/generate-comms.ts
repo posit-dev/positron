@@ -507,7 +507,7 @@ use serde::Serialize;
 			if (method.params.length > 0) {
 				yield `(${snakeCaseToSentenceCase(method.name)}Params),\n\n`;
 			} else {
-				yield ',\n\n';
+				yield '(),\n\n';
 			}
 		}
 		yield `}\n\n`;
@@ -611,8 +611,7 @@ pub fn ${name}_frontend_reply_from_value(
 				const hasParams = method.params.length > 0;
 				const replyHasParams = schema.type !== 'null'
 
-				const variant = hasParams ? `${variantName}(_)` : variantName;
-
+				const variant = hasParams ? `${variantName}(_)` : `${variantName}()`;
 				yield `\t\t${variant} => Ok(${replyVariantName}`;
 
 				// If reply has a parameter, unserialise it
