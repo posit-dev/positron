@@ -6,7 +6,7 @@ import * as path from 'path';
 import { CancellationToken, l10n, ProgressLocation, ProgressOptions } from 'vscode';
 import { IInterpreterService } from '../../interpreter/contracts';
 import { IServiceContainer } from '../../ioc/types';
-import { traceError, traceLog } from '../../logging';
+import { traceError, traceLog, traceWarn } from '../../logging';
 import { EnvironmentType, ModuleInstallerType, virtualEnvTypes } from '../../pythonEnvironments/info';
 import { sendTelemetryEvent } from '../../telemetry';
 import { EventName } from '../../telemetry/constants';
@@ -14,12 +14,16 @@ import { IApplicationShell } from '../application/types';
 import { wrapCancellationTokens } from '../cancellation';
 import { IFileSystem } from '../platform/types';
 import * as internalPython from '../process/internal/python';
-import { IProcessServiceFactory, SpawnOptions } from '../process/types';
+import { ExecutionResult, IProcessServiceFactory, SpawnOptions } from '../process/types';
 import { ITerminalServiceFactory, TerminalCreationOptions } from '../terminal/types';
 import { ExecutionInfo, IConfigurationService, ILogOutputChannel, Product } from '../types';
 import { isResource } from '../utils/misc';
 import { ProductNames } from './productNames';
 import { IModuleInstaller, InstallOptions, InterpreterUri, ModuleInstallFlags } from './types';
+
+// --- Start Positron ---
+class ExternallyManagedEnvironmentError extends Error {}
+// --- End Positron ---
 
 @injectable()
 export abstract class ModuleInstaller implements IModuleInstaller {
@@ -48,9 +52,14 @@ export abstract class ModuleInstaller implements IModuleInstaller {
         const productName = typeof productOrModuleName === 'string' ? name : ProductNames.get(productOrModuleName);
         sendTelemetryEvent(EventName.PYTHON_INSTALL_PACKAGE, undefined, { installer: this.displayName, productName });
         const uri = isResource(resource) ? resource : undefined;
-        const executionInfo = await this.getExecutionInfo(name, resource, flags);
 
-        const install = async (token?: CancellationToken) => {
+        // --- Start Positron ---
+        // Rename `install` to `_install` so we can wrap it in a try/catch below.
+        // Also make `flags` an argument so we can modify it in a retry attempt.
+        const _install = async (token?: CancellationToken, flags?: ModuleInstallFlags) => {
+            // Calculate executionInfo using the provided flags.
+            const executionInfo = await this.getExecutionInfo(name, resource, flags);
+            // --- End Positron ---
             const executionInfoArgs = await this.processInstallArgs(executionInfo.args, resource);
             if (executionInfo.moduleName) {
                 const configService = this.serviceContainer.get<IConfigurationService>(IConfigurationService);
@@ -126,6 +135,30 @@ export abstract class ModuleInstaller implements IModuleInstaller {
                 );
             }
         };
+        // --- Start Positron ---
+        // TODO(seem): PEP 668 introduced an error when trying to install packages into a
+        // system Python environment (e.g. one installed by homebrew) to encourage users to
+        // use virtual environments thus avoiding the risk of corrupting system Python packages.
+        // In line with PEP 668, we should assist the user in creating a virtual
+        // environment, and then install the package into that environment. But for now, we
+        // catch the error and retry with the `--break-system-packages` flag, matching the behavior
+        // before PEP 668.
+        const install = async (token?: CancellationToken) => {
+            try {
+                await _install(token, flags);
+            } catch (ex) {
+                if (ex instanceof ExternallyManagedEnvironmentError) {
+                    traceWarn(
+                        `Failed to install ${name} in ${resource?.path} because it is an ` +
+                            `externally-managed environment. Retrying with the --break-system-packages flag.`,
+                    );
+                    await _install(token, (flags ?? ModuleInstallFlags.none) | ModuleInstallFlags.breakSystemPackages);
+                } else {
+                    throw ex;
+                }
+            }
+        };
+        // --- End Positron ---
 
         // Display progress indicator if we have ability to cancel this operation from calling code.
         // This is required as its possible the installation can take a long time.
@@ -220,6 +253,10 @@ export abstract class ModuleInstaller implements IModuleInstaller {
         } else {
             const processServiceFactory = this.serviceContainer.get<IProcessServiceFactory>(IProcessServiceFactory);
             const processService = await processServiceFactory.create(options.resource);
+            // --- Start Positron ---
+            // Store the ExecutionResult from the processService method call so we can check for
+            // and raise on an `externally-managed-environment` error.
+            let executionResult: ExecutionResult<string>;
             if (useShell) {
                 const argv = [command, ...args];
                 // Concat these together to make a set of quoted strings
@@ -228,15 +265,17 @@ export abstract class ModuleInstaller implements IModuleInstaller {
                         p ? `${p} ${c.toCommandArgumentForPythonExt()}` : `${c.toCommandArgumentForPythonExt()}`,
                     '',
                 );
-                await processService.shellExec(quoted);
+                executionResult = await processService.shellExec(quoted);
             } else {
-                // --- Start Positron ---
                 // Pass the cancellation token through so that users can cancel installs via the UI
                 // when executeInTerminal is false
                 const spawnOptions: SpawnOptions = { token };
-                await processService.exec(command, args, spawnOptions);
-                // --- End Positron ---
+                executionResult = await processService.exec(command, args, spawnOptions);
             }
+            if (executionResult.stderr?.startsWith('error: externally-managed-environment')) {
+                throw new ExternallyManagedEnvironmentError(executionResult.stderr);
+            }
+            // --- End Positron ---
         }
     }
 }

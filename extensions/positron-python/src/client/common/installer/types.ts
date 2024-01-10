@@ -88,6 +88,9 @@ export enum ModuleInstallFlags {
     updateDependencies = 2,
     reInstall = 4,
     installPipIfRequired = 8,
+    // --- Start Positron ---
+    breakSystemPackages = 16,
+    // --- End Positron ---
 }
 
 export type InstallOptions = {

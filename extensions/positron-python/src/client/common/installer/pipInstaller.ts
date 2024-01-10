@@ -120,6 +120,12 @@ export class PipInstaller extends ModuleInstaller {
         if (flags & ModuleInstallFlags.reInstall) {
             args.push('--force-reinstall');
         }
+        // --- Start Positron ---
+        // Support the --break-system-packages flag to temporarily work around PEP 668.
+        if (flags & ModuleInstallFlags.breakSystemPackages) {
+            args.push('--break-system-packages');
+        }
+        // --- End Positron ---
         return {
             args: [...args, moduleName],
             moduleName: 'pip',
