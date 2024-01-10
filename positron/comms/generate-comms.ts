@@ -490,7 +490,7 @@ use serde::Serialize;
 		yield ' */\n';
 		yield `#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]\n`;
 		yield `#[serde(tag = "method", content = "params")]\n`;
-		yield `pub enum ${snakeCaseToSentenceCase(name)}${contract.name}RpcRequest {\n`;
+		yield `pub enum ${snakeCaseToSentenceCase(name)}${contract.name}Request {\n`;
 		for (const method of source.methods) {
 			if (!method.result) {
 				continue;
@@ -517,7 +517,7 @@ use serde::Serialize;
 		yield ' */\n';
 		yield `#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]\n`;
 		yield `#[serde(tag = "method", content = "result")]\n`;
-		yield `pub enum ${snakeCaseToSentenceCase(name)}${contract.name}RpcReply {\n`;
+		yield `pub enum ${snakeCaseToSentenceCase(name)}${contract.name}Reply {\n`;
 		for (const method of source.methods) {
 			if (method.result) {
 				if (!method.result.schema) {
@@ -590,15 +590,15 @@ use serde::Serialize;
 	}
 
 	if (frontend && frontend.methods.some((method: any) => method.result && method.result.schema)) {
-		const enumRequestType = `${snakeCaseToSentenceCase(name)}FrontendRpcRequest`
-		const enumReplyType = `${snakeCaseToSentenceCase(name)}FrontendRpcReply`
+		const enumRequestType = `${snakeCaseToSentenceCase(name)}FrontendRequest`
+		const enumReplyType = `${snakeCaseToSentenceCase(name)}FrontendReply`
 		yield `/**
 * Conversion of JSON values to frontend RPC Reply types
 */
 pub fn ${name}_frontend_reply_from_value(
 	reply: serde_json::Value,
 	request: &${enumRequestType},
-) -> anyhow::Result<${snakeCaseToSentenceCase(name)}FrontendRpcReply> {
+) -> anyhow::Result<${snakeCaseToSentenceCase(name)}FrontendReply> {
 	match request {
 `;
 		for (const method of frontend.methods) {
