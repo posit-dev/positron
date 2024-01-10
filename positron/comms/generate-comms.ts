@@ -519,7 +519,13 @@ use serde::Serialize;
 		yield `#[serde(tag = "method", content = "result")]\n`;
 		yield `pub enum ${snakeCaseToSentenceCase(name)}${contract.name}RpcReply {\n`;
 		for (const method of source.methods) {
-			if (method.result && method.result.schema) {
+			if (method.result) {
+				if (!method.result.schema) {
+					yield formatComment('\t/// ', `Reply for the ${method.name} method (no result)`);
+					yield `\t${snakeCaseToSentenceCase(method.name)}Reply(),\n\n`;
+					continue;
+				}
+
 				const schema = method.result.schema;
 				if (schema.description) {
 					yield formatComment('\t/// ', schema.description);
@@ -552,9 +558,6 @@ use serde::Serialize;
 
 				// Close enum parameter
 				yield '),\n\n';
-			} else {
-				yield formatComment('\t/// ', `Reply for the ${method.name} method (no result)`);
-				yield `\t${snakeCaseToSentenceCase(method.name)}Reply(),\n\n`;
 			}
 		}
 		yield `}\n\n`;
