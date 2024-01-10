@@ -57,7 +57,7 @@ export class ExtHostMethods implements extHostProtocol.ExtHostMethodsShape {
 					if (params && Object.keys(params).length > 0) {
 						return newInvalidParamsError(method);
 					}
-					result = await this.lastActiveTextEditorContext();
+					result = await this.lastActiveEditorContext();
 					break;
 				}
 				case FrontendRequest.DebugSleep: {
@@ -80,7 +80,7 @@ export class ExtHostMethods implements extHostProtocol.ExtHostMethodsShape {
 		}
 	}
 
-	async lastActiveTextEditorContext(): Promise<EditorContextResult | null> {
+	async lastActiveEditorContext(): Promise<EditorContextResult | null> {
 		const editor = this.editors.getActiveTextEditor();
 		if (!editor) {
 			return null;
