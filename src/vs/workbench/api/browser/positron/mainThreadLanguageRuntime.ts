@@ -24,7 +24,7 @@ import { IPositronHelpService } from 'vs/workbench/contrib/positronHelp/browser/
 import { INotebookService } from 'vs/workbench/contrib/notebook/common/notebookService';
 import { IRuntimeClientEvent } from 'vs/workbench/services/languageRuntime/common/languageRuntimeUiClient';
 import { URI } from 'vs/base/common/uri';
-import { BusyEvent, UiEvent, OpenEditorEvent, PromptStateEvent, WorkingDirectoryEvent } from 'vs/workbench/services/languageRuntime/common/positronUiComm';
+import { BusyEvent, UiFrontendEvent, OpenEditorEvent, PromptStateEvent, WorkingDirectoryEvent } from 'vs/workbench/services/languageRuntime/common/positronUiComm';
 import { IEditorService } from 'vs/workbench/services/editor/common/editorService';
 import { ITextResourceEditorInput } from 'vs/platform/editor/common/editor';
 
@@ -144,7 +144,7 @@ class ExtHostLanguageRuntimeAdapter implements ILanguageRuntime {
 			}
 
 			const ev = globalEvent.event;
-			if (ev.name === UiEvent.PromptState) {
+			if (ev.name === UiFrontendEvent.PromptState) {
 				// Update config before propagating event
 				const state = ev.data as PromptStateEvent;
 
@@ -163,11 +163,11 @@ class ExtHostLanguageRuntimeAdapter implements ILanguageRuntime {
 				// Don't include new state in event, clients should
 				// inspect the runtime's dyn state instead
 				this.emitDidReceiveRuntimeMessagePromptConfig();
-			} else if (ev.name === UiEvent.Busy) {
+			} else if (ev.name === UiFrontendEvent.Busy) {
 				// Update busy state
 				const busy = ev.data as BusyEvent;
 				this.dynState.busy = busy.busy;
-			} else if (ev.name === UiEvent.OpenEditor) {
+			} else if (ev.name === UiFrontendEvent.OpenEditor) {
 				// Open an editor
 				const ed = ev.data as OpenEditorEvent;
 				const editor: ITextResourceEditorInput = {
@@ -175,7 +175,7 @@ class ExtHostLanguageRuntimeAdapter implements ILanguageRuntime {
 					options: { selection: { startLineNumber: ed.line, startColumn: ed.column } }
 				};
 				this._editorService.openEditor(editor);
-			} else if (ev.name === UiEvent.WorkingDirectory) {
+			} else if (ev.name === UiFrontendEvent.WorkingDirectory) {
 				// Update current working directory
 				const dir = ev.data as WorkingDirectoryEvent;
 				this.dynState.currentWorkingDirectory = dir.directory;

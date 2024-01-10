@@ -133,7 +133,7 @@ export interface DebugSleepRequest {
 
 }
 
-export enum UiEvent {
+export enum UiFrontendEvent {
 	Busy = 'busy',
 	ClearConsole = 'clear_console',
 	OpenEditor = 'open_editor',
@@ -142,7 +142,7 @@ export enum UiEvent {
 	WorkingDirectory = 'working_directory'
 }
 
-export enum UiRequest {
+export enum UiFrontendRequest {
 	LastActiveEditorContext = 'last_active_editor_context',
 	DebugSleep = 'debug_sleep'
 }

@@ -20,7 +20,7 @@ import { INotificationService } from 'vs/platform/notification/common/notificati
 import { IModalDialogPromptInstance, IPositronModalDialogsService } from 'vs/workbench/services/positronModalDialogs/common/positronModalDialogs';
 import { IOpener, IOpenerService, OpenExternalOptions, OpenInternalOptions } from 'vs/platform/opener/common/opener';
 import { URI } from 'vs/base/common/uri';
-import { UiEvent } from './positronUiComm';
+import { UiFrontendEvent } from './positronUiComm';
 import { Registry } from 'vs/platform/registry/common/platform';
 import { IConfigurationRegistry, Extensions as ConfigurationExtensions, ConfigurationScope, IConfigurationNode, } from 'vs/platform/configuration/common/configurationRegistry';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
@@ -740,7 +740,7 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 					this._onDidReceiveRuntimeEventEmitter.fire({
 						runtime_id: runtime.metadata.runtimeId,
 						event: {
-							name: UiEvent.Busy,
+							name: UiFrontendEvent.Busy,
 							data: event
 						}
 					});
@@ -749,7 +749,7 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 					this._onDidReceiveRuntimeEventEmitter.fire({
 						runtime_id: runtime.metadata.runtimeId,
 						event: {
-							name: UiEvent.ClearConsole,
+							name: UiFrontendEvent.ClearConsole,
 							data: event
 						}
 					});
@@ -758,7 +758,7 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 					this._onDidReceiveRuntimeEventEmitter.fire({
 						runtime_id: runtime.metadata.runtimeId,
 						event: {
-							name: UiEvent.OpenEditor,
+							name: UiFrontendEvent.OpenEditor,
 							data: event
 						}
 					});
@@ -767,7 +767,7 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 					this._onDidReceiveRuntimeEventEmitter.fire({
 						runtime_id: runtime.metadata.runtimeId,
 						event: {
-							name: UiEvent.ShowMessage,
+							name: UiFrontendEvent.ShowMessage,
 							data: event
 						}
 					});
@@ -776,7 +776,7 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 					this._onDidReceiveRuntimeEventEmitter.fire({
 						runtime_id: runtime.metadata.runtimeId,
 						event: {
-							name: UiEvent.PromptState,
+							name: UiFrontendEvent.PromptState,
 							data: event
 						}
 					});
@@ -785,7 +785,7 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 					this._onDidReceiveRuntimeEventEmitter.fire({
 						runtime_id: runtime.metadata.runtimeId,
 						event: {
-							name: UiEvent.WorkingDirectory,
+							name: UiFrontendEvent.WorkingDirectory,
 							data: event
 						}
 					});

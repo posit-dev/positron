@@ -5,7 +5,7 @@
 import { Disposable } from 'vs/base/common/lifecycle';
 import { Event } from 'vs/base/common/event';
 import { IRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeClientInstance';
-import { BusyEvent, ClearConsoleEvent, UiEvent, OpenEditorEvent, PositronUiComm, PromptStateEvent, ShowMessageEvent, WorkingDirectoryEvent } from './positronUiComm';
+import { BusyEvent, ClearConsoleEvent, UiFrontendEvent, OpenEditorEvent, PositronUiComm, PromptStateEvent, ShowMessageEvent, WorkingDirectoryEvent } from './positronUiComm';
 
 
 /**
@@ -39,7 +39,7 @@ export interface IUiClientMessageOutput {
  * An event from the backend.
  */
 export interface IRuntimeClientEvent {
-	name: UiEvent;
+	name: UiFrontendEvent;
 	data: any;
 }
 

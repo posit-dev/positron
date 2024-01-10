@@ -32,7 +32,7 @@ export interface PlotResult {
 export interface UpdateEvent {
 }
 
-export enum PlotEvent {
+export enum PlotFrontendEvent {
 	Update = 'update'
 }
 
