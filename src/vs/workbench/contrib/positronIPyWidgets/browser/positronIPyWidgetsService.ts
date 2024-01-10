@@ -130,14 +130,14 @@ export class PositronIPyWidgetsService extends Disposable implements IPositronIP
 			htmlData.addWidgetView(widgetId);
 		});
 
-		// None of these fields get used except for data, so we generate a random id and provide
-		// placeholders for the rest
+		// None of these required fields get used except for data, so we generate a random id and
+		// provide reasonable placeholders for the rest
 		const widgetMessage = {
 			id: generateUuid(),
 			type: 'output',
 			event_clock: 0,
 			parent_id: '',
-			when: '',
+			when: new Date().toISOString(),
 			output_location: PositronOutputLocation.Plot,
 			kind: RuntimeOutputKind.IPyWidget,
 			data: htmlData.data,
