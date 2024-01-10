@@ -337,6 +337,24 @@ export class PythonRuntime implements positron.LanguageRuntime, vscode.Disposabl
                 }
                 await this._lsp.activate(port);
             });
+
+            this._queue.add(async () => {
+                try {
+                    // Set the initial console width
+                    const width = await positron.window.getConsoleWidth();
+                    this.callMethod('setConsoleWidth', width);
+                    this._kernel!.emitJupyterLog(`Set initial console width to ${width}`);
+                } catch (err) {
+                    // Recoverable (we'll just use the default width); but log
+                    // the error.
+                    if (this._kernel) {
+                        const runtimeError = err as positron.RuntimeMethodError;
+                        this._kernel.emitJupyterLog(
+                            `Error setting initial console width: ${runtimeError.message} ` +
+                            `(${runtimeError.code})`);
+                    }
+                }
+            });
         } else if (state === positron.RuntimeState.Exited) {
             if (this._lsp.state === LspState.running) {
                 this._queue.add(async () => {
