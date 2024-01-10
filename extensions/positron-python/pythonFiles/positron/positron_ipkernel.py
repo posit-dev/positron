@@ -36,6 +36,7 @@ from .lsp import LSPService
 from .plots import PositronDisplayPublisherHook
 from .utils import JsonData
 from .variables import VariablesService
+from .widget import PositronWidgetHook
 
 
 class _CommTarget(str, enum.Enum):
@@ -45,6 +46,7 @@ class _CommTarget(str, enum.Enum):
     Lsp = "positron.lsp"
     Plot = "positron.plot"
     Variables = "positron.variables"
+    Widget = "jupyter.widget"
 
 
 logger = logging.getLogger(__name__)
@@ -297,6 +299,7 @@ class PositronIPyKernel(IPythonKernel):
         self.help_service = HelpService()
         self.lsp_service = LSPService(self)
         self.variables_service = VariablesService(self)
+        self.widget_hook = PositronWidgetHook(_CommTarget.Widget, self.comm_manager)
 
         # Register comm targets
         self.comm_manager.register_target(_CommTarget.Lsp, self.lsp_service.on_comm_open)
@@ -305,9 +308,9 @@ class PositronIPyKernel(IPythonKernel):
         self.comm_manager.register_target(
             _CommTarget.Variables, self.variables_service.on_comm_open
         )
-
-        # Register display publisher hook
+        # Register display publisher hooks
         self.shell.display_pub.register_hook(self.display_pub_hook)
+        self.shell.display_pub.register_hook(self.widget_hook)
 
         # Ignore warnings that the user can't do anything about
         warnings.filterwarnings(
@@ -349,6 +352,7 @@ class PositronIPyKernel(IPythonKernel):
         self.frontend_service.shutdown()
         self.help_service.shutdown()
         self.lsp_service.shutdown()
+        self.widget_hook.shutdown()
         await self.variables_service.shutdown()
 
         # We don't call super().do_shutdown since it sets shell.exit_now = True which tries to
