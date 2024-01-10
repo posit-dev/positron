@@ -52,14 +52,15 @@ export interface MainThreadModalDialogsShape extends IDisposable {
 // The interface to the main thread exposed by the extension host
 export interface ExtHostModalDialogsShape { }
 
-export interface MainThreadConsoleShape { }
-
-export interface ExtHostConsoleShape {
-	$onDidChangeConsoleWidth(newWidth: number): void;
+export interface MainThreadConsoleServiceShape {
+	$getConsoleWidth(): Promise<number>;
+	$tryPasteText(id: string, text: string): void;
 }
 
-export interface MainThreadConsoleShape {
-	$getConsoleWidth(): Promise<number>;
+export interface ExtHostConsoleServiceShape {
+	$onDidChangeConsoleWidth(newWidth: number): void;
+	$addConsole(id: string): void;
+	$removeConsole(id: string): void;
 }
 
 export interface MainThreadMethodsShape { }
@@ -127,7 +128,7 @@ export const ExtHostPositronContext = {
 	ExtHostLanguageRuntime: createProxyIdentifier<ExtHostLanguageRuntimeShape>('ExtHostLanguageRuntime'),
 	ExtHostPreviewPanel: createProxyIdentifier<ExtHostPreviewPanelShape>('ExtHostPreviewPanel'),
 	ExtHostModalDialogs: createProxyIdentifier<ExtHostModalDialogsShape>('ExtHostModalDialogs'),
-	ExtHostConsole: createProxyIdentifier<ExtHostConsoleShape>('ExtHostConsole'),
+	ExtHostConsoleService: createProxyIdentifier<ExtHostConsoleServiceShape>('ExtHostConsoleService'),
 	ExtHostMethods: createProxyIdentifier<ExtHostMethodsShape>('ExtHostMethods'),
 };
 
@@ -135,6 +136,6 @@ export const MainPositronContext = {
 	MainThreadLanguageRuntime: createProxyIdentifier<MainThreadLanguageRuntimeShape>('MainThreadLanguageRuntime'),
 	MainThreadPreviewPanel: createProxyIdentifier<MainThreadPreviewPanelShape>('MainThreadPreviewPanel'),
 	MainThreadModalDialogs: createProxyIdentifier<MainThreadModalDialogsShape>('MainThreadModalDialogs'),
-	MainThreadConsole: createProxyIdentifier<MainThreadConsoleShape>('MainThreadConsole'),
+	MainThreadConsoleService: createProxyIdentifier<MainThreadConsoleServiceShape>('MainThreadConsoleService'),
 	MainThreadMethods: createProxyIdentifier<MainThreadMethodsShape>('MainThreadMethods'),
 };
