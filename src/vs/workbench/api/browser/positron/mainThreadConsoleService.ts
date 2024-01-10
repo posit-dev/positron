@@ -70,10 +70,6 @@ export class MainThreadConsoleService implements MainThreadConsoleServiceShape {
 		// )
 	}
 
-	$getConsoleWidth(): Promise<number> {
-		return Promise.resolve(this._positronConsoleService.getConsoleWidth());
-	}
-
 	dispose(): void {
 		this._disposables.dispose();
 	}
@@ -96,6 +92,10 @@ export class MainThreadConsoleService implements MainThreadConsoleServiceShape {
 	// }
 
 	// --- from extension host process
+
+	$getConsoleWidth(): Promise<number> {
+		return Promise.resolve(this._positronConsoleService.getConsoleWidth());
+	}
 
 	$tryPasteText(id: string, text: string): void {
 		const mainThreadConsole = this.getConsoleForLanguage(id);
