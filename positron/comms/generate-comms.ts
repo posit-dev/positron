@@ -534,7 +534,7 @@ use serde::Serialize;
 
 				// No enum parameter, close the variant and continue to next
 				if (schema.type === 'null') {
-					yield ',\n\n';
+					yield '(),\n\n';
 					continue;
 				}
 
@@ -618,6 +618,8 @@ pub fn ${name}_frontend_reply_from_value(
 				// If reply has a parameter, unserialise it
 				if (replyHasParams) {
 					yield '(serde_json::from_value(reply)?)';
+				} else {
+					yield '()';
 				}
 
 				// Close Ok
