@@ -101,6 +101,44 @@
 					}
 				}
 			]
+		},
+		{
+			"name": "last_active_editor_context",
+			"summary": "Context metadata for the last editor",
+			"description": "Returns metadata such as file path for the last editor selected by the user. The result may be undefined if there are no active editors.",
+			"params": [],
+			"result": {
+				"schema": {
+					"name": "editor_context_result",
+					"type": "object",
+					"description": "Editor metadata",
+					"properties": {
+						"path": {
+							"type": "string",
+							"description": "URI of the resource viewed in the editor"
+						}
+					},
+					"required": [
+						"path"
+					]
+				},
+				"required": false
+			}
+		},
+		{
+			"name": "debug_sleep",
+			"summary": "Sleep for n seconds",
+			"description": "Useful for testing in the backend a long running frontend method",
+			"params": [
+				{
+					"name": "ms",
+					"description": "Duration in milliseconds",
+					"schema": {
+						"type": "number"
+					}
+				}
+			],
+			"result": {}
 		}
 	]
 }
