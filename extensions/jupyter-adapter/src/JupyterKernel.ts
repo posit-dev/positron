@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
@@ -57,9 +57,12 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	private _allSockets: JupyterSocket[] = [];
 
 	/**
-	 * The message header for the current input request if any is active.
+	 * The message header for the current requests if any is active.
+	 * This is used for input requests (e.g. from `readline()` in R)
+	 * and reverse call-method requests. Concurrent requests are not
+	 * supported.
 	 */
-	private _activeInputRequestHeader?: JupyterMessageHeader = undefined;
+	private _activeBackendRequestHeader?: JupyterMessageHeader = undefined;
 
 	/**
 	 * A timer that listens to heartbeats, is reset on every hearbeat, and
@@ -410,10 +413,20 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 				this._stdin?.onMessage((args: any[]) => {
 					const msg = deserializeJupyterMessage(args, this._session!.key, this._channel);
 					if (msg !== null) {
-						// If this is an input request, save the header so we can
-						// can line it up with the client's response.
-						if (msg.header.msg_type === 'input_request') {
-							this._activeInputRequestHeader = msg.header;
+						switch (msg.header.msg_type) {
+							// If this is an input or comm request, save the header so we can
+							// can line it up with the client's response.
+							case 'input_request':
+							case 'rpc_request': {
+								// Concurrent requests are not currently allowed
+								if (this._activeBackendRequestHeader !== undefined) {
+									this.log('ERROR: Overlapping request on StdIn');
+								}
+								this._activeBackendRequestHeader = msg.header;
+								break;
+							}
+							default:
+								break;
 						}
 						this.emitMessage(JupyterSockets.stdin, msg);
 					}
@@ -779,7 +792,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	 */
 	public async interrupt(): Promise<void> {
 		// Clear current input request if any
-		this._activeInputRequestHeader = undefined;
+		this._activeBackendRequestHeader = undefined;
 
 		const msg: JupyterInterruptRequest = {};
 		return this.send(uuidv4(), 'interrupt_request', this._control!, msg);
@@ -941,14 +954,14 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 		};
 
 		// Attempt to find the prompt request that we are replying to
-		const parent = this._activeInputRequestHeader;
+		const parent = this._activeBackendRequestHeader;
 		if (parent) {
 			// Found it! Send the reply
 			this.log(`Sending input reply for ${id}: ${value}`);
 			this.sendToSocket(uuidv4(), 'input_reply', this._stdin!, parent, msg);
 
 			// Remove the active input request now that we've replied
-			this._activeInputRequestHeader = undefined;
+			this._activeBackendRequestHeader = undefined;
 		} else {
 			// Couldn't find the request? Send the response anyway; most likely
 			// the kernel doesn't care (it is probably waiting for this specific
@@ -956,6 +969,24 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 			this.log(`WARN: Failed to find parent for input request ${id}; sending anyway: ${value}`);
 			this.send(uuidv4(), 'input_reply', this._stdin!, msg);
 		}
+	}
+
+	public replyToComm(response: any) {
+		// NOTE: Currently we only support synchronous reverse requests
+		// from R via the frontend comm. Since this mechanism is
+		// synchronous, there cannot be concurrent requests and we can
+		// share the active request header with `input_request`. We will
+		// need a map of active requests if we extend to support
+		// asynchronous requests from other comms.
+		const parent = this._activeBackendRequestHeader;
+
+		if (!parent) {
+			this.log(`ERROR: Failed to find parent for comm request ${response.id}`);
+			return;
+		}
+
+		this.sendToSocket(uuidv4(), 'rpc_reply', this._stdin!, parent, response);
+		this._activeBackendRequestHeader = undefined;
 	}
 
 	/**

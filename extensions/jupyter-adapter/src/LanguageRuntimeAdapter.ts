@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
@@ -29,6 +29,7 @@ import { JupyterCommInfoRequest } from './JupyterCommInfoRequest';
 import { JupyterCommInfoReply } from './JupyterCommInfoReply';
 import { JupyterExecuteReply } from './JupyterExecuteReply';
 import { uuidv4 } from './utils';
+import { JupyterCommRequest } from './JupyterCommRequest';
 
 /**
  * LangaugeRuntimeAdapter wraps a JupyterKernel in a LanguageRuntime compatible interface.
@@ -573,6 +574,9 @@ export class LanguageRuntimeAdapter
 			case 'input_request':
 				this.onInputRequest(msg, message as JupyterInputRequest);
 				break;
+			case 'rpc_request':
+				this.onRpcRequest(msg, message as JupyterCommRequest);
+				break;
 			case 'comm_open':
 				this.onCommOpen(msg, message as JupyterCommOpen);
 				break;
@@ -601,6 +605,17 @@ export class LanguageRuntimeAdapter
 			prompt: req.prompt,
 			password: req.password,
 		} as positron.LanguageRuntimePrompt);
+	}
+
+	/**
+	 * Handles an rpc_request message from the kernel.
+	 *
+	 * @param message The message packet
+	 * @param req The input request
+	 */
+	private async onRpcRequest(_message: JupyterMessagePacket, req: JupyterCommRequest): Promise<void> {
+		const response = await positron.methods.call(req.method, req.params);
+		this._kernel.replyToComm(response);
 	}
 
 	/**

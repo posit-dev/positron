@@ -25,6 +25,17 @@ export interface CallMethodResult {
 }
 
 /**
+ * Editor metadata
+ */
+export interface EditorContextResult {
+	/**
+	 * URI of the resource viewed in the editor
+	 */
+	path: string;
+
+}
+
+/**
  * Event: Change in backend's busy/idle status
  */
 export interface BusyEvent {
@@ -100,6 +111,28 @@ export interface WorkingDirectoryEvent {
 
 }
 
+/**
+ * Request: Context metadata for the last editor
+ *
+ * Returns metadata such as file path for the last editor selected by the
+ * user. The result may be undefined if there are no active editors.
+ */
+export interface LastActiveEditorContextRequest {
+}
+
+/**
+ * Request: Sleep for n seconds
+ *
+ * Useful for testing in the backend a long running frontend method
+ */
+export interface DebugSleepRequest {
+	/**
+	 * Duration in milliseconds
+	 */
+	ms: number;
+
+}
+
 export enum FrontendEvent {
 	Busy = 'busy',
 	ClearConsole = 'clear_console',
@@ -107,6 +140,11 @@ export enum FrontendEvent {
 	ShowMessage = 'show_message',
 	PromptState = 'prompt_state',
 	WorkingDirectory = 'working_directory'
+}
+
+export enum FrontendRequest {
+	LastActiveEditorContext = 'last_active_editor_context',
+	DebugSleep = 'debug_sleep'
 }
 
 export class PositronFrontendComm extends PositronBaseComm {
