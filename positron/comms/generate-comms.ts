@@ -602,14 +602,14 @@ pub fn ${name}_frontend_reply_from_value(
 	match request {
 `;
 		for (const method of frontend.methods) {
-			if (method.result && method.result.schema) {
-				const schema = method.result.schema;
-
+			if (method.result) {
 				const variantName = `${enumRequestType}::${snakeCaseToSentenceCase(method.name)}`;
 				const replyVariantName = `${enumReplyType}::${snakeCaseToSentenceCase(method.name)}Reply`;
 
 				const hasParams = method.params.length > 0;
-				const replyHasParams = schema.type !== 'null'
+
+				const schema = method.result.schema;
+				const replyHasParams = schema && schema.type !== 'null'
 
 				const variant = hasParams ? `${variantName}(_)` : variantName;
 

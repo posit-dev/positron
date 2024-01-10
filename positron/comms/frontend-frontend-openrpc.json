@@ -138,12 +138,7 @@
 					}
 				}
 			],
-			"result": {
-				"schema": {
-					"name": "debug_sleep_result",
-					"type": "null"
-				}
-			}
+			"result": {}
 		}
 	]
 }
