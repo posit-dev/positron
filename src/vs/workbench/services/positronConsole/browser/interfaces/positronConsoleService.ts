@@ -84,9 +84,11 @@ export interface IPositronConsoleService {
 	 * @param languageId The language ID.
 	 * @param code The code.
 	 * @param focus A value which indicates whether to focus Positron console instance.
+	 * @param skipChecks Whether to bypass runtime code completeness checks. If true, the `code`
+	 *   will be executed by the runtime even if it is incomplete or invalid. Defaults to false
 	 * @returns A value which indicates whether the code could be executed.
 	 */
-	executeCode(languageId: string, code: string, focus: boolean): Promise<boolean>;
+	executeCode(languageId: string, code: string, focus: boolean, skipChecks?: boolean): Promise<boolean>;
 }
 
 /**
@@ -248,8 +250,10 @@ export interface IPositronConsoleInstance {
 	/**
 	 * Enqueues code to be executed.
 	 * @param code The code to enqueue.
+	 * @param skipChecks Whether to bypass runtime code completeness checks. If true, the `code`
+	 *   will be executed by the runtime even if it is incomplete or invalid. Defaults to false
 	 */
-	enqueueCode(code: string): Promise<void>;
+	enqueueCode(code: string, force: boolean): Promise<void>;
 
 	/**
 	 * Executes code.

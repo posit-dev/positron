@@ -999,12 +999,15 @@ declare module 'positron' {
 		 * @param languageId The language ID of the code snippet
 		 * @param code The code snippet to execute
 		 * @param focus Whether to focus the runtime's console
+		 * @param skipChecks Whether to bypass runtime code completeness checks. If true, the `code`
+		 *   will be executed by the runtime even if it is incomplete or invalid. Defaults to false
 		 * @returns A Thenable that resolves with true if the code was sent to a
 		 *   runtime successfully, false otherwise.
 		 */
 		export function executeCode(languageId: string,
 			code: string,
-			focus: boolean): Thenable<boolean>;
+			focus: boolean,
+			skipChecks?: boolean): Thenable<boolean>;
 
 		/**
 		 * Register a language runtime discoverer with Positron.
@@ -1090,9 +1093,9 @@ declare module 'positron' {
 		 * Call a frontend method.
 		 *
 		 * `call()` is designed to be hooked up directly to an RPC mechanism. It takes
-                 * `method` and `params` arguments as defined by the UI frontend OpenRPC contract
-                 * and returns a JSON-RPC response. It never throws, all errors are returned as
-                 * JSON-RPC error responses.
+		 * `method` and `params` arguments as defined by the UI frontend OpenRPC contract
+		 * and returns a JSON-RPC response. It never throws, all errors are returned as
+		 * JSON-RPC error responses.
 		 *
 		 * @param method The method name.
 		 * @param params An object of named parameters for `method`.

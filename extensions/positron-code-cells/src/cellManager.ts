@@ -11,7 +11,7 @@ export interface ExecuteCode {
 }
 
 const defaultExecuteCode: ExecuteCode = async (language, code) => {
-	await positron.runtime.executeCode(language, code, false);
+	await positron.runtime.executeCode(language, code, false, true);
 };
 
 // Provides a set of commands for interacting with Jupyter-like cells in a vscode.TextEditor
