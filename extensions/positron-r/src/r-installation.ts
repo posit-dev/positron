@@ -149,7 +149,7 @@ function getRHomePathNotWindows(binPath: string): string | undefined {
 function getRHomePathWindows(binPath: string): string | undefined {
 	// find right-most 'bin' in the path and take everything to the left of it
 	// Examples of binPaths:
-	// "C:\Program Files\R\R-4.2.3\bin\R.exe"     <-- the path produced by our binFragment() helper
+	// "C:\Program Files\R\R-4.3.2\bin\R.exe"     <-- the path produced by our binFragment() helper
 	// "C:\Program Files\R\R-4.3.2\bin\x64\R.exe" <-- but this also exists
 	const binIndex = binPath.lastIndexOf(path.sep + 'bin' + path.sep);
 	if (binIndex === -1) {

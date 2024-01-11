@@ -76,20 +76,9 @@ export async function* rRuntimeDiscoverer(
 	const binaries = new Set<string>();
 
 	// look in the well-known place for R installations on this OS
-	const rHq = rHeadquarters();
-	if (fs.existsSync(rHq)) {
-		const versionBinaries = fs.readdirSync(rHq)
-			// macOS: 'Current', if it exists, is a symlink to an actual version.
-			.filter(v => v !== 'Current')
-			// Windows: rig creates 'bin/', which is a directory of .bat files
-			.filter(v => v !== 'bin')
-			.map(v => path.join(rHq, binFragment(v)))
-			// By default, macOS CRAN installer deletes previous R installations, but sometimes
-			// it doesn't do a thorough job of it and a nearly-empty version directory lingers on.
-			.filter(b => fs.existsSync(b));
-		for (const b of versionBinaries) {
-			binaries.add(b);
-		}
+	const hqBinaries = discoverHQBinaries();
+	for (const b of hqBinaries) {
+		binaries.add(b);
 	}
 
 	// other places we might find an R binary
@@ -268,6 +257,24 @@ export async function* rRuntimeDiscoverer(
 		RRuntimeManager.instance.setRuntime(metadata.runtimeId, runtime);
 		yield runtime;
 	}
+}
+
+function discoverHQBinaries(): string[] {
+	const rHq = rHeadquarters();
+	if (!fs.existsSync(rHq)) {
+		return [];
+	}
+
+	const binaries = fs.readdirSync(rHq)
+		// macOS: 'Current', if it exists, is a symlink to an actual version.
+		.filter(v => v !== 'Current')
+		// Windows: rig creates 'bin/', which is a directory of .bat files
+		.filter(v => v !== 'bin')
+		.map(v => path.join(rHq, binFragment(v)))
+		// By default, macOS CRAN installer deletes previous R installations, but sometimes
+		// it doesn't do a thorough job of it and a nearly-empty version directory lingers on.
+		.filter(b => fs.existsSync(b));
+	return binaries;
 }
 
 // directory where this OS is known to keep its R installations
