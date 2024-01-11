@@ -376,6 +376,11 @@ Method summary, may contain [links](target).
     _assert_html_equal(result, expected)
 
 
+def test_document_no_topic():
+    with pytest.raises(ValueError, match=r"No help found for topic: NoneType."):
+        _html.html_topicpage("NoneType")
+
+
 def test_document_version() -> None:
     result = _html.document(pd)
     expected = f"""<div class="package-version">v{pd.__version__}</div><h1>pandas</h1>"""
