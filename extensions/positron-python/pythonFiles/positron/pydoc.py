@@ -179,6 +179,43 @@ def _tabulate_attrs(attrs: List[_Attr], cls_name: Optional[str] = None) -> List[
     return result
 
 
+# as-is from pydoc 3.11
+# --- Start Positron ---
+class PositronHelper(pydoc.Helper):
+    # --- End Positron ---
+    def _gettopic(self, topic, more_xrefs=""):
+        """Return unbuffered tuple of (topic, xrefs).
+
+        If an error occurs here, the exception is caught and displayed by
+        the url handler.
+
+        This function duplicates the showtopic method but returns its
+        result directly so it can be formatted for display in an html page.
+        """
+        try:
+            import pydoc_data.topics
+        except ImportError:
+            return (
+                """
+Sorry, topic and keyword documentation is not available because the
+module "pydoc_data.topics" could not be found.
+""",
+                "",
+            )
+        target = self.topics.get(topic, self.keywords.get(topic))
+        if not target:
+            # --- Start Positron ---
+            raise ValueError(f"No help found for topic: {topic}.")
+            # --- End Positron ---
+        if isinstance(target, str):
+            return self._gettopic(target, more_xrefs)
+        label, xrefs = target
+        doc = pydoc_data.topics.topics[label]
+        if more_xrefs:
+            xrefs = (xrefs or "") + " " + more_xrefs
+        return doc, xrefs
+
+
 @dataclass
 class _Attr:
     name: str
@@ -591,7 +628,9 @@ class _PositronHTMLDoc(pydoc.HTMLDoc):
         heading = self.heading(
             '<strong class="title">INDEX</strong>',
         )
-        names = sorted(Helper.topics.keys())
+        # --- Start Positron ---
+        names = sorted(PositronHelper.topics.keys())
+        # --- End Positron ---
 
         contents = self.multicolumn(names, bltinlink)
         contents = heading + self.bigsection("Topics", "index", contents)
@@ -603,7 +642,9 @@ class _PositronHTMLDoc(pydoc.HTMLDoc):
         heading = self.heading(
             '<strong class="title">INDEX</strong>',
         )
-        names = sorted(Helper.keywords.keys())
+        # --- Start Positron ---
+        names = sorted(PositronHelper.keywords.keys())
+        # --- End Positron ---
 
         def bltinlink(name):
             return '<a href="topic?key=%s">%s</a>' % (name, name)
@@ -616,7 +657,9 @@ class _PositronHTMLDoc(pydoc.HTMLDoc):
     def html_topicpage(self, topic):
         """Topic or keyword help page."""
         buf = io.StringIO()
-        htmlhelp = Helper(buf, buf)
+        # --- Start Positron ---
+        htmlhelp = PositronHelper(buf, buf)
+        # --- End Positron ---
         contents, xrefs = htmlhelp._gettopic(topic)  # type: ignore
         if topic in htmlhelp.keywords:
             title = "KEYWORD"
@@ -640,11 +683,13 @@ class _PositronHTMLDoc(pydoc.HTMLDoc):
     # as is from pydoc._url_handler to port Python 3.11 breaking CSS changes
     def html_error(self, url, exc):
         heading = self.heading(
-            '<strong class="title">Error</strong>',
+            '<strong class="title">Not found</strong>',
         )
         contents = "<br>".join(self.escape(line) for line in format_exception_only(type(exc), exc))
-        contents = heading + self.bigsection(url, "error", contents)
-        return "Error - %s" % url, contents
+        # --- Start Positron ---
+        contents = heading + self.bigsection("", "error", contents)
+        return "Error", contents
+        # --- End Positron ---
 
     # moved from pydoc._url_handler to method
     def get_html_page(self, url):
