@@ -95,43 +95,14 @@ export async function* rRuntimeDiscoverer(
 		binaries.add(b);
 	}
 
-	// make sure we include R executable found on the PATH
-	// we've probably already discovered it, but we still need to single it out, so that we mark
+	// make sure we include the "current" version of R, for some definition of "current"
+	// we've probably already discovered it, but we still want to single it out, so that we mark
 	// that particular R installation as the current one
-	const whichR = await which('R', { nothrow: true }) as string;
-	if (whichR) {
-		if (os.platform() === 'win32') {
-			// rig puts {R Headquarters}/bin on the PATH, so that is probably how we got here.
-			// (The CRAN installer does NOT put R on the PATH.)
-			// In the rig scenario, `whichR` is anticipated to be a batch file that launches the
-			// current version of R ('default' in rig-speak):
-			// Example filepath: C:\Program Files\R\bin\R.bat
-			// Example contents of this file:
-			// ::4.3.2
-			// @"C:\Program Files\R\R-4.3.2\bin\R" %*
-			if (path.extname(whichR).toLowerCase() === '.bat') {
-				const batLines = readLines(whichR);
-				const re = new RegExp(`^@"(.+R-[0-9]+[.][0-9]+[.][0-9]+.+)" %[*]$`);
-				const match = batLines.find((x: string) => re.test(x))?.match(re);
-				if (match) {
-					let whichRResolved = match[1];
-					// add the extension .exe if it's not already there
-					if (path.extname(whichRResolved).toLowerCase() !== '.exe') {
-						whichRResolved += '.exe';
-					}
-					Logger.info(`Resolved R binary at ${whichRResolved}`);
-					rInstallations.push(new RInstallation(whichRResolved, true));
-					binaries.delete(whichRResolved);
-				}
-			}
-		} else {
-			const whichRCanonical = fs.realpathSync(whichR);
-			rInstallations.push(new RInstallation(whichRCanonical, true));
-			binaries.delete(whichRCanonical);
-		}
+	const curBin = await findCurrentRBinary();
+	if (curBin) {
+		rInstallations.push(new RInstallation(curBin, true));
+		binaries.delete(curBin);
 	}
-
-	// TODO: on Windows, check the registry for R installations
 
 	binaries.forEach((b: string) => {
 		rInstallations.push(new RInstallation(b));
@@ -330,6 +301,49 @@ function binFragments(): string[] {
 			throw new Error('Unsupported platform');
 	}
 }
+
+async function findCurrentRBinary(): Promise<string | undefined> {
+	const registryBinary = findCurrentRBinaryFromRegistry();
+	if (registryBinary) {
+		return registryBinary;
+	}
+
+	const whichR = await which('R', { nothrow: true }) as string;
+	if (whichR) {
+		if (os.platform() === 'win32') {
+			// rig puts {R Headquarters}/bin on the PATH, so that is probably how we got here.
+			// (The CRAN installer does NOT put R on the PATH.)
+			// In the rig scenario, `whichR` is anticipated to be a batch file that launches the
+			// current version of R ('default' in rig-speak):
+			// Example filepath: C:\Program Files\R\bin\R.bat
+			// Example contents of this file:
+			// ::4.3.2
+			// @"C:\Program Files\R\R-4.3.2\bin\R" %*
+			if (path.extname(whichR).toLowerCase() === '.bat') {
+				const batLines = readLines(whichR);
+				const re = new RegExp(`^@"(.+R-[0-9]+[.][0-9]+[.][0-9]+.+)" %[*]$`);
+				const match = batLines.find((x: string) => re.test(x))?.match(re);
+				if (match) {
+					let whichRResolved = match[1];
+					// add the extension .exe if it's not already there
+					if (path.extname(whichRResolved).toLowerCase() !== '.exe') {
+						whichRResolved += '.exe';
+					}
+					Logger.info(`Resolved R binary at ${whichRResolved}`);
+					return (whichRResolved);
+				}
+			}
+		} else {
+			const whichRCanonical = fs.realpathSync(whichR);
+			return whichRCanonical;
+		}
+	}
+}
+
+function findCurrentRBinaryFromRegistry(): string | undefined {
+	return undefined;
+}
+
 
 // Should we recommend an R runtime for the workspace?
 async function shouldRecommendForWorkspace(): Promise<boolean> {
