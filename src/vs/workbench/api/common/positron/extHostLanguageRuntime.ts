@@ -416,8 +416,8 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		});
 	}
 
-	public executeCode(languageId: string, code: string, focus: boolean): Promise<boolean> {
-		return this._proxy.$executeCode(languageId, code, focus);
+	public executeCode(languageId: string, code: string, focus: boolean, skipChecks?: boolean): Promise<boolean> {
+		return this._proxy.$executeCode(languageId, code, focus, skipChecks);
 	}
 
 	/**
