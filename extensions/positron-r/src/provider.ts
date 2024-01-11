@@ -75,7 +75,7 @@ export async function* rRuntimeDiscoverer(
 	let rInstallations: Array<RInstallation> = [];
 	const binaries = new Set<string>();
 
-	// look in the well-known place for R installations on this OS
+	// look for R executables in the well-known place(s) for R installations on this OS
 	const hqBinaries = discoverHQBinaries();
 	for (const b of hqBinaries) {
 		binaries.add(b);
@@ -259,49 +259,73 @@ export async function* rRuntimeDiscoverer(
 	}
 }
 
-function discoverHQBinaries(): string[] {
-	const rHq = rHeadquarters();
-	if (!fs.existsSync(rHq)) {
-		return [];
-	}
-
-	const binaries = fs.readdirSync(rHq)
-		// macOS: 'Current', if it exists, is a symlink to an actual version.
-		.filter(v => v !== 'Current')
-		// Windows: rig creates 'bin/', which is a directory of .bat files
-		.filter(v => v !== 'bin')
-		.map(v => path.join(rHq, binFragment(v)))
-		// By default, macOS CRAN installer deletes previous R installations, but sometimes
-		// it doesn't do a thorough job of it and a nearly-empty version directory lingers on.
-		.filter(b => fs.existsSync(b));
-	return binaries;
-}
-
-// directory where this OS is known to keep its R installations
-function rHeadquarters(): string {
+// directory(ies) where this OS is known to keep its R installations
+function rHeadquarters(): string[] {
 	switch (process.platform) {
 		case 'darwin':
-			return path.join('/Library', 'Frameworks', 'R.framework', 'Versions');
+			return [path.join('/Library', 'Frameworks', 'R.framework', 'Versions')];
 		case 'linux':
-			return path.join('/opt', 'R');
-		case 'win32':
-			return path.join(process.env['PROGRAMFILES'] || 'C:\\Program Files', 'R');
+			return [path.join('/opt', 'R')];
+		case 'win32': {
+			const paths = [
+				path.join(process.env['ProgramW6432'] || 'C:\\Program Files', 'R'),
+				path.join(process.env['PROGRAMFILES'] || 'C:\\Program Files', 'R')
+			];
+			if (process.env['LOCALAPPDATA']) {
+				paths.push(path.join(process.env['LOCALAPPDATA'], 'Programs', 'R'));
+			}
+			return [...new Set(paths)];
+		}
 		default:
 			throw new Error('Unsupported platform');
 	}
 }
 
-function binFragment(version: string): string {
+function discoverHQBinaries(): string[] {
+	const hqDirs = rHeadquarters()
+		.filter(dir => fs.existsSync(dir));
+	if (hqDirs.length === 0) {
+		return [];
+	}
+
+	const versionDirs = hqDirs
+		.map(hqDir => fs.readdirSync(hqDir).map(file => path.join(hqDir, file)))
+		// Windows: rig creates 'bin/', which is a directory of .bat files (at least, for now)
+		// https://github.com/r-lib/rig/issues/189
+		.map(listing => listing.filter(path => !path.endsWith('bin')))
+		// macOS: 'Current', if it exists, is a symlink to an actual version
+		.map(listing => listing.filter(path => !path.endsWith('Current')));
+
+	// On Windows:
+	// In the case that both (1) and (2) exist we prefer (1).
+	// (1) C:\Program Files\R\R-4.3.2\bin\x64\R.exe
+	// (2) C:\Program Files\R\R-4.3.2\bin\R.exe
+	// Assuming we support R >= 4.2, we don't need to consider bin\i386\R.exe.
+	function firstExisting(base: string, fragments: string[]): string {
+		const potentialPaths = fragments.map(f => path.join(base, f));
+		const existingPath = potentialPaths.find(p => fs.existsSync(p));
+		return existingPath || '';
+	}
+	const binaries = versionDirs
+		.map(vd => vd.map(x => firstExisting(x, binFragments())))
+		.flat()
+		// macOS: By default, the CRAN installer deletes previous R installations, but sometimes
+		// it doesn't do a thorough job of it and a nearly-empty version directory lingers on.
+		.filter(b => fs.existsSync(b));
+	return binaries;
+}
+
+function binFragments(): string[] {
 	switch (process.platform) {
 		case 'darwin':
-			return path.join(version, 'Resources', 'bin', 'R');
+			return [path.join('Resources', 'bin', 'R')];
 		case 'linux':
-			return path.join(version, 'bin', 'R');
+			return [path.join('bin', 'R')];
 		case 'win32':
-			return path.join(version, 'bin', 'R.exe');
-		// TODO: I gather it is possible for a Windows installations to only have binaries in the
-		// subfolder, like this:
-		// C:\Program Files\R\R-4.3.2\bin\x64\R.exe
+			return [
+				path.join('bin', 'x64', 'R.exe'),
+				path.join('bin', 'R.exe')
+			];
 		default:
 			throw new Error('Unsupported platform');
 	}
