@@ -302,7 +302,7 @@ window.onload = function() {
 	 *
 	 * @param id The ID of the notebook output
 	 * @param runtime The runtime that emitted the output
-	 * @param html The HTML to render
+	 * @param data A set of records containing the widget state and view mimetype data
 	 *
 	 * @returns A promise that resolves to the new webview.
 	 */
