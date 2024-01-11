@@ -18,17 +18,14 @@ export class WidgetPlotClient extends WebviewPlotClient {
 	 *
 	 * @param webview The webview to wrap.
 	 * @param message The output message from which the webview was created.
-	 * @param code The code that generated the webview (if known)
 	 */
 	constructor(webview: INotebookOutputWebview,
 		message: ILanguageRuntimeMessageOutput,
-		private readonly _widgets: IPyWidgetClientInstance[],) {
+		// @ts-ignore: unused parameter
+		private readonly _widgets: IPyWidgetClientInstance[]) {
 		super(webview, message);
 
-		// Register all widgets with the plot client, so all widgets are disposed
-		// when the plot is disposed/removed.
-		this._widgets.forEach(widget => {
-			this._register(widget);
-		});
+		// Don't register the widget to the plot client, since it's possible and valid for a widget
+		// to outlive a plot client, or even to be shared by multiple plot clients.
 	}
 }
