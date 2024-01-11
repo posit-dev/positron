@@ -14,7 +14,7 @@ import * as vscode from 'vscode';
 
 import { PythonExtension } from '../api/types';
 import { EXTENSION_ROOT_DIR, PYTHON_LANGUAGE } from '../common/constants';
-import { IConfigurationService, IInstaller } from '../common/types';
+import { IConfigurationService, IInstaller, Product } from '../common/types';
 import { IServiceContainer } from '../ioc/types';
 import { IInterpreterService } from '../interpreter/contracts';
 import { JupyterKernelSpec } from '../jupyter-adapter.d';
@@ -172,10 +172,18 @@ export async function createPythonRuntime(
     }
 
     // Define the startup behavior; request immediate startup if this is the
-    // recommended runtime for the workspace.
-    const startupBehavior = recommendedForWorkspace
-        ? positron.LanguageRuntimeStartupBehavior.Immediate
-        : positron.LanguageRuntimeStartupBehavior.Implicit;
+    // recommended runtime for the workspace. Do not request immediate startup
+    // if ipykernel is not installed -- the user should start runtime explicitly.
+    let startupBehavior;
+    if (recommendedForWorkspace) {
+        traceInfo('createPythonRuntime: checking if ipykernel is installed');
+        const hasKernel = await installer.isInstalled(Product.ipykernel, interpreter);
+        startupBehavior = hasKernel
+            ? positron.LanguageRuntimeStartupBehavior.Immediate
+            : positron.LanguageRuntimeStartupBehavior.Explicit;
+    } else {
+        startupBehavior = positron.LanguageRuntimeStartupBehavior.Implicit;
+    }
     traceInfo(`createPythonRuntime: startup behavior: ${startupBehavior}`);
 
     // Get the Python version from sysVersion since only that includes alpha/beta info (e.g '3.12.0b1')
