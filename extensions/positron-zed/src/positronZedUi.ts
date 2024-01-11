@@ -1,13 +1,13 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
 
 /**
- * A ZedFrontend instance; wraps the back end of the Zed frontend comm.
+ * A ZedUi instance; wraps the back end of the Zed frontend comm.
  */
-export class ZedFrontend {
+export class ZedUi {
 	private _directory = '';
 
 	constructor(readonly id: string) {
