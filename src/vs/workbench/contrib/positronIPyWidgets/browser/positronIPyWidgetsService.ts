@@ -3,10 +3,11 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Disposable } from 'vs/base/common/lifecycle';
-import { ILanguageRuntimeService, ILanguageRuntime, RuntimeClientType, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessageCommOpen, PositronOutputLocation, RuntimeOutputKind } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntimeService, ILanguageRuntime, RuntimeClientType, ILanguageRuntimeMessageOutput, PositronOutputLocation, RuntimeOutputKind } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { Emitter, Event } from 'vs/base/common/event';
+import { generateUuid } from 'vs/base/common/uuid';
 import { IPositronIPyWidgetsService, IPositronIPyWidgetMetadata, IPyWidgetHtmlData } from 'vs/workbench/services/positronIPyWidgets/common/positronIPyWidgetsService';
-import { IPyWidgetClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeIPyWidgetClient';
+import { IPyWidgetClientInstance, DisplayWidgetEvent } from 'vs/workbench/services/languageRuntime/common/languageRuntimeIPyWidgetClient';
 import { IPositronNotebookOutputWebviewService } from 'vs/workbench/contrib/positronOutputWebview/browser/notebookOutputWebviewService';
 import { WidgetPlotClient } from 'vs/workbench/contrib/positronPlots/browser/widgetPlotClient';
 
@@ -32,9 +33,6 @@ export class PositronIPyWidgetsService extends Disposable implements IPositronIP
 	/** The list of IPyWidgets. */
 	private readonly _widgets = new Map<string, IPyWidgetClientInstance>();
 
-	private readonly _primaryWidgets: Set<string> = new Set<string>();
-	private readonly _secondaryWidgets: Set<string> = new Set<string>();
-
 	/** The emitter for the onDidCreatePlot event */
 	private readonly _onDidCreatePlot = new Emitter<WidgetPlotClient>();
 
@@ -51,20 +49,19 @@ export class PositronIPyWidgetsService extends Disposable implements IPositronIP
 		}));
 	}
 
-	private registerIPyWidgetClient(widgetClient: IPyWidgetClientInstance) {
-
+	private registerIPyWidgetClient(widgetClient: IPyWidgetClientInstance, runtime: ILanguageRuntime) {
 		// Add to our list of widgets
 		this._widgets.set(widgetClient.id, widgetClient);
 
-		// Update the list of primary widgets whenever a new widget comes in
-		this.updatePrimaryWidgets(widgetClient);
+		// Raise the plot if it's updated by the runtime
+		widgetClient.onDidEmitDisplay((event) => {
+			this.handleDisplayEvent(event, runtime);
+		});
 
 		// Listen for the widget client to be disposed (i.e. by the plots service via the
 		// widgetPlotClient) and make sure to remove it fully from the widget service
 		widgetClient.onDidDispose(() => {
 			this._widgets.delete(widgetClient.id);
-			this._primaryWidgets.delete(widgetClient.id);
-			this._secondaryWidgets.delete(widgetClient.id);
 		});
 
 		this._register(widgetClient);
@@ -88,7 +85,7 @@ export class PositronIPyWidgetsService extends Disposable implements IPositronIP
 			});
 
 			widgetClients.forEach((client) => {
-				this.registerIPyWidgetClient(client);
+				this.registerIPyWidgetClient(client, runtime);
 			});
 		});
 
@@ -118,49 +115,29 @@ export class PositronIPyWidgetsService extends Disposable implements IPositronIP
 
 				// Register the widget client and update the list of primary widgets
 				const widgetClient = new IPyWidgetClientInstance(event.client, metadata);
-				this.registerIPyWidgetClient(widgetClient);
-
-				// TODO: instead of creating the webview on widget creation/comm_open,
-				// we plan to listen for a new message type from the kernel that indicates
-				// that the widget is ready to be displayed (because the user has requested it)
-				// Once that's available, we will remove this call to createWebview here
-				this.createWebviewWidgets(runtime, event.message);
+				this.registerIPyWidgetClient(widgetClient, runtime);
 			}
 		}));
 	}
 
-	private updatePrimaryWidgets(latestWidget: IPyWidgetClientInstance): void {
-		// TODO: We plan to offload this logic to the Python language runtime, so the
-		// frontend doesn't need to make poor inferences about which widget(s) the user
-		// explicitly requested to view
+	private async handleDisplayEvent(event: DisplayWidgetEvent, runtime: ILanguageRuntime) {
+		const primaryWidgets = event.view_ids;
 
-		// A widget is primary if no other widgets are dependent on it,
-		// and they are "viewable" (i.e. they have both a layout and dom_classes property)
-		latestWidget.dependencies.forEach(dependency => {
-			// If the widget has a dependency, add it to the secondary list and remove from the primary list
-			this._secondaryWidgets.add(dependency);
-			this._primaryWidgets.delete(dependency);
-		});
-		if (latestWidget.isViewable() && !this._secondaryWidgets.has(latestWidget.id)) {
-			this._primaryWidgets.add(latestWidget.id);
-		}
-	}
-
-	private async createWebviewWidgets(runtime: ILanguageRuntime, message: ILanguageRuntimeMessageCommOpen) {
-		const latestWidgetId = message.comm_id;
-
-		if (!this._primaryWidgets.has(latestWidgetId)) {
-			return;
-		}
 		// Combine our existing list of widgets into a single WidgetPlotClient
 		const htmlData = new IPyWidgetHtmlData(this.positronWidgetInstances);
 
-		this._primaryWidgets.forEach(widgetId => {
+		primaryWidgets.forEach(widgetId => {
 			htmlData.addWidgetView(widgetId);
 		});
 
+		// None of these required fields get used except for data, so we generate a random id and
+		// provide reasonable placeholders for the rest
 		const widgetMessage = {
-			...message,
+			id: generateUuid(),
+			type: 'output',
+			event_clock: 0,
+			parent_id: '',
+			when: new Date().toISOString(),
 			output_location: PositronOutputLocation.Plot,
 			kind: RuntimeOutputKind.IPyWidget,
 			data: htmlData.data,
@@ -169,7 +146,7 @@ export class PositronIPyWidgetsService extends Disposable implements IPositronIP
 		const webview = await this._notebookOutputWebviewService.createNotebookOutputWebview(
 			runtime, widgetMessage);
 		if (webview) {
-			const widgetViewIds = Array.from(this._primaryWidgets);
+			const widgetViewIds = Array.from(primaryWidgets);
 			const managedWidgets = widgetViewIds.flatMap((widgetId: string) => {
 				const widget = this._widgets.get(widgetId)!;
 				const dependentWidgets = widget.dependencies.map((dependentWidgetId: string) => {
