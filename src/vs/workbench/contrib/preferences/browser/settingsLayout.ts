@@ -298,6 +298,21 @@ export const tocData: ITOCEntry<string> = {
 				}
 			]
 		}
+		// --- Start Positron ---
+		,
+		{
+			id: 'positron',
+			label: localize('positron', "Positron"),
+			settings: [],
+			children: [
+				{
+					id: 'positron/runtime',
+					label: localize('runtime', "Runtime"),
+					settings: ['positron.runtime.*']
+				}
+			]
+		}
+		// --- End Positron ---
 	]
 };
 
