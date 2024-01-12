@@ -18,6 +18,17 @@ import { isProposedApiEnabled } from 'vs/workbench/services/extensions/common/ex
 import { ApiProposalName } from 'vs/workbench/services/extensions/common/extensionsApiProposals';
 import { ILocalizedString } from 'vs/platform/action/common/action';
 
+// --- Start Positron ---
+export const IGNORED_JUPYTER_COMMANDS = new Set([
+	'jupyter.createnewinteractive',
+	'jupyter.debugFileInteractive',
+	'jupyter.execSelectionInteractive',
+	'jupyter.runFileInteractive',
+	'jupyter.runfromline',
+	'jupyter.runtoline',
+]);
+// --- End Positron ---
+
 interface IAPIMenu {
 	readonly key: string;
 	readonly id: MenuId;
@@ -697,6 +708,14 @@ commandsExtensionPoint.setHandler(extensions => {
 			return;
 		}
 
+		// --- Start Positron ---
+		// Don't add Jupyter Interactive Window commands to the command palette.
+		// TODO(seem): We can remove this if we eventually decide to unbundle vscode-jupyter.
+		if (IGNORED_JUPYTER_COMMANDS.has(userFriendlyCommand.command)) {
+			return;
+		}
+		// --- End Positron ---
+
 		const { icon, enablement, category, title, shortTitle, command } = userFriendlyCommand;
 
 		let absoluteIcon: { dark: URI; light?: URI } | ThemeIcon | undefined;
@@ -860,6 +879,14 @@ menusExtensionPoint.setHandler(extensions => {
 				let item: IMenuItem | ISubmenuItem;
 
 				if (schema.isMenuItem(menuItem)) {
+					// --- Start Positron ---
+					// Don't add Jupyter Interactive Window commands to menus.
+					// TODO(seem): We can remove this if we eventually decide to unbundle vscode-jupyter.
+					if (IGNORED_JUPYTER_COMMANDS.has(menuItem.command)) {
+						continue;
+					}
+					// --- End Positron ---
+
 					const command = MenuRegistry.getCommand(menuItem.command);
 					const alt = menuItem.alt && MenuRegistry.getCommand(menuItem.alt) || undefined;
 
