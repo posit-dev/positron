@@ -118,8 +118,16 @@
         "win": "ctrl+alt+i.",
         "linux": "ctrl+alt+i",
         "key": "ctrl+alt+i",
-        "when": "config.rstudio.keymap.enable",
+        "when": "config.rstudio.keymap.enable && editorTextFocus",
         "command": "quarto.insertCodeCell"
+      },
+      {
+        "mac": "cmd+i",
+        "win": "ctrl+i",
+        "linux": "ctrl+i",
+        "key": "ctrl+i",
+        "when": "config.rstudio.keymap.enable && editorTextFocus",
+        "command": "editor.action.reindentselectedlines"
       }
     ]
   }
