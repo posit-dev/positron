@@ -750,6 +750,9 @@ JsonData = Union[Dict[str, "JsonData"], List["JsonData"], str, int, float, bool,
 					yield deriveType(contracts, PythonTypeMap, [prop, ...context], schema);
 				}
 				yield ' = field(\n';
+				if (!o.required || !o.required.includes(prop)) {
+					yield `        default=None,\n`;
+				}
 				yield `        metadata={\n`;
 				yield `            "description": "${schema.description}",\n`;
 				if (!o.required || !o.required.includes(prop)) {
