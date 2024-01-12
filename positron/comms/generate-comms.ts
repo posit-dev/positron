@@ -666,6 +666,21 @@ JsonData = Union[Dict[str, "JsonData"], List["JsonData"], str, int, float, bool,
 			continue;
 		}
 
+		// Create type aliases for all the shared types
+		if (source.components && source.components.schemas) {
+			for (const key of Object.keys(backend.components.schemas)) {
+				const schema = backend.components.schemas[key];
+				if (schema.type !== 'object') {
+					yield formatComment('# ', schema.description);
+					yield `${snakeCaseToSentenceCase(key)} = `;
+					yield deriveType(contracts, PythonTypeMap,
+						[schema.name ? schema.name : key],
+						schema);
+					yield '\n\n';
+				}
+			}
+		}
+
 		// Create enums for all enum types
 		yield* enumVisitor([], source, function* (context: Array<string>, values: Array<string>) {
 			yield '@enum.unique\n';
