@@ -68,6 +68,14 @@
         "command": "editor.action.revealDefinition"
       },
       {
+        "mac": "cmd+option+shift+m",
+        "win": "ctrl+alt+shift+m",
+        "linux": "ctrl+alt+shift+m",
+        "key": "ctrl+alt+shift+m",
+        "when": "config.rstudio.keymap.enable && editorTextFocus",
+        "command": "editor.action.rename"
+      },
+      {
         "mac": "cmd+shift+c",
         "win": "ctrl+shift+c",
         "linux": "ctrl+shift+c",
