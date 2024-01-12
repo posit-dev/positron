@@ -36,13 +36,13 @@ export class ZedConnection {
 			case 'tables_request':
 
 				if (message.path.length > 0) {
-					if (message.path[0].type === 'schema') {
+					if (message.path[0].kind === 'schema') {
 						// Emit the data to the front end
 						this._onDidEmitData.fire({
 							msg_type: 'tables_response',
 							tables: [
-								{ name: 'table1', type: 'table' },
-								{ name: 'table2', type: 'table' },
+								{ name: 'table1', kind: 'table' },
+								{ name: 'table2', kind: 'table' },
 							]
 						});
 						break;
@@ -53,9 +53,9 @@ export class ZedConnection {
 				this._onDidEmitData.fire({
 					msg_type: 'tables_response',
 					tables: [
-						{ name: 'table1', type: 'table' },
-						{ name: 'table2', type: 'table' },
-						{ name: 'schema1', type: 'schema' },
+						{ name: 'table1', kind: 'table' },
+						{ name: 'table2', kind: 'table' },
+						{ name: 'schema1', kind: 'schema' },
 					]
 				});
 				break;

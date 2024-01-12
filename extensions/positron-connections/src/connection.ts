@@ -27,17 +27,17 @@ export class ConnectionItem {
  * A connection item representing a node in the tree objects allowed in
  * the database connection.
  *
- * @param type The type of the node (e.g. 'schema', 'table', etc.)
+ * @param kind The kind of the node (e.g. 'schema', 'table', etc.)
  * @param path The path to the node. This is represented as a list of tuples (name, type). Later,
  *   we can use the path to get the node children by doing something like
  * 	 `getChildren(schema='hello', table='world')`
  */
 export class ConnectionItemNode extends ConnectionItem {
-	readonly type: string;
-	readonly path: Array<{ name: string; type: string }>;
-	constructor(readonly name: string, type: string, path: Array<{ name: string; type: string }>, client: positron.RuntimeClientInstance) {
+	readonly kind: string;
+	readonly path: Array<{ name: string; kind: string }>;
+	constructor(readonly name: string, kind: string, path: Array<{ name: string; kind: string }>, client: positron.RuntimeClientInstance) {
 		super(name, client);
-		this.type = type;
+		this.kind = kind;
 		this.path = path;
 	}
 }
@@ -186,15 +186,15 @@ export class ConnectionItemsProvider implements vscode.TreeDataProvider<Connecti
 						}
 					);
 				} else if (element instanceof ConnectionItemNode) {
-					element.client.performRpc({ msg_type: 'tables_request', name: element.name, type: element.type, path: element.path }).then(
+					element.client.performRpc({ msg_type: 'tables_request', name: element.name, kind: element.kind, path: element.path }).then(
 						(response: any) => {
-							const objects = response.tables as Array<{ name: string; type: string }>;
+							const objects = response.tables as Array<{ name: string; kind: string }>;
 							const objectItems = objects.map((obj) => {
-								const path = [...element.path, { name: obj.name, type: obj.type }];
-								if (obj.type === 'table') {
-									return new ConnectionItemTable(obj.name, obj.type, path, element.client);
+								const path = [...element.path, { name: obj.name, kind: obj.kind }];
+								if (obj.kind === 'table') {
+									return new ConnectionItemTable(obj.name, obj.kind, path, element.client);
 								} else {
-									return new ConnectionItemNode(obj.name, obj.type, path, element.client);
+									return new ConnectionItemNode(obj.name, obj.kind, path, element.client);
 								}
 							});
 							resolve(objectItems);
