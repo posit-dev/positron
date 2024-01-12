@@ -29,11 +29,11 @@ export interface IDisposable {
 }
 
 export const ILogOutputChannel = Symbol('ILogOutputChannel');
-export interface ILogOutputChannel extends LogOutputChannel {}
+export interface ILogOutputChannel extends LogOutputChannel { }
 export const ITestOutputChannel = Symbol('ITestOutputChannel');
-export interface ITestOutputChannel extends OutputChannel {}
+export interface ITestOutputChannel extends OutputChannel { }
 export const IDocumentSymbolProvider = Symbol('IDocumentSymbolProvider');
-export interface IDocumentSymbolProvider extends DocumentSymbolProvider {}
+export interface IDocumentSymbolProvider extends DocumentSymbolProvider { }
 export const IsWindows = Symbol('IS_WINDOWS');
 export const IDisposableRegistry = Symbol('IDisposableRegistry');
 export type IDisposableRegistry = IDisposable[];
@@ -184,6 +184,7 @@ export interface IPythonSettings {
     // --- Start Positron ---
     readonly languageServerDebug: boolean;
     readonly languageServerLogLevel: string;
+    readonly quietMode: boolean;
     // --- End Positron ---
     readonly defaultInterpreterPath: string;
     readonly tensorBoard: ITensorBoardSettings | undefined;
@@ -281,7 +282,7 @@ export type DownloadOptions = {
 };
 
 export const IExtensionContext = Symbol('ExtensionContext');
-export interface IExtensionContext extends ExtensionContext {}
+export interface IExtensionContext extends ExtensionContext { }
 
 export const IExtensions = Symbol('IExtensions');
 export interface IExtensions {

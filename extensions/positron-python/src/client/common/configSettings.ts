@@ -130,6 +130,8 @@ export class PythonSettings implements IPythonSettings {
     public languageServerDebug = false;
 
     public languageServerLogLevel = 'error';
+
+    public quietMode = false;
     // --- End Positron ---
 
     protected readonly changed = new EventEmitter<ConfigurationChangeEvent | undefined>();
@@ -305,6 +307,9 @@ export class PythonSettings implements IPythonSettings {
 
         // Control the language server log level
         this.languageServerLogLevel = pythonSettings.get<string>('languageServerLogLevel')!;
+
+        // Whether to suppress the banner on startup of the IPython shell
+        this.quietMode = pythonSettings.get<boolean>('quietMode') === true;
         // --- End Positron ---
 
         const autoCompleteSettings = systemVariables.resolveAny(
@@ -349,15 +354,15 @@ export class PythonSettings implements IPythonSettings {
         this.testing = this.testing
             ? this.testing
             : {
-                  promptToConfigure: true,
-                  debugPort: 3000,
-                  pytestArgs: [],
-                  pytestEnabled: false,
-                  pytestPath: 'pytest',
-                  unittestArgs: [],
-                  unittestEnabled: false,
-                  autoTestDiscoverOnSaveEnabled: true,
-              };
+                promptToConfigure: true,
+                debugPort: 3000,
+                pytestArgs: [],
+                pytestEnabled: false,
+                pytestPath: 'pytest',
+                unittestArgs: [],
+                unittestEnabled: false,
+                autoTestDiscoverOnSaveEnabled: true,
+            };
         this.testing.pytestPath = getAbsolutePath(systemVariables.resolveAny(this.testing.pytestPath), workspaceRoot);
         if (this.testing.cwd) {
             this.testing.cwd = getAbsolutePath(systemVariables.resolveAny(this.testing.cwd), workspaceRoot);
@@ -380,12 +385,12 @@ export class PythonSettings implements IPythonSettings {
         this.terminal = this.terminal
             ? this.terminal
             : {
-                  executeInFileDir: true,
-                  focusAfterLaunch: false,
-                  launchArgs: [],
-                  activateEnvironment: true,
-                  activateEnvInCurrentTerminal: false,
-              };
+                executeInFileDir: true,
+                focusAfterLaunch: false,
+                launchArgs: [],
+                activateEnvironment: true,
+                activateEnvInCurrentTerminal: false,
+            };
 
         this.REPL = pythonSettings.get<IREPLSettings>('REPL')!;
         const experiments = pythonSettings.get<IExperiments>('experiments')!;
@@ -399,10 +404,10 @@ export class PythonSettings implements IPythonSettings {
         this.experiments = this.experiments
             ? this.experiments
             : {
-                  enabled: true,
-                  optInto: [],
-                  optOutFrom: [],
-              };
+                enabled: true,
+                optInto: [],
+                optOutFrom: [],
+            };
 
         const tensorBoardSettings = systemVariables.resolveAny(
             pythonSettings.get<ITensorBoardSettings>('tensorBoard'),

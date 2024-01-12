@@ -54,6 +54,12 @@ def parse_args() -> argparse.Namespace:
         help="location of the IPyKernel connection file",
         type=str,
     )
+    parser.add_argument(
+        "-q",
+        "--quiet",
+        help="Suppress console startup banner information",
+        action="store_true",
+    )
     args = parser.parse_args()
     args.loglevel = args.loglevel.upper()
 
@@ -113,11 +119,17 @@ if __name__ == "__main__":
             "logging_config": logging_config,
         },
     )
+
     app: PositronIPKernelApp = PositronIPKernelApp.instance(config=config)
     # Initialize with empty argv, otherwise BaseIPythonApplication.initialize reuses our
     # command-line arguments in unexpected ways (e.g. logfile instructs it to log executed code).
     app.initialize(argv=[])
     assert app.kernel is not None, "Kernel was not initialized"
+
+    # Disable the banner if running in quiet mode.
+    if args.quiet:
+        app.kernel.shell.banner1 = ""
+
     app.kernel.start()
 
     logger.info(f"Process ID {os.getpid()}")
