@@ -159,6 +159,7 @@ export async function createPythonRuntime(
     const settings = configService.getSettings();
     const debug = settings.languageServerDebug;
     const logLevel = settings.languageServerLogLevel;
+    const { quietMode } = settings;
 
     // If required, also locate an available port for the debugger
     traceInfo('createPythonRuntime: locating available debug port');
@@ -215,6 +216,9 @@ export async function createPythonRuntime(
     ];
     if (debugPort) {
         args.push(`--debugport=${debugPort}`);
+    }
+    if (quietMode) {
+        args.push('--quiet');
     }
 
     // Create a kernel spec for this Python installation
