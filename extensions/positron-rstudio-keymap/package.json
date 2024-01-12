@@ -82,6 +82,14 @@
         "key": "ctrl+1",
         "when": "config.rstudio.keymap.enable",
         "command": "workbench.action.focusActiveEditorGroup"
+      },
+      {
+        "mac": "ctrl+2",
+        "win": "ctrl+2",
+        "linux": "ctrl+2",
+        "key": "ctrl+2",
+        "when": "config.rstudio.keymap.enable",
+        "command": "workbench.action.positronConsole.focusConsole"
       }
     ]
   }

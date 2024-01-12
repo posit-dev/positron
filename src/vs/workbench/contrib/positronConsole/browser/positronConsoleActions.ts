@@ -8,7 +8,7 @@ import { Codicon } from 'vs/base/common/codicons';
 import { ITextModel } from 'vs/editor/common/model';
 import { IEditor } from 'vs/editor/common/editorCommon';
 import { ILogService } from 'vs/platform/log/common/log';
-import { KeyCode, KeyMod } from 'vs/base/common/keyCodes';
+import { KeyChord, KeyCode, KeyMod } from 'vs/base/common/keyCodes';
 import { Position } from 'vs/editor/common/core/position';
 import { IStatementRange } from 'vs/editor/common/languages';
 import { CancellationToken } from 'vs/base/common/cancellation';
@@ -35,7 +35,8 @@ import { IPositronConsoleService } from 'vs/workbench/services/positronConsole/b
 const enum PositronConsoleCommandId {
 	ClearConsole = 'workbench.action.positronConsole.clearConsole',
 	ClearInputHistory = 'workbench.action.positronConsole.clearInputHistory',
-	ExecuteCode = 'workbench.action.positronConsole.executeCode'
+	ExecuteCode = 'workbench.action.positronConsole.executeCode',
+	FocusConsole = 'workbench.action.positronConsole.focusConsole'
 }
 
 /**
@@ -102,6 +103,43 @@ export function registerPositronConsoleActions() {
 					message: localize('positron.clearConsole.noActiveConsole', "Cannot clear console. A console is not active."),
 					sticky: false
 				});
+			}
+		}
+	});
+
+	/**
+	 * Register the focus console action. This action places focus in the active console,
+	 * if one exists.
+	 */
+	registerAction2(class extends Action2 {
+		/**
+		 * Constructor.
+		 */
+		constructor() {
+			super({
+				id: PositronConsoleCommandId.FocusConsole,
+				title: {
+					value: localize('workbench.action.positronConsole.focusConsole', "Focus Console"),
+					original: 'Focus Console'
+				},
+				f1: true,
+				keybinding: {
+					weight: KeybindingWeight.WorkbenchContrib,
+					primary: KeyChord(KeyMod.CtrlCmd | KeyCode.KeyK, KeyCode.KeyF)
+				},
+				category,
+			});
+		}
+
+		/**
+		 * Runs action; places focus in the console's input control.
+		 *
+		 * @param accessor The services accessor.
+		 */
+		async run(accessor: ServicesAccessor) {
+			const positronConsoleService = accessor.get(IPositronConsoleService);
+			if (positronConsoleService.activePositronConsoleInstance) {
+				positronConsoleService.activePositronConsoleInstance.focusInput();
 			}
 		}
 	});
