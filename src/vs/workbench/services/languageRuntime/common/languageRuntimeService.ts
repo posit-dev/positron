@@ -8,7 +8,7 @@ import { URI, UriComponents } from 'vs/base/common/uri';
 import { ExtensionIdentifier } from 'vs/platform/extensions/common/extensions';
 import { createDecorator } from 'vs/platform/instantiation/common/instantiation';
 import { IRuntimeClientInstance, RuntimeClientType } from 'vs/workbench/services/languageRuntime/common/languageRuntimeClientInstance';
-import { IRuntimeClientEvent } from 'vs/workbench/services/languageRuntime/common/languageRuntimeFrontEndClient';
+import { IRuntimeClientEvent } from 'vs/workbench/services/languageRuntime/common/languageRuntimeUiClient';
 
 export const ILanguageRuntimeService = createDecorator<ILanguageRuntimeService>('languageRuntimeService');
 

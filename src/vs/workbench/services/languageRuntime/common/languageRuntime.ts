@@ -10,7 +10,7 @@ import { Disposable, IDisposable, toDisposable } from 'vs/base/common/lifecycle'
 import { CommandsRegistry, ICommandService } from 'vs/platform/commands/common/commands';
 import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/common/extensions';
 import { formatLanguageRuntime, ILanguageRuntime, ILanguageRuntimeMetadata, ILanguageRuntimeGlobalEvent, ILanguageRuntimeService, ILanguageRuntimeStateEvent, LanguageRuntimeDiscoveryPhase, LanguageRuntimeStartupBehavior, RuntimeClientType, RuntimeExitReason, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
-import { FrontEndClientInstance, IFrontEndClientMessageInput, IFrontEndClientMessageOutput } from 'vs/workbench/services/languageRuntime/common/languageRuntimeFrontEndClient';
+import { UiClientInstance, IUiClientMessageInput, IUiClientMessageOutput } from 'vs/workbench/services/languageRuntime/common/languageRuntimeUiClient';
 import { LanguageRuntimeWorkspaceAffiliation } from 'vs/workbench/services/languageRuntime/common/languageRuntimeWorkspaceAffiliation';
 import { IStorageService } from 'vs/platform/storage/common/storage';
 import { IExtensionService } from 'vs/workbench/services/extensions/common/extensions';
@@ -20,7 +20,7 @@ import { INotificationService } from 'vs/platform/notification/common/notificati
 import { IModalDialogPromptInstance, IPositronModalDialogsService } from 'vs/workbench/services/positronModalDialogs/common/positronModalDialogs';
 import { IOpener, IOpenerService, OpenExternalOptions, OpenInternalOptions } from 'vs/platform/opener/common/opener';
 import { URI } from 'vs/base/common/uri';
-import { FrontendEvent } from './positronFrontendComm';
+import { UiFrontendEvent } from './positronUiComm';
 import { Registry } from 'vs/platform/registry/common/platform';
 import { IConfigurationRegistry, Extensions as ConfigurationExtensions, ConfigurationScope, IConfigurationNode, } from 'vs/platform/configuration/common/configurationRegistry';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
@@ -454,8 +454,8 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 					// 	this.activeRuntime = runtime;
 					// }
 
-					// Start the frontend client instance once the runtime is fully online.
-					this.startFrontEndClient(runtime);
+					// Start the UI client instance once the runtime is fully online.
+					this.startUiClient(runtime);
 					break;
 
 				case RuntimeState.Interrupting:
@@ -718,74 +718,74 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 	//#region Private Methods
 
 	/**
-	 * Starts a frontend client instance for the specified runtime. The frontend
-	 * client instance is used to carry global Positron events from the runtime
-	 * to the frontend.
+	 * Starts a UI client instance for the specified runtime. The
+	 * UI client instance is used for two-way communication of
+	 * global state and events between the frontend and the backend.
 	 *
-	 * @param runtime The runtime for which to start the frontend client.
+	 * @param runtime The runtime for which to start the UI client.
 	 */
-	private startFrontEndClient(runtime: ILanguageRuntime): void {
+	private startUiClient(runtime: ILanguageRuntime): void {
 		// Create the frontend client. The second argument is empty for now; we
 		// could use this to pass in any initial state we want to pass to the
 		// frontend client (such as information on window geometry, etc.)
-		runtime.createClient<IFrontEndClientMessageInput, IFrontEndClientMessageOutput>
-			(RuntimeClientType.FrontEnd, {}).then(client => {
-				// Create the frontend client instance wrapping the client instance.
-				const frontendClient = new FrontEndClientInstance(client);
-				this._register(frontendClient);
+		runtime.createClient<IUiClientMessageInput, IUiClientMessageOutput>
+			(RuntimeClientType.Ui, {}).then(client => {
+				// Create the UI client instance wrapping the client instance.
+				const uiClient = new UiClientInstance(client);
+				this._register(uiClient);
 
-				// When the frontend client instance emits an event, broadcast
+				// When the UI client instance emits an event, broadcast
 				// it to Positron with the corresponding runtime ID.
-				this._register(frontendClient.onDidBusy(event => {
+				this._register(uiClient.onDidBusy(event => {
 					this._onDidReceiveRuntimeEventEmitter.fire({
 						runtime_id: runtime.metadata.runtimeId,
 						event: {
-							name: FrontendEvent.Busy,
+							name: UiFrontendEvent.Busy,
 							data: event
 						}
 					});
 				}));
-				this._register(frontendClient.onDidClearConsole(event => {
+				this._register(uiClient.onDidClearConsole(event => {
 					this._onDidReceiveRuntimeEventEmitter.fire({
 						runtime_id: runtime.metadata.runtimeId,
 						event: {
-							name: FrontendEvent.ClearConsole,
+							name: UiFrontendEvent.ClearConsole,
 							data: event
 						}
 					});
 				}));
-				this._register(frontendClient.onDidOpenEditor(event => {
+				this._register(uiClient.onDidOpenEditor(event => {
 					this._onDidReceiveRuntimeEventEmitter.fire({
 						runtime_id: runtime.metadata.runtimeId,
 						event: {
-							name: FrontendEvent.OpenEditor,
+							name: UiFrontendEvent.OpenEditor,
 							data: event
 						}
 					});
 				}));
-				this._register(frontendClient.onDidShowMessage(event => {
+				this._register(uiClient.onDidShowMessage(event => {
 					this._onDidReceiveRuntimeEventEmitter.fire({
 						runtime_id: runtime.metadata.runtimeId,
 						event: {
-							name: FrontendEvent.ShowMessage,
+							name: UiFrontendEvent.ShowMessage,
 							data: event
 						}
 					});
 				}));
-				this._register(frontendClient.onDidPromptState(event => {
+				this._register(uiClient.onDidPromptState(event => {
 					this._onDidReceiveRuntimeEventEmitter.fire({
 						runtime_id: runtime.metadata.runtimeId,
 						event: {
-							name: FrontendEvent.PromptState,
+							name: UiFrontendEvent.PromptState,
 							data: event
 						}
 					});
 				}));
-				this._register(frontendClient.onDidWorkingDirectory(event => {
+				this._register(uiClient.onDidWorkingDirectory(event => {
 					this._onDidReceiveRuntimeEventEmitter.fire({
 						runtime_id: runtime.metadata.runtimeId,
 						event: {
-							name: FrontendEvent.WorkingDirectory,
+							name: UiFrontendEvent.WorkingDirectory,
 							data: event
 						}
 					});

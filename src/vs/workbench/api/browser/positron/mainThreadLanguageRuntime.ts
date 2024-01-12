@@ -22,9 +22,9 @@ import { IPositronPlotsService } from 'vs/workbench/services/positronPlots/commo
 import { IPositronIPyWidgetsService, MIME_TYPE_WIDGET_STATE, MIME_TYPE_WIDGET_VIEW } from 'vs/workbench/services/positronIPyWidgets/common/positronIPyWidgetsService';
 import { IPositronHelpService } from 'vs/workbench/contrib/positronHelp/browser/positronHelpService';
 import { INotebookService } from 'vs/workbench/contrib/notebook/common/notebookService';
-import { IRuntimeClientEvent } from 'vs/workbench/services/languageRuntime/common/languageRuntimeFrontEndClient';
+import { IRuntimeClientEvent } from 'vs/workbench/services/languageRuntime/common/languageRuntimeUiClient';
 import { URI } from 'vs/base/common/uri';
-import { BusyEvent, FrontendEvent, OpenEditorEvent, PromptStateEvent, WorkingDirectoryEvent } from 'vs/workbench/services/languageRuntime/common/positronFrontendComm';
+import { BusyEvent, UiFrontendEvent, OpenEditorEvent, PromptStateEvent, WorkingDirectoryEvent } from 'vs/workbench/services/languageRuntime/common/positronUiComm';
 import { IEditorService } from 'vs/workbench/services/editor/common/editorService';
 import { ITextResourceEditorInput } from 'vs/platform/editor/common/editor';
 
@@ -144,7 +144,7 @@ class ExtHostLanguageRuntimeAdapter implements ILanguageRuntime {
 			}
 
 			const ev = globalEvent.event;
-			if (ev.name === FrontendEvent.PromptState) {
+			if (ev.name === UiFrontendEvent.PromptState) {
 				// Update config before propagating event
 				const state = ev.data as PromptStateEvent;
 
@@ -163,11 +163,11 @@ class ExtHostLanguageRuntimeAdapter implements ILanguageRuntime {
 				// Don't include new state in event, clients should
 				// inspect the runtime's dyn state instead
 				this.emitDidReceiveRuntimeMessagePromptConfig();
-			} else if (ev.name === FrontendEvent.Busy) {
+			} else if (ev.name === UiFrontendEvent.Busy) {
 				// Update busy state
 				const busy = ev.data as BusyEvent;
 				this.dynState.busy = busy.busy;
-			} else if (ev.name === FrontendEvent.OpenEditor) {
+			} else if (ev.name === UiFrontendEvent.OpenEditor) {
 				// Open an editor
 				const ed = ev.data as OpenEditorEvent;
 				const editor: ITextResourceEditorInput = {
@@ -175,7 +175,7 @@ class ExtHostLanguageRuntimeAdapter implements ILanguageRuntime {
 					options: { selection: { startLineNumber: ed.line, startColumn: ed.column } }
 				};
 				this._editorService.openEditor(editor);
-			} else if (ev.name === FrontendEvent.WorkingDirectory) {
+			} else if (ev.name === UiFrontendEvent.WorkingDirectory) {
 				// Update current working directory
 				const dir = ev.data as WorkingDirectoryEvent;
 				this.dynState.currentWorkingDirectory = dir.directory;
@@ -261,8 +261,8 @@ class ExtHostLanguageRuntimeAdapter implements ILanguageRuntime {
 	}
 
 	/**
-	 * Opens a client instance (comm) on the front end. This is called when a new
-	 * comm is created on the back end.
+	 * Opens a client instance (comm) on the frontend. This is called when a new
+	 * comm is created on the backend.
 	 */
 	openClientInstance(message: ILanguageRuntimeMessageCommOpen): void {
 		// If the target name is not a valid client type, remove the client on

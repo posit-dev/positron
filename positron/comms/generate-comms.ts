@@ -490,7 +490,7 @@ use serde::Serialize;
 		yield ' */\n';
 		yield `#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]\n`;
 		yield `#[serde(tag = "method", content = "params")]\n`;
-		yield `pub enum ${snakeCaseToSentenceCase(name)}${contract.name}RpcRequest {\n`;
+		yield `pub enum ${snakeCaseToSentenceCase(name)}${contract.name}Request {\n`;
 		for (const method of source.methods) {
 			if (!method.result) {
 				continue;
@@ -517,7 +517,7 @@ use serde::Serialize;
 		yield ' */\n';
 		yield `#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]\n`;
 		yield `#[serde(tag = "method", content = "result")]\n`;
-		yield `pub enum ${snakeCaseToSentenceCase(name)}${contract.name}RpcReply {\n`;
+		yield `pub enum ${snakeCaseToSentenceCase(name)}${contract.name}Reply {\n`;
 		for (const method of source.methods) {
 			if (method.result) {
 				if (!method.result.schema) {
@@ -570,7 +570,7 @@ use serde::Serialize;
 		yield ' */\n';
 		yield `#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]\n`;
 		yield `#[serde(tag = "method", content = "params")]\n`;
-		yield `pub enum ${snakeCaseToSentenceCase(name)}Event {\n`;
+		yield `pub enum ${snakeCaseToSentenceCase(name)}FrontendEvent {\n`;
 		for (const method of frontend.methods) {
 			if (method.result !== undefined) {
 				continue;
@@ -590,15 +590,15 @@ use serde::Serialize;
 	}
 
 	if (frontend && frontend.methods.some((method: any) => method.result && method.result.schema)) {
-		const enumRequestType = `${snakeCaseToSentenceCase(name)}FrontendRpcRequest`
-		const enumReplyType = `${snakeCaseToSentenceCase(name)}FrontendRpcReply`
+		const enumRequestType = `${snakeCaseToSentenceCase(name)}FrontendRequest`
+		const enumReplyType = `${snakeCaseToSentenceCase(name)}FrontendReply`
 		yield `/**
 * Conversion of JSON values to frontend RPC Reply types
 */
 pub fn ${name}_frontend_reply_from_value(
 	reply: serde_json::Value,
 	request: &${enumRequestType},
-) -> anyhow::Result<${snakeCaseToSentenceCase(name)}FrontendRpcReply> {
+) -> anyhow::Result<${snakeCaseToSentenceCase(name)}FrontendReply> {
 	match request {
 `;
 		for (const method of frontend.methods) {
@@ -749,9 +749,9 @@ JsonData = Union[Dict[str, "JsonData"], List["JsonData"], str, int, float, bool,
 
 	if (backend) {
 		yield '@enum.unique\n';
-		yield `class ${snakeCaseToSentenceCase(name)}Request(str, enum.Enum):\n`;
+		yield `class ${snakeCaseToSentenceCase(name)}BackendRequest(str, enum.Enum):\n`;
 		yield `    """\n`;
-		yield `    An enumeration of all the possible requests that can be sent to the ${name} comm.\n`;
+		yield `    An enumeration of all the possible requests that can be sent to the backend ${name} comm.\n`;
 		yield `    """\n`;
 		yield `\n`;
 		for (const method of backend.methods) {
@@ -810,12 +810,12 @@ JsonData = Union[Dict[str, "JsonData"], List["JsonData"], str, int, float, bool,
 				yield `    )\n`;
 				yield `\n`;
 			}
-			yield `    method: ${snakeCaseToSentenceCase(name)}Request = field(\n`;
+			yield `    method: ${snakeCaseToSentenceCase(name)}BackendRequest = field(\n`;
 			yield `        metadata={\n`;
 			yield `            "description": "The JSON-RPC method name (${method.name})"\n`;
 			yield `        },\n`;
 			yield `        default=`;
-			yield `${snakeCaseToSentenceCase(name)}Request.${snakeCaseToSentenceCase(method.name)}\n`;
+			yield `${snakeCaseToSentenceCase(name)}BackendRequest.${snakeCaseToSentenceCase(method.name)}\n`;
 			yield `    )\n`;
 			yield '\n';
 			yield `    jsonrpc: str = field(\n`;
@@ -831,9 +831,9 @@ JsonData = Union[Dict[str, "JsonData"], List["JsonData"], str, int, float, bool,
 
 	if (frontend) {
 		yield `@enum.unique\n`;
-		yield `class ${snakeCaseToSentenceCase(name)}Event(str, enum.Enum):\n`;
+		yield `class ${snakeCaseToSentenceCase(name)}FrontendEvent(str, enum.Enum):\n`;
 		yield `    """\n`;
-		yield `    An enumeration of all the possible events that can be sent from the ${name} comm.\n`;
+		yield `    An enumeration of all the possible events that can be sent to the frontend ${name} comm.\n`;
 		yield `    """\n`;
 		yield `\n`;
 		for (const method of frontend.methods) {
@@ -965,6 +965,9 @@ import { IRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/co
 
 `;
 	const contracts = [backend, frontend];
+	const namedContracts = [{ name: 'Backend', source: backend },
+				{ name: 'Frontend', source: frontend }];
+
 	for (const source of contracts) {
 		if (!source) {
 			continue;
@@ -1086,13 +1089,13 @@ import { IRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/co
 		}
 
 		if (events.length) {
-			yield `export enum ${snakeCaseToSentenceCase(name)}Event {\n`;
+			yield `export enum ${snakeCaseToSentenceCase(name)}FrontendEvent {\n`;
 			yield events.join(',\n');
 			yield '\n}\n\n';
 		}
 
 		if (requests.length) {
-			yield `export enum ${snakeCaseToSentenceCase(name)}Request {\n`;
+			yield `export enum ${snakeCaseToSentenceCase(name)}FrontendRequest {\n`;
 			yield requests.join(',\n');
 			yield '\n}\n\n';
 		}
