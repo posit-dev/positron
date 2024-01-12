@@ -1,0 +1,52 @@
+{
+  "name": "positron-rstudio-keymap",
+  "displayName": "%displayName%",
+  "description": "%description%",
+  "version": "0.0.1",
+  "publisher": "vscode",
+  "license": "SEE LICENSE IN LICENSE.md",
+  "engines": {
+    "vscode": "^1.75.0"
+  },
+  "categories": [
+    "Keymaps"
+  ],
+  "keywords": [
+    "keymap",
+    "Importer",
+    "Settings",
+    "RStudio"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./out/extension.js",
+  "extensionKind": [
+    "ui",
+    "workspace"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/posit-dev/positron.git"
+  },
+  "scripts": {
+    "vscode:prepublish": "yarn run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "pretest": "yarn run compile && yarn run lint",
+    "postinstall": "ts-node scripts/post-install.ts",
+    "lint": "eslint src --ext ts",
+    "test": "node ./out/test/runTest.js"
+  },
+  "contributes": {
+    "keybindings": [
+      {
+        "mac": "cmd+shift+n",
+        "win": "ctrl+shift+n",
+        "linux": "ctrl+shift+n",
+        "key": "ctrl+shift+n",
+        "command": "r.createNewFile"
+      }
+    ]
+  }
+}
