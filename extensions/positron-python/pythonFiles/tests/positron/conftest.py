@@ -87,9 +87,9 @@ def mock_dataviewer_service(shell: PositronShell, monkeypatch: pytest.MonkeyPatc
 
 
 @pytest.fixture
-def mock_frontend_service(shell: PositronShell, monkeypatch: pytest.MonkeyPatch) -> Mock:
+def mock_ui_service(shell: PositronShell, monkeypatch: pytest.MonkeyPatch) -> Mock:
     mock = Mock()
-    monkeypatch.setattr(shell.kernel, "frontend_service", mock)
+    monkeypatch.setattr(shell.kernel, "ui_service", mock)
     return mock
 
 
