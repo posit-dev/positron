@@ -108,16 +108,16 @@ export class LanguageRuntimeAdapter
 	}
 
 	async callMethod(method: string, ...args: any[]): Promise<any> {
-		// Find the frontend comm
-		const frontend = Array.from(this._comms.values())
+		// Find the UI comm
+		const uiComm = Array.from(this._comms.values())
 			.find(c => c.getClientType() === positron.RuntimeClientType.Ui);
-		if (!frontend) {
-			throw new Error(`Cannot invoke '${method}'; no frontend comm is open.`);
+		if (!uiComm) {
+			throw new Error(`Cannot invoke '${method}'; no UI comm is open.`);
 		}
 
 		// Create the request. This uses a JSON-RPC 2.0 format, with an
 		// additional `msg_type` field to indicate that this is a request type
-		// for the frontend comm.
+		// for the UI comm.
 		//
 		// NOTE: Currently using nested RPC messages for convenience but
 		// we'd like to do better
@@ -130,13 +130,13 @@ export class LanguageRuntimeAdapter
 			},
 		};
 
-		// Return a promise that resolves when the server side of the frontend
+		// Return a promise that resolves when the server side of the UI
 		// comm replies. Rejects if either an error is returned from the backend
 		// or we are unsuccessful in sending the request.
 		let response = {} as any;
 		try {
 			// Send the request and wait for a response
-			response = await frontend.performRpc(request);
+			response = await uiComm.performRpc(request);
 		} catch (err) {
 			// Convert the error to a runtime method error. This handles errors
 			// that occur while performing the RPC; if the RPC is successfully
@@ -167,7 +167,7 @@ export class LanguageRuntimeAdapter
 		if (!Object.keys(response).includes('result')) {
 			const error: positron.RuntimeMethodError = {
 				code: positron.RuntimeMethodErrorCode.InternalError,
-				message: `Invalid response from frontend comm: no 'result' field. ` +
+				message: `Invalid response from UI comm: no 'result' field. ` +
 					`(response = ${JSON.stringify(response)})`,
 				name: `InvalidResponseError`,
 				data: {},
