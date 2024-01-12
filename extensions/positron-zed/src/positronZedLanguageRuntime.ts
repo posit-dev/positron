@@ -12,7 +12,7 @@ import { ZedData } from './positronZedData';
 import { ZedPreview } from './positronZedPreview';
 import { ZedVariables } from './positronZedVariables';
 import { makeCUB, makeCUF, makeCUP, makeED, makeEL, makeSGR, SGR } from './ansi';
-import { ZedFrontend } from './positronZedFrontend';
+import { ZedUi as ZedUi } from './positronZedUi';
 import { ZedConnection } from './positronZedConnection';
 
 /**
@@ -147,7 +147,7 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 	/**
 	 * The currently connected frontend, if any
 	 */
-	private _frontend: ZedFrontend | undefined;
+	private _ui: ZedUi | undefined;
 
 	/**
 	 * A map of plot IDs to plot instances.
@@ -946,13 +946,13 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 				this.createVariablesClient(id);
 				break;
 
-			case positron.RuntimeClientType.FrontEnd:
+			case positron.RuntimeClientType.Ui:
 				// Create the front-end client when requested
-				this.createFrontendClient(id);
+				this.createUiClient(id);
 
 				// Immediately notify Positron of a "working directory"
-				if (this._frontend) {
-					this._frontend.changeDirectory('');
+				if (this._ui) {
+					this._ui.changeDirectory('');
 				}
 				break;
 
@@ -994,17 +994,17 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 	}
 
 	/**
-	 * Creates a new Zed frontend client.
+	 * Creates a new Zed UI client.
 	 *
 	 * @param id The ID of the client.
 	 */
-	createFrontendClient(id: string) {
+	createUiClient(id: string) {
 		// Allocate a new ID and ZedVariables object for this variables backend
-		const frontend = new ZedFrontend(id);
+		const ui = new ZedUi(id);
 
 		// Connect it and save the instance to coordinate future communication
-		this.connectClientEmitter(frontend);
-		this._frontend = frontend;
+		this.connectClientEmitter(ui);
+		this._ui = ui;
 	}
 
 	/**
@@ -1035,9 +1035,9 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 				clients[data.id] = positron.RuntimeClientType.Plot;
 			}
 		}
-		if (!type || type === positron.RuntimeClientType.FrontEnd) {
-			if (this._frontend) {
-				clients[this._frontend.id] = positron.RuntimeClientType.FrontEnd;
+		if (!type || type === positron.RuntimeClientType.Ui) {
+			if (this._ui) {
+				clients[this._ui.id] = positron.RuntimeClientType.Ui;
 			}
 		}
 		return clients;
@@ -1180,8 +1180,8 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 					this.simulateIdleState(this._busyOperationId!);
 
 					// Notify Positron that the interrupt is complete.
-					if (this._frontend) {
-						this._frontend.markBusy(false);
+					if (this._ui) {
+						this._ui.markBusy(false);
 					}
 					this._busyOperationId = undefined;
 				}, this._busyInterruptSeconds * 1000);
@@ -1417,7 +1417,7 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 	}
 
 	/**
-	 * Simulates a directory change by sending the relevant event to the frontend comm.
+	 * Simulates a directory change by sending the relevant event to the UI comm.
 	 *
 	 * @param parentId The ID of the message that requested the directory change.
 	 * @param code The code that was executed.
@@ -1428,9 +1428,9 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 		this.simulateBusyState(parentId);
 		this.simulateInputMessage(parentId, code);
 
-		if (this._frontend) {
-			this._frontend.changeDirectory(directory);
-			this.simulateOutputMessage(parentId, `Changed directory to '${this._frontend.directory}'.`);
+		if (this._ui) {
+			this._ui.changeDirectory(directory);
+			this.simulateOutputMessage(parentId, `Changed directory to '${this._ui.directory}'.`);
 		} else {
 			this.simulateErrorMessage(parentId, 'No Frontend', 'No frontend is connected.', []);
 		}
@@ -1834,8 +1834,8 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 		this.simulateStreamMessage(parentId, positron.LanguageRuntimeStreamName.Stderr, 'Initializing task...');
 
 		// Mark the runtime as busy while we show the progress bar.
-		if (this._frontend) {
-			this._frontend.markBusy(true);
+		if (this._ui) {
+			this._ui.markBusy(true);
 		}
 
 		// After a tingle of delay, output the progress bar.
@@ -1861,8 +1861,8 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 					// End the progress bar.
 					this.simulateStreamMessage(parentId, positron.LanguageRuntimeStreamName.Stdout, 'Long running task is completed.');
 					this.simulateIdleState(parentId);
-					if (this._frontend) {
-						this._frontend.markBusy(false);
+					if (this._ui) {
+						this._ui.markBusy(false);
 					}
 				}
 			}, 25);
@@ -2011,7 +2011,7 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 	 *
 	 * @param client The environment or plot to connect
 	 */
-	private connectClientEmitter(client: ZedVariables | ZedPlot | ZedData | ZedFrontend | ZedConnection) {
+	private connectClientEmitter(client: ZedVariables | ZedPlot | ZedData | ZedUi | ZedConnection) {
 
 		// Listen for data emitted from the environment instance
 		client.onDidEmitData(data => {
@@ -2046,8 +2046,8 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 		this.simulateOutputMessage(parentId, `Entering busy state for ${durationSeconds} seconds.`);
 
 		// Notify the frontend that a computation is in progress
-		if (this._frontend) {
-			this._frontend.markBusy(true);
+		if (this._ui) {
+			this._ui.markBusy(true);
 		}
 
 		// Exit the busy state after the specified duration. We save the timer to a
@@ -2060,8 +2060,8 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 			this._busyTimer = undefined;
 
 			// Notify frontend that the computation is complete
-			if (this._frontend) {
-				this._frontend.markBusy(false);
+			if (this._ui) {
+				this._ui.markBusy(false);
 			}
 		}, durationSeconds * 1000);
 	}
