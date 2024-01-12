@@ -104,6 +104,22 @@
         "key": "ctrl+.",
         "when": "config.rstudio.keymap.enable",
         "command": "workbench.action.showAllSymbols"
+      },
+      {
+        "mac": "shift+alt+k",
+        "win": "shift+alt+k",
+        "linux": "shift+alt+k",
+        "key": "shift+alt+k",
+        "when": "config.rstudio.keymap.enable",
+        "command": "workbench.action.openGlobalKeybindings"
+      },
+      {
+        "mac": "cmd+alt+i",
+        "win": "ctrl+alt+i.",
+        "linux": "ctrl+alt+i",
+        "key": "ctrl+alt+i",
+        "when": "config.rstudio.keymap.enable",
+        "command": "quarto.insertCodeCell"
       }
     ]
   }
