@@ -77,6 +77,11 @@ export class ZedConnection {
 			case 'preview_table':
 				this.zed.createZedDataView(randomUUID(), message.table);
 				break;
+
+			case 'close_connection':
+				this.zed.closeConnection(this.id, this.name);
+				break;
+
 		}
 	}
 }

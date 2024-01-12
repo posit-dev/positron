@@ -4,7 +4,7 @@
 
 import * as vscode from 'vscode';
 import * as positron from 'positron';
-import { ConnectionItemTable, ConnectionItemsProvider } from './connection';
+import { ConnectionItemDatabase, ConnectionItemTable, ConnectionItemsProvider } from './connection';
 
 /**
  * Activates the extension.
@@ -34,5 +34,11 @@ export function activate(context: vscode.ExtensionContext) {
 		vscode.commands.registerCommand('positron.connections.previewTable',
 			(item: ConnectionItemTable) => {
 				item.preview();
+			}));
+
+	context.subscriptions.push(
+		vscode.commands.registerCommand('positron.connections.closeConnection',
+			(item: ConnectionItemDatabase) => {
+				item.close();
 			}));
 }

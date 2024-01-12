@@ -49,6 +49,10 @@ export class ConnectionItemDatabase extends ConnectionItemNode {
 	constructor(readonly name: string, readonly client: positron.RuntimeClientInstance) {
 		super(name, 'database', [], client);
 	}
+
+	close() {
+		this.client.performRpc({ msg_type: 'close_connection', name: this.name });
+	}
 }
 
 /**
@@ -116,14 +120,15 @@ export class ConnectionItemsProvider implements vscode.TreeDataProvider<Connecti
 		if (item instanceof ConnectionItemTable) {
 			// Set the icon for tables
 			treeItem.iconPath = vscode.Uri.file(path.join(this.context.extensionPath, 'media', 'table.svg'));
+			treeItem.contextValue = 'table';
 
 			// Tables can previewed in a new editor
-			treeItem.command = {
-				title: vscode.l10n.t('Preview Table'),
-				command: 'positron.connections.previewTable',
-				tooltip: vscode.l10n.t(`Open ${item.name} in a new editor`),
-				arguments: [item]
-			};
+			// treeItem.command = {
+			// 	title: vscode.l10n.t('Preview Table'),
+			// 	command: 'positron.connections.previewTable',
+			// 	tooltip: vscode.l10n.t(`Open ${item.name} in a new editor`),
+			// 	arguments: [item]
+			// };
 		} else if (item instanceof ConnectionItemNode) {
 			// Set the icon for databases
 			treeItem.iconPath = vscode.Uri.file(path.join(this.context.extensionPath, 'media', 'database.svg'));
@@ -132,6 +137,13 @@ export class ConnectionItemsProvider implements vscode.TreeDataProvider<Connecti
 			treeItem.iconPath = vscode.Uri.file(path.join(this.context.extensionPath, 'media', 'field.svg'));
 			treeItem.description = '<' + item.dtype + '>';
 		}
+
+		if (item instanceof ConnectionItemDatabase) {
+			// adding the contextValue allows the TreView API to attach specific commands
+			// to databases
+			treeItem.contextValue = 'database';
+		}
+
 		return treeItem;
 	}
 
