@@ -11,7 +11,7 @@ import pandas as pd
 import pytest
 
 from positron.help import HelpService, help
-from positron.help_comm import HelpEvent, HelpRequest
+from positron.help_comm import HelpFrontendEvent, HelpBackendRequest
 
 from .conftest import DummyComm
 from .utils import json_rpc_request
@@ -120,7 +120,7 @@ def test_show_help(obj: Any, expected_path: str, help_service: HelpService, help
 
     [event] = help_comm.messages
     data = event["data"]
-    assert data["method"] == HelpEvent.ShowHelp.value
+    assert data["method"] == HelpFrontendEvent.ShowHelp.value
 
     params = data["params"]
     assert params["kind"] == "url"
@@ -131,7 +131,7 @@ def test_show_help(obj: Any, expected_path: str, help_service: HelpService, help
 
 
 def test_handle_show_help_topic(help_comm: DummyComm) -> None:
-    msg = json_rpc_request(HelpRequest.ShowHelpTopic, {"topic": "logging"})
+    msg = json_rpc_request(HelpBackendRequest.ShowHelpTopic, {"topic": "logging"})
     help_comm.handle_msg(msg)
 
     assert help_comm.messages == [

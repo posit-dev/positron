@@ -189,9 +189,9 @@ def test_pinfo(shell: PositronShell, mock_help_service: Mock) -> None:
     mock_help_service.show_help.assert_called_once_with(object)
 
 
-def test_pinfo_2(shell: PositronShell, tmp_path: Path, mock_frontend_service: Mock) -> None:
+def test_pinfo_2(shell: PositronShell, tmp_path: Path, mock_ui_service: Mock) -> None:
     """
-    Redirect `object??` to the Positron frontend service's `open_editor` method.
+    Redirect `object??` to the Positron UI service's `open_editor` method.
     """
     # Create a temporary module using a predefined code snippet, so that we know the expected
     # file and line number where the object is defined.
@@ -205,13 +205,13 @@ def test_pinfo_2(shell: PositronShell, tmp_path: Path, mock_frontend_service: Mo
 
     # IPython normalizes the case of the file path.
     expected_file = os.path.normcase(file)
-    mock_frontend_service.open_editor.assert_called_once_with(expected_file, 4, 0)
+    mock_ui_service.open_editor.assert_called_once_with(expected_file, 4, 0)
 
 
-def test_clear(shell: PositronShell, mock_frontend_service: Mock) -> None:
+def test_clear(shell: PositronShell, mock_ui_service: Mock) -> None:
     """
-    Redirect `%clear` to the Positron frontend service's `clear_console` method.
+    Redirect `%clear` to the Positron UI service's `clear_console` method.
     """
     shell.run_cell("%clear")
 
-    mock_frontend_service.clear_console.assert_called_once_with()
+    mock_ui_service.clear_console.assert_called_once_with()

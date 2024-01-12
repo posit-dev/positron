@@ -9,7 +9,7 @@ import pydoc
 from dataclasses import asdict
 from typing import TYPE_CHECKING, Any, Optional, Union
 
-from .help_comm import HelpEvent, ShowHelpKind, ShowHelpParams, ShowHelpTopicRequest
+from .help_comm import HelpFrontendEvent, ShowHelpKind, ShowHelpParams, ShowHelpTopicRequest
 from .positron_comm import JsonRpcErrorCode, PositronComm
 from .pydoc import start_server
 from .utils import get_qualname
@@ -141,4 +141,4 @@ class HelpService:
         # Submit the event to the frontend service
         event = ShowHelpParams(content=url, kind=ShowHelpKind.Url, focus=True)
         if self._comm is not None:
-            self._comm.send_event(name=HelpEvent.ShowHelp.value, payload=asdict(event))
+            self._comm.send_event(name=HelpFrontendEvent.ShowHelp.value, payload=asdict(event))
