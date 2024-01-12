@@ -113,6 +113,8 @@ def test_change_detection(
     """
     # Import the necessary library.
     if import_code:
+        if import_code.endswith("torch"):  # temporary workaround for python 3.12
+            pytest.skip()
         shell.run_cell(import_code)
 
     for value_code in value_codes:
