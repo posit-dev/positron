@@ -1,8 +1,8 @@
 {
     "name": "python",
-    "displayName": "%displayName%",
-    "description": "%description%",
-    "version": "2023.99.0-dev",
+    "displayName": "Positron Python",
+    "description": "Positron Python",
+    "version": "2024.99.0-dev",
     "featureFlags": {
         "usingNewInterpreterStorage": true
     },
@@ -27,21 +27,23 @@
         "terminalExecuteCommandEvent"
     ],
     "author": {
-        "name": "Microsoft Corporation"
+        "name": "Posit Software, PBC",
+        "contributors": [
+            {"name":"Microsoft Corporation","url":"https://github.com/Microsoft/vscode-python"}
+            ]
     },
     "license": "MIT",
-    "homepage": "https://github.com/Microsoft/vscode-python",
+    "homepage": "https://github.com/posit-dev/positron-python",
     "repository": {
         "type": "git",
-        "url": "https://github.com/Microsoft/vscode-python"
+        "url": "https://github.com/posit-dev/positron-python"
     },
     "bugs": {
-        "url": "https://github.com/Microsoft/vscode-python/issues"
+        "url": "https://github.com/posit-dev/positron/issues"
     },
-    "qna": "https://github.com/microsoft/vscode-python/discussions/categories/q-a",
     "icon": "icon.png",
     "galleryBanner": {
-        "color": "#1e415e",
+        "color": "#447099",
         "theme": "dark"
     },
     "engines": {
@@ -50,7 +52,7 @@
     "enableTelemetry": false,
     "keywords": [
         "python",
-        "django",
+        "datascience",
         "unittest",
         "multi-root ready"
     ],
@@ -1709,7 +1711,7 @@
     ],
     "__metadata": {
         "id": "f1f59ae4-9318-4f3c-a9b5-81b2eaa5f8a5",
-        "publisherDisplayName": "Microsoft",
+        "publisherDisplayName": "Posit Software, PBC",
         "publisherId": "998b010b-e2af-44a5-a6cd-0b5fd3b9b6f8"
     }
 }
