@@ -681,6 +681,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 		runtime: ILanguageRuntime,
 		starting: boolean,
 		@INotificationService private readonly _notificationService: INotificationService,
+		@IConfigurationService private readonly _configurationService: IConfigurationService,
 	) {
 		// Call the base class's constructor.
 		super();
@@ -1579,12 +1580,17 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 				this.formatExit(exit));
 			this.addRuntimeItem(exited);
 
+			// Show restart button if crashed and user has disabled automatic restarts
+			const crashedAndNeedRestartButton = exit.reason === RuntimeExitReason.Error &&
+				!this._configurationService.getValue<boolean>('positron.interpreters.restartOnCrash');
+
 			// In the case of a forced quit or normal shutdown, we don't attempt
 			// to automatically start the runtime again. In this case, we add an
 			// activity item that shows a button the user can use to start the
 			// runtime manually.
 			if (exit.reason === RuntimeExitReason.ForcedQuit ||
-				exit.reason === RuntimeExitReason.Shutdown) {
+				exit.reason === RuntimeExitReason.Shutdown ||
+				crashedAndNeedRestartButton) {
 				const restartButton = new RuntimeItemRestartButton(generateUuid(),
 					this._runtime.metadata.languageName,
 					() => {
