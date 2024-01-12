@@ -28,10 +28,14 @@
     ],
     "author": {
         "name": "Posit Software, PBC",
-        "contributors": [
-            {"name":"Microsoft Corporation","url":"https://github.com/Microsoft/vscode-python"}
-            ]
+        "url": "https://posit.co/"
     },
+    "contributors": [
+        {
+            "name": "Microsoft Corporation",
+            "url": "https://github.com/Microsoft/vscode-python"
+        }
+    ],
     "license": "MIT",
     "homepage": "https://github.com/posit-dev/positron-python",
     "repository": {
