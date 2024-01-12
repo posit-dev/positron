@@ -62,6 +62,13 @@
         "key": "ctrl+shift+c",
         "when": "editorTextFocus",
         "command": "editor.action.commentLine"
+      },
+      {
+        "mac": "ctrl+1",
+        "win": "ctrl+1",
+        "linux": "ctrl+1",
+        "key": "ctrl+1",
+        "command": "workbench.action.focusActiveEditorGroup"
       }
     ]
   }
