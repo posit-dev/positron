@@ -54,6 +54,14 @@
         "key": "F2",
         "when": "editorTextFocus",
         "command": "editor.action.revealDefinition"
+      },
+      {
+        "mac": "cmd+shift+c",
+        "win": "ctrl+shift+c",
+        "linux": "ctrl+shift+c",
+        "key": "ctrl+shift+c",
+        "when": "editorTextFocus",
+        "command": "editor.action.commentLine"
       }
     ]
   }
