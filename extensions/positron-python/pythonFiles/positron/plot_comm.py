@@ -36,9 +36,9 @@ class PlotResult:
 
 
 @enum.unique
-class PlotRequest(str, enum.Enum):
+class PlotBackendRequest(str, enum.Enum):
     """
-    An enumeration of all the possible requests that can be sent to the plot comm.
+    An enumeration of all the possible requests that can be sent to the backend plot comm.
     """
 
     # Render a plot
@@ -85,17 +85,18 @@ class RenderRequest:
 
     params: RenderParams = field(metadata={"description": "Parameters to the Render method"})
 
-    method: PlotRequest = field(
-        metadata={"description": "The JSON-RPC method name (render)"}, default=PlotRequest.Render
+    method: PlotBackendRequest = field(
+        metadata={"description": "The JSON-RPC method name (render)"},
+        default=PlotBackendRequest.Render,
     )
 
     jsonrpc: str = field(metadata={"description": "The JSON-RPC version specifier"}, default="2.0")
 
 
 @enum.unique
-class PlotEvent(str, enum.Enum):
+class PlotFrontendEvent(str, enum.Enum):
     """
-    An enumeration of all the possible events that can be sent from the plot comm.
+    An enumeration of all the possible events that can be sent to the frontend plot comm.
     """
 
     # Notification that a plot has been updated on the backend.

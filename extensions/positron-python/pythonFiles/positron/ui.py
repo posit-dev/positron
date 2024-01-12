@@ -10,9 +10,9 @@ from typing import Any, Callable, Dict, List, Optional, Union
 
 from comm.base_comm import BaseComm
 
-from .frontend_comm import (
+from .ui_comm import (
     CallMethodRequest,
-    FrontendEvent,
+    UiFrontendEvent,
     OpenEditorParams,
     WorkingDirectoryParams,
 )
@@ -65,7 +65,7 @@ _RPC_METHODS: Dict[str, Callable[[List[JsonData]], JsonData]] = {
 }
 
 
-class FrontendService:
+class UiService:
     """
     Wrapper around a comm channel whose lifetime matches that of the Positron frontend.
     Used for communication with the frontend, unscoped to any particular view.
@@ -102,14 +102,14 @@ class FrontendService:
             # Deliver event to client
             if self._comm is not None:
                 event = WorkingDirectoryParams(directory=str(alias_home(current_dir)))
-                self._send_event(name=FrontendEvent.WorkingDirectory, payload=event)
+                self._send_event(name=UiFrontendEvent.WorkingDirectory, payload=event)
 
     def open_editor(self, file: str, line: int, column: int) -> None:
         event = OpenEditorParams(file=file, line=line, column=column)
-        self._send_event(name=FrontendEvent.OpenEditor, payload=event)
+        self._send_event(name=UiFrontendEvent.OpenEditor, payload=event)
 
     def clear_console(self) -> None:
-        self._send_event(name=FrontendEvent.ClearConsole, payload={})
+        self._send_event(name=UiFrontendEvent.ClearConsole, payload={})
 
     def _receive_message(self, msg: Dict[str, Any]) -> None:
         data = msg["content"]["data"]

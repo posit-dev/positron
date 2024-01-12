@@ -188,9 +188,9 @@ class Variable:
 
 
 @enum.unique
-class VariablesRequest(str, enum.Enum):
+class VariablesBackendRequest(str, enum.Enum):
     """
-    An enumeration of all the possible requests that can be sent to the variables comm.
+    An enumeration of all the possible requests that can be sent to the backend variables comm.
     """
 
     # List all variables
@@ -218,8 +218,9 @@ class ListRequest:
     Returns a list of all the variables in the current session.
     """
 
-    method: VariablesRequest = field(
-        metadata={"description": "The JSON-RPC method name (list)"}, default=VariablesRequest.List
+    method: VariablesBackendRequest = field(
+        metadata={"description": "The JSON-RPC method name (list)"},
+        default=VariablesBackendRequest.List,
     )
 
     jsonrpc: str = field(metadata={"description": "The JSON-RPC version specifier"}, default="2.0")
@@ -251,8 +252,9 @@ class ClearRequest:
 
     params: ClearParams = field(metadata={"description": "Parameters to the Clear method"})
 
-    method: VariablesRequest = field(
-        metadata={"description": "The JSON-RPC method name (clear)"}, default=VariablesRequest.Clear
+    method: VariablesBackendRequest = field(
+        metadata={"description": "The JSON-RPC method name (clear)"},
+        default=VariablesBackendRequest.Clear,
     )
 
     jsonrpc: str = field(metadata={"description": "The JSON-RPC version specifier"}, default="2.0")
@@ -284,9 +286,9 @@ class DeleteRequest:
 
     params: DeleteParams = field(metadata={"description": "Parameters to the Delete method"})
 
-    method: VariablesRequest = field(
+    method: VariablesBackendRequest = field(
         metadata={"description": "The JSON-RPC method name (delete)"},
-        default=VariablesRequest.Delete,
+        default=VariablesBackendRequest.Delete,
     )
 
     jsonrpc: str = field(metadata={"description": "The JSON-RPC version specifier"}, default="2.0")
@@ -318,9 +320,9 @@ class InspectRequest:
 
     params: InspectParams = field(metadata={"description": "Parameters to the Inspect method"})
 
-    method: VariablesRequest = field(
+    method: VariablesBackendRequest = field(
         metadata={"description": "The JSON-RPC method name (inspect)"},
-        default=VariablesRequest.Inspect,
+        default=VariablesBackendRequest.Inspect,
     )
 
     jsonrpc: str = field(metadata={"description": "The JSON-RPC version specifier"}, default="2.0")
@@ -362,9 +364,9 @@ class ClipboardFormatRequest:
         metadata={"description": "Parameters to the ClipboardFormat method"}
     )
 
-    method: VariablesRequest = field(
+    method: VariablesBackendRequest = field(
         metadata={"description": "The JSON-RPC method name (clipboard_format)"},
-        default=VariablesRequest.ClipboardFormat,
+        default=VariablesBackendRequest.ClipboardFormat,
     )
 
     jsonrpc: str = field(metadata={"description": "The JSON-RPC version specifier"}, default="2.0")
@@ -398,17 +400,18 @@ class ViewRequest:
 
     params: ViewParams = field(metadata={"description": "Parameters to the View method"})
 
-    method: VariablesRequest = field(
-        metadata={"description": "The JSON-RPC method name (view)"}, default=VariablesRequest.View
+    method: VariablesBackendRequest = field(
+        metadata={"description": "The JSON-RPC method name (view)"},
+        default=VariablesBackendRequest.View,
     )
 
     jsonrpc: str = field(metadata={"description": "The JSON-RPC version specifier"}, default="2.0")
 
 
 @enum.unique
-class VariablesEvent(str, enum.Enum):
+class VariablesFrontendEvent(str, enum.Enum):
     """
-    An enumeration of all the possible events that can be sent from the variables comm.
+    An enumeration of all the possible events that can be sent to the frontend variables comm.
     """
 
     # Update variables

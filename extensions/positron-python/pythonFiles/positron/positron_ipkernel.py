@@ -29,7 +29,7 @@ from IPython.core.magic import (
 from IPython.utils import PyColorize
 
 from .dataviewer import DataViewerService
-from .frontend import FrontendService
+from .ui import UiService
 from .help import HelpService, help
 from .inspectors import get_inspector
 from .lsp import LSPService
@@ -41,7 +41,7 @@ from .widget import PositronWidgetHook
 
 class _CommTarget(str, enum.Enum):
     DataViewer = "positron.dataViewer"
-    Frontend = "positron.frontEnd"
+    Ui = "positron.ui"
     Help = "positron.help"
     Lsp = "positron.lsp"
     Plot = "positron.plot"
@@ -72,7 +72,7 @@ class PositronIPythonInspector(oinspect.Inspector):
             kernel.help_service.show_help(obj)
             return
 
-        # For `%pinfo2 obj` / `obj??` calls, try to open an editor via Positron's frontend service
+        # For `%pinfo2 obj` / `obj??` calls, try to open an editor via Positron's UI service
         fname = oinspect.find_file(obj)
 
         if fname is None:
@@ -89,7 +89,7 @@ class PositronIPythonInspector(oinspect.Inspector):
 
         # If we got a filename, try to get the line number and open an editor.
         lineno = oinspect.find_source_lines(obj) or 0
-        kernel.frontend_service.open_editor(fname, lineno, 0)
+        kernel.ui_service.open_editor(fname, lineno, 0)
 
     pinfo.__doc__ = oinspect.Inspector.pinfo.__doc__
 
@@ -102,7 +102,7 @@ class PositronMagics(Magics):
     def clear(self, line: str) -> None:  # type: ignore reportIncompatibleMethodOverride
         """Clear the console."""
         # Send a message to the frontend to clear the console.
-        self.shell.kernel.frontend_service.clear_console()
+        self.shell.kernel.ui_service.clear_console()
 
     @needs_local_scope
     @line_magic
@@ -198,7 +198,7 @@ class PositronShell(ZMQInteractiveShell):
         """
         # Check for changes to the working directory
         try:
-            self.kernel.frontend_service.poll_working_directory()
+            self.kernel.ui_service.poll_working_directory()
         except:
             logger.exception("Error polling working directory")
 
@@ -295,7 +295,7 @@ class PositronIPyKernel(IPythonKernel):
         # Create Positron services
         self.dataviewer_service = DataViewerService(_CommTarget.DataViewer)
         self.display_pub_hook = PositronDisplayPublisherHook(_CommTarget.Plot)
-        self.frontend_service = FrontendService()
+        self.ui_service = UiService()
         self.help_service = HelpService()
         self.lsp_service = LSPService(self)
         self.variables_service = VariablesService(self)
@@ -303,7 +303,7 @@ class PositronIPyKernel(IPythonKernel):
 
         # Register comm targets
         self.comm_manager.register_target(_CommTarget.Lsp, self.lsp_service.on_comm_open)
-        self.comm_manager.register_target(_CommTarget.Frontend, self.frontend_service.on_comm_open)
+        self.comm_manager.register_target(_CommTarget.Ui, self.ui_service.on_comm_open)
         self.comm_manager.register_target(_CommTarget.Help, self.help_service.on_comm_open)
         self.comm_manager.register_target(
             _CommTarget.Variables, self.variables_service.on_comm_open
@@ -349,7 +349,7 @@ class PositronIPyKernel(IPythonKernel):
         # Shutdown Positron services
         self.dataviewer_service.shutdown()
         self.display_pub_hook.shutdown()
-        self.frontend_service.shutdown()
+        self.ui_service.shutdown()
         self.help_service.shutdown()
         self.lsp_service.shutdown()
         self.widget_hook.shutdown()

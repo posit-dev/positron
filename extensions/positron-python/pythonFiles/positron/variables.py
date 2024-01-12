@@ -30,8 +30,8 @@ from .variables_comm import (
     Variable,
     VariableKind,
     VariableList,
-    VariablesEvent,
-    VariablesRequest,
+    VariablesFrontendEvent,
+    VariablesBackendRequest,
     ViewRequest,
 )
 
@@ -69,14 +69,14 @@ class VariablesService:
         data = msg["content"]["data"]
 
         try:
-            method = VariablesRequest(data.get("method", None))
+            method = VariablesBackendRequest(data.get("method", None))
         except ValueError:
             self._send_error(
                 JsonRpcErrorCode.METHOD_NOT_FOUND, f"Unknown method '{data.get('method')}'"
             )
             return
 
-        if method == VariablesRequest.List:
+        if method == VariablesBackendRequest.List:
             try:
                 request = ListRequest(**data)
                 self._send_list()
@@ -86,7 +86,7 @@ class VariablesService:
                     message=f"Invalid list request {data}: {exception}",
                 )
 
-        elif method == VariablesRequest.Clear:
+        elif method == VariablesBackendRequest.Clear:
             try:
                 request = ClearRequest(**data)
                 self._delete_all_vars(msg)
@@ -96,7 +96,7 @@ class VariablesService:
                     message=f"Invalid clear request {data}: {exception}",
                 )
 
-        elif method == VariablesRequest.Delete:
+        elif method == VariablesBackendRequest.Delete:
             try:
                 request = DeleteRequest(**data)
                 if request.params.names is None:
@@ -109,7 +109,7 @@ class VariablesService:
                     message=f"Invalid delete request {data}: {exception}",
                 )
 
-        elif method == VariablesRequest.Inspect:
+        elif method == VariablesBackendRequest.Inspect:
             try:
                 request = InspectRequest(**data)
                 if request.params.path is None:
@@ -122,7 +122,7 @@ class VariablesService:
                     message=f"Invalid inspect request {data}: {exception}",
                 )
 
-        elif method == VariablesRequest.ClipboardFormat:
+        elif method == VariablesBackendRequest.ClipboardFormat:
             try:
                 request = ClipboardFormatRequest(**data)
                 if request.params.path is None:
@@ -135,7 +135,7 @@ class VariablesService:
                     message=f"Invalid clipboard format request {data}: {exception}",
                 )
 
-        elif method == VariablesRequest.View:
+        elif method == VariablesBackendRequest.View:
             try:
                 request = ViewRequest(**data)
                 if request.params.path is None:
@@ -189,7 +189,7 @@ class VariablesService:
         filtered_variables = inspector.summarize_children(variables, _summarize_variable)
 
         msg = RefreshParams(variables=filtered_variables, length=len(filtered_variables), version=0)
-        self._send_event(VariablesEvent.Refresh.value, asdict(msg))
+        self._send_event(VariablesFrontendEvent.Refresh.value, asdict(msg))
 
     async def shutdown(self) -> None:
         # Cancel and await pending tasks
@@ -417,7 +417,7 @@ class VariablesService:
             msg = UpdateParams(
                 assigned=filtered_assigned, removed=sorted(filtered_removed), version=0
             )
-            self._send_event(VariablesEvent.Update.value, asdict(msg))
+            self._send_event(VariablesFrontendEvent.Update.value, asdict(msg))
 
     def _list_all_vars(self) -> List[Variable]:
         variables = self._get_filtered_vars()

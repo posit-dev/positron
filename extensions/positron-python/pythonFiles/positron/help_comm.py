@@ -30,9 +30,9 @@ class ShowHelpKind(str, enum.Enum):
 
 
 @enum.unique
-class HelpRequest(str, enum.Enum):
+class HelpBackendRequest(str, enum.Enum):
     """
-    An enumeration of all the possible requests that can be sent to the help comm.
+    An enumeration of all the possible requests that can be sent to the backend help comm.
     """
 
     # Look for and, if found, show a help topic.
@@ -73,18 +73,18 @@ class ShowHelpTopicRequest:
         metadata={"description": "Parameters to the ShowHelpTopic method"}
     )
 
-    method: HelpRequest = field(
+    method: HelpBackendRequest = field(
         metadata={"description": "The JSON-RPC method name (show_help_topic)"},
-        default=HelpRequest.ShowHelpTopic,
+        default=HelpBackendRequest.ShowHelpTopic,
     )
 
     jsonrpc: str = field(metadata={"description": "The JSON-RPC version specifier"}, default="2.0")
 
 
 @enum.unique
-class HelpEvent(str, enum.Enum):
+class HelpFrontendEvent(str, enum.Enum):
     """
-    An enumeration of all the possible events that can be sent from the help comm.
+    An enumeration of all the possible events that can be sent to the frontend help comm.
     """
 
     # Request to show help in the frontend

@@ -3,7 +3,7 @@
 #
 
 #
-# AUTO-GENERATED from frontend.json; do not edit.
+# AUTO-GENERATED from ui.json; do not edit.
 #
 
 # For forward declarations
@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import enum
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Union
+from typing import Dict, List, Union, Optional
 
 JsonData = Union[Dict[str, "JsonData"], List["JsonData"], str, int, float, bool, None]
 
@@ -19,10 +19,23 @@ Param = JsonData
 CallMethodResult = JsonData
 
 
-@enum.unique
-class FrontendRequest(str, enum.Enum):
+@dataclass
+class EditorContextResult:
     """
-    An enumeration of all the possible requests that can be sent to the frontend comm.
+    Editor metadata
+    """
+
+    path: str = field(
+        metadata={
+            "description": "URI of the resource viewed in the editor",
+        }
+    )
+
+
+@enum.unique
+class UiBackendRequest(str, enum.Enum):
+    """
+    An enumeration of all the possible requests that can be sent to the backend ui comm.
     """
 
     # Run a method in the interpreter and return the result to the frontend
@@ -67,18 +80,18 @@ class CallMethodRequest:
         metadata={"description": "Parameters to the CallMethod method"}
     )
 
-    method: FrontendRequest = field(
+    method: UiBackendRequest = field(
         metadata={"description": "The JSON-RPC method name (call_method)"},
-        default=FrontendRequest.CallMethod,
+        default=UiBackendRequest.CallMethod,
     )
 
     jsonrpc: str = field(metadata={"description": "The JSON-RPC version specifier"}, default="2.0")
 
 
 @enum.unique
-class FrontendEvent(str, enum.Enum):
+class UiFrontendEvent(str, enum.Enum):
     """
-    An enumeration of all the possible events that can be sent from the frontend comm.
+    An enumeration of all the possible events that can be sent to the frontend ui comm.
     """
 
     # Change in backend's busy/idle status
@@ -149,3 +162,12 @@ class WorkingDirectoryParams:
     """
 
     directory: str = field(metadata={"description": "The new working directory"})
+
+
+@dataclass
+class DebugSleepParams:
+    """
+    Sleep for n seconds
+    """
+
+    ms: float = field(metadata={"description": "Duration in milliseconds"})
