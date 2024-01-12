@@ -657,6 +657,12 @@
                     "scope": "machine-overridable",
                     "type": "string"
                 },
+                "python.quietMode": {
+                    "scope": "window",
+                    "type": "boolean",
+                    "default": false,
+                    "description": "%python.quietMode.description%"
+                },
                 "python.tensorBoard.logDirectory": {
                     "default": "",
                     "description": "%python.tensorBoard.logDirectory.description%",
