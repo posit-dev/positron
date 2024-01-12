@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
 import 'vs/css!./consoleInput';
@@ -33,6 +33,9 @@ import { usePositronConsoleContext } from 'vs/workbench/contrib/positronConsole/
 import { RuntimeCodeFragmentStatus } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { IPositronConsoleInstance, PositronConsoleState } from 'vs/workbench/services/positronConsole/browser/interfaces/positronConsoleService';
 import { ParameterHintsController } from 'vs/editor/contrib/parameterHints/browser/parameterHints';
+import { SimpleSuggestWidget } from 'vs/workbench/services/suggest/browser/simpleSuggestWidget';
+import { SimpleCompletionModel } from 'vs/workbench/services/suggest/browser/simpleCompletionModel';
+import { SimpleCompletionItem } from 'vs/workbench/services/suggest/browser/simpleCompletionItem';
 
 // Position enumeration.
 const enum Position {
@@ -233,6 +236,52 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 
 			// Up arrow processing.
 			case KeyCode.UpArrow: {
+				if (cmdOrCtrlKey) {
+					const widget = new SimpleSuggestWidget(codeEditorWidgetContainerRef.current!,
+						{
+							restore(): DOM.Dimension | undefined {
+								return undefined;
+							},
+							store(size: DOM.Dimension): void {
+								// Do nothing.
+							},
+							reset(): void {
+							}
+						},
+						{
+							statusBarMenuId: undefined,
+						},
+						positronConsoleContext.instantiationService
+					);
+					const model = new SimpleCompletionModel([
+						new SimpleCompletionItem({
+							label: 'pet-cat',
+							detail: 'My pet cat. Meow!',
+						}),
+						new SimpleCompletionItem({
+							label: 'pet-dog',
+							detail: 'My pet dog. Woof!',
+						}),
+						new SimpleCompletionItem({
+							label: 'pet-moose',
+							detail: 'My pet moose. MOOO!',
+						})
+					], {
+						characterCountDelta: 0,
+						leadingLineContent: 'pet-',
+					}, 0, 0);
+					widget.showSuggestions(model, 0, false, true, {
+						height: 20,
+						left: 20,
+						top: 0,
+					});
+					widget.forceRenderingAbove();
+					widget.onDidSelect(() => {
+						widget.dispose();
+					});
+					break;
+				}
+
 				// Get the position. If it's at line number 1, allow backward history navigation.
 				const position = codeEditorWidgetRef.current.getPosition();
 				if (position?.lineNumber === 1) {
