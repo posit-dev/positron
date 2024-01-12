@@ -110,7 +110,7 @@ export class LanguageRuntimeAdapter
 	async callMethod(method: string, ...args: any[]): Promise<any> {
 		// Find the frontend comm
 		const frontend = Array.from(this._comms.values())
-			.find(c => c.getClientType() === positron.RuntimeClientType.FrontEnd);
+			.find(c => c.getClientType() === positron.RuntimeClientType.Ui);
 		if (!frontend) {
 			throw new Error(`Cannot invoke '${method}'; no frontend comm is open.`);
 		}
@@ -399,7 +399,7 @@ export class LanguageRuntimeAdapter
 		if (type === positron.RuntimeClientType.Variables ||
 			type === positron.RuntimeClientType.Lsp ||
 			type === positron.RuntimeClientType.Dap ||
-			type === positron.RuntimeClientType.FrontEnd ||
+			type === positron.RuntimeClientType.Ui ||
 			type === positron.RuntimeClientType.Help) {
 			this._kernel.log(`Creating '${type}' client for ${this.metadata.languageName}`);
 

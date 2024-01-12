@@ -40,7 +40,7 @@ export interface ShowHelpEvent {
 
 }
 
-export enum HelpEvent {
+export enum HelpFrontendEvent {
 	ShowHelp = 'show_help'
 }
 

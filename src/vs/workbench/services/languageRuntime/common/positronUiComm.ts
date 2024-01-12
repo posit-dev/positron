@@ -3,7 +3,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 //
-// AUTO-GENERATED from frontend.json; do not edit.
+// AUTO-GENERATED from ui.json; do not edit.
 //
 
 import { Event } from 'vs/base/common/event';
@@ -133,7 +133,7 @@ export interface DebugSleepRequest {
 
 }
 
-export enum FrontendEvent {
+export enum UiFrontendEvent {
 	Busy = 'busy',
 	ClearConsole = 'clear_console',
 	OpenEditor = 'open_editor',
@@ -142,12 +142,12 @@ export enum FrontendEvent {
 	WorkingDirectory = 'working_directory'
 }
 
-export enum FrontendRequest {
+export enum UiFrontendRequest {
 	LastActiveEditorContext = 'last_active_editor_context',
 	DebugSleep = 'debug_sleep'
 }
 
-export class PositronFrontendComm extends PositronBaseComm {
+export class PositronUiComm extends PositronBaseComm {
 	constructor(instance: IRuntimeClientInstance<any, any>) {
 		super(instance);
 		this.onDidBusy = super.createEventEmitter('busy', ['busy']);

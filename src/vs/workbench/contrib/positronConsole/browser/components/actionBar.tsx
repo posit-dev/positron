@@ -18,7 +18,7 @@ import { PositronActionBarContextProvider } from 'vs/platform/positronActionBar/
 import { ILanguageRuntime, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { PositronConsoleState } from 'vs/workbench/services/positronConsole/browser/interfaces/positronConsoleService';
 import { ConsoleInstanceMenuButton } from 'vs/workbench/contrib/positronConsole/browser/components/consoleInstanceMenuButton';
-import { FrontendEvent } from 'vs/workbench/services/languageRuntime/common/positronFrontendComm';
+import { UiFrontendEvent } from 'vs/workbench/services/languageRuntime/common/positronUiComm';
 
 /**
  * Constants.
@@ -188,7 +188,7 @@ export const ActionBar = (props: ActionBarProps) => {
 
 			// Listen for changes to the working directory.
 			disposableRuntimeStore.add(runtime.onDidReceiveRuntimeClientEvent((event) => {
-				if (event.name === FrontendEvent.WorkingDirectory) {
+				if (event.name === UiFrontendEvent.WorkingDirectory) {
 					setDirectoryLabel(runtime.dynState.currentWorkingDirectory);
 				}
 			}));

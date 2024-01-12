@@ -196,7 +196,7 @@ export interface RefreshEvent {
 
 }
 
-export enum VariablesEvent {
+export enum VariablesFrontendEvent {
 	Update = 'update',
 	Refresh = 'refresh'
 }
