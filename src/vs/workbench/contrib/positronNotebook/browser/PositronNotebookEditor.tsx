@@ -211,10 +211,11 @@ export class PositronNotebookEditor
 			this._positronReactRenderer = new PositronReactRenderer(this._parentDiv);
 
 			this._positronReactRenderer.render(
-				<PositronNotebookComponent message='Hello Positron!' />
+				<PositronNotebookComponent message='Hello Positron!' onSizeChanged={this.onSizeChanged} />
 			);
 		}
 	}
+
 
 	override async setInput(
 		input: PositronNotebookEditorInput,
@@ -224,6 +225,8 @@ export class PositronNotebookEditor
 		noRetry?: boolean
 	): Promise<void> {
 		console.log('setInput', { input, options, context, token, noRetry });
+
+		this._input = input;
 
 		// const filenameDiv = this._parentDiv?.querySelector(
 		// 	".filename"
@@ -245,6 +248,9 @@ export class PositronNotebookEditor
 			themeService,
 			storageService
 		);
+
+		this._has_cleared = false;
+
 
 		// Logging.
 	}

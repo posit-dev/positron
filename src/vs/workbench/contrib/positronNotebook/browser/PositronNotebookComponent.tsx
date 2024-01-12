@@ -3,14 +3,28 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as React from 'react';
+import { Event } from 'vs/base/common/event';
+import { ISize } from 'vs/base/browser/positronReactRenderer';
+export function PositronNotebookComponent({ message, onSizeChanged }: { message: string; onSizeChanged: Event<ISize> }) {
 
-export function PositronNotebookComponent({ message }: { message: string }) {
+	const [width, setWidth] = React.useState(0);
+	const [height, setHeight] = React.useState(0);
+
 	React.useEffect(() => {
-		console.log('Rendering PositronNotebookComponent');
-	});
+		const disposable = onSizeChanged((size) => {
+			setWidth(size.width);
+			setHeight(size.height);
+		});
+		return () => disposable.dispose();
+	}, [onSizeChanged]);
+
 	return (
 		<div>
-			<h2>Hi there!</h2> {message}
+			<h2>Hi there!</h2>
+			<div>{message}</div>
+			<div>
+				Size: {width} x {height}
+			</div>
 		</div>
 	);
 }
