@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
 import * as nls from 'vs/nls';
@@ -21,6 +21,9 @@ import { IModalDialogPromptInstance, IPositronModalDialogsService } from 'vs/wor
 import { IOpener, IOpenerService, OpenExternalOptions, OpenInternalOptions } from 'vs/platform/opener/common/opener';
 import { URI } from 'vs/base/common/uri';
 import { FrontendEvent } from './positronFrontendComm';
+import { Registry } from 'vs/platform/registry/common/platform';
+import { IConfigurationRegistry, Extensions as ConfigurationExtensions, ConfigurationScope, IConfigurationNode, } from 'vs/platform/configuration/common/configurationRegistry';
+import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 
 /**
  * LanguageRuntimeInfo class.
@@ -135,6 +138,7 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 		@IOpenerService private readonly _openerService: IOpenerService,
 		@IPositronModalDialogsService private readonly _positronModalDialogsService: IPositronModalDialogsService,
 		@IStorageService private readonly _storageService: IStorageService,
+		@IConfigurationService private readonly _configurationService: IConfigurationService,
 		@IWorkspaceTrustManagementService private readonly _workspaceTrustManagementService: IWorkspaceTrustManagementService,
 	) {
 		// Call the base class's constructor.
@@ -501,17 +505,30 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 			}, 0);
 
 			// If the runtime crashed, try to restart it.
-			if (exit.reason === RuntimeExitReason.Error ||
-				exit.reason === RuntimeExitReason.Unknown) {
+			if (exit.reason === RuntimeExitReason.Error || exit.reason === RuntimeExitReason.Unknown) {
+				const restartOnCrash = this._configurationService.getValue<boolean>('positron.interpreters.restartOnCrash');
 
-				// Wait a beat, then start the runtime.
-				await new Promise<void>(resolve => setTimeout(resolve, 250));
-				this._onWillStartRuntimeEmitter.fire(runtime);
-				await this.startRuntime(runtime.metadata.runtimeId,
-					`The runtime exited unexpectedly and is being restarted automatically.`);
+				let action;
+
+				if (restartOnCrash) {
+					// Wait a beat, then start the runtime.
+					await new Promise<void>(resolve => setTimeout(resolve, 250));
+					this._onWillStartRuntimeEmitter.fire(runtime);
+					await this.startRuntime(runtime.metadata.runtimeId,
+						`The runtime exited unexpectedly and is being restarted automatically.`);
+					action = 'and was automatically restarted';
+				} else {
+					action = 'and was not automatically restarted';
+				}
 
 				// Let the user know what we did.
-				const msg = nls.localize('positronConsole.runtimeCrashed', "{0} exited unexpectedly and was automatically restarted. You may have lost unsaved work.\nExit code: {1}", runtime.metadata.runtimeName, exit.exit_code);
+				const msg = nls.localize(
+					'positronConsole.runtimeCrashed',
+					'{0} exited unexpectedly ${1}. You may have lost unsaved work.\nExit code: {2}',
+					runtime.metadata.runtimeName,
+					action,
+					exit.exit_code
+				);
 				this._notificationService.warn(msg);
 			}
 		}));
@@ -1038,3 +1055,24 @@ CommandsRegistry.registerCommand('positron.activateInterpreters', () => true);
 // consumer depdends on it. This fixes an issue where languages are encountered
 // BEFORE the language runtime service has been instantiated.
 registerSingleton(ILanguageRuntimeService, LanguageRuntimeService, InstantiationType.Eager);
+
+export const positronConfigurationNodeBase = Object.freeze<IConfigurationNode>({
+	'id': 'positron',
+	'order': 7,
+	'title': nls.localize('positronConfigurationTitle', "Positron"),
+	'type': 'object',
+});
+
+// Register configuration options for the runtime service
+const configurationRegistry = Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration);
+configurationRegistry.registerConfiguration({
+	...positronConfigurationNodeBase,
+	properties: {
+		'positron.interpreters.restartOnCrash': {
+			scope: ConfigurationScope.MACHINE,
+			type: 'boolean',
+			default: true,
+			description: nls.localize('positron.runtime.restartOnCrash', "When enabled, runtimes are automatically restarted after a crash.")
+		}
+	}
+});
