@@ -306,9 +306,9 @@ export const tocData: ITOCEntry<string> = {
 			settings: [],
 			children: [
 				{
-					id: 'positron/runtime',
-					label: localize('runtime', "Runtime"),
-					settings: ['positron.runtime.*']
+					id: 'positron/interpreters',
+					label: localize('interpreters', "Interpreters"),
+					settings: ['positron.interpreters.*']
 				}
 			]
 		}

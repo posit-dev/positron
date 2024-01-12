@@ -506,7 +506,7 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 
 			// If the runtime crashed, try to restart it.
 			if (exit.reason === RuntimeExitReason.Error || exit.reason === RuntimeExitReason.Unknown) {
-				const restartOnCrash = this._configurationService.getValue<boolean>('positron.runtime.restartOnCrash');
+				const restartOnCrash = this._configurationService.getValue<boolean>('positron.interpreters.restartOnCrash');
 
 				let action;
 
@@ -1068,7 +1068,7 @@ const configurationRegistry = Registry.as<IConfigurationRegistry>(ConfigurationE
 configurationRegistry.registerConfiguration({
 	...positronConfigurationNodeBase,
 	properties: {
-		'positron.runtime.restartOnCrash': {
+		'positron.interpreters.restartOnCrash': {
 			scope: ConfigurationScope.MACHINE,
 			type: 'boolean',
 			default: true,
