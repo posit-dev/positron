@@ -39,12 +39,24 @@
     "test": "node ./out/test/runTest.js"
   },
   "contributes": {
+    "configuration": {
+      "type": "object",
+      "title": "%rstudio.keymap.configuration.title%",
+      "properties": {
+        "rstudio.keymap.enable": {
+          "type": "boolean",
+          "default": false,
+          "description": "%rstudio.keymap.enable.description%"
+        }
+      }
+    },
     "keybindings": [
       {
         "mac": "cmd+shift+n",
         "win": "ctrl+shift+n",
         "linux": "ctrl+shift+n",
         "key": "ctrl+shift+n",
+        "when": "config.rstudio.keymap.enable",
         "command": "r.createNewFile"
       },
       {
@@ -52,7 +64,7 @@
         "win": "F2",
         "linux": "F2",
         "key": "F2",
-        "when": "editorTextFocus",
+        "when": "config.rstudio.keymap.enable && editorTextFocus",
         "command": "editor.action.revealDefinition"
       },
       {
@@ -60,7 +72,7 @@
         "win": "ctrl+shift+c",
         "linux": "ctrl+shift+c",
         "key": "ctrl+shift+c",
-        "when": "editorTextFocus",
+        "when": "config.rstudio.keymap.enable && editorTextFocus",
         "command": "editor.action.commentLine"
       },
       {
@@ -68,6 +80,7 @@
         "win": "ctrl+1",
         "linux": "ctrl+1",
         "key": "ctrl+1",
+        "when": "config.rstudio.keymap.enable",
         "command": "workbench.action.focusActiveEditorGroup"
       }
     ]
