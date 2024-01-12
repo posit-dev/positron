@@ -17,8 +17,12 @@ import numpy as np
 import pandas as pd
 import polars as pl
 import pytest
-import torch
 from fastcore.foundation import L
+
+try:
+    import torch  # type: ignore [reportMissingImports] for 3.12
+except ImportError:
+    torch = None
 
 from positron.inspectors import (
     PRINT_WIDTH,
@@ -1038,7 +1042,7 @@ def test_encode_access_key_not_hashable_error(case: Any) -> None:
 @pytest.mark.parametrize(
     "case",
     [
-        torch.tensor([]),
+        torch.tensor([]) if torch else None,
         lambda x: x,
     ],
 )
@@ -1059,7 +1063,8 @@ def test_encode_access_key_not_implemented_error(case: Any) -> None:
 @pytest.mark.parametrize(
     "type_name",
     [
-        "torch.Tensor",
+        # for Python 3.12
+        "torch.Tensor" if torch else "None",
         "function",
     ],
 )

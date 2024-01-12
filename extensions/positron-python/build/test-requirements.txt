@@ -39,5 +39,5 @@ pyright
 pytest-asyncio==0.21.1
 pytest-mock
 polars
-torch
+torch; python_version < '3.12'
 # --- End Positron ---

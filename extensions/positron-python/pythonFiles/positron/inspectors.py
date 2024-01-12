@@ -49,7 +49,11 @@ if TYPE_CHECKING:
     import numpy as np
     import pandas as pd
     import polars as pl
-    import torch
+
+    try:  # temporary try/except for python 3.12
+        import torch  # type: ignore [reportMissingImports]
+    except ImportError:
+        pass
 
 # General display settings
 MAX_ITEMS: int = 10000
@@ -379,7 +383,7 @@ class _BaseCollectionInspector(PositronInspector[CT], ABC):
         if isinstance(value, (range, Set, FrozenSet)):
             raise TypeError(f"get_child() is not implemented for type: {type(value)}")
 
-        return value[decode_access_key(access_key)]
+        return value[decode_access_key(access_key)]  # type: ignore for 3.12
 
     def summarize_children(
         self,
@@ -511,7 +515,7 @@ class TorchTensorInspector(_BaseArrayInspector["torch.Tensor"]):
 
     def get_display_value(
         self,
-        value: torch.Tensor,
+        value: torch.Tensor,  # type: ignore for python 3.12
         print_width: Optional[int] = PRINT_WIDTH,
         truncate_at: int = TRUNCATE_AT,
     ) -> Tuple[str, bool]:

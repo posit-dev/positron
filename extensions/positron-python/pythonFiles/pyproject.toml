@@ -44,6 +44,7 @@ ignore = [
     'tests/testing_tools/adapter/test_util.py',
     'tests/testing_tools/adapter/pytest/test_cli.py',
     'tests/testing_tools/adapter/pytest/test_discovery.py',
+    'tests/unittestadapter/.data/unittest_skip/unittest_skip_function.py'
 ]
 
 [tool.ruff]

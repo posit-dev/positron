@@ -34,7 +34,7 @@ def _get_polars():
 
 def _get_torch():
     try:
-        import torch
+        import torch  # type: ignore [reportMissingImports] for 3.12
     except ImportError:
         torch = None
     return torch
