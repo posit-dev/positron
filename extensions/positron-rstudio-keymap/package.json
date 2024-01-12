@@ -90,6 +90,14 @@
         "key": "ctrl+2",
         "when": "config.rstudio.keymap.enable",
         "command": "workbench.action.positronConsole.focusConsole"
+      },
+      {
+        "mac": "cmd+.",
+        "win": "ctrl+.",
+        "linux": "ctrl+.",
+        "key": "ctrl+.",
+        "when": "config.rstudio.keymap.enable",
+        "command": "workbench.action.showAllSymbols"
       }
     ]
   }
