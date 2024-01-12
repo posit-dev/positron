@@ -46,6 +46,14 @@
         "linux": "ctrl+shift+n",
         "key": "ctrl+shift+n",
         "command": "r.createNewFile"
+      },
+      {
+        "mac": "F2",
+        "win": "F2",
+        "linux": "F2",
+        "key": "F2",
+        "when": "editorTextFocus",
+        "command": "editor.action.revealDefinition"
       }
     ]
   }
