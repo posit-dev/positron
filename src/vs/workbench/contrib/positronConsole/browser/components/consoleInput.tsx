@@ -66,7 +66,7 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 	const codeEditorWidgetContainerRef = useRef<HTMLDivElement>(undefined!);
 
 	// The current suggestion widget.
-	// let suggestWidget: SimpleSuggestWidget | undefined;
+	let suggestWidget: SimpleSuggestWidget | undefined;
 
 	// State hooks.
 	const [, setCodeEditorWidget, codeEditorWidgetRef] = useStateRef<CodeEditorWidget>(undefined!);
@@ -78,30 +78,33 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 
 
 	const ensureSuggestWidget = () => {
-		return new SimpleSuggestWidget(codeEditorWidgetContainerRef.current!,
-			{
-				restore(): DOM.Dimension | undefined {
-					return undefined;
+		if (!suggestWidget) {
+			suggestWidget = new SimpleSuggestWidget(codeEditorWidgetContainerRef.current!,
+				{
+					restore(): DOM.Dimension | undefined {
+						// Not implemented
+						return undefined;
+					},
+					store(size: DOM.Dimension): void {
+						// Not implemented
+					},
+					reset(): void {
+					}
 				},
-				store(size: DOM.Dimension): void {
-					// Do nothing.
+				{
+					statusBarMenuId: undefined,
 				},
-				reset(): void {
-				}
-			},
-			{
-				statusBarMenuId: undefined,
-			},
-			positronConsoleContext.instantiationService
-		);
+				positronConsoleContext.instantiationService
+			);
+		}
+		return suggestWidget;
 	};
 
 	const createPrefixCompletionModel = () => {
 		const code = codeEditorWidgetRef.current.getValue();
 		const items = new Array<SimpleCompletionItem>();
 		const navigator = historyNavigatorRef.current!;
-		const entries = [...navigator];
-		for (const entry of entries) {
+		for (const entry of navigator) {
 			if (entry.input.startsWith(code)) {
 				items.push(
 					new SimpleCompletionItem({
