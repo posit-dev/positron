@@ -65,6 +65,9 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 	// Reference hooks.
 	const codeEditorWidgetContainerRef = useRef<HTMLDivElement>(undefined!);
 
+	// The current suggestion widget.
+	// let suggestWidget: SimpleSuggestWidget | undefined;
+
 	// State hooks.
 	const [, setCodeEditorWidget, codeEditorWidgetRef] = useStateRef<CodeEditorWidget>(undefined!);
 	const [, setCodeEditorWidth, codeEditorWidthRef] = useStateRef(props.width);
@@ -72,6 +75,46 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 		useStateRef<HistoryNavigator2<IInputHistoryEntry> | undefined>(undefined);
 	const [, setCurrentCodeFragment, currentCodeFragmentRef] =
 		useStateRef<string | undefined>(undefined);
+
+
+	const ensureSuggestWidget = () => {
+		return new SimpleSuggestWidget(codeEditorWidgetContainerRef.current!,
+			{
+				restore(): DOM.Dimension | undefined {
+					return undefined;
+				},
+				store(size: DOM.Dimension): void {
+					// Do nothing.
+				},
+				reset(): void {
+				}
+			},
+			{
+				statusBarMenuId: undefined,
+			},
+			positronConsoleContext.instantiationService
+		);
+	};
+
+	const createPrefixCompletionModel = () => {
+		const code = codeEditorWidgetRef.current.getValue();
+		const items = new Array<SimpleCompletionItem>();
+		const navigator = historyNavigatorRef.current!;
+		const entries = [...navigator];
+		for (const entry of entries) {
+			if (entry.input.startsWith(code)) {
+				items.push(
+					new SimpleCompletionItem({
+						label: entry.input,
+						detail: ''
+					}));
+			}
+		}
+		return new SimpleCompletionModel(items, {
+			characterCountDelta: 0,
+			leadingLineContent: '',
+		}, 0, 0);
+	};
 
 	/**
 	 * Updates the code editor widget position.
@@ -237,48 +280,17 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 			// Up arrow processing.
 			case KeyCode.UpArrow: {
 				if (cmdOrCtrlKey) {
-					const widget = new SimpleSuggestWidget(codeEditorWidgetContainerRef.current!,
-						{
-							restore(): DOM.Dimension | undefined {
-								return undefined;
-							},
-							store(size: DOM.Dimension): void {
-								// Do nothing.
-							},
-							reset(): void {
-							}
-						},
-						{
-							statusBarMenuId: undefined,
-						},
-						positronConsoleContext.instantiationService
-					);
-					const model = new SimpleCompletionModel([
-						new SimpleCompletionItem({
-							label: 'pet-cat',
-							detail: 'My pet cat. Meow!',
-						}),
-						new SimpleCompletionItem({
-							label: 'pet-dog',
-							detail: 'My pet dog. Woof!',
-						}),
-						new SimpleCompletionItem({
-							label: 'pet-moose',
-							detail: 'My pet moose. MOOO!',
-						})
-					], {
-						characterCountDelta: 0,
-						leadingLineContent: 'pet-',
-					}, 0, 0);
+					const widget = ensureSuggestWidget();
+					const model = createPrefixCompletionModel();
 					widget.showSuggestions(model, 0, false, true, {
 						height: 20,
 						left: 20,
 						top: 0,
 					});
-					widget.forceRenderingAbove();
 					widget.onDidSelect(() => {
 						widget.dispose();
 					});
+					consumeEvent();
 					break;
 				}
 
