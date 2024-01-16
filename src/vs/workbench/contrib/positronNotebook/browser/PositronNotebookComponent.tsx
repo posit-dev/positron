@@ -4,21 +4,21 @@
 
 import * as React from 'react';
 import { ISize } from 'vs/base/browser/positronReactRenderer';
-import { URI } from 'vs/base/common/uri';
 import { ValueAndSubscriber } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookEditor';
+import { PositronNotebookEditorInput } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookEditorInput';
 
 export function PositronNotebookComponent(
-	{ message, size, file }:
+	{ message, size, input }:
 		{
 			message: string;
 			size: ValueAndSubscriber<ISize>;
-			file: ValueAndSubscriber<URI>;
+			input: PositronNotebookEditorInput;
 		}
 ) {
-	console.log('Positron Notebook Component', { message, size, file });
+	console.log('Positron Notebook Component', { message, size });
 	const [width, setWidth] = React.useState(size.value?.width ?? 0);
 	const [height, setHeight] = React.useState(size.value?.height ?? 0);
-	const [fileName, setFileName] = React.useState(file.value?.path ?? 'No file received yet');
+	const fileName = input.resource.path;
 
 	React.useEffect(() => {
 		const disposable = size.changeEvent((size) => {
@@ -28,14 +28,6 @@ export function PositronNotebookComponent(
 		return () => disposable.dispose();
 	}, [size]);
 
-
-	React.useEffect(() => {
-		const disposable = file.changeEvent((uri) => {
-			console.log('New file received: ' + uri.path);
-			setFileName(uri.path);
-		});
-		return () => disposable.dispose();
-	}, [file]);
 
 	return (
 		<div>

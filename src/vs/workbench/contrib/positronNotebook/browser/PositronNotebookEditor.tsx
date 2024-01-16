@@ -20,7 +20,6 @@ import { IEditorOpenContext } from 'vs/workbench/common/editor';
 import { PositronNotebookEditorInput } from './PositronNotebookEditorInput';
 
 import { Emitter, Event } from 'vs/base/common/event';
-import { URI } from 'vs/base/common/uri';
 import { PositronNotebookComponent } from './PositronNotebookComponent';
 
 
@@ -120,23 +119,6 @@ export class PositronNotebookEditor
 
 
 	/**
-	 * The onNewFile event emitter.
-	 * Used to tell the notebook front-end that there's a new file
-	 */
-	private _onNewFileEmitter = this._register(new Emitter<URI>());
-
-	/**
-	 * The onNewFile event.
-	 */
-	readonly onNewFile: Event<URI> = this._onNewFileEmitter.event;
-
-	private _file: ValueAndSubscriber<URI> = {
-		value: undefined,
-		changeEvent: this.onNewFile,
-	};
-
-
-	/**
 	 * The onSaveScrollPosition event emitter.
 	 */
 	private _onSaveScrollPositionEmitter = this._register(new Emitter<void>());
@@ -165,22 +147,6 @@ export class PositronNotebookEditor
 		myDiv.style.backgroundColor = 'lightgrey';
 
 		parent.appendChild(myDiv);
-
-		const first_render = !this._positronReactRenderer;
-		if (!first_render) {
-			return;
-		}
-
-		// throw new Error('Method not implemented.');\
-		// Get the Positron data tool instance.
-		this._positronReactRenderer = new PositronReactRenderer(this._parentDiv);
-
-		this._positronReactRenderer.render(
-			<PositronNotebookComponent message='Hello Positron!' size={this._size} file={this._file} />
-		);
-
-
-
 	}
 
 
@@ -199,24 +165,12 @@ export class PositronNotebookEditor
 	}
 
 	/**
-	 * Used temporarily to track if the clearInput() method has been called once already.
-	 * For some reason VSCode calls it after initial load so we need to ignore that call until
-	 * we have the backend hooked up and we trigger more of the lifecycle.
-	 */
-	private _has_cleared = false;
-
-	/**
 	 * Clears the input.
 	 */
 	override clearInput(): void {
 		console.log('~~~~~~ clearInput');
 
-		if (this._has_cleared) {
-			// Dispose the PositronReactRenderer for the PositronNotebook.
-			this.disposePositronReactRenderer();
-		} else {
-			this._has_cleared = true;
-		}
+		this.disposePositronReactRenderer();
 
 		// Call the base class's method.
 		super.clearInput();
@@ -237,14 +191,12 @@ export class PositronNotebookEditor
 		this._width = dimension.width;
 		this._height = dimension.height;
 
-
 		const updated_size = {
 			width: this._width,
 			height: this._height,
 		};
 
 		this._size.value = updated_size;
-
 		this._onSizeChangedEmitter.fire(updated_size);
 	}
 
@@ -260,13 +212,27 @@ export class PositronNotebookEditor
 
 		this._input = input;
 
-		this._file.value = input.resource;
-		this._onNewFileEmitter.fire(input.resource);
+		if (!this._positronReactRenderer) {
+
+			// throw new Error('Method not implemented.');\
+			// Get the Positron data tool instance.
+			if (!this._parentDiv) {
+				throw new Error('No parent div. Somehow .setInput() has been called before .createEditor()');
+			}
+			this._positronReactRenderer = new PositronReactRenderer(this._parentDiv);
+		}
+
+		this._positronReactRenderer.render(
+			<PositronNotebookComponent
+				message='Hello Positron!'
+				size={this._size}
+				input={input}
+			/>
+		);
 	}
 
 	constructor(
 		@IClipboardService readonly _clipboardService: IClipboardService,
-
 		@ITelemetryService telemetryService: ITelemetryService,
 		@IThemeService themeService: IThemeService,
 		@IStorageService storageService: IStorageService
@@ -278,11 +244,6 @@ export class PositronNotebookEditor
 			themeService,
 			storageService
 		);
-
-		this._has_cleared = false;
-
-
-		// Logging.
 	}
 
 	/**
