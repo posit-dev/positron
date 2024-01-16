@@ -1,0 +1,150 @@
+{
+  "name": "positron-rstudio-keymap",
+  "displayName": "%displayName%",
+  "description": "%description%",
+  "version": "0.0.1",
+  "publisher": "vscode",
+  "license": "SEE LICENSE IN LICENSE.md",
+  "engines": {
+    "vscode": "^1.75.0"
+  },
+  "categories": [
+    "Keymaps"
+  ],
+  "keywords": [
+    "keymap",
+    "Importer",
+    "Settings",
+    "RStudio"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./out/extension.js",
+  "extensionKind": [
+    "ui",
+    "workspace"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/posit-dev/positron.git"
+  },
+  "scripts": {
+    "vscode:prepublish": "yarn run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "pretest": "yarn run compile && yarn run lint",
+    "lint": "eslint src --ext ts"
+  },
+  "contributes": {
+    "configuration": {
+      "type": "object",
+      "title": "%rstudio.keymap.configuration.title%",
+      "properties": {
+        "rstudio.keymap.enable": {
+          "type": "boolean",
+          "default": false,
+          "description": "%rstudio.keymap.enable.description%"
+        }
+      }
+    },
+    "keybindings": [
+      {
+        "mac": "cmd+shift+n",
+        "win": "ctrl+shift+n",
+        "linux": "ctrl+shift+n",
+        "key": "ctrl+shift+n",
+        "when": "config.rstudio.keymap.enable",
+        "command": "r.createNewFile"
+      },
+      {
+        "mac": "F2",
+        "win": "F2",
+        "linux": "F2",
+        "key": "F2",
+        "when": "config.rstudio.keymap.enable && editorTextFocus",
+        "command": "editor.action.revealDefinition"
+      },
+      {
+        "mac": "cmd+option+shift+m",
+        "win": "ctrl+alt+shift+m",
+        "linux": "ctrl+alt+shift+m",
+        "key": "ctrl+alt+shift+m",
+        "when": "config.rstudio.keymap.enable && editorTextFocus",
+        "command": "editor.action.rename"
+      },
+      {
+        "mac": "cmd+shift+c",
+        "win": "ctrl+shift+c",
+        "linux": "ctrl+shift+c",
+        "key": "ctrl+shift+c",
+        "when": "config.rstudio.keymap.enable && editorTextFocus",
+        "command": "editor.action.commentLine"
+      },
+      {
+        "mac": "ctrl+1",
+        "win": "ctrl+1",
+        "linux": "ctrl+1",
+        "key": "ctrl+1",
+        "when": "config.rstudio.keymap.enable",
+        "command": "workbench.action.focusActiveEditorGroup"
+      },
+      {
+        "mac": "ctrl+2",
+        "win": "ctrl+2",
+        "linux": "ctrl+2",
+        "key": "ctrl+2",
+        "when": "config.rstudio.keymap.enable",
+        "command": "workbench.action.positronConsole.focusConsole"
+      },
+      {
+        "mac": "cmd+.",
+        "win": "ctrl+.",
+        "linux": "ctrl+.",
+        "key": "ctrl+.",
+        "when": "config.rstudio.keymap.enable",
+        "command": "workbench.action.showAllSymbols"
+      },
+      {
+        "mac": "shift+alt+k",
+        "win": "shift+alt+k",
+        "linux": "shift+alt+k",
+        "key": "shift+alt+k",
+        "when": "config.rstudio.keymap.enable",
+        "command": "workbench.action.openGlobalKeybindings"
+      },
+      {
+        "mac": "cmd+alt+i",
+        "win": "ctrl+alt+i.",
+        "linux": "ctrl+alt+i",
+        "key": "ctrl+alt+i",
+        "when": "config.rstudio.keymap.enable && editorTextFocus",
+        "command": "quarto.insertCodeCell"
+      },
+      {
+        "mac": "cmd+i",
+        "win": "ctrl+i",
+        "linux": "ctrl+i",
+        "key": "ctrl+i",
+        "when": "config.rstudio.keymap.enable && editorTextFocus",
+        "command": "editor.action.reindentselectedlines"
+      },
+      {
+        "mac": "cmd+shift+a",
+        "win": "ctrl+shift+a",
+        "linux": "ctrl+shift+a",
+        "key": "ctrl+shift+a",
+        "when": "config.rstudio.keymap.enable && editorTextFocus",
+        "command": "editor.action.formatSelection"
+      },
+      {
+        "mac": "cmd+d",
+        "win": "ctrl+d",
+        "linux": "ctrl+d",
+        "key": "ctrl+d",
+        "when": "config.rstudio.keymap.enable && editorTextFocus",
+        "command": "editor.action.deleteLines"
+      }
+    ]
+  }
+}
