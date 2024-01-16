@@ -18,6 +18,7 @@ const dirs = [
 	'extensions/positron-javascript',
 	'extensions/positron-notebook-controllers',
 	'extensions/positron-r',
+	'extensions/positron-rstudio-keymap',
 	'extensions/positron-python',
 	'extensions/positron-proxy',
 	'extensions/positron-zed',
