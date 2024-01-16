@@ -438,7 +438,7 @@ export enum LanguageRuntimeStartupBehavior {
 
 export enum LanguageRuntimeDiscoveryPhase {
 	/**
-	 * We are waiting for extensions to register language runtime providers.
+	 * We are waiting for extensions to register language runtime discoverers.
 	 */
 	AwaitingExtensions = 'AwaitingExtensions',
 
@@ -721,6 +721,11 @@ export interface ILanguageRuntimeService {
 	 * @param languageId The language identifier.
 	 */
 	getPreferredRuntime(languageId: string): ILanguageRuntime;
+
+	/**
+	 * Start all affiliated runtimes for the workspace.
+	 */
+	startAffiliatedLanguageRuntimes(): void;
 
 	/**
 	 * Signal that discovery of language runtimes is complete.
