@@ -86,6 +86,17 @@ export const ActivityPrompt = (props: ActivityPromptProps) => {
 				break;
 			}
 
+			// Escape key.
+			case 'Escape': {
+				// Consume the event.
+				consumeEvent();
+
+				// Update the prompt state and interrupt it.
+				props.activityItemPrompt.state = ActivityItemPromptState.Interrupted;
+				props.positronConsoleInstance.interruptPrompt(props.activityItemPrompt.id);
+				break;
+			}
+
 			// C key.
 			case 'c': {
 				// Handle Ctrl+C.
@@ -93,7 +104,7 @@ export const ActivityPrompt = (props: ActivityPromptProps) => {
 					// Consume the event.
 					consumeEvent();
 
-					// Upate the prompt state and interrupt it.
+					// Update the prompt state and interrupt it.
 					props.activityItemPrompt.state = ActivityItemPromptState.Interrupted;
 					props.positronConsoleInstance.interruptPrompt(props.activityItemPrompt.id);
 				}
