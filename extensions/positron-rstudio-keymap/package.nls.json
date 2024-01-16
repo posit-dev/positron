@@ -1,0 +1,6 @@
+{
+	"displayName": "RStudio Keymap",
+	"description": "RStudio keybindings for Positron",
+	"rstudio.keymap.configuration.title": "RStudio Keymap",
+	"rstudio.keymap.enable.description": "Enable RStudio key mappings for Positron",
+}
