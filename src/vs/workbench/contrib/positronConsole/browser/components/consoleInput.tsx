@@ -96,6 +96,12 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 				},
 				positronConsoleContext.instantiationService
 			);
+			suggestWidget.onDidSelect(() => {
+				codeEditorWidgetRef.current?.setValue(
+					suggestWidget?.getFocusedItem()?.item.completion.label || ''
+				);
+				suggestWidget?.dispose();
+			});
 		}
 		return suggestWidget;
 	};
