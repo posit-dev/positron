@@ -2,8 +2,8 @@
  *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
-import * as DOM from 'vs/base/browser/dom';
 import * as React from 'react';
+import * as DOM from 'vs/base/browser/dom';
 
 import {
 	IReactComponentContainer,
@@ -20,7 +20,16 @@ import { IEditorOpenContext } from 'vs/workbench/common/editor';
 import { PositronNotebookEditorInput } from './PositronNotebookEditorInput';
 
 import { Emitter, Event } from 'vs/base/common/event';
+import { URI } from 'vs/base/common/uri';
 import { PositronNotebookComponent } from './PositronNotebookComponent';
+
+
+//! Is this a good pattern for getting things into the react component when we don't have a
+//! guarenteed order?
+export type ValueAndSubscriber<T> = {
+	value?: T;
+	changeEvent: Event<T>;
+};
 
 export class PositronNotebookEditor
 	extends EditorPane
@@ -94,6 +103,11 @@ export class PositronNotebookEditor
 	 */
 	readonly onSizeChanged: Event<ISize> = this._onSizeChangedEmitter.event;
 
+	private _size: ValueAndSubscriber<ISize> = {
+		value: undefined,
+		changeEvent: this.onSizeChanged,
+	};
+
 	/**
 	 * The onVisibilityChanged event emitter.
 	 */
@@ -103,6 +117,24 @@ export class PositronNotebookEditor
 	 */
 	readonly onVisibilityChanged: Event<boolean> =
 		this._onVisibilityChangedEmitter.event;
+
+
+	/**
+	 * The onNewFile event emitter.
+	 * Used to tell the notebook front-end that there's a new file
+	 */
+	private _onNewFileEmitter = this._register(new Emitter<URI>());
+
+	/**
+	 * The onNewFile event.
+	 */
+	readonly onNewFile: Event<URI> = this._onNewFileEmitter.event;
+
+	private _file: ValueAndSubscriber<URI> = {
+		value: undefined,
+		changeEvent: this.onNewFile,
+	};
+
 
 	/**
 	 * The onSaveScrollPosition event emitter.
@@ -133,17 +165,24 @@ export class PositronNotebookEditor
 		myDiv.style.backgroundColor = 'lightgrey';
 
 		parent.appendChild(myDiv);
-	}
-	/**
-	 * dispose override method.
-	 */
-	public override dispose(): void {
-		// Dispose the PositronReactRenderer for the PositronNotebook.
-		this.disposePositronReactRenderer();
 
-		// Call the base class's dispose method.
-		super.dispose();
+		const first_render = !this._positronReactRenderer;
+		if (!first_render) {
+			return;
+		}
+
+		// throw new Error('Method not implemented.');\
+		// Get the Positron data tool instance.
+		this._positronReactRenderer = new PositronReactRenderer(this._parentDiv);
+
+		this._positronReactRenderer.render(
+			<PositronNotebookComponent message='Hello Positron!' size={this._size} file={this._file} />
+		);
+
+
+
 	}
+
 
 	/**
 	 * Disposes of the PositronReactRenderer for the PositronNotebook.
@@ -198,22 +237,15 @@ export class PositronNotebookEditor
 		this._width = dimension.width;
 		this._height = dimension.height;
 
-		this._onSizeChangedEmitter.fire({
+
+		const updated_size = {
 			width: this._width,
 			height: this._height,
-		});
+		};
 
-		const first_render = !this._positronReactRenderer;
-		// throw new Error('Method not implemented.');\
+		this._size.value = updated_size;
 
-		if (first_render && this._parentDiv) {
-			// Get the Positron data tool instance.
-			this._positronReactRenderer = new PositronReactRenderer(this._parentDiv);
-
-			this._positronReactRenderer.render(
-				<PositronNotebookComponent message='Hello Positron!' onSizeChanged={this.onSizeChanged} />
-			);
-		}
+		this._onSizeChangedEmitter.fire(updated_size);
 	}
 
 
@@ -228,10 +260,8 @@ export class PositronNotebookEditor
 
 		this._input = input;
 
-		// const filenameDiv = this._parentDiv?.querySelector(
-		// 	".filename"
-		// ) as HTMLElement;
-		// filenameDiv.innerText = input.resource.toString();
+		this._file.value = input.resource;
+		this._onNewFileEmitter.fire(input.resource);
 	}
 
 	constructor(
@@ -253,5 +283,16 @@ export class PositronNotebookEditor
 
 
 		// Logging.
+	}
+
+	/**
+	 * dispose override method.
+	 */
+	public override dispose(): void {
+		// Dispose the PositronReactRenderer for the PositronNotebook.
+		this.disposePositronReactRenderer();
+
+		// Call the base class's dispose method.
+		super.dispose();
 	}
 }
