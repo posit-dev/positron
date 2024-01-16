@@ -83,7 +83,7 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 	// The object that manages the runtimes affliated with workspaces.
 	private readonly _workspaceAffiliation: LanguageRuntimeWorkspaceAffiliation;
 
-	// The event emitter for the onDidChangeDisoveryPhase event.
+	// The event emitter for the onDidChangeDiscoveryPhase event.
 	private readonly _onDidChangeDiscoveryPhaseEmitter = this._register(new Emitter<LanguageRuntimeDiscoveryPhase>);
 
 	// The event emitter for the onDidRegisterRuntime event.
@@ -151,15 +151,6 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 		this._workspaceAffiliation =
 			new LanguageRuntimeWorkspaceAffiliation(this, this._storageService, this._logService);
 		this._register(this._workspaceAffiliation);
-		const languageIds = this._workspaceAffiliation.getAffiliatedRuntimeLanguageIds();
-		if (languageIds) {
-			this._register(this.onDidChangeDiscoveryPhase((phase) => {
-				// When we start discovering runtimes, start the affiliated runtime(s).
-				if (phase === LanguageRuntimeDiscoveryPhase.Discovering) {
-					languageIds?.map(languageId => this.startAffiliatedRuntime(languageId));
-				}
-			}));
-		}
 
 		// Register as an opener in the opener service.
 		this._openerService.registerOpener(this);
@@ -194,9 +185,9 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 				`A file with the language ID ${languageId} was opened.`);
 		}));
 
-		// Begin discovering language runtimes once all extensions have been
-		// registered.
+		// Begin registering/discovering language runtimes once all extensions have been started.
 		this._extensionService.whenAllExtensionHostsStarted().then(() => {
+			this.startAffiliatedLanguageRuntimes();
 			this._onDidChangeDiscoveryPhaseEmitter.fire(LanguageRuntimeDiscoveryPhase.Discovering);
 		});
 
@@ -356,9 +347,9 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 	 * @returns A disposable that unregisters the runtime
 	 */
 	registerRuntime(runtime: ILanguageRuntime, startupBehavior: LanguageRuntimeStartupBehavior): IDisposable {
-		// If the runtime has already been registered, throw an error.
+		// If the runtime has already been registered, return early.
 		if (this._registeredRuntimesByRuntimeId.has(runtime.metadata.runtimeId)) {
-			throw new Error(`Language runtime ${formatLanguageRuntime(runtime)} has already been registered.`);
+			return toDisposable(() => { });
 		}
 
 		// Add the runtime to the registered runtimes.
@@ -578,6 +569,16 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 
 		// There are no registered runtimes for the language, throw an error.
 		throw new Error(`No language runtimes registered for language ID '${languageId}'.`);
+	}
+
+	/**
+	 * Starts all affiliated runtimes for the workspace.
+	 */
+	startAffiliatedLanguageRuntimes(): void {
+		const languageIds = this._workspaceAffiliation.getAffiliatedRuntimeLanguageIds();
+		if (languageIds) {
+			languageIds?.map(languageId => this.startAffiliatedRuntime(languageId));
+		}
 	}
 
 	/**
@@ -814,7 +815,7 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 	}
 
 	/**
-	 * Starts any affiliated runtimes.
+	 * Starts an affiliated runtime for a single language.
 	 */
 	private startAffiliatedRuntime(languageId: string): void {
 		const affiliatedRuntimeMetadata =
