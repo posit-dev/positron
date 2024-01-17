@@ -119,42 +119,42 @@ export function getExampleFreqtable(): ProfileResult {
 
 // For filtering
 
-function _getFilterWithProps(columnName: string, filterType: ColumnFilterFilterType,
+function _getFilterWithProps(columnIndex: number, filterType: ColumnFilterFilterType,
 	props: Partial<ColumnFilter> = {}): ColumnFilter {
 	return {
 		filter_id: generateUuid(),
 		filter_type: filterType,
-		column: columnName,
+		column_index: columnIndex,
 		...props
 	} as ColumnFilter;
 }
 
-export function getCompareFilter(columnName: string, op: ColumnFilterCompareOp,
+export function getCompareFilter(columnIndex: number, op: ColumnFilterCompareOp,
 	value: string) {
-	return _getFilterWithProps(columnName, ColumnFilterFilterType.Compare, {
+	return _getFilterWithProps(columnIndex, ColumnFilterFilterType.Compare, {
 		compare_op: op,
 		compare_value: value
 	});
 }
 
-export function getIsNullFilter(columnName: string) {
-	return _getFilterWithProps(columnName, ColumnFilterFilterType.Isnull);
+export function getIsNullFilter(columnIndex: number) {
+	return _getFilterWithProps(columnIndex, ColumnFilterFilterType.Isnull);
 }
 
-export function getNotNullFilter(columnName: string) {
-	return _getFilterWithProps(columnName, ColumnFilterFilterType.Notnull);
+export function getNotNullFilter(columnIndex: number) {
+	return _getFilterWithProps(columnIndex, ColumnFilterFilterType.Notnull);
 }
 
-export function getSetMemberFilter(columnName: string, values: string[], inclusive: boolean) {
-	return _getFilterWithProps(columnName, ColumnFilterFilterType.SetMembership, {
+export function getSetMemberFilter(columnIndex: number, values: string[], inclusive: boolean) {
+	return _getFilterWithProps(columnIndex, ColumnFilterFilterType.SetMembership, {
 		set_member_values: values,
 		set_member_inclusive: inclusive
 	});
 }
 
-export function getTextSearchFilter(columnName: string, searchTerm: string,
+export function getTextSearchFilter(columnIndex: number, searchTerm: string,
 	searchType: ColumnFilterSearchType, caseSensitive: boolean) {
-	return _getFilterWithProps(columnName, ColumnFilterFilterType.Search, {
+	return _getFilterWithProps(columnIndex, ColumnFilterFilterType.Search, {
 		search_term: searchTerm,
 		search_type: searchType,
 		search_case_sensitive: caseSensitive
