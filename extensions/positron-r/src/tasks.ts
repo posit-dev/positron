@@ -3,7 +3,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { runtimeManager } from './runtime-manager';
+import { RRuntimeManager } from './runtime-manager';
 
 export class RPackageTaskProvider implements vscode.TaskProvider {
 
@@ -25,20 +25,21 @@ export async function providePackageTasks(context: vscode.ExtensionContext): Pro
 }
 
 export async function getRPackageTasks(): Promise<vscode.Task[]> {
-	if (!runtimeManager.hasLastBinpath()) {
+	if (!RRuntimeManager.instance.hasLastBinpath()) {
 		throw new Error(`No running R runtime to use for R package tasks.`);
 	}
+	const binpath = RRuntimeManager.instance.getLastBinpath();
 	const allPackageTasks: PackageTask[] = [
 		{
 			'task': 'r.task.packageCheck',
 			'message': vscode.l10n.t('{taskName}', { taskName: 'Check R package' }),
-			'shellExecution': `"${runtimeManager.getLastBinpath()}" -e "devtools::check()"`,
+			'shellExecution': `"${binpath}" -e "devtools::check()"`,
 			'package': 'devtools'
 		},
 		{
 			'task': 'r.task.packageInstall',
 			'message': vscode.l10n.t('{taskName}', { taskName: 'Install R package' }),
-			'shellExecution': `"${runtimeManager.getLastBinpath()}" -e "pak::local_install(upgrade = FALSE)"`,
+			'shellExecution': `"${binpath}" -e "pak::local_install(upgrade = FALSE)"`,
 			'package': 'pak'
 		}
 	];

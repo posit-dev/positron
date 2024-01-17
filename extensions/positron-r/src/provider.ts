@@ -13,7 +13,7 @@ import * as crypto from 'crypto';
 
 import { RInstallation, getRHomePath } from './r-installation';
 import { RRuntime, createJupyterKernelExtra, createJupyterKernelSpec } from './runtime';
-import { runtimeManager } from './runtime-manager';
+import { RRuntimeManager } from './runtime-manager';
 
 const initialDynState = {
 	inputPrompt: '>',
@@ -49,13 +49,14 @@ export class RRuntimeProvider implements positron.LanguageRuntimeProvider {
 		const extra = createJupyterKernelExtra();
 
 		// Use existing runtime if it present.
-		if (runtimeManager.hasRuntime(runtimeMetadata.runtimeId)) {
-			return runtimeManager.getRuntime(runtimeMetadata.runtimeId);
+		if (RRuntimeManager.instance.hasRuntime(runtimeMetadata.runtimeId)) {
+			return RRuntimeManager.instance.getRuntime(runtimeMetadata.runtimeId);
 		}
 
+		// No existing runtime with this ID; create a new one.
 		const runtime = new RRuntime(this.context, kernelSpec, runtimeMetadata,
 			initialDynState, extra);
-		runtimeManager.setRuntime(runtimeMetadata.runtimeId, runtime);
+		RRuntimeManager.instance.setRuntime(runtimeMetadata.runtimeId, runtime);
 		return runtime;
 	}
 }
@@ -219,8 +220,8 @@ export async function* rRuntimeDiscoverer(
 
 		// If we already know about the runtime, return it. This can happen if
 		// the runtime was provided eaglerly to Positron.
-		if (runtimeManager.hasRuntime(runtimeId)) {
-			yield runtimeManager.getRuntime(runtimeId);
+		if (RRuntimeManager.instance.hasRuntime(runtimeId)) {
+			yield RRuntimeManager.instance.getRuntime(runtimeId);
 			continue;
 		}
 
@@ -254,7 +255,7 @@ export async function* rRuntimeDiscoverer(
 
 		// Create an adapter for the kernel to fulfill the LanguageRuntime interface.
 		const runtime = new RRuntime(context, kernelSpec, metadata, initialDynState, extra);
-		runtimeManager.setRuntime(metadata.runtimeId, runtime);
+		RRuntimeManager.instance.setRuntime(metadata.runtimeId, runtime);
 		yield runtime;
 	}
 }

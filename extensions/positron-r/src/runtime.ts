@@ -15,7 +15,7 @@ import { RHtmlWidget, getResourceRoots } from './htmlwidgets';
 import { getArkKernelPath } from './kernel';
 import { randomUUID } from 'crypto';
 import { handleRCode } from './hyperlink';
-import { runtimeManager } from './runtime-manager';
+import { RRuntimeManager } from './runtime-manager';
 
 interface RPackageInstallation {
 	packageName: string;
@@ -186,7 +186,7 @@ export class RRuntime implements positron.LanguageRuntime, vscode.Disposable {
 		if (!this._kernel) {
 			this._kernel = await this.createKernel();
 		}
-		runtimeManager.setLastBinpath(this._kernel.metadata.runtimePath);
+		RRuntimeManager.instance.setLastBinpath(this._kernel.metadata.runtimePath);
 
 		// Register for console width changes, if we haven't already
 		if (!this._consoleWidthDisposable) {
@@ -559,7 +559,7 @@ export async function getRunningRRuntime(): Promise<RRuntime> {
 	}
 
 	// For now, there will be only one running R runtime:
-	return runtimeManager.getRuntime(runningRuntimes[0].runtimeId);
+	return RRuntimeManager.instance.getRuntime(runningRuntimes[0].runtimeId);
 }
 
 export function createJupyterKernelExtra(): JupyterKernelExtra {
