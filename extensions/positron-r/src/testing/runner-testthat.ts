@@ -7,11 +7,12 @@ import * as path from 'path';
 import { spawn } from 'child_process';
 import * as split2 from 'split2';
 import { Logger } from '../extension';
-import { checkInstalled, runtimeManager } from '../runtime';
+import { checkInstalled } from '../runtime';
 import { EXTENSION_ROOT_DIR } from '../constants';
 import { ItemType, TestingTools, encodeNodeId } from './util-testing';
 import { TestResult } from './reporter';
 import { parseTestsFromFile } from './parser';
+import { RRuntimeManager } from '../runtime-manager';
 
 const testReporterPath = path
 	.join(EXTENSION_ROOT_DIR, 'resources', 'testing', 'vscodereporter')
@@ -24,7 +25,7 @@ export async function runThatTest(
 ): Promise<string> {
 	// in all scenarios, we execute devtools::SOMETHING() in a child process
 	// if we can't get the path to the relevant R executable, no point in continuing
-	if (!runtimeManager.hasLastBinpath()) {
+	if (!RRuntimeManager.instance.hasLastBinpath()) {
 		return Promise.resolve('No running R runtime to run R package tests.');
 	}
 
@@ -89,7 +90,8 @@ export async function runThatTest(
 		`devtools::load_all('${testReporterPath}');` +
 		`devtools::${devtoolsMethod}('${testPath}',` +
 		`${descInsert}reporter = VSCodeReporter)`;
-	const command = `"${runtimeManager.getLastBinpath()}" --no-echo -e "${devtoolsCall}"`;
+	const binpath = RRuntimeManager.instance.getLastBinpath();
+	const command = `"${binpath}" --no-echo -e "${devtoolsCall}"`;
 	Logger.info(`devtools call is:\n${command}`);
 
 	const wd = testingTools.packageRoot.fsPath;
