@@ -13,6 +13,7 @@ import * as crypto from 'crypto';
 
 import { RInstallation, getRHomePath } from './r-installation';
 import { RRuntime, createJupyterKernelExtra, createJupyterKernelSpec } from './runtime';
+import { runtimeManager } from './runtime-manager';
 
 const initialDynState = {
 	inputPrompt: '>',
@@ -47,7 +48,15 @@ export class RRuntimeProvider implements positron.LanguageRuntimeProvider {
 
 		const extra = createJupyterKernelExtra();
 
-		return new RRuntime(this.context, kernelSpec, runtimeMetadata, initialDynState, extra);
+		// Use existing runtime if it present.
+		if (runtimeManager.hasRuntime(runtimeMetadata.runtimeId)) {
+			return runtimeManager.getRuntime(runtimeMetadata.runtimeId);
+		}
+
+		const runtime = new RRuntime(this.context, kernelSpec, runtimeMetadata,
+			initialDynState, extra);
+		runtimeManager.setRuntime(runtimeMetadata.runtimeId, runtime);
+		return runtime;
 	}
 }
 
@@ -58,8 +67,7 @@ export class RRuntimeProvider implements positron.LanguageRuntimeProvider {
  * @param context The extension context.
  */
 export async function* rRuntimeDiscoverer(
-	context: vscode.ExtensionContext,
-	runtimes: Map<string, RRuntime>
+	context: vscode.ExtensionContext
 ): AsyncGenerator<positron.LanguageRuntime> {
 	let rInstallations: Array<RInstallation> = [];
 	const binaries = new Set<string>();
@@ -209,6 +217,13 @@ export async function* rRuntimeDiscoverer(
 		digest.update(rVersion);
 		const runtimeId = digest.digest('hex').substring(0, 32);
 
+		// If we already know about the runtime, return it. This can happen if
+		// the runtime was provided eaglerly to Positron.
+		if (runtimeManager.hasRuntime(runtimeId)) {
+			yield runtimeManager.getRuntime(runtimeId);
+			continue;
+		}
+
 		// Define the startup behavior; request immediate startup if this is the
 		// recommended runtime for the workspace.
 		const startupBehavior = recommendedForWorkspace ?
@@ -239,8 +254,8 @@ export async function* rRuntimeDiscoverer(
 
 		// Create an adapter for the kernel to fulfill the LanguageRuntime interface.
 		const runtime = new RRuntime(context, kernelSpec, metadata, initialDynState, extra);
+		runtimeManager.setRuntime(metadata.runtimeId, runtime);
 		yield runtime;
-		runtimes.set(runtimeId, runtime);
 	}
 }
 

@@ -7,11 +7,12 @@ import * as path from 'path';
 import { spawn } from 'child_process';
 import * as split2 from 'split2';
 import { Logger } from '../extension';
-import { checkInstalled, runtimeManager } from '../runtime';
+import { checkInstalled } from '../runtime';
 import { EXTENSION_ROOT_DIR } from '../constants';
 import { ItemType, TestingTools, encodeNodeId } from './util-testing';
 import { TestResult } from './reporter';
 import { parseTestsFromFile } from './parser';
+import { runtimeManager } from '../runtime-manager';
 
 const testReporterPath = path
 	.join(EXTENSION_ROOT_DIR, 'resources', 'testing', 'vscodereporter')

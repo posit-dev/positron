@@ -15,31 +15,7 @@ import { RHtmlWidget, getResourceRoots } from './htmlwidgets';
 import { getArkKernelPath } from './kernel';
 import { randomUUID } from 'crypto';
 import { handleRCode } from './hyperlink';
-
-class RRuntimeManager {
-	private runtimes: Map<string, RRuntime> = new Map();
-	private lastBinpath = '';
-
-	constructor() { }
-
-	getRuntimesMap(): Map<string, RRuntime> {
-		return this.runtimes;
-	}
-
-	setLastBinpath(path: string) {
-		this.lastBinpath = path;
-	}
-
-	hasLastBinpath(): boolean {
-		return this.lastBinpath !== '';
-	}
-
-	getLastBinpath(): string {
-		return this.lastBinpath;
-	}
-}
-
-export const runtimeManager: RRuntimeManager = new RRuntimeManager();
+import { runtimeManager } from './runtime-manager';
 
 interface RPackageInstallation {
 	packageName: string;
@@ -583,11 +559,7 @@ export async function getRunningRRuntime(): Promise<RRuntime> {
 	}
 
 	// For now, there will be only one running R runtime:
-	const runtime = runtimeManager.getRuntimesMap().get(runningRuntimes[0].runtimeId);
-	if (!runtime) {
-		throw new Error(`R runtime '${runningRuntimes[0].runtimeId}' is not registered in the extension host`);
-	}
-	return runtime;
+	return runtimeManager.getRuntime(runningRuntimes[0].runtimeId);
 }
 
 export function createJupyterKernelExtra(): JupyterKernelExtra {

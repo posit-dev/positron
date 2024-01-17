@@ -3,7 +3,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { runtimeManager } from './runtime';
+import { runtimeManager } from './runtime-manager';
 
 export class RPackageTaskProvider implements vscode.TaskProvider {
 
