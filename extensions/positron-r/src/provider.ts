@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
 import * as fs from 'fs';
@@ -219,7 +219,7 @@ export async function* rRuntimeDiscoverer(
 		const runtimeId = digest.digest('hex').substring(0, 32);
 
 		// If we already know about the runtime, return it. This can happen if
-		// the runtime was provided eaglerly to Positron.
+		// the runtime was provided eagerly to Positron.
 		if (RRuntimeManager.instance.hasRuntime(runtimeId)) {
 			yield RRuntimeManager.instance.getRuntime(runtimeId);
 			continue;
