@@ -136,6 +136,14 @@
         "key": "ctrl+shift+a",
         "when": "config.rstudio.keymap.enable && editorTextFocus",
         "command": "editor.action.formatSelection"
+      },
+      {
+        "mac": "cmd+d",
+        "win": "ctrl+d",
+        "linux": "ctrl+d",
+        "key": "ctrl+d",
+        "when": "config.rstudio.keymap.enable && editorTextFocus",
+        "command": "editor.action.deleteLines"
       }
     ]
   }
