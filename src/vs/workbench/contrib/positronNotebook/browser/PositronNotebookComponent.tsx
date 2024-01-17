@@ -4,30 +4,42 @@
 
 import * as React from 'react';
 import { ISize } from 'vs/base/browser/positronReactRenderer';
-import { ValueAndSubscriber } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookEditor';
-import { PositronNotebookEditorInput } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookEditorInput';
+import { ISettableObservable } from 'vs/base/common/observableInternal/base';
+import { InputObservable } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookEditor';
+import { observeValue } from '../common/utils/observeValue';
+
 
 export function PositronNotebookComponent(
 	{ message, size, input }:
 		{
 			message: string;
-			size: ValueAndSubscriber<ISize>;
-			input: PositronNotebookEditorInput;
+			size: ISettableObservable<ISize>;
+			input: InputObservable;
 		}
 ) {
 	console.log('Positron Notebook Component', { message, size });
-	const [width, setWidth] = React.useState(size.value?.width ?? 0);
-	const [height, setHeight] = React.useState(size.value?.height ?? 0);
-	const fileName = input.resource.path;
+	const [width, setWidth] = React.useState(size.get().width ?? 0);
+	const [height, setHeight] = React.useState(size.get().height ?? 0);
+	const [fileName, setFileName] = React.useState(input.get()?.resource.path || 'No file name');
 
-	React.useEffect(() => {
-		const disposable = size.changeEvent((size) => {
-			setWidth(size.width);
-			setHeight(size.height);
-		});
-		return () => disposable.dispose();
-	}, [size]);
+	React.useEffect(() =>
+		observeValue(size, {
+			handleChange() {
+				const { width, height } = size.get();
+				setWidth(width);
+				setHeight(height);
 
+			}
+		})
+		, [size]);
+
+	React.useEffect(() =>
+		observeValue(input, {
+			handleChange() {
+				const fileName = input.get()?.resource.path || 'No file name';
+				setFileName(fileName);
+			}
+		}), [input]);
 
 	return (
 		<div>

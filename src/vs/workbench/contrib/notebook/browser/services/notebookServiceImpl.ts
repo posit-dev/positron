@@ -203,7 +203,8 @@ export class NotebookProviderInfoStore extends Disposable {
 				const notebookOptions = { ...options, cellOptions } as INotebookEditorOptions;
 
 				//! Use our editor instead of the built in one.
-				const editor = new PositronNotebookEditorInput(notebookUri);
+				// const editor = new PositronNotebookEditorInput(notebookUri);
+				const editor = this._instantiationService.createInstance(PositronNotebookEditorInput, notebookUri);
 				// const editor = NotebookEditorInput.getOrCreate(this._instantiationService, notebookUri, preferredResource, notebookProviderInfo.id);
 				return { editor, options: notebookOptions };
 			};
@@ -218,7 +219,9 @@ export class NotebookProviderInfoStore extends Disposable {
 				});
 
 				// return { editor: NotebookEditorInput.getOrCreate(this._instantiationService, ref.object.resource, undefined, notebookProviderInfo.id), options };
-				return { editor: new PositronNotebookEditorInput(ref.object.resource), options };
+				const editor = this._instantiationService.createInstance(PositronNotebookEditorInput, ref.object.resource);
+
+				return { editor, options };
 			};
 			const notebookDiffEditorInputFactory: DiffEditorInputFactoryFunction = ({ modified, original, label, description }) => {
 				return { editor: NotebookDiffEditorInput.create(this._instantiationService, modified.resource!, label, description, original.resource!, notebookProviderInfo.id) };
