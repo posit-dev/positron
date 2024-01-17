@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
@@ -11,7 +11,6 @@ import { providePackageTasks } from './tasks';
 import { setContexts } from './contexts';
 import { setupTestExplorer, refreshTestExplorer } from './testing/testing';
 import { RRuntimeProvider, rRuntimeDiscoverer } from './provider';
-import { runtimeManager } from './runtime';
 
 
 export const Logger = vscode.window.createOutputChannel('Positron R Extension', { log: true });
@@ -26,7 +25,7 @@ export function activate(context: vscode.ExtensionContext) {
 	positron.runtime.registerLanguageRuntimeProvider('r', new RRuntimeProvider(context));
 
 	positron.runtime.registerLanguageRuntimeDiscoverer(
-		'r', rRuntimeDiscoverer(context, runtimeManager.getRuntimesMap()));
+		'r', rRuntimeDiscoverer(context));
 
 	// Set contexts.
 	setContexts(context);
