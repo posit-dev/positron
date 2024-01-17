@@ -515,7 +515,7 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 				// Let the user know what we did.
 				const msg = nls.localize(
 					'positronConsole.runtimeCrashed',
-					'{0} exited unexpectedly ${1}. You may have lost unsaved work.\nExit code: {2}',
+					'{0} exited unexpectedly {1}. You may have lost unsaved work.\nExit code: {2}',
 					runtime.metadata.runtimeName,
 					action,
 					exit.exit_code
