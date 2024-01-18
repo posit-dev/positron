@@ -34,26 +34,26 @@ suite('DataToolMocks', () => {
 	});
 
 	test('Test getCompareFilter', () => {
-		const filter = mocks.getCompareFilter('column_2', ColumnFilterCompareOp.Gt, '1234');
+		const filter = mocks.getCompareFilter(2, ColumnFilterCompareOp.Gt, '1234');
 		assert.equal(filter.filter_type, ColumnFilterFilterType.Compare);
-		assert.equal(filter.column, 'column_2');
+		assert.equal(filter.column_index, 2);
 		assert.equal(filter.compare_op, ColumnFilterCompareOp.Gt);
 		assert.equal(filter.compare_value, '1234');
 	});
 
 	test('Test getIsNullFilter', () => {
-		let filter = mocks.getIsNullFilter('column_3');
-		assert.equal(filter.column, 'column_3');
+		let filter = mocks.getIsNullFilter(3);
+		assert.equal(filter.column_index, 3);
 		assert.equal(filter.filter_type, ColumnFilterFilterType.Isnull);
 
-		filter = mocks.getNotNullFilter('column_3');
+		filter = mocks.getNotNullFilter(3);
 		assert.equal(filter.filter_type, ColumnFilterFilterType.Notnull);
 	});
 
 	test('Test getTextSearchFilter', () => {
-		const filter = mocks.getTextSearchFilter('column_5', 'needle',
+		const filter = mocks.getTextSearchFilter(5, 'needle',
 			ColumnFilterSearchType.Contains, false);
-		assert.equal(filter.column, 'column_5');
+		assert.equal(filter.column_index, 5);
 		assert.equal(filter.filter_type, ColumnFilterFilterType.Search);
 		assert.equal(filter.search_term, 'needle');
 		assert.equal(filter.search_type, ColumnFilterSearchType.Contains);
@@ -62,8 +62,8 @@ suite('DataToolMocks', () => {
 
 	test('Test getSetMemberFilter', () => {
 		const set_values = ['need1', 'need2'];
-		const filter = mocks.getSetMemberFilter('column_6', set_values, true);
-		assert.equal(filter.column, 'column_6');
+		const filter = mocks.getSetMemberFilter(6, set_values, true);
+		assert.equal(filter.column_index, 6);
 		assert.equal(filter.filter_type, ColumnFilterFilterType.SetMembership);
 		assert.equal(filter.set_member_values, set_values);
 		assert.equal(filter.set_member_inclusive, true);
