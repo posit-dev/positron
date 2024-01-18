@@ -570,6 +570,13 @@
 				}
 			],
 			"justMyCode": false
+		},
+		{
+			"type": "node",
+			"request": "launch",
+			"name": "Run generate-comms.ts",
+			"program": "${workspaceFolder}/positron/comms/generate-comms.ts",
+			"runtimeArgs": ["-r", "ts-node/register"]
 		}
 	],
 	"compounds": [
