@@ -14,7 +14,7 @@ import { LanguageClientOptions } from 'vscode-languageclient/node';
 import { PythonExtension } from '../api/types';
 import { ProductNames } from '../common/installer/productNames';
 import { InstallOptions } from '../common/installer/types';
-import { IInstaller, InstallerResponse, Product } from '../common/types';
+import { IInstaller, InstallerResponse, Product, ProductInstallStatus } from '../common/types';
 import { IServiceContainer } from '../ioc/types';
 import { JupyterAdapterApi, JupyterKernelSpec, JupyterLanguageRuntime, JupyterKernelExtra } from '../jupyter-adapter.d';
 import { traceInfo } from '../logging';
@@ -157,8 +157,13 @@ export class PythonRuntime implements positron.LanguageRuntime, vscode.Disposabl
     private async _installIpykernel(): Promise<void> {
         // Offer to install the ipykernel module for the preferred interpreter, if it is missing.
         // Thow an error if it could not be installed.
-        const hasKernel = await this.installer.isInstalled(Product.ipykernel, this.interpreter);
-        if (!hasKernel) {
+
+        // We require ipykernel >= 6.19.1 for the Python runtime in order to ensure the comm package
+        // can be imported on its own (https://github.com/ipython/ipykernel/releases/tag/v6.18.0)
+        const hasCompatibleKernel = await this.installer.isProductVersionCompatible(Product.ipykernel, '>=6.19.1', this.interpreter);
+
+
+        if (hasCompatibleKernel !== ProductInstallStatus.Installed) {
             // Pass a cancellation token to enable VSCode's progress indicator and let the user
             // cancel the install.
             const tokenSource = new vscode.CancellationTokenSource();
@@ -167,10 +172,12 @@ export class PythonRuntime implements positron.LanguageRuntime, vscode.Disposabl
             // Using a process to install modules avoids using the terminal service,
             // which has issues waiting for the outcome of the install.
             const installOptions: InstallOptions = { installAsProcess: true };
+            const installOrUpgrade = hasCompatibleKernel === ProductInstallStatus.NeedsUpgrade ? 'upgrade' : 'install';
 
             const product = Product.ipykernel;
             const message = vscode.l10n.t(
-                'To enable Python support, Positron needs to install the package "{0}" for the active interpreter {1} at: {2}.',
+                'To enable Python support, Positron needs to {0} the package "{1}" for the active interpreter {2} at: {3}.',
+                installOrUpgrade,
                 ProductNames.get(product)!,
                 `Python ${this.metadata.languageVersion}`,
                 this.metadata.runtimePath,
