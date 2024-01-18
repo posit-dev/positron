@@ -402,6 +402,12 @@
             },
             {
                 "category": "Python",
+                "command": "workbench.action.positronConsole.executeCode",
+                "icon": "$(play)",
+                "title": "%python.command.python.execSelectionInConsole.title%"
+            },
+            {
+                "category": "Python",
                 "command": "python.launchTensorBoard",
                 "title": "%python.command.python.launchTensorBoard.title%"
             },
@@ -1344,15 +1350,21 @@
                 },
                 {
                     "category": "Python",
+                    "command": "workbench.action.positronConsole.executeCode",
+                    "title": "%python.command.python.execSelectionInConsole.title%",
+                    "when": "!virtualWorkspace && shellExecutionSupported && editorLangId == python"
+                },
+                {
+                    "category": "Python",
                     "command": "python.execSelectionInDjangoShell",
                     "title": "%python.command.python.execSelectionInDjangoShell.title%",
-                    "when": "!virtualWorkspace && shellExecutionSupported && editorLangId == python"
+                    "when": "false"
                 },
                 {
                     "category": "Python",
                     "command": "python.execSelectionInTerminal",
                     "title": "%python.command.python.execSelectionInTerminal.title%",
-                    "when": "!virtualWorkspace && shellExecutionSupported && editorLangId == python"
+                    "when": "false"
                 },
                 {
                     "category": "Python",
@@ -1440,6 +1452,11 @@
             ],
             "python.run": [
                 {
+                    "command": "workbench.action.positronConsole.executeCode",
+                    "group": "Python",
+                    "when": "editorFocus && editorLangId == python && !virtualWorkspace && shellExecutionSupported"
+                },
+                {
                     "command": "python.execInConsole",
                     "group": "Python",
                     "when": "resourceLangId == python && !virtualWorkspace && shellExecutionSupported"
@@ -1452,12 +1469,12 @@
                 {
                     "command": "python.execSelectionInDjangoShell",
                     "group": "Python",
-                    "when": "editorHasSelection && editorLangId == python && python.isDjangoProject && !virtualWorkspace && shellExecutionSupported"
+                    "when": "false"
                 },
                 {
                     "command": "python.execSelectionInTerminal",
                     "group": "Python",
-                    "when": "editorFocus && editorLangId == python && !virtualWorkspace && shellExecutionSupported"
+                    "when": "false"
                 }
             ],
             "editor/title": [
@@ -1469,26 +1486,26 @@
             ],
             "editor/title/run": [
                 {
-                    "command": "python.execInConsole",
+                    "command": "workbench.action.positronConsole.executeCode",
                     "group": "navigation@0",
+                    "title": "%python.command.python.execSelectionInConsole.title%",
+                    "when": "resourceLangId == python && !isInDiffEditor && !virtualWorkspace && shellExecutionSupported"
+                },
+                {
+                    "command": "python.execInConsole",
+                    "group": "navigation@1",
                     "title": "%python.command.python.execInConsole.title%",
                     "when": "resourceLangId == python && !isInDiffEditor && !virtualWorkspace && shellExecutionSupported"
                 },
                 {
                     "command": "python.execInTerminal-icon",
-                    "group": "navigation@1",
+                    "group": "navigation@2",
                     "title": "%python.command.python.execInTerminalIcon.title%",
                     "when": "resourceLangId == python && !isInDiffEditor && !virtualWorkspace && shellExecutionSupported"
                 },
                 {
-                    "command": "python.execInDedicatedTerminal",
-                    "group": "navigation@0",
-                    "title": "%python.command.python.execInDedicatedTerminal.title%",
-                    "when": "resourceLangId == python && !isInDiffEditor && !virtualWorkspace && shellExecutionSupported"
-                },
-                {
                     "command": "python.debugInTerminal",
-                    "group": "navigation@2",
+                    "group": "navigation@3",
                     "title": "%python.command.python.debugInTerminal.title%",
                     "when": "resourceLangId == python && !isInDiffEditor && !virtualWorkspace && shellExecutionSupported"
                 }
