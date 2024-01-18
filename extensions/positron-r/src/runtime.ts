@@ -591,22 +591,6 @@ export function createJupyterKernelSpec(context: vscode.ExtensionContext, rHomeP
 	};
 	/* eslint-enable */
 
-	if (process.platform === 'win32') {
-		// On Windows, we must place the `bin/` path for the current R version on the PATH
-		// so that the DLLs in that same folder can be resolved properly when ark starts up
-		// (like `R.dll`, `Rblas.dll`, `Rgraphapp.dll`, `Riconv.dll`, and `Rlapack.dll`).
-		// https://learn.microsoft.com/en-us/windows/win32/dlls/dynamic-link-library-search-order#standard-search-order-for-unpackaged-apps
-		const binpath = path.join(rHomePath, 'bin', 'x64');
-
-		const processPath = process.env['PATH'];
-
-		const subprocessPath = processPath === undefined ?
-			binpath :
-			processPath + ';' + binpath;
-
-		env['PATH'] = subprocessPath;
-	}
-
 	// R script to run on session startup
 	const startupFile = path.join(context.extensionPath, 'resources', 'scripts', 'startup.R');
 
