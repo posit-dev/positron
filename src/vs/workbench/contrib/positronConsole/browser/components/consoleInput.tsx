@@ -33,9 +33,7 @@ import { usePositronConsoleContext } from 'vs/workbench/contrib/positronConsole/
 import { RuntimeCodeFragmentStatus } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { IPositronConsoleInstance, PositronConsoleState } from 'vs/workbench/services/positronConsole/browser/interfaces/positronConsoleService';
 import { ParameterHintsController } from 'vs/editor/contrib/parameterHints/browser/parameterHints';
-import { SimpleSuggestWidget } from 'vs/workbench/services/suggest/browser/simpleSuggestWidget';
-import { SimpleCompletionModel } from 'vs/workbench/services/suggest/browser/simpleCompletionModel';
-import { SimpleCompletionItem } from 'vs/workbench/services/suggest/browser/simpleCompletionItem';
+import { HistoryBrowserPopup } from 'vs/workbench/contrib/positronConsole/browser/components/historyBrowserPopup';
 
 // Position enumeration.
 const enum Position {
@@ -65,65 +63,14 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 	// Reference hooks.
 	const codeEditorWidgetContainerRef = useRef<HTMLDivElement>(undefined!);
 
-	// The current suggestion widget.
-	let suggestWidget: SimpleSuggestWidget | undefined;
-
 	// State hooks.
 	const [, setCodeEditorWidget, codeEditorWidgetRef] = useStateRef<CodeEditorWidget>(undefined!);
 	const [, setCodeEditorWidth, codeEditorWidthRef] = useStateRef(props.width);
+	const [, setHistoryBrowserActive, historyBrowserActive] = useStateRef(false);
 	const [, setHistoryNavigator, historyNavigatorRef] =
 		useStateRef<HistoryNavigator2<IInputHistoryEntry> | undefined>(undefined);
 	const [, setCurrentCodeFragment, currentCodeFragmentRef] =
 		useStateRef<string | undefined>(undefined);
-
-
-	const ensureSuggestWidget = () => {
-		if (!suggestWidget) {
-			suggestWidget = new SimpleSuggestWidget(codeEditorWidgetContainerRef.current!,
-				{
-					restore(): DOM.Dimension | undefined {
-						// Not implemented
-						return undefined;
-					},
-					store(size: DOM.Dimension): void {
-						// Not implemented
-					},
-					reset(): void {
-					}
-				},
-				{
-					statusBarMenuId: undefined,
-				},
-				positronConsoleContext.instantiationService
-			);
-			suggestWidget.onDidSelect(() => {
-				codeEditorWidgetRef.current?.setValue(
-					suggestWidget?.getFocusedItem()?.item.completion.label || ''
-				);
-				suggestWidget?.dispose();
-			});
-		}
-		return suggestWidget;
-	};
-
-	const createPrefixCompletionModel = () => {
-		const code = codeEditorWidgetRef.current.getValue();
-		const items = new Array<SimpleCompletionItem>();
-		const navigator = historyNavigatorRef.current!;
-		for (const entry of navigator) {
-			if (entry.input.startsWith(code)) {
-				items.push(
-					new SimpleCompletionItem({
-						label: entry.input,
-						detail: ''
-					}));
-			}
-		}
-		return new SimpleCompletionModel(items, {
-			characterCountDelta: 0,
-			leadingLineContent: '',
-		}, 0, 0);
-	};
 
 	/**
 	 * Updates the code editor widget position.
@@ -289,16 +236,7 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 			// Up arrow processing.
 			case KeyCode.UpArrow: {
 				if (cmdOrCtrlKey) {
-					const widget = ensureSuggestWidget();
-					const model = createPrefixCompletionModel();
-					widget.showSuggestions(model, 0, false, true, {
-						height: 20,
-						left: 20,
-						top: 0,
-					});
-					widget.onDidSelect(() => {
-						widget.dispose();
-					});
+					setHistoryBrowserActive(!historyBrowserActive.current);
 					consumeEvent();
 					break;
 				}
@@ -703,6 +641,9 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 	return (
 		<div className='console-input' tabIndex={0} onFocus={focusHandler}>
 			<div ref={codeEditorWidgetContainerRef} />
+			{historyBrowserActive.current &&
+				<HistoryBrowserPopup />
+			}
 		</div>
 	);
 };

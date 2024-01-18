@@ -1,9 +1,11 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
-.console-input {
-	display: flex;
-	padding-bottom: 10px;
-	position: relative;
+.history-browser-popup {
+	position: absolute;
+	top: -20px;
+	left: 0;
+	overflow: hidden;
+	border: 1px solid black;
 }
