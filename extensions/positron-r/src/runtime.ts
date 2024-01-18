@@ -591,26 +591,6 @@ export function createJupyterKernelSpec(context: vscode.ExtensionContext, rHomeP
 	};
 	/* eslint-enable */
 
-	if (process.platform === 'darwin') {
-
-		const dyldFallbackLibraryPaths: string[] = [];
-		dyldFallbackLibraryPaths.push(`${rHomePath}/lib`);
-
-		const defaultDyldFallbackLibraryPath = process.env['DYLD_FALLBACK_LIBRARY_PATH'];
-		if (defaultDyldFallbackLibraryPath) {
-			dyldFallbackLibraryPaths.push(defaultDyldFallbackLibraryPath);
-		}
-
-		// Set the DYLD_FALLBACK_LIBRARY_PATH to include the R installation.
-		// This specific environment variable can be blocked from being
-		// inherited by child processes on macOS with SIP enabled, so we
-		// prefix it with 'POSITRON_' here. The script that starts the
-		// kernel will check for this variable and set it as
-		// DYLD_FALLBACK_LIBRARY_PATH if it's present.
-		env['POSITRON_DYLD_FALLBACK_LIBRARY_PATH'] = dyldFallbackLibraryPaths.join(':');
-
-	}
-
 	if (process.platform === 'win32') {
 		// On Windows, we must place the `bin/` path for the current R version on the PATH
 		// so that the DLLs in that same folder can be resolved properly when ark starts up
