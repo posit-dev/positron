@@ -196,9 +196,9 @@ export interface ColumnFilter {
 	filter_type: ColumnFilterFilterType;
 
 	/**
-	 * Column name to compute profile for
+	 * Column index to apply filter to
 	 */
-	column: string;
+	column_index: number;
 
 	/**
 	 * String representation of a binary comparison
@@ -264,9 +264,9 @@ export interface ColumnQuantileValue {
  */
 export interface ColumnSortKey {
 	/**
-	 * Column name to sort by
+	 * Column index to sort by
 	 */
-	column: string;
+	column_index: number;
 
 	/**
 	 * Sort order, ascending (true) or descending (false)
@@ -298,7 +298,7 @@ export enum ColumnFilterFilterType {
  * Possible values for CompareOp in ColumnFilter
  */
 export enum ColumnFilterCompareOp {
-	EqEq = '==',
+	Eq = '=',
 	NotEq = '!=',
 	Lt = '<',
 	LtEq = '<=',
@@ -387,14 +387,13 @@ export class PositronDataToolComm extends PositronBaseComm {
 	 *
 	 * Requests a statistical summary or data profile for a column
 	 *
-	 * @param profileId Unique identifier for the requested profile
 	 * @param profileType The type of analytical column profile
-	 * @param column Column name to compute profile for
+	 * @param columnIndex Column index to compute profile for
 	 *
 	 * @returns Result of computing column profile
 	 */
-	getColumnProfile(profileId: string, profileType: GetColumnProfileProfileType, column: string): Promise<ProfileResult> {
-		return super.performRpc('get_column_profile', ['profile_id', 'profile_type', 'column'], [profileId, profileType, column]);
+	getColumnProfile(profileType: GetColumnProfileProfileType, columnIndex: number): Promise<ProfileResult> {
+		return super.performRpc('get_column_profile', ['profile_type', 'column_index'], [profileType, columnIndex]);
 	}
 
 	/**

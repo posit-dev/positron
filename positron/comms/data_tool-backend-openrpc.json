@@ -154,14 +154,6 @@
 			"description": "Requests a statistical summary or data profile for a column",
 			"params": [
 				{
-					"name": "profile_id",
-					"description": "Unique identifier for the requested profile",
-					"required": true,
-					"schema": {
-						"type": "string"
-					}
-				},
-				{
 					"name": "profile_type",
 					"description": "The type of analytical column profile",
 					"required": true,
@@ -174,11 +166,11 @@
 					}
 				},
 				{
-					"name": "column",
-					"description": "Column name to compute profile for",
+					"name": "column_index",
+					"description": "Column index to compute profile for",
 					"required": true,
 					"schema": {
-						"type": "string"
+						"type": "integer"
 					}
 				}
 			],
@@ -349,7 +341,7 @@
 				"required": [
 					"filter_id",
 					"filter_type",
-					"column"
+					"column_index"
 				],
 				"properties": {
 					"filter_id": {
@@ -367,15 +359,15 @@
 							"search"
 						]
 					},
-					"column": {
-						"type": "string",
-						"description": "Column name to compute profile for"
+					"column_index": {
+						"type": "integer",
+						"description": "Column index to apply filter to"
 					},
 					"compare_op": {
 						"type": "string",
 						"description": "String representation of a binary comparison",
 						"enum": [
-							"==",
+							"=",
 							"!=",
 							"<",
 							"<=",
@@ -445,13 +437,13 @@
 				"type": "object",
 				"description": "Specifies a column to sort by",
 				"required": [
-					"column",
+					"column_index",
 					"ascending"
 				],
 				"properties": {
-					"column": {
-						"type": "string",
-						"description": "Column name to sort by"
+					"column_index": {
+						"type": "integer",
+						"description": "Column index to sort by"
 					},
 					"ascending": {
 						"type": "boolean",
