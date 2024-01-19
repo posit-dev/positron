@@ -3,6 +3,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 
+import { IReference } from 'vs/base/common/lifecycle';
 import { URI } from 'vs/base/common/uri';
 import { localize } from 'vs/nls';
 import { IEditorOptions } from 'vs/platform/editor/common/editor';
@@ -26,6 +27,11 @@ export class PositronNotebookEditorInput extends EditorInput {
 	 * Gets the editor ID.
 	 */
 	static readonly EditorID: string = 'workbench.editor.positronNotebook';
+
+
+	// TODO: Describe why this is here.
+	// This is a reference to the model that is currently being edited in the editor.
+	private _editorModelReference: IReference<IResolvedNotebookEditorModel> | null = null;
 
 	//#endregion Static Properties
 	//#region Constructor & Dispose
@@ -91,16 +97,54 @@ export class PositronNotebookEditorInput extends EditorInput {
 
 	override async resolve(_options?: IEditorOptions): Promise<IResolvedNotebookEditorModel | null> {
 
-		console.log('Running resolver');
 		if (!await this._notebookService.canResolve(this.viewType)) {
 			return null;
 		}
 
-		return null;
-		// 		// only now `setInput` and yield/await. this is AFTER the actual widget is ready. This is very important
-		// // so that others synchronously receive a notebook editor with the correct widget being set
-		// await super.setInput(input, options, context, token);
-		// const model = await input.resolve(options, perf);
+		// If we dont already have a model hooked up. We need to that.
+		if (!this._editorModelReference) {
+			// Look for the model reference using the resolver service.
+			const ref = await this._notebookModelResolverService.resolve(this.resource, this.viewType);
+
+			if (this._editorModelReference) {
+				// According to the existing notebook code it's possibel that the
+				// editorModelReference was set while we were waiting here. In that case we can
+				// throw away the one we just resolved and return the one that was already set.
+				ref.dispose();
+				return (<IReference<IResolvedNotebookEditorModel>>this._editorModelReference).object;
+			}
+
+			this._editorModelReference = ref;
+
+			if (this.isDisposed()) {
+				// If for some reason the input was disposed while we were waiting for the model
+				// we should shut everything down.
+				this._editorModelReference.dispose();
+				this._editorModelReference = null;
+				return null;
+			}
+
+			// Setup listeners for the model change events so we can forward them to the editor.
+			this._register(this._editorModelReference.object.onDidChangeDirty(() => this._onDidChangeDirty.fire()));
+			this._register(this._editorModelReference.object.onDidChangeReadonly(() => this._onDidChangeCapabilities.fire()));
+			this._register(this._editorModelReference.object.onDidRevertUntitled(() => this.dispose()));
+
+			// If the model is dirty we need to fire the dirty event.
+			// Not sure why this is not an event listner.
+			if (this._editorModelReference.object.isDirty()) {
+				this._onDidChangeDirty.fire();
+			}
+		} else {
+			this._editorModelReference.object.load();
+		}
+
+		// In the vscode-notebooks there is a logic branch here to handle
+		// cases with a _backupId. Not sure what it does or when it's needed but
+		// am leaving this here as a reminder we skipped something.
+		// if (this.options._backupId) {}
+
+		return this._editorModelReference.object;
+
 	}
 
 }

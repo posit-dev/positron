@@ -8,6 +8,7 @@ import { Disposable } from 'vs/base/common/lifecycle';
 import { ISettableObservable } from 'vs/base/common/observableInternal/base';
 import { InputObservable } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookEditor';
 import { PositronNotebookComponent } from './PositronNotebookComponent';
+import { INotebookEditorViewState } from 'vs/workbench/contrib/notebook/browser/notebookBrowser';
 
 
 export class PositronNotebookWidget extends Disposable {
@@ -16,6 +17,13 @@ export class PositronNotebookWidget extends Disposable {
 	_message: string;
 	_size: ISettableObservable<ISize>;
 	_input: InputObservable;
+
+	/**
+ * Keep track of if this editor has been disposed.
+ */
+	isDisposed: boolean = false;
+
+
 
 	constructor(
 		{ message, size, input, baseElement }: {
@@ -69,6 +77,23 @@ export class PositronNotebookWidget extends Disposable {
 				size={this._size}
 				input={this._input} />
 		);
+	}
+
+	/**
+	 * Gets the current state of the editor. This should
+	 * fully determine the view we see.
+	 */
+	getEditorViewState(): INotebookEditorViewState {
+		// TODO: Implement logic here.
+		return {
+			editingCells: {},
+			cellLineNumberStates: {},
+			editorViewStates: {},
+			collapsedInputCells: {},
+			collapsedOutputCells: {},
+		};
+
+
 	}
 
 	override dispose() {
