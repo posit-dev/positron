@@ -637,12 +637,14 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 		}
 	};
 
+	const historyItems = ['item1', 'item2', 'item3'];
+
 	// Render.
 	return (
 		<div className='console-input' tabIndex={0} onFocus={focusHandler}>
 			<div ref={codeEditorWidgetContainerRef} />
 			{historyBrowserActive.current &&
-				<HistoryBrowserPopup />
+				<HistoryBrowserPopup items={historyItems} />
 			}
 		</div>
 	);
