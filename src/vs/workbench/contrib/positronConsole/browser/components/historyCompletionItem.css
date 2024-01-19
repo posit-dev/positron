@@ -1,3 +1,14 @@
 /*---------------------------------------------------------------------------------------------
  *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
+
+.history-completion-item {
+	white-space: nowrap;
+	cursor: pointer;
+	margin-left: 0;
+}
+
+.history-completion-item {
+	white-space: nowrap;
+	cursor: pointer;
+}

@@ -16,7 +16,7 @@ export interface HistoryBrowserPopupProps {
  * @returns The rendered component.
  */
 export const HistoryBrowserPopup = (props: HistoryBrowserPopupProps) => {
-	return <ul className='history-browser-popup'>
+	return <ul className='suggest-widget history-browser-popup'>
 		{props.items.map((item) => {
 			return <HistoryCompletionItem label={item} />;
 		})}
