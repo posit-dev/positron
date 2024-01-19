@@ -24,20 +24,42 @@ export class ConnectionItem {
 }
 
 /**
+ * A connection item representing a node in the tree objects allowed in
+ * the database connection.
+ *
+ * @param kind The kind of the node (e.g. 'schema', 'table', etc.)
+ * @param path The path to the node. This is represented as a list of tuples (name, type). Later,
+ *   we can use the path to get the node children by doing something like
+ * 	 `getChildren(schema='hello', table='world')`
+ */
+export class ConnectionItemNode extends ConnectionItem {
+	readonly kind: string;
+	readonly path: Array<{ name: string; kind: string }>;
+	constructor(readonly name: string, kind: string, path: Array<{ name: string; kind: string }>, client: positron.RuntimeClientInstance) {
+		super(name, client);
+		this.kind = kind;
+		this.path = path;
+	}
+}
+
+/**
  * A connection item representing a database connection (top-level)
  */
-export class ConnectionItemDatabase extends ConnectionItem {
+export class ConnectionItemDatabase extends ConnectionItemNode {
+	constructor(readonly name: string, readonly client: positron.RuntimeClientInstance) {
+		super(name, 'database', [], client);
+	}
 }
 
 /**
  * A connection item representing a table in a database
  */
-export class ConnectionItemTable extends ConnectionItem {
+export class ConnectionItemTable extends ConnectionItemNode {
 	/**
 	 * Preview the table's contents
 	 */
 	preview() {
-		this.client.performRpc({ msg_type: 'preview_table', table: this.name });
+		this.client.performRpc({ msg_type: 'preview_table', table: this.name, path: this.path });
 	}
 }
 
@@ -45,6 +67,9 @@ export class ConnectionItemTable extends ConnectionItem {
  * A connection item representing a field in a table
  */
 export class ConnectionItemField extends ConnectionItem {
+	constructor(readonly name: string, readonly client: positron.RuntimeClientInstance) {
+		super(name, client);
+	}
 }
 
 /**
@@ -79,7 +104,7 @@ export class ConnectionItemsProvider implements vscode.TreeDataProvider<Connecti
 	 */
 	getTreeItem(item: ConnectionItem): vscode.TreeItem {
 		// Both databases and tables can be expanded.
-		const collapsibleState = item instanceof ConnectionItemDatabase || item instanceof ConnectionItemTable;
+		const collapsibleState = item instanceof ConnectionItemNode;
 
 		// Create the tree item.
 		const treeItem = new vscode.TreeItem(item.name,
@@ -87,10 +112,7 @@ export class ConnectionItemsProvider implements vscode.TreeDataProvider<Connecti
 				vscode.TreeItemCollapsibleState.Collapsed :
 				vscode.TreeItemCollapsibleState.None);
 
-		if (item instanceof ConnectionItemDatabase) {
-			// Set the icon for databases
-			treeItem.iconPath = vscode.Uri.file(path.join(this.context.extensionPath, 'media', 'database.svg'));
-		} else if (item instanceof ConnectionItemTable) {
+		if (item instanceof ConnectionItemTable) {
 			// Set the icon for tables
 			treeItem.iconPath = vscode.Uri.file(path.join(this.context.extensionPath, 'media', 'table.svg'));
 
@@ -101,6 +123,9 @@ export class ConnectionItemsProvider implements vscode.TreeDataProvider<Connecti
 				tooltip: vscode.l10n.t(`Open ${item.name} in a new editor`),
 				arguments: [item]
 			};
+		} else if (item instanceof ConnectionItemNode) {
+			// Set the icon for databases
+			treeItem.iconPath = vscode.Uri.file(path.join(this.context.extensionPath, 'media', 'database.svg'));
 		} else if (item instanceof ConnectionItemField) {
 			// Set the icon for fields
 			treeItem.iconPath = vscode.Uri.file(path.join(this.context.extensionPath, 'media', 'field.svg'));
@@ -150,26 +175,29 @@ export class ConnectionItemsProvider implements vscode.TreeDataProvider<Connecti
 
 		if (element) {
 			return new Promise((resolve, _reject) => {
-				if (element instanceof ConnectionItemDatabase) {
-					// The children of a database are the tables
-					element.client.performRpc({ msg_type: 'tables_request' }).then(
-						(response: any) => {
-							const tables = response.tables as string[];
-							const tableItems = tables.map((table) => {
-								return new ConnectionItemTable(table, element.client);
-							});
-							resolve(tableItems);
-						}
-					);
-				} else if (element instanceof ConnectionItemTable) {
-					// The children of a table are the fields
-					element.client.performRpc({ msg_type: 'fields_request', table: element.name }).then(
+				if (element instanceof ConnectionItemTable) {
+					element.client.performRpc({ msg_type: 'fields_request', table: element.name, path: element.path }).then(
 						(response: any) => {
 							const fields = response.fields as string[];
 							const fieldItems = fields.map((field) => {
 								return new ConnectionItemField(field, element.client);
 							});
 							resolve(fieldItems);
+						}
+					);
+				} else if (element instanceof ConnectionItemNode) {
+					element.client.performRpc({ msg_type: 'tables_request', name: element.name, kind: element.kind, path: element.path }).then(
+						(response: any) => {
+							const objects = response.tables as Array<{ name: string; kind: string }>;
+							const objectItems = objects.map((obj) => {
+								const path = [...element.path, { name: obj.name, kind: obj.kind }];
+								if (obj.kind === 'table') {
+									return new ConnectionItemTable(obj.name, obj.kind, path, element.client);
+								} else {
+									return new ConnectionItemNode(obj.name, obj.kind, path, element.client);
+								}
+							});
+							resolve(objectItems);
 						}
 					);
 				}
