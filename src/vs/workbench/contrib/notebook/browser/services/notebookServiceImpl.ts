@@ -29,7 +29,6 @@ import { NotebookDiffEditorInput } from 'vs/workbench/contrib/notebook/common/no
 import { NotebookCellTextModel } from 'vs/workbench/contrib/notebook/common/model/notebookCellTextModel';
 import { NotebookTextModel } from 'vs/workbench/contrib/notebook/common/model/notebookTextModel';
 import { ACCESSIBLE_NOTEBOOK_DISPLAY_ORDER, CellUri, NotebookSetting, INotebookContributionData, INotebookExclusiveDocumentFilter, INotebookRendererInfo, INotebookTextModel, IOrderedMimeType, IOutputDto, MimeTypeDisplayOrder, NotebookData, NotebookEditorPriority, NotebookRendererMatch, NOTEBOOK_DISPLAY_ORDER, RENDERER_EQUIVALENT_EXTENSIONS, RENDERER_NOT_AVAILABLE, TransientOptions, NotebookExtensionDescription, INotebookStaticPreloadInfo } from 'vs/workbench/contrib/notebook/common/notebookCommon';
-// import { NotebookEditorInput } from 'vs/workbench/contrib/notebook/common/notebookEditorInput';
 import { INotebookEditorModelResolverService } from 'vs/workbench/contrib/notebook/common/notebookEditorModelResolverService';
 import { NotebookOutputRendererInfo, NotebookStaticPreloadInfo as NotebookStaticPreloadInfo } from 'vs/workbench/contrib/notebook/common/notebookOutputRenderer';
 import { NotebookEditorDescriptor, NotebookProviderInfo } from 'vs/workbench/contrib/notebook/common/notebookProvider';
@@ -44,6 +43,10 @@ import { INotebookDocument, INotebookDocumentService } from 'vs/workbench/servic
 // --- Start Positron ---
 import { ExtensionIdentifier } from 'vs/platform/extensions/common/extensions';
 import { PositronNotebookEditorInput } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookEditorInput';
+import { NotebookEditorInput } from 'vs/workbench/contrib/notebook/common/notebookEditorInput';
+
+// TODO: Make this variable based on a flag status set by the user.
+const USE_POSITRON_NOTEBOOK_EDITOR = true;
 // --- End Positron ---
 
 export class NotebookProviderInfoStore extends Disposable {
@@ -185,7 +188,7 @@ export class NotebookProviderInfoStore extends Disposable {
 				let notebookUri: URI;
 
 				let cellOptions: IResourceEditorInput | undefined;
-				// let preferredResource = resource;
+				const preferredResource = resource;
 
 				if (data) {
 					// resource is a notebook cell
@@ -203,9 +206,9 @@ export class NotebookProviderInfoStore extends Disposable {
 				const notebookOptions = { ...options, cellOptions } as INotebookEditorOptions;
 
 				//! Use our editor instead of the built in one.
-				// const editor = new PositronNotebookEditorInput(notebookUri);
-				const editor = this._instantiationService.createInstance(PositronNotebookEditorInput, notebookUri);
-				// const editor = NotebookEditorInput.getOrCreate(this._instantiationService, notebookUri, preferredResource, notebookProviderInfo.id);
+				const editor = USE_POSITRON_NOTEBOOK_EDITOR ?
+					this._instantiationService.createInstance(PositronNotebookEditorInput, notebookUri, notebookProviderInfo.id) :
+					NotebookEditorInput.getOrCreate(this._instantiationService, notebookUri, preferredResource, notebookProviderInfo.id);
 				return { editor, options: notebookOptions };
 			};
 
@@ -218,8 +221,11 @@ export class NotebookProviderInfoStore extends Disposable {
 					ref.dispose();
 				});
 
-				// return { editor: NotebookEditorInput.getOrCreate(this._instantiationService, ref.object.resource, undefined, notebookProviderInfo.id), options };
-				const editor = this._instantiationService.createInstance(PositronNotebookEditorInput, ref.object.resource);
+
+				//! Use our editor instead of the built in one.
+				const editor = USE_POSITRON_NOTEBOOK_EDITOR ?
+					this._instantiationService.createInstance(PositronNotebookEditorInput, ref.object.resource, notebookProviderInfo.id) :
+					NotebookEditorInput.getOrCreate(this._instantiationService, ref.object.resource, undefined, notebookProviderInfo.id);
 
 				return { editor, options };
 			};

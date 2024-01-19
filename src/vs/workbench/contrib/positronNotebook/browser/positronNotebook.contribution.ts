@@ -86,19 +86,27 @@ class PositronNotebookContribution extends Disposable {
 		super();
 
 		this._register(editorResolverService.registerEditor(
+			// The glob pattern for this registration
 			`${Schemas.positronNotebook}:**/**`,
+			// Information about the registration
 			{
 				id: PositronNotebookEditorInput.EditorID,
 				label: localize('positronNotebook', "Positron Notebook"),
 				priority: RegisteredEditorPriority.builtin
 			},
+			// Specific options which apply to this registration
 			{
 				singlePerResource: true,
 				canSupportResource: resource => resource.scheme === Schemas.positronNotebook
 			},
+			// The editor input factory functions
 			{
+				// Right now this doesn't do anything because we hijack the
+				// vscode built in notebook factories to open our notebooks.
 				createEditorInput: ({ resource, options }) => {
-					return { editor: instantiationService.createInstance(PositronNotebookEditorInput, resource), options };
+					// TODO: Make this be based on the actual file.
+					const temporaryViewType = 'jupyter-notebook';
+					return { editor: instantiationService.createInstance(PositronNotebookEditorInput, resource, temporaryViewType), options };
 				}
 			}
 		));
