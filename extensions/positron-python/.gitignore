@@ -51,4 +51,7 @@ dist/**
 *.i18n.json
 l10n/
 tags
+# --- Start Positron ---
 pythonFiles/tests/positron/images
+pythonFiles/positron/_vendor/**
+# --- End Positron ---

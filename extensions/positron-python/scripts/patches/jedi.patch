@@ -1,0 +1,21 @@
+diff --git a/pythonFiles/positron/_vendor/jedi/api/replstartup.py b/pythonFiles/positron/_vendor/jedi/api/replstartup.py
+index e0f23d19b..f30731476 100644
+--- a/pythonFiles/positron/_vendor/jedi/api/replstartup.py
++++ b/pythonFiles/positron/_vendor/jedi/api/replstartup.py
+@@ -17,13 +17,13 @@ Then you will be able to use Jedi completer in your Python interpreter::
+     ..dex   ..sert
+ 
+ """
+-import jedi.utils
++from jedi.utils import setup_readline
+ from jedi import __version__ as __jedi_version__
+ 
+ print('REPL completion using Jedi %s' % __jedi_version__)
+-jedi.utils.setup_readline(fuzzy=False)
++setup_readline(fuzzy=False)
+ 
+-del jedi
++del setup_readline
+ 
+ # Note: try not to do many things here, as it will contaminate global
+ # namespace of the interpreter.

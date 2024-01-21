@@ -200,37 +200,81 @@ def test_pydoc_py311_breaking_changes(func: Callable, args: Tuple[Any, ...]) -> 
     func(*args)
 
 
+def _no_args():
+    pass
+
+
+def _one_arg(values):
+    pass
+
+
+def _two_args(loc, value):
+    pass
+
+
+def _required_and_optional_args(other, axis=None, level=None):
+    pass
+
+
+def _only_optional_args(index=None, name=None):
+    pass
+
+
+def _keyword_only_required_and_optional_args(*, columns, index=None, values=None):
+    pass
+
+
+def _keyword_only_optional_args(*, axis=None, inplace=None, limit=None, downcast=None):
+    pass
+
+
+def _required_and_keyword_only_optional_args(labels, *, axis=None, copy=None):
+    pass
+
+
+def _variadic_positional_and_keyword_args(func, *args, **kwargs):
+    pass
+
+
+def _variadic_keyword_args(**kwargs):
+    pass
+
+
+def _variadic_positional_and_optional_keyword_args(*args, copy=None):
+    pass
+
+
+def _truncated_1(other, join=None, overwrite=None, filter_func=None, errors=None):
+    pass
+
+
+def _truncated_2(subset=None, normalize=None, sort=None, ascending=None, dropna=None):
+    pass
+
+
+def _truncated_3(subset=None, *, keep, inplace, ignore_index):
+    pass
+
+
 @pytest.mark.parametrize(
     ("func", "expected"),
     [
-        # No args
-        (pd.DataFrame.isna, "()"),
-        # One arg
-        (pd.DataFrame.isin, "(values)"),
-        # Two args
-        (pd.DataFrame.isetitem, "(loc, value)"),
-        # Required and optional args
-        (pd.DataFrame.ne, "(other[, axis, level])"),  # type: ignore
-        # Only optional args
-        (pd.DataFrame.itertuples, "([index, name])"),
-        # Only keyword-only args, some required, some optional
-        (pd.DataFrame.pivot, "(*, columns[, index, values])"),
-        # Only keyword-only optional args
-        (pd.DataFrame.ffill, "(*[, axis, inplace, limit, downcast])"),
-        # Required args and optional keyword-only args
-        (pd.DataFrame.set_axis, "(labels, *[, axis, copy])"),
-        # Variadic positional and variadic keyword args
-        (pd.DataFrame.pipe, "(func, *args, **kwargs)"),
-        # Only variadic keyword args
-        (pd.DataFrame.assign, "(**kwargs)"),
-        # Variadic positional and optional keyword only
-        (pd.DataFrame.transpose, "(*args[, copy])"),
-        # Truncated
-        (pd.DataFrame.update, "(other[, join, overwrite, ...])"),
-        (pd.DataFrame.value_counts, "([subset, normalize, sort, ...])"),
-        (pd.DataFrame.drop_duplicates, "([subset, *, keep, inplace, ...])"),
+        (_no_args, "()"),
+        (_one_arg, "(values)"),
+        (_two_args, "(loc, value)"),
+        (_required_and_optional_args, "(other[, axis, level])"),
+        (_only_optional_args, "([index, name])"),
+        (_keyword_only_required_and_optional_args, "(*, columns[, index, values])"),
+        (_keyword_only_optional_args, "(*[, axis, inplace, limit, downcast])"),
+        (_required_and_keyword_only_optional_args, "(labels, *[, axis, copy])"),
+        (_variadic_positional_and_keyword_args, "(func, *args, **kwargs)"),
+        (_variadic_keyword_args, "(**kwargs)"),
+        (_variadic_positional_and_optional_keyword_args, "(*args[, copy])"),
+        (_truncated_1, "(other[, join, overwrite, ...])"),
+        (_truncated_2, "([subset, normalize, sort, ...])"),
+        (_truncated_3, "([subset, *, keep, inplace, ...])"),
         # Non-callable
-        (pd, None),
+        (None, None),
     ],
 )
 def test_compact_signature(func: Callable, expected: str) -> None:

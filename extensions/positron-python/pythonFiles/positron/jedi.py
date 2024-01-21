@@ -4,31 +4,30 @@
 
 from typing import Any, Tuple
 
-from jedi import cache, debug
-from jedi.api import Interpreter
-from jedi.api.classes import Completion
-from jedi.api.completion import (
+from ._vendor.jedi import cache, debug
+from ._vendor.jedi.api import Interpreter
+from ._vendor.jedi.api.classes import Completion
+from ._vendor.jedi.api.completion import (
     Completion as CompletionAPI,  # Rename to avoid conflict with classes.Completion
 )
-from jedi.api.completion import (
+from ._vendor.jedi.api.completion import (
     _extract_string_while_in_string,
     _remove_duplicates,
     filter_names,
 )
-from jedi.api.file_name import complete_file_name
-from jedi.api.interpreter import MixedModuleContext
-from jedi.api.strings import complete_dict, get_quote_ending
-from jedi.cache import memoize_method
-from jedi.file_io import KnownContentFileIO
-from jedi.inference.base_value import HasNoContext
-from jedi.inference.compiled import ExactValue
-from jedi.inference.compiled.mixed import MixedName, MixedObject
-from jedi.inference.compiled.value import CompiledName, CompiledValue
-from jedi.inference.context import ValueContext
-from jedi.inference.helpers import infer_call_of_leaf
-from jedi.inference.value import ModuleValue
-from jedi.parser_utils import cut_value_at_position
-
+from ._vendor.jedi.api.file_name import complete_file_name
+from ._vendor.jedi.api.interpreter import MixedModuleContext
+from ._vendor.jedi.api.strings import complete_dict, get_quote_ending
+from ._vendor.jedi.cache import memoize_method
+from ._vendor.jedi.file_io import KnownContentFileIO
+from ._vendor.jedi.inference.base_value import HasNoContext
+from ._vendor.jedi.inference.compiled import ExactValue
+from ._vendor.jedi.inference.compiled.mixed import MixedName, MixedObject
+from ._vendor.jedi.inference.compiled.value import CompiledName, CompiledValue
+from ._vendor.jedi.inference.context import ValueContext
+from ._vendor.jedi.inference.helpers import infer_call_of_leaf
+from ._vendor.jedi.inference.value import ModuleValue
+from ._vendor.jedi.parser_utils import cut_value_at_position
 from .utils import safe_isinstance
 
 #

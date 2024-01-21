@@ -10,6 +10,7 @@ exclude = '''
     .data
     | .vscode
     | lib
+    | positron/_vendor
   )/
 )
 '''
@@ -17,10 +18,13 @@ line-length = 100
 
 [tool.isort]
 profile = "black"
+extend_skip = ['positron/_vendor']
+known_first_party = ['positron']
+known_third_party = ['positron._vendor']
 
 [tool.pyright]
-exclude = ['lib']
-extraPaths = ['lib/python', 'lib/jedilsp']
+exclude = ['lib', 'positron/_vendor']
+extraPaths = ['lib/python', 'positron/_vendor']
 ignore = [
     # Ignore all pre-existing code with issues
     'get-pip.py',
@@ -75,5 +79,6 @@ exclude = [
     'pythonFiles/tests/pytestadapter/expected_execution_test_output.py',
     'pythonFiles/tests/unittestadapter/.data/discovery_error/file_one.py',
     'pythonFiles/tests/unittestadapter/test_utils.py',
-
+    # Ignore vendored dependencies
+    'pythonFiles/positron/_vendor/',
 ]

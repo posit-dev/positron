@@ -10,11 +10,12 @@ import threading
 from functools import lru_cache
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Type, Union, cast
 
-import attrs
 from comm.base_comm import BaseComm
-from jedi.api import Interpreter, Project
-from jedi_language_server import jedi_utils, pygls_utils
-from jedi_language_server.server import (
+
+from ._vendor import attrs
+from ._vendor.jedi.api import Interpreter, Project
+from ._vendor.jedi_language_server import jedi_utils, pygls_utils
+from ._vendor.jedi_language_server.server import (
     JediLanguageServer,
     JediLanguageServerProtocol,
     _choose_markup,
@@ -31,7 +32,7 @@ from jedi_language_server.server import (
     type_definition,
     workspace_symbol,
 )
-from lsprotocol.types import (
+from ._vendor.lsprotocol.types import (
     COMPLETION_ITEM_RESOLVE,
     TEXT_DOCUMENT_CODE_ACTION,
     TEXT_DOCUMENT_COMPLETION,
@@ -81,10 +82,9 @@ from lsprotocol.types import (
     WorkspaceEdit,
     WorkspaceSymbolParams,
 )
-from pygls.capabilities import get_capability
-from pygls.feature_manager import has_ls_param_or_annotation
-from pygls.workspace.text_document import TextDocument
-
+from ._vendor.pygls.capabilities import get_capability
+from ._vendor.pygls.feature_manager import has_ls_param_or_annotation
+from ._vendor.pygls.workspace.text_document import TextDocument
 from .help_comm import ShowHelpTopicParams
 from .inspectors import BaseColumnInspector, BaseTableInspector, get_inspector
 from .jedi import PositronInterpreter, get_python_object
@@ -651,7 +651,7 @@ def positron_did_close_diagnostics(
 # Copied from jedi_language_server/server.py to handle exceptions. Exceptions should be handled by
 # pygls, but the debounce decorator causes the function to run in a separate thread thus a separate
 # stack from pygls' exception handler.
-@jedi_utils.debounce(1, keyed_by="uri")
+@jedi_utils.debounce(1, keyed_by="uri")  # type: ignore - pyright bug
 def _publish_diagnostics(server: JediLanguageServer, uri: str) -> None:
     """Helper function to publish diagnostics for a file."""
     # The debounce decorator delays the execution by 1 second
@@ -678,17 +678,17 @@ def _publish_diagnostics(server: JediLanguageServer, uri: str) -> None:
 
 def did_save_diagnostics(server: JediLanguageServer, params: DidSaveTextDocumentParams) -> None:
     """Actions run on textDocument/didSave: diagnostics."""
-    _publish_diagnostics(server, params.text_document.uri)
+    _publish_diagnostics(server, params.text_document.uri)  # type: ignore - pyright bug
 
 
 def did_change_diagnostics(server: JediLanguageServer, params: DidChangeTextDocumentParams) -> None:
     """Actions run on textDocument/didChange: diagnostics."""
-    _publish_diagnostics(server, params.text_document.uri)
+    _publish_diagnostics(server, params.text_document.uri)  # type: ignore - pyright bug
 
 
 def did_open_diagnostics(server: JediLanguageServer, params: DidOpenTextDocumentParams) -> None:
     """Actions run on textDocument/didOpen: diagnostics."""
-    _publish_diagnostics(server, params.text_document.uri)
+    _publish_diagnostics(server, params.text_document.uri)  # type: ignore - pyright bug
 
 
 def interpreter(

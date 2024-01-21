@@ -90,10 +90,7 @@ jobs:
           options: '-t ./pythonFiles/lib/python --no-cache-dir --implementation py'
 
       - name: Install Jedi requirements
-        uses: brettcannon/pip-secure-install@v1
-        with:
-          requirements-file: './pythonFiles/jedilsp_requirements/requirements.txt'
-          options: '-t ./pythonFiles/lib/jedilsp --no-cache-dir --implementation py'
+        run: python scripts/vendor.py
 
       - name: Install other Python requirements
         run: |
@@ -205,10 +202,7 @@ jobs:
         if: startsWith(matrix.python, 3.)
 
       - name: Install Jedi requirements
-        uses: brettcannon/pip-secure-install@v1
-        with:
-          requirements-file: '"${{ env.special-working-directory-relative }}/pythonFiles/jedilsp_requirements/requirements.txt"'
-          options: '-t "${{ env.special-working-directory-relative }}/pythonFiles/lib/jedilsp" --no-cache-dir --implementation py'
+        run: python scripts/vendor.py
         if: startsWith(matrix.python, 3.)
 
       - name: Install test requirements
