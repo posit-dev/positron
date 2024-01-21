@@ -8,9 +8,9 @@ from unittest.mock import Mock
 import pandas as pd
 import polars as pl
 import pytest
-from jedi import Project
-from jedi_language_server import jedi_utils
-from lsprotocol.types import (
+from positron._vendor.jedi import Project
+from positron._vendor.jedi_language_server import jedi_utils
+from positron._vendor.lsprotocol.types import (
     CompletionItem,
     CompletionParams,
     MarkupContent,
@@ -18,7 +18,7 @@ from lsprotocol.types import (
     Position,
     TextDocumentIdentifier,
 )
-from pygls.workspace.text_document import TextDocument
+from positron._vendor.pygls.workspace.text_document import TextDocument
 
 from positron.help_comm import ShowHelpTopicParams
 from positron.jedi import PositronInterpreter

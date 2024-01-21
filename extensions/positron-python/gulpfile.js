@@ -250,8 +250,8 @@ gulp.task('checkDependencies', gulp.series('checkNativeDependencies'));
 gulp.task('prePublishNonBundle', gulp.series('compile'));
 
 // --- Start Positron ---
-gulp.task('installPythonRequirements', async () => {
-    let args = [
+gulp.task('installPythonRequirements', async (done) => {
+    const args = [
         '-m',
         'pip',
         '--disable-pip-version-check',
@@ -274,28 +274,10 @@ gulp.task('installPythonRequirements', async () => {
             return false;
         });
 
-    args = [
-        '-m',
-        'pip',
-        '--disable-pip-version-check',
-        'install',
-        '--no-user',
-        '-t',
-        './pythonFiles/lib/jedilsp',
-        '--no-cache-dir',
-        '--implementation',
-        'py',
-        '--no-deps',
-        '--upgrade',
-        '-r',
-        './pythonFiles/jedilsp_requirements/requirements.txt',
-    ];
-    await spawnAsync(pythonCommand, args, undefined, true)
-        .then(() => true)
-        .catch((ex) => {
-            console.error("Failed to install Jedi LSP requirements using 'python'", ex);
-            return false;
-        });
+    // Vendor Python requirements for the Positron Python kernel.
+    await spawnAsync(pythonCommand, ['scripts/vendor.py'], true).catch((ex) => {
+        done(new Error(`Failed to sync vendored Python requirements\n\n${ex}`));
+    });
 });
 
 // See https://github.com/microsoft/vscode-python/issues/7136
