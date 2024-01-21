@@ -4,7 +4,7 @@
 
 from __future__ import annotations
 
-import importlib
+import importlib.metadata
 import inspect
 import io
 import logging
@@ -22,11 +22,11 @@ from traceback import format_exception_only
 from types import ModuleType
 from typing import Any, Dict, List, Optional, Type, cast
 
-from markdown_it import MarkdownIt
-from pygments import highlight
-from pygments.formatters.html import HtmlFormatter
-from pygments.lexers import get_lexer_by_name
-
+from ._vendor.markdown_it import MarkdownIt
+from ._vendor.pygments import highlight
+from ._vendor.pygments.formatters.html import HtmlFormatter
+from ._vendor.pygments.lexers import get_lexer_by_name
+from ._vendor.pygments.util import ClassNotFound
 from .docstrings import convert_docstring
 from .utils import get_module_name, is_numpy_ufunc
 
@@ -923,9 +923,12 @@ def _highlight(code: str, name: str, attrs: str) -> str:
 
     ... it would call `_highlight('print("Hello, world!"'), "python", ["attr1", "attr2"])`.
     """
-    # Default to the `TextLexer` which doesn't highlight anything.
-    name = name or "text"
-    lexer = get_lexer_by_name(name)
+    try:
+        lexer = get_lexer_by_name(name)
+    except ClassNotFound:
+        # Default to the `TextLexer` which doesn't highlight anything.
+        lexer = get_lexer_by_name("text")
+
     formatter = HtmlFormatter()
     result = highlight(code, lexer, formatter)
     return cast(str, result)

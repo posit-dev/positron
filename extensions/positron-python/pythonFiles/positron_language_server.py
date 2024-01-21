@@ -11,13 +11,8 @@ import sys
 
 from traitlets.config import Config
 
-# Add the lib path to our sys path so jedi_language_server can find its references
-EXTENSION_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, os.path.join(EXTENSION_ROOT, "pythonFiles", "lib", "jedilsp"))
-sys.path.insert(1, os.path.join(EXTENSION_ROOT, "pythonFiles", "lib", "python"))
-
-from positron.positron_ipkernel import PositronIPKernelApp  # noqa
-from positron.positron_jedilsp import POSITRON  # noqa
+from positron.positron_ipkernel import PositronIPKernelApp
+from positron.positron_jedilsp import POSITRON
 
 logger = logging.getLogger(__name__)
 
