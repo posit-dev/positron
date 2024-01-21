@@ -26,10 +26,8 @@ freezegun
 fastcore
 ipykernel
 ipywidgets
-jedi
-jedi_language_server
-lsprotocol
 matplotlib
+numpy
 pandas
 # Require pillow >= 10.0.1 to avoid CVE-2023-4863
 pillow>=10.0.1
