@@ -230,6 +230,16 @@ function insertSection() {
 				return;
 			}
 
+			// If the user has rulers enabled, we want to make sure the section
+			// header is aligned with the rulers; otherwise, just use a standard
+			// 80 character limit.
+			//
+			// Let the section header run up to 5 characters short of the first
+			// ruler.
+			const config = vscode.workspace.getConfiguration('editor');
+			const rulers = config.get<Array<number>>('rulers');
+			const targetWidth = rulers && rulers.length > 0 ? rulers[0] - 5 : 75;
+
 			// Get the current selection and text.
 			const selection = editor.selection;
 			const text = editor.document.getText(selection);
@@ -237,9 +247,14 @@ function insertSection() {
 			// Create the section header.
 			let section = '\n# ' + sectionName + ' ';
 
-			// Add dashes up to a 75 character limit.
-			for (let i = section.length; i < 75; i++) {
-				section += '-';
+			if (targetWidth - section.length < 4) {
+				// A section header must have at least 4 dashes
+				section += '----';
+			} else {
+				// Add dashes up to the target width.
+				for (let i = section.length; i < targetWidth; i++) {
+					section += '-';
+				}
 			}
 			section += '\n\n';
 
