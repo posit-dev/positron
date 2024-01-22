@@ -341,7 +341,7 @@
         "command": "r.insertSection",
         "key": "ctrl+k h",
         "mac": "cmd+k h",
-        "when": "editorLangId == r"
+        "when": "editorLangId == r && editorTextFocus"
       }
     ],
     "menus": {
