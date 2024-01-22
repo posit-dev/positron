@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
@@ -241,10 +241,10 @@ function insertSection() {
 			for (let i = section.length; i < 75; i++) {
 				section += '-';
 			}
-			section += '\n';
+			section += '\n\n';
 
 			editor.edit((editBuilder) => {
-				editBuilder.replace(selection, section + text);
+				editBuilder.replace(selection, text + section);
 			});
 		}
 	});
