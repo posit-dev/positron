@@ -8,6 +8,7 @@ import { HistoryCompletionItem } from 'vs/workbench/contrib/positronConsole/brow
 
 export interface HistoryBrowserPopupProps {
 	items: string[];
+	selectedIndex: number;
 }
 
 /**
@@ -17,8 +18,8 @@ export interface HistoryBrowserPopupProps {
  */
 export const HistoryBrowserPopup = (props: HistoryBrowserPopupProps) => {
 	return <ul className='suggest-widget history-browser-popup'>
-		{props.items.map((item) => {
-			return <HistoryCompletionItem label={item} />;
+		{props.items.map((item, index) => {
+			return <HistoryCompletionItem label={item} selected={props.selectedIndex === index} />;
 		})}
 	</ul>;
 };

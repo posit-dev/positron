@@ -16,4 +16,5 @@
 	max-height: 430px;
 	z-index: 40;
 	color: var(--vscode-editorSuggestWidget-foreground);
+	padding: 4px;
 }

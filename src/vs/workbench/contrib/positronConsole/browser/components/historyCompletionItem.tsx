@@ -7,8 +7,11 @@ import * as React from 'react';
 
 export interface HistoryCompletionItemProps {
 	readonly label: string;
+	readonly selected: boolean;
 }
 
 export const HistoryCompletionItem = (props: HistoryCompletionItemProps) => {
-	return <li className='history-completion-item'>{props.label}</li>;
+	return <li className={'history-completion-item' + props.selected ? ' selected' : ''}>
+		{props.label}
+	</li>;
 };

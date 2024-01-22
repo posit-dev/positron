@@ -6,9 +6,10 @@
 	white-space: nowrap;
 	cursor: pointer;
 	margin-left: 0;
+	padding-left: 0;
 }
 
-.history-completion-item {
-	white-space: nowrap;
-	cursor: pointer;
+.history-completion-item.selected {
+	color: var(--vscode-editorSuggestWidget-selectedForeground);
+	background-color: var(--vscode-editorSuggestWidget-selectedBackground);
 }

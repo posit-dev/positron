@@ -67,6 +67,7 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 	const [, setCodeEditorWidget, codeEditorWidgetRef] = useStateRef<CodeEditorWidget>(undefined!);
 	const [, setCodeEditorWidth, codeEditorWidthRef] = useStateRef(props.width);
 	const [, setHistoryBrowserActive, historyBrowserActive] = useStateRef(false);
+	const [, setHistoryBrowseSelectedIndex, historyBrowserSelectedIndex] = useStateRef(0);
 	const [, setHistoryNavigator, historyNavigatorRef] =
 		useStateRef<HistoryNavigator2<IInputHistoryEntry> | undefined>(undefined);
 	const [, setCurrentCodeFragment, currentCodeFragmentRef] =
@@ -241,6 +242,14 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 					break;
 				}
 
+				console.log(`Up arrow pressed. browser active: ${historyBrowserActive.current}, selected index: ${historyBrowserSelectedIndex.current}`);
+				// If the history browser is up, update the selected index.
+				if (historyBrowserActive.current) {
+					setHistoryBrowseSelectedIndex(Math.max(0, historyBrowserSelectedIndex.current - 1));
+					consumeEvent();
+					break;
+				}
+
 				// Get the position. If it's at line number 1, allow backward history navigation.
 				const position = codeEditorWidgetRef.current.getPosition();
 				if (position?.lineNumber === 1) {
@@ -272,6 +281,16 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 
 			// Down arrow processing.
 			case KeyCode.DownArrow: {
+
+				console.log(`Down arrow pressed. browser active: ${historyBrowserActive.current}, selected index: ${historyBrowserSelectedIndex.current}`);
+
+				// If the history browser is up, update the selected index.
+				if (historyBrowserActive.current) {
+					setHistoryBrowseSelectedIndex(Math.max(3, historyBrowserSelectedIndex.current + 1));
+					consumeEvent();
+					break;
+				}
+
 				// Get the position and text model. If it's on the last line, allow forward history
 				// navigation.
 				const position = codeEditorWidgetRef.current.getPosition();
@@ -644,7 +663,8 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 		<div className='console-input' tabIndex={0} onFocus={focusHandler}>
 			<div ref={codeEditorWidgetContainerRef} />
 			{historyBrowserActive.current &&
-				<HistoryBrowserPopup items={historyItems} />
+				<HistoryBrowserPopup items={historyItems}
+					selectedIndex={historyBrowserSelectedIndex.current} />
 			}
 		</div>
 	);
