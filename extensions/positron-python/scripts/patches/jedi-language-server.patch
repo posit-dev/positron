@@ -3,7 +3,7 @@ index 4f3ba7bd5..52524daa2 100644
 --- a/pythonFiles/positron/_vendor/jedi_language_server/jedi_utils.py
 +++ b/pythonFiles/positron/_vendor/jedi_language_server/jedi_utils.py
 @@ -12,9 +12,9 @@ from inspect import Parameter
- from typing import Any, Callable, Dict, Iterator, List, Optional, Tuple
+ from typing import Any, Callable, Dict, Iterator, List, Optional, Tuple, Union
  
  import docstring_to_markdown
 -import jedi.api.errors
@@ -13,9 +13,9 @@ index 4f3ba7bd5..52524daa2 100644
 +from jedi.api.errors import SyntaxError as JediSyntaxError
 +from jedi import settings
  from jedi import Project, Script
- from jedi.api.classes import BaseName, Completion, Name, ParamName, Signature
- from lsprotocol.types import (
-@@ -98,14 +98,14 @@ def set_jedi_settings(
+ from jedi.api.classes import (
+     BaseName,
+@@ -105,14 +105,14 @@ def set_jedi_settings(
      initialization_options: InitializationOptions,
  ) -> None:
      """Sets jedi settings."""
@@ -33,7 +33,7 @@ index 4f3ba7bd5..52524daa2 100644
          initialization_options.jedi_settings.case_insensitive_completion
      )
      if initialization_options.jedi_settings.debug:
-@@ -278,7 +278,7 @@ def lsp_document_symbols(names: List[Name]) -> List[DocumentSymbol]:
+@@ -284,7 +284,7 @@ def lsp_document_symbols(names: List[Name]) -> List[DocumentSymbol]:
      return results
  
  
@@ -46,14 +46,9 @@ diff --git a/pythonFiles/positron/_vendor/jedi_language_server/__init__.py b/pyt
 index ba6eaf9fe..28266bd95 100644
 --- a/pythonFiles/positron/_vendor/jedi_language_server/__init__.py
 +++ b/pythonFiles/positron/_vendor/jedi_language_server/__init__.py
-@@ -1,9 +1,3 @@
+@@ -1,4 +1,3 @@
  """Jedi Language Server."""
--import sys
--
--if sys.version_info < (3, 8):
--    from importlib_metadata import version
--else:
--    from importlib.metadata import version
+-from importlib.metadata import version
  
 -__version__ = version("jedi-language-server")
 +__version__ = "unknown"
