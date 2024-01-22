@@ -27,6 +27,10 @@ export async function registerCommands(context: vscode.ExtensionContext) {
 			insertOperatorWithSpace(pipeString);
 		}),
 
+		vscode.commands.registerCommand('r.insertSection', () => {
+			insertSection();
+		}),
+
 		// TODO: remove this hack when we can address the Console like an editor
 		vscode.commands.registerCommand('r.insertPipeConsole', () => {
 			const extConfig = vscode.workspace.getConfiguration('positron.r');
@@ -198,6 +202,51 @@ function insertOperatorWithSpace(op: string) {
 
 			editBuilder.replace(sel, insertValue);
 		});
+	});
+}
+
+/**
+ * Inserts a named section into the editor, attempting to emulate the
+ * behavior of RStudio's "Insert Section" command.
+ *
+ * Note that the keybinding this command doesn't match RStudio's by default since
+ * the default keybinding for "Insert Section" in VS Code is already used
+ * for Search Again. The RStudio Keymap extension can be used to restore the
+ * original binding (Cmd+Shift+R).
+ *
+ * @see https://docs.posit.co/ide/user/ide/guide/code/code-sections.html#code-sections
+ */
+function insertSection() {
+	vscode.window.showInputBox({
+		placeHolder: vscode.l10n.t('Section label'),
+		prompt: vscode.l10n.t('Enter the name of the section to insert'),
+	}).then((sectionName) => {
+		if (sectionName) {
+			// Get the active text editor. The 'insertSection' command only
+			// lights up when an R editor is focused, so we expect this to
+			// always be defined.
+			const editor = vscode.window.activeTextEditor;
+			if (!editor) {
+				return;
+			}
+
+			// Get the current selection and text.
+			const selection = editor.selection;
+			const text = editor.document.getText(selection);
+
+			// Create the section header.
+			let section = '\n# ' + sectionName + ' ';
+
+			// Add dashes up to a 75 character limit.
+			for (let i = section.length; i < 75; i++) {
+				section += '-';
+			}
+			section += '\n';
+
+			editor.edit((editBuilder) => {
+				editBuilder.replace(selection, section + text);
+			});
+		}
 	});
 }
 

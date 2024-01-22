@@ -336,6 +336,12 @@
         "key": "ctrl+shift+enter",
         "mac": "cmd+shift+enter",
         "when": "editorLangId == r"
+      },
+      {
+        "command": "r.insertSection",
+        "key": "ctrl+k h",
+        "mac": "cmd+k h",
+        "when": "editorLangId == r"
       }
     ],
     "menus": {
@@ -366,6 +372,12 @@
           "category": "R",
           "command": "r.insertLeftAssignmentConsole",
           "when": "editorLangId == r && positronConsoleFocused"
+        },
+        {
+          "category": "R",
+          "command": "r.insertSection",
+          "title": "%r.command.insertSection.title%",
+          "when": "editorLangId == r && editorTextFocus"
         },
         {
           "category": "R",
