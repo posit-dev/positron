@@ -121,14 +121,6 @@ export class ConnectionItemsProvider implements vscode.TreeDataProvider<Connecti
 			// Set the icon for tables
 			treeItem.iconPath = vscode.Uri.file(path.join(this.context.extensionPath, 'media', 'table.svg'));
 			treeItem.contextValue = 'table';
-
-			// Tables can previewed in a new editor
-			// treeItem.command = {
-			// 	title: vscode.l10n.t('Preview Table'),
-			// 	command: 'positron.connections.previewTable',
-			// 	tooltip: vscode.l10n.t(`Open ${item.name} in a new editor`),
-			// 	arguments: [item]
-			// };
 		} else if (item instanceof ConnectionItemNode) {
 			// Set the icon for databases
 			treeItem.iconPath = vscode.Uri.file(path.join(this.context.extensionPath, 'media', 'database.svg'));
