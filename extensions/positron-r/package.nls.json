@@ -7,6 +7,7 @@
 	"r.command.packageLoad.title": "Load R Package",
 	"r.command.insertPipe.title": "Insert the pipe operator",
 	"r.command.insertLeftAssignment.title": "Insert the \"<-\" assignment operator",
+	"r.command.insertSection.title": "Insert a new section",
 	"r.command.packageBuild.title": "Build R Package",
 	"r.command.packageInstall.title": "Install R Package and Restart R",
 	"r.command.packageTest.title": "Test R Package",

@@ -57,6 +57,13 @@
         "enablement": "editorLangId == r && positronConsoleFocused"
       },
       {
+        "command": "r.insertSection",
+        "category": "R",
+        "title": "%r.command.insertSection.title%",
+        "shortTitle": "%r.menu.insertSection.title%",
+        "enablement": "editorLangId == r"
+      },
+      {
         "command": "r.packageLoad",
         "category": "R",
         "title": "%r.command.packageLoad.title%",
@@ -336,6 +343,12 @@
         "key": "ctrl+shift+enter",
         "mac": "cmd+shift+enter",
         "when": "editorLangId == r"
+      },
+      {
+        "command": "r.insertSection",
+        "key": "ctrl+k h",
+        "mac": "cmd+k h",
+        "when": "editorLangId == r"
       }
     ],
     "menus": {
@@ -366,6 +379,11 @@
           "category": "R",
           "command": "r.insertLeftAssignmentConsole",
           "when": "editorLangId == r && positronConsoleFocused"
+        },
+        {
+          "category": "R",
+          "command": "r.insertSection",
+          "when": "editorLangId == r"
         },
         {
           "category": "R",

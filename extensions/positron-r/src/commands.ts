@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
@@ -25,6 +25,10 @@ export async function registerCommands(context: vscode.ExtensionContext) {
 			const extConfig = vscode.workspace.getConfiguration('positron.r');
 			const pipeString = extConfig.get<string>('pipe') || '|>';
 			insertOperatorWithSpace(pipeString);
+		}),
+
+		vscode.commands.registerCommand('r.insertSection', () => {
+			insertSection();
 		}),
 
 		// TODO: remove this hack when we can address the Console like an editor
@@ -198,6 +202,66 @@ function insertOperatorWithSpace(op: string) {
 
 			editBuilder.replace(sel, insertValue);
 		});
+	});
+}
+
+/**
+ * Inserts a named section into the editor, attempting to emulate the
+ * behavior of RStudio's "Insert Section" command.
+ *
+ * Note that the keybinding this command doesn't match RStudio's by default since
+ * the default keybinding for "Insert Section" in VS Code is already used
+ * for Search Again. The RStudio Keymap extension can be used to restore the
+ * original binding (Cmd+Shift+R).
+ *
+ * @see https://docs.posit.co/ide/user/ide/guide/code/code-sections.html#code-sections
+ */
+function insertSection() {
+	vscode.window.showInputBox({
+		placeHolder: vscode.l10n.t('Section label'),
+		prompt: vscode.l10n.t('Enter the name of the section to insert'),
+	}).then((sectionName) => {
+		if (sectionName) {
+			// Get the active text editor. The 'insertSection' command only
+			// lights up when an R editor is focused, so we expect this to
+			// always be defined.
+			const editor = vscode.window.activeTextEditor;
+			if (!editor) {
+				return;
+			}
+
+			// If the user has rulers enabled, we want to make sure the section
+			// header is aligned with the rulers; otherwise, just use a standard
+			// 80 character limit.
+			//
+			// Let the section header run up to 5 characters short of the first
+			// ruler.
+			const config = vscode.workspace.getConfiguration('editor');
+			const rulers = config.get<Array<number>>('rulers');
+			const targetWidth = rulers && rulers.length > 0 ? rulers[0] - 5 : 75;
+
+			// Get the current selection and text.
+			const selection = editor.selection;
+			const text = editor.document.getText(selection);
+
+			// Create the section header.
+			let section = '\n# ' + sectionName + ' ';
+
+			if (targetWidth - section.length < 4) {
+				// A section header must have at least 4 dashes
+				section += '----';
+			} else {
+				// Add dashes up to the target width.
+				for (let i = section.length; i < targetWidth; i++) {
+					section += '-';
+				}
+			}
+			section += '\n\n';
+
+			editor.edit((editBuilder) => {
+				editBuilder.replace(selection, text + section);
+			});
+		}
 	});
 }
 
