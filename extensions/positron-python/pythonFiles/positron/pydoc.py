@@ -765,7 +765,7 @@ def _pydoc_getdoc(object: Any) -> str:
 def _getdoc(object: Any) -> str:
     """Override `pydoc.getdoc` to parse reStructuredText docstrings."""
     try:
-        docstring = _pydoc_getdoc(object)
+        docstring = _pydoc_getdoc(object) or f"No documentation found."
         html = _rst_to_html(docstring, object)
     except Exception as exception:
         # This is caught somewhere above us in pydoc. Log the exception so we see it in Positron
