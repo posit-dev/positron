@@ -211,7 +211,8 @@ export function registerLanguageRuntimeActions() {
 		[
 			{
 				weight: KeybindingWeight.WorkbenchContrib,
-				primary: KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.Numpad0
+				primary: KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.Numpad0,
+				secondary: [KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.F10]
 			},
 			{
 				weight: KeybindingWeight.WorkbenchContrib,
