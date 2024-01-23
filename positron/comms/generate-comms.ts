@@ -353,7 +353,7 @@ use serde::Serialize;
 
 	const contracts = [backend, frontend];
 	const namedContracts = [{ name: 'Backend', source: backend },
-				{ name: 'Frontend', source: frontend }];
+	{ name: 'Frontend', source: frontend }];
 
 	for (const contract of namedContracts) {
 		const source = contract.source;
@@ -363,8 +363,8 @@ use serde::Serialize;
 
 		// Create type aliases for all the shared types
 		if (source.components && source.components.schemas) {
-			for (const key of Object.keys(backend.components.schemas)) {
-				const schema = backend.components.schemas[key];
+			for (const key of Object.keys(source.components.schemas)) {
+				const schema = source.components.schemas[key];
 				if (schema.type !== 'object') {
 					yield formatComment('/// ', schema.description);
 					yield `type ${snakeCaseToSentenceCase(key)} = `;
@@ -668,8 +668,8 @@ JsonData = Union[Dict[str, "JsonData"], List["JsonData"], str, int, float, bool,
 
 		// Create type aliases for all the shared types
 		if (source.components && source.components.schemas) {
-			for (const key of Object.keys(backend.components.schemas)) {
-				const schema = backend.components.schemas[key];
+			for (const key of Object.keys(source.components.schemas)) {
+				const schema = source.components.schemas[key];
 				if (schema.type !== 'object') {
 					yield formatComment('# ', schema.description);
 					yield `${snakeCaseToSentenceCase(key)} = `;
@@ -984,7 +984,7 @@ import { IRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/co
 `;
 	const contracts = [backend, frontend];
 	const namedContracts = [{ name: 'Backend', source: backend },
-				{ name: 'Frontend', source: frontend }];
+	{ name: 'Frontend', source: frontend }];
 
 	for (const source of contracts) {
 		if (!source) {
@@ -1028,8 +1028,8 @@ import { IRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/co
 			continue;
 		}
 		if (source.components && source.components.schemas) {
-			for (const key of Object.keys(backend.components.schemas)) {
-				const schema = backend.components.schemas[key];
+			for (const key of Object.keys(source.components.schemas)) {
+				const schema = source.components.schemas[key];
 				if (schema.type !== 'object') {
 					yield `/**\n`;
 					yield formatComment(' * ', schema.description);

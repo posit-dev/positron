@@ -15,31 +15,7 @@ import { RHtmlWidget, getResourceRoots } from './htmlwidgets';
 import { getArkKernelPath } from './kernel';
 import { randomUUID } from 'crypto';
 import { handleRCode } from './hyperlink';
-
-class RRuntimeManager {
-	private runtimes: Map<string, RRuntime> = new Map();
-	private lastBinpath = '';
-
-	constructor() { }
-
-	getRuntimesMap(): Map<string, RRuntime> {
-		return this.runtimes;
-	}
-
-	setLastBinpath(path: string) {
-		this.lastBinpath = path;
-	}
-
-	hasLastBinpath(): boolean {
-		return this.lastBinpath !== '';
-	}
-
-	getLastBinpath(): string {
-		return this.lastBinpath;
-	}
-}
-
-export const runtimeManager: RRuntimeManager = new RRuntimeManager();
+import { RRuntimeManager } from './runtime-manager';
 
 interface RPackageInstallation {
 	packageName: string;
@@ -210,7 +186,7 @@ export class RRuntime implements positron.LanguageRuntime, vscode.Disposable {
 		if (!this._kernel) {
 			this._kernel = await this.createKernel();
 		}
-		runtimeManager.setLastBinpath(this._kernel.metadata.runtimePath);
+		RRuntimeManager.instance.setLastBinpath(this._kernel.metadata.runtimePath);
 
 		// Register for console width changes, if we haven't already
 		if (!this._consoleWidthDisposable) {
@@ -583,11 +559,7 @@ export async function getRunningRRuntime(): Promise<RRuntime> {
 	}
 
 	// For now, there will be only one running R runtime:
-	const runtime = runtimeManager.getRuntimesMap().get(runningRuntimes[0].runtimeId);
-	if (!runtime) {
-		throw new Error(`R runtime '${runningRuntimes[0].runtimeId}' is not registered in the extension host`);
-	}
-	return runtime;
+	return RRuntimeManager.instance.getRuntime(runningRuntimes[0].runtimeId);
 }
 
 export function createJupyterKernelExtra(): JupyterKernelExtra {
