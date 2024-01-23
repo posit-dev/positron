@@ -284,7 +284,7 @@ export const ActionBar = (props: ActionBarProps) => {
 						}
 						{showDeveloperUI &&
 							<ActionBarButton
-								iconId='positron-list'
+								iconId='sparkle'
 								align='right'
 								tooltip={positronToggleTrace}
 								ariaLabel={positronToggleTrace}
