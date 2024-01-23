@@ -87,7 +87,7 @@ It's also acceptable to specify a comm by mentioning any member of its trio of f
 
 If things go sideways, there is a debug configuration called "Run generate-comms.ts" that allows you to set breakpoints in `generate-comms.ts`.
 You will probably want to use the "args" field to target the specific comm that's giving you trouble.
-Use *Run > Open Configurations* to open `launch.json`` and see/edit the configuration.
+Use *Run > Open Configurations* to open `launch.json` and see/edit the configuration.
 
 ### Step 4: Test Changes
 
