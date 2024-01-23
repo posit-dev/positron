@@ -300,7 +300,7 @@ export const ActionBar = (props: ActionBarProps) => {
 						/>
 						<ActionBarSeparator />
 						<ActionBarButton
-							iconId='positron-clear-pane'
+							iconId='clear-all'
 							align='right'
 							tooltip={positronClearConsole}
 							ariaLabel={positronClearConsole}
