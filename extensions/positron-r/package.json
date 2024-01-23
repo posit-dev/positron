@@ -383,7 +383,6 @@
         {
           "category": "R",
           "command": "r.insertSection",
-          "title": "%r.command.insertSection.title%",
           "when": "editorLangId == r"
         },
         {
