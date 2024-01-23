@@ -1,9 +1,14 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
+// CSS.
 import 'vs/css!./positronDataToolEditor';
+
+// React.
 import * as React from 'react';
+
+// Other dependencies.
 import * as DOM from 'vs/base/browser/dom';
 import { Event, Emitter } from 'vs/base/common/event';
 import { IEditorOpenContext } from 'vs/workbench/common/editor';
@@ -20,7 +25,7 @@ import { IContextMenuService } from 'vs/platform/contextview/browser/contextView
 import { IClipboardService } from 'vs/platform/clipboard/common/clipboardService';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import { IEditorGroup } from 'vs/workbench/services/editor/common/editorGroupsService';
-import { PositronDataTool } from 'vs/workbench/contrib/positronDataTool/browser/positronDataTool';
+import { PositronDataTool } from 'vs/base/browser/ui/positronDataTool/positronDataTool';
 import { PositronDataToolUri } from 'vs/workbench/services/positronDataTool/common/positronDataToolUri';
 import { IReactComponentContainer, ISize, PositronReactRenderer } from 'vs/base/browser/positronReactRenderer';
 import { PositronDataToolEditorInput } from 'vs/workbench/contrib/positronDataTool/browser/positronDataToolEditorInput';
@@ -166,6 +171,7 @@ export class PositronDataToolEditor extends EditorPane implements IReactComponen
 	//#endregion IReactComponentContainer
 
 	//#region Constructor & Dispose
+
 	/**
 	 * Constructor.
 	 * @param _clipboardService The clipboard service.
@@ -195,7 +201,7 @@ export class PositronDataToolEditor extends EditorPane implements IReactComponen
 		super(PositronDataToolEditorInput.EditorID, telemetryService, themeService, storageService);
 
 		// Logging.
-		console.log(`PositronDataEditor ${this._instance} created`);
+		console.log(`PositronDataToolEditor ${this._instance} created`);
 	}
 
 	/**
@@ -203,7 +209,7 @@ export class PositronDataToolEditor extends EditorPane implements IReactComponen
 	 */
 	public override dispose(): void {
 		// Logging.
-		console.log(`PositronDataEditor ${this._instance} dispose`);
+		console.log(`PositronDataToolEditor ${this._instance} dispose`);
 
 		// Dispose the PositronReactRenderer for the PositronDataTool.
 		this.disposePositronReactRenderer();
@@ -222,7 +228,7 @@ export class PositronDataToolEditor extends EditorPane implements IReactComponen
 	 */
 	protected override createEditor(parent: HTMLElement): void {
 		// Logging.
-		console.log(`PositronDataEditor ${this._instance} createEditor`);
+		console.log(`PositronDataToolEditor ${this._instance} createEditor`);
 
 		// Create and append the Positron data tool container.
 		this._positronDataToolsContainer = DOM.$('.positron-data-tool-container');
@@ -246,7 +252,7 @@ export class PositronDataToolEditor extends EditorPane implements IReactComponen
 		await super.setInput(input, options, context, token);
 
 		// Logging.
-		console.log(`PositronDataEditor ${this._instance} setInput ${input.resource}`);
+		console.log(`PositronDataToolEditor ${this._instance} setInput ${input.resource}`);
 
 		// Parse the Positron data tool URI.
 		this._identifier = PositronDataToolUri.parse(input.resource);
@@ -259,7 +265,7 @@ export class PositronDataToolEditor extends EditorPane implements IReactComponen
 	 */
 	override clearInput(): void {
 		// Logging.
-		console.log(`PositronDataEditor ${this._instance} clearInput`);
+		console.log(`PositronDataToolEditor ${this._instance} clearInput`);
 
 		// Dispose the PositronReactRenderer for the PositronDataTool.
 		this.disposePositronReactRenderer();
@@ -277,7 +283,7 @@ export class PositronDataToolEditor extends EditorPane implements IReactComponen
 	 */
 	protected override setEditorVisible(visible: boolean, group: IEditorGroup | undefined): void {
 		// Logging.
-		console.log(`PositronDataEditor ${this._instance} setEditorVisible ${visible} group ${group?.id}`);
+		console.log(`PositronDataToolEditor ${this._instance} setEditorVisible ${visible} group ${group?.id}`);
 
 		// Call the base class's method.
 		super.setEditorVisible(visible, group);
@@ -293,7 +299,7 @@ export class PositronDataToolEditor extends EditorPane implements IReactComponen
 	 */
 	override layout(dimension: DOM.Dimension): void {
 		// Logging.
-		console.log(`PositronDataEditor ${this._instance} layout ${dimension.width},${dimension.height}`);
+		console.log(`PositronDataToolEditor ${this._instance} layout ${dimension.width},${dimension.height}`);
 
 		// Size the container.
 		DOM.size(this._positronDataToolsContainer, dimension.width, dimension.height);
@@ -306,12 +312,19 @@ export class PositronDataToolEditor extends EditorPane implements IReactComponen
 			height: this._height
 		});
 
+		if (!this._identifier) {
+			console.log('PositronDataToolEditor was asked to layout with no input set');
+			return;
+		}
+
 		if (this._identifier && !this._positronReactRenderer) {
 			// Get the Positron data tool instance.
 			const positronDataToolInstance = this._positronDataToolService.getInstance(this._identifier);
 
 			// If the Positron data tool instance was found, render the Positron data tool.
 			if (positronDataToolInstance) {
+				console.log(`PositronDataToolEditor ${this._instance} creating PositronReactRenderer and rendering PositronDataTool`);
+
 				// Create the PositronReactRenderer for the PositronDataTool component and render it.
 				this._positronReactRenderer = new PositronReactRenderer(this._positronDataToolsContainer);
 				this._positronReactRenderer.render(
@@ -328,8 +341,7 @@ export class PositronDataToolEditor extends EditorPane implements IReactComponen
 				);
 
 				// Logging.
-				console.log(`PositronDataEditor ${this._instance} create PositronReactRenderer`);
-
+				console.log(`PositronDataToolEditor ${this._instance} create PositronReactRenderer`);
 
 				// Success.
 				return;
@@ -349,7 +361,7 @@ export class PositronDataToolEditor extends EditorPane implements IReactComponen
 		// the PositronDataTool from the DOM.
 		if (this._positronReactRenderer) {
 			// Logging.
-			console.log(`PositronDataEditor ${this._instance} dispose PositronReactRenderer`);
+			console.log(`PositronDataToolEditor ${this._instance} dispose PositronReactRenderer`);
 
 			// Dispose of the PositronReactRenderer for the PositronDataTool.
 			this._positronReactRenderer.dispose();

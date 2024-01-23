@@ -1,0 +1,10 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
+ *--------------------------------------------------------------------------------------------*/
+
+.data-grid-row-headers {
+	overflow: hidden;
+	position: relative;
+	grid-row: waffle / end-waffle;
+	grid-column: headers / waffle;
+}
