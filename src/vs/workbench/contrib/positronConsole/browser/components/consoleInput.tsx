@@ -66,8 +66,8 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 	// State hooks.
 	const [, setCodeEditorWidget, codeEditorWidgetRef] = useStateRef<CodeEditorWidget>(undefined!);
 	const [, setCodeEditorWidth, codeEditorWidthRef] = useStateRef(props.width);
-	const [, setHistoryBrowserActive, historyBrowserActive] = useStateRef(false);
-	const [, setHistoryBrowseSelectedIndex, historyBrowserSelectedIndex] = useStateRef(0);
+	const [historyBrowserActive, setHistoryBrowserActive, historyBrowserActiveRef] = useStateRef(false);
+	const [historyBrowserSelectedIndex, setHistoryBrowserSelectedIndex, historyBrowserSelectedIndexRef] = useStateRef(0);
 	const [, setHistoryNavigator, historyNavigatorRef] =
 		useStateRef<HistoryNavigator2<IInputHistoryEntry> | undefined>(undefined);
 	const [, setCurrentCodeFragment, currentCodeFragmentRef] =
@@ -179,6 +179,14 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 		switch (e.keyCode) {
 			// Escape handling.
 			case KeyCode.Escape: {
+				// If the history browser is active, deactivate it.
+				if (historyBrowserActiveRef.current) {
+					console.log('deactivating history browser!');
+					setHistoryBrowserActive(false);
+					consumeEvent();
+					break;
+				}
+
 				// Consume the event.
 				consumeEvent();
 
@@ -236,16 +244,18 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 
 			// Up arrow processing.
 			case KeyCode.UpArrow: {
+				console.log(`Up arrow pressed. browser active: ${historyBrowserActiveRef.current} (React: ${historyBrowserActive})})`);
+
 				if (cmdOrCtrlKey) {
-					setHistoryBrowserActive(!historyBrowserActive.current);
+					setHistoryBrowserActive(true);
+					console.log(`engaging history browser! (old value: ${historyBrowserActiveRef.current})`);
 					consumeEvent();
 					break;
 				}
 
-				console.log(`Up arrow pressed. browser active: ${historyBrowserActive.current}, selected index: ${historyBrowserSelectedIndex.current}`);
 				// If the history browser is up, update the selected index.
-				if (historyBrowserActive.current) {
-					setHistoryBrowseSelectedIndex(Math.max(0, historyBrowserSelectedIndex.current - 1));
+				if (historyBrowserActive) {
+					setHistoryBrowserSelectedIndex(Math.max(0, historyBrowserSelectedIndexRef.current - 1));
 					consumeEvent();
 					break;
 				}
@@ -282,11 +292,11 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 			// Down arrow processing.
 			case KeyCode.DownArrow: {
 
-				console.log(`Down arrow pressed. browser active: ${historyBrowserActive.current}, selected index: ${historyBrowserSelectedIndex.current}`);
+				console.log(`Down arrow pressed. browser active: ${historyBrowserActiveRef.current}`);
 
 				// If the history browser is up, update the selected index.
-				if (historyBrowserActive.current) {
-					setHistoryBrowseSelectedIndex(Math.max(3, historyBrowserSelectedIndex.current + 1));
+				if (historyBrowserActive) {
+					setHistoryBrowserSelectedIndex(Math.max(3, historyBrowserSelectedIndexRef.current + 1));
 					consumeEvent();
 					break;
 				}
@@ -662,9 +672,9 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 	return (
 		<div className='console-input' tabIndex={0} onFocus={focusHandler}>
 			<div ref={codeEditorWidgetContainerRef} />
-			{historyBrowserActive.current &&
+			{historyBrowserActive &&
 				<HistoryBrowserPopup items={historyItems}
-					selectedIndex={historyBrowserSelectedIndex.current} />
+					selectedIndex={historyBrowserSelectedIndex} />
 			}
 		</div>
 	);
