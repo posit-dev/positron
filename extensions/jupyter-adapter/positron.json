@@ -11,6 +11,11 @@
 			"platforms": ["win32"]
 		},
 		{
+			"from": "node_modules/zeromq/prebuilds/linux-x64/node.napi.glibc.node",
+			"to": "prebuilds/linux-x64",
+			"platforms": ["linux"]
+		},
+		{
 			"from": "resources/kernel-wrapper.*",
 			"to": "resources"
 		}
