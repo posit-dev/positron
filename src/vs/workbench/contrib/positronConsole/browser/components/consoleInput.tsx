@@ -71,7 +71,7 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 	const [historyBrowserActive, setHistoryBrowserActive, historyBrowserActiveRef] = useStateRef(false);
 	const [historyBrowserSelectedIndex, setHistoryBrowserSelectedIndex, historyBrowserSelectedIndexRef] = useStateRef(0);
 	const [, setHistoryMatchStrategy, historyMatchStrategyRef] = useStateRef<HistoryMatchStrategy>(new EmptyHistoryMatchStrategy());
-	const [historyItems, setHistoryItems] = React.useState<string[]>([]);
+	const [historyItems, setHistoryItems, historyItemsRef] = useStateRef<string[]>([]);
 	const [, setHistoryNavigator, historyNavigatorRef] =
 		useStateRef<HistoryNavigator2<IInputHistoryEntry> | undefined>(undefined);
 	const [, setCurrentCodeFragment, currentCodeFragmentRef] =
@@ -350,6 +350,17 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 
 			// Enter processing.
 			case KeyCode.Enter: {
+				// If the history browser is active, accept the selected history entry and
+				// dismiss the history browser.
+				if (historyBrowserActiveRef.current) {
+					setCurrentCodeFragment(undefined);
+					codeEditorWidgetRef.current.setValue(
+						historyItemsRef.current[historyBrowserSelectedIndexRef.current]);
+					setHistoryBrowserActive(false);
+					consumeEvent();
+					break;
+				}
+
 				// If the shift key is pressed, do not process the event because the user is
 				// entering multiple lines.
 				if (e.shiftKey) {
