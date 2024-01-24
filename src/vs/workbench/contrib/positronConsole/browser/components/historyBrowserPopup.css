@@ -6,8 +6,8 @@
 	position: absolute;
 	bottom: 20px;
 	left: 0;
-	overflow: hidden;
-	list-style-type: none;
+	overflow-x: hidden;
+	overflow-y: auto;
 	border-style: solid;
 	border-width: 1px;
 	border-color: var(--vscode-editorSuggestWidget-border);
@@ -17,4 +17,10 @@
 	z-index: 40;
 	color: var(--vscode-editorSuggestWidget-foreground);
 	padding: 4px;
+}
+
+.history-browser-popup ul {
+	list-style-type: none;
+	padding: 0px;
+	margin: 0px;
 }
