@@ -119,7 +119,7 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 					<ActionBarRegion location='right'>
 						<ActionBarButton align='right' iconId='positron-refresh' tooltip={positronRefreshObjects} ariaLabel={positronRefreshObjects} onClick={refreshObjectsHandler} />
 						<ActionBarSeparator />
-						<ActionBarButton align='right' iconId='positron-clear-pane' tooltip={positronDeleteAllObjects} ariaLabel={positronDeleteAllObjects} onClick={deleteAllObjectsHandler} />
+						<ActionBarButton align='right' iconId='clear-all' tooltip={positronDeleteAllObjects} ariaLabel={positronDeleteAllObjects} onClick={deleteAllObjectsHandler} />
 					</ActionBarRegion>
 				</PositronActionBar>
 				<PositronActionBar size='small' borderBottom={true} gap={kSecondaryActionBarGap} paddingLeft={kPaddingLeft} paddingRight={kPaddingRight}>

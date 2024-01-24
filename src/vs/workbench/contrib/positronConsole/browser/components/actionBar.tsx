@@ -284,7 +284,7 @@ export const ActionBar = (props: ActionBarProps) => {
 						}
 						{showDeveloperUI &&
 							<ActionBarButton
-								iconId='positron-list'
+								iconId='wand'
 								align='right'
 								tooltip={positronToggleTrace}
 								ariaLabel={positronToggleTrace}
@@ -300,7 +300,7 @@ export const ActionBar = (props: ActionBarProps) => {
 						/>
 						<ActionBarSeparator />
 						<ActionBarButton
-							iconId='positron-clear-pane'
+							iconId='clear-all'
 							align='right'
 							tooltip={positronClearConsole}
 							ariaLabel={positronClearConsole}
