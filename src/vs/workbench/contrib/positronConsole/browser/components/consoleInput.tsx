@@ -70,7 +70,8 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 	const [, setCodeEditorWidth, codeEditorWidthRef] = useStateRef(props.width);
 	const [historyBrowserActive, setHistoryBrowserActive, historyBrowserActiveRef] = useStateRef(false);
 	const [historyBrowserSelectedIndex, setHistoryBrowserSelectedIndex, historyBrowserSelectedIndexRef] = useStateRef(0);
-	const [historyMatchStrategy, setHistoryMatchStrategy,] = useStateRef<HistoryMatchStrategy>(new EmptyHistoryMatchStrategy());
+	const [, setHistoryMatchStrategy, historyMatchStrategyRef] = useStateRef<HistoryMatchStrategy>(new EmptyHistoryMatchStrategy());
+	const [historyItems, setHistoryItems] = React.useState<string[]>([]);
 	const [, setHistoryNavigator, historyNavigatorRef] =
 		useStateRef<HistoryNavigator2<IInputHistoryEntry> | undefined>(undefined);
 	const [, setCurrentCodeFragment, currentCodeFragmentRef] =
@@ -251,9 +252,15 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 
 				if (cmdOrCtrlKey) {
 					setHistoryBrowserActive(true);
-					setHistoryMatchStrategy(new HistoryPrefixMatchStrategy(
+
+					const strategy = new HistoryPrefixMatchStrategy(
 						historyNavigatorRef.current!
-					));
+					);
+					setHistoryMatchStrategy(strategy);
+
+					setHistoryItems(
+						strategy.getMatches(codeEditorWidgetRef.current.getValue()).map(m => m.input));
+
 					console.log(`engaging history browser! (old value: ${historyBrowserActiveRef.current})`);
 					consumeEvent();
 					break;
@@ -507,6 +514,12 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 		// Set the key down event handler.
 		disposableStore.add(codeEditorWidget.onKeyDown(keyDownHandler));
 
+		// Set the value change handler.
+		disposableStore.add(codeEditorWidget.onDidChangeModelContent(() => {
+			const historyItems = historyMatchStrategyRef.current.getMatches(codeEditorWidget.getValue());
+			setHistoryItems(historyItems.map(m => m.input));
+		}));
+
 		// Auto-grow the editor as the internal content size changes (i.e. make it grow vertically
 		// as the user enters additional lines of input.)
 		disposableStore.add(codeEditorWidget.onDidContentSizeChange(contentSizeChangedEvent => {
@@ -671,10 +684,6 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 			codeEditorWidgetRef.current.focus();
 		}
 	};
-
-	const historyItems = historyBrowserActive && codeEditorWidgetRef.current ? historyMatchStrategy.getMatches(
-		codeEditorWidgetRef.current.getValue()
-	).map(inputHistoryEntry => inputHistoryEntry.input) : [];
 
 	// Render.
 	return (
