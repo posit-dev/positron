@@ -46,91 +46,6 @@ export const DataGridWaffle = (props: DataGridWaffleProps) => {
 	// Context hooks.
 	const context = useDataGridContext();
 
-	/**
-	 * Calculates the last column index.
-	 * @returns The last column index.
-	 */
-	const calcLastColumnIndex = () => context.instance.columns - 1;
-
-	/**
-	 * Calculates the last row index.
-	 * @returns The last row index.
-	 */
-	const calcLastRowIndex = () => context.instance.rows - 1;
-
-	/**
-	 * Calculates the layout width.
-	 * @returns The layout width.
-	 */
-	const calcLayoutWidth = () =>
-		props.width - context.rowHeadersWidth - context.scrollbarWidth;
-
-	/**
-	 * Calculates the layout height.
-	 * @returns The layout height.
-	 */
-	const calcLayoutHeight = () =>
-		props.height - context.columnHeadersHeight - context.scrollbarWidth;
-
-	/**
-	 * Calculates the visible rows.
-	 * @returns The visible rows.
-	 */
-	const calcVisibleRows = () =>
-		Math.max(Math.floor(calcLayoutHeight() / context.rowHeight), 1);
-
-	/**
-	 * Calculates the visible columns.
-	 * @returns The visible
-	 */
-	const calcVisibleColumns = () => {
-		let visibleColumns = 0;
-		let layoutWidth = calcLayoutWidth();
-		let columnIndex = context.instance.firstColumnIndex;
-		while (columnIndex < context.instance.columns) {
-			const column = context.instance.column(columnIndex);
-			if (column.width > layoutWidth) {
-				break;
-			}
-
-			columnIndex++;
-			visibleColumns++;
-			layoutWidth -= column.width;
-		}
-
-		// Done.
-		return Math.max(visibleColumns, 1);
-	};
-
-	/**
-	 * Calculates the maximum first column.
-	 * @returns The maximum first column index.
-	 */
-	const calcMaximumFirstColumnIndex = () => {
-		// Calculate the maximum first column by looking backward through the columns for the last
-		// column that fits.
-		const layoutWidth = calcLayoutWidth();
-		let maximumFirstColumn = calcLastColumnIndex();
-		for (let columnIndex = maximumFirstColumn - 1; columnIndex >= 0; columnIndex--) {
-			if (context.instance.column(columnIndex).layoutWidth < layoutWidth) {
-				maximumFirstColumn--;
-			} else {
-				break;
-			}
-		}
-
-		// Done.
-		return maximumFirstColumn;
-	};
-
-	/**
-	 * Calculates the maximum first row.
-	 * @returns The maximum first row index.
-	 */
-	const calcMaximumFirstRowIndex = () => {
-		return Math.max(context.instance.rows - calcVisibleRows(), 0);
-	};
-
 	// State hooks.
 	const [, setRenderMarker] = useState(generateUuid());
 	const [lastWheelEvent, setLastWheelEvent] = useState(0);
@@ -139,6 +54,17 @@ export const DataGridWaffle = (props: DataGridWaffleProps) => {
 
 	// Main useEffect. This is where we set up event handlers.
 	useEffect(() => {
+		const fetchSchema = async () => {
+			try {
+				await context.instance.initialize();
+			} catch (e) {
+			}
+		};
+		fetchSchema();
+
+		// Set the initial screen size.
+		context.instance.setScreenSize(props.width, props.height);
+
 		// Create the disposable store for cleanup.
 		const disposableStore = new DisposableStore();
 
@@ -151,12 +77,17 @@ export const DataGridWaffle = (props: DataGridWaffleProps) => {
 		return () => disposableStore.dispose();
 	}, []);
 
+	useLayoutEffect(() => {
+		// Update the screen size.
+		context.instance.setScreenSize(props.width, props.height);
+	}, [props.width, props.height]);
+
 	// useLayoutEffect that fires when the width changes.
 	useLayoutEffect(() => {
 		// If the waffle is scrolled horizontally, see if we can optimize the first column.
 		if (context.instance.firstColumnIndex) {
 			// Find the optimal first column;
-			const layoutWidth = calcLayoutWidth();
+			const layoutWidth = context.instance.layoutWidth;
 			let firstColumn = context.instance.firstColumnIndex;
 			for (let columnIndex = firstColumn - 1; columnIndex >= 0; columnIndex--) {
 				if (context.instance.column(columnIndex).layoutWidth < layoutWidth) {
@@ -176,10 +107,10 @@ export const DataGridWaffle = (props: DataGridWaffleProps) => {
 		// If the waffle is scrolled vertically, see if we can optimize the first row.
 		if (context.instance.firstRowIndex) {
 			// Find the optimal first row;
-			const layoutHeight = calcLayoutHeight();
+			const layoutHeight = context.instance.layoutHeight;
 			let firstRow = context.instance.firstRowIndex;
 			for (let rowIndex = firstRow - 1; rowIndex >= 0; rowIndex--) {
-				if ((context.instance.rows - rowIndex) * context.rowHeight < layoutHeight) {
+				if ((context.instance.rows - rowIndex) * context.instance.rowHeight < layoutHeight) {
 					firstRow--;
 				} else {
 					break;
@@ -205,19 +136,19 @@ export const DataGridWaffle = (props: DataGridWaffleProps) => {
 		// Scroll to the cursor column.
 		if (columnIndex < context.instance.firstColumnIndex) {
 			context.instance.setFirstColumn(columnIndex);
-		} else if (columnIndex >= context.instance.firstColumnIndex + calcVisibleColumns()) {
+		} else if (columnIndex >= context.instance.firstColumnIndex + context.instance.visibleColumns) {
 			do {
 				context.instance.setFirstColumn(context.instance.firstColumnIndex + 1);
-			} while (columnIndex >= context.instance.firstColumnIndex + calcVisibleColumns());
+			} while (columnIndex >= context.instance.firstColumnIndex + context.instance.visibleColumns);
 		}
 
 		// Scroll to the cursor row.
 		if (rowIndex < context.instance.firstRowIndex) {
 			context.instance.setFirstRow(rowIndex);
-		} else if (rowIndex >= context.instance.firstRowIndex + calcVisibleRows()) {
+		} else if (rowIndex >= context.instance.firstRowIndex + context.instance.visibleRows) {
 			do {
 				context.instance.setFirstRow(context.instance.firstRowIndex + 1);
-			} while (rowIndex >= context.instance.firstRowIndex + calcVisibleRows());
+			} while (rowIndex >= context.instance.firstRowIndex + context.instance.visibleRows);
 		}
 	};
 
@@ -301,16 +232,21 @@ export const DataGridWaffle = (props: DataGridWaffleProps) => {
 				// bottom right.
 				if (isMacintosh ? e.metaKey : e.ctrlKey) {
 					context.instance.clearSelection();
-					context.instance.setScreenPosition(calcMaximumFirstColumnIndex(), calcMaximumFirstRowIndex());
-					console.log(`Trying col ${calcLastColumnIndex()} row ${calcLastRowIndex()}`);
-					context.instance.setCursorPosition(calcLastColumnIndex(), calcLastRowIndex());
+					context.instance.setScreenPosition(
+						context.instance.maximumFirstColumnIndex,
+						context.instance.maximumFirstRowIndex
+					);
+					context.instance.setCursorPosition(
+						context.instance.columns - 1,
+						context.instance.rows - 1
+					);
 					return;
 				}
 
 				// End clears the selection and positions the screen and cursor to the left.
 				context.instance.clearSelection();
-				context.instance.setFirstColumn(calcMaximumFirstColumnIndex());
-				context.instance.setCursorColumn(calcLastColumnIndex());
+				context.instance.setFirstColumn(context.instance.maximumFirstColumnIndex);
+				context.instance.setCursorColumn(context.instance.columns - 1);
 				break;
 			}
 
@@ -333,7 +269,7 @@ export const DataGridWaffle = (props: DataGridWaffleProps) => {
 				// the top left of the page.
 				context.instance.clearSelection();
 				const firstRowIndex = Math.max(
-					context.instance.firstRowIndex - (e.altKey ? calcVisibleRows() * 10 : calcVisibleRows()),
+					context.instance.firstRowIndex - (e.altKey ? context.instance.visibleRows * 10 : context.instance.visibleRows),
 					0
 				);
 				context.instance.setFirstRow(firstRowIndex);
@@ -363,13 +299,13 @@ export const DataGridWaffle = (props: DataGridWaffleProps) => {
 				// at the bottom left of the page.
 				context.instance.clearSelection();
 				const firstRowIndex = Math.min(
-					context.instance.firstRowIndex + (e.altKey ? calcVisibleRows() * 10 : calcVisibleRows()),
-					calcMaximumFirstRowIndex()
+					context.instance.firstRowIndex + (e.altKey ? context.instance.visibleRows * 10 : context.instance.visibleRows),
+					context.instance.maximumFirstRowIndex
 				);
 				context.instance.setFirstRow(firstRowIndex);
 				context.instance.setCursorPosition(
 					context.instance.firstColumnIndex,
-					firstRowIndex + calcVisibleRows() - 1
+					firstRowIndex + context.instance.visibleRows - 1
 				);
 				break;
 			}
@@ -413,7 +349,7 @@ export const DataGridWaffle = (props: DataGridWaffleProps) => {
 
 				// ArrowUp clears the selection and moves the cursor up.
 				context.instance.clearSelection();
-				if (context.instance.cursorRowIndex < calcLastRowIndex()) {
+				if (context.instance.cursorRowIndex < context.instance.rows - 1) {
 					context.instance.setCursorRow(context.instance.cursorRowIndex + 1);
 					scrollToCursor();
 				}
@@ -459,7 +395,7 @@ export const DataGridWaffle = (props: DataGridWaffleProps) => {
 
 				// ArrowRight clears the selection and moves the cursor to the right.
 				context.instance.clearSelection();
-				if (context.instance.cursorColumnIndex < calcLastColumnIndex()) {
+				if (context.instance.cursorColumnIndex < context.instance.columns - 1) {
 					context.instance.setCursorColumn(context.instance.cursorColumnIndex + 1);
 					scrollToCursor();
 				}
@@ -502,7 +438,7 @@ export const DataGridWaffle = (props: DataGridWaffleProps) => {
 				context.instance.setFirstRow(pinToRange(
 					context.instance.firstRowIndex + rowsToScroll,
 					0,
-					calcMaximumFirstRowIndex()
+					context.instance.maximumFirstRowIndex
 				));
 				setWheelDeltaY(adjustedWheelDeltaY - (rowsToScroll * MOUSE_WHEEL_SENSITIVITY));
 			}
@@ -516,7 +452,7 @@ export const DataGridWaffle = (props: DataGridWaffleProps) => {
 				context.instance.setFirstColumn(pinToRange(
 					context.instance.firstColumnIndex + columnsToScroll,
 					0,
-					calcMaximumFirstColumnIndex()
+					context.instance.maximumFirstColumnIndex
 				));
 				setWheelDeltaX(adjustedWheelDeltaX - (columnsToScroll * MOUSE_WHEEL_SENSITIVITY));
 			} else {
@@ -543,7 +479,7 @@ export const DataGridWaffle = (props: DataGridWaffleProps) => {
 		);
 
 		// Adjust the top for the next row.
-		top += context.rowHeight;
+		top += context.instance.rowHeight;
 	}
 
 	console.log(`Render number #${++renderCounter}`);
@@ -563,17 +499,17 @@ export const DataGridWaffle = (props: DataGridWaffleProps) => {
 			/>
 
 			<DataGridColumnHeaders
-				width={props.width - context.rowHeadersWidth}
-				height={context.columnHeadersHeight}
+				width={props.width - context.instance.rowHeadersWidth}
+				height={context.instance.columnHeadersHeight}
 			/>
 
-			<DataGridRowHeaders height={props.height - context.columnHeadersHeight} />
+			<DataGridRowHeaders height={props.height - context.instance.columnHeadersHeight} />
 
 			<div
 				className='data-grid-rows'
 				style={{
-					width: props.width - context.rowHeadersWidth,
-					height: props.height - context.columnHeadersHeight
+					width: props.width - context.instance.rowHeadersWidth,
+					height: props.height - context.instance.columnHeadersHeight
 				}}
 			>
 
@@ -581,11 +517,11 @@ export const DataGridWaffle = (props: DataGridWaffleProps) => {
 
 				<DataGridScrollbar
 					orientation='horizontal'
-					scrollbarWidth={context.scrollbarWidth}
-					containerWidth={props.width - context.rowHeadersWidth}
-					containerHeight={props.height - context.columnHeadersHeight}
+					scrollbarWidth={context.instance.scrollbarWidth}
+					containerWidth={props.width - context.instance.rowHeadersWidth}
+					containerHeight={props.height - context.instance.columnHeadersHeight}
 					entries={context.instance.columns}
-					visibleEntries={calcVisibleColumns()}
+					visibleEntries={context.instance.visibleColumns}
 					firstEntry={context.instance.firstColumnIndex}
 					onDidChangeFirstEntry={firstColumnIndex =>
 						context.instance.setFirstColumn(firstColumnIndex)
@@ -594,11 +530,11 @@ export const DataGridWaffle = (props: DataGridWaffleProps) => {
 
 				<DataGridScrollbar
 					orientation='vertical'
-					scrollbarWidth={context.scrollbarWidth}
-					containerWidth={props.width - context.rowHeadersWidth}
-					containerHeight={props.height - context.columnHeadersHeight}
+					scrollbarWidth={context.instance.scrollbarWidth}
+					containerWidth={props.width - context.instance.rowHeadersWidth}
+					containerHeight={props.height - context.instance.columnHeadersHeight}
 					entries={context.instance.rows}
-					visibleEntries={calcVisibleRows()}
+					visibleEntries={context.instance.visibleRows}
 					firstEntry={context.instance.firstRowIndex}
 					onDidChangeFirstEntry={firstRowIndex =>
 						context.instance.setFirstRow(firstRowIndex)
@@ -608,8 +544,8 @@ export const DataGridWaffle = (props: DataGridWaffleProps) => {
 				<DataGridScrollbarCorner
 					onClick={() => {
 						context.instance.setScreenPosition(
-							calcMaximumFirstColumnIndex(),
-							calcMaximumFirstRowIndex()
+							context.instance.maximumFirstColumnIndex,
+							context.instance.maximumFirstRowIndex
 						);
 					}}
 				/>

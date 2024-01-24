@@ -27,6 +27,11 @@ export interface IPositronDataToolService {
 	readonly _serviceBrand: undefined;
 
 	/**
+	 * Placeholder that gets called to "initialize" the PositronDataToolService.
+	 */
+	initialize(): void;
+
+	/**
 	 * Test open function.
 	 * @param identifier The identifier.
 	 */

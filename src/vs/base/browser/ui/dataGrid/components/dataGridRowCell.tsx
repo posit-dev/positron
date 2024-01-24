@@ -62,7 +62,7 @@ export const DataGridRowCell = (props: DataGridRowCellProps) => {
 			style={{
 				left: props.left,
 				width: props.column.width,
-				height: context.rowHeight
+				height: context.instance.rowHeight
 			}}
 			onMouseDown={mouseDownHandler}
 		>
@@ -85,7 +85,7 @@ export const DataGridRowCell = (props: DataGridRowCellProps) => {
 			<div className='text'>{context.instance.cell(props.columnIndex, props.rowIndex)}</div>
 			<PositronColumnSplitter
 				onBeginResize={() => ({
-					minimumWidth: context.minimumColumnWidth,
+					minimumWidth: context.instance.minimumColumnWidth,
 					maximumWidth: 400,
 					startingWidth: props.column.width
 				})}

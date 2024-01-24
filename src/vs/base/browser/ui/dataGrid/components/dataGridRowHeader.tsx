@@ -54,7 +54,7 @@ export const DataGridRowHeader = (props: DataGridRowHeaderProps) => {
 			}
 			style={{
 				top: props.top,
-				height: context.rowHeight
+				height: context.instance.rowHeight
 			}}
 			onMouseDown={mouseDownHandler}
 		>

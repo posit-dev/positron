@@ -40,12 +40,12 @@ export const DataGridRowHeaders = (props: DataGridRowHeadersProps) => {
 		);
 
 		// Adjust the top offset for the next row.
-		top += context.rowHeight;
+		top += context.instance.rowHeight;
 	}
 
 	// Render.
 	return (
-		<div className='data-grid-row-headers' style={{ width: context.rowHeadersWidth }}>
+		<div className='data-grid-row-headers' style={{ width: context.instance.rowHeadersWidth }}>
 			{rowHeaders}
 		</div>
 	);

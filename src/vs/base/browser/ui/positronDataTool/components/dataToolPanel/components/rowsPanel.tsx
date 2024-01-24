@@ -33,13 +33,6 @@ export const RowsPanel = (props: RowsPanelProps) => {
 	return (
 		<div className='rows-panel'>
 			<DataGrid
-				// Settings.
-				columnHeadersHeight={22}
-				rowHeadersWidth={55}
-				rowHeight={24}
-				minimumColumnWidth={90}
-				scrollbarWidth={14}
-
 				// Props.
 				instance={context.instance.positronDataGridInstance}
 				width={props.width}

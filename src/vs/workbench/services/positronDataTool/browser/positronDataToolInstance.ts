@@ -4,10 +4,10 @@
 
 import { Emitter } from 'vs/base/common/event';
 import { Disposable } from 'vs/base/common/lifecycle';
-import { PositronDataToolColumn } from 'vs/workbench/services/positronDataTool/browser/positronDataToolColumn';
 import { PositronDataToolLayout } from 'vs/workbench/services/positronDataTool/browser/interfaces/positronDataToolService';
 import { IPositronDataToolInstance } from 'vs/workbench/services/positronDataTool/browser/interfaces/positronDataToolInstance';
 import { PositronDataToolDataGridInstance } from 'vs/workbench/services/positronDataTool/browser/positronDataToolDataGridInstance';
+import { DataToolClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeDataToolClient';
 
 /**
 * PositronDataToolInstance class.
@@ -16,9 +16,9 @@ export class PositronDataToolInstance extends Disposable implements IPositronDat
 	//#region Private Properties
 
 	/**
-	 * Gets the identifier.
+	 * Gets the DataToolClientInstance.
 	 */
-	private readonly _identifier: string;
+	private readonly _dataToolClientInstance: DataToolClientInstance;
 
 	/**
 	 * Gets or sets the layout.
@@ -38,7 +38,7 @@ export class PositronDataToolInstance extends Disposable implements IPositronDat
 	/**
 	 * The PositronDataToolDataGridInstance.
 	 */
-	private _positronDataToolDataGridInstance = new PositronDataToolDataGridInstance();
+	private _positronDataToolDataGridInstance: PositronDataToolDataGridInstance;
 
 	/**
 	 * The onDidChangeLayout event emitter.
@@ -61,29 +61,15 @@ export class PositronDataToolInstance extends Disposable implements IPositronDat
 
 	/**
 	 * Constructor.
-	 * @param identifier The identifier.
+	 * @param dataToolClientInstance The DataToolClientInstance.
 	 */
-	constructor(identifier: string) {
+	constructor(dataToolClientInstance: DataToolClientInstance) {
 		// Call the base class's constructor.
 		super();
 
 		// Initialize.
-		this._identifier = identifier;
-
-		// Create the dummy columns. 1_000_000
-		const columns: PositronDataToolColumn[] = [];
-		for (let i = 0; i < 100; i++) {
-			columns.push(new PositronDataToolColumn(
-				`col${i}`,
-				{
-					name: `Column ${i + 1}`,
-					type_name: 'number'
-				}
-			));
-		}
-
-		// Set the column.
-		this._positronDataToolDataGridInstance.setColumns(columns);
+		this._dataToolClientInstance = dataToolClientInstance;
+		this._positronDataToolDataGridInstance = new PositronDataToolDataGridInstance(dataToolClientInstance);
 	}
 
 	//#endregion Constructor & Dispose
@@ -94,7 +80,7 @@ export class PositronDataToolInstance extends Disposable implements IPositronDat
 	 * Gets the identifier.
 	 */
 	get identifier() {
-		return this._identifier;
+		return this._dataToolClientInstance.identifier;
 	}
 
 	/**

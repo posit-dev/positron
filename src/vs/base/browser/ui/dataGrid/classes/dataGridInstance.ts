@@ -27,10 +27,47 @@ interface RowSelectionRange {
  * DataGridInstance class.
  */
 export abstract class DataGridInstance extends Disposable implements IDataGridInstance {
+	//#region Private Properties
+
+	/**
+	 * Gets or sets the column headers height.
+	 */
+	private _columnHeadersHeight = 22;
+
+	/**
+	 * Gets or sets the row headers width.
+	 */
+	private _rowHeadersWidth = 55;
+
+	/**
+	 * Gets or sets the minimum column width
+	 */
+	private _minimumColumnWidth = 190;
+
+	/**
+	 * Gets or sets the row height.
+	 */
+	private _rowHeight = 24;
+
+	/**
+	 * Gets or sets the scrollbar width.
+	 */
+	private _scrollbarWidth = 14;
+
 	/**
 	 * Gets or sets the columns.
 	 */
 	private _columns: IDataColumn[] = [];
+
+	/**
+	 * Gets or sets the width.
+	 */
+	private _width = 0;
+
+	/**
+	 * Gets or sets the height.
+	 */
+	private _height = 0;
 
 	/**
 	 * Gets or sets the first column index.
@@ -77,7 +114,44 @@ export abstract class DataGridInstance extends Disposable implements IDataGridIn
 	 */
 	protected readonly _onDidUpdateEmitter = this._register(new Emitter<void>);
 
+	//#endregion Private Properties
+
 	//#region Public Properties
+
+	/**
+	 * Gets the column headers height.
+	 */
+	get columnHeadersHeight() {
+		return this._columnHeadersHeight;
+	}
+
+	/**
+	 * Gets the row headers width.
+	 */
+	get rowHeadersWidth() {
+		return this._rowHeadersWidth;
+	}
+
+	/**
+	 * Gets the minimum column width.
+	 */
+	get minimumColumnWidth() {
+		return this._minimumColumnWidth;
+	}
+
+	/**
+	 * Gets the row height.
+	 */
+	get rowHeight() {
+		return this._rowHeight;
+	}
+
+	/**
+	 * Gets the scrollbar width.
+	 */
+	get scrollbarWidth() {
+		return this._scrollbarWidth;
+	}
 
 	/**
 	 * Gets the number of columns.
@@ -90,6 +164,75 @@ export abstract class DataGridInstance extends Disposable implements IDataGridIn
 	 * Gets the number of rows.
 	 */
 	abstract get rows(): number;
+
+	/**
+	 * Gets the layout width.
+	 */
+	get layoutWidth() {
+		return this._width - this._rowHeadersWidth - this._scrollbarWidth;
+	}
+
+	/**
+	 * Gets the layout height.
+	 */
+	get layoutHeight() {
+		return this._height - this._columnHeadersHeight - this._scrollbarWidth;
+	}
+
+	/**
+	 * Gets the visible columns.
+	 */
+	get visibleColumns() {
+		let visibleColumns = 0;
+		let columnIndex = this._firstColumnIndex;
+		let availableLayoutWidth = this.layoutWidth;
+		while (columnIndex < this._columns.length) {
+			const column = this._columns[columnIndex];
+			if (column.width > availableLayoutWidth) {
+				break;
+			}
+
+			visibleColumns++;
+			columnIndex++;
+			availableLayoutWidth -= column.width;
+		}
+
+		// Done.
+		return Math.max(visibleColumns, 1);
+	}
+
+	/**
+	 * Gets the visible rows.
+	 */
+	get visibleRows() {
+		return Math.max(Math.floor(this.layoutHeight / this._rowHeight), 1);
+	}
+
+	/**
+	 * Gets the maximum first column.
+	 */
+	get maximumFirstColumnIndex() {
+		// Calculate the maximum first column by looking backward through the columns for the last
+		// column that fits.
+		let maximumFirstColumn = this.columns - 1;
+		for (let columnIndex = maximumFirstColumn - 1; columnIndex >= 0; columnIndex--) {
+			if (this._columns[columnIndex].layoutWidth < this.layoutWidth) {
+				maximumFirstColumn--;
+			} else {
+				break;
+			}
+		}
+
+		// Done.
+		return maximumFirstColumn;
+	}
+
+	/**
+	 * Gets the maximum first row.
+	 */
+	get maximumFirstRowIndex() {
+		return Math.max(this.rows - this.visibleRows, 0);
+	}
 
 	/**
 	 * Gets the first column index.
@@ -124,6 +267,18 @@ export abstract class DataGridInstance extends Disposable implements IDataGridIn
 	//#region Public Methods
 
 	/**
+	 * Sets the columns.
+	 * @param columns The columns.
+	 */
+	public setColumns(columns: IDataColumn[]) {
+		// Set the columns.
+		this._columns = columns;
+
+		// Calculates the layout widths of the columns.
+		this.calculateColumnLayoutWidths(this._columns.length - 1);
+	}
+
+	/**
 	 * Sets the width of a column.
 	 * @param columnIndex The column index.
 	 * @param width The width.
@@ -134,9 +289,28 @@ export abstract class DataGridInstance extends Disposable implements IDataGridIn
 			this._columns[columnIndex].width = width;
 			this.calculateColumnLayoutWidths(columnIndex);
 
+			// Fetch data.
+			this.fetchData();
+
 			// Fire the onDidUpdate event.
 			this._onDidUpdateEmitter.fire();
 		}
+	}
+
+	/**
+	 * Sets the screen size.
+	 * @param width The width.
+	 * @param height The height.
+	 */
+	setScreenSize(width: number, height: number) {
+		this._width = width;
+		this._height = height;
+
+		// Fetch data.
+		this.fetchData();
+
+		// Fire the onDidUpdate event.
+		this._onDidUpdateEmitter.fire();
 	}
 
 	/**
@@ -149,6 +323,9 @@ export abstract class DataGridInstance extends Disposable implements IDataGridIn
 			// Set the screen position.
 			this._firstColumnIndex = firstColumnIndex;
 			this._firstRowIndex = firstRowIndex;
+
+			// Fetch data.
+			this.fetchData();
 
 			// Fire the onDidUpdate event.
 			this._onDidUpdateEmitter.fire();
@@ -164,6 +341,9 @@ export abstract class DataGridInstance extends Disposable implements IDataGridIn
 			// Set the first column index.
 			this._firstColumnIndex = firstColumnIndex;
 
+			// Fetch data.
+			this.fetchData();
+
 			// Fire the onDidUpdate event.
 			this._onDidUpdateEmitter.fire();
 		}
@@ -177,6 +357,9 @@ export abstract class DataGridInstance extends Disposable implements IDataGridIn
 		if (firstRowIndex !== this._firstRowIndex) {
 			// Set the first row index.
 			this._firstRowIndex = firstRowIndex;
+
+			// Fetch data.
+			this.fetchData();
 
 			// Fire the onDidUpdate event.
 			this._onDidUpdateEmitter.fire();
@@ -299,6 +482,9 @@ export abstract class DataGridInstance extends Disposable implements IDataGridIn
 			this._cursorColumnIndex = columnIndex;
 			this._cursorRowIndex = this._firstRowIndex;
 
+			// Fetch data.
+			this.fetchData();
+
 			// Fire the onDidUpdate event.
 			this._onDidUpdateEmitter.fire();
 		};
@@ -410,6 +596,9 @@ export abstract class DataGridInstance extends Disposable implements IDataGridIn
 			// Adjust the cursor position.
 			this._cursorColumnIndex = this._firstColumnIndex;
 			this._cursorRowIndex = rowIndex;
+
+			// Fetch data.
+			this.fetchData();
 
 			// Fire the onDidUpdate event.
 			this._onDidUpdateEmitter.fire();
@@ -841,6 +1030,16 @@ export abstract class DataGridInstance extends Disposable implements IDataGridIn
 	}
 
 	/**
+	 *
+	 */
+	abstract initialize(): void;
+
+	/**
+	 *
+	 */
+	abstract fetchData(): void;
+
+	/**
 	 * Gets a cell.
 	 * @param columnIndex The column index.
 	 * @param rowIndex The row index.
@@ -856,18 +1055,6 @@ export abstract class DataGridInstance extends Disposable implements IDataGridIn
 	//#endregion Public Methods
 
 	//#region Private Methods
-
-	/**
-	 * Sets the columns.
-	 * @param columns The columns.
-	 */
-	public setColumns(columns: IDataColumn[]) {
-		// Set the columns.
-		this._columns = columns;
-
-		// Calculates the layout widths of the columns.
-		this.calculateColumnLayoutWidths(this._columns.length - 1);
-	}
 
 	/**
 	 * Calculates the layout widths of the columns starting at the specified column.

@@ -14,11 +14,11 @@ import { IDataGridInstance } from 'vs/base/browser/ui/dataGrid/interfaces/dataGr
  * DataGridSettings interface.
  */
 export interface DataGridSettings {
-	columnHeadersHeight: number;
-	rowHeadersWidth: number;
-	rowHeight: number;
-	minimumColumnWidth: number;
-	scrollbarWidth: number;
+	// columnHeadersHeight: number;
+	// rowHeadersWidth: number;
+	// rowHeight: number;
+	// minimumColumnWidth: number;
+	// scrollbarWidth: number;
 }
 
 /**

@@ -29,6 +29,31 @@ export enum MouseSelectionType {
  */
 export interface IDataGridInstance {
 	/**
+	 * Gets the column headers height.
+	 */
+	readonly columnHeadersHeight: number;
+
+	/**
+	 * Gets the row headers width.
+	 */
+	readonly rowHeadersWidth: number;
+
+	/**
+	 * Gets the minimum column width.
+	 */
+	readonly minimumColumnWidth: number;
+
+	/**
+	 * Gets the row height.
+	 */
+	readonly rowHeight: number;
+
+	/**
+	 * Gets the scrollbar width.
+	 */
+	readonly scrollbarWidth: number;
+
+	/**
 	 * Gets the number of columns.
 	 */
 	readonly columns: number;
@@ -37,6 +62,36 @@ export interface IDataGridInstance {
 	 * Gets the number of rows.
 	 */
 	readonly rows: number;
+
+	/**
+	 * Gets the layout width.
+	 */
+	readonly layoutWidth: number;
+
+	/**
+	 * Gets the layout height.
+	 */
+	readonly layoutHeight: number;
+
+	/**
+	 * Gets the visible rows.
+	 */
+	readonly visibleRows: number;
+
+	/**
+	 * Gets the visible columns.
+	 */
+	readonly visibleColumns: number;
+
+	/**
+	 * Gets the maximum first column.
+	 */
+	readonly maximumFirstColumnIndex: number;
+
+	/**
+	 * Gets the maximum first row.
+	 */
+	readonly maximumFirstRowIndex: number;
 
 	/**
 	 * Gets or sets the first column index.
@@ -59,11 +114,24 @@ export interface IDataGridInstance {
 	readonly cursorRowIndex: number;
 
 	/**
+	 * Sets the columns.
+	 * @param columns The columns.
+	 */
+	setColumns(columns: IDataColumn[]): void;
+
+	/**
 	 * Sets the width of a column.
 	 * @param columnIndex The column index.
 	 * @param width The width.
 	 */
 	setColumnWidth(columnIndex: number, width: number): void;
+
+	/**
+	 * Sets the screen size.
+	 * @param width The width.
+	 * @param height The height.
+	 */
+	setScreenSize(width: number, height: number): void;
 
 	/**
 	 * Sets the screen position.
@@ -181,12 +249,22 @@ export interface IDataGridInstance {
 	column(columnIndex: number): IDataColumn;
 
 	/**
+	 *
+	 */
+	initialize(): void;
+
+	/**
+	 *
+	 */
+	fetchData(): void;
+
+	/**
 	 * Gets a cell.
 	 * @param columnIndex The column index.
 	 * @param row The row index.
 	 * @returns The cell.
 	 */
-	cell(columnIndex: number, rowIndex: number,): string | undefined;
+	cell(columnIndex: number, rowIndex: number): string | undefined;
 
 	/**
 	 * The onDidUpdate event.

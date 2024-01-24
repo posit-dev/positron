@@ -248,16 +248,45 @@ export class PositronDataToolEditor extends EditorPane implements IReactComponen
 		context: IEditorOpenContext,
 		token: CancellationToken
 	): Promise<void> {
-		// Call the base class's method.
-		await super.setInput(input, options, context, token);
-
 		// Logging.
 		console.log(`PositronDataToolEditor ${this._instance} setInput ${input.resource}`);
 
-		// Parse the Positron data tool URI.
+		// Parse the Positron data tool URI and set the identifier.
 		this._identifier = PositronDataToolUri.parse(input.resource);
 
-		// TODO: Render some kind of an error.
+		if (this._identifier && !this._positronReactRenderer) {
+			// Get the Positron data tool instance.
+			const positronDataToolInstance = this._positronDataToolService.getInstance(this._identifier);
+
+			// If the Positron data tool instance was found, render the Positron data tool.
+			if (positronDataToolInstance) {
+				console.log(`PositronDataToolEditor ${this._instance} creating PositronReactRenderer and rendering PositronDataTool`);
+
+				// Create the PositronReactRenderer for the PositronDataTool component and render it.
+				this._positronReactRenderer = new PositronReactRenderer(this._positronDataToolsContainer);
+				this._positronReactRenderer.render(
+					<PositronDataTool
+						clipboardService={this._clipboardService}
+						commandService={this._commandService}
+						configurationService={this._configurationService}
+						contextKeyService={this._contextKeyService}
+						contextMenuService={this._contextMenuService}
+						keybindingService={this._keybindingService}
+						instance={positronDataToolInstance}
+						reactComponentContainer={this}
+					/>
+				);
+
+				// Logging.
+				console.log(`PositronDataToolEditor ${this._instance} create PositronReactRenderer`);
+
+				// Success.
+				return;
+			}
+		}
+
+		// Call the base class's method.
+		await super.setInput(input, options, context, token);
 	}
 
 	/**
@@ -270,6 +299,7 @@ export class PositronDataToolEditor extends EditorPane implements IReactComponen
 		// Dispose the PositronReactRenderer for the PositronDataTool.
 		this.disposePositronReactRenderer();
 
+		// Clear the identifier.
 		this._identifier = undefined;
 
 		// Call the base class's method.
@@ -317,36 +347,6 @@ export class PositronDataToolEditor extends EditorPane implements IReactComponen
 			return;
 		}
 
-		if (this._identifier && !this._positronReactRenderer) {
-			// Get the Positron data tool instance.
-			const positronDataToolInstance = this._positronDataToolService.getInstance(this._identifier);
-
-			// If the Positron data tool instance was found, render the Positron data tool.
-			if (positronDataToolInstance) {
-				console.log(`PositronDataToolEditor ${this._instance} creating PositronReactRenderer and rendering PositronDataTool`);
-
-				// Create the PositronReactRenderer for the PositronDataTool component and render it.
-				this._positronReactRenderer = new PositronReactRenderer(this._positronDataToolsContainer);
-				this._positronReactRenderer.render(
-					<PositronDataTool
-						clipboardService={this._clipboardService}
-						commandService={this._commandService}
-						configurationService={this._configurationService}
-						contextKeyService={this._contextKeyService}
-						contextMenuService={this._contextMenuService}
-						keybindingService={this._keybindingService}
-						instance={positronDataToolInstance}
-						reactComponentContainer={this}
-					/>
-				);
-
-				// Logging.
-				console.log(`PositronDataToolEditor ${this._instance} create PositronReactRenderer`);
-
-				// Success.
-				return;
-			}
-		}
 	}
 
 	//#endregion Protected Overrides
