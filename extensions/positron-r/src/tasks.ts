@@ -44,28 +44,15 @@ export async function getRPackageTasks(): Promise<vscode.Task[]> {
 		}
 	];
 	// the explicit quoting treatment is necessary to avoid headaches on Windows, with PowerShell
-	const allPackageTasks: PackageTask[] = taskData.map(data => ({
-		task: data.task,
-		message: data.message,
-		shellExecution: new vscode.ShellExecution(
+	return taskData.map(data => new vscode.Task(
+		{ type: 'rPackageTask', task: data.task, pkg: data.package },
+		vscode.TaskScope.Workspace,
+		data.message,
+		'R',
+		new vscode.ShellExecution(
 			binpath,
 			['-e', { value: data.rcode, quoting: vscode.ShellQuoting.Strong }]
 		),
-		package: data.package
-	}));
-	return allPackageTasks.map(task => new vscode.Task(
-		{ type: 'rPackageTask', task: task.task, pkg: task.package },
-		vscode.TaskScope.Workspace,
-		task.message,
-		'R',
-		task.shellExecution,
 		[]
 	));
 }
-
-type PackageTask = {
-	task: string;
-	message: string;
-	shellExecution: vscode.ShellExecution;
-	package?: string;
-};
