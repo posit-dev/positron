@@ -29,26 +29,36 @@ export async function getRPackageTasks(): Promise<vscode.Task[]> {
 		throw new Error(`No running R runtime to use for R package tasks.`);
 	}
 	const binpath = RRuntimeManager.instance.getLastBinpath();
-	const allPackageTasks: PackageTask[] = [
+	const taskData = [
 		{
-			'task': 'r.task.packageCheck',
-			'message': vscode.l10n.t('{taskName}', { taskName: 'Check R package' }),
-			'shellExecution': `"${binpath}" -e "devtools::check()"`,
-			'package': 'devtools'
+			task: 'r.task.packageCheck',
+			message: vscode.l10n.t('{taskName}', { taskName: 'Check R package' }),
+			rcode: 'devtools::check()',
+			package: 'devtools'
 		},
 		{
-			'task': 'r.task.packageInstall',
-			'message': vscode.l10n.t('{taskName}', { taskName: 'Install R package' }),
-			'shellExecution': `"${binpath}" -e "pak::local_install(upgrade = FALSE)"`,
-			'package': 'pak'
+			task: 'r.task.packageInstall',
+			message: vscode.l10n.t('{taskName}', { taskName: 'Install R package' }),
+			rcode: 'pak::local_install(upgrade = FALSE)',
+			package: 'pak'
 		}
 	];
+	// the explicit quoting treatment is necessary to avoid headaches on Windows, with PowerShell
+	const allPackageTasks: PackageTask[] = taskData.map(data => ({
+		task: data.task,
+		message: data.message,
+		shellExecution: new vscode.ShellExecution(
+			binpath,
+			['-e', { value: data.rcode, quoting: vscode.ShellQuoting.Strong }]
+		),
+		package: data.package
+	}));
 	return allPackageTasks.map(task => new vscode.Task(
 		{ type: 'rPackageTask', task: task.task, pkg: task.package },
 		vscode.TaskScope.Workspace,
 		task.message,
 		'R',
-		new vscode.ShellExecution(task.shellExecution),
+		task.shellExecution,
 		[]
 	));
 }
@@ -56,6 +66,6 @@ export async function getRPackageTasks(): Promise<vscode.Task[]> {
 type PackageTask = {
 	task: string;
 	message: string;
-	shellExecution: string;
+	shellExecution: vscode.ShellExecution;
 	package?: string;
 };
