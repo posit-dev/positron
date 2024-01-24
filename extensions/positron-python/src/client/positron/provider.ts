@@ -173,17 +173,17 @@ export async function createPythonRuntime(
     }
 
     // Define the startup behavior; request immediate startup if this is the
-    // recommended runtime for the workspace. Do not request immediate startup
+    // recommended runtime for the workspace. Do not request immediate or implicit startup
     // if ipykernel (min version 6.19.1) is not installed -- the user should start runtime explicitly.
     let startupBehavior;
-    if (recommendedForWorkspace) {
-        traceInfo('createPythonRuntime: checking if ipykernel is installed');
-        const hasCompatibleKernel = await installer.isProductVersionCompatible(Product.ipykernel, '>=6.19.1', interpreter);
-        startupBehavior = hasCompatibleKernel === ProductInstallStatus.Installed
-            ? positron.LanguageRuntimeStartupBehavior.Immediate
-            : positron.LanguageRuntimeStartupBehavior.Explicit;
+    traceInfo('createPythonRuntime: checking if ipykernel is installed');
+    const hasCompatibleKernel = await installer.isProductVersionCompatible(Product.ipykernel, '>=6.19.1', interpreter);
+
+    if (hasCompatibleKernel === ProductInstallStatus.Installed) {
+        startupBehavior = recommendedForWorkspace ? positron.LanguageRuntimeStartupBehavior.Immediate : positron.LanguageRuntimeStartupBehavior.Implicit;
     } else {
-        startupBehavior = positron.LanguageRuntimeStartupBehavior.Implicit;
+        // If ipykernel is not installed, require explicit startup whether or not this is the recommended runtime for this workspace
+        startupBehavior = positron.LanguageRuntimeStartupBehavior.Explicit;
     }
     traceInfo(`createPythonRuntime: startup behavior: ${startupBehavior}`);
 
