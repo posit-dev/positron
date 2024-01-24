@@ -258,8 +258,11 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 					);
 					setHistoryMatchStrategy(strategy);
 
-					setHistoryItems(
-						strategy.getMatches(codeEditorWidgetRef.current.getValue()).map(m => m.input));
+					const matches =
+						strategy.getMatches(codeEditorWidgetRef.current.getValue()).map(m => m.input);
+					setHistoryItems(matches);
+
+					setHistoryBrowserSelectedIndex(matches.length - 1);
 
 					console.log(`engaging history browser! (old value: ${historyBrowserActiveRef.current})`);
 					consumeEvent();
@@ -267,7 +270,7 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 				}
 
 				// If the history browser is up, update the selected index.
-				if (historyBrowserActive) {
+				if (historyBrowserActiveRef.current) {
 					setHistoryBrowserSelectedIndex(Math.max(0, historyBrowserSelectedIndexRef.current - 1));
 					consumeEvent();
 					break;
@@ -308,8 +311,8 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 				console.log(`Down arrow pressed. browser active: ${historyBrowserActiveRef.current}`);
 
 				// If the history browser is up, update the selected index.
-				if (historyBrowserActive) {
-					setHistoryBrowserSelectedIndex(Math.max(3, historyBrowserSelectedIndexRef.current + 1));
+				if (historyBrowserActiveRef.current) {
+					setHistoryBrowserSelectedIndex(historyBrowserSelectedIndexRef.current + 1);
 					consumeEvent();
 					break;
 				}

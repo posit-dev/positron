@@ -11,7 +11,7 @@ export interface HistoryCompletionItemProps {
 }
 
 export const HistoryCompletionItem = (props: HistoryCompletionItemProps) => {
-	return <li className={'history-completion-item' + props.selected ? ' selected' : ''}>
+	return <li className={'history-completion-item' + (props.selected ? ' selected' : '')}>
 		{props.label}
 	</li>;
 };

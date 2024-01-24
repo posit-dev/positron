@@ -5,8 +5,7 @@
 .history-completion-item {
 	white-space: nowrap;
 	cursor: pointer;
-	margin-left: 0;
-	padding-left: 0;
+	padding: 1px;
 }
 
 .history-completion-item.selected {
