@@ -66,12 +66,28 @@ npm install
 ```
 
 If you've already installed dependencies, just run the code generator.
+This will (re-)generate code for all comms.
 
 ```
 npx ts-node generate-comms.ts
 ```
 
-This will print all the generated code to the console for inspection. It will also write Rust, Python, and Typescript modules using the new contract.
+For each contract, this writes Rust, Python, and Typescript modules using the current contract.
+It also prints each affected filepath.
+
+You can also limit code generation to one or more specific comms by supplying additional command line arguments.
+This will (re-)generate code only for the ui and variables comms.
+
+```
+npx ts-node generate-comms.ts ui variables
+```
+
+Above we've targetted two comms by name, "ui" and "variables".
+It's also acceptable to specify a comm by mentioning any member of its trio of files, i.e. "ui.json", "ui-frontend-openrpc.json", and "ui-backend-openrpc.json" are the same as specifying "ui".
+
+If things go sideways, there is a debug configuration called "Run generate-comms.ts" that allows you to set breakpoints in `generate-comms.ts`.
+You will probably want to use the "args" field to target the specific comm that's giving you trouble.
+Use *Run > Open Configurations* to open `launch.json` and see/edit the configuration.
 
 ### Step 4: Test Changes
 
