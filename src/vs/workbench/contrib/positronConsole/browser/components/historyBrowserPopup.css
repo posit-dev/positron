@@ -4,7 +4,7 @@
 
 .history-browser-popup {
 	position: absolute;
-	top: -20px;
+	bottom: 20px;
 	left: 0;
 	overflow: hidden;
 	list-style-type: none;

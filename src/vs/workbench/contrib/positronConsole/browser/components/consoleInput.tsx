@@ -34,6 +34,8 @@ import { RuntimeCodeFragmentStatus } from 'vs/workbench/services/languageRuntime
 import { IPositronConsoleInstance, PositronConsoleState } from 'vs/workbench/services/positronConsole/browser/interfaces/positronConsoleService';
 import { ParameterHintsController } from 'vs/editor/contrib/parameterHints/browser/parameterHints';
 import { HistoryBrowserPopup } from 'vs/workbench/contrib/positronConsole/browser/components/historyBrowserPopup';
+import { EmptyHistoryMatchStrategy, HistoryMatchStrategy } from 'vs/workbench/contrib/positronConsole/common/historyMatchStrategy';
+import { HistoryPrefixMatchStrategy } from 'vs/workbench/contrib/positronConsole/common/historyPrefixMatchStrategy';
 
 // Position enumeration.
 const enum Position {
@@ -68,6 +70,7 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 	const [, setCodeEditorWidth, codeEditorWidthRef] = useStateRef(props.width);
 	const [historyBrowserActive, setHistoryBrowserActive, historyBrowserActiveRef] = useStateRef(false);
 	const [historyBrowserSelectedIndex, setHistoryBrowserSelectedIndex, historyBrowserSelectedIndexRef] = useStateRef(0);
+	const [historyMatchStrategy, setHistoryMatchStrategy,] = useStateRef<HistoryMatchStrategy>(new EmptyHistoryMatchStrategy());
 	const [, setHistoryNavigator, historyNavigatorRef] =
 		useStateRef<HistoryNavigator2<IInputHistoryEntry> | undefined>(undefined);
 	const [, setCurrentCodeFragment, currentCodeFragmentRef] =
@@ -248,6 +251,9 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 
 				if (cmdOrCtrlKey) {
 					setHistoryBrowserActive(true);
+					setHistoryMatchStrategy(new HistoryPrefixMatchStrategy(
+						historyNavigatorRef.current!
+					));
 					console.log(`engaging history browser! (old value: ${historyBrowserActiveRef.current})`);
 					consumeEvent();
 					break;
@@ -666,7 +672,9 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 		}
 	};
 
-	const historyItems = ['item1', 'item2', 'item3'];
+	const historyItems = historyBrowserActive && codeEditorWidgetRef.current ? historyMatchStrategy.getMatches(
+		codeEditorWidgetRef.current.getValue()
+	).map(inputHistoryEntry => inputHistoryEntry.input) : [];
 
 	// Render.
 	return (
