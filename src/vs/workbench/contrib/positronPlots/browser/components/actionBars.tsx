@@ -113,7 +113,7 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 					<ActionBarRegion location='right'>
 						<HistoryPolicyMenuButton plotsService={positronPlotsContext.positronPlotsService} />
 						<ActionBarSeparator />
-						<ActionBarButton iconId='positron-clear-pane' align='right' disabled={noPlots} tooltip={positronClearAllPlots} ariaLabel={positronClearAllPlots} onClick={clearAllPlotsHandler} />
+						<ActionBarButton iconId='clear-all' align='right' disabled={noPlots} tooltip={positronClearAllPlots} ariaLabel={positronClearAllPlots} onClick={clearAllPlotsHandler} />
 					</ActionBarRegion>
 				</PositronActionBar>
 			</div>
