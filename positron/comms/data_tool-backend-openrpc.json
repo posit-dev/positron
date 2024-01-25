@@ -309,12 +309,12 @@
 				"type": "object",
 				"description": "Schema for a column in a table",
 				"required": [
-					"name",
+					"column_name",
 					"type_name",
 					"type_display"
 				],
 				"properties": {
-					"name": {
+					"column_name": {
 						"type": "string",
 						"description": "Name of column as UTF-8 string"
 					},

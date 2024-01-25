@@ -147,7 +147,7 @@ export interface ColumnSchema {
 	/**
 	 * Name of column as UTF-8 string
 	 */
-	name: string;
+	column_name: string;
 
 	/**
 	 * Exact name of data type used by underlying table
@@ -157,7 +157,7 @@ export interface ColumnSchema {
 	/**
 	 * Canonical Positron display name of data type
 	 */
-	type_display: string;
+	type_display: ColumnSchemaTypeDisplay;
 
 	/**
 	 * Column annotation / description
@@ -291,6 +291,20 @@ export interface ColumnSortKey {
 export enum GetColumnProfileProfileType {
 	Freqtable = 'freqtable',
 	Histogram = 'histogram'
+}
+
+/**
+ * Possible values for TypeDisplay in ColumnSchema
+ */
+export enum ColumnSchemaTypeDisplay {
+	Number = 'number',
+	Boolean = 'boolean',
+	String = 'string',
+	Date = 'date',
+	Datetime = 'datetime',
+	Time = 'time',
+	Array = 'array',
+	Struct = 'struct'
 }
 
 /**
