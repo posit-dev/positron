@@ -559,6 +559,14 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 		// Set the key down event handler.
 		disposableStore.add(codeEditorWidget.onKeyDown(keyDownHandler));
 
+		// Set the blur event handler.
+		disposableStore.add(codeEditorWidget.onDidBlurEditorWidget(() => {
+			// If the history browser is active, deactivate it.
+			if (historyBrowserActiveRef.current) {
+				setHistoryBrowserActive(false);
+			}
+		}));
+
 		// Set the value change handler.
 		disposableStore.add(codeEditorWidget.onDidChangeModelContent(() => {
 			if (historyBrowserActiveRef.current) {
