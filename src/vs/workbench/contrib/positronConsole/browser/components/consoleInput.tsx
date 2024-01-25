@@ -36,6 +36,7 @@ import { ParameterHintsController } from 'vs/editor/contrib/parameterHints/brows
 import { HistoryBrowserPopup } from 'vs/workbench/contrib/positronConsole/browser/components/historyBrowserPopup';
 import { EmptyHistoryMatchStrategy, HistoryMatchStrategy } from 'vs/workbench/contrib/positronConsole/common/historyMatchStrategy';
 import { HistoryPrefixMatchStrategy } from 'vs/workbench/contrib/positronConsole/common/historyPrefixMatchStrategy';
+import { HistoryInfixMatchStrategy } from 'vs/workbench/contrib/positronConsole/common/historyInfixMatchStrategy';
 
 // Position enumeration.
 const enum Position {
@@ -243,6 +244,30 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 					// Interrupt the console.
 					props.positronConsoleInstance.interrupt();
 				}
+				break;
+			}
+
+			// Ctrl-R handling.
+			case KeyCode.KeyR: {
+				if (e.ctrlKey && !e.shiftKey && !e.altKey && !e.metaKey && !e.altGraphKey) {
+					// Consume the event.
+					setHistoryBrowserActive(true);
+
+					const strategy = new HistoryInfixMatchStrategy(
+						historyNavigatorRef.current!
+					);
+					setHistoryMatchStrategy(strategy);
+
+					const matches =
+						strategy.getMatches(codeEditorWidgetRef.current.getValue()).map(m => m.input);
+					setHistoryItems(matches);
+
+					setHistoryBrowserSelectedIndex(matches.length - 1);
+
+					console.log(`engaging history browser! (old value: ${historyBrowserActiveRef.current})`);
+					consumeEvent();
+				}
+
 				break;
 			}
 
