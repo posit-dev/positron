@@ -32,7 +32,7 @@ export function getArkKernelPath(context: vscode.ExtensionContext): string | und
 	// is placed in release builds.
 	const path = require('path');
 	const fs = require('fs');
-	const embeddedKernel = path.join(context.extensionPath, 'dist', 'bin', kernelName);
+	const embeddedKernel = path.join(context.extensionPath, 'resources', 'ark', kernelName);
 	if (fs.existsSync(embeddedKernel)) {
 		return embeddedKernel;
 	}
