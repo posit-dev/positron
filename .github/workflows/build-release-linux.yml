@@ -79,7 +79,7 @@ jobs:
       max-parallel: 1
       matrix:
         arch: [x64]
-        pack: [deb]  # TODO: Include rpm
+        pack: [deb, rpm]
     steps:
       - name: Prepare binary
         run: |

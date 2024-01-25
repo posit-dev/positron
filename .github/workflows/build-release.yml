@@ -171,3 +171,14 @@ jobs:
           asset_path: Positron-${{ steps.short_version.outputs.result }}.deb
           asset_name: Positron-${{ steps.short_version.outputs.result }}.deb
           asset_content_type: application/octet-stream
+
+      - name: Upload Linux .rpm release asset
+        uses: actions/upload-release-asset@v1
+        if: github.ref == 'refs/heads/main'
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        with:
+          upload_url: ${{ needs.releases.outputs.upload_url }}
+          asset_path: Positron-${{ steps.short_version.outputs.result }}.rpm
+          asset_name: Positron-${{ steps.short_version.outputs.result }}.rpm
+          asset_content_type: application/octet-stream
