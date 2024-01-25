@@ -33,6 +33,7 @@ jobs:
 
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      POSITRON_BUILD_NUMBER: ${{ inputs.build_number }}
 
     strategy:
       max-parallel: 1
@@ -71,8 +72,6 @@ jobs:
           yarn --immutable --network-timeout 120000
 
       - name: Build Positron
-        env:
-          POSITRON_BUILD_NUMBER: ${{ inputs.build_number }}
         run: |
           yarn gulp vscode-linux-${{ matrix.arch }}
 
