@@ -59,16 +59,19 @@ export const HistoryBrowserPopup = (props: HistoryBrowserPopupProps) => {
 
 	return <div className='suggest-widget history-browser-popup' ref={popupRef}
 		style={{ bottom: props.bottomPx, left: props.leftPx }}>
-		<ul>
-			{props.items.map((item, index) => {
-				const onSelected = () => {
-					props.onSelected(index);
-				};
-				return <HistoryCompletionItem
-					match={item}
-					selected={props.selectedIndex === index}
-					onSelected={onSelected} />;
-			})}
-		</ul>
+		{props.items.length === 0 && <div className='no-results'>No matching history items</div>}
+		{props.items.length > 0 &&
+			<ul>
+				{props.items.map((item, index) => {
+					const onSelected = () => {
+						props.onSelected(index);
+					};
+					return <HistoryCompletionItem
+						match={item}
+						selected={props.selectedIndex === index}
+						onSelected={onSelected} />;
+				})}
+			</ul>
+		}
 	</div>;
 };

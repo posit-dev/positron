@@ -25,3 +25,8 @@
 	padding: 0px;
 	margin: 0px;
 }
+
+.history-browser-popup .no-results {
+	padding: 4px;
+	font-style: italic;
+}
