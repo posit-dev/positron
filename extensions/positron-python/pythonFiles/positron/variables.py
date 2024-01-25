@@ -72,7 +72,8 @@ class VariablesService:
             method = VariablesBackendRequest(data.get("method", None))
         except ValueError:
             self._send_error(
-                JsonRpcErrorCode.METHOD_NOT_FOUND, f"Unknown method '{data.get('method')}'"
+                JsonRpcErrorCode.METHOD_NOT_FOUND,
+                f"Unknown method '{data.get('method')}'",
             )
             return
 
@@ -141,7 +142,7 @@ class VariablesService:
                 if request.params.path is None:
                     self._missing_param_error("path")
                 else:
-                    self._view_var(request.params.path)
+                    self._open_data_tool(request.params.path)
             except TypeError as exception:
                 self._send_error(
                     JsonRpcErrorCode.INVALID_REQUEST,
@@ -188,7 +189,11 @@ class VariablesService:
         inspector = get_inspector(variables)
         filtered_variables = inspector.summarize_children(variables, _summarize_variable)
 
-        msg = RefreshParams(variables=filtered_variables, length=len(filtered_variables), version=0)
+        msg = RefreshParams(
+            variables=filtered_variables,
+            length=len(filtered_variables),
+            version=0,
+        )
         self._send_event(VariablesFrontendEvent.Refresh.value, asdict(msg))
 
     async def shutdown(self) -> None:
@@ -273,7 +278,7 @@ class VariablesService:
 
                     # If type changes or if key's values is no longer
                     # the same after exection
-                    if type(inspector1) != type(inspector2) or not inspector2.equals(v1, v2):
+                    if type(inspector1) is not type(inspector2) or not inspector2.equals(v1, v2):
                         assigned[key] = v2
 
             except Exception as err:
@@ -415,7 +420,9 @@ class VariablesService:
 
         if filtered_assigned or filtered_removed:
             msg = UpdateParams(
-                assigned=filtered_assigned, removed=sorted(filtered_removed), version=0
+                assigned=filtered_assigned,
+                removed=sorted(filtered_removed),
+                version=0,
             )
             self._send_event(VariablesFrontendEvent.Update.value, asdict(msg))
 
@@ -426,7 +433,11 @@ class VariablesService:
 
     def _send_list(self) -> None:
         filtered_variables = self._list_all_vars()
-        msg = VariableList(variables=filtered_variables, length=len(filtered_variables), version=0)
+        msg = VariableList(
+            variables=filtered_variables,
+            length=len(filtered_variables),
+            version=0,
+        )
         self._send_result(asdict(msg))
 
     def _delete_all_vars(self, parent: Dict[str, Any]) -> None:
@@ -490,30 +501,37 @@ class VariablesService:
             self._send_details(path, value)
         else:
             self._send_error(
-                JsonRpcErrorCode.INVALID_PARAMS, f"Cannot find variable at '{path}' to inspect"
+                JsonRpcErrorCode.INVALID_PARAMS,
+                f"Cannot find variable at '{path}' to inspect",
             )
 
-    def _view_var(self, path: List[str]) -> None:
-        """
-        Opens a viewer comm for the variable at the requested path in the
-        current user session.
+    def _open_data_tool(self, path: List[str]) -> None:
+        """Opens a DataTool comm for the variable at the requested
+        path in the current user session.
+
         """
         if path is None:
             return
 
         is_known, value = self._find_var(path)
-        if is_known:
-            inspector = get_inspector(value)
-            # Use the leaf segment to get the title
-            access_key = path[-1]
-            title = str(decode_access_key(access_key))
-            dataset = inspector.to_dataset(value, title)
-            self.kernel.dataviewer_service.register_dataset(dataset)
-            self._send_result({})
-        else:
-            self._send_error(
-                JsonRpcErrorCode.INVALID_PARAMS, f"Cannot find variable at '{path}' to view"
+        if not is_known:
+            return self._send_error(
+                JsonRpcErrorCode.INVALID_PARAMS,
+                f"Cannot find variable at '{path}' to view",
             )
+
+        inspector = get_inspector(value)
+
+        # Use the leaf segment to get the title
+        access_key = path[-1]
+
+        if not inspector.is_tabular(value):
+            # The front end should never get this far with a request
+            raise TypeError(f"Type {type(value)} is not supported by DataTool.")
+
+        title = str(decode_access_key(access_key))
+        self.kernel.datatool_service.register_table(value, title)
+        self._send_result({})
 
     def _send_event(self, name: str, payload: Dict[str, JsonData]) -> None:
         """
@@ -569,7 +587,8 @@ class VariablesService:
             self._send_result(asdict(msg))
         else:
             self._send_error(
-                JsonRpcErrorCode.INVALID_PARAMS, f"Cannot find variable at '{path}' to format"
+                JsonRpcErrorCode.INVALID_PARAMS,
+                f"Cannot find variable at '{path}' to format",
             )
 
     def _send_details(self, path: List[str], value: Any = None):

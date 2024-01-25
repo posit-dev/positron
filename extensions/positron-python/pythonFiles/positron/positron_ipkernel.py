@@ -28,10 +28,11 @@ from IPython.core.magic import (
 )
 from IPython.utils import PyColorize
 
+from positron.data_tool import DataToolService
+
 from .dataviewer import DataViewerService
 from .ui import UiService
 from .help import HelpService, help
-from .inspectors import get_inspector
 from .lsp import LSPService
 from .plots import PositronDisplayPublisherHook
 from .utils import JsonData
@@ -41,6 +42,7 @@ from .widget import PositronWidgetHook
 
 class _CommTarget(str, enum.Enum):
     DataViewer = "positron.dataViewer"
+    DataTool = "positron.dataTool"
     Ui = "positron.ui"
     Help = "positron.help"
     Lsp = "positron.lsp"
@@ -114,9 +116,7 @@ class PositronMagics(Magics):
             obj = eval(line, local_ns, local_ns)
 
         # Register a dataset with the dataviewer service.
-        inspector = get_inspector(obj)
-        dataset = inspector.to_dataset(obj, line)
-        self.shell.kernel.dataviewer_service.register_dataset(dataset)
+        self.shell.kernel.datatool_service.register_table(obj, line)
 
 
 _traceback_file_link_re = re.compile(r"^(File \x1b\[\d+;\d+m)(.+):(\d+)")
@@ -129,7 +129,8 @@ class PositronShell(ZMQInteractiveShell):
     display_pub: ZMQDisplayPublisher
 
     inspector_class: Type[PositronIPythonInspector] = traitlets.Type(
-        PositronIPythonInspector, help="Class to use to instantiate the shell inspector"  # type: ignore
+        PositronIPythonInspector,
+        help="Class to use to instantiate the shell inspector",  # type: ignore
     ).tag(config=True)
 
     def init_events(self) -> None:
@@ -199,12 +200,12 @@ class PositronShell(ZMQInteractiveShell):
         # Check for changes to the working directory
         try:
             self.kernel.ui_service.poll_working_directory()
-        except:
+        except Exception:
             logger.exception("Error polling working directory")
 
         try:
             self.kernel.variables_service.poll_variables()
-        except:
+        except Exception:
             logger.exception("Error polling variables")
 
     async def _stop(self):
@@ -287,13 +288,16 @@ class PositronIPyKernel(IPythonKernel):
     comm_manager: CommManager
 
     # Use the PositronShell class.
-    shell_class: PositronShell = traitlets.Type(PositronShell, klass=InteractiveShell)  # type: ignore
+    shell_class: PositronShell = traitlets.Type(
+        PositronShell, klass=InteractiveShell
+    )  # type: ignore
 
     def __init__(self, **kwargs) -> None:
         super().__init__(**kwargs)
 
         # Create Positron services
         self.dataviewer_service = DataViewerService(_CommTarget.DataViewer)
+        self.datatool_service = DataToolService(_CommTarget.DataTool)
         self.display_pub_hook = PositronDisplayPublisherHook(_CommTarget.Plot)
         self.ui_service = UiService()
         self.help_service = HelpService()
@@ -348,6 +352,7 @@ class PositronIPyKernel(IPythonKernel):
 
         # Shutdown Positron services
         self.dataviewer_service.shutdown()
+        self.datatool_service.shutdown()
         self.display_pub_hook.shutdown()
         self.ui_service.shutdown()
         self.help_service.shutdown()

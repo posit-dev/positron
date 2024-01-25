@@ -9,7 +9,6 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 from unittest.mock import Mock
 
-from positron.inspectors import get_inspector
 from positron.utils import DataclassProtocol, JsonData
 
 
@@ -37,22 +36,28 @@ def preserve_working_directory():
         os.chdir(cwd)
 
 
-def assert_dataset_registered(mock_dataviewer_service: Mock, obj: Any, title: str) -> None:
-    call_args_list = mock_dataviewer_service.register_dataset.call_args_list
+def assert_dataset_registered(mock_datatool_service: Mock, obj: Any, title: str) -> None:
+    call_args_list = mock_datatool_service.register_table.call_args_list
+
     assert len(call_args_list) == 1
 
-    call_args = call_args_list[0].args
+    passed_table, passed_title = call_args_list[0].args
 
-    actual = call_args[0]
-    expected = get_inspector(obj).to_dataset(obj, title)
-
-    assert_dataclass_equal(actual, expected, ["id"])
+    assert passed_title == title
+    assert passed_table.equals(obj)
 
 
-def comm_message(data: Optional[Dict[str, JsonData]] = None) -> Dict[str, JsonData]:
+def comm_message(
+    data: Optional[Dict[str, JsonData]] = None,
+) -> Dict[str, JsonData]:
     if data is None:
         data = {}
-    return {"data": data, "metadata": None, "buffers": None, "msg_type": "comm_msg"}
+    return {
+        "data": data,
+        "metadata": None,
+        "buffers": None,
+        "msg_type": "comm_msg",
+    }
 
 
 def comm_request(data: Dict[str, JsonData], **kwargs) -> Dict[str, JsonData]:
@@ -93,7 +98,9 @@ def json_rpc_notification(method: str, params: Dict[str, JsonData]) -> Dict[str,
 
 
 def json_rpc_request(
-    method: str, params: Optional[Dict[str, JsonData]] = None, **content: JsonData
+    method: str,
+    params: Optional[Dict[str, JsonData]] = None,
+    **content: JsonData,
 ) -> Dict[str, JsonData]:
     data = {"params": params} if params else {}
     return {

@@ -79,20 +79,36 @@ def test_comm_open(variables_service: VariablesService) -> None:
         #
         ("import numpy as np", [f"np.array({x})" for x in [3, [3], [[3]]]]),
         ("import torch", [f"torch.tensor({x})" for x in [3, [3], [[3]]]]),
-        pytest.param("import pandas as pd", [f"pd.Series({x})" for x in [[], [3], [3, 3], ["3"]]]),
-        pytest.param("import polars as pl", [f"pl.Series({x})" for x in [[], [3], [3, 3], ["3"]]]),
+        pytest.param(
+            "import pandas as pd",
+            [f"pd.Series({x})" for x in [[], [3], [3, 3], ["3"]]],
+        ),
+        pytest.param(
+            "import polars as pl",
+            [f"pl.Series({x})" for x in [[], [3], [3, 3], ["3"]]],
+        ),
         (
             "import pandas as pd",
             [
                 f"pd.DataFrame({x})"
-                for x in [{"a": []}, {"a": [3]}, {"a": ["3"]}, {"a": [3], "b": [3]}]
+                for x in [
+                    {"a": []},
+                    {"a": [3]},
+                    {"a": ["3"]},
+                    {"a": [3], "b": [3]},
+                ]
             ],
         ),
         (
             "import polars as pl",
             [
                 f"pl.DataFrame({x})"
-                for x in [{"a": []}, {"a": [3]}, {"a": ["3"]}, {"a": [3], "b": [3]}]
+                for x in [
+                    {"a": []},
+                    {"a": [3]},
+                    {"a": ["3"]},
+                    {"a": [3], "b": [3]},
+                ]
             ],
         ),
         #
@@ -260,7 +276,8 @@ def test_handle_inspect_error(variables_comm: DummyComm) -> None:
     # An error message is sent
     assert variables_comm.messages == [
         json_rpc_error(
-            JsonRpcErrorCode.INVALID_PARAMS, f"Cannot find variable at '{path}' to inspect"
+            JsonRpcErrorCode.INVALID_PARAMS,
+            f"Cannot find variable at '{path}' to inspect",
         )
     ]
 
@@ -284,14 +301,16 @@ def test_handle_clipboard_format_error(variables_comm: DummyComm) -> None:
     path = [encode_access_key("x")]
     # TODO: We shouldn't need to cast; may be a pyright bug
     msg = json_rpc_request(
-        "clipboard_format", cast(Dict[str, JsonData], {"path": path, "format": "text/plain"})
+        "clipboard_format",
+        cast(Dict[str, JsonData], {"path": path, "format": "text/plain"}),
     )
     variables_comm.handle_msg(msg)
 
     # An error message is sent
     assert variables_comm.messages == [
         json_rpc_error(
-            JsonRpcErrorCode.INVALID_PARAMS, f"Cannot find variable at '{path}' to format"
+            JsonRpcErrorCode.INVALID_PARAMS,
+            f"Cannot find variable at '{path}' to format",
         )
     ]
 
@@ -299,7 +318,7 @@ def test_handle_clipboard_format_error(variables_comm: DummyComm) -> None:
 def test_handle_view(
     shell: PositronShell,
     variables_comm: DummyComm,
-    mock_dataviewer_service: Mock,
+    mock_datatool_service: Mock,
 ) -> None:
     shell.user_ns.update({"x": pd.DataFrame({"a": [0]})})
 
@@ -309,7 +328,7 @@ def test_handle_view(
     # An acknowledgment message is sent
     assert variables_comm.messages == [json_rpc_response({})]
 
-    assert_dataset_registered(mock_dataviewer_service, shell.user_ns["x"], "x")
+    assert_dataset_registered(mock_datatool_service, shell.user_ns["x"], "x")
 
 
 def test_handle_view_error(variables_comm: DummyComm) -> None:
@@ -320,7 +339,10 @@ def test_handle_view_error(variables_comm: DummyComm) -> None:
 
     # An error message is sent
     assert variables_comm.messages == [
-        json_rpc_error(JsonRpcErrorCode.INVALID_PARAMS, f"Cannot find variable at '{path}' to view")
+        json_rpc_error(
+            JsonRpcErrorCode.INVALID_PARAMS,
+            f"Cannot find variable at '{path}' to view",
+        )
     ]
 
 
@@ -329,7 +351,10 @@ def test_handle_unknown_method(variables_comm: DummyComm) -> None:
     variables_comm.handle_msg(msg)
 
     assert variables_comm.messages == [
-        json_rpc_error(JsonRpcErrorCode.METHOD_NOT_FOUND, "Unknown method 'unknown_method'")
+        json_rpc_error(
+            JsonRpcErrorCode.METHOD_NOT_FOUND,
+            "Unknown method 'unknown_method'",
+        )
     ]
 
 

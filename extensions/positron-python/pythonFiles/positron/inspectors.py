@@ -146,6 +146,9 @@ class PositronInspector(Generic[T]):
     def is_snapshottable(self, value: T) -> bool:
         return False
 
+    def is_tabular(self, value: T) -> bool:
+        return False
+
     def equals(self, value1: T, value2: T) -> bool:
         return value1 == value2
 
@@ -770,6 +773,9 @@ class BaseTableInspector(_BaseMapInspector[Table], Generic[Table, Column], ABC):
         return True
 
     def is_snapshottable(self, value: Table) -> bool:
+        return True
+
+    def is_tabular(self, value: Table) -> bool:
         return True
 
     def to_dataset(self, value: Table, title: str) -> DataSet:
