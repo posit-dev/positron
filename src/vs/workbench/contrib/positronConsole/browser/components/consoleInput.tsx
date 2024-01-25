@@ -773,6 +773,13 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 		setHistoryBrowserActive(false);
 	};
 
+	/**
+	 * Dismiss the history browser without accepting an item.
+	 */
+	const onHistoryBrowserDismissed = () => {
+		setHistoryBrowserActive(false);
+	};
+
 	// Render.
 	return (
 		<div className='console-input' tabIndex={0} onFocus={focusHandler}>
@@ -783,7 +790,8 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 					leftPx={historyBrowserLeftPx}
 					items={historyItems}
 					selectedIndex={historyBrowserSelectedIndex}
-					onSelected={onHistoryBrowserSelected} />
+					onSelected={onHistoryBrowserSelected}
+					onDismissed={onHistoryBrowserDismissed} />
 			}
 		</div>
 	);

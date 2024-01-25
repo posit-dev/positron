@@ -4,6 +4,7 @@
 
 import 'vs/css!./historyBrowserPopup';
 import * as React from 'react';
+import * as DOM from 'vs/base/browser/dom';
 import { HistoryCompletionItem } from 'vs/workbench/contrib/positronConsole/browser/components/historyCompletionItem';
 
 // eslint-disable-next-line no-duplicate-imports
@@ -16,6 +17,7 @@ export interface HistoryBrowserPopupProps {
 	bottomPx: number;
 	leftPx: number;
 	onSelected: (index: number) => void;
+	onDismissed: () => void;
 }
 
 /**
@@ -34,6 +36,25 @@ export const HistoryBrowserPopup = (props: HistoryBrowserPopupProps) => {
 				selectedChild.scrollIntoView();
 			}
 		}
+
+		// Add a click handler to the active window to dismiss the popup if the user clicks
+		// anywhere outside of the popup.
+		const clickHandler = (ev: MouseEvent) => {
+			// Is the event targeted for somewhere within the popup?
+			const target = ev.target as HTMLElement;
+			const popup = popupRef.current;
+			if (popup && popup.contains(target)) {
+				// Yes, so do nothing.
+				return;
+			}
+			// No, so dismiss the popup.
+			props.onDismissed();
+		};
+
+		DOM.getActiveWindow().addEventListener('click', clickHandler);
+		return () => {
+			DOM.getActiveWindow().removeEventListener('click', clickHandler);
+		};
 	}, [props.selectedIndex]);
 
 	return <div className='suggest-widget history-browser-popup' ref={popupRef}
