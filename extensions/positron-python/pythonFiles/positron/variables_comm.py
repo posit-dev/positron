@@ -37,6 +37,8 @@ class VariableKind(str, enum.Enum):
 
     Bytes = "bytes"
 
+    Class = "class"
+
     Collection = "collection"
 
     Empty = "empty"
@@ -75,10 +77,11 @@ class VariableList:
     )
 
     version: Optional[int] = field(
+        default=None,
         metadata={
             "description": "The version of the view (incremented with each update)",
             "default": None,
-        }
+        },
     )
 
 

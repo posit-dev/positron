@@ -299,6 +299,35 @@ def test_summarize_complex(case: complex) -> None:
 
 
 #
+# Test Classes
+#
+
+CLASSES_CASES = [pd.DataFrame, np.ndarray, datetime.tzinfo, bytes, str]
+
+
+@pytest.mark.parametrize("case", CLASSES_CASES)
+def test_summarize_classes(case: type) -> None:
+    display_name = "xType"
+    expected = Variable(
+        access_key=encode_access_key(display_name),
+        size=0,
+        length=0,
+        has_children=False,
+        has_viewer=False,
+        is_truncated=False,
+        display_name=display_name,
+        display_value=str(case),
+        kind=VariableKind.Class,
+        display_type="type",
+        type_info="type",
+    )
+
+    result = _summarize_variable(display_name, case)
+
+    assert_variable_equal(result, expected)
+
+
+#
 # Test Bytes
 #
 
@@ -400,6 +429,10 @@ def test_summarize_memoryview() -> None:
 
     assert_variable_equal(result, expected)
 
+
+#
+# Test Timestamps
+#
 
 TIMESTAMP_CASES = [pd.Timestamp("2021-01-01 01:23:45"), datetime.datetime(2021, 1, 1, 1, 23, 45)]
 

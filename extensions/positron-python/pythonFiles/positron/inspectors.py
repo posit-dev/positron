@@ -9,6 +9,8 @@ import inspect
 import json
 import logging
 import numbers
+import pydoc
+import re
 import sys
 import types
 import uuid
@@ -40,6 +42,8 @@ from typing import (
     Union,
     cast,
 )
+
+from positron.utils import JsonData
 
 from .dataviewer import DataColumn, DataSet
 from .third_party import np_, pd_, torch_
@@ -224,6 +228,31 @@ class BytesInspector(PositronInspector[bytes]):
             raise ValueError(f"Expected data to be str, got {data}")
 
         return data.encode()
+
+
+class ClassInspector(PositronInspector[type]):
+    def get_kind(self, value: type) -> str:
+        return "class"
+
+    def has_children(self, value: type) -> bool:
+        return False
+
+    def value_to_json(self, value: type) -> JsonData:
+        return str(value)
+
+    def value_from_json(self, type_name: str, data: JsonData) -> type:
+        if not isinstance(data, str):
+            raise ValueError(f"Expected data to be str, got {data}")
+
+        pattern = "(?<=<class ').*(?='>)"
+        match = re.search(pattern, data)
+        if match is None:
+            raise ValueError(f"Could not find class name in {data}")
+        # pydoc.locate will work for both built-in classes as well as any classes on the path
+        class_name = pydoc.locate(match.group(0))
+        if not isinstance(class_name, type):
+            raise ValueError(f"Could not locate a type named {data}")
+        return class_name
 
 
 class FunctionInspector(PositronInspector[Callable]):
@@ -840,6 +869,7 @@ INSPECTORS: Dict[str, PositronInspector] = {
     DatetimeInspector.CLASS_QNAME: DatetimeInspector(),
     "boolean": BooleanInspector(),
     "bytes": BytesInspector(),
+    "class": ClassInspector(),
     "collection": CollectionInspector(),
     "function": FunctionInspector(),
     "map": MapInspector(),
@@ -854,7 +884,10 @@ INSPECTORS: Dict[str, PositronInspector] = {
 
 def get_inspector(value: T) -> PositronInspector[T]:
     # Look for a specific inspector by qualified classname
-    qualname = get_qualname(value)
+    if isinstance(value, type):
+        qualname = str("type")
+    else:
+        qualname = get_qualname(value)
     inspector = INSPECTORS.get(qualname, None)
 
     if inspector is None:
@@ -884,6 +917,8 @@ def _get_kind(value: Any) -> str:
         return "collection"
     elif isinstance(value, (types.FunctionType, types.MethodType)):
         return "function"
+    elif isinstance(value, type):
+        return "class"
     elif value is not None:
         return "other"
     else:
@@ -916,6 +951,7 @@ _ACCESS_KEY_QUALNAME_TO_INSPECTOR_KEY: Dict[str, str] = {
     "bool": "boolean",
     "str": "string",
     "range": "collection",
+    "type": "class",
 }
 
 
