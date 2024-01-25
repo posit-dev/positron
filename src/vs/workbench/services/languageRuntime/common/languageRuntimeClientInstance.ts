@@ -38,6 +38,7 @@ export enum RuntimeClientType {
 	Lsp = 'positron.lsp',
 	Plot = 'positron.plot',
 	DataViewer = 'positron.dataViewer',
+	DataTool = 'positron.dataTool',
 	Ui = 'positron.ui',
 	Help = 'positron.help',
 	IPyWidget = 'jupyter.widget',

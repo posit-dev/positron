@@ -6,8 +6,8 @@
 	display: flex;
 	cursor: pointer;
 	box-sizing: border-box; /* Draw the borders inside the box. */
-	border-top: 0.5px solid var(--vscode-positronVariables-grid);
-	border-bottom: 0.5px solid var(--vscode-positronVariables-grid);
+	border-top: 0.5px solid var(--vscode-positronVariables-border);
+	border-bottom: 0.5px solid var(--vscode-positronVariables-border);
 }
 
 .variable-overflow:hover {

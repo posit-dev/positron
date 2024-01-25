@@ -15,7 +15,7 @@ import { VariableItem } from 'vs/workbench/contrib/positronVariables/browser/com
 import { VariableGroup } from 'vs/workbench/contrib/positronVariables/browser/components/variableGroup';
 import { VariablesEmpty } from 'vs/workbench/contrib/positronVariables/browser/components/variablesEmpty';
 import { VariableOverflow } from 'vs/workbench/contrib/positronVariables/browser/components/variableOverflow';
-import { PositronColumnSplitterResizeResult } from 'vs/base/browser/ui/positronComponents/positronColumnSplitter';
+import { PositronColumnSplitterResizeParams } from 'vs/base/browser/ui/positronComponents/positronColumnSplitter';
 import { usePositronVariablesContext } from 'vs/workbench/contrib/positronVariables/browser/positronVariablesContext';
 import { VariableEntry, IPositronVariablesInstance, isVariableGroup, isVariableItem, isVariableOverflow } from 'vs/workbench/services/positronVariables/common/interfaces/positronVariablesInstance';
 
@@ -301,25 +301,21 @@ export const VariablesInstance = (props: VariablesInstanceProps) => {
 	};
 
 	/**
-	 * onResizeNameColumn event handler.
-	 * @param x The X delta.
+	 * onBeginResizeNameColumn handler.
+	 * @returns A PositronColumnSplitterResizeParams containing the resize parameters.
 	 */
-	const resizeNameColumnHandler = (x: number) => {
-		// Calculate the new column widths.
-		let newNameColumnWidth = nameColumnWidth + x;
-		let result: PositronColumnSplitterResizeResult;
-		if (newNameColumnWidth < MINIMUM_NAME_COLUMN_WIDTH) {
-			newNameColumnWidth = MINIMUM_NAME_COLUMN_WIDTH;
-			result = PositronColumnSplitterResizeResult.TooSmall;
-		} else {
-			const maxNameColumnWidth = Math.trunc(2 * props.width / 3);
-			if (newNameColumnWidth > maxNameColumnWidth) {
-				newNameColumnWidth = maxNameColumnWidth;
-				result = PositronColumnSplitterResizeResult.TooLarge;
-			} else {
-				result = PositronColumnSplitterResizeResult.Resizing;
-			}
-		}
+	const beginResizeNameColumnHandler = (): PositronColumnSplitterResizeParams => ({
+		minimumWidth: MINIMUM_NAME_COLUMN_WIDTH,
+		maximumWidth: Math.trunc(2 * props.width / 3),
+		startingWidth: nameColumnWidth
+	});
+
+	/**
+	 * onResize event handler.
+	 * @param newNameColumnWidth The new name column width.
+	 */
+	const resizeNameColumnHandler = (newNameColumnWidth: number) => {
+		// Calculate the new details column width.
 		const newDetailsColumnWidth = props.width - newNameColumnWidth;
 
 		// Adjust the column widths.
@@ -328,9 +324,6 @@ export const VariablesInstance = (props: VariablesInstanceProps) => {
 
 		// Set the right column visibility.
 		setRightColumnVisible(newDetailsColumnWidth > RIGHT_COLUMN_VISIBILITY_THRESHOLD);
-
-		// Done.
-		return result;
 	};
 
 	/**
@@ -433,6 +426,7 @@ export const VariablesInstance = (props: VariablesInstanceProps) => {
 					onSelected={() => selectedHandler(index)}
 					onDeselected={deselectedHandler}
 					onToggleExpandCollapse={() => toggleExpandCollapseHandler(index)}
+					onBeginResizeNameColumn={beginResizeNameColumnHandler}
 					onResizeNameColumn={resizeNameColumnHandler}
 					positronVariablesInstance={props.positronVariablesInstance}
 				/>
@@ -449,6 +443,7 @@ export const VariablesInstance = (props: VariablesInstanceProps) => {
 					selected={selectedId === entry.id}
 					onSelected={() => selectedHandler(index)}
 					onDeselected={deselectedHandler}
+					onBeginResizeNameColumn={beginResizeNameColumnHandler}
 					onResizeNameColumn={resizeNameColumnHandler}
 				/>
 			);

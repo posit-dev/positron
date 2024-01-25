@@ -1,0 +1,85 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
+ *--------------------------------------------------------------------------------------------*/
+
+.data-grid-row-cell {
+	top: 0;
+	bottom: 0;
+	display: grid;
+	position: absolute;
+	grid-template-columns: [left-gutter] 5px [content] 1fr [right-gutter] 1px [end];
+}
+
+.data-grid-row-cell
+.data-grid-row-cell-border-overlay {
+	top: 0;
+	right: 0;
+	bottom: 0;
+	left: 0;
+	position: absolute;
+	box-sizing: border-box;
+	border-right: 1px solid var(--vscode-positronDataGrid-border);
+	border-bottom: 1px solid var(--vscode-positronDataGrid-border);
+}
+
+.data-grid-row-cell
+.data-grid-row-cell-border-overlay.selected {
+	border-right: 1px solid var(--vscode-positronDataGrid-selectionInnerBorder);
+	border-bottom: 1px solid var(--vscode-positronDataGrid-selectionInnerBorder);
+	background-color: var(--vscode-positronDataGrid-selectionBackground);
+}
+
+.data-grid-row-cell
+.data-grid-row-cell-border-overlay.selected-top {
+	border-top: 1px solid var(--vscode-positronDataGrid-selectionBorder);
+}
+
+.data-grid-row-cell
+.data-grid-row-cell-border-overlay.selected-bottom {
+	border-bottom: 1px solid var(--vscode-positronDataGrid-selectionBorder);
+}
+
+.data-grid-row-cell
+.data-grid-row-cell-border-overlay.selected-left {
+	border-left: 1px solid var(--vscode-positronDataGrid-selectionBorder);
+}
+
+.data-grid-row-cell
+.data-grid-row-cell-border-overlay.selected-right {
+	border-right: 1px solid var(--vscode-positronDataGrid-selectionBorder);
+}
+
+.data-grid-row-cell .cursor-border {
+	top: 0;
+	right: 0px;
+	bottom: 0;
+	left: 0;
+
+	position: absolute;
+	box-sizing: border-box;
+	border: 1.5px solid var(--vscode-positronDataGrid-cursorBorder);
+}
+
+.data-grid-row-cell .text {
+	position: absolute;
+	top: 0;
+	right: 0;
+	bottom: 0;
+	left: 5px;
+	font-size: 90%;
+	display: flex;
+	align-items: center;
+	grid-column: content / right-gutter;
+	/*
+	overflow: hidden;
+	align-items: center;
+	white-space: nowrap;
+	text-overflow: ellipsis;
+	*/
+}
+
+.data-grid-row-cell .positron-column-splitter {
+	/* height: 100%; */
+	grid-column: right-gutter / end;
+	/* background-color: var(--vscode-positronDataGrid-border); */
+}

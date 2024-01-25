@@ -1,0 +1,63 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
+ *--------------------------------------------------------------------------------------------*/
+
+.data-grid-column-header {
+	top: 0;
+	bottom: 0;
+	display: grid;
+	position: absolute;
+	background-color: var(--vscode-positronDataGrid-headerBackground);
+	grid-template-columns: [left-gutter] 5px [content] 1fr [right-gutter] 1px [end];
+}
+
+.data-grid-column-header
+.data-grid-column-header-border-overlay {
+	top: 0;
+	right: 0;
+	bottom: 0;
+	left: 0;
+	position: absolute;
+	box-sizing: border-box;
+	border-right: 1px solid var(--vscode-positronDataGrid-border);
+	border-bottom: 1px solid var(--vscode-positronDataGrid-border);
+}
+
+.data-grid-column-header
+.data-grid-column-header-border-overlay.selected {
+	border-top: 1px solid var(--vscode-positronDataGrid-selectionBorder);
+	border-right: 1px solid var(--vscode-positronDataGrid-selectionInnerBorder);
+	border-bottom: 1px solid var(--vscode-positronDataGrid-selectionInnerBorder);
+	background-color: var(--vscode-positronDataGrid-selectionBackground);
+}
+
+.data-grid-column-header
+.data-grid-column-header-border-overlay.selected-left {
+	border-left: 1px solid var(--vscode-positronDataGrid-selectionBorder);
+}
+
+.data-grid-column-header
+.data-grid-column-header-border-overlay.selected-right {
+	border-right: 1px solid var(--vscode-positronDataGrid-selectionBorder);
+}
+
+.data-grid-column-headers .data-grid-column-header .title {
+	position: absolute;
+	top: 0;
+	right: 0;
+	bottom: 0;
+	left: 0;
+	display: flex;
+	font-size: 90%;
+	font-weight: 600;
+	overflow: hidden;
+	margin: 0 5px 0 5px;
+	align-items: center;
+	white-space: nowrap;
+	text-overflow: ellipsis;
+	grid-column: content / right-gutter;
+}
+
+.data-grid-column-headers .data-grid-column-header .positron-column-splitter {
+	grid-column: right-gutter / end;
+}

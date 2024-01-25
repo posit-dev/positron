@@ -9,7 +9,7 @@ import { localize } from 'vs/nls';
 import * as platform from 'vs/base/common/platform';
 import { positronClassNames } from 'vs/base/common/positronUtilities';
 import { IVariableOverflow as IVariableOverflow } from 'vs/workbench/services/positronVariables/common/interfaces/variableOverflow';
-import { PositronColumnSplitter, PositronColumnSplitterResizeResult } from 'vs/base/browser/ui/positronComponents/positronColumnSplitter';
+import { PositronColumnSplitter, PositronColumnSplitterResizeParams } from 'vs/base/browser/ui/positronComponents/positronColumnSplitter';
 
 /**
  * VariableOverflowProps interface.
@@ -23,7 +23,8 @@ export interface VariableOverflowProps {
 	style: CSSProperties;
 	onSelected: () => void;
 	onDeselected: () => void;
-	onResizeNameColumn: (x: number, y: number) => PositronColumnSplitterResizeResult;
+	onBeginResizeNameColumn: () => PositronColumnSplitterResizeParams;
+	onResizeNameColumn: (newNameColumnWidth: number) => void;
 }
 
 /**
@@ -87,7 +88,10 @@ export const VariableOverflow = (props: VariableOverflowProps) => {
 					</div>
 				</div>
 			</div>
-			<PositronColumnSplitter width={5} showSizer={true} onResize={props.onResizeNameColumn} />
+			<PositronColumnSplitter
+				onBeginResize={props.onBeginResizeNameColumn}
+				onResize={props.onResizeNameColumn}
+			/>
 			<div className='details-column' style={{ width: props.detailsColumnWidth - 6, minWidth: props.detailsColumnWidth - 6 }}>
 				<div className='value'>
 					{value}
