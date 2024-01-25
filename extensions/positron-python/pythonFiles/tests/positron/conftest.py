@@ -80,9 +80,9 @@ def shell() -> Iterable[PositronShell]:
 
 
 @pytest.fixture
-def mock_dataviewer_service(shell: PositronShell, monkeypatch: pytest.MonkeyPatch) -> Mock:
+def mock_datatool_service(shell: PositronShell, monkeypatch: pytest.MonkeyPatch) -> Mock:
     mock = Mock()
-    monkeypatch.setattr(shell.kernel, "dataviewer_service", mock)
+    monkeypatch.setattr(shell.kernel, "datatool_service", mock)
     return mock
 
 
