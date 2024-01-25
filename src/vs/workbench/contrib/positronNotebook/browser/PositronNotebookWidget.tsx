@@ -3,12 +3,35 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as React from 'react';
+import * as DOM from 'vs/base/browser/dom';
+
 import { ISize, PositronReactRenderer } from 'vs/base/browser/positronReactRenderer';
-import { Disposable } from 'vs/base/common/lifecycle';
+import { Emitter, Event } from 'vs/base/common/event';
+import { Disposable, DisposableStore, dispose } from 'vs/base/common/lifecycle';
 import { ISettableObservable } from 'vs/base/common/observableInternal/base';
+import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
+import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
+import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
+import { ServiceCollection } from 'vs/platform/instantiation/common/serviceCollection';
+import { IActiveNotebookEditorDelegate, IBaseCellEditorOptions, INotebookEditorCreationOptions, INotebookEditorViewState, INotebookViewCellsUpdateEvent } from 'vs/workbench/contrib/notebook/browser/notebookBrowser';
+import { NotebookOptions } from 'vs/workbench/contrib/notebook/browser/notebookOptions';
+import { NotebookEventDispatcher } from 'vs/workbench/contrib/notebook/browser/viewModel/eventDispatcher';
+import { NotebookViewModel } from 'vs/workbench/contrib/notebook/browser/viewModel/notebookViewModelImpl';
+import { ViewContext } from 'vs/workbench/contrib/notebook/browser/viewModel/viewContext';
+import { NotebookTextModel } from 'vs/workbench/contrib/notebook/common/model/notebookTextModel';
+import { INotebookExecutionStateService } from 'vs/workbench/contrib/notebook/common/notebookExecutionStateService';
 import { InputObservable } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookEditor';
+import { BaseCellEditorOptions } from './BaseCellEditorOptions';
 import { PositronNotebookComponent } from './PositronNotebookComponent';
-import { INotebookEditorViewState } from 'vs/workbench/contrib/notebook/browser/notebookBrowser';
+import { BareFontInfo, FontInfo } from 'vs/editor/common/config/fontInfo';
+import { IEditorOptions } from 'vs/editor/common/config/editorOptions';
+import { FontMeasurements } from 'vs/editor/browser/config/fontMeasurements';
+import { PixelRatio } from 'vs/base/browser/browser';
+import { NotebookLayoutChangedEvent } from 'vs/workbench/contrib/notebook/browser/notebookViewEvents';
+
+
+// Things currently omitted in the name of getting something working quicker:
+// - Contributions
 
 
 export class PositronNotebookWidget extends Disposable {
@@ -18,10 +41,225 @@ export class PositronNotebookWidget extends Disposable {
 	_size: ISettableObservable<ISize>;
 	_input: InputObservable;
 
+
 	/**
- * Keep track of if this editor has been disposed.
- */
+	 * Containing node for the iframe/webview containing the outputs of notebook cells
+	 */
+	_outputOverlayContainer?: HTMLElement;
+
+	/**
+	 * Store of disposables.
+	 * TODO: Explain exactly what and why this exists
+	 */
+	private _localStore = this._register(new DisposableStore());
+
+	/**
+	 * An object containing notebook options, an event dispatcher, and a function to get base cell
+	 * editor options.
+	*/
+	private _viewContext: ViewContext;
+
+	// TODO: Explain these
+
+	/**
+	 *
+	 */
+	private readonly _notebookOptions: NotebookOptions;
+	private readonly _readOnly: boolean;
+	private _fontInfo: FontInfo | undefined;
+	private _dimension?: DOM.Dimension;
+
+
+	/**
+	 * Mirrored cell state listeners from the notebook model.
+	 */
+	private _localCellStateListeners: DisposableStore[] = [];
+	private readonly instantiationService: IInstantiationService;
+	public readonly scopedContextKeyService: IContextKeyService;
+
+	/**
+	 * Internal event emitter for when the editor's options change.
+	 */
+	private readonly _onDidChangeOptions = this._register(new Emitter<void>());
+	/**
+	 * Event emitter for when the editor's options change.
+	 */
+	readonly onDidChangeOptions: Event<void> = this._onDidChangeOptions.event;
+
+	/**
+	 * Internal event emitter for when the editor's decorations change.
+	 */
+	private readonly _onDidChangeDecorations = this._register(new Emitter<void>());
+	/**
+	 * Event emitter for when the editor's decorations change.
+	 */
+	readonly onDidChangeDecorations: Event<void> = this._onDidChangeDecorations.event;
+
+	/**
+	 * Internal event emitter for when the cells of the current view model change.
+	 */
+	private readonly _onDidChangeViewCells = this._register(new Emitter<INotebookViewCellsUpdateEvent>());
+	/**
+	 * Event emitter for when the cells of the current view model change.
+	 */
+	readonly onDidChangeViewCells: Event<INotebookViewCellsUpdateEvent> = this._onDidChangeViewCells.event;
+
+
+	// #region NotebookModel
+	/**
+	 * Model for the notebook contents. Note the difference between the NotebookTextModel and the
+	 * NotebookViewModel.
+	 */
+	private readonly _onWillChangeModel = this._register(new Emitter<NotebookTextModel | undefined>());
+	/**
+	 * Fires an event when the notebook model for the editor is about to change. The argument is the
+	 * outgoing `NotebookTextModel` model.
+	 */
+	readonly onWillChangeModel: Event<NotebookTextModel | undefined> = this._onWillChangeModel.event;
+	private readonly _onDidChangeModel = this._register(new Emitter<NotebookTextModel | undefined>());
+	/**
+	 * Fires an event when the notebook model for the editor has changed. The argument is the new
+	 * `NotebookTextModel` model.
+	 */
+	readonly onDidChangeModel: Event<NotebookTextModel | undefined> = this._onDidChangeModel.event;
+
+	_notebookViewModel?: NotebookViewModel;
+
+	/**
+	 * Setter for viewModel so we can (optionally) fire events when it changes.
+	 */
+	setViewModel(value: NotebookViewModel, notifyOfModelChange: boolean = true) {
+		if (notifyOfModelChange) {
+			// Fire on will change with old model
+			this._onWillChangeModel.fire(this._notebookViewModel?.notebookDocument);
+		}
+
+		// Update model to new setting
+		this._notebookViewModel = value;
+
+		if (notifyOfModelChange) {
+			// Fire on did change with new model
+			this._onDidChangeModel.fire(this._notebookViewModel?.notebookDocument);
+		}
+	}
+
+	/**
+	 * Passthrough getter so that we can avoid needing to use the private field.
+	 */
+	getViewModel() {
+		return this._notebookViewModel;
+	}
+
+
+	/**
+	 * Get the current `NotebookTextModel` for the editor.
+	 */
+	get textModel() {
+		return this._notebookViewModel?.notebookDocument;
+	}
+
+	/**
+	 * Type guard to check if the editor has a model.
+	 * @returns True if the editor has a model, false otherwise.
+	 */
+	hasModel(): this is IActiveNotebookEditorDelegate {
+		return Boolean(this._notebookViewModel);
+	}
+
+
+	async setModel(textModel: NotebookTextModel, viewState: INotebookEditorViewState) {
+
+		// Confusingly the .equals() method for the NotebookViewModel takes a NotebookTextModel, not
+		// a NotebookViewModel. This is because the NotebookViewModel is just a wrapper around the
+		// NotebookTextModel... I guess?
+		if (this._notebookViewModel === undefined || !this._notebookViewModel.equal(textModel)) {
+			// Make sure we're working with a fresh model state
+			this._detachModel();
+
+			// In the vscode implementation they have a separate _attachModel method that is called
+			// but we just inline it here because it's confusing to have both a setModel and
+			// attachModel methods when the attachModel method is only called from setModel.
+
+			this.setViewModel(
+				this.instantiationService.createInstance(
+					NotebookViewModel,
+					textModel.viewType,
+					textModel,
+					this._viewContext,
+					this.getLayoutInfo(),
+					{ isReadOnly: this._readOnly }
+				),
+			);
+
+			// Emit an event into the view context for layout change so things can get initialized
+			// properly.
+			this._viewContext.eventDispatcher.emit(
+				[new NotebookLayoutChangedEvent({ width: true, fontInfo: true }, this.getLayoutInfo())]
+			);
+
+			// Update read only status of notebook. Why here?
+			this._notebookOptions.updateOptions(this._readOnly);
+
+			// Bring the view model back to the state it was in when the view state was saved.
+			this.getViewModel()?.restoreEditorViewState(viewState);
+
+
+			const viewModel = this._notebookViewModel;
+			if (viewModel) {
+				this._localStore.add(viewModel.onDidChangeViewCells(e => {
+					this._onDidChangeViewCells.fire(e);
+				}));
+			}
+
+
+
+
+
+			// TODO: Finish implementing this.
+
+
+
+
+		} else {
+
+		}
+	}
+
+
+	/**
+	 * Remove and cleanup the current model for notebook.
+	 * TODO: Flesh out rest of method once other components are implemented.
+	 */
+	private _detachModel() {
+		// Clear store of disposables
+		this._localStore.clear();
+
+		// Dispose of all cell state listeners from the outgoing model
+		dispose(this._localCellStateListeners);
+
+		// Once we've got the cell list object running. It will need to have the model detached here.
+		// this._list.detachViewModel();
+
+		this._notebookViewModel?.dispose();
+		this._notebookViewModel = undefined;
+
+		// Once the webview for outputs is set up we'll need to clean them up here as well.
+		// this._webview?.dispose();
+		// this._webview?.element.remove();
+		// this._webview = null;
+
+		// this._list.clear();
+
+	}
+
+	// #endregion
+
+
+	/**
+	 * Keep track of if this editor has been disposed.
+	 */
 	isDisposed: boolean = false;
+
 
 
 
@@ -31,7 +269,16 @@ export class PositronNotebookWidget extends Disposable {
 			size: ISettableObservable<ISize>;
 			input: InputObservable;
 			baseElement: HTMLElement;
-		}
+		},
+		readonly creationOptions: INotebookEditorCreationOptions | undefined,
+		// TODO: Label what each of these DI items are for.
+		@IConfigurationService private readonly configurationService: IConfigurationService,
+		@IInstantiationService instantiationService: IInstantiationService,
+		@IContextKeyService contextKeyService: IContextKeyService,
+		@INotebookExecutionStateService notebookExecutionStateService: INotebookExecutionStateService,
+
+
+
 	) {
 		super();
 
@@ -39,6 +286,92 @@ export class PositronNotebookWidget extends Disposable {
 		this._size = size;
 		this._input = input;
 		this._baseElement = baseElement;
+
+		this._readOnly = creationOptions?.isReadOnly ?? false;
+
+
+		this._notebookOptions = creationOptions?.options ?? new NotebookOptions(this.configurationService, notebookExecutionStateService, this._readOnly);
+
+
+		this._viewContext = new ViewContext(
+			this._notebookOptions,
+			new NotebookEventDispatcher(),
+			language => this.getBaseCellEditorOptions(language)
+		);
+
+
+		// Setup the container that will hold the outputs of notebook cells
+		this._outputOverlayContainer = document.createElement('div');
+
+		// Create a new context service that has the output overlay container as the root element.
+		this.scopedContextKeyService = contextKeyService.createScoped(this._outputOverlayContainer);
+
+		// Make sure that all things instantiated have a scoped context key service injected.
+		this.instantiationService = instantiationService.createChild(
+			new ServiceCollection([IContextKeyService, this.scopedContextKeyService])
+		);
+
+	}
+
+	/**
+	 * Key-value map of language to base cell editor options for cells of that language.
+	 */
+	_baseCellEditorOptions: Map<string, IBaseCellEditorOptions> = new Map();
+
+	/**
+	 * Gets the base cell editor options for the given language.
+	 * If they don't exist yet, they will be created.
+	 * @param language The language to get the options for.
+	 */
+	getBaseCellEditorOptions(language: string): IBaseCellEditorOptions {
+		const existingOptions = this._baseCellEditorOptions.get(language);
+
+		if (existingOptions) {
+			return existingOptions;
+		}
+
+		const options = new BaseCellEditorOptions({
+			onDidChangeModel: this.onDidChangeModel,
+			hasModel: this.hasModel,
+			onDidChangeOptions: this.onDidChangeOptions,
+			isReadOnly: this._readOnly,
+		}, this._notebookOptions, this.configurationService, language);
+		this._baseCellEditorOptions.set(language, options);
+		return options;
+	}
+
+	/**
+	 * Setup font info and assign to private variable
+	 */
+	private _generateFontInfo(): void {
+		const editorOptions = this.configurationService.getValue<IEditorOptions>('editor');
+		this._fontInfo = FontMeasurements.readFontInfo(BareFontInfo.createFromRawSettings(editorOptions, PixelRatio.value));
+	}
+
+	/**
+	 * Gather info about editor layout such as width, height, and scroll behavior.
+	 * @returns The current layout info for the editor.
+	 */
+	getLayoutInfo(): NotebookLayoutInfo {
+		// if (!this._list) {
+		// 	throw new Error('Editor is not initalized successfully');
+		// }
+
+		if (!this._fontInfo) {
+			this._generateFontInfo();
+		}
+
+		return {
+			width: this._dimension?.width ?? 0,
+			height: this._dimension?.height ?? 0,
+			scrollHeight: 0,
+			// TODO: Implement this
+			// scrollHeight: this._list?.getScrollHeight() ?? 0,
+			fontInfo: this._fontInfo!,
+			stickyHeight: 0,
+			// TODO: Implement this
+			// stickyHeight: this._notebookStickyScroll?.getCurrentStickyHeight() ?? 0
+		};
 	}
 
 	/**
@@ -92,12 +425,19 @@ export class PositronNotebookWidget extends Disposable {
 			collapsedInputCells: {},
 			collapsedOutputCells: {},
 		};
-
-
 	}
 
 	override dispose() {
 		super.dispose();
 		this.disposeReactRenderer();
 	}
+}
+
+
+interface NotebookLayoutInfo {
+	width: number;
+	height: number;
+	scrollHeight: number;
+	fontInfo: FontInfo;
+	stickyHeight: number;
 }

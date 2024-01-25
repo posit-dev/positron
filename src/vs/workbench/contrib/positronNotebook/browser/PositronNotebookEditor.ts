@@ -6,36 +6,52 @@ import * as DOM from 'vs/base/browser/dom';
 
 import { ISize } from 'vs/base/browser/positronReactRenderer';
 import { CancellationToken } from 'vs/base/common/cancellation';
-import { ISettableObservable, observableValue } from 'vs/base/common/observableInternal/base';
+import {
+	ISettableObservable,
+	observableValue
+} from 'vs/base/common/observableInternal/base';
 import { IClipboardService } from 'vs/platform/clipboard/common/clipboardService';
 import { IStorageService } from 'vs/platform/storage/common/storage';
 import { ITelemetryService } from 'vs/platform/telemetry/common/telemetry';
 import { IThemeService } from 'vs/platform/theme/common/themeService';
 import { EditorPane } from 'vs/workbench/browser/parts/editor/editorPane';
-import { EditorPaneSelectionChangeReason, IEditorMemento, IEditorOpenContext, IEditorPaneSelectionChangeEvent } from 'vs/workbench/common/editor';
+import {
+	EditorPaneSelectionChangeReason,
+	IEditorMemento,
+	IEditorOpenContext,
+	IEditorPaneSelectionChangeEvent
+} from 'vs/workbench/common/editor';
 import { PositronNotebookEditorInput } from './PositronNotebookEditorInput';
 import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
 import { PositronNotebookWidget } from './PositronNotebookWidget';
-import { INotebookEditorOptions, INotebookEditorViewState } from 'vs/workbench/contrib/notebook/browser/notebookBrowser';
+import {
+	INotebookEditorOptions,
+	INotebookEditorViewState
+} from 'vs/workbench/contrib/notebook/browser/notebookBrowser';
 import { localize } from 'vs/nls';
 import { DisposableStore } from 'vs/base/common/lifecycle';
 import { Emitter } from 'vs/base/common/event';
-import { GroupsOrder, IEditorGroupsService } from 'vs/workbench/services/editor/common/editorGroupsService';
+import {
+	GroupsOrder,
+	IEditorGroupsService
+} from 'vs/workbench/services/editor/common/editorGroupsService';
 import { ITextResourceConfigurationService } from 'vs/editor/common/services/textResourceConfiguration';
 
 /**
  * Key for the memoized view state.
  */
-const POSITRON_NOTEBOOK_EDITOR_VIEW_STATE_PREFERENCE_KEY = 'NotebookEditorViewState';
-
+const POSITRON_NOTEBOOK_EDITOR_VIEW_STATE_PREFERENCE_KEY =
+	'NotebookEditorViewState';
 
 /**
  * Observable value for the notebook editor.
  */
-export type InputObservable = ISettableObservable<PositronNotebookEditorInput | undefined, void>;
+export type InputObservable = ISettableObservable<
+	PositronNotebookEditorInput | undefined,
+	void
+>;
 
-export class PositronNotebookEditor
-	extends EditorPane {
+export class PositronNotebookEditor extends EditorPane {
 	_parentDiv: HTMLElement | undefined;
 
 	/**
@@ -47,12 +63,12 @@ export class PositronNotebookEditor
 	 */
 	private _notebookWidget: PositronNotebookWidget | undefined;
 
-
 	/**
 	 * A disposable store for disposables attached to the editor widget.
 	 */
-	private readonly _widgetDisposableStore = this._register(new DisposableStore());
-
+	private readonly _widgetDisposableStore = this._register(
+		new DisposableStore()
+	);
 
 	//#region Editor State
 	/**
@@ -63,7 +79,11 @@ export class PositronNotebookEditor
 
 	private _saveEditorViewState(input?: PositronNotebookEditorInput) {
 		// Save view state into momento
-		if (this.group && this._notebookWidget && input instanceof PositronNotebookEditorInput) {
+		if (
+			this.group &&
+			this._notebookWidget &&
+			input instanceof PositronNotebookEditorInput
+		) {
 			if (this._notebookWidget.isDisposed) {
 				return;
 			}
@@ -73,7 +93,9 @@ export class PositronNotebookEditor
 		}
 	}
 
-	private _loadNotebookEditorViewState(input: PositronNotebookEditorInput): INotebookEditorViewState | undefined {
+	private _loadNotebookEditorViewState(
+		input: PositronNotebookEditorInput
+	): INotebookEditorViewState | undefined {
 		let result: INotebookEditorViewState | undefined;
 		if (this.group) {
 			result = this._editorMemento.loadEditorState(this.group, input.resource);
@@ -83,29 +105,48 @@ export class PositronNotebookEditor
 		}
 		// when we don't have a view state for the group/input-tuple then we try to use an existing
 		// editor for the same resource. (Comment copied from vs-notebooks implementation)
-		for (const group of this._editorGroupService.getGroups(GroupsOrder.MOST_RECENTLY_ACTIVE)) {
-			if (group.activeEditorPane !== this && group.activeEditorPane instanceof PositronNotebookEditor && group.activeEditor?.matches(input)) {
+		for (const group of this._editorGroupService.getGroups(
+			GroupsOrder.MOST_RECENTLY_ACTIVE
+		)) {
+			if (
+				group.activeEditorPane !== this &&
+				group.activeEditorPane instanceof PositronNotebookEditor &&
+				group.activeEditor?.matches(input)
+			) {
 				return group.activeEditorPane._notebookWidget?.getEditorViewState();
 			}
 		}
 		return;
 	}
 
-	//#endregion Editor State
+	protected override saveState(): void {
+		this._saveEditorViewState();
+		super.saveState();
+	}
 
+	override getViewState(): INotebookEditorViewState | undefined {
+		if (!(this.input instanceof PositronNotebookEditorInput)) {
+			return undefined;
+		}
+		this._saveEditorViewState();
+		return this._notebookWidget?.getEditorViewState();
+	}
+
+	//#endregion Editor State
 
 	/**
 	 * Event emitter for letting the IDE know that there has been a selection change in the
 	 * editor.
 	 */
-	private readonly _onDidChangeSelection = this._register(new Emitter<IEditorPaneSelectionChangeEvent>());
+	private readonly _onDidChangeSelection = this._register(
+		new Emitter<IEditorPaneSelectionChangeEvent>()
+	);
 	/**
 	 * Event that fires when the editor's selection changes. This lets the IDE know
 	 * that the selection, or what the user is currently editing, has changed. E.g. when the
 	 * cursor has been moved in a cell.
 	 */
 	readonly onDidChangeSelection = this._onDidChangeSelection.event;
-
 
 	/**
 	 * Size as an observable so it can be lazily passed into the React component.
@@ -115,8 +156,10 @@ export class PositronNotebookEditor
 	/**
 	 * Input as an observable so it can be lazily passed into the React component.
 	 */
-	private _inputObservable: InputObservable = observableValue('input', undefined);
-
+	private _inputObservable: InputObservable = observableValue(
+		'input',
+		undefined
+	);
 
 	protected override createEditor(parent: HTMLElement): void {
 		const myDiv = parent.ownerDocument.createElement('div');
@@ -124,18 +167,28 @@ export class PositronNotebookEditor
 
 		parent.appendChild(myDiv);
 
-		this._notebookWidget = this._instantiationService.createInstance(PositronNotebookWidget, {
-			message: 'Hello Positron!',
-			size: this._size,
-			input: this._inputObservable,
-			baseElement: myDiv,
-		});
+		// Eventually this will probably need to be implemented like the vs notebooks
+		// which uses a notebookWidgetService to manage the widgets. For now, we'll
+		// just create the widget directly.
+		this._notebookWidget = this._instantiationService.createInstance(
+			PositronNotebookWidget,
+			{
+				message: 'Hello Positron!',
+				size: this._size,
+				input: this._inputObservable,
+				baseElement: myDiv
+			},
+			undefined
+		);
 	}
 
 	override clearInput(): void {
-
 		// Clear the input observable.
 		this._inputObservable.set(undefined, undefined);
+
+		if (this._notebookWidget) {
+			this._saveEditorViewState();
+		}
 
 		// Call the base class's method.
 		super.clearInput();
@@ -145,7 +198,6 @@ export class PositronNotebookEditor
 		dimension: DOM.Dimension,
 		position?: DOM.IDomPosition | undefined
 	): void {
-
 		if (!this._parentDiv) {
 			return;
 		}
@@ -153,7 +205,6 @@ export class PositronNotebookEditor
 
 		this._size.set(dimension, undefined);
 	}
-
 
 	override async setInput(
 		input: PositronNotebookEditorInput,
@@ -172,34 +223,42 @@ export class PositronNotebookEditor
 
 		console.log(model);
 		if (model === null) {
-			throw new Error(localize('fail.noModel', "Failed to find a model for view type {0}.", input.viewType));
+			throw new Error(
+				localize(
+					'fail.noModel',
+					'Failed to find a model for view type {0}.',
+					input.viewType
+				)
+			);
 		}
 
 		// Trigger the selection change event when the notebook was edited.
 		this._widgetDisposableStore.add(
-			model.notebook.onDidChangeContent(
-				() => this._onDidChangeSelection.fire({
+			model.notebook.onDidChangeContent(() =>
+				this._onDidChangeSelection.fire({
 					reason: EditorPaneSelectionChangeReason.EDIT
 				})
 			)
 		);
 
-		const viewState = options?.viewState ?? this._loadNotebookEditorViewState(input);
+		const viewState =
+			options?.viewState ?? this._loadNotebookEditorViewState(input);
 
 		//! Start here. This is line 299 on the original vs notebooks.
 		console.log('View State', viewState);
 		// model.notebook.onDidChangeContent
-
-
 	}
 
 	constructor(
 		@IClipboardService readonly _clipboardService: IClipboardService,
 		@ITelemetryService telemetryService: ITelemetryService,
 		@IThemeService themeService: IThemeService,
-		@IEditorGroupsService private readonly _editorGroupService: IEditorGroupsService,
-		@ITextResourceConfigurationService configurationService: ITextResourceConfigurationService,
-		@IInstantiationService private readonly _instantiationService: IInstantiationService,
+		@IEditorGroupsService
+		private readonly _editorGroupService: IEditorGroupsService,
+		@ITextResourceConfigurationService
+		configurationService: ITextResourceConfigurationService,
+		@IInstantiationService
+		private readonly _instantiationService: IInstantiationService,
 		@IStorageService storageService: IStorageService
 	) {
 		// Call the base class's constructor.
@@ -210,8 +269,11 @@ export class PositronNotebookEditor
 			storageService
 		);
 
-		this._editorMemento = this.getEditorMemento<INotebookEditorViewState>(this._editorGroupService, configurationService, POSITRON_NOTEBOOK_EDITOR_VIEW_STATE_PREFERENCE_KEY);
-
+		this._editorMemento = this.getEditorMemento<INotebookEditorViewState>(
+			this._editorGroupService,
+			configurationService,
+			POSITRON_NOTEBOOK_EDITOR_VIEW_STATE_PREFERENCE_KEY
+		);
 	}
 
 	/**
