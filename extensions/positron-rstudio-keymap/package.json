@@ -144,6 +144,14 @@
         "key": "ctrl+d",
         "when": "config.rstudio.keymap.enable && editorTextFocus",
         "command": "editor.action.deleteLines"
+      },
+      {
+        "mac": "cmd+shift+r",
+        "win": "ctrl+shift+r",
+        "linux": "ctrl+shift+r",
+        "key": "ctrl+shift+r",
+        "when": "config.rstudio.keymap.enable && editorTextFocus && editorLangId == r",
+        "command": "r.insertSection"
       }
     ]
   }

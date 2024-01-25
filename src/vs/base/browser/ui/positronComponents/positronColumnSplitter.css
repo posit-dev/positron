@@ -3,9 +3,9 @@
  *--------------------------------------------------------------------------------------------*/
 
 .positron-column-splitter {
-	display: flex;
+	width: 1px;
+	height: 100%;
 	cursor: ew-resize;
-	justify-content: left;
 }
 
 .mac .positron-column-splitter {
@@ -14,6 +14,9 @@
 }
 
 .positron-column-splitter .sizer {
-	/* Provide the border color in the component that is using the Positron column splitter. */
-	border-right: 1px solid transparent;
+	left: -2px;
+	width: 5px;
+	z-index: 50;
+	height: 100%;
+	position: relative;
 }

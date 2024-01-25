@@ -3,7 +3,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 /**
- * This is a code generator that parses OpenRPC specificationos and generates
+ * This is a code generator that parses OpenRPC specifications and generates
  * Typescript, Rust, and Python code for each of the comms defined in this
  * directory.
  *
@@ -15,7 +15,26 @@ import { execSync } from 'child_process';
 import path from 'path';
 
 const commsDir = `${__dirname}`;
-const commsFiles = readdirSync(commsDir);
+let comms = [...new Set(readdirSync(commsDir)
+	.filter(file => file.endsWith('.json'))
+	.map(file => resolveComm(file)))];
+
+/// Optionally, user can specify one or more comms to target, such as "ui" or "variables".
+/// To target the "ui" comm, any of the 3 associated files can be given, with or without '.json'.
+const args = process.argv.slice(2).map(arg => resolveComm(arg));
+if (args.length) {
+	comms = comms.filter(comm => args.includes(comm));
+}
+
+if (comms.length == 0) {
+	console.log(`
+	  No comms to process! Possible reasons include:
+	    * No files found in '${commsDir}'
+	    * No matches for comm(s) specified via command line args
+	`);
+}
+
+const commsFiles = comms.map(comm => comm + '.json');
 
 /// The directory to write the generated Typescript files to
 const tsOutputDir = `${__dirname}/../../src/vs/workbench/services/languageRuntime/common`;
@@ -27,8 +46,6 @@ const rustOutputDir = `${__dirname}/../../../amalthea/crates/amalthea/src/comm`;
 
 /// The directory to write the generated Python files to
 const pythonOutputDir = `${__dirname}/../../extensions/positron-python/pythonFiles/positron`;
-
-const comms = new Array<string>();
 
 const year = new Date().getFullYear();
 
@@ -75,6 +92,12 @@ const PythonTypeMap: Record<string, string> = {
 	'array-end': ']',
 	'object': 'Dict',
 };
+
+function resolveComm(s: string) {
+	return s
+		.replace(/\.json$/, '')
+		.replace(/-(back|front)end-openrpc$/, '');
+}
 
 /**
  * Converter from snake_case to camelCase. Also replaces some special characters
@@ -1275,10 +1298,8 @@ async function createCommInterface() {
 				}
 
 				// Write the output file
+				console.log(`Writing to ${tsOutputFile}`)
 				writeFileSync(tsOutputFile, ts, { encoding: 'utf-8' });
-
-				// Write to stdout too
-				console.log(ts);
 
 				// Create the Rust output file
 				const rustOutputFile = path.join(rustOutputDir, `${name}_comm.rs`);
@@ -1288,10 +1309,8 @@ async function createCommInterface() {
 				}
 
 				// Write the output file
+				console.log(`Writing to ${rustOutputFile}`)
 				writeFileSync(rustOutputFile, rust, { encoding: 'utf-8' });
-
-				// Write to stdout too
-				console.log(rust);
 
 				// Create the Python output file
 				const pythonOutputFile = path.join(pythonOutputDir, `${name}_comm.py`);
@@ -1301,17 +1320,13 @@ async function createCommInterface() {
 				}
 
 				// Write the output file
+				console.log(`Writing to ${pythonOutputFile}`)
 				writeFileSync(pythonOutputFile, python, { encoding: 'utf-8' });
-
-				// Write to stdout too
-				console.log(python);
 
 				// Use black to format the Python file; the lint tests for the
 				// Python extension require that the Python files have exactly the
 				// format that black produces.
-				execSync(`python3 -m black ${pythonOutputFile}`);
-
-				comms.push(name);
+				execSync(`python -m black ${pythonOutputFile}`, { stdio: 'ignore' });
 			}
 		} catch (e: any) {
 			if (e.message) {
