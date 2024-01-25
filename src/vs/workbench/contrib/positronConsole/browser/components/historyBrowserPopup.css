@@ -13,10 +13,11 @@
 	border-color: var(--vscode-editorSuggestWidget-border);
 	background-color: var(--vscode-editorSuggestWidget-background);
 	max-width: 430px;
-	max-height: 430px;
+	max-height: 330px;
 	z-index: 40;
 	color: var(--vscode-editorSuggestWidget-foreground);
 	padding: 4px;
+	border-radius: 3px;
 }
 
 .history-browser-popup ul {
