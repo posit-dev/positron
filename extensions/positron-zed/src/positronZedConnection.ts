@@ -66,9 +66,9 @@ export class ZedConnection {
 				this._onDidEmitData.fire({
 					msg_type: 'fields_response',
 					fields: [
-						'field1',
-						'field2',
-						'field3'
+						{ name: 'field1', dtype: 'numeric' },
+						{ name: 'field2', dtype: 'character' },
+						{ name: 'field3', dtype: 'integer' },
 					]
 				});
 				break;
