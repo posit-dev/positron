@@ -438,6 +438,7 @@ declare module 'positron' {
 		Dap = 'positron.dap',
 		Plot = 'positron.plot',
 		DataViewer = 'positron.dataViewer',
+		DataTool = 'positron.dataTool',
 		Ui = 'positron.ui',
 		Help = 'positron.help',
 		Connection = 'positron.connection',
