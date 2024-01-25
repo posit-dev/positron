@@ -30,7 +30,6 @@ jobs:
       max-parallel: 1
       matrix:
         arch: [x64]
-        pack: [deb, rpm]
 
     steps:
       # Checkout sources
