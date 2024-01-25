@@ -23,6 +23,7 @@ import { localize } from 'vs/nls';
 const DATA_GROUP_ID = 'group/data';
 const VALUES_GROUP_ID = 'group/values';
 const FUNCTIONS_GROUP_ID = 'group/functions';
+const CLASSES_GROUP_ID = 'group/classes';
 const SMALL_GROUP_ID = 'group/small';
 const MEDIUM_GROUP_ID = 'group/medium';
 const LARGE_GROUP_ID = 'group/large';
@@ -611,11 +612,14 @@ export class PositronVariablesInstance extends Disposable implements IPositronVa
 		const dataItems: VariableItem[] = [];
 		const valueItems: VariableItem[] = [];
 		const functionItems: VariableItem[] = [];
+		const classItems: VariableItem[] = [];
 		items.forEach(item => {
 			if (item.kind === VariableKind.Table) {
 				dataItems.push(item);
 			} else if (item.kind === VariableKind.Function) {
 				functionItems.push(item);
+			} else if (item.kind === VariableKind.Class) {
+				classItems.push(item);
 			} else {
 				valueItems.push(item);
 			}
@@ -651,6 +655,16 @@ export class PositronVariablesInstance extends Disposable implements IPositronVa
 				'Functions',
 				!this._collapsedGroupIds.has(FUNCTIONS_GROUP_ID),
 				this.sortItems(functionItems)
+			));
+		}
+
+		// Add the class items group.
+		if (classItems.length) {
+			this._entries.push(new VariableGroup(
+				CLASSES_GROUP_ID,
+				'Classes',
+				!this._collapsedGroupIds.has(CLASSES_GROUP_ID),
+				this.sortItems(classItems)
 			));
 		}
 	}
