@@ -68,6 +68,12 @@ jobs:
         run: |
           yarn gulp vscode-linux-${{ matrix.arch }}
 
+      - name: Upload Positron build
+        uses: actions/upload-artifact@v4
+        with:
+          name: positron-build-${{ matrix.arch }}
+          path: .
+
   build-binaries:
     name: Create .deb and .rpm binaries
     needs: [build-positron]
@@ -81,6 +87,11 @@ jobs:
         arch: [x64]
         pack: [deb, rpm]
     steps:
+      - name: Download Positron build
+        uses: actions/download-artifact@v4
+        with:
+          name: positron-build-${{ matrix.arch }}
+
       - name: Prepare binary
         run: |
           yarn gulp vscode-linux-${{ matrix.arch }}-prepare-${{ matrix.pack }}
@@ -97,5 +108,5 @@ jobs:
       - name: Upload
         uses: actions/upload-artifact@v4
         with:
-          name: positron-${{ matrix.pack }}-binary
+          name: positron-binary-${{ matrix.pack }}
           path: Positron-${{ inputs.short_version }}.${{ matrix.pack }}

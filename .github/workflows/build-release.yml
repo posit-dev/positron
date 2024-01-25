@@ -158,8 +158,7 @@ jobs:
         id: download-linux-artifact
         if: github.ref == 'refs/heads/main'
         with:
-          pattern: positron-*-binary
-          path: ./
+          pattern: positron-binary-*
 
       - name: Upload Linux .deb release asset
         uses: actions/upload-release-asset@v1
