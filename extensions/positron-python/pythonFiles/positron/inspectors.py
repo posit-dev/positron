@@ -760,7 +760,9 @@ class BaseTableInspector(_BaseMapInspector[Table], Generic[Table, Column], ABC):
         return "table"
 
     def get_length(self, value: Table) -> int:
-        return value.shape[0]
+        # send number of columns.
+        # number of rows per column is handled by ColumnInspector
+        return value.shape[1]
 
     def get_keys(self, value: Table) -> Collection[Any]:
         return value.columns
