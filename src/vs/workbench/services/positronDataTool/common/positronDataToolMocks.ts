@@ -30,7 +30,8 @@ export function getTableSchema(numRows: number = 100, numColumns: number = 10): 
 	}
 	return {
 		columns: columns,
-		num_rows: numRows
+		num_rows: numRows,
+		total_num_columns: numColumns
 	};
 }
 
