@@ -89,7 +89,7 @@ jobs:
           yarn gulp vscode-linux-${{ matrix.arch }}-build-deb
           yarn gulp vscode-linux-${{ matrix.arch }}-build-rpm
           mv .build/linux/deb/*/deb/*.deb Positron-${{ inputs.short_version }}.deb
-          mv .build/linux/rpm/*/rpm/*.rpm Positron-${{ inputs.short_version }}.rpm
+          mv .build/linux/rpm/*/*.rpm Positron-${{ inputs.short_version }}.rpm
 
       - name: Upload .rpm
         uses: actions/upload-artifact@v4
