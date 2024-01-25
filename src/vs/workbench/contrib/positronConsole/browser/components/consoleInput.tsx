@@ -561,8 +561,15 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 
 		// Set the value change handler.
 		disposableStore.add(codeEditorWidget.onDidChangeModelContent(() => {
-			const historyItems = historyMatchStrategyRef.current.getMatches(codeEditorWidget.getValue());
-			setHistoryItems(historyItems);
+			if (historyBrowserActiveRef.current) {
+				// Update the list of history item matches from the current match strategy.
+				const historyItems = historyMatchStrategyRef.current.getMatches(
+					codeEditorWidget.getValue());
+				setHistoryItems(historyItems);
+
+				// Select the last item.
+				setHistoryBrowserSelectedIndex(historyItems.length - 1);
+			}
 		}));
 
 		// Auto-grow the editor as the internal content size changes (i.e. make it grow vertically
