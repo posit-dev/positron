@@ -699,12 +699,27 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 		}
 	};
 
+	let historyBrowserBottomPx = 0;
+	let historyBrowserLeftPx = 0;
+	if (codeEditorWidgetRef.current) {
+		const editorElement = codeEditorWidgetRef.current.getDomNode();
+		if (editorElement) {
+			const editorElementRect = editorElement.getBoundingClientRect();
+			// Get the browser's height and subtract the editor's top to get the bottom.
+			historyBrowserBottomPx = DOM.getActiveWindow().innerHeight - editorElementRect.top + 5;
+			historyBrowserLeftPx = editorElementRect.left;
+		}
+	}
+
 	// Render.
 	return (
 		<div className='console-input' tabIndex={0} onFocus={focusHandler}>
 			<div ref={codeEditorWidgetContainerRef} />
 			{historyBrowserActive &&
-				<HistoryBrowserPopup items={historyItems}
+				<HistoryBrowserPopup
+					bottomPx={historyBrowserBottomPx}
+					leftPx={historyBrowserLeftPx}
+					items={historyItems}
 					selectedIndex={historyBrowserSelectedIndex} />
 			}
 		</div>

@@ -12,6 +12,8 @@ import { useEffect } from 'react';
 export interface HistoryBrowserPopupProps {
 	items: string[];
 	selectedIndex: number;
+	bottomPx: number;
+	leftPx: number;
 }
 
 /**
@@ -28,7 +30,8 @@ export const HistoryBrowserPopup = (props: HistoryBrowserPopupProps) => {
 		}
 	});
 
-	return <div className='suggest-widget history-browser-popup' ref={popupRef}>
+	return <div className='suggest-widget history-browser-popup' ref={popupRef}
+		style={{ bottom: props.bottomPx, left: props.leftPx }}>
 		<ul>
 			{props.items.map((item, index) => {
 				return <HistoryCompletionItem label={item} selected={props.selectedIndex === index} />;
