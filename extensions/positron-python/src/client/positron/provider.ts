@@ -236,7 +236,7 @@ export async function createPythonRuntime(
 
     // Create a stable ID for the runtime based on the interpreter path and version.
     const digest = crypto.createHash('sha256');
-    digest.update(JSON.stringify(kernelSpec));
+    digest.update(interpreter.path);
     digest.update(pythonVersion);
     const runtimeId = digest.digest('hex').substring(0, 32);
 

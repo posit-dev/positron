@@ -49,7 +49,7 @@
     "python.experiments.pythonREPLSmartSend.description": "Denotes the Python REPL Smart Send experiment.",
     "python.experiments.pythonRecommendTensorboardExt.description": "Denotes the Tensorboard Extension recommendation experiment.",
     "python.globalModuleInstallation.description": "Whether to install Python modules globally when not using an environment.",
-    "python.languageServerDebug.description": "Whether debug should be enabled for Positron's Python language server.",
+    "python.languageServerDebug.description": "Whether debug should be enabled for Positron's Python language server. Requires a restart to take effect.",
     "python.languageServerLogLevel.description": "Controls the [logging level](https://docs.python.org/3/library/logging.html#levels) of Positron's Python language server. Requires a restart to take effect.",
     "python.languageServer.description": "Defines type of the language server.",
     "python.languageServer.defaultDescription": "Automatically select a language server: Pylance if installed and available, otherwise fallback to Jedi.",
