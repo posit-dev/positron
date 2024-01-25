@@ -67,8 +67,9 @@ export class ConnectionItemTable extends ConnectionItemNode {
  * A connection item representing a field in a table
  */
 export class ConnectionItemField extends ConnectionItem {
-	constructor(readonly name: string, readonly client: positron.RuntimeClientInstance) {
+	constructor(readonly name: string, readonly dtype: string, readonly client: positron.RuntimeClientInstance) {
 		super(name, client);
+		this.dtype = dtype;
 	}
 }
 
@@ -129,6 +130,7 @@ export class ConnectionItemsProvider implements vscode.TreeDataProvider<Connecti
 		} else if (item instanceof ConnectionItemField) {
 			// Set the icon for fields
 			treeItem.iconPath = vscode.Uri.file(path.join(this.context.extensionPath, 'media', 'field.svg'));
+			treeItem.description = '<' + item.dtype + '>';
 		}
 		return treeItem;
 	}
@@ -178,9 +180,9 @@ export class ConnectionItemsProvider implements vscode.TreeDataProvider<Connecti
 				if (element instanceof ConnectionItemTable) {
 					element.client.performRpc({ msg_type: 'fields_request', table: element.name, path: element.path }).then(
 						(response: any) => {
-							const fields = response.fields as string[];
+							const fields = response.fields as Array<{ name: string; dtype: string }>;
 							const fieldItems = fields.map((field) => {
-								return new ConnectionItemField(field, element.client);
+								return new ConnectionItemField(field.name, field.dtype, element.client);
 							});
 							resolve(fieldItems);
 						}
