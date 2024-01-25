@@ -11,7 +11,7 @@ import { Schemas } from 'vs/base/common/network';
 import { KeyCode } from 'vs/base/common/keyCodes';
 import { generateUuid } from 'vs/base/common/uuid';
 import { isMacintosh } from 'vs/base/common/platform';
-import { DisposableStore } from 'vs/base/common/lifecycle';
+import { DisposableStore, IDisposable } from 'vs/base/common/lifecycle';
 import { HistoryNavigator2 } from 'vs/base/common/history';
 import { ISelection } from 'vs/editor/common/core/selection';
 import { IKeyboardEvent } from 'vs/base/browser/keyboardEvent';
@@ -73,6 +73,7 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 	const [historyBrowserSelectedIndex, setHistoryBrowserSelectedIndex, historyBrowserSelectedIndexRef] = useStateRef(0);
 	const [, setHistoryMatchStrategy, historyMatchStrategyRef] = useStateRef<HistoryMatchStrategy>(new EmptyHistoryMatchStrategy());
 	const [historyItems, setHistoryItems, historyItemsRef] = useStateRef<HistoryMatch[]>([]);
+	const [suppressCompletions, setSupressCompletions, suppressCompletionsRef] = useStateRef<IDisposable | undefined>(undefined);
 	const [, setHistoryNavigator, historyNavigatorRef] =
 		useStateRef<HistoryNavigator2<IInputHistoryEntry> | undefined>(undefined);
 	const [, setCurrentCodeFragment, currentCodeFragmentRef] =
@@ -172,8 +173,30 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 		// eats keyboard events intended for) the history browser.
 		SuggestController.get(codeEditorWidgetRef.current)?.cancelSuggestWidget();
 
+		// Set the suppress completions disposable. This attaches an event
+		// listener to the suggestion model that immediately knocks down the
+		// suggestion widget when it is displayed.
+		setSupressCompletions(
+			SuggestController.get(codeEditorWidgetRef.current)?.model.onDidSuggest(() => {
+				SuggestController.get(codeEditorWidgetRef.current)?.cancelSuggestWidget();
+			}));
+
 		// Make the history browser active.
 		setHistoryBrowserActive(true);
+	};
+
+	/**
+	 * Disengages the history browser.
+	 */
+	const disengageHistoryBrowser = () => {
+		// Restore completions.
+		if (suppressCompletionsRef.current) {
+			suppressCompletionsRef.current.dispose();
+			setSupressCompletions(undefined);
+		}
+
+		// Make the history browser inactive.
+		setHistoryBrowserActive(false);
 	};
 
 	// Key down event handler.
@@ -211,8 +234,7 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 			case KeyCode.Escape: {
 				// If the history browser is active, deactivate it.
 				if (historyBrowserActiveRef.current) {
-					console.log('deactivating history browser!');
-					setHistoryBrowserActive(false);
+					disengageHistoryBrowser();
 					consumeEvent();
 					break;
 				}
@@ -387,7 +409,7 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 					setCurrentCodeFragment(undefined);
 					codeEditorWidgetRef.current.setValue(
 						historyItemsRef.current[historyBrowserSelectedIndexRef.current].input);
-					setHistoryBrowserActive(false);
+					disengageHistoryBrowser();
 					consumeEvent();
 					break;
 				}
@@ -563,7 +585,7 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 		disposableStore.add(codeEditorWidget.onDidBlurEditorWidget(() => {
 			// If the history browser is active, deactivate it.
 			if (historyBrowserActiveRef.current) {
-				setHistoryBrowserActive(false);
+				disengageHistoryBrowser();
 			}
 		}));
 
@@ -778,14 +800,7 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 	const onHistoryBrowserSelected = (index: number) => {
 		const item = historyItemsRef.current[index];
 		codeEditorWidgetRef.current.setValue(item.input);
-		setHistoryBrowserActive(false);
-	};
-
-	/**
-	 * Dismiss the history browser without accepting an item.
-	 */
-	const onHistoryBrowserDismissed = () => {
-		setHistoryBrowserActive(false);
+		disengageHistoryBrowser();
 	};
 
 	// Render.
@@ -799,7 +814,7 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 					items={historyItems}
 					selectedIndex={historyBrowserSelectedIndex}
 					onSelected={onHistoryBrowserSelected}
-					onDismissed={onHistoryBrowserDismissed} />
+					onDismissed={disengageHistoryBrowser} />
 			}
 		</div>
 	);
