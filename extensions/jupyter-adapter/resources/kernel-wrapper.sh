@@ -22,14 +22,6 @@ fi
 output_file="$1"
 shift
 
-# If the POSITRON_DYLD_FALLBACK_LIBRARY_PATH environment variable is set, then
-# set it as the DYLD_FALLBACK_LIBRARY_PATH environment variable for the program
-# we are about to run. This is a workaround for behavior on macOS wherein SIP
-# prevents DYLD_FALLBACK_LIBRARY_PATH from being inherited.
-if [ -n "$POSITRON_DYLD_FALLBACK_LIBRARY_PATH" ]; then
-	export DYLD_FALLBACK_LIBRARY_PATH="$POSITRON_DYLD_FALLBACK_LIBRARY_PATH"
-fi
-
 # Start log file with current date
 echo "*** Log started at $(date)" > "$output_file"
 

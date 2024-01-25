@@ -153,20 +153,6 @@ export async function* rRuntimeDiscoverer(
 	let recommendedForWorkspace = await shouldRecommendForWorkspace();
 
 	// Loop over the R installations and create a language runtime for each one.
-	//
-	// NOTE(Kevin): We previously set DYLD_INSERT_LIBRARIES here, but this appeared
-	// to cause issues when running 'ark' through wrapper scripts in some cases.
-	// It's not entirely clear, but it looks like (at least on Kevin's machine)
-	// we end up with an x86 shell, inside which we attempt to insert an arm64
-	// library, and this ends up causing failure to start at all.
-	//
-	// See:
-	//
-	//     ./positron/extensions/jupyter-adapter/resources/kernel-wrapper.sh
-	//
-	// and its usages for more details.
-	//
-	// Given that DYLD_FALLBACK_LIBRARY_PATH works fine, we just set that below.
 	for (const rInst of rInstallations) {
 
 		// Is the runtime path within the user's home directory?
