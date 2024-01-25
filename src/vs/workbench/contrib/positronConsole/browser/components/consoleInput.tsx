@@ -151,6 +151,31 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 		return true;
 	};
 
+	/**
+	 * Engages the history browser with the given match strategy.
+	 *
+	 * @param strategy The new history match strategy.
+	 */
+	const engageHistoryBrowser = (strategy: HistoryMatchStrategy) => {
+		// Apply the new match strategy.
+		setHistoryMatchStrategy(strategy);
+
+		// Get the initial set of matches.
+		const matches =
+			strategy.getMatches(codeEditorWidgetRef.current.getValue());
+		setHistoryItems(matches);
+
+		// Update the selected index to the last (most recent) item.
+		setHistoryBrowserSelectedIndex(matches.length - 1);
+
+		// Take down the autocomplete widget, if it's up. It conflicts with (and
+		// eats keyboard events intended for) the history browser.
+		SuggestController.get(codeEditorWidgetRef.current)?.cancelSuggestWidget();
+
+		// Make the history browser active.
+		setHistoryBrowserActive(true);
+	};
+
 	// Key down event handler.
 	const keyDownHandler = async (e: IKeyboardEvent) => {
 		/**
@@ -249,22 +274,11 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 
 			// Ctrl-R handling.
 			case KeyCode.KeyR: {
+				// When Ctrl-R is pressed, engage a reverse history search (like bash).
 				if (e.ctrlKey && !e.shiftKey && !e.altKey && !e.metaKey && !e.altGraphKey) {
-					// Consume the event.
-					setHistoryBrowserActive(true);
-
-					const strategy = new HistoryInfixMatchStrategy(
+					engageHistoryBrowser(new HistoryInfixMatchStrategy(
 						historyNavigatorRef.current!
-					);
-					setHistoryMatchStrategy(strategy);
-
-					const matches =
-						strategy.getMatches(codeEditorWidgetRef.current.getValue());
-					setHistoryItems(matches);
-
-					setHistoryBrowserSelectedIndex(matches.length - 1);
-
-					console.log(`engaging history browser! (old value: ${historyBrowserActiveRef.current})`);
+					));
 					consumeEvent();
 				}
 
@@ -276,20 +290,9 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 				console.log(`Up arrow pressed. browser active: ${historyBrowserActiveRef.current} (React: ${historyBrowserActive})})`);
 
 				if (cmdOrCtrlKey) {
-					setHistoryBrowserActive(true);
-
-					const strategy = new HistoryPrefixMatchStrategy(
+					engageHistoryBrowser(new HistoryPrefixMatchStrategy(
 						historyNavigatorRef.current!
-					);
-					setHistoryMatchStrategy(strategy);
-
-					const matches =
-						strategy.getMatches(codeEditorWidgetRef.current.getValue());
-					setHistoryItems(matches);
-
-					setHistoryBrowserSelectedIndex(matches.length - 1);
-
-					console.log(`engaging history browser! (old value: ${historyBrowserActiveRef.current})`);
+					));
 					consumeEvent();
 					break;
 				}
