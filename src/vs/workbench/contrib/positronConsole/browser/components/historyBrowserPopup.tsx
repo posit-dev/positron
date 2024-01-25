@@ -25,10 +25,14 @@ export const HistoryBrowserPopup = (props: HistoryBrowserPopupProps) => {
 	const popupRef = React.useRef<HTMLDivElement>(null);
 
 	useEffect(() => {
-		if (popupRef.current && popupRef.current.scrollTop === 0) {
-			popupRef.current.scrollTop = popupRef.current.scrollHeight;
+		if (popupRef.current) {
+			// Find the first child that has a CSS class of 'selected' and scroll it into view.
+			const selectedChild = popupRef.current.querySelector('.selected');
+			if (selectedChild) {
+				selectedChild.scrollIntoView();
+			}
 		}
-	});
+	}, [props.selectedIndex]);
 
 	return <div className='suggest-widget history-browser-popup' ref={popupRef}
 		style={{ bottom: props.bottomPx, left: props.leftPx }}>
