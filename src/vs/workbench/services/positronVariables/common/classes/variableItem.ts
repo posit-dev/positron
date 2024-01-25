@@ -227,8 +227,9 @@ export class VariableItem implements IVariableItem {
 			await Promise.all(promises);
 		}
 
-		// If this variable is truncated, add the variable overflow.
-		if (this._variable.data.is_truncated) {
+		// If this variable's length is longer than the child
+		// entries received, add the variable overflow.
+		if (this._variable.data.length > this._childEntries.size) {
 			// Create the variable overflow.
 			const variableOverflow = new VariableOverflow(
 				generateUuid(),
