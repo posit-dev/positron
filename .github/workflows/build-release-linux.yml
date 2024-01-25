@@ -1,8 +1,11 @@
 name: "Positron: Build Linux Releases"
 
+
 # Callable workflow that builds Positron for Linux
 # Note: our releases are now multi-platform, coordinated by build-release.yml
 on:
+  # TODO: Remove this
+  push:
   workflow_call:
     inputs:
       build_number:
