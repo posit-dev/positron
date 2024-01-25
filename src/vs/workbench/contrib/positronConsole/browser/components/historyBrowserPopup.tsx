@@ -15,6 +15,7 @@ export interface HistoryBrowserPopupProps {
 	selectedIndex: number;
 	bottomPx: number;
 	leftPx: number;
+	onSelected: (index: number) => void;
 }
 
 /**
@@ -39,9 +40,13 @@ export const HistoryBrowserPopup = (props: HistoryBrowserPopupProps) => {
 		style={{ bottom: props.bottomPx, left: props.leftPx }}>
 		<ul>
 			{props.items.map((item, index) => {
+				const onSelected = () => {
+					props.onSelected(index);
+				};
 				return <HistoryCompletionItem
 					match={item}
-					selected={props.selectedIndex === index} />;
+					selected={props.selectedIndex === index}
+					onSelected={onSelected} />;
 			})}
 		</ul>
 	</div>;

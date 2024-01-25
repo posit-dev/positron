@@ -739,6 +739,12 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 		}
 	}
 
+	const onHistoryBrowserSelected = (index: number) => {
+		const item = historyItemsRef.current[index];
+		codeEditorWidgetRef.current.setValue(item.input);
+		setHistoryBrowserActive(false);
+	};
+
 	// Render.
 	return (
 		<div className='console-input' tabIndex={0} onFocus={focusHandler}>
@@ -748,7 +754,8 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 					bottomPx={historyBrowserBottomPx}
 					leftPx={historyBrowserLeftPx}
 					items={historyItems}
-					selectedIndex={historyBrowserSelectedIndex} />
+					selectedIndex={historyBrowserSelectedIndex}
+					onSelected={onHistoryBrowserSelected} />
 			}
 		</div>
 	);

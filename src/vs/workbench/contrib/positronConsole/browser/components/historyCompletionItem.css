@@ -20,3 +20,9 @@
 .history-completion-item .unmatched {
 	opacity: 0.8;
 }
+
+.history-completion-item a {
+	cursor: pointer;
+	text-decoration: none;
+	color: var(--vscode-editor-foreground);
+}
