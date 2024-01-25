@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
 import { localize } from 'vs/nls';
@@ -27,7 +27,8 @@ import { INotificationService, Severity } from 'vs/platform/notification/common/
 import { NOTEBOOK_EDITOR_FOCUSED } from 'vs/workbench/contrib/notebook/common/notebookContextKeys';
 import { confirmationModalDialog } from 'vs/workbench/browser/positronModalDialogs/confirmationModalDialog';
 import { IExecutionHistoryService } from 'vs/workbench/contrib/executionHistory/common/executionHistoryService';
-import { IPositronConsoleService } from 'vs/workbench/services/positronConsole/browser/interfaces/positronConsoleService';
+import { IPositronConsoleService, POSITRON_CONSOLE_VIEW_ID } from 'vs/workbench/services/positronConsole/browser/interfaces/positronConsoleService';
+import { IViewsService } from 'vs/workbench/common/views';
 
 /**
  * Positron console command ID's.
@@ -137,10 +138,24 @@ export function registerPositronConsoleActions() {
 		 * @param accessor The services accessor.
 		 */
 		async run(accessor: ServicesAccessor) {
+
+			const layoutService = accessor.get(IWorkbenchLayoutService);
+			const viewsService = accessor.get(IViewsService);
 			const positronConsoleService = accessor.get(IPositronConsoleService);
-			if (positronConsoleService.activePositronConsoleInstance) {
-				positronConsoleService.activePositronConsoleInstance.focusInput();
+
+			// Ensure that the panel and console are visible.
+			layoutService.restorePanel();
+			await viewsService.openView(POSITRON_CONSOLE_VIEW_ID, true);
+
+			// Look up the active console instance.
+			const activeInstance = positronConsoleService.activePositronConsoleInstance;
+			if (!activeInstance) {
+				// No console to focus; don't do anything.
+				return;
 			}
+
+			// Drive focus to the console's input control.
+			activeInstance.focusInput();
 		}
 	});
 
