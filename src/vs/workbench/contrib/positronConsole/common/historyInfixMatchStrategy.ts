@@ -26,14 +26,16 @@ export class HistoryInfixMatchStrategy extends HistoryMatchStrategy {
 				if (matchIdx >= 0) {
 					const match: HistoryMatch = {
 						input: entry.input,
-						highlights: [[matchIdx, matchIdx + input.length]]
+						highlightStart: matchIdx,
+						highlightEnd: matchIdx + input.length
 					};
 					matches.push(match);
 				}
 			} else {
 				const match: HistoryMatch = {
 					input: entry.input,
-					highlights: []
+					highlightStart: 0,
+					highlightEnd: 0
 				};
 				matches.push(match);
 			}

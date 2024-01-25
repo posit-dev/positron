@@ -24,7 +24,8 @@ export class HistoryPrefixMatchStrategy extends HistoryMatchStrategy {
 			if (entry.input.startsWith(input)) {
 				const match: HistoryMatch = {
 					input: entry.input,
-					highlights: [[0, input.length]]
+					highlightStart: 0,
+					highlightEnd: input.length
 				};
 				matches.push(match);
 			}

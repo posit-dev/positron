@@ -4,7 +4,8 @@
 
 export interface HistoryMatch {
 	input: string;
-	highlights: [number, number][];
+	highlightStart: number;
+	highlightEnd: number;
 }
 
 export abstract class HistoryMatchStrategy {

@@ -34,7 +34,7 @@ import { RuntimeCodeFragmentStatus } from 'vs/workbench/services/languageRuntime
 import { IPositronConsoleInstance, PositronConsoleState } from 'vs/workbench/services/positronConsole/browser/interfaces/positronConsoleService';
 import { ParameterHintsController } from 'vs/editor/contrib/parameterHints/browser/parameterHints';
 import { HistoryBrowserPopup } from 'vs/workbench/contrib/positronConsole/browser/components/historyBrowserPopup';
-import { EmptyHistoryMatchStrategy, HistoryMatchStrategy } from 'vs/workbench/contrib/positronConsole/common/historyMatchStrategy';
+import { EmptyHistoryMatchStrategy, HistoryMatch, HistoryMatchStrategy } from 'vs/workbench/contrib/positronConsole/common/historyMatchStrategy';
 import { HistoryPrefixMatchStrategy } from 'vs/workbench/contrib/positronConsole/common/historyPrefixMatchStrategy';
 import { HistoryInfixMatchStrategy } from 'vs/workbench/contrib/positronConsole/common/historyInfixMatchStrategy';
 
@@ -72,7 +72,7 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 	const [historyBrowserActive, setHistoryBrowserActive, historyBrowserActiveRef] = useStateRef(false);
 	const [historyBrowserSelectedIndex, setHistoryBrowserSelectedIndex, historyBrowserSelectedIndexRef] = useStateRef(0);
 	const [, setHistoryMatchStrategy, historyMatchStrategyRef] = useStateRef<HistoryMatchStrategy>(new EmptyHistoryMatchStrategy());
-	const [historyItems, setHistoryItems, historyItemsRef] = useStateRef<string[]>([]);
+	const [historyItems, setHistoryItems, historyItemsRef] = useStateRef<HistoryMatch[]>([]);
 	const [, setHistoryNavigator, historyNavigatorRef] =
 		useStateRef<HistoryNavigator2<IInputHistoryEntry> | undefined>(undefined);
 	const [, setCurrentCodeFragment, currentCodeFragmentRef] =
@@ -259,7 +259,7 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 					setHistoryMatchStrategy(strategy);
 
 					const matches =
-						strategy.getMatches(codeEditorWidgetRef.current.getValue()).map(m => m.input);
+						strategy.getMatches(codeEditorWidgetRef.current.getValue());
 					setHistoryItems(matches);
 
 					setHistoryBrowserSelectedIndex(matches.length - 1);
@@ -284,7 +284,7 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 					setHistoryMatchStrategy(strategy);
 
 					const matches =
-						strategy.getMatches(codeEditorWidgetRef.current.getValue()).map(m => m.input);
+						strategy.getMatches(codeEditorWidgetRef.current.getValue());
 					setHistoryItems(matches);
 
 					setHistoryBrowserSelectedIndex(matches.length - 1);
@@ -383,7 +383,7 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 				if (historyBrowserActiveRef.current) {
 					setCurrentCodeFragment(undefined);
 					codeEditorWidgetRef.current.setValue(
-						historyItemsRef.current[historyBrowserSelectedIndexRef.current]);
+						historyItemsRef.current[historyBrowserSelectedIndexRef.current].input);
 					setHistoryBrowserActive(false);
 					consumeEvent();
 					break;
@@ -559,7 +559,7 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 		// Set the value change handler.
 		disposableStore.add(codeEditorWidget.onDidChangeModelContent(() => {
 			const historyItems = historyMatchStrategyRef.current.getMatches(codeEditorWidget.getValue());
-			setHistoryItems(historyItems.map(m => m.input));
+			setHistoryItems(historyItems);
 		}));
 
 		// Auto-grow the editor as the internal content size changes (i.e. make it grow vertically

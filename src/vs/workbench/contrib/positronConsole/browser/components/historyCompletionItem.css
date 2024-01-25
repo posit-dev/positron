@@ -12,3 +12,11 @@
 	color: var(--vscode-editorSuggestWidget-selectedForeground);
 	background-color: var(--vscode-editorSuggestWidget-selectedBackground);
 }
+
+.history-completion-item .matched {
+	font-weight: bold;
+}
+
+.history-completion-item .unmatched {
+	opacity: 0.8;
+}

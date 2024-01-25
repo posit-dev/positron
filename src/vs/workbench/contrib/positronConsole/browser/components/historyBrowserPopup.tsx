@@ -8,9 +8,10 @@ import { HistoryCompletionItem } from 'vs/workbench/contrib/positronConsole/brow
 
 // eslint-disable-next-line no-duplicate-imports
 import { useEffect } from 'react';
+import { HistoryMatch } from 'vs/workbench/contrib/positronConsole/common/historyMatchStrategy';
 
 export interface HistoryBrowserPopupProps {
-	items: string[];
+	items: HistoryMatch[];
 	selectedIndex: number;
 	bottomPx: number;
 	leftPx: number;
@@ -38,7 +39,9 @@ export const HistoryBrowserPopup = (props: HistoryBrowserPopupProps) => {
 		style={{ bottom: props.bottomPx, left: props.leftPx }}>
 		<ul>
 			{props.items.map((item, index) => {
-				return <HistoryCompletionItem label={item} selected={props.selectedIndex === index} />;
+				return <HistoryCompletionItem
+					match={item}
+					selected={props.selectedIndex === index} />;
 			})}
 		</ul>
 	</div>;
