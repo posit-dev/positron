@@ -6,11 +6,15 @@ import * as DOM from 'vs/base/browser/dom';
 
 import { ISize } from 'vs/base/browser/positronReactRenderer';
 import { CancellationToken } from 'vs/base/common/cancellation';
+import { Emitter } from 'vs/base/common/event';
+import { DisposableStore } from 'vs/base/common/lifecycle';
 import {
-	ISettableObservable,
 	observableValue
 } from 'vs/base/common/observableInternal/base';
+import { ITextResourceConfigurationService } from 'vs/editor/common/services/textResourceConfiguration';
+import { localize } from 'vs/nls';
 import { IClipboardService } from 'vs/platform/clipboard/common/clipboardService';
+import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
 import { IStorageService } from 'vs/platform/storage/common/storage';
 import { ITelemetryService } from 'vs/platform/telemetry/common/telemetry';
 import { IThemeService } from 'vs/platform/theme/common/themeService';
@@ -21,21 +25,17 @@ import {
 	IEditorOpenContext,
 	IEditorPaneSelectionChangeEvent
 } from 'vs/workbench/common/editor';
-import { PositronNotebookEditorInput } from './PositronNotebookEditorInput';
-import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
-import { PositronNotebookWidget } from './PositronNotebookWidget';
 import {
 	INotebookEditorOptions,
 	INotebookEditorViewState
 } from 'vs/workbench/contrib/notebook/browser/notebookBrowser';
-import { localize } from 'vs/nls';
-import { DisposableStore } from 'vs/base/common/lifecycle';
-import { Emitter } from 'vs/base/common/event';
+import { OptionalObservable } from 'vs/workbench/contrib/positronNotebook/common/utils/observeValue';
 import {
 	GroupsOrder,
 	IEditorGroupsService
 } from 'vs/workbench/services/editor/common/editorGroupsService';
-import { ITextResourceConfigurationService } from 'vs/editor/common/services/textResourceConfiguration';
+import { PositronNotebookEditorInput } from './PositronNotebookEditorInput';
+import { PositronNotebookWidget } from './PositronNotebookWidget';
 
 /**
  * Key for the memoized view state.
@@ -43,12 +43,12 @@ import { ITextResourceConfigurationService } from 'vs/editor/common/services/tex
 const POSITRON_NOTEBOOK_EDITOR_VIEW_STATE_PREFERENCE_KEY =
 	'NotebookEditorViewState';
 
+
 /**
  * Observable value for the notebook editor.
  */
-export type InputObservable = ISettableObservable<
-	PositronNotebookEditorInput | undefined,
-	void
+export type InputObservable = OptionalObservable<
+	PositronNotebookEditorInput
 >;
 
 export class PositronNotebookEditor extends EditorPane {
@@ -244,8 +244,22 @@ export class PositronNotebookEditor extends EditorPane {
 		const viewState =
 			options?.viewState ?? this._loadNotebookEditorViewState(input);
 
+		// if (!viewState) {
+		// 	throw new Error(
+		// 		localize(
+		// 			'fail.noViewState',
+		// 			'Failed to find a view state for view type {0}.',
+		// 			input.viewType
+		// 		)
+		// 	);
+		// }
+
 		//! Start here. This is line 299 on the original vs notebooks.
 		console.log('View State', viewState);
+
+		this._notebookWidget?.setModel(model.notebook, viewState);
+
+
 		// model.notebook.onDidChangeContent
 	}
 

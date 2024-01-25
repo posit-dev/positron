@@ -33,3 +33,14 @@ export function observeValue<T>(observableValue: ISettableObservable<T>, observe
 	observableValue.addObserver(observer);
 	return () => observableValue.removeObserver(observer);
 }
+
+
+/**
+ * Helper for observing an observable value that can be undefined.
+ * This is typically for cases where the value is not available at
+ * initialization but will be set later.
+ */
+export type OptionalObservable<T> = ISettableObservable<
+	T | undefined,
+	void
+>;

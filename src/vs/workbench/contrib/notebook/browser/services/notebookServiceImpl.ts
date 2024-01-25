@@ -46,7 +46,7 @@ import { PositronNotebookEditorInput } from 'vs/workbench/contrib/positronNotebo
 import { NotebookEditorInput } from 'vs/workbench/contrib/notebook/common/notebookEditorInput';
 
 // TODO: Make this variable based on a flag status set by the user.
-const USE_POSITRON_NOTEBOOK_EDITOR = false;
+const USE_POSITRON_NOTEBOOK_EDITOR = true;
 // --- End Positron ---
 
 export class NotebookProviderInfoStore extends Disposable {

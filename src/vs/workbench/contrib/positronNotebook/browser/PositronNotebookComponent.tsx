@@ -7,20 +7,24 @@ import { ISize } from 'vs/base/browser/positronReactRenderer';
 import { ISettableObservable } from 'vs/base/common/observableInternal/base';
 import { InputObservable } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookEditor';
 import { observeValue } from '../common/utils/observeValue';
+import { NotebookViewModelObservable } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookWidget';
+import { NotebookCellTextModel } from 'vs/workbench/contrib/notebook/common/model/notebookCellTextModel';
 
 
 export function PositronNotebookComponent(
-	{ message, size, input }:
+	{ message, size, input, viewModel }:
 		{
 			message: string;
 			size: ISettableObservable<ISize>;
 			input: InputObservable;
+			viewModel: NotebookViewModelObservable;
 		}
 ) {
 	console.log('Positron Notebook Component', { message, size });
 	const [width, setWidth] = React.useState(size.get().width ?? 0);
 	const [height, setHeight] = React.useState(size.get().height ?? 0);
 	const [fileName, setFileName] = React.useState(input.get()?.resource.path || 'No file name');
+	const [cells, setCells] = React.useState<readonly NotebookCellTextModel[]>([]);
 
 	React.useEffect(() =>
 		observeValue(size, {
@@ -33,6 +37,15 @@ export function PositronNotebookComponent(
 		})
 		, [size]);
 
+	React.useEffect(() => observeValue(viewModel, {
+		handleChange() {
+			const cells = viewModel.get()?.notebookDocument.cells;
+			if (cells) {
+				setCells(cells);
+			}
+		}
+	}), [viewModel]);
+
 	React.useEffect(() =>
 		observeValue(input, {
 			handleChange() {
@@ -43,12 +56,30 @@ export function PositronNotebookComponent(
 
 	return (
 		<div>
-			<h2>Hi there!</h2>
-			<div>File: {fileName}</div>
-			<div>{message}</div>
-			<div>
-				Size: {width} x {height}
+			<div style={{ padding: '1rem', display: 'flex', gap: '1rem', alignItems: 'baseline' }}>
+				<h2>Positron Notebooks: Operation Tracer Bullet</h2>
+				<div>File: {fileName}</div>
+				<div>Size: {width} x {height}</div>
 			</div>
+
+
+			<CellsDisplay cells={cells} />
+
+
+		</div>
+	);
+}
+
+function CellsDisplay({ cells }: { cells: readonly NotebookCellTextModel[] }) {
+	if (cells.length === 0) {
+		return <div>No cells</div>;
+	}
+
+
+	return (
+		<div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', padding: '1rem' }}>
+			<h2>Notebook Cells</h2>
+			{cells.map(cell => <div style={{ outline: '1px solid orangered', padding: '1rem' }} key={cell.handle}><pre>{cell.getValue()}</pre></div>)}
 		</div>
 	);
 }

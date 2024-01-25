@@ -8,7 +8,7 @@ import * as DOM from 'vs/base/browser/dom';
 import { ISize, PositronReactRenderer } from 'vs/base/browser/positronReactRenderer';
 import { Emitter, Event } from 'vs/base/common/event';
 import { Disposable, DisposableStore, dispose } from 'vs/base/common/lifecycle';
-import { ISettableObservable } from 'vs/base/common/observableInternal/base';
+import { ISettableObservable, observableValue } from 'vs/base/common/observableInternal/base';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
 import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
@@ -28,10 +28,18 @@ import { IEditorOptions } from 'vs/editor/common/config/editorOptions';
 import { FontMeasurements } from 'vs/editor/browser/config/fontMeasurements';
 import { PixelRatio } from 'vs/base/browser/browser';
 import { NotebookLayoutChangedEvent } from 'vs/workbench/contrib/notebook/browser/notebookViewEvents';
+import { OptionalObservable } from 'vs/workbench/contrib/positronNotebook/common/utils/observeValue';
 
 
 // Things currently omitted in the name of getting something working quicker:
 // - Contributions
+
+/**
+ * Observable value for the notebook editor.
+ */
+export type NotebookViewModelObservable = OptionalObservable<
+	NotebookViewModel
+>;
 
 
 export class PositronNotebookWidget extends Disposable {
@@ -40,6 +48,10 @@ export class PositronNotebookWidget extends Disposable {
 	_message: string;
 	_size: ISettableObservable<ISize>;
 	_input: InputObservable;
+	_viewModelObservable: NotebookViewModelObservable = observableValue(
+		'viewModel',
+		undefined
+	);
 
 
 	/**
@@ -167,7 +179,7 @@ export class PositronNotebookWidget extends Disposable {
 	}
 
 
-	async setModel(textModel: NotebookTextModel, viewState: INotebookEditorViewState) {
+	async setModel(textModel: NotebookTextModel, viewState?: INotebookEditorViewState) {
 
 		// Confusingly the .equals() method for the NotebookViewModel takes a NotebookTextModel, not
 		// a NotebookViewModel. This is because the NotebookViewModel is just a wrapper around the
@@ -210,6 +222,9 @@ export class PositronNotebookWidget extends Disposable {
 					this._onDidChangeViewCells.fire(e);
 				}));
 			}
+
+			this._viewModelObservable.set(viewModel, undefined);
+
 
 
 
@@ -286,6 +301,7 @@ export class PositronNotebookWidget extends Disposable {
 		this._size = size;
 		this._input = input;
 		this._baseElement = baseElement;
+
 
 		this._readOnly = creationOptions?.isReadOnly ?? false;
 
@@ -408,7 +424,9 @@ export class PositronNotebookWidget extends Disposable {
 			<PositronNotebookComponent
 				message={this._message}
 				size={this._size}
-				input={this._input} />
+				input={this._input}
+				viewModel={this._viewModelObservable}
+			/>
 		);
 	}
 
