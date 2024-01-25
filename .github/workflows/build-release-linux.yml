@@ -20,7 +20,7 @@ on:
 jobs:
   build-positron:
     name: Build Positron
-    runs-on: unbuntu-latest
+    runs-on: ubuntu-latest
     timeout-minutes: 60
 
     env:
