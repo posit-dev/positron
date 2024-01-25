@@ -165,16 +165,6 @@ export class ConnectionItemsProvider implements vscode.TreeDataProvider<Connecti
 				this._onDidChangeTreeData.fire(undefined);
 			}
 		});
-
-		// Add an event listener that tells the backend that the connection is
-		// getting closed.
-		// We need this because the CommMsg::Close event is not sent to the channel
-		// that handles the connection.
-		client.onDidChangeClientState((state: positron.RuntimeClientState) => {
-			if (state === positron.RuntimeClientState.Closing) {
-				client.performRpc({ msg_type: 'disconnect', name: name });
-			}
-		});
 	}
 
 	/**
