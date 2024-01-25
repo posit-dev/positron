@@ -304,7 +304,8 @@ export enum ColumnSchemaTypeDisplay {
 	Datetime = 'datetime',
 	Time = 'time',
 	Array = 'array',
-	Struct = 'struct'
+	Struct = 'struct',
+	Unknown = 'unknown'
 }
 
 /**
