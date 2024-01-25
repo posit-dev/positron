@@ -296,7 +296,8 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 
 				// If the history browser is up, update the selected index.
 				if (historyBrowserActiveRef.current) {
-					setHistoryBrowserSelectedIndex(Math.max(0, historyBrowserSelectedIndexRef.current - 1));
+					setHistoryBrowserSelectedIndex(Math.max(
+						0, historyBrowserSelectedIndexRef.current - 1));
 					consumeEvent();
 					break;
 				}
@@ -337,7 +338,9 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 
 				// If the history browser is up, update the selected index.
 				if (historyBrowserActiveRef.current) {
-					setHistoryBrowserSelectedIndex(historyBrowserSelectedIndexRef.current + 1);
+					setHistoryBrowserSelectedIndex(Math.min(
+						historyItemsRef.current.length - 1,
+						historyBrowserSelectedIndexRef.current + 1));
 					consumeEvent();
 					break;
 				}
