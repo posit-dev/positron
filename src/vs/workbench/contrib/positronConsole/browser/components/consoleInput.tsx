@@ -737,18 +737,36 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 		}
 	};
 
+	// If it's visible, anchor the history browser to the physical location of
+	// the code editor. The history browser has to have a fixed position so it
+	// can pop over the rest of the UI.
 	let historyBrowserBottomPx = 0;
 	let historyBrowserLeftPx = 0;
-	if (codeEditorWidgetRef.current) {
+	if (codeEditorWidgetRef.current && historyBrowserActive) {
+		// Get the code editor's DOM node.
 		const editorElement = codeEditorWidgetRef.current.getDomNode();
 		if (editorElement) {
-			const editorElementRect = editorElement.getBoundingClientRect();
-			// Get the browser's height and subtract the editor's top to get the bottom.
-			historyBrowserBottomPx = DOM.getActiveWindow().innerHeight - editorElementRect.top + 5;
-			historyBrowserLeftPx = editorElementRect.left;
+			// Try to find the actual editor scrollable element (corresponds to
+			// the point past the input prompt). If it doesn't exist, use the
+			// editor element.
+			let anchorElement: HTMLElement | null = editorElement.querySelector('.editor-scrollable');
+			if (!anchorElement) {
+				anchorElement = editorElement;
+			}
+			const anchorElementRect = anchorElement.getBoundingClientRect();
+
+			// Get the browser's height and subtract the anchor's top to get the bottom.
+			historyBrowserBottomPx = DOM.getActiveWindow().innerHeight - anchorElementRect.top + 5;
+			historyBrowserLeftPx = anchorElementRect.left - 5;
 		}
 	}
 
+	/**
+	 * Event handler for when a history item is selected. Runs when the user
+	 * clicks a history item from the history browser.
+	 *
+	 * @param index The new selected index.
+	 */
 	const onHistoryBrowserSelected = (index: number) => {
 		const item = historyItemsRef.current[index];
 		codeEditorWidgetRef.current.setValue(item.input);
