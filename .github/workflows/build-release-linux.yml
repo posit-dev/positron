@@ -23,9 +23,9 @@ on:
 # because of https://github.com/actions/upload-artifact/issues/485
 
 jobs:
-    runs-on: ubuntu-latest
   build-binaries:
     name: Build Linux binaries
+    runs-on: ubuntu-latest-8x
     timeout-minutes: 120
 
     env:
