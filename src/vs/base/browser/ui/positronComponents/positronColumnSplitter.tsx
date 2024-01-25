@@ -4,153 +4,134 @@
 
 import 'vs/css!./positronColumnSplitter';
 import * as React from 'react';
-import { MouseEvent } from 'react'; // eslint-disable-line no-duplicate-imports
-import { useStateRef } from 'vs/base/browser/ui/react/useStateRef';
 import * as DOM from 'vs/base/browser/dom';
 import { isMacintosh } from 'vs/base/common/platform';
 
 /**
- * PositronColumnSplitterResizeResult enumeration.
+ * PositronColumnSplitterResizeParams interface. This defines the parameters of a resize operation.
+ * When invert is true, the mouse delta is subtracted from the starting width instead of being added
+ * to it, which inverts the resize operation.
  */
-export enum PositronColumnSplitterResizeResult {
-	Resizing = 'Resizing',
-	TooSmall = 'TooSmall',
-	TooLarge = 'TooLarge'
+export interface PositronColumnSplitterResizeParams {
+	minimumWidth: number;
+	maximumWidth: number;
+	startingWidth: number;
+	invert?: boolean;
 }
-
-/**
- * PositronColumnSplitterProps interface.
- */
-interface PositronColumnSplitterProps {
-	width: number;
-	showSizer?: boolean;
-	onResize: (x: number, y: number) => PositronColumnSplitterResizeResult;
-}
-
-/**
- * Event aliases.
- */
-type DocumentMouseEvent = globalThis.MouseEvent;
 
 /**
  * PositronColumnSplitter component.
- * @param props A PositronColumnSplitterProps that contains the component properties.
+ * @param props The component properties.
  * @returns The rendered component.
  */
-export const PositronColumnSplitter = (props: PositronColumnSplitterProps) => {
-	// State hooks.
-	const [, setResizeState, resizeStateRef] = useStateRef<{
-		readonly body: HTMLElement;
-		readonly startingX: number;
-		readonly startingY: number;
-		readonly stylesheet: HTMLStyleElement;
-	} | undefined>(undefined);
-
+export const PositronColumnSplitter = (props: {
+	onBeginResize: () => PositronColumnSplitterResizeParams;
+	onResize: (width: number) => void;
+}) => {
 	/**
-	 * MouseDown handler.
-	 * @param e A MouseEvent hat describes a user interaction with the mouse.
+	 * onPointerDown handler.
+	 * @param e A PointerEvent that describes a user interaction with the pointer.
 	 */
-	const mouseDownHandler = (e: MouseEvent) => {
+	const pointerDownHandler = (e: React.PointerEvent<HTMLDivElement>) => {
+		// Ignore events we don't process.
+		if (e.pointerType === 'mouse' && e.buttons !== 1) {
+			return;
+		}
+
 		// Consume the event.
 		e.preventDefault();
 		e.stopPropagation();
 
-		// Get the document body on which the resize operation is happening.
-		const body = DOM.getActiveWindow().document.body;
-
-		// Set the resize state.
-		setResizeState({
-			body,
-			startingX: e.clientX,
-			startingY: e.clientY,
-			stylesheet: DOM.createStyleSheet(body)
-		});
-
-		// Mouse move handler.
-		const mouseMoveHandler = (e: DocumentMouseEvent) => {
-			// Consume the event.
-			e.preventDefault();
-			e.stopPropagation();
-
-			// Fire onResize.
-			updateStyleSheet(fireOnResize(e));
-		};
-
-		// Mouse up handler.
-		const mouseUpHandler = (e: DocumentMouseEvent) => {
-			// Consume the event.
-			e.preventDefault();
-			e.stopPropagation();
-
-			// Remove the drag event handlers.
-			resizeStateRef.current!.body.removeEventListener('mousemove', mouseMoveHandler);
-			resizeStateRef.current!.body.removeEventListener('mouseup', mouseUpHandler);
-
-			// Fire onResize one last time.
-			fireOnResize(e);
-
-			// Remove the style sheet.
-			resizeStateRef.current!.body.removeChild(resizeStateRef.current!.stylesheet);
-
-			// Clear the resize state.
-			setResizeState(undefined);
-		};
+		// Setup the resize state.
+		const resizeParams = props.onBeginResize();
+		const target = DOM.getWindow(e.currentTarget).document.body;
+		const clientX = e.clientX;
+		const styleSheet = DOM.createStyleSheet(target);
 
 		/**
-		 * Updates the style sheet based on the column splitter resize result.
-		 * @param columnSplitterResizeResult The column splitter resize result.
+		 * pointermove event handler.
+		 * @param e A PointerEvent that describes a user interaction with the pointer.
 		 */
-		const updateStyleSheet = (columnSplitterResizeResult: PositronColumnSplitterResizeResult) => {
-			// Set the cursor.
+		const pointerMoveHandler = (e: PointerEvent) => {
+			// Consume the event.
+			e.preventDefault();
+			e.stopPropagation();
+
+			// Calculate the new width.
+			let newWidth = calculateNewWidth(e);
+
+			// Adjust the new width to be within limits and set the cursor accordingly.
 			let cursor: string;
-			switch (columnSplitterResizeResult) {
-				// If the column is resizing (not too small and not too large), use the correct
-				// resize cursor.
-				case PositronColumnSplitterResizeResult.Resizing:
-					cursor = isMacintosh ? 'col-resize' : 'ew-resize';
-					break;
-
-				// If the column is too small, use the e-resize cursor.
-				case PositronColumnSplitterResizeResult.TooSmall:
-					cursor = 'e-resize';
-					break;
-
-				// If the column is too large, use the w-resize cursor.
-				case PositronColumnSplitterResizeResult.TooLarge:
-					cursor = 'w-resize';
-					break;
+			if (newWidth < resizeParams.minimumWidth) {
+				cursor = 'e-resize';
+				newWidth = resizeParams.minimumWidth;
+			} else if (newWidth > resizeParams.maximumWidth) {
+				cursor = 'w-resize';
+				newWidth = resizeParams.maximumWidth;
+			} else {
+				cursor = isMacintosh ? 'col-resize' : 'ew-resize';
 			}
 
 			// Update the style sheet's text content with the desired cursor. This is a clever
 			// technique adopted from src/vs/base/browser/ui/sash/sash.ts.
-			resizeStateRef.current!.stylesheet.textContent = `* { cursor: ${cursor} !important; }`;
+			styleSheet.textContent = `* { cursor: ${cursor} !important; }`;
+
+			// Call the onResize callback.
+			props.onResize(newWidth);
 		};
 
 		/**
-		 * Fires onResize for a mouse event.
-		 * @param e The mouse event.
+		 * lostpointercapture event handler.
+		 * @param e A PointerEvent that describes a user interaction with the pointer.
 		 */
-		const fireOnResize = (e: DocumentMouseEvent): PositronColumnSplitterResizeResult =>
-			props.onResize(
-				e.clientX - resizeStateRef.current!.startingX,
-				e.clientY - resizeStateRef.current!.startingY
-			);
+		const lostPointerCaptureHandler = (e: PointerEvent) => {
+			// Remove our pointer event handlers.
+			target.removeEventListener('pointermove', pointerMoveHandler);
+			target.removeEventListener('lostpointercapture', lostPointerCaptureHandler);
 
-		// Capture the mouse.
-		body.addEventListener('mousemove', mouseMoveHandler, false);
-		body.addEventListener('mouseup', mouseUpHandler, false);
+			// Calculate the new width.
+			let newWidth = calculateNewWidth(e);
+
+			// Adjust the new width to be within limits.
+			if (newWidth < resizeParams.minimumWidth) {
+				newWidth = resizeParams.minimumWidth;
+			} else if (newWidth > resizeParams.maximumWidth) {
+				newWidth = resizeParams.maximumWidth;
+			}
+
+			// Remove the style sheet.
+			target.removeChild(styleSheet);
+
+			// Call the onEndResize callback.
+			props.onResize(newWidth);
+		};
+
+		/**
+		 * Calculates the new width based on a GlobalPointerEvent.
+		 * @param e The GlobalPointerEvent.
+		 * @returns The new width.
+		 */
+		const calculateNewWidth = (e: PointerEvent) => {
+			// Calculate the delta.
+			const delta = Math.trunc(e.clientX - clientX);
+
+			// Calculate the new width.
+			return !resizeParams.invert ?
+				resizeParams.startingWidth + delta :
+				resizeParams.startingWidth - delta;
+		};
+
+		// Set the capture target of future pointer events to be the current target and add our
+		// pointer event handlers.
+		target.setPointerCapture(e.pointerId);
+		target.addEventListener('pointermove', pointerMoveHandler);
+		target.addEventListener('lostpointercapture', lostPointerCaptureHandler);
 	};
 
 	// Render.
 	return (
-		<div
-			className='positron-column-splitter'
-			onMouseDown={mouseDownHandler}
-			style={{ width: props.width }}
-		>
-			{props.showSizer &&
-				<div className='sizer' style={{ width: Math.trunc(props.width / 2) }} />
-			}
+		<div className='positron-column-splitter'>
+			<div className='sizer' onPointerDown={pointerDownHandler} />
 		</div>
 	);
 };

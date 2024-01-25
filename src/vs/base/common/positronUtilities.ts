@@ -8,6 +8,16 @@ type Mapping = Record<string, unknown>;
 type Argument = Value | Mapping;
 
 /**
+ * Ensures that a given value is within a range.
+ * @param value The value.
+ * @param min The minimum value, inclusive.
+ * @param max The maximum value, inclusive.
+ * @returns The value.
+ */
+export const pinToRange = (value: number, min: number, max: number) =>
+	Math.min(Math.max(value, min), max);
+
+/**
  * optionalValue function. Returns the value, if it is not undefined; otherwise, returns the default value.
  * @param value The optional value.
  * @param defaultValue The default value.

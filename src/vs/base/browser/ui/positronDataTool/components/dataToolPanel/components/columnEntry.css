@@ -1,0 +1,12 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
+ *--------------------------------------------------------------------------------------------*/
+
+.data-tool .columns-panel .column-entry {
+	display: flex;
+	align-items: center;
+}
+
+.data-tool .columns-panel .column-entry .title {
+	margin-left: 5px;
+}

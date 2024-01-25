@@ -973,6 +973,7 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 
 			case positron.RuntimeClientType.Plot:
 			case positron.RuntimeClientType.DataViewer:
+			case positron.RuntimeClientType.DataTool:
 				// These types can only be created by the back end; it's an
 				// error if the front end tries to create one.
 				throw new Error(`Client type ${type} cannot be created by the front end.`);

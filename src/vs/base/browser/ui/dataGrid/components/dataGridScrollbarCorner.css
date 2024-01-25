@@ -1,0 +1,16 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
+ *--------------------------------------------------------------------------------------------*/
+
+.data-grid-scrollbar-corner {
+	right: 0;
+	bottom: 0;
+	/* PositronColumnSplitter is at a z-index of 50, so go higher than that. */
+	z-index: 51;
+	cursor: pointer;
+	position: absolute;
+	box-sizing: border-box;
+	background-color: var(--vscode-positronDataGrid-background);
+	border-top: 1px solid var(--vscode-positronDataGrid-border);
+	border-left: 1px solid var(--vscode-positronDataGrid-border);
+}

@@ -1,0 +1,25 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
+ *--------------------------------------------------------------------------------------------*/
+
+.data-grid-waffle {
+	width: 100%;
+	height: 100%;
+	display: grid;
+	overflow: hidden;
+	position: relative;
+	box-sizing: border-box;
+	grid-template-rows: [headers] min-content [waffle] 1fr [end-waffle];
+	grid-template-columns: [headers] min-content [waffle] 1fr [end-waffle];
+}
+
+.data-grid-waffle:focus {
+	outline: none !important;
+}
+
+.data-grid-rows {
+	position: relative;
+	box-sizing: border-box;
+	grid-row: waffle / end-waffle;
+	grid-column: waffle / end-waffle;
+}
