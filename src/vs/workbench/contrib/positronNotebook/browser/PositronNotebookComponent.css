@@ -1,0 +1,32 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
+ *--------------------------------------------------------------------------------------------*/
+
+.positron-notebook {
+	color: var(--vscode-positronDataTool-foreground);
+}
+
+.positron-notebook-header {
+	padding: 1rem;
+	padding-bottom: 0.5rem;
+	display: flex;
+	gap: 1rem;
+	align-items: baseline;
+	border-bottom: 1px solid var(--vscode-positronDataTool-border);
+}
+
+.positron-notebook-cells-container {
+	padding: 1rem;
+	padding-top: 0.5rem;
+	display: flex;
+	flex-direction: column;
+	gap: 1rem;
+
+	.cell {
+		outline: 1px solid var(--vscode-focusBorder, pink);
+		background-color: var(--vscode-notebook-cellEditorBackground, white);
+		padding-inline: 1rem;
+		padding-block: 0.25rem;
+		border-radius: 0.25rem;
+	}
+}

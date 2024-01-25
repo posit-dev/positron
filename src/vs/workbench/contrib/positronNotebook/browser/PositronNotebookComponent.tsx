@@ -2,6 +2,8 @@
  *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
+import 'vs/css!./PositronNotebookComponent';
+
 import * as React from 'react';
 import { ISize } from 'vs/base/browser/positronReactRenderer';
 import { ISettableObservable } from 'vs/base/common/observableInternal/base';
@@ -55,8 +57,8 @@ export function PositronNotebookComponent(
 		}), [input]);
 
 	return (
-		<div>
-			<div style={{ padding: '1rem', display: 'flex', gap: '1rem', alignItems: 'baseline' }}>
+		<div className='positron-notebook'>
+			<div className='positron-notebook-header'>
 				<h2>Positron Notebooks: Operation Tracer Bullet</h2>
 				<div>File: {fileName}</div>
 				<div>Size: {width} x {height}</div>
@@ -77,9 +79,9 @@ function CellsDisplay({ cells }: { cells: readonly NotebookCellTextModel[] }) {
 
 
 	return (
-		<div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', padding: '1rem' }}>
+		<div className='positron-notebook-cells-container'>
 			<h2>Notebook Cells</h2>
-			{cells.map(cell => <div style={{ outline: '1px solid orangered', padding: '1rem' }} key={cell.handle}><pre>{cell.getValue()}</pre></div>)}
+			{cells.map(cell => <div className='cell' key={cell.handle}><pre>{cell.getValue()}</pre></div>)}
 		</div>
 	);
 }
