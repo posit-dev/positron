@@ -40,7 +40,7 @@ export class ExtHostMethods implements extHostProtocol.ExtHostMethodsShape {
 	async call(method: UiFrontendRequest, params: Record<string, any>): Promise<JsonRpcResponse> {
 		try {
 			if (!Object.values(UiFrontendRequest).includes(method)) {
-				return <JsonRpcError> {
+				return <JsonRpcError>{
 					error: {
 						code: JsonRpcErrorCode.MethodNotFound,
 						message: `Can't find method ${method}`,
@@ -71,7 +71,7 @@ export class ExtHostMethods implements extHostProtocol.ExtHostMethodsShape {
 
 			return <JsonRpcResult>({ result });
 		} catch (e) {
-			return <JsonRpcError> {
+			return <JsonRpcError>{
 				error: {
 					code: JsonRpcErrorCode.InternalError,
 					message: `Internal error: ${e}`,
@@ -86,7 +86,29 @@ export class ExtHostMethods implements extHostProtocol.ExtHostMethodsShape {
 			return null;
 		}
 
-		return { path: editor.document.fileName };
+		// The selections in this text editor. The primary selection is always at index 0.
+		const selections = editor.selections.map(selection => ({
+			active: selection.active,
+			start: selection.start,
+			end: selection.end,
+			text: editor.document.getText(selection)
+		}));
+
+		return {
+			document: {
+				path: editor.document.fileName,
+				eol: editor.document.eol,
+				isClosed: editor.document.isClosed,
+				isDirty: editor.document.isDirty,
+				isUntitled: editor.document.isUntitled,
+				languageId: editor.document.languageId,
+				lineCount: editor.document.lineCount,
+				version: editor.document.version,
+			},
+			// The primary selection in this text editor. Shorthand for `TextEditor.selections[0]`.
+			selection: selections[0],
+			selections: selections
+		};
 	}
 
 	async debugSleep(ms: number): Promise<null> {
@@ -99,7 +121,7 @@ export class ExtHostMethods implements extHostProtocol.ExtHostMethodsShape {
 /* Utils */
 
 function newInvalidParamsError(method: UiFrontendRequest) {
-	return <JsonRpcError> {
+	return <JsonRpcError>{
 		error: {
 			code: JsonRpcErrorCode.InvalidParams,
 			message: `Unexpected arguments for '${method}'`,
