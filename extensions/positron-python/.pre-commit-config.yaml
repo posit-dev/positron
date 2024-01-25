@@ -9,6 +9,7 @@ repos:
           - python
         args:
           - "--max-line-length=100"
+          - "--ignore=E203"
       - id: trailing-whitespace
       - id: end-of-file-fixer
       - id: check-yaml
