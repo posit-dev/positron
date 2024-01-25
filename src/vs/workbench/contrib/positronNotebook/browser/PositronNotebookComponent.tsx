@@ -11,6 +11,7 @@ import { InputObservable } from 'vs/workbench/contrib/positronNotebook/browser/P
 import { observeValue } from '../common/utils/observeValue';
 import { NotebookViewModelObservable } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookWidget';
 import { NotebookCellTextModel } from 'vs/workbench/contrib/notebook/common/model/notebookCellTextModel';
+import { PositronButton } from 'vs/base/browser/ui/positronComponents/positronButton';
 
 
 export function PositronNotebookComponent(
@@ -81,7 +82,23 @@ function CellsDisplay({ cells }: { cells: readonly NotebookCellTextModel[] }) {
 	return (
 		<div className='positron-notebook-cells-container'>
 			<h2>Notebook Cells</h2>
-			{cells.map(cell => <div className='cell' key={cell.handle}><pre>{cell.getValue()}</pre></div>)}
+			{cells.map(cell => <CellDisplay key={cell.handle} cell={cell}></CellDisplay>)}
+		</div>
+	);
+}
+
+function CellDisplay({ cell }: { cell: NotebookCellTextModel }) {
+	const label = 'Run cell';
+	return (
+		<div className='positron-notebook-cell'>
+			<PositronButton className='run-button' ariaLabel={label} onClick={
+				() => {
+					console.log('Run this cell please', cell.getValue());
+				}
+			}>
+				<div className={`button-icon codicon codicon-run`} />
+			</PositronButton>
+			<pre>{cell.getValue()}</pre>
 		</div>
 	);
 }

@@ -21,12 +21,47 @@
 	display: flex;
 	flex-direction: column;
 	gap: 1rem;
+}
 
-	.cell {
-		outline: 1px solid var(--vscode-focusBorder, pink);
-		background-color: var(--vscode-notebook-cellEditorBackground, white);
-		padding-inline: 1rem;
-		padding-block: 0.25rem;
-		border-radius: 0.25rem;
+.positron-notebook-cell {
+	outline: 1px solid var(--vscode-focusBorder, pink);
+	background-color: var(--vscode-notebook-cellEditorBackground, white);
+	padding-inline: 1rem;
+	padding-block: 0.25rem;
+	border-radius: 0.25rem;
+	position: relative;
+
+	.run-button {
+		position: absolute;
+		top: 0.25rem;
+		right: 0.25rem;
+		aspect-ratio: 1;
+		display: grid;
+		place-content: center;
+		padding: 2px;
+
+		&:hover {
+			scale: 1.2;
+
+			.button-icon::before {
+				color: blue;
+			}
+		}
+
+		.button-icon {
+			align-items: center;
+			justify-content: center;
+			display: flex;
+			width: 16px;
+			aspect-ratio: 1;
+		}
+
+		.button-icon::before {
+			color: inherit;
+		}
+
+		&.disabled {
+			color: grey;
+		}
 	}
 }
