@@ -152,6 +152,22 @@
         "key": "ctrl+shift+r",
         "when": "config.rstudio.keymap.enable && editorTextFocus && editorLangId == r",
         "command": "r.insertSection"
+      },
+      {
+        "mac": "ctrl+alt+left",
+        "win": "ctrl+alt+left",
+        "linux": "ctrl+alt+left",
+        "key": "ctrl+alt+left",
+        "when": "config.rstudio.keymap.enable",
+        "command": "workbench.action.previousEditorInGroup"
+      },
+      {
+        "mac": "ctrl+alt+right",
+        "win": "ctrl+alt+right",
+        "linux": "ctrl+alt+right",
+        "key": "ctrl+alt+right",
+        "when": "config.rstudio.keymap.enable",
+        "command": "workbench.action.nextEditorInGroup"
       }
     ]
   }

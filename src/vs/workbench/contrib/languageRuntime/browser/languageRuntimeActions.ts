@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2022-2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
 import * as nls from 'vs/nls';
@@ -211,7 +211,8 @@ export function registerLanguageRuntimeActions() {
 		[
 			{
 				weight: KeybindingWeight.WorkbenchContrib,
-				primary: KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.Numpad0
+				primary: KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.Numpad0,
+				secondary: [KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.F10]
 			},
 			{
 				weight: KeybindingWeight.WorkbenchContrib,
