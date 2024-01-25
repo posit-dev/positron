@@ -141,6 +141,7 @@ export enum ClipboardFormatFormat {
 export enum VariableKind {
 	Boolean = 'boolean',
 	Bytes = 'bytes',
+	Class = 'class',
 	Collection = 'collection',
 	Empty = 'empty',
 	Function = 'function',

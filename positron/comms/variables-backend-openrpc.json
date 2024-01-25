@@ -221,6 +221,7 @@
 						"enum": [
 							"boolean",
 							"bytes",
+							"class",
 							"collection",
 							"empty",
 							"function",
