@@ -21,7 +21,7 @@ jobs:
   build-positron:
     name: Build Positron
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 120
 
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
