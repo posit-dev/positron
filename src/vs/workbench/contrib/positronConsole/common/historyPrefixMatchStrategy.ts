@@ -13,7 +13,14 @@ export class HistoryPrefixMatchStrategy extends HistoryMatchStrategy {
 
 	override getMatches(input: string): HistoryMatch[] {
 		const matches: HistoryMatch[] = [];
+		let previousInput = '';
 		for (const entry of this._navigator) {
+			// Ignore this entry if it's the same as the previous one or the
+			// same as the previous match
+			if (entry.input === previousInput ||
+				entry.input === matches[matches.length - 1]?.input) {
+				continue;
+			}
 			if (entry.input.startsWith(input)) {
 				const match: HistoryMatch = {
 					input: entry.input,
@@ -21,6 +28,7 @@ export class HistoryPrefixMatchStrategy extends HistoryMatchStrategy {
 				};
 				matches.push(match);
 			}
+			previousInput = entry.input;
 		}
 		return matches;
 	}
