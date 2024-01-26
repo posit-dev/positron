@@ -80,8 +80,7 @@ T_co = TypeVar("T_co", covariant=True)
 
 
 class Summarizer(Protocol[T_co]):
-    def __call__(self, key: Any, value: Any) -> Optional[T_co]:
-        ...
+    def __call__(self, key: Any, value: Any) -> Optional[T_co]: ...
 
 
 class PositronInspector(Generic[T]):
