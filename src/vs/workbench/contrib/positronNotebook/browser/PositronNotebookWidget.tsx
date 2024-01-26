@@ -31,6 +31,8 @@ import { InputObservable } from 'vs/workbench/contrib/positronNotebook/browser/P
 import { OptionalObservable } from 'vs/workbench/contrib/positronNotebook/common/utils/observeValue';
 import { BaseCellEditorOptions } from './BaseCellEditorOptions';
 import { PositronNotebookComponent } from './PositronNotebookComponent';
+import { INotebookExecutionService } from 'vs/workbench/contrib/notebook/common/notebookExecutionService';
+import { NotebookCellTextModel } from 'vs/workbench/contrib/notebook/common/model/notebookCellTextModel';
 
 
 // Things currently omitted in the name of getting something working quicker:
@@ -133,6 +135,7 @@ export class PositronNotebookWidget extends Disposable {
 		readonly creationOptions: INotebookEditorCreationOptions | undefined,
 		// TODO: Label what each of these DI items are for.
 		@INotebookKernelService private readonly _notebookKernelService: INotebookKernelService,
+		@INotebookExecutionService private readonly notebookExecutionService: INotebookExecutionService,
 		@IConfigurationService private readonly configurationService: IConfigurationService,
 		@IInstantiationService instantiationService: IInstantiationService,
 		@IContextKeyService contextKeyService: IContextKeyService,
@@ -320,6 +323,11 @@ export class PositronNotebookWidget extends Disposable {
 		undefined
 	);
 
+	executionServiceObservable: OptionalObservable<INotebookExecutionService> = observableValue(
+		'execution-service',
+		undefined
+	);
+
 	/**
 	 * Connect to the kernel for running notebook code.
 	 */
@@ -352,9 +360,12 @@ export class PositronNotebookWidget extends Disposable {
 			throw new Error(localize('noKernelForLanguage', "No kernel for language '{0}' found.", LANGUAGE_FOR_KERNEL));
 		}
 
+		// Link kernel with notebook
+		this._notebookKernelService.selectKernelForNotebook(kernelForLanguage, viewModel.notebookDocument);
+
 
 		this.kernelObservable.set(kernelForLanguage, undefined);
-
+		this.executionServiceObservable.set(this.notebookExecutionService, undefined);
 
 		// this._notebookKernelService
 	}
@@ -388,6 +399,22 @@ export class PositronNotebookWidget extends Disposable {
 
 	// #endregion
 
+
+
+	async executeNotebookCells(cells?: Iterable<NotebookCellTextModel>): Promise<void> {
+		if (!this.getViewModel() || !this.hasModel()) {
+			throw new Error(localize('noModel', "No model"));
+		}
+		if (!cells) {
+			// If no cells are provided, assume we want to run all the cells.
+			cells = this.getViewModel()?.notebookDocument.cells;
+			if (!cells) {
+				throw new Error(localize('noCells', "No cells to run"));
+			}
+		}
+
+		return this.notebookExecutionService.executeNotebookCells(this.textModel, cells, this.scopedContextKeyService);
+	}
 
 	/**
 	 * Keep track of if this editor has been disposed.
@@ -497,6 +524,7 @@ export class PositronNotebookWidget extends Disposable {
 				inputObservable={this._input}
 				kernelObservable={this.kernelObservable}
 				viewModelObservable={this._viewModelObservable}
+				executeCells={this.executeNotebookCells.bind(this)}
 			/>
 		);
 	}

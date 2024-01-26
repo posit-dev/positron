@@ -25,9 +25,8 @@
 
 .positron-notebook-cell {
 	outline: 1px solid var(--vscode-focusBorder, pink);
-	background-color: var(--vscode-notebook-cellEditorBackground, white);
-	padding-inline: 1rem;
-	padding-block: 0.25rem;
+	/* padding-inline: 1rem;
+	padding-block: 0.25rem; */
 	border-radius: 0.25rem;
 	position: relative;
 
@@ -63,5 +62,26 @@
 		&.disabled {
 			color: grey;
 		}
+	}
+
+	.positron-notebook-cell-code {
+		background-color: var(--vscode-notebook-cellEditorBackground, white);
+	}
+
+	.positron-notebook-cell-outputs {
+		background-color: var(
+			--vscode-notebook-outputContainerBackgroundColor,
+			white
+		);
+	}
+
+	.positron-notebook-cell-code,
+	.positron-notebook-cell-outputs {
+		padding-inline: 1rem;
+		padding-block: 0.5rem;
+	}
+
+	& pre {
+		margin: 0;
 	}
 }
