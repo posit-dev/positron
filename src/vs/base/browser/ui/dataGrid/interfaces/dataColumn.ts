@@ -3,6 +3,15 @@
  *--------------------------------------------------------------------------------------------*/
 
 /**
+ * DataColumnAlignment enumeration.
+ */
+export enum DataColumnAlignment {
+	Left = 'left',
+	Center = 'center',
+	Right = 'right'
+}
+
+/**
  * IDataColumn interface.
  */
 export interface IDataColumn {
@@ -25,6 +34,11 @@ export interface IDataColumn {
 	 * Gets the description.
 	 */
 	readonly description?: string;
+
+	/**
+	 * Gets the alignment.
+	 */
+	readonly alignment: DataColumnAlignment;
 
 	/**
 	 * Gets or sets the width.

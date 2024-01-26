@@ -2,7 +2,8 @@
  *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
-import { ColumnSchema } from 'vs/workbench/services/languageRuntime/common/positronDataToolComm';
+import { DataColumnAlignment } from 'vs/base/browser/ui/dataGrid/interfaces/dataColumn';
+import { ColumnSchema, ColumnSchemaTypeDisplay } from 'vs/workbench/services/languageRuntime/common/positronDataToolComm';
 import { IPositronDataToolColumn } from 'vs/workbench/services/positronDataTool/browser/interfaces/positronDataToolColumn';
 
 /**
@@ -61,24 +62,35 @@ export class PositronDataToolColumn implements IPositronDataToolColumn {
 	}
 
 	get codicon() {
-		// Temporary until updates happen to the comms for Data Tool.
-		if (this.columnSchema.type_name.includes('bool')) {
-			return 'positron-data-type-boolean';
-		}
-		if (this.columnSchema.type_name.includes('date')) {
-			return 'positron-data-type-date-time';
-		}
-		if (this.columnSchema.type_name.includes('int')) {
-			return 'positron-data-type-number';
-		}
-		if (this.columnSchema.type_name.includes('float')) {
-			return 'positron-data-type-number';
-		}
-		if (this.columnSchema.type_name.includes('str')) {
-			return 'positron-data-type-string';
-		}
+		// Determine the codicon based on type.
+		switch (this.columnSchema.type_display) {
+			case ColumnSchemaTypeDisplay.Number:
+				return 'positron-data-type-number';
 
-		return undefined;
+			case ColumnSchemaTypeDisplay.Boolean:
+				return 'positron-data-type-boolean';
+
+			case ColumnSchemaTypeDisplay.String:
+				return 'positron-data-type-string';
+
+			case ColumnSchemaTypeDisplay.Date:
+				return 'positron-data-type-date';
+
+			case ColumnSchemaTypeDisplay.Datetime:
+				return 'positron-data-type-date-time';
+
+			case ColumnSchemaTypeDisplay.Time:
+				return 'positron-data-type-time';
+
+			case ColumnSchemaTypeDisplay.Array:
+				return undefined;
+
+			case ColumnSchemaTypeDisplay.Struct:
+				return undefined;
+
+			case ColumnSchemaTypeDisplay.Unknown:
+				return undefined;
+		}
 	}
 
 	/**
@@ -93,6 +105,41 @@ export class PositronDataToolColumn implements IPositronDataToolColumn {
 	 */
 	get description() {
 		return this._columnSchema.type_name;
+	}
+
+	/**
+	 * Gets the alignment.
+	 */
+	get alignment() {
+		// Determine the alignment based on type.
+		switch (this.columnSchema.type_display) {
+			case ColumnSchemaTypeDisplay.Number:
+				return DataColumnAlignment.Right;
+
+			case ColumnSchemaTypeDisplay.Boolean:
+				return DataColumnAlignment.Left;
+
+			case ColumnSchemaTypeDisplay.String:
+				return DataColumnAlignment.Left;
+
+			case ColumnSchemaTypeDisplay.Date:
+				return DataColumnAlignment.Right;
+
+			case ColumnSchemaTypeDisplay.Datetime:
+				return DataColumnAlignment.Right;
+
+			case ColumnSchemaTypeDisplay.Time:
+				return DataColumnAlignment.Right;
+
+			case ColumnSchemaTypeDisplay.Array:
+				return DataColumnAlignment.Left;
+
+			case ColumnSchemaTypeDisplay.Struct:
+				return DataColumnAlignment.Left;
+
+			case ColumnSchemaTypeDisplay.Unknown:
+				return DataColumnAlignment.Left;
+		}
 	}
 
 	/**

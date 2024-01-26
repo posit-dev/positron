@@ -50,18 +50,19 @@
 	border-right: 1px solid var(--vscode-positronDataGrid-selectionBorder);
 }
 
-.data-grid-row-cell .cursor-border {
+.data-grid-row-cell
+.cursor-border {
 	top: 0;
-	right: 0px;
-	bottom: 0;
 	left: 0;
-
+	right: 0;
+	bottom: 0;
 	position: absolute;
 	box-sizing: border-box;
 	border: 1.5px solid var(--vscode-positronDataGrid-cursorBorder);
 }
 
-.data-grid-row-cell .text {
+.data-grid-row-cell
+.text {
 	overflow: hidden;
 	/* Adjust for the bottom border. */
 	margin-bottom: 1px;
@@ -71,6 +72,22 @@
 	grid-column: content / right-gutter;
 }
 
-.data-grid-row-cell .positron-column-splitter {
+.data-grid-row-cell
+.text.left {
+	text-align: left;
+}
+
+.data-grid-row-cell
+.text.center {
+	text-align: center;
+}
+
+.data-grid-row-cell
+.text.right {
+	text-align: right;
+}
+
+.data-grid-row-cell
+.positron-column-splitter {
 	grid-column: splitter / end;
 }

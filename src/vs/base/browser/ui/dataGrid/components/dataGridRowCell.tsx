@@ -82,7 +82,9 @@ export const DataGridRowCell = (props: DataGridRowCellProps) => {
 					<div className='cursor-border' />
 				}
 			</div>
-			<div className='text'>{context.instance.cell(props.columnIndex, props.rowIndex)}</div>
+			<div className={positronClassNames('text', props.column.alignment)}>
+				{context.instance.cell(props.columnIndex, props.rowIndex)}
+			</div>
 			<PositronColumnSplitter
 				onBeginResize={() => ({
 					minimumWidth: context.instance.minimumColumnWidth,
