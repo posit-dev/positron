@@ -8,76 +8,47 @@ import * as React from 'react';
 import { ISize } from 'vs/base/browser/positronReactRenderer';
 import { ISettableObservable } from 'vs/base/common/observableInternal/base';
 import { InputObservable } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookEditor';
-import { observeValue } from '../common/utils/observeValue';
-import { NotebookViewModelObservable } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookWidget';
+import { NotebookKernelObservable, NotebookViewModelObservable } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookWidget';
 import { NotebookCellTextModel } from 'vs/workbench/contrib/notebook/common/model/notebookCellTextModel';
 import { PositronButton } from 'vs/base/browser/ui/positronComponents/positronButton';
+import { useObservedValue } from './useObservedValue';
 
 
 export function PositronNotebookComponent(
-	{ message, size, input, viewModel }:
+	{ message, sizeObservable, inputObservable, viewModelObservable, kernelObservable }:
 		{
 			message: string;
-			size: ISettableObservable<ISize>;
-			input: InputObservable;
-			viewModel: NotebookViewModelObservable;
+			sizeObservable: ISettableObservable<ISize>;
+			inputObservable: InputObservable;
+			viewModelObservable: NotebookViewModelObservable;
+			kernelObservable: NotebookKernelObservable;
 		}
 ) {
-	console.log('Positron Notebook Component', { message, size });
-	const [width, setWidth] = React.useState(size.get().width ?? 0);
-	const [height, setHeight] = React.useState(size.get().height ?? 0);
-	const [fileName, setFileName] = React.useState(input.get()?.resource.path || 'No file name');
-	const [cells, setCells] = React.useState<readonly NotebookCellTextModel[]>([]);
+	console.log('Positron Notebook Component', { message, size: sizeObservable });
 
-	React.useEffect(() =>
-		observeValue(size, {
-			handleChange() {
-				const { width, height } = size.get();
-				setWidth(width);
-				setHeight(height);
-
-			}
-		})
-		, [size]);
-
-	React.useEffect(() => observeValue(viewModel, {
-		handleChange() {
-			const cells = viewModel.get()?.notebookDocument.cells;
-			if (cells) {
-				setCells(cells);
-			}
-		}
-	}), [viewModel]);
-
-	React.useEffect(() =>
-		observeValue(input, {
-			handleChange() {
-				const fileName = input.get()?.resource.path || 'No file name';
-				setFileName(fileName);
-			}
-		}), [input]);
+	const size = useObservedValue(sizeObservable);
+	const fileName = useObservedValue(inputObservable, input => input?.resource.path || 'No file name');
+	const kernelId = useObservedValue(kernelObservable, kernel => kernel?.id || null);
 
 	return (
 		<div className='positron-notebook'>
 			<div className='positron-notebook-header'>
 				<h2>Positron Notebooks: Operation Tracer Bullet</h2>
 				<div>File: {fileName}</div>
-				<div>Size: {width} x {height}</div>
+				<div>{kernelId ? `Kernel: ${kernelId}` : `No Kernel Loaded`}</div>
+				<div>Size: {size?.width} x {size?.height}</div>
 			</div>
-
-
-			<CellsDisplay cells={cells} />
-
-
+			<CellsDisplay viewModelObservable={viewModelObservable} />
 		</div>
 	);
 }
 
-function CellsDisplay({ cells }: { cells: readonly NotebookCellTextModel[] }) {
+function CellsDisplay({ viewModelObservable }: { viewModelObservable: NotebookViewModelObservable }) {
+	const cells = useObservedValue(viewModelObservable, viewModel => viewModel?.notebookDocument.cells || []);
+
 	if (cells.length === 0) {
 		return <div>No cells</div>;
 	}
-
 
 	return (
 		<div className='positron-notebook-cells-container'>
@@ -102,3 +73,8 @@ function CellDisplay({ cell }: { cell: NotebookCellTextModel }) {
 		</div>
 	);
 }
+
+
+
+
+

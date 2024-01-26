@@ -5,30 +5,32 @@
 import * as React from 'react';
 import * as DOM from 'vs/base/browser/dom';
 
+import { PixelRatio } from 'vs/base/browser/browser';
 import { ISize, PositronReactRenderer } from 'vs/base/browser/positronReactRenderer';
 import { Emitter, Event } from 'vs/base/common/event';
 import { Disposable, DisposableStore, dispose } from 'vs/base/common/lifecycle';
 import { ISettableObservable, observableValue } from 'vs/base/common/observableInternal/base';
+import { FontMeasurements } from 'vs/editor/browser/config/fontMeasurements';
+import { IEditorOptions } from 'vs/editor/common/config/editorOptions';
+import { BareFontInfo, FontInfo } from 'vs/editor/common/config/fontInfo';
+import { localize } from 'vs/nls';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
 import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
 import { ServiceCollection } from 'vs/platform/instantiation/common/serviceCollection';
 import { IActiveNotebookEditorDelegate, IBaseCellEditorOptions, INotebookEditorCreationOptions, INotebookEditorViewState, INotebookViewCellsUpdateEvent } from 'vs/workbench/contrib/notebook/browser/notebookBrowser';
 import { NotebookOptions } from 'vs/workbench/contrib/notebook/browser/notebookOptions';
+import { NotebookLayoutChangedEvent } from 'vs/workbench/contrib/notebook/browser/notebookViewEvents';
 import { NotebookEventDispatcher } from 'vs/workbench/contrib/notebook/browser/viewModel/eventDispatcher';
 import { NotebookViewModel } from 'vs/workbench/contrib/notebook/browser/viewModel/notebookViewModelImpl';
 import { ViewContext } from 'vs/workbench/contrib/notebook/browser/viewModel/viewContext';
 import { NotebookTextModel } from 'vs/workbench/contrib/notebook/common/model/notebookTextModel';
 import { INotebookExecutionStateService } from 'vs/workbench/contrib/notebook/common/notebookExecutionStateService';
+import { INotebookKernel, INotebookKernelService } from 'vs/workbench/contrib/notebook/common/notebookKernelService';
 import { InputObservable } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookEditor';
+import { OptionalObservable } from 'vs/workbench/contrib/positronNotebook/common/utils/observeValue';
 import { BaseCellEditorOptions } from './BaseCellEditorOptions';
 import { PositronNotebookComponent } from './PositronNotebookComponent';
-import { BareFontInfo, FontInfo } from 'vs/editor/common/config/fontInfo';
-import { IEditorOptions } from 'vs/editor/common/config/editorOptions';
-import { FontMeasurements } from 'vs/editor/browser/config/fontMeasurements';
-import { PixelRatio } from 'vs/base/browser/browser';
-import { NotebookLayoutChangedEvent } from 'vs/workbench/contrib/notebook/browser/notebookViewEvents';
-import { OptionalObservable } from 'vs/workbench/contrib/positronNotebook/common/utils/observeValue';
 
 
 // Things currently omitted in the name of getting something working quicker:
@@ -39,6 +41,10 @@ import { OptionalObservable } from 'vs/workbench/contrib/positronNotebook/common
  */
 export type NotebookViewModelObservable = OptionalObservable<
 	NotebookViewModel
+>;
+
+export type NotebookKernelObservable = OptionalObservable<
+	INotebookKernel
 >;
 
 
@@ -117,6 +123,70 @@ export class PositronNotebookWidget extends Disposable {
 	readonly onDidChangeViewCells: Event<INotebookViewCellsUpdateEvent> = this._onDidChangeViewCells.event;
 
 
+	constructor(
+		{ message, size, input, baseElement }: {
+			message: string;
+			size: ISettableObservable<ISize>;
+			input: InputObservable;
+			baseElement: HTMLElement;
+		},
+		readonly creationOptions: INotebookEditorCreationOptions | undefined,
+		// TODO: Label what each of these DI items are for.
+		@INotebookKernelService private readonly _notebookKernelService: INotebookKernelService,
+		@IConfigurationService private readonly configurationService: IConfigurationService,
+		@IInstantiationService instantiationService: IInstantiationService,
+		@IContextKeyService contextKeyService: IContextKeyService,
+		@INotebookExecutionStateService notebookExecutionStateService: INotebookExecutionStateService,
+
+
+
+	) {
+		super();
+
+		this._message = message;
+		this._size = size;
+		this._input = input;
+		this._baseElement = baseElement;
+
+
+		this._readOnly = creationOptions?.isReadOnly ?? false;
+
+
+		this._notebookOptions = creationOptions?.options ?? new NotebookOptions(this.configurationService, notebookExecutionStateService, this._readOnly);
+
+
+		this._viewContext = new ViewContext(
+			this._notebookOptions,
+			new NotebookEventDispatcher(),
+			language => this.getBaseCellEditorOptions(language)
+		);
+
+
+		// Setup the container that will hold the outputs of notebook cells
+		this._outputOverlayContainer = document.createElement('div');
+
+		// Create a new context service that has the output overlay container as the root element.
+		this.scopedContextKeyService = contextKeyService.createScoped(this._outputOverlayContainer);
+
+		// Make sure that all things instantiated have a scoped context key service injected.
+		this.instantiationService = instantiationService.createChild(
+			new ServiceCollection([IContextKeyService, this.scopedContextKeyService])
+		);
+
+		this._register(
+
+			this._notebookKernelService.onDidAddKernel(() => {
+				console.log('Kernel added');
+				const kernels = this._notebookKernelService.getMatchingKernel(this.getViewModel()!.notebookDocument);
+				const kernelList = kernels.all;
+
+				console.log('kernels', kernelList);
+
+			})
+		);
+
+	}
+
 	// #region NotebookModel
 	/**
 	 * Model for the notebook contents. Note the difference between the NotebookTextModel and the
@@ -179,6 +249,8 @@ export class PositronNotebookWidget extends Disposable {
 	}
 
 
+
+
 	async setModel(textModel: NotebookTextModel, viewState?: INotebookEditorViewState) {
 
 		// Confusingly the .equals() method for the NotebookViewModel takes a NotebookTextModel, not
@@ -225,6 +297,9 @@ export class PositronNotebookWidget extends Disposable {
 
 			this._viewModelObservable.set(viewModel, undefined);
 
+			// Get the kernel up and running for the notebook.
+			this.setupKernel();
+
 
 
 
@@ -238,6 +313,50 @@ export class PositronNotebookWidget extends Disposable {
 		} else {
 
 		}
+	}
+
+	kernelObservable: NotebookKernelObservable = observableValue(
+		'notebook-kernel',
+		undefined
+	);
+
+	/**
+	 * Connect to the kernel for running notebook code.
+	 */
+	private setupKernel() {
+
+		const viewModel = this.getViewModel();
+
+		if (!viewModel) {
+			throw new Error('No view model');
+		}
+
+		const kernelMatches = this._notebookKernelService.getMatchingKernel(viewModel.notebookDocument);
+
+		console.log('Setting up kernel', { kernelMatches });
+
+		// Make sure we actually have kernels that have matched
+		if (kernelMatches.all.length === 0) {
+			// Throw localized error explaining that there are no kernels that match the notebook
+			// language.
+			throw new Error(localize('noKernel', "No kernel for file '{0}' found.", viewModel.uri.path));
+		}
+
+		const positronKernels = kernelMatches.all.filter(k => k.extension.value === 'vscode.positron-notebook-controllers');
+
+		const LANGUAGE_FOR_KERNEL = 'python';
+
+		const kernelForLanguage = positronKernels.find(k => k.supportedLanguages.includes(LANGUAGE_FOR_KERNEL));
+
+		if (!kernelForLanguage) {
+			throw new Error(localize('noKernelForLanguage', "No kernel for language '{0}' found.", LANGUAGE_FOR_KERNEL));
+		}
+
+
+		this.kernelObservable.set(kernelForLanguage, undefined);
+
+
+		// this._notebookKernelService
 	}
 
 
@@ -278,56 +397,7 @@ export class PositronNotebookWidget extends Disposable {
 
 
 
-	constructor(
-		{ message, size, input, baseElement }: {
-			message: string;
-			size: ISettableObservable<ISize>;
-			input: InputObservable;
-			baseElement: HTMLElement;
-		},
-		readonly creationOptions: INotebookEditorCreationOptions | undefined,
-		// TODO: Label what each of these DI items are for.
-		@IConfigurationService private readonly configurationService: IConfigurationService,
-		@IInstantiationService instantiationService: IInstantiationService,
-		@IContextKeyService contextKeyService: IContextKeyService,
-		@INotebookExecutionStateService notebookExecutionStateService: INotebookExecutionStateService,
 
-
-
-	) {
-		super();
-
-		this._message = message;
-		this._size = size;
-		this._input = input;
-		this._baseElement = baseElement;
-
-
-		this._readOnly = creationOptions?.isReadOnly ?? false;
-
-
-		this._notebookOptions = creationOptions?.options ?? new NotebookOptions(this.configurationService, notebookExecutionStateService, this._readOnly);
-
-
-		this._viewContext = new ViewContext(
-			this._notebookOptions,
-			new NotebookEventDispatcher(),
-			language => this.getBaseCellEditorOptions(language)
-		);
-
-
-		// Setup the container that will hold the outputs of notebook cells
-		this._outputOverlayContainer = document.createElement('div');
-
-		// Create a new context service that has the output overlay container as the root element.
-		this.scopedContextKeyService = contextKeyService.createScoped(this._outputOverlayContainer);
-
-		// Make sure that all things instantiated have a scoped context key service injected.
-		this.instantiationService = instantiationService.createChild(
-			new ServiceCollection([IContextKeyService, this.scopedContextKeyService])
-		);
-
-	}
 
 	/**
 	 * Key-value map of language to base cell editor options for cells of that language.
@@ -423,9 +493,10 @@ export class PositronNotebookWidget extends Disposable {
 		this.positronReactRenderer.render(
 			<PositronNotebookComponent
 				message={this._message}
-				size={this._size}
-				input={this._input}
-				viewModel={this._viewModelObservable}
+				sizeObservable={this._size}
+				inputObservable={this._input}
+				kernelObservable={this.kernelObservable}
+				viewModelObservable={this._viewModelObservable}
 			/>
 		);
 	}
