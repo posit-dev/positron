@@ -332,6 +332,17 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 				break;
 			}
 
+			// Tab processing.
+			case KeyCode.Tab: {
+				// If the history browser is active, accept the selected history entry and
+				// dismiss the history browser.
+				if (historyBrowserActiveRef.current) {
+					acceptHistoryMatch(historyBrowserSelectedIndexRef.current);
+					consumeEvent();
+					break;
+				}
+			}
+
 			// Up arrow processing.
 			case KeyCode.UpArrow: {
 				console.log(`Up arrow pressed. browser active: ${historyBrowserActiveRef.current} (React: ${historyBrowserActive})})`);
