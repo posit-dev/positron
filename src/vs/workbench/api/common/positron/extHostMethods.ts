@@ -87,12 +87,34 @@ export class ExtHostMethods implements extHostProtocol.ExtHostMethodsShape {
 		}
 
 		// The selections in this text editor. The primary selection is always at index 0.
-		const selections = editor.selections.map(selection => ({
-			active: selection.active,
-			start: selection.start,
-			end: selection.end,
-			text: editor.document.getText(selection)
-		}));
+		//
+		// The gymnastics here are so that we return character positions with respect to
+		// Unicode code points. Otherwise, the native Position type provides offsets with respect to
+		// UTF-16 encoded text. That would be confusing for downstream consumers, who probably
+		// ultimately receive this text as UTF-8 and want to operate on this text in terms of
+		// as user-perceivable "characters". This only matters when the selection's neighborhood
+		// includes Unicode characters in the astral plane.
+		const selections = editor.selections.map(selection => {
+			const lineTextBeforeActive = editor.document
+				.lineAt(selection.active.line)
+				.text.substring(0, selection.active.character);
+			const unicodePointsBeforeActive = Array.from(lineTextBeforeActive).length;
+
+			const lineTextBeforeStart = editor.document
+				.lineAt(selection.start.line)
+				.text.substring(0, selection.start.character);
+			const unicodePointsBeforeStart = Array.from(lineTextBeforeStart).length;
+
+			const text = editor.document.getText(selection);
+			const unicodePointsInSelection = Array.from(text).length;
+
+			return {
+				active: { line: selection.active.line, character: unicodePointsBeforeActive },
+				start: { line: selection.start.line, character: unicodePointsBeforeStart },
+				end: { line: selection.end.line, character: unicodePointsBeforeStart + unicodePointsInSelection },
+				text: text
+			};
+		});
 
 		return {
 			document: {
