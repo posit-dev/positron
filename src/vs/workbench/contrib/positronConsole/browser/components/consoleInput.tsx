@@ -73,7 +73,7 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 	const [historyBrowserSelectedIndex, setHistoryBrowserSelectedIndex, historyBrowserSelectedIndexRef] = useStateRef(0);
 	const [, setHistoryMatchStrategy, historyMatchStrategyRef] = useStateRef<HistoryMatchStrategy>(new EmptyHistoryMatchStrategy());
 	const [historyItems, setHistoryItems, historyItemsRef] = useStateRef<HistoryMatch[]>([]);
-	const [suppressCompletions, setSupressCompletions, suppressCompletionsRef] = useStateRef<IDisposable | undefined>(undefined);
+	const [, setSupressCompletions, suppressCompletionsRef] = useStateRef<IDisposable | undefined>(undefined);
 	const [, setHistoryNavigator, historyNavigatorRef] =
 		useStateRef<HistoryNavigator2<IInputHistoryEntry> | undefined>(undefined);
 	const [, setCurrentCodeFragment, currentCodeFragmentRef] =
@@ -161,9 +161,13 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 		// Apply the new match strategy.
 		setHistoryMatchStrategy(strategy);
 
+		// Look for the text to the left of the cursor to match against.
+		const position = codeEditorWidgetRef.current.getSelection()?.getStartPosition();
+		const value = codeEditorWidgetRef.current.getValue();
+		const matchText = value.substring(0, (position?.column || value.length) - 1);
+
 		// Get the initial set of matches.
-		const matches =
-			strategy.getMatches(codeEditorWidgetRef.current.getValue());
+		const matches = strategy.getMatches(matchText);
 		setHistoryItems(matches);
 
 		// Update the selected index to the last (most recent) item.
@@ -197,6 +201,27 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 
 		// Make the history browser inactive.
 		setHistoryBrowserActive(false);
+	};
+
+	/**
+	 * Accepts an item from the history browser.
+	 *
+	 * @param index The index of the history item to accept.
+	 */
+	const acceptHistoryMatch = (index: number) => {
+		// Save the selection.
+		const selection = codeEditorWidgetRef.current.getSelection();
+
+		// Set the value of the code editor widget to the selected history item.
+		codeEditorWidgetRef.current.setValue(historyItemsRef.current[index].input);
+
+		// Attempt to restore the selection.
+		if (selection) {
+			codeEditorWidgetRef.current.setSelection(selection);
+		}
+
+		// Dismiss the history browser.
+		disengageHistoryBrowser();
 	};
 
 	// Key down event handler.
@@ -406,10 +431,7 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 				// If the history browser is active, accept the selected history entry and
 				// dismiss the history browser.
 				if (historyBrowserActiveRef.current) {
-					setCurrentCodeFragment(undefined);
-					codeEditorWidgetRef.current.setValue(
-						historyItemsRef.current[historyBrowserSelectedIndexRef.current].input);
-					disengageHistoryBrowser();
+					acceptHistoryMatch(historyBrowserSelectedIndexRef.current);
 					consumeEvent();
 					break;
 				}
@@ -592,9 +614,12 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 		// Set the value change handler.
 		disposableStore.add(codeEditorWidget.onDidChangeModelContent(() => {
 			if (historyBrowserActiveRef.current) {
+				const position = codeEditorWidget.getSelection()?.getStartPosition();
+				const matchText = codeEditorWidget.getValue().substring(0, position?.column || 0);
+
 				// Update the list of history item matches from the current match strategy.
 				const historyItems = historyMatchStrategyRef.current.getMatches(
-					codeEditorWidget.getValue());
+					matchText);
 				setHistoryItems(historyItems);
 
 				// Select the last item.
@@ -791,18 +816,6 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 		}
 	}
 
-	/**
-	 * Event handler for when a history item is selected. Runs when the user
-	 * clicks a history item from the history browser.
-	 *
-	 * @param index The new selected index.
-	 */
-	const onHistoryBrowserSelected = (index: number) => {
-		const item = historyItemsRef.current[index];
-		codeEditorWidgetRef.current.setValue(item.input);
-		disengageHistoryBrowser();
-	};
-
 	// Render.
 	return (
 		<div className='console-input' tabIndex={0} onFocus={focusHandler}>
@@ -813,7 +826,7 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 					leftPx={historyBrowserLeftPx}
 					items={historyItems}
 					selectedIndex={historyBrowserSelectedIndex}
-					onSelected={onHistoryBrowserSelected}
+					onSelected={acceptHistoryMatch}
 					onDismissed={disengageHistoryBrowser} />
 			}
 		</div>
