@@ -66,10 +66,9 @@
 .data-grid-column-header
 .content
 .title-description {
-	background-color: yellow;
+	/* Adjust for the bottom border. */
 	margin-bottom: 1px;
 	grid-column: title-description / button;
-
 }
 
 .data-grid-column-header

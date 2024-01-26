@@ -62,13 +62,12 @@
 }
 
 .data-grid-row-cell .text {
-	background-color: yellow;
 	overflow: hidden;
+	/* Adjust for the bottom border. */
 	margin-bottom: 1px;
 	white-space: nowrap;
 	line-height: normal;
 	text-overflow: ellipsis;
-
 	grid-column: content / right-gutter;
 }
 
