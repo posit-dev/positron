@@ -187,10 +187,11 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 		// of the HTML that the notebook renderer API creates, but it works for many renderers.
 		//
 		// Some features known to be NYI:
-		// - Message passing between the renderer and the host (RenderContext)
-		// - Extending another renderer (RenderContext)
-		// - State management (RenderContext)
+		// - Message passing between the renderer and the host (RendererContext)
+		// - Extending another renderer (RendererContext)
+		// - State management (RendererContext)
 		// - Raw Uint8Array data and blobs
+		console.log(`rendererPath: ${rendererPath.path.toString()}`);
 
 		webview.setHtml(`
 <head>
@@ -336,6 +337,14 @@ window.onload = function() {
 			title: '', // TODO: should this be a parameter?
 		};
 		const webview = this._webviewService.createWebviewOverlay(webviewInitInfo);
+		const renderer = this._notebookService.getPreferredRenderer(MIME_TYPE_WIDGET_VIEW);
+		if (!renderer) {
+			return Promise.reject(`No renderer found for ${MIME_TYPE_WIDGET_VIEW}`);
+		}
+		const rendererPath = asWebviewUri(renderer.entrypoint.path);
+		const kernelPath = asWebviewUri(URI.joinPath(rendererPath, '../../ipywidgetsKernel/ipywidgetsKernel.js'));
+		console.log(`rendererPath: ${rendererPath.path.toString()}`);
+		console.log(`kernelPath: ${kernelPath.path.toString()}`);
 
 		const createWidgetDiv = (widgetView: IPyWidgetViewSpec) => {
 			const model_id = widgetView.model_id;
@@ -353,6 +362,18 @@ window.onload = function() {
 		webview.setHtml(`
 <html>
 <head>
+<script type="module">
+	const vscode = acquireVsCodeApi();
+	import { activate } from "${rendererPath.toString()}"
+	import { activate as activateKernel, renderOutput } from "${kernelPath.toString()}"
+
+	// Activate the renderer and create the data object
+	var renderer = activate(ctx);
+
+	window.onload = function() {
+		vscode.postMessage('${RENDER_COMPLETE}');
+};
+</script>
 
 <!-- Load RequireJS, used by the IPywidgets for dependency management -->
 <script src='${requiresPath}'></script>
@@ -370,12 +391,6 @@ ${managerState}
 	<!-- The view specs of the primary widget models only -->
 	${widgetDivs}
 </body>
-<script>
-	const vscode = acquireVsCodeApi();
-	window.onload = function() {
-		vscode.postMessage('${RENDER_COMPLETE}');
-};
-</script>
 </html>
 		`);
 		return new NotebookOutputWebview(id, runtime.metadata.runtimeId, webview);
