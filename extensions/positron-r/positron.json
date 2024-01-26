@@ -13,23 +13,6 @@
 			"to": "resources/js"
 		},
 		{
-			"from": "resources/ark/ark",
-			"to": "./dist/bin",
-			"platforms": ["darwin"]
-		},
-		{
-			"from": "resources/ark/modules/public/*.R",
-			"to": "./dist/bin/modules/public"
-		},
-		{
-			"from": "resources/ark/modules/private/*.R",
-			"to": "./dist/bin/modules/private"
-		},
-		{
-			"from": "resources/ark/modules/rstudioapi/*.R",
-			"to": "./dist/bin/modules/rstudioapi"
-		},
-		{
 			"from": "resources/testing/tree-sitter-r.wasm",
 			"to": "resources/testing"
 		},
