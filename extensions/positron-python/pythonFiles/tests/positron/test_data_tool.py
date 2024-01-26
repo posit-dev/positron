@@ -142,10 +142,19 @@ class PandasFixture:
         )
         self.service.handle_msg(request)
         response = get_last_message(self.service, comm_id)
-        return response["data"]["result"]
+        data = response["data"]
+        if "error" in data:
+            raise Exception(data["error"]["message"])
+        else:
+            return data["result"]
 
-    def get_schema(self, table_name):
-        return self.do_json_rpc(table_name, "get_schema")
+    def get_schema(self, table_name, start_index, num_columns):
+        return self.do_json_rpc(
+            table_name,
+            "get_schema",
+            start_index=start_index,
+            num_columns=num_columns,
+        )
 
     def get_data_values(self, table_name, **params):
         return self.do_json_rpc(table_name, "get_data_values", **params)
@@ -191,20 +200,62 @@ def _wrap_json(dataklass, data: JsonRecords):
 
 
 def test_pandas_get_schema(pandas_fixture: PandasFixture):
-    result = pandas_fixture.get_schema("simple")
+    result = pandas_fixture.get_schema("simple", 0, 100)
     assert result["num_rows"] == 5
+    assert result["total_num_columns"] == 4
 
-    expected_schema = _wrap_json(
-        ColumnSchema,
-        [
-            {"name": "a", "type_name": "int64"},
-            {"name": "b", "type_name": "boolean"},
-            {"name": "c", "type_name": "string"},
-            {"name": "d", "type_name": "float64"},
-        ],
-    )
+    full_schema = [
+        {
+            "column_name": "a",
+            "type_name": "int64",
+            "type_display": "number",
+        },
+        {
+            "column_name": "b",
+            "type_name": "boolean",
+            "type_display": "boolean",
+        },
+        {
+            "column_name": "c",
+            "type_name": "string",
+            "type_display": "string",
+        },
+        {
+            "column_name": "d",
+            "type_name": "float64",
+            "type_display": "number",
+        },
+    ]
 
-    assert result["columns"] == expected_schema
+    assert result["columns"] == _wrap_json(ColumnSchema, full_schema)
+
+    result = pandas_fixture.get_schema("simple", 2, 100)
+    assert result["num_rows"] == 5
+    assert result["total_num_columns"] == 4
+
+    assert result["columns"] == _wrap_json(ColumnSchema, full_schema[2:])
+
+    result = pandas_fixture.get_schema("simple", 4, 100)
+    assert result["num_rows"] == 5
+    assert result["total_num_columns"] == 4
+
+    assert result["columns"] == []
+
+    # Make a really big schema
+    bigger_df = pd.concat([SIMPLE_PANDAS_DF] * 100, axis="columns")
+    bigger_name = guid()
+    bigger_schema = full_schema * 100
+    pandas_fixture.register_table(bigger_name, bigger_df)
+
+    result = pandas_fixture.get_schema(bigger_name, 0, 100)
+    assert result["num_rows"] == 5
+    assert result["total_num_columns"] == 400
+    assert result["columns"] == _wrap_json(ColumnSchema, bigger_schema[:100])
+
+    result = pandas_fixture.get_schema(bigger_name, 10, 10)
+    assert result["num_rows"] == 5
+    assert result["total_num_columns"] == 400
+    assert result["columns"] == _wrap_json(ColumnSchema, bigger_schema[10:20])
 
 
 def test_pandas_get_data_values(pandas_fixture: PandasFixture):
