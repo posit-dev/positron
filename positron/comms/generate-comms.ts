@@ -674,6 +674,8 @@ function* createPythonComm(name: string,
 # AUTO-GENERATED from ${name}.json; do not edit.
 #
 
+# flake8: noqa
+
 # For forward declarations
 from __future__ import annotations
 

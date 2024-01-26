@@ -64,7 +64,8 @@ export class DataToolClientInstance extends Disposable {
 	 * @returns A promise that resolves to the table schema.
 	 */
 	async getSchema(): Promise<TableSchema> {
-		return this._positronDataToolComm.getSchema();
+		// TODO: implement paging
+		return this._positronDataToolComm.getSchema(0, 10000);
 	}
 
 	/**

@@ -14,23 +14,24 @@ import {
 	TableSchema
 } from 'vs/workbench/services/languageRuntime/common/positronDataToolComm';
 
-const exampleTypes: [string, object][] = [
-	['int64', {}],
-	['string', {}],
-	['boolean', {}],
-	['double', {}],
-	['timestamp', { timezone: 'America/New_York' }]
+const exampleTypes: [string, string, object][] = [
+	['int64', 'number', {}],
+	['string', 'string', {}],
+	['boolean', 'boolean', {}],
+	['double', 'number', {}],
+	['timestamp', 'datetime', { timezone: 'America/New_York' }]
 ];
 
 export function getTableSchema(numRows: number = 100, numColumns: number = 10): TableSchema {
 	const columns = [];
 	for (let i = 0; i < numColumns; i++) {
 		const typeProto = exampleTypes[i % exampleTypes.length];
-		columns.push(getColumnSchema('column_' + i, typeProto[0], typeProto[1]));
+		columns.push(getColumnSchema('column_' + i, typeProto[0], typeProto[1], typeProto[2]));
 	}
 	return {
 		columns: columns,
-		num_rows: numRows
+		num_rows: numRows,
+		total_num_columns: numColumns
 	};
 }
 
@@ -78,11 +79,12 @@ export function getExampleTableData(schema: TableSchema, rowStartIndex: number,
 	};
 }
 
-export function getColumnSchema(name: string, typeName: string,
+export function getColumnSchema(colName: string, typeName: string, typeDisplay: string,
 	extraProps: object = {}): ColumnSchema {
 	return {
-		name: name,
+		column_name: colName,
 		type_name: typeName,
+		type_display: typeDisplay,
 		...extraProps
 	} as ColumnSchema;
 }
