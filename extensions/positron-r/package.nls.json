@@ -18,6 +18,7 @@
 	"r.menu.createNewFile.title": "R File",
 	"r.menu.insertPipe.title": "Insert the pipe operator",
 	"r.menu.insertLeftAssignment.title": "Insert the \"<-\" assignment operator",
+	"r.menu.insertSection.title": "Insert a new section",
 	"r.menu.packageLoad.title": "Load R Package",
 	"r.menu.packageBuild.title": "Build R Package",
 	"r.menu.packageInstall.title": "Install R Package and Restart R",
