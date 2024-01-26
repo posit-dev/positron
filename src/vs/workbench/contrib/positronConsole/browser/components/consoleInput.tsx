@@ -179,7 +179,8 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 
 		// Set the suppress completions disposable. This attaches an event
 		// listener to the suggestion model that immediately knocks down the
-		// suggestion widget when it is displayed.
+		// suggestion widget when it is displayed. We use this to suppress
+		// suggestions while we are showing the history browser.
 		setSupressCompletions(
 			SuggestController.get(codeEditorWidgetRef.current)?.model.onDidSuggest(() => {
 				SuggestController.get(codeEditorWidgetRef.current)?.cancelSuggestWidget();
@@ -345,9 +346,9 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 
 			// Up arrow processing.
 			case KeyCode.UpArrow: {
-				console.log(`Up arrow pressed. browser active: ${historyBrowserActiveRef.current} (React: ${historyBrowserActive})})`);
-
 				if (cmdOrCtrlKey) {
+					// If the cmd or ctrl key is pressed, engage the history browser with the
+					// prefix match strategy. This behavior mimics RStudio.
 					engageHistoryBrowser(new HistoryPrefixMatchStrategy(
 						historyNavigatorRef.current!
 					));
@@ -355,7 +356,8 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 					break;
 				}
 
-				// If the history browser is up, update the selected index.
+				// If the history browser is present, Up should select the
+				// previous history item.
 				if (historyBrowserActiveRef.current) {
 					setHistoryBrowserSelectedIndex(Math.max(
 						0, historyBrowserSelectedIndexRef.current - 1));
@@ -624,6 +626,8 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 
 		// Set the value change handler.
 		disposableStore.add(codeEditorWidget.onDidChangeModelContent(() => {
+			// If the history browser is up, update the list of history item matches with the
+			// current match strategy.
 			if (historyBrowserActiveRef.current) {
 				const position = codeEditorWidget.getSelection()?.getStartPosition();
 				const matchText = codeEditorWidget.getValue().substring(0, position?.column || 0);

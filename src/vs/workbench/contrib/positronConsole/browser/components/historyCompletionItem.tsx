@@ -12,6 +12,16 @@ export interface HistoryCompletionItemProps {
 	readonly onSelected: () => void;
 }
 
+/**
+ * HistoryCompletionItem component.
+ *
+ * This component renders a single history item in the history browser popup. The history
+ * entry is rendered as a link with the matched portion of the entry highlighted.
+ *
+ * @param props The properties for the HistoryCompletionItem component.
+ *
+ * @returns The rendered component.
+ */
 export const HistoryCompletionItem = (props: HistoryCompletionItemProps) => {
 	const match = props.match;
 	const preMatch = match.input.substring(0, match.highlightStart);

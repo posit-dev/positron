@@ -3,6 +3,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import 'vs/css!./historyBrowserPopup';
+import * as nls from 'vs/nls';
 import * as React from 'react';
 import * as DOM from 'vs/base/browser/dom';
 import { HistoryCompletionItem } from 'vs/workbench/contrib/positronConsole/browser/components/historyCompletionItem';
@@ -12,16 +13,30 @@ import { useEffect } from 'react';
 import { HistoryMatch } from 'vs/workbench/contrib/positronConsole/common/historyMatchStrategy';
 
 export interface HistoryBrowserPopupProps {
+	/// The list of history items to display.
 	items: HistoryMatch[];
+
+	/// The index of the selected item.
 	selectedIndex: number;
+
+	/// The bottom position of the popup in pixels.
 	bottomPx: number;
+
+	/// The left position of the popup in pixels.
 	leftPx: number;
+
+	/// The callback to invoke when the user selects an item with the mouse.
 	onSelected: (index: number) => void;
+
+	/// The callback to invoke when the popup is dismissed.
 	onDismissed: () => void;
 }
 
 /**
  * HistoryBrowserPopup component.
+ *
+ * This component shows a scrollable list of history items as a popup that
+ * displays inside the Console.
  *
  * @returns The rendered component.
  */
@@ -57,9 +72,11 @@ export const HistoryBrowserPopup = (props: HistoryBrowserPopupProps) => {
 		};
 	}, [props.selectedIndex]);
 
+	const noMatch = nls.localize('positronConsoleHistoryMatchesEmpty', "No matching history items");
+
 	return <div className='suggest-widget history-browser-popup' ref={popupRef}
 		style={{ bottom: props.bottomPx, left: props.leftPx }}>
-		{props.items.length === 0 && <div className='no-results'>No matching history items</div>}
+		{props.items.length === 0 && <div className='no-results'>{noMatch}</div>}
 		{props.items.length > 0 &&
 			<ul>
 				{props.items.map((item, index) => {
