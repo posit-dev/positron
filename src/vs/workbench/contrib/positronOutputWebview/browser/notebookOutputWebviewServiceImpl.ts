@@ -324,11 +324,21 @@ window.onload = function() {
 		const htmlManagerPath = asWebviewUri(
 			URI.joinPath(pythonExtension.extensionLocation, 'resources/js/@jupyter-widgets/html-manager/dist/embed-amd.js'));
 
+		const renderer = this._notebookService.getPreferredRenderer(MIME_TYPE_WIDGET_VIEW);
+		if (!renderer) {
+			return Promise.reject(`No renderer found for ${MIME_TYPE_WIDGET_VIEW}`);
+		}
+
 		// Create the metadata for the webview
 		const webviewInitInfo: WebviewInitInfo = {
 			contentOptions: {
 				allowScripts: true,
-				localResourceRoots: [pythonExtension.extensionLocation]
+				localResourceRoots: [
+					// Ensure that the renderer can load local resources from
+					// the extension that provides it (jupyter extension for ipywidgets)
+					renderer.extensionLocation,
+					pythonExtension.extensionLocation
+				]
 			},
 			extension: {
 				id: runtime.metadata.extensionId
@@ -337,10 +347,6 @@ window.onload = function() {
 			title: '', // TODO: should this be a parameter?
 		};
 		const webview = this._webviewService.createWebviewOverlay(webviewInitInfo);
-		const renderer = this._notebookService.getPreferredRenderer(MIME_TYPE_WIDGET_VIEW);
-		if (!renderer) {
-			return Promise.reject(`No renderer found for ${MIME_TYPE_WIDGET_VIEW}`);
-		}
 		const rendererPath = asWebviewUri(renderer.entrypoint.path);
 		const kernelPath = asWebviewUri(URI.joinPath(rendererPath, '../../ipywidgetsKernel/ipywidgetsKernel.js'));
 		console.log(`rendererPath: ${rendererPath.path.toString()}`);
@@ -368,7 +374,7 @@ window.onload = function() {
 	import { activate as activateKernel, renderOutput } from "${kernelPath.toString()}"
 
 	// Activate the renderer and create the data object
-	var renderer = activate(ctx);
+	// var renderer = activate(rendererContext);
 
 	window.onload = function() {
 		vscode.postMessage('${RENDER_COMPLETE}');
