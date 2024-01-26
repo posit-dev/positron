@@ -83,10 +83,10 @@ export const ActionBar = (props: ActionBarProps) => {
 					<ActionBarRegion location='right'>
 						{showDeveloperUI &&
 							<ActionBarButton
-								iconId='positron-clear-pane'
+								iconId='clear-all'
 								align='right'
-								tooltip='Test tooltip'
-								ariaLabel='Text label'
+								tooltip='Clear'
+								ariaLabel='Clear'
 								onClick={() => console.log('HERE')}
 							/>
 						}
