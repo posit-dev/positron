@@ -257,6 +257,13 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 	}
 
 	/**
+	 * Gets the current discovery phase
+	 */
+	get discoveryPhase(): LanguageRuntimeDiscoveryPhase {
+		return this._discoveryPhase;
+	}
+
+	/**
 	 * Sets the active runtime.
 	 */
 	set activeRuntime(runtime: ILanguageRuntime | undefined) {

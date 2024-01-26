@@ -714,6 +714,11 @@ export interface ILanguageRuntimeService {
 	activeRuntime: ILanguageRuntime | undefined;
 
 	/**
+	 * Gets the current discovery phase.
+	 */
+	discoveryPhase: LanguageRuntimeDiscoveryPhase;
+
+	/**
 	 * Register a new language runtime
 	 * @param runtime The LanguageRuntime to register
 	 * @param startupBehavior The desired startup behavior for the runtime
