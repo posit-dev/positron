@@ -9,7 +9,24 @@
 			"name": "get_schema",
 			"summary": "Request schema",
 			"description": "Request full schema for a table-like object",
-			"params": [],
+			"params": [
+				{
+					"name": "start_index",
+					"description": "First column schema to fetch (inclusive)",
+					"required": true,
+					"schema": {
+						"type": "integer"
+					}
+				},
+				{
+					"name": "num_columns",
+					"description": "Number of column schemas to fetch from start index. May extend beyond end of table",
+					"required": true,
+					"schema": {
+						"type": "integer"
+					}
+				}
+			],
 			"result": {
 				"schema": {
 					"type": "object",
@@ -17,7 +34,8 @@
 					"description": "The schema for a table-like object",
 					"required": [
 						"columns",
-						"num_rows"
+						"num_rows",
+						"total_num_columns"
 					],
 					"properties": {
 						"columns": {
@@ -30,6 +48,10 @@
 						"num_rows": {
 							"type": "integer",
 							"description": "Numbers of rows in the unfiltered dataset"
+						},
+						"total_num_columns": {
+							"type": "integer",
+							"description": "Total number of columns in the unfiltered dataset"
 						}
 					}
 				}
@@ -287,17 +309,33 @@
 				"type": "object",
 				"description": "Schema for a column in a table",
 				"required": [
-					"name",
-					"type_name"
+					"column_name",
+					"type_name",
+					"type_display"
 				],
 				"properties": {
-					"name": {
+					"column_name": {
 						"type": "string",
 						"description": "Name of column as UTF-8 string"
 					},
 					"type_name": {
 						"type": "string",
-						"description": "Canonical name of data type class"
+						"description": "Exact name of data type used by underlying table"
+					},
+					"type_display": {
+						"type": "string",
+						"description": "Canonical Positron display name of data type",
+						"enum": [
+							"number",
+							"boolean",
+							"string",
+							"date",
+							"datetime",
+							"time",
+							"array",
+							"struct",
+							"unknown"
+						]
 					},
 					"description": {
 						"type": "string",
