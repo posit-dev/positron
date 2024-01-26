@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
 import 'vs/css!./consoleInput';
@@ -11,7 +11,7 @@ import { Schemas } from 'vs/base/common/network';
 import { KeyCode } from 'vs/base/common/keyCodes';
 import { generateUuid } from 'vs/base/common/uuid';
 import { isMacintosh } from 'vs/base/common/platform';
-import { DisposableStore } from 'vs/base/common/lifecycle';
+import { DisposableStore, IDisposable } from 'vs/base/common/lifecycle';
 import { HistoryNavigator2 } from 'vs/base/common/history';
 import { ISelection } from 'vs/editor/common/core/selection';
 import { IKeyboardEvent } from 'vs/base/browser/keyboardEvent';
@@ -33,6 +33,10 @@ import { usePositronConsoleContext } from 'vs/workbench/contrib/positronConsole/
 import { RuntimeCodeFragmentStatus } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { IPositronConsoleInstance, PositronConsoleState } from 'vs/workbench/services/positronConsole/browser/interfaces/positronConsoleService';
 import { ParameterHintsController } from 'vs/editor/contrib/parameterHints/browser/parameterHints';
+import { HistoryBrowserPopup } from 'vs/workbench/contrib/positronConsole/browser/components/historyBrowserPopup';
+import { EmptyHistoryMatchStrategy, HistoryMatch, HistoryMatchStrategy } from 'vs/workbench/contrib/positronConsole/common/historyMatchStrategy';
+import { HistoryPrefixMatchStrategy } from 'vs/workbench/contrib/positronConsole/common/historyPrefixMatchStrategy';
+import { HistoryInfixMatchStrategy } from 'vs/workbench/contrib/positronConsole/common/historyInfixMatchStrategy';
 
 // Position enumeration.
 const enum Position {
@@ -65,6 +69,11 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 	// State hooks.
 	const [, setCodeEditorWidget, codeEditorWidgetRef] = useStateRef<CodeEditorWidget>(undefined!);
 	const [, setCodeEditorWidth, codeEditorWidthRef] = useStateRef(props.width);
+	const [historyBrowserActive, setHistoryBrowserActive, historyBrowserActiveRef] = useStateRef(false);
+	const [historyBrowserSelectedIndex, setHistoryBrowserSelectedIndex, historyBrowserSelectedIndexRef] = useStateRef(0);
+	const [, setHistoryMatchStrategy, historyMatchStrategyRef] = useStateRef<HistoryMatchStrategy>(new EmptyHistoryMatchStrategy());
+	const [historyItems, setHistoryItems, historyItemsRef] = useStateRef<HistoryMatch[]>([]);
+	const [, setSupressCompletions, suppressCompletionsRef] = useStateRef<IDisposable | undefined>(undefined);
 	const [, setHistoryNavigator, historyNavigatorRef] =
 		useStateRef<HistoryNavigator2<IInputHistoryEntry> | undefined>(undefined);
 	const [, setCurrentCodeFragment, currentCodeFragmentRef] =
@@ -143,6 +152,79 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 		return true;
 	};
 
+	/**
+	 * Engages the history browser with the given match strategy.
+	 *
+	 * @param strategy The new history match strategy.
+	 */
+	const engageHistoryBrowser = (strategy: HistoryMatchStrategy) => {
+		// Apply the new match strategy.
+		setHistoryMatchStrategy(strategy);
+
+		// Look for the text to the left of the cursor to match against.
+		const position = codeEditorWidgetRef.current.getSelection()?.getStartPosition();
+		const value = codeEditorWidgetRef.current.getValue();
+		const matchText = value.substring(0, (position?.column || value.length) - 1);
+
+		// Get the initial set of matches.
+		const matches = strategy.getMatches(matchText);
+		setHistoryItems(matches);
+
+		// Update the selected index to the last (most recent) item.
+		setHistoryBrowserSelectedIndex(matches.length - 1);
+
+		// Take down the autocomplete widget, if it's up. It conflicts with (and
+		// eats keyboard events intended for) the history browser.
+		SuggestController.get(codeEditorWidgetRef.current)?.cancelSuggestWidget();
+
+		// Set the suppress completions disposable. This attaches an event
+		// listener to the suggestion model that immediately knocks down the
+		// suggestion widget when it is displayed. We use this to suppress
+		// suggestions while we are showing the history browser.
+		setSupressCompletions(
+			SuggestController.get(codeEditorWidgetRef.current)?.model.onDidSuggest(() => {
+				SuggestController.get(codeEditorWidgetRef.current)?.cancelSuggestWidget();
+			}));
+
+		// Make the history browser active.
+		setHistoryBrowserActive(true);
+	};
+
+	/**
+	 * Disengages the history browser.
+	 */
+	const disengageHistoryBrowser = () => {
+		// Restore completions.
+		if (suppressCompletionsRef.current) {
+			suppressCompletionsRef.current.dispose();
+			setSupressCompletions(undefined);
+		}
+
+		// Make the history browser inactive.
+		setHistoryBrowserActive(false);
+	};
+
+	/**
+	 * Accepts an item from the history browser.
+	 *
+	 * @param index The index of the history item to accept.
+	 */
+	const acceptHistoryMatch = (index: number) => {
+		// Save the selection.
+		const selection = codeEditorWidgetRef.current.getSelection();
+
+		// Set the value of the code editor widget to the selected history item.
+		codeEditorWidgetRef.current.setValue(historyItemsRef.current[index].input);
+
+		// Attempt to restore the selection.
+		if (selection) {
+			codeEditorWidgetRef.current.setSelection(selection);
+		}
+
+		// Dismiss the history browser.
+		disengageHistoryBrowser();
+	};
+
 	// Key down event handler.
 	const keyDownHandler = async (e: IKeyboardEvent) => {
 		/**
@@ -176,6 +258,13 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 		switch (e.keyCode) {
 			// Escape handling.
 			case KeyCode.Escape: {
+				// If the history browser is active, deactivate it.
+				if (historyBrowserActiveRef.current) {
+					disengageHistoryBrowser();
+					consumeEvent();
+					break;
+				}
+
 				// Consume the event.
 				consumeEvent();
 
@@ -231,8 +320,51 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 				break;
 			}
 
+			// Ctrl-R handling.
+			case KeyCode.KeyR: {
+				// When Ctrl-R is pressed, engage a reverse history search (like bash).
+				if (e.ctrlKey && !e.shiftKey && !e.altKey && !e.metaKey && !e.altGraphKey) {
+					engageHistoryBrowser(new HistoryInfixMatchStrategy(
+						historyNavigatorRef.current!
+					));
+					consumeEvent();
+				}
+
+				break;
+			}
+
+			// Tab processing.
+			case KeyCode.Tab: {
+				// If the history browser is active, accept the selected history entry and
+				// dismiss the history browser.
+				if (historyBrowserActiveRef.current) {
+					acceptHistoryMatch(historyBrowserSelectedIndexRef.current);
+					consumeEvent();
+					break;
+				}
+			}
+
 			// Up arrow processing.
 			case KeyCode.UpArrow: {
+				if (cmdOrCtrlKey) {
+					// If the cmd or ctrl key is pressed, engage the history browser with the
+					// prefix match strategy. This behavior mimics RStudio.
+					engageHistoryBrowser(new HistoryPrefixMatchStrategy(
+						historyNavigatorRef.current!
+					));
+					consumeEvent();
+					break;
+				}
+
+				// If the history browser is present, Up should select the
+				// previous history item.
+				if (historyBrowserActiveRef.current) {
+					setHistoryBrowserSelectedIndex(Math.max(
+						0, historyBrowserSelectedIndexRef.current - 1));
+					consumeEvent();
+					break;
+				}
+
 				// Get the position. If it's at line number 1, allow backward history navigation.
 				const position = codeEditorWidgetRef.current.getPosition();
 				if (position?.lineNumber === 1) {
@@ -264,6 +396,18 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 
 			// Down arrow processing.
 			case KeyCode.DownArrow: {
+
+				console.log(`Down arrow pressed. browser active: ${historyBrowserActiveRef.current}`);
+
+				// If the history browser is up, update the selected index.
+				if (historyBrowserActiveRef.current) {
+					setHistoryBrowserSelectedIndex(Math.min(
+						historyItemsRef.current.length - 1,
+						historyBrowserSelectedIndexRef.current + 1));
+					consumeEvent();
+					break;
+				}
+
 				// Get the position and text model. If it's on the last line, allow forward history
 				// navigation.
 				const position = codeEditorWidgetRef.current.getPosition();
@@ -297,6 +441,14 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 
 			// Enter processing.
 			case KeyCode.Enter: {
+				// If the history browser is active, accept the selected history entry and
+				// dismiss the history browser.
+				if (historyBrowserActiveRef.current) {
+					acceptHistoryMatch(historyBrowserSelectedIndexRef.current);
+					consumeEvent();
+					break;
+				}
+
 				// If the shift key is pressed, do not process the event because the user is
 				// entering multiple lines.
 				if (e.shiftKey) {
@@ -464,6 +616,32 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 		// Set the key down event handler.
 		disposableStore.add(codeEditorWidget.onKeyDown(keyDownHandler));
 
+		// Set the blur event handler.
+		disposableStore.add(codeEditorWidget.onDidBlurEditorWidget(() => {
+			// If the history browser is active, deactivate it.
+			if (historyBrowserActiveRef.current) {
+				disengageHistoryBrowser();
+			}
+		}));
+
+		// Set the value change handler.
+		disposableStore.add(codeEditorWidget.onDidChangeModelContent(() => {
+			// If the history browser is up, update the list of history item matches with the
+			// current match strategy.
+			if (historyBrowserActiveRef.current) {
+				const position = codeEditorWidget.getSelection()?.getStartPosition();
+				const matchText = codeEditorWidget.getValue().substring(0, position?.column || 0);
+
+				// Update the list of history item matches from the current match strategy.
+				const historyItems = historyMatchStrategyRef.current.getMatches(
+					matchText);
+				setHistoryItems(historyItems);
+
+				// Select the last item.
+				setHistoryBrowserSelectedIndex(historyItems.length - 1);
+			}
+		}));
+
 		// Auto-grow the editor as the internal content size changes (i.e. make it grow vertically
 		// as the user enters additional lines of input.)
 		disposableStore.add(codeEditorWidget.onDidContentSizeChange(contentSizeChangedEvent => {
@@ -629,10 +807,43 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 		}
 	};
 
+	// If it's visible, anchor the history browser to the physical location of
+	// the code editor. The history browser has to have a fixed position so it
+	// can pop over the rest of the UI.
+	let historyBrowserBottomPx = 0;
+	let historyBrowserLeftPx = 0;
+	if (codeEditorWidgetRef.current && historyBrowserActive) {
+		// Get the code editor's DOM node.
+		const editorElement = codeEditorWidgetRef.current.getDomNode();
+		if (editorElement) {
+			// Try to find the actual editor scrollable element (corresponds to
+			// the point past the input prompt). If it doesn't exist, use the
+			// editor element.
+			let anchorElement: HTMLElement | null = editorElement.querySelector('.editor-scrollable');
+			if (!anchorElement) {
+				anchorElement = editorElement;
+			}
+			const anchorElementRect = anchorElement.getBoundingClientRect();
+
+			// Get the browser's height and subtract the anchor's top to get the bottom.
+			historyBrowserBottomPx = DOM.getActiveWindow().innerHeight - anchorElementRect.top + 5;
+			historyBrowserLeftPx = anchorElementRect.left - 5;
+		}
+	}
+
 	// Render.
 	return (
 		<div className='console-input' tabIndex={0} onFocus={focusHandler}>
 			<div ref={codeEditorWidgetContainerRef} />
+			{historyBrowserActive &&
+				<HistoryBrowserPopup
+					bottomPx={historyBrowserBottomPx}
+					leftPx={historyBrowserLeftPx}
+					items={historyItems}
+					selectedIndex={historyBrowserSelectedIndex}
+					onSelected={acceptHistoryMatch}
+					onDismissed={disengageHistoryBrowser} />
+			}
 		</div>
 	);
 };
