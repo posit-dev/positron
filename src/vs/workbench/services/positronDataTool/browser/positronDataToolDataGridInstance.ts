@@ -33,7 +33,10 @@ export class PositronDataToolDataGridInstance extends DataGridInstance {
 
 	constructor(dataToolClientInstance: DataToolClientInstance) {
 		// Call the base class's constructor.
-		super();
+		super({
+			columnHeadersHeight: 32,
+			scrollbarWidth: 14
+		});
 
 		// Set the data tool client instance.
 		this._dataToolClientInstance = dataToolClientInstance;

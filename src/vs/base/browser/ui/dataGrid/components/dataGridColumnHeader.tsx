@@ -49,7 +49,11 @@ export const DataGridColumnHeader = (props: DataGridColumnHeaderProps) => {
 	// Render.
 	return (
 		<div
-			className='data-grid-column-header'
+			className={
+				positronClassNames(
+					'data-grid-column-header',
+					{ 'selected': columnSelectionState & SelectionState.Selected }
+				)}
 			style={{
 				left: props.left,
 				width: props.column.width
@@ -58,13 +62,29 @@ export const DataGridColumnHeader = (props: DataGridColumnHeaderProps) => {
 		>
 			<div className={
 				positronClassNames(
-					'data-grid-column-header-border-overlay',
+					'border-overlay',
 					{ 'selected': columnSelectionState & SelectionState.Selected },
 					{ 'selected-left': columnSelectionState & SelectionState.FirstSelected },
 					{ 'selected-right': columnSelectionState & SelectionState.LastSelected }
 				)}
 			/>
-			<div className='title'>{props.column.name} </div>
+			<div className='content'>
+				{props.column.codicon &&
+					<div className={
+						positronClassNames(
+							'icon',
+							'codicon',
+							`codicon-${props.column.codicon}`
+						)}
+						style={{
+							fontSize: 18
+						}} />
+				}
+				<div className='title-description'>
+					<div className='titlexxx'>{props.column.name}</div>
+					{props.column.description && <div className='description'>{props.column.description}</div>}
+				</div>
+			</div>
 			<PositronColumnSplitter
 				onBeginResize={() => ({
 					minimumWidth: context.instance.minimumColumnWidth,

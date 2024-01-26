@@ -12,9 +12,19 @@ export interface IDataColumn {
 	readonly identifier: string;
 
 	/**
+	 * Gets the codicon.
+	 */
+	readonly codicon?: string;
+
+	/**
 	 * Gets the name.
 	 */
-	readonly name: string;
+	readonly name?: string;
+
+	/**
+	 * Gets the description.
+	 */
+	readonly description?: string;
 
 	/**
 	 * Gets or sets the width.

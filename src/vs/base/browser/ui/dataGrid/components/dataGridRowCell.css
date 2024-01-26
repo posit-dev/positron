@@ -7,7 +7,8 @@
 	bottom: 0;
 	display: grid;
 	position: absolute;
-	grid-template-columns: [left-gutter] 5px [content] 1fr [right-gutter] 1px [end];
+	align-items: center;
+	grid-template-columns: [left-gutter] 5px [content] 1fr [right-gutter] 5px [splitter] 1px [end];
 }
 
 .data-grid-row-cell
@@ -61,25 +62,16 @@
 }
 
 .data-grid-row-cell .text {
-	position: absolute;
-	top: 0;
-	right: 0;
-	bottom: 0;
-	left: 5px;
-	font-size: 90%;
-	display: flex;
-	align-items: center;
-	grid-column: content / right-gutter;
-	/*
+	background-color: yellow;
 	overflow: hidden;
-	align-items: center;
+	margin-bottom: 1px;
 	white-space: nowrap;
+	line-height: normal;
 	text-overflow: ellipsis;
-	*/
+
+	grid-column: content / right-gutter;
 }
 
 .data-grid-row-cell .positron-column-splitter {
-	/* height: 100%; */
-	grid-column: right-gutter / end;
-	/* background-color: var(--vscode-positronDataGrid-border); */
+	grid-column: splitter / end;
 }

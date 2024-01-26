@@ -60,11 +60,39 @@ export class PositronDataToolColumn implements IPositronDataToolColumn {
 		return this._identifier;
 	}
 
+	get codicon() {
+		// Temporary until updates happen to the comms for Data Tool.
+		if (this.columnSchema.type_name.includes('bool')) {
+			return 'positron-data-type-boolean';
+		}
+		if (this.columnSchema.type_name.includes('date')) {
+			return 'positron-data-type-date-time';
+		}
+		if (this.columnSchema.type_name.includes('int')) {
+			return 'positron-data-type-number';
+		}
+		if (this.columnSchema.type_name.includes('float')) {
+			return 'positron-data-type-number';
+		}
+		if (this.columnSchema.type_name.includes('str')) {
+			return 'positron-data-type-string';
+		}
+
+		return undefined;
+	}
+
 	/**
 	 * Gets the name.
 	 */
 	get name() {
 		return this._columnSchema.name;
+	}
+
+	/**
+	 * Gets the description.
+	 */
+	get description() {
+		return this._columnSchema.type_name;
 	}
 
 	/**

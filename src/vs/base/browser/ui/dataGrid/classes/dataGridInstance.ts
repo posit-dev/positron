@@ -32,7 +32,7 @@ export abstract class DataGridInstance extends Disposable implements IDataGridIn
 	/**
 	 * Gets or sets the column headers height.
 	 */
-	private _columnHeadersHeight = 22;
+	private _columnHeadersHeight: number;
 
 	/**
 	 * Gets or sets the row headers width.
@@ -42,7 +42,7 @@ export abstract class DataGridInstance extends Disposable implements IDataGridIn
 	/**
 	 * Gets or sets the minimum column width
 	 */
-	private _minimumColumnWidth = 190;
+	private _minimumColumnWidth = 100;
 
 	/**
 	 * Gets or sets the row height.
@@ -52,7 +52,7 @@ export abstract class DataGridInstance extends Disposable implements IDataGridIn
 	/**
 	 * Gets or sets the scrollbar width.
 	 */
-	private _scrollbarWidth = 14;
+	private _scrollbarWidth: number;
 
 	/**
 	 * Gets or sets the columns.
@@ -115,6 +115,25 @@ export abstract class DataGridInstance extends Disposable implements IDataGridIn
 	protected readonly _onDidUpdateEmitter = this._register(new Emitter<void>);
 
 	//#endregion Private Properties
+
+	//#region Constructor & Dispose
+
+	/**
+	 * Constructor.
+	 * @param params The parameters.
+	 */
+	constructor(params: {
+		columnHeadersHeight: number;
+		scrollbarWidth: number;
+	}) {
+		// Call the base class's constructor.
+		super();
+
+		this._columnHeadersHeight = params.columnHeadersHeight;
+		this._scrollbarWidth = params.scrollbarWidth;
+	}
+
+	//#endregion Constructor & Dispose
 
 	//#region Public Properties
 

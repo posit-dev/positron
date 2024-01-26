@@ -637,6 +637,10 @@ export const Codicon = {
 	positronDataToolColumnsHidden: register('positron-data-tool-columns-hidden', 0xf25e),
 	positronDataToolColumnsLeft: register('positron-data-tool-columns-left', 0xf25f),
 	positronDataToolColumnsRight: register('positron-data-tool-columns-right', 0xf260),
+	positronDataTypeBoolean: register('positron-data-type-boolean', 0xf261),
+	positronDataTypeDateTime: register('positron-data-type-date-time', 0xf262),
+	positronDataTypeNumber: register('positron-data-type-number', 0xf263),
+	positronDataTypeString: register('positron-data-type-string', 0xf264),
 
 	// --- End Positron ---
 
