@@ -85,7 +85,7 @@ export class PositronDataToolColumn implements IPositronDataToolColumn {
 	 * Gets the name.
 	 */
 	get name() {
-		return this._columnSchema.name;
+		return this._columnSchema.column_name;
 	}
 
 	/**
