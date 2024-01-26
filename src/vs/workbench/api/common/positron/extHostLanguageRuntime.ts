@@ -3,7 +3,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import type * as positron from 'positron';
-import { ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMessageCommClosed, ILanguageRuntimeMessageCommData, ILanguageRuntimeMessageCommOpen, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMessageCommClosed, ILanguageRuntimeMessageCommData, ILanguageRuntimeMessageCommOpen, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import * as extHostProtocol from './extHost.positron.protocol';
 import { Emitter } from 'vs/base/common/event';
 import { IDisposable } from 'vs/base/common/lifecycle';
@@ -472,6 +472,13 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 				// Callback to remove the client instance
 				this._runtimes[handle].removeClient(message.comm_id);
 			});
+
+		// Dispose the client instance when the runtime exits
+		this._runtimes[handle].onDidChangeRuntimeState(state => {
+			if (state === RuntimeState.Exited) {
+				clientInstance.dispose();
+			}
+		});
 
 		// See if one of the registered client handlers wants to handle this
 		for (const handler of this._clientHandlers) {
