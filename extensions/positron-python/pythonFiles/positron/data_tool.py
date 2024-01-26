@@ -13,6 +13,7 @@ from .data_tool_comm import (
     ColumnFilter,
     ColumnFilterCompareOp,
     ColumnSchema,
+    ColumnSchemaTypeDisplay,
     ColumnSortKey,
     DataToolBackendRequest,
     FilterResult,
@@ -69,8 +70,8 @@ class DataToolTableView:
         self.view_indices = None
 
     def get_schema(self, data: Dict[str, Any]):
-        GetSchemaRequest(**data)
-        return asdict(self._get_schema())
+        req = GetSchemaRequest(**data)
+        return asdict(self._get_schema(req.params.start_index, req.params.num_columns))
 
     def get_data_values(self, data: Dict[str, Any]):
         req = GetDataValuesRequest(**data)
@@ -98,7 +99,7 @@ class DataToolTableView:
         GetStateRequest(**data)
         return self._get_state()
 
-    def _get_schema(self) -> TableSchema:
+    def _get_schema(self, column_start: int, num_columns: int) -> TableSchema:
         raise NotImplementedError
 
     def _get_data_values(
@@ -122,23 +123,76 @@ class DataToolTableView:
 
 
 class PandasView(DataToolTableView):
-    def _get_schema(self) -> TableSchema:
+    TYPE_DISPLAY_MAPPING = {
+        "integer": "number",
+        "int8": "number",
+        "int16": "number",
+        "int32": "number",
+        "int64": "number",
+        "uint8": "number",
+        "uint16": "number",
+        "uint32": "number",
+        "uint64": "number",
+        "floating": "number",
+        "float16": "number",
+        "float32": "number",
+        "float64": "number",
+        "mixed-integer": "number",
+        "mixed-integer-float": "number",
+        "decimal": "number",
+        "complex": "number",
+        "categorical": "categorical",
+        "boolean": "boolean",
+        "datetime64": "datetime",
+        "datetime": "datetime",
+        "date": "date",
+        "time": "time",
+        "bytes": "string",
+        "string": "string",
+    }
+
+    def __init__(self, table):
+        super().__init__(table)
+
+        # Compute and cache this once. If the data frame is changed,
+        # this must be reset
+        self._dtypes = table.dtypes
+
+        # Maintain a mapping of column index to inferred dtype for any
+        # object columns, to avoid recomputing. If the underlying
+        # object is changed, this needs to be reset
+        self._inferred_dtypes = {}
+
+    def _get_schema(self, column_start: int, num_columns: int) -> TableSchema:
         from pandas.api.types import infer_dtype
 
-        dtypes = self.table.dtypes
         # TODO: pandas MultiIndex columns
         # TODO: time zone for datetimetz datetime64[ns] types
+        columns_slice = self.table.columns[column_start : column_start + num_columns]
+        dtypes_slice = self._dtypes.iloc[column_start : column_start + num_columns]
         column_schemas = []
-        for c, dtype in zip(self.table.columns, dtypes):
+
+        for i, (c, dtype) in enumerate(zip(columns_slice, dtypes_slice)):
             if dtype == object:
-                # TODO: this can be pretty expensive, but we only do it once
-                type_name = infer_dtype(self.table[c])
+                column_index = i + column_start
+                if i not in self._inferred_dtypes:
+                    self._inferred_dtypes[column_index] = infer_dtype(
+                        self.table.iloc[:, column_index]
+                    )
+                type_name = self._inferred_dtypes[column_index]
             else:
                 # TODO: more sophisticated type mapping
                 type_name = str(dtype)
-            col_schema = ColumnSchema(name=str(c), type_name=type_name)
+
+            type_display = self.TYPE_DISPLAY_MAPPING.get(type_name, "unknown")
+
+            col_schema = ColumnSchema(
+                column_name=str(c),
+                type_name=type_name,
+                type_display=ColumnSchemaTypeDisplay(type_display),
+            )
             column_schemas.append(col_schema)
-        return TableSchema(column_schemas, len(self.table))
+        return TableSchema(column_schemas, *self.table.shape)
 
     def _get_data_values(
         self, row_start: int, num_rows: int, column_indices: Sequence[int]
