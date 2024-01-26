@@ -6,6 +6,8 @@
 # AUTO-GENERATED from data_tool.json; do not edit.
 #
 
+# flake8: noqa
+
 # For forward declarations
 from __future__ import annotations
 
@@ -14,8 +16,6 @@ from dataclasses import dataclass, field
 from typing import Dict, List, Union, Optional
 
 JsonData = Union[Dict[str, "JsonData"], List["JsonData"], str, int, float, bool, None]
-
-# flake8: noqa
 
 # Column values formatted as strings
 ColumnFormattedData = List[str]
@@ -30,6 +30,31 @@ class GetColumnProfileProfileType(str, enum.Enum):
     Freqtable = "freqtable"
 
     Histogram = "histogram"
+
+
+@enum.unique
+class ColumnSchemaTypeDisplay(str, enum.Enum):
+    """
+    Possible values for TypeDisplay in ColumnSchema
+    """
+
+    Number = "number"
+
+    Boolean = "boolean"
+
+    String = "string"
+
+    Date = "date"
+
+    Datetime = "datetime"
+
+    Time = "time"
+
+    Array = "array"
+
+    Struct = "struct"
+
+    Unknown = "unknown"
 
 
 @enum.unique
@@ -98,6 +123,12 @@ class TableSchema:
     num_rows: int = field(
         metadata={
             "description": "Numbers of rows in the unfiltered dataset",
+        }
+    )
+
+    total_num_columns: int = field(
+        metadata={
+            "description": "Total number of columns in the unfiltered dataset",
         }
     )
 
@@ -257,7 +288,7 @@ class ColumnSchema:
     Schema for a column in a table
     """
 
-    name: str = field(
+    column_name: str = field(
         metadata={
             "description": "Name of column as UTF-8 string",
         }
@@ -265,7 +296,13 @@ class ColumnSchema:
 
     type_name: str = field(
         metadata={
-            "description": "Canonical name of data type class",
+            "description": "Exact name of data type used by underlying table",
+        }
+    )
+
+    type_display: ColumnSchemaTypeDisplay = field(
+        metadata={
+            "description": "Canonical Positron display name of data type",
         }
     )
 
@@ -469,20 +506,43 @@ class DataToolBackendRequest(str, enum.Enum):
 
 
 @dataclass
+class GetSchemaParams:
+    """
+    Request full schema for a table-like object
+    """
+
+    start_index: int = field(
+        metadata={
+            "description": "First column schema to fetch (inclusive)",
+        }
+    )
+
+    num_columns: int = field(
+        metadata={
+            "description": "Number of column schemas to fetch from start index. May extend beyond end of table",
+        }
+    )
+
+
+@dataclass
 class GetSchemaRequest:
     """
     Request full schema for a table-like object
     """
+
+    def __post_init__(self):
+        """Revive RPC parameters after initialization"""
+        if isinstance(self.params, dict):
+            self.params = GetSchemaParams(**self.params)
+
+    params: GetSchemaParams = field(metadata={"description": "Parameters to the GetSchema method"})
 
     method: DataToolBackendRequest = field(
         metadata={"description": "The JSON-RPC method name (get_schema)"},
         default=DataToolBackendRequest.GetSchema,
     )
 
-    jsonrpc: str = field(
-        metadata={"description": "The JSON-RPC version specifier"},
-        default="2.0",
-    )
+    jsonrpc: str = field(metadata={"description": "The JSON-RPC version specifier"}, default="2.0")
 
 
 @dataclass
@@ -530,10 +590,7 @@ class GetDataValuesRequest:
         default=DataToolBackendRequest.GetDataValues,
     )
 
-    jsonrpc: str = field(
-        metadata={"description": "The JSON-RPC version specifier"},
-        default="2.0",
-    )
+    jsonrpc: str = field(metadata={"description": "The JSON-RPC version specifier"}, default="2.0")
 
 
 @dataclass
@@ -569,10 +626,7 @@ class SetColumnFiltersRequest:
         default=DataToolBackendRequest.SetColumnFilters,
     )
 
-    jsonrpc: str = field(
-        metadata={"description": "The JSON-RPC version specifier"},
-        default="2.0",
-    )
+    jsonrpc: str = field(metadata={"description": "The JSON-RPC version specifier"}, default="2.0")
 
 
 @dataclass
@@ -610,10 +664,7 @@ class SetSortColumnsRequest:
         default=DataToolBackendRequest.SetSortColumns,
     )
 
-    jsonrpc: str = field(
-        metadata={"description": "The JSON-RPC version specifier"},
-        default="2.0",
-    )
+    jsonrpc: str = field(metadata={"description": "The JSON-RPC version specifier"}, default="2.0")
 
 
 @dataclass
@@ -655,10 +706,7 @@ class GetColumnProfileRequest:
         default=DataToolBackendRequest.GetColumnProfile,
     )
 
-    jsonrpc: str = field(
-        metadata={"description": "The JSON-RPC version specifier"},
-        default="2.0",
-    )
+    jsonrpc: str = field(metadata={"description": "The JSON-RPC version specifier"}, default="2.0")
 
 
 @dataclass
@@ -672,7 +720,4 @@ class GetStateRequest:
         default=DataToolBackendRequest.GetState,
     )
 
-    jsonrpc: str = field(
-        metadata={"description": "The JSON-RPC version specifier"},
-        default="2.0",
-    )
+    jsonrpc: str = field(metadata={"description": "The JSON-RPC version specifier"}, default="2.0")
