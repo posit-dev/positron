@@ -58,7 +58,11 @@ export const DataGridRowCell = (props: DataGridRowCellProps) => {
 	// Render.
 	return (
 		<div
-			className='data-grid-row-cell'
+			className={
+				positronClassNames(
+					'data-grid-row-cell',
+					{ 'selected': rowSelectionState & SelectionState.Selected || columnSelectionState & SelectionState.Selected },
+				)}
 			style={{
 				left: props.left,
 				width: props.column.width,
@@ -66,15 +70,16 @@ export const DataGridRowCell = (props: DataGridRowCellProps) => {
 			}}
 			onMouseDown={mouseDownHandler}
 		>
-			<div className={
-				positronClassNames(
-					'data-grid-row-cell-border-overlay',
-					{ 'selected': rowSelectionState & SelectionState.Selected || columnSelectionState & SelectionState.Selected },
-					{ 'selected-top': rowSelectionState & SelectionState.FirstSelected },
-					{ 'selected-bottom': rowSelectionState & SelectionState.LastSelected },
-					{ 'selected-left': columnSelectionState & SelectionState.FirstSelected },
-					{ 'selected-right': columnSelectionState & SelectionState.LastSelected },
-				)}
+			<div
+				className={
+					positronClassNames(
+						'data-grid-row-cell-border-overlay',
+						{ 'selected': rowSelectionState & SelectionState.Selected || columnSelectionState & SelectionState.Selected },
+						{ 'selected-top': rowSelectionState & SelectionState.FirstSelected },
+						{ 'selected-bottom': rowSelectionState & SelectionState.LastSelected },
+						{ 'selected-left': columnSelectionState & SelectionState.FirstSelected },
+						{ 'selected-right': columnSelectionState & SelectionState.LastSelected },
+					)}
 			>
 				{
 					props.columnIndex === context.instance.cursorColumnIndex &&

@@ -11,6 +11,10 @@
 	grid-template-columns: [left-gutter] 5px [content] 1fr [right-gutter] 5px [splitter] 1px [end];
 }
 
+.data-grid-row-cell.selected {
+	background-color: var(--vscode-positronDataGrid-selectionBackground);
+}
+
 .data-grid-row-cell
 .data-grid-row-cell-border-overlay {
 	top: 0;
@@ -27,7 +31,6 @@
 .data-grid-row-cell-border-overlay.selected {
 	border-right: 1px solid var(--vscode-positronDataGrid-selectionInnerBorder);
 	border-bottom: 1px solid var(--vscode-positronDataGrid-selectionInnerBorder);
-	background-color: var(--vscode-positronDataGrid-selectionBackground);
 }
 
 .data-grid-row-cell
