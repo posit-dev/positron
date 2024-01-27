@@ -85,6 +85,7 @@
 .data-grid-row-cell
 .text.right {
 	text-align: right;
+	font-variant-numeric: tabular-nums;
 }
 
 .data-grid-row-cell

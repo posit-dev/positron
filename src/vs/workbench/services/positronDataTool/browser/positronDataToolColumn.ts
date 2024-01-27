@@ -138,7 +138,7 @@ export class PositronDataToolColumn implements IPositronDataToolColumn {
 				return DataColumnAlignment.Left;
 
 			case ColumnSchemaTypeDisplay.Unknown:
-				return DataColumnAlignment.Left;
+				return DataColumnAlignment.Right;
 		}
 	}
 
