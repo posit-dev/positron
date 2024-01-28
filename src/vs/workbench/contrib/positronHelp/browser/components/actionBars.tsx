@@ -150,14 +150,14 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 						iconId='positron-left-arrow'
 						tooltip={tooltipPreviousTopic}
 						ariaLabel={tooltipPreviousTopic}
-						onClick={() => props.positronHelpService.navigateBackward()}
+						onPressed={() => props.positronHelpService.navigateBackward()}
 					/>
 					<ActionBarButton
 						disabled={!canNavigateForward}
 						iconId='positron-right-arrow'
 						tooltip={tooltipNextTopic}
 						ariaLabel={tooltipNextTopic}
-						onClick={() => props.positronHelpService.navigateForward()}
+						onPressed={() => props.positronHelpService.navigateForward()}
 					/>
 
 					<ActionBarSeparator />
@@ -167,7 +167,7 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 						tooltip={tooltipShowPositronHelp}
 						ariaLabel={tooltipShowPositronHelp}
 						disabled={true}
-						onClick={() => props.onHome()}
+						onPressed={() => props.onHome()}
 					/>
 
 					{/* <ActionBarSeparator /> */}
@@ -200,7 +200,7 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 							ariaLabel={tooltipShowPositronHelp}
 							align='right'
 							disabled={currentHelpEntry === undefined}
-							onClick={() => currentHelpEntry?.showFind()}
+							onPressed={() => currentHelpEntry?.showFind()}
 						/>
 					</ActionBarRegion>
 

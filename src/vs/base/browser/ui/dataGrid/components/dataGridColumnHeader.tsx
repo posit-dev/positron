@@ -14,6 +14,7 @@ import { positronClassNames } from 'vs/base/common/positronUtilities';
 import { IDataColumn } from 'vs/base/browser/ui/dataGrid/interfaces/dataColumn';
 import { useDataGridContext } from 'vs/base/browser/ui/dataGrid/dataGridContext';
 import { selectionType } from 'vs/base/browser/ui/dataGrid/utilities/mouseUtilities';
+import { MouseTrigger, PositronButton } from 'vs/base/browser/ui/positronComponents/positronButton';
 import { SelectionState } from 'vs/base/browser/ui/dataGrid/interfaces/dataGridInstance';
 import { PositronColumnSplitter } from 'vs/base/browser/ui/positronComponents/positronColumnSplitter';
 
@@ -36,10 +37,13 @@ export const DataGridColumnHeader = (props: DataGridColumnHeaderProps) => {
 	const context = useDataGridContext();
 
 	/**
-	 * MouseDown handler.
+	 * onMouseDown handler.
 	 * @param e A MouseEvent<HTMLElement> that describes a user interaction with the mouse.
 	 */
 	const mouseDownHandler = (e: MouseEvent<HTMLElement>) => {
+		e.preventDefault();
+		e.stopPropagation();
+
 		context.instance.mouseSelectColumn(props.columnIndex, selectionType(e));
 	};
 
@@ -81,10 +85,18 @@ export const DataGridColumnHeader = (props: DataGridColumnHeaderProps) => {
 						}} />
 				}
 				<div className='title-description'>
-					<div className='titlexxx'>{props.column.name}</div>
+					<div className='title'>{props.column.name}</div>
 					{props.column.description && <div className='description'>{props.column.description}</div>}
 				</div>
+				<PositronButton
+					className='button'
+					mouseTrigger={MouseTrigger.MouseDown}
+					onPressed={() => console.log('DROP DOWN MENU!')}
+				>
+					<div className='codicon codicon-positron-drop-down-arrow' style={{ fontSize: 18 }} />
+				</PositronButton>
 			</div>
+
 			<PositronColumnSplitter
 				onBeginResize={() => ({
 					minimumWidth: context.instance.minimumColumnWidth,

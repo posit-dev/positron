@@ -23,7 +23,7 @@ interface CustomFolderMenuItemProps {
 export const CustomFolderMenuItem = (props: CustomFolderMenuItemProps) => {
 	// Render.
 	return (
-		<PositronButton className='custom-folder-menu-item' onClick={props.onSelected}>
+		<PositronButton className='custom-folder-menu-item' onPressed={props.onSelected}>
 			<div className='title'>
 				{props.label}
 			</div>

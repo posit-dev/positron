@@ -75,7 +75,7 @@ export const ActionBar = (props: ActionBarProps) => {
 							text={clearSortButtonTitle}
 							tooltip={clearSortButtonDescription}
 							ariaLabel={clearSortButtonDescription}
-							onClick={() => console.log('HERE')}
+							onPressed={() => console.log('HERE')}
 						/>
 						<ActionBarSeparator />
 						<LayoutMenuButton />
@@ -87,7 +87,7 @@ export const ActionBar = (props: ActionBarProps) => {
 								align='right'
 								tooltip='Clear'
 								ariaLabel='Clear'
-								onClick={() => console.log('HERE')}
+								onPressed={() => console.log('HERE')}
 							/>
 						}
 					</ActionBarRegion>

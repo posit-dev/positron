@@ -9,7 +9,7 @@
 	overflow: hidden;
 	position: absolute;
 	background-color: var(--vscode-positronDataGrid-headerBackground);
-	grid-template-columns: [left-gutter] 1px [content] 1fr [right-gutter] 1px [end];
+	grid-template-columns: [content] 1fr [right-gutter] 1px [end];
 }
 
 .data-grid-column-header.selected {
@@ -48,8 +48,9 @@
 .data-grid-column-header
 .content {
 	display: grid;
+	align-items: center;
 	grid-column: content / right-gutter;
-	grid-template-columns: [icon] 20px [title-description] minmax(0, 1fr) [button] 20px [end];
+	grid-template-columns: [left-margin] 4px [icon] 20px [title-description] minmax(0, 1fr) [button] 20px [right-margin] 4px [end];
 }
 
 .data-grid-column-header
@@ -66,22 +67,20 @@
 .data-grid-column-header
 .content
 .title-description {
-	/* Adjust for the bottom border. */
-	margin-bottom: 1px;
+	margin-bottom: 1px; /* Adjust for the bottom border. */
 	grid-column: title-description / button;
 }
 
 .data-grid-column-header
 .content
 .title-description
-.titlexxx {
+.title {
 	font-weight: 600;
 	overflow: hidden;
 	text-align: center;
 	white-space: nowrap;
 	line-height: normal;
 	text-overflow: ellipsis;
-	grid-row: title / description;
 }
 
 .data-grid-column-header
@@ -95,8 +94,48 @@
 	white-space: nowrap;
 	line-height: normal;
 	text-overflow: ellipsis;
-	grid-row: description / end;
 }
+
+.data-grid-column-header
+.content
+.button {
+	z-index: 1;
+	height: 20px;
+	display: flex;
+	cursor: pointer;
+	border-radius: 6px;
+	align-items: center;
+	box-sizing: border-box;
+	justify-content: center;
+	grid-column: button / right-margin;
+}
+
+.data-grid-column-header
+.content
+.button:focus {
+	outline: none !important;
+}
+
+.data-grid-column-header
+.content
+.button:focus-visible {
+	border-radius: 6px;
+	outline: 1px solid var(--vscode-focusBorder) !important;
+}
+
+.data-grid-column-header
+.content
+.button:hover {
+	border: 1px solid var(--vscode-positronDataGrid-selectionBorder);
+}
+
+.data-grid-column-header
+.content
+.button:active {
+	border: 1px solid var(--vscode-positronDataGrid-selectionBorder);
+	background-color: var(--vscode-positronDataGrid-selectionBackground);
+}
+
 
 .data-grid-column-header
 .positron-column-splitter {

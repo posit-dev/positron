@@ -25,7 +25,7 @@ export interface ActionBarButtonProps {
 	tooltip?: string | (() => string | undefined);
 	disabled?: boolean;
 	ariaLabel?: string;
-	onClick?: () => void;
+	onPressed?: () => void;
 }
 
 /**
@@ -55,7 +55,7 @@ export const ActionBarButton = forwardRef<HTMLDivElement, PropsWithChildren<Acti
 	// Render.
 	return (
 		<ActionBarTooltip {...props}>
-			<PositronButton ref={ref} className={buttonClassNames} onClick={props.onClick} ariaLabel={ariaLabel} disabled={props.disabled}>
+			<PositronButton ref={ref} className={buttonClassNames} onPressed={props.onPressed} ariaLabel={ariaLabel} disabled={props.disabled}>
 				<div className='action-bar-button-face' style={{ padding: props.layout === 'tight' ? '0' : '0 2px' }} aria-hidden='true' >
 					{props.iconId && <div className={`action-bar-button-icon codicon codicon-${props.iconId}`} style={iconStyle} />}
 					{props.text && <div className='action-bar-button-text' style={{ marginLeft: props.iconId ? 0 : 4, maxWidth: optionalValue(props.maxTextWidth, 'none') }}>{props.text}</div>}

@@ -67,8 +67,7 @@
 .data-grid-row-cell
 .text {
 	overflow: hidden;
-	/* Adjust for the bottom border. */
-	margin-bottom: 1px;
+	margin-bottom: 1px; /* Adjust for the bottom border. */
 	white-space: nowrap;
 	line-height: normal;
 	text-overflow: ellipsis;
