@@ -78,10 +78,6 @@ export class ZedConnection {
 				this.zed.createZedDataView(randomUUID(), message.table);
 				break;
 
-			case 'close_connection':
-				this.zed.closeConnection(this.id, this.name);
-				break;
-
 		}
 	}
 }
