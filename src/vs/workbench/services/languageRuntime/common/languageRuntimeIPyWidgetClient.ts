@@ -13,7 +13,7 @@ import { ILanguageRuntimeMessageCommData } from 'vs/workbench/services/languageR
  * These are defined by ipywidgets (protocol version 2), we just inherit them.
  * https://github.com/jupyter-widgets/ipywidgets/blob/52663ac472c38ba12575dfb4979fa2d250e79bc3/packages/schema/messages.md#state-synchronization-1
  */
-export enum IPyWidgetClientMessageTypeInput {
+export enum IPyWidgetClientMethodInput {
 	/** When a widget's state (partially) changes in the frontend, notify the kernel */
 	Update = 'update',
 
@@ -24,41 +24,39 @@ export enum IPyWidgetClientMessageTypeInput {
 /**
  * The possible types of messages that can be sent from the language runtime to the widget frontend.
  * This does not include the comm_open message, which is handled separately.
- * These are defined by ipywidgets (protocol version 2), we just inherit them, with the exception of
- * 'display', which is converted into a comm message from the 'display_data' IOpub-style message.
+ * These are defined by ipywidgets (protocol version 2), we just inherit them
  * https://github.com/jupyter-widgets/ipywidgets/blob/52663ac472c38ba12575dfb4979fa2d250e79bc3/packages/schema/messages.md#state-synchronization-1
  */
-export enum IPyWidgetClientMessageTypeOutput {
+export enum IPyWidgetClientMethodOutput {
 	/** When a widget's state (partially) changes in the kernel, notify the frontend */
 	Update = 'update',
 
-<<<<<<< HEAD
-	/** When a kernel is ready to display the widget in the UI, notify the frontend */
-	Display = 'display',
-=======
+
 	/** Widgets may also send custom comm messages to their counterpart. */
 	Custom = 'custom',
+}
 
-	/** The kernel sends a message with the widget view mimetype to the comm channel of the widget to be displayed */
-	Display = 'display_data',
->>>>>>> 6cc989a86b0 (checkpoint)
+export enum IPyWidgetClientMessageTypeOutput {
+	/** When a kernel is ready to display the widget in the UI, notify the frontend */
+	Display = 'display',
 }
 
 /**
  * A message used to deliver data from the frontend to the backend.
  */
 export interface IPyWidgetClientMessageInput extends ILanguageRuntimeMessageCommData {
-	method: IPyWidgetClientMessageTypeInput;
+	method?: IPyWidgetClientMethodInput;
 }
 
 /**
  * A message used to deliver data from the backend to the frontend.
  */
 export interface IPyWidgetClientMessageOutput extends ILanguageRuntimeMessageCommData {
-	method: IPyWidgetClientMessageTypeOutput;
+	msg_type?: IPyWidgetClientMessageTypeOutput;
+	method?: IPyWidgetClientMethodOutput;
 }
 
-<<<<<<< HEAD
+
 export interface DisplayWidgetEvent {
 	/** An array containing the IDs of widgets to be included in the view. */
 	view_ids: string[];
@@ -68,12 +66,11 @@ export interface DisplayWidgetEvent {
  * A message requesting a widget be displayed in the Plots pane.
  */
 export interface IPyWidgetClientMessageDisplay
-	extends IPyWidgetClientMessageOutput, DisplayWidgetEvent {
-=======
+	extends IPyWidgetClientMessageOutput, DisplayWidgetEvent { }
+
 export interface IPyWidgetClientMessageOutputUpdate extends IPyWidgetClientMessageOutput {
 	state: Record<string, any>;
 	buffer_paths: string[];
->>>>>>> 6cc989a86b0 (checkpoint)
 }
 
 /**
@@ -106,8 +103,7 @@ export class IPyWidgetClientInstance extends Disposable implements IPositronIPyW
 
 		// Listen for widget updates
 		_client.onDidReceiveData(async (data) => {
-			console.log(`Received data from kernel: ${JSON.stringify(data)}`);
-			if (data.method === IPyWidgetClientMessageTypeOutput.Update) {
+			if (data.method === IPyWidgetClientMethodOutput.Update) {
 				// When the server notifies us that a widget update has occurred,
 				// we need to update the widget's state in the frontend.
 				const updateMessage = data as IPyWidgetClientMessageOutputUpdate;
@@ -132,6 +128,22 @@ export class IPyWidgetClientInstance extends Disposable implements IPositronIPyW
 		switch (data.msg_type) {
 			case IPyWidgetClientMessageTypeOutput.Display:
 				this._onDidEmitDisplay.fire(data as IPyWidgetClientMessageDisplay);
+				return;
+		}
+
+		switch (data.method) {
+			case IPyWidgetClientMethodOutput.Update:
+				// When the server notifies us that a widget update has occurred,
+				// we need to update the widget's state in the frontend.
+				{
+					const updateMessage = data as IPyWidgetClientMessageOutputUpdate;
+					console.log(`Update message received: ${JSON.stringify(updateMessage.state)}`);
+					this.metadata.widget_state.state = { ...this.metadata.widget_state.state, ...updateMessage.state };
+					console.log(`State updated: ${JSON.stringify(this.metadata.widget_state.state)}`);
+				}
+				break;
+			case IPyWidgetClientMethodOutput.Custom:
+				console.log(`Custom message received: ${JSON.stringify(data)}`);
 				break;
 		}
 	}

@@ -255,9 +255,6 @@ class ExtHostLanguageRuntimeAdapter implements ILanguageRuntime {
 	emitDidReceiveClientMessage(message: ILanguageRuntimeMessageCommData): void {
 		const client = this._clients.get(message.comm_id);
 		if (client) {
-			if (client.getClientType() === RuntimeClientType.IPyWidget) {
-				console.log(`Received message for IPyWidget client '${message.comm_id}': ${JSON.stringify(message)}`);
-			}
 			client.emitData(message);
 		} else {
 			this._logService.warn(`Client instance '${message.comm_id}' not found; dropping message: ${JSON.stringify(message)}`);
@@ -883,7 +880,6 @@ class ExtHostRuntimeClientInstance<Input, Output>
 			this._pendingRpcs.delete(message.parent_id);
 		} else {
 			// This is a regular message; emit it to the client as an event.
-			console.log(`Emitting message for client '${this._id}': ${JSON.stringify(message.data)}`);
 			this._dataEmitter.fire(message.data as Output);
 		}
 	}
