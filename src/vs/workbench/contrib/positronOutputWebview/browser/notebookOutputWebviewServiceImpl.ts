@@ -191,7 +191,6 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 		// - Extending another renderer (RendererContext)
 		// - State management (RendererContext)
 		// - Raw Uint8Array data and blobs
-		console.log(`rendererPath: ${rendererPath.path.toString()}`);
 
 		webview.setHtml(`
 <head>
@@ -349,8 +348,6 @@ window.onload = function() {
 		const webview = this._webviewService.createWebviewOverlay(webviewInitInfo);
 		const rendererPath = asWebviewUri(renderer.entrypoint.path);
 		const kernelPath = asWebviewUri(URI.joinPath(rendererPath, '../../ipywidgetsKernel/ipywidgetsKernel.js'));
-		console.log(`rendererPath: ${rendererPath.path.toString()}`);
-		console.log(`kernelPath: ${kernelPath.path.toString()}`);
 
 		const createWidgetDiv = (widgetView: IPyWidgetViewSpec) => {
 			const model_id = widgetView.model_id;
