@@ -60,6 +60,9 @@ class HelperClass:
     A helper class for testing method functions.
     """
 
+    def __init__(self):
+        self._x = 1
+
     def fn_no_args(self):
         return "No args"
 
@@ -68,6 +71,10 @@ class HelperClass:
 
     def fn_two_args(self, x: int, y: int) -> Tuple[int, int]:
         return (x, y)
+
+    @property
+    def prop(self):
+        return self._x
 
 
 #
@@ -308,11 +315,12 @@ CLASSES_CASES = [pd.DataFrame, np.ndarray, datetime.tzinfo, bytes, str]
 @pytest.mark.parametrize("case", CLASSES_CASES)
 def test_summarize_classes(case: type) -> None:
     display_name = "xType"
+    length = len([p for p in dir(case) if not (p.startswith("_"))])
     expected = Variable(
         access_key=encode_access_key(display_name),
         size=0,
-        length=0,
-        has_children=False,
+        length=length,
+        has_children=True,
         has_viewer=False,
         is_truncated=False,
         display_name=display_name,
@@ -323,7 +331,6 @@ def test_summarize_classes(case: type) -> None:
     )
 
     result = _summarize_variable(display_name, case)
-
     assert_variable_equal(result, expected)
 
 
@@ -797,6 +804,63 @@ def test_summarize_function(case: Callable) -> None:
         kind=VariableKind.Function,
         display_type=expected_type,
         type_info=expected_type,
+    )
+
+    result = _summarize_variable(display_name, case)
+
+    assert_variable_equal(result, expected)
+
+
+#
+# Test objects
+#
+
+OBJECTS_CASES = [helper]
+
+
+@pytest.mark.parametrize("case", OBJECTS_CASES)
+def test_summarize_object(case: Any) -> None:
+    display_name = "helper"
+    expected = Variable(
+        access_key=encode_access_key(display_name),
+        size=0,
+        length=4,
+        has_children=True,
+        has_viewer=False,
+        is_truncated=False,
+        display_name=display_name,
+        display_value=str(case),
+        kind=VariableKind.Other,
+        display_type="HelperClass",
+        type_info="tests.positron.test_inspectors.HelperClass",
+    )
+
+    result = _summarize_variable(display_name, case)
+
+    assert_variable_equal(result, expected)
+
+
+#
+# Test property
+#
+PROPERTY_CASES = [HelperClass.prop]
+
+
+@pytest.mark.parametrize("case", PROPERTY_CASES)
+def test_summarize_property(case: property) -> None:
+    display_name = "prop"
+    expected = Variable(
+        access_key=encode_access_key(display_name),
+        size=0,
+        length=0,
+        has_children=False,
+        has_viewer=False,
+        is_truncated=False,
+        display_name=display_name,
+        display_value=str(case),
+        kind=VariableKind.Other,
+        display_type="property",
+        type_info="property",
     )
 
     result = _summarize_variable(display_name, case)

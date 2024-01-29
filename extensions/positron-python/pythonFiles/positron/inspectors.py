@@ -15,14 +15,7 @@ import sys
 import types
 import uuid
 from abc import ABC, abstractmethod
-from collections.abc import (
-    Mapping,
-    MutableMapping,
-    MutableSequence,
-    MutableSet,
-    Sequence,
-    Set,
-)
+from collections.abc import Mapping, MutableMapping, MutableSequence, MutableSet, Sequence, Set
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -232,12 +225,51 @@ class BytesInspector(PositronInspector[bytes]):
         return data.encode()
 
 
-class ClassInspector(PositronInspector[type]):
+### object
+
+
+class ObjectInspector(PositronInspector[T], ABC):
+    def has_child(self, value: T, access_key: str) -> bool:
+        return hasattr(value, decode_access_key(access_key))
+
+    def get_length(self, value: T) -> int:
+        if isinstance(value, property):
+            return 0
+        return len([p for p in dir(value) if not (p.startswith("_"))])
+
+    def get_keys(self, value) -> list:
+        children = [p for p in dir(value) if not (p.startswith("_"))]
+        return children
+
+    def get_child(self, value: T, access_key: str) -> Any:
+        return getattr(value, decode_access_key(access_key))
+
+    def summarize_children(
+        self,
+        value: T,
+        summarizer: Summarizer[T_co],
+    ) -> List[T_co]:
+        # Treat collection items as children, with the index as the name
+        children: List[T_co] = []
+
+        for p in dir(value):
+            if len(children) >= MAX_CHILDREN:
+                break
+            if p.startswith("_"):
+                continue
+            try:
+                child_value = getattr(value, p)
+            except AttributeError:
+                child_value = None
+            summary = summarizer(p, child_value)
+            if summary is not None:
+                children.append(summary)
+        return children
+
+
+class ClassInspector(ObjectInspector[type]):
     def get_kind(self, value: type) -> str:
         return "class"
-
-    def has_children(self, value: type) -> bool:
-        return False
 
     def value_to_json(self, value: type) -> JsonData:
         return str(value)
@@ -255,6 +287,14 @@ class ClassInspector(PositronInspector[type]):
         if not isinstance(class_name, type):
             raise ValueError(f"Could not locate a type named {data}")
         return class_name
+
+
+class PropertyInspector(PositronInspector[property]):
+    def has_children(self, value: object) -> bool:
+        return False
+
+    def get_length(self, value: object) -> int:
+        return 0
 
 
 class FunctionInspector(PositronInspector[Callable]):
@@ -881,6 +921,7 @@ INSPECTORS: Dict[str, PositronInspector] = {
     "function": FunctionInspector(),
     "map": MapInspector(),
     "number": NumberInspector(),
+    "other": ObjectInspector(),
     "string": StringInspector(),
 }
 
