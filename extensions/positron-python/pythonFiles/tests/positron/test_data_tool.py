@@ -281,15 +281,27 @@ def test_pandas_get_data_values(pandas_fixture: PandasFixture):
     # TODO(wesm): for later
     assert result["row_labels"] == []
 
-    # Edge case: request beyond end of table
+    # Edge cases: request beyond end of table
     response = pandas_fixture.get_data_values(
         "simple", row_start_index=5, num_rows=10, column_indices=[0]
     )
     assert response["columns"] == [[]]
 
+    # Issue #2149 -- return empty result when requesting non-existent
+    # column indices
+    response = pandas_fixture.get_data_values(
+        "simple", row_start_index=0, num_rows=5, column_indices=[2, 3, 4, 5]
+    )
+    assert response["columns"] == expected_columns[2:]
+
     # Edge case: request invalid column index
-    with pytest.raises(IndexError):
-        pandas_fixture.get_data_values("simple", row_start_index=0, num_rows=10, column_indices=[4])
+    # Per issue #2149, until we can align on whether the UI is allowed
+    # to request non-existent column indices, disable this test
+
+    # with pytest.raises(IndexError):
+    #     pandas_fixture.get_data_values(
+    #         "simple", row_start_index=0, num_rows=10, column_indices=[4]
+    #     )
 
 
 def _get_compare_filter(filter_type, column_index, compare_op, compare_value):
