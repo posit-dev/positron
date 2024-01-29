@@ -343,7 +343,7 @@ window.onload = function() {
 				id: runtime.metadata.extensionId
 			},
 			options: {},
-			title: '', // TODO: should this be a parameter?
+			title: '',
 		};
 		const webview = this._webviewService.createWebviewOverlay(webviewInitInfo);
 		const rendererPath = asWebviewUri(renderer.entrypoint.path);
