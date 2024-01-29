@@ -22,6 +22,8 @@ const { argv } = require('yargs');
 const os = require('os');
 // --- Start Positron ---
 const rmrf = require('rimraf');
+const fancyLog = require('fancy-log');
+const ansiColors = require('ansi-colors');
 // --- End Positron ---
 const typescript = require('typescript');
 
@@ -270,18 +272,21 @@ gulp.task('installPythonRequirements', async (done) => {
     await spawnAsync(pythonCommand, args, undefined, true)
         .then(() => true)
         .catch((ex) => {
-            console.error("Failed to install requirements using 'python'", ex);
-            return false;
+            const msg = "Failed to install requirements using 'python'";
+            fancyLog.error(ansiColors.red(`error`), msg, ex);
+            done(new Error(msg));
         });
 
     // Vendor Python requirements for the Positron Python kernel.
-    await spawnAsync(pythonCommand, ['scripts/vendor.py'], true).catch((ex) => {
-        done(new Error(`Failed to sync vendored Python requirements\n\n${ex}`));
+    await spawnAsync(pythonCommand, ['scripts/vendor.py'], undefined, true).catch((ex) => {
+        const msg = 'Failed to vendor Python requirements';
+        fancyLog.error(ansiColors.red(`error`), msg, ex);
+        done(new Error(msg));
     });
 });
 
 // See https://github.com/microsoft/vscode-python/issues/7136
-gulp.task('installDebugpy', async () => {
+gulp.task('installDebugpy', async (done) => {
     // Install dependencies needed for 'install_debugpy.py'
     const depsArgs = [
         '-m',
@@ -289,6 +294,7 @@ gulp.task('installDebugpy', async () => {
         '--disable-pip-version-check',
         'install',
         '--no-user',
+        '--upgrade',
         '-t',
         './pythonFiles/lib/temp',
         '-r',
@@ -297,8 +303,9 @@ gulp.task('installDebugpy', async () => {
     await spawnAsync(pythonCommand, depsArgs, undefined, true)
         .then(() => true)
         .catch((ex) => {
-            console.error("Failed to install dependencies need by 'install_debugpy.py' using 'python'", ex);
-            return false;
+            const msg = "Failed to install dependencies need by 'install_debugpy.py' using 'python'";
+            fancyLog.error(ansiColors.red(`error`), msg, ex);
+            done(new Error(msg));
         });
 
     // Install new DEBUGPY with wheels for python
@@ -307,8 +314,9 @@ gulp.task('installDebugpy', async () => {
     await spawnAsync(pythonCommand, wheelsArgs, wheelsEnv, true)
         .then(() => true)
         .catch((ex) => {
-            console.error("Failed to install DEBUGPY wheels using 'python'", ex);
-            return false;
+            const msg = "Failed to install DEBUGPY wheels using 'python'";
+            fancyLog.error(ansiColors.red(`error`), msg, ex);
+            done(new Error(msg));
         });
 
     // Download get-pip.py
@@ -317,8 +325,9 @@ gulp.task('installDebugpy', async () => {
     await spawnAsync(pythonCommand, getPipArgs, getPipEnv, true)
         .then(() => true)
         .catch((ex) => {
-            console.error("Failed to download get-pip wheels using 'python'", ex);
-            return false;
+            const msg = "Failed to download get-pip.py using 'python'";
+            fancyLog.error(ansiColors.red(`error`), msg, ex);
+            done(new Error(msg));
         });
 
     rmrf.sync('./pythonFiles/lib/temp');
@@ -330,20 +339,25 @@ function locatePython() {
     let pythonPath = process.env.CI_PYTHON_PATH || 'python3';
     const whichCommand = os.platform() === 'win32' ? 'where' : 'which';
     try {
-        spawn.sync(whichCommand, [pythonPath], { encoding: 'utf8' });
+        const result = spawn.sync(whichCommand, [pythonPath], { encoding: 'utf8' }).stdout.toString();
+        if (result.trim().length === 0) {
+            throw new Error('Could not find python!');
+        }
     } catch (ex) {
         // Otherwise, default to python
+        const msg = `Error: could not find python at '${pythonPath}'. Using 'python' instead.`;
+        fancyLog.warn(ansiColors.yellow(`warning`), msg);
         pythonPath = 'python';
     }
     return pythonPath;
 }
-// --- End Positron ---
 
 function spawnAsync(command, args, env, rejectOnStdErr = false) {
     env = env || {};
     env = { ...process.env, ...env };
     return new Promise((resolve, reject) => {
         let stdOut = '';
+        let stdErr = '';
         console.info(`> ${command} ${args.join(' ')}`);
         const proc = spawn(command, args, { cwd: __dirname, env });
         proc.stdout.on('data', (data) => {
@@ -354,15 +368,23 @@ function spawnAsync(command, args, env, rejectOnStdErr = false) {
             }
         });
         proc.stderr.on('data', (data) => {
-            console.error(data.toString());
-            if (rejectOnStdErr) {
-                reject(data.toString());
+            // Capture all of the stdErr to print out if the process fails.
+            stdErr += data.toString();
+            if (isCI) {
+                console.error(stdErr);
             }
         });
-        proc.on('close', () => resolve(stdOut));
+
+        proc.on('close', () => {
+            if (stdErr && rejectOnStdErr) {
+                reject(stdErr);
+            }
+            resolve(stdOut);
+        });
         proc.on('error', (error) => reject(error));
     });
 }
+// --- End Positron ---
 
 function hasNativeDependencies() {
     let nativeDependencies = nativeDependencyChecker.check(path.join(__dirname, 'node_modules'));
