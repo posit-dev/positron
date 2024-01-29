@@ -374,7 +374,94 @@ window.onload = function() {
 	import { activate as activateKernel, renderOutput } from "${kernelPath.toString()}"
 
 	// Activate the renderer and create the data object
-	// var renderer = activate(rendererContext);
+	// borrowed from notebook/browser/view/renderers/webviewPreloads.ts:
+	// createRendererContext, createKernelContext, and createEmitter functions
+	// (typescript converted to vanilla javascript)
+	function createEmitter(listenerChange = () => undefined) {
+		const listeners = new Set();
+		return {
+			fire(data) {
+				for (const listener of [...listeners]) {
+					listener.fn.call(listener.thisArg, data);
+				}
+			},
+			event(fn, thisArg, disposables) {
+				const listenerObj = { fn, thisArg };
+				const disposable = {
+					dispose: () => {
+						listeners.delete(listenerObj);
+						listenerChange(listeners);
+					},
+				};
+
+				listeners.add(listenerObj);
+				listenerChange(listeners);
+
+				if (disposables instanceof Array) {
+					disposables.push(disposable);
+				} else if (disposables) {
+					disposables.add(disposable);
+				}
+
+				return disposable;
+			},
+		};
+	}
+
+	const onMessageEmitter = createEmitter();
+	const onKernelMessageEmitter = createEmitter();
+
+	const rendererContext = {
+		setState: newState => vscode.setState({ ...vscode.getState(), [${renderer.id}]: newState }),
+		getState: () => {
+			const state = vscode.getState();
+			return typeof state === 'object' && state ? state[${renderer.id}] : undefined;
+		},
+		getRenderer: async (_id) => {
+			const renderer = {
+				id: '${renderer.id}',
+				displayName: '${renderer.displayName}',
+				entrypoint: {
+					extends: undefined,
+					path: '${rendererPath.toString()}'
+				},
+				mimeTypes: ['${MIME_TYPE_WIDGET_VIEW}'],
+				messaging: true,
+				isBuiltin: false
+			};
+			return renderer;
+		},
+		workspace: {
+			isTrusted: ${this._workspaceTrustManagementService.isWorkspaceTrusted()}
+		},
+		postMessage: (message) => {
+			vscode.postMessage({
+				__vscode_notebook_message: true,
+				type: 'custom_renderer_message',
+				rendererId: '${renderer.id}',
+				...message
+			});
+		},
+
+		onDidReceiveMessage: onMessageEmitter.event
+	};
+
+	const kernelContext = {
+		postKernelMessage: (message) => {
+			vscode.postMessage({
+				__vscode_notebook_message: true,
+				type: 'custom_kernel_message',
+				...message
+			});
+		},
+		onDidReceiveKernelMessage: onKernelMessageEmitter.event
+	};
+
+	activateKernel(kernelContext);
+	vscode.postMessage('IPyWidgets kernel activated');
+
+	activate(rendererContext);
+	vscode.postMessage('IPyWidgets renderer activated');
 
 	window.onload = function() {
 		vscode.postMessage('${RENDER_COMPLETE}');
