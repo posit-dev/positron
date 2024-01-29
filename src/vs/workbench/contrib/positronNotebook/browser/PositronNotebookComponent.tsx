@@ -10,13 +10,15 @@ import { PositronButton } from 'vs/base/browser/ui/positronComponents/positronBu
 import { ISettableObservable } from 'vs/base/common/observableInternal/base';
 import { NotebookCellTextModel } from 'vs/workbench/contrib/notebook/common/model/notebookCellTextModel';
 import { InputObservable } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookEditor';
-import { NotebookKernelObservable, NotebookViewModelObservable } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookWidget';
+import { CellExecutionStatusCallback, NotebookKernelObservable, NotebookViewModelObservable } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookWidget';
 import { useObservedValue } from './useObservedValue';
 import { gatherOutputContents } from 'vs/workbench/contrib/positronNotebook/browser/getOutputContents';
+import { NotebookCellExecutionState } from 'vs/workbench/contrib/notebook/common/notebookCommon';
 
 type CellsExecutionCallback = (cells?: Iterable<NotebookCellTextModel>) => Promise<void>;
+
 export function PositronNotebookComponent(
-	{ message, sizeObservable, inputObservable, viewModelObservable, kernelObservable, executeCells }:
+	{ message, sizeObservable, inputObservable, viewModelObservable, kernelObservable, executeCells, getCellExecutionStatus }:
 		{
 			message: string;
 			sizeObservable: ISettableObservable<ISize>;
@@ -24,6 +26,7 @@ export function PositronNotebookComponent(
 			viewModelObservable: NotebookViewModelObservable;
 			kernelObservable: NotebookKernelObservable;
 			executeCells: CellsExecutionCallback;
+			getCellExecutionStatus: CellExecutionStatusCallback;
 		}
 ) {
 
@@ -45,6 +48,7 @@ export function PositronNotebookComponent(
 				{notebookCells.map(cell => <CellDisplay
 					key={cell.handle}
 					onRunCell={() => executeCells([cell])}
+					getCellExecutionStatus={getCellExecutionStatus}
 					cell={cell} />)
 				}
 			</div>
@@ -53,22 +57,67 @@ export function PositronNotebookComponent(
 }
 
 
-function CellDisplay({ cell, onRunCell }: {
+type ExecutionStateString = 'running' | 'pending' | 'unconfirmed' | 'idle';
+function parseExecutionState(state?: NotebookCellExecutionState): ExecutionStateString {
+	switch (state) {
+		case NotebookCellExecutionState.Executing:
+			return 'running';
+		case NotebookCellExecutionState.Pending:
+			return 'pending';
+		case NotebookCellExecutionState.Unconfirmed:
+			return 'unconfirmed';
+		default:
+			return 'idle';
+	}
+}
+
+function useRunCell({ cell, onRunCell, getCellExecutionStatus }: {
 	cell: NotebookCellTextModel;
-	onRunCell: () => void;
+	onRunCell: () => Promise<void>;
+	getCellExecutionStatus: CellExecutionStatusCallback;
+}) {
+
+	const [executionStatus, setExecutionStatus] = React.useState<ExecutionStateString>('idle');
+
+	const runCell = React.useCallback(() => {
+		setExecutionStatus('running');
+		onRunCell().then(() => {
+			setExecutionStatus('idle');
+		}).catch(() => {
+			setExecutionStatus(parseExecutionState(getCellExecutionStatus(cell)?.state));
+		});
+	}, [onRunCell, getCellExecutionStatus, cell]);
+
+
+	return {
+		runCell,
+		executionStatus,
+	};
+}
+
+function CellDisplay({ cell, onRunCell, getCellExecutionStatus }: {
+	cell: NotebookCellTextModel;
+	onRunCell: () => Promise<void>;
+	getCellExecutionStatus: CellExecutionStatusCallback;
 }) {
 
 	const outputContents = useCellOutputContents(cell);
 
+	const {
+		runCell,
+		executionStatus
+	} = useRunCell({ cell, onRunCell, getCellExecutionStatus });
+
 	return (
 		<div className='positron-notebook-cell'>
-			<PositronButton className='run-button' ariaLabel='Run cell' onClick={onRunCell}>
+			<PositronButton className='run-button' ariaLabel='Run cell' onClick={runCell}>
 				<div className={`button-icon codicon codicon-run`} />
 			</PositronButton>
 			<pre className='positron-notebook-cell-code'>{cell.getValue()}</pre>
 			<div className='positron-notebook-cell-outputs'>
 				{outputContents ? outputContents.map(({ content, id }) => <div key={id}>{content}</div>) : 'No outputs'}
 			</div>
+			<div className='execution-status'>Status: {executionStatus}</div>
 		</div>
 	);
 }

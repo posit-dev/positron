@@ -24,15 +24,15 @@ import { NotebookLayoutChangedEvent } from 'vs/workbench/contrib/notebook/browse
 import { NotebookEventDispatcher } from 'vs/workbench/contrib/notebook/browser/viewModel/eventDispatcher';
 import { NotebookViewModel } from 'vs/workbench/contrib/notebook/browser/viewModel/notebookViewModelImpl';
 import { ViewContext } from 'vs/workbench/contrib/notebook/browser/viewModel/viewContext';
+import { NotebookCellTextModel } from 'vs/workbench/contrib/notebook/common/model/notebookCellTextModel';
 import { NotebookTextModel } from 'vs/workbench/contrib/notebook/common/model/notebookTextModel';
-import { INotebookExecutionStateService } from 'vs/workbench/contrib/notebook/common/notebookExecutionStateService';
+import { INotebookExecutionService } from 'vs/workbench/contrib/notebook/common/notebookExecutionService';
+import { INotebookCellExecution, INotebookExecutionStateService } from 'vs/workbench/contrib/notebook/common/notebookExecutionStateService';
 import { INotebookKernel, INotebookKernelService } from 'vs/workbench/contrib/notebook/common/notebookKernelService';
 import { InputObservable } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookEditor';
 import { OptionalObservable } from 'vs/workbench/contrib/positronNotebook/common/utils/observeValue';
 import { BaseCellEditorOptions } from './BaseCellEditorOptions';
 import { PositronNotebookComponent } from './PositronNotebookComponent';
-import { INotebookExecutionService } from 'vs/workbench/contrib/notebook/common/notebookExecutionService';
-import { NotebookCellTextModel } from 'vs/workbench/contrib/notebook/common/model/notebookCellTextModel';
 
 
 // Things currently omitted in the name of getting something working quicker:
@@ -49,6 +49,9 @@ export type NotebookKernelObservable = OptionalObservable<
 	INotebookKernel
 >;
 
+
+type CellExecutionStatus = INotebookCellExecution | undefined;
+export type CellExecutionStatusCallback = (cell: NotebookCellTextModel) => CellExecutionStatus;
 
 export class PositronNotebookWidget extends Disposable {
 
@@ -134,15 +137,12 @@ export class PositronNotebookWidget extends Disposable {
 		},
 		readonly creationOptions: INotebookEditorCreationOptions | undefined,
 		// TODO: Label what each of these DI items are for.
-		@INotebookKernelService private readonly _notebookKernelService: INotebookKernelService,
+		@INotebookKernelService private readonly notebookKernelService: INotebookKernelService,
 		@INotebookExecutionService private readonly notebookExecutionService: INotebookExecutionService,
+		@INotebookExecutionStateService private readonly notebookExecutionStateService: INotebookExecutionStateService,
 		@IConfigurationService private readonly configurationService: IConfigurationService,
 		@IInstantiationService instantiationService: IInstantiationService,
 		@IContextKeyService contextKeyService: IContextKeyService,
-		@INotebookExecutionStateService notebookExecutionStateService: INotebookExecutionStateService,
-
-
-
 	) {
 		super();
 
@@ -155,7 +155,7 @@ export class PositronNotebookWidget extends Disposable {
 		this._readOnly = creationOptions?.isReadOnly ?? false;
 
 
-		this._notebookOptions = creationOptions?.options ?? new NotebookOptions(this.configurationService, notebookExecutionStateService, this._readOnly);
+		this._notebookOptions = creationOptions?.options ?? new NotebookOptions(this.configurationService, this.notebookExecutionStateService, this._readOnly);
 
 
 		this._viewContext = new ViewContext(
@@ -178,15 +178,18 @@ export class PositronNotebookWidget extends Disposable {
 
 		this._register(
 
-			this._notebookKernelService.onDidAddKernel(() => {
+			this.notebookKernelService.onDidAddKernel(() => {
 				console.log('Kernel added');
-				const kernels = this._notebookKernelService.getMatchingKernel(this.getViewModel()!.notebookDocument);
+				const kernels = this.notebookKernelService.getMatchingKernel(this.getViewModel()!.notebookDocument);
 				const kernelList = kernels.all;
 
 				console.log('kernels', kernelList);
 
 			})
 		);
+
+		// this._notebookExecutionStateService.createExecution;
+
 
 	}
 
@@ -339,9 +342,8 @@ export class PositronNotebookWidget extends Disposable {
 			throw new Error('No view model');
 		}
 
-		const kernelMatches = this._notebookKernelService.getMatchingKernel(viewModel.notebookDocument);
+		const kernelMatches = this.notebookKernelService.getMatchingKernel(viewModel.notebookDocument);
 
-		console.log('Setting up kernel', { kernelMatches });
 
 		// Make sure we actually have kernels that have matched
 		if (kernelMatches.all.length === 0) {
@@ -361,13 +363,11 @@ export class PositronNotebookWidget extends Disposable {
 		}
 
 		// Link kernel with notebook
-		this._notebookKernelService.selectKernelForNotebook(kernelForLanguage, viewModel.notebookDocument);
+		this.notebookKernelService.selectKernelForNotebook(kernelForLanguage, viewModel.notebookDocument);
 
 
 		this.kernelObservable.set(kernelForLanguage, undefined);
 		this.executionServiceObservable.set(this.notebookExecutionService, undefined);
-
-		// this._notebookKernelService
 	}
 
 
@@ -413,9 +413,23 @@ export class PositronNotebookWidget extends Disposable {
 			}
 		}
 
-		return this.notebookExecutionService.executeNotebookCells(this.textModel, cells, this.scopedContextKeyService);
+
+
+		await this.notebookExecutionService.executeNotebookCells(this.textModel, cells, this.scopedContextKeyService);
+
+
+
 	}
 
+	/**
+	 * Get the execution status of one or more cells of a notebook.
+	 * @param cells Cells to check execution status for
+	 * @returns An array of execution statuses for the given cells.
+	 */
+	getCellExecutionStatus(cell: NotebookCellTextModel): CellExecutionStatus {
+
+		return this.notebookExecutionStateService.getCellExecution(cell.uri);
+	}
 	/**
 	 * Keep track of if this editor has been disposed.
 	 */
@@ -525,6 +539,7 @@ export class PositronNotebookWidget extends Disposable {
 				kernelObservable={this.kernelObservable}
 				viewModelObservable={this._viewModelObservable}
 				executeCells={this.executeNotebookCells.bind(this)}
+				getCellExecutionStatus={this.getCellExecutionStatus.bind(this)}
 			/>
 		);
 	}

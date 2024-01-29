@@ -84,4 +84,12 @@
 	& pre {
 		margin: 0;
 	}
+
+	.execution-status {
+		position: absolute;
+		right: 3px;
+		bottom: 0;
+		font-size: 0.7rem;
+		font-style: italic;
+	}
 }
