@@ -199,11 +199,17 @@ class PandasView(DataToolTableView):
     ) -> TableData:
         formatted_columns = []
 
+        column_indices = sorted(column_indices)
+
         # TODO(wesm): This value formatting strategy produces output
         # that is not the same as what users see in the console. I
         # will have to look for the right pandas function that deals
         # with value formatting
         for i in column_indices:
+            # The UI has requested data beyond the end of the table,
+            # so we stop here
+            if i >= len(self.table.columns):
+                break
             col = self.table.iloc[:, i]
 
             # If the table is either filtered or sorted, view_indices
