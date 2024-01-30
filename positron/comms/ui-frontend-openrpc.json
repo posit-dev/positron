@@ -133,6 +133,13 @@
 							"description": "Document metadata",
 							"$ref": "#/components/schemas/uiTextDocument"
 						},
+						"contents": {
+							"description": "Document contents",
+							"type": "array",
+							"items": {
+								"type": "string"
+							}
+						},
 						"selection": {
 							"description": "The primary selection, i.e. selections[0]",
 							"$ref": "#/components/schemas/uiSelection"
@@ -147,6 +154,7 @@
 					},
 					"required": [
 						"document",
+						"contents",
 						"selection",
 						"selections"
 					]
@@ -165,10 +173,10 @@
 						"description": "URI of the resource viewed in the editor"
 					},
 					"eol": {
-						"type": "integer",
-						"description": "End of line character"
+						"type": "string",
+						"description": "End of line sequence"
 					},
-					"isClosed": {
+ 					"isClosed": {
 						"type": "boolean",
 						"description": "Whether the document has been closed"
 					},
@@ -210,7 +218,7 @@
 				"properties": {
 					"character": {
 						"type": "integer",
-						"description": "The zero-based character value."
+						"description": "The zero-based character value, as a Unicode code point offset."
 					},
 					"line": {
 						"type": "integer",

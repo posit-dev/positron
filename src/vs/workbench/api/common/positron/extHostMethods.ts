@@ -4,9 +4,9 @@
 
 import * as extHostProtocol from './extHost.positron.protocol';
 import { ExtHostEditors } from '../extHostTextEditors';
-import { EditorContextResult, UiFrontendRequest } from 'vs/workbench/services/languageRuntime/common/positronUiComm';
+import { UiFrontendRequest, EditorContextResult } from 'vs/workbench/services/languageRuntime/common/positronUiComm';
 import { JsonRpcErrorCode } from 'vs/workbench/services/languageRuntime/common/positronBaseComm';
-
+import { EndOfLine } from '../extHostTypeConverters';
 
 type JsonRpcResponse = JsonRpcResult | JsonRpcError;
 
@@ -116,10 +116,17 @@ export class ExtHostMethods implements extHostProtocol.ExtHostMethodsShape {
 			};
 		});
 
+		// it's surprisingly fiddly to finesse this vscode.EndOfLife enum, which we don't have
+		// direct access to here
+		const eolSequenceEnum = EndOfLine.from(editor.document.eol);
+		const eolSequence = eolSequenceEnum === 0 ? '\n' : '\r\n';
+		const documentText = editor.document.getText();
+		const lines = documentText.split(eolSequence);
+
 		return {
 			document: {
 				path: editor.document.fileName,
-				eol: editor.document.eol,
+				eol: eolSequence,
 				isClosed: editor.document.isClosed,
 				isDirty: editor.document.isDirty,
 				isUntitled: editor.document.isUntitled,
@@ -127,6 +134,7 @@ export class ExtHostMethods implements extHostProtocol.ExtHostMethodsShape {
 				lineCount: editor.document.lineCount,
 				version: editor.document.version,
 			},
+			contents: lines,
 			// The primary selection in this text editor. Shorthand for `TextEditor.selections[0]`.
 			selection: selections[0],
 			selections: selections

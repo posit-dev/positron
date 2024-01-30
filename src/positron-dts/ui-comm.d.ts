@@ -12,6 +12,11 @@ export interface TextEditorContext {
 	document: TextDocumentRedux;
 
 	/**
+	 * Document contents
+	 */
+	contents: Array<string>;
+
+	/**
 	 * The primary selection, i.e. selections[0]
 	 */
 	selection: SelectionRedux;
@@ -32,9 +37,9 @@ export interface TextDocumentRedux {
 	path: string;
 
 	/**
-	 * End of line character
+	 * End of line sequence
 	 */
-	eol: number;
+	eol: string;
 
 	/**
 	 * Whether the document has been closed
@@ -73,7 +78,7 @@ export interface TextDocumentRedux {
  */
 export interface PositionRedux {
 	/**
-	 * The zero-based character value.
+	 * The zero-based character value, as a Unicode code point offset.
 	 */
 	character: number;
 
