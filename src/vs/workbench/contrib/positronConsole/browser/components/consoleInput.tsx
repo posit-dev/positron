@@ -398,8 +398,6 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 			// Down arrow processing.
 			case KeyCode.DownArrow: {
 
-				console.log(`Down arrow pressed. browser active: ${historyBrowserActiveRef.current}`);
-
 				// If the history browser is up, update the selected index.
 				if (historyBrowserActiveRef.current) {
 					setHistoryBrowserSelectedIndex(Math.min(
