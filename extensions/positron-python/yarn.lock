@@ -435,7 +435,7 @@
     base64-js "^1.2.1"
     sanitize-html "^2.3"
 
-"@jupyter-widgets/base@^6.0.6":
+"@jupyter-widgets/base@^2 || ^3 || ^4 || ^5 || ^6", "@jupyter-widgets/base@^6.0.6":
   version "6.0.6"
   resolved "https://registry.yarnpkg.com/@jupyter-widgets/base/-/base-6.0.6.tgz#1e6746c897085ab7a9aea6d2890b10833011b66d"
   integrity sha512-oafc4mZfH2r7VP15fPTmonwYg9onPsO8To4ip/p4fxRB3aBGIDDev5hou0dk2XfOpZLFgYAASEf3x6ze6KLnrQ==
@@ -1272,6 +1272,11 @@
   version "18.13.0"
   resolved "https://registry.yarnpkg.com/@types/node/-/node-18.13.0.tgz#0400d1e6ce87e9d3032c19eb6c58205b0d3f7850"
   integrity sha512-gC3TazRzGoOnoKAhUx+Q0t8S9Tzs74z7m0ipwGpSqQrleP14hKxP4/JUeEQcD3W1/aIpnWl8pHowI7WokuZpXg==
+
+"@types/node@^14.14.35":
+  version "14.18.63"
+  resolved "https://registry.yarnpkg.com/@types/node/-/node-14.18.63.tgz#1788fa8da838dbb5f9ea994b834278205db6ca2b"
+  integrity sha512-fAtCfv4jJg+ExtXhvCkCqUKZ+4ok/JQk01qDKhL5BDDoS3AxKXhV5/MAVUZyQnSEd2GT92fkgZl0pz0Q0AzcIQ==
 
 "@types/node@^18.17.1":
   version "18.18.4"
@@ -5699,6 +5704,15 @@ jszip@^3.10.1:
     pako "~1.0.2"
     readable-stream "~2.3.6"
     setimmediate "^1.0.5"
+
+jupyter-matplotlib@^0.11.3:
+  version "0.11.3"
+  resolved "https://registry.yarnpkg.com/jupyter-matplotlib/-/jupyter-matplotlib-0.11.3.tgz#7ee76ab20ca778bf57d1691057db8ee94aae3b98"
+  integrity sha512-Xo29BQXvc9IsLrdC5t9ZBfUYE94/pNz/smLwGA3QhcGAI3ypPmQdYtRjhmDv4XSxrPsNvG+/+gI6uYekRmbMSw==
+  dependencies:
+    "@jupyter-widgets/base" "^2 || ^3 || ^4 || ^5 || ^6"
+    "@types/node" "^14.14.35"
+    lodash "^4.17.21"
 
 just-debounce@^1.0.0:
   version "1.1.0"
