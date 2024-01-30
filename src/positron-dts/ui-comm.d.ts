@@ -2,14 +2,18 @@
  *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
+//
+// Copied from src/vs/workbench/services/languageRuntime/common/positronUiComm.ts; do not edit.
+//
+
 /**
  * Editor metadata
  */
-export interface TextEditorContext {
+export interface EditorContextResult {
 	/**
 	 * Document metadata
 	 */
-	document: TextDocumentRedux;
+	document: UiTextDocument;
 
 	/**
 	 * Document contents
@@ -19,18 +23,19 @@ export interface TextEditorContext {
 	/**
 	 * The primary selection, i.e. selections[0]
 	 */
-	selection: SelectionRedux;
+	selection: UiSelection;
 
 	/**
 	 * The selections in this text editor.
 	 */
-	selections: Array<SelectionRedux>;
+	selections: Array<UiSelection>;
+
 }
 
 /**
  * Document metadata
  */
-export interface TextDocumentRedux {
+export interface UiTextDocument {
 	/**
 	 * URI of the resource viewed in the editor
 	 */
@@ -76,7 +81,7 @@ export interface TextDocumentRedux {
 /**
  * A line and character position, such as the position of the cursor.
  */
-export interface PositionRedux {
+export interface UiPosition {
 	/**
 	 * The zero-based character value, as a Unicode code point offset.
 	 */
@@ -92,21 +97,21 @@ export interface PositionRedux {
 /**
  * Selection metadata
  */
-export interface SelectionRedux {
+export interface UiSelection {
 	/**
 	 * Position of the cursor.
 	 */
-	active: PositionRedux;
+	active: UiPosition;
 
 	/**
 	 * Start position of the selection
 	 */
-	start: PositionRedux;
+	start: UiPosition;
 
 	/**
 	 * End position of the selection
 	 */
-	end: PositionRedux;
+	end: UiPosition;
 
 	/**
 	 * Text of the selection
