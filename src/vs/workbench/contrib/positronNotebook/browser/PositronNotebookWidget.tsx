@@ -56,7 +56,6 @@ export type CellExecutionStatusCallback = (cell: NotebookCellTextModel) => CellE
 export class PositronNotebookWidget extends Disposable {
 
 	_baseElement: HTMLElement;
-	_message: string;
 	_size: ISettableObservable<ISize>;
 	_input: InputObservable;
 	_viewModelObservable: NotebookViewModelObservable = observableValue(
@@ -129,8 +128,7 @@ export class PositronNotebookWidget extends Disposable {
 
 
 	constructor(
-		{ message, size, input, baseElement }: {
-			message: string;
+		{ size, input, baseElement }: {
 			size: ISettableObservable<ISize>;
 			input: InputObservable;
 			baseElement: HTMLElement;
@@ -146,7 +144,6 @@ export class PositronNotebookWidget extends Disposable {
 	) {
 		super();
 
-		this._message = message;
 		this._size = size;
 		this._input = input;
 		this._baseElement = baseElement;
@@ -533,7 +530,6 @@ export class PositronNotebookWidget extends Disposable {
 	renderReact() {
 		this.positronReactRenderer.render(
 			<PositronNotebookComponent
-				message={this._message}
 				sizeObservable={this._size}
 				inputObservable={this._input}
 				kernelObservable={this.kernelObservable}

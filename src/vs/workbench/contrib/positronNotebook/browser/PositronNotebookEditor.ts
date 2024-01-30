@@ -173,7 +173,6 @@ export class PositronNotebookEditor extends EditorPane {
 		this._notebookWidget = this._instantiationService.createInstance(
 			PositronNotebookWidget,
 			{
-				message: 'Hello Positron!',
 				size: this._size,
 				input: this._inputObservable,
 				baseElement: myDiv

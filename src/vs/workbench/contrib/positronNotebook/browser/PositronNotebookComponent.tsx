@@ -18,9 +18,8 @@ import { NotebookCellExecutionState } from 'vs/workbench/contrib/notebook/common
 type CellsExecutionCallback = (cells?: Iterable<NotebookCellTextModel>) => Promise<void>;
 
 export function PositronNotebookComponent(
-	{ message, sizeObservable, inputObservable, viewModelObservable, kernelObservable, executeCells, getCellExecutionStatus }:
+	{ sizeObservable, inputObservable, viewModelObservable, kernelObservable, executeCells, getCellExecutionStatus }:
 		{
-			message: string;
 			sizeObservable: ISettableObservable<ISize>;
 			inputObservable: InputObservable;
 			viewModelObservable: NotebookViewModelObservable;
@@ -81,11 +80,12 @@ function useRunCell({ cell, onRunCell, getCellExecutionStatus }: {
 
 	const runCell = React.useCallback(() => {
 		setExecutionStatus('running');
-		onRunCell().then(() => {
-			setExecutionStatus('idle');
-		}).catch(() => {
-			setExecutionStatus(parseExecutionState(getCellExecutionStatus(cell)?.state));
-		});
+		onRunCell()
+			.then(() => {
+				setExecutionStatus('idle');
+			}).catch(() => {
+				setExecutionStatus(parseExecutionState(getCellExecutionStatus(cell)?.state));
+			});
 	}, [onRunCell, getCellExecutionStatus, cell]);
 
 
