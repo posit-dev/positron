@@ -189,8 +189,33 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 		// Begin registering/discovering language runtimes once all extensions have been started.
 		this._extensionService.whenAllExtensionHostsStarted().then(() => {
 			this.startAffiliatedLanguageRuntimes();
-			this._onDidChangeDiscoveryPhaseEmitter.fire(LanguageRuntimeDiscoveryPhase.Discovering);
+			if (this._workspaceTrustManagementService.isWorkspaceTrusted()) {
+				// The workspace is trusted, so we can start the discovery phase.
+				this._onDidChangeDiscoveryPhaseEmitter.fire(LanguageRuntimeDiscoveryPhase.Discovering);
+			} else {
+				// The workspace is not trusted, so we need to wait for the
+				// workspace to be trusted before starting the discovery phase.
+				this._onDidChangeDiscoveryPhaseEmitter.fire(LanguageRuntimeDiscoveryPhase.AwaitingTrust);
+			}
 		});
+
+		// Listen for changes to the workspace's trust status.
+		this._register(this._workspaceTrustManagementService.onDidChangeTrust(trusted => {
+			// If the workspace becomes trusted and we were awaiting trust,
+			// start the discovery phase.
+			if (trusted) {
+				if (this._discoveryPhase === LanguageRuntimeDiscoveryPhase.AwaitingTrust) {
+					// Wait a beat before starting the discovery phase so that extensions have a
+					// chance to register discoverers. Unfortunately, there
+					// doesn't appear to be any event which reliably notifies us
+					// that extensions have completed reloading after a change
+					// in trust status.
+					setTimeout(() => {
+						this._onDidChangeDiscoveryPhaseEmitter.fire(LanguageRuntimeDiscoveryPhase.Discovering);
+					}, 500);
+				}
+			}
+		}));
 
 		// Update the discovery phase when the language service's state changes.
 		this.onDidChangeDiscoveryPhase(phase => {

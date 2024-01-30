@@ -457,6 +457,12 @@ export enum LanguageRuntimeDiscoveryPhase {
 	AwaitingExtensions = 'AwaitingExtensions',
 
 	/**
+	 * We are waiting for the user to trust the workspace so we can begin
+	 * discovering language runtimes.
+	 */
+	AwaitingTrust = 'AwaitingTrust',
+
+	/**
 	 * Language runtimes are currently being discovered and registered. During
 	 * this phase, the service emits `onDidRegisterRuntime` events as it
 	 * discovers new runtimes.

@@ -1,0 +1,12 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *--------------------------------------------------------------------------------------------*/
+
+.awaiting-trust {
+	box-sizing: border-box;
+	border-top: 1px solid var(--vscode-positronSideActionBar-border);
+}
+
+.awaiting-trust .title {
+	margin: 10px;
+}

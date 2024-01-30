@@ -14,6 +14,7 @@ import { DiscoveringInterpreters } from 'vs/workbench/contrib/positronConsole/br
 
 // eslint-disable-next-line no-duplicate-imports
 import { useEffect, useState } from 'react';
+import { AwaitingTrust } from 'vs/workbench/contrib/positronConsole/browser/components/awaitingTrust';
 
 // ConsoleCoreProps interface.
 interface ConsoleCoreProps {
@@ -46,6 +47,8 @@ export const ConsoleCore = (props: ConsoleCoreProps) => {
 	if (positronConsoleContext.positronConsoleInstances.length === 0) {
 		if (discoveryPhase === LanguageRuntimeDiscoveryPhase.Complete) {
 			return <EmptyConsole />;
+		} else if (discoveryPhase === LanguageRuntimeDiscoveryPhase.AwaitingTrust) {
+			return <AwaitingTrust />;
 		} else {
 			return <DiscoveringInterpreters />;
 		}
