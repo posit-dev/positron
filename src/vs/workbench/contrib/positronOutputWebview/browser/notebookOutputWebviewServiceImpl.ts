@@ -18,6 +18,7 @@ import { asWebviewUri } from 'vs/workbench/contrib/webview/common/webview';
 import { IExtensionService } from 'vs/workbench/services/extensions/common/extensions';
 import { ILanguageRuntime, ILanguageRuntimeMessageWebOutput } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { MIME_TYPE_WIDGET_STATE, MIME_TYPE_WIDGET_VIEW, IPyWidgetViewSpec } from 'vs/workbench/services/positronIPyWidgets/common/positronIPyWidgetsService';
+import { ActivationFunction, OutputItem, RendererContext } from 'vscode-notebook-renderer';
 
 export class PositronNotebookOutputWebviewService implements IPositronNotebookOutputWebviewService {
 
@@ -330,6 +331,28 @@ window.onload = function() {
 		if (!renderer) {
 			return Promise.reject(`No renderer found for ${MIME_TYPE_WIDGET_VIEW}`);
 		}
+		const rawData = encodeBase64(
+			VSBuffer.fromString(JSON.stringify(data)));
+
+		// Create the preload script contents. This is a simplified version of the
+		// preloads script that the notebook renderer API creates.
+		const preloads = preloadsScriptStr({
+			// PreloadStyles
+			outputNodeLeftPadding: 0,
+			outputNodePadding: 0,
+			tokenizationCss: '',
+		}, {
+			// PreloadOptions
+			dragAndDropEnabled: false
+		}, {
+			lineLimit: 1000,
+			outputScrolling: true,
+			outputWordWrap: false
+		},
+			this.getRendererData(MIME_TYPE_WIDGET_VIEW),
+			await this.getStaticPreloadsData(renderer.extensionId),
+			this._workspaceTrustManagementService.isWorkspaceTrusted(),
+			id);
 
 		// Create the metadata for the webview
 		const webviewInitInfo: WebviewInitInfo = {
@@ -368,10 +391,11 @@ window.onload = function() {
 		webview.setHtml(`
 <html>
 <head>
+
 <script type="module">
 	const vscode = acquireVsCodeApi();
 	import { activate } from "${rendererPath.toString()}"
-	import { activate as activateKernel, renderOutput } from "${kernelPath.toString()}"
+	import { activate as activateKernel } from "${kernelPath.toString()}"
 
 	// Activate the renderer and create the data object
 	// borrowed from notebook/browser/view/renderers/webviewPreloads.ts:
@@ -469,16 +493,29 @@ window.onload = function() {
 		}
 	});
 
-	activateKernel(kernelContext);
-	vscode.postMessage('IPyWidgets kernel activated');
+	const renderer = activate(rendererContext);
+	const kernel = activateKernel(kernelContext);
+	const controller = new AbortController();
+	const signal = controller.signal;
+	var rawData = atob('${rawData}');
+	var data = {
+		id: '${id}',
+		mime: '${MIME_TYPE_WIDGET_VIEW}',
+		text: () => { return rawData },
+		json: () => { return JSON.parse(rawData) },
+		data: () => { return new Uint8Array() /* NYI */ },
+		blob: () => { return new Blob(); /* NYI */ },
+	};
 
-	activate(rendererContext);
-	vscode.postMessage('IPyWidgets renderer activated');
-
+	// Render the widget when the page is loaded, then post a message to the
+	// host letting it know that render is complete.
 	window.onload = function() {
-		vscode.postMessage('${RENDER_COMPLETE}');
-};
+		let container = document.getElementById('container');
+		renderer.renderOutputItem(data, container, signal);
+	};
+
 </script>
+<script type="module">${preloads}</script>
 
 <!-- Load RequireJS, used by the IPywidgets for dependency management -->
 <script src='${requiresPath}'></script>
@@ -493,6 +530,7 @@ window.onload = function() {
 <script type="${MIME_TYPE_WIDGET_STATE}">
 ${managerState}
 </script>
+
 </head>
 
 <body>
