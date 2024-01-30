@@ -346,8 +346,9 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 
 			// Up arrow processing.
 			case KeyCode.UpArrow: {
-				if (cmdOrCtrlKey) {
-					// If the cmd or ctrl key is pressed, engage the history browser with the
+				if (cmdOrCtrlKey && !historyBrowserActiveRef.current) {
+					// If the cmd or ctrl key is pressed, and the history
+					// browser is not up, engage the history browser with the
 					// prefix match strategy. This behavior mimics RStudio.
 					engageHistoryBrowser(new HistoryPrefixMatchStrategy(
 						historyNavigatorRef.current!
@@ -358,7 +359,7 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 
 				// If the history browser is present, Up should select the
 				// previous history item.
-				if (historyBrowserActiveRef.current) {
+				else if (historyBrowserActiveRef.current) {
 					setHistoryBrowserSelectedIndex(Math.max(
 						0, historyBrowserSelectedIndexRef.current - 1));
 					consumeEvent();
