@@ -18,7 +18,6 @@ import { asWebviewUri } from 'vs/workbench/contrib/webview/common/webview';
 import { IExtensionService } from 'vs/workbench/services/extensions/common/extensions';
 import { ILanguageRuntime, ILanguageRuntimeMessageWebOutput } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { MIME_TYPE_WIDGET_STATE, MIME_TYPE_WIDGET_VIEW, IPyWidgetViewSpec } from 'vs/workbench/services/positronIPyWidgets/common/positronIPyWidgetsService';
-import { ActivationFunction, OutputItem, RendererContext } from 'vscode-notebook-renderer';
 
 export class PositronNotebookOutputWebviewService implements IPositronNotebookOutputWebviewService {
 
