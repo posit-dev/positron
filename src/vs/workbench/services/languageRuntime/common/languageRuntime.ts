@@ -9,7 +9,7 @@ import { ILanguageService } from 'vs/editor/common/languages/language';
 import { Disposable, IDisposable, toDisposable } from 'vs/base/common/lifecycle';
 import { CommandsRegistry, ICommandService } from 'vs/platform/commands/common/commands';
 import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/common/extensions';
-import { formatLanguageRuntime, ILanguageRuntime, ILanguageRuntimeMetadata, ILanguageRuntimeGlobalEvent, ILanguageRuntimeService, ILanguageRuntimeStateEvent, LanguageRuntimeDiscoveryPhase, LanguageRuntimeStartupBehavior, RuntimeClientType, RuntimeExitReason, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { formatLanguageRuntime, ILanguageRuntime, ILanguageRuntimeMetadata, ILanguageRuntimeGlobalEvent, ILanguageRuntimeService, ILanguageRuntimeStateEvent, LanguageRuntimeDiscoveryPhase, LanguageRuntimeStartupBehavior, RuntimeClientType, RuntimeExitReason, RuntimeState, formatLanguageRuntimeMetadata } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { UiClientInstance, IUiClientMessageInput, IUiClientMessageOutput } from 'vs/workbench/services/languageRuntime/common/languageRuntimeUiClient';
 import { LanguageRuntimeWorkspaceAffiliation } from 'vs/workbench/services/languageRuntime/common/languageRuntimeWorkspaceAffiliation';
 import { IStorageService } from 'vs/platform/storage/common/storage';
@@ -149,7 +149,8 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 
 		// Create the object that tracks the affiliation of runtimes to workspaces.
 		this._workspaceAffiliation =
-			new LanguageRuntimeWorkspaceAffiliation(this, this._storageService, this._logService);
+			new LanguageRuntimeWorkspaceAffiliation(this, this._storageService, this._logService,
+				this._configurationService);
 		this._register(this._workspaceAffiliation);
 
 		// Register as an opener in the opener service.
@@ -253,6 +254,13 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 	 */
 	get activeRuntime(): ILanguageRuntime | undefined {
 		return this._activeRuntime;
+	}
+
+	/**
+	 * Gets the current discovery phase
+	 */
+	get discoveryPhase(): LanguageRuntimeDiscoveryPhase {
+		return this._discoveryPhase;
 	}
 
 	/**
@@ -822,6 +830,16 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 			this._workspaceAffiliation.getAffiliatedRuntimeMetadata(languageId);
 
 		if (affiliatedRuntimeMetadata) {
+			// Check the setting to see if we should be auto-starting.
+			const autoStart = this._configurationService.getValue<boolean>(
+				'positron.interpreters.automaticStartup');
+			if (!autoStart) {
+				this._logService.info(`Language runtime ` +
+					`${formatLanguageRuntimeMetadata(affiliatedRuntimeMetadata)} ` +
+					`is affiliated with this workspace, but won't be started because automatic ` +
+					`startup is disabled in configuration.`);
+				return;
+			}
 			this._onDidRequestLanguageRuntimeEmitter.fire(affiliatedRuntimeMetadata);
 		}
 	}
@@ -833,6 +851,17 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 	 * @param source The source of the request to start the runtime.
 	 */
 	private async autoStartRuntime(runtime: ILanguageRuntime, source: string): Promise<void> {
+		// Check the setting to see if we should be auto-starting.
+		const autoStart = this._configurationService.getValue<boolean>(
+			'positron.interpreters.automaticStartup');
+		if (!autoStart) {
+			this._logService.info(`Language runtime ` +
+				`${formatLanguageRuntime(runtime)} ` +
+				`was scheduled for automatic start, but won't be started because automatic ` +
+				`startup is disabled in configuration. Source: ${source}`);
+			return;
+		}
+
 		if (this._workspaceTrustManagementService.isWorkspaceTrusted()) {
 			// If the workspace is trusted, start the runtime.
 			this._logService.info(`Language runtime ` +
@@ -1073,7 +1102,13 @@ configurationRegistry.registerConfiguration({
 			scope: ConfigurationScope.MACHINE,
 			type: 'boolean',
 			default: true,
-			description: nls.localize('positron.runtime.restartOnCrash', "When enabled, runtimes are automatically restarted after a crash.")
+			description: nls.localize('positron.runtime.restartOnCrash', "When enabled, interpreters are automatically restarted after a crash.")
+		},
+		'positron.interpreters.automaticStartup': {
+			scope: ConfigurationScope.MACHINE,
+			type: 'boolean',
+			default: true,
+			description: nls.localize('positron.runtime.automaticStartup', "When enabled, interpreters can start automatically.")
 		}
 	}
 });

@@ -291,7 +291,7 @@ jobs:
     needs: macos-universal
     steps:
       - name: Notify slack if build fails
-        uses: slackapi/slack-github-action@v1.24.0
+        uses: slackapi/slack-github-action@v1.25.0
         id: slack-failure
         with:
           payload: |

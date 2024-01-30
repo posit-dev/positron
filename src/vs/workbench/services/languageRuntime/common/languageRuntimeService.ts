@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
 import { Event } from 'vs/base/common/event';
@@ -13,12 +13,26 @@ import { IRuntimeClientEvent } from 'vs/workbench/services/languageRuntime/commo
 export const ILanguageRuntimeService = createDecorator<ILanguageRuntimeService>('languageRuntimeService');
 
 /**
+ * Formats a language runtime metadata for logging.
+ *
+ * @param metadata The language runtime metadata to format for logging.
+ *
+ * @returns A string suitable for logging the language runtime.
+ */
+export const formatLanguageRuntimeMetadata = (metadata: ILanguageRuntimeMetadata) =>
+	`${metadata.runtimeId} ` +
+	`(language: ${metadata.languageName} ` +
+	`name: ${metadata.runtimeName} ` +
+	`version: ${metadata.languageVersion})`;
+
+/**
  * Formats a language runtime for logging.
  * @param languageRuntime The language runtime to format for logging.
  * @returns A string suitable for logging the language runtime.
  */
-export const formatLanguageRuntime = (languageRuntime: ILanguageRuntime) =>
-	`${languageRuntime.metadata.runtimeId} (language: ${languageRuntime.metadata.languageName} name: ${languageRuntime.metadata.runtimeName} version: ${languageRuntime.metadata.languageVersion})`;
+export const formatLanguageRuntime = (languageRuntime: ILanguageRuntime) => {
+	return formatLanguageRuntimeMetadata(languageRuntime.metadata);
+};
 
 /**
  * LanguageRuntimeMessage is an interface that defines an event occurring in a
@@ -698,6 +712,11 @@ export interface ILanguageRuntimeService {
 	 * Gets or sets the active language runtime.
 	 */
 	activeRuntime: ILanguageRuntime | undefined;
+
+	/**
+	 * Gets the current discovery phase.
+	 */
+	discoveryPhase: LanguageRuntimeDiscoveryPhase;
 
 	/**
 	 * Register a new language runtime

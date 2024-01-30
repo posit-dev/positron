@@ -23,6 +23,11 @@ export interface TableSchema {
 	 */
 	num_rows: number;
 
+	/**
+	 * Total number of columns in the unfiltered dataset
+	 */
+	total_num_columns: number;
+
 }
 
 /**
@@ -142,12 +147,17 @@ export interface ColumnSchema {
 	/**
 	 * Name of column as UTF-8 string
 	 */
-	name: string;
+	column_name: string;
 
 	/**
-	 * Canonical name of data type class
+	 * Exact name of data type used by underlying table
 	 */
 	type_name: string;
+
+	/**
+	 * Canonical Positron display name of data type
+	 */
+	type_display: ColumnSchemaTypeDisplay;
 
 	/**
 	 * Column annotation / description
@@ -284,6 +294,21 @@ export enum GetColumnProfileProfileType {
 }
 
 /**
+ * Possible values for TypeDisplay in ColumnSchema
+ */
+export enum ColumnSchemaTypeDisplay {
+	Number = 'number',
+	Boolean = 'boolean',
+	String = 'string',
+	Date = 'date',
+	Datetime = 'datetime',
+	Time = 'time',
+	Array = 'array',
+	Struct = 'struct',
+	Unknown = 'unknown'
+}
+
+/**
  * Possible values for FilterType in ColumnFilter
  */
 export enum ColumnFilterFilterType {
@@ -331,11 +356,14 @@ export class PositronDataToolComm extends PositronBaseComm {
 	 *
 	 * Request full schema for a table-like object
 	 *
+	 * @param startIndex First column schema to fetch (inclusive)
+	 * @param numColumns Number of column schemas to fetch from start index.
+	 * May extend beyond end of table
 	 *
 	 * @returns The schema for a table-like object
 	 */
-	getSchema(): Promise<TableSchema> {
-		return super.performRpc('get_schema', [], []);
+	getSchema(startIndex: number, numColumns: number): Promise<TableSchema> {
+		return super.performRpc('get_schema', ['start_index', 'num_columns'], [startIndex, numColumns]);
 	}
 
 	/**
