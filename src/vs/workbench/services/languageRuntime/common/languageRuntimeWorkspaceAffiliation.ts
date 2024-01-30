@@ -1,11 +1,12 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
 import { Disposable } from 'vs/base/common/lifecycle';
+import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import { ILogService } from 'vs/platform/log/common/log';
 import { IStorageService, StorageScope, StorageTarget } from 'vs/platform/storage/common/storage';
-import { ILanguageRuntime, ILanguageRuntimeMetadata, ILanguageRuntimeService, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntime, ILanguageRuntimeMetadata, ILanguageRuntimeService, RuntimeState, formatLanguageRuntimeMetadata } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 
 /**
  * The LanguageRuntimeWorkspaceAffiliation class is responsible for managing the
@@ -25,7 +26,8 @@ export class LanguageRuntimeWorkspaceAffiliation extends Disposable {
 	constructor(
 		@ILanguageRuntimeService private readonly _runtimeService: ILanguageRuntimeService,
 		@IStorageService private readonly _storageService: IStorageService,
-		@ILogService private readonly _logService: ILogService) {
+		@ILogService private readonly _logService: ILogService,
+		@IConfigurationService private readonly _configurationService: IConfigurationService) {
 
 		super();
 
@@ -85,16 +87,29 @@ export class LanguageRuntimeWorkspaceAffiliation extends Disposable {
 	private onDidRegisterRuntime(runtime: ILanguageRuntime): void {
 
 		// Get the runtime metadata that is affiliated with this workspace, if any.
-		const affiliatedRuntimeMetadata = this._storageService.get(
+		const affiliatedRuntimeMetadataStr = this._storageService.get(
 			this.storageKeyForRuntime(runtime), StorageScope.WORKSPACE);
-		if (!affiliatedRuntimeMetadata) {
+		if (!affiliatedRuntimeMetadataStr) {
 			return;
 		}
-		const affiliatedRuntimeId = JSON.parse(affiliatedRuntimeMetadata).runtimeId;
+		const affiliatedRuntimeMetadata = JSON.parse(affiliatedRuntimeMetadataStr);
+		const affiliatedRuntimeId = affiliatedRuntimeMetadata.runtimeId;
 
 		// If the runtime is affiliated with this workspace, start it.
 		if (runtime.metadata.runtimeId === affiliatedRuntimeId) {
 			try {
+
+				// Check the setting to see if we should be auto-starting.
+				const autoStart = this._configurationService.getValue<boolean>(
+					'positron.interpreters.automaticStartup');
+				if (!autoStart) {
+					this._logService.info(`Language runtime ` +
+						`${formatLanguageRuntimeMetadata(affiliatedRuntimeMetadata)} ` +
+						`is affiliated with this workspace, but won't be started because automatic ` +
+						`startup is disabled in configuration.`);
+					return;
+				}
+
 				this._runtimeService.startRuntime(runtime.metadata.runtimeId,
 					`Affiliated runtime for workspace`);
 			} catch (e) {
