@@ -613,7 +613,7 @@ export const Codicon = {
 	positronShowTraceback: register('positron-show-traceback', 0xf245),
 	positronNewFolderFromGit: register('positron-new-folder-from-git', 0xf246),
 	positronX: register('positron-x', 0xf247),
-	positronClearPane: register('positron-clear-pane', 0xf248),
+	positronAvailable1: register('positron-available-1', 0xf248),
 	positronVariables: register('positron-variables', 0xf249),
 	positronImportData: register('positron-import-data', 0xf24a),
 	positronList: register('positron-list', 0xf24b),
