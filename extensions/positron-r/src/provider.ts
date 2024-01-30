@@ -204,10 +204,10 @@ export async function* rRuntimeDiscoverer(
 		digest.update(rVersion);
 		const runtimeId = digest.digest('hex').substring(0, 32);
 
-		// If we already know about the runtime, return it. This can happen if
-		// the runtime was provided eagerly to Positron.
+		// If we already know about the runtime, skip it (it's already been
+		// registered). This can happen if the runtime was provided eagerly to
+		// Positron.
 		if (RRuntimeManager.instance.hasRuntime(runtimeId)) {
-			yield RRuntimeManager.instance.getRuntime(runtimeId);
 			continue;
 		}
 
