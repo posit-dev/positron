@@ -410,12 +410,14 @@ export class PositronNotebookWidget extends Disposable {
 			}
 		}
 
-
+		// Check if the cell is already executing. In which case this is a cancel rather than a run.
+		const hasExecutions = [...cells].some(cell => Boolean(this.notebookExecutionStateService.getCellExecution(cell.uri)));
+		if (hasExecutions) {
+			this.notebookExecutionService.cancelNotebookCells(this.textModel, cells);
+			return;
+		}
 
 		await this.notebookExecutionService.executeNotebookCells(this.textModel, cells, this.scopedContextKeyService);
-
-
-
 	}
 
 	/**
