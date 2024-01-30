@@ -457,6 +457,18 @@ window.onload = function() {
 		onDidReceiveKernelMessage: onKernelMessageEmitter.event
 	};
 
+	window.addEventListener('message', async event => {
+
+		switch (event.data.type) {
+			case 'custom_kernel_message':
+				onKernelMessageEmitter.fire(event.data.message);
+				break;
+			case 'custom_renderer_message':
+				onMessageEmitter.fire(event.data.message);
+				break;
+		}
+	});
+
 	activateKernel(kernelContext);
 	vscode.postMessage('IPyWidgets kernel activated');
 
