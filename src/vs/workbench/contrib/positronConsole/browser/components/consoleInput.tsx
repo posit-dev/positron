@@ -340,8 +340,8 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 				if (historyBrowserActiveRef.current) {
 					acceptHistoryMatch(historyBrowserSelectedIndexRef.current);
 					consumeEvent();
-					break;
 				}
+				break;
 			}
 
 			// Up arrow processing.
