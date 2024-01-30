@@ -123,7 +123,7 @@ export class IPyWidgetClientInstance extends Disposable implements IPositronIPyW
 			// When the server notifies us that a widget update has occurred,
 			// we need to update the widget's state in the frontend.
 			const updateMessage = data as IPyWidgetClientMessageOutputUpdate;
-			this.metadata.widget_state.state = { ...updateMessage.state, ...this.metadata.widget_state.state, };
+			this.metadata.widget_state.state = { ...this.metadata.widget_state.state, ...updateMessage.state };
 		}
 		// TODO: Handle custom messages
 	}
