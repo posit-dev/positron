@@ -4,6 +4,7 @@
 
 import * as os from 'os';
 import * as vscode from 'vscode';
+import { Logger } from './extension';
 
 /**
  * Attempts to locate a copy of the Ark kernel. The kernel is searched for in the following
@@ -27,15 +28,8 @@ export function getArkKernelPath(context: vscode.ExtensionContext): string | und
 	}
 
 	const kernelName = os.platform() === 'win32' ? 'ark.exe' : 'ark';
-
-	// No kernel path specified; try the default (embedded) kernel. This is where the kernel
-	// is placed in development and release builds.
 	const path = require('path');
 	const fs = require('fs');
-	const embeddedKernel = path.join(context.extensionPath, 'resources', 'ark', kernelName);
-	if (fs.existsSync(embeddedKernel)) {
-		return embeddedKernel;
-	}
 
 	// Look for locally built Debug or Release kernels. If both exist, we'll use
 	// whichever is newest. This is the location where the kernel is typically built
@@ -53,6 +47,14 @@ export function getArkKernelPath(context: vscode.ExtensionContext): string | und
 		devKernel = devReleaseKernel;
 	}
 	if (devKernel) {
+		Logger.info('Loading Ark from disk in adjacent repo. Make sure it\'s up-to-date.');
 		return devKernel;
+	}
+
+	// Now try the default (embedded) kernel. This is where the kernel is placed in
+	// development and release builds.
+	const embeddedKernel = path.join(context.extensionPath, 'resources', 'ark', kernelName);
+	if (fs.existsSync(embeddedKernel)) {
+		return embeddedKernel;
 	}
 }
