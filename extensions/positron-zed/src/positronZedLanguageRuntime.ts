@@ -1779,7 +1779,7 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 		this.simulateIdleState(parentId);
 	}
 
-	public closeConnection(parentId: string, code: string) {
+	private closeConnection(parentId: string, code: string) {
 		// Enter busy state and output the code.
 		this.simulateBusyState(parentId);
 		this.simulateInputMessage(parentId, code);
