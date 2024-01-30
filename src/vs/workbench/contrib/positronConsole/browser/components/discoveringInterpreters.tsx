@@ -59,7 +59,8 @@ export const DiscoveringInterpreters = () => {
 	return (
 		<div className='discovering'>
 			<div className='progress' ref={progressRef}></div>
-			<div className='discovery'>{discoveringIntrepreters} ({discovered})...</div>
+			<div className='discovery'>{discoveringIntrepreters}
+				{discovered > 0 && <span> ({discovered})</span>}...</div>
 		</div>
 	);
 };
