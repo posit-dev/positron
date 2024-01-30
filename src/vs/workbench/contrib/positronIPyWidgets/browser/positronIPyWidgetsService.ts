@@ -121,8 +121,6 @@ export class PositronIPyWidgetsService extends Disposable implements IPositronIP
 	}
 
 	private async handleDisplayEvent(event: DisplayWidgetEvent, runtime: ILanguageRuntime) {
-
-
 		const primaryWidgets = event.view_ids;
 
 		// Combine our existing list of widgets into a single WidgetPlotClient
