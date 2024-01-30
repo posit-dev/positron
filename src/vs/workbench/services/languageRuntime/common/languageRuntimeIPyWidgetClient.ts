@@ -101,16 +101,6 @@ export class IPyWidgetClientInstance extends Disposable implements IPositronIPyW
 			}
 		});
 
-		// Listen for widget updates
-		_client.onDidReceiveData(async (data) => {
-			if (data.method === IPyWidgetClientMethodOutput.Update) {
-				// When the server notifies us that a widget update has occurred,
-				// we need to update the widget's state in the frontend.
-				const updateMessage = data as IPyWidgetClientMessageOutputUpdate;
-				this.metadata.widget_state.state = { ...updateMessage.state, ...this.metadata.widget_state.state };
-			}
-		});
-
 		this._register(this._client);
 
 		this._register(this._client.onDidReceiveData(data => this.handleData(data)));
@@ -125,27 +115,17 @@ export class IPyWidgetClientInstance extends Disposable implements IPositronIPyW
 	 * @param data Data received from the backend.
 	 */
 	private handleData(data: IPyWidgetClientMessageOutput): void {
-		switch (data.msg_type) {
-			case IPyWidgetClientMessageTypeOutput.Display:
-				this._onDidEmitDisplay.fire(data as IPyWidgetClientMessageDisplay);
-				return;
+		if (data.msg_type === IPyWidgetClientMessageTypeOutput.Display) {
+			this._onDidEmitDisplay.fire(data as IPyWidgetClientMessageDisplay);
+			return;
 		}
-
-		switch (data.method) {
-			case IPyWidgetClientMethodOutput.Update:
-				// When the server notifies us that a widget update has occurred,
-				// we need to update the widget's state in the frontend.
-				{
-					const updateMessage = data as IPyWidgetClientMessageOutputUpdate;
-					console.log(`Update message received: ${JSON.stringify(updateMessage.state)}`);
-					this.metadata.widget_state.state = { ...this.metadata.widget_state.state, ...updateMessage.state };
-					console.log(`State updated: ${JSON.stringify(this.metadata.widget_state.state)}`);
-				}
-				break;
-			case IPyWidgetClientMethodOutput.Custom:
-				console.log(`Custom message received: ${JSON.stringify(data)}`);
-				break;
+		if (data.method === IPyWidgetClientMethodOutput.Update) {
+			// When the server notifies us that a widget update has occurred,
+			// we need to update the widget's state in the frontend.
+			const updateMessage = data as IPyWidgetClientMessageOutputUpdate;
+			this.metadata.widget_state.state = { ...updateMessage.state, ...this.metadata.widget_state.state, };
 		}
+		// TODO: Handle custom messages
 	}
 
 	/**
