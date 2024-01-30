@@ -14,6 +14,7 @@ from IPython.core.formatters import format_display_data
 
 from .plot_comm import PlotResult, RenderRequest
 from .positron_comm import JsonRpcErrorCode, PositronComm
+from .widget import _WIDGET_MIME_TYPE
 
 logger = logging.getLogger(__name__)
 
@@ -51,6 +52,9 @@ class PositronDisplayPublisherHook:
             # If there is no image for our display, don't create a
             # positron.plot comm and let the parent deal with the msg.
             data = msg["content"]["data"]
+            if _WIDGET_MIME_TYPE in data:
+                # This is a widget, let the widget hook handle it
+                return msg
             if "image/png" not in data:
                 return msg
 
