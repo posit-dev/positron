@@ -8,7 +8,7 @@
 	display: grid;
 	position: absolute;
 	align-items: center;
-	grid-template-columns: [left-gutter] 5px [content] 1fr [right-gutter] 5px [splitter] 1px [end];
+	grid-template-columns: [left-gutter] 7px [content] 1fr [right-gutter] 7px [splitter] 1px [end];
 }
 
 .data-grid-row-cell.selected {

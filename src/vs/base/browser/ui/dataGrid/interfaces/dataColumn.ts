@@ -16,16 +16,6 @@ export enum DataColumnAlignment {
  */
 export interface IDataColumn {
 	/**
-	 * Gets the identifier.
-	 */
-	readonly identifier: string;
-
-	/**
-	 * Gets the codicon.
-	 */
-	readonly codicon?: string;
-
-	/**
 	 * Gets the name.
 	 */
 	readonly name?: string;

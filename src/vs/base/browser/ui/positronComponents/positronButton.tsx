@@ -2,8 +2,11 @@
  *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
+// React.
 import * as React from 'react';
 import { forwardRef, KeyboardEvent, MouseEvent, PropsWithChildren } from 'react'; // eslint-disable-line no-duplicate-imports
+
+// Other dependencies.
 import { positronClassNames } from 'vs/base/common/positronUtilities';
 
 /**

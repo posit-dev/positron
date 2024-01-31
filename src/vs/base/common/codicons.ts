@@ -625,7 +625,7 @@ export const Codicon = {
 	positronPlots: register('positron-plots', 0xf251),
 	positronVariablesSorting: register('positron-variables-sorting', 0xf253),
 	positronInterrupt: register('positron-interrupt', 0xf254),
-	positronClearSort: register('positron-clear-sort', 0xf255),
+	positronClearSorting: register('positron-clear-sorting', 0xf255),
 	positronSearch: register('positron-search', 0xf256),
 	positronInterruptRuntime: register('positron-interrupt-runtime', 0xf257),
 	positronRestartRuntime: register('positron-restart-runtime', 0xf258),
@@ -637,11 +637,9 @@ export const Codicon = {
 	positronDataToolColumnsHidden: register('positron-data-tool-columns-hidden', 0xf25e),
 	positronDataToolColumnsLeft: register('positron-data-tool-columns-left', 0xf25f),
 	positronDataToolColumnsRight: register('positron-data-tool-columns-right', 0xf260),
-	positronDataTypeBoolean: register('positron-data-type-boolean', 0xf261),
-	positronDataTypeDateTime: register('positron-data-type-date-time', 0xf262),
-	positronDataTypeNumber: register('positron-data-type-number', 0xf263),
-	positronDataTypeString: register('positron-data-type-string', 0xf264),
-
+	positronEllipsis: register('positron-ellipsis', 0xf261),
+	positronCheckMark: register('positron-check-mark', 0xf262),
+	positronVerticalEllipsis: register('positron-vertical-ellipsis', 0xf263),
 	// --- End Positron ---
 
 

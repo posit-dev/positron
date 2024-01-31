@@ -50,25 +50,14 @@
 	display: grid;
 	align-items: center;
 	grid-column: content / right-gutter;
-	grid-template-columns: [left-margin] 4px [icon] 20px [title-description] minmax(0, 1fr) [button] 20px [right-margin] 4px [end];
-}
-
-.data-grid-column-header
-.content
-.icon {
-	font-size: 30px;
-	opacity: 75%;
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	grid-column: icon / title-description;
+	grid-template-columns: [left-margin] 7px [title-description] minmax(0, 1fr) [sort-indicator] min-content [button] 20px [right-margin] 7px [end];
 }
 
 .data-grid-column-header
 .content
 .title-description {
 	margin-bottom: 1px; /* Adjust for the bottom border. */
-	grid-column: title-description / button;
+	grid-column: title-description / sort-indicator;
 }
 
 .data-grid-column-header
@@ -77,7 +66,6 @@
 .title {
 	font-weight: 600;
 	overflow: hidden;
-	text-align: center;
 	white-space: nowrap;
 	line-height: normal;
 	text-overflow: ellipsis;
@@ -90,10 +78,34 @@
 	font-size: 90%;
 	opacity: 80%;
 	overflow: hidden;
-	text-align: center;
 	white-space: nowrap;
 	line-height: normal;
 	text-overflow: ellipsis;
+}
+
+.data-grid-column-header
+.content
+.sort-indicator {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.data-grid-column-header
+.content
+.sort-indicator
+.sort-icon {
+	margin: 0;
+}
+
+.data-grid-column-header
+.content
+.sort-indicator
+.sort-index {
+	font-size: 80%;
+	font-weight: 600;
+	margin: 0 3px 0 3px;
+	color: var(--vscode-positronDataGrid-sortIndexForeground);
 }
 
 .data-grid-column-header

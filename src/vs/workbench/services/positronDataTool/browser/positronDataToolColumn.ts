@@ -13,11 +13,6 @@ export class PositronDataToolColumn implements IPositronDataToolColumn {
 	//#region Private Properties
 
 	/**
-	 * Gets the identifier.
-	 */
-	private readonly _identifier: string;
-
-	/**
 	 * Gets the column schema.
 	 */
 	private readonly _columnSchema: ColumnSchema;
@@ -38,12 +33,10 @@ export class PositronDataToolColumn implements IPositronDataToolColumn {
 
 	/**
 	 * Constructor.
-	 * @param identifier The identifier of the column.
 	 * @param columnSchema The column schema of the column.
 	 */
-	constructor(identifier: string, columnSchema: ColumnSchema) {
+	constructor(columnSchema: ColumnSchema) {
 		// Initialize.
-		this._identifier = identifier;		// TODO: Should be part of ColumnSchema...
 		this._columnSchema = columnSchema;
 
 		// Initialize the width (eventually, this will be set based on the column schema).
@@ -52,46 +45,18 @@ export class PositronDataToolColumn implements IPositronDataToolColumn {
 
 	//#endregion Constructor & Dispose
 
-	//#region IPositronDataColumn Implementation
+	//#region IPositronDataToolColumn Implementation
 
 	/**
-	 * Gets the identifier.
+	 * Gets the column schema.
 	 */
-	get identifier() {
-		return this._identifier;
+	get columnSchema() {
+		return this._columnSchema;
 	}
 
-	get codicon() {
-		// Determine the codicon based on type.
-		switch (this.columnSchema.type_display) {
-			case ColumnSchemaTypeDisplay.Number:
-				return 'positron-data-type-number';
+	//#endregion IPositronDataToolColumn Implementation
 
-			case ColumnSchemaTypeDisplay.Boolean:
-				return 'positron-data-type-boolean';
-
-			case ColumnSchemaTypeDisplay.String:
-				return 'positron-data-type-string';
-
-			case ColumnSchemaTypeDisplay.Date:
-				return 'positron-data-type-date';
-
-			case ColumnSchemaTypeDisplay.Datetime:
-				return 'positron-data-type-date-time';
-
-			case ColumnSchemaTypeDisplay.Time:
-				return 'positron-data-type-time';
-
-			case ColumnSchemaTypeDisplay.Array:
-				return undefined;
-
-			case ColumnSchemaTypeDisplay.Struct:
-				return undefined;
-
-			case ColumnSchemaTypeDisplay.Unknown:
-				return undefined;
-		}
-	}
+	//#region IDataColumn Implementation
 
 	/**
 	 * Gets the name.
@@ -170,16 +135,5 @@ export class PositronDataToolColumn implements IPositronDataToolColumn {
 		this._layoutWidth = layoutWidth;
 	}
 
-	//#endregion IPositronDataColumn Implementation
-
-	//#region IPositronDataToolColumn Implementation
-
-	/**
-	 * Gets the column schema.
-	 */
-	get columnSchema() {
-		return this._columnSchema;
-	}
-
-	//#endregion IPositronDataToolColumn Implementation
+	//#endregion IDataColumn Implementation
 }
