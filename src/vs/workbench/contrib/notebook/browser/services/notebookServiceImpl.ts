@@ -44,9 +44,8 @@ import { INotebookDocument, INotebookDocumentService } from 'vs/workbench/servic
 import { ExtensionIdentifier } from 'vs/platform/extensions/common/extensions';
 import { PositronNotebookEditorInput } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookEditorInput';
 import { NotebookEditorInput } from 'vs/workbench/contrib/notebook/common/notebookEditorInput';
+import { USE_POSITRON_NOTEBOOK_EDITOR } from 'vs/workbench/contrib/positronNotebook/browser/positronNotebook.contribution';
 
-// TODO: Make this variable based on a flag status set by the user.
-const USE_POSITRON_NOTEBOOK_EDITOR = true;
 // --- End Positron ---
 
 export class NotebookProviderInfoStore extends Disposable {

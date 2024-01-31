@@ -25,6 +25,13 @@ import { PositronNotebookEditor } from './PositronNotebookEditor';
 
 
 /**
+ * Variable that turns on or off the use of the Positron Notebook editor instead of the default
+ * vscode one.
+ * TODO: Make this variable based on a flag status set by the user.
+ */
+export const USE_POSITRON_NOTEBOOK_EDITOR = true;
+
+/**
  * Positron notebook action category.
  */
 const POSITRON_NOTEBOOK_CATEGORY = localize(
