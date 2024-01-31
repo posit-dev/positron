@@ -6,6 +6,8 @@
 # AUTO-GENERATED from ui.json; do not edit.
 #
 
+# flake8: noqa
+
 # For forward declarations
 from __future__ import annotations
 
@@ -20,14 +22,137 @@ CallMethodResult = JsonData
 
 
 @dataclass
-class EditorContextResult:
+class EditorContext:
     """
     Editor metadata
+    """
+
+    document: TextDocument = field(
+        metadata={
+            "description": "Document metadata",
+        }
+    )
+
+    contents: List[str] = field(
+        metadata={
+            "description": "Document contents",
+        }
+    )
+
+    selection: Selection = field(
+        metadata={
+            "description": "The primary selection, i.e. selections[0]",
+        }
+    )
+
+    selections: List[Selection] = field(
+        metadata={
+            "description": "The selections in this text editor.",
+        }
+    )
+
+
+@dataclass
+class TextDocument:
+    """
+    Document metadata
     """
 
     path: str = field(
         metadata={
             "description": "URI of the resource viewed in the editor",
+        }
+    )
+
+    eol: str = field(
+        metadata={
+            "description": "End of line sequence",
+        }
+    )
+
+    is_closed: bool = field(
+        metadata={
+            "description": "Whether the document has been closed",
+        }
+    )
+
+    is_dirty: bool = field(
+        metadata={
+            "description": "Whether the document has been modified",
+        }
+    )
+
+    is_untitled: bool = field(
+        metadata={
+            "description": "Whether the document is untitled",
+        }
+    )
+
+    language_id: str = field(
+        metadata={
+            "description": "Language identifier",
+        }
+    )
+
+    line_count: int = field(
+        metadata={
+            "description": "Number of lines in the document",
+        }
+    )
+
+    version: int = field(
+        metadata={
+            "description": "Version number of the document",
+        }
+    )
+
+
+@dataclass
+class Position:
+    """
+    A line and character position, such as the position of the cursor.
+    """
+
+    character: int = field(
+        metadata={
+            "description": "The zero-based character value, as a Unicode code point offset.",
+        }
+    )
+
+    line: int = field(
+        metadata={
+            "description": "The zero-based line value.",
+        }
+    )
+
+
+@dataclass
+class Selection:
+    """
+    Selection metadata
+    """
+
+    active: Position = field(
+        metadata={
+            "description": "Position of the cursor.",
+        }
+    )
+
+    start: Position = field(
+        metadata={
+            "description": "Start position of the selection",
+        }
+    )
+
+    end: Position = field(
+        metadata={
+            "description": "End position of the selection",
+        }
+    )
+
+    text: str = field(
+        metadata={
+            "description": "Text of the selection",
         }
     )
 
