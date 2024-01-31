@@ -142,7 +142,7 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			call(method: string, params: Record<string, any>): Thenable<any> {
 				return extHostMethods.call(method as UiFrontendRequest, params);
 			},
-			lastActiveEditorContext(): Thenable<positron.EditorContextResult | null> {
+			lastActiveEditorContext(): Thenable<positron.EditorContext | null> {
 				return extHostMethods.lastActiveEditorContext();
 			},
 		};

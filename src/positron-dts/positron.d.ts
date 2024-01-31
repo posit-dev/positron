@@ -1092,8 +1092,8 @@ declare module 'positron' {
 	// * Reduce the manual proliferation of these generated types.
 	// * Ideally a file is meant to edited by humans or by robots, but not both.
 	// Related to https://github.com/posit-dev/positron/issues/12
-	type ECR = import('./ui-comm').EditorContextResult;
-	export type EditorContextResult = ECR;
+	type EC = import('./ui-comm').EditorContext;
+	export type EditorContext = EC;
 
 	/**
 	 * This namespace contains all frontend RPC methods available to a runtime.
@@ -1115,8 +1115,8 @@ declare module 'positron' {
 		/**
 		 * Retrieve last active editor context.
 		 *
-		 * Returns a `EditorContextResult` for the last active editor.
+		 * Returns a `EditorContext` for the last active editor.
 		 */
-		export function lastActiveEditorContext(): Thenable<EditorContextResult | null>;
+		export function lastActiveEditorContext(): Thenable<EditorContext | null>;
 	}
 }

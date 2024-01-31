@@ -4,7 +4,7 @@
 
 import * as extHostProtocol from './extHost.positron.protocol';
 import { ExtHostEditors } from '../extHostTextEditors';
-import { UiFrontendRequest, EditorContextResult } from 'vs/workbench/services/languageRuntime/common/positronUiComm';
+import { UiFrontendRequest, EditorContext } from 'vs/workbench/services/languageRuntime/common/positronUiComm';
 import { JsonRpcErrorCode } from 'vs/workbench/services/languageRuntime/common/positronBaseComm';
 import { EndOfLine } from '../extHostTypeConverters';
 
@@ -80,7 +80,7 @@ export class ExtHostMethods implements extHostProtocol.ExtHostMethodsShape {
 		}
 	}
 
-	async lastActiveEditorContext(): Promise<EditorContextResult | null> {
+	async lastActiveEditorContext(): Promise<EditorContext | null> {
 		const editor = this.editors.getActiveTextEditor();
 		if (!editor) {
 			return null;

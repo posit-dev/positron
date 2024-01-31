@@ -125,7 +125,7 @@
 			"result": {
 				"required": false,
 				"schema": {
-					"name": "editor_context_result",
+					"name": "editor_context",
 					"type": "object",
 					"description": "Editor metadata",
 					"properties": {

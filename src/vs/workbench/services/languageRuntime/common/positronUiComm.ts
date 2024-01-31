@@ -27,7 +27,7 @@ export interface CallMethodResult {
 /**
  * Editor metadata
  */
-export interface EditorContextResult {
+export interface EditorContext {
 	/**
 	 * Document metadata
 	 */
