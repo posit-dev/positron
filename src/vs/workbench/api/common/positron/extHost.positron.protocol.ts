@@ -7,7 +7,7 @@ import { ILanguageRuntimeInfo, ILanguageRuntimeMetadata, RuntimeClientType, Runt
 import { createProxyIdentifier, IRPCProtocol } from 'vs/workbench/services/extensions/common/proxyIdentifier';
 import { IWebviewPortMapping, WebviewExtensionDescription } from 'vs/workbench/api/common/extHost.protocol';
 import { URI, UriComponents } from 'vs/base/common/uri';
-import { ITextEditorContext } from 'vs/workbench/services/frontendMethods/common/editorContext';
+import { IEditorContext } from 'vs/workbench/services/frontendMethods/common/editorContext';
 
 // This is the interface that the main process exposes to the extension host
 export interface MainThreadLanguageRuntimeShape extends IDisposable {
@@ -66,7 +66,7 @@ export interface ExtHostConsoleServiceShape {
 export interface MainThreadMethodsShape { }
 
 export interface ExtHostMethodsShape {
-	lastActiveEditorContext(): Promise<ITextEditorContext | null>;
+	lastActiveEditorContext(): Promise<IEditorContext | null>;
 }
 
 /**

@@ -2,11 +2,11 @@
  *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
+import { EditorContext } from 'vs/workbench/services/languageRuntime/common/positronUiComm';
+
 /**
  * Context data for a text editor.
  */
-interface ITextEditorContext {
-	readonly path: string;
-}
+type IEditorContext = EditorContext;
 
-export { ITextEditorContext };
+export { IEditorContext };

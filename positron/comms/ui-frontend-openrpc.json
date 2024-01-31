@@ -103,29 +103,6 @@
 			]
 		},
 		{
-			"name": "last_active_editor_context",
-			"summary": "Context metadata for the last editor",
-			"description": "Returns metadata such as file path for the last editor selected by the user. The result may be undefined if there are no active editors.",
-			"params": [],
-			"result": {
-				"schema": {
-					"name": "editor_context_result",
-					"type": "object",
-					"description": "Editor metadata",
-					"properties": {
-						"path": {
-							"type": "string",
-							"description": "URI of the resource viewed in the editor"
-						}
-					},
-					"required": [
-						"path"
-					]
-				},
-				"required": false
-			}
-		},
-		{
 			"name": "debug_sleep",
 			"summary": "Sleep for n seconds",
 			"description": "Useful for testing in the backend a long running frontend method",
@@ -139,6 +116,148 @@
 				}
 			],
 			"result": {}
+		},
+		{
+			"name": "last_active_editor_context",
+			"summary": "Context metadata for the last editor",
+			"description": "Returns metadata such as file path for the last editor selected by the user. The result may be undefined if there are no active editors.",
+			"params": [],
+			"result": {
+				"required": false,
+				"schema": {
+					"name": "editor_context",
+					"type": "object",
+					"description": "Editor metadata",
+					"properties": {
+						"document": {
+							"description": "Document metadata",
+							"$ref": "#/components/schemas/text_document"
+						},
+						"contents": {
+							"description": "Document contents",
+							"type": "array",
+							"items": {
+								"type": "string"
+							}
+						},
+						"selection": {
+							"description": "The primary selection, i.e. selections[0]",
+							"$ref": "#/components/schemas/selection"
+						},
+						"selections": {
+							"description": "The selections in this text editor.",
+							"type": "array",
+							"items": {
+								"$ref": "#/components/schemas/selection"
+							}
+						}
+					},
+					"required": [
+						"document",
+						"contents",
+						"selection",
+						"selections"
+					]
+				}
+			}
 		}
-	]
+	],
+	"components": {
+		"schemas": {
+			"text_document": {
+				"type": "object",
+				"description": "Document metadata",
+				"properties": {
+					"path": {
+						"type": "string",
+						"description": "URI of the resource viewed in the editor"
+					},
+					"eol": {
+						"type": "string",
+						"description": "End of line sequence"
+					},
+ 					"is_closed": {
+						"type": "boolean",
+						"description": "Whether the document has been closed"
+					},
+					"is_dirty": {
+						"type": "boolean",
+						"description": "Whether the document has been modified"
+					},
+					"is_untitled": {
+						"type": "boolean",
+						"description": "Whether the document is untitled"
+					},
+					"language_id": {
+						"type": "string",
+						"description": "Language identifier"
+					},
+					"line_count": {
+						"type": "integer",
+						"description": "Number of lines in the document"
+					},
+					"version": {
+						"type": "integer",
+						"description": "Version number of the document"
+					}
+				},
+				"required": [
+					"path",
+					"eol",
+					"is_closed",
+					"is_dirty",
+					"is_untitled",
+					"language_id",
+					"line_count",
+					"version"
+				]
+			},
+			"position": {
+				"type": "object",
+				"description": "A line and character position, such as the position of the cursor.",
+				"properties": {
+					"character": {
+						"type": "integer",
+						"description": "The zero-based character value, as a Unicode code point offset."
+					},
+					"line": {
+						"type": "integer",
+						"description": "The zero-based line value."
+					}
+				},
+				"required": [
+					"character",
+					"line"
+				]
+			},
+			"selection": {
+				"type": "object",
+				"description": "Selection metadata",
+				"properties": {
+					"active": {
+						"description": "Position of the cursor.",
+						"$ref": "#/components/schemas/position"
+					},
+					"start": {
+						"description": "Start position of the selection",
+						"$ref": "#/components/schemas/position"
+					},
+					"end": {
+						"description": "End position of the selection",
+						"$ref": "#/components/schemas/position"
+					},
+					"text": {
+						"description": "Text of the selection",
+						"type": "string"
+					}
+				},
+				"required": [
+					"active",
+					"start",
+					"end",
+					"text"
+				]
+			}
+		}
+	}
 }
