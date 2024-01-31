@@ -260,22 +260,6 @@ async function main() {
 		// directory).
 		fs.mkdirSync(path.join('resources', 'ark'), { recursive: true });
 		fs.copyFileSync(binary, path.join('resources', 'ark', kernelName));
-
-		// Copy the 'public' and 'private' R modules from the ark crate to the
-		// resources/ark/modules directory.
-		const modulesFolder = path.join(amaltheaFolder, 'crates', 'ark', 'src', 'modules');
-		const modules = fs.readdirSync(modulesFolder);
-		for (const moduleFolder of modules) {
-			const allModules = fs.readdirSync(path.join(modulesFolder, moduleFolder));
-			console.log(`Copying ${moduleFolder} modules.`);
-			fs.mkdirSync(path.join('resources', 'ark', 'modules', moduleFolder),
-				{ recursive: true });
-			for (const module of allModules) {
-				fs.copyFileSync(path.join(modulesFolder, moduleFolder, module),
-					path.join('resources', 'ark', 'modules', moduleFolder, module));
-			}
-		}
-
 		return;
 	} else {
 		console.log(`No locally built Ark found in ${path.join(positronParent, 'amalthea')}; ` +
