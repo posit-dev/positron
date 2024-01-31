@@ -23,7 +23,7 @@ export function useObservedValue<T, M>(observable: ISettableObservable<T>, map?:
 			const val = observable.get();
 			setValue(typeof map === 'function' ? map(val) : val);
 		}
-	}), [observable]);
+	}), [map, observable]);
 
 	return value as T | undefined | M extends (x: T) => infer Out ? Out : never;
 }

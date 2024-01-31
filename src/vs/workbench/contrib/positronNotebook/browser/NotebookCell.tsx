@@ -112,7 +112,7 @@ function NotebookCellOutput({ cellOutput }: { cellOutput: ICellOutput }) {
 
 	return <>
 		{
-			cellOutput.outputs.map(({ data, mime }) => <CellOutputContents data={data} mime={mime} />)
+			cellOutput.outputs.map(({ data, mime }, i) => <CellOutputContents key={i} data={data} mime={mime} />)
 		}
 	</>;
 }
