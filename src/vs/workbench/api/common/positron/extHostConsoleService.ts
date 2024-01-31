@@ -31,9 +31,9 @@ export class ExtHostConsoleService implements extHostProtocol.ExtHostConsoleServ
 	onDidChangeConsoleWidth = this._onDidChangeConsoleWidth.event;
 
 	/**
-	 * Queries the main thread for the current width of the console.
+	 * Queries the main thread for the current width of the console input.
 	 *
-	 * @returns The width of the console in characters.
+	 * @returns The width of the console input in characters.
 	 */
 	getConsoleWidth(): Promise<number> {
 		return this._proxy.$getConsoleWidth();

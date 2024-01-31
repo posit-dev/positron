@@ -481,7 +481,7 @@ export class RRuntime implements positron.LanguageRuntime, vscode.Disposable {
 
 			this._queue.add(async () => {
 				try {
-					// Set the initial console width
+					// Set the initial console input width
 					const width = await positron.window.getConsoleWidth();
 					this.callMethod('setConsoleWidth', width);
 					this._kernel!.emitJupyterLog(`Set initial console width to ${width}`);

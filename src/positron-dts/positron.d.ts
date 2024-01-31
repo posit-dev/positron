@@ -979,14 +979,14 @@ declare module 'positron' {
 		export function getConsoleForLanguage(id: string): Console | undefined;
 
 		/**
-		 * Fires when the width of the console changes. The new width is passed as
+		 * Fires when the width of the console input changes. The new width is passed as
 		 * a number, which represents the number of characters that can fit in the
 		 * console horizontally.
 		 */
 		export const onDidChangeConsoleWidth: vscode.Event<number>;
 
 		/**
-		 * Returns the current width of the console, in characters.
+		 * Returns the current width of the console input, in characters.
 		 */
 		export function getConsoleWidth(): Thenable<number>;
 	}
