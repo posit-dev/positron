@@ -13,7 +13,7 @@ export interface EditorContextResult {
 	/**
 	 * Document metadata
 	 */
-	document: UiTextDocument;
+	document: TextDocument;
 
 	/**
 	 * Document contents
@@ -23,19 +23,19 @@ export interface EditorContextResult {
 	/**
 	 * The primary selection, i.e. selections[0]
 	 */
-	selection: UiSelection;
+	selection: Selection;
 
 	/**
 	 * The selections in this text editor.
 	 */
-	selections: Array<UiSelection>;
+	selections: Array<Selection>;
 
 }
 
 /**
  * Document metadata
  */
-export interface UiTextDocument {
+export interface TextDocument {
 	/**
 	 * URI of the resource viewed in the editor
 	 */
@@ -81,7 +81,7 @@ export interface UiTextDocument {
 /**
  * A line and character position, such as the position of the cursor.
  */
-export interface UiPosition {
+export interface Position {
 	/**
 	 * The zero-based character value, as a Unicode code point offset.
 	 */
@@ -97,21 +97,21 @@ export interface UiPosition {
 /**
  * Selection metadata
  */
-export interface UiSelection {
+export interface Selection {
 	/**
 	 * Position of the cursor.
 	 */
-	active: UiPosition;
+	active: Position;
 
 	/**
 	 * Start position of the selection
 	 */
-	start: UiPosition;
+	start: Position;
 
 	/**
 	 * End position of the selection
 	 */
-	end: UiPosition;
+	end: Position;
 
 	/**
 	 * Text of the selection

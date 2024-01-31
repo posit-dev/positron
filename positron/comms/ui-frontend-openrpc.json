@@ -131,7 +131,7 @@
 					"properties": {
 						"document": {
 							"description": "Document metadata",
-							"$ref": "#/components/schemas/uiTextDocument"
+							"$ref": "#/components/schemas/text_document"
 						},
 						"contents": {
 							"description": "Document contents",
@@ -142,13 +142,13 @@
 						},
 						"selection": {
 							"description": "The primary selection, i.e. selections[0]",
-							"$ref": "#/components/schemas/uiSelection"
+							"$ref": "#/components/schemas/selection"
 						},
 						"selections": {
 							"description": "The selections in this text editor.",
 							"type": "array",
 							"items": {
-								"$ref": "#/components/schemas/uiSelection"
+								"$ref": "#/components/schemas/selection"
 							}
 						}
 					},
@@ -164,7 +164,7 @@
 	],
 	"components": {
 		"schemas": {
-			"uiTextDocument": {
+			"text_document": {
 				"type": "object",
 				"description": "Document metadata",
 				"properties": {
@@ -212,7 +212,7 @@
 					"version"
 				]
 			},
-			"uiPosition": {
+			"position": {
 				"type": "object",
 				"description": "A line and character position, such as the position of the cursor.",
 				"properties": {
@@ -230,21 +230,21 @@
 					"line"
 				]
 			},
-			"uiSelection": {
+			"selection": {
 				"type": "object",
 				"description": "Selection metadata",
 				"properties": {
 					"active": {
 						"description": "Position of the cursor.",
-						"$ref": "#/components/schemas/uiPosition"
+						"$ref": "#/components/schemas/position"
 					},
 					"start": {
 						"description": "Start position of the selection",
-						"$ref": "#/components/schemas/uiPosition"
+						"$ref": "#/components/schemas/position"
 					},
 					"end": {
 						"description": "End position of the selection",
-						"$ref": "#/components/schemas/uiPosition"
+						"$ref": "#/components/schemas/position"
 					},
 					"text": {
 						"description": "Text of the selection",
