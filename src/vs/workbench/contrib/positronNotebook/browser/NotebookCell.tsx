@@ -5,10 +5,12 @@ import 'vs/css!./NotebookCell';
 
 import * as React from 'react';
 import { PositronButton } from 'vs/base/browser/ui/positronComponents/positronButton';
+import { VSBuffer } from 'vs/base/common/buffer';
+import { NotebookCellOutputTextModel } from 'vs/workbench/contrib/notebook/common/model/notebookCellOutputTextModel';
 import { NotebookCellTextModel } from 'vs/workbench/contrib/notebook/common/model/notebookCellTextModel';
+import { ICellOutput, NotebookCellExecutionState } from 'vs/workbench/contrib/notebook/common/notebookCommon';
 import { CellExecutionStatusCallback } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookWidget';
-import { gatherOutputContents } from 'vs/workbench/contrib/positronNotebook/browser/getOutputContents';
-import { NotebookCellExecutionState } from 'vs/workbench/contrib/notebook/common/notebookCommon';
+import { OutputMimeTypes, isKnownMimeType } from 'vs/workbench/contrib/positronNotebook/browser/getOutputContents';
 
 type ExecutionStateString = 'running' | 'pending' | 'unconfirmed' | 'idle';
 function parseExecutionState(state?: NotebookCellExecutionState): ExecutionStateString {
@@ -41,9 +43,7 @@ function useRunCell(opts: {
 	const { cell, onRunCell, getCellExecutionStatus } = opts;
 
 	const [executionStatus, setExecutionStatus] = React.useState<ExecutionStateString>('idle');
-	const [outputContents, setOutputContents] = React.useState(
-		gatherOutputContents(cell)
-	);
+	const [outputContents, setOutputContents] = React.useState(cell.outputs);
 
 	const runCell = React.useCallback(() => {
 		setExecutionStatus('running');
@@ -57,7 +57,7 @@ function useRunCell(opts: {
 
 	React.useEffect(() =>
 		cell.onDidChangeOutputs(() => {
-			setOutputContents(gatherOutputContents(cell));
+			setOutputContents(cell.outputs);
 		}).dispose, [cell]);
 
 	return {
@@ -88,9 +88,50 @@ export function NotebookCell({ cell, onRunCell, getCellExecutionStatus }: {
 			</PositronButton>
 			<pre className='positron-notebook-cell-code'>{cell.getValue()}</pre>
 			<div className='positron-notebook-cell-outputs'>
-				{outputContents ? outputContents.map(({ content, id }) => <div key={id}>{content}</div>) : 'No outputs'}
+				{
+					outputContents.map((output, i) => <NotebookCellOutput key={i} cellOutput={output} />)
+				}
 			</div>
-		</div>
+		</div >
 	);
 }
 
+
+function NotebookCellOutput({ cellOutput }: { cellOutput: ICellOutput }) {
+
+
+	{/* {outputContents ? outputContents.map(({ content, id }) => <div key={id}>{content}</div>) : 'No outputs'} */ }
+	if (!(cellOutput instanceof NotebookCellOutputTextModel)) {
+		return <div>Cant handle output type yet: OutputId: ${cellOutput.outputId}</div>;
+	}
+
+	if (cellOutput.outputs[0].mime === 'application/vnd.code.notebook.error') {
+		console.log('error output contents', cellOutput);
+	}
+
+
+	return <>
+		{
+			cellOutput.outputs.map(({ data, mime }) => <CellOutputContents data={data} mime={mime} />)
+		}
+	</>;
+}
+
+const mimeTypeToClassName: Record<OutputMimeTypes, string> = {
+	'application/vnd.code.notebook.error': 'notebook-error',
+	'application/vnd.code.notebook.stdout': 'notebook-stdout',
+	'application/vnd.code.notebook.stderr': 'notebook-stderr',
+};
+
+function CellOutputContents({ data, mime }: { data: VSBuffer; mime: string }) {
+	if (!isKnownMimeType(mime)) {
+		return <div className='unknown-mime-type'>Cant handle mime type yet</div>;
+	}
+
+	return <div className={mimeTypeToClassName[mime]}>
+		{data.toString()}
+	</div>;
+}
+
+
+// function CellErrorOutput();

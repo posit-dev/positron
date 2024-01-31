@@ -20,19 +20,40 @@ export function gatherOutputContents(cell: NotebookCellTextModel): CellOutputInf
 			{
 				id: output.outputId,
 				content: getOutputContents(output)
-
 			}
 		));
 }
 
+
+/**
+ * The MIME types we know how to render in-house.
+ */
+export type OutputMimeTypes = |
+	'application/vnd.code.notebook.stdout' |
+	'application/vnd.code.notebook.stderr' |
+	'application/vnd.code.notebook.error';
+
+/**
+ * The MIME types we know how to render in-house.
+ */
+export const outputMimeTypes: string[] = [
+	'application/vnd.code.notebook.stdout',
+	'application/vnd.code.notebook.stderr',
+	'application/vnd.code.notebook.error'
+] satisfies OutputMimeTypes[];
+
+export function isKnownMimeType(mimeType: string): mimeType is OutputMimeTypes {
+	return outputMimeTypes.includes(mimeType);
+}
+
 /**
  * Display the contents of a notebook cell output.
- *
- * This function will be expanded to handle more output types as they are added to the notebook.
- * Currently only supports text output.
- * @param output An output of a notebook cell
- * @returns The contents of the output for display
- */
+*
+* This function will be expanded to handle more output types as they are added to the notebook.
+* Currently only supports text output.
+* @param output An output of a notebook cell
+* @returns The contents of the output for display
+*/
 function getOutputContents(output: ICellOutput): string {
 
 	if (output instanceof NotebookCellOutputTextModel) {
@@ -47,5 +68,7 @@ function getOutputContents(output: ICellOutput): string {
  * @returns The text contents of the output concatenated together with newlines
  */
 function getTextOutputContents(output: NotebookCellOutputTextModel): string {
-	return output.outputs.map(({ data }) => data.toString()).join('\n');
+	return output.outputs.map(({ data, mime }) => {
+		return outputMimeTypes.includes(mime) ? data.toString() : `Cant handle mime type yet: ${mime}`;
+	}).join('\n');
 }

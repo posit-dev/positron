@@ -116,3 +116,13 @@
 		}
 	}
 }
+
+.positron-notebook-cell-outputs {
+	& .notebook-error {
+		color: orangered;
+	}
+
+	& .notebook-stderr {
+		color: orangered;
+	}
+}
