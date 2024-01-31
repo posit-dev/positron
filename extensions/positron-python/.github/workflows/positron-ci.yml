@@ -90,7 +90,7 @@ jobs:
       - name: Install test requirements
         run: |
           python -m pip --disable-pip-version-check install -t ./pythonFiles/lib/python --no-cache-dir --implementation py --no-deps --upgrade --pre debugpy
-          python -m pip install --prefer-binary --upgrade -r build/test-requirements.txt
+          python -m pip install --prefer-binary --upgrade -r build/pinned-test-requirements.txt
 
       - name: Run Pyright
         uses: jakebailey/pyright-action@v1

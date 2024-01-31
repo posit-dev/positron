@@ -35,9 +35,7 @@ pandas
 # Require pillow >= 10.0.1 to avoid CVE-2023-4863
 pillow>=10.0.1
 pyright
-# bugs in later versions that cause internal pytest errors
-# see https://pytest-asyncio.readthedocs.io/en/latest/reference/changelog.html#id26
-pytest-asyncio==0.21.1
+pytest-asyncio
 pytest-mock
 polars
 torch; python_version < '3.12'
