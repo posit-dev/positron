@@ -450,10 +450,10 @@ class PositronConsoleService extends Disposable implements IPositronConsoleServi
 	}
 
 	/**
-	 * Gets the current console width, in characters; throws an error if there is no active
+	 * Gets the current console input width, in characters; throws an error if there is no active
 	 * Positron console instance.
 	 *
-	 * @returns The current console width, in characters.
+	 * @returns The current console input width, in characters.
 	 */
 	getConsoleWidth(): number {
 		if (this._activePositronConsoleInstance) {
@@ -663,7 +663,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	private _inputTextEditor: IEditor | undefined;
 
 	/**
-	 * The current width of the console.
+	 * The current width of the console input.
 	 */
 	private _width = 0;
 
@@ -709,7 +709,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	}
 
 	/**
-	 * Sets the console's width in pixels.
+	 * Sets the console input's width in pixels.
 	 *
 	 * @param newWidth The new width, in pixels.
 	 */
@@ -721,9 +721,9 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	}
 
 	/**
-	 * Gets the console's width in pixels.
+	 * Gets the console input's width in pixels.
 	 *
-	 * @returns The console's current width in pixels.
+	 * @returns The console input's current width in pixels.
 	 */
 	getWidthPx(): number {
 		return this._width;

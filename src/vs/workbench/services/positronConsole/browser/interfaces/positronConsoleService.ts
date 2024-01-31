@@ -75,7 +75,7 @@ export interface IPositronConsoleService {
 	initialize(): void;
 
 	/**
-	 * Gets the current console width, in characters.
+	 * Gets the current console input width, in characters.
 	 */
 	getConsoleWidth(): number;
 
@@ -202,13 +202,13 @@ export interface IPositronConsoleInstance {
 	focusInput(): void;
 
 	/**
-	 * Tells the console its current width, in pixels. Fires the
+	 * Tells the console its current console input width, in pixels. Fires the
 	 * onDidChangeWidth event if the width has changed.
 	 */
 	setWidthPx(newWidth: number): void;
 
 	/**
-	 * Gets the current width of the console, in pixels.
+	 * Gets the current width of the console input, in pixels.
 	 */
 	getWidthPx(): number;
 
