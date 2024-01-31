@@ -18,6 +18,7 @@
 		],
 	},
 	"include": [
-		"positron-dts/positron.d.ts"
+		"positron-dts/positron.d.ts",
+		"positron-dts/ui-comm.d.ts"
 	]
 }
