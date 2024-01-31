@@ -176,23 +176,23 @@
 						"type": "string",
 						"description": "End of line sequence"
 					},
- 					"isClosed": {
+ 					"is_closed": {
 						"type": "boolean",
 						"description": "Whether the document has been closed"
 					},
-					"isDirty": {
+					"is_dirty": {
 						"type": "boolean",
 						"description": "Whether the document has been modified"
 					},
-					"isUntitled": {
+					"is_untitled": {
 						"type": "boolean",
 						"description": "Whether the document is untitled"
 					},
-					"languageId": {
+					"language_id": {
 						"type": "string",
 						"description": "Language identifier"
 					},
-					"lineCount": {
+					"line_count": {
 						"type": "integer",
 						"description": "Number of lines in the document"
 					},
@@ -204,11 +204,11 @@
 				"required": [
 					"path",
 					"eol",
-					"isClosed",
-					"isDirty",
-					"isUntitled",
-					"languageId",
-					"lineCount",
+					"is_closed",
+					"is_dirty",
+					"is_untitled",
+					"language_id",
+					"line_count",
 					"version"
 				]
 			},

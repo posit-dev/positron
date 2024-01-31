@@ -49,27 +49,27 @@ export interface TextDocument {
 	/**
 	 * Whether the document has been closed
 	 */
-	isClosed: boolean;
+	is_closed: boolean;
 
 	/**
 	 * Whether the document has been modified
 	 */
-	isDirty: boolean;
+	is_dirty: boolean;
 
 	/**
 	 * Whether the document is untitled
 	 */
-	isUntitled: boolean;
+	is_untitled: boolean;
 
 	/**
 	 * Language identifier
 	 */
-	languageId: string;
+	language_id: string;
 
 	/**
 	 * Number of lines in the document
 	 */
-	lineCount: number;
+	line_count: number;
 
 	/**
 	 * Version number of the document
