@@ -7,6 +7,6 @@ import { EditorContextResult } from 'vs/workbench/services/languageRuntime/commo
 /**
  * Context data for a text editor.
  */
-type ITextEditorContext = EditorContextResult;
+type IEditorContextResult = EditorContextResult;
 
-export { ITextEditorContext };
+export { IEditorContextResult };

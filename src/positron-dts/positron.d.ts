@@ -1092,8 +1092,8 @@ declare module 'positron' {
 	// * Reduce the manual proliferation of these generated types.
 	// * Ideally a file is meant to edited by humans or by robots, but not both.
 	// Related to https://github.com/posit-dev/positron/issues/12
-	type TEC = import('./ui-comm').EditorContextResult;
-	export type EditorContextResult = TEC;
+	type ECR = import('./ui-comm').EditorContextResult;
+	export type EditorContextResult = ECR;
 
 	/**
 	 * This namespace contains all frontend RPC methods available to a runtime.
