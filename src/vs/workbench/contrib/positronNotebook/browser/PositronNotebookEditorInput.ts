@@ -7,7 +7,7 @@ import { IReference } from 'vs/base/common/lifecycle';
 import { URI } from 'vs/base/common/uri';
 import { localize } from 'vs/nls';
 import { IEditorOptions } from 'vs/platform/editor/common/editor';
-import { IUntypedEditorInput } from 'vs/workbench/common/editor';
+import { EditorInputCapabilities, GroupIdentifier, ISaveOptions, IUntypedEditorInput } from 'vs/workbench/common/editor';
 import { EditorInput } from 'vs/workbench/common/editor/editorInput';
 import { IResolvedNotebookEditorModel } from 'vs/workbench/contrib/notebook/common/notebookCommon';
 import { INotebookEditorModelResolverService } from 'vs/workbench/contrib/notebook/common/notebookEditorModelResolverService';
@@ -50,7 +50,6 @@ export class PositronNotebookEditorInput extends EditorInput {
 		super();
 
 		console.log('Resolver Service', this._notebookModelResolverService);
-
 	}
 
 	/**
@@ -93,6 +92,36 @@ export class PositronNotebookEditorInput extends EditorInput {
 	override matches(otherInput: EditorInput | IUntypedEditorInput): boolean {
 		return otherInput instanceof PositronNotebookEditorInput &&
 			otherInput.resource.toString() === this.resource.toString();
+	}
+
+	/**
+	 * Determines whether the input is dirty. Aka if it has unsaved changes.
+	 * @returns true if the input is dirty; otherwise, false.
+	 */
+	override isDirty(): boolean {
+		// Go to the editor model reference and check if it's dirty.
+		return this._editorModelReference?.object.isDirty() ?? false;
+	}
+
+	/**
+	 * Adds functionality for saving a notebook.
+	 * @param group Editor group the notebook is currently in
+	 * @param options Save options
+	 * @returns Input after saving
+	 */
+	override async save(group: GroupIdentifier, options?: ISaveOptions): Promise<EditorInput | IUntypedEditorInput | undefined> {
+		if (this._editorModelReference) {
+
+			if (this.hasCapability(EditorInputCapabilities.Untitled)) {
+				return this.saveAs(group, options);
+			} else {
+				await this._editorModelReference.object.save(options);
+			}
+
+			return this;
+		}
+
+		return undefined;
 	}
 
 	override async resolve(_options?: IEditorOptions): Promise<IResolvedNotebookEditorModel | null> {
