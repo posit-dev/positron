@@ -323,6 +323,15 @@ window.onload = function() {
 		const htmlManagerPath = asWebviewUri(
 			URI.joinPath(pythonExtension.extensionLocation, 'resources/js/@jupyter-widgets/html-manager/dist/embed-amd.js'));
 
+		let additionalScripts = '';
+		const usesJupyterMatplotlib = managerState.includes('"model_module":"jupyter-matplotlib"');
+
+		if (usesJupyterMatplotlib) {
+			const jupyterMatplotlibPath = asWebviewUri(
+				URI.joinPath(pythonExtension.extensionLocation, 'resources/js/jupyter-matplotlib/dist/index.js'));
+			additionalScripts += `<script src='${jupyterMatplotlibPath}'></script>`;
+		}
+
 		// Create the metadata for the webview
 		const webviewInitInfo: WebviewInitInfo = {
 			contentOptions: {
@@ -359,6 +368,10 @@ window.onload = function() {
 
 <!-- Load the HTML manager, which is used to render the widgets -->
 <script src='${htmlManagerPath}'></script>
+
+<!-- Load additional dependencies that may be required by the widget type -->
+<!-- If these are not included, they will just be loaded from CDN -->
+${additionalScripts}
 
 <!-- The state of all the widget models on the page -->
 <script type="${MIME_TYPE_WIDGET_STATE}">
