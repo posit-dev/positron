@@ -44,10 +44,10 @@ Type-check with [pyright](https://github.com/microsoft/pyright):
 pyright
 ```
 
-Install test requirements:
+Install the test requirements that are used in CI:
 
 ```sh
-pip install -r ../build/test-requirements.txt
+pip install -r ../build/pinned-test-requirements.txt
 ```
 
 Run tests:
