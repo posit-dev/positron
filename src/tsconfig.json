@@ -32,6 +32,7 @@
 		// --- Start Positron ---
 		"./vs/**/*.tsx",
 		"positron-dts/positron.d.ts",
+		"positron-dts/ui-comm.d.ts",
 		// --- End Positron ---
 		"vscode-dts/vscode.proposed.*.d.ts",
 		"vscode-dts/vscode.d.ts"
