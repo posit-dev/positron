@@ -94,6 +94,9 @@ export class ExtHostMethods implements extHostProtocol.ExtHostMethodsShape {
 		// ultimately receive this text as UTF-8 and want to operate on this text in terms of
 		// as user-perceivable "characters". This only matters when the selection's neighborhood
 		// includes Unicode characters in the astral plane.
+		//
+		// Another resource that supports that what I'm doing here is desirable in Jupyter-land:
+		// https://jupyter-client.readthedocs.io/en/latest/messaging.html#notes
 		const selections = editor.selections.map(selection => {
 			const lineTextBeforeActive = editor.document
 				.lineAt(selection.active.line)
