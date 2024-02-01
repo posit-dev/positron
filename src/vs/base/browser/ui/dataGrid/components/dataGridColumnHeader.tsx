@@ -10,6 +10,7 @@ import * as React from 'react';
 import { MouseEvent, useRef } from 'react'; // eslint-disable-line no-duplicate-imports
 
 // Other dependencies.
+import { localize } from 'vs/nls';
 import { positronClassNames } from 'vs/base/common/positronUtilities';
 import { showContextMenu } from 'vs/base/browser/ui/contextMenu/contextMenu';
 import { IDataColumn } from 'vs/base/browser/ui/dataGrid/interfaces/dataColumn';
@@ -20,6 +21,14 @@ import { SelectionState } from 'vs/base/browser/ui/dataGrid/interfaces/dataGridI
 import { ContextMenuSeparator } from 'vs/base/browser/ui/contextMenu/contextMenuSeparator';
 import { MouseTrigger, PositronButton } from 'vs/base/browser/ui/positronComponents/positronButton';
 import { PositronColumnSplitter } from 'vs/base/browser/ui/positronComponents/positronColumnSplitter';
+
+/**
+ * Localized strings.
+ */
+const sortAscendingTitle = localize('positron.sortAscending', "Sort Ascending");
+const sortDescendingTitle = localize('positron.sortDescending', "Sort Descending");
+const removeSortTitle = localize('positron.removeSort', "Remove Sort");
+const copyColumnTitle = localize('positron.copyColumn', "Copy Column");
 
 /**
  * DataGridColumnHeaderProps interface.
@@ -72,7 +81,7 @@ export const DataGridColumnHeader = (props: DataGridColumnHeaderProps) => {
 			entries: [
 				new ContextMenuItem({
 					checked: columnSortKey !== undefined && columnSortKey.ascending,
-					label: 'Sort Ascending',
+					label: sortAscendingTitle,
 					icon: 'arrow-up',
 					onSelected: async () => context.instance.setColumnSortKey(
 						props.columnIndex,
@@ -81,7 +90,7 @@ export const DataGridColumnHeader = (props: DataGridColumnHeaderProps) => {
 				}),
 				new ContextMenuItem({
 					checked: columnSortKey !== undefined && !columnSortKey.ascending,
-					label: 'Sort Descending',
+					label: sortDescendingTitle,
 					icon: 'arrow-down',
 					onSelected: async () => context.instance.setColumnSortKey(
 						props.columnIndex,
@@ -91,7 +100,7 @@ export const DataGridColumnHeader = (props: DataGridColumnHeaderProps) => {
 				new ContextMenuSeparator(),
 				new ContextMenuItem({
 					checked: false,
-					label: 'Remove Sort',
+					label: removeSortTitle,
 					disabled: !columnSortKey,
 					onSelected: async () =>
 						context.instance.removeColumnSortKey(props.columnIndex)
@@ -99,7 +108,7 @@ export const DataGridColumnHeader = (props: DataGridColumnHeaderProps) => {
 				new ContextMenuSeparator(),
 				new ContextMenuItem({
 					checked: false,
-					label: 'Copy',
+					label: copyColumnTitle,
 					disabled: true,
 					icon: 'copy',
 					onSelected: () => console.log('Copy')
