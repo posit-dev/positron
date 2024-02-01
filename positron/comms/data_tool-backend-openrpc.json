@@ -103,14 +103,22 @@
 							"type": "array",
 							"description": "The columns of data",
 							"items": {
-								"$ref": "#/components/schemas/column_formatted_data"
+								"type": "array",
+								"description": "Column values formatted as strings",
+								"items": {
+									"type": "string"
+								}
 							}
 						},
 						"row_labels": {
 							"type": "array",
 							"description": "Zero or more arrays of row labels",
 							"items": {
-								"$ref": "#/components/schemas/column_formatted_data"
+								"type": "array",
+								"description": "Column values formatted as strings",
+								"items": {
+									"type": "string"
+								}
 							}
 						}
 					}
