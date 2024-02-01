@@ -1726,8 +1726,6 @@ export const POSITRON_DATA_GRID_HEADER_BACKGROUND_COLOR = registerColor('positro
 	hcLight: editorBackground
 }, localize('positronDataGrid.headerBackground', "Positron data grid header background color."));
 
-/* NEW WORK */
-
 // Positron data grid cursor border color.
 export const POSITRON_DATA_GRID_CURSOR_BORDER_COLOR = registerColor('positronDataGrid.cursorBorder', {
 	dark: '#0068c4',
@@ -1760,7 +1758,13 @@ export const POSITRON_DATA_GRID_SELECTION_BACKGROUND_COLOR = registerColor('posi
 	hcLight: '#ff00007f'
 }, localize('positronDataGrid.selectionBackground', "Positron data grid selection background color."));
 
-/* NEW WORK */
+// Positron data grid sort index foreground color.
+export const POSITRON_DATA_GRID_SORT_INDEX_FOREGROUND_COLOR = registerColor('positronDataGrid.sortIndexForeground', {
+	dark: textLinkForeground,
+	light: textLinkForeground,
+	hcDark: textLinkForeground,
+	hcLight: textLinkForeground
+}, localize('positronDataGrid.sortIndexForeground', "Positron data grid sort index foreground color."));
 
 // < --- Positron Data Tool --- >
 

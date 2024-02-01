@@ -2,11 +2,12 @@
  *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
-import { DataGridInstance } from 'vs/base/browser/ui/dataGrid/classes/dataGridInstance';
 import { generateUuid } from 'vs/base/common/uuid';
-import { DataToolClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeDataToolClient';
-import { TableData, TableSchema } from 'vs/workbench/services/languageRuntime/common/positronDataToolComm';
+import { IColumnSortKey } from 'vs/base/browser/ui/dataGrid/interfaces/columnSortKey';
+import { DataGridInstance } from 'vs/base/browser/ui/dataGrid/classes/dataGridInstance';
 import { PositronDataToolColumn } from 'vs/workbench/services/positronDataTool/browser/positronDataToolColumn';
+import { DataToolClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeDataToolClient';
+import { ColumnSortKey, TableData, TableSchema } from 'vs/workbench/services/languageRuntime/common/positronDataToolComm';
 
 interface CachedTableData {
 	firstColumnIndex: number;
@@ -22,7 +23,9 @@ interface CachedTableData {
  * PositronDataToolDataGridInstance class.
  */
 export class PositronDataToolDataGridInstance extends DataGridInstance {
-
+	/**
+	 * Gets the data tool client instance.
+	 */
 	private readonly _dataToolClientInstance: DataToolClientInstance;
 
 	private _tableSchema?: TableSchema;
@@ -33,7 +36,12 @@ export class PositronDataToolDataGridInstance extends DataGridInstance {
 
 	constructor(dataToolClientInstance: DataToolClientInstance) {
 		// Call the base class's constructor.
-		super();
+		super({
+			columnHeadersHeight: 34,
+			rowHeadersWidth: 55,
+			minimumColumnWidth: 100,
+			scrollbarWidth: 14
+		});
 
 		// Set the data tool client instance.
 		this._dataToolClientInstance = dataToolClientInstance;
@@ -62,10 +70,7 @@ export class PositronDataToolDataGridInstance extends DataGridInstance {
 
 			const columns: PositronDataToolColumn[] = [];
 			for (let i = 0; i < tableSchema.columns.length; i++) {
-				columns.push(new PositronDataToolColumn(
-					`col-${i}`,
-					tableSchema.columns[i]
-				));
+				columns.push(new PositronDataToolColumn(tableSchema.columns[i]));
 			}
 
 			this.setColumns(columns);
@@ -75,30 +80,34 @@ export class PositronDataToolDataGridInstance extends DataGridInstance {
 		}).catch(x => {
 
 		});
-
 	}
 
-	fetchData() {
+	/**
+	 * Sorts the data.
+	 * @returns A Promise<void> that resolves when the data is sorted.
+	 */
+	async sortData(columnSorts: IColumnSortKey[]): Promise<void> {
+		// Set the sort columns.
+		await this._dataToolClientInstance.setSortColumns(columnSorts.map(columnSort => (
+			{
+				column_index: columnSort.columnIndex,
+				ascending: columnSort.ascending
+			} satisfies ColumnSortKey
+		)));
+
+		// Refetch data.
+		await this.doFetchData();
+	}
+
+	private async doFetchData(): Promise<void> {
 		// If the table schema hasn't loaded, we cannot fetch data.
 		if (!this._tableSchema) {
 			return;
 		}
 
-		// Figure out the optimal columns to cache. Small numbe of columns, cache them all. Otherwise,
-		// cache N before the visible columns and N after.
-
-		// Figure out the optimal rows to cache.
-
-		// Is that data already cached. If so, do nothing.
-
-		// get more
-
 		// Set the first column index and first row index.
 		const firstColumnIndex = this.firstColumnIndex;
 		const firstRowIndex = this.firstRowIndex;
-
-		// If the data we need to fetch is already cached, do nothing.
-
 
 		// Build the column indices to fetch.
 		const columnIndices: number[] = [];
@@ -111,29 +120,35 @@ export class PositronDataToolDataGridInstance extends DataGridInstance {
 
 		// Fetch data.
 		const start = new Date().getTime();
-		this._dataToolClientInstance.getDataValues(
+		const tableData = await this._dataToolClientInstance.getDataValues(
 			firstRowIndex,
 			this.visibleRows + 10,
 			columnIndices
-		).then(tableData => {
-			if (fetchIdentifier !== this._lastFetchIdentifier) {
-				console.log('+++++++++++++++++++ DISCARDING FETCHED DATA');
-			}
+		);
 
-			const end = new Date().getTime();
-			console.log(`Fetching data took ${end - start}ms`);
 
-			// Set the cached data.
-			this._cachedTableData = {
-				firstColumnIndex,
-				columnIndices,
-				firstRowIndex,
-				lastRowIndex: firstRowIndex + this.visibleRows + 10,
-				tableData
-			} satisfies CachedTableData;
+		if (fetchIdentifier !== this._lastFetchIdentifier) {
+			console.log('+++++++++++++++++++ DISCARDING FETCHED DATA');
+		}
 
-			// Fire the onDidUpdate event.
-			this._onDidUpdateEmitter.fire();
+		const end = new Date().getTime();
+		console.log(`Fetching data took ${end - start}ms`);
+
+		// Set the cached data.
+		this._cachedTableData = {
+			firstColumnIndex,
+			columnIndices,
+			firstRowIndex,
+			lastRowIndex: firstRowIndex + this.visibleRows + 10,
+			tableData
+		} satisfies CachedTableData;
+
+		// Fire the onDidUpdate event.
+		this._onDidUpdateEmitter.fire();
+	}
+
+	fetchData() {
+		this.doFetchData().then(() => {
 
 		}).catch(x => {
 			console.log(x);

@@ -101,8 +101,8 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 			<div className='action-bars'>
 				<PositronActionBar size='small' borderTop={true} borderBottom={true} paddingLeft={kPaddingLeft} paddingRight={kPaddingRight}>
 					<ActionBarRegion location='left'>
-						<ActionBarButton iconId='positron-left-arrow' disabled={disableLeft} tooltip={positronShowPreviousPlot} ariaLabel={positronShowPreviousPlot} onClick={showPreviousPlotHandler} />
-						<ActionBarButton iconId='positron-right-arrow' disabled={disableRight} tooltip={positronShowNextPlot} ariaLabel={positronShowNextPlot} onClick={showNextPlotHandler} />
+						<ActionBarButton iconId='positron-left-arrow' disabled={disableLeft} tooltip={positronShowPreviousPlot} ariaLabel={positronShowPreviousPlot} onPressed={showPreviousPlotHandler} />
+						<ActionBarButton iconId='positron-right-arrow' disabled={disableRight} tooltip={positronShowNextPlot} ariaLabel={positronShowNextPlot} onPressed={showNextPlotHandler} />
 						{enableSizingPolicy && <ActionBarSeparator />}
 						{enableSizingPolicy && <SizingPolicyMenuButton
 							layoutService={props.layoutService}
@@ -113,7 +113,7 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 					<ActionBarRegion location='right'>
 						<HistoryPolicyMenuButton plotsService={positronPlotsContext.positronPlotsService} />
 						<ActionBarSeparator />
-						<ActionBarButton iconId='clear-all' align='right' disabled={noPlots} tooltip={positronClearAllPlots} ariaLabel={positronClearAllPlots} onClick={clearAllPlotsHandler} />
+						<ActionBarButton iconId='clear-all' align='right' disabled={noPlots} tooltip={positronClearAllPlots} ariaLabel={positronClearAllPlots} onPressed={clearAllPlotsHandler} />
 					</ActionBarRegion>
 				</PositronActionBar>
 			</div>
