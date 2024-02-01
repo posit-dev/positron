@@ -24,9 +24,10 @@
 
 .data-grid
 .data-grid-scrollbar.horizontal {
-	left: 0;
+	left: -1px;
 	bottom: 0;
 	border-top: 1px solid var(--vscode-positronDataGrid-border);
+	border-left: 1px solid var(--vscode-positronDataGrid-border);
 }
 
 .data-grid

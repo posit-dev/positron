@@ -128,6 +128,12 @@ export interface IDataGridInstance {
 	setColumnWidth(columnIndex: number, width: number): void;
 
 	/**
+	 * Sets the row headers width.
+	 * @param rowHeadersWidth The row headers width.
+	 */
+	setRowHeadersWidth(rowHeadersWidth: number): void;
+
+	/**
 	 * Sets a column sort key.
 	 * @param columnIndex The column index.
 	 * @param ascending The sort order; true for ascending, false for descending.
@@ -295,9 +301,16 @@ export interface IDataGridInstance {
 	fetchData(): void;
 
 	/**
+	 * Gets a row label.
+	 * @param rowIndex The row index.
+	 * @returns The row label.
+	 */
+	rowLabel(rowIndex: number): string | undefined;
+
+	/**
 	 * Gets a cell.
 	 * @param columnIndex The column index.
-	 * @param row The row index.
+	 * @param rowIndex The row index.
 	 * @returns The cell.
 	 */
 	cell(columnIndex: number, rowIndex: number): string | undefined;
