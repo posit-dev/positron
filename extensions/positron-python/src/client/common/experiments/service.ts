@@ -85,7 +85,14 @@ export class ExperimentService implements IExperimentService {
         this.experimentationService = getExperimentationService(
             PVSC_EXTENSION_ID,
             this.appEnvironment.packageJson.version!,
+            // --- Start Positron ---
+            // The custom TargetPopulation enum doesn't match the declared type
+            // in the tas-client. This became a compilation error in newer
+            // versions of Typescript than are used by the upstream repository.
+            //
+            // @ts-ignore for compatibility with Typescript > 5.4.0-dev.20240108.
             targetPopulation,
+            // --- End Positron ---
             telemetryReporter,
             this.experiments.storage,
         );
