@@ -5,9 +5,8 @@
 # flake8: ignore E203
 # pyright: reportOptionalMemberAccess=false
 
-from typing import TYPE_CHECKING, Any, Dict, List, Sequence
-from .positron_comm import JsonRpcErrorCode, PositronComm
 from dataclasses import asdict
+from typing import TYPE_CHECKING, Any, Dict, List, Sequence
 from .data_tool_comm import (
     BackendState,
     ColumnFilter,
@@ -27,6 +26,8 @@ from .data_tool_comm import (
     TableData,
     TableSchema,
 )
+from .positron_comm import JsonRpcErrorCode, PositronComm
+from .third_party import _get_pandas
 import comm
 import logging
 import operator
@@ -122,6 +123,12 @@ class DataToolTableView:
         raise NotImplementedError
 
 
+def _pandas_format_values(values):
+    from pandas.io.formats.format import format_array
+
+    return format_array(values, None, leading_space=False)
+
+
 class PandasView(DataToolTableView):
     TYPE_DISPLAY_MAPPING = {
         "integer": "number",
@@ -144,6 +151,7 @@ class PandasView(DataToolTableView):
         "categorical": "categorical",
         "boolean": "boolean",
         "datetime64": "datetime",
+        "datetime64[ns]": "datetime",
         "datetime": "datetime",
         "date": "date",
         "time": "time",
@@ -192,6 +200,7 @@ class PandasView(DataToolTableView):
                 type_display=ColumnSchemaTypeDisplay(type_display),
             )
             column_schemas.append(col_schema)
+
         return TableSchema(column_schemas, *self.table.shape)
 
     def _get_data_values(
@@ -205,37 +214,46 @@ class PandasView(DataToolTableView):
         # that is not the same as what users see in the console. I
         # will have to look for the right pandas function that deals
         # with value formatting
+        columns = []
         for i in column_indices:
             # The UI has requested data beyond the end of the table,
             # so we stop here
             if i >= len(self.table.columns):
                 break
-            col = self.table.iloc[:, i]
+            columns.append(self.table.iloc[:, i])
 
-            # If the table is either filtered or sorted, view_indices
-            if self.view_indices is not None:
-                value_slice = col.take(self.view_indices[row_start : row_start + num_rows])
-            else:
-                value_slice = col.iloc[row_start : row_start + num_rows]
+        formatted_columns = []
 
-            formatted_columns.append(value_slice.astype(str).tolist())
+        if self.view_indices is not None:
+            # If the table is either filtered or sorted, use a slice
+            # the view_indices to select the virtual range of values for the grid
+            view_slice = self.view_indices[row_start : row_start + num_rows]
+            columns = [col.take(view_slice) for col in columns]
+            indices = self.table.index.take(view_slice)
+        else:
+            # No filtering or sorting, just slice directly
+            indices = self.table.index[row_start : row_start + num_rows]
+            columns = [col.iloc[row_start : row_start + num_rows] for col in columns]
 
-        # TODO: handle pandas.Index, pandas.MultiIndex
-        row_labels = []
+        formatted_columns = [_pandas_format_values(col.values) for col in columns]
+
+        # Currently, we format MultiIndex in its flat tuple
+        # representation. In the future we will return multiple lists
+        # of row labels to be formatted more nicely in the UI
+        if isinstance(self.table.index, _get_pandas().MultiIndex):
+            indices = indices.to_flat_index()
+        row_labels = [_pandas_format_values(indices.values)]
         return TableData(formatted_columns, row_labels)
-
-    def _format_value_slice(self, values):
-        from pandas.io.formats.format import format_array
-
-        return format_array(values, None, leading_space=False)
 
     def _update_view_indices(self):
         if len(self.applied_sort_keys) == 0:
             self.view_indices = self.filtered_indices
         else:
+            # If we have just applied a new filter, we now resort to
+            # reflect the filtered_indices that have just been updated
             self._set_sort_columns(self.applied_sort_keys)
 
-    def _set_column_filters(self, filters: List[ColumnFilter]) -> FilterResult:
+    def _set_column_filters(self, filters) -> FilterResult:
         self.applied_filters = filters
 
         if len(filters) == 0:
@@ -244,6 +262,7 @@ class PandasView(DataToolTableView):
             self._update_view_indices()
             return FilterResult(len(self.table))
 
+        # Evaluate all the filters and AND them together
         combined_mask = None
         for filt in filters:
             single_mask = _pandas_eval_filter(self.table, filt)
@@ -258,16 +277,50 @@ class PandasView(DataToolTableView):
         self._update_view_indices()
         return FilterResult(len(self.filtered_indices))
 
-    def _set_sort_columns(self, sort_keys: List[ColumnSortKey]) -> None:
-        # from pandas.core.sorting import lexsort_indexer, nargsort
+    def _set_sort_columns(self, sort_keys) -> None:
+        from pandas.core.sorting import lexsort_indexer, nargsort
 
-        self.applied_sort_keys = []
-        if len(sort_keys) == 0:
-            pass
-        elif len(sort_keys) == 1:
-            pass
+        self.applied_sort_keys = sort_keys
+        if len(sort_keys) == 1:
+            key = sort_keys[0]
+            column = self.table.iloc[:, key.column_index]
+            if self.filtered_indices is not None:
+                # pandas's univariate null-friendly argsort (computes
+                # the sorting indices). Mergesort is needed to make it
+                # stable
+                sort_indexer = nargsort(
+                    column.take(self.filtered_indices),
+                    kind="mergesort",
+                    ascending=key.ascending,
+                )
+                # Reorder the filtered_indices to provide the
+                # filtered, sorted virtual view for future data
+                # requests
+                self.view_indices = self.filtered_indices.take(sort_indexer)
+            else:
+                # Data is not filtered
+                self.view_indices = nargsort(column, kind="mergesort", ascending=key.ascending)
+        elif len(sort_keys) > 1:
+            # Multiple sorting keys
+            cols_to_sort = []
+            directions = []
+            for key in sort_keys:
+                column = self.table.iloc[:, key.column_index]
+                if self.filtered_indices is not None:
+                    column = column.take(self.filtered_indices)
+                cols_to_sort.append(column)
+                directions.append(key.ascending)
+
+            # lexsort_indexer uses np.lexsort and so is always stable
+            sort_indexer = lexsort_indexer(cols_to_sort, directions)
+            if self.filtered_indices is not None:
+                # Create the filtered, sorted virtual view indices
+                self.view_indices = self.filtered_indices.take(sort_indexer)
+            else:
+                self.view_indices = sort_indexer
         else:
-            pass
+            # This will be None if the data is unfiltered
+            self.view_indices = self.filtered_indices
 
     def _get_column_profile(
         self, profile_type: GetColumnProfileProfileType, column_index: int
