@@ -31,12 +31,12 @@ export const DataGridCornerTopLeft = (props: DataGridCornerTopLeftProps) => {
 		<div className='data-grid-corner-top-left' onClick={props.onClick}>
 			<PositronColumnSplitter
 				onBeginResize={() => ({
-					minimumWidth: 100,
+					minimumWidth: 20,
 					maximumWidth: 400,
 					startingWidth: context.instance.rowHeadersWidth
 				})}
 				onResize={width =>
-					console.log(`New width is ${width}`)
+					context.instance.setRowHeadersWidth(width)
 				}
 			/>
 		</div>

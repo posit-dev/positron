@@ -1271,6 +1271,13 @@ export abstract class DataGridInstance extends Disposable implements IDataGridIn
 	abstract fetchData(): void;
 
 	/**
+	 * Gets a row label.
+	 * @param rowIndex The row index.
+	 * @returns The row label.
+	 */
+	abstract rowLabel(rowIndex: number): string | undefined;
+
+	/**
 	 * Gets a cell.
 	 * @param columnIndex The column index.
 	 * @param rowIndex The row index.

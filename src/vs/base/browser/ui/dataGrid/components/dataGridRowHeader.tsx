@@ -69,15 +69,15 @@ export const DataGridRowHeader = (props: DataGridRowHeaderProps) => {
 					)
 				}
 			/>
-			<div className='title'>{props.rowIndex + 1}</div>
+			<div className='title'>{context.instance.rowLabel(props.rowIndex)}</div>
 			<PositronColumnSplitter
 				onBeginResize={() => ({
-					minimumWidth: context.instance.minimumColumnWidth,
+					minimumWidth: 20,
 					maximumWidth: 400,
 					startingWidth: context.instance.rowHeadersWidth
 				})}
 				onResize={width =>
-					console.log(`New width is ${width}`)
+					context.instance.setRowHeadersWidth(width)
 				}
 			/>
 		</div>
