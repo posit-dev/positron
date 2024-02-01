@@ -133,11 +133,7 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 	setState(providerId: string, inputValue: string | undefined): void {
 		this.providerId = providerId;
 		const history = this.historyService.getHistory(providerId);
-		this.historyStates = new Map(history.map(h => [h.text, h.state]));
-		const historyTexts: string[] = [];
-		this.historyStates.forEach((_, str) => historyTexts.push(str));
-
-		this.history = new HistoryNavigator(historyTexts, 50);
+		this.history = new HistoryNavigator(history, 50);
 
 		if (typeof inputValue === 'string') {
 			this.setValue(inputValue);
@@ -159,7 +155,7 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 	private navigateHistory(previous: boolean): void {
 		const historyEntry = (previous ?
 			(this.history.previous() ?? this.history.first()) : this.history.next())
-			?? '';
+			?? { text: '' };
 
 		this.onHistoryEntry = previous || this.history.current() !== null;
 
@@ -198,8 +194,7 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 	 */
 	async acceptInput(userQuery?: string, inputState?: any): Promise<void> {
 		if (userQuery) {
-			this.history.add(userQuery);
-			this.historyStates.set(userQuery, inputState);
+			this.history.add({ text: userQuery, state: inputState });
 		}
 
 		if (this.accessibilityService.isScreenReaderOptimized() && isMacintosh) {
@@ -390,8 +385,7 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 
 	saveState(): void {
 		const inputHistory = this.history.getHistory();
-		const historyEntries = inputHistory.map(entry => ({ text: entry, state: this.historyStates.get(entry) }));
-		this.historyService.saveHistory(this.providerId!, historyEntries);
+		this.historyService.saveHistory(this.providerId!, inputHistory);
 	}
 }
 
