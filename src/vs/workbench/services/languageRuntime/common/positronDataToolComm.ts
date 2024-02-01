@@ -37,12 +37,12 @@ export interface TableData {
 	/**
 	 * The columns of data
 	 */
-	columns: Array<ColumnFormattedData>;
+	columns: Array<Array<string>>;
 
 	/**
 	 * Zero or more arrays of row labels
 	 */
-	row_labels?: Array<ColumnFormattedData>;
+	row_labels?: Array<Array<string>>;
 
 }
 

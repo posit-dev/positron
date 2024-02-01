@@ -763,6 +763,32 @@ JsonData = Union[Dict[str, "JsonData"], List["JsonData"], str, int, float, bool,
 				yield '\n';
 			}
 
+			// Add __post_init__ if any properties need additional boxing
+			const postInitProps: Array<{ prop: String, klass: String, isRequired: boolean }> = [];
+			for (const prop of Object.keys(o.properties)) {
+				const schema = o.properties[prop];
+				const isRequired = !o.required || !o.required.includes(prop);
+				if (schema.type == 'array' && schema.items.$ref) {
+					// The property is a List[OtherType], and that needs boxing
+					const klass = parseRef(schema.items.$ref, contracts);
+					postInitProps.push({ prop, klass, isRequired });
+				}
+			}
+
+			if (postInitProps.length > 0) {
+				yield `    def __post_init__(self):\n`;
+				yield `        """ Revive parameters after initialization """\n`;
+
+				for (const item of postInitProps) {
+					if (item.isRequired) {
+						yield `        if self.${item.prop} is not None:\n    `
+					}
+					yield `        self.${item.prop} = [\n`;
+					yield `            ${item.klass}(**d) if isinstance(d, dict) else d\n`;
+					yield `            for d in self.${item.prop}]  # type: ignore\n\n`;
+				}
+			}
+
 			// Fields
 			for (const prop of Object.keys(o.properties)) {
 				const schema = o.properties[prop];
@@ -776,15 +802,15 @@ JsonData = Union[Dict[str, "JsonData"], List["JsonData"], str, int, float, bool,
 				}
 				yield ' = field(\n';
 				if (!o.required || !o.required.includes(prop)) {
-					yield `        default=None,\n`;
+					yield `        default=None, \n`;
 				}
-				yield `        metadata={\n`;
-				yield `            "description": "${schema.description}",\n`;
+				yield `        metadata = { \n`;
+				yield `            "description": "${schema.description}", \n`;
 				if (!o.required || !o.required.includes(prop)) {
-					yield `            "default": None,\n`;
+					yield `            "default": None, \n`;
 				}
-				yield `        }\n`;
-				yield `    )\n\n`;
+				yield `        } \n`;
+				yield `    ) \n\n`;
 			}
 			yield '\n\n';
 		});
