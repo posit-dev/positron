@@ -10,7 +10,7 @@ import { NotebookCellOutputTextModel } from 'vs/workbench/contrib/notebook/commo
 import { NotebookCellTextModel } from 'vs/workbench/contrib/notebook/common/model/notebookCellTextModel';
 import { ICellOutput, NotebookCellExecutionState } from 'vs/workbench/contrib/notebook/common/notebookCommon';
 import { CellExecutionStatusCallback } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookWidget';
-import { OutputMimeTypes, isKnownMimeType } from 'vs/workbench/contrib/positronNotebook/browser/getOutputContents';
+import { parseOutputData } from 'vs/workbench/contrib/positronNotebook/browser/getOutputContents';
 
 type ExecutionStateString = 'running' | 'pending' | 'unconfirmed' | 'idle';
 function parseExecutionState(state?: NotebookCellExecutionState): ExecutionStateString {
@@ -43,7 +43,11 @@ function useRunCell(opts: {
 	const { cell, onRunCell, getCellExecutionStatus } = opts;
 
 	const [executionStatus, setExecutionStatus] = React.useState<ExecutionStateString>('idle');
-	const [outputContents, setOutputContents] = React.useState(cell.outputs);
+	// By putting the outputContents into an object, we're ensuring that everytime it updates we
+	// are able to get a new reference to the object, which will cause the component to re-render.
+	// By default the outputs of the cell is referentially stable and thus react will not rerender
+	// the component when the outputs change.
+	const [outputContents, setOutputContents] = React.useState<{ outputs: ICellOutput[] }>({ outputs: cell.outputs });
 
 	const runCell = React.useCallback(() => {
 		setExecutionStatus('running');
@@ -57,7 +61,7 @@ function useRunCell(opts: {
 
 	React.useEffect(() =>
 		cell.onDidChangeOutputs(() => {
-			setOutputContents(cell.outputs);
+			setOutputContents({ outputs: cell.outputs });
 		}).dispose, [cell]);
 
 	return {
@@ -75,7 +79,7 @@ export function NotebookCell({ cell, onRunCell, getCellExecutionStatus }: {
 }) {
 
 	const {
-		outputContents, runCell, executionStatus
+		outputContents, runCell, executionStatus,
 	} = useRunCell({ cell, onRunCell, getCellExecutionStatus });
 
 	const isRunning = executionStatus === 'running';
@@ -89,49 +93,44 @@ export function NotebookCell({ cell, onRunCell, getCellExecutionStatus }: {
 			<pre className='positron-notebook-cell-code'>{cell.getValue()}</pre>
 			<div className='positron-notebook-cell-outputs'>
 				{
-					outputContents.map((output, i) => <NotebookCellOutput key={i} cellOutput={output} />)
+					outputContents.outputs.map((output) =>
+						<NotebookCellOutput key={output.outputId} cellOutput={output} />)
 				}
 			</div>
 		</div >
 	);
 }
 
-
 function NotebookCellOutput({ cellOutput }: { cellOutput: ICellOutput }) {
 
+	const { outputs } = cellOutput;
 
-	{/* {outputContents ? outputContents.map(({ content, id }) => <div key={id}>{content}</div>) : 'No outputs'} */ }
 	if (!(cellOutput instanceof NotebookCellOutputTextModel)) {
 		return <div>Cant handle output type yet: OutputId: ${cellOutput.outputId}</div>;
 	}
 
-	if (cellOutput.outputs[0].mime === 'application/vnd.code.notebook.error') {
-		console.log('error output contents', cellOutput);
-	}
-
-
 	return <>
 		{
-			cellOutput.outputs.map(({ data, mime }, i) => <CellOutputContents key={i} data={data} mime={mime} />)
+			outputs.map(({ data, mime }, i) => <CellOutputContents key={i} data={data} mime={mime} />)
 		}
 	</>;
 }
 
-const mimeTypeToClassName: Record<OutputMimeTypes, string> = {
-	'application/vnd.code.notebook.error': 'notebook-error',
-	'application/vnd.code.notebook.stdout': 'notebook-stdout',
-	'application/vnd.code.notebook.stderr': 'notebook-stderr',
-};
 
-function CellOutputContents({ data, mime }: { data: VSBuffer; mime: string }) {
-	if (!isKnownMimeType(mime)) {
-		return <div className='unknown-mime-type'>Cant handle mime type yet</div>;
+function CellOutputContents(output: { data: VSBuffer; mime: string }) {
+
+	const parsed = parseOutputData(output);
+
+	switch (parsed.type) {
+		case 'stdout':
+			return <div className='notebook-stdout'>{parsed.content}</div>;
+		case 'stderr':
+			return <div className='notebook-stderr'>{parsed.content}</div>;
+		case 'interupt':
+			return <div className='notebook-error'>Cell execution stopped due to keyboard interupt.</div>;
+		case 'unknown':
+			return <div className='unknown-mime-type'>Cant handle mime type &quot;{output.mime}&quot; yet</div>;
 	}
 
-	return <div className={mimeTypeToClassName[mime]}>
-		{data.toString()}
-	</div>;
 }
 
-
-// function CellErrorOutput();

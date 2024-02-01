@@ -72,3 +72,42 @@ function getTextOutputContents(output: NotebookCellOutputTextModel): string {
 		return outputMimeTypes.includes(mime) ? data.toString() : `Cant handle mime type yet: ${mime}`;
 	}).join('\n');
 }
+
+type ParsedOutput = {
+	type: 'stdout';
+	content: string;
+} |
+{
+	type: 'stderr';
+	content: string;
+} |
+{
+	type: 'interupt';
+	trace: string;
+} | {
+	type: 'unknown';
+	contents: string;
+};
+
+export function parseOutputData({ data, mime }: ICellOutput['outputs'][number]): ParsedOutput {
+	const message = data.toString();
+
+	try {
+		const parsedMessage = JSON.parse(message);
+
+		if (parsedMessage?.name === 'KeyboardInterrupt') {
+			return { type: 'interupt', trace: parsedMessage.traceback };
+		}
+	} catch (e) {
+	}
+
+	if (mime === 'application/vnd.code.notebook.stdout') {
+		return { type: 'stdout', content: message };
+	}
+
+	if (mime === 'application/vnd.code.notebook.stderr') {
+		return { type: 'stderr', content: message };
+	}
+
+	return { type: 'unknown', contents: message };
+}

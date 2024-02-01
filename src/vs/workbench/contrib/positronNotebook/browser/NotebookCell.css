@@ -125,4 +125,8 @@
 	& .notebook-stderr {
 		color: orangered;
 	}
+
+	&:empty {
+		display: none;
+	}
 }
