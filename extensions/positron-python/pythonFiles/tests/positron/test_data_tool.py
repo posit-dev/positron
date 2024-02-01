@@ -13,8 +13,7 @@ import pytest
 from positron.data_tool import DataToolService, PandasView, COMPARE_OPS
 from positron.data_tool_comm import (
     ColumnFilter,
-    ColumnFilterCompareOp,
-    ColumnFilterFilterType,
+    ColumnSortKey,
     ColumnSchema,
     FilterResult,
 )
@@ -162,6 +161,9 @@ class PandasFixture:
     def set_column_filters(self, table_name, filters=None):
         return self.do_json_rpc(table_name, "set_column_filters", filters=filters)
 
+    def set_sort_columns(self, table_name, sort_keys=None):
+        return self.do_json_rpc(table_name, "set_sort_columns", sort_keys=sort_keys)
+
     def check_filter_case(self, table, filter_set, expected_table):
         table_id = guid()
         ex_id = guid()
@@ -170,6 +172,19 @@ class PandasFixture:
 
         response = self.set_column_filters(table_id, filters=filter_set)
         assert response == FilterResult(selected_num_rows=len(expected_table))
+        self.compare_tables(table_id, ex_id, table.shape)
+
+    def check_sort_case(self, table, sort_keys, expected_table, filters=None):
+        table_id = guid()
+        ex_id = guid()
+        self.register_table(table_id, table)
+        self.register_table(ex_id, expected_table)
+
+        if filters is not None:
+            self.set_column_filters(table_id, filters)
+
+        response = self.set_sort_columns(table_id, sort_keys=sort_keys)
+        assert response == None
         self.compare_tables(table_id, ex_id, table.shape)
 
     def compare_tables(self, table_id: str, expected_id: str, table_shape: tuple):
@@ -266,20 +281,18 @@ def test_pandas_get_data_values(pandas_fixture: PandasFixture):
         column_indices=list(range(4)),
     )
 
-    # TODO: These values are not what a pandas user would see in the
-    # console or in Jupyter, need to spelunk and fix that to be
-    # consistent
+    # TODO: pandas pads all values to fixed width, do we want to do
+    # something different?
     expected_columns = [
         ["1", "2", "3", "4", "5"],
-        ["True", "False", "True", "None", "True"],
-        ["foo", "bar", "None", "bar", "qux"],
-        ["0.0", "1.2", "-4.5", "6.0", "nan"],
+        [" True", "False", " True", " None", " True"],
+        [" foo", " bar", "None", " bar", " qux"],
+        [" 0.0", " 1.2", "-4.5", " 6.0", " NaN"],
     ]
 
     assert result["columns"] == expected_columns
 
-    # TODO(wesm): for later
-    assert result["row_labels"] == []
+    assert result["row_labels"] == [["0", "1", "2", "3", "4"]]
 
     # Edge cases: request beyond end of table
     response = pandas_fixture.get_data_values(
@@ -304,16 +317,32 @@ def test_pandas_get_data_values(pandas_fixture: PandasFixture):
     #     )
 
 
-def _get_compare_filter(filter_type, column_index, compare_op, compare_value):
-    if isinstance(compare_op, str):
-        compare_op = ColumnFilterCompareOp(compare_op)
+def _filter(filter_type, column_index, **kwargs):
+    kwargs.update(
+        {
+            "filter_id": guid(),
+            "filter_type": filter_type,
+            "column_index": column_index,
+        }
+    )
+    return kwargs
 
-    return ColumnFilter(
-        guid(),
-        ColumnFilterFilterType(filter_type),
-        column_index=column_index,
+
+def _compare_filter(column_index, compare_op, compare_value):
+    return _filter(
+        "compare",
+        column_index,
         compare_op=compare_op,
         compare_value=compare_value,
+    )
+
+
+def _set_member_filter(column_index, values, inclusive=True):
+    return _filter(
+        "set_membership",
+        column_index,
+        set_member_inclusive=inclusive,
+        set_member_values=values,
     )
 
 
@@ -327,12 +356,12 @@ def test_pandas_filter_compare(pandas_fixture: PandasFixture):
     column_index = df.columns.get_loc(column)
 
     for op, op_func in COMPARE_OPS.items():
-        filt = _get_compare_filter("compare", column_index, op, str(compare_value))
+        filt = _compare_filter(column_index, op, str(compare_value))
         expected_df = df[op_func(df[column], compare_value)]
         pandas_fixture.check_filter_case(df, [filt], expected_df)
 
     # Test that passing empty filter set resets to unfiltered state
-    filt = _get_compare_filter("compare", column_index, "<", str(compare_value))
+    filt = _compare_filter(column_index, "<", str(compare_value))
     _ = pandas_fixture.set_column_filters(table_name, filters=[filt])
     response = pandas_fixture.set_column_filters(table_name, filters=[])
     assert response == FilterResult(selected_num_rows=len(df))
@@ -345,9 +374,9 @@ def test_pandas_filter_compare(pandas_fixture: PandasFixture):
 
 def test_pandas_filter_isnull_notnull(pandas_fixture: PandasFixture):
     df = SIMPLE_PANDAS_DF
-    b_isnull = ColumnFilter(guid(), ColumnFilterFilterType.Isnull, column_index=1)
-    b_notnull = ColumnFilter(guid(), ColumnFilterFilterType.Notnull, column_index=1)
-    c_notnull = ColumnFilter(guid(), ColumnFilterFilterType.Notnull, column_index=2)
+    b_isnull = _filter("isnull", 1)
+    b_notnull = _filter("notnull", 1)
+    c_notnull = _filter("notnull", 2)
 
     cases = [
         [[b_isnull], df[df["b"].isnull()]],
@@ -362,29 +391,72 @@ def test_pandas_filter_isnull_notnull(pandas_fixture: PandasFixture):
 def test_pandas_filter_set_membership(pandas_fixture: PandasFixture):
     df = SIMPLE_PANDAS_DF
 
-    def _set_member(column_index, values, inclusive=True):
-        return ColumnFilter(
-            guid(),
-            ColumnFilterFilterType.SetMembership,
-            column_index=column_index,
-            set_member_inclusive=inclusive,
-            set_member_values=values,
-        )
-
     cases = [
-        [[_set_member(0, [2, 4])], df[df["a"].isin([2, 4])]],
-        [[_set_member(2, ["bar", "foo"])], df[df["c"].isin(["bar", "foo"])]],
-        [[_set_member(2, [])], df[df["c"].isin([])]],
-        [[_set_member(2, ["bar"], False)], df[~df["c"].isin(["bar"])]],
-        [[_set_member(2, [], False)], df],
+        [[_set_member_filter(0, [2, 4])], df[df["a"].isin([2, 4])]],
+        [
+            [_set_member_filter(2, ["bar", "foo"])],
+            df[df["c"].isin(["bar", "foo"])],
+        ],
+        [[_set_member_filter(2, [])], df[df["c"].isin([])]],
+        [[_set_member_filter(2, ["bar"], False)], df[~df["c"].isin(["bar"])]],
+        [[_set_member_filter(2, [], False)], df],
     ]
 
     for filter_set, expected_df in cases:
         pandas_fixture.check_filter_case(df, filter_set, expected_df)
 
 
-# def test_pandas_set_sort_keys(pandas_fixture: PandasFixture):
-#     pass
+def test_pandas_set_sort_columns(pandas_fixture: PandasFixture):
+    tables = {
+        "df1": SIMPLE_PANDAS_DF,
+        # Just some random data to test multiple keys, different sort
+        # orders, etc.
+        "df2": pd.DataFrame(
+            {
+                "a": np.random.standard_normal(10000),
+                "b": np.tile(np.arange(2), 5000),
+                "c": np.tile(np.arange(10), 1000),
+            }
+        ),
+    }
+
+    cases = [
+        ("df1", [(2, True)], {"by": "c"}),
+        ("df1", [(2, False)], {"by": "c", "ascending": False}),
+        # Tests stable sorting
+        ("df2", [(1, True)], {"by": "b"}),
+        ("df2", [(2, True)], {"by": "c"}),
+        ("df2", [(0, True), (1, True)], {"by": ["a", "b"]}),
+        (
+            "df2",
+            [(0, True), (1, False)],
+            {"by": ["a", "b"], "ascending": [True, False]},
+        ),
+        (
+            "df2",
+            [(2, False), (1, True), (0, False)],
+            {"by": ["c", "b", "a"], "ascending": [False, True, False]},
+        ),
+    ]
+
+    # Test sort AND filter
+    filter_cases = {"df2": [(lambda x: x[x["a"] > 0], [_compare_filter(0, ">", 0)])]}
+
+    for df_name, keys, expected_params in cases:
+        wrapped_keys = [
+            {"column_index": index, "ascending": ascending} for index, ascending in keys
+        ]
+        df = tables[df_name]
+
+        expected_params["kind"] = "mergesort"
+
+        expected_df = df.sort_values(**expected_params)
+
+        pandas_fixture.check_sort_case(df, wrapped_keys, expected_df)
+
+        for filter_f, filters in filter_cases.get(df_name, []):
+            expected_filtered = filter_f(df).sort_values(**expected_params)
+            pandas_fixture.check_sort_case(df, wrapped_keys, expected_filtered, filters=filters)
 
 
 # def test_pandas_get_column_profile(pandas_fixture: PandasFixture):

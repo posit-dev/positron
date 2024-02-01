@@ -114,6 +114,12 @@ class TableSchema:
     The schema for a table-like object
     """
 
+    def __post_init__(self):
+        """Revive parameters after initialization"""
+        self.columns = [
+            ColumnSchema(**d) if isinstance(d, dict) else d for d in self.columns
+        ]  # type: ignore
+
     columns: List[ColumnSchema] = field(
         metadata={
             "description": "Schema for each column in the table",
@@ -139,13 +145,13 @@ class TableData:
     Table values formatted as strings
     """
 
-    columns: List[ColumnFormattedData] = field(
+    columns: List[List[str]] = field(
         metadata={
             "description": "The columns of data",
         }
     )
 
-    row_labels: Optional[List[ColumnFormattedData]] = field(
+    row_labels: Optional[List[List[str]]] = field(
         default=None,
         metadata={
             "description": "Zero or more arrays of row labels",
@@ -172,6 +178,14 @@ class ProfileResult:
     """
     Result of computing column profile
     """
+
+    def __post_init__(self):
+        """Revive parameters after initialization"""
+        if self.histogram_quantiles is not None:
+            self.histogram_quantiles = [
+                ColumnQuantileValue(**d) if isinstance(d, dict) else d
+                for d in self.histogram_quantiles
+            ]  # type: ignore
 
     null_count: int = field(
         metadata={
@@ -269,6 +283,16 @@ class BackendState:
     The current backend state
     """
 
+    def __post_init__(self):
+        """Revive parameters after initialization"""
+        self.filters = [
+            ColumnFilter(**d) if isinstance(d, dict) else d for d in self.filters
+        ]  # type: ignore
+
+        self.sort_keys = [
+            ColumnSortKey(**d) if isinstance(d, dict) else d for d in self.sort_keys
+        ]  # type: ignore
+
     filters: List[ColumnFilter] = field(
         metadata={
             "description": "The set of currently applied filters",
@@ -287,6 +311,13 @@ class ColumnSchema:
     """
     Schema for a column in a table
     """
+
+    def __post_init__(self):
+        """Revive parameters after initialization"""
+        if self.children is not None:
+            self.children = [
+                ColumnSchema(**d) if isinstance(d, dict) else d for d in self.children
+            ]  # type: ignore
 
     column_name: str = field(
         metadata={
@@ -542,7 +573,10 @@ class GetSchemaRequest:
         default=DataToolBackendRequest.GetSchema,
     )
 
-    jsonrpc: str = field(metadata={"description": "The JSON-RPC version specifier"}, default="2.0")
+    jsonrpc: str = field(
+        metadata={"description": "The JSON-RPC version specifier"},
+        default="2.0",
+    )
 
 
 @dataclass
@@ -590,7 +624,10 @@ class GetDataValuesRequest:
         default=DataToolBackendRequest.GetDataValues,
     )
 
-    jsonrpc: str = field(metadata={"description": "The JSON-RPC version specifier"}, default="2.0")
+    jsonrpc: str = field(
+        metadata={"description": "The JSON-RPC version specifier"},
+        default="2.0",
+    )
 
 
 @dataclass
@@ -598,6 +635,12 @@ class SetColumnFiltersParams:
     """
     Set or clear column filters on table, replacing any previous filters
     """
+
+    def __post_init__(self):
+        """Revive parameters after initialization"""
+        self.filters = [
+            ColumnFilter(**d) if isinstance(d, dict) else d for d in self.filters
+        ]  # type: ignore
 
     filters: List[ColumnFilter] = field(
         metadata={
@@ -626,7 +669,10 @@ class SetColumnFiltersRequest:
         default=DataToolBackendRequest.SetColumnFilters,
     )
 
-    jsonrpc: str = field(metadata={"description": "The JSON-RPC version specifier"}, default="2.0")
+    jsonrpc: str = field(
+        metadata={"description": "The JSON-RPC version specifier"},
+        default="2.0",
+    )
 
 
 @dataclass
@@ -635,6 +681,12 @@ class SetSortColumnsParams:
     Set or clear the columns(s) to sort by, replacing any previous sort
     columns
     """
+
+    def __post_init__(self):
+        """Revive parameters after initialization"""
+        self.sort_keys = [
+            ColumnSortKey(**d) if isinstance(d, dict) else d for d in self.sort_keys
+        ]  # type: ignore
 
     sort_keys: List[ColumnSortKey] = field(
         metadata={
@@ -664,7 +716,10 @@ class SetSortColumnsRequest:
         default=DataToolBackendRequest.SetSortColumns,
     )
 
-    jsonrpc: str = field(metadata={"description": "The JSON-RPC version specifier"}, default="2.0")
+    jsonrpc: str = field(
+        metadata={"description": "The JSON-RPC version specifier"},
+        default="2.0",
+    )
 
 
 @dataclass
@@ -706,7 +761,10 @@ class GetColumnProfileRequest:
         default=DataToolBackendRequest.GetColumnProfile,
     )
 
-    jsonrpc: str = field(metadata={"description": "The JSON-RPC version specifier"}, default="2.0")
+    jsonrpc: str = field(
+        metadata={"description": "The JSON-RPC version specifier"},
+        default="2.0",
+    )
 
 
 @dataclass
@@ -720,4 +778,7 @@ class GetStateRequest:
         default=DataToolBackendRequest.GetState,
     )
 
-    jsonrpc: str = field(metadata={"description": "The JSON-RPC version specifier"}, default="2.0")
+    jsonrpc: str = field(
+        metadata={"description": "The JSON-RPC version specifier"},
+        default="2.0",
+    )
