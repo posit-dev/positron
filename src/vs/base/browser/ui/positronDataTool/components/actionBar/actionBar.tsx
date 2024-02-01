@@ -7,7 +7,6 @@ import 'vs/css!./actionBar';
 
 // React.
 import * as React from 'react';
-import { useEffect } from 'react'; // eslint-disable-line no-duplicate-imports
 
 // Other dependencies.
 import { localize } from 'vs/nls';
@@ -30,8 +29,8 @@ const kPaddingRight = 8;
 /**
  * Localized strings.
  */
-const clearSortButtonTitle = localize('positron.clearSortButtonLabel', "Clear Sort");
-const clearSortButtonDescription = localize('positron.clearSortButtonDescription', "Clear sort");
+const clearSortButtonTitle = localize('positron.clearSortButtonLabel', "Clear Sorting");
+const clearSortButtonDescription = localize('positron.clearSortButtonDescription', "Clear sorting");
 
 /**
  * ActionBarProps interface.
@@ -47,20 +46,14 @@ interface ActionBarProps {
  */
 export const ActionBar = (props: ActionBarProps) => {
 	// Context hooks.
-	const positronDataToolContext = usePositronDataToolContext();
+	const context = usePositronDataToolContext();
 
 	// Constants.
-	const showDeveloperUI = IsDevelopmentContext.getValue(positronDataToolContext.contextKeyService);
-
-	// State hooks.
-
-	// Main useEffect hook.
-	useEffect(() => {
-	}, []);
+	const showDeveloperUI = IsDevelopmentContext.getValue(context.contextKeyService);
 
 	// Render.
 	return (
-		<PositronActionBarContextProvider {...positronDataToolContext}>
+		<PositronActionBarContextProvider {...context}>
 			<div className='action-bar'>
 				<PositronActionBar
 					size='small'
@@ -71,11 +64,11 @@ export const ActionBar = (props: ActionBarProps) => {
 					<ActionBarRegion location='left'>
 						<ActionBarButton
 							disabled={false}
-							iconId='positron-clear-sort'
+							iconId='positron-clear-sorting'
 							text={clearSortButtonTitle}
 							tooltip={clearSortButtonDescription}
 							ariaLabel={clearSortButtonDescription}
-							onClick={() => console.log('HERE')}
+							onPressed={() => context.instance.positronDataGridInstance.clearColumnSortKeys()}
 						/>
 						<ActionBarSeparator />
 						<LayoutMenuButton />
@@ -87,7 +80,7 @@ export const ActionBar = (props: ActionBarProps) => {
 								align='right'
 								tooltip='Clear'
 								ariaLabel='Clear'
-								onClick={() => console.log('HERE')}
+								onPressed={() => console.log('HERE')}
 							/>
 						}
 					</ActionBarRegion>

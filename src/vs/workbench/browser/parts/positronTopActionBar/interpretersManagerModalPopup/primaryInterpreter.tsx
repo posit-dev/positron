@@ -48,7 +48,7 @@ export const PrimaryInterpreter = (props: PrimaryInterpreterProps) => {
 
 	// Render.
 	return (
-		<PositronButton className='primary-interpreter' onClick={props.onActivate}>
+		<PositronButton className='primary-interpreter' onPressed={props.onActivate}>
 			<div className='running-indicator'>
 				{runtimeState !== RuntimeState.Uninitialized && runtimeState !== RuntimeState.Exited &&
 					<div className='running-icon codicon codicon-circle-large-filled'></div>
@@ -63,7 +63,7 @@ export const PrimaryInterpreter = (props: PrimaryInterpreterProps) => {
 			</div>
 			<InterpreterActions runtime={props.runtime} onStart={props.onStart}>
 				{props.enableShowAllVersions &&
-					<PositronButton className='action-button' onClick={props.onShowAllVersions}>
+					<PositronButton className='action-button' onPressed={props.onShowAllVersions}>
 						<span
 							className='codicon codicon-positron-more-options'
 							title={localize('positronShowAllVersions', "Show all versions")}

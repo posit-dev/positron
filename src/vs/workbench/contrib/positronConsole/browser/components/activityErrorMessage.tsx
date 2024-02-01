@@ -43,7 +43,7 @@ export const ActivityErrorMessage = (props: ActivityErrorMessageProps) => {
 		/**
 		 * onClick handler.
 		 */
-		const clickHandler = () => {
+		const pressedHandler = () => {
 			// Toggle show traceback.
 			setShowTraceback(!showTraceback);
 		};
@@ -51,7 +51,7 @@ export const ActivityErrorMessage = (props: ActivityErrorMessageProps) => {
 		// Render.
 		return (
 			<div className='traceback'>
-				<PositronButton className='toggle-traceback' onClick={clickHandler}>
+				<PositronButton className='toggle-traceback' onPressed={pressedHandler}>
 					{showTraceback ?
 						<>
 							<div className='expansion-indicator codicon codicon-positron-triangle-down'></div>

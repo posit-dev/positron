@@ -4,6 +4,7 @@
 
 import { Event } from 'vs/base/common/event';
 import { IDataColumn } from 'vs/base/browser/ui/dataGrid/interfaces/dataColumn';
+import { IColumnSortKey } from 'vs/base/browser/ui/dataGrid/interfaces/columnSortKey';
 
 /**
  * SelectionState enumeration.
@@ -127,6 +128,27 @@ export interface IDataGridInstance {
 	setColumnWidth(columnIndex: number, width: number): void;
 
 	/**
+	 * Sets a column sort key.
+	 * @param columnIndex The column index.
+	 * @param ascending The sort order; true for ascending, false for descending.
+	 * @returns A Promise<void> that resolves when the sorting has completed.
+	 */
+	setColumnSortKey(columnIndex: number, ascending: boolean): Promise<void>;
+
+	/**
+	 * Removes a column sort key.
+	 * @param columnIndex The column index.
+	 * @returns A Promise<void> that resolves when the sorting has completed.
+	 */
+	removeColumnSortKey(columnIndex: number): Promise<void>;
+
+	/**
+	 * Clears the column sort keys.
+	 * @returns A Promise<void> that resolves when the sorting has completed.
+	 */
+	clearColumnSortKeys(): Promise<void>;
+
+	/**
 	 * Sets the screen size.
 	 * @param width The width.
 	 * @param height The height.
@@ -228,30 +250,44 @@ export interface IDataGridInstance {
 	extendSelectionDown(): void;
 
 	/**
-	 * Gets the column selection state.
+	 * Returns the column selection state.
 	 * @param columnIndex The column index.
 	 * @returns A SelectionState that represents the column selection state.
 	 */
 	columnSelectionState(columnIndex: SelectionState): SelectionState;
 
 	/**
-	 * Gets the row selection state.
+	 * Returns the row selection state.
 	 * @param rowIndex The row index.
 	 * @returns A SelectionState that represents the row selection state.
 	 */
 	rowSelectionState(rowIndex: SelectionState): SelectionState;
 
 	/**
-	 * Gets a column.
+	 * Returns a column.
 	 * @param columnIndex The column index.
-	 * @returns The IPositronDataColumn.
+	 * @returns An IDataColumn that represents the column.
 	 */
 	column(columnIndex: number): IDataColumn;
+
+	/**
+	 * Returns a column sort.
+	 * @param columnIndex The column index.
+	 * @returns A IColumnSortKey that represents the column sort key.
+	 */
+	columnSortKey(columnIndex: number): IColumnSortKey | undefined;
 
 	/**
 	 *
 	 */
 	initialize(): void;
+
+	/**
+	 * Sorts the data.
+	 * @param columnSorts The array of column sort keys.
+	 * @returns A Promise<void> that resolves when the data is sorted.
+	 */
+	sortData(columnSorts: IColumnSortKey[]): Promise<void>;
 
 	/**
 	 *

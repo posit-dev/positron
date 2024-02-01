@@ -271,7 +271,7 @@ export const ActionBar = (props: ActionBarProps) => {
 								align='right'
 								tooltip={positronInterruptExecution}
 								ariaLabel={positronInterruptExecution}
-								onClick={interruptHandler}
+								onPressed={interruptHandler}
 							>
 								<div className={
 									`action-bar-button-icon
@@ -288,7 +288,7 @@ export const ActionBar = (props: ActionBarProps) => {
 								align='right'
 								tooltip={positronToggleTrace}
 								ariaLabel={positronToggleTrace}
-								onClick={toggleTraceHandler}
+								onPressed={toggleTraceHandler}
 							/>
 						}
 						<ActionBarButton
@@ -296,7 +296,7 @@ export const ActionBar = (props: ActionBarProps) => {
 							align='right'
 							tooltip={positronToggleWordWrap}
 							ariaLabel={positronToggleWordWrap}
-							onClick={toggleWordWrapHandler}
+							onPressed={toggleWordWrapHandler}
 						/>
 						<ActionBarSeparator />
 						<ActionBarButton
@@ -304,7 +304,7 @@ export const ActionBar = (props: ActionBarProps) => {
 							align='right'
 							tooltip={positronClearConsole}
 							ariaLabel={positronClearConsole}
-							onClick={clearConsoleHandler}
+							onPressed={clearConsoleHandler}
 						/>
 					</ActionBarRegion>
 				</PositronActionBar>

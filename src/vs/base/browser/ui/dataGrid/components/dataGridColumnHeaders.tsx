@@ -41,7 +41,7 @@ export const DataGridColumnHeaders = (props: DataGridColumnHeadersProps) => {
 		// Push the column header component.
 		columnHeaders.push(
 			<DataGridColumnHeader
-				key={column.identifier}
+				key={columnIndex}
 				column={column}
 				columnIndex={columnIndex}
 				left={left}

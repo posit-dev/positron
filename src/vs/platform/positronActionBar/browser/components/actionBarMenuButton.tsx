@@ -54,7 +54,7 @@ export const ActionBarMenuButton = (props: ActionBarMenuButtonProps) => {
 	useRegisterWithActionBar([buttonRef]);
 
 	// Handlers.
-	const clickHandler = async () => {
+	const pressedHandler = async () => {
 		// Get the actions.
 		const actions = await props.actions();
 		if (!actions.length) {
@@ -88,5 +88,5 @@ export const ActionBarMenuButton = (props: ActionBarMenuButtonProps) => {
 	};
 
 	// Render.
-	return <ActionBarButton {...props} ref={buttonRef} dropDown={true} onClick={clickHandler} />;
+	return <ActionBarButton {...props} ref={buttonRef} dropDown={true} onPressed={pressedHandler} />;
 };

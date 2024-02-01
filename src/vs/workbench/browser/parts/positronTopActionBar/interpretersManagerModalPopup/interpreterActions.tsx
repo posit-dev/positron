@@ -56,7 +56,7 @@ export const InterpreterActions = (props: PropsWithChildren<InterpreterActionsPr
 				<PositronButton
 					className='action-button'
 					disabled={runtimeState === RuntimeState.Interrupting}
-					onClick={() => props.runtime.interrupt()}
+					onPressed={() => props.runtime.interrupt()}
 				>
 					<span
 						className='codicon codicon-positron-interrupt-runtime'
@@ -75,7 +75,7 @@ export const InterpreterActions = (props: PropsWithChildren<InterpreterActionsPr
 				<PositronButton
 					className='action-button'
 					disabled={runtimeState !== RuntimeState.Ready && runtimeState !== RuntimeState.Idle}
-					onClick={() => props.runtime.restart()}
+					onPressed={() => props.runtime.restart()}
 				>
 					<span
 						className='codicon codicon-positron-restart-runtime'
@@ -95,7 +95,7 @@ export const InterpreterActions = (props: PropsWithChildren<InterpreterActionsPr
 				runtimeState === RuntimeState.Offline ||
 				runtimeState === RuntimeState.Interrupting
 			) &&
-				<PositronButton className='action-button' onClick={() => props.runtime.shutdown()}>
+				<PositronButton className='action-button' onPressed={() => props.runtime.shutdown()}>
 					<span
 						className='codicon codicon-positron-power-button'
 						title={localize('positronStopTheInterpreter', "Stop the interpreter")}
@@ -112,7 +112,7 @@ export const InterpreterActions = (props: PropsWithChildren<InterpreterActionsPr
 				runtimeState === RuntimeState.Starting ||
 				runtimeState === RuntimeState.Exited
 			) &&
-				<PositronButton className='action-button' onClick={() => props.onStart()}>
+				<PositronButton className='action-button' onPressed={() => props.onStart()}>
 					<span
 						className='codicon codicon-positron-power-button'
 						title={localize('positronStartTheInterpreter', "Start the interpreter")}

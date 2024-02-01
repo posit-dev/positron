@@ -11,6 +11,7 @@ import { PropsWithChildren, useEffect, useState } from 'react'; // eslint-disabl
 
 // Other dependencies.
 import { DisposableStore } from 'vs/base/common/lifecycle';
+import { ILayoutService } from 'vs/platform/layout/browser/layoutService';
 import { IReactComponentContainer } from 'vs/base/browser/positronReactRenderer';
 import { IClipboardService } from 'vs/platform/clipboard/common/clipboardService';
 import { ActionBar } from 'vs/base/browser/ui/positronDataTool/components/actionBar/actionBar';
@@ -24,6 +25,7 @@ import { IPositronDataToolInstance } from 'vs/workbench/services/positronDataToo
  */
 export interface PositronDataToolServices extends PositronActionBarServices {
 	readonly clipboardService: IClipboardService;
+	readonly layoutService: ILayoutService;
 }
 
 /**

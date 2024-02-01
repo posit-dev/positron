@@ -45,7 +45,7 @@ export const SecondaryInterpreter = (props: SecondaryInterpreterProps) => {
 
 	// Render.
 	return (
-		<PositronButton className='secondary-interpreter' onClick={props.onActivate}>
+		<PositronButton className='secondary-interpreter' onPressed={props.onActivate}>
 			<div></div>
 			<div className='running-indicator'>
 				{runtimeState !== RuntimeState.Uninitialized && runtimeState !== RuntimeState.Exited &&

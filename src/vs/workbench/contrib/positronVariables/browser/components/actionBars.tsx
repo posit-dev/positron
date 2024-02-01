@@ -117,9 +117,9 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 						{/* Disabled for Private Alpha <ActionBarButton iconId='positron-import-data' text='Import Dataset' dropDown={true} /> */}
 					</ActionBarRegion>
 					<ActionBarRegion location='right'>
-						<ActionBarButton align='right' iconId='positron-refresh' tooltip={positronRefreshObjects} ariaLabel={positronRefreshObjects} onClick={refreshObjectsHandler} />
+						<ActionBarButton align='right' iconId='positron-refresh' tooltip={positronRefreshObjects} ariaLabel={positronRefreshObjects} onPressed={refreshObjectsHandler} />
 						<ActionBarSeparator />
-						<ActionBarButton align='right' iconId='clear-all' tooltip={positronDeleteAllObjects} ariaLabel={positronDeleteAllObjects} onClick={deleteAllObjectsHandler} />
+						<ActionBarButton align='right' iconId='clear-all' tooltip={positronDeleteAllObjects} ariaLabel={positronDeleteAllObjects} onPressed={deleteAllObjectsHandler} />
 					</ActionBarRegion>
 				</PositronActionBar>
 				<PositronActionBar size='small' borderBottom={true} gap={kSecondaryActionBarGap} paddingLeft={kPaddingLeft} paddingRight={kPaddingRight}>
