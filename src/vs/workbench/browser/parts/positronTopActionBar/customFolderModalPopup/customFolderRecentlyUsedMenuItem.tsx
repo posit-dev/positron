@@ -24,11 +24,11 @@ interface CustomFolderRecentlyUsedMenuItemProps {
 export const CustomFolderRecentlyUsedMenuItem = (props: CustomFolderRecentlyUsedMenuItemProps) => {
 	// Render.
 	return (
-		<PositronButton className='custom-folder-recently-used-menu-item' onClick={props.onOpen}>
+		<PositronButton className='custom-folder-recently-used-menu-item' onPressed={props.onOpen}>
 			<div className='title' title={props.label}>
 				{props.label}
 			</div>
-			<PositronButton className='open-in-new-window' onClick={props.onOpenInNewWindow}>
+			<PositronButton className='open-in-new-window' onPressed={props.onOpenInNewWindow}>
 				<div className='codicon codicon-positron-open-in-new-window' title={props.label} />
 			</PositronButton>
 		</PositronButton>

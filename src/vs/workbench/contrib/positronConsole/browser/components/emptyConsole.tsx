@@ -35,7 +35,7 @@ export const EmptyConsole = () => {
 		<div className='empty-console'>
 			<div className='title'>
 				<span>{noInterpreterRunning} {useWord} </span>
-				<PositronButton className='link' onClick={startInterpreterClickHandler}>
+				<PositronButton className='link' onPressed={startInterpreterClickHandler}>
 					{startInterpreter}
 				</PositronButton>
 				<span> {toStartOne}</span>

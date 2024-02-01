@@ -34,6 +34,7 @@ export const RowsPanel = (props: RowsPanelProps) => {
 		<div className='rows-panel'>
 			<DataGrid
 				// Props.
+				layoutService={context.layoutService}
 				instance={context.instance.positronDataGridInstance}
 				width={props.width}
 				height={props.height}

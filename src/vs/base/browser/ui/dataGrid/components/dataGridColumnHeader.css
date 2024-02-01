@@ -6,13 +6,18 @@
 	top: 0;
 	bottom: 0;
 	display: grid;
+	overflow: hidden;
 	position: absolute;
 	background-color: var(--vscode-positronDataGrid-headerBackground);
-	grid-template-columns: [left-gutter] 5px [content] 1fr [right-gutter] 1px [end];
+	grid-template-columns: [content] 1fr [right-gutter] 1px [end];
+}
+
+.data-grid-column-header.selected {
+	background-color: var(--vscode-positronDataGrid-selectionBackground);
 }
 
 .data-grid-column-header
-.data-grid-column-header-border-overlay {
+.border-overlay {
 	top: 0;
 	right: 0;
 	bottom: 0;
@@ -24,40 +29,127 @@
 }
 
 .data-grid-column-header
-.data-grid-column-header-border-overlay.selected {
+.border-overlay.selected {
 	border-top: 1px solid var(--vscode-positronDataGrid-selectionBorder);
 	border-right: 1px solid var(--vscode-positronDataGrid-selectionInnerBorder);
 	border-bottom: 1px solid var(--vscode-positronDataGrid-selectionInnerBorder);
-	background-color: var(--vscode-positronDataGrid-selectionBackground);
 }
 
 .data-grid-column-header
-.data-grid-column-header-border-overlay.selected-left {
+.border-overlay.selected-left {
 	border-left: 1px solid var(--vscode-positronDataGrid-selectionBorder);
 }
 
 .data-grid-column-header
-.data-grid-column-header-border-overlay.selected-right {
+.border-overlay.selected-right {
 	border-right: 1px solid var(--vscode-positronDataGrid-selectionBorder);
 }
 
-.data-grid-column-headers .data-grid-column-header .title {
-	position: absolute;
-	top: 0;
-	right: 0;
-	bottom: 0;
-	left: 0;
-	display: flex;
-	font-size: 90%;
-	font-weight: 600;
-	overflow: hidden;
-	margin: 0 5px 0 5px;
+.data-grid-column-header
+.content {
+	display: grid;
 	align-items: center;
-	white-space: nowrap;
-	text-overflow: ellipsis;
 	grid-column: content / right-gutter;
+	grid-template-columns: [left-margin] 7px [title-description] minmax(0, 1fr) [sort-indicator] min-content [button] 20px [right-margin] 7px [end];
 }
 
-.data-grid-column-headers .data-grid-column-header .positron-column-splitter {
+.data-grid-column-header
+.content
+.title-description {
+	margin-bottom: 1px; /* Adjust for the bottom border. */
+	grid-column: title-description / sort-indicator;
+}
+
+.data-grid-column-header
+.content
+.title-description
+.title {
+	font-weight: 600;
+	overflow: hidden;
+	white-space: nowrap;
+	line-height: normal;
+	text-overflow: ellipsis;
+}
+
+.data-grid-column-header
+.content
+.title-description
+.description {
+	font-size: 90%;
+	opacity: 80%;
+	overflow: hidden;
+	white-space: nowrap;
+	line-height: normal;
+	text-overflow: ellipsis;
+}
+
+.data-grid-column-header
+.content
+.sort-indicator {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.data-grid-column-header
+.content
+.sort-indicator
+.sort-icon {
+	margin: 0;
+}
+
+.data-grid-column-header
+.content
+.sort-indicator
+.sort-index {
+	font-size: 80%;
+	font-weight: 600;
+	margin: 0 3px 0 3px;
+	color: var(--vscode-positronDataGrid-sortIndexForeground);
+}
+
+.data-grid-column-header
+.content
+.button {
+	z-index: 1;
+	height: 20px;
+	display: flex;
+	cursor: pointer;
+	border-radius: 6px;
+	align-items: center;
+	box-sizing: border-box;
+	justify-content: center;
+	grid-column: button / right-margin;
+}
+
+.data-grid-column-header
+.content
+.button:focus {
+	outline: none !important;
+}
+
+.data-grid-column-header
+.content
+.button:focus-visible {
+	border-radius: 6px;
+	outline: 1px solid var(--vscode-focusBorder) !important;
+}
+
+.data-grid-column-header
+.content
+.button:hover {
+	border: 1px solid var(--vscode-positronDataGrid-selectionBorder);
+}
+
+.data-grid-column-header
+.content
+.button:active {
+	border: 1px solid var(--vscode-positronDataGrid-selectionBorder);
+	background-color: var(--vscode-positronDataGrid-selectionBackground);
+}
+
+
+.data-grid-column-header
+.positron-column-splitter {
 	grid-column: right-gutter / end;
 }

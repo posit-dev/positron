@@ -5,7 +5,91 @@
 import { Emitter } from 'vs/base/common/event';
 import { Disposable } from 'vs/base/common/lifecycle';
 import { IDataColumn } from 'vs/base/browser/ui/dataGrid/interfaces/dataColumn';
+import { IColumnSortKey } from 'vs/base/browser/ui/dataGrid/interfaces/columnSortKey';
 import { IDataGridInstance, MouseSelectionType, SelectionState } from 'vs/base/browser/ui/dataGrid/interfaces/dataGridInstance';
+
+/**
+ * ColumnSortKey class.
+ */
+class ColumnSortKey implements IColumnSortKey {
+	//#region Private Properties
+
+	/**
+	 * Gets or sets the sort index.
+	 */
+	private _sortIndex: number;
+
+	/**
+	 * Gets or sets the column index.
+	 */
+	private _columnIndex: number;
+
+	/**
+	 * Gets or sets the the sort order; true for ascending, false for descending.
+	 */
+	private _ascending: boolean;
+
+	//#endregion Private Properties
+
+	//#region Constructor
+
+	/**
+	 * Constuctor.
+	 * @param sortIndex The sort index.
+	 * @param columnIndex The column index.
+	 * @param ascending The the sort order; true for ascending, false for descending.
+	 */
+	constructor(sortIndex: number, columnIndex: number, ascending: boolean) {
+		this._sortIndex = sortIndex;
+		this._columnIndex = columnIndex;
+		this._ascending = ascending;
+	}
+
+	//#endregion Constructor
+
+	//#region IColumnSortKey Implementation
+
+	/**
+	 * Gets the sort index.
+	 */
+	get sortIndex() {
+		return this._sortIndex;
+	}
+
+	/**
+	 * Gets the column index.
+	 */
+	get columnIndex() {
+		return this._columnIndex;
+	}
+
+	/**
+	 * Gets the sort order; true for ascending, false for descending.
+	 */
+	get ascending() {
+		return this._ascending;
+	}
+
+	//#endregion IColumnSortKey Implementation
+
+	//#region Public Properties
+
+	/**
+	 * Sets the sort index.
+	 */
+	set sortIndex(sortIndex: number) {
+		this._sortIndex = sortIndex;
+	}
+
+	/**
+	 * Sets the sort order; true for ascending, false for descending.
+	 */
+	set ascending(ascending: boolean) {
+		this._ascending = ascending;
+	}
+
+	//#endregion Public Properties
+}
 
 /**
  * ColumnSelectionRange interface.
@@ -32,17 +116,17 @@ export abstract class DataGridInstance extends Disposable implements IDataGridIn
 	/**
 	 * Gets or sets the column headers height.
 	 */
-	private _columnHeadersHeight = 22;
+	private _columnHeadersHeight: number;
 
 	/**
 	 * Gets or sets the row headers width.
 	 */
-	private _rowHeadersWidth = 55;
+	private _rowHeadersWidth: number;
 
 	/**
 	 * Gets or sets the minimum column width
 	 */
-	private _minimumColumnWidth = 190;
+	private _minimumColumnWidth: number;
 
 	/**
 	 * Gets or sets the row height.
@@ -52,12 +136,17 @@ export abstract class DataGridInstance extends Disposable implements IDataGridIn
 	/**
 	 * Gets or sets the scrollbar width.
 	 */
-	private _scrollbarWidth = 14;
+	private _scrollbarWidth: number;
 
 	/**
 	 * Gets or sets the columns.
 	 */
 	private _columns: IDataColumn[] = [];
+
+	/**
+	 * Gets the column sort keys.
+	 */
+	private readonly _columnSortKeys = new Map<number, ColumnSortKey>();
 
 	/**
 	 * Gets or sets the width.
@@ -115,6 +204,30 @@ export abstract class DataGridInstance extends Disposable implements IDataGridIn
 	protected readonly _onDidUpdateEmitter = this._register(new Emitter<void>);
 
 	//#endregion Private Properties
+
+	//#region Constructor & Dispose
+
+	/**
+	 * Constructor.
+	 * @param options The options.
+	 */
+	constructor(options: {
+		columnHeadersHeight: number;
+		rowHeadersWidth: number;
+		minimumColumnWidth: number;
+		scrollbarWidth: number;
+	}) {
+		// Call the base class's constructor.
+		super();
+
+		// Set the options.
+		this._columnHeadersHeight = options.columnHeadersHeight;
+		this._rowHeadersWidth = options.rowHeadersWidth;
+		this._minimumColumnWidth = options.minimumColumnWidth;
+		this._scrollbarWidth = options.scrollbarWidth;
+	}
+
+	//#endregion Constructor & Dispose
 
 	//#region Public Properties
 
@@ -295,6 +408,89 @@ export abstract class DataGridInstance extends Disposable implements IDataGridIn
 			// Fire the onDidUpdate event.
 			this._onDidUpdateEmitter.fire();
 		}
+	}
+
+	/**
+	 * Sets a column sort key.
+	 * @param columnIndex The column index.
+	 * @param ascending The sort order; true for ascending, false for descending.
+	 * @returns A Promise<void> that resolves when the sorting has completed.
+	 */
+	async setColumnSortKey(columnIndex: number, ascending: boolean): Promise<void> {
+		// Get the column sort key for the column index.
+		const columnSortKey = this._columnSortKeys.get(columnIndex);
+
+		// Add or update the column sort key.
+		if (!columnSortKey) {
+			// Add the column sort key.
+			this._columnSortKeys.set(
+				columnIndex,
+				new ColumnSortKey(this._columnSortKeys.size, columnIndex, ascending)
+			);
+
+			// Fire the onDidUpdate event.
+			this._onDidUpdateEmitter.fire();
+
+			// Sort the data.
+			await this.doSortData();
+		} else {
+			// If the sort order has changed, update the column sort key.
+			if (ascending !== columnSortKey.ascending) {
+				// Update the sort order.
+				columnSortKey.ascending = ascending;
+
+				// Fire the onDidUpdate event.
+				this._onDidUpdateEmitter.fire();
+
+				// Sort the data.
+				await this.doSortData();
+			}
+		}
+	}
+
+	/**
+	 * Removes a column sort key.
+	 * @param columnIndex The column index.
+	 * @returns A Promise<void> that resolves when the sorting has completed.
+	 */
+	async removeColumnSortKey(columnIndex: number): Promise<void> {
+		// Get the column sort key for the column index.
+		const columnSortKey = this._columnSortKeys.get(columnIndex);
+
+		// If there is a column sort key, remove it.
+		if (columnSortKey) {
+			// Remove the column sort key.
+			this._columnSortKeys.delete(columnIndex);
+
+			// Update the sort index of the remaining column sort keys that were added after the
+			// column sort key that was removed.
+			this._columnSortKeys.forEach(columnSortToUpdate => {
+				if (columnSortToUpdate.sortIndex > columnSortKey.sortIndex) {
+					columnSortToUpdate.sortIndex -= 1;
+				}
+			});
+
+			// Fire the onDidUpdate event.
+			this._onDidUpdateEmitter.fire();
+
+			// Sort the data.
+			await this.doSortData();
+		}
+	}
+
+	/**
+	 * Clears the column sort keys.
+	 * @returns A Promise<void> that resolves when the sorting has completed.
+	 */
+	async clearColumnSortKeys(): Promise<void> {
+		// Clear the column sort keys.
+		this._columnSortKeys.clear();
+
+		// Fire the onDidUpdate event.
+		this._onDidUpdateEmitter.fire();
+
+		// Sort the data.
+		await this.doSortData();
 	}
 
 	/**
@@ -920,7 +1116,7 @@ export abstract class DataGridInstance extends Disposable implements IDataGridIn
 	}
 
 	/**
-	 * Gets the column selection state.
+	 * Returns the column selection state.
 	 * @param columnIndex The column index.
 	 * @returns A SelectionState that represents the column selection state.
 	 */
@@ -970,7 +1166,7 @@ export abstract class DataGridInstance extends Disposable implements IDataGridIn
 	}
 
 	/**
-	 * Gets the row selection state.
+	 * Returns the row selection state.
 	 * @param rowIndex The row index.
 	 * @returns A SelectionState that represents the row selection state.
 	 */
@@ -1021,18 +1217,34 @@ export abstract class DataGridInstance extends Disposable implements IDataGridIn
 	}
 
 	/**
-	 * Gets a column.
+	 * Returns a column.
 	 * @param columnIndex The column index.
-	 * @returns The IPositronDataToolColumn.
+	 * @returns An IDataColumn that represents the column.
 	 */
 	column(columnIndex: number): IDataColumn {
 		return this._columns[columnIndex];
 	}
 
 	/**
+	 * Returns a column sort key.
+	 * @param columnIndex The column index.
+	 * @returns An IColumnSortKey that represents the column sort.
+	 */
+	columnSortKey(columnIndex: number): IColumnSortKey | undefined {
+		return this._columnSortKeys.get(columnIndex);
+	}
+
+	/**
 	 *
 	 */
 	abstract initialize(): void;
+
+	/**
+	 * Sorts the data.
+	 * @param columnSorts The array of column sorts.
+	 * @returns A Promise<void> that resolves when the data is sorted.
+	 */
+	abstract sortData(columnSorts: IColumnSortKey[]): Promise<void>;
 
 	/**
 	 *
@@ -1074,6 +1286,20 @@ export abstract class DataGridInstance extends Disposable implements IDataGridIn
 			// Set the column's layout width.
 			previousWidth = column.layoutWidth = previousWidth + column.width;
 		}
+	}
+
+	/**
+	 * Sorts the data.
+	 * @returns A Promise<void> that resolves when the data is sorted.
+	 */
+	private async doSortData(): Promise<void> {
+		// Get the column sorts.
+		const columnSorts = Array.from(this._columnSortKeys.values()).sort((e1, e2) =>
+			e1.sortIndex - e2.sortIndex
+		);
+
+		// Sort the data.
+		await this.sortData(columnSorts);
 	}
 
 	//#endregion Private Methods

@@ -17,6 +17,7 @@ import { IEditorOptions } from 'vs/platform/editor/common/editor';
 import { IStorageService } from 'vs/platform/storage/common/storage';
 import { IThemeService } from 'vs/platform/theme/common/themeService';
 import { ICommandService } from 'vs/platform/commands/common/commands';
+import { ILayoutService } from 'vs/platform/layout/browser/layoutService';
 import { EditorPane } from 'vs/workbench/browser/parts/editor/editorPane';
 import { ITelemetryService } from 'vs/platform/telemetry/common/telemetry';
 import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
@@ -44,10 +45,6 @@ export interface IPositronDataToolEditorOptions extends IEditorOptions {
  * PositronDataToolEditor class.
  */
 export class PositronDataToolEditor extends EditorPane implements IReactComponentContainer {
-	//#region Static Properties
-
-	//#endregion Static Properties
-
 	//#region Private Properties
 
 	/**
@@ -192,6 +189,7 @@ export class PositronDataToolEditor extends EditorPane implements IReactComponen
 		@IContextKeyService private readonly _contextKeyService: IContextKeyService,
 		@IContextMenuService private readonly _contextMenuService: IContextMenuService,
 		@IKeybindingService private readonly _keybindingService: IKeybindingService,
+		@ILayoutService private readonly _layoutService: ILayoutService,
 		@IPositronDataToolService private readonly _positronDataToolService: IPositronDataToolService,
 		@IStorageService storageService: IStorageService,
 		@ITelemetryService telemetryService: ITelemetryService,
@@ -272,6 +270,7 @@ export class PositronDataToolEditor extends EditorPane implements IReactComponen
 						contextKeyService={this._contextKeyService}
 						contextMenuService={this._contextMenuService}
 						keybindingService={this._keybindingService}
+						layoutService={this._layoutService}
 						instance={positronDataToolInstance}
 						reactComponentContainer={this}
 					/>
