@@ -80,5 +80,5 @@ export const ActionBarCommandButton = (props: ActionBarCommandButtonProps) => {
 	};
 
 	// Render.
-	return <ActionBarButton {...props} ref={buttonRef} tooltip={tooltip} disabled={disabled} onClick={executeHandler} />;
+	return <ActionBarButton {...props} ref={buttonRef} tooltip={tooltip} disabled={disabled} onPressed={executeHandler} />;
 };

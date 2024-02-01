@@ -6,7 +6,7 @@ import { Event } from 'vs/base/common/event';
 import { Disposable } from 'vs/base/common/lifecycle';
 import { generateUuid } from 'vs/base/common/uuid';
 import { IRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeClientInstance';
-import { PositronDataToolComm, TableData, TableSchema } from 'vs/workbench/services/languageRuntime/common/positronDataToolComm';
+import { ColumnSortKey, PositronDataToolComm, TableData, TableSchema } from 'vs/workbench/services/languageRuntime/common/positronDataToolComm';
 
 /**
  * A data tool client instance.
@@ -73,10 +73,23 @@ export class DataToolClientInstance extends Disposable {
 	 * @param rowStartIndex The first row to fetch (inclusive).
 	 * @param numRows The number of rows to fetch from start index. May extend beyond end of table.
 	 * @param columnIndices Indices to select, which can be a sequential, sparse, or random selection.
-	 * @returns Table values formatted as strings.
+	 * @returns A Promise<TableData> that resolves when the operation is complete.
 	 */
-	async getDataValues(rowStartIndex: number, numRows: number, columnIndices: Array<number>): Promise<TableData> {
+	async getDataValues(
+		rowStartIndex: number,
+		numRows: number,
+		columnIndices: Array<number>
+	): Promise<TableData> {
 		return this._positronDataToolComm.getDataValues(rowStartIndex, numRows, columnIndices);
+	}
+
+	/**
+	 * Set or clear the columns(s) to sort by, replacing any previous sort columns.
+	 * @param sortKeys Pass zero or more keys to sort by. Clears any existing keys.
+	 * @returns A Promise<void> that resolves when the operation is complete.
+	 */
+	async setSortColumns(sortKeys: Array<ColumnSortKey>): Promise<void> {
+		return this._positronDataToolComm.setSortColumns(sortKeys);
 	}
 
 	//#endregion Public Methods
