@@ -12,6 +12,7 @@ import { InputObservable } from 'vs/workbench/contrib/positronNotebook/browser/P
 import { CellExecutionStatusCallback, NotebookKernelObservable, NotebookViewModelObservable } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookWidget';
 import { NotebookCell } from './NotebookCell';
 import { useObservedValue } from './useObservedValue';
+import { PositronButton } from 'vs/base/browser/ui/positronComponents/positronButton';
 
 type CellsExecutionCallback = (cells?: Iterable<NotebookCellTextModel>) => Promise<void>;
 
@@ -41,7 +42,14 @@ export function PositronNotebookComponent(
 				<div>Size: {size?.width} x {size?.height}</div>
 			</div>
 			<div className='positron-notebook-cells-container'>
-				<h2>Notebook Cells</h2>
+				<div className='positron-notebook-cells-action-bar'>
+
+					<PositronButton className='action run-button' ariaLabel={'Run cell'} onClick={() => executeCells()}>
+						<span className='action-label'>Run all cells</span>
+						<div className={`button-icon codicon ${'codicon-run'}`} />
+					</PositronButton>
+
+				</div>
 				{notebookCells.map(cell => <NotebookCell
 					key={cell.handle}
 					onRunCell={() => executeCells([cell])}

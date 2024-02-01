@@ -17,8 +17,30 @@
 
 .positron-notebook-cells-container {
 	padding: 1rem;
-	padding-top: 0.5rem;
 	display: flex;
 	flex-direction: column;
 	gap: 1rem;
+}
+
+.positron-notebook-cells-action-bar {
+	display: flex;
+	align-items: baseline;
+	gap: 1rem;
+
+	.action {
+		display: flex;
+		align-items: center;
+		padding-block: 0.25rem;
+		padding-inline: 0.5rem;
+		outline: 1px solid var(--vscode-positronDataTool-border);
+		border-radius: 0.25rem;
+
+		.action-label {
+			margin-inline-end: 0.2rem;
+		}
+
+		.button-icon {
+			transform: translateY(0px);
+		}
+	}
 }
