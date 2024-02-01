@@ -16,6 +16,8 @@ import { ILanguageServerOutputChannel } from '../types';
 export class JediLanguageServerAnalysisOptions extends LanguageServerAnalysisOptionsWithEnv {
     private resource: Resource | undefined;
 
+    private interpreter: PythonEnvironment | undefined;
+
     constructor(
         envVarsProvider: IEnvironmentVariablesProvider,
         lsOutputChannel: ILanguageServerOutputChannel,
@@ -28,6 +30,7 @@ export class JediLanguageServerAnalysisOptions extends LanguageServerAnalysisOpt
 
     public async initialize(resource: Resource, interpreter: PythonEnvironment | undefined) {
         this.resource = resource;
+        this.interpreter = interpreter;
         return super.initialize(resource, interpreter);
     }
 
@@ -40,11 +43,11 @@ export class JediLanguageServerAnalysisOptions extends LanguageServerAnalysisOpt
         const workspacePath = this.getWorkspaceFolder()?.uri.fsPath;
         const extraPaths = pythonSettings.autoComplete
             ? pythonSettings.autoComplete.extraPaths.map((extraPath) => {
-                  if (path.isAbsolute(extraPath)) {
-                      return extraPath;
-                  }
-                  return workspacePath ? path.join(workspacePath, extraPath) : '';
-              })
+                if (path.isAbsolute(extraPath)) {
+                    return extraPath;
+                }
+                return workspacePath ? path.join(workspacePath, extraPath) : '';
+            })
             : [];
 
         if (workspacePath) {
@@ -85,6 +88,7 @@ export class JediLanguageServerAnalysisOptions extends LanguageServerAnalysisOpt
             // --- End Positron ---
             workspace: {
                 extraPaths: distinctExtraPaths,
+                environmentPath: this.interpreter?.path,
                 symbols: {
                     // 0 means remove limit on number of workspace symbols returned
                     maxSymbols: 0,
