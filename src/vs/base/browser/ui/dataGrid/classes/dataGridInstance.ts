@@ -397,10 +397,29 @@ export abstract class DataGridInstance extends Disposable implements IDataGridIn
 	 * @param width The width.
 	 */
 	setColumnWidth(columnIndex: number, width: number) {
+		// If the column width changed, update it.
 		if (width !== this._columns[columnIndex].width) {
 			// Set the column width.
 			this._columns[columnIndex].width = width;
 			this.calculateColumnLayoutWidths(columnIndex);
+
+			// Fetch data.
+			this.fetchData();
+
+			// Fire the onDidUpdate event.
+			this._onDidUpdateEmitter.fire();
+		}
+	}
+
+	/**
+	 * Sets the row headers width.
+	 * @param rowHeadersWidth The row headers width.
+	 */
+	setRowHeadersWidth(rowHeadersWidth: number) {
+		// If the row headers width has changed, update it.
+		if (rowHeadersWidth !== this._rowHeadersWidth) {
+			// Set the row headers width..
+			this._rowHeadersWidth = rowHeadersWidth;
 
 			// Fetch data.
 			this.fetchData();
@@ -1250,6 +1269,13 @@ export abstract class DataGridInstance extends Disposable implements IDataGridIn
 	 *
 	 */
 	abstract fetchData(): void;
+
+	/**
+	 * Gets a row label.
+	 * @param rowIndex The row index.
+	 * @returns The row label.
+	 */
+	abstract rowLabel(rowIndex: number): string | undefined;
 
 	/**
 	 * Gets a cell.
