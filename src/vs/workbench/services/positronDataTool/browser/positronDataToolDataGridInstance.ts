@@ -156,6 +156,36 @@ export class PositronDataToolDataGridInstance extends DataGridInstance {
 	}
 
 	/**
+	 * Gets a row label.
+	 * @param rowIndex The row index.
+	 * @returns The row label.
+	 */
+	rowLabel(rowIndex: number) {
+		// If there isn't any cached data, return undefined.
+		if (!this._cachedTableData) {
+			return undefined;
+		}
+
+		// If the row isn't cached, return undefined.
+		if (rowIndex < this._cachedTableData.firstRowIndex ||
+			rowIndex > this._cachedTableData.lastRowIndex
+		) {
+			return undefined;
+		}
+
+		// If there are no row labels, return the row index.
+		if (!this._cachedTableData.tableData.row_labels) {
+			return `${rowIndex + 1}`;
+		}
+
+		// Calculate the cached row index.
+		const cachedRowIndex = rowIndex - this._cachedTableData.firstRowIndex;
+
+		// Return the cached row label.
+		return this._cachedTableData.tableData.row_labels[0][cachedRowIndex];
+	}
+
+	/**
 	 * Gets a cell.
 	 * @param columnIndex The column index.
 	 * @param rowIndex The row index.
@@ -180,7 +210,10 @@ export class PositronDataToolDataGridInstance extends DataGridInstance {
 			return undefined;
 		}
 
+		// Calculate the cached row index.
+		const cachedRowIndex = rowIndex - this._cachedTableData.firstRowIndex;
+
 		// Return the cached value.
-		return this._cachedTableData.tableData.columns[colIndex][rowIndex - this._cachedTableData.firstRowIndex];
+		return this._cachedTableData.tableData.columns[colIndex][cachedRowIndex];
 	}
 }
