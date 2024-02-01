@@ -14,6 +14,7 @@ import { positronClassNames } from 'vs/base/common/positronUtilities';
 import { useDataGridContext } from 'vs/base/browser/ui/dataGrid/dataGridContext';
 import { selectionType } from 'vs/base/browser/ui/dataGrid/utilities/mouseUtilities';
 import { SelectionState } from 'vs/base/browser/ui/dataGrid/interfaces/dataGridInstance';
+import { PositronColumnSplitter } from 'vs/base/browser/ui/positronComponents/positronColumnSplitter';
 
 /**
  * DataGridRowHeaderProps interface.
@@ -69,6 +70,16 @@ export const DataGridRowHeader = (props: DataGridRowHeaderProps) => {
 				}
 			/>
 			<div className='title'>{props.rowIndex + 1}</div>
+			<PositronColumnSplitter
+				onBeginResize={() => ({
+					minimumWidth: context.instance.minimumColumnWidth,
+					maximumWidth: 400,
+					startingWidth: context.instance.rowHeadersWidth
+				})}
+				onResize={width =>
+					console.log(`New width is ${width}`)
+				}
+			/>
 		</div>
 	);
 };
