@@ -124,6 +124,10 @@ def test_parameterized_error_collect():
     "file, expected_const",
     [
         (
+            "test_multi_class_nest.py",
+            expected_discovery_test_output.nested_classes_expected_test_output,
+        ),
+        (
             "unittest_skiptest_file_level.py",
             expected_discovery_test_output.unittest_skip_file_level_expected_output,
         ),
@@ -229,8 +233,7 @@ def test_pytest_config_file():
     actual = runner_with_cwd(
         [
             "--collect-only",
-            "-c",
-            "tests/pytest.ini",
+            "tests/",
         ],
         TEST_DATA_PATH / "root",
     )

@@ -391,25 +391,37 @@ def build_test_tree(session: pytest.Session) -> TestNode:
     for test_case in session.items:
         test_node = create_test_node(test_case)
         if isinstance(test_case.parent, pytest.Class):
-            try:
-                test_class_node = class_nodes_dict[test_case.parent.nodeid]
-            except KeyError:
-                test_class_node = create_class_node(test_case.parent)
-                class_nodes_dict[test_case.parent.nodeid] = test_class_node
-            test_class_node["children"].append(test_node)
-            if test_case.parent.parent:
-                parent_module = test_case.parent.parent
+            case_iter = test_case.parent
+            node_child_iter = test_node
+            test_class_node: Union[TestNode, None] = None
+            while isinstance(case_iter, pytest.Class):
+                # While the given node is a class, create a class and nest the previous node as a child.
+                try:
+                    test_class_node = class_nodes_dict[case_iter.nodeid]
+                except KeyError:
+                    test_class_node = create_class_node(case_iter)
+                    class_nodes_dict[case_iter.nodeid] = test_class_node
+                test_class_node["children"].append(node_child_iter)
+                # Iterate up.
+                node_child_iter = test_class_node
+                case_iter = case_iter.parent
+            # Now the parent node is not a class node, it is a file node.
+            if case_iter:
+                parent_module = case_iter
             else:
-                ERRORS.append(f"Test class {test_case.parent} has no parent")
+                ERRORS.append(f"Test class {case_iter} has no parent")
                 break
-            # Create a file node that has the class as a child.
+            # Create a file node that has the last class as a child.
             try:
                 test_file_node: TestNode = file_nodes_dict[parent_module]
             except KeyError:
                 test_file_node = create_file_node(parent_module)
                 file_nodes_dict[parent_module] = test_file_node
             # Check if the class is already a child of the file node.
-            if test_class_node not in test_file_node["children"]:
+            if (
+                test_class_node is not None
+                and test_class_node not in test_file_node["children"]
+            ):
                 test_file_node["children"].append(test_class_node)
         elif hasattr(test_case, "callspec"):  # This means it is a parameterized test.
             function_name: str = ""
@@ -528,7 +540,7 @@ def create_session_node(session: pytest.Session) -> TestNode:
     """
     node_path = get_node_path(session)
     return {
-        "name": session.name,
+        "name": node_path.name,
         "path": node_path,
         "type_": "folder",
         "children": [],

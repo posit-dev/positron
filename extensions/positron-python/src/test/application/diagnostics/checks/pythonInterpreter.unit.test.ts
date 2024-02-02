@@ -7,7 +7,6 @@ import { expect } from 'chai';
 import * as typemoq from 'typemoq';
 import { EventEmitter, Uri } from 'vscode';
 import { BaseDiagnosticsService } from '../../../../client/application/diagnostics/base';
-import { InvalidLaunchJsonDebuggerDiagnostic } from '../../../../client/application/diagnostics/checks/invalidLaunchJsonDebugger';
 import {
     DefaultShellDiagnostic,
     InvalidPythonInterpreterDiagnostic,
@@ -585,39 +584,6 @@ suite('Application Diagnostics - Checks Python Interpreter', () => {
                 .verifiable(typemoq.Times.never());
 
             await diagnosticServiceMock.object.handle([diagnostic]);
-
-            messageHandler.verifyAll();
-            commandFactory.verifyAll();
-        });
-        test('Getting command prompts for an unsupported diagnostic code should throw an error', async () => {
-            const diagnostic = new InvalidLaunchJsonDebuggerDiagnostic(DiagnosticCodes.JustMyCodeDiagnostic, undefined);
-            const cmd = ({} as any) as IDiagnosticCommand;
-
-            messageHandler
-                .setup((i) => i.handle(typemoq.It.isAny(), typemoq.It.isAny()))
-                .callback((_d, p: MessageCommandPrompt) => p)
-                .returns(() => Promise.resolve())
-                .verifiable(typemoq.Times.never());
-            commandFactory
-                .setup((f) =>
-                    f.createCommand(
-                        typemoq.It.isAny(),
-                        typemoq.It.isObjectWith<CommandOption<'executeVSCCommand', CommandsWithoutArgs>>({
-                            type: 'executeVSCCommand',
-                        }),
-                    ),
-                )
-                .returns(() => cmd)
-                .verifiable(typemoq.Times.never());
-
-            try {
-                await diagnosticService.handle([diagnostic]);
-            } catch (err) {
-                expect((err as Error).message).to.be.equal(
-                    "Invalid diagnostic for 'InvalidPythonInterpreterService'",
-                    'Error message is different',
-                );
-            }
 
             messageHandler.verifyAll();
             commandFactory.verifyAll();

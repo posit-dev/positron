@@ -17,7 +17,11 @@ from testing_tools import socket_manager
 from typing_extensions import Literal, NotRequired, TypedDict
 
 # If I use from utils then there will be an import error in test_discovery.py.
-from unittestadapter.utils import TestNode, build_test_tree, parse_unittest_args
+from unittestadapter.pvsc_utils import (
+    TestNode,
+    build_test_tree,
+    parse_unittest_args,
+)
 
 DEFAULT_PORT = 45454
 
@@ -86,7 +90,16 @@ def discover_tests(
         loader = unittest.TestLoader()
         suite = loader.discover(start_dir, pattern, top_level_dir)
 
-        tests, error = build_test_tree(suite, cwd)  # test tree built succesfully here.
+        # If the top level directory is not provided, then use the start directory.
+        if top_level_dir is None:
+            top_level_dir = start_dir
+
+        # Get abspath of top level directory for build_test_tree.
+        top_level_dir = os.path.abspath(top_level_dir)
+
+        tests, error = build_test_tree(
+            suite, top_level_dir
+        )  # test tree built successfully here.
 
     except Exception:
         error.append(traceback.format_exc())

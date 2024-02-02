@@ -4,31 +4,13 @@
 'use strict';
 
 import { inject, injectable, named } from 'inversify';
-import { cloneDeep } from 'lodash';
-import { CancellationToken, DebugConfiguration, QuickPickItem, WorkspaceFolder } from 'vscode';
-import { DebugConfigStrings } from '../../../common/utils/localize';
-import {
-    IMultiStepInputFactory,
-    InputStep,
-    IQuickPickParameters,
-    MultiStepInput,
-} from '../../../common/utils/multiStepInput';
-import { AttachRequestArguments, DebugConfigurationArguments, LaunchRequestArguments } from '../../types';
-import { DebugConfigurationState, DebugConfigurationType, IDebugConfigurationService } from '../types';
-import { buildDjangoLaunchDebugConfiguration } from './providers/djangoLaunch';
-import { buildFastAPILaunchDebugConfiguration } from './providers/fastapiLaunch';
-import { buildFileLaunchDebugConfiguration } from './providers/fileLaunch';
-import { buildFlaskLaunchDebugConfiguration } from './providers/flaskLaunch';
-import { buildModuleLaunchConfiguration } from './providers/moduleLaunch';
-import { buildPidAttachConfiguration } from './providers/pidAttach';
-import { buildPyramidLaunchConfiguration } from './providers/pyramidLaunch';
-import { buildRemoteAttachConfiguration } from './providers/remoteAttach';
+import { CancellationToken, DebugConfiguration, WorkspaceFolder } from 'vscode';
+import { AttachRequestArguments, LaunchRequestArguments } from '../../types';
+import { IDebugConfigurationService } from '../types';
 import { IDebugConfigurationResolver } from './types';
 
 @injectable()
 export class PythonDebugConfigurationService implements IDebugConfigurationService {
-    private cacheDebugConfig: DebugConfiguration | undefined = undefined;
-
     constructor(
         @inject(IDebugConfigurationResolver)
         @named('attach')
@@ -36,25 +18,7 @@ export class PythonDebugConfigurationService implements IDebugConfigurationServi
         @inject(IDebugConfigurationResolver)
         @named('launch')
         private readonly launchResolver: IDebugConfigurationResolver<LaunchRequestArguments>,
-        @inject(IMultiStepInputFactory) private readonly multiStepFactory: IMultiStepInputFactory,
     ) {}
-
-    public async provideDebugConfigurations(
-        folder: WorkspaceFolder | undefined,
-        token?: CancellationToken,
-    ): Promise<DebugConfiguration[] | undefined> {
-        const config: Partial<DebugConfigurationArguments> = {};
-        const state = { config, folder, token };
-
-        // Disabled until configuration issues are addressed by VS Code. See #4007
-        const multiStep = this.multiStepFactory.create<DebugConfigurationState>();
-        await multiStep.run((input, s) => PythonDebugConfigurationService.pickDebugConfiguration(input, s), state);
-
-        if (Object.keys(state.config).length !== 0) {
-            return [state.config as DebugConfiguration];
-        }
-        return undefined;
-    }
 
     public async resolveDebugConfiguration(
         folder: WorkspaceFolder | undefined,
@@ -76,19 +40,7 @@ export class PythonDebugConfigurationService implements IDebugConfigurationServi
             );
         } else {
             if (Object.keys(debugConfiguration).length === 0) {
-                if (this.cacheDebugConfig) {
-                    debugConfiguration = cloneDeep(this.cacheDebugConfig);
-                } else {
-                    const configs = await this.provideDebugConfigurations(folder, token);
-                    if (configs === undefined) {
-                        return undefined;
-                    }
-                    if (Array.isArray(configs) && configs.length === 1) {
-                        // eslint-disable-next-line prefer-destructuring
-                        debugConfiguration = configs[0];
-                    }
-                    this.cacheDebugConfig = cloneDeep(debugConfiguration);
-                }
+                return undefined;
             }
             return this.launchResolver.resolveDebugConfiguration(
                 folder,
@@ -107,89 +59,5 @@ export class PythonDebugConfigurationService implements IDebugConfigurationServi
             return resolver.resolveDebugConfigurationWithSubstitutedVariables(folder, debugConfiguration as T, token);
         }
         return debugConfiguration.request === 'attach' ? resolve(this.attachResolver) : resolve(this.launchResolver);
-    }
-
-    // eslint-disable-next-line consistent-return
-    protected static async pickDebugConfiguration(
-        input: MultiStepInput<DebugConfigurationState>,
-        state: DebugConfigurationState,
-    ): Promise<InputStep<DebugConfigurationState> | void> {
-        type DebugConfigurationQuickPickItemFunc = (
-            input: MultiStepInput<DebugConfigurationState>,
-            state: DebugConfigurationState,
-        ) => Promise<void | InputStep<DebugConfigurationState>>;
-        type DebugConfigurationQuickPickItem = QuickPickItem & {
-            type: DebugConfigurationType;
-            func: DebugConfigurationQuickPickItemFunc;
-        };
-        const items: DebugConfigurationQuickPickItem[] = [
-            {
-                func: buildFileLaunchDebugConfiguration,
-                label: DebugConfigStrings.file.selectConfiguration.label,
-                type: DebugConfigurationType.launchFile,
-                description: DebugConfigStrings.file.selectConfiguration.description,
-            },
-            {
-                func: buildModuleLaunchConfiguration,
-                label: DebugConfigStrings.module.selectConfiguration.label,
-                type: DebugConfigurationType.launchModule,
-                description: DebugConfigStrings.module.selectConfiguration.description,
-            },
-            {
-                func: buildRemoteAttachConfiguration,
-                label: DebugConfigStrings.attach.selectConfiguration.label,
-                type: DebugConfigurationType.remoteAttach,
-                description: DebugConfigStrings.attach.selectConfiguration.description,
-            },
-            {
-                func: buildPidAttachConfiguration,
-                label: DebugConfigStrings.attachPid.selectConfiguration.label,
-                type: DebugConfigurationType.pidAttach,
-                description: DebugConfigStrings.attachPid.selectConfiguration.description,
-            },
-            {
-                func: buildDjangoLaunchDebugConfiguration,
-                label: DebugConfigStrings.django.selectConfiguration.label,
-                type: DebugConfigurationType.launchDjango,
-                description: DebugConfigStrings.django.selectConfiguration.description,
-            },
-            {
-                func: buildFastAPILaunchDebugConfiguration,
-                label: DebugConfigStrings.fastapi.selectConfiguration.label,
-                type: DebugConfigurationType.launchFastAPI,
-                description: DebugConfigStrings.fastapi.selectConfiguration.description,
-            },
-            {
-                func: buildFlaskLaunchDebugConfiguration,
-                label: DebugConfigStrings.flask.selectConfiguration.label,
-                type: DebugConfigurationType.launchFlask,
-                description: DebugConfigStrings.flask.selectConfiguration.description,
-            },
-            {
-                func: buildPyramidLaunchConfiguration,
-                label: DebugConfigStrings.pyramid.selectConfiguration.label,
-                type: DebugConfigurationType.launchPyramid,
-                description: DebugConfigStrings.pyramid.selectConfiguration.description,
-            },
-        ];
-        const debugConfigurations = new Map<DebugConfigurationType, DebugConfigurationQuickPickItemFunc>();
-        for (const config of items) {
-            debugConfigurations.set(config.type, config.func);
-        }
-
-        state.config = {};
-        const pick = await input.showQuickPick<
-            DebugConfigurationQuickPickItem,
-            IQuickPickParameters<DebugConfigurationQuickPickItem>
-        >({
-            title: DebugConfigStrings.selectConfiguration.title,
-            placeholder: DebugConfigStrings.selectConfiguration.placeholder,
-            activeItem: items[0],
-            items,
-        });
-        if (pick) {
-            const pickedDebugConfiguration = debugConfigurations.get(pick.type)!;
-            return pickedDebugConfiguration(input, state);
-        }
     }
 }
