@@ -51,7 +51,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Use Python ${{ env.PYTHON_VERSION }}
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
@@ -72,7 +72,7 @@ jobs:
           python -m pip install --upgrade -r build/test-requirements.txt
 
       - name: Run Pyright
-        uses: jakebailey/pyright-action@v1
+        uses: jakebailey/pyright-action@v2
         with:
           version: 1.1.308
           working-directory: 'pythonFiles'
@@ -100,7 +100,7 @@ jobs:
           path: ${{ env.special-working-directory-relative }}
 
       - name: Use Python ${{ matrix.python }}
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python }}
 
@@ -152,8 +152,11 @@ jobs:
       - name: Compile
         run: npx gulp prePublishNonBundle
 
+      - name: Localization
+        run: npx @vscode/l10n-dev@latest export ./src
+
       - name: Use Python ${{ matrix.python }}
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python }}
 
@@ -361,8 +364,11 @@ jobs:
       - name: Compile
         run: npx gulp prePublishNonBundle
 
+      - name: Localization
+        run: npx @vscode/l10n-dev@latest export ./src
+
       - name: Use Python ${{ env.PYTHON_VERSION }}
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: 'pip'
@@ -513,7 +519,7 @@ jobs:
         run: npm run test:cover:report
 
       - name: Upload HTML report
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: ${{ runner.os }}-coverage-report-html
           path: ./coverage

@@ -11,7 +11,6 @@ import { AppinsightsKey, EXTENSION_ROOT_DIR, isTestExecution, isUnitTestExecutio
 import type { TerminalShellType } from '../common/terminal/types';
 import { StopWatch } from '../common/utils/stopWatch';
 import { isPromise } from '../common/utils/async';
-import { DebugConfigurationType } from '../debugger/extension/types';
 import { ConsoleType, TriggerType } from '../debugger/types';
 import { EnvironmentType, PythonEnvironment } from '../pythonEnvironments/info';
 import {
@@ -366,7 +365,6 @@ export interface IEventNamePropertyMapping {
           "duration" : { "classification": "SystemMetaData", "purpose": "FeatureInsight", "owner": "paulacamargo25" },
           "trigger" : { "classification": "SystemMetaData", "purpose": "PerformanceAndHealth", "owner": "paulacamargo25" },
           "console" : { "classification": "SystemMetaData", "purpose": "PerformanceAndHealth", "owner": "paulacamargo25" }
-
        }
      */
     [EventName.DEBUG_SESSION_ERROR]: {
@@ -615,66 +613,6 @@ export interface IEventNamePropertyMapping {
        "debugger.attach_to_local_process" : { "owner": "paulacamargo25" }
      */
     [EventName.DEBUGGER_ATTACH_TO_LOCAL_PROCESS]: never | undefined;
-    /**
-     * Telemetry sent after building configuration for debugger
-     */
-    /* __GDPR__
-       "debugger.configuration.prompts" : {
-          "configurationtype" : { "classification": "SystemMetaData", "purpose": "FeatureInsight", "owner": "paulacamargo25" },
-          "autodetecteddjangomanagepypath" : { "classification": "SystemMetaData", "purpose": "FeatureInsight", "owner": "paulacamargo25" },
-          "autodetectedpyramidinipath" : { "classification": "SystemMetaData", "purpose": "FeatureInsight", "owner": "paulacamargo25" },
-          "autodetectedfastapimainpypath" : { "classification": "SystemMetaData", "purpose": "FeatureInsight", "owner": "paulacamargo25" },
-          "autodetectedflaskapppypath" : { "classification": "SystemMetaData", "purpose": "FeatureInsight", "owner": "paulacamargo25" },
-          "manuallyenteredavalue" : { "classification": "SystemMetaData", "purpose": "FeatureInsight", "owner": "paulacamargo25" }
-       }
-     */
-
-    [EventName.DEBUGGER_CONFIGURATION_PROMPTS]: {
-        /**
-         * The type of debug configuration to build configuration for
-         *
-         * @type {DebugConfigurationType}
-         */
-        configurationType: DebugConfigurationType;
-        /**
-         * Carries `true` if we are able to auto-detect manage.py path for Django, `false` otherwise
-         *
-         * @type {boolean}
-         */
-        autoDetectedDjangoManagePyPath?: boolean;
-        /**
-         * Carries `true` if we are able to auto-detect .ini file path for Pyramid, `false` otherwise
-         *
-         * @type {boolean}
-         */
-        autoDetectedPyramidIniPath?: boolean;
-        /**
-         * Carries `true` if we are able to auto-detect main.py path for FastAPI, `false` otherwise
-         *
-         * @type {boolean}
-         */
-        autoDetectedFastAPIMainPyPath?: boolean;
-        /**
-         * Carries `true` if we are able to auto-detect app.py path for Flask, `false` otherwise
-         *
-         * @type {boolean}
-         */
-        autoDetectedFlaskAppPyPath?: boolean;
-        /**
-         * Carries `true` if user manually entered the required path for the app
-         * (path to `manage.py` for Django, path to `.ini` for Pyramid, path to `app.py` for Flask), `false` otherwise
-         *
-         * @type {boolean}
-         */
-        manuallyEnteredAValue?: boolean;
-    };
-    /**
-     * Telemetry event sent when providing completion provider in launch.json. It is sent just *after* inserting the completion.
-     */
-    /* __GDPR__
-       "debugger.configuration.prompts.in.launch.json" : { "owner": "paulacamargo25" }
-     */
-    [EventName.DEBUGGER_CONFIGURATION_PROMPTS_IN_LAUNCH_JSON]: never | undefined;
     /**
      * Telemetry event sent with details of actions when invoking a diagnostic command
      */

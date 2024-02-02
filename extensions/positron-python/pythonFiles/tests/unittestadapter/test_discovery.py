@@ -7,7 +7,7 @@ from typing import List
 
 import pytest
 from unittestadapter.discovery import discover_tests
-from unittestadapter.utils import TestNodeTypeEnum, parse_unittest_args
+from unittestadapter.pvsc_utils import TestNodeTypeEnum, parse_unittest_args
 
 from . import expected_discovery_test_output
 from .helpers import TEST_DATA_PATH, is_same_tree
@@ -133,6 +133,71 @@ def test_simple_discovery() -> None:
     assert "error" not in actual
 
 
+def test_simple_discovery_with_top_dir_calculated() -> None:
+    """The discover_tests function should return a dictionary with a "success" status, a uuid, no errors, and a test tree
+    if unittest discovery was performed successfully.
+    """
+    start_dir = "."
+    pattern = "discovery_simple*"
+    file_path = os.fsdecode(pathlib.PurePath(TEST_DATA_PATH / "discovery_simple.py"))
+
+    expected = {
+        "path": os.fsdecode(pathlib.PurePath(TEST_DATA_PATH)),
+        "type_": TestNodeTypeEnum.folder,
+        "name": ".data",
+        "children": [
+            {
+                "name": "discovery_simple.py",
+                "type_": TestNodeTypeEnum.file,
+                "path": file_path,
+                "children": [
+                    {
+                        "name": "DiscoverySimple",
+                        "path": file_path,
+                        "type_": TestNodeTypeEnum.class_,
+                        "children": [
+                            {
+                                "name": "test_one",
+                                "path": file_path,
+                                "type_": TestNodeTypeEnum.test,
+                                "lineno": "14",
+                                "id_": file_path
+                                + "\\"
+                                + "DiscoverySimple"
+                                + "\\"
+                                + "test_one",
+                            },
+                            {
+                                "name": "test_two",
+                                "path": file_path,
+                                "type_": TestNodeTypeEnum.test,
+                                "lineno": "17",
+                                "id_": file_path
+                                + "\\"
+                                + "DiscoverySimple"
+                                + "\\"
+                                + "test_two",
+                            },
+                        ],
+                        "id_": file_path + "\\" + "DiscoverySimple",
+                    }
+                ],
+                "id_": file_path,
+            }
+        ],
+        "id_": os.fsdecode(pathlib.PurePath(TEST_DATA_PATH)),
+    }
+
+    uuid = "some-uuid"
+    # Define the CWD to be the root of the test data folder.
+    os.chdir(os.fsdecode(pathlib.PurePath(TEST_DATA_PATH)))
+    actual = discover_tests(start_dir, pattern, None, uuid)
+
+    assert actual["status"] == "success"
+    assert is_same_tree(actual.get("tests"), expected)
+    assert "error" not in actual
+
+
 def test_empty_discovery() -> None:
     """The discover_tests function should return a dictionary with a "success" status, a uuid, no errors, and no test tree
     if unittest discovery was performed successfully but no tests were found.
@@ -231,3 +296,25 @@ def test_unit_skip() -> None:
         expected_discovery_test_output.skip_unittest_folder_discovery_output,
     )
     assert "error" not in actual
+
+
+def test_complex_tree() -> None:
+    """This test specifically tests when different start_dir and top_level_dir are provided."""
+    start_dir = os.fsdecode(
+        pathlib.PurePath(
+            TEST_DATA_PATH,
+            "utils_complex_tree",
+            "test_outer_folder",
+            "test_inner_folder",
+        )
+    )
+    pattern = "test_*.py"
+    top_level_dir = os.fsdecode(pathlib.PurePath(TEST_DATA_PATH, "utils_complex_tree"))
+    uuid = "some-uuid"
+    actual = discover_tests(start_dir, pattern, top_level_dir, uuid)
+    assert actual["status"] == "success"
+    assert "error" not in actual
+    assert is_same_tree(
+        actual.get("tests"),
+        expected_discovery_test_output.complex_tree_expected_output,
+    )

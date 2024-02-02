@@ -29,6 +29,7 @@ import { IActivatedEnvironmentLaunch, IInterpreterDisplay, IInterpreterHelper, I
 import { InterpreterDisplay } from './display';
 import { InterpreterLocatorProgressStatubarHandler } from './display/progressDisplay';
 import { InterpreterHelper } from './helpers';
+import { InterpreterPathCommand } from './interpreterPathCommand';
 import { InterpreterService } from './interpreterService';
 import { ActivatedEnvironmentLaunch } from './virtualEnvs/activatedEnvLaunch';
 import { CondaInheritEnvPrompt } from './virtualEnvs/condaInheritEnvPrompt';
@@ -107,5 +108,9 @@ export function registerTypes(serviceManager: IServiceManager): void {
     serviceManager.addSingleton<IEnvironmentActivationService>(
         IEnvironmentActivationService,
         EnvironmentActivationService,
+    );
+    serviceManager.addSingleton<IExtensionSingleActivationService>(
+        IExtensionSingleActivationService,
+        InterpreterPathCommand,
     );
 }
