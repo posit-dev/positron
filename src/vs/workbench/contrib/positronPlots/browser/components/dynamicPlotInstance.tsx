@@ -33,6 +33,7 @@ interface DynamicPlotInstanceProps {
 export const DynamicPlotInstance = (props: DynamicPlotInstanceProps) => {
 
 	const [uri, setUri] = useState('');
+	const [error, setError] = useState('');
 	const progressRef = React.useRef<HTMLDivElement>(null);
 	const plotsContext = usePositronPlotsContext();
 
@@ -61,6 +62,7 @@ export const DynamicPlotInstance = (props: DynamicPlotInstanceProps) => {
 			}
 			const message = localize('positronPlots.renderError', "Error rendering plot to {0} x {1}: {2} ({3})", plotSize.width, plotSize.height, e.message, e.code);
 			plotsContext.notificationService.warn(message);
+			setError(message);
 		});
 
 		// When the plot is rendered, update the URI.
@@ -155,14 +157,18 @@ export const DynamicPlotInstance = (props: DynamicPlotInstanceProps) => {
 	};
 
 	// Render method for the placeholder
-	const placeholderImage = () => {
+	const placeholderImage = (text: string) => {
 		const style = {
 			width: props.width + 'px',
 			height: props.height + 'px'
 		};
+
+		text = text.length ? text : `Rendering plot (${props.width} x ${props.height})`;
+
+		// display error here
 		return <div className='image-placeholder' style={style}>
 			<div className='image-placeholder-text'>
-				Rendering plot ({props.width} x {props.height})
+				{text}
 			</div>
 		</div>;
 	};
@@ -173,7 +179,7 @@ export const DynamicPlotInstance = (props: DynamicPlotInstanceProps) => {
 		<div className='plot-instance dynamic-plot-instance'>
 			<div ref={progressRef}></div>
 			{uri && renderedImage()}
-			{!uri && placeholderImage()}
+			{!uri && placeholderImage(error)}
 		</div>
 	);
 };
