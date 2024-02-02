@@ -8,12 +8,12 @@ on:
       build_number:
         required: false
         description: "The build distance number only, e.g. 123"
-        default: ${{ github.sha }}
+        default: "999"
         type: string
       short_version:
         required: true
         description: "The short version number, including the build distance, e.g. 2023.12.0-123"
-        default: ${{ github.sha }}
+        default: "2099.12.0-999"
         type: string
     outputs:
       artifact-name:
