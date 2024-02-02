@@ -288,6 +288,7 @@ import 'vs/workbench/contrib/positronHelp/browser/positronHelp.contribution';
 import 'vs/workbench/contrib/positronPreview/browser/positronPreview.contribution';
 import 'vs/workbench/contrib/positronPlots/browser/positronPlots.contribution';
 import 'vs/workbench/contrib/positronOutputWebview/browser/notebookOutputWebview.contribution';
+import 'vs/workbench/contrib/positronNotebook/browser/positronNotebook.contribution';
 // --- End Positron ---
 
 // Terminal

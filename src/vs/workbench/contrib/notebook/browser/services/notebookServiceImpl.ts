@@ -43,6 +43,7 @@ import { INotebookDocument, INotebookDocumentService } from 'vs/workbench/servic
 
 // --- Start Positron ---
 import { ExtensionIdentifier } from 'vs/platform/extensions/common/extensions';
+import { PositronNotebookEditorInput } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookEditorInput';
 // --- End Positron ---
 
 export class NotebookProviderInfoStore extends Disposable {
@@ -184,12 +185,12 @@ export class NotebookProviderInfoStore extends Disposable {
 				let notebookUri: URI;
 
 				let cellOptions: IResourceEditorInput | undefined;
-				let preferredResource = resource;
+				// let preferredResource = resource;
 
 				if (data) {
 					// resource is a notebook cell
 					notebookUri = this.uriIdentService.asCanonicalUri(data.notebook);
-					preferredResource = data.notebook;
+					// preferredResource = data.notebook;
 					cellOptions = { resource, options };
 				} else {
 					notebookUri = this.uriIdentService.asCanonicalUri(resource);
@@ -200,7 +201,10 @@ export class NotebookProviderInfoStore extends Disposable {
 				}
 
 				const notebookOptions = { ...options, cellOptions } as INotebookEditorOptions;
-				const editor = NotebookEditorInput.getOrCreate(this._instantiationService, notebookUri, preferredResource, notebookProviderInfo.id);
+
+				//! Use our editor instead of the built in one.
+				const editor = new PositronNotebookEditorInput(notebookUri);
+				// const editor = NotebookEditorInput.getOrCreate(this._instantiationService, notebookUri, preferredResource, notebookProviderInfo.id);
 				return { editor, options: notebookOptions };
 			};
 
