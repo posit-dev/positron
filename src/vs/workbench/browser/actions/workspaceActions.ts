@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { localize } from 'vs/nls';
+import { localize, localize2 } from 'vs/nls';
 import { ITelemetryData } from 'vs/platform/telemetry/common/telemetry';
 import { IWorkspaceContextService, WorkbenchState, IWorkspaceFolder, hasWorkspaceFileExtension } from 'vs/platform/workspace/common/workspace';
 import { IWorkspaceEditingService } from 'vs/workbench/services/workspaces/common/workspaceEditing';
@@ -26,7 +26,7 @@ import { Categories } from 'vs/platform/action/common/actionCommonCategories';
 
 // --- Start Positron ---
 // exported so that additional workspace commands could be added in positronActions.ts
-export const workspacesCategory: ILocalizedString = { value: localize('workspaces', "Workspaces"), original: 'Workspaces' };
+export const workspacesCategory: ILocalizedString = localize2('workspaces', 'Workspaces');
 // --- End Positron ---
 
 export class OpenFileAction extends Action2 {
@@ -36,7 +36,7 @@ export class OpenFileAction extends Action2 {
 	constructor() {
 		super({
 			id: OpenFileAction.ID,
-			title: { value: localize('openFile', "Open File..."), original: 'Open File...' },
+			title: localize2('openFile', 'Open File...'),
 			category: Categories.File,
 			f1: true,
 			keybinding: {
@@ -61,7 +61,7 @@ export class OpenFolderAction extends Action2 {
 	constructor() {
 		super({
 			id: OpenFolderAction.ID,
-			title: { value: localize('openFolder', "Open Folder..."), original: 'Open Folder...' },
+			title: localize2('openFolder', 'Open Folder...'),
 			category: Categories.File,
 			f1: true,
 			precondition: OpenFolderWorkspaceSupportContext,
@@ -97,7 +97,7 @@ export class OpenFolderViaWorkspaceAction extends Action2 {
 	constructor() {
 		super({
 			id: OpenFolderViaWorkspaceAction.ID,
-			title: { value: localize('openFolder', "Open Folder..."), original: 'Open Folder...' },
+			title: localize2('openFolder', 'Open Folder...'),
 			category: Categories.File,
 			f1: true,
 			precondition: ContextKeyExpr.and(OpenFolderWorkspaceSupportContext.toNegated(), WorkbenchStateContext.isEqualTo('workspace')),
@@ -118,7 +118,7 @@ export class OpenFolderViaWorkspaceAction extends Action2 {
 export class OpenFileFolderAction extends Action2 {
 
 	static readonly ID = 'workbench.action.files.openFileFolder';
-	static readonly LABEL: ILocalizedString = { value: localize('openFileFolder', "Open..."), original: 'Open...' };
+	static readonly LABEL: ILocalizedString = localize2('openFileFolder', 'Open...');
 
 	constructor() {
 		super({
@@ -148,7 +148,7 @@ class OpenWorkspaceAction extends Action2 {
 	constructor() {
 		super({
 			id: OpenWorkspaceAction.ID,
-			title: { value: localize('openWorkspaceAction', "Open Workspace from File..."), original: 'Open Workspace from File...' },
+			title: localize2('openWorkspaceAction', 'Open Workspace from File...'),
 			category: Categories.File,
 			f1: true,
 			precondition: EnterMultiRootWorkspaceSupportContext
@@ -169,7 +169,7 @@ class CloseWorkspaceAction extends Action2 {
 	constructor() {
 		super({
 			id: CloseWorkspaceAction.ID,
-			title: { value: localize('closeWorkspace', "Close Workspace"), original: 'Close Workspace' },
+			title: localize2('closeWorkspace', 'Close Workspace'),
 			category: workspacesCategory,
 			f1: true,
 			precondition: ContextKeyExpr.and(WorkbenchStateContext.notEqualsTo('empty'), EmptyWorkspaceSupportContext),
@@ -195,7 +195,7 @@ class OpenWorkspaceConfigFileAction extends Action2 {
 	constructor() {
 		super({
 			id: OpenWorkspaceConfigFileAction.ID,
-			title: { value: localize('openWorkspaceConfigFile', "Open Workspace Configuration File"), original: 'Open Workspace Configuration File' },
+			title: localize2('openWorkspaceConfigFile', 'Open Workspace Configuration File'),
 			category: workspacesCategory,
 			f1: true,
 			precondition: WorkbenchStateContext.isEqualTo('workspace')
@@ -241,7 +241,7 @@ export class RemoveRootFolderAction extends Action2 {
 	constructor() {
 		super({
 			id: RemoveRootFolderAction.ID,
-			title: { value: localize('globalRemoveFolderFromWorkspace', "Remove Folder from Workspace..."), original: 'Remove Folder from Workspace...' },
+			title: localize2('globalRemoveFolderFromWorkspace', 'Remove Folder from Workspace...'),
 			category: workspacesCategory,
 			f1: true,
 			precondition: ContextKeyExpr.and(WorkspaceFolderCountContext.notEqualsTo('0'), ContextKeyExpr.or(EnterMultiRootWorkspaceSupportContext, WorkbenchStateContext.isEqualTo('workspace')))
@@ -266,7 +266,7 @@ class SaveWorkspaceAsAction extends Action2 {
 	constructor() {
 		super({
 			id: SaveWorkspaceAsAction.ID,
-			title: { value: localize('saveWorkspaceAsAction', "Save Workspace As..."), original: 'Save Workspace As...' },
+			title: localize2('saveWorkspaceAsAction', 'Save Workspace As...'),
 			category: workspacesCategory,
 			f1: true,
 			precondition: EnterMultiRootWorkspaceSupportContext
@@ -299,7 +299,7 @@ class DuplicateWorkspaceInNewWindowAction extends Action2 {
 	constructor() {
 		super({
 			id: DuplicateWorkspaceInNewWindowAction.ID,
-			title: { value: localize('duplicateWorkspaceInNewWindow', "Duplicate As Workspace in New Window"), original: 'Duplicate As Workspace in New Window' },
+			title: localize2('duplicateWorkspaceInNewWindow', 'Duplicate As Workspace in New Window'),
 			category: workspacesCategory,
 			f1: true,
 			precondition: EnterMultiRootWorkspaceSupportContext

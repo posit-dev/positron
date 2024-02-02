@@ -88,7 +88,7 @@ exports.config = {
     productAppName: product.nameLong,
     // --- Start Positron ---
     companyName: 'Posit Software',
-    copyright: 'Copyright (C) 2023 Posit Software, PBC. All rights reserved',
+    copyright: 'Copyright (C) 2024 Posit Software, PBC. All rights reserved',
     darwinIcon: 'resources/darwin/positron.icns',
     // --- End Positron ---
     darwinBundleIdentifier: product.darwinBundleIdentifier,

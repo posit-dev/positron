@@ -32,7 +32,7 @@ import { IApplicationStorageMainService, IStorageMainService } from 'vs/platform
 import { ITelemetryService } from 'vs/platform/telemetry/common/telemetry';
 import { ThemeIcon } from 'vs/base/common/themables';
 import { IThemeMainService } from 'vs/platform/theme/electron-main/themeMainService';
-import { getMenuBarVisibility, getTitleBarStyle, IFolderToOpen, INativeWindowConfiguration, IWindowSettings, IWorkspaceToOpen, MenuBarVisibility, useNativeFullScreen, useWindowControlsOverlay } from 'vs/platform/window/common/window';
+import { getMenuBarVisibility, IFolderToOpen, INativeWindowConfiguration, IWindowSettings, IWorkspaceToOpen, MenuBarVisibility, hasNativeTitlebar, useNativeFullScreen, useWindowControlsOverlay } from 'vs/platform/window/common/window';
 import { defaultBrowserWindowOptions, IWindowsMainService, OpenContext } from 'vs/platform/windows/electron-main/windows';
 import { ISingleFolderWorkspaceIdentifier, IWorkspaceIdentifier, isSingleFolderWorkspaceIdentifier, isWorkspaceIdentifier, toWorkspaceIdentifier } from 'vs/platform/workspace/common/workspace';
 import { IWorkspacesManagementMainService } from 'vs/platform/workspaces/electron-main/workspacesManagementMainService';
@@ -104,6 +104,12 @@ export abstract class BaseWindow extends Disposable implements IBaseWindow {
 	private readonly _onDidTriggerSystemContextMenu = this._register(new Emitter<{ x: number; y: number }>());
 	readonly onDidTriggerSystemContextMenu = this._onDidTriggerSystemContextMenu.event;
 
+	private readonly _onDidEnterFullScreen = this._register(new Emitter<void>());
+	readonly onDidEnterFullScreen = this._onDidEnterFullScreen.event;
+
+	private readonly _onDidLeaveFullScreen = this._register(new Emitter<void>());
+	readonly onDidLeaveFullScreen = this._onDidLeaveFullScreen.event;
+
 	//#endregion
 
 	abstract readonly id: number;
@@ -127,9 +133,11 @@ export abstract class BaseWindow extends Disposable implements IBaseWindow {
 		this._register(Event.fromNodeEventEmitter(win, 'focus')(() => {
 			this._lastFocusTime = Date.now();
 		}));
+		this._register(Event.fromNodeEventEmitter(this._win, 'enter-full-screen')(() => this._onDidEnterFullScreen.fire()));
+		this._register(Event.fromNodeEventEmitter(this._win, 'leave-full-screen')(() => this._onDidLeaveFullScreen.fire()));
 
 		// Sheet Offsets
-		const useCustomTitleStyle = getTitleBarStyle(this.configurationService) === 'custom';
+		const useCustomTitleStyle = !hasNativeTitlebar(this.configurationService);
 		if (isMacintosh && useCustomTitleStyle) {
 			win.setSheetOffset(isBigSurOrNewer(release()) ? 28 : 22); // offset dialogs by the height of the custom title bar if we have any
 		}
@@ -476,6 +484,8 @@ export class CodeWindow extends BaseWindow implements ICodeWindow {
 	private currentHttpProxy: string | undefined = undefined;
 	private currentNoProxy: string | undefined = undefined;
 
+	private customZoomLevel: number | undefined = undefined;
+
 	private readonly configObjectUrl = this._register(this.protocolMainService.createIPCObjectUrl<INativeWindowConfiguration>());
 	private pendingLoadConfig: INativeWindowConfiguration | undefined;
 	private wasLoaded = false;
@@ -683,14 +693,14 @@ export class CodeWindow extends BaseWindow implements ICodeWindow {
 		}));
 
 		// Window Fullscreen
-		this._register(Event.fromNodeEventEmitter(this._win, 'enter-full-screen')(() => {
+		this._register(this.onDidEnterFullScreen(() => {
 			this.sendWhenReady('vscode:enterFullScreen', CancellationToken.None);
 
 			this.joinNativeFullScreenTransition?.complete();
 			this.joinNativeFullScreenTransition = undefined;
 		}));
 
-		this._register(Event.fromNodeEventEmitter(this._win, 'leave-full-screen')(() => {
+		this._register(this.onDidLeaveFullScreen(() => {
 			this.sendWhenReady('vscode:leaveFullScreen', CancellationToken.None);
 
 			this.joinNativeFullScreenTransition?.complete();
@@ -852,7 +862,7 @@ export class CodeWindow extends BaseWindow implements ICodeWindow {
 	private async destroyWindow(reopen: boolean, skipRestoreEditors: boolean): Promise<void> {
 		const workspace = this._config?.workspace;
 
-		//  check to discard editor state first
+		// check to discard editor state first
 		if (skipRestoreEditors && workspace) {
 			try {
 				const workspaceStorage = this.storageMainService.workspaceStorage(workspace);
@@ -867,37 +877,41 @@ export class CodeWindow extends BaseWindow implements ICodeWindow {
 		// 'close' event will not be fired on destroy(), so signal crash via explicit event
 		this._onDidDestroy.fire();
 
-		// make sure to destroy the window as its renderer process is gone
-		this._win?.destroy();
+		try {
+			// ask the windows service to open a new fresh window if specified
+			if (reopen && this._config) {
 
-		// ask the windows service to open a new fresh window if specified
-		if (reopen && this._config) {
+				// We have to reconstruct a openable from the current workspace
+				let uriToOpen: IWorkspaceToOpen | IFolderToOpen | undefined = undefined;
+				let forceEmpty = undefined;
+				if (isSingleFolderWorkspaceIdentifier(workspace)) {
+					uriToOpen = { folderUri: workspace.uri };
+				} else if (isWorkspaceIdentifier(workspace)) {
+					uriToOpen = { workspaceUri: workspace.configPath };
+				} else {
+					forceEmpty = true;
+				}
 
-			// We have to reconstruct a openable from the current workspace
-			let uriToOpen: IWorkspaceToOpen | IFolderToOpen | undefined = undefined;
-			let forceEmpty = undefined;
-			if (isSingleFolderWorkspaceIdentifier(workspace)) {
-				uriToOpen = { folderUri: workspace.uri };
-			} else if (isWorkspaceIdentifier(workspace)) {
-				uriToOpen = { workspaceUri: workspace.configPath };
-			} else {
-				forceEmpty = true;
+				// Delegate to windows service
+				const window = firstOrDefault(await this.windowsMainService.open({
+					context: OpenContext.API,
+					userEnv: this._config.userEnv,
+					cli: {
+						...this.environmentMainService.args,
+						_: [] // we pass in the workspace to open explicitly via `urisToOpen`
+					},
+					urisToOpen: uriToOpen ? [uriToOpen] : undefined,
+					forceEmpty,
+					forceNewWindow: true,
+					remoteAuthority: this.remoteAuthority
+				}));
+				window?.focus();
 			}
-
-			// Delegate to windows service
-			const window = firstOrDefault(await this.windowsMainService.open({
-				context: OpenContext.API,
-				userEnv: this._config.userEnv,
-				cli: {
-					...this.environmentMainService.args,
-					_: [] // we pass in the workspace to open explicitly via `urisToOpen`
-				},
-				urisToOpen: uriToOpen ? [uriToOpen] : undefined,
-				forceEmpty,
-				forceNewWindow: true,
-				remoteAuthority: this.remoteAuthority
-			}));
-			window?.focus();
+		} finally {
+			// make sure to destroy the window as its renderer process is gone. do this
+			// after the code for reopening the window, to prevent the entire application
+			// from quitting when the last window closes as a result.
+			this._win?.destroy();
 		}
 	}
 
@@ -1051,6 +1065,11 @@ export class CodeWindow extends BaseWindow implements ICodeWindow {
 		configuration.fullscreen = this.isFullScreen;
 		configuration.maximized = this._win.isMaximized();
 		configuration.partsSplash = this.themeMainService.getWindowSplash();
+		configuration.zoomLevel = this.getZoomLevel();
+		configuration.isCustomZoomLevel = typeof this.customZoomLevel === 'number';
+		if (configuration.isCustomZoomLevel && configuration.partsSplash) {
+			configuration.partsSplash.zoomLevel = configuration.zoomLevel;
+		}
 
 		// Update with latest perf marks
 		mark('code/willOpenNewWindow');
@@ -1150,7 +1169,7 @@ export class CodeWindow extends BaseWindow implements ICodeWindow {
 
 			const defaultState = defaultWindowState();
 
-			const res = {
+			return {
 				mode: WindowMode.Fullscreen,
 				display: display ? display.id : undefined,
 
@@ -1162,10 +1181,9 @@ export class CodeWindow extends BaseWindow implements ICodeWindow {
 				width: this.windowState.width || defaultState.width,
 				height: this.windowState.height || defaultState.height,
 				x: this.windowState.x || 0,
-				y: this.windowState.y || 0
+				y: this.windowState.y || 0,
+				zoomLevel: this.customZoomLevel
 			};
-
-			return res;
 		}
 
 		const state: IWindowState = Object.create(null);
@@ -1200,6 +1218,8 @@ export class CodeWindow extends BaseWindow implements ICodeWindow {
 			state.height = bounds.height;
 		}
 
+		state.zoomLevel = this.customZoomLevel;
+
 		return state;
 	}
 
@@ -1208,6 +1228,11 @@ export class CodeWindow extends BaseWindow implements ICodeWindow {
 
 		let hasMultipleDisplays = false;
 		if (state) {
+
+			// Window zoom
+			this.customZoomLevel = state.zoomLevel;
+
+			// Window dimensions
 			try {
 				const displays = screen.getAllDisplays();
 				hasMultipleDisplays = displays.length > 1;
@@ -1442,6 +1467,19 @@ export class CodeWindow extends BaseWindow implements ICodeWindow {
 				this._win.autoHideMenuBar = false;
 				break;
 		}
+	}
+
+	notifyZoomLevel(zoomLevel: number | undefined): void {
+		this.customZoomLevel = zoomLevel;
+	}
+
+	private getZoomLevel(): number | undefined {
+		if (typeof this.customZoomLevel === 'number') {
+			return this.customZoomLevel;
+		}
+
+		const windowSettings = this.configurationService.getValue<IWindowSettings | undefined>('window');
+		return windowSettings?.zoomLevel;
 	}
 
 	close(): void {

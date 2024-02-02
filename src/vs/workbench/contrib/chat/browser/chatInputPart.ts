@@ -17,7 +17,7 @@ import { EditorExtensionsRegistry } from 'vs/editor/browser/editorExtensions';
 import { CodeEditorWidget } from 'vs/editor/browser/widget/codeEditorWidget';
 import { ITextModel } from 'vs/editor/common/model';
 import { IModelService } from 'vs/editor/common/services/model';
-import { ModesHoverController } from 'vs/editor/contrib/hover/browser/hover';
+import { HoverController } from 'vs/editor/contrib/hover/browser/hover';
 import { localize } from 'vs/nls';
 import { IAccessibilityService } from 'vs/platform/accessibility/common/accessibility';
 import { MenuWorkbenchToolBar } from 'vs/platform/actions/browser/toolbar';
@@ -35,11 +35,11 @@ import { IChatExecuteActionContext, SubmitAction } from 'vs/workbench/contrib/ch
 import { IChatWidget } from 'vs/workbench/contrib/chat/browser/chat';
 import { ChatFollowups } from 'vs/workbench/contrib/chat/browser/chatFollowups';
 import { IChatAgentService } from 'vs/workbench/contrib/chat/common/chatAgents';
-import { CONTEXT_CHAT_INPUT_HAS_TEXT, CONTEXT_IN_CHAT_INPUT } from 'vs/workbench/contrib/chat/common/chatContextKeys';
+import { CONTEXT_CHAT_INPUT_CURSOR_AT_TOP, CONTEXT_CHAT_INPUT_HAS_TEXT, CONTEXT_IN_CHAT_INPUT } from 'vs/workbench/contrib/chat/common/chatContextKeys';
 import { chatAgentLeader } from 'vs/workbench/contrib/chat/common/chatParserTypes';
 import { IChatReplyFollowup } from 'vs/workbench/contrib/chat/common/chatService';
 import { IChatResponseViewModel } from 'vs/workbench/contrib/chat/common/chatViewModel';
-import { IChatWidgetHistoryService } from 'vs/workbench/contrib/chat/common/chatWidgetHistoryService';
+import { IChatHistoryEntry, IChatWidgetHistoryService } from 'vs/workbench/contrib/chat/common/chatWidgetHistoryService';
 import { getSimpleCodeEditorWidgetOptions, getSimpleEditorOptions } from 'vs/workbench/contrib/codeEditor/browser/simpleEditorOptions';
 import { ChatSubmitEditorAction, ChatSubmitSecondaryAgentEditorAction } from 'vs/workbench/contrib/chat/browser/actions/chatActions';
 import { IPosition } from 'vs/editor/common/core/position';
@@ -82,12 +82,13 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 		return this._inputEditor;
 	}
 
-	private history: HistoryNavigator<string>;
-	private historyStates: Map<string, any> = new Map();
+	private history: HistoryNavigator<IChatHistoryEntry>;
 	private historyNavigationBackwardsEnablement!: IContextKey<boolean>;
 	private historyNavigationForewardsEnablement!: IContextKey<boolean>;
+	private onHistoryEntry = false;
 	private inputModel: ITextModel | undefined;
 	private inputEditorHasText: IContextKey<boolean>;
+	private chatCursorAtTop: IContextKey<boolean>;
 	private providerId: string | undefined;
 
 	private cachedDimensions: dom.Dimension | undefined;
@@ -109,6 +110,8 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 		super();
 
 		this.inputEditorHasText = CONTEXT_CHAT_INPUT_HAS_TEXT.bindTo(contextKeyService);
+		this.chatCursorAtTop = CONTEXT_CHAT_INPUT_CURSOR_AT_TOP.bindTo(contextKeyService);
+
 		this.history = new HistoryNavigator([], 5);
 		this._register(this.historyService.onDidClearHistory(() => this.history.clear()));
 		this._register(this.configurationService.onDidChangeConfiguration(e => {
@@ -130,11 +133,7 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 	setState(providerId: string, inputValue: string | undefined): void {
 		this.providerId = providerId;
 		const history = this.historyService.getHistory(providerId);
-		this.historyStates = new Map(history.map(h => [h.text, h.state]));
-		const historyTexts: string[] = [];
-		this.historyStates.forEach((_, str) => historyTexts.push(str));
-
-		this.history = new HistoryNavigator(historyTexts, 50);
+		this.history = new HistoryNavigator(history, 50);
 
 		if (typeof inputValue === 'string') {
 			this.setValue(inputValue);
@@ -154,13 +153,15 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 	}
 
 	private navigateHistory(previous: boolean): void {
-		const historyInput = (previous ?
+		const historyEntry = (previous ?
 			(this.history.previous() ?? this.history.first()) : this.history.next())
-			?? '';
+			?? { text: '' };
 
-		aria.status(historyInput);
-		this.setValue(historyInput);
-		this._onDidLoadInputState.fire(this.historyStates.get(historyInput));
+		this.onHistoryEntry = previous || this.history.current() !== null;
+
+		aria.status(historyEntry.text);
+		this.setValue(historyEntry.text);
+		this._onDidLoadInputState.fire(historyEntry.state);
 		if (previous) {
 			this._inputEditor.setPosition({ lineNumber: 1, column: 1 });
 		} else {
@@ -193,8 +194,7 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 	 */
 	async acceptInput(userQuery?: string, inputState?: any): Promise<void> {
 		if (userQuery) {
-			this.history.add(userQuery);
-			this.historyStates.set(userQuery, inputState);
+			this.history.add({ text: userQuery, state: inputState });
 		}
 
 		if (this.accessibilityService.isScreenReaderOptimized() && isMacintosh) {
@@ -243,12 +243,18 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 		options.cursorWidth = 1;
 		options.wrappingStrategy = 'advanced';
 		options.bracketPairColorization = { enabled: false };
-		options.suggest = { showIcons: false };
+		options.suggest = {
+			showIcons: false,
+			showSnippets: false,
+			showWords: true,
+			showStatusBar: false,
+			insertMode: 'replace',
+		};
 		options.scrollbar = { ...(options.scrollbar ?? {}), vertical: 'hidden' };
 
 		this._inputEditorElement = dom.append(inputContainer, $('.interactive-input-editor'));
 		const editorOptions = getSimpleCodeEditorWidgetOptions();
-		editorOptions.contributions?.push(...EditorExtensionsRegistry.getSomeEditorContributions([ModesHoverController.ID]));
+		editorOptions.contributions?.push(...EditorExtensionsRegistry.getSomeEditorContributions([HoverController.ID]));
 		this._inputEditor = this._register(scopedInstantiationService.createInstance(CodeEditorWidget, this._inputEditorElement, options, editorOptions));
 
 		this._register(this._inputEditor.onDidChangeModelContent(() => {
@@ -263,6 +269,10 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 			const model = this._inputEditor.getModel();
 			const inputHasText = !!model && model.getValueLength() > 0;
 			this.inputEditorHasText.set(inputHasText);
+			if (!this.onHistoryEntry) {
+				this.historyNavigationForewardsEnablement.set(!inputHasText);
+				this.historyNavigationBackwardsEnablement.set(!inputHasText);
+			}
 		}));
 		this._register(this._inputEditor.onDidFocusEditorText(() => {
 			this._onDidFocus.fire();
@@ -279,8 +289,13 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 				return;
 			}
 
-			this.historyNavigationBackwardsEnablement.set(e.position.column === 1 && e.position.lineNumber === 1);
-			this.historyNavigationForewardsEnablement.set(e.position.equals(getLastPosition(model)));
+			const atTop = e.position.column === 1 && e.position.lineNumber === 1;
+			this.chatCursorAtTop.set(atTop);
+
+			if (this.onHistoryEntry) {
+				this.historyNavigationBackwardsEnablement.set(atTop);
+				this.historyNavigationForewardsEnablement.set(e.position.equals(getLastPosition(model)));
+			}
 		}));
 
 		this.toolbar = this._register(this.instantiationService.createInstance(MenuWorkbenchToolBar, inputContainer, MenuId.ChatExecute, {
@@ -370,8 +385,7 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 
 	saveState(): void {
 		const inputHistory = this.history.getHistory();
-		const historyEntries = inputHistory.map(entry => ({ text: entry, state: this.historyStates.get(entry) }));
-		this.historyService.saveHistory(this.providerId!, historyEntries);
+		this.historyService.saveHistory(this.providerId!, inputHistory);
 	}
 }
 
