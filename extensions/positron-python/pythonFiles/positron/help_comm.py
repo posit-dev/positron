@@ -6,6 +6,8 @@
 # AUTO-GENERATED from help.json; do not edit.
 #
 
+# flake8: noqa
+
 # For forward declarations
 from __future__ import annotations
 
