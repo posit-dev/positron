@@ -8,16 +8,17 @@ import { Codicon } from 'vs/base/common/codicons';
 import { ITextModel } from 'vs/editor/common/model';
 import { IEditor } from 'vs/editor/common/editorCommon';
 import { ILogService } from 'vs/platform/log/common/log';
-import { KeyChord, KeyCode, KeyMod } from 'vs/base/common/keyCodes';
 import { Position } from 'vs/editor/common/core/position';
 import { IStatementRange } from 'vs/editor/common/languages';
 import { CancellationToken } from 'vs/base/common/cancellation';
+import { KeyChord, KeyCode, KeyMod } from 'vs/base/common/keyCodes';
 import { ILocalizedString } from 'vs/platform/action/common/action';
 import { EditorContextKeys } from 'vs/editor/common/editorContextKeys';
 import { ILanguageService } from 'vs/editor/common/languages/language';
 import { PositronConsoleFocused } from 'vs/workbench/common/contextkeys';
 import { ContextKeyExpr } from 'vs/platform/contextkey/common/contextkey';
 import { Action2, registerAction2 } from 'vs/platform/actions/common/actions';
+import { IViewsService } from 'vs/workbench/services/views/common/viewsService';
 import { ServicesAccessor } from 'vs/platform/instantiation/common/instantiation';
 import { IEditorService } from 'vs/workbench/services/editor/common/editorService';
 import { KeybindingWeight } from 'vs/platform/keybinding/common/keybindingsRegistry';
@@ -28,7 +29,6 @@ import { NOTEBOOK_EDITOR_FOCUSED } from 'vs/workbench/contrib/notebook/common/no
 import { confirmationModalDialog } from 'vs/workbench/browser/positronModalDialogs/confirmationModalDialog';
 import { IExecutionHistoryService } from 'vs/workbench/contrib/executionHistory/common/executionHistoryService';
 import { IPositronConsoleService, POSITRON_CONSOLE_VIEW_ID } from 'vs/workbench/services/positronConsole/browser/interfaces/positronConsoleService';
-import { IViewsService } from 'vs/workbench/common/views';
 
 /**
  * Positron console command ID's.

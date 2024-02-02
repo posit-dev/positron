@@ -2,13 +2,6 @@
 # yarn lockfile v1
 
 
-"@babel/runtime@^7.0.0":
-  version "7.21.5"
-  resolved "https://registry.yarnpkg.com/@babel/runtime/-/runtime-7.21.5.tgz#8492dddda9644ae3bda3b45eabe87382caee7200"
-  integrity sha512-8jI69toZqqcsnqGGqwGS4Qb1VwLOEp4hz+CXPywcvjs60u3B4Pom/U/7rm4W8tMOYEB+E9wgD0mW1l3r8qlI9Q==
-  dependencies:
-    regenerator-runtime "^0.13.11"
-
 "@microsoft/1ds-core-js@3.2.13", "@microsoft/1ds-core-js@^3.2.13":
   version "3.2.13"
   resolved "https://registry.yarnpkg.com/@microsoft/1ds-core-js/-/1ds-core-js-3.2.13.tgz#0c105ed75091bae3f1555c0334704fa9911c58fb"
@@ -55,102 +48,45 @@
   resolved "https://registry.yarnpkg.com/@vscode/vscode-languagedetection/-/vscode-languagedetection-1.0.21.tgz#89b48f293f6aa3341bb888c1118d16ff13b032d3"
   integrity sha512-zSUH9HYCw5qsCtd7b31yqkpaCU6jhtkKLkvOOA8yTrIRfBSOFb8PPhgmMicD7B/m+t4PwOJXzU1XDtrM9Fd3/g==
 
-"@xterm/addon-canvas@0.6.0-beta.14":
-  version "0.6.0-beta.14"
-  resolved "https://registry.yarnpkg.com/@xterm/addon-canvas/-/addon-canvas-0.6.0-beta.14.tgz#5a4022edf80e4b62348c11e56a0c7247b38ac946"
-  integrity sha512-J2+XfgTV+1ee48awyajh4maJDfzSbtF0FkOoxIUUDaw2fAPOBqeUqTDHxOyvzoYwAHlaJ98AA5HaYjrTkXqXlg==
+"@xterm/addon-canvas@0.6.0-beta.20":
+  version "0.6.0-beta.20"
+  resolved "https://registry.yarnpkg.com/@xterm/addon-canvas/-/addon-canvas-0.6.0-beta.20.tgz#078dddef70caf880b2cb121fdda37d301fc13156"
+  integrity sha512-tHhsuqElE7LNiDJPbZzgVpmbcG2Dk6i2vh1EI+DzSByUWScDqLoeJbVPE5Xd2UW2garo24lxErpnIAlsytcA3A==
 
-"@xterm/addon-image@0.7.0-beta.12":
-  version "0.7.0-beta.12"
-  resolved "https://registry.yarnpkg.com/@xterm/addon-image/-/addon-image-0.7.0-beta.12.tgz#b1ed300492429a1394c94385fb0c61ed36ad2041"
-  integrity sha512-MseIv99qlQ0u113a4PFAfSv4vQi+16HC6S9oAcS/CSAHeSySYqPPLdZXAMqLZo0n/vIESmSFXlX4bm2k3YIhoQ==
+"@xterm/addon-image@0.7.0-beta.18":
+  version "0.7.0-beta.18"
+  resolved "https://registry.yarnpkg.com/@xterm/addon-image/-/addon-image-0.7.0-beta.18.tgz#588ea2d0841cff48c63bde1bfcdf56e9494dc6af"
+  integrity sha512-+HQ+IBmHPelzjRJ5zO3XkjbeQNr2Zrf5wAlbPhy4EGSD0mDCqHJSfzZ8wKrhx7t8qpfiA8eTpWu/M76WsEnlnA==
 
-"@xterm/addon-search@0.14.0-beta.14":
-  version "0.14.0-beta.14"
-  resolved "https://registry.yarnpkg.com/@xterm/addon-search/-/addon-search-0.14.0-beta.14.tgz#09da64dfea88315e1e07f95e5d8ec371fe986edb"
-  integrity sha512-SOIUqIakxLCT2jyn0GEidmd1KJRqGbuOITWXx8loBeiBb/Omo01nqhtHFU0HTdCRwFbOhMRMDTKKr2nQxaoPEQ==
+"@xterm/addon-search@0.14.0-beta.20":
+  version "0.14.0-beta.20"
+  resolved "https://registry.yarnpkg.com/@xterm/addon-search/-/addon-search-0.14.0-beta.20.tgz#cac366b1be1eb02cf9fe9537933f26f227d030c8"
+  integrity sha512-1LOL/OzWSrCBpndiBeeE2S1rxtKKgU1ucYFSG3P68W0J4VQz/Ksci1BgDKsgspj9jzpsGhdql3zwa5WEM7n4Pg==
 
-"@xterm/addon-serialize@0.12.0-beta.14":
-  version "0.12.0-beta.14"
-  resolved "https://registry.yarnpkg.com/@xterm/addon-serialize/-/addon-serialize-0.12.0-beta.14.tgz#a02553b318f2f9863cadb072e3e671ba34985e3b"
-  integrity sha512-zHNc6gKxHG8D+oZRWopHRCZXGt/eTBGUbVKc3Jk0h5zuWrNATZCztljQ7Zy/VOwhxQRpFrV6MXE4vb2cBLdmvw==
+"@xterm/addon-serialize@0.12.0-beta.20":
+  version "0.12.0-beta.20"
+  resolved "https://registry.yarnpkg.com/@xterm/addon-serialize/-/addon-serialize-0.12.0-beta.20.tgz#5fe126194ff4dc466b92a0946e081e039a14ad21"
+  integrity sha512-GdRCQDjLyVNBxCFnhfCWsMmuqv2PryUkOaNl4z5MqB5lBUkiEnRNY0u/s5f34+2zrijp3h0O/f9JDLW4gSUQgw==
 
-"@xterm/addon-unicode11@0.7.0-beta.14":
-  version "0.7.0-beta.14"
-  resolved "https://registry.yarnpkg.com/@xterm/addon-unicode11/-/addon-unicode11-0.7.0-beta.14.tgz#37f672945b59c62676a76f9afa292973bff13763"
-  integrity sha512-L1Maeye7mPYgllIOaD8b3J70B73SoC0deNrlhiMkry/8ue2Q48JzQnOGVWKIOZC+owB1aQRWZbQZbQaAiLKz4A==
+"@xterm/addon-unicode11@0.7.0-beta.20":
+  version "0.7.0-beta.20"
+  resolved "https://registry.yarnpkg.com/@xterm/addon-unicode11/-/addon-unicode11-0.7.0-beta.20.tgz#5d3c97320898dd6766f2dc127deb4f071c8698c2"
+  integrity sha512-4/uwJ6lV/xJplT7hJc7sO4Im4XNvEXHnUEFIs03FFp8ZUfu3U6wcBk6/GoKMwJKJtGVNxotiD6ZzJ5v8IBH6nA==
 
-"@xterm/addon-webgl@0.17.0-beta.14":
-  version "0.17.0-beta.14"
-  resolved "https://registry.yarnpkg.com/@xterm/addon-webgl/-/addon-webgl-0.17.0-beta.14.tgz#767057842d72258656be990b85718f01cf53ab55"
-  integrity sha512-FZoC0gk/H0hpQFrPEp2LM4qllj4a1MR/6sIg0TY6L83KS++8gxQLonTxDQoAmb9Ld5816s7ynLZJSTJUyDWRpg==
+"@xterm/addon-webgl@0.17.0-beta.20":
+  version "0.17.0-beta.20"
+  resolved "https://registry.yarnpkg.com/@xterm/addon-webgl/-/addon-webgl-0.17.0-beta.20.tgz#443845ac5ac755cf762b105ed237b30426b07137"
+  integrity sha512-iqvXNSTfKIcO9FBraNwdO/ixPrTHok8CBN/wjlnGLv0ZMc4zLAiKE8+PHyg9ZY38QJfS+4Ouo8KsuZwoOYfnNA==
 
-"@xterm/xterm@5.4.0-beta.14":
-  version "5.4.0-beta.14"
-  resolved "https://registry.yarnpkg.com/@xterm/xterm/-/xterm-5.4.0-beta.14.tgz#fa0902f457fe799c65dec6ff784538a087f611d9"
-  integrity sha512-69E++VxeLPxBRhR3EGpkDe3R+EhpEZILo0m6TcN+atC4Zm5+WgcqXBCrBhkvpnBA2AhZp51w+hLC/OCwaHE0rg==
-
-he@^1.2.0:
-  version "1.2.0"
-  resolved "https://registry.yarnpkg.com/he/-/he-1.2.0.tgz#84ae65fa7eafb165fddb61566ae14baf05664f0f"
-  integrity sha512-F/1DnUGPopORZi0ni+CvrCgHQ5FyEAHRLSApuYWMmrbSwoN2Mn/7k+Gl38gJnR7yyDZk6WLXwiGod1JOWNDKGw==
-
-"js-tokens@^3.0.0 || ^4.0.0":
-  version "4.0.0"
-  resolved "https://registry.yarnpkg.com/js-tokens/-/js-tokens-4.0.0.tgz#19203fb59991df98e3a287050d4647cdeaf32499"
-  integrity sha512-RdJUflcE3cUzKiMqQgsCu06FPu9UdIJO0beYbPhHN4k6apgJtifcoCtT9bcxOpYBtpD2kCM6Sbzg4CausW/PKQ==
+"@xterm/xterm@5.4.0-beta.20":
+  version "5.4.0-beta.20"
+  resolved "https://registry.yarnpkg.com/@xterm/xterm/-/xterm-5.4.0-beta.20.tgz#28bbbbc73eceb6ef3e1e095de195cf849d0cbfb6"
+  integrity sha512-nkY91qBy5pe1HlW9LOoLcyG6v4teEsliEtUVshAO42NrJDaPniSn28O5m5832UjZOdjLCY58QlcBkZUquODGrQ==
 
 jschardet@3.0.0:
   version "3.0.0"
   resolved "https://registry.yarnpkg.com/jschardet/-/jschardet-3.0.0.tgz#898d2332e45ebabbdb6bf2feece9feea9a99e882"
   integrity sha512-lJH6tJ77V8Nzd5QWRkFYCLc13a3vADkh3r/Fi8HupZGWk2OVVDfnZP8V/VgQgZ+lzW0kG2UGb5hFgt3V3ndotQ==
-
-loose-envify@^1.1.0:
-  version "1.4.0"
-  resolved "https://registry.yarnpkg.com/loose-envify/-/loose-envify-1.4.0.tgz#71ee51fa7be4caec1a63839f7e682d8132d30caf"
-  integrity sha512-lyuxPGr/Wfhrlem2CL/UcnUc1zcqKAImBDzukY7Y5F/yQiNdko6+fRLevlw1HgMySw7f611UIY408EtxRSoK3Q==
-  dependencies:
-    js-tokens "^3.0.0 || ^4.0.0"
-
-"memoize-one@>=3.1.1 <6":
-  version "5.2.1"
-  resolved "https://registry.yarnpkg.com/memoize-one/-/memoize-one-5.2.1.tgz#8337aa3c4335581839ec01c3d594090cebe8f00e"
-  integrity sha512-zYiwtZUcYyXKo/np96AGZAckk+FWWsUdJ3cHGGmld7+AhvcWmQyGCYUh1hc4Q/pkOhb65dQR/pqCyK0cOaHz4Q==
-
-react-dom@^18.2.0:
-  version "18.2.0"
-  resolved "https://registry.yarnpkg.com/react-dom/-/react-dom-18.2.0.tgz#22aaf38708db2674ed9ada224ca4aa708d821e3d"
-  integrity sha512-6IMTriUmvsjHUjNtEDudZfuDQUoWXVxKHhlEGSk81n4YFS+r/Kl99wXiwlVXtPBtJenozv2P+hxDsw9eA7Xo6g==
-  dependencies:
-    loose-envify "^1.1.0"
-    scheduler "^0.23.0"
-
-react-window@^1.8.8:
-  version "1.8.9"
-  resolved "https://registry.yarnpkg.com/react-window/-/react-window-1.8.9.tgz#24bc346be73d0468cdf91998aac94e32bc7fa6a8"
-  integrity sha512-+Eqx/fj1Aa5WnhRfj9dJg4VYATGwIUP2ItwItiJ6zboKWA6EX3lYDAXfGF2hyNqplEprhbtjbipiADEcwQ823Q==
-  dependencies:
-    "@babel/runtime" "^7.0.0"
-    memoize-one ">=3.1.1 <6"
-
-react@^18.2.0:
-  version "18.2.0"
-  resolved "https://registry.yarnpkg.com/react/-/react-18.2.0.tgz#555bd98592883255fa00de14f1151a917b5d77d5"
-  integrity sha512-/3IjMdb2L9QbBdWiW5e3P2/npwMBaU9mHCSCUzNln0ZCYbcfTsGbTJrU/kGemdH2IWmB2ioZ+zkxtmq6g09fGQ==
-  dependencies:
-    loose-envify "^1.1.0"
-
-regenerator-runtime@^0.13.11:
-  version "0.13.11"
-  resolved "https://registry.yarnpkg.com/regenerator-runtime/-/regenerator-runtime-0.13.11.tgz#f6dca3e7ceec20590d07ada785636a90cdca17f9"
-  integrity sha512-kY1AZVr2Ra+t+piVaJ4gxaFaReZVH40AKNo7UCX6W+dEwBo/2oZJzqfuN1qLq1oL45o56cPaTXELwrTh8Fpggg==
-
-scheduler@^0.23.0:
-  version "0.23.0"
-  resolved "https://registry.yarnpkg.com/scheduler/-/scheduler-0.23.0.tgz#ba8041afc3d30eb206a487b6b384002e4e61fdfe"
-  integrity sha512-CtuThmgHNg7zIZWAXi3AsyIzA3n4xx7aNyjwC2VJldO2LMVDhFK+63xGqq6CsJH4rTAt6/M+N4GhZiDYPx9eUw==
-  dependencies:
-    loose-envify "^1.1.0"
 
 tas-client-umd@0.1.8:
   version "0.1.8"

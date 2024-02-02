@@ -17,7 +17,6 @@ import { isObject } from 'vs/base/common/types';
 import { IEditorOptions } from 'vs/platform/editor/common/editor';
 import { IWindowsConfiguration } from 'vs/platform/window/common/window';
 import { BooleanVerifier, EnumVerifier, NumberVerifier, ObjectVerifier, SetVerifier, verifyObject } from 'vs/base/common/verifier';
-import product from 'vs/platform/product/common/product';
 import { IAuxiliaryWindowOpenOptions } from 'vs/workbench/services/auxiliaryWindow/browser/auxiliaryWindowService';
 
 export interface IEditorPartCreationOptions {
@@ -54,7 +53,7 @@ export const DEFAULT_EDITOR_PART_OPTIONS: IEditorPartOptions = {
 	labelFormat: 'default',
 	splitSizing: 'auto',
 	splitOnDragAndDrop: true,
-	dragToOpenWindow: product.quality !== 'stable',
+	dragToOpenWindow: true,
 	centeredLayoutFixedWidth: false,
 	doubleClickTabToToggleEditorGroupSizes: 'expand',
 	editorActionsLocation: 'default',
@@ -196,7 +195,7 @@ export interface IEditorPartsView {
  */
 export interface IEditorGroupsView {
 
-	readonly isAuxiliary: boolean;
+	readonly windowId: number;
 
 	readonly groups: IEditorGroupView[];
 	readonly activeGroup: IEditorGroupView;

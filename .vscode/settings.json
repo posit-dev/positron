@@ -165,6 +165,12 @@
 		"src/vs/workbench/workbench.web.main.ts",
 		"src/vs/workbench/api/common/extHostTypes.ts"
 	],
+	"[github-issues]": {
+		"editor.wordWrap": "on"
+	},
+	"css.format.spaceAroundSelectorSeparator": true,
+	"inlineChat.mode": "live",
+	"testing.defaultGutterClickAction": "runWithCoverage",
 	"editor.rulers": [
 		100
 	]

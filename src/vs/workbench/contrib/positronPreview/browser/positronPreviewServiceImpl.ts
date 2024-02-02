@@ -7,7 +7,7 @@ import { IPositronPreviewService } from 'vs/workbench/contrib/positronPreview/br
 import { Event, Emitter } from 'vs/base/common/event';
 import { IOverlayWebview, IWebviewService, WebviewInitInfo } from 'vs/workbench/contrib/webview/browser/webview';
 import { PreviewWebview } from 'vs/workbench/contrib/positronPreview/browser/previewWebview';
-import { IViewsService } from 'vs/workbench/common/views';
+import { IViewsService } from 'vs/workbench/services/views/common/viewsService';
 import { POSITRON_PREVIEW_VIEW_ID } from 'vs/workbench/contrib/positronPreview/browser/positronPreviewSevice';
 import { ILanguageRuntime, ILanguageRuntimeService, RuntimeOutputKind } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { IPositronNotebookOutputWebviewService } from 'vs/workbench/contrib/positronOutputWebview/browser/notebookOutputWebviewService';

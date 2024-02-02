@@ -138,7 +138,8 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 		}, {
 			lineLimit: 1000,
 			outputScrolling: true,
-			outputWordWrap: false
+			outputWordWrap: false,
+			linkifyFilePaths: false,
 		},
 			this.getRendererData(mimeType),
 			await this.getStaticPreloadsData(renderer.extensionId),

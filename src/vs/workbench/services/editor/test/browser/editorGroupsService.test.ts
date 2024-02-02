@@ -1710,12 +1710,12 @@ suite('EditorGroupsService', () => {
 		rightGroupListener.dispose();
 	});
 
-	test('locked groups - single group is never locked', async () => {
+	test('locked groups - single group is can be locked', async () => {
 		const [part] = await createPart();
 		const group = part.activeGroup;
 
 		group.lock(true);
-		assert.strictEqual(group.isLocked, false);
+		assert.strictEqual(group.isLocked, true);
 
 		const rightGroup = part.addGroup(group, GroupDirection.RIGHT);
 		rightGroup.lock(true);
@@ -1723,7 +1723,7 @@ suite('EditorGroupsService', () => {
 		assert.strictEqual(rightGroup.isLocked, true);
 
 		part.removeGroup(group);
-		assert.strictEqual(rightGroup.isLocked, false);
+		assert.strictEqual(rightGroup.isLocked, true);
 
 		const rightGroup2 = part.addGroup(rightGroup, GroupDirection.RIGHT);
 		rightGroup.lock(true);
@@ -1734,7 +1734,7 @@ suite('EditorGroupsService', () => {
 
 		part.removeGroup(rightGroup2);
 
-		assert.strictEqual(rightGroup.isLocked, false);
+		assert.strictEqual(rightGroup.isLocked, true);
 	});
 
 	test('locked groups - auto locking via setting', async () => {
@@ -1785,6 +1785,9 @@ suite('EditorGroupsService', () => {
 		const rootGroup = part.activeGroup;
 		const editorPartSize = part.getSize(rootGroup);
 
+		// If there is only one group, it should not be considered maximized
+		assert.strictEqual(part.hasMaximizedGroup(), false);
+
 		const rightGroup = part.addGroup(rootGroup, GroupDirection.RIGHT);
 		const rightBottomGroup = part.addGroup(rightGroup, GroupDirection.DOWN);
 
@@ -1797,7 +1800,11 @@ suite('EditorGroupsService', () => {
 			maximizedValue = maximized;
 		});
 
+		assert.strictEqual(part.hasMaximizedGroup(), false);
+
 		part.arrangeGroups(GroupsArrangement.MAXIMIZE, rootGroup);
+
+		assert.strictEqual(part.hasMaximizedGroup(), true);
 
 		// getSize()
 		assert.deepStrictEqual(part.getSize(rootGroup), editorPartSize);
@@ -1807,6 +1814,8 @@ suite('EditorGroupsService', () => {
 		assert.deepStrictEqual(maximizedValue, true);
 
 		part.toggleMaximizeGroup();
+
+		assert.strictEqual(part.hasMaximizedGroup(), false);
 
 		// Size is restored
 		assert.deepStrictEqual(part.getSize(rootGroup), sizeRootGroup);

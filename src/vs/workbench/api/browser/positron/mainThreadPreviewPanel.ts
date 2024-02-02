@@ -12,7 +12,7 @@ import * as extHostProtocol from 'vs/workbench/api/common/positron/extHost.posit
 import { Disposable } from 'vs/base/common/lifecycle';
 import { IPositronPreviewService, POSITRON_PREVIEW_VIEW_ID } from 'vs/workbench/contrib/positronPreview/browser/positronPreviewSevice';
 import { PreviewWebview } from 'vs/workbench/contrib/positronPreview/browser/previewWebview';
-import { IViewsService } from 'vs/workbench/common/views';
+import { IViewsService } from 'vs/workbench/services/views/common/viewsService';
 
 /**
  * Bi-directional map between webview handles and previews.
