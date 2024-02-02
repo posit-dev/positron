@@ -4,11 +4,11 @@
 
 import { useEffect, useState } from 'react';  // eslint-disable-line no-duplicate-imports
 import { ILogService } from 'vs/platform/log/common/log';
-import { IViewsService } from 'vs/workbench/common/views';
 import { DisposableStore } from 'vs/base/common/lifecycle';
 import { IModelService } from 'vs/editor/common/services/model';
 import { IOpenerService } from 'vs/platform/opener/common/opener';
 import { ILanguageService } from 'vs/editor/common/languages/language';
+import { IViewsService } from 'vs/workbench/services/views/common/viewsService';
 import { IClipboardService } from 'vs/platform/clipboard/common/clipboardService';
 import { INotificationService } from 'vs/platform/notification/common/notification';
 import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';

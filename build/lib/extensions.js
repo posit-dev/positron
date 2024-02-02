@@ -550,7 +550,7 @@ async function copyExtensionBinaries(outputRoot) {
             const srcLoc = path.resolve('extensions', bin.base, bin.from);
             const destLoc = path.resolve(outputRoot, bin.base, bin.to);
             return gulp.src(srcLoc).pipe(gulp.dest(destLoc));
-        }),
+        }), 
         // Restore the executable bit on the binaries that had it.
         util2.setExecutableBit(binaryMetadata
             .filter((bin) => bin.exe)

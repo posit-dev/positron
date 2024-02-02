@@ -132,6 +132,7 @@ export class SpdLogLogger extends AbstractMessageLogger implements ILogger {
 		} else {
 			this._loggerCreationPromise.then(() => this.disposeLogger());
 		}
+		super.dispose();
 	}
 
 	private disposeLogger(): void {
