@@ -364,6 +364,9 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 					this._currentRender = queuedRender;
 					this.scheduleRender(queuedRender, 0);
 				}
+			}).catch((err) => {
+				this._stateEmitter.fire(PlotClientState.Rendered);
+				request.error(err);
 			});
 	}
 
