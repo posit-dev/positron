@@ -27,6 +27,12 @@ class EditorContext:
     Editor metadata
     """
 
+    def __post_init__(self):
+        """Revive parameters after initialization"""
+        self.selections = [
+            Selection(**d) if isinstance(d, dict) else d for d in self.selections
+        ]  # type: ignore
+
     document: TextDocument = field(
         metadata={
             "description": "Document metadata",

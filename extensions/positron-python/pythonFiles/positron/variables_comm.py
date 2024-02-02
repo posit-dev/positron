@@ -6,6 +6,8 @@
 # AUTO-GENERATED from variables.json; do not edit.
 #
 
+# flake8: noqa
+
 # For forward declarations
 from __future__ import annotations
 
@@ -64,6 +66,12 @@ class VariableList:
     A view containing a list of variables in the session.
     """
 
+    def __post_init__(self):
+        """Revive parameters after initialization"""
+        self.variables = [
+            Variable(**d) if isinstance(d, dict) else d for d in self.variables
+        ]  # type: ignore
+
     variables: List[Variable] = field(
         metadata={
             "description": "A list of variables in the session.",
@@ -90,6 +98,12 @@ class InspectedVariable:
     """
     An inspected variable.
     """
+
+    def __post_init__(self):
+        """Revive parameters after initialization"""
+        self.children = [
+            Variable(**d) if isinstance(d, dict) else d for d in self.children
+        ]  # type: ignore
 
     children: List[Variable] = field(
         metadata={

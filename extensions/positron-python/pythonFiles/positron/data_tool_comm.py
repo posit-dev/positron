@@ -573,10 +573,7 @@ class GetSchemaRequest:
         default=DataToolBackendRequest.GetSchema,
     )
 
-    jsonrpc: str = field(
-        metadata={"description": "The JSON-RPC version specifier"},
-        default="2.0",
-    )
+    jsonrpc: str = field(metadata={"description": "The JSON-RPC version specifier"}, default="2.0")
 
 
 @dataclass
@@ -624,10 +621,7 @@ class GetDataValuesRequest:
         default=DataToolBackendRequest.GetDataValues,
     )
 
-    jsonrpc: str = field(
-        metadata={"description": "The JSON-RPC version specifier"},
-        default="2.0",
-    )
+    jsonrpc: str = field(metadata={"description": "The JSON-RPC version specifier"}, default="2.0")
 
 
 @dataclass
@@ -669,10 +663,7 @@ class SetColumnFiltersRequest:
         default=DataToolBackendRequest.SetColumnFilters,
     )
 
-    jsonrpc: str = field(
-        metadata={"description": "The JSON-RPC version specifier"},
-        default="2.0",
-    )
+    jsonrpc: str = field(metadata={"description": "The JSON-RPC version specifier"}, default="2.0")
 
 
 @dataclass
@@ -716,10 +707,7 @@ class SetSortColumnsRequest:
         default=DataToolBackendRequest.SetSortColumns,
     )
 
-    jsonrpc: str = field(
-        metadata={"description": "The JSON-RPC version specifier"},
-        default="2.0",
-    )
+    jsonrpc: str = field(metadata={"description": "The JSON-RPC version specifier"}, default="2.0")
 
 
 @dataclass
@@ -761,10 +749,7 @@ class GetColumnProfileRequest:
         default=DataToolBackendRequest.GetColumnProfile,
     )
 
-    jsonrpc: str = field(
-        metadata={"description": "The JSON-RPC version specifier"},
-        default="2.0",
-    )
+    jsonrpc: str = field(metadata={"description": "The JSON-RPC version specifier"}, default="2.0")
 
 
 @dataclass
@@ -778,7 +763,4 @@ class GetStateRequest:
         default=DataToolBackendRequest.GetState,
     )
 
-    jsonrpc: str = field(
-        metadata={"description": "The JSON-RPC version specifier"},
-        default="2.0",
-    )
+    jsonrpc: str = field(metadata={"description": "The JSON-RPC version specifier"}, default="2.0")
