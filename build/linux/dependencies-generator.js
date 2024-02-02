@@ -23,6 +23,8 @@ const product = require("../../product.json");
 // The reference dependencies, which one has to update when the new dependencies
 // are valid, are in dep-lists.ts
 // --- Start Positron ---
+// This allows the list of dependencies on shared libraries to be
+// different from the machine used to build VSCode.
 const FAIL_BUILD_FOR_NEW_DEPENDENCIES = false;
 // --- End Positron ---
 // Based on https://source.chromium.org/chromium/chromium/src/+/refs/tags/118.0.5993.159:chrome/installer/linux/BUILD.gn;l=64-80
