@@ -18,7 +18,7 @@ import { IKeyboardEvent } from 'vs/base/browser/keyboardEvent';
 import { useStateRef } from 'vs/base/browser/ui/react/useStateRef';
 import { CursorChangeReason } from 'vs/editor/common/cursorEvents';
 import { CodeEditorWidget } from 'vs/editor/browser/widget/codeEditorWidget';
-import { ModesHoverController } from 'vs/editor/contrib/hover/browser/hover';
+import { HoverController } from 'vs/editor/contrib/hover/browser/hover';
 import { EditorExtensionsRegistry } from 'vs/editor/browser/editorExtensions';
 import { MarkerController } from 'vs/editor/contrib/gotoError/browser/gotoError';
 import { IEditorOptions, LineNumbersType } from 'vs/editor/common/config/editorOptions';
@@ -571,7 +571,7 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 					SuggestController.ID,
 					SnippetController2.ID,
 					TabCompletionController.ID,
-					ModesHoverController.ID,
+					HoverController.ID,
 					MarkerController.ID,
 					ParameterHintsController.ID
 				])

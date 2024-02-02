@@ -76,13 +76,14 @@ export async function runThatTest(
 	}
 
 	const isSingleTest = testType === ItemType.TestThat;
-	const testPath = testType === ItemType.Directory ? testingTools.packageRoot.fsPath : test!.uri!.fsPath;
-
+	let testPath = testType === ItemType.Directory ? testingTools.packageRoot.fsPath : test!.uri!.fsPath;
 	Logger.info(
 		`Started running ${isSingleTest ? 'single test' : 'all tests'
 		} in ${testType === ItemType.Directory ? 'directory' : 'file'
 		} '${testPath}'`
 	);
+	// use POSIX path separators in the test-running R snippet for better portability
+	testPath = testPath.replace(/\\/g, '/');
 
 	const devtoolsMethod = testType === ItemType.Directory ? 'test' : 'test_active_file';
 	const descInsert = isSingleTest ? ` desc = '${test?.label || '<all tests>'}', ` : '';

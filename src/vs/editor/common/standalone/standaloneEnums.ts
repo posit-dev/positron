@@ -362,7 +362,8 @@ export enum EndOfLineSequence {
  */
 export enum GlyphMarginLane {
 	Left = 1,
-	Right = 2
+	Center = 2,
+	Right = 3
 }
 
 /**
@@ -793,7 +794,7 @@ export enum SelectionDirection {
 	RTL = 1
 }
 
-export enum ShowAiIconMode {
+export enum ShowLightbulbIconMode {
 	Off = 'off',
 	OnCode = 'onCode',
 	On = 'on'
