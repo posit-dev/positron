@@ -4,6 +4,19 @@
 
 .positron-notebook {
 	color: var(--vscode-positronDataTool-foreground);
+	user-select: text;
+	height: 100%;
+	overflow: auto;
+
+	p,
+	h1,
+	h2,
+	h3,
+	h4,
+	h5,
+	span {
+		cursor: text;
+	}
 }
 
 .positron-notebook-header {

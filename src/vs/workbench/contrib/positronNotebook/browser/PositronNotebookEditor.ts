@@ -163,6 +163,7 @@ export class PositronNotebookEditor extends EditorPane {
 
 	protected override createEditor(parent: HTMLElement): void {
 		const myDiv = parent.ownerDocument.createElement('div');
+		myDiv.style.display = 'relative';
 		this._parentDiv = myDiv;
 
 		parent.appendChild(myDiv);
