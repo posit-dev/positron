@@ -43,6 +43,7 @@ import { ActivatedEnvironmentLaunch } from '../../client/interpreter/virtualEnvs
 import { CondaInheritEnvPrompt } from '../../client/interpreter/virtualEnvs/condaInheritEnvPrompt';
 import { VirtualEnvironmentPrompt } from '../../client/interpreter/virtualEnvs/virtualEnvPrompt';
 import { ServiceManager } from '../../client/ioc/serviceManager';
+import { InterpreterPathCommand } from '../../client/interpreter/interpreterPathCommand';
 
 suite('Interpreters - Service Registry', () => {
     test('Registrations', () => {
@@ -74,6 +75,7 @@ suite('Interpreters - Service Registry', () => {
 
             [EnvironmentActivationService, EnvironmentActivationService],
             [IEnvironmentActivationService, EnvironmentActivationService],
+            [IExtensionSingleActivationService, InterpreterPathCommand],
             [IExtensionActivationService, CondaInheritEnvPrompt],
             [IActivatedEnvironmentLaunch, ActivatedEnvironmentLaunch],
         ].forEach((mapping) => {

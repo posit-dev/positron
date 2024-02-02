@@ -12,10 +12,6 @@ import {
     EnvironmentPathVariableDiagnosticsServiceId,
 } from './checks/envPathVariable';
 import {
-    InvalidLaunchJsonDebuggerService,
-    InvalidLaunchJsonDebuggerServiceId,
-} from './checks/invalidLaunchJsonDebugger';
-import {
     InvalidPythonPathInDebuggerService,
     InvalidPythonPathInDebuggerServiceId,
 } from './checks/invalidPythonPathInDebugger';
@@ -58,11 +54,6 @@ export function registerTypes(serviceManager: IServiceManager): void {
         IDiagnosticsService,
         EnvironmentPathVariableDiagnosticsService,
         EnvironmentPathVariableDiagnosticsServiceId,
-    );
-    serviceManager.addSingleton<IDiagnosticsService>(
-        IDiagnosticsService,
-        InvalidLaunchJsonDebuggerService,
-        InvalidLaunchJsonDebuggerServiceId,
     );
     serviceManager.addSingleton<IDiagnosticsService>(
         IDiagnosticsService,
