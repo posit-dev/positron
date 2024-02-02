@@ -87,7 +87,7 @@ export function NotebookCell({ cell, onRunCell, getCellExecutionStatus }: {
 		<div className={`positron-notebook-cell ${executionStatus}`}
 			data-status={executionStatus}
 		>
-			<PositronButton className='run-button' ariaLabel={isRunning ? 'stop execution' : 'Run cell'} onClick={runCell}>
+			<PositronButton className='run-button' ariaLabel={isRunning ? 'stop execution' : 'Run cell'} onPressed={runCell}>
 				<div className={`button-icon codicon ${isRunning ? 'codicon-primitive-square' : 'codicon-run'}`} />
 			</PositronButton>
 			<pre className='positron-notebook-cell-code'>{cell.getValue()}</pre>

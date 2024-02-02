@@ -44,7 +44,7 @@ export function PositronNotebookComponent(
 			<div className='positron-notebook-cells-container'>
 				<div className='positron-notebook-cells-action-bar'>
 
-					<PositronButton className='action run-button' ariaLabel={'Run cell'} onClick={() => executeCells()}>
+					<PositronButton className='action run-button' ariaLabel={'Run cell'} onPressed={() => executeCells()}>
 						<span className='action-label'>Run all cells</span>
 						<div className={`button-icon codicon ${'codicon-run'}`} />
 					</PositronButton>
