@@ -222,14 +222,17 @@ export interface IDataGridInstance {
 	setCursorRow(cursorRowIndex: number): void;
 
 	/**
-	 * Clears selection.
-	 */
-	clearSelection(): void;
-
-	/**
 	 * Selects all.
 	 */
 	selectAll(): void;
+
+	/**
+	 * Mouse selects a cell.
+	 * @param columnIndex The column index.
+	 * @param rowIndex The row index.
+	 * @param mouseSelectionType The mouse selection type.
+	 */
+	mouseSelectCell(columnIndex: number, rowIndex: number): void;
 
 	/**
 	 * Selects a column.
@@ -298,6 +301,11 @@ export interface IDataGridInstance {
 	 * @returns A RowSelectionState that represents the row selection state.
 	 */
 	rowSelectionState(rowIndex: number): RowSelectionState;
+
+	/**
+	 * Clears selection.
+	 */
+	clearSelection(): void;
 
 	/**
 	 * Returns a column.

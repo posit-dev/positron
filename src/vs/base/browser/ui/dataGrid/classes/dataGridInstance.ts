@@ -643,25 +643,6 @@ export abstract class DataGridInstance extends Disposable implements IDataGridIn
 	}
 
 	/**
-	 * Clears selection.
-	 */
-	clearSelection() {
-		// Clear cell selection.
-		this._cellSelectionRange = undefined;
-
-		// Clear column selection.
-		this._columnSelectionRange = undefined;
-		this._columnSelectionIndexes.clear();
-
-		// Clear row selection.
-		this._rowSelectionRange = undefined;
-		this._rowSelectionIndexes.clear();
-
-		// Fire the onDidUpdate event.
-		this._onDidUpdateEmitter.fire();
-	}
-
-	/**
 	 * Selects all.
 	 */
 	selectAll() {
@@ -678,6 +659,35 @@ export abstract class DataGridInstance extends Disposable implements IDataGridIn
 			lastRowIndex: this.rows - 1
 		};
 		this._rowSelectionIndexes.clear();
+
+		// Fire the onDidUpdate event.
+		this._onDidUpdateEmitter.fire();
+	}
+
+	/**
+	 * Mouse selects a cell.
+	 * @param columnIndex The column index.
+	 * @param rowIndex The row index.
+	 */
+	mouseSelectCell(columnIndex: number, rowIndex: number) {
+		// Clear column selection.
+		this._rowSelectionRange = undefined;
+		this._rowSelectionIndexes.clear();
+
+		// Clear row selection.
+		this._rowSelectionRange = undefined;
+		this._rowSelectionIndexes.clear();
+
+		if (columnIndex === this._cursorColumnIndex && rowIndex === this._cursorRowIndex) {
+			this._cellSelectionRange = undefined;
+		} else {
+			this._cellSelectionRange = {
+				firstColumnIndex: Math.min(this._cursorColumnIndex, columnIndex),
+				firstRowIndex: Math.min(this._cursorRowIndex, rowIndex),
+				lastColumnIndex: Math.max(this._cursorColumnIndex, columnIndex),
+				lastRowIndex: Math.max(this._cursorRowIndex, rowIndex),
+			};
+		}
 
 		// Fire the onDidUpdate event.
 		this._onDidUpdateEmitter.fire();
@@ -929,11 +939,14 @@ export abstract class DataGridInstance extends Disposable implements IDataGridIn
 	 * Extends selection left.
 	 */
 	extendSelectionLeft() {
+		// If there is a row selection, do nothing.
 		if (this._rowSelectionRange || this._rowSelectionIndexes.size) {
 			return;
 		}
 
+		// Process extend selection left based on what is currently selected.
 		if (this._columnSelectionIndexes.size) {
+			// Convert an individually selected column into a column selection range, if possible.
 			if (this._columnSelectionIndexes.has(this._cursorColumnIndex)) {
 				if (this._cursorColumnIndex > 0) {
 					this._columnSelectionRange = {
@@ -945,6 +958,7 @@ export abstract class DataGridInstance extends Disposable implements IDataGridIn
 				}
 			}
 		} else if (this._columnSelectionRange) {
+			// Expand or contract the column selection range, if possible.
 			if (this._cursorColumnIndex === this._columnSelectionRange.lastColumnIndex) {
 				if (this._columnSelectionRange.firstColumnIndex > 0) {
 					this._columnSelectionRange.firstColumnIndex--;
@@ -955,6 +969,7 @@ export abstract class DataGridInstance extends Disposable implements IDataGridIn
 				this._onDidUpdateEmitter.fire();
 			}
 		} else if (this._cellSelectionRange) {
+			// Expand or contract the cell selection range along the column axis, if possible.
 			if (this._cursorColumnIndex === this._cellSelectionRange.lastColumnIndex) {
 				if (this._cellSelectionRange.firstColumnIndex > 0) {
 					this._cellSelectionRange.firstColumnIndex--;
@@ -965,6 +980,7 @@ export abstract class DataGridInstance extends Disposable implements IDataGridIn
 				this._onDidUpdateEmitter.fire();
 			}
 		} else if (this._cursorColumnIndex > 0) {
+			// Create a new cell selection range.
 			this._cellSelectionRange = {
 				firstColumnIndex: this._cursorColumnIndex - 1,
 				firstRowIndex: this._cursorRowIndex,
@@ -979,11 +995,14 @@ export abstract class DataGridInstance extends Disposable implements IDataGridIn
 	 * Extends selection right.
 	 */
 	extendSelectionRight() {
+		// If there is a row selection, do nothing.
 		if (this._rowSelectionRange || this._rowSelectionIndexes.size) {
 			return;
 		}
 
+		// Process extend selection right based on what is currently selected.
 		if (this._columnSelectionIndexes.size) {
+			// Convert an individually selected column into a column selection range, if possible.
 			if (this._columnSelectionIndexes.has(this._cursorColumnIndex)) {
 				if (this._cursorColumnIndex < this._columns.length - 1) {
 					this._columnSelectionRange = {
@@ -995,6 +1014,7 @@ export abstract class DataGridInstance extends Disposable implements IDataGridIn
 				}
 			}
 		} else if (this._columnSelectionRange) {
+			// Expand or contract the column selection range, if possible.
 			if (this._cursorColumnIndex === this._columnSelectionRange.firstColumnIndex) {
 				if (this._columnSelectionRange.lastColumnIndex < this._columns.length - 1) {
 					this._columnSelectionRange.lastColumnIndex++;
@@ -1005,6 +1025,7 @@ export abstract class DataGridInstance extends Disposable implements IDataGridIn
 				this._onDidUpdateEmitter.fire();
 			}
 		} else if (this._cellSelectionRange) {
+			// Expand or contract the cell selection range along the column axis, if possible.
 			if (this._cursorColumnIndex === this._cellSelectionRange.firstColumnIndex) {
 				if (this._cellSelectionRange.lastColumnIndex < this._columns.length - 1) {
 					this._cellSelectionRange.lastColumnIndex++;
@@ -1015,6 +1036,7 @@ export abstract class DataGridInstance extends Disposable implements IDataGridIn
 				this._onDidUpdateEmitter.fire();
 			}
 		} else if (this._cursorColumnIndex < this._columns.length - 1) {
+			// Create a new cell selection range.
 			this._cellSelectionRange = {
 				firstColumnIndex: this._cursorColumnIndex,
 				firstRowIndex: this._cursorRowIndex,
@@ -1029,11 +1051,14 @@ export abstract class DataGridInstance extends Disposable implements IDataGridIn
 	 * Extends selection up.
 	 */
 	extendSelectionUp() {
+		// If there is a column selection, do nothing.
 		if (this._columnSelectionRange || this._columnSelectionIndexes.size) {
 			return;
 		}
 
+		// Process extend selection up based on what is currently selected.
 		if (this._rowSelectionIndexes.size) {
+			// Convert an individually selected row into a row selection range, if possible.
 			if (this._rowSelectionIndexes.has(this._cursorRowIndex)) {
 				if (this._cursorRowIndex > 0) {
 					this._rowSelectionRange = {
@@ -1045,6 +1070,7 @@ export abstract class DataGridInstance extends Disposable implements IDataGridIn
 				}
 			}
 		} else if (this._rowSelectionRange) {
+			// Expand or contract the row selection range, if possible.
 			if (this._cursorRowIndex === this._rowSelectionRange.lastRowIndex) {
 				if (this._rowSelectionRange.firstRowIndex > 0) {
 					this._rowSelectionRange.firstRowIndex--;
@@ -1055,6 +1081,7 @@ export abstract class DataGridInstance extends Disposable implements IDataGridIn
 				this._onDidUpdateEmitter.fire();
 			}
 		} else if (this._cellSelectionRange) {
+			// Expand or contract the cell selection range along the row axis, if possible.
 			if (this._cursorRowIndex === this._cellSelectionRange.lastRowIndex) {
 				if (this._cellSelectionRange.firstRowIndex > 0) {
 					this._cellSelectionRange.firstRowIndex--;
@@ -1065,6 +1092,7 @@ export abstract class DataGridInstance extends Disposable implements IDataGridIn
 				this._onDidUpdateEmitter.fire();
 			}
 		} else if (this._cursorRowIndex > 0) {
+			// Create a new cell selection range.
 			this._cellSelectionRange = {
 				firstColumnIndex: this._cursorColumnIndex,
 				firstRowIndex: this._cursorRowIndex - 1,
@@ -1079,11 +1107,14 @@ export abstract class DataGridInstance extends Disposable implements IDataGridIn
 	 * Extends selection down.
 	 */
 	extendSelectionDown() {
+		// If there is a column selection, do nothing.
 		if (this._columnSelectionRange || this._columnSelectionIndexes.size) {
 			return;
 		}
 
+		// Process extend selection down based on what is currently selected.
 		if (this._rowSelectionIndexes.size) {
+			// Convert an individually selected row into a row selection range, if possible.
 			if (this._rowSelectionIndexes.has(this._cursorRowIndex)) {
 				if (this._cursorRowIndex < this.rows - 1) {
 					this._rowSelectionRange = {
@@ -1095,6 +1126,7 @@ export abstract class DataGridInstance extends Disposable implements IDataGridIn
 				}
 			}
 		} else if (this._rowSelectionRange) {
+			// Expand or contract the row selection range, if possible.
 			if (this._cursorRowIndex === this._rowSelectionRange.firstRowIndex) {
 				if (this._rowSelectionRange.lastRowIndex < this.rows - 1) {
 					this._rowSelectionRange.lastRowIndex++;
@@ -1105,6 +1137,7 @@ export abstract class DataGridInstance extends Disposable implements IDataGridIn
 				this._onDidUpdateEmitter.fire();
 			}
 		} else if (this._cellSelectionRange) {
+			// Expand or contract the cell selection range along the row axis, if possible.
 			if (this._cursorRowIndex === this._cellSelectionRange.firstRowIndex) {
 				if (this._cellSelectionRange.lastRowIndex < this.rows - 1) {
 					this._cellSelectionRange.lastRowIndex++;
@@ -1115,6 +1148,7 @@ export abstract class DataGridInstance extends Disposable implements IDataGridIn
 				this._onDidUpdateEmitter.fire();
 			}
 		} else if (this._cursorRowIndex < this.rows - 1) {
+			// Create a new cell selection range.
 			this._cellSelectionRange = {
 				firstColumnIndex: this._cursorColumnIndex,
 				firstRowIndex: this._cursorRowIndex,
@@ -1274,6 +1308,25 @@ export abstract class DataGridInstance extends Disposable implements IDataGridIn
 
 		// The row is not selected.
 		return RowSelectionState.None;
+	}
+
+	/**
+	 * Clears selection.
+	 */
+	clearSelection() {
+		// Clear cell selection.
+		this._cellSelectionRange = undefined;
+
+		// Clear column selection.
+		this._columnSelectionRange = undefined;
+		this._columnSelectionIndexes.clear();
+
+		// Clear row selection.
+		this._rowSelectionRange = undefined;
+		this._rowSelectionIndexes.clear();
+
+		// Fire the onDidUpdate event.
+		this._onDidUpdateEmitter.fire();
 	}
 
 	/**

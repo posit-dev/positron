@@ -42,13 +42,13 @@ export const DataGridRowCell = (props: DataGridRowCellProps) => {
 	 */
 	const mouseDownHandler = (e: MouseEvent<HTMLElement>) => {
 		if (isMacintosh ? e.metaKey : e.ctrlKey) {
+			// Individual cell selection is not supported.
 		} else if (e.shiftKey) {
+			context.instance.mouseSelectCell(props.columnIndex, props.rowIndex);
 		} else {
 			context.instance.clearSelection();
+			context.instance.setCursorPosition(props.columnIndex, props.rowIndex);
 		}
-
-		// Set the cursor position.
-		context.instance.setCursorPosition(props.columnIndex, props.rowIndex);
 	};
 
 	// Get the selection states.
