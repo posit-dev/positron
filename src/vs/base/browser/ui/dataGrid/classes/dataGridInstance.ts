@@ -643,6 +643,51 @@ export abstract class DataGridInstance extends Disposable implements IDataGridIn
 	}
 
 	/**
+	 * Scrolls to the cursor.
+	 */
+	scrollToCursor() {
+		this.scrollToCell(this._cursorColumnIndex, this._cursorRowIndex);
+	}
+
+	/**
+	 * Scrolls to the specified cell.
+	 * @param columnIndex The column index.
+	 * @param rowIndex The row index.
+	 */
+	scrollToCell(columnIndex: number, rowIndex: number) {
+		this.scrollToColumn(columnIndex);
+		this.scrollToRow(rowIndex);
+	}
+
+	/**
+	 * Scrolls tp the specified column.
+	 * @param columnIndex The column index.
+	 */
+	scrollToColumn(columnIndex: number) {
+		if (columnIndex < this._firstColumnIndex) {
+			this.setFirstColumn(columnIndex);
+		} else if (columnIndex >= this._firstColumnIndex + this.visibleColumns) {
+			do {
+				this.setFirstColumn(this._firstColumnIndex + 1);
+			} while (columnIndex >= this._firstColumnIndex + this.visibleColumns);
+		}
+	}
+
+	/**
+	 * Scrolls to the specified row.
+	 * @param rowIndex The row index.
+	 */
+	scrollToRow(rowIndex: number) {
+		if (rowIndex < this.firstRowIndex) {
+			this.setFirstRow(rowIndex);
+		} else if (rowIndex >= this.firstRowIndex + this.visibleRows) {
+			do {
+				this.setFirstRow(this.firstRowIndex + 1);
+			} while (rowIndex >= this.firstRowIndex + this.visibleRows);
+		}
+	}
+
+	/**
 	 * Selects all.
 	 */
 	selectAll() {
@@ -678,15 +723,25 @@ export abstract class DataGridInstance extends Disposable implements IDataGridIn
 		this._rowSelectionRange = undefined;
 		this._rowSelectionIndexes.clear();
 
+		// If the cell is the cursor cell, remove the cell selection and scroll the cursor into
+		// view. Otherwise, create a new cell selection range and scroll the cell into view.
 		if (columnIndex === this._cursorColumnIndex && rowIndex === this._cursorRowIndex) {
+			// Remove the cell selection.
 			this._cellSelectionRange = undefined;
+
+			// Scroll the cursor into view.
+			this.scrollToCursor();
 		} else {
+			// Create a new cell selection range.
 			this._cellSelectionRange = {
 				firstColumnIndex: Math.min(this._cursorColumnIndex, columnIndex),
 				firstRowIndex: Math.min(this._cursorRowIndex, rowIndex),
 				lastColumnIndex: Math.max(this._cursorColumnIndex, columnIndex),
 				lastRowIndex: Math.max(this._cursorRowIndex, rowIndex),
 			};
+
+			// Scroll the cell into view.
+			this.scrollToCell(columnIndex, rowIndex);
 		}
 
 		// Fire the onDidUpdate event.
@@ -954,6 +1009,7 @@ export abstract class DataGridInstance extends Disposable implements IDataGridIn
 						lastColumnIndex: this._cursorColumnIndex
 					};
 					this._columnSelectionIndexes.clear();
+					this.scrollToColumn(this._columnSelectionRange.firstColumnIndex);
 					this._onDidUpdateEmitter.fire();
 				}
 			}
@@ -962,10 +1018,12 @@ export abstract class DataGridInstance extends Disposable implements IDataGridIn
 			if (this._cursorColumnIndex === this._columnSelectionRange.lastColumnIndex) {
 				if (this._columnSelectionRange.firstColumnIndex > 0) {
 					this._columnSelectionRange.firstColumnIndex--;
+					this.scrollToColumn(this._columnSelectionRange.firstColumnIndex);
 					this._onDidUpdateEmitter.fire();
 				}
 			} else if (this._cursorColumnIndex === this._columnSelectionRange.firstColumnIndex) {
 				this._columnSelectionRange.lastColumnIndex--;
+				this.scrollToColumn(this._columnSelectionRange.lastColumnIndex);
 				this._onDidUpdateEmitter.fire();
 			}
 		} else if (this._cellSelectionRange) {
@@ -973,10 +1031,12 @@ export abstract class DataGridInstance extends Disposable implements IDataGridIn
 			if (this._cursorColumnIndex === this._cellSelectionRange.lastColumnIndex) {
 				if (this._cellSelectionRange.firstColumnIndex > 0) {
 					this._cellSelectionRange.firstColumnIndex--;
+					this.scrollToColumn(this._cellSelectionRange.firstColumnIndex);
 					this._onDidUpdateEmitter.fire();
 				}
 			} else if (this._cursorColumnIndex === this._cellSelectionRange.firstColumnIndex) {
 				this._cellSelectionRange.lastColumnIndex--;
+				this.scrollToColumn(this._cellSelectionRange.lastColumnIndex);
 				this._onDidUpdateEmitter.fire();
 			}
 		} else if (this._cursorColumnIndex > 0) {
@@ -987,6 +1047,7 @@ export abstract class DataGridInstance extends Disposable implements IDataGridIn
 				lastColumnIndex: this._cursorColumnIndex,
 				lastRowIndex: this._cursorRowIndex
 			};
+			this.scrollToCell(this._cellSelectionRange.firstColumnIndex, this._cursorRowIndex);
 			this._onDidUpdateEmitter.fire();
 		}
 	}
@@ -1010,6 +1071,7 @@ export abstract class DataGridInstance extends Disposable implements IDataGridIn
 						lastColumnIndex: this._cursorColumnIndex + 1
 					};
 					this._columnSelectionIndexes.clear();
+					this.scrollToColumn(this._columnSelectionRange.lastColumnIndex);
 					this._onDidUpdateEmitter.fire();
 				}
 			}
@@ -1018,10 +1080,12 @@ export abstract class DataGridInstance extends Disposable implements IDataGridIn
 			if (this._cursorColumnIndex === this._columnSelectionRange.firstColumnIndex) {
 				if (this._columnSelectionRange.lastColumnIndex < this._columns.length - 1) {
 					this._columnSelectionRange.lastColumnIndex++;
+					this.scrollToColumn(this._columnSelectionRange.lastColumnIndex);
 					this._onDidUpdateEmitter.fire();
 				}
 			} else if (this._cursorColumnIndex === this._columnSelectionRange.lastColumnIndex) {
 				this._columnSelectionRange.firstColumnIndex++;
+				this.scrollToColumn(this._columnSelectionRange.firstColumnIndex);
 				this._onDidUpdateEmitter.fire();
 			}
 		} else if (this._cellSelectionRange) {
@@ -1029,10 +1093,12 @@ export abstract class DataGridInstance extends Disposable implements IDataGridIn
 			if (this._cursorColumnIndex === this._cellSelectionRange.firstColumnIndex) {
 				if (this._cellSelectionRange.lastColumnIndex < this._columns.length - 1) {
 					this._cellSelectionRange.lastColumnIndex++;
+					this.scrollToColumn(this._cellSelectionRange.lastColumnIndex);
 					this._onDidUpdateEmitter.fire();
 				}
 			} else if (this._cursorColumnIndex === this._cellSelectionRange.lastColumnIndex) {
 				this._cellSelectionRange.firstColumnIndex++;
+				this.scrollToColumn(this._cellSelectionRange.firstColumnIndex);
 				this._onDidUpdateEmitter.fire();
 			}
 		} else if (this._cursorColumnIndex < this._columns.length - 1) {
@@ -1043,6 +1109,7 @@ export abstract class DataGridInstance extends Disposable implements IDataGridIn
 				lastColumnIndex: this._cursorColumnIndex + 1,
 				lastRowIndex: this._cursorRowIndex
 			};
+			this.scrollToCell(this._cellSelectionRange.lastColumnIndex, this._cursorRowIndex);
 			this._onDidUpdateEmitter.fire();
 		}
 	}
@@ -1066,6 +1133,7 @@ export abstract class DataGridInstance extends Disposable implements IDataGridIn
 						lastRowIndex: this._cursorRowIndex
 					};
 					this._rowSelectionIndexes.clear();
+					this.scrollToRow(this._rowSelectionRange.firstRowIndex);
 					this._onDidUpdateEmitter.fire();
 				}
 			}
@@ -1074,10 +1142,12 @@ export abstract class DataGridInstance extends Disposable implements IDataGridIn
 			if (this._cursorRowIndex === this._rowSelectionRange.lastRowIndex) {
 				if (this._rowSelectionRange.firstRowIndex > 0) {
 					this._rowSelectionRange.firstRowIndex--;
+					this.scrollToRow(this._rowSelectionRange.firstRowIndex);
 					this._onDidUpdateEmitter.fire();
 				}
 			} else if (this._cursorRowIndex === this._rowSelectionRange.firstRowIndex) {
 				this._rowSelectionRange.lastRowIndex--;
+				this.scrollToRow(this._rowSelectionRange.lastRowIndex);
 				this._onDidUpdateEmitter.fire();
 			}
 		} else if (this._cellSelectionRange) {
@@ -1085,10 +1155,12 @@ export abstract class DataGridInstance extends Disposable implements IDataGridIn
 			if (this._cursorRowIndex === this._cellSelectionRange.lastRowIndex) {
 				if (this._cellSelectionRange.firstRowIndex > 0) {
 					this._cellSelectionRange.firstRowIndex--;
+					this.scrollToRow(this._cellSelectionRange.firstRowIndex);
 					this._onDidUpdateEmitter.fire();
 				}
 			} else if (this._cursorRowIndex === this._cellSelectionRange.firstRowIndex) {
 				this._cellSelectionRange.lastRowIndex--;
+				this.scrollToRow(this._cellSelectionRange.lastRowIndex);
 				this._onDidUpdateEmitter.fire();
 			}
 		} else if (this._cursorRowIndex > 0) {
@@ -1099,6 +1171,7 @@ export abstract class DataGridInstance extends Disposable implements IDataGridIn
 				lastColumnIndex: this._cursorColumnIndex,
 				lastRowIndex: this._cursorRowIndex
 			};
+			this.scrollToCell(this._cursorColumnIndex, this._cellSelectionRange.firstRowIndex);
 			this._onDidUpdateEmitter.fire();
 		}
 	}
@@ -1122,6 +1195,7 @@ export abstract class DataGridInstance extends Disposable implements IDataGridIn
 						lastRowIndex: this._cursorRowIndex + 1
 					};
 					this._rowSelectionIndexes.clear();
+					this.scrollToRow(this._rowSelectionRange.lastRowIndex);
 					this._onDidUpdateEmitter.fire();
 				}
 			}
@@ -1130,10 +1204,12 @@ export abstract class DataGridInstance extends Disposable implements IDataGridIn
 			if (this._cursorRowIndex === this._rowSelectionRange.firstRowIndex) {
 				if (this._rowSelectionRange.lastRowIndex < this.rows - 1) {
 					this._rowSelectionRange.lastRowIndex++;
+					this.scrollToRow(this._rowSelectionRange.lastRowIndex);
 					this._onDidUpdateEmitter.fire();
 				}
 			} else if (this._cursorRowIndex === this._rowSelectionRange.lastRowIndex) {
 				this._rowSelectionRange.firstRowIndex++;
+				this.scrollToRow(this._rowSelectionRange.firstRowIndex);
 				this._onDidUpdateEmitter.fire();
 			}
 		} else if (this._cellSelectionRange) {
@@ -1141,10 +1217,12 @@ export abstract class DataGridInstance extends Disposable implements IDataGridIn
 			if (this._cursorRowIndex === this._cellSelectionRange.firstRowIndex) {
 				if (this._cellSelectionRange.lastRowIndex < this.rows - 1) {
 					this._cellSelectionRange.lastRowIndex++;
+					this.scrollToRow(this._cellSelectionRange.lastRowIndex);
 					this._onDidUpdateEmitter.fire();
 				}
 			} else if (this._cursorRowIndex === this._cellSelectionRange.lastRowIndex) {
 				this._cellSelectionRange.firstRowIndex++;
+				this.scrollToRow(this._cellSelectionRange.firstRowIndex);
 				this._onDidUpdateEmitter.fire();
 			}
 		} else if (this._cursorRowIndex < this.rows - 1) {
@@ -1155,6 +1233,7 @@ export abstract class DataGridInstance extends Disposable implements IDataGridIn
 				lastColumnIndex: this._cursorColumnIndex,
 				lastRowIndex: this._cursorRowIndex + 1
 			};
+			this.scrollToCell(this._cursorColumnIndex, this._cellSelectionRange.lastRowIndex);
 			this._onDidUpdateEmitter.fire();
 		}
 	}

@@ -222,6 +222,30 @@ export interface IDataGridInstance {
 	setCursorRow(cursorRowIndex: number): void;
 
 	/**
+	 * Scrolls to the cursor.
+	 */
+	scrollToCursor(): void;
+
+	/**
+	 * Scrolls to the specified cell.
+	 * @param columnIndex The column index.
+	 * @param rowIndex The row index.
+	 */
+	scrollToCell(columnIndex: number, rowIndex: number): void;
+
+	/**
+	 * Scrolls to the specified column.
+	 * @param columnIndex The column index.
+	 */
+	scrollToColumn(columnIndex: number): void;
+
+	/**
+	 * Scrolls to the specified row.
+	 * @param rowIndex The row index.
+	 */
+	scrollToRow(rowIndex: number): void;
+
+	/**
 	 * Selects all.
 	 */
 	selectAll(): void;
