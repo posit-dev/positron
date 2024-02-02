@@ -14,8 +14,8 @@ import { isMacintosh } from 'vs/base/common/platform';
 import { positronClassNames } from 'vs/base/common/positronUtilities';
 import { IDataColumn } from 'vs/base/browser/ui/dataGrid/interfaces/dataColumn';
 import { useDataGridContext } from 'vs/base/browser/ui/dataGrid/dataGridContext';
-import { SelectionState } from 'vs/base/browser/ui/dataGrid/interfaces/dataGridInstance';
 import { PositronColumnSplitter } from 'vs/base/browser/ui/positronComponents/positronColumnSplitter';
+import { CellSelectionState } from 'vs/base/browser/ui/dataGrid/interfaces/dataGridInstance';
 
 /**
  * DataGridRowCellProps interface.
@@ -52,8 +52,10 @@ export const DataGridRowCell = (props: DataGridRowCellProps) => {
 	};
 
 	// Get the selection states.
-	const columnSelectionState = context.instance.columnSelectionState(props.columnIndex);
-	const rowSelectionState = context.instance.rowSelectionState(props.rowIndex);
+	const cellSelectionState = context.instance.cellSelectionState(
+		props.columnIndex,
+		props.rowIndex
+	);
 
 	// Render.
 	return (
@@ -61,7 +63,7 @@ export const DataGridRowCell = (props: DataGridRowCellProps) => {
 			className={
 				positronClassNames(
 					'data-grid-row-cell',
-					{ 'selected': rowSelectionState & SelectionState.Selected || columnSelectionState & SelectionState.Selected },
+					{ 'selected': cellSelectionState & CellSelectionState.Selected },
 				)}
 			style={{
 				left: props.left,
@@ -74,11 +76,11 @@ export const DataGridRowCell = (props: DataGridRowCellProps) => {
 				className={
 					positronClassNames(
 						'data-grid-row-cell-border-overlay',
-						{ 'selected': rowSelectionState & SelectionState.Selected || columnSelectionState & SelectionState.Selected },
-						{ 'selected-top': rowSelectionState & SelectionState.FirstSelected },
-						{ 'selected-bottom': rowSelectionState & SelectionState.LastSelected },
-						{ 'selected-left': columnSelectionState & SelectionState.FirstSelected },
-						{ 'selected-right': columnSelectionState & SelectionState.LastSelected },
+						{ 'selected': cellSelectionState & CellSelectionState.Selected },
+						{ 'selected-top': cellSelectionState & CellSelectionState.SelectedTop },
+						{ 'selected-bottom': cellSelectionState & CellSelectionState.SelectedBottom },
+						{ 'selected-left': cellSelectionState & CellSelectionState.SelectedLeft },
+						{ 'selected-right': cellSelectionState & CellSelectionState.SelectedRight },
 					)}
 			>
 				{

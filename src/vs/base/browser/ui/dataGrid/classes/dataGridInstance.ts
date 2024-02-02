@@ -6,7 +6,7 @@ import { Emitter } from 'vs/base/common/event';
 import { Disposable } from 'vs/base/common/lifecycle';
 import { IDataColumn } from 'vs/base/browser/ui/dataGrid/interfaces/dataColumn';
 import { IColumnSortKey } from 'vs/base/browser/ui/dataGrid/interfaces/columnSortKey';
-import { IDataGridInstance, MouseSelectionType, SelectionState } from 'vs/base/browser/ui/dataGrid/interfaces/dataGridInstance';
+import { CellSelectionState, ColumnSelectionState, IDataGridInstance, MouseSelectionType, RowSelectionState } from 'vs/base/browser/ui/dataGrid/interfaces/dataGridInstance';
 
 /**
  * ColumnSortKey class.
@@ -108,6 +108,16 @@ interface RowSelectionRange {
 }
 
 /**
+ * CellSelectionRange interface.
+ */
+interface CellSelectionRange {
+	firstColumnIndex: number;
+	firstRowIndex: number;
+	lastColumnIndex: number;
+	lastRowIndex: number;
+}
+
+/**
  * DataGridInstance class.
  */
 export abstract class DataGridInstance extends Disposable implements IDataGridInstance {
@@ -177,6 +187,11 @@ export abstract class DataGridInstance extends Disposable implements IDataGridIn
 	 * Gets or sets the cursor row index.
 	 */
 	private _cursorRowIndex = 0;
+
+	/**
+	 * Gets or sets the cell selection range.
+	 */
+	private _cellSelectionRange?: CellSelectionRange;
 
 	/**
 	 * Gets or sets the column selection range.
@@ -502,7 +517,7 @@ export abstract class DataGridInstance extends Disposable implements IDataGridIn
 	 * @returns A Promise<void> that resolves when the sorting has completed.
 	 */
 	async clearColumnSortKeys(): Promise<void> {
-		// Clear the column sort keys.
+		// Clear column sort keys.
 		this._columnSortKeys.clear();
 
 		// Fire the onDidUpdate event.
@@ -631,9 +646,14 @@ export abstract class DataGridInstance extends Disposable implements IDataGridIn
 	 * Clears selection.
 	 */
 	clearSelection() {
-		// Clear selection.
+		// Clear cell selection.
+		this._cellSelectionRange = undefined;
+
+		// Clear column selection.
 		this._columnSelectionRange = undefined;
 		this._columnSelectionIndexes.clear();
+
+		// Clear row selection.
 		this._rowSelectionRange = undefined;
 		this._rowSelectionIndexes.clear();
 
@@ -645,7 +665,10 @@ export abstract class DataGridInstance extends Disposable implements IDataGridIn
 	 * Selects all.
 	 */
 	selectAll() {
-		// Clear selection.
+		// Clear cell selection.
+		this._cellSelectionRange = undefined;
+
+		// Clear column selection.
 		this._columnSelectionRange = undefined;
 		this._columnSelectionIndexes.clear();
 
@@ -665,7 +688,10 @@ export abstract class DataGridInstance extends Disposable implements IDataGridIn
 	 * @param columnIndex The column index.
 	 */
 	selectColumn(columnIndex: number) {
-		// Clear the row selection.
+		// Clear cell selection.
+		this._cellSelectionRange = undefined;
+
+		// Clear row selection.
 		this._rowSelectionRange = undefined;
 		this._rowSelectionIndexes.clear();
 
@@ -684,7 +710,10 @@ export abstract class DataGridInstance extends Disposable implements IDataGridIn
 	 * @param selectionType The selection type.
 	 */
 	mouseSelectColumn(columnIndex: number, selectionType: MouseSelectionType) {
-		// Clear the row selection.
+		// Clear cell selection.
+		this._cellSelectionRange = undefined;
+
+		// Clear row selection.
 		this._rowSelectionRange = undefined;
 		this._rowSelectionIndexes.clear();
 
@@ -780,7 +809,10 @@ export abstract class DataGridInstance extends Disposable implements IDataGridIn
 	 * @param rowIndex The row index.
 	 */
 	selectRow(rowIndex: number) {
-		// Clear the column selection.
+		// Clear cell selection.
+		this._cellSelectionRange = undefined;
+
+		// Clear column selection.
 		this._columnSelectionRange = undefined;
 		this._columnSelectionIndexes.clear();
 
@@ -799,7 +831,10 @@ export abstract class DataGridInstance extends Disposable implements IDataGridIn
 	 * @param selectionType The selection type.
 	 */
 	mouseSelectRow(rowIndex: number, selectionType: MouseSelectionType) {
-		// Clear the column selection.
+		// Clear cell selection.
+		this._cellSelectionRange = undefined;
+
+		// Clear column selection.
 		this._columnSelectionRange = undefined;
 		this._columnSelectionIndexes.clear();
 
@@ -894,12 +929,13 @@ export abstract class DataGridInstance extends Disposable implements IDataGridIn
 	 * Extends selection left.
 	 */
 	extendSelectionLeft() {
-		// If there is a row selection active, do nothing.
+		// If there is a row selection, do nothing.
 		if (this._rowSelectionRange || this._rowSelectionIndexes.size) {
 			return;
 		}
 
-		// The cursor is on an individually-selected column.
+		// If the cursor is on an individually-selected column, covert the selection to a selection
+		// range, if possible.
 		if (this._columnSelectionIndexes.has(this._cursorColumnIndex)) {
 			// Do nothing when the cursor column is the first column.
 			if (this._cursorColumnIndex === 0) {
@@ -920,13 +956,13 @@ export abstract class DataGridInstance extends Disposable implements IDataGridIn
 			return;
 		}
 
-		// There is a selection range. Determine how to process the event.
+		// If there is a column selection range, expand or contract it, if possible.
 		if (this._columnSelectionRange) {
-			// If the cursor column is the last selected column index, try to extend selection.
+			// If the cursor column is the last selected column index, try to expand selection.
 			if (this._cursorColumnIndex === this._columnSelectionRange.lastColumnIndex) {
-				// If the selection can be extended, extend it.
+				// If the selection can be expanded, expand it.
 				if (this._columnSelectionRange.firstColumnIndex > 0) {
-					// Extend the selecton range.
+					// Expand the selecton range.
 					this._columnSelectionRange.firstColumnIndex--;
 
 					// Fire the onDidUpdate event.
@@ -948,6 +984,54 @@ export abstract class DataGridInstance extends Disposable implements IDataGridIn
 				// Done.
 				return;
 			}
+
+			// Done.
+			return;
+		}
+
+		// Do nothing when the cursor column is the first column.
+		if (this._cursorColumnIndex === 0) {
+			return;
+		}
+
+		//
+		if (!this._cellSelectionRange) {
+			this._cellSelectionRange = {
+				firstColumnIndex: this._cursorColumnIndex - 1,
+				firstRowIndex: this._cursorRowIndex,
+				lastColumnIndex: this._cursorColumnIndex,
+				lastRowIndex: this._cursorRowIndex
+			};
+
+			// Fire the onDidUpdate event.
+			this._onDidUpdateEmitter.fire();
+		} else {
+			// If the cursor column is the last selected column index, try to expand selection.
+			if (this._cursorColumnIndex === this._cellSelectionRange.lastColumnIndex) {
+				// If the selection can be expanded, expand it.
+				if (this._cellSelectionRange.firstColumnIndex > 0) {
+					// Expand the selecton range.
+					this._cellSelectionRange.firstColumnIndex--;
+
+					// Fire the onDidUpdate event.
+					this._onDidUpdateEmitter.fire();
+				}
+
+				// Done.
+				return;
+			}
+
+			// If the cursor column is the first selected column index, try to contract selection.
+			if (this._cursorColumnIndex === this._cellSelectionRange.firstColumnIndex) {
+				// Contract the selecton range.
+				this._cellSelectionRange.lastColumnIndex--;
+
+				// Fire the onDidUpdate event.
+				this._onDidUpdateEmitter.fire();
+
+				// Done.
+				return;
+			}
 		}
 	}
 
@@ -955,12 +1039,13 @@ export abstract class DataGridInstance extends Disposable implements IDataGridIn
 	 * Extends selection right.
 	 */
 	extendSelectionRight() {
-		// If there is a row selection active, do nothing.
+		// If there is a row selection, do nothing.
 		if (this._rowSelectionRange || this._rowSelectionIndexes.size) {
 			return;
 		}
 
-		// The cursor is on an individually-selected column.
+		// If the cursor is on an individually-selected column, covert the selection to a selection
+		// range, if possible.
 		if (this._columnSelectionIndexes.has(this._cursorColumnIndex)) {
 			// Do nothing when the cursor column is the last column.
 			if (this._cursorColumnIndex === this._columns.length - 1) {
@@ -981,13 +1066,13 @@ export abstract class DataGridInstance extends Disposable implements IDataGridIn
 			return;
 		}
 
-		// There is a selection range. Determine how to process the event.
+		// If there is a column selection range, expand or contract it, if possible.
 		if (this._columnSelectionRange) {
-			// If the cursor column is the first selected column index, try to extend selection.
+			// If the cursor column is the first selected column index, try to expand selection.
 			if (this._cursorColumnIndex === this._columnSelectionRange.firstColumnIndex) {
-				// If the selection can be extended, extend it.
+				// If the selection can be expanded, expand it.
 				if (this._columnSelectionRange.lastColumnIndex < this._columns.length - 1) {
-					// Extend the selecton range.
+					// Expand the selecton range.
 					this._columnSelectionRange.lastColumnIndex++;
 
 					// Fire the onDidUpdate event.
@@ -1009,19 +1094,43 @@ export abstract class DataGridInstance extends Disposable implements IDataGridIn
 				// Done.
 				return;
 			}
+
+			// Done.
+			return;
 		}
+
+		// Do nothing when the cursor column is the last column.
+		if (this._cursorColumnIndex === this._columns.length - 1) {
+			return;
+		}
+
+		//
+		if (this._cellSelectionRange) {
+		} else {
+			this._cellSelectionRange = {
+				firstColumnIndex: this._cursorColumnIndex,
+				firstRowIndex: this._cursorRowIndex,
+				lastColumnIndex: this._cursorColumnIndex + 1,
+				lastRowIndex: this._cursorRowIndex
+			};
+		}
+
+		// Fire the onDidUpdate event.
+		this._onDidUpdateEmitter.fire();
+
 	}
 
 	/**
 	 * Extends selection up.
 	 */
 	extendSelectionUp() {
-		// If there is a column selection active, do nothing.
+		// If there is a column selection, do nothing.
 		if (this._columnSelectionRange || this._columnSelectionIndexes.size) {
 			return;
 		}
 
-		// The cursor is on an individually-selected row.
+		// If the cursor is on an individually-selected row, covert the selection to a selection
+		// range, if possible.
 		if (this._rowSelectionIndexes.has(this._cursorRowIndex)) {
 			// Do nothing when the cursor row is the first row.
 			if (this._cursorRowIndex === 0) {
@@ -1042,13 +1151,13 @@ export abstract class DataGridInstance extends Disposable implements IDataGridIn
 			return;
 		}
 
-		// There is a selection range. Determine how to process the event.
+		// If there is a row selection range, expand or contract it, if possible.
 		if (this._rowSelectionRange) {
-			// If the cursor row is the last selected row index, try to extend selection.
+			// If the cursor row is the last selected row index, try to expand selection.
 			if (this._cursorRowIndex === this._rowSelectionRange.lastRowIndex) {
-				// If the selection can be extended, extend it.
+				// If the selection can be expanded, expand it.
 				if (this._rowSelectionRange.firstRowIndex > 0) {
-					// Extend the selecton range.
+					// Expand the selecton range.
 					this._rowSelectionRange.firstRowIndex--;
 
 					// Fire the onDidUpdate event.
@@ -1070,6 +1179,9 @@ export abstract class DataGridInstance extends Disposable implements IDataGridIn
 				// Done.
 				return;
 			}
+
+			// Done.
+			return;
 		}
 	}
 
@@ -1077,12 +1189,13 @@ export abstract class DataGridInstance extends Disposable implements IDataGridIn
 	 * Extends selection down.
 	 */
 	extendSelectionDown() {
-		// If there is a column selection active, do nothing.
+		// If there is a column selection, do nothing.
 		if (this._columnSelectionRange || this._columnSelectionIndexes.size) {
 			return;
 		}
 
-		// The cursor is on an individually-selected row.
+		// If the cursor is on an individually-selected row, covert the selection to a selection
+		// range, if possible.
 		if (this._rowSelectionIndexes.has(this._cursorRowIndex)) {
 			// Do nothing when the cursor row is the last row.
 			if (this._cursorRowIndex === this.rows - 1) {
@@ -1103,13 +1216,13 @@ export abstract class DataGridInstance extends Disposable implements IDataGridIn
 			return;
 		}
 
-		// There is a selection range. Determine how to process the event.
+		// If there is a row selection range, expand or contract the selection range, as needed.
 		if (this._rowSelectionRange) {
-			// If the cursor row is the first selected row index, try to extend selection.
+			// If the cursor row is the first selected row index, try to expand selection.
 			if (this._cursorRowIndex === this._rowSelectionRange.firstRowIndex) {
-				// If the selection can be extended, extend it.
+				// If the selection can be expanded, expand it.
 				if (this._rowSelectionRange.lastRowIndex < this.rows - 1) {
-					// Extend the selecton range.
+					// Expand the selecton range.
 					this._rowSelectionRange.lastRowIndex++;
 
 					// Fire the onDidUpdate event.
@@ -1131,7 +1244,55 @@ export abstract class DataGridInstance extends Disposable implements IDataGridIn
 				// Done.
 				return;
 			}
+
+			// Done.
+			return;
 		}
+	}
+
+	/**
+	 * Returns the cell selection state.
+	 * @param columnIndex The column index.
+	 * @param rowIndex The row index.
+	 * @returns A CellSelectionState that represents the cell selection state.
+	 */
+	cellSelectionState(columnIndex: number, rowIndex: number) {
+		// If there isn't a cell selection range, return the column selection state and the row
+		// selection state.
+		if (!this._cellSelectionRange) {
+			return this.columnSelectionState(columnIndex) | this.rowSelectionState(rowIndex);
+		}
+
+		// If the cell is selected, return
+		if (columnIndex >= this._cellSelectionRange.firstColumnIndex &&
+			columnIndex <= this._cellSelectionRange.lastColumnIndex &&
+			rowIndex >= this._cellSelectionRange.firstRowIndex &&
+			rowIndex <= this._cellSelectionRange.lastRowIndex
+		) {
+			// The cell is selected.
+			let cellSelectionState = CellSelectionState.Selected;
+
+			if (columnIndex === this._cellSelectionRange.firstColumnIndex) {
+				cellSelectionState |= CellSelectionState.SelectedLeft;
+			}
+
+			if (columnIndex === this._cellSelectionRange.lastColumnIndex) {
+				cellSelectionState |= CellSelectionState.SelectedRight;
+			}
+
+			if (rowIndex === this._cellSelectionRange.firstRowIndex) {
+				cellSelectionState |= CellSelectionState.SelectedTop;
+			}
+
+			if (rowIndex === this._cellSelectionRange.lastRowIndex) {
+				cellSelectionState |= CellSelectionState.SelectedBottom;
+			}
+
+			return cellSelectionState;
+		}
+
+		// The cell is not selected.
+		return CellSelectionState.None;
 	}
 
 	/**
@@ -1143,16 +1304,16 @@ export abstract class DataGridInstance extends Disposable implements IDataGridIn
 		// If the column index is individually selected, return the appropriate selection state.
 		if (this._columnSelectionIndexes.has(columnIndex)) {
 			// The column index is selected.
-			let selectionState = SelectionState.Selected;
+			let selectionState = ColumnSelectionState.Selected;
 
-			// See if the column index is the first selected column index in a range.
+			// See if the column index is the left selected column index in a range.
 			if (!this._columnSelectionIndexes.has(columnIndex - 1)) {
-				selectionState |= SelectionState.FirstSelected;
+				selectionState |= ColumnSelectionState.SelectedLeft;
 			}
 
-			// See if the column index is the last selected column index in a range.
+			// See if the column index is the right selected column index in a range.
 			if (!this._columnSelectionIndexes.has(columnIndex + 1)) {
-				selectionState |= SelectionState.LastSelected;
+				selectionState |= ColumnSelectionState.SelectedRight;
 			}
 
 			// Return the selection state.
@@ -1164,16 +1325,16 @@ export abstract class DataGridInstance extends Disposable implements IDataGridIn
 			columnIndex >= this._columnSelectionRange.firstColumnIndex &&
 			columnIndex <= this._columnSelectionRange.lastColumnIndex) {
 			// The column index is selected.
-			let selectionState = SelectionState.Selected;
+			let selectionState = ColumnSelectionState.Selected;
 
 			// See if the column index is the first selected column index.
 			if (columnIndex === this._columnSelectionRange.firstColumnIndex) {
-				selectionState |= SelectionState.FirstSelected;
+				selectionState |= ColumnSelectionState.SelectedLeft;
 			}
 
 			// See if the column index is the last selected column index.
 			if (columnIndex === this._columnSelectionRange.lastColumnIndex) {
-				selectionState |= SelectionState.LastSelected;
+				selectionState |= ColumnSelectionState.SelectedRight;
 			}
 
 			// Return the selection state.
@@ -1181,7 +1342,7 @@ export abstract class DataGridInstance extends Disposable implements IDataGridIn
 		}
 
 		// The column is not selected.
-		return SelectionState.None;
+		return ColumnSelectionState.None;
 	}
 
 	/**
@@ -1193,16 +1354,16 @@ export abstract class DataGridInstance extends Disposable implements IDataGridIn
 		// If the row index is individually selected, return the appropriate selection state.
 		if (this._rowSelectionIndexes.has(rowIndex)) {
 			// The row index is selected.
-			let selectionState = SelectionState.Selected;
+			let selectionState = RowSelectionState.Selected;
 
 			// See if the row index is the first row index in a range.
 			if (!this._rowSelectionIndexes.has(rowIndex - 1)) {
-				selectionState |= SelectionState.FirstSelected;
+				selectionState |= RowSelectionState.SelectedTop;
 			}
 
 			// See if the row index is the last row index in a range.
 			if (!this._rowSelectionIndexes.has(rowIndex + 1)) {
-				selectionState |= SelectionState.LastSelected;
+				selectionState |= RowSelectionState.SelectedBottom;
 			}
 
 			// Return the selection state.
@@ -1215,16 +1376,16 @@ export abstract class DataGridInstance extends Disposable implements IDataGridIn
 			rowIndex <= this._rowSelectionRange.lastRowIndex
 		) {
 			// The row index is selected.
-			let selectionState = SelectionState.Selected;
+			let selectionState = RowSelectionState.Selected;
 
 			// See if the row index is the first selected row index.
 			if (rowIndex === this._rowSelectionRange.firstRowIndex) {
-				selectionState |= SelectionState.FirstSelected;
+				selectionState |= RowSelectionState.SelectedTop;
 			}
 
 			// See if the row index is the last selected row index.
 			if (rowIndex === this._rowSelectionRange.lastRowIndex) {
-				selectionState |= SelectionState.LastSelected;
+				selectionState |= RowSelectionState.SelectedBottom;
 			}
 
 			// Return the selection state.
@@ -1232,7 +1393,7 @@ export abstract class DataGridInstance extends Disposable implements IDataGridIn
 		}
 
 		// The row is not selected.
-		return SelectionState.None;
+		return RowSelectionState.None;
 	}
 
 	/**
