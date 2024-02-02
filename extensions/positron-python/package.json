@@ -22,7 +22,6 @@
         "quickPickSortByLabel",
         "testObserver",
         "quickPickItemTooltip",
-        "saveEditor",
         "terminalDataWriteEvent",
         "terminalExecuteCommandEvent"
     ],
@@ -382,7 +381,7 @@
                 "category": "Python",
                 "command": "python.execInConsole",
                 "icon": "$(play)",
-                "title": "%python.command.python.execInConsole.title%"
+                "title": "%python.command.python.execInDedicatedTerminal.title%"
             },
             {
                 "category": "Python",
@@ -483,9 +482,6 @@
                     "enum": [
                         "show",
                         "hide"
-                    ],
-                    "tags": [
-                        "experimental"
                     ]
                 },
                 "python.createEnvironment.trigger": {
@@ -1166,6 +1162,7 @@
                         }
                     }
                 },
+                "deprecated": "%python.debugger.deprecatedMessage%",
                 "configurationSnippets": [],
                 "label": "Python",
                 "languages": [
@@ -1175,7 +1172,8 @@
                 "variables": {
                     "pickProcess": "python.pickLocalProcess"
                 },
-                "when": "!virtualWorkspace && shellExecutionSupported"
+                "when": "!virtualWorkspace && shellExecutionSupported",
+                "hiddenWhen": "true"
             }
         ],
         "grammars": [
@@ -1676,7 +1674,7 @@
         "@types/xml2js": "0.4.9",
         "@typescript-eslint/eslint-plugin": "^3.7.0",
         "@typescript-eslint/parser": "^3.7.0",
-        "@vscode/test-electron": "^2.3.4",
+        "@vscode/test-electron": "^2.3.8",
         "@vscode/vsce": "^2.18.0",
         "bent": "^7.3.12",
         "chai": "^4.1.2",

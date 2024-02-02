@@ -61,6 +61,7 @@ interface ICommonDebugArguments {
     pathMappings?: PathMapping[];
     clientOS?: 'windows' | 'unix';
 }
+
 interface IKnownAttachDebugArguments extends ICommonDebugArguments {
     workspaceFolder?: string;
     customDebugger?: boolean;

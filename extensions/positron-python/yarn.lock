@@ -1472,10 +1472,10 @@
     vscode-languageserver-protocol "^3.17.3-next.1"
     vscode-uri "^3.0.2"
 
-"@vscode/test-electron@^2.3.4":
-  version "2.3.5"
-  resolved "https://registry.yarnpkg.com/@vscode/test-electron/-/test-electron-2.3.5.tgz#c472c5bdce1329aeb4762b8aa7a2cbe7aa783aac"
-  integrity sha512-lAW7nQ0HuPqJnGJrtCzEKZCICtRizeP6qNanyCrjmdCOAAWjX3ixiG8RVPwqsYPQBWLPgYuE12qQlwXsOR/2fQ==
+"@vscode/test-electron@^2.3.8":
+  version "2.3.9"
+  resolved "https://registry.yarnpkg.com/@vscode/test-electron/-/test-electron-2.3.9.tgz#f61181392634b408411e4302aef6e1cd2dd41474"
+  integrity sha512-z3eiChaCQXMqBnk2aHHSEkobmC2VRalFQN0ApOAtydL172zXGxTwGrRtviT5HnUB+Q+G3vtEYFtuQkYqBzYgMA==
   dependencies:
     http-proxy-agent "^4.0.1"
     https-proxy-agent "^5.0.0"

@@ -8,11 +8,11 @@ import * as sinon from 'sinon';
 import { anything, instance, mock, when } from 'ts-mockito';
 import * as TypeMoq from 'typemoq';
 import { Uri } from 'vscode';
-import { IDisposable } from '../../../../../client/common/types';
-import * as commandApis from '../../../../../client/common/vscodeApis/commandApis';
-import { InterpreterPathCommand } from '../../../../../client/debugger/extension/configuration/launch.json/interpreterPathCommand';
-import { IInterpreterService } from '../../../../../client/interpreter/contracts';
-import { PythonEnvironment } from '../../../../../client/pythonEnvironments/info';
+import { IDisposable } from '../../client/common/types';
+import * as commandApis from '../../client/common/vscodeApis/commandApis';
+import { InterpreterPathCommand } from '../../client/interpreter/interpreterPathCommand';
+import { IInterpreterService } from '../../client/interpreter/contracts';
+import { PythonEnvironment } from '../../client/pythonEnvironments/info';
 
 suite('Interpreter Path Command', () => {
     let interpreterService: IInterpreterService;

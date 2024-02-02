@@ -13,10 +13,6 @@ import { OutdatedDebuggerPromptFactory } from './adapter/outdatedDebuggerPrompt'
 import { AttachProcessProviderFactory } from './attachQuickPick/factory';
 import { IAttachProcessProviderFactory } from './attachQuickPick/types';
 import { PythonDebugConfigurationService } from './configuration/debugConfigurationService';
-import { DynamicPythonDebugConfigurationService } from './configuration/dynamicdebugConfigurationService';
-import { LaunchJsonCompletionProvider } from './configuration/launch.json/completionProvider';
-import { InterpreterPathCommand } from './configuration/launch.json/interpreterPathCommand';
-import { LaunchJsonUpdaterService } from './configuration/launch.json/updaterService';
 import { AttachConfigurationResolver } from './configuration/resolvers/attach';
 import { DebugEnvironmentVariablesHelper, IDebugEnvironmentVariablesService } from './configuration/resolvers/helper';
 import { LaunchConfigurationResolver } from './configuration/resolvers/launch';
@@ -29,30 +25,13 @@ import {
     IDebugAdapterDescriptorFactory,
     IDebugConfigurationService,
     IDebugSessionLoggingFactory,
-    IDynamicDebugConfigurationService,
     IOutdatedDebuggerPromptFactory,
 } from './types';
 
 export function registerTypes(serviceManager: IServiceManager): void {
-    serviceManager.addSingleton<IExtensionSingleActivationService>(
-        IExtensionSingleActivationService,
-        LaunchJsonCompletionProvider,
-    );
-    serviceManager.addSingleton<IExtensionSingleActivationService>(
-        IExtensionSingleActivationService,
-        InterpreterPathCommand,
-    );
-    serviceManager.addSingleton<IExtensionSingleActivationService>(
-        IExtensionSingleActivationService,
-        LaunchJsonUpdaterService,
-    );
     serviceManager.addSingleton<IDebugConfigurationService>(
         IDebugConfigurationService,
         PythonDebugConfigurationService,
-    );
-    serviceManager.addSingleton<IDynamicDebugConfigurationService>(
-        IDynamicDebugConfigurationService,
-        DynamicPythonDebugConfigurationService,
     );
     serviceManager.addSingleton<IChildProcessAttachService>(IChildProcessAttachService, ChildProcessAttachService);
     serviceManager.addSingleton<IDebugSessionEventHandlers>(IDebugSessionEventHandlers, ChildProcessAttachEventHandler);

@@ -11,10 +11,6 @@ import { DebugSessionLoggingFactory } from '../../../client/debugger/extension/a
 import { OutdatedDebuggerPromptFactory } from '../../../client/debugger/extension/adapter/outdatedDebuggerPrompt';
 import { AttachProcessProviderFactory } from '../../../client/debugger/extension/attachQuickPick/factory';
 import { IAttachProcessProviderFactory } from '../../../client/debugger/extension/attachQuickPick/types';
-import { PythonDebugConfigurationService } from '../../../client/debugger/extension/configuration/debugConfigurationService';
-import { LaunchJsonCompletionProvider } from '../../../client/debugger/extension/configuration/launch.json/completionProvider';
-import { InterpreterPathCommand } from '../../../client/debugger/extension/configuration/launch.json/interpreterPathCommand';
-import { LaunchJsonUpdaterService } from '../../../client/debugger/extension/configuration/launch.json/updaterService';
 import { AttachConfigurationResolver } from '../../../client/debugger/extension/configuration/resolvers/attach';
 import { LaunchConfigurationResolver } from '../../../client/debugger/extension/configuration/resolvers/launch';
 import { IDebugConfigurationResolver } from '../../../client/debugger/extension/configuration/types';
@@ -25,7 +21,6 @@ import { IChildProcessAttachService, IDebugSessionEventHandlers } from '../../..
 import { registerTypes } from '../../../client/debugger/extension/serviceRegistry';
 import {
     IDebugAdapterDescriptorFactory,
-    IDebugConfigurationService,
     IDebugSessionLoggingFactory,
     IOutdatedDebuggerPromptFactory,
 } from '../../../client/debugger/extension/types';
@@ -35,7 +30,6 @@ import { IServiceManager } from '../../../client/ioc/types';
 
 suite('Debugging - Service Registry', () => {
     let serviceManager: IServiceManager;
-
     setup(() => {
         serviceManager = mock(ServiceManager);
     });
@@ -43,33 +37,9 @@ suite('Debugging - Service Registry', () => {
         registerTypes(instance(serviceManager));
 
         verify(
-            serviceManager.addSingleton<IExtensionSingleActivationService>(
-                IExtensionSingleActivationService,
-                InterpreterPathCommand,
-            ),
-        ).once();
-        verify(
-            serviceManager.addSingleton<IDebugConfigurationService>(
-                IDebugConfigurationService,
-                PythonDebugConfigurationService,
-            ),
-        ).once();
-        verify(
             serviceManager.addSingleton<IChildProcessAttachService>(
                 IChildProcessAttachService,
                 ChildProcessAttachService,
-            ),
-        ).once();
-        verify(
-            serviceManager.addSingleton<IExtensionSingleActivationService>(
-                IExtensionSingleActivationService,
-                LaunchJsonCompletionProvider,
-            ),
-        ).once();
-        verify(
-            serviceManager.addSingleton<IExtensionSingleActivationService>(
-                IExtensionSingleActivationService,
-                LaunchJsonUpdaterService,
             ),
         ).once();
         verify(
