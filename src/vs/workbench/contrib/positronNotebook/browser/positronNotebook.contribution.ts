@@ -15,13 +15,16 @@ import { INotificationService } from 'vs/platform/notification/common/notificati
 import { Registry } from 'vs/platform/registry/common/platform';
 import { IEditorPaneRegistry, EditorPaneDescriptor } from 'vs/workbench/browser/editor';
 import { IWorkbenchContributionsRegistry, Extensions as WorkbenchExtensions } from 'vs/workbench/common/contributions';
-import { EditorExtensions } from 'vs/workbench/common/editor';
+import { EditorExtensions, IEditorFactoryRegistry, IEditorSerializer } from 'vs/workbench/common/editor';
 
 import { IEditorResolverService, RegisteredEditorPriority } from 'vs/workbench/services/editor/common/editorResolverService';
 import { IEditorService } from 'vs/workbench/services/editor/common/editorService';
 import { LifecyclePhase } from 'vs/workbench/services/lifecycle/common/lifecycle';
-import { PositronNotebookEditorInput } from './PositronNotebookEditorInput';
+import { PositronNotebookEditorInput, PositronNotebookEditorInputOptions } from './PositronNotebookEditorInput';
 import { PositronNotebookEditor } from './PositronNotebookEditor';
+import { EditorInput } from 'vs/workbench/common/editor/editorInput';
+import { assertType } from 'vs/base/common/types';
+import { parse } from 'vs/base/common/marshalling';
 
 
 /**
@@ -113,7 +116,7 @@ class PositronNotebookContribution extends Disposable {
 				createEditorInput: ({ resource, options }) => {
 					// TODO: Make this be based on the actual file.
 					const temporaryViewType = 'jupyter-notebook';
-					return { editor: instantiationService.createInstance(PositronNotebookEditorInput, resource, temporaryViewType), options };
+					return { editor: instantiationService.createInstance(PositronNotebookEditorInput, resource, temporaryViewType, {}), options };
 				}
 			}
 		));
@@ -136,3 +139,38 @@ Registry.as<IEditorPaneRegistry>(EditorExtensions.EditorPane).registerEditorPane
 const workbenchContributionsRegistry = Registry.as<IWorkbenchContributionsRegistry>(WorkbenchExtensions.Workbench);
 workbenchContributionsRegistry.registerWorkbenchContribution(PositronNotebookContribution, LifecyclePhase.Starting);
 
+
+
+type SerializedPositronNotebookEditorData = { resource: URI; viewType: string; options?: PositronNotebookEditorInputOptions };
+class PositronNotebookEditorSerializer implements IEditorSerializer {
+	canSerialize(): boolean {
+		return true;
+	}
+	serialize(input: EditorInput): string {
+		assertType(input instanceof PositronNotebookEditorInput);
+		const data: SerializedPositronNotebookEditorData = {
+			resource: input.resource,
+			viewType: input.viewType,
+			options: input.options
+		};
+		return JSON.stringify(data);
+	}
+	deserialize(instantiationService: IInstantiationService, raw: string) {
+		const data = <SerializedPositronNotebookEditorData>parse(raw);
+		if (!data) {
+			return undefined;
+		}
+		const { resource, viewType, options } = data;
+		if (!data || !URI.isUri(resource) || typeof viewType !== 'string') {
+			return undefined;
+		}
+
+		const input = PositronNotebookEditorInput.getOrCreate(instantiationService, resource, undefined, viewType, options);
+		return input;
+	}
+}
+
+Registry.as<IEditorFactoryRegistry>(EditorExtensions.EditorFactory).registerEditorSerializer(
+	PositronNotebookEditorInput.ID,
+	PositronNotebookEditorSerializer
+);

@@ -672,7 +672,7 @@ class SimpleNotebookWorkingCopyEditorHandler extends Disposable implements IWork
 	createEditor(workingCopy: IWorkingCopyIdentifier): EditorInput {
 		// --- Start Positron ---
 		if (USE_POSITRON_NOTEBOOK_EDITOR) {
-			return this._instantiationService.createInstance(PositronNotebookEditorInput, workingCopy.resource, this._getViewType(workingCopy)!);
+			return PositronNotebookEditorInput.getOrCreate(this._instantiationService, workingCopy.resource, undefined, this._getViewType(workingCopy)!);
 		}
 		// --- End Positron ---
 

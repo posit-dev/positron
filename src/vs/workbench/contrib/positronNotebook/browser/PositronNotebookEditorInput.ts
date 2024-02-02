@@ -12,6 +12,15 @@ import { EditorInput } from 'vs/workbench/common/editor/editorInput';
 import { IResolvedNotebookEditorModel } from 'vs/workbench/contrib/notebook/common/notebookCommon';
 import { INotebookEditorModelResolverService } from 'vs/workbench/contrib/notebook/common/notebookEditorModelResolverService';
 import { INotebookService } from 'vs/workbench/contrib/notebook/common/notebookService';
+import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
+
+/**
+ * Mostly empty options object. Based on the same one in `vs/workbench/contrib/notebook/browser/notebookEditorInput.ts`
+ * May be filled out later.
+ */
+export interface PositronNotebookEditorInputOptions {
+	startDirty?: boolean;
+}
 
 /**
  * PositronDataToolEditorInput class.
@@ -21,12 +30,28 @@ export class PositronNotebookEditorInput extends EditorInput {
 	/**
 	 * Gets the type ID.
 	 */
-	static readonly TypeID: string = 'workbench.input.positronNotebook';
+	static readonly ID: string = 'workbench.input.positronNotebook';
 
 	/**
 	 * Gets the editor ID.
 	 */
 	static readonly EditorID: string = 'workbench.editor.positronNotebook';
+
+	/**
+	 * Method for getting or creating a PositronNotebookEditorInput.
+	 * This is mostly here to match the format of the input creation method for the vscode notebooks.
+	 * @param instantiationService Service provided by vscode DI for instantiating objects with dependencies.
+	 * @param resource The resource (aka file) for the notebook we're working with.
+	 * @param preferredResource The preferred resource. (Not sure how this differs from standard resource...)
+	 * @param viewType The view type for the notebook. Aka `'jupyter-notebook;`.
+	 * @param options Options for the notebook editor input.
+	 */
+	static getOrCreate(instantiationService: IInstantiationService, resource: URI, preferredResource: URI | undefined, viewType: string, options: PositronNotebookEditorInputOptions = {}) {
+
+		// In the vscode-notebooks there is some caching work done here for looking for editors that
+		// exist etc. We may need that eventually but not now.
+		return instantiationService.createInstance(PositronNotebookEditorInput, resource, viewType, options);
+	}
 
 
 	// TODO: Describe why this is here.
@@ -42,6 +67,7 @@ export class PositronNotebookEditorInput extends EditorInput {
 	constructor(
 		readonly resource: URI,
 		public readonly viewType: string,
+		public readonly options: PositronNotebookEditorInputOptions = {},
 		// Borrow notebook resolver service from vscode notebook renderer.
 		@INotebookEditorModelResolverService private readonly _notebookModelResolverService: INotebookEditorModelResolverService,
 		@INotebookService private readonly _notebookService: INotebookService,
@@ -66,7 +92,7 @@ export class PositronNotebookEditorInput extends EditorInput {
 	 * Gets the type identifier.
 	 */
 	override get typeId(): string {
-		return PositronNotebookEditorInput.TypeID;
+		return PositronNotebookEditorInput.ID;
 	}
 
 	/**
@@ -100,7 +126,7 @@ export class PositronNotebookEditorInput extends EditorInput {
 	 */
 	override isDirty(): boolean {
 		// Go to the editor model reference and check if it's dirty.
-		return this._editorModelReference?.object.isDirty() ?? false;
+		return this._editorModelReference?.object.isDirty() ?? this.options.startDirty ?? false;
 	}
 
 	/**

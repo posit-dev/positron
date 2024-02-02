@@ -204,10 +204,15 @@ export class NotebookProviderInfoStore extends Disposable {
 
 				const notebookOptions = { ...options, cellOptions } as INotebookEditorOptions;
 
-				//! Use our editor instead of the built in one.
-				const editor = USE_POSITRON_NOTEBOOK_EDITOR ?
-					this._instantiationService.createInstance(PositronNotebookEditorInput, notebookUri, notebookProviderInfo.id) :
-					NotebookEditorInput.getOrCreate(this._instantiationService, notebookUri, preferredResource, notebookProviderInfo.id);
+				// --- Start Positron ---
+				if (USE_POSITRON_NOTEBOOK_EDITOR) {
+					// Use our editor instead of the built in one.
+					const editor = PositronNotebookEditorInput.getOrCreate(this._instantiationService, notebookUri, preferredResource, notebookProviderInfo.id);
+					return { editor, options };
+				}
+				// --- End Positron ---
+
+				const editor = NotebookEditorInput.getOrCreate(this._instantiationService, notebookUri, preferredResource, notebookProviderInfo.id);
 				return { editor, options: notebookOptions };
 			};
 
@@ -220,11 +225,15 @@ export class NotebookProviderInfoStore extends Disposable {
 					ref.dispose();
 				});
 
+				// --- Start Positron ---
+				if (USE_POSITRON_NOTEBOOK_EDITOR) {
+					// Use our editor instead of the built in one.
+					const editor = PositronNotebookEditorInput.getOrCreate(this._instantiationService, ref.object.resource, undefined, notebookProviderInfo.id);
+					return { editor, options };
+				}
+				// --- End Positron ---
 
-				//! Use our editor instead of the built in one.
-				const editor = USE_POSITRON_NOTEBOOK_EDITOR ?
-					this._instantiationService.createInstance(PositronNotebookEditorInput, ref.object.resource, notebookProviderInfo.id) :
-					NotebookEditorInput.getOrCreate(this._instantiationService, ref.object.resource, undefined, notebookProviderInfo.id);
+				const editor = NotebookEditorInput.getOrCreate(this._instantiationService, ref.object.resource, undefined, notebookProviderInfo.id);
 
 				return { editor, options };
 			};
