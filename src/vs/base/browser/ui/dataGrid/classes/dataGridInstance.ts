@@ -716,8 +716,8 @@ export abstract class DataGridInstance extends Disposable implements IDataGridIn
 	 */
 	mouseSelectCell(columnIndex: number, rowIndex: number) {
 		// Clear column selection.
-		this._rowSelectionRange = undefined;
-		this._rowSelectionIndexes.clear();
+		this._columnSelectionRange = undefined;
+		this._columnSelectionIndexes.clear();
 
 		// Clear row selection.
 		this._rowSelectionRange = undefined;
