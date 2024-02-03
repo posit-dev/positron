@@ -67,12 +67,12 @@ jobs:
     with:
       short_version: ${{ needs.version_string.outputs.short_version }}
 
-  linux-binaries:
-    uses: ./.github/workflows/build-release-linux.yml
-    needs: version_string
-    secrets: inherit
-    with:
-      short_version: ${{ needs.version_string.outputs.short_version }}
+  # linux-binaries:
+  #   uses: ./.github/workflows/build-release-linux.yml
+  #   needs: version_string
+  #   secrets: inherit
+  #   with:
+  #     short_version: ${{ needs.version_string.outputs.short_version }}
 
   releases:
     runs-on: ubuntu-latest
@@ -145,37 +145,37 @@ jobs:
           asset_name: ${{ needs.windows-installer.outputs.artifact-file }}
           asset_content_type: application/octet-stream
 
-  linux-releases:
-    needs: [linux-binaries, releases]
-    runs-on: ubuntu-latest
-    env:
-      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-    steps:
-      - name: Download Linux artifacts
-        uses: actions/download-artifact@v4
-        id: download-linux-artifact
-        if: github.ref == 'refs/heads/main'
-        with:
-          pattern: positron-binary-*
+  # linux-releases:
+  #   needs: [linux-binaries, releases]
+  #   runs-on: ubuntu-latest
+  #   env:
+  #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  #   steps:
+  #     - name: Download Linux artifacts
+  #       uses: actions/download-artifact@v4
+  #       id: download-linux-artifact
+  #       if: github.ref == 'refs/heads/main'
+  #       with:
+  #         pattern: positron-binary-*
 
-      - name: Upload Linux .deb release asset
-        uses: actions/upload-release-asset@v1
-        if: github.ref == 'refs/heads/main'
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-        with:
-          upload_url: ${{ needs.releases.outputs.upload_url }}
-          asset_path: Positron-${{ steps.short_version.outputs.result }}.deb
-          asset_name: Positron-${{ steps.short_version.outputs.result }}.deb
-          asset_content_type: application/octet-stream
+  #     - name: Upload Linux .deb release asset
+  #       uses: actions/upload-release-asset@v1
+  #       if: github.ref == 'refs/heads/main'
+  #       env:
+  #         GITHUB_TOKEN: ${{ github.token }}
+  #       with:
+  #         upload_url: ${{ needs.releases.outputs.upload_url }}
+  #         asset_path: Positron-${{ steps.short_version.outputs.result }}.deb
+  #         asset_name: Positron-${{ steps.short_version.outputs.result }}.deb
+  #         asset_content_type: application/octet-stream
 
-      - name: Upload Linux .rpm release asset
-        uses: actions/upload-release-asset@v1
-        if: github.ref == 'refs/heads/main'
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-        with:
-          upload_url: ${{ needs.releases.outputs.upload_url }}
-          asset_path: Positron-${{ steps.short_version.outputs.result }}.rpm
-          asset_name: Positron-${{ steps.short_version.outputs.result }}.rpm
-          asset_content_type: application/octet-stream
+  #     - name: Upload Linux .rpm release asset
+  #       uses: actions/upload-release-asset@v1
+  #       if: github.ref == 'refs/heads/main'
+  #       env:
+  #         GITHUB_TOKEN: ${{ github.token }}
+  #       with:
+  #         upload_url: ${{ needs.releases.outputs.upload_url }}
+  #         asset_path: Positron-${{ steps.short_version.outputs.result }}.rpm
+  #         asset_name: Positron-${{ steps.short_version.outputs.result }}.rpm
+  #         asset_content_type: application/octet-stream
