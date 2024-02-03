@@ -150,8 +150,6 @@ jobs:
     runs-on: ubuntu-latest
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-    with:
-      short_version: ${{ needs.version_string.outputs.short_version }}
     steps:
       - name: Download Linux artifacts
         uses: actions/download-artifact@v4
