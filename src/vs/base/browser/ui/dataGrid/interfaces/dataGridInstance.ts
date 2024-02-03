@@ -7,13 +7,35 @@ import { IDataColumn } from 'vs/base/browser/ui/dataGrid/interfaces/dataColumn';
 import { IColumnSortKey } from 'vs/base/browser/ui/dataGrid/interfaces/columnSortKey';
 
 /**
- * SelectionState enumeration.
+ * CellSelectionState enumeration.
  */
-export enum SelectionState {
+export enum CellSelectionState {
 	None = 0,
 	Selected = 1,
-	FirstSelected = 2,
-	LastSelected = 4
+	SelectedLeft = 2,
+	SelectedRight = 4,
+	SelectedTop = 8,
+	SelectedBottom = 16
+}
+
+/**
+ * ColumnSelectionState enumeration.
+ */
+export enum ColumnSelectionState {
+	None = 0,
+	Selected = 1,
+	SelectedLeft = 2,
+	SelectedRight = 4
+}
+
+/**
+ * RowSelectionState enumeration.
+ */
+export enum RowSelectionState {
+	None = 0,
+	Selected = 1,
+	SelectedTop = 8,
+	SelectedBottom = 16
 }
 
 /**
@@ -200,14 +222,41 @@ export interface IDataGridInstance {
 	setCursorRow(cursorRowIndex: number): void;
 
 	/**
-	 * Clears selection.
+	 * Scrolls to the cursor.
 	 */
-	clearSelection(): void;
+	scrollToCursor(): void;
+
+	/**
+	 * Scrolls to the specified cell.
+	 * @param columnIndex The column index.
+	 * @param rowIndex The row index.
+	 */
+	scrollToCell(columnIndex: number, rowIndex: number): void;
+
+	/**
+	 * Scrolls to the specified column.
+	 * @param columnIndex The column index.
+	 */
+	scrollToColumn(columnIndex: number): void;
+
+	/**
+	 * Scrolls to the specified row.
+	 * @param rowIndex The row index.
+	 */
+	scrollToRow(rowIndex: number): void;
 
 	/**
 	 * Selects all.
 	 */
 	selectAll(): void;
+
+	/**
+	 * Mouse selects a cell.
+	 * @param columnIndex The column index.
+	 * @param rowIndex The row index.
+	 * @param mouseSelectionType The mouse selection type.
+	 */
+	mouseSelectCell(columnIndex: number, rowIndex: number): void;
 
 	/**
 	 * Selects a column.
@@ -256,18 +305,31 @@ export interface IDataGridInstance {
 	extendSelectionDown(): void;
 
 	/**
-	 * Returns the column selection state.
+	 * Returns a cell selection state.
 	 * @param columnIndex The column index.
-	 * @returns A SelectionState that represents the column selection state.
+	 * @param rowIndex The row index.
+	 * @returns A CellSelectionState that represents the cell selection state.
 	 */
-	columnSelectionState(columnIndex: SelectionState): SelectionState;
+	cellSelectionState(columnIndex: number, rowIndex: number): CellSelectionState;
 
 	/**
-	 * Returns the row selection state.
-	 * @param rowIndex The row index.
-	 * @returns A SelectionState that represents the row selection state.
+	 * Returns a column selection state.
+	 * @param columnIndex The column index.
+	 * @returns A ColumnSelectionState that represents the column selection state.
 	 */
-	rowSelectionState(rowIndex: SelectionState): SelectionState;
+	columnSelectionState(columnIndex: number): ColumnSelectionState;
+
+	/**
+	 * Returns a row selection state.
+	 * @param rowIndex The row index.
+	 * @returns A RowSelectionState that represents the row selection state.
+	 */
+	rowSelectionState(rowIndex: number): RowSelectionState;
+
+	/**
+	 * Clears selection.
+	 */
+	clearSelection(): void;
 
 	/**
 	 * Returns a column.

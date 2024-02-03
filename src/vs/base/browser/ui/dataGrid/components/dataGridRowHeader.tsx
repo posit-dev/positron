@@ -13,8 +13,8 @@ import { MouseEvent } from 'react'; // eslint-disable-line no-duplicate-imports
 import { positronClassNames } from 'vs/base/common/positronUtilities';
 import { useDataGridContext } from 'vs/base/browser/ui/dataGrid/dataGridContext';
 import { selectionType } from 'vs/base/browser/ui/dataGrid/utilities/mouseUtilities';
-import { SelectionState } from 'vs/base/browser/ui/dataGrid/interfaces/dataGridInstance';
 import { PositronColumnSplitter } from 'vs/base/browser/ui/positronComponents/positronColumnSplitter';
+import { RowSelectionState } from 'vs/base/browser/ui/dataGrid/interfaces/dataGridInstance';
 
 /**
  * DataGridRowHeaderProps interface.
@@ -50,7 +50,7 @@ export const DataGridRowHeader = (props: DataGridRowHeaderProps) => {
 			className={
 				positronClassNames(
 					'data-grid-row-header',
-					{ 'selected': rowSelectionState & SelectionState.Selected }
+					{ 'selected': rowSelectionState & RowSelectionState.Selected }
 				)
 			}
 			style={{
@@ -63,9 +63,9 @@ export const DataGridRowHeader = (props: DataGridRowHeaderProps) => {
 				className={
 					positronClassNames(
 						'data-grid-row-header-border-overlay',
-						{ 'selected': rowSelectionState & SelectionState.Selected },
-						{ 'selected-top': rowSelectionState & SelectionState.FirstSelected },
-						{ 'selected-bottom': rowSelectionState & SelectionState.LastSelected }
+						{ 'selected': rowSelectionState & RowSelectionState.Selected },
+						{ 'selected-top': rowSelectionState & RowSelectionState.SelectedTop },
+						{ 'selected-bottom': rowSelectionState & RowSelectionState.SelectedBottom }
 					)
 				}
 			/>
