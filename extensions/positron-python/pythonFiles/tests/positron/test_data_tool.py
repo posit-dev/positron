@@ -12,8 +12,6 @@ import pytest
 
 from positron.data_tool import DataToolService, PandasView, COMPARE_OPS
 from positron.data_tool_comm import (
-    ColumnFilter,
-    ColumnSortKey,
     ColumnSchema,
     FilterResult,
 )
@@ -114,6 +112,15 @@ SIMPLE_PANDAS_DF = pd.DataFrame(
         "b": [True, False, True, None, True],
         "c": ["foo", "bar", None, "bar", "qux"],
         "d": [0, 1.2, -4.5, 6, np.nan],
+        "e": pd.to_datetime(
+            [
+                "2024-01-01 00:00:00",
+                "2024-01-02 12:34:45",
+                None,
+                "2024-01-04 00:00:00",
+                "2024-01-05 00:00:00",
+            ]
+        ),
     }
 )
 
@@ -217,7 +224,7 @@ def _wrap_json(dataklass, data: JsonRecords):
 def test_pandas_get_schema(pandas_fixture: PandasFixture):
     result = pandas_fixture.get_schema("simple", 0, 100)
     assert result["num_rows"] == 5
-    assert result["total_num_columns"] == 4
+    assert result["total_num_columns"] == 5
 
     full_schema = [
         {
@@ -240,19 +247,24 @@ def test_pandas_get_schema(pandas_fixture: PandasFixture):
             "type_name": "float64",
             "type_display": "number",
         },
+        {
+            "column_name": "e",
+            "type_name": "datetime64[ns]",
+            "type_display": "datetime",
+        },
     ]
 
     assert result["columns"] == _wrap_json(ColumnSchema, full_schema)
 
     result = pandas_fixture.get_schema("simple", 2, 100)
     assert result["num_rows"] == 5
-    assert result["total_num_columns"] == 4
+    assert result["total_num_columns"] == 5
 
     assert result["columns"] == _wrap_json(ColumnSchema, full_schema[2:])
 
-    result = pandas_fixture.get_schema("simple", 4, 100)
+    result = pandas_fixture.get_schema("simple", 5, 100)
     assert result["num_rows"] == 5
-    assert result["total_num_columns"] == 4
+    assert result["total_num_columns"] == 5
 
     assert result["columns"] == []
 
@@ -264,13 +276,17 @@ def test_pandas_get_schema(pandas_fixture: PandasFixture):
 
     result = pandas_fixture.get_schema(bigger_name, 0, 100)
     assert result["num_rows"] == 5
-    assert result["total_num_columns"] == 400
+    assert result["total_num_columns"] == 500
     assert result["columns"] == _wrap_json(ColumnSchema, bigger_schema[:100])
 
     result = pandas_fixture.get_schema(bigger_name, 10, 10)
     assert result["num_rows"] == 5
-    assert result["total_num_columns"] == 400
+    assert result["total_num_columns"] == 500
     assert result["columns"] == _wrap_json(ColumnSchema, bigger_schema[10:20])
+
+
+def _trim_whitespace(columns):
+    return [[x.strip() for x in column] for column in columns]
 
 
 def test_pandas_get_data_values(pandas_fixture: PandasFixture):
@@ -278,19 +294,26 @@ def test_pandas_get_data_values(pandas_fixture: PandasFixture):
         "simple",
         row_start_index=0,
         num_rows=20,
-        column_indices=list(range(4)),
+        column_indices=list(range(5)),
     )
 
     # TODO: pandas pads all values to fixed width, do we want to do
     # something different?
     expected_columns = [
         ["1", "2", "3", "4", "5"],
-        [" True", "False", " True", " None", " True"],
-        [" foo", " bar", "None", " bar", " qux"],
-        [" 0.0", " 1.2", "-4.5", " 6.0", " NaN"],
+        ["True", "False", "True", "None", "True"],
+        ["foo", "bar", "None", "bar", "qux"],
+        ["0.0", "1.2", "-4.5", "6.0", "NaN"],
+        [
+            "2024-01-01 00:00:00",
+            "2024-01-02 12:34:45",
+            "NaT",
+            "2024-01-04 00:00:00",
+            "2024-01-05 00:00:00",
+        ],
     ]
 
-    assert result["columns"] == expected_columns
+    assert _trim_whitespace(result["columns"]) == expected_columns
 
     assert result["row_labels"] == [["0", "1", "2", "3", "4"]]
 
@@ -305,7 +328,7 @@ def test_pandas_get_data_values(pandas_fixture: PandasFixture):
     response = pandas_fixture.get_data_values(
         "simple", row_start_index=0, num_rows=5, column_indices=[2, 3, 4, 5]
     )
-    assert response["columns"] == expected_columns[2:]
+    assert _trim_whitespace(response["columns"]) == expected_columns[2:]
 
     # Edge case: request invalid column index
     # Per issue #2149, until we can align on whether the UI is allowed
