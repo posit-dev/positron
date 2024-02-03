@@ -123,10 +123,14 @@ class DataToolTableView:
         raise NotImplementedError
 
 
-def _pandas_format_values(values):
-    from pandas.io.formats.format import format_array
+def _pandas_format_values(col):
+    import pandas.io.formats.format as fmt
 
-    return format_array(values, None, leading_space=False)
+    try:
+        return fmt.format_array(col._values, None, leading_space=False)
+    except Exception:
+        logger.warning(f"Failed to format column '{col.name}'")
+        return col.astype(str).tolist()
 
 
 class PandasView(DataToolTableView):
@@ -235,14 +239,14 @@ class PandasView(DataToolTableView):
             indices = self.table.index[row_start : row_start + num_rows]
             columns = [col.iloc[row_start : row_start + num_rows] for col in columns]
 
-        formatted_columns = [_pandas_format_values(col.values) for col in columns]
+        formatted_columns = [_pandas_format_values(col) for col in columns]
 
         # Currently, we format MultiIndex in its flat tuple
         # representation. In the future we will return multiple lists
         # of row labels to be formatted more nicely in the UI
         if isinstance(self.table.index, _get_pandas().MultiIndex):
             indices = indices.to_flat_index()
-        row_labels = [_pandas_format_values(indices.values)]
+        row_labels = [_pandas_format_values(indices)]
         return TableData(formatted_columns, row_labels)
 
     def _update_view_indices(self):
