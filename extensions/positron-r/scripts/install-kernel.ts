@@ -178,7 +178,18 @@ async function downloadAndReplaceArk(version: string,
 				console.error(`Could not find Ark ${version} in the releases.`);
 				return;
 			}
-			const os = platform() === 'win32' ? 'windows-x64' : 'darwin-universal';
+
+			let os: string;
+			switch (platform()) {
+				case 'win32': os = 'windows-x64'; break;
+				case 'darwin': os = 'darwin-universal'; break;
+				case 'linux': os = 'linux-x64'; break;
+				default: {
+					console.error(`Unsupported platform ${platform()}.`);
+					return;
+				}
+			}
+
 			const assetName = `ark-${version}-${os}.zip`;
 			const asset = release.assets.find((asset: any) => asset.name === assetName);
 			if (!asset) {
