@@ -117,36 +117,6 @@ export const DataGridWaffle = (props: DataGridWaffleProps) => {
 	}, [props.height]);
 
 	/**
-	 * Scrolls to the cursor.
-	 */
-	const scrollToCursor = () => {
-		scrollTo(context.instance.cursorColumnIndex, context.instance.cursorRowIndex);
-	};
-
-	/**
-	 * Scrolls to the specified column index and row index.
-	 */
-	const scrollTo = (columnIndex: number, rowIndex: number) => {
-		// Scroll to the cursor column.
-		if (columnIndex < context.instance.firstColumnIndex) {
-			context.instance.setFirstColumn(columnIndex);
-		} else if (columnIndex >= context.instance.firstColumnIndex + context.instance.visibleColumns) {
-			do {
-				context.instance.setFirstColumn(context.instance.firstColumnIndex + 1);
-			} while (columnIndex >= context.instance.firstColumnIndex + context.instance.visibleColumns);
-		}
-
-		// Scroll to the cursor row.
-		if (rowIndex < context.instance.firstRowIndex) {
-			context.instance.setFirstRow(rowIndex);
-		} else if (rowIndex >= context.instance.firstRowIndex + context.instance.visibleRows) {
-			do {
-				context.instance.setFirstRow(context.instance.firstRowIndex + 1);
-			} while (rowIndex >= context.instance.firstRowIndex + context.instance.visibleRows);
-		}
-	};
-
-	/**
 	 * onKeyDown event handler.
 	 * @param e A KeyboardEvent<HTMLDivElement> that describes a user interaction with the keyboard.
 	 */
@@ -322,7 +292,7 @@ export const DataGridWaffle = (props: DataGridWaffleProps) => {
 				context.instance.clearSelection();
 				if (context.instance.cursorRowIndex > 0) {
 					context.instance.setCursorRow(context.instance.cursorRowIndex - 1);
-					scrollToCursor();
+					context.instance.scrollToCursor();
 				}
 				break;
 			}
@@ -345,7 +315,7 @@ export const DataGridWaffle = (props: DataGridWaffleProps) => {
 				context.instance.clearSelection();
 				if (context.instance.cursorRowIndex < context.instance.rows - 1) {
 					context.instance.setCursorRow(context.instance.cursorRowIndex + 1);
-					scrollToCursor();
+					context.instance.scrollToCursor();
 				}
 				break;
 			}
@@ -368,7 +338,7 @@ export const DataGridWaffle = (props: DataGridWaffleProps) => {
 				context.instance.clearSelection();
 				if (context.instance.cursorColumnIndex > 0) {
 					context.instance.setCursorColumn(context.instance.cursorColumnIndex - 1);
-					scrollToCursor();
+					context.instance.scrollToCursor();
 				}
 				break;
 			}
@@ -391,7 +361,7 @@ export const DataGridWaffle = (props: DataGridWaffleProps) => {
 				context.instance.clearSelection();
 				if (context.instance.cursorColumnIndex < context.instance.columns - 1) {
 					context.instance.setCursorColumn(context.instance.cursorColumnIndex + 1);
-					scrollToCursor();
+					context.instance.scrollToCursor();
 				}
 				break;
 			}

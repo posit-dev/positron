@@ -17,8 +17,8 @@ import { IDataColumn } from 'vs/base/browser/ui/dataGrid/interfaces/dataColumn';
 import { useDataGridContext } from 'vs/base/browser/ui/dataGrid/dataGridContext';
 import { ContextMenuItem } from 'vs/base/browser/ui/contextMenu/contextMenuItem';
 import { selectionType } from 'vs/base/browser/ui/dataGrid/utilities/mouseUtilities';
-import { SelectionState } from 'vs/base/browser/ui/dataGrid/interfaces/dataGridInstance';
 import { ContextMenuSeparator } from 'vs/base/browser/ui/contextMenu/contextMenuSeparator';
+import { ColumnSelectionState } from 'vs/base/browser/ui/dataGrid/interfaces/dataGridInstance';
 import { MouseTrigger, PositronButton } from 'vs/base/browser/ui/positronComponents/positronButton';
 import { PositronColumnSplitter } from 'vs/base/browser/ui/positronComponents/positronColumnSplitter';
 
@@ -129,7 +129,7 @@ export const DataGridColumnHeader = (props: DataGridColumnHeaderProps) => {
 			className={
 				positronClassNames(
 					'data-grid-column-header',
-					{ 'selected': columnSelectionState & SelectionState.Selected }
+					{ 'selected': columnSelectionState & ColumnSelectionState.Selected }
 				)}
 			style={{
 				left: props.left,
@@ -140,9 +140,9 @@ export const DataGridColumnHeader = (props: DataGridColumnHeaderProps) => {
 			<div className={
 				positronClassNames(
 					'border-overlay',
-					{ 'selected': columnSelectionState & SelectionState.Selected },
-					{ 'selected-left': columnSelectionState & SelectionState.FirstSelected },
-					{ 'selected-right': columnSelectionState & SelectionState.LastSelected }
+					{ 'selected': columnSelectionState & ColumnSelectionState.Selected },
+					{ 'selected-left': columnSelectionState & ColumnSelectionState.SelectedLeft },
+					{ 'selected-right': columnSelectionState & ColumnSelectionState.SelectedRight }
 				)}
 			/>
 			<div className='content'>
