@@ -364,8 +364,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 								if (this._busyMessageIds.has(parent_id)) {
 									this._busyMessageIds.delete(parent_id);
 									if (this._busyMessageIds.size === 0) {
-										this._status = positron.RuntimeState.Idle;
-										this.setStatus(this._status);
+										this.setStatus(positron.RuntimeState.Idle);
 									}
 								} else {
 									// We got an idle message without a matching busy message.
@@ -388,8 +387,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 
 								// If it's the first busy message, emit a busy event
 								if (this._busyMessageIds.size === 1) {
-									this._status = positron.RuntimeState.Busy;
-									this.setStatus(this._status);
+									this.setStatus(positron.RuntimeState.Busy);
 								}
 								break;
 						}
@@ -401,10 +399,21 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 					}
 				});
 
+				let got_initial_reply = false;
+				let initial_request_id = uuidv4();
+
 				// Connect the Shell socket
-				this._shell?.onMessage((args: any[]) => {
+				this._shell?.onMessage(async (args: any[]) => {
 					const msg = deserializeJupyterMessage(args, this._session!.key, this._channel);
 					if (msg !== null) {
+						// Wait for reply to kernel-info request. When it comes in, we
+						// know the kernel is started up and ready to service
+						// requests. That's our cue to switch to the Ready state.
+						if (!got_initial_reply && msg.parent_header.msg_id === initial_request_id) {
+							got_initial_reply = true;
+							this.setStatus(positron.RuntimeState.Ready);
+							resolve();
+						}
 						this.emitMessage(JupyterSockets.shell, msg);
 					}
 				});
@@ -447,9 +456,10 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 
 					// Resolve the promise, mark the kernel as ready, and start the heartbeat
 					// check
-					this.log('Receieved initial heartbeat: ' + msg);
-					this.setStatus(positron.RuntimeState.Ready);
-					resolve();
+					this.log('Received initial heartbeat: ' + msg);
+
+					// Send a dummy request. When the reply comes in we'll switch to the Ready state.
+					this.send(initial_request_id, 'kernel_info_request', this._shell!, {});
 
 					const seconds = vscode.workspace.getConfiguration('positron.jupyterAdapter').get('heartbeat', 30) as number;
 					this.log(`Starting heartbeat check at ${seconds} second intervals...`);
@@ -1279,8 +1289,40 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	 * @param status The new status of the kernel
 	 */
 	private setStatus(status: positron.RuntimeState) {
+		// Ignore Busy and Idle statuses that emitted on IOPub
+		// during startup (e.g. during the kernel-info request
+		// that we emit to detect kernel readiness)
+		if (this.isStarting() && this.isRuntimeStatus(status)) {
+			return;
+		}
+
 		this.emit('status', status);
 		this._status = status;
+	}
+
+	private isStarting(): boolean {
+		return this.isStartingStatus(this._status);
+	}
+
+	private isStartingStatus(status: positron.RuntimeState): boolean {
+		switch (status) {
+		case positron.RuntimeState.Uninitialized:
+		case positron.RuntimeState.Initializing:
+		case positron.RuntimeState.Starting:
+			return true;
+		default:
+			return false;
+		}
+	}
+
+	private isRuntimeStatus(status: positron.RuntimeState): boolean {
+		switch (status) {
+		case positron.RuntimeState.Idle:
+		case positron.RuntimeState.Busy:
+			return true;
+		default:
+			return false;
+		}
 	}
 
 	/**
