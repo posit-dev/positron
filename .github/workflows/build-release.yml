@@ -157,6 +157,7 @@ jobs:
         if: github.ref == 'refs/heads/main'
         with:
           pattern: positron-binary-*
+          merge-multiple: true
 
       - name: Upload Linux .deb release asset
         uses: actions/upload-release-asset@v1
