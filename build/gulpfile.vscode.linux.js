@@ -190,8 +190,12 @@ function prepareRpmPackage(arch) {
 		const code = gulp.src(binaryDir + '/**/*', { base: binaryDir })
 			.pipe(rename(function (p) { p.dirname = 'BUILD/usr/share/' + product.applicationName + '/' + p.dirname; }));
 
-		const spec = code.pipe(es.through(
-			async function () {
+		// --- Start Positron ---
+		// Fixes an upstream bug where the template was generated once per code
+		// source file and overwhelming the build.
+		const spec = gulp.src('resources/linux/rpm/code.spec.template', { base: '.' }).pipe(es.through(
+			function (f) {},
+			async function (spec) {
 				const that = this;
 				const dependencies = await dependenciesGenerator.getDependencies('rpm', binaryDir, product.applicationName, rpmArch);
 				gulp.src('resources/linux/rpm/code.spec.template', { base: '.' })
@@ -207,7 +211,9 @@ function prepareRpmPackage(arch) {
 					.pipe(replace('@@DEPENDENCIES@@', dependencies.join(', ')))
 					.pipe(rename('SPECS/' + product.applicationName + '.spec'))
 					.pipe(es.through(function (f) { that.emit('data', f); }, function () { that.emit('end'); }));
-			}));
+			}
+		));
+		// --- End Positron ---
 
 		const specIcon = gulp.src('resources/linux/rpm/code.xpm', { base: '.' })
 			.pipe(rename('SOURCES/' + product.applicationName + '.xpm'));
