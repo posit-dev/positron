@@ -9,6 +9,7 @@ import re
 import shlex
 import shutil
 import subprocess
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, List, Optional
@@ -53,7 +54,7 @@ def main() -> None:
     # Note that we use flags for secure and reproducible installs, via: https://github.com/brettcannon/pip-secure-install.
     run(
         [
-            "python3",
+            sys.executable,
             "-m",
             "pip",
             "install",
