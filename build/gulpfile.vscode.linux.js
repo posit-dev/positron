@@ -202,9 +202,7 @@ function prepareRpmPackage(arch) {
 					.pipe(replace('@@NAME@@', product.applicationName))
 					.pipe(replace('@@NAME_LONG@@', product.nameLong))
 					.pipe(replace('@@ICON@@', product.linuxIconName))
-					// --- Start Positron ---
-					.pipe(replace('@@VERSION@@', product.positronVersion + '-' + linuxPackageRevision))
-					// --- End Positron ---
+					.pipe(replace('@@VERSION@@', packageJson.version))
 					.pipe(replace('@@RELEASE@@', linuxPackageRevision))
 					.pipe(replace('@@ARCHITECTURE@@', rpmArch))
 					.pipe(replace('@@LICENSE@@', product.licenseName))
