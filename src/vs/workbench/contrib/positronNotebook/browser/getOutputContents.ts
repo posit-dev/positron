@@ -73,8 +73,15 @@ function getTextOutputContents(output: NotebookCellOutputTextModel): string {
 	}).join('\n');
 }
 
+/**
+ * Contents from cell outputs parsed for React components to display
+ */
 type ParsedOutput = {
 	type: 'stdout';
+	content: string;
+} |
+{
+	type: 'text';
 	content: string;
 } |
 {
@@ -89,7 +96,13 @@ type ParsedOutput = {
 	contents: string;
 };
 
-export function parseOutputData({ data, mime }: ICellOutput['outputs'][number]): ParsedOutput {
+/**
+ * Parse cell output into standard serializable js objects.
+ * @param output Contents of a cells output
+ * @returns The output parsed to the known types.
+ */
+export function parseOutputData(output: ICellOutput['outputs'][number]): ParsedOutput {
+	const { data, mime } = output;
 	const message = data.toString();
 
 	try {
@@ -108,6 +121,11 @@ export function parseOutputData({ data, mime }: ICellOutput['outputs'][number]):
 	if (mime === 'application/vnd.code.notebook.stderr') {
 		return { type: 'stderr', content: message };
 	}
+
+	if (mime === 'text/plain') {
+		return { type: 'text', content: message };
+	}
+
 
 	return { type: 'unknown', contents: message };
 }

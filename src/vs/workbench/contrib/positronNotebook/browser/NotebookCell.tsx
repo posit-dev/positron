@@ -128,6 +128,8 @@ function CellOutputContents(output: { data: VSBuffer; mime: string }) {
 			return <div className='notebook-stderr'>{parsed.content}</div>;
 		case 'interupt':
 			return <div className='notebook-error'>Cell execution stopped due to keyboard interupt.</div>;
+		case 'text':
+			return <div className='notebook-text'>{parsed.content}</div>;
 		case 'unknown':
 			return <div className='unknown-mime-type'>Cant handle mime type &quot;{output.mime}&quot; yet</div>;
 	}
