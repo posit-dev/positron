@@ -100,3 +100,21 @@ jobs:
         with:
           name: positron-binary-deb
           path: Positron-${{ inputs.short_version }}.deb
+
+  status:
+    if: ${{ failure() }}
+    runs-on: ubuntu-latest
+    needs: build-binaries
+    steps:
+      - name: Notify slack if build fails
+        uses: slackapi/slack-github-action@v1.25.0
+        id: slack-failure
+        with:
+          payload: |
+            {
+              "message": "Positron Linux build ${{ inputs.short_version }} failed",
+              "status": "Failure",
+              "run_url": "https://github.com/posit-dev/positron/actions/runs/${{ github.run_id }}"
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
