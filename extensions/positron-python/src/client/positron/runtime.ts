@@ -14,7 +14,7 @@ import { LanguageClientOptions } from 'vscode-languageclient/node';
 import { PythonExtension } from '../api/types';
 import { ProductNames } from '../common/installer/productNames';
 import { InstallOptions } from '../common/installer/types';
-import { IInstaller, InstallerResponse, Product, ProductInstallStatus } from '../common/types';
+import { IInstaller, IInterpreterPathService, InstallerResponse, Product, ProductInstallStatus } from '../common/types';
 import { IServiceContainer } from '../ioc/types';
 import { JupyterAdapterApi, JupyterKernelSpec, JupyterLanguageRuntime, JupyterKernelExtra } from '../jupyter-adapter.d';
 import { traceInfo } from '../logging';
@@ -53,6 +53,9 @@ export class PythonRuntime implements positron.LanguageRuntime, vscode.Disposabl
     /** The current state of the runtime */
     private _state: positron.RuntimeState = positron.RuntimeState.Uninitialized;
 
+    /** The service for getting the Python extension interpreter path */
+    private _interpreterPathService: IInterpreterPathService
+
     constructor(
         private readonly serviceContainer: IServiceContainer,
         readonly kernelSpec: JupyterKernelSpec,
@@ -74,6 +77,8 @@ export class PythonRuntime implements positron.LanguageRuntime, vscode.Disposabl
         this.onDidChangeRuntimeState((state) => {
             this.onStateChange(state);
         });
+
+        this._interpreterPathService = serviceContainer.get<IInterpreterPathService>(IInterpreterPathService);
     }
 
     onDidReceiveRuntimeMessage: vscode.Event<positron.LanguageRuntimeMessage>;
@@ -216,6 +221,8 @@ export class PythonRuntime implements positron.LanguageRuntime, vscode.Disposabl
         await this._installIpykernel();
 
         // Update the active environment in the Python extension.
+        this._interpreterPathService.update(undefined, vscode.ConfigurationTarget.Global, this.interpreter.path)
+
         this.pythonApi.environments.updateActiveEnvironmentPath(this.interpreter.path);
 
         // Register for console width changes, if we haven't already
