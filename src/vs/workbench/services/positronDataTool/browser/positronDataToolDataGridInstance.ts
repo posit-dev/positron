@@ -248,6 +248,10 @@ export class PositronDataToolDataGridInstance extends DataGridInstance {
 			} satisfies ColumnSortKey
 		)));
 
+		// Clear the data cache
+		this._fetchManager.clear();
+		this._lastFetchResult = undefined;
+
 		// Refetch data.
 		await this.doFetchData();
 	}
