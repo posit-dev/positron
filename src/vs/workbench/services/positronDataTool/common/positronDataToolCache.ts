@@ -29,6 +29,8 @@ export class PositronDataToolCache {
 	private readonly ROW_CACHE_WINDOW = 100;
 	private readonly COLUMN_CACHE_WINDOW = 10;
 
+	private _tableShape: [number, number];
+
 	private _cachedResults: Array<FetchResult> = [];
 
 	// Number of cells cached
@@ -52,7 +54,8 @@ export class PositronDataToolCache {
 
 	private readonly _fetcher: FetchFunc;
 
-	constructor(fetcher: FetchFunc) {
+	constructor(tableShape: [number, number], fetcher: FetchFunc) {
+		this._tableShape = tableShape;
 		this._fetcher = fetcher;
 	}
 
@@ -107,10 +110,12 @@ export class PositronDataToolCache {
 		range = structuredClone(range);
 
 		range.rowStartIndex = Math.max(0, range.rowStartIndex - this.ROW_CACHE_WINDOW);
-		range.rowEndIndex += this.ROW_CACHE_WINDOW;
+		range.rowEndIndex = Math.min(this._tableShape[0],
+			range.rowEndIndex + this.ROW_CACHE_WINDOW);
 
 		range.columnStartIndex = Math.max(0, range.columnStartIndex - this.COLUMN_CACHE_WINDOW);
-		range.columnEndIndex += this.COLUMN_CACHE_WINDOW;
+		range.columnEndIndex = Math.min(this._tableShape[1],
+			range.columnEndIndex + this.COLUMN_CACHE_WINDOW);
 
 		const data = await this._fetcher(range);
 

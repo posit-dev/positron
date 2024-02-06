@@ -20,7 +20,7 @@ export class PositronDataToolDataGridInstance extends DataGridInstance {
 
 	private _tableSchema?: TableSchema;
 
-	private _cache: PositronDataToolCache;
+	private _cache?: PositronDataToolCache;
 
 	private _lastFetchResult?: FetchResult;
 
@@ -35,25 +35,6 @@ export class PositronDataToolDataGridInstance extends DataGridInstance {
 
 		// Set the data tool client instance.
 		this._dataToolClientInstance = dataToolClientInstance;
-
-		this._cache = new PositronDataToolCache(async (req: FetchRange) => {
-			const start = new Date().getTime();
-
-			// Build the column indices to fetch.
-			const columnIndices: number[] = [];
-			for (let i = req.columnStartIndex; i < req.columnEndIndex; i++) {
-				columnIndices.push(i);
-			}
-
-			const data = await this._dataToolClientInstance.getDataValues(
-				req.rowStartIndex,
-				req.rowEndIndex - req.rowStartIndex,
-				columnIndices
-			);
-			const end = new Date().getTime();
-			console.log(`Fetching data took ${end - start}ms`);
-			return data;
-		});
 	}
 
 	/**
@@ -76,6 +57,27 @@ export class PositronDataToolDataGridInstance extends DataGridInstance {
 			console.log(`++++++++++ Schema returned with ${tableSchema.columns.length} columns`);
 
 			this._tableSchema = tableSchema;
+
+			this._cache = new PositronDataToolCache(
+				[tableSchema.num_rows, tableSchema.total_num_columns],
+				async (req: FetchRange) => {
+					const start = new Date().getTime();
+
+					// Build the column indices to fetch.
+					const columnIndices: number[] = [];
+					for (let i = req.columnStartIndex; i < req.columnEndIndex; i++) {
+						columnIndices.push(i);
+					}
+
+					const data = await this._dataToolClientInstance.getDataValues(
+						req.rowStartIndex,
+						req.rowEndIndex - req.rowStartIndex,
+						columnIndices
+					);
+					const end = new Date().getTime();
+					console.log(`Fetching data took ${end - start}ms`);
+					return data;
+				});
 
 			const columns: PositronDataToolColumn[] = [];
 			for (let i = 0; i < tableSchema.columns.length; i++) {
@@ -111,7 +113,7 @@ export class PositronDataToolDataGridInstance extends DataGridInstance {
 
 	private resetCache() {
 		// Clear the data cache
-		this._cache.clear();
+		this._cache?.clear();
 		this._lastFetchResult = undefined;
 	}
 
@@ -125,11 +127,14 @@ export class PositronDataToolDataGridInstance extends DataGridInstance {
 			rowStartIndex: this.firstRowIndex,
 			rowEndIndex: this.firstRowIndex + this.visibleRows,
 			columnStartIndex: this.firstColumnIndex,
-			columnEndIndex: this.firstColumnIndex + this.visibleColumns
+
+			// TODO: column edge detection can cause visibleColumns to be one less than what the
+			// user actually sees, so we fudge this for now
+			columnEndIndex: this.firstColumnIndex + this.visibleColumns + 1
 		};
 
 		if (this.needToFetch(rangeToFetch)) {
-			this._lastFetchResult = await this._cache.fetch(rangeToFetch);
+			this._lastFetchResult = await this._cache?.fetch(rangeToFetch);
 		}
 
 		// Fire the onDidUpdate event.

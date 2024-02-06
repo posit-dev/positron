@@ -14,8 +14,8 @@ import * as mocks from "vs/workbench/services/positronDataTool/common/positronDa
 class MockDataCache extends PositronDataToolCache {
 	private schema: TableSchema;
 
-	constructor(schema: TableSchema) {
-		super(async (req: FetchRange) => {
+	constructor(tableShape: [number, number], schema: TableSchema) {
+		super(tableShape, async (req: FetchRange) => {
 			// Build the column indices to fetch.
 			const columnIndices: number[] = [];
 			for (let i = req.columnStartIndex; i < req.columnEndIndex; i++) {
@@ -46,8 +46,10 @@ suite('DataToolInternals', () => {
 	// ensureNoDisposablesAreLeakedInTestSuite();
 
 	test('Fetch caches results correctly', async () => {
-		const schema = mocks.getTableSchema(100000, 1000);
-		const fetcher = new MockDataCache(schema);
+		const numRows = 100000;
+		const numColumns = 1000;
+		const schema = mocks.getTableSchema(numRows, numColumns);
+		const fetcher = new MockDataCache([numRows, numColumns], schema);
 
 		const range: FetchRange = {
 			rowStartIndex: 100,
