@@ -23,10 +23,10 @@ interface FetchRange {
 }
 
 function rangeIncludes(range: FetchRange, inRange: FetchRange) {
-	return (range.rowStartIndex < inRange.rowStartIndex &&
-		range.rowEndIndex >= inRange.rowEndIndex &&
-		range.columnStartIndex < inRange.columnStartIndex &&
-		range.columnEndIndex >= inRange.columnEndIndex);
+	return (range.rowStartIndex >= inRange.rowStartIndex &&
+		range.rowEndIndex <= inRange.rowEndIndex &&
+		range.columnStartIndex >= inRange.columnStartIndex &&
+		range.columnEndIndex <= inRange.columnEndIndex);
 }
 
 interface FetchResult extends FetchRange {
@@ -104,7 +104,10 @@ export class PositronDataToolFetchManager {
 		// See if the range is contained in any of the cached data
 		const cacheRange = structuredClone(range);
 
+		cacheRange.rowStartIndex = Math.max(0, cacheRange.rowStartIndex - this.ROW_CACHE_WINDOW);
 		cacheRange.rowEndIndex += this.ROW_CACHE_WINDOW;
+
+		cacheRange.columnStartIndex = Math.max(0, cacheRange.columnStartIndex - this.COLUMN_CACHE_WINDOW);
 		cacheRange.columnEndIndex += this.COLUMN_CACHE_WINDOW;
 
 		const data = await this._fetcher(cacheRange);
@@ -259,7 +262,7 @@ export class PositronDataToolDataGridInstance extends DataGridInstance {
 			rowStartIndex: this.firstRowIndex,
 			rowEndIndex: this.firstRowIndex + this.visibleRows,
 			columnStartIndex: this.firstColumnIndex,
-			columnEndIndex: this.firstColumnIndex + this.visibleColumns + 1
+			columnEndIndex: this.firstColumnIndex + this.visibleColumns
 		};
 
 		if (this.needToFetch(rangeToFetch)) {
