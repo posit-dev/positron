@@ -274,7 +274,7 @@ export class PositronDataToolDataGridInstance extends DataGridInstance {
 		if (!this._lastFetchResult) {
 			return true;
 		} else {
-			return rangeIncludes(range, this._lastFetchResult);
+			return !rangeIncludes(range, this._lastFetchResult);
 		}
 	}
 
