@@ -130,9 +130,9 @@ export class PositronDataToolFetchManager {
 				(range.rowEndIndex - range.rowStartIndex));
 		};
 
-		const numCells = getTotalCells(cacheRange);
+		this._cacheSize += getTotalCells(cacheRange);
 
-		while (this._cacheSize + numCells > this.MAX_NUM_CACHED_CELLS) {
+		while (this._cacheSize > this.MAX_NUM_CACHED_CELLS) {
 			// Evict results from cache based on recency of use
 			let oldest = 0;
 			for (let i = 1; i < this._cachedResults.length; ++i) {
