@@ -168,6 +168,14 @@
         "key": "ctrl+alt+right",
         "when": "config.rstudio.keymap.enable",
         "command": "workbench.action.nextEditorInGroup"
+      },
+      {
+        "mac": "ctrl+alt+m",
+        "win": "ctrl+alt+m",
+        "linux": "ctrl+alt+m",
+        "key": "ctrl+alt+m",
+        "when": "config.rstudio.keymap.enable",
+        "command": "workbench.view.scm"
       }
     ]
   }
