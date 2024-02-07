@@ -57,7 +57,7 @@ export function getExampleTableData(schema: TableSchema, rowStartIndex: number,
 	numRows: number, columnIndices: Array<number>): TableData {
 	const generatedColumns = [];
 
-	// Don't generate virtual data beyond the extends of the table, and if
+	// Don't generate virtual data beyond the extent of the table, and if
 	// rowStartIndex is at or after end of the table, return nothing
 	numRows = Math.max(Math.min(numRows, schema.num_rows - rowStartIndex), 0);
 
@@ -68,7 +68,7 @@ export function getExampleTableData(schema: TableSchema, rowStartIndex: number,
 		const generatedColumn = [];
 		if (numRows > 0) {
 			for (let i = rowStartIndex; i < rowStartIndex + numRows; i++) {
-				generatedColumn.push(exampleValues[i % exampleValues.length]);
+				generatedColumn.push(exampleValues[i % exampleValues.length] + ` {i}`);
 			}
 		}
 		generatedColumns.push(generatedColumn);

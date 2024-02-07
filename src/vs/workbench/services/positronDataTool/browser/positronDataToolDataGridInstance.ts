@@ -2,22 +2,12 @@
  *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
-import { generateUuid } from 'vs/base/common/uuid';
 import { IColumnSortKey } from 'vs/base/browser/ui/dataGrid/interfaces/columnSortKey';
 import { DataGridInstance } from 'vs/base/browser/ui/dataGrid/classes/dataGridInstance';
 import { PositronDataToolColumn } from 'vs/workbench/services/positronDataTool/browser/positronDataToolColumn';
 import { DataToolClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeDataToolClient';
-import { ColumnSortKey, TableData, TableSchema } from 'vs/workbench/services/languageRuntime/common/positronDataToolComm';
-
-interface CachedTableData {
-	firstColumnIndex: number;
-	columnIndices: number[];
-
-	firstRowIndex: number;
-	lastRowIndex: number;
-
-	tableData: TableData;
-}
+import { ColumnSortKey, TableSchema } from 'vs/workbench/services/languageRuntime/common/positronDataToolComm';
+import { FetchRange, FetchResult, PositronDataToolCache } from 'vs/workbench/services/positronDataTool/common/positronDataToolCache';
 
 /**
  * PositronDataToolDataGridInstance class.
@@ -30,9 +20,9 @@ export class PositronDataToolDataGridInstance extends DataGridInstance {
 
 	private _tableSchema?: TableSchema;
 
-	private _lastFetchIdentifier = '';
+	private _cache?: PositronDataToolCache;
 
-	private _cachedTableData?: CachedTableData;
+	private _lastFetchResult?: FetchResult;
 
 	constructor(dataToolClientInstance: DataToolClientInstance) {
 		// Call the base class's constructor.
@@ -68,6 +58,27 @@ export class PositronDataToolDataGridInstance extends DataGridInstance {
 
 			this._tableSchema = tableSchema;
 
+			this._cache = new PositronDataToolCache(
+				[tableSchema.num_rows, tableSchema.total_num_columns],
+				async (req: FetchRange) => {
+					const start = new Date().getTime();
+
+					// Build the column indices to fetch.
+					const columnIndices: number[] = [];
+					for (let i = req.columnStartIndex; i < req.columnEndIndex; i++) {
+						columnIndices.push(i);
+					}
+
+					const data = await this._dataToolClientInstance.getDataValues(
+						req.rowStartIndex,
+						req.rowEndIndex - req.rowStartIndex,
+						columnIndices
+					);
+					const end = new Date().getTime();
+					console.log(`Fetching data took ${end - start}ms`);
+					return data;
+				});
+
 			const columns: PositronDataToolColumn[] = [];
 			for (let i = 0; i < tableSchema.columns.length; i++) {
 				columns.push(new PositronDataToolColumn(tableSchema.columns[i]));
@@ -96,7 +107,14 @@ export class PositronDataToolDataGridInstance extends DataGridInstance {
 		)));
 
 		// Refetch data.
+		this.resetCache();
 		await this.doFetchData();
+	}
+
+	private resetCache() {
+		// Clear the data cache
+		this._cache?.clear();
+		this._lastFetchResult = undefined;
 	}
 
 	private async doFetchData(): Promise<void> {
@@ -105,46 +123,30 @@ export class PositronDataToolDataGridInstance extends DataGridInstance {
 			return;
 		}
 
-		// Set the first column index and first row index.
-		const firstColumnIndex = this.firstColumnIndex;
-		const firstRowIndex = this.firstRowIndex;
+		const rangeToFetch: FetchRange = {
+			rowStartIndex: this.firstRowIndex,
+			rowEndIndex: this.firstRowIndex + this.visibleRows,
+			columnStartIndex: this.firstColumnIndex,
 
-		// Build the column indices to fetch.
-		const columnIndices: number[] = [];
-		for (let i = this.firstColumnIndex; i < Math.min(this.firstColumnIndex + this.visibleColumns + 1, this.columns); i++) {
-			columnIndices.push(i);
+			// TODO: column edge detection can cause visibleColumns to be one less than what the
+			// user actually sees, so we fudge this for now
+			columnEndIndex: this.firstColumnIndex + this.visibleColumns + 1
+		};
+
+		if (this.needToFetch(rangeToFetch)) {
+			this._lastFetchResult = await this._cache?.fetch(rangeToFetch);
 		}
-
-		// Generate a fetch identifier.
-		const fetchIdentifier = this._lastFetchIdentifier = generateUuid();
-
-		// Fetch data.
-		const start = new Date().getTime();
-		const tableData = await this._dataToolClientInstance.getDataValues(
-			firstRowIndex,
-			this.visibleRows + 10,
-			columnIndices
-		);
-
-
-		if (fetchIdentifier !== this._lastFetchIdentifier) {
-			console.log('+++++++++++++++++++ DISCARDING FETCHED DATA');
-		}
-
-		const end = new Date().getTime();
-		console.log(`Fetching data took ${end - start}ms`);
-
-		// Set the cached data.
-		this._cachedTableData = {
-			firstColumnIndex,
-			columnIndices,
-			firstRowIndex,
-			lastRowIndex: firstRowIndex + this.visibleRows + 10,
-			tableData
-		} satisfies CachedTableData;
 
 		// Fire the onDidUpdate event.
 		this._onDidUpdateEmitter.fire();
+	}
+
+	private needToFetch(range: FetchRange) {
+		if (!this._lastFetchResult) {
+			return true;
+		} else {
+			return !PositronDataToolCache.rangeIncludes(range, this._lastFetchResult);
+		}
 	}
 
 	fetchData() {
@@ -162,27 +164,27 @@ export class PositronDataToolDataGridInstance extends DataGridInstance {
 	 */
 	rowLabel(rowIndex: number) {
 		// If there isn't any cached data, return undefined.
-		if (!this._cachedTableData) {
+		if (!this._lastFetchResult) {
 			return undefined;
 		}
 
 		// If the row isn't cached, return undefined.
-		if (rowIndex < this._cachedTableData.firstRowIndex ||
-			rowIndex > this._cachedTableData.lastRowIndex
+		if (rowIndex < this._lastFetchResult.rowStartIndex ||
+			rowIndex > this._lastFetchResult.rowEndIndex
 		) {
 			return undefined;
 		}
 
 		// If there are no row labels, return the row index.
-		if (!this._cachedTableData.tableData.row_labels) {
+		if (!this._lastFetchResult.data.row_labels) {
 			return `${rowIndex + 1}`;
 		}
 
 		// Calculate the cached row index.
-		const cachedRowIndex = rowIndex - this._cachedTableData.firstRowIndex;
+		const cachedRowIndex = rowIndex - this._lastFetchResult.rowStartIndex;
 
 		// Return the cached row label.
-		return this._cachedTableData.tableData.row_labels[0][cachedRowIndex];
+		return this._lastFetchResult.data.row_labels[0][cachedRowIndex];
 	}
 
 	/**
@@ -193,27 +195,24 @@ export class PositronDataToolDataGridInstance extends DataGridInstance {
 	 */
 	cell(columnIndex: number, rowIndex: number): string | undefined {
 		// If there isn't any cached data, return undefined.
-		if (!this._cachedTableData) {
+		if (!this._lastFetchResult) {
 			return undefined;
 		}
 
-		// If the row isn't cached, return undefined.
-		if (rowIndex < this._cachedTableData.firstRowIndex ||
-			rowIndex > this._cachedTableData.lastRowIndex
+		// If the cell isn't cached, return undefined.
+		if (rowIndex < this._lastFetchResult.rowStartIndex ||
+			rowIndex >= this._lastFetchResult.rowEndIndex ||
+			columnIndex < this._lastFetchResult.columnStartIndex ||
+			columnIndex >= this._lastFetchResult.columnEndIndex
 		) {
 			return undefined;
 		}
 
-		// If the column isn't cached, return undefined.
-		const colIndex = this._cachedTableData.columnIndices.indexOf(columnIndex);
-		if (colIndex === -1) {
-			return undefined;
-		}
-
-		// Calculate the cached row index.
-		const cachedRowIndex = rowIndex - this._cachedTableData.firstRowIndex;
+		// Calculate the cache indices.
+		const cachedRowIndex = rowIndex - this._lastFetchResult.rowStartIndex;
+		const cachedColIndex = columnIndex - this._lastFetchResult.columnStartIndex;
 
 		// Return the cached value.
-		return this._cachedTableData.tableData.columns[colIndex][cachedRowIndex];
+		return this._lastFetchResult.data.columns[cachedColIndex][cachedRowIndex];
 	}
 }
