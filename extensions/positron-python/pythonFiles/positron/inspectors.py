@@ -15,7 +15,14 @@ import sys
 import types
 import uuid
 from abc import ABC, abstractmethod
-from collections.abc import Mapping, MutableMapping, MutableSequence, MutableSet, Sequence, Set
+from collections.abc import (
+    Mapping,
+    MutableMapping,
+    MutableSequence,
+    MutableSet,
+    Sequence,
+    Set,
+)
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -204,7 +211,10 @@ class BooleanInspector(PositronInspector[bool]):
 
 class BytesInspector(PositronInspector[bytes]):
     def get_display_value(
-        self, value: bytes, print_width: Optional[int] = PRINT_WIDTH, truncate_at: int = TRUNCATE_AT
+        self,
+        value: bytes,
+        print_width: Optional[int] = PRINT_WIDTH,
+        truncate_at: int = TRUNCATE_AT,
     ) -> Tuple[str, bool]:
         # Ignore print_width for strings
         return super().get_display_value(value, None, truncate_at)
@@ -362,7 +372,10 @@ class NumberInspector(PositronInspector[numbers.Number]):
 
 class StringInspector(PositronInspector[str]):
     def get_display_value(
-        self, value: str, print_width: Optional[int] = PRINT_WIDTH, truncate_at: int = TRUNCATE_AT
+        self,
+        value: str,
+        print_width: Optional[int] = PRINT_WIDTH,
+        truncate_at: int = TRUNCATE_AT,
     ) -> Tuple[str, bool]:
         # Ignore print_width for strings
         display_value, is_truncated = super().get_display_value(value, None, truncate_at)
@@ -497,7 +510,11 @@ class CollectionInspector(_BaseCollectionInspector[CollectionT]):
 
     def value_to_json(self, value: CollectionT) -> JsonData:
         if isinstance(value, range):
-            return {"start": value.start, "stop": value.stop, "step": value.step}
+            return {
+                "start": value.start,
+                "stop": value.stop,
+                "step": value.step,
+            }
 
         return super().value_to_json(value)
 
@@ -516,7 +533,11 @@ class CollectionInspector(_BaseCollectionInspector[CollectionT]):
                 raise ValueError(f"Expected data['step'] to be int, got {data['step']}")
 
             # TODO(pyright): cast shouldn't be necessary, recheck in a future version of pyright
-            return range(cast(int, data["start"]), cast(int, data["stop"]), cast(int, data["step"]))
+            return range(
+                cast(int, data["start"]),
+                cast(int, data["stop"]),
+                cast(int, data["step"]),
+            )
 
         return super().value_from_json(type_name, data)
 
@@ -629,7 +650,15 @@ class TorchTensorInspector(_BaseArrayInspector["torch.Tensor"]):
 #
 
 
-MT = TypeVar("MT", Mapping, "pd.DataFrame", "pl.DataFrame", "pd.Series", "pl.Series", "pd.Index")
+MT = TypeVar(
+    "MT",
+    Mapping,
+    "pd.DataFrame",
+    "pl.DataFrame",
+    "pd.Series",
+    "pl.Series",
+    "pd.Index",
+)
 
 
 class _BaseMapInspector(PositronInspector[MT], ABC):
@@ -639,6 +668,15 @@ class _BaseMapInspector(PositronInspector[MT], ABC):
     @abstractmethod
     def get_keys(self, value: MT) -> Collection[Any]:
         pass
+
+    def get_size(self, value: MT) -> int:
+        result = 1
+        for dim in getattr(value, "shape", [len(value)]):
+            result *= dim
+
+        # Issue #2174: fudge factor, say 8 bytes per value as a rough
+        # estimate
+        return result * 8
 
     def has_child(self, value: MT, access_key: str) -> bool:
         return decode_access_key(access_key) in self.get_keys(value)
@@ -829,7 +867,12 @@ class BaseTableInspector(_BaseMapInspector[Table], Generic[Table, Column], ABC):
             columns.append(data_column)
         rowCount = value.shape[0]
 
-        return DataSet(id=str(uuid.uuid4()), title=title, columns=columns, rowCount=rowCount)
+        return DataSet(
+            id=str(uuid.uuid4()),
+            title=title,
+            columns=columns,
+            rowCount=rowCount,
+        )
 
 
 #
