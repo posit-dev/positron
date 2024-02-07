@@ -178,7 +178,15 @@ def test_summarize_string_truncated() -> None:
 
 # Python 3 ints are unbounded, but we include a few large numbers
 # for basic test cases
-INT_CASES = [-sys.maxsize * 100, -sys.maxsize, -1, 0, 1, sys.maxsize, sys.maxsize * 100]
+INT_CASES = [
+    -sys.maxsize * 100,
+    -sys.maxsize,
+    -1,
+    0,
+    1,
+    sys.maxsize,
+    sys.maxsize * 100,
+]
 
 
 @pytest.mark.parametrize("case", INT_CASES)
@@ -364,7 +372,12 @@ def test_summarize_bytes(case: bytes) -> None:
     assert_variable_equal(result, expected)
 
 
-BYTEARRAY_CASES = [bytearray(), bytearray(0), bytearray(1), bytearray(b"\x41\x42\x43")]
+BYTEARRAY_CASES = [
+    bytearray(),
+    bytearray(0),
+    bytearray(1),
+    bytearray(b"\x41\x42\x43"),
+]
 
 
 @pytest.mark.parametrize("case", BYTEARRAY_CASES)
@@ -441,7 +454,10 @@ def test_summarize_memoryview() -> None:
 # Test Timestamps
 #
 
-TIMESTAMP_CASES = [pd.Timestamp("2021-01-01 01:23:45"), datetime.datetime(2021, 1, 1, 1, 23, 45)]
+TIMESTAMP_CASES = [
+    pd.Timestamp("2021-01-01 01:23:45"),
+    datetime.datetime(2021, 1, 1, 1, 23, 45),
+]
 
 
 @pytest.mark.parametrize("case", TIMESTAMP_CASES)
@@ -1071,7 +1087,10 @@ def test_summarize_polars_series() -> None:
         (pd.DataFrame, {"a": [1, 2], "b": ["3", "4"]}),
         (pl.DataFrame, {"a": [1, 2], "b": ["3", "4"]}),
         (pd.Index, [0, 1]),
-        (pd.Index, [datetime.datetime(2021, 1, 1), datetime.datetime(2021, 1, 2)]),
+        (
+            pd.Index,
+            [datetime.datetime(2021, 1, 1), datetime.datetime(2021, 1, 2)],
+        ),
         (np.array, [0, 1]),  # 1D
         (np.array, [[0, 1], [2, 3]]),  # 2D
     ],
@@ -1087,6 +1106,21 @@ def test_summarize_children(cls: Type, value: Any) -> None:
         summary,
         [not_none(_summarize_variable(key, case[key])) for key in keys],
     )
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        (pd.Series([1, 2, 3, 4]), 32),
+        (pl.Series([1, 2, 3, 4]), 32),
+        (pd.DataFrame({"a": [1, 2], "b": ["3", "4"]}), 32),
+        (pl.DataFrame({"a": [1, 2], "b": ["3", "4"]}), 32),
+        (pd.Index([0, 1]), 16),
+    ],
+)
+def test_pandas_polars_get_size(value: Type, expected: int) -> None:
+    inspector = get_inspector(value)
+    assert inspector.get_size(value) == expected
 
 
 @pytest.mark.parametrize(
