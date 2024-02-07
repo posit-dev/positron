@@ -26,7 +26,7 @@ if (args.length) {
 	comms = comms.filter(comm => args.includes(comm));
 }
 
-if (comms.length == 0) {
+if (comms.length === 0) {
 	console.log(`
 	  No comms to process! Possible reasons include:
 	    * No files found in '${commsDir}'
@@ -58,14 +58,14 @@ interface CommMetadata {
 }
 
 interface MethodParam {
-	name: string,
-	description: string,
-	required?: boolean,
+	name: string;
+	description: string;
+	required?: boolean;
 	schema: {
-		type: string,
-		enum?: string[],
-		items?: any
-	}
+		type: string;
+		enum?: string[];
+		items?: any;
+	};
 }
 
 // Maps from JSON schema types to Typescript types
@@ -624,8 +624,8 @@ use serde::Serialize;
 	}
 
 	if (frontend && frontend.methods.some((method: any) => method.result && method.result.schema)) {
-		const enumRequestType = `${snakeCaseToSentenceCase(name)}FrontendRequest`
-		const enumReplyType = `${snakeCaseToSentenceCase(name)}FrontendReply`
+		const enumRequestType = `${snakeCaseToSentenceCase(name)}FrontendRequest`;
+		const enumReplyType = `${snakeCaseToSentenceCase(name)}FrontendReply`;
 		yield `/**
 * Conversion of JSON values to frontend RPC Reply types
 */
@@ -643,7 +643,7 @@ pub fn ${name}_frontend_reply_from_value(
 				const hasParams = method.params.length > 0;
 
 				const schema = method.result.schema;
-				const replyHasParams = schema && schema.type !== 'null'
+				const replyHasParams = schema && schema.type !== 'null';
 
 				const variant = hasParams ? `${variantName}(_)` : variantName;
 
@@ -902,8 +902,9 @@ from ._vendor.pydantic import BaseModel, Field
 
 		for (const method of frontend.methods) {
 			if (method.params.length > 0) {
-				models.push(`${snakeCaseToSentenceCase(method.name)}Params`);
-				yield `class ${models[models.length - 1]}(BaseModel):\n`;
+				const klass = `${snakeCaseToSentenceCase(method.name)}Params`;
+				models.push(klass);
+				yield `class ${klass}(BaseModel):\n`;
 				yield `    """\n`;
 				yield formatComment('    ', method.summary);
 				yield `    """\n`;
@@ -1312,7 +1313,7 @@ async function createCommInterface() {
 				}
 
 				// Write the output file
-				console.log(`Writing to ${tsOutputFile}`)
+				console.log(`Writing to ${tsOutputFile}`);
 				writeFileSync(tsOutputFile, ts, { encoding: 'utf-8' });
 
 				// Create the Rust output file
@@ -1323,7 +1324,7 @@ async function createCommInterface() {
 				}
 
 				// Write the output file
-				console.log(`Writing to ${rustOutputFile}`)
+				console.log(`Writing to ${rustOutputFile}`);
 				writeFileSync(rustOutputFile, rust, { encoding: 'utf-8' });
 
 				// Create the Python output file
@@ -1334,7 +1335,7 @@ async function createCommInterface() {
 				}
 
 				// Write the output file
-				console.log(`Writing to ${pythonOutputFile}`)
+				console.log(`Writing to ${pythonOutputFile}`);
 				writeFileSync(pythonOutputFile, python, { encoding: 'utf-8' });
 
 				// Use black to format the Python file; the lint tests for the
