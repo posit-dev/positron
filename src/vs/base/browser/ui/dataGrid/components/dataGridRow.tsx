@@ -51,7 +51,7 @@ export const DataGridRow = (props: DataGridRowProps) => {
 		);
 
 		// Adjust the left offset for the next column.
-		left += column.width;
+		left += context.instance.getColumnWidth(columnIndex);
 	}
 
 	// Render.

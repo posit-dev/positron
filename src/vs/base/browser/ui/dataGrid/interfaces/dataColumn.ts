@@ -29,14 +29,4 @@ export interface IDataColumn {
 	 * Gets the alignment.
 	 */
 	readonly alignment: DataColumnAlignment;
-
-	/**
-	 * Gets or sets the width.
-	 */
-	width: number;
-
-	/**
-	 * Gets or sets the layout width.
-	 */
-	layoutWidth: number;
 }

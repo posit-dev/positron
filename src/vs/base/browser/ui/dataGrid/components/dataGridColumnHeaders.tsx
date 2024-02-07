@@ -49,7 +49,7 @@ export const DataGridColumnHeaders = (props: DataGridColumnHeadersProps) => {
 		);
 
 		// Adjust the left offset for the next column.
-		left += column.width;
+		left += context.instance.getColumnWidth(columnIndex);
 	}
 
 	// Render.

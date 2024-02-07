@@ -67,7 +67,7 @@ export const DataGridRowCell = (props: DataGridRowCellProps) => {
 				)}
 			style={{
 				left: props.left,
-				width: props.column.width,
+				width: context.instance.getColumnWidth(props.columnIndex),
 				height: context.instance.rowHeight
 			}}
 			onMouseDown={mouseDownHandler}
@@ -96,7 +96,7 @@ export const DataGridRowCell = (props: DataGridRowCellProps) => {
 				onBeginResize={() => ({
 					minimumWidth: context.instance.minimumColumnWidth,
 					maximumWidth: 400,
-					startingWidth: props.column.width
+					startingWidth: context.instance.getColumnWidth(props.columnIndex)
 				})}
 				onResize={width =>
 					context.instance.setColumnWidth(props.columnIndex, width)

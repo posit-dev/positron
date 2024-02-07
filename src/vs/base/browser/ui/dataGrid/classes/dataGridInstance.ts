@@ -6,7 +6,7 @@ import { Emitter } from 'vs/base/common/event';
 import { Disposable } from 'vs/base/common/lifecycle';
 import { IDataColumn } from 'vs/base/browser/ui/dataGrid/interfaces/dataColumn';
 import { IColumnSortKey } from 'vs/base/browser/ui/dataGrid/interfaces/columnSortKey';
-import { CellSelectionState, ColumnSelectionState, IDataGridInstance, MouseSelectionType, RowSelectionState } from 'vs/base/browser/ui/dataGrid/interfaces/dataGridInstance';
+import { CellSelectionState, ColumnSelectionState, ExtendColumnSelectionBy, ExtendRowSelectionBy, IDataGridInstance, MouseSelectionType, RowSelectionState } from 'vs/base/browser/ui/dataGrid/interfaces/dataGridInstance';
 
 /**
  * ColumnSortKey class.
@@ -129,14 +129,19 @@ export abstract class DataGridInstance extends Disposable implements IDataGridIn
 	private _columnHeadersHeight: number;
 
 	/**
-	 * Gets or sets the row headers width.
-	 */
-	private _rowHeadersWidth: number;
-
-	/**
 	 * Gets or sets the minimum column width
 	 */
 	private _minimumColumnWidth: number;
+
+	/**
+	 * Gets or sets the default column width
+	 */
+	private _defaultColumnWidth: number;
+
+	/**
+	 * Gets or sets the row headers width.
+	 */
+	private _rowHeadersWidth: number;
 
 	/**
 	 * Gets or sets the row height.
@@ -152,6 +157,11 @@ export abstract class DataGridInstance extends Disposable implements IDataGridIn
 	 * Gets or sets the columns.
 	 */
 	private _columns: IDataColumn[] = [];
+
+	/**
+	 * Gets the column widths.
+	 */
+	private readonly _columnWidths = new Map<number, number>();
 
 	/**
 	 * Gets the column sort keys.
@@ -230,6 +240,7 @@ export abstract class DataGridInstance extends Disposable implements IDataGridIn
 		columnHeadersHeight: number;
 		rowHeadersWidth: number;
 		minimumColumnWidth: number;
+		defaultColumnWidth: number;
 		scrollbarWidth: number;
 	}) {
 		// Call the base class's constructor.
@@ -237,8 +248,9 @@ export abstract class DataGridInstance extends Disposable implements IDataGridIn
 
 		// Set the options.
 		this._columnHeadersHeight = options.columnHeadersHeight;
-		this._rowHeadersWidth = options.rowHeadersWidth;
 		this._minimumColumnWidth = options.minimumColumnWidth;
+		this._defaultColumnWidth = options.defaultColumnWidth;
+		this._rowHeadersWidth = options.rowHeadersWidth;
 		this._scrollbarWidth = options.scrollbarWidth;
 	}
 
@@ -315,14 +327,20 @@ export abstract class DataGridInstance extends Disposable implements IDataGridIn
 		let columnIndex = this._firstColumnIndex;
 		let availableLayoutWidth = this.layoutWidth;
 		while (columnIndex < this._columns.length) {
-			const column = this._columns[columnIndex];
-			if (column.width > availableLayoutWidth) {
+			// Get the column width.
+			const columnWidth = this.getColumnWidth(columnIndex);
+
+			// If the column width would exceed the available layout width, break out of the loop.
+			if (columnWidth > availableLayoutWidth) {
 				break;
 			}
 
+			// Increment the visible columns and the column index.
 			visibleColumns++;
 			columnIndex++;
-			availableLayoutWidth -= column.width;
+
+			// Adjust the available layout width.
+			availableLayoutWidth -= columnWidth;
 		}
 
 		// Done.
@@ -340,11 +358,19 @@ export abstract class DataGridInstance extends Disposable implements IDataGridIn
 	 * Gets the maximum first column.
 	 */
 	get maximumFirstColumnIndex() {
+		// When there are no columns, return 0.
+		if (!this.columns) {
+			return 0;
+		}
+
 		// Calculate the maximum first column by looking backward through the columns for the last
 		// column that fits.
+		let layoutWidth = this.layoutWidth - this.getColumnWidth(this.columns - 1);
 		let maximumFirstColumn = this.columns - 1;
 		for (let columnIndex = maximumFirstColumn - 1; columnIndex >= 0; columnIndex--) {
-			if (this._columns[columnIndex].layoutWidth < this.layoutWidth) {
+			const columnWidth = this.getColumnWidth(columnIndex);
+			if (columnWidth < layoutWidth) {
+				layoutWidth -= columnWidth;
 				maximumFirstColumn--;
 			} else {
 				break;
@@ -401,29 +427,43 @@ export abstract class DataGridInstance extends Disposable implements IDataGridIn
 	public setColumns(columns: IDataColumn[]) {
 		// Set the columns.
 		this._columns = columns;
+	}
 
-		// Calculates the layout widths of the columns.
-		this.calculateColumnLayoutWidths(this._columns.length - 1);
+	/**
+	 * Gets the the width of a column.
+	 * @param columnIndex The column index.
+	 */
+	getColumnWidth(columnIndex: number): number {
+		const columnWidth = this._columnWidths.get(columnIndex);
+		if (columnWidth !== undefined) {
+			return columnWidth;
+		} else {
+			return this._defaultColumnWidth;
+		}
 	}
 
 	/**
 	 * Sets the width of a column.
 	 * @param columnIndex The column index.
-	 * @param width The width.
+	 * @param columnWidth The column width.
 	 */
-	setColumnWidth(columnIndex: number, width: number) {
-		// If the column width changed, update it.
-		if (width !== this._columns[columnIndex].width) {
-			// Set the column width.
-			this._columns[columnIndex].width = width;
-			this.calculateColumnLayoutWidths(columnIndex);
-
-			// Fetch data.
-			this.fetchData();
-
-			// Fire the onDidUpdate event.
-			this._onDidUpdateEmitter.fire();
+	setColumnWidth(columnIndex: number, columnWidth: number) {
+		// Get the current column width.
+		const currentColumnWidth = this._columnWidths.get(columnIndex);
+		if (currentColumnWidth !== undefined) {
+			if (columnWidth === currentColumnWidth) {
+				return;
+			}
 		}
+
+		// Set the column width.
+		this._columnWidths.set(columnIndex, columnWidth);
+
+		// Fetch data.
+		this.fetchData();
+
+		// Fire the onDidUpdate event.
+		this._onDidUpdateEmitter.fire();
 	}
 
 	/**
@@ -533,14 +573,31 @@ export abstract class DataGridInstance extends Disposable implements IDataGridIn
 	 * @param height The height.
 	 */
 	setScreenSize(width: number, height: number) {
-		this._width = width;
-		this._height = height;
+		// A flag that is set to true when the screen size changed.
+		let screenSizeChanged = false;
 
-		// Fetch data.
-		this.fetchData();
+		// Set the width, if it changed.
+		if (width !== this._width) {
+			this._width = width;
+			this.optimizeFirstColumn();
+			screenSizeChanged = true;
+		}
 
-		// Fire the onDidUpdate event.
-		this._onDidUpdateEmitter.fire();
+		// Set the height, if it changed.
+		if (height !== this._height) {
+			this._height = height;
+			this.optimizeFirstRow();
+			screenSizeChanged = true;
+		}
+
+		// If the screen size changed, fetch data and fire the onDidUpdate event.
+		if (screenSizeChanged) {
+			// Fetch data.
+			this.fetchData();
+
+			// Fire the onDidUpdate event.
+			this._onDidUpdateEmitter.fire();
+		}
 	}
 
 	/**
@@ -991,9 +1048,10 @@ export abstract class DataGridInstance extends Disposable implements IDataGridIn
 	}
 
 	/**
-	 * Extends selection left.
+	 * Extends column selection left.
+	 * @param extendColumnSelectionBy A value that describes how to extend the column selection.
 	 */
-	extendSelectionLeft() {
+	extendColumnSelectionLeft(extendColumnSelectionBy: ExtendColumnSelectionBy) {
 		// If there is a row selection, do nothing.
 		if (this._rowSelectionRange || this._rowSelectionIndexes.size) {
 			return;
@@ -1053,9 +1111,10 @@ export abstract class DataGridInstance extends Disposable implements IDataGridIn
 	}
 
 	/**
-	 * Extends selection right.
+	 * Extends column selection right.
+	 * @param extendColumnSelectionBy A value that describes how to extend the column selection.
 	 */
-	extendSelectionRight() {
+	extendColumnSelectionRight(extendColumnSelectionBy: ExtendColumnSelectionBy) {
 		// If there is a row selection, do nothing.
 		if (this._rowSelectionRange || this._rowSelectionIndexes.size) {
 			return;
@@ -1115,9 +1174,10 @@ export abstract class DataGridInstance extends Disposable implements IDataGridIn
 	}
 
 	/**
-	 * Extends selection up.
+	 * Extends row selection up.
+	 * @param extendRowSelectionBy A value that describes how to extend the row selection.
 	 */
-	extendSelectionUp() {
+	extendRowSelectionUp(extendRowSelectionBy: ExtendRowSelectionBy) {
 		// If there is a column selection, do nothing.
 		if (this._columnSelectionRange || this._columnSelectionIndexes.size) {
 			return;
@@ -1177,9 +1237,10 @@ export abstract class DataGridInstance extends Disposable implements IDataGridIn
 	}
 
 	/**
-	 * Extends selection down.
+	 * Extends row selection down.
+	 * @param extendRowSelectionBy A value that describes how to extend the row selection.
 	 */
-	extendSelectionDown() {
+	extendRowSelectionDown(extendRowSelectionBy: ExtendRowSelectionBy) {
 		// If there is a column selection, do nothing.
 		if (this._columnSelectionRange || this._columnSelectionIndexes.size) {
 			return;
@@ -1468,22 +1529,86 @@ export abstract class DataGridInstance extends Disposable implements IDataGridIn
 	//#region Private Methods
 
 	/**
-	 * Calculates the layout widths of the columns starting at the specified column.
-	 * @param columnIndex The column index.
+	 * Optimizes the first column.
 	 */
-	private calculateColumnLayoutWidths(columnIndex: number) {
-		// Set the previous width.
-		let previousWidth = columnIndex < this._columns.length - 1 ?
-			this._columns[columnIndex + 1].layoutWidth :
-			0;
+	private optimizeFirstColumn() {
+		// If the waffle isn't scrolled horizontally, return.
+		if (!this.firstColumnIndex) {
+			return;
+		}
 
-		// Calculate the layout widths of the columns starting at the specified column.
-		for (let i = columnIndex; i >= 0; i--) {
-			// Get the column.
-			const column = this._columns[i];
+		// Calculate the layout width.
+		let layoutWidth = this.layoutWidth;
+		for (let i = this.firstColumnIndex; i < this.columns; i++) {
+			// Adjust the layout width.
+			layoutWidth -= this.getColumnWidth(i);
 
-			// Set the column's layout width.
-			previousWidth = column.layoutWidth = previousWidth + column.width;
+			// If the layout width has been exhausted, return.
+			if (layoutWidth <= 0) {
+				return;
+			}
+		}
+
+		// See if we can optimize the first column.
+		let firstColumnIndex: number | undefined = undefined;
+		for (let i = this.firstColumnIndex - 1; i >= 0 && layoutWidth > 0; i--) {
+			// Get the column width.
+			const columnWidth = this.getColumnWidth(i);
+
+			// If the column will fit, make it the first column index.
+			if (columnWidth <= layoutWidth) {
+				firstColumnIndex = i;
+			}
+
+			// Adjust the layout width.
+			layoutWidth -= columnWidth;
+		}
+
+		// Set the first column, if it was adjusted.
+		if (firstColumnIndex) {
+			this._firstColumnIndex = firstColumnIndex;
+		}
+	}
+
+	/**
+	 * Optimizes the first row.
+	 */
+	private optimizeFirstRow() {
+		// If the waffle isn't scrolled vertically, return.
+		if (!this.firstRowIndex) {
+			return;
+		}
+
+		// Calculate the layout height.
+		let layoutHeight = this.layoutHeight;
+		for (let i = this.firstRowIndex; i < this.rows; i++) {
+			// Adjust the layout height.
+			layoutHeight -= this.rowHeight;
+
+			// If the layout height has been exhausted, return.
+			if (layoutHeight <= 0) {
+				return;
+			}
+		}
+
+		// See if we can optimize the first column.
+		let firstRowIndex: number | undefined = undefined;
+		for (let i = this.firstRowIndex - 1; i >= 0 && layoutHeight > 0; i--) {
+			// Get the row height.
+			const rowHeight = this.rowHeight;
+
+			// If the row will fit, make it the first row index.
+			if (rowHeight <= layoutHeight) {
+				firstRowIndex = i;
+			}
+
+			// Adjust the layout height.
+			layoutHeight -= rowHeight;
+		}
+
+		// Set the first row, if it was adjusted.
+		if (firstRowIndex) {
+			this._firstRowIndex = firstRowIndex;
 		}
 	}
 

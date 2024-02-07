@@ -28,8 +28,9 @@ export class PositronDataToolDataGridInstance extends DataGridInstance {
 		// Call the base class's constructor.
 		super({
 			columnHeadersHeight: 34,
-			rowHeadersWidth: 55,
 			minimumColumnWidth: 100,
+			defaultColumnWidth: 200,
+			rowHeadersWidth: 55,
 			scrollbarWidth: 14
 		});
 

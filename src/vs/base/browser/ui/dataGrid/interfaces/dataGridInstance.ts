@@ -7,6 +7,24 @@ import { IDataColumn } from 'vs/base/browser/ui/dataGrid/interfaces/dataColumn';
 import { IColumnSortKey } from 'vs/base/browser/ui/dataGrid/interfaces/columnSortKey';
 
 /**
+ * ExtendColumnSelectionBy enumeration.
+ */
+export enum ExtendColumnSelectionBy {
+	Column = 'column',
+	Page = 'page',
+	Screen = 'screen'
+}
+
+/**
+ * ExtendRowSelectionBy enumeration.
+ */
+export enum ExtendRowSelectionBy {
+	Row = 'row',
+	Page = 'page',
+	Screen = 'screen'
+}
+
+/**
  * CellSelectionState enumeration.
  */
 export enum CellSelectionState {
@@ -143,11 +161,17 @@ export interface IDataGridInstance {
 	setColumns(columns: IDataColumn[]): void;
 
 	/**
+	 * Gets the the width of a column.
+	 * @param columnIndex The column index.
+	 */
+	getColumnWidth(columnIndex: number): number;
+
+	/**
 	 * Sets the width of a column.
 	 * @param columnIndex The column index.
-	 * @param width The width.
+	 * @param columnWidth The column width.
 	 */
-	setColumnWidth(columnIndex: number, width: number): void;
+	setColumnWidth(columnIndex: number, columnWidth: number): void;
 
 	/**
 	 * Sets the row headers width.
@@ -285,24 +309,28 @@ export interface IDataGridInstance {
 	mouseSelectRow(rowIndex: number, mouseSelectionType: MouseSelectionType): void;
 
 	/**
-	 * Extends selection left.
+	 * Extends column selection left.
+	 * @param extendColumnSelectionBy A value that describes how to extend the column selection.
 	 */
-	extendSelectionLeft(): void;
+	extendColumnSelectionLeft(extendColumnSelectionBy: ExtendColumnSelectionBy): void;
 
 	/**
-	 * Extends selection right.
+	 * Extends column selection right.
+	 * @param extendColumnSelectionBy A value that describes how to extend the column selection.
 	 */
-	extendSelectionRight(): void;
+	extendColumnSelectionRight(extendColumnSelectionBy: ExtendColumnSelectionBy): void;
 
 	/**
-	 * Extends selection up.
+	 * Extends row selection up.
+	 * @param extendRowSelectionBy A value that describes how to extend the row selection.
 	 */
-	extendSelectionUp(): void;
+	extendRowSelectionUp(extendRowSelectionBy: ExtendRowSelectionBy): void;
 
 	/**
-	 * Extends selection down.
+	 * Extends row selection down.
+	 * @param extendRowSelectionBy A value that describes how to extend the row selection.
 	 */
-	extendSelectionDown(): void;
+	extendRowSelectionDown(extendRowSelectionBy: ExtendRowSelectionBy): void;
 
 	/**
 	 * Returns a cell selection state.

@@ -109,7 +109,7 @@ export const DataGridColumnHeader = (props: DataGridColumnHeaderProps) => {
 				new ContextMenuItem({
 					checked: false,
 					label: copyColumnTitle,
-					disabled: true,
+					disabled: false,
 					icon: 'copy',
 					onSelected: () => console.log('Copy')
 				}),
@@ -133,7 +133,7 @@ export const DataGridColumnHeader = (props: DataGridColumnHeaderProps) => {
 				)}
 			style={{
 				left: props.left,
-				width: props.column.width
+				width: context.instance.getColumnWidth(props.columnIndex)
 			}}
 			onMouseDown={mouseDownHandler}
 		>
@@ -181,7 +181,7 @@ export const DataGridColumnHeader = (props: DataGridColumnHeaderProps) => {
 				onBeginResize={() => ({
 					minimumWidth: context.instance.minimumColumnWidth,
 					maximumWidth: 400,
-					startingWidth: props.column.width
+					startingWidth: context.instance.getColumnWidth(props.columnIndex)
 				})}
 				onResize={width =>
 					context.instance.setColumnWidth(props.columnIndex, width)
