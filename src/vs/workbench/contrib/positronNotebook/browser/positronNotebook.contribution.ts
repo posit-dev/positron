@@ -5,84 +5,53 @@
 import { Disposable } from 'vs/base/common/lifecycle';
 import { Schemas } from 'vs/base/common/network';
 import { URI } from 'vs/base/common/uri';
-import { ServicesAccessor } from 'vs/editor/browser/editorExtensions';
 import { localize } from 'vs/nls';
-import { ILocalizedString } from 'vs/platform/action/common/action';
-import { Action2, registerAction2 } from 'vs/platform/actions/common/actions';
 import { SyncDescriptor } from 'vs/platform/instantiation/common/descriptors';
 import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
-import { INotificationService } from 'vs/platform/notification/common/notification';
 import { Registry } from 'vs/platform/registry/common/platform';
-import { IEditorPaneRegistry, EditorPaneDescriptor } from 'vs/workbench/browser/editor';
+import { EditorPaneDescriptor, IEditorPaneRegistry } from 'vs/workbench/browser/editor';
 import { IWorkbenchContributionsRegistry, Extensions as WorkbenchExtensions } from 'vs/workbench/common/contributions';
 import { EditorExtensions, IEditorFactoryRegistry, IEditorSerializer } from 'vs/workbench/common/editor';
 
-import { IEditorResolverService, RegisteredEditorPriority } from 'vs/workbench/services/editor/common/editorResolverService';
-import { IEditorService } from 'vs/workbench/services/editor/common/editorService';
-import { LifecyclePhase } from 'vs/workbench/services/lifecycle/common/lifecycle';
-import { PositronNotebookEditorInput, PositronNotebookEditorInputOptions } from './PositronNotebookEditorInput';
-import { PositronNotebookEditor } from './PositronNotebookEditor';
-import { EditorInput } from 'vs/workbench/common/editor/editorInput';
-import { assertType } from 'vs/base/common/types';
 import { parse } from 'vs/base/common/marshalling';
+import { assertType } from 'vs/base/common/types';
+import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
+import { Extensions as ConfigurationExtensions, ConfigurationScope, IConfigurationRegistry } from 'vs/platform/configuration/common/configurationRegistry';
+import { EditorInput } from 'vs/workbench/common/editor/editorInput';
+import { IEditorResolverService, RegisteredEditorPriority } from 'vs/workbench/services/editor/common/editorResolverService';
+import { LifecyclePhase } from 'vs/workbench/services/lifecycle/common/lifecycle';
+import { PositronNotebookEditor } from './PositronNotebookEditor';
+import { PositronNotebookEditorInput, PositronNotebookEditorInputOptions } from './PositronNotebookEditorInput';
+import { positronConfigurationNodeBase } from 'vs/workbench/services/languageRuntime/common/languageRuntime';
 
 
 /**
- * Variable that turns on or off the use of the Positron Notebook editor instead of the default
- * vscode one.
- * TODO: Make this variable based on a flag status set by the user.
+ * Key for the configuration setting that determines whether to use the Positron Notebook editor
  */
-export const USE_POSITRON_NOTEBOOK_EDITOR = true;
+const USE_POSITRON_NOTEBOOK_EDITOR_CONFIG_KEY = 'positron.notebooks.usePositronNotebooks';
 
 /**
- * Positron notebook action category.
+ * Retrieve the value of the configuration setting that determines whether to use the Positron
+ * Notebook editor. Makes sure that the value is a boolean for type-safety.
+ * @param configurationService Configuration service
+ * @returns A boolean value that determines whether to use the Positron Notebook editor
  */
-const POSITRON_NOTEBOOK_CATEGORY = localize(
-	'positronNotebookCategory',
-	"Positron Notebook"
-);
-
-/**
- * The category for the actions below.
- */
-const category: ILocalizedString = {
-	value: POSITRON_NOTEBOOK_CATEGORY,
-	original: 'Open Positron Notebook'
-};
-
-
-export class OpenPositronNotebook extends Action2 {
-	constructor() {
-		super({
-			id: 'openPositronNotebook',
-			title: { value: localize('openPositronNotebook', "Open Positron Notebook"), original: 'Open Positron Notebook' },
-			category: category,
-			f1: true,
-
-		});
-	}
-
-	run(accessor: ServicesAccessor, ...args: unknown[]): void {
-		const notifictionService = accessor.get(INotificationService);
-		const editorService = accessor.get(IEditorService);
-
-		notifictionService.info('Hello Positron!');
-
-		// Open the editor.
-		const positronNotebookUri = URI.from({
-			scheme: Schemas.positronNotebook,
-			// TODO: Use a legitimate ID instead of "5"
-			path: `positron-notebook-5`
-		});
-
-		editorService.openEditor({
-			resource: positronNotebookUri
-		});
-	}
+export function getShouldUsePositronEditor(configurationService: IConfigurationService) {
+	return Boolean(configurationService.getValue(USE_POSITRON_NOTEBOOK_EDITOR_CONFIG_KEY));
 }
 
-registerAction2(OpenPositronNotebook);
-
+// Register the configuration setting that determines whether to use the Positron Notebook editor
+Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration).registerConfiguration({
+	...positronConfigurationNodeBase,
+	scope: ConfigurationScope.MACHINE_OVERRIDABLE,
+	properties: {
+		[USE_POSITRON_NOTEBOOK_EDITOR_CONFIG_KEY]: {
+			type: 'boolean',
+			default: true,
+			markdownDescription: localize('positron.usePositronNotebooks', "Should the Positron Notebook editor be used instead of the default one?"),
+		}
+	}
+});
 
 
 /**
