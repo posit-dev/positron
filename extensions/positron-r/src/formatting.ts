@@ -10,6 +10,8 @@ import * as fs from 'fs';
 import { timeout } from './util';
 import { randomUUID } from 'crypto';
 import { RSessionManager } from './session-manager';
+import { Disposable, DocumentOnTypeFormattingParams, RequestType, TextDocumentIdentifier } from 'vscode-languageclient';
+import { LanguageClient } from 'vscode-languageclient/node';
 
 export async function registerFormatter(context: vscode.ExtensionContext) {
 
@@ -99,5 +101,41 @@ class FormatterProvider implements vscode.DocumentFormattingEditProvider {
 			formattedSource
 		);
 		return [edit];
+	}
+}
+
+// This is a workaround for Ark's current LSP server implementation not
+// following the message order when handling requests. We send a versioned
+// document (unlike the OnTypeFormatting LSP request which doesn't include a
+// version) to let Ark detect out of order messages.
+const ON_TYPE_FORMATTING_REQUEST_TYPE: RequestType<DocumentOnTypeFormattingParams, vscode.TextEdit[], any> =
+	new RequestType('ark/internal/onTypeFormatting');
+
+export function registerOnTypeFormatter(client: LanguageClient): Disposable {
+	const rSel = { scheme: 'file', language: 'r' } as vscode.DocumentSelector;
+	return vscode.languages.registerOnTypeFormattingEditProvider(rSel, new ROnTypeFormattingEditProvider(client), '\n');
+}
+
+class ROnTypeFormattingEditProvider implements vscode.OnTypeFormattingEditProvider {
+	public constructor(private _client: LanguageClient) { }
+
+	public async provideOnTypeFormattingEdits(
+		document: vscode.TextDocument,
+		position: vscode.Position,
+		ch: string,
+		options: vscode.FormattingOptions,
+		token: vscode.CancellationToken
+	): Promise<vscode.TextEdit[]> {
+		// Include document version in the request
+		options.version = document.version;
+
+		let params = <DocumentOnTypeFormattingParams>{
+			textDocument: { uri: document.uri.toString() },
+			position,
+			ch,
+			options,
+		};
+
+		return await this._client.sendRequest(ON_TYPE_FORMATTING_REQUEST_TYPE, params, token);
 	}
 }

@@ -19,6 +19,7 @@ import {
 import { Socket } from 'net';
 import { RHelpTopicProvider } from './help';
 import { RLspOutputChannelManager } from './lsp-output-channel-manager';
+import { registerOnTypeFormatter } from './formatting';
 
 /**
  * The state of the language server.
@@ -287,6 +288,9 @@ export class ArkLsp implements vscode.Disposable {
 		const helpDisposable = positron.languages.registerHelpTopicProvider('r',
 			new RHelpTopicProvider(client));
 		this.activationDisposables.push(helpDisposable);
+
+		const onTypeFormatterDisposable = registerOnTypeFormatter(client);
+		this.activationDisposables.push(onTypeFormatterDisposable);
 	}
 
 	/**
