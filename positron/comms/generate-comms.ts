@@ -57,6 +57,17 @@ interface CommMetadata {
 	};
 }
 
+interface MethodParam {
+	name: string,
+	description: string,
+	required?: boolean,
+	schema: {
+		type: string,
+		enum?: string[],
+		items?: any
+	}
+}
+
 // Maps from JSON schema types to Typescript types
 const TypescriptTypeMap: Record<string, string> = {
 	'boolean': 'boolean',
@@ -685,6 +696,32 @@ from typing import Dict, List, Union, Optional
 JsonData = Union[Dict[str, "JsonData"], List["JsonData"], str, int, float, bool, None]
 
 `;
+	function* generatePostInit(props: Array<{ name: string, schema: any, isRequired: boolean }>, required?: any) {
+		// Add __post_init__ if any properties need additional boxing
+		const postInitProps: Array<{ name: String, klass: String, isRequired: boolean }> = [];
+		for (const { name, schema, isRequired } of props) {
+			if (schema.type == 'array' && schema.items.$ref) {
+				// The property is a List[OtherType], and that needs boxing
+				const klass = parseRef(schema.items.$ref, contracts);
+				postInitProps.push({ name, klass, isRequired });
+			}
+		}
+
+		if (postInitProps.length > 0) {
+			yield `    def __post_init__(self):\n`;
+			yield `        """ Revive parameters after initialization """\n`;
+
+			for (const item of postInitProps) {
+				if (!item.isRequired) {
+					yield `        if self.${item.name} is not None:\n    `
+				}
+				yield `        self.${item.name} = [\n`;
+				yield `            ${item.klass}(**d) if isinstance(d, dict) else d\n`;
+				yield `            for d in self.${item.name}]  # type: ignore\n\n`;
+			}
+		}
+	}
+
 	const contracts = [backend, frontend];
 	for (const source of contracts) {
 		if (!source) {
@@ -763,31 +800,12 @@ JsonData = Union[Dict[str, "JsonData"], List["JsonData"], str, int, float, bool,
 				yield '\n';
 			}
 
-			// Add __post_init__ if any properties need additional boxing
-			const postInitProps: Array<{ prop: String, klass: String, isRequired: boolean }> = [];
-			for (const prop of Object.keys(o.properties)) {
-				const schema = o.properties[prop];
-				const isRequired = !o.required || !o.required.includes(prop);
-				if (schema.type == 'array' && schema.items.$ref) {
-					// The property is a List[OtherType], and that needs boxing
-					const klass = parseRef(schema.items.$ref, contracts);
-					postInitProps.push({ prop, klass, isRequired });
-				}
-			}
-
-			if (postInitProps.length > 0) {
-				yield `    def __post_init__(self):\n`;
-				yield `        """ Revive parameters after initialization """\n`;
-
-				for (const item of postInitProps) {
-					if (item.isRequired) {
-						yield `        if self.${item.prop} is not None:\n    `
-					}
-					yield `        self.${item.prop} = [\n`;
-					yield `            ${item.klass}(**d) if isinstance(d, dict) else d\n`;
-					yield `            for d in self.${item.prop}]  # type: ignore\n\n`;
-				}
-			}
+			yield* generatePostInit(Object.keys(o.properties).map(name => {
+				return {
+					name, schema: o.properties[name],
+					isRequired: !o.required || o.required.includes(name)
+				};
+			}), o.required);
 
 			// Fields
 			for (const prop of Object.keys(o.properties)) {
@@ -838,14 +856,25 @@ JsonData = Union[Dict[str, "JsonData"], List["JsonData"], str, int, float, bool,
 				throw new Error(`No description for '${method.name}'; please add a description to the schema`);
 			}
 
-			if (method.params.length > 0) {
+			const params: Array<MethodParam> = method.params;
+
+			if (params.length > 0) {
 				yield `@dataclass\n`;
 				yield `class ${snakeCaseToSentenceCase(method.name)}Params:\n`;
 				yield `    """\n`;
 				yield formatComment('    ', method.description);
 				yield `    """\n`;
 				yield `\n`;
-				for (const param of method.params) {
+
+				yield* generatePostInit(params.map(param => {
+					return {
+						name: param.name,
+						schema: param.schema,
+						isRequired: param.required ?? true,
+					};
+				}));
+
+				for (const param of params) {
 					if (param.schema.enum) {
 						yield `    ${param.name}: ${snakeCaseToSentenceCase(method.name)}${snakeCaseToSentenceCase(param.name)}`;
 					} else {
