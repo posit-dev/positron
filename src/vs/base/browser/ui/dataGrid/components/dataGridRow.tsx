@@ -60,7 +60,7 @@ export const DataGridRow = (props: DataGridRowProps) => {
 			className='data-grid-row'
 			style={{
 				top: props.top,
-				height: context.instance.rowHeight
+				height: context.instance.getRowHeight(props.rowIndex)
 			}}
 		>
 			{rowCells}

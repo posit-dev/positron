@@ -17,10 +17,10 @@ import { IDataColumn } from 'vs/base/browser/ui/dataGrid/interfaces/dataColumn';
 import { useDataGridContext } from 'vs/base/browser/ui/dataGrid/dataGridContext';
 import { ContextMenuItem } from 'vs/base/browser/ui/contextMenu/contextMenuItem';
 import { selectionType } from 'vs/base/browser/ui/dataGrid/utilities/mouseUtilities';
+import { VerticalSplitter } from 'vs/base/browser/ui/positronComponents/verticalSplitter';
 import { ContextMenuSeparator } from 'vs/base/browser/ui/contextMenu/contextMenuSeparator';
 import { ColumnSelectionState } from 'vs/base/browser/ui/dataGrid/interfaces/dataGridInstance';
 import { MouseTrigger, PositronButton } from 'vs/base/browser/ui/positronComponents/positronButton';
-import { PositronColumnSplitter } from 'vs/base/browser/ui/positronComponents/positronColumnSplitter';
 
 /**
  * Localized strings.
@@ -177,7 +177,7 @@ export const DataGridColumnHeader = (props: DataGridColumnHeaderProps) => {
 				</PositronButton>
 			</div>
 
-			<PositronColumnSplitter
+			<VerticalSplitter
 				onBeginResize={() => ({
 					minimumWidth: context.instance.minimumColumnWidth,
 					maximumWidth: 400,

@@ -39,7 +39,7 @@
 	display: none;
 }
 
-.data-tool .splitter .positron-column-splitter {
+.data-tool .splitter .vertical-splitter {
 	background-color: var(--vscode-positronDataTool-border);
 }
 

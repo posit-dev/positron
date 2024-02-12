@@ -408,7 +408,7 @@ export const DataGridWaffle = (props: DataGridWaffleProps) => {
 		);
 
 		// Adjust the top for the next row.
-		top += context.instance.rowHeight;
+		top += context.instance.getRowHeight(rowIndex);
 	}
 
 	console.log(`Render number #${++renderCounter}`);
@@ -452,6 +452,7 @@ export const DataGridWaffle = (props: DataGridWaffleProps) => {
 					entries={context.instance.columns}
 					visibleEntries={context.instance.visibleColumns}
 					firstEntry={context.instance.firstColumnIndex}
+					maximumFirstEntry={context.instance.maximumFirstColumnIndex}
 					onDidChangeFirstEntry={firstColumnIndex =>
 						context.instance.setFirstColumn(firstColumnIndex)
 					}
@@ -465,6 +466,7 @@ export const DataGridWaffle = (props: DataGridWaffleProps) => {
 					entries={context.instance.rows}
 					visibleEntries={context.instance.visibleRows}
 					firstEntry={context.instance.firstRowIndex}
+					maximumFirstEntry={context.instance.maximumFirstRowIndex}
 					onDidChangeFirstEntry={firstRowIndex =>
 						context.instance.setFirstRow(firstRowIndex)
 					}

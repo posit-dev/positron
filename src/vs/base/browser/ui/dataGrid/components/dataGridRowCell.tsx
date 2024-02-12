@@ -14,8 +14,9 @@ import { isMacintosh } from 'vs/base/common/platform';
 import { positronClassNames } from 'vs/base/common/positronUtilities';
 import { IDataColumn } from 'vs/base/browser/ui/dataGrid/interfaces/dataColumn';
 import { useDataGridContext } from 'vs/base/browser/ui/dataGrid/dataGridContext';
-import { PositronColumnSplitter } from 'vs/base/browser/ui/positronComponents/positronColumnSplitter';
+import { VerticalSplitter } from 'vs/base/browser/ui/positronComponents/verticalSplitter';
 import { CellSelectionState } from 'vs/base/browser/ui/dataGrid/interfaces/dataGridInstance';
+import { HorizontalSplitter } from 'vs/base/browser/ui/positronComponents/horizontalSplitter';
 
 /**
  * DataGridRowCellProps interface.
@@ -68,7 +69,7 @@ export const DataGridRowCell = (props: DataGridRowCellProps) => {
 			style={{
 				left: props.left,
 				width: context.instance.getColumnWidth(props.columnIndex),
-				height: context.instance.rowHeight
+				height: context.instance.getRowHeight(props.rowIndex)
 			}}
 			onMouseDown={mouseDownHandler}
 		>
@@ -92,7 +93,7 @@ export const DataGridRowCell = (props: DataGridRowCellProps) => {
 			<div className={positronClassNames('text', props.column.alignment)}>
 				{context.instance.cell(props.columnIndex, props.rowIndex)}
 			</div>
-			<PositronColumnSplitter
+			<VerticalSplitter
 				onBeginResize={() => ({
 					minimumWidth: context.instance.minimumColumnWidth,
 					maximumWidth: 400,
@@ -100,6 +101,16 @@ export const DataGridRowCell = (props: DataGridRowCellProps) => {
 				})}
 				onResize={width =>
 					context.instance.setColumnWidth(props.columnIndex, width)
+				}
+			/>
+			<HorizontalSplitter
+				onBeginResize={() => ({
+					minimumHeight: context.instance.minimumRowHeight,
+					maximumHeight: 90,
+					startingHeight: context.instance.getRowHeight(props.rowIndex)
+				})}
+				onResize={height =>
+					context.instance.setRowHeight(props.rowIndex, height)
 				}
 			/>
 		</div>

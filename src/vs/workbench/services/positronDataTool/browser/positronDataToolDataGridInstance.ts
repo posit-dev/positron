@@ -24,13 +24,19 @@ export class PositronDataToolDataGridInstance extends DataGridInstance {
 
 	private _lastFetchResult?: FetchResult;
 
+	/**
+	 * Constructor.
+	 * @param dataToolClientInstance The DataToolClientInstance.
+	 */
 	constructor(dataToolClientInstance: DataToolClientInstance) {
 		// Call the base class's constructor.
 		super({
 			columnHeadersHeight: 34,
+			rowHeadersWidth: 55,
 			minimumColumnWidth: 100,
 			defaultColumnWidth: 200,
-			rowHeadersWidth: 55,
+			minimumRowHeight: 24,
+			defaultRowHeight: 24,
 			scrollbarWidth: 14
 		});
 
@@ -39,14 +45,17 @@ export class PositronDataToolDataGridInstance extends DataGridInstance {
 	}
 
 	/**
+	 * Gets the number of columns.
+	 */
+	get columns() {
+		return this._tableSchema ? this._tableSchema.total_num_columns : 0;
+	}
+
+	/**
 	 * Gets the number of rows.
 	 */
 	get rows() {
-		if (!this._tableSchema) {
-			return 0;
-		} else {
-			return this._tableSchema?.num_rows;
-		}
+		return this._tableSchema ? this._tableSchema.num_rows : 0;
 	}
 
 	/**

@@ -85,9 +85,19 @@ export interface IDataGridInstance {
 	readonly minimumColumnWidth: number;
 
 	/**
-	 * Gets the row height.
+	 * Gets the default column width.
 	 */
-	readonly rowHeight: number;
+	readonly defaultColumnWidth: number;
+
+	/**
+	 * Gets the minimum row height.
+	 */
+	readonly minimumRowHeight: number;
+
+	/**
+	 * Gets the default row height.
+	 */
+	readonly defaultRowHeight: number;
 
 	/**
 	 * Gets the scrollbar width.
@@ -115,22 +125,22 @@ export interface IDataGridInstance {
 	readonly layoutHeight: number;
 
 	/**
-	 * Gets the visible rows.
-	 */
-	readonly visibleRows: number;
-
-	/**
 	 * Gets the visible columns.
 	 */
 	readonly visibleColumns: number;
 
 	/**
-	 * Gets the maximum first column.
+	 * Gets the visible rows.
+	 */
+	readonly visibleRows: number;
+
+	/**
+	 * Gets the maximum first column index.
 	 */
 	readonly maximumFirstColumnIndex: number;
 
 	/**
-	 * Gets the maximum first row.
+	 * Gets the maximum first row index.
 	 */
 	readonly maximumFirstRowIndex: number;
 
@@ -174,12 +184,6 @@ export interface IDataGridInstance {
 	setColumnWidth(columnIndex: number, columnWidth: number): void;
 
 	/**
-	 * Sets the row headers width.
-	 * @param rowHeadersWidth The row headers width.
-	 */
-	setRowHeadersWidth(rowHeadersWidth: number): void;
-
-	/**
 	 * Sets a column sort key.
 	 * @param columnIndex The column index.
 	 * @param ascending The sort order; true for ascending, false for descending.
@@ -199,6 +203,26 @@ export interface IDataGridInstance {
 	 * @returns A Promise<void> that resolves when the sorting has completed.
 	 */
 	clearColumnSortKeys(): Promise<void>;
+
+	/**
+	 * Sets the row headers width.
+	 * @param rowHeadersWidth The row headers width.
+	 */
+	setRowHeadersWidth(rowHeadersWidth: number): void;
+
+	/**
+	 * Gets the the height of a row.
+	 * @param rowIndex The row index.
+	 * @returns The row height.
+	 */
+	getRowHeight(rowIndex: number): number;
+
+	/**
+	 * Sets the the height of a row.
+	 * @param rowIndex The row index.
+	 * @param rowHeight The row height.
+	 */
+	setRowHeight(rowIndex: number, rowHeight: number): void;
 
 	/**
 	 * Sets the screen size.
@@ -374,7 +398,7 @@ export interface IDataGridInstance {
 	columnSortKey(columnIndex: number): IColumnSortKey | undefined;
 
 	/**
-	 *
+	 * Initialize.
 	 */
 	initialize(): void;
 
@@ -386,7 +410,7 @@ export interface IDataGridInstance {
 	sortData(columnSorts: IColumnSortKey[]): Promise<void>;
 
 	/**
-	 *
+	 * Fetches data.
 	 */
 	fetchData(): void;
 

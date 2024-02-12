@@ -16,8 +16,8 @@ import { PositronDataToolProps } from 'vs/base/browser/ui/positronDataTool/posit
 import { usePositronDataToolContext } from 'vs/base/browser/ui/positronDataTool/positronDataToolContext';
 import { RowsPanel } from 'vs/base/browser/ui/positronDataTool/components/dataToolPanel/components/rowsPanel';
 import { ColumnsPanel } from 'vs/base/browser/ui/positronDataTool/components/dataToolPanel/components/columnsPanel';
+import { VerticalSplitter, VerticalSplitterResizeParams } from 'vs/base/browser/ui/positronComponents/verticalSplitter';
 import { PositronDataToolLayout } from 'vs/workbench/services/positronDataTool/browser/interfaces/positronDataToolService';
-import { PositronColumnSplitter, PositronColumnSplitterResizeParams } from 'vs/base/browser/ui/positronComponents/positronColumnSplitter';
 
 /**
  * Constants.
@@ -133,9 +133,9 @@ export const DataToolPanel = (props: DataToolPanelProps) => {
 
 	/**
 	 * onBeginResize handler.
-	 * @returns A PositronColumnSplitterResizeParams containing the resize parameters.
+	 * @returns A VerticalSplitterResizeParams containing the resize parameters.
 	 */
-	const beginResizeHandler = (): PositronColumnSplitterResizeParams => ({
+	const beginResizeHandler = (): VerticalSplitterResizeParams => ({
 		minimumWidth: MIN_COLUMN_WIDTH,
 		maximumWidth: Math.trunc(2 * props.width / 3),
 		startingWidth: columnsWidth,
@@ -171,7 +171,7 @@ export const DataToolPanel = (props: DataToolPanelProps) => {
 					/>
 				</div>
 				<div ref={splitter} className='splitter'>
-					<PositronColumnSplitter
+					<VerticalSplitter
 						onBeginResize={beginResizeHandler}
 						onResize={resizeHandler}
 					/>

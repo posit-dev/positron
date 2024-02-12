@@ -150,6 +150,6 @@
 
 
 .data-grid-column-header
-.positron-column-splitter {
+.vertical-splitter {
 	grid-column: right-gutter / end;
 }

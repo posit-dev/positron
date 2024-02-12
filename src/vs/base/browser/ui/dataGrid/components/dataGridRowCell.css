@@ -8,6 +8,7 @@
 	display: grid;
 	position: absolute;
 	align-items: center;
+	grid-template-rows: [content] 1fr [splitter] 1px [end];
 	grid-template-columns: [left-gutter] 7px [content] 1fr [right-gutter] 7px [splitter] 1px [end];
 }
 
@@ -91,6 +92,13 @@
 }
 
 .data-grid-row-cell
-.positron-column-splitter {
+.vertical-splitter {
+	grid-row: content / end;
 	grid-column: splitter / end;
+}
+
+.data-grid-row-cell
+.horizontal-splitter {
+	grid-row: splitter / end;
+	grid-column: left-gutter / end;
 }

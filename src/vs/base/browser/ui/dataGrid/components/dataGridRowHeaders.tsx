@@ -40,7 +40,7 @@ export const DataGridRowHeaders = (props: DataGridRowHeadersProps) => {
 		);
 
 		// Adjust the top offset for the next row.
-		top += context.instance.rowHeight;
+		top += context.instance.getRowHeight(rowIndex);
 	}
 
 	// Render.

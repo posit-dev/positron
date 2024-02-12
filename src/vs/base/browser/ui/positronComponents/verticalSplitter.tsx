@@ -2,17 +2,17 @@
  *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
-import 'vs/css!./positronColumnSplitter';
+import 'vs/css!./verticalSplitter';
 import * as React from 'react';
 import * as DOM from 'vs/base/browser/dom';
 import { isMacintosh } from 'vs/base/common/platform';
 
 /**
- * PositronColumnSplitterResizeParams interface. This defines the parameters of a resize operation.
- * When invert is true, the mouse delta is subtracted from the starting width instead of being added
- * to it, which inverts the resize operation.
+ * VerticalSplitterResizeParams interface. This defines the parameters of a resize operation. When
+ * invert is true, the mouse delta is subtracted from the starting width instead of being added to
+ * it, which inverts the resize operation.
  */
-export interface PositronColumnSplitterResizeParams {
+export interface VerticalSplitterResizeParams {
 	minimumWidth: number;
 	maximumWidth: number;
 	startingWidth: number;
@@ -20,12 +20,12 @@ export interface PositronColumnSplitterResizeParams {
 }
 
 /**
- * PositronColumnSplitter component.
+ * VerticalSplitter component.
  * @param props The component properties.
  * @returns The rendered component.
  */
-export const PositronColumnSplitter = (props: {
-	onBeginResize: () => PositronColumnSplitterResizeParams;
+export const VerticalSplitter = (props: {
+	onBeginResize: () => VerticalSplitterResizeParams;
 	onResize: (width: number) => void;
 }) => {
 	/**
@@ -130,7 +130,7 @@ export const PositronColumnSplitter = (props: {
 
 	// Render.
 	return (
-		<div className='positron-column-splitter'>
+		<div className='vertical-splitter'>
 			<div className='sizer' onPointerDown={pointerDownHandler} />
 		</div>
 	);

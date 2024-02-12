@@ -8,7 +8,7 @@ import 'vs/css!./dataGridCornerTopLeft';
 // React.
 import * as React from 'react';
 import { useDataGridContext } from 'vs/base/browser/ui/dataGrid/dataGridContext';
-import { PositronColumnSplitter } from 'vs/base/browser/ui/positronComponents/positronColumnSplitter';
+import { VerticalSplitter } from 'vs/base/browser/ui/positronComponents/verticalSplitter';
 
 /**
  * DataGridCornerTopLeftProps interface.
@@ -29,7 +29,7 @@ export const DataGridCornerTopLeft = (props: DataGridCornerTopLeftProps) => {
 	// Render.
 	return (
 		<div className='data-grid-corner-top-left' onClick={props.onClick}>
-			<PositronColumnSplitter
+			<VerticalSplitter
 				onBeginResize={() => ({
 					minimumWidth: 20,
 					maximumWidth: 400,
