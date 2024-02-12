@@ -9,7 +9,7 @@ import PQueue from 'p-queue';
 
 import { JupyterAdapterApi, JupyterKernelSpec, JupyterLanguageRuntime, JupyterKernelExtra } from './jupyter-adapter';
 import { ArkLsp, LspState } from './lsp';
-import { delay, timeout } from './util';
+import { delay, whenTimeout, timeout } from './util';
 import { ArkAttachOnStartup, ArkDelayStartup } from './startup';
 import { RHtmlWidget, getResourceRoots } from './htmlwidgets';
 import { getArkKernelPath } from './kernel';
@@ -244,7 +244,12 @@ export class RRuntime implements positron.LanguageRuntime, vscode.Disposable {
 			// A cleaner way to set this up might be to put `this._lsp` in
 			// charge of creating the LSP comm, then `deactivate()` could
 			// keep track of this state itself.
-			await this._lspStarting;
+			await Promise.race([
+				this._lspStarting,
+				whenTimeout(400, () => {
+					this._kernel!.emitJupyterLog('LSP startup timed out during interpreter restart');
+				})
+			]);
 			await this._lsp.deactivate(true);
 			return this._kernel.restart();
 		} else {
