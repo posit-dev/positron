@@ -13,13 +13,13 @@ prospector==0.12.2
 pytest==7.4.4
 # --- End Positron ---
 Flask==3.0.1
-fastapi==0.109.0
+fastapi==0.109.2
 uvicorn==0.27.0.post1
-Django==5.0.1; python_version >= '3.10' 
+Django==5.0.1; python_version >= '3.10'
 Django==4.2.9; python_version < '3.10'
 # Integrated TensorBoard tests
-tensorboard==2.15.1; python_version >= '3.9' 
-tensorboard==2.14.0; python_version < '3.9' 
+tensorboard==2.15.1; python_version >= '3.9'
+tensorboard==2.14.0; python_version < '3.9'
 torch-tb-profiler==0.4.3
 # extension build tests
 freezegun==1.4.0
@@ -29,6 +29,8 @@ ipykernel==6.29.0
 ipywidgets==8.1.1
 matplotlib==3.8.2; python_version >= '3.9'
 matplotlib==3.7.4; python_version < '3.9'
+# Require fonttools >= 4.43.0 to avoid CVE-2023-45139
+fonttools==4.43.0
 numpy==1.26.3; python_version >= '3.9'
 numpy==1.24.4; python_version < '3.9'
 pandas==2.2.0; python_version >= '3.9'
@@ -40,3 +42,5 @@ pytest-asyncio==0.23.4
 pytest-mock==3.12.0
 polars==0.20.6
 torch==2.1.2; python_version < '3.12'
+# Require wheel >= 0.38.0 to avoid CVE-2022-40898
+wheel==0.38.0
