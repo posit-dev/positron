@@ -20,6 +20,7 @@ import { JupyterAdapterApi, JupyterKernelSpec, JupyterLanguageRuntime, JupyterKe
 import { traceInfo } from '../logging';
 import { PythonEnvironment } from '../pythonEnvironments/info';
 import { PythonLsp, LspState } from './lsp';
+import { whenTimeout } from './util';
 
 /**
  * A Positron language runtime that wraps a Jupyter kernel and a Language Server
@@ -265,10 +266,27 @@ export class PythonRuntime implements positron.LanguageRuntime, vscode.Disposabl
         }
     }
 
+	// Keep track of LSP init to avoid stopping in the middle of startup
+	private _lspStarting: Thenable<void> = Promise.resolve();
+
     async restart(): Promise<void> {
         if (this._kernel) {
-            // Stop the LSP client before restarting the kernel
+			// Stop the LSP client before restarting the kernel. Don't stop it
+			// until fully started to avoid an inconsistent state where the
+			// deactivation request comes in between the creation of the LSP
+			// comm and the LSP client.
+			//
+			// A cleaner way to set this up might be to put `this._lsp` in
+			// charge of creating the LSP comm, then `deactivate()` could
+			// keep track of this state itself.
+			await Promise.race([
+				this._lspStarting,
+				whenTimeout(400, () => {
+					this._kernel!.emitJupyterLog('LSP startup timed out during interpreter restart');
+				})
+			]);
             await this._lsp.deactivate(true);
+
             return this._kernel.restart();
         } else {
             throw new Error('Cannot restart; kernel not started');
@@ -347,9 +365,16 @@ export class PythonRuntime implements positron.LanguageRuntime, vscode.Disposabl
                 const port = await this.adapterApi!.findAvailablePort([], 25);
                 if (this._kernel) {
                     this._kernel.emitJupyterLog(`Starting Positron LSP server on port ${port}`);
-                    await this._kernel.startPositronLsp(`127.0.0.1:${port}`);
+
+                    // Create the LSP comm before creating the LSP
+                    // client. We keep track of this initialisation in
+                    // case we need to restart, to avoid restarting in
+                    // the middle of init.
+                    this._lspStarting = this._kernel.startPositronLsp(`127.0.0.1:${port}`);
+
+                    await this._lspStarting;
+                    await this._lsp.activate(port);
                 }
-                await this._lsp.activate(port);
             });
 
             this._queue.add(async () => {
