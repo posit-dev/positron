@@ -11,6 +11,7 @@ import { NotebookCellTextModel } from 'vs/workbench/contrib/notebook/common/mode
 import { ICellOutput, NotebookCellExecutionState } from 'vs/workbench/contrib/notebook/common/notebookCommon';
 import { CellExecutionStatusCallback } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookWidget';
 import { parseOutputData } from 'vs/workbench/contrib/positronNotebook/browser/getOutputContents';
+import { useServices } from 'vs/workbench/contrib/positronNotebook/browser/ServicesProvider';
 
 type ExecutionStateString = 'running' | 'pending' | 'unconfirmed' | 'idle';
 function parseExecutionState(state?: NotebookCellExecutionState): ExecutionStateString {
@@ -81,6 +82,9 @@ export function NotebookCell({ cell, onRunCell, getCellExecutionStatus }: {
 	const {
 		outputContents, runCell, executionStatus,
 	} = useRunCell({ cell, onRunCell, getCellExecutionStatus });
+
+	const { instantiationService } = useServices();
+	console.log('instantiationService', instantiationService);
 
 	const isRunning = executionStatus === 'running';
 	return (

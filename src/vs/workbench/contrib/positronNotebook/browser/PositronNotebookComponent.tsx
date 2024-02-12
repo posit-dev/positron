@@ -6,18 +6,25 @@ import 'vs/css!./PositronNotebookComponent';
 
 import * as React from 'react';
 import { ISize } from 'vs/base/browser/positronReactRenderer';
+import { PositronButton } from 'vs/base/browser/ui/positronComponents/positronButton';
 import { ISettableObservable } from 'vs/base/common/observableInternal/base';
 import { NotebookCellTextModel } from 'vs/workbench/contrib/notebook/common/model/notebookCellTextModel';
 import { InputObservable } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookEditor';
 import { CellExecutionStatusCallback, NotebookKernelObservable, NotebookViewModelObservable } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookWidget';
 import { NotebookCell } from './NotebookCell';
 import { useObservedValue } from './useObservedValue';
-import { PositronButton } from 'vs/base/browser/ui/positronComponents/positronButton';
 
 type CellsExecutionCallback = (cells?: Iterable<NotebookCellTextModel>) => Promise<void>;
 
 export function PositronNotebookComponent(
-	{ sizeObservable, inputObservable, viewModelObservable, kernelObservable, executeCells, getCellExecutionStatus }:
+	{
+		sizeObservable,
+		inputObservable,
+		viewModelObservable,
+		kernelObservable,
+		executeCells,
+		getCellExecutionStatus,
+	}:
 		{
 			sizeObservable: ISettableObservable<ISize>;
 			inputObservable: InputObservable;

@@ -29,6 +29,7 @@ import { NotebookTextModel } from 'vs/workbench/contrib/notebook/common/model/no
 import { INotebookExecutionService } from 'vs/workbench/contrib/notebook/common/notebookExecutionService';
 import { INotebookCellExecution, INotebookExecutionStateService } from 'vs/workbench/contrib/notebook/common/notebookExecutionStateService';
 import { INotebookKernel, INotebookKernelService } from 'vs/workbench/contrib/notebook/common/notebookKernelService';
+import { ServicesProvider } from 'vs/workbench/contrib/positronNotebook/browser/ServicesProvider';
 import { InputObservable } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookEditor';
 import { OptionalObservable } from 'vs/workbench/contrib/positronNotebook/common/utils/observeValue';
 import { BaseCellEditorOptions } from './BaseCellEditorOptions';
@@ -531,14 +532,16 @@ export class PositronNotebookWidget extends Disposable {
 
 	renderReact() {
 		this.positronReactRenderer.render(
-			<PositronNotebookComponent
-				sizeObservable={this._size}
-				inputObservable={this._input}
-				kernelObservable={this.kernelObservable}
-				viewModelObservable={this._viewModelObservable}
-				executeCells={this.executeNotebookCells.bind(this)}
-				getCellExecutionStatus={this.getCellExecutionStatus.bind(this)}
-			/>
+			<ServicesProvider services={{ instantiationService: this.instantiationService }}>
+				<PositronNotebookComponent
+					sizeObservable={this._size}
+					inputObservable={this._input}
+					kernelObservable={this.kernelObservable}
+					viewModelObservable={this._viewModelObservable}
+					executeCells={this.executeNotebookCells.bind(this)}
+					getCellExecutionStatus={this.getCellExecutionStatus.bind(this)}
+				/>
+			</ServicesProvider>
 		);
 	}
 
