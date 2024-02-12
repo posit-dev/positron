@@ -2,7 +2,10 @@
 setoptconf==0.3.0
 
 flake8
-bandit
+# --- Start Positron ---
+# Require bandit >= 1.7.7 to avoid CWE-89
+bandit>=1.7.7
+# --- End Positron ---
 pylint
 pycodestyle
 pydocstyle
@@ -13,11 +16,18 @@ prospector
 pytest==7.4.4
 # --- End Positron ---
 flask
-fastapi
+# --- Start Positron ---
+# Require fastapi >= 0.109.1 to avoid CVE-2024-24762
+fastapi>=0.109.1
+# --- End Positron ---
 uvicorn
 django
 
 # Integrated TensorBoard tests
+# --- Start Positron ---
+# Require wheel >= 0.38.0 to avoid CVE-2022-40898
+wheel>=0.38.0
+# --- End Positron ---
 tensorboard
 torch-tb-profiler
 
@@ -27,6 +37,8 @@ freezegun
 # --- Start Positron ---
 # iPython Kernel tests
 fastcore
+# Require fonttools >= 4.43.0 to avoid CVE-2023-45139
+fonttools>=4.43.0
 ipykernel
 ipywidgets
 matplotlib
