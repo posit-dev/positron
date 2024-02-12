@@ -27,7 +27,7 @@ import { MouseTrigger, PositronButton } from 'vs/base/browser/ui/positronCompone
  */
 const sortAscendingTitle = localize('positron.sortAscending', "Sort Ascending");
 const sortDescendingTitle = localize('positron.sortDescending', "Sort Descending");
-const removeSortTitle = localize('positron.removeSort', "Remove Sort");
+const clearSortingTitle = localize('positron.clearSorting', "Clear Sorting");
 const copyColumnTitle = localize('positron.copyColumn', "Copy Column");
 
 /**
@@ -100,8 +100,9 @@ export const DataGridColumnHeader = (props: DataGridColumnHeaderProps) => {
 				new ContextMenuSeparator(),
 				new ContextMenuItem({
 					checked: false,
-					label: removeSortTitle,
+					label: clearSortingTitle,
 					disabled: !columnSortKey,
+					icon: 'positron-clear-sorting',
 					onSelected: async () =>
 						context.instance.removeColumnSortKey(props.columnIndex)
 				}),
