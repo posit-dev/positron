@@ -8,70 +8,11 @@ import { PositronButton } from 'vs/base/browser/ui/positronComponents/positronBu
 import { VSBuffer } from 'vs/base/common/buffer';
 import { NotebookCellOutputTextModel } from 'vs/workbench/contrib/notebook/common/model/notebookCellOutputTextModel';
 import { NotebookCellTextModel } from 'vs/workbench/contrib/notebook/common/model/notebookCellTextModel';
-import { ICellOutput, NotebookCellExecutionState } from 'vs/workbench/contrib/notebook/common/notebookCommon';
+import { ICellOutput } from 'vs/workbench/contrib/notebook/common/notebookCommon';
 import { CellExecutionStatusCallback } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookWidget';
 import { parseOutputData } from 'vs/workbench/contrib/positronNotebook/browser/getOutputContents';
-import { useServices } from 'vs/workbench/contrib/positronNotebook/browser/ServicesProvider';
-
-type ExecutionStateString = 'running' | 'pending' | 'unconfirmed' | 'idle';
-function parseExecutionState(state?: NotebookCellExecutionState): ExecutionStateString {
-	switch (state) {
-		case NotebookCellExecutionState.Executing:
-			return 'running';
-		case NotebookCellExecutionState.Pending:
-			return 'pending';
-		case NotebookCellExecutionState.Unconfirmed:
-			return 'unconfirmed';
-		default:
-			return 'idle';
-	}
-}
-
-
-/**
- * Logic for running a cell and handling its output.
- * @param opts
- * @param opts.cell The cell to run
- * @param opts.onRunCell A callback to run the cell
- * @param opts.getCellExecutionStatus A callback to get the execution status of the cell
- * @returns An object with the output contents and a function to run the cell.
- */
-function useRunCell(opts: {
-	cell: NotebookCellTextModel;
-	onRunCell: () => Promise<void>;
-	getCellExecutionStatus: CellExecutionStatusCallback;
-}) {
-	const { cell, onRunCell, getCellExecutionStatus } = opts;
-
-	const [executionStatus, setExecutionStatus] = React.useState<ExecutionStateString>('idle');
-	// By putting the outputContents into an object, we're ensuring that everytime it updates we
-	// are able to get a new reference to the object, which will cause the component to re-render.
-	// By default the outputs of the cell is referentially stable and thus react will not rerender
-	// the component when the outputs change.
-	const [outputContents, setOutputContents] = React.useState<{ outputs: ICellOutput[] }>({ outputs: cell.outputs });
-
-	const runCell = React.useCallback(() => {
-		setExecutionStatus('running');
-		onRunCell()
-			.then(() => {
-				setExecutionStatus('idle');
-			}).catch(() => {
-				setExecutionStatus(parseExecutionState(getCellExecutionStatus(cell)?.state));
-			});
-	}, [onRunCell, getCellExecutionStatus, cell]);
-
-	React.useEffect(() =>
-		cell.onDidChangeOutputs(() => {
-			setOutputContents({ outputs: cell.outputs });
-		}).dispose, [cell]);
-
-	return {
-		outputContents,
-		runCell,
-		executionStatus,
-	};
-}
-
+import { useCellEditorWidget } from './useCellEditorWidget';
+import { useRunCell } from './useRunCell';
 
 export function NotebookCell({ cell, onRunCell, getCellExecutionStatus }: {
 	cell: NotebookCellTextModel;
@@ -83,8 +24,7 @@ export function NotebookCell({ cell, onRunCell, getCellExecutionStatus }: {
 		outputContents, runCell, executionStatus,
 	} = useRunCell({ cell, onRunCell, getCellExecutionStatus });
 
-	const { instantiationService } = useServices();
-	console.log('instantiationService', instantiationService);
+
 
 	const isRunning = executionStatus === 'running';
 	return (
@@ -94,7 +34,7 @@ export function NotebookCell({ cell, onRunCell, getCellExecutionStatus }: {
 			<PositronButton className='run-button' ariaLabel={isRunning ? 'stop execution' : 'Run cell'} onPressed={runCell}>
 				<div className={`button-icon codicon ${isRunning ? 'codicon-primitive-square' : 'codicon-run'}`} />
 			</PositronButton>
-			<pre className='positron-notebook-cell-code'>{cell.getValue()}</pre>
+			<NotebookCellEditor cell={cell} />
 			<div className='positron-notebook-cell-outputs'>
 				{
 					outputContents.outputs.map((output) =>
@@ -103,6 +43,17 @@ export function NotebookCell({ cell, onRunCell, getCellExecutionStatus }: {
 			</div>
 		</div >
 	);
+}
+
+function NotebookCellEditor({ cell }: { cell: NotebookCellTextModel }) {
+
+	const { editorPartRef, editorContainerRef } = useCellEditorWidget(cell);
+
+	return <div ref={editorPartRef}>
+		<pre className='positron-notebook-cell-code'>{cell.getValue()}</pre>
+		<div ref={editorContainerRef}></div>
+	</div>;
+
 }
 
 function NotebookCellOutput({ cellOutput }: { cellOutput: ICellOutput }) {
