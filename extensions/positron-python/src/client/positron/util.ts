@@ -33,3 +33,8 @@ export class PromiseHandles<T> {
 export function delay(ms: number): Promise<void> {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
+
+export async function whenTimeout<T>(ms: number, fn: () => T): Promise<T> {
+	await delay(ms);
+	return fn();
+}
