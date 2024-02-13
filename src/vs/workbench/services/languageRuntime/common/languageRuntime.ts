@@ -175,9 +175,6 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 		// Call the base class's constructor.
 		super();
 
-		// Start the Positron extensions.
-		this._commandService.executeCommand('positron.activateInterpreters');
-
 		// Create the object that tracks the affiliation of runtimes to workspaces.
 		this._workspaceAffiliation =
 			new LanguageRuntimeWorkspaceAffiliation(this, this._storageService, this._logService,

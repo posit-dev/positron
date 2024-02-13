@@ -10,9 +10,6 @@
   "categories": [
     "Programming Languages"
   ],
-  "activationEvents": [
-    "onCommand:positron.activateInterpreters"
-  ],
   "main": "./out/extension.js",
   "capabilities": {
     "untrustedWorkspaces": {
@@ -479,6 +476,11 @@
           "application/vnd.r.htmlwidget"
         ],
         "entrypoint": "resources/js/htmlwidget.js"
+      }
+    ],
+    "languageRuntimes": [
+      {
+        "languageId": "r"
       }
     ]
   },
