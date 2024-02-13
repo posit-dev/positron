@@ -130,8 +130,17 @@ suite('Terminal Environment Variable Collection Service', () => {
     });
 
     test('When not in experiment, do not apply activated variables to the collection and clear it instead', async () => {
+        // --- Start Positron ---
+        // We always opt into the terminal env var experiment, so activateEnvironmentInTerminal
+        // should no longer be called. See: https://github.com/posit-dev/positron-python/pull/290.
+        return;
+        // --- End Positron ---
+
         reset(experimentService);
-        when(context.environmentVariableCollection).thenReturn(instance(collection));
+        // --- Start Positron ---
+        // Use globalCollection instead of collection since we're using a later version of @types/vscode
+        when(context.environmentVariableCollection).thenReturn(instance(globalCollection));
+        // --- End Positron ---
         when(experimentService.inExperimentSync(TerminalEnvVarActivation.experiment)).thenReturn(false);
         const applyCollectionStub = sinon.stub(terminalEnvVarCollectionService, '_applyCollection');
         applyCollectionStub.resolves();

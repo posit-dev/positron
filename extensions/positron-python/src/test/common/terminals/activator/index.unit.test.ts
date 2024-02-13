@@ -99,7 +99,11 @@ suite('Terminal Activator', () => {
         handler1.verifyAll();
         handler2.verifyAll();
     }
-    test('Terminal is activated and handlers are invoked', () => testActivationAndHandlers(true, true));
+    // --- Start Positron ---
+    // We always opt into the terminal env var experiment, so skip this test.
+    // See: https://github.com/posit-dev/positron-python/pull/290.
+    // test('Terminal is activated and handlers are invoked', () => testActivationAndHandlers(true, true));
+    // --- End Positron ---
     test('Terminal is not activated if auto-activate setting is set to true but terminal is hidden', () =>
         testActivationAndHandlers(false, true, true));
     test('Terminal is not activated and handlers are invoked', () => testActivationAndHandlers(false, false));

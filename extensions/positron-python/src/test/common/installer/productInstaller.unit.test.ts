@@ -64,6 +64,10 @@ suite('DataScienceInstaller install', async () => {
                     TypeMoq.It.isValue(testEnvironment),
                     TypeMoq.It.isAny(),
                     TypeMoq.It.isAny(),
+                    // --- Start Positron ---
+                    // We added the `options` param in https://github.com/posit-dev/positron-python/pull/66.
+                    TypeMoq.It.isAny(),
+                    // --- End Positron ---
                 ),
             )
             .returns(() => Promise.resolve());
@@ -95,6 +99,10 @@ suite('DataScienceInstaller install', async () => {
                     TypeMoq.It.isValue(testEnvironment),
                     TypeMoq.It.isAny(),
                     TypeMoq.It.isAny(),
+                    // --- Start Positron ---
+                    // We added the `options` param in https://github.com/posit-dev/positron-python/pull/66.
+                    TypeMoq.It.isAny(),
+                    // --- End Positron ---
                 ),
             )
             .returns(() => Promise.resolve());
@@ -127,6 +135,10 @@ suite('DataScienceInstaller install', async () => {
                     TypeMoq.It.isValue(testEnvironment),
                     TypeMoq.It.isAny(),
                     TypeMoq.It.isAny(),
+                    // --- Start Positron ---
+                    // We added the `options` param in https://github.com/posit-dev/positron-python/pull/66.
+                    TypeMoq.It.isAny(),
+                    // --- End Positron ---
                 ),
             )
             .returns(() => Promise.resolve());
@@ -158,6 +170,10 @@ suite('DataScienceInstaller install', async () => {
                     TypeMoq.It.isValue(testEnvironment),
                     TypeMoq.It.isAny(),
                     TypeMoq.It.isAny(),
+                    // --- Start Positron ---
+                    // We added the `options` param in https://github.com/posit-dev/positron-python/pull/66.
+                    TypeMoq.It.isAny(),
+                    // --- End Positron ---
                 ),
             )
             .returns(() => Promise.resolve());
@@ -189,6 +205,10 @@ suite('DataScienceInstaller install', async () => {
                     TypeMoq.It.isValue(testEnvironment),
                     TypeMoq.It.isAny(),
                     TypeMoq.It.isAny(),
+                    // --- Start Positron ---
+                    // We added the `options` param in https://github.com/posit-dev/positron-python/pull/66.
+                    TypeMoq.It.isAny(),
+                    // --- End Positron ---
                 ),
             )
             .returns(() => Promise.resolve());

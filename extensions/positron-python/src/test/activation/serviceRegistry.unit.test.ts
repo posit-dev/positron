@@ -34,12 +34,15 @@ suite('Unit Tests - Language Server Activation Service Registry', () => {
                 LanguageServerOutputChannel,
             ),
         ).once();
+        // --- Start Positron ---
+        // Extension survey prompt was removed in https://github.com/posit-dev/positron-python/pull/153.
         verify(
             serviceManager.addSingleton<IExtensionSingleActivationService>(
                 IExtensionSingleActivationService,
                 ExtensionSurveyPrompt,
             ),
-        ).once();
+        ).never();
+        // --- End Positron ---
         verify(
             serviceManager.addSingleton<IExtensionSingleActivationService>(
                 IExtensionSingleActivationService,

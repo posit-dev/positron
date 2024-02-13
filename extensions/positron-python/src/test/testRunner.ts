@@ -59,7 +59,10 @@ export async function run(): Promise<void> {
      */
     function initializationScript() {
         const ex = new Error('Failed to initialize Python extension for tests after 3 minutes');
-        let timer: NodeJS.Timer | undefined;
+        // --- Start Positron ---
+        // Use NodeJS.Timeout instead of NodeJS.Timer since we're using a later @types/node version.
+        let timer: NodeJS.Timeout | undefined;
+        // --- End Positron ---
         const failed = new Promise((_, reject) => {
             timer = setTimeout(() => reject(ex), MAX_EXTENSION_ACTIVATION_TIME);
         });
