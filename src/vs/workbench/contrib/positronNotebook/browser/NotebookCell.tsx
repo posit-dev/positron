@@ -6,8 +6,8 @@ import 'vs/css!./NotebookCell';
 import * as React from 'react';
 import { PositronButton } from 'vs/base/browser/ui/positronComponents/positronButton';
 import { VSBuffer } from 'vs/base/common/buffer';
+import { ICellViewModel } from 'vs/workbench/contrib/notebook/browser/notebookBrowser';
 import { NotebookCellOutputTextModel } from 'vs/workbench/contrib/notebook/common/model/notebookCellOutputTextModel';
-import { NotebookCellTextModel } from 'vs/workbench/contrib/notebook/common/model/notebookCellTextModel';
 import { ICellOutput } from 'vs/workbench/contrib/notebook/common/notebookCommon';
 import { CellExecutionStatusCallback } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookWidget';
 import { parseOutputData } from 'vs/workbench/contrib/positronNotebook/browser/getOutputContents';
@@ -15,7 +15,7 @@ import { useCellEditorWidget } from './useCellEditorWidget';
 import { useRunCell } from './useRunCell';
 
 export function NotebookCell({ cell, onRunCell, getCellExecutionStatus }: {
-	cell: NotebookCellTextModel;
+	cell: ICellViewModel;
 	onRunCell: () => Promise<void>;
 	getCellExecutionStatus: CellExecutionStatusCallback;
 }) {
@@ -45,12 +45,12 @@ export function NotebookCell({ cell, onRunCell, getCellExecutionStatus }: {
 	);
 }
 
-function NotebookCellEditor({ cell }: { cell: NotebookCellTextModel }) {
+function NotebookCellEditor({ cell }: { cell: ICellViewModel }) {
 
 	const { editorPartRef, editorContainerRef } = useCellEditorWidget(cell);
 
 	return <div ref={editorPartRef}>
-		<pre className='positron-notebook-cell-code'>{cell.getValue()}</pre>
+		<pre className='positron-notebook-cell-code'>{cell.getText()}</pre>
 		<div ref={editorContainerRef} className='positron-monaco-editor-container'></div>
 	</div>;
 

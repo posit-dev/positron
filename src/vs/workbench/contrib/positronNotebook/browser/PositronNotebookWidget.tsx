@@ -18,7 +18,7 @@ import { IConfigurationService } from 'vs/platform/configuration/common/configur
 import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
 import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
 import { ServiceCollection } from 'vs/platform/instantiation/common/serviceCollection';
-import { IActiveNotebookEditorDelegate, IBaseCellEditorOptions, INotebookEditorCreationOptions, INotebookEditorViewState, INotebookViewCellsUpdateEvent } from 'vs/workbench/contrib/notebook/browser/notebookBrowser';
+import { IActiveNotebookEditorDelegate, IBaseCellEditorOptions, ICellViewModel, INotebookEditorCreationOptions, INotebookEditorViewState, INotebookViewCellsUpdateEvent } from 'vs/workbench/contrib/notebook/browser/notebookBrowser';
 import { NotebookOptions } from 'vs/workbench/contrib/notebook/browser/notebookOptions';
 import { NotebookLayoutChangedEvent } from 'vs/workbench/contrib/notebook/browser/notebookViewEvents';
 import { NotebookEventDispatcher } from 'vs/workbench/contrib/notebook/browser/viewModel/eventDispatcher';
@@ -57,7 +57,9 @@ export type NotebookKernelObservable = OptionalObservable<
 type CellExecutionStatus = INotebookCellExecution | undefined;
 export type CellExecutionStatusCallback = (cell: NotebookCellTextModel) => CellExecutionStatus;
 
-export class PositronNotebookWidget extends Disposable {
+export class PositronNotebookWidget extends Disposable
+// implements INotebookEditor
+{
 
 	_baseElement: HTMLElement;
 	_size: ISettableObservable<ISize>;
@@ -436,26 +438,32 @@ export class PositronNotebookWidget extends Disposable {
 
 
 
-	async executeNotebookCells(cells?: Iterable<NotebookCellTextModel>): Promise<void> {
+	async executeNotebookCells(cells?: Iterable<ICellViewModel>): Promise<void> {
 		if (!this.getViewModel() || !this.hasModel()) {
 			throw new Error(localize('noModel', "No model"));
 		}
 		if (!cells) {
+
 			// If no cells are provided, assume we want to run all the cells.
-			cells = this.getViewModel()?.notebookDocument.cells;
+			cells = this.getViewModel()?.viewCells;
 			if (!cells) {
 				throw new Error(localize('noCells', "No cells to run"));
 			}
 		}
 
+		// const extractCells = () => {
+		// 	return
+		// }
+
+
 		// Check if the cell is already executing. In which case this is a cancel rather than a run.
 		const hasExecutions = [...cells].some(cell => Boolean(this.notebookExecutionStateService.getCellExecution(cell.uri)));
 		if (hasExecutions) {
-			this.notebookExecutionService.cancelNotebookCells(this.textModel, cells);
+			this.notebookExecutionService.cancelNotebookCells(this.textModel, Array.from(cells).map(c => c.model));
 			return;
 		}
 
-		await this.notebookExecutionService.executeNotebookCells(this.textModel, cells, this.scopedContextKeyService);
+		await this.notebookExecutionService.executeNotebookCells(this.textModel, Array.from(cells).map(c => c.model), this.scopedContextKeyService);
 	}
 
 	/**

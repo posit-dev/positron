@@ -8,13 +8,13 @@ import * as React from 'react';
 import { ISize } from 'vs/base/browser/positronReactRenderer';
 import { PositronButton } from 'vs/base/browser/ui/positronComponents/positronButton';
 import { ISettableObservable } from 'vs/base/common/observableInternal/base';
-import { NotebookCellTextModel } from 'vs/workbench/contrib/notebook/common/model/notebookCellTextModel';
+import { ICellViewModel } from 'vs/workbench/contrib/notebook/browser/notebookBrowser';
 import { InputObservable } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookEditor';
 import { CellExecutionStatusCallback, NotebookKernelObservable, NotebookViewModelObservable } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookWidget';
 import { NotebookCell } from './NotebookCell';
 import { useObservedValue } from './useObservedValue';
 
-type CellsExecutionCallback = (cells?: Iterable<NotebookCellTextModel>) => Promise<void>;
+type CellsExecutionCallback = (cells?: Iterable<ICellViewModel>) => Promise<void>;
 
 export function PositronNotebookComponent(
 	{
@@ -38,7 +38,7 @@ export function PositronNotebookComponent(
 	const size = useObservedValue(sizeObservable);
 	const fileName = useObservedValue(inputObservable, input => input?.resource.path || 'No file name');
 	const kernelId = useObservedValue(kernelObservable, kernel => kernel?.id || null);
-	const notebookCells = useObservedValue(viewModelObservable, viewModel => viewModel?.notebookDocument?.cells || []);
+	const notebookCells = useObservedValue(viewModelObservable, viewModel => viewModel?.viewCells || []);
 
 	return (
 		<div className='positron-notebook'>

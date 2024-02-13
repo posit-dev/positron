@@ -2,7 +2,7 @@
  *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 import * as React from 'react';
-import { NotebookCellTextModel } from 'vs/workbench/contrib/notebook/common/model/notebookCellTextModel';
+import { ICellViewModel } from 'vs/workbench/contrib/notebook/browser/notebookBrowser';
 import { ICellOutput, NotebookCellExecutionState } from 'vs/workbench/contrib/notebook/common/notebookCommon';
 import { CellExecutionStatusCallback } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookWidget';
 
@@ -30,18 +30,19 @@ function parseExecutionState(state?: NotebookCellExecutionState): ExecutionState
  * @returns An object with the output contents and a function to run the cell.
  */
 export function useRunCell(opts: {
-	cell: NotebookCellTextModel;
+	cell: ICellViewModel;
 	onRunCell: () => Promise<void>;
 	getCellExecutionStatus: CellExecutionStatusCallback;
 }) {
 	const { cell, onRunCell, getCellExecutionStatus } = opts;
+	const cellModel = cell.model;
 
 	const [executionStatus, setExecutionStatus] = React.useState<ExecutionStateString>('idle');
 	// By putting the outputContents into an object, we're ensuring that everytime it updates we
 	// are able to get a new reference to the object, which will cause the component to re-render.
 	// By default the outputs of the cell is referentially stable and thus react will not rerender
 	// the component when the outputs change.
-	const [outputContents, setOutputContents] = React.useState<{ outputs: ICellOutput[] }>({ outputs: cell.outputs });
+	const [outputContents, setOutputContents] = React.useState<{ outputs: ICellOutput[] }>({ outputs: cellModel.outputs });
 
 	const runCell = React.useCallback(() => {
 		setExecutionStatus('running');
@@ -49,17 +50,17 @@ export function useRunCell(opts: {
 			.then(() => {
 				setExecutionStatus('idle');
 			}).catch(() => {
-				setExecutionStatus(parseExecutionState(getCellExecutionStatus(cell)?.state));
+				setExecutionStatus(parseExecutionState(getCellExecutionStatus(cellModel)?.state));
 			});
-	}, [onRunCell, getCellExecutionStatus, cell]);
+	}, [onRunCell, getCellExecutionStatus, cellModel]);
 
 	React.useEffect(() => {
-		const changeWatcher = cell.onDidChangeOutputs(() => {
-			setOutputContents({ outputs: cell.outputs });
+		const changeWatcher = cellModel.onDidChangeOutputs(() => {
+			setOutputContents({ outputs: cellModel.outputs });
 		});
 
 		return changeWatcher.dispose;
-	}, [cell]);
+	}, [cellModel]);
 
 	return {
 		outputContents,
