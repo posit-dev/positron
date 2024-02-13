@@ -17,12 +17,15 @@ import { usePositronDataToolContext } from 'vs/base/browser/ui/positronDataTool/
 import { ColumnsPanel } from 'vs/base/browser/ui/positronDataTool/components/dataToolPanel/components/columnsPanel';
 import { DataGridPanel } from 'vs/base/browser/ui/positronDataTool/components/dataToolPanel/components/dataGridPanel';
 import { VerticalSplitter, VerticalSplitterResizeParams } from 'vs/base/browser/ui/positronComponents/verticalSplitter';
+import { DataToolSummary } from 'vs/base/browser/ui/positronDataTool/components/dataToolPanel/components/dataToolSummary';
 import { PositronDataToolLayout } from 'vs/workbench/services/positronDataTool/browser/interfaces/positronDataToolService';
 
 /**
  * Constants.
  */
 const MIN_COLUMN_WIDTH = 200;
+const ACTIONS_HEIGHT = 64;
+const SUMMARY_HEIGHT = 24;
 
 /**
  * DataToolPanelProps interface.
@@ -78,7 +81,7 @@ export const DataToolPanel = (props: DataToolPanelProps) => {
 			// Columns left.
 			case PositronDataToolLayout.ColumnsLeft:
 				dataTool.current.style.gridTemplateRows = '[main] 1fr [end]';
-				dataTool.current.style.gridTemplateColumns = `[column-1] ${columnsWidth}px [splitter] 0px [column-2] 1fr [end]`;
+				dataTool.current.style.gridTemplateColumns = `[column-1] ${columnsWidth}px [splitter] 1px [column-2] 1fr [end]`;
 
 				column1.current.style.gridRow = 'main / end';
 				column1.current.style.gridColumn = 'column-1 / splitter';
@@ -96,7 +99,7 @@ export const DataToolPanel = (props: DataToolPanelProps) => {
 			// Columns right.
 			case PositronDataToolLayout.ColumnsRight:
 				dataTool.current.style.gridTemplateRows = '[main] 1fr [end]';
-				dataTool.current.style.gridTemplateColumns = `[column-1] 1fr [splitter] 0px [column-2] ${columnsWidth}px [end]`;
+				dataTool.current.style.gridTemplateColumns = `[column-1] 1fr [splitter] 1px [column-2] ${columnsWidth}px [end]`;
 
 				column1.current.style.gridRow = 'main / end';
 				column1.current.style.gridColumn = 'column-2 / end';
@@ -151,15 +154,17 @@ export const DataToolPanel = (props: DataToolPanelProps) => {
 		context.instance.columnsWidthPercent = newColumnsWidth / props.width;
 	};
 
+	const dataToolHeight = props.height - ACTIONS_HEIGHT - SUMMARY_HEIGHT;
+
 	// Render.
 	return (
 		<div className='data-tool-container' style={{ width: props.width, height: props.height }}>
 			<div className='data-tool-actions'>
-
+				Actions
 			</div>
 			<div ref={dataTool} className='data-tool'>
 				<div ref={column1} className='column-1'>
-					<ColumnsPanel width={columnsWidth} height={props.height} />
+					<ColumnsPanel width={columnsWidth} height={dataToolHeight} />
 				</div>
 				<div ref={splitter} className='splitter'>
 					<VerticalSplitter
@@ -174,10 +179,11 @@ export const DataToolPanel = (props: DataToolPanelProps) => {
 							props.width :
 							props.width - columnsWidth
 						}
-						height={props.height}
+						height={dataToolHeight}
 					/>
 				</div>
 			</div>
+			<DataToolSummary />
 		</div>
 	);
 };

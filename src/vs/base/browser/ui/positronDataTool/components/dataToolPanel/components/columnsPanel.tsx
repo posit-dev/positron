@@ -116,9 +116,6 @@ export const ColumnsPanel = (props: ColumnsPanelProps) => {
 	// Render.
 	return (
 		<div ref={columnsPanel} className='columns-panel'>
-			<div className='columns-actions'>
-
-			</div>
 			<div className='columns-container'>
 				<List
 					className='list'
@@ -128,7 +125,7 @@ export const ColumnsPanel = (props: ColumnsPanelProps) => {
 					// Use a custom item key instead of index.
 					itemKey={index => dummyColumns[index].key}
 					width='100%'
-					height={props.height - 64}
+					height={props.height}
 					itemSize={ROW_HEIGHT}
 					overscanCount={10}
 					onItemsRendered={itemsRenderedHandler}

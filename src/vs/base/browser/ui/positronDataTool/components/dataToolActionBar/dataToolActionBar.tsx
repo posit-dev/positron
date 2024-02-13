@@ -10,7 +10,6 @@ import * as React from 'react';
 
 // Other dependencies.
 import { localize } from 'vs/nls';
-import { IsDevelopmentContext } from 'vs/platform/contextkey/common/contextkeys';
 import { IReactComponentContainer } from 'vs/base/browser/positronReactRenderer';
 import { PositronActionBar } from 'vs/platform/positronActionBar/browser/positronActionBar';
 import { ActionBarRegion } from 'vs/platform/positronActionBar/browser/components/actionBarRegion';
@@ -48,8 +47,6 @@ export const DataToolActionBar = (props: DataToolActionBarProps) => {
 	// Context hooks.
 	const context = usePositronDataToolContext();
 
-	// Constants.
-	const showDeveloperUI = IsDevelopmentContext.getValue(context.contextKeyService);
 
 	// Render.
 	return (
@@ -71,18 +68,9 @@ export const DataToolActionBar = (props: DataToolActionBarProps) => {
 							onPressed={() => context.instance.dataGridInstance.clearColumnSortKeys()}
 						/>
 						<ActionBarSeparator />
-						<LayoutMenuButton />
 					</ActionBarRegion>
 					<ActionBarRegion location='right'>
-						{showDeveloperUI &&
-							<ActionBarButton
-								iconId='clear-all'
-								align='right'
-								tooltip='Clear'
-								ariaLabel='Clear'
-								onPressed={() => console.log('HERE')}
-							/>
-						}
+						<LayoutMenuButton />
 					</ActionBarRegion>
 				</PositronActionBar>
 			</div>

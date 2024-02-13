@@ -1748,6 +1748,14 @@ export const POSITRON_DATA_GRID_BACKGROUND_COLOR = registerColor('positronDataGr
 	hcLight: editorBackground
 }, localize('positronDataGrid.background', "Positron data grid background color."));
 
+// Positron data grid contrast background color.
+export const POSITRON_DATA_GRID_CONTRAST_BACKGROUND_COLOR = registerColor('positronDataGrid.contrastBackground', {
+	dark: lighten(editorBackground, 0.2),
+	light: darken(editorBackground, 0.02),
+	hcDark: editorBackground,
+	hcLight: editorBackground
+}, localize('positronDataGrid.contrastBackground', "Positron data grid contrast background color."));
+
 // Positron data grid foreground color.
 export const POSITRON_DATA_GRID_FOREGROUND_COLOR = registerColor('positronDataGrid.foreground', {
 	dark: editorForeground,
@@ -1763,14 +1771,6 @@ export const POSITRON_DATA_GRID_BORDER_COLOR = registerColor('positronDataGrid.b
 	hcDark: tableColumnsBorder,
 	hcLight: tableColumnsBorder
 }, localize('positronDataGrid.border', "Positron data grid border color."));
-
-// Positron data grid header background color.
-export const POSITRON_DATA_GRID_HEADER_BACKGROUND_COLOR = registerColor('positronDataGrid.headerBackground', {
-	dark: lighten(editorBackground, 0.2),
-	light: darken(editorBackground, 0.02),
-	hcDark: editorBackground,
-	hcLight: editorBackground
-}, localize('positronDataGrid.headerBackground', "Positron data grid header background color."));
 
 // Positron data grid cursor border color.
 export const POSITRON_DATA_GRID_CURSOR_BORDER_COLOR = registerColor('positronDataGrid.cursorBorder', {

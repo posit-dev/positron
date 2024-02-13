@@ -5,13 +5,7 @@
 .data-tool
 .data-grid-panel {
 	display: grid;
-	grid-template-rows: [data-grid-actions] 64px [data-grid] 1fr [end];
-}
-
-.data-tool
-.data-grid-panel
-.data-grid-actions {
-	grid-row: data-grid-actions / data-grid;
+	grid-template-rows: [data-grid] 1fr [end];
 }
 
 .data-tool

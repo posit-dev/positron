@@ -32,17 +32,13 @@ export const DataGridPanel = (props: DataGridPanelProps) => {
 	// Render.
 	return (
 		<div className='data-grid-panel'>
-			<div className='data-grid-actions'>
-
-			</div>
 			<div className='data-grid-container'>
 				<DataGrid
 					layoutService={context.layoutService}
 					instance={context.instance.dataGridInstance}
 					width={props.width}
-					height={props.height - 64}
+					height={props.height}
 					borderTop={true}
-					borderLeft={true}
 				/>
 			</div>
 		</div>

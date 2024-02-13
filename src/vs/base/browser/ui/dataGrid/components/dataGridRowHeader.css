@@ -11,7 +11,7 @@
 	justify-content: center;
 	grid-template-rows: [title] 1fr [splitter] 1px [end];
 	grid-template-columns: [title] 1fr [splitter] 1px [end];
-	background-color: var(--vscode-positronDataGrid-headerBackground);
+	background-color: var(--vscode-positronDataGrid-contrastBackground);
 }
 
 .data-grid-row-header.selected {

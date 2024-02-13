@@ -4,5 +4,5 @@
 
 .positron-data-tool {
 	color: var(--vscode-positronDataTool-foreground);
-	background: var(--vscode-positronDataTool-background);
+	background-color: var(--vscode-positronDataTool-background);
 }

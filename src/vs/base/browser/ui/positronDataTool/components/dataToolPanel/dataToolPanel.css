@@ -4,13 +4,21 @@
 
 .data-tool-container {
 	display: grid;
-	grid-template-rows: [data-tool] 1fr [end];
+	grid-template-rows: [data-tool-actions] 64px [data-tool] 1fr [data-tool-summary] 24px [end];
+}
+
+.data-tool-container
+.data-tool-actions {
+	/* Place the data-tool in the data-tool-container. */
+	padding: 8px;
+	grid-row: data-tool-actions / data-tool;
 }
 
 .data-tool-container
 .data-tool {
+	overflow: hidden;
 	/* Place the data-tool in the data-tool-container. */
-	grid-row: data-tool / end;
+	grid-row: data-tool / data-tool-summary;
 
 	/* Prevent 1fr from exceeding the parent height. */
 	min-height: 0;
@@ -40,7 +48,7 @@
 .data-tool
 .splitter
 .vertical-splitter {
-	/* background-color: var(--vscode-positronDataTool-border); */
+	background-color: var(--vscode-positronDataTool-border);
 }
 
 .data-tool-container

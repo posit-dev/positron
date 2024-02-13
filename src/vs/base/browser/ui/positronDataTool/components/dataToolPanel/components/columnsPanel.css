@@ -5,17 +5,12 @@
 .data-tool
 .columns-panel {
 	display: grid;
-	grid-template-rows: [columns-actions] 64px [columns] 1fr [end];
-}
-
-.data-tool
-.columns-panel
-.columns-actions {
-	grid-row: columns-actions / columns;
+	grid-template-rows: [columns] 1fr [end];
 }
 
 .data-tool
 .columns-panel
 .columns-container {
+	grid-row: columns / end;
 	border-top: 1px solid var(--vscode-positronDataTool-border);
 }
