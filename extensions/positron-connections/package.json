@@ -51,7 +51,7 @@
       },
       {
         "command": "positron.connections.closeConnection",
-        "title": "Close connection",
+        "title": "%commands.closeConnection.title%",
         "icon": "$(debug-disconnect)"
       }
     ],
