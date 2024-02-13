@@ -26,11 +26,14 @@ import { NotebookViewModel } from 'vs/workbench/contrib/notebook/browser/viewMod
 import { ViewContext } from 'vs/workbench/contrib/notebook/browser/viewModel/viewContext';
 import { NotebookCellTextModel } from 'vs/workbench/contrib/notebook/common/model/notebookCellTextModel';
 import { NotebookTextModel } from 'vs/workbench/contrib/notebook/common/model/notebookTextModel';
+import { NOTEBOOK_EDITOR_CURSOR_BOUNDARY, NOTEBOOK_EDITOR_CURSOR_LINE_BOUNDARY } from 'vs/workbench/contrib/notebook/common/notebookCommon';
+import { NOTEBOOK_CELL_LIST_FOCUSED } from 'vs/workbench/contrib/notebook/common/notebookContextKeys';
 import { INotebookExecutionService } from 'vs/workbench/contrib/notebook/common/notebookExecutionService';
 import { INotebookCellExecution, INotebookExecutionStateService } from 'vs/workbench/contrib/notebook/common/notebookExecutionStateService';
 import { INotebookKernel, INotebookKernelService } from 'vs/workbench/contrib/notebook/common/notebookKernelService';
-import { ServicesProvider } from 'vs/workbench/contrib/positronNotebook/browser/ServicesProvider';
+import { ContextKeyProvider } from 'vs/workbench/contrib/positronNotebook/browser/ContextKeyServiceProvider';
 import { InputObservable } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookEditor';
+import { ServicesProvider } from 'vs/workbench/contrib/positronNotebook/browser/ServicesProvider';
 import { OptionalObservable } from 'vs/workbench/contrib/positronNotebook/common/utils/observeValue';
 import { BaseCellEditorOptions } from './BaseCellEditorOptions';
 import { PositronNotebookComponent } from './PositronNotebookComponent';
@@ -88,6 +91,14 @@ export class PositronNotebookWidget extends Disposable {
 	 *
 	 */
 	private readonly _notebookOptions: NotebookOptions;
+
+	/**
+	 * Gets the notebook options for the editor.
+	 * Exposes the private internal notebook options as a get only property.
+	 */
+	get notebookOptions() {
+		return this._notebookOptions;
+	}
 	private readonly _readOnly: boolean;
 	private _fontInfo: FontInfo | undefined;
 	private _dimension?: DOM.Dimension;
@@ -134,7 +145,7 @@ export class PositronNotebookWidget extends Disposable {
 			input: InputObservable;
 			baseElement: HTMLElement;
 		},
-		readonly creationOptions: INotebookEditorCreationOptions | undefined,
+		readonly creationOptions: INotebookEditorCreationOptions,
 		// TODO: Label what each of these DI items are for.
 		@INotebookKernelService private readonly notebookKernelService: INotebookKernelService,
 		@INotebookExecutionService private readonly notebookExecutionService: INotebookExecutionService,
@@ -175,21 +186,47 @@ export class PositronNotebookWidget extends Disposable {
 		);
 
 		this._register(
-
 			this.notebookKernelService.onDidAddKernel(() => {
 				console.log('Kernel added');
 				const kernels = this.notebookKernelService.getMatchingKernel(this.getViewModel()!.notebookDocument);
 				const kernelList = kernels.all;
 
 				console.log('kernels', kernelList);
-
 			})
 		);
 
-		// this._notebookExecutionStateService.createExecution;
 
 
 	}
+
+	// WIP to implement contributions. Currently paused due to contribution constructors needing the
+	// widget to implement the INotebookEditor interface.
+	//
+	// setupContributions() {
+	// 	let contributions: INotebookEditorContributionDescription[];
+	// 	if (Array.isArray(this.creationOptions.contributions)) {
+	// 		contributions = this.creationOptions.contributions;
+	// 	} else {
+	// 		contributions = NotebookEditorExtensionsRegistry.getEditorContributions();
+	// 	}
+	// 	for (const desc of contributions) {
+	// 		let contribution: INotebookEditorContribution | undefined;
+	// 		try {
+	// 			contribution = this.instantiationService.createInstance(desc.ctor, this);
+	// 		} catch (err) {
+	// 			onUnexpectedError(err);
+	// 		}
+	// 		if (contribution) {
+	// 			if (!this._contributions.has(desc.id)) {
+	// 				this._contributions.set(desc.id, contribution);
+	// 			} else {
+	// 				contribution.dispose();
+	// 				throw new Error(`DUPLICATE notebook editor contribution: '${desc.id}'`);
+	// 			}
+	// 		}
+	// 	}
+
+	// }
 
 	// #region NotebookModel
 	/**
@@ -530,17 +567,37 @@ export class PositronNotebookWidget extends Disposable {
 		this._positronReactRenderer = undefined;
 	}
 
+	/**
+	 * Setup various context keys that are used by notebooks.
+	 */
+	setupContextKeyService() {
+		const contextKeyService = this.scopedContextKeyService;
+		NOTEBOOK_CELL_LIST_FOCUSED.bindTo(contextKeyService).set(true);
+		const notebookEditorCursorAtBoundaryContext = NOTEBOOK_EDITOR_CURSOR_BOUNDARY.bindTo(contextKeyService);
+		notebookEditorCursorAtBoundaryContext.set('none');
+		const notebookEditorCursorAtLineBoundaryContext = NOTEBOOK_EDITOR_CURSOR_LINE_BOUNDARY.bindTo(contextKeyService);
+		notebookEditorCursorAtLineBoundaryContext.set('none');
+	}
+
 	renderReact() {
+
 		this.positronReactRenderer.render(
-			<ServicesProvider services={{ instantiationService: this.instantiationService }}>
-				<PositronNotebookComponent
-					sizeObservable={this._size}
-					inputObservable={this._input}
-					kernelObservable={this.kernelObservable}
-					viewModelObservable={this._viewModelObservable}
-					executeCells={this.executeNotebookCells.bind(this)}
-					getCellExecutionStatus={this.getCellExecutionStatus.bind(this)}
-				/>
+
+			<ServicesProvider services={{
+				notebookWidget: this,
+				configurationService: this.configurationService,
+				instantiationService: this.instantiationService
+			}}>
+				<ContextKeyProvider contextKeyServiceProvider={container => this.scopedContextKeyService.createScoped(container)} >
+					<PositronNotebookComponent
+						sizeObservable={this._size}
+						inputObservable={this._input}
+						kernelObservable={this.kernelObservable}
+						viewModelObservable={this._viewModelObservable}
+						executeCells={this.executeNotebookCells.bind(this)}
+						getCellExecutionStatus={this.getCellExecutionStatus.bind(this)}
+					/>
+				</ContextKeyProvider>
 			</ServicesProvider>
 		);
 	}

@@ -3,14 +3,29 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as React from 'react';
+import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
+import { PositronNotebookWidget } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookWidget';
 
 
 /**
  * Bundle of services that are passed to React-Land in the form of context.
  */
 interface ServiceBundle {
+	/**
+	 * The notebook widget that is being used to render the notebook. Sometimes refered to as a
+	 * "Delegate" in the vscode notebook code.
+	 */
+	notebookWidget: PositronNotebookWidget;
+	/**
+	 * The instantiation service that can be used to create new instances of disposables.
+	 */
 	instantiationService: IInstantiationService;
+
+	/**
+	 * The configuration service that can be used to access configuration settings.
+	 */
+	configurationService: IConfigurationService;
 }
 
 /**

@@ -51,7 +51,7 @@ function NotebookCellEditor({ cell }: { cell: NotebookCellTextModel }) {
 
 	return <div ref={editorPartRef}>
 		<pre className='positron-notebook-cell-code'>{cell.getValue()}</pre>
-		<div ref={editorContainerRef}></div>
+		<div ref={editorContainerRef} className='positron-monaco-editor-container'></div>
 	</div>;
 
 }
