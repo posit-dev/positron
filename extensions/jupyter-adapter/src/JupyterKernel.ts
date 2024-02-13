@@ -347,9 +347,22 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 
 					// If this is a status message, save the status and emit it.
 					if (msg?.header.msg_type === 'status') {
+						// Ignore Busy and Idle statuses emitted on IOPub during startup
+						// (e.g. during the kernel-info request that we emit to detect kernel
+						// readiness). This prevents switching from Starting to Busy before we
+						// switch to Ready.
+						if (this.isStarting()) {
+							// We've got a status, which signals completion of the first half
+							// of the kernel startup
+							this._receivedInitialStatus = true;
+
+							// Return for now, we'll emit statuses after the second half of
+							// startup (reception of a kernel-info reply) has completed
+							return;
+						}
+
 						const statusMsg = msg.content as JupyterKernelStatus;
 						const state = statusMsg.execution_state as positron.RuntimeState;
-
 						const parent_id = msg.parent_header.msg_id;
 
 						switch (state) {
@@ -1322,20 +1335,6 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	 * @param status The new status of the kernel
 	 */
 	private setStatus(status: positron.RuntimeState) {
-		// Ignore Busy and Idle statuses that emitted on IOPub during startup
-		// (e.g. during the kernel-info request that we emit to detect kernel
-		// readiness). This prevents switching from Starting to Busy before we
-		// switch to Ready.
-		if (this.isStarting() && this.isRuntimeStatus(status)) {
-			// We've got a status, which signals completion of the first half
-			// of the kernel startup
-			this._receivedInitialStatus = true;
-
-			// Return for now, we'll emit statuses after the second half of
-			// startup (reception of a kernel-info reply) has completed
-			return;
-		}
-
 		this.emit('status', status);
 		this._status = status;
 	}
@@ -1349,16 +1348,6 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 		case positron.RuntimeState.Uninitialized:
 		case positron.RuntimeState.Initializing:
 		case positron.RuntimeState.Starting:
-			return true;
-		default:
-			return false;
-		}
-	}
-
-	private isRuntimeStatus(status: positron.RuntimeState): boolean {
-		switch (status) {
-		case positron.RuntimeState.Idle:
-		case positron.RuntimeState.Busy:
 			return true;
 		default:
 			return false;
