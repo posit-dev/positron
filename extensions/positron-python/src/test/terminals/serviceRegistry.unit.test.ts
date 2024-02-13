@@ -43,7 +43,10 @@ suite('Terminal - Service Registry', () => {
             if (args.length === 2) {
                 services
                     .setup((s) =>
-                        s.addSingleton(
+                        // --- Start Positron ---
+                        // Fix for Typescript v5
+                        s.addSingleton<unknown>(
+                        // --- End Positron ---
                             typemoq.It.is((v) => args[0] === v),
                             typemoq.It.is((value) => args[1] === value),
                         ),
@@ -52,7 +55,10 @@ suite('Terminal - Service Registry', () => {
             } else {
                 services
                     .setup((s) =>
-                        s.addSingleton(
+                        // --- Start Positron ---
+                        // Fix for Typescript v5
+                        s.addSingleton<unknown>(
+                        // --- End Positron ---
                             typemoq.It.is((v) => args[0] === v),
                             typemoq.It.is((value) => args[1] === value),
 
@@ -64,7 +70,10 @@ suite('Terminal - Service Registry', () => {
         });
         services
             .setup((s) =>
-                s.addBinding(
+                // --- Start Positron ---
+                // Fix for Typescript v5
+                s.addBinding<ITerminalEnvVarCollectionService, IExtensionActivationService>(
+                // --- End Positron ---
                     typemoq.It.is((v) => ITerminalEnvVarCollectionService === v),
                     typemoq.It.is((value) => IExtensionActivationService === value),
                 ),

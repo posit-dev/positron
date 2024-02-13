@@ -221,6 +221,11 @@ suite('Python Settings', async () => {
     }
 
     suite('languageServer settings', async () => {
+        // --- Start Positron ---
+        // The language server was disabled in https://github.com/posit-dev/positron-python/pull/188.
+        // We manage it independently.
+        return;
+        // --- End Positron ---
         const values = [
             { ls: LanguageServerType.Jedi, expected: LanguageServerType.Jedi, default: false },
             { ls: LanguageServerType.JediLSP, expected: LanguageServerType.Jedi, default: false },
