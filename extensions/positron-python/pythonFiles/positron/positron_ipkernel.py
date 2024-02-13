@@ -30,7 +30,6 @@ from IPython.utils import PyColorize
 
 from positron.data_tool import DataToolService
 
-from .dataviewer import DataViewerService
 from .ui import UiService
 from .help import HelpService, help
 from .lsp import LSPService
@@ -41,7 +40,6 @@ from .widget import PositronWidgetHook
 
 
 class _CommTarget(str, enum.Enum):
-    DataViewer = "positron.dataViewer"
     DataTool = "positron.dataTool"
     Ui = "positron.ui"
     Help = "positron.help"
@@ -296,7 +294,6 @@ class PositronIPyKernel(IPythonKernel):
         super().__init__(**kwargs)
 
         # Create Positron services
-        self.dataviewer_service = DataViewerService(_CommTarget.DataViewer)
         self.datatool_service = DataToolService(_CommTarget.DataTool)
         self.display_pub_hook = PositronDisplayPublisherHook(_CommTarget.Plot)
         self.ui_service = UiService()
@@ -351,7 +348,6 @@ class PositronIPyKernel(IPythonKernel):
         logger.info("Shutting down the kernel")
 
         # Shutdown Positron services
-        self.dataviewer_service.shutdown()
         self.datatool_service.shutdown()
         self.display_pub_hook.shutdown()
         self.ui_service.shutdown()

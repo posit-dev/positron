@@ -45,7 +45,6 @@ from typing import (
 
 from positron.utils import JsonData
 
-from .dataviewer import DataColumn, DataSet
 from .third_party import np_, pd_, torch_
 from .utils import JsonData, get_qualname, not_none, pretty_format
 
@@ -153,9 +152,6 @@ class PositronInspector(Generic[T]):
 
     def copy(self, value: T) -> T:
         return copy.copy(value)
-
-    def to_dataset(self, value: T, title: str) -> DataSet:
-        raise TypeError(f"Type {type(value)} is not supported by `View()`.")
 
     def to_html(self, value: T) -> str:
         return repr(value)
@@ -727,10 +723,6 @@ class BaseColumnInspector(_BaseMapInspector[Column], ABC):
         display_value = str(cast(Column, value[:MAX_CHILDREN]).to_list())
         return (display_value, True)
 
-    def to_data_column(self, value: Column, name: str) -> DataColumn:
-        type_name = type(value).__name__
-        return DataColumn(name=name, type=type_name, data=value.to_list())
-
 
 class PandasSeriesInspector(BaseColumnInspector["pd.Series"]):
     CLASS_QNAME = "pandas.core.series.Series"
@@ -856,23 +848,6 @@ class BaseTableInspector(_BaseMapInspector[Table], Generic[Table, Column], ABC):
 
     def is_tabular(self, value: Table) -> bool:
         return True
-
-    def to_dataset(self, value: Table, title: str) -> DataSet:
-        column_inspector = self.get_column_inspector()
-
-        columns: List[DataColumn] = []
-        for column_name in self.get_keys(value):
-            column_value = cast(Column, value[column_name])
-            data_column = column_inspector.to_data_column(column_value, str(column_name))
-            columns.append(data_column)
-        rowCount = value.shape[0]
-
-        return DataSet(
-            id=str(uuid.uuid4()),
-            title=title,
-            columns=columns,
-            rowCount=rowCount,
-        )
 
 
 #
