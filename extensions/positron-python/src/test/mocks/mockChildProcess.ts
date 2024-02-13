@@ -236,4 +236,12 @@ export class MockChildProcess extends EventEmitter {
         this.stdout?.destroy();
         return true;
     }
+
+    // --- Start Positron ---
+    // Add Symbol.dispose implementation since we're using a later version of @types/node
+    // eslint-disable-next-line class-methods-use-this
+    [Symbol.dispose](): void {
+        /* noop */
+    }
+    // --- End Positron ---
 }

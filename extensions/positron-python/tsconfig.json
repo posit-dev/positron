@@ -46,6 +46,7 @@
     "include": [
         "src/*",
         "src/client/**/*",
+        "src/test/**/*",
         "typings/*.d.ts",
         "typings/vscode-proposed/*.d.ts",
         "types/*.d.ts",

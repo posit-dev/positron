@@ -88,6 +88,10 @@ suite('Terminal - Code Execution Manager', () => {
         const sorted = registered.sort();
         expect(sorted).to.deep.equal(
             [
+                // --- Start Positron ---
+                // Add the Positron execute in console command.
+                Commands.Exec_In_Console,
+                // --- End Positron ---
                 Commands.Exec_In_Separate_Terminal,
                 Commands.Exec_In_Terminal,
                 Commands.Exec_In_Terminal_Icon,
