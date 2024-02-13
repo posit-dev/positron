@@ -114,6 +114,18 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	 */
 	private readonly _idleMessageIds: Set<string> = new Set();
 
+	/**
+	 * Initialisation state. Used to detect on startup that we (a) get a reply to a
+         * dummy kernel-info request on the Shell socket and (b) get a status message on
+         * the IOPub socket. When both of these happen, it means the kernel has made
+         * sufficient progress in its startup that it's able to service requests, and that
+         * the IOPub socket is correctly connected and that the user won't lose data when
+         * we send user requests to the kernel.
+	 */
+	private _initial_request_id = '';
+	private _receivedInitialStatus = false;
+	private _receivedInitialReply = false;
+
 	constructor(
 		private readonly _context: vscode.ExtensionContext,
 		spec: JupyterKernelSpec,
@@ -335,9 +347,22 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 
 					// If this is a status message, save the status and emit it.
 					if (msg?.header.msg_type === 'status') {
+						// Ignore Busy and Idle statuses emitted on IOPub during startup
+						// (e.g. during the kernel-info request that we emit to detect kernel
+						// readiness). This prevents switching from Starting to Busy before we
+						// switch to Ready.
+						if (this.isStarting()) {
+							// We've got a status, which signals completion of the first half
+							// of the kernel startup
+							this._receivedInitialStatus = true;
+
+							// Return for now, we'll emit statuses after the second half of
+							// startup (reception of a kernel-info reply) has completed
+							return;
+						}
+
 						const statusMsg = msg.content as JupyterKernelStatus;
 						const state = statusMsg.execution_state as positron.RuntimeState;
-
 						const parent_id = msg.parent_header.msg_id;
 
 						switch (state) {
@@ -364,8 +389,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 								if (this._busyMessageIds.has(parent_id)) {
 									this._busyMessageIds.delete(parent_id);
 									if (this._busyMessageIds.size === 0) {
-										this._status = positron.RuntimeState.Idle;
-										this.setStatus(this._status);
+										this.setStatus(positron.RuntimeState.Idle);
 									}
 								} else {
 									// We got an idle message without a matching busy message.
@@ -388,8 +412,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 
 								// If it's the first busy message, emit a busy event
 								if (this._busyMessageIds.size === 1) {
-									this._status = positron.RuntimeState.Busy;
-									this.setStatus(this._status);
+									this.setStatus(positron.RuntimeState.Busy);
 								}
 								break;
 						}
@@ -402,9 +425,32 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 				});
 
 				// Connect the Shell socket
-				this._shell?.onMessage((args: any[]) => {
+				this._shell?.onMessage(async (args: any[]) => {
 					const msg = deserializeJupyterMessage(args, this._session!.key, this._channel);
 					if (msg !== null) {
+						// Wait for reply to kernel-info request. When it comes in, we
+						// know the kernel is started up and ready to service
+						// requests. That's our cue to switch to the Ready state.
+						if (!this._receivedInitialReply && msg.parent_header.msg_id === this._initial_request_id) {
+							// It's possible for the Shell socket to be connected
+							// and ready before the IOPub socket. This is a bad
+							// situation because the server might serve requests
+							// but we won't get the output back, resulting in data
+							// loss. To avoid this, we keep resending dummy
+							// requests until we get an IOPub status message. See
+							// discussion in
+							// https://github.com/jupyter/enhancement-proposals/blob/master/65-jupyter-xpub/jupyter-xpub.md
+							if (this._receivedInitialStatus) {
+								// Got both a reply on Shell and a status on IOPub, we're ready
+								this._receivedInitialReply = true;
+								this.setStatus(positron.RuntimeState.Ready);
+								resolve();
+							} else {
+								// Send the request again until we've received an IOPub status
+								this.sendInitialRequest()
+							}
+							return;
+						}
 						this.emitMessage(JupyterSockets.shell, msg);
 					}
 				});
@@ -447,9 +493,10 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 
 					// Resolve the promise, mark the kernel as ready, and start the heartbeat
 					// check
-					this.log('Receieved initial heartbeat: ' + msg);
-					this.setStatus(positron.RuntimeState.Ready);
-					resolve();
+					this.log('Received initial heartbeat: ' + msg);
+
+					// Send a dummy request. When the reply comes in we'll switch to the Ready state.
+					this.sendInitialRequest()
 
 					const seconds = vscode.workspace.getConfiguration('positron.jupyterAdapter').get('heartbeat', 30) as number;
 					this.log(`Starting heartbeat check at ${seconds} second intervals...`);
@@ -470,6 +517,11 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 				reject(err);
 			});
 		});
+	}
+
+	private sendInitialRequest() {
+		this._initial_request_id = uuidv4();
+		this.send(this._initial_request_id, 'kernel_info_request', this._shell!, {});
 	}
 
 	/**
@@ -546,6 +598,10 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 		// Mark the kernel as initializing so we don't try to start it again
 		// during bootup
 		this.setStatus(positron.RuntimeState.Initializing);
+
+		// Reset the initialisation state that we use as cues to switch to Ready
+		this._receivedInitialStatus = false;
+		this._receivedInitialReply = false;
 
 		// Before starting a new process, look for metadata about a running
 		// kernel in the current workspace by checking the value stored for this
@@ -1281,6 +1337,21 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	private setStatus(status: positron.RuntimeState) {
 		this.emit('status', status);
 		this._status = status;
+	}
+
+	private isStarting(): boolean {
+		return this.isStartingStatus(this._status);
+	}
+
+	private isStartingStatus(status: positron.RuntimeState): boolean {
+		switch (status) {
+		case positron.RuntimeState.Uninitialized:
+		case positron.RuntimeState.Initializing:
+		case positron.RuntimeState.Starting:
+			return true;
+		default:
+			return false;
+		}
 	}
 
 	/**
