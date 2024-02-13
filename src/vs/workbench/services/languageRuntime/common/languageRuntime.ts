@@ -25,6 +25,7 @@ import { Registry } from 'vs/platform/registry/common/platform';
 import { IConfigurationRegistry, Extensions as ConfigurationExtensions, ConfigurationScope, IConfigurationNode, } from 'vs/platform/configuration/common/configurationRegistry';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import { ExtensionsRegistry } from 'vs/workbench/services/extensions/common/extensionsRegistry';
+import { ExtensionIdentifier } from 'vs/platform/extensions/common/extensions';
 
 /**
  * LanguageRuntimeInfo class.
@@ -59,16 +60,7 @@ const languageRuntimeExtPoint =
 					}
 				}
 			}
-		},
-		activationEventsGenerator:
-			(contribs: ILanguageRuntimeProviderMetadata[],
-				result: { push(item: string): void }) => {
-				for (const contrib of contribs) {
-					if (contrib.languageId) {
-						result.push(`onRuntime:${contrib.languageId}`);
-					}
-				}
-			}
+		}
 	});
 
 /**
@@ -76,6 +68,9 @@ const languageRuntimeExtPoint =
  */
 export class LanguageRuntimeService extends Disposable implements ILanguageRuntimeService, IOpener {
 	//#region Private Properties
+
+	// The language packs; a map of language ID to a list of extensions that provide the language.
+	private readonly _languagePacks: Map<string, Array<ExtensionIdentifier>> = new Map();
 
 	// The set of encountered languages. This is keyed by the languageId and is
 	// used to orchestrate implicit runtime startup.
@@ -150,7 +145,6 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 
 	/**
 	 * Constructor.
-	 * @param _commandService The command service.
 	 * @param _extensionService The extension service.
 	 * @param _languageService The language service.
 	 * @param _logService The log service.
@@ -161,7 +155,6 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 	 * @param _workspaceTrustManagementService The workspace trust management service.
 	 */
 	constructor(
-		@ICommandService private readonly _commandService: ICommandService,
 		@IExtensionService private readonly _extensionService: IExtensionService,
 		@ILanguageService private readonly _languageService: ILanguageService,
 		@ILogService private readonly _logService: ILogService,
@@ -183,6 +176,24 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 
 		// Register as an opener in the opener service.
 		this._openerService.registerOpener(this);
+
+		languageRuntimeExtPoint.setHandler((extensions) => {
+			// This new set of extensions replaces the old set, so clear the
+			// language packs.
+			this._languagePacks.clear();
+
+			// Loop over each extension that contributes language runtimes.
+			for (const extension of extensions) {
+				for (const value of extension.value) {
+					this._logService.info(`Extension ${extension.description.identifier.value} contributes language runtime for language ID ${value.languageId}`);
+					if (this._languagePacks.has(value.languageId)) {
+						this._languagePacks.get(value.languageId)?.push(extension.description.identifier);
+					} else {
+						this._languagePacks.set(value.languageId, [extension.description.identifier]);
+					}
+				}
+			}
+		});
 
 		// Add the onDidEncounterLanguage event handler.
 		this._register(this._languageService.onDidRequestRichLanguageFeatures(languageId => {
@@ -214,9 +225,28 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 				`A file with the language ID ${languageId} was opened.`);
 		}));
 
-		// Begin registering/discovering language runtimes once all extensions have been started.
-		this._extensionService.whenAllExtensionHostsStarted().then(() => {
+		this._extensionService.whenAllExtensionHostsStarted().then(async () => {
+			// Start affiliated runtimes for the workspace
 			this.startAffiliatedLanguageRuntimes();
+
+			// Activate all extensions that contribute language runtimes.
+			const activationPromises = Array.from(this._languagePacks.keys()).map(
+				async (languageId) => {
+					for (const extension of this._languagePacks.get(languageId) || []) {
+						this._logService.info(`Activating extension ${extension.value} for language ID ${languageId}`);
+						this._extensionService.activateById(extension,
+							{
+								extensionId: extension,
+								activationEvent: `onLanguageRuntime:${languageId}`,
+								startup: true
+							});
+					}
+				});
+			await Promise.all(activationPromises);
+			this._logService.info(`All extensions contributing language runtimes have been activated.`);
+
+			// Enter the discovery phase; this triggers us to ask each extension for its
+			// language runtime providers.
 			this._onDidChangeDiscoveryPhaseEmitter.fire(LanguageRuntimeDiscoveryPhase.Discovering);
 		});
 
