@@ -27,6 +27,8 @@ import { PythonRuntime, createJupyterKernelExtra } from './runtime';
 import { JediLanguageServerAnalysisOptions } from '../activation/jedi/analysisOptions';
 import { IEnvironmentVariablesProvider } from '../common/variables/types';
 import { IWorkspaceService } from '../common/application/types';
+import { IInterpreterSelector } from '../interpreter/configuration/types';
+import { getEnvLocationHeuristic, EnvLocationHeuristic } from '../interpreter/configuration/environmentTypeComparer';
 
 /**
  * Provides a single Python language runtime for Positron; implements
@@ -82,18 +84,25 @@ export async function* pythonRuntimeDiscoverer(
         await activatedPromise;
 
         const interpreterService = serviceContainer.get<IInterpreterService>(IInterpreterService);
+        const interpreterSelector = serviceContainer.get<IInterpreterSelector>(IInterpreterSelector);
 
-        // Get the preferred interpreter
+        // Get the recommended interpreter
         // NOTE: We may need to pass a resource to getSettings to support multi-root workspaces
-        const preferredInterpreter = await interpreterService.getActiveInterpreter();
+        const workspaceUri = vscode.workspace.workspaceFolders?.[0]?.uri;
+        const suggestions = await interpreterSelector.getSuggestions(workspaceUri);
+        let recommendedInterpreter = interpreterSelector.getRecommendedSuggestion(suggestions, workspaceUri)?.interpreter;
+        if (!recommendedInterpreter) {
+            // fallback to active interpreter if we don't have a recommended interpreter
+            recommendedInterpreter = await interpreterService.getActiveInterpreter(workspaceUri);
+        }
+        traceInfo(`pythonRuntimeDiscoverer: recommended interpreter: ${recommendedInterpreter?.path}`);
 
         // Discover Python interpreters
         let interpreters = interpreterService.getInterpreters();
-        // Sort the available interpreters, favoring the active interpreter (if one is available)
-        interpreters = sortInterpreters(interpreters, preferredInterpreter);
+        // Sort the available interpreters, favoring the recommended interpreter (if one is available)
+        interpreters = sortInterpreters(interpreters, recommendedInterpreter);
 
         traceInfo(`pythonRuntimeDiscoverer: discovered ${interpreters.length} Python interpreters`);
-        traceInfo(`pythonRuntimeDiscoverer: preferred interpreter: ${preferredInterpreter?.path}`);
 
         // Recommend Python for the workspace if it contains Python-relevant files
         let recommendedForWorkspace = await hasFiles([
@@ -180,10 +189,17 @@ export async function createPythonRuntime(
     const hasCompatibleKernel = await installer.isProductVersionCompatible(Product.ipykernel, '>=6.19.1', interpreter);
 
     if (hasCompatibleKernel === ProductInstallStatus.Installed) {
-        startupBehavior = recommendedForWorkspace ? positron.LanguageRuntimeStartupBehavior.Immediate : positron.LanguageRuntimeStartupBehavior.Implicit;
+        startupBehavior = recommendedForWorkspace ?
+            positron.LanguageRuntimeStartupBehavior.Immediate :
+            positron.LanguageRuntimeStartupBehavior.Implicit;
     } else {
-        // If ipykernel is not installed, require explicit startup whether or not this is the recommended runtime for this workspace
-        startupBehavior = positron.LanguageRuntimeStartupBehavior.Explicit;
+        // Check if this is a local Python interpreter for the workspace (e.g. a local venv or conda env)
+        const workspacePath = workspaceService.workspaceFolders?.[0]?.uri?.fsPath;
+        const isLocal = workspacePath && getEnvLocationHeuristic(interpreter, workspacePath) === EnvLocationHeuristic.Local;
+        startupBehavior = (isLocal && recommendedForWorkspace) ?
+            positron.LanguageRuntimeStartupBehavior.Immediate :
+            // If ipykernel is not installed and this is not a local Python env, require explicit startup
+            positron.LanguageRuntimeStartupBehavior.Explicit;
     }
     traceInfo(`createPythonRuntime: startup behavior: ${startupBehavior}`);
 
