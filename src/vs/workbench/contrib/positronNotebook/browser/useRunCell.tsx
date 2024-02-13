@@ -53,9 +53,13 @@ export function useRunCell(opts: {
 			});
 	}, [onRunCell, getCellExecutionStatus, cell]);
 
-	React.useEffect(() => cell.onDidChangeOutputs(() => {
-		setOutputContents({ outputs: cell.outputs });
-	}).dispose, [cell]);
+	React.useEffect(() => {
+		const changeWatcher = cell.onDidChangeOutputs(() => {
+			setOutputContents({ outputs: cell.outputs });
+		});
+
+		return changeWatcher.dispose;
+	}, [cell]);
 
 	return {
 		outputContents,
