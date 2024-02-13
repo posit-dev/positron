@@ -504,18 +504,16 @@ declare module 'positron' {
 		size: number;
 	}
 
-	export type LanguageRuntimeDiscoverer = AsyncGenerator<LanguageRuntime>;
+	export type LanguageRuntimeDiscoverer = AsyncGenerator<LanguageRuntimeMetadata>;
 
-	export interface LanguageRuntimeProvider {
+	export interface LanguageRuntimeSessionManager {
 		/**
-		 * Given runtime metadata, return the corresponding `LanguageRuntime` object.
+		 * Starts a new runtime session.
 		 *
 		 * @param runtimeMetadata The runtime metadata.
-		 * @param token A cancellation token.
-		 * @return The language runtime.
+		 * @param sessionId The session ID.
 		 */
-		provideLanguageRuntime(runtimeMetadata: LanguageRuntimeMetadata, token: vscode.CancellationToken):
-			vscode.ProviderResult<LanguageRuntime>;
+		start(runtimeMetadata: LanguageRuntimeMetadata, sessionId: string): Thenable<LanguageRuntimeSession>;
 	}
 
 	/**
@@ -553,11 +551,11 @@ declare module 'positron' {
 	}
 
 	/**
-	 * LanguageRuntime is an interface implemented by extensions that provide a
+	 * LanguageRuntimeSession is an interface implemented by extensions that provide a
 	 * set of common tools for interacting with a language runtime, such as code
 	 * execution, LSP implementation, and plotting.
 	 */
-	export interface LanguageRuntime extends vscode.Disposable {
+	export interface LanguageRuntimeSession extends vscode.Disposable {
 		/** An object supplying metadata about the runtime */
 		readonly metadata: LanguageRuntimeMetadata;
 
@@ -633,14 +631,6 @@ declare module 'positron' {
 		replyToPrompt(id: string, reply: string): void;
 
 		/**
-		 * Start the runtime; returns a Thenable that resolves with information about the runtime.
-		 * If the runtime fails to start for any reason, the Thenable should reject with an error
-		 * object containing a `message` field with a human-readable error message and an optional
-		 * `details` field with additional information.
-		 */
-		start(): Thenable<LanguageRuntimeInfo>;
-
-		/**
 		 * Interrupt the runtime; returns a Thenable that resolves when the interrupt has been
 		 * successfully sent to the runtime (not necessarily when it has been processed)
 		 */
@@ -673,21 +663,6 @@ declare module 'positron' {
 		 * Show runtime log in output panel.
 		 */
 		showOutput?(): void;
-
-		/**
-		 * Create a new instance of the runtime.
-		 *
-		 * NOTE: This is a temporary workaround to get notebooks working with our
-		 *       runtimes, until we implement runtime sessions. "Cloned" runtimes
-		 *       will not be known by the language runtime service thus cannot
-		 *       integrate with any of our existing functionality. This method
-		 *       should not be used outside of our notebook extension.
-		 *
-		 * @param metadata The metadata for the new runtime instance.
-		 * @param notebook The notebook that this runtime belongs to.
-		 * @returns A new runtime instance.
-		 */
-		clone(metadata: LanguageRuntimeMetadata, notebook: vscode.NotebookDocument): LanguageRuntime;
 	}
 
 
@@ -1024,29 +999,29 @@ declare module 'positron' {
 		 *
 		 * @param runtime The language runtime to register
 		 */
-		export function registerLanguageRuntime(runtime: LanguageRuntime): vscode.Disposable;
+		export function registerLanguageRuntime(runtime: LanguageRuntimeMetadata): vscode.Disposable;
 
 		/**
-		 * Register a language runtime provider.
+		 * Register a language runtime session manager.
 		 *
-		 * @param languageId The language ID for which a runtime will be provided
-		 * @param provider A language runtime provider.
-		 * @return A {@link Disposable} that unregisters this provider when being disposed.
+		 * @param languageId The language ID for which the manager is being registered.
+		 * @param provider A language runtime session manager.
+		 * @return A {@link Disposable} that unregisters this manager when being disposed.
 		 */
-		export function registerLanguageRuntimeProvider(languageId: string,
-			provider: LanguageRuntimeProvider): void;
+		export function registerLanguageRuntimeSessionManager(languageId: string,
+			manager: LanguageRuntimeSessionManager): void;
 
 		/**
 		 * List all registered runtimes.
 		 */
-		export function getRegisteredRuntimes(): Thenable<LanguageRuntime[]>;
+		export function getRegisteredRuntimes(): Thenable<LanguageRuntimeMetadata[]>;
 
 		/**
 		 * Get the preferred language runtime for a given language.
 		 *
 		 * @param languageId The language ID of the preferred runtime
 		 */
-		export function getPreferredRuntime(languageId: string): Thenable<LanguageRuntime>;
+		export function getPreferredRuntime(languageId: string): Thenable<LanguageRuntimeMetadata>;
 
 		/**
 		 * List the running runtimes for a given language.
@@ -1082,7 +1057,7 @@ declare module 'positron' {
 		/**
 		 * An event that fires when a new runtime is registered.
 		 */
-		export const onDidRegisterRuntime: vscode.Event<LanguageRuntime>;
+		export const onDidRegisterRuntime: vscode.Event<LanguageRuntimeMetadata>;
 
 	}
 
