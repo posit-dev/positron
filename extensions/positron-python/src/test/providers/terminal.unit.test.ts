@@ -148,10 +148,14 @@ suite('Terminal Provider', () => {
             terminalProvider = new TerminalProvider(serviceContainer.object);
             await terminalProvider.initialize(terminal.object);
 
+            // --- Start Positron ---
+            // We always opt into the terminal env var experiment, so activateEnvironmentInTerminal
+            // should no longer be called. See: https://github.com/posit-dev/positron-python/pull/290.
             terminalActivator.verify(
                 (a) => a.activateEnvironmentInTerminal(terminal.object, TypeMoq.It.isAny()),
-                TypeMoq.Times.once(),
+                TypeMoq.Times.never(),
             );
+            // --- End Positron ---
             configService.verifyAll();
             activeResourceService.verifyAll();
         });

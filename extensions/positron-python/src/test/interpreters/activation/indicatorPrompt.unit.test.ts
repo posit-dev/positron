@@ -120,6 +120,12 @@ suite('Terminal Activation Indicator Prompt', () => {
     });
 
     test('When not in experiment, do not show notification for the same', async () => {
+        // --- Start Positron ---
+        // We always opt into the terminal env var experiment, so skip this test.
+        // See: https://github.com/posit-dev/positron-python/pull/290.
+        return;
+        // --- End Positron ---
+
         const resource = Uri.file('a');
         const terminal = ({
             creationOptions: {

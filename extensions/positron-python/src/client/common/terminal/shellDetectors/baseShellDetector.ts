@@ -49,10 +49,7 @@ detectableShells.set(TerminalShellType.xonsh, IS_XONSH);
 
 @injectable()
 export abstract class BaseShellDetector implements IShellDetector {
-    // --- Start Positron ---
-    // @ts-ignore
-    constructor(@unmanaged() public readonly priority: number) {}
-    // --- End Positron ---
+    constructor(@unmanaged() public readonly priority: number) { }
     public abstract identify(
         telemetryProperties: ShellIdentificationTelemetry,
         terminal?: Terminal,
