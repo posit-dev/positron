@@ -1059,6 +1059,8 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 		} else if (this._data.has(id)) {
 			// Is it ... a data viewer?
 			this._data.delete(id);
+		} else if (this._connections.has(id)) {
+			this._connections.delete(id);
 		} else {
 			throw new Error(`Can't remove client; unknown client id ${id}`);
 		}

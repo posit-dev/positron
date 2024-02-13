@@ -4,5 +4,6 @@
 	"view.description": "Database Connections",
 	"view.welcome": "No database connections are currently active.",
 	"commands.previewTable.title": "Preview Table",
-	"commands.previewTable.category": "Connections"
+	"commands.previewTable.category": "Connections",
+	"commands.closeConnection.title": "Close Connection"
 }
