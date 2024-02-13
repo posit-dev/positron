@@ -4,16 +4,13 @@
 
 .data-tool-container {
 	display: grid;
-	grid-template-rows: [top-gutter] 60px [content] 1fr [bottom-gutter] 0px;
-	grid-template-columns: [left-gutter] 0px [content] 1fr [right-gutter] 0px;
+	grid-template-rows: [data-tool] 1fr [end];
 }
 
+.data-tool-container
 .data-tool {
 	/* Place the data-tool in the data-tool-container. */
-	grid-row: content / bottom-gutter;
-	grid-column: content / right-gutter;
-
-	border-top: 1px solid var(--vscode-positronDataTool-border);
+	grid-row: data-tool / end;
 
 	/* Prevent 1fr from exceeding the parent height. */
 	min-height: 0;
@@ -22,11 +19,9 @@
 	display: grid;
 }
 
-.data-tool .column-1 {
-	/* Bordered. */
-	/* border-radius: 4px; */
-	/* border: 1px solid var(--vscode-positronDataTool-border); */
-
+.data-tool-container
+.data-tool
+.column-1 {
 	/* Prevent 1fr from exceeding the parent height. */
 	min-height: 0;
 
@@ -34,16 +29,23 @@
 	display: none;
 }
 
-.data-tool .splitter {
+.data-tool-container
+.data-tool
+.splitter {
 	/* Initially hidden. Layout happens in code. */
 	display: none;
 }
 
-.data-tool .splitter .vertical-splitter {
-	background-color: var(--vscode-positronDataTool-border);
+.data-tool-container
+.data-tool
+.splitter
+.vertical-splitter {
+	/* background-color: var(--vscode-positronDataTool-border); */
 }
 
-.data-tool .column-2 {
+.data-tool-container
+.data-tool
+.column-2 {
 	/* Bordered. */
 	/* border-radius: 4px; */
 	/* border: 1px solid var(--vscode-positronDataTool-border); */

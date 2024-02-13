@@ -2,10 +2,17 @@
  *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
+// CSS.
 import 'vs/css!./horizontalSplitter';
+
+// React.
 import * as React from 'react';
+import { useState } from 'react'; // eslint-disable-line no-duplicate-imports
+
+// Other dependencies.
 import * as DOM from 'vs/base/browser/dom';
 import { isMacintosh } from 'vs/base/common/platform';
+import { positronClassNames } from 'vs/base/common/positronUtilities';
 
 /**
  * HorizontalSplitterResizeParams interface. This defines the parameters of a resize operation. When
@@ -25,9 +32,13 @@ export interface HorizontalSplitterResizeParams {
  * @returns The rendered component.
  */
 export const HorizontalSplitter = (props: {
+	showResizeIndicator?: boolean;
 	onBeginResize: () => HorizontalSplitterResizeParams;
 	onResize: (height: number) => void;
 }) => {
+	// State hooks.
+	const [resizing, setResizing] = useState(false);
+
 	/**
 	 * onPointerDown handler.
 	 * @param e A PointerEvent that describes a user interaction with the pointer.
@@ -85,6 +96,9 @@ export const HorizontalSplitter = (props: {
 		 * @param e A PointerEvent that describes a user interaction with the pointer.
 		 */
 		const lostPointerCaptureHandler = (e: PointerEvent) => {
+			// Clear the dragging flag.
+			setResizing(false);
+
 			// Remove our pointer event handlers.
 			target.removeEventListener('pointermove', pointerMoveHandler);
 			target.removeEventListener('lostpointercapture', lostPointerCaptureHandler);
@@ -121,6 +135,9 @@ export const HorizontalSplitter = (props: {
 				resizeParams.startingHeight - delta;
 		};
 
+		// Set the dragging flag.
+		setResizing(true);
+
 		// Set the capture target of future pointer events to be the current target and add our
 		// pointer event handlers.
 		target.setPointerCapture(e.pointerId);
@@ -131,7 +148,13 @@ export const HorizontalSplitter = (props: {
 	// Render.
 	return (
 		<div className='horizontal-splitter'>
-			<div className='sizer' onPointerDown={pointerDownHandler} />
+			<div
+				className={positronClassNames(
+					'sizer',
+					{ 'resizing': resizing && props.showResizeIndicator }
+				)}
+				onPointerDown={pointerDownHandler}
+			/>
 		</div>
 	);
 };

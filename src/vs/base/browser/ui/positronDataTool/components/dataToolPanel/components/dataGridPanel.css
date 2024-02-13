@@ -3,19 +3,19 @@
  *--------------------------------------------------------------------------------------------*/
 
 .data-tool
-.columns-panel {
+.data-grid-panel {
 	display: grid;
-	grid-template-rows: [columns-actions] 64px [columns] 1fr [end];
+	grid-template-rows: [data-grid-actions] 64px [data-grid] 1fr [end];
 }
 
 .data-tool
-.columns-panel
-.columns-actions {
-	grid-row: columns-actions / columns;
+.data-grid-panel
+.data-grid-actions {
+	grid-row: data-grid-actions / data-grid;
 }
 
 .data-tool
-.columns-panel
-.columns-container {
-	border-top: 1px solid var(--vscode-positronDataTool-border);
+.data-grid-panel
+.data-grid-container {
+	grid-row: data-grid / end;
 }

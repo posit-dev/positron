@@ -3,7 +3,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 // CSS.
-import 'vs/css!./actionBar';
+import 'vs/css!./dataToolActionBar';
 
 // React.
 import * as React from 'react';
@@ -18,7 +18,7 @@ import { ActionBarButton } from 'vs/platform/positronActionBar/browser/component
 import { ActionBarSeparator } from 'vs/platform/positronActionBar/browser/components/actionBarSeparator';
 import { usePositronDataToolContext } from 'vs/base/browser/ui/positronDataTool/positronDataToolContext';
 import { PositronActionBarContextProvider } from 'vs/platform/positronActionBar/browser/positronActionBarContext';
-import { LayoutMenuButton } from 'vs/base/browser/ui/positronDataTool/components/actionBar/components/layoutMenuButton';
+import { LayoutMenuButton } from 'vs/base/browser/ui/positronDataTool/components/dataToolActionBar/components/layoutMenuButton';
 
 /**
  * Constants.
@@ -33,18 +33,18 @@ const clearSortButtonTitle = localize('positron.clearSortButtonLabel', "Clear So
 const clearSortButtonDescription = localize('positron.clearSortButtonDescription', "Clear sorting");
 
 /**
- * ActionBarProps interface.
+ * DataToolActionBarProps interface.
  */
-interface ActionBarProps {
+interface DataToolActionBarProps {
 	readonly reactComponentContainer: IReactComponentContainer;
 }
 
 /**
- * ActionBar component.
- * @param props An ActionBarProps that contains the component properties.
+ * DataToolActionBar component.
+ * @param props An DataToolActionBarProps that contains the component properties.
  * @returns The rendered component.
  */
-export const ActionBar = (props: ActionBarProps) => {
+export const DataToolActionBar = (props: DataToolActionBarProps) => {
 	// Context hooks.
 	const context = usePositronDataToolContext();
 
@@ -54,7 +54,7 @@ export const ActionBar = (props: ActionBarProps) => {
 	// Render.
 	return (
 		<PositronActionBarContextProvider {...context}>
-			<div className='action-bar'>
+			<div className='data-tool-action-bar'>
 				<PositronActionBar
 					size='small'
 					borderBottom={true}
@@ -68,7 +68,7 @@ export const ActionBar = (props: ActionBarProps) => {
 							text={clearSortButtonTitle}
 							tooltip={clearSortButtonDescription}
 							ariaLabel={clearSortButtonDescription}
-							onPressed={() => context.instance.positronDataGridInstance.clearColumnSortKeys()}
+							onPressed={() => context.instance.dataGridInstance.clearColumnSortKeys()}
 						/>
 						<ActionBarSeparator />
 						<LayoutMenuButton />

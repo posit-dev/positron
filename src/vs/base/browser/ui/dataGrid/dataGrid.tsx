@@ -9,6 +9,7 @@ import 'vs/css!./dataGrid';
 import * as React from 'react';
 
 // Other dependencies.
+import { positronClassNames } from 'vs/base/common/positronUtilities';
 import { DataGridWaffle } from 'vs/base/browser/ui/dataGrid/components/dataGridWaffle';
 import { DataGridConfiguration, DataGridContextProvider } from 'vs/base/browser/ui/dataGrid/dataGridContext';
 
@@ -18,6 +19,8 @@ import { DataGridConfiguration, DataGridContextProvider } from 'vs/base/browser/
 interface DataGridProps extends DataGridConfiguration {
 	width: number;
 	height: number;
+	borderTop?: boolean;
+	borderLeft?: boolean;
 }
 
 /**
@@ -29,7 +32,13 @@ export const DataGrid = (props: DataGridProps) => {
 	// Render.
 	return (
 		<DataGridContextProvider {...props}>
-			<div className='data-grid'>
+			<div
+				className={positronClassNames(
+					'data-grid',
+					{ 'border-top': props.borderTop },
+					{ 'border-left': props.borderLeft }
+				)}
+			>
 				<DataGridWaffle {...props} />
 			</div>
 		</DataGridContextProvider>

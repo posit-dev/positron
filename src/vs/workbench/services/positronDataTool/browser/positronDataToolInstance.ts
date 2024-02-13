@@ -4,10 +4,10 @@
 
 import { Emitter } from 'vs/base/common/event';
 import { Disposable } from 'vs/base/common/lifecycle';
+import { DataToolClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeDataToolClient';
 import { PositronDataToolLayout } from 'vs/workbench/services/positronDataTool/browser/interfaces/positronDataToolService';
 import { IPositronDataToolInstance } from 'vs/workbench/services/positronDataTool/browser/interfaces/positronDataToolInstance';
 import { PositronDataToolDataGridInstance } from 'vs/workbench/services/positronDataTool/browser/positronDataToolDataGridInstance';
-import { DataToolClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeDataToolClient';
 
 /**
 * PositronDataToolInstance class.
@@ -131,7 +131,7 @@ export class PositronDataToolInstance extends Disposable implements IPositronDat
 	/**
 	 * Gets the
 	 */
-	get positronDataGridInstance() {
+	get dataGridInstance() {
 		return this._positronDataToolDataGridInstance;
 	}
 

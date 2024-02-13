@@ -2,8 +2,7 @@
  *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
-.positron-data-tool .action-bar {
-	/* width: 100%; */
+.positron-data-tool .data-tool-action-bar {
 	height: 32px;
 	--positronActionBar-border: var(--vscode-positronSideActionBar-border);
 	--positronActionBar-separator: var(--vscode-positronSideActionBar-separator);

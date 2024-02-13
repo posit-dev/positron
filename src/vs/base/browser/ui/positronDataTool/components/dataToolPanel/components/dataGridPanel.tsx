@@ -3,7 +3,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 // CSS.
-import 'vs/css!./rowsPanel';
+import 'vs/css!./dataGridPanel';
 
 // React.
 import * as React from 'react';
@@ -13,32 +13,38 @@ import { DataGrid } from 'vs/base/browser/ui/dataGrid/dataGrid';
 import { usePositronDataToolContext } from 'vs/base/browser/ui/positronDataTool/positronDataToolContext';
 
 /**
- * RowsPanelProps interface.
+ * DataGridPanelProps interface.
  */
-interface RowsPanelProps {
+interface DataGridPanelProps {
 	width: number;
 	height: number;
 }
 
 /**
- * RowsPanel component.
- * @param props A RowsPanelProps that contains the component properties.
+ * DataGridPanel component.
+ * @param props A DataGridPanelProps that contains the component properties.
  * @returns The rendered component.
  */
-export const RowsPanel = (props: RowsPanelProps) => {
+export const DataGridPanel = (props: DataGridPanelProps) => {
 	// Context hooks.
 	const context = usePositronDataToolContext();
 
 	// Render.
 	return (
-		<div className='rows-panel'>
-			<DataGrid
-				// Props.
-				layoutService={context.layoutService}
-				instance={context.instance.positronDataGridInstance}
-				width={props.width}
-				height={props.height}
-			/>
+		<div className='data-grid-panel'>
+			<div className='data-grid-actions'>
+
+			</div>
+			<div className='data-grid-container'>
+				<DataGrid
+					layoutService={context.layoutService}
+					instance={context.instance.dataGridInstance}
+					width={props.width}
+					height={props.height - 64}
+					borderTop={true}
+					borderLeft={true}
+				/>
+			</div>
 		</div>
 	);
 };

@@ -14,8 +14,8 @@ import { DisposableStore } from 'vs/base/common/lifecycle';
 import { IReactComponentContainer } from 'vs/base/browser/positronReactRenderer';
 import { PositronDataToolProps } from 'vs/base/browser/ui/positronDataTool/positronDataTool';
 import { usePositronDataToolContext } from 'vs/base/browser/ui/positronDataTool/positronDataToolContext';
-import { RowsPanel } from 'vs/base/browser/ui/positronDataTool/components/dataToolPanel/components/rowsPanel';
 import { ColumnsPanel } from 'vs/base/browser/ui/positronDataTool/components/dataToolPanel/components/columnsPanel';
+import { DataGridPanel } from 'vs/base/browser/ui/positronDataTool/components/dataToolPanel/components/dataGridPanel';
 import { VerticalSplitter, VerticalSplitterResizeParams } from 'vs/base/browser/ui/positronComponents/verticalSplitter';
 import { PositronDataToolLayout } from 'vs/workbench/services/positronDataTool/browser/interfaces/positronDataToolService';
 
@@ -43,7 +43,7 @@ export const DataToolPanel = (props: DataToolPanelProps) => {
 	const context = usePositronDataToolContext();
 
 	// Reference hooks.
-	const dataToolPanel = useRef<HTMLDivElement>(undefined!);
+	const dataTool = useRef<HTMLDivElement>(undefined!);
 	const column1 = useRef<HTMLDivElement>(undefined!);
 	const splitter = useRef<HTMLDivElement>(undefined!);
 	const column2 = useRef<HTMLDivElement>(undefined!);
@@ -77,8 +77,8 @@ export const DataToolPanel = (props: DataToolPanelProps) => {
 		switch (layout) {
 			// Columns left.
 			case PositronDataToolLayout.ColumnsLeft:
-				dataToolPanel.current.style.gridTemplateRows = '[main] 1fr [end]';
-				dataToolPanel.current.style.gridTemplateColumns = `[column-1] ${columnsWidth}px [splitter] 1px [column-2] 1fr [end]`;
+				dataTool.current.style.gridTemplateRows = '[main] 1fr [end]';
+				dataTool.current.style.gridTemplateColumns = `[column-1] ${columnsWidth}px [splitter] 0px [column-2] 1fr [end]`;
 
 				column1.current.style.gridRow = 'main / end';
 				column1.current.style.gridColumn = 'column-1 / splitter';
@@ -95,8 +95,8 @@ export const DataToolPanel = (props: DataToolPanelProps) => {
 
 			// Columns right.
 			case PositronDataToolLayout.ColumnsRight:
-				dataToolPanel.current.style.gridTemplateRows = '[main] 1fr [end]';
-				dataToolPanel.current.style.gridTemplateColumns = `[column-1] 1fr [splitter] 1px [column-2] ${columnsWidth}px [end]`;
+				dataTool.current.style.gridTemplateRows = '[main] 1fr [end]';
+				dataTool.current.style.gridTemplateColumns = `[column-1] 1fr [splitter] 0px [column-2] ${columnsWidth}px [end]`;
 
 				column1.current.style.gridRow = 'main / end';
 				column1.current.style.gridColumn = 'column-2 / end';
@@ -113,8 +113,8 @@ export const DataToolPanel = (props: DataToolPanelProps) => {
 
 			// Columns hidden.
 			case PositronDataToolLayout.ColumnsHidden:
-				dataToolPanel.current.style.gridTemplateRows = '[main] 1fr [end]';
-				dataToolPanel.current.style.gridTemplateColumns = `[column] 1fr [end]`;
+				dataTool.current.style.gridTemplateRows = '[main] 1fr [end]';
+				dataTool.current.style.gridTemplateColumns = `[column] 1fr [end]`;
 
 				column1.current.style.gridRow = '';
 				column1.current.style.gridColumn = '';
@@ -151,35 +151,30 @@ export const DataToolPanel = (props: DataToolPanelProps) => {
 		context.instance.columnsWidthPercent = newColumnsWidth / props.width;
 	};
 
-	// Calculate the panel height.
-	const panelHeight = props.height - 60;
-
 	// Render.
 	return (
-		<div
-			className='data-tool-container'
-			style={{ width: props.width, height: props.height }}
-		>
-			<div
-				ref={dataToolPanel}
-				className='data-tool'
-			>
+		<div className='data-tool-container' style={{ width: props.width, height: props.height }}>
+			<div className='data-tool-actions'>
+
+			</div>
+			<div ref={dataTool} className='data-tool'>
 				<div ref={column1} className='column-1'>
-					<ColumnsPanel
-						width={columnsWidth}
-						height={panelHeight}
-					/>
+					<ColumnsPanel width={columnsWidth} height={props.height} />
 				</div>
 				<div ref={splitter} className='splitter'>
 					<VerticalSplitter
+						showResizeIndicator={true}
 						onBeginResize={beginResizeHandler}
 						onResize={resizeHandler}
 					/>
 				</div>
 				<div ref={column2} className='column-2'>
-					<RowsPanel
-						width={props.width - columnsWidth}
-						height={panelHeight}
+					<DataGridPanel
+						width={layout === PositronDataToolLayout.ColumnsHidden ?
+							props.width :
+							props.width - columnsWidth
+						}
+						height={props.height}
 					/>
 				</div>
 			</div>

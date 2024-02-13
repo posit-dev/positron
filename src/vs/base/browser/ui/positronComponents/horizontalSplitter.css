@@ -8,15 +8,22 @@
 	cursor: ns-resize;
 }
 
-.mac .horizontal-splitter {
+.mac
+.horizontal-splitter {
 	/* On macOS, the cursor is row-resize instead of ns-resize. */
 	cursor: row-resize;
 }
 
-.horizontal-splitter .sizer {
+.horizontal-splitter
+.sizer {
 	top: -2px;
 	height: 5px;
 	z-index: 25;
 	width: 100%;
 	position: relative;
+}
+
+.horizontal-splitter
+.sizer.resizing {
+	background-color: var(--vscode-focusBorder);
 }

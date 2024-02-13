@@ -33,7 +33,7 @@ export interface IPositronDataToolInstance {
 	/**
 	 * Gets the data grid instance.
 	 */
-	readonly positronDataGridInstance: IDataGridInstance;
+	readonly dataGridInstance: IDataGridInstance;
 
 	/**
 	 * The onDidChangeLayout event.
