@@ -24,6 +24,7 @@ import { UiFrontendEvent } from './positronUiComm';
 import { Registry } from 'vs/platform/registry/common/platform';
 import { IConfigurationRegistry, Extensions as ConfigurationExtensions, ConfigurationScope, IConfigurationNode, } from 'vs/platform/configuration/common/configurationRegistry';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
+import { ExtensionsRegistry } from 'vs/workbench/services/extensions/common/extensionsRegistry';
 
 /**
  * LanguageRuntimeInfo class.
@@ -39,6 +40,36 @@ class LanguageRuntimeInfo {
 		this.state = state;
 	}
 }
+
+interface ILanguageRuntimeProviderMetadata {
+	languageId: string;
+}
+
+const languageRuntimeExtPoint =
+	ExtensionsRegistry.registerExtensionPoint<ILanguageRuntimeProviderMetadata[]>({
+		extensionPoint: 'languageRuntimes',
+		jsonSchema: {
+			type: 'array',
+			items: {
+				type: 'object',
+				properties: {
+					languageId: {
+						type: 'string',
+						description: nls.localize('contributes.languageRuntime.languageId', 'The language ID for which this extension provides runtime services.'),
+					}
+				}
+			}
+		},
+		activationEventsGenerator:
+			(contribs: ILanguageRuntimeProviderMetadata[],
+				result: { push(item: string): void }) => {
+				for (const contrib of contribs) {
+					if (contrib.languageId) {
+						result.push(`onRuntime:${contrib.languageId}`);
+					}
+				}
+			}
+	});
 
 /**
  * The implementation of ILanguageRuntimeService
