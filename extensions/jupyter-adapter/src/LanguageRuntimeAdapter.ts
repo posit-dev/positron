@@ -34,8 +34,8 @@ import { JupyterCommRequest } from './JupyterCommRequest';
 /**
  * LangaugeRuntimeAdapter wraps a JupyterKernel in a LanguageRuntime compatible interface.
  */
-export class LanguageRuntimeAdapter
-	implements vscode.Disposable, positron.LanguageRuntime {
+export class LanguageRuntimeSessionAdapter
+	implements vscode.Disposable, positron.LanguageRuntimeSession {
 
 	private readonly _kernel: JupyterKernel;
 	private readonly _messages: vscode.EventEmitter<positron.LanguageRuntimeMessage>;
@@ -61,15 +61,18 @@ export class LanguageRuntimeAdapter
 	private readonly _comms: Map<string, RuntimeClientAdapter> = new Map();
 
 	/**
-	 * Create a new LanguageRuntimeAdapter to wrap a Jupyter kernel instance in
-	 * a LanguageRuntime interface.
+	 * Create a new LanguageRuntimeSessionAdapter to wrap a Jupyter kernel session in
+	 * a LanguageRuntimeSession interface.
 	 *
 	 * @param _context The extension context for the extension that owns this adapter
 	 * @param _channel The output channel to use for logging
 	 * @param _spec The Jupyter kernel spec for the kernel to wrap
 	 * @param metadata The metadata for the language runtime to wrap
+	 * @param dynState The dynamic state of the language runtime
+	 * @param extra Extra startup options for the kernel
 	 */
 	constructor(
+		public readonly sessionId: string,
 		private readonly _context: vscode.ExtensionContext,
 		private readonly _channel: vscode.OutputChannel,
 		private readonly _spec: JupyterKernelSpec,
@@ -84,7 +87,8 @@ export class LanguageRuntimeAdapter
 			this._channel,
 			extra
 		);
-		this._channel.appendLine('Registered kernel: ' + JSON.stringify(this.metadata));
+		this._channel.appendLine(`Created session ${sessionId}: ` +
+			` for kernel ${JSON.stringify(this.metadata)}`);
 
 		// Create emitter for LanguageRuntime messages and state changes
 		this._messages = new vscode.EventEmitter<positron.LanguageRuntimeMessage>();
@@ -372,12 +376,6 @@ export class LanguageRuntimeAdapter
 	 */
 	public showOutput() {
 		this._kernel.showOutput();
-	}
-
-	public clone(_metadata: positron.LanguageRuntimeMetadata, _notebook: vscode.NotebookDocument): positron.LanguageRuntime {
-		// The clone method is a temporary workaround and should only be called on
-		// language pack LanguageRuntime implementations.
-		throw new Error(`LanguageRuntimeAdapter does not support cloning.`);
 	}
 
 	/**
@@ -858,7 +856,7 @@ export class LanguageRuntimeAdapter
 
 		// Create a unique client ID for this instance
 		const uniqueId = Math.floor(Math.random() * 0x100000000).toString(16);
-		const clientId = `positron-lsp-${this.metadata.languageId}-${LanguageRuntimeAdapter._clientCounter++}-${uniqueId}`;
+		const clientId = `positron-lsp-${this.metadata.languageId}-${LanguageRuntimeSessionAdapter._clientCounter++}-${uniqueId}`;
 		this._kernel.log(`Starting LSP server ${clientId} for ${clientAddress}`);
 
 		await this.createClient(
@@ -894,7 +892,7 @@ export class LanguageRuntimeAdapter
 
 		// Create a unique client ID for this instance
 		const uniqueId = Math.floor(Math.random() * 0x100000000).toString(16);
-		const clientId = `positron-dap-${this.metadata.languageId}-${LanguageRuntimeAdapter._clientCounter++}-${uniqueId}`;
+		const clientId = `positron-dap-${this.metadata.languageId}-${LanguageRuntimeSessionAdapter._clientCounter++}-${uniqueId}`;
 		this._kernel.log(`Starting DAP server ${clientId} for ${serverAddress}`);
 
 		await this.createClient(

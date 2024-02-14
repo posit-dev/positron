@@ -989,7 +989,7 @@ export class MainThreadLanguageRuntime implements MainThreadLanguageRuntimeShape
 	}
 
 	// Called by the extension host to register a language runtime
-	$registerLanguageRuntime(handle: number, metadata: ILanguageRuntimeMetadata, dynState: ILanguageRuntimeDynState): void {
+	$registerLanguageRuntime(handle: number, metadata: ILanguageRuntimeMetadata): void {
 		const adapter = new ExtHostLanguageRuntimeAdapter(
 			handle,
 			metadata,

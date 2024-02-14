@@ -23,10 +23,10 @@ interface LanguageRuntimeDiscoverer {
 }
 
 /**
- * A language runtime provider and metadata about the extension that registered it.
+ * A language runtime session provider and metadata about the extension that registered it.
  */
-interface LanguageRuntimeProvider {
-	provider: positron.LanguageRuntimeProvider;
+interface LanguageRuntimeSessionManager {
+	manager: positron.LanguageRuntimeSessionManager;
 	extension: IExtensionDescription;
 }
 
@@ -34,12 +34,15 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 
 	private readonly _proxy: extHostProtocol.MainThreadLanguageRuntimeShape;
 
-	private readonly _runtimes = new Array<positron.LanguageRuntime>();
+	private readonly _registeredRuntimes = new Array<positron.LanguageRuntimeMetadata>();
 
 	private readonly _runtimeDiscoverers = new Array<LanguageRuntimeDiscoverer>();
 
-	// A map of the runtime providers. This is keyed by the languageId of the runtime provider.
-	private readonly _runtimeProviders = new Map<string, LanguageRuntimeProvider>();
+	// A map of the runtime session managers. This is keyed by the languageId of the runtime provider.
+	private readonly _runtimeSessionManagers = new Map<string, LanguageRuntimeSessionManager>();
+
+	// A list of active sessions.
+	private readonly _runtimeSessions = new Array<positron.LanguageRuntimeSession>();
 
 	private readonly _clientInstances = new Array<ExtHostRuntimeClientInstance>();
 
@@ -57,7 +60,7 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 	private _runtimeDiscoveryComplete = false;
 
 	// The event emitter for the onDidRegisterRuntime event.
-	private readonly _onDidRegisterRuntimeEmitter = new Emitter<positron.LanguageRuntime>;
+	private readonly _onDidRegisterRuntimeEmitter = new Emitter<positron.LanguageRuntimeMetadata>;
 
 	// The event that fires when a runtime is registered.
 	public onDidRegisterRuntime = this._onDidRegisterRuntimeEmitter.event;
@@ -69,114 +72,179 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		this._proxy = mainContext.getProxy(extHostProtocol.MainPositronContext.MainThreadLanguageRuntime);
 	}
 
-	$startLanguageRuntime(handle: number): Promise<ILanguageRuntimeInfo> {
+	/**
+	 * Creates a language runtime session.
+	 *
+	 * @param metadata The metadata for the language runtime.
+	 * @param sessionId A previously provisioned ID for the session.
+	 *
+	 * @returns A promise that resolves with a handle to the runtime session.
+	 */
+	$createLanguageRuntimeSession(
+		metadata: positron.LanguageRuntimeMetadata,
+		sessionId: string): Promise<number> {
 		return new Promise((resolve, reject) => {
-			if (handle >= this._runtimes.length) {
-				return reject(new Error(`Cannot start runtime: language runtime handle '${handle}' not found or no longer valid.`));
+			// Look up the session manager responsible for the language ID
+			const sessionManager = this._runtimeSessionManagers.get(metadata.languageId);
+			if (sessionManager) {
+				sessionManager.manager.createSession(metadata, sessionId).then((session) => {
+					resolve(this.attachToSession(session));
+				}, (err) => {
+					reject(err);
+				});
+			} else {
+				reject(new Error(`No session manager found for language ID '${metadata.languageId}'.`));
 			}
-			this._runtimes[handle].start().then(info => {
-				resolve(info);
-			}, err => {
-				reject(err);
-			});
 		});
 	}
 
+	attachToSession(session: positron.LanguageRuntimeSession): number {
+
+		// Wire event handlers for state changes and messages
+		session.onDidChangeRuntimeState(state => {
+			const tick = this._eventClocks[handle] = this._eventClocks[handle] + 1;
+			this._proxy.$emitLanguageRuntimeState(handle, tick, state);
+		});
+
+		session.onDidReceiveRuntimeMessage(message => {
+			const tick = this._eventClocks[handle] = this._eventClocks[handle] + 1;
+			// Amend the message with the event clock for ordering
+			const runtimeMessage: ILanguageRuntimeMessage = {
+				event_clock: tick,
+				...message
+			};
+
+			// Dispatch the message to the appropriate handler
+			switch (message.type) {
+				// Handle comm messages separately
+				case LanguageRuntimeMessageType.CommOpen:
+					this.handleCommOpen(handle, runtimeMessage as ILanguageRuntimeMessageCommOpen);
+					break;
+
+				case LanguageRuntimeMessageType.CommData:
+					this.handleCommData(handle, runtimeMessage as ILanguageRuntimeMessageCommData);
+					break;
+
+				case LanguageRuntimeMessageType.CommClosed:
+					this.handleCommClosed(handle, runtimeMessage as ILanguageRuntimeMessageCommClosed);
+					break;
+
+				// Pass everything else to the main thread
+				default:
+					this._proxy.$emitLanguageRuntimeMessage(handle, runtimeMessage);
+					break;
+			}
+		});
+
+		// Hook up the session end (exit) handler
+		session.onDidEndSession(exit => {
+			this._proxy.$emitLanguageRuntimeExit(handle, exit);
+		});
+
+		// Register the runtime
+		const handle = this._runtimeSessions.length;
+		this._runtimeSessions.push(session);
+
+		this._eventClocks.push(0);
+
+		return handle;
+	}
+
 	async $interruptLanguageRuntime(handle: number): Promise<void> {
-		if (handle >= this._runtimes.length) {
-			throw new Error(`Cannot interrupt runtime: language runtime handle '${handle}' not found or no longer valid.`);
+		if (handle >= this._runtimeSessions.length) {
+			throw new Error(`Cannot interrupt runtime: session handle '${handle}' not found or no longer valid.`);
 		}
-		return this._runtimes[handle].interrupt();
+		return this._runtimeSessions[handle].interrupt();
 	}
 
 	async $shutdownLanguageRuntime(handle: number, exitReason: positron.RuntimeExitReason): Promise<void> {
-		if (handle >= this._runtimes.length) {
-			throw new Error(`Cannot shut down runtime: language runtime handle '${handle}' not found or no longer valid.`);
+		if (handle >= this._runtimeSessions.length) {
+			throw new Error(`Cannot shut down runtime: session handle '${handle}' not found or no longer valid.`);
 		}
-		return this._runtimes[handle].shutdown(exitReason);
+		return this._runtimeSessions[handle].shutdown(exitReason);
 	}
 
 	async $forceQuitLanguageRuntime(handle: number): Promise<void> {
-		if (handle >= this._runtimes.length) {
-			throw new Error(`Cannot force quit runtime: language runtime handle '${handle}' not found or no longer valid.`);
+		if (handle >= this._runtimeSessions.length) {
+			throw new Error(`Cannot force quit runtime: session handle '${handle}' not found or no longer valid.`);
 		}
-		return this._runtimes[handle].forceQuit();
+		return this._runtimeSessions[handle].forceQuit();
 	}
 
 	async $restartLanguageRuntime(handle: number): Promise<void> {
-		if (handle >= this._runtimes.length) {
-			throw new Error(`Cannot restart runtime: language runtime handle '${handle}' not found or no longer valid.`);
+		if (handle >= this._runtimeSessions.length) {
+			throw new Error(`Cannot restart runtime: session handle '${handle}' not found or no longer valid.`);
 		}
-		return this._runtimes[handle].restart();
+		return this._runtimeSessions[handle].restart();
 	}
 
 	$showOutputLanguageRuntime(handle: number): void {
-		if (handle >= this._runtimes.length) {
-			throw new Error(`Cannot show output for runtime: language runtime handle '${handle}' not found or no longer valid.`);
+		if (handle >= this._runtimeSessions.length) {
+			throw new Error(`Cannot show output for runtime: language runtime session handle '${handle}' not found or no longer valid.`);
 		}
-		if (!this._runtimes[handle].showOutput) {
-			throw new Error(`Cannot show output for runtime: language runtime handle '${handle}' does not implement logging.`);
+		if (!this._runtimeSessions[handle].showOutput) {
+			throw new Error(`Cannot show output for runtime: language runtime session handle '${handle}' does not implement logging.`);
 		}
-		return this._runtimes[handle].showOutput!();
+		return this._runtimeSessions[handle].showOutput!();
 	}
 
 	$openResource(handle: number, resource: URI | string): Promise<boolean> {
-		if (handle >= this._runtimes.length) {
-			throw new Error(`Cannot open resource: language runtime handle '${handle}' not found or no longer valid.`);
+		if (handle >= this._runtimeSessions.length) {
+			throw new Error(`Cannot open resource: session handle '${handle}' not found or no longer valid.`);
 		}
-		if (!this._runtimes[handle].openResource) {
+		if (!this._runtimeSessions[handle].openResource) {
 			return Promise.resolve(false);
 		}
-		return Promise.resolve(this._runtimes[handle].openResource!(resource));
+		return Promise.resolve(this._runtimeSessions[handle].openResource!(resource));
 	}
 
 	$executeCode(handle: number, code: string, id: string, mode: RuntimeCodeExecutionMode, errorBehavior: RuntimeErrorBehavior): void {
-		if (handle >= this._runtimes.length) {
-			throw new Error(`Cannot execute code: language runtime handle '${handle}' not found or no longer valid.`);
+		if (handle >= this._runtimeSessions.length) {
+			throw new Error(`Cannot execute code: session handle '${handle}' not found or no longer valid.`);
 		}
-		this._runtimes[handle].execute(code, id, mode, errorBehavior);
+		this._runtimeSessions[handle].execute(code, id, mode, errorBehavior);
 	}
 
 	$isCodeFragmentComplete(handle: number, code: string): Promise<RuntimeCodeFragmentStatus> {
-		if (handle >= this._runtimes.length) {
-			throw new Error(`Cannot test code completeness: language runtime handle '${handle}' not found or no longer valid.`);
+		if (handle >= this._runtimeSessions.length) {
+			throw new Error(`Cannot test code completeness: session handle '${handle}' not found or no longer valid.`);
 		}
-		return Promise.resolve(this._runtimes[handle].isCodeFragmentComplete(code));
+		return Promise.resolve(this._runtimeSessions[handle].isCodeFragmentComplete(code));
 	}
 
 	$createClient(handle: number, id: string, type: RuntimeClientType, params: any): Promise<void> {
-		if (handle >= this._runtimes.length) {
-			throw new Error(`Cannot create '${type}' client: language runtime handle '${handle}' not found or no longer valid.`);
+		if (handle >= this._runtimeSessions.length) {
+			throw new Error(`Cannot create '${type}' client: session handle '${handle}' not found or no longer valid.`);
 		}
-		return Promise.resolve(this._runtimes[handle].createClient(id, type, params));
+		return Promise.resolve(this._runtimeSessions[handle].createClient(id, type, params));
 	}
 
 	$listClients(handle: number, type?: RuntimeClientType): Promise<Record<string, string>> {
-		if (handle >= this._runtimes.length) {
-			throw new Error(`Cannot list clients: language runtime handle '${handle}' not found or no longer valid.`);
+		if (handle >= this._runtimeSessions.length) {
+			throw new Error(`Cannot list clients: session handle '${handle}' not found or no longer valid.`);
 		}
-		return Promise.resolve(this._runtimes[handle].listClients(type));
+		return Promise.resolve(this._runtimeSessions[handle].listClients(type));
 	}
 
 	$removeClient(handle: number, id: string): void {
-		if (handle >= this._runtimes.length) {
-			throw new Error(`Cannot remove client: language runtime handle '${handle}' not found or no longer valid.`);
+		if (handle >= this._runtimeSessions.length) {
+			throw new Error(`Cannot remove client: session handle '${handle}' not found or no longer valid.`);
 		}
-		this._runtimes[handle].removeClient(id);
+		this._runtimeSessions[handle].removeClient(id);
 	}
 
 	$sendClientMessage(handle: number, client_id: string, message_id: string, message: any): void {
-		if (handle >= this._runtimes.length) {
-			throw new Error(`Cannot send message to client: language runtime handle '${handle}' not found or no longer valid.`);
+		if (handle >= this._runtimeSessions.length) {
+			throw new Error(`Cannot send message to client: session handle '${handle}' not found or no longer valid.`);
 		}
-		this._runtimes[handle].sendClientMessage(client_id, message_id, message);
+		this._runtimeSessions[handle].sendClientMessage(client_id, message_id, message);
 	}
 
 	$replyToPrompt(handle: number, id: string, response: string): void {
-		if (handle >= this._runtimes.length) {
-			throw new Error(`Cannot reply to prompt: language runtime handle '${handle}' not found or no longer valid.`);
+		if (handle >= this._runtimeSessions.length) {
+			throw new Error(`Cannot reply to prompt: session handle '${handle}' not found or no longer valid.`);
 		}
-		this._runtimes[handle].replyToPrompt(id, response);
+		this._runtimeSessions[handle].replyToPrompt(id, response);
 	}
 
 	/**
@@ -265,7 +333,7 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 						this.registerLanguageRuntime(extension, result.value);
 					} catch (err) {
 						console.error(`Error registering language runtime ` +
-							`${result.value.metadata.runtimeName}: ${err}`);
+							`${result.value.runtimeName}: ${err}`);
 					}
 				}
 			}
@@ -291,13 +359,13 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		});
 	}
 
-	public getRegisteredRuntimes(): Promise<positron.LanguageRuntime[]> {
-		return Promise.resolve(this._runtimes);
+	public getRegisteredRuntimes(): Promise<positron.LanguageRuntimeMetadata[]> {
+		return Promise.resolve(this._registeredRuntimes);
 	}
 
-	public async getPreferredRuntime(languageId: string): Promise<positron.LanguageRuntime> {
+	public async getPreferredRuntime(languageId: string): Promise<positron.LanguageRuntimeMetadata> {
 		const metadata = await this._proxy.$getPreferredRuntime(languageId);
-		const runtime = this._runtimes.find(runtime => runtime.metadata.runtimeId === metadata.runtimeId);
+		const runtime = this._registeredRuntimes.find(runtime => runtime.runtimeId === metadata.runtimeId);
 		if (!runtime) {
 			throw new Error(`Runtime exists on main thread but not extension host: ${metadata.runtimeId}`);
 		}
@@ -327,87 +395,24 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		}
 	}
 
-	public registerLanguageRuntimeProvider(
+	public registerLanguageRuntimeSessionManager(
 		extension: IExtensionDescription,
 		languageId: string,
-		provider: positron.LanguageRuntimeProvider): void {
-		this._runtimeProviders.set(languageId, { extension, provider });
-	}
-
-	public async $provideLanguageRuntime(
-		languageId: string,
-		runtimeMetadata: positron.LanguageRuntimeMetadata): Promise<void> {
-		const provider = this._runtimeProviders.get(languageId);
-		if (!provider) {
-			throw new Error(`Cannot get runtime provider for '${languageId}'.`);
-		}
-		const runtime = await provider.provider.provideLanguageRuntime(runtimeMetadata, CancellationToken.None);
-		if (!runtime) {
-			throw new Error(`Cannot provide runtime '${runtimeMetadata.runtimeId}'.`);
-		}
-		this.registerLanguageRuntime(provider.extension, runtime);
+		manager: positron.LanguageRuntimeSessionManager): void {
+		this._runtimeSessionManagers.set(languageId, { extension, manager });
 	}
 
 	public registerLanguageRuntime(
 		extension: IExtensionDescription,
-		runtime: positron.LanguageRuntime): IDisposable {
+		runtime: positron.LanguageRuntimeMetadata): IDisposable {
 
 		// Create a handle and register the runtime with the main thread
-		const handle = this._runtimes.length;
-
-		// Wire event handlers for state changes and messages
-		runtime.onDidChangeRuntimeState(state => {
-			const tick = this._eventClocks[handle] = this._eventClocks[handle] + 1;
-			this._proxy.$emitLanguageRuntimeState(handle, tick, state);
-		});
-
-		runtime.onDidReceiveRuntimeMessage(message => {
-			const tick = this._eventClocks[handle] = this._eventClocks[handle] + 1;
-			// Amend the message with the event clock for ordering
-			const runtimeMessage: ILanguageRuntimeMessage = {
-				event_clock: tick,
-				...message
-			};
-
-			// Dispatch the message to the appropriate handler
-			switch (message.type) {
-				// Handle comm messages separately
-				case LanguageRuntimeMessageType.CommOpen:
-					this.handleCommOpen(handle, runtimeMessage as ILanguageRuntimeMessageCommOpen);
-					break;
-
-				case LanguageRuntimeMessageType.CommData:
-					this.handleCommData(handle, runtimeMessage as ILanguageRuntimeMessageCommData);
-					break;
-
-				case LanguageRuntimeMessageType.CommClosed:
-					this.handleCommClosed(handle, runtimeMessage as ILanguageRuntimeMessageCommClosed);
-					break;
-
-				// Pass everything else to the main thread
-				default:
-					this._proxy.$emitLanguageRuntimeMessage(handle, runtimeMessage);
-					break;
-			}
-		});
-
-		// Hook up the session end (exit) handler
-		runtime.onDidEndSession(exit => {
-			this._proxy.$emitLanguageRuntimeExit(handle, exit);
-		});
-
-		// Register the runtime
-		this._runtimes.push(runtime);
-		this._eventClocks.push(0);
+		const handle = this._registeredRuntimes.length;
 
 		// Register the runtime with the main thread
 		this._proxy.$registerLanguageRuntime(handle, {
 			extensionId: extension.identifier,
-			...runtime.metadata
-		}, {
-			busy: false,
-			currentWorkingDirectory: '',
-			...runtime.dynState
+			...runtime
 		});
 		this._onDidRegisterRuntimeEmitter.fire(runtime);
 
@@ -427,8 +432,8 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 	 */
 	public selectLanguageRuntime(runtimeId: string): Promise<void> {
 		// Look for the runtime with the given ID
-		for (let i = 0; i < this._runtimes.length; i++) {
-			if (this._runtimes[i].metadata.runtimeId === runtimeId) {
+		for (let i = 0; i < this._registeredRuntimes.length; i++) {
+			if (this._registeredRuntimes[i].runtimeId === runtimeId) {
 				return this._proxy.$selectLanguageRuntime(i);
 			}
 		}
@@ -444,8 +449,8 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 	 */
 	public restartLanguageRuntime(runtimeId: string): Promise<void> {
 		// Look for the runtime with the given ID
-		for (let i = 0; i < this._runtimes.length; i++) {
-			if (this._runtimes[i].metadata.runtimeId === runtimeId) {
+		for (let i = 0; i < this._runtimeSessions.length; i++) {
+			if (this._runtimeSessions[i].metadata.runtimeId === runtimeId) {
 				return this._proxy.$restartLanguageRuntime(i);
 			}
 		}
@@ -466,15 +471,15 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		const clientInstance = new ExtHostRuntimeClientInstance(message,
 			(id, data) => {
 				// Callback to send a message to the runtime
-				this._runtimes[handle].sendClientMessage(message.comm_id, id, data);
+				this._runtimeSessions[handle].sendClientMessage(message.comm_id, id, data);
 			},
 			() => {
 				// Callback to remove the client instance
-				this._runtimes[handle].removeClient(message.comm_id);
+				this._runtimeSessions[handle].removeClient(message.comm_id);
 			});
 
 		// Dispose the client instance when the runtime exits
-		this._runtimes[handle].onDidChangeRuntimeState(state => {
+		this._runtimeSessions[handle].onDidChangeRuntimeState(state => {
 			if (state === RuntimeState.Exited) {
 				clientInstance.dispose();
 			}

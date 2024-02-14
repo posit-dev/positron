@@ -1,12 +1,12 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2022-2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
 import * as positron from 'positron';
-import { JupyterAdapterApi, JupyterKernelSpec, JupyterLanguageRuntime, JupyterKernelExtra } from './jupyter-adapter';
+import { JupyterAdapterApi, JupyterKernelSpec, JupyterKernelExtra, JupyterLanguageRuntimeSession } from './jupyter-adapter';
 
-import { LanguageRuntimeAdapter } from './LanguageRuntimeAdapter';
+import { LanguageRuntimeSessionAdapter } from './LanguageRuntimeAdapter';
 import { findAvailablePort } from './PortFinder';
 
 export class JupyterAdapterApiImpl implements JupyterAdapterApi {
@@ -15,8 +15,9 @@ export class JupyterAdapterApiImpl implements JupyterAdapterApi {
 	}
 
 	/**
-	 * Create an adapter for a Jupyter-compatible kernel.
+	 * Create a session for a Jupyter-compatible kernel.
 	 *
+	 * @param sessionId A unique identifier for the session.
 	 * @param kernel A Jupyter kernel spec containing the information needed to
 	 *   start the kernel.
 	 * @param metadata The metadata for the language runtime to be wrapped by the
@@ -24,13 +25,15 @@ export class JupyterAdapterApiImpl implements JupyterAdapterApi {
 	 * @param extra Optional implementations for extra functionality.
 	 * @returns A LanguageRuntimeAdapter that wraps the kernel.
 	 */
-	adaptKernel(
+	createSession(
+		sessionId: string,
 		kernel: JupyterKernelSpec,
 		metadata: positron.LanguageRuntimeMetadata,
 		dynState: positron.LanguageRuntimeDynState,
 		extra: JupyterKernelExtra,
-	): JupyterLanguageRuntime {
-		return new LanguageRuntimeAdapter(
+	): JupyterLanguageRuntimeSession {
+		return new LanguageRuntimeSessionAdapter(
+			sessionId,
 			this._context,
 			this._channel,
 			kernel,

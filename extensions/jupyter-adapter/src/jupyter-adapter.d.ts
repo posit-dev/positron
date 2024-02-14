@@ -38,7 +38,7 @@ export interface JupyterKernelSpec {
 /**
  * A language runtime that wraps a Jupyter kernel.
  */
-export interface JupyterLanguageRuntime extends positron.LanguageRuntime {
+export interface JupyterLanguageRuntimeSession extends positron.LanguageRuntimeSession {
 	/**
 	 * Convenience method for starting the Positron LSP server, if the
 	 * language runtime supports it.
@@ -92,6 +92,7 @@ export interface JupyterAdapterApi extends vscode.Disposable {
 	/**
 	 * Create an adapter for a Jupyter-compatible kernel.
 	 *
+	 * @param sessionId A unique identifier for the session.
 	 * @param kernel A Jupyter kernel spec containing the information needed to
 	 *   start the kernel.
 	 * @param metadata The metadata for the language runtime to be wrapped by the
@@ -99,12 +100,13 @@ export interface JupyterAdapterApi extends vscode.Disposable {
 	 * @param extra Optional implementations for extra functionality.
 	 * @returns A LanguageRuntimeAdapter that wraps the kernel.
 	 */
-	adaptKernel(
+	createSession(
+		sessionId: string,
 		kernel: JupyterKernelSpec,
 		metadata: positron.LanguageRuntimeMetadata,
 		dynState: positron.LanguageRuntimeDynState,
 		extra?: JupyterKernelExtra,
-	): JupyterLanguageRuntime;
+	): positron.LanguageRuntimeSession;
 
 	/**
 	 * Finds an available TCP port for a server

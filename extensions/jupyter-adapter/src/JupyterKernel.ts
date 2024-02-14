@@ -116,11 +116,11 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 
 	/**
 	 * Initialisation state. Used to detect on startup that we (a) get a reply to a
-         * dummy kernel-info request on the Shell socket and (b) get a status message on
-         * the IOPub socket. When both of these happen, it means the kernel has made
-         * sufficient progress in its startup that it's able to service requests, and that
-         * the IOPub socket is correctly connected and that the user won't lose data when
-         * we send user requests to the kernel.
+		 * dummy kernel-info request on the Shell socket and (b) get a status message on
+		 * the IOPub socket. When both of these happen, it means the kernel has made
+		 * sufficient progress in its startup that it's able to service requests, and that
+		 * the IOPub socket is correctly connected and that the user won't lose data when
+		 * we send user requests to the kernel.
 	 */
 	private _initial_request_id = '';
 	private _receivedInitialStatus = false;
@@ -447,7 +447,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 								resolve();
 							} else {
 								// Send the request again until we've received an IOPub status
-								this.sendInitialRequest()
+								this.sendInitialRequest();
 							}
 							return;
 						}
@@ -496,7 +496,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 					this.log('Received initial heartbeat: ' + msg);
 
 					// Send a dummy request. When the reply comes in we'll switch to the Ready state.
-					this.sendInitialRequest()
+					this.sendInitialRequest();
 
 					const seconds = vscode.workspace.getConfiguration('positron.jupyterAdapter').get('heartbeat', 30) as number;
 					this.log(`Starting heartbeat check at ${seconds} second intervals...`);
@@ -1345,12 +1345,12 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 
 	private isStartingStatus(status: positron.RuntimeState): boolean {
 		switch (status) {
-		case positron.RuntimeState.Uninitialized:
-		case positron.RuntimeState.Initializing:
-		case positron.RuntimeState.Starting:
-			return true;
-		default:
-			return false;
+			case positron.RuntimeState.Uninitialized:
+			case positron.RuntimeState.Initializing:
+			case positron.RuntimeState.Starting:
+				return true;
+			default:
+				return false;
 		}
 	}
 
