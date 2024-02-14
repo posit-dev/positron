@@ -761,7 +761,7 @@ from ._vendor.pydantic import BaseModel, Field
 
 			// Preamble
 			models.push(name);
-			yield `class ${models[models.length - 1]}(BaseModel):\n`;
+			yield `class ${name}(BaseModel):\n`;
 
 			// Docstring
 			if (o.description) {
@@ -824,8 +824,9 @@ from ._vendor.pydantic import BaseModel, Field
 			const params: Array<MethodParam> = method.params;
 
 			if (params.length > 0) {
-				models.push(`${snakeCaseToSentenceCase(method.name)}Params`);
-				yield `class ${models[models.length - 1]}(BaseModel):\n`;
+				const klass = `${snakeCaseToSentenceCase(method.name)}Params`;
+				models.push(klass);
+				yield `class ${klass}(BaseModel):\n`;
 				yield `    """\n`;
 				yield formatComment('    ', method.description);
 				yield `    """\n`;
@@ -843,8 +844,9 @@ from ._vendor.pydantic import BaseModel, Field
 				}
 			}
 
-			models.push(`${snakeCaseToSentenceCase(method.name)}Request`);
-			yield `class ${models[models.length - 1]}(BaseModel):\n`;
+			const klass = `${snakeCaseToSentenceCase(method.name)}Request`;
+			models.push(klass);
+			yield `class ${klass}(BaseModel):\n`;
 			yield `    """\n`;
 			yield formatComment('    ', method.description);
 			yield `    """\n`;
