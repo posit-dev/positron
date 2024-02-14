@@ -21,6 +21,7 @@ import { traceInfo } from '../logging';
 import { PythonEnvironment } from '../pythonEnvironments/info';
 import { PythonLsp, LspState } from './lsp';
 import { whenTimeout } from './util';
+import { IPYKERNEL_VERSION } from '../common/constants';
 
 /**
  * A Positron language runtime that wraps a Jupyter kernel and a Language Server
@@ -166,7 +167,7 @@ export class PythonRuntime implements positron.LanguageRuntime, vscode.Disposabl
 
         // We require ipykernel >= 6.19.1 for the Python runtime in order to ensure the comm package
         // can be imported on its own (https://github.com/ipython/ipykernel/releases/tag/v6.18.0)
-        const hasCompatibleKernel = await this.installer.isProductVersionCompatible(Product.ipykernel, '>=6.19.1', this.interpreter);
+        const hasCompatibleKernel = await this.installer.isProductVersionCompatible(Product.ipykernel, IPYKERNEL_VERSION, this.interpreter);
 
 
         if (hasCompatibleKernel !== ProductInstallStatus.Installed) {

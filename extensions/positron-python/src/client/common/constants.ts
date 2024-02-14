@@ -118,4 +118,8 @@ export function isUnitTestExecution(): boolean {
 
 export const UseProposedApi = Symbol('USE_VSC_PROPOSED_API');
 
+// --- Start Positron ---
+export const IPYKERNEL_VERSION = '>=6.19.1'
+// --- End Positron
+
 export * from '../constants';
