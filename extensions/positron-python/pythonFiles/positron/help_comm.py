@@ -12,10 +12,9 @@
 from __future__ import annotations
 
 import enum
-from dataclasses import dataclass, field
-from typing import Dict, List, Union, Optional
+from typing import Any, List, Literal, Optional, Union
 
-JsonData = Union[Dict[str, "JsonData"], List["JsonData"], str, int, float, bool, None]
+from ._vendor.pydantic import BaseModel, Field
 
 
 @enum.unique
@@ -41,8 +40,7 @@ class HelpBackendRequest(str, enum.Enum):
     ShowHelpTopic = "show_help_topic"
 
 
-@dataclass
-class ShowHelpTopicParams:
+class ShowHelpTopicParams(BaseModel):
     """
     Requests that the help backend look for a help topic and, if found,
     show it. If the topic is found, it will be shown via a Show Help
@@ -50,15 +48,12 @@ class ShowHelpTopicParams:
     delivered.
     """
 
-    topic: str = field(
-        metadata={
-            "description": "The help topic to show",
-        }
+    topic: str = Field(
+        description="The help topic to show",
     )
 
 
-@dataclass
-class ShowHelpTopicRequest:
+class ShowHelpTopicRequest(BaseModel):
     """
     Requests that the help backend look for a help topic and, if found,
     show it. If the topic is found, it will be shown via a Show Help
@@ -66,21 +61,23 @@ class ShowHelpTopicRequest:
     delivered.
     """
 
-    def __post_init__(self):
-        """Revive RPC parameters after initialization"""
-        if isinstance(self.params, dict):
-            self.params = ShowHelpTopicParams(**self.params)
-
-    params: ShowHelpTopicParams = field(
-        metadata={"description": "Parameters to the ShowHelpTopic method"}
+    params: ShowHelpTopicParams = Field(
+        description="Parameters to the ShowHelpTopic method",
     )
 
-    method: HelpBackendRequest = field(
-        metadata={"description": "The JSON-RPC method name (show_help_topic)"},
-        default=HelpBackendRequest.ShowHelpTopic,
+    method: Literal[HelpBackendRequest.ShowHelpTopic] = Field(
+        description="The JSON-RPC method name (show_help_topic)",
     )
 
-    jsonrpc: str = field(metadata={"description": "The JSON-RPC version specifier"}, default="2.0")
+    jsonrpc: str = Field(
+        default="2.0",
+        description="The JSON-RPC version specifier",
+    )
+
+
+class HelpBackendMessageContent(BaseModel):
+    comm_id: str
+    data: ShowHelpTopicRequest
 
 
 @enum.unique
@@ -93,16 +90,26 @@ class HelpFrontendEvent(str, enum.Enum):
     ShowHelp = "show_help"
 
 
-@dataclass
-class ShowHelpParams:
+class ShowHelpParams(BaseModel):
     """
     Request to show help in the frontend
     """
 
-    content: str = field(metadata={"description": "The help content to show"})
-
-    kind: ShowHelpKind = field(metadata={"description": "The type of content to show"})
-
-    focus: bool = field(
-        metadata={"description": "Whether to focus the Help pane when the content is displayed."}
+    content: str = Field(
+        description="The help content to show",
     )
+
+    kind: ShowHelpKind = Field(
+        description="The type of content to show",
+    )
+
+    focus: bool = Field(
+        description="Whether to focus the Help pane when the content is displayed.",
+    )
+
+
+ShowHelpTopicParams.update_forward_refs()
+
+ShowHelpTopicRequest.update_forward_refs()
+
+ShowHelpParams.update_forward_refs()

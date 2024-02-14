@@ -70,7 +70,7 @@ def test_positron_help_topic_request(
     if expected_topic is None:
         assert topic is None
     else:
-        assert topic == ShowHelpTopicParams(expected_topic)
+        assert topic == ShowHelpTopicParams(topic=expected_topic)
 
 
 class _ObjectWithProperty:
