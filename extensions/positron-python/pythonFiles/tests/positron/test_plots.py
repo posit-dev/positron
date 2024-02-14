@@ -133,13 +133,22 @@ def test_hook_handle_msg_noop_on_unknown_method(figure_comm: DummyComm) -> None:
     msg = json_rpc_request("not_render", {})
     figure_comm.handle_msg(msg)
 
-    # No messages sent
-    assert figure_comm.messages == []
+    assert figure_comm.messages == [
+        json_rpc_error(JsonRpcErrorCode.METHOD_NOT_FOUND, f"Unknown method 'not_render'")
+    ]
+
+
+def render_request(comm_id: str, width_px: int = 500, height_px: int = 500, pixel_ratio: int = 1):
+    return json_rpc_request(
+        "render",
+        {"width": width_px, "height": height_px, "pixel_ratio": pixel_ratio},
+        comm_id=comm_id,
+    )
 
 
 def test_hook_render_noop_on_unknown_comm(figure_comm: DummyComm) -> None:
-    # Handle a message with a valid msg_type but invalid comm_id
-    msg = json_rpc_request("render", {}, comm_id="unknown_comm_id")
+    # Handle a valid message but invalid comm_id
+    msg = render_request("unknown_comm_id")
     figure_comm.handle_msg(msg)
 
     # No messages sent
@@ -153,15 +162,7 @@ def test_hook_render_error_on_unknown_figure(
     hook.figures.clear()
 
     # Handle a message with a valid msg_type and valid comm_id, but the hook now has a missing figure
-    msg = json_rpc_request(
-        "render",
-        {
-            "width": 500,
-            "height": 500,
-            "pixel_ratio": 1,
-        },
-        comm_id=figure_comm.comm_id,
-    )
+    msg = render_request(figure_comm.comm_id)
     figure_comm.handle_msg(msg)
 
     # Check that we receive an error reply
@@ -180,11 +181,7 @@ def test_hook_render(figure_comm: DummyComm, images_path: Path) -> None:
     # Send a valid render message with a custom width and height
     width_px = height_px = 100
     pixel_ratio = 1
-    msg = json_rpc_request(
-        "render",
-        {"width": width_px, "height": height_px, "pixel_ratio": 1},
-        comm_id=figure_comm.comm_id,
-    )
+    msg = render_request(figure_comm.comm_id, width_px, height_px, pixel_ratio)
     figure_comm.handle_msg(msg)
 
     # Check that the reply is a comm_msg

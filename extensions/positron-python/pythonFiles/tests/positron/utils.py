@@ -4,23 +4,18 @@
 
 import os
 from contextlib import contextmanager
-from dataclasses import asdict
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional, Set
 from unittest.mock import Mock
 
-from positron.utils import DataclassProtocol, JsonData
+from positron._vendor.pydantic import BaseModel
+
+from positron.utils import JsonData, JsonRecord
 
 
-def assert_dataclass_equal(
-    actual: DataclassProtocol, expected: DataclassProtocol, exclude: List[str]
-) -> None:
-    actual_dict = asdict(actual)
-    expected_dict = asdict(expected)
-
-    [actual_dict.pop(key) for key in exclude]
-    [expected_dict.pop(key) for key in exclude]
-
+def assert_pydantic_model_equal(actual: BaseModel, expected: BaseModel, exclude: Set[str]) -> None:
+    actual_dict = actual.dict(exclude=exclude)
+    expected_dict = expected.dict(exclude=exclude)
     assert actual_dict == expected_dict
 
 
@@ -48,8 +43,8 @@ def assert_dataset_registered(mock_datatool_service: Mock, obj: Any, title: str)
 
 
 def comm_message(
-    data: Optional[Dict[str, JsonData]] = None,
-) -> Dict[str, JsonData]:
+    data: Optional[JsonRecord] = None,
+) -> JsonRecord:
     if data is None:
         data = {}
     return {
@@ -60,13 +55,11 @@ def comm_message(
     }
 
 
-def comm_request(data: Dict[str, JsonData], **kwargs) -> Dict[str, JsonData]:
+def comm_request(data: JsonRecord, **kwargs) -> JsonRecord:
     return {"content": {"data": data, **kwargs.pop("content", {})}, **kwargs}
 
 
-def comm_open_message(
-    target_name: str, data: Optional[Dict[str, JsonData]] = None
-) -> Dict[str, JsonData]:
+def comm_open_message(target_name: str, data: Optional[JsonRecord] = None) -> JsonRecord:
     return {
         **comm_message(data),
         "target_name": target_name,
@@ -75,7 +68,7 @@ def comm_open_message(
     }
 
 
-def json_rpc_error(code: int, message: str) -> Dict[str, JsonData]:
+def json_rpc_error(code: int, message: str) -> JsonRecord:
     return comm_message(
         {
             "jsonrpc": "2.0",
@@ -87,7 +80,7 @@ def json_rpc_error(code: int, message: str) -> Dict[str, JsonData]:
     )
 
 
-def json_rpc_notification(method: str, params: Dict[str, JsonData]) -> Dict[str, JsonData]:
+def json_rpc_notification(method: str, params: JsonRecord) -> JsonRecord:
     return comm_message(
         {
             "jsonrpc": "2.0",
@@ -99,9 +92,9 @@ def json_rpc_notification(method: str, params: Dict[str, JsonData]) -> Dict[str,
 
 def json_rpc_request(
     method: str,
-    params: Optional[Dict[str, JsonData]] = None,
+    params: Optional[JsonRecord] = None,
     **content: JsonData,
-) -> Dict[str, JsonData]:
+) -> JsonRecord:
     data = {"params": params} if params else {}
     return {
         "content": {
@@ -115,7 +108,7 @@ def json_rpc_request(
     }
 
 
-def json_rpc_response(result: JsonData) -> Dict[str, JsonData]:
+def json_rpc_response(result: JsonData) -> JsonRecord:
     return comm_message(
         {
             "jsonrpc": "2.0",

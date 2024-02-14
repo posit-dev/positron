@@ -3,12 +3,13 @@
 #
 
 import uuid
-from dataclasses import asdict
-from typing import Any, Dict, List, Optional, cast
+from typing import Any, Dict, List, Optional, Type, cast
 
 import numpy as np
 import pandas as pd
 import pytest
+
+from positron._vendor.pydantic import BaseModel
 
 from positron.data_tool import DataToolService, PandasView, COMPARE_OPS
 from positron.data_tool_comm import (
@@ -146,7 +147,7 @@ class PandasFixture:
             params=params,
             comm_id=comm_id,
         )
-        self.service.handle_msg(request)
+        self.service.comms[comm_id].comm.handle_msg(request)
         response = get_last_message(self.service, comm_id)
         data = response["data"]
         if "error" in data:
@@ -217,8 +218,8 @@ def pandas_fixture(service: DataToolService):
     return PandasFixture(service)
 
 
-def _wrap_json(dataklass, data: JsonRecords):
-    return [asdict(dataklass(**d)) for d in data]
+def _wrap_json(model: Type[BaseModel], data: JsonRecords):
+    return [model(**d).dict() for d in data]
 
 
 def test_pandas_get_schema(pandas_fixture: PandasFixture):

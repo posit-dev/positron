@@ -84,6 +84,7 @@ def test_set_console_width(ui_comm: DummyComm) -> None:
             "method": "setConsoleWidth",
             "params": [width],
         },
+        comm_id="dummy_comm_id",
     )
     ui_comm.handle_msg(msg)
 

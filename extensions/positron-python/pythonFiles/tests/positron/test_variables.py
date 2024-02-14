@@ -5,8 +5,7 @@
 from __future__ import annotations
 
 import asyncio
-from dataclasses import asdict
-from typing import Any, Dict, List, Type, cast
+from typing import Any, List, Type, cast
 from unittest.mock import Mock
 
 import numpy as np
@@ -17,7 +16,7 @@ import pytest
 from positron.inspectors import encode_access_key, get_inspector
 from positron.positron_comm import JsonRpcErrorCode
 from positron.positron_ipkernel import PositronIPyKernel
-from positron.utils import JsonData, not_none
+from positron.utils import JsonRecord, not_none
 from positron.variables import VariablesService, _summarize_variable
 
 from .conftest import DummyComm, PositronShell
@@ -142,7 +141,7 @@ def test_change_detection(
             json_rpc_notification(
                 "update",
                 {
-                    "assigned": [asdict(not_none(_summarize_variable("x", shell.user_ns["x"])))],
+                    "assigned": [not_none(_summarize_variable("x", shell.user_ns["x"])).dict()],
                     "removed": [],
                     "version": 0,
                 },
@@ -156,7 +155,7 @@ def test_change_detection(
 def test_handle_refresh(shell: PositronShell, variables_comm: DummyComm) -> None:
     shell.user_ns.update({"x": 3})
 
-    msg = json_rpc_request("list")
+    msg = json_rpc_request("list", comm_id="dummy_comm_id")
     variables_comm.handle_msg(msg)
 
     # A list message is sent
@@ -164,7 +163,7 @@ def test_handle_refresh(shell: PositronShell, variables_comm: DummyComm) -> None
         json_rpc_response(
             {
                 "variables": [
-                    asdict(not_none(_summarize_variable("x", shell.user_ns["x"]))),
+                    not_none(_summarize_variable("x", shell.user_ns["x"])).dict(),
                 ],
                 "length": 1,
                 "version": 0,
@@ -181,7 +180,7 @@ async def test_handle_clear(
 ) -> None:
     shell.user_ns.update({"x": 3, "y": 5})
 
-    msg = json_rpc_request("clear", {"include_hidden_objects": False})
+    msg = json_rpc_request("clear", {"include_hidden_objects": False}, comm_id="dummy_comm_id")
     variables_comm.handle_msg(msg)
 
     # Wait until all resulting kernel tasks are processed
@@ -202,7 +201,7 @@ async def test_handle_clear(
 def test_handle_delete(shell: PositronShell, variables_comm: DummyComm) -> None:
     shell.user_ns.update({"x": 3, "y": 5})
 
-    msg = json_rpc_request("delete", {"names": ["x"]})
+    msg = json_rpc_request("delete", {"names": ["x"]}, comm_id="dummy_comm_id")
     variables_comm.handle_msg(msg)
 
     # Only the `x` variable is removed
@@ -217,7 +216,7 @@ def test_handle_delete(shell: PositronShell, variables_comm: DummyComm) -> None:
 
 
 def test_handle_delete_error(variables_comm: DummyComm) -> None:
-    msg = json_rpc_request("delete", {"names": ["x"]})
+    msg = json_rpc_request("delete", {"names": ["x"]}, comm_id="dummy_comm_id")
     variables_comm.handle_msg(msg)
 
     # No variables are removed, since there are no variables named `x`
@@ -250,7 +249,7 @@ def test_handle_inspect_2d(
     for key in keys:
         path = [encode_access_key("x"), encode_access_key(key)]
         # TODO: We shouldn't need to cast; may be a pyright bug
-        msg = json_rpc_request("inspect", cast(Dict[str, JsonData], {"path": path}))
+        msg = json_rpc_request("inspect", cast(JsonRecord, {"path": path}), comm_id="dummy_comm_id")
         variables_comm.handle_msg(msg)
 
         inspector = get_inspector(x[key])
@@ -258,7 +257,7 @@ def test_handle_inspect_2d(
         assert variables_comm.messages == [
             json_rpc_response(
                 {
-                    "children": [asdict(child) for child in children],
+                    "children": [child.dict() for child in children],
                     "length": len(children),
                 }
             ),
@@ -270,7 +269,7 @@ def test_handle_inspect_2d(
 def test_handle_inspect_error(variables_comm: DummyComm) -> None:
     path = [encode_access_key("x")]
     # TODO: We shouldn't need to cast; may be a pyright bug
-    msg = json_rpc_request("inspect", cast(Dict[str, JsonData], {"path": path}))
+    msg = json_rpc_request("inspect", cast(JsonRecord, {"path": path}), comm_id="dummy_comm_id")
     variables_comm.handle_msg(msg)
 
     # An error message is sent
@@ -291,6 +290,7 @@ def test_handle_clipboard_format(shell: PositronShell, variables_comm: DummyComm
             "path": [encode_access_key("x")],
             "format": "text/plain",
         },
+        comm_id="dummy_comm_id",
     )
     variables_comm.handle_msg(msg)
 
@@ -302,7 +302,8 @@ def test_handle_clipboard_format_error(variables_comm: DummyComm) -> None:
     # TODO: We shouldn't need to cast; may be a pyright bug
     msg = json_rpc_request(
         "clipboard_format",
-        cast(Dict[str, JsonData], {"path": path, "format": "text/plain"}),
+        cast(JsonRecord, {"path": path, "format": "text/plain"}),
+        comm_id="dummy_comm_id",
     )
     variables_comm.handle_msg(msg)
 
@@ -322,7 +323,7 @@ def test_handle_view(
 ) -> None:
     shell.user_ns.update({"x": pd.DataFrame({"a": [0]})})
 
-    msg = json_rpc_request("view", {"path": [encode_access_key("x")]})
+    msg = json_rpc_request("view", {"path": [encode_access_key("x")]}, comm_id="dummy_comm_id")
     variables_comm.handle_msg(msg)
 
     # An acknowledgment message is sent
@@ -334,7 +335,7 @@ def test_handle_view(
 def test_handle_view_error(variables_comm: DummyComm) -> None:
     path = [encode_access_key("x")]
     # TODO: We shouldn't need to cast; may be a pyright bug
-    msg = json_rpc_request("view", cast(Dict[str, JsonData], {"path": path}))
+    msg = json_rpc_request("view", cast(JsonRecord, {"path": path}), comm_id="dummy_comm_id")
     variables_comm.handle_msg(msg)
 
     # An error message is sent
@@ -347,7 +348,7 @@ def test_handle_view_error(variables_comm: DummyComm) -> None:
 
 
 def test_handle_unknown_method(variables_comm: DummyComm) -> None:
-    msg = json_rpc_request("unknown_method")
+    msg = json_rpc_request("unknown_method", comm_id="dummy_comm_id")
     variables_comm.handle_msg(msg)
 
     assert variables_comm.messages == [

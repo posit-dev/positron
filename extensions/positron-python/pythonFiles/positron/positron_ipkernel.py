@@ -34,7 +34,7 @@ from .ui import UiService
 from .help import HelpService, help
 from .lsp import LSPService
 from .plots import PositronDisplayPublisherHook
-from .utils import JsonData
+from .utils import JsonRecord
 from .variables import VariablesService
 from .widget import PositronWidgetHook
 
@@ -127,8 +127,8 @@ class PositronShell(ZMQInteractiveShell):
     display_pub: ZMQDisplayPublisher
 
     inspector_class: Type[PositronIPythonInspector] = traitlets.Type(
-        PositronIPythonInspector,
-        help="Class to use to instantiate the shell inspector",  # type: ignore
+        PositronIPythonInspector,  # type: ignore
+        help="Class to use to instantiate the shell inspector",
     ).tag(config=True)
 
     def init_events(self) -> None:
@@ -287,8 +287,8 @@ class PositronIPyKernel(IPythonKernel):
 
     # Use the PositronShell class.
     shell_class: PositronShell = traitlets.Type(
-        PositronShell, klass=InteractiveShell
-    )  # type: ignore
+        PositronShell, klass=InteractiveShell  # type: ignore
+    )
 
     def __init__(self, **kwargs) -> None:
         super().__init__(**kwargs)
@@ -331,7 +331,7 @@ class PositronIPyKernel(IPythonKernel):
     def publish_execute_input(
         self,
         code: str,
-        parent: Dict[str, JsonData],
+        parent: JsonRecord,
     ) -> None:
         self._publish_execute_input(code, parent, self.execution_count - 1)
 
@@ -341,7 +341,7 @@ class PositronIPyKernel(IPythonKernel):
         # Start Positron services
         self.help_service.start()
 
-    async def do_shutdown(self, restart: bool) -> Dict[str, JsonData]:  # type: ignore ReportIncompatibleMethodOverride
+    async def do_shutdown(self, restart: bool) -> JsonRecord:  # type: ignore ReportIncompatibleMethodOverride
         """
         Handle kernel shutdown.
         """

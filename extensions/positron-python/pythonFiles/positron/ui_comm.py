@@ -12,154 +12,107 @@
 from __future__ import annotations
 
 import enum
-from dataclasses import dataclass, field
-from typing import Dict, List, Union, Optional
+from typing import Any, List, Literal, Optional, Union
 
-JsonData = Union[Dict[str, "JsonData"], List["JsonData"], str, int, float, bool, None]
+from ._vendor.pydantic import BaseModel, Field
 
-Param = JsonData
-CallMethodResult = JsonData
+Param = Any
+CallMethodResult = Any
 
 
-@dataclass
-class EditorContext:
+class EditorContext(BaseModel):
     """
     Editor metadata
     """
 
-    def __post_init__(self):
-        """Revive parameters after initialization"""
-        self.selections = [
-            Selection(**d) if isinstance(d, dict) else d for d in self.selections
-        ]  # type: ignore
-
-    document: TextDocument = field(
-        metadata={
-            "description": "Document metadata",
-        }
+    document: TextDocument = Field(
+        description="Document metadata",
     )
 
-    contents: List[str] = field(
-        metadata={
-            "description": "Document contents",
-        }
+    contents: List[str] = Field(
+        description="Document contents",
     )
 
-    selection: Selection = field(
-        metadata={
-            "description": "The primary selection, i.e. selections[0]",
-        }
+    selection: Selection = Field(
+        description="The primary selection, i.e. selections[0]",
     )
 
-    selections: List[Selection] = field(
-        metadata={
-            "description": "The selections in this text editor.",
-        }
+    selections: List[Selection] = Field(
+        description="The selections in this text editor.",
     )
 
 
-@dataclass
-class TextDocument:
+class TextDocument(BaseModel):
     """
     Document metadata
     """
 
-    path: str = field(
-        metadata={
-            "description": "URI of the resource viewed in the editor",
-        }
+    path: str = Field(
+        description="URI of the resource viewed in the editor",
     )
 
-    eol: str = field(
-        metadata={
-            "description": "End of line sequence",
-        }
+    eol: str = Field(
+        description="End of line sequence",
     )
 
-    is_closed: bool = field(
-        metadata={
-            "description": "Whether the document has been closed",
-        }
+    is_closed: bool = Field(
+        description="Whether the document has been closed",
     )
 
-    is_dirty: bool = field(
-        metadata={
-            "description": "Whether the document has been modified",
-        }
+    is_dirty: bool = Field(
+        description="Whether the document has been modified",
     )
 
-    is_untitled: bool = field(
-        metadata={
-            "description": "Whether the document is untitled",
-        }
+    is_untitled: bool = Field(
+        description="Whether the document is untitled",
     )
 
-    language_id: str = field(
-        metadata={
-            "description": "Language identifier",
-        }
+    language_id: str = Field(
+        description="Language identifier",
     )
 
-    line_count: int = field(
-        metadata={
-            "description": "Number of lines in the document",
-        }
+    line_count: int = Field(
+        description="Number of lines in the document",
     )
 
-    version: int = field(
-        metadata={
-            "description": "Version number of the document",
-        }
+    version: int = Field(
+        description="Version number of the document",
     )
 
 
-@dataclass
-class Position:
+class Position(BaseModel):
     """
     A line and character position, such as the position of the cursor.
     """
 
-    character: int = field(
-        metadata={
-            "description": "The zero-based character value, as a Unicode code point offset.",
-        }
+    character: int = Field(
+        description="The zero-based character value, as a Unicode code point offset.",
     )
 
-    line: int = field(
-        metadata={
-            "description": "The zero-based line value.",
-        }
+    line: int = Field(
+        description="The zero-based line value.",
     )
 
 
-@dataclass
-class Selection:
+class Selection(BaseModel):
     """
     Selection metadata
     """
 
-    active: Position = field(
-        metadata={
-            "description": "Position of the cursor.",
-        }
+    active: Position = Field(
+        description="Position of the cursor.",
     )
 
-    start: Position = field(
-        metadata={
-            "description": "Start position of the selection",
-        }
+    start: Position = Field(
+        description="Start position of the selection",
     )
 
-    end: Position = field(
-        metadata={
-            "description": "End position of the selection",
-        }
+    end: Position = Field(
+        description="End position of the selection",
     )
 
-    text: str = field(
-        metadata={
-            "description": "Text of the selection",
-        }
+    text: str = Field(
+        description="Text of the selection",
     )
 
 
@@ -173,50 +126,46 @@ class UiBackendRequest(str, enum.Enum):
     CallMethod = "call_method"
 
 
-@dataclass
-class CallMethodParams:
+class CallMethodParams(BaseModel):
     """
     Unlike other RPC methods, `call_method` calls into methods implemented
     in the interpreter and returns the result back to the frontend using
     an implementation-defined serialization scheme.
     """
 
-    method: str = field(
-        metadata={
-            "description": "The method to call inside the interpreter",
-        }
+    method: str = Field(
+        description="The method to call inside the interpreter",
     )
 
-    params: List[Param] = field(
-        metadata={
-            "description": "The parameters for `method`",
-        }
+    params: List[Param] = Field(
+        description="The parameters for `method`",
     )
 
 
-@dataclass
-class CallMethodRequest:
+class CallMethodRequest(BaseModel):
     """
     Unlike other RPC methods, `call_method` calls into methods implemented
     in the interpreter and returns the result back to the frontend using
     an implementation-defined serialization scheme.
     """
 
-    def __post_init__(self):
-        """Revive RPC parameters after initialization"""
-        if isinstance(self.params, dict):
-            self.params = CallMethodParams(**self.params)
-
-    params: CallMethodParams = field(
-        metadata={"description": "Parameters to the CallMethod method"}
+    params: CallMethodParams = Field(
+        description="Parameters to the CallMethod method",
     )
 
-    method: UiBackendRequest = field(
-        metadata={"description": "The JSON-RPC method name (call_method)"},
-        default=UiBackendRequest.CallMethod,
+    method: Literal[UiBackendRequest.CallMethod] = Field(
+        description="The JSON-RPC method name (call_method)",
     )
 
-    jsonrpc: str = field(metadata={"description": "The JSON-RPC version specifier"}, default="2.0")
+    jsonrpc: str = Field(
+        default="2.0",
+        description="The JSON-RPC version specifier",
+    )
+
+
+class UiBackendMessageContent(BaseModel):
+    comm_id: str
+    data: CallMethodRequest
 
 
 @enum.unique
@@ -244,61 +193,98 @@ class UiFrontendEvent(str, enum.Enum):
     WorkingDirectory = "working_directory"
 
 
-@dataclass
-class BusyParams:
+class BusyParams(BaseModel):
     """
     Change in backend's busy/idle status
     """
 
-    busy: bool = field(metadata={"description": "Whether the backend is busy"})
+    busy: bool = Field(
+        description="Whether the backend is busy",
+    )
 
 
-@dataclass
-class OpenEditorParams:
+class OpenEditorParams(BaseModel):
     """
     Open an editor
     """
 
-    file: str = field(metadata={"description": "The path of the file to open"})
+    file: str = Field(
+        description="The path of the file to open",
+    )
 
-    line: int = field(metadata={"description": "The line number to jump to"})
+    line: int = Field(
+        description="The line number to jump to",
+    )
 
-    column: int = field(metadata={"description": "The column number to jump to"})
+    column: int = Field(
+        description="The column number to jump to",
+    )
 
 
-@dataclass
-class ShowMessageParams:
+class ShowMessageParams(BaseModel):
     """
     Show a message
     """
 
-    message: str = field(metadata={"description": "The message to show to the user."})
+    message: str = Field(
+        description="The message to show to the user.",
+    )
 
 
-@dataclass
-class PromptStateParams:
+class PromptStateParams(BaseModel):
     """
     New state of the primary and secondary prompts
     """
 
-    input_prompt: str = field(metadata={"description": "Prompt for primary input."})
+    input_prompt: str = Field(
+        description="Prompt for primary input.",
+    )
 
-    continuation_prompt: str = field(metadata={"description": "Prompt for incomplete input."})
+    continuation_prompt: str = Field(
+        description="Prompt for incomplete input.",
+    )
 
 
-@dataclass
-class WorkingDirectoryParams:
+class WorkingDirectoryParams(BaseModel):
     """
     Change the displayed working directory
     """
 
-    directory: str = field(metadata={"description": "The new working directory"})
+    directory: str = Field(
+        description="The new working directory",
+    )
 
 
-@dataclass
-class DebugSleepParams:
+class DebugSleepParams(BaseModel):
     """
     Sleep for n seconds
     """
 
-    ms: float = field(metadata={"description": "Duration in milliseconds"})
+    ms: float = Field(
+        description="Duration in milliseconds",
+    )
+
+
+EditorContext.update_forward_refs()
+
+TextDocument.update_forward_refs()
+
+Position.update_forward_refs()
+
+Selection.update_forward_refs()
+
+CallMethodParams.update_forward_refs()
+
+CallMethodRequest.update_forward_refs()
+
+BusyParams.update_forward_refs()
+
+OpenEditorParams.update_forward_refs()
+
+ShowMessageParams.update_forward_refs()
+
+PromptStateParams.update_forward_refs()
+
+WorkingDirectoryParams.update_forward_refs()
+
+DebugSleepParams.update_forward_refs()

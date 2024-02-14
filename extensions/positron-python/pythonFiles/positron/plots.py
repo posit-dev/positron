@@ -6,32 +6,17 @@ import codecs
 import logging
 import pickle
 import uuid
-from dataclasses import asdict, dataclass, field
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 import comm
 from IPython.core.formatters import format_display_data
 
-from .plot_comm import PlotResult, RenderRequest
-from .positron_comm import JsonRpcErrorCode, PositronComm
+from .plot_comm import PlotBackendMessageContent, PlotResult, RenderRequest
+from .positron_comm import CommMessage, JsonRpcErrorCode, PositronComm
 from .widget import _WIDGET_MIME_TYPE
+from .utils import JsonRecord
 
 logger = logging.getLogger(__name__)
-
-
-@dataclass
-class LanguageRuntimeCommMessage:
-    """
-    A message used to send data to the language runtime plot client.
-    """
-
-    comm_id: str = field(
-        metadata={
-            "description": "The unique ID of the client comm ID for which the message is intended"
-        }
-    )
-    # NOTE: When we add more data types, we'll need to use a `Union` and `Field(discriminator='msg_type')`
-    data: Dict[str, Any] = field(metadata={"description": "The data from the back-end"})
 
 
 # Matplotlib Default Figure Size
@@ -82,34 +67,20 @@ class PositronDisplayPublisherHook:
         """
         Create a new plot comm with the given id.
         """
-        plot_comm = comm.create_comm(target_name=self.target_name, comm_id=comm_id)
-        self.comms[comm_id] = PositronComm(plot_comm)
-        plot_comm.on_msg(self._receive_message)
+        plot_comm = PositronComm(comm.create_comm(target_name=self.target_name, comm_id=comm_id))
+        self.comms[comm_id] = plot_comm
+        plot_comm.on_msg(self.handle_msg, PlotBackendMessageContent)
 
-    def _receive_message(self, raw_msg) -> None:
+    def handle_msg(self, msg: CommMessage[PlotBackendMessageContent], raw_msg: JsonRecord) -> None:
         """
         Handle client messages to render a plot figure.
         """
-        try:
-            msg = LanguageRuntimeCommMessage(**raw_msg["content"])
-        except TypeError as exception:
-            logger.warning(f"Ignoring invalid plot client message input: {exception}")
-            return
+        comm_id = msg.content.comm_id
+        request = msg.content.data
 
-        comm_id = msg.comm_id
-        data = msg.data
         figure_comm = self.comms.get(comm_id, None)
         if figure_comm is None:
             logger.warning(f"Plot figure comm {comm_id} not found")
-            return
-
-        try:
-            request = RenderRequest(**data)
-        except TypeError as exception:
-            figure_comm.send_error(
-                code=JsonRpcErrorCode.INVALID_REQUEST,
-                message=f"Invalid plot request {msg.data}: {exception}",
-            )
             return
 
         if isinstance(request, RenderRequest):
@@ -129,8 +100,11 @@ class PositronDisplayPublisherHook:
                     pickled, width_px, height_px, pixel_ratio
                 )
                 data = format_dict["image/png"]
-                output = asdict(PlotResult(data=data, mime_type="image/png"))
+                output = PlotResult(data=data, mime_type="image/png").dict()
                 figure_comm.send_result(data=output, metadata=md_dict)
+
+        else:
+            logger.warning(f"Unhandled request: {request}")
 
     def shutdown(self) -> None:
         """

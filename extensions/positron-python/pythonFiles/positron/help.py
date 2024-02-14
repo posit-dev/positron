@@ -6,13 +6,18 @@ from __future__ import annotations
 
 import logging
 import pydoc
-from dataclasses import asdict
 from typing import TYPE_CHECKING, Any, Optional, Union
 
-from .help_comm import HelpFrontendEvent, ShowHelpKind, ShowHelpParams, ShowHelpTopicRequest
-from .positron_comm import JsonRpcErrorCode, PositronComm
+from .help_comm import (
+    HelpBackendMessageContent,
+    HelpFrontendEvent,
+    ShowHelpKind,
+    ShowHelpParams,
+    ShowHelpTopicRequest,
+)
+from .positron_comm import CommMessage, PositronComm
 from .pydoc import start_server
-from .utils import get_qualname
+from .utils import JsonRecord, get_qualname
 
 if TYPE_CHECKING:
     from comm.base_comm import BaseComm
@@ -70,27 +75,23 @@ class HelpService:
         self._comm: Optional[PositronComm] = None
         self._pydoc_thread = None
 
-    def on_comm_open(self, comm: BaseComm, msg) -> None:
+    def on_comm_open(self, comm: BaseComm, msg: JsonRecord) -> None:
         self._comm = PositronComm(comm)
-        comm.on_msg(self._receive_message)
+        self._comm.on_msg(self.handle_msg, HelpBackendMessageContent)
 
-    def _receive_message(self, msg) -> None:
+    def handle_msg(self, msg: CommMessage[HelpBackendMessageContent], raw_msg: JsonRecord) -> None:
         """
         Handle messages received from the client via the positron.help comm.
         """
-        data = msg["content"]["data"]
+        request = msg.content.data
 
-        try:
-            request = ShowHelpTopicRequest(**data)
+        if isinstance(request, ShowHelpTopicRequest):
             if self._comm is not None:
                 self._comm.send_result(data=True)
             self.show_help(request.params.topic)
-        except TypeError as exception:
-            if self._comm is not None:
-                self._comm.send_error(
-                    code=JsonRpcErrorCode.INVALID_REQUEST,
-                    message=f"Invalid help request {data}: {exception}",
-                )
+
+        else:
+            logger.warning(f"Unhandled request: {request}")
 
     def shutdown(self) -> None:
         # shutdown pydoc
@@ -141,4 +142,4 @@ class HelpService:
         # Submit the event to the frontend service
         event = ShowHelpParams(content=url, kind=ShowHelpKind.Url, focus=True)
         if self._comm is not None:
-            self._comm.send_event(name=HelpFrontendEvent.ShowHelp.value, payload=asdict(event))
+            self._comm.send_event(name=HelpFrontendEvent.ShowHelp.value, payload=event.dict())

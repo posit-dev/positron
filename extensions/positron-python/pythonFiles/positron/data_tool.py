@@ -5,8 +5,7 @@
 # flake8: ignore E203
 # pyright: reportOptionalMemberAccess=false
 
-from dataclasses import asdict
-from typing import TYPE_CHECKING, Any, Dict, List, Sequence
+from typing import TYPE_CHECKING, Dict, List, Sequence
 from .data_tool_comm import (
     BackendState,
     ColumnFilter,
@@ -14,7 +13,7 @@ from .data_tool_comm import (
     ColumnSchema,
     ColumnSchemaTypeDisplay,
     ColumnSortKey,
-    DataToolBackendRequest,
+    DataToolBackendMessageContent,
     FilterResult,
     GetColumnProfileProfileType,
     GetDataValuesRequest,
@@ -26,7 +25,7 @@ from .data_tool_comm import (
     TableData,
     TableSchema,
 )
-from .positron_comm import JsonRpcErrorCode, PositronComm
+from .positron_comm import CommMessage, PositronComm
 from .third_party import _get_pandas
 import comm
 import logging
@@ -70,34 +69,26 @@ class DataToolTableView:
         # self.filtered_indices
         self.view_indices = None
 
-    def get_schema(self, data: Dict[str, Any]):
-        req = GetSchemaRequest(**data)
-        return asdict(self._get_schema(req.params.start_index, req.params.num_columns))
+    def get_schema(self, request: GetSchemaRequest):
+        return self._get_schema(request.params.start_index, request.params.num_columns).dict()
 
-    def get_data_values(self, data: Dict[str, Any]):
-        req = GetDataValuesRequest(**data)
-        return asdict(
-            self._get_data_values(
-                req.params.row_start_index,
-                req.params.num_rows,
-                req.params.column_indices,
-            )
-        )
+    def get_data_values(self, request: GetDataValuesRequest):
+        return self._get_data_values(
+            request.params.row_start_index,
+            request.params.num_rows,
+            request.params.column_indices,
+        ).dict()
 
-    def set_column_filters(self, data: Dict[str, Any]):
-        req = SetColumnFiltersRequest(**data)
-        return self._set_column_filters(req.params.filters)
+    def set_column_filters(self, request: SetColumnFiltersRequest):
+        return self._set_column_filters(request.params.filters)
 
-    def set_sort_columns(self, data: Dict[str, Any]):
-        req = SetSortColumnsRequest(**data)
-        return self._set_sort_columns(req.params.sort_keys)
+    def set_sort_columns(self, request: SetSortColumnsRequest):
+        return self._set_sort_columns(request.params.sort_keys)
 
-    def get_column_profile(self, data: Dict[str, Any]):
-        req = GetColumnProfileRequest(**data)
-        return self._get_column_profile(req.params.profile_type, req.params.column_index)
+    def get_column_profile(self, request: GetColumnProfileRequest):
+        return self._get_column_profile(request.params.profile_type, request.params.column_index)
 
-    def get_state(self, data: Dict[str, Any]):
-        GetStateRequest(**data)
+    def get_state(self, request: GetStateRequest):
         return self._get_state()
 
     def _get_schema(self, column_start: int, num_columns: int) -> TableSchema:
@@ -205,7 +196,11 @@ class PandasView(DataToolTableView):
             )
             column_schemas.append(col_schema)
 
-        return TableSchema(column_schemas, *self.table.shape)
+        return TableSchema(
+            columns=column_schemas,
+            num_rows=self.table.shape[0],
+            total_num_columns=self.table.shape[1],
+        )
 
     def _get_data_values(
         self, row_start: int, num_rows: int, column_indices: Sequence[int]
@@ -247,7 +242,7 @@ class PandasView(DataToolTableView):
         if isinstance(self.table.index, _get_pandas().MultiIndex):
             indices = indices.to_flat_index()
         row_labels = [_pandas_format_values(indices)]
-        return TableData(formatted_columns, row_labels)
+        return TableData(columns=formatted_columns, row_labels=row_labels)
 
     def _update_view_indices(self):
         if len(self.applied_sort_keys) == 0:
@@ -264,7 +259,7 @@ class PandasView(DataToolTableView):
             # Simply reset if empty filter set passed
             self.filtered_indices = None
             self._update_view_indices()
-            return FilterResult(len(self.table))
+            return FilterResult(selected_num_rows=len(self.table))
 
         # Evaluate all the filters and AND them together
         combined_mask = None
@@ -279,7 +274,7 @@ class PandasView(DataToolTableView):
 
         # Update the view indices, re-sorting if needed
         self._update_view_indices()
-        return FilterResult(len(self.filtered_indices))
+        return FilterResult(selected_num_rows=len(self.filtered_indices))
 
     def _set_sort_columns(self, sort_keys) -> None:
         from pandas.core.sorting import lexsort_indexer, nargsort
@@ -332,7 +327,7 @@ class PandasView(DataToolTableView):
         pass
 
     def _get_state(self) -> BackendState:
-        return BackendState(self.applied_filters, self.applied_sort_keys)
+        return BackendState(filters=self.applied_filters, sort_keys=self.applied_sort_keys)
 
 
 COMPARE_OPS = {
@@ -414,13 +409,15 @@ class DataToolService:
         if comm_id is None:
             comm_id = str(uuid.uuid4())
         self.tables[comm_id] = _wrap_table(table)
-        table_comm = comm.create_comm(
-            target_name=self.comm_target,
-            comm_id=comm_id,
-            data={"title": title},
+        table_comm = PositronComm(
+            comm.create_comm(
+                target_name=self.comm_target,
+                comm_id=comm_id,
+                data={"title": title},
+            )
         )
-        self.comms[comm_id] = PositronComm(table_comm)
-        table_comm.on_msg(self.handle_msg)
+        self.comms[comm_id] = table_comm
+        table_comm.on_msg(self.handle_msg, DataToolBackendMessageContent)
 
     def deregister_table(self, comm_id: str):
         comm = self.comms.pop(comm_id)
@@ -431,36 +428,16 @@ class DataToolService:
             pass
         del self.tables[comm_id]
 
-    def handle_msg(self, msg: Dict[str, Any]) -> None:
+    def handle_msg(self, msg: CommMessage[DataToolBackendMessageContent], raw_msg):
         """
         Handle messages received from the client via the
         positron.data_tool comm.
         """
-        data = msg["content"]["data"]
+        comm_id = msg.content.comm_id
+        request = msg.content.data
 
-        comm_id = msg["content"]["comm_id"]
         comm = self.comms[comm_id]
-
-        # TODO(wesm): method validation should take place more
-        # centrally. There is also code like this for the other
-        # OpenRPC-based comms
-        method_name = data.get("method", None)
-        try:
-            method = DataToolBackendRequest(method_name)
-        except ValueError:
-            comm.send_error(
-                JsonRpcErrorCode.METHOD_NOT_FOUND,
-                f"Unknown method '{data.get('method')}'",
-            )
-            return
-
         table = self.tables[comm_id]
 
-        try:
-            result = getattr(table, method.value)(data)
-            comm.send_result(result)
-        except TypeError as e:
-            comm.send_error(
-                JsonRpcErrorCode.INVALID_REQUEST,
-                message=f"Invalid {method_name} request {data}: {e}",
-            )
+        result = getattr(table, request.method.value)(request)
+        comm.send_result(result)

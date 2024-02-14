@@ -12,10 +12,9 @@
 from __future__ import annotations
 
 import enum
-from dataclasses import dataclass, field
-from typing import Dict, List, Union, Optional
+from typing import Any, List, Literal, Optional, Union
 
-JsonData = Union[Dict[str, "JsonData"], List["JsonData"], str, int, float, bool, None]
+from ._vendor.pydantic import BaseModel, Field
 
 
 @enum.unique
@@ -60,147 +59,96 @@ class VariableKind(str, enum.Enum):
     Lazy = "lazy"
 
 
-@dataclass
-class VariableList:
+class VariableList(BaseModel):
     """
     A view containing a list of variables in the session.
     """
 
-    def __post_init__(self):
-        """Revive parameters after initialization"""
-        self.variables = [
-            Variable(**d) if isinstance(d, dict) else d for d in self.variables
-        ]  # type: ignore
-
-    variables: List[Variable] = field(
-        metadata={
-            "description": "A list of variables in the session.",
-        }
+    variables: List[Variable] = Field(
+        description="A list of variables in the session.",
     )
 
-    length: int = field(
-        metadata={
-            "description": "The total number of variables in the session. This may be greater than the number of variables in the 'variables' array if the array is truncated.",
-        }
+    length: int = Field(
+        description="The total number of variables in the session. This may be greater than the number of variables in the 'variables' array if the array is truncated.",
     )
 
-    version: Optional[int] = field(
+    version: Optional[int] = Field(
         default=None,
-        metadata={
-            "description": "The version of the view (incremented with each update)",
-            "default": None,
-        },
+        description="The version of the view (incremented with each update)",
     )
 
 
-@dataclass
-class InspectedVariable:
+class InspectedVariable(BaseModel):
     """
     An inspected variable.
     """
 
-    def __post_init__(self):
-        """Revive parameters after initialization"""
-        self.children = [
-            Variable(**d) if isinstance(d, dict) else d for d in self.children
-        ]  # type: ignore
-
-    children: List[Variable] = field(
-        metadata={
-            "description": "The children of the inspected variable.",
-        }
+    children: List[Variable] = Field(
+        description="The children of the inspected variable.",
     )
 
-    length: int = field(
-        metadata={
-            "description": "The total number of children. This may be greater than the number of children in the 'children' array if the array is truncated.",
-        }
+    length: int = Field(
+        description="The total number of children. This may be greater than the number of children in the 'children' array if the array is truncated.",
     )
 
 
-@dataclass
-class FormattedVariable:
+class FormattedVariable(BaseModel):
     """
     An object formatted for copying to the clipboard.
     """
 
-    content: str = field(
-        metadata={
-            "description": "The formatted content of the variable.",
-        }
+    content: str = Field(
+        description="The formatted content of the variable.",
     )
 
 
-@dataclass
-class Variable:
+class Variable(BaseModel):
     """
     A single variable in the runtime.
     """
 
-    access_key: str = field(
-        metadata={
-            "description": "A key that uniquely identifies the variable within the runtime and can be used to access the variable in `inspect` requests",
-        }
+    access_key: str = Field(
+        description="A key that uniquely identifies the variable within the runtime and can be used to access the variable in `inspect` requests",
     )
 
-    display_name: str = field(
-        metadata={
-            "description": "The name of the variable, formatted for display",
-        }
+    display_name: str = Field(
+        description="The name of the variable, formatted for display",
     )
 
-    display_value: str = field(
-        metadata={
-            "description": "A string representation of the variable's value, formatted for display and possibly truncated",
-        }
+    display_value: str = Field(
+        description="A string representation of the variable's value, formatted for display and possibly truncated",
     )
 
-    display_type: str = field(
-        metadata={
-            "description": "The variable's type, formatted for display",
-        }
+    display_type: str = Field(
+        description="The variable's type, formatted for display",
     )
 
-    type_info: str = field(
-        metadata={
-            "description": "Extended information about the variable's type",
-        }
+    type_info: str = Field(
+        description="Extended information about the variable's type",
     )
 
-    size: int = field(
-        metadata={
-            "description": "The size of the variable's value in bytes",
-        }
+    size: int = Field(
+        description="The size of the variable's value in bytes",
     )
 
-    kind: VariableKind = field(
-        metadata={
-            "description": "The kind of value the variable represents, such as 'string' or 'number'",
-        }
+    kind: VariableKind = Field(
+        description="The kind of value the variable represents, such as 'string' or 'number'",
     )
 
-    length: int = field(
-        metadata={
-            "description": "The number of elements in the variable, if it is a collection",
-        }
+    length: int = Field(
+        description="The number of elements in the variable, if it is a collection",
     )
 
-    has_children: bool = field(
-        metadata={
-            "description": "Whether the variable has child variables",
-        }
+    has_children: bool = Field(
+        description="Whether the variable has child variables",
     )
 
-    has_viewer: bool = field(
-        metadata={
-            "description": "True if there is a viewer available for this variable (i.e. the runtime can handle a 'view' request for this variable)",
-        }
+    has_viewer: bool = Field(
+        description="True if there is a viewer available for this variable (i.e. the runtime can handle a 'view' request for this variable)",
     )
 
-    is_truncated: bool = field(
-        metadata={
-            "description": "True if the 'value' field is a truncated representation of the variable's value",
-        }
+    is_truncated: bool = Field(
+        description="True if the 'value' field is a truncated representation of the variable's value",
     )
 
 
@@ -229,200 +177,184 @@ class VariablesBackendRequest(str, enum.Enum):
     View = "view"
 
 
-@dataclass
-class ListRequest:
+class ListRequest(BaseModel):
     """
     Returns a list of all the variables in the current session.
     """
 
-    method: VariablesBackendRequest = field(
-        metadata={"description": "The JSON-RPC method name (list)"},
-        default=VariablesBackendRequest.List,
+    method: Literal[VariablesBackendRequest.List] = Field(
+        description="The JSON-RPC method name (list)",
     )
 
-    jsonrpc: str = field(metadata={"description": "The JSON-RPC version specifier"}, default="2.0")
+    jsonrpc: str = Field(
+        default="2.0",
+        description="The JSON-RPC version specifier",
+    )
 
 
-@dataclass
-class ClearParams:
+class ClearParams(BaseModel):
     """
     Clears (deletes) all variables in the current session.
     """
 
-    include_hidden_objects: bool = field(
-        metadata={
-            "description": "Whether to clear hidden objects in addition to normal variables",
-        }
+    include_hidden_objects: bool = Field(
+        description="Whether to clear hidden objects in addition to normal variables",
     )
 
 
-@dataclass
-class ClearRequest:
+class ClearRequest(BaseModel):
     """
     Clears (deletes) all variables in the current session.
     """
 
-    def __post_init__(self):
-        """Revive RPC parameters after initialization"""
-        if isinstance(self.params, dict):
-            self.params = ClearParams(**self.params)
-
-    params: ClearParams = field(metadata={"description": "Parameters to the Clear method"})
-
-    method: VariablesBackendRequest = field(
-        metadata={"description": "The JSON-RPC method name (clear)"},
-        default=VariablesBackendRequest.Clear,
+    params: ClearParams = Field(
+        description="Parameters to the Clear method",
     )
 
-    jsonrpc: str = field(metadata={"description": "The JSON-RPC version specifier"}, default="2.0")
+    method: Literal[VariablesBackendRequest.Clear] = Field(
+        description="The JSON-RPC method name (clear)",
+    )
+
+    jsonrpc: str = Field(
+        default="2.0",
+        description="The JSON-RPC version specifier",
+    )
 
 
-@dataclass
-class DeleteParams:
+class DeleteParams(BaseModel):
     """
     Deletes the named variables from the current session.
     """
 
-    names: List[str] = field(
-        metadata={
-            "description": "The names of the variables to delete.",
-        }
+    names: List[str] = Field(
+        description="The names of the variables to delete.",
     )
 
 
-@dataclass
-class DeleteRequest:
+class DeleteRequest(BaseModel):
     """
     Deletes the named variables from the current session.
     """
 
-    def __post_init__(self):
-        """Revive RPC parameters after initialization"""
-        if isinstance(self.params, dict):
-            self.params = DeleteParams(**self.params)
-
-    params: DeleteParams = field(metadata={"description": "Parameters to the Delete method"})
-
-    method: VariablesBackendRequest = field(
-        metadata={"description": "The JSON-RPC method name (delete)"},
-        default=VariablesBackendRequest.Delete,
+    params: DeleteParams = Field(
+        description="Parameters to the Delete method",
     )
 
-    jsonrpc: str = field(metadata={"description": "The JSON-RPC version specifier"}, default="2.0")
+    method: Literal[VariablesBackendRequest.Delete] = Field(
+        description="The JSON-RPC method name (delete)",
+    )
+
+    jsonrpc: str = Field(
+        default="2.0",
+        description="The JSON-RPC version specifier",
+    )
 
 
-@dataclass
-class InspectParams:
+class InspectParams(BaseModel):
     """
     Returns the children of a variable, as an array of variables.
     """
 
-    path: List[str] = field(
-        metadata={
-            "description": "The path to the variable to inspect, as an array of access keys.",
-        }
+    path: List[str] = Field(
+        description="The path to the variable to inspect, as an array of access keys.",
     )
 
 
-@dataclass
-class InspectRequest:
+class InspectRequest(BaseModel):
     """
     Returns the children of a variable, as an array of variables.
     """
 
-    def __post_init__(self):
-        """Revive RPC parameters after initialization"""
-        if isinstance(self.params, dict):
-            self.params = InspectParams(**self.params)
-
-    params: InspectParams = field(metadata={"description": "Parameters to the Inspect method"})
-
-    method: VariablesBackendRequest = field(
-        metadata={"description": "The JSON-RPC method name (inspect)"},
-        default=VariablesBackendRequest.Inspect,
+    params: InspectParams = Field(
+        description="Parameters to the Inspect method",
     )
 
-    jsonrpc: str = field(metadata={"description": "The JSON-RPC version specifier"}, default="2.0")
+    method: Literal[VariablesBackendRequest.Inspect] = Field(
+        description="The JSON-RPC method name (inspect)",
+    )
+
+    jsonrpc: str = Field(
+        default="2.0",
+        description="The JSON-RPC version specifier",
+    )
 
 
-@dataclass
-class ClipboardFormatParams:
+class ClipboardFormatParams(BaseModel):
     """
     Requests a formatted representation of a variable for copying to the
     clipboard.
     """
 
-    path: List[str] = field(
-        metadata={
-            "description": "The path to the variable to format, as an array of access keys.",
-        }
+    path: List[str] = Field(
+        description="The path to the variable to format, as an array of access keys.",
     )
 
-    format: ClipboardFormatFormat = field(
-        metadata={
-            "description": "The requested format for the variable, as a MIME type",
-        }
+    format: ClipboardFormatFormat = Field(
+        description="The requested format for the variable, as a MIME type",
     )
 
 
-@dataclass
-class ClipboardFormatRequest:
+class ClipboardFormatRequest(BaseModel):
     """
     Requests a formatted representation of a variable for copying to the
     clipboard.
     """
 
-    def __post_init__(self):
-        """Revive RPC parameters after initialization"""
-        if isinstance(self.params, dict):
-            self.params = ClipboardFormatParams(**self.params)
-
-    params: ClipboardFormatParams = field(
-        metadata={"description": "Parameters to the ClipboardFormat method"}
+    params: ClipboardFormatParams = Field(
+        description="Parameters to the ClipboardFormat method",
     )
 
-    method: VariablesBackendRequest = field(
-        metadata={"description": "The JSON-RPC method name (clipboard_format)"},
-        default=VariablesBackendRequest.ClipboardFormat,
+    method: Literal[VariablesBackendRequest.ClipboardFormat] = Field(
+        description="The JSON-RPC method name (clipboard_format)",
     )
 
-    jsonrpc: str = field(metadata={"description": "The JSON-RPC version specifier"}, default="2.0")
+    jsonrpc: str = Field(
+        default="2.0",
+        description="The JSON-RPC version specifier",
+    )
 
 
-@dataclass
-class ViewParams:
+class ViewParams(BaseModel):
     """
     Request that the runtime open a data viewer to display the data in a
     variable.
     """
 
-    path: List[str] = field(
-        metadata={
-            "description": "The path to the variable to view, as an array of access keys.",
-        }
+    path: List[str] = Field(
+        description="The path to the variable to view, as an array of access keys.",
     )
 
 
-@dataclass
-class ViewRequest:
+class ViewRequest(BaseModel):
     """
     Request that the runtime open a data viewer to display the data in a
     variable.
     """
 
-    def __post_init__(self):
-        """Revive RPC parameters after initialization"""
-        if isinstance(self.params, dict):
-            self.params = ViewParams(**self.params)
-
-    params: ViewParams = field(metadata={"description": "Parameters to the View method"})
-
-    method: VariablesBackendRequest = field(
-        metadata={"description": "The JSON-RPC method name (view)"},
-        default=VariablesBackendRequest.View,
+    params: ViewParams = Field(
+        description="Parameters to the View method",
     )
 
-    jsonrpc: str = field(metadata={"description": "The JSON-RPC version specifier"}, default="2.0")
+    method: Literal[VariablesBackendRequest.View] = Field(
+        description="The JSON-RPC method name (view)",
+    )
+
+    jsonrpc: str = Field(
+        default="2.0",
+        description="The JSON-RPC version specifier",
+    )
+
+
+class VariablesBackendMessageContent(BaseModel):
+    comm_id: str
+    data: Union[
+        ListRequest,
+        ClearRequest,
+        DeleteRequest,
+        InspectRequest,
+        ClipboardFormatRequest,
+        ViewRequest,
+    ] = Field(..., discriminator="method")
 
 
 @enum.unique
@@ -438,41 +370,72 @@ class VariablesFrontendEvent(str, enum.Enum):
     Refresh = "refresh"
 
 
-@dataclass
-class UpdateParams:
+class UpdateParams(BaseModel):
     """
     Update variables
     """
 
-    assigned: List[Variable] = field(
-        metadata={"description": "An array of variables that have been newly assigned."}
+    assigned: List[Variable] = Field(
+        description="An array of variables that have been newly assigned.",
     )
 
-    removed: List[str] = field(
-        metadata={"description": "An array of variable names that have been removed."}
+    removed: List[str] = Field(
+        description="An array of variable names that have been removed.",
     )
 
-    version: int = field(
-        metadata={
-            "description": "The version of the view (incremented with each update), or 0 if the backend doesn't track versions."
-        }
+    version: int = Field(
+        description="The version of the view (incremented with each update), or 0 if the backend doesn't track versions.",
     )
 
 
-@dataclass
-class RefreshParams:
+class RefreshParams(BaseModel):
     """
     Refresh variables
     """
 
-    variables: List[Variable] = field(
-        metadata={"description": "An array listing all the variables in the current session."}
+    variables: List[Variable] = Field(
+        description="An array listing all the variables in the current session.",
     )
 
-    length: int = field(metadata={"description": "The number of variables in the current session."})
-
-    version: int = field(
-        metadata={
-            "description": "The version of the view (incremented with each update), or 0 if the backend doesn't track versions."
-        }
+    length: int = Field(
+        description="The number of variables in the current session.",
     )
+
+    version: int = Field(
+        description="The version of the view (incremented with each update), or 0 if the backend doesn't track versions.",
+    )
+
+
+VariableList.update_forward_refs()
+
+InspectedVariable.update_forward_refs()
+
+FormattedVariable.update_forward_refs()
+
+Variable.update_forward_refs()
+
+ListRequest.update_forward_refs()
+
+ClearParams.update_forward_refs()
+
+ClearRequest.update_forward_refs()
+
+DeleteParams.update_forward_refs()
+
+DeleteRequest.update_forward_refs()
+
+InspectParams.update_forward_refs()
+
+InspectRequest.update_forward_refs()
+
+ClipboardFormatParams.update_forward_refs()
+
+ClipboardFormatRequest.update_forward_refs()
+
+ViewParams.update_forward_refs()
+
+ViewRequest.update_forward_refs()
+
+UpdateParams.update_forward_refs()
+
+RefreshParams.update_forward_refs()

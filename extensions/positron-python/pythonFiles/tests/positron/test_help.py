@@ -107,14 +107,17 @@ def test_pydoc_server_styling(running_help_service: HelpService):
         (help, "positron.help.help"),
     ],
 )
-def test_show_help(obj: Any, expected_path: str, help_service: HelpService, help_comm: DummyComm):
+def test_show_help(
+    obj: Any, expected_path: str, help_service: HelpService, help_comm: DummyComm, monkeypatch
+):
     """
     Calling `show_help` should resolve an object to a url and send a `ShowHelp` event over the comm.
     """
     # Mock the pydoc server
     url = "http://localhost:1234/"
-    help_service._pydoc_thread = Mock()
-    help_service._pydoc_thread.url = url
+    mock_pydoc_thread = Mock()
+    mock_pydoc_thread.url = url
+    monkeypatch.setattr(help_service, "_pydoc_thread", mock_pydoc_thread)
 
     help_service.show_help(obj)
 
@@ -130,8 +133,16 @@ def test_show_help(obj: Any, expected_path: str, help_service: HelpService, help
     assert params["content"][len(prefix) :] == expected_path
 
 
-def test_handle_show_help_topic(help_comm: DummyComm) -> None:
-    msg = json_rpc_request(HelpBackendRequest.ShowHelpTopic, {"topic": "logging"})
+def test_handle_show_help_topic(
+    help_service: HelpService, help_comm: DummyComm, monkeypatch
+) -> None:
+    # Mock the show_help method
+    mock_show_help = Mock()
+    monkeypatch.setattr(help_service, "show_help", mock_show_help)
+
+    msg = json_rpc_request(
+        HelpBackendRequest.ShowHelpTopic, {"topic": "logging"}, comm_id="dummy_comm_id"
+    )
     help_comm.handle_msg(msg)
 
     assert help_comm.messages == [
@@ -142,3 +153,5 @@ def test_handle_show_help_topic(help_comm: DummyComm) -> None:
             "msg_type": "comm_msg",
         }
     ]
+
+    mock_show_help.assert_called_once_with("logging")
