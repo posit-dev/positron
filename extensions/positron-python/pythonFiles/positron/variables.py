@@ -7,15 +7,14 @@ import asyncio
 import logging
 import types
 from collections.abc import Iterable, Mapping
-from dataclasses import asdict
 from itertools import chain
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set, Tuple
 
 from comm.base_comm import BaseComm
 
 from .inspectors import MAX_ITEMS, decode_access_key, get_inspector
-from .positron_comm import JsonRpcErrorCode, PositronComm
-from .utils import JsonData, cancel_tasks, create_task, get_qualname
+from .positron_comm import CommMessage, JsonRpcErrorCode, PositronComm
+from .utils import JsonData, JsonRecord, cancel_tasks, create_task, get_qualname
 from .variables_comm import (
     ClearRequest,
     ClipboardFormatFormat,
@@ -31,7 +30,7 @@ from .variables_comm import (
     VariableKind,
     VariableList,
     VariablesFrontendEvent,
-    VariablesBackendRequest,
+    VariablesBackendMessageContent,
     ViewRequest,
 )
 
@@ -52,108 +51,44 @@ class VariablesService:
 
         self._snapshot: Optional[Dict[str, Any]] = None
 
-    def on_comm_open(self, comm: BaseComm, msg: Dict[str, Any]) -> None:
+    def on_comm_open(self, comm: BaseComm, msg: JsonRecord) -> None:
         """
         Setup positron.variables comm to receive messages.
         """
         self._comm = PositronComm(comm)
-        comm.on_msg(self._handle_rpc)
+        self._comm.on_msg(self.handle_msg, VariablesBackendMessageContent)
 
         # Send list on comm initialization
         self.send_refresh_event()
 
-    def _handle_rpc(self, msg: Dict[str, Any]) -> None:
+    def handle_msg(
+        self, msg: CommMessage[VariablesBackendMessageContent], raw_msg: JsonRecord
+    ) -> None:
         """
         Handle messages received from the client via the positron.variables comm.
         """
-        data = msg["content"]["data"]
+        request = msg.content.data
 
-        try:
-            method = VariablesBackendRequest(data.get("method", None))
-        except ValueError:
-            self._send_error(
-                JsonRpcErrorCode.METHOD_NOT_FOUND,
-                f"Unknown method '{data.get('method')}'",
-            )
-            return
+        if isinstance(request, ListRequest):
+            self._send_list()
 
-        if method == VariablesBackendRequest.List:
-            try:
-                request = ListRequest(**data)
-                self._send_list()
-            except TypeError as exception:
-                self._send_error(
-                    JsonRpcErrorCode.INVALID_REQUEST,
-                    message=f"Invalid list request {data}: {exception}",
-                )
+        elif isinstance(request, ClearRequest):
+            self._delete_all_vars(raw_msg)
 
-        elif method == VariablesBackendRequest.Clear:
-            try:
-                request = ClearRequest(**data)
-                self._delete_all_vars(msg)
-            except TypeError as exception:
-                self._send_error(
-                    JsonRpcErrorCode.INVALID_REQUEST,
-                    message=f"Invalid clear request {data}: {exception}",
-                )
+        elif isinstance(request, DeleteRequest):
+            self._delete_vars(request.params.names, raw_msg)
 
-        elif method == VariablesBackendRequest.Delete:
-            try:
-                request = DeleteRequest(**data)
-                if request.params.names is None:
-                    self._missing_param_error("names")
-                else:
-                    self._delete_vars(request.params.names, msg)
-            except TypeError as exception:
-                self._send_error(
-                    JsonRpcErrorCode.INVALID_REQUEST,
-                    message=f"Invalid delete request {data}: {exception}",
-                )
+        elif isinstance(request, InspectRequest):
+            self._inspect_var(request.params.path)
 
-        elif method == VariablesBackendRequest.Inspect:
-            try:
-                request = InspectRequest(**data)
-                if request.params.path is None:
-                    self._missing_param_error("path")
-                else:
-                    self._inspect_var(request.params.path)
-            except TypeError as exception:
-                self._send_error(
-                    JsonRpcErrorCode.INVALID_REQUEST,
-                    message=f"Invalid inspect request {data}: {exception}",
-                )
+        elif isinstance(request, ClipboardFormatRequest):
+            self._send_formatted_var(request.params.path, request.params.format)
 
-        elif method == VariablesBackendRequest.ClipboardFormat:
-            try:
-                request = ClipboardFormatRequest(**data)
-                if request.params.path is None:
-                    self._missing_param_error("path")
-                else:
-                    self._send_formatted_var(request.params.path, request.params.format)
-            except TypeError as exception:
-                self._send_error(
-                    JsonRpcErrorCode.INVALID_REQUEST,
-                    message=f"Invalid clipboard format request {data}: {exception}",
-                )
-
-        elif method == VariablesBackendRequest.View:
-            try:
-                request = ViewRequest(**data)
-                if request.params.path is None:
-                    self._missing_param_error("path")
-                else:
-                    self._open_data_tool(request.params.path)
-            except TypeError as exception:
-                self._send_error(
-                    JsonRpcErrorCode.INVALID_REQUEST,
-                    message=f"Invalid view request {data}: {exception}",
-                )
+        elif isinstance(request, ViewRequest):
+            self._open_data_tool(request.params.path)
 
         else:
-            self._send_error(JsonRpcErrorCode.METHOD_NOT_FOUND, f"Unknown method '{method}'")
-
-    def _missing_param_error(self, param: str) -> None:
-        self._send_error(JsonRpcErrorCode.INVALID_PARAMS, f"Missing parameter '{param}'")
+            logger.warning(f"Unhandled request: {request}")
 
     def _send_update(self, assigned: Mapping[str, Any], removed: Set[str]) -> None:
         """
@@ -189,12 +124,8 @@ class VariablesService:
         inspector = get_inspector(variables)
         filtered_variables = inspector.summarize_children(variables, _summarize_variable)
 
-        msg = RefreshParams(
-            variables=filtered_variables,
-            length=len(filtered_variables),
-            version=0,
-        )
-        self._send_event(VariablesFrontendEvent.Refresh.value, asdict(msg))
+        msg = RefreshParams(variables=filtered_variables, length=len(filtered_variables), version=0)
+        self._send_event(VariablesFrontendEvent.Refresh.value, msg.dict())
 
     async def shutdown(self) -> None:
         # Cancel and await pending tasks
@@ -424,7 +355,7 @@ class VariablesService:
                 removed=sorted(filtered_removed),
                 version=0,
             )
-            self._send_event(VariablesFrontendEvent.Update.value, asdict(msg))
+            self._send_event(VariablesFrontendEvent.Update.value, msg.dict())
 
     def _list_all_vars(self) -> List[Variable]:
         variables = self._get_filtered_vars()
@@ -433,12 +364,8 @@ class VariablesService:
 
     def _send_list(self) -> None:
         filtered_variables = self._list_all_vars()
-        msg = VariableList(
-            variables=filtered_variables,
-            length=len(filtered_variables),
-            version=0,
-        )
-        self._send_result(asdict(msg))
+        msg = VariableList(variables=filtered_variables, length=len(filtered_variables), version=0)
+        self._send_result(msg.dict())
 
     def _delete_all_vars(self, parent: Dict[str, Any]) -> None:
         """
@@ -533,7 +460,7 @@ class VariablesService:
         self.kernel.datatool_service.register_table(value, title)
         self._send_result({})
 
-    def _send_event(self, name: str, payload: Dict[str, JsonData]) -> None:
+    def _send_event(self, name: str, payload: JsonRecord) -> None:
         """
         Send an event payload to the client.
         """
@@ -584,7 +511,7 @@ class VariablesService:
         if is_known:
             content = _format_value(value, clipboard_format)
             msg = FormattedVariable(content=content)
-            self._send_result(asdict(msg))
+            self._send_result(msg.dict())
         else:
             self._send_error(
                 JsonRpcErrorCode.INVALID_PARAMS,
@@ -636,7 +563,7 @@ class VariablesService:
             # TODO: Handle scalar objects with a specific message type
 
         msg = InspectedVariable(children=children, length=len(children))
-        self._send_result(asdict(msg))
+        self._send_result(msg.dict())
 
 
 def _summarize_variable(key: Any, value: Any) -> Optional[Variable]:

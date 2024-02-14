@@ -9,5 +9,10 @@ pygls>=0.10.3
 # --- Start Positron ---
 docstring-to-markdown==0.13
 markdown-it-py
+# TODO(seem): We're sticking to pydantic v1 since v2 depends on pydantic-core, which only ships
+# wheels for CPython and PyPy, and we require impementation-agnostic wheels (via the 'pip install
+# --implementation py' arg in scripts/vendoring.py). We inherited that requirement from upstream,
+# but we could revisit it.
+pydantic<2.0.0
 pygments
 # --- End Positron ---

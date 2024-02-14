@@ -3,13 +3,11 @@
 #
 
 import enum
-import json
 import logging
-from dataclasses import asdict, dataclass, field
-from typing import Any, Dict, List, Mapping, Optional
+from typing import Dict, List, Optional
 
 import comm
-from comm.base_comm import BaseComm
+from ._vendor.pydantic import BaseModel, Field, ValidationError
 
 logger = logging.getLogger(__name__)
 
@@ -27,16 +25,15 @@ class WidgetRequest(str, enum.Enum):
     display = "display"
 
 
-@dataclass
-class WidgetDisplayMessage:
+class WidgetDisplayMessage(BaseModel):
     """
     A message used to request the frontend display a specific widget or list of widgets.
     """
 
     msg_type: WidgetRequest = WidgetRequest.display
-    view_ids: List[str] = field(
+    view_ids: List[str] = Field(
         default_factory=list,
-        metadata={"description": "The list of widget view ids to display"},
+        description="The list of widget view ids to display",
     )
 
 
@@ -80,11 +77,11 @@ class PositronWidgetHook:
 
         try:
             data = WidgetDisplayMessage(view_ids=[comm_id])
-        except TypeError as exception:
+        except ValidationError as exception:
             logger.warning(f"Widget invalid data: {exception}")
             return
 
-        widget_comm.send(data=asdict(data))
+        widget_comm.send(data=data.dict())
 
     def shutdown(self) -> None:
         """

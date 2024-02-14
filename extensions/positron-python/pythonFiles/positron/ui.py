@@ -4,21 +4,24 @@
 
 import logging
 import os
-from dataclasses import asdict
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Union
+from typing import Callable, Dict, List, Optional, Union
 
 from comm.base_comm import BaseComm
 
+from ._vendor.pydantic import BaseModel
+
 from .ui_comm import (
+    CallMethodParams,
     CallMethodRequest,
+    UiBackendMessageContent,
     UiFrontendEvent,
     OpenEditorParams,
     WorkingDirectoryParams,
 )
-from .positron_comm import PositronComm
+from .positron_comm import CommMessage, PositronComm
 from .third_party import np_, pd_, pl_, torch_
-from .utils import DataclassProtocol, JsonData, alias_home
+from .utils import JsonData, JsonRecord, alias_home
 
 logger = logging.getLogger(__name__)
 
@@ -34,7 +37,7 @@ class _InvalidParamsError(Exception):
 
 def _set_console_width(params: List[JsonData]) -> None:
     if not (isinstance(params, list) and len(params) == 1 and isinstance(params[0], int)):
-        raise _InvalidParamsError()
+        raise _InvalidParamsError(f"Expected an integer width, got: {params}")
 
     width = params[0]
 
@@ -76,9 +79,9 @@ class UiService:
 
         self._working_directory: Optional[Path] = None
 
-    def on_comm_open(self, comm: BaseComm, msg: Dict[str, JsonData]) -> None:
+    def on_comm_open(self, comm: BaseComm, msg: JsonRecord) -> None:
         self._comm = PositronComm(comm)
-        comm.on_msg(self._receive_message)
+        self._comm.on_msg(self.handle_msg, UiBackendMessageContent)
 
         # Clear the current working directory to generate an event for the new
         # client (i.e. after a reconnect)
@@ -111,26 +114,26 @@ class UiService:
     def clear_console(self) -> None:
         self._send_event(name=UiFrontendEvent.ClearConsole, payload={})
 
-    def _receive_message(self, msg: Dict[str, Any]) -> None:
-        data = msg["content"]["data"]
+    def handle_msg(self, msg: CommMessage[UiBackendMessageContent], raw_msg: JsonRecord) -> None:
+        request = msg.content.data
 
-        try:
-            rpc_request = CallMethodRequest(**data)
-        except TypeError:
-            return logger.exception(f"Invalid frontend RPC request: {data}")
+        if isinstance(request, CallMethodRequest):
+            # Unwrap nested JSON-RPC
+            self._call_method(request.params)
 
-        # Unwrap nested JSON-RPC
-        rpc_request = rpc_request.params
+        else:
+            logger.warning(f"Unhandled request: {request}")
 
+    def _call_method(self, rpc_request: CallMethodParams) -> None:
         func = _RPC_METHODS.get(rpc_request.method, None)
         if func is None:
             return logger.warning(f"Invalid frontend RPC request method: {rpc_request.method}")
 
         try:
             result = func(rpc_request.params)
-        except _InvalidParamsError:
+        except _InvalidParamsError as exception:
             return logger.warning(
-                f"Invalid frontend RPC request params for method '{rpc_request.method}': {rpc_request.params}"
+                f"Invalid frontend RPC request params for method '{rpc_request.method}'. {exception}"
             )
 
         if self._comm is not None:
@@ -143,10 +146,8 @@ class UiService:
             except Exception:
                 pass
 
-    def _send_event(
-        self, name: str, payload: Union[DataclassProtocol, Dict[str, JsonData]]
-    ) -> None:
+    def _send_event(self, name: str, payload: Union[BaseModel, JsonRecord]) -> None:
         if self._comm is not None:
-            if not isinstance(payload, dict):
-                payload = asdict(payload)
+            if isinstance(payload, BaseModel):
+                payload = payload.dict()
             self._comm.send_event(name=name, payload=payload)
