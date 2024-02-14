@@ -6,7 +6,9 @@ import { inject, injectable } from 'inversify';
 import { DiagnosticSeverity, l10n } from 'vscode';
 import '../../../common/extensions';
 import * as path from 'path';
-import { IConfigurationService, IDisposableRegistry, IInterpreterPathService, Resource } from '../../../common/types';
+// --- Start Positron ---
+import { IConfigurationService, IDisposableRegistry, IInstaller, IInterpreterPathService, Product, ProductInstallStatus, Resource } from '../../../common/types';
+// --- End Positron ---
 import { IInterpreterService } from '../../../interpreter/contracts';
 import { IServiceContainer } from '../../../ioc/types';
 import { BaseDiagnostic, BaseDiagnosticsService } from '../base';
@@ -21,7 +23,9 @@ import {
     IDiagnosticMessageOnCloseHandler,
 } from '../types';
 import { Common } from '../../../common/utils/localize';
-import { Commands } from '../../../common/constants';
+// --- Start Positron ---
+import { Commands, IPYKERNEL_VERSION } from '../../../common/constants';
+// --- End Positron ---
 import { ICommandManager, IWorkspaceService } from '../../../common/application/types';
 import { sendTelemetryEvent } from '../../../telemetry';
 import { EventName } from '../../../telemetry/constants';
@@ -155,7 +159,13 @@ export class InvalidPythonInterpreterService extends BaseDiagnosticsService
         }
 
         const currentInterpreter = await interpreterService.getActiveInterpreter(resource);
-        if (!currentInterpreter) {
+        // --- Start Positron ---
+        // if invalid Python is caused by no ipykernel installation, our modal will handle it
+        const installer = this.serviceContainer.get<IInstaller>(IInstaller);
+        const hasCompatibleKernel = await installer.isProductVersionCompatible(Product.ipykernel, IPYKERNEL_VERSION, currentInterpreter);
+
+        if (!currentInterpreter && hasCompatibleKernel === ProductInstallStatus.Installed) {
+            // --- End Positron ---
             return [
                 new InvalidPythonInterpreterDiagnostic(
                     DiagnosticCodes.InvalidPythonInterpreterDiagnostic,
