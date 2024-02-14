@@ -527,7 +527,7 @@
   },
   "positron": {
     "binaryDependencies": {
-      "ark": "0.1.54"
+      "ark": "0.1.55"
     }
   }
 }
