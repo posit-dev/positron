@@ -13,12 +13,10 @@ from datetime import datetime
 from pathlib import Path
 from typing import (
     Any,
-    ClassVar,
     Coroutine,
     Dict,
     List,
     Optional,
-    Protocol,
     Set,
     Tuple,
     TypeVar,
@@ -27,10 +25,7 @@ from typing import (
 )
 
 JsonData = Union[Dict[str, "JsonData"], List["JsonData"], str, int, float, bool, None]
-
-
-class DataclassProtocol(Protocol):
-    __dataclass_fields__: ClassVar[dict]
+JsonRecord = Dict[str, JsonData]
 
 
 T = TypeVar("T")

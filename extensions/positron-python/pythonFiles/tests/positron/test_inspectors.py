@@ -35,7 +35,7 @@ from positron.utils import get_qualname, not_none
 from positron.variables import _summarize_variable
 from positron.variables_comm import Variable, VariableKind
 
-from .utils import assert_dataclass_equal
+from .utils import assert_pydantic_model_equal
 
 
 def assert_variable_equal(result: Optional[Variable], expected: Variable) -> None:
@@ -45,7 +45,7 @@ def assert_variable_equal(result: Optional[Variable], expected: Variable) -> Non
     # - size: since it depends on platform, Python version, and library versions.
     # - access_key: since we test it independently from summarizing variables and don't want
     #               to have to change all tests when we change the access_key format.
-    assert_dataclass_equal(result, expected, ["size", "access_key"])
+    assert_pydantic_model_equal(result, expected, {"size", "access_key"})
 
 
 def assert_variables_equal(result: List[Variable], expected: List[Variable]) -> None:
