@@ -13,7 +13,7 @@ import * as semver from 'semver';
 import * as vscode from 'vscode';
 
 import { PythonExtension } from '../api/types';
-import { EXTENSION_ROOT_DIR, PYTHON_LANGUAGE } from '../common/constants';
+import { EXTENSION_ROOT_DIR, IPYKERNEL_VERSION, PYTHON_LANGUAGE } from '../common/constants';
 import { IConfigurationService, IInstaller, Product, ProductInstallStatus } from '../common/types';
 import { IServiceContainer } from '../ioc/types';
 import { IInterpreterService } from '../interpreter/contracts';
@@ -186,7 +186,7 @@ export async function createPythonRuntime(
     // if ipykernel (min version 6.19.1) is not installed -- the user should start runtime explicitly.
     let startupBehavior;
     traceInfo('createPythonRuntime: checking if ipykernel is installed');
-    const hasCompatibleKernel = await installer.isProductVersionCompatible(Product.ipykernel, '>=6.19.1', interpreter);
+    const hasCompatibleKernel = await installer.isProductVersionCompatible(Product.ipykernel, IPYKERNEL_VERSION, interpreter);
 
     if (hasCompatibleKernel === ProductInstallStatus.Installed) {
         startupBehavior = recommendedForWorkspace ?
