@@ -508,12 +508,12 @@ declare module 'positron' {
 
 	export interface LanguageRuntimeSessionManager {
 		/**
-		 * Starts a new runtime session.
+		 * Creates a new runtime session.
 		 *
 		 * @param runtimeMetadata The runtime metadata.
 		 * @param sessionId The session ID.
 		 */
-		start(runtimeMetadata: LanguageRuntimeMetadata, sessionId: string): Thenable<LanguageRuntimeSession>;
+		createSession(runtimeMetadata: LanguageRuntimeMetadata, sessionId: string): Thenable<LanguageRuntimeSession>;
 	}
 
 	/**
@@ -556,6 +556,9 @@ declare module 'positron' {
 	 * execution, LSP implementation, and plotting.
 	 */
 	export interface LanguageRuntimeSession extends vscode.Disposable {
+		/** The ID of this session */
+		readonly sessionId: string;
+
 		/** An object supplying metadata about the runtime */
 		readonly metadata: LanguageRuntimeMetadata;
 
@@ -629,6 +632,14 @@ declare module 'positron' {
 
 		/** Reply to a prompt issued by the runtime */
 		replyToPrompt(id: string, reply: string): void;
+
+		/**
+		 * Start the session; returns a Thenable that resolves with information about the runtime.
+		 * If the runtime fails to start for any reason, the Thenable should reject with an error
+		 * object containing a `message` field with a human-readable error message and an optional
+		 * `details` field with additional information.
+		 */
+		start(): Thenable<LanguageRuntimeInfo>;
 
 		/**
 		 * Interrupt the runtime; returns a Thenable that resolves when the interrupt has been

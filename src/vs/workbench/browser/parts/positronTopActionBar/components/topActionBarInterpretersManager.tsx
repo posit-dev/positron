@@ -1,22 +1,22 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2022-2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
 import 'vs/css!./topActionBarInterpretersManager';
 import * as React from 'react';
 import { KeyboardEvent, useEffect, useRef, useState } from 'react'; // eslint-disable-line no-duplicate-imports
 import { DisposableStore } from 'vs/base/common/lifecycle';
-import { ILanguageRuntime } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { usePositronTopActionBarContext } from 'vs/workbench/browser/parts/positronTopActionBar/positronTopActionBarContext';
 import { showInterpretersManagerModalPopup } from 'vs/workbench/browser/parts/positronTopActionBar/interpretersManagerModalPopup/interpretersManagerModalPopup';
 import { useRegisterWithActionBar } from 'vs/platform/positronActionBar/browser/useRegisterWithActionBar';
+import { ILanguageRuntimeMetadata } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 
 /**
  * TopActionBarInterpretersManagerProps interface.
  */
 interface TopActionBarInterpretersManagerProps {
-	onStartRuntime: (runtime: ILanguageRuntime) => Promise<void>;
-	onActivateRuntime: (runtime: ILanguageRuntime) => Promise<void>;
+	onStartRuntime: (runtime: ILanguageRuntimeMetadata) => Promise<void>;
+	onActivateRuntime: (runtime: ILanguageRuntimeMetadata) => Promise<void>;
 }
 
 /**
@@ -31,7 +31,7 @@ export const TopActionBarInterpretersManager = (props: TopActionBarInterpretersM
 	const ref = useRef<HTMLDivElement>(undefined!);
 
 	// State hooks.
-	const [activeRuntime, setActiveRuntime] = useState(positronTopActionBarContext.languageRuntimeService.activeRuntime);
+	const [activeRuntime, setActiveRuntime] = useState(positronTopActionBarContext.languageRuntimeService.activeRuntimeMetadata);
 
 	// Main useEffect.
 	useEffect(() => {
@@ -41,7 +41,7 @@ export const TopActionBarInterpretersManager = (props: TopActionBarInterpretersM
 		// Add the onDidChangeActiveRuntime event handler.
 		disposableStore.add(
 			positronTopActionBarContext.languageRuntimeService.onDidChangeActiveRuntime(runtime => {
-				setActiveRuntime(positronTopActionBarContext.languageRuntimeService.activeRuntime);
+				setActiveRuntime(positronTopActionBarContext.languageRuntimeService.activeRuntimeMetadata);
 			})
 		);
 
@@ -94,7 +94,7 @@ export const TopActionBarInterpretersManager = (props: TopActionBarInterpretersM
 		showPopup();
 	};
 
-	const label = !activeRuntime ? 'Start Interpreter' : activeRuntime.metadata.runtimeName;
+	const label = !activeRuntime ? 'Start Interpreter' : activeRuntime.runtimeName;
 
 	// Render.
 	return (
@@ -103,7 +103,7 @@ export const TopActionBarInterpretersManager = (props: TopActionBarInterpretersM
 				{!activeRuntime ?
 					<div className='label'>{label}</div> :
 					<div className='label'>
-						<img className='icon' src={`data:image/svg+xml;base64,${activeRuntime.metadata.base64EncodedIconSvg}`} />
+						<img className='icon' src={`data:image/svg+xml;base64,${activeRuntime.base64EncodedIconSvg}`} />
 						<span>{label}</span>
 					</div>
 				}

@@ -39,7 +39,7 @@ import { ActivityItem, RuntimeItemActivity } from 'vs/workbench/services/positro
 import { ActivityItemInput, ActivityItemInputState } from 'vs/workbench/services/positronConsole/browser/classes/activityItemInput';
 import { ActivityItemErrorStream, ActivityItemOutputStream } from 'vs/workbench/services/positronConsole/browser/classes/activityItemStream';
 import { IPositronConsoleInstance, IPositronConsoleService, POSITRON_CONSOLE_VIEW_ID, PositronConsoleState } from 'vs/workbench/services/positronConsole/browser/interfaces/positronConsoleService';
-import { formatLanguageRuntime, ILanguageRuntime, ILanguageRuntimeExit, ILanguageRuntimeMessage, ILanguageRuntimeService, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeExitReason, RuntimeOnlineState, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { formatLanguageRuntime, ILanguageRuntime, ILanguageRuntimeExit, ILanguageRuntimeMessage, ILanguageRuntimeService, ILanguageRuntimeSession, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeExitReason, RuntimeOnlineState, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { UiFrontendEvent } from 'vs/workbench/services/languageRuntime/common/positronUiComm';
 
 /**
@@ -139,9 +139,9 @@ class PositronConsoleService extends Disposable implements IPositronConsoleServi
 	private readonly _positronConsoleInstancesByLanguageId = new Map<string, PositronConsoleInstance>();
 
 	/**
-	 * A map of the Positron console instances by runtime ID.
+	 * A map of the Positron console instances by session ID.
 	 */
-	private readonly _positronConsoleInstancesByRuntimeId = new Map<string, PositronConsoleInstance>();
+	private readonly _positronConsoleInstancesBySessionId = new Map<string, PositronConsoleInstance>();
 
 	/**
 	 * The active Positron console instance.
@@ -192,71 +192,73 @@ class PositronConsoleService extends Disposable implements IPositronConsoleServi
 		super();
 
 		// Start a Positron console instance for each running runtime.
-		this._languageRuntimeService.runningRuntimes.forEach(runtime => {
-			this.startPositronConsoleInstance(runtime, false);
+		this._languageRuntimeService.activeSessions.forEach(session => {
+			this.startPositronConsoleInstance(session, false);
 		});
 
-		// Get the active runtime. If there is one, set the active Positron console instance.
-		if (this._languageRuntimeService.activeRuntime) {
-			const positronConsoleInstance = this._positronConsoleInstancesByRuntimeId.get(this._languageRuntimeService.activeRuntime.metadata.runtimeId);
+		// Get the foreground session. If there is one, set the active Positron console instance.
+		if (this._languageRuntimeService.foregroundSession) {
+			const positronConsoleInstance = this._positronConsoleInstancesBySessionId.get(
+				this._languageRuntimeService.foregroundSession.sessionId);
 			if (positronConsoleInstance) {
 				this.setActivePositronConsoleInstance(positronConsoleInstance);
 			}
 		}
 
-		// Register the onWillStartRuntime event handler so we start a new Positron console instance before a runtime starts up.
-		this._register(this._languageRuntimeService.onWillStartRuntime(runtime => {
+		// Register the onWillStartRuntime event handler so we start a new
+		// Positron console instance before a runtime starts up.
+		this._register(this._languageRuntimeService.onWillStartRuntime(session => {
 			// If there is already a Positron console instance for the runtime,
 			// just reattach
-			const existingInstance = this._positronConsoleInstancesByRuntimeId.get(
-				runtime.metadata.runtimeId);
+			const existingInstance = this._positronConsoleInstancesBySessionId.get(
+				session.sessionId);
 			if (existingInstance) {
 				// Reattach the runtime; runtimes always detach on exit and are
 				// reattached on startup.
-				existingInstance.setRuntime(runtime, true);
+				existingInstance.setRuntime(session, true);
 				return;
 			}
 
 			// If no instance exists, see if we can reuse an instance from an
 			// exited runtime with a matching language.
-			const positronConsoleInstance = this._positronConsoleInstancesByLanguageId.get(runtime.metadata.languageId);
+			const positronConsoleInstance = this._positronConsoleInstancesByLanguageId.get(session.metadata.languageId);
 			if (positronConsoleInstance && positronConsoleInstance.state === PositronConsoleState.Exited) {
-				positronConsoleInstance.setRuntime(runtime, true);
-				this._positronConsoleInstancesByRuntimeId.delete(positronConsoleInstance.runtime.metadata.runtimeId);
-				this._positronConsoleInstancesByRuntimeId.set(positronConsoleInstance.runtime.metadata.runtimeId, positronConsoleInstance);
+				positronConsoleInstance.setRuntime(session, true);
+				this._positronConsoleInstancesBySessionId.delete(positronConsoleInstance.session.metadata.runtimeId);
+				this._positronConsoleInstancesBySessionId.set(positronConsoleInstance.session.metadata.runtimeId, positronConsoleInstance);
 			} else {
 				// New runtime with a new language, so start a new Positron console instance.
-				this.startPositronConsoleInstance(runtime, true);
+				this.startPositronConsoleInstance(session, true);
 			}
 		}));
 
 		// Register the onDidStartRuntime event handler so we activate the new Positron console instance when the runtime starts up.
-		this._register(this._languageRuntimeService.onDidStartRuntime(runtime => {
-			const positronConsoleInstance = this._positronConsoleInstancesByRuntimeId.get(runtime.metadata.runtimeId);
+		this._register(this._languageRuntimeService.onDidStartRuntime(session => {
+			const positronConsoleInstance = this._positronConsoleInstancesBySessionId.get(session.metadata.runtimeId);
 			if (positronConsoleInstance) {
 				positronConsoleInstance.setState(PositronConsoleState.Ready);
 			}
 		}));
 
 		// Register the onDidFailStartRuntime event handler so we activate the new Positron console instance when the runtime starts up.
-		this._register(this._languageRuntimeService.onDidFailStartRuntime(runtime => {
-			const positronConsoleInstance = this._positronConsoleInstancesByRuntimeId.get(runtime.metadata.runtimeId);
+		this._register(this._languageRuntimeService.onDidFailStartRuntime(session => {
+			const positronConsoleInstance = this._positronConsoleInstancesBySessionId.get(session.metadata.runtimeId);
 			if (positronConsoleInstance) {
 				positronConsoleInstance.setState(PositronConsoleState.Exited);
 			}
 		}));
 
 		// Register the onDidReconnectRuntime event handler so we start a new Positron console instance when a runtime is reconnected.
-		this._register(this._languageRuntimeService.onDidReconnectRuntime(runtime => {
-			const positronConsoleInstance = this._positronConsoleInstancesByRuntimeId.get(runtime.metadata.runtimeId);
+		this._register(this._languageRuntimeService.onDidReconnectRuntime(session => {
+			const positronConsoleInstance = this._positronConsoleInstancesBySessionId.get(session.metadata.runtimeId);
 			if (!positronConsoleInstance) {
-				this.startPositronConsoleInstance(runtime, false);
+				this.startPositronConsoleInstance(session, false);
 			}
 		}));
 
 		// Register the onDidChangeRuntimeState event handler so we can activate the REPL for the active runtime.
 		this._register(this._languageRuntimeService.onDidChangeRuntimeState(languageRuntimeStateEvent => {
-			const positronConsoleInstance = this._positronConsoleInstancesByRuntimeId.get(languageRuntimeStateEvent.runtime_id);
+			const positronConsoleInstance = this._positronConsoleInstancesBySessionId.get(languageRuntimeStateEvent.runtime_id);
 			if (!positronConsoleInstance) {
 				// TODO@softwarenerd... Handle this in some special way.
 				return;
@@ -405,19 +407,19 @@ class PositronConsoleService extends Disposable implements IPositronConsoleServi
 	//#region Private Methods
 
 	/**
-	 * Starts a Positron console instance for the specified runtime.
+	 * Starts a Positron console instance for the specified runtime session.
 	 * @param runtime The runtime for the new Positron console instance.
 	 * @param starting A value which indicates whether the runtime is starting.
 	 * @returns The new Positron console instance.
 	 */
 	private startPositronConsoleInstance(
-		runtime: ILanguageRuntime,
+		session: ILanguageRuntimeSession,
 		starting: boolean
 	): IPositronConsoleInstance {
 		// Create the new Positron console instance.
 		const positronConsoleInstance = this._instantiationService.createInstance(
 			PositronConsoleInstance,
-			runtime,
+			session,
 			starting
 		);
 
@@ -520,7 +522,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	/**
 	 * Gets or sets the runtime.
 	 */
-	private _runtime: ILanguageRuntime;
+	private _session: ILanguageRuntimeSession;
 
 	/**
 	 * Gets or sets the disposable store. This contains things that are disposed when a runtime is
@@ -757,9 +759,9 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	//#region IPositronConsoleInstance Implementation
 
 	/**
-	 * Gets the runtime.
+	 * Gets the runtime session.
 	 */
-	get runtime(): ILanguageRuntime {
+	get session(): ILanguageRuntimeSession {
 		return this._runtime;
 	}
 

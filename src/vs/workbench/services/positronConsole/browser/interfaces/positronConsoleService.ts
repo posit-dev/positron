@@ -5,7 +5,7 @@
 import { Event } from 'vs/base/common/event';
 import { createDecorator } from 'vs/platform/instantiation/common/instantiation';
 import { RuntimeItem } from 'vs/workbench/services/positronConsole/browser/classes/runtimeItem';
-import { ILanguageRuntime } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntimeSession } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { IEditor } from 'vs/editor/common/editorCommon';
 
 // Create the decorator for the Positron console service (used in dependency injection).
@@ -96,9 +96,9 @@ export interface IPositronConsoleService {
  */
 export interface IPositronConsoleInstance {
 	/**
-	 * Gets the runtime for the Positron console instance.
+	 * Gets the runtime session for the Positron console instance.
 	 */
-	readonly runtime: ILanguageRuntime;
+	readonly session: ILanguageRuntimeSession;
 
 	/**
 	 * Gets the state.

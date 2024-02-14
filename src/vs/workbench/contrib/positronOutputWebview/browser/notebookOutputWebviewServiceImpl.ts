@@ -16,7 +16,7 @@ import { INotebookOutputWebview, IPositronNotebookOutputWebviewService } from 'v
 import { IWebviewService, WebviewInitInfo } from 'vs/workbench/contrib/webview/browser/webview';
 import { asWebviewUri } from 'vs/workbench/contrib/webview/common/webview';
 import { IExtensionService } from 'vs/workbench/services/extensions/common/extensions';
-import { ILanguageRuntime, ILanguageRuntimeMessageWebOutput } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntimeSession, ILanguageRuntimeMessageWebOutput } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { MIME_TYPE_WIDGET_STATE, MIME_TYPE_WIDGET_VIEW, IPyWidgetViewSpec } from 'vs/workbench/services/positronIPyWidgets/common/positronIPyWidgetsService';
 
 export class PositronNotebookOutputWebviewService implements IPositronNotebookOutputWebviewService {
@@ -34,7 +34,7 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 
 
 	async createNotebookOutputWebview(
-		runtime: ILanguageRuntime,
+		runtime: ILanguageRuntimeSession,
 		output: ILanguageRuntimeMessageWebOutput
 	): Promise<INotebookOutputWebview | undefined> {
 		// Check to see if any of the MIME types have a renderer associated with
@@ -114,7 +114,7 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 	}
 
 	private async createNotebookRenderOutput(id: string,
-		runtime: ILanguageRuntime,
+		runtime: ILanguageRuntimeSession,
 		renderer: INotebookRendererInfo,
 		mimeType: string,
 		message: ILanguageRuntimeMessageWebOutput
@@ -255,7 +255,7 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 	 *
 	 * @returns A promise that resolves to the new webview.
 	 */
-	async createRawHtmlOutput(id: string, runtime: ILanguageRuntime, html: string):
+	async createRawHtmlOutput(id: string, runtime: ILanguageRuntimeSession, html: string):
 		Promise<INotebookOutputWebview> {
 
 		// Load the Jupyter extension. Many notebook HTML outputs have a dependency on jQuery,
@@ -307,7 +307,9 @@ window.onload = function() {
 	 *
 	 * @returns A promise that resolves to the new webview.
 	 */
-	async createWidgetHtmlOutput(id: string, runtime: ILanguageRuntime, data: Record<string, string>):
+	async createWidgetHtmlOutput(id: string,
+		runtime: ILanguageRuntimeSession,
+		data: Record<string, string>):
 		Promise<INotebookOutputWebview> {
 		const managerState = data[MIME_TYPE_WIDGET_STATE];
 		const widgetViews = JSON.parse(data[MIME_TYPE_WIDGET_VIEW]) as IPyWidgetViewSpec[];

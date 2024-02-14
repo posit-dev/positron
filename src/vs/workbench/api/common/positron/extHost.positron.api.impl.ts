@@ -71,19 +71,19 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			executeCode(languageId, code, focus, skipChecks): Thenable<boolean> {
 				return extHostLanguageRuntime.executeCode(languageId, code, focus, skipChecks);
 			},
-			registerLanguageRuntime(runtime: positron.LanguageRuntime): vscode.Disposable {
+			registerLanguageRuntime(runtime: positron.LanguageRuntimeMetadata): vscode.Disposable {
 				return extHostLanguageRuntime.registerLanguageRuntime(extension, runtime);
 			},
 			registerLanguageRuntimeDiscoverer(languageId: string, discoverer: positron.LanguageRuntimeDiscoverer): void {
 				return extHostLanguageRuntime.registerLanguageRuntimeDiscoverer(extension, languageId, discoverer);
 			},
-			registerLanguageRuntimeProvider(languageId: string, provider: positron.LanguageRuntimeProvider): void {
-				return extHostLanguageRuntime.registerLanguageRuntimeProvider(extension, languageId, provider);
+			registerLanguageRuntimeSessionManager(languageId: string, provider: positron.LanguageRuntimeSessionManager): void {
+				return extHostLanguageRuntime.registerLanguageRuntimeSessionManager(extension, languageId, provider);
 			},
-			getRegisteredRuntimes(): Thenable<positron.LanguageRuntime[]> {
+			getRegisteredRuntimes(): Thenable<positron.LanguageRuntimeMetadata[]> {
 				return extHostLanguageRuntime.getRegisteredRuntimes();
 			},
-			getPreferredRuntime(languageId: string): Thenable<positron.LanguageRuntime> {
+			getPreferredRuntime(languageId: string): Thenable<positron.LanguageRuntimeMetadata> {
 				return extHostLanguageRuntime.getPreferredRuntime(languageId);
 			},
 			getRunningRuntimes(languageId: string): Thenable<positron.LanguageRuntimeMetadata[]> {

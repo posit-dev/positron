@@ -9,7 +9,7 @@ import {
 	ExtHostPositronContext
 } from '../../common/positron/extHost.positron.protocol';
 import { extHostNamedCustomer, IExtHostContext } from 'vs/workbench/services/extensions/common/extHostCustomers';
-import { ILanguageRuntime, ILanguageRuntimeClientCreatedEvent, ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMessageCommClosed, ILanguageRuntimeMessageCommData, ILanguageRuntimeMessageCommOpen, ILanguageRuntimeMessageError, ILanguageRuntimeMessageInput, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessagePrompt, ILanguageRuntimeMessageState, ILanguageRuntimeMessageStream, ILanguageRuntimeMetadata, ILanguageRuntimeDynState as ILanguageRuntimeDynState, ILanguageRuntimeService, ILanguageRuntimeStartupFailure, LanguageRuntimeMessageType, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeState, LanguageRuntimeDiscoveryPhase, ILanguageRuntimeExit, RuntimeOutputKind, RuntimeExitReason, ILanguageRuntimeMessageWebOutput, PositronOutputLocation } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntimeSession, ILanguageRuntimeClientCreatedEvent, ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMessageCommClosed, ILanguageRuntimeMessageCommData, ILanguageRuntimeMessageCommOpen, ILanguageRuntimeMessageError, ILanguageRuntimeMessageInput, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessagePrompt, ILanguageRuntimeMessageState, ILanguageRuntimeMessageStream, ILanguageRuntimeMetadata, ILanguageRuntimeDynState as ILanguageRuntimeDynState, ILanguageRuntimeService, ILanguageRuntimeStartupFailure, LanguageRuntimeMessageType, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeState, LanguageRuntimeDiscoveryPhase, ILanguageRuntimeExit, RuntimeOutputKind, RuntimeExitReason, ILanguageRuntimeMessageWebOutput, PositronOutputLocation } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { Disposable, DisposableStore } from 'vs/base/common/lifecycle';
 import { Event, Emitter } from 'vs/base/common/event';
 import { IPositronConsoleService } from 'vs/workbench/services/positronConsole/browser/interfaces/positronConsoleService';
@@ -70,7 +70,7 @@ class QueuedRuntimeStateEvent extends QueuedRuntimeEvent {
 
 // Adapter class; presents an ILanguageRuntime interface that connects to the
 // extension host proxy to supply language features.
-class ExtHostLanguageRuntimeAdapter implements ILanguageRuntime {
+class ExtHostLanguageRuntimeSessionAdapter implements ILanguageRuntimeSession {
 
 	private readonly _stateEmitter = new Emitter<RuntimeState>();
 	private readonly _startupEmitter = new Emitter<ILanguageRuntimeInfo>();
@@ -102,6 +102,8 @@ class ExtHostLanguageRuntimeAdapter implements ILanguageRuntime {
 
 	constructor(
 		readonly handle: number,
+		readonly sessionId: string,
+		readonly sessionName: string,
 		readonly metadata: ILanguageRuntimeMetadata,
 		readonly dynState: ILanguageRuntimeDynState,
 		private readonly _languageRuntimeService: ILanguageRuntimeService,
@@ -511,7 +513,7 @@ class ExtHostLanguageRuntimeAdapter implements ILanguageRuntime {
 		const randomId = Math.floor(Math.random() * 0x100000000).toString(16);
 
 		// Generate a unique auto-incrementing ID for this client
-		const nextId = ExtHostLanguageRuntimeAdapter.clientCounter++;
+		const nextId = ExtHostLanguageRuntimeSessionAdapter.clientCounter++;
 
 		// Replace periods in the language ID with hyphens, so that the generated ID contains only
 		// alphanumeric characters and hyphens
@@ -939,7 +941,9 @@ export class MainThreadLanguageRuntime implements MainThreadLanguageRuntimeShape
 
 	private readonly _proxy: ExtHostLanguageRuntimeShape;
 
-	private readonly _runtimes: Map<number, ExtHostLanguageRuntimeAdapter> = new Map();
+	private readonly _sessions: Map<number, ExtHostLanguageRuntimeSessionAdapter> = new Map();
+
+	private readonly _registeredRuntimes: Map<number, ILanguageRuntimeMetadata> = new Map();
 
 	constructor(
 		extHostContext: IExtHostContext,
@@ -950,9 +954,6 @@ export class MainThreadLanguageRuntime implements MainThreadLanguageRuntimeShape
 		@IPositronHelpService private readonly _positronHelpService: IPositronHelpService,
 		@IPositronPlotsService private readonly _positronPlotService: IPositronPlotsService,
 		@IPositronIPyWidgetsService private readonly _positronIPyWidgetsService: IPositronIPyWidgetsService,
-		@ILogService private readonly _logService: ILogService,
-		@INotebookService private readonly _notebookService: INotebookService,
-		@IEditorService private readonly _editorService: IEditorService,
 	) {
 		// TODO@softwarenerd - We needed to find a central place where we could ensure that certain
 		// Positron services were up and running early in the application lifecycle. For now, this
@@ -965,10 +966,6 @@ export class MainThreadLanguageRuntime implements MainThreadLanguageRuntimeShape
 		this._positronIPyWidgetsService.initialize();
 		this._proxy = extHostContext.getProxy(ExtHostPositronContext.ExtHostLanguageRuntime);
 
-		this._languageRuntimeService.onDidRequestLanguageRuntime((ILanguageRuntimeMetadata) => {
-			this._proxy.$provideLanguageRuntime(ILanguageRuntimeMetadata.languageId,
-				ILanguageRuntimeMetadata);
-		});
 		this._languageRuntimeService.onDidChangeDiscoveryPhase((phase) => {
 			if (phase === LanguageRuntimeDiscoveryPhase.Discovering) {
 				this._proxy.$discoverLanguageRuntimes();
@@ -977,40 +974,28 @@ export class MainThreadLanguageRuntime implements MainThreadLanguageRuntimeShape
 	}
 
 	$emitLanguageRuntimeMessage(handle: number, message: ILanguageRuntimeMessage): void {
-		this.findRuntime(handle).handleRuntimeMessage(message);
+		this.findSession(handle).handleRuntimeMessage(message);
 	}
 
 	$emitLanguageRuntimeState(handle: number, clock: number, state: RuntimeState): void {
-		this.findRuntime(handle).emitState(clock, state);
+		this.findSession(handle).emitState(clock, state);
 	}
 
 	$emitLanguageRuntimeExit(handle: number, exit: ILanguageRuntimeExit): void {
-		this.findRuntime(handle).emitExit(exit);
+		this.findSession(handle).emitExit(exit);
 	}
 
 	// Called by the extension host to register a language runtime
 	$registerLanguageRuntime(handle: number, metadata: ILanguageRuntimeMetadata): void {
-		const adapter = new ExtHostLanguageRuntimeAdapter(
-			handle,
-			metadata,
-			dynState,
-			this._languageRuntimeService,
-			this._logService,
-			this._notebookService,
-			this._editorService,
-			this._proxy
-		);
-		this._runtimes.set(handle, adapter);
-
-		this._languageRuntimeService.registerRuntime(adapter, metadata.startupBehavior);
+		this._languageRuntimeService.registerRuntime(metadata);
 	}
 
 	$getPreferredRuntime(languageId: string): Promise<ILanguageRuntimeMetadata> {
-		return Promise.resolve(this._languageRuntimeService.getPreferredRuntime(languageId).metadata);
+		return Promise.resolve(this._languageRuntimeService.getPreferredRuntime(languageId));
 	}
 
 	$getRunningRuntimes(languageId: string): Promise<ILanguageRuntimeMetadata[]> {
-		const runningRuntimes = () => this._languageRuntimeService.runningRuntimes.filter(runtime =>
+		const runningRuntimes = () => this._languageRuntimeService.activeSessions.filter(runtime =>
 			runtime.metadata.languageId === languageId
 		);
 		return Promise.resolve(runningRuntimes().map(runtime => runtime.metadata));
@@ -1026,7 +1011,7 @@ export class MainThreadLanguageRuntime implements MainThreadLanguageRuntimeShape
 	// Called by the extension host to restart a running language runtime
 	$restartLanguageRuntime(handle: number): Promise<void> {
 		return this._languageRuntimeService.restartRuntime(
-			this.findRuntime(handle).metadata.runtimeId,
+			this.findSession(handle).metadata.runtimeId,
 			'Extension-requested runtime restart via Positron API');
 	}
 
@@ -1036,7 +1021,11 @@ export class MainThreadLanguageRuntime implements MainThreadLanguageRuntimeShape
 	}
 
 	$unregisterLanguageRuntime(handle: number): void {
-		this._runtimes.delete(handle);
+		const runtime = this._registeredRuntimes.get(handle);
+		if (runtime) {
+			this._languageRuntimeService.unregisterRuntime(runtime.runtimeId);
+			this._registeredRuntimes.delete(handle);
+		}
 	}
 
 	$executeCode(languageId: string, code: string, focus: boolean, skipChecks?: boolean): Promise<boolean> {
@@ -1047,12 +1036,12 @@ export class MainThreadLanguageRuntime implements MainThreadLanguageRuntimeShape
 		this._disposables.dispose();
 	}
 
-	private findRuntime(handle: number): ExtHostLanguageRuntimeAdapter {
-		const runtime = this._runtimes.get(handle);
-		if (!runtime) {
-			throw new Error(`Unknown language runtime handle: ${handle}`);
+	private findSession(handle: number): ExtHostLanguageRuntimeSessionAdapter {
+		const session = this._sessions.get(handle);
+		if (!session) {
+			throw new Error(`Unknown language runtime session handle: ${handle}`);
 		}
 
-		return runtime;
+		return session;
 	}
 }

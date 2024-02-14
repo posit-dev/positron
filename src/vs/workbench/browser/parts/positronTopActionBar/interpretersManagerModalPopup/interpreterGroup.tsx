@@ -9,7 +9,7 @@ import { DisposableStore } from 'vs/base/common/lifecycle';
 import { IInterpreterGroup } from 'vs/workbench/browser/parts/positronTopActionBar/interpretersManagerModalPopup/interpreterGroups';
 import { PrimaryInterpreter } from 'vs/workbench/browser/parts/positronTopActionBar/interpretersManagerModalPopup/primaryInterpreter';
 import { SecondaryInterpreter } from 'vs/workbench/browser/parts/positronTopActionBar/interpretersManagerModalPopup/secondaryInterpreter';
-import { ILanguageRuntime, ILanguageRuntimeService, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntimeService, ILanguageRuntimeSession, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 
 /**
  * InterpreterGroupProps interface.
@@ -17,8 +17,8 @@ import { ILanguageRuntime, ILanguageRuntimeService, RuntimeState } from 'vs/work
 interface InterpreterGroupProps {
 	languageRuntimeService: ILanguageRuntimeService;
 	interpreterGroup: IInterpreterGroup;
-	onStartRuntime: (runtime: ILanguageRuntime) => Promise<void>;
-	onActivateRuntime: (runtime: ILanguageRuntime) => Promise<void>;
+	onStartRuntime: (runtime: ILanguageRuntimeSession) => Promise<void>;
+	onActivateRuntime: (runtime: ILanguageRuntimeSession) => Promise<void>;
 }
 
 /**

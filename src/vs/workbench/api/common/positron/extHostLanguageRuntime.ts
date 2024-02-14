@@ -3,7 +3,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import type * as positron from 'positron';
-import { ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMessageCommClosed, ILanguageRuntimeMessageCommData, ILanguageRuntimeMessageCommOpen, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntimeMessage, ILanguageRuntimeMessageCommClosed, ILanguageRuntimeMessageCommData, ILanguageRuntimeMessageCommOpen, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import * as extHostProtocol from './extHost.positron.protocol';
 import { Emitter } from 'vs/base/common/event';
 import { IDisposable } from 'vs/base/common/lifecycle';
@@ -11,7 +11,6 @@ import { Disposable, LanguageRuntimeMessageType } from 'vs/workbench/api/common/
 import { RuntimeClientType } from 'vs/workbench/api/common/positron/extHostTypes.positron';
 import { ExtHostRuntimeClientInstance } from 'vs/workbench/api/common/positron/extHostClientInstance';
 import { IExtensionDescription } from 'vs/platform/extensions/common/extensions';
-import { CancellationToken } from 'vs/base/common/cancellation';
 import { URI } from 'vs/base/common/uri';
 
 /**
@@ -176,6 +175,13 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 			throw new Error(`Cannot restart runtime: session handle '${handle}' not found or no longer valid.`);
 		}
 		return this._runtimeSessions[handle].restart();
+	}
+
+	async $startLanguageRuntime(handle: number): Promise<positron.LanguageRuntimeInfo> {
+		if (handle >= this._runtimeSessions.length) {
+			throw new Error(`Cannot restart runtime: session handle '${handle}' not found or no longer valid.`);
+		}
+		return this._runtimeSessions[handle].start();
 	}
 
 	$showOutputLanguageRuntime(handle: number): void {
@@ -431,15 +437,7 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 	 * @param runtimeId The runtime ID to select and start.
 	 */
 	public selectLanguageRuntime(runtimeId: string): Promise<void> {
-		// Look for the runtime with the given ID
-		for (let i = 0; i < this._registeredRuntimes.length; i++) {
-			if (this._registeredRuntimes[i].runtimeId === runtimeId) {
-				return this._proxy.$selectLanguageRuntime(i);
-			}
-		}
-		return Promise.reject(
-			new Error(`Runtime with ID '${runtimeId}' must be registered before ` +
-				`it can be selected.`));
+		return this._proxy.$selectLanguageRuntime(runtimeId);
 	}
 
 	/**

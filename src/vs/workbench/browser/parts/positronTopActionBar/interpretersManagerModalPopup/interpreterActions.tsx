@@ -8,13 +8,13 @@ import { PropsWithChildren, useEffect, useState } from 'react'; // eslint-disabl
 import { localize } from 'vs/nls';
 import { DisposableStore } from 'vs/base/common/lifecycle';
 import { PositronButton } from 'vs/base/browser/ui/positronComponents/positronButton';
-import { ILanguageRuntime, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntimeMetadata, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 
 /**
  * InterpreterActionsProps interface.
  */
 interface InterpreterActionsProps {
-	runtime: ILanguageRuntime;
+	runtime: ILanguageRuntimeMetadata;
 	onStart: () => void;
 }
 

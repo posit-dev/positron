@@ -26,12 +26,14 @@ export const formatLanguageRuntimeMetadata = (metadata: ILanguageRuntimeMetadata
 	`version: ${metadata.languageVersion})`;
 
 /**
- * Formats a language runtime for logging.
- * @param languageRuntime The language runtime to format for logging.
+ * Formats a language runtime session for logging.
+ *
+ * @param languageRuntimeSession The language runtime session to format for logging.
+ *
  * @returns A string suitable for logging the language runtime.
  */
-export const formatLanguageRuntime = (languageRuntime: ILanguageRuntime) => {
-	return formatLanguageRuntimeMetadata(languageRuntime.metadata);
+export const formatLanguageRuntimeSession = (session: ILanguageRuntimeSession) => {
+	return `Session ${session.sessionName} (${session.sessionId}) from runtime ${formatLanguageRuntimeMetadata(session.metadata)}`;
 };
 
 /**
@@ -573,9 +575,15 @@ export interface ILanguageRuntimeDynState {
  */
 export type RuntimeResourceRootProvider = (mimeType: string, data: any) => Promise<URI[]>;
 
-export interface ILanguageRuntime {
+export interface ILanguageRuntimeSession {
 	/** The language runtime's static metadata */
 	readonly metadata: ILanguageRuntimeMetadata;
+
+	/** The unique identifier of the session */
+	readonly sessionId: string;
+
+	/** A user-friendly name for the session */
+	readonly sessionName: string;
 
 	/** The language runtime's dynamic metadata */
 	dynState: ILanguageRuntimeDynState;
@@ -672,19 +680,19 @@ export interface ILanguageRuntimeService {
 	readonly onDidChangeDiscoveryPhase: Event<LanguageRuntimeDiscoveryPhase>;
 
 	// An event that fires when a new runtime is registered.
-	readonly onDidRegisterRuntime: Event<ILanguageRuntime>;
+	readonly onDidRegisterRuntime: Event<ILanguageRuntimeMetadata>;
 
-	// An event that fires when a runtime is about to start.
-	readonly onWillStartRuntime: Event<ILanguageRuntime>;
+	// An event that fires when a runtime session is about to start.
+	readonly onWillStartRuntime: Event<ILanguageRuntimeSession>;
 
-	// An event that fires when a runtime starts.
-	readonly onDidStartRuntime: Event<ILanguageRuntime>;
+	// An event that fires when a runtime session starts.
+	readonly onDidStartRuntime: Event<ILanguageRuntimeSession>;
 
 	// An event that fires when a runtime fails to start.
-	readonly onDidFailStartRuntime: Event<ILanguageRuntime>;
+	readonly onDidFailStartRuntime: Event<ILanguageRuntimeSession>;
 
 	// An event that fires when a runtime is reconnected.
-	readonly onDidReconnectRuntime: Event<ILanguageRuntime>;
+	readonly onDidReconnectRuntime: Event<ILanguageRuntimeSession>;
 
 	// An event that fires when a runtime changes state.
 	readonly onDidChangeRuntimeState: Event<ILanguageRuntimeStateEvent>;
@@ -693,25 +701,30 @@ export interface ILanguageRuntimeService {
 	readonly onDidReceiveRuntimeEvent: Event<ILanguageRuntimeGlobalEvent>;
 
 	// An event that fires when the active runtime changes.
-	readonly onDidChangeActiveRuntime: Event<ILanguageRuntime | undefined>;
+	readonly onDidChangeActiveRuntime: Event<ILanguageRuntimeSession | undefined>;
 
 	// An event that fires when a runtime is requested.
 	readonly onDidRequestLanguageRuntime: Event<ILanguageRuntimeMetadata>;
 
 	/**
-	 * Gets the running language runtimes.
+	 * Gets the active runtime sessions
 	 */
-	readonly runningRuntimes: ILanguageRuntime[];
+	readonly activeSessions: ILanguageRuntimeSession[];
+
+	/**
+	 * Gets the active foreground runtime session, if any.
+	 */
+	readonly foregroundSession: ILanguageRuntimeSession | undefined;
 
 	/**
 	 * Gets the registered language runtimes.
 	 */
-	readonly registeredRuntimes: ILanguageRuntime[];
+	readonly registeredRuntimes: ILanguageRuntimeMetadata[];
 
 	/**
-	 * Gets or sets the active language runtime.
+	 * Gets or sets the metadata of the active language runtime.
 	 */
-	activeRuntime: ILanguageRuntime | undefined;
+	activeRuntimeMetadata: ILanguageRuntimeMetadata | undefined;
 
 	/**
 	 * Gets the current discovery phase.
@@ -720,11 +733,23 @@ export interface ILanguageRuntimeService {
 
 	/**
 	 * Register a new language runtime
-	 * @param runtime The LanguageRuntime to register
+	 *
+	 * @param runtime The metadata of the language runtime to register
 	 * @param startupBehavior The desired startup behavior for the runtime
+	 *
 	 * @returns A disposable that can be used to unregister the runtime
 	 */
-	registerRuntime(runtime: ILanguageRuntime, startupBehavior: LanguageRuntimeStartupBehavior): IDisposable;
+	registerRuntime(runtime: ILanguageRuntimeMetadata): IDisposable;
+
+	/**
+	 * Unregister a previously registered language runtime
+	 *
+	 * @param runtime The metadata of the language runtime to register
+	 * @param startupBehavior The desired startup behavior for the runtime
+	 *
+	 * @returns A disposable that can be used to unregister the runtime
+	 */
+	unregisterRuntime(runtimeId: string): void;
 
 	/**
 	 * Selects a previously registered runtime as the active runtime.
@@ -739,7 +764,7 @@ export interface ILanguageRuntimeService {
 	 *
 	 * @param languageId The language identifier.
 	 */
-	getPreferredRuntime(languageId: string): ILanguageRuntime;
+	getPreferredRuntime(languageId: string): ILanguageRuntimeMetadata;
 
 	/**
 	 * Start all affiliated runtimes for the workspace.
@@ -752,12 +777,14 @@ export interface ILanguageRuntimeService {
 	completeDiscovery(): void;
 
 	/**
-	 * Returns a specific runtime by runtime identifier.
+	 * Returns a specific runtime metadata by runtime identifier.
+	 *
 	 * @param runtimeId The runtime identifier of the runtime to retrieve.
+	 *
 	 * @returns The runtime with the given runtime identifier, or undefined if
 	 * no runtime with the given runtime identifier exists.
 	 */
-	getRuntime(runtimeId: string): ILanguageRuntime | undefined;
+	getRuntimeMetadata(runtimeId: string): ILanguageRuntimeMetadata | undefined;
 
 	/**
 	 * Starts a runtime.
@@ -768,9 +795,9 @@ export interface ILanguageRuntimeService {
 	startRuntime(runtimeId: string, source: string): Promise<void>;
 
 	/**
-	 * Restart a running runtime.
-	 * @param runtimeId The identifier of the runtime to restart.
-	 * @param source The source of the request to restart the runtime, for debugging purposes.
+	 * Restart a runtime session.
+	 * @param sessionId The identifier of the session to restart.
+	 * @param source The source of the request to restart the session, for debugging purposes.
 	 */
 	restartRuntime(runtimeId: string, source: string): Promise<void>;
 }

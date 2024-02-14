@@ -7,14 +7,14 @@ import * as React from 'react';
 import { useEffect, useState } from 'react'; // eslint-disable-line no-duplicate-imports
 import { DisposableStore } from 'vs/base/common/lifecycle';
 import { InterpreterGroup } from 'vs/workbench/browser/parts/positronTopActionBar/interpretersManagerModalPopup/interpreterGroup';
-import { ILanguageRuntime, ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntimeMetadata, ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 
 /**
  * IInterpreterGroup interface.
  */
 export interface IInterpreterGroup {
-	primaryRuntime: ILanguageRuntime;
-	alternateRuntimes: ILanguageRuntime[];
+	primaryRuntime: ILanguageRuntimeMetadata;
+	alternateRuntimes: ILanguageRuntimeMetadata[];
 }
 
 /**
@@ -23,10 +23,10 @@ export interface IInterpreterGroup {
  * @returns An IInterpreterGroup array representing the available language runtimes.
  */
 const createInterpreterGroups = (languageRuntimeService: ILanguageRuntimeService) => {
-	const preferredRuntimeByLanguageId = new Map<string, ILanguageRuntime>();
+	const preferredRuntimeByLanguageId = new Map<string, ILanguageRuntimeMetadata>();
 	const languageRuntimeGroups = new Map<string, IInterpreterGroup>();
 	for (const runtime of languageRuntimeService.registeredRuntimes) {
-		const languageId = runtime.metadata.languageId;
+		const languageId = runtime.languageId;
 
 		// Get the preferred runtime for the language.
 		let preferredRuntime = preferredRuntimeByLanguageId.get(languageId);
@@ -50,9 +50,9 @@ const createInterpreterGroups = (languageRuntimeService: ILanguageRuntimeService
 
 	// Sort the runtimes by language name.
 	return Array.from(languageRuntimeGroups.values()).sort((a, b) => {
-		if (a.primaryRuntime.metadata.languageName < b.primaryRuntime.metadata.languageName) {
+		if (a.primaryRuntime.languageName < b.primaryRuntime.languageName) {
 			return -1;
-		} else if (a.primaryRuntime.metadata.languageName > b.primaryRuntime.metadata.languageName) {
+		} else if (a.primaryRuntime.languageName > b.primaryRuntime.languageName) {
 			return 1;
 		} else {
 			return 0;
@@ -65,8 +65,8 @@ const createInterpreterGroups = (languageRuntimeService: ILanguageRuntimeService
  */
 interface InterpreterGroupsProps {
 	languageRuntimeService: ILanguageRuntimeService;
-	onStartRuntime: (runtime: ILanguageRuntime) => Promise<void>;
-	onActivateRuntime: (runtime: ILanguageRuntime) => Promise<void>;
+	onStartRuntime: (runtime: ILanguageRuntimeMetadata) => Promise<void>;
+	onActivateRuntime: (runtime: ILanguageRuntimeMetadata) => Promise<void>;
 }
 
 /**

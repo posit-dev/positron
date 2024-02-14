@@ -1,9 +1,9 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
 import { Disposable } from 'vs/base/common/lifecycle';
-import { ILanguageRuntimeService, ILanguageRuntime, RuntimeClientType, ILanguageRuntimeMessageOutput, PositronOutputLocation, RuntimeOutputKind } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntimeService, RuntimeClientType, ILanguageRuntimeMessageOutput, PositronOutputLocation, RuntimeOutputKind, ILanguageRuntimeSession } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { Emitter, Event } from 'vs/base/common/event';
 import { generateUuid } from 'vs/base/common/uuid';
 import { IPositronIPyWidgetsService, IPositronIPyWidgetMetadata, IPyWidgetHtmlData } from 'vs/workbench/services/positronIPyWidgets/common/positronIPyWidgetsService';
@@ -49,7 +49,8 @@ export class PositronIPyWidgetsService extends Disposable implements IPositronIP
 		}));
 	}
 
-	private registerIPyWidgetClient(widgetClient: IPyWidgetClientInstance, runtime: ILanguageRuntime) {
+	private registerIPyWidgetClient(widgetClient: IPyWidgetClientInstance,
+		runtime: ILanguageRuntimeSession) {
 		// Add to our list of widgets
 		this._widgets.set(widgetClient.id, widgetClient);
 
@@ -67,7 +68,7 @@ export class PositronIPyWidgetsService extends Disposable implements IPositronIP
 		this._register(widgetClient);
 	}
 
-	private attachRuntime(runtime: ILanguageRuntime) {
+	private attachRuntime(runtime: ILanguageRuntimeSession) {
 		// Get the list of existing widget clients; these are expected in the
 		// case of reconnecting to a running language runtime
 		runtime.listClients(RuntimeClientType.IPyWidget).then(clients => {
@@ -120,7 +121,7 @@ export class PositronIPyWidgetsService extends Disposable implements IPositronIP
 		}));
 	}
 
-	private async handleDisplayEvent(event: DisplayWidgetEvent, runtime: ILanguageRuntime) {
+	private async handleDisplayEvent(event: DisplayWidgetEvent, runtime: ILanguageRuntimeSession) {
 		const primaryWidgets = event.view_ids;
 
 		// Combine our existing list of widgets into a single WidgetPlotClient

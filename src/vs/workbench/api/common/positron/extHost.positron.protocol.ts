@@ -12,7 +12,7 @@ import { IEditorContext } from 'vs/workbench/services/frontendMethods/common/edi
 // This is the interface that the main process exposes to the extension host
 export interface MainThreadLanguageRuntimeShape extends IDisposable {
 	$registerLanguageRuntime(handle: number, metadata: ILanguageRuntimeMetadata): void;
-	$selectLanguageRuntime(handle: number): Promise<void>;
+	$selectLanguageRuntime(runtimeId: string): Promise<void>;
 	$restartLanguageRuntime(handle: number): Promise<void>;
 	$completeLanguageRuntimeDiscovery(): void;
 	$unregisterLanguageRuntime(handle: number): void;
@@ -41,7 +41,6 @@ export interface ExtHostLanguageRuntimeShape {
 	$shutdownLanguageRuntime(handle: number, exitReason: RuntimeExitReason): Promise<void>;
 	$forceQuitLanguageRuntime(handle: number): Promise<void>;
 	$showOutputLanguageRuntime(handle: number): void;
-	$provideLanguageRuntime(languageId: string, runtimeMetadata: ILanguageRuntimeMetadata): Promise<void>;
 	$discoverLanguageRuntimes(): void;
 }
 
