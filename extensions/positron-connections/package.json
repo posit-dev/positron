@@ -48,8 +48,27 @@
         "title": "%commands.previewTable.title%",
         "category": "%commands.previewTable.category%",
         "icon": "$(eye)"
+      },
+      {
+        "command": "positron.connections.closeConnection",
+        "title": "%commands.closeConnection.title%",
+        "icon": "$(debug-disconnect)"
       }
-    ]
+    ],
+    "menus": {
+      "view/item/context": [
+        {
+          "command": "positron.connections.closeConnection",
+          "group": "inline",
+          "when": "viewItem == database"
+        },
+        {
+          "command": "positron.connections.previewTable",
+          "group": "inline",
+          "when": "viewItem == table"
+        }
+      ]
+    }
   },
   "devDependencies": {
     "@types/glob": "^7.2.0",

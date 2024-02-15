@@ -26,7 +26,7 @@ if (args.length) {
 	comms = comms.filter(comm => args.includes(comm));
 }
 
-if (comms.length == 0) {
+if (comms.length === 0) {
 	console.log(`
 	  No comms to process! Possible reasons include:
 	    * No files found in '${commsDir}'
@@ -54,6 +54,17 @@ interface CommMetadata {
 	initiator: 'frontend' | 'backend';
 	initial_data: {
 		schema: any;
+	};
+}
+
+interface MethodParam {
+	name: string;
+	description: string;
+	required?: boolean;
+	schema: {
+		type: string;
+		enum?: string[];
+		items?: any;
 	};
 }
 
@@ -613,8 +624,8 @@ use serde::Serialize;
 	}
 
 	if (frontend && frontend.methods.some((method: any) => method.result && method.result.schema)) {
-		const enumRequestType = `${snakeCaseToSentenceCase(name)}FrontendRequest`
-		const enumReplyType = `${snakeCaseToSentenceCase(name)}FrontendReply`
+		const enumRequestType = `${snakeCaseToSentenceCase(name)}FrontendRequest`;
+		const enumReplyType = `${snakeCaseToSentenceCase(name)}FrontendReply`;
 		yield `/**
 * Conversion of JSON values to frontend RPC Reply types
 */
@@ -632,7 +643,7 @@ pub fn ${name}_frontend_reply_from_value(
 				const hasParams = method.params.length > 0;
 
 				const schema = method.result.schema;
-				const replyHasParams = schema && schema.type !== 'null'
+				const replyHasParams = schema && schema.type !== 'null';
 
 				const variant = hasParams ? `${variantName}(_)` : variantName;
 
@@ -680,11 +691,14 @@ function* createPythonComm(name: string,
 from __future__ import annotations
 
 import enum
-from dataclasses import dataclass, field
-from typing import Dict, List, Union, Optional
-JsonData = Union[Dict[str, "JsonData"], List["JsonData"], str, int, float, bool, None]
+from typing import Any, List, Literal, Optional, Union
+
+from ._vendor.pydantic import BaseModel, Field
 
 `;
+
+	const models = Array<string>();
+
 	const contracts = [backend, frontend];
 	for (const source of contracts) {
 		if (!source) {
@@ -731,7 +745,7 @@ JsonData = Union[Dict[str, "JsonData"], List["JsonData"], str, int, float, bool,
 			yield '\n\n';
 		});
 
-		// Create dataclasses for all object types
+		// Create pydantic models for all object types
 		yield* objectVisitor([], source, function* (
 			context: Array<string>,
 			o: Record<string, any>) {
@@ -739,15 +753,15 @@ JsonData = Union[Dict[str, "JsonData"], List["JsonData"], str, int, float, bool,
 			let name = o.name ? o.name : context[0] === 'items' ? context[1] : context[0];
 			name = snakeCaseToSentenceCase(name);
 
-			// Empty object specs map to `JsonData`
+			// Empty object specs map to `Any`
 			const props = Object.keys(o.properties);
 			if ((!props || !props.length) && o.additionalProperties === true) {
-				return yield `${name} = JsonData\n`;
+				return yield `${name} = Any\n`;
 			}
 
 			// Preamble
-			yield '@dataclass\n';
-			yield `class ${name}:\n`;
+			models.push(name);
+			yield `class ${name}(BaseModel):\n`;
 
 			// Docstring
 			if (o.description) {
@@ -763,32 +777,6 @@ JsonData = Union[Dict[str, "JsonData"], List["JsonData"], str, int, float, bool,
 				yield '\n';
 			}
 
-			// Add __post_init__ if any properties need additional boxing
-			const postInitProps: Array<{ prop: String, klass: String, isRequired: boolean }> = [];
-			for (const prop of Object.keys(o.properties)) {
-				const schema = o.properties[prop];
-				const isRequired = !o.required || !o.required.includes(prop);
-				if (schema.type == 'array' && schema.items.$ref) {
-					// The property is a List[OtherType], and that needs boxing
-					const klass = parseRef(schema.items.$ref, contracts);
-					postInitProps.push({ prop, klass, isRequired });
-				}
-			}
-
-			if (postInitProps.length > 0) {
-				yield `    def __post_init__(self):\n`;
-				yield `        """ Revive parameters after initialization """\n`;
-
-				for (const item of postInitProps) {
-					if (item.isRequired) {
-						yield `        if self.${item.prop} is not None:\n    `
-					}
-					yield `        self.${item.prop} = [\n`;
-					yield `            ${item.klass}(**d) if isinstance(d, dict) else d\n`;
-					yield `            for d in self.${item.prop}]  # type: ignore\n\n`;
-				}
-			}
-
 			// Fields
 			for (const prop of Object.keys(o.properties)) {
 				const schema = o.properties[prop];
@@ -800,17 +788,12 @@ JsonData = Union[Dict[str, "JsonData"], List["JsonData"], str, int, float, bool,
 				} else {
 					yield deriveType(contracts, PythonTypeMap, [prop, ...context], schema);
 				}
-				yield ' = field(\n';
+				yield ' = Field(\n';
 				if (!o.required || !o.required.includes(prop)) {
-					yield `        default=None, \n`;
+					yield `        default=None,\n`;
 				}
-				yield `        metadata = { \n`;
-				yield `            "description": "${schema.description}", \n`;
-				if (!o.required || !o.required.includes(prop)) {
-					yield `            "default": None, \n`;
-				}
-				yield `        } \n`;
-				yield `    ) \n\n`;
+				yield `        description="${schema.description}",\n`;
+				yield `    )\n\n`;
 			}
 			yield '\n\n';
 		});
@@ -838,65 +821,69 @@ JsonData = Union[Dict[str, "JsonData"], List["JsonData"], str, int, float, bool,
 				throw new Error(`No description for '${method.name}'; please add a description to the schema`);
 			}
 
-			if (method.params.length > 0) {
-				yield `@dataclass\n`;
-				yield `class ${snakeCaseToSentenceCase(method.name)}Params:\n`;
+			const params: Array<MethodParam> = method.params;
+
+			if (params.length > 0) {
+				const klass = `${snakeCaseToSentenceCase(method.name)}Params`;
+				models.push(klass);
+				yield `class ${klass}(BaseModel):\n`;
 				yield `    """\n`;
 				yield formatComment('    ', method.description);
 				yield `    """\n`;
 				yield `\n`;
-				for (const param of method.params) {
+
+				for (const param of params) {
 					if (param.schema.enum) {
 						yield `    ${param.name}: ${snakeCaseToSentenceCase(method.name)}${snakeCaseToSentenceCase(param.name)}`;
 					} else {
 						yield `    ${param.name}: ${deriveType(contracts, PythonTypeMap, [param.name], param.schema)}`;
 					}
-					yield ' = field(\n';
-					yield `        metadata={\n`;
-					yield `            "description": "${param.description}",\n`;
-					yield `        }\n`;
+					yield ' = Field(\n';
+					yield `        description="${param.description}",\n`;
 					yield `    )\n\n`;
 				}
 			}
 
-			yield `@dataclass\n`;
-			yield `class ${snakeCaseToSentenceCase(method.name)}Request:\n`;
+			const klass = `${snakeCaseToSentenceCase(method.name)}Request`;
+			models.push(klass);
+			yield `class ${klass}(BaseModel):\n`;
 			yield `    """\n`;
 			yield formatComment('    ', method.description);
 			yield `    """\n`;
 			yield `\n`;
 			if (method.params.length > 0) {
-				yield `    def __post_init__(self):\n`;
-				yield `        """ Revive RPC parameters after initialization """\n`;
-				yield `        if isinstance(self.params, dict):\n`;
-				yield `             self.params = `;
-				yield `${snakeCaseToSentenceCase(method.name)}Params(**self.params)\n`;
-				yield `\n`;
-				yield `    params: ${snakeCaseToSentenceCase(method.name)}Params = field(\n`;
-				yield `        metadata={\n`;
-				yield `            "description": "Parameters to the ${snakeCaseToSentenceCase(method.name)} method"\n`;
-				yield `        }\n`;
+				yield `    params: ${snakeCaseToSentenceCase(method.name)}Params = Field(\n`;
+				yield `        description="Parameters to the ${snakeCaseToSentenceCase(method.name)} method",\n`;
 				yield `    )\n`;
 				yield `\n`;
 			}
-			yield `    method: ${snakeCaseToSentenceCase(name)}BackendRequest = field(\n`;
-			yield `        metadata={\n`;
-			yield `            "description": "The JSON-RPC method name (${method.name})"\n`;
-			yield `        },\n`;
-			yield `        default=`;
-			yield `${snakeCaseToSentenceCase(name)}BackendRequest.${snakeCaseToSentenceCase(method.name)}\n`;
+			yield `    method: Literal[${snakeCaseToSentenceCase(name)}BackendRequest.${snakeCaseToSentenceCase(method.name)}] = Field(\n`;
+			yield `        description="The JSON-RPC method name (${method.name})",\n`;
 			yield `    )\n`;
 			yield '\n';
-			yield `    jsonrpc: str = field(\n`;
-			yield `        metadata={\n`;
-			yield `            "description": "The JSON-RPC version specifier"\n`;
-			yield `        },\n`;
-			yield `        default="2.0"`;
+			yield `    jsonrpc: str = Field(\n`;
+			yield `        default="2.0",`;
+			yield `        description="The JSON-RPC version specifier",\n`;
 			yield `    )\n`;
 			yield `\n`;
 		}
 	}
 
+	// Create the backend message content class
+	if (backend) {
+		yield `class ${snakeCaseToSentenceCase(name)}BackendMessageContent(BaseModel):\n`;
+		yield `    comm_id: str\n`;
+		if (backend.methods.length === 1) {
+			yield `    data: ${snakeCaseToSentenceCase(backend.methods[0].name)}Request`;
+		} else {
+			yield `    data: Union[\n`;
+			for (const method of backend.methods) {
+				yield `        ${snakeCaseToSentenceCase(method.name)}Request,\n`;
+			}
+			yield `    ] = Field(..., discriminator="method")\n`;
+		}
+		yield `\n`;
+	}
 
 	if (frontend) {
 		yield `@enum.unique\n`;
@@ -917,8 +904,9 @@ JsonData = Union[Dict[str, "JsonData"], List["JsonData"], str, int, float, bool,
 
 		for (const method of frontend.methods) {
 			if (method.params.length > 0) {
-				yield `@dataclass\n`;
-				yield `class ${snakeCaseToSentenceCase(method.name)}Params:\n`;
+				const klass = `${snakeCaseToSentenceCase(method.name)}Params`;
+				models.push(klass);
+				yield `class ${klass}(BaseModel):\n`;
 				yield `    """\n`;
 				yield formatComment('    ', method.summary);
 				yield `    """\n`;
@@ -929,14 +917,15 @@ JsonData = Union[Dict[str, "JsonData"], List["JsonData"], str, int, float, bool,
 					} else {
 						yield `    ${param.name}: ${deriveType(contracts, PythonTypeMap, [param.name], param.schema)}`;
 					}
-					yield ' = field(\n';
-					yield `        metadata={\n`;
-					yield `            "description": "${param.description}"\n`;
-					yield `        }\n`;
+					yield ' = Field(\n';
+					yield `        description="${param.description}",\n`;
 					yield `    )\n\n`;
 				}
 			}
 		}
+	}
+	for (const model of models) {
+		yield `${model}.update_forward_refs()\n\n`;
 	}
 }
 
@@ -1326,7 +1315,7 @@ async function createCommInterface() {
 				}
 
 				// Write the output file
-				console.log(`Writing to ${tsOutputFile}`)
+				console.log(`Writing to ${tsOutputFile}`);
 				writeFileSync(tsOutputFile, ts, { encoding: 'utf-8' });
 
 				// Create the Rust output file
@@ -1337,7 +1326,7 @@ async function createCommInterface() {
 				}
 
 				// Write the output file
-				console.log(`Writing to ${rustOutputFile}`)
+				console.log(`Writing to ${rustOutputFile}`);
 				writeFileSync(rustOutputFile, rust, { encoding: 'utf-8' });
 
 				// Create the Python output file
@@ -1348,7 +1337,7 @@ async function createCommInterface() {
 				}
 
 				// Write the output file
-				console.log(`Writing to ${pythonOutputFile}`)
+				console.log(`Writing to ${pythonOutputFile}`);
 				writeFileSync(pythonOutputFile, python, { encoding: 'utf-8' });
 
 				// Use black to format the Python file; the lint tests for the

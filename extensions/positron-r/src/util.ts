@@ -21,6 +21,11 @@ export function delay(ms: number) {
 	return new Promise(resolve => setTimeout(resolve, ms));
 }
 
+export async function whenTimeout<T>(ms: number, fn: () => T): Promise<T> {
+	await delay(ms);
+	return fn();
+}
+
 export function timeout(ms: number, reason: string) {
 	return new Promise((_, reject) => {
 		setTimeout(() => reject(`Timeout while ${reason}`), ms);

@@ -390,12 +390,27 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 		this._logService.trace(`Language runtime ${formatLanguageRuntime(runtime)} successfully registered.`);
 
 		// Automatically start the language runtime under the following conditions:
+		// - The language runtime wants to start immediately.
+		// - No other runtime is currently running.
+		// - We have completed the discovery phase of the language runtime
+		//   registration process.
+		if (startupBehavior === LanguageRuntimeStartupBehavior.Immediate &&
+			this._discoveryPhase === LanguageRuntimeDiscoveryPhase.Complete &&
+			!this.hasAnyStartedOrRunningRuntimes()) {
+
+			this.autoStartRuntime(languageRuntimeInfo.runtime,
+				`An extension requested that the runtime start immediately after being registered.`);
+		}
+		// Automatically start the language runtime under the following conditions:
 		// - We have encountered the language that the runtime serves.
+		// - We have completed the discovery phase of the language runtime
+		//   registration process.
 		// - The runtime is not already starting or running.
 		// - The runtime has implicit startup behavior.
 		// - There's no runtime affiliated with the current workspace for this
 		//   language (if there is, we want that runtime to start, not this one)
-		if (this._encounteredLanguagesByLanguageId.has(runtime.metadata.languageId) &&
+		else if (this._encounteredLanguagesByLanguageId.has(runtime.metadata.languageId) &&
+			this._discoveryPhase === LanguageRuntimeDiscoveryPhase.Complete &&
 			!this.runtimeForLanguageIsStartingOrRunning(runtime.metadata.languageId) &&
 			startupBehavior === LanguageRuntimeStartupBehavior.Implicit &&
 			!this._workspaceAffiliation.getAffiliatedRuntimeMetadata(runtime.metadata.languageId)) {
@@ -403,19 +418,6 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 			this.autoStartRuntime(languageRuntimeInfo.runtime,
 				`A file with the language ID ${runtime.metadata.languageId} was open ` +
 				`when the runtime was registered.`);
-		}
-
-		// Automatically start the language runtime under the following conditions:
-		// - The language runtime wants to start immediately.
-		// - No other runtime is currently running.
-		// - We have completed the discovery phase of the language runtime
-		//   registration process.
-		else if (startupBehavior === LanguageRuntimeStartupBehavior.Immediate &&
-			this._discoveryPhase === LanguageRuntimeDiscoveryPhase.Complete &&
-			!this.hasAnyStartedOrRunningRuntimes()) {
-
-			this.autoStartRuntime(languageRuntimeInfo.runtime,
-				`An extension requested that the runtime start immediately after being registered.`);
 		}
 
 		// Add the onDidChangeRuntimeState event handler.
