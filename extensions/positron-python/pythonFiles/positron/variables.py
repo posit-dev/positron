@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set, Tuple
 
 from comm.base_comm import BaseComm
 
-from .inspectors import MAX_ITEMS, decode_access_key, get_inspector
+from .inspectors import MAX_ITEMS, decode_access_key, encode_access_key, get_inspector
 from .positron_comm import CommMessage, JsonRpcErrorCode, PositronComm
 from .utils import JsonData, JsonRecord, cancel_tasks, create_task, get_qualname
 from .variables_comm import (
@@ -195,7 +195,7 @@ class VariablesService:
 
                 if key in snapshot and key not in after:
                     # Key was removed
-                    removed.add(key)
+                    removed.add(encode_access_key(key))
 
                 elif key not in snapshot and key in after:
                     # Key was added
