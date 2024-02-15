@@ -11,8 +11,8 @@ import pytest
 
 from positron._vendor.pydantic import BaseModel
 
-from positron.data_tool import DataToolService, PandasView, COMPARE_OPS
-from positron.data_tool_comm import (
+from positron.data_explorer import DataExplorerService, PandasView, COMPARE_OPS
+from positron.data_explorer_comm import (
     ColumnSchema,
     FilterResult,
 )
@@ -20,7 +20,7 @@ from positron.data_tool_comm import (
 from .conftest import DummyComm
 from .utils import json_rpc_request
 
-TARGET_NAME = "positron.dataTool"
+TARGET_NAME = "positron.dataExplorer"
 
 # ----------------------------------------------------------------------
 # pytest fixtures
@@ -31,15 +31,15 @@ def guid():
 
 
 @pytest.fixture()
-def service() -> DataToolService:
+def service() -> DataExplorerService:
     """
     The Positron dataviewer service.
     """
-    return DataToolService(TARGET_NAME)
+    return DataExplorerService(TARGET_NAME)
 
 
 def get_new_comm(
-    service: DataToolService,
+    service: DataExplorerService,
     table: Any,
     title: str,
     comm_id: Optional[str] = None,
@@ -58,7 +58,7 @@ def get_new_comm(
     return new_comm
 
 
-def get_last_message(service: DataToolService, comm_id: str):
+def get_last_message(service: DataExplorerService, comm_id: str):
     comm = cast(DummyComm, service.comms[comm_id].comm)
     return comm.messages[-1]
 
@@ -67,11 +67,11 @@ def get_last_message(service: DataToolService, comm_id: str):
 # Test basic service functionality
 
 
-def test_service_properties(service: DataToolService):
+def test_service_properties(service: DataExplorerService):
     assert service.comm_target == TARGET_NAME
 
 
-def test_register_table(service: DataToolService):
+def test_register_table(service: DataExplorerService):
     df = pd.DataFrame({"a": [1, 2, 3, 4, 5]})
     comm_id = guid()
 
@@ -82,7 +82,7 @@ def test_register_table(service: DataToolService):
     assert table_view.table is df
 
 
-def test_deregister_table(service: DataToolService):
+def test_deregister_table(service: DataExplorerService):
     df = pd.DataFrame({"a": [1, 2, 3, 4, 5]})
     comm_id = guid()
     service.register_table(df, "test_table", comm_id=comm_id)
@@ -92,7 +92,7 @@ def test_deregister_table(service: DataToolService):
     assert len(service.tables) == 0
 
 
-def test_shutdown(service: DataToolService):
+def test_shutdown(service: DataExplorerService):
     df = pd.DataFrame({"a": [1, 2, 3, 4, 5]})
     service.register_table(df, "t1", comm_id=guid())
     service.register_table(df, "t2", comm_id=guid())
@@ -129,7 +129,7 @@ JsonRecords = List[Dict[str, Any]]
 
 
 class PandasFixture:
-    def __init__(self, service: DataToolService):
+    def __init__(self, service: DataExplorerService):
         self.service = service
         self._table_ids = {}
 
@@ -214,7 +214,7 @@ class PandasFixture:
 
 
 @pytest.fixture()
-def pandas_fixture(service: DataToolService):
+def pandas_fixture(service: DataExplorerService):
     return PandasFixture(service)
 
 

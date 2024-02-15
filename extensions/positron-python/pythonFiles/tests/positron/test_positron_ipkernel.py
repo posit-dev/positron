@@ -18,10 +18,12 @@ from .conftest import PositronShell
 
 from .utils import assert_dataset_registered
 
-# The idea for these tests is to mock out communications with Positron via our various comms, and
-# only test IPython interactions. For example, in testing the %view magic, we assert that running
-# a cell with `%view` calls the datatool service's `register_table` method with the expected
-# arguments. The actual messages sent over the comm are tested in the respective service tests.
+# The idea for these tests is to mock out communications with Positron
+# via our various comms, and only test IPython interactions. For
+# example, in testing the %view magic, we assert that running a cell
+# with `%view` calls the data_explorer service's `register_table`
+# method with the expected arguments. The actual messages sent over
+# the comm are tested in the respective service tests.
 
 
 def test_override_help(shell: PositronShell) -> None:
@@ -32,7 +34,7 @@ def test_override_help(shell: PositronShell) -> None:
     assert shell.user_ns_hidden["help"] == help
 
 
-def test_view_pandas_df_expression(shell: PositronShell, mock_datatool_service: Mock) -> None:
+def test_view_pandas_df_expression(shell: PositronShell, mock_dataexplorer_service: Mock) -> None:
     expr = "pd.DataFrame({'x': [1,2,3]})"
 
     shell.run_cell(
@@ -41,10 +43,10 @@ def test_view_pandas_df_expression(shell: PositronShell, mock_datatool_service: 
     )
 
     obj = pd.DataFrame({"x": [1, 2, 3]})
-    assert_dataset_registered(mock_datatool_service, obj, expr)
+    assert_dataset_registered(mock_dataexplorer_service, obj, expr)
 
 
-def test_view_pandas_df_var(shell: PositronShell, mock_datatool_service: Mock) -> None:
+def test_view_pandas_df_var(shell: PositronShell, mock_dataexplorer_service: Mock) -> None:
     name = "a"
     shell.run_cell(
         f"""import pandas as pd
@@ -53,10 +55,10 @@ def test_view_pandas_df_var(shell: PositronShell, mock_datatool_service: Mock) -
     )
 
     obj = shell.user_ns[name]
-    assert_dataset_registered(mock_datatool_service, obj, name)
+    assert_dataset_registered(mock_dataexplorer_service, obj, name)
 
 
-def test_view_polars_df_var(shell: PositronShell, mock_datatool_service: Mock) -> None:
+def test_view_polars_df_var(shell: PositronShell, mock_dataexplorer_service: Mock) -> None:
     name = "a"
     shell.run_cell(
         f"""import polars as pl
@@ -65,7 +67,7 @@ def test_view_polars_df_var(shell: PositronShell, mock_datatool_service: Mock) -
     )
 
     obj = shell.user_ns[name]
-    assert_dataset_registered(mock_datatool_service, obj, name)
+    assert_dataset_registered(mock_dataexplorer_service, obj, name)
 
 
 def test_view_unsupported_type(shell: PositronShell) -> None:

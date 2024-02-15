@@ -22,7 +22,7 @@ The entrypoint to our kernel is the [`positron_language_server.py`](../pythonFil
 - [`help`](../pythonFiles/positron/help.py), manages Positron's Help pane
 - [`lsp`](../pythonFiles/positron/lsp.py), manages the language server
 - [`plots`](../pythonFiles/positron/plots.py), a custom [IPython display publisher](https://github.com/ipython/ipython/blob/main/IPython/core/displaypub.py) that displays to Positron's Plots pane
-- [`dataviewer`](../pythonFiles/positron/dataviewer.py), manages Positron's Data Viewer
+- [`data_explorer`](../pythonFiles/positron/data_explorer.py), manages Positron's Data Explorer
 
 The various Positron services communicate with the front end via Jupyter's [comms](https://connect.rstudioservices.com/content/59a1f153-dcd8-44ac-849b-3371829b7002/positron-architecture.html#comms-and-ui-bindings) messaging protocol.
 
