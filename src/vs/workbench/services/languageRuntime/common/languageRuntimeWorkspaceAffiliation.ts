@@ -6,7 +6,7 @@ import { Disposable } from 'vs/base/common/lifecycle';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import { ILogService } from 'vs/platform/log/common/log';
 import { IStorageService, StorageScope, StorageTarget } from 'vs/platform/storage/common/storage';
-import { ILanguageRuntime, ILanguageRuntimeMetadata, ILanguageRuntimeService, RuntimeState, formatLanguageRuntimeMetadata } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntimeMetadata, ILanguageRuntimeService, ILanguageRuntimeSession, RuntimeState, formatLanguageRuntimeMetadata } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 
 /**
  * The LanguageRuntimeWorkspaceAffiliation class is responsible for managing the
@@ -42,15 +42,15 @@ export class LanguageRuntimeWorkspaceAffiliation extends Disposable {
 	 *
 	 * @param runtime The newly active runtime, or undefined if no runtime is active.
 	 */
-	private onDidChangeActiveRuntime(runtime: ILanguageRuntime | undefined): void {
+	private onDidChangeActiveRuntime(session: ILanguageRuntimeSession | undefined): void {
 		// Ignore if we are entering a state in which no runtime is active.
-		if (!runtime) {
+		if (!session) {
 			return;
 		}
 
 		// Save this runtime as the affiliated runtime for the current workspace.
-		this._storageService.store(this.storageKeyForRuntime(runtime),
-			JSON.stringify(runtime.metadata),
+		this._storageService.store(this.storageKeyForRuntime(session.metadata),
+			JSON.stringify(session.metadata),
 			StorageScope.WORKSPACE,
 			StorageTarget.MACHINE);
 
@@ -58,19 +58,19 @@ export class LanguageRuntimeWorkspaceAffiliation extends Disposable {
 		// `Exiting` state. This state only occurs when the runtime is manually
 		// shut down, so may represent a user's intent to stop using the runtime
 		// for this workspace.
-		this._register(runtime.onDidChangeRuntimeState((newState) => {
+		this._register(session.onDidChangeRuntimeState((newState) => {
 			if (newState === RuntimeState.Exiting) {
 				// Just to be safe, check that the runtime is still affiliated
 				// before removing the affiliation
 				const affiliatedRuntimeMetadata = this._storageService.get(
-					this.storageKeyForRuntime(runtime), StorageScope.WORKSPACE);
+					this.storageKeyForRuntime(session.metadata), StorageScope.WORKSPACE);
 				if (!affiliatedRuntimeMetadata) {
 					return;
 				}
 				const affiliatedRuntimeId = JSON.parse(affiliatedRuntimeMetadata).runtimeId;
-				if (runtime.metadata.runtimeId === affiliatedRuntimeId) {
+				if (session.metadata.runtimeId === affiliatedRuntimeId) {
 					// Remove the affiliation
-					this._storageService.remove(this.storageKeyForRuntime(runtime),
+					this._storageService.remove(this.storageKeyForRuntime(session.metadata),
 						StorageScope.WORKSPACE);
 				}
 			}
@@ -84,11 +84,11 @@ export class LanguageRuntimeWorkspaceAffiliation extends Disposable {
 	 *
 	 * @param runtime The newly registered runtime.
 	 */
-	private onDidRegisterRuntime(runtime: ILanguageRuntime): void {
+	private onDidRegisterRuntime(metadata: ILanguageRuntimeMetadata): void {
 
 		// Get the runtime metadata that is affiliated with this workspace, if any.
 		const affiliatedRuntimeMetadataStr = this._storageService.get(
-			this.storageKeyForRuntime(runtime), StorageScope.WORKSPACE);
+			this.storageKeyForRuntime(metadata), StorageScope.WORKSPACE);
 		if (!affiliatedRuntimeMetadataStr) {
 			return;
 		}
@@ -96,7 +96,7 @@ export class LanguageRuntimeWorkspaceAffiliation extends Disposable {
 		const affiliatedRuntimeId = affiliatedRuntimeMetadata.runtimeId;
 
 		// If the runtime is affiliated with this workspace, start it.
-		if (runtime.metadata.runtimeId === affiliatedRuntimeId) {
+		if (metadata.runtimeId === affiliatedRuntimeId) {
 			try {
 
 				// Check the setting to see if we should be auto-starting.
@@ -110,13 +110,13 @@ export class LanguageRuntimeWorkspaceAffiliation extends Disposable {
 					return;
 				}
 
-				this._runtimeService.startRuntime(runtime.metadata.runtimeId,
+				this._runtimeService.startRuntime(metadata.runtimeId,
 					`Affiliated runtime for workspace`);
 			} catch (e) {
 				// This isn't necessarily an error; if another runtime took precedence and has
 				// already started for this workspace, we don't want to start this one.
 				this._logService.debug(`Did not start affiliated runtime ` +
-					`${runtime.metadata.runtimeName} for this workspace: ` +
+					`${metadata.runtimeName} for this workspace: ` +
 					`${e.message}`);
 			}
 		}
@@ -184,7 +184,7 @@ export class LanguageRuntimeWorkspaceAffiliation extends Disposable {
 	 *
 	 * @returns A string used to store the affiliated runtime ID for the given runtime.
 	 */
-	private storageKeyForRuntime(runtime: ILanguageRuntime): string {
-		return `${this.storageKey}.${runtime.metadata.languageId}`;
+	private storageKeyForRuntime(metadata: ILanguageRuntimeMetadata): string {
+		return `${this.storageKey}.${metadata.languageId}`;
 	}
 }

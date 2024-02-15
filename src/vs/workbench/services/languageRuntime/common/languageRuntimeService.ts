@@ -575,6 +575,29 @@ export interface ILanguageRuntimeDynState {
  */
 export type RuntimeResourceRootProvider = (mimeType: string, data: any) => Promise<URI[]>;
 
+/**
+ * A manager for runtime sessions.
+ */
+export interface ILanguageRuntimeSessionManager {
+
+	/** The language ID for which this manager creates sessions */
+	readonly languageId: string;
+
+	/**
+	 *
+	 * @param runtimeMetadata The metadata of the runtime for which a session is
+	 *  	to be created.
+	 * @param sessionId A unique ID to assign to the new session
+	 *
+	 * @returns A promise that resolves to the new session.
+	 */
+	createSession(runtimeMetadata: ILanguageRuntimeMetadata, sessionId: string):
+		Promise<ILanguageRuntimeSession>;
+}
+
+/**
+ * The main interface for interacting with a language runtime session.
+ */
 export interface ILanguageRuntimeSession {
 	/** The language runtime's static metadata */
 	readonly metadata: ILanguageRuntimeMetadata;

@@ -9,7 +9,7 @@ import { ILanguageService } from 'vs/editor/common/languages/language';
 import { Disposable, IDisposable, toDisposable } from 'vs/base/common/lifecycle';
 import { CommandsRegistry } from 'vs/platform/commands/common/commands';
 import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/common/extensions';
-import { formatLanguageRuntime, ILanguageRuntime, ILanguageRuntimeMetadata, ILanguageRuntimeGlobalEvent, ILanguageRuntimeService, ILanguageRuntimeSessionStateEvent, LanguageRuntimeDiscoveryPhase, LanguageRuntimeStartupBehavior, RuntimeClientType, RuntimeExitReason, RuntimeState, formatLanguageRuntimeMetadata } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntimeMetadata, ILanguageRuntimeGlobalEvent, ILanguageRuntimeService, ILanguageRuntimeSessionStateEvent, LanguageRuntimeDiscoveryPhase, LanguageRuntimeStartupBehavior, RuntimeClientType, RuntimeExitReason, RuntimeState, formatLanguageRuntimeMetadata, ILanguageRuntimeSession } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { UiClientInstance, IUiClientMessageInput, IUiClientMessageOutput } from 'vs/workbench/services/languageRuntime/common/languageRuntimeUiClient';
 import { LanguageRuntimeWorkspaceAffiliation } from 'vs/workbench/services/languageRuntime/common/languageRuntimeWorkspaceAffiliation';
 import { IStorageService } from 'vs/platform/storage/common/storage';
@@ -30,12 +30,11 @@ import { ExtensionIdentifier } from 'vs/platform/extensions/common/extensions';
 /**
  * LanguageRuntimeInfo class.
  */
-class LanguageRuntimeInfo {
+class LanguageRuntimeSessionInfo {
 	public state: RuntimeState;
 	constructor(
-		public readonly runtime: ILanguageRuntime,
-		public readonly startupBehavior: LanguageRuntimeStartupBehavior) {
-		this.state = runtime.getRuntimeState();
+		public readonly session: ILanguageRuntimeSession) {
+		this.state = session.getRuntimeState();
 	}
 	setState(state: RuntimeState): void {
 		this.state = state;
@@ -77,7 +76,7 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 	private readonly _encounteredLanguagesByLanguageId = new Set<string>();
 
 	// The array of registered runtimes.
-	private readonly _registeredRuntimes: LanguageRuntimeInfo[] = [];
+	private readonly _registeredRuntimes: ILanguageRuntimeMetadata[] = [];
 
 	// The current discovery phase for language runtime registration.
 	private _discoveryPhase: LanguageRuntimeDiscoveryPhase =
@@ -85,59 +84,69 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 
 	// A map of the registered runtimes. This is keyed by the runtimeId
 	// (metadata.runtimeId) of the runtime.
-	private readonly _registeredRuntimesByRuntimeId = new Map<string, LanguageRuntimeInfo>();
+	private readonly _registeredRuntimesByRuntimeId = new Map<string, ILanguageRuntimeMetadata>();
 
-	// A map of the starting runtimes. This is keyed by the languageId
-	// (metadata.languageId) of the runtime.
-	private readonly _startingRuntimesByLanguageId = new Map<string, ILanguageRuntime>();
+	// A map of the starting sessions. This is keyed by the languageId
+	// (metadata.languageId) of the runtime owning the session.
+	private readonly _startingSessionsByLanguageId = new Map<string, ILanguageRuntimeMetadata>();
 
 	// A map of runtimes currently starting to promises that resolve when the runtime
 	// is ready to use. This is keyed by the runtimeId (metadata.runtimeId) of the runtime.
 	private readonly _startingRuntimesByRuntimeId = new Map<string, DeferredPromise<void>>();
 
-	// A map of the running runtimes. This is keyed by the languageId
+	// A map of the currently active sessions. This is keyed by the languageId
 	// (metadata.languageId) of the runtime.
-	private readonly _runningRuntimesByLanguageId = new Map<string, ILanguageRuntime>();
+	private readonly _activeSessionsByLanguageId = new Map<string, ILanguageRuntimeSession>();
 
 	// A map of most recently started runtimes. This is keyed by the languageId
 	// (metadata.languageId) of the runtime.
-	private readonly _mostRecentlyStartedRuntimesByLanguageId = new Map<string, ILanguageRuntime>();
+	private readonly _mostRecentlyStartedRuntimesByLanguageId = new Map<string, ILanguageRuntimeMetadata>();
 
-	// The active runtime.
-	private _activeRuntime?: ILanguageRuntime;
+	// The foreground session.
+	private _foregroundSession?: ILanguageRuntimeSession;
 
 	// The object that manages the runtimes affliated with workspaces.
 	private readonly _workspaceAffiliation: LanguageRuntimeWorkspaceAffiliation;
 
 	// The event emitter for the onDidChangeDiscoveryPhase event.
-	private readonly _onDidChangeDiscoveryPhaseEmitter = this._register(new Emitter<LanguageRuntimeDiscoveryPhase>);
+	private readonly _onDidChangeDiscoveryPhaseEmitter =
+		this._register(new Emitter<LanguageRuntimeDiscoveryPhase>);
 
 	// The event emitter for the onDidRegisterRuntime event.
-	private readonly _onDidRegisterRuntimeEmitter = this._register(new Emitter<ILanguageRuntime>);
+	private readonly _onDidRegisterRuntimeEmitter =
+		this._register(new Emitter<ILanguageRuntimeMetadata>);
 
 	// The event emitter for the onWillStartRuntime event.
-	private readonly _onWillStartRuntimeEmitter = this._register(new Emitter<ILanguageRuntime>);
+	private readonly _onWillStartRuntimeEmitter =
+		this._register(new Emitter<ILanguageRuntimeSession>);
 
 	// The event emitter for the onDidStartRuntime event.
-	private readonly _onDidStartRuntimeEmitter = this._register(new Emitter<ILanguageRuntime>);
+	private readonly _onDidStartRuntimeEmitter =
+		this._register(new Emitter<ILanguageRuntimeSession>);
 
 	// The event emitter for the onDidFailStartRuntime event.
-	private readonly _onDidFailStartRuntimeEmitter = this._register(new Emitter<ILanguageRuntime>);
+	private readonly _onDidFailStartRuntimeEmitter =
+		this._register(new Emitter<ILanguageRuntimeSession>);
 
 	// The event emitter for the onDidReconnectRuntime event.
-	private readonly _onDidReconnectRuntimeEmitter = this._register(new Emitter<ILanguageRuntime>);
+	private readonly _onDidReconnectRuntimeEmitter =
+		this._register(new Emitter<ILanguageRuntimeSession>);
 
 	// The event emitter for the onDidChangeRuntimeState event.
-	private readonly _onDidChangeRuntimeStateEmitter = this._register(new Emitter<ILanguageRuntimeSessionStateEvent>());
+	private readonly _onDidChangeRuntimeStateEmitter =
+		this._register(new Emitter<ILanguageRuntimeSessionStateEvent>());
 
 	// The event emitter for the onDidReceiveRuntimeEvent event.
-	private readonly _onDidReceiveRuntimeEventEmitter = this._register(new Emitter<ILanguageRuntimeGlobalEvent>());
+	private readonly _onDidReceiveRuntimeEventEmitter =
+		this._register(new Emitter<ILanguageRuntimeGlobalEvent>());
 
 	// The event emitter for the onDidChangeActiveRuntime event.
-	private readonly _onDidChangeActiveRuntimeEmitter = this._register(new Emitter<ILanguageRuntime | undefined>);
+	private readonly _onDidChangeActiveRuntimeEmitter =
+		this._register(new Emitter<ILanguageRuntime | undefined>);
 
 	// The event emitter for the onDidRequestLanguageRuntime event.
-	private readonly _onDidRequestLanguageRuntimeEmitter = this._register(new Emitter<ILanguageRuntimeMetadata>);
+	private readonly _onDidRequestLanguageRuntimeEmitter =
+		this._register(new Emitter<ILanguageRuntimeMetadata>);
 
 	//#endregion Private Properties
 
@@ -341,7 +350,7 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 			}
 
 			// Find the runtime.
-			const activeRuntime = this._startingRuntimesByLanguageId.get(runtime.metadata.languageId) || this._runningRuntimesByLanguageId.get(runtime.metadata.languageId);
+			const activeRuntime = this._startingSessionsByLanguageId.get(runtime.metadata.languageId) || this._runningRuntimesByLanguageId.get(runtime.metadata.languageId);
 			if (!activeRuntime) {
 				this._logService.error(`Cannot activate language runtime ${formatLanguageRuntime(runtime)} because it is not running.`);
 				return;
@@ -356,8 +365,8 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 	}
 
 	/**
-	 * Selects and starts a runtime, after shutting down any currently active
-	 * runtimes for the language.
+	 * Selects and starts a new runtime session, after shutting down any currently active
+	 * sessions for the language.
 	 *
 	 * @param runtimeId The ID of the runtime to select
 	 * @param source The source of the selection
@@ -409,22 +418,21 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 	/**
 	 * Register a new runtime
 	 *
-	 * @param runtime The runtime to register
+	 * @param metadata The metadata of the runtime to register
+	 *
 	 * @returns A disposable that unregisters the runtime
 	 */
-	registerRuntime(runtime: ILanguageRuntime, startupBehavior: LanguageRuntimeStartupBehavior): IDisposable {
+	registerRuntime(metadata: ILanguageRuntimeMetadata): IDisposable {
 		// If the runtime has already been registered, return early.
-		if (this._registeredRuntimesByRuntimeId.has(runtime.metadata.runtimeId)) {
+		if (this._registeredRuntimesByRuntimeId.has(metadata.runtimeId)) {
 			return toDisposable(() => { });
 		}
 
 		// Add the runtime to the registered runtimes.
-		const languageRuntimeInfo = new LanguageRuntimeInfo(runtime, startupBehavior);
-		this._registeredRuntimes.push(languageRuntimeInfo);
-		this._registeredRuntimesByRuntimeId.set(runtime.metadata.runtimeId, languageRuntimeInfo);
+		this._registeredRuntimesByRuntimeId.set(metadata.runtimeId, metadata);
 
 		// Signal that the set of registered runtimes has changed.
-		this._onDidRegisterRuntimeEmitter.fire(runtime);
+		this._onDidRegisterRuntimeEmitter.fire(metadata);
 
 		// Runtimes are usually registered in the Uninitialized state. If the
 		// runtime is already running when it is registered, we are
@@ -531,7 +539,7 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 
 				case RuntimeState.Exited:
 					// Remove the runtime from the set of starting or running runtimes.
-					this._startingRuntimesByLanguageId.delete(runtime.metadata.languageId);
+					this._startingSessionsByLanguageId.delete(runtime.metadata.languageId);
 					this._runningRuntimesByLanguageId.delete(runtime.metadata.languageId);
 					break;
 			}
@@ -594,7 +602,7 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 
 		return toDisposable(() => {
 			// Remove the runtime from the set of starting or running runtimes.
-			this._startingRuntimesByLanguageId.delete(runtime.metadata.languageId);
+			this._startingSessionsByLanguageId.delete(runtime.metadata.languageId);
 			this._runningRuntimesByLanguageId.delete(runtime.metadata.languageId);
 		});
 	}
@@ -607,7 +615,7 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 		}
 
 		// If there's a starting runtime for the language, return it.
-		const startingRuntime = this._startingRuntimesByLanguageId.get(languageId);
+		const startingRuntime = this._startingSessionsByLanguageId.get(languageId);
 		if (startingRuntime) {
 			return startingRuntime;
 		}
@@ -696,15 +704,16 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 		}
 
 		// Get the runtime. Throw an error, if it could not be found.
-		const languageRuntimeInfo = this._registeredRuntimesByRuntimeId.get(runtimeId);
-		if (!languageRuntimeInfo) {
+		const languageRuntime = this._registeredRuntimesByRuntimeId.get(runtimeId);
+		if (!languageRuntime) {
 			throw new Error(`No language runtime with id '${runtimeId}' was found.`);
 		}
 
 		// If there is already a runtime starting for the language, throw an error.
-		const startingLanguageRuntime = this._startingRuntimesByLanguageId.get(languageRuntimeInfo.runtime.metadata.languageId);
+		const startingLanguageRuntime = this._startingSessionsByLanguageId.get(
+			languageRuntime.languageId);
 		if (startingLanguageRuntime) {
-			throw new Error(`Language runtime ${formatLanguageRuntime(languageRuntimeInfo.runtime)} cannot be started because language runtime ${formatLanguageRuntime(startingLanguageRuntime)} is already starting for the language.`);
+			throw new Error(`Language runtime ${formatLanguageRuntimeMetadata(languageRuntime)} cannot be started because language runtime ${formatLanguageRuntimeMetadata(startingLanguageRuntime)} is already starting for the language.`);
 		}
 
 		// If there is already a runtime running for the language, throw an error.
@@ -767,10 +776,10 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 			return false;
 		}
 
-		// Enumerate the running runtimes and attempt to open the resource.
-		for (const runtime of this._runningRuntimesByLanguageId.values()) {
+		// Enumerate the active sessions and attempt to open the resource.
+		for (const session of this._activeSessionsByLanguageId.values()) {
 			try {
-				if (await runtime.openResource(resource)) {
+				if (await session.openResource(resource)) {
 					return true;
 				}
 			} catch (reason) {
@@ -863,23 +872,23 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 	}
 
 	/**
-	 * Checks to see whether a runtime for the specified language is starting
+	 * Checks to see whether a session for the specified language is starting
 	 * or running.
 	 * @param languageId The language identifier.
 	 * @returns A value which indicates whether a runtime for the specified
 	 * language is starting or running.
 	 */
 	private runtimeForLanguageIsStartingOrRunning(languageId: string) {
-		return this._startingRuntimesByLanguageId.has(languageId) ||
-			this._runningRuntimesByLanguageId.has(languageId);
+		return this._startingSessionsByLanguageId.has(languageId) ||
+			this._activeSessionsByLanguageId.has(languageId);
 	}
 
 	/**
 	 * Checks to see if any of the registered runtimes are starting or running.
 	 */
 	private hasAnyStartedOrRunningRuntimes(): boolean {
-		return this._startingRuntimesByLanguageId.size > 0 ||
-			this._runningRuntimesByLanguageId.size > 0;
+		return this._startingSessionsByLanguageId.size > 0 ||
+			this._activeSessionsByLanguageId.size > 0;
 	}
 
 	/**
@@ -950,15 +959,16 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 
 	/**
 	 * Starts a runtime.
-	 * @param runtime The runtime to start.
+	 *
+	 * @param metadata The metadata for the runtime to start.
 	 */
-	private async doStartRuntime(runtime: ILanguageRuntime): Promise<void> {
+	private async doStartRuntime(metadata: ILanguageRuntimeMetadata): Promise<void> {
 		// Add the runtime to the starting runtimes.
-		this._startingRuntimesByLanguageId.set(runtime.metadata.languageId, runtime);
+		this._startingSessionsByLanguageId.set(metadata.languageId, metadata);
 
 		// Create a promise that resolves when the runtime is ready to use.
 		const startPromise = new DeferredPromise<void>();
-		this._startingRuntimesByRuntimeId.set(runtime.metadata.runtimeId, startPromise);
+		this._startingRuntimesByRuntimeId.set(metadata.runtimeId, startPromise);
 
 		// Fire the onWillStartRuntime event.
 		this._onWillStartRuntimeEmitter.fire(runtime);
@@ -972,9 +982,9 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 
 			// The runtime started. Move it from the starting runtimes to the
 			// running runtimes.
-			this._startingRuntimesByLanguageId.delete(runtime.metadata.languageId);
-			this._startingRuntimesByRuntimeId.delete(runtime.metadata.runtimeId);
-			this._runningRuntimesByLanguageId.set(runtime.metadata.languageId, runtime);
+			this._startingSessionsByLanguageId.delete(metadata.languageId);
+			this._startingRuntimesByRuntimeId.delete(metadata.runtimeId);
+			this._activeSessionsByLanguageId.set(metadata.languageId, runtime);
 			this._mostRecentlyStartedRuntimesByLanguageId.set(runtime.metadata.languageId, runtime);
 
 			// Fire the onDidStartRuntime event.
@@ -987,7 +997,7 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 			startPromise.error(reason);
 
 			// Remove the runtime from the starting runtimes.
-			this._startingRuntimesByLanguageId.delete(runtime.metadata.languageId);
+			this._startingSessionsByLanguageId.delete(runtime.metadata.languageId);
 			this._startingRuntimesByRuntimeId.delete(runtime.metadata.runtimeId);
 
 			// Fire the onDidFailStartRuntime event.
@@ -999,22 +1009,23 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 	}
 
 	/**
-	 * Restarts a runtime.
-	 * @param runtime The runtime to restart.
+	 * Restarts a runtime session.
+	 *
+	 * @param session The runtime to restart.
 	 */
-	private async doRestartRuntime(runtime: ILanguageRuntime): Promise<void> {
-		const state = runtime.getRuntimeState();
+	private async doRestartRuntime(session: ILanguageRuntimeSession): Promise<void> {
+		const state = session.getRuntimeState();
 		if (state === RuntimeState.Busy ||
 			state === RuntimeState.Idle ||
 			state === RuntimeState.Ready) {
 			// The runtime looks like it could handle a restart request, so send
 			// one over.
-			return runtime.restart();
+			return session.restart();
 		} else if (state === RuntimeState.Uninitialized ||
 			state === RuntimeState.Exited) {
 			// The runtime has never been started, or is no longer running. Just
 			// tell it to start.
-			return this.startRuntime(runtime.metadata.runtimeId, `'Restart Interpreter' command invoked`);
+			return this.startRuntime(session.metadata.runtimeId, `'Restart Interpreter' command invoked`);
 		} else if (state === RuntimeState.Starting ||
 			state === RuntimeState.Restarting) {
 			// The runtime is already starting or restarting. We could show an
@@ -1024,7 +1035,7 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 		} else {
 			// The runtime is not in a state where it can be restarted.
 			return Promise.reject(
-				new Error(`The ${runtime.metadata.languageName} language runtime is '${state}' and cannot be restarted.`)
+				new Error(`The ${session.metadata.languageName} session is '${state}' and cannot be restarted.`)
 			);
 		}
 	}
@@ -1035,11 +1046,11 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 	 * state within 10 seconds, the user is given the option to force-quit the
 	 * runtime.
 	 *
-	 * @param runtime The runtime to watch.
+	 * @param session The runtime to watch.
 	 */
-	private async waitForInterrupt(runtime: ILanguageRuntime) {
-		const warning = nls.localize('positron.runtimeInterruptTimeoutWarning', "{0} isn't responding to your request to interrupt the command. Do you want to forcefully quit your {1} session? You'll lose any unsaved objects.", runtime.metadata.runtimeName, runtime.metadata.languageName);
-		this.awaitStateChange(runtime,
+	private async waitForInterrupt(session: ILanguageRuntimeSession) {
+		const warning = nls.localize('positron.runtimeInterruptTimeoutWarning', "{0} isn't responding to your request to interrupt the command. Do you want to forcefully quit your {1} session? You'll lose any unsaved objects.", session.sessionName, session.metadata.languageName);
+		this.awaitStateChange(session,
 			[RuntimeState.Idle],
 			10,
 			warning);
@@ -1050,11 +1061,11 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 	 * exiting). If the runtime does not shut down within 10 seconds, the user
 	 * is given the option to force-quit the runtime.
 	 *
-	 * @param runtime The runtime to watch.
+	 * @param session The runtime to watch.
 	 */
-	private async waitForShutdown(runtime: ILanguageRuntime) {
-		const warning = nls.localize('positron.runtimeShutdownTimeoutWarning', "{0} isn't responding to your request to shut down the session. Do you want use a forced quit to end your {1} session? You'll lose any unsaved objects.", runtime.metadata.runtimeName, runtime.metadata.languageName);
-		this.awaitStateChange(runtime,
+	private async waitForShutdown(session: ILanguageRuntimeSession) {
+		const warning = nls.localize('positron.runtimeShutdownTimeoutWarning', "{0} isn't responding to your request to shut down the session. Do you want use a forced quit to end your {1} session? You'll lose any unsaved objects.", session.sessionName, session.metadata.languageName);
+		this.awaitStateChange(session,
 			[RuntimeState.Exited],
 			10,
 			warning);
@@ -1065,28 +1076,28 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 	 * the Ready state). If the runtime does reconnect within 30 seconds, the
 	 * user is given the option to force-quit the runtime.
 	 *
-	 * @param runtime The runtime to watch.
+	 * @param session The runtime to watch.
 	 */
-	private async waitForReconnect(runtime: ILanguageRuntime) {
-		const warning = nls.localize('positron.runtimeReconnectTimeoutWarning', "{0} has been offline for more than 30 seconds. Do you want to force quit your {1} session? You'll lose any unsaved objects.", runtime.metadata.runtimeName, runtime.metadata.languageName);
-		this.awaitStateChange(runtime,
+	private async waitForReconnect(session: ILanguageRuntimeSession) {
+		const warning = nls.localize('positron.runtimeReconnectTimeoutWarning', "{0} has been offline for more than 30 seconds. Do you want to force quit your {1} session? You'll lose any unsaved objects.", session.sessionName, session.metadata.languageName);
+		this.awaitStateChange(session,
 			[RuntimeState.Ready, RuntimeState.Idle],
 			30,
 			warning);
 	}
 
 	/**
-	 * Waits for the runtime to change one of the target states. If the runtime
+	 * Waits for the session to change one of the target states. If the runtime
 	 * does not change to one of the target states within the specified number
 	 * of seconds, a warning is displayed with an option to force quit the
 	 * runtime.
 	 *
-	 * @param runtime The runtime to watch.
+	 * @param session The session to watch.
 	 * @param targetStates The target state(s) for the runtime to enter.
 	 * @param seconds The number of seconds to wait for the runtime to change to the target state.
 	 * @param warning The warning to display if the runtime does not change to the target state.
 	 */
-	private async awaitStateChange(runtime: ILanguageRuntime,
+	private async awaitStateChange(session: ILanguageRuntimeSession,
 		targetStates: RuntimeState[],
 		seconds: number,
 		warning: string) {
@@ -1101,7 +1112,7 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 
 				// Show a prompt to the user asking if they want to force quit the runtime.
 				prompt = this._positronModalDialogsService.showModalDialogPrompt(
-					nls.localize('positron.runtimeNotResponding', "{0} is not responding", runtime.metadata.runtimeName),
+					nls.localize('positron.runtimeNotResponding', "{0} is not responding", session.metadata.runtimeName),
 					warning,
 					nls.localize('positron.runtimeForceQuit', "Force Quit"),
 					nls.localize('positron.runtimeKeepWaiting', "Wait"));
@@ -1109,7 +1120,7 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 				prompt.onChoice((choice) => {
 					// If the user chose to force quit the runtime, do so.
 					if (choice) {
-						runtime.forceQuit();
+						session.forceQuit();
 					}
 					// Regardless of their choice, we are done waiting for a state change.
 					if (disposable) {
@@ -1119,7 +1130,7 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 			}, seconds * 1000);
 
 			// Listen for state changes.
-			disposable = runtime.onDidChangeRuntimeState(state => {
+			disposable = session.onDidChangeRuntimeState(state => {
 				if (targetStates.includes(state)) {
 					clearTimeout(timer);
 					resolve();
