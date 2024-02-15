@@ -147,12 +147,12 @@ export class ZedVariables {
 			// A request to open a variable in a data viewer
 			case 'view':
 				// The object "name" to be viewed is just the path to the variable
-				this.runtime.simulateDataView(message_id,
-					`view ${message.params.path.join('.')}`,
-					`Zed: ${message.params.path.join('.')}`);
+				// this.runtime.simulateDataView(message_id,
+				// 	`view ${message.params.path.join('.')}`,
+				// 	`Zed: ${message.params.path.join('.')}`);
 
 				// Let the front end know we're done
-				this.emitResult(null);
+				// this.emitResult(null);
 				break;
 		}
 	}

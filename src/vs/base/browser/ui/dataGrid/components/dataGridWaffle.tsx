@@ -14,13 +14,14 @@ import { generateUuid } from 'vs/base/common/uuid';
 import { isMacintosh } from 'vs/base/common/platform';
 import { DisposableStore } from 'vs/base/common/lifecycle';
 import { pinToRange } from 'vs/base/common/positronUtilities';
-import { useDataGridContext } from 'vs/base/browser/ui/dataGrid/dataGridContext';
+import { usePositronDataGridContext } from 'vs/base/browser/ui/dataGrid/dataGridContext';
 import { DataGridRow } from 'vs/base/browser/ui/dataGrid/components/dataGridRow';
 import { DataGridScrollbar } from 'vs/base/browser/ui/dataGrid/components/dataGridScrollbar';
 import { DataGridRowHeaders } from 'vs/base/browser/ui/dataGrid/components/dataGridRowHeaders';
 import { DataGridCornerTopLeft } from 'vs/base/browser/ui/dataGrid/components/dataGridCornerTopLeft';
 import { DataGridColumnHeaders } from 'vs/base/browser/ui/dataGrid/components/dataGridColumnHeaders';
 import { DataGridScrollbarCorner } from 'vs/base/browser/ui/dataGrid/components/dataGridScrollbarCorner';
+import { ExtendColumnSelectionBy, ExtendRowSelectionBy } from 'vs/base/browser/ui/dataGrid/interfaces/dataGridInstance';
 
 let renderCounter = 0;
 
@@ -44,7 +45,7 @@ interface DataGridWaffleProps {
  */
 export const DataGridWaffle = (props: DataGridWaffleProps) => {
 	// Context hooks.
-	const context = useDataGridContext();
+	const context = usePositronDataGridContext();
 
 	// State hooks.
 	const [, setRenderMarker] = useState(generateUuid());
@@ -71,50 +72,10 @@ export const DataGridWaffle = (props: DataGridWaffleProps) => {
 		return () => disposableStore.dispose();
 	}, []);
 
+	// Screen size useEffect.
 	useLayoutEffect(() => {
-		// Update the screen size.
 		context.instance.setScreenSize(props.width, props.height);
 	}, [props.width, props.height]);
-
-	// useLayoutEffect that fires when the width changes.
-	useLayoutEffect(() => {
-		// If the waffle is scrolled horizontally, see if we can optimize the first column.
-		if (context.instance.firstColumnIndex) {
-			// Find the optimal first column;
-			const layoutWidth = context.instance.layoutWidth;
-			let firstColumn = context.instance.firstColumnIndex;
-			for (let columnIndex = firstColumn - 1; columnIndex >= 0; columnIndex--) {
-				if (context.instance.column(columnIndex).layoutWidth < layoutWidth) {
-					firstColumn--;
-				} else {
-					break;
-				}
-			}
-
-			// Adjust the first column.
-			context.instance.setFirstColumn(firstColumn);
-		}
-	}, [props.width]);
-
-	// useLayoutEffect that fires when the height changes.
-	useLayoutEffect(() => {
-		// If the waffle is scrolled vertically, see if we can optimize the first row.
-		if (context.instance.firstRowIndex) {
-			// Find the optimal first row;
-			const layoutHeight = context.instance.layoutHeight;
-			let firstRow = context.instance.firstRowIndex;
-			for (let rowIndex = firstRow - 1; rowIndex >= 0; rowIndex--) {
-				if ((context.instance.rows - rowIndex) * context.instance.rowHeight < layoutHeight) {
-					firstRow--;
-				} else {
-					break;
-				}
-			}
-
-			// Adjust the first row.
-			context.instance.setFirstRow(firstRow);
-		}
-	}, [props.height]);
 
 	/**
 	 * onKeyDown event handler.
@@ -153,6 +114,7 @@ export const DataGridWaffle = (props: DataGridWaffleProps) => {
 
 				// Shift + Home does nothing.
 				if (e.shiftKey) {
+					context.instance.extendRowSelectionUp(ExtendRowSelectionBy.Screen);
 					return;
 				}
 
@@ -184,6 +146,7 @@ export const DataGridWaffle = (props: DataGridWaffleProps) => {
 
 				// Shift + End does nothing.
 				if (e.shiftKey) {
+					context.instance.extendRowSelectionDown(ExtendRowSelectionBy.Screen);
 					return;
 				}
 
@@ -224,8 +187,9 @@ export const DataGridWaffle = (props: DataGridWaffleProps) => {
 					return;
 				}
 
-				// TODO: Range selection.
+				// Range selection.
 				if (e.shiftKey) {
+					context.instance.extendRowSelectionUp(ExtendRowSelectionBy.Page);
 					return;
 				}
 
@@ -237,10 +201,7 @@ export const DataGridWaffle = (props: DataGridWaffleProps) => {
 					0
 				);
 				context.instance.setFirstRow(firstRowIndex);
-				context.instance.setCursorPosition(
-					context.instance.firstColumnIndex,
-					firstRowIndex
-				);
+				context.instance.setCursorRow(firstRowIndex);
 				break;
 			}
 
@@ -254,8 +215,9 @@ export const DataGridWaffle = (props: DataGridWaffleProps) => {
 					return;
 				}
 
-				// TODO: Range selection.
+				// Range selection.
 				if (e.shiftKey) {
+					context.instance.extendRowSelectionDown(ExtendRowSelectionBy.Page);
 					return;
 				}
 
@@ -267,10 +229,7 @@ export const DataGridWaffle = (props: DataGridWaffleProps) => {
 					context.instance.maximumFirstRowIndex
 				);
 				context.instance.setFirstRow(firstRowIndex);
-				context.instance.setCursorPosition(
-					context.instance.firstColumnIndex,
-					firstRowIndex + context.instance.visibleRows - 1
-				);
+				context.instance.setCursorRow(firstRowIndex);
 				break;
 			}
 
@@ -279,12 +238,14 @@ export const DataGridWaffle = (props: DataGridWaffleProps) => {
 				// Consume the event.
 				consumeEvent();
 
+				// Cmd / Ctrl + ArrowUp does nothing.
 				if (isMacintosh ? e.metaKey : e.ctrlKey) {
 					return;
 				}
 
+				// Range selection.
 				if (e.shiftKey) {
-					context.instance.extendSelectionUp();
+					context.instance.extendRowSelectionUp(ExtendRowSelectionBy.Row);
 					return;
 				}
 
@@ -302,12 +263,14 @@ export const DataGridWaffle = (props: DataGridWaffleProps) => {
 				// Consume the event.
 				consumeEvent();
 
+				// Cmd / Ctrl + ArrowDown does nothing.
 				if (isMacintosh ? e.metaKey : e.ctrlKey) {
 					return;
 				}
 
+				// Range selection.
 				if (e.shiftKey) {
-					context.instance.extendSelectionDown();
+					context.instance.extendRowSelectionDown(ExtendRowSelectionBy.Row);
 					return;
 				}
 
@@ -325,12 +288,13 @@ export const DataGridWaffle = (props: DataGridWaffleProps) => {
 				// Consume the event.
 				consumeEvent();
 
+				// Cmd / Ctrl + ArrowLeft does nothing.
 				if (isMacintosh ? e.metaKey : e.ctrlKey) {
 					return;
 				}
 
 				if (e.shiftKey) {
-					context.instance.extendSelectionLeft();
+					context.instance.extendColumnSelectionLeft(ExtendColumnSelectionBy.Column);
 					return;
 				}
 
@@ -348,12 +312,13 @@ export const DataGridWaffle = (props: DataGridWaffleProps) => {
 				// Consume the event.
 				consumeEvent();
 
+				// Cmd / Ctrl + ArrowRight does nothing.
 				if (isMacintosh ? e.metaKey : e.ctrlKey) {
 					return;
 				}
 
 				if (e.shiftKey) {
-					context.instance.extendSelectionRight();
+					context.instance.extendColumnSelectionRight(ExtendColumnSelectionBy.Column);
 					return;
 				}
 
@@ -443,7 +408,7 @@ export const DataGridWaffle = (props: DataGridWaffleProps) => {
 		);
 
 		// Adjust the top for the next row.
-		top += context.instance.rowHeight;
+		top += context.instance.getRowHeight(rowIndex);
 	}
 
 	console.log(`Render number #${++renderCounter}`);
@@ -487,6 +452,7 @@ export const DataGridWaffle = (props: DataGridWaffleProps) => {
 					entries={context.instance.columns}
 					visibleEntries={context.instance.visibleColumns}
 					firstEntry={context.instance.firstColumnIndex}
+					maximumFirstEntry={context.instance.maximumFirstColumnIndex}
 					onDidChangeFirstEntry={firstColumnIndex =>
 						context.instance.setFirstColumn(firstColumnIndex)
 					}
@@ -500,6 +466,7 @@ export const DataGridWaffle = (props: DataGridWaffleProps) => {
 					entries={context.instance.rows}
 					visibleEntries={context.instance.visibleRows}
 					firstEntry={context.instance.firstRowIndex}
+					maximumFirstEntry={context.instance.maximumFirstRowIndex}
 					onDidChangeFirstEntry={firstRowIndex =>
 						context.instance.setFirstRow(firstRowIndex)
 					}

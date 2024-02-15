@@ -81,7 +81,7 @@ export const ActionBarMenuButton = (props: ActionBarMenuButtonProps) => {
 				}
 			},
 			onHide: () => positronActionBarContext.setMenuShowing(false),
-			anchorAlignment: AnchorAlignment.LEFT,
+			anchorAlignment: props.align && props.align === 'right' ? AnchorAlignment.RIGHT : AnchorAlignment.LEFT,
 			anchorAxisAlignment: AnchorAxisAlignment.VERTICAL,
 			contextKeyService: positronActionBarContext.contextKeyService
 		});

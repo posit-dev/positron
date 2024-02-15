@@ -59,6 +59,11 @@ interface DataGridScrollbarProps {
 	readonly firstEntry: number;
 
 	/**
+	 * Gets the maximum first entry.
+	 */
+	readonly maximumFirstEntry: number;
+
+	/**
 	 * First entry changed callback.
 	 * @param firstEntry The first entry.
 	 */
@@ -210,10 +215,11 @@ export const DataGridScrollbar = (props: DataGridScrollbarProps) => {
 		});
 
 		// Calculate the first entry.
-		const firstEntry = Math.trunc(
+		const firstEntry = Math.min(Math.trunc(
 			(props.entries - props.visibleEntries) *
-			sliderPosition /
-			(scrollbarState.scrollbarSize - scrollbarState.sliderSize));
+			sliderPosition / (scrollbarState.scrollbarSize - scrollbarState.sliderSize)),
+			props.maximumFirstEntry
+		);
 
 		// Change the first entry.
 		props.onDidChangeFirstEntry(firstEntry);
@@ -294,12 +300,15 @@ export const DataGridScrollbar = (props: DataGridScrollbarProps) => {
 				};
 			});
 
-			// Change the first entry.
-			props.onDidChangeFirstEntry(Math.trunc(
+			// Calculate the first entry.
+			const firstEntry = Math.min(Math.trunc(
 				(props.entries - props.visibleEntries) *
-				sliderPosition /
-				(scrollbarState.scrollbarSize - scrollbarState.sliderSize))
+				sliderPosition / (scrollbarState.scrollbarSize - scrollbarState.sliderSize)),
+				props.maximumFirstEntry
 			);
+
+			// Change the first entry.
+			props.onDidChangeFirstEntry(firstEntry);
 		};
 
 		// Set the capture target of future pointer events to be the current target and add our

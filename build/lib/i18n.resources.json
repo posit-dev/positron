@@ -203,7 +203,7 @@
 			"project": "vscode-workbench"
 		},
 		{
-			"name": "vs/workbench/contrib/positronDataTool",
+			"name": "vs/workbench/contrib/positronDataExplorer",
 			"project": "vscode-workbench"
 		},
 		{

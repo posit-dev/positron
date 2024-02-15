@@ -12,37 +12,37 @@ import { ILayoutService } from 'vs/platform/layout/browser/layoutService';
 import { IDataGridInstance } from 'vs/base/browser/ui/dataGrid/interfaces/dataGridInstance';
 
 /**
- * DataGridSettings interface.
+ * PositronDataGridServices interface.
  */
-export interface DataGridServices {
+export interface PositronDataGridServices {
 	layoutService: ILayoutService;
 }
 
 /**
- * DataGridConfiguration interface.
+ * PositronDataGridConfiguration interface.
  */
-export interface DataGridConfiguration extends DataGridServices {
+export interface PositronDataGridConfiguration extends PositronDataGridServices {
 	instance: IDataGridInstance;
 }
 
 /**
- * DataGridState interface.
+ * PositronDataGridState interface.
  */
-interface DataGridState extends DataGridConfiguration {
+interface PositronDataGridState extends PositronDataGridConfiguration {
 }
 
 /**
  * Create the data grid context.
  */
-const DataGridContext = createContext<DataGridState>(undefined!);
+const PositronDataGridContext = createContext<PositronDataGridState>(undefined!);
 
 /**
  * The useDataGridState custom hook.
  * @returns The hook.
  */
-const useDataGridState = (
-	configuration: DataGridConfiguration
-): DataGridState => {
+const usePositronDataGridState = (
+	configuration: PositronDataGridConfiguration
+): PositronDataGridState => {
 	// Add event handlers.
 	useEffect(() => {
 		// Create a disposable store for the event handlers we'll add.
@@ -59,23 +59,23 @@ const useDataGridState = (
 };
 
 /**
- * Export the DataGridContextProvider.
+ * Export the PositronDataGridContextProvider.
  */
-export const DataGridContextProvider = (
-	props: PropsWithChildren<DataGridConfiguration>
+export const PositronDataGridContextProvider = (
+	props: PropsWithChildren<PositronDataGridConfiguration>
 ) => {
 	// State hooks.
-	const state = useDataGridState(props);
+	const state = usePositronDataGridState(props);
 
 	// Render.
 	return (
-		<DataGridContext.Provider value={state}>
+		<PositronDataGridContext.Provider value={state}>
 			{props.children}
-		</DataGridContext.Provider>
+		</PositronDataGridContext.Provider>
 	);
 };
 
 /**
- * Export useDataGridContext to simplify using the data grid context object.
+ * Export usePositronDataGridContext to simplify using the data grid context object.
  */
-export const useDataGridContext = () => useContext(DataGridContext);
+export const usePositronDataGridContext = () => useContext(PositronDataGridContext);

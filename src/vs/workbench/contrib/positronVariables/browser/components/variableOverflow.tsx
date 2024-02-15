@@ -8,8 +8,8 @@ import { CSSProperties, MouseEvent } from 'react'; // eslint-disable-line no-dup
 import { localize } from 'vs/nls';
 import * as platform from 'vs/base/common/platform';
 import { positronClassNames } from 'vs/base/common/positronUtilities';
+import { VerticalSplitter, VerticalSplitterResizeParams } from 'vs/base/browser/ui/positronComponents/verticalSplitter';
 import { IVariableOverflow as IVariableOverflow } from 'vs/workbench/services/positronVariables/common/interfaces/variableOverflow';
-import { PositronColumnSplitter, PositronColumnSplitterResizeParams } from 'vs/base/browser/ui/positronComponents/positronColumnSplitter';
 
 /**
  * VariableOverflowProps interface.
@@ -23,7 +23,7 @@ export interface VariableOverflowProps {
 	style: CSSProperties;
 	onSelected: () => void;
 	onDeselected: () => void;
-	onBeginResizeNameColumn: () => PositronColumnSplitterResizeParams;
+	onBeginResizeNameColumn: () => VerticalSplitterResizeParams;
 	onResizeNameColumn: (newNameColumnWidth: number) => void;
 }
 
@@ -88,7 +88,7 @@ export const VariableOverflow = (props: VariableOverflowProps) => {
 					</div>
 				</div>
 			</div>
-			<PositronColumnSplitter
+			<VerticalSplitter
 				onBeginResize={props.onBeginResizeNameColumn}
 				onResize={props.onResizeNameColumn}
 			/>

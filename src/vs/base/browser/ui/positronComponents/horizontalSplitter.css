@@ -1,0 +1,29 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *--------------------------------------------------------------------------------------------*/
+
+.horizontal-splitter {
+	height: 1px;
+	width: 100%;
+	cursor: ns-resize;
+}
+
+.mac
+.horizontal-splitter {
+	/* On macOS, the cursor is row-resize instead of ns-resize. */
+	cursor: row-resize;
+}
+
+.horizontal-splitter
+.sizer {
+	top: -2px;
+	height: 5px;
+	z-index: 25;
+	width: 100%;
+	position: relative;
+}
+
+.horizontal-splitter
+.sizer.resizing {
+	background-color: var(--vscode-focusBorder);
+}

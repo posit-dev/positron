@@ -13,9 +13,10 @@ import { MouseEvent } from 'react'; // eslint-disable-line no-duplicate-imports
 import { isMacintosh } from 'vs/base/common/platform';
 import { positronClassNames } from 'vs/base/common/positronUtilities';
 import { IDataColumn } from 'vs/base/browser/ui/dataGrid/interfaces/dataColumn';
-import { useDataGridContext } from 'vs/base/browser/ui/dataGrid/dataGridContext';
-import { PositronColumnSplitter } from 'vs/base/browser/ui/positronComponents/positronColumnSplitter';
+import { usePositronDataGridContext } from 'vs/base/browser/ui/dataGrid/dataGridContext';
+import { VerticalSplitter } from 'vs/base/browser/ui/positronComponents/verticalSplitter';
 import { CellSelectionState } from 'vs/base/browser/ui/dataGrid/interfaces/dataGridInstance';
+import { HorizontalSplitter } from 'vs/base/browser/ui/positronComponents/horizontalSplitter';
 
 /**
  * DataGridRowCellProps interface.
@@ -34,7 +35,7 @@ interface DataGridRowCellProps {
  */
 export const DataGridRowCell = (props: DataGridRowCellProps) => {
 	// Context hooks.
-	const context = useDataGridContext();
+	const context = usePositronDataGridContext();
 
 	/**
 	 * MouseDown handler..
@@ -67,8 +68,8 @@ export const DataGridRowCell = (props: DataGridRowCellProps) => {
 				)}
 			style={{
 				left: props.left,
-				width: props.column.width,
-				height: context.instance.rowHeight
+				width: context.instance.getColumnWidth(props.columnIndex),
+				height: context.instance.getRowHeight(props.rowIndex)
 			}}
 			onMouseDown={mouseDownHandler}
 		>
@@ -92,14 +93,24 @@ export const DataGridRowCell = (props: DataGridRowCellProps) => {
 			<div className={positronClassNames('text', props.column.alignment)}>
 				{context.instance.cell(props.columnIndex, props.rowIndex)}
 			</div>
-			<PositronColumnSplitter
+			<VerticalSplitter
 				onBeginResize={() => ({
 					minimumWidth: context.instance.minimumColumnWidth,
 					maximumWidth: 400,
-					startingWidth: props.column.width
+					startingWidth: context.instance.getColumnWidth(props.columnIndex)
 				})}
 				onResize={width =>
 					context.instance.setColumnWidth(props.columnIndex, width)
+				}
+			/>
+			<HorizontalSplitter
+				onBeginResize={() => ({
+					minimumHeight: context.instance.minimumRowHeight,
+					maximumHeight: 90,
+					startingHeight: context.instance.getRowHeight(props.rowIndex)
+				})}
+				onResize={height =>
+					context.instance.setRowHeight(props.rowIndex, height)
 				}
 			/>
 		</div>

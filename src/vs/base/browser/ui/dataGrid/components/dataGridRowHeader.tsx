@@ -11,10 +11,11 @@ import { MouseEvent } from 'react'; // eslint-disable-line no-duplicate-imports
 
 // Other dependencies.
 import { positronClassNames } from 'vs/base/common/positronUtilities';
-import { useDataGridContext } from 'vs/base/browser/ui/dataGrid/dataGridContext';
+import { usePositronDataGridContext } from 'vs/base/browser/ui/dataGrid/dataGridContext';
 import { selectionType } from 'vs/base/browser/ui/dataGrid/utilities/mouseUtilities';
-import { PositronColumnSplitter } from 'vs/base/browser/ui/positronComponents/positronColumnSplitter';
+import { VerticalSplitter } from 'vs/base/browser/ui/positronComponents/verticalSplitter';
 import { RowSelectionState } from 'vs/base/browser/ui/dataGrid/interfaces/dataGridInstance';
+import { HorizontalSplitter } from 'vs/base/browser/ui/positronComponents/horizontalSplitter';
 
 /**
  * DataGridRowHeaderProps interface.
@@ -31,7 +32,7 @@ interface DataGridRowHeaderProps {
  */
 export const DataGridRowHeader = (props: DataGridRowHeaderProps) => {
 	// Context hooks.
-	const context = useDataGridContext();
+	const context = usePositronDataGridContext();
 
 	/**
 	 * MouseDown handler.
@@ -55,7 +56,7 @@ export const DataGridRowHeader = (props: DataGridRowHeaderProps) => {
 			}
 			style={{
 				top: props.top,
-				height: context.instance.rowHeight
+				height: context.instance.getRowHeight(props.rowIndex)
 			}}
 			onMouseDown={mouseDownHandler}
 		>
@@ -70,7 +71,7 @@ export const DataGridRowHeader = (props: DataGridRowHeaderProps) => {
 				}
 			/>
 			<div className='title'>{context.instance.rowLabel(props.rowIndex)}</div>
-			<PositronColumnSplitter
+			<VerticalSplitter
 				onBeginResize={() => ({
 					minimumWidth: 20,
 					maximumWidth: 400,
@@ -78,6 +79,16 @@ export const DataGridRowHeader = (props: DataGridRowHeaderProps) => {
 				})}
 				onResize={width =>
 					context.instance.setRowHeadersWidth(width)
+				}
+			/>
+			<HorizontalSplitter
+				onBeginResize={() => ({
+					minimumHeight: context.instance.minimumRowHeight,
+					maximumHeight: 90,
+					startingHeight: context.instance.getRowHeight(props.rowIndex)
+				})}
+				onResize={height =>
+					context.instance.setRowHeight(props.rowIndex, height)
 				}
 			/>
 		</div>

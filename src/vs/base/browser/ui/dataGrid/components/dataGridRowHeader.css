@@ -9,8 +9,9 @@
 	position: absolute;
 	align-items: center;
 	justify-content: center;
+	grid-template-rows: [title] 1fr [splitter] 1px [end];
 	grid-template-columns: [title] 1fr [splitter] 1px [end];
-	background-color: var(--vscode-positronDataGrid-headerBackground);
+	background-color: var(--vscode-positronDataGrid-contrastBackground);
 }
 
 .data-grid-row-header.selected {
@@ -56,10 +57,18 @@
 	white-space: nowrap;
 	line-height: normal;
 	text-overflow: ellipsis;
+	grid-row: title / splitter;
 	grid-column: title / splitter;
 }
 
 .data-grid-row-header
-.positron-column-splitter {
+.vertical-splitter {
+	grid-row: title / end;
 	grid-column: splitter / end;
+}
+
+.data-grid-row-header
+.horizontal-splitter {
+	grid-row: splitter / end;
+	grid-column: title / end;
 }

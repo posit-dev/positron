@@ -7,6 +7,24 @@ import { IDataColumn } from 'vs/base/browser/ui/dataGrid/interfaces/dataColumn';
 import { IColumnSortKey } from 'vs/base/browser/ui/dataGrid/interfaces/columnSortKey';
 
 /**
+ * ExtendColumnSelectionBy enumeration.
+ */
+export enum ExtendColumnSelectionBy {
+	Column = 'column',
+	Page = 'page',
+	Screen = 'screen'
+}
+
+/**
+ * ExtendRowSelectionBy enumeration.
+ */
+export enum ExtendRowSelectionBy {
+	Row = 'row',
+	Page = 'page',
+	Screen = 'screen'
+}
+
+/**
  * CellSelectionState enumeration.
  */
 export enum CellSelectionState {
@@ -67,9 +85,19 @@ export interface IDataGridInstance {
 	readonly minimumColumnWidth: number;
 
 	/**
-	 * Gets the row height.
+	 * Gets the default column width.
 	 */
-	readonly rowHeight: number;
+	readonly defaultColumnWidth: number;
+
+	/**
+	 * Gets the minimum row height.
+	 */
+	readonly minimumRowHeight: number;
+
+	/**
+	 * Gets the default row height.
+	 */
+	readonly defaultRowHeight: number;
 
 	/**
 	 * Gets the scrollbar width.
@@ -97,22 +125,22 @@ export interface IDataGridInstance {
 	readonly layoutHeight: number;
 
 	/**
-	 * Gets the visible rows.
-	 */
-	readonly visibleRows: number;
-
-	/**
 	 * Gets the visible columns.
 	 */
 	readonly visibleColumns: number;
 
 	/**
-	 * Gets the maximum first column.
+	 * Gets the visible rows.
+	 */
+	readonly visibleRows: number;
+
+	/**
+	 * Gets the maximum first column index.
 	 */
 	readonly maximumFirstColumnIndex: number;
 
 	/**
-	 * Gets the maximum first row.
+	 * Gets the maximum first row index.
 	 */
 	readonly maximumFirstRowIndex: number;
 
@@ -143,17 +171,17 @@ export interface IDataGridInstance {
 	setColumns(columns: IDataColumn[]): void;
 
 	/**
-	 * Sets the width of a column.
+	 * Gets the the width of a column.
 	 * @param columnIndex The column index.
-	 * @param width The width.
 	 */
-	setColumnWidth(columnIndex: number, width: number): void;
+	getColumnWidth(columnIndex: number): number;
 
 	/**
-	 * Sets the row headers width.
-	 * @param rowHeadersWidth The row headers width.
+	 * Sets the width of a column.
+	 * @param columnIndex The column index.
+	 * @param columnWidth The column width.
 	 */
-	setRowHeadersWidth(rowHeadersWidth: number): void;
+	setColumnWidth(columnIndex: number, columnWidth: number): void;
 
 	/**
 	 * Sets a column sort key.
@@ -175,6 +203,26 @@ export interface IDataGridInstance {
 	 * @returns A Promise<void> that resolves when the sorting has completed.
 	 */
 	clearColumnSortKeys(): Promise<void>;
+
+	/**
+	 * Sets the row headers width.
+	 * @param rowHeadersWidth The row headers width.
+	 */
+	setRowHeadersWidth(rowHeadersWidth: number): void;
+
+	/**
+	 * Gets the the height of a row.
+	 * @param rowIndex The row index.
+	 * @returns The row height.
+	 */
+	getRowHeight(rowIndex: number): number;
+
+	/**
+	 * Sets the the height of a row.
+	 * @param rowIndex The row index.
+	 * @param rowHeight The row height.
+	 */
+	setRowHeight(rowIndex: number, rowHeight: number): void;
 
 	/**
 	 * Sets the screen size.
@@ -285,24 +333,28 @@ export interface IDataGridInstance {
 	mouseSelectRow(rowIndex: number, mouseSelectionType: MouseSelectionType): void;
 
 	/**
-	 * Extends selection left.
+	 * Extends column selection left.
+	 * @param extendColumnSelectionBy A value that describes how to extend the column selection.
 	 */
-	extendSelectionLeft(): void;
+	extendColumnSelectionLeft(extendColumnSelectionBy: ExtendColumnSelectionBy): void;
 
 	/**
-	 * Extends selection right.
+	 * Extends column selection right.
+	 * @param extendColumnSelectionBy A value that describes how to extend the column selection.
 	 */
-	extendSelectionRight(): void;
+	extendColumnSelectionRight(extendColumnSelectionBy: ExtendColumnSelectionBy): void;
 
 	/**
-	 * Extends selection up.
+	 * Extends row selection up.
+	 * @param extendRowSelectionBy A value that describes how to extend the row selection.
 	 */
-	extendSelectionUp(): void;
+	extendRowSelectionUp(extendRowSelectionBy: ExtendRowSelectionBy): void;
 
 	/**
-	 * Extends selection down.
+	 * Extends row selection down.
+	 * @param extendRowSelectionBy A value that describes how to extend the row selection.
 	 */
-	extendSelectionDown(): void;
+	extendRowSelectionDown(extendRowSelectionBy: ExtendRowSelectionBy): void;
 
 	/**
 	 * Returns a cell selection state.
@@ -346,7 +398,7 @@ export interface IDataGridInstance {
 	columnSortKey(columnIndex: number): IColumnSortKey | undefined;
 
 	/**
-	 *
+	 * Initialize.
 	 */
 	initialize(): void;
 
@@ -358,7 +410,7 @@ export interface IDataGridInstance {
 	sortData(columnSorts: IColumnSortKey[]): Promise<void>;
 
 	/**
-	 *
+	 * Fetches data.
 	 */
 	fetchData(): void;
 

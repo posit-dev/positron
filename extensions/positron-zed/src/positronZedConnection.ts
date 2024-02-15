@@ -75,7 +75,7 @@ export class ZedConnection {
 
 			// A request to preview a table
 			case 'preview_table':
-				this.zed.createZedDataView(randomUUID(), message.table);
+				// this.zed.createZedDataView(randomUUID(), message.table);
 				break;
 		}
 	}

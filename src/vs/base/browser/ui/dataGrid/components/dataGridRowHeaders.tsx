@@ -9,7 +9,7 @@ import 'vs/css!./dataGridRowHeaders';
 import * as React from 'react';
 
 // Other dependencies.
-import { useDataGridContext } from 'vs/base/browser/ui/dataGrid/dataGridContext';
+import { usePositronDataGridContext } from 'vs/base/browser/ui/dataGrid/dataGridContext';
 import { DataGridRowHeader } from 'vs/base/browser/ui/dataGrid/components/dataGridRowHeader';
 
 /**
@@ -26,7 +26,7 @@ interface DataGridRowHeadersProps {
  */
 export const DataGridRowHeaders = (props: DataGridRowHeadersProps) => {
 	// Context hooks.
-	const context = useDataGridContext();
+	const context = usePositronDataGridContext();
 
 	// Render the row headers.
 	const rowHeaders: JSX.Element[] = [];
@@ -40,7 +40,7 @@ export const DataGridRowHeaders = (props: DataGridRowHeadersProps) => {
 		);
 
 		// Adjust the top offset for the next row.
-		top += context.instance.rowHeight;
+		top += context.instance.getRowHeight(rowIndex);
 	}
 
 	// Render.

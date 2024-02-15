@@ -27,7 +27,7 @@ import { URI } from 'vs/base/common/uri';
 import { BusyEvent, UiFrontendEvent, OpenEditorEvent, PromptStateEvent, WorkingDirectoryEvent } from 'vs/workbench/services/languageRuntime/common/positronUiComm';
 import { IEditorService } from 'vs/workbench/services/editor/common/editorService';
 import { ITextResourceEditorInput } from 'vs/platform/editor/common/editor';
-import { IPositronDataToolService } from 'vs/workbench/services/positronDataTool/browser/interfaces/positronDataToolService';
+import { IPositronDataExplorerService } from 'vs/workbench/services/positronDataExplorer/browser/interfaces/positronDataExplorerService';
 
 /**
  * Represents a language runtime event (for example a message or state change)
@@ -945,7 +945,7 @@ export class MainThreadLanguageRuntime implements MainThreadLanguageRuntimeShape
 		extHostContext: IExtHostContext,
 		@ILanguageRuntimeService private readonly _languageRuntimeService: ILanguageRuntimeService,
 		@IPositronConsoleService private readonly _positronConsoleService: IPositronConsoleService,
-		@IPositronDataToolService private readonly _positronDataToolService: IPositronDataToolService,
+		@IPositronDataExplorerService private readonly _positronDataExplorerService: IPositronDataExplorerService,
 		@IPositronVariablesService private readonly _positronVariablesService: IPositronVariablesService,
 		@IPositronHelpService private readonly _positronHelpService: IPositronHelpService,
 		@IPositronPlotsService private readonly _positronPlotService: IPositronPlotsService,
@@ -959,7 +959,7 @@ export class MainThreadLanguageRuntime implements MainThreadLanguageRuntimeShape
 		// is where we're doing this.
 		this._positronHelpService.initialize();
 		this._positronConsoleService.initialize();
-		this._positronDataToolService.initialize();
+		this._positronDataExplorerService.initialize();
 		this._positronVariablesService.initialize();
 		this._positronPlotService.initialize();
 		this._positronIPyWidgetsService.initialize();
