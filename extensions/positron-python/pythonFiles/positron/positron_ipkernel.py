@@ -28,8 +28,7 @@ from IPython.core.magic import (
 )
 from IPython.utils import PyColorize
 
-from positron.data_tool import DataToolService
-
+from .data_explorer import DataExplorerService
 from .ui import UiService
 from .help import HelpService, help
 from .lsp import LSPService
@@ -40,7 +39,7 @@ from .widget import PositronWidgetHook
 
 
 class _CommTarget(str, enum.Enum):
-    DataTool = "positron.dataTool"
+    DataExplorer = "positron.dataExplorer"
     Ui = "positron.ui"
     Help = "positron.help"
     Lsp = "positron.lsp"
@@ -107,14 +106,14 @@ class PositronMagics(Magics):
     @needs_local_scope
     @line_magic
     def view(self, line: str, local_ns: Dict[str, Any]):
-        """View an object in the Positron Data Tool."""
+        """View an object in the Positron Data Explorer."""
         try:
             obj = local_ns[line]
         except KeyError:  # not in namespace
             obj = eval(line, local_ns, local_ns)
 
         # Register a dataset with the dataviewer service.
-        self.shell.kernel.datatool_service.register_table(obj, line)
+        self.shell.kernel.data_explorer_service.register_table(obj, line)
 
 
 _traceback_file_link_re = re.compile(r"^(File \x1b\[\d+;\d+m)(.+):(\d+)")
@@ -287,14 +286,15 @@ class PositronIPyKernel(IPythonKernel):
 
     # Use the PositronShell class.
     shell_class: PositronShell = traitlets.Type(
-        PositronShell, klass=InteractiveShell  # type: ignore
+        PositronShell,
+        klass=InteractiveShell,  # type: ignore
     )
 
     def __init__(self, **kwargs) -> None:
         super().__init__(**kwargs)
 
         # Create Positron services
-        self.datatool_service = DataToolService(_CommTarget.DataTool)
+        self.data_explorer_service = DataExplorerService(_CommTarget.DataExplorer)
         self.display_pub_hook = PositronDisplayPublisherHook(_CommTarget.Plot)
         self.ui_service = UiService()
         self.help_service = HelpService()
@@ -348,7 +348,7 @@ class PositronIPyKernel(IPythonKernel):
         logger.info("Shutting down the kernel")
 
         # Shutdown Positron services
-        self.datatool_service.shutdown()
+        self.data_explorer_service.shutdown()
         self.display_pub_hook.shutdown()
         self.ui_service.shutdown()
         self.help_service.shutdown()

@@ -6,14 +6,14 @@
 # pyright: reportOptionalMemberAccess=false
 
 from typing import TYPE_CHECKING, Dict, List, Sequence
-from .data_tool_comm import (
+from .data_explorer_comm import (
     BackendState,
     ColumnFilter,
     ColumnFilterCompareOp,
     ColumnSchema,
     ColumnSchemaTypeDisplay,
     ColumnSortKey,
-    DataToolBackendMessageContent,
+    DataExplorerBackendMessageContent,
     FilterResult,
     GetColumnProfileProfileType,
     GetDataValuesRequest,
@@ -42,10 +42,10 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-class DataToolTableView:
+class DataExplorerTableView:
     """
     Interface providing a consistent wrapper around different data
-    frame / table types for the data tool for serving requests from
+    frame / table types for the data explorer for serving requests from
     the front end. This includes pandas.DataFrame, polars.DataFrame,
     pyarrow.Table, and any others
     """
@@ -124,7 +124,7 @@ def _pandas_format_values(col):
         return col.astype(str).tolist()
 
 
-class PandasView(DataToolTableView):
+class PandasView(DataExplorerTableView):
     TYPE_DISPLAY_MAPPING = {
         "integer": "number",
         "int8": "number",
@@ -372,11 +372,11 @@ def _pandas_eval_filter(df: "pd.DataFrame", filt: ColumnFilter):
     return mask.to_numpy()
 
 
-class PolarsView(DataToolTableView):
+class PolarsView(DataExplorerTableView):
     pass
 
 
-class PyArrowView(DataToolTableView):
+class PyArrowView(DataExplorerTableView):
     pass
 
 
@@ -384,13 +384,13 @@ def _wrap_table(table):
     return PandasView(table)
 
 
-class DataToolService:
+class DataExplorerService:
     def __init__(self, comm_target: str) -> None:
         self.comm_target = comm_target
 
         # Maps comm_id for each dataset being viewed to PositronComm
         self.comms: Dict[str, PositronComm] = {}
-        self.tables: Dict[str, DataToolTableView] = {}
+        self.tables: Dict[str, DataExplorerTableView] = {}
 
     def shutdown(self) -> None:
         for table_comm in self.comms.values():
@@ -417,7 +417,7 @@ class DataToolService:
             )
         )
         self.comms[comm_id] = table_comm
-        table_comm.on_msg(self.handle_msg, DataToolBackendMessageContent)
+        table_comm.on_msg(self.handle_msg, DataExplorerBackendMessageContent)
 
     def deregister_table(self, comm_id: str):
         comm = self.comms.pop(comm_id)
@@ -428,10 +428,10 @@ class DataToolService:
             pass
         del self.tables[comm_id]
 
-    def handle_msg(self, msg: CommMessage[DataToolBackendMessageContent], raw_msg):
+    def handle_msg(self, msg: CommMessage[DataExplorerBackendMessageContent], raw_msg):
         """
         Handle messages received from the client via the
-        positron.data_tool comm.
+        positron.data_explorer comm.
         """
         comm_id = msg.content.comm_id
         request = msg.content.data

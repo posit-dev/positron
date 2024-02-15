@@ -219,7 +219,12 @@ def test_handle_delete(shell: PositronShell, variables_comm: DummyComm) -> None:
     assert variables_comm.messages == [
         json_rpc_response([encode_access_key("x")]),
         json_rpc_notification(
-            "update", {"assigned": [], "removed": [encode_access_key("x")], "version": 0}
+            "update",
+            {
+                "assigned": [],
+                "removed": [encode_access_key("x")],
+                "version": 0,
+            },
         ),
     ]
 
@@ -258,7 +263,11 @@ def test_handle_inspect_2d(
     for key in keys:
         path = [encode_access_key("x"), encode_access_key(key)]
         # TODO: We shouldn't need to cast; may be a pyright bug
-        msg = json_rpc_request("inspect", cast(JsonRecord, {"path": path}), comm_id="dummy_comm_id")
+        msg = json_rpc_request(
+            "inspect",
+            cast(JsonRecord, {"path": path}),
+            comm_id="dummy_comm_id",
+        )
         variables_comm.handle_msg(msg)
 
         inspector = get_inspector(x[key])
@@ -328,7 +337,7 @@ def test_handle_clipboard_format_error(variables_comm: DummyComm) -> None:
 def test_handle_view(
     shell: PositronShell,
     variables_comm: DummyComm,
-    mock_datatool_service: Mock,
+    mock_dataexplorer_service: Mock,
 ) -> None:
     shell.user_ns.update({"x": pd.DataFrame({"a": [0]})})
 
@@ -338,7 +347,7 @@ def test_handle_view(
     # An acknowledgment message is sent
     assert variables_comm.messages == [json_rpc_response({})]
 
-    assert_dataset_registered(mock_datatool_service, shell.user_ns["x"], "x")
+    assert_dataset_registered(mock_dataexplorer_service, shell.user_ns["x"], "x")
 
 
 def test_handle_view_error(variables_comm: DummyComm) -> None:
