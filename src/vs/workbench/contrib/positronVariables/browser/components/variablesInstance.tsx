@@ -11,11 +11,11 @@ import { DisposableStore } from 'vs/base/common/lifecycle';
 import { useStateRef } from 'vs/base/browser/ui/react/useStateRef';
 import { FixedSizeList as List, ListChildComponentProps } from 'react-window';
 import { IReactComponentContainer } from 'vs/base/browser/positronReactRenderer';
+import { VerticalSplitterResizeParams } from 'vs/base/browser/ui/positronComponents/verticalSplitter';
 import { VariableItem } from 'vs/workbench/contrib/positronVariables/browser/components/variableItem';
 import { VariableGroup } from 'vs/workbench/contrib/positronVariables/browser/components/variableGroup';
 import { VariablesEmpty } from 'vs/workbench/contrib/positronVariables/browser/components/variablesEmpty';
 import { VariableOverflow } from 'vs/workbench/contrib/positronVariables/browser/components/variableOverflow';
-import { PositronColumnSplitterResizeParams } from 'vs/base/browser/ui/positronComponents/positronColumnSplitter';
 import { usePositronVariablesContext } from 'vs/workbench/contrib/positronVariables/browser/positronVariablesContext';
 import { VariableEntry, IPositronVariablesInstance, isVariableGroup, isVariableItem, isVariableOverflow } from 'vs/workbench/services/positronVariables/common/interfaces/positronVariablesInstance';
 
@@ -302,9 +302,9 @@ export const VariablesInstance = (props: VariablesInstanceProps) => {
 
 	/**
 	 * onBeginResizeNameColumn handler.
-	 * @returns A PositronColumnSplitterResizeParams containing the resize parameters.
+	 * @returns A VerticalSplitterResizeParams containing the resize parameters.
 	 */
-	const beginResizeNameColumnHandler = (): PositronColumnSplitterResizeParams => ({
+	const beginResizeNameColumnHandler = (): VerticalSplitterResizeParams => ({
 		minimumWidth: MINIMUM_NAME_COLUMN_WIDTH,
 		maximumWidth: Math.trunc(2 * props.width / 3),
 		startingWidth: nameColumnWidth

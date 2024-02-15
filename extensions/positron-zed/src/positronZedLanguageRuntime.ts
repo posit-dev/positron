@@ -8,7 +8,6 @@ import * as vscode from 'vscode';
 import { randomUUID } from 'crypto';
 import * as positron from 'positron';
 import { ZedPlot } from './positronZedPlot';
-import { ZedData } from './positronZedData';
 import { ZedPreview } from './positronZedPreview';
 import { ZedVariables } from './positronZedVariables';
 import { makeCUB, makeCUF, makeCUP, makeED, makeEL, makeSGR, SGR } from './ansi';
@@ -81,7 +80,7 @@ const HelpLines = [
 	'restart          - Simulates orderly restart',
 	'shutdown X       - Simulates orderly shutdown, or sets the shutdown delay to X',
 	'static plot      - Renders a static plot (image)',
-	'view X           - Open a data viewer named X',
+	'view X           - Open a data viewer named X (currently disable)',
 	'version          - Shows the Zed version'
 ].join('\n');
 
@@ -153,11 +152,6 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 	 * A map of plot IDs to plot instances.
 	 */
 	private readonly _plots: Map<string, ZedPlot> = new Map();
-
-	/**
-	 * A map of data frame IDs to data frame instances.
-	 */
-	private readonly _data: Map<string, ZedData> = new Map();
 
 	/**
 	 * The active preview instance, if any.
@@ -411,11 +405,11 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 				this.shutdown();
 			}
 			return;
-		} else if (match = code.match(/^view( .+)?/)) {
-			// Simulate a data viewer
-			const title = (match.length > 1 && match[1]) ? match[1].trim() : 'Data';
-			this.simulateDataView(id, code, `Zed: ${title}`);
-			return;
+			// } else if (match = code.match(/^view( .+)?/)) {
+			// 	// Simulate a data viewer
+			// 	const title = (match.length > 1 && match[1]) ? match[1].trim() : 'Data';
+			// 	this.simulateDataView(id, code, `Zed: ${title}`);
+			// 	return;
 		} else if (match = code.match(/^exec ([a-zA-Z]+) (.+)/)) {
 			// Execute code in another language.
 			const languageId = match[1];
@@ -972,8 +966,7 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 				break;
 
 			case positron.RuntimeClientType.Plot:
-			case positron.RuntimeClientType.DataViewer:
-			case positron.RuntimeClientType.DataTool:
+			case positron.RuntimeClientType.DataExplorer:
 				// These types can only be created by the back end; it's an
 				// error if the front end tries to create one.
 				throw new Error(`Client type ${type} cannot be created by the front end.`);
@@ -1031,11 +1024,6 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 				clients[connection.id] = positron.RuntimeClientType.Connection;
 			}
 		}
-		if (!type || type === positron.RuntimeClientType.DataViewer) {
-			for (const data of this._data.values()) {
-				clients[data.id] = positron.RuntimeClientType.Plot;
-			}
-		}
 		if (!type || type === positron.RuntimeClientType.Ui) {
 			if (this._ui) {
 				clients[this._ui.id] = positron.RuntimeClientType.Ui;
@@ -1056,9 +1044,6 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 		} else if (this._plots.has(id)) {
 			// Is it ... a plot?
 			this._plots.delete(id);
-		} else if (this._data.has(id)) {
-			// Is it ... a data viewer?
-			this._data.delete(id);
 		} else if (this._connections.has(id)) {
 			this._connections.delete(id);
 		} else {
@@ -1087,14 +1072,6 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 		if (plot) {
 			this._pendingRpcs.push(message_id);
 			plot.handleMessage(message);
-			return;
-		}
-
-		// See if this ID is a known data viewer
-		const data = this._data.get(client_id);
-		if (data) {
-			this._pendingRpcs.push(message_id);
-			data.handleMessage(message);
 			return;
 		}
 
@@ -1241,9 +1218,8 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 		// Simulate closing all the open comms.
 		const enviromentIds = Array.from(this._environments.keys());
 		const plotIds = Array.from(this._plots.keys());
-		const dataIds = Array.from(this._data.keys());
 		const connectionIds = Array.from(this._connections.keys());
-		const allIds = enviromentIds.concat(plotIds).concat(dataIds).concat(connectionIds);
+		const allIds = enviromentIds.concat(plotIds).concat(connectionIds);
 		allIds.forEach(id => {
 			this._onDidReceiveRuntimeMessage.fire({
 				id: randomUUID(),
@@ -1599,46 +1575,6 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 			data: {
 				'text/plain': '<ZedPLOT 325x325>',
 				'image/png': plotPngBase64
-			} as Record<string, string>
-		} as positron.LanguageRuntimeOutput);
-
-		// Return to idle state.
-		this.simulateIdleState(parentId);
-	}
-
-	public createZedDataView(parentId: string, title: string) {
-		// Create the data client comm.
-		const data = new ZedData(title);
-		this.connectClientEmitter(data);
-		this._data.set(data.id, data);
-
-		// Send the comm open message to the client.
-		this._onDidReceiveRuntimeMessage.fire({
-			id: randomUUID(),
-			parent_id: parentId,
-			when: new Date().toISOString(),
-			type: positron.LanguageRuntimeMessageType.CommOpen,
-			comm_id: data.id,
-			target_name: 'positron.dataViewer',
-			data: { 'title': data.title }
-		} as positron.LanguageRuntimeCommOpen);
-	}
-
-	public simulateDataView(parentId: string, code: string, title: string) {
-		// Enter busy state and output the code.
-		this.simulateBusyState(parentId);
-		this.simulateInputMessage(parentId, code);
-
-		this.createZedDataView(parentId, title);
-
-		// Emit text output so something shows up in the console.
-		this._onDidReceiveRuntimeMessage.fire({
-			id: randomUUID(),
-			parent_id: parentId,
-			when: new Date().toISOString(),
-			type: positron.LanguageRuntimeMessageType.Output,
-			data: {
-				'text/plain': `<ZedData view>`
 			} as Record<string, string>
 		} as positron.LanguageRuntimeOutput);
 
@@ -2014,7 +1950,7 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 	 *
 	 * @param client The environment or plot to connect
 	 */
-	private connectClientEmitter(client: ZedVariables | ZedPlot | ZedData | ZedUi | ZedConnection) {
+	private connectClientEmitter(client: ZedVariables | ZedPlot | ZedUi | ZedConnection) {
 
 		// Listen for data emitted from the environment instance
 		client.onDidEmitData(data => {

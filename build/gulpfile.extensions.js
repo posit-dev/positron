@@ -33,8 +33,6 @@ const compilations = [
 	// --- Start Positron ---
 	'positron-code-cells/tsconfig.json',
 	'positron-connections/tsconfig.json',
-	'positron-data-viewer/tsconfig.json',
-	'positron-data-viewer/ui/tsconfig.json',
 	'positron-javascript/tsconfig.json',
 	'positron-notebook-controllers/tsconfig.json',
 	'positron-r/tsconfig.json',

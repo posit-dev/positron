@@ -1,8 +1,0 @@
-/*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
- *--------------------------------------------------------------------------------------------*/
-
-.positron-data-tool {
-	color: var(--vscode-positronDataTool-foreground);
-	background: var(--vscode-positronDataTool-background);
-}

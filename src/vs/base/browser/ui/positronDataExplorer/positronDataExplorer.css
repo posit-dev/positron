@@ -1,0 +1,8 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
+ *--------------------------------------------------------------------------------------------*/
+
+.positron-data-explorer {
+	color: var(--vscode-positronDataExplorer-foreground);
+	background-color: var(--vscode-positronDataExplorer-background);
+}

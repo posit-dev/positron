@@ -21,7 +21,7 @@
 	overflow: overlay !important;
 }
 
-.variables-core .variables-instance .positron-column-splitter {
+.variables-core .variables-instance .vertical-splitter {
 	background-color: var(--vscode-positronVariables-border);
 }
 
