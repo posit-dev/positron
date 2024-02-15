@@ -58,7 +58,7 @@ class DataExplorerRuntime extends Disposable {
 		 */
 		this._register(this._runtime.onDidCreateClientInstance(async e => {
 			// Ignore client types we don't process.
-			if (e.client.getClientType() !== RuntimeClientType.DataTool) {
+			if (e.client.getClientType() !== RuntimeClientType.DataExplorer) {
 				return;
 			}
 

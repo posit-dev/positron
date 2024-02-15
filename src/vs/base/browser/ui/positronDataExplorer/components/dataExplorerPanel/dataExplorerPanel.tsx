@@ -18,7 +18,7 @@ import { VerticalSplitter, VerticalSplitterResizeParams } from 'vs/base/browser/
 import { PositronDataExplorerLayout } from 'vs/workbench/services/positronDataExplorer/browser/interfaces/positronDataExplorerService';
 import { ColumnsPanel } from 'vs/base/browser/ui/positronDataExplorer/components/dataExplorerPanel/components/columnsPanel';
 import { DataGridPanel } from 'vs/base/browser/ui/positronDataExplorer/components/dataExplorerPanel/components/dataGridPanel';
-import { DataToolSummary } from 'vs/base/browser/ui/positronDataExplorer/components/dataExplorerPanel/components/dataToolSummary';
+import { DataExplorerSummary } from 'vs/base/browser/ui/positronDataExplorer/components/dataExplorerPanel/components/dataExplorerSummary';
 
 /**
  * Constants.
@@ -38,7 +38,7 @@ interface DataExplorerPanelProps extends PositronDataExplorerProps {
 
 /**
  * DataExplorerPanel component.
- * @param props A DataToolPanelProps that contains the component properties.
+ * @param props A DataExplorerPanelProps that contains the component properties.
  * @returns The rendered component.
  */
 export const DataExplorerPanel = (props: DataExplorerPanelProps) => {
@@ -46,7 +46,7 @@ export const DataExplorerPanel = (props: DataExplorerPanelProps) => {
 	const context = usePositronDataExplorerContext();
 
 	// Reference hooks.
-	const dataTool = useRef<HTMLDivElement>(undefined!);
+	const dataExplorer = useRef<HTMLDivElement>(undefined!);
 	const column1 = useRef<HTMLDivElement>(undefined!);
 	const splitter = useRef<HTMLDivElement>(undefined!);
 	const column2 = useRef<HTMLDivElement>(undefined!);
@@ -80,8 +80,8 @@ export const DataExplorerPanel = (props: DataExplorerPanelProps) => {
 		switch (layout) {
 			// Columns left.
 			case PositronDataExplorerLayout.ColumnsLeft:
-				dataTool.current.style.gridTemplateRows = '[main] 1fr [end]';
-				dataTool.current.style.gridTemplateColumns = `[column-1] ${columnsWidth}px [splitter] 1px [column-2] 1fr [end]`;
+				dataExplorer.current.style.gridTemplateRows = '[main] 1fr [end]';
+				dataExplorer.current.style.gridTemplateColumns = `[column-1] ${columnsWidth}px [splitter] 1px [column-2] 1fr [end]`;
 
 				column1.current.style.gridRow = 'main / end';
 				column1.current.style.gridColumn = 'column-1 / splitter';
@@ -98,8 +98,8 @@ export const DataExplorerPanel = (props: DataExplorerPanelProps) => {
 
 			// Columns right.
 			case PositronDataExplorerLayout.ColumnsRight:
-				dataTool.current.style.gridTemplateRows = '[main] 1fr [end]';
-				dataTool.current.style.gridTemplateColumns = `[column-1] 1fr [splitter] 1px [column-2] ${columnsWidth}px [end]`;
+				dataExplorer.current.style.gridTemplateRows = '[main] 1fr [end]';
+				dataExplorer.current.style.gridTemplateColumns = `[column-1] 1fr [splitter] 1px [column-2] ${columnsWidth}px [end]`;
 
 				column1.current.style.gridRow = 'main / end';
 				column1.current.style.gridColumn = 'column-2 / end';
@@ -116,8 +116,8 @@ export const DataExplorerPanel = (props: DataExplorerPanelProps) => {
 
 			// Columns hidden.
 			case PositronDataExplorerLayout.ColumnsHidden:
-				dataTool.current.style.gridTemplateRows = '[main] 1fr [end]';
-				dataTool.current.style.gridTemplateColumns = `[column] 1fr [end]`;
+				dataExplorer.current.style.gridTemplateRows = '[main] 1fr [end]';
+				dataExplorer.current.style.gridTemplateColumns = `[column] 1fr [end]`;
 
 				column1.current.style.gridRow = '';
 				column1.current.style.gridColumn = '';
@@ -154,17 +154,17 @@ export const DataExplorerPanel = (props: DataExplorerPanelProps) => {
 		context.instance.columnsWidthPercent = newColumnsWidth / props.width;
 	};
 
-	const dataToolHeight = props.height - ACTIONS_HEIGHT - SUMMARY_HEIGHT;
+	const dataExplorerHeight = props.height - ACTIONS_HEIGHT - SUMMARY_HEIGHT;
 
 	// Render.
 	return (
-		<div className='data-tool-container' style={{ width: props.width, height: props.height }}>
-			<div className='data-tool-actions'>
+		<div className='data-explorer-container' style={{ width: props.width, height: props.height }}>
+			<div className='data-explorer-actions'>
 				Actions
 			</div>
-			<div ref={dataTool} className='data-tool'>
+			<div ref={dataExplorer} className='data-explorer'>
 				<div ref={column1} className='column-1'>
-					<ColumnsPanel width={columnsWidth} height={dataToolHeight} />
+					<ColumnsPanel width={columnsWidth} height={dataExplorerHeight} />
 				</div>
 				<div ref={splitter} className='splitter'>
 					<VerticalSplitter
@@ -179,11 +179,11 @@ export const DataExplorerPanel = (props: DataExplorerPanelProps) => {
 							props.width :
 							props.width - columnsWidth
 						}
-						height={dataToolHeight}
+						height={dataExplorerHeight}
 					/>
 				</div>
 			</div>
-			<DataToolSummary />
+			<DataExplorerSummary />
 		</div>
 	);
 };

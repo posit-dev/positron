@@ -1920,32 +1920,6 @@ export const POSITRON_VARIABLES_INACTIVE_SELECTION_FOREGROUND_COLOR = registerCo
 	hcLight: listInactiveSelectionForeground
 }, localize('positronVariables.inactiveSelectionForeground', "Positron variables inactive selection foreground color."));
 
-// < --- Positron Data Viewer --- >
-
-// Positron data viewer background color.
-export const POSITRON_DATAVIEWER_BACKGROUND_COLOR = registerColor('positronDataViewer.background', {
-	dark: 'terminal.background',
-	light: 'terminal.background',
-	hcDark: 'terminal.background',
-	hcLight: 'terminal.background'
-}, localize('positronDataViewer.background', "Positron data viewer background color."));
-
-// Positron data viewer header background color.
-export const POSITRON_DATAVIEWER_HEADER_BACKGROUND_COLOR = registerColor('positronDataViewer.headerBackground', {
-	dark: lighten(editorBackground, 0.2),
-	light: darken(editorBackground, 0.05),
-	hcDark: editorBackground,
-	hcLight: editorBackground
-}, localize('positronDataViewer.headerBackground', "Positron data viewer header background color."));
-
-// Positron data viewer grid color.
-export const POSITRON_DATAVIEWER_GRID_COLOR = registerColor('positronDataViewer.grid', {
-	dark: tableColumnsBorder,
-	light: tableColumnsBorder,
-	hcDark: tableColumnsBorder,
-	hcLight: tableColumnsBorder
-}, localize('positronDataViewer.grid', "Positron data viewer grid color."));
-
 // < --- Positron Plots --- >
 
 // Positron plots background color.

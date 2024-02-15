@@ -2,23 +2,23 @@
  *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
-.data-tool-container {
+.data-explorer-container {
 	display: grid;
-	grid-template-rows: [data-tool-actions] 64px [data-tool] 1fr [data-tool-summary] 24px [end];
+	grid-template-rows: [data-explorer-actions] 64px [data-explorer] 1fr [data-explorer-summary] 24px [end];
 }
 
-.data-tool-container
-.data-tool-actions {
-	/* Place the data-tool in the data-tool-container. */
+.data-explorer-container
+.data-explorer-actions {
+	/* Place the data-explorer in the data-explorer-container. */
 	padding: 8px;
-	grid-row: data-tool-actions / data-tool;
+	grid-row: data-explorer-actions / data-explorer;
 }
 
-.data-tool-container
-.data-tool {
+.data-explorer-container
+.data-explorer {
 	overflow: hidden;
-	/* Place the data-tool in the data-tool-container. */
-	grid-row: data-tool / data-tool-summary;
+	/* Place the data-explorer in the data-explorer-container. */
+	grid-row: data-explorer / data-explorer-summary;
 
 	/* Prevent 1fr from exceeding the parent height. */
 	min-height: 0;
@@ -27,8 +27,8 @@
 	display: grid;
 }
 
-.data-tool-container
-.data-tool
+.data-explorer-container
+.data-explorer
 .column-1 {
 	/* Prevent 1fr from exceeding the parent height. */
 	min-height: 0;
@@ -37,22 +37,22 @@
 	display: none;
 }
 
-.data-tool-container
-.data-tool
+.data-explorer-container
+.data-explorer
 .splitter {
 	/* Initially hidden. Layout happens in code. */
 	display: none;
 }
 
-.data-tool-container
-.data-tool
+.data-explorer-container
+.data-explorer
 .splitter
 .vertical-splitter {
 	background-color: var(--vscode-positronDataExplorer-border);
 }
 
-.data-tool-container
-.data-tool
+.data-explorer-container
+.data-explorer
 .column-2 {
 	/* Bordered. */
 	/* border-radius: 4px; */

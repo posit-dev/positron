@@ -51,7 +51,7 @@ export const DataExplorerActionBar = (props: DataExplorerActionBarProps) => {
 	// Render.
 	return (
 		<PositronActionBarContextProvider {...context}>
-			<div className='data-tool-action-bar'>
+			<div className='data-explorer-action-bar'>
 				<PositronActionBar
 					size='small'
 					borderBottom={true}

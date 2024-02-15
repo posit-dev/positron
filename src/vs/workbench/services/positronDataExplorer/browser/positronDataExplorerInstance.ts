@@ -16,9 +16,9 @@ export class PositronDataExplorerInstance extends Disposable implements IPositro
 	//#region Private Properties
 
 	/**
-	 * Gets the DataToolClientInstance.
+	 * Gets the DataExplorerClientInstance.
 	 */
-	private readonly _dataToolClientInstance: DataExplorerClientInstance;
+	private readonly _dataExplorerClientInstance: DataExplorerClientInstance;
 
 	/**
 	 * Gets or sets the layout.
@@ -61,15 +61,15 @@ export class PositronDataExplorerInstance extends Disposable implements IPositro
 
 	/**
 	 * Constructor.
-	 * @param dataToolClientInstance The DataToolClientInstance.
+	 * @param dataExplorerClientInstance The DataExplorerClientInstance.
 	 */
-	constructor(dataToolClientInstance: DataExplorerClientInstance) {
+	constructor(dataExplorerClientInstance: DataExplorerClientInstance) {
 		// Call the base class's constructor.
 		super();
 
 		// Initialize.
-		this._dataToolClientInstance = dataToolClientInstance;
-		this._positronDataExplorerDataGridInstance = new PositronDataExplorerDataGridInstance(dataToolClientInstance);
+		this._dataExplorerClientInstance = dataExplorerClientInstance;
+		this._positronDataExplorerDataGridInstance = new PositronDataExplorerDataGridInstance(dataExplorerClientInstance);
 	}
 
 	//#endregion Constructor & Dispose
@@ -80,7 +80,7 @@ export class PositronDataExplorerInstance extends Disposable implements IPositro
 	 * Gets the identifier.
 	 */
 	get identifier() {
-		return this._dataToolClientInstance.identifier;
+		return this._dataExplorerClientInstance.identifier;
 	}
 
 	/**

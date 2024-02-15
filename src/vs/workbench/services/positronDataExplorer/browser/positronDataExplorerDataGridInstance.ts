@@ -14,9 +14,9 @@ import { FetchRange, FetchResult, PositronDataExplorerCache } from 'vs/workbench
  */
 export class PositronDataExplorerDataGridInstance extends DataGridInstance {
 	/**
-	 * Gets the data tool client instance.
+	 * Gets the data explorer client instance.
 	 */
-	private readonly _dataToolClientInstance: DataExplorerClientInstance;
+	private readonly _dataExplorerClientInstance: DataExplorerClientInstance;
 
 	private _tableSchema?: TableSchema;
 
@@ -26,9 +26,9 @@ export class PositronDataExplorerDataGridInstance extends DataGridInstance {
 
 	/**
 	 * Constructor.
-	 * @param dataToolClientInstance The DataToolClientInstance.
+	 * @param dataExplorerClientInstance The DataExplorerClientInstance.
 	 */
-	constructor(dataToolClientInstance: DataExplorerClientInstance) {
+	constructor(dataExplorerClientInstance: DataExplorerClientInstance) {
 		// Call the base class's constructor.
 		super({
 			columnHeadersHeight: 34,
@@ -40,8 +40,8 @@ export class PositronDataExplorerDataGridInstance extends DataGridInstance {
 			scrollbarWidth: 14
 		});
 
-		// Set the data tool client instance.
-		this._dataToolClientInstance = dataToolClientInstance;
+		// Set the data explorer client instance.
+		this._dataExplorerClientInstance = dataExplorerClientInstance;
 	}
 
 	/**
@@ -62,7 +62,7 @@ export class PositronDataExplorerDataGridInstance extends DataGridInstance {
 	 *
 	 */
 	initialize() {
-		this._dataToolClientInstance.getSchema().then(tableSchema => {
+		this._dataExplorerClientInstance.getSchema().then(tableSchema => {
 
 			console.log(`++++++++++ Schema returned with ${tableSchema.columns.length} columns`);
 
@@ -79,7 +79,7 @@ export class PositronDataExplorerDataGridInstance extends DataGridInstance {
 						columnIndices.push(i);
 					}
 
-					const data = await this._dataToolClientInstance.getDataValues(
+					const data = await this._dataExplorerClientInstance.getDataValues(
 						req.rowStartIndex,
 						req.rowEndIndex - req.rowStartIndex,
 						columnIndices
@@ -109,7 +109,7 @@ export class PositronDataExplorerDataGridInstance extends DataGridInstance {
 	 */
 	async sortData(columnSorts: IColumnSortKey[]): Promise<void> {
 		// Set the sort columns.
-		await this._dataToolClientInstance.setSortColumns(columnSorts.map(columnSort => (
+		await this._dataExplorerClientInstance.setSortColumns(columnSorts.map(columnSort => (
 			{
 				column_index: columnSort.columnIndex,
 				ascending: columnSort.ascending

@@ -2,13 +2,13 @@
  *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
-.data-tool
+.data-explorer
 .data-grid-panel {
 	display: grid;
 	grid-template-rows: [data-grid] 1fr [end];
 }
 
-.data-tool
+.data-explorer
 .data-grid-panel
 .data-grid-container {
 	grid-row: data-grid / end;

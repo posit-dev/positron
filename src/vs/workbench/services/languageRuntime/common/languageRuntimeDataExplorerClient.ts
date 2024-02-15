@@ -29,14 +29,14 @@ export class DataExplorerClientInstance extends Disposable {
 	//#region Constructor & Dispose
 
 	/**
-	 * Creates a new data tool client instance.
+	 * Creates a new data explorer client instance.
 	 * @param client The runtime client instance.
 	 */
 	constructor(client: IRuntimeClientInstance<any, any>) {
 		// Call the disposable constrcutor.
 		super();
 
-		// Create and register the PositronDataToolComm on the client.
+		// Create and register the PositronDataExplorerComm on the client.
 		this._positronDataExplorerComm = new PositronDataExplorerComm(client);
 		this._register(this._positronDataExplorerComm);
 

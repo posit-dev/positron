@@ -42,7 +42,7 @@ function getTotalCells(range: FetchRange) {
 /**
  * Testing internal business logic
  */
-suite('DataToolInternals', () => {
+suite('DataExplorerInternals', () => {
 	// ensureNoDisposablesAreLeakedInTestSuite();
 
 	test('Fetch caches results correctly', async () => {
