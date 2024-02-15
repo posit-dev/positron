@@ -9,7 +9,7 @@ import 'vs/css!./dataGridColumnHeaders';
 import * as React from 'react';
 
 // Other dependencies.
-import { useDataGridContext } from 'vs/base/browser/ui/dataGrid/dataGridContext';
+import { usePositronDataGridContext } from 'vs/base/browser/ui/dataGrid/dataGridContext';
 import { DataGridColumnHeader } from 'vs/base/browser/ui/dataGrid/components/dataGridColumnHeader';
 
 /**
@@ -27,7 +27,7 @@ interface DataGridColumnHeadersProps {
  */
 export const DataGridColumnHeaders = (props: DataGridColumnHeadersProps) => {
 	// Context hooks.
-	const context = useDataGridContext();
+	const context = usePositronDataGridContext();
 
 	// Render the visible column headers.
 	const columnHeaders: JSX.Element[] = [];

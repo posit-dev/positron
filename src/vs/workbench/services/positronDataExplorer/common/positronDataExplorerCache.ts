@@ -2,7 +2,7 @@
  *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
-import { TableData } from 'vs/workbench/services/languageRuntime/common/positronDataToolComm';
+import { TableData } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
 
 export interface FetchRange {
 	/// Start index is inclusive

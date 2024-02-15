@@ -9,7 +9,7 @@ import 'vs/css!./dataGridRow';
 import * as React from 'react';
 
 // Other dependencies.
-import { useDataGridContext } from 'vs/base/browser/ui/dataGrid/dataGridContext';
+import { usePositronDataGridContext } from 'vs/base/browser/ui/dataGrid/dataGridContext';
 import { DataGridRowCell } from 'vs/base/browser/ui/dataGrid/components/dataGridRowCell';
 
 /**
@@ -28,7 +28,7 @@ interface DataGridRowProps {
  */
 export const DataGridRow = (props: DataGridRowProps) => {
 	// Context hooks.
-	const context = useDataGridContext();
+	const context = usePositronDataGridContext();
 
 	// Render the visible row cells.
 	const rowCells: JSX.Element[] = [];

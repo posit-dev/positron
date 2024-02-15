@@ -7,7 +7,7 @@ import {
 	ColumnFilterCompareOp,
 	ColumnFilterFilterType,
 	ColumnFilterSearchType
-} from 'vs/workbench/services/languageRuntime/common/positronDataToolComm';
+} from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
 import * as mocks from "vs/workbench/services/positronDataExplorer/common/positronDataExplorerMocks";
 
 /**

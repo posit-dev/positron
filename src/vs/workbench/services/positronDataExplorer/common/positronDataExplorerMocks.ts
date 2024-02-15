@@ -12,7 +12,7 @@ import {
 	ProfileResult,
 	TableData,
 	TableSchema
-} from 'vs/workbench/services/languageRuntime/common/positronDataToolComm';
+} from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
 
 const exampleTypes: [string, string, object][] = [
 	['int64', 'number', {}],

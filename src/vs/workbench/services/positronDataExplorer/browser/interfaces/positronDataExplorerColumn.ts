@@ -3,7 +3,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { IDataColumn } from 'vs/base/browser/ui/dataGrid/interfaces/dataColumn';
-import { ColumnSchema } from 'vs/workbench/services/languageRuntime/common/positronDataToolComm';
+import { ColumnSchema } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
 
 /**
  * IPositronDataExplorerColumn interface.

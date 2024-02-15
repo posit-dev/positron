@@ -14,7 +14,7 @@ import { localize } from 'vs/nls';
 import { positronClassNames } from 'vs/base/common/positronUtilities';
 import { showContextMenu } from 'vs/base/browser/ui/contextMenu/contextMenu';
 import { IDataColumn } from 'vs/base/browser/ui/dataGrid/interfaces/dataColumn';
-import { useDataGridContext } from 'vs/base/browser/ui/dataGrid/dataGridContext';
+import { usePositronDataGridContext } from 'vs/base/browser/ui/dataGrid/dataGridContext';
 import { ContextMenuItem } from 'vs/base/browser/ui/contextMenu/contextMenuItem';
 import { selectionType } from 'vs/base/browser/ui/dataGrid/utilities/mouseUtilities';
 import { VerticalSplitter } from 'vs/base/browser/ui/positronComponents/verticalSplitter';
@@ -46,7 +46,7 @@ interface DataGridColumnHeaderProps {
  */
 export const DataGridColumnHeader = (props: DataGridColumnHeaderProps) => {
 	// Context hooks.
-	const context = useDataGridContext();
+	const context = usePositronDataGridContext();
 
 	// Reference hooks.
 	const columnsPanelRef = useRef<HTMLDivElement>(undefined!);

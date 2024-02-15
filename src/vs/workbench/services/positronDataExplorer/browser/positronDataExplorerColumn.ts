@@ -3,7 +3,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { DataColumnAlignment } from 'vs/base/browser/ui/dataGrid/interfaces/dataColumn';
-import { ColumnSchema, ColumnSchemaTypeDisplay } from 'vs/workbench/services/languageRuntime/common/positronDataToolComm';
+import { ColumnSchema, ColumnSchemaTypeDisplay } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
 import { IPositronDataExplorerColumn } from 'vs/workbench/services/positronDataExplorer/browser/interfaces/positronDataExplorerColumn';
 
 /**

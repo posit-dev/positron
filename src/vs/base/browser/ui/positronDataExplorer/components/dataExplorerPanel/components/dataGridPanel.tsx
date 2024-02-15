@@ -9,7 +9,7 @@ import 'vs/css!./dataGridPanel';
 import * as React from 'react';
 
 // Other dependencies.
-import { DataGrid } from 'vs/base/browser/ui/dataGrid/dataGrid';
+import { DataGrid } from 'vs/base/browser/ui/dataGrid/positronDataGrid';
 import { usePositronDataExplorerContext } from 'vs/base/browser/ui/positronDataExplorer/positronDataExplorerContext';
 
 /**

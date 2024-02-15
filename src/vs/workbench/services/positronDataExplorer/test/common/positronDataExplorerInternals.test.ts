@@ -3,7 +3,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as assert from 'assert';
-import { TableSchema } from 'vs/workbench/services/languageRuntime/common/positronDataToolComm';
+import { TableSchema } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
 import {
 	FetchRange,
 	PositronDataExplorerCache

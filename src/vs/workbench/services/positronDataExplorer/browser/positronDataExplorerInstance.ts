@@ -36,9 +36,9 @@ export class PositronDataExplorerInstance extends Disposable implements IPositro
 	private _columnsScrollOffset = 0;
 
 	/**
-	 * The PositronDataToolDataGridInstance.
+	 * The PositronDataExplorerDataGridInstance.
 	 */
-	private _positronDataToolDataGridInstance: PositronDataExplorerDataGridInstance;
+	private _positronDataExplorerDataGridInstance: PositronDataExplorerDataGridInstance;
 
 	/**
 	 * The onDidChangeLayout event emitter.
@@ -69,7 +69,7 @@ export class PositronDataExplorerInstance extends Disposable implements IPositro
 
 		// Initialize.
 		this._dataToolClientInstance = dataToolClientInstance;
-		this._positronDataToolDataGridInstance = new PositronDataExplorerDataGridInstance(dataToolClientInstance);
+		this._positronDataExplorerDataGridInstance = new PositronDataExplorerDataGridInstance(dataToolClientInstance);
 	}
 
 	//#endregion Constructor & Dispose
@@ -132,7 +132,7 @@ export class PositronDataExplorerInstance extends Disposable implements IPositro
 	 * Gets the
 	 */
 	get dataGridInstance() {
-		return this._positronDataToolDataGridInstance;
+		return this._positronDataExplorerDataGridInstance;
 	}
 
 	/**

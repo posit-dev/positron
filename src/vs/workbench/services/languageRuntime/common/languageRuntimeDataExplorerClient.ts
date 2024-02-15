@@ -6,7 +6,7 @@ import { Event } from 'vs/base/common/event';
 import { Disposable } from 'vs/base/common/lifecycle';
 import { generateUuid } from 'vs/base/common/uuid';
 import { IRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeClientInstance';
-import { ColumnSortKey, PositronDataToolComm, TableData, TableSchema } from 'vs/workbench/services/languageRuntime/common/positronDataToolComm';
+import { ColumnSortKey, PositronDataExplorerComm, TableData, TableSchema } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
 
 /**
  * A data explorer client instance.
@@ -20,9 +20,9 @@ export class DataExplorerClientInstance extends Disposable {
 	private readonly _identifier = generateUuid();
 
 	/**
-	 * Gets the PositronDataToolComm.
+	 * Gets the PositronDataExplorerComm.
 	 */
-	private readonly _positronDataToolComm: PositronDataToolComm;
+	private readonly _positronDataExplorerComm: PositronDataExplorerComm;
 
 	//#endregion Private Properties
 
@@ -37,11 +37,11 @@ export class DataExplorerClientInstance extends Disposable {
 		super();
 
 		// Create and register the PositronDataToolComm on the client.
-		this._positronDataToolComm = new PositronDataToolComm(client);
-		this._register(this._positronDataToolComm);
+		this._positronDataExplorerComm = new PositronDataExplorerComm(client);
+		this._register(this._positronDataExplorerComm);
 
 		// Setup events.
-		this.onDidClose = this._positronDataToolComm.onDidClose;
+		this.onDidClose = this._positronDataExplorerComm.onDidClose;
 	}
 
 	//#endregion Constructor & Dispose
@@ -65,7 +65,7 @@ export class DataExplorerClientInstance extends Disposable {
 	 */
 	async getSchema(): Promise<TableSchema> {
 		// TODO: implement paging
-		return this._positronDataToolComm.getSchema(0, 10000);
+		return this._positronDataExplorerComm.getSchema(0, 10000);
 	}
 
 	/**
@@ -80,7 +80,7 @@ export class DataExplorerClientInstance extends Disposable {
 		numRows: number,
 		columnIndices: Array<number>
 	): Promise<TableData> {
-		return this._positronDataToolComm.getDataValues(rowStartIndex, numRows, columnIndices);
+		return this._positronDataExplorerComm.getDataValues(rowStartIndex, numRows, columnIndices);
 	}
 
 	/**
@@ -89,7 +89,7 @@ export class DataExplorerClientInstance extends Disposable {
 	 * @returns A Promise<void> that resolves when the operation is complete.
 	 */
 	async setSortColumns(sortKeys: Array<ColumnSortKey>): Promise<void> {
-		return this._positronDataToolComm.setSortColumns(sortKeys);
+		return this._positronDataExplorerComm.setSortColumns(sortKeys);
 	}
 
 	//#endregion Public Methods

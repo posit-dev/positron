@@ -6,7 +6,7 @@ import { IColumnSortKey } from 'vs/base/browser/ui/dataGrid/interfaces/columnSor
 import { DataGridInstance } from 'vs/base/browser/ui/dataGrid/classes/dataGridInstance';
 import { PositronDataExplorerColumn } from 'vs/workbench/services/positronDataExplorer/browser/positronDataExplorerColumn';
 import { DataExplorerClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeDataExplorerClient';
-import { ColumnSortKey, TableSchema } from 'vs/workbench/services/languageRuntime/common/positronDataToolComm';
+import { ColumnSortKey, TableSchema } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
 import { FetchRange, FetchResult, PositronDataExplorerCache } from 'vs/workbench/services/positronDataExplorer/common/positronDataExplorerCache';
 
 /**

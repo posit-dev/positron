@@ -11,7 +11,7 @@ import { MouseEvent } from 'react'; // eslint-disable-line no-duplicate-imports
 
 // Other dependencies.
 import { positronClassNames } from 'vs/base/common/positronUtilities';
-import { useDataGridContext } from 'vs/base/browser/ui/dataGrid/dataGridContext';
+import { usePositronDataGridContext } from 'vs/base/browser/ui/dataGrid/dataGridContext';
 import { selectionType } from 'vs/base/browser/ui/dataGrid/utilities/mouseUtilities';
 import { VerticalSplitter } from 'vs/base/browser/ui/positronComponents/verticalSplitter';
 import { RowSelectionState } from 'vs/base/browser/ui/dataGrid/interfaces/dataGridInstance';
@@ -32,7 +32,7 @@ interface DataGridRowHeaderProps {
  */
 export const DataGridRowHeader = (props: DataGridRowHeaderProps) => {
 	// Context hooks.
-	const context = useDataGridContext();
+	const context = usePositronDataGridContext();
 
 	/**
 	 * MouseDown handler.

@@ -3,7 +3,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 //
-// AUTO-GENERATED from data_tool.json; do not edit.
+// AUTO-GENERATED from data_explorer.json; do not edit.
 //
 
 import { PositronBaseComm } from 'vs/workbench/services/languageRuntime/common/positronBaseComm';
@@ -346,7 +346,7 @@ export enum ColumnFilterSearchType {
  */
 export type ColumnFormattedData = Array<string>;
 
-export class PositronDataToolComm extends PositronBaseComm {
+export class PositronDataExplorerComm extends PositronBaseComm {
 	constructor(instance: IRuntimeClientInstance<any, any>) {
 		super(instance);
 	}
