@@ -32,7 +32,7 @@ export class LanguageRuntimeWorkspaceAffiliation extends Disposable {
 		super();
 
 		this._register(
-			this._runtimeService.onDidChangeActiveRuntime(this.onDidChangeActiveRuntime, this));
+			this._runtimeService.onDidChangeForegroundSession(this.onDidChangeActiveRuntime, this));
 		this._register(
 			this._runtimeService.onDidRegisterRuntime(this.onDidRegisterRuntime, this));
 	}

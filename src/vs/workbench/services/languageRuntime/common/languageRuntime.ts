@@ -9,7 +9,7 @@ import { ILanguageService } from 'vs/editor/common/languages/language';
 import { Disposable, IDisposable, toDisposable } from 'vs/base/common/lifecycle';
 import { CommandsRegistry } from 'vs/platform/commands/common/commands';
 import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/common/extensions';
-import { formatLanguageRuntime, ILanguageRuntime, ILanguageRuntimeMetadata, ILanguageRuntimeGlobalEvent, ILanguageRuntimeService, ILanguageRuntimeStateEvent, LanguageRuntimeDiscoveryPhase, LanguageRuntimeStartupBehavior, RuntimeClientType, RuntimeExitReason, RuntimeState, formatLanguageRuntimeMetadata } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { formatLanguageRuntime, ILanguageRuntime, ILanguageRuntimeMetadata, ILanguageRuntimeGlobalEvent, ILanguageRuntimeService, ILanguageRuntimeSessionStateEvent, LanguageRuntimeDiscoveryPhase, LanguageRuntimeStartupBehavior, RuntimeClientType, RuntimeExitReason, RuntimeState, formatLanguageRuntimeMetadata } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { UiClientInstance, IUiClientMessageInput, IUiClientMessageOutput } from 'vs/workbench/services/languageRuntime/common/languageRuntimeUiClient';
 import { LanguageRuntimeWorkspaceAffiliation } from 'vs/workbench/services/languageRuntime/common/languageRuntimeWorkspaceAffiliation';
 import { IStorageService } from 'vs/platform/storage/common/storage';
@@ -128,7 +128,7 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 	private readonly _onDidReconnectRuntimeEmitter = this._register(new Emitter<ILanguageRuntime>);
 
 	// The event emitter for the onDidChangeRuntimeState event.
-	private readonly _onDidChangeRuntimeStateEmitter = this._register(new Emitter<ILanguageRuntimeStateEvent>());
+	private readonly _onDidChangeRuntimeStateEmitter = this._register(new Emitter<ILanguageRuntimeSessionStateEvent>());
 
 	// The event emitter for the onDidReceiveRuntimeEvent event.
 	private readonly _onDidReceiveRuntimeEventEmitter = this._register(new Emitter<ILanguageRuntimeGlobalEvent>());
@@ -288,7 +288,7 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 	readonly onDidReceiveRuntimeEvent = this._onDidReceiveRuntimeEventEmitter.event;
 
 	// An event that fires when the active runtime changes.
-	readonly onDidChangeActiveRuntime = this._onDidChangeActiveRuntimeEmitter.event;
+	readonly onDidChangeForegroundSession = this._onDidChangeActiveRuntimeEmitter.event;
 
 	// An event that fires when a language runtime is requested.
 	readonly onDidRequestLanguageRuntime = this._onDidRequestLanguageRuntimeEmitter.event;

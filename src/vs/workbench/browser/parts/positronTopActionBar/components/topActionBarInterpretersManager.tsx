@@ -40,7 +40,7 @@ export const TopActionBarInterpretersManager = (props: TopActionBarInterpretersM
 
 		// Add the onDidChangeActiveRuntime event handler.
 		disposableStore.add(
-			positronTopActionBarContext.languageRuntimeService.onDidChangeActiveRuntime(runtime => {
+			positronTopActionBarContext.languageRuntimeService.onDidChangeForegroundSession(runtime => {
 				setActiveRuntime(positronTopActionBarContext.languageRuntimeService.activeRuntimeMetadata);
 			})
 		);

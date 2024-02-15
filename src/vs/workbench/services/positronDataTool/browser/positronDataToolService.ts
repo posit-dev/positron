@@ -11,7 +11,7 @@ import { PositronDataToolInstance } from 'vs/workbench/services/positronDataTool
 import { DataToolClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeDataToolClient';
 import { IPositronDataToolService } from 'vs/workbench/services/positronDataTool/browser/interfaces/positronDataToolService';
 import { IPositronDataToolInstance } from 'vs/workbench/services/positronDataTool/browser/interfaces/positronDataToolInstance';
-import { ILanguageRuntime, ILanguageRuntimeService, RuntimeClientType } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntimeService, ILanguageRuntimeSession, RuntimeClientType } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 
 /**
  * DataToolRuntime class.
@@ -54,14 +54,14 @@ class DataToolRuntime extends Disposable {
 	 *
 	 * @param runtime
 	 */
-	constructor(private readonly _runtime: ILanguageRuntime) {
+	constructor(private readonly _session: ILanguageRuntimeSession) {
 		// Call the disposable constrcutor.
 		super();
 
 		/**
 		 * Add the onDidCreateClientInstance event handler.
 		 */
-		this._register(this._runtime.onDidCreateClientInstance(async e => {
+		this._register(this._session.onDidCreateClientInstance(async e => {
 			// Ignore client types we don't process.
 			if (e.client.getClientType() !== RuntimeClientType.DataTool) {
 				return;
@@ -123,13 +123,13 @@ class PositronDataToolService extends Disposable implements IPositronDataToolSer
 		super();
 
 		// Add a data tool runtime for each running runtime.
-		this._languageRuntimeService.runningRuntimes.forEach(runtime => {
-			this.addDataToolRuntime(runtime);
+		this._languageRuntimeService.activeSessions.forEach(session => {
+			this.addDataToolRuntime(session);
 		});
 
 		// Register the onWillStartRuntime event handler.
-		this._register(this._languageRuntimeService.onWillStartRuntime(runtime => {
-			this.addDataToolRuntime(runtime);
+		this._register(this._languageRuntimeService.onWillStartRuntime(session => {
+			this.addDataToolRuntime(session);
 		}));
 
 		// Register the onDidStartRuntime event handler.

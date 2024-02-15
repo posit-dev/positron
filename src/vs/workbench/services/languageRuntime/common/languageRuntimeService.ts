@@ -495,9 +495,9 @@ export interface ILanguageRuntimeGlobalEvent {
 	event: IRuntimeClientEvent;
 }
 
-export interface ILanguageRuntimeStateEvent {
-	/** The ID of the runtime that changed states */
-	runtime_id: string;
+export interface ILanguageRuntimeSessionStateEvent {
+	/** The ID of the session that changed states */
+	session_id: string;
 
 	/** The runtime's previous state */
 	old_state: RuntimeState;
@@ -695,13 +695,13 @@ export interface ILanguageRuntimeService {
 	readonly onDidReconnectRuntime: Event<ILanguageRuntimeSession>;
 
 	// An event that fires when a runtime changes state.
-	readonly onDidChangeRuntimeState: Event<ILanguageRuntimeStateEvent>;
+	readonly onDidChangeRuntimeState: Event<ILanguageRuntimeSessionStateEvent>;
 
 	// An event that fires when a runtime receives a global event.
 	readonly onDidReceiveRuntimeEvent: Event<ILanguageRuntimeGlobalEvent>;
 
 	// An event that fires when the active runtime changes.
-	readonly onDidChangeActiveRuntime: Event<ILanguageRuntimeSession | undefined>;
+	readonly onDidChangeForegroundSession: Event<ILanguageRuntimeSession | undefined>;
 
 	// An event that fires when a runtime is requested.
 	readonly onDidRequestLanguageRuntime: Event<ILanguageRuntimeMetadata>;
