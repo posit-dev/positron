@@ -417,8 +417,8 @@ import 'vs/workbench/contrib/accountEntitlements/browser/accountsEntitlements.co
 // Contributions
 import 'vs/workbench/contrib/positronConsole/browser/positronConsole.contribution';
 import 'vs/workbench/contrib/positronConsole/browser/positronConsoleView';
-import 'vs/workbench/contrib/positronDataTool/browser/positronDataTool.contribution';
-import 'vs/workbench/contrib/positronDataTool/browser/positronDataToolEditor';
+import 'vs/workbench/contrib/positronDataExplorer/browser/positronDataExplorer.contribution';
+import 'vs/workbench/contrib/positronDataExplorer/browser/positronDataExplorerEditor';
 import 'vs/workbench/contrib/languageRuntime/browser/languageRuntime.contribution';
 import 'vs/workbench/contrib/executionHistory/common/executionHistory';
 import 'vs/workbench/contrib/positronIPyWidgets/browser/positronIPyWidgets.contribution';
@@ -428,6 +428,6 @@ import 'vs/workbench/services/languageRuntime/common/languageRuntime';
 import 'vs/workbench/services/positronConsole/browser/positronConsoleService';
 import 'vs/workbench/contrib/positronHelp/browser/positronHelpService';
 import 'vs/workbench/services/positronVariables/common/positronVariablesService';
-import 'vs/workbench/services/positronDataTool/browser/positronDataToolService';
+import 'vs/workbench/services/positronDataExplorer/browser/positronDataExplorerService';
 
 // --- End Positron ---

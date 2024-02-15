@@ -1812,31 +1812,31 @@ export const POSITRON_DATA_GRID_SORT_INDEX_FOREGROUND_COLOR = registerColor('pos
 	hcLight: textLinkForeground
 }, localize('positronDataGrid.sortIndexForeground', "Positron data grid sort index foreground color."));
 
-// < --- Positron Data Tool --- >
+// < --- Positron Data Explorer --- >
 
-// Positron data tool background color.
-export const POSITRON_DATA_TOOL_BACKGROUND_COLOR = registerColor('positronDataTool.background', {
+// Positron data explorer background color.
+export const POSITRON_DATA_TOOL_BACKGROUND_COLOR = registerColor('positronDataExplorer.background', {
 	dark: editorBackground,
 	light: editorBackground,
 	hcDark: editorBackground,
 	hcLight: editorBackground
-}, localize('positronDataTool.background', "Positron data tool background color."));
+}, localize('positronDataExplorer.background', "Positron data explorer background color."));
 
-// Positron data tool foreground color.
-export const POSITRON_DATA_TOOL_FOREGROUND_COLOR = registerColor('positronDataTool.foreground', {
+// Positron data explorer foreground color.
+export const POSITRON_DATA_TOOL_FOREGROUND_COLOR = registerColor('positronDataExplorer.foreground', {
 	dark: editorForeground,
 	light: editorForeground,
 	hcDark: editorForeground,
 	hcLight: editorForeground
-}, localize('positronDataTool.foreground', "Positron data tool foreground color."));
+}, localize('positronDataExplorer.foreground', "Positron data explorer foreground color."));
 
-// Positron data tool border color.
-export const POSITRON_DATA_TOOL_BORDWER_COLOR = registerColor('positronDataTool.border', {
+// Positron data explorer border color.
+export const POSITRON_DATA_TOOL_BORDER_COLOR = registerColor('positronDataExplorer.border', {
 	dark: tableColumnsBorder,
 	light: tableColumnsBorder,
 	hcDark: tableColumnsBorder,
 	hcLight: tableColumnsBorder
-}, localize('positronDataTool.border', "Positron data tool border color."));
+}, localize('positronDataExplorer.border', "Positron data explorer border color."));
 
 // < --- Positron Variables --- >
 
