@@ -12,9 +12,20 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set, Tuple
 
 from comm.base_comm import BaseComm
 
-from .inspectors import MAX_ITEMS, decode_access_key, encode_access_key, get_inspector
+from .inspectors import (
+    MAX_ITEMS,
+    decode_access_key,
+    encode_access_key,
+    get_inspector,
+)
 from .positron_comm import CommMessage, JsonRpcErrorCode, PositronComm
-from .utils import JsonData, JsonRecord, cancel_tasks, create_task, get_qualname
+from .utils import (
+    JsonData,
+    JsonRecord,
+    cancel_tasks,
+    create_task,
+    get_qualname,
+)
 from .variables_comm import (
     ClearRequest,
     ClipboardFormatFormat,
@@ -62,7 +73,9 @@ class VariablesService:
         self.send_refresh_event()
 
     def handle_msg(
-        self, msg: CommMessage[VariablesBackendMessageContent], raw_msg: JsonRecord
+        self,
+        msg: CommMessage[VariablesBackendMessageContent],
+        raw_msg: JsonRecord,
     ) -> None:
         """
         Handle messages received from the client via the positron.variables comm.
@@ -85,7 +98,7 @@ class VariablesService:
             self._send_formatted_var(request.params.path, request.params.format)
 
         elif isinstance(request, ViewRequest):
-            self._open_data_tool(request.params.path)
+            self._open_data_explorer(request.params.path)
 
         else:
             logger.warning(f"Unhandled request: {request}")
@@ -124,7 +137,11 @@ class VariablesService:
         inspector = get_inspector(variables)
         filtered_variables = inspector.summarize_children(variables, _summarize_variable)
 
-        msg = RefreshParams(variables=filtered_variables, length=len(filtered_variables), version=0)
+        msg = RefreshParams(
+            variables=filtered_variables,
+            length=len(filtered_variables),
+            version=0,
+        )
         self._send_event(VariablesFrontendEvent.Refresh.value, msg.dict())
 
     async def shutdown(self) -> None:
@@ -364,7 +381,11 @@ class VariablesService:
 
     def _send_list(self) -> None:
         filtered_variables = self._list_all_vars()
-        msg = VariableList(variables=filtered_variables, length=len(filtered_variables), version=0)
+        msg = VariableList(
+            variables=filtered_variables,
+            length=len(filtered_variables),
+            version=0,
+        )
         self._send_result(msg.dict())
 
     def _delete_all_vars(self, parent: Dict[str, Any]) -> None:
@@ -432,8 +453,8 @@ class VariablesService:
                 f"Cannot find variable at '{path}' to inspect",
             )
 
-    def _open_data_tool(self, path: List[str]) -> None:
-        """Opens a DataTool comm for the variable at the requested
+    def _open_data_explorer(self, path: List[str]) -> None:
+        """Opens a DataExplorer comm for the variable at the requested
         path in the current user session.
 
         """
@@ -454,10 +475,10 @@ class VariablesService:
 
         if not inspector.is_tabular(value):
             # The front end should never get this far with a request
-            raise TypeError(f"Type {type(value)} is not supported by DataTool.")
+            raise TypeError(f"Type {type(value)} is not supported by DataExplorer.")
 
         title = str(decode_access_key(access_key))
-        self.kernel.datatool_service.register_table(value, title)
+        self.kernel.data_explorer_service.register_table(value, title)
         self._send_result({})
 
     def _send_event(self, name: str, payload: JsonRecord) -> None:

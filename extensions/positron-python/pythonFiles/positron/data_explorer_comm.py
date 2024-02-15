@@ -3,7 +3,7 @@
 #
 
 #
-# AUTO-GENERATED from data_tool.json; do not edit.
+# AUTO-GENERATED from data_explorer.json; do not edit.
 #
 
 # flake8: noqa
@@ -362,9 +362,9 @@ class ColumnSortKey(BaseModel):
 
 
 @enum.unique
-class DataToolBackendRequest(str, enum.Enum):
+class DataExplorerBackendRequest(str, enum.Enum):
     """
-    An enumeration of all the possible requests that can be sent to the backend data_tool comm.
+    An enumeration of all the possible requests that can be sent to the backend data_explorer comm.
     """
 
     # Request schema
@@ -409,7 +409,7 @@ class GetSchemaRequest(BaseModel):
         description="Parameters to the GetSchema method",
     )
 
-    method: Literal[DataToolBackendRequest.GetSchema] = Field(
+    method: Literal[DataExplorerBackendRequest.GetSchema] = Field(
         description="The JSON-RPC method name (get_schema)",
     )
 
@@ -446,7 +446,7 @@ class GetDataValuesRequest(BaseModel):
         description="Parameters to the GetDataValues method",
     )
 
-    method: Literal[DataToolBackendRequest.GetDataValues] = Field(
+    method: Literal[DataExplorerBackendRequest.GetDataValues] = Field(
         description="The JSON-RPC method name (get_data_values)",
     )
 
@@ -475,7 +475,7 @@ class SetColumnFiltersRequest(BaseModel):
         description="Parameters to the SetColumnFilters method",
     )
 
-    method: Literal[DataToolBackendRequest.SetColumnFilters] = Field(
+    method: Literal[DataExplorerBackendRequest.SetColumnFilters] = Field(
         description="The JSON-RPC method name (set_column_filters)",
     )
 
@@ -506,7 +506,7 @@ class SetSortColumnsRequest(BaseModel):
         description="Parameters to the SetSortColumns method",
     )
 
-    method: Literal[DataToolBackendRequest.SetSortColumns] = Field(
+    method: Literal[DataExplorerBackendRequest.SetSortColumns] = Field(
         description="The JSON-RPC method name (set_sort_columns)",
     )
 
@@ -539,7 +539,7 @@ class GetColumnProfileRequest(BaseModel):
         description="Parameters to the GetColumnProfile method",
     )
 
-    method: Literal[DataToolBackendRequest.GetColumnProfile] = Field(
+    method: Literal[DataExplorerBackendRequest.GetColumnProfile] = Field(
         description="The JSON-RPC method name (get_column_profile)",
     )
 
@@ -554,7 +554,7 @@ class GetStateRequest(BaseModel):
     Request the current backend state (applied filters and sort columns)
     """
 
-    method: Literal[DataToolBackendRequest.GetState] = Field(
+    method: Literal[DataExplorerBackendRequest.GetState] = Field(
         description="The JSON-RPC method name (get_state)",
     )
 
@@ -564,7 +564,7 @@ class GetStateRequest(BaseModel):
     )
 
 
-class DataToolBackendMessageContent(BaseModel):
+class DataExplorerBackendMessageContent(BaseModel):
     comm_id: str
     data: Union[
         GetSchemaRequest,

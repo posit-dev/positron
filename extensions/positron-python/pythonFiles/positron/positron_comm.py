@@ -12,7 +12,7 @@ import comm
 from ._vendor.pydantic import ValidationError
 from ._vendor.pydantic.generics import GenericModel
 
-from . import data_tool_comm
+from . import data_explorer_comm
 from . import help_comm
 from . import plot_comm
 from . import variables_comm
@@ -35,7 +35,7 @@ class JsonRpcErrorCode(enum.IntEnum):
 
 T_content = TypeVar(
     "T_content",
-    data_tool_comm.DataToolBackendMessageContent,
+    data_explorer_comm.DataExplorerBackendMessageContent,
     help_comm.HelpBackendMessageContent,
     plot_comm.PlotBackendMessageContent,
     variables_comm.VariablesBackendMessageContent,
@@ -84,7 +84,8 @@ class PositronComm:
                     ):
                         method = error["ctx"]["discriminator_value"]
                         self.send_error(
-                            JsonRpcErrorCode.METHOD_NOT_FOUND, f"Unknown method '{method}'"
+                            JsonRpcErrorCode.METHOD_NOT_FOUND,
+                            f"Unknown method '{method}'",
                         )
                         return
 
@@ -95,11 +96,15 @@ class PositronComm:
                     ):
                         method = error["ctx"]["given"]
                         self.send_error(
-                            JsonRpcErrorCode.METHOD_NOT_FOUND, f"Unknown method '{method}'"
+                            JsonRpcErrorCode.METHOD_NOT_FOUND,
+                            f"Unknown method '{method}'",
                         )
                         return
 
-                self.send_error(JsonRpcErrorCode.INVALID_REQUEST, f"Invalid request: {exception}")
+                self.send_error(
+                    JsonRpcErrorCode.INVALID_REQUEST,
+                    f"Invalid request: {exception}",
+                )
                 return
 
             callback(comm_msg, raw_msg)
