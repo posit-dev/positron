@@ -189,7 +189,14 @@ async def test_handle_clear(
     # We should get a result
     assert variables_comm.messages == [
         json_rpc_response({}),
-        json_rpc_notification("update", {"assigned": [], "removed": ["x", "y"], "version": 0}),
+        json_rpc_notification(
+            "update",
+            {
+                "assigned": [],
+                "removed": [encode_access_key("x"), encode_access_key("y")],
+                "version": 0,
+            },
+        ),
         json_rpc_notification("refresh", {"length": 0, "variables": [], "version": 0}),
     ]
 
@@ -210,8 +217,10 @@ def test_handle_delete(shell: PositronShell, variables_comm: DummyComm) -> None:
 
     # An update message (with the expected variable removed) is sent
     assert variables_comm.messages == [
-        json_rpc_response(["x"]),
-        json_rpc_notification("update", {"assigned": [], "removed": ["x"], "version": 0}),
+        json_rpc_response([encode_access_key("x")]),
+        json_rpc_notification(
+            "update", {"assigned": [], "removed": [encode_access_key("x")], "version": 0}
+        ),
     ]
 
 
