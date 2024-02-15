@@ -154,11 +154,6 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 	private readonly _plots: Map<string, ZedPlot> = new Map();
 
 	/**
-	 * A map of data frame IDs to data frame instances.
-	 */
-	// private readonly _data: Map<string, ZedData> = new Map();
-
-	/**
 	 * The active preview instance, if any.
 	 */
 	private _preview: ZedPreview | undefined;
@@ -1029,11 +1024,6 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 				clients[connection.id] = positron.RuntimeClientType.Connection;
 			}
 		}
-		// if (!type || type === positron.RuntimeClientType.DataExplorer) {
-		// 	for (const data of this._data.values()) {
-		// 		clients[data.id] = positron.RuntimeClientType.Plot;
-		// 	}
-		// }
 		if (!type || type === positron.RuntimeClientType.Ui) {
 			if (this._ui) {
 				clients[this._ui.id] = positron.RuntimeClientType.Ui;
@@ -1054,9 +1044,6 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 		} else if (this._plots.has(id)) {
 			// Is it ... a plot?
 			this._plots.delete(id);
-			// } else if (this._data.has(id)) {
-			// 	// Is it ... a data viewer?
-			// 	this._data.delete(id);
 		} else if (this._connections.has(id)) {
 			this._connections.delete(id);
 		} else {
@@ -1087,14 +1074,6 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 			plot.handleMessage(message);
 			return;
 		}
-
-		// See if this ID is a known data viewer
-		// const data = this._data.get(client_id);
-		// if (data) {
-		// 	this._pendingRpcs.push(message_id);
-		// 	data.handleMessage(message);
-		// 	return;
-		// }
 
 		// See if this ID is a known connection
 		const connection = this._connections.get(client_id);
@@ -1239,7 +1218,6 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 		// Simulate closing all the open comms.
 		const enviromentIds = Array.from(this._environments.keys());
 		const plotIds = Array.from(this._plots.keys());
-		// const dataIds = Array.from(this._data.keys());
 		const connectionIds = Array.from(this._connections.keys());
 		const allIds = enviromentIds.concat(plotIds).concat(connectionIds);
 		allIds.forEach(id => {
@@ -1603,46 +1581,6 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 		// Return to idle state.
 		this.simulateIdleState(parentId);
 	}
-
-	// public createZedDataView(parentId: string, title: string) {
-	// 	// Create the data client comm.
-	// 	const data = new ZedData(title);
-	// 	this.connectClientEmitter(data);
-	// 	this._data.set(data.id, data);
-
-	// 	// Send the comm open message to the client.
-	// 	this._onDidReceiveRuntimeMessage.fire({
-	// 		id: randomUUID(),
-	// 		parent_id: parentId,
-	// 		when: new Date().toISOString(),
-	// 		type: positron.LanguageRuntimeMessageType.CommOpen,
-	// 		comm_id: data.id,
-	// 		target_name: 'positron.dataViewer',
-	// 		data: { 'title': data.title }
-	// 	} as positron.LanguageRuntimeCommOpen);
-	// }
-
-	// public simulateDataView(parentId: string, code: string, title: string) {
-	// 	// Enter busy state and output the code.
-	// 	this.simulateBusyState(parentId);
-	// 	this.simulateInputMessage(parentId, code);
-
-	// 	this.createZedDataView(parentId, title);
-
-	// 	// Emit text output so something shows up in the console.
-	// 	this._onDidReceiveRuntimeMessage.fire({
-	// 		id: randomUUID(),
-	// 		parent_id: parentId,
-	// 		when: new Date().toISOString(),
-	// 		type: positron.LanguageRuntimeMessageType.Output,
-	// 		data: {
-	// 			'text/plain': `<ZedData view>`
-	// 		} as Record<string, string>
-	// 	} as positron.LanguageRuntimeOutput);
-
-	// 	// Return to idle state.
-	// 	this.simulateIdleState(parentId);
-	// }
 
 	/**
 	 * Simulates execution of code in another language.
