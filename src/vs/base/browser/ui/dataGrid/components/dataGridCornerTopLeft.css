@@ -11,10 +11,10 @@
 	grid-template-columns: [start] 1fr [splitter] 1px [end];
 	border-bottom: 1px solid var(--vscode-positronDataGrid-border);
 	border-right: 1px solid var(--vscode-positronDataGrid-border);
-	background-color: var(--vscode-positronDataGrid-headerBackground);
+	background-color: var(--vscode-positronDataGrid-contrastBackground);
 }
 
 .data-grid-corner-top-left
-.positron-column-splitter {
+.vertical-splitter {
 	grid-column: splitter / end;
 }

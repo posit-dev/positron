@@ -1,0 +1,15 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
+ *--------------------------------------------------------------------------------------------*/
+
+.data-explorer
+.data-grid-panel {
+	display: grid;
+	grid-template-rows: [data-grid] 1fr [end];
+}
+
+.data-explorer
+.data-grid-panel
+.data-grid-container {
+	grid-row: data-grid / end;
+}

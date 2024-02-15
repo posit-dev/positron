@@ -1,0 +1,502 @@
+{
+	"openrpc": "1.3.0",
+	"info": {
+		"title": "Data Explorer Backend",
+		"version": "1.0.0"
+	},
+	"methods": [
+		{
+			"name": "get_schema",
+			"summary": "Request schema",
+			"description": "Request full schema for a table-like object",
+			"params": [
+				{
+					"name": "start_index",
+					"description": "First column schema to fetch (inclusive)",
+					"required": true,
+					"schema": {
+						"type": "integer"
+					}
+				},
+				{
+					"name": "num_columns",
+					"description": "Number of column schemas to fetch from start index. May extend beyond end of table",
+					"required": true,
+					"schema": {
+						"type": "integer"
+					}
+				}
+			],
+			"result": {
+				"schema": {
+					"type": "object",
+					"name": "table_schema",
+					"description": "The schema for a table-like object",
+					"required": [
+						"columns",
+						"num_rows",
+						"total_num_columns"
+					],
+					"properties": {
+						"columns": {
+							"type": "array",
+							"description": "Schema for each column in the table",
+							"items": {
+								"$ref": "#/components/schemas/column_schema"
+							}
+						},
+						"num_rows": {
+							"type": "integer",
+							"description": "Numbers of rows in the unfiltered dataset"
+						},
+						"total_num_columns": {
+							"type": "integer",
+							"description": "Total number of columns in the unfiltered dataset"
+						}
+					}
+				}
+			}
+		},
+		{
+			"name": "get_data_values",
+			"summary": "Get a rectangle of data values",
+			"description": "Request a rectangular subset of data with values formatted as strings",
+			"params": [
+				{
+					"name": "row_start_index",
+					"description": "First row to fetch (inclusive)",
+					"required": true,
+					"schema": {
+						"type": "integer"
+					}
+				},
+				{
+					"name": "num_rows",
+					"description": "Number of rows to fetch from start index. May extend beyond end of table",
+					"required": true,
+					"schema": {
+						"type": "integer"
+					}
+				},
+				{
+					"name": "column_indices",
+					"description": "Indices to select, which can be a sequential, sparse, or random selection",
+					"required": true,
+					"schema": {
+						"type": "array",
+						"items": {
+							"type": "integer"
+						}
+					}
+				}
+			],
+			"result": {
+				"schema": {
+					"type": "object",
+					"name": "table_data",
+					"description": "Table values formatted as strings",
+					"required": [
+						"columns"
+					],
+					"properties": {
+						"columns": {
+							"type": "array",
+							"description": "The columns of data",
+							"items": {
+								"type": "array",
+								"description": "Column values formatted as strings",
+								"items": {
+									"type": "string"
+								}
+							}
+						},
+						"row_labels": {
+							"type": "array",
+							"description": "Zero or more arrays of row labels",
+							"items": {
+								"type": "array",
+								"description": "Column values formatted as strings",
+								"items": {
+									"type": "string"
+								}
+							}
+						}
+					}
+				}
+			}
+		},
+		{
+			"name": "set_column_filters",
+			"summary": "Set column filters",
+			"description": "Set or clear column filters on table, replacing any previous filters",
+			"params": [
+				{
+					"name": "filters",
+					"description": "Zero or more filters to apply",
+					"required": true,
+					"schema": {
+						"type": "array",
+						"items": {
+							"$ref": "#/components/schemas/column_filter"
+						}
+					}
+				}
+			],
+			"result": {
+				"schema": {
+					"type": "object",
+					"name": "filter_result",
+					"description": "The result of applying filters to a table",
+					"required": [
+						"selected_num_rows"
+					],
+					"properties": {
+						"selected_num_rows": {
+							"type": "integer",
+							"description": "Number of rows in table after applying filters"
+						}
+					}
+				}
+			}
+		},
+		{
+			"name": "set_sort_columns",
+			"summary": "Set or clear sort-by-column(s)",
+			"description": "Set or clear the columns(s) to sort by, replacing any previous sort columns",
+			"params": [
+				{
+					"name": "sort_keys",
+					"description": "Pass zero or more keys to sort by. Clears any existing keys",
+					"required": true,
+					"schema": {
+						"type": "array",
+						"items": {
+							"$ref": "#/components/schemas/column_sort_key"
+						}
+					}
+				}
+			],
+			"result": {}
+		},
+		{
+			"name": "get_column_profile",
+			"summary": "Get a column profile",
+			"description": "Requests a statistical summary or data profile for a column",
+			"params": [
+				{
+					"name": "profile_type",
+					"description": "The type of analytical column profile",
+					"required": true,
+					"schema": {
+						"type": "string",
+						"enum": [
+							"freqtable",
+							"histogram"
+						]
+					}
+				},
+				{
+					"name": "column_index",
+					"description": "Column index to compute profile for",
+					"required": true,
+					"schema": {
+						"type": "integer"
+					}
+				}
+			],
+			"result": {
+				"schema": {
+					"type": "object",
+					"name": "profile_result",
+					"description": "Result of computing column profile",
+					"required": [
+						"null_count"
+					],
+					"properties": {
+						"null_count": {
+							"type": "integer",
+							"description": "Number of null values in column"
+						},
+						"min_value": {
+							"type": "string",
+							"description": "Minimum value as string computed as part of histogram"
+						},
+						"max_value": {
+							"type": "string",
+							"description": "Maximum value as string computed as part of histogram"
+						},
+						"mean_value": {
+							"type": "string",
+							"description": "Average value as string computed as part of histogram"
+						},
+						"histogram_bin_sizes": {
+							"type": "array",
+							"description": "Absolute count of values in each histogram bin",
+							"items": {
+								"type": "integer"
+							}
+						},
+						"histogram_bin_width": {
+							"type": "number",
+							"description": "Absolute floating-point width of a histogram bin"
+						},
+						"histogram_quantiles": {
+							"type": "array",
+							"description": "Quantile values computed from histogram bins",
+							"items": {
+								"$ref": "#/components/schemas/column_quantile_value"
+							}
+						},
+						"freqtable_counts": {
+							"type": "array",
+							"description": "Counts of distinct values in column",
+							"items": {
+								"type": "object",
+								"required": [
+									"value",
+									"count"
+								],
+								"properties": {
+									"value": {
+										"type": "string",
+										"description": "Stringified value"
+									},
+									"count": {
+										"type": "integer",
+										"description": "Number of occurrences of value"
+									}
+								}
+							}
+						},
+						"freqtable_other_count": {
+							"type": "integer",
+							"description": "Number of other values not accounted for in counts"
+						}
+					}
+				}
+			}
+		},
+		{
+			"name": "get_state",
+			"summary": "Get the state",
+			"description": "Request the current backend state (applied filters and sort columns)",
+			"params": [],
+			"result": {
+				"schema": {
+					"type": "object",
+					"name": "backend_state",
+					"description": "The current backend state",
+					"required": [
+						"filters",
+						"sort_keys"
+					],
+					"properties": {
+						"filters": {
+							"type": "array",
+							"description": "The set of currently applied filters",
+							"items": {
+								"$ref": "#/components/schemas/column_filter"
+							}
+						},
+						"sort_keys": {
+							"type": "array",
+							"description": "The set of currently applied sorts",
+							"items": {
+								"$ref": "#/components/schemas/column_sort_key"
+							}
+						}
+					}
+				}
+			}
+		}
+	],
+	"components": {
+		"contentDescriptors": {},
+		"schemas": {
+			"column_schema": {
+				"type": "object",
+				"description": "Schema for a column in a table",
+				"required": [
+					"column_name",
+					"type_name",
+					"type_display"
+				],
+				"properties": {
+					"column_name": {
+						"type": "string",
+						"description": "Name of column as UTF-8 string"
+					},
+					"type_name": {
+						"type": "string",
+						"description": "Exact name of data type used by underlying table"
+					},
+					"type_display": {
+						"type": "string",
+						"description": "Canonical Positron display name of data type",
+						"enum": [
+							"number",
+							"boolean",
+							"string",
+							"date",
+							"datetime",
+							"time",
+							"array",
+							"struct",
+							"unknown"
+						]
+					},
+					"description": {
+						"type": "string",
+						"description": "Column annotation / description"
+					},
+					"children": {
+						"type": "array",
+						"description": "Schema of nested child types",
+						"items": {
+							"$ref": "#/components/schemas/column_schema"
+						}
+					},
+					"precision": {
+						"type": "integer",
+						"description": "Precision for decimal types"
+					},
+					"scale": {
+						"type": "integer",
+						"description": "Scale for decimal types"
+					},
+					"timezone": {
+						"type": "string",
+						"description": "Time zone for timestamp with time zone"
+					},
+					"type_size": {
+						"type": "integer",
+						"description": "Size parameter for fixed-size types (list, binary)"
+					}
+				}
+			},
+			"column_formatted_data": {
+				"type": "array",
+				"description": "Column values formatted as strings",
+				"items": {
+					"type": "string"
+				}
+			},
+			"column_filter": {
+				"type": "object",
+				"description": "Specifies a table row filter based on a column's values",
+				"required": [
+					"filter_id",
+					"filter_type",
+					"column_index"
+				],
+				"properties": {
+					"filter_id": {
+						"type": "string",
+						"description": "Unique identifier for this filter"
+					},
+					"filter_type": {
+						"type": "string",
+						"description": "Type of filter to apply",
+						"enum": [
+							"isnull",
+							"notnull",
+							"compare",
+							"set_membership",
+							"search"
+						]
+					},
+					"column_index": {
+						"type": "integer",
+						"description": "Column index to apply filter to"
+					},
+					"compare_op": {
+						"type": "string",
+						"description": "String representation of a binary comparison",
+						"enum": [
+							"=",
+							"!=",
+							"<",
+							"<=",
+							">",
+							">="
+						]
+					},
+					"compare_value": {
+						"type": "string",
+						"description": "A stringified column value for a comparison filter"
+					},
+					"set_member_values": {
+						"type": "array",
+						"description": "Array of column values for a set membership filter",
+						"items": {
+							"type": "string"
+						}
+					},
+					"set_member_inclusive": {
+						"type": "boolean",
+						"description": "Filter by including only values passed (true) or excluding (false)"
+					},
+					"search_type": {
+						"type": "string",
+						"description": "Type of search to perform",
+						"enum": [
+							"contains",
+							"startswith",
+							"endswith",
+							"regex"
+						]
+					},
+					"search_term": {
+						"type": "string",
+						"description": "String value/regex to search for in stringified data"
+					},
+					"search_case_sensitive": {
+						"type": "boolean",
+						"description": "If true, do a case-sensitive search, otherwise case-insensitive"
+					}
+				}
+			},
+			"column_quantile_value": {
+				"type": "object",
+				"description": "An exact or approximate quantile value from a column",
+				"required": [
+					"q",
+					"value",
+					"exact"
+				],
+				"properties": {
+					"q": {
+						"type": "number",
+						"description": "Quantile number (percentile). E.g. 1 for 1%, 50 for median"
+					},
+					"value": {
+						"type": "string",
+						"description": "Stringified quantile value"
+					},
+					"exact": {
+						"type": "boolean",
+						"description": "Whether value is exact or approximate (computed from binned data or sketches)"
+					}
+				}
+			},
+			"column_sort_key": {
+				"type": "object",
+				"description": "Specifies a column to sort by",
+				"required": [
+					"column_index",
+					"ascending"
+				],
+				"properties": {
+					"column_index": {
+						"type": "integer",
+						"description": "Column index to sort by"
+					},
+					"ascending": {
+						"type": "boolean",
+						"description": "Sort order, ascending (true) or descending (false)"
+					}
+				}
+			}
+		}
+	}
+}
