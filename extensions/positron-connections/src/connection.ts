@@ -50,7 +50,9 @@ export class ConnectionItem {
 export class ConnectionItemNode extends ConnectionItem {
 	readonly kind: string;
 	readonly path: Array<{ name: string; kind: string }>;
-	iconPath?: string | vscode.Uri | { light: vscode.Uri; dark: vscode.Uri };
+	private iconPath?: string | vscode.Uri | { light: vscode.Uri; dark: vscode.Uri };
+	private containsData?: boolean;
+
 	constructor(readonly name: string, kind: string, path: Array<{ name: string; kind: string }>, client: positron.RuntimeClientInstance) {
 		super(name, client);
 		this.kind = kind;
@@ -221,44 +223,34 @@ export class ConnectionItemsProvider implements vscode.TreeDataProvider<Connecti
 	 * @param element The element to get the children for
 	 * @returns The children of the element
 	 */
-	getChildren(element?: ConnectionItem): Thenable<ConnectionItem[]> {
+	async getChildren(element?: ConnectionItem): Promise<ConnectionItem[]> {
 		// Fields don't have children
 		if (element instanceof ConnectionItemField) {
-			return Promise.resolve([]);
+			return [];
 		}
 
 		if (element) {
-			return new Promise((resolve, _reject) => {
-				if (element instanceof ConnectionItemTable) {
-					element.client.performRpc({ msg_type: 'fields_request', table: element.name, path: element.path }).then(
-						(response: any) => {
-							const fields = response.fields as Array<{ name: string; dtype: string }>;
-							const fieldItems = fields.map((field) => {
-								return new ConnectionItemField(field.name, field.dtype, element.client);
-							});
-							resolve(fieldItems);
-						}
-					);
-				} else if (element instanceof ConnectionItemNode) {
-					element.client.performRpc({ msg_type: 'tables_request', name: element.name, kind: element.kind, path: element.path }).then(
-						(response: any) => {
-							const objects = response.tables as Array<{ name: string; kind: string }>;
-							const objectItems = objects.map((obj) => {
-								const path = [...element.path, { name: obj.name, kind: obj.kind }];
-								if (obj.kind === 'table') {
-									return new ConnectionItemTable(obj.name, obj.kind, path, element.client);
-								} else {
-									return new ConnectionItemNode(obj.name, obj.kind, path, element.client);
-								}
-							});
-							resolve(objectItems);
-						}
-					);
-				}
-			});
-		} else {
-			// At the root, return the top-level connections
-			return Promise.resolve(this._connections);
+			if (element instanceof ConnectionItemTable) {
+				const response = await element.client.performRpc({ msg_type: 'fields_request', table: element.name, path: element.path }) as any;
+				const fields = response.fields as Array<{ name: string; dtype: string }>;
+				return fields.map((field) => {
+					return new ConnectionItemField(field.name, field.dtype, element.client);
+				});
+			} else if (element instanceof ConnectionItemNode) {
+				const response = await element.client.performRpc({ msg_type: 'tables_request', name: element.name, kind: element.kind, path: element.path }) as any;
+				const children = response.tables as Array<{ name: string; kind: string }>;
+				return children.map((obj) => {
+					const path = [...element.path, { name: obj.name, kind: obj.kind }];
+					if (obj.kind === 'table') {
+						return new ConnectionItemTable(obj.name, obj.kind, path, element.client);
+					} else {
+						return new ConnectionItemNode(obj.name, obj.kind, path, element.client);
+					}
+				});
+			}
 		}
+
+		// At the root, return the top-level connections
+		return this._connections;
 	}
 }
