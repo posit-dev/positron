@@ -17,11 +17,6 @@ export class PositronDataExplorerColumn implements IPositronDataExplorerColumn {
 	 */
 	private readonly _columnSchema: ColumnSchema;
 
-	/**
-	 * Gets or sets the width.
-	 */
-	private _width: number;
-
 	//#endregion Private Properties
 
 	//#region Constructor & Dispose
@@ -33,9 +28,6 @@ export class PositronDataExplorerColumn implements IPositronDataExplorerColumn {
 	constructor(columnSchema: ColumnSchema) {
 		// Initialize.
 		this._columnSchema = columnSchema;
-
-		// Initialize the width (eventually, this will be set based on the column schema).
-		this._width = 190;
 	}
 
 	//#endregion Constructor & Dispose
@@ -100,20 +92,6 @@ export class PositronDataExplorerColumn implements IPositronDataExplorerColumn {
 			case ColumnSchemaTypeDisplay.Unknown:
 				return DataColumnAlignment.Right;
 		}
-	}
-
-	/**
-	 * Gets the width.
-	 */
-	get width() {
-		return this._width;
-	}
-
-	/**
-	 * Sets the width.
-	 */
-	set width(width: number) {
-		this._width = width;
 	}
 
 	//#endregion IDataColumn Implementation
