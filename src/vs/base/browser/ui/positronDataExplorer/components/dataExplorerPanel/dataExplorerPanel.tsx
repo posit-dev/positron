@@ -15,9 +15,9 @@ import { IReactComponentContainer } from 'vs/base/browser/positronReactRenderer'
 import { PositronDataExplorerProps } from 'vs/base/browser/ui/positronDataExplorer/positronDataExplorer';
 import { usePositronDataExplorerContext } from 'vs/base/browser/ui/positronDataExplorer/positronDataExplorerContext';
 import { VerticalSplitter, VerticalSplitterResizeParams } from 'vs/base/browser/ui/positronComponents/verticalSplitter';
-import { PositronDataExplorerLayout } from 'vs/workbench/services/positronDataExplorer/browser/interfaces/positronDataExplorerService';
 import { ColumnsPanel } from 'vs/base/browser/ui/positronDataExplorer/components/dataExplorerPanel/components/columnsPanel';
 import { DataGridPanel } from 'vs/base/browser/ui/positronDataExplorer/components/dataExplorerPanel/components/dataGridPanel';
+import { PositronDataExplorerLayout } from 'vs/workbench/services/positronDataExplorer/browser/interfaces/positronDataExplorerService';
 import { DataExplorerSummary } from 'vs/base/browser/ui/positronDataExplorer/components/dataExplorerPanel/components/dataExplorerSummary';
 
 /**

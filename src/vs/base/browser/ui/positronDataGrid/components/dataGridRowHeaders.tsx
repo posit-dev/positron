@@ -9,8 +9,8 @@ import 'vs/css!./dataGridRowHeaders';
 import * as React from 'react';
 
 // Other dependencies.
-import { usePositronDataGridContext } from 'vs/base/browser/ui/positronDataGrid/positronDataGridContext';
 import { DataGridRowHeader } from 'vs/base/browser/ui/positronDataGrid/components/dataGridRowHeader';
+import { usePositronDataGridContext } from 'vs/base/browser/ui/positronDataGrid/positronDataGridContext';
 
 /**
  * DataGridRowHeadersProps interface.

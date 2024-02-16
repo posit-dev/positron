@@ -13,10 +13,10 @@ import { MouseEvent } from 'react'; // eslint-disable-line no-duplicate-imports
 import { isMacintosh } from 'vs/base/common/platform';
 import { positronClassNames } from 'vs/base/common/positronUtilities';
 import { IDataColumn } from 'vs/base/browser/ui/positronDataGrid/interfaces/dataColumn';
-import { usePositronDataGridContext } from 'vs/base/browser/ui/positronDataGrid/positronDataGridContext';
 import { VerticalSplitter } from 'vs/base/browser/ui/positronComponents/verticalSplitter';
-import { CellSelectionState } from 'vs/base/browser/ui/positronDataGrid/interfaces/dataGridInstance';
 import { HorizontalSplitter } from 'vs/base/browser/ui/positronComponents/horizontalSplitter';
+import { CellSelectionState } from 'vs/base/browser/ui/positronDataGrid/interfaces/dataGridInstance';
+import { usePositronDataGridContext } from 'vs/base/browser/ui/positronDataGrid/positronDataGridContext';
 
 /**
  * DataGridRowCellProps interface.

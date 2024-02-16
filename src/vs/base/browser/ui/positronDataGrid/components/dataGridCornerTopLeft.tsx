@@ -7,8 +7,8 @@ import 'vs/css!./dataGridCornerTopLeft';
 
 // React.
 import * as React from 'react';
-import { usePositronDataGridContext } from 'vs/base/browser/ui/positronDataGrid/positronDataGridContext';
 import { VerticalSplitter } from 'vs/base/browser/ui/positronComponents/verticalSplitter';
+import { usePositronDataGridContext } from 'vs/base/browser/ui/positronDataGrid/positronDataGridContext';
 
 /**
  * DataGridCornerTopLeftProps interface.
