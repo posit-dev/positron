@@ -22,11 +22,6 @@ export class PositronDataExplorerColumn implements IPositronDataExplorerColumn {
 	 */
 	private _width: number;
 
-	/**
-	 * Gets or sets the layout width.
-	 */
-	private _layoutWidth: number = 0;
-
 	//#endregion Private Properties
 
 	//#region Constructor & Dispose
@@ -119,20 +114,6 @@ export class PositronDataExplorerColumn implements IPositronDataExplorerColumn {
 	 */
 	set width(width: number) {
 		this._width = width;
-	}
-
-	/**
-	 * Gets the layout width.
-	 */
-	get layoutWidth() {
-		return this._layoutWidth;
-	}
-
-	/**
-	 * Sets the width.
-	 */
-	set layoutWidth(layoutWidth: number) {
-		this._layoutWidth = layoutWidth;
 	}
 
 	//#endregion IDataColumn Implementation
