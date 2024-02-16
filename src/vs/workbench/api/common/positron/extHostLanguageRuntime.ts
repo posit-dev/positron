@@ -17,7 +17,7 @@ import { URI } from 'vs/base/common/uri';
  * A language runtime manager and metadata about the extension that registered it.
  */
 interface LanguageRuntimeManager {
-	discoverer: positron.LanguageRuntimeManager;
+	manager: positron.LanguageRuntimeManager;
 	extension: IExtensionDescription;
 }
 
@@ -27,8 +27,9 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 
 	private readonly _registeredRuntimes = new Array<positron.LanguageRuntimeMetadata>();
 
-	// A map of the runtime managers. This is keyed by the languageId of the runtime provider.
-	private readonly _runtimeSessionMangers = new Map<string, LanguageRuntimeManager>();
+	private readonly _runtimeManagersByRuntimeId = new Map<string, LanguageRuntimeManager>();
+
+	private readonly _runtimeManagers = new Array<LanguageRuntimeManager>();
 
 	// A list of active sessions.
 	private readonly _runtimeSessions = new Array<positron.LanguageRuntimeSession>();
@@ -73,8 +74,8 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		metadata: positron.LanguageRuntimeMetadata,
 		sessionId: string): Promise<number> {
 		return new Promise((resolve, reject) => {
-			// Look up the session manager responsible for the language ID
-			const sessionManager = this._runtimeSessionManagers.get(metadata.languageId);
+			// Look up the session manager responsible for starting this runtime
+			const sessionManager = this._runtimeManagersByRuntimeId.get(metadata.runtimeId);
 			if (sessionManager) {
 				sessionManager.manager.createSession(metadata, sessionId).then((session) => {
 					resolve(this.attachToSession(session));
@@ -87,8 +88,14 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		});
 	}
 
-	attachToSession(session: positron.LanguageRuntimeSession): number {
-
+	/**
+	 * Attach to a language runtime session.
+	 *
+	 * @param session The language runtime session to attach to
+	 *
+	 * @returns The handle to the session
+	 */
+	private attachToSession(session: positron.LanguageRuntimeSession): number {
 		// Wire event handlers for state changes and messages
 		session.onDidChangeRuntimeState(state => {
 			const tick = this._eventClocks[handle] = this._eventClocks[handle] + 1;
@@ -247,15 +254,17 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 	 * Discovers language runtimes and registers them with the main thread.
 	 */
 	public async $discoverLanguageRuntimes(): Promise<void> {
-		// Discover runtimes from each provider in parallel
+		// Extract all the runtime discoverers from the runtime managers
 		let start = 0;
-		let end = this._runtimeDiscoverers.length;
+		let end = this._runtimeManagers.length;
+
+		// Discover runtimes from each provider in parallel
 		while (start !== end) {
 			// Extract the section of the providers list we're working on and discover
 			// runtimes from it
-			const providers = this._runtimeDiscoverers.slice(start, end);
+			const managers = this._runtimeManagers.slice(start, end);
 			try {
-				await this.discoverLanguageRuntimes(providers);
+				await this.discoverLanguageRuntimes(managers);
 			} catch (err) {
 				// Log and continue if errors occur during registration; this is
 				// a safeguard to ensure we always signal the main thread when
@@ -268,7 +277,7 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 			// need to go back into the body of the loop to discover those
 			// runtimes as well.
 			start = end;
-			end = this._runtimeDiscoverers.length;
+			end = managers.length;
 		}
 
 		// Notify the main thread that discovery is complete
@@ -281,33 +290,53 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 	 *
 	 * @param discoverers The set of discoverers to discover runtimes from
 	 */
-	private async discoverLanguageRuntimes(discoverers: Array<LanguageRuntimeDiscoverer>):
-		Promise<void> {
+	private async discoverLanguageRuntimes(managers: Array<LanguageRuntimeManager>): Promise<void> {
 
 		// The number of discoverers we're waiting on (initially all discoverers)
-		let count = discoverers.length;
+		let count = managers.length;
 
 		// Utility promise
 		const never: Promise<never> = new Promise(() => { });
+
+		// Utility interface to keep track of the discoverers and their extensions
+		interface Discoverer {
+			extension: IExtensionDescription;
+			manager: positron.LanguageRuntimeManager;
+			discoverer: AsyncGenerator<positron.LanguageRuntimeMetadata, void, unknown>;
+		}
+
+		// Invoke all the discovery functions to return an async generator for each
+		const discoverers: Array<Discoverer> = this._runtimeManagers.map(manager => ({
+			extension: manager.extension,
+			manager: manager.manager,
+			discoverer: manager.manager.discoverRuntimes()
+		}));
 
 		// Utility function to get the next runtime from a provider and amend an
 		// index. If the provider throws an error attempting to get the next
 		// provider, then the error is logged and the function signals that the
 		// provider is done.
-		const getNext = async (asyncGen: LanguageRuntimeDiscoverer, index: number) => {
-			try {
-				const result = await asyncGen.discoverer.next();
-				return ({ index, extension: asyncGen.extension, result });
-			} catch (err) {
-				console.error(`Language runtime provider threw an error during registration: ` +
-					`${err}`);
-				return {
-					index,
-					extension: asyncGen.extension,
-					result: { value: undefined, done: true }
-				};
-			}
-		};
+		const getNext =
+			async (asyncGen: Discoverer, index: number) => {
+				try {
+					const result = await asyncGen.discoverer.next();
+					return ({
+						index,
+						extension: asyncGen.extension,
+						manager: asyncGen.manager,
+						result
+					});
+				} catch (err) {
+					console.error(`Language runtime provider threw an error during registration: ` +
+						`${err}`);
+					return {
+						index,
+						extension: asyncGen.extension,
+						manager: asyncGen.manager,
+						result: { value: undefined, done: true }
+					};
+				}
+			};
 
 		// Array mapping each provider to a promise for its next runtime
 		const nextPromises = discoverers.map(getNext);
@@ -315,7 +344,7 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		try {
 			while (count) {
 				// Wait for the next runtime to be discovered from any provider
-				const { index, extension, result } = await Promise.race(nextPromises);
+				const { index, extension, manager, result } = await Promise.race(nextPromises);
 				if (result.done) {
 					// If the provider is done supplying runtimes, remove it
 					// from the list of discoverers we're waiting on
@@ -326,7 +355,7 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 					// and register the runtime it returned
 					nextPromises[index] = getNext(discoverers[index], index);
 					try {
-						this.registerLanguageRuntime(extension, result.value);
+						this.registerLanguageRuntime(extension, manager, result.value);
 					} catch (err) {
 						console.error(`Error registering language runtime ` +
 							`${result.value.runtimeName}: ${err}`);
@@ -339,7 +368,7 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 			// Clean up any remaining promises
 			for (const [index, iterator] of discoverers.entries()) {
 				if (nextPromises[index] !== never && iterator.discoverer.return !== null) {
-					void iterator.discoverer.return(null);
+					void iterator.discoverer.return(undefined);
 				}
 			}
 		}
@@ -378,20 +407,24 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		if (this._runtimeDiscoveryComplete) {
 			// We missed the discovery phase. Invoke the provider's async
 			// generator and register each runtime it returns right away.
+			//
+			// Note that if we don't miss the discovery phase, then the
+			// provider's async generator will be invoked as part of the
+			// discovery process, and we don't need to do anything here.
 			void (async () => {
-				for await (const runtime of manager.discoverRuntimes) {
-					this.registerLanguageRuntime(extension, runtime);
+				const discoverer = manager.discoverRuntimes();
+				for await (const runtime of discoverer) {
+					this.registerLanguageRuntime(extension, manager, runtime);
 				}
 			})();
-		} else {
-			// We didn't miss it; either discovery is happening now or it hasn't started. Add
-			// the provider to the list of providers on which we need to perform discovery.
-			this._runtimeDiscoverers.push({ extension, discoverer });
 		}
+
+		this._runtimeManagers.push({ manager, extension });
 	}
 
 	public registerLanguageRuntime(
 		extension: IExtensionDescription,
+		manager: positron.LanguageRuntimeManager,
 		runtime: positron.LanguageRuntimeMetadata): IDisposable {
 
 		// Create a handle and register the runtime with the main thread
@@ -403,6 +436,13 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 			...runtime
 		});
 		this._onDidRegisterRuntimeEmitter.fire(runtime);
+
+		// Add this runtime to the set of registered runtimes
+		this._registeredRuntimes.push(runtime);
+
+		// Save the manager associated with this runtime, too; we'll need to use
+		// it to create a runtime session later
+		this._runtimeManagersByRuntimeId.set(runtime.runtimeId, { manager, extension });
 
 		return new Disposable(() => {
 			this._proxy.$unregisterLanguageRuntime(handle);
