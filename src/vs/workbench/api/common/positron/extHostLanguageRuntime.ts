@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
 import type * as positron from 'positron';
@@ -14,18 +14,10 @@ import { IExtensionDescription } from 'vs/platform/extensions/common/extensions'
 import { URI } from 'vs/base/common/uri';
 
 /**
- * A language runtime discoverer and metadata about the extension that registered it.
+ * A language runtime manager and metadata about the extension that registered it.
  */
-interface LanguageRuntimeDiscoverer {
-	discoverer: positron.LanguageRuntimeDiscoverer;
-	extension: IExtensionDescription;
-}
-
-/**
- * A language runtime session provider and metadata about the extension that registered it.
- */
-interface LanguageRuntimeSessionManager {
-	manager: positron.LanguageRuntimeSessionManager;
+interface LanguageRuntimeManager {
+	discoverer: positron.LanguageRuntimeManager;
 	extension: IExtensionDescription;
 }
 
@@ -35,10 +27,8 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 
 	private readonly _registeredRuntimes = new Array<positron.LanguageRuntimeMetadata>();
 
-	private readonly _runtimeDiscoverers = new Array<LanguageRuntimeDiscoverer>();
-
-	// A map of the runtime session managers. This is keyed by the languageId of the runtime provider.
-	private readonly _runtimeSessionManagers = new Map<string, LanguageRuntimeSessionManager>();
+	// A map of the runtime managers. This is keyed by the languageId of the runtime provider.
+	private readonly _runtimeSessionMangers = new Map<string, LanguageRuntimeManager>();
 
 	// A list of active sessions.
 	private readonly _runtimeSessions = new Array<positron.LanguageRuntimeSession>();
@@ -382,15 +372,14 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		return this._proxy.$getRunningRuntimes(languageId);
 	}
 
-	public registerLanguageRuntimeDiscoverer(
+	public registerLanguageRuntimeManager(
 		extension: IExtensionDescription,
-		languageId: string,
-		discoverer: positron.LanguageRuntimeDiscoverer): void {
+		manager: positron.LanguageRuntimeManager): void {
 		if (this._runtimeDiscoveryComplete) {
 			// We missed the discovery phase. Invoke the provider's async
 			// generator and register each runtime it returns right away.
 			void (async () => {
-				for await (const runtime of discoverer) {
+				for await (const runtime of manager.discoverRuntimes) {
 					this.registerLanguageRuntime(extension, runtime);
 				}
 			})();
@@ -399,13 +388,6 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 			// the provider to the list of providers on which we need to perform discovery.
 			this._runtimeDiscoverers.push({ extension, discoverer });
 		}
-	}
-
-	public registerLanguageRuntimeSessionManager(
-		extension: IExtensionDescription,
-		languageId: string,
-		manager: positron.LanguageRuntimeSessionManager): void {
-		this._runtimeSessionManagers.set(languageId, { extension, manager });
 	}
 
 	public registerLanguageRuntime(

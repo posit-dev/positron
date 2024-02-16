@@ -151,9 +151,9 @@ export class LookupHelpTopic extends Action2 {
 		// If no language ID from an open editor, try to get the language ID
 		// from the active runtime.
 		if (!languageId) {
-			const runtime = runtimeService.activeRuntime;
-			if (runtime) {
-				languageId = runtime.metadata.languageId;
+			const session = runtimeService.foregroundSession;
+			if (session) {
+				languageId = session.metadata.languageId;
 			} else {
 				const message = localize('positron.help.noInterpreters', "There are no interpreters running. Start an interpreter to look up help topics.");
 				notificationService.info(message);
@@ -161,11 +161,11 @@ export class LookupHelpTopic extends Action2 {
 			}
 		}
 
-		// Make sure we have a runtime for the language ID.
-		const runtimes = runtimeService.runningRuntimes;
+		// Make sure we have an active session for the language ID.
+		const sessions = runtimeService.activeSessions;
 		let found = false;
-		for (const runtime of runtimes) {
-			if (runtime.metadata.languageId === languageId) {
+		for (const session of sessions) {
+			if (session.metadata.languageId === languageId) {
 				found = true;
 				break;
 			}

@@ -69,7 +69,7 @@ export class RRuntimeProvider implements positron.LanguageRuntimeProvider {
  */
 export async function* rRuntimeDiscoverer(
 	context: vscode.ExtensionContext
-): AsyncGenerator<positron.LanguageRuntime> {
+): AsyncGenerator<positron.LanguageRuntimeMetadata> {
 	let rInstallations: Array<RInstallation> = [];
 	const binaries = new Set<string>();
 

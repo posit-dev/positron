@@ -26,7 +26,7 @@ interface RPackageInstallation {
  * A Positron language runtime that wraps a Jupyter kernel and a Language Server
  * Protocol client.
  */
-export class RRuntime implements positron.LanguageRuntime, vscode.Disposable {
+export class RRuntime implements positron.LanguageRuntimeSession, vscode.Disposable {
 
 	/** The Language Server Protocol client wrapper */
 	private _lsp: ArkLsp;

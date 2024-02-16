@@ -228,15 +228,15 @@ class PositronDataToolService extends Disposable implements IPositronDataToolSer
 	 * Adds a data tool runtime.
 	 * @param runtime
 	 */
-	private addDataToolRuntime(runtime: ILanguageRuntime) {
+	private addDataToolRuntime(session: ILanguageRuntimeSession) {
 		// If the runtime has already been added, return.
-		if (this._dataToolRuntimes.has(runtime.metadata.runtimeId)) {
+		if (this._dataToolRuntimes.has(session.sessionId)) {
 			return;
 		}
 
 		// Create and add the data tool runtime.
-		const dataToolRuntime = new DataToolRuntime(runtime);
-		this._dataToolRuntimes.set(runtime.metadata.runtimeId, dataToolRuntime);
+		const dataToolRuntime = new DataToolRuntime(session);
+		this._dataToolRuntimes.set(session.sessionId, dataToolRuntime);
 
 		dataToolRuntime.onDidOpenDataToolClient(dataToolClientInstance => {
 			this.open(dataToolClientInstance);

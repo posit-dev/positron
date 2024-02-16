@@ -14,44 +14,45 @@ import { IQuickInputService, IQuickPickItem } from 'vs/platform/quickinput/commo
 import { IKeybindingRule, KeybindingWeight } from 'vs/platform/keybinding/common/keybindingsRegistry';
 import { LANGUAGE_RUNTIME_ACTION_CATEGORY } from 'vs/workbench/contrib/languageRuntime/common/languageRuntime';
 import { IPositronConsoleService } from 'vs/workbench/services/positronConsole/browser/interfaces/positronConsoleService';
-import { ILanguageRuntime, ILanguageRuntimeService, IRuntimeClientInstance, RuntimeClientType } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntimeService, ILanguageRuntimeSession, IRuntimeClientInstance, RuntimeClientType } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 
 // The category for language runtime actions.
 const category: ILocalizedString = { value: LANGUAGE_RUNTIME_ACTION_CATEGORY, original: 'Language Runtime' };
 
 // Quick pick item interfaces.
-interface LanguageRuntimeQuickPickItem extends IQuickPickItem { languageRuntime: ILanguageRuntime }
+interface LanguageRuntimeSessionQuickPickItem extends IQuickPickItem { session: ILanguageRuntimeSession }
 interface RuntimeClientTypeQuickPickItem extends IQuickPickItem { runtimeClientType: RuntimeClientType }
 interface RuntimeClientInstanceQuickPickItem extends IQuickPickItem { runtimeClientInstance: IRuntimeClientInstance<any, any> }
 
 /**
  * Helper function that asks the user to select a language runtime from an array of language runtimes.
+ *
  * @param quickInputService The quick input service.
- * @param languageRuntimes The language runtimes the user can select from.
+ * @param sessions The language runtime sessions the user can select from.
  * @param placeHolder The placeholder for the quick input.
  * @returns The language runtime the user selected, or undefined, if the user canceled the operation.
  */
 export const selectLanguageRuntime = async (
 	quickInputService: IQuickInputService,
-	languageRuntimes: ILanguageRuntime[],
-	placeHolder: string): Promise<ILanguageRuntime | undefined> => {
+	sessions: ILanguageRuntimeSession[],
+	placeHolder: string): Promise<ILanguageRuntimeSession | undefined> => {
 
 	// Build the language runtime quick pick items.
-	const languageRuntimeQuickPickItems = languageRuntimes.map<LanguageRuntimeQuickPickItem>(languageRuntime => ({
-		id: languageRuntime.metadata.runtimeId,
-		label: languageRuntime.metadata.runtimeName,
-		description: languageRuntime.metadata.languageVersion,
-		languageRuntime
-	} satisfies LanguageRuntimeQuickPickItem));
+	const languageRuntimeQuickPickItems = sessions.map<LanguageRuntimeSessionQuickPickItem>(session => ({
+		id: session.sessionId,
+		label: session.sessionName,
+		description: session.metadata.languageVersion,
+		session
+	} satisfies LanguageRuntimeSessionQuickPickItem));
 
 	// Prompt the user to select a language runtime.
-	const languageRuntimeQuickPickItem = await quickInputService.pick<LanguageRuntimeQuickPickItem>(languageRuntimeQuickPickItems, {
+	const languageRuntimeQuickPickItem = await quickInputService.pick<LanguageRuntimeSessionQuickPickItem>(languageRuntimeQuickPickItems, {
 		canPickMany: false,
 		placeHolder
 	});
 
 	// Done.
-	return languageRuntimeQuickPickItem?.languageRuntime;
+	return languageRuntimeQuickPickItem?.session;
 };
 
 /**
@@ -66,24 +67,24 @@ export const selectLanguageRuntime = async (
 const selectRunningLanguageRuntime = async (
 	languageRuntimeService: ILanguageRuntimeService,
 	quickInputService: IQuickInputService,
-	placeHolder: string): Promise<ILanguageRuntime | undefined> => {
+	placeHolder: string): Promise<ILanguageRuntimeSession | undefined> => {
 
 	// If there's an active language runtime, use that.
-	const activeRuntime = languageRuntimeService.activeRuntime;
-	if (activeRuntime) {
-		return activeRuntime;
+	const activeSession = languageRuntimeService.foregroundSession;
+	if (activeSession) {
+		return activeSession;
 	}
 
 	// If there isn't an active language runtime, but there are running
 	// runtimes, ask the user to select one.
-	const runningLanguageRuntimes = languageRuntimeService.runningRuntimes;
-	if (!runningLanguageRuntimes.length) {
+	const activeSessions = languageRuntimeService.activeSessions;
+	if (!activeSessions.length) {
 		alert('No interpreters are currently running.');
 		return undefined;
 	}
 
 	// As the user to select the running language runtime.
-	return await selectLanguageRuntime(quickInputService, runningLanguageRuntimes, placeHolder);
+	return await selectLanguageRuntime(quickInputService, activeSessions, placeHolder);
 };
 
 /**
@@ -154,20 +155,20 @@ export function registerLanguageRuntimeActions() {
 		}
 	});
 
-	// Registers the set active  language runtime action.
+	// Registers the set active language runtime action.
 	registerLanguageRuntimeAction('workbench.action.languageRuntime.setActive', 'Set Active Interpreter', async accessor => {
 		// Get the language runtime service.
 		const languageRuntimeService = accessor.get(ILanguageRuntimeService);
 
 		// Have the user select the language runtime they wish to set as the active language runtime.
-		const runtime = await selectRunningLanguageRuntime(
+		const session = await selectRunningLanguageRuntime(
 			languageRuntimeService,
 			accessor.get(IQuickInputService),
 			'Set the active language runtime');
 
 		// If the user selected a language runtime, set it as the active language runtime.
-		if (runtime) {
-			languageRuntimeService.activeRuntime = runtime;
+		if (session) {
+			languageRuntimeService.foregroundSession = session;
 		}
 	});
 
@@ -178,18 +179,18 @@ export function registerLanguageRuntimeActions() {
 		const languageRuntimeService = accessor.get(ILanguageRuntimeService);
 
 		// The runtime we'll try to restart.
-		let runtime: ILanguageRuntime | undefined = undefined;
+		let runtime: ILanguageRuntimeSession | undefined = undefined;
 
 		// Typically, the restart command should act on the language runtime
 		// that's active in the Console, so try that first.
 		const activeConsole = consoleService.activePositronConsoleInstance;
 		if (activeConsole) {
-			runtime = activeConsole.runtime;
+			runtime = activeConsole.session;
 		}
 
 		// If there's no active console, try the active language runtime.
 		if (!runtime) {
-			runtime = accessor.get(ILanguageRuntimeService).activeRuntime;
+			runtime = accessor.get(ILanguageRuntimeService).foregroundSession;
 		}
 
 		// If we still don't have an active language runtime, ask the user to

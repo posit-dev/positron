@@ -504,16 +504,23 @@ declare module 'positron' {
 		size: number;
 	}
 
-	export type LanguageRuntimeDiscoverer = AsyncGenerator<LanguageRuntimeMetadata>;
+	export interface LanguageRuntimeManager {
+		/**
+		 * Returns a generator that yields metadata about the language runtimes
+		 * that are available to the user.
+		 */
+		discoverRuntimes(): AsyncGenerator<LanguageRuntimeMetadata>;
 
-	export interface LanguageRuntimeSessionManager {
 		/**
 		 * Creates a new runtime session.
 		 *
-		 * @param runtimeMetadata The runtime metadata.
-		 * @param sessionId The session ID.
+		 * @param runtimeMetadata One of the runtime metadata items returned by `discoverRuntimes`.
+		 * @param sessionId A unique identifer, to be assigned to the new session.
 		 */
-		createSession(runtimeMetadata: LanguageRuntimeMetadata, sessionId: string): Thenable<LanguageRuntimeSession>;
+		createSession(runtimeMetadata: LanguageRuntimeMetadata, sessionId: string):
+			Thenable<LanguageRuntimeSession>;
+
+		// TODO: Need a way to reconnect to a session
 	}
 
 	/**
@@ -997,30 +1004,10 @@ declare module 'positron' {
 			skipChecks?: boolean): Thenable<boolean>;
 
 		/**
-		 * Register a language runtime discoverer with Positron.
-		 *
-		 * @param languageId The language ID for which runtimes will be supplied
-		 * @param discoverer A function that returns an AsyncIterable of runtime registrations
+		 * Register a language runtime manager with Positron.
 		 */
-		export function registerLanguageRuntimeDiscoverer(languageId: string,
-			discoverer: LanguageRuntimeDiscoverer): void;
-
-		/**
-		 * Register a single language runtime with Positron.
-		 *
-		 * @param runtime The language runtime to register
-		 */
-		export function registerLanguageRuntime(runtime: LanguageRuntimeMetadata): vscode.Disposable;
-
-		/**
-		 * Register a language runtime session manager.
-		 *
-		 * @param languageId The language ID for which the manager is being registered.
-		 * @param provider A language runtime session manager.
-		 * @return A {@link Disposable} that unregisters this manager when being disposed.
-		 */
-		export function registerLanguageRuntimeSessionManager(languageId: string,
-			manager: LanguageRuntimeSessionManager): void;
+		export function registerLanguageRuntimeManager(languageId: string,
+			manager: LanguageRuntimeManager): void;
 
 		/**
 		 * List all registered runtimes.

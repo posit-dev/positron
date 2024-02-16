@@ -60,8 +60,8 @@ export interface IPositronPlotMetadata {
 	/** The plot's parent message ID; useful for jumping to associated spot in the console */
 	parent_id: string;
 
-	/** The ID of the runtime that created the plot */
-	runtime_id: string;
+	/** The ID of the runtime session that created the plot */
+	session_id: string;
 }
 
 /**

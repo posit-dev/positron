@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2022-2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
 import { localize } from 'vs/nls';
@@ -16,11 +16,11 @@ import { INotificationService } from 'vs/platform/notification/common/notificati
 import { IOpenerService, OpenExternalOptions } from 'vs/platform/opener/common/opener';
 import { WebviewThemeDataProvider } from 'vs/workbench/contrib/webview/browser/themeing';
 import { HelpEntry, IHelpEntry } from 'vs/workbench/contrib/positronHelp/browser/helpEntry';
+import { ShowHelpEvent } from 'vs/workbench/services/languageRuntime/common/positronHelpComm';
 import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/common/extensions';
 import { IInstantiationService, createDecorator } from 'vs/platform/instantiation/common/instantiation';
 import { HelpClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeHelpClient';
-import { ILanguageRuntime, ILanguageRuntimeService, IRuntimeClientInstance, RuntimeClientType, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
-import { ShowHelpEvent } from 'vs/workbench/services/languageRuntime/common/positronHelpComm';
+import { ILanguageRuntimeService, ILanguageRuntimeSession, IRuntimeClientInstance, RuntimeClientType, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 
 /**
  * The help HTML file path.
@@ -146,7 +146,7 @@ class PositronHelpService extends Disposable implements IPositronHelpService {
 	private readonly _proxyServers = new Map<string, string>();
 
 	/**
-	 * Gets the help clients. Keyed by the runtime ID.
+	 * Gets the help clients. Keyed by the runtime session ID.
 	 */
 	private readonly _helpClients = new Map<string, HelpClientInstance>();
 
@@ -205,7 +205,7 @@ class PositronHelpService extends Disposable implements IPositronHelpService {
 		this._register(
 			this._languageRuntimeService.onDidChangeRuntimeState(languageRuntimeStateEvent => {
 				if (languageRuntimeStateEvent.new_state === RuntimeState.Ready) {
-					this.attachRuntime(languageRuntimeStateEvent.runtime_id);
+					this.attachRuntime(languageRuntimeStateEvent.session_id);
 				}
 			})
 		);
@@ -501,26 +501,26 @@ class PositronHelpService extends Disposable implements IPositronHelpService {
 	 *
 	 * @param runtimeId The runtime ID.
 	 */
-	async attachRuntime(runtimeId: string) {
+	async attachRuntime(sessionId: string) {
 		// Look up the runtime in the runtime service.
-		const runtime = this._languageRuntimeService.getRuntime(runtimeId);
-		if (!runtime) {
-			this._logService.error(`PositronHelpService could not attach to runtime ${runtimeId}.`);
+		const session = this._languageRuntimeService.getSession(sessionId);
+		if (!session) {
+			this._logService.error(`PositronHelpService could not attach to session ${sessionId}.`);
 			return;
 		}
 
 		try {
 			// Create the server side of the help client.
 			const client: IRuntimeClientInstance<any, any> =
-				await runtime.createClient(RuntimeClientType.Help, {});
+				await session.createClient(RuntimeClientType.Help, {});
 
 			// Create and attach the help client wrapper.
-			const helpClient = new HelpClientInstance(client, runtime.metadata.languageId);
-			this.attachClientInstance(runtime, helpClient);
+			const helpClient = new HelpClientInstance(client, session.metadata.languageId);
+			this.attachClientInstance(session, helpClient);
 
 		} catch (error) {
 			this._logService.error(
-				`PositronHelpService could not create client for runtime ${runtimeId}: ` +
+				`PositronHelpService could not create client for session ${sessionId}: ` +
 				`${error}`);
 		}
 	}
@@ -528,18 +528,18 @@ class PositronHelpService extends Disposable implements IPositronHelpService {
 	/**
 	 * Attaches a client instance to the Help service.
 	 *
-	 * @param runtime The language runtime.
+	 * @param session The language runtime session.
 	 * @param client The help client instance.
 	 */
-	attachClientInstance(runtime: ILanguageRuntime, client: HelpClientInstance) {
-		const runtimeId = runtime.metadata.runtimeId;
+	attachClientInstance(session: ILanguageRuntimeSession, client: HelpClientInstance) {
+		const sessionId = session.sessionId;
 
 		// Shouldn't happen.
-		if (this._helpClients.has(runtimeId)) {
+		if (this._helpClients.has(sessionId)) {
 			this._logService.warn(`
-			PositronHelpService already has a client for runtime ${runtimeId}; ` +
+			PositronHelpService already has a client for session ${sessionId}; ` +
 				`it will be replaced.`);
-			const oldClient = this._helpClients.get(runtimeId);
+			const oldClient = this._helpClients.get(sessionId);
 			if (oldClient) {
 				oldClient.dispose();
 			}
@@ -547,21 +547,23 @@ class PositronHelpService extends Disposable implements IPositronHelpService {
 
 		// Save our connection to the client.
 		this._register(client);
-		this._helpClients.set(runtimeId, client);
+		this._helpClients.set(sessionId, client);
 
 		// When the client emits help content, show it in the Help pane.
 		this._register(client.onDidEmitHelpContent(helpContent => {
-			this.handleShowHelpEvent(runtime, helpContent);
+			this.handleShowHelpEvent(session, helpContent);
 		}));
 
 		// When the client closes, delete the help entries for the runtime.
 		this._register(client.onDidClose(() => {
-			this.deleteLanguageRuntimeHelpEntries(runtimeId);
-			this._helpClients.delete(runtimeId);
+			this.deleteLanguageRuntimeHelpEntries(sessionId);
+			this._helpClients.delete(sessionId);
 		}));
 	}
 
-	private async handleShowHelpEvent(runtime: ILanguageRuntime, showHelpEvent: ShowHelpEvent) {
+	private async handleShowHelpEvent(
+		session: ILanguageRuntimeSession,
+		showHelpEvent: ShowHelpEvent) {
 
 		// Only url help events are supported.
 		if (showHelpEvent.kind !== 'url') {
@@ -633,7 +635,7 @@ class PositronHelpService extends Disposable implements IPositronHelpService {
 		sourceUrl.port = proxyServerOriginUrl.port;
 
 		// Basically this can't happen.
-		if (!runtime) {
+		if (!session) {
 			this._notificationService.error(localize(
 				'positronHelpServiceInternalError',
 				"The Positron help service experienced an unexpected error."

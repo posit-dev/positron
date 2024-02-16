@@ -305,22 +305,22 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 	/**
 	 * Gets the registered runtimes.
 	 */
-	get registeredRuntimes(): ILanguageRuntime[] {
-		return this._registeredRuntimes.map(_ => _.runtime);
+	get registeredRuntimes(): ILanguageRuntimeMetadata[] {
+		return this._registeredRuntimes;
 	}
 
 	/**
 	 * Gets the running runtimes.
 	 */
-	get runningRuntimes(): ILanguageRuntime[] {
-		return Array.from(this._runningRuntimesByLanguageId.values());
+	get activeSessions(): ILanguageRuntimeSession[] {
+		return Array.from(this._activeSessionsByLanguageId.values());
 	}
 
 	/**
-	 * Gets the active runtime.
+	 * Gets the foreground session.
 	 */
-	get activeRuntime(): ILanguageRuntime | undefined {
-		return this._activeRuntime;
+	get foregroundSession(): ILanguageRuntimeSession | undefined {
+		return this._foregroundSession;
 	}
 
 	/**
@@ -331,37 +331,18 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 	}
 
 	/**
-	 * Sets the active runtime.
+	 * Sets the foreground session.
 	 */
-	set activeRuntime(runtime: ILanguageRuntime | undefined) {
+	set foregroundSession(session: ILanguageRuntimeSession | undefined) {
 		// If there's nothing to do, return.
-		if (!runtime && !this._activeRuntime) {
+		if (!session && !this._foregroundSession) {
 			return;
 		}
 
-		// Set the active runtime.
-		if (!runtime) {
-			this._activeRuntime = undefined;
-		} else {
-			// Sanity check that the runtime that was specified is registered.
-			if (!this._registeredRuntimesByRuntimeId.has(runtime.metadata.runtimeId)) {
-				this._logService.error(`Cannot activate language runtime ${formatLanguageRuntime(runtime)} because it is not registered.`);
-				return;
-			}
-
-			// Find the runtime.
-			const activeRuntime = this._startingSessionsByLanguageId.get(runtime.metadata.languageId) || this._runningRuntimesByLanguageId.get(runtime.metadata.languageId);
-			if (!activeRuntime) {
-				this._logService.error(`Cannot activate language runtime ${formatLanguageRuntime(runtime)} because it is not running.`);
-				return;
-			}
-
-			// Set the active runtime to the running runtime.
-			this._activeRuntime = activeRuntime;
-		}
+		this._foregroundSession = session;
 
 		// Fire the onDidChangeActiveRuntime event.
-		this._onDidChangeActiveRuntimeEmitter.fire(this._activeRuntime);
+		this._onDidChangeActiveRuntimeEmitter.fire(this._foregroundSession);
 	}
 
 	/**
@@ -434,39 +415,22 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 		// Signal that the set of registered runtimes has changed.
 		this._onDidRegisterRuntimeEmitter.fire(metadata);
 
-		// Runtimes are usually registered in the Uninitialized state. If the
-		// runtime is already running when it is registered, we are
-		// reconnecting to it, so we need to add it to the running runtimes.
-		if (runtime.getRuntimeState() !== RuntimeState.Uninitialized &&
-			runtime.getRuntimeState() !== RuntimeState.Exited) {
-			// Add the runtime to the running runtimes.
-			this._runningRuntimesByLanguageId.set(runtime.metadata.languageId, runtime);
-
-			// Signal that the runtime has been reconnected.
-			this._onDidReconnectRuntimeEmitter.fire(runtime);
-
-			// If we have no active runtime, set the active runtime to the new runtime, since it's
-			// already active.
-			if (!this._activeRuntime) {
-				this.activeRuntime = runtime;
-			}
-		}
-
 		// Logging.
-		this._logService.trace(`Language runtime ${formatLanguageRuntime(runtime)} successfully registered.`);
+		this._logService.trace(`Language runtime ${formatLanguageRuntimeMetadata(metadata)} successfully registered.`);
 
 		// Automatically start the language runtime under the following conditions:
 		// - The language runtime wants to start immediately.
 		// - No other runtime is currently running.
 		// - We have completed the discovery phase of the language runtime
 		//   registration process.
-		if (startupBehavior === LanguageRuntimeStartupBehavior.Immediate &&
+		if (metadata.startupBehavior === LanguageRuntimeStartupBehavior.Immediate &&
 			this._discoveryPhase === LanguageRuntimeDiscoveryPhase.Complete &&
 			!this.hasAnyStartedOrRunningRuntimes()) {
 
-			this.autoStartRuntime(languageRuntimeInfo.runtime,
+			this.autoStartRuntime(metadata,
 				`An extension requested that the runtime start immediately after being registered.`);
 		}
+
 		// Automatically start the language runtime under the following conditions:
 		// - We have encountered the language that the runtime serves.
 		// - We have completed the discovery phase of the language runtime
@@ -475,130 +439,16 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 		// - The runtime has implicit startup behavior.
 		// - There's no runtime affiliated with the current workspace for this
 		//   language (if there is, we want that runtime to start, not this one)
-		else if (this._encounteredLanguagesByLanguageId.has(runtime.metadata.languageId) &&
+		else if (this._encounteredLanguagesByLanguageId.has(metadata.languageId) &&
 			this._discoveryPhase === LanguageRuntimeDiscoveryPhase.Complete &&
-			!this.runtimeForLanguageIsStartingOrRunning(runtime.metadata.languageId) &&
-			startupBehavior === LanguageRuntimeStartupBehavior.Implicit &&
-			!this._workspaceAffiliation.getAffiliatedRuntimeMetadata(runtime.metadata.languageId)) {
+			!this.runtimeForLanguageIsStartingOrRunning(metadata.languageId) &&
+			metadata.startupBehavior === LanguageRuntimeStartupBehavior.Implicit &&
+			!this._workspaceAffiliation.getAffiliatedRuntimeMetadata(metadata.languageId)) {
 
-			this.autoStartRuntime(languageRuntimeInfo.runtime,
-				`A file with the language ID ${runtime.metadata.languageId} was open ` +
+			this.autoStartRuntime(metadata,
+				`A file with the language ID ${metadata.languageId} was open ` +
 				`when the runtime was registered.`);
 		}
-
-		// Add the onDidChangeRuntimeState event handler.
-		this._register(runtime.onDidChangeRuntimeState(state => {
-			// Process the state change.
-			switch (state) {
-				case RuntimeState.Starting:
-					// Typically, the runtime starts when we ask it to (in `doStartRuntime`), but
-					// if the runtime is already running when it is registered, we are reconnecting.
-					// In that case, we need to add it to the running runtimes and signal that the
-					// runtime has reconnected.
-					if (!this.runtimeForLanguageIsStartingOrRunning(runtime.metadata.languageId)) {
-						// Add the runtime to the running runtimes.
-						this._runningRuntimesByLanguageId.set(runtime.metadata.languageId, runtime);
-
-						// Signal that the runtime has been reconnected.
-						this._onDidReconnectRuntimeEmitter.fire(runtime);
-					}
-					break;
-
-				case RuntimeState.Ready:
-					if (runtime !== this._activeRuntime) {
-						// If this runtime isn't already active, activate it. We
-						// avoid re-activation if already active since the
-						// resulting events can cause Positron behave as though
-						// a new runtime were started (e.g. focusing the
-						// console)
-						this.activeRuntime = runtime;
-					}
-
-					// @TODO@softwarenerd - Talk with the team about this.
-					// // If the runtime is ready, and we have no active runtime,
-					// // set the active runtime to the new runtime.
-					// if (!this._activeRuntime || this._activeRuntime.metadata.languageId === runtime.metadata.languageId) {
-					// 	this.activeRuntime = runtime;
-					// }
-
-					// Start the UI client instance once the runtime is fully online.
-					this.startUiClient(runtime);
-					break;
-
-				case RuntimeState.Interrupting:
-					this.waitForInterrupt(runtime);
-					break;
-
-				case RuntimeState.Exiting:
-					this.waitForShutdown(runtime);
-					break;
-
-				case RuntimeState.Offline:
-					this.waitForReconnect(runtime);
-					break;
-
-				case RuntimeState.Exited:
-					// Remove the runtime from the set of starting or running runtimes.
-					this._startingSessionsByLanguageId.delete(runtime.metadata.languageId);
-					this._runningRuntimesByLanguageId.delete(runtime.metadata.languageId);
-					break;
-			}
-
-			// Let listeners know that the runtime state has changed.
-			const languageRuntimeInfo = this._registeredRuntimesByRuntimeId.get(runtime.metadata.runtimeId);
-			if (!languageRuntimeInfo) {
-				this._logService.error(`Language runtime ${formatLanguageRuntime(runtime)} is not registered.`);
-			} else {
-				const oldState = languageRuntimeInfo.state;
-				languageRuntimeInfo.setState(state);
-				this._onDidChangeRuntimeStateEmitter.fire({
-					runtime_id: runtime.metadata.runtimeId,
-					old_state: oldState,
-					new_state: state
-				});
-			}
-		}));
-
-		this._register(runtime.onDidEndSession(async exit => {
-			// If the runtime is restarting and has just exited, let Positron know that it's
-			// about to start again. Note that we need to do this on the next tick since we
-			// need to ensure all the event handlers for the state change we
-			// are currently processing have been called (i.e. everyone knows it has exited)
-			setTimeout(() => {
-				if (languageRuntimeInfo.state === RuntimeState.Exited &&
-					exit.reason === RuntimeExitReason.Restart) {
-					this._onWillStartRuntimeEmitter.fire(runtime);
-				}
-			}, 0);
-
-			// If the runtime crashed, try to restart it.
-			if (exit.reason === RuntimeExitReason.Error || exit.reason === RuntimeExitReason.Unknown) {
-				const restartOnCrash = this._configurationService.getValue<boolean>('positron.interpreters.restartOnCrash');
-
-				let action;
-
-				if (restartOnCrash) {
-					// Wait a beat, then start the runtime.
-					await new Promise<void>(resolve => setTimeout(resolve, 250));
-					this._onWillStartRuntimeEmitter.fire(runtime);
-					await this.startRuntime(runtime.metadata.runtimeId,
-						`The runtime exited unexpectedly and is being restarted automatically.`);
-					action = 'and was automatically restarted';
-				} else {
-					action = 'and was not automatically restarted';
-				}
-
-				// Let the user know what we did.
-				const msg = nls.localize(
-					'positronConsole.runtimeCrashed',
-					'{0} exited unexpectedly {1}. You may have lost unsaved work.\nExit code: {2}',
-					runtime.metadata.runtimeName,
-					action,
-					exit.exit_code
-				);
-				this._notificationService.warn(msg);
-			}
-		}));
 
 		return toDisposable(() => {
 			// Remove the runtime from the set of starting or running runtimes.
@@ -607,11 +457,11 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 		});
 	}
 
-	getPreferredRuntime(languageId: string): ILanguageRuntime {
-		// If there's a running runtime for the language, return it.
-		const runningRuntime = this._runningRuntimesByLanguageId.get(languageId);
-		if (runningRuntime) {
-			return runningRuntime;
+	getPreferredRuntime(languageId: string): ILanguageRuntimeMetadata {
+		// If there's an active session for the language, return it.
+		const activeSession = this._activeSessionsByLanguageId.get(languageId);
+		if (activeSession) {
+			return activeSession.metadata;
 		}
 
 		// If there's a starting runtime for the language, return it.
@@ -626,7 +476,7 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 		if (affiliatedRuntimeMetadata) {
 			const affiliatedRuntimeInfo = this._registeredRuntimesByRuntimeId.get(affiliatedRuntimeMetadata.runtimeId);
 			if (affiliatedRuntimeInfo) {
-				return affiliatedRuntimeInfo.runtime;
+				return affiliatedRuntimeInfo;
 			}
 		}
 
@@ -638,9 +488,9 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 
 		// If there are registered runtimes for the language, return the first.
 		const languageRuntimeInfos = this._registeredRuntimes.filter(
-			info => info.runtime.metadata.languageId === languageId);
+			info => info.languageId === languageId);
 		if (languageRuntimeInfos.length) {
-			return languageRuntimeInfos[0].runtime;
+			return languageRuntimeInfos[0];
 		}
 
 		// There are no registered runtimes for the language, throw an error.
@@ -802,11 +652,11 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 	 *
 	 * @param runtime The runtime for which to start the UI client.
 	 */
-	private startUiClient(runtime: ILanguageRuntime): void {
+	private startUiClient(session: ILanguageRuntimeSession): void {
 		// Create the frontend client. The second argument is empty for now; we
 		// could use this to pass in any initial state we want to pass to the
 		// frontend client (such as information on window geometry, etc.)
-		runtime.createClient<IUiClientMessageInput, IUiClientMessageOutput>
+		session.createClient<IUiClientMessageInput, IUiClientMessageOutput>
 			(RuntimeClientType.Ui, {}).then(client => {
 				// Create the UI client instance wrapping the client instance.
 				const uiClient = new UiClientInstance(client);
@@ -816,7 +666,7 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 				// it to Positron with the corresponding runtime ID.
 				this._register(uiClient.onDidBusy(event => {
 					this._onDidReceiveRuntimeEventEmitter.fire({
-						runtime_id: runtime.metadata.runtimeId,
+						runtime_id: session.metadata.runtimeId,
 						event: {
 							name: UiFrontendEvent.Busy,
 							data: event
@@ -919,13 +769,13 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 	 * @param runtime The runtime to start.
 	 * @param source The source of the request to start the runtime.
 	 */
-	private async autoStartRuntime(runtime: ILanguageRuntime, source: string): Promise<void> {
+	private async autoStartRuntime(metadata: ILanguageRuntimeMetadata, source: string): Promise<void> {
 		// Check the setting to see if we should be auto-starting.
 		const autoStart = this._configurationService.getValue<boolean>(
 			'positron.interpreters.automaticStartup');
 		if (!autoStart) {
 			this._logService.info(`Language runtime ` +
-				`${formatLanguageRuntime(runtime)} ` +
+				`${formatLanguageRuntimeMetadata(metadata)} ` +
 				`was scheduled for automatic start, but won't be started because automatic ` +
 				`startup is disabled in configuration. Source: ${source}`);
 			return;
@@ -934,12 +784,12 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 		if (this._workspaceTrustManagementService.isWorkspaceTrusted()) {
 			// If the workspace is trusted, start the runtime.
 			this._logService.info(`Language runtime ` +
-				`${formatLanguageRuntime(runtime)} ` +
+				`${formatLanguageRuntimeMetadata(metadata)} ` +
 				`automatically starting. Source: ${source}`);
-			await this.doStartRuntime(runtime);
+			await this.doStartRuntime(metadata);
 		} else {
 			this._logService.debug(`Deferring the start of language runtime ` +
-				`${formatLanguageRuntime(runtime)} (Source: ${source}) ` +
+				`${formatLanguageRuntimeMetadata(metadata)} (Source: ${source}) ` +
 				`because workspace trust has not been granted. ` +
 				`The runtime will be started when workspace trust is granted.`);
 			this._workspaceTrustManagementService.onDidChangeTrust((trusted) => {
@@ -949,10 +799,10 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 				}
 				// If the workspace is trusted, start the runtime.
 				this._logService.info(`Language runtime ` +
-					`${formatLanguageRuntime(runtime)} ` +
+					`${formatLanguageRuntimeMetadata(metadata)} ` +
 					`automatically starting after workspace trust was granted. ` +
 					`Source: ${source}`);
-				this.doStartRuntime(runtime);
+				this.doStartRuntime(metadata);
 			});
 		}
 	}
@@ -970,9 +820,13 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 		const startPromise = new DeferredPromise<void>();
 		this._startingRuntimesByRuntimeId.set(metadata.runtimeId, startPromise);
 
-		// Fire the onWillStartRuntime event.
-		this._onWillStartRuntimeEmitter.fire(runtime);
+		// TODO: here is where we provision a session
 
+		// Fire the onWillStartRuntime event.
+		this._onWillStartRuntimeEmitter.fire(metadata);
+
+
+		this.attachToSession(runtime);
 		try {
 			// Attempt to start the runtime.
 			await runtime.start();
@@ -1008,6 +862,122 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 		}
 	}
 
+
+	private attachToSession(session: ILanguageRuntimeSession): void {
+		// Add the onDidChangeRuntimeState event handler.
+		this._register(session.onDidChangeRuntimeState(state => {
+			// Process the state change.
+			switch (state) {
+				case RuntimeState.Starting:
+					// Typically, the runtime starts when we ask it to (in `doStartRuntime`), but
+					// if the runtime is already running when it is registered, we are reconnecting.
+					// In that case, we need to add it to the running runtimes and signal that the
+					// runtime has reconnected.
+					if (!this.runtimeForLanguageIsStartingOrRunning(session.metadata.languageId)) {
+						// Add the runtime to the running runtimes.
+						this._activeSessionsByLanguageId.set(session.metadata.languageId, session);
+
+						// Signal that the runtime has been reconnected.
+						this._onDidReconnectRuntimeEmitter.fire(session);
+					}
+					break;
+
+				case RuntimeState.Ready:
+					if (session !== this._foregroundSession) {
+						// If this runtime isn't already active, activate it. We
+						// avoid re-activation if already active since the
+						// resulting events can cause Positron behave as though
+						// a new runtime were started (e.g. focusing the
+						// console)
+						this._foregroundSession = session;
+					}
+
+					// @TODO@softwarenerd - Talk with the team about this.
+					// // If the runtime is ready, and we have no active runtime,
+					// // set the active runtime to the new runtime.
+					// if (!this._activeRuntime || this._activeRuntime.metadata.languageId === runtime.metadata.languageId) {
+					// 	this.activeRuntime = runtime;
+					// }
+
+					// Start the UI client instance once the runtime is fully online.
+					this.startUiClient(runtime);
+					break;
+
+				case RuntimeState.Interrupting:
+					this.waitForInterrupt(runtime);
+					break;
+
+				case RuntimeState.Exiting:
+					this.waitForShutdown(runtime);
+					break;
+
+				case RuntimeState.Offline:
+					this.waitForReconnect(runtime);
+					break;
+
+				case RuntimeState.Exited:
+					// Remove the runtime from the set of starting or running runtimes.
+					this._startingSessionsByLanguageId.delete(runtime.metadata.languageId);
+					this._runningRuntimesByLanguageId.delete(runtime.metadata.languageId);
+					break;
+			}
+
+			// Let listeners know that the runtime state has changed.
+			const languageRuntimeInfo = this._registeredRuntimesByRuntimeId.get(runtime.metadata.runtimeId);
+			if (!languageRuntimeInfo) {
+				this._logService.error(`Language runtime ${formatLanguageRuntime(runtime)} is not registered.`);
+			} else {
+				const oldState = languageRuntimeInfo.state;
+				languageRuntimeInfo.setState(state);
+				this._onDidChangeRuntimeStateEmitter.fire({
+					runtime_id: runtime.metadata.runtimeId,
+					old_state: oldState,
+					new_state: state
+				});
+			}
+		}));
+
+		this._register(runtime.onDidEndSession(async exit => {
+			// If the runtime is restarting and has just exited, let Positron know that it's
+			// about to start again. Note that we need to do this on the next tick since we
+			// need to ensure all the event handlers for the state change we
+			// are currently processing have been called (i.e. everyone knows it has exited)
+			setTimeout(() => {
+				if (languageRuntimeInfo.state === RuntimeState.Exited &&
+					exit.reason === RuntimeExitReason.Restart) {
+					this._onWillStartRuntimeEmitter.fire(runtime);
+				}
+			}, 0);
+
+			// If the runtime crashed, try to restart it.
+			if (exit.reason === RuntimeExitReason.Error || exit.reason === RuntimeExitReason.Unknown) {
+				const restartOnCrash = this._configurationService.getValue<boolean>('positron.interpreters.restartOnCrash');
+
+				let action;
+
+				if (restartOnCrash) {
+					// Wait a beat, then start the runtime.
+					await new Promise<void>(resolve => setTimeout(resolve, 250));
+					this._onWillStartRuntimeEmitter.fire(runtime);
+					await this.startRuntime(runtime.metadata.runtimeId,
+						`The runtime exited unexpectedly and is being restarted automatically.`);
+					action = 'and was automatically restarted';
+				} else {
+					action = 'and was not automatically restarted';
+				}
+
+				// Let the user know what we did.
+				const msg = nls.localize(
+					'positronConsole.runtimeCrashed',
+					'{0} exited unexpectedly {1}. You may have lost unsaved work.\nExit code: {2}',
+					runtime.metadata.runtimeName,
+					action,
+					exit.exit_code
+				);
+				this._notificationService.warn(msg);
+			}
+		}));
+	}
 	/**
 	 * Restarts a runtime session.
 	 *

@@ -488,8 +488,8 @@ export interface ILanguageRuntimeMessageError extends ILanguageRuntimeMessage {
 }
 
 export interface ILanguageRuntimeGlobalEvent {
-	/** The ID of the runtime from which the event originated */
-	runtime_id: string;
+	/** The ID of the session from which the event originated */
+	session_id: string;
 
 	/** The event itself */
 	event: IRuntimeClientEvent;
@@ -735,9 +735,14 @@ export interface ILanguageRuntimeService {
 	readonly activeSessions: ILanguageRuntimeSession[];
 
 	/**
-	 * Gets the active foreground runtime session, if any.
+	 * Gets a specific runtime session by session identifier.
 	 */
-	readonly foregroundSession: ILanguageRuntimeSession | undefined;
+	getSession(sessionId: string): ILanguageRuntimeSession | undefined;
+
+	/**
+	 * Gets or sets the active foreground runtime session, if any.
+	 */
+	foregroundSession: ILanguageRuntimeSession | undefined;
 
 	/**
 	 * Gets the registered language runtimes.
@@ -822,7 +827,7 @@ export interface ILanguageRuntimeService {
 	 * @param sessionId The identifier of the session to restart.
 	 * @param source The source of the request to restart the session, for debugging purposes.
 	 */
-	restartRuntime(runtimeId: string, source: string): Promise<void>;
+	restartRuntime(sessionId: string, source: string): Promise<void>;
 }
 
 export { RuntimeClientType, IRuntimeClientInstance };
