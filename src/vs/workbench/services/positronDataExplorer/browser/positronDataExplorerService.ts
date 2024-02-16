@@ -12,6 +12,7 @@ import { DataExplorerClientInstance } from 'vs/workbench/services/languageRuntim
 import { IPositronDataExplorerService } from 'vs/workbench/services/positronDataExplorer/browser/interfaces/positronDataExplorerService';
 import { IPositronDataExplorerInstance } from 'vs/workbench/services/positronDataExplorer/browser/interfaces/positronDataExplorerInstance';
 import { ILanguageRuntime, ILanguageRuntimeService, RuntimeClientType } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { INotificationService } from 'vs/platform/notification/common/notification';
 
 /**
  * DataExplorerRuntime class.
@@ -49,7 +50,10 @@ class DataExplorerRuntime extends Disposable {
 	 *
 	 * @param runtime
 	 */
-	constructor(private readonly _runtime: ILanguageRuntime) {
+	constructor(
+		private readonly _runtime: ILanguageRuntime,
+		private readonly _notificationService: INotificationService
+	) {
 		// Call the disposable constrcutor.
 		super();
 
@@ -57,28 +61,32 @@ class DataExplorerRuntime extends Disposable {
 		 * Add the onDidCreateClientInstance event handler.
 		 */
 		this._register(this._runtime.onDidCreateClientInstance(async e => {
-			// Ignore client types we don't process.
-			if (e.client.getClientType() !== RuntimeClientType.DataExplorer) {
-				return;
+			try {
+				// Ignore client types we don't process.
+				if (e.client.getClientType() !== RuntimeClientType.DataExplorer) {
+					return;
+				}
+
+				// Create and register the DataExplorerClientInstance for the client instance.
+				const dataExplorerClientInstance = new DataExplorerClientInstance(e.client);
+				this._register(dataExplorerClientInstance);
+
+				// Add the onDidClose event handler on the DataExplorerClientInstance,
+				dataExplorerClientInstance.onDidClose(() => {
+					this._onDidCloseDataExplorerClientEmitter.fire(dataExplorerClientInstance);
+				});
+
+				// Test that we can get things.
+				const foo = await dataExplorerClientInstance.getSchema();
+				console.log(foo);
+				const bar = await dataExplorerClientInstance.getDataValues(0, 10, [0, 1, 2, 3, 4, 5]);
+				console.log(bar);
+
+				// Raise the onDidOpenDataExplorerClient event.
+				this._onDidOpenDataExplorerClientEmitter.fire(dataExplorerClientInstance);
+			} catch (err) {
+				this._notificationService.error(`Can't open data explorer: ${err.message}`);
 			}
-
-			// Create and register the DataExplorerClientInstance for the client instance.
-			const dataExplorerClientInstance = new DataExplorerClientInstance(e.client);
-			this._register(dataExplorerClientInstance);
-
-			// Add the onDidClose event handler on the DataExplorerClientInstance,
-			dataExplorerClientInstance.onDidClose(() => {
-				this._onDidCloseDataExplorerClientEmitter.fire(dataExplorerClientInstance);
-			});
-
-			// Test that we can get things.
-			const foo = await dataExplorerClientInstance.getSchema();
-			console.log(foo);
-			const bar = await dataExplorerClientInstance.getDataValues(0, 10, [0, 1, 2, 3, 4, 5]);
-			console.log(bar);
-
-			// Raise the onDidOpenDataExplorerClient event.
-			this._onDidOpenDataExplorerClientEmitter.fire(dataExplorerClientInstance);
 		}));
 	}
 
@@ -112,7 +120,8 @@ class PositronDataExplorerService extends Disposable implements IPositronDataExp
 	 */
 	constructor(
 		@IEditorService private readonly _editorService: IEditorService,
-		@ILanguageRuntimeService private readonly _languageRuntimeService: ILanguageRuntimeService
+		@ILanguageRuntimeService private readonly _languageRuntimeService: ILanguageRuntimeService,
+		@INotificationService private readonly _notificationService: INotificationService
 	) {
 		// Call the disposable constrcutor.
 		super();
@@ -220,7 +229,7 @@ class PositronDataExplorerService extends Disposable implements IPositronDataExp
 		}
 
 		// Create and add the data explorer runtime.
-		const dataExplorerRuntime = new DataExplorerRuntime(runtime);
+		const dataExplorerRuntime = new DataExplorerRuntime(runtime, this._notificationService);
 		this._dataExplorerRuntimes.set(runtime.metadata.runtimeId, dataExplorerRuntime);
 
 		dataExplorerRuntime.onDidOpenDataExplorerClient(dataExplorerClientInstance => {
