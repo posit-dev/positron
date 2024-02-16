@@ -4,7 +4,7 @@
 
 // React.
 import { MouseEvent } from 'react';
-import { MouseSelectionType } from 'vs/base/browser/ui/dataGrid/interfaces/dataGridInstance';
+import { MouseSelectionType } from 'vs/base/browser/ui/positronDataGrid/interfaces/dataGridInstance';
 
 // Other dependencies.
 import { isMacintosh } from 'vs/base/common/platform';

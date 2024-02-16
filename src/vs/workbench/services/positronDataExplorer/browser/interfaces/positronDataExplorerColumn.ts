@@ -2,7 +2,7 @@
  *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
-import { IDataColumn } from 'vs/base/browser/ui/dataGrid/interfaces/dataColumn';
+import { IDataColumn } from 'vs/base/browser/ui/positronDataGrid/interfaces/dataColumn';
 import { ColumnSchema } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
 
 /**

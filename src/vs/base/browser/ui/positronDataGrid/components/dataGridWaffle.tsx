@@ -14,14 +14,14 @@ import { generateUuid } from 'vs/base/common/uuid';
 import { isMacintosh } from 'vs/base/common/platform';
 import { DisposableStore } from 'vs/base/common/lifecycle';
 import { pinToRange } from 'vs/base/common/positronUtilities';
-import { usePositronDataGridContext } from 'vs/base/browser/ui/dataGrid/dataGridContext';
-import { DataGridRow } from 'vs/base/browser/ui/dataGrid/components/dataGridRow';
-import { DataGridScrollbar } from 'vs/base/browser/ui/dataGrid/components/dataGridScrollbar';
-import { DataGridRowHeaders } from 'vs/base/browser/ui/dataGrid/components/dataGridRowHeaders';
-import { DataGridCornerTopLeft } from 'vs/base/browser/ui/dataGrid/components/dataGridCornerTopLeft';
-import { DataGridColumnHeaders } from 'vs/base/browser/ui/dataGrid/components/dataGridColumnHeaders';
-import { DataGridScrollbarCorner } from 'vs/base/browser/ui/dataGrid/components/dataGridScrollbarCorner';
-import { ExtendColumnSelectionBy, ExtendRowSelectionBy } from 'vs/base/browser/ui/dataGrid/interfaces/dataGridInstance';
+import { usePositronDataGridContext } from 'vs/base/browser/ui/positronDataGrid/positronDataGridContext';
+import { DataGridRow } from 'vs/base/browser/ui/positronDataGrid/components/dataGridRow';
+import { DataGridScrollbar } from 'vs/base/browser/ui/positronDataGrid/components/dataGridScrollbar';
+import { DataGridRowHeaders } from 'vs/base/browser/ui/positronDataGrid/components/dataGridRowHeaders';
+import { DataGridCornerTopLeft } from 'vs/base/browser/ui/positronDataGrid/components/dataGridCornerTopLeft';
+import { DataGridColumnHeaders } from 'vs/base/browser/ui/positronDataGrid/components/dataGridColumnHeaders';
+import { DataGridScrollbarCorner } from 'vs/base/browser/ui/positronDataGrid/components/dataGridScrollbarCorner';
+import { ExtendColumnSelectionBy, ExtendRowSelectionBy } from 'vs/base/browser/ui/positronDataGrid/interfaces/dataGridInstance';
 
 let renderCounter = 0;
 

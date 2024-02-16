@@ -13,13 +13,13 @@ import { MouseEvent, useRef } from 'react'; // eslint-disable-line no-duplicate-
 import { localize } from 'vs/nls';
 import { positronClassNames } from 'vs/base/common/positronUtilities';
 import { showContextMenu } from 'vs/base/browser/ui/contextMenu/contextMenu';
-import { IDataColumn } from 'vs/base/browser/ui/dataGrid/interfaces/dataColumn';
-import { usePositronDataGridContext } from 'vs/base/browser/ui/dataGrid/dataGridContext';
+import { IDataColumn } from 'vs/base/browser/ui/positronDataGrid/interfaces/dataColumn';
+import { usePositronDataGridContext } from 'vs/base/browser/ui/positronDataGrid/positronDataGridContext';
 import { ContextMenuItem } from 'vs/base/browser/ui/contextMenu/contextMenuItem';
-import { selectionType } from 'vs/base/browser/ui/dataGrid/utilities/mouseUtilities';
+import { selectionType } from 'vs/base/browser/ui/positronDataGrid/utilities/mouseUtilities';
 import { VerticalSplitter } from 'vs/base/browser/ui/positronComponents/verticalSplitter';
 import { ContextMenuSeparator } from 'vs/base/browser/ui/contextMenu/contextMenuSeparator';
-import { ColumnSelectionState } from 'vs/base/browser/ui/dataGrid/interfaces/dataGridInstance';
+import { ColumnSelectionState } from 'vs/base/browser/ui/positronDataGrid/interfaces/dataGridInstance';
 import { MouseTrigger, PositronButton } from 'vs/base/browser/ui/positronComponents/positronButton';
 
 /**

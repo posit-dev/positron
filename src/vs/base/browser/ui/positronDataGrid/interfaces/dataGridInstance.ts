@@ -3,8 +3,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Event } from 'vs/base/common/event';
-import { IDataColumn } from 'vs/base/browser/ui/dataGrid/interfaces/dataColumn';
-import { IColumnSortKey } from 'vs/base/browser/ui/dataGrid/interfaces/columnSortKey';
+import { IDataColumn } from 'vs/base/browser/ui/positronDataGrid/interfaces/dataColumn';
+import { IColumnSortKey } from 'vs/base/browser/ui/positronDataGrid/interfaces/columnSortKey';
 
 /**
  * ExtendColumnSelectionBy enumeration.

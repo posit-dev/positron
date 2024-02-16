@@ -3,34 +3,35 @@
  *--------------------------------------------------------------------------------------------*/
 
 // CSS.
-import 'vs/css!./dataGridColumnHeaders';
+import 'vs/css!./dataGridRow';
 
 // React.
 import * as React from 'react';
 
 // Other dependencies.
-import { usePositronDataGridContext } from 'vs/base/browser/ui/dataGrid/dataGridContext';
-import { DataGridColumnHeader } from 'vs/base/browser/ui/dataGrid/components/dataGridColumnHeader';
+import { usePositronDataGridContext } from 'vs/base/browser/ui/positronDataGrid/positronDataGridContext';
+import { DataGridRowCell } from 'vs/base/browser/ui/positronDataGrid/components/dataGridRowCell';
 
 /**
- * DataGridColumnHeadersProps interface.
+ * DataGridRowProps interface.
  */
-interface DataGridColumnHeadersProps {
+interface DataGridRowProps {
 	width: number;
-	height: number;
+	rowIndex: number;
+	top: number;
 }
 
 /**
- * DataGridColumnHeaders component.
- * @param props A DataGridColumnHeadersProps that contains the component properties.
+ * DataRowGrid component.
+ * @param props A DataGridRowProps that contains the component properties.
  * @returns The rendered component.
  */
-export const DataGridColumnHeaders = (props: DataGridColumnHeadersProps) => {
+export const DataGridRow = (props: DataGridRowProps) => {
 	// Context hooks.
 	const context = usePositronDataGridContext();
 
-	// Render the visible column headers.
-	const columnHeaders: JSX.Element[] = [];
+	// Render the visible row cells.
+	const rowCells: JSX.Element[] = [];
 	for (let columnIndex = context.instance.firstColumnIndex, left = 0;
 		columnIndex < context.instance.columns && left < props.width;
 		columnIndex++
@@ -39,11 +40,12 @@ export const DataGridColumnHeaders = (props: DataGridColumnHeadersProps) => {
 		const column = context.instance.column(columnIndex);
 
 		// Push the column header component.
-		columnHeaders.push(
-			<DataGridColumnHeader
-				key={columnIndex}
+		rowCells.push(
+			<DataGridRowCell
+				key={`row-cell-${props.rowIndex}-${columnIndex}`}
 				column={column}
 				columnIndex={columnIndex}
+				rowIndex={props.rowIndex}
 				left={left}
 			/>
 		);
@@ -54,8 +56,14 @@ export const DataGridColumnHeaders = (props: DataGridColumnHeadersProps) => {
 
 	// Render.
 	return (
-		<div className='data-grid-column-headers' style={{ height: props.height }}>
-			{columnHeaders}
+		<div
+			className='data-grid-row'
+			style={{
+				top: props.top,
+				height: context.instance.getRowHeight(props.rowIndex)
+			}}
+		>
+			{rowCells}
 		</div>
 	);
 };

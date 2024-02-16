@@ -9,7 +9,7 @@ import 'vs/css!./dataGridPanel';
 import * as React from 'react';
 
 // Other dependencies.
-import { DataGrid } from 'vs/base/browser/ui/dataGrid/positronDataGrid';
+import { PositronDataGrid } from 'vs/base/browser/ui/positronDataGrid/positronDataGrid';
 import { usePositronDataExplorerContext } from 'vs/base/browser/ui/positronDataExplorer/positronDataExplorerContext';
 
 /**
@@ -33,7 +33,7 @@ export const DataGridPanel = (props: DataGridPanelProps) => {
 	return (
 		<div className='data-grid-panel'>
 			<div className='data-grid-container'>
-				<DataGrid
+				<PositronDataGrid
 					layoutService={context.layoutService}
 					instance={context.instance.dataGridInstance}
 					width={props.width}

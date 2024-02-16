@@ -3,7 +3,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Event } from 'vs/base/common/event';
-import { IDataGridInstance } from 'vs/base/browser/ui/dataGrid/interfaces/dataGridInstance';
+import { IDataGridInstance } from 'vs/base/browser/ui/positronDataGrid/interfaces/dataGridInstance';
 import { PositronDataExplorerLayout } from 'vs/workbench/services/positronDataExplorer/browser/interfaces/positronDataExplorerService';
 
 /**

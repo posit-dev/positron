@@ -4,9 +4,9 @@
 
 import { Emitter } from 'vs/base/common/event';
 import { Disposable } from 'vs/base/common/lifecycle';
-import { IDataColumn } from 'vs/base/browser/ui/dataGrid/interfaces/dataColumn';
-import { IColumnSortKey } from 'vs/base/browser/ui/dataGrid/interfaces/columnSortKey';
-import { CellSelectionState, ColumnSelectionState, ExtendColumnSelectionBy, ExtendRowSelectionBy, IDataGridInstance, MouseSelectionType, RowSelectionState } from 'vs/base/browser/ui/dataGrid/interfaces/dataGridInstance';
+import { IDataColumn } from 'vs/base/browser/ui/positronDataGrid/interfaces/dataColumn';
+import { IColumnSortKey } from 'vs/base/browser/ui/positronDataGrid/interfaces/columnSortKey';
+import { CellSelectionState, ColumnSelectionState, ExtendColumnSelectionBy, ExtendRowSelectionBy, IDataGridInstance, MouseSelectionType, RowSelectionState } from 'vs/base/browser/ui/positronDataGrid/interfaces/dataGridInstance';
 
 /**
  * ColumnSortKey class.

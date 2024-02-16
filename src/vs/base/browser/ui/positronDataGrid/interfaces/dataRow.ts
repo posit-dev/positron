@@ -2,7 +2,7 @@
  *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
-import { IDataCell } from 'vs/base/browser/ui/dataGrid/interfaces/dataCell';
+import { IDataCell } from 'vs/base/browser/ui/positronDataGrid/interfaces/dataCell';
 
 /**
  * IDataRow interface.
