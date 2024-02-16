@@ -553,10 +553,10 @@ export interface ILanguageRuntimeMetadata {
 	readonly startupBehavior: LanguageRuntimeStartupBehavior;
 }
 
-/* ILanguageRuntimeConfig contains information about a language runtime that is known
- * after the runtime is started and that might change in the course of a session.
+/**
+ * Contains information about the session's current state.
  */
-export interface ILanguageRuntimeDynState {
+export interface ILanguageRuntimeSessionState {
 	/** The text the language's interpreter uses to prompt the user for input, e.g. ">" or ">>>" */
 	inputPrompt: string;
 
@@ -579,10 +579,6 @@ export type RuntimeResourceRootProvider = (mimeType: string, data: any) => Promi
  * A manager for runtime sessions.
  */
 export interface ILanguageRuntimeSessionManager {
-
-	/** The language ID for which this manager creates sessions */
-	readonly languageId: string;
-
 	/**
 	 *
 	 * @param runtimeMetadata The metadata of the runtime for which a session is
@@ -591,8 +587,23 @@ export interface ILanguageRuntimeSessionManager {
 	 *
 	 * @returns A promise that resolves to the new session.
 	 */
-	createSession(runtimeMetadata: ILanguageRuntimeMetadata, sessionId: string):
+	createSession(
+		runtimeMetadata: ILanguageRuntimeMetadata,
+		sessionId: string,
+		sessionName: string,
+		sessionMode: LanguageRuntimeSessionMode):
 		Promise<ILanguageRuntimeSession>;
+}
+
+export enum LanguageRuntimeSessionMode {
+	/** The runtime session is bound to a Positron console. */
+	Console = 'console',
+
+	/** The runtime session backs a notebook. */
+	Notebook = 'notebook',
+
+	/** The runtime session is a background session (not attached to any UI). */
+	Background = 'background',
 }
 
 /**
@@ -608,8 +619,11 @@ export interface ILanguageRuntimeSession {
 	/** A user-friendly name for the session */
 	readonly sessionName: string;
 
+	/** The session mode */
+	readonly sessionMode: LanguageRuntimeSessionMode;
+
 	/** The language runtime's dynamic metadata */
-	dynState: ILanguageRuntimeDynState;
+	dynState: ILanguageRuntimeSessionState;
 
 	/** An object that emits events when the runtime state changes */
 	onDidChangeRuntimeState: Event<RuntimeState>;
@@ -750,11 +764,6 @@ export interface ILanguageRuntimeService {
 	readonly registeredRuntimes: ILanguageRuntimeMetadata[];
 
 	/**
-	 * Gets or sets the metadata of the active language runtime.
-	 */
-	activeRuntimeMetadata: ILanguageRuntimeMetadata | undefined;
-
-	/**
 	 * Gets the current discovery phase.
 	 */
 	discoveryPhase: LanguageRuntimeDiscoveryPhase;
@@ -775,6 +784,11 @@ export interface ILanguageRuntimeService {
 	 * @param runtimeId The ID of the runtime to unregister
 	 */
 	unregisterRuntime(runtimeId: string): void;
+
+	/**
+	 * Register a session manager. Used only once, by the extension host.
+	 */
+	registerSessionManager(manager: ILanguageRuntimeSessionManager): void;
 
 	/**
 	 * Selects a previously registered runtime as the active runtime.

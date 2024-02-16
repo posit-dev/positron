@@ -1006,8 +1006,7 @@ declare module 'positron' {
 		/**
 		 * Register a language runtime manager with Positron.
 		 */
-		export function registerLanguageRuntimeManager(languageId: string,
-			manager: LanguageRuntimeManager): void;
+		export function registerLanguageRuntimeManager(manager: LanguageRuntimeManager): void;
 
 		/**
 		 * List all registered runtimes.

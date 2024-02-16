@@ -9,7 +9,7 @@ import {
 	ExtHostPositronContext
 } from '../../common/positron/extHost.positron.protocol';
 import { extHostNamedCustomer, IExtHostContext } from 'vs/workbench/services/extensions/common/extHostCustomers';
-import { ILanguageRuntimeSession, ILanguageRuntimeClientCreatedEvent, ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMessageCommClosed, ILanguageRuntimeMessageCommData, ILanguageRuntimeMessageCommOpen, ILanguageRuntimeMessageError, ILanguageRuntimeMessageInput, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessagePrompt, ILanguageRuntimeMessageState, ILanguageRuntimeMessageStream, ILanguageRuntimeMetadata, ILanguageRuntimeDynState as ILanguageRuntimeDynState, ILanguageRuntimeService, ILanguageRuntimeStartupFailure, LanguageRuntimeMessageType, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeState, LanguageRuntimeDiscoveryPhase, ILanguageRuntimeExit, RuntimeOutputKind, RuntimeExitReason, ILanguageRuntimeMessageWebOutput, PositronOutputLocation } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntimeSession, ILanguageRuntimeClientCreatedEvent, ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMessageCommClosed, ILanguageRuntimeMessageCommData, ILanguageRuntimeMessageCommOpen, ILanguageRuntimeMessageError, ILanguageRuntimeMessageInput, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessagePrompt, ILanguageRuntimeMessageState, ILanguageRuntimeMessageStream, ILanguageRuntimeMetadata, ILanguageRuntimeSessionState as ILanguageRuntimeSessionState, ILanguageRuntimeService, ILanguageRuntimeStartupFailure, LanguageRuntimeMessageType, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeState, LanguageRuntimeDiscoveryPhase, ILanguageRuntimeExit, RuntimeOutputKind, RuntimeExitReason, ILanguageRuntimeMessageWebOutput, PositronOutputLocation, LanguageRuntimeSessionMode } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { Disposable, DisposableStore } from 'vs/base/common/lifecycle';
 import { Event, Emitter } from 'vs/base/common/event';
 import { IPositronConsoleService } from 'vs/workbench/services/positronConsole/browser/interfaces/positronConsoleService';
@@ -104,8 +104,9 @@ class ExtHostLanguageRuntimeSessionAdapter implements ILanguageRuntimeSession {
 		readonly handle: number,
 		readonly sessionId: string,
 		readonly sessionName: string,
+		readonly sessionMode: LanguageRuntimeSessionMode,
 		readonly metadata: ILanguageRuntimeMetadata,
-		readonly dynState: ILanguageRuntimeDynState,
+		readonly dynState: ILanguageRuntimeSessionState,
 		private readonly _languageRuntimeService: ILanguageRuntimeService,
 		private readonly _logService: ILogService,
 		private readonly _notebookService: INotebookService,
@@ -141,8 +142,8 @@ class ExtHostLanguageRuntimeSessionAdapter implements ILanguageRuntimeSession {
 		});
 
 		this._languageRuntimeService.onDidReceiveRuntimeEvent(globalEvent => {
-			// Ignore events for other runtimes.
-			if (globalEvent.runtime_id !== this.metadata.runtimeId) {
+			// Ignore events for other sessions.
+			if (globalEvent.session_id !== this.sessionId) {
 				return;
 			}
 
@@ -187,6 +188,8 @@ class ExtHostLanguageRuntimeSessionAdapter implements ILanguageRuntimeSession {
 			// Propagate event
 			this._onDidReceiveRuntimeMessageClientEventEmitter.fire(ev);
 		});
+
+		this._languageRuntimeService.registerSessionManager(this);
 	}
 
 	onDidChangeRuntimeState: Event<RuntimeState>;
@@ -362,6 +365,37 @@ class ExtHostLanguageRuntimeSessionAdapter implements ILanguageRuntimeSession {
 		});
 
 		return Promise.resolve(client);
+	}
+
+	/**
+	 * Creates (provisions) a new language runtime session.
+	 */
+	async createSession(
+		runtimeMetadata: ILanguageRuntimeMetadata,
+		sessionId: string,
+		sessionName: string,
+		sessionMode: LanguageRuntimeSessionMode):
+		Promise<ILanguageRuntimeSession> {
+
+		const handle = await this._proxy.$createLanguageRuntimeSession(runtimeMetadata,
+			sessionId, sessionName, sessionMode);
+
+		return new ExtHostLanguageRuntimeSessionAdapter(handle,
+			sessionId,
+			sessionName,
+			sessionMode,
+			runtimeMetadata,
+			{
+				busy: false,
+				inputPrompt: '',
+				continuationPrompt: '',
+				currentWorkingDirectory: ''
+			},
+			this._languageRuntimeService,
+			this._logService,
+			this._notebookService,
+			this._editorService,
+			this._proxy);
 	}
 
 	/** List active clients */
@@ -1002,9 +1036,9 @@ export class MainThreadLanguageRuntime implements MainThreadLanguageRuntimeShape
 	}
 
 	// Called by the extension host to select a previously registered language runtime
-	$selectLanguageRuntime(handle: number): Promise<void> {
+	$selectLanguageRuntime(runtimeId: string): Promise<void> {
 		return this._languageRuntimeService.selectRuntime(
-			this.findRuntime(handle).metadata.runtimeId,
+			runtimeId,
 			'Extension-requested runtime selection via Positron API');
 	}
 
