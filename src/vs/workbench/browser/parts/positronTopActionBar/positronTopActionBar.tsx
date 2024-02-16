@@ -28,7 +28,7 @@ import { TopActionBarCommandCenter } from 'vs/workbench/browser/parts/positronTo
 import { PositronTopActionBarContextProvider } from 'vs/workbench/browser/parts/positronTopActionBar/positronTopActionBarContext';
 import { TopActionBarCustonFolderMenu } from 'vs/workbench/browser/parts/positronTopActionBar/components/topActionBarCustomFolderMenu';
 import { TopActionBarInterpretersManager } from 'vs/workbench/browser/parts/positronTopActionBar/components/topActionBarInterpretersManager';
-import { ILanguageRuntime, ILanguageRuntimeService, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntimeMetadata, ILanguageRuntimeService, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 
 // Constants.
 const kHorizontalPadding = 4;
@@ -104,8 +104,8 @@ export const PositronTopActionBar = (props: PositronTopActionBarProps) => {
 	 * startRuntime event handler.
 	 * @param runtimeToStart An ILanguageRuntime representing the runtime to start.
 	 */
-	const startRuntimeHandler = async (runtimeToStart: ILanguageRuntime): Promise<void> => {
-		return props.languageRuntimeService.selectRuntime(runtimeToStart.metadata.runtimeId,
+	const startRuntimeHandler = async (runtimeToStart: ILanguageRuntimeMetadata): Promise<void> => {
+		return props.languageRuntimeService.selectRuntime(runtimeToStart.runtimeId,
 			`User-requested startup from the Positron top action bar`);
 	};
 
@@ -113,7 +113,7 @@ export const PositronTopActionBar = (props: PositronTopActionBarProps) => {
 	 * activateRuntime event handler.
 	 * @param runtime An ILanguageRuntime representing the runtime to activate.
 	 */
-	const activateRuntimeHandler = async (runtime: ILanguageRuntime): Promise<void> => {
+	const activateRuntimeHandler = async (runtime: ILanguageRuntimeMetadata): Promise<void> => {
 		// Determine which action to take.
 		switch (runtime.getRuntimeState()) {
 			// When the runtime is uninitialized or exited, start it.

@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2022-2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
 import 'vs/css!./interpreterGroup';
@@ -9,7 +9,7 @@ import { DisposableStore } from 'vs/base/common/lifecycle';
 import { IInterpreterGroup } from 'vs/workbench/browser/parts/positronTopActionBar/interpretersManagerModalPopup/interpreterGroups';
 import { PrimaryInterpreter } from 'vs/workbench/browser/parts/positronTopActionBar/interpretersManagerModalPopup/primaryInterpreter';
 import { SecondaryInterpreter } from 'vs/workbench/browser/parts/positronTopActionBar/interpretersManagerModalPopup/secondaryInterpreter';
-import { ILanguageRuntimeService, ILanguageRuntimeSession, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntimeMetadata, ILanguageRuntimeService, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 
 /**
  * InterpreterGroupProps interface.
@@ -17,8 +17,8 @@ import { ILanguageRuntimeService, ILanguageRuntimeSession, RuntimeState } from '
 interface InterpreterGroupProps {
 	languageRuntimeService: ILanguageRuntimeService;
 	interpreterGroup: IInterpreterGroup;
-	onStartRuntime: (runtime: ILanguageRuntimeSession) => Promise<void>;
-	onActivateRuntime: (runtime: ILanguageRuntimeSession) => Promise<void>;
+	onStartRuntime: (runtime: ILanguageRuntimeMetadata) => Promise<void>;
+	onActivateRuntime: (runtime: ILanguageRuntimeMetadata) => Promise<void>;
 }
 
 /**

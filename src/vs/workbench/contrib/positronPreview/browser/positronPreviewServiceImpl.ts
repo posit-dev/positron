@@ -37,10 +37,10 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 		super();
 		this.onDidCreatePreviewWebview = this._onDidCreatePreviewWebviewEmitter.event;
 		this.onDidChangeActivePreviewWebview = this._onDidChangeActivePreviewWebview.event;
-		this._languageRuntimeService.registeredRuntimes.forEach(runtime => {
+		this._languageRuntimeService.activeSessions.forEach(runtime => {
 			this.attachRuntime(runtime);
 		});
-		this._languageRuntimeService.onDidRegisterRuntime(runtime => {
+		this._languageRuntimeService.onWillStartRuntime(runtime => {
 			this.attachRuntime(runtime);
 		});
 	}

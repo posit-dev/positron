@@ -14,31 +14,33 @@ import { IQuickInputService, IQuickPickItem } from 'vs/platform/quickinput/commo
 import { IKeybindingRule, KeybindingWeight } from 'vs/platform/keybinding/common/keybindingsRegistry';
 import { LANGUAGE_RUNTIME_ACTION_CATEGORY } from 'vs/workbench/contrib/languageRuntime/common/languageRuntime';
 import { IPositronConsoleService } from 'vs/workbench/services/positronConsole/browser/interfaces/positronConsoleService';
-import { ILanguageRuntimeService, ILanguageRuntimeSession, IRuntimeClientInstance, RuntimeClientType } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntimeMetadata, ILanguageRuntimeService, ILanguageRuntimeSession, IRuntimeClientInstance, RuntimeClientType } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 
 // The category for language runtime actions.
 const category: ILocalizedString = { value: LANGUAGE_RUNTIME_ACTION_CATEGORY, original: 'Language Runtime' };
 
 // Quick pick item interfaces.
 interface LanguageRuntimeSessionQuickPickItem extends IQuickPickItem { session: ILanguageRuntimeSession }
+interface LanguageRuntimeQuickPickItem extends IQuickPickItem { runtime: ILanguageRuntimeMetadata }
 interface RuntimeClientTypeQuickPickItem extends IQuickPickItem { runtimeClientType: RuntimeClientType }
 interface RuntimeClientInstanceQuickPickItem extends IQuickPickItem { runtimeClientInstance: IRuntimeClientInstance<any, any> }
 
 /**
- * Helper function that asks the user to select a language runtime from an array of language runtimes.
+ * Helper function that asks the user to select a language runtime session from
+ * an array of language runtime sessions.
  *
  * @param quickInputService The quick input service.
  * @param sessions The language runtime sessions the user can select from.
  * @param placeHolder The placeholder for the quick input.
- * @returns The language runtime the user selected, or undefined, if the user canceled the operation.
+ * @returns The runtime session the user selected, or undefined, if the user canceled the operation.
  */
-export const selectLanguageRuntime = async (
+export const selectLanguageRuntimeSession = async (
 	quickInputService: IQuickInputService,
 	sessions: ILanguageRuntimeSession[],
 	placeHolder: string): Promise<ILanguageRuntimeSession | undefined> => {
 
 	// Build the language runtime quick pick items.
-	const languageRuntimeQuickPickItems = sessions.map<LanguageRuntimeSessionQuickPickItem>(session => ({
+	const sessionQuickPickItems = sessions.map<LanguageRuntimeSessionQuickPickItem>(session => ({
 		id: session.sessionId,
 		label: session.sessionName,
 		description: session.metadata.languageVersion,
@@ -46,13 +48,48 @@ export const selectLanguageRuntime = async (
 	} satisfies LanguageRuntimeSessionQuickPickItem));
 
 	// Prompt the user to select a language runtime.
-	const languageRuntimeQuickPickItem = await quickInputService.pick<LanguageRuntimeSessionQuickPickItem>(languageRuntimeQuickPickItems, {
-		canPickMany: false,
-		placeHolder
-	});
+	const languageRuntimeQuickPickItem = await quickInputService
+		.pick<LanguageRuntimeSessionQuickPickItem>(sessionQuickPickItems, {
+			canPickMany: false,
+			placeHolder
+		});
 
 	// Done.
 	return languageRuntimeQuickPickItem?.session;
+};
+
+/**
+ * Helper function that asks the user to select a registered language runtime from
+ * an array of language runtime metadata entries.
+ *
+ * @param quickInputService The quick input service.
+ * @param runtimes The language runtime entries the user can select from.
+ * @param placeHolder The placeholder for the quick input.
+ *
+ * @returns The language runtime the user selected, or undefined, if the user canceled the operation.
+ */
+export const selectLanguageRuntime = async (
+	quickInputService: IQuickInputService,
+	runtimes: ILanguageRuntimeMetadata[],
+	placeHolder: string): Promise<ILanguageRuntimeMetadata | undefined> => {
+
+	// Build the language runtime quick pick items.
+	const languageRuntimeQuickPickItems = runtimes.map<LanguageRuntimeQuickPickItem>(runtime => ({
+		id: runtime.runtimeId,
+		label: runtime.runtimeName,
+		description: runtime.languageVersion,
+		runtime
+	} satisfies LanguageRuntimeQuickPickItem));
+
+	// Prompt the user to select a language runtime.
+	const languageRuntimeQuickPickItem = await quickInputService
+		.pick<LanguageRuntimeQuickPickItem>(languageRuntimeQuickPickItems, {
+			canPickMany: false,
+			placeHolder
+		});
+
+	// Done.
+	return languageRuntimeQuickPickItem?.runtime;
 };
 
 /**
@@ -84,7 +121,7 @@ const selectRunningLanguageRuntime = async (
 	}
 
 	// As the user to select the running language runtime.
-	return await selectLanguageRuntime(quickInputService, activeSessions, placeHolder);
+	return await selectLanguageRuntimeSession(quickInputService, activeSessions, placeHolder);
 };
 
 /**
@@ -147,7 +184,7 @@ export function registerLanguageRuntimeActions() {
 		const languageRuntime = await selectLanguageRuntime(quickInputService, registeredRuntimes, 'Select the interpreter to start');
 		if (languageRuntime) {
 			// Start the language runtime.
-			languageRuntimeService.startRuntime(languageRuntime.metadata.runtimeId,
+			languageRuntimeService.startRuntime(languageRuntime.runtimeId,
 				`'Start Interpreter' command invoked`);
 
 			// Drive focus into the Positron console.

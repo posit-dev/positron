@@ -772,10 +772,7 @@ export interface ILanguageRuntimeService {
 	/**
 	 * Unregister a previously registered language runtime
 	 *
-	 * @param runtime The metadata of the language runtime to register
-	 * @param startupBehavior The desired startup behavior for the runtime
-	 *
-	 * @returns A disposable that can be used to unregister the runtime
+	 * @param runtimeId The ID of the runtime to unregister
 	 */
 	unregisterRuntime(runtimeId: string): void;
 
@@ -805,17 +802,8 @@ export interface ILanguageRuntimeService {
 	completeDiscovery(): void;
 
 	/**
-	 * Returns a specific runtime metadata by runtime identifier.
-	 *
-	 * @param runtimeId The runtime identifier of the runtime to retrieve.
-	 *
-	 * @returns The runtime with the given runtime identifier, or undefined if
-	 * no runtime with the given runtime identifier exists.
-	 */
-	getRuntimeMetadata(runtimeId: string): ILanguageRuntimeMetadata | undefined;
-
-	/**
 	 * Starts a runtime.
+	 *
 	 * @param runtimeId The runtime identifier of the runtime to start.
 	 * @param source The source of the request to start the runtime, for debugging purposes
 	 *  (not displayed to the user)

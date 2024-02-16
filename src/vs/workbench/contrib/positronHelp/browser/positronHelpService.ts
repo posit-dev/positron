@@ -329,7 +329,7 @@ class PositronHelpService extends Disposable implements IPositronHelpService {
 			const helpEntry = this._instantiationService.createInstance(HelpEntry,
 				this._helpHTML,
 				currentHelpEntry.languageId,
-				currentHelpEntry.runtimeId,
+				currentHelpEntry.sessionId,
 				currentHelpEntry.languageName,
 				toUrl,
 				targetUrl.toString()
@@ -440,13 +440,14 @@ class PositronHelpService extends Disposable implements IPositronHelpService {
 	}
 
 	/**
-	 * Deletes help entries for the specified runtime ID.
-	 * @param runtimeId The runtime ID of the help entries to delete.
+	 * Deletes help entries for the specified runtime session ID.
+	 *
+	 * @param sessionId The session ID of the help entries to delete.
 	 */
-	private deleteLanguageRuntimeHelpEntries(runtimeId: string) {
+	private deleteLanguageRuntimeHelpEntries(sessionId: string) {
 		// Get help entries to delete.
 		const helpEntriesToDelete = this._helpEntries.filter(helpEntryToCheck =>
-			helpEntryToCheck.runtimeId === runtimeId
+			helpEntryToCheck.sessionId === sessionId
 		);
 
 		// If there are no help entries to delete, there's nothing more to do.
@@ -461,12 +462,12 @@ class PositronHelpService extends Disposable implements IPositronHelpService {
 
 		// Filter out the help entries to delete.
 		this._helpEntries = this._helpEntries.filter(helpEntryToCheck =>
-			helpEntryToCheck.runtimeId !== runtimeId
+			helpEntryToCheck.sessionId !== sessionId
 		);
 
 		// Update the current help entry, if there was one.
 		if (currentHelpEntry) {
-			this._helpEntryIndex = currentHelpEntry.runtimeId === runtimeId ?
+			this._helpEntryIndex = currentHelpEntry.sessionId === sessionId ?
 				-1 :
 				this._helpEntries.indexOf(currentHelpEntry);
 			this._onDidChangeCurrentHelpEntryEmitter.fire(this._helpEntries[this._helpEntryIndex]);
@@ -649,9 +650,9 @@ class PositronHelpService extends Disposable implements IPositronHelpService {
 		// Create the help entry.
 		const helpEntry = this._instantiationService.createInstance(HelpEntry,
 			this._helpHTML,
-			runtime.metadata.languageId,
-			runtime.metadata.runtimeId,
-			runtime.metadata.languageName,
+			session.metadata.languageId,
+			session.metadata.runtimeId,
+			session.metadata.languageName,
 			sourceUrl.toString(),
 			targetUrl.toString()
 		);

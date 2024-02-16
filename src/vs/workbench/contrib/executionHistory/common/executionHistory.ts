@@ -1,10 +1,10 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
 import { IExecutionHistoryEntry, IExecutionHistoryService, IInputHistoryEntry } from 'vs/workbench/contrib/executionHistory/common/executionHistoryService';
 import { Disposable } from 'vs/base/common/lifecycle';
-import { ILanguageRuntime, ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntimeService, ILanguageRuntimeSession } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { IStorageService } from 'vs/platform/storage/common/storage';
 import { ILogService } from 'vs/platform/log/common/log';
 import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/common/extensions';
@@ -34,8 +34,8 @@ export class ExecutionHistoryService extends Disposable implements IExecutionHis
 		super();
 
 		// Start recording history for all currently active runtimes
-		this._languageRuntimeService.runningRuntimes.forEach(runtime => {
-			this.beginRecordingHistory(runtime);
+		this._languageRuntimeService.activeSessions.forEach(session => {
+			this.beginRecordingHistory(session);
 		});
 
 		// Listen for runtimes to start; when they do, begin recording
@@ -70,7 +70,7 @@ export class ExecutionHistoryService extends Disposable implements IExecutionHis
 		return this.getInputHistory(languageId).getInputHistory();
 	}
 
-	private beginRecordingHistory(runtime: ILanguageRuntime): void {
+	private beginRecordingHistory(runtime: ILanguageRuntimeSession): void {
 		// Create a new history for the runtime if we don't already have one
 		if (!this._executionHistories.has(runtime.metadata.runtimeId)) {
 			const history = new RuntimeExecutionHistory(runtime, this._storageService, this._logService);

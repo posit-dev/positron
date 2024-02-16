@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2022-2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
 import 'vs/css!./secondaryInterpreter';
@@ -8,14 +8,14 @@ import { useEffect, useState } from 'react'; // eslint-disable-line no-duplicate
 import { DisposableStore } from 'vs/base/common/lifecycle';
 import { PositronButton } from 'vs/base/browser/ui/positronComponents/positronButton';
 import { InterpreterActions } from 'vs/workbench/browser/parts/positronTopActionBar/interpretersManagerModalPopup/interpreterActions';
-import { ILanguageRuntime, ILanguageRuntimeService, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntimeMetadata, ILanguageRuntimeService, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 
 /**
  * SecondaryInterpreterProps interface.
  */
 interface SecondaryInterpreterProps {
 	languageRuntimeService: ILanguageRuntimeService;
-	runtime: ILanguageRuntime;
+	runtime: ILanguageRuntimeMetadata;
 	onStart: () => void;
 	onActivate: () => void;
 }
@@ -52,11 +52,11 @@ export const SecondaryInterpreter = (props: SecondaryInterpreterProps) => {
 					<div className='running-icon codicon codicon-circle-large-filled'></div>
 				}
 			</div>
-			<img className='icon' src={`data:image/svg+xml;base64,${props.runtime.metadata.base64EncodedIconSvg}`} />
+			<img className='icon' src={`data:image/svg+xml;base64,${props.runtime.base64EncodedIconSvg}`} />
 			<div className='info'>
 				<div className='container'>
-					<div className='line'>{props.runtime.metadata.runtimeShortName}</div>
-					<div className='line light' title={props.runtime.metadata.runtimePath}>{props.runtime.metadata.runtimePath}</div>
+					<div className='line'>{props.runtime.runtimeShortName}</div>
+					<div className='line light' title={props.runtime.runtimePath}>{props.runtime.runtimePath}</div>
 				</div>
 			</div>
 			<InterpreterActions runtime={props.runtime} onStart={props.onStart} />

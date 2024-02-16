@@ -17,8 +17,8 @@ export interface INotebookOutputWebview {
 	/** The ID of the notebook output */
 	id: string;
 
-	/** The ID of the runtime that emitted (and owns) the output */
-	runtimeId: string;
+	/** The ID of the runtime session that emitted (and owns) the output */
+	sessionId: string;
 
 	/** The webview containing the output's content */
 	webview: IOverlayWebview;

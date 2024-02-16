@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2022-2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
 import 'vs/css!./interpretersManagerModalPopup';
@@ -7,7 +7,7 @@ import * as React from 'react';
 import { PositronModalPopup } from 'vs/base/browser/ui/positronModalPopup/positronModalPopup';
 import { InterpreterGroups } from 'vs/workbench/browser/parts/positronTopActionBar/interpretersManagerModalPopup/interpreterGroups';
 import { PositronModalPopupReactRenderer } from 'vs/base/browser/ui/positronModalPopup/positronModalPopupReactRenderer';
-import { ILanguageRuntime, ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntimeMetadata, ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 
 /**
  * Shows the interpreters manager modal popup.
@@ -22,8 +22,8 @@ export const showInterpretersManagerModalPopup = async (
 	languageRuntimeService: ILanguageRuntimeService,
 	containerElement: HTMLElement,
 	anchorElement: HTMLElement,
-	onStartRuntime: (runtime: ILanguageRuntime) => Promise<void>,
-	onActivateRuntime: (runtime: ILanguageRuntime) => Promise<void>
+	onStartRuntime: (runtime: ILanguageRuntimeMetadata) => Promise<void>,
+	onActivateRuntime: (runtime: ILanguageRuntimeMetadata) => Promise<void>
 ): Promise<void> => {
 	// Return a promise that resolves when the popup is done.
 	return new Promise<void>(resolve => {
@@ -44,7 +44,7 @@ export const showInterpretersManagerModalPopup = async (
 			 * onActivateRuntime event handler.
 			 * @param runtime An ILanguageRuntime representing the runtime to activate.
 			 */
-			const activateRuntimeHandler = async (runtime: ILanguageRuntime): Promise<void> => {
+			const activateRuntimeHandler = async (runtime: ILanguageRuntimeMetadata): Promise<void> => {
 				// Activate the runtime.
 				await onActivateRuntime(runtime);
 
