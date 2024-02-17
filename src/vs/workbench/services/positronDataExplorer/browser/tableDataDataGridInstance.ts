@@ -12,7 +12,7 @@ import { FetchRange, FetchResult, PositronDataExplorerCache } from 'vs/workbench
 /**
  * TableDataDataGridInstance class.
  */
-export class TableDataDataGridInstance extends DataGridInstance<string> {
+export class TableDataDataGridInstance extends DataGridInstance {
 	//#region Private Properties
 
 	/**

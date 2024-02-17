@@ -133,7 +133,7 @@ export interface DataGridOptions {
 /**
  * DataGridInstance class.
  */
-export abstract class DataGridInstance<T> extends Disposable implements IDataGridInstance {
+export abstract class DataGridInstance extends Disposable implements IDataGridInstance {
 	//#region Private Properties
 
 	/**

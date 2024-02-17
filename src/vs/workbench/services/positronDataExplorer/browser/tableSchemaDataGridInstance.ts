@@ -11,7 +11,7 @@ import { DataExplorerClientInstance } from 'vs/workbench/services/languageRuntim
 /**
  * TableSchemaDataGridInstance class.
  */
-export class TableSchemaDataGridInstance extends DataGridInstance<string> {
+export class TableSchemaDataGridInstance extends DataGridInstance {
 	//#region Private Properties
 
 	/**
