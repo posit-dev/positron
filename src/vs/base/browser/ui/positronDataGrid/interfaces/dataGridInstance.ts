@@ -165,12 +165,6 @@ export interface IDataGridInstance {
 	readonly cursorRowIndex: number;
 
 	/**
-	 * Sets the columns.
-	 * @param columns The columns.
-	 */
-	setColumns(columns: IDataColumn[]): void;
-
-	/**
 	 * Gets the the width of a column.
 	 * @param columnIndex The column index.
 	 */
@@ -388,7 +382,7 @@ export interface IDataGridInstance {
 	 * @param columnIndex The column index.
 	 * @returns An IDataColumn that represents the column.
 	 */
-	column(columnIndex: number): IDataColumn;
+	column(columnIndex: number): IDataColumn | undefined;
 
 	/**
 	 * Returns a column sort.
@@ -422,10 +416,10 @@ export interface IDataGridInstance {
 	rowLabel(rowIndex: number): string | undefined;
 
 	/**
-	 * Gets a cell.
+	 * Gets a cell value.
 	 * @param columnIndex The column index.
 	 * @param rowIndex The row index.
-	 * @returns The cell.
+	 * @returns The cell value.
 	 */
 	cell(columnIndex: number, rowIndex: number): string | undefined;
 

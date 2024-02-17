@@ -22,7 +22,7 @@ import { usePositronDataGridContext } from 'vs/base/browser/ui/positronDataGrid/
  * DataGridRowCellProps interface.
  */
 interface DataGridRowCellProps {
-	column: IDataColumn;
+	column?: IDataColumn;
 	columnIndex: number;
 	rowIndex: number;
 	left: number;
@@ -90,9 +90,11 @@ export const DataGridRowCell = (props: DataGridRowCellProps) => {
 					<div className='cursor-border' />
 				}
 			</div>
-			<div className={positronClassNames('text', props.column.alignment)}>
-				{context.instance.cell(props.columnIndex, props.rowIndex)}
-			</div>
+			{props.column &&
+				<div className={positronClassNames('text', props.column.alignment)}>
+					{context.instance.cell(props.columnIndex, props.rowIndex)}
+				</div>
+			}
 			<VerticalSplitter
 				onBeginResize={() => ({
 					minimumWidth: context.instance.minimumColumnWidth,

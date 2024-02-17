@@ -65,7 +65,9 @@ export const DataExplorerActionBar = (props: DataExplorerActionBarProps) => {
 							text={clearSortButtonTitle}
 							tooltip={clearSortButtonDescription}
 							ariaLabel={clearSortButtonDescription}
-							onPressed={() => context.instance.dataGridInstance.clearColumnSortKeys()}
+							onPressed={() =>
+								context.instance.tableDataGridInstance.clearColumnSortKeys()
+							}
 						/>
 						<ActionBarSeparator />
 					</ActionBarRegion>

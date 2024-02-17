@@ -31,9 +31,9 @@ export interface IPositronDataExplorerInstance {
 	columnsScrollOffset: number;
 
 	/**
-	 * Gets the data grid instance.
+	 * Gets the table data grid instance.
 	 */
-	readonly dataGridInstance: IDataGridInstance;
+	readonly tableDataGridInstance: IDataGridInstance;
 
 	/**
 	 * The onDidChangeLayout event.

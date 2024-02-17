@@ -3,25 +3,17 @@
  *--------------------------------------------------------------------------------------------*/
 
 .data-explorer-container
-.data-explorer-summary {
+.status-bar {
 	display: flex;
 	padding: 0 8px;
 	align-items: center;
-
-	/* Place the data-explorer in the data-explorer-container. */
-	grid-row: data-explorer-summary / end;
-
+	grid-row: status-bar / end;
 	border-top: 1px solid var(--vscode-positronDataExplorer-border);
 	background-color: var(--vscode-positronDataGrid-contrastBackground);
 }
 
 .data-explorer-container
-.data-explorer-summary
-.counter {
-}
-
-.data-explorer-container
-.data-explorer-summary
+.status-bar
 .label {
 	opacity: 80%;
 }

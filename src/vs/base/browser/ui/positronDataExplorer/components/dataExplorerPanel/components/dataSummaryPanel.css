@@ -1,0 +1,8 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
+ *--------------------------------------------------------------------------------------------*/
+
+.data-explorer
+.data-summary-panel {
+	border-top: 1px solid var(--vscode-positronDataExplorer-border);
+}

@@ -7,8 +7,8 @@ import { ColumnSchema, ColumnSchemaTypeDisplay } from 'vs/workbench/services/lan
 import { IPositronDataExplorerColumn } from 'vs/workbench/services/positronDataExplorer/browser/interfaces/positronDataExplorerColumn';
 
 /**
-* PositronDataExplorerColumn class.
-*/
+ * PositronDataExplorerColumn class.
+ */
 export class PositronDataExplorerColumn implements IPositronDataExplorerColumn {
 	//#region Private Properties
 

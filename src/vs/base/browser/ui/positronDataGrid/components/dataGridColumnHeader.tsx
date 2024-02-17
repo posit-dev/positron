@@ -34,7 +34,7 @@ const copyColumnTitle = localize('positron.copyColumn', "Copy Column");
  * DataGridColumnHeaderProps interface.
  */
 interface DataGridColumnHeaderProps {
-	column: IDataColumn;
+	column?: IDataColumn;
 	columnIndex: number;
 	left: number;
 }
@@ -148,8 +148,8 @@ export const DataGridColumnHeader = (props: DataGridColumnHeaderProps) => {
 			/>
 			<div className='content'>
 				<div className='title-description'>
-					<div className='title'>{props.column.name}</div>
-					{props.column.description &&
+					<div className='title'>{props.column?.name}</div>
+					{props.column?.description &&
 						<div className='description'>{props.column.description}</div>
 					}
 				</div>

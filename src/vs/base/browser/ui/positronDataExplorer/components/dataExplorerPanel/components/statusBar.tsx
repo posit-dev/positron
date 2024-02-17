@@ -3,7 +3,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 // CSS.
-import 'vs/css!./dataExplorerSummary';
+import 'vs/css!./statusBar';
 
 // React.
 import * as React from 'react';
@@ -14,16 +14,16 @@ import { DisposableStore } from 'vs/base/common/lifecycle';
 import { usePositronDataExplorerContext } from 'vs/base/browser/ui/positronDataExplorer/positronDataExplorerContext';
 
 /**
- * DataExplorerSummary component.
+ * StatusBar component.
  * @returns The rendered component.
  */
-export const DataExplorerSummary = () => {
+export const StatusBar = () => {
 	// Context hooks.
 	const context = usePositronDataExplorerContext();
 
 	// State hooks.
-	const [rows, setRows] = useState(context.instance.dataGridInstance.rows);
-	const [columns, setColumns] = useState(context.instance.dataGridInstance.columns);
+	const [rows, setRows] = useState(context.instance.tableDataGridInstance.rows);
+	const [columns, setColumns] = useState(context.instance.tableDataGridInstance.columns);
 
 	// Main useEffect.
 	useEffect(() => {
@@ -31,9 +31,9 @@ export const DataExplorerSummary = () => {
 		const disposableStore = new DisposableStore();
 
 		// Add the onDidChangeLayout event handler.
-		disposableStore.add(context.instance.dataGridInstance.onDidUpdate(() => {
-			setRows(context.instance.dataGridInstance.rows);
-			setColumns(context.instance.dataGridInstance.columns);
+		disposableStore.add(context.instance.tableDataGridInstance.onDidUpdate(() => {
+			setRows(context.instance.tableDataGridInstance.rows);
+			setColumns(context.instance.tableDataGridInstance.columns);
 		}));
 
 		// Return the cleanup function that will dispose of the event handlers.
@@ -42,12 +42,12 @@ export const DataExplorerSummary = () => {
 
 	// Render.
 	return (
-		<div className='data-explorer-summary'>
-			<span className='counter'>{rows}</span>
+		<div className='status-bar'>
+			<span className='counter'>{rows.toLocaleString()}</span>
 			<span>&nbsp;</span>
 			<span className='label'>rows</span>
 			<span>&nbsp;&nbsp;</span>
-			<span className='counter'>{columns}</span>
+			<span className='counter'>{columns.toLocaleString()}</span>
 			<span>&nbsp;</span>
 			<span className='label'>columns</span>
 		</div>

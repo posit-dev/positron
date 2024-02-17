@@ -133,7 +133,7 @@ export interface DataGridOptions {
 /**
  * DataGridInstance class.
  */
-export abstract class DataGridInstance extends Disposable implements IDataGridInstance {
+export abstract class DataGridInstance<T> extends Disposable implements IDataGridInstance {
 	//#region Private Properties
 
 	/**
@@ -170,11 +170,6 @@ export abstract class DataGridInstance extends Disposable implements IDataGridIn
 	 * Gets or sets the scrollbar width.
 	 */
 	private _scrollbarWidth: number;
-
-	/**
-	 * Gets or sets the columns.
-	 */
-	private _columns: IDataColumn[] = [];
 
 	/**
 	 * Gets the column widths.
@@ -357,7 +352,7 @@ export abstract class DataGridInstance extends Disposable implements IDataGridIn
 		let visibleColumns = 0;
 		let columnIndex = this._firstColumnIndex;
 		let availableLayoutWidth = this.layoutWidth;
-		while (columnIndex < this._columns.length) {
+		while (columnIndex < this.columns) {
 			// Get the column width.
 			const columnWidth = this.getColumnWidth(columnIndex);
 
@@ -491,15 +486,6 @@ export abstract class DataGridInstance extends Disposable implements IDataGridIn
 	//#endregion Public Properties
 
 	//#region Public Methods
-
-	/**
-	 * Sets the columns.
-	 * @param columns The columns.
-	 */
-	public setColumns(columns: IDataColumn[]) {
-		// Set the columns.
-		this._columns = columns;
-	}
 
 	/**
 	 * Gets the the width of a column.
@@ -1233,7 +1219,7 @@ export abstract class DataGridInstance extends Disposable implements IDataGridIn
 		if (this._columnSelectionIndexes.size) {
 			// Convert an individually selected column into a column selection range, if possible.
 			if (this._columnSelectionIndexes.has(this._cursorColumnIndex)) {
-				if (this._cursorColumnIndex < this._columns.length - 1) {
+				if (this._cursorColumnIndex < this.columns - 1) {
 					this._columnSelectionRange = {
 						firstColumnIndex: this._cursorColumnIndex,
 						lastColumnIndex: this._cursorColumnIndex + 1
@@ -1246,7 +1232,7 @@ export abstract class DataGridInstance extends Disposable implements IDataGridIn
 		} else if (this._columnSelectionRange) {
 			// Expand or contract the column selection range, if possible.
 			if (this._cursorColumnIndex === this._columnSelectionRange.firstColumnIndex) {
-				if (this._columnSelectionRange.lastColumnIndex < this._columns.length - 1) {
+				if (this._columnSelectionRange.lastColumnIndex < this.columns - 1) {
 					this._columnSelectionRange.lastColumnIndex++;
 					this.scrollToColumn(this._columnSelectionRange.lastColumnIndex);
 					this._onDidUpdateEmitter.fire();
@@ -1259,7 +1245,7 @@ export abstract class DataGridInstance extends Disposable implements IDataGridIn
 		} else if (this._cellSelectionRange) {
 			// Expand or contract the cell selection range along the column axis, if possible.
 			if (this._cursorColumnIndex === this._cellSelectionRange.firstColumnIndex) {
-				if (this._cellSelectionRange.lastColumnIndex < this._columns.length - 1) {
+				if (this._cellSelectionRange.lastColumnIndex < this.columns - 1) {
 					this._cellSelectionRange.lastColumnIndex++;
 					this.scrollToColumn(this._cellSelectionRange.lastColumnIndex);
 					this._onDidUpdateEmitter.fire();
@@ -1269,7 +1255,7 @@ export abstract class DataGridInstance extends Disposable implements IDataGridIn
 				this.scrollToColumn(this._cellSelectionRange.firstColumnIndex);
 				this._onDidUpdateEmitter.fire();
 			}
-		} else if (this._cursorColumnIndex < this._columns.length - 1) {
+		} else if (this._cursorColumnIndex < this.columns - 1) {
 			// Create a new cell selection range.
 			this._cellSelectionRange = {
 				firstColumnIndex: this._cursorColumnIndex,
@@ -1579,15 +1565,6 @@ export abstract class DataGridInstance extends Disposable implements IDataGridIn
 	}
 
 	/**
-	 * Returns a column.
-	 * @param columnIndex The column index.
-	 * @returns An IDataColumn that represents the column.
-	 */
-	column(columnIndex: number): IDataColumn {
-		return this._columns[columnIndex];
-	}
-
-	/**
 	 * Returns a column sort key.
 	 * @param columnIndex The column index.
 	 * @returns An IColumnSortKey that represents the column sort.
@@ -1597,7 +1574,7 @@ export abstract class DataGridInstance extends Disposable implements IDataGridIn
 	}
 
 	/**
-	 *
+	 * TODO.
 	 */
 	abstract initialize(): void;
 
@@ -1614,6 +1591,13 @@ export abstract class DataGridInstance extends Disposable implements IDataGridIn
 	abstract fetchData(): void;
 
 	/**
+	 * Gets a column.
+	 * @param rowIndex The row index.
+	 * @returns The row label.
+	 */
+	abstract column(columnIndex: number): IDataColumn | undefined;
+
+	/**
 	 * Gets a row label.
 	 * @param rowIndex The row index.
 	 * @returns The row label.
@@ -1621,10 +1605,10 @@ export abstract class DataGridInstance extends Disposable implements IDataGridIn
 	abstract rowLabel(rowIndex: number): string | undefined;
 
 	/**
-	 * Gets a cell.
+	 * Gets a cell value.
 	 * @param columnIndex The column index.
 	 * @param rowIndex The row index.
-	 * @returns The cell.
+	 * @returns The cell value.
 	 */
 	abstract cell(columnIndex: number, rowIndex: number): string | undefined;
 

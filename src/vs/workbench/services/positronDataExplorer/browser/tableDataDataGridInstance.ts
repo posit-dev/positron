@@ -4,15 +4,17 @@
 
 import { IColumnSortKey } from 'vs/base/browser/ui/positronDataGrid/interfaces/columnSortKey';
 import { DataGridInstance } from 'vs/base/browser/ui/positronDataGrid/classes/dataGridInstance';
+import { ColumnSortKey, TableSchema } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
 import { PositronDataExplorerColumn } from 'vs/workbench/services/positronDataExplorer/browser/positronDataExplorerColumn';
 import { DataExplorerClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeDataExplorerClient';
-import { ColumnSortKey, TableSchema } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
 import { FetchRange, FetchResult, PositronDataExplorerCache } from 'vs/workbench/services/positronDataExplorer/common/positronDataExplorerCache';
 
 /**
- * PositronDataExplorerDataGridInstance class.
+ * TableDataDataGridInstance class.
  */
-export class PositronDataExplorerDataGridInstance extends DataGridInstance {
+export class TableDataDataGridInstance extends DataGridInstance<string> {
+	//#region Private Properties
+
 	/**
 	 * Gets the data explorer client instance.
 	 */
@@ -23,6 +25,10 @@ export class PositronDataExplorerDataGridInstance extends DataGridInstance {
 	private _cache?: PositronDataExplorerCache;
 
 	private _lastFetchResult?: FetchResult;
+
+	//#endregion Private Properties
+
+	//#region Constructor
 
 	/**
 	 * Constructor.
@@ -43,6 +49,8 @@ export class PositronDataExplorerDataGridInstance extends DataGridInstance {
 		// Set the data explorer client instance.
 		this._dataExplorerClientInstance = dataExplorerClientInstance;
 	}
+
+	//#endregion Constructor
 
 	/**
 	 * Gets the number of columns.
@@ -87,14 +95,8 @@ export class PositronDataExplorerDataGridInstance extends DataGridInstance {
 					const end = new Date().getTime();
 					console.log(`Fetching data took ${end - start}ms`);
 					return data;
-				});
-
-			const columns: PositronDataExplorerColumn[] = [];
-			for (let i = 0; i < tableSchema.columns.length; i++) {
-				columns.push(new PositronDataExplorerColumn(tableSchema.columns[i]));
-			}
-
-			this.setColumns(columns);
+				}
+			);
 
 			// Fetch data.
 			this.fetchData();
@@ -121,50 +123,29 @@ export class PositronDataExplorerDataGridInstance extends DataGridInstance {
 		await this.doFetchData();
 	}
 
-	private resetCache() {
-		// Clear the data cache
-		this._cache?.clear();
-		this._lastFetchResult = undefined;
-	}
-
-	private async doFetchData(): Promise<void> {
-		// If the table schema hasn't loaded, we cannot fetch data.
-		if (!this._tableSchema) {
-			return;
-		}
-
-		const rangeToFetch: FetchRange = {
-			rowStartIndex: this.firstRowIndex,
-			rowEndIndex: this.firstRowIndex + this.visibleRows,
-			columnStartIndex: this.firstColumnIndex,
-
-			// TODO: column edge detection can cause visibleColumns to be one less than what the
-			// user actually sees, so we fudge this for now
-			columnEndIndex: this.firstColumnIndex + this.visibleColumns + 1
-		};
-
-		if (this.needToFetch(rangeToFetch)) {
-			this._lastFetchResult = await this._cache?.fetch(rangeToFetch);
-		}
-
-		// Fire the onDidUpdate event.
-		this._onDidUpdateEmitter.fire();
-	}
-
-	private needToFetch(range: FetchRange) {
-		if (!this._lastFetchResult) {
-			return true;
-		} else {
-			return !PositronDataExplorerCache.rangeIncludes(range, this._lastFetchResult);
-		}
-	}
-
 	fetchData() {
 		this.doFetchData().then(() => {
 
 		}).catch(x => {
 			console.log(x);
 		});
+	}
+
+	/**
+	 * Gets a column.
+	 * @param columnIndex The column index.
+	 * @returns The column.
+	 */
+	column(columnIndex: number) {
+		if (!this._tableSchema) {
+			return undefined;
+		}
+
+		if (columnIndex < 0 || columnIndex > this._tableSchema.columns.length) {
+			return undefined;
+		}
+
+		return new PositronDataExplorerColumn(this._tableSchema.columns[columnIndex]);
 	}
 
 	/**
@@ -198,10 +179,10 @@ export class PositronDataExplorerDataGridInstance extends DataGridInstance {
 	}
 
 	/**
-	 * Gets a cell.
+	 * Gets a cell value.
 	 * @param columnIndex The column index.
 	 * @param rowIndex The row index.
-	 * @returns The cell.
+	 * @returns The cell value.
 	 */
 	cell(columnIndex: number, rowIndex: number): string | undefined {
 		// If there isn't any cached data, return undefined.
@@ -225,4 +206,47 @@ export class PositronDataExplorerDataGridInstance extends DataGridInstance {
 		// Return the cached value.
 		return this._lastFetchResult.data.columns[cachedColIndex][cachedRowIndex];
 	}
+
+	//#region Private Methods
+
+	private resetCache() {
+		// Clear the data cache
+		this._cache?.clear();
+		this._lastFetchResult = undefined;
+	}
+
+	private needToFetch(range: FetchRange) {
+		if (!this._lastFetchResult) {
+			return true;
+		} else {
+			return !PositronDataExplorerCache.rangeIncludes(range, this._lastFetchResult);
+		}
+	}
+
+	private async doFetchData(): Promise<void> {
+		// If the table schema hasn't loaded, we cannot fetch data.
+		if (!this._tableSchema) {
+			return;
+		}
+
+		// Calculate the fetch range.
+		const fetchRange: FetchRange = {
+			rowStartIndex: this.firstRowIndex,
+			rowEndIndex: this.firstRowIndex + this.visibleRows,
+			columnStartIndex: this.firstColumnIndex,
+
+			// TODO: column edge detection can cause visibleColumns to be one less than what the
+			// user actually sees, so we fudge this for now
+			columnEndIndex: this.firstColumnIndex + this.visibleColumns + 1
+		};
+
+		if (this.needToFetch(fetchRange)) {
+			this._lastFetchResult = await this._cache?.fetch(fetchRange);
+		}
+
+		// Fire the onDidUpdate event.
+		this._onDidUpdateEmitter.fire();
+	}
+
+	//#endregion Private Methods
 }
