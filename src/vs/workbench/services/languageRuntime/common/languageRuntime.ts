@@ -409,7 +409,7 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 		}
 
 		// Start the selected runtime.
-		return this.startRuntime(runtime.runtimeId, source);
+		return this.startNewRuntimeSession(runtime.runtimeId, source);
 	}
 
 	/**
@@ -588,7 +588,7 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 	 * @param runtimeId The runtime identifier of the runtime to start.
 	 * @param source The source of the request to start the runtime.
 	 */
-	async startRuntime(runtimeId: string, source: string): Promise<void> {
+	async startNewRuntimeSession(runtimeId: string, source: string): Promise<void> {
 		// See if we are already starting a runtime with the given ID. If we
 		// are, return the promise that resolves when the runtime is ready to
 		// use. This makes it possible for multiple requests to start the same
@@ -926,8 +926,15 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 	}
 
 
+	/**
+	 * Attaches event handlers and registers a freshly created language runtime
+	 * session with the service.
+	 *
+	 * @param session The session to attach.
+	 */
 	private attachToSession(session: ILanguageRuntimeSession): void {
 
+		// Save the session info.
 		this._activeSessionsBySessionId.set(session.sessionId,
 			new LanguageRuntimeSessionInfo(session));
 
@@ -1033,8 +1040,8 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 				if (restartOnCrash) {
 					// Wait a beat, then start the runtime.
 					await new Promise<void>(resolve => setTimeout(resolve, 250));
-					this._onWillStartRuntimeEmitter.fire(session);
-					await this.startRuntime(runtime.metadata.runtimeId,
+
+					await this.startNewRuntimeSession(session.metadata.runtimeId,
 						`The runtime exited unexpectedly and is being restarted automatically.`);
 					action = 'and was automatically restarted';
 				} else {
@@ -1070,7 +1077,7 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 			state === RuntimeState.Exited) {
 			// The runtime has never been started, or is no longer running. Just
 			// tell it to start.
-			return this.startRuntime(session.metadata.runtimeId, `'Restart Interpreter' command invoked`);
+			return this.startNewRuntimeSession(session.metadata.runtimeId, `'Restart Interpreter' command invoked`);
 		} else if (state === RuntimeState.Starting ||
 			state === RuntimeState.Restarting) {
 			// The runtime is already starting or restarting. We could show an

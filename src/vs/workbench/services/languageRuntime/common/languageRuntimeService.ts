@@ -506,7 +506,8 @@ export interface ILanguageRuntimeSessionStateEvent {
 	new_state: RuntimeState;
 }
 
-/* ILanguageRuntimeMetadata contains information about a language runtime that is known
+/**
+ * ILanguageRuntimeMetadata contains information about a language runtime that is known
  * before the runtime is started.
  */
 export interface ILanguageRuntimeMetadata {
@@ -816,16 +817,20 @@ export interface ILanguageRuntimeService {
 	completeDiscovery(): void;
 
 	/**
-	 * Starts a runtime.
+	 * Starts a new session for a runtime.
 	 *
 	 * @param runtimeId The runtime identifier of the runtime to start.
+	 * @param sessionMode The mode of the session to start.
 	 * @param source The source of the request to start the runtime, for debugging purposes
 	 *  (not displayed to the user)
 	 */
-	startRuntime(runtimeId: string, source: string): Promise<void>;
+	startNewRuntimeSession(runtimeId: string,
+		sessionMode: LanguageRuntimeSessionMode,
+		source: string): Promise<void>;
 
 	/**
 	 * Restart a runtime session.
+	 *
 	 * @param sessionId The identifier of the session to restart.
 	 * @param source The source of the request to restart the session, for debugging purposes.
 	 */

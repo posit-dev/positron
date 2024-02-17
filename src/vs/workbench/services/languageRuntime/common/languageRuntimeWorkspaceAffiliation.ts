@@ -6,7 +6,7 @@ import { Disposable } from 'vs/base/common/lifecycle';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import { ILogService } from 'vs/platform/log/common/log';
 import { IStorageService, StorageScope, StorageTarget } from 'vs/platform/storage/common/storage';
-import { ILanguageRuntimeMetadata, ILanguageRuntimeService, ILanguageRuntimeSession, RuntimeState, formatLanguageRuntimeMetadata } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntimeMetadata, ILanguageRuntimeService, ILanguageRuntimeSession, LanguageRuntimeSessionMode, RuntimeState, formatLanguageRuntimeMetadata } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 
 /**
  * The LanguageRuntimeWorkspaceAffiliation class is responsible for managing the
@@ -110,7 +110,8 @@ export class LanguageRuntimeWorkspaceAffiliation extends Disposable {
 					return;
 				}
 
-				this._runtimeService.startRuntime(metadata.runtimeId,
+				this._runtimeService.startNewRuntimeSession(metadata.runtimeId,
+					LanguageRuntimeSessionMode.Console,
 					`Affiliated runtime for workspace`);
 			} catch (e) {
 				// This isn't necessarily an error; if another runtime took precedence and has

@@ -39,7 +39,7 @@ import { ActivityItem, RuntimeItemActivity } from 'vs/workbench/services/positro
 import { ActivityItemInput, ActivityItemInputState } from 'vs/workbench/services/positronConsole/browser/classes/activityItemInput';
 import { ActivityItemErrorStream, ActivityItemOutputStream } from 'vs/workbench/services/positronConsole/browser/classes/activityItemStream';
 import { IPositronConsoleInstance, IPositronConsoleService, POSITRON_CONSOLE_VIEW_ID, PositronConsoleState } from 'vs/workbench/services/positronConsole/browser/interfaces/positronConsoleService';
-import { ILanguageRuntimeExit, ILanguageRuntimeMessage, ILanguageRuntimeMetadata, ILanguageRuntimeService, ILanguageRuntimeSession, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeExitReason, RuntimeOnlineState, RuntimeState, formatLanguageRuntimeMetadata, formatLanguageRuntimeSession } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntimeExit, ILanguageRuntimeMessage, ILanguageRuntimeMetadata, ILanguageRuntimeService, ILanguageRuntimeSession, LanguageRuntimeSessionMode, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeExitReason, RuntimeOnlineState, RuntimeState, formatLanguageRuntimeMetadata, formatLanguageRuntimeSession } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { UiFrontendEvent } from 'vs/workbench/services/languageRuntime/common/positronUiComm';
 
 /**
@@ -376,8 +376,10 @@ class PositronConsoleService extends Disposable implements IPositronConsoleServi
 			}
 
 			// Start the preferred runtime.
-			this._logService.trace(`Language runtime ${formatLanguageRuntimeMetadata(languageRuntime)} automatically starting`);
-			await this._languageRuntimeService.startRuntime(languageRuntime.runtimeId,
+			this._logService.trace(`Language runtime ` +
+				`${formatLanguageRuntimeMetadata(languageRuntime)} automatically starting`);
+			await this._languageRuntimeService.startNewRuntimeSession(languageRuntime.runtimeId,
+				LanguageRuntimeSessionMode.Console,
 				`User executed code in language ${languageId}, and no running runtime was found ` +
 				`for the language.`);
 		}

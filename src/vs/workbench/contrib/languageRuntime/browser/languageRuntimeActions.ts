@@ -14,7 +14,7 @@ import { IQuickInputService, IQuickPickItem } from 'vs/platform/quickinput/commo
 import { IKeybindingRule, KeybindingWeight } from 'vs/platform/keybinding/common/keybindingsRegistry';
 import { LANGUAGE_RUNTIME_ACTION_CATEGORY } from 'vs/workbench/contrib/languageRuntime/common/languageRuntime';
 import { IPositronConsoleService } from 'vs/workbench/services/positronConsole/browser/interfaces/positronConsoleService';
-import { ILanguageRuntimeMetadata, ILanguageRuntimeService, ILanguageRuntimeSession, IRuntimeClientInstance, RuntimeClientType } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntimeMetadata, ILanguageRuntimeService, ILanguageRuntimeSession, IRuntimeClientInstance, LanguageRuntimeSessionMode, RuntimeClientType } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 
 // The category for language runtime actions.
 const category: ILocalizedString = { value: LANGUAGE_RUNTIME_ACTION_CATEGORY, original: 'Language Runtime' };
@@ -184,7 +184,8 @@ export function registerLanguageRuntimeActions() {
 		const languageRuntime = await selectLanguageRuntime(quickInputService, registeredRuntimes, 'Select the interpreter to start');
 		if (languageRuntime) {
 			// Start the language runtime.
-			languageRuntimeService.startRuntime(languageRuntime.runtimeId,
+			languageRuntimeService.startNewRuntimeSession(languageRuntime.runtimeId,
+				LanguageRuntimeSessionMode.Console,
 				`'Start Interpreter' command invoked`);
 
 			// Drive focus into the Positron console.
