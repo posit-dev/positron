@@ -66,29 +66,9 @@
 }
 
 .data-grid-row-cell
-.text {
-	overflow: hidden;
+.cell-content {
 	margin-bottom: 1px; /* Adjust for the bottom border. */
-	white-space: nowrap;
-	line-height: normal;
-	text-overflow: ellipsis;
 	grid-column: content / right-gutter;
-}
-
-.data-grid-row-cell
-.text.left {
-	text-align: left;
-}
-
-.data-grid-row-cell
-.text.center {
-	text-align: center;
-}
-
-.data-grid-row-cell
-.text.right {
-	text-align: right;
-	font-variant-numeric: tabular-nums;
 }
 
 .data-grid-row-cell

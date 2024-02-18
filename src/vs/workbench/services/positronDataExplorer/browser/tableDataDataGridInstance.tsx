@@ -2,8 +2,12 @@
  *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
+// React.
+import * as React from 'react';
+
 import { IColumnSortKey } from 'vs/base/browser/ui/positronDataGrid/interfaces/columnSortKey';
 import { DataGridInstance } from 'vs/base/browser/ui/positronDataGrid/classes/dataGridInstance';
+import { DataExplorerCell } from 'vs/workbench/services/positronDataExplorer/browser/components/dataExplorerCell';
 import { ColumnSortKey, TableSchema } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
 import { PositronDataExplorerColumn } from 'vs/workbench/services/positronDataExplorer/browser/positronDataExplorerColumn';
 import { DataExplorerClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeDataExplorerClient';
@@ -179,32 +183,47 @@ export class TableDataDataGridInstance extends DataGridInstance {
 	}
 
 	/**
-	 * Gets a cell value.
+	 * Gets a data cell.
 	 * @param columnIndex The column index.
 	 * @param rowIndex The row index.
 	 * @returns The cell value.
 	 */
-	cell(columnIndex: number, rowIndex: number): string | undefined {
+	cell(columnIndex: number, rowIndex: number): JSX.Element | undefined {
+		// If the table schema hasn't been loaded, return undefined.
+		if (!this._tableSchema) {
+			return undefined;
+		}
+
 		// If there isn't any cached data, return undefined.
 		if (!this._lastFetchResult) {
 			return undefined;
 		}
 
+		const d = this._tableSchema.columns[columnIndex];
+
 		// If the cell isn't cached, return undefined.
-		if (rowIndex < this._lastFetchResult.rowStartIndex ||
-			rowIndex >= this._lastFetchResult.rowEndIndex ||
-			columnIndex < this._lastFetchResult.columnStartIndex ||
-			columnIndex >= this._lastFetchResult.columnEndIndex
+		if (columnIndex < this._lastFetchResult.columnStartIndex ||
+			columnIndex >= this._lastFetchResult.columnEndIndex ||
+			rowIndex < this._lastFetchResult.rowStartIndex ||
+			rowIndex >= this._lastFetchResult.rowEndIndex
 		) {
 			return undefined;
 		}
 
 		// Calculate the cache indices.
+		const cachedColumnIndex = columnIndex - this._lastFetchResult.columnStartIndex;
 		const cachedRowIndex = rowIndex - this._lastFetchResult.rowStartIndex;
-		const cachedColIndex = columnIndex - this._lastFetchResult.columnStartIndex;
+
+		// Get the cached value.
+		const value = this._lastFetchResult.data.columns[cachedColumnIndex][cachedRowIndex];
 
 		// Return the cached value.
-		return this._lastFetchResult.data.columns[cachedColIndex][cachedRowIndex];
+		return (
+			<DataExplorerCell
+				column={new PositronDataExplorerColumn(d)}
+				value={value}
+			/>
+		);
 	}
 
 	//#region Private Methods

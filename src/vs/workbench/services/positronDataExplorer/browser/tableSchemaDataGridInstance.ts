@@ -115,12 +115,12 @@ export class TableSchemaDataGridInstance extends DataGridInstance {
 	}
 
 	/**
-	 * Gets a cell value.
+	 * Gets a data cell.
 	 * @param columnIndex The column index.
 	 * @param rowIndex The row index.
 	 * @returns The cell value.
 	 */
-	cell(columnIndex: number, rowIndex: number): string | undefined {
+	cell(columnIndex: number, rowIndex: number): JSX.Element | undefined {
 		return undefined;
 	}
 

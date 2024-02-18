@@ -380,7 +380,7 @@ export abstract class DataGridInstance extends Disposable implements IDataGridIn
 		let visibleRows = 0;
 		let rowIndex = this._firstRowIndex;
 		let availableLayoutHeight = this.layoutHeight;
-		while (rowIndex < this.rows - 1) {
+		while (rowIndex < this.rows) {
 			// Get the row height.
 			const rowHeight = this.getRowHeight(rowIndex);
 
@@ -1605,12 +1605,12 @@ export abstract class DataGridInstance extends Disposable implements IDataGridIn
 	abstract rowLabel(rowIndex: number): string | undefined;
 
 	/**
-	 * Gets a cell value.
+	 * Gets a data cell.
 	 * @param columnIndex The column index.
 	 * @param rowIndex The row index.
-	 * @returns The cell value.
+	 * @returns The data cell, or, undefined.
 	 */
-	abstract cell(columnIndex: number, rowIndex: number): string | undefined;
+	abstract cell(columnIndex: number, rowIndex: number): JSX.Element | undefined;
 
 	/**
 	 * onDidUpdate event.

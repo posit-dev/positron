@@ -12,7 +12,6 @@ import { MouseEvent } from 'react'; // eslint-disable-line no-duplicate-imports
 // Other dependencies.
 import { isMacintosh } from 'vs/base/common/platform';
 import { positronClassNames } from 'vs/base/common/positronUtilities';
-import { IDataColumn } from 'vs/base/browser/ui/positronDataGrid/interfaces/dataColumn';
 import { VerticalSplitter } from 'vs/base/browser/ui/positronComponents/verticalSplitter';
 import { HorizontalSplitter } from 'vs/base/browser/ui/positronComponents/horizontalSplitter';
 import { CellSelectionState } from 'vs/base/browser/ui/positronDataGrid/interfaces/dataGridInstance';
@@ -22,7 +21,6 @@ import { usePositronDataGridContext } from 'vs/base/browser/ui/positronDataGrid/
  * DataGridRowCellProps interface.
  */
 interface DataGridRowCellProps {
-	column?: IDataColumn;
 	columnIndex: number;
 	rowIndex: number;
 	left: number;
@@ -90,11 +88,9 @@ export const DataGridRowCell = (props: DataGridRowCellProps) => {
 					<div className='cursor-border' />
 				}
 			</div>
-			{props.column &&
-				<div className={positronClassNames('text', props.column.alignment)}>
-					{context.instance.cell(props.columnIndex, props.rowIndex)}
-				</div>
-			}
+			<div className='cell-content'>
+				{context.instance.cell(props.columnIndex, props.rowIndex)}
+			</div>
 			<VerticalSplitter
 				onBeginResize={() => ({
 					minimumWidth: context.instance.minimumColumnWidth,

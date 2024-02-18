@@ -36,14 +36,9 @@ export const DataGridRow = (props: DataGridRowProps) => {
 		columnIndex < context.instance.columns && left < props.width;
 		columnIndex++
 	) {
-		// Access the column.
-		const column = context.instance.column(columnIndex);
-
-		// Push the column header component.
 		rowCells.push(
 			<DataGridRowCell
 				key={`row-cell-${props.rowIndex}-${columnIndex}`}
-				column={column}
 				columnIndex={columnIndex}
 				rowIndex={props.rowIndex}
 				left={left}

@@ -24,9 +24,4 @@ export interface IDataColumn {
 	 * Gets the description.
 	 */
 	readonly description?: string;
-
-	/**
-	 * Gets the alignment.
-	 */
-	readonly alignment: DataColumnAlignment;
 }
