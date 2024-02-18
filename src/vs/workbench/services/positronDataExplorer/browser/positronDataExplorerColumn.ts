@@ -90,7 +90,7 @@ export class PositronDataExplorerColumn implements IPositronDataExplorerColumn {
 				return DataColumnAlignment.Left;
 
 			case ColumnSchemaTypeDisplay.Unknown:
-				return DataColumnAlignment.Right;
+				return DataColumnAlignment.Left;
 		}
 	}
 
