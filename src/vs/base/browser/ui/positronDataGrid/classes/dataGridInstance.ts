@@ -13,15 +13,12 @@ import { IColumnSortKey } from 'vs/base/browser/ui/positronDataGrid/interfaces/c
 export interface DataGridOptions {
 	readonly columnHeaders?: boolean;
 	readonly columnHeadersHeight?: number;
-
 	readonly rowHeaders?: boolean;
 	readonly rowHeadersWidth?: number;
-
 	readonly minimumColumnWidth: number;
 	readonly defaultColumnWidth: number;
 	readonly minimumRowHeight: number;
 	readonly defaultRowHeight: number;
-
 	readonly horizontalScrollbar?: boolean;
 	readonly verticalScrollbar?: boolean;
 	readonly scrollbarWidth?: number;
@@ -347,7 +344,7 @@ export abstract class DataGridInstance extends Disposable {
 		this._columnHeaders = options.columnHeaders || false;
 		this._columnHeadersHeight = this._columnHeaders ? options.columnHeadersHeight ?? 0 : 0;
 
-		this._rowHeaders = options.columnHeaders || false;
+		this._rowHeaders = options.rowHeaders || false;
 		this._rowHeadersWidth = this._rowHeaders ? options.rowHeadersWidth ?? 0 : 0;
 
 		this._minimumColumnWidth = options.minimumColumnWidth;

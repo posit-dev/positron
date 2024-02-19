@@ -42,16 +42,16 @@ export class TableDataDataGridInstance extends DataGridInstance {
 	constructor(dataExplorerClientInstance: DataExplorerClientInstance) {
 		// Call the base class's constructor.
 		super({
-			columnHeaders: true,
+			columnHeaders: false,
 			columnHeadersHeight: 34,
-			rowHeaders: true,
+			rowHeaders: false,
 			rowHeadersWidth: 55,
 			minimumColumnWidth: 100,
 			defaultColumnWidth: 200,
 			minimumRowHeight: 24,
 			defaultRowHeight: 24,
-			horizontalScrollbar: true,
-			verticalScrollbar: true,
+			horizontalScrollbar: false,
+			verticalScrollbar: false,
 			scrollbarWidth: 14
 		});
 
@@ -204,7 +204,13 @@ export class TableDataDataGridInstance extends DataGridInstance {
 			return undefined;
 		}
 
-		const d = this._tableSchema.columns[columnIndex];
+		// If the column schema hasn't been loaded, return undefined.
+		if (columnIndex >= this._tableSchema.columns.length) {
+			return undefined;
+		}
+
+		// Get the column schema.
+		const columnSchema = this._tableSchema.columns[columnIndex];
 
 		// If the cell isn't cached, return undefined.
 		if (columnIndex < this._lastFetchResult.columnStartIndex ||
@@ -225,7 +231,7 @@ export class TableDataDataGridInstance extends DataGridInstance {
 		// Return the cached value.
 		return (
 			<DataExplorerCell
-				column={new PositronDataExplorerColumn(d)}
+				column={new PositronDataExplorerColumn(columnSchema)}
 				value={value}
 			/>
 		);
