@@ -239,14 +239,16 @@ export class ConnectionItemsProvider implements vscode.TreeDataProvider<Connecti
 			} else if (element instanceof ConnectionItemNode) {
 				const response = await element.client.performRpc({ msg_type: 'tables_request', name: element.name, kind: element.kind, path: element.path }) as any;
 				const children = response.tables as Array<{ name: string; kind: string }>;
-				return children.map((obj) => {
+				return await Promise.all(children.map(async (obj) => {
 					const path = [...element.path, { name: obj.name, kind: obj.kind }];
-					if (obj.kind === 'table') {
+					const response = await element.client.performRpc({ msg_type: 'contains_data_request', path: path }) as any;
+					const contains_data = response.contains_data as boolean;
+					if (contains_data) {
 						return new ConnectionItemTable(obj.name, obj.kind, path, element.client);
 					} else {
 						return new ConnectionItemNode(obj.name, obj.kind, path, element.client);
 					}
-				});
+				}));
 			}
 		}
 
