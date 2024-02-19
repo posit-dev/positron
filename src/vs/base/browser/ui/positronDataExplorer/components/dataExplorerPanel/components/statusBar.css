@@ -9,7 +9,7 @@
 	align-items: center;
 	grid-row: status-bar / end;
 	border-top: 1px solid var(--vscode-positronDataExplorer-border);
-	background-color: var(--vscode-positronDataGrid-contrastBackground);
+	background-color: var(--vscode-positronDataExplorer-contrastBackground);
 }
 
 .data-explorer-container
