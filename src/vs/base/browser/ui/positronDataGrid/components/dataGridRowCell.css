@@ -24,9 +24,16 @@
 	left: 0;
 	position: absolute;
 	box-sizing: border-box;
+	/* border-right: 1px solid var(--vscode-positronDataGrid-border); */
+	/* border-bottom: 1px solid var(--vscode-positronDataGrid-border); */
+}
+
+.data-grid-row-cell
+.data-grid-row-cell-border-overlay.bordered {
 	border-right: 1px solid var(--vscode-positronDataGrid-border);
 	border-bottom: 1px solid var(--vscode-positronDataGrid-border);
 }
+
 
 .data-grid-row-cell
 .data-grid-row-cell-border-overlay.selected {

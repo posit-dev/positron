@@ -41,15 +41,17 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 
 			rowHeaders: false,
 
-			columnResize: false,
 			defaultColumnWidth: 200,
-
-			rowResize: false,
 			defaultRowHeight: 34,
+
+			columnResize: false,
+			rowResize: false,
 
 			horizontalScrollbar: false,
 			verticalScrollbar: true,
-			scrollbarWidth: 14
+			scrollbarWidth: 8,
+
+			cellBorder: false
 		});
 
 		// Set the data explorer client instance.
@@ -97,6 +99,14 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 	}
 
 	fetchData() {
+	}
+
+	/**
+	 * Gets the the width of a column.
+	 * @param columnIndex The column index.
+	 */
+	override getColumnWidth(columnIndex: number): number {
+		return this.layoutWidth;
 	}
 
 	/**

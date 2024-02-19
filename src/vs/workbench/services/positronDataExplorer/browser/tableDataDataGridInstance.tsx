@@ -50,16 +50,19 @@ export class TableDataDataGridInstance extends DataGridInstance {
 			rowHeadersWidth: 55,
 			rowHeadersResize: true,
 
-			columnResize: true,
 			defaultColumnWidth: 200,
+			defaultRowHeight: 24,
+
+			columnResize: true,
 			minimumColumnWidth: 100,
 
 			rowResize: false,
-			defaultRowHeight: 24,
 
 			horizontalScrollbar: true,
 			verticalScrollbar: true,
-			scrollbarWidth: 14
+			scrollbarWidth: 14,
+
+			cellBorder: true
 		});
 
 		// Set the data explorer client instance.

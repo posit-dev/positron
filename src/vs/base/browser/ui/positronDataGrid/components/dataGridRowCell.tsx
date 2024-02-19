@@ -75,6 +75,7 @@ export const DataGridRowCell = (props: DataGridRowCellProps) => {
 				className={
 					positronClassNames(
 						'data-grid-row-cell-border-overlay',
+						{ 'bordered': context.instance.columnResize },
 						{ 'selected': cellSelectionState & CellSelectionState.Selected },
 						{ 'selected-top': cellSelectionState & CellSelectionState.SelectedTop },
 						{ 'selected-bottom': cellSelectionState & CellSelectionState.SelectedBottom },

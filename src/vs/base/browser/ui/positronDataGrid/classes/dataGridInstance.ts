@@ -8,15 +8,20 @@ import { IDataColumn } from 'vs/base/browser/ui/positronDataGrid/interfaces/data
 import { IColumnSortKey } from 'vs/base/browser/ui/positronDataGrid/interfaces/columnSortKey';
 
 /**
- * DataGridOptions type.
+ * ColumnHeaderOptions type.
  */
-type DataGridOptions = ({
+type ColumnHeaderOptions = | {
 	readonly columnHeaders: false;
 	readonly columnHeadersHeight?: never;
 } | {
 	readonly columnHeaders: true;
 	readonly columnHeadersHeight: number;
-}) & ({
+};
+
+/**
+ * RowHeaderOptions type.
+ */
+type RowHeaderOptions = | {
 	readonly rowHeaders: false;
 	readonly rowHeadersWidth?: never;
 	readonly rowHeadersResize?: never;
@@ -24,23 +29,42 @@ type DataGridOptions = ({
 	readonly rowHeaders: true;
 	readonly rowHeadersWidth: number;
 	readonly rowHeadersResize: boolean;
-}) & ({
-	readonly columnResize: false;
+};
+
+/**
+ * DefaultSizeOptions type.
+ */
+type DefaultSizeOptions = | {
 	readonly defaultColumnWidth: number;
+	readonly defaultRowHeight: number;
+};
+
+/**
+ * ColumnResizeOptions type.
+ */
+type ColumnResizeOptions = | {
+	readonly columnResize: false;
 	readonly minimumColumnWidth?: never;
 } | {
 	readonly columnResize: true;
-	readonly defaultColumnWidth: number;
 	readonly minimumColumnWidth: number;
-}) & ({
+};
+
+/**
+ * RowResizeOptions type.
+ */
+type RowResizeOptions = | {
 	readonly rowResize: false;
-	readonly defaultRowHeight: number;
 	readonly minimumRowHeight?: never;
 } | {
 	readonly rowResize: true;
-	readonly defaultRowHeight: number;
 	readonly minimumRowHeight: number;
-}) & ({
+};
+
+/**
+ * ScrollbarOptions type.
+ */
+type ScrollbarOptions = | {
 	readonly horizontalScrollbar: false;
 	readonly verticalScrollbar: false;
 	readonly scrollbarWidth?: never;
@@ -56,7 +80,26 @@ type DataGridOptions = ({
 	readonly horizontalScrollbar: true;
 	readonly verticalScrollbar: true;
 	readonly scrollbarWidth: number;
-});
+};
+
+/**
+ * DisplayOptions type.
+ */
+type DisplayOptions = {
+	cellBorder: boolean;
+};
+
+/**
+ * DataGridOptions type.
+ */
+type DataGridOptions =
+	ColumnHeaderOptions &
+	RowHeaderOptions &
+	DefaultSizeOptions &
+	ColumnResizeOptions &
+	RowResizeOptions &
+	ScrollbarOptions &
+	DisplayOptions;
 
 /**
  * ExtendColumnSelectionBy enumeration.
@@ -526,14 +569,28 @@ export abstract class DataGridInstance extends Disposable {
 	 * Gets the layout width.
 	 */
 	get layoutWidth() {
-		return this._width - this._rowHeadersWidth - this._scrollbarWidth;
+		// Calculate the layout width.
+		let layoutWidth = this._width - this._rowHeadersWidth;
+		if (this._verticalScrollbar) {
+			layoutWidth -= this._scrollbarWidth;
+		}
+
+		// Done.
+		return layoutWidth;
 	}
 
 	/**
 	 * Gets the layout height.
 	 */
 	get layoutHeight() {
-		return this._height - this._columnHeadersHeight - this._scrollbarWidth;
+		// Calculate the layout height.
+		let layoutHeight = this._height - this._columnHeadersHeight;
+		if (this._horizontalScrollbar) {
+			layoutHeight -= this._scrollbarWidth;
+		}
+
+		// Done.
+		return layoutHeight;
 	}
 
 	/**
