@@ -9,8 +9,8 @@
 	position: absolute;
 	align-items: center;
 	justify-content: center;
-	grid-template-rows: [title] 1fr [splitter] 1px [end];
-	grid-template-columns: [title] 1fr [splitter] 1px [end];
+	grid-template-rows: [content] 1fr [splitter] 1px [end];
+	grid-template-columns: [content] 1fr [splitter] 1px [end];
 	background-color: var(--vscode-positronDataGrid-contrastBackground);
 }
 
@@ -48,27 +48,19 @@
 }
 
 .data-grid-row-header
-.title {
-	font-size: 75%;
-	font-weight: 600;
-	overflow: hidden;
-	text-align: center;
-	margin: 0 4px 0 4px;
-	white-space: nowrap;
-	line-height: normal;
-	text-overflow: ellipsis;
-	grid-row: title / splitter;
-	grid-column: title / splitter;
+.content {
+	grid-row: content / splitter;
+	grid-column: content / splitter;
 }
 
 .data-grid-row-header
 .vertical-splitter {
-	grid-row: title / end;
+	grid-row: content / end;
 	grid-column: splitter / end;
 }
 
 .data-grid-row-header
 .horizontal-splitter {
 	grid-row: splitter / end;
-	grid-column: title / end;
+	grid-column: content / end;
 }

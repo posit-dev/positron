@@ -111,11 +111,11 @@ export class TableSchemaDataGridInstance extends DataGridInstance {
 	}
 
 	/**
-	 * Gets a row label.
+	 * Gets a row header.
 	 * @param rowIndex The row index.
-	 * @returns The row label.
+	 * @returns The row header, or, undefined.
 	 */
-	rowLabel(rowIndex: number) {
+	rowHeader(rowIndex: number) {
 		return undefined;
 	}
 

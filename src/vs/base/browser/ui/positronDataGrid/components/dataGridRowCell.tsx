@@ -88,7 +88,7 @@ export const DataGridRowCell = (props: DataGridRowCellProps) => {
 					<div className='cursor-border' />
 				}
 			</div>
-			<div className='cell-content'>
+			<div className='content'>
 				{context.instance.cell(props.columnIndex, props.rowIndex)}
 			</div>
 			<VerticalSplitter

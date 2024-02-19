@@ -1716,11 +1716,11 @@ export abstract class DataGridInstance extends Disposable {
 	abstract column(columnIndex: number): IDataColumn | undefined;
 
 	/**
-	 * Gets a row label.
+	 * Gets a row header.
 	 * @param rowIndex The row index.
-	 * @returns The row label.
+	 * @returns The row header, or, undefined.
 	 */
-	abstract rowLabel(rowIndex: number): string | undefined;
+	abstract rowHeader(rowIndex: number): JSX.Element | undefined;
 
 	/**
 	 * Gets a data cell.

@@ -3,7 +3,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 // CSS.
-import 'vs/css!./dataExplorerCell';
+import 'vs/css!./tableDataCell';
 
 // React.
 import * as React from 'react';
@@ -13,19 +13,19 @@ import { positronClassNames } from 'vs/base/common/positronUtilities';
 import { PositronDataExplorerColumn } from 'vs/workbench/services/positronDataExplorer/browser/positronDataExplorerColumn';
 
 /**
- * DataExplorerCellProps interface.
+ * TableDataCellProps interface.
  */
-interface DataExplorerCellProps {
+interface TableDataCellProps {
 	column: PositronDataExplorerColumn;
 	value: string;
 }
 
 /**
- * DataExplorerCell component.
- * @param props A DataExplorerCellProps that contains the component properties.
+ * TableDataCell component.
+ * @param props A TableDataCellProps that contains the component properties.
  * @returns The rendered component.
  */
-export const DataExplorerCell = (props: DataExplorerCellProps) => {
+export const TableDataCell = (props: TableDataCellProps) => {
 	// Render.
 	return (
 		<div className={positronClassNames('text', props.column.alignment)}>

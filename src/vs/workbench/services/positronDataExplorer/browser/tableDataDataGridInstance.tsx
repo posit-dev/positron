@@ -8,8 +8,9 @@ import * as React from 'react';
 // Other dependencies.
 import { IColumnSortKey } from 'vs/base/browser/ui/positronDataGrid/interfaces/columnSortKey';
 import { DataGridInstance } from 'vs/base/browser/ui/positronDataGrid/classes/dataGridInstance';
-import { DataExplorerCell } from 'vs/workbench/services/positronDataExplorer/browser/components/dataExplorerCell';
+import { TableDataCell } from 'vs/workbench/services/positronDataExplorer/browser/components/tableDataCell';
 import { ColumnSortKey, TableSchema } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
+import { TableDataRowHeader } from 'vs/workbench/services/positronDataExplorer/browser/components/tableDataRowHeader';
 import { PositronDataExplorerColumn } from 'vs/workbench/services/positronDataExplorer/browser/positronDataExplorerColumn';
 import { DataExplorerClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeDataExplorerClient';
 import { FetchRange, FetchResult, PositronDataExplorerCache } from 'vs/workbench/services/positronDataExplorer/common/positronDataExplorerCache';
@@ -158,11 +159,16 @@ export class TableDataDataGridInstance extends DataGridInstance {
 	}
 
 	/**
-	 * Gets a row label.
+	 * Gets a row header.
 	 * @param rowIndex The row index.
-	 * @returns The row label.
+	 * @returns The row label, or, undefined.
 	 */
-	rowLabel(rowIndex: number) {
+	rowHeader(rowIndex: number) {
+		// If the table schema hasn't been loaded, return undefined.
+		if (!this._tableSchema) {
+			return undefined;
+		}
+
 		// If there isn't any cached data, return undefined.
 		if (!this._lastFetchResult) {
 			return undefined;
@@ -175,16 +181,20 @@ export class TableDataDataGridInstance extends DataGridInstance {
 			return undefined;
 		}
 
-		// If there are no row labels, return the row index.
+		// If there are no row labels, return the TableDataRowHeader.
 		if (!this._lastFetchResult.data.row_labels) {
-			return `${rowIndex + 1}`;
+			return (
+				<TableDataRowHeader value={`${rowIndex + 1}`} />
+			);
 		}
 
 		// Calculate the cached row index.
 		const cachedRowIndex = rowIndex - this._lastFetchResult.rowStartIndex;
 
-		// Return the cached row label.
-		return this._lastFetchResult.data.row_labels[0][cachedRowIndex];
+		// Return the TableDataRowHeader.
+		return (
+			<TableDataRowHeader value={this._lastFetchResult.data.row_labels[0][cachedRowIndex]} />
+		);
 	}
 
 	/**
@@ -228,9 +238,9 @@ export class TableDataDataGridInstance extends DataGridInstance {
 		// Get the cached value.
 		const value = this._lastFetchResult.data.columns[cachedColumnIndex][cachedRowIndex];
 
-		// Return the cached value.
+		// Return the TableDataCell.
 		return (
-			<DataExplorerCell
+			<TableDataCell
 				column={new PositronDataExplorerColumn(columnSchema)}
 				value={value}
 			/>

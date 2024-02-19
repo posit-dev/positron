@@ -70,7 +70,9 @@ export const DataGridRowHeader = (props: DataGridRowHeaderProps) => {
 					)
 				}
 			/>
-			<div className='title'>{context.instance.rowLabel(props.rowIndex)}</div>
+			<div className='content'>
+				{context.instance.rowHeader(props.rowIndex)}
+			</div>
 			<VerticalSplitter
 				onBeginResize={() => ({
 					minimumWidth: 20,
