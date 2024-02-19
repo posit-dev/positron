@@ -14,7 +14,7 @@ import { isMacintosh } from 'vs/base/common/platform';
 import { positronClassNames } from 'vs/base/common/positronUtilities';
 import { VerticalSplitter } from 'vs/base/browser/ui/positronComponents/verticalSplitter';
 import { HorizontalSplitter } from 'vs/base/browser/ui/positronComponents/horizontalSplitter';
-import { CellSelectionState } from 'vs/base/browser/ui/positronDataGrid/interfaces/dataGridInstance';
+import { CellSelectionState } from 'vs/base/browser/ui/positronDataGrid/classes/dataGridInstance';
 import { usePositronDataGridContext } from 'vs/base/browser/ui/positronDataGrid/positronDataGridContext';
 
 /**

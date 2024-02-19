@@ -9,7 +9,7 @@ import { PropsWithChildren, createContext, useContext, useEffect } from 'react';
 // Other dependencies.
 import { DisposableStore } from 'vs/base/common/lifecycle';
 import { ILayoutService } from 'vs/platform/layout/browser/layoutService';
-import { IDataGridInstance } from 'vs/base/browser/ui/positronDataGrid/interfaces/dataGridInstance';
+import { DataGridInstance } from 'vs/base/browser/ui/positronDataGrid/classes/dataGridInstance';
 
 /**
  * PositronDataGridServices interface.
@@ -22,7 +22,7 @@ export interface PositronDataGridServices {
  * PositronDataGridConfiguration interface.
  */
 export interface PositronDataGridConfiguration extends PositronDataGridServices {
-	instance: IDataGridInstance;
+	instance: DataGridInstance;
 }
 
 /**

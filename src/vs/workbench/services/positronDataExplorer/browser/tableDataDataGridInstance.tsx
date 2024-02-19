@@ -5,6 +5,7 @@
 // React.
 import * as React from 'react';
 
+// Other dependencies.
 import { IColumnSortKey } from 'vs/base/browser/ui/positronDataGrid/interfaces/columnSortKey';
 import { DataGridInstance } from 'vs/base/browser/ui/positronDataGrid/classes/dataGridInstance';
 import { DataExplorerCell } from 'vs/workbench/services/positronDataExplorer/browser/components/dataExplorerCell';
@@ -41,12 +42,16 @@ export class TableDataDataGridInstance extends DataGridInstance {
 	constructor(dataExplorerClientInstance: DataExplorerClientInstance) {
 		// Call the base class's constructor.
 		super({
+			columnHeaders: true,
 			columnHeadersHeight: 34,
+			rowHeaders: true,
 			rowHeadersWidth: 55,
 			minimumColumnWidth: 100,
 			defaultColumnWidth: 200,
 			minimumRowHeight: 24,
 			defaultRowHeight: 24,
+			horizontalScrollbar: true,
+			verticalScrollbar: true,
 			scrollbarWidth: 14
 		});
 

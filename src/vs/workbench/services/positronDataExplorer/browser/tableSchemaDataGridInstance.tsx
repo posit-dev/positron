@@ -2,6 +2,10 @@
  *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
+// React.
+import * as React from 'react';
+
+// Other dependencies.
 import { IColumnSortKey } from 'vs/base/browser/ui/positronDataGrid/interfaces/columnSortKey';
 import { DataGridInstance } from 'vs/base/browser/ui/positronDataGrid/classes/dataGridInstance';
 import { TableSchema } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
@@ -32,6 +36,7 @@ export class TableSchemaDataGridInstance extends DataGridInstance {
 	constructor(dataExplorerClientInstance: DataExplorerClientInstance) {
 		// Call the base class's constructor.
 		super({
+			columnHeaders: false,
 			columnHeadersHeight: 0,
 			rowHeadersWidth: 0,
 			minimumColumnWidth: 100,
@@ -121,7 +126,7 @@ export class TableSchemaDataGridInstance extends DataGridInstance {
 	 * @returns The cell value.
 	 */
 	cell(columnIndex: number, rowIndex: number): JSX.Element | undefined {
-		return undefined;
+		return <div>Hello</div>;
 	}
 
 	//#region Private Methods

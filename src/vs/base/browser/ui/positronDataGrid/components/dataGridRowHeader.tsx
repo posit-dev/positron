@@ -14,7 +14,7 @@ import { positronClassNames } from 'vs/base/common/positronUtilities';
 import { VerticalSplitter } from 'vs/base/browser/ui/positronComponents/verticalSplitter';
 import { selectionType } from 'vs/base/browser/ui/positronDataGrid/utilities/mouseUtilities';
 import { HorizontalSplitter } from 'vs/base/browser/ui/positronComponents/horizontalSplitter';
-import { RowSelectionState } from 'vs/base/browser/ui/positronDataGrid/interfaces/dataGridInstance';
+import { RowSelectionState } from 'vs/base/browser/ui/positronDataGrid/classes/dataGridInstance';
 import { usePositronDataGridContext } from 'vs/base/browser/ui/positronDataGrid/positronDataGridContext';
 
 /**

@@ -35,7 +35,7 @@ export const DataGridPanel = (props: DataGridPanelProps) => {
 			<div className='data-grid-container'>
 				<PositronDataGrid
 					layoutService={context.layoutService}
-					instance={context.instance.tableDataGridInstance}
+					instance={context.instance.tableDataDataGridInstance}
 					width={props.width}
 					height={props.height}
 					borderTop={true}

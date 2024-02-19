@@ -25,7 +25,12 @@ interface DataGridScrollbarProps {
 	/**
 	 * Gets the orientation of the scrollbar.
 	 */
-	readonly orientation: 'vertical' | 'horizontal';
+	readonly orientation: 'horizontal' | 'vertical';
+
+	/**
+	 * Gets a value which indicates whether both horizontal and vertical scrollbars are visible.
+	 */
+	readonly bothScrollbarsVisible: boolean;
 
 	/**
 	 * Gets the scrollbar width. For a vertical scrollbar, this is the horizontal width. For a
@@ -34,14 +39,14 @@ interface DataGridScrollbarProps {
 	readonly scrollbarWidth: number;
 
 	/**
-	 * The container width for the scrollbar.
+	 * Gets the container width for the scrollbar.
 	 */
-	containerWidth: number;
+	readonly containerWidth: number;
 
 	/**
-	 * The container height for the scrollbar.
+	 * Gets the container height for the scrollbar.
 	 */
-	containerHeight: number;
+	readonly containerHeight: number;
 
 	/**
 	 * Gets the number of entries being scrolled.
@@ -127,9 +132,12 @@ export const DataGridScrollbar = (props: DataGridScrollbarProps) => {
 		// Update the scrollbar state.
 		setScrollbarState(previousScrollbarState => {
 			// Calculate the scrollbar size.
-			const scrollbarSize = props.orientation === 'vertical' ?
-				props.containerHeight - props.scrollbarWidth :
-				props.containerWidth - props.scrollbarWidth;
+			let scrollbarSize = props.orientation === 'vertical' ?
+				props.containerHeight :
+				props.containerWidth;
+			if (props.bothScrollbarsVisible) {
+				scrollbarSize -= props.scrollbarWidth;
+			}
 
 			// If the scrollbar isn't necessary, return.
 			if (props.visibleEntries >= props.entries && props.firstEntry === 0) {
@@ -321,10 +329,10 @@ export const DataGridScrollbar = (props: DataGridScrollbarProps) => {
 	// Set the scrollbar style.
 	const scrollbarStyle: CSSProperties = props.orientation === 'vertical' ? {
 		width: props.scrollbarWidth,
-		bottom: props.scrollbarWidth,
+		bottom: props.bothScrollbarsVisible ? props.scrollbarWidth : 0,
 	} : {
 		height: props.scrollbarWidth,
-		right: props.scrollbarWidth
+		right: props.bothScrollbarsVisible ? props.scrollbarWidth : 0
 	};
 
 	// Set the slider style.

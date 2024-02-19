@@ -6,7 +6,111 @@ import { Emitter } from 'vs/base/common/event';
 import { Disposable } from 'vs/base/common/lifecycle';
 import { IDataColumn } from 'vs/base/browser/ui/positronDataGrid/interfaces/dataColumn';
 import { IColumnSortKey } from 'vs/base/browser/ui/positronDataGrid/interfaces/columnSortKey';
-import { CellSelectionState, ColumnSelectionState, ExtendColumnSelectionBy, ExtendRowSelectionBy, IDataGridInstance, MouseSelectionType, RowSelectionState } from 'vs/base/browser/ui/positronDataGrid/interfaces/dataGridInstance';
+
+/**
+ * DataGridOptions interface.
+ */
+export interface DataGridOptions {
+	readonly columnHeaders?: boolean;
+	readonly columnHeadersHeight?: number;
+
+	readonly rowHeaders?: boolean;
+	readonly rowHeadersWidth?: number;
+
+	readonly minimumColumnWidth: number;
+	readonly defaultColumnWidth: number;
+	readonly minimumRowHeight: number;
+	readonly defaultRowHeight: number;
+
+	readonly horizontalScrollbar?: boolean;
+	readonly verticalScrollbar?: boolean;
+	readonly scrollbarWidth?: number;
+}
+
+/**
+ * ExtendColumnSelectionBy enumeration.
+ */
+export enum ExtendColumnSelectionBy {
+	Column = 'column',
+	Page = 'page',
+	Screen = 'screen'
+}
+
+/**
+ * ExtendRowSelectionBy enumeration.
+ */
+export enum ExtendRowSelectionBy {
+	Row = 'row',
+	Page = 'page',
+	Screen = 'screen'
+}
+
+/**
+ * CellSelectionState enumeration.
+ */
+export enum CellSelectionState {
+	None = 0,
+	Selected = 1,
+	SelectedLeft = 2,
+	SelectedRight = 4,
+	SelectedTop = 8,
+	SelectedBottom = 16
+}
+
+/**
+ * ColumnSelectionState enumeration.
+ */
+export enum ColumnSelectionState {
+	None = 0,
+	Selected = 1,
+	SelectedLeft = 2,
+	SelectedRight = 4
+}
+
+/**
+ * RowSelectionState enumeration.
+ */
+export enum RowSelectionState {
+	None = 0,
+	Selected = 1,
+	SelectedTop = 8,
+	SelectedBottom = 16
+}
+
+/**
+ * MouseSelectionType enumeration.
+ */
+export enum MouseSelectionType {
+	Single = 'single',
+	Range = 'range',
+	Multi = 'multi'
+}
+
+/**
+ * ColumnSelectionRange interface.
+ */
+interface ColumnSelectionRange {
+	firstColumnIndex: number;
+	lastColumnIndex: number;
+}
+
+/**
+ * RowSelectionRange interface.
+ */
+interface RowSelectionRange {
+	firstRowIndex: number;
+	lastRowIndex: number;
+}
+
+/**
+ * CellSelectionRange interface.
+ */
+interface CellSelectionRange {
+	firstColumnIndex: number;
+	firstRowIndex: number;
+	lastColumnIndex: number;
+	lastRowIndex: number;
+}
 
 /**
  * ColumnSortKey class.
@@ -92,54 +196,25 @@ class ColumnSortKey implements IColumnSortKey {
 }
 
 /**
- * ColumnSelectionRange interface.
- */
-interface ColumnSelectionRange {
-	firstColumnIndex: number;
-	lastColumnIndex: number;
-}
-
-/**
- * RowSelectionRange interface.
- */
-interface RowSelectionRange {
-	firstRowIndex: number;
-	lastRowIndex: number;
-}
-
-/**
- * CellSelectionRange interface.
- */
-interface CellSelectionRange {
-	firstColumnIndex: number;
-	firstRowIndex: number;
-	lastColumnIndex: number;
-	lastRowIndex: number;
-}
-
-/**
- * DataGridOptions interface.
- */
-export interface DataGridOptions {
-	columnHeadersHeight: number;
-	rowHeadersWidth: number;
-	minimumColumnWidth: number;
-	defaultColumnWidth: number;
-	minimumRowHeight: number;
-	defaultRowHeight: number;
-	scrollbarWidth: number;
-}
-
-/**
  * DataGridInstance class.
  */
-export abstract class DataGridInstance extends Disposable implements IDataGridInstance {
+export abstract class DataGridInstance extends Disposable {
 	//#region Private Properties
 
 	/**
-	 * Gets or sets the column headers height.
+	 * Gets a value which indicates whether to show column headers.
 	 */
-	private _columnHeadersHeight: number;
+	private readonly _columnHeaders: boolean;
+
+	/**
+	 * Gets the column headers height.
+	 */
+	private readonly _columnHeadersHeight: number;
+
+	/**
+	 * Gets a value which indicates whether to show row headers.
+	 */
+	private readonly _rowHeaders: boolean;
 
 	/**
 	 * Gets or sets the row headers width.
@@ -147,29 +222,39 @@ export abstract class DataGridInstance extends Disposable implements IDataGridIn
 	private _rowHeadersWidth: number;
 
 	/**
-	 * Gets or sets the minimum column width.
+	 * Gets the minimum column width.
 	 */
-	private _minimumColumnWidth: number;
+	private readonly _minimumColumnWidth: number;
 
 	/**
-	 * Gets or sets the default column width.
+	 * Gets the default column width.
 	 */
-	private _defaultColumnWidth: number;
+	private readonly _defaultColumnWidth: number;
 
 	/**
-	 * Gets or sets the minimum row height.
+	 * Gets the minimum row height.
 	 */
-	private _minimumRowHeight: number;
+	private readonly _minimumRowHeight: number;
 
 	/**
-	 * Gets or sets the default row height.
+	 * Gets the default row height.
 	 */
-	private _defaultRowHeight: number;
+	private readonly _defaultRowHeight: number;
 
 	/**
-	 * Gets or sets the scrollbar width.
+	 * Gets a value which indicates whether to show the horizontal scrollbar.
 	 */
-	private _scrollbarWidth: number;
+	private readonly _horizontalScrollbar: boolean;
+
+	/**
+	 * Gets a value which indicates whether to show the vertical scrollbar.
+	 */
+	private readonly _verticalScrollbar: boolean;
+
+	/**
+	 * Gets the scrollbar width.
+	 */
+	private readonly _scrollbarWidth: number;
 
 	/**
 	 * Gets the column widths.
@@ -259,13 +344,21 @@ export abstract class DataGridInstance extends Disposable implements IDataGridIn
 		super();
 
 		// Set the options.
-		this._columnHeadersHeight = options.columnHeadersHeight;
-		this._rowHeadersWidth = options.rowHeadersWidth;
+		this._columnHeaders = options.columnHeaders || false;
+		this._columnHeadersHeight = this._columnHeaders ? options.columnHeadersHeight ?? 0 : 0;
+
+		this._rowHeaders = options.columnHeaders || false;
+		this._rowHeadersWidth = this._rowHeaders ? options.rowHeadersWidth ?? 0 : 0;
+
 		this._minimumColumnWidth = options.minimumColumnWidth;
 		this._defaultColumnWidth = options.defaultColumnWidth;
 		this._minimumRowHeight = options.minimumRowHeight;
 		this._defaultRowHeight = options.defaultRowHeight;
-		this._scrollbarWidth = options.scrollbarWidth;
+
+		this._horizontalScrollbar = options.horizontalScrollbar || false;
+		this._verticalScrollbar = options.verticalScrollbar || false;
+		this._scrollbarWidth = this._horizontalScrollbar || this._verticalScrollbar ?
+			options.scrollbarWidth ?? 0 : 0;
 	}
 
 	//#endregion Constructor & Dispose
@@ -273,10 +366,24 @@ export abstract class DataGridInstance extends Disposable implements IDataGridIn
 	//#region Public Properties
 
 	/**
+	 * Gets a value which indicates whether to display column headers.
+	 */
+	get columnHeaders() {
+		return this._columnHeaders;
+	}
+
+	/**
 	 * Gets the column headers height.
 	 */
 	get columnHeadersHeight() {
 		return this._columnHeadersHeight;
+	}
+
+	/**
+	 * Gets a value which indicates whether to display row headers.
+	 */
+	get rowHeaders() {
+		return this._rowHeaders;
 	}
 
 	/**
@@ -312,6 +419,20 @@ export abstract class DataGridInstance extends Disposable implements IDataGridIn
 	 */
 	get defaultRowHeight() {
 		return this._defaultRowHeight;
+	}
+
+	/**
+	 * Gets a value which indicates whether to show the horizontal scrollbar.
+	 */
+	get horizontalScrollbar() {
+		return this._horizontalScrollbar;
+	}
+
+	/**
+	 * Gets a value which indicates whether to show the vertical scrollbar.
+	 */
+	get verticalScrollbar() {
+		return this._verticalScrollbar;
 	}
 
 	/**

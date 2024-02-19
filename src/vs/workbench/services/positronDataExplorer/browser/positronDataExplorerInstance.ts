@@ -8,6 +8,7 @@ import { DataExplorerClientInstance } from 'vs/workbench/services/languageRuntim
 import { PositronDataExplorerLayout } from 'vs/workbench/services/positronDataExplorer/browser/interfaces/positronDataExplorerService';
 import { IPositronDataExplorerInstance } from 'vs/workbench/services/positronDataExplorer/browser/interfaces/positronDataExplorerInstance';
 import { TableDataDataGridInstance } from 'vs/workbench/services/positronDataExplorer/browser/tableDataDataGridInstance';
+import { TableSchemaDataGridInstance } from 'vs/workbench/services/positronDataExplorer/browser/tableSchemaDataGridInstance';
 
 /**
  * PositronDataExplorerInstance class.
@@ -34,6 +35,11 @@ export class PositronDataExplorerInstance extends Disposable implements IPositro
 	 * Gets or sets the columns scroll offset.
 	 */
 	private _columnsScrollOffset = 0;
+
+	/**
+	 * Gets the TableSchemaDataGridInstance.
+	 */
+	private readonly _tableSchemaDataGridInstance: TableSchemaDataGridInstance;
 
 	/**
 	 * Gets the TableDataDataGridInstance.
@@ -69,6 +75,7 @@ export class PositronDataExplorerInstance extends Disposable implements IPositro
 
 		// Initialize.
 		this._dataExplorerClientInstance = dataExplorerClientInstance;
+		this._tableSchemaDataGridInstance = new TableSchemaDataGridInstance(dataExplorerClientInstance);
 		this._tableDataDataGridInstance = new TableDataDataGridInstance(dataExplorerClientInstance);
 	}
 
@@ -129,9 +136,16 @@ export class PositronDataExplorerInstance extends Disposable implements IPositro
 	}
 
 	/**
-	 * Gets the table
+	 * Gets the TableSchemaDataGridInstance.
 	 */
-	get tableDataGridInstance() {
+	get tableSchemaDataGridInstance() {
+		return this._tableSchemaDataGridInstance;
+	}
+
+	/**
+	 * Gets the TableDataDataGridInstance.
+	 */
+	get tableDataDataGridInstance() {
 		return this._tableDataDataGridInstance;
 	}
 

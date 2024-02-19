@@ -19,8 +19,8 @@ import { VerticalSplitter } from 'vs/base/browser/ui/positronComponents/vertical
 import { ContextMenuSeparator } from 'vs/base/browser/ui/contextMenu/contextMenuSeparator';
 import { selectionType } from 'vs/base/browser/ui/positronDataGrid/utilities/mouseUtilities';
 import { MouseTrigger, PositronButton } from 'vs/base/browser/ui/positronComponents/positronButton';
-import { ColumnSelectionState } from 'vs/base/browser/ui/positronDataGrid/interfaces/dataGridInstance';
 import { usePositronDataGridContext } from 'vs/base/browser/ui/positronDataGrid/positronDataGridContext';
+import { ColumnSelectionState } from 'vs/base/browser/ui/positronDataGrid/classes/dataGridInstance';
 
 /**
  * Localized strings.

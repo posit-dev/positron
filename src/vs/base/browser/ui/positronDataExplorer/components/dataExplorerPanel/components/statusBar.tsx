@@ -22,8 +22,8 @@ export const StatusBar = () => {
 	const context = usePositronDataExplorerContext();
 
 	// State hooks.
-	const [rows, setRows] = useState(context.instance.tableDataGridInstance.rows);
-	const [columns, setColumns] = useState(context.instance.tableDataGridInstance.columns);
+	const [rows, setRows] = useState(context.instance.tableDataDataGridInstance.rows);
+	const [columns, setColumns] = useState(context.instance.tableDataDataGridInstance.columns);
 
 	// Main useEffect.
 	useEffect(() => {
@@ -31,9 +31,9 @@ export const StatusBar = () => {
 		const disposableStore = new DisposableStore();
 
 		// Add the onDidChangeLayout event handler.
-		disposableStore.add(context.instance.tableDataGridInstance.onDidUpdate(() => {
-			setRows(context.instance.tableDataGridInstance.rows);
-			setColumns(context.instance.tableDataGridInstance.columns);
+		disposableStore.add(context.instance.tableDataDataGridInstance.onDidUpdate(() => {
+			setRows(context.instance.tableDataDataGridInstance.rows);
+			setColumns(context.instance.tableDataDataGridInstance.columns);
 		}));
 
 		// Return the cleanup function that will dispose of the event handlers.

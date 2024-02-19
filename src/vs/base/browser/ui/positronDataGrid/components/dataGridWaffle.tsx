@@ -21,7 +21,7 @@ import { usePositronDataGridContext } from 'vs/base/browser/ui/positronDataGrid/
 import { DataGridCornerTopLeft } from 'vs/base/browser/ui/positronDataGrid/components/dataGridCornerTopLeft';
 import { DataGridColumnHeaders } from 'vs/base/browser/ui/positronDataGrid/components/dataGridColumnHeaders';
 import { DataGridScrollbarCorner } from 'vs/base/browser/ui/positronDataGrid/components/dataGridScrollbarCorner';
-import { ExtendColumnSelectionBy, ExtendRowSelectionBy } from 'vs/base/browser/ui/positronDataGrid/interfaces/dataGridInstance';
+import { ExtendColumnSelectionBy, ExtendRowSelectionBy } from 'vs/base/browser/ui/positronDataGrid/classes/dataGridInstance';
 
 let renderCounter = 0;
 
@@ -421,18 +421,26 @@ export const DataGridWaffle = (props: DataGridWaffleProps) => {
 			onKeyDown={keyDownHandler}
 			onWheel={wheelHandler}
 		>
-			<DataGridCornerTopLeft
-				onClick={() => {
-					context.instance.setScreenPosition(0, 0);
-				}}
-			/>
+			{context.instance.columnHeaders && context.instance.rowHeaders &&
+				<DataGridCornerTopLeft
+					onClick={() => {
+						context.instance.setScreenPosition(0, 0);
+					}}
+				/>
+			}
 
-			<DataGridColumnHeaders
-				width={props.width - context.instance.rowHeadersWidth}
-				height={context.instance.columnHeadersHeight}
-			/>
+			{context.instance.columnHeaders &&
+				<DataGridColumnHeaders
+					width={props.width - context.instance.rowHeadersWidth}
+					height={context.instance.columnHeadersHeight}
+				/>
+			}
 
-			<DataGridRowHeaders height={props.height - context.instance.columnHeadersHeight} />
+			{context.instance.rowHeaders &&
+				<DataGridRowHeaders
+					height={props.height - context.instance.columnHeadersHeight}
+				/>
+			}
 
 			<div
 				className='data-grid-rows'
@@ -444,42 +452,56 @@ export const DataGridWaffle = (props: DataGridWaffleProps) => {
 
 				{dataGridRows}
 
-				<DataGridScrollbar
-					orientation='horizontal'
-					scrollbarWidth={context.instance.scrollbarWidth}
-					containerWidth={props.width - context.instance.rowHeadersWidth}
-					containerHeight={props.height - context.instance.columnHeadersHeight}
-					entries={context.instance.columns}
-					visibleEntries={context.instance.visibleColumns}
-					firstEntry={context.instance.firstColumnIndex}
-					maximumFirstEntry={context.instance.maximumFirstColumnIndex}
-					onDidChangeFirstEntry={firstColumnIndex =>
-						context.instance.setFirstColumn(firstColumnIndex)
-					}
-				/>
+				{context.instance.horizontalScrollbar &&
+					<DataGridScrollbar
+						orientation='horizontal'
+						bothScrollbarsVisible={
+							context.instance.horizontalScrollbar &&
+							context.instance.verticalScrollbar
+						}
+						scrollbarWidth={context.instance.scrollbarWidth}
+						containerWidth={props.width - context.instance.rowHeadersWidth}
+						containerHeight={props.height - context.instance.columnHeadersHeight}
+						entries={context.instance.columns}
+						visibleEntries={context.instance.visibleColumns}
+						firstEntry={context.instance.firstColumnIndex}
+						maximumFirstEntry={context.instance.maximumFirstColumnIndex}
+						onDidChangeFirstEntry={firstColumnIndex =>
+							context.instance.setFirstColumn(firstColumnIndex)
+						}
+					/>
+				}
 
-				<DataGridScrollbar
-					orientation='vertical'
-					scrollbarWidth={context.instance.scrollbarWidth}
-					containerWidth={props.width - context.instance.rowHeadersWidth}
-					containerHeight={props.height - context.instance.columnHeadersHeight}
-					entries={context.instance.rows}
-					visibleEntries={context.instance.visibleRows}
-					firstEntry={context.instance.firstRowIndex}
-					maximumFirstEntry={context.instance.maximumFirstRowIndex}
-					onDidChangeFirstEntry={firstRowIndex =>
-						context.instance.setFirstRow(firstRowIndex)
-					}
-				/>
+				{context.instance.verticalScrollbar &&
+					<DataGridScrollbar
+						orientation='vertical'
+						bothScrollbarsVisible={
+							context.instance.horizontalScrollbar &&
+							context.instance.verticalScrollbar
+						}
+						scrollbarWidth={context.instance.scrollbarWidth}
+						containerWidth={props.width - context.instance.rowHeadersWidth}
+						containerHeight={props.height - context.instance.columnHeadersHeight}
+						entries={context.instance.rows}
+						visibleEntries={context.instance.visibleRows}
+						firstEntry={context.instance.firstRowIndex}
+						maximumFirstEntry={context.instance.maximumFirstRowIndex}
+						onDidChangeFirstEntry={firstRowIndex =>
+							context.instance.setFirstRow(firstRowIndex)
+						}
+					/>
+				}
 
-				<DataGridScrollbarCorner
-					onClick={() => {
-						context.instance.setScreenPosition(
-							context.instance.maximumFirstColumnIndex,
-							context.instance.maximumFirstRowIndex
-						);
-					}}
-				/>
+				{context.instance.horizontalScrollbar && context.instance.verticalScrollbar &&
+					<DataGridScrollbarCorner
+						onClick={() => {
+							context.instance.setScreenPosition(
+								context.instance.maximumFirstColumnIndex,
+								context.instance.maximumFirstRowIndex
+							);
+						}}
+					/>
+				}
 			</div>
 		</div>
 	);
