@@ -11,6 +11,7 @@ import { providePackageTasks } from './tasks';
 import { setContexts } from './contexts';
 import { setupTestExplorer, refreshTestExplorer } from './testing/testing';
 import { RRuntimeManager } from './runtime-manager';
+import { vdocProvider } from './virtual-documents';
 
 export const LOGGER = vscode.window.createOutputChannel('Positron R Extension', { log: true });
 
@@ -34,6 +35,9 @@ export function activate(context: vscode.ExtensionContext) {
 
 	// Provide tasks.
 	providePackageTasks(context);
+
+	// Provide virtual documents.
+	vscode.workspace.registerTextDocumentContentProvider('ark', vdocProvider);
 
 	// Setup testthat test explorer.
 	setupTestExplorer(context);
