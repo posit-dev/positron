@@ -8,21 +8,55 @@ import { IDataColumn } from 'vs/base/browser/ui/positronDataGrid/interfaces/data
 import { IColumnSortKey } from 'vs/base/browser/ui/positronDataGrid/interfaces/columnSortKey';
 
 /**
- * DataGridOptions interface.
+ * DataGridOptions type.
  */
-export interface DataGridOptions {
-	readonly columnHeaders?: boolean;
-	readonly columnHeadersHeight?: number;
-	readonly rowHeaders?: boolean;
-	readonly rowHeadersWidth?: number;
-	readonly minimumColumnWidth: number;
+type DataGridOptions = ({
+	readonly columnHeaders: false;
+	readonly columnHeadersHeight?: never;
+} | {
+	readonly columnHeaders: true;
+	readonly columnHeadersHeight: number;
+}) & ({
+	readonly rowHeaders: false;
+	readonly rowHeadersWidth?: never;
+	readonly rowHeadersResize?: never;
+} | {
+	readonly rowHeaders: true;
+	readonly rowHeadersWidth: number;
+	readonly rowHeadersResize: boolean;
+}) & ({
+	readonly columnResize: false;
 	readonly defaultColumnWidth: number;
-	readonly minimumRowHeight: number;
+	readonly minimumColumnWidth?: never;
+} | {
+	readonly columnResize: true;
+	readonly defaultColumnWidth: number;
+	readonly minimumColumnWidth: number;
+}) & ({
+	readonly rowResize: false;
 	readonly defaultRowHeight: number;
-	readonly horizontalScrollbar?: boolean;
-	readonly verticalScrollbar?: boolean;
-	readonly scrollbarWidth?: number;
-}
+	readonly minimumRowHeight?: never;
+} | {
+	readonly rowResize: true;
+	readonly defaultRowHeight: number;
+	readonly minimumRowHeight: number;
+}) & ({
+	readonly horizontalScrollbar: false;
+	readonly verticalScrollbar: false;
+	readonly scrollbarWidth?: never;
+} | {
+	readonly horizontalScrollbar: true;
+	readonly verticalScrollbar: false;
+	readonly scrollbarWidth: number;
+} | {
+	readonly horizontalScrollbar: false;
+	readonly verticalScrollbar: true;
+	readonly scrollbarWidth: number;
+} | {
+	readonly horizontalScrollbar: true;
+	readonly verticalScrollbar: true;
+	readonly scrollbarWidth: number;
+});
 
 /**
  * ExtendColumnSelectionBy enumeration.
@@ -219,6 +253,16 @@ export abstract class DataGridInstance extends Disposable {
 	private _rowHeadersWidth: number;
 
 	/**
+	 * Gets a value which indicates whether to enable row headers resize.
+	 */
+	private readonly _rowHeadersResize: boolean;
+
+	/**
+	 * Gets a value which indicates whether to enable column resize.
+	 */
+	private readonly _columnResize: boolean;
+
+	/**
 	 * Gets the minimum column width.
 	 */
 	private readonly _minimumColumnWidth: number;
@@ -227,6 +271,11 @@ export abstract class DataGridInstance extends Disposable {
 	 * Gets the default column width.
 	 */
 	private readonly _defaultColumnWidth: number;
+
+	/**
+	 * Gets a value which indicates whether to enable row resize.
+	 */
+	private readonly _rowResize: boolean;
 
 	/**
 	 * Gets the minimum row height.
@@ -346,16 +395,19 @@ export abstract class DataGridInstance extends Disposable {
 
 		this._rowHeaders = options.rowHeaders || false;
 		this._rowHeadersWidth = this._rowHeaders ? options.rowHeadersWidth ?? 0 : 0;
+		this._rowHeadersResize = this._rowHeaders ? options.rowHeadersResize ?? false : false;
 
-		this._minimumColumnWidth = options.minimumColumnWidth;
+		this._columnResize = options.columnResize || false;
 		this._defaultColumnWidth = options.defaultColumnWidth;
-		this._minimumRowHeight = options.minimumRowHeight;
+		this._minimumColumnWidth = options.minimumColumnWidth ?? 0;
+
+		this._rowResize = options.rowResize || false;
 		this._defaultRowHeight = options.defaultRowHeight;
+		this._minimumRowHeight = options.minimumRowHeight ?? 0;
 
 		this._horizontalScrollbar = options.horizontalScrollbar || false;
 		this._verticalScrollbar = options.verticalScrollbar || false;
-		this._scrollbarWidth = this._horizontalScrollbar || this._verticalScrollbar ?
-			options.scrollbarWidth ?? 0 : 0;
+		this._scrollbarWidth = options.scrollbarWidth ?? 0;
 	}
 
 	//#endregion Constructor & Dispose
@@ -391,6 +443,20 @@ export abstract class DataGridInstance extends Disposable {
 	}
 
 	/**
+	 * Gets a value which indicates whether to enable row headers resize.
+	 */
+	get rowHeadersResize() {
+		return this._rowHeadersResize;
+	}
+
+	/**
+	 * Gets a value which indicates whether to enable column resize.
+	 */
+	get columnResize() {
+		return this._columnResize;
+	}
+
+	/**
 	 * Gets the minimum column width.
 	 */
 	get minimumColumnWidth() {
@@ -402,6 +468,13 @@ export abstract class DataGridInstance extends Disposable {
 	 */
 	get defaultColumnWidth() {
 		return this._defaultColumnWidth;
+	}
+
+	/**
+	 * Gets a value which indicates whether to enable row resize.
+	 */
+	get rowResize() {
+		return this._rowResize;
 	}
 
 	/**
@@ -467,6 +540,7 @@ export abstract class DataGridInstance extends Disposable {
 	 * Gets the visible columns.
 	 */
 	get visibleColumns() {
+		// Calculate the visible columns.
 		let visibleColumns = 0;
 		let columnIndex = this._firstColumnIndex;
 		let availableLayoutWidth = this.layoutWidth;
@@ -495,6 +569,7 @@ export abstract class DataGridInstance extends Disposable {
 	 * Gets the visible rows.
 	 */
 	get visibleRows() {
+		// Calculate the visible rows.
 		let visibleRows = 0;
 		let rowIndex = this._firstRowIndex;
 		let availableLayoutHeight = this.layoutHeight;

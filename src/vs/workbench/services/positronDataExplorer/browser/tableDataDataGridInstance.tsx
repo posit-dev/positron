@@ -45,12 +45,18 @@ export class TableDataDataGridInstance extends DataGridInstance {
 		super({
 			columnHeaders: true,
 			columnHeadersHeight: 34,
+
 			rowHeaders: true,
 			rowHeadersWidth: 55,
-			minimumColumnWidth: 100,
+			rowHeadersResize: true,
+
+			columnResize: true,
 			defaultColumnWidth: 200,
-			minimumRowHeight: 24,
+			minimumColumnWidth: 100,
+
+			rowResize: false,
 			defaultRowHeight: 24,
+
 			horizontalScrollbar: true,
 			verticalScrollbar: true,
 			scrollbarWidth: 14

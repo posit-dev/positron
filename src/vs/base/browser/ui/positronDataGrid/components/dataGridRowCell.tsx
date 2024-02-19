@@ -91,26 +91,30 @@ export const DataGridRowCell = (props: DataGridRowCellProps) => {
 			<div className='content'>
 				{context.instance.cell(props.columnIndex, props.rowIndex)}
 			</div>
-			<VerticalSplitter
-				onBeginResize={() => ({
-					minimumWidth: context.instance.minimumColumnWidth,
-					maximumWidth: 400,
-					startingWidth: context.instance.getColumnWidth(props.columnIndex)
-				})}
-				onResize={width =>
-					context.instance.setColumnWidth(props.columnIndex, width)
-				}
-			/>
-			<HorizontalSplitter
-				onBeginResize={() => ({
-					minimumHeight: context.instance.minimumRowHeight,
-					maximumHeight: 90,
-					startingHeight: context.instance.getRowHeight(props.rowIndex)
-				})}
-				onResize={height =>
-					context.instance.setRowHeight(props.rowIndex, height)
-				}
-			/>
+			{context.instance.columnResize &&
+				<VerticalSplitter
+					onBeginResize={() => ({
+						minimumWidth: context.instance.minimumColumnWidth,
+						maximumWidth: 400,
+						startingWidth: context.instance.getColumnWidth(props.columnIndex)
+					})}
+					onResize={width =>
+						context.instance.setColumnWidth(props.columnIndex, width)
+					}
+				/>
+			}
+			{context.instance.rowResize &&
+				<HorizontalSplitter
+					onBeginResize={() => ({
+						minimumHeight: context.instance.minimumRowHeight,
+						maximumHeight: 90,
+						startingHeight: context.instance.getRowHeight(props.rowIndex)
+					})}
+					onResize={height =>
+						context.instance.setRowHeight(props.rowIndex, height)
+					}
+				/>
+			}
 		</div>
 	);
 };

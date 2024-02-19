@@ -9,14 +9,13 @@ import 'vs/css!./columnSummaryCell';
 import * as React from 'react';
 
 // Other dependencies.
-import { PositronDataExplorerColumn } from 'vs/workbench/services/positronDataExplorer/browser/positronDataExplorerColumn';
+import { ColumnSchema } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
 
 /**
  * ColumnSummaryCellProps interface.
  */
 interface ColumnSummaryCellProps {
-	column: PositronDataExplorerColumn;
-	value: string;
+	columnSchema: ColumnSchema;
 }
 
 /**
@@ -28,7 +27,7 @@ export const ColumnSummaryCell = (props: ColumnSummaryCellProps) => {
 	// Render.
 	return (
 		<div>
-			{props.column.columnSchema.column_name}
+			{props.columnSchema.column_name}
 		</div>
 	);
 };

@@ -38,12 +38,17 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 		// Call the base class's constructor.
 		super({
 			columnHeaders: false,
-			columnHeadersHeight: 0,
-			rowHeadersWidth: 0,
-			minimumColumnWidth: 100,
+
+			rowHeaders: false,
+
+			columnResize: false,
 			defaultColumnWidth: 200,
-			minimumRowHeight: 24,
-			defaultRowHeight: 24,
+
+			rowResize: false,
+			defaultRowHeight: 34,
+
+			horizontalScrollbar: false,
+			verticalScrollbar: true,
 			scrollbarWidth: 14
 		});
 
@@ -100,6 +105,7 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 	 * @returns The column.
 	 */
 	column(columnIndex: number) {
+		// If the table schema hasn't been loaded, return undefined.
 		if (!this._tableSchema) {
 			return undefined;
 		}
@@ -147,7 +153,9 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 
 		// Return the ColumnSummaryCell.
 		return (
-			<ColumnSummaryCell column={new PositronDataExplorerColumn(columnSchema)} value='sss' />
+			<ColumnSummaryCell
+				columnSchema={columnSchema}
+			/>
 		);
 	}
 

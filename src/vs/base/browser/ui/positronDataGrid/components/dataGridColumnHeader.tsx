@@ -18,9 +18,9 @@ import { IDataColumn } from 'vs/base/browser/ui/positronDataGrid/interfaces/data
 import { VerticalSplitter } from 'vs/base/browser/ui/positronComponents/verticalSplitter';
 import { ContextMenuSeparator } from 'vs/base/browser/ui/contextMenu/contextMenuSeparator';
 import { selectionType } from 'vs/base/browser/ui/positronDataGrid/utilities/mouseUtilities';
+import { ColumnSelectionState } from 'vs/base/browser/ui/positronDataGrid/classes/dataGridInstance';
 import { MouseTrigger, PositronButton } from 'vs/base/browser/ui/positronComponents/positronButton';
 import { usePositronDataGridContext } from 'vs/base/browser/ui/positronDataGrid/positronDataGridContext';
-import { ColumnSelectionState } from 'vs/base/browser/ui/positronDataGrid/classes/dataGridInstance';
 
 /**
  * Localized strings.
@@ -178,16 +178,18 @@ export const DataGridColumnHeader = (props: DataGridColumnHeaderProps) => {
 				</PositronButton>
 			</div>
 
-			<VerticalSplitter
-				onBeginResize={() => ({
-					minimumWidth: context.instance.minimumColumnWidth,
-					maximumWidth: 400,
-					startingWidth: context.instance.getColumnWidth(props.columnIndex)
-				})}
-				onResize={width =>
-					context.instance.setColumnWidth(props.columnIndex, width)
-				}
-			/>
+			{context.instance.columnResize &&
+				<VerticalSplitter
+					onBeginResize={() => ({
+						minimumWidth: context.instance.minimumColumnWidth,
+						maximumWidth: 400,
+						startingWidth: context.instance.getColumnWidth(props.columnIndex)
+					})}
+					onResize={width =>
+						context.instance.setColumnWidth(props.columnIndex, width)
+					}
+				/>
+			}
 		</div>
 	);
 };

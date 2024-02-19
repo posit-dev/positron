@@ -83,16 +83,18 @@ export const DataGridRowHeader = (props: DataGridRowHeaderProps) => {
 					context.instance.setRowHeadersWidth(width)
 				}
 			/>
-			<HorizontalSplitter
-				onBeginResize={() => ({
-					minimumHeight: context.instance.minimumRowHeight,
-					maximumHeight: 90,
-					startingHeight: context.instance.getRowHeight(props.rowIndex)
-				})}
-				onResize={height =>
-					context.instance.setRowHeight(props.rowIndex, height)
-				}
-			/>
+			{context.instance.rowResize &&
+				<HorizontalSplitter
+					onBeginResize={() => ({
+						minimumHeight: context.instance.minimumRowHeight,
+						maximumHeight: 90,
+						startingHeight: context.instance.getRowHeight(props.rowIndex)
+					})}
+					onResize={height =>
+						context.instance.setRowHeight(props.rowIndex, height)
+					}
+				/>
+			}
 		</div>
 	);
 };
