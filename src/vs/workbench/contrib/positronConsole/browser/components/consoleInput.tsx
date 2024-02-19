@@ -759,7 +759,7 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 						1000
 					));
 				} else {
-					if (historyNavigatorRef.current.last().input !== code) {
+					if (historyNavigatorRef.current.last().input !== trimmedCode) {
 						historyNavigatorRef.current.add(createInputHistoryEntry());
 					}
 				}
