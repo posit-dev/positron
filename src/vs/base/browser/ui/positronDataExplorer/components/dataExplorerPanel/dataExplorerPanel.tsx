@@ -71,10 +71,6 @@ export const DataExplorerPanel = (props: DataExplorerPanelProps) => {
 		return () => disposableStore.dispose();
 	}, []);
 
-	useEffect(() => {
-
-	}, [props.width, props.height]);
-
 	// Layout effect.
 	useEffect(() => {
 		switch (layout) {
@@ -154,6 +150,7 @@ export const DataExplorerPanel = (props: DataExplorerPanelProps) => {
 		context.instance.columnsWidthPercent = newColumnsWidth / props.width;
 	};
 
+	// Calculate the data explorer height.
 	const dataExplorerHeight = props.height - ACTIONS_HEIGHT - SUMMARY_HEIGHT;
 
 	// Render.
