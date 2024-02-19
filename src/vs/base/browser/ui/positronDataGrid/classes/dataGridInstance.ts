@@ -440,12 +440,13 @@ export abstract class DataGridInstance extends Disposable {
 		this._rowHeadersWidth = this._rowHeaders ? options.rowHeadersWidth ?? 0 : 0;
 		this._rowHeadersResize = this._rowHeaders ? options.rowHeadersResize ?? false : false;
 
-		this._columnResize = options.columnResize || false;
 		this._defaultColumnWidth = options.defaultColumnWidth;
+		this._defaultRowHeight = options.defaultRowHeight;
+
+		this._columnResize = options.columnResize || false;
 		this._minimumColumnWidth = options.minimumColumnWidth ?? 0;
 
 		this._rowResize = options.rowResize || false;
-		this._defaultRowHeight = options.defaultRowHeight;
 		this._minimumRowHeight = options.minimumRowHeight ?? 0;
 
 		this._horizontalScrollbar = options.horizontalScrollbar || false;
