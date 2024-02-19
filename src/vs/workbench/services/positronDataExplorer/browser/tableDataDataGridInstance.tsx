@@ -42,16 +42,16 @@ export class TableDataDataGridInstance extends DataGridInstance {
 	constructor(dataExplorerClientInstance: DataExplorerClientInstance) {
 		// Call the base class's constructor.
 		super({
-			columnHeaders: false,
+			columnHeaders: true,
 			columnHeadersHeight: 34,
-			rowHeaders: false,
+			rowHeaders: true,
 			rowHeadersWidth: 55,
 			minimumColumnWidth: 100,
 			defaultColumnWidth: 200,
 			minimumRowHeight: 24,
 			defaultRowHeight: 24,
-			horizontalScrollbar: false,
-			verticalScrollbar: false,
+			horizontalScrollbar: true,
+			verticalScrollbar: true,
 			scrollbarWidth: 14
 		});
 
