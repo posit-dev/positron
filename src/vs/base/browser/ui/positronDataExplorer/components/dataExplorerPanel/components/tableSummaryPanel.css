@@ -3,13 +3,13 @@
  *--------------------------------------------------------------------------------------------*/
 
 .data-explorer
-.data-grid-panel {
+.table-summary-panel {
 	display: grid;
 	grid-template-rows: [data-grid] 1fr [end];
 }
 
 .data-explorer
-.data-grid-panel
-.data-grid-container {
+.table-summary-panel
+.container {
 	grid-row: data-grid / end;
 }

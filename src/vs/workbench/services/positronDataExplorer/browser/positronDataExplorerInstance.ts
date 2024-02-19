@@ -4,11 +4,11 @@
 
 import { Emitter } from 'vs/base/common/event';
 import { Disposable } from 'vs/base/common/lifecycle';
+import { TableDataDataGridInstance } from 'vs/workbench/services/positronDataExplorer/browser/tableDataDataGridInstance';
 import { DataExplorerClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeDataExplorerClient';
+import { TableSummaryDataGridInstance } from 'vs/workbench/services/positronDataExplorer/browser/tableSummaryDataGridInstance';
 import { PositronDataExplorerLayout } from 'vs/workbench/services/positronDataExplorer/browser/interfaces/positronDataExplorerService';
 import { IPositronDataExplorerInstance } from 'vs/workbench/services/positronDataExplorer/browser/interfaces/positronDataExplorerInstance';
-import { TableDataDataGridInstance } from 'vs/workbench/services/positronDataExplorer/browser/tableDataDataGridInstance';
-import { TableSchemaDataGridInstance } from 'vs/workbench/services/positronDataExplorer/browser/tableSchemaDataGridInstance';
 
 /**
  * PositronDataExplorerInstance class.
@@ -39,7 +39,7 @@ export class PositronDataExplorerInstance extends Disposable implements IPositro
 	/**
 	 * Gets the TableSchemaDataGridInstance.
 	 */
-	private readonly _tableSchemaDataGridInstance: TableSchemaDataGridInstance;
+	private readonly _tableSchemaDataGridInstance: TableSummaryDataGridInstance;
 
 	/**
 	 * Gets the TableDataDataGridInstance.
@@ -75,7 +75,7 @@ export class PositronDataExplorerInstance extends Disposable implements IPositro
 
 		// Initialize.
 		this._dataExplorerClientInstance = dataExplorerClientInstance;
-		this._tableSchemaDataGridInstance = new TableSchemaDataGridInstance(dataExplorerClientInstance);
+		this._tableSchemaDataGridInstance = new TableSummaryDataGridInstance(dataExplorerClientInstance);
 		this._tableDataDataGridInstance = new TableDataDataGridInstance(dataExplorerClientInstance);
 	}
 

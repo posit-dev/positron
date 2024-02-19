@@ -3,9 +3,9 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Event } from 'vs/base/common/event';
-import { PositronDataExplorerLayout } from 'vs/workbench/services/positronDataExplorer/browser/interfaces/positronDataExplorerService';
 import { TableDataDataGridInstance } from 'vs/workbench/services/positronDataExplorer/browser/tableDataDataGridInstance';
-import { TableSchemaDataGridInstance } from 'vs/workbench/services/positronDataExplorer/browser/tableSchemaDataGridInstance';
+import { TableSummaryDataGridInstance } from 'vs/workbench/services/positronDataExplorer/browser/tableSummaryDataGridInstance';
+import { PositronDataExplorerLayout } from 'vs/workbench/services/positronDataExplorer/browser/interfaces/positronDataExplorerService';
 
 /**
  * IPositronDataExplorerInstance interface.
@@ -34,7 +34,7 @@ export interface IPositronDataExplorerInstance {
 	/**
 	 * Gets the TableSchemaDataGridInstance.
 	 */
-	readonly tableSchemaDataGridInstance: TableSchemaDataGridInstance;
+	readonly tableSchemaDataGridInstance: TableSummaryDataGridInstance;
 
 	/**
 	 * Gets the TableDataDataGridInstance.

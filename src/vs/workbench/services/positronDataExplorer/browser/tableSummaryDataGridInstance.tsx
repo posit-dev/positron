@@ -11,11 +11,12 @@ import { DataGridInstance } from 'vs/base/browser/ui/positronDataGrid/classes/da
 import { TableSchema } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
 import { PositronDataExplorerColumn } from 'vs/workbench/services/positronDataExplorer/browser/positronDataExplorerColumn';
 import { DataExplorerClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeDataExplorerClient';
+import { ColumnSummaryCell } from 'vs/workbench/services/positronDataExplorer/browser/components/columnSummaryCell';
 
 /**
- * TableSchemaDataGridInstance class.
+ * TableSummaryDataGridInstance class.
  */
-export class TableSchemaDataGridInstance extends DataGridInstance {
+export class TableSummaryDataGridInstance extends DataGridInstance {
 	//#region Private Properties
 
 	/**
@@ -126,7 +127,28 @@ export class TableSchemaDataGridInstance extends DataGridInstance {
 	 * @returns The cell value.
 	 */
 	cell(columnIndex: number, rowIndex: number): JSX.Element | undefined {
-		return <div>Hello</div>;
+		// Column index must be 0.
+		if (columnIndex !== 0) {
+			return undefined;
+		}
+
+		// If the table schema hasn't been loaded, return undefined.
+		if (!this._tableSchema) {
+			return undefined;
+		}
+
+		// If the column schema hasn't been loaded, return undefined.
+		if (rowIndex >= this._tableSchema.columns.length) {
+			return undefined;
+		}
+
+		// Get the column schema.
+		const columnSchema = this._tableSchema.columns[rowIndex];
+
+		// Return the ColumnSummaryCell.
+		return (
+			<ColumnSummaryCell column={new PositronDataExplorerColumn(columnSchema)} value='sss' />
+		);
 	}
 
 	//#region Private Methods

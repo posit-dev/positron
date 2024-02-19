@@ -16,8 +16,8 @@ import { PositronDataExplorerProps } from 'vs/base/browser/ui/positronDataExplor
 import { usePositronDataExplorerContext } from 'vs/base/browser/ui/positronDataExplorer/positronDataExplorerContext';
 import { StatusBar } from 'vs/base/browser/ui/positronDataExplorer/components/dataExplorerPanel/components/statusBar';
 import { VerticalSplitter, VerticalSplitterResizeParams } from 'vs/base/browser/ui/positronComponents/verticalSplitter';
-import { DataGridPanel } from 'vs/base/browser/ui/positronDataExplorer/components/dataExplorerPanel/components/dataGridPanel';
-import { DataSummaryPanel } from 'vs/base/browser/ui/positronDataExplorer/components/dataExplorerPanel/components/dataSummaryPanel';
+import { TableDataPanel } from 'vs/base/browser/ui/positronDataExplorer/components/dataExplorerPanel/components/tableDataPanel';
+import { TableSummaryPanel } from 'vs/base/browser/ui/positronDataExplorer/components/dataExplorerPanel/components/tableSummaryPanel';
 import { PositronDataExplorerLayout } from 'vs/workbench/services/positronDataExplorer/browser/interfaces/positronDataExplorerService';
 
 /**
@@ -164,7 +164,10 @@ export const DataExplorerPanel = (props: DataExplorerPanelProps) => {
 			</div>
 			<div ref={dataExplorer} className='data-explorer'>
 				<div ref={column1} className='column-1'>
-					<DataSummaryPanel width={columnsWidth} height={dataExplorerHeight} />
+					<TableSummaryPanel
+						width={columnsWidth}
+						height={dataExplorerHeight}
+					/>
 				</div>
 				<div ref={splitter} className='splitter'>
 					<VerticalSplitter
@@ -174,7 +177,7 @@ export const DataExplorerPanel = (props: DataExplorerPanelProps) => {
 					/>
 				</div>
 				<div ref={column2} className='column-2'>
-					<DataGridPanel
+					<TableDataPanel
 						width={layout === PositronDataExplorerLayout.ColumnsHidden ?
 							props.width :
 							props.width - columnsWidth

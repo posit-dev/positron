@@ -3,7 +3,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 // CSS.
-import 'vs/css!./dataGridPanel';
+import 'vs/css!./tableDataPanel';
 
 // React.
 import * as React from 'react';
@@ -13,26 +13,26 @@ import { PositronDataGrid } from 'vs/base/browser/ui/positronDataGrid/positronDa
 import { usePositronDataExplorerContext } from 'vs/base/browser/ui/positronDataExplorer/positronDataExplorerContext';
 
 /**
- * DataGridPanelProps interface.
+ * TableDataPanelProps interface.
  */
-interface DataGridPanelProps {
+interface TableDataPanelProps {
 	width: number;
 	height: number;
 }
 
 /**
- * DataGridPanel component.
- * @param props A DataGridPanelProps that contains the component properties.
+ * TableDataPanel component.
+ * @param props A TableDataPanelProps that contains the component properties.
  * @returns The rendered component.
  */
-export const DataGridPanel = (props: DataGridPanelProps) => {
+export const TableDataPanel = (props: TableDataPanelProps) => {
 	// Context hooks.
 	const context = usePositronDataExplorerContext();
 
 	// Render.
 	return (
-		<div className='data-grid-panel'>
-			<div className='data-grid-container'>
+		<div className='table-data-panel'>
+			<div className='container'>
 				<PositronDataGrid
 					layoutService={context.layoutService}
 					instance={context.instance.tableDataDataGridInstance}

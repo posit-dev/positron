@@ -2,11 +2,14 @@
  *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
-.data-explorer .columns-panel .column-entry {
-	display: flex;
-	align-items: center;
+.data-explorer
+.table-data-panel {
+	display: grid;
+	grid-template-rows: [data-grid] 1fr [end];
 }
 
-.data-explorer .columns-panel .column-entry .title {
-	margin-left: 5px;
+.data-explorer
+.table-data-panel
+.container {
+	grid-row: data-grid / end;
 }
