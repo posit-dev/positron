@@ -261,7 +261,17 @@ export class TableDataDataGridInstance extends DataGridInstance {
 	}
 
 	private async doFetchData(): Promise<void> {
-		const rangeToFetch: DataFetchRange = {
+		const schemaRange: SchemaFetchRange = {
+			startIndex: this.firstColumnIndex,
+			endIndex: this.firstColumnIndex + this.visibleColumns + 1
+		};
+
+		if (!this._lastFetchedSchema ||
+			!this._schemaCache?.rangeIncludes(schemaRange, this._lastFetchedSchema)) {
+			this._lastFetchedSchema = await this._schemaCache?.fetch(schemaRange);
+		}
+
+		const dataRange: DataFetchRange = {
 			rowStartIndex: this.firstRowIndex,
 			rowEndIndex: this.firstRowIndex + this.visibleRows,
 			columnStartIndex: this.firstColumnIndex,
@@ -271,20 +281,13 @@ export class TableDataDataGridInstance extends DataGridInstance {
 			columnEndIndex: this.firstColumnIndex + this.visibleColumns + 1
 		};
 
-		if (this.needToFetch(rangeToFetch)) {
-			this._lastFetchedData = await this._dataCache?.fetch(rangeToFetch);
+		if (!this._lastFetchedData ||
+			!this._dataCache?.rangeIncludes(dataRange, this._lastFetchedData)) {
+			this._lastFetchedData = await this._dataCache?.fetch(dataRange);
 		}
 
 		// Fire the onDidUpdate event.
 		this._onDidUpdateEmitter.fire();
-	}
-
-	private needToFetch(range: DataFetchRange) {
-		if (!this._lastFetchedData) {
-			return true;
-		} else {
-			return !this._dataCache?.rangeIncludes(range, this._lastFetchedData);
-		}
 	}
 
 	//#endregion Private Methods

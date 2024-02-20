@@ -78,7 +78,7 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 	 *
 	 */
 	initialize() {
-		this._dataExplorerClientInstance.getSchema().then(tableSchema => {
+		this._dataExplorerClientInstance.getSchema(0, 1000).then(tableSchema => {
 
 			console.log(`++++++++++ Schema returned with ${tableSchema.columns.length} columns`);
 
