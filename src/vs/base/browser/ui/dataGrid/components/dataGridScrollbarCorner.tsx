@@ -7,7 +7,7 @@ import 'vs/css!./dataGridScrollbarCorner';
 
 // React.
 import * as React from 'react';
-import { useDataGridContext } from 'vs/base/browser/ui/dataGrid/dataGridContext';
+import { usePositronDataGridContext } from 'vs/base/browser/ui/dataGrid/dataGridContext';
 
 /**
  * DataGridScrollbarCornerProps interface.
@@ -23,7 +23,7 @@ interface DataGridScrollbarCornerProps {
  */
 export const DataGridScrollbarCorner = (props: DataGridScrollbarCornerProps) => {
 	// Context hooks.
-	const context = useDataGridContext();
+	const context = usePositronDataGridContext();
 
 	// Render.
 	return (

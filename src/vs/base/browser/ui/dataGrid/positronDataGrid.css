@@ -1,0 +1,17 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
+ *--------------------------------------------------------------------------------------------*/
+
+.data-grid {
+	width: 100%;
+	height: 100%;
+	box-sizing: border-box;
+}
+
+.data-grid.border-top {
+	border-top: 1px solid var(--vscode-positronDataGrid-border);
+}
+
+.data-grid.border-left {
+	border-left: 1px solid var(--vscode-positronDataGrid-border);
+}

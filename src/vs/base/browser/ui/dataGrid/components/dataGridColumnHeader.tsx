@@ -14,20 +14,20 @@ import { localize } from 'vs/nls';
 import { positronClassNames } from 'vs/base/common/positronUtilities';
 import { showContextMenu } from 'vs/base/browser/ui/contextMenu/contextMenu';
 import { IDataColumn } from 'vs/base/browser/ui/dataGrid/interfaces/dataColumn';
-import { useDataGridContext } from 'vs/base/browser/ui/dataGrid/dataGridContext';
+import { usePositronDataGridContext } from 'vs/base/browser/ui/dataGrid/dataGridContext';
 import { ContextMenuItem } from 'vs/base/browser/ui/contextMenu/contextMenuItem';
 import { selectionType } from 'vs/base/browser/ui/dataGrid/utilities/mouseUtilities';
+import { VerticalSplitter } from 'vs/base/browser/ui/positronComponents/verticalSplitter';
 import { ContextMenuSeparator } from 'vs/base/browser/ui/contextMenu/contextMenuSeparator';
 import { ColumnSelectionState } from 'vs/base/browser/ui/dataGrid/interfaces/dataGridInstance';
 import { MouseTrigger, PositronButton } from 'vs/base/browser/ui/positronComponents/positronButton';
-import { PositronColumnSplitter } from 'vs/base/browser/ui/positronComponents/positronColumnSplitter';
 
 /**
  * Localized strings.
  */
 const sortAscendingTitle = localize('positron.sortAscending', "Sort Ascending");
 const sortDescendingTitle = localize('positron.sortDescending', "Sort Descending");
-const removeSortTitle = localize('positron.removeSort', "Remove Sort");
+const clearSortingTitle = localize('positron.clearSorting', "Clear Sorting");
 const copyColumnTitle = localize('positron.copyColumn', "Copy Column");
 
 /**
@@ -46,7 +46,7 @@ interface DataGridColumnHeaderProps {
  */
 export const DataGridColumnHeader = (props: DataGridColumnHeaderProps) => {
 	// Context hooks.
-	const context = useDataGridContext();
+	const context = usePositronDataGridContext();
 
 	// Reference hooks.
 	const columnsPanelRef = useRef<HTMLDivElement>(undefined!);
@@ -100,8 +100,9 @@ export const DataGridColumnHeader = (props: DataGridColumnHeaderProps) => {
 				new ContextMenuSeparator(),
 				new ContextMenuItem({
 					checked: false,
-					label: removeSortTitle,
+					label: clearSortingTitle,
 					disabled: !columnSortKey,
+					icon: 'positron-clear-sorting',
 					onSelected: async () =>
 						context.instance.removeColumnSortKey(props.columnIndex)
 				}),
@@ -109,7 +110,7 @@ export const DataGridColumnHeader = (props: DataGridColumnHeaderProps) => {
 				new ContextMenuItem({
 					checked: false,
 					label: copyColumnTitle,
-					disabled: true,
+					disabled: false,
 					icon: 'copy',
 					onSelected: () => console.log('Copy')
 				}),
@@ -133,7 +134,7 @@ export const DataGridColumnHeader = (props: DataGridColumnHeaderProps) => {
 				)}
 			style={{
 				left: props.left,
-				width: props.column.width
+				width: context.instance.getColumnWidth(props.columnIndex)
 			}}
 			onMouseDown={mouseDownHandler}
 		>
@@ -177,11 +178,11 @@ export const DataGridColumnHeader = (props: DataGridColumnHeaderProps) => {
 				</PositronButton>
 			</div>
 
-			<PositronColumnSplitter
+			<VerticalSplitter
 				onBeginResize={() => ({
 					minimumWidth: context.instance.minimumColumnWidth,
 					maximumWidth: 400,
-					startingWidth: props.column.width
+					startingWidth: context.instance.getColumnWidth(props.columnIndex)
 				})}
 				onResize={width =>
 					context.instance.setColumnWidth(props.columnIndex, width)

@@ -1,0 +1,66 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
+ *--------------------------------------------------------------------------------------------*/
+
+.data-explorer-container {
+	display: grid;
+	grid-template-rows: [data-explorer-actions] 64px [data-explorer] 1fr [data-explorer-summary] 24px [end];
+}
+
+.data-explorer-container
+.data-explorer-actions {
+	/* Place the data-explorer in the data-explorer-container. */
+	padding: 8px;
+	grid-row: data-explorer-actions / data-explorer;
+}
+
+.data-explorer-container
+.data-explorer {
+	overflow: hidden;
+	/* Place the data-explorer in the data-explorer-container. */
+	grid-row: data-explorer / data-explorer-summary;
+
+	/* Prevent 1fr from exceeding the parent height. */
+	min-height: 0;
+
+	/* Grid display. Layout happens in code. */
+	display: grid;
+}
+
+.data-explorer-container
+.data-explorer
+.column-1 {
+	/* Prevent 1fr from exceeding the parent height. */
+	min-height: 0;
+
+	/* Initially hidden. Layout happens in code. */
+	display: none;
+}
+
+.data-explorer-container
+.data-explorer
+.splitter {
+	/* Initially hidden. Layout happens in code. */
+	display: none;
+}
+
+.data-explorer-container
+.data-explorer
+.splitter
+.vertical-splitter {
+	background-color: var(--vscode-positronDataExplorer-border);
+}
+
+.data-explorer-container
+.data-explorer
+.column-2 {
+	/* Bordered. */
+	/* border-radius: 4px; */
+	/* border: 1px solid var(--vscode-positronDataExplorer-border); */
+
+	/* Prevent 1fr from exceeding the parent height. */
+	min-height: 0;
+
+	/* Initially hidden. Layout happens in code. */
+	display: none;
+}

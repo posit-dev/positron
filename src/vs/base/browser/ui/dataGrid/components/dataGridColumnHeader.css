@@ -8,7 +8,7 @@
 	display: grid;
 	overflow: hidden;
 	position: absolute;
-	background-color: var(--vscode-positronDataGrid-headerBackground);
+	background-color: var(--vscode-positronDataGrid-contrastBackground);
 	grid-template-columns: [content] 1fr [right-gutter] 1px [end];
 }
 
@@ -150,6 +150,6 @@
 
 
 .data-grid-column-header
-.positron-column-splitter {
+.vertical-splitter {
 	grid-column: right-gutter / end;
 }
