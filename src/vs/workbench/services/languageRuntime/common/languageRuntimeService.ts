@@ -529,9 +529,6 @@ export interface ILanguageRuntimeMetadata {
 	/** The Base64-encoded icon SVG for the language. */
 	readonly base64EncodedIconSvg: string | undefined;
 
-	/** The identifier of the extension that provides the language support. */
-	readonly extensionId: ExtensionIdentifier;
-
 	/**
 	 * The fully qualified name of the runtime displayed to the user; e.g. "R 4.2 (64-bit)".
 	 * Should be unique across languages.
@@ -552,6 +549,12 @@ export interface ILanguageRuntimeMetadata {
 
 	/** Whether the runtime should start up automatically or wait until explicitly requested */
 	readonly startupBehavior: LanguageRuntimeStartupBehavior;
+
+	/** The identifier of the extension that provides the language support. */
+	readonly extensionId: ExtensionIdentifier;
+
+	/** Extra data supplied by the extension; not read by Positron */
+	readonly extraData: any;
 }
 
 /**
