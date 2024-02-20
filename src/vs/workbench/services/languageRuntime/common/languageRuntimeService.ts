@@ -755,6 +755,12 @@ export interface ILanguageRuntimeService {
 	getSession(sessionId: string): ILanguageRuntimeSession | undefined;
 
 	/**
+	 * Gets a specific runtime console by runtime identifier. Currently, only
+	 * one console can exist per runtime ID.
+	 */
+	getConsoleSession(runtimeId: string): ILanguageRuntimeSession | undefined;
+
+	/**
 	 * Gets or sets the active foreground runtime session, if any.
 	 */
 	foregroundSession: ILanguageRuntimeSession | undefined;

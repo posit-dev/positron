@@ -9,7 +9,7 @@ import { DisposableStore } from 'vs/base/common/lifecycle';
 import { usePositronTopActionBarContext } from 'vs/workbench/browser/parts/positronTopActionBar/positronTopActionBarContext';
 import { showInterpretersManagerModalPopup } from 'vs/workbench/browser/parts/positronTopActionBar/interpretersManagerModalPopup/interpretersManagerModalPopup';
 import { useRegisterWithActionBar } from 'vs/platform/positronActionBar/browser/useRegisterWithActionBar';
-import { ILanguageRuntimeMetadata } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntimeMetadata, LanguageRuntimeSessionMode } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 
 /**
  * TopActionBarInterpretersManagerProps interface.
@@ -31,17 +31,21 @@ export const TopActionBarInterpretersManager = (props: TopActionBarInterpretersM
 	const ref = useRef<HTMLDivElement>(undefined!);
 
 	// State hooks.
-	const [activeRuntime, setActiveRuntime] = useState(positronTopActionBarContext.languageRuntimeService.activeRuntimeMetadata);
+	const [activeSession, setActiveSession] =
+		useState(positronTopActionBarContext.languageRuntimeService.foregroundSession);
 
 	// Main useEffect.
 	useEffect(() => {
 		// Create the disposable store for cleanup.
 		const disposableStore = new DisposableStore();
 
-		// Add the onDidChangeActiveRuntime event handler.
+		// Add the onDidStartRuntime event handler.
 		disposableStore.add(
-			positronTopActionBarContext.languageRuntimeService.onDidChangeForegroundSession(runtime => {
-				setActiveRuntime(positronTopActionBarContext.languageRuntimeService.activeRuntimeMetadata);
+			positronTopActionBarContext.languageRuntimeService.onDidStartRuntime(session => {
+				if (session.sessionMode === LanguageRuntimeSessionMode.Console) {
+					setActiveSession(
+						positronTopActionBarContext.languageRuntimeService.foregroundSession);
+				}
 			})
 		);
 
@@ -94,16 +98,16 @@ export const TopActionBarInterpretersManager = (props: TopActionBarInterpretersM
 		showPopup();
 	};
 
-	const label = !activeRuntime ? 'Start Interpreter' : activeRuntime.runtimeName;
+	const label = !activeSession ? 'Start Interpreter' : activeSession.sessionName;
 
 	// Render.
 	return (
 		<div ref={ref} className='top-action-bar-interpreters-manager' role='button' tabIndex={0} onKeyDown={keyDownHandler} onClick={clickHandler} aria-haspopup='menu' aria-label={label}>
 			<div className='left' aria-hidden='true'>
-				{!activeRuntime ?
+				{!activeSession ?
 					<div className='label'>{label}</div> :
 					<div className='label'>
-						<img className='icon' src={`data:image/svg+xml;base64,${activeRuntime.base64EncodedIconSvg}`} />
+						<img className='icon' src={`data:image/svg+xml;base64,${activeSession.metadata.base64EncodedIconSvg}`} />
 						<span>{label}</span>
 					</div>
 				}

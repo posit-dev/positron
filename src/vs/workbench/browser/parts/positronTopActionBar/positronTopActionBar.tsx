@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2022-2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
 import 'vs/css!./positronTopActionBar';
@@ -28,7 +28,7 @@ import { TopActionBarCommandCenter } from 'vs/workbench/browser/parts/positronTo
 import { PositronTopActionBarContextProvider } from 'vs/workbench/browser/parts/positronTopActionBar/positronTopActionBarContext';
 import { TopActionBarCustonFolderMenu } from 'vs/workbench/browser/parts/positronTopActionBar/components/topActionBarCustomFolderMenu';
 import { TopActionBarInterpretersManager } from 'vs/workbench/browser/parts/positronTopActionBar/components/topActionBarInterpretersManager';
-import { ILanguageRuntimeMetadata, ILanguageRuntimeService, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntimeMetadata, ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 
 // Constants.
 const kHorizontalPadding = 4;
@@ -114,18 +114,15 @@ export const PositronTopActionBar = (props: PositronTopActionBarProps) => {
 	 * @param runtime An ILanguageRuntime representing the runtime to activate.
 	 */
 	const activateRuntimeHandler = async (runtime: ILanguageRuntimeMetadata): Promise<void> => {
-		// Determine which action to take.
-		switch (runtime.getRuntimeState()) {
-			// When the runtime is uninitialized or exited, start it.
-			case RuntimeState.Uninitialized:
-			case RuntimeState.Exited:
-				await startRuntimeHandler(runtime);
-				break;
+		// See if there's a session active for the runtime.
+		const session = props.languageRuntimeService.getConsoleSession(runtime.runtimeId);
 
-			// When the runtime is in other states, make it the active runtime.
-			default:
-				props.languageRuntimeService.activeRuntime = runtime;
-				break;
+		if (session) {
+			// The session is already active, so just set it as the foreground session.
+			props.languageRuntimeService.foregroundSession = session;
+		} else {
+			// The session is not active; start a new session for the runtime.
+			await startRuntimeHandler(runtime);
 		}
 	};
 

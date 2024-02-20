@@ -556,6 +556,17 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 	}
 
 	/**
+	 * Gets the console session for a language, if one exists.
+	 *
+	 * @param runtimeId The runtime identifier of the session to retrieve.
+	 * @returns The session with the given runtime identifier, or undefined if
+	 *  no session with the given runtime identifier exists.
+	 */
+	getConsoleSession(runtimeId: string): ILanguageRuntimeSession | undefined {
+		return this._consoleSessionsByLanguageId.get(runtimeId);
+	}
+
+	/**
 	 * Completes the language runtime discovery phase. If no runtimes were
 	 * started or will be started, automatically start one.
 	 */
@@ -1088,7 +1099,8 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 		} else {
 			// The runtime is not in a state where it can be restarted.
 			return Promise.reject(
-				new Error(`The ${session.metadata.languageName} session is '${state}' and cannot be restarted.`)
+				new Error(`The ${session.metadata.languageName} session is '${state}' ` +
+					`and cannot be restarted.`)
 			);
 		}
 	}
