@@ -58,6 +58,23 @@ export class ArkLsp implements vscode.Disposable {
 		this._stateEmitter.fire(state);
 	}
 
+	public async client(): Promise<LanguageClient> {
+		switch (this._state) {
+			case LspState.uninitialized:
+			case LspState.stopped:
+				throw new Error("LSP client is stopped");
+			default:
+				break;
+		}
+
+		await this._initializing;
+
+		if (!this._client) {
+			throw new Error("LSP client is unexpectedly undefined");
+		}
+		return this._client;
+	}
+
 	/**
 	 * Activate the language server; returns a promise that resolves when the LSP is
 	 * activated.

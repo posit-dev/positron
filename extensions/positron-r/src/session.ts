@@ -18,6 +18,7 @@ import { handleRCode } from './hyperlink';
 import { RSessionManager } from './session-manager';
 import { EXTENSION_ROOT_DIR } from './constants';
 import { existsSync } from 'fs';
+import { LanguageClient } from 'vscode-languageclient/node';
 
 interface RPackageInstallation {
 	packageName: string;
@@ -553,6 +554,10 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 			const port = await this.adapterApi!.findAvailablePort([], 25);
 			await this._kernel.startPositronDap(port, 'ark', 'Ark Positron R');
 		}
+	}
+
+	public async lspClient(): Promise<LanguageClient> {
+		return await this._lsp.client();
 	}
 
 	private onStateChange(state: positron.RuntimeState): void {
