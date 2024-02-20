@@ -3,7 +3,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Event } from 'vs/base/common/event';
-import { IDataGridInstance } from 'vs/base/browser/ui/dataGrid/interfaces/dataGridInstance';
+import { TableDataDataGridInstance } from 'vs/workbench/services/positronDataExplorer/browser/tableDataDataGridInstance';
+import { TableSummaryDataGridInstance } from 'vs/workbench/services/positronDataExplorer/browser/tableSummaryDataGridInstance';
 import { PositronDataExplorerLayout } from 'vs/workbench/services/positronDataExplorer/browser/interfaces/positronDataExplorerService';
 
 /**
@@ -31,9 +32,14 @@ export interface IPositronDataExplorerInstance {
 	columnsScrollOffset: number;
 
 	/**
-	 * Gets the data grid instance.
+	 * Gets the TableSchemaDataGridInstance.
 	 */
-	readonly dataGridInstance: IDataGridInstance;
+	readonly tableSchemaDataGridInstance: TableSummaryDataGridInstance;
+
+	/**
+	 * Gets the TableDataDataGridInstance.
+	 */
+	readonly tableDataDataGridInstance: TableDataDataGridInstance;
 
 	/**
 	 * The onDidChangeLayout event.

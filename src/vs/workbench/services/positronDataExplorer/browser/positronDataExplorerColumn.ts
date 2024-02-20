@@ -2,13 +2,13 @@
  *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
-import { DataColumnAlignment } from 'vs/base/browser/ui/dataGrid/interfaces/dataColumn';
+import { DataColumnAlignment } from 'vs/base/browser/ui/positronDataGrid/interfaces/dataColumn';
 import { ColumnSchema, ColumnSchemaTypeDisplay } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
 import { IPositronDataExplorerColumn } from 'vs/workbench/services/positronDataExplorer/browser/interfaces/positronDataExplorerColumn';
 
 /**
-* PositronDataExplorerColumn class.
-*/
+ * PositronDataExplorerColumn class.
+ */
 export class PositronDataExplorerColumn implements IPositronDataExplorerColumn {
 	//#region Private Properties
 
@@ -16,16 +16,6 @@ export class PositronDataExplorerColumn implements IPositronDataExplorerColumn {
 	 * Gets the column schema.
 	 */
 	private readonly _columnSchema: ColumnSchema;
-
-	/**
-	 * Gets or sets the width.
-	 */
-	private _width: number;
-
-	/**
-	 * Gets or sets the layout width.
-	 */
-	private _layoutWidth: number = 0;
 
 	//#endregion Private Properties
 
@@ -38,9 +28,6 @@ export class PositronDataExplorerColumn implements IPositronDataExplorerColumn {
 	constructor(columnSchema: ColumnSchema) {
 		// Initialize.
 		this._columnSchema = columnSchema;
-
-		// Initialize the width (eventually, this will be set based on the column schema).
-		this._width = 190;
 	}
 
 	//#endregion Constructor & Dispose
@@ -103,36 +90,8 @@ export class PositronDataExplorerColumn implements IPositronDataExplorerColumn {
 				return DataColumnAlignment.Left;
 
 			case ColumnSchemaTypeDisplay.Unknown:
-				return DataColumnAlignment.Right;
+				return DataColumnAlignment.Left;
 		}
-	}
-
-	/**
-	 * Gets the width.
-	 */
-	get width() {
-		return this._width;
-	}
-
-	/**
-	 * Sets the width.
-	 */
-	set width(width: number) {
-		this._width = width;
-	}
-
-	/**
-	 * Gets the layout width.
-	 */
-	get layoutWidth() {
-		return this._layoutWidth;
-	}
-
-	/**
-	 * Sets the width.
-	 */
-	set layoutWidth(layoutWidth: number) {
-		this._layoutWidth = layoutWidth;
 	}
 
 	//#endregion IDataColumn Implementation

@@ -521,6 +521,7 @@
 		"--vscode-positronContextMenu-hoverForeground",
 		"--vscode-positronDataExplorer-background",
 		"--vscode-positronDataExplorer-border",
+		"--vscode-positronDataExplorer-contrastBackground",
 		"--vscode-positronDataExplorer-foreground",
 		"--vscode-positronDataGrid-background",
 		"--vscode-positronDataGrid-border",

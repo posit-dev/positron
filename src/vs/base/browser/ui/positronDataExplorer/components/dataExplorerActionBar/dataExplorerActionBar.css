@@ -7,7 +7,7 @@
 	height: 32px;
 	--positronActionBar-border: var(--vscode-positronSideActionBar-border);
 	--positronActionBar-separator: var(--vscode-positronSideActionBar-separator);
-	--positronActionBar-background: var(--vscode-positronDataGrid-contrastBackground);
+	--positronActionBar-background: var(--vscode-positronDataExplorer-contrastBackground);
 	--positronActionBar-foreground: var(--vscode-positronSideActionBar-foreground);
 	--positronActionBar-hoverBackground: var(--vscode-positronSideActionBar-hoverBackground);
 	--positronActionBar-disabledForeground: var(--vscode-positronSideActionBar-disabledForeground);
