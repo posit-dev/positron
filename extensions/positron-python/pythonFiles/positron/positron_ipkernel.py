@@ -29,10 +29,10 @@ from IPython.core.magic import (
 from IPython.utils import PyColorize
 
 from .data_explorer import DataExplorerService
-from .ui import UiService
 from .help import HelpService, help
 from .lsp import LSPService
 from .plots import PositronDisplayPublisherHook
+from .ui import UiService
 from .utils import JsonRecord
 from .variables import VariablesService
 from .widget import PositronWidgetHook
@@ -286,8 +286,8 @@ class PositronIPyKernel(IPythonKernel):
 
     # Use the PositronShell class.
     shell_class: PositronShell = traitlets.Type(
-        PositronShell,
-        klass=InteractiveShell,  # type: ignore
+        PositronShell,  # type: ignore
+        klass=InteractiveShell,
     )
 
     def __init__(self, **kwargs) -> None:
