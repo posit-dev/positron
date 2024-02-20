@@ -12,12 +12,8 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set, Tuple
 
 from comm.base_comm import BaseComm
 
-from .inspectors import (
-    MAX_ITEMS,
-    decode_access_key,
-    encode_access_key,
-    get_inspector,
-)
+from .access_keys import decode_access_key, encode_access_key
+from .inspectors import get_inspector
 from .positron_comm import CommMessage, JsonRpcErrorCode, PositronComm
 from .utils import (
     JsonData,
@@ -40,8 +36,8 @@ from .variables_comm import (
     Variable,
     VariableKind,
     VariableList,
-    VariablesFrontendEvent,
     VariablesBackendMessageContent,
+    VariablesFrontendEvent,
     ViewRequest,
 )
 
@@ -49,6 +45,12 @@ if TYPE_CHECKING:
     from .positron_ipkernel import PositronIPyKernel
 
 logger = logging.getLogger(__name__)
+
+# Maximum number of children to show in an object's expanded view.
+MAX_CHILDREN: int = 100
+
+# Maximum number of items to send in an update event. If exceeded, a full refresh is sent instead.
+MAX_ITEMS: int = 10000
 
 
 class VariablesService:
@@ -134,8 +136,7 @@ class VariablesService:
         }
         """
         variables = self._get_filtered_vars()
-        inspector = get_inspector(variables)
-        filtered_variables = inspector.summarize_children(variables, _summarize_variable)
+        filtered_variables = _summarize_children(variables)
 
         msg = RefreshParams(
             variables=filtered_variables,
@@ -181,8 +182,8 @@ class VariablesService:
                 continue
 
             inspector = get_inspector(value)
-            if inspector.is_snapshottable(value):
-                self._snapshot[key] = inspector.copy(value)
+            if inspector.is_snapshottable():
+                self._snapshot[key] = inspector.copy()
 
     def _compare_user_ns(self) -> Tuple[Dict[str, Any], Set[str]]:
         """
@@ -226,7 +227,7 @@ class VariablesService:
 
                     # If type changes or if key's values is no longer
                     # the same after exection
-                    if type(inspector1) is not type(inspector2) or not inspector2.equals(v1, v2):
+                    if type(inspector1) is not type(inspector2) or not inspector1.equals(v2):
                         assigned[key] = v2
 
             except Exception as err:
@@ -259,21 +260,6 @@ class VariablesService:
                 filtered_variables[key] = value
         return filtered_variables
 
-    def _get_filtered_var_names(self, names: Iterable[str]) -> Set[str]:
-        """
-        Returns:
-            A filtered set of variable names, excluding hidden variables.
-        """
-        hidden = self._get_user_ns_hidden()
-
-        # Filter out hidden variables
-        filtered_names = set()
-        for name in names:
-            if name in hidden:
-                continue
-            filtered_names.add(name)
-        return filtered_names
-
     def _find_var(self, path: Iterable[str]) -> Tuple[bool, Any]:
         """
         Finds the variable at the requested path in the current user session.
@@ -299,9 +285,10 @@ class VariablesService:
         for access_key in path:
             # Check for membership via inspector
             inspector = get_inspector(context)
-            is_known = inspector.has_child(context, access_key)
+            key = decode_access_key(access_key)
+            is_known = inspector.has_child(key)
             if is_known:
-                value = inspector.get_child(context, access_key)
+                value = inspector.get_child(key)
 
             # Subsequent segment starts from the value
             context = value
@@ -360,11 +347,11 @@ class VariablesService:
         """
         # Filter out hidden assigned variables
         variables = self._get_filtered_vars(assigned)
-        inspector = get_inspector(variables)
-        filtered_assigned = inspector.summarize_children(variables, _summarize_variable)
+        filtered_assigned = _summarize_children(variables)
 
-        # Filter out hidden removed variables
-        filtered_removed = self._get_filtered_var_names(removed)
+        # Filter out hidden removed variables and encode access keys
+        hidden = self._get_user_ns_hidden()
+        filtered_removed = [key for key in sorted(removed) if key not in hidden]
 
         if filtered_assigned or filtered_removed:
             msg = UpdateParams(
@@ -376,8 +363,7 @@ class VariablesService:
 
     def _list_all_vars(self) -> List[Variable]:
         variables = self._get_filtered_vars()
-        inspector = get_inspector(variables)
-        return inspector.summarize_children(variables, _summarize_variable)
+        return _summarize_children(variables)
 
     def _send_list(self) -> None:
         filtered_variables = self._list_all_vars()
@@ -468,12 +454,10 @@ class VariablesService:
                 f"Cannot find variable at '{path}' to view",
             )
 
-        inspector = get_inspector(value)
-
         # Use the leaf segment to get the title
         access_key = path[-1]
 
-        if not inspector.is_tabular(value):
+        if not get_inspector(value).is_tabular():
             # The front end should never get this far with a request
             raise TypeError(f"Type {type(value)} is not supported by DataExplorer.")
 
@@ -574,8 +558,8 @@ class VariablesService:
 
         children = []
         inspector = get_inspector(value)
-        if inspector.has_children(value):
-            children = inspector.summarize_children(value, _summarize_variable)
+        if inspector.has_children():
+            children = _summarize_children(value)
         else:
             # Otherwise, treat as a simple value at given path
             summary = _summarize_variable("", value)
@@ -610,16 +594,16 @@ def _summarize_variable(key: Any, value: Any) -> Optional[Variable]:
         ins = get_inspector(value)
 
         display_name = ins.get_display_name(key)
-        kind_str = ins.get_kind(value)
+        kind_str = ins.get_kind()
         kind = VariableKind(kind_str)
-        display_value, is_truncated = ins.get_display_value(value)
-        display_type = ins.get_display_type(value)
-        type_info = ins.get_type_info(value)
-        access_key = ins.get_access_key(key)
-        length = ins.get_length(value)
-        size = ins.get_size(value)
-        has_children = ins.has_children(value)
-        has_viewer = ins.has_viewer(value)
+        display_value, is_truncated = ins.get_display_value()
+        display_type = ins.get_display_type()
+        type_info = ins.get_type_info()
+        access_key = encode_access_key(key)
+        length = ins.get_length()
+        size = ins.get_size()
+        has_children = ins.has_children()
+        has_viewer = ins.has_viewer()
 
         return Variable(
             display_name=display_name,
@@ -652,6 +636,17 @@ def _summarize_variable(key: Any, value: Any) -> Optional[Variable]:
         )
 
 
+def _summarize_children(parent: Any) -> List[Variable]:
+    children = []
+    for i, (key, value) in enumerate(get_inspector(parent).get_items()):
+        if i > MAX_CHILDREN:
+            break
+        summary = _summarize_variable(key, value)
+        if summary is not None:
+            children.append(summary)
+    return children
+
+
 def _format_value(value: Any, clipboard_format: ClipboardFormatFormat) -> str:
     """
     Formats the given value using the requested clipboard format.
@@ -659,6 +654,6 @@ def _format_value(value: Any, clipboard_format: ClipboardFormatFormat) -> str:
     inspector = get_inspector(value)
 
     if clipboard_format == ClipboardFormatFormat.TextHtml:
-        return inspector.to_html(value)
+        return inspector.to_html()
     else:
-        return inspector.to_plaintext(value)
+        return inspector.to_plaintext()
