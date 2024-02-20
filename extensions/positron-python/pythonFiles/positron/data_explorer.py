@@ -5,7 +5,13 @@
 # flake8: ignore E203
 # pyright: reportOptionalMemberAccess=false
 
+import logging
+import operator
+import uuid
 from typing import TYPE_CHECKING, Dict, List, Sequence
+
+import comm
+
 from .data_explorer_comm import (
     BackendState,
     ColumnFilter,
@@ -16,8 +22,8 @@ from .data_explorer_comm import (
     DataExplorerBackendMessageContent,
     FilterResult,
     GetColumnProfileProfileType,
-    GetDataValuesRequest,
     GetColumnProfileRequest,
+    GetDataValuesRequest,
     GetSchemaRequest,
     GetStateRequest,
     SetColumnFiltersRequest,
@@ -27,10 +33,6 @@ from .data_explorer_comm import (
 )
 from .positron_comm import CommMessage, PositronComm
 from .third_party import _get_pandas
-import comm
-import logging
-import operator
-import uuid
 
 if TYPE_CHECKING:
     import pandas as pd

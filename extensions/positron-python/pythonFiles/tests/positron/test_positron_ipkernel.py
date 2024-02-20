@@ -15,7 +15,6 @@ from positron.help import help
 from positron.utils import alias_home
 
 from .conftest import PositronShell
-
 from .utils import assert_dataset_registered
 
 # The idea for these tests is to mock out communications with Positron

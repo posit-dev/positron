@@ -4,14 +4,11 @@
 
 import datetime
 import inspect
-import json
-import math
 import pprint
 import random
 import string
-import sys
 import types
-from typing import Any, Callable, List, Optional, Tuple, Type
+from typing import Any, Callable, Tuple, Type
 
 import numpy as np
 import pandas as pd
@@ -19,40 +16,47 @@ import polars as pl
 import pytest
 from fastcore.foundation import L
 
-try:
-    import torch  # type: ignore [reportMissingImports] for 3.12
-except ImportError:
-    torch = None
+from positron.inspectors import PRINT_WIDTH, TRUNCATE_AT, get_inspector
+from positron.utils import get_qualname
+from positron.variables_comm import VariableKind
 
-from positron.inspectors import (
-    PRINT_WIDTH,
-    TRUNCATE_AT,
-    decode_access_key,
-    encode_access_key,
-    get_inspector,
+from .data import (
+    BOOL_CASES,
+    BYTES_CASES,
+    CLASSES_CASES,
+    COMPLEX_CASES,
+    FLOAT_CASES,
+    INT_CASES,
+    NUMPY_SCALAR_CASES,
+    RANGE_CASES,
+    STRING_CASES,
+    TIMESTAMP_CASES,
 )
-from positron.utils import get_qualname, not_none
-from positron.variables import _summarize_variable
-from positron.variables_comm import Variable, VariableKind
-
 from .utils import assert_pydantic_model_equal
 
 
-def assert_variable_equal(result: Optional[Variable], expected: Variable) -> None:
-    assert result is not None
+def verify_inspector(
+    value: Any,
+    length: int,
+    display_value: str,
+    is_truncated: bool,
+    kind: str,
+    display_type: str,
+    type_info: str,
+    has_children: bool = False,
+    has_viewer: bool = False,
+) -> None:
+    # NOTE: Skip `get_size` for now, since it depends on platform, Python version, and package version.
 
-    # Exclude the following fields by default:
-    # - size: since it depends on platform, Python version, and library versions.
-    # - access_key: since we test it independently from summarizing variables and don't want
-    #               to have to change all tests when we change the access_key format.
-    assert_pydantic_model_equal(result, expected, {"size", "access_key"})
+    inspector = get_inspector(value)
 
-
-def assert_variables_equal(result: List[Variable], expected: List[Variable]) -> None:
-    assert len(result) == len(expected)
-
-    for result_item, expected_item in zip(result, expected):
-        assert_variable_equal(result_item, expected_item)
+    assert inspector.get_length() == length
+    assert inspector.has_children() == has_children
+    assert inspector.has_viewer() == has_viewer
+    assert inspector.get_display_value() == (display_value, is_truncated)
+    assert inspector.get_kind() == kind
+    assert inspector.get_display_type() == display_type
+    assert inspector.get_type_info() == type_info
 
 
 class HelperClass:
@@ -81,85 +85,45 @@ class HelperClass:
 # Test Booleans
 #
 
-BOOL_CASES = [True, False]
 
-
-@pytest.mark.parametrize("case", BOOL_CASES)
-def test_summarize_boolean(case: bool) -> None:
-    display_name = "xBool"
-    expected = Variable(
-        access_key=encode_access_key(display_name),
-        size=0,
+@pytest.mark.parametrize("value", BOOL_CASES)
+def test_inspect_boolean(value: bool) -> None:
+    verify_inspector(
+        value=value,
         length=0,
-        has_children=False,
-        has_viewer=False,
         is_truncated=False,
-        display_name=display_name,
-        display_value=str(case),
-        kind=VariableKind.Boolean,
+        display_value=str(value),
+        kind="boolean",
         display_type="bool",
         type_info="bool",
     )
-
-    result = _summarize_variable(display_name, case)
-
-    assert_variable_equal(result, expected)
 
 
 #
 # Test Strings
 #
 
-STRING_CASES = [
-    "",  # Empty String
-    "Hello, world!",  # Basic String
-    "    ",  # Whitespace String
-    "First\nSecond\nThird",  # Multiline String
-    "This has a Windows linebreak\r\n",  # Windows Linebreak
-    " Space Before\tTab Between\tSpace After ",  # Trailing Whitespace
-    "É una bella città",  # Accented String
-    "こんにちは",  # Japanese String
-    "עֶמֶק",  # RTL String
-    "ʇxǝʇ",  # Upsidedown String
-    "😅😁",  # Emoji String
-]
 
-
-@pytest.mark.parametrize("case", STRING_CASES)
-def test_summarize_string(case: str) -> None:
-    display_name = "xStr"
-    length = len(case)
-    expected = Variable(
-        access_key=encode_access_key(display_name),
-        size=length,
-        has_children=False,
-        has_viewer=False,
+@pytest.mark.parametrize("value", STRING_CASES)
+def test_inspect_string(value: str) -> None:
+    length = len(value)
+    verify_inspector(
+        value=value,
         is_truncated=False,
-        display_name=display_name,
-        display_value=repr(case),
+        display_value=repr(value),
         kind=VariableKind.String,
         display_type="str",
         type_info="str",
         length=length,
     )
 
-    result = _summarize_variable(display_name, case)
 
-    assert_variable_equal(result, expected)
-
-
-def test_summarize_string_truncated() -> None:
-    display_name = "xStrT"
-    long_string = "".join(random.choices(string.ascii_letters, k=(TRUNCATE_AT + 10)))
-    length = len(long_string)
-    expected_value = f"'{long_string[:TRUNCATE_AT]}'"
-    expected = Variable(
-        access_key=encode_access_key(display_name),
-        size=length,
-        has_children=False,
-        has_viewer=False,
-        display_name=display_name,
-        display_value=expected_value,
+def test_inspect_string_truncated() -> None:
+    value = "".join(random.choices(string.ascii_letters, k=(TRUNCATE_AT + 10)))
+    length = len(value)
+    verify_inspector(
+        value=value,
+        display_value=f"'{value[:TRUNCATE_AT]}'",
         kind=VariableKind.String,
         display_type="str",
         type_info="str",
@@ -167,209 +131,101 @@ def test_summarize_string_truncated() -> None:
         is_truncated=True,
     )
 
-    result = _summarize_variable(display_name, long_string)
-
-    assert_variable_equal(result, expected)
-
 
 #
 # Test Numbers
 #
 
-# Python 3 ints are unbounded, but we include a few large numbers
-# for basic test cases
-INT_CASES = [
-    -sys.maxsize * 100,
-    -sys.maxsize,
-    -1,
-    0,
-    1,
-    sys.maxsize,
-    sys.maxsize * 100,
-]
 
-
-@pytest.mark.parametrize("case", INT_CASES)
-def test_summarize_integer(case: int) -> None:
-    display_name = "xInt"
-    expected = Variable(
-        access_key=encode_access_key(display_name),
-        size=0,
+@pytest.mark.parametrize("value", INT_CASES)
+def test_inspect_integer(value: int) -> None:
+    verify_inspector(
+        value=value,
         length=0,
-        has_children=False,
-        has_viewer=False,
         is_truncated=False,
-        display_name=display_name,
-        display_value=str(case),
+        display_value=str(value),
         kind=VariableKind.Number,
         display_type="int",
         type_info="int",
     )
 
-    result = _summarize_variable(display_name, case)
 
-    assert_variable_equal(result, expected)
-
-
-NUMPY_SCALAR_CASES = [
-    np.int8(1),
-    np.int16(1),
-    np.int32(1),
-    np.int64(1),
-    np.float16(1.0),
-    np.float32(1.0),
-    np.float64(1.0),
-]
-
-
-@pytest.mark.parametrize("case", NUMPY_SCALAR_CASES)
-def test_summarize_numpy_scalars(case: np.integer) -> None:
-    display_name = "xNumpyInt"
-    dtype = str(case.dtype)
-    expected = Variable(
-        access_key=encode_access_key(display_name),
-        size=1,
+@pytest.mark.parametrize("value", NUMPY_SCALAR_CASES)
+def test_inspect_numpy_scalars(value: np.integer) -> None:
+    dtype = str(value.dtype)
+    verify_inspector(
+        value=value,
         length=0,
-        has_children=False,
-        has_viewer=False,
         is_truncated=False,
-        display_name=display_name,
-        display_value=str(case),
+        display_value=str(value),
         kind=VariableKind.Number,
         display_type=str(dtype),
         type_info=f"numpy.{dtype}",
     )
 
-    result = _summarize_variable(display_name, case)
 
-    assert_variable_equal(result, expected)
-
-
-FLOAT_CASES = [
-    float("-inf"),
-    -sys.float_info.max,
-    -1.0,
-    -sys.float_info.min,
-    float("nan"),
-    0.0,
-    sys.float_info.min,
-    1.0,
-    math.pi,
-    sys.float_info.max,
-    float("inf"),
-]
-
-
-@pytest.mark.parametrize("case", FLOAT_CASES)
-def test_summarize_float(case: float) -> None:
-    display_name = "xFloat"
-    expected = Variable(
-        access_key=encode_access_key(display_name),
-        size=0,
+@pytest.mark.parametrize("value", FLOAT_CASES)
+def test_inspect_float(value: float) -> None:
+    verify_inspector(
+        value=value,
         length=0,
-        has_children=False,
-        has_viewer=False,
         is_truncated=False,
-        display_name=display_name,
-        display_value=str(case),
+        display_value=str(value),
         kind=VariableKind.Number,
         display_type="float",
         type_info="float",
     )
 
-    result = _summarize_variable(display_name, case)
 
-    assert_variable_equal(result, expected)
-
-
-COMPLEX_CASES = [
-    complex(-1.0, 100.1),
-    complex(-1.0, 0.0),
-    complex(0, 0),
-    complex(1.0, 0.0),
-    complex(1.0, 100.1),
-]
-
-
-@pytest.mark.parametrize("case", COMPLEX_CASES)
-def test_summarize_complex(case: complex) -> None:
-    display_name = "xComplex"
-    expected = Variable(
-        access_key=encode_access_key(display_name),
-        size=1,
+@pytest.mark.parametrize("value", COMPLEX_CASES)
+def test_inspect_complex(value: complex) -> None:
+    verify_inspector(
+        value=value,
         length=0,
-        has_children=False,
-        has_viewer=False,
         is_truncated=False,
-        display_name=display_name,
-        display_value=str(case),
+        display_value=str(value),
         kind=VariableKind.Number,
         display_type="complex",
         type_info="complex",
     )
-
-    result = _summarize_variable(display_name, case)
-
-    assert_variable_equal(result, expected)
 
 
 #
 # Test Classes
 #
 
-CLASSES_CASES = [pd.DataFrame, np.ndarray, datetime.tzinfo, bytes, str]
 
-
-@pytest.mark.parametrize("case", CLASSES_CASES)
-def test_summarize_classes(case: type) -> None:
-    display_name = "xType"
-    length = len([p for p in dir(case) if not (p.startswith("_"))])
-    expected = Variable(
-        access_key=encode_access_key(display_name),
-        size=0,
-        length=length,
+@pytest.mark.parametrize("value", CLASSES_CASES)
+def test_inspect_classes(value: type) -> None:
+    verify_inspector(
+        value=value,
+        length=len([p for p in dir(value) if not (p.startswith("_"))]),
         has_children=True,
-        has_viewer=False,
         is_truncated=False,
-        display_name=display_name,
-        display_value=str(case),
+        display_value=str(value),
         kind=VariableKind.Class,
         display_type="type",
         type_info="type",
     )
-
-    result = _summarize_variable(display_name, case)
-    assert_variable_equal(result, expected)
 
 
 #
 # Test Bytes
 #
 
-BYTES_CASES = [b"", b"\x00", b"caff\\xe8"]
 
-
-@pytest.mark.parametrize("case", BYTES_CASES)
-def test_summarize_bytes(case: bytes) -> None:
-    display_name = "xBytes"
-    length = len(case)
-    expected = Variable(
-        access_key=encode_access_key(display_name),
-        size=length,
-        has_children=False,
-        has_viewer=False,
+@pytest.mark.parametrize("value", BYTES_CASES)
+def test_inspect_bytes(value: bytes) -> None:
+    length = len(value)
+    verify_inspector(
+        value=value,
         is_truncated=False,
-        display_name=display_name,
-        display_value=str(case),
+        display_value=str(value),
         kind=VariableKind.Bytes,
         display_type=f"bytes [{length}]",
         type_info="bytes",
         length=length,
     )
-
-    result = _summarize_variable(display_name, case)
-
-    assert_variable_equal(result, expected)
 
 
 BYTEARRAY_CASES = [
@@ -380,40 +236,26 @@ BYTEARRAY_CASES = [
 ]
 
 
-@pytest.mark.parametrize("case", BYTEARRAY_CASES)
-def test_summarize_bytearray(case: bytearray) -> None:
-    display_name = "xBytearray"
-    length = len(case)
-    expected = Variable(
-        access_key=encode_access_key(display_name),
-        size=length,
-        has_children=False,
-        has_viewer=False,
+@pytest.mark.parametrize("value", BYTEARRAY_CASES)
+def test_inspect_bytearray(value: bytearray) -> None:
+    length = len(value)
+    verify_inspector(
+        value=value,
         is_truncated=False,
-        display_name=display_name,
-        display_value=str(case),
+        display_value=str(value),
         kind=VariableKind.Bytes,
         display_type=f"bytearray [{length}]",
         type_info="bytearray",
         length=length,
     )
 
-    result = _summarize_variable(display_name, case)
 
-    assert_variable_equal(result, expected)
-
-
-def test_summarize_bytearray_truncated() -> None:
-    display_name = "xBytearrayT"
-    case = bytearray(TRUNCATE_AT * 2)
-    length = len(case)
-    expected = Variable(
-        access_key=encode_access_key(display_name),
-        size=length,
-        has_children=False,
-        has_viewer=False,
-        display_name=display_name,
-        display_value=str(case)[:TRUNCATE_AT],
+def test_inspect_bytearray_truncated() -> None:
+    value = bytearray(TRUNCATE_AT * 2)
+    length = len(value)
+    verify_inspector(
+        value=value,
+        display_value=str(value)[:TRUNCATE_AT],
         kind=VariableKind.Bytes,
         display_type=f"bytearray [{length}]",
         type_info="bytearray",
@@ -421,66 +263,38 @@ def test_summarize_bytearray_truncated() -> None:
         is_truncated=True,
     )
 
-    result = _summarize_variable(display_name, case)
 
-    assert_variable_equal(result, expected)
-
-
-def test_summarize_memoryview() -> None:
-    display_name = "xMemoryview"
+def test_inspect_memoryview() -> None:
     byte_array = bytearray("東京", "utf-8")
-    case = memoryview(byte_array)
-    length = len(case)
-    expected = Variable(
-        access_key=encode_access_key(display_name),
-        size=length,
-        has_children=False,
-        has_viewer=False,
+    value = memoryview(byte_array)
+    length = len(value)
+    verify_inspector(
+        value=value,
         is_truncated=False,
-        display_name=display_name,
-        display_value=str(case),
+        display_value=str(value),
         kind=VariableKind.Bytes,
         display_type=f"memoryview [{length}]",
         type_info="memoryview",
         length=length,
     )
 
-    result = _summarize_variable(display_name, case)
-
-    assert_variable_equal(result, expected)
-
 
 #
 # Test Timestamps
 #
 
-TIMESTAMP_CASES = [
-    pd.Timestamp("2021-01-01 01:23:45"),
-    datetime.datetime(2021, 1, 1, 1, 23, 45),
-]
 
-
-@pytest.mark.parametrize("case", TIMESTAMP_CASES)
-def test_summarize_timestamp(case: datetime.datetime) -> None:
-    display_name = "xTimestamp"
-    expected = Variable(
-        access_key=encode_access_key(display_name),
-        size=0,
+@pytest.mark.parametrize("value", TIMESTAMP_CASES)
+def test_inspect_timestamp(value: datetime.datetime) -> None:
+    verify_inspector(
+        value=value,
         length=0,
-        has_children=False,
-        has_viewer=False,
         is_truncated=False,
-        display_name=display_name,
-        display_value=repr(case),
+        display_value=repr(value),
         kind=VariableKind.Other,
-        # TODO: Split these tests so we don't have to use type() and get_qualname()?
-        display_type=type(case).__name__,
-        type_info=get_qualname(case),
+        display_type=type(value).__name__,
+        type_info=get_qualname(value),
     )
-
-    result = _summarize_variable(display_name, case)
-
-    assert_variable_equal(result, expected)
 
 
 #
@@ -490,26 +304,17 @@ def test_summarize_timestamp(case: datetime.datetime) -> None:
 NONE_CASES = [None]
 
 
-@pytest.mark.parametrize("case", NONE_CASES)
-def test_summarize_none(case: None) -> None:
-    display_name = "xNone"
-    expected = Variable(
-        access_key=encode_access_key(display_name),
-        size=0,
+@pytest.mark.parametrize("value", NONE_CASES)
+def test_inspect_none(value: None) -> None:
+    verify_inspector(
+        value=value,
         length=0,
-        has_children=False,
-        has_viewer=False,
         is_truncated=False,
-        display_name=display_name,
         display_value="None",
         kind=VariableKind.Empty,
         display_type="NoneType",
         type_info="NoneType",
     )
-
-    result = _summarize_variable(display_name, case)
-
-    assert_variable_equal(result, expected)
 
 
 #
@@ -528,52 +333,32 @@ SET_CASES = [
 ]
 
 
-@pytest.mark.parametrize("case", SET_CASES)
-def test_summarize_set(case: set) -> None:
-    display_name = "xSet"
-    length = len(case)
-    expected_value = pprint.pformat(case, width=PRINT_WIDTH, compact=True)
-    expected = Variable(
-        access_key=encode_access_key(display_name),
-        size=length,
-        has_children=False,
+@pytest.mark.parametrize("value", SET_CASES)
+def test_inspect_set(value: set) -> None:
+    length = len(value)
+    verify_inspector(
+        value=value,
         is_truncated=False,
-        has_viewer=False,
-        display_name=display_name,
-        display_value=expected_value,
+        display_value=pprint.pformat(value, width=PRINT_WIDTH, compact=True),
         kind=VariableKind.Collection,
         display_type=f"set {{{length}}}",
         type_info="set",
         length=length,
     )
 
-    result = _summarize_variable(display_name, case)
 
-    assert_variable_equal(result, expected)
-
-
-def test_summarize_set_truncated() -> None:
-    display_name = "xSetT"
-    case = set(list(range(TRUNCATE_AT * 2)))
-    length = len(case)
-    expected_value = pprint.pformat(case, width=PRINT_WIDTH, compact=True)
-    expected = Variable(
-        access_key=encode_access_key(display_name),
-        size=length,
-        has_children=False,
-        has_viewer=False,
-        display_name=display_name,
-        display_value=expected_value[:TRUNCATE_AT],
+def test_inspect_set_truncated() -> None:
+    value = set(list(range(TRUNCATE_AT * 2)))
+    length = len(value)
+    verify_inspector(
+        value=value,
+        display_value=pprint.pformat(value, width=PRINT_WIDTH, compact=True)[:TRUNCATE_AT],
         kind=VariableKind.Collection,
         display_type=f"set {{{length}}}",
         type_info="set",
         length=length,
         is_truncated=True,
     )
-
-    result = _summarize_variable(display_name, case)
-
-    assert_variable_equal(result, expected)
 
 
 LIST_CASES = [
@@ -589,18 +374,13 @@ LIST_CASES = [
 ]
 
 
-@pytest.mark.parametrize("case", LIST_CASES)
-def test_summarize_list(case: list) -> None:
-    display_name = "xList"
-    length = len(case)
-    expected_value = pprint.pformat(case, width=PRINT_WIDTH, compact=True)
-    expected = Variable(
-        access_key=encode_access_key(display_name),
-        size=length,
-        has_viewer=False,
+@pytest.mark.parametrize("value", LIST_CASES)
+def test_inspect_list(value: list) -> None:
+    length = len(value)
+    verify_inspector(
+        value=value,
         is_truncated=False,
-        display_name=display_name,
-        display_value=expected_value,
+        display_value=pprint.pformat(value, width=PRINT_WIDTH, compact=True),
         kind=VariableKind.Collection,
         display_type=f"list [{length}]",
         type_info="list",
@@ -608,22 +388,13 @@ def test_summarize_list(case: list) -> None:
         has_children=length > 0,
     )
 
-    result = _summarize_variable(display_name, case)
 
-    assert_variable_equal(result, expected)
-
-
-def test_summarize_list_truncated() -> None:
-    display_name = "xListT"
-    case = list(range(TRUNCATE_AT * 2))
-    length = len(case)
-    expected_value = pprint.pformat(case, width=PRINT_WIDTH, compact=True)
-    expected = Variable(
-        access_key=encode_access_key(display_name),
-        size=length,
-        has_viewer=False,
-        display_name=display_name,
-        display_value=expected_value[:TRUNCATE_AT],
+def test_inspect_list_truncated() -> None:
+    value = list(range(TRUNCATE_AT * 2))
+    length = len(value)
+    verify_inspector(
+        value=value,
+        display_value=pprint.pformat(value, width=PRINT_WIDTH, compact=True)[:TRUNCATE_AT],
         kind=VariableKind.Collection,
         display_type=f"list [{length}]",
         type_info="list",
@@ -632,24 +403,15 @@ def test_summarize_list_truncated() -> None:
         is_truncated=True,
     )
 
-    result = _summarize_variable(display_name, case)
 
-    assert_variable_equal(result, expected)
-
-
-def test_summarize_list_cycle() -> None:
-    display_name = "xListCycle"
-    case = list([1, 2])
-    case.append(case)  # type: ignore
-    length = len(case)
-    expected_value = pprint.pformat(case, width=PRINT_WIDTH, compact=True)
-    expected = Variable(
-        access_key=encode_access_key(display_name),
-        size=length,
-        has_viewer=False,
+def test_inspect_list_cycle() -> None:
+    value = list([1, 2])
+    value.append(value)  # type: ignore
+    length = len(value)
+    verify_inspector(
+        value=value,
         is_truncated=False,
-        display_name=display_name,
-        display_value=expected_value[:TRUNCATE_AT],
+        display_value=pprint.pformat(value, width=PRINT_WIDTH, compact=True)[:TRUNCATE_AT],
         kind=VariableKind.Collection,
         display_type=f"list [{length}]",
         type_info="list",
@@ -657,47 +419,19 @@ def test_summarize_list_cycle() -> None:
         has_children=True,
     )
 
-    result = _summarize_variable(display_name, case)
 
-    assert_variable_equal(result, expected)
-
-
-RANGE_CASES = [
-    range(0),  # Empty Range
-    range(1),  # Range with positive start, 1 element
-    range(-1, 0),  # Range with negative start, 1 element
-    range(-2, 3),  # Range with negative start, positive stop
-    range(10, 21, 2),  # Range with positive start, positive stop, and positive step
-    range(20, 9, -2),  # Range with positive start, positive stop, and negative step
-    range(2, -10, -2),  # Range with positive start, negative stop, and negative step
-    range(-20, -9, 2),  # Range with negative start, negative stop, and positive step
-    range(-10, 3, 2),  # Range with negative start, positive stop, and positive step
-    range(1, 5000),  # Large Range (compact display, does not show elements)
-]
-
-
-@pytest.mark.parametrize("case", RANGE_CASES)
-def test_summarize_range(case: range) -> None:
-    display_name = "xRange"
-    length = len(case)
-    expected_value = pprint.pformat(case, width=PRINT_WIDTH, compact=True)
-    expected = Variable(
-        access_key=encode_access_key(display_name),
-        size=0,
-        has_children=False,
+@pytest.mark.parametrize("value", RANGE_CASES)
+def test_inspect_range(value: range) -> None:
+    length = len(value)
+    verify_inspector(
+        value=value,
         is_truncated=False,
-        has_viewer=False,
-        display_name=display_name,
-        display_value=expected_value,
+        display_value=pprint.pformat(value, width=PRINT_WIDTH, compact=True),
         kind=VariableKind.Collection,
         display_type=f"range [{length}]",
         type_info="range",
         length=length,
     )
-
-    result = _summarize_variable(display_name, case)
-
-    assert_variable_equal(result, expected)
 
 
 FASTCORE_LIST_CASES = [
@@ -713,28 +447,19 @@ FASTCORE_LIST_CASES = [
 ]
 
 
-@pytest.mark.parametrize("case", FASTCORE_LIST_CASES)
-def test_summarize_fastcore_list(case: L) -> None:
-    display_name = "xFastcoreList"
-    length = len(case)
-    expected_value = pprint.pformat(case, width=PRINT_WIDTH, compact=True)
-    expected = Variable(
-        access_key=encode_access_key(display_name),
-        size=0,
-        has_viewer=False,
+@pytest.mark.parametrize("value", FASTCORE_LIST_CASES)
+def test_inspect_fastcore_list(value: L) -> None:
+    length = len(value)
+    verify_inspector(
+        value=value,
         is_truncated=False,
-        display_name=display_name,
-        display_value=expected_value,
+        display_value=pprint.pformat(value, width=PRINT_WIDTH, compact=True),
         kind=VariableKind.Collection,
         display_type=f"L [{length}]",
         type_info="fastcore.foundation.L",
         length=length,
         has_children=length > 0,
     )
-
-    result = _summarize_variable(display_name, case)
-
-    assert_variable_equal(result, expected)
 
 
 #
@@ -761,28 +486,19 @@ MAP_CASES = [
 ]
 
 
-@pytest.mark.parametrize("case", MAP_CASES)
-def test_summarize_map(case: dict) -> None:
-    display_name = "xDict"
-    length = len(case)
-    expected_value = pprint.pformat(case, width=PRINT_WIDTH, compact=True)
-    expected = Variable(
-        access_key=encode_access_key(display_name),
-        size=0,
-        has_viewer=False,
+@pytest.mark.parametrize("value", MAP_CASES)
+def test_inspect_map(value: dict) -> None:
+    length = len(value)
+    verify_inspector(
+        value=value,
         is_truncated=False,
-        display_name=display_name,
-        display_value=expected_value,
+        display_value=pprint.pformat(value, width=PRINT_WIDTH, compact=True),
         kind=VariableKind.Map,
         display_type=f"dict [{length}]",
         type_info="dict",
         length=length,
         has_children=length > 0,
     )
-
-    result = _summarize_variable(display_name, case)
-
-    assert_variable_equal(result, expected)
 
 
 #
@@ -801,30 +517,18 @@ FUNCTION_CASES = [
 ]
 
 
-@pytest.mark.parametrize("case", FUNCTION_CASES)
-def test_summarize_function(case: Callable) -> None:
-    display_name = "xFn"
-    expected_value = f"{case.__qualname__}{inspect.signature(case)}"
-    expected_type = "function"
-    if isinstance(case, types.MethodType):
-        expected_type = "method"
-    expected = Variable(
-        access_key=encode_access_key(display_name),
-        size=0,
+@pytest.mark.parametrize("value", FUNCTION_CASES)
+def test_inspect_function(value: Callable) -> None:
+    expected_type = "method" if isinstance(value, types.MethodType) else "function"
+    verify_inspector(
+        value=value,
         length=0,
-        has_children=False,
-        has_viewer=False,
         is_truncated=False,
-        display_name=display_name,
-        display_value=expected_value,
+        display_value=f"{value.__qualname__}{inspect.signature(value)}",
         kind=VariableKind.Function,
         display_type=expected_type,
         type_info=expected_type,
     )
-
-    result = _summarize_variable(display_name, case)
-
-    assert_variable_equal(result, expected)
 
 
 #
@@ -834,26 +538,18 @@ def test_summarize_function(case: Callable) -> None:
 OBJECTS_CASES = [helper]
 
 
-@pytest.mark.parametrize("case", OBJECTS_CASES)
-def test_summarize_object(case: Any) -> None:
-    display_name = "helper"
-    expected = Variable(
-        access_key=encode_access_key(display_name),
-        size=0,
+@pytest.mark.parametrize("value", OBJECTS_CASES)
+def test_inspect_object(value: Any) -> None:
+    verify_inspector(
+        value=value,
         length=4,
         has_children=True,
-        has_viewer=False,
         is_truncated=False,
-        display_name=display_name,
-        display_value=str(case),
+        display_value=str(value),
         kind=VariableKind.Other,
         display_type="HelperClass",
         type_info="tests.positron.test_inspectors.HelperClass",
     )
-
-    result = _summarize_variable(display_name, case)
-
-    assert_variable_equal(result, expected)
 
 
 #
@@ -862,26 +558,17 @@ def test_summarize_object(case: Any) -> None:
 PROPERTY_CASES = [HelperClass.prop]
 
 
-@pytest.mark.parametrize("case", PROPERTY_CASES)
-def test_summarize_property(case: property) -> None:
-    display_name = "prop"
-    expected = Variable(
-        access_key=encode_access_key(display_name),
-        size=0,
+@pytest.mark.parametrize("value", PROPERTY_CASES)
+def test_inspect_property(value: property) -> None:
+    verify_inspector(
+        value=value,
         length=0,
-        has_children=False,
-        has_viewer=False,
         is_truncated=False,
-        display_name=display_name,
-        display_value=str(case),
+        display_value=str(value),
         kind=VariableKind.Other,
         display_type="property",
         type_info="property",
     )
-
-    result = _summarize_variable(display_name, case)
-
-    assert_variable_equal(result, expected)
 
 
 #
@@ -890,60 +577,43 @@ def test_summarize_property(case: property) -> None:
 
 
 @pytest.mark.parametrize(
-    "case",
+    "value",
     [
         np.array([1, 2, 3], dtype=np.int64),  # 1D
         np.array([[1, 2, 3], [4, 5, 6]], dtype=np.int64),  # 2D
     ],
 )
-def test_summarize_numpy_array(case: np.ndarray) -> None:
-    display_name = "xNumpyArray"
-    shape = case.shape
+def test_inspect_numpy_array(value: np.ndarray) -> None:
+    shape = value.shape
     display_shape = f"({shape[0]})" if len(shape) == 1 else str(tuple(shape))
-    expected = Variable(
-        access_key=encode_access_key(display_name),
-        size=0,
-        display_name=display_name,
-        display_value=np.array2string(case, separator=","),
+    verify_inspector(
+        value=value,
+        display_value=np.array2string(value, separator=","),
         kind=VariableKind.Collection,
         display_type=f"numpy.int64 {display_shape}",
         type_info="numpy.ndarray",
         has_children=True,
-        has_viewer=False,
         is_truncated=True,
         length=shape[0],
     )
 
-    result = _summarize_variable(display_name, case)
-
-    assert_variable_equal(result, expected)
-
 
 @pytest.mark.parametrize(
-    "case",
+    "value",
     [
         np.array(1, dtype=np.int64),
     ],
 )
-def test_summarize_numpy_array_0d(case: np.ndarray) -> None:
-    display_name = "xNumpyArray0d"
-    expected = Variable(
-        access_key=encode_access_key(display_name),
-        size=0,
-        has_viewer=False,
-        display_name=display_name,
-        display_value=np.array2string(case, separator=","),
+def test_inspect_numpy_array_0d(value: np.ndarray) -> None:
+    verify_inspector(
+        value=value,
+        display_value=np.array2string(value, separator=","),
         kind=VariableKind.Number,
         display_type=f"numpy.int64",
         type_info="numpy.ndarray",
-        has_children=False,
         is_truncated=True,
         length=0,
     )
-
-    result = _summarize_variable(display_name, case)
-
-    assert_variable_equal(result, expected)
 
 
 #
@@ -951,15 +621,11 @@ def test_summarize_numpy_array_0d(case: np.ndarray) -> None:
 #
 
 
-def test_summarize_pandas_dataframe() -> None:
-    case = pd.DataFrame({"a": [1, 2], "b": ["3", "4"]})
-
-    display_name = "xPandasDataFrame"
-    rows, cols = case.shape
-    expected = Variable(
-        access_key=encode_access_key(display_name),
-        size=0,
-        display_name=display_name,
+def test_inspect_pandas_dataframe() -> None:
+    value = pd.DataFrame({"a": [1, 2], "b": ["3", "4"]})
+    rows, cols = value.shape
+    verify_inspector(
+        value=value,
         display_value=f"[{rows} rows x {cols} columns] pandas.core.frame.DataFrame",
         kind=VariableKind.Table,
         display_type=f"DataFrame [{rows}x{cols}]",
@@ -970,13 +636,9 @@ def test_summarize_pandas_dataframe() -> None:
         length=rows,
     )
 
-    result = _summarize_variable(display_name, case)
-
-    assert_variable_equal(result, expected)
-
 
 @pytest.mark.parametrize(
-    "case",
+    "value",
     [
         pd.RangeIndex(0, 2),
         pd.Index([0, 1]),
@@ -984,62 +646,41 @@ def test_summarize_pandas_dataframe() -> None:
         pd.MultiIndex.from_tuples([(0, "a"), (1, "b"), (2, "c")]),
     ],
 )
-def test_summarize_pandas_index(case: pd.Index) -> None:
-    display_name = "xPandasIndex"
-    (rows,) = case.shape
-    not_range_index = not isinstance(case, pd.RangeIndex)
-    expected = Variable(
-        access_key=encode_access_key(display_name),
-        size=0,
-        display_name=display_name,
-        display_value=str(case.to_list() if not_range_index else case),
+def test_inspect_pandas_index(value: pd.Index) -> None:
+    (rows,) = value.shape
+    not_range_index = not isinstance(value, pd.RangeIndex)
+    verify_inspector(
+        value=value,
+        display_value=str(value.to_list() if not_range_index else value),
         kind=VariableKind.Map,
-        display_type=f"{case.dtype} [{rows}]",
-        type_info=get_qualname(case),
+        display_type=f"{value.dtype} [{rows}]",
+        type_info=get_qualname(value),
         has_children=not_range_index,
-        has_viewer=False,
         is_truncated=not_range_index,
         length=rows,
     )
 
-    result = _summarize_variable(display_name, case)
 
-    assert_variable_equal(result, expected)
-
-
-def test_summarize_pandas_series() -> None:
-    case = pd.Series({"a": 0, "b": 1})
-
-    display_name = "xPandasSeries"
-    (rows,) = case.shape
-    expected = Variable(
-        access_key=encode_access_key(display_name),
-        size=0,
-        display_name=display_name,
+def test_inspect_pandas_series() -> None:
+    value = pd.Series({"a": 0, "b": 1})
+    (rows,) = value.shape
+    verify_inspector(
+        value=value,
         display_value="[0, 1]",
         kind=VariableKind.Map,
         display_type=f"int64 [{rows}]",
         type_info="pandas.core.series.Series",
         has_children=True,
-        has_viewer=False,
         is_truncated=True,
         length=rows,
     )
 
-    result = _summarize_variable(display_name, case)
 
-    assert_variable_equal(result, expected)
-
-
-def test_summarize_polars_dataframe() -> None:
-    case = pl.DataFrame({"a": [1, 2], "b": [3, 4]})
-
-    display_name = "xPolarsDataFrame"
-    rows, cols = case.shape
-    expected = Variable(
-        access_key=encode_access_key(display_name),
-        size=0,
-        display_name=display_name,
+def test_inspect_polars_dataframe() -> None:
+    value = pl.DataFrame({"a": [1, 2], "b": [3, 4]})
+    rows, cols = value.shape
+    verify_inspector(
+        value=value,
         display_value=f"[{rows} rows x {cols} columns] polars.dataframe.frame.DataFrame",
         kind=VariableKind.Table,
         display_type=f"DataFrame [{rows}x{cols}]",
@@ -1050,37 +691,24 @@ def test_summarize_polars_dataframe() -> None:
         length=rows,
     )
 
-    result = _summarize_variable(display_name, case)
 
-    assert_variable_equal(result, expected)
-
-
-def test_summarize_polars_series() -> None:
-    case = pl.Series([0, 1])
-
-    display_name = "xPolarsSeries"
-    (rows,) = case.shape
-    expected = Variable(
-        access_key=encode_access_key(display_name),
-        size=0,
-        display_name=display_name,
+def test_inspect_polars_series() -> None:
+    value = pl.Series([0, 1])
+    (rows,) = value.shape
+    verify_inspector(
+        value=value,
         display_value="[0, 1]",
         kind=VariableKind.Map,
         display_type=f"Int64 [{rows}]",
         type_info="polars.series.series.Series",
         has_children=True,
-        has_viewer=False,
         is_truncated=True,
         length=rows,
     )
 
-    result = _summarize_variable(display_name, case)
-
-    assert_variable_equal(result, expected)
-
 
 @pytest.mark.parametrize(
-    ("cls", "value"),
+    ("cls", "data"),
     [
         (pd.Series, {"a": 0, "b": 1}),
         (pl.Series, [0, 1]),
@@ -1095,17 +723,41 @@ def test_summarize_polars_series() -> None:
         (np.array, [[0, 1], [2, 3]]),  # 2D
     ],
 )
-def test_summarize_children(cls: Type, value: Any) -> None:
-    case = cls(value)
+def test_get_items(cls: Type, data: Any) -> None:
+    parent = cls(data)
+    inspector = get_inspector(parent)
 
-    inspector = get_inspector(case)
-    summary = inspector.summarize_children(case, _summarize_variable)
+    items = list(inspector.get_items())
 
-    keys = value.keys() if isinstance(value, dict) else range(len(value))
-    assert_variables_equal(
-        summary,
-        [not_none(_summarize_variable(key, case[key])) for key in keys],
-    )
+    expected_keys = data.keys() if isinstance(data, dict) else range(len(data))
+    assert len(items) == len(expected_keys)
+    for (key, value), expected_key in zip(items, expected_keys):
+        expected_value = parent[expected_key]
+        assert key == expected_key
+        assert get_inspector(value).equals(expected_value)
+
+
+@pytest.mark.parametrize(
+    ("value", "key", "expected"),
+    [
+        (helper, "fn_no_args", helper.fn_no_args),
+        (pd.Series({"a": 0, "b": 1}), "a", 0),
+        (pl.Series([0, 1]), 0, 0),
+        (pd.DataFrame({"a": [1, 2], "b": ["3", "4"]}), "a", pd.Series([1, 2], name="a")),
+        (pl.DataFrame({"a": [1, 2], "b": ["3", "4"]}), "a", pl.Series(values=[1, 2], name="a")),
+        (pd.Index([0, 1]), 0, 0),
+        (
+            pd.Index([datetime.datetime(2021, 1, 1), datetime.datetime(2021, 1, 2)]),
+            0,
+            datetime.datetime(2021, 1, 1),
+        ),
+        (np.array([0, 1]), 0, 0),  # 1D
+        (np.array([[0, 1], [2, 3]]), 0, [0, 1]),  # 2D
+    ],
+)
+def test_get_child(value: Any, key: Any, expected: Any) -> None:
+    child = get_inspector(value).get_child(key)
+    assert get_inspector(child).equals(expected)
 
 
 @pytest.mark.parametrize(
@@ -1118,91 +770,6 @@ def test_summarize_children(cls: Type, value: Any) -> None:
         (pd.Index([0, 1]), 16),
     ],
 )
-def test_pandas_polars_get_size(value: Type, expected: int) -> None:
+def test_pandas_polars_get_size(value: Any, expected: int) -> None:
     inspector = get_inspector(value)
-    assert inspector.get_size(value) == expected
-
-
-@pytest.mark.parametrize(
-    "case",
-    BOOL_CASES
-    + STRING_CASES
-    + INT_CASES
-    + NUMPY_SCALAR_CASES
-    + FLOAT_CASES
-    + COMPLEX_CASES
-    + BYTES_CASES
-    + RANGE_CASES
-    + TIMESTAMP_CASES,
-)
-def test_encode_decode_access_key(case: Any) -> None:
-    """
-    Test that we can encode and decode to recovery supported data types.
-    """
-    access_key = encode_access_key(case)
-    result = decode_access_key(access_key)
-    # Handle the float('nan') case since nan != nan
-    if isinstance(case, float) and math.isnan(case):
-        assert math.isnan(result)
-    else:
-        assert result == case
-
-
-@pytest.mark.parametrize(
-    "case",
-    [
-        bytearray(),
-        [],
-        set(),
-        L(),
-        pd.DataFrame(),
-        pd.Series(),
-        pl.DataFrame(),
-        pl.Series(),
-        np.array([]),
-    ],
-)
-def test_encode_access_key_not_hashable_error(case: Any) -> None:
-    """
-    Encoding an access key of an unhashable type raises an error.
-    """
-    with pytest.raises(TypeError):
-        encode_access_key(case)
-
-
-@pytest.mark.parametrize(
-    "case",
-    [
-        torch.tensor([]) if torch else None,
-        lambda x: x,
-    ],
-)
-def test_encode_access_key_not_implemented_error(case: Any) -> None:
-    """
-    Encoding an access key of an unsupported type raises an error.
-    """
-    access_key = None
-
-    with pytest.raises(NotImplementedError):
-        access_key = encode_access_key(case)
-
-    if access_key is not None:
-        with pytest.raises(NotImplementedError):
-            decode_access_key(access_key)
-
-
-@pytest.mark.parametrize(
-    "type_name",
-    [
-        # for Python 3.12
-        "torch.Tensor" if torch else "None",
-        "function",
-    ],
-)
-def test_decode_access_key_not_implemented_error(type_name: str) -> None:
-    """
-    Decoding an access key of an unsupported type raises an error.
-    """
-    access_key = json.dumps({"type": type_name, "data": None})
-    with pytest.raises(NotImplementedError):
-        decode_access_key(access_key)
+    assert inspector.get_size() == expected

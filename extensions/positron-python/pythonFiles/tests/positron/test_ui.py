@@ -16,8 +16,8 @@ try:
 except ImportError:
     torch = None
 
-from positron.ui import UiService
 from positron.positron_ipkernel import PositronIPyKernel, PositronShell
+from positron.ui import UiService
 from positron.utils import alias_home
 
 from .conftest import DummyComm

@@ -11,7 +11,7 @@ import pandas as pd
 import pytest
 
 from positron.help import HelpService, help
-from positron.help_comm import HelpFrontendEvent, HelpBackendRequest
+from positron.help_comm import HelpBackendRequest, HelpFrontendEvent
 
 from .conftest import DummyComm
 from .utils import json_rpc_request

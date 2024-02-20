@@ -9,16 +9,11 @@ import logging
 from typing import Callable, Generic, Optional, Type, TypeVar
 
 import comm
+
+from . import data_explorer_comm, help_comm, plot_comm, ui_comm, variables_comm
 from ._vendor.pydantic import ValidationError
 from ._vendor.pydantic.generics import GenericModel
-
-from . import data_explorer_comm
-from . import help_comm
-from . import plot_comm
-from . import variables_comm
-from . import ui_comm
 from .utils import JsonData, JsonRecord
-
 
 logger = logging.getLogger(__name__)
 

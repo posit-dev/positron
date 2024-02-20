@@ -13,11 +13,15 @@ import pandas as pd
 import polars as pl
 import pytest
 
-from positron.inspectors import encode_access_key, get_inspector
+from positron.access_keys import encode_access_key
 from positron.positron_comm import JsonRpcErrorCode
 from positron.positron_ipkernel import PositronIPyKernel
 from positron.utils import JsonRecord, not_none
-from positron.variables import VariablesService, _summarize_variable
+from positron.variables import (
+    VariablesService,
+    _summarize_children,
+    _summarize_variable,
+)
 
 from .conftest import DummyComm, PositronShell
 from .utils import (
@@ -270,8 +274,7 @@ def test_handle_inspect_2d(
         )
         variables_comm.handle_msg(msg)
 
-        inspector = get_inspector(x[key])
-        children = inspector.summarize_children(x[key], _summarize_variable)
+        children = _summarize_children(x[key])
         assert variables_comm.messages == [
             json_rpc_response(
                 {

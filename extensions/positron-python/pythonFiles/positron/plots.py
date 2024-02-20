@@ -13,8 +13,8 @@ from IPython.core.formatters import format_display_data
 
 from .plot_comm import PlotBackendMessageContent, PlotResult, RenderRequest
 from .positron_comm import CommMessage, JsonRpcErrorCode, PositronComm
-from .widget import _WIDGET_MIME_TYPE
 from .utils import JsonRecord
+from .widget import _WIDGET_MIME_TYPE
 
 logger = logging.getLogger(__name__)
 
