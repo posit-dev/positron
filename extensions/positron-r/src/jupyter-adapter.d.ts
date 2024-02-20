@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
@@ -106,7 +106,7 @@ export interface JupyterAdapterApi extends vscode.Disposable {
 		metadata: positron.LanguageRuntimeMetadata,
 		dynState: positron.LanguageRuntimeDynState,
 		extra?: JupyterKernelExtra,
-	): positron.LanguageRuntimeSession;
+	): JupyterLanguageRuntimeSession;
 
 	/**
 	 * Finds an available TCP port for a server

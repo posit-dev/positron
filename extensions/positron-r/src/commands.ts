@@ -5,7 +5,7 @@
 import * as vscode from 'vscode';
 import * as positron from 'positron';
 import { timeout } from './util';
-import { getRunningRRuntime, checkInstalled } from './runtime';
+import { getRunningRRuntime, checkInstalled } from './session';
 import { getRPackageName } from './contexts';
 import { getRPackageTasks } from './tasks';
 import { randomUUID } from 'crypto';

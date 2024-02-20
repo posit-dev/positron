@@ -7,7 +7,7 @@ import * as positron from 'positron';
 import * as path from 'path';
 import * as os from 'os';
 import * as fs from 'fs';
-import { getRunningRRuntime } from './runtime';
+import { getRunningRRuntime } from './session';
 import { timeout } from './util';
 import { randomUUID } from 'crypto';
 

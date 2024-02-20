@@ -12,7 +12,7 @@ import * as positron from 'positron';
 import * as crypto from 'crypto';
 
 import { RInstallation, getRHomePath } from './r-installation';
-import { RRuntime, createJupyterKernelExtra, createJupyterKernelSpec } from './runtime';
+import { RSession, createJupyterKernelExtra, createJupyterKernelSpec } from './session';
 import { RRuntimeManager } from './runtime-manager';
 
 const initialDynState = {
@@ -54,7 +54,7 @@ export class RRuntimeProvider implements positron.LanguageRuntimeProvider {
 		}
 
 		// No existing runtime with this ID; create a new one.
-		const runtime = new RRuntime(this.context, kernelSpec, runtimeMetadata,
+		const runtime = new RSession(this.context, kernelSpec, runtimeMetadata,
 			initialDynState, extra);
 		RRuntimeManager.instance.setRuntime(runtimeMetadata.runtimeId, runtime);
 		return runtime;
@@ -240,7 +240,7 @@ export async function* rRuntimeDiscoverer(
 		const extra = createJupyterKernelExtra();
 
 		// Create an adapter for the kernel to fulfill the LanguageRuntime interface.
-		const runtime = new RRuntime(context, kernelSpec, metadata, initialDynState, extra);
+		const runtime = new RSession(context, kernelSpec, metadata, initialDynState, extra);
 		RRuntimeManager.instance.setRuntime(metadata.runtimeId, runtime);
 		yield runtime;
 	}

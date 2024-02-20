@@ -2,7 +2,7 @@
  *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
-import { RRuntime } from './runtime';
+import { RSession } from './session';
 
 /**
  * Manages all the registered R runtimes. We keep our own references to each
@@ -14,7 +14,7 @@ export class RRuntimeManager {
 	private static _instance: RRuntimeManager;
 
 	/// Map of runtime IDs to RRuntime instances
-	private _runtimes: Map<string, RRuntime> = new Map();
+	private _runtimes: Map<string, RSession> = new Map();
 
 	/// The last binpath that was used
 	private _lastBinpath = '';
@@ -38,7 +38,7 @@ export class RRuntimeManager {
 	 * @param id The ID of the runtime to get
 	 * @returns The runtime. Throws an error if the runtime doesn't exist.
 	 */
-	getRuntime(id: string): RRuntime {
+	getRuntime(id: string): RSession {
 		const runtime = this._runtimes.get(id);
 		if (!runtime) {
 			throw new Error(`Runtime ${id} not found.`);
@@ -53,7 +53,7 @@ export class RRuntimeManager {
 	 * @param id The runtime's ID
 	 * @param runtime The runtime.
 	 */
-	setRuntime(id: string, runtime: RRuntime): void {
+	setRuntime(id: string, runtime: RSession): void {
 		if (this._runtimes.has(id)) {
 			throw new Error(`Runtime ${id} already registered.`);
 		}

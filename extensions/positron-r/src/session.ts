@@ -7,7 +7,7 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import PQueue from 'p-queue';
 
-import { JupyterAdapterApi, JupyterKernelSpec, JupyterLanguageRuntime, JupyterKernelExtra } from './jupyter-adapter';
+import { JupyterAdapterApi, JupyterKernelSpec, JupyterLanguageRuntimeSession, JupyterKernelExtra } from './jupyter-adapter';
 import { ArkLsp, LspState } from './lsp';
 import { delay, whenTimeout, timeout } from './util';
 import { ArkAttachOnStartup, ArkDelayStartup } from './startup';
@@ -26,7 +26,7 @@ interface RPackageInstallation {
  * A Positron language runtime that wraps a Jupyter kernel and a Language Server
  * Protocol client.
  */
-export class RRuntime implements positron.LanguageRuntimeSession, vscode.Disposable {
+export class RSession implements positron.LanguageRuntimeSession, vscode.Disposable {
 
 	/** The Language Server Protocol client wrapper */
 	private _lsp: ArkLsp;
@@ -34,8 +34,8 @@ export class RRuntime implements positron.LanguageRuntimeSession, vscode.Disposa
 	/** Queue for message handlers */
 	private _queue: PQueue;
 
-	/** The Jupyter kernel-based implementation of the Language Runtime API */
-	private _kernel?: JupyterLanguageRuntime;
+	/** The Jupyter kernel-based session implementing the Language Runtime API */
+	private _kernel?: JupyterLanguageRuntimeSession;
 
 	/** The emitter for language runtime messages */
 	private _messageEmitter =
@@ -62,6 +62,7 @@ export class RRuntime implements positron.LanguageRuntimeSession, vscode.Disposa
 	private _packageCache = new Array<RPackageInstallation>();
 
 	constructor(
+		readonly sessionId: string,
 		readonly context: vscode.ExtensionContext,
 		readonly kernelSpec: JupyterKernelSpec,
 		readonly metadata: positron.LanguageRuntimeMetadata,
@@ -285,18 +286,6 @@ export class RRuntime implements positron.LanguageRuntimeSession, vscode.Disposa
 		}
 	}
 
-	clone(metadata: positron.LanguageRuntimeMetadata, notebook: vscode.NotebookDocument): positron.LanguageRuntime {
-		// eslint-disable-next-line @typescript-eslint/naming-convention
-		const kernelSpec: JupyterKernelSpec = { ...this.kernelSpec, display_name: metadata.runtimeName };
-		return new RRuntime(
-			this.context,
-			kernelSpec,
-			metadata,
-			{ ...this.dynState },
-			createJupyterKernelExtra(),
-			notebook);
-	}
-
 	async dispose() {
 		// Clean up the console width listener
 		this._consoleWidthDisposable?.dispose();
@@ -397,7 +386,7 @@ export class RRuntime implements positron.LanguageRuntimeSession, vscode.Disposa
 		return attached;
 	}
 
-	private async createKernel(): Promise<JupyterLanguageRuntime> {
+	private async createKernel(): Promise<JupyterLanguageRuntimeSession> {
 		const ext = vscode.extensions.getExtension('vscode.jupyter-adapter');
 		if (!ext) {
 			throw new Error('Jupyter Adapter extension not found');
@@ -406,7 +395,8 @@ export class RRuntime implements positron.LanguageRuntimeSession, vscode.Disposa
 			await ext.activate();
 		}
 		this.adapterApi = ext?.exports as JupyterAdapterApi;
-		const kernel = this.adapterApi.adaptKernel(
+		const kernel = this.adapterApi.createSession(
+			this.sessionId,
 			this.kernelSpec,
 			this.metadata,
 			this.dynState,
@@ -570,7 +560,7 @@ export class RRuntime implements positron.LanguageRuntimeSession, vscode.Disposa
 	}
 }
 
-export async function getRunningRRuntime(): Promise<RRuntime> {
+export async function getRunningRRuntime(): Promise<RSession> {
 	const runningRuntimes = await positron.runtime.getRunningRuntimes('r');
 	if (!runningRuntimes || !runningRuntimes.length) {
 		throw new Error('Cannot get running runtime as there is no R interpreter running.');
@@ -647,7 +637,7 @@ export function createJupyterKernelSpec(context: vscode.ExtensionContext, rHomeP
 	return kernelSpec;
 }
 
-export async function checkInstalled(pkgName: string, pkgVersion?: string, runtime?: RRuntime) {
+export async function checkInstalled(pkgName: string, pkgVersion?: string, runtime?: RSession) {
 	runtime = runtime || await getRunningRRuntime();
 	return runtime.checkInstalled(pkgName, pkgVersion);
 }
