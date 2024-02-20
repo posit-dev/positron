@@ -1,0 +1,16 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *--------------------------------------------------------------------------------------------*/
+
+.data-grid-row-header
+.content
+.text {
+	font-size: 75%;
+	font-weight: 600;
+	overflow: hidden;
+	text-align: center;
+	margin: 0 4px 0 4px;
+	white-space: nowrap;
+	line-height: normal;
+	text-overflow: ellipsis;
+}

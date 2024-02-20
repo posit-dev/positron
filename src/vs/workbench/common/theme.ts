@@ -1815,15 +1815,23 @@ export const POSITRON_DATA_GRID_SORT_INDEX_FOREGROUND_COLOR = registerColor('pos
 // < --- Positron Data Explorer --- >
 
 // Positron data explorer background color.
-export const POSITRON_DATA_TOOL_BACKGROUND_COLOR = registerColor('positronDataExplorer.background', {
+export const POSITRON_DATA_EXPLORER_BACKGROUND_COLOR = registerColor('positronDataExplorer.background', {
 	dark: editorBackground,
 	light: editorBackground,
 	hcDark: editorBackground,
 	hcLight: editorBackground
 }, localize('positronDataExplorer.background', "Positron data explorer background color."));
 
+// Positron data explorer contrast background color.
+export const POSITRON_DATA_EXPLORER_CONTRAST_BACKGROUND_COLOR = registerColor('positronDataExplorer.contrastBackground', {
+	dark: lighten(editorBackground, 0.2),
+	light: darken(editorBackground, 0.02),
+	hcDark: editorBackground,
+	hcLight: editorBackground
+}, localize('positronDataExplorer.contrastBackground', "Positron data explorer contrast background color."));
+
 // Positron data explorer foreground color.
-export const POSITRON_DATA_TOOL_FOREGROUND_COLOR = registerColor('positronDataExplorer.foreground', {
+export const POSITRON_DATA_EXPLORER_FOREGROUND_COLOR = registerColor('positronDataExplorer.foreground', {
 	dark: editorForeground,
 	light: editorForeground,
 	hcDark: editorForeground,
@@ -1831,7 +1839,7 @@ export const POSITRON_DATA_TOOL_FOREGROUND_COLOR = registerColor('positronDataEx
 }, localize('positronDataExplorer.foreground', "Positron data explorer foreground color."));
 
 // Positron data explorer border color.
-export const POSITRON_DATA_TOOL_BORDER_COLOR = registerColor('positronDataExplorer.border', {
+export const POSITRON_DATA_EXPLORER_BORDER_COLOR = registerColor('positronDataExplorer.border', {
 	dark: tableColumnsBorder,
 	light: tableColumnsBorder,
 	hcDark: tableColumnsBorder,

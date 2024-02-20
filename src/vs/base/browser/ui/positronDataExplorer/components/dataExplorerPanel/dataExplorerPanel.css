@@ -4,7 +4,7 @@
 
 .data-explorer-container {
 	display: grid;
-	grid-template-rows: [data-explorer-actions] 64px [data-explorer] 1fr [data-explorer-summary] 24px [end];
+	grid-template-rows: [data-explorer-actions] 64px [data-explorer] 1fr [status-bar] 24px [end];
 }
 
 .data-explorer-container
@@ -16,12 +16,12 @@
 
 .data-explorer-container
 .data-explorer {
-	overflow: hidden;
 	/* Place the data-explorer in the data-explorer-container. */
-	grid-row: data-explorer / data-explorer-summary;
+	grid-row: data-explorer / status-bar;
 
 	/* Prevent 1fr from exceeding the parent height. */
 	min-height: 0;
+	overflow: hidden;
 
 	/* Grid display. Layout happens in code. */
 	display: grid;
