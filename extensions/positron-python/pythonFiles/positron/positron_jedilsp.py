@@ -479,7 +479,7 @@ def positron_completion_item_resolve(
     if is_found:
         inspector = get_inspector(obj)
         if isinstance(inspector, (BaseColumnInspector, BaseTableInspector)):
-            params.detail = inspector.get_display_type(obj)
+            params.detail = inspector.get_display_type()
 
             markup_kind = _choose_markup(server)
             # TODO: We may want to use get_display_value when we update inspectors to return

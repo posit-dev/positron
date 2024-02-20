@@ -10,17 +10,16 @@ from typing import Callable, Dict, List, Optional, Union
 from comm.base_comm import BaseComm
 
 from ._vendor.pydantic import BaseModel
-
+from .positron_comm import CommMessage, PositronComm
+from .third_party import np_, pd_, pl_, torch_
 from .ui_comm import (
     CallMethodParams,
     CallMethodRequest,
+    OpenEditorParams,
     UiBackendMessageContent,
     UiFrontendEvent,
-    OpenEditorParams,
     WorkingDirectoryParams,
 )
-from .positron_comm import CommMessage, PositronComm
-from .third_party import np_, pd_, pl_, torch_
 from .utils import JsonData, JsonRecord, alias_home
 
 logger = logging.getLogger(__name__)
