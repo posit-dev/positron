@@ -2,11 +2,11 @@
  *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
-import { Event } from 'vs/base/common/event';
+import { Emitter, Event } from 'vs/base/common/event';
 import { Disposable } from 'vs/base/common/lifecycle';
 import { generateUuid } from 'vs/base/common/uuid';
 import { IRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeClientInstance';
-import { ColumnSortKey, PositronDataExplorerComm, TableData, TableSchema } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
+import { ColumnSortKey, PositronDataExplorerComm, SchemaUpdateEvent, TableData, TableSchema } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
 
 /**
  * A data explorer client instance.
@@ -40,8 +40,22 @@ export class DataExplorerClientInstance extends Disposable {
 		this._positronDataExplorerComm = new PositronDataExplorerComm(client);
 		this._register(this._positronDataExplorerComm);
 
-		// Setup events.
+		// Close emitter
 		this.onDidClose = this._positronDataExplorerComm.onDidClose;
+
+		// Connect schema update emitter
+		this.onDidSchemaUpdate = this._schemaUpdateEmitter.event;
+
+		// Connect data update emitter
+		this.onDidDataUpdate = this._dataUpdateEmitter.event;
+
+		this._positronDataExplorerComm.onDidSchemaUpdate(async (e: SchemaUpdateEvent) => {
+			this._schemaUpdateEmitter.fire(e);
+		});
+
+		this._positronDataExplorerComm.onDidDataUpdate(async (_evt) => {
+			this._dataUpdateEmitter.fire();
+		});
 	}
 
 	//#endregion Constructor & Dispose
@@ -95,10 +109,24 @@ export class DataExplorerClientInstance extends Disposable {
 
 	//#region Public Events
 
+
 	/**
-	 * The onDidClose event.
+	 * Event that fires when the data explorer is closed on the runtime side, as a result of
+	 * a dataset being deallocated or overwritten with a non-dataset.
 	 */
 	onDidClose: Event<void>;
+
+	/**
+	 * Event that fires when the schema has been updated.
+	 */
+	onDidSchemaUpdate: Event<SchemaUpdateEvent>;
+	private readonly _schemaUpdateEmitter = new Emitter<SchemaUpdateEvent>();
+
+	/**
+	 * Event that fires when the data has been updated.
+	 */
+	onDidDataUpdate: Event<void>;
+	private readonly _dataUpdateEmitter = new Emitter<void>();
 
 	//#endregion Public Events
 }
