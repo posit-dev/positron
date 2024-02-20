@@ -15,8 +15,8 @@ import { PositronActionBar } from 'vs/platform/positronActionBar/browser/positro
 import { ActionBarRegion } from 'vs/platform/positronActionBar/browser/components/actionBarRegion';
 import { ActionBarButton } from 'vs/platform/positronActionBar/browser/components/actionBarButton';
 import { ActionBarSeparator } from 'vs/platform/positronActionBar/browser/components/actionBarSeparator';
-import { usePositronDataExplorerContext } from 'vs/base/browser/ui/positronDataExplorer/positronDataExplorerContext';
 import { PositronActionBarContextProvider } from 'vs/platform/positronActionBar/browser/positronActionBarContext';
+import { usePositronDataExplorerContext } from 'vs/base/browser/ui/positronDataExplorer/positronDataExplorerContext';
 import { LayoutMenuButton } from 'vs/base/browser/ui/positronDataExplorer/components/dataExplorerActionBar/components/layoutMenuButton';
 
 /**
@@ -65,7 +65,9 @@ export const DataExplorerActionBar = (props: DataExplorerActionBarProps) => {
 							text={clearSortButtonTitle}
 							tooltip={clearSortButtonDescription}
 							ariaLabel={clearSortButtonDescription}
-							onPressed={() => context.instance.dataGridInstance.clearColumnSortKeys()}
+							onPressed={() =>
+								context.instance.tableDataDataGridInstance.clearColumnSortKeys()
+							}
 						/>
 						<ActionBarSeparator />
 					</ActionBarRegion>

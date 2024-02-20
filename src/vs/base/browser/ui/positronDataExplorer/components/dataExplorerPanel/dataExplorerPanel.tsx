@@ -14,11 +14,11 @@ import { DisposableStore } from 'vs/base/common/lifecycle';
 import { IReactComponentContainer } from 'vs/base/browser/positronReactRenderer';
 import { PositronDataExplorerProps } from 'vs/base/browser/ui/positronDataExplorer/positronDataExplorer';
 import { usePositronDataExplorerContext } from 'vs/base/browser/ui/positronDataExplorer/positronDataExplorerContext';
+import { StatusBar } from 'vs/base/browser/ui/positronDataExplorer/components/dataExplorerPanel/components/statusBar';
 import { VerticalSplitter, VerticalSplitterResizeParams } from 'vs/base/browser/ui/positronComponents/verticalSplitter';
+import { TableDataPanel } from 'vs/base/browser/ui/positronDataExplorer/components/dataExplorerPanel/components/tableDataPanel';
+import { TableSummaryPanel } from 'vs/base/browser/ui/positronDataExplorer/components/dataExplorerPanel/components/tableSummaryPanel';
 import { PositronDataExplorerLayout } from 'vs/workbench/services/positronDataExplorer/browser/interfaces/positronDataExplorerService';
-import { ColumnsPanel } from 'vs/base/browser/ui/positronDataExplorer/components/dataExplorerPanel/components/columnsPanel';
-import { DataGridPanel } from 'vs/base/browser/ui/positronDataExplorer/components/dataExplorerPanel/components/dataGridPanel';
-import { DataExplorerSummary } from 'vs/base/browser/ui/positronDataExplorer/components/dataExplorerPanel/components/dataExplorerSummary';
 
 /**
  * Constants.
@@ -70,10 +70,6 @@ export const DataExplorerPanel = (props: DataExplorerPanelProps) => {
 		// Return the cleanup function that will dispose of the event handlers.
 		return () => disposableStore.dispose();
 	}, []);
-
-	useEffect(() => {
-
-	}, [props.width, props.height]);
 
 	// Layout effect.
 	useEffect(() => {
@@ -154,6 +150,7 @@ export const DataExplorerPanel = (props: DataExplorerPanelProps) => {
 		context.instance.columnsWidthPercent = newColumnsWidth / props.width;
 	};
 
+	// Calculate the data explorer height.
 	const dataExplorerHeight = props.height - ACTIONS_HEIGHT - SUMMARY_HEIGHT;
 
 	// Render.
@@ -164,7 +161,10 @@ export const DataExplorerPanel = (props: DataExplorerPanelProps) => {
 			</div>
 			<div ref={dataExplorer} className='data-explorer'>
 				<div ref={column1} className='column-1'>
-					<ColumnsPanel width={columnsWidth} height={dataExplorerHeight} />
+					<TableSummaryPanel
+						width={columnsWidth}
+						height={dataExplorerHeight}
+					/>
 				</div>
 				<div ref={splitter} className='splitter'>
 					<VerticalSplitter
@@ -174,7 +174,7 @@ export const DataExplorerPanel = (props: DataExplorerPanelProps) => {
 					/>
 				</div>
 				<div ref={column2} className='column-2'>
-					<DataGridPanel
+					<TableDataPanel
 						width={layout === PositronDataExplorerLayout.ColumnsHidden ?
 							props.width :
 							props.width - columnsWidth
@@ -183,7 +183,7 @@ export const DataExplorerPanel = (props: DataExplorerPanelProps) => {
 					/>
 				</div>
 			</div>
-			<DataExplorerSummary />
+			<StatusBar />
 		</div>
 	);
 };
