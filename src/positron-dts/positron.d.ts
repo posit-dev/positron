@@ -396,6 +396,25 @@ declare module 'positron' {
 	}
 
 	/**
+	 * LanguageRuntimeSessionMode is an enum representing the set of possible
+	 * modes for a language runtime session.
+	 */
+	export enum LanguageRuntimeSessionMode {
+		/**
+		 * The runtime session is bound to a Positron console. Typically,
+		 * there's only one console session per language.
+		 */
+		Console = 'console',
+
+		/** The runtime session backs a notebook. */
+		Notebook = 'notebook',
+
+		/** The runtime session is a background session (not attached to any UI). */
+		Background = 'background',
+	}
+
+
+	/**
 	 * LanguageRuntimeDynState contains information about a language runtime that may
 	 * change after a runtime has started.
 	 */
@@ -564,6 +583,12 @@ declare module 'positron' {
 	export interface LanguageRuntimeSession extends vscode.Disposable {
 		/** The ID of this session */
 		readonly sessionId: string;
+
+		/** The user-facing name of this session */
+		readonly sessionName: string;
+
+		/** The session's mode */
+		readonly sessionMode: LanguageRuntimeSessionMode;
 
 		/** An object supplying metadata about the runtime */
 		readonly metadata: LanguageRuntimeMetadata;

@@ -87,6 +87,24 @@ export enum LanguageRuntimeMessageType {
 }
 
 /**
+ * LanguageRuntimeSessionMode is an enum representing the set of possible
+ * modes for a language runtime session.
+ */
+export enum LanguageRuntimeSessionMode {
+	/**
+	 * The runtime session is bound to a Positron console. Typically,
+	 * there's only one console session per language.
+	 */
+	Console = 'console',
+
+	/** The runtime session backs a notebook. */
+	Notebook = 'notebook',
+
+	/** The runtime session is a background session (not attached to any UI). */
+	Background = 'background',
+}
+
+/**
  * The set of stand stream names supported for streaming textual output.
  */
 export enum LanguageRuntimeStreamName {

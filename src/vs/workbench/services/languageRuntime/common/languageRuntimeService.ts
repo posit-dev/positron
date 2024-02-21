@@ -599,8 +599,15 @@ export interface ILanguageRuntimeSessionManager {
 		Promise<ILanguageRuntimeSession>;
 }
 
+/**
+ * LanguageRuntimeSessionMode is an enum representing the set of possible
+ * modes for a language runtime session.
+ */
 export enum LanguageRuntimeSessionMode {
-	/** The runtime session is bound to a Positron console. */
+	/**
+	 * The runtime session is bound to a Positron console. Typically,
+	 * there's only one console session per language.
+	 */
 	Console = 'console',
 
 	/** The runtime session backs a notebook. */
