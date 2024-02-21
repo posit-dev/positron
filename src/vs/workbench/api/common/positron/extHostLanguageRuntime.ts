@@ -400,10 +400,6 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		return runtime;
 	}
 
-	public getRunningRuntimes(languageId: string): Promise<positron.LanguageRuntimeMetadata[]> {
-		return this._proxy.$getRunningRuntimes(languageId);
-	}
-
 	/**
 	 * Registers a new language runtime manager with the extension host.
 	 *

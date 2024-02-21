@@ -18,7 +18,6 @@ export interface MainThreadLanguageRuntimeShape extends IDisposable {
 	$unregisterLanguageRuntime(handle: number): void;
 	$executeCode(languageId: string, code: string, focus: boolean, skipChecks?: boolean): Promise<boolean>;
 	$getPreferredRuntime(languageId: string): Promise<ILanguageRuntimeMetadata>;
-	$getRunningRuntimes(languageId: string): Promise<ILanguageRuntimeMetadata[]>;
 	$emitLanguageRuntimeMessage(handle: number, message: ILanguageRuntimeMessage): void;
 	$emitLanguageRuntimeState(handle: number, clock: number, state: RuntimeState): void;
 	$emitLanguageRuntimeExit(handle: number, exit: ILanguageRuntimeExit): void;
