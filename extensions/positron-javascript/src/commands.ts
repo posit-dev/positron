@@ -1,11 +1,14 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
 
 import * as positron from 'positron';
 import { JavaScriptLanguageRuntime } from './runtime';
+
+import fs = require('fs');
+import path = require('path');
 
 /**
  * Registers the extension's commands.
@@ -19,23 +22,61 @@ export async function registerCommands(context: vscode.ExtensionContext) {
 		}));
 }
 
-// Singleton instance of the JavaScript language runtime
-let _runtime: positron.LanguageRuntime | undefined;
+// The runtime manager
+let _manager: positron.LanguageRuntimeManager | undefined;
+
+const runtimeId = '13C365D6-099A-43EC-934D-353ADEFD798F';
+
+class JavascriptRuntimeManager implements positron.LanguageRuntimeManager {
+
+	constructor(private readonly _context: vscode.ExtensionContext) {
+	}
+
+	discoverRuntimes(): AsyncGenerator<positron.LanguageRuntimeMetadata, any, unknown> {
+		const version = process.version;
+
+		const iconSvgPath = path.join(this._context.extensionPath, 'resources', 'nodejs-icon.svg');
+
+		const runtimeShortName = version;
+		const runtimeName = `Node.js ${runtimeShortName}`;
+
+		return async function* () {
+			const metadata: positron.LanguageRuntimeMetadata = {
+				runtimePath: process.execPath,
+				runtimeId,
+				languageId: 'javascript',
+				languageName: 'Node.js',
+				runtimeName,
+				runtimeShortName,
+				runtimeSource: 'Node.js',
+				languageVersion: version,
+				base64EncodedIconSvg: fs.readFileSync(iconSvgPath).toString('base64'),
+				runtimeVersion: '0.0.1',
+				startupBehavior: positron.LanguageRuntimeStartupBehavior.Implicit,
+				extraData: {}
+			};
+			yield metadata;
+		}();
+	}
+
+	createSession(runtimeMetadata: positron.LanguageRuntimeMetadata, sessionId: string, sessionName: string, sessionMode: positron.LanguageRuntimeSessionMode): Thenable<positron.LanguageRuntimeSession> {
+		throw new Error('Method not implemented.');
+	}
+}
 
 function startExtHostRuntime(context: vscode.ExtensionContext): void {
-	if (_runtime) {
-		// If the runtime has already been created, just start it
-		_runtime.start();
+	if (_manager) {
+		positron.runtime.selectLanguageRuntime(runtimeId);
 	} else {
 		// Otherwise, try to create it
 		try {
-			_runtime = new JavaScriptLanguageRuntime(context);
+			_manager = new JavascriptRuntimeManager(context);
 			context.subscriptions.push(
-				positron.runtime.registerLanguageRuntime(_runtime));
+				positron.runtime.registerLanguageRuntimeManager(_manager));
 			// Start the runtime on the next tick
 			setTimeout(() => {
-				_runtime?.start();
-			}, 0);
+				positron.runtime.selectLanguageRuntime(runtimeId);
+			}, 250);
 		} catch (e) {
 			console.error(e);
 		}

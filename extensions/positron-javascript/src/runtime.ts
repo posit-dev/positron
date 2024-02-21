@@ -13,7 +13,7 @@ import { JavaScriptVariables } from './variables';
 /**
  * A Positron language runtime for JavaScript.
  */
-export class JavaScriptLanguageRuntime implements positron.LanguageRuntime {
+export class JavaScriptLanguageRuntime implements positron.LanguageRuntimeSession {
 
 	private readonly _onDidReceiveRuntimeMessage = new vscode.EventEmitter<positron.LanguageRuntimeMessage>();
 
@@ -28,7 +28,10 @@ export class JavaScriptLanguageRuntime implements positron.LanguageRuntime {
 	 */
 	private readonly _pendingRpcs: Array<string> = [];
 
-	constructor(readonly context: vscode.ExtensionContext) {
+	constructor(readonly sessionId: string,
+		readonly sessionName: string,
+		readonly sessionMode: positron.LanguageRuntimeSessionMode,
+		readonly context: vscode.ExtensionContext) {
 
 		const version = process.version;
 
@@ -48,7 +51,8 @@ export class JavaScriptLanguageRuntime implements positron.LanguageRuntime {
 			languageVersion: version,
 			base64EncodedIconSvg: fs.readFileSync(iconSvgPath).toString('base64'),
 			runtimeVersion: '0.0.1',
-			startupBehavior: positron.LanguageRuntimeStartupBehavior.Implicit
+			startupBehavior: positron.LanguageRuntimeStartupBehavior.Implicit,
+			extraData: {}
 		};
 
 		this.dynState = {
@@ -204,10 +208,6 @@ export class JavaScriptLanguageRuntime implements positron.LanguageRuntime {
 	forceQuit(): Thenable<void> {
 		// See notes on `interrupt()`
 		return Promise.resolve();
-	}
-
-	clone(): positron.LanguageRuntime {
-		return new JavaScriptLanguageRuntime(this.context);
 	}
 
 	dispose() { }
