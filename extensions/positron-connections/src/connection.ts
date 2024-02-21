@@ -7,6 +7,18 @@ import * as positron from 'positron';
 import path = require('path');
 
 /**
+ * Enumerates the possible types of connection icons
+ */
+enum ConnectionIcon {
+	Database = 'database',
+	Catalog = 'catalog',
+	Schema = 'schema',
+	Table = 'table',
+	View = 'view',
+	Field = 'field',
+}
+
+/**
  * Base class for connection items.
  */
 export class ConnectionItem {
@@ -31,14 +43,34 @@ export class ConnectionItem {
  * @param path The path to the node. This is represented as a list of tuples (name, type). Later,
  *   we can use the path to get the node children by doing something like
  * 	 `getChildren(schema='hello', table='world')`
+ * @param iconPath The path to an icon returned by the backend. If a path is not provided
+ *  by the backend, the kind is used instead, to look up an icon in the extension's media
+ * 	folder.
  */
 export class ConnectionItemNode extends ConnectionItem {
 	readonly kind: string;
 	readonly path: Array<{ name: string; kind: string }>;
+	iconPath?: string | vscode.Uri | { light: vscode.Uri; dark: vscode.Uri };
 	constructor(readonly name: string, kind: string, path: Array<{ name: string; kind: string }>, client: positron.RuntimeClientInstance) {
 		super(name, client);
 		this.kind = kind;
 		this.path = path;
+	}
+
+	async icon() {
+		if (this.iconPath) {
+			return this.iconPath;
+		}
+
+		const response = await this.client.performRpc({ msg_type: 'icon_request', path: this.path }) as any;
+
+		if (response.icon) {
+			this.iconPath = vscode.Uri.file(response.icon);
+			return this.iconPath;
+		}
+
+		this.iconPath = this.kind;
+		return this.iconPath;
 	}
 }
 
@@ -90,6 +122,9 @@ export class ConnectionItemsProvider implements vscode.TreeDataProvider<Connecti
 	// The list of active connections
 	private _connections: ConnectionItem[] = [];
 
+	// The list of icons bundled for connections
+	private _icons: { [key: string]: vscode.Uri } = {};
+
 	/**
 	 * Create a new ConnectionItemsProvider instance
 	 *
@@ -97,6 +132,9 @@ export class ConnectionItemsProvider implements vscode.TreeDataProvider<Connecti
 	 */
 	constructor(readonly context: vscode.ExtensionContext) {
 		this.onDidChangeTreeData = this._onDidChangeTreeData.event;
+		Object.values(ConnectionIcon).forEach((icon) => {
+			this._icons[icon] = vscode.Uri.file(path.join(context.extensionPath, 'media', `${icon}.svg`));
+		});
 	}
 
 	onDidChangeTreeData: vscode.Event<ConnectionItem | undefined> | undefined;
@@ -107,7 +145,7 @@ export class ConnectionItemsProvider implements vscode.TreeDataProvider<Connecti
 	 * @param item The item to get the tree item for
 	 * @returns A TreeItem for the item
 	 */
-	getTreeItem(item: ConnectionItem): vscode.TreeItem {
+	async getTreeItem(item: ConnectionItem): Promise<vscode.TreeItem> {
 		// Both databases and tables can be expanded.
 		const collapsibleState = item instanceof ConnectionItemNode;
 
@@ -119,11 +157,11 @@ export class ConnectionItemsProvider implements vscode.TreeDataProvider<Connecti
 
 		if (item instanceof ConnectionItemTable) {
 			// Set the icon for tables
-			treeItem.iconPath = vscode.Uri.file(path.join(this.context.extensionPath, 'media', 'table.svg'));
+			treeItem.iconPath = await this.getTreeItemIcon(item);
 			treeItem.contextValue = 'table';
 		} else if (item instanceof ConnectionItemNode) {
-			// Set the icon for databases
-			treeItem.iconPath = vscode.Uri.file(path.join(this.context.extensionPath, 'media', 'database.svg'));
+			// Set the icon for other levels in the hierarchy.
+			treeItem.iconPath = await this.getTreeItemIcon(item);
 		} else if (item instanceof ConnectionItemField) {
 			// Set the icon for fields
 			treeItem.iconPath = vscode.Uri.file(path.join(this.context.extensionPath, 'media', 'field.svg'));
@@ -137,6 +175,16 @@ export class ConnectionItemsProvider implements vscode.TreeDataProvider<Connecti
 		}
 
 		return treeItem;
+	}
+
+	async getTreeItemIcon(item: ConnectionItemNode): Promise<vscode.Uri | { light: vscode.Uri; dark: vscode.Uri }> {
+		const icon = await item.icon();
+
+		if (typeof icon === 'string') {
+			return this._icons[icon];
+		}
+
+		return icon;
 	}
 
 	/**
