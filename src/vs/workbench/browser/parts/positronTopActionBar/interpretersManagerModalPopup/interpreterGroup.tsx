@@ -32,20 +32,28 @@ export const InterpreterGroup = (props: InterpreterGroupProps) => {
 	 * @returns A value which indicates whether an alternate runtime is alive.
 	 */
 	const isAlternateRuntimeAlive = () => {
-		// If any of the alternate runtimes are alive, return true.
+		// Get the active sessions.
+		const activeSessions = props.languageRuntimeService.activeSessions;
+
+		// Cross-reference them against the alternate runtimes. If any of the
+		// alternate runtimes are alive, return true.
 		for (const runtime of props.interpreterGroup.alternateRuntimes) {
-			const runtimeState = runtime.getRuntimeState();
-			switch (runtimeState) {
-				case RuntimeState.Initializing:
-				case RuntimeState.Starting:
-				case RuntimeState.Ready:
-				case RuntimeState.Idle:
-				case RuntimeState.Busy:
-				case RuntimeState.Restarting:
-				case RuntimeState.Exiting:
-				case RuntimeState.Offline:
-				case RuntimeState.Interrupting:
-					return true;
+			for (const session of activeSessions) {
+				if (session.metadata.runtimeId === runtime.runtimeId) {
+					const runtimeState = session.getRuntimeState();
+					switch (runtimeState) {
+						case RuntimeState.Initializing:
+						case RuntimeState.Starting:
+						case RuntimeState.Ready:
+						case RuntimeState.Idle:
+						case RuntimeState.Busy:
+						case RuntimeState.Restarting:
+						case RuntimeState.Exiting:
+						case RuntimeState.Offline:
+						case RuntimeState.Interrupting:
+							return true;
+					}
+				}
 			}
 		}
 
@@ -62,9 +70,10 @@ export const InterpreterGroup = (props: InterpreterGroupProps) => {
 		// Create the disposable store for cleanup.
 		const disposableStore = new DisposableStore();
 
-		// Add the onDidChangeRuntimeState event handler for the primary runtime.
+		// Add the onDidChangeRuntimeState event handler; when a runtime changes
+		// state, recompute the alive state of the alternate runtimes.
 		disposableStore.add(
-			props.interpreterGroup.primaryRuntime.onDidChangeRuntimeState(runtimeState => {
+			props.languageRuntimeService.onDidChangeRuntimeState(e => {
 				const alternateRuntimeAlive = isAlternateRuntimeAlive();
 				setAlternateRuntimeAlive(alternateRuntimeAlive);
 				if (alternateRuntimeAlive) {
@@ -72,17 +81,6 @@ export const InterpreterGroup = (props: InterpreterGroupProps) => {
 				}
 			})
 		);
-
-		// Add the onDidChangeRuntimeState event handler for the alternate runtimes.
-		for (const runtime of props.interpreterGroup.alternateRuntimes) {
-			disposableStore.add(runtime.onDidChangeRuntimeState(runtimeState => {
-				const alternateRuntimeAlive = isAlternateRuntimeAlive();
-				setAlternateRuntimeAlive(alternateRuntimeAlive);
-				if (alternateRuntimeAlive) {
-					setShowAllVersions(true);
-				}
-			}));
-		}
 
 		// Return the cleanup function that will dispose of the event handlers.
 		return () => disposableStore.dispose();
@@ -103,7 +101,7 @@ export const InterpreterGroup = (props: InterpreterGroupProps) => {
 				<div className='secondary-interpreters'>
 					{props.interpreterGroup.alternateRuntimes.map(runtime =>
 						<SecondaryInterpreter
-							key={runtime.metadata.runtimeId}
+							key={runtime.runtimeId}
 							languageRuntimeService={props.languageRuntimeService}
 							runtime={runtime}
 							onStart={async () => await props.onStartRuntime(runtime)}

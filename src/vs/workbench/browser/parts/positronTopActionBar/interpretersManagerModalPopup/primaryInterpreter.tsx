@@ -9,7 +9,7 @@ import { localize } from 'vs/nls';
 import { DisposableStore } from 'vs/base/common/lifecycle';
 import { PositronButton } from 'vs/base/browser/ui/positronComponents/positronButton';
 import { InterpreterActions } from 'vs/workbench/browser/parts/positronTopActionBar/interpretersManagerModalPopup/interpreterActions';
-import { ILanguageRuntimeMetadata, ILanguageRuntimeService, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntimeMetadata, ILanguageRuntimeService, LanguageRuntimeSessionMode, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 
 /**
  * PrimaryInterpreterProps interface.
@@ -29,17 +29,34 @@ interface PrimaryInterpreterProps {
  * @returns The rendered component.
  */
 export const PrimaryInterpreter = (props: PrimaryInterpreterProps) => {
+	// Get a console session for this runtime, if it exists.
+	const consoleSession = props.languageRuntimeService.getConsoleSession(props.runtime.runtimeId);
+
 	// State hooks.
-	const [runtimeState, setRuntimeState] = useState(props.runtime.getRuntimeState());
+	const [runtimeState, setRuntimeState] = useState(consoleSession ? consoleSession.getRuntimeState() :
+		RuntimeState.Uninitialized);
+	const [session, setSession] = useState(consoleSession);
 
 	// Main useEffect hook.
 	useEffect(() => {
 		// Create the disposable store for cleanup.
 		const disposableStore = new DisposableStore();
 
-		// Add the onDidChangeRuntimeState event handler.
-		disposableStore.add(props.runtime.onDidChangeRuntimeState(runtimeState => {
-			setRuntimeState(runtimeState);
+		// If a console session exists, listen for changes to its runtime state.
+		if (session) {
+			disposableStore.add(session.onDidChangeRuntimeState(runtimeState => {
+				setRuntimeState(runtimeState);
+			}));
+		}
+
+		// Listen for new console sessions that are started. When a new session
+		// is started for the runtime that this component is managing, attach to
+		// it.
+		disposableStore.add(props.languageRuntimeService.onWillStartRuntime(session => {
+			if (session.sessionMode === LanguageRuntimeSessionMode.Console &&
+				session.metadata.runtimeId === props.runtime.runtimeId) {
+				setSession(session);
+			}
 		}));
 
 		// Return the cleanup function that will dispose of the event handlers.
@@ -61,7 +78,10 @@ export const PrimaryInterpreter = (props: PrimaryInterpreterProps) => {
 					<div className='line light' title={props.runtime.runtimePath}>{props.runtime.runtimePath}</div>
 				</div>
 			</div>
-			<InterpreterActions runtime={props.runtime} onStart={props.onStart}>
+			<InterpreterActions
+				runtime={props.runtime}
+				onStart={props.onStart}
+				languageRuntimeService={props.languageRuntimeService}>
 				{props.enableShowAllVersions &&
 					<PositronButton className='action-button' onPressed={props.onShowAllVersions}>
 						<span

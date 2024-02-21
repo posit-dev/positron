@@ -4,11 +4,11 @@
 
 import 'vs/css!./secondaryInterpreter';
 import * as React from 'react';
-import { useEffect, useState } from 'react'; // eslint-disable-line no-duplicate-imports
+import { useEffect } from 'react'; // eslint-disable-line no-duplicate-imports
 import { DisposableStore } from 'vs/base/common/lifecycle';
 import { PositronButton } from 'vs/base/browser/ui/positronComponents/positronButton';
 import { InterpreterActions } from 'vs/workbench/browser/parts/positronTopActionBar/interpretersManagerModalPopup/interpreterActions';
-import { ILanguageRuntimeMetadata, ILanguageRuntimeService, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntimeMetadata, ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 
 /**
  * SecondaryInterpreterProps interface.
@@ -27,7 +27,11 @@ interface SecondaryInterpreterProps {
  */
 export const SecondaryInterpreter = (props: SecondaryInterpreterProps) => {
 	// State hooks.
-	const [runtimeState, setRuntimeState] = useState(props.runtime.getRuntimeState());
+
+	// TODO: Need to get the runtime state from the service.
+	// How should this work?
+
+	// const [runtimeState, setRuntimeState] = useState(props.runtime.getRuntimeState());
 
 	// Main useEffect hook.
 	useEffect(() => {
@@ -35,9 +39,12 @@ export const SecondaryInterpreter = (props: SecondaryInterpreterProps) => {
 		const disposableStore = new DisposableStore();
 
 		// Add the onDidChangeRuntimeState event handler.
+		/*
+		TODO: When the runtime state changes, update the state.
 		disposableStore.add(props.runtime.onDidChangeRuntimeState(runtimeState => {
 			setRuntimeState(runtimeState);
 		}));
+		*/
 
 		// Return the cleanup function that will dispose of the event handlers.
 		return () => disposableStore.dispose();
@@ -48,7 +55,7 @@ export const SecondaryInterpreter = (props: SecondaryInterpreterProps) => {
 		<PositronButton className='secondary-interpreter' onPressed={props.onActivate}>
 			<div></div>
 			<div className='running-indicator'>
-				{runtimeState !== RuntimeState.Uninitialized && runtimeState !== RuntimeState.Exited &&
+				{false &&
 					<div className='running-icon codicon codicon-circle-large-filled'></div>
 				}
 			</div>
@@ -59,7 +66,10 @@ export const SecondaryInterpreter = (props: SecondaryInterpreterProps) => {
 					<div className='line light' title={props.runtime.runtimePath}>{props.runtime.runtimePath}</div>
 				</div>
 			</div>
-			<InterpreterActions runtime={props.runtime} onStart={props.onStart} />
+			<InterpreterActions
+				languageRuntimeService={props.languageRuntimeService}
+				runtime={props.runtime}
+				onStart={props.onStart} />
 		</PositronButton>
 	);
 };
