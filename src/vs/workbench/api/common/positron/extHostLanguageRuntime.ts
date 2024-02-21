@@ -404,9 +404,16 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		return this._proxy.$getRunningRuntimes(languageId);
 	}
 
+	/**
+	 * Registers a new language runtime manager with the extension host.
+	 *
+	 * @param extension The extension that is registering the manager
+	 * @param manager The manager to register
+	 * @returns A disposable that unregisters the manager when disposed
+	 */
 	public registerLanguageRuntimeManager(
 		extension: IExtensionDescription,
-		manager: positron.LanguageRuntimeManager): void {
+		manager: positron.LanguageRuntimeManager): IDisposable {
 		if (this._runtimeDiscoveryComplete) {
 			// We missed the discovery phase. Invoke the provider's async
 			// generator and register each runtime it returns right away.
@@ -423,6 +430,14 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		}
 
 		this._runtimeManagers.push({ manager, extension });
+
+		return new Disposable(() => {
+			// Remove the manager from the list of registered managers
+			const index = this._runtimeManagers.findIndex(m => m.manager === manager);
+			if (index >= 0) {
+				this._runtimeManagers.splice(index, 1);
+			}
+		});
 	}
 
 	public registerLanguageRuntime(

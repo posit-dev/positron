@@ -1035,9 +1035,10 @@ declare module 'positron' {
 			skipChecks?: boolean): Thenable<boolean>;
 
 		/**
-		 * Register a language runtime manager with Positron.
+		 * Register a language runtime manager with Positron. Returns a
+		 * disposable that unregisters the manager when disposed.
 		 */
-		export function registerLanguageRuntimeManager(manager: LanguageRuntimeManager): void;
+		export function registerLanguageRuntimeManager(manager: LanguageRuntimeManager): vscode.Disposable;
 
 		/**
 		 * List all registered runtimes.
