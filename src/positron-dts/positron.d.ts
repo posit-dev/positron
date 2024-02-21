@@ -534,8 +534,15 @@ declare module 'positron' {
 		 *
 		 * @param runtimeMetadata One of the runtime metadata items returned by `discoverRuntimes`.
 		 * @param sessionId A unique identifer, to be assigned to the new session.
+		 * @param sessionName A human-readable name for the new session.
+		 * @param sessionMode The mode in which the session is to be run.
+		 *
+		 * @returns A Thenable that resolves with the new session, or rejects with an error.
 		 */
-		createSession(runtimeMetadata: LanguageRuntimeMetadata, sessionId: string):
+		createSession(runtimeMetadata: LanguageRuntimeMetadata,
+			sessionId: string,
+			sessionName: string,
+			sessionMode: LanguageRuntimeSessionMode):
 			Thenable<LanguageRuntimeSession>;
 
 		// TODO: Need a way to reconnect to a session

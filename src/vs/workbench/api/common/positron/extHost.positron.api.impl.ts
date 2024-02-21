@@ -72,9 +72,8 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 				return extHostLanguageRuntime.executeCode(languageId, code, focus, skipChecks);
 			},
 			registerLanguageRuntimeManager(
-				languageId: string,
 				manager: positron.LanguageRuntimeManager): void {
-				return extHostLanguageRuntime.registerLanguageRuntimeDiscoverer(extension, languageId, manager);
+				return extHostLanguageRuntime.registerLanguageRuntimeManager(extension, manager);
 			},
 			getRegisteredRuntimes(): Thenable<positron.LanguageRuntimeMetadata[]> {
 				return extHostLanguageRuntime.getRegisteredRuntimes();
@@ -158,6 +157,7 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			RuntimeMethodErrorCode: extHostTypes.RuntimeMethodErrorCode,
 			LanguageRuntimeMessageType: extHostTypes.LanguageRuntimeMessageType,
 			LanguageRuntimeStreamName: extHostTypes.LanguageRuntimeStreamName,
+			LanguageRuntimeSessionMode: extHostTypes.LanguageRuntimeSessionMode,
 			RuntimeCodeExecutionMode: extHostTypes.RuntimeCodeExecutionMode,
 			RuntimeErrorBehavior: extHostTypes.RuntimeErrorBehavior,
 			LanguageRuntimeStartupBehavior: extHostTypes.LanguageRuntimeStartupBehavior,

@@ -72,16 +72,19 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 	 */
 	$createLanguageRuntimeSession(
 		metadata: positron.LanguageRuntimeMetadata,
-		sessionId: string): Promise<number> {
+		sessionId: string,
+		sessionName: string,
+		sessionMode: positron.LanguageRuntimeSessionMode): Promise<number> {
 		return new Promise((resolve, reject) => {
 			// Look up the session manager responsible for starting this runtime
 			const sessionManager = this._runtimeManagersByRuntimeId.get(metadata.runtimeId);
 			if (sessionManager) {
-				sessionManager.manager.createSession(metadata, sessionId).then((session) => {
-					resolve(this.attachToSession(session));
-				}, (err) => {
-					reject(err);
-				});
+				sessionManager.manager.createSession(metadata, sessionId, sessionName, sessionMode)
+					.then((session) => {
+						resolve(this.attachToSession(session));
+					}, (err) => {
+						reject(err);
+					});
 			} else {
 				reject(new Error(`No session manager found for language ID '${metadata.languageId}'.`));
 			}
