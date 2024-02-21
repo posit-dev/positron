@@ -63,9 +63,8 @@ export class DataExplorerClientInstance extends Disposable {
 	 * Gets the schema.
 	 * @returns A promise that resolves to the table schema.
 	 */
-	async getSchema(): Promise<TableSchema> {
-		// TODO: implement paging
-		return this._positronDataExplorerComm.getSchema(0, 10000);
+	async getSchema(startIndex: number, numColumns: number): Promise<TableSchema> {
+		return this._positronDataExplorerComm.getSchema(startIndex, numColumns);
 	}
 
 	/**

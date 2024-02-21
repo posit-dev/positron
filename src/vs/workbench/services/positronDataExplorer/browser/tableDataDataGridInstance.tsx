@@ -9,11 +9,18 @@ import * as React from 'react';
 import { IColumnSortKey } from 'vs/base/browser/ui/positronDataGrid/interfaces/columnSortKey';
 import { DataGridInstance } from 'vs/base/browser/ui/positronDataGrid/classes/dataGridInstance';
 import { TableDataCell } from 'vs/workbench/services/positronDataExplorer/browser/components/tableDataCell';
-import { ColumnSortKey, TableSchema } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
 import { TableDataRowHeader } from 'vs/workbench/services/positronDataExplorer/browser/components/tableDataRowHeader';
 import { PositronDataExplorerColumn } from 'vs/workbench/services/positronDataExplorer/browser/positronDataExplorerColumn';
 import { DataExplorerClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeDataExplorerClient';
-import { FetchRange, FetchResult, PositronDataExplorerCache } from 'vs/workbench/services/positronDataExplorer/common/positronDataExplorerCache';
+import { ColumnSortKey } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
+import {
+	DataFetchRange,
+	FetchedData,
+	FetchedSchema,
+	TableDataCache,
+	TableSchemaCache,
+	SchemaFetchRange
+} from 'vs/workbench/services/positronDataExplorer/common/positronDataExplorerCache';
 
 /**
  * TableDataDataGridInstance class.
@@ -26,11 +33,11 @@ export class TableDataDataGridInstance extends DataGridInstance {
 	 */
 	private readonly _dataExplorerClientInstance: DataExplorerClientInstance;
 
-	private _tableSchema?: TableSchema;
+	private _dataCache?: TableDataCache;
+	private _lastFetchedData?: FetchedData;
 
-	private _cache?: PositronDataExplorerCache;
-
-	private _lastFetchResult?: FetchResult;
+	private _schemaCache?: TableSchemaCache;
+	private _lastFetchedSchema?: FetchedSchema;
 
 	//#endregion Private Properties
 
@@ -75,52 +82,46 @@ export class TableDataDataGridInstance extends DataGridInstance {
 	 * Gets the number of columns.
 	 */
 	get columns() {
-		return this._tableSchema ? this._tableSchema.total_num_columns : 0;
+		return this._lastFetchedSchema ? this._lastFetchedSchema.schema.total_num_columns : 0;
 	}
 
 	/**
 	 * Gets the number of rows.
 	 */
 	get rows() {
-		return this._tableSchema ? this._tableSchema.num_rows : 0;
+		return this._lastFetchedSchema ? this._lastFetchedSchema.schema.num_rows : 0;
 	}
 
 	/**
 	 *
 	 */
 	initialize() {
-		this._dataExplorerClientInstance.getSchema().then(tableSchema => {
+		this._schemaCache = new TableSchemaCache(
+			async (req: SchemaFetchRange) => {
+				return this._dataExplorerClientInstance.getSchema(req.startIndex,
+					req.endIndex - req.startIndex);
+			}
+		);
+		this._schemaCache.initialize().then(async (_) => {
+			this._lastFetchedSchema = await this._schemaCache?.fetch({ startIndex: 0, endIndex: 1000 });
 
-			console.log(`++++++++++ Schema returned with ${tableSchema.columns.length} columns`);
-
-			this._tableSchema = tableSchema;
-
-			this._cache = new PositronDataExplorerCache(
-				[tableSchema.num_rows, tableSchema.total_num_columns],
-				async (req: FetchRange) => {
-					const start = new Date().getTime();
-
+			this._dataCache = new TableDataCache(
+				this._schemaCache?.tableShape!,
+				async (req: DataFetchRange) => {
 					// Build the column indices to fetch.
 					const columnIndices: number[] = [];
 					for (let i = req.columnStartIndex; i < req.columnEndIndex; i++) {
 						columnIndices.push(i);
 					}
-
-					const data = await this._dataExplorerClientInstance.getDataValues(
+					return this._dataExplorerClientInstance.getDataValues(
 						req.rowStartIndex,
 						req.rowEndIndex - req.rowStartIndex,
 						columnIndices
 					);
-					const end = new Date().getTime();
-					console.log(`Fetching data took ${end - start}ms`);
-					return data;
-				}
-			);
+				});
 
 			// Fetch data.
 			this.fetchData();
-		}).catch(x => {
-
 		});
 	}
 
@@ -156,15 +157,18 @@ export class TableDataDataGridInstance extends DataGridInstance {
 	 * @returns The column.
 	 */
 	column(columnIndex: number) {
-		if (!this._tableSchema) {
+		if (!this._lastFetchedSchema) {
 			return undefined;
 		}
 
-		if (columnIndex < 0 || columnIndex > this._tableSchema.columns.length) {
+		if (columnIndex < this._lastFetchedSchema.startIndex ||
+			columnIndex >= this._lastFetchedSchema.endIndex) {
 			return undefined;
 		}
 
-		return new PositronDataExplorerColumn(this._tableSchema.columns[columnIndex]);
+		const cachedSchemaIndex = columnIndex - this._lastFetchedSchema.startIndex;
+
+		return new PositronDataExplorerColumn(this._lastFetchedSchema.schema.columns[cachedSchemaIndex]);
 	}
 
 	/**
@@ -174,35 +178,35 @@ export class TableDataDataGridInstance extends DataGridInstance {
 	 */
 	rowHeader(rowIndex: number) {
 		// If the table schema hasn't been loaded, return undefined.
-		if (!this._tableSchema) {
+		if (!this._lastFetchedSchema) {
 			return undefined;
 		}
 
 		// If there isn't any cached data, return undefined.
-		if (!this._lastFetchResult) {
+		if (!this._lastFetchedData) {
 			return undefined;
 		}
 
 		// If the row isn't cached, return undefined.
-		if (rowIndex < this._lastFetchResult.rowStartIndex ||
-			rowIndex > this._lastFetchResult.rowEndIndex
+		if (rowIndex < this._lastFetchedData.rowStartIndex ||
+			rowIndex > this._lastFetchedData.rowEndIndex
 		) {
 			return undefined;
 		}
 
 		// If there are no row labels, return the TableDataRowHeader.
-		if (!this._lastFetchResult.data.row_labels) {
+		if (!this._lastFetchedData.data.row_labels) {
 			return (
 				<TableDataRowHeader value={`${rowIndex + 1}`} />
 			);
 		}
 
 		// Calculate the cached row index.
-		const cachedRowIndex = rowIndex - this._lastFetchResult.rowStartIndex;
+		const cachedRowIndex = rowIndex - this._lastFetchedData.rowStartIndex;
 
 		// Return the TableDataRowHeader.
 		return (
-			<TableDataRowHeader value={this._lastFetchResult.data.row_labels[0][cachedRowIndex]} />
+			<TableDataRowHeader value={this._lastFetchedData.data.row_labels[0][cachedRowIndex]} />
 		);
 	}
 
@@ -213,39 +217,31 @@ export class TableDataDataGridInstance extends DataGridInstance {
 	 * @returns The cell value.
 	 */
 	cell(columnIndex: number, rowIndex: number): JSX.Element | undefined {
-		// If the table schema hasn't been loaded, return undefined.
-		if (!this._tableSchema) {
+		// We need the data and schema to render the cell
+		if (!this._lastFetchedData || !this._lastFetchedSchema) {
 			return undefined;
 		}
 
-		// If there isn't any cached data, return undefined.
-		if (!this._lastFetchResult) {
-			return undefined;
-		}
-
-		// If the column schema hasn't been loaded, return undefined.
-		if (columnIndex >= this._tableSchema.columns.length) {
-			return undefined;
-		}
-
-		// Get the column schema.
-		const columnSchema = this._tableSchema.columns[columnIndex];
-
-		// If the cell isn't cached, return undefined.
-		if (columnIndex < this._lastFetchResult.columnStartIndex ||
-			columnIndex >= this._lastFetchResult.columnEndIndex ||
-			rowIndex < this._lastFetchResult.rowStartIndex ||
-			rowIndex >= this._lastFetchResult.rowEndIndex
-		) {
+		// Check that we have the schema and data values for this cell
+		if (columnIndex < this._lastFetchedSchema.startIndex ||
+			columnIndex >= this._lastFetchedSchema.endIndex ||
+			columnIndex < this._lastFetchedData.columnStartIndex ||
+			columnIndex >= this._lastFetchedData.columnEndIndex ||
+			rowIndex < this._lastFetchedData.rowStartIndex ||
+			rowIndex >= this._lastFetchedData.rowEndIndex) {
 			return undefined;
 		}
 
 		// Calculate the cache indices.
-		const cachedColumnIndex = columnIndex - this._lastFetchResult.columnStartIndex;
-		const cachedRowIndex = rowIndex - this._lastFetchResult.rowStartIndex;
+		const cachedSchemaIndex = columnIndex - this._lastFetchedSchema.startIndex;
+		const cachedColumnIndex = columnIndex - this._lastFetchedData.columnStartIndex;
+		const cachedRowIndex = rowIndex - this._lastFetchedData.rowStartIndex;
+
+		// Get the column schema.
+		const columnSchema = this._lastFetchedSchema.schema.columns[cachedSchemaIndex];
 
 		// Get the cached value.
-		const value = this._lastFetchResult.data.columns[cachedColumnIndex][cachedRowIndex];
+		const value = this._lastFetchedData.data.columns[cachedColumnIndex][cachedRowIndex];
 
 		// Return the TableDataCell.
 		return (
@@ -260,26 +256,22 @@ export class TableDataDataGridInstance extends DataGridInstance {
 
 	private resetCache() {
 		// Clear the data cache
-		this._cache?.clear();
-		this._lastFetchResult = undefined;
-	}
-
-	private needToFetch(range: FetchRange) {
-		if (!this._lastFetchResult) {
-			return true;
-		} else {
-			return !PositronDataExplorerCache.rangeIncludes(range, this._lastFetchResult);
-		}
+		this._dataCache?.clear();
+		this._lastFetchedData = undefined;
 	}
 
 	private async doFetchData(): Promise<void> {
-		// If the table schema hasn't loaded, we cannot fetch data.
-		if (!this._tableSchema) {
-			return;
+		const schemaRange: SchemaFetchRange = {
+			startIndex: this.firstColumnIndex,
+			endIndex: this.firstColumnIndex + this.visibleColumns + 1
+		};
+
+		if (!this._lastFetchedSchema ||
+			!this._schemaCache?.rangeIncludes(schemaRange, this._lastFetchedSchema)) {
+			this._lastFetchedSchema = await this._schemaCache?.fetch(schemaRange);
 		}
 
-		// Calculate the fetch range.
-		const fetchRange: FetchRange = {
+		const dataRange: DataFetchRange = {
 			rowStartIndex: this.firstRowIndex,
 			rowEndIndex: this.firstRowIndex + this.visibleRows,
 			columnStartIndex: this.firstColumnIndex,
@@ -289,8 +281,9 @@ export class TableDataDataGridInstance extends DataGridInstance {
 			columnEndIndex: this.firstColumnIndex + this.visibleColumns + 1
 		};
 
-		if (this.needToFetch(fetchRange)) {
-			this._lastFetchResult = await this._cache?.fetch(fetchRange);
+		if (!this._lastFetchedData ||
+			!this._dataCache?.rangeIncludes(dataRange, this._lastFetchedData)) {
+			this._lastFetchedData = await this._dataCache?.fetch(dataRange);
 		}
 
 		// Fire the onDidUpdate event.
