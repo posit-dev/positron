@@ -11,7 +11,7 @@ import { PositronDataExplorerInstance } from 'vs/workbench/services/positronData
 import { DataExplorerClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeDataExplorerClient';
 import { IPositronDataExplorerService } from 'vs/workbench/services/positronDataExplorer/browser/interfaces/positronDataExplorerService';
 import { IPositronDataExplorerInstance } from 'vs/workbench/services/positronDataExplorer/browser/interfaces/positronDataExplorerInstance';
-import { ILanguageRuntime, ILanguageRuntimeService, RuntimeClientType } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntimeService, ILanguageRuntimeSession, RuntimeClientType } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { INotificationService } from 'vs/platform/notification/common/notification';
 
 /**
@@ -51,7 +51,7 @@ class DataExplorerRuntime extends Disposable {
 	 * @param runtime
 	 */
 	constructor(
-		private readonly _runtime: ILanguageRuntime,
+		private readonly _session: ILanguageRuntimeSession,
 		private readonly _notificationService: INotificationService
 	) {
 		// Call the disposable constrcutor.
@@ -60,7 +60,7 @@ class DataExplorerRuntime extends Disposable {
 		/**
 		 * Add the onDidCreateClientInstance event handler.
 		 */
-		this._register(this._runtime.onDidCreateClientInstance(async e => {
+		this._register(this._session.onDidCreateClientInstance(async e => {
 			try {
 				// Ignore client types we don't process.
 				if (e.client.getClientType() !== RuntimeClientType.DataExplorer) {
@@ -100,9 +100,9 @@ class PositronDataExplorerService extends Disposable implements IPositronDataExp
 	//#region Private Properties
 
 	/**
-	 * A map of the data explorer runtimes keyed by runtime ID.
+	 * A map of the data explorer runtimes keyed by session ID.
 	 */
-	private readonly _dataExplorerRuntimes = new Map<string, DataExplorerRuntime>();
+	private readonly _dataExplorerSessions = new Map<string, DataExplorerRuntime>();
 
 	/**
 	 * The Positron data explorer instance map keyed by
@@ -127,13 +127,13 @@ class PositronDataExplorerService extends Disposable implements IPositronDataExp
 		super();
 
 		// Add a data explorer runtime for each running runtime.
-		this._languageRuntimeService.runningRuntimes.forEach(runtime => {
-			this.addDataExplorerRuntime(runtime);
+		this._languageRuntimeService.activeSessions.forEach(session => {
+			this.addDataExplorerSession(session);
 		});
 
 		// Register the onWillStartRuntime event handler.
-		this._register(this._languageRuntimeService.onWillStartRuntime(runtime => {
-			this.addDataExplorerRuntime(runtime);
+		this._register(this._languageRuntimeService.onWillStartRuntime(session => {
+			this.addDataExplorerSession(session);
 		}));
 
 		// Register the onDidStartRuntime event handler.
@@ -162,12 +162,12 @@ class PositronDataExplorerService extends Disposable implements IPositronDataExp
 	 */
 	public override dispose(): void {
 		// Dispose of the data explorer runtimes.
-		this._dataExplorerRuntimes.forEach(dataExplorerRuntime => {
+		this._dataExplorerSessions.forEach(dataExplorerRuntime => {
 			dataExplorerRuntime.dispose();
 		});
 
 		// Clear the data explorer runtimes.
-		this._dataExplorerRuntimes.clear();
+		this._dataExplorerSessions.clear();
 
 		// Call the base class's dispose method.
 		super.dispose();
@@ -220,17 +220,18 @@ class PositronDataExplorerService extends Disposable implements IPositronDataExp
 
 	/**
 	 * Adds a data explorer runtime.
-	 * @param runtime The runtime.
+	 *
+	 * @param session The runtime session.
 	 */
-	private addDataExplorerRuntime(runtime: ILanguageRuntime) {
+	private addDataExplorerSession(session: ILanguageRuntimeSession) {
 		// If the runtime has already been added, return.
-		if (this._dataExplorerRuntimes.has(runtime.metadata.runtimeId)) {
+		if (this._dataExplorerSessions.has(session.sessionId)) {
 			return;
 		}
 
 		// Create and add the data explorer runtime.
-		const dataExplorerRuntime = new DataExplorerRuntime(runtime, this._notificationService);
-		this._dataExplorerRuntimes.set(runtime.metadata.runtimeId, dataExplorerRuntime);
+		const dataExplorerRuntime = new DataExplorerRuntime(session, this._notificationService);
+		this._dataExplorerSessions.set(session.sessionId, dataExplorerRuntime);
 
 		dataExplorerRuntime.onDidOpenDataExplorerClient(dataExplorerClientInstance => {
 			this.open(dataExplorerClientInstance);
