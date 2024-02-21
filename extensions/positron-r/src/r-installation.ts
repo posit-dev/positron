@@ -7,7 +7,7 @@ import * as semver from 'semver';
 import * as path from 'path';
 import * as fs from 'fs';
 import { extractValue, readLines } from './util';
-import { Logger } from './extension';
+import { LOGGER } from './extension';
 
 export interface RMetadataExtra {
 	readonly homepath: string;
@@ -43,7 +43,7 @@ export class RInstallation {
 	 *   R
 	 */
 	constructor(pth: string, current: boolean = false) {
-		Logger.info(`Candidate R binary at ${pth}`);
+		LOGGER.info(`Candidate R binary at ${pth}`);
 
 		this.binpath = pth;
 		this.current = current;
@@ -68,13 +68,13 @@ export class RInstallation {
 		// We have actually seen an R "installation" that doesn't have the base packages!
 		// https://github.com/posit-dev/positron/issues/1314
 		if (!fs.existsSync(descPath)) {
-			Logger.info(`Can\'t find DESCRIPTION for the utils package at ${descPath}`);
+			LOGGER.info(`Can\'t find DESCRIPTION for the utils package at ${descPath}`);
 			return;
 		}
 		const descLines = readLines(descPath);
 		const targetLine2 = descLines.filter(line => line.match('Built'))[0];
 		if (!targetLine2) {
-			Logger.info(`Can't find 'Built' field for the utils package in its DESCRIPTION: ${descPath}`);
+			LOGGER.info(`Can't find 'Built' field for the utils package in its DESCRIPTION: ${descPath}`);
 			return;
 		}
 		// macOS arm64: Built: R 4.3.1; aarch64-apple-darwin20; 2023-06-16 21:52:54 UTC; unix
@@ -112,7 +112,7 @@ export class RInstallation {
 
 		this.valid = true;
 
-		Logger.info(`R installation discovered: ${JSON.stringify(this, null, 2)}`);
+		LOGGER.info(`R installation discovered: ${JSON.stringify(this, null, 2)}`);
 	}
 }
 
@@ -124,12 +124,12 @@ export function getRHomePath(binPath: string): string | undefined {
 		const binLines = readLines(binPath);
 		const re = new RegExp('Shell wrapper for R executable');
 		if (!binLines.some(x => re.test(x))) {
-			Logger.info('Binary is not a shell script wrapping the executable');
+			LOGGER.info('Binary is not a shell script wrapping the executable');
 			return undefined;
 		}
 		const targetLine = binLines.find(line => line.match('R_HOME_DIR'));
 		if (!targetLine) {
-			Logger.info('Can\'t determine R_HOME_DIR from the binary');
+			LOGGER.info('Can\'t determine R_HOME_DIR from the binary');
 			return undefined;
 		}
 		// macOS: R_HOME_DIR=/Library/Frameworks/R.framework/Versions/4.3-arm64/Resources
@@ -138,7 +138,7 @@ export function getRHomePath(binPath: string): string | undefined {
 		const R_HOME_DIR = extractValue(targetLine, 'R_HOME_DIR');
 		const homepath = R_HOME_DIR;
 		if (homepath === '') {
-			Logger.info('Can\'t determine R_HOME_DIR from the binary');
+			LOGGER.info('Can\'t determine R_HOME_DIR from the binary');
 			return undefined;
 		}
 		return homepath;

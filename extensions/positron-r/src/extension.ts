@@ -10,15 +10,16 @@ import { registerFormatter } from './formatting';
 import { providePackageTasks } from './tasks';
 import { setContexts } from './contexts';
 import { setupTestExplorer, refreshTestExplorer } from './testing/testing';
+import { RRuntimeManager } from './runtime-manager';
 
-export const Logger = vscode.window.createOutputChannel('Positron R Extension', { log: true });
+export const LOGGER = vscode.window.createOutputChannel('Positron R Extension', { log: true });
 
 export function activate(context: vscode.ExtensionContext) {
 	const onDidChangeLogLevel = (logLevel: vscode.LogLevel) => {
-		Logger.appendLine(vscode.l10n.t('Log level: {0}', vscode.LogLevel[logLevel]));
+		LOGGER.appendLine(vscode.l10n.t('Log level: {0}', vscode.LogLevel[logLevel]));
 	};
-	context.subscriptions.push(Logger.onDidChangeLogLevel(onDidChangeLogLevel));
-	onDidChangeLogLevel(Logger.logLevel);
+	context.subscriptions.push(LOGGER.onDidChangeLogLevel(onDidChangeLogLevel));
+	onDidChangeLogLevel(LOGGER.logLevel);
 
 	positron.runtime.registerLanguageRuntimeManager(new RRuntimeManager(context));
 

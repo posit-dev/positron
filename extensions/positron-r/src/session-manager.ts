@@ -6,7 +6,7 @@ import * as positron from 'positron';
 import { RSession } from './session';
 
 /**
- * Manages all the R sessions. We keep our own references to each sessions in a
+ * Manages all the R sessions. We keep our own references to each session in a
  * singleton instance of this class so that we can invoke methods/check status
  * directly, without going through Positron's API.
  */

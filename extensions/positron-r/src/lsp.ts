@@ -6,7 +6,7 @@ import * as vscode from 'vscode';
 import * as positron from 'positron';
 import { PromiseHandles, timeout } from './util';
 import { RStatementRangeProvider } from './statement-range';
-import { Logger } from './extension';
+import { LOGGER } from './extension';
 
 import {
 	LanguageClient,
@@ -109,7 +109,7 @@ export class ArkLsp implements vscode.Disposable {
 		// With a `.` rather than a `-` so vscode-languageserver can look up related options correctly
 		const id = 'positron.r';
 
-		Logger.trace(`Creating Positron R ${this._version} language client (port ${port})...`);
+		LOGGER.trace(`Creating Positron R ${this._version} language client (port ${port})...`);
 		this._client = new LanguageClient(id, `Positron R Language Server (${this._version})`, serverOptions, clientOptions);
 
 		const out = new PromiseHandles<void>();
@@ -124,7 +124,7 @@ export class ArkLsp implements vscode.Disposable {
 					break;
 				case State.Running:
 					if (this._initializing) {
-						Logger.trace(`ARK (R ${this._version}) language client init successful`);
+						LOGGER.trace(`ARK (R ${this._version}) language client init successful`);
 						this._initializing = undefined;
 						if (this._client) {
 							// Register Positron-specific LSP extension methods
@@ -136,13 +136,13 @@ export class ArkLsp implements vscode.Disposable {
 					break;
 				case State.Stopped:
 					if (this._initializing) {
-						Logger.trace(`ARK (R ${this._version}) language client init failed`);
+						LOGGER.trace(`ARK (R ${this._version}) language client init failed`);
 						out.reject('Ark LSP client stopped before initialization');
 					}
 					this._state = LspState.stopped;
 					break;
 			}
-			Logger.trace(`ARK (R ${this._version}) language client state changed ${oldState} => ${this._state}`);
+			LOGGER.trace(`ARK (R ${this._version}) language client state changed ${oldState} => ${this._state}`);
 		}));
 
 		this._client.start();
