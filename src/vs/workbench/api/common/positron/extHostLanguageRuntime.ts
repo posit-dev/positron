@@ -486,10 +486,22 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 	 * Returns a Thenable that resolves with the ID of the newly created
 	 * session, or rejects with an error.
 	 */
-	public startLanguageRuntime(runtimeId: string,
+	public async startLanguageRuntime(runtimeId: string,
 		sessionName: string,
-		sessionMode: LanguageRuntimeSessionMode): Promise<void> {
-		return this._proxy.$startLanguageRuntime(runtimeId, sessionName, sessionMode);
+		sessionMode: LanguageRuntimeSessionMode): Promise<positron.LanguageRuntimeSession> {
+
+		// Start the runtime and get the session ID
+		const sessionId =
+			await this._proxy.$startLanguageRuntime(runtimeId, sessionName, sessionMode);
+
+		// The process of starting a session in Positron should have caused the
+		// runtime to be registered with the extension host, so we should be able
+		// to find it now.
+		const session = this._runtimeSessions.find(session => session.sessionId === sessionId);
+		if (!session) {
+			throw new Error(`Session ID '${sessionId}' not found.`);
+		}
+		return session;
 	}
 
 	/**

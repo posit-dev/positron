@@ -86,7 +86,7 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			},
 			startLanguageRuntime(runtimeId: string,
 				sessionName: string,
-				sessionMode: positron.LanguageRuntimeSessionMode): Thenable<string> {
+				sessionMode: positron.LanguageRuntimeSessionMode): Thenable<positron.LanguageRuntimeSession> {
 				return extHostLanguageRuntime.startLanguageRuntime(runtimeId,
 					sessionName,
 					sessionMode);
