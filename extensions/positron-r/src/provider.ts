@@ -11,55 +11,14 @@ import * as which from 'which';
 import * as positron from 'positron';
 import * as crypto from 'crypto';
 
-import { RInstallation, getRHomePath } from './r-installation';
+import { RInstallation, RMetadataExtra, getRHomePath } from './r-installation';
 import { RSession, createJupyterKernelExtra, createJupyterKernelSpec } from './session';
-import { RRuntimeManager } from './runtime-manager';
+import { RSessionManager } from './session-manager';
 
 const initialDynState = {
 	inputPrompt: '>',
 	continuationPrompt: '+',
 } as positron.LanguageRuntimeDynState;
-
-/**
- * Provides a single R language runtime for Positron; implements
- * positron.LanguageRuntimeProvider.
- *
- * @param context The extension context.
- */
-export class RRuntimeProvider implements positron.LanguageRuntimeProvider {
-
-	/**
-	 * Constructor.
-	 * @param context The extension context.
-	 */
-	constructor(
-		private readonly context: vscode.ExtensionContext
-	) { }
-
-	async provideLanguageRuntime(runtimeMetadata: positron.LanguageRuntimeMetadata, token: vscode.CancellationToken): Promise<positron.LanguageRuntime> {
-
-		const rHomePath = getRHomePath(runtimeMetadata.runtimePath);
-		if (!rHomePath) {
-			throw new Error(`Cannot find R_HOME for ${runtimeMetadata.runtimePath}`);
-		}
-		const kernelSpec = createJupyterKernelSpec(this.context,
-			rHomePath,
-			runtimeMetadata.runtimeName);
-
-		const extra = createJupyterKernelExtra();
-
-		// Use existing runtime if it present.
-		if (RRuntimeManager.instance.hasRuntime(runtimeMetadata.runtimeId)) {
-			return RRuntimeManager.instance.getRuntime(runtimeMetadata.runtimeId);
-		}
-
-		// No existing runtime with this ID; create a new one.
-		const runtime = new RSession(this.context, kernelSpec, runtimeMetadata,
-			initialDynState, extra);
-		RRuntimeManager.instance.setRuntime(runtimeMetadata.runtimeId, runtime);
-		return runtime;
-	}
-}
 
 /**
  * Discovers R language runtimes for Positron; implements
@@ -204,13 +163,6 @@ export async function* rRuntimeDiscoverer(
 		digest.update(rVersion);
 		const runtimeId = digest.digest('hex').substring(0, 32);
 
-		// If we already know about the runtime, skip it (it's already been
-		// registered). This can happen if the runtime was provided eagerly to
-		// Positron.
-		if (RRuntimeManager.instance.hasRuntime(runtimeId)) {
-			continue;
-		}
-
 		// Define the startup behavior; request immediate startup if this is the
 		// recommended runtime for the workspace.
 		const startupBehavior = recommendedForWorkspace ?
@@ -219,6 +171,12 @@ export async function* rRuntimeDiscoverer(
 
 		// Ensure we only recommend one runtime for the workspace.
 		recommendedForWorkspace = false;
+
+		// Save the R home path and binary path as extra data.
+		const extraData: RMetadataExtra = {
+			homepath: rInst.homepath,
+			binpath: rInst.binpath,
+		};
 
 		const metadata: positron.LanguageRuntimeMetadata = {
 			runtimeId,
@@ -234,15 +192,12 @@ export async function* rRuntimeDiscoverer(
 				fs.readFileSync(
 					path.join(context.extensionPath, 'resources', 'branding', 'r-icon.svg')
 				).toString('base64'),
-			startupBehavior
+			startupBehavior,
+			extraData
 		};
 
-		const extra = createJupyterKernelExtra();
-
 		// Create an adapter for the kernel to fulfill the LanguageRuntime interface.
-		const runtime = new RSession(context, kernelSpec, metadata, initialDynState, extra);
-		RRuntimeManager.instance.setRuntime(metadata.runtimeId, runtime);
-		yield runtime;
+		yield metadata;
 	}
 }
 

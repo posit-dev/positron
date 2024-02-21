@@ -15,7 +15,7 @@ import { RHtmlWidget, getResourceRoots } from './htmlwidgets';
 import { getArkKernelPath } from './kernel';
 import { randomUUID } from 'crypto';
 import { handleRCode } from './hyperlink';
-import { RRuntimeManager } from './runtime-manager';
+import { RSessionManager } from './session-manager';
 
 interface RPackageInstallation {
 	packageName: string;
@@ -63,6 +63,8 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 
 	constructor(
 		readonly sessionId: string,
+		readonly sessionName: string,
+		readonly sessionMode: positron.LanguageRuntimeSessionMode,
 		readonly context: vscode.ExtensionContext,
 		readonly kernelSpec: JupyterKernelSpec,
 		readonly metadata: positron.LanguageRuntimeMetadata,
@@ -187,7 +189,7 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 		if (!this._kernel) {
 			this._kernel = await this.createKernel();
 		}
-		RRuntimeManager.instance.setLastBinpath(this._kernel.metadata.runtimePath);
+		RSessionManager.instance.setLastBinpath(this._kernel.metadata.runtimePath);
 
 		// Register for console width changes, if we haven't already
 		if (!this._consoleWidthDisposable) {
@@ -560,16 +562,6 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 	}
 }
 
-export async function getRunningRRuntime(): Promise<RSession> {
-	const runningRuntimes = await positron.runtime.getRunningRuntimes('r');
-	if (!runningRuntimes || !runningRuntimes.length) {
-		throw new Error('Cannot get running runtime as there is no R interpreter running.');
-	}
-
-	// For now, there will be only one running R runtime:
-	return RRuntimeManager.instance.getRuntime(runningRuntimes[0].runtimeId);
-}
-
 export function createJupyterKernelExtra(): JupyterKernelExtra {
 	return {
 		attachOnStartup: new ArkAttachOnStartup(),
@@ -637,7 +629,12 @@ export function createJupyterKernelSpec(context: vscode.ExtensionContext, rHomeP
 	return kernelSpec;
 }
 
-export async function checkInstalled(pkgName: string, pkgVersion?: string, runtime?: RSession) {
-	runtime = runtime || await getRunningRRuntime();
-	return runtime.checkInstalled(pkgName, pkgVersion);
+export async function checkInstalled(pkgName: string,
+	pkgVersion?: string,
+	session?: RSession): Promise<boolean> {
+	session = session || RSessionManager.instance.getConsoleSession();
+	if (session) {
+		return session.checkInstalled(pkgName, pkgVersion);
+	}
+	throw new Error(`Cannot check install status of ${pkgName}; no R session available`);
 }

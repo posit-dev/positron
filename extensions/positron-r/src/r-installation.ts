@@ -9,6 +9,11 @@ import * as fs from 'fs';
 import { extractValue, readLines } from './util';
 import { Logger } from './extension';
 
+export interface RMetadataExtra {
+	readonly homepath: string;
+	readonly binpath: string;
+}
+
 /**
  * Represents a single installation of R on a user's system.
  */
