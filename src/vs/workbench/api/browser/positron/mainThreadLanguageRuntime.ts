@@ -1035,6 +1035,18 @@ export class MainThreadLanguageRuntime implements MainThreadLanguageRuntimeShape
 			'Extension-requested runtime selection via Positron API');
 	}
 
+	// Called by the extension host to start a previously registered language runtime
+	async $startLanguageRuntime(runtimeId: string,
+		sessionName: string,
+		sessionMode: LanguageRuntimeSessionMode): Promise<string> {
+		const sessionId = await this._languageRuntimeService.startNewRuntimeSession(
+			runtimeId,
+			sessionName,
+			sessionMode,
+			'Extension-requested runtime selection via Positron API');
+		return sessionId;
+	}
+
 	// Called by the extension host to restart a running language runtime
 	$restartLanguageRuntime(handle: number): Promise<void> {
 		return this._languageRuntimeService.restartRuntime(

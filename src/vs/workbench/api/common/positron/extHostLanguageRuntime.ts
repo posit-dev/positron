@@ -3,7 +3,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import type * as positron from 'positron';
-import { ILanguageRuntimeMessage, ILanguageRuntimeMessageCommClosed, ILanguageRuntimeMessageCommData, ILanguageRuntimeMessageCommOpen, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntimeMessage, ILanguageRuntimeMessageCommClosed, ILanguageRuntimeMessageCommData, ILanguageRuntimeMessageCommOpen, LanguageRuntimeSessionMode, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import * as extHostProtocol from './extHost.positron.protocol';
 import { Emitter } from 'vs/base/common/event';
 import { IDisposable } from 'vs/base/common/lifecycle';
@@ -474,6 +474,22 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 	 */
 	public selectLanguageRuntime(runtimeId: string): Promise<void> {
 		return this._proxy.$selectLanguageRuntime(runtimeId);
+	}
+
+	/**
+	 * Start a new session for a runtime previously registered with Positron.
+	 *
+	 * @param runtimeId The ID of the runtime to select and start.
+	 * @param sessionName A human-readable name for the new session.
+	 * @param sessionMode The mode in which the session is to be run.
+	 *
+	 * Returns a Thenable that resolves with the ID of the newly created
+	 * session, or rejects with an error.
+	 */
+	public startLanguageRuntime(runtimeId: string,
+		sessionName: string,
+		sessionMode: LanguageRuntimeSessionMode): Promise<void> {
+		return this._proxy.$startLanguageRuntime(runtimeId, sessionName, sessionMode);
 	}
 
 	/**

@@ -836,13 +836,17 @@ export interface ILanguageRuntimeService {
 	 * Starts a new session for a runtime.
 	 *
 	 * @param runtimeId The runtime identifier of the runtime to start.
+	 * @param sessionName A human-readable (displayed) name for the session to start.
 	 * @param sessionMode The mode of the session to start.
 	 * @param source The source of the request to start the runtime, for debugging purposes
 	 *  (not displayed to the user)
+	 *
+	 * Returns a promise that resolves to the session ID of the new session.
 	 */
 	startNewRuntimeSession(runtimeId: string,
+		sessionName: string,
 		sessionMode: LanguageRuntimeSessionMode,
-		source: string): Promise<void>;
+		source: string): Promise<string>;
 
 	/**
 	 * Restart a runtime session.

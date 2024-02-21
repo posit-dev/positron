@@ -379,6 +379,7 @@ class PositronConsoleService extends Disposable implements IPositronConsoleServi
 			this._logService.trace(`Language runtime ` +
 				`${formatLanguageRuntimeMetadata(languageRuntime)} automatically starting`);
 			await this._languageRuntimeService.startNewRuntimeSession(languageRuntime.runtimeId,
+				languageRuntime.runtimeName,
 				LanguageRuntimeSessionMode.Console,
 				`User executed code in language ${languageId}, and no running runtime was found ` +
 				`for the language.`);

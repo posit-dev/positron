@@ -84,6 +84,13 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			selectLanguageRuntime(runtimeId: string): Thenable<void> {
 				return extHostLanguageRuntime.selectLanguageRuntime(runtimeId);
 			},
+			startLanguageRuntime(runtimeId: string,
+				sessionName: string,
+				sessionMode: positron.LanguageRuntimeSessionMode): Thenable<string> {
+				return extHostLanguageRuntime.startLanguageRuntime(runtimeId,
+					sessionName,
+					sessionMode);
+			},
 			restartLanguageRuntime(runtimeId: string): Thenable<void> {
 				return extHostLanguageRuntime.restartLanguageRuntime(runtimeId);
 			},

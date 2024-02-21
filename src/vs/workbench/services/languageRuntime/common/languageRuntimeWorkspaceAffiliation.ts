@@ -111,6 +111,7 @@ export class LanguageRuntimeWorkspaceAffiliation extends Disposable {
 				}
 
 				this._runtimeService.startNewRuntimeSession(metadata.runtimeId,
+					metadata.runtimeName,
 					LanguageRuntimeSessionMode.Console,
 					`Affiliated runtime for workspace`);
 			} catch (e) {

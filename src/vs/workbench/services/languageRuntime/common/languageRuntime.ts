@@ -95,7 +95,7 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 
 	// A map of runtimes currently starting to promises that resolve when the runtime
 	// is ready to use. This is keyed by the runtimeId (metadata.runtimeId) of the runtime.
-	private readonly _startingRuntimesByRuntimeId = new Map<string, DeferredPromise<void>>();
+	private readonly _startingRuntimesByRuntimeId = new Map<string, DeferredPromise<string>>();
 
 	// A map of the currently active console sessions. Since we can currently
 	// only have one console session per language, this is keyed by the
@@ -369,6 +369,8 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 	 *
 	 * @param runtimeId The ID of the runtime to select
 	 * @param source The source of the selection
+	 *
+	 * @returns A promise that resolves to the session ID when the runtime is started
 	 */
 	async selectRuntime(runtimeId: string, source: string): Promise<void> {
 		const runtime = this._registeredRuntimesByRuntimeId.get(runtimeId);
@@ -410,8 +412,9 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 			await Promise.race([promise, timeout]);
 		}
 
-		// Start the selected runtime.
-		return this.startNewRuntimeSession(runtime.runtimeId,
+		// Wait for the selected runtime to start.
+		await this.startNewRuntimeSession(runtime.runtimeId,
+			runtime.runtimeName,
 			LanguageRuntimeSessionMode.Console,
 			source);
 	}
@@ -601,12 +604,14 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 	 * Starts a new runtime session.
 	 *
 	 * @param runtimeId The runtime identifier of the runtime.
+	 * @param sessionName A human readable name for the session.
 	 * @param sessionMode The mode of the new session.
 	 * @param source The source of the request to start the runtime.
 	 */
 	async startNewRuntimeSession(runtimeId: string,
+		sessionName: string,
 		sessionMode: LanguageRuntimeSessionMode,
-		source: string): Promise<void> {
+		source: string): Promise<string> {
 		// See if we are already starting a runtime with the given ID. If we
 		// are, return the promise that resolves when the runtime is ready to
 		// use. This makes it possible for multiple requests to start the same
@@ -639,7 +644,7 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 					// If the runtime that is running is the one we were just asked
 					// to start, we're technically in good shape since the runtime
 					// is already running!
-					return Promise.resolve();
+					return runningLanguageRuntime.sessionId;
 				} else {
 					throw new Error(`A console for ` +
 						`${formatLanguageRuntimeMetadata(languageRuntime)} ` +
@@ -660,7 +665,7 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 		this._logService.info(
 			`Starting session for language runtime ` +
 			`${formatLanguageRuntimeMetadata(languageRuntime)} (Source: ${source})`);
-		await this.doStartRuntimeSession(languageRuntime, sessionMode);
+		return this.doStartRuntimeSession(languageRuntime, sessionMode);
 	}
 
 	/**
@@ -842,8 +847,13 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 	 *
 	 * @param runtime The runtime to start.
 	 * @param source The source of the request to start the runtime.
+	 *
+	 * @returns A promise that resolves with a session ID for the new session,
+	 * if one was started.
 	 */
-	private async autoStartRuntime(metadata: ILanguageRuntimeMetadata, source: string): Promise<void> {
+	private async autoStartRuntime(
+		metadata: ILanguageRuntimeMetadata,
+		source: string): Promise<string> {
 		// Check the setting to see if we should be auto-starting.
 		const autoStart = this._configurationService.getValue<boolean>(
 			'positron.interpreters.automaticStartup');
@@ -852,7 +862,7 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 				`${formatLanguageRuntimeMetadata(metadata)} ` +
 				`was scheduled for automatic start, but won't be started because automatic ` +
 				`startup is disabled in configuration. Source: ${source}`);
-			return;
+			return '';
 		}
 
 		if (this._workspaceTrustManagementService.isWorkspaceTrusted()) {
@@ -862,7 +872,7 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 				`automatically starting. Source: ${source}`);
 
 			// Auto started runtimes are always started as console sessions.
-			await this.doStartRuntimeSession(metadata, LanguageRuntimeSessionMode.Console);
+			return this.doStartRuntimeSession(metadata, LanguageRuntimeSessionMode.Console);
 		} else {
 			this._logService.debug(`Deferring the start of language runtime ` +
 				`${formatLanguageRuntimeMetadata(metadata)} (Source: ${source}) ` +
@@ -871,16 +881,18 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 			this._workspaceTrustManagementService.onDidChangeTrust((trusted) => {
 				if (!trusted) {
 					// If the workspace is still not trusted, do nothing.
-					return;
+					return '';
 				}
 				// If the workspace is trusted, start the runtime.
 				this._logService.info(`Language runtime ` +
 					`${formatLanguageRuntimeMetadata(metadata)} ` +
 					`automatically starting after workspace trust was granted. ` +
 					`Source: ${source}`);
-				this.doStartRuntimeSession(metadata, LanguageRuntimeSessionMode.Console);
+				return this.doStartRuntimeSession(metadata, LanguageRuntimeSessionMode.Console);
 			});
 		}
+
+		return '';
 	}
 
 	/**
@@ -888,14 +900,17 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 	 *
 	 * @param metadata The metadata for the runtime to start.
 	 * @param sessionMode The mode for the new session.
+	 *
+	 * Returns a promise that resolves with the session ID when the runtime is
+	 * ready to use.
 	 */
 	private async doStartRuntimeSession(metadata: ILanguageRuntimeMetadata,
-		sessionMode: LanguageRuntimeSessionMode): Promise<void> {
+		sessionMode: LanguageRuntimeSessionMode): Promise<string> {
 		// Add the runtime to the starting runtimes.
 		this._startingConsolesByLanguageId.set(metadata.languageId, metadata);
 
 		// Create a promise that resolves when the runtime is ready to use.
-		const startPromise = new DeferredPromise<void>();
+		const startPromise = new DeferredPromise<string>();
 		this._startingRuntimesByRuntimeId.set(metadata.runtimeId, startPromise);
 
 		if (!this._sessionManager) {
@@ -919,7 +934,7 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 			await session.start();
 
 			// Resolve the deferred promise.
-			startPromise.complete();
+			startPromise.complete(sessionId);
 
 			// The runtime started. Move it from the starting runtimes to the
 			// running runtimes.
@@ -952,6 +967,8 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 			// TODO@softwarenerd - We should do something with the reason.
 			this._logService.error(`Starting language runtime failed. Reason: ${reason}`);
 		}
+
+		return sessionId;
 	}
 
 
@@ -1052,6 +1069,7 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 					await new Promise<void>(resolve => setTimeout(resolve, 250));
 
 					await this.startNewRuntimeSession(session.metadata.runtimeId,
+						session.sessionName,
 						session.sessionMode,
 						`The runtime exited unexpectedly and is being restarted automatically.`);
 					action = 'and was automatically restarted';
@@ -1088,8 +1106,10 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 			state === RuntimeState.Exited) {
 			// The runtime has never been started, or is no longer running. Just
 			// tell it to start.
-			return this.startNewRuntimeSession(session.metadata.runtimeId,
+			await this.startNewRuntimeSession(session.metadata.runtimeId,
+				session.sessionName,
 				session.sessionMode, `'Restart Interpreter' command invoked`);
+			return;
 		} else if (state === RuntimeState.Starting ||
 			state === RuntimeState.Restarting) {
 			// The runtime is already starting or restarting. We could show an

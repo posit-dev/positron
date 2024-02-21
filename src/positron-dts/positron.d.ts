@@ -1061,6 +1061,20 @@ declare module 'positron' {
 		export function selectLanguageRuntime(runtimeId: string): Thenable<void>;
 
 		/**
+		 * Start a new session for a runtime previously registered with Positron.
+		 *
+		 * @param runtimeId The ID of the runtime to select and start.
+		 * @param sessionName A human-readable name for the new session.
+		 * @param sessionMode The mode in which the session is to be run.
+		 *
+		 * Returns a Thenable that resolves with the ID of the newly created
+		 * session, or rejects with an error.
+		 */
+		export function startLanguageRuntime(runtimeId: string,
+			sessionName: string,
+			sessionMode: LanguageRuntimeSessionMode): Thenable<string>;
+
+		/**
 		 * Restart a running runtime.
 		 *
 		 * @param runtimeId The ID of the running runtime to restart.

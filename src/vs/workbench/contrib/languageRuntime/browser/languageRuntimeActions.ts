@@ -185,6 +185,7 @@ export function registerLanguageRuntimeActions() {
 		if (languageRuntime) {
 			// Start the language runtime.
 			languageRuntimeService.startNewRuntimeSession(languageRuntime.runtimeId,
+				languageRuntime.runtimeName,
 				LanguageRuntimeSessionMode.Console,
 				`'Start Interpreter' command invoked`);
 
