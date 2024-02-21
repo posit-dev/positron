@@ -69,7 +69,8 @@ export class TableDataDataGridInstance extends DataGridInstance {
 			verticalScrollbar: true,
 			scrollbarWidth: 14,
 
-			cellBorder: true
+			cellBorders: true,
+			cursorOffset: 0.5,
 		});
 
 		// Set the data explorer client instance.

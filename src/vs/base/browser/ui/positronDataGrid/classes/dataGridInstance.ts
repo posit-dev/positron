@@ -86,7 +86,15 @@ type ScrollbarOptions = | {
  * DisplayOptions type.
  */
 type DisplayOptions = {
-	cellBorder: boolean;
+	cellBorders?: boolean;
+	cursorOffset?: number;
+};
+
+/**
+ * SelectionOptions type.
+ */
+type SelectionOptions = {
+	selection?: boolean;
 };
 
 /**
@@ -99,7 +107,8 @@ type DataGridOptions =
 	ColumnResizeOptions &
 	RowResizeOptions &
 	ScrollbarOptions &
-	DisplayOptions;
+	DisplayOptions &
+	SelectionOptions;
 
 /**
  * ExtendColumnSelectionBy enumeration.
@@ -346,6 +355,21 @@ export abstract class DataGridInstance extends Disposable {
 	private readonly _scrollbarWidth: number;
 
 	/**
+	 * Gets a value which indicates whether to show cell borders.
+	 */
+	private readonly _cellBorders: boolean;
+
+	/**
+	 * Gets the cursor offset.
+	 */
+	private readonly _cursorOffset: number;
+
+	/**
+	 * Gets a value which indicates whether selection is enabled.
+	 */
+	private readonly _selection: boolean;
+
+	/**
 	 * Gets the column widths.
 	 */
 	private readonly _columnWidths = new Map<number, number>();
@@ -452,6 +476,11 @@ export abstract class DataGridInstance extends Disposable {
 		this._horizontalScrollbar = options.horizontalScrollbar || false;
 		this._verticalScrollbar = options.verticalScrollbar || false;
 		this._scrollbarWidth = options.scrollbarWidth ?? 0;
+
+		this._cellBorders = options.cellBorders ?? true;
+		this._cursorOffset = options.cursorOffset ?? 0;
+
+		this._selection = options.selection ?? true;
 	}
 
 	//#endregion Constructor & Dispose
@@ -554,6 +583,27 @@ export abstract class DataGridInstance extends Disposable {
 	 */
 	get scrollbarWidth() {
 		return this._scrollbarWidth;
+	}
+
+	/**
+	 * Gets a value which indicates whether to show cell borders.
+	 */
+	get cellBorder() {
+		return this._cellBorders;
+	}
+
+	/**
+	 * Gets the cursor offset.
+	 */
+	get cursorOffset() {
+		return this._cursorOffset;
+	}
+
+	/**
+	 * Gets a value which indicates whether selection is enabled.
+	 */
+	get selection() {
+		return this._selection;
 	}
 
 	/**

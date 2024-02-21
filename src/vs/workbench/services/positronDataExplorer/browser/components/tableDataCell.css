@@ -5,6 +5,7 @@
 .data-grid-row-cell
 .content
 .text {
+	margin: 0 7px 1px 7px;
 	overflow: hidden;
 	white-space: nowrap;
 	line-height: normal;

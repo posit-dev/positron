@@ -42,7 +42,7 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 			rowHeaders: false,
 
 			defaultColumnWidth: 200,
-			defaultRowHeight: 34,
+			defaultRowHeight: 25,
 
 			columnResize: false,
 			rowResize: false,
@@ -51,7 +51,10 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 			verticalScrollbar: true,
 			scrollbarWidth: 8,
 
-			cellBorder: false
+			cellBorders: false,
+			cursorOffset: 1.5,
+
+			selection: false
 		});
 
 		// Set the data explorer client instance.
