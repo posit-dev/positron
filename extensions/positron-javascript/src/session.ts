@@ -13,7 +13,7 @@ import { JavaScriptVariables } from './variables';
 /**
  * A Positron language runtime for JavaScript.
  */
-export class JavaScriptLanguageRuntime implements positron.LanguageRuntimeSession {
+export class JavaScriptLanguageRuntimeSession implements positron.LanguageRuntimeSession {
 
 	private readonly _onDidReceiveRuntimeMessage = new vscode.EventEmitter<positron.LanguageRuntimeMessage>();
 
@@ -28,32 +28,11 @@ export class JavaScriptLanguageRuntime implements positron.LanguageRuntimeSessio
 	 */
 	private readonly _pendingRpcs: Array<string> = [];
 
-	constructor(readonly sessionId: string,
+	constructor(readonly metadata: positron.LanguageRuntimeMetadata,
+		readonly sessionId: string,
 		readonly sessionName: string,
 		readonly sessionMode: positron.LanguageRuntimeSessionMode,
 		readonly context: vscode.ExtensionContext) {
-
-		const version = process.version;
-
-		const iconSvgPath = path.join(this.context.extensionPath, 'resources', 'nodejs-icon.svg');
-
-		const runtimeShortName = version;
-		const runtimeName = `Node.js ${runtimeShortName}`;
-
-		this.metadata = {
-			runtimePath: process.execPath,
-			runtimeId: '13C365D6-099A-43EC-934D-353ADEFD798F',
-			languageId: 'javascript',
-			languageName: 'Node.js',
-			runtimeName,
-			runtimeShortName,
-			runtimeSource: 'Node.js',
-			languageVersion: version,
-			base64EncodedIconSvg: fs.readFileSync(iconSvgPath).toString('base64'),
-			runtimeVersion: '0.0.1',
-			startupBehavior: positron.LanguageRuntimeStartupBehavior.Implicit,
-			extraData: {}
-		};
 
 		this.dynState = {
 			inputPrompt: `>`,
@@ -61,7 +40,6 @@ export class JavaScriptLanguageRuntime implements positron.LanguageRuntimeSessio
 		};
 	}
 
-	readonly metadata: positron.LanguageRuntimeMetadata;
 	public dynState: positron.LanguageRuntimeDynState;
 
 	readonly onDidReceiveRuntimeMessage: vscode.Event<positron.LanguageRuntimeMessage>

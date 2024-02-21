@@ -5,7 +5,7 @@
 import * as vscode from 'vscode';
 
 import * as positron from 'positron';
-import { JavaScriptLanguageRuntime } from './runtime';
+import { JavaScriptLanguageRuntimeSession } from './session';
 
 import fs = require('fs');
 import path = require('path');
@@ -59,8 +59,15 @@ class JavascriptRuntimeManager implements positron.LanguageRuntimeManager {
 		}();
 	}
 
-	createSession(runtimeMetadata: positron.LanguageRuntimeMetadata, sessionId: string, sessionName: string, sessionMode: positron.LanguageRuntimeSessionMode): Thenable<positron.LanguageRuntimeSession> {
-		throw new Error('Method not implemented.');
+	createSession(
+		runtimeMetadata: positron.LanguageRuntimeMetadata,
+		sessionId: string,
+		sessionName: string,
+		sessionMode: positron.LanguageRuntimeSessionMode): Thenable<positron.LanguageRuntimeSession> {
+		return Promise.resolve(new JavaScriptLanguageRuntimeSession(sessionId,
+			sessionName,
+			sessionMode,
+			this._context));
 	}
 }
 
