@@ -3,19 +3,18 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { getRunningRRuntime } from './runtime';
 import { ExecuteCommandRequest } from 'vscode-languageclient';
+import { LanguageClient } from 'vscode-languageclient/node';
 
-export const vdocProvider = new (class implements vscode.TextDocumentContentProvider {
+export class VirtualDocumentProvider implements vscode.TextDocumentContentProvider {
+	constructor(private _client: LanguageClient) {}
+
 	async provideTextDocumentContent(uri: vscode.Uri): Promise<string> {
-		const runtime = await getRunningRRuntime();
-		const client = await runtime.lspClient();
-
-		return await client.sendRequest(ExecuteCommandRequest.type, {
+		return await this._client.sendRequest(ExecuteCommandRequest.type, {
                     command: 'ark.internal.getVirtualDocument',
                     arguments: [
                             uri.path
                     ]
                 });
 	}
-})();
+}

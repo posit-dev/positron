@@ -36,9 +36,6 @@ export function activate(context: vscode.ExtensionContext) {
 	// Provide tasks.
 	providePackageTasks(context);
 
-	// Provide virtual documents.
-	vscode.workspace.registerTextDocumentContentProvider('ark', vdocProvider);
-
 	// Setup testthat test explorer.
 	setupTestExplorer(context);
 	vscode.workspace.onDidChangeConfiguration(async event => {
