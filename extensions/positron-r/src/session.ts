@@ -399,6 +399,8 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 		this.adapterApi = ext?.exports as JupyterAdapterApi;
 		const kernel = this.adapterApi.createSession(
 			this.sessionId,
+			this.sessionName,
+			this.sessionMode,
 			this.kernelSpec,
 			this.metadata,
 			this.dynState,

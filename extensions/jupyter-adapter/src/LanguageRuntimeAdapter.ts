@@ -64,6 +64,9 @@ export class LanguageRuntimeSessionAdapter
 	 * Create a new LanguageRuntimeSessionAdapter to wrap a Jupyter kernel session in
 	 * a LanguageRuntimeSession interface.
 	 *
+	 * @param sessionId A unique identifier for the session
+	 * @param sessionName A human-readable name for the session
+	 * @param sessionMode The mode in which the session is to be run
 	 * @param _context The extension context for the extension that owns this adapter
 	 * @param _channel The output channel to use for logging
 	 * @param _spec The Jupyter kernel spec for the kernel to wrap
@@ -73,6 +76,8 @@ export class LanguageRuntimeSessionAdapter
 	 */
 	constructor(
 		public readonly sessionId: string,
+		public readonly sessionName: string,
+		public readonly sessionMode: positron.LanguageRuntimeSessionMode,
 		private readonly _context: vscode.ExtensionContext,
 		private readonly _channel: vscode.OutputChannel,
 		private readonly _spec: JupyterKernelSpec,

@@ -18,6 +18,8 @@ export class JupyterAdapterApiImpl implements JupyterAdapterApi {
 	 * Create a session for a Jupyter-compatible kernel.
 	 *
 	 * @param sessionId A unique identifier for the session.
+	 * @param sessionName A human-readable name for the session.
+	 * @param sessionMode The mode in which the session is to be run.
 	 * @param kernel A Jupyter kernel spec containing the information needed to
 	 *   start the kernel.
 	 * @param metadata The metadata for the language runtime to be wrapped by the
@@ -27,6 +29,8 @@ export class JupyterAdapterApiImpl implements JupyterAdapterApi {
 	 */
 	createSession(
 		sessionId: string,
+		sessionName: string,
+		sessionMode: positron.LanguageRuntimeSessionMode,
 		kernel: JupyterKernelSpec,
 		metadata: positron.LanguageRuntimeMetadata,
 		dynState: positron.LanguageRuntimeDynState,
@@ -34,6 +38,8 @@ export class JupyterAdapterApiImpl implements JupyterAdapterApi {
 	): JupyterLanguageRuntimeSession {
 		return new LanguageRuntimeSessionAdapter(
 			sessionId,
+			sessionName,
+			sessionMode,
 			this._context,
 			this._channel,
 			kernel,
