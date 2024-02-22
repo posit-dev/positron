@@ -110,7 +110,7 @@ const rightAlignedThreeDigitDecimal = (value: number) => {
 /**
  * PositronZedLanguageRuntime.
  */
-export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
+export class PositronZedRuntimeSession implements positron.LanguageRuntimeSession {
 	//#region Private Properties
 
 	/**
@@ -203,31 +203,12 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 	 */
 	constructor(
 		private readonly context: vscode.ExtensionContext,
-		private readonly runtimeId: string,
-		private readonly version: string
+		readonly metadata: positron.LanguageRuntimeMetadata,
+		readonly sessionId: string,
+		readonly sessionName: string,
+		readonly sessionMode: positron.LanguageRuntimeSessionMode
 	) {
 		this._state = positron.RuntimeState.Uninitialized;
-
-		// Create the icon SVG path.
-		const iconSvgPath = path.join(this.context.extensionPath, 'resources', 'zed-icon.svg');
-
-		const runtimeShortName = version;
-		const runtimeName = `Zed ${runtimeShortName}`;
-
-		// Set the metadata for Zed.
-		this.metadata = {
-			runtimePath: '/zed',
-			runtimeId,
-			languageId: 'zed',
-			languageName: 'Zed',
-			runtimeName,
-			runtimeShortName,
-			runtimeSource: 'Test',
-			languageVersion: version,
-			base64EncodedIconSvg: fs.readFileSync(iconSvgPath).toString('base64'),
-			runtimeVersion: '0.0.1',
-			startupBehavior: positron.LanguageRuntimeStartupBehavior.Implicit
-		};
 
 		this.dynState = {
 			inputPrompt: `Z>`,
@@ -248,11 +229,6 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 	//#endregion Constructor
 
 	//#region LanguageRuntime Implementation
-
-	/**
-	 * Gets the metadata for the language runtime.
-	 */
-	readonly metadata: positron.LanguageRuntimeMetadata;
 
 	/**
 	 * Dynamic state for the language runtime.
@@ -1258,10 +1234,6 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 		return Promise.resolve();
 	}
 
-	clone(metadata: positron.LanguageRuntimeMetadata, _notebook: vscode.NotebookDocument): positron.LanguageRuntime {
-		return new PositronZedLanguageRuntime(this.context, metadata.runtimeId, metadata.languageVersion);
-	}
-
 	dispose(): void { }
 
 	//#endregion LanguageRuntime Implementation
@@ -2024,22 +1996,4 @@ export class PositronZedLanguageRuntime implements positron.LanguageRuntime {
 		});
 	}
 	//#endregion Private Methods
-}
-
-export class PositronZedLanguageRuntimeProvider implements positron.LanguageRuntimeProvider {
-
-	/**
-	 * Constructor.
-	 * @param context The extension context.
-	 */
-	constructor(
-		private readonly context: vscode.ExtensionContext
-	) { }
-
-	provideLanguageRuntime(runtimeMetadata: positron.LanguageRuntimeMetadata,
-		token: vscode.CancellationToken): positron.LanguageRuntime {
-		return new PositronZedLanguageRuntime(this.context,
-			runtimeMetadata.runtimeId,
-			runtimeMetadata.runtimeShortName);
-	}
 }
