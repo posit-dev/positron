@@ -75,9 +75,6 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 	// used to orchestrate implicit runtime startup.
 	private readonly _encounteredLanguagesByLanguageId = new Set<string>();
 
-	// The array of registered runtimes.
-	private readonly _registeredRuntimes: ILanguageRuntimeMetadata[] = [];
-
 	// The session manager.
 	private _sessionManager: ILanguageRuntimeSessionManager | undefined;
 
@@ -224,10 +221,11 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 
 			// Find the registered runtimes for the language that have implicit
 			// startup behavior. If there aren't any, return.
-			const languageRuntimeInfos = this._registeredRuntimes.filter(
-				languageRuntimeInfo =>
-					languageRuntimeInfo.languageId === languageId &&
-					languageRuntimeInfo.startupBehavior === LanguageRuntimeStartupBehavior.Implicit);
+			const languageRuntimeInfos = Array.from(this._registeredRuntimesByRuntimeId.values())
+				.filter(
+					metadata =>
+						metadata.languageId === languageId &&
+						metadata.startupBehavior === LanguageRuntimeStartupBehavior.Implicit);
 			if (!languageRuntimeInfos.length) {
 				return;
 			}
@@ -313,7 +311,7 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 	 * Gets the registered runtimes.
 	 */
 	get registeredRuntimes(): ILanguageRuntimeMetadata[] {
-		return this._registeredRuntimes;
+		return Array.from(this._registeredRuntimesByRuntimeId.values());
 	}
 
 	/**
@@ -538,8 +536,9 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 		}
 
 		// If there are registered runtimes for the language, return the first.
-		const languageRuntimeInfos = this._registeredRuntimes.filter(
-			info => info.languageId === languageId);
+		const languageRuntimeInfos =
+			Array.from(this._registeredRuntimesByRuntimeId.values())
+				.filter(info => info.languageId === languageId);
 		if (languageRuntimeInfos.length) {
 			return languageRuntimeInfos[0];
 		}
@@ -581,8 +580,9 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 			// If there are no affiliated runtimes, and no starting or running
 			// runtimes, start the first runtime that has Immediate startup
 			// behavior.
-			const languageRuntimes = this._registeredRuntimes.filter(
-				info => info.startupBehavior === LanguageRuntimeStartupBehavior.Immediate);
+			const languageRuntimes = Array.from(this._registeredRuntimesByRuntimeId.values())
+				.filter(metadata =>
+					metadata.startupBehavior === LanguageRuntimeStartupBehavior.Immediate);
 			if (languageRuntimes.length) {
 				this.autoStartRuntime(languageRuntimes[0],
 					`An extension requested the runtime to be started immediately.`);
