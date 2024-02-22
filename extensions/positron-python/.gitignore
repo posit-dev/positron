@@ -52,6 +52,6 @@ dist/**
 l10n/
 tags
 # --- Start Positron ---
-pythonFiles/tests/positron/images
-pythonFiles/positron/_vendor/**
+pythonFiles/positron/positron_ipykernel/tests/images
+pythonFiles/positron/positron_ipykernel/_vendor/**
 # --- End Positron ---
