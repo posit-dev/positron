@@ -1,0 +1,31 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *--------------------------------------------------------------------------------------------*/
+
+.data-grid-row-cell
+.content
+.text {
+	overflow: hidden;
+	white-space: nowrap;
+	line-height: normal;
+	text-overflow: ellipsis;
+}
+
+.data-grid-row-cell
+.content
+.text.left {
+	text-align: left;
+}
+
+.data-grid-row-cell
+.content
+.text.center {
+	text-align: center;
+}
+
+.data-grid-row-cell
+.content
+.text.right {
+	text-align: right;
+	font-variant-numeric: tabular-nums;
+}

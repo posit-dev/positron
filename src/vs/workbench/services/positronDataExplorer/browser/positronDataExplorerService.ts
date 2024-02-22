@@ -5,14 +5,14 @@
 import { Emitter } from 'vs/base/common/event';
 import { Disposable } from 'vs/base/common/lifecycle';
 import { IEditorService } from 'vs/workbench/services/editor/common/editorService';
+import { INotificationService } from 'vs/platform/notification/common/notification';
 import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/common/extensions';
 import { PositronDataExplorerUri } from 'vs/workbench/services/positronDataExplorer/common/positronDataExplorerUri';
-import { PositronDataExplorerInstance } from 'vs/workbench/services/positronDataExplorer/browser/positronDataExplorerInstance';
 import { DataExplorerClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeDataExplorerClient';
+import { PositronDataExplorerInstance } from 'vs/workbench/services/positronDataExplorer/browser/positronDataExplorerInstance';
 import { IPositronDataExplorerService } from 'vs/workbench/services/positronDataExplorer/browser/interfaces/positronDataExplorerService';
 import { IPositronDataExplorerInstance } from 'vs/workbench/services/positronDataExplorer/browser/interfaces/positronDataExplorerInstance';
 import { ILanguageRuntimeService, ILanguageRuntimeSession, RuntimeClientType } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
-import { INotificationService } from 'vs/platform/notification/common/notification';
 
 /**
  * DataExplorerRuntime class.
@@ -77,7 +77,7 @@ class DataExplorerRuntime extends Disposable {
 				});
 
 				// Test that we can get things.
-				const foo = await dataExplorerClientInstance.getSchema();
+				const foo = await dataExplorerClientInstance.getSchema(0, 1000);
 				console.log(foo);
 				const bar = await dataExplorerClientInstance.getDataValues(0, 10, [0, 1, 2, 3, 4, 5]);
 				console.log(bar);
