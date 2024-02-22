@@ -1,5 +1,9 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
+// --- Start Positron ---
+/* eslint-disable import/no-duplicates */
+import { Uri } from 'vscode';
+// --- End Positron ---
 
 import * as assert from 'assert';
 import * as path from 'path';
@@ -13,6 +17,11 @@ import {
 import { IInterpreterHelper } from '../../client/interpreter/contracts';
 import { PythonEnvType } from '../../client/pythonEnvironments/base/info';
 import { EnvironmentType, PythonEnvironment } from '../../client/pythonEnvironments/info';
+// --- Start Positron ---
+import * as externalDependencies from '../../client/pythonEnvironments/common/externalDependencies';
+import { getPyenvVersion } from '../../client/interpreter/configuration/environmentTypeComparer';
+import * as pyenvUtils from '../../client/pythonEnvironments/common/environmentManagers/pyenv';
+// --- End Positron ---
 
 suite('Environment sorting', () => {
     const workspacePath = path.join('path', 'to', 'workspace');
@@ -147,6 +156,21 @@ suite('Environment sorting', () => {
             } as PythonEnvironment,
             expected: 1,
         },
+        // --- Start Positron ---
+        // We inherit the above test case from upstream but its description appears to be incorrect.
+        {
+            title: 'Pyenv interpreter SHOULD come before global/system envs',
+            envA: {
+                envType: EnvironmentType.Pyenv,
+                version: { major: 3, minor: 10, patch: 2 },
+            } as PythonEnvironment,
+            envB: {
+                envType: EnvironmentType.Global,
+                version: { major: 3, minor: 12, patch: 2 },
+            } as PythonEnvironment,
+            expected: -1,
+        },
+        // --- End Positron ---
         {
             title: 'Global environment should not come first when there are global envs',
             envA: {
@@ -291,6 +315,138 @@ suite('Environment sorting', () => {
         });
     });
 });
+
+// --- Start Positron ---
+suite('getPyenvVersion tests', () => {
+    let pathExistsSyncStub: sinon.SinonStub;
+    let readFileSyncStub: sinon.SinonStub;
+    let checkParentDirsStub: sinon.SinonStub;
+    let getPyenvDirStub: sinon.SinonStub;
+    let interpreterHelper: IInterpreterHelper;
+    let interpreterHelperNoWorkspace: IInterpreterHelper;
+    let getActiveWorkspaceUriStub: sinon.SinonStub;
+    let getActiveWorkspaceNoWorkspaceUriStub: sinon.SinonStub;
+    let getInterpreterTypeDisplayNameStub: sinon.SinonStub;
+
+    setup(() => {
+        const workspacePath = path.join('path', 'to', 'workspace');
+        const globalPyenvDir = path.join('home', 'user', '.pyenv')
+        getActiveWorkspaceUriStub = sinon.stub().returns({ folderUri: { fsPath: workspacePath } });
+        getActiveWorkspaceNoWorkspaceUriStub = sinon.stub().returns(undefined);
+        getInterpreterTypeDisplayNameStub = sinon.stub();
+
+        interpreterHelper = ({
+            getActiveWorkspaceUri: getActiveWorkspaceUriStub,
+            getInterpreterTypeDisplayName: getInterpreterTypeDisplayNameStub,
+        } as unknown) as IInterpreterHelper;
+        interpreterHelperNoWorkspace = ({
+            getActiveWorkspaceUri: getActiveWorkspaceNoWorkspaceUriStub,
+            getInterpreterTypeDisplayName: getInterpreterTypeDisplayNameStub,
+        } as unknown) as IInterpreterHelper;
+
+        pathExistsSyncStub = sinon.stub(externalDependencies, 'pathExistsSync');
+        pathExistsSyncStub
+            .withArgs('')
+            .returns(false);
+        pathExistsSyncStub
+            .withArgs(path.join(workspacePath, '.python-version'))
+            .returns(true);
+        pathExistsSyncStub
+            .withArgs(path.join(globalPyenvDir, 'version'))
+            .returns(true);
+        readFileSyncStub = sinon.stub(externalDependencies, 'readFileSync');
+        readFileSyncStub
+            .withArgs(path.join(workspacePath, '.python-version'))
+            .returns('3.10.2');
+        readFileSyncStub
+            .withArgs(path.join(globalPyenvDir, 'version'))
+            .returns('my_global_pyenv');
+        checkParentDirsStub = sinon.stub(externalDependencies, 'checkParentDirs');
+        getPyenvDirStub = sinon.stub(pyenvUtils, 'getPyenvDir');
+        getPyenvDirStub
+            .withArgs()
+            .returns(globalPyenvDir);
+    });
+
+    teardown(() => {
+        pathExistsSyncStub.restore();
+        readFileSyncStub.restore();
+        checkParentDirsStub.restore();
+        getPyenvDirStub.restore();
+        sinon.restore();
+    });
+
+    test('getPyenvVersion returns local if a local .python-version file exists', () => {
+        const workspacePath = path.join('path', 'to', 'workspace');
+        const expected = '3.10.2';
+        const result = getPyenvVersion(workspacePath);
+        assert.strictEqual(result, expected);
+    });
+    test('getPyenvVersion returns global if no local .python-version file exists', () => {
+        const expected = 'my_global_pyenv';
+        const result = getPyenvVersion(undefined);
+        assert.strictEqual(result, expected);
+    });
+    test('getRecommended recommends the local pyenv version over global pythons and other pyenv versions', () => {
+        const envA = {
+            // global python
+            path: 'path', envType: EnvironmentType.Global, version: { major: 3, minor: 12, patch: 2, raw: '3.12.2' }
+        } as PythonEnvironment;
+        const envB = {
+            // pyenv version, does not match local .python-version or global pyenv
+            path: 'path', envType: EnvironmentType.Pyenv, version: { major: 3, minor: 11, patch: 2, raw: '3.11.2' }
+        } as PythonEnvironment;
+        const envC = {
+            // local pyenv version for the workspace
+            path: 'path', envType: EnvironmentType.Pyenv, version: { major: 3, minor: 10, patch: 2, raw: '3.10.2' }
+        } as PythonEnvironment;
+        const envD = {
+            // global pyenv version
+            path: 'path', envType: EnvironmentType.Pyenv, version: { major: 3, minor: 11, patch: 3, raw: '3.11.3' }, envName: 'my_global_pyenv'
+        } as PythonEnvironment;
+
+        const pythonEnvironments = [
+            envA, envB, envC, envD
+        ];
+
+        const workspacePath = path.join('path', 'to', 'workspace');
+        const workspace = Uri.file(workspacePath);
+        const expected = envC;
+        const envTypeComparer = new EnvironmentTypeComparer(interpreterHelper);
+        const result = envTypeComparer.getRecommended(pythonEnvironments, workspace);
+        assert.strictEqual(result, expected);
+    });
+    test('getRecommended recommends the global pyenv version over global pythons and other pyenv versions', () => {
+        const envA = {
+            // global python
+            path: 'path', envType: EnvironmentType.Global, version: { major: 3, minor: 12, patch: 2, raw: '3.12.2' }
+        } as PythonEnvironment;
+        const envB = {
+            // pyenv version, does not match local .python-version or global pyenv
+            path: 'path', envType: EnvironmentType.Pyenv, version: { major: 3, minor: 11, patch: 2, raw: '3.11.2' }
+        } as PythonEnvironment;
+        const envC = {
+            // local pyenv version for the workspace
+            path: 'path', envType: EnvironmentType.Pyenv, version: { major: 3, minor: 10, patch: 2, raw: '3.10.2' }
+        } as PythonEnvironment;
+        const envD = {
+            // global pyenv version
+            path: 'path', envType: EnvironmentType.Pyenv, version: { major: 3, minor: 11, patch: 3, raw: '3.11.3' }, envName: 'my_global_pyenv'
+        } as PythonEnvironment;
+
+        const pythonEnvironments = [
+            envA, envB, envC, envD
+        ];
+
+        const workspace = undefined;
+        const expected = envD;
+        const envTypeComparer = new EnvironmentTypeComparer(interpreterHelperNoWorkspace);
+        const result = envTypeComparer.getRecommended(pythonEnvironments, workspace);
+        assert.strictEqual(result, expected);
+    });
+});
+
+// --- End Positron ---
 
 suite('getEnvTypeHeuristic tests', () => {
     const workspacePath = path.join('path', 'to', 'workspace');
