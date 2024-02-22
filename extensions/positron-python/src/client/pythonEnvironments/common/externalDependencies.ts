@@ -184,6 +184,39 @@ export async function* getSubDirs(
 
     yield* iterable(chain(generators));
 }
+// --- Start Positron ---
+/**
+ * Searches root and all parent directories of root for a file or directory.
+ * @param root : path to get sub-directories from.
+ * @param fileName : name of the file or directory to search for.
+ * @param options : If called with `resolveSymlinks: true`, then symlinks found in
+ *                  the directory are resolved. If called with `maxDepth: n`, then if we have not
+ *                 found the file after n levels up from root, we stop searching.
+ */
+export function checkParentDirs(
+    root: string,
+    fileName: string,
+    options?: { resolveSymlinks?: boolean, maxDepth?: number },
+): string | undefined {
+
+    let depth = 0;
+    while (pathExistsSync(root) && (options?.maxDepth === undefined || depth < options.maxDepth)) {
+        const filePath = path.join(root, fileName);
+        if (options?.resolveSymlinks && pathExistsSync(filePath) && fsapi.lstatSync(filePath).isSymbolicLink()) {
+            return fsapi.readlinkSync(filePath);
+        }
+        if (pathExistsSync(filePath)) {
+            return filePath;
+        }
+        if (root === path.dirname(root)) {
+            break;
+        }
+        root = path.dirname(root);
+        depth += 1;
+    }
+    return undefined;
+}
+// --- End Positron ---
 
 /**
  * Returns the value for setting `python.<name>`.
