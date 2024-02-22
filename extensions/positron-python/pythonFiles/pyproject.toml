@@ -2,7 +2,7 @@
 max_line_length = 100
 
 [tool.black]
-include = 'positron\/.*.py$|positron_language_server.py$|tests\/test_positron_.*.py$'
+include = 'positron\/.*.py$|positron\/positron_ipykernel\/.*.py$|positron\/positron_ipykernel\/test_positron_.*.py$'
 exclude = '''
 
 (
@@ -10,7 +10,7 @@ exclude = '''
     .data
     | .vscode
     | lib
-    | positron/_vendor
+    | positron/positron_ipykernel/_vendor
   )/
 )
 '''
@@ -18,13 +18,13 @@ line-length = 100
 
 [tool.isort]
 profile = "black"
-extend_skip = ['positron/_vendor']
-known_first_party = ['positron']
-known_third_party = ['positron._vendor']
+extend_skip = ['positron/positron_ipykernel/_vendor']
+known_first_party = ['positron_ipykernel']
+known_third_party = ['positron_ipykernel._vendor']
 
 [tool.pyright]
-exclude = ['lib', 'positron/_vendor']
-extraPaths = ['lib/python', 'positron/_vendor']
+exclude = ['lib', 'positron/positron_ipykernel/_vendor']
+extraPaths = ['lib/python', 'positron/positron_ipykernel/_vendor']
 ignore = [
     # Ignore all pre-existing code with issues
     'get-pip.py',
@@ -80,5 +80,5 @@ exclude = [
     'pythonFiles/tests/unittestadapter/.data/discovery_error/file_one.py',
     'pythonFiles/tests/unittestadapter/test_utils.py',
     # Ignore vendored dependencies
-    'pythonFiles/positron/_vendor/',
+    'pythonFiles/positron/positron_ipykernel/_vendor/',
 ]

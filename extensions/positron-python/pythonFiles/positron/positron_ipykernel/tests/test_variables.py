@@ -12,16 +12,11 @@ import numpy as np
 import pandas as pd
 import polars as pl
 import pytest
-
-from positron.access_keys import encode_access_key
-from positron.positron_comm import JsonRpcErrorCode
-from positron.positron_ipkernel import PositronIPyKernel
-from positron.utils import JsonRecord, not_none
-from positron.variables import (
-    VariablesService,
-    _summarize_children,
-    _summarize_variable,
-)
+from positron_ipykernel.access_keys import encode_access_key
+from positron_ipykernel.positron_comm import JsonRpcErrorCode
+from positron_ipykernel.positron_ipkernel import PositronIPyKernel
+from positron_ipykernel.utils import JsonRecord, not_none
+from positron_ipykernel.variables import VariablesService, _summarize_children, _summarize_variable
 
 from .conftest import DummyComm, PositronShell
 from .utils import (

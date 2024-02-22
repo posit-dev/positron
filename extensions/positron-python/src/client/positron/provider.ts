@@ -37,24 +37,19 @@ import { getEnvLocationHeuristic, EnvLocationHeuristic } from '../interpreter/co
  * @param serviceContainer The Python extension's service container to use for dependency injection.
  */
 export class PythonRuntimeProvider implements positron.LanguageRuntimeProvider {
-
     /**
      * Constructor.
      * @param serviceContainer The Python extension's service container to use for dependency injection.
      */
-    constructor(
-        private readonly serviceContainer: IServiceContainer,
-        private readonly pythonApi: PythonExtension
-    ) { }
+    constructor(private readonly serviceContainer: IServiceContainer, private readonly pythonApi: PythonExtension) {}
 
     async provideLanguageRuntime(
         runtimeMetadata: positron.LanguageRuntimeMetadata,
-        _token: vscode.CancellationToken
+        _token: vscode.CancellationToken,
     ): Promise<positron.LanguageRuntime> {
         traceInfo('PythonRuntimeProvider: Providing a single Python runtime');
         const interpreterService = this.serviceContainer.get<IInterpreterService>(IInterpreterService);
-        const interpreter = await interpreterService.getInterpreterDetails(
-            untildify(runtimeMetadata.runtimePath));
+        const interpreter = await interpreterService.getInterpreterDetails(untildify(runtimeMetadata.runtimePath));
         if (!interpreter) {
             throw new Error(`Cannot find Python interpreter for ${runtimeMetadata.runtimePath}`);
         }
@@ -90,7 +85,10 @@ export async function* pythonRuntimeDiscoverer(
         // NOTE: We may need to pass a resource to getSettings to support multi-root workspaces
         const workspaceUri = vscode.workspace.workspaceFolders?.[0]?.uri;
         const suggestions = await interpreterSelector.getSuggestions(workspaceUri);
-        let recommendedInterpreter = interpreterSelector.getRecommendedSuggestion(suggestions, workspaceUri)?.interpreter;
+        let recommendedInterpreter = interpreterSelector.getRecommendedSuggestion(
+            suggestions,
+            workspaceUri,
+        )?.interpreter;
         if (!recommendedInterpreter) {
             // fallback to active interpreter if we don't have a recommended interpreter
             recommendedInterpreter = await interpreterService.getActiveInterpreter(workspaceUri);
@@ -186,20 +184,26 @@ export async function createPythonRuntime(
     // if ipykernel (min version 6.19.1) is not installed -- the user should start runtime explicitly.
     let startupBehavior;
     traceInfo('createPythonRuntime: checking if ipykernel is installed');
-    const hasCompatibleKernel = await installer.isProductVersionCompatible(Product.ipykernel, IPYKERNEL_VERSION, interpreter);
+    const hasCompatibleKernel = await installer.isProductVersionCompatible(
+        Product.ipykernel,
+        IPYKERNEL_VERSION,
+        interpreter,
+    );
 
     if (hasCompatibleKernel === ProductInstallStatus.Installed) {
-        startupBehavior = recommendedForWorkspace ?
-            positron.LanguageRuntimeStartupBehavior.Immediate :
-            positron.LanguageRuntimeStartupBehavior.Implicit;
+        startupBehavior = recommendedForWorkspace
+            ? positron.LanguageRuntimeStartupBehavior.Immediate
+            : positron.LanguageRuntimeStartupBehavior.Implicit;
     } else {
         // Check if this is a local Python interpreter for the workspace (e.g. a local venv or conda env)
         const workspacePath = workspaceService.workspaceFolders?.[0]?.uri?.fsPath;
-        const isLocal = workspacePath && getEnvLocationHeuristic(interpreter, workspacePath) === EnvLocationHeuristic.Local;
-        startupBehavior = (isLocal && recommendedForWorkspace) ?
-            positron.LanguageRuntimeStartupBehavior.Immediate :
-            // If ipykernel is not installed and this is not a local Python env, require explicit startup
-            positron.LanguageRuntimeStartupBehavior.Explicit;
+        const isLocal =
+            workspacePath && getEnvLocationHeuristic(interpreter, workspacePath) === EnvLocationHeuristic.Local;
+        startupBehavior =
+            isLocal && recommendedForWorkspace
+                ? positron.LanguageRuntimeStartupBehavior.Immediate
+                : // If ipykernel is not installed and this is not a local Python env, require explicit startup
+                  positron.LanguageRuntimeStartupBehavior.Explicit;
     }
     traceInfo(`createPythonRuntime: startup behavior: ${startupBehavior}`);
 
@@ -220,7 +224,7 @@ export async function createPythonRuntime(
     const runtimeName = `Python ${runtimeShortName}`;
 
     const command = interpreter.path;
-    const lsScriptPath = path.join(EXTENSION_ROOT_DIR, 'pythonFiles', 'positron_language_server.py');
+    const lsScriptPath = path.join(EXTENSION_ROOT_DIR, 'pythonFiles', 'positron', 'positron_language_server.py');
     const args = [
         command,
         lsScriptPath,

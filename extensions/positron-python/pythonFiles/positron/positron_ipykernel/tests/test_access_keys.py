@@ -11,8 +11,7 @@ import pandas as pd
 import polars as pl
 import pytest
 from fastcore.foundation import L
-
-from positron.access_keys import decode_access_key, encode_access_key
+from positron_ipykernel.access_keys import decode_access_key, encode_access_key
 
 from .data import (
     BOOL_CASES,
