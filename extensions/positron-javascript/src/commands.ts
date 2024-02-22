@@ -64,7 +64,9 @@ class JavascriptRuntimeManager implements positron.LanguageRuntimeManager {
 		sessionId: string,
 		sessionName: string,
 		sessionMode: positron.LanguageRuntimeSessionMode): Thenable<positron.LanguageRuntimeSession> {
-		return Promise.resolve(new JavaScriptLanguageRuntimeSession(sessionId,
+		return Promise.resolve(new JavaScriptLanguageRuntimeSession(
+			runtimeMetadata,
+			sessionId,
 			sessionName,
 			sessionMode,
 			this._context));
