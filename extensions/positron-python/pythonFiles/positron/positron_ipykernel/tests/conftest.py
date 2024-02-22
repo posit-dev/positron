@@ -7,8 +7,7 @@ from unittest.mock import Mock
 
 import comm
 import pytest
-
-from positron.positron_ipkernel import PositronIPyKernel, PositronShell
+from positron_ipykernel.positron_ipkernel import PositronIPyKernel, PositronShell
 
 
 class DummyComm(comm.base_comm.BaseComm):

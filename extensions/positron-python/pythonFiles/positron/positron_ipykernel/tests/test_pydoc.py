@@ -8,8 +8,7 @@ from typing import Any, Callable, List, Tuple
 import numpy as np
 import pandas as pd
 import pytest
-
-from positron.pydoc import (
+from positron_ipykernel.pydoc import (
     _Attr,
     _compact_signature,
     _get_summary,

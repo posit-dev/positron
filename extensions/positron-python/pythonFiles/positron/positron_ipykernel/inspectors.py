@@ -13,14 +13,7 @@ import re
 import sys
 import types
 from abc import ABC, abstractmethod
-from collections.abc import (
-    Mapping,
-    MutableMapping,
-    MutableSequence,
-    MutableSet,
-    Sequence,
-    Set,
-)
+from collections.abc import Mapping, MutableMapping, MutableSequence, MutableSet, Sequence, Set
 from typing import (
     TYPE_CHECKING,
     Any,

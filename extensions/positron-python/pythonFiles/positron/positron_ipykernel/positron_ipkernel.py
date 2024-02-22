@@ -19,13 +19,7 @@ from ipykernel.kernelapp import IPKernelApp
 from ipykernel.zmqshell import ZMQDisplayPublisher, ZMQInteractiveShell
 from IPython.core import oinspect, page
 from IPython.core.interactiveshell import InteractiveShell
-from IPython.core.magic import (
-    Magics,
-    MagicsManager,
-    line_magic,
-    magics_class,
-    needs_local_scope,
-)
+from IPython.core.magic import Magics, MagicsManager, line_magic, magics_class, needs_local_scope
 from IPython.utils import PyColorize
 
 from .data_explorer import DataExplorerService

@@ -8,9 +8,8 @@ from pathlib import Path
 from typing import Any, Optional, Set
 from unittest.mock import Mock
 
-from positron._vendor.pydantic import BaseModel
-
-from positron.utils import JsonData, JsonRecord
+from positron_ipykernel._vendor.pydantic import BaseModel
+from positron_ipykernel.utils import JsonData, JsonRecord
 
 
 def assert_pydantic_model_equal(actual: BaseModel, expected: BaseModel, exclude: Set[str]) -> None:

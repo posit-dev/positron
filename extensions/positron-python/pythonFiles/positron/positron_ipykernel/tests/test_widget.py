@@ -9,8 +9,7 @@ import ipywidgets as widgets
 import pytest
 from IPython.core.formatters import DisplayFormatter
 from IPython.core.getipython import get_ipython
-
-from positron.widget import PositronWidgetHook
+from positron_ipykernel.widget import PositronWidgetHook
 
 from .conftest import DummyComm, PositronShell
 

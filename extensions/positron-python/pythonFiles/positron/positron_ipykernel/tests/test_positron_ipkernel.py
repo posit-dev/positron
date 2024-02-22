@@ -10,9 +10,8 @@ from unittest.mock import Mock
 import pandas as pd
 import pytest
 from IPython.utils.syspathcontext import prepended_to_syspath
-
-from positron.help import help
-from positron.utils import alias_home
+from positron_ipykernel.help import help
+from positron_ipykernel.utils import alias_home
 
 from .conftest import PositronShell
 from .utils import assert_dataset_registered

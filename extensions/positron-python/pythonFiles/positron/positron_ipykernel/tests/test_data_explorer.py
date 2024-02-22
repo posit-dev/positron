@@ -8,13 +8,9 @@ from typing import Any, Dict, List, Optional, Type, cast
 import numpy as np
 import pandas as pd
 import pytest
-from positron._vendor.pydantic import BaseModel
-
-from positron.data_explorer import DataExplorerService, PandasView, COMPARE_OPS
-from positron.data_explorer_comm import (
-    ColumnSchema,
-    FilterResult,
-)
+from positron_ipykernel._vendor.pydantic import BaseModel
+from positron_ipykernel.data_explorer import COMPARE_OPS, DataExplorerService, PandasView
+from positron_ipykernel.data_explorer_comm import ColumnSchema, FilterResult
 
 from .conftest import DummyComm
 from .utils import json_rpc_request

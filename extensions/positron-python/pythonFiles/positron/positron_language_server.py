@@ -3,16 +3,15 @@ Custom entry point for launching Positron's extensions to the Jedi Language
 Server and IPyKernel in the same environment.
 """
 
-import asyncio
 import argparse
+import asyncio
 import logging
 import os
 import sys
 
+from positron_ipykernel.positron_ipkernel import PositronIPKernelApp
+from positron_ipykernel.positron_jedilsp import POSITRON
 from traitlets.config import Config
-
-from positron.positron_ipkernel import PositronIPKernelApp
-from positron.positron_jedilsp import POSITRON
 
 logger = logging.getLogger(__name__)
 

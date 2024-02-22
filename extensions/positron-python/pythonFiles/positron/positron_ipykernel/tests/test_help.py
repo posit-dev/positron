@@ -9,9 +9,8 @@ from urllib.request import urlopen
 import numpy as np
 import pandas as pd
 import pytest
-
-from positron.help import HelpService, help
-from positron.help_comm import HelpBackendRequest, HelpFrontendEvent
+from positron_ipykernel.help import HelpService, help
+from positron_ipykernel.help_comm import HelpBackendRequest, HelpFrontendEvent
 
 from .conftest import DummyComm
 from .utils import json_rpc_request
@@ -104,7 +103,7 @@ def test_pydoc_server_styling(running_help_service: HelpService):
         # Keywords should resolve even though they aren't objects.
         ("async", "async"),
         # The overrided help function should resolve.
-        (help, "positron.help.help"),
+        (help, "positron_ipykernel.help.help"),
     ],
 )
 def test_show_help(

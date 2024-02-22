@@ -101,7 +101,10 @@ jobs:
         with:
           working-directory: 'pythonFiles'
 
-      - name: Run Python unit tests
+      - name: Run Positron unit tests
+        run: pytest pythonFiles/positron/
+      
+      - name: Run Microsoft unit tests
         run: python pythonFiles/tests/run_all.py
 
   typescript-tests:
