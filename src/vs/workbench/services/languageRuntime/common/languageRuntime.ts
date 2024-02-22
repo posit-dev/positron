@@ -665,7 +665,7 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 		this._logService.info(
 			`Starting session for language runtime ` +
 			`${formatLanguageRuntimeMetadata(languageRuntime)} (Source: ${source})`);
-		return this.doStartRuntimeSession(languageRuntime, sessionMode);
+		return this.doStartRuntimeSession(languageRuntime, sessionName, sessionMode);
 	}
 
 	/**
@@ -872,7 +872,8 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 				`automatically starting. Source: ${source}`);
 
 			// Auto started runtimes are always started as console sessions.
-			return this.doStartRuntimeSession(metadata, LanguageRuntimeSessionMode.Console);
+			return this.doStartRuntimeSession(metadata,
+				metadata.runtimeName, LanguageRuntimeSessionMode.Console);
 		} else {
 			this._logService.debug(`Deferring the start of language runtime ` +
 				`${formatLanguageRuntimeMetadata(metadata)} (Source: ${source}) ` +
@@ -888,7 +889,8 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 					`${formatLanguageRuntimeMetadata(metadata)} ` +
 					`automatically starting after workspace trust was granted. ` +
 					`Source: ${source}`);
-				return this.doStartRuntimeSession(metadata, LanguageRuntimeSessionMode.Console);
+				return this.doStartRuntimeSession(metadata,
+					metadata.runtimeName, LanguageRuntimeSessionMode.Console);
 			});
 		}
 
@@ -899,12 +901,14 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 	 * Starts a runtime session.
 	 *
 	 * @param metadata The metadata for the runtime to start.
+	 * @param sessionName A human-readable name for the session.
 	 * @param sessionMode The mode for the new session.
 	 *
 	 * Returns a promise that resolves with the session ID when the runtime is
 	 * ready to use.
 	 */
 	private async doStartRuntimeSession(metadata: ILanguageRuntimeMetadata,
+		sessionName: string,
 		sessionMode: LanguageRuntimeSessionMode): Promise<string> {
 		// Add the runtime to the starting runtimes.
 		this._startingConsolesByLanguageId.set(metadata.languageId, metadata);
@@ -920,7 +924,7 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 		const sessionId = this.generateNewSessionId(metadata);
 		const session = await this._sessionManager.createSession(metadata,
 			sessionId,
-			metadata.runtimeName, // Use the runtime name as the session name for now
+			sessionName,
 			sessionMode);
 
 		// Fire the onWillStartRuntime event.

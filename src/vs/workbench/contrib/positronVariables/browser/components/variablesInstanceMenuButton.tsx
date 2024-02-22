@@ -47,12 +47,14 @@ export const VariablesInstanceMenuButton = () => {
 		const actions: IAction[] = [];
 		positronVariablesContext.positronVariablesInstances.map(positronVariablesInstance => {
 			actions.push({
-				id: positronVariablesInstance.session.metadata.runtimeId,
-				label: positronVariablesInstance.session.metadata.runtimeName,
+				id: positronVariablesInstance.session.sessionId,
+				label: positronVariablesInstance.session.sessionName,
 				tooltip: '',
 				class: undefined,
 				enabled: true,
 				run: () => {
+					// TODO: The variables pane actually needs its own concept of foreground
+					// session so that we don't have to do this.
 					positronVariablesContext.languageRuntimeService.foregroundSession =
 						positronVariablesInstance.session;
 				}

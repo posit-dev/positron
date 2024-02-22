@@ -193,7 +193,9 @@ class PositronConsoleService extends Disposable implements IPositronConsoleServi
 
 		// Start a Positron console instance for each running runtime.
 		this._languageRuntimeService.activeSessions.forEach(session => {
-			this.startPositronConsoleInstance(session, false);
+			if (session.sessionMode === LanguageRuntimeSessionMode.Console) {
+				this.startPositronConsoleInstance(session, false);
+			}
 		});
 
 		// Get the foreground session. If there is one, set the active Positron console instance.
@@ -208,6 +210,11 @@ class PositronConsoleService extends Disposable implements IPositronConsoleServi
 		// Register the onWillStartRuntime event handler so we start a new
 		// Positron console instance before a runtime starts up.
 		this._register(this._languageRuntimeService.onWillStartRuntime(session => {
+			// Ignore non-console sessions
+			if (session.sessionMode !== LanguageRuntimeSessionMode.Console) {
+				return;
+			}
+
 			// If there is already a Positron console instance for the runtime,
 			// just reattach
 			const existingInstance = this._positronConsoleInstancesBySessionId.get(

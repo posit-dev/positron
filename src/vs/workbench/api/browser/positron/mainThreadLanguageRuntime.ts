@@ -1061,7 +1061,7 @@ export class MainThreadLanguageRuntime
 		const handle = await this._proxy.$createLanguageRuntimeSession(runtimeMetadata,
 			sessionId, sessionName, sessionMode);
 
-		return new ExtHostLanguageRuntimeSessionAdapter(handle,
+		const session = new ExtHostLanguageRuntimeSessionAdapter(handle,
 			sessionId,
 			sessionName,
 			sessionMode,
@@ -1077,6 +1077,9 @@ export class MainThreadLanguageRuntime
 			this._notebookService,
 			this._editorService,
 			this._proxy);
+
+		this._sessions.set(handle, session);
+		return session;
 	}
 
 	private findSession(handle: number): ExtHostLanguageRuntimeSessionAdapter {
