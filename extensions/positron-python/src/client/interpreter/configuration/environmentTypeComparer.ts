@@ -1,6 +1,11 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
+// --- Start Positron ---
+/* eslint-disable import/no-duplicates */
+
+import * as path from 'path';
+// --- End Positron ---
 import { injectable, inject } from 'inversify';
 import { Resource } from '../../common/types';
 import { Architecture } from '../../common/utils/platform';
@@ -10,6 +15,11 @@ import { EnvironmentType, PythonEnvironment, virtualEnvTypes } from '../../pytho
 import { PythonVersion } from '../../pythonEnvironments/info/pythonVersion';
 import { IInterpreterHelper } from '../contracts';
 import { IInterpreterComparer } from './types';
+
+// --- Start Positron ---
+import { getPyenvDir } from '../../pythonEnvironments/common/environmentManagers/pyenv';
+import { readFileSync, pathExistsSync, checkParentDirs } from '../../pythonEnvironments/common/externalDependencies';
+// --- End Positron ---
 
 export enum EnvLocationHeuristic {
     /**
@@ -90,6 +100,12 @@ export class EnvironmentTypeComparer implements IInterpreterComparer {
         // or fallback on a globally-installed interpreter, and we don't want want to suggest a global environment
         // because we would have to add a way to match environments to a workspace.
         const workspaceUri = this.interpreterHelper.getActiveWorkspaceUri(resource);
+        // --- Start Positron ---
+        const pyenvVersion = interpreters.some((i) => i.envType === EnvironmentType.Pyenv)
+            ? getPyenvVersion(workspaceUri?.folderUri.fsPath)
+            : undefined;
+        // --- End Positron ---
+
         const filteredInterpreters = interpreters.filter((i) => {
             if (isProblematicCondaEnvironment(i)) {
                 return false;
@@ -112,6 +128,17 @@ export class EnvironmentTypeComparer implements IInterpreterComparer {
             if (i.version?.major === 2) {
                 return false;
             }
+            // --- Start Positron ---
+            // if we have a pyenv version number, only recommend interpreters that match the specified pyenv version.
+            if (i.version?.raw === pyenvVersion && i.envType === EnvironmentType.Pyenv) {
+                return true;
+            }
+            if (pyenvVersion && i.envType === EnvironmentType.Pyenv) {
+                // pyenvVersion may also be the name of a virtual environment, rather than a version number
+                // Do not recommend pyenv interpreters that do not match the specified pyenv version.
+                return isVirtualEnvName(pyenvVersion) && i.envName === pyenvVersion
+            }
+            // --- End Positron ---
             return true;
         });
         filteredInterpreters.sort(this.compare.bind(this));
@@ -234,7 +261,10 @@ export function getEnvLocationHeuristic(environment: PythonEnvironment, workspac
  * Compare 2 environment types: return 0 if they are the same, -1 if a comes before b, 1 otherwise.
  */
 function compareEnvironmentType(a: PythonEnvironment, b: PythonEnvironment): number {
-    if (!a.type && !b.type) {
+    // --- Start Positron ---
+    if (!a.type && !b.type && a.envType !== EnvironmentType.Pyenv && b.envType !== EnvironmentType.Pyenv) {
+        // Don't lump Pyenv environments together with all other global interpreters.
+        // --- End Positron ---
         // Return 0 if two global interpreters are being compared.
         return 0;
     }
@@ -259,3 +289,36 @@ function getPrioritizedEnvironmentType(): EnvironmentType[] {
         EnvironmentType.Unknown,
     ];
 }
+// --- Start Positron ---
+/**
+ * Return true if the version name is not of the form x.y.z. This typically means it's a virtual environment name.
+ */
+function isVirtualEnvName(versionName: string): boolean {
+    const pattern = /[0-9]+\.[0-9]+\.[0-9]/;
+    return !versionName.match(pattern);
+}
+
+/**
+ * Return the path to the local pyenv version file, or the global pyenv version file if the local version file does not exist.
+ * If neither file exists, return undefined.
+ */
+export function getPyenvVersion(workspacePath: string | undefined): string | undefined {
+    const localPyenvVersion = workspacePath ? path.join(workspacePath, '.python-version') : '';
+    if (pathExistsSync(localPyenvVersion)) {
+        return readFileSync(localPyenvVersion).trim();
+    }
+    // if the local pyenv version file does not exist in the workspace, we need to check parents of the workspace
+    if (workspacePath) {
+        const parentPyenvVersion = checkParentDirs(workspacePath, '.python-version', { resolveSymlinks: true, maxDepth: 10 });
+        if (parentPyenvVersion) {
+            return readFileSync(parentPyenvVersion).trim();
+        };
+    }
+
+    const globalPyenvVersion = path.join(getPyenvDir(), 'version');
+    if (pathExistsSync(globalPyenvVersion)) {
+        return readFileSync(globalPyenvVersion).trim();
+    }
+    return undefined;
+}
+// --- End Positron ---
