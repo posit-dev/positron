@@ -9,7 +9,7 @@ import {
 	ExtHostPositronContext
 } from '../../common/positron/extHost.positron.protocol';
 import { extHostNamedCustomer, IExtHostContext } from 'vs/workbench/services/extensions/common/extHostCustomers';
-import { ILanguageRuntimeSession, ILanguageRuntimeClientCreatedEvent, ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMessageCommClosed, ILanguageRuntimeMessageCommData, ILanguageRuntimeMessageCommOpen, ILanguageRuntimeMessageError, ILanguageRuntimeMessageInput, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessagePrompt, ILanguageRuntimeMessageState, ILanguageRuntimeMessageStream, ILanguageRuntimeMetadata, ILanguageRuntimeSessionState as ILanguageRuntimeSessionState, ILanguageRuntimeService, ILanguageRuntimeStartupFailure, LanguageRuntimeMessageType, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeState, LanguageRuntimeDiscoveryPhase, ILanguageRuntimeExit, RuntimeOutputKind, RuntimeExitReason, ILanguageRuntimeMessageWebOutput, PositronOutputLocation, LanguageRuntimeSessionMode } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntimeSession, ILanguageRuntimeClientCreatedEvent, ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMessageCommClosed, ILanguageRuntimeMessageCommData, ILanguageRuntimeMessageCommOpen, ILanguageRuntimeMessageError, ILanguageRuntimeMessageInput, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessagePrompt, ILanguageRuntimeMessageState, ILanguageRuntimeMessageStream, ILanguageRuntimeMetadata, ILanguageRuntimeSessionState as ILanguageRuntimeSessionState, ILanguageRuntimeService, ILanguageRuntimeStartupFailure, LanguageRuntimeMessageType, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeState, LanguageRuntimeDiscoveryPhase, ILanguageRuntimeExit, RuntimeOutputKind, RuntimeExitReason, ILanguageRuntimeMessageWebOutput, PositronOutputLocation, LanguageRuntimeSessionMode, ILanguageRuntimeSessionManager } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { Disposable, DisposableStore } from 'vs/base/common/lifecycle';
 import { Event, Emitter } from 'vs/base/common/event';
 import { IPositronConsoleService } from 'vs/workbench/services/positronConsole/browser/interfaces/positronConsoleService';
@@ -188,8 +188,6 @@ class ExtHostLanguageRuntimeSessionAdapter implements ILanguageRuntimeSession {
 			// Propagate event
 			this._onDidReceiveRuntimeMessageClientEventEmitter.fire(ev);
 		});
-
-		this._languageRuntimeService.registerSessionManager(this);
 	}
 
 	onDidChangeRuntimeState: Event<RuntimeState>;
@@ -365,37 +363,6 @@ class ExtHostLanguageRuntimeSessionAdapter implements ILanguageRuntimeSession {
 		});
 
 		return Promise.resolve(client);
-	}
-
-	/**
-	 * Creates (provisions) a new language runtime session.
-	 */
-	async createSession(
-		runtimeMetadata: ILanguageRuntimeMetadata,
-		sessionId: string,
-		sessionName: string,
-		sessionMode: LanguageRuntimeSessionMode):
-		Promise<ILanguageRuntimeSession> {
-
-		const handle = await this._proxy.$createLanguageRuntimeSession(runtimeMetadata,
-			sessionId, sessionName, sessionMode);
-
-		return new ExtHostLanguageRuntimeSessionAdapter(handle,
-			sessionId,
-			sessionName,
-			sessionMode,
-			runtimeMetadata,
-			{
-				busy: false,
-				inputPrompt: '',
-				continuationPrompt: '',
-				currentWorkingDirectory: ''
-			},
-			this._languageRuntimeService,
-			this._logService,
-			this._notebookService,
-			this._editorService,
-			this._proxy);
 	}
 
 	/** List active clients */
@@ -969,7 +936,8 @@ class ExtHostRuntimeClientInstance<Input, Output>
 }
 
 @extHostNamedCustomer(MainPositronContext.MainThreadLanguageRuntime)
-export class MainThreadLanguageRuntime implements MainThreadLanguageRuntimeShape {
+export class MainThreadLanguageRuntime
+	implements MainThreadLanguageRuntimeShape, ILanguageRuntimeSessionManager {
 
 	private readonly _disposables = new DisposableStore();
 
@@ -988,6 +956,9 @@ export class MainThreadLanguageRuntime implements MainThreadLanguageRuntimeShape
 		@IPositronHelpService private readonly _positronHelpService: IPositronHelpService,
 		@IPositronPlotsService private readonly _positronPlotService: IPositronPlotsService,
 		@IPositronIPyWidgetsService private readonly _positronIPyWidgetsService: IPositronIPyWidgetsService,
+		@ILogService private readonly _logService: ILogService,
+		@INotebookService private readonly _notebookService: INotebookService,
+		@IEditorService private readonly _editorService: IEditorService,
 	) {
 		// TODO@softwarenerd - We needed to find a central place where we could ensure that certain
 		// Positron services were up and running early in the application lifecycle. For now, this
@@ -1005,6 +976,8 @@ export class MainThreadLanguageRuntime implements MainThreadLanguageRuntimeShape
 				this._proxy.$discoverLanguageRuntimes();
 			}
 		});
+
+		this._languageRuntimeService.registerSessionManager(this);
 	}
 
 	$emitLanguageRuntimeMessage(handle: number, message: ILanguageRuntimeMessage): void {
@@ -1073,6 +1046,37 @@ export class MainThreadLanguageRuntime implements MainThreadLanguageRuntimeShape
 
 	public dispose(): void {
 		this._disposables.dispose();
+	}
+
+	/**
+	 * Creates (provisions) a new language runtime session.
+	 */
+	async createSession(
+		runtimeMetadata: ILanguageRuntimeMetadata,
+		sessionId: string,
+		sessionName: string,
+		sessionMode: LanguageRuntimeSessionMode):
+		Promise<ILanguageRuntimeSession> {
+
+		const handle = await this._proxy.$createLanguageRuntimeSession(runtimeMetadata,
+			sessionId, sessionName, sessionMode);
+
+		return new ExtHostLanguageRuntimeSessionAdapter(handle,
+			sessionId,
+			sessionName,
+			sessionMode,
+			runtimeMetadata,
+			{
+				busy: false,
+				inputPrompt: '',
+				continuationPrompt: '',
+				currentWorkingDirectory: ''
+			},
+			this._languageRuntimeService,
+			this._logService,
+			this._notebookService,
+			this._editorService,
+			this._proxy);
 	}
 
 	private findSession(handle: number): ExtHostLanguageRuntimeSessionAdapter {
