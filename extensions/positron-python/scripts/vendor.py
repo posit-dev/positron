@@ -25,15 +25,15 @@ def main() -> None:
 
     cfg = Configuration(
         base_directory=project_path,
-        destination=Path("pythonFiles/positron/_vendor/"),
-        namespace="positron._vendor",
+        destination=Path("pythonFiles/positron/positron_ipykernel/_vendor/"),
+        namespace="positron_ipykernel._vendor",
         requirements=Path("pythonFiles/jedilsp_requirements/requirements.txt"),
         patches_dir=Path("scripts/patches"),
         substitutions=[
             # Fix pygments.lexers._mapping strings, via: https://github.com/pypa/pip/blob/main/pyproject.toml
             {
                 "match": r"\('pygments\.lexers\.",
-                "replace": r"('positron._vendor.pygments.lexers.",
+                "replace": r"('positron_ipykernel._vendor.pygments.lexers.",
             }
         ],
     )

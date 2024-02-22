@@ -15,10 +15,9 @@ import pandas as pd
 import polars as pl
 import pytest
 from fastcore.foundation import L
-
-from positron.inspectors import PRINT_WIDTH, TRUNCATE_AT, get_inspector
-from positron.utils import get_qualname
-from positron.variables_comm import VariableKind
+from positron_ipykernel.inspectors import PRINT_WIDTH, TRUNCATE_AT, get_inspector
+from positron_ipykernel.utils import get_qualname
+from positron_ipykernel.variables_comm import Variable, VariableKind
 
 from .data import (
     BOOL_CASES,
@@ -548,7 +547,7 @@ def test_inspect_object(value: Any) -> None:
         display_value=str(value),
         kind=VariableKind.Other,
         display_type="HelperClass",
-        type_info="tests.positron.test_inspectors.HelperClass",
+        type_info="positron_ipykernel.tests.test_inspectors.HelperClass",
     )
 
 
