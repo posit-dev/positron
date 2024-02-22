@@ -6,7 +6,7 @@
 .content
 .column-summary {
 	display: grid;
-	grid-template-columns: [left-gutter] 2px [expand-collapse] 25px [icon] 25px [title] 1fr [end];
+	grid-template-columns: [left-gutter] 2px [expand-collapse] 25px [icon] 25px [title] 1fr [missing-values] min-content [right-gutter] 12px [end];
 }
 
 .data-grid-row-cell
@@ -44,5 +44,16 @@
 	font-weight: 600;
 	align-items: center;
 	justify-content: left;
-	grid-column: title / end;
+	grid-column: title / missing-values;
+}
+
+.data-grid-row-cell
+.content
+.column-summary
+.missing-values {
+	display: flex;
+	font-size: 90%;
+	align-items: center;
+	justify-content: left;
+	grid-column: missing-values / right-gutter;
 }

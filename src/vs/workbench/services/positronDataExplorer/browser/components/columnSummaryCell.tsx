@@ -100,6 +100,9 @@ export const ColumnSummaryCell = (props: ColumnSummaryCellProps) => {
 			<div className='column-name'>
 				{props.columnSchema.column_name}
 			</div>
+			<div className='missing-values'>
+				29%
+			</div>
 		</div>
 	);
 };
