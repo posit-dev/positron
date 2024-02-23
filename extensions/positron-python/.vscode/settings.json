@@ -57,16 +57,8 @@
 		100
 	],
     "python.languageServer": "Jedi",
-    "python.linting.pylintEnabled": false,
-    "python.linting.flake8Enabled": true,
+    "flake8.args": ["--max-line-length=100", "--ignore=E203"],
     "cucumberautocomplete.skipDocStringsFormat": true,
-    "python.linting.flake8Args": [
-        // Match what black does.
-        "--max-line-length=100"
-    ],
-    "python.testing.pytestArgs": [
-        "pythonFiles/tests"
-    ],
     "typescript.preferences.importModuleSpecifier": "relative",
     // Branch name suggestion.
     "git.branchProtectionPrompt": "alwaysCommitToNewBranch",
