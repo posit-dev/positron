@@ -12,7 +12,8 @@ import { DataExplorerClientInstance } from 'vs/workbench/services/languageRuntim
 import { PositronDataExplorerInstance } from 'vs/workbench/services/positronDataExplorer/browser/positronDataExplorerInstance';
 import { IPositronDataExplorerService } from 'vs/workbench/services/positronDataExplorer/browser/interfaces/positronDataExplorerService';
 import { IPositronDataExplorerInstance } from 'vs/workbench/services/positronDataExplorer/browser/interfaces/positronDataExplorerInstance';
-import { ILanguageRuntimeService, ILanguageRuntimeSession, RuntimeClientType } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntimeService, RuntimeClientType } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntimeSession } from '../../runtimeSession/common/runtimeSessionService';
 
 /**
  * DataExplorerRuntime class.

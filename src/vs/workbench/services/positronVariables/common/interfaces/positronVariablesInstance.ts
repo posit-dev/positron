@@ -6,7 +6,7 @@ import { Event } from 'vs/base/common/event';
 import { IVariableItem } from 'vs/workbench/services/positronVariables/common/interfaces/variableItem';
 import { IVariableGroup } from 'vs/workbench/services/positronVariables/common/interfaces/variableGroup';
 import { IVariableOverflow as IVariableOverflow } from 'vs/workbench/services/positronVariables/common/interfaces/variableOverflow';
-import { ILanguageRuntimeSession } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntimeSession } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
 
 /**
  * PositronVariablesInstanceState enumeration.

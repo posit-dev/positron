@@ -7,7 +7,7 @@ import { IConfigurationService } from 'vs/platform/configuration/common/configur
 import { ILogService } from 'vs/platform/log/common/log';
 import { IStorageService, StorageScope, StorageTarget } from 'vs/platform/storage/common/storage';
 import { IInputHistoryEntry, inputHistorySizeSettingId } from 'vs/workbench/contrib/executionHistory/common/executionHistoryService';
-import { ILanguageRuntimeSession } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntimeSession } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
 
 /**
  * Records input history for a given language. This is a separate class from the

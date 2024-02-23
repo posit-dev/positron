@@ -4,7 +4,8 @@
 
 import { createDecorator } from 'vs/platform/instantiation/common/instantiation';
 import { IOverlayWebview } from 'vs/workbench/contrib/webview/browser/webview';
-import { ILanguageRuntimeMessageOutput, ILanguageRuntimeSession } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntimeMessageOutput } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntimeSession } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
 import { Event } from 'vs/base/common/event';
 
 export const POSITRON_NOTEBOOK_OUTPUT_WEBVIEW_SERVICE_ID = 'positronNotebookOutputWebview';
