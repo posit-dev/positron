@@ -50,7 +50,6 @@ function NotebookCellEditor({ cell }: { cell: ICellViewModel }) {
 	const { editorPartRef, editorContainerRef } = useCellEditorWidget(cell);
 
 	return <div ref={editorPartRef}>
-		<pre className='positron-notebook-cell-code'>{cell.getText()}</pre>
 		<div ref={editorContainerRef} className='positron-monaco-editor-container'></div>
 	</div>;
 

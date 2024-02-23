@@ -3,6 +3,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as React from 'react';
+import { ITextModelService } from 'vs/editor/common/services/resolverService';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
 import { PositronNotebookWidget } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookWidget';
@@ -26,6 +27,11 @@ interface ServiceBundle {
 	 * The configuration service that can be used to access configuration settings.
 	 */
 	configurationService: IConfigurationService;
+
+	/**
+	 * Service for instantiating text models
+	 */
+	textModelResolverService: ITextModelService;
 }
 
 /**

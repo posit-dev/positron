@@ -19,7 +19,6 @@ import { useDisposableStore } from './useDisposableStore';
 export function useCellEditorWidget(cell: ICellViewModel) {
 	const services = useServices();
 	const templateDisposables = useDisposableStore();
-	console.log('instantiationService', services.instantiationService);
 
 	// Grab the wrapping div for the editor. This is used for passing context key service
 	// TODO: Understand this better.
@@ -54,10 +53,19 @@ export function useCellEditorWidget(cell: ICellViewModel) {
 		});
 
 
-		console.log('setup editor', editor);
 		editor.setValue(cell.getText());
-		editor.layout();
-	}, [cell, contextKeyServiceProvider, services.configurationService, services.instantiationService, services.notebookWidget, templateDisposables]);
+
+		// Request model for cell and pass to editor.
+		services.textModelResolverService.createModelReference(cell.uri).then(modelRef => {
+			editor.setModel(modelRef.object.textEditorModel);
+			editor.layout({
+				width: 500,
+				height: 200
+			});
+		});
+
+		// Attaching the cell's text model to the editor should allow it to populate with size etc...
+	}, [cell, contextKeyServiceProvider, services.configurationService, services.instantiationService, services.notebookWidget, services.textModelResolverService, templateDisposables]);
 
 	return { editorPartRef, editorContainerRef };
 

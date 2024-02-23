@@ -74,8 +74,6 @@ export class PositronNotebookEditorInput extends EditorInput {
 	) {
 		// Call the base class's constructor.
 		super();
-
-		console.log('Resolver Service', this._notebookModelResolverService);
 	}
 
 	/**

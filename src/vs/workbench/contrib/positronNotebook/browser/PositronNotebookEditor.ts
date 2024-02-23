@@ -221,7 +221,6 @@ export class PositronNotebookEditor extends EditorPane {
 
 		const model = await input.resolve(options);
 
-		console.log(model);
 		if (model === null) {
 			throw new Error(
 				localize(
@@ -254,8 +253,6 @@ export class PositronNotebookEditor extends EditorPane {
 		// 	);
 		// }
 
-		//! Start here. This is line 299 on the original vs notebooks.
-		console.log('View State', viewState);
 
 		this._notebookWidget?.setModel(model.notebook, viewState);
 

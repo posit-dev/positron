@@ -13,6 +13,9 @@ import { ISettableObservable, observableValue } from 'vs/base/common/observableI
 import { FontMeasurements } from 'vs/editor/browser/config/fontMeasurements';
 import { IEditorOptions } from 'vs/editor/common/config/editorOptions';
 import { BareFontInfo, FontInfo } from 'vs/editor/common/config/fontInfo';
+import { ITextModel } from 'vs/editor/common/model';
+import { IModelService } from 'vs/editor/common/services/model';
+import { ITextModelService } from 'vs/editor/common/services/resolverService';
 import { localize } from 'vs/nls';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
@@ -147,12 +150,14 @@ export class PositronNotebookWidget extends Disposable
 			input: InputObservable;
 			baseElement: HTMLElement;
 		},
-		readonly creationOptions: INotebookEditorCreationOptions,
+		readonly creationOptions: INotebookEditorCreationOptions | undefined,
 		// TODO: Label what each of these DI items are for.
 		@INotebookKernelService private readonly notebookKernelService: INotebookKernelService,
 		@INotebookExecutionService private readonly notebookExecutionService: INotebookExecutionService,
 		@INotebookExecutionStateService private readonly notebookExecutionStateService: INotebookExecutionStateService,
 		@IConfigurationService private readonly configurationService: IConfigurationService,
+		@ITextModelService private readonly textModelResolverService: ITextModelService,
+		@IModelService private readonly _modelService: IModelService,
 		@IInstantiationService instantiationService: IInstantiationService,
 		@IContextKeyService contextKeyService: IContextKeyService,
 	) {
@@ -187,20 +192,29 @@ export class PositronNotebookWidget extends Disposable
 			new ServiceCollection([IContextKeyService, this.scopedContextKeyService])
 		);
 
-		this._register(
-			this.notebookKernelService.onDidAddKernel(() => {
-				console.log('Kernel added');
-				const kernels = this.notebookKernelService.getMatchingKernel(this.getViewModel()!.notebookDocument);
-				const kernelList = kernels.all;
+		function watchForModelAdded(e: ITextModel) {
+			console.log('model added', e);
 
-				console.log('kernels', kernelList);
-			})
-		);
+		}
+		this._register(this._modelService.onModelAdded(watchForModelAdded));
+
+
+		// Logic to watch for kernels being added as available.
+		// this._register(
+		// 	this.notebookKernelService.onDidAddKernel(() => {
+		// 		console.log('Kernel added');
+		// 		const kernels = this.notebookKernelService.getMatchingKernel(this.getViewModel()!.notebookDocument);
+		// 		const kernelList = kernels.all;
+
+		// 		console.log('kernels', kernelList);
+		// 	})
+		// );
 
 
 
 	}
 
+	// TODO: Implement this
 	// WIP to implement contributions. Currently paused due to contribution constructors needing the
 	// widget to implement the INotebookEditor interface.
 	//
@@ -594,7 +608,8 @@ export class PositronNotebookWidget extends Disposable
 			<ServicesProvider services={{
 				notebookWidget: this,
 				configurationService: this.configurationService,
-				instantiationService: this.instantiationService
+				instantiationService: this.instantiationService,
+				textModelResolverService: this.textModelResolverService,
 			}}>
 				<ContextKeyProvider contextKeyServiceProvider={container => this.scopedContextKeyService.createScoped(container)} >
 					<PositronNotebookComponent
