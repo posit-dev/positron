@@ -9,9 +9,9 @@ import * as React from 'react';
 import { IColumnSortKey } from 'vs/base/browser/ui/positronDataGrid/interfaces/columnSortKey';
 import { DataGridInstance } from 'vs/base/browser/ui/positronDataGrid/classes/dataGridInstance';
 import { TableSchema } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
+import { ColumnSummaryCell } from 'vs/workbench/services/positronDataExplorer/browser/components/columnSummaryCell';
 import { PositronDataExplorerColumn } from 'vs/workbench/services/positronDataExplorer/browser/positronDataExplorerColumn';
 import { DataExplorerClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeDataExplorerClient';
-import { ColumnSummaryCell } from 'vs/workbench/services/positronDataExplorer/browser/components/columnSummaryCell';
 
 /**
  * TableSummaryDataGridInstance class.
@@ -25,6 +25,11 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 	private readonly _dataExplorerClientInstance: DataExplorerClientInstance;
 
 	private _tableSchema?: TableSchema;
+
+	/**
+	 * Gets the expanded columns set.
+	 */
+	private readonly _expandedColumns = new Set<number>();
 
 	//#endregion Private Properties
 
@@ -42,7 +47,7 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 			rowHeaders: false,
 
 			defaultColumnWidth: 200,
-			defaultRowHeight: 25,
+			defaultRowHeight: 34,
 
 			columnResize: false,
 			rowResize: false,
@@ -63,6 +68,8 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 
 	//#endregion Constructor
 
+	//#region DataGridInstance Properties
+
 	/**
 	 * Gets the number of columns.
 	 */
@@ -76,6 +83,10 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 	get rows() {
 		return this._tableSchema ? this._tableSchema.total_num_columns : 0;
 	}
+
+	//#endregion DataGridInstance Properties
+
+	//#region DataGridInstance Methods
 
 	/**
 	 *
@@ -167,10 +178,32 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 		// Return the ColumnSummaryCell.
 		return (
 			<ColumnSummaryCell
+				instance={this}
 				columnSchema={columnSchema}
+				columnIndex={rowIndex}
 			/>
 		);
 	}
+
+	//#region DataGridInstance Methods
+
+	//#region Public Methods
+
+	isColumnExpanded(columnIndex: number) {
+		return this._expandedColumns.has(columnIndex);
+	}
+
+	toggleExpandedColumn(columnIndex: number) {
+		if (this._expandedColumns.has(columnIndex)) {
+			this._expandedColumns.delete(columnIndex);
+		} else {
+			this._expandedColumns.add(columnIndex);
+		}
+
+		this._onDidUpdateEmitter.fire();
+	}
+
+	//#endregion Public Methods
 
 	//#region Private Methods
 

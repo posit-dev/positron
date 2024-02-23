@@ -12,7 +12,7 @@
 .data-grid-row-cell
 .content
 .column-summary
-.expand-collapse-area {
+.expand-collapse-button {
 	width: 25px;
 	height: 25px;
 	display: flex;
@@ -21,6 +21,21 @@
 	align-items: center;
 	justify-content: center;
 	grid-column: expand-collapse / icon;
+}
+
+.data-grid-row-cell
+.content
+.column-summary
+.expand-collapse-button:focus {
+	outline: none !important;
+}
+
+.data-grid-row-cell
+.content
+.column-summary
+.expand-collapse-button:focus-visible {
+	border-radius: 6px;
+	outline: 1px solid var(--vscode-focusBorder) !important;
 }
 
 .data-grid-row-cell
