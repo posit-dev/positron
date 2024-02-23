@@ -54,7 +54,7 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 
 			horizontalScrollbar: false,
 			verticalScrollbar: true,
-			scrollbarWidth: 8,
+			scrollbarWidth: 14,
 
 			cellBorders: false,
 			cursorOffset: 1.5,
@@ -124,6 +124,14 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 	}
 
 	/**
+	 * Gets the the height of a row.
+	 * @param rowIndex The row index.
+	 */
+	override getRowHeight(rowIndex: number): number {
+		return this.isColumnExpanded(rowIndex) ? 100 : 34;
+	}
+
+	/**
 	 * Gets a column.
 	 * @param columnIndex The column index.
 	 * @returns The column.
@@ -174,6 +182,8 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 
 		// Get the column schema.
 		const columnSchema = this._tableSchema.columns[rowIndex];
+
+		console.log(`Asked for ${columnSchema.column_name}`);
 
 		// Return the ColumnSummaryCell.
 		return (

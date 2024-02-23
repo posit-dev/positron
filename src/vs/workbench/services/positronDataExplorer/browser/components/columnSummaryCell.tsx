@@ -9,7 +9,7 @@ import 'vs/css!./columnSummaryCell';
 import * as React from 'react';
 
 // Other dependencies.
-import { KeyboardModifiers, PositronButton } from 'vs/base/browser/ui/positronComponents/positronButton';
+import { PositronButton } from 'vs/base/browser/ui/positronComponents/positronButton';
 import { ColumnSchema, ColumnSchemaTypeDisplay } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
 import { TableSummaryDataGridInstance } from 'vs/workbench/services/positronDataExplorer/browser/tableSummaryDataGridInstance';
 
@@ -68,33 +68,41 @@ export const ColumnSummaryCell = (props: ColumnSummaryCellProps) => {
 		}
 	};
 
+	const expanded = props.instance.isColumnExpanded(props.columnIndex);
+
 	// Render.
 	return (
 		<div className='column-summary'>
-			<PositronButton
-				className='expand-collapse-button'
-				onPressed={() => props.instance.toggleExpandedColumn(props.columnIndex)}
-			>
-				{props.instance.isColumnExpanded(props.columnIndex) ?
-					<div className={`expand-collapse-icon codicon codicon-chevron-down`} /> :
-					<div className={`expand-collapse-icon codicon codicon-chevron-right`} />
-				}
-			</PositronButton>
-			{/*
-			<div className='expand-collapse-area' onMouseDown={chevronMouseDownHandler} onMouseUp={chevronMouseUpHandler}>
-				{false ?
-					<div className={`expand-collapse-icon codicon codicon-chevron-down`} /> :
-					<div className={`expand-collapse-icon codicon codicon-chevron-right`} />
-				}
+			<div className='basic-info'>
+				<PositronButton
+					className='expand-collapse-button'
+					onPressed={() => props.instance.toggleExpandedColumn(props.columnIndex)}
+				>
+					{expanded ?
+						<div className={`expand-collapse-icon codicon codicon-chevron-down`} /> :
+						<div className={`expand-collapse-icon codicon codicon-chevron-right`} />
+					}
+				</PositronButton>
+				{/*
+				<div className='expand-collapse-button' onMouseDown={chevronMouseDownHandler} onMouseUp={chevronMouseUpHandler}>
+					{false ?
+						<div className={`expand-collapse-icon codicon codicon-chevron-down`} /> :
+						<div className={`expand-collapse-icon codicon codicon-chevron-right`} />
+					}
+				</div>
+				*/}
+				<div className={`data-type-icon codicon ${dataTypeIcon()}`}></div>
+				<div className='column-name'>
+					{props.columnSchema.column_name}
+				</div>
+				<div className='missing-values'>
+					29%
+				</div>
+
 			</div>
-			*/}
-			<div className={`data-type-icon codicon ${dataTypeIcon()}`}></div>
-			<div className='column-name'>
-				{props.columnSchema.column_name}
-			</div>
-			<div className='missing-values'>
-				29%
-			</div>
+			{expanded &&
+				<div className='extended-info'></div>
+			}
 		</div>
 	);
 };
