@@ -8,7 +8,6 @@ import { URI, UriComponents } from 'vs/base/common/uri';
 import { ExtensionIdentifier } from 'vs/platform/extensions/common/extensions';
 import { createDecorator } from 'vs/platform/instantiation/common/instantiation';
 import { IRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeClientInstance';
-import { IRuntimeClientEvent } from 'vs/workbench/services/languageRuntime/common/languageRuntimeUiClient';
 import { ILanguageRuntimeSession } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
 
 export const ILanguageRuntimeService = createDecorator<ILanguageRuntimeService>('languageRuntimeService');
@@ -487,26 +486,6 @@ export interface ILanguageRuntimeMessageError extends ILanguageRuntimeMessage {
 	/** The error stack trace */
 	traceback: Array<string>;
 }
-
-export interface ILanguageRuntimeGlobalEvent {
-	/** The ID of the session from which the event originated */
-	session_id: string;
-
-	/** The event itself */
-	event: IRuntimeClientEvent;
-}
-
-export interface ILanguageRuntimeSessionStateEvent {
-	/** The ID of the session that changed states */
-	session_id: string;
-
-	/** The runtime's previous state */
-	old_state: RuntimeState;
-
-	/** The runtime's new state */
-	new_state: RuntimeState;
-}
-
 /**
  * ILanguageRuntimeMetadata contains information about a language runtime that is known
  * before the runtime is started.
@@ -581,26 +560,6 @@ export interface ILanguageRuntimeSessionState {
 export type RuntimeResourceRootProvider = (mimeType: string, data: any) => Promise<URI[]>;
 
 /**
- * A manager for runtime sessions.
- */
-export interface ILanguageRuntimeSessionManager {
-	/**
-	 *
-	 * @param runtimeMetadata The metadata of the runtime for which a session is
-	 *  	to be created.
-	 * @param sessionId A unique ID to assign to the new session
-	 *
-	 * @returns A promise that resolves to the new session.
-	 */
-	createSession(
-		runtimeMetadata: ILanguageRuntimeMetadata,
-		sessionId: string,
-		sessionName: string,
-		sessionMode: LanguageRuntimeSessionMode):
-		Promise<ILanguageRuntimeSession>;
-}
-
-/**
  * LanguageRuntimeSessionMode is an enum representing the set of possible
  * modes for a language runtime session.
  */
@@ -628,50 +587,8 @@ export interface ILanguageRuntimeService {
 	// An event that fires when a new runtime is registered.
 	readonly onDidRegisterRuntime: Event<ILanguageRuntimeMetadata>;
 
-	// An event that fires when a runtime session is about to start.
-	readonly onWillStartRuntime: Event<ILanguageRuntimeSession>;
-
-	// An event that fires when a runtime session starts.
-	readonly onDidStartRuntime: Event<ILanguageRuntimeSession>;
-
-	// An event that fires when a runtime fails to start.
-	readonly onDidFailStartRuntime: Event<ILanguageRuntimeSession>;
-
-	// An event that fires when a runtime is reconnected.
-	readonly onDidReconnectRuntime: Event<ILanguageRuntimeSession>;
-
-	// An event that fires when a runtime changes state.
-	readonly onDidChangeRuntimeState: Event<ILanguageRuntimeSessionStateEvent>;
-
-	// An event that fires when a runtime receives a global event.
-	readonly onDidReceiveRuntimeEvent: Event<ILanguageRuntimeGlobalEvent>;
-
-	// An event that fires when the active runtime changes.
-	readonly onDidChangeForegroundSession: Event<ILanguageRuntimeSession | undefined>;
-
 	// An event that fires when a runtime is requested.
 	readonly onDidRequestLanguageRuntime: Event<ILanguageRuntimeMetadata>;
-
-	/**
-	 * Gets the active runtime sessions
-	 */
-	readonly activeSessions: ILanguageRuntimeSession[];
-
-	/**
-	 * Gets a specific runtime session by session identifier.
-	 */
-	getSession(sessionId: string): ILanguageRuntimeSession | undefined;
-
-	/**
-	 * Gets a specific runtime console by runtime identifier. Currently, only
-	 * one console can exist per runtime ID.
-	 */
-	getConsoleSession(runtimeId: string): ILanguageRuntimeSession | undefined;
-
-	/**
-	 * Gets or sets the active foreground runtime session, if any.
-	 */
-	foregroundSession: ILanguageRuntimeSession | undefined;
 
 	/**
 	 * Gets the registered language runtimes.
@@ -693,17 +610,20 @@ export interface ILanguageRuntimeService {
 	 */
 	registerRuntime(runtime: ILanguageRuntimeMetadata): IDisposable;
 
+
+	/**
+	 * Get the metadata for a previously registered language runtime
+	 *
+	 * @param runtimeId The ID of the runtime to get
+	 */
+	getRegisteredRuntime(runtimeId: string): ILanguageRuntimeMetadata | undefined;
+
 	/**
 	 * Unregister a previously registered language runtime
 	 *
 	 * @param runtimeId The ID of the runtime to unregister
 	 */
 	unregisterRuntime(runtimeId: string): void;
-
-	/**
-	 * Register a session manager. Used only once, by the extension host.
-	 */
-	registerSessionManager(manager: ILanguageRuntimeSessionManager): void;
 
 	/**
 	 * Selects a previously registered runtime as the active runtime.
@@ -726,32 +646,9 @@ export interface ILanguageRuntimeService {
 	startAffiliatedLanguageRuntimes(): void;
 
 	/**
-	 * Signal that discovery of language runtimes is complete.
+	 * Signal that discovery of language runtimes is complete. Called from the
+	 * extension host.
 	 */
 	completeDiscovery(): void;
-
-	/**
-	 * Starts a new session for a runtime.
-	 *
-	 * @param runtimeId The runtime identifier of the runtime to start.
-	 * @param sessionName A human-readable (displayed) name for the session to start.
-	 * @param sessionMode The mode of the session to start.
-	 * @param source The source of the request to start the runtime, for debugging purposes
-	 *  (not displayed to the user)
-	 *
-	 * Returns a promise that resolves to the session ID of the new session.
-	 */
-	startNewRuntimeSession(runtimeId: string,
-		sessionName: string,
-		sessionMode: LanguageRuntimeSessionMode,
-		source: string): Promise<string>;
-
-	/**
-	 * Restart a runtime session.
-	 *
-	 * @param sessionId The identifier of the session to restart.
-	 * @param source The source of the request to restart the session, for debugging purposes.
-	 */
-	restartRuntime(sessionId: string, source: string): Promise<void>;
 }
 

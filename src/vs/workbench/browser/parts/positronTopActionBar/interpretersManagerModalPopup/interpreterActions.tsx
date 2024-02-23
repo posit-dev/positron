@@ -9,12 +9,14 @@ import { localize } from 'vs/nls';
 import { DisposableStore } from 'vs/base/common/lifecycle';
 import { PositronButton } from 'vs/base/browser/ui/positronComponents/positronButton';
 import { ILanguageRuntimeMetadata, ILanguageRuntimeService, LanguageRuntimeSessionMode, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
 
 /**
  * InterpreterActionsProps interface.
  */
 interface InterpreterActionsProps {
 	languageRuntimeService: ILanguageRuntimeService;
+	runtimeSessionService: IRuntimeSessionService;
 	runtime: ILanguageRuntimeMetadata;
 	onStart: () => void;
 }
@@ -26,7 +28,8 @@ interface InterpreterActionsProps {
  */
 export const InterpreterActions = (props: PropsWithChildren<InterpreterActionsProps>) => {
 	// Get a console session for this runtime, if it exists.
-	const consoleSession = props.languageRuntimeService.getConsoleSession(props.runtime.runtimeId);
+	const consoleSession =
+		props.runtimeSessionService.getConsoleSessionForRuntime(props.runtime.runtimeId);
 
 	// State hooks.
 	const [runtimeState, setRuntimeState] = useState(consoleSession ? consoleSession.getRuntimeState() :
@@ -50,7 +53,7 @@ export const InterpreterActions = (props: PropsWithChildren<InterpreterActionsPr
 		// Listen for new console sessions that are started. When a new session
 		// is started for the runtime that this component is managing, attach to
 		// it.
-		disposableStore.add(props.languageRuntimeService.onWillStartRuntime(session => {
+		disposableStore.add(props.runtimeSessionService.onWillStartRuntime(session => {
 			if (session.sessionMode === LanguageRuntimeSessionMode.Console &&
 				session.metadata.runtimeId === props.runtime.runtimeId) {
 				setSession(session);

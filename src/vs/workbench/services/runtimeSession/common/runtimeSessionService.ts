@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
 import { Event } from 'vs/base/common/event';
@@ -10,6 +10,26 @@ import { RuntimeClientType, IRuntimeClientInstance } from 'vs/workbench/services
 import { IRuntimeClientEvent } from 'vs/workbench/services/languageRuntime/common/languageRuntimeUiClient';
 
 export const IRuntimeSessionService = createDecorator<IRuntimeSessionService>('languageRuntimeService');
+
+
+export interface ILanguageRuntimeGlobalEvent {
+	/** The ID of the session from which the event originated */
+	session_id: string;
+
+	/** The event itself */
+	event: IRuntimeClientEvent;
+}
+
+export interface ILanguageRuntimeSessionStateEvent {
+	/** The ID of the session that changed states */
+	session_id: string;
+
+	/** The runtime's previous state */
+	old_state: RuntimeState;
+
+	/** The runtime's new state */
+	new_state: RuntimeState;
+}
 
 /**
  * The main interface for interacting with a language runtime session.
@@ -114,9 +134,127 @@ export interface ILanguageRuntimeSession {
 	showOutput(): void;
 }
 
+/**
+ * A manager for runtime sessions.
+ */
+export interface ILanguageRuntimeSessionManager {
+	/**
+	 *
+	 * @param runtimeMetadata The metadata of the runtime for which a session is
+	 *  	to be created.
+	 * @param sessionId A unique ID to assign to the new session
+	 *
+	 * @returns A promise that resolves to the new session.
+	 */
+	createSession(
+		runtimeMetadata: ILanguageRuntimeMetadata,
+		sessionId: string,
+		sessionName: string,
+		sessionMode: LanguageRuntimeSessionMode):
+		Promise<ILanguageRuntimeSession>;
+}
+
 export interface IRuntimeSessionService {
 	// Needed for service branding in dependency injector.
 	readonly _serviceBrand: undefined;
+
+	// An event that fires when a runtime session is about to start.
+	readonly onWillStartRuntime: Event<ILanguageRuntimeSession>;
+
+	// An event that fires when a runtime session starts.
+	readonly onDidStartRuntime: Event<ILanguageRuntimeSession>;
+
+	// An event that fires when a runtime fails to start.
+	readonly onDidFailStartRuntime: Event<ILanguageRuntimeSession>;
+
+	// An event that fires when a runtime is reconnected.
+	readonly onDidReconnectRuntime: Event<ILanguageRuntimeSession>;
+
+	// An event that fires when a runtime changes state.
+	readonly onDidChangeRuntimeState: Event<ILanguageRuntimeSessionStateEvent>;
+
+	// An event that fires when a runtime receives a global event.
+	readonly onDidReceiveRuntimeEvent: Event<ILanguageRuntimeGlobalEvent>;
+
+	// An event that fires when the active runtime changes.
+	readonly onDidChangeForegroundSession: Event<ILanguageRuntimeSession | undefined>;
+
+	/**
+	 * Gets the active runtime sessions
+	 */
+	readonly activeSessions: ILanguageRuntimeSession[];
+
+	/**
+	 * Register a session manager. Used only once, by the extension host.
+	 */
+	registerSessionManager(manager: ILanguageRuntimeSessionManager): void;
+
+	/**
+	 * Gets a specific runtime session by session identifier.
+	 */
+	getSession(sessionId: string): ILanguageRuntimeSession | undefined;
+
+	/**
+	 * Gets a specific runtime console by runtime identifier. Currently, only
+	 * one console can exist per runtime ID.
+	 */
+	getConsoleSessionForRuntime(runtimeId: string): ILanguageRuntimeSession | undefined;
+
+	/**
+	 * Gets a specific runtime console by language identifier. Currently, only
+	 * one console can exist per language ID.
+	 */
+	getConsoleSessionForLanguage(languageId: string): ILanguageRuntimeSession | undefined;
+
+	/**
+	 * Checks for a starting or running console for the given language ID.
+	 *
+	 * @param languageId The language ID to check for; if undefined, checks for
+	 * 	any starting or running console.
+	 */
+	hasStartingOrRunningConsole(languageId?: string | undefined): boolean;
+
+	/**
+	 * Gets or sets the active foreground runtime session, if any.
+	 */
+	foregroundSession: ILanguageRuntimeSession | undefined;
+
+	/**
+	 * Starts a new session for a runtime. Use to start a new runtime at the
+	 * behest of a user gesture.
+	 *
+	 * @param runtimeId The runtime identifier of the runtime to start.
+	 * @param sessionName A human-readable (displayed) name for the session to start.
+	 * @param sessionMode The mode of the session to start.
+	 * @param source The source of the request to start the runtime, for debugging purposes
+	 *  (not displayed to the user)
+	 *
+	 * Returns a promise that resolves to the session ID of the new session.
+	 */
+	startNewRuntimeSession(runtimeId: string,
+		sessionName: string,
+		sessionMode: LanguageRuntimeSessionMode,
+		source: string): Promise<string>;
+
+	/**
+	 * Automatically starts a runtime. Use when starting a runtime automatically
+	 * or implicitly.
+	 *
+	 * @param runtime The runtime to start.
+	 * @param source The source of the request to start the runtime.
+	 *
+	 * @returns A promise that resolves with a session ID for the new session,
+	 * if one was started.
+	 */
+	autoStartRuntime(metadata: ILanguageRuntimeMetadata, source: string): Promise<string>;
+
+	/**
+	 * Restart a runtime session.
+	 *
+	 * @param sessionId The identifier of the session to restart.
+	 * @param source The source of the request to restart the session, for debugging purposes.
+	 */
+	restartRuntime(sessionId: string, source: string): Promise<void>;
 
 }
 

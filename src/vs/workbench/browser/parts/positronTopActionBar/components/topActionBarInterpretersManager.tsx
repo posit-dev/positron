@@ -32,7 +32,7 @@ export const TopActionBarInterpretersManager = (props: TopActionBarInterpretersM
 
 	// State hooks.
 	const [activeSession, setActiveSession] =
-		useState(positronTopActionBarContext.languageRuntimeService.foregroundSession);
+		useState(positronTopActionBarContext.runtimeSessionService.foregroundSession);
 
 	// Main useEffect.
 	useEffect(() => {
@@ -41,10 +41,10 @@ export const TopActionBarInterpretersManager = (props: TopActionBarInterpretersM
 
 		// Add the onDidStartRuntime event handler.
 		disposableStore.add(
-			positronTopActionBarContext.languageRuntimeService.onDidStartRuntime(session => {
+			positronTopActionBarContext.runtimeSessionService.onDidStartRuntime(session => {
 				if (session.sessionMode === LanguageRuntimeSessionMode.Console) {
 					setActiveSession(
-						positronTopActionBarContext.languageRuntimeService.foregroundSession);
+						positronTopActionBarContext.runtimeSessionService.foregroundSession);
 				}
 			})
 		);

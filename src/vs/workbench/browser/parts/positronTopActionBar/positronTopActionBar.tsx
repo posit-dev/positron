@@ -29,6 +29,7 @@ import { PositronTopActionBarContextProvider } from 'vs/workbench/browser/parts/
 import { TopActionBarCustonFolderMenu } from 'vs/workbench/browser/parts/positronTopActionBar/components/topActionBarCustomFolderMenu';
 import { TopActionBarInterpretersManager } from 'vs/workbench/browser/parts/positronTopActionBar/components/topActionBarInterpretersManager';
 import { ILanguageRuntimeMetadata, ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
 
 // Constants.
 const kHorizontalPadding = 4;
@@ -61,6 +62,7 @@ export interface PositronTopActionBarServices extends PositronActionBarServices 
 	hostService: IHostService;
 	labelService: ILabelService;
 	languageRuntimeService: ILanguageRuntimeService;
+	runtimeSessionService: IRuntimeSessionService;
 	layoutService: ILayoutService;
 	positronTopActionBarService: IPositronTopActionBarService;
 	quickInputService: IQuickInputService;
@@ -115,11 +117,12 @@ export const PositronTopActionBar = (props: PositronTopActionBarProps) => {
 	 */
 	const activateRuntimeHandler = async (runtime: ILanguageRuntimeMetadata): Promise<void> => {
 		// See if there's a session active for the runtime.
-		const session = props.languageRuntimeService.getConsoleSession(runtime.runtimeId);
+		const session =
+			props.runtimeSessionService.getConsoleSessionForRuntime(runtime.runtimeId);
 
 		if (session) {
 			// The session is already active, so just set it as the foreground session.
-			props.languageRuntimeService.foregroundSession = session;
+			props.runtimeSessionService.foregroundSession = session;
 		} else {
 			// The session is not active; start a new session for the runtime.
 			await startRuntimeHandler(runtime);
